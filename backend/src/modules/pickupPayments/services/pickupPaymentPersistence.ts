@@ -4,12 +4,17 @@ import { withTenantDbContext } from '../../../database/tenantDbContext.js';
 import orderRepository from '../../orders/repositories/OrderRepository.js';
 import paymentTerminalRepository from '../../paymentTerminals/repositories/PaymentTerminalRepository.js';
 
-export type PickupPayment = NonNullable<Awaited<ReturnType<typeof paymentTerminalRepository.findDeliveryPayment>>>;
+export type PickupPayment = NonNullable<
+  Awaited<ReturnType<typeof paymentTerminalRepository.findDeliveryPayment>>
+>;
 
 export async function withLockedPickup<T>(
   orderId: number,
   restaurantId: number,
-  callback: (tx: TenantDbClient, order: NonNullable<Awaited<ReturnType<typeof orderRepository.findById>>>) => Promise<T>,
+  callback: (
+    tx: TenantDbClient,
+    order: NonNullable<Awaited<ReturnType<typeof orderRepository.findById>>>,
+  ) => Promise<T>,
 ) {
   return withTenantDbContext(restaurantId, async (tx) => {
     await tx.$queryRaw`
@@ -18,7 +23,8 @@ export async function withLockedPickup<T>(
     `;
     const order = await orderRepository.findById(orderId, restaurantId, tx);
     if (!order || order.type !== 'RETIRADA') throw new Error('Pedido de retirada não encontrado.');
-    if (order.status === 'CANCELADO') throw new Error('Pedido cancelado não pode receber pagamento.');
+    if (order.status === 'CANCELADO')
+      throw new Error('Pedido cancelado não pode receber pagamento.');
     return callback(tx, order);
   });
 }
@@ -30,9 +36,17 @@ export async function findPickupPayment(tx: TenantDbClient, orderId: number, res
   return rows[0] || null;
 }
 
-export async function reservePickupPayment(tx: TenantDbClient, input: {
-  orderId: number; restaurantId: number; method: 'PIX' | 'CARTAO'; provider: string; amount: number; terminalId?: number | null;
-}) {
+export async function reservePickupPayment(
+  tx: TenantDbClient,
+  input: {
+    orderId: number;
+    restaurantId: number;
+    method: 'PIX' | 'CARTAO';
+    provider: string;
+    amount: number;
+    terminalId?: number | null;
+  },
+) {
   const rows = await tx.$queryRaw<PickupPayment[]>`
     INSERT INTO "DeliveryPayment" (
       "publicId", "restaurantId", "orderId", "method", "provider", "status", "terminalId", "amount", "currency", "lastProviderStatus", "createdAt", "updatedAt"
@@ -47,8 +61,12 @@ export async function reservePickupPayment(tx: TenantDbClient, input: {
 
 /** Persist the external reference even when the order was canceled concurrently. */
 export async function savePickupProvider(input: {
-  payment: PickupPayment; providerPaymentId?: string | null; providerOrderId?: string | null;
-  pixCopyPaste?: string | null; pixQrCodeBase64?: string | null; lastProviderStatus: string;
+  payment: PickupPayment;
+  providerPaymentId?: string | null;
+  providerOrderId?: string | null;
+  pixCopyPaste?: string | null;
+  pixQrCodeBase64?: string | null;
+  lastProviderStatus: string;
 }) {
   return withTenantDbContext(input.payment.restaurantId, async (tx) => {
     const rows = await tx.$queryRaw<PickupPayment[]>`
@@ -67,7 +85,11 @@ export async function savePickupProvider(input: {
   });
 }
 
-export async function markPickupPaid(tx: TenantDbClient, payment: PickupPayment, providerPaymentId?: string | null) {
+export async function markPickupPaid(
+  tx: TenantDbClient,
+  payment: PickupPayment,
+  providerPaymentId?: string | null,
+) {
   await tx.$executeRaw`
     UPDATE "DeliveryPayment" SET "status" = 'PAID', "paidAt" = COALESCE("paidAt", NOW()),
       "providerPaymentId" = COALESCE(${providerPaymentId ?? null}, "providerPaymentId"),

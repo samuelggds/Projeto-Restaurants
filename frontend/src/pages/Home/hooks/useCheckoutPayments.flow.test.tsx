@@ -96,6 +96,56 @@ describe('useCheckoutPayments confirmação canônica do Pix', () => {
     );
   });
 
+  it.each(['pix', 'card'] as const)(
+    'preserva pedido %s após resposta incerta sem anunciar pagamento',
+    async (method) => {
+      const error = {
+        response: {
+          status: 502,
+          data: { code: 'PAYMENT_CREATION_UNCERTAIN', orderId: 99, reconciliationRequired: true },
+        },
+      };
+      vi.mocked(ordersService.createPixPayment).mockRejectedValueOnce(error);
+      vi.mocked(ordersService.createCardCheckout).mockRejectedValueOnce(error);
+      let consumed = false;
+      await act(async () => {
+        consumed = await checkoutPayments.current!.executePayment(
+          {},
+          method,
+          false,
+          method === 'pix' ? 'PIX' : 'CARTAO',
+        );
+      });
+      expect(consumed).toBe(true);
+      expect(checkoutPayments.current?.paymentResult).toMatchObject({
+        orderId: 99,
+        status: 'PENDING',
+        reconciliationRequired: true,
+      });
+      expect(onPaymentConfirmed).not.toHaveBeenCalled();
+      vi.mocked(ordersService.createPixPayment).mockReset();
+      vi.mocked(ordersService.createCardCheckout).mockReset();
+    },
+  );
+
+  it.each([null, 0, -1])(
+    'não abre a tela de conciliação se a resposta não identifica um pedido válido: %s',
+    async (orderId) => {
+      vi.mocked(ordersService.createPixPayment).mockRejectedValueOnce({
+        response: {
+          data: { code: 'PAYMENT_CREATION_UNCERTAIN', reconciliationRequired: true, orderId },
+        },
+      });
+      let consumed = true;
+      await act(async () => {
+        consumed = await checkoutPayments.current!.executePayment({}, 'pix', false, 'PIX');
+      });
+      expect(consumed).toBe(false);
+      expect(checkoutPayments.current?.paymentResult).toBeNull();
+      expect(onPaymentConfirmed).not.toHaveBeenCalled();
+    },
+  );
+
   it('não anuncia pago quando o provedor aprova mas o pedido canônico continua pendente', async () => {
     vi.mocked(ordersService.getPixPaymentStatus).mockResolvedValue({ isApproved: true });
     vi.mocked(ordersService.confirmPixPayment).mockResolvedValue({ paid: false });

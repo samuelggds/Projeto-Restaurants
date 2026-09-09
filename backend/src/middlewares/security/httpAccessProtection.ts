@@ -1,13 +1,16 @@
 import type { Express } from 'express';
 import cors from 'cors';
 import rateLimit from 'express-rate-limit';
+import { distributedRateLimitOptions } from './PostgresRateLimitStore.js';
 
 const normalizeOrigin = (value: string) => value.trim().replace(/\/+$/, '');
 
 export function resolveGlobalRateLimitMax(isProduction: boolean, configuredMax: number) {
   return Number.isSafeInteger(configuredMax) && configuredMax > 0
     ? configuredMax
-    : isProduction ? 3000 : 5000;
+    : isProduction
+      ? 3000
+      : 5000;
 }
 
 export function applyCorsAndGlobalRateLimit(app: Express) {
@@ -19,7 +22,9 @@ export function applyCorsAndGlobalRateLimit(app: Express) {
   const configuredMax = Number(process.env.RATE_LIMIT_MAX_REQUESTS);
 
   app.use((req, res, next) => {
-    const fetchSite = String(req.headers['sec-fetch-site'] || '').trim().toLowerCase();
+    const fetchSite = String(req.headers['sec-fetch-site'] || '')
+      .trim()
+      .toLowerCase();
     const origin = normalizeOrigin(String(req.headers.origin || ''));
     const isUnsafeMethod = !['GET', 'HEAD', 'OPTIONS'].includes(req.method.toUpperCase());
     const isTrustedOrigin = Boolean(origin && allowedOrigins.includes(origin));
@@ -61,6 +66,7 @@ export function applyCorsAndGlobalRateLimit(app: Express) {
   // without competing with stricter route-specific security limiters.
   app.use(
     rateLimit({
+      ...distributedRateLimitOptions('http-global'),
       windowMs: Number(process.env.RATE_LIMIT_WINDOW_MS || 15 * 60 * 1000),
       max: resolveGlobalRateLimitMax(isProduction, configuredMax),
       standardHeaders: true,

@@ -323,6 +323,10 @@ export function AdminOverview({
               {orderPage.total ? `${visibleOrders.length} de ${orderPage.total} pedidos` : '0 resultados'}
             </span>
             <div>
+              {visibleOrders.length > LIST_BATCH_SIZE && (
+                <button type="button" disabled={orderPage.loading} aria-label="Voltar aos 10 pedidos recentes iniciais"
+                  onClick={() => void orderPage.reset()}><ChevronLeft aria-hidden="true" /> Voltar aos 10</button>
+              )}
               {(orderPage.hasMore || orderPage.error) && (
                 <button type="button" disabled={orderPage.loading} aria-label="Mostrar mais 10 pedidos recentes"
                   onClick={() => void (orderPage.error ? orderPage.retry() : orderPage.loadMore())}>

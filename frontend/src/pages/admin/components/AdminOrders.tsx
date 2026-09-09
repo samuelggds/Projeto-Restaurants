@@ -687,7 +687,7 @@ export function AdminOrders({
                 type="button"
                 aria-label="Voltar aos 10 pedidos iniciais"
                 disabled={page.loading}
-                onClick={() => void page.refresh()}
+                onClick={() => void page.reset()}
               >
                 <ChevronLeft aria-hidden="true" /> Voltar aos 10 iniciais
               </button>

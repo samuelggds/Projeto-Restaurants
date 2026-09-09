@@ -97,7 +97,11 @@ test('bloqueia a criação do pedido fora da agenda semanal', async () => {
 test('persiste opções agrupadas e observação sem vazar metadados de criação em resposta/eventos', async (t) => {
   const persistedItems = [];
   const events: unknown[] = [];
-  const emitter = { emit: (_event: string, payload: unknown) => { events.push(payload); } };
+  const emitter = {
+    emit: (_event: string, payload: unknown) => {
+      events.push(payload);
+    },
+  };
   t.after(registerRealtimeTransport({ ...emitter, to: () => emitter }));
   const tx = {
     $queryRaw: async () => [],
@@ -323,24 +327,76 @@ test('persiste opções agrupadas e observação sem vazar metadados de criaçã
 test('reenvio confirmado não revalida estoque ou abertura e não repete eventos', async (t) => {
   const context = { key: 'key-hash', actor: 'actor-hash', fingerprint: 'payload-hash' };
   const events: unknown[] = [];
-  const emitter = { emit: (_event: string, payload: unknown) => { events.push(payload); } };
+  const emitter = {
+    emit: (_event: string, payload: unknown) => {
+      events.push(payload);
+    },
+  };
   t.after(registerRealtimeTransport({ ...emitter, to: () => emitter }));
-  const rawOrder = { id: 321, restaurantId: 7, userId: 42, status: 'PENDENTE', creationRequestKey: context.key, creationActor: context.actor, creationFingerprint: context.fingerprint };
+  const rawOrder = {
+    id: 321,
+    restaurantId: 7,
+    userId: 42,
+    status: 'PENDENTE',
+    creationRequestKey: context.key,
+    creationActor: context.actor,
+    creationFingerprint: context.fingerprint,
+  };
   const tx = {
-    $queryRaw: async (_query, tenant) => { assert.equal(tenant, '7'); return []; },
-    order: { findFirst: async ({ where }) => {
-      assert.deepEqual(where, { restaurantId: 7, creationRequestKey: context.key, creationActor: context.actor });
-      return { id: rawOrder.id, creationFingerprint: context.fingerprint };
-    } },
+    $queryRaw: async (_query, tenant) => {
+      assert.equal(tenant, '7');
+      return [];
+    },
+    order: {
+      findFirst: async ({ where }) => {
+        assert.deepEqual(where, {
+          restaurantId: 7,
+          creationRequestKey: context.key,
+          creationActor: context.actor,
+        });
+        return { id: rawOrder.id, creationFingerprint: context.fingerprint };
+      },
+    },
   };
   prisma.$transaction = async (callback) => callback(tx);
-  orderRepository.findById = async (_id, _tenant, db) => { assert.equal(db, tx); return rawOrder; };
-  restaurantSettingsRepository.findByRestaurantId = async () => { throw new Error('O restaurante fechou após aceitar a tentativa.'); };
-  orderRepository.create = async () => { throw new Error('Não deve criar outro pedido.'); };
-  const result = await createOrderService.execute({ creationRequest: context, restaurantId: 7, userRestaurantId: 7, userId: 42, type: OrderType.RETIRADA, items: [{ productId: 10, quantity: 1 }] });
+  orderRepository.findById = async (_id, _tenant, db) => {
+    assert.equal(db, tx);
+    return rawOrder;
+  };
+  restaurantSettingsRepository.findByRestaurantId = async () => {
+    throw new Error('O restaurante fechou após aceitar a tentativa.');
+  };
+  orderRepository.create = async () => {
+    throw new Error('Não deve criar outro pedido.');
+  };
+  const result = await createOrderService.execute({
+    creationRequest: context,
+    restaurantId: 7,
+    userRestaurantId: 7,
+    userId: 42,
+    type: OrderType.RETIRADA,
+    items: [{ productId: 10, quantity: 1 }],
+  });
   assert.deepEqual(result, { id: 321, restaurantId: 7, userId: 42, status: 'PENDENTE' });
-  assert.equal(rawOrder.creationRequestKey, context.key, 'serialização não altera o registro interno');
+  assert.equal(
+    rawOrder.creationRequestKey,
+    context.key,
+    'serialização não altera o registro interno',
+  );
   assert.deepEqual(events, []);
+  await assert.rejects(
+    createOrderService.execute({
+      creationRequest: context,
+      restaurantId: 7,
+      userRestaurantId: 7,
+      userId: 42,
+      type: OrderType.RETIRADA,
+      deferRealtimeUntilPaid: true,
+      items: [{ productId: 10, quantity: 1 }],
+    }),
+    { code: 'PAYMENT_CREATION_UNCERTAIN', orderId: 321 },
+    'reenvio online recupera o pedido sem repetir a chamada ao gateway',
+  );
 });
 
 test('não permite que o cliente marque cartão como pago no payload de criação', async () => {

@@ -2,6 +2,7 @@ import { realtimePublisher as io } from '../../../realtime/realtimePublisher.js'
 import prisma from '../../../config/prisma.js';
 import { notifyCustomerPaymentConfirmed } from '../../../services/customerNotifier.js';
 import paymentTerminalRepository from '../../paymentTerminals/repositories/PaymentTerminalRepository.js';
+import pickupPaymentService from '../../pickupPayments/services/PickupPaymentService.js';
 import orderRepository from '../repositories/OrderRepository.js';
 import orderPixPaymentService from './OrderPixPaymentService.js';
 import { markCouponRedemptionUsedForOrder } from './couponRedemptionLifecycle.js';
@@ -88,14 +89,33 @@ class FinalizeOrderPixPaymentService {
       return orderRepository.findById(order.id, order.restaurantId);
     }
 
+    if (
+      order.type === 'RETIRADA' &&
+      (order.paymentMethod === null || order.paymentMethod === 'PIX')
+    ) {
+      const pickupOrder = await pickupPaymentService.confirmApprovedPix(
+        order.id,
+        order.restaurantId,
+        normalizedPaymentId,
+      );
+      if (pickupOrder) return pickupOrder;
+    }
+
     if (order.paid === true) {
       await this.syncDeliveryPayment(order);
       return order;
     }
 
     let updatedOrder;
+    let paymentChanged = false;
     try {
       updatedOrder = await prisma.$transaction(async (tx) => {
+        const locked = await tx.$queryRaw<Array<{ paid: boolean }>>`
+          SELECT "paid" FROM "Order" WHERE "id" = ${order.id}
+            AND "restaurantId" = ${order.restaurantId} FOR UPDATE
+        `;
+        if (locked[0]?.paid === true)
+          return orderRepository.findById(order.id, order.restaurantId, tx);
         await orderRepository.claimPixPaymentId(
           order.id,
           order.restaurantId,
@@ -108,6 +128,7 @@ class FinalizeOrderPixPaymentService {
           tx,
         );
         await markCouponRedemptionUsedForOrder(order.id, order.restaurantId, tx);
+        paymentChanged = true;
         return confirmedOrder;
       });
     } catch (error) {
@@ -125,6 +146,7 @@ class FinalizeOrderPixPaymentService {
     }
 
     await this.syncDeliveryPayment(updatedOrder);
+    if (!paymentChanged) return updatedOrder;
 
     io.to(`restaurant:${updatedOrder.restaurantId}`).emit('order:payment-confirmed', {
       orderId: updatedOrder.id,

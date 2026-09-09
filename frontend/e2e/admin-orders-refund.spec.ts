@@ -1,3 +1,4 @@
+import { orderFixtureResponse } from './helpers/orderFixtures';
 import { expect, test, type Page } from '@playwright/test';
 
 import { mockAuthRefresh } from './helpers/mockAuthRefresh';
@@ -86,7 +87,7 @@ async function mockAdminApi(page: Page, state: TestState) {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
-        body: JSON.stringify({ orders: state.orders }),
+        body: JSON.stringify(orderFixtureResponse(request.url(), state.orders)),
       });
       return;
     }
@@ -114,6 +115,7 @@ async function mockAdminApi(page: Page, state: TestState) {
     }
 
     const responses: Record<string, unknown> = {
+      '/orders': { orders: state.orders },
       '/products': { products: [] },
       '/ingredients': { ingredients: [] },
       '/categories': { categories: [] },
@@ -128,7 +130,7 @@ async function mockAdminApi(page: Page, state: TestState) {
     await route.fulfill({
       status: 200,
       contentType: 'application/json',
-      body: JSON.stringify(responses[pathname] ?? {}),
+      body: JSON.stringify(orderFixtureResponse(route.request().url(), responses['/orders']) ?? responses[pathname] ?? {}),
     });
   });
 
@@ -219,4 +221,23 @@ test('admin cancela Pix online com estorno único e distingue pagamento na entre
   await expect(onlinePixOrder).toContainText('Cancelado');
   await expect(onlinePixOrder).toContainText('Estorno concluído no mesmo meio de pagamento');
   expect(state.refundRequests).toBe(1);
+});
+
+test('indicadores incluem mais de 100 pedidos e a fila ativa encontra um pedido antigo', async ({ page }) => {
+  const state = createState();
+  const original = { ...state.orders[0], id: 1, status: 'PREPARANDO', total: 25 };
+  state.orders = [original, ...Array.from({ length: 125 }, (_, index) => ({
+    ...state.orders[1], id: 1000 + index, status: 'ENTREGUE', total: 10,
+  }))];
+  await mockAdminApi(page, state);
+  await page.goto('/admin');
+  await expect(page.getByText('126 pedidos hoje', { exact: false })).toBeVisible();
+  await expect(page.getByText('R$ 1.275,00', { exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Pedidos', exact: true }).click();
+  await expect(page.locator('article.order-card')).toHaveCount(10);
+  await expect(page.getByText('Exibindo 10 de 126 pedidos')).toBeVisible();
+  await page.getByRole('button', { name: 'Mostrar pedidos ativos', exact: true }).click();
+  await expect(page.locator('article.order-card')).toHaveCount(1);
+  await expect(page.locator('article.order-card')).toContainText('#1');
+  await expect(page.locator('article.order-card')).toContainText('Em preparo');
 });

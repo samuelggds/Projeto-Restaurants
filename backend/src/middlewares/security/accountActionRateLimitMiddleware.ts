@@ -1,3 +1,4 @@
+import { distributedRateLimitOptions } from './PostgresRateLimitStore.js';
 import type { Request } from 'express';
 import rateLimit, { ipKeyGenerator } from 'express-rate-limit';
 
@@ -12,6 +13,7 @@ function getEmailKey(req: Request) {
 }
 
 export const passwordResetRateLimitMiddleware = rateLimit({
+  ...distributedRateLimitOptions('accountaction:1'),
   windowMs: Number(process.env.PASSWORD_RESET_RATE_LIMIT_WINDOW_MS || 15 * 60 * 1000),
   max: Number(process.env.PASSWORD_RESET_RATE_LIMIT_MAX_REQUESTS || 5),
   standardHeaders: true,
@@ -23,6 +25,7 @@ export const passwordResetRateLimitMiddleware = rateLimit({
 });
 
 export const registrationRateLimitMiddleware = rateLimit({
+  ...distributedRateLimitOptions('accountaction:2'),
   windowMs: Number(process.env.REGISTRATION_RATE_LIMIT_WINDOW_MS || 60 * 60 * 1000),
   max: Number(process.env.REGISTRATION_RATE_LIMIT_MAX_REQUESTS || 10),
   standardHeaders: true,
@@ -45,6 +48,7 @@ function getTablePaymentKey(req: Request) {
 }
 
 export const tablePaymentActionRateLimitMiddleware = rateLimit({
+  ...distributedRateLimitOptions('accountaction:3'),
   windowMs: Number(process.env.TABLE_PAYMENT_RATE_LIMIT_WINDOW_MS || 60_000),
   max: Number(process.env.TABLE_PAYMENT_RATE_LIMIT_MAX_REQUESTS || 20),
   standardHeaders: true,

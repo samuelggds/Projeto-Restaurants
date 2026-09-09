@@ -1,6 +1,11 @@
 import prisma from '../../../config/prisma.js';
 import { OrderRequestError } from '../domain/OrderRequestError.js';
-import { replayCreatedOrder, retryOrderTransaction, type OrderCreationContext } from './orderCreationRequest.js';
+import { PaymentCreationUncertainError } from './PaymentCreationUncertainError.js';
+import {
+  replayCreatedOrder,
+  retryOrderTransaction,
+  type OrderCreationContext,
+} from './orderCreationRequest.js';
 import orderRepository from '../repositories/OrderRepository.js';
 import { realtimePublisher as io } from '../../../realtime/realtimePublisher.js';
 import { createOrderSchema } from '../../../validators/OrderValidator.js';
@@ -309,8 +314,14 @@ class CreateOrderService {
     });
 
     if (creationRequest) {
-      const replay = await withTenantDbContext(resolvedRestaurantId, (tx) => replayCreatedOrder(tx, resolvedRestaurantId, creationRequest));
-      if (replay) return withoutOrderCreationMetadata(replay);
+      const replay = await withTenantDbContext(resolvedRestaurantId, (tx) =>
+        replayCreatedOrder(tx, resolvedRestaurantId, creationRequest),
+      );
+      if (replay) {
+        if (deferRealtimeUntilPaid)
+          throw new PaymentCreationUncertainError(replay.id, replay.publicId);
+        return withoutOrderCreationMetadata(replay);
+      }
     }
 
     if (paid === true) {
@@ -320,7 +331,9 @@ class CreateOrderService {
     }
 
     if (String(pixPaymentId || '').trim()) {
-      throw new OrderRequestError('O identificador PIX só pode ser vinculado pelo provedor de pagamento.');
+      throw new OrderRequestError(
+        'O identificador PIX só pode ser vinculado pelo provedor de pagamento.',
+      );
     }
 
     const restaurantSettings =
@@ -371,24 +384,32 @@ class CreateOrderService {
       preliminaryTableAccountSettings?.enabled &&
       !preliminaryTableAccountSettings.allowOnlinePayment
     ) {
-      throw new OrderRequestError('O pagamento online de pedidos da mesa está desativado neste restaurante.');
+      throw new OrderRequestError(
+        'O pagamento online de pedidos da mesa está desativado neste restaurante.',
+      );
     }
 
     if (type === OrderType.MESA && !Number(participantId || 0)) {
-      throw new OrderRequestError('Participante da mesa não identificado. Leia o QR Code novamente.');
+      throw new OrderRequestError(
+        'Participante da mesa não identificado. Leia o QR Code novamente.',
+      );
     }
 
     if (
       normalizedRequestedPaymentMethod === PaymentMethod.PIX &&
       restaurantSettings?.acceptsPix === false
     ) {
-      throw new OrderRequestError('O restaurante não está aceitando pagamentos por PIX no momento.');
+      throw new OrderRequestError(
+        'O restaurante não está aceitando pagamentos por PIX no momento.',
+      );
     }
     if (
       normalizedRequestedPaymentMethod === PaymentMethod.CARTAO &&
       restaurantSettings?.acceptsCard === false
     ) {
-      throw new OrderRequestError('O restaurante não está aceitando pagamentos com cartão no momento.');
+      throw new OrderRequestError(
+        'O restaurante não está aceitando pagamentos com cartão no momento.',
+      );
     }
 
     if (shouldPayOnDelivery && type !== OrderType.DELIVERY) {
@@ -396,7 +417,9 @@ class CreateOrderService {
     }
 
     if (shouldPayOnDelivery && !effectivePaymentMethod) {
-      throw new OrderRequestError('Informe o método de pagamento para pedidos com pagar na entrega.');
+      throw new OrderRequestError(
+        'Informe o método de pagamento para pedidos com pagar na entrega.',
+      );
     }
 
     if (
@@ -460,7 +483,9 @@ class CreateOrderService {
 
     if (type === 'MESA') {
       if (!tableSessionId) {
-        throw new OrderRequestError('Sessão da mesa não informada. Acesse novamente pelo QR Code oficial.');
+        throw new OrderRequestError(
+          'Sessão da mesa não informada. Acesse novamente pelo QR Code oficial.',
+        );
       }
 
       const session = await tableSessionRepository.findById(tableSessionId, resolvedRestaurantId);
@@ -475,7 +500,9 @@ class CreateOrderService {
           )) ||
         (session.expiresAt && session.expiresAt.getTime() <= Date.now())
       ) {
-        throw new OrderRequestError('Essa mesa está fechada. Peça ao garçom para abrir o atendimento.');
+        throw new OrderRequestError(
+          'Essa mesa está fechada. Peça ao garçom para abrir o atendimento.',
+        );
       }
 
       if (session.table.restaurantId !== resolvedRestaurantId) {
@@ -520,7 +547,9 @@ class CreateOrderService {
         const normalizedExistingPhone = this.normalizePhone(existingUser?.phone);
 
         if (!normalizedExistingPhone) {
-          throw new OrderRequestError('Informe um celular/WhatsApp válido para pedidos de delivery.');
+          throw new OrderRequestError(
+            'Informe um celular/WhatsApp válido para pedidos de delivery.',
+          );
         }
       }
 
@@ -569,357 +598,365 @@ class CreateOrderService {
         ? await bcrypt.hash(generateStrongRandomPassword(), 10)
         : undefined;
 
-    const creation = await retryOrderTransaction(() => prisma.$transaction(
-      async (tx) => {
-        await setTenantDbContext(tx, resolvedRestaurantId);
-        const replay = await replayCreatedOrder(tx, resolvedRestaurantId, creationRequest);
-        if (replay) return { order: replay, replayed: true };
-        let tableParticipant: {
-          id: number;
-          userId: number | null;
-          publicId: string;
-          displayName: string | null;
-        } | null = null;
+    const creation = await retryOrderTransaction(() =>
+      prisma.$transaction(
+        async (tx) => {
+          await setTenantDbContext(tx, resolvedRestaurantId);
+          const replay = await replayCreatedOrder(tx, resolvedRestaurantId, creationRequest);
+          if (replay) return { order: replay, replayed: true };
+          let tableParticipant: {
+            id: number;
+            userId: number | null;
+            publicId: string;
+            displayName: string | null;
+          } | null = null;
 
-        if (type === OrderType.MESA) {
-          await lockTablePaymentSession(tx, resolvedRestaurantId, Number(tableSessionId));
-          const tableAccountSettings = await tableAccountSettingsRepository.findByRestaurantId(
-            resolvedRestaurantId,
-            tx,
-          );
-          const session = await tableSessionRepository.findById(
-            Number(tableSessionId),
-            resolvedRestaurantId,
-            tx,
-          );
-          if (
-            !session ||
-            (session.status !== TableSessionStatus.OPEN &&
-              !(
-                tableAccountSettings.enabled &&
-                !tableAccountSettings.blockNewOrdersOnClosingRequest &&
-                session.status === TableSessionStatus.CLOSING_REQUESTED
-              )) ||
-            (session.expiresAt && session.expiresAt.getTime() <= Date.now()) ||
-            session.table.restaurantId !== resolvedRestaurantId ||
-            session.tableId !== Number(tableId)
-          ) {
-            throw new OrderRequestError(
-              'A mesa foi fechada durante o pedido. Peça ao garçom para abrir o atendimento novamente.',
-            );
-          }
-
-          tableParticipant = await tx.tableParticipant.findFirst({
-            where: {
-              id: Number(participantId),
-              tableSessionId: session.id,
-              restaurantId: resolvedRestaurantId,
-              status: TableParticipantStatus.ACTIVE,
-              revokedAt: null,
-              OR: [{ userId: { not: null } }, { tokenExpiresAt: { gt: new Date() } }],
-            },
-            select: {
-              id: true,
-              userId: true,
-              publicId: true,
-              displayName: true,
-            },
-          });
-
-          if (!tableParticipant) {
-            throw new OrderRequestError(
-              'Sua identificação nesta mesa expirou. Leia o QR Code novamente antes de pedir.',
-            );
-          }
-        }
-
-        const activeOrders = await orderRepository.countActiveOperationalOrders(
-          resolvedRestaurantId,
-          tx,
-        );
-        assertOrderCapacity(activeOrders, restaurantSettings?.maxConcurrentOrders);
-
-        const resolvedUserId =
-          type === OrderType.MESA
-            ? (tableParticipant?.userId ?? null)
-            : await this.resolveOrderUser({
-                tx,
-                userId,
-                restaurantId: resolvedRestaurantId,
-                customerName,
-                customerCpf,
-                customerPhone,
-                guestPasswordHash,
-              });
-
-        const pricing = await orderPricingService.quote({
-          restaurantId: resolvedRestaurantId,
-          userId: resolvedUserId,
-          type,
-          items,
-          couponRedemptionId,
-          deliveryDistanceMeters,
-          db: tx,
-        });
-        const { products, orderItems } = pricing;
-
-        if (type === OrderType.MESA) {
-          const tableAccountSettings = await tableAccountSettingsRepository.findByRestaurantId(
-            resolvedRestaurantId,
-            tx,
-          );
-          if (!tableAccountSettings.enabled) {
-            throw new OrderRequestError(
-              'A conta por mesa está desativada. Peça ao administrador para revisar as configurações.',
-            );
-          }
-          if (
-            tableContinuation?.settlementMode === TableOrderSettlementMode.PAY_NOW &&
-            !tableAccountSettings.allowOnlinePayment
-          ) {
-            throw new OrderRequestError(
-              'O pagamento online de pedidos da mesa está desativado neste restaurante.',
-            );
-          }
-
-          if (tableContinuation?.settlementMode === TableOrderSettlementMode.TABLE_ACCOUNT) {
-            const ledgerItems = await loadTablePaymentLedgerItems(
-              tx,
+          if (type === OrderType.MESA) {
+            await lockTablePaymentSession(tx, resolvedRestaurantId, Number(tableSessionId));
+            const tableAccountSettings = await tableAccountSettingsRepository.findByRestaurantId(
               resolvedRestaurantId,
+              tx,
+            );
+            const session = await tableSessionRepository.findById(
               Number(tableSessionId),
+              resolvedRestaurantId,
+              tx,
             );
-            const currentOutstandingCents = ledgerItems
-              .filter((item) => !item.canceled && item.projectedStatus !== 'REFUNDED')
-              .reduce(
-                (total, item) => total + Math.max(0, item.unitPriceCents - item.paidCents),
-                0,
-              );
-            const incomingOrderCents = decimalMoneyToCents(
-              pricing.total,
-              'total do novo pedido da mesa',
-            );
-            const localTime = getWeekdayAndMinuteInTimeZone(
-              new Date(),
-              tableAccountSettings.timeZone,
-            );
-            const prepayment = requiresPrepayment({
-              currentOutstandingCents,
-              incomingOrderCents,
-              thresholdCents: tableAccountSettings.requirePrepaymentAboveCents,
-              windows: tableAccountSettings.prepaymentWindows,
-              currentWeekday: localTime.weekday,
-              currentMinute: localTime.minuteOfDay,
-            });
-            if (prepayment.required) {
+            if (
+              !session ||
+              (session.status !== TableSessionStatus.OPEN &&
+                !(
+                  tableAccountSettings.enabled &&
+                  !tableAccountSettings.blockNewOrdersOnClosingRequest &&
+                  session.status === TableSessionStatus.CLOSING_REQUESTED
+                )) ||
+              (session.expiresAt && session.expiresAt.getTime() <= Date.now()) ||
+              session.table.restaurantId !== resolvedRestaurantId ||
+              session.tableId !== Number(tableId)
+            ) {
               throw new OrderRequestError(
-                prepayment.reason === 'SCHEDULE'
-                  ? 'Neste horário, o pedido da mesa precisa ser pago antes de ser enviado.'
-                  : 'Este pedido ultrapassa o limite da conta da mesa. Escolha pagar agora.',
+                'A mesa foi fechada durante o pedido. Peça ao garçom para abrir o atendimento novamente.',
+              );
+            }
+
+            tableParticipant = await tx.tableParticipant.findFirst({
+              where: {
+                id: Number(participantId),
+                tableSessionId: session.id,
+                restaurantId: resolvedRestaurantId,
+                status: TableParticipantStatus.ACTIVE,
+                revokedAt: null,
+                OR: [{ userId: { not: null } }, { tokenExpiresAt: { gt: new Date() } }],
+              },
+              select: {
+                id: true,
+                userId: true,
+                publicId: true,
+                displayName: true,
+              },
+            });
+
+            if (!tableParticipant) {
+              throw new OrderRequestError(
+                'Sua identificação nesta mesa expirou. Leia o QR Code novamente antes de pedir.',
               );
             }
           }
-        }
 
-        const formattedCpf = this.formatCpf(customerCpf);
-        const guestSummary =
-          type !== OrderType.MESA && !userId && customerName
-            ? `Cliente: ${String(customerName).trim()}${formattedCpf ? ` | CPF: ${formattedCpf}` : ''}`
-            : '';
+          const activeOrders = await orderRepository.countActiveOperationalOrders(
+            resolvedRestaurantId,
+            tx,
+          );
+          assertOrderCapacity(activeOrders, restaurantSettings?.maxConcurrentOrders);
 
-        const mergedObservation = [guestSummary, observation]
-          .map((item) => String(item || '').trim())
-          .filter(Boolean)
-          .join(' | ');
+          const resolvedUserId =
+            type === OrderType.MESA
+              ? (tableParticipant?.userId ?? null)
+              : await this.resolveOrderUser({
+                  tx,
+                  userId,
+                  restaurantId: resolvedRestaurantId,
+                  customerName,
+                  customerCpf,
+                  customerPhone,
+                  guestPasswordHash,
+                });
 
-        const normalizedTableId =
-          tableId === null || tableId === undefined || tableId === '' ? null : Number(tableId);
-
-        const order = await orderRepository.create(
-          {
-            ...(creationRequest ? {
-              creationRequestKey: creationRequest.key,
-              creationActor: creationRequest.actor,
-              creationFingerprint: creationRequest.fingerprint,
-            } : {}),
-            total: pricing.total,
-            itemsSubtotal: pricing.itemsSubtotal,
-            productDiscountTotal: pricing.productDiscountTotal,
-            couponDiscount: pricing.couponDiscount,
-            deliveryFeeAmount: pricing.deliveryFeeAmount,
-            deliveryDistanceMeters,
-            couponId: pricing.couponId,
-            couponRedemptionId: pricing.couponRedemptionId,
-            couponCode: pricing.couponCode,
-            systemFee: 0,
-            type,
-            paymentMethod:
-              tableContinuation?.settlementMode === TableOrderSettlementMode.TABLE_ACCOUNT
-                ? null
-                : effectivePaymentMethod,
-            payOnDelivery: shouldPayOnDelivery,
-            payOnDeliveryMethod: shouldPayOnDelivery ? effectivePaymentMethod : null,
-            paid: shouldMarkAsPaid,
-            pixPaymentId: normalizedPixPaymentId || null,
-            paidAt,
-            paymentProof: null,
-            paymentProofImage: null,
-            observation: mergedObservation || null,
+          const pricing = await orderPricingService.quote({
+            restaurantId: resolvedRestaurantId,
             userId: resolvedUserId,
-            restaurantId: resolvedRestaurantId,
-            tableId: normalizedTableId,
-            ...(type === OrderType.MESA
-              ? {
-                  tableSessionId: Number(tableSessionId),
-                  participantId: Number(tableParticipant?.id),
-                  settlementMode: tableContinuation?.settlementMode,
-                  tableFinancialStatus: shouldMarkAsPaid
-                    ? TableOrderFinancialStatus.PAID
-                    : tableContinuation?.settlementMode === TableOrderSettlementMode.PAY_NOW
-                      ? TableOrderFinancialStatus.PROCESSING
-                      : TableOrderFinancialStatus.UNPAID,
-                }
-              : {}),
-            address,
-            number,
-            district,
-            city,
-            state,
-            zipCode,
-            complement,
-            status: initialStatus,
-            preparationStartedAt: initialStatus === OrderStatus.PREPARANDO ? new Date() : null,
-          },
-          tx,
-        );
-
-        await reserveCouponRedemption({
-          redemptionId: pricing.couponRedemptionId,
-          restaurantId: resolvedRestaurantId,
-          userId: resolvedUserId,
-          db: tx,
-        });
-
-        if (shouldMarkAsPaid) {
-          await markCouponRedemptionUsedForOrder(order.id, resolvedRestaurantId, tx);
-        }
-
-        const persistedOrderItems = [];
-        for (const item of orderItems) {
-          const persistedItem = await tx.orderItem.create({
-            data: {
-              ...item,
-              orderId: order.id,
-              ...(type === OrderType.MESA
-                ? {
-                    restaurantId: resolvedRestaurantId,
-                    tableSessionId: Number(tableSessionId),
-                    participantId: Number(tableParticipant?.id),
-                  }
-                : {}),
-            },
-            select: {
-              id: true,
-              orderId: true,
-              productId: true,
-              quantity: true,
-              price: true,
-            },
-          });
-          persistedOrderItems.push(persistedItem);
-        }
-
-        if (type === OrderType.MESA) {
-          const billUnitSeeds = buildTableBillUnitSeeds(orderItems, pricing.couponDiscount);
-          const expectedOrderTotalCents = decimalMoneyToCents(
-            pricing.total,
-            'total do pedido da mesa',
-          );
-          const billTotalCents = billUnitSeeds.reduce(
-            (total, unit) => total + unit.unitPriceCents,
-            0,
-          );
-          if (billTotalCents !== expectedOrderTotalCents) {
-            throw new Error(
-              'Não foi possível fechar os centavos dos itens com o total do pedido da mesa.',
-            );
-          }
-
-          const financialStatus = shouldMarkAsPaid
-            ? TableBillItemFinancialStatus.PAID
-            : tableContinuation?.settlementMode === TableOrderSettlementMode.PAY_NOW
-              ? TableBillItemFinancialStatus.PROCESSING
-              : TableBillItemFinancialStatus.UNPAID;
-
-          await tx.tableBillItem.createMany({
-            data: billUnitSeeds.map((unit) => ({
-              restaurantId: resolvedRestaurantId,
-              tableSessionId: Number(tableSessionId),
-              participantId: Number(tableParticipant?.id),
-              orderId: order.id,
-              orderItemId: persistedOrderItems[unit.orderItemIndex].id,
-              unitIndex: unit.unitIndex,
-              productName: products[unit.orderItemIndex].name,
-              unitPriceCents: BigInt(unit.unitPriceCents),
-              financialStatus,
-              paidAt: shouldMarkAsPaid ? paidAt : null,
-            })),
-          });
-        }
-
-        const requestedQuantityByProduct = new Map<number, number>();
-        orderItems.forEach((item) => {
-          requestedQuantityByProduct.set(
-            item.productId,
-            (requestedQuantityByProduct.get(item.productId) || 0) + Number(item.quantity),
-          );
-        });
-
-        for (const [productId, requestedQuantity] of requestedQuantityByProduct) {
-          const product = products.find((candidate) => candidate.id === productId)!;
-          const stockValue =
-            product.stock === null || product.stock === undefined ? null : Number(product.stock);
-
-          if (!Number.isInteger(stockValue) || stockValue < 0) {
-            continue;
-          }
-
-          const decremented = await tx.product.updateMany({
-            where: {
-              id: productId,
-              restaurantId: resolvedRestaurantId,
-              stock: { gte: requestedQuantity },
-            },
-            data: {
-              stock: { decrement: requestedQuantity },
-            },
-          });
-          if (decremented.count !== 1) {
-            throw new OrderRequestError(
-              `Estoque de ${product.name} mudou. Confira a quantidade e tente novamente.`,
-            );
-          }
-
-          // Availability is the combination of the manual active flag and stock.
-          // Do not overwrite a merchant's availability decision when stock changes.
-        }
-
-        if (!shouldDeferRealtimeUntilPaid) {
-          await kitchenPrintingService.enqueueAutomatic({
-            restaurantId: resolvedRestaurantId,
-            orderId: order.id,
-            event: 'OPERATIONAL_NEW_ORDER',
+            type,
+            items,
+            couponRedemptionId,
+            deliveryDistanceMeters,
             db: tx,
           });
-        }
+          const { products, orderItems } = pricing;
 
-        const persistedOrder = await orderRepository.findById(order.id, resolvedRestaurantId, tx);
-        if (!persistedOrder) throw new Error('Pedido criado não foi encontrado na transação.');
-        return { order: persistedOrder, replayed: false };
-      },
-      { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
-    ));
+          if (type === OrderType.MESA) {
+            const tableAccountSettings = await tableAccountSettingsRepository.findByRestaurantId(
+              resolvedRestaurantId,
+              tx,
+            );
+            if (!tableAccountSettings.enabled) {
+              throw new OrderRequestError(
+                'A conta por mesa está desativada. Peça ao administrador para revisar as configurações.',
+              );
+            }
+            if (
+              tableContinuation?.settlementMode === TableOrderSettlementMode.PAY_NOW &&
+              !tableAccountSettings.allowOnlinePayment
+            ) {
+              throw new OrderRequestError(
+                'O pagamento online de pedidos da mesa está desativado neste restaurante.',
+              );
+            }
+
+            if (tableContinuation?.settlementMode === TableOrderSettlementMode.TABLE_ACCOUNT) {
+              const ledgerItems = await loadTablePaymentLedgerItems(
+                tx,
+                resolvedRestaurantId,
+                Number(tableSessionId),
+              );
+              const currentOutstandingCents = ledgerItems
+                .filter((item) => !item.canceled && item.projectedStatus !== 'REFUNDED')
+                .reduce(
+                  (total, item) => total + Math.max(0, item.unitPriceCents - item.paidCents),
+                  0,
+                );
+              const incomingOrderCents = decimalMoneyToCents(
+                pricing.total,
+                'total do novo pedido da mesa',
+              );
+              const localTime = getWeekdayAndMinuteInTimeZone(
+                new Date(),
+                tableAccountSettings.timeZone,
+              );
+              const prepayment = requiresPrepayment({
+                currentOutstandingCents,
+                incomingOrderCents,
+                thresholdCents: tableAccountSettings.requirePrepaymentAboveCents,
+                windows: tableAccountSettings.prepaymentWindows,
+                currentWeekday: localTime.weekday,
+                currentMinute: localTime.minuteOfDay,
+              });
+              if (prepayment.required) {
+                throw new OrderRequestError(
+                  prepayment.reason === 'SCHEDULE'
+                    ? 'Neste horário, o pedido da mesa precisa ser pago antes de ser enviado.'
+                    : 'Este pedido ultrapassa o limite da conta da mesa. Escolha pagar agora.',
+                );
+              }
+            }
+          }
+
+          const formattedCpf = this.formatCpf(customerCpf);
+          const guestSummary =
+            type !== OrderType.MESA && !userId && customerName
+              ? `Cliente: ${String(customerName).trim()}${formattedCpf ? ` | CPF: ${formattedCpf}` : ''}`
+              : '';
+
+          const mergedObservation = [guestSummary, observation]
+            .map((item) => String(item || '').trim())
+            .filter(Boolean)
+            .join(' | ');
+
+          const normalizedTableId =
+            tableId === null || tableId === undefined || tableId === '' ? null : Number(tableId);
+
+          const order = await orderRepository.create(
+            {
+              ...(creationRequest
+                ? {
+                    creationRequestKey: creationRequest.key,
+                    creationActor: creationRequest.actor,
+                    creationFingerprint: creationRequest.fingerprint,
+                  }
+                : {}),
+              total: pricing.total,
+              itemsSubtotal: pricing.itemsSubtotal,
+              productDiscountTotal: pricing.productDiscountTotal,
+              couponDiscount: pricing.couponDiscount,
+              deliveryFeeAmount: pricing.deliveryFeeAmount,
+              deliveryDistanceMeters,
+              couponId: pricing.couponId,
+              couponRedemptionId: pricing.couponRedemptionId,
+              couponCode: pricing.couponCode,
+              systemFee: 0,
+              type,
+              paymentMethod:
+                tableContinuation?.settlementMode === TableOrderSettlementMode.TABLE_ACCOUNT
+                  ? null
+                  : effectivePaymentMethod,
+              payOnDelivery: shouldPayOnDelivery,
+              payOnDeliveryMethod: shouldPayOnDelivery ? effectivePaymentMethod : null,
+              paid: shouldMarkAsPaid,
+              pixPaymentId: normalizedPixPaymentId || null,
+              paidAt,
+              paymentProof: null,
+              paymentProofImage: null,
+              observation: mergedObservation || null,
+              userId: resolvedUserId,
+              restaurantId: resolvedRestaurantId,
+              tableId: normalizedTableId,
+              ...(type === OrderType.MESA
+                ? {
+                    tableSessionId: Number(tableSessionId),
+                    participantId: Number(tableParticipant?.id),
+                    settlementMode: tableContinuation?.settlementMode,
+                    tableFinancialStatus: shouldMarkAsPaid
+                      ? TableOrderFinancialStatus.PAID
+                      : tableContinuation?.settlementMode === TableOrderSettlementMode.PAY_NOW
+                        ? TableOrderFinancialStatus.PROCESSING
+                        : TableOrderFinancialStatus.UNPAID,
+                  }
+                : {}),
+              address,
+              number,
+              district,
+              city,
+              state,
+              zipCode,
+              complement,
+              status: initialStatus,
+              preparationStartedAt: initialStatus === OrderStatus.PREPARANDO ? new Date() : null,
+            },
+            tx,
+          );
+
+          await reserveCouponRedemption({
+            redemptionId: pricing.couponRedemptionId,
+            restaurantId: resolvedRestaurantId,
+            userId: resolvedUserId,
+            db: tx,
+          });
+
+          if (shouldMarkAsPaid) {
+            await markCouponRedemptionUsedForOrder(order.id, resolvedRestaurantId, tx);
+          }
+
+          const persistedOrderItems = [];
+          for (const item of orderItems) {
+            const persistedItem = await tx.orderItem.create({
+              data: {
+                ...item,
+                orderId: order.id,
+                ...(type === OrderType.MESA
+                  ? {
+                      restaurantId: resolvedRestaurantId,
+                      tableSessionId: Number(tableSessionId),
+                      participantId: Number(tableParticipant?.id),
+                    }
+                  : {}),
+              },
+              select: {
+                id: true,
+                orderId: true,
+                productId: true,
+                quantity: true,
+                price: true,
+              },
+            });
+            persistedOrderItems.push(persistedItem);
+          }
+
+          if (type === OrderType.MESA) {
+            const billUnitSeeds = buildTableBillUnitSeeds(orderItems, pricing.couponDiscount);
+            const expectedOrderTotalCents = decimalMoneyToCents(
+              pricing.total,
+              'total do pedido da mesa',
+            );
+            const billTotalCents = billUnitSeeds.reduce(
+              (total, unit) => total + unit.unitPriceCents,
+              0,
+            );
+            if (billTotalCents !== expectedOrderTotalCents) {
+              throw new Error(
+                'Não foi possível fechar os centavos dos itens com o total do pedido da mesa.',
+              );
+            }
+
+            const financialStatus = shouldMarkAsPaid
+              ? TableBillItemFinancialStatus.PAID
+              : tableContinuation?.settlementMode === TableOrderSettlementMode.PAY_NOW
+                ? TableBillItemFinancialStatus.PROCESSING
+                : TableBillItemFinancialStatus.UNPAID;
+
+            await tx.tableBillItem.createMany({
+              data: billUnitSeeds.map((unit) => ({
+                restaurantId: resolvedRestaurantId,
+                tableSessionId: Number(tableSessionId),
+                participantId: Number(tableParticipant?.id),
+                orderId: order.id,
+                orderItemId: persistedOrderItems[unit.orderItemIndex].id,
+                unitIndex: unit.unitIndex,
+                productName: products[unit.orderItemIndex].name,
+                unitPriceCents: BigInt(unit.unitPriceCents),
+                financialStatus,
+                paidAt: shouldMarkAsPaid ? paidAt : null,
+              })),
+            });
+          }
+
+          const requestedQuantityByProduct = new Map<number, number>();
+          orderItems.forEach((item) => {
+            requestedQuantityByProduct.set(
+              item.productId,
+              (requestedQuantityByProduct.get(item.productId) || 0) + Number(item.quantity),
+            );
+          });
+
+          for (const [productId, requestedQuantity] of requestedQuantityByProduct) {
+            const product = products.find((candidate) => candidate.id === productId)!;
+            const stockValue =
+              product.stock === null || product.stock === undefined ? null : Number(product.stock);
+
+            if (!Number.isInteger(stockValue) || stockValue < 0) {
+              continue;
+            }
+
+            const decremented = await tx.product.updateMany({
+              where: {
+                id: productId,
+                restaurantId: resolvedRestaurantId,
+                stock: { gte: requestedQuantity },
+              },
+              data: {
+                stock: { decrement: requestedQuantity },
+              },
+            });
+            if (decremented.count !== 1) {
+              throw new OrderRequestError(
+                `Estoque de ${product.name} mudou. Confira a quantidade e tente novamente.`,
+              );
+            }
+
+            // Availability is the combination of the manual active flag and stock.
+            // Do not overwrite a merchant's availability decision when stock changes.
+          }
+
+          if (!shouldDeferRealtimeUntilPaid) {
+            await kitchenPrintingService.enqueueAutomatic({
+              restaurantId: resolvedRestaurantId,
+              orderId: order.id,
+              event: 'OPERATIONAL_NEW_ORDER',
+              db: tx,
+            });
+          }
+
+          const persistedOrder = await orderRepository.findById(order.id, resolvedRestaurantId, tx);
+          if (!persistedOrder) throw new Error('Pedido criado não foi encontrado na transação.');
+          return { order: persistedOrder, replayed: false };
+        },
+        { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+      ),
+    );
     const createdOrder = withoutOrderCreationMetadata(creation.order);
-    if (creation.replayed) return createdOrder;
+    if (creation.replayed) {
+      if (deferRealtimeUntilPaid)
+        throw new PaymentCreationUncertainError(createdOrder.id, createdOrder.publicId);
+      return createdOrder;
+    }
 
     if (!shouldDeferRealtimeUntilPaid) {
       io.to(`restaurant:${createdOrder.restaurantId}`).emit('new-order', createdOrder);

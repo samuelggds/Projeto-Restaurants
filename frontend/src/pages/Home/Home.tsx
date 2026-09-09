@@ -1,6 +1,8 @@
 import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { PanelBottomClose, PanelBottomOpen, ShoppingBag, X } from 'lucide-react';
+import { ShoppingBag, X } from 'lucide-react';
+import { FloatingActionsControl } from './components/FloatingActionsControl';
+import { PublicGuestOrderHelp } from '../../features/order-support/PublicGuestOrderHelp';
 import { useAuth } from '../../contexts/authContext';
 import { HomePage } from './HomePage';
 import PixPaymentPanel from '../Cart/components/PixPaymentPanel';
@@ -14,6 +16,7 @@ import { useFavorites } from './hooks/useFavorites';
 import { useCart } from './hooks/useCart';
 import { useDeliveryAddress } from './hooks/useDeliveryAddress';
 import { getCheckoutErrorMessage, useCheckoutPayments } from './hooks/useCheckoutPayments';
+import { UncertainPaymentResult } from './components/UncertainPaymentResult';
 import { useTableSession } from './hooks/useTableSession';
 import { useTableAccount } from './hooks/useTableAccount';
 import { useActiveOrderNotice } from './hooks/useActiveOrderNotice';
@@ -130,8 +133,8 @@ export default function Home() {
   const [tableOrderLoading, setTableOrderLoading] = useState(false);
   const [tableContinuationOpen, setTableContinuationOpen] = useState(false);
   const [tableAccountOpen, setTableAccountOpen] = useState(false);
-  const [floatingActionsCollapsed, setFloatingActionsCollapsed] = useState(() =>
-    /\/mesa\/\d+(?:\/|$)/.test(window.location.pathname),
+  const [floatingActionsCollapsed, setFloatingActionsCollapsed] = useState(
+    () => window.matchMedia?.('(max-width: 700px)').matches ?? false,
   );
 
   useEffect(() => {
@@ -658,7 +661,7 @@ export default function Home() {
   );
   const whatsappLabel =
     homeData.brand.whatsappDisplayName || homeData.brand.name || 'Atendimento do restaurante';
-  const showLoginNudge = !user && !mesaMode && !nudgeDismissed;
+  const showLoginNudge = !user && !mesaMode && !nudgeDismissed && cart.length > 0 && !cartOpen;
   const loyaltyProgram =
     user?.role && !isLoyaltyCustomer
       ? undefined
@@ -783,6 +786,16 @@ export default function Home() {
   }
 
   if (paymentResult) {
+    if (paymentResult.reconciliationRequired)
+      return (
+        <UncertainPaymentResult
+          result={paymentResult}
+          restaurantName={homeData.brand.name}
+          restaurantCategory={homeData.brand.category ?? 'RESTAURANTE'}
+          visitor={!user}
+          onBack={clearPaymentResult}
+        />
+      );
     return (
       <PaymentResultView
         status={paymentResult.status}
@@ -1043,27 +1056,16 @@ export default function Home() {
         onPointerCancel={handleFloatingPointerCancel}
         onClickCapture={handleFloatingClickCapture}
       >
-        {mesaMode && (
-          <S.FloatingActionsToggle
-            type="button"
-            data-floating-drag-handle="true"
-            title="Clique para abrir ou arraste para mover"
-            aria-expanded={!floatingActionsCollapsed}
-            aria-label={
-              floatingActionsCollapsed
-                ? 'Abrir cupons, status do pedido e avisos da mesa'
-                : 'Minimizar cupons, status do pedido e avisos da mesa'
-            }
-            onClick={() => setFloatingActionsCollapsed((collapsed) => !collapsed)}
-          >
-            {floatingActionsCollapsed ? <PanelBottomOpen /> : <PanelBottomClose />}
-            <span>{floatingActionsCollapsed ? 'Cupons e status' : 'Minimizar'}</span>
-          </S.FloatingActionsToggle>
-        )}
-        {(!mesaMode || !floatingActionsCollapsed) && (
+        <FloatingActionsControl
+          mode={mesaMode ? 'table' : 'customer'}
+          collapsed={floatingActionsCollapsed}
+          onToggle={() => setFloatingActionsCollapsed((collapsed) => !collapsed)}
+        />
+        {!floatingActionsCollapsed && (
           <>
             {mesaMode && tableSession && (
               <TableServiceActions
+                embedded
                 tableNumber={mesaLabel}
                 waiterEnabled={tableSession.waiterCallEnabled !== false}
                 billEnabled={tableSession.billRequestEnabled !== false && !tableClosingRequested}
@@ -1076,6 +1078,7 @@ export default function Home() {
             )}
             {whatsappUrl && (
               <S.Whatsapp
+                data-testid="floating-whatsapp-contact"
                 href={whatsappUrl}
                 target="_blank"
                 rel="noreferrer"
@@ -1086,6 +1089,7 @@ export default function Home() {
               </S.Whatsapp>
             )}
             {loyaltyProgram && <LoyaltyProgramCard loyalty={loyaltyProgram} />}
+            {!user && !mesaMode && <PublicGuestOrderHelp inline restaurantId={restaurantId} />}
             {mesaMode ? (
               <TableOrderStatusNotice
                 primaryColor={primary}

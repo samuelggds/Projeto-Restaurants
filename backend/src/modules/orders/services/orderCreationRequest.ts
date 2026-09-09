@@ -10,12 +10,19 @@ const hash = (value: string) => createHash('sha256').update(value).digest('hex')
 function canonical(value: unknown): unknown {
   if (Array.isArray(value)) return value.map(canonical);
   if (value && typeof value === 'object') {
-    return Object.fromEntries(Object.entries(value).sort(([a], [b]) => a.localeCompare(b)).map(([key, item]) => [key, canonical(item)]));
+    return Object.fromEntries(
+      Object.entries(value)
+        .sort(([a], [b]) => a.localeCompare(b))
+        .map(([key, item]) => [key, canonical(item)]),
+    );
   }
   return value;
 }
 
-export function orderCreationContext(req: Request): OrderCreationContext | undefined {
+export function orderCreationContext(
+  req: Request,
+  operation = 'order',
+): OrderCreationContext | undefined {
   const key = req.headers['idempotency-key'];
   if (key === undefined) return undefined; // Compatibilidade com clientes anteriores; cliente atual sempre envia.
   if (typeof key !== 'string' || !/^[a-zA-Z0-9_-]{16,128}$/u.test(key)) {
@@ -31,10 +38,22 @@ export function orderCreationContext(req: Request): OrderCreationContext | undef
     }
     actor = `guest:${session}`;
   }
-  return { key: hash(key), actor: hash(actor), fingerprint: hash(JSON.stringify(canonical(req.body))) };
+  return {
+    key: hash(key),
+    actor: hash(actor),
+    fingerprint: hash(
+      JSON.stringify(
+        canonical(operation === 'order' ? req.body : { operation, payload: req.body }),
+      ),
+    ),
+  };
 }
 
-export async function replayCreatedOrder(db: Prisma.TransactionClient, restaurantId: number, context?: OrderCreationContext) {
+export async function replayCreatedOrder(
+  db: Prisma.TransactionClient,
+  restaurantId: number,
+  context?: OrderCreationContext,
+) {
   if (!context) return null;
   const existing = await db.order.findFirst({
     where: { restaurantId, creationRequestKey: context.key, creationActor: context.actor },
@@ -42,19 +61,34 @@ export async function replayCreatedOrder(db: Prisma.TransactionClient, restauran
   });
   if (!existing) return null;
   if (existing.creationFingerprint !== context.fingerprint) {
-    throw new OrderRequestError('Esta tentativa já foi usada com outro pedido. Atualize o carrinho e tente novamente.', 409, 'IDEMPOTENCY_CONFLICT');
+    throw new OrderRequestError(
+      'Esta tentativa já foi usada com outro pedido. Atualize o carrinho e tente novamente.',
+      409,
+      'IDEMPOTENCY_CONFLICT',
+    );
   }
   return orderRepository.findById(existing.id, restaurantId, db);
 }
 
-export async function retryOrderTransaction<T>(operation: () => Promise<T>, pause = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms))) {
+export async function retryOrderTransaction<T>(
+  operation: () => Promise<T>,
+  pause = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms)),
+) {
   for (let attempt = 0; ; attempt += 1) {
-    try { return await operation(); }
-    catch (error) {
+    try {
+      return await operation();
+    } catch (error) {
       const candidate = error as { code?: string; meta?: { target?: unknown } };
-      const requestCollision = candidate?.code === 'P2002' && JSON.stringify(candidate.meta?.target || '').includes('creationRequestKey');
+      const requestCollision =
+        candidate?.code === 'P2002' &&
+        JSON.stringify(candidate.meta?.target || '').includes('creationRequestKey');
       if (candidate?.code !== 'P2034' && !requestCollision) throw error;
-      if (attempt >= 3) throw new OrderRequestError('O pedido encontrou uma atualização simultânea. Tente novamente.', 409, 'ORDER_TRANSACTION_CONFLICT');
+      if (attempt >= 3)
+        throw new OrderRequestError(
+          'O pedido encontrou uma atualização simultânea. Tente novamente.',
+          409,
+          'ORDER_TRANSACTION_CONFLICT',
+        );
       await pause(25 * 2 ** attempt + Math.floor(Math.random() * 25));
     }
   }

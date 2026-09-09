@@ -1,4 +1,5 @@
 import Stripe from 'stripe';
+import type { OrderCreationContext } from './orderCreationRequest.js';
 import type { OrderType, PaymentMethod } from '@prisma/client';
 import type { CardProvider } from '../../payments/providers/providerCatalog.js';
 import { CARD_PROVIDERS } from '../../payments/providers/providerCatalog.js';
@@ -21,6 +22,7 @@ type CheckoutOrder = {
 };
 
 export type CreateOrderCardCheckoutPayload = {
+  creationRequest?: OrderCreationContext;
   userId?: number | string | null;
   restaurantId?: number | string | null;
   userRestaurantId?: number | string | null;
@@ -212,6 +214,8 @@ async function fetchAsaasJson<T>(
 ) {
   const response = await fetch(url, {
     method,
+    signal: AbortSignal.timeout(15_000),
+    redirect: 'error',
     headers: {
       'Content-Type': 'application/json',
       access_token: accessToken,
@@ -477,6 +481,8 @@ const pagBankCardCheckoutProvider: CardCheckoutProviderHandler = {
         .replace(/\/+$/, '');
       const response = await fetch(`${apiBaseUrl}/orders`, {
         method: 'POST',
+        signal: AbortSignal.timeout(15_000),
+        redirect: 'error',
         headers: {
           Authorization: `Bearer ${token}`,
           'Content-Type': 'application/json',
@@ -590,6 +596,8 @@ const pagBankCardCheckoutProvider: CardCheckoutProviderHandler = {
 
     const response = await fetch(resolvePagBankCheckoutApiUrl(environment), {
       method: 'POST',
+      signal: AbortSignal.timeout(15_000),
+      redirect: 'error',
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
       },

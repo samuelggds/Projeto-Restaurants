@@ -1,3 +1,4 @@
+import { distributedRateLimitOptions } from './PostgresRateLimitStore.js';
 import type { Request } from 'express';
 import rateLimit, { ipKeyGenerator } from 'express-rate-limit';
 
@@ -12,6 +13,7 @@ export function createIngredientImageSearchRateLimit(
   options: { windowMs?: number; max?: number } = {},
 ) {
   return rateLimit({
+    ...distributedRateLimitOptions('ingredientimagesearch:1'),
     windowMs:
       options.windowMs ||
       Number(process.env.INGREDIENT_IMAGE_SEARCH_RATE_LIMIT_WINDOW_MS || 15 * 60 * 1000),

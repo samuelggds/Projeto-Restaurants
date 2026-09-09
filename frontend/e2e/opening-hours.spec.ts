@@ -1,3 +1,4 @@
+import { orderFixtureResponse } from './helpers/orderFixtures';
 import { expect, test, type Page } from '@playwright/test';
 
 import { mockAuthRefresh } from './helpers/mockAuthRefresh';
@@ -132,7 +133,7 @@ async function mockAdminApi(page: Page, state: AdminApiState) {
     await route.fulfill({
       status: 200,
       contentType: 'application/json',
-      body: JSON.stringify(responses[pathname] ?? {}),
+      body: JSON.stringify(orderFixtureResponse(route.request().url(), responses['/orders']) ?? responses[pathname] ?? {}),
     });
   });
 

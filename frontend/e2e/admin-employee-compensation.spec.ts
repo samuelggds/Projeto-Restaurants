@@ -1,3 +1,4 @@
+import { orderFixtureResponse } from './helpers/orderFixtures';
 import { expect, test, type Page } from '@playwright/test';
 
 import type {
@@ -409,7 +410,7 @@ async function mockAdminApi(page: Page, state: TestState) {
       '/banners': [],
       '/employees': state.employees,
     };
-    await fulfillJson(route, responses[pathname] ?? {});
+    await fulfillJson(route, orderFixtureResponse(route.request().url(), responses['/orders']) ?? responses[pathname] ?? {});
   });
 
   await page.addInitScript(() => {

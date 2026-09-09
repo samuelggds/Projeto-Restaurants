@@ -166,7 +166,7 @@ export default function CourierWorkspace() {
       ),
     [orders],
   );
-  const history = useOrderHistory({ query: { queue: 'DELIVERED', ...(search ? { search } : {}) }, refreshSignal: refresh });
+  const history = useOrderHistory({ query: { queue: 'DELIVERED', ...(search ? { search } : {}) }, refreshSignal: orders });
   const delivered = useMemo(
     () =>
       normalizeCourierOrders(history.orders)

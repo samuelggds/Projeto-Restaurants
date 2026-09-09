@@ -1,0 +1,40 @@
+[PIX_PAYMENT_CREATION_UNCERTAIN] { orderId: 91, restaurantId: 7, errorType: 'Error' }
+[PIX_PAYMENT_CREATION_UNCERTAIN] { orderId: 91, restaurantId: 7, errorType: 'Error' }
+✔ falha ambígua preserva pedido PIX e reservas, inclusive com webhook pago=false (25.2419ms)
+✔ falha ambígua preserva pedido PIX e reservas, inclusive com webhook pago=true (0.8599ms)
+[CARD_PAYMENT_CREATION_UNCERTAIN] { orderId: 321, restaurantId: 7, errorType: 'Error' }
+[ASAAS_CARD_SPLIT_FALLBACK] Asaas rejeitou split. Recriando checkout sem split. { orderId: 654, restaurantId: 9, systemFee: 4.5 }
+✔ timeout após cobrança de cartão preserva pedido confirmado, estoque e cupom (2.8132ms)
+✔ não cria checkout de cartão fora da agenda semanal (14.1616ms)
+✔ não cria checkout quando o restaurante desativou pagamentos com cartão (0.4117ms)
+✔ deve abrir checkout de cartao usando a configuracao PagBank do restaurante (3.192ms)
+✔ deve abrir checkout de cartao com Asaas e fazer fallback sem split quando rejeitado (2.3807ms)
+✔ deve reutilizar token Asaas sem expor os dados completos do cartão (0.8148ms)
+✔ não confirma cartão salvo Asaas com valor divergente na resposta aprovada (0.6336ms)
+✔ não confirma cartão salvo PagBank com valor divergente na resposta paga (0.6834ms)
+✔ retorna paid somente quando a finalização canônica confirma o cartão (0.9505ms)
+[REALTIME_TRANSPORT_NOT_CONFIGURED]
+✔ bloqueia a criação do pedido fora da agenda semanal (23.4191ms)
+✔ persiste opções agrupadas e observação sem vazar metadados de criação em resposta/eventos (7.3284ms)
+✔ reenvio confirmado não revalida estoque ou abertura e não repete eventos (1.1547ms)
+✔ não permite que o cliente marque cartão como pago no payload de criação (0.5023ms)
+✔ pedido de mesa convidado vincula participante e cria uma unidade financeira por quantidade (3.886ms)
+✔ interrompe sem gravar quando a mesa fecha entre a validação inicial e a transação (0.7534ms)
+✔ pagamento imediato mantém cartão no pedido e reserva as unidades como PROCESSING (0.9339ms)
+✔ fingerprint é estável e o escopo usa a identidade autenticada (16.5274ms)
+✔ retry repete somente conflito de serialização/índice da tentativa e tem limite (20.4054ms)
+✔ replay consulta restaurante/ator/chave, devolve o pedido e recusa conteúdo conflitante (0.5678ms)
+[REALTIME_RELAY_WRITE_FAILED]
+[REALTIME_RELAY_POLL_FAILED]
+[REALTIME_RELAY_WRITE_FAILED]
+[REALTIME_RELAY_POLL_FAILED]
+✔ relay recupera escrita sem tráfego HTTP (subscriber=true) (26.5166ms)
+✔ relay recupera escrita sem tráfego HTTP (subscriber=false) (0.9825ms)
+ℹ tests 23
+ℹ suites 0
+ℹ pass 23
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1440.525

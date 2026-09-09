@@ -1,4 +1,5 @@
 import { parseCredentialEncryptionKey } from '../modules/restaurantSettings/security/credentialEncryption.js';
+import { validateDistributedConfig } from '../runtime/distributedConfig.js';
 import { mercadoPagoWebhookSecrets } from '../modules/payments/providers/mercadoPagoWebhookSignature.js';
 import { validateConfiguredOAuthEndpoints } from '../modules/restaurantSettings/security/oauthEndpoints.js';
 import { collectSuperAdminBootstrapConfigErrors } from '../modules/superAdmin/security/superAdminBootstrapConfig.js';
@@ -76,6 +77,7 @@ function isPlaceholder(value: string) {
 }
 
 export function validateCriticalEnv() {
+  validateDistributedConfig();
   const isProduction = process.env.NODE_ENV === 'production';
   if (!isProduction) {
     return;

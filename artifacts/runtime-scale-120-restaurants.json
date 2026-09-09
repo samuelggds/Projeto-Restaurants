@@ -1,0 +1,39 @@
+{
+  "timestamp": "2026-09-09T08:47:53.474Z",
+  "environment": {
+    "platform": "win32",
+    "arch": "x64",
+    "cpuParallelism": 12,
+    "memoryGb": 32,
+    "node": "v24.11.1"
+  },
+  "topology": {
+    "apiProcesses": 2,
+    "apiPoolEach": 10,
+    "restaurants": 120,
+    "sockets": 120,
+    "database": "disposable PostgreSQL, runtime NOSUPERUSER/NOBYPASSRLS"
+  },
+  "profile": {
+    "seconds": 60,
+    "ordersPerRestaurantPerMinute": 5,
+    "targetOrders": 600,
+    "targetReads": 1200,
+    "basket": "1 product, pickup paid cash by admin; no external provider"
+  },
+  "results": {
+    "durationMs": 59966,
+    "orders": 600,
+    "reads": 1200,
+    "uniqueOrders": 600,
+    "eventOrders": 600,
+    "orderP95Ms": 57,
+    "orderP99Ms": 87,
+    "readP95Ms": 28,
+    "eventP95Ms": 288,
+    "dispatchLagP95Ms": 1,
+    "errors": [],
+    "errorCount": 0
+  },
+  "limitations": "Local synthetic benchmark. Does not certify production sizing, long-duration soak, payment providers, print hardware or backup recovery."
+}

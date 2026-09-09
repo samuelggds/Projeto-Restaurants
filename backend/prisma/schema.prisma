@@ -1937,6 +1937,42 @@ enum InvoiceStatus {
   CANCELADO
 }
 
+model RuntimeRateLimit {
+  key       String   @id @db.VarChar(160)
+  totalHits Int
+  resetTime DateTime @db.Timestamptz(3)
+
+  @@index([resetTime])
+}
+
+model RuntimeRealtimeEvent {
+  id        BigInt   @id @default(autoincrement())
+  sourceId  String   @db.Uuid
+  room      String?  @db.VarChar(200)
+  event     String   @db.VarChar(120)
+  payload   Json
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+
+  @@index([createdAt])
+}
+
+model NotificationOutbox {
+  id               String   @id @db.Uuid
+  deduplicationKey String   @unique @db.VarChar(64)
+  restaurantId     Int
+  status           String   @default("PENDING") @db.VarChar(16)
+  payload          String?
+  attempts         Int      @default(0)
+  availableAt      DateTime @default(now()) @db.Timestamptz(3)
+  lockedUntil      DateTime? @db.Timestamptz(3)
+  lockToken        String?   @db.Uuid
+  createdAt        DateTime @default(now()) @db.Timestamptz(3)
+  completedAt      DateTime? @db.Timestamptz(3)
+
+  @@index([status, availableAt])
+  @@index([createdAt])
+}
+
 enum DeliveryFeeMode {
   FIXED
   DISTANCE

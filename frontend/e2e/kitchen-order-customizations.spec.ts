@@ -1,3 +1,4 @@
+import { orderFixtureResponse } from './helpers/orderFixtures';
 import { expect, test, type Page, type Route } from '@playwright/test';
 import { mockAuthRefresh } from './helpers/mockAuthRefresh';
 import { captureReadmeScreenshot } from './helpers/readmeScreenshot';
@@ -339,6 +340,10 @@ async function mockKitchenApi(page: Page, state: KitchenE2EState) {
     if (pathname === '/orders' && method === 'GET') {
       state.orderRequests += 1;
       state.orderRequestTokens.push(token);
+      // Fault injection targets the active operational request, not its independent history refresh.
+      if (new URL(request.url()).searchParams.get('queue') === 'HISTORY') {
+        return json(route, orderFixtureResponse(request.url(), state.orders.filter((order) => order.restaurantId === RESTAURANT_ID), false));
+      }
 
       if (state.holdNextOrdersRequest) {
         state.holdNextOrdersRequest = false;
@@ -353,9 +358,7 @@ async function mockKitchenApi(page: Page, state: KitchenE2EState) {
         return json(route, { error: 'Falha simulada ao carregar a cozinha.' }, 503);
       }
 
-      return json(route, {
-        orders: state.orders.filter((order) => order.restaurantId === RESTAURANT_ID),
-      });
+      return json(route, orderFixtureResponse(request.url(), state.orders.filter((order) => order.restaurantId === RESTAURANT_ID)));
     }
 
     const reprintRequest = pathname.match(/^\/kitchen-printing\/orders\/(\d+)\/reprint$/);

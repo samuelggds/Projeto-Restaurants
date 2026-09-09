@@ -303,8 +303,13 @@ export const ProductCard = styled.article`
     outline: 3px solid var(--home-primary);
     outline-offset: -4px;
   }
-  .product-main-action:disabled { cursor: not-allowed; }
-  footer button { position: relative; z-index: 2; }
+  .product-main-action:disabled {
+    cursor: not-allowed;
+  }
+  footer button {
+    position: relative;
+    z-index: 2;
+  }
   min-width: 0;
   cursor: pointer;
   content-visibility: auto;
@@ -650,7 +655,9 @@ export const ProductModal = styled.div<{ $open: boolean; $primary: string }>`
   }
 `;
 export const ImageWrap = styled.div`
-  button { z-index: 2; }
+  button {
+    z-index: 2;
+  }
   height: 168px;
   min-height: 0;
   position: relative;
@@ -768,9 +775,12 @@ export const FloatingActions = styled.div<{ $aboveNudge: boolean; $primary: stri
   position: fixed;
   z-index: 59;
   right: 24px;
-  bottom: 24px;
+  bottom: ${({ $aboveNudge }) => ($aboveNudge ? '90px' : '24px')};
   width: min-content;
   max-width: calc(100vw - 32px);
+  max-height: min(70dvh, 580px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
   display: flex;
   flex-direction: column;
   align-items: flex-end;
