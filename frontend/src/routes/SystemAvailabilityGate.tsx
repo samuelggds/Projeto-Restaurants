@@ -39,11 +39,6 @@ export default function SystemAvailabilityGate({ children }: { children: ReactNo
   }, []);
 
   const checkPlatformStatus = useCallback(async () => {
-    if (isMarketingPath) {
-      setInitialStatusPending(false);
-      return;
-    }
-
     try {
       const response = await api.get<PlatformStatus>(PLATFORM_STATUS_PATH, {
         headers: { 'Cache-Control': 'no-cache' },
@@ -70,7 +65,7 @@ export default function SystemAvailabilityGate({ children }: { children: ReactNo
       setInitialStatusPending(false);
       syncStoredStates();
     }
-  }, [isMarketingPath, location.hash, location.pathname, location.search, syncStoredStates]);
+  }, [location.hash, location.pathname, location.search, syncStoredStates]);
 
   useEffect(() => {
     const unsubscribeMaintenance = subscribePlatformMaintenanceState(syncStoredStates);
@@ -82,9 +77,9 @@ export default function SystemAvailabilityGate({ children }: { children: ReactNo
   }, [syncStoredStates]);
 
   useEffect(() => {
-    void checkPlatformStatus();
     if (isMarketingPath) return undefined;
 
+    void checkPlatformStatus();
     const timer = window.setInterval(() => void checkPlatformStatus(), STATUS_POLL_INTERVAL_MS);
     const onFocus = () => void checkPlatformStatus();
     const onVisibilityChange = () => {
