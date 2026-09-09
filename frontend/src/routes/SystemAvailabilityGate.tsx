@@ -21,10 +21,12 @@ import BillingRestrictedAdmin from '../pages/admin/restricted/BillingRestrictedA
 import { resolveAvailabilityView } from './availabilityPolicy';
 
 const STATUS_POLL_INTERVAL_MS = 15_000;
+const MARKETING_PATHS = new Set(['/', '/demonstracao']);
 
 export default function SystemAvailabilityGate({ children }: { children: ReactNode }) {
   const { user } = useAuth();
   const location = useLocation();
+  const isMarketingPath = MARKETING_PATHS.has(location.pathname);
   const [maintenanceState, setMaintenanceState] = useState(() => getPlatformMaintenanceState());
   const [blockState, setBlockState] = useState(() => getSystemBlockState());
   const [initialStatusPending, setInitialStatusPending] = useState(
@@ -37,6 +39,11 @@ export default function SystemAvailabilityGate({ children }: { children: ReactNo
   }, []);
 
   const checkPlatformStatus = useCallback(async () => {
+    if (isMarketingPath) {
+      setInitialStatusPending(false);
+      return;
+    }
+
     try {
       const response = await api.get<PlatformStatus>(PLATFORM_STATUS_PATH, {
         headers: { 'Cache-Control': 'no-cache' },
@@ -63,7 +70,7 @@ export default function SystemAvailabilityGate({ children }: { children: ReactNo
       setInitialStatusPending(false);
       syncStoredStates();
     }
-  }, [location.hash, location.pathname, location.search, syncStoredStates]);
+  }, [isMarketingPath, location.hash, location.pathname, location.search, syncStoredStates]);
 
   useEffect(() => {
     const unsubscribeMaintenance = subscribePlatformMaintenanceState(syncStoredStates);
@@ -76,6 +83,8 @@ export default function SystemAvailabilityGate({ children }: { children: ReactNo
 
   useEffect(() => {
     void checkPlatformStatus();
+    if (isMarketingPath) return undefined;
+
     const timer = window.setInterval(() => void checkPlatformStatus(), STATUS_POLL_INTERVAL_MS);
     const onFocus = () => void checkPlatformStatus();
     const onVisibilityChange = () => {
@@ -88,13 +97,15 @@ export default function SystemAvailabilityGate({ children }: { children: ReactNo
       window.removeEventListener('focus', onFocus);
       document.removeEventListener('visibilitychange', onVisibilityChange);
     };
-  }, [checkPlatformStatus]);
+  }, [checkPlatformStatus, isMarketingPath]);
 
   useEffect(() => {
+    if (isMarketingPath) return undefined;
+
     const restaurantId = Number(
       blockState?.restaurantId || user?.restaurantId || user?.restaurant?.id || 0,
     );
-    if (!blockState || !Number.isInteger(restaurantId) || restaurantId <= 0) return;
+    if (!blockState || !Number.isInteger(restaurantId) || restaurantId <= 0) return undefined;
 
     const checkRestaurantAvailability = async () => {
       try {
@@ -111,7 +122,9 @@ export default function SystemAvailabilityGate({ children }: { children: ReactNo
     void checkRestaurantAvailability();
     const timer = window.setInterval(() => void checkRestaurantAvailability(), 12_000);
     return () => window.clearInterval(timer);
-  }, [blockState, user?.restaurant?.id, user?.restaurantId]);
+  }, [blockState, isMarketingPath, user?.restaurant?.id, user?.restaurantId]);
+
+  if (isMarketingPath) return children;
 
   const role = String(user?.role || '').toUpperCase();
   const view = resolveAvailabilityView({
