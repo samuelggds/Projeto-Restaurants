@@ -16,17 +16,17 @@ import {
   subscribeSystemBlockState,
 } from '../Services/systemBlock';
 import { useAuth } from '../contexts/authContext';
+import { isMarketingPath } from '../pages/Marketing/marketingPaths';
 import SystemMaintenancePage from '../pages/SystemMaintenance/SystemMaintenance';
 import BillingRestrictedAdmin from '../pages/admin/restricted/BillingRestrictedAdmin';
 import { resolveAvailabilityView } from './availabilityPolicy';
 
 const STATUS_POLL_INTERVAL_MS = 15_000;
-const MARKETING_PATHS = new Set(['/', '/demonstracao']);
 
 export default function SystemAvailabilityGate({ children }: { children: ReactNode }) {
   const { user } = useAuth();
   const location = useLocation();
-  const isMarketingPath = MARKETING_PATHS.has(location.pathname);
+  const marketingPath = isMarketingPath(location.pathname);
   const [maintenanceState, setMaintenanceState] = useState(() => getPlatformMaintenanceState());
   const [blockState, setBlockState] = useState(() => getSystemBlockState());
   const [initialStatusPending, setInitialStatusPending] = useState(
@@ -77,7 +77,7 @@ export default function SystemAvailabilityGate({ children }: { children: ReactNo
   }, [syncStoredStates]);
 
   useEffect(() => {
-    if (isMarketingPath) return undefined;
+    if (marketingPath) return undefined;
 
     void checkPlatformStatus();
     const timer = window.setInterval(() => void checkPlatformStatus(), STATUS_POLL_INTERVAL_MS);
@@ -92,10 +92,10 @@ export default function SystemAvailabilityGate({ children }: { children: ReactNo
       window.removeEventListener('focus', onFocus);
       document.removeEventListener('visibilitychange', onVisibilityChange);
     };
-  }, [checkPlatformStatus, isMarketingPath]);
+  }, [checkPlatformStatus, marketingPath]);
 
   useEffect(() => {
-    if (isMarketingPath) return undefined;
+    if (marketingPath) return undefined;
 
     const restaurantId = Number(
       blockState?.restaurantId || user?.restaurantId || user?.restaurant?.id || 0,
@@ -117,9 +117,9 @@ export default function SystemAvailabilityGate({ children }: { children: ReactNo
     void checkRestaurantAvailability();
     const timer = window.setInterval(() => void checkRestaurantAvailability(), 12_000);
     return () => window.clearInterval(timer);
-  }, [blockState, isMarketingPath, user?.restaurant?.id, user?.restaurantId]);
+  }, [blockState, marketingPath, user?.restaurant?.id, user?.restaurantId]);
 
-  if (isMarketingPath) return children;
+  if (marketingPath) return children;
 
   const role = String(user?.role || '').toUpperCase();
   const view = resolveAvailabilityView({
