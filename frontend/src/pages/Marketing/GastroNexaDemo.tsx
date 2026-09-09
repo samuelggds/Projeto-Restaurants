@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import {
   ArrowLeft,
   BarChart3,
@@ -66,12 +67,12 @@ export default function GastroNexaDemo() {
     <S.DemoPage>
       <S.Header>
         <S.HeaderInner>
-          <S.Brand href="/" aria-label="Voltar para GastroNexa">
+          <S.Brand as={Link} to="/" aria-label="Voltar para GastroNexa">
             <span aria-hidden="true">G</span>
             <span>GastroNexa</span>
           </S.Brand>
           <S.HeaderActions>
-            <S.Button href="/" $secondary $compact>
+            <S.Button as={Link} to="/" $secondary $compact>
               <ArrowLeft size={16} /> Voltar ao site
             </S.Button>
             <S.Button href={salesHref} $compact>
