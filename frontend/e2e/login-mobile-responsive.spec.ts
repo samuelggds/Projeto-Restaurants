@@ -16,7 +16,7 @@ const MOBILE_VIEWPORTS = [
 ];
 
 async function mockLoginBranding(page) {
-  await page.route('**/settings/public/default**', async (route) => {
+  await page.route('**/settings/public/slug/north-pizza**', async (route) => {
     await route.fulfill({
       status: 200,
       contentType: 'application/json',
@@ -74,7 +74,7 @@ async function mockLoginBranding(page) {
 test('login desktop preserva identidade e hierarquia visual', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 960 });
   await mockLoginBranding(page);
-  await page.goto('/login');
+  await page.goto('/north-pizza/login');
 
   await expect(page.getByTestId('login-cover')).toBeVisible();
   await expect(page.getByTestId('login-card')).toBeVisible();
@@ -105,7 +105,7 @@ for (const viewport of MOBILE_VIEWPORTS) {
   test(`login mobile responsivo em ${viewport.name}`, async ({ page }) => {
     await page.setViewportSize({ width: viewport.width, height: viewport.height });
     await mockLoginBranding(page);
-    await page.goto('/login');
+    await page.goto('/north-pizza/login');
 
     const layout = page.getByTestId('login-layout');
     const cover = page.getByTestId('login-cover');
