@@ -9,6 +9,7 @@ import {
 } from '../../config/browserBranding';
 import { normalizeRestaurantCategory } from '../../config/restaurantCategory';
 import { mapLoginBranding } from '../../pages/Login/domain/loginBranding';
+import { isMarketingPath } from '../../pages/Marketing/marketingPaths';
 import { persistTenantSlug } from '../../shared/navigation/tenantRouteContext';
 
 const RESERVED_ROUTE_SEGMENTS = new Set([
@@ -16,17 +17,25 @@ const RESERVED_ROUTE_SEGMENTS = new Set([
   'attendant',
   'billing',
   'change-password',
+  'contato',
   'courier',
+  'demonstracao',
   'kitchen',
   'login',
   'mesa',
   'orders',
+  'planos',
+  'privacidade',
   'profile',
   'recover-password',
+  'recursos',
   'register',
+  'suporte',
   'super_admin',
   'system-blocked',
   'system-maintenance',
+  'team',
+  'termos',
   'waiter',
 ]);
 
@@ -63,8 +72,6 @@ function readSessionUser(): RestaurantIdentitySource {
 }
 
 function readStoredRestaurantIdentity(authUser: RestaurantIdentitySource): StoredRestaurantIdentity {
-  // A identidade autenticada é a fonte principal. O snapshot de sessionStorage
-  // existe apenas durante a sessão atual e nunca é lido do localStorage.
   const user = authUser || readSessionUser() || {};
   const restaurant =
     user.restaurant && typeof user.restaurant === 'object' ? user.restaurant : {};
@@ -117,6 +124,19 @@ function restaurantReferenceFromLocation(pathname: string, search: string) {
   return { slug: '', id: explicitId };
 }
 
+function applyMarketingBrowserBranding(pathname: string) {
+  document.title =
+    pathname === '/demonstracao'
+      ? 'Demonstração | GastroNexa'
+      : 'GastroNexa | Gestão completa para restaurantes';
+
+  const favicon = document.querySelector<HTMLLinkElement>('link[rel~="icon"]');
+  if (favicon) {
+    favicon.type = 'image/svg+xml';
+    favicon.href = '/favicon.svg';
+  }
+}
+
 export default function BrowserTabBranding() {
   const location = useLocation();
   const { user, isLoading: isAuthLoading } = useAuth();
@@ -127,6 +147,11 @@ export default function BrowserTabBranding() {
     let active = true;
 
     const refresh = async () => {
+      if (isMarketingPath(location.pathname)) {
+        applyMarketingBrowserBranding(location.pathname);
+        return;
+      }
+
       if (location.pathname.startsWith('/super_admin')) {
         applyRestaurantBrowserBranding(document, 'Peça Já', 'RESTAURANTE');
         return;
@@ -139,9 +164,6 @@ export default function BrowserTabBranding() {
       if (routeReference.slug) persistTenantSlug(routeReference.slug);
       const restaurantId = routeReference.id || stored.id;
 
-      // Rotas reservadas sem um tenant resolvido (ex.: rastreamento público antes
-      // da resposta do pedido) não podem cair em um restaurante "default". Isso
-      // evita consulta cross-tenant e mantém o branding neutro até o tenant existir.
       if (!routeReference.slug && !restaurantId) return;
 
       try {
