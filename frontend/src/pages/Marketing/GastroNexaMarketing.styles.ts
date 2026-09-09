@@ -46,7 +46,7 @@ export const Container = styled.div`
   margin: 0 auto;
 
   @media (max-width: 640px) {
-    width: min(100% - 28px, 1180px);
+    width: min(calc(100% - 28px), 1180px);
   }
 `;
 
