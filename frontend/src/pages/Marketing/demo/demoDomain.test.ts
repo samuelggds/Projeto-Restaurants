@@ -5,51 +5,42 @@ import {
   authenticateDemoAccount,
   createDemoOrder,
   createInitialDemoState,
-  registerDemoAccount,
   toggleDemoOrderPaid,
   updateDemoCallStatus,
   updateDemoOrderStatus,
 } from './demoDomain';
 
 describe('demoDomain', () => {
-  it('expõe somente os seis perfis permitidos na demonstração, sem SUPER_ADMIN', () => {
+  it('carrega exatamente os seis perfis preparados para a demonstração', () => {
     const state = createInitialDemoState(1_700_000_000_000);
     const roles = state.accounts.map((account) => account.role).sort();
 
     expect(roles).toEqual(
       ['ADMIN', 'ATENDENTE', 'CLIENTE', 'COZINHA', 'GARCOM', 'MOTOQUEIRO'].sort(),
     );
-    expect(roles).not.toContain('SUPER_ADMIN');
+    expect(state.accounts).toHaveLength(6);
   });
 
-  it('entra com os seis perfis demonstrativos usando a senha padrão', () => {
+  it('entra em todas as contas preparadas usando a senha padrão', () => {
     const state = createInitialDemoState(1_700_000_000_000);
-    expect(state.accounts).toHaveLength(6);
 
     for (const account of state.accounts) {
       const result = authenticateDemoAccount(state, account.email, DEMO_DEFAULT_PASSWORD);
       expect(result.account.role).toBe(account.role);
       expect(result.state.sessionAccountId).toBe(account.id);
+      expect(account.passwordFingerprint).not.toBe(DEMO_DEFAULT_PASSWORD);
     }
   });
 
-  it('cria uma conta isolada e não armazena a senha em texto puro', () => {
+  it('mantém endereços de demonstração previsíveis para os três portais', () => {
     const state = createInitialDemoState(1_700_000_000_000);
-    const result = registerDemoAccount(
-      state,
-      {
-        name: 'Samuel Demo',
-        email: 'samuel@example.com',
-        password: 'senha123',
-        role: 'ADMIN',
-      },
-      1_700_000_000_100,
+    expect(state.accounts.find((account) => account.role === 'CLIENTE')?.email).toBe(
+      'cliente@demo.gastronexa.com.br',
     );
-
-    expect(result.account.email).toBe('samuel@example.com');
-    expect(result.account.role).toBe('ADMIN');
-    expect(result.account.passwordFingerprint).not.toBe('senha123');
-    expect(result.state.sessionAccountId).toBe(result.account.id);
+    expect(state.accounts.find((account) => account.role === 'ADMIN')?.email).toBe(
+      'admin@demo.gastronexa.com.br',
+    );
+    expect(state.accounts.filter((account) => ['ATENDENTE', 'GARCOM', 'COZINHA', 'MOTOQUEIRO'].includes(account.role))).toHaveLength(4);
   });
 
   it('leva o mesmo pedido do cliente até cozinha e entrega', () => {
