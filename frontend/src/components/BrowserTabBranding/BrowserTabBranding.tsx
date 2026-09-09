@@ -9,6 +9,7 @@ import {
 } from '../../config/browserBranding';
 import { normalizeRestaurantCategory } from '../../config/restaurantCategory';
 import { mapLoginBranding } from '../../pages/Login/domain/loginBranding';
+import { isMarketingPath } from '../../pages/Marketing/marketingPaths';
 import { persistTenantSlug } from '../../shared/navigation/tenantRouteContext';
 
 const RESERVED_ROUTE_SEGMENTS = new Set([
@@ -37,8 +38,6 @@ const RESERVED_ROUTE_SEGMENTS = new Set([
   'termos',
   'waiter',
 ]);
-
-const MARKETING_PATHS = new Set(['/', '/demonstracao']);
 
 type RestaurantIdentitySource = {
   restaurantId?: unknown;
@@ -73,8 +72,6 @@ function readSessionUser(): RestaurantIdentitySource {
 }
 
 function readStoredRestaurantIdentity(authUser: RestaurantIdentitySource): StoredRestaurantIdentity {
-  // A identidade autenticada é a fonte principal. O snapshot de sessionStorage
-  // existe apenas durante a sessão atual e nunca é lido do localStorage.
   const user = authUser || readSessionUser() || {};
   const restaurant =
     user.restaurant && typeof user.restaurant === 'object' ? user.restaurant : {};
@@ -150,7 +147,7 @@ export default function BrowserTabBranding() {
     let active = true;
 
     const refresh = async () => {
-      if (MARKETING_PATHS.has(location.pathname)) {
+      if (isMarketingPath(location.pathname)) {
         applyMarketingBrowserBranding(location.pathname);
         return;
       }
@@ -167,9 +164,6 @@ export default function BrowserTabBranding() {
       if (routeReference.slug) persistTenantSlug(routeReference.slug);
       const restaurantId = routeReference.id || stored.id;
 
-      // Rotas reservadas sem um tenant resolvido (ex.: rastreamento público antes
-      // da resposta do pedido) não podem cair em um restaurante "default". Isso
-      // evita consulta cross-tenant e mantém o branding neutro até o tenant existir.
       if (!routeReference.slug && !restaurantId) return;
 
       try {
