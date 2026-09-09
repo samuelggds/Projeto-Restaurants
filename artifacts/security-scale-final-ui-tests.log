@@ -1,0 +1,12 @@
+
+> frontend@0.0.0 test
+> vitest run --maxWorkers=1 src/Services/ordersService.uncertain.test.ts src/features/order-support/PublicGuestOrderHelp.test.tsx src/pages/Home/hooks/useCheckoutPayments.flow.test.tsx src/pages/Courier/CourierWorkspace.test.tsx
+
+
+ RUN  v4.1.10 C:/Users/Samuel/Documents/Codex/RESTAURANT-DELIVERY-MESA/pizza-ia-delivery/frontend
+
+
+ Test Files  4 passed (4)
+      Tests  28 passed (28)
+   Start at  05:29:15
+   Duration  8.48s (transform 342ms, setup 0ms, import 966ms, tests 3.35s, environment 3.31s)

@@ -1,6 +1,8 @@
 import express from 'express';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
+import { distributedRateLimitOptions } from './middlewares/security/PostgresRateLimitStore.js';
+import { runtimeRealtimeReady } from './runtime/runtimeReadiness.js';
 
 import routes from './routes/index.js';
 import billingRoutes from './modules/billing/routes/BillingRoutes.js';
@@ -17,6 +19,7 @@ import {
 const app = express();
 
 const authRateLimit = rateLimit({
+  ...distributedRateLimitOptions('auth-global'),
   windowMs: Number(process.env.AUTH_RATE_LIMIT_WINDOW_MS || 15 * 60 * 1000),
   max: Number(process.env.AUTH_RATE_LIMIT_MAX_REQUESTS || 50),
   standardHeaders: true,
@@ -47,14 +50,25 @@ app.get('/health', (_req, res) => {
 
 app.get('/ready', async (_req, res) => {
   const database = await probeDatabaseReadiness();
-  return res.status(database.ready ? 200 : 503).json({
-    status: database.ready ? 'ready' : 'unavailable',
+  const realtimeReady = runtimeRealtimeReady();
+  return res.status(database.ready && realtimeReady ? 200 : 503).json({
+    status: database.ready && realtimeReady ? 'ready' : 'unavailable',
     database: database.ready ? 'ok' : 'unavailable',
+    realtime: realtimeReady ? 'ok' : 'unavailable',
     timestamp: new Date().toISOString(),
   });
 });
 
 applyCorsAndGlobalRateLimit(app);
+
+app.use((_req, res, next) => {
+  if (!runtimeRealtimeReady()) {
+    return res
+      .status(503)
+      .json({ error: 'Serviço temporariamente indisponível. Tente novamente.' });
+  }
+  return next();
+});
 
 // Disponibilidade pública e sem dados sensíveis para que clientes já abertos
 // troquem imediatamente para a tela de manutenção.

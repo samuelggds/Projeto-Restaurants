@@ -6,7 +6,9 @@ export class PaymentCreationUncertainError extends Error {
     readonly orderId: number,
     readonly orderPublicId: string,
   ) {
-    super('Não foi possível confirmar a criação do pagamento. O pedido foi preservado para conciliação. Consulte este pedido antes de tentar um novo pagamento.');
+    super(
+      'Não foi possível confirmar a criação do pagamento. O pedido foi preservado para conciliação. Consulte este pedido antes de tentar um novo pagamento.',
+    );
     this.name = 'PaymentCreationUncertainError';
   }
 }

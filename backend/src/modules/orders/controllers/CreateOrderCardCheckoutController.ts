@@ -3,6 +3,8 @@ import createOrderCardCheckoutService from '../services/CreateOrderCardCheckoutS
 import { issueGuestOrderTrackingToken } from '../utils/guestOrderTrackingToken.js';
 import { issueGuestOrderOwnershipToken } from '../utils/guestOrderOwnershipToken.js';
 import { PaymentCreationUncertainError } from '../services/PaymentCreationUncertainError.js';
+import { orderCreationContext } from '../services/orderCreationRequest.js';
+import { OrderRequestError } from '../domain/OrderRequestError.js';
 
 class CreateOrderCardCheckoutController {
   async handle(req: Request, res: Response) {
@@ -36,6 +38,7 @@ class CreateOrderCardCheckoutController {
       const userRestaurantId = req.user?.restaurantId ?? req.tableSession?.restaurantId ?? null;
 
       const result = await createOrderCardCheckoutService.execute({
+        creationRequest: orderCreationContext(req, 'card'),
         userId,
         restaurantId,
         userRestaurantId,
@@ -67,8 +70,7 @@ class CreateOrderCardCheckoutController {
       });
 
       const isGuestOrder = req.user?.isGuest === true;
-      const isGuestDelivery =
-        isGuestOrder && String(type || '').toUpperCase() === 'DELIVERY';
+      const isGuestDelivery = isGuestOrder && String(type || '').toUpperCase() === 'DELIVERY';
       const guestTrackingToken = isGuestDelivery
         ? issueGuestOrderTrackingToken({
             orderId: Number(result.orderId),
@@ -88,6 +90,11 @@ class CreateOrderCardCheckoutController {
         ...(guestOwnershipToken ? { guestOwnershipToken } : {}),
       });
     } catch (error: unknown) {
+      if (error instanceof OrderRequestError) {
+        return res
+          .status(error.statusCode)
+          .json({ error: error.message, code: error.code, requestId: req.requestId });
+      }
       if (error instanceof PaymentCreationUncertainError) {
         return res.status(error.statusCode).json({
           error: error.message,
@@ -95,12 +102,22 @@ class CreateOrderCardCheckoutController {
           orderId: error.orderId,
           orderPublicId: error.orderPublicId,
           reconciliationRequired: true,
-          ...(req.user?.isGuest ? {
-            guestOwnershipToken: issueGuestOrderOwnershipToken({ orderId: error.orderId, publicId: error.orderPublicId }),
-            ...(String(req.body?.type).toUpperCase() === 'DELIVERY' ? {
-              guestTrackingToken: issueGuestOrderTrackingToken({ orderId: error.orderId, publicId: error.orderPublicId }),
-            } : {}),
-          } : {}),
+          ...(req.user?.isGuest
+            ? {
+                guestOwnershipToken: issueGuestOrderOwnershipToken({
+                  orderId: error.orderId,
+                  publicId: error.orderPublicId,
+                }),
+                ...(String(req.body?.type).toUpperCase() === 'DELIVERY'
+                  ? {
+                      guestTrackingToken: issueGuestOrderTrackingToken({
+                        orderId: error.orderId,
+                        publicId: error.orderPublicId,
+                      }),
+                    }
+                  : {}),
+              }
+            : {}),
         });
       }
       return res.status(400).json({

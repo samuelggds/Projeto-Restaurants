@@ -4,6 +4,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { AdminOrder, Employee } from '../types';
 import { AdminCustomers } from './AdminCustomers';
 import { EmployeeList } from './EmployeeList';
+const mocks = vi.hoisted(() => ({ customers: vi.fn() }));
+vi.mock('../../../Services/ordersService', () => ({ default: { getCustomers: mocks.customers } }));
 
 (globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT =
   true;
@@ -30,6 +32,8 @@ describe('diretórios administrativos de pessoas', () => {
   let root: Root;
 
   beforeEach(() => {
+    vi.clearAllMocks();
+    vi.useFakeTimers();
     container = document.createElement('div');
     document.body.appendChild(container);
     root = createRoot(container);
@@ -38,9 +42,10 @@ describe('diretórios administrativos de pessoas', () => {
   afterEach(() => {
     act(() => root.unmount());
     container.remove();
+    vi.useRealTimers();
   });
 
-  it('resume, ordena e filtra clientes pelo histórico de pedidos', () => {
+  it('usa totais agregados e envia busca e ordenação para o servidor', async () => {
     const orders: AdminOrder[] = [
       {
         id: '#1',
@@ -71,7 +76,17 @@ describe('diretórios administrativos de pessoas', () => {
       },
     ];
 
-    act(() => root.render(<AdminCustomers orders={orders} money={(value) => `R$ ${value},00`} />));
+    const customers = [
+      { key: 'b', name: 'Bruno Alves', email: 'bruno@teste.com', count: 1, total: 80 },
+      { key: 'a', name: 'Ana Lima', email: 'ana@teste.com', count: 2, total: 50 },
+    ];
+    mocks.customers.mockImplementation(async ({ search, sort }) => {
+      const filtered = customers.filter((customer) => !search || customer.email.includes(search));
+      return { customers: sort === 'NAME' ? [...filtered].reverse() : filtered, total: filtered.length,
+        hasMore: false, nextOffset: null, summary: { customers: 2, returningCustomers: 1, totalOrders: 3, totalMoved: 130 } };
+    });
+    act(() => root.render(<AdminCustomers orders={orders.slice(0, 1)} money={(value) => `R$ ${value},00`} />));
+    await act(async () => vi.advanceTimersByTimeAsync(250));
 
     expect(container.textContent).toContain('1 cliente recorrente');
     expect(container.textContent).toContain('R$ 130,00');
@@ -83,6 +98,8 @@ describe('diretórios administrativos de pessoas', () => {
       '[aria-label="Buscar cliente por nome ou e-mail"]',
     ) as HTMLInputElement;
     act(() => changeInput(search, 'ana@teste.com'));
+    await act(async () => vi.advanceTimersByTimeAsync(250));
+    expect(mocks.customers).toHaveBeenLastCalledWith({ limit: 12, search: 'ana@teste.com', sort: 'VALUE' });
 
     const filteredRows = container.querySelectorAll('[aria-label="Lista de clientes"] article');
     expect(filteredRows).toHaveLength(1);

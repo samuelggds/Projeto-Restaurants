@@ -5,6 +5,7 @@ import loyaltyRedemptionExpirationJob from '../modules/coupon/jobs/LoyaltyRedemp
 import deliveryLocationCleanupJob from '../modules/orders/jobs/DeliveryLocationCleanupJob.js';
 import tablePaymentReservationExpirationJob from '../modules/tableAccount/jobs/TablePaymentReservationExpirationJob.js';
 import type { JobDefinition } from './JobDefinition.js';
+import { drainNotificationOutbox } from '../services/notificationOutbox.js';
 
 type Environment = Record<string, string | undefined>;
 
@@ -37,6 +38,17 @@ export function createJobDefinitions(env: Environment = process.env): JobDefinit
   );
 
   return [
+    {
+      key: 'notifications.delivery',
+      description: 'Entrega recuperável de avisos por WhatsApp',
+      runtime: 'worker',
+      schedule: { kind: 'interval', intervalMs: 10_000 },
+      leaseDurationMs: 120_000,
+      successCooldownMs: 5_000,
+      failureBackoffMs: 10_000,
+      runOnStart: true,
+      execute: () => drainNotificationOutbox(),
+    },
     {
       key: 'audit.retention-cleanup',
       description: 'Remocao em lotes de logs de auditoria alem da retencao configurada',

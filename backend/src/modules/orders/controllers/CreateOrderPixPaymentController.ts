@@ -5,6 +5,8 @@ import { resolveOrderRestaurantId } from '../utils/orderTenant.js';
 import { issueGuestOrderTrackingToken } from '../utils/guestOrderTrackingToken.js';
 import { issueGuestOrderOwnershipToken } from '../utils/guestOrderOwnershipToken.js';
 import { PaymentCreationUncertainError } from '../services/PaymentCreationUncertainError.js';
+import { orderCreationContext } from '../services/orderCreationRequest.js';
+import { OrderRequestError } from '../domain/OrderRequestError.js';
 
 class CreateOrderPixPaymentController {
   async handle(req: Request, res: Response) {
@@ -38,6 +40,7 @@ class CreateOrderPixPaymentController {
         contextRestaurantId: userRestaurantId,
       });
       const order = await createOrderService.execute({
+        creationRequest: orderCreationContext(req, 'pix'),
         userId,
         restaurantId: resolvedRestaurantId,
         userRestaurantId,
@@ -89,7 +92,8 @@ class CreateOrderPixPaymentController {
         });
       } catch (error) {
         console.error('[PIX_PAYMENT_CREATION_UNCERTAIN]', {
-          orderId: order.id, restaurantId: resolvedRestaurantId,
+          orderId: order.id,
+          restaurantId: resolvedRestaurantId,
           errorType: error instanceof Error ? error.name : 'UnknownError',
         });
         throw new PaymentCreationUncertainError(order.id, order.publicId);
@@ -110,8 +114,7 @@ class CreateOrderPixPaymentController {
       }
 
       const isGuestOrder = req.user?.isGuest === true;
-      const isGuestDelivery =
-        isGuestOrder && String(order.type || '').toUpperCase() === 'DELIVERY';
+      const isGuestDelivery = isGuestOrder && String(order.type || '').toUpperCase() === 'DELIVERY';
       const guestTrackingToken = isGuestDelivery
         ? issueGuestOrderTrackingToken({
             orderId: Number(order.id),
@@ -133,6 +136,11 @@ class CreateOrderPixPaymentController {
         ...(guestOwnershipToken ? { guestOwnershipToken } : {}),
       });
     } catch (error: unknown) {
+      if (error instanceof OrderRequestError) {
+        return res
+          .status(error.statusCode)
+          .json({ error: error.message, code: error.code, requestId: req.requestId });
+      }
       if (error instanceof PaymentCreationUncertainError) {
         return res.status(error.statusCode).json({
           error: error.message,
@@ -140,12 +148,22 @@ class CreateOrderPixPaymentController {
           orderId: error.orderId,
           orderPublicId: error.orderPublicId,
           reconciliationRequired: true,
-          ...(req.user?.isGuest ? {
-            guestOwnershipToken: issueGuestOrderOwnershipToken({ orderId: error.orderId, publicId: error.orderPublicId }),
-            ...(String(req.body?.type).toUpperCase() === 'DELIVERY' ? {
-              guestTrackingToken: issueGuestOrderTrackingToken({ orderId: error.orderId, publicId: error.orderPublicId }),
-            } : {}),
-          } : {}),
+          ...(req.user?.isGuest
+            ? {
+                guestOwnershipToken: issueGuestOrderOwnershipToken({
+                  orderId: error.orderId,
+                  publicId: error.orderPublicId,
+                }),
+                ...(String(req.body?.type).toUpperCase() === 'DELIVERY'
+                  ? {
+                      guestTrackingToken: issueGuestOrderTrackingToken({
+                        orderId: error.orderId,
+                        publicId: error.orderPublicId,
+                      }),
+                    }
+                  : {}),
+              }
+            : {}),
         });
       }
       return res.status(400).json({

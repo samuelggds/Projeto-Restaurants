@@ -179,6 +179,10 @@ class OrderPixPaymentService {
   async fetchPagBankJson<T>(url: string, token: string, init: RequestInit = {}) {
     const response = await fetch(url, {
       ...init,
+      signal: init.signal
+        ? AbortSignal.any([init.signal, AbortSignal.timeout(15_000)])
+        : AbortSignal.timeout(15_000),
+      redirect: 'error',
       headers: {
         Authorization: `Bearer ${token}`,
         Accept: 'application/json',
@@ -253,6 +257,8 @@ class OrderPixPaymentService {
   ) {
     const response = await fetch(url, {
       method,
+      signal: AbortSignal.timeout(15_000),
+      redirect: 'error',
       headers: {
         'Content-Type': 'application/json',
         access_token: accessToken,
@@ -475,6 +481,13 @@ class OrderPixPaymentService {
 
     void pixProvider;
     const resolvedPixProvider = this.normalizePixProvider(settings?.pixProvider);
+    if (
+      idempotencyKey &&
+      pixProvider &&
+      this.normalizePixProvider(pixProvider) !== resolvedPixProvider
+    ) {
+      throw new Error('O provedor PIX mudou. Concilie a tentativa anterior antes de continuar.');
+    }
     const pixKey = String(settings?.pixKey || '').trim();
 
     if (!pixKey) {
@@ -536,7 +549,13 @@ class OrderPixPaymentService {
       throw new Error('Total do pedido inválido para gerar cobrança PIX.');
     }
 
-    const payerEmail = this.normalizeEmail(userEmail || (sourceOrderId ? `guest.pix.${normalizedRestaurantId}.${sourceOrderId}@pecaja.local` : null), normalizedRestaurantId);
+    const payerEmail = this.normalizeEmail(
+      userEmail ||
+        (sourceOrderId
+          ? `guest.pix.${normalizedRestaurantId}.${sourceOrderId}@pecaja.local`
+          : null),
+      normalizedRestaurantId,
+    );
     const payerName = String(customerName || 'Cliente').trim();
     const cpf = this.normalizeCpf(customerCpf);
     const normalizedSystemFee = Number(systemFee || 0);
@@ -588,11 +607,26 @@ class OrderPixPaymentService {
       ).trim();
       let qrCodeBase64: string | null = null;
       if (base64Url) {
-        const imageResponse = await fetch(base64Url, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        if (imageResponse.ok) {
-          qrCodeBase64 = (await imageResponse.text()).trim() || null;
+        // A remote link must not redirect the merchant token to another origin.
+        // The copy-and-paste PIX text remains usable when its optional image fails.
+        try {
+          const imageUrl = new URL(base64Url);
+          if (
+            imageUrl.origin === new URL(this.getPagBankBaseUrl()).origin &&
+            imageUrl.protocol === 'https:' &&
+            !imageUrl.username &&
+            !imageUrl.password
+          ) {
+            const imageResponse = await fetch(imageUrl, {
+              headers: { Authorization: `Bearer ${token}` },
+              signal: AbortSignal.timeout(5_000),
+              redirect: 'error',
+            });
+            if (imageResponse.ok) qrCodeBase64 = (await imageResponse.text()).trim() || null;
+            else await imageResponse.body?.cancel();
+          }
+        } catch {
+          /* Optional image: preserve the already-created PIX. */
         }
       }
       return {
@@ -614,25 +648,42 @@ class OrderPixPaymentService {
         const reference = `orderpix:${normalizedRestaurantId}:${sourceOrderId}`;
         // Asaas externalReference is a search filter, not an idempotency guarantee.
         // An empty search after a timeout must never authorize a second POST.
-        const found = await this.fetchAsaasJson<{ data?: AsaasPaymentPayload[]; hasMore?: boolean }>(
-          `${asaasBaseUrl}/v3/payments?externalReference=${encodeURIComponent(reference)}&limit=2`, accessToken,
+        const found = await this.fetchAsaasJson<{
+          data?: AsaasPaymentPayload[];
+          hasMore?: boolean;
+        }>(
+          `${asaasBaseUrl}/v3/payments?externalReference=${encodeURIComponent(reference)}&limit=2`,
+          accessToken,
         );
         const matches = found.responseBody?.data || [];
         const payment = matches[0];
-        if (!found.ok || found.responseBody?.hasMore || matches.length !== 1 ||
-          payment?.externalReference !== reference || Math.round(Number(payment?.value) * 100) !== Math.round(totalAmount * 100)) {
-          throw new Error('A cobrança PIX anterior ainda precisa de conciliação no Asaas. Nenhuma nova cobrança foi criada.');
+        if (
+          !found.ok ||
+          found.responseBody?.hasMore ||
+          matches.length !== 1 ||
+          payment?.externalReference !== reference ||
+          Math.round(Number(payment?.value) * 100) !== Math.round(totalAmount * 100)
+        ) {
+          throw new Error(
+            'A cobrança PIX anterior ainda precisa de conciliação no Asaas. Nenhuma nova cobrança foi criada.',
+          );
         }
         const paymentId = String(payment.id || '').trim();
         if (!paymentId) throw new Error('Cobrança Asaas sem identificador.');
         const qr = await this.fetchAsaasJson<AsaasPixQrCodePayload>(
-          `${asaasBaseUrl}/v3/payments/${encodeURIComponent(paymentId)}/pixQrCode`, accessToken,
+          `${asaasBaseUrl}/v3/payments/${encodeURIComponent(paymentId)}/pixQrCode`,
+          accessToken,
         );
-        if (!qr.ok || !qr.responseBody?.payload) throw new Error('O QR Code da cobrança existente ainda não está disponível.');
+        if (!qr.ok || !qr.responseBody?.payload)
+          throw new Error('O QR Code da cobrança existente ainda não está disponível.');
         return {
-          paymentId: this.normalizeAsaasPaymentId(paymentId), status: String(payment.status || 'PENDING'),
-          provider: resolvedPixProvider, totalAmount, qrCode: String(qr.responseBody.payload),
-          qrCodeBase64: qr.responseBody.encodedImage || null, requiresStatusCheck: true,
+          paymentId: this.normalizeAsaasPaymentId(paymentId),
+          status: String(payment.status || 'PENDING'),
+          provider: resolvedPixProvider,
+          totalAmount,
+          qrCode: String(qr.responseBody.payload),
+          qrCodeBase64: qr.responseBody.encodedImage || null,
+          requiresStatusCheck: true,
         };
       }
       const privateSettings =
@@ -832,7 +883,9 @@ class OrderPixPaymentService {
         );
 
         response = await paymentApi.create({
-          ...(idempotencyKey ? { requestOptions: { idempotencyKey: `${idempotencyKey}-nosplit` } } : {}),
+          ...(idempotencyKey
+            ? { requestOptions: { idempotencyKey: `${idempotencyKey}-nosplit` } }
+            : {}),
           body: baseBody,
         });
       }
@@ -1069,7 +1122,6 @@ class OrderPixPaymentService {
 
     await orderRepository.claimPixPaymentId(orderId, restaurantId, normalizedPaymentId);
   }
-
 }
 
 export default new OrderPixPaymentService();

@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
   listOrders: vi.fn(),
+  listPage: vi.fn(),
   claimDelivery: vi.fn(),
   updateStatus: vi.fn(),
   getFinance: vi.fn(),
@@ -42,6 +43,7 @@ vi.mock('../../contexts/authContext', () => ({
 vi.mock('../../Services/ordersService', () => ({
   default: {
     listRestaurantOrders: mocks.listOrders,
+    listRestaurantOrdersPage: mocks.listPage,
     claimDelivery: mocks.claimDelivery,
     updateStatus: mocks.updateStatus,
     getCourierFinance: mocks.getFinance,
@@ -50,6 +52,9 @@ vi.mock('../../Services/ordersService', () => ({
 }));
 vi.mock('../../Services/restaurantSettingsService', () => ({
   default: { getPublicSettings: mocks.getSettings },
+}));
+vi.mock('../../Services/deliveryChatService', () => ({
+  default: { courierInbox: vi.fn().mockResolvedValue([]) },
 }));
 vi.mock('../../Services/socketService', () => ({
   acquireSocket: () => ({ socket: mocks.socket, release: vi.fn() }),
@@ -143,6 +148,7 @@ describe('CourierWorkspace integration', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    mocks.listPage.mockResolvedValue({ orders: [], total: 0, hasMore: false, nextCursor: null });
     mocks.socket.connected = true;
     clearAuthSession();
     localStorage.clear();
@@ -269,6 +275,7 @@ describe('CourierWorkspace integration', () => {
     expect(mocks.updateStatus).toHaveBeenCalledWith(81, 'ENTREGUE', '1234');
     expect(mocks.clearWatch).toHaveBeenCalledWith(77);
     expect(localStorage.getItem('courier-location-tracking:44')).toBeNull();
+    expect(mocks.listPage).toHaveBeenLastCalledWith({ limit: 20, queue: 'DELIVERED' });
   });
 
   it('permite retirar sem GPS mesmo quando a permissão de localização é negada', async () => {
@@ -334,13 +341,11 @@ describe('CourierWorkspace integration', () => {
     expect(container.textContent).not.toContain('Pedido #83');
   });
 
-  it('mostra pedidos acumulados em blocos de 10 e permite voltar aos primeiros 10', async () => {
-    mocks.listOrders.mockResolvedValue(
-      Array.from({ length: 21 }, (_, index) => ({
-        ...deliveryOrder('ENTREGUE'),
-        id: 100 + index,
-      })),
-    );
+  it('mostra histórico recebido por página em blocos de 10 e permite voltar aos primeiros 10', async () => {
+    mocks.listOrders.mockResolvedValue([]);
+    mocks.listPage.mockResolvedValue({ orders: Array.from({ length: 21 }, (_, index) => ({
+      ...deliveryOrder('ENTREGUE'), id: 100 + index,
+    })), total: 21, hasMore: false, nextCursor: null });
 
     await act(async () => root.render(<CourierWorkspace />));
     await flushUntil(() => container.textContent?.includes('Pedidos aguardando você') === true);
@@ -392,6 +397,7 @@ describe('CourierWorkspace integration', () => {
     await act(async () => watchSuccess?.(geoPosition(-3.74, -38.54)));
     expect(mocks.socket.volatile.emit).not.toHaveBeenCalled();
 
+    mocks.listPage.mockResolvedValue({ orders: [], total: 0, hasMore: false, nextCursor: null });
     mocks.socket.connected = true;
     await act(async () => mocks.listeners.get('connect')?.());
     expect(mocks.socket.volatile.emit).toHaveBeenCalledTimes(1);

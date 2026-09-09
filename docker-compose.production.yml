@@ -3,6 +3,9 @@ x-runtime-environment: &production-backend-environment
   MP_WEBHOOK_SECRETS: ${MP_WEBHOOK_SECRETS:-}
   NODE_ENV: production
   PORT: 3000
+  DISTRIBUTED_STATE: ${DISTRIBUTED_STATE:-postgres}
+  API_REPLICA_COUNT: ${API_REPLICA_COUNT:-2}
+  DATABASE_CONNECTION_LIMIT: ${DATABASE_CONNECTION_LIMIT:-10}
   DATABASE_URL: ${DATABASE_URL:?Defina DATABASE_URL em .env.production}
   CREDENTIAL_ENCRYPTION_KEY: ${CREDENTIAL_ENCRYPTION_KEY:-}
   CREDENTIAL_ENCRYPTION_KEY_PREVIOUS: ${CREDENTIAL_ENCRYPTION_KEY_PREVIOUS:-}
@@ -278,6 +281,8 @@ services:
 
   backend:
     build: *production-backend-build
+    deploy:
+      replicas: ${API_REPLICA_COUNT:-2}
     restart: unless-stopped
     init: true
     environment: *production-backend-environment

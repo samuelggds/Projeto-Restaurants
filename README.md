@@ -696,7 +696,7 @@ O workflow [README Screenshots](.github/workflows/readme-screenshots.yml) execut
 
 # Roadmap técnico
 
-- [ ] Redis adapter e estratégia de sticky sessions para Socket.IO horizontal;
+- [x] Eventos e rate limit compartilhados entre APIs por PostgreSQL, com WebSocket e teste local de 120 restaurantes; veja [evidências e limites de escala](docs/security-and-scale-implementation.md);
 - [ ] contrato OpenAPI versionado;
 - [ ] catálogo formal dos eventos realtime;
 - [ ] tracing distribuído e métricas operacionais avançadas;

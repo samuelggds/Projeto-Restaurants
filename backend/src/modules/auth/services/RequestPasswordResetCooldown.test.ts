@@ -9,7 +9,7 @@ import { PASSWORD_RESET_CODE_TTL_MS } from '../security/passwordResetCooldown.js
 
 const now = new Date('2026-09-07T12:00:00.000Z');
 const safeResponse = {
-  message: 'Se os dados informados existirem, enviamos um codigo para redefinir a senha.',
+  message: 'Se os dados identificarem uma conta, enviamos um código para o e-mail cadastrado. Se o telefone estiver em mais de uma conta, informe o e-mail.',
 };
 type ResetUser = NonNullable<Awaited<ReturnType<typeof userRepository.findByEmail>>>;
 

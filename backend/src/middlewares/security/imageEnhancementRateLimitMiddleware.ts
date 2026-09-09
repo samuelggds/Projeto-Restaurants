@@ -1,3 +1,4 @@
+import { distributedRateLimitOptions } from './PostgresRateLimitStore.js';
 import type { Request } from 'express';
 import rateLimit, { ipKeyGenerator } from 'express-rate-limit';
 
@@ -9,6 +10,7 @@ function getImageEnhancementActorKey(req: Request) {
 }
 
 export const imageEnhancementRateLimitMiddleware = rateLimit({
+  ...distributedRateLimitOptions('imageenhancement:1'),
   windowMs: Number(process.env.IMAGE_ENHANCEMENT_RATE_LIMIT_WINDOW_MS || 15 * 60 * 1000),
   max: Number(process.env.IMAGE_ENHANCEMENT_RATE_LIMIT_MAX_REQUESTS || 5),
   standardHeaders: true,

@@ -17,7 +17,20 @@
 
 {$API_DOMAIN} {
 	encode zstd gzip
-	reverse_proxy backend:3000
+	reverse_proxy {
+		dynamic a backend 3000 {
+			refresh 5s
+			versions ipv4
+		}
+		lb_policy round_robin
+		fail_duration 10s
+		max_fails 2
+		unhealthy_status 503
+		transport http {
+			dial_timeout 3s
+			response_header_timeout 30s
+		}
+	}
 	header {
 		Strict-Transport-Security "max-age=31536000; includeSubDomains"
 		X-Content-Type-Options "nosniff"

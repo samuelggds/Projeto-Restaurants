@@ -1,3 +1,4 @@
+import { orderFixtureResponse } from './helpers/orderFixtures';
 import { expect, test, type Page, type Route } from '@playwright/test';
 import { mockAuthRefresh } from './helpers/mockAuthRefresh';
 import { captureReadmeScreenshot } from './helpers/readmeScreenshot';
@@ -341,7 +342,7 @@ async function mockWaiterAndTableApi(page: Page, state: WaiterE2EState) {
     }
 
     if (pathname === '/orders' && method === 'GET') {
-      return json(route, { orders: rawOrders(state) });
+      return json(route, orderFixtureResponse(request.url(), rawOrders(state), true));
     }
 
     const deliveredOrder = pathname.match(/^\/orders\/(\d+)\/status$/);

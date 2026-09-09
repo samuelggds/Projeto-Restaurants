@@ -1,3 +1,4 @@
+import { orderFixtureResponse } from './helpers/orderFixtures';
 import { expect, test, type Page, type Route, type TestInfo } from '@playwright/test';
 import { mockAuthRefresh } from './helpers/mockAuthRefresh';
 
@@ -454,8 +455,11 @@ async function mockRoleFlowApi(page: Page, state: FlowState) {
       );
     }
 
-    if (pathname === '/orders' && method === 'GET') {
-      return json(route, { orders: createdKitchenOrder(state) });
+    if (
+      ['/orders', '/orders/reports/overview', '/orders/reports/customers'].includes(pathname) &&
+      method === 'GET'
+    ) {
+      return json(route, orderFixtureResponse(request.url(), createdKitchenOrder(state)));
     }
 
     if (pathname === `/table-accounts/sessions/${TABLE_SESSION_PUBLIC_ID}` && method === 'GET') {
@@ -815,7 +819,7 @@ for (const onlineMethod of ['PIX', 'CARD'] as const) {
     const tableActions = page.getByRole('region', {
       name: `Mesa e atendimento da mesa ${TABLE_NUMBER}`,
     });
-    const tableActionsToggle = tableActions.getByTestId('table-service-actions-toggle');
+    const tableActionsToggle = page.getByTestId('floating-actions-control-table');
     await expect(tableActionsToggle).toHaveAttribute('aria-expanded', 'false');
     await tableActionsToggle.click();
     await expect(tableActionsToggle).toHaveAttribute('aria-expanded', 'true');

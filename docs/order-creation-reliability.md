@@ -2,7 +2,8 @@
 
 ## Contrato de criação
 
-O cliente atual envia `Idempotency-Key` em `POST /orders`. A chave possui 16–128
+O cliente atual envia `Idempotency-Key` em `POST /orders`, `POST /orders/pix/payment`
+e `POST /orders/card/checkout`. A chave possui 16–128
 caracteres alfanuméricos, hífen ou underscore. Para convidado sem autenticação,
 também envia `X-Order-Session`, uma identidade aleatória do navegador com pelo menos
 32 caracteres. Usuários autenticados e participantes de mesa usam o identificador
@@ -24,10 +25,17 @@ Os campos internos `creationRequestKey`, `creationActor` e `creationFingerprint`
 fazem parte da resposta de criação nem dos eventos publicados por esse fluxo.
 
 Clientes antigos sem header continuam aceitos, mas precisam adotar o contrato para
-obter essa garantia. Os endpoints de criação de checkout Pix/cartão e a operação do
-atendente ainda exigem extensão específica do protocolo: eles têm efeitos externos
-além de criar o pedido. Não se deve simplesmente repetir uma cobrança externa ao
-reaproveitar o pedido. Esta mudança protege o endpoint POST /orders.
+obter essa garantia. O fingerprint do checkout também inclui a operação PIX/cartão,
+impedindo reaproveitar a mesma chave para efeitos financeiros distintos.
+
+No checkout online, apenas a criação vencedora pode chamar o gateway. O reenvio
+recupera o pedido e retorna `PAYMENT_CREATION_UNCERTAIN` com seu ID e, quando
+aplicável, os tokens de acesso do visitante. Isso vale também quando o primeiro
+processo caiu após criar o pedido e antes de receber a resposta externa. O frontend
+preserva a chave em falhas de rede sem resposta; quando recebe a identificação do
+pedido pendente, conclui a tentativa e oferece consulta ao mesmo pedido. Não repete
+a cobrança nem reconstrói automaticamente o QR/URL anterior. Webhook, consulta ao
+provedor ou revisão operacional precisam esclarecer o estado financeiro.
 
 Conflitos Prisma P2034 são repetidos até quatro execuções da transação com espera
 crescente. Colisão no índice da tentativa também reinicia a transação. Outras falhas
@@ -60,3 +68,7 @@ Revise regras existentes antes de importar; não remova proteções mais fortes.
 
 A existência do JSON e do workflow não ativa a regra. A ativação e sua conferência
 exigem sessão administrativa autenticada no GitHub.
+
+Em 09/09/2026 a regra foi ativada e as quatro proteções foram verificadas na branch
+pela API administrativa: [ruleset 22624473](https://github.com/samuelggds/Projeto-Restaurants/rules/22624473).
+O registro está em [main-protection-verification.json](../artifacts/main-protection-verification.json).

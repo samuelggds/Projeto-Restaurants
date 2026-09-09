@@ -1,3 +1,4 @@
+import { orderFixtureResponse } from './helpers/orderFixtures';
 import { expect, test, type BrowserContext, type Page, type Route } from '@playwright/test';
 import { mockAuthRefresh } from './helpers/mockAuthRefresh';
 import { captureReadmeScreenshot } from './helpers/readmeScreenshot';
@@ -356,6 +357,10 @@ async function mockCourierApi(page: Page, state: CourierE2EState) {
     if (pathname === '/orders' && method === 'GET') {
       state.orderRequests += 1;
       state.orderRequestTokens.push(token);
+      // Fault injection targets the active operational request, not its independent history refresh.
+      if (new URL(request.url()).searchParams.get('queue') === 'DELIVERED') {
+        return json(route, orderFixtureResponse(request.url(), courierVisibleOrders(state), true));
+      }
 
       if (state.holdNextOrdersRequest) {
         state.holdNextOrdersRequest = false;
@@ -370,7 +375,7 @@ async function mockCourierApi(page: Page, state: CourierE2EState) {
         return json(route, { error: 'Falha simulada ao carregar entregas.' }, 503);
       }
 
-      return json(route, { orders: courierVisibleOrders(state) });
+      return json(route, orderFixtureResponse(request.url(), courierVisibleOrders(state), true));
     }
 
     if (pathname === '/orders/courier/finance' && method === 'GET') {
@@ -517,7 +522,7 @@ async function mockCourierApi(page: Page, state: CourierE2EState) {
 }
 
 async function enableSyntheticLocation(context: BrowserContext) {
-  await context.grantPermissions(['geolocation'], { origin: 'http://127.0.0.1:4173' });
+  await context.grantPermissions(['geolocation'], { origin: 'http://127.0.0.1:4181' });
   await context.setGeolocation({ ...departure, accuracy: 8 });
 }
 
@@ -580,8 +585,7 @@ async function mockCustomerTrackingApi(page: Page, state: CourierE2EState) {
       return json(route, { user: customerUser });
     }
     if (pathname === '/orders/my-orders' && method === 'GET') {
-      return json(route, {
-        orders: [
+      return json(route, orderFixtureResponse(request.url(), [
           {
             id: 601,
             restaurantId: RESTAURANT_ID,
@@ -593,8 +597,7 @@ async function mockCustomerTrackingApi(page: Page, state: CourierE2EState) {
               trackingStatus === 'SAIU_PARA_ENTREGA' ? DELIVERY_CODE : null,
             items: [{ product: { name: 'Massa artesanal' } }],
           },
-        ],
-      });
+        ]));
     }
     if (pathname === '/orders/601/tracking' && method === 'GET') {
       state.trackingRequests.push(601);

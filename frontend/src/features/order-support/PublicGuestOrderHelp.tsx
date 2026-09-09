@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
+import { useDialogFocusManagement } from '../../shared/hooks/useDialogFocusManagement';
 import { Headphones, LoaderCircle, MessageCircle, PackageSearch, X } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { OrderSupportDialog } from './OrderSupportDialog';
 import styled from 'styled-components';
 import ordersService, { getGuestOwnedOrderProofs } from '../../Services/ordersService';
 
@@ -11,11 +13,13 @@ type VerifiedGuestOrder = {
 export function PublicGuestOrderHelp({
   restaurantId,
   restaurantName,
+  inline = false,
 }: {
   restaurantId: number | null;
   restaurantName?: string;
+  inline?: boolean;
 }) {
-  const navigate = useNavigate();
+  const [selectedOrderId, setSelectedOrderId] = useState<number | null>(null);
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [orders, setOrders] = useState<VerifiedGuestOrder[]>([]);
@@ -27,16 +31,21 @@ export function PublicGuestOrderHelp({
     const load = async () => {
       setLoading(true);
       const proofs = getGuestOwnedOrderProofs().slice().reverse();
-      const verified = await Promise.all(
-        proofs.map(async ({ orderId }) => {
-          try {
-            const thread = await ordersService.getIssueThread(orderId);
-            return Number(thread?.restaurantId) === Number(restaurantId) ? { orderId } : null;
-          } catch {
-            return null;
-          }
-        }),
-      );
+      const verified: Array<VerifiedGuestOrder | null> = [];
+      for (let index = 0; index < proofs.length && active; index += 4) {
+        verified.push(
+          ...(await Promise.all(
+            proofs.slice(index, index + 4).map(async ({ orderId }) => {
+              try {
+                const thread = await ordersService.getIssueThread(orderId);
+                return Number(thread?.restaurantId) === Number(restaurantId) ? { orderId } : null;
+              } catch {
+                return null;
+              }
+            }),
+          )),
+        );
+      }
       if (!active) return;
       setOrders(verified.filter((item): item is VerifiedGuestOrder => Boolean(item)));
       setLoading(false);
@@ -61,12 +70,28 @@ export function PublicGuestOrderHelp({
 
   const goToOrder = (orderId: number) => {
     closeHelp();
-    navigate(`/orders/${orderId}/tracking`);
+    setSelectedOrderId(orderId);
   };
+  const dialogRef = useDialogFocusManagement<HTMLElement>(closeHelp, open);
 
   return (
     <>
-      <Launcher type="button" onClick={openHelp} aria-label="Ajuda com um pedido">
+      {selectedOrderId ? (
+        <OrderSupportDialog
+          key={selectedOrderId}
+          open
+          visitor
+          onClose={() => setSelectedOrderId(null)}
+          orders={[{ id: selectedOrderId }]}
+          initialOrderId={selectedOrderId}
+        />
+      ) : null}
+      <Launcher
+        data-inline={inline || undefined}
+        type="button"
+        onClick={openHelp}
+        aria-label="Ajuda com um pedido"
+      >
         <Headphones />
         <span>
           <b>Ajuda com um pedido</b>
@@ -74,73 +99,88 @@ export function PublicGuestOrderHelp({
         </span>
       </Launcher>
 
-      {open ? (
-        <Backdrop
-          role="presentation"
-          onMouseDown={(event) => event.target === event.currentTarget && closeHelp()}
-        >
-          <Dialog role="dialog" aria-modal="true" aria-label="Ajuda com um pedido">
-            <Header>
-              <div>
-                <span className="mark">
-                  <Headphones />
-                </span>
-                <span>
-                  <strong>Ajuda com um pedido</strong>
-                  <small>{restaurantName || 'Atendimento do restaurante'}</small>
-                </span>
-              </div>
-              <button type="button" onClick={closeHelp} aria-label="Fechar">
-                <X />
-              </button>
-            </Header>
-
-            {loading ? (
-              <LoadingState role="status">
-                <LoaderCircle />
-                <strong>Procurando seus pedidos...</strong>
-                <p>Estamos buscando os pedidos disponíveis neste dispositivo.</p>
-              </LoadingState>
-            ) : orders.length ? (
-              <Content>
-                <Intro>
-                  <PackageSearch />
+      {open
+        ? createPortal(
+            <Backdrop
+              role="presentation"
+              onMouseDown={(event) => event.target === event.currentTarget && closeHelp()}
+            >
+              <Dialog
+                ref={dialogRef}
+                role="dialog"
+                aria-modal="true"
+                aria-label="Ajuda com um pedido"
+              >
+                <Header>
                   <div>
-                    <strong>Pedidos encontrados neste dispositivo</strong>
-                    <p>Escolha um pedido para acompanhar ou falar com a equipe.</p>
+                    <span className="mark">
+                      <Headphones />
+                    </span>
+                    <span>
+                      <strong>Ajuda com um pedido</strong>
+                      <small>{restaurantName || 'Atendimento do restaurante'}</small>
+                    </span>
                   </div>
-                </Intro>
-                <OrderList>
-                  {orders.map(({ orderId }) => (
-                    <OrderButton key={orderId} type="button" onClick={() => goToOrder(orderId)}>
-                      <span>
-                        <b>Pedido #{orderId}</b>
-                        <small>Acompanhar pedido ou falar com a equipe</small>
-                      </span>
-                      <MessageCircle />
-                    </OrderButton>
-                  ))}
-                </OrderList>
-              </Content>
-            ) : (
-              <EmptyState>
-                <PackageSearch />
-                <strong>Nenhum pedido foi encontrado neste dispositivo</strong>
-                <p>
-                  Os pedidos feitos como visitante neste navegador aparecem aqui quando estão
-                  disponíveis para acompanhamento.
-                </p>
-                <small>Se você fez o pedido em outro aparelho ou navegador, abra por lá.</small>
-              </EmptyState>
-            )}
-          </Dialog>
-        </Backdrop>
-      ) : null}
+                  <button type="button" onClick={closeHelp} aria-label="Fechar">
+                    <X />
+                  </button>
+                </Header>
+
+                {loading ? (
+                  <LoadingState role="status">
+                    <LoaderCircle />
+                    <strong>Procurando seus pedidos...</strong>
+                    <p>Estamos buscando os pedidos disponíveis neste dispositivo.</p>
+                  </LoadingState>
+                ) : orders.length ? (
+                  <Content>
+                    <Intro>
+                      <PackageSearch />
+                      <div>
+                        <strong>Pedidos encontrados neste dispositivo</strong>
+                        <p>Escolha um pedido para acompanhar ou falar com a equipe.</p>
+                      </div>
+                    </Intro>
+                    <OrderList>
+                      {orders.map(({ orderId }) => (
+                        <OrderButton key={orderId} type="button" onClick={() => goToOrder(orderId)}>
+                          <span>
+                            <b>Pedido #{orderId}</b>
+                            <small>Acompanhar pedido ou falar com a equipe</small>
+                          </span>
+                          <MessageCircle />
+                        </OrderButton>
+                      ))}
+                    </OrderList>
+                  </Content>
+                ) : (
+                  <EmptyState>
+                    <PackageSearch />
+                    <strong>Nenhum pedido foi encontrado neste dispositivo</strong>
+                    <p>
+                      Os pedidos feitos como visitante neste navegador aparecem aqui quando estão
+                      disponíveis para acompanhamento.
+                    </p>
+                    <small>Se você fez o pedido em outro aparelho ou navegador, abra por lá.</small>
+                  </EmptyState>
+                )}
+              </Dialog>
+            </Backdrop>,
+            document.body,
+          )
+        : null}
     </>
   );
 }
 
 const Launcher = styled.button`
+  &[data-inline='true'] {
+    position: relative;
+    inset: auto;
+    width: 100%;
+    max-width: 100%;
+    z-index: auto;
+  }
   position: fixed;
   right: 18px;
   bottom: 84px;

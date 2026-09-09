@@ -1,0 +1,17 @@
+{
+  "timestamp": "2026-09-09T02:18:34.165Z",
+  "passed": true,
+  "environment": "PostgreSQL descartável; segunda base vazia no mesmo container",
+  "tables": 71,
+  "rows": 106,
+  "foreignKeys": 147,
+  "policies": 21,
+  "checks": [
+    "contagem e digest de todas as linhas",
+    "foreign keys validadas",
+    "policies preservadas",
+    "role runtime reprovisionada sem bypass",
+    "RLS bloqueia leitura sem contexto"
+  ],
+  "limitations": "Não restaura um backup de produção, storage remoto ou chaves externas. RPO/RTO de produção ainda exigem ensaio no ambiente contratado."
+}

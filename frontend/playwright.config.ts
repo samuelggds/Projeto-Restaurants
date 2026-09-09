@@ -20,7 +20,7 @@ export default defineConfig({
   retries: 0,
   reporter: 'list',
   use: {
-    baseURL: 'http://127.0.0.1:4173',
+    baseURL: 'http://127.0.0.1:4181',
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
   },
@@ -36,10 +36,10 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: 'node ./node_modules/vite/bin/vite.js --host 127.0.0.1 --port 4173',
+    command: 'node ./node_modules/vite/bin/vite.js --host 127.0.0.1 --port 4181 --strictPort',
     env: { ...webServerEnvironment, VITE_E2E_DIRECT_API: 'true' },
-    url: 'http://127.0.0.1:4173',
-    reuseExistingServer: true,
+    url: 'http://127.0.0.1:4181',
+    reuseExistingServer: false,
     timeout: 120_000,
   },
 });

@@ -14,6 +14,8 @@ import {
 import { resolveOrderRestaurantId } from '../utils/orderTenant.js';
 import { PaymentCreationUncertainError } from './PaymentCreationUncertainError.js';
 import finalizeOrderCardPaymentService from './FinalizeOrderCardPaymentService.js';
+import { replayCreatedOrder } from './orderCreationRequest.js';
+import { withTenantDbContext } from '../../../database/tenantDbContext.js';
 
 class CreateOrderCardCheckoutService {
   async resolveCardProvider(payload: CreateOrderCardCheckoutPayload) {
@@ -49,6 +51,16 @@ class CreateOrderCardCheckoutService {
   }
 
   async execute(payload: CreateOrderCardCheckoutPayload) {
+    if (payload.creationRequest) {
+      const restaurantId = resolveOrderRestaurantId({
+        requestedRestaurantId: payload.restaurantId,
+        contextRestaurantId: payload.userRestaurantId,
+      });
+      const previous = await withTenantDbContext(restaurantId, (db) =>
+        replayCreatedOrder(db, restaurantId, payload.creationRequest),
+      );
+      if (previous) throw new PaymentCreationUncertainError(previous.id, previous.publicId);
+    }
     const resolvedCardProvider = await this.resolveCardProvider(payload);
     this.ensureCardProviderSupported(resolvedCardProvider);
 
@@ -83,7 +95,8 @@ class CreateOrderCardCheckoutService {
       // Even a missing/malformed response can follow a successful charge or webhook.
       // Preserve the order, stock reservation and coupon until reconciliation.
       console.error('[CARD_PAYMENT_CREATION_UNCERTAIN]', {
-        orderId: createdOrder.id, restaurantId: createdOrder.restaurantId,
+        orderId: createdOrder.id,
+        restaurantId: createdOrder.restaurantId,
         errorType: error instanceof Error ? error.name : 'UnknownError',
       });
       throw new PaymentCreationUncertainError(createdOrder.id, createdOrder.publicId);

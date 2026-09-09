@@ -7,7 +7,8 @@ type PixPaymentStatusPayload = Record<string, unknown>;
 type GenericRecord = Record<string, unknown>;
 export type GuestOrderProof = { orderId: number; token: string };
 
-export type RestaurantOrdersQueue = 'ALL' | 'ACTIVE' | 'PAYMENT' | 'IN_PROGRESS' | 'DELIVERED' | 'HISTORY';
+export type RestaurantOrdersQueue =
+  'ALL' | 'ACTIVE' | 'PAYMENT' | 'IN_PROGRESS' | 'DELIVERED' | 'HISTORY';
 export type RestaurantOrdersPageQuery = {
   limit?: number;
   cursor?: number;
@@ -32,17 +33,39 @@ export type RestaurantOrdersPage = {
   summary?: RestaurantOrdersSummary;
 };
 
-export type OrderOverview = { todayOrders: number; sales: number; averageTicket: number;
-  preparingOrders: number; customers: number; timezone: string };
-export type OrderCustomersPage = { customers: { key: string; name: string; email: string; count: number; total: number }[];
-  total: number; hasMore: boolean; nextOffset: number | null;
-  summary: { customers: number; returningCustomers: number; totalOrders: number; totalMoved: number } };
+export type OrderOverview = {
+  todayOrders: number;
+  sales: number;
+  averageTicket: number;
+  preparingOrders: number;
+  customers: number;
+  timezone: string;
+};
+export type OrderCustomersPage = {
+  customers: { key: string; name: string; email: string; count: number; total: number }[];
+  total: number;
+  hasMore: boolean;
+  nextOffset: number | null;
+  summary: {
+    customers: number;
+    returningCustomers: number;
+    totalOrders: number;
+    totalMoved: number;
+  };
+};
 
 function normalizeOrderPage(payload: unknown): RestaurantOrdersPage {
   const page = asRecord(payload);
-  if (!page || !Array.isArray(page.orders) || !Number.isSafeInteger(page.total) || Number(page.total) < 0
-    || typeof page.hasMore !== 'boolean'
-    || (page.hasMore ? !Number.isSafeInteger(page.nextCursor) || Number(page.nextCursor) <= 0 : page.nextCursor !== null)) {
+  if (
+    !page ||
+    !Array.isArray(page.orders) ||
+    !Number.isSafeInteger(page.total) ||
+    Number(page.total) < 0 ||
+    typeof page.hasMore !== 'boolean' ||
+    (page.hasMore
+      ? !Number.isSafeInteger(page.nextCursor) || Number(page.nextCursor) <= 0
+      : page.nextCursor !== null)
+  ) {
     throw new Error('Não foi possível carregar a página de pedidos. Atualize a tela.');
   }
   return { ...page, orders: normalizeOrdersPayload(page) } as RestaurantOrdersPage;
@@ -121,7 +144,9 @@ function rememberGuestOrderAccess(payload: unknown) {
 
 function readTrackingTokenFromCurrentUrl(orderId: number) {
   if (typeof window === 'undefined' || !Number.isInteger(orderId) || orderId <= 0) return '';
-  const routeOrderId = Number(window.location.pathname.match(/^\/orders\/(\d+)\/tracking\/?$/u)?.[1] || 0);
+  const routeOrderId = Number(
+    window.location.pathname.match(/^\/orders\/(\d+)\/tracking\/?$/u)?.[1] || 0,
+  );
   if (routeOrderId !== orderId) return '';
   const hash = String(window.location.hash || '').replace(/^#/u, '');
   const token = String(new URLSearchParams(hash).get('guestToken') || '').trim();
@@ -174,7 +199,8 @@ function normalizeOrderItem(item: unknown) {
   const record = asRecord(item);
   if (!record) return item;
   const productRecord = asRecord(record.product) || {};
-  const fallbackName = String(record.productName || record.name || record.title || '').trim() || undefined;
+  const fallbackName =
+    String(record.productName || record.name || record.title || '').trim() || undefined;
   return {
     ...record,
     quantity: Number(record.quantity || 0) || 0,
@@ -204,15 +230,23 @@ function normalizeOrdersPayload(payload: unknown) {
 }
 
 class OrdersService {
-  async listRestaurantOrdersPage(query: RestaurantOrdersPageQuery = {}): Promise<RestaurantOrdersPage> {
+  async listRestaurantOrdersPage(
+    query: RestaurantOrdersPageQuery = {},
+  ): Promise<RestaurantOrdersPage> {
     const response = await api.get<RestaurantOrdersPage>('/orders', { params: query });
     return normalizeOrderPage(response.data);
   }
 
   async listRestaurantOrders(status?: string) {
     // Operational consumers need the complete active queue, never an arbitrary history page.
-    return this.listActivePages((cursor) => this.listRestaurantOrdersPage({ queue: 'ACTIVE', limit: 100,
-      ...(status ? { status } : {}), ...(cursor ? { cursor } : {}) }));
+    return this.listActivePages((cursor) =>
+      this.listRestaurantOrdersPage({
+        queue: 'ACTIVE',
+        limit: 100,
+        ...(status ? { status } : {}),
+        ...(cursor ? { cursor } : {}),
+      }),
+    );
   }
 
   async listMyOrders(query: RestaurantOrdersPageQuery = {}) {
@@ -221,11 +255,19 @@ class OrdersService {
   }
 
   async listMyActiveOrders() {
-    return this.listActivePages((cursor) => this.listMyOrders({ queue: 'ACTIVE', limit: 100, ...(cursor ? { cursor } : {}) }));
+    return this.listActivePages((cursor) =>
+      this.listMyOrders({ queue: 'ACTIVE', limit: 100, ...(cursor ? { cursor } : {}) }),
+    );
   }
 
   async listOpenOrderIssues() {
-    return this.listActivePages((cursor) => this.listRestaurantOrdersPage({ issueState: 'OPEN', limit: 100, ...(cursor ? { cursor } : {}) }));
+    return this.listActivePages((cursor) =>
+      this.listRestaurantOrdersPage({
+        issueState: 'OPEN',
+        limit: 100,
+        ...(cursor ? { cursor } : {}),
+      }),
+    );
   }
 
   private async listActivePages(read: (cursor?: number) => Promise<RestaurantOrdersPage>) {
@@ -241,21 +283,38 @@ class OrdersService {
       }
       cursor = page.nextCursor!;
       cursors.add(cursor);
-    } while (true);
+    } while (cursor !== undefined);
+    return [...orders.values()];
   }
 
   async getOverview(): Promise<OrderOverview> {
     const response = await api.get<OrderOverview>('/orders/reports/overview');
+    const metrics = asRecord(response.data);
+    if (
+      !metrics ||
+      ['todayOrders', 'sales', 'averageTicket', 'preparingOrders', 'customers'].some(
+        (key) => typeof metrics[key] !== 'number' || !Number.isFinite(metrics[key]),
+      ) ||
+      typeof metrics.timezone !== 'string'
+    ) {
+      throw new Error('Não foi possível carregar os indicadores. Atualize a tela.');
+    }
     return response.data;
   }
 
-  async getCustomers(query: { limit?: number; offset?: number; search?: string; sort?: string } = {}): Promise<OrderCustomersPage> {
-    const response = await api.get<OrderCustomersPage>('/orders/reports/customers', { params: query });
+  async getCustomers(
+    query: { limit?: number; offset?: number; search?: string; sort?: string } = {},
+  ): Promise<OrderCustomersPage> {
+    const response = await api.get<OrderCustomersPage>('/orders/reports/customers', {
+      params: query,
+    });
     return response.data;
   }
 
   async clearOrdersAndCategories(confirmation: string) {
-    const response = await api.delete('/orders/cleanup/orders-categories', { data: { confirmation } });
+    const response = await api.delete('/orders/cleanup/orders-categories', {
+      data: { confirmation },
+    });
     return response.data;
   }
 
@@ -266,7 +325,9 @@ class OrdersService {
   }
 
   async createOrder(payload: OrderPayload) {
-    const response = await withOrderCreationAttempt(payload, (headers) => api.post('/orders', payload, { headers }));
+    const response = await withOrderCreationAttempt(payload, (headers) =>
+      api.post('/orders', payload, { headers }),
+    );
     rememberGuestOrderAccess(response.data);
     return response.data;
   }
@@ -277,15 +338,37 @@ class OrdersService {
   }
 
   async createPixPayment(payload: PixPaymentPayload) {
-    const response = await api.post('/orders/pix/payment', payload);
-    rememberGuestOrderAccess(response.data);
-    return response.data;
+    return this.createOnlinePayment('/orders/pix/payment', payload);
   }
 
   async createCardCheckout(payload: PixPaymentPayload) {
-    const response = await api.post('/orders/card/checkout', payload);
-    rememberGuestOrderAccess(response.data);
-    return response.data;
+    return this.createOnlinePayment('/orders/card/checkout', payload);
+  }
+
+  private async createOnlinePayment(endpoint: string, payload: PixPaymentPayload) {
+    const result = await withOrderCreationAttempt({ endpoint, payload }, async (headers) => {
+      try {
+        const response = await api.post(endpoint, payload, { headers });
+        return { data: response.data };
+      } catch (error: unknown) {
+        const data = asRecord(asRecord(asRecord(error)?.response)?.data);
+        if (data?.code !== 'PAYMENT_CREATION_UNCERTAIN' || data.reconciliationRequired !== true)
+          throw error;
+        // A known order is an accepted attempt. Keep unknown network failures for retry.
+        this.rememberUncertainPayment(error);
+        return { error };
+      }
+    });
+    if ('error' in result) throw result.error;
+    rememberGuestOrderAccess(result.data);
+    return result.data;
+  }
+
+  private rememberUncertainPayment(error: unknown) {
+    const data = asRecord(asRecord(asRecord(error)?.response)?.data);
+    if (data?.code === 'PAYMENT_CREATION_UNCERTAIN' && data.reconciliationRequired === true) {
+      rememberGuestOrderAccess(data);
+    }
   }
 
   async getCardPaymentStatus(payload: PixPaymentStatusPayload) {
@@ -309,7 +392,9 @@ class OrdersService {
       { proofs },
       accessToken ? { headers: { Authorization: `Bearer ${accessToken}` } } : undefined,
     );
-    const claimedIds = Array.isArray(response.data?.orderIds) ? response.data.orderIds.map(Number) : [];
+    const claimedIds = Array.isArray(response.data?.orderIds)
+      ? response.data.orderIds.map(Number)
+      : [];
     claimedIds.forEach(clearGuestOrderOwnershipAccess);
     return response.data as {
       claimedCount: number;

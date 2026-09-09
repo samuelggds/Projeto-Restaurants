@@ -48,8 +48,102 @@ type Notify = (
   action?: 'open-cart',
 ) => void;
 
-function normalizeStoredCart(items: CartItem[]) {
-  return items.map((item) => {
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function isId(value: unknown): value is string {
+  return typeof value === 'string' && value.trim().length > 0;
+}
+
+function isMoney(value: unknown) {
+  return (
+    (typeof value === 'number' || (typeof value === 'string' && value.trim() !== '')) &&
+    Number(value) >= 0 &&
+    Number.isSafeInteger(Math.round(Number(value) * 100))
+  );
+}
+
+function optionalArray(value: unknown, validEntry: (entry: unknown) => boolean) {
+  return value == null || (Array.isArray(value) && value.every(validEntry));
+}
+
+function isStoredCartItem(value: unknown): value is CartItem {
+  if (!isRecord(value)) return false;
+  if (
+    value.quantity !== undefined &&
+    typeof value.quantity !== 'number' &&
+    typeof value.quantity !== 'string'
+  )
+    return false;
+  const validProductId =
+    isId(value.productId) || (Number.isSafeInteger(value.productId) && Number(value.productId) > 0);
+  const quantity = value.quantity === undefined ? 1 : Number(value.quantity);
+  const namedEntry = (entry: unknown) =>
+    isRecord(entry) && isId(entry.id) && typeof entry.name === 'string';
+  const optionalText = (entry: unknown) => entry == null || typeof entry === 'string';
+  return Boolean(
+    validProductId &&
+    typeof value.name === 'string' &&
+    isMoney(value.price) &&
+    Number.isSafeInteger(quantity) &&
+    quantity > 0 &&
+    (value.configurationVersion == null ||
+      (Number.isSafeInteger(value.configurationVersion) &&
+        Number(value.configurationVersion) >= 0)) &&
+    optionalText(value.image) &&
+    optionalText(value.observation) &&
+    optionalArray(value.selectedOptionIds, isId) &&
+    optionalArray(value.ingredientIds, isId) &&
+    optionalArray(
+      value.selectedOptions,
+      (entry) =>
+        isRecord(entry) &&
+        isId(entry.groupId) &&
+        Array.isArray(entry.optionIds) &&
+        entry.optionIds.every(isId),
+    ) &&
+    optionalArray(
+      value.optionQuantities,
+      (entry) =>
+        isRecord(entry) &&
+        isId(entry.optionId) &&
+        Number.isSafeInteger(entry.quantity) &&
+        Number(entry.quantity) > 0,
+    ) &&
+    optionalArray(value.removedCompositionItemIds, isId) &&
+    optionalArray(value.removedCompositionItems, namedEntry) &&
+    optionalArray(
+      value.portions,
+      (entry) =>
+        isRecord(entry) &&
+        isId(entry.optionId) &&
+        optionalText(entry.name) &&
+        optionalText(entry.observation),
+    ) &&
+    optionalArray(
+      value.options,
+      (entry) =>
+        namedEntry(entry) &&
+        isRecord(entry) &&
+        isId(entry.groupId) &&
+        typeof entry.groupName === 'string' &&
+        isMoney(entry.price) &&
+        (entry.quantity == null ||
+          (Number.isSafeInteger(entry.quantity) && Number(entry.quantity) > 0)),
+    ) &&
+    optionalArray(
+      value.ingredients,
+      (entry) => namedEntry(entry) && isRecord(entry) && isMoney(entry.price),
+    ),
+  );
+}
+
+export function normalizeStoredCart(items: unknown): CartItem[] {
+  if (!Array.isArray(items)) return [];
+  // A damaged line must not crash the menu or silently lose its customization.
+  // Preserve valid lines and discard malformed configurations as a whole.
+  return items.filter(isStoredCartItem).map((item) => {
     const legacyOptionIds = item.selectedOptionIds || item.ingredientIds || [];
     const selectedOptions =
       item.selectedOptions ||
@@ -67,11 +161,26 @@ function normalizeStoredCart(items: CartItem[]) {
     };
     return {
       ...item,
+      productId: String(item.productId),
+      image: item.image || '',
       selectedOptions,
       selectedOptionIds: legacyOptionIds,
-      cartId: item.cartId || `${item.productId}::${productConfigurationSignature(configuration)}`,
-      price: Number(item.price || 0),
-      quantity: Number(item.quantity || 1),
+      cartId: isId(item.cartId)
+        ? item.cartId
+        : `${item.productId}::${productConfigurationSignature(configuration)}`,
+      price: Number(item.price),
+      quantity: item.quantity === undefined ? 1 : Number(item.quantity),
+      stock:
+        (typeof item.stock !== 'number' && typeof item.stock !== 'string') ||
+        !Number.isSafeInteger(Number(item.stock)) ||
+        Number(item.stock) < 0
+          ? null
+          : Number(item.stock),
+      basePrice: isMoney(item.basePrice) ? Number(item.basePrice) : undefined,
+      configurationVersion:
+        Number.isSafeInteger(item.configurationVersion) && Number(item.configurationVersion) >= 0
+          ? item.configurationVersion
+          : undefined,
     };
   });
 }
@@ -91,15 +200,15 @@ export function useCart(products: HomeProduct[], notify: Notify, restaurantId?: 
         return;
       }
       const key = `cartItems:${restaurantId}`;
-      const namespaced = readJsonStorage<CartItem[]>(key, []);
+      const namespaced = normalizeStoredCart(readJsonStorage<unknown>(key, []));
       const legacyRestaurantId = Number(
         readStorage('cartRestaurantId') || readStorage('menuRestaurantId') || 0,
       );
       const legacy =
         namespaced.length === 0 && legacyRestaurantId === restaurantId
-          ? readJsonStorage<CartItem[]>('cartItems', [])
+          ? normalizeStoredCart(readJsonStorage<unknown>('cartItems', []))
           : [];
-      setCart(normalizeStoredCart(namespaced.length ? namespaced : legacy));
+      setCart(namespaced.length ? namespaced : legacy);
       setStorageRestaurantId(restaurantId);
       reconciledSignatureRef.current = '';
     });

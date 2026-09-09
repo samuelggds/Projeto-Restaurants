@@ -1,0 +1,13 @@
+
+> frontend@0.0.0 test:e2e
+> playwright test e2e/courier-operations.spec.ts e2e/customer-contextual-login.spec.ts --grep motoqueiro retira|visitante no celular --max-failures=2
+
+[WebServer] (node:31032) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+Running 2 tests using 1 worker
+
+(node:5836) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ok 1 [chromium] › e2e\courier-operations.spec.ts:656:1 › motoqueiro retira, compartilha a rota do próprio pedido e encerra ao entregar (38.7s)
+  ok 2 [chromium] › e2e\customer-contextual-login.spec.ts:51:1 › visitante no celular controla as ações agrupadas e abre produto pelo teclado (21.5s)

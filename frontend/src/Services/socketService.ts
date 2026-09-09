@@ -1,4 +1,5 @@
 import { io } from 'socket.io-client';
+import { readStorage } from '../shared/storage/safeStorage';
 
 let socket = null;
 let tableSessionSocket = null;
@@ -25,8 +26,7 @@ const E2E_DIRECT_API =
     .trim()
     .toLowerCase() === 'true';
 const SOCKET_DEBUG_ENABLED =
-  import.meta.env.DEV ||
-  (typeof window !== 'undefined' && localStorage.getItem('@PecaJaFood:socketDebug') === 'true');
+  import.meta.env.DEV || readStorage('@PecaJaFood:socketDebug') === 'true';
 
 function normalizeBaseUrl(url) {
   return String(url || '')

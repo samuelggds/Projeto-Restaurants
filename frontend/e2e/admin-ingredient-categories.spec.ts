@@ -1,3 +1,4 @@
+import { orderFixtureResponse } from './helpers/orderFixtures';
 import { expect, test, type Page } from '@playwright/test';
 
 import { mockAuthRefresh } from './helpers/mockAuthRefresh';
@@ -124,7 +125,7 @@ async function openIngredientCatalog(page: Page, imageSearchFails = false) {
     await route.fulfill({
       status: 200,
       contentType: 'application/json',
-      body: JSON.stringify(responses[pathname] ?? {}),
+      body: JSON.stringify(orderFixtureResponse(route.request().url(), responses['/orders']) ?? responses[pathname] ?? {}),
     });
   });
 
@@ -374,7 +375,7 @@ test('admin separa ingredientes em categorias dinâmicas e configura cada grupo'
       return;
     }
     if (pathname === '/orders') {
-      await route.fulfill({ status: 200, contentType: 'application/json', body: '{"orders":[]}' });
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(orderFixtureResponse(route.request().url(), [])) });
       return;
     }
     if (pathname === '/settings') {
@@ -560,7 +561,7 @@ test('editor de produto permanece contido e utilizável no celular', async ({ pa
     await route.fulfill({
       status: 200,
       contentType: 'application/json',
-      body: JSON.stringify(responses[pathname] ?? {}),
+      body: JSON.stringify(orderFixtureResponse(route.request().url(), responses['/orders']) ?? responses[pathname] ?? {}),
     });
   });
 

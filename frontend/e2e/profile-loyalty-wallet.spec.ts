@@ -1,3 +1,4 @@
+import { orderFixtureResponse } from './helpers/orderFixtures';
 import { expect, test } from '@playwright/test';
 
 import { mockAuthRefresh } from './helpers/mockAuthRefresh';
@@ -72,7 +73,7 @@ test('cliente consulta cupons válidos, histórico e o novo ciclo no perfil', as
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
-        body: JSON.stringify([
+        body: JSON.stringify(orderFixtureResponse(route.request().url(), [
           {
             id: 312,
             status: 'PREPARANDO',
@@ -119,7 +120,7 @@ test('cliente consulta cupons válidos, histórico e o novo ciclo no perfil', as
               { product: { name: 'Suco artesanal' } },
             ],
           },
-        ]),
+        ])),
       });
       return;
     }

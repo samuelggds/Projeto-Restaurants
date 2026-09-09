@@ -7,6 +7,7 @@ import {
   type TerminalPaymentOutcome,
 } from '../domain/paymentOutcome';
 import type { PaymentResultStatus } from '../../../components/payment/PaymentResultView';
+import { readStorage } from '../../../shared/storage/safeStorage';
 
 export type PixPaymentData = {
   restaurantId?: number;
@@ -26,7 +27,8 @@ export type PixPaymentStatus =
 export type CheckoutPaymentResult = {
   restaurantId: number;
   status: PaymentResultStatus;
-  method: 'Cartão';
+  method: 'Cartão' | 'Pix';
+  reconciliationRequired?: boolean;
   orderId: number | null;
   total: number;
 };
@@ -322,7 +324,7 @@ export function useCheckoutPayments(options: Options) {
         ? await customerPaymentMethodService.list(restaurantId).catch(() => [])
         : [];
       const storedMethodId = restaurantId
-        ? localStorage.getItem(`selectedCustomerPaymentMethodId:${restaurantId}`)
+        ? readStorage(`selectedCustomerPaymentMethodId:${restaurantId}`)
         : '';
       const selectedSavedMethod =
         savedMethods.find((method) => method.publicId === storedMethodId) ||
@@ -361,6 +363,29 @@ export function useCheckoutPayments(options: Options) {
       return true;
     } catch (error: unknown) {
       if (!isCurrentCheckout()) return false;
+      const data = (error as { response?: { data?: Record<string, unknown> } })?.response?.data;
+      const preservedOrderId = Number(data?.orderId);
+      if (
+        data?.code === 'PAYMENT_CREATION_UNCERTAIN' &&
+        data.reconciliationRequired === true &&
+        Number.isSafeInteger(preservedOrderId) &&
+        preservedOrderId > 0 &&
+        restaurantId
+      ) {
+        // The order exists. Consuming this cart prevents a retry from creating another order.
+        onPurchased();
+        onClearCart();
+        onCloseCart();
+        setPaymentResult({
+          restaurantId,
+          orderId: preservedOrderId,
+          total: cartTotal,
+          method: paymentMethod === 'pix' ? 'Pix' : 'Cartão',
+          status: 'PENDING',
+          reconciliationRequired: true,
+        });
+        return true;
+      }
       notify(
         'error',
         paymentMethod === 'pickup_store'

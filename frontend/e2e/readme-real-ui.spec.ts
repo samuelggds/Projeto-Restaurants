@@ -1,3 +1,4 @@
+import { orderFixtureResponse } from './helpers/orderFixtures';
 import { readFile } from 'node:fs/promises';
 import { expect, test, type Page, type Route } from '@playwright/test';
 import { mockAuthRefresh } from './helpers/mockAuthRefresh';
@@ -245,8 +246,7 @@ async function mockAuthenticatedPublicMenu(page: Page) {
       });
     }
     if (pathname === '/orders/my-orders') {
-      return json(route, {
-        orders: [
+      return json(route, orderFixtureResponse(route.request().url(), [
           {
             id: 81,
             type: 'DELIVERY',
@@ -254,8 +254,7 @@ async function mockAuthenticatedPublicMenu(page: Page) {
             createdAt: '2026-09-02T18:00:00.000Z',
             items: [{ product: { name: 'Pizza Margherita' } }],
           },
-        ],
-      });
+        ]));
     }
     await route.fallback();
   });

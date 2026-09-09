@@ -1,3 +1,4 @@
+import { orderFixtureResponse } from './helpers/orderFixtures';
 import { expect, test, type Page, type Route } from '@playwright/test';
 import { mockAuthRefresh } from './helpers/mockAuthRefresh';
 
@@ -118,7 +119,7 @@ async function setup(page: Page) {
       manualPayload = request.postDataJSON() as Record<string, unknown>;
       return json(route, { id: 150, status: 'PENDENTE' }, 201);
     }
-    if (path === '/orders') return json(route, []);
+    if (path === '/orders') return json(route, orderFixtureResponse(request.url(), []));
     if (path === '/auth/logout') return json(route, { ok: true });
     return json(route, {});
   });

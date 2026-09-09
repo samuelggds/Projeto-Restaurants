@@ -35,6 +35,9 @@ function createTransporter() {
       port: smtpPort,
       secure: smtpSecure,
       requireTLS: true,
+      connectionTimeout: 10_000,
+      greetingTimeout: 10_000,
+      socketTimeout: 15_000,
       auth: {
         type: 'OAuth2',
         user: smtpUser,
@@ -55,6 +58,9 @@ function createTransporter() {
     port: smtpPort,
     secure: smtpSecure,
     requireTLS: true,
+    connectionTimeout: 10_000,
+    greetingTimeout: 10_000,
+    socketTimeout: 15_000,
     auth: {
       user: smtpUser,
       pass: smtpPass,
@@ -94,7 +100,7 @@ class RequestPasswordResetService {
 
     // Always return the same response to avoid exposing registered emails.
     const safeMessage =
-      'Se os dados informados existirem, enviamos um codigo para redefinir a senha.';
+      'Se os dados identificarem uma conta, enviamos um código para o e-mail cadastrado. Se o telefone estiver em mais de uma conta, informe o e-mail.';
 
     if (!user) {
       return { message: safeMessage };

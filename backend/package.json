@@ -8,6 +8,7 @@
     "test": "node scripts/runAllTests.mjs",
     "test:e2e:tenant": "node scripts/runTenantE2E.mjs",
     "test:e2e:rls": "node scripts/runTenantE2E.mjs --rls-only",
+    "test:scale": "node scripts/runTenantE2E.mjs --scale",
     "scripts:check": "node scripts/checkOperationalScripts.mjs",
     "credentials:encrypt": "node ./scripts/runTsxWithOsUserInfoFallback.cjs scripts/encryptGatewayCredentials.ts",
     "credentials:rotate": "node ./scripts/runTsxWithOsUserInfoFallback.cjs scripts/encryptGatewayCredentials.ts --rotate",

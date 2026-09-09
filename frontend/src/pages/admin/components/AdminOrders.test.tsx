@@ -13,6 +13,9 @@ const mocks = vi.hoisted(() => ({ listPage: vi.fn() }));
 vi.mock('../../../Services/ordersService', () => ({
   default: { listRestaurantOrdersPage: mocks.listPage },
 }));
+vi.mock('../../../Services/paymentTerminalService', () => ({
+  default: { list: vi.fn().mockResolvedValue({ terminals: [] }) },
+}));
 
 vi.mock('react-toastify', () => ({
   toast: {
