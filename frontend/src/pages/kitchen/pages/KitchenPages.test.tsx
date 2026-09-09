@@ -1,7 +1,8 @@
-import { act } from 'react';
+import { act, useState } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { KitchenProvider } from '../KitchenContext';
+import { KITCHEN_READING_MODE_STORAGE_KEY } from '../useKitchenReadingMode';
 import type { EmployeeWorkspaceData, Order } from '../types';
 import { KitchenHistoryPage, KitchenQueuePage } from './KitchenPages';
 
@@ -95,6 +96,7 @@ describe('páginas operacionais da cozinha', () => {
   let root: Root;
 
   beforeEach(() => {
+    localStorage.removeItem(KITCHEN_READING_MODE_STORAGE_KEY);
     container = document.createElement('div');
     document.body.appendChild(container);
     root = createRoot(container);
@@ -103,6 +105,8 @@ describe('páginas operacionais da cozinha', () => {
   afterEach(() => {
     act(() => root.unmount());
     container.remove();
+    vi.restoreAllMocks();
+    localStorage.removeItem(KITCHEN_READING_MODE_STORAGE_KEY);
   });
 
   function renderPage(
@@ -173,6 +177,224 @@ describe('páginas operacionais da cozinha', () => {
     ).toEqual(['#21', '#20']);
   });
 
+  it('amplia produtos, observações e ações sem mudar filtros nem enviar alterações de status', () => {
+    const onUpdateOrderStatus = vi.fn();
+    renderPage(<KitchenQueuePage />, {
+      onUpdateOrderStatus,
+      currentData: {
+        ...data,
+        orders: data.orders.map((item) => ({ ...item, observation: 'Conferir: sem cebola.' })),
+      },
+    });
+    const search = container.querySelector(
+      '[aria-label="Buscar pedidos da cozinha"]',
+    ) as HTMLInputElement;
+    const status = container.querySelector(
+      '[aria-label="Filtrar por status"]',
+    ) as HTMLSelectElement;
+    act(() => changeInput(search, 'alvaro'));
+    act(() => {
+      status.value = 'PENDENTE';
+      status.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+    const card = container.querySelector('[data-order-id="#1"]') as HTMLElement;
+    const product = card.querySelector('.item-name') as HTMLElement;
+    const observation = card.querySelector('.order-observation span') as HTMLElement;
+    const action = card.querySelector('.action') as HTMLButtonElement;
+    const productSize = parseFloat(getComputedStyle(product).fontSize);
+    const observationSize = parseFloat(getComputedStyle(observation).fontSize);
+    const actionHeight = parseFloat(getComputedStyle(action).minHeight);
+    const readingMode = [...container.querySelectorAll('button')].find(
+      (button) => button.textContent?.trim() === 'Leitura ampliada',
+    ) as HTMLButtonElement;
+
+    expect(readingMode.getAttribute('aria-pressed')).toBe('false');
+    act(() => readingMode.click());
+
+    expect(readingMode.getAttribute('aria-pressed')).toBe('true');
+    expect(card.classList.contains('large-reading')).toBe(true);
+    expect(parseFloat(getComputedStyle(product).fontSize)).toBeGreaterThan(productSize);
+    expect(parseFloat(getComputedStyle(observation).fontSize)).toBeGreaterThan(observationSize);
+    expect(parseFloat(getComputedStyle(action).minHeight)).toBeGreaterThan(actionHeight);
+    expect(card.textContent).toContain('Conferir: sem cebola.');
+    expect(card.textContent).toContain('Bacon crocante');
+    expect(search.value).toBe('alvaro');
+    expect(status.value).toBe('PENDENTE');
+    expect(container.querySelectorAll('[data-order-id]')).toHaveLength(1);
+    expect(onUpdateOrderStatus).not.toHaveBeenCalled();
+    expect(localStorage.getItem(KITCHEN_READING_MODE_STORAGE_KEY)).toBe('large');
+
+    act(() => readingMode.click());
+    expect(card.classList.contains('large-reading')).toBe(false);
+    expect(parseFloat(getComputedStyle(product).fontSize)).toBe(productSize);
+    expect(localStorage.getItem(KITCHEN_READING_MODE_STORAGE_KEY)).toBe('standard');
+  });
+
+  it('restaura a preferência ampliada numa nova montagem da cozinha', () => {
+    localStorage.setItem(KITCHEN_READING_MODE_STORAGE_KEY, 'large');
+    renderPage(<KitchenQueuePage />);
+    const readingMode = [...container.querySelectorAll('button')].find(
+      (button) => button.textContent?.trim() === 'Leitura ampliada',
+    ) as HTMLButtonElement;
+    expect(readingMode.getAttribute('aria-pressed')).toBe('true');
+    expect(container.querySelectorAll('[data-order-id].large-reading')).toHaveLength(3);
+
+    act(() => readingMode.click());
+    act(() => root.render(null));
+    renderPage(<KitchenQueuePage />);
+
+    expect(container.querySelectorAll('[data-order-id].large-reading')).toHaveLength(0);
+    expect(
+      [...container.querySelectorAll('button')]
+        .find((button) => button.textContent?.trim() === 'Leitura ampliada')
+        ?.getAttribute('aria-pressed'),
+    ).toBe('false');
+  });
+
+  it('usa leitura padrão quando a preferência armazenada é inválida', () => {
+    localStorage.setItem(KITCHEN_READING_MODE_STORAGE_KEY, 'invalid-preference');
+    renderPage(<KitchenQueuePage />);
+
+    expect(container.querySelectorAll('[data-order-id].large-reading')).toHaveLength(0);
+    expect(
+      [...container.querySelectorAll('button')]
+        .find((button) => button.textContent?.trim() === 'Leitura ampliada')
+        ?.getAttribute('aria-pressed'),
+    ).toBe('false');
+  });
+
+  it('continua operando e conserva a escolha entre telas com armazenamento bloqueado', async () => {
+    vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
+      throw new DOMException('Armazenamento indisponível', 'SecurityError');
+    });
+    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+      throw new DOMException('Armazenamento indisponível', 'QuotaExceededError');
+    });
+    const onUpdateOrderStatus = vi.fn().mockResolvedValue(undefined);
+    renderPage(<KitchenQueuePage />, { onUpdateOrderStatus });
+    const readingMode = [...container.querySelectorAll('button')].find(
+      (button) => button.textContent?.trim() === 'Leitura ampliada',
+    ) as HTMLButtonElement;
+    expect(readingMode.getAttribute('aria-pressed')).toBe('false');
+    act(() => readingMode.click());
+
+    renderPage(<KitchenHistoryPage />);
+    renderPage(<KitchenQueuePage />, { onUpdateOrderStatus });
+
+    expect(container.querySelectorAll('[data-order-id].large-reading')).toHaveLength(3);
+    const action = container.querySelector('[data-order-id="#1"] .action') as HTMLButtonElement;
+    await act(async () => action.click());
+    expect(onUpdateOrderStatus).toHaveBeenCalledExactlyOnceWith('#1', 'PREPARANDO');
+    expect(container.textContent).toContain('Preparo iniciado para #1.');
+  });
+
+  it('distingue filtros sem resultado de uma fila vazia e permite recuperar todos os pedidos', () => {
+    renderPage(<KitchenQueuePage />);
+    const search = container.querySelector(
+      '[aria-label="Buscar pedidos da cozinha"]',
+    ) as HTMLInputElement;
+    const status = container.querySelector(
+      '[aria-label="Filtrar por status"]',
+    ) as HTMLSelectElement;
+    const tableChannel = container.querySelector(
+      '[aria-label="Filtrar por canal"] button:nth-child(2)',
+    ) as HTMLButtonElement;
+    act(() => {
+      tableChannel.click();
+      changeInput(search, 'alvaro');
+    });
+    act(() => {
+      status.value = 'PREPARANDO';
+      status.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+
+    expect(container.textContent).toContain('0 de 3 pedidos ativos correspondem aos filtros.');
+    expect(container.textContent).toContain('Nenhum pedido corresponde aos filtros.');
+    expect(container.textContent).not.toContain('Nenhum pedido ativo no momento.');
+    const clear = [...container.querySelectorAll('button')].find(
+      (button) => button.textContent?.trim() === 'Limpar filtros',
+    ) as HTMLButtonElement;
+    act(() => clear.click());
+
+    expect(search.value).toBe('');
+    expect(status.value).toBe('ALL');
+    expect(container.querySelectorAll('[data-order-id]')).toHaveLength(3);
+    expect(
+      container.querySelector('[aria-label="Filtrar por canal"] button[aria-pressed="true"]')
+        ?.textContent,
+    ).toBe('Todos');
+    expect(container.textContent).not.toContain('Limpar filtros');
+  });
+
+  it('mostra uma única mensagem de fila vazia sem confundir pedidos finalizados com ativos', () => {
+    renderPage(<KitchenQueuePage />, {
+      currentData: { ...data, orders: [order({ status: 'ENTREGUE' })] },
+    });
+
+    expect(container.textContent).toContain(
+      'Nenhum pedido ativo no momento. Novos pedidos aparecerão aqui.',
+    );
+    expect(container.textContent).not.toContain('Nenhum pedido neste status.');
+    expect(container.textContent).not.toContain('Limpar filtros');
+    expect(container.querySelectorAll('[data-order-id]')).toHaveLength(0);
+  });
+
+  it.each([
+    ['PENDENTE', 'PREPARANDO', 'Preparo iniciado para #1.'],
+    ['PREPARANDO', 'PRONTO', 'Pedido #1 marcado como pronto.'],
+  ] as const)(
+    'confirma %s → %s após a resposta, mesmo quando o cartão sai do filtro',
+    async (initialStatus, nextStatus, successMessage) => {
+      const request = deferred<void>();
+      const update = vi.fn(() => request.promise);
+      function LiveQueue() {
+        const [orders, setOrders] = useState([order({ status: initialStatus })]);
+        return (
+          <KitchenProvider
+            employee={employee}
+            restaurant={restaurant}
+            data={{ ...data, orders }}
+            onUpdateOrderStatus={async (id, status) => {
+              await update();
+              setOrders((current) =>
+                current.map((item) => (item.id === id ? { ...item, status } : item)),
+              );
+            }}
+          >
+            <KitchenQueuePage />
+          </KitchenProvider>
+        );
+      }
+      act(() => root.render(<LiveQueue />));
+      const status = container.querySelector(
+        '[aria-label="Filtrar por status"]',
+      ) as HTMLSelectElement;
+      act(() => {
+        status.value = initialStatus;
+        status.dispatchEvent(new Event('change', { bubbles: true }));
+      });
+      const action = container.querySelector('[data-order-id="#1"] .action') as HTMLButtonElement;
+      act(() => action.click());
+      expect(update).toHaveBeenCalledOnce();
+      expect(action.disabled).toBe(true);
+      expect(container.textContent).not.toContain(successMessage);
+
+      await act(async () => request.resolve());
+
+      expect(status.value).toBe(initialStatus);
+      expect(container.querySelector('[data-order-id="#1"]')).toBeNull();
+      const confirmation = container.querySelector('[role="status"][aria-atomic="true"]');
+      expect(confirmation?.textContent).toContain(successMessage);
+      expect(container.textContent).toContain('0 de 1 pedidos ativos correspondem aos filtros.');
+
+      act(() => {
+        status.value = nextStatus;
+        status.dispatchEvent(new Event('change', { bubbles: true }));
+      });
+      expect(container.querySelector('[data-order-id="#1"]')).not.toBeNull();
+    },
+  );
+
   it('bloqueia clique duplo durante a transição e mostra a rejeição do backend', async () => {
     let rejectUpdate: (reason?: unknown) => void = () => undefined;
     const pendingUpdate = new Promise<void>((_resolve, reject) => {
@@ -201,6 +423,7 @@ describe('páginas operacionais da cozinha', () => {
     });
 
     expect(card.textContent).toContain('Pedido já foi atualizado por outra estação.');
+    expect(container.querySelector('[role="status"][aria-atomic="true"]')).toBeNull();
     const refresh = [...card.querySelectorAll('button')].find(
       (button) => button.textContent?.trim() === 'Atualizar fila',
     );

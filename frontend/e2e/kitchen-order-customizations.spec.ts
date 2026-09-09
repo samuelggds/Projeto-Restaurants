@@ -1,3 +1,4 @@
+import { exerciseWorkspaceSidebar } from './helpers/workspaceLayout';
 import { orderFixtureResponse } from './helpers/orderFixtures';
 import { expect, test, type Page, type Route } from '@playwright/test';
 import { mockAuthRefresh } from './helpers/mockAuthRefresh';
@@ -342,7 +343,14 @@ async function mockKitchenApi(page: Page, state: KitchenE2EState) {
       state.orderRequestTokens.push(token);
       // Fault injection targets the active operational request, not its independent history refresh.
       if (new URL(request.url()).searchParams.get('queue') === 'HISTORY') {
-        return json(route, orderFixtureResponse(request.url(), state.orders.filter((order) => order.restaurantId === RESTAURANT_ID), false));
+        return json(
+          route,
+          orderFixtureResponse(
+            request.url(),
+            state.orders.filter((order) => order.restaurantId === RESTAURANT_ID),
+            false,
+          ),
+        );
       }
 
       if (state.holdNextOrdersRequest) {
@@ -358,7 +366,13 @@ async function mockKitchenApi(page: Page, state: KitchenE2EState) {
         return json(route, { error: 'Falha simulada ao carregar a cozinha.' }, 503);
       }
 
-      return json(route, orderFixtureResponse(request.url(), state.orders.filter((order) => order.restaurantId === RESTAURANT_ID)));
+      return json(
+        route,
+        orderFixtureResponse(
+          request.url(),
+          state.orders.filter((order) => order.restaurantId === RESTAURANT_ID),
+        ),
+      );
     }
 
     const reprintRequest = pathname.match(/^\/kitchen-printing\/orders\/(\d+)\/reprint$/);
@@ -413,7 +427,7 @@ async function mockKitchenApi(page: Page, state: KitchenE2EState) {
   await mockAuthRefresh(page, kitchenUser.id, KITCHEN_TOKEN);
 
   await page.addInitScript((user) => {
-    localStorage.clear();
+    // Playwright isolates each test; keep display preferences when this page reloads.
     sessionStorage.clear();
     localStorage.setItem('user', JSON.stringify(user));
   }, kitchenUser);
@@ -593,7 +607,9 @@ test('exibe carregamento, permite tentar novamente após erro e diferencia retor
   await expect(page.getByRole('alert')).toHaveCount(0);
 
   await openKitchenView(page, 'Fila de pedidos');
-  await expect(page.getByText('Nenhum pedido neste status.')).toHaveCount(3);
+  await expect(
+    page.getByText('Nenhum pedido ativo no momento. Novos pedidos aparecerão aqui.'),
+  ).toBeVisible();
   await openKitchenView(page, 'Prontos');
   await expect(page.getByText('Nenhum pedido pronto neste canal.')).toBeVisible();
   await openKitchenView(page, 'Histórico');
@@ -621,6 +637,20 @@ test('todas as abas da cozinha permanecem acessíveis e sem overflow em celular'
     name: 'Navegação móvel da cozinha',
   });
 
+  const optionsTrigger = page.getByRole('button', { name: 'Abrir opções da cozinha' });
+  await optionsTrigger.click();
+  const options = page.getByRole('dialog', { name: 'Opções da cozinha' });
+  const closeOptions = options.getByRole('button', { name: 'Fechar opções da cozinha' });
+  await expect(closeOptions).toBeFocused();
+  await page.keyboard.press('Shift+Tab');
+  await expect(options.getByRole('button', { name: 'Sair da conta' })).toBeFocused();
+  await page.keyboard.press('Tab');
+  await expect(closeOptions).toBeFocused();
+  await page.keyboard.press('Escape');
+  await expect(options).toHaveCount(0);
+  await expect(optionsTrigger).toBeFocused();
+  await expect.poll(() => page.evaluate(() => document.body.style.overflow)).toBe('');
+
   for (const [tab, title] of destinations) {
     await mobileNavigation.getByRole('button', { name: tab, exact: true }).click();
     await expect(page.getByRole('heading', { name: title, exact: true })).toBeVisible();
@@ -642,6 +672,22 @@ test('todas as abas da cozinha permanecem acessíveis e sem overflow em celular'
   await expect(queuedOrder.getByText('Assar bem a massa e cortar em oito pedaços')).toBeVisible();
   await captureReadmeScreenshot(page, 'kitchen-mobile.png');
 
+  await page.getByLabel('Filtrar por status').selectOption('PENDENTE');
+  await page.getByLabel('Buscar pedidos da cozinha').fill('inexistente');
+  await expect(
+    page.getByText('Nenhum pedido corresponde aos filtros.', { exact: false }),
+  ).toBeVisible();
+  await page.getByRole('button', { name: 'Limpar filtros' }).click();
+  await page.getByLabel('Filtrar por status').selectOption('PENDENTE');
+  await queuedOrder.getByRole('button', { name: 'Iniciar preparo' }).click();
+  await expect(
+    page.getByRole('status').filter({ hasText: 'Preparo iniciado para #71.' }),
+  ).toBeVisible();
+  await expect(queuedOrder).toHaveCount(0);
+  await page.getByLabel('Filtrar por status').selectOption('PREPARANDO');
+  await expect(queuedOrder).toBeVisible();
+  await captureReadmeScreenshot(page, 'kitchen-filtered-mobile.png');
+
   const cardLayout = await queuedOrder.evaluate((element) => ({
     clientWidth: element.clientWidth,
     scrollWidth: element.scrollWidth,
@@ -654,4 +700,68 @@ test('todas as abas da cozinha permanecem acessíveis e sem overflow em celular'
   expect(cardLayout.right).toBeLessThanOrEqual(cardLayout.viewportWidth);
 
   await expectTenantSafeRequests(state);
+});
+
+test('leitura ampliada aumenta produtos e ações, preserva filtros e restaura a preferência', async ({
+  page,
+}) => {
+  const state = initialState();
+  await page.setViewportSize({ width: 1440, height: 960 });
+  await mockKitchenApi(page, state);
+  await page.goto('/kitchen');
+  await openKitchenView(page, 'Fila de pedidos');
+  const toggle = page.getByRole('button', { name: 'Leitura ampliada', exact: true });
+  await expect(toggle).toHaveAttribute('aria-pressed', 'false');
+  await page.getByLabel('Filtrar por status').selectOption('PENDENTE');
+  await toggle.click();
+  await expect(toggle).toHaveAttribute('aria-pressed', 'true');
+  const card = orderCard(page, 71);
+  await expect
+    .poll(() =>
+      card
+        .locator('.item-name')
+        .first()
+        .evaluate((element) => parseFloat(getComputedStyle(element).fontSize)),
+    )
+    .toBeGreaterThanOrEqual(18);
+  await expect
+    .poll(
+      async () =>
+        (await card.getByRole('button', { name: 'Iniciar preparo' }).boundingBox())?.height ?? 0,
+    )
+    .toBeGreaterThanOrEqual(56);
+  await expect(page.getByLabel('Filtrar por status')).toHaveValue('PENDENTE');
+  await captureReadmeScreenshot(page, 'kitchen-large-reading.png', { fullPage: true });
+  await page.reload();
+  await openKitchenView(page, 'Fila de pedidos');
+  await expect(toggle).toHaveAttribute('aria-pressed', 'true');
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.getByLabel('Filtrar por status').selectOption('PENDENTE');
+  await expect(card.getByText('Assar bem a massa e cortar em oito pedaços')).toBeVisible();
+  await expect
+    .poll(() => page.evaluate(() => document.documentElement.scrollWidth))
+    .toBeLessThanOrEqual(391);
+  await captureReadmeScreenshot(page, 'kitchen-large-reading-mobile.png');
+  await toggle.click();
+  await expect(toggle).toHaveAttribute('aria-pressed', 'false');
+  await expect(card).not.toHaveClass(/large-reading/);
+  expect(state.updates).toEqual([]);
+  await expectTenantSafeRequests(state);
+});
+
+test('cozinha: todas as abas ocupam a largura disponível ao recolher e expandir o menu', async ({
+  page,
+}) => {
+  test.setTimeout(90000);
+  await page.setViewportSize({ width: 1440, height: 960 });
+  await mockKitchenApi(page, initialState());
+  await page.goto('/kitchen');
+  await exerciseWorkspaceSidebar(page, {
+    navigation: 'Navegação da cozinha',
+    collapse: 'Recolher menu lateral',
+    expand: 'Expandir menu lateral',
+    sidebarWidth: 232,
+  });
+  await page.getByRole('button', { name: 'Recolher menu lateral', exact: true }).click();
+  await captureReadmeScreenshot(page, 'kitchen-collapsed-desktop.png');
 });

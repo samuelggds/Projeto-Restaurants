@@ -1,6 +1,7 @@
 import { OrderHistoryPagination } from '../../../components/OrderHistoryPagination';
 import {
   ArrowRight,
+  ALargeSmall,
   Bike,
   CheckCircle2,
   ChefHat,
@@ -27,8 +28,10 @@ import {
 } from '../components/Shared';
 import * as S from '../Kitchen.styles';
 import { KitchenCardActions } from '../KitchenCardActions.styles';
+import { ReadingModeControl } from '../KitchenReadingMode.styles';
 import { KITCHEN_LIST_BATCH_SIZE, KitchenListControls } from '../components/KitchenListControls';
 import * as D from './KitchenDashboard.styles';
+import * as F from './KitchenQueueFeedback.styles';
 
 type ActiveOrderStatus = Extract<OrderStatus, 'PENDENTE' | 'PREPARANDO' | 'PRONTO'>;
 const activeStatuses: ActiveOrderStatus[] = ['PENDENTE', 'PREPARANDO', 'PRONTO'];
@@ -248,7 +251,8 @@ export function KitchenOverviewPage({ onOpenOrder }: { onOpenOrder?: (orderId: s
             <i style={{ width: `${capacity.percent}%` }} />
           </div>
           <small>
-            {active.length} de {maxConcurrentOrders} pedidos simultâneos • {capacity.percent}% utilizado
+            {active.length} de {maxConcurrentOrders} pedidos simultâneos • {capacity.percent}%
+            utilizado
           </small>
         </div>
       </D.CapacityCard>
@@ -391,6 +395,7 @@ function KitchenCard({
     orderUpdateError,
     reprintError,
     reprintSuccessOrderId,
+    largeReadingMode,
     onRefresh,
   } = useWorkspace();
   const next =
@@ -408,7 +413,7 @@ function KitchenCard({
     <S.KitchenOrder
       id={`kitchen-order-${encodeURIComponent(order.id.replace(/^#/, ''))}`}
       data-order-id={order.id}
-      className={`${highlighted ? 'highlighted ' : ''}status-${order.status.toLocaleLowerCase('pt-BR')}`}
+      className={`${highlighted ? 'highlighted ' : ''}${largeReadingMode ? 'large-reading ' : ''}status-${order.status.toLocaleLowerCase('pt-BR')}`}
     >
       <div className="head">
         <span className="identity">
@@ -436,7 +441,7 @@ function KitchenCard({
         </span>
       )}
       {role === 'KITCHEN' && (
-        <KitchenCardActions>
+        <KitchenCardActions className="card-actions">
           {next && (
             <button
               type="button"
@@ -492,7 +497,8 @@ export function KitchenQueuePage({
   focusedOrderId?: string | null;
   onFocusComplete?: () => void;
 }) {
-  const { orders, workspaceState } = useWorkspace();
+  const { orders, workspaceState, orderUpdateSuccess, largeReadingMode, changeReadingMode } =
+    useWorkspace();
   const now = useKitchenClock();
   const focusedOrder = focusedOrderId
     ? orders.find((order) => order.id === focusedOrderId)
@@ -557,9 +563,27 @@ export function KitchenQueuePage({
       ),
     [orders, channel, status, query],
   );
+  const activeCount = orders.filter((order) => isActiveOrderStatus(order.status)).length;
+  const hasFilters = Boolean(query.trim()) || channel !== 'ALL' || status !== 'ALL';
+  const clearFilters = () => {
+    setQuery('');
+    setChannel('ALL');
+    setStatus('ALL');
+    resetVisibleCounts();
+  };
 
   return (
     <>
+      {orderUpdateSuccess && (
+        <F.ActionConfirmation role="status" aria-live="polite" aria-atomic="true">
+          <CheckCircle2 aria-hidden="true" />
+          <span>
+            {orderUpdateSuccess.status === 'PREPARANDO'
+              ? `Preparo iniciado para ${orderUpdateSuccess.orderId}.`
+              : `Pedido ${orderUpdateSuccess.orderId} marcado como pronto.`}
+          </span>
+        </F.ActionConfirmation>
+      )}
       <S.Toolbar>
         <input
           aria-label="Buscar pedidos da cozinha"
@@ -593,6 +617,32 @@ export function KitchenQueuePage({
         </select>
         <RealtimeIndicator status={workspaceState?.realtimeStatus} />
       </S.Toolbar>
+      <F.FilterSummary>
+        {hasFilters && (
+          <span role="status" aria-live="polite">
+            {visible.length} de {activeCount} pedidos ativos correspondem aos filtros.
+          </span>
+        )}
+        <div>
+          <ReadingModeControl
+            type="button"
+            aria-pressed={largeReadingMode}
+            onClick={() => changeReadingMode(!largeReadingMode)}
+            title={
+              largeReadingMode
+                ? 'Usar textos e botões no tamanho padrão'
+                : 'Aumentar textos e botões dos pedidos'
+            }
+          >
+            <ALargeSmall aria-hidden="true" /> Leitura ampliada
+          </ReadingModeControl>
+          {hasFilters && (
+            <button type="button" onClick={clearFilters}>
+              Limpar filtros
+            </button>
+          )}
+        </div>
+      </F.FilterSummary>
       <MetricCards
         items={[
           {
@@ -619,50 +669,65 @@ export function KitchenQueuePage({
           },
         ]}
       />
-      <S.StatusColumns>
-        {activeStatuses
-          .filter((item) => status === 'ALL' || item === status)
-          .map((item) => {
-            const laneOrders = visible
-              .filter((order) => order.status === item)
-              .sort(oldestStageFirst);
-            return (
-              <S.StatusColumn key={item} className={`lane-${item.toLocaleLowerCase('pt-BR')}`}>
-                <header>
-                  <span className="dot" />
-                  <b>{statusLabel[item]}</b>
-                  <span>{laneOrders.length}</span>
-                </header>
-                {laneOrders.slice(0, visibleCounts[item]).map((order, position) => (
-                  <KitchenCard
-                    key={order.id}
-                    order={order}
-                    highlighted={highlightedOrderId === order.id}
-                    now={now}
-                    position={position}
+      {!visible.length && (
+        <Empty>
+          {hasFilters && activeCount > 0
+            ? 'Nenhum pedido corresponde aos filtros. Limpe os filtros para ver a fila completa.'
+            : 'Nenhum pedido ativo no momento. Novos pedidos aparecerão aqui.'}
+        </Empty>
+      )}
+      {!!visible.length && (
+        <S.StatusColumns $singleStatus={status !== 'ALL'}>
+          {activeStatuses
+            .filter((item) => status === 'ALL' || item === status)
+            .map((item) => {
+              const laneOrders = visible
+                .filter((order) => order.status === item)
+                .sort(oldestStageFirst);
+              return (
+                <S.StatusColumn key={item} className={`lane-${item.toLocaleLowerCase('pt-BR')}`}>
+                  <header>
+                    <span className="dot" />
+                    <b>{statusLabel[item]}</b>
+                    <span>{laneOrders.length}</span>
+                  </header>
+                  {laneOrders.slice(0, visibleCounts[item]).map((order, position) => (
+                    <KitchenCard
+                      key={order.id}
+                      order={order}
+                      highlighted={highlightedOrderId === order.id}
+                      now={now}
+                      position={position}
+                    />
+                  ))}
+                  {!laneOrders.length && (
+                    <Empty>
+                      {hasFilters
+                        ? 'Nenhum pedido neste status com os filtros atuais.'
+                        : 'Nenhum pedido neste status.'}
+                    </Empty>
+                  )}
+                  <KitchenListControls
+                    visibleCount={Math.min(visibleCounts[item], laneOrders.length)}
+                    totalCount={laneOrders.length}
+                    onShowMore={() =>
+                      setVisibleCounts((current) => ({
+                        ...current,
+                        [item]: current[item] + KITCHEN_LIST_BATCH_SIZE,
+                      }))
+                    }
+                    onReset={() =>
+                      setVisibleCounts((current) => ({
+                        ...current,
+                        [item]: KITCHEN_LIST_BATCH_SIZE,
+                      }))
+                    }
                   />
-                ))}
-                {!laneOrders.length && <Empty>Nenhum pedido neste status.</Empty>}
-                <KitchenListControls
-                  visibleCount={Math.min(visibleCounts[item], laneOrders.length)}
-                  totalCount={laneOrders.length}
-                  onShowMore={() =>
-                    setVisibleCounts((current) => ({
-                      ...current,
-                      [item]: current[item] + KITCHEN_LIST_BATCH_SIZE,
-                    }))
-                  }
-                  onReset={() =>
-                    setVisibleCounts((current) => ({
-                      ...current,
-                      [item]: KITCHEN_LIST_BATCH_SIZE,
-                    }))
-                  }
-                />
-              </S.StatusColumn>
-            );
-          })}
-      </S.StatusColumns>
+                </S.StatusColumn>
+              );
+            })}
+        </S.StatusColumns>
+      )}
     </>
   );
 }
@@ -720,8 +785,8 @@ export function KitchenReadyPage() {
                 <b>{order.id}</b>
                 {index === 0 && <em className="ready-priority">Retirada prioritária</em>}
                 <span>
-                  {order.channel === 'TABLE' ? order.reference : channelLabel[order.channel]} • pronto
-                  há {orderElapsed(order, now)}
+                  {order.channel === 'TABLE' ? order.reference : channelLabel[order.channel]} •
+                  pronto há {orderElapsed(order, now)}
                   {order.customer ? ` • ${order.customer}` : ''}
                 </span>
               </div>

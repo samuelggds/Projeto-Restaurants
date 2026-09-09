@@ -1,5 +1,6 @@
 import { createContext, useCallback, useMemo, type PropsWithChildren } from 'react';
 import { workspaceMock } from './data';
+import tableAccountService from '../../Services/tableAccountService';
 import type {
   CallStatus,
   EmployeeWorkspaceData,
@@ -11,6 +12,7 @@ export type WaiterModuleProps = Omit<EmployeeWorkspaceProps, 'role'>;
 export type WaiterContextValue = WaiterModuleProps &
   EmployeeWorkspaceData & {
     role: 'WAITER';
+    tableAccountClient: NonNullable<EmployeeWorkspaceProps['tableAccountClient']>;
     updateOrderStatus: (orderId: string, status: OrderStatus) => Promise<void>;
     openTable: (tableId: string) => Promise<void>;
     closeTable: (sessionId: string) => Promise<void>;
@@ -79,6 +81,7 @@ export function WaiterProvider({
   const value = useMemo(
     () => ({
       ...props,
+      tableAccountClient: props.tableAccountClient ?? tableAccountService,
       data,
       role: 'WAITER' as const,
       orders: data.orders,

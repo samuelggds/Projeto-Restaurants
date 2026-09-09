@@ -1,6 +1,8 @@
 import styled from 'styled-components';
 
 export const Main = styled.main`
+  grid-column: -2 / -1;
+  grid-row: 1;
   min-width: 0;
 `;
 
@@ -310,9 +312,7 @@ export const LogoCard = styled.div`
     position: relative;
     border: 1px solid #ddd4cc;
     border-radius: 10px;
-    background:
-      linear-gradient(145deg, rgba(255, 255, 255, 0.08), transparent),
-      #171b1e;
+    background: linear-gradient(145deg, rgba(255, 255, 255, 0.08), transparent), #171b1e;
     display: grid;
     place-items: center;
     overflow: hidden;

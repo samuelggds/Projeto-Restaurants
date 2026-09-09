@@ -1,19 +1,9 @@
-export type DemoRole =
-  | 'CLIENTE'
-  | 'ADMIN'
-  | 'MOTOQUEIRO'
-  | 'ATENDENTE'
-  | 'COZINHA'
-  | 'GARCOM';
+import type { DemoTablePayment } from './demoTableAccount';
+export type DemoRole = 'CLIENTE' | 'ADMIN' | 'MOTOQUEIRO' | 'ATENDENTE' | 'COZINHA' | 'GARCOM';
 
 export type DemoOrderChannel = 'DELIVERY' | 'PICKUP' | 'TABLE';
 export type DemoOrderStatus =
-  | 'PENDENTE'
-  | 'PREPARANDO'
-  | 'PRONTO'
-  | 'SAIU_PARA_ENTREGA'
-  | 'ENTREGUE'
-  | 'CANCELADO';
+  'PENDENTE' | 'PREPARANDO' | 'PRONTO' | 'SAIU_PARA_ENTREGA' | 'ENTREGUE' | 'CANCELADO';
 export type DemoPaymentMethod = 'PIX' | 'CARD' | 'CASH';
 export type DemoCallStatus = 'WAITING' | 'IN_PROGRESS' | 'RESOLVED';
 
@@ -46,6 +36,9 @@ export type DemoOrder = {
   paid: boolean;
   status: DemoOrderStatus;
   createdAt: string;
+  preparationStartedAt?: string;
+  readyAt?: string;
+  deliveredAt?: string;
 };
 
 export type DemoTable = {
@@ -54,6 +47,7 @@ export type DemoTable = {
   occupied: boolean;
   guests: number;
   total: number;
+  closingRequested?: boolean;
 };
 
 export type DemoCall = {
@@ -73,6 +67,7 @@ export type DemoState = {
   tables: DemoTable[];
   calls: DemoCall[];
   nextOrderNumber: number;
+  tablePayments?: DemoTablePayment[];
 };
 
 export const DEMO_STORAGE_KEY = 'gastronexa:interactive-demo:v2';
@@ -335,9 +330,11 @@ function isPaymentMethod(value: unknown): value is DemoPaymentMethod {
 }
 
 function isDemoOrder(value: unknown): value is DemoOrder {
-  if (!isRecord(value) || !Array.isArray(value.items) || !value.items.every(isCartLine)) return false;
+  if (!isRecord(value) || !Array.isArray(value.items) || !value.items.every(isCartLine))
+    return false;
   const tableNumberIsValid =
-    value.tableNumber === undefined || (isPositiveInteger(value.tableNumber) && value.tableNumber <= 9999);
+    value.tableNumber === undefined ||
+    (isPositiveInteger(value.tableNumber) && value.tableNumber <= 9999);
   return (
     isPositiveInteger(value.id) &&
     typeof value.publicId === 'string' &&
@@ -387,10 +384,12 @@ export function sanitizeDemoState(value: unknown): DemoState {
 
   const orders =
     Array.isArray(value.orders) && value.orders.every(isDemoOrder) ? value.orders : fallback.orders;
-  const cart = Array.isArray(value.cart) && value.cart.every(isCartLine) ? value.cart : fallback.cart;
+  const cart =
+    Array.isArray(value.cart) && value.cart.every(isCartLine) ? value.cart : fallback.cart;
   const tables =
     Array.isArray(value.tables) && value.tables.every(isDemoTable) ? value.tables : fallback.tables;
-  const calls = Array.isArray(value.calls) && value.calls.every(isDemoCall) ? value.calls : fallback.calls;
+  const calls =
+    Array.isArray(value.calls) && value.calls.every(isDemoCall) ? value.calls : fallback.calls;
   const knownAccountIds = new Set(fallback.accounts.map((account) => account.id));
   const sessionAccountId: string | null =
     typeof value.sessionAccountId === 'string' && knownAccountIds.has(value.sessionAccountId)
@@ -415,6 +414,21 @@ export function sanitizeDemoState(value: unknown): DemoState {
     tables,
     calls,
     nextOrderNumber,
+    tablePayments: Array.isArray(value.tablePayments)
+      ? value.tablePayments.filter(
+          (entry): entry is DemoTablePayment =>
+            isRecord(entry) &&
+            isRecord(entry.payment) &&
+            typeof entry.payment.publicId === 'string' &&
+            typeof entry.payment.sessionPublicId === 'string' &&
+            ['RESERVED', 'PAID', 'CANCELED'].includes(String(entry.payment.status)) &&
+            isFiniteNumber(entry.payment.totalCents) &&
+            isRecord(entry.allocations) &&
+            Object.values(entry.allocations).every(
+              (amount) => isFiniteNumber(amount) && amount >= 0,
+            ),
+        )
+      : [],
   };
 }
 
@@ -541,10 +555,39 @@ export function updateDemoOrderStatus(
   state: DemoState,
   orderId: number,
   status: DemoOrderStatus,
+  now = Date.now(),
 ) {
+  const current = state.orders.find((order) => order.id === orderId);
+  if (!current || current.status === status) return state;
+  const allowed =
+    (status === 'CANCELADO' && !['ENTREGUE', 'CANCELADO'].includes(current.status)) ||
+    (current.status === 'PENDENTE' && status === 'PREPARANDO') ||
+    (current.status === 'PREPARANDO' && status === 'PRONTO') ||
+    (current.status === 'PRONTO' &&
+      status === 'SAIU_PARA_ENTREGA' &&
+      current.channel === 'DELIVERY') ||
+    (current.status === 'PRONTO' &&
+      status === 'ENTREGUE' &&
+      (current.channel === 'TABLE' || (current.channel === 'PICKUP' && current.paid))) ||
+    (current.status === 'SAIU_PARA_ENTREGA' &&
+      status === 'ENTREGUE' &&
+      current.channel === 'DELIVERY' &&
+      current.paid);
+  if (!allowed) throw new Error('Esta mudança não é permitida para o canal ou a etapa do pedido.');
+  const timestamp = new Date(now).toISOString();
+  const stage =
+    status === 'PREPARANDO'
+      ? { preparationStartedAt: timestamp }
+      : status === 'PRONTO'
+        ? { readyAt: timestamp }
+        : status === 'ENTREGUE'
+          ? { deliveredAt: timestamp }
+          : {};
   return {
     ...state,
-    orders: state.orders.map((order) => (order.id === orderId ? { ...order, status } : order)),
+    orders: state.orders.map((order) =>
+      order.id === orderId ? { ...order, ...stage, status } : order,
+    ),
   };
 }
 
@@ -574,6 +617,7 @@ export function toggleDemoTable(state: DemoState, tableId: string) {
         ? {
             ...table,
             occupied: !table.occupied,
+            closingRequested: false,
             guests: table.occupied ? 0 : 2,
             total: table.occupied ? 0 : table.total,
           }

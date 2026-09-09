@@ -6,7 +6,6 @@ import {
   Bike,
   CheckCircle2,
   ChevronRight,
-  Clock3,
   History,
   LocateFixed,
   MapPinOff,
@@ -26,11 +25,13 @@ import { EmployeeHelpCenter } from '../../features/employee-help/EmployeeHelpCen
 import { reportEmployeeIssue } from '../../features/employee-help/reportEmployeeIssue';
 import { useEmployeeIssueNotifications } from '../../features/employee-help/useEmployeeIssueNotifications';
 import { getAccessToken } from '../../modules/auth/session/authSession';
-import * as L from '../kitchen/Kitchen.styles';
+import { useCourierOrderRecovery } from './useCourierOrderRecovery';
+import { CourierSyncControl } from './components/CourierSyncControl';
 import * as S from './styles';
 import * as V from './CourierViews.styles';
 import { CourierNavigation } from './CourierNavigation';
 import { CourierListControls } from './components/CourierListControls';
+import { CourierPickupQueue } from './components/CourierPickupQueue';
 import { COURIER_VIEW_TITLES, getCourierListViewMeta, type CourierView } from './courierViewMeta';
 import {
   compareReadyForPickupOrders,
@@ -117,6 +118,7 @@ export default function CourierWorkspace() {
   const [visibleOrderLimit, setVisibleOrderLimit] = useState(LIST_BATCH_SIZE);
   const [visibleFinanceLimit, setVisibleFinanceLimit] = useState(LIST_BATCH_SIZE);
   const [refresh, setRefresh] = useState(0);
+  const [ordersRecovery, setOrdersRecovery] = useState(0);
   const [brand, setBrand] = useState({ name: 'Restaurante', color: '#d64d08' });
   const [geoStatus, setGeoStatus] = useState<GeoStatus>('idle');
   const [locationTrackingRequested, setLocationTrackingRequested] = useState(false);
@@ -137,7 +139,8 @@ export default function CourierWorkspace() {
   const [routeLoading, setRouteLoading] = useState(false);
   const [routeRetry, setRouteRetry] = useState(0);
   const [selectedRouteOrderId, setSelectedRouteOrderId] = useState<number | null>(null);
-  const [lastUpdatedAt, setLastUpdatedAt] = useState(() => new Date());
+  const [lastUpdatedAt, setLastUpdatedAt] = useState<Date | null>(null);
+  const ordersBusyRef = useRef(false);
   const ordersRef = useRef<CourierOrder[]>([]);
   const selectedRouteOrderIdRef = useRef<number | null>(null);
   const socketRef = useRef<ReturnType<typeof acquireSocket>['socket'] | null>(null);
@@ -148,6 +151,12 @@ export default function CourierWorkspace() {
   const wakeLockRef = useRef<WakeLockSentinelLike | null>(null);
   const restaurantId = Number(user?.restaurantId || 0);
   const accountId = Number(user?.id || 0);
+  const recoverOrders = useCourierOrderRecovery({
+    enabled: Boolean(accountId && restaurantId),
+    connected: socketConnected,
+    isBusy: () => ordersBusyRef.current,
+    onRefresh: () => setOrdersRecovery((value) => value + 1),
+  });
   const trackingPreferenceKey = courierTrackingPreferenceKey(accountId || 'unknown');
   const ready = useMemo(
     () =>
@@ -166,7 +175,10 @@ export default function CourierWorkspace() {
       ),
     [orders],
   );
-  const history = useOrderHistory({ query: { queue: 'DELIVERED', ...(search ? { search } : {}) }, refreshSignal: orders });
+  const history = useOrderHistory({
+    query: { queue: 'DELIVERED', ...(search ? { search } : {}) },
+    refreshSignal: orders,
+  });
   const delivered = useMemo(
     () =>
       normalizeCourierOrders(history.orders)
@@ -184,6 +196,7 @@ export default function CourierWorkspace() {
   const effectiveRouteOrderId = inRoute.some((order) => order.id === selectedRouteOrderId)
     ? selectedRouteOrderId
     : inRoute[0]?.id || null;
+  const priorityDelivery = inRoute.find((order) => order.id === effectiveRouteOrderId);
 
   useEffect(() => {
     ordersRef.current = orders;
@@ -210,6 +223,7 @@ export default function CourierWorkspace() {
   useEffect(() => {
     let active = true;
     const requestId = ++ordersRequestRef.current;
+    ordersBusyRef.current = true;
     ordersService
       .listRestaurantOrders()
       .then((data) => {
@@ -236,12 +250,15 @@ export default function CourierWorkspace() {
         }
       })
       .finally(() => {
-        if (active && requestId === ordersRequestRef.current) setLoading(false);
+        if (active && requestId === ordersRequestRef.current) {
+          ordersBusyRef.current = false;
+          setLoading(false);
+        }
       });
     return () => {
       active = false;
     };
-  }, [accountId, refresh, restaurantId]);
+  }, [accountId, refresh, restaurantId, ordersRecovery]);
 
   useEffect(() => {
     if (view !== 'overview') return;
@@ -250,7 +267,6 @@ export default function CourierWorkspace() {
       .then((data) => {
         setFinance(data as FinanceData);
         setFinanceError('');
-        setLastUpdatedAt(new Date());
       })
       .catch(() => setFinanceError('Não foi possível carregar seus dados financeiros.'));
   }, [view, refresh]);
@@ -277,7 +293,6 @@ export default function CourierWorkspace() {
           destination && isValidCourierRoutePoint(destination) ? destination : null,
         );
         setRouteError('');
-        setLastUpdatedAt(new Date());
       })
       .catch((error) => {
         console.error('[courier] Falha ao carregar percurso', error);
@@ -391,8 +406,13 @@ export default function CourierWorkspace() {
     const { socket, release } = acquireSocket(token, `courier-workspace:${accountId}`);
     socketRef.current = socket;
 
+    let needsRecovery = false;
     const onConnect = () => {
       setSocketConnected(true);
+      if (needsRecovery) {
+        needsRecovery = false;
+        recoverOrders();
+      }
       const latest = latestPositionRef.current;
       if (!latest) return;
       const activeIds = ordersRef.current.flatMap((order) =>
@@ -400,7 +420,10 @@ export default function CourierWorkspace() {
       );
       emitLocationForOrders(latest, activeIds);
     };
-    const onDisconnect = () => setSocketConnected(false);
+    const onDisconnect = () => {
+      needsRecovery = true;
+      setSocketConnected(false);
+    };
     const onChanged = (rawOrder: unknown) => {
       const wrapped = rawOrder as { order?: unknown };
       const candidate = (wrapped?.order || rawOrder) as { restaurantId?: unknown };
@@ -434,7 +457,6 @@ export default function CourierWorkspace() {
         return;
       }
       setRoutePoints((current) => mergeCourierRoutePoints(current, [point]));
-      setLastUpdatedAt(new Date());
     };
 
     let active = true;
@@ -443,18 +465,20 @@ export default function CourierWorkspace() {
     });
     socket.on('connect', onConnect);
     socket.on('disconnect', onDisconnect);
+    socket.on('connect_error', onDisconnect);
     socket.on('order:status-changed', onChanged);
     socket.on('order:delivery-location', onLocation);
     return () => {
       active = false;
       socket.off('connect', onConnect);
       socket.off('disconnect', onDisconnect);
+      socket.off('connect_error', onDisconnect);
       socket.off('order:status-changed', onChanged);
       socket.off('order:delivery-location', onLocation);
       socketRef.current = null;
       release();
     };
-  }, [accountId, emitLocationForOrders, restaurantId]);
+  }, [accountId, emitLocationForOrders, restaurantId, recoverOrders]);
 
   useEffect(() => {
     if (!locationTrackingRequested || !inRoute.length) return;
@@ -493,7 +517,6 @@ export default function CourierWorkspace() {
           `${socketRef.current?.connected ? 'Conectado ao restaurante' : 'Reconectando ao restaurante'} · precisão de ${Math.round(point.accuracy || 0)} m.`,
         );
         setRoutePoints((current) => mergeCourierRoutePoints(current, [point]));
-        setLastUpdatedAt(new Date());
         if (Date.now() - lastSentAt >= LOCATION_UPDATE_INTERVAL_MS) sendLatest();
       },
       (error) => {
@@ -573,7 +596,6 @@ export default function CourierWorkspace() {
         );
         emitLocationForOrders({ ...latest, recordedAt: new Date().toISOString() }, activeIds);
       }
-      setRefresh((value) => value + 1);
     };
 
     void requestWakeLock();
@@ -730,16 +752,58 @@ export default function CourierWorkspace() {
             <h1>{title}</h1>
             <p>{subtitle}</p>
           </div>
-          <L.Live title="Horário da atualização mais recente dos dados">
-            <Clock3 /> Última atualização <i />{' '}
-            {lastUpdatedAt.toLocaleTimeString('pt-BR', {
-              hour: '2-digit',
-              minute: '2-digit',
-              second: '2-digit',
-            })}
-          </L.Live>
+          <CourierSyncControl
+            lastUpdatedAt={lastUpdatedAt}
+            loading={loading}
+            failed={Boolean(loadError)}
+            connected={socketConnected}
+            onRefresh={recoverOrders}
+          />
         </S.CourierTop>
         <S.CourierContent>
+          {view === 'overview' && priorityDelivery && !loadError && (
+            <S.ActiveDeliveryCard aria-label="Entrega em andamento">
+              <div>
+                <small>
+                  <Bike aria-hidden="true" /> EM ENTREGA
+                </small>
+                <h2>Pedido #{priorityDelivery.id}</h2>
+                <p>
+                  {String(
+                    (priorityDelivery.user as { name?: string } | undefined)?.name || 'Cliente',
+                  )}
+                </p>
+                <strong>
+                  {[
+                    priorityDelivery.address,
+                    priorityDelivery.number,
+                    priorityDelivery.district,
+                    priorityDelivery.city,
+                  ]
+                    .filter(Boolean)
+                    .join(', ') || 'Endereço não informado'}
+                </strong>
+              </div>
+              <S.ActiveDeliveryActions>
+                <button
+                  type="button"
+                  onClick={() => {
+                    go('route');
+                    setSearch(String(priorityDelivery.id));
+                    setSelectedRouteOrderId(priorityDelivery.id);
+                  }}
+                >
+                  Continuar entrega #{priorityDelivery.id}
+                  <ChevronRight aria-hidden="true" />
+                </button>
+                {inRoute.length > 1 && (
+                  <button type="button" className="secondary" onClick={() => go('route')}>
+                    Ver {inRoute.length} entregas em andamento
+                  </button>
+                )}
+              </S.ActiveDeliveryActions>
+            </S.ActiveDeliveryCard>
+          )}
           {view !== 'help' &&
           view !== 'profile' &&
           geoStatus === 'enabled' &&
@@ -862,7 +926,9 @@ export default function CourierWorkspace() {
               ) : inRoute.length ? (
                 <S.EmptyState>
                   <LocateFixed />
-                  <p>Rastreamento desativado. Ative a localização se quiser compartilhar sua rota.</p>
+                  <p>
+                    Rastreamento desativado. Ative a localização se quiser compartilhar sua rota.
+                  </p>
                 </S.EmptyState>
               ) : (
                 <S.EmptyState>
@@ -896,15 +962,15 @@ export default function CourierWorkspace() {
                   <h2>Olá, {user?.name?.split(' ')[0] || 'Motoqueiro'}</h2>
                   <p>Acompanhe entregas e ganhos em um só lugar.</p>
                 </div>
-                <S.OverviewCounters>
+                <S.OverviewCounters aria-busy={loading}>
                   <button type="button" onClick={() => go('ready')}>
                     <PackageCheck />
-                    <b>{ready.length}</b>
+                    <b>{loading || loadError ? '—' : ready.length}</b>
                     <small>Para retirar</small>
                   </button>
                   <button type="button" onClick={() => go('route')}>
                     <Bike />
-                    <b>{inRoute.length}</b>
+                    <b>{loading || loadError ? '—' : inRoute.length}</b>
                     <small>Em rota</small>
                   </button>
                   <button type="button" onClick={() => go('history')}>
@@ -961,61 +1027,15 @@ export default function CourierWorkspace() {
                   )
                 )}
               </S.EarningsPanel>
-              <S.PickupPanel>
-                <S.EarningsHeading>
-                  <div>
-                    <PackageCheck />
-                    <span>
-                      <small>PRÓXIMAS RETIRADAS</small>
-                      <h2>Pedidos aguardando você</h2>
-                    </span>
-                  </div>
-                  <S.PickupCount>{ready.length}</S.PickupCount>
-                </S.EarningsHeading>
-                {ready.length ? (
-                  <S.CompactOrders>
-                    {ready.slice(0, 5).map((order) => (
-                      <S.CompactOrderButton
-                        key={order.id}
-                        type="button"
-                        onClick={() => {
-                          setView('ready');
-                          setSearch(String(order.id));
-                        }}
-                      >
-                        <span>
-                          <PackageCheck />
-                          <b>Pedido #{order.id}</b>
-                          <small>Pronto para retirada</small>
-                          <small>
-                            Ganho:{' '}
-                            {(
-                              order.courierEarningPreview as
-                                { available?: boolean; amount?: number } | undefined
-                            )?.available
-                              ? Number(
-                                  (order.courierEarningPreview as { amount?: number }).amount || 0,
-                                ).toLocaleString('pt-BR', {
-                                  style: 'currency',
-                                  currency: 'BRL',
-                                })
-                              : 'aguardando cálculo'}
-                          </small>
-                        </span>
-                        <ChevronRight />
-                      </S.CompactOrderButton>
-                    ))}
-                  </S.CompactOrders>
-                ) : (
-                  <S.CompactEmpty>
-                    <CheckCircle2 />
-                    <span>
-                      <b>Tudo certo por aqui</b>
-                      <small>Nenhum pedido aguardando retirada.</small>
-                    </span>
-                  </S.CompactEmpty>
-                )}
-              </S.PickupPanel>
+              <CourierPickupQueue
+                ready={ready}
+                loading={loading}
+                loadError={loadError}
+                onOpenOrder={(order) => {
+                  setView('ready');
+                  setSearch(String(order.id));
+                }}
+              />
               <Suspense fallback={null}>
                 <CourierSettlementsPanel />
               </Suspense>

@@ -1,6 +1,8 @@
+import { expectWorkspaceWidth } from './helpers/workspaceLayout';
 import { orderFixtureResponse } from './helpers/orderFixtures';
 import { expect, test, type Page, type Route } from '@playwright/test';
 import { mockAuthRefresh } from './helpers/mockAuthRefresh';
+import { captureReadmeScreenshot } from './helpers/readmeScreenshot';
 
 const restaurantId = 47;
 const user = {
@@ -84,7 +86,8 @@ async function setup(page: Page) {
       });
     }
     if (path === '/attendant/workspace') return json(route, state);
-    if (path === '/products') return json(route, [{ id: 1, name: 'Pizza da casa', price: 49.9, stock: 10 }]);
+    if (path === '/products')
+      return json(route, [{ id: 1, name: 'Pizza da casa', price: 49.9, stock: 10 }]);
     if (path === '/orders/103') {
       return json(route, {
         id: 103,
@@ -125,7 +128,10 @@ async function setup(page: Page) {
   });
 
   await mockAuthRefresh(page, user.id, 'attendant-e2e-token');
-  await page.addInitScript((sessionUser) => localStorage.setItem('user', JSON.stringify(sessionUser)), user);
+  await page.addInitScript(
+    (sessionUser) => localStorage.setItem('user', JSON.stringify(sessionUser)),
+    user,
+  );
   return { state, getManualPayload: () => manualPayload };
 }
 
@@ -165,4 +171,153 @@ test('registra pedido manual de retirada sem vincular o pedido ao atendente', as
   expect(api.getManualPayload()?.customerName).toBe('Samuel Gomes');
   expect(api.getManualPayload()?.customerCpf).toBe(customerCpf);
   expect(api.getManualPayload()?.type).toBe('RETIRADA');
+});
+
+test('falha inicial não anuncia fila vazia e atualização recupera a operação', async ({ page }) => {
+  const { state } = await setup(page);
+  let unavailable = true;
+  await page.route('**/attendant/workspace', (route) =>
+    unavailable ? json(route, { error: 'Falha temporária' }, 503) : json(route, state),
+  );
+  await page.goto('/attendant');
+  await expect(page.getByRole('alert')).toContainText('primeiros dados');
+  await expect(page.getByText('Aguardando dados da operação')).toBeVisible();
+  await expect(page.getByText('Fila tranquila')).toHaveCount(0);
+  await expect(page.getByText('Operação atualizada', { exact: true })).toHaveCount(0);
+  unavailable = false;
+  await page.getByRole('button', { name: 'Atualizar', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Abrir pedido #103, Bianca' })).toBeVisible();
+  await expect(page.getByText(/Última atualização às/)).toBeVisible();
+  await expect(page.getByRole('alert')).toHaveCount(0);
+  await captureReadmeScreenshot(page, 'attendant-overview.png', { fullPage: true });
+});
+
+test('snapshot inválido preserva pedidos já carregados e sinaliza a falha', async ({ page }) => {
+  await setup(page);
+  await page.goto('/attendant');
+  const priorityOrder = page.getByRole('button', { name: 'Abrir pedido #103, Bianca' });
+  await expect(priorityOrder).toBeVisible();
+  await page.route('**/attendant/workspace', (route) => json(route, {}));
+  await page.getByRole('button', { name: 'Atualizar', exact: true }).click();
+  await expect(page.getByRole('alert')).toContainText('dados disponíveis foram preservados');
+  await expect(priorityOrder).toBeVisible();
+  await expect(page.getByText('Atualização pendente', { exact: true })).toBeVisible();
+});
+
+test('detalhes recuperam falha sem inventar pagamento e devolvem o foco ao fechar', async ({
+  page,
+}) => {
+  await setup(page);
+  let unavailable = true;
+  await page.route('**/orders/103', (route) =>
+    unavailable ? json(route, { error: 'Falha temporária' }, 503) : route.fallback(),
+  );
+  await page.goto('/attendant');
+  const trigger = page.getByRole('button', { name: 'Abrir pedido #103, Bianca' });
+  await trigger.click();
+  const dialog = page.getByRole('dialog', { name: 'Detalhes do pedido' });
+  const close = dialog.getByRole('button', { name: 'Fechar detalhes' });
+  await expect(dialog.getByRole('alert')).toBeVisible();
+  await expect(close).toBeFocused();
+  await expect(dialog.getByText('Pagamento pendente', { exact: true })).toHaveCount(0);
+  await expect(dialog.getByRole('button', { name: 'Confirmar retirada entregue' })).toHaveCount(0);
+  unavailable = false;
+  await dialog.getByRole('button', { name: 'Tentar carregar novamente' }).click();
+  await expect(dialog.getByText('Pagamento confirmado')).toBeVisible();
+  await close.focus();
+  await page.keyboard.press('Shift+Tab');
+  await expect(dialog.getByRole('button', { name: 'Confirmar retirada entregue' })).toBeFocused();
+  await page.keyboard.press('Tab');
+  await expect(close).toBeFocused();
+  await captureReadmeScreenshot(page, 'attendant-order-details.png');
+  await page.keyboard.press('Escape');
+  await expect(dialog).toHaveCount(0);
+  await expect(trigger).toBeFocused();
+  await expect.poll(() => page.evaluate(() => document.body.style.overflow)).toBe('');
+});
+
+test('todas as áreas do atendente cabem em telas de 360 e 430 pixels', async ({ page }) => {
+  await setup(page);
+  await page.goto('/attendant');
+  const navigation = page.getByRole('navigation', { name: 'Navegação móvel do atendente' });
+  const more = navigation.getByRole('button', { name: 'Mais opções do atendente' });
+  const menu = page.getByRole('dialog', { name: 'Opções do atendente' });
+  for (const width of [360, 430]) {
+    await page.setViewportSize({ width, height: 844 });
+    await expect(navigation).toBeVisible();
+    for (const [name, title] of [
+      ['Visão geral', 'Central de atendimento'],
+      ['Pedidos', 'Pedidos em andamento'],
+      ['Novo pedido', 'Registrar novo pedido'],
+      ['Atendimento', 'Atendimento ao cliente'],
+      ['Entregas', 'Acompanhar deliveries'],
+      ['Mesas', 'Mesas em operação'],
+      ['Chamados', 'Chamados do salão'],
+    ]) {
+      const secondary = ['Atendimento', 'Entregas', 'Mesas'].includes(name);
+      if (secondary) await more.click();
+      const button = (secondary ? menu : navigation).getByRole('button', { name, exact: true });
+      await button.click();
+      if (secondary) {
+        await expect(menu).toHaveCount(0);
+        await more.click();
+        await expect(menu.getByRole('button', { name, exact: true })).toHaveAttribute(
+          'aria-current',
+          'page',
+        );
+        await page.keyboard.press('Escape');
+      } else await expect(button).toHaveAttribute('aria-current', 'page');
+      await expect(page.getByRole('heading', { name: title, exact: true })).toBeVisible();
+      await expect
+        .poll(() => page.evaluate(() => document.documentElement.scrollWidth))
+        .toBeLessThanOrEqual(width + 1);
+    }
+    for (const button of await navigation.getByRole('button').all()) {
+      const bounds = await button.boundingBox();
+      expect(bounds).not.toBeNull();
+      expect(bounds!.x).toBeGreaterThanOrEqual(0);
+      expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(width);
+      expect(bounds!.height).toBeGreaterThanOrEqual(44);
+    }
+  }
+  await navigation.getByRole('button', { name: 'Visão geral', exact: true }).click();
+  await captureReadmeScreenshot(page, 'attendant-overview-mobile.png', { fullPage: true });
+  await more.click();
+  const close = menu.getByRole('button', { name: 'Fechar opções do atendente' });
+  await expect(close).toBeFocused();
+  await page.keyboard.press('Shift+Tab');
+  await expect(menu.getByRole('button', { name: 'Sair da conta' })).toBeFocused();
+  await page.keyboard.press('Tab');
+  await expect(close).toBeFocused();
+  await captureReadmeScreenshot(page, 'attendant-mobile-menu.png');
+  await page.keyboard.press('Escape');
+  await expect(menu).toHaveCount(0);
+  await expect(more).toBeFocused();
+  await expect.poll(() => page.evaluate(() => document.body.style.overflow)).toBe('');
+});
+
+test('atendente: todas as áreas conservam a largura no desktop e o menu rola em tela baixa', async ({
+  page,
+}) => {
+  test.setTimeout(60000);
+  await setup(page);
+  await page.setViewportSize({ width: 1440, height: 480 });
+  await page.goto('/attendant');
+  const nav = page.getByRole('navigation', { name: 'Navegação do atendente', exact: true });
+  const sidebar = nav.locator('xpath=ancestor::aside[1]');
+  await sidebar.hover();
+  await page.mouse.wheel(0, 3000);
+  await expect(sidebar.getByRole('button', { name: 'Sair', exact: true })).toBeInViewport();
+  await page.setViewportSize({ width: 1440, height: 960 });
+  const main = page.getByRole('main').first();
+  const count = await nav.getByRole('button').count();
+  for (let index = 0; index < count; index++) {
+    await nav.getByRole('button').nth(index).click();
+    await expectWorkspaceWidth(main, 280);
+    await page.setViewportSize({ width: 1024, height: 768 });
+    await expectWorkspaceWidth(main, 280);
+    await page.setViewportSize({ width: 390, height: 844 });
+    await expectWorkspaceWidth(main, 0);
+    await page.setViewportSize({ width: 1440, height: 960 });
+  }
 });

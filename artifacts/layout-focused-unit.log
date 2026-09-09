@@ -1,0 +1,9 @@
+
+ RUN  v4.1.11 C:/Users/Samuel/Documents/Codex/RESTAURANT-DELIVERY-MESA/pizza-ia-delivery/frontend
+
+
+ Test Files  11 passed (11)
+      Tests  52 passed (52)
+   Start at  18:51:59
+   Duration  25.36s (transform 1.00s, setup 0ms, import 3.29s, tests 10.18s, environment 9.65s)
+

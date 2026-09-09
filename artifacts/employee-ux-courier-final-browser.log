@@ -1,0 +1,10 @@
+[WebServer] (node:40552) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+Running 1 test using 1 worker
+
+(node:39152) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ok 1 [chromium] › e2e\courier-operations.spec.ts:981:1 › todas as áreas do motoqueiro cabem no celular sem overflow horizontal (6.8s)
+
+  1 passed (9.6s)

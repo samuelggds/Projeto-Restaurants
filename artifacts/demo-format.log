@@ -1,0 +1,101 @@
+frontend/e2e/attendant-operations.spec.ts 103ms (unchanged)
+frontend/e2e/courier-operations.spec.ts 114ms (unchanged)
+frontend/e2e/kitchen-order-customizations.spec.ts 58ms (unchanged)
+frontend/e2e/waiter-operations.spec.ts 55ms (unchanged)
+frontend/package.json 73ms (unchanged)
+frontend/src/components/BrowserTabBranding/BrowserTabBranding.tsx 12ms
+frontend/src/features/employee-help/EmployeeHelpCenter.tsx 21ms (unchanged)
+frontend/src/features/employee-help/useEmployeeIssueNotifications.ts 8ms (unchanged)
+frontend/src/pages/Courier/CourierNavigation.styles.ts 68ms (unchanged)
+frontend/src/pages/Courier/CourierNavigation.tsx 22ms (unchanged)
+frontend/src/pages/Courier/CourierWorkspace.test.tsx 47ms (unchanged)
+frontend/src/pages/Courier/CourierWorkspace.tsx 86ms (unchanged)
+frontend/src/pages/Courier/components/DeliveryMap.tsx 12ms
+frontend/src/pages/Courier/components/OrderCard.styles.ts 40ms (unchanged)
+frontend/src/pages/Courier/components/OrderCard.tsx 57ms
+frontend/src/pages/Courier/components/ProfilePanel.tsx 14ms
+frontend/src/pages/Courier/styles.ts 123ms (unchanged)
+frontend/src/pages/Marketing/GastroNexaLandingV2.tsx 30ms
+frontend/src/pages/Marketing/demo/DemoExperienceV2.styles.ts 41ms
+frontend/src/pages/Marketing/demo/InteractiveDemoV4.tsx 34ms
+frontend/src/pages/Marketing/demo/demoDomain.test.ts 19ms
+frontend/src/pages/Marketing/demo/demoDomain.ts 36ms
+frontend/src/pages/admin/components/AdminOrders.tsx 67ms
+frontend/src/pages/admin/components/AdminOverview.tsx 33ms
+frontend/src/pages/admin/hooks/useAdminOrdersPage.ts 15ms
+frontend/src/pages/attendant/AttendantOperationCenterV2.tsx 14ms (unchanged)
+frontend/src/pages/attendant/AttendantPage.tsx 8ms (unchanged)
+frontend/src/pages/attendant/attendantApi.test.ts 9ms (unchanged)
+frontend/src/pages/attendant/attendantApi.ts 23ms (unchanged)
+frontend/src/pages/kitchen/Kitchen.styles.ts 80ms (unchanged)
+frontend/src/pages/kitchen/KitchenContext.tsx 9ms (unchanged)
+frontend/src/pages/kitchen/KitchenModule.test.tsx 5ms (unchanged)
+frontend/src/pages/kitchen/KitchenModule.tsx 16ms
+frontend/src/pages/kitchen/KitchenNavigation.styles.ts 30ms (unchanged)
+frontend/src/pages/kitchen/pages/KitchenPages.test.tsx 42ms (unchanged)
+frontend/src/pages/kitchen/pages/KitchenPages.tsx 73ms (unchanged)
+frontend/src/pages/kitchen/types.ts 11ms
+frontend/src/pages/waiter/Waiter.styles.ts 126ms (unchanged)
+frontend/src/pages/waiter/WaiterContext.tsx 4ms
+frontend/src/pages/waiter/WaiterModule.tsx 16ms
+frontend/src/pages/waiter/WaiterNavigation.styles.ts 42ms (unchanged)
+frontend/src/pages/waiter/components/Shared.tsx 9ms (unchanged)
+frontend/src/pages/waiter/components/WaiterTableAccountDialog.tsx 22ms
+frontend/src/pages/waiter/pages/WaiterPages.test.tsx 54ms (unchanged)
+frontend/src/pages/waiter/pages/WaiterPages.tsx 164ms (unchanged)
+frontend/src/pages/waiter/pages/WaiterPaymentsPage.tsx 29ms
+frontend/src/pages/waiter/types.ts 8ms
+frontend/vite.config.ts 8ms
+frontend/demo-admin.html 142ms
+frontend/e2e/demo-admin.spec.ts 14ms
+frontend/e2e/demo-workflow.spec.ts 44ms
+frontend/src/pages/Courier/components/CourierPickupQueue.tsx 5ms (unchanged)
+frontend/src/pages/Courier/components/CourierSyncControl.tsx 8ms (unchanged)
+frontend/src/pages/Courier/useCourierOrderRecovery.test.tsx 9ms (unchanged)
+frontend/src/pages/Courier/useCourierOrderRecovery.ts 4ms (unchanged)
+frontend/src/pages/Marketing/demo/DemoAdmin.tsx 4ms
+frontend/src/pages/Marketing/demo/DemoAdminSandbox.tsx 11ms
+frontend/src/pages/Marketing/demo/DemoAttendant.test.tsx 6ms (unchanged)
+frontend/src/pages/Marketing/demo/DemoAttendant.tsx 3ms (unchanged)
+frontend/src/pages/Marketing/demo/DemoControls.tsx 6ms
+frontend/src/pages/Marketing/demo/DemoCourier.tsx 12ms
+frontend/src/pages/Marketing/demo/DemoCustomerHome.tsx 31ms
+frontend/src/pages/Marketing/demo/DemoKitchenWaiter.tsx 8ms
+frontend/src/pages/Marketing/demo/adminSandboxEntry.ts 6ms
+frontend/src/pages/Marketing/demo/demoAdminApi.ts 30ms
+frontend/src/pages/Marketing/demo/demoAdminData.ts 11ms
+frontend/src/pages/Marketing/demo/demoAttendantAdapter.test.ts 12ms
+frontend/src/pages/Marketing/demo/demoAttendantAdapter.ts 21ms (unchanged)
+frontend/src/pages/Marketing/demo/demoCatalog.ts 6ms
+frontend/src/pages/Marketing/demo/demoCheckout.test.ts 4ms
+frontend/src/pages/Marketing/demo/demoCheckout.ts 4ms
+frontend/src/pages/Marketing/demo/demoCourierAdapter.ts 2ms
+frontend/src/pages/Marketing/demo/demoEmployeeAdapter.ts 5ms
+frontend/src/pages/Marketing/demo/demoRouting.test.ts 5ms
+frontend/src/pages/Marketing/demo/useDemoHomeData.ts 4ms
+frontend/src/pages/Marketing/demo/useDemoScenario.ts 3ms
+frontend/src/pages/attendant/AttendantMobileNavigation.tsx 17ms (unchanged)
+frontend/src/pages/attendant/AttendantOperationCenterV2.test.tsx 18ms (unchanged)
+frontend/src/pages/attendant/operation-center/CreateOrder.styles.ts 18ms (unchanged)
+frontend/src/pages/attendant/operation-center/CreateOrder.tsx 16ms (unchanged)
+frontend/src/pages/attendant/operation-center/EmptyState.tsx 2ms (unchanged)
+frontend/src/pages/attendant/operation-center/OrderDrawer.styles.ts 24ms (unchanged)
+frontend/src/pages/attendant/operation-center/OrderDrawer.tsx 15ms (unchanged)
+frontend/src/pages/attendant/operation-center/Orders.tsx 17ms (unchanged)
+frontend/src/pages/attendant/operation-center/Overview.tsx 20ms (unchanged)
+frontend/src/pages/attendant/operation-center/PeriodFilters.tsx 3ms (unchanged)
+frontend/src/pages/attendant/operation-center/SalonViews.styles.ts 12ms (unchanged)
+frontend/src/pages/attendant/operation-center/SalonViews.tsx 17ms (unchanged)
+frontend/src/pages/attendant/operation-center/Support.styles.ts 17ms (unchanged)
+frontend/src/pages/attendant/operation-center/Support.tsx 18ms (unchanged)
+frontend/src/pages/attendant/operation-center/format.ts 8ms (unchanged)
+frontend/src/pages/attendant/operation-center/layout.styles.ts 24ms (unchanged)
+frontend/src/pages/attendant/operation-center/navigation.ts 4ms (unchanged)
+frontend/src/pages/attendant/operation-center/overview.styles.ts 12ms (unchanged)
+frontend/src/pages/attendant/operation-center/services.ts 6ms (unchanged)
+frontend/src/pages/attendant/operation-center/shared.styles.ts 30ms (unchanged)
+frontend/src/pages/attendant/operation-center/types.ts 1ms (unchanged)
+frontend/src/pages/kitchen/KitchenReadingMode.styles.ts 7ms (unchanged)
+frontend/src/pages/kitchen/pages/KitchenQueueFeedback.styles.ts 6ms (unchanged)
+frontend/src/pages/kitchen/useKitchenReadingMode.ts 2ms
+frontend/src/pages/waiter/WaiterModule.test.tsx 9ms (unchanged)

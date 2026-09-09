@@ -445,6 +445,61 @@ test('painel continua contido no celular e mantém navegação acessível', asyn
   expect(dimensions.scrollWidth).toBeLessThanOrEqual(dimensions.clientWidth + 1);
 });
 
+test('configurações cabem ao lado dos menus em uma janela de 900px', async ({ page }) => {
+  const state = createDashboard();
+  const writes: Array<{ path: string; body: Record<string, unknown> }> = [];
+  await page.setViewportSize({ width: 900, height: 900 });
+  await mockSuperAdminApi(page, state, writes);
+
+  await page.goto('/super_admin/settings');
+  const identity = page.getByRole('heading', { name: 'Identidade da plataforma' });
+  const regional = page.getByRole('heading', { name: 'Configurações regionais' });
+  await expect(identity).toBeVisible();
+  await expect(regional).toBeVisible();
+
+  await expect
+    .poll(() => page.evaluate(() => document.documentElement.scrollWidth))
+    .toBeLessThanOrEqual(901);
+  const identityBox = await identity.boundingBox();
+  const regionalBox = await regional.boundingBox();
+  expect(identityBox).not.toBeNull();
+  expect(regionalBox).not.toBeNull();
+  expect(Math.abs(regionalBox!.x - identityBox!.x)).toBeLessThan(1);
+  expect(regionalBox!.y).toBeGreaterThan(identityBox!.y + identityBox!.height);
+  await expect(page.getByLabel('Nome da plataforma')).toHaveValue(state.settings.platformName);
+  await expect(page.getByLabel('Fuso horário (IANA)')).toHaveValue(state.settings.timezone);
+  expect(writes).toEqual([]);
+});
+
+for (const width of [390, 1024]) {
+  test(`menu mantém as últimas opções acessíveis em viewport baixo de ${width}px`, async ({
+    page,
+  }) => {
+    const state = createDashboard();
+    const writes: Array<{ path: string; body: Record<string, unknown> }> = [];
+    await page.setViewportSize({ width, height: 480 });
+    await mockSuperAdminApi(page, state, writes);
+
+    await page.goto('/super_admin/audit');
+    await expect(page.getByRole('heading', { level: 1, name: 'Auditoria' })).toBeVisible();
+    if (width <= 860) {
+      await page.getByRole('button', { name: 'Abrir menu' }).click();
+      await expect(page.getByRole('button', { name: 'Fechar menu' })).toBeFocused();
+    }
+
+    const sidebar = page.getByRole('complementary', {
+      name: 'Navegação do painel SUPER_ADMIN',
+    });
+    await sidebar.hover();
+    await page.mouse.wheel(0, 1000);
+    await expect.poll(() => sidebar.evaluate((element) => element.scrollTop)).toBeGreaterThan(0);
+    await expect(sidebar.getByRole('button', { name: 'Sair', exact: true })).toBeInViewport();
+    await sidebar.getByRole('button', { name: 'Configurações', exact: true }).click();
+    await expect(page).toHaveURL(/\/super_admin\/settings$/);
+    expect(writes).toEqual([]);
+  });
+}
+
 test('estado vazio orienta o primeiro cadastro e dialog preserva foco no celular', async ({
   page,
 }) => {

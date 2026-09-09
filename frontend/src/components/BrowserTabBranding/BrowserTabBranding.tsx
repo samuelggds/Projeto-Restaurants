@@ -71,10 +71,11 @@ function readSessionUser(): RestaurantIdentitySource {
   }
 }
 
-function readStoredRestaurantIdentity(authUser: RestaurantIdentitySource): StoredRestaurantIdentity {
+function readStoredRestaurantIdentity(
+  authUser: RestaurantIdentitySource,
+): StoredRestaurantIdentity {
   const user = authUser || readSessionUser() || {};
-  const restaurant =
-    user.restaurant && typeof user.restaurant === 'object' ? user.restaurant : {};
+  const restaurant = user.restaurant && typeof user.restaurant === 'object' ? user.restaurant : {};
 
   return {
     id:
@@ -132,8 +133,8 @@ function applyMarketingBrowserBranding(pathname: string) {
 
   const favicon = document.querySelector<HTMLLinkElement>('link[rel~="icon"]');
   if (favicon) {
-    favicon.type = 'image/svg+xml';
-    favicon.href = '/favicon.svg';
+    favicon.type = 'image/png';
+    favicon.href = '/gastronexa-logo.png';
   }
 }
 

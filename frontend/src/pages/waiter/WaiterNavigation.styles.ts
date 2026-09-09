@@ -7,7 +7,9 @@ export const Sidebar = styled.aside`
   height: 100dvh;
   min-width: 0;
   padding: 16px 12px;
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
   display: flex;
   flex-direction: column;
   color: #f4f8f5;
@@ -316,8 +318,8 @@ export const MoreBackdrop = styled.button`
 
   @media (max-width: 820px) {
     position: fixed;
-    inset: 0 0 calc(72px + env(safe-area-inset-bottom));
-    z-index: 71;
+    inset: 0;
+    z-index: 90;
     width: 100%;
     border: 0;
     display: block;
@@ -334,7 +336,9 @@ export const MoreSheet = styled.section`
     right: 8px;
     bottom: calc(80px + env(safe-area-inset-bottom));
     left: 8px;
-    z-index: 75;
+    z-index: 95;
+    max-height: calc(100dvh - 100px - env(safe-area-inset-bottom));
+    overflow-y: auto;
     padding: 14px;
     display: grid;
     gap: 7px;
@@ -368,6 +372,18 @@ export const MoreSheet = styled.section`
     header small {
       color: var(--muted);
       font-size: 10px;
+    }
+
+    header button {
+      width: 44px;
+      height: 44px;
+      flex-shrink: 0;
+      border: 1px solid var(--border);
+      border-radius: 7px;
+      display: grid;
+      place-items: center;
+      color: var(--ink);
+      background: #fff;
     }
 
     > button {

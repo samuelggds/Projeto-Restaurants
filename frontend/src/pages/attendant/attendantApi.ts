@@ -24,8 +24,12 @@ function record(value: unknown): UnknownRecord | null {
     ? (value as UnknownRecord)
     : null;
 }
-function text(value: unknown) { return typeof value === 'string' ? value.trim() : ''; }
-function nullableText(value: unknown) { return text(value) || null; }
+function text(value: unknown) {
+  return typeof value === 'string' ? value.trim() : '';
+}
+function nullableText(value: unknown) {
+  return text(value) || null;
+}
 function positiveInteger(value: unknown) {
   const parsed = Number(value);
   return Number.isSafeInteger(parsed) && parsed > 0 ? parsed : null;
@@ -127,6 +131,16 @@ export function normalizeAttendantWorkspace(value: unknown): AttendantWorkspaceS
 const attendantApi = {
   async getWorkspace() {
     const response = await api.get('/attendant/workspace');
+    const input = record(response.data);
+    if (
+      !input ||
+      !isoDate(input.generatedAt) ||
+      !Array.isArray(input.orders) ||
+      !Array.isArray(input.calls) ||
+      !Array.isArray(input.tables)
+    ) {
+      throw new Error('Não foi possível validar os dados da operação.');
+    }
     return normalizeAttendantWorkspace(response.data);
   },
   async updateCallStatus(id: string | number, status: 'IN_PROGRESS' | 'RESOLVED') {
@@ -135,7 +149,23 @@ const attendantApi = {
   },
   async getOrder(orderId: number) {
     const response = await api.get(`/orders/${orderId}`);
-    return response.data as UnknownRecord;
+    const order = record(response.data);
+    const total =
+      typeof order?.total === 'number'
+        ? order.total
+        : typeof order?.total === 'string' && order.total.trim()
+          ? Number(order.total)
+          : Number.NaN;
+    if (
+      !order ||
+      Number(order.id) !== orderId ||
+      typeof order.paid !== 'boolean' ||
+      !Number.isFinite(total) ||
+      total < 0
+    ) {
+      throw new Error('Não foi possível validar os detalhes do pedido.');
+    }
+    return order;
   },
   async completePickup(orderId: number) {
     const response = await api.put(`/orders/${orderId}/status`, { status: 'ENTREGUE' });

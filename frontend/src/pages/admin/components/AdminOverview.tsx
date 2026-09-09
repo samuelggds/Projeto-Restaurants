@@ -18,7 +18,7 @@ import {
 import * as S from './AdminOverview.styles';
 import type { AdminOrder, AdminProduct } from '../types';
 import ordersService, { type OrderOverview } from '../../../Services/ordersService';
-import { useAdminOrdersPage } from '../hooks/useAdminOrdersPage';
+import { useAdminOrdersPage, type LoadAdminOrdersPage } from '../hooks/useAdminOrdersPage';
 
 type OverviewDestination = 'orders' | 'catalog' | 'customers';
 
@@ -28,7 +28,10 @@ type AdminOverviewProps = {
   restaurantName: string;
   money: (value: number) => string;
   onNavigate: (destination: OverviewDestination) => void;
+  loadOrdersPage?: LoadAdminOrdersPage;
+  loadOverview?: () => Promise<OrderOverview>;
 };
+const loadLiveOverview = () => ordersService.getOverview();
 
 type StatusTone = 'warning' | 'info' | 'success' | 'danger' | 'neutral';
 
@@ -82,19 +85,44 @@ export function AdminOverview({
   restaurantName,
   money,
   onNavigate,
+  loadOrdersPage,
+  loadOverview = loadLiveOverview,
 }: AdminOverviewProps) {
-  const [metrics, setMetrics] = useState<OrderOverview>({ todayOrders: 0, sales: 0, averageTicket: 0, preparingOrders: 0, customers: 0, timezone: 'America/Sao_Paulo' });
+  const [metrics, setMetrics] = useState<OrderOverview>({
+    todayOrders: 0,
+    sales: 0,
+    averageTicket: 0,
+    preparingOrders: 0,
+    customers: 0,
+    timezone: 'America/Sao_Paulo',
+  });
   const [metricsError, setMetricsError] = useState('');
   useEffect(() => {
     let active = true;
-    ordersService.getOverview().then((result) => {
-      if (active) { setMetrics(result); setMetricsError(''); }
-    }).catch(() => { if (active) setMetricsError('Indicadores indisponíveis. Atualize a página para tentar novamente.'); });
-    return () => { active = false; };
-  }, [orders]);
+    loadOverview()
+      .then((result) => {
+        if (active) {
+          setMetrics(result);
+          setMetricsError('');
+        }
+      })
+      .catch(() => {
+        if (active)
+          setMetricsError('Indicadores indisponíveis. Atualize a página para tentar novamente.');
+      });
+    return () => {
+      active = false;
+    };
+  }, [orders, loadOverview]);
   const [orderSearch, setOrderSearch] = useState('');
   const [orderStatus, setOrderStatus] = useState('ALL');
-  const orderPage = useAdminOrdersPage({ search: orderSearch, status: orderStatus === 'ALL' ? '' : orderStatus, queue: 'ALL', refreshSignal: orders });
+  const orderPage = useAdminOrdersPage({
+    search: orderSearch,
+    status: orderStatus === 'ALL' ? '' : orderStatus,
+    queue: 'ALL',
+    refreshSignal: orders,
+    loadOrdersPage,
+  });
   const [productSearch, setProductSearch] = useState('');
   const [productStatus, setProductStatus] = useState('AVAILABLE');
   const [visibleProductLimit, setVisibleProductLimit] = useState(LIST_BATCH_SIZE);
@@ -127,7 +155,6 @@ export function AdminOverview({
   const clearOrderFilters = () => {
     setOrderSearch('');
     setOrderStatus('ALL');
-
   };
   const clearProductFilters = () => {
     setProductSearch('');
@@ -253,7 +280,6 @@ export function AdminOverview({
                 value={orderSearch}
                 onChange={(event) => {
                   setOrderSearch(event.target.value);
-              
                 }}
                 placeholder="Buscar por ID ou cliente"
               />
@@ -265,7 +291,6 @@ export function AdminOverview({
                 value={orderStatus}
                 onChange={(event) => {
                   setOrderStatus(event.target.value);
-              
                 }}
               >
                 <option value="ALL">Todos os status</option>
@@ -320,17 +345,34 @@ export function AdminOverview({
           </S.DataList>
           <S.OverviewPagination>
             <span>
-              {orderPage.total ? `${visibleOrders.length} de ${orderPage.total} pedidos` : '0 resultados'}
+              {orderPage.total
+                ? `${visibleOrders.length} de ${orderPage.total} pedidos`
+                : '0 resultados'}
             </span>
             <div>
               {visibleOrders.length > LIST_BATCH_SIZE && (
-                <button type="button" disabled={orderPage.loading} aria-label="Voltar aos 10 pedidos recentes iniciais"
-                  onClick={() => void orderPage.reset()}><ChevronLeft aria-hidden="true" /> Voltar aos 10</button>
+                <button
+                  type="button"
+                  disabled={orderPage.loading}
+                  aria-label="Voltar aos 10 pedidos recentes iniciais"
+                  onClick={() => void orderPage.reset()}
+                >
+                  <ChevronLeft aria-hidden="true" /> Voltar aos 10
+                </button>
               )}
               {(orderPage.hasMore || orderPage.error) && (
-                <button type="button" disabled={orderPage.loading} aria-label="Mostrar mais 10 pedidos recentes"
-                  onClick={() => void (orderPage.error ? orderPage.retry() : orderPage.loadMore())}>
-                  {orderPage.loading ? 'Carregando...' : orderPage.error ? 'Tentar novamente' : 'Mostrar mais 10'} <ChevronDown aria-hidden="true" />
+                <button
+                  type="button"
+                  disabled={orderPage.loading}
+                  aria-label="Mostrar mais 10 pedidos recentes"
+                  onClick={() => void (orderPage.error ? orderPage.retry() : orderPage.loadMore())}
+                >
+                  {orderPage.loading
+                    ? 'Carregando...'
+                    : orderPage.error
+                      ? 'Tentar novamente'
+                      : 'Mostrar mais 10'}{' '}
+                  <ChevronDown aria-hidden="true" />
                 </button>
               )}
             </div>

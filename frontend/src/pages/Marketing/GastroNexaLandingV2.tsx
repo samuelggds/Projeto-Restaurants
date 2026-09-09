@@ -56,10 +56,26 @@ const features = [
 ];
 
 const audiences = [
-  { icon: <Utensils size={20} />, title: 'Restaurantes', text: 'Salão, retirada e delivery no mesmo fluxo.' },
-  { icon: <Store size={20} />, title: 'Pizzarias', text: 'Cardápio, produção e pedidos organizados.' },
-  { icon: <ShoppingBag size={20} />, title: 'Hamburguerias', text: 'Mais clareza entre balcão, cozinha e entrega.' },
-  { icon: <ChefHat size={20} />, title: 'Operações em crescimento', text: 'Uma base pronta para equipe e novos canais.' },
+  {
+    icon: <Utensils size={20} />,
+    title: 'Restaurantes',
+    text: 'Salão, retirada e delivery no mesmo fluxo.',
+  },
+  {
+    icon: <Store size={20} />,
+    title: 'Pizzarias',
+    text: 'Cardápio, produção e pedidos organizados.',
+  },
+  {
+    icon: <ShoppingBag size={20} />,
+    title: 'Hamburguerias',
+    text: 'Mais clareza entre balcão, cozinha e entrega.',
+  },
+  {
+    icon: <ChefHat size={20} />,
+    title: 'Operações em crescimento',
+    text: 'Uma base pronta para equipe e novos canais.',
+  },
 ];
 
 const plans = [
@@ -74,7 +90,11 @@ const plans = [
     name: 'Premium',
     price: 'R$ 249,90',
     description: 'A operação completa, com delivery e atendimento nas mesas por QR Code.',
-    features: ['Sistema de delivery', 'Cardápio digital com QR Code de mesa', 'Suporte prioritário'],
+    features: [
+      'Sistema de delivery',
+      'Cardápio digital com QR Code de mesa',
+      'Suporte prioritário',
+    ],
     featured: true,
   },
 ];
@@ -82,7 +102,13 @@ const plans = [
 function Brand({ light = false }: { light?: boolean }) {
   return (
     <S.Brand as={Link} to="/" $light={light} aria-label="GastroNexa - página inicial">
-      <span className="brand-g" aria-hidden="true">G</span>
+      <img
+        src="/gastronexa-logo.png"
+        alt=""
+        width="48"
+        height="42"
+        style={{ objectFit: 'contain', borderRadius: 4, background: '#fff' }}
+      />
       <span>GastroNexa</span>
     </S.Brand>
   );
@@ -104,11 +130,21 @@ export default function GastroNexaLandingV2() {
         <S.HeaderInner>
           <Brand />
           <S.Nav $open={menuOpen} aria-label="Navegação principal">
-            <a href="#recursos" onClick={closeMenu}>Recursos</a>
-            <a href="#como-funciona" onClick={closeMenu}>Como funciona</a>
-            <a href="#planos" onClick={closeMenu}>Planos</a>
-            <Link to="/demonstracao" onClick={closeMenu}>Demonstração</Link>
-            <a href="#contato" onClick={closeMenu}>Contato</a>
+            <a href="#recursos" onClick={closeMenu}>
+              Recursos
+            </a>
+            <a href="#como-funciona" onClick={closeMenu}>
+              Como funciona
+            </a>
+            <a href="#planos" onClick={closeMenu}>
+              Planos
+            </a>
+            <Link to="/demonstracao" onClick={closeMenu}>
+              Demonstração
+            </Link>
+            <a href="#contato" onClick={closeMenu}>
+              Contato
+            </a>
           </S.Nav>
           <S.HeaderActions>
             <S.Button href={salesHref} $small>
@@ -135,7 +171,8 @@ export default function GastroNexaLandingV2() {
             </h1>
             <p>
               GastroNexa conecta cardápio, pedidos, cozinha, salão, delivery, clientes e gestão
-              administrativa em uma experiência moderna construída para a rotina real do restaurante.
+              administrativa em uma experiência moderna construída para a rotina real do
+              restaurante.
             </p>
             <S.HeroActions>
               <S.Button as={Link} to="/demonstracao">
@@ -146,9 +183,15 @@ export default function GastroNexaLandingV2() {
               </S.Button>
             </S.HeroActions>
             <S.HeroProof>
-              <span><CheckCircle2 size={16} /> 30 dias de teste nos planos</span>
-              <span><CheckCircle2 size={16} /> Perfis separados por função</span>
-              <span><CheckCircle2 size={16} /> Mesa, retirada e delivery</span>
+              <span>
+                <CheckCircle2 size={16} /> 30 dias de teste nos planos
+              </span>
+              <span>
+                <CheckCircle2 size={16} /> Perfis separados por função
+              </span>
+              <span>
+                <CheckCircle2 size={16} /> Mesa, retirada e delivery
+              </span>
             </S.HeroProof>
           </S.HeroCopy>
 
@@ -157,34 +200,77 @@ export default function GastroNexaLandingV2() {
               <S.AppTop>
                 <div className="identity">
                   <span className="mark">GN</span>
-                  <span><b>GastroNexa Burger</b><small>Painel administrativo</small></span>
+                  <span>
+                    <b>GastroNexa Burger</b>
+                    <small>Painel administrativo</small>
+                  </span>
                 </div>
                 <span>Operação online</span>
               </S.AppTop>
               <S.AppBody>
                 <S.AppNav aria-hidden="true">
-                  <span /><span /><span /><span /><span /><span /><span />
+                  <span />
+                  <span />
+                  <span />
+                  <span />
+                  <span />
+                  <span />
+                  <span />
                 </S.AppNav>
                 <S.AppContent>
                   <S.MetricGrid>
-                    <S.Metric><small>Vendas hoje</small><strong>R$ 4.580,90</strong></S.Metric>
-                    <S.Metric><small>Pedidos</small><strong>87</strong></S.Metric>
-                    <S.Metric><small>Ticket médio</small><strong>R$ 52,65</strong></S.Metric>
-                    <S.Metric><small>Clientes</small><strong>412</strong></S.Metric>
+                    <S.Metric>
+                      <small>Vendas hoje</small>
+                      <strong>R$ 4.580,90</strong>
+                    </S.Metric>
+                    <S.Metric>
+                      <small>Pedidos</small>
+                      <strong>87</strong>
+                    </S.Metric>
+                    <S.Metric>
+                      <small>Ticket médio</small>
+                      <strong>R$ 52,65</strong>
+                    </S.Metric>
+                    <S.Metric>
+                      <small>Clientes</small>
+                      <strong>412</strong>
+                    </S.Metric>
                   </S.MetricGrid>
                   <S.Orders>
-                    <header><strong>Movimento recente</strong><span>Pedidos</span></header>
-                    <S.Order><b>#1058 · Marina</b><span>Delivery</span><span>Pronto</span></S.Order>
-                    <S.Order><b>#1057 · Mesa 08</b><span>Mesa</span><span>Em preparo</span></S.Order>
-                    <S.Order><b>#1056 · Carlos</b><span>Retirada</span><span>Pendente</span></S.Order>
-                    <S.Order><b>#1055 · Ana</b><span>Delivery</span><span>Em rota</span></S.Order>
+                    <header>
+                      <strong>Movimento recente</strong>
+                      <span>Pedidos</span>
+                    </header>
+                    <S.Order>
+                      <b>#1058 · Marina</b>
+                      <span>Delivery</span>
+                      <span>Pronto</span>
+                    </S.Order>
+                    <S.Order>
+                      <b>#1057 · Mesa 08</b>
+                      <span>Mesa</span>
+                      <span>Em preparo</span>
+                    </S.Order>
+                    <S.Order>
+                      <b>#1056 · Carlos</b>
+                      <span>Retirada</span>
+                      <span>Pendente</span>
+                    </S.Order>
+                    <S.Order>
+                      <b>#1055 · Ana</b>
+                      <span>Delivery</span>
+                      <span>Em rota</span>
+                    </S.Order>
                   </S.Orders>
                 </S.AppContent>
               </S.AppBody>
             </S.AppWindow>
             <S.FloatingCard>
               <PackageCheck size={21} />
-              <span><b>Pedidos sincronizados</b><small>Da cozinha até a entrega</small></span>
+              <span>
+                <b>Pedidos sincronizados</b>
+                <small>Da cozinha até a entrega</small>
+              </span>
             </S.FloatingCard>
           </S.ProductPreview>
         </S.HeroGrid>
@@ -223,14 +309,40 @@ export default function GastroNexaLandingV2() {
                 a experiência necessária para executar bem sua etapa.
               </p>
               <S.HeroActions>
-                <S.Button as={Link} to="/demonstracao">Testar os perfis <ArrowRight size={16} /></S.Button>
+                <S.Button as={Link} to="/demonstracao">
+                  Testar os perfis <ArrowRight size={16} />
+                </S.Button>
               </S.HeroActions>
             </S.Heading>
             <S.Steps>
-              <S.Step><span>1</span><div><b>Cliente faz o pedido</b><p>Cardápio digital, mesa, retirada ou delivery.</p></div></S.Step>
-              <S.Step><span>2</span><div><b>Equipe recebe e prepara</b><p>Atendente acompanha e cozinha executa a fila de produção.</p></div></S.Step>
-              <S.Step><span>3</span><div><b>Salão ou entrega conclui</b><p>Garçom cuida das mesas e motoqueiro acompanha as entregas.</p></div></S.Step>
-              <S.Step><span>4</span><div><b>Admin acompanha tudo</b><p>Indicadores, clientes, equipe, cardápio, assinatura e configurações.</p></div></S.Step>
+              <S.Step>
+                <span>1</span>
+                <div>
+                  <b>Cliente faz o pedido</b>
+                  <p>Cardápio digital, mesa, retirada ou delivery.</p>
+                </div>
+              </S.Step>
+              <S.Step>
+                <span>2</span>
+                <div>
+                  <b>Equipe recebe e prepara</b>
+                  <p>Atendente acompanha e cozinha executa a fila de produção.</p>
+                </div>
+              </S.Step>
+              <S.Step>
+                <span>3</span>
+                <div>
+                  <b>Salão ou entrega conclui</b>
+                  <p>Garçom cuida das mesas e motoqueiro acompanha as entregas.</p>
+                </div>
+              </S.Step>
+              <S.Step>
+                <span>4</span>
+                <div>
+                  <b>Admin acompanha tudo</b>
+                  <p>Indicadores, clientes, equipe, cardápio, assinatura e configurações.</p>
+                </div>
+              </S.Step>
             </S.Steps>
           </S.Workflow>
         </S.Container>
@@ -243,8 +355,8 @@ export default function GastroNexaLandingV2() {
               <S.Eyebrow>Restaurante demonstrativo</S.Eyebrow>
               <h2>Entre como cliente, equipe ou administrador.</h2>
               <p>
-                Use contas prontas e percorra o fluxo completo de pedidos em uma experiência isolada,
-                com telas inspiradas diretamente nas áreas reais do GastroNexa.
+                Use contas prontas e percorra o fluxo completo de pedidos em uma experiência
+                isolada, com telas inspiradas diretamente nas áreas reais do GastroNexa.
               </p>
             </div>
             <S.Button as={Link} to="/demonstracao" $dark>
@@ -267,11 +379,16 @@ export default function GastroNexaLandingV2() {
                 {plan.featured && <span className="badge">Mais completo</span>}
                 <h3>{plan.name}</h3>
                 <p className="description">{plan.description}</p>
-                <div className="price"><strong>{plan.price}</strong><span>/mês</span></div>
+                <div className="price">
+                  <strong>{plan.price}</strong>
+                  <span>/mês</span>
+                </div>
                 <span className="trial">30 dias de teste</span>
                 <ul>
                   {plan.features.map((feature) => (
-                    <li key={feature}><Check size={16} /> {feature}</li>
+                    <li key={feature}>
+                      <Check size={16} /> {feature}
+                    </li>
                   ))}
                 </ul>
                 <S.Button href={salesHref} $secondary={!plan.featured}>
@@ -292,7 +409,9 @@ export default function GastroNexaLandingV2() {
           <S.Audience>
             {audiences.map((item) => (
               <S.AudienceCard key={item.title}>
-                {item.icon}<b>{item.title}</b><p>{item.text}</p>
+                {item.icon}
+                <b>{item.title}</b>
+                <p>{item.text}</p>
               </S.AudienceCard>
             ))}
           </S.Audience>
@@ -306,10 +425,30 @@ export default function GastroNexaLandingV2() {
             <h2>O que você precisa saber antes de testar.</h2>
           </S.Heading>
           <S.Faq>
-            <details><summary>A demonstração altera dados reais?</summary><p>Não. A experiência demonstrativa usa somente dados fictícios dentro do navegador.</p></details>
-            <details><summary>Quais perfis consigo testar?</summary><p>Cliente, administrador e os perfis de equipe: atendente, garçom, cozinha e motoqueiro.</p></details>
-            <details><summary>O sistema atende mesa, retirada e delivery?</summary><p>Sim. Esses fluxos fazem parte da estrutura operacional do GastroNexa.</p></details>
-            <details><summary>Posso conhecer antes de contratar?</summary><p>Sim. A demonstração fica disponível para você percorrer os principais fluxos antes de conversar com a equipe.</p></details>
+            <details>
+              <summary>A demonstração altera dados reais?</summary>
+              <p>
+                Não. A experiência demonstrativa usa somente dados fictícios dentro do navegador.
+              </p>
+            </details>
+            <details>
+              <summary>Quais perfis consigo testar?</summary>
+              <p>
+                Cliente, administrador e os perfis de equipe: atendente, garçom, cozinha e
+                motoqueiro.
+              </p>
+            </details>
+            <details>
+              <summary>O sistema atende mesa, retirada e delivery?</summary>
+              <p>Sim. Esses fluxos fazem parte da estrutura operacional do GastroNexa.</p>
+            </details>
+            <details>
+              <summary>Posso conhecer antes de contratar?</summary>
+              <p>
+                Sim. A demonstração fica disponível para você percorrer os principais fluxos antes
+                de conversar com a equipe.
+              </p>
+            </details>
           </S.Faq>
         </S.Container>
       </S.Section>
@@ -320,11 +459,18 @@ export default function GastroNexaLandingV2() {
             <div>
               <S.Eyebrow>Contato comercial</S.Eyebrow>
               <h2>Quer levar esse fluxo para o seu restaurante?</h2>
-              <p>Experimente a demonstração e depois fale com a GastroNexa para entender qual plano combina com a sua operação.</p>
+              <p>
+                Experimente a demonstração e depois fale com a GastroNexa para entender qual plano
+                combina com a sua operação.
+              </p>
             </div>
             <div className="actions">
-              <S.Button href={salesHref}><MessageCircleMore size={17} /> Falar com a GastroNexa</S.Button>
-              <S.Button as={Link} to="/demonstracao" $secondary>Ver demonstração <ArrowRight size={16} /></S.Button>
+              <S.Button href={salesHref}>
+                <MessageCircleMore size={17} /> Falar com a GastroNexa
+              </S.Button>
+              <S.Button as={Link} to="/demonstracao" $secondary>
+                Ver demonstração <ArrowRight size={16} />
+              </S.Button>
             </div>
           </S.Contact>
         </S.Container>
@@ -333,7 +479,9 @@ export default function GastroNexaLandingV2() {
       <S.Footer>
         <S.FooterInner>
           <Brand light />
-          <span>© {new Date().getFullYear()} GastroNexa. Tecnologia para operações de alimentação.</span>
+          <span>
+            © {new Date().getFullYear()} GastroNexa. Tecnologia para operações de alimentação.
+          </span>
         </S.FooterInner>
       </S.Footer>
     </S.Page>
