@@ -65,7 +65,7 @@ export type DemoCall = {
 };
 
 export type DemoState = {
-  version: 1;
+  version: 2;
   accounts: DemoAccount[];
   sessionAccountId: string | null;
   cart: DemoCartLine[];
@@ -75,7 +75,7 @@ export type DemoState = {
   nextOrderNumber: number;
 };
 
-export const DEMO_STORAGE_KEY = 'gastronexa:interactive-demo:v1';
+export const DEMO_STORAGE_KEY = 'gastronexa:interactive-demo:v2';
 export const DEMO_DEFAULT_PASSWORD = 'demo1234';
 
 export const demoRoleLabels: Record<DemoRole, string> = {
@@ -88,13 +88,19 @@ export const demoRoleLabels: Record<DemoRole, string> = {
 };
 
 export const demoRoleDescriptions: Record<DemoRole, string> = {
-  CLIENTE: 'Monta o carrinho, envia pedidos e acompanha o andamento.',
-  ADMIN: 'Visualiza a operação, pedidos, equipe e indicadores do restaurante.',
-  MOTOQUEIRO: 'Retira deliveries prontos, inicia a rota e conclui entregas.',
-  ATENDENTE: 'Acompanha a fila, cria pedidos de balcão e resolve pendências.',
-  COZINHA: 'Recebe a fila, inicia o preparo e marca pedidos como prontos.',
-  GARCOM: 'Acompanha mesas, chamados e entrega pedidos prontos no salão.',
+  CLIENTE: 'Navegue no cardápio, monte um pedido e acompanhe o fluxo.',
+  ADMIN: 'Acompanhe indicadores, pedidos, equipe e a operação completa.',
+  MOTOQUEIRO: 'Retire deliveries prontos, inicie a rota e conclua entregas.',
+  ATENDENTE: 'Acompanhe a central, crie pedidos de balcão e veja pendências.',
+  COZINHA: 'Receba pedidos, inicie o preparo e marque itens como prontos.',
+  GARCOM: 'Acompanhe mesas, chamados e pedidos prontos para o salão.',
 };
+
+export const demoPortalAccounts = {
+  customer: 'demo-cliente',
+  admin: 'demo-admin',
+  staff: ['demo-atendente', 'demo-garcom', 'demo-cozinha', 'demo-motoqueiro'],
+} as const;
 
 function normalizedEmail(value: string) {
   return value.trim().toLowerCase();
@@ -109,9 +115,15 @@ export function fingerprintDemoPassword(value: string) {
   return (hash >>> 0).toString(16).padStart(8, '0');
 }
 
-function demoAccount(role: DemoRole, name: string, email: string, createdAt: string): DemoAccount {
+function demoAccount(
+  id: string,
+  role: DemoRole,
+  name: string,
+  email: string,
+  createdAt: string,
+): DemoAccount {
   return {
-    id: `demo-${role.toLowerCase()}`,
+    id,
     name,
     email,
     role,
@@ -202,14 +214,14 @@ function seedOrders(now: number): DemoOrder[] {
 export function createInitialDemoState(now = Date.now()): DemoState {
   const createdAt = new Date(now).toISOString();
   return {
-    version: 1,
+    version: 2,
     accounts: [
-      demoAccount('CLIENTE', 'Cliente Demo', 'cliente.demo@gastronexa.local', createdAt),
-      demoAccount('ADMIN', 'Admin Demo', 'admin.demo@gastronexa.local', createdAt),
-      demoAccount('MOTOQUEIRO', 'Motoqueiro Demo', 'moto.demo@gastronexa.local', createdAt),
-      demoAccount('ATENDENTE', 'Atendente Demo', 'atendente.demo@gastronexa.local', createdAt),
-      demoAccount('COZINHA', 'Cozinha Demo', 'cozinha.demo@gastronexa.local', createdAt),
-      demoAccount('GARCOM', 'Garçom Demo', 'garcom.demo@gastronexa.local', createdAt),
+      demoAccount('demo-cliente', 'CLIENTE', 'Cliente Demo', 'cliente@demo.gastronexa.com.br', createdAt),
+      demoAccount('demo-admin', 'ADMIN', 'Administrador Demo', 'admin@demo.gastronexa.com.br', createdAt),
+      demoAccount('demo-atendente', 'ATENDENTE', 'Atendente Demo', 'atendente@demo.gastronexa.com.br', createdAt),
+      demoAccount('demo-garcom', 'GARCOM', 'Garçom Demo', 'garcom@demo.gastronexa.com.br', createdAt),
+      demoAccount('demo-cozinha', 'COZINHA', 'Cozinha Demo', 'cozinha@demo.gastronexa.com.br', createdAt),
+      demoAccount('demo-motoqueiro', 'MOTOQUEIRO', 'Motoqueiro Demo', 'motoqueiro@demo.gastronexa.com.br', createdAt),
     ],
     sessionAccountId: null,
     cart: [],
@@ -243,16 +255,21 @@ export function createInitialDemoState(now = Date.now()): DemoState {
 export function sanitizeDemoState(value: unknown): DemoState {
   if (!value || typeof value !== 'object') return createInitialDemoState();
   const state = value as Partial<DemoState>;
-  if (state.version !== 1) return createInitialDemoState();
+  if (state.version !== 2) return createInitialDemoState();
+  const fallback = createInitialDemoState();
+  const knownAccountIds = new Set(fallback.accounts.map((account) => account.id));
+  const storedAccounts = Array.isArray(state.accounts)
+    ? state.accounts.filter((account) => knownAccountIds.has(account.id))
+    : [];
   return {
-    ...createInitialDemoState(),
+    ...fallback,
     ...state,
-    version: 1,
-    accounts: Array.isArray(state.accounts) ? state.accounts : [],
-    orders: Array.isArray(state.orders) ? state.orders : [],
-    cart: Array.isArray(state.cart) ? state.cart : [],
-    tables: Array.isArray(state.tables) ? state.tables : [],
-    calls: Array.isArray(state.calls) ? state.calls : [],
+    version: 2,
+    accounts: storedAccounts.length === fallback.accounts.length ? storedAccounts : fallback.accounts,
+    orders: Array.isArray(state.orders) ? state.orders : fallback.orders,
+    cart: Array.isArray(state.cart) ? state.cart : fallback.cart,
+    tables: Array.isArray(state.tables) ? state.tables : fallback.tables,
+    calls: Array.isArray(state.calls) ? state.calls : fallback.calls,
   };
 }
 
@@ -260,32 +277,8 @@ export function getDemoSessionAccount(state: DemoState) {
   return state.accounts.find((account) => account.id === state.sessionAccountId) || null;
 }
 
-export function registerDemoAccount(
-  state: DemoState,
-  input: { name: string; email: string; password: string; role: DemoRole },
-  now = Date.now(),
-) {
-  const name = input.name.trim();
-  const email = normalizedEmail(input.email);
-  const password = input.password;
-  if (name.length < 2) throw new Error('Informe um nome para a conta de demonstração.');
-  if (!email.includes('@')) throw new Error('Informe um e-mail válido para a demonstração.');
-  if (password.length < 6) throw new Error('A senha de demonstração precisa ter pelo menos 6 caracteres.');
-  if (state.accounts.some((account) => normalizedEmail(account.email) === email)) {
-    throw new Error('Já existe uma conta de demonstração com este e-mail.');
-  }
-  const account: DemoAccount = {
-    id: `custom-${now}-${state.accounts.length + 1}`,
-    name,
-    email,
-    role: input.role,
-    passwordFingerprint: fingerprintDemoPassword(password),
-    createdAt: new Date(now).toISOString(),
-  };
-  return {
-    state: { ...state, accounts: [...state.accounts, account], sessionAccountId: account.id },
-    account,
-  };
+export function getDemoAccountByRole(state: DemoState, role: DemoRole) {
+  return state.accounts.find((account) => account.role === role) || null;
 }
 
 export function authenticateDemoAccount(state: DemoState, emailInput: string, password: string) {
@@ -323,11 +316,12 @@ export function addDemoCartItem(
 
 export function changeDemoCartQuantity(state: DemoState, productId: string, quantity: number) {
   const safeQuantity = Math.max(0, Math.floor(quantity));
-  const cart = safeQuantity === 0
-    ? state.cart.filter((line) => line.productId !== productId)
-    : state.cart.map((line) =>
-        line.productId === productId ? { ...line, quantity: safeQuantity } : line,
-      );
+  const cart =
+    safeQuantity === 0
+      ? state.cart.filter((line) => line.productId !== productId)
+      : state.cart.map((line) =>
+          line.productId === productId ? { ...line, quantity: safeQuantity } : line,
+        );
   return { ...state, cart };
 }
 
@@ -353,9 +347,11 @@ export function createDemoOrder(
     id,
     publicId: `#${id}`,
     customerName: input.customerName?.trim() || account?.name || 'Cliente Demo',
-    customerEmail: normalizedEmail(input.customerEmail || account?.email || 'cliente@gastronexa.local'),
+    customerEmail: normalizedEmail(
+      input.customerEmail || account?.email || 'cliente@demo.gastronexa.com.br',
+    ),
     channel: input.channel,
-    tableNumber: input.channel === 'TABLE' ? Number(input.tableNumber || 1) : undefined,
+    tableNumber: input.channel === 'TABLE' ? Number(input.tableNumber || 8) : undefined,
     items: state.cart.map((line) => ({ ...line })),
     total: getDemoCartTotal(state),
     paymentMethod: input.paymentMethod,
@@ -380,7 +376,7 @@ export function createManualDemoOrder(state: DemoState, now = Date.now()) {
     id,
     publicId: `#${id}`,
     customerName: 'Pedido de balcão',
-    customerEmail: 'balcao@gastronexa.local',
+    customerEmail: 'balcao@demo.gastronexa.com.br',
     channel: 'PICKUP',
     items: [{ productId: 'combo-nexa', name: 'Combo Nexa', unitPrice: 44.9, quantity: 1 }],
     total: 44.9,
@@ -396,7 +392,11 @@ export function createManualDemoOrder(state: DemoState, now = Date.now()) {
   };
 }
 
-export function updateDemoOrderStatus(state: DemoState, orderId: number, status: DemoOrderStatus) {
+export function updateDemoOrderStatus(
+  state: DemoState,
+  orderId: number,
+  status: DemoOrderStatus,
+) {
   return {
     ...state,
     orders: state.orders.map((order) => (order.id === orderId ? { ...order, status } : order)),
@@ -415,6 +415,10 @@ export function updateDemoCallStatus(state: DemoState, callId: string, status: D
     ...state,
     calls: state.calls.map((call) => (call.id === callId ? { ...call, status } : call)),
   };
+}
+
+export function deleteDemoCall(state: DemoState, callId: string) {
+  return { ...state, calls: state.calls.filter((call) => call.id !== callId) };
 }
 
 export function toggleDemoTable(state: DemoState, tableId: string) {
