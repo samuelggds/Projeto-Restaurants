@@ -1,5 +1,5 @@
 import { readFile } from 'node:fs/promises';
-import { expect, test } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
 import { captureReadmeScreenshot } from './helpers/readmeScreenshot';
 
 const LOGIN_COVER_URL = 'https://assets.test/north-cover.jpg';
@@ -15,8 +15,18 @@ const MOBILE_VIEWPORTS = [
   { name: '440x956', width: 440, height: 956 },
 ];
 
-async function mockLoginBranding(page) {
-  await page.route('**/settings/public/default**', async (route) => {
+async function mockLoginBranding(page: Page) {
+  await page.addInitScript(() => {
+    localStorage.clear();
+    sessionStorage.clear();
+  });
+  await page.route('**/platform/status', (route) =>
+    route.fulfill({ json: { available: true, maintenanceMode: false, maintenanceMessage: '' } }),
+  );
+  await page.route('**/auth/refresh', (route) =>
+    route.fulfill({ status: 401, json: { error: 'Não autenticado.' } }),
+  );
+  await page.route('**/settings/public/slug/north-pizza?*', async (route) => {
     await route.fulfill({
       status: 200,
       contentType: 'application/json',
@@ -24,6 +34,8 @@ async function mockLoginBranding(page) {
         restaurantId: 3,
         primaryColor: '#d35d3c',
         restaurant: {
+          id: 3,
+          slug: 'north-pizza',
           name: 'North Pizza',
           description: 'Sabor que acolhe. Experiência que fica.',
           coverImage: LOGIN_COVER_URL,
@@ -74,13 +86,14 @@ async function mockLoginBranding(page) {
 test('login desktop preserva identidade e hierarquia visual', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 960 });
   await mockLoginBranding(page);
-  await page.goto('/login');
+  await page.goto('/north-pizza/login');
 
   await expect(page.getByTestId('login-cover')).toBeVisible();
   await expect(page.getByTestId('login-card')).toBeVisible();
   await expect(page.getByText('North Pizza', { exact: true })).toBeVisible();
-  await expect(page.getByText('Pizzaria', { exact: true })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Entrar no Sistema' })).toBeVisible();
+  await expect(page.getByText('Área do cliente', { exact: true })).toBeVisible();
+  await expect(page.getByTestId('login-hero-content')).toHaveAttribute('data-category', 'PIZZARIA');
+  await expect(page.getByRole('button', { name: 'Entrar como cliente' })).toBeVisible();
 
   const heroStyle = await page.getByTestId('login-hero-content').evaluate((element) => {
     const style = getComputedStyle(element);
@@ -105,7 +118,7 @@ for (const viewport of MOBILE_VIEWPORTS) {
   test(`login mobile responsivo em ${viewport.name}`, async ({ page }) => {
     await page.setViewportSize({ width: viewport.width, height: viewport.height });
     await mockLoginBranding(page);
-    await page.goto('/login');
+    await page.goto('/north-pizza/login');
 
     const layout = page.getByTestId('login-layout');
     const cover = page.getByTestId('login-cover');
@@ -118,7 +131,7 @@ for (const viewport of MOBILE_VIEWPORTS) {
     await expect(card).toBeVisible();
     await expect(page.getByText('North Pizza', { exact: true })).toBeVisible();
     await expect(
-      page.getByText('Acesse pedidos, cardápio e atendimento em poucos segundos.'),
+      page.getByText('Entre para continuar no cardápio e nos pedidos de North Pizza.'),
     ).toBeVisible();
 
     if (viewport.name === '390x844') {
@@ -145,12 +158,12 @@ for (const viewport of MOBILE_VIEWPORTS) {
 
     expect(coverBox?.x || 0).toBeGreaterThanOrEqual(0);
     expect(coverBox?.width || 0).toBeGreaterThanOrEqual(viewport.width - 1);
-    expect(cardBox?.left || 0).toBeGreaterThanOrEqual(0);
-    expect(cardBox?.right || 0).toBeLessThanOrEqual(viewport.width + 1);
+    expect(cardBox!.x).toBeGreaterThanOrEqual(0);
+    expect(cardBox!.x + cardBox!.width).toBeLessThanOrEqual(viewport.width + 1);
 
-    const cardOffsetFromCover = (cardBox?.top || 0) - (coverBox?.bottom || 0);
-    expect(cardOffsetFromCover).toBeGreaterThanOrEqual(-4);
-    expect(cardOffsetFromCover).toBeLessThanOrEqual(48);
+    const cardOffsetFromCover = cardBox!.y - (coverBox!.y + coverBox!.height);
+    // The mobile form overlaps the decorative cover by 32px in the current layout.
+    expect(Math.abs(cardOffsetFromCover + 32)).toBeLessThanOrEqual(4);
 
     const documentMetrics = await page.evaluate(() => ({
       innerWidth: window.innerWidth,

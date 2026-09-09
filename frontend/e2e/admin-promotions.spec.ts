@@ -142,7 +142,11 @@ async function mockAdminApi(page: Page, state: TestState) {
     await route.fulfill({
       status: 200,
       contentType: 'application/json',
-      body: JSON.stringify(orderFixtureResponse(route.request().url(), responses['/orders']) ?? responses[pathname] ?? {}),
+      body: JSON.stringify(
+        orderFixtureResponse(route.request().url(), responses['/orders']) ??
+          responses[pathname] ??
+          {},
+      ),
     });
   });
 
@@ -252,7 +256,7 @@ test('admin cadastra desconto e benefício de fidelidade com confirmação do si
   await expect(page.getByText('Pedido é entregue')).toBeVisible();
   await expect(page.getByText('Atinge a meta')).toBeVisible();
   await expect(page.getByText('Resgata o cupom')).toBeVisible();
-  await expect(page.getByText('Usa no checkout')).toBeVisible();
+  await expect(page.getByText('Usa na tela de pagamento')).toBeVisible();
 
   await captureReadmeScreenshot(page, 'admin-promotions-loyalty.png', { fullPage: true });
 

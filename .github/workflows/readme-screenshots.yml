@@ -5,18 +5,26 @@ on:
   push:
     branches: [main]
     paths:
-      - 'frontend/e2e/login-mobile-responsive.spec.ts'
-      - 'frontend/e2e/admin-promotions.spec.ts'
-      - 'frontend/e2e/readme-real-ui.spec.ts'
-      - 'frontend/e2e/waiter-operations.spec.ts'
-      - 'frontend/e2e/kitchen-order-customizations.spec.ts'
-      - 'frontend/e2e/courier-operations.spec.ts'
-      - 'frontend/e2e/fixtures/readme/**'
-      - 'frontend/e2e/helpers/readmeScreenshot.ts'
+      - 'frontend/src/**'
+      - 'frontend/e2e/**'
+      - 'frontend/package.json'
+      - 'frontend/package-lock.json'
+      - 'frontend/playwright.config.ts'
+      - 'frontend/vite.config.ts'
+      - '.github/workflows/readme-screenshots.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'frontend/src/**'
+      - 'frontend/e2e/**'
+      - 'frontend/package.json'
+      - 'frontend/package-lock.json'
+      - 'frontend/playwright.config.ts'
+      - 'frontend/vite.config.ts'
       - '.github/workflows/readme-screenshots.yml'
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
   group: readme-screenshots-${{ github.ref }}
@@ -26,10 +34,11 @@ jobs:
   capture:
     name: Capture real project UI
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.ref_name }}
+          persist-credentials: false
 
       - name: Setup Node.js 22
         uses: actions/setup-node@v4
@@ -46,9 +55,11 @@ jobs:
         run: npx playwright install --with-deps chromium
 
       - name: Capture screenshots from real E2E flows
+        id: capture
         working-directory: frontend
         env:
           CAPTURE_README_SCREENSHOTS: 'true'
+          README_SCREENSHOT_OUTPUT_DIR: ${{ runner.temp }}/readme-screenshots
         run: >-
           npx playwright test
           e2e/login-mobile-responsive.spec.ts
@@ -58,15 +69,33 @@ jobs:
           e2e/courier-operations.spec.ts
           e2e/readme-real-ui.spec.ts
 
-      - name: Commit refreshed README screenshots
+      - name: Upload refreshed README screenshots
+        id: screenshots
+        if: ${{ success() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: readme-screenshots-${{ github.sha }}
+          path: ${{ runner.temp }}/readme-screenshots/*.png
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Explain how to update the README
         shell: bash
+        env:
+          SCREENSHOTS_URL: ${{ steps.screenshots.outputs.artifact-url }}
         run: |
-          if [ -z "$(git status --porcelain docs/assets/screenshots)" ]; then
-            echo "README screenshots are already up to date."
-            exit 0
-          fi
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add docs/assets/screenshots
-          git commit -m "docs(readme): refresh real UI screenshots"
-          git push
+          {
+            printf '### README screenshots\n\n'
+            printf 'Source commit: `%s`\n\n' "$GITHUB_SHA"
+            printf '[Download the screenshots](%s) (retained for 30 days).\n\n' "$SCREENSHOTS_URL"
+            printf 'To update the README, extract the PNG files into `docs/assets/screenshots/` on a branch, review them, and open a pull request to `main`. Merge after `Full Root CI Validation` passes.\n'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload failed capture diagnostics
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: readme-screenshots-failure-${{ github.sha }}
+          path: frontend/test-results/
+          if-no-files-found: warn
+          retention-days: 7
