@@ -1,1 +1,1 @@
-export { default } from './demo/InteractiveDemoV2';
+export { default } from './demo/InteractiveDemoV3';
