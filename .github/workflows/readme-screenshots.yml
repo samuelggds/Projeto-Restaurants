@@ -55,7 +55,6 @@ jobs:
         run: npx playwright install --with-deps chromium
 
       - name: Capture screenshots from real E2E flows
-        id: capture
         working-directory: frontend
         env:
           CAPTURE_README_SCREENSHOTS: 'true'
