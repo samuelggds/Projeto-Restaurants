@@ -385,18 +385,15 @@ export function sanitizeDemoState(value: unknown): DemoState {
   const fallback = createInitialDemoState();
   if (!isRecord(value) || value.version !== 2) return fallback;
 
-  const orders = Array.isArray(value.orders) && value.orders.every(isDemoOrder)
-    ? value.orders
-    : fallback.orders;
+  const orders =
+    Array.isArray(value.orders) && value.orders.every(isDemoOrder) ? value.orders : fallback.orders;
   const cart = Array.isArray(value.cart) && value.cart.every(isCartLine) ? value.cart : fallback.cart;
-  const tables = Array.isArray(value.tables) && value.tables.every(isDemoTable)
-    ? value.tables
-    : fallback.tables;
+  const tables =
+    Array.isArray(value.tables) && value.tables.every(isDemoTable) ? value.tables : fallback.tables;
   const calls = Array.isArray(value.calls) && value.calls.every(isDemoCall) ? value.calls : fallback.calls;
   const knownAccountIds = new Set(fallback.accounts.map((account) => account.id));
-  const sessionAccountId =
-    value.sessionAccountId === null ||
-    (typeof value.sessionAccountId === 'string' && knownAccountIds.has(value.sessionAccountId))
+  const sessionAccountId: string | null =
+    typeof value.sessionAccountId === 'string' && knownAccountIds.has(value.sessionAccountId)
       ? value.sessionAccountId
       : null;
   const maxOrderId = orders.reduce((max, order) => Math.max(max, order.id), 0);
