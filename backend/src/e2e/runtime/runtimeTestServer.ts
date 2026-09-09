@@ -34,7 +34,7 @@ fixture.get(
   rateLimit({
     store: new PostgresRateLimitStore('runtime-e2e-probe'),
     windowMs: 60_000,
-    limit: 3,
+    max: 3,
     standardHeaders: true,
     legacyHeaders: false,
   }),

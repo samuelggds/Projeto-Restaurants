@@ -61,6 +61,10 @@ app.get('/ready', async (_req, res) => {
 
 applyCorsAndGlobalRateLimit(app);
 
+// Disponibilidade pública e sem dados sensíveis permanece consultável mesmo
+// quando o relay de eventos está indisponível.
+app.get('/platform/status', platformStatusHandler);
+
 app.use((_req, res, next) => {
   if (!runtimeRealtimeReady()) {
     return res
@@ -69,10 +73,6 @@ app.use((_req, res, next) => {
   }
   return next();
 });
-
-// Disponibilidade pública e sem dados sensíveis para que clientes já abertos
-// troquem imediatamente para a tela de manutenção.
-app.get('/platform/status', platformStatusHandler);
 
 // O modo de manutenção é avaliado antes do parsing do corpo e das rotas de
 // negócio. Sondas, autenticação, webhooks e o painel do SUPER_ADMIN são

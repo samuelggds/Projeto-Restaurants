@@ -24,14 +24,25 @@ export type PixPaymentData = {
 export type PixPaymentStatus =
   'WAITING' | 'VERIFYING' | 'PENDING' | 'ERROR' | TerminalPaymentOutcome;
 
-export type CheckoutPaymentResult = {
+type CheckoutPaymentResultBase = {
   restaurantId: number;
-  status: PaymentResultStatus;
   method: 'Cartão' | 'Pix';
-  reconciliationRequired?: boolean;
-  orderId: number | null;
   total: number;
 };
+
+export type UncertainCheckoutPaymentResult = CheckoutPaymentResultBase & {
+  status: 'PENDING';
+  reconciliationRequired: true;
+  orderId: number;
+};
+
+export type CheckoutPaymentResult =
+  | UncertainCheckoutPaymentResult
+  | (CheckoutPaymentResultBase & {
+      status: PaymentResultStatus;
+      reconciliationRequired?: false;
+      orderId: number | null;
+    });
 
 type Notify = (
   type: 'success' | 'error',

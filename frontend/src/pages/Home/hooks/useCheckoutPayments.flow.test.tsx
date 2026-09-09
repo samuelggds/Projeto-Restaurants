@@ -128,6 +128,24 @@ describe('useCheckoutPayments confirmação canônica do Pix', () => {
     },
   );
 
+  it.each([null, 0, -1])(
+    'não abre a tela de conciliação se a resposta não identifica um pedido válido: %s',
+    async (orderId) => {
+      vi.mocked(ordersService.createPixPayment).mockRejectedValueOnce({
+        response: {
+          data: { code: 'PAYMENT_CREATION_UNCERTAIN', reconciliationRequired: true, orderId },
+        },
+      });
+      let consumed = true;
+      await act(async () => {
+        consumed = await checkoutPayments.current!.executePayment({}, 'pix', false, 'PIX');
+      });
+      expect(consumed).toBe(false);
+      expect(checkoutPayments.current?.paymentResult).toBeNull();
+      expect(onPaymentConfirmed).not.toHaveBeenCalled();
+    },
+  );
+
   it('não anuncia pago quando o provedor aprova mas o pedido canônico continua pendente', async () => {
     vi.mocked(ordersService.getPixPaymentStatus).mockResolvedValue({ isApproved: true });
     vi.mocked(ordersService.confirmPixPayment).mockResolvedValue({ paid: false });

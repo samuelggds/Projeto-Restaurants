@@ -804,20 +804,8 @@ export default function Home() {
         restaurantCategory={homeData.brand.category ?? 'RESTAURANTE'}
         orderLabel={paymentResult.orderId ? `Pedido #${paymentResult.orderId}` : undefined}
         amount={paymentResult.total.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
-        description={
-          paymentResult.reconciliationRequired
-            ? 'Seu pedido foi registrado, mas a confirmação do pagamento ainda não chegou. Consulte este pedido ou fale com o restaurante antes de tentar pagar novamente.'
-            : undefined
-        }
-        onAutoReturn={paymentResult.reconciliationRequired ? undefined : clearPaymentResult}
-        primaryAction={
-          paymentResult.reconciliationRequired
-            ? {
-                label: 'Consultar pedido',
-                onClick: () => navigate(`/orders/${paymentResult.orderId}/tracking`),
-              }
-            : { label: 'Voltar ao cardápio', onClick: clearPaymentResult }
-        }
+        onAutoReturn={clearPaymentResult}
+        primaryAction={{ label: 'Voltar ao cardápio', onClick: clearPaymentResult }}
       />
     );
   }
