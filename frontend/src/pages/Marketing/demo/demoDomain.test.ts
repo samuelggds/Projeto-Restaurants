@@ -12,6 +12,16 @@ import {
 } from './demoDomain';
 
 describe('demoDomain', () => {
+  it('expõe somente os seis perfis permitidos na demonstração, sem SUPER_ADMIN', () => {
+    const state = createInitialDemoState(1_700_000_000_000);
+    const roles = state.accounts.map((account) => account.role).sort();
+
+    expect(roles).toEqual(
+      ['ADMIN', 'ATENDENTE', 'CLIENTE', 'COZINHA', 'GARCOM', 'MOTOQUEIRO'].sort(),
+    );
+    expect(roles).not.toContain('SUPER_ADMIN');
+  });
+
   it('entra com os seis perfis demonstrativos usando a senha padrão', () => {
     const state = createInitialDemoState(1_700_000_000_000);
     expect(state.accounts).toHaveLength(6);
