@@ -16,19 +16,29 @@ const RESERVED_ROUTE_SEGMENTS = new Set([
   'attendant',
   'billing',
   'change-password',
+  'contato',
   'courier',
+  'demonstracao',
   'kitchen',
   'login',
   'mesa',
   'orders',
+  'planos',
+  'privacidade',
   'profile',
   'recover-password',
+  'recursos',
   'register',
+  'suporte',
   'super_admin',
   'system-blocked',
   'system-maintenance',
+  'team',
+  'termos',
   'waiter',
 ]);
+
+const MARKETING_PATHS = new Set(['/', '/demonstracao']);
 
 type RestaurantIdentitySource = {
   restaurantId?: unknown;
@@ -117,6 +127,19 @@ function restaurantReferenceFromLocation(pathname: string, search: string) {
   return { slug: '', id: explicitId };
 }
 
+function applyMarketingBrowserBranding(pathname: string) {
+  document.title =
+    pathname === '/demonstracao'
+      ? 'Demonstração | GastroNexa'
+      : 'GastroNexa | Gestão completa para restaurantes';
+
+  const favicon = document.querySelector<HTMLLinkElement>('link[rel~="icon"]');
+  if (favicon) {
+    favicon.type = 'image/svg+xml';
+    favicon.href = '/favicon.svg';
+  }
+}
+
 export default function BrowserTabBranding() {
   const location = useLocation();
   const { user, isLoading: isAuthLoading } = useAuth();
@@ -127,6 +150,11 @@ export default function BrowserTabBranding() {
     let active = true;
 
     const refresh = async () => {
+      if (MARKETING_PATHS.has(location.pathname)) {
+        applyMarketingBrowserBranding(location.pathname);
+        return;
+      }
+
       if (location.pathname.startsWith('/super_admin')) {
         applyRestaurantBrowserBranding(document, 'Peça Já', 'RESTAURANTE');
         return;
