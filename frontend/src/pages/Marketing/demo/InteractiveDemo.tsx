@@ -8,22 +8,19 @@ import {
   CircleUserRound,
   ClipboardList,
   Clock3,
-  CreditCard,
   LayoutDashboard,
   LogIn,
   LogOut,
-  PackageCheck,
   Plus,
   RefreshCw,
   ShoppingBag,
   Sparkles,
-  Store,
   UserPlus,
   Users,
   UtensilsCrossed,
   WalletCards,
 } from 'lucide-react';
-import { useEffect, useMemo, useState, type FormEvent } from 'react';
+import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import * as S from './InteractiveDemo.styles';
 import {
@@ -388,7 +385,7 @@ function OrdersPanel({
 }: {
   orders: DemoOrder[];
   title?: string;
-  actions?: (order: DemoOrder) => React.ReactNode;
+  actions?: (order: DemoOrder) => ReactNode;
 }) {
   return (
     <S.Panel>
