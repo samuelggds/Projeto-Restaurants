@@ -51,6 +51,8 @@ A carga usou PostgreSQL descartável, role runtime `NOSUPERUSER/NOBYPASSRLS`, do
 
 Typecheck e lint finais passaram nos três pacotes: [tipagem](../artifacts/security-scale-final-typecheck.log), [lint](../artifacts/security-scale-final-lint.log). A interface de conta da mesa foi inspecionada na captura real de 390 px; as jornadas também verificam 360 e 430 px.
 
+A auditoria de dependências foi reexecutada em 09/09/2026 após atualizar Nodemailer para 9.1.1 e Vitest/coverage para 4.1.11: nenhum alerta conhecido retornado nos três pacotes. Evidências: [backend](../artifacts/publication-audit-backend.json), [frontend](../artifacts/publication-audit-frontend.json) e [impressão](../artifacts/publication-audit-print-agent.json). Os 23 testes direcionados de recuperação de senha e MFA passaram após a atualização do Nodemailer. A auditoria depende dos avisos disponíveis na data da consulta e não comprova ausência de vulnerabilidades.
+
 A restauração criou uma segunda base vazia no mesmo container, comparou contagem e digest dos registros, FKs e políticas, reprovisionou a role restrita e comprovou bloqueio RLS sem contexto. Não utilizou um backup de produção nem armazenamento remoto.
 
 Para reproduzir os ensaios de banco a partir da raiz, com Docker disponível:
@@ -86,7 +88,7 @@ O relay retém eventos por cinco minutos e começa no ponto atual ao reiniciar; 
 - Executar carga prolongada e jornadas com frontend, API e banco reais no ambiente de homologação. Os testes Playwright atuais usam API simulada; os E2Es PostgreSQL testam HTTP/Socket reais separadamente.
 - Testar pagamentos/webhooks no sandbox de cada gateway, entrega de e-mail/WhatsApp, impressora física e falha/reconexão do spooler. As chaves externas já são uma configuração conhecida pelo responsável, não um defeito de código.
 - Testar restauração do backup remoto real e estabelecer RPO/RTO, retenção, cifragem e recuperação das chaves.
-- Revalidar auditoria de dependências e observabilidade no ambiente final. Não foram acrescentadas dependências externas nesta etapa.
+- Manter auditoria periódica de dependências e validar observabilidade no ambiente final. As bibliotecas existentes de e-mail e testes receberam atualizações de segurança nesta etapa.
 - Continuar a separação dos serviços extensos com testes de comportamento. Passar o verificador de arquitetura não significa que toda oportunidade de refatoração foi eliminada.
 
 Não houve implantação em produção, cobrança real, envio real de mensagem ou alteração de dados de produção nesta execução. O projeto tem melhorias verificadas, mas ainda não está homologado integralmente para operação.
