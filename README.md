@@ -690,7 +690,7 @@ $env:CAPTURE_README_SCREENSHOTS='true'
 npx playwright test e2e/login-mobile-responsive.spec.ts e2e/admin-promotions.spec.ts e2e/waiter-operations.spec.ts e2e/kitchen-order-customizations.spec.ts e2e/courier-operations.spec.ts e2e/readme-real-ui.spec.ts
 ```
 
-O workflow [README Screenshots](.github/workflows/readme-screenshots.yml) executa o mesmo processo quando as telas ou fixtures relacionadas mudam.
+O workflow [README Screenshots](.github/workflows/readme-screenshots.yml) executa o mesmo processo em PRs para `main` e após o merge quando o código do frontend, E2E, fixtures, dependências, configuração do Playwright/Vite ou o próprio workflow mudam; também pode ser iniciado manualmente em Actions. Após uma execução bem-sucedida, as PNGs ficam no artefato `readme-screenshots-<commit>` por 30 dias, com link no resumo da execução. Para atualizar as imagens versionadas, extraia as PNGs em `docs/assets/screenshots/` numa branch, revise as capturas e abra um PR para `main`, aguardando `Full Root CI Validation`. A automação usa acesso de leitura ao repositório e preserva a proteção da `main`. Se a captura falhar, os traces e screenshots de diagnóstico disponíveis ficam em um artefato separado por 7 dias.
 
 ---
 

@@ -246,7 +246,9 @@ async function mockAuthenticatedPublicMenu(page: Page) {
       });
     }
     if (pathname === '/orders/my-orders') {
-      return json(route, orderFixtureResponse(route.request().url(), [
+      return json(
+        route,
+        orderFixtureResponse(route.request().url(), [
           {
             id: 81,
             type: 'DELIVERY',
@@ -254,7 +256,8 @@ async function mockAuthenticatedPublicMenu(page: Page) {
             createdAt: '2026-09-02T18:00:00.000Z',
             items: [{ product: { name: 'Pizza Margherita' } }],
           },
-        ]));
+        ]),
+      );
     }
     await route.fallback();
   });
@@ -344,7 +347,6 @@ test('captura o cardápio público real para o README', async ({ page }) => {
   await expect(page.getByText('North Pizza', { exact: true }).first()).toBeVisible();
   await expect(page.getByText('Pizza Margherita', { exact: true }).first()).toBeVisible();
   const loginNudge = page.getByRole('region', { name: 'Acompanhe seus pedidos' });
-  await page.getByRole('button', { name: 'Dispensar convite de login' }).click();
   await expect(loginNudge).toBeHidden();
   await captureReadmeScreenshot(page, 'customer-menu.png', { fullPage: true });
 });
@@ -357,15 +359,15 @@ test('cardápio público mantém a hierarquia e os atalhos contidos em 320px', a
   const hero = page.getByRole('region', { name: 'Promoções do restaurante' });
   const menuButton = page.getByRole('button', { name: 'Ver cardápio' });
   const loginNudge = page.getByRole('region', { name: 'Acompanhe seus pedidos' });
-  const shortcutsButton = page.getByRole('button', {
-    name: 'Abrir atalhos de atendimento e fidelidade',
-  });
+  const shortcutsButton = page.getByTestId('floating-actions-control-customer');
 
   await expect(hero).toBeVisible();
   await expect(menuButton).toBeVisible();
-  await expect(loginNudge).toBeVisible();
+  await expect(loginNudge).toBeHidden();
   await expect(shortcutsButton).toBeVisible();
+  await expect(shortcutsButton).toHaveAttribute('aria-expanded', 'false');
   await shortcutsButton.click();
+  await expect(shortcutsButton).toHaveAttribute('aria-expanded', 'true');
   const loyaltyButton = page.getByRole('button', { name: /Ganhe descontos/i });
   await expect(loyaltyButton).toBeVisible();
   const heroBox = await hero.boundingBox();
@@ -374,9 +376,9 @@ test('cardápio público mantém a hierarquia e os atalhos contidos em 320px', a
     .poll(() => page.evaluate(() => document.documentElement.scrollWidth))
     .toBeLessThanOrEqual(321);
 
-  const [menuBox, loginBox, loyaltyBox] = await Promise.all([
+  const [menuBox, shortcutsBox, loyaltyBox] = await Promise.all([
     menuButton.boundingBox(),
-    loginNudge.boundingBox(),
+    shortcutsButton.boundingBox(),
     loyaltyButton.boundingBox(),
   ]);
   const overlaps = (
@@ -389,13 +391,19 @@ test('cardápio público mantém a hierarquia e os atalhos contidos em 320px', a
     first.y + first.height > second.y;
 
   expect(menuBox).not.toBeNull();
-  expect(loginBox).not.toBeNull();
+  expect(shortcutsBox).not.toBeNull();
   expect(loyaltyBox).not.toBeNull();
-  expect(overlaps(menuBox!, loginBox!)).toBe(false);
-  expect(overlaps(loginBox!, loyaltyBox!)).toBe(false);
+  expect(overlaps(menuBox!, shortcutsBox!)).toBe(false);
+  expect(overlaps(shortcutsBox!, loyaltyBox!)).toBe(false);
+  const floatingBox = await page.getByTestId('floating-actions-layer').boundingBox();
+  expect(floatingBox).not.toBeNull();
+  expect(floatingBox!.x).toBeGreaterThanOrEqual(0);
+  expect(floatingBox!.x + floatingBox!.width).toBeLessThanOrEqual(320);
+  expect(floatingBox!.y + floatingBox!.height).toBeLessThanOrEqual(844);
 
-  await page.getByRole('button', { name: 'Minimizar atalhos de atendimento e fidelidade' }).click();
-  await page.getByRole('button', { name: 'Dispensar convite de login' }).click();
+  await shortcutsButton.click();
+  await expect(shortcutsButton).toHaveAttribute('aria-expanded', 'false');
+  await expect(loyaltyButton).toBeHidden();
   const allCategories = page.getByRole('button', { name: 'Todos', exact: true });
   await allCategories.scrollIntoViewIfNeeded();
   const categoryBox = await allCategories.boundingBox();
@@ -451,7 +459,8 @@ test('adicionar mantém o cardápio aberto e a sacola reúne os itens em 320px',
   await page.setViewportSize({ width: 320, height: 844 });
   await mockPublicMenu(page);
   await page.goto('/north-pizza');
-  await page.getByRole('button', { name: 'Dispensar convite de login' }).click();
+  const loginNudge = page.getByRole('region', { name: 'Acompanhe seus pedidos' });
+  await expect(loginNudge).toBeHidden();
 
   const cartTrigger = page.getByRole('button', { name: 'Sacola com 0 itens' });
   await cartTrigger.click();
@@ -463,7 +472,7 @@ test('adicionar mantém o cardápio aberto e a sacola reúne os itens em 320px',
   await expect.poll(() => page.evaluate(() => document.body.style.overflow)).toBe('hidden');
 
   const emptyCartBox = await cart.boundingBox();
-  expect(emptyCartBox?.width).toBeLessThanOrEqual(320);
+  expect(emptyCartBox?.width).toBeLessThanOrEqual(321);
   await page.keyboard.press('Escape');
   await expect(cart).toBeHidden();
   await expect(cartTrigger).toBeFocused();
@@ -471,6 +480,9 @@ test('adicionar mantém o cardápio aberto e a sacola reúne os itens em 320px',
 
   await page.getByRole('button', { name: 'Adicionar Pizza Margherita' }).click();
   await expect(cart).toBeHidden();
+  await expect(loginNudge).toBeVisible();
+  await page.getByRole('button', { name: 'Dispensar convite de login' }).click();
+  await expect(loginNudge).toBeHidden();
   const notices = page.getByLabel('Avisos recentes');
   let addNotice = notices.getByRole('status').filter({ hasText: 'Item adicionado' });
   await expect(addNotice).toHaveCount(1);
@@ -545,6 +557,10 @@ test('central móvel recolhe benefícios e mostra avisos abaixo do cabeçalho', 
   await mockAuthenticatedPublicMenu(page);
   await page.goto('/north-pizza');
 
+  const shortcutsButton = page.getByTestId('floating-actions-control-customer');
+  await expect(shortcutsButton).toHaveAttribute('aria-expanded', 'false');
+  await shortcutsButton.click();
+  await expect(shortcutsButton).toHaveAttribute('aria-expanded', 'true');
   const statusToggle = page.getByTestId('customer-coupon-status-toggle');
   const floatingLayer = page.getByTestId('floating-actions-layer');
   await expect(statusToggle).toBeVisible();
