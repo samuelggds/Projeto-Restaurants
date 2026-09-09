@@ -92,7 +92,7 @@ export const demoRoleDescriptions: Record<DemoRole, string> = {
   ADMIN: 'Acompanhe indicadores, pedidos, equipe e a operação completa.',
   MOTOQUEIRO: 'Retire deliveries prontos, inicie a rota e conclua entregas.',
   ATENDENTE: 'Acompanhe a central, crie pedidos de balcão e veja pendências.',
-  COZINHA: 'Receba pedidos, inicie o preparo e marque itens como prontos.',
+  COZINHA: 'Receba pedidos, inicie o preparo e marque pedidos como prontos.',
   GARCOM: 'Acompanhe mesas, chamados e pedidos prontos para o salão.',
 };
 
@@ -216,12 +216,48 @@ export function createInitialDemoState(now = Date.now()): DemoState {
   return {
     version: 2,
     accounts: [
-      demoAccount('demo-cliente', 'CLIENTE', 'Cliente Demo', 'cliente@demo.gastronexa.com.br', createdAt),
-      demoAccount('demo-admin', 'ADMIN', 'Administrador Demo', 'admin@demo.gastronexa.com.br', createdAt),
-      demoAccount('demo-atendente', 'ATENDENTE', 'Atendente Demo', 'atendente@demo.gastronexa.com.br', createdAt),
-      demoAccount('demo-garcom', 'GARCOM', 'Garçom Demo', 'garcom@demo.gastronexa.com.br', createdAt),
-      demoAccount('demo-cozinha', 'COZINHA', 'Cozinha Demo', 'cozinha@demo.gastronexa.com.br', createdAt),
-      demoAccount('demo-motoqueiro', 'MOTOQUEIRO', 'Motoqueiro Demo', 'motoqueiro@demo.gastronexa.com.br', createdAt),
+      demoAccount(
+        'demo-cliente',
+        'CLIENTE',
+        'Cliente Demo',
+        'cliente@demo.gastronexa.com.br',
+        createdAt,
+      ),
+      demoAccount(
+        'demo-admin',
+        'ADMIN',
+        'Administrador Demo',
+        'admin@demo.gastronexa.com.br',
+        createdAt,
+      ),
+      demoAccount(
+        'demo-atendente',
+        'ATENDENTE',
+        'Atendente Demo',
+        'atendente@demo.gastronexa.com.br',
+        createdAt,
+      ),
+      demoAccount(
+        'demo-garcom',
+        'GARCOM',
+        'Garçom Demo',
+        'garcom@demo.gastronexa.com.br',
+        createdAt,
+      ),
+      demoAccount(
+        'demo-cozinha',
+        'COZINHA',
+        'Cozinha Demo',
+        'cozinha@demo.gastronexa.com.br',
+        createdAt,
+      ),
+      demoAccount(
+        'demo-motoqueiro',
+        'MOTOQUEIRO',
+        'Motoqueiro Demo',
+        'motoqueiro@demo.gastronexa.com.br',
+        createdAt,
+      ),
     ],
     sessionAccountId: null,
     cart: [],
@@ -252,24 +288,136 @@ export function createInitialDemoState(now = Date.now()): DemoState {
   };
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value && typeof value === 'object' && !Array.isArray(value));
+}
+
+function isFiniteNumber(value: unknown): value is number {
+  return typeof value === 'number' && Number.isFinite(value);
+}
+
+function isPositiveInteger(value: unknown): value is number {
+  return Number.isInteger(value) && Number(value) > 0;
+}
+
+function isNonNegativeInteger(value: unknown): value is number {
+  return Number.isInteger(value) && Number(value) >= 0;
+}
+
+function isCartLine(value: unknown): value is DemoCartLine {
+  if (!isRecord(value)) return false;
+  return (
+    typeof value.productId === 'string' &&
+    typeof value.name === 'string' &&
+    isFiniteNumber(value.unitPrice) &&
+    value.unitPrice >= 0 &&
+    isPositiveInteger(value.quantity)
+  );
+}
+
+function isOrderChannel(value: unknown): value is DemoOrderChannel {
+  return value === 'DELIVERY' || value === 'PICKUP' || value === 'TABLE';
+}
+
+function isOrderStatus(value: unknown): value is DemoOrderStatus {
+  return (
+    value === 'PENDENTE' ||
+    value === 'PREPARANDO' ||
+    value === 'PRONTO' ||
+    value === 'SAIU_PARA_ENTREGA' ||
+    value === 'ENTREGUE' ||
+    value === 'CANCELADO'
+  );
+}
+
+function isPaymentMethod(value: unknown): value is DemoPaymentMethod {
+  return value === 'PIX' || value === 'CARD' || value === 'CASH';
+}
+
+function isDemoOrder(value: unknown): value is DemoOrder {
+  if (!isRecord(value) || !Array.isArray(value.items) || !value.items.every(isCartLine)) return false;
+  const tableNumberIsValid =
+    value.tableNumber === undefined || (isPositiveInteger(value.tableNumber) && value.tableNumber <= 9999);
+  return (
+    isPositiveInteger(value.id) &&
+    typeof value.publicId === 'string' &&
+    typeof value.customerName === 'string' &&
+    typeof value.customerEmail === 'string' &&
+    isOrderChannel(value.channel) &&
+    tableNumberIsValid &&
+    isFiniteNumber(value.total) &&
+    value.total >= 0 &&
+    isPaymentMethod(value.paymentMethod) &&
+    typeof value.paid === 'boolean' &&
+    isOrderStatus(value.status) &&
+    typeof value.createdAt === 'string'
+  );
+}
+
+function isDemoTable(value: unknown): value is DemoTable {
+  if (!isRecord(value)) return false;
+  return (
+    typeof value.id === 'string' &&
+    isPositiveInteger(value.number) &&
+    typeof value.occupied === 'boolean' &&
+    isNonNegativeInteger(value.guests) &&
+    isFiniteNumber(value.total) &&
+    value.total >= 0
+  );
+}
+
+function isCallStatus(value: unknown): value is DemoCallStatus {
+  return value === 'WAITING' || value === 'IN_PROGRESS' || value === 'RESOLVED';
+}
+
+function isDemoCall(value: unknown): value is DemoCall {
+  if (!isRecord(value)) return false;
+  return (
+    typeof value.id === 'string' &&
+    isPositiveInteger(value.tableNumber) &&
+    (value.type === 'WAITER' || value.type === 'BILL') &&
+    isCallStatus(value.status) &&
+    typeof value.createdAt === 'string'
+  );
+}
+
 export function sanitizeDemoState(value: unknown): DemoState {
-  if (!value || typeof value !== 'object') return createInitialDemoState();
-  const state = value as Partial<DemoState>;
-  if (state.version !== 2) return createInitialDemoState();
   const fallback = createInitialDemoState();
+  if (!isRecord(value) || value.version !== 2) return fallback;
+
+  const orders = Array.isArray(value.orders) && value.orders.every(isDemoOrder)
+    ? value.orders
+    : fallback.orders;
+  const cart = Array.isArray(value.cart) && value.cart.every(isCartLine) ? value.cart : fallback.cart;
+  const tables = Array.isArray(value.tables) && value.tables.every(isDemoTable)
+    ? value.tables
+    : fallback.tables;
+  const calls = Array.isArray(value.calls) && value.calls.every(isDemoCall) ? value.calls : fallback.calls;
   const knownAccountIds = new Set(fallback.accounts.map((account) => account.id));
-  const storedAccounts = Array.isArray(state.accounts)
-    ? state.accounts.filter((account) => knownAccountIds.has(account.id))
-    : [];
+  const sessionAccountId =
+    value.sessionAccountId === null ||
+    (typeof value.sessionAccountId === 'string' && knownAccountIds.has(value.sessionAccountId))
+      ? value.sessionAccountId
+      : null;
+  const maxOrderId = orders.reduce((max, order) => Math.max(max, order.id), 0);
+  const persistedNextOrderNumber = isPositiveInteger(value.nextOrderNumber)
+    ? value.nextOrderNumber
+    : fallback.nextOrderNumber;
+  const nextOrderNumber = Math.max(
+    fallback.nextOrderNumber,
+    persistedNextOrderNumber,
+    maxOrderId + 1,
+  );
+
   return {
-    ...fallback,
-    ...state,
     version: 2,
-    accounts: storedAccounts.length === fallback.accounts.length ? storedAccounts : fallback.accounts,
-    orders: Array.isArray(state.orders) ? state.orders : fallback.orders,
-    cart: Array.isArray(state.cart) ? state.cart : fallback.cart,
-    tables: Array.isArray(state.tables) ? state.tables : fallback.tables,
-    calls: Array.isArray(state.calls) ? state.calls : fallback.calls,
+    accounts: fallback.accounts,
+    sessionAccountId,
+    cart,
+    orders,
+    tables,
+    calls,
+    nextOrderNumber,
   };
 }
 
