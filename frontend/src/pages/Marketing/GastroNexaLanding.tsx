@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import {
   ArrowRight,
   BarChart3,
@@ -81,7 +82,7 @@ const audiences = [
 
 function BrandMark() {
   return (
-    <S.Brand href="/" aria-label="GastroNexa - página inicial">
+    <S.Brand as={Link} to="/" aria-label="GastroNexa - página inicial">
       <span aria-hidden="true">G</span>
       <span>GastroNexa</span>
     </S.Brand>
@@ -110,9 +111,9 @@ export default function GastroNexaLanding() {
             <a href="#como-funciona" onClick={closeMenu}>
               Como funciona
             </a>
-            <a href="/demonstracao" onClick={closeMenu}>
+            <Link to="/demonstracao" onClick={closeMenu}>
               Demonstração
-            </a>
+            </Link>
             <a href="#contato" onClick={closeMenu}>
               Contato
             </a>
@@ -147,7 +148,7 @@ export default function GastroNexaLanding() {
               administrativa em uma experiência pensada para o dia a dia do restaurante.
             </p>
             <S.HeroActions>
-              <S.Button href="/demonstracao">
+              <S.Button as={Link} to="/demonstracao">
                 Ver demonstração <ArrowRight size={18} />
               </S.Button>
               <S.Button href={salesHref} $secondary>
@@ -278,7 +279,7 @@ export default function GastroNexaLanding() {
                   restaurante mantém sua identidade e sua operação separadas dos demais clientes.
                 </p>
               </S.SectionHeading>
-              <S.Button href="/demonstracao">
+              <S.Button as={Link} to="/demonstracao">
                 Explorar o painel demo <ArrowRight size={18} />
               </S.Button>
             </div>
@@ -318,7 +319,7 @@ export default function GastroNexaLanding() {
               Criamos uma demonstração visual com dados fictícios para você conhecer a organização
               do painel, os indicadores e o fluxo de pedidos sem acessar dados de restaurantes reais.
             </p>
-            <S.Button href="/demonstracao">
+            <S.Button as={Link} to="/demonstracao">
               Abrir demonstração <MonitorSmartphone size={18} />
             </S.Button>
             <S.DemoMini>
@@ -415,7 +416,7 @@ export default function GastroNexaLanding() {
               <S.Button href={salesHref}>
                 <MessageCircleMore size={18} /> Falar com a GastroNexa
               </S.Button>
-              <S.Button href="/demonstracao" $secondary>
+              <S.Button as={Link} to="/demonstracao" $secondary>
                 Ver demonstração primeiro <ArrowRight size={17} />
               </S.Button>
               {!contactUrl && (
