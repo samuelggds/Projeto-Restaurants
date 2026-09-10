@@ -2,6 +2,7 @@ import styled from 'styled-components';
 
 export const CreateBackdrop = styled.div`
   --brand: #233f32;
+  --brand-ink: color-mix(in srgb, var(--brand) 78%, #122e22);
   --ink: #1c3028;
   --muted: #647568;
   --border: #dfe5dd;
@@ -159,7 +160,7 @@ export const CreateDialog = styled.form`
   }
   .submit {
     border: 1px solid transparent;
-    background: var(--brand);
+    background: var(--brand-ink);
     color: #fff;
   }
   .submit:disabled {

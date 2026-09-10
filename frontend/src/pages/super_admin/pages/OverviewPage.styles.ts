@@ -199,6 +199,10 @@ export const HealthItem = styled.article`
     --status-color: #b25b53;
   }
 
+  &[data-tone='canceled'] {
+    --status-color: #79847d;
+  }
+
   .status-dot {
     width: 7px;
     height: 7px;

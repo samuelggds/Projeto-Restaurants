@@ -584,6 +584,7 @@ test('estado vazio orienta o primeiro cadastro e dialog preserva foco no celular
   state.restaurants = [];
   state.metrics.restaurantsTotal = 0;
   state.metrics.restaurantsActive = 0;
+  state.settings.primaryColor = '#526378';
   const writes: Array<{ path: string; body: Record<string, unknown> }> = [];
   await page.setViewportSize({ width: 320, height: 844 });
   await mockSuperAdminApi(page, state, writes);
@@ -598,6 +599,13 @@ test('estado vazio orienta o primeiro cadastro e dialog preserva foco no celular
   const dialog = page.getByRole('dialog', { name: 'Criar restaurante' });
   await expect(dialog).toBeVisible();
   await expect(dialog.getByLabel('Nome do restaurante')).toBeFocused();
+  const configuredButtonColor = await createButton.evaluate(
+    (button) => getComputedStyle(button).backgroundColor,
+  );
+  await expect(dialog.getByRole('button', { name: 'Criar restaurante', exact: true })).toHaveCSS(
+    'background-color',
+    configuredButtonColor,
+  );
   await captureReadmeScreenshot(page, 'super-admin-create-restaurant-mobile.png');
 
   const cancelBox = await dialog.getByRole('button', { name: 'Cancelar' }).boundingBox();

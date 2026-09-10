@@ -63,6 +63,12 @@ const navigation = [
   ['settings', 'Configurações', Settings],
 ] as const;
 
+const navigationSections: Partial<Record<SuperAdminView, string>> = {
+  overview: 'Visão da plataforma',
+  restaurants: 'Gestão',
+  support: 'Administração',
+};
+
 const titles: Record<SuperAdminView, [title: string, description: string]> = {
   'sales-leads': [
     'Contatos comerciais',
@@ -270,12 +276,10 @@ export function SuperAdminModule({
           <X />
         </S.Close>
         <S.Nav>
-          {navigation.map(([id, label, Icon], index) => (
+          {navigation.map(([id, label, Icon]) => (
             <Fragment key={id}>
-              {index === 0 || index === 2 || index === 7 ? (
-                <span className="nav-label">
-                  {index === 0 ? 'Visão da plataforma' : index === 2 ? 'Gestão' : 'Administração'}
-                </span>
+              {navigationSections[id] ? (
+                <span className="nav-label">{navigationSections[id]}</span>
               ) : null}
               <button
                 type="button"
