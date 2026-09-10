@@ -1,8 +1,17 @@
-import { AlertTriangle, Building2, Clock3, DollarSign, ShieldCheck } from 'lucide-react';
+import {
+  AlertTriangle,
+  Building2,
+  ChartNoAxesCombined,
+  Clock3,
+  DollarSign,
+  ShieldCheck,
+  Store,
+} from 'lucide-react';
 import type { RestaurantTenant, SuperAdminData } from '../types';
 import { formatCurrency, formatDate, statusTone, tenantLabels } from '../domain/superAdminDomain';
 import { Chart, Empty, Metrics } from '../components/Shared';
 import * as S from '../SuperAdmin.styles';
+import * as O from './OverviewPage.styles';
 
 export function RestaurantTable({
   restaurants,
@@ -65,6 +74,20 @@ export function OverviewPage({
     .slice(0, 6);
   return (
     <S.PageStack>
+      <O.Introduction>
+        <div className="introduction-copy">
+          <span className="eyebrow">GastroNexa · Visão da plataforma</span>
+          <h2>O panorama do seu negócio.</h2>
+          <p>Restaurantes, assinaturas e receita. Os principais indicadores, reunidos aqui.</p>
+        </div>
+        <div className="portfolio">
+          <Store aria-hidden="true" size={22} />
+          <div>
+            <strong>{data.metrics.restaurantsTotal}</strong>
+            <span>Restaurantes no total</span>
+          </div>
+        </div>
+      </O.Introduction>
       <Metrics
         items={[
           {
@@ -101,45 +124,57 @@ export function OverviewPage({
         <S.Card>
           <S.SectionHeading>
             <div>
+              <O.SectionLabel>Evolução</O.SectionLabel>
               <h2>Crescimento da plataforma</h2>
               <p>Total acumulado de restaurantes ativos nos últimos meses.</p>
             </div>
+            <O.SectionIcon aria-hidden="true">
+              <ChartNoAxesCombined size={21} />
+            </O.SectionIcon>
           </S.SectionHeading>
           <Chart data={data.metrics.monthlyGrowth} valueKey="count" />
         </S.Card>
         <S.Card>
           <S.SectionHeading>
             <div>
+              <O.SectionLabel>Assinaturas</O.SectionLabel>
               <h2>Saúde das assinaturas</h2>
               <p>Distribuição atual por status operacional.</p>
             </div>
-            <ShieldCheck />
+            <O.SectionIcon aria-hidden="true">
+              <ShieldCheck size={21} />
+            </O.SectionIcon>
           </S.SectionHeading>
-          <S.Stack>
+          <O.HealthList>
             {[
-              ['Ativas', 'Acesso normal à plataforma', data.metrics.restaurantsActive],
-              ['Em avaliação', 'Período de teste', data.metrics.restaurantsTrial],
-              ['Em atraso', 'Cobrança requer atenção', data.metrics.restaurantsOverdue],
-              ['Bloqueadas', 'Sem acesso operacional', data.metrics.restaurantsBlocked],
-              ['Canceladas', 'Assinatura encerrada', data.metrics.restaurantsCanceled],
-            ].map(([label, hint, value]) => (
-              <S.ListItem key={String(label)}>
+              ['Ativas', 'Acesso normal à plataforma', data.metrics.restaurantsActive, 'active'],
+              ['Em avaliação', 'Período de teste', data.metrics.restaurantsTrial, 'trial'],
+              ['Em atraso', 'Cobrança requer atenção', data.metrics.restaurantsOverdue, 'overdue'],
+              ['Bloqueadas', 'Sem acesso operacional', data.metrics.restaurantsBlocked, 'blocked'],
+              ['Canceladas', 'Assinatura encerrada', data.metrics.restaurantsCanceled, 'canceled'],
+            ].map(([label, hint, value, tone]) => (
+              <O.HealthItem key={String(label)} data-tone={tone}>
+                <span className="status-dot" aria-hidden="true" />
                 <span className="info">
                   <b>{label}</b>
                   <span>{hint}</span>
                 </span>
                 <strong>{value}</strong>
-              </S.ListItem>
+              </O.HealthItem>
             ))}
-          </S.Stack>
+          </O.HealthList>
         </S.Card>
       </S.Grid>
       <S.Card>
         <S.SectionHeading>
           <div>
+            <O.SectionLabel>Novos cadastros</O.SectionLabel>
             <h2>Restaurantes recentes</h2>
             <p>Tenants adicionados mais recentemente à plataforma.</p>
           </div>
+          <O.SectionIcon aria-hidden="true">
+            <Building2 size={21} />
+          </O.SectionIcon>
         </S.SectionHeading>
         <RestaurantTable restaurants={recent} onSelect={onSelect} />
       </S.Card>

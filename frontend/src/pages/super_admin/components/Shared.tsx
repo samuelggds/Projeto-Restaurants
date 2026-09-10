@@ -102,6 +102,9 @@ export function Chart({
             height: `${Math.max(3, Math.round((Number(item[valueKey] || 0) / maximum) * 100))}%`,
           }}
         >
+          <b className="bar-value" aria-hidden="true">
+            {item[valueKey] ?? 0}
+          </b>
           <span>{item.label}</span>
         </div>
       ))}
