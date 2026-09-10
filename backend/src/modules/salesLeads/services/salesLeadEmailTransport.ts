@@ -81,7 +81,9 @@ export function createSalesLeadEmailSender() {
       result.accepted.length === 0 ||
       result.rejected?.length
     ) {
-      throw new Error('SMTP não aceitou o destinatário do contato.');
+      throw Object.assign(new Error('SMTP não aceitou o destinatário do contato.'), {
+        code: 'ESMTPREJECTED',
+      });
     }
   };
 }
