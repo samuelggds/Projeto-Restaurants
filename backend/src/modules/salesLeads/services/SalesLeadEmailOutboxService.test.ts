@@ -30,7 +30,19 @@ const smtp = {
   SALES_CONTACT_EMAIL_FROM: 'GastroNexa <mailer@example.test>',
 };
 
-test('sem SMTP válido a fila permanece intocada', async () => {
+function createLogger() {
+  const events: Array<{ level: string; message: string; meta?: unknown }> = [];
+  return {
+    events,
+    logger: {
+      info: (message: string, meta?: unknown) => events.push({ level: 'info', message, meta }),
+      warn: (message: string, meta?: unknown) => events.push({ level: 'warn', message, meta }),
+      error: (message: string, meta?: unknown) => events.push({ level: 'error', message, meta }),
+    },
+  };
+}
+
+test('sem SMTP válido a fila permanece intocada e registra configuração ausente', async () => {
   assert.equal(salesLeadEmailConfiguration({}), null);
   assert.equal(salesLeadEmailConfiguration({ ...smtp, SMTP_PORT: '0' }), null);
   assert.equal(
@@ -42,11 +54,13 @@ test('sem SMTP válido a fila permanece intocada', async () => {
     null,
   );
   assert.ok(salesLeadEmailConfiguration(smtp));
-  assert.deepEqual(await deliverSalesLeadEmails({} as Database, null), {
+  const { events, logger } = createLogger();
+  assert.deepEqual(await deliverSalesLeadEmails({} as Database, null, logger), {
     processed: 0,
     sent: 0,
     configured: false,
   });
+  assert.deepEqual(events, [{ level: 'warn', message: '[SALES_LEADS_EMAIL_NOT_CONFIGURED]' }]);
 });
 
 test('aviso usa destinatário fixo, corpo textual e Message-ID estável; rejeição SMTP não conta como envio', async (t) => {
@@ -78,10 +92,17 @@ test('aviso usa destinatário fixo, corpo textual e Message-ID estável; rejeiç
   assert.equal(messages[0].messageId, messages[1].messageId);
   assert.equal(messages[0].subject, 'Novo contato comercial — GastroNexa');
   reject = true;
-  await assert.rejects(send(lead), /não aceitou/);
+  await assert.rejects(
+    send(lead),
+    (error: unknown) =>
+      error instanceof Error &&
+      'code' in error &&
+      error.code === 'ESMTPREJECTED' &&
+      /não aceitou/.test(error.message),
+  );
 });
 
-test('falha de envio agenda nova tentativa; oitava falha fica visível; lease protege conclusão', async () => {
+test('falha de envio agenda nova tentativa, registra código seguro e não expõe dados', async () => {
   const updates: unknown[][] = [];
   const db = {
     $queryRaw: async () => [
@@ -94,9 +115,14 @@ test('falha de envio agenda nova tentativa; oitava falha fica visível; lease pr
     },
     salesLead: { findUnique: async () => lead },
   } as unknown as Database;
-  const result = await deliverSalesLeadEmails(db, async () => {
-    throw new Error('SMTP offline');
-  });
+  const { events, logger } = createLogger();
+  const result = await deliverSalesLeadEmails(
+    db,
+    async () => {
+      throw Object.assign(new Error('Authentication failed for secret user'), { code: 'EAUTH' });
+    },
+    logger,
+  );
   assert.equal(result.sent, 0);
   assert.deepEqual(
     updates.map((values) => values[0]),
@@ -105,6 +131,39 @@ test('falha de envio agenda nova tentativa; oitava falha fica visível; lease pr
   assert.equal(updates[0][1], 60_000);
   assert.equal(updates[1][1], 3_600_000);
   assert.equal(updates[0].at(-1), updates[1].at(-1));
+  assert.deepEqual(events, [
+    {
+      level: 'error',
+      message: '[SALES_LEADS_EMAIL_FAILED]',
+      meta: { code: 'EAUTH', attempt: 1, exhausted: false, retryInMs: 60_000 },
+    },
+    {
+      level: 'error',
+      message: '[SALES_LEADS_EMAIL_FAILED]',
+      meta: { code: 'EAUTH', attempt: 8, exhausted: true, retryInMs: null },
+    },
+  ]);
+  assert.equal(JSON.stringify(events).includes(lead.email), false);
+  assert.equal(JSON.stringify(events).includes(lead.restaurantName), false);
+  assert.equal(JSON.stringify(events).includes('secret user'), false);
+});
+
+test('envio aceito registra confirmação sem destinatário ou conteúdo', async () => {
+  const db = {
+    $queryRaw: async () => [{ id: 'first', leadId: lead.id, attempts: 2 }],
+    $executeRaw: async () => 1,
+    salesLead: { findUnique: async () => lead },
+  } as unknown as Database;
+  const { events, logger } = createLogger();
+  const result = await deliverSalesLeadEmails(db, async () => undefined, logger);
+  assert.equal(result.sent, 1);
+  assert.deepEqual(events, [
+    {
+      level: 'info',
+      message: '[SALES_LEADS_EMAIL_SENT]',
+      meta: { attempt: 2 },
+    },
+  ]);
 });
 
 test('worker que perdeu a posse não marca o aviso como enviado', async () => {
@@ -113,5 +172,7 @@ test('worker que perdeu a posse não marca o aviso como enviado', async () => {
     $executeRaw: async () => 0,
     salesLead: { findUnique: async () => lead },
   } as unknown as Database;
-  assert.equal((await deliverSalesLeadEmails(db, async () => undefined)).sent, 0);
+  const { events, logger } = createLogger();
+  assert.equal((await deliverSalesLeadEmails(db, async () => undefined, logger)).sent, 0);
+  assert.deepEqual(events, []);
 });
