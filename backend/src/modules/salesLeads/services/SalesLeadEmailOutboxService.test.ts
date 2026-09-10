@@ -179,3 +179,21 @@ test('worker que perdeu a posse não marca o aviso como enviado', async () => {
   assert.equal((await deliverSalesLeadEmails(db, async () => undefined, logger)).sent, 0);
   assert.deepEqual(events, []);
 });
+
+test('worker que perdeu a posse durante falha não registra diagnóstico enganoso', async () => {
+  const db = {
+    $queryRaw: async () => [{ id: 'first', leadId: lead.id, attempts: 1 }],
+    $executeRaw: async () => 0,
+    salesLead: { findUnique: async () => lead },
+  } as unknown as Database;
+  const { events, logger } = createLogger();
+  const result = await deliverSalesLeadEmails(
+    db,
+    async () => {
+      throw Object.assign(new Error('SMTP offline'), { code: 'ETIMEDOUT' });
+    },
+    logger,
+  );
+  assert.equal(result.sent, 0);
+  assert.deepEqual(events, []);
+});
