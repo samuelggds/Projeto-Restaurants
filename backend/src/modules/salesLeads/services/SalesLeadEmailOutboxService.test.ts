@@ -32,12 +32,15 @@ const smtp = {
 
 function createLogger() {
   const events: Array<{ level: string; message: string; meta?: unknown }> = [];
+  const record = (level: string, message: string, meta?: unknown) => {
+    events.push(meta === undefined ? { level, message } : { level, message, meta });
+  };
   return {
     events,
     logger: {
-      info: (message: string, meta?: unknown) => events.push({ level: 'info', message, meta }),
-      warn: (message: string, meta?: unknown) => events.push({ level: 'warn', message, meta }),
-      error: (message: string, meta?: unknown) => events.push({ level: 'error', message, meta }),
+      info: (message: string, meta?: unknown) => record('info', message, meta),
+      warn: (message: string, meta?: unknown) => record('warn', message, meta),
+      error: (message: string, meta?: unknown) => record('error', message, meta),
     },
   };
 }
