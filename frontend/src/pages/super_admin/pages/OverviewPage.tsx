@@ -12,6 +12,8 @@ import { formatCurrency, formatDate, statusTone, tenantLabels } from '../domain/
 import { Chart, Empty, Metrics } from '../components/Shared';
 import * as S from '../SuperAdmin.styles';
 import * as O from './OverviewPage.styles';
+import { AttentionQueue } from '../components/AttentionQueue';
+import type { QuickSearchTarget } from '../domain/quickSearch';
 
 export function RestaurantTable({
   restaurants,
@@ -65,9 +67,17 @@ export function RestaurantTable({
 export function OverviewPage({
   data,
   onSelect,
+  onOpenRecord,
+  onRefresh,
+  refreshing,
+  updatedAt,
 }: {
   data: SuperAdminData;
   onSelect: (restaurant: RestaurantTenant) => void;
+  onOpenRecord: (target: QuickSearchTarget) => void;
+  onRefresh: () => Promise<void>;
+  refreshing: boolean;
+  updatedAt: string | null;
 }) {
   const recent = [...data.restaurants]
     .sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt))
@@ -119,6 +129,13 @@ export function OverviewPage({
             ),
           },
         ]}
+      />
+      <AttentionQueue
+        data={data}
+        onSelect={onOpenRecord}
+        onRefresh={onRefresh}
+        refreshing={refreshing}
+        updatedAt={updatedAt}
       />
       <S.Grid>
         <S.Card>

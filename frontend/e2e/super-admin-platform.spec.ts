@@ -105,7 +105,7 @@ function createDashboard() {
           id: 41,
           planCode: 'PREMIUM',
           status: 'ATIVA',
-          trialEndsAt: null,
+          trialEndsAt: null as string | null,
           currentPeriodStart: '2026-08-10T10:00:00.000Z',
           currentPeriodEnd: '2026-09-10T10:00:00.000Z',
           balanceDebt: 0,
@@ -359,6 +359,7 @@ async function mockSuperAdminApi(
       });
       state.tickets[0].status = body.closeConversation === true ? 'CLOSED' : 'WAITING_CUSTOMER';
       state.tickets[0].messageCount = supportMessages.length;
+      state.tickets[0].id = Number(supportMessages.at(-1)!.id);
       state.tickets[0].lastSenderRole = 'SUPER_ADMIN';
       state.tickets[0].lastMessageAt = '2026-08-28T10:10:00.000Z';
       await route.fulfill({
@@ -386,6 +387,176 @@ async function mockSuperAdminApi(
   });
 }
 
+for (const width of [320, 1440]) {
+  test(`pendências permitem filtrar, paginar e revisar os quatro tipos em ${width}px`, async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width, height: 900 });
+    const state = createDashboard();
+    state.restaurants[0].subscription.status = 'TESTE';
+    state.restaurants[0].subscription.trialEndsAt = new Date(
+      Date.now() + 4 * 86_400_000,
+    ).toISOString();
+    state.administrators[0].mustChangePassword = true;
+    state.invoices = Array.from({ length: 7 }, (_, index) => ({
+      ...state.invoices[0],
+      id: 71 + index,
+      code: `FAT-0000${71 + index}`,
+      status: 'OVERDUE',
+    }));
+    const writes: Array<{ path: string; body: Record<string, unknown> }> = [];
+    await mockSuperAdminApi(page, state, writes);
+    await page.goto('/super_admin/overview');
+    const queue = page.getByRole('region', { name: 'Precisa da sua atenção' });
+    await expect(queue.getByRole('button', { name: 'Todas 10', exact: true })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+    await expect(queue.getByRole('status')).toHaveText('1–5 de 10 pendências');
+    await captureReadmeScreenshot(page, `super-admin-attention-${width}.png`, { fullPage: true });
+    await queue.getByRole('button', { name: 'Cobranças 7', exact: true }).click();
+    await expect(queue.getByRole('status')).toHaveText('1–5 de 7 pendências');
+    await queue.getByRole('button', { name: 'Próximas', exact: true }).click();
+    await expect(queue.getByRole('status')).toHaveText('6–7 de 7 pendências');
+    await queue
+      .getByRole('button', { name: 'Revisar cobranças: Restaurante Aurora', exact: true })
+      .first()
+      .click();
+    await expect(page.getByRole('dialog')).toContainText('FAT-000076');
+    await page.keyboard.press('Escape');
+    await queue.getByRole('button', { name: 'Períodos de teste 1', exact: true }).click();
+    await expect(queue.getByRole('status')).toHaveText('1–1 de 1 pendências');
+    await queue
+      .getByRole('button', { name: 'Revisar períodos de teste: Restaurante Aurora', exact: true })
+      .click();
+    await expect(page.getByRole('dialog', { name: 'Restaurante Aurora' })).toBeVisible();
+    await page.keyboard.press('Escape');
+    await queue.getByRole('button', { name: 'Acessos 1', exact: true }).click();
+    await queue
+      .getByRole('button', { name: 'Revisar acessos: Ana Responsável', exact: true })
+      .click();
+    await expect(page.getByRole('dialog', { name: 'Ana Responsável' })).toContainText(
+      'Troca de senha pendente',
+    );
+    await page.keyboard.press('Escape');
+    await queue.getByRole('button', { name: 'Suporte 1', exact: true }).click();
+    await queue
+      .getByRole('button', { name: 'Revisar suporte: Restaurante Aurora', exact: true })
+      .click();
+    await expect(page.getByRole('dialog', { name: 'Suporte • Restaurante Aurora' })).toBeVisible();
+    await page.keyboard.press('Escape');
+    state.tickets[0].status = 'WAITING_CUSTOMER';
+    await queue.getByRole('button', { name: 'Atualizar pendências', exact: true }).click();
+    await expect(
+      queue.getByRole('heading', { name: 'Nenhuma pendência neste recorte' }),
+    ).toBeVisible();
+    await expect(queue.locator('time')).toHaveAttribute('datetime', /\d{4}-\d{2}-\d{2}T/);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
+      true,
+    );
+    expect(writes).toEqual([]);
+  });
+}
+
+for (const width of [320, 1440]) {
+  test(`busca rápida encontra registros e preserva foco e diálogos em ${width}px`, async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width, height: 900 });
+    const writes: Array<{ path: string; body: Record<string, unknown> }> = [];
+    await mockSuperAdminApi(page, createDashboard(), writes);
+    await page.goto('/super_admin/overview');
+    const trigger = page.getByRole('button', { name: 'Buscar no painel', exact: true });
+    await expect(trigger).toBeVisible();
+    await page.keyboard.press('Control+k');
+    const search = page.getByRole('dialog', { name: 'Busca rápida', exact: true });
+    const input = search.getByLabel('Nome, e-mail ou referência');
+    await expect(input).toBeFocused();
+    await input.fill('não-existe-no-painel');
+    await expect(search.getByRole('status')).toContainText('0 resultados');
+    await input.fill('aurora');
+    await expect(search.getByRole('status')).toContainText('4 resultados');
+    await captureReadmeScreenshot(page, `super-admin-quick-search-${width}.png`);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
+      true,
+    );
+    await page.keyboard.press('Escape');
+    await expect(trigger).toBeFocused();
+
+    for (const [query, resultName, dialogName] of [
+      ['restaurante-aurora', /Restaurante Aurora/, 'Restaurante Aurora'],
+      ['ana responsavel', /Administrador Ana Responsável/, 'Ana Responsável'],
+      ['FAT-000071', /Fatura FAT-000071/, 'FAT-000071'],
+      ['configuracao cardapio', /Suporte Ajuda/, 'Suporte • Restaurante Aurora'],
+    ] as const) {
+      await trigger.click();
+      await input.fill(query);
+      await search
+        .getByRole('list', { name: 'Resultados da busca' })
+        .getByRole('button', { name: resultName })
+        .first()
+        .click();
+      await expect(search).toBeHidden();
+      const detail = page.getByRole('dialog', { name: dialogName, exact: true });
+      await expect(detail).toBeVisible();
+      await page.keyboard.press('Control+k');
+      await expect(search).toBeHidden();
+      await expect(detail).toBeVisible();
+      await page.keyboard.press('Escape');
+      await expect(trigger).toBeFocused();
+    }
+    expect(writes).toEqual([]);
+  });
+}
+
+test('resolver suporte pela fila mantém conversa aberta e restaura foco após remover a pendência', async ({
+  page,
+}) => {
+  const writes: Array<{ path: string; body: Record<string, unknown> }> = [];
+  await mockSuperAdminApi(page, createDashboard(), writes);
+  await page.goto('/super_admin/overview');
+  const queue = page.getByRole('region', { name: 'Precisa da sua atenção' });
+  await queue
+    .getByRole('button', { name: 'Revisar suporte: Restaurante Aurora', exact: true })
+    .click();
+  const dialog = page.getByRole('dialog', { name: 'Suporte • Restaurante Aurora' });
+  await dialog
+    .getByPlaceholder('Descreva o diagnóstico e o próximo passo com clareza')
+    .fill('Dúvida esclarecida no cenário de teste.');
+  await dialog.getByRole('button', { name: 'Responder e encerrar' }).click();
+  await expect(dialog.getByText('Atendimento encerrado.')).toBeVisible();
+  await expect(queue.getByRole('button', { name: 'Suporte 0', exact: true })).toBeAttached();
+  await page.keyboard.press('Escape');
+  await expect(dialog).toBeHidden();
+  await expect(page.getByRole('button', { name: 'Buscar no painel', exact: true })).toBeFocused();
+  expect(writes).toEqual([
+    {
+      path: '/super-admin/support/17/messages',
+      body: { message: 'Dúvida esclarecida no cenário de teste.', closeConversation: true },
+    },
+  ]);
+});
+
+test('falha na atualização conserva pendências e horário da última carga válida', async ({
+  page,
+}) => {
+  const state = createDashboard();
+  await mockSuperAdminApi(page, state, []);
+  await page.goto('/super_admin/overview');
+  const queue = page.getByRole('region', { name: 'Precisa da sua atenção' });
+  await expect(queue.locator('time')).toBeVisible();
+  const previous = await queue.locator('time').getAttribute('datetime');
+  await page.route('**/super-admin/dashboard', (route) =>
+    route.fulfill({ status: 503, json: { message: 'Serviço indisponível no teste.' } }),
+  );
+  await queue.getByRole('button', { name: 'Atualizar pendências' }).click();
+  await expect(page.getByRole('alert')).toContainText(
+    'Os dados exibidos podem estar desatualizados.',
+  );
+  await expect(queue.locator('time')).toHaveAttribute('datetime', previous!);
+  await expect(queue.getByRole('button', { name: 'Suporte 1', exact: true })).toBeVisible();
+});
+
 test('SUPER_ADMIN navega por links profundos e salva configurações versionadas', async ({
   page,
 }) => {
@@ -396,7 +567,7 @@ test('SUPER_ADMIN navega por links profundos e salva configurações versionadas
   await page.goto('/super_admin');
   await expect(page).toHaveURL(/\/super_admin\/overview$/);
   await expect(page.getByRole('heading', { name: 'Visão geral da plataforma' })).toBeVisible();
-  await expect(page.getByText('Restaurante Aurora')).toBeVisible();
+  await expect(page.getByText('Restaurante Aurora', { exact: true }).first()).toBeVisible();
   await expect(page.getByText('R$ 249,90').first()).toBeVisible();
 
   await page.getByRole('button', { name: 'Configurações' }).click();

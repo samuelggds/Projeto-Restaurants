@@ -280,4 +280,5 @@ export interface SuperAdminModuleProps {
   onLogout: () => void;
   refreshing?: boolean;
   loadError?: string | null;
+  updatedAt?: string | null;
 }

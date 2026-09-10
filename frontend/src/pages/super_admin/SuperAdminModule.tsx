@@ -6,11 +6,11 @@ import {
   Headphones,
   Inbox,
   Layers3,
-  LockKeyhole,
   LogOut,
   Menu,
   Plus,
   RefreshCw,
+  Search,
   Settings,
   ShieldAlert,
   Users,
@@ -49,6 +49,8 @@ import {
 import type { SuperAdminModuleProps, SuperAdminView } from './types';
 import { SalesLeadsPage } from './pages/SalesLeadsPage';
 import * as S from './SuperAdmin.styles';
+import { QuickSearch } from './components/QuickSearch';
+import type { QuickSearchTarget } from './domain/quickSearch';
 
 const navigation = [
   ['overview', 'Visão geral', BarChart3],
@@ -118,19 +120,24 @@ export function SuperAdminModule({
   onLogout,
   refreshing = false,
   loadError = null,
+  updatedAt = null,
 }: SuperAdminModuleProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
   const [salesLeadsRevision, setSalesLeadsRevision] = useState(0);
   const [notice, setNotice] = useState<Notice>(null);
   const [selectedRestaurantId, setSelectedRestaurantId] = useState<number | null>(null);
   const [selectedPlanCode, setSelectedPlanCode] = useState<string | null>(null);
   const [selectedInvoiceId, setSelectedInvoiceId] = useState<number | null>(null);
   const [selectedAdministratorId, setSelectedAdministratorId] = useState<number | null>(null);
-  const [selectedTicketId, setSelectedTicketId] = useState<number | null>(null);
+  const [selectedSupportRestaurantId, setSelectedSupportRestaurantId] = useState<number | null>(
+    null,
+  );
   const [selectedAuditLogId, setSelectedAuditLogId] = useState<number | null>(null);
   const [creatingAdministrator, setCreatingAdministrator] = useState(false);
   const sidebar = useRef<HTMLElement>(null);
   const menuButton = useRef<HTMLButtonElement>(null);
+  const searchButton = useRef<HTMLButtonElement>(null);
   const focusSidebarClose = useCallback(
     (element: HTMLButtonElement | null) => {
       if (sidebarOpen) element?.focus();
@@ -158,6 +165,20 @@ export function SuperAdminModule({
     };
   }, [sidebarOpen]);
 
+  useEffect(() => {
+    if (currentUser.role !== 'SUPER_ADMIN') return;
+    const handleSearchShortcut = (event: KeyboardEvent) => {
+      if (!(event.ctrlKey || event.metaKey) || event.altKey || event.key.toLowerCase() !== 'k')
+        return;
+      if (sidebarOpen || document.querySelector('[role="dialog"]')) return;
+      event.preventDefault();
+      searchButton.current?.focus();
+      setSearchOpen(true);
+    };
+    document.addEventListener('keydown', handleSearchShortcut);
+    return () => document.removeEventListener('keydown', handleSearchShortcut);
+  }, [currentUser.role, sidebarOpen]);
+
   const notify = useCallback((message: string, error = false) => {
     setNotice({ message, error });
   }, []);
@@ -174,7 +195,9 @@ export function SuperAdminModule({
   const selectedAdministrator = data.administrators.find(
     (item) => item.id === selectedAdministratorId,
   );
-  const selectedTicket = data.tickets.find((item) => item.id === selectedTicketId);
+  const selectedTicket = data.tickets.find(
+    (item) => item.restaurantId === selectedSupportRestaurantId,
+  );
   const selectedAuditLog = data.auditLogs.find((item) => item.id === selectedAuditLogId);
 
   const navigate = (nextView: SuperAdminView) => {
@@ -182,12 +205,52 @@ export function SuperAdminModule({
     onViewChange(nextView);
   };
 
+  const closeRecord = (close: () => void) => {
+    close();
+    window.requestAnimationFrame(() => {
+      // A atualização pode remover da fila o botão que abriu o caso resolvido.
+      if (document.activeElement === document.body) searchButton.current?.focus();
+    });
+  };
+
+  const openRecord = useCallback(
+    (target: QuickSearchTarget) => {
+      setSearchOpen(false);
+      switch (target.kind) {
+        case 'restaurant':
+          setSelectedRestaurantId(target.id);
+          break;
+        case 'invoice':
+          setSelectedInvoiceId(target.id);
+          break;
+        case 'administrator':
+          setSelectedAdministratorId(target.id);
+          break;
+        case 'support': {
+          const ticket = data.tickets.find((item) => item.id === target.id);
+          if (ticket) setSelectedSupportRestaurantId(ticket.restaurantId);
+          break;
+        }
+      }
+    },
+    [data.tickets],
+  );
+
   const page = useMemo(() => {
     switch (currentView) {
       case 'sales-leads':
         return <SalesLeadsPage refreshKey={salesLeadsRevision} />;
       case 'overview':
-        return <OverviewPage data={data} onSelect={(item) => setSelectedRestaurantId(item.id)} />;
+        return (
+          <OverviewPage
+            data={data}
+            onSelect={(item) => setSelectedRestaurantId(item.id)}
+            onOpenRecord={openRecord}
+            onRefresh={actions.refresh}
+            refreshing={refreshing}
+            updatedAt={updatedAt}
+          />
+        );
       case 'restaurants':
         return (
           <RestaurantsPage data={data} onSelect={(item) => setSelectedRestaurantId(item.id)} />
@@ -209,13 +272,27 @@ export function SuperAdminModule({
           />
         );
       case 'support':
-        return <SupportPage data={data} onSelect={(item) => setSelectedTicketId(item.id)} />;
+        return (
+          <SupportPage
+            data={data}
+            onSelect={(item) => setSelectedSupportRestaurantId(item.restaurantId)}
+          />
+        );
       case 'audit':
         return <AuditPage data={data} onSelect={(item) => setSelectedAuditLogId(item.id)} />;
       case 'settings':
         return <SettingsPage data={data} onSave={actions.updateSettings} />;
     }
-  }, [actions.updateSettings, currentView, data, salesLeadsRevision]);
+  }, [
+    actions.updateSettings,
+    actions.refresh,
+    currentView,
+    data,
+    salesLeadsRevision,
+    openRecord,
+    refreshing,
+    updatedAt,
+  ]);
 
   const primaryAction =
     currentView === 'overview' || currentView === 'restaurants'
@@ -337,10 +414,19 @@ export function SuperAdminModule({
             <p>{subtitle}</p>
           </div>
           <div className="header-actions">
-            <span className="access">
-              <LockKeyhole size={15} aria-hidden="true" />
-              <span>Acesso exclusivo SUPER_ADMIN</span>
-            </span>
+            <button
+              ref={searchButton}
+              type="button"
+              className="quick-search"
+              aria-label="Buscar no painel"
+              aria-keyshortcuts="Control+k Meta+k"
+              onClick={() => setSearchOpen(true)}
+              title="Buscar no painel (Ctrl+K ou ⌘K)"
+            >
+              <Search size={17} aria-hidden="true" />
+              <span>Buscar no painel</span>
+              <kbd aria-hidden="true">Ctrl K</kbd>
+            </button>
             <button
               type="button"
               className="primary"
@@ -365,12 +451,15 @@ export function SuperAdminModule({
         </S.Content>
       </S.Main>
 
+      {searchOpen ? (
+        <QuickSearch data={data} onClose={() => setSearchOpen(false)} onSelect={openRecord} />
+      ) : null}
       {selectedRestaurant ? (
         <RestaurantDetailsSecure
           restaurant={selectedRestaurant}
           plans={data.plans}
           actions={actions}
-          onClose={() => setSelectedRestaurantId(null)}
+          onClose={() => closeRecord(() => setSelectedRestaurantId(null))}
           notify={notify}
         />
       ) : null}
@@ -383,13 +472,16 @@ export function SuperAdminModule({
         />
       ) : null}
       {selectedInvoice ? (
-        <InvoiceDetails invoice={selectedInvoice} onClose={() => setSelectedInvoiceId(null)} />
+        <InvoiceDetails
+          invoice={selectedInvoice}
+          onClose={() => closeRecord(() => setSelectedInvoiceId(null))}
+        />
       ) : null}
       {selectedAdministrator ? (
         <AdministratorDetails
           administrator={selectedAdministrator}
           actions={actions}
-          onClose={() => setSelectedAdministratorId(null)}
+          onClose={() => closeRecord(() => setSelectedAdministratorId(null))}
           notify={notify}
         />
       ) : null}
@@ -405,7 +497,7 @@ export function SuperAdminModule({
         <SupportConversation
           ticket={selectedTicket}
           actions={actions}
-          onClose={() => setSelectedTicketId(null)}
+          onClose={() => closeRecord(() => setSelectedSupportRestaurantId(null))}
           notify={notify}
         />
       ) : null}
