@@ -11,14 +11,14 @@ describe('buildPixPayload', () => {
     const payload = buildPixPayload({
       pixKey: '(11) 99999-9999',
       amount: 25.5,
-      merchantName: 'Peça Já Food',
+      merchantName: 'GastroNexa',
       merchantCity: 'São Paulo',
       txid: 'pedido-123',
     });
 
     expect(payload).toContain('+5511999999999');
     expect(payload).toContain('540525.50');
-    expect(payload).toContain('PECA JA FOOD');
+    expect(payload).toContain('GASTRONEXA');
     expect(payload).toContain('SAO PAULO');
     expect(payload).toMatch(/6304[0-9A-F]{4}$/);
   });

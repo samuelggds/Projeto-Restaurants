@@ -26,7 +26,7 @@ const E2E_DIRECT_API =
     .trim()
     .toLowerCase() === 'true';
 const SOCKET_DEBUG_ENABLED =
-  import.meta.env.DEV || readStorage('@PecaJaFood:socketDebug') === 'true';
+  import.meta.env.DEV || readStorage('@GastroNexa:socketDebug') === 'true';
 
 function normalizeBaseUrl(url) {
   return String(url || '')

@@ -1,3 +1,4 @@
+import { exerciseWorkspaceSidebar } from './helpers/workspaceLayout';
 import { orderFixtureResponse } from './helpers/orderFixtures';
 import { expect, test, type BrowserContext, type Page, type Route } from '@playwright/test';
 import { mockAuthRefresh } from './helpers/mockAuthRefresh';
@@ -50,6 +51,7 @@ type CourierE2EState = {
   holdNextOrdersRequest: boolean;
   releaseOrdersRequest?: () => void;
   sendSocketEvent?: (event: string, payload: unknown) => void;
+  disconnectSocket?: () => void;
   profileUpdates: Array<Record<string, unknown>>;
   trackingPoints: LocationFrame[];
   settlements: Array<Record<string, unknown>>;
@@ -251,6 +253,7 @@ function courierVisibleOrders(state: CourierE2EState) {
 
 async function mockSocket(page: Page, state: CourierE2EState) {
   await page.routeWebSocket(/\/socket\.io\//, (socket) => {
+    state.disconnectSocket = () => socket.close({ code: 1012, reason: 'Teste de reconexão' });
     socket.onMessage((rawMessage) => {
       const message = rawMessage.toString();
 
@@ -585,7 +588,9 @@ async function mockCustomerTrackingApi(page: Page, state: CourierE2EState) {
       return json(route, { user: customerUser });
     }
     if (pathname === '/orders/my-orders' && method === 'GET') {
-      return json(route, orderFixtureResponse(request.url(), [
+      return json(
+        route,
+        orderFixtureResponse(request.url(), [
           {
             id: 601,
             restaurantId: RESTAURANT_ID,
@@ -593,11 +598,11 @@ async function mockCustomerTrackingApi(page: Page, state: CourierE2EState) {
             status: trackingStatus,
             createdAt: isoMinutesAgo(18),
             deliveryStartedAt,
-            deliveryConfirmationCode:
-              trackingStatus === 'SAIU_PARA_ENTREGA' ? DELIVERY_CODE : null,
+            deliveryConfirmationCode: trackingStatus === 'SAIU_PARA_ENTREGA' ? DELIVERY_CODE : null,
             items: [{ product: { name: 'Massa artesanal' } }],
           },
-        ]));
+        ]),
+      );
     }
     if (pathname === '/orders/601/tracking' && method === 'GET') {
       state.trackingRequests.push(601);
@@ -608,8 +613,7 @@ async function mockCustomerTrackingApi(page: Page, state: CourierE2EState) {
           type: 'DELIVERY',
           status: trackingStatus,
           deliveryStartedAt,
-          deliveryConfirmationCode:
-            trackingStatus === 'SAIU_PARA_ENTREGA' ? DELIVERY_CODE : null,
+          deliveryConfirmationCode: trackingStatus === 'SAIU_PARA_ENTREGA' ? DELIVERY_CODE : null,
           deliveredAt: trackingStatus === 'ENTREGUE' ? new Date().toISOString() : null,
           estimatedArrival:
             trackingStatus === 'ENTREGUE' ? null : new Date(Date.now() + 720_000).toISOString(),
@@ -833,6 +837,38 @@ test('erro de atualização permite tentar novamente e realtime busca somente o 
   await expectTenantSafeRequests(state);
 });
 
+test('recupera pedidos perdidos na conexão e ao voltar ao app sem ativar GPS', async ({ page }) => {
+  const state = initialState();
+  await mockCourierApi(page, state);
+  await page.goto('/courier');
+  await expect(page.getByRole('button', { name: 'Sincronizar pedidos' })).toBeVisible();
+  await expect(page.getByText('Atualização automática', { exact: true })).toBeVisible();
+  await expect.poll(() => Boolean(state.disconnectSocket)).toBe(true);
+  state.orders = state.orders.filter((order) => order.id !== 601);
+  state.orders.push({ ...orderFixtures()[0], id: 605 });
+  state.disconnectSocket?.();
+  await openCourierView(page, 'Para retirar');
+  await expect(orderCard(page, 605)).toBeVisible();
+  await expect(orderCard(page, 601)).toHaveCount(0);
+  await expect(page.getByText('Atualização automática', { exact: true })).toBeVisible();
+  expect(state.locationFrames).toEqual([]);
+
+  await page.evaluate(() => {
+    Object.defineProperty(document, 'visibilityState', { configurable: true, value: 'hidden' });
+    document.dispatchEvent(new Event('visibilitychange'));
+  });
+  state.orders = state.orders.filter((order) => order.id !== 605);
+  await page.evaluate(() => {
+    Object.defineProperty(document, 'visibilityState', { configurable: true, value: 'visible' });
+    document.dispatchEvent(new Event('visibilitychange'));
+  });
+  await expect(orderCard(page, 605)).toHaveCount(0);
+  await expect(page.getByText(/Pedidos atualizados às/)).toBeVisible();
+  await page.setViewportSize({ width: 390, height: 844 });
+  await captureReadmeScreenshot(page, 'courier-recovered-mobile.png');
+  await expectTenantSafeRequests(state);
+});
+
 test('explica localização negada e navegador sem suporte sem enviar coordenadas', async ({
   page,
 }) => {
@@ -907,9 +943,7 @@ test('cliente acompanha somente a própria entrega, rota e destino até a conclu
   const tracking = await mockCustomerTrackingApi(page, state);
   await page.goto('/orders/601/tracking');
 
-  await expect(
-    page.getByRole('banner').getByText('Pedido #601', { exact: true }),
-  ).toBeVisible();
+  await expect(page.getByRole('banner').getByText('Pedido #601', { exact: true })).toBeVisible();
   await expect(page.getByText('Saiu para entrega', { exact: true })).toBeVisible();
   await expect(page.getByText(courierUser.name)).toBeVisible();
   await expect(page.getByRole('link', { name: 'Ligar para o motoqueiro' })).toHaveAttribute(
@@ -996,6 +1030,37 @@ test('todas as áreas do motoqueiro cabem no celular sem overflow horizontal', a
   await expect(page.getByRole('navigation', { name: 'Navegação do motoqueiro' })).toBeHidden();
   await expect(page.getByRole('button', { name: 'Expandir navegação' })).toBeHidden();
 
+  const more = mobileNav.getByRole('button', { name: 'Mais', exact: true });
+  await more.click();
+  const options = page.getByRole('dialog', { name: 'Mais opções do motoqueiro' });
+  const closeOptions = options.getByRole('button', { name: 'Fechar mais opções' });
+  await expect(closeOptions).toBeFocused();
+  await page.keyboard.press('Shift+Tab');
+  await expect(options.getByRole('button', { name: 'Sair da conta' })).toBeFocused();
+  await page.keyboard.press('Tab');
+  await expect(closeOptions).toBeFocused();
+  await captureReadmeScreenshot(page, 'courier-mobile-menu.png');
+  await page.keyboard.press('Escape');
+  await expect(options).toHaveCount(0);
+  await expect(more).toBeFocused();
+  await expect.poll(() => page.evaluate(() => document.body.style.overflow)).toBe('');
+
+  const activeDelivery = page.getByRole('region', { name: 'Entrega em andamento' });
+  await expect(activeDelivery).toContainText('Pedido #601');
+  await expect(activeDelivery).toContainText('Rua das Flores, 120');
+  await captureReadmeScreenshot(page, 'courier-active-mobile.png');
+  await page.setViewportSize({ width: 1440, height: 960 });
+  await captureReadmeScreenshot(page, 'courier-active-desktop.png', { fullPage: true });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await activeDelivery.getByRole('button', { name: 'Continuar entrega #601' }).click();
+  const contact = page.getByRole('link', { name: 'Ligar para o cliente do pedido 601' });
+  await expect(contact).toHaveAttribute('href', 'tel:85999996789');
+  await expect(page.getByRole('button', { name: 'Ver detalhes do pedido 601' })).toHaveAttribute(
+    'aria-expanded',
+    'false',
+  );
+  await expect(page.getByRole('button', { name: 'Marcar como Entregue' })).toBeDisabled();
+
   const destinations = [
     ['Retirar', 'Prontos para retirada'],
     ['Entregas', 'Entregas em andamento'],
@@ -1040,4 +1105,21 @@ test('todas as áreas do motoqueiro cabem no celular sem overflow horizontal', a
     expect(mapBounds.x).toBeGreaterThanOrEqual(0);
     expect(mapBounds.x + mapBounds.width).toBeLessThanOrEqual(390);
   }
+});
+
+test('motoqueiro: todas as abas ocupam a largura disponível ao recolher e expandir o menu', async ({
+  page,
+}) => {
+  test.setTimeout(90000);
+  await page.setViewportSize({ width: 1440, height: 960 });
+  await mockCourierApi(page, initialState());
+  await page.goto('/courier');
+  await exerciseWorkspaceSidebar(page, {
+    navigation: 'Navegação do motoqueiro',
+    collapse: 'Recolher navegação',
+    expand: 'Expandir navegação',
+    sidebarWidth: 252,
+  });
+  await page.getByRole('button', { name: 'Recolher navegação', exact: true }).click();
+  await captureReadmeScreenshot(page, 'courier-collapsed-desktop.png');
 });

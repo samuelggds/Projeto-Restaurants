@@ -9,7 +9,6 @@ import {
 } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { toast } from 'react-toastify';
-import tableAccountService from '../../../Services/tableAccountService';
 import { useAppDialog } from '../../../components/AppDialog/context';
 import type { RestaurantTable, WaiterAccountSession, WaiterManualPayment } from '../types';
 import { useWaiterWorkspace } from '../useWaiterWorkspace';
@@ -68,7 +67,7 @@ function accountAsTable(account: WaiterAccountSession, tables: RestaurantTable[]
 }
 
 export function WaiterPaymentsPage() {
-  const { accounts, tables, onRefresh } = useWaiterWorkspace();
+  const { accounts, tables, onRefresh, tableAccountClient } = useWaiterWorkspace();
   const { confirmDialog } = useAppDialog();
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState<PaymentFilter>('ALL');
@@ -145,7 +144,7 @@ export function WaiterPaymentsPage() {
     setBusyPaymentId(payment.publicId);
     setError('');
     try {
-      await tableAccountService.confirmManualPayment(payment.publicId);
+      await tableAccountClient.confirmManualPayment(payment.publicId);
       await onRefresh?.();
       toast.success(
         `Pagamento da Mesa ${String(account.tableNumber).padStart(2, '0')} confirmado.`,

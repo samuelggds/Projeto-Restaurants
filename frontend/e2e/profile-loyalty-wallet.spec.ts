@@ -73,54 +73,56 @@ test('cliente consulta cupons válidos, histórico e o novo ciclo no perfil', as
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
-        body: JSON.stringify(orderFixtureResponse(route.request().url(), [
-          {
-            id: 312,
-            status: 'PREPARANDO',
-            createdAt: '2099-09-22T12:00:00.000Z',
-            total: 58.9,
-            items: [
-              {
-                product: {
-                  name: 'Pizza artesanal',
-                  image:
-                    'https://images.unsplash.com/photo-1579751626657-72bc17010498?auto=format&fit=crop&w=400&q=80',
+        body: JSON.stringify(
+          orderFixtureResponse(route.request().url(), [
+            {
+              id: 312,
+              status: 'PREPARANDO',
+              createdAt: '2099-09-22T12:00:00.000Z',
+              total: 58.9,
+              items: [
+                {
+                  product: {
+                    name: 'Pizza artesanal',
+                    image:
+                      'https://images.unsplash.com/photo-1579751626657-72bc17010498?auto=format&fit=crop&w=400&q=80',
+                  },
                 },
-              },
-            ],
-          },
-          {
-            id: 311,
-            status: 'ENTREGUE',
-            createdAt: '2099-09-18T20:00:00.000Z',
-            total: 72.5,
-            items: [
-              {
-                product: {
-                  name: 'Pizza Margherita',
-                  image:
-                    'https://images.unsplash.com/photo-1579751626657-72bc17010498?auto=format&fit=crop&w=400&q=80',
+              ],
+            },
+            {
+              id: 311,
+              status: 'ENTREGUE',
+              createdAt: '2099-09-18T20:00:00.000Z',
+              total: 72.5,
+              items: [
+                {
+                  product: {
+                    name: 'Pizza Margherita',
+                    image:
+                      'https://images.unsplash.com/photo-1579751626657-72bc17010498?auto=format&fit=crop&w=400&q=80',
+                  },
                 },
-              },
-            ],
-          },
-          {
-            id: 310,
-            status: 'ENTREGUE',
-            createdAt: '2099-09-12T20:00:00.000Z',
-            total: 96.8,
-            items: [
-              {
-                product: {
-                  name: 'Pizza Calabresa',
-                  image:
-                    'https://images.unsplash.com/photo-1574071318508-1cdbab80d002?auto=format&fit=crop&w=400&q=80',
+              ],
+            },
+            {
+              id: 310,
+              status: 'ENTREGUE',
+              createdAt: '2099-09-12T20:00:00.000Z',
+              total: 96.8,
+              items: [
+                {
+                  product: {
+                    name: 'Pizza Calabresa',
+                    image:
+                      'https://images.unsplash.com/photo-1574071318508-1cdbab80d002?auto=format&fit=crop&w=400&q=80',
+                  },
                 },
-              },
-              { product: { name: 'Suco artesanal' } },
-            ],
-          },
-        ])),
+                { product: { name: 'Suco artesanal' } },
+              ],
+            },
+          ]),
+        ),
       });
       return;
     }
@@ -369,6 +371,48 @@ test('cliente consulta cupons válidos, histórico e o novo ciclo no perfil', as
     'aria-label',
     'Em preparo: etapa atual',
   );
+
+  for (const width of [901, 1024]) {
+    await page.setViewportSize({ width, height: 900 });
+    const progressLayout = await orderProgress.evaluate((element) => {
+      const bounds = element.getBoundingClientRect();
+      const labels = Array.from(element.querySelectorAll('li > span')).map((label) =>
+        label.getBoundingClientRect(),
+      );
+      return {
+        labelsFit: labels.every(
+          (label, index) =>
+            label.left >= bounds.left - 1 &&
+            label.right <= bounds.right + 1 &&
+            (index === 0 || label.left >= labels[index - 1].right - 1),
+        ),
+        scrollWidth: document.documentElement.scrollWidth,
+      };
+    });
+    expect(progressLayout.labelsFit).toBe(true);
+    expect(progressLayout.scrollWidth).toBeLessThanOrEqual(width + 1);
+
+    const historyHeading = await page
+      .getByRole('heading', { level: 2, name: 'Últimos pedidos', exact: true })
+      .boundingBox();
+    const accountHeading = await page
+      .getByRole('heading', { level: 2, name: 'Minha conta', exact: true })
+      .boundingBox();
+    expect(historyHeading).not.toBeNull();
+    expect(accountHeading).not.toBeNull();
+    expect(Math.abs(historyHeading!.x - accountHeading!.x)).toBeLessThan(1);
+    expect(accountHeading!.y).toBeGreaterThan(historyHeading!.y + historyHeading!.height);
+
+    const accountNavigation = page.getByRole('complementary', { name: 'Navegação da conta' });
+    await accountNavigation.getByRole('button', { name: 'Endereços', exact: true }).click();
+    await expect(page.getByRole('heading', { name: 'Meus endereços' })).toBeVisible();
+    await expect
+      .poll(() => page.evaluate(() => document.documentElement.scrollWidth))
+      .toBeLessThanOrEqual(width + 1);
+    await accountNavigation.getByRole('button', { name: 'Visão geral', exact: true }).click();
+    await expect(orderProgress).toBeVisible();
+  }
+  await page.setViewportSize({ width: 1280, height: 900 });
   await captureReadmeScreenshot(page, 'customer-profile-desktop.png', { fullPage: true });
 
   await page.setViewportSize({ width: 390, height: 844 });

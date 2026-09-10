@@ -1,0 +1,12 @@
+[WebServer] (node:24076) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+Running 3 tests using 1 worker
+
+(node:43204) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ok 1 [chromium] › e2e\demo-workflow.spec.ts:167:1 › demo: delivery vai do cliente à cozinha e ao motoqueiro, com recebimento e código (10.4s)
+  ok 2 [chromium] › e2e\demo-workflow.spec.ts:196:1 › demo: pedido da mesa passa pela cozinha e é entregue pelo garçom (8.5s)
+  ok 3 [chromium] › e2e\demo-workflow.spec.ts:212:1 › demo: retirada paga passa pela cozinha e é entregue pelo atendente (7.9s)
+
+  3 passed (29.3s)

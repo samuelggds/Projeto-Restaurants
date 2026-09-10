@@ -9,7 +9,8 @@ import { PASSWORD_RESET_CODE_TTL_MS } from '../security/passwordResetCooldown.js
 
 const now = new Date('2026-09-07T12:00:00.000Z');
 const safeResponse = {
-  message: 'Se os dados identificarem uma conta, enviamos um código para o e-mail cadastrado. Se o telefone estiver em mais de uma conta, informe o e-mail.',
+  message:
+    'Se os dados identificarem uma conta, enviamos um código para o e-mail cadastrado. Se o telefone estiver em mais de uma conta, informe o e-mail.',
 };
 type ResetUser = NonNullable<Awaited<ReturnType<typeof userRepository.findByEmail>>>;
 
@@ -46,16 +47,12 @@ function setup(t: TestContext, changes: Partial<ResetUser> = {}) {
   const claim = t.mock.method(passwordResetCodeRepository, 'claim', async () => true);
   t.mock.method(bcrypt, 'hash', (async () => 'new-test-code-hash') as typeof bcrypt.hash);
   const messages: nodemailer.SendMailOptions[] = [];
-  t.mock.method(
-    nodemailer,
-    'createTransport',
-    (() => ({
-      sendMail: async (options: nodemailer.SendMailOptions) => {
-        messages.push(options);
-        return {};
-      },
-    })) as typeof nodemailer.createTransport,
-  );
+  t.mock.method(nodemailer, 'createTransport', (() => ({
+    sendMail: async (options: nodemailer.SendMailOptions) => {
+      messages.push(options);
+      return {};
+    },
+  })) as typeof nodemailer.createTransport);
   return { user, emailLookup, phoneLookup, claim, messages };
 }
 
@@ -67,7 +64,6 @@ test('first request claims the code before sending the GastroNexa email', async 
   assert.equal(state.messages.length, 1);
   assert.equal(state.messages[0].subject, 'Recuperação de senha - GastroNexa');
   assert.match(String(state.messages[0].text), /GastroNexa/);
-  assert.doesNotMatch(String(state.messages[0].subject), /Peca ja food/);
   assert.equal(state.messages[0].to, state.user.email);
   assert.equal(state.messages[0].from, 'GastroNexa <mailer@example.test>');
   const input = state.claim.mock.calls[0].arguments[0];

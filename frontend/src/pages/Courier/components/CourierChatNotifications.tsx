@@ -61,7 +61,9 @@ function playSingleBeep() {
     gain.connect(context.destination);
     oscillator.start();
     oscillator.stop(context.currentTime + 0.2);
-    oscillator.addEventListener('ended', () => void context.close().catch(() => {}), { once: true });
+    oscillator.addEventListener('ended', () => void context.close().catch(() => {}), {
+      once: true,
+    });
   } catch {
     // O aviso visual continua disponível quando o navegador bloqueia áudio.
   }
@@ -100,10 +102,11 @@ export function CourierChatNotifications() {
     onPointerUp,
     onPointerCancel,
     onClickCapture,
-  } = useDraggableFloatingActions('@PecaJaFood:courierChatLauncherPosition');
+  } = useDraggableFloatingActions('@GastroNexa:courierChatLauncherPosition');
 
   const totalUnread = useMemo(
-    () => conversations.reduce((sum, conversation) => sum + Number(conversation.unreadCount || 0), 0),
+    () =>
+      conversations.reduce((sum, conversation) => sum + Number(conversation.unreadCount || 0), 0),
     [conversations],
   );
 
@@ -196,9 +199,10 @@ export function CourierChatNotifications() {
 
       setConversations((current) => {
         const existing = current.find((item) => item.orderId === orderId);
-        const unreadCount = isCustomerMessage && !threadIsOpen
-          ? Number(existing?.unreadCount || 0) + 1
-          : Number(existing?.unreadCount || 0);
+        const unreadCount =
+          isCustomerMessage && !threadIsOpen
+            ? Number(existing?.unreadCount || 0) + 1
+            : Number(existing?.unreadCount || 0);
         const next: CourierChatConversation = {
           threadId: existing?.threadId || 0,
           orderId,
@@ -232,8 +236,14 @@ export function CourierChatNotifications() {
     const onRead = (event: { orderId?: number; readerRole?: string }) => {
       const orderId = Number(event?.orderId || 0);
       if (!orderId) return;
-      if (activeOrderId === orderId && String(event?.readerRole || '').toUpperCase() === 'CUSTOMER') {
-        void deliveryChatService.get(orderId).then(setSnapshot).catch(() => undefined);
+      if (
+        activeOrderId === orderId &&
+        String(event?.readerRole || '').toUpperCase() === 'CUSTOMER'
+      ) {
+        void deliveryChatService
+          .get(orderId)
+          .then(setSnapshot)
+          .catch(() => undefined);
       }
       void refreshInbox();
     };
@@ -291,9 +301,13 @@ export function CourierChatNotifications() {
             void openConversation(messagePreview.orderId);
           }}
         >
-          <span className="preview-icon"><MessageCircle /></span>
+          <span className="preview-icon">
+            <MessageCircle />
+          </span>
           <span className="preview-copy">
-            <b>{messagePreview.customerName} · Pedido #{messagePreview.orderId}</b>
+            <b>
+              {messagePreview.customerName} · Pedido #{messagePreview.orderId}
+            </b>
             <small>{messagePreview.message}</small>
           </span>
         </MessagePreview>
@@ -347,7 +361,9 @@ export function CourierChatNotifications() {
                   <EmptyList>
                     <MessageCircle />
                     <strong>Nenhuma conversa ainda</strong>
-                    <span>Quando um cliente mandar mensagem, ela aparecerá aqui pelo número do pedido.</span>
+                    <span>
+                      Quando um cliente mandar mensagem, ela aparecerá aqui pelo número do pedido.
+                    </span>
                   </EmptyList>
                 ) : (
                   conversations.map((conversation) => (
@@ -357,9 +373,13 @@ export function CourierChatNotifications() {
                       $active={activeOrderId === conversation.orderId}
                       onClick={() => void openConversation(conversation.orderId)}
                     >
-                      <span className="avatar">{conversation.customerName.slice(0, 1).toUpperCase()}</span>
+                      <span className="avatar">
+                        {conversation.customerName.slice(0, 1).toUpperCase()}
+                      </span>
                       <span className="copy">
-                        <b>Pedido #{conversation.orderId} · {conversation.customerName}</b>
+                        <b>
+                          Pedido #{conversation.orderId} · {conversation.customerName}
+                        </b>
                         <small>{conversation.lastMessage || 'Conversa iniciada'}</small>
                         <time>
                           {new Date(conversation.lastMessageAt).toLocaleTimeString('pt-BR', {
@@ -368,7 +388,9 @@ export function CourierChatNotifications() {
                           })}
                         </time>
                       </span>
-                      {conversation.unreadCount > 0 ? <Unread>{conversation.unreadCount}</Unread> : null}
+                      {conversation.unreadCount > 0 ? (
+                        <Unread>{conversation.unreadCount}</Unread>
+                      ) : null}
                     </ConversationButton>
                   ))
                 )}
@@ -382,7 +404,9 @@ export function CourierChatNotifications() {
                     <span>Cada conversa é separada automaticamente pelo pedido.</span>
                   </ThreadPlaceholder>
                 ) : loadingThread ? (
-                  <ThreadPlaceholder><strong>Carregando conversa...</strong></ThreadPlaceholder>
+                  <ThreadPlaceholder>
+                    <strong>Carregando conversa...</strong>
+                  </ThreadPlaceholder>
                 ) : snapshot ? (
                   <>
                     <ThreadHeader>
@@ -397,8 +421,12 @@ export function CourierChatNotifications() {
                         <ChevronLeft />
                       </button>
                       <div>
-                        <strong>Pedido #{snapshot.order.id} · {snapshot.order.customerName}</strong>
-                        <small>{snapshot.thread.readOnly ? 'Conversa encerrada' : 'Em entrega'}</small>
+                        <strong>
+                          Pedido #{snapshot.order.id} · {snapshot.order.customerName}
+                        </strong>
+                        <small>
+                          {snapshot.thread.readOnly ? 'Conversa encerrada' : 'Em entrega'}
+                        </small>
                       </div>
                     </ThreadHeader>
 
@@ -467,12 +495,14 @@ export function CourierChatNotifications() {
                           </button>
                         </Composer>
                         <SafetyNote>
-                          Não envie o código de 4 dígitos pelo chat. Ele deve ser informado somente no recebimento.
+                          Não envie o código de 4 dígitos pelo chat. Ele deve ser informado somente
+                          no recebimento.
                         </SafetyNote>
                       </ComposerArea>
                     ) : (
                       <ClosedNote>
-                        Esta entrega foi encerrada. A conversa permanece disponível somente para consulta.
+                        Esta entrega foi encerrada. A conversa permanece disponível somente para
+                        consulta.
                       </ClosedNote>
                     )}
                   </>
@@ -513,8 +543,8 @@ const MessagePreview = styled.button`
   align-items: center;
   border: 1px solid #cbdaf0;
   border-radius: 14px;
-  background: rgba(255, 255, 255, .98);
-  box-shadow: 0 16px 42px rgba(15, 23, 42, .18);
+  background: rgba(255, 255, 255, 0.98);
+  box-shadow: 0 16px 42px rgba(15, 23, 42, 0.18);
   text-align: left;
   cursor: pointer;
   animation: ${previewArrive} 180ms ease-out both;
@@ -527,11 +557,29 @@ const MessagePreview = styled.button`
     background: #dbeafe;
     color: #1d4ed8;
   }
-  .preview-icon svg { width: 19px; height: 19px; }
-  .preview-copy { min-width: 0; display: grid; gap: 3px; }
-  b, small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  b { color: #172033; font-size: 11px; }
-  small { color: #64748b; font-size: 10px; }
+  .preview-icon svg {
+    width: 19px;
+    height: 19px;
+  }
+  .preview-copy {
+    min-width: 0;
+    display: grid;
+    gap: 3px;
+  }
+  b,
+  small {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  b {
+    color: #172033;
+    font-size: 11px;
+  }
+  small {
+    color: #64748b;
+    font-size: 10px;
+  }
 `;
 
 const LauncherShell = styled.div<{ $dragging: boolean }>`
@@ -554,11 +602,24 @@ const Launcher = styled.button<{ $hasUnread: boolean }>`
   background: #2563eb;
   color: #fff;
   cursor: inherit;
-  box-shadow: 0 12px 30px rgba(37, 99, 235, .28);
-  ${({ $hasUnread }) => $hasUnread && css`animation: ${pulse} 1.3s ease-in-out infinite;`}
-  > svg { width: 25px; height: 25px; pointer-events: none; }
-  &:focus-visible { outline: 3px solid rgba(37, 99, 235, .28); outline-offset: 3px; }
-  @media (prefers-reduced-motion: reduce) { animation: none; }
+  box-shadow: 0 12px 30px rgba(37, 99, 235, 0.28);
+  ${({ $hasUnread }) =>
+    $hasUnread &&
+    css`
+      animation: ${pulse} 1.3s ease-in-out infinite;
+    `}
+  > svg {
+    width: 25px;
+    height: 25px;
+    pointer-events: none;
+  }
+  &:focus-visible {
+    outline: 3px solid rgba(37, 99, 235, 0.28);
+    outline-offset: 3px;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    animation: none;
+  }
 `;
 
 const Badge = styled.span`
@@ -586,7 +647,7 @@ const Backdrop = styled.div`
   display: grid;
   place-items: center;
   padding: 18px;
-  background: rgba(15, 23, 42, .48);
+  background: rgba(15, 23, 42, 0.48);
   backdrop-filter: blur(6px);
 `;
 
@@ -599,7 +660,7 @@ const Inbox = styled.section`
   border: 1px solid #dbe3ee;
   border-radius: 20px;
   background: #fff;
-  box-shadow: 0 28px 90px rgba(15, 23, 42, .28);
+  box-shadow: 0 28px 90px rgba(15, 23, 42, 0.28);
 `;
 
 const InboxHeader = styled.header`
@@ -609,18 +670,41 @@ const InboxHeader = styled.header`
   align-items: center;
   justify-content: space-between;
   border-bottom: 1px solid #e7edf5;
-  div { display: grid; gap: 2px; }
-  strong { font-size: 17px; color: #172033; }
-  small { font-size: 12px; color: #718096; }
-  button { width: 38px; height: 38px; display: grid; place-items: center; border: 1px solid #dce4ef; border-radius: 10px; background: #fff; cursor: pointer; }
-  svg { width: 18px; height: 18px; }
+  div {
+    display: grid;
+    gap: 2px;
+  }
+  strong {
+    font-size: 17px;
+    color: #172033;
+  }
+  small {
+    font-size: 12px;
+    color: #718096;
+  }
+  button {
+    width: 38px;
+    height: 38px;
+    display: grid;
+    place-items: center;
+    border: 1px solid #dce4ef;
+    border-radius: 10px;
+    background: #fff;
+    cursor: pointer;
+  }
+  svg {
+    width: 18px;
+    height: 18px;
+  }
 `;
 
 const InboxBody = styled.div`
   min-height: 0;
   display: grid;
   grid-template-columns: minmax(280px, 340px) minmax(0, 1fr);
-  @media (max-width: 720px) { grid-template-columns: 1fr; }
+  @media (max-width: 720px) {
+    grid-template-columns: 1fr;
+  }
 `;
 
 const ConversationList = styled.div<{ $hiddenOnMobile: boolean }>`
@@ -628,7 +712,10 @@ const ConversationList = styled.div<{ $hiddenOnMobile: boolean }>`
   overflow-y: auto;
   border-right: 1px solid #e7edf5;
   background: #f8fafc;
-  @media (max-width: 720px) { display: ${({ $hiddenOnMobile }) => ($hiddenOnMobile ? 'none' : 'block')}; border-right: 0; }
+  @media (max-width: 720px) {
+    display: ${({ $hiddenOnMobile }) => ($hiddenOnMobile ? 'none' : 'block')};
+    border-right: 0;
+  }
 `;
 
 const ConversationButton = styled.button<{ $active: boolean }>`
@@ -643,12 +730,39 @@ const ConversationButton = styled.button<{ $active: boolean }>`
   background: ${({ $active }) => ($active ? '#eef5ff' : 'transparent')};
   text-align: left;
   cursor: pointer;
-  .avatar { width: 42px; height: 42px; display: grid; place-items: center; border-radius: 50%; background: #dbeafe; color: #1d4ed8; font-weight: 900; }
-  .copy { min-width: 0; display: grid; gap: 2px; }
-  b, small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  b { color: #172033; font-size: 12px; }
-  small { color: #65748b; font-size: 11px; }
-  time { color: #94a3b8; font-size: 10px; }
+  .avatar {
+    width: 42px;
+    height: 42px;
+    display: grid;
+    place-items: center;
+    border-radius: 50%;
+    background: #dbeafe;
+    color: #1d4ed8;
+    font-weight: 900;
+  }
+  .copy {
+    min-width: 0;
+    display: grid;
+    gap: 2px;
+  }
+  b,
+  small {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  b {
+    color: #172033;
+    font-size: 12px;
+  }
+  small {
+    color: #65748b;
+    font-size: 11px;
+  }
+  time {
+    color: #94a3b8;
+    font-size: 10px;
+  }
 `;
 
 const Unread = styled.span`
@@ -669,7 +783,9 @@ const Thread = styled.div<{ $visibleOnMobile: boolean }>`
   display: grid;
   grid-template-rows: auto minmax(0, 1fr) auto;
   background: #fff;
-  @media (max-width: 720px) { display: ${({ $visibleOnMobile }) => ($visibleOnMobile ? 'grid' : 'none')}; }
+  @media (max-width: 720px) {
+    display: ${({ $visibleOnMobile }) => ($visibleOnMobile ? 'grid' : 'none')};
+  }
 `;
 
 const ThreadHeader = styled.header`
@@ -679,11 +795,34 @@ const ThreadHeader = styled.header`
   align-items: center;
   gap: 10px;
   border-bottom: 1px solid #e7edf5;
-  button { display: none; width: 36px; height: 36px; place-items: center; border: 1px solid #dce4ef; border-radius: 9px; background: #fff; cursor: pointer; }
-  div { display: grid; gap: 2px; }
-  strong { color: #172033; font-size: 13px; }
-  small { color: #16a34a; font-size: 11px; font-weight: 700; }
-  @media (max-width: 720px) { button { display: grid; } }
+  button {
+    display: none;
+    width: 36px;
+    height: 36px;
+    place-items: center;
+    border: 1px solid #dce4ef;
+    border-radius: 9px;
+    background: #fff;
+    cursor: pointer;
+  }
+  div {
+    display: grid;
+    gap: 2px;
+  }
+  strong {
+    color: #172033;
+    font-size: 13px;
+  }
+  small {
+    color: #16a34a;
+    font-size: 11px;
+    font-weight: 700;
+  }
+  @media (max-width: 720px) {
+    button {
+      display: grid;
+    }
+  }
 `;
 
 const Messages = styled.div`
@@ -716,9 +855,26 @@ const Bubble = styled.div<{ $mine: boolean }>`
   border: 1px solid ${({ $mine }) => ($mine ? '#bfdbfe' : '#e2e8f0')};
   border-radius: ${({ $mine }) => ($mine ? '14px 14px 4px 14px' : '14px 14px 14px 4px')};
   background: ${({ $mine }) => ($mine ? '#eff6ff' : '#fff')};
-  b { display: block; margin-bottom: 3px; color: #334155; font-size: 10px; }
-  p { margin: 0; color: #172033; font-size: 13px; line-height: 1.4; white-space: pre-wrap; }
-  span { display: block; margin-top: 4px; color: #94a3b8; font-size: 9px; text-align: right; }
+  b {
+    display: block;
+    margin-bottom: 3px;
+    color: #334155;
+    font-size: 10px;
+  }
+  p {
+    margin: 0;
+    color: #172033;
+    font-size: 13px;
+    line-height: 1.4;
+    white-space: pre-wrap;
+  }
+  span {
+    display: block;
+    margin-top: 4px;
+    color: #94a3b8;
+    font-size: 9px;
+    text-align: right;
+  }
 `;
 
 const ComposerArea = styled.div`
@@ -732,18 +888,52 @@ const QuickReplies = styled.div`
   gap: 6px;
   overflow-x: auto;
   padding-bottom: 8px;
-  button { flex: 0 0 auto; padding: 7px 9px; border: 1px solid #cbdaf0; border-radius: 999px; background: #f7faff; color: #24528d; font-size: 10px; font-weight: 700; cursor: pointer; }
+  button {
+    flex: 0 0 auto;
+    padding: 7px 9px;
+    border: 1px solid #cbdaf0;
+    border-radius: 999px;
+    background: #f7faff;
+    color: #24528d;
+    font-size: 10px;
+    font-weight: 700;
+    cursor: pointer;
+  }
 `;
 
 const Composer = styled.form`
   display: grid;
   grid-template-columns: minmax(0, 1fr) 42px;
   gap: 8px;
-  input { min-width: 0; height: 42px; padding: 0 12px; border: 1px solid #cfd8e5; border-radius: 12px; outline: 0; }
-  input:focus { border-color: #2563eb; box-shadow: 0 0 0 3px rgba(37, 99, 235, .12); }
-  button { display: grid; place-items: center; border: 0; border-radius: 12px; background: #2563eb; color: #fff; cursor: pointer; }
-  button:disabled { opacity: .5; cursor: not-allowed; }
-  svg { width: 18px; height: 18px; }
+  input {
+    min-width: 0;
+    height: 42px;
+    padding: 0 12px;
+    border: 1px solid #cfd8e5;
+    border-radius: 12px;
+    outline: 0;
+  }
+  input:focus {
+    border-color: #2563eb;
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+  }
+  button {
+    display: grid;
+    place-items: center;
+    border: 0;
+    border-radius: 12px;
+    background: #2563eb;
+    color: #fff;
+    cursor: pointer;
+  }
+  button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+  svg {
+    width: 18px;
+    height: 18px;
+  }
 `;
 
 const SafetyNote = styled.small`
@@ -777,9 +967,19 @@ const EmptyList = styled.div`
   gap: 6px;
   text-align: center;
   color: #64748b;
-  svg { width: 28px; height: 28px; }
-  strong { color: #334155; font-size: 13px; }
-  span { max-width: 260px; font-size: 11px; line-height: 1.45; }
+  svg {
+    width: 28px;
+    height: 28px;
+  }
+  strong {
+    color: #334155;
+    font-size: 13px;
+  }
+  span {
+    max-width: 260px;
+    font-size: 11px;
+    line-height: 1.45;
+  }
 `;
 
 const ThreadPlaceholder = styled.div`
@@ -791,7 +991,15 @@ const ThreadPlaceholder = styled.div`
   gap: 6px;
   color: #64748b;
   text-align: center;
-  svg { width: 30px; height: 30px; }
-  strong { color: #334155; font-size: 13px; }
-  span { font-size: 11px; }
+  svg {
+    width: 30px;
+    height: 30px;
+  }
+  strong {
+    color: #334155;
+    font-size: 13px;
+  }
+  span {
+    font-size: 11px;
+  }
 `;

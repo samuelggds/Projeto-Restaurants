@@ -10,9 +10,9 @@ import {
 import type { PlatformSettings } from '../types';
 
 const validSettings: PlatformSettings = {
-  platformName: 'Peça Já',
-  platformDomain: 'app.pecaja.com.br',
-  supportEmail: 'suporte@pecaja.com.br',
+  platformName: 'GastroNexa',
+  platformDomain: 'app.gastronexa.example',
+  supportEmail: 'suporte@gastronexa.example',
   primaryColor: '#f4510b',
   locale: 'pt-BR',
   currency: 'BRL',
@@ -32,6 +32,8 @@ describe('superAdminDomain', () => {
   it('resolve apenas rotas conhecidas do painel e gera links profundos', () => {
     expect(viewFromPath('/super_admin/restaurants')).toBe('restaurants');
     expect(viewFromPath('/super_admin/settings/')).toBe('settings');
+    expect(viewFromPath('/super_admin/sales-leads')).toBe('sales-leads');
+    expect(superAdminPath('sales-leads')).toBe('/super_admin/sales-leads');
     expect(viewFromPath('/super_admin/unknown')).toBe('overview');
     expect(superAdminPath('audit')).toBe('/super_admin/audit');
   });

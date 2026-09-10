@@ -1,0 +1,25 @@
+frontend/e2e/attendant-operations.spec.ts 93ms
+frontend/e2e/courier-operations.spec.ts 101ms
+frontend/e2e/kitchen-order-customizations.spec.ts 57ms
+frontend/e2e/waiter-operations.spec.ts 56ms
+frontend/src/pages/Courier/CourierWorkspace.test.tsx 56ms (unchanged)
+frontend/src/pages/Courier/CourierWorkspace.tsx 86ms (unchanged)
+frontend/src/pages/Courier/components/OrderCard.styles.ts 59ms (unchanged)
+frontend/src/pages/Courier/components/OrderCard.tsx 33ms (unchanged)
+frontend/src/pages/Courier/styles.ts 123ms (unchanged)
+frontend/src/pages/attendant/AttendantPage.tsx 14ms
+frontend/src/pages/attendant/attendantApi.test.ts 9ms
+frontend/src/pages/attendant/attendantApi.ts 11ms
+frontend/src/pages/kitchen/Kitchen.styles.ts 72ms (unchanged)
+frontend/src/pages/kitchen/KitchenContext.tsx 9ms (unchanged)
+frontend/src/pages/kitchen/pages/KitchenPages.test.tsx 29ms (unchanged)
+frontend/src/pages/kitchen/pages/KitchenPages.tsx 54ms (unchanged)
+frontend/src/pages/waiter/Waiter.styles.ts 78ms
+frontend/src/pages/waiter/WaiterModule.tsx 17ms
+frontend/src/pages/waiter/WaiterNavigation.styles.ts 20ms
+frontend/src/pages/waiter/components/Shared.tsx 7ms (unchanged)
+frontend/src/pages/waiter/pages/WaiterPages.test.tsx 21ms
+frontend/src/pages/waiter/pages/WaiterPages.tsx 48ms
+frontend/src/pages/Courier/components/CourierPickupQueue.tsx 4ms
+frontend/src/pages/kitchen/pages/KitchenQueueFeedback.styles.ts 3ms (unchanged)
+frontend/src/pages/waiter/WaiterModule.test.tsx 9ms

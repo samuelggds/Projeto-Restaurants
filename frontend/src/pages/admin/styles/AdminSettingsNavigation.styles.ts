@@ -1,6 +1,8 @@
 import styled from 'styled-components';
 
 export const SettingsSidebar = styled.aside<{ $visible: boolean }>`
+  grid-column: 2;
+  grid-row: 1;
   height: 100dvh;
   position: sticky;
   top: 0;

@@ -1,3 +1,4 @@
+import { expectWorkspaceWidth } from './helpers/workspaceLayout';
 import { orderFixtureResponse } from './helpers/orderFixtures';
 import { expect, test, type Page } from '@playwright/test';
 
@@ -97,7 +98,11 @@ async function mockAdminApi(page: Page) {
     await route.fulfill({
       status: 200,
       contentType: 'application/json',
-      body: JSON.stringify(orderFixtureResponse(route.request().url(), responses['/orders']) ?? responses[pathname] ?? {}),
+      body: JSON.stringify(
+        orderFixtureResponse(route.request().url(), responses['/orders']) ??
+          responses[pathname] ??
+          {},
+      ),
     });
   });
 
@@ -199,4 +204,46 @@ test('funcionários mantém cargo e status legíveis, com filtros e ações aces
   await expect(employeeList).toContainText('Acesso inativo');
   await expect(page.getByRole('button', { name: 'Reativar Diego Entrega' })).toBeVisible();
   await expectNoHorizontalOverflow(page);
+});
+
+test('admin: navegação e configurações conservam a largura ao recolher o menu', async ({
+  page,
+}) => {
+  test.setTimeout(90000);
+  await page.setViewportSize({ width: 1440, height: 960 });
+  await page.setViewportSize({ width: 1440, height: 480 });
+  const sidebar = page.getByRole('complementary', { name: 'Menu administrativo' });
+  await sidebar.hover();
+  await page.mouse.wheel(0, 3000);
+  await expect(sidebar.getByRole('button', { name: 'Sair', exact: true })).toBeInViewport();
+  await page.setViewportSize({ width: 1440, height: 960 });
+  const main = page.getByRole('main').first();
+  const nav = page.getByRole('navigation', { name: 'Navegação principal do painel', exact: true });
+  for (const label of [
+    'Visão geral',
+    'Pedidos',
+    'Cardápio',
+    'Clientes',
+    'Funcionários',
+    'Cobranças e assinaturas',
+    'Configurações',
+    'Central de ajuda',
+  ]) {
+    await page.getByRole('button', { name: label, exact: true }).first().click();
+    const settings = label === 'Configurações';
+    await expectWorkspaceWidth(main, settings ? 556 : 236);
+    await page.getByRole('button', { name: 'Recolher menu lateral', exact: true }).click();
+    await expect(nav).toBeHidden();
+    await expectWorkspaceWidth(main, settings ? 320 : 0);
+    if (settings) {
+      await expect(page.getByLabel('Buscar configuração', { exact: true }).first()).toBeVisible();
+      for (const width of [1024, 390, 1440]) {
+        await page.setViewportSize({ width, height: 960 });
+        await expectWorkspaceWidth(main, width > 1080 ? 320 : 0);
+      }
+    }
+    await page.getByRole('button', { name: 'Expandir menu lateral', exact: true }).click();
+    await expect(nav).toBeVisible();
+    await expectWorkspaceWidth(main, settings ? 556 : 236);
+  }
 });

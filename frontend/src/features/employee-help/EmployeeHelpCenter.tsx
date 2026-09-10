@@ -14,10 +14,11 @@ import * as S from './EmployeeHelpCenter.styles';
 type Props = {
   role: EmployeeHelpRole;
   onReport: (payload: EmployeeIssueReport) => Promise<void>;
+  notificationsEnabled?: boolean;
 };
 
-export function EmployeeHelpCenter({ role, onReport }: Props) {
-  useEmployeeIssueNotifications();
+export function EmployeeHelpCenter({ role, onReport, notificationsEnabled = true }: Props) {
+  useEmployeeIssueNotifications(notificationsEnabled);
   const guides = getEmployeeHelpGuides(role);
   const [openGuide, setOpenGuide] = useState(guides[0]?.id);
   const [reporterName, setReporterName] = useState('');

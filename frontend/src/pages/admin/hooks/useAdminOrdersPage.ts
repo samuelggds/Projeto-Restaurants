@@ -2,11 +2,17 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import ordersService, {
   type RestaurantOrdersPage,
   type RestaurantOrdersQueue,
+  type RestaurantOrdersPageQuery,
 } from '../../../Services/ordersService';
 import { mapAdminOrder } from '../domain/adminOrderMapper';
 import type { AdminOrder } from '../types';
 
 export const ADMIN_ORDERS_PAGE_SIZE = 10;
+export type LoadAdminOrdersPage = (
+  query: RestaurantOrdersPageQuery,
+) => Promise<RestaurantOrdersPage>;
+const loadLiveOrdersPage: LoadAdminOrdersPage = (query) =>
+  ordersService.listRestaurantOrdersPage(query);
 
 type OrdersPageState = Omit<RestaurantOrdersPage, 'orders'> & {
   orders: AdminOrder[];
@@ -22,11 +28,13 @@ export function useAdminOrdersPage({
   status,
   queue,
   refreshSignal,
+  loadOrdersPage = loadLiveOrdersPage,
 }: {
   search: string;
   status: string;
   queue: RestaurantOrdersQueue;
   refreshSignal: unknown;
+  loadOrdersPage?: LoadAdminOrdersPage;
 }) {
   const [debouncedSearch, setDebouncedSearch] = useState(search.trim());
   const [page, setPage] = useState<OrdersPageState>({
@@ -77,7 +85,7 @@ export function useAdminOrdersPage({
         queryKey,
       }));
       try {
-        let result = await ordersService.listRestaurantOrdersPage({
+        let result = await loadOrdersPage({
           ...query,
           ...(cursor === undefined ? {} : { cursor }),
         });
@@ -85,7 +93,7 @@ export function useAdminOrdersPage({
         if (cursor === undefined) {
           for (let index = 1; index < visiblePages.current && result.hasMore; index += 1) {
             if (version !== requestVersion.current) return;
-            result = await ordersService.listRestaurantOrdersPage({
+            result = await loadOrdersPage({
               ...query,
               cursor: result.nextCursor!,
             });
@@ -123,7 +131,7 @@ export function useAdminOrdersPage({
         if (version === requestVersion.current) loadingRef.current = false;
       }
     },
-    [query, queryKey],
+    [query, queryKey, loadOrdersPage],
   );
 
   useEffect(() => {

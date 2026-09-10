@@ -1,0 +1,35 @@
+[WebServer] (node:38780) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+Running 20 tests using 1 worker
+
+(node:38972) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ok  1 [chromium] › e2e\attendant-operations.spec.ts:137:1 › abre pedido e conclui retirada paga (4.0s)
+  ok  2 [chromium] › e2e\attendant-operations.spec.ts:149:1 › assume e resolve chamado (3.6s)
+  ok  3 [chromium] › e2e\attendant-operations.spec.ts:161:1 › registra pedido manual de retirada sem vincular o pedido ao atendente (3.6s)
+  ok  4 [chromium] › e2e\attendant-operations.spec.ts:175:1 › falha inicial não anuncia fila vazia e atualização recupera a operação (3.6s)
+  ok  5 [chromium] › e2e\attendant-operations.spec.ts:194:1 › snapshot inválido preserva pedidos já carregados e sinaliza a falha (3.5s)
+  ok  6 [chromium] › e2e\attendant-operations.spec.ts:206:1 › detalhes recuperam falha sem inventar pagamento e devolvem o foco ao fechar (3.9s)
+  ok  7 [chromium] › e2e\attendant-operations.spec.ts:238:1 › todas as áreas do atendente cabem em telas de 360 e 430 pixels (6.9s)
+  ok  8 [chromium] › e2e\courier-operations.spec.ts:657:1 › motoqueiro retira, compartilha a rota do próprio pedido e encerra ao entregar (20.5s)
+[WebServer] 11:59:28 [vite] (client) [console.error] [courier] Falha ao carregar entregas AxiosError: Request failed with status code 503
+[WebServer]     at settle (http://127.0.0.1:4181/node_modules/.vite/deps/axios.js?v=fc288dde:1838:14)
+[WebServer]     at XMLHttpRequest.onloadend (http://127.0.0.1:4181/node_modules/.vite/deps/axios.js?v=fc288dde:2231:4)
+[WebServer]     at Axios$1.request (http://127.0.0.1:4181/node_modules/.vite/deps/axios.js?v=fc288dde:3024:37)
+[WebServer]     at async OrdersService.listRestaurantOrdersPage (http://127.0.0.1:4181/src/Services/ordersService.ts:145:20)
+[WebServer]     at async OrdersService.listActivePages (http://127.0.0.1:4181/src/Services/ordersService.ts:180:17)
+  ok  9 [chromium] › e2e\courier-operations.spec.ts:787:1 › erro de atualização permite tentar novamente e realtime busca somente o tenant (4.1s)
+  ok 10 [chromium] › e2e\courier-operations.spec.ts:837:1 › explica localização negada e navegador sem suporte sem enviar coordenadas (4.8s)
+  ok 11 [chromium] › e2e\courier-operations.spec.ts:903:1 › cliente acompanha somente a própria entrega, rota e destino até a conclusão (4.1s)
+  ok 12 [chromium] › e2e\courier-operations.spec.ts:981:1 › todas as áreas do motoqueiro cabem no celular sem overflow horizontal (6.3s)
+  ok 13 [chromium] › e2e\kitchen-order-customizations.spec.ts:453:1 › pedido completo do tenant chega à fila e avança de pendente até pronto (5.8s)
+  ok 14 [chromium] › e2e\kitchen-order-customizations.spec.ts:516:1 › busca, status, canais, prontos e histórico refletem os dados recebidos (4.3s)
+  ok 15 [chromium] › e2e\kitchen-order-customizations.spec.ts:586:1 › exibe carregamento, permite tentar novamente após erro e diferencia retorno vazio (3.8s)
+  ok 16 [chromium] › e2e\kitchen-order-customizations.spec.ts:621:1 › todas as abas da cozinha permanecem acessíveis e sem overflow em celular (4.2s)
+  ok 17 [chromium] › e2e\waiter-operations.spec.ts:597:1 › garçom consulta visão geral, filtra entregas e atende chamados persistidos (4.9s)
+  ok 18 [chromium] › e2e\waiter-operations.spec.ts:666:1 › garçom confere e confirma pagamento presencial pelo ledger (4.0s)
+  ok 19 [chromium] › e2e\waiter-operations.spec.ts:690:1 › QR sem PIN só libera pedidos com mesa aberta e fechamento respeita pendências (10.8s)
+  ok 20 [chromium] › e2e\waiter-operations.spec.ts:772:1 › todas as abas do garçom permanecem acessíveis e sem overflow em celular (4.1s)
+
+  20 passed (1.9m)

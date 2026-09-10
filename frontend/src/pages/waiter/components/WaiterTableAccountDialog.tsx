@@ -9,7 +9,6 @@ import {
   X,
 } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
-import tableAccountService from '../../../Services/tableAccountService';
 import { useAppDialog } from '../../../components/AppDialog/context';
 import type { RestaurantTable, WaiterTableAccountSnapshot } from '../types';
 import { useWaiterWorkspace } from '../useWaiterWorkspace';
@@ -66,7 +65,7 @@ export function WaiterTableAccountDialog({
   onClose: () => void;
 }) {
   const { confirmDialog } = useAppDialog();
-  const { onRefresh, tableAccountRefreshKey } = useWaiterWorkspace();
+  const { onRefresh, tableAccountRefreshKey, tableAccountClient } = useWaiterWorkspace();
   const [snapshot, setSnapshot] = useState<WaiterTableAccountSnapshot | null>(null);
   const [loading, setLoading] = useState(true);
   const [busyPaymentId, setBusyPaymentId] = useState('');
@@ -82,7 +81,7 @@ export function WaiterTableAccountDialog({
     setLoading(true);
     setError('');
     try {
-      const result = (await tableAccountService.getAdminSnapshot(
+      const result = (await tableAccountClient.getAdminSnapshot(
         sessionPublicId,
       )) as WaiterTableAccountSnapshot;
       setSnapshot(result);
@@ -91,7 +90,7 @@ export function WaiterTableAccountDialog({
     } finally {
       setLoading(false);
     }
-  }, [sessionPublicId]);
+  }, [sessionPublicId, tableAccountClient]);
 
   useEffect(() => {
     let active = true;
@@ -116,7 +115,7 @@ export function WaiterTableAccountDialog({
     setBusyPaymentId(payment.publicId);
     setError('');
     try {
-      await tableAccountService.confirmManualPayment(payment.publicId);
+      await tableAccountClient.confirmManualPayment(payment.publicId);
       await loadSnapshot();
       await onRefresh?.();
     } catch (requestError) {

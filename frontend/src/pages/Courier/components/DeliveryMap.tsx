@@ -124,6 +124,7 @@ export default function DeliveryMap({
   label = 'Entregador',
   statusMessage = 'Seu pedido está a caminho',
   statusDetail = 'A posição é atualizada automaticamente.',
+  tilesEnabled = true,
 }: {
   points: RoutePoint[];
   routePath?: RoutePoint[];
@@ -131,6 +132,7 @@ export default function DeliveryMap({
   label?: string;
   statusMessage?: string;
   statusDetail?: string;
+  tilesEnabled?: boolean;
 }) {
   const latest = points[points.length - 1] || { latitude: -23.5505, longitude: -46.6333 };
   const remainingRoute = remainingRouteFromCurrentPosition(routePath, latest);
@@ -146,7 +148,7 @@ export default function DeliveryMap({
         zoomControl={false}
         className="delivery-map"
       >
-        <TileLayer attribution={mapTileAttribution} url={mapTileUrl} />
+        {tilesEnabled && <TileLayer attribution={mapTileAttribution} url={mapTileUrl} />}
         {plannedRoute.length > 1 && (
           <>
             <Polyline

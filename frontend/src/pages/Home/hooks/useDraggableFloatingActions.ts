@@ -11,7 +11,7 @@ import {
 type Point = { x: number; y: number };
 type Size = { width: number; height: number };
 
-const STORAGE_KEY = '@PecaJaFood:floatingActionsPosition';
+const STORAGE_KEY = '@GastroNexa:floatingActionsPosition';
 const VIEWPORT_MARGIN = 0;
 const DRAG_THRESHOLD = 5;
 

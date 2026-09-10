@@ -1,3 +1,4 @@
+import { exerciseWorkspaceSidebar } from './helpers/workspaceLayout';
 import { orderFixtureResponse } from './helpers/orderFixtures';
 import { expect, test, type Page, type Route } from '@playwright/test';
 import { mockAuthRefresh } from './helpers/mockAuthRefresh';
@@ -780,6 +781,21 @@ test('todas as abas do garçom permanecem acessíveis e sem overflow em celular'
   await expect(page.getByRole('heading', { name: 'Visão geral', exact: true })).toBeVisible();
   await captureReadmeScreenshot(page, 'waiter-mobile.png');
 
+  const optionsTrigger = page.getByRole('button', { name: 'Abrir opções do garçom' });
+  await optionsTrigger.click();
+  const options = page.getByRole('dialog', { name: 'Opções do garçom' });
+  const closeOptions = options.getByRole('button', { name: 'Fechar opções do garçom' });
+  await expect(closeOptions).toBeFocused();
+  await page.keyboard.press('Shift+Tab');
+  await expect(options.getByRole('button', { name: /Sair/ })).toBeFocused();
+  await page.keyboard.press('Tab');
+  await expect(closeOptions).toBeFocused();
+  await captureReadmeScreenshot(page, 'waiter-mobile-menu.png');
+  await page.keyboard.press('Escape');
+  await expect(options).toHaveCount(0);
+  await expect(optionsTrigger).toBeFocused();
+  await expect.poll(() => page.evaluate(() => document.body.style.overflow)).toBe('');
+
   const destinations = [
     ['Para entregar', 'Pedidos para entregar'],
     ['Mesas e QR Codes', 'Mesas e QR Codes'],
@@ -807,8 +823,15 @@ test('todas as abas do garçom permanecem acessíveis e sem overflow em celular'
   }
 
   await mobileNavigation.getByRole('button', { name: 'Mesas e QR Codes' }).click();
+  await page.getByRole('searchbox', { name: 'Buscar mesa' }).fill('07');
   const mobileTable = tableCard(page, '07');
   await expect(mobileTable.getByRole('button', { name: 'Fechar mesa' })).toBeVisible();
+  await expect(tableCard(page, '12')).toHaveCount(0);
+  await page.getByRole('searchbox', { name: 'Buscar mesa' }).fill('99');
+  await expect(mobileTable).toHaveCount(0);
+  await page.getByRole('button', { name: 'Limpar filtros' }).click();
+  await expect(mobileTable).toBeVisible();
+  await expect(tableCard(page, '12')).toBeVisible();
   await expect(page.getByRole('button', { name: /visualizar qr code|imprimir qr/i })).toHaveCount(
     0,
   );
@@ -818,4 +841,21 @@ test('todas as abas do garçom permanecem acessíveis e sem overflow em celular'
     expect(tableBounds.x).toBeGreaterThanOrEqual(0);
     expect(tableBounds.x + tableBounds.width).toBeLessThanOrEqual(390);
   }
+});
+
+test('garçom: todas as abas ocupam a largura disponível ao recolher e expandir o menu', async ({
+  page,
+}) => {
+  test.setTimeout(90000);
+  await page.setViewportSize({ width: 1440, height: 960 });
+  await mockWaiterAndTableApi(page, initialState());
+  await page.goto('/waiter');
+  await exerciseWorkspaceSidebar(page, {
+    navigation: 'Navegação do garçom',
+    collapse: 'Recolher menu',
+    expand: 'Expandir menu',
+    sidebarWidth: 244,
+  });
+  await page.getByRole('button', { name: 'Recolher menu', exact: true }).click();
+  await captureReadmeScreenshot(page, 'waiter-collapsed-desktop.png');
 });

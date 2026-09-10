@@ -9,7 +9,7 @@ type Props = {
   deliveryStartedAt?: string | null;
 };
 
-const DELIVERY_CODE_POSITION_KEY = '@PecaJaFood:deliveryCodePosition';
+const DELIVERY_CODE_POSITION_KEY = '@GastroNexa:deliveryCodePosition';
 
 function playDeliveryTone() {
   try {
@@ -34,7 +34,11 @@ function playDeliveryTone() {
   }
 }
 
-export default function DeliveryConfirmationCodePrompt({ code, orderId, deliveryStartedAt }: Props) {
+export default function DeliveryConfirmationCodePrompt({
+  code,
+  orderId,
+  deliveryStartedAt,
+}: Props) {
   const alertKey = `delivery-start-alert:${orderId}:${deliveryStartedAt || 'active'}`;
   const [open, setOpen] = useState(false);
   const [showArrivalNotice, setShowArrivalNotice] = useState(
@@ -233,10 +237,23 @@ const Notice = styled.div`
   background: #fff7f2;
   color: #8d3d21;
   box-shadow: 0 12px 34px rgba(100, 55, 30, 0.16);
-  > svg { width: 20px; height: 20px; margin-top: 1px; }
-  span { display: grid; gap: 3px; }
-  strong { font-size: 0.9rem; }
-  small { color: #6e5d54; font-size: 0.78rem; line-height: 1.4; }
+  > svg {
+    width: 20px;
+    height: 20px;
+    margin-top: 1px;
+  }
+  span {
+    display: grid;
+    gap: 3px;
+  }
+  strong {
+    font-size: 0.9rem;
+  }
+  small {
+    color: #6e5d54;
+    font-size: 0.78rem;
+    line-height: 1.4;
+  }
 `;
 
 const FloatingButtonShell = styled.div<{ $dragging: boolean }>`
@@ -264,10 +281,21 @@ const FloatingButton = styled.button`
   cursor: inherit;
   touch-action: none;
   box-shadow: 0 12px 30px rgba(179, 64, 27, 0.3);
-  transition: transform 0.16s ease, box-shadow 0.16s ease;
-  > svg { width: 24px; height: 24px; }
-  &:hover { transform: translateY(-2px); box-shadow: 0 15px 34px rgba(179, 64, 27, 0.36); }
-  &:focus-visible { outline: 3px solid rgba(216, 83, 41, 0.28); outline-offset: 3px; }
+  transition:
+    transform 0.16s ease,
+    box-shadow 0.16s ease;
+  > svg {
+    width: 24px;
+    height: 24px;
+  }
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 15px 34px rgba(179, 64, 27, 0.36);
+  }
+  &:focus-visible {
+    outline: 3px solid rgba(216, 83, 41, 0.28);
+    outline-offset: 3px;
+  }
 `;
 
 const Badge = styled.span`
@@ -324,7 +352,10 @@ const IconBox = styled.span`
   background: #fff0e8;
   border: 1px solid #f1c7b4;
   color: #c84d25;
-  svg { width: 20px; height: 20px; }
+  svg {
+    width: 20px;
+    height: 20px;
+  }
 `;
 
 const Eyebrow = styled.small`
@@ -353,7 +384,10 @@ const CloseButton = styled.button`
   background: #fff;
   color: #6c625c;
   cursor: pointer;
-  svg { width: 17px; height: 17px; }
+  svg {
+    width: 17px;
+    height: 17px;
+  }
 `;
 
 const Description = styled.p`
@@ -361,7 +395,9 @@ const Description = styled.p`
   color: #655b55;
   font-size: 0.88rem;
   line-height: 1.48;
-  strong { color: #342d29; }
+  strong {
+    color: #342d29;
+  }
 `;
 
 const Digits = styled.div`
@@ -396,7 +432,11 @@ const SecurityNote = styled.div`
   color: #526058;
   font-size: 0.76rem;
   line-height: 1.4;
-  svg { width: 17px; height: 17px; color: #268453; }
+  svg {
+    width: 17px;
+    height: 17px;
+    color: #268453;
+  }
 `;
 
 const DoneButton = styled.button`

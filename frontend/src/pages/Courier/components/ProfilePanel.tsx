@@ -14,6 +14,7 @@ type CourierUser = {
 type ProfilePanelProps = {
   user: CourierUser | null;
   onUpdated: (updatedUser: CourierUser) => void;
+  saveProfile?: (profile: { name: string; email: string; phone: string }) => Promise<CourierUser>;
 };
 
 function formatCpfDisplay(raw: string | undefined) {
@@ -27,7 +28,11 @@ function formatCpfDisplay(raw: string | undefined) {
     .replace(/(\d{3})(\d{1,2})$/, '$1-$2');
 }
 
-export default function ProfilePanel({ user, onUpdated }: ProfilePanelProps) {
+export default function ProfilePanel({
+  user,
+  onUpdated,
+  saveProfile = (profile) => authService.updateProfile(profile),
+}: ProfilePanelProps) {
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -63,7 +68,7 @@ export default function ProfilePanel({ user, onUpdated }: ProfilePanelProps) {
     setSuccess('');
 
     try {
-      const updated = await authService.updateProfile({
+      const updated = await saveProfile({
         name: form.name,
         email: form.email,
         phone: form.phone,

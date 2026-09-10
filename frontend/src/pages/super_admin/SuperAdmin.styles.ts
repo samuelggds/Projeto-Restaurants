@@ -37,6 +37,9 @@ export const Sidebar = styled.aside<{ $open: boolean }>`
   position: sticky;
   top: 0;
   height: 100dvh;
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+  scrollbar-width: thin;
   background: linear-gradient(155deg, #151a1d, #0d171d);
   color: #fff;
   padding: 28px 12px 20px;
@@ -58,14 +61,19 @@ export const Brand = styled.div`
   padding: 2px 17px 25px;
   border-bottom: 1px solid #ffffff20;
   span {
+    display: flex;
+    align-items: center;
+    gap: 10px;
     font:
-      43px Georgia,
-      serif;
+      700 19px/1.3 'Manrope',
+      sans-serif;
     color: #fff;
   }
-  span b {
-    color: #ff6717;
-    font-weight: 400;
+  img {
+    flex-shrink: 0;
+    object-fit: contain;
+    filter: invert(1);
+    mix-blend-mode: screen;
   }
   small {
     display: block;
@@ -614,6 +622,12 @@ export const SettingsLayout = styled.div`
   display: grid;
   grid-template-columns: 250px minmax(0, 1fr);
   gap: 17px;
+  > * {
+    min-width: 0;
+  }
+  > :last-child {
+    container-type: inline-size;
+  }
   @media (max-width: 850px) {
     grid-template-columns: 1fr;
   }
@@ -627,6 +641,8 @@ export const SettingsNav = styled.div`
   align-content: start;
   gap: 5px;
   input {
+    width: 100%;
+    min-width: 0;
     height: 40px;
     border: 1px solid var(--border);
     border-radius: 8px;
@@ -650,23 +666,31 @@ export const SettingsNav = styled.div`
 `;
 export const FormGrid = styled.div`
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  min-width: 0;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 14px;
+  @container (max-width: 640px) {
+    grid-template-columns: minmax(0, 1fr);
+  }
   @media (max-width: 700px) {
     grid-template-columns: 1fr;
   }
 `;
 export const FormCard = styled(Card)`
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 12px;
   label {
     display: grid;
+    min-width: 0;
     gap: 5px;
     font-size: 10px;
     font-weight: 700;
   }
   input,
   select {
+    width: 100%;
+    min-width: 0;
     height: 40px;
     border: 1px solid var(--border);
     border-radius: 7px;

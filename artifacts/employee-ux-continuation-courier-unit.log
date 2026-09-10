@@ -1,0 +1,13 @@
+
+> frontend@0.0.0 test
+> vitest run --maxWorkers=1 src/pages/Courier/CourierWorkspace.test.tsx src/pages/Courier/useCourierOrderRecovery.test.tsx
+
+
+ RUN  v4.1.11 C:/Users/Samuel/Documents/Codex/RESTAURANT-DELIVERY-MESA/pizza-ia-delivery/frontend
+
+
+ Test Files  2 passed (2)
+      Tests  16 passed (16)
+   Start at  12:37:16
+   Duration  10.56s (transform 272ms, setup 0ms, import 630ms, tests 8.00s, environment 1.53s)
+

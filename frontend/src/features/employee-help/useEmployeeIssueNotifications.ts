@@ -4,8 +4,9 @@ import { acquireSocket } from '../../Services/socketService';
 import { getAccessToken } from '../../modules/auth/session/authSession';
 import supportChatService from '../../Services/supportChatService';
 
-export function useEmployeeIssueNotifications() {
+export function useEmployeeIssueNotifications(enabled = true) {
   useEffect(() => {
+    if (!enabled) return undefined;
     const token = getAccessToken();
     if (!token) return undefined;
 
@@ -57,5 +58,5 @@ export function useEmployeeIssueNotifications() {
       window.clearInterval(intervalId);
       release();
     };
-  }, []);
+  }, [enabled]);
 }

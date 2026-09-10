@@ -40,7 +40,11 @@ describe('demoDomain', () => {
     expect(state.accounts.find((account) => account.role === 'ADMIN')?.email).toBe(
       'admin@demo.gastronexa.com.br',
     );
-    expect(state.accounts.filter((account) => ['ATENDENTE', 'GARCOM', 'COZINHA', 'MOTOQUEIRO'].includes(account.role))).toHaveLength(4);
+    expect(
+      state.accounts.filter((account) =>
+        ['ATENDENTE', 'GARCOM', 'COZINHA', 'MOTOQUEIRO'].includes(account.role),
+      ),
+    ).toHaveLength(4);
   });
 
   it('leva o mesmo pedido do cliente até cozinha e entrega', () => {
@@ -82,5 +86,90 @@ describe('demoDomain', () => {
     state = updateDemoCallStatus(state, waitingCall!.id, 'IN_PROGRESS');
     state = updateDemoCallStatus(state, waitingCall!.id, 'RESOLVED');
     expect(state.calls.find((call) => call.id === waitingCall!.id)?.status).toBe('RESOLVED');
+  });
+
+  it('exige retirada pelo motoqueiro antes de concluir um delivery pronto e pago', () => {
+    const state = createInitialDemoState(1_700_000_000_000);
+    const order = state.orders.find(
+      (item) => item.channel === 'DELIVERY' && item.status === 'PRONTO',
+    )!;
+    expect(order.paid).toBe(true);
+    const before = structuredClone(state);
+
+    expect(() => updateDemoOrderStatus(state, order.id, 'ENTREGUE')).toThrow(/não é permitida/);
+    expect(state).toEqual(before);
+
+    const claimed = updateDemoOrderStatus(state, order.id, 'SAIU_PARA_ENTREGA');
+    const delivered = updateDemoOrderStatus(claimed, order.id, 'ENTREGUE', 1_700_000_060_000);
+    expect(delivered.orders.find((item) => item.id === order.id)).toMatchObject({
+      status: 'ENTREGUE',
+      deliveredAt: '2023-11-14T22:14:20.000Z',
+    });
+    expect(delivered.orders.filter((item) => item.id !== order.id)).toEqual(
+      state.orders.filter((item) => item.id !== order.id),
+    );
+  });
+
+  it('impede pedido de mesa de entrar em rota, permitindo entregar no salão sem quitar a conta', () => {
+    let state = createInitialDemoState(1_700_000_000_000);
+    const order = state.orders.find(
+      (item) => item.channel === 'TABLE' && item.status === 'PREPARANDO',
+    )!;
+    state = updateDemoOrderStatus(state, order.id, 'PRONTO');
+    const before = structuredClone(state);
+
+    expect(() => updateDemoOrderStatus(state, order.id, 'SAIU_PARA_ENTREGA')).toThrow(
+      /não é permitida/,
+    );
+    expect(state).toEqual(before);
+
+    const delivered = updateDemoOrderStatus(state, order.id, 'ENTREGUE');
+    expect(delivered.orders.find((item) => item.id === order.id)).toMatchObject({
+      channel: 'TABLE',
+      status: 'ENTREGUE',
+      paid: false,
+    });
+  });
+
+  it('mantém retirada pronta em aberto até confirmar seu pagamento', () => {
+    let state = createInitialDemoState(1_700_000_000_000);
+    const order = state.orders.find(
+      (item) => item.channel === 'PICKUP' && item.status === 'PENDENTE',
+    )!;
+    state = updateDemoOrderStatus(state, order.id, 'PREPARANDO');
+    state = updateDemoOrderStatus(state, order.id, 'PRONTO');
+    const before = structuredClone(state);
+
+    expect(() => updateDemoOrderStatus(state, order.id, 'ENTREGUE')).toThrow(/não é permitida/);
+    expect(() => updateDemoOrderStatus(state, order.id, 'SAIU_PARA_ENTREGA')).toThrow(
+      /não é permitida/,
+    );
+    expect(state).toEqual(before);
+
+    state = toggleDemoOrderPaid(state, order.id);
+    state = updateDemoOrderStatus(state, order.id, 'ENTREGUE');
+    expect(state.orders.find((item) => item.id === order.id)).toMatchObject({
+      channel: 'PICKUP',
+      status: 'ENTREGUE',
+      paid: true,
+    });
+  });
+
+  it('exige pagamento também para concluir delivery que já está em rota', () => {
+    let state = createInitialDemoState(1_700_000_000_000);
+    const order = state.orders.find(
+      (item) => item.channel === 'DELIVERY' && item.status === 'SAIU_PARA_ENTREGA',
+    )!;
+    state = toggleDemoOrderPaid(state, order.id, false);
+    expect(() => updateDemoOrderStatus(state, order.id, 'ENTREGUE')).toThrow(/não é permitida/);
+    expect(state.orders.find((item) => item.id === order.id)).toMatchObject({
+      status: 'SAIU_PARA_ENTREGA',
+      paid: false,
+    });
+    state = toggleDemoOrderPaid(state, order.id);
+    expect(
+      updateDemoOrderStatus(state, order.id, 'ENTREGUE').orders.find((item) => item.id === order.id)
+        ?.status,
+    ).toBe('ENTREGUE');
   });
 });

@@ -1,4 +1,4 @@
-import { lazy, Suspense, useState } from 'react';
+import { lazy, Suspense, useState, type ReactNode } from 'react';
 import {
   Activity,
   AlertTriangle,
@@ -27,7 +27,11 @@ import { useAppDialog } from '../../../components/AppDialog/context';
 import * as S from './AdminOrders.styles';
 import type { AdminOrder } from '../types';
 import type { RestaurantOrdersQueue } from '../../../Services/ordersService';
-import { ADMIN_ORDERS_PAGE_SIZE, useAdminOrdersPage } from '../hooks/useAdminOrdersPage';
+import {
+  ADMIN_ORDERS_PAGE_SIZE,
+  useAdminOrdersPage,
+  type LoadAdminOrdersPage,
+} from '../hooks/useAdminOrdersPage';
 import { adminErrorMessage } from '../utils/adminErrorMessage';
 import {
   getOrderPaymentPresentation,
@@ -47,6 +51,8 @@ type AdminOrdersProps = {
   money: (value: number) => string;
   onConfirmPayment: (id: number) => Promise<void>;
   onCancelOrder: (id: number) => Promise<void>;
+  loadOrdersPage?: LoadAdminOrdersPage;
+  renderPickupPayment?: (order: AdminOrder) => ReactNode;
 };
 
 const statusLabels: Record<string, string> = {
@@ -105,6 +111,8 @@ export function AdminOrders({
   money,
   onConfirmPayment,
   onCancelOrder,
+  loadOrdersPage,
+  renderPickupPayment,
 }: AdminOrdersProps) {
   const { confirmDialog } = useAppDialog();
   const [search, setSearch] = useState('');
@@ -112,7 +120,13 @@ export function AdminOrders({
   const [queueView, setQueueView] = useState<QueueView>('ALL');
   const [cancellingOrderId, setCancellingOrderId] = useState<number | null>(null);
   const [confirmingPaymentId, setConfirmingPaymentId] = useState<number | null>(null);
-  const page = useAdminOrdersPage({ search, status, queue: queueView, refreshSignal: orders });
+  const page = useAdminOrdersPage({
+    search,
+    status,
+    queue: queueView,
+    refreshSignal: orders,
+    loadOrdersPage,
+  });
   const { summary, orders: displayedOrders } = page;
   const hasFilters = Boolean(search || status || queueView !== 'ALL');
   const priorityView: QueueView = summary.awaitingPayment
@@ -555,13 +569,17 @@ export function AdminOrders({
                   </div>
 
                   {isPickupPayAtStore && !isFinished ? (
-                    <Suspense fallback={null}>
-                      <PickupPaymentPanel
-                        orderId={order.numericId}
-                        total={order.total}
-                        onPaid={() => void page.refresh()}
-                      />
-                    </Suspense>
+                    renderPickupPayment ? (
+                      renderPickupPayment(order)
+                    ) : (
+                      <Suspense fallback={null}>
+                        <PickupPaymentPanel
+                          orderId={order.numericId}
+                          total={order.total}
+                          onPaid={() => void page.refresh()}
+                        />
+                      </Suspense>
+                    )
                   ) : null}
 
                   <footer className="order-actions">

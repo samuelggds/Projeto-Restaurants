@@ -6,6 +6,7 @@ import deliveryLocationCleanupJob from '../modules/orders/jobs/DeliveryLocationC
 import tablePaymentReservationExpirationJob from '../modules/tableAccount/jobs/TablePaymentReservationExpirationJob.js';
 import type { JobDefinition } from './JobDefinition.js';
 import { drainNotificationOutbox } from '../services/notificationOutbox.js';
+import { deliverSalesLeadEmails } from '../modules/salesLeads/services/SalesLeadEmailOutboxService.js';
 
 type Environment = Record<string, string | undefined>;
 
@@ -38,6 +39,17 @@ export function createJobDefinitions(env: Environment = process.env): JobDefinit
   );
 
   return [
+    {
+      key: 'sales-leads.email-delivery',
+      description: 'Envio recuperável de contatos comerciais para a equipe GastroNexa',
+      runtime: 'worker',
+      schedule: { kind: 'interval', intervalMs: 30_000 },
+      leaseDurationMs: 300_000,
+      successCooldownMs: 10_000,
+      failureBackoffMs: 30_000,
+      runOnStart: true,
+      execute: () => deliverSalesLeadEmails(),
+    },
     {
       key: 'notifications.delivery',
       description: 'Entrega recuperável de avisos por WhatsApp',

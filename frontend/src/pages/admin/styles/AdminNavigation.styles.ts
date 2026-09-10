@@ -4,7 +4,9 @@ export const MainSidebar = styled.aside`
   height: 100dvh;
   position: sticky;
   top: 0;
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
   background: linear-gradient(180deg, #282320 0%, #17191a 100%);
   border-right: 1px solid rgba(255, 255, 255, 0.07);
   color: #f7f3ef;
