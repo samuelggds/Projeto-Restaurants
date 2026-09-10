@@ -1,13 +1,13 @@
 import { normalizeRestaurantCategory, type RestaurantCategory } from './restaurantCategory';
+import { normalizePlatformName } from './platformStorageMigration';
 
 export const RESTAURANT_BROWSER_BRANDING_UPDATED_EVENT =
-  'pecajaf:restaurant-browser-branding-updated';
+  'gastronexa:restaurant-browser-branding-updated';
 
-export const DEFAULT_BROWSER_TITLE = 'Peça Já Food';
+export const DEFAULT_BROWSER_TITLE = 'GastroNexa';
 
 const CATEGORY_ICON_MARKUP: Record<RestaurantCategory, string> = {
-  RESTAURANTE:
-    '<path d="M8 5v8M12 5v8M8 9h4M10 13v14M21 5v22M18 5c0 4.5 1 7 3 7s3-2.5 3-7"/>',
+  RESTAURANTE: '<path d="M8 5v8M12 5v8M8 9h4M10 13v14M21 5v22M18 5c0 4.5 1 7 3 7s3-2.5 3-7"/>',
   PIZZARIA:
     '<path d="M5 26 16 5l11 21Z"/><path d="M8.5 20.5c5 2.2 10 2.2 15 0"/><circle cx="14" cy="15" r="1.7"/><circle cx="20" cy="19" r="1.7"/>',
   HAMBURGUERIA:
@@ -44,7 +44,7 @@ export function applyRestaurantBrowserBranding(
   restaurantName: unknown,
   category: unknown,
 ) {
-  const title = String(restaurantName || '').trim() || DEFAULT_BROWSER_TITLE;
+  const title = normalizePlatformName(String(restaurantName || '').trim()) || DEFAULT_BROWSER_TITLE;
   targetDocument.title = title;
 
   let favicon = targetDocument.querySelector<HTMLLinkElement>('link[rel~="icon"]');
@@ -54,8 +54,11 @@ export function applyRestaurantBrowserBranding(
     targetDocument.head.appendChild(favicon);
   }
 
-  favicon.type = 'image/svg+xml';
-  favicon.href = getRestaurantCategoryFavicon(category);
+  favicon.type = title === DEFAULT_BROWSER_TITLE ? 'image/png' : 'image/svg+xml';
+  favicon.href =
+    title === DEFAULT_BROWSER_TITLE
+      ? '/gastronexa-logo.png'
+      : getRestaurantCategoryFavicon(category);
 }
 
 export function notifyRestaurantBrowserBrandingUpdated() {

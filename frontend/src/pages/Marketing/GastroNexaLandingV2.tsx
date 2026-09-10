@@ -1,135 +1,154 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
+  ArrowDown,
   ArrowRight,
-  BarChart3,
+  ArrowUpRight,
   Check,
   CheckCircle2,
   ChefHat,
+  ClipboardList,
+  Coffee,
+  HeartHandshake,
   Menu,
-  MessageCircleMore,
-  MonitorSmartphone,
-  PackageCheck,
+  MessageSquareText,
+  Pizza,
+  Play,
   QrCode,
   ShoppingBag,
+  Sparkles,
   Store,
   Truck,
-  Users,
-  Utensils,
+  UtensilsCrossed,
   X,
 } from 'lucide-react';
+import { LandingPreview } from './landing/LandingPreview';
+import { SalesContactForm } from './landing/SalesContactForm';
 import * as S from './GastroNexaLandingV2.styles';
-
-const contactUrl = String(import.meta.env.VITE_SALES_CONTACT_URL || '').trim();
 
 const features = [
   {
-    icon: <ShoppingBag size={21} />,
-    title: 'Pedidos centralizados',
-    text: 'Delivery, retirada e mesa organizados em uma mesma operação, com status claros para cada equipe.',
+    icon: QrCode,
+    title: 'Um cardápio com a sua cara.',
+    text: 'Sua marca, seus produtos e um caminho simples para pedir. No delivery, na retirada ou pelo QR Code da mesa.',
+    detail: 'Do primeiro olhar ao primeiro pedido',
+    className: 'menu-card',
+    tags: ['Sua marca', 'Delivery', 'QR Code'],
   },
   {
-    icon: <QrCode size={21} />,
-    title: 'Cardápio digital e QR Code',
-    text: 'O restaurante ganha seu próprio endereço e pode receber pedidos diretamente pelo cardápio digital.',
+    icon: ChefHat,
+    title: 'Da comanda para a cozinha.',
+    text: 'Pedidos organizados por etapa, com os itens e as observações que a equipe precisa para preparar tudo com cuidado.',
+    detail: 'Todo mundo sabe o próximo passo',
+    className: 'kitchen-card',
+    tags: ['Recebido', 'Em preparo', 'Pronto'],
   },
   {
-    icon: <ChefHat size={21} />,
-    title: 'Cozinha conectada',
-    text: 'A cozinha recebe a fila, inicia o preparo e libera os pedidos para salão, retirada ou entrega.',
-  },
-  {
-    icon: <Truck size={21} />,
-    title: 'Entrega organizada',
-    text: 'Motoqueiros acompanham pedidos disponíveis, em rota e concluídos sem misturar funções.',
-  },
-  {
-    icon: <BarChart3 size={21} />,
-    title: 'Painel administrativo',
-    text: 'Indicadores, pedidos, cardápio, clientes, funcionários, cobranças e configurações em um só painel.',
-  },
-  {
-    icon: <Users size={21} />,
-    title: 'Acessos por função',
-    text: 'Atendente, garçom, cozinha e motoqueiro trabalham em experiências desenhadas para suas rotinas.',
+    icon: ClipboardList,
+    title: 'Sua operação, bem cuidada.',
+    text: 'Acompanhe pedidos, clientes e equipe. Tenha uma visão do restaurante, com acessos próprios para cada função.',
+    detail: 'Mais clareza para tomar decisões',
+    className: 'management-card',
+    tags: ['Gestão', 'Equipe', 'Clientes'],
   },
 ];
-
-const audiences = [
-  {
-    icon: <Utensils size={20} />,
-    title: 'Restaurantes',
-    text: 'Salão, retirada e delivery no mesmo fluxo.',
-  },
-  {
-    icon: <Store size={20} />,
-    title: 'Pizzarias',
-    text: 'Cardápio, produção e pedidos organizados.',
-  },
-  {
-    icon: <ShoppingBag size={20} />,
-    title: 'Hamburguerias',
-    text: 'Mais clareza entre balcão, cozinha e entrega.',
-  },
-  {
-    icon: <ChefHat size={20} />,
-    title: 'Operações em crescimento',
-    text: 'Uma base pronta para equipe e novos canais.',
-  },
-];
-
 const plans = [
   {
+    id: 'BASICO' as const,
     name: 'Básico',
-    price: 'R$ 149,90',
-    description: 'O essencial para receber e gerenciar pedidos de delivery.',
-    features: ['Sistema de delivery', 'Suporte padrão'],
+    price: '149,90',
+    description: 'Para organizar seu delivery e começar uma nova fase.',
+    features: ['Sistema de delivery', 'Gestão dos pedidos de entrega', 'Suporte padrão'],
     featured: false,
   },
   {
+    id: 'PREMIUM' as const,
     name: 'Premium',
-    price: 'R$ 249,90',
-    description: 'A operação completa, com delivery e atendimento nas mesas por QR Code.',
+    price: '249,90',
+    description: 'Para conectar o delivery e o atendimento das suas mesas.',
     features: [
-      'Sistema de delivery',
+      'Tudo do plano Básico',
       'Cardápio digital com QR Code de mesa',
       'Suporte prioritário',
     ],
     featured: true,
   },
 ];
+const questions = [
+  [
+    'Posso conhecer o sistema antes de contratar?',
+    'Sim. A demonstração é aberta e já vem com contas e produtos fictícios. Você pode fazer um pedido, acompanhar o preparo e conhecer o trabalho de cada função antes de conversar com a nossa equipe.',
+  ],
+  [
+    'A GastroNexa funciona no salão e no delivery?',
+    'Sim. O sistema organiza delivery, retirada no balcão e pedidos de mesa. O plano Básico inclui o delivery; o Premium também inclui o cardápio digital com QR Code para as mesas.',
+  ],
+  [
+    'Cada funcionário tem seu próprio acesso?',
+    'Sim. Administrador, atendente, cozinha, garçom e motoqueiro têm áreas próprias. A cozinha acompanha o preparo, o garçom cuida dos pedidos de mesa e o motoqueiro das entregas de delivery.',
+  ],
+  [
+    'A demonstração faz pedidos ou cobranças reais?',
+    'Não. Os pedidos, produtos, contas e pagamentos da demonstração são fictícios. Você pode explorar a experiência sem enviar pedidos a um restaurante real.',
+  ],
+  [
+    'Como funciona o período de teste?',
+    'Os planos apresentados incluem 30 dias de teste antes da cobrança mensal. Envie seu contato para entender o início do teste e escolher o plano adequado à sua operação.',
+  ],
+];
 
 function Brand({ light = false }: { light?: boolean }) {
   return (
     <S.Brand as={Link} to="/" $light={light} aria-label="GastroNexa - página inicial">
-      <img
-        src="/gastronexa-logo.png"
-        alt=""
-        width="48"
-        height="42"
-        style={{ objectFit: 'contain', borderRadius: 4, background: '#fff' }}
-      />
-      <span>GastroNexa</span>
+      <img src="/gastronexa-logo.png" alt="" width="42" height="38" />
+      <span>
+        GastroNexa<span className="brand-dot">.</span>
+      </span>
     </S.Brand>
   );
 }
 
 export default function GastroNexaLandingV2() {
   const [menuOpen, setMenuOpen] = useState(false);
-  const salesHref = contactUrl || '#contato';
-
+  const [initialPlan, setInitialPlan] = useState<'BASICO' | 'PREMIUM' | 'UNDECIDED'>('UNDECIDED');
+  const header = useRef<HTMLElement>(null);
+  const menuButton = useRef<HTMLButtonElement>(null);
   useEffect(() => {
-    document.title = 'GastroNexa | Gestão completa para restaurantes';
+    document.title = 'GastroNexa | Seu restaurante, no seu melhor';
   }, []);
-
+  useEffect(() => {
+    if (!menuOpen) return;
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setMenuOpen(false);
+        menuButton.current?.focus();
+      }
+    };
+    const closeOutside = (event: PointerEvent) => {
+      if (!header.current?.contains(event.target as Node)) setMenuOpen(false);
+    };
+    const closeOnDesktop = () => {
+      if (window.innerWidth > 960) setMenuOpen(false);
+    };
+    document.addEventListener('keydown', closeOnEscape);
+    document.addEventListener('pointerdown', closeOutside);
+    window.addEventListener('resize', closeOnDesktop);
+    return () => {
+      document.removeEventListener('keydown', closeOnEscape);
+      document.removeEventListener('pointerdown', closeOutside);
+      window.removeEventListener('resize', closeOnDesktop);
+    };
+  }, [menuOpen]);
   const closeMenu = () => setMenuOpen(false);
-
   return (
     <S.Page>
-      <S.Header>
+      <a className="skip-link" href="#conteudo">
+        Pular para o conteúdo
+      </a>
+      <S.Header ref={header}>
         <S.HeaderInner>
           <Brand />
-          <S.Nav $open={menuOpen} aria-label="Navegação principal">
+          <S.Nav id="marketing-navigation" $open={menuOpen} aria-label="Navegação principal">
             <a href="#recursos" onClick={closeMenu}>
               Recursos
             </a>
@@ -147,342 +166,394 @@ export default function GastroNexaLandingV2() {
             </a>
           </S.Nav>
           <S.HeaderActions>
-            <S.Button href={salesHref} $small>
-              Falar com a GastroNexa <ArrowRight size={15} />
+            <S.Button href="#contato" $small>
+              Falar com a equipe <ArrowUpRight size={16} />
             </S.Button>
             <S.MenuButton
+              ref={menuButton}
               type="button"
               aria-label={menuOpen ? 'Fechar menu' : 'Abrir menu'}
+              aria-controls="marketing-navigation"
               aria-expanded={menuOpen}
-              onClick={() => setMenuOpen((current) => !current)}
+              onClick={() => setMenuOpen((value) => !value)}
             >
-              {menuOpen ? <X size={19} /> : <Menu size={19} />}
+              {menuOpen ? <X size={21} /> : <Menu size={21} />}
             </S.MenuButton>
           </S.HeaderActions>
         </S.HeaderInner>
       </S.Header>
-
-      <S.Hero>
-        <S.HeroGrid>
-          <S.HeroCopy>
-            <S.Eyebrow>Operação conectada para restaurantes</S.Eyebrow>
-            <h1>
-              Seu restaurante em <span>um só fluxo.</span>
-            </h1>
-            <p>
-              GastroNexa conecta cardápio, pedidos, cozinha, salão, delivery, clientes e gestão
-              administrativa em uma experiência moderna construída para a rotina real do
-              restaurante.
-            </p>
-            <S.HeroActions>
-              <S.Button as={Link} to="/demonstracao">
-                Experimentar demonstração <ArrowRight size={17} />
-              </S.Button>
-              <S.Button href={salesHref} $secondary>
-                <MessageCircleMore size={17} /> Falar com a equipe
-              </S.Button>
-            </S.HeroActions>
-            <S.HeroProof>
-              <span>
-                <CheckCircle2 size={16} /> 30 dias de teste nos planos
-              </span>
-              <span>
-                <CheckCircle2 size={16} /> Perfis separados por função
-              </span>
-              <span>
-                <CheckCircle2 size={16} /> Mesa, retirada e delivery
-              </span>
-            </S.HeroProof>
-          </S.HeroCopy>
-
-          <S.ProductPreview aria-label="Prévia do painel administrativo GastroNexa">
-            <S.AppWindow>
-              <S.AppTop>
-                <div className="identity">
-                  <span className="mark">GN</span>
-                  <span>
-                    <b>GastroNexa Burger</b>
-                    <small>Painel administrativo</small>
-                  </span>
-                </div>
-                <span>Operação online</span>
-              </S.AppTop>
-              <S.AppBody>
-                <S.AppNav aria-hidden="true">
-                  <span />
-                  <span />
-                  <span />
-                  <span />
-                  <span />
-                  <span />
-                  <span />
-                </S.AppNav>
-                <S.AppContent>
-                  <S.MetricGrid>
-                    <S.Metric>
-                      <small>Vendas hoje</small>
-                      <strong>R$ 4.580,90</strong>
-                    </S.Metric>
-                    <S.Metric>
-                      <small>Pedidos</small>
-                      <strong>87</strong>
-                    </S.Metric>
-                    <S.Metric>
-                      <small>Ticket médio</small>
-                      <strong>R$ 52,65</strong>
-                    </S.Metric>
-                    <S.Metric>
-                      <small>Clientes</small>
-                      <strong>412</strong>
-                    </S.Metric>
-                  </S.MetricGrid>
-                  <S.Orders>
-                    <header>
-                      <strong>Movimento recente</strong>
-                      <span>Pedidos</span>
-                    </header>
-                    <S.Order>
-                      <b>#1058 · Marina</b>
-                      <span>Delivery</span>
-                      <span>Pronto</span>
-                    </S.Order>
-                    <S.Order>
-                      <b>#1057 · Mesa 08</b>
-                      <span>Mesa</span>
-                      <span>Em preparo</span>
-                    </S.Order>
-                    <S.Order>
-                      <b>#1056 · Carlos</b>
-                      <span>Retirada</span>
-                      <span>Pendente</span>
-                    </S.Order>
-                    <S.Order>
-                      <b>#1055 · Ana</b>
-                      <span>Delivery</span>
-                      <span>Em rota</span>
-                    </S.Order>
-                  </S.Orders>
-                </S.AppContent>
-              </S.AppBody>
-            </S.AppWindow>
-            <S.FloatingCard>
-              <PackageCheck size={21} />
-              <span>
-                <b>Pedidos sincronizados</b>
-                <small>Da cozinha até a entrega</small>
-              </span>
-            </S.FloatingCard>
-          </S.ProductPreview>
-        </S.HeroGrid>
-      </S.Hero>
-
-      <S.Section id="recursos">
-        <S.Container>
-          <S.Heading>
-            <S.Eyebrow>Recursos</S.Eyebrow>
-            <h2>As áreas do restaurante falando a mesma língua.</h2>
-            <p>
-              O visual e os fluxos foram pensados para reduzir ruído entre quem recebe, prepara,
-              atende, entrega e administra os pedidos.
-            </p>
-          </S.Heading>
-          <S.Features>
-            {features.map((feature) => (
-              <S.Feature key={feature.title}>
-                <span className="icon">{feature.icon}</span>
-                <h3>{feature.title}</h3>
-                <p>{feature.text}</p>
-              </S.Feature>
-            ))}
-          </S.Features>
-        </S.Container>
-      </S.Section>
-
-      <S.Section id="como-funciona" $soft>
-        <S.Container>
-          <S.Workflow>
-            <S.Heading>
-              <S.Eyebrow>Como funciona</S.Eyebrow>
-              <h2>Da entrada do pedido até o fechamento da operação.</h2>
+      <main id="conteudo">
+        <S.Hero>
+          <S.HeroGrid>
+            <S.HeroCopy>
+              <S.HeroBadge>
+                <span /> TECNOLOGIA COM JEITO DE RESTAURANTE
+              </S.HeroBadge>
+              <h1>
+                Seu restaurante,
+                <br />
+                no seu <em>melhor.</em>
+              </h1>
               <p>
-                Cada restaurante trabalha dentro do seu próprio contexto e cada função recebe apenas
-                a experiência necessária para executar bem sua etapa.
+                Você cuida do sabor e de quem chega.
+                <br className="desktop-break" /> A GastroNexa conecta os pedidos, a cozinha e a
+                equipe para a operação acontecer com mais clareza.
               </p>
               <S.HeroActions>
                 <S.Button as={Link} to="/demonstracao">
-                  Testar os perfis <ArrowRight size={16} />
+                  Experimentar demonstração <ArrowUpRight size={18} />
                 </S.Button>
+                <S.TextLink href="#como-funciona">
+                  <span className="play-icon">
+                    <Play size={12} fill="currentColor" />
+                  </span>
+                  Conhecer o sistema
+                </S.TextLink>
               </S.HeroActions>
-            </S.Heading>
-            <S.Steps>
-              <S.Step>
-                <span>1</span>
+              <S.HeroProof>
+                <span>
+                  <CheckCircle2 size={16} /> Explore antes de contratar
+                </span>
+                <span>
+                  <CheckCircle2 size={16} /> Do salão ao delivery
+                </span>
+              </S.HeroProof>
+              <S.HeroFootnote>
+                <span className="small-line" /> Feito para quem faz da comida o seu negócio.
+              </S.HeroFootnote>
+            </S.HeroCopy>
+            <S.HeroVisual>
+              <div className="photo-wrap">
+                <img
+                  data-testid="marketing-hero-image"
+                  src="/marketing/restaurant-owner.png"
+                  alt="Restauradora usando um tablet em um restaurante acolhedor"
+                  width="1122"
+                  height="1402"
+                  fetchPriority="high"
+                />
+                <div className="photo-shade" />
+                <p className="photo-caption">
+                  Mais presença no salão.
+                  <br />
+                  <em>Mais cuidado em cada pedido.</em>
+                </p>
+              </div>
+              <div className="photo-sticker">
+                <Sparkles size={16} />
+                <span>
+                  Feito para a<br />
+                  <b>sua rotina.</b>
+                </span>
+              </div>
+              <div className="order-notice" aria-label="Exemplo de aviso de pedido">
+                <span className="notice-icon">
+                  <ShoppingBag size={21} />
+                </span>
                 <div>
-                  <b>Cliente faz o pedido</b>
-                  <p>Cardápio digital, mesa, retirada ou delivery.</p>
+                  <b>Um novo pedido chegou</b>
+                  <small>Mesa 08 · enviado para a cozinha</small>
                 </div>
-              </S.Step>
-              <S.Step>
-                <span>2</span>
-                <div>
-                  <b>Equipe recebe e prepara</b>
-                  <p>Atendente acompanha e cozinha executa a fila de produção.</p>
-                </div>
-              </S.Step>
-              <S.Step>
-                <span>3</span>
-                <div>
-                  <b>Salão ou entrega conclui</b>
-                  <p>Garçom cuida das mesas e motoqueiro acompanha as entregas.</p>
-                </div>
-              </S.Step>
-              <S.Step>
-                <span>4</span>
-                <div>
-                  <b>Admin acompanha tudo</b>
-                  <p>Indicadores, clientes, equipe, cardápio, assinatura e configurações.</p>
-                </div>
-              </S.Step>
-            </S.Steps>
-          </S.Workflow>
-        </S.Container>
-      </S.Section>
-
-      <S.Section $dark>
-        <S.Container>
-          <S.DemoBand>
+                <span className="notice-check">
+                  <Check size={14} />
+                </span>
+                <span className="sample-label">Exemplo ilustrativo</span>
+              </div>
+            </S.HeroVisual>
+          </S.HeroGrid>
+          <S.AudienceStrip>
+            <span>UM SISTEMA. MUITOS SABORES.</span>
             <div>
-              <S.Eyebrow>Restaurante demonstrativo</S.Eyebrow>
-              <h2>Entre como cliente, equipe ou administrador.</h2>
-              <p>
-                Use contas prontas e percorra o fluxo completo de pedidos em uma experiência
-                isolada, com telas inspiradas diretamente nas áreas reais do GastroNexa.
-              </p>
+              <span>
+                <UtensilsCrossed />
+                Restaurantes
+              </span>
+              <span>
+                <Pizza />
+                Pizzarias
+              </span>
+              <span>
+                <ShoppingBag />
+                Hamburguerias
+              </span>
+              <span>
+                <Coffee />
+                Cafés e bistrôs
+              </span>
             </div>
-            <S.Button as={Link} to="/demonstracao" $dark>
-              Abrir demonstração <MonitorSmartphone size={17} />
-            </S.Button>
-          </S.DemoBand>
-        </S.Container>
-      </S.Section>
-
-      <S.Section id="planos">
-        <S.Container>
-          <S.Heading style={{ marginInline: 'auto', textAlign: 'center' }}>
-            <S.Eyebrow style={{ marginInline: 'auto' }}>Planos</S.Eyebrow>
-            <h2>Escolha o nível de operação ideal para o seu restaurante.</h2>
-            <p>Os dois planos incluem 30 dias de teste antes da cobrança mensal.</p>
-          </S.Heading>
-          <S.PlanGrid>
-            {plans.map((plan) => (
-              <S.Plan key={plan.name} $featured={plan.featured}>
-                {plan.featured && <span className="badge">Mais completo</span>}
-                <h3>{plan.name}</h3>
-                <p className="description">{plan.description}</p>
-                <div className="price">
-                  <strong>{plan.price}</strong>
-                  <span>/mês</span>
-                </div>
-                <span className="trial">30 dias de teste</span>
-                <ul>
-                  {plan.features.map((feature) => (
-                    <li key={feature}>
-                      <Check size={16} /> {feature}
-                    </li>
-                  ))}
-                </ul>
-                <S.Button href={salesHref} $secondary={!plan.featured}>
-                  Quero este plano <ArrowRight size={15} />
+          </S.AudienceStrip>
+        </S.Hero>
+        <S.Section id="recursos">
+          <S.Container>
+            <S.SectionHeading>
+              <div>
+                <S.Eyebrow>SIMPLES NO USO. COMPLETO NA ROTINA.</S.Eyebrow>
+                <h2>
+                  Menos tarefas soltas.
+                  <br />
+                  <em>Mais restaurante.</em>
+                </h2>
+              </div>
+              <p>
+                Do pedido à entrega, as ferramentas certas para organizar o trabalho e cuidar da
+                experiência de quem escolhe você.
+              </p>
+            </S.SectionHeading>
+            <S.Features>
+              {features.map((feature, index) => (
+                <S.Feature key={feature.title} className={feature.className}>
+                  <div className="feature-top">
+                    <span className="feature-icon">
+                      <feature.icon size={26} strokeWidth={1.6} />
+                    </span>
+                    <span className="feature-number">0{index + 1}</span>
+                  </div>
+                  <h3>{feature.title}</h3>
+                  <p>{feature.text}</p>
+                  <div className="feature-tags">
+                    {feature.tags.map((tag) => (
+                      <span key={tag}>{tag}</span>
+                    ))}
+                  </div>
+                  <div className="feature-bottom">
+                    <small>{feature.detail}</small>
+                    <ArrowUpRight size={19} />
+                  </div>
+                </S.Feature>
+              ))}
+            </S.Features>
+          </S.Container>
+        </S.Section>
+        <S.Section id="como-funciona" $soft>
+          <S.Container>
+            <LandingPreview />
+          </S.Container>
+        </S.Section>
+        <S.DemoSection>
+          <S.Container>
+            <S.DemoBand>
+              <div>
+                <S.Eyebrow>CONHEÇA NA PRÁTICA</S.Eyebrow>
+                <h2>
+                  Antes de decidir,
+                  <br />
+                  <em>experimente.</em>
+                </h2>
+                <p>
+                  Faça um pedido como cliente. Veja chegar na cozinha. Acompanhe o salão e a
+                  entrega. Conheça a GastroNexa por dentro, no seu tempo.
+                </p>
+                <S.Button as={Link} to="/demonstracao" $lime>
+                  Abrir demonstração <ArrowUpRight size={18} />
                 </S.Button>
-              </S.Plan>
-            ))}
-          </S.PlanGrid>
-        </S.Container>
-      </S.Section>
-
-      <S.Section $soft>
-        <S.Container>
-          <S.Heading>
-            <S.Eyebrow>Para quem é</S.Eyebrow>
-            <h2>Feito para operações que querem menos improviso no dia a dia.</h2>
-          </S.Heading>
-          <S.Audience>
-            {audiences.map((item) => (
-              <S.AudienceCard key={item.title}>
-                {item.icon}
-                <b>{item.title}</b>
-                <p>{item.text}</p>
-              </S.AudienceCard>
-            ))}
-          </S.Audience>
-        </S.Container>
-      </S.Section>
-
-      <S.Section>
-        <S.Container>
-          <S.Heading>
-            <S.Eyebrow>Perguntas frequentes</S.Eyebrow>
-            <h2>O que você precisa saber antes de testar.</h2>
-          </S.Heading>
-          <S.Faq>
-            <details>
-              <summary>A demonstração altera dados reais?</summary>
+                <small className="demo-note">
+                  Contas prontas e dados fictícios. É só entrar e explorar.
+                </small>
+              </div>
+              <div className="demo-journey">
+                <span className="journey-label">UM PEDIDO, UMA EQUIPE CONECTADA</span>
+                <div className="journey-step">
+                  <span>
+                    <ShoppingBag size={23} />
+                  </span>
+                  <div>
+                    <small>01 · CLIENTE</small>
+                    <b>Escolhe. Pede. Acompanha.</b>
+                  </div>
+                  <CheckCircle2 size={18} />
+                </div>
+                <div className="journey-line" />
+                <div className="journey-step">
+                  <span>
+                    <ChefHat size={23} />
+                  </span>
+                  <div>
+                    <small>02 · COZINHA</small>
+                    <b>Recebe. Prepara. Libera.</b>
+                  </div>
+                  <CheckCircle2 size={18} />
+                </div>
+                <div className="journey-line" />
+                <div className="journey-step">
+                  <span>
+                    <Truck size={23} />
+                  </span>
+                  <div>
+                    <small>03 · SALÃO E DELIVERY</small>
+                    <b>Cada pedido no seu destino.</b>
+                  </div>
+                  <ArrowRight size={18} />
+                </div>
+                <p>
+                  <HeartHandshake size={16} /> Experimente como cliente, equipe ou admin.
+                </p>
+              </div>
+            </S.DemoBand>
+          </S.Container>
+        </S.DemoSection>
+        <S.Section id="planos">
+          <S.Container>
+            <S.CenterHeading>
+              <S.Eyebrow>UM PLANO PARA O SEU MOMENTO</S.Eyebrow>
+              <h2>
+                O próximo passo
+                <br />
+                <em>começa do seu jeito.</em>
+              </h2>
               <p>
-                Não. A experiência demonstrativa usa somente dados fictícios dentro do navegador.
+                Escolha o que faz sentido para a sua operação.
+                <br />
+                Os dois planos incluem 30 dias de teste.
               </p>
-            </details>
-            <details>
-              <summary>Quais perfis consigo testar?</summary>
-              <p>
-                Cliente, administrador e os perfis de equipe: atendente, garçom, cozinha e
-                motoqueiro.
-              </p>
-            </details>
-            <details>
-              <summary>O sistema atende mesa, retirada e delivery?</summary>
-              <p>Sim. Esses fluxos fazem parte da estrutura operacional do GastroNexa.</p>
-            </details>
-            <details>
-              <summary>Posso conhecer antes de contratar?</summary>
-              <p>
-                Sim. A demonstração fica disponível para você percorrer os principais fluxos antes
-                de conversar com a equipe.
-              </p>
-            </details>
-          </S.Faq>
-        </S.Container>
-      </S.Section>
-
-      <S.Section id="contato" $soft>
-        <S.Container>
-          <S.Contact>
-            <div>
-              <S.Eyebrow>Contato comercial</S.Eyebrow>
-              <h2>Quer levar esse fluxo para o seu restaurante?</h2>
-              <p>
-                Experimente a demonstração e depois fale com a GastroNexa para entender qual plano
-                combina com a sua operação.
-              </p>
-            </div>
-            <div className="actions">
-              <S.Button href={salesHref}>
-                <MessageCircleMore size={17} /> Falar com a GastroNexa
-              </S.Button>
-              <S.Button as={Link} to="/demonstracao" $secondary>
-                Ver demonstração <ArrowRight size={16} />
-              </S.Button>
-            </div>
-          </S.Contact>
-        </S.Container>
-      </S.Section>
-
+            </S.CenterHeading>
+            <S.PlanGrid>
+              {plans.map((plan) => (
+                <S.Plan key={plan.id} $featured={plan.featured}>
+                  <div className="plan-top">
+                    <span className="plan-icon">
+                      {plan.featured ? <Sparkles size={23} /> : <Store size={23} />}
+                    </span>
+                    {plan.featured && <span className="plan-badge">OPERAÇÃO COMPLETA</span>}
+                  </div>
+                  <h3>{plan.name}</h3>
+                  <p className="description">{plan.description}</p>
+                  <div className="price">
+                    <span>R$</span>
+                    <strong>{plan.price}</strong>
+                    <small>/mês</small>
+                  </div>
+                  <span className="trial">
+                    <CheckCircle2 size={14} />
+                    30 dias de teste
+                  </span>
+                  <S.Button
+                    href="#contato"
+                    $secondary={!plan.featured}
+                    $lime={plan.featured}
+                    onClick={() => setInitialPlan(plan.id)}
+                  >
+                    Quero o {plan.name} <ArrowUpRight size={17} />
+                  </S.Button>
+                  <ul>
+                    {plan.features.map((feature) => (
+                      <li key={feature}>
+                        <Check size={16} />
+                        {feature}
+                      </li>
+                    ))}
+                  </ul>
+                </S.Plan>
+              ))}
+            </S.PlanGrid>
+            <p className="plan-help">
+              Ainda não sabe qual escolher?{' '}
+              <a href="#contato" onClick={() => setInitialPlan('UNDECIDED')}>
+                Vamos entender sua operação <ArrowRight size={14} />
+              </a>
+            </p>
+          </S.Container>
+        </S.Section>
+        <S.Section id="duvidas" $soft>
+          <S.Container>
+            <S.FaqLayout>
+              <div>
+                <S.Eyebrow>PODE PERGUNTAR</S.Eyebrow>
+                <h2>
+                  Vamos deixar
+                  <br />
+                  <em>tudo mais claro.</em>
+                </h2>
+                <p>Algumas respostas para você dar o próximo passo com tranquilidade.</p>
+                <S.TextLink href="#contato">
+                  Tenho outra dúvida <ArrowUpRight size={16} />
+                </S.TextLink>
+              </div>
+              <S.Faq>
+                {questions.map(([question, answer]) => (
+                  <details key={question}>
+                    <summary>
+                      {question}
+                      <span aria-hidden="true">+</span>
+                    </summary>
+                    <p>{answer}</p>
+                  </details>
+                ))}
+              </S.Faq>
+            </S.FaqLayout>
+          </S.Container>
+        </S.Section>
+        <S.Section id="contato">
+          <S.Container>
+            <S.ContactLayout>
+              <div className="contact-copy">
+                <S.Eyebrow>VAMOS CONVERSAR</S.Eyebrow>
+                <h2>
+                  Conte um pouco
+                  <br />
+                  do seu <em>restaurante.</em>
+                </h2>
+                <p>
+                  Queremos conhecer a sua rotina e ajudar a encontrar o plano que combina com o seu
+                  negócio.
+                </p>
+                <div className="contact-promise">
+                  <span>
+                    <MessageSquareText size={22} />
+                  </span>
+                  <div>
+                    <b>Uma conversa, sem complicação.</b>
+                    <p>
+                      Envie suas informações e nossa equipe entra em contato para tirar suas
+                      dúvidas.
+                    </p>
+                  </div>
+                </div>
+                <ul>
+                  <li>
+                    <Check size={16} /> Atendimento sobre a sua operação
+                  </li>
+                  <li>
+                    <Check size={16} /> Sem precisar de CNPJ neste primeiro contato
+                  </li>
+                  <li>
+                    <Check size={16} /> Seus dados usados para responder à solicitação
+                  </li>
+                </ul>
+                <a className="contact-demo" href="/demonstracao">
+                  Prefere explorar primeiro? Abra a demonstração <ArrowUpRight size={15} />
+                </a>
+              </div>
+              <SalesContactForm initialPlan={initialPlan} onPlanChange={setInitialPlan} />
+            </S.ContactLayout>
+          </S.Container>
+        </S.Section>
+      </main>
       <S.Footer>
-        <S.FooterInner>
-          <Brand light />
-          <span>
-            © {new Date().getFullYear()} GastroNexa. Tecnologia para operações de alimentação.
-          </span>
-        </S.FooterInner>
+        <S.Container>
+          <div className="footer-top">
+            <div>
+              <Brand light />
+              <p>
+                Tecnologia que conecta.
+                <br />
+                Cuidado que faz a diferença.
+              </p>
+            </div>
+            <div className="footer-links">
+              <a href="#recursos">Recursos</a>
+              <a href="#planos">Planos</a>
+              <Link to="/demonstracao">Demonstração</Link>
+              <a href="#contato">Contato</a>
+            </div>
+            <a className="back-top" href="#conteudo" aria-label="Voltar ao início">
+              <ArrowDown size={17} />
+            </a>
+          </div>
+          <div className="footer-bottom">
+            <span>© {new Date().getFullYear()} GastroNexa. Todos os direitos reservados.</span>
+            <span>Feito para quem serve bem.</span>
+          </div>
+        </S.Container>
       </S.Footer>
     </S.Page>
   );

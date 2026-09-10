@@ -713,8 +713,8 @@ const asaasCardCheckoutProvider: CardCheckoutProviderHandler = {
     const cpf = String(payload.customerCpf || '').replace(/\D/g, '');
     const normalizedEmail =
       String(payload.customerName || '').trim() && payload.customerCpf
-        ? `guest.card.${order.restaurantId}.${Date.now()}@pecaja.local`
-        : `guest.card.${order.restaurantId}.${Date.now()}@pecaja.local`;
+        ? `guest.card.${order.restaurantId}.${Date.now()}@gastronexa.local`
+        : `guest.card.${order.restaurantId}.${Date.now()}@gastronexa.local`;
 
     const customerResult = await fetchAsaasJson<AsaasCustomerPayload>(
       `${asaasBaseUrl}/v3/customers`,

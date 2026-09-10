@@ -196,7 +196,7 @@ const defaultHttpRequester: IngredientImageHttpRequester = (url, address) =>
         agent,
         headers: {
           Accept: 'image/jpeg,image/png,image/webp',
-          'User-Agent': 'PecaJaFood-IngredientImage/1.0',
+          'User-Agent': 'GastroNexa-IngredientImage/1.0',
         },
       },
       (response) => {

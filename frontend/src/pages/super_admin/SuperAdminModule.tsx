@@ -4,6 +4,7 @@ import {
   CreditCard,
   FileSearch,
   Headphones,
+  Inbox,
   Layers3,
   LockKeyhole,
   LogOut,
@@ -38,10 +39,12 @@ import {
   SupportPage,
 } from './pages';
 import type { SuperAdminModuleProps, SuperAdminView } from './types';
+import { SalesLeadsPage } from './pages/SalesLeadsPage';
 import * as S from './SuperAdmin.styles';
 
 const navigation = [
   ['overview', 'Visão geral', BarChart3],
+  ['sales-leads', 'Contatos comerciais', Inbox],
   ['restaurants', 'Restaurantes', Building2],
   ['subscriptions', 'Assinaturas', CreditCard],
   ['plans', 'Planos', Layers3],
@@ -53,6 +56,10 @@ const navigation = [
 ] as const;
 
 const titles: Record<SuperAdminView, [title: string, description: string]> = {
+  'sales-leads': [
+    'Contatos comerciais',
+    'Acompanhe o interesse de novos restaurantes e organize o retorno da equipe comercial.',
+  ],
   overview: [
     'Visão geral da plataforma',
     'Acompanhe restaurantes, assinaturas, cobranças e pontos que exigem atenção.',
@@ -99,6 +106,7 @@ export function SuperAdminModule({
   loadError = null,
 }: SuperAdminModuleProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [salesLeadsRevision, setSalesLeadsRevision] = useState(0);
   const [notice, setNotice] = useState<Notice>(null);
   const [selectedRestaurantId, setSelectedRestaurantId] = useState<number | null>(null);
   const [selectedPlanCode, setSelectedPlanCode] = useState<string | null>(null);
@@ -162,6 +170,8 @@ export function SuperAdminModule({
 
   const page = useMemo(() => {
     switch (currentView) {
+      case 'sales-leads':
+        return <SalesLeadsPage refreshKey={salesLeadsRevision} />;
       case 'overview':
         return <OverviewPage data={data} onSelect={(item) => setSelectedRestaurantId(item.id)} />;
       case 'restaurants':
@@ -191,7 +201,7 @@ export function SuperAdminModule({
       case 'settings':
         return <SettingsPage data={data} onSave={actions.updateSettings} />;
     }
-  }, [actions.updateSettings, currentView, data]);
+  }, [actions.updateSettings, currentView, data, salesLeadsRevision]);
 
   const primaryAction =
     currentView === 'overview' || currentView === 'restaurants'
@@ -211,7 +221,10 @@ export function SuperAdminModule({
         : {
             label: refreshing ? 'Atualizando…' : 'Atualizar dados',
             icon: <RefreshCw size={16} className={refreshing ? 'spin' : undefined} />,
-            run: () => void actions.refresh(),
+            run: () => {
+              if (currentView === 'sales-leads') setSalesLeadsRevision((value) => value + 1);
+              else void actions.refresh();
+            },
             disabled: refreshing,
           };
 
@@ -229,16 +242,14 @@ export function SuperAdminModule({
   }
 
   const [title, subtitle] = titles[currentView];
-  const brandParts = data.settings.platformName.trim().split(/\s+/);
-  const brandMark = brandParts.shift() || 'S&C';
-  const brandName = brandParts.join(' ') || 'Platform';
+  const brandName = data.settings.platformName.trim() || 'GastroNexa';
 
   return (
     <S.Root style={{ '--brand': data.settings.primaryColor || '#e9530b' } as CSSProperties}>
       <S.Sidebar ref={sidebar} $open={sidebarOpen} aria-label="Navegação do painel SUPER_ADMIN">
         <S.Brand>
           <span>
-            <b>{brandMark}</b> {brandName}
+            <img src="/gastronexa-logo.png" alt="" width="40" height="36" /> {brandName}
           </span>
           <small>PAINEL SUPER ADMIN</small>
         </S.Brand>

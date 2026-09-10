@@ -119,7 +119,7 @@ class CreateOrderService {
       throw new Error('Informe um CPF válido com 11 dígitos.');
     }
 
-    const guestEmail = `guest.${restaurantId}.${cpfDigits}@pecaja.local`;
+    const guestEmail = `guest.${restaurantId}.${cpfDigits}@gastronexa.local`;
     if (!guestPasswordHash) {
       throw new Error('Não foi possível proteger a credencial interna do cliente convidado.');
     }

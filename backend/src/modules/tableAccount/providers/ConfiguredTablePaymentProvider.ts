@@ -95,11 +95,15 @@ type MercadoPagoSearchPayload = {
 };
 
 function normalizeProvider(value: unknown) {
-  return String(value || '').trim().toUpperCase();
+  return String(value || '')
+    .trim()
+    .toUpperCase();
 }
 
 function providerStatus(value: unknown): ProviderPayment['status'] {
-  const status = String(value || '').trim().toUpperCase();
+  const status = String(value || '')
+    .trim()
+    .toUpperCase();
   if (PAID_STATUSES.has(status)) return 'PAID';
   if (REFUNDED_STATUSES.has(status)) return 'REFUNDED';
   if (EXPIRED_STATUSES.has(status)) return 'EXPIRED';
@@ -118,7 +122,9 @@ function centsToMajor(cents: number) {
 function matchesAmount(value: unknown, expectedCents: number, minor = false) {
   const amount = Number(value);
   if (!Number.isFinite(amount)) return false;
-  return (minor ? Math.round(amount) : Math.round((amount + Number.EPSILON) * 100)) === expectedCents;
+  return (
+    (minor ? Math.round(amount) : Math.round((amount + Number.EPSILON) * 100)) === expectedCents
+  );
 }
 
 function tableCardReference(context: ConfiguredTablePaymentProviderContext) {
@@ -174,9 +180,9 @@ export async function getConfiguredTablePaymentReadiness(
   return {
     allowPix: Boolean(
       settings.acceptsPix &&
-        String(settings.pixKey || '').trim() &&
-        pixProvider &&
-        credentialReady(settings, pixProvider, 'PIX'),
+      String(settings.pixKey || '').trim() &&
+      pixProvider &&
+      credentialReady(settings, pixProvider, 'PIX'),
     ),
     allowCard: Boolean(
       settings.acceptsCard && cardProvider && credentialReady(settings, cardProvider, 'CARD'),
@@ -201,7 +207,7 @@ async function readIdentity(
     name: name || 'Cliente da mesa',
     email: email.includes('@')
       ? email
-      : `guest.table.${context.restaurantId}.${context.participantId}@pecaja.local`,
+      : `guest.table.${context.restaurantId}.${context.participantId}@gastronexa.local`,
     cpf: String(user?.cpf || '').replace(/\D/g, ''),
     phone: String(user?.phone || context.participantPhone || '').replace(/\D/g, ''),
   };
@@ -351,7 +357,12 @@ async function getMercadoPagoCard(
   };
 }
 
-async function getAsaasCard(externalId: string, amountCents: number, expiresAt: Date, restaurantId: number) {
+async function getAsaasCard(
+  externalId: string,
+  amountCents: number,
+  expiresAt: Date,
+  restaurantId: number,
+) {
   const settings = await settingsFor(restaurantId);
   const token = String(settings.asaasAccessToken || '').trim();
   const paymentId = externalId.replace(/^asaas_pay:/, '');
@@ -471,7 +482,13 @@ export class ConfiguredTablePaymentProvider implements PaymentProvider {
     });
     if (!intent) throw new Error('Pagamento da mesa não encontrado para consulta no provedor.');
     const amountCents = Number(intent.totalCents);
-    const directPayment = await getDirectTablePayment({ ...this.context, provider: this.code, externalId, amountCents, expiresAt: intent.expiresAt });
+    const directPayment = await getDirectTablePayment({
+      ...this.context,
+      provider: this.code,
+      externalId,
+      amountCents,
+      expiresAt: intent.expiresAt,
+    });
     if (directPayment) return directPayment;
 
     if (this.context.method === 'PIX') {
@@ -512,13 +529,28 @@ export class ConfiguredTablePaymentProvider implements PaymentProvider {
   }
 
   private async mutatePayment(input: ProviderMutationInput, operation: 'cancel' | 'refund') {
-    const intent = await prisma.tablePaymentIntent.findFirst({ where: {
-      id: this.context.intentId, publicId: this.context.intentPublicId, restaurantId: this.context.restaurantId,
-      provider: this.code, providerExternalId: input.externalId,
-    }, select: { totalCents: true, expiresAt: true } });
+    const intent = await prisma.tablePaymentIntent.findFirst({
+      where: {
+        id: this.context.intentId,
+        publicId: this.context.intentPublicId,
+        restaurantId: this.context.restaurantId,
+        provider: this.code,
+        providerExternalId: input.externalId,
+      },
+      select: { totalCents: true, expiresAt: true },
+    });
     if (!intent) throw new Error('Pagamento não encontrado neste restaurante.');
-    return mutateDirectTablePayment({ ...this.context, provider: this.code, externalId: input.externalId,
-      amountCents: Number(intent.totalCents), expiresAt: intent.expiresAt }, operation, input);
+    return mutateDirectTablePayment(
+      {
+        ...this.context,
+        provider: this.code,
+        externalId: input.externalId,
+        amountCents: Number(intent.totalCents),
+        expiresAt: intent.expiresAt,
+      },
+      operation,
+      input,
+    );
   }
 
   async cancelPayment(input: ProviderMutationInput): Promise<ProviderPayment> {
@@ -545,7 +577,9 @@ export async function createConfiguredTablePaymentProvider(
     return new ConfiguredTablePaymentProvider(context, readiness.pixProvider);
   }
   if (!readiness.allowCard || !readiness.cardProvider) {
-    throw new Error('Cartão online não está configurado no painel de Pagamentos deste restaurante.');
+    throw new Error(
+      'Cartão online não está configurado no painel de Pagamentos deste restaurante.',
+    );
   }
   return new ConfiguredTablePaymentProvider(context, readiness.cardProvider);
 }
@@ -555,7 +589,8 @@ export function createConfiguredTablePaymentProviderForExisting(
   provider: string,
 ): PaymentProvider {
   const normalized = normalizeProvider(provider);
-  const supported = context.method === 'PIX' ? SUPPORTED_PIX.has(normalized) : SUPPORTED_CARD.has(normalized);
+  const supported =
+    context.method === 'PIX' ? SUPPORTED_PIX.has(normalized) : SUPPORTED_CARD.has(normalized);
   if (!supported) throw new Error('Provedor deste pagamento da mesa não é suportado.');
   return new ConfiguredTablePaymentProvider(context, normalized as PixProvider | CardProvider);
 }

@@ -154,7 +154,7 @@ export default function BrowserTabBranding() {
       }
 
       if (location.pathname.startsWith('/super_admin')) {
-        applyRestaurantBrowserBranding(document, 'Peça Já', 'RESTAURANTE');
+        applyRestaurantBrowserBranding(document, 'GastroNexa', 'RESTAURANTE');
         return;
       }
 

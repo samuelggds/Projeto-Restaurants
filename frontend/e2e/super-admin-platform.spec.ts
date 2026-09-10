@@ -2,6 +2,78 @@ import { expect, test, type Page } from '@playwright/test';
 
 type DashboardState = ReturnType<typeof createDashboard>;
 
+test('contatos comerciais têm filtros, paginação e atualização de status no painel', async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await mockSuperAdminApi(page, createDashboard(), []);
+  const lead = {
+    id: '45bd27cb-9b6c-433d-a36c-fcf206f9e4d4',
+    name: 'Joana Silva',
+    restaurantName: 'Bistrô Teste',
+    email: 'joana@example.test',
+    phone: '11999998888',
+    city: 'São Paulo',
+    state: 'SP',
+    businessType: 'Restaurante',
+    channels: ['DELIVERY'],
+    planInterest: 'PREMIUM',
+    message: '<script>texto de teste</script>',
+    consent: true,
+    status: 'NEW',
+    emailStatus: 'PENDING',
+    emailSentAt: null,
+    createdAt: '2026-09-10T12:00:00.000Z',
+    updatedAt: '2026-09-10T12:00:00.000Z',
+  };
+  const queries: string[] = [];
+  await page.route('**/super-admin/sales-leads**', async (route) => {
+    const url = new URL(route.request().url());
+    if (route.request().method() === 'PATCH') {
+      expect(route.request().postDataJSON()).toEqual({ status: 'CONTACTED' });
+      lead.status = 'CONTACTED';
+      return route.fulfill({ json: lead });
+    }
+    queries.push(url.search);
+    return route.fulfill({
+      json: {
+        items: [
+          {
+            ...lead,
+            restaurantName:
+              url.searchParams.get('page') === '2' ? 'Segundo Bistrô' : lead.restaurantName,
+          },
+        ],
+        total: 21,
+        page: Number(url.searchParams.get('page')),
+        pageSize: 20,
+        emailConfigured: false,
+      },
+    });
+  });
+  await page.goto('/super_admin/sales-leads');
+  await expect(page.getByRole('heading', { name: 'Caixa de entrada comercial' })).toBeVisible();
+  await expect(page.getByText('O aviso por e-mail não está configurado.')).toBeVisible();
+  await page.getByRole('button', { name: 'Próxima', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Segundo Bistrô' })).toBeVisible();
+  await page.getByLabel('Buscar contatos').fill('Joana');
+  await page.getByLabel('Filtrar por status').selectOption('NEW');
+  await page.getByRole('button', { name: 'Aplicar filtros' }).click();
+  await expect(page.getByRole('heading', { name: 'Bistrô Teste' })).toBeVisible();
+  expect(queries.at(-1)).toContain('page=1');
+  expect(queries.at(-1)).toContain('q=Joana');
+  expect(queries.at(-1)).toContain('status=NEW');
+  await page.getByRole('button', { name: 'Ver contato de Bistrô Teste' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Contato comercial' });
+  await expect(dialog).toContainText('<script>texto de teste</script>');
+  await dialog.getByLabel('Status do contato').selectOption('CONTACTED');
+  await dialog.getByRole('button', { name: 'Salvar status' }).click();
+  await expect(dialog.getByRole('status')).toContainText('Status atualizado.');
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await page.keyboard.press('Escape');
+  await expect(dialog).toBeHidden();
+});
+
 function createDashboard() {
   const now = '2026-08-28T10:00:00.000Z';
   return {
@@ -135,9 +207,9 @@ function createDashboard() {
       },
     ],
     settings: {
-      platformName: 'Peça Já Platform',
-      platformDomain: 'app.pecaja.test',
-      supportEmail: 'suporte@pecaja.test',
+      platformName: 'GastroNexa Platform',
+      platformDomain: 'app.gastronexa.test',
+      supportEmail: 'suporte@gastronexa.test',
       primaryColor: '#E9530B',
       locale: 'pt-BR',
       currency: 'BRL',
@@ -223,7 +295,7 @@ async function mockSuperAdminApi(
           user: {
             id: 1,
             name: 'Super Admin',
-            email: 'dev@pecaja.test',
+            email: 'dev@gastronexa.test',
             role: 'SUPER_ADMIN',
           },
         }),
@@ -304,7 +376,7 @@ async function mockSuperAdminApi(
       JSON.stringify({
         id: 1,
         name: 'Super Admin',
-        email: 'dev@pecaja.test',
+        email: 'dev@gastronexa.test',
         role: 'SUPER_ADMIN',
       }),
     );
@@ -329,26 +401,26 @@ test('SUPER_ADMIN navega por links profundos e salva configurações versionadas
   await expect(page.getByRole('heading', { name: 'Configurações da plataforma' })).toBeVisible();
 
   const platformName = page.getByLabel('Nome da plataforma');
-  await platformName.fill('Peça Já Cloud');
+  await platformName.fill('GastroNexa Cloud');
   await page.getByRole('button', { name: 'Salvar alterações' }).click();
 
   await expect
     .poll(() => writes)
     .toContainEqual({
       path: '/super-admin/settings',
-      body: expect.objectContaining({ platformName: 'Peça Já Cloud', version: 1 }),
+      body: expect.objectContaining({ platformName: 'GastroNexa Cloud', version: 1 }),
     });
   expect(writes[0].body).not.toHaveProperty('updatedAt');
-  await expect(platformName).toHaveValue('Peça Já Cloud');
+  await expect(platformName).toHaveValue('GastroNexa Cloud');
   await expect(page.getByText('Configurações salvas e aplicadas pelo backend.')).toBeVisible();
 
-  await page.getByLabel('E-mail de suporte').fill('atendimento@pecaja.test');
+  await page.getByLabel('E-mail de suporte').fill('atendimento@gastronexa.test');
   await page.getByRole('button', { name: 'Salvar alterações' }).click();
   await expect.poll(() => writes.length).toBe(2);
   expect(writes[1]).toEqual({
     path: '/super-admin/settings',
     body: expect.objectContaining({
-      supportEmail: 'atendimento@pecaja.test',
+      supportEmail: 'atendimento@gastronexa.test',
       version: 2,
     }),
   });

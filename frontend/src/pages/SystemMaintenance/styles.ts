@@ -1,8 +1,8 @@
 import styled from 'styled-components';
 
 export const Page = styled.main`
-  --accent: #e45118;
-  --ink: #17272c;
+  --accent: #233f32;
+  --ink: #233f32;
   --muted: #617077;
   position: relative;
   isolation: isolate;
@@ -37,6 +37,10 @@ export const Header = styled.header`
 `;
 
 export const BrandMark = styled.span`
+  img {
+    object-fit: contain;
+    mix-blend-mode: multiply;
+  }
   width: 42px;
   height: 42px;
   display: grid;
@@ -44,7 +48,7 @@ export const BrandMark = styled.span`
   flex: 0 0 auto;
   border-radius: 8px;
   color: #fff;
-  background: var(--ink);
+  background: transparent;
   font:
     700 17px Georgia,
     serif;

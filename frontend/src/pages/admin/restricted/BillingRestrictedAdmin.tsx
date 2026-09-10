@@ -65,9 +65,17 @@ export default function BillingRestrictedAdmin() {
     <S.Root>
       <S.Sidebar>
         <S.Brand>
-          <span>S&C</span>
+          <span style={{ background: '#fff' }}>
+            <img
+              src="/gastronexa-logo.png"
+              alt=""
+              width="36"
+              height="32"
+              style={{ objectFit: 'contain' }}
+            />
+          </span>
           <div>
-            <strong>Restaurante</strong>
+            <strong>GastroNexa</strong>
             <small>PAINEL ADMINISTRATIVO</small>
           </div>
         </S.Brand>

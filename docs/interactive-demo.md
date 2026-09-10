@@ -44,7 +44,7 @@ O cenário reproduz os fluxos de pedido descritos acima. Não constitui teste de
 
 - Suíte completa do frontend: 954 testes aprovados antes dos últimos ajustes de carregamento e persistência; esses ajustes receberam regressão focada adicional.
 - Jornadas de navegador: três tipos de pedido, código de entrega e recebimento, separação por função, sincronização entre abas, salvamento do admin, isolamento de API e visual móvel.
-- Os 22 testes de navegador das quatro áreas reais dos funcionários também passaram com os componentes compartilhados.
+- Validação final: 67 testes de navegador aprovados, abrangendo a demonstração, áreas reais dos funcionários, administrador, superadministrador, perfil, login, Home e QR. Mais 52 testes focados dos componentes e da lógica da demonstração passaram; esses números não devem ser somados à suíte anterior.
 - Regressão do recolhimento dos menus e do fluxo QR: seis testes de navegador aprovados; registros em artifacts/layout-regression-browser.log.
 - Logs em artifacts/demo-*.log; imagens em artifacts/demo-screenshots/. Galeria: artifacts/demo-review.html.
 - Os testes da demonstração foram incluídos no comando test:e2e:critical para execução no CI.

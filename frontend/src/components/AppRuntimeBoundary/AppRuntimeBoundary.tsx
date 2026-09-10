@@ -12,13 +12,14 @@ type AppRuntimeBoundaryState = {
 
 const shellStyle = {
   alignItems: 'center',
-  background: '#f8fafc',
-  color: '#1f2937',
+  background: '#faf9f5',
+  color: '#233f32',
   display: 'flex',
   fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif",
   justifyContent: 'center',
   minHeight: '100vh',
   padding: '24px',
+  boxSizing: 'border-box',
 } as const;
 
 const cardStyle = {
@@ -30,10 +31,11 @@ const cardStyle = {
   padding: '30px',
   textAlign: 'center',
   width: '100%',
+  boxSizing: 'border-box',
 } as const;
 
 const buttonStyle = {
-  background: '#d45b3a',
+  background: '#233f32',
   border: 0,
   borderRadius: '12px',
   color: '#ffffff',
@@ -81,9 +83,25 @@ export default class AppRuntimeBoundary extends Component<
     return (
       <main style={shellStyle} role="alert" aria-live="assertive">
         <section style={cardStyle}>
-          <p style={{ color: '#d45b3a', fontSize: '13px', fontWeight: 800, marginBottom: '8px' }}>
-            PEÇA JÁ
-          </p>
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '10px',
+              marginBottom: '24px',
+              fontWeight: 800,
+            }}
+          >
+            <img
+              src="/gastronexa-logo.png"
+              alt=""
+              width="42"
+              height="38"
+              style={{ objectFit: 'contain' }}
+            />
+            GastroNexa
+          </div>
           <h1 style={{ fontSize: 'clamp(24px, 5vw, 32px)', lineHeight: 1.15 }}>{title}</h1>
           <p style={{ color: '#64748b', lineHeight: 1.6, marginTop: '12px' }}>{description}</p>
           {!this.state.reconnecting && (

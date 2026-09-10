@@ -103,7 +103,11 @@ function buildRuntimeDatabaseUrl(ownerUrl) {
   return runtimeUrl.toString();
 }
 
-async function collectE2ETests({ rlsOnly = false, scaleOnly = false } = {}) {
+async function collectE2ETests({
+  rlsOnly = false,
+  scaleOnly = false,
+  salesLeadsOnly = false,
+} = {}) {
   const directory = path.resolve(backendRoot, 'src/e2e/multiTenant');
   const entries = await readdir(directory, { withFileTypes: true });
   return entries
@@ -111,6 +115,7 @@ async function collectE2ETests({ rlsOnly = false, scaleOnly = false } = {}) {
       (entry) =>
         entry.isFile() &&
         entry.name.endsWith('.e2e.ts') &&
+        (!salesLeadsOnly || entry.name === 'salesLeads.e2e.ts') &&
         (!scaleOnly || entry.name === 'runtimeScale.e2e.ts') &&
         (rlsOnly ? entry.name.endsWith('.rls.e2e.ts') : !entry.name.endsWith('.rls.e2e.ts')),
     )
@@ -148,12 +153,16 @@ async function cleanup() {
 }
 
 async function verifyDisposableRestore(ownerDatabaseUrl, testEnv) {
-  if (!ownsDockerContainer) throw new Error('O ensaio de restauração exige o container descartável criado por este script.');
+  if (!ownsDockerContainer)
+    throw new Error(
+      'O ensaio de restauração exige o container descartável criado por este script.',
+    );
   const { PrismaClient } = await import('@prisma/client');
   const snapshot = async (url) => {
     const client = new PrismaClient({ datasourceUrl: url });
     try {
-      const names = await client.$queryRaw`SELECT tablename FROM pg_tables WHERE schemaname = 'public' ORDER BY tablename`;
+      const names =
+        await client.$queryRaw`SELECT tablename FROM pg_tables WHERE schemaname = 'public' ORDER BY tablename`;
       const tables = [];
       for (const { tablename } of names) {
         const identifier = '"' + tablename.replaceAll('"', '""') + '"';
@@ -164,37 +173,100 @@ async function verifyDisposableRestore(ownerDatabaseUrl, testEnv) {
       }
       const foreignKeys = await client.$queryRaw`SELECT conname, convalidated FROM pg_constraint
         WHERE contype = 'f' AND connamespace = 'public'::regnamespace ORDER BY conname`;
-      const policies = await client.$queryRaw`SELECT tablename, policyname, permissive, roles::text, cmd, qual, with_check
+      const policies =
+        await client.$queryRaw`SELECT tablename, policyname, permissive, roles::text, cmd, qual, with_check
         FROM pg_policies WHERE schemaname = 'public' ORDER BY tablename, policyname`;
       return { tables, foreignKeys, policies };
-    } finally { await client.$disconnect(); }
+    } finally {
+      await client.$disconnect();
+    }
   };
   const before = await snapshot(ownerDatabaseUrl);
-  await run('docker', ['exec', dockerContainerName, 'pg_dump', '-U', postgresUser, '-d', postgresDatabase, '-Fc', '-f', '/tmp/tenant-restore.dump'], { capture: true });
-  await run('docker', ['exec', dockerContainerName, 'createdb', '-U', postgresUser, 'tenant_restore_e2e'], { capture: true });
-  await run('docker', ['exec', dockerContainerName, 'pg_restore', '-U', postgresUser, '-d', 'tenant_restore_e2e', '--no-owner', '--no-privileges', '--exit-on-error', '/tmp/tenant-restore.dump'], { capture: true });
+  await run(
+    'docker',
+    [
+      'exec',
+      dockerContainerName,
+      'pg_dump',
+      '-U',
+      postgresUser,
+      '-d',
+      postgresDatabase,
+      '-Fc',
+      '-f',
+      '/tmp/tenant-restore.dump',
+    ],
+    { capture: true },
+  );
+  await run(
+    'docker',
+    ['exec', dockerContainerName, 'createdb', '-U', postgresUser, 'tenant_restore_e2e'],
+    { capture: true },
+  );
+  await run(
+    'docker',
+    [
+      'exec',
+      dockerContainerName,
+      'pg_restore',
+      '-U',
+      postgresUser,
+      '-d',
+      'tenant_restore_e2e',
+      '--no-owner',
+      '--no-privileges',
+      '--exit-on-error',
+      '/tmp/tenant-restore.dump',
+    ],
+    { capture: true },
+  );
   const restoredUrl = new URL(ownerDatabaseUrl);
   restoredUrl.pathname = '/tenant_restore_e2e';
   const after = await snapshot(restoredUrl.toString());
-  if (JSON.stringify(before) !== JSON.stringify(after)) throw new Error('A restauração divergiu do conteúdo, constraints ou policies originais.');
+  if (JSON.stringify(before) !== JSON.stringify(after))
+    throw new Error('A restauração divergiu do conteúdo, constraints ou policies originais.');
   const restoredRuntimeUrl = buildRuntimeDatabaseUrl(restoredUrl.toString());
   await run(process.execPath, [path.resolve(backendRoot, 'scripts/provisionRuntimeRole.mjs')], {
-    env: { ...testEnv, DATABASE_URL: restoredUrl.toString(), DIRECT_URL: restoredUrl.toString(), RUNTIME_DATABASE_URL: restoredRuntimeUrl },
+    env: {
+      ...testEnv,
+      DATABASE_URL: restoredUrl.toString(),
+      DIRECT_URL: restoredUrl.toString(),
+      RUNTIME_DATABASE_URL: restoredRuntimeUrl,
+    },
   });
   const restoredRuntime = new PrismaClient({ datasourceUrl: restoredRuntimeUrl });
   try {
-    const [role] = await restoredRuntime.$queryRaw`SELECT rolsuper, rolbypassrls FROM pg_roles WHERE rolname = current_user`;
+    const [role] =
+      await restoredRuntime.$queryRaw`SELECT rolsuper, rolbypassrls FROM pg_roles WHERE rolname = current_user`;
     if (role.rolsuper || role.rolbypassrls) throw new Error('Role restaurada contorna RLS.');
-    const [pilot] = await restoredRuntime.$queryRaw`SELECT COUNT(*)::integer AS count FROM "OrderIssueThread"`;
+    const [pilot] =
+      await restoredRuntime.$queryRaw`SELECT COUNT(*)::integer AS count FROM "OrderIssueThread"`;
     if (pilot.count !== 0) throw new Error('RLS restaurada expôs dados sem contexto de tenant.');
-  } finally { await restoredRuntime.$disconnect(); }
-  const report = { timestamp: new Date().toISOString(), passed: true,
+  } finally {
+    await restoredRuntime.$disconnect();
+  }
+  const report = {
+    timestamp: new Date().toISOString(),
+    passed: true,
     environment: 'PostgreSQL descartável; segunda base vazia no mesmo container',
-    tables: before.tables.length, rows: before.tables.reduce((sum, row) => sum + row.count, 0),
-    foreignKeys: before.foreignKeys.length, policies: before.policies.length,
-    checks: ['contagem e digest de todas as linhas', 'foreign keys validadas', 'policies preservadas', 'role runtime reprovisionada sem bypass', 'RLS bloqueia leitura sem contexto'],
-    limitations: 'Não restaura um backup de produção, storage remoto ou chaves externas. RPO/RTO de produção ainda exigem ensaio no ambiente contratado.' };
-  await writeFile(path.resolve(backendRoot, '../artifacts/restore-drill-result.json'), JSON.stringify(report, null, 2) + '\n');
+    tables: before.tables.length,
+    rows: before.tables.reduce((sum, row) => sum + row.count, 0),
+    foreignKeys: before.foreignKeys.length,
+    policies: before.policies.length,
+    checks: [
+      'contagem e digest de todas as linhas',
+      'foreign keys validadas',
+      'policies preservadas',
+      'role runtime reprovisionada sem bypass',
+      'RLS bloqueia leitura sem contexto',
+    ],
+    limitations:
+      'Não restaura um backup de produção, storage remoto ou chaves externas. RPO/RTO de produção ainda exigem ensaio no ambiente contratado.',
+  };
+  await writeFile(
+    path.resolve(backendRoot, '../artifacts/restore-drill-result.json'),
+    JSON.stringify(report, null, 2) + '\n',
+  );
   console.log('RESTORE_DRILL', JSON.stringify(report));
 }
 
@@ -207,7 +279,8 @@ async function main() {
   );
   const rlsOnly = process.argv.includes('--rls-only');
   const scaleOnly = process.argv.includes('--scale');
-  const testFiles = await collectE2ETests({ rlsOnly, scaleOnly });
+  const salesLeadsOnly = process.argv.includes('--sales-leads-only');
+  const testFiles = await collectE2ETests({ rlsOnly, scaleOnly, salesLeadsOnly });
   if (!testFiles.length) throw new Error('Nenhum arquivo .e2e.ts multi-tenant foi encontrado.');
 
   const testEnv = {
@@ -254,7 +327,8 @@ async function main() {
   await run(process.execPath, [runner, '--test', '--test-concurrency=1', ...testFiles], {
     env: testEnv,
   });
-  if (process.argv.includes('--restore-check')) await verifyDisposableRestore(safeOwnerDatabase.url, testEnv);
+  if (process.argv.includes('--restore-check'))
+    await verifyDisposableRestore(safeOwnerDatabase.url, testEnv);
 }
 
 try {

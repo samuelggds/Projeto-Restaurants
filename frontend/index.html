@@ -2,7 +2,7 @@
 <html lang="pt-BR">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="icon" type="image/png" href="/gastronexa-logo.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta
       name="description"
@@ -19,15 +19,19 @@
   <body>
     <div id="root">
       <main class="app-bootstrap" aria-busy="true" aria-live="polite">
-        <span>Carregando aplicação…</span>
+        <img src="/gastronexa-logo.png" width="56" height="49" alt="GastroNexa" />
+        <span>Carregando GastroNexa…</span>
       </main>
     </div>
     <style>
       .app-bootstrap {
         align-items: center;
-        background: #f8fafc;
+        background: #faf9f5;
         color: #475569;
         display: flex;
+        flex-direction: column;
+        gap: 16px;
+        box-sizing: border-box;
         font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
         justify-content: center;
         min-height: 100vh;

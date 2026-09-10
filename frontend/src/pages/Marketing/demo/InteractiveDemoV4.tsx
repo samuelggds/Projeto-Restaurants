@@ -9,6 +9,9 @@ import {
   Mail,
   RefreshCw,
   ShoppingBag,
+  ChefHat,
+  Bike,
+  ShieldCheck,
   Users,
 } from 'lucide-react';
 import { lazy, useEffect, useState, type FormEvent, type ReactNode } from 'react';
@@ -173,19 +176,31 @@ function PortalSelection({
   return (
     <S.PortalPage>
       <S.PortalHero>
-        <span className="eyebrow">Restaurante demonstração GastroNexa</span>
+        <span className="eyebrow">CONHEÇA A GASTRONEXA NA PRÁTICA</span>
         <h1>
-          Escolha uma área e <span>experimente o produto.</span>
+          Um restaurante inteiro.
+          <br />
+          <span>Pronto para você explorar.</span>
         </h1>
         <p>
-          As contas já estão prontas. Faça login, movimente pedidos e veja o mesmo cenário pelas
-          diferentes telas do restaurante.
+          Escolha por onde começar. Faça um pedido como cliente e acompanhe cada etapa pela visão da
+          equipe. As contas já estão preparadas para você.
         </p>
+        <small className="demo-note">Dados fictícios · Pedidos e pagamentos simulados</small>
       </S.PortalHero>
       <S.PortalGrid>
         {cards.map((card) => (
-          <S.PortalCard key={card.id}>
-            <span className="icon">{card.icon}</span>
+          <S.PortalCard key={card.id} data-portal={card.id}>
+            <div className="card-top">
+              <span className="icon">{card.icon}</span>
+              <span className="area-label">
+                {card.id === 'customer'
+                  ? '01 · A experiência'
+                  : card.id === 'staff'
+                    ? '02 · A operação'
+                    : '03 · A gestão'}
+              </span>
+            </div>
             <h2>{card.title}</h2>
             <p>{card.text}</p>
             <ul>
@@ -196,17 +211,43 @@ function PortalSelection({
                 </li>
               ))}
             </ul>
-            <S.PrimaryButton type="button" onClick={() => onOpen(card.id)}>
-              Entrar nesta área <ArrowRight size={15} />
-            </S.PrimaryButton>
-            {card.id === 'customer' && (
-              <S.SoftButton type="button" onClick={() => onOpen('customer', 'QR')}>
-                Cardápio da mesa (QR Code)
-              </S.SoftButton>
-            )}
+            <div className="portal-actions">
+              <S.PrimaryButton type="button" onClick={() => onOpen(card.id)}>
+                Entrar nesta área <ArrowRight size={15} />
+              </S.PrimaryButton>
+              {card.id === 'customer' && (
+                <S.SoftButton type="button" onClick={() => onOpen('customer', 'QR')}>
+                  Cardápio da mesa (QR Code)
+                </S.SoftButton>
+              )}
+            </div>
           </S.PortalCard>
         ))}
       </S.PortalGrid>
+      <S.PortalJourney aria-label="Como experimentar a demonstração">
+        <div className="journey-copy">
+          <b>Experimente o caminho de um pedido</b>
+          <p>Troque de perfil pelo menu Demonstração para acompanhar o mesmo cenário.</p>
+        </div>
+        <ol>
+          <li>
+            <ShoppingBag size={18} />
+            <span>Faça o pedido</span>
+          </li>
+          <li>
+            <ChefHat size={18} />
+            <span>Prepare na cozinha</span>
+          </li>
+          <li>
+            <Bike size={18} />
+            <span>Entregue ou sirva</span>
+          </li>
+        </ol>
+      </S.PortalJourney>
+      <p className="safe-note">
+        <ShieldCheck size={16} aria-hidden="true" /> Produtos, contas e pagamentos fictícios. Você
+        pode reiniciar o cenário quando quiser.
+      </p>
     </S.PortalPage>
   );
 }
@@ -512,10 +553,15 @@ export default function InteractiveDemoV4() {
         <DemoAttendant state={state} onState={setState} onLogout={logout} />
       )}
       {screen === 'workspace' && account?.role === 'ADMIN' && (
-        <DemoAdmin state={state} onState={setState} onLogout={logout} onViewStore={() => {
-          setCustomerView('HOME');
-          setState(selectDemoAccount(state, 'demo-cliente'));
-        }} />
+        <DemoAdmin
+          state={state}
+          onState={setState}
+          onLogout={logout}
+          onViewStore={() => {
+            setCustomerView('HOME');
+            setState(selectDemoAccount(state, 'demo-cliente'));
+          }}
+        />
       )}
       {screen === 'workspace' && account ? (
         <DemoControls
@@ -533,11 +579,11 @@ export default function InteractiveDemoV4() {
           onReset={reset}
           onExit={logout}
         />
-      ) : (
+      ) : screen === 'login' ? (
         <S.DemoRibbon>
           Ambiente demonstrativo · dados fictícios armazenados somente neste navegador
         </S.DemoRibbon>
-      )}
+      ) : null}
     </S.Root>
   );
 }

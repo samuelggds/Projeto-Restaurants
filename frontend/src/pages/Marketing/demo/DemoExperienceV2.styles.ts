@@ -1,21 +1,18 @@
 import styled from 'styled-components';
 
 export const Root = styled.div`
-  --demo-primary: #d64d08;
-  --demo-primary-dark: #a83a06;
-  --demo-bg: #f6f7f4;
+  --demo-primary: #233f32;
+  --demo-primary-dark: #192f25;
+  --demo-bg: #faf9f5;
   --demo-surface: #fff;
-  --demo-border: #e4ddd5;
-  --demo-text: #191816;
-  --demo-muted: #716d68;
+  --demo-border: #dce1d5;
+  --demo-text: #233f32;
+  --demo-muted: #667062;
   min-height: 100vh;
   min-height: 100dvh;
   color: var(--demo-text);
-  background:
-    linear-gradient(rgba(60, 48, 40, 0.026) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(60, 48, 40, 0.026) 1px, transparent 1px), var(--demo-bg);
-  background-size: 32px 32px;
-  font-family: 'DM Sans', Inter, system-ui, sans-serif;
+  background: var(--demo-bg);
+  font-family: 'Manrope', Inter, system-ui, sans-serif;
   *,
   *::before,
   *::after {
@@ -26,13 +23,17 @@ export const Root = styled.div`
   select {
     font: inherit;
   }
+  :focus-visible {
+    outline: 3px solid #7c9769;
+    outline-offset: 4px;
+  }
 `;
 
 export const DemoTopbar = styled.header`
   position: sticky;
   top: 0;
   z-index: 90;
-  min-height: 64px;
+  min-height: 80px;
   border-bottom: 1px solid rgba(228, 221, 213, 0.9);
   display: flex;
   align-items: center;
@@ -70,8 +71,8 @@ export const BrandButton = styled.button`
   }
   b {
     display: block;
-    font-family: 'Sora', sans-serif;
-    font-size: 14px;
+    font-family: 'Manrope', sans-serif;
+    font-size: 17px;
   }
   small {
     display: block;
@@ -90,13 +91,18 @@ export const TopActions = styled.div`
   gap: 8px;
   @media (max-width: 580px) {
     .wide-label {
-      display: none;
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      clip-path: inset(50%);
+      overflow: hidden;
+      white-space: nowrap;
     }
   }
 `;
 
 export const SoftButton = styled.button`
-  min-height: 38px;
+  min-height: 44px;
   padding: 0 13px;
   border: 1px solid var(--demo-border);
   border-radius: 7px;
@@ -126,7 +132,7 @@ export const PrimaryButton = styled.button`
   gap: 7px;
   color: #fff;
   background: var(--demo-primary);
-  box-shadow: 0 8px 18px rgba(214, 77, 8, 0.18);
+  box-shadow: none;
   cursor: pointer;
   font-size: 12px;
   font-weight: 850;
@@ -139,108 +145,7 @@ export const PrimaryButton = styled.button`
   }
 `;
 
-export const PortalPage = styled.main`
-  width: min(1180px, calc(100% - 28px));
-  margin: 0 auto;
-  padding: 48px 0 72px;
-`;
-
-export const PortalHero = styled.section`
-  max-width: 850px;
-  margin: 0 auto 34px;
-  text-align: center;
-  .eyebrow {
-    display: inline-flex;
-    align-items: center;
-    gap: 7px;
-    color: #9b3c0e;
-    font-size: 10px;
-    font-weight: 850;
-    text-transform: uppercase;
-    letter-spacing: 0.09em;
-  }
-  h1 {
-    margin: 13px 0 0;
-    font-family: 'Sora', sans-serif;
-    font-size: clamp(34px, 6vw, 58px);
-    line-height: 1.04;
-    letter-spacing: -0.055em;
-  }
-  h1 span {
-    color: var(--demo-primary);
-  }
-  p {
-    max-width: 720px;
-    margin: 17px auto 0;
-    color: var(--demo-muted);
-    font-size: 15px;
-    line-height: 1.65;
-  }
-`;
-
-export const PortalGrid = styled.div`
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 14px;
-  @media (max-width: 850px) {
-    grid-template-columns: 1fr;
-    max-width: 620px;
-    margin: 0 auto;
-  }
-`;
-
-export const PortalCard = styled.article`
-  position: relative;
-  min-height: 310px;
-  padding: 25px;
-  border: 1px solid var(--demo-border);
-  border-radius: 10px;
-  display: flex;
-  flex-direction: column;
-  background: #fff;
-  box-shadow: 0 10px 28px rgba(51, 35, 22, 0.05);
-  .icon {
-    width: 46px;
-    height: 46px;
-    border-radius: 8px;
-    display: grid;
-    place-items: center;
-    color: var(--demo-primary);
-    background: #fff0e8;
-  }
-  h2 {
-    margin: 20px 0 7px;
-    font-family: 'Sora', sans-serif;
-    font-size: 22px;
-    letter-spacing: -0.035em;
-  }
-  p {
-    margin: 0;
-    color: var(--demo-muted);
-    font-size: 13px;
-    line-height: 1.55;
-  }
-  ul {
-    margin: 18px 0 22px;
-    padding: 0;
-    list-style: none;
-    display: grid;
-    gap: 8px;
-    color: #514a45;
-    font-size: 11px;
-  }
-  li {
-    display: flex;
-    align-items: center;
-    gap: 7px;
-  }
-  li svg {
-    color: #287139;
-  }
-  button {
-    margin-top: auto;
-  }
-`;
+export { PortalPage, PortalHero, PortalGrid, PortalCard, PortalJourney } from './DemoPortal.styles';
 
 export const CredentialAside = styled.aside`
   margin: 18px 0 0;

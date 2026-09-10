@@ -367,7 +367,7 @@ class OrderPixPaymentService {
       return trimmed;
     }
 
-    return `guest.pix.${restaurantId}.${Date.now()}@pecaja.local`;
+    return `guest.pix.${restaurantId}.${Date.now()}@gastronexa.local`;
   }
 
   normalizePaymentStatus(status: unknown) {
@@ -552,7 +552,7 @@ class OrderPixPaymentService {
     const payerEmail = this.normalizeEmail(
       userEmail ||
         (sourceOrderId
-          ? `guest.pix.${normalizedRestaurantId}.${sourceOrderId}@pecaja.local`
+          ? `guest.pix.${normalizedRestaurantId}.${sourceOrderId}@gastronexa.local`
           : null),
       normalizedRestaurantId,
     );

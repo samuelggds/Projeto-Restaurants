@@ -32,7 +32,7 @@ export default function useBrandIdentity() {
   }, []);
 
   return {
-    brandName: String(brandIdentity.name || 'Peça já food'),
+    brandName: String(brandIdentity.name || 'GastroNexa'),
     brandLogoUrl: String(brandIdentity.logoUrl || ''),
   };
 }

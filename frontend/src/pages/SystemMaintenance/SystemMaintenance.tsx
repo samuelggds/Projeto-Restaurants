@@ -28,9 +28,11 @@ export default function SystemMaintenancePage({ mode }: SystemMaintenancePagePro
   return (
     <S.Page>
       <S.Header>
-        <S.BrandMark aria-hidden="true">S&C</S.BrandMark>
+        <S.BrandMark aria-hidden="true">
+          <img src="/gastronexa-logo.png" alt="" width="42" height="38" />
+        </S.BrandMark>
         <S.BrandCopy>
-          <strong>S&C Platform</strong>
+          <strong>GastroNexa</strong>
           <small>Operação de restaurantes</small>
         </S.BrandCopy>
       </S.Header>
@@ -67,7 +69,7 @@ export default function SystemMaintenancePage({ mode }: SystemMaintenancePagePro
       </S.Main>
 
       <S.Footer>
-        <span>© S&C Platform</span>
+        <span>© GastroNexa</span>
         {isPlatformMaintenance ? (
           <S.TechnicalLink href="/super_admin/login">
             <LockKeyhole size={14} /> Acesso técnico

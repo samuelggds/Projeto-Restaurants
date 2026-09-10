@@ -5,7 +5,7 @@ import hipercardLogo from '../assets/card-brands/hipercard.svg';
 import amexLogo from '../assets/card-brands/amex.svg';
 import defaultCardLogo from '../assets/card-brands/default-card.svg';
 
-export const CARD_PAYMENT_WALLET_KEY = '@PecaJaFood:cardPaymentWallet';
+export const CARD_PAYMENT_WALLET_KEY = '@GastroNexa:cardPaymentWallet';
 
 export type CardPaymentDraft = {
   holderName: string;

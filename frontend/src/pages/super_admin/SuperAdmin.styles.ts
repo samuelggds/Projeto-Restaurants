@@ -61,14 +61,19 @@ export const Brand = styled.div`
   padding: 2px 17px 25px;
   border-bottom: 1px solid #ffffff20;
   span {
+    display: flex;
+    align-items: center;
+    gap: 10px;
     font:
-      43px Georgia,
-      serif;
+      700 19px/1.3 'Manrope',
+      sans-serif;
     color: #fff;
   }
-  span b {
-    color: #ff6717;
-    font-weight: 400;
+  img {
+    flex-shrink: 0;
+    object-fit: contain;
+    filter: invert(1);
+    mix-blend-mode: screen;
   }
   small {
     display: block;
