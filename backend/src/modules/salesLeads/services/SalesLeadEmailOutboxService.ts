@@ -9,7 +9,8 @@ type Logger = Pick<Console, 'info' | 'warn' | 'error'>;
 
 function smtpFailureCode(error: unknown) {
   if (!error || typeof error !== 'object') return 'UNKNOWN_ERROR';
-  const code = 'code' in error ? String(error.code || '').trim() : '';
+  const rawCode = 'code' in error ? error.code : undefined;
+  const code = rawCode === null || rawCode === undefined ? '' : String(rawCode).trim();
   if (code) return code.toUpperCase().slice(0, 40);
   const name = error instanceof Error ? error.name.trim() : '';
   return name ? name.toUpperCase().slice(0, 40) : 'UNKNOWN_ERROR';
@@ -75,17 +76,19 @@ export async function deliverSalesLeadEmails(
           // Never log owner data, message text, recipient, credentials or SMTP response.
           const exhausted = row.attempts >= 8;
           const delayMs = Math.min(60 * 60_000, 60_000 * 2 ** Math.min(row.attempts - 1, 6));
-          await db.$executeRaw`UPDATE "SalesLeadEmailOutbox"
+          const updated = await db.$executeRaw`UPDATE "SalesLeadEmailOutbox"
           SET "status" = ${exhausted ? 'FAILED' : 'PENDING'},
             "availableAt" = clock_timestamp() + ${delayMs} * INTERVAL '1 millisecond',
             "lockedUntil" = NULL, "lockToken" = NULL
           WHERE "id" = ${row.id}::uuid AND "lockToken" = ${lockToken}::uuid`;
-          logger.error('[SALES_LEADS_EMAIL_FAILED]', {
-            code: smtpFailureCode(error),
-            attempt: row.attempts,
-            exhausted,
-            retryInMs: exhausted ? null : delayMs,
-          });
+          if (updated === 1) {
+            logger.error('[SALES_LEADS_EMAIL_FAILED]', {
+              code: smtpFailureCode(error),
+              attempt: row.attempts,
+              exhausted,
+              retryInMs: exhausted ? null : delayMs,
+            });
+          }
         }
       }),
     );
