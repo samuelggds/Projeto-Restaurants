@@ -104,7 +104,7 @@ export function DemoControls({
   return (
     <Dock>
       <summary>
-        <img src="/gastronexa-logo.png" alt="" />
+        <img src="/gastronexa-logo.svg" alt="" />
         Demonstração
       </summary>
       <div>

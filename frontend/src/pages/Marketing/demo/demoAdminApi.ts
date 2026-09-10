@@ -1,4 +1,5 @@
 import { AxiosError, type AxiosAdapter } from 'axios';
+import type { OrderCustomersPage } from '../../../Services/ordersService';
 import type { DemoState, DemoOrderStatus } from './demoDomain';
 import { toggleDemoOrderPaid, updateDemoOrderStatus } from './demoDomain';
 
@@ -163,27 +164,56 @@ export function createDemoAdminApi(
       });
     }
     if (path === '/orders/reports/customers' && method === 'GET') {
-      const customers = [...new Set(orders.map((order) => order.customerEmail))].map((email) => {
-        const own = orders.filter((order) => order.customerEmail === email);
-        return {
-          key: email,
-          name: own[0].customerName,
-          email,
-          count: own.length,
-          total: own.reduce((total, order) => total + order.total, 0),
-        };
+      const visibleOrders = state.orders.filter(
+        (order) => order.channel === 'TABLE' || order.paid || order.paymentMethod === 'CASH',
+      );
+      const customers = [...new Set(visibleOrders.map((order) => order.customerEmail))].map(
+        (email) => {
+          const own = visibleOrders.filter((order) => order.customerEmail === email);
+          return {
+            key: email,
+            name: own[0].customerName,
+            email,
+            count: own.length,
+            total: own.reduce((total, order) => total + order.total, 0),
+          };
+        },
+      );
+      const search = String(query.search ?? '')
+        .trim()
+        .toLocaleLowerCase('pt-BR');
+      const filtered = customers.filter((customer) =>
+        `${customer.name} ${customer.email}`.toLocaleLowerCase('pt-BR').includes(search),
+      );
+      filtered.sort((a, b) => {
+        const keyOrder = a.key.localeCompare(b.key, 'pt-BR');
+        if (query.sort === 'NAME') return a.name.localeCompare(b.name, 'pt-BR') || keyOrder;
+        if (query.sort === 'ORDERS') return b.count - a.count || b.total - a.total || keyOrder;
+        return b.total - a.total || b.count - a.count || keyOrder;
       });
-      return response({
-        customers,
-        total: customers.length,
-        hasMore: false,
-        nextCursor: null,
+      const offset =
+        Number.isSafeInteger(Number(query.offset)) && Number(query.offset) >= 0
+          ? Number(query.offset)
+          : 0;
+      const limit =
+        Number.isSafeInteger(Number(query.limit)) && Number(query.limit) > 0
+          ? Math.min(Number(query.limit), 100)
+          : 12;
+      const page = filtered.slice(offset, offset + limit);
+      const hasMore = offset + page.length < filtered.length;
+      const result: OrderCustomersPage = {
+        customers: page,
+        total: filtered.length,
+        hasMore,
+        nextOffset: hasMore ? offset + page.length : null,
         summary: {
           customers: customers.length,
-          orders: orders.length,
-          totalSpent: orders.reduce((total, order) => total + order.total, 0),
+          returningCustomers: customers.filter((customer) => customer.count > 1).length,
+          totalOrders: visibleOrders.length,
+          totalMoved: visibleOrders.reduce((total, order) => total + order.total, 0),
         },
-      });
+      };
+      return response(result);
     }
     const pickup = path.match(/^\/pickup-payments\/(\d+)\/(start|reconcile|cash)$/);
     if (pickup && method === 'POST') {

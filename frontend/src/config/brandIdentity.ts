@@ -13,6 +13,11 @@ function normalizeText(value: unknown) {
   return String(value || '').trim();
 }
 
+function normalizeLogoUrl(value: unknown) {
+  const url = normalizeText(value);
+  return url === '/gastronexa-logo.png' ? '/gastronexa-logo.svg' : url;
+}
+
 function parseJson(raw: string | null) {
   if (!raw) {
     return null;
@@ -43,7 +48,8 @@ function extractFromUserStorage(): BrandIdentity {
 
   return {
     name: normalizePlatformName(name),
-    logoUrl: normalizePlatformName(name) !== name ? '/gastronexa-logo.png' : logoUrl,
+    logoUrl:
+      normalizePlatformName(name) !== name ? '/gastronexa-logo.svg' : normalizeLogoUrl(logoUrl),
   };
 }
 
@@ -57,8 +63,8 @@ export function readBrandIdentityFromStorage(): BrandIdentity {
     name: normalizePlatformName(normalizeText(parsed?.name)),
     logoUrl:
       normalizePlatformName(normalizeText(parsed?.name)) !== normalizeText(parsed?.name)
-        ? '/gastronexa-logo.png'
-        : normalizeText(parsed?.logoUrl),
+        ? '/gastronexa-logo.svg'
+        : normalizeLogoUrl(parsed?.logoUrl),
   };
 }
 
@@ -70,7 +76,7 @@ export function getBrandIdentity(): BrandIdentity {
       name: fromStorage.name || DEFAULT_BRAND_NAME,
       logoUrl:
         fromStorage.logoUrl ||
-        (fromStorage.name === DEFAULT_BRAND_NAME ? '/gastronexa-logo.png' : ''),
+        (fromStorage.name === DEFAULT_BRAND_NAME ? '/gastronexa-logo.svg' : ''),
     };
   }
 
@@ -81,7 +87,7 @@ export function getBrandIdentity(): BrandIdentity {
     logoUrl:
       fromUserStorage.logoUrl ||
       (!fromUserStorage.name || fromUserStorage.name === DEFAULT_BRAND_NAME
-        ? '/gastronexa-logo.png'
+        ? '/gastronexa-logo.svg'
         : ''),
   };
 }
@@ -90,7 +96,7 @@ export function persistBrandIdentity(partial: Partial<BrandIdentity>) {
   const previous = readBrandIdentityFromStorage();
   const next: BrandIdentity = {
     name: normalizeText(partial.name) || previous.name || DEFAULT_BRAND_NAME,
-    logoUrl: normalizeText(partial.logoUrl) || previous.logoUrl,
+    logoUrl: normalizeLogoUrl(partial.logoUrl) || previous.logoUrl,
   };
 
   localStorage.setItem(BRAND_IDENTITY_STORAGE_KEY, JSON.stringify(next));

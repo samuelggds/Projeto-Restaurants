@@ -30,7 +30,7 @@ describe('AppRuntimeBoundary', () => {
     expect(container.textContent).toContain('Não foi possível carregar a página');
     expect(container.textContent).toContain('Recarregar página');
     expect(container.textContent).toContain('GastroNexa');
-    expect(container.querySelector('img')?.getAttribute('src')).toBe('/gastronexa-logo.png');
+    expect(container.querySelector('img')?.getAttribute('src')).toBe('/gastronexa-logo.svg');
     expect(consoleError).toHaveBeenCalled();
 
     await act(async () => root.unmount());

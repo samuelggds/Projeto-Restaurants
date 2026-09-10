@@ -260,6 +260,42 @@ for (const width of [320, 390, 900, 1440]) {
   });
 }
 
+test('logo GX preserva transparência real no login demonstrativo e no favicon', async ({
+  page,
+}) => {
+  await page.goto('/demonstracao');
+  await page.getByRole('button', { name: 'Cardápio da mesa (QR Code)', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Bem-vindo de volta!' })).toBeVisible();
+  await expect(page.locator('header img[src="/gastronexa-logo.svg"]')).toBeVisible();
+  await expect(page.locator('link[rel="icon"]')).toHaveAttribute('href', '/gastronexa-logo.svg');
+  const pixels = await page.evaluate(async () => {
+    const logo = document.querySelector<HTMLImageElement>(
+      'header img[src="/gastronexa-logo.svg"]',
+    )!;
+    await logo.decode();
+    await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+    const canvas = document.createElement('canvas');
+    canvas.width = logo.naturalWidth;
+    canvas.height = logo.naturalHeight;
+    const context = canvas.getContext('2d')!;
+    context.drawImage(logo, 0, 0);
+    const data = context.getImageData(0, 0, canvas.width, canvas.height).data;
+    let transparent = 0,
+      opaque = 0,
+      matte = 0;
+    for (let i = 0; i < data.length; i += 4) {
+      if (data[i + 3] === 0) transparent++;
+      if (data[i + 3] >= 250) opaque++;
+      if (data[i + 3] > 0 && data[i] > 10) matte++;
+    }
+    return { transparent, opaque, matte, cornerAlpha: data[3] };
+  });
+  expect(pixels.cornerAlpha).toBe(0);
+  expect(pixels.transparent).toBeGreaterThan(20000);
+  expect(pixels.opaque, JSON.stringify(pixels)).toBeGreaterThan(5000);
+  expect(pixels.matte).toBe(0);
+});
+
 test('primeira dobra da nova marca no desktop e celular', async ({ page }) => {
   for (const width of [1440, 390]) {
     await page.setViewportSize({ width, height: 900 });

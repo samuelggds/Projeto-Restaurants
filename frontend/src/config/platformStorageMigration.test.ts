@@ -20,7 +20,7 @@ describe('identidade GastroNexa e preferências existentes', () => {
     expect(localStorage.getItem('@PecaJaFood:cardPaymentWallet')).toBeNull();
   });
   it('usa GastroNexa por padrão e mantém o restaurante personalizado', () => {
-    expect(getBrandIdentity()).toEqual({ name: 'GastroNexa', logoUrl: '/gastronexa-logo.png' });
+    expect(getBrandIdentity()).toEqual({ name: 'GastroNexa', logoUrl: '/gastronexa-logo.svg' });
     localStorage.setItem(
       '@GastroNexa:brandIdentity',
       JSON.stringify({ name: 'North Pizza', logoUrl: '/north.png' }),
@@ -31,11 +31,24 @@ describe('identidade GastroNexa e preferências existentes', () => {
       '@GastroNexa:brandIdentity',
       JSON.stringify({ name: 'Peça Já Food', logoUrl: '/previous-logo.png' }),
     );
-    expect(getBrandIdentity()).toEqual({ name: 'GastroNexa', logoUrl: '/gastronexa-logo.png' });
+    expect(getBrandIdentity()).toEqual({ name: 'GastroNexa', logoUrl: '/gastronexa-logo.svg' });
     applyRestaurantBrowserBranding(document, '', 'RESTAURANTE');
     expect(document.title).toBe('GastroNexa');
     expect(document.querySelector('link[rel="icon"]')?.getAttribute('href')).toBe(
-      '/gastronexa-logo.png',
+      '/gastronexa-logo.svg',
     );
+  });
+  it('atualiza referências gravadas da logo com fundo sem substituir marcas personalizadas', () => {
+    localStorage.setItem(
+      '@GastroNexa:brandIdentity',
+      JSON.stringify({ name: 'GastroNexa', logoUrl: '/gastronexa-logo.png' }),
+    );
+    expect(getBrandIdentity().logoUrl).toBe('/gastronexa-logo.svg');
+    localStorage.removeItem('@GastroNexa:brandIdentity');
+    localStorage.setItem(
+      'user',
+      JSON.stringify({ restaurantName: 'GastroNexa', restaurantLogo: '/gastronexa-logo.png' }),
+    );
+    expect(getBrandIdentity().logoUrl).toBe('/gastronexa-logo.svg');
   });
 });

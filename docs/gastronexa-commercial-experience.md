@@ -47,6 +47,10 @@ Em produção, aplique as migrações no processo normal de publicação e reini
 
 Nome, logo, favicon, carregamento e recuperação de falhas usam GastroNexa. A identidade personalizada de cada restaurante permanece própria.
 
+A logo de interface usa `frontend/public/gastronexa-logo.svg`. Esse arquivo incorpora a arte GX original e converte o fundo branco em transparência durante a renderização; o desenho não foi redesenhado. O PNG original permanece como fonte, e referências antigas salvas nas preferências são normalizadas para o SVG. Um teste de navegador verifica o canal alfa, incluindo os cantos transparentes e a ausência de pixels brancos na marca.
+
+Na demonstração, o relatório de clientes segue o mesmo contrato tipado da tela administrativa real: busca, ordenação, paginação por offset e indicadores globais. Pedidos de mesa, pagos ou em dinheiro compõem a base, seguindo a visibilidade do relatório real. O adapter permanece restrito aos dados fictícios, sem acesso à API.
+
 Uma migração de storage transfere preferências para o novo namespace sem substituir valores já existentes. A migração SQL muda somente aliases internos de convidados, preservando IDs, pedidos e relações. Colisões de e-mail abortam a migração em vez de combinar contas.
 
 As únicas referências textuais ao nome anterior ficam nas conversões e nos testes de compatibilidade. Elas são necessárias para reconhecer dados de instalações anteriores; não são apresentadas ao usuário.
@@ -62,7 +66,7 @@ As únicas referências textuais ao nome anterior ficam nas conversões e nos te
 - Typecheck e lint de backend/frontend, builds, validação Prisma, arquitetura e orçamento dos bundles aprovados.
 - Banco local `localhost:5432/pizza_ai` atualizado após backup custom do PostgreSQL, com leitura do catálogo do backup validada. A migração adicional `20260910140000_sales_lead_timestamp_timezone` preserva os instantes UTC e alinha as sete colunas de data dos contatos/fila ao `TIMESTAMPTZ(3)` do schema. Não foi executada restauração do backup local; os testes de migração usaram outro banco descartável.
 
-Evidências: `artifacts/marketing-postgres-e2e.log`, `marketing-backend-tests.log`, `marketing-frontend-tests.log`, `marketing-browser.log` e capturas em `artifacts/marketing-screenshots/`. A entrega externa de e-mail não foi testada com a caixa real. Na verificação final, não havia API atendendo em `localhost:3000`; API e worker devem ser iniciados para usar o formulário e sua fila. Publicação em produção não faz parte desta alteração.
+Evidências: `artifacts/marketing-postgres-e2e.log`, `marketing-backend-tests.log`, `marketing-frontend-tests.log`, `marketing-browser.log` e capturas em `artifacts/marketing-screenshots/`. A revisão de logo e clientes aprovou 11 testes unitários e 23 jornadas de navegador, além de tipos, lint e build. A entrega externa de e-mail não foi testada com a caixa real. O erro 502 do formulário local foi diagnosticado como API desligada: após iniciá-la, `/api/ready` retornou 200 e um contato fictício enviado por `/api/sales-leads` retornou 201, com persistência e fila confirmadas. Esse registro técnico foi removido imediatamente. API e worker devem estar iniciados para receber contatos e entregar os avisos, respectivamente. Publicação em produção não faz parte desta alteração.
 
 ## Fotografia ilustrativa
 
