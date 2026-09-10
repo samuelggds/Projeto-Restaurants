@@ -468,6 +468,8 @@ for (const width of [320, 1440]) {
     await page.goto('/super_admin/overview');
     const trigger = page.getByRole('button', { name: 'Buscar no painel', exact: true });
     await expect(trigger).toBeVisible();
+    await page.keyboard.press('Control+Shift+k');
+    await expect(page.getByRole('dialog', { name: 'Busca rápida', exact: true })).toBeHidden();
     await page.keyboard.press('Control+k');
     const search = page.getByRole('dialog', { name: 'Busca rápida', exact: true });
     const input = search.getByLabel('Nome, e-mail ou referência');

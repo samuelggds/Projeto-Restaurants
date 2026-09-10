@@ -168,7 +168,12 @@ export function SuperAdminModule({
   useEffect(() => {
     if (currentUser.role !== 'SUPER_ADMIN') return;
     const handleSearchShortcut = (event: KeyboardEvent) => {
-      if (!(event.ctrlKey || event.metaKey) || event.altKey || event.key.toLowerCase() !== 'k')
+      if (
+        !(event.ctrlKey || event.metaKey) ||
+        event.altKey ||
+        event.shiftKey ||
+        event.key.toLowerCase() !== 'k'
+      )
         return;
       if (sidebarOpen || document.querySelector('[role="dialog"]')) return;
       event.preventDefault();

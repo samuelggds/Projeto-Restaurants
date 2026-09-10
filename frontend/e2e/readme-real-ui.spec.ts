@@ -603,13 +603,19 @@ test('central móvel recolhe benefícios e mostra avisos abaixo do cabeçalho', 
   const notice = page.getByRole('status').filter({ hasText: 'Endereço selecionado' });
   await expect(notice).toBeVisible();
   await expect(notice.getByText('Tudo certo')).toBeVisible();
-  const [headerBox, noticeBox] = await Promise.all([
-    page.getByRole('banner').boundingBox(),
-    notice.boundingBox(),
-  ]);
-  expect(headerBox).not.toBeNull();
-  expect(noticeBox).not.toBeNull();
-  expect(noticeBox!.y).toBeGreaterThanOrEqual(headerBox!.y + headerBox!.height);
+  // O aviso já está visível durante os 240ms da transição de entrada.
+  await expect
+    .poll(
+      async () => {
+        const [headerBox, noticeBox] = await Promise.all([
+          page.getByRole('banner').boundingBox(),
+          notice.boundingBox(),
+        ]);
+        return headerBox && noticeBox ? noticeBox.y - (headerBox.y + headerBox.height) : -1;
+      },
+      { timeout: 1500 },
+    )
+    .toBeGreaterThanOrEqual(0);
   const noticeLayerZIndex = await page
     .getByLabel('Avisos recentes')
     .evaluate((element) => Number(getComputedStyle(element).zIndex));
