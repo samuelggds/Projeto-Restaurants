@@ -17,7 +17,15 @@ import {
   WalletCards,
   X,
 } from 'lucide-react';
-import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
+import {
+  Fragment,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type CSSProperties,
+} from 'react';
 import {
   AdministratorDetails,
   AuditDetails,
@@ -54,6 +62,12 @@ const navigation = [
   ['audit', 'Auditoria', FileSearch],
   ['settings', 'Configurações', Settings],
 ] as const;
+
+const navigationSections: Partial<Record<SuperAdminView, string>> = {
+  overview: 'Visão da plataforma',
+  restaurants: 'Gestão',
+  support: 'Administração',
+};
 
 const titles: Record<SuperAdminView, [title: string, description: string]> = {
   'sales-leads': [
@@ -263,16 +277,21 @@ export function SuperAdminModule({
         </S.Close>
         <S.Nav>
           {navigation.map(([id, label, Icon]) => (
-            <button
-              key={id}
-              type="button"
-              className={currentView === id ? 'active' : ''}
-              aria-current={currentView === id ? 'page' : undefined}
-              onClick={() => navigate(id)}
-            >
-              <Icon aria-hidden="true" />
-              {label}
-            </button>
+            <Fragment key={id}>
+              {navigationSections[id] ? (
+                <span className="nav-label">{navigationSections[id]}</span>
+              ) : null}
+              <button
+                type="button"
+                className={currentView === id ? 'active' : ''}
+                aria-current={currentView === id ? 'page' : undefined}
+                onClick={() => navigate(id)}
+              >
+                <Icon aria-hidden="true" />
+                <span>{label}</span>
+                {currentView === id ? <i className="nav-indicator" aria-hidden="true" /> : null}
+              </button>
+            </Fragment>
           ))}
         </S.Nav>
         <S.User>
@@ -313,23 +332,25 @@ export function SuperAdminModule({
             <Menu aria-hidden="true" />
           </S.MobileMenu>
           <div className="title">
-            <span className="crumb">PLATAFORMA / {currentView.toUpperCase()}</span>
+            <span className="crumb">PLATAFORMA / {title}</span>
             <h1>{title}</h1>
             <p>{subtitle}</p>
           </div>
-          <span className="access">
-            <LockKeyhole size={15} aria-hidden="true" />
-            Acesso exclusivo SUPER_ADMIN
-          </span>
-          <button
-            type="button"
-            className="primary"
-            disabled={primaryAction.disabled}
-            onClick={primaryAction.run}
-          >
-            {primaryAction.icon}
-            {primaryAction.label}
-          </button>
+          <div className="header-actions">
+            <span className="access">
+              <LockKeyhole size={15} aria-hidden="true" />
+              <span>Acesso exclusivo SUPER_ADMIN</span>
+            </span>
+            <button
+              type="button"
+              className="primary"
+              disabled={primaryAction.disabled}
+              onClick={primaryAction.run}
+            >
+              {primaryAction.icon}
+              {primaryAction.label}
+            </button>
+          </div>
         </S.Header>
         <S.Content>
           {loadError ? (

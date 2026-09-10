@@ -1,4 +1,4 @@
-import { useMemo, useState, type FormEvent } from 'react';
+import { useMemo, useState, type CSSProperties, type FormEvent } from 'react';
 import { X } from 'lucide-react';
 import {
   evaluatePassword,
@@ -20,10 +20,15 @@ import type { PlatformPlan } from '../types';
 import * as S from '../SuperAdmin.styles';
 import { useDialogFocusManagement } from '../hooks/useDialogFocusManagement';
 
-type Props = { plans: PlatformPlan[]; onClose: () => void; onCreated: () => void | Promise<void> };
+type Props = {
+  plans: PlatformPlan[];
+  primaryColor?: string;
+  onClose: () => void;
+  onCreated: () => void | Promise<void>;
+};
 type Form = CreateRestaurantInput & { passwordConfirmation: string };
 
-export function CreateRestaurantDialog({ plans, onClose, onCreated }: Props) {
+export function CreateRestaurantDialog({ plans, primaryColor, onClose, onCreated }: Props) {
   const dialogRef = useDialogFocusManagement<HTMLFormElement>(onClose);
   const firstPlan = plans.find((plan) => plan.active)?.code || plans[0]?.code || '';
   const [form, setForm] = useState<Form>({
@@ -102,7 +107,10 @@ export function CreateRestaurantDialog({ plans, onClose, onCreated }: Props) {
   };
 
   return (
-    <S.CreateBackdrop onMouseDown={onClose}>
+    <S.CreateBackdrop
+      onMouseDown={onClose}
+      style={{ '--brand': primaryColor || '#233f32' } as CSSProperties}
+    >
       <S.CreateDialog
         ref={dialogRef}
         role="dialog"
@@ -136,9 +144,7 @@ export function CreateRestaurantDialog({ plans, onClose, onCreated }: Props) {
             <select
               required
               value={form.restaurant.category}
-              onChange={(e) =>
-                setRestaurant('category', e.target.value as RestaurantCategory)
-              }
+              onChange={(e) => setRestaurant('category', e.target.value as RestaurantCategory)}
             >
               {RESTAURANT_CATEGORY_OPTIONS.map((option) => (
                 <option key={option.value} value={option.value}>

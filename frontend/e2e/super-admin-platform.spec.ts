@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
+import { captureReadmeScreenshot } from './helpers/readmeScreenshot';
 
 type DashboardState = ReturnType<typeof createDashboard>;
 
@@ -54,6 +55,7 @@ test('contatos comerciais têm filtros, paginação e atualização de status no
   await page.goto('/super_admin/sales-leads');
   await expect(page.getByRole('heading', { name: 'Caixa de entrada comercial' })).toBeVisible();
   await expect(page.getByText('O aviso por e-mail não está configurado.')).toBeVisible();
+  await captureReadmeScreenshot(page, 'super-admin-sales-leads-mobile.png', { fullPage: true });
   await page.getByRole('button', { name: 'Próxima', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Segundo Bistrô' })).toBeVisible();
   await page.getByLabel('Buscar contatos').fill('Joana');
@@ -66,6 +68,7 @@ test('contatos comerciais têm filtros, paginação e atualização de status no
   await page.getByRole('button', { name: 'Ver contato de Bistrô Teste' }).click();
   const dialog = page.getByRole('dialog', { name: 'Contato comercial' });
   await expect(dialog).toContainText('<script>texto de teste</script>');
+  await captureReadmeScreenshot(page, 'super-admin-sales-lead-dialog-mobile.png');
   await dialog.getByLabel('Status do contato').selectOption('CONTACTED');
   await dialog.getByRole('button', { name: 'Salvar status' }).click();
   await expect(dialog.getByRole('status')).toContainText('Status atualizado.');
@@ -434,6 +437,7 @@ test('mudança de acesso exige justificativa e atualiza o tenant', async ({ page
   await page.goto('/super_admin/restaurants');
   await page.getByRole('button', { name: 'Ver detalhes' }).click();
   await expect(page.getByRole('dialog', { name: 'Restaurante Aurora' })).toBeVisible();
+  await captureReadmeScreenshot(page, 'super-admin-restaurant-dialog.png');
   await page.getByRole('button', { name: 'Bloquear acesso' }).click();
   await page.getByPlaceholder('Explique por que esta ação é necessária').fill('curto');
   await page.getByRole('button', { name: 'Bloquear acesso' }).last().click();
@@ -465,6 +469,7 @@ test('SUPER_ADMIN responde e encerra um chamado exclusivo do administrador', asy
   await page.getByRole('button', { name: 'Ver conversa' }).click();
   const dialog = page.getByRole('dialog', { name: 'Suporte • Restaurante Aurora' });
   await expect(dialog).toBeVisible();
+  await captureReadmeScreenshot(page, 'super-admin-support-dialog.png');
   await dialog
     .getByPlaceholder('Descreva o diagnóstico e o próximo passo com clareza')
     .fill('Configuração revisada e funcionamento confirmado.');
@@ -579,6 +584,7 @@ test('estado vazio orienta o primeiro cadastro e dialog preserva foco no celular
   state.restaurants = [];
   state.metrics.restaurantsTotal = 0;
   state.metrics.restaurantsActive = 0;
+  state.settings.primaryColor = '#526378';
   const writes: Array<{ path: string; body: Record<string, unknown> }> = [];
   await page.setViewportSize({ width: 320, height: 844 });
   await mockSuperAdminApi(page, state, writes);
@@ -593,6 +599,14 @@ test('estado vazio orienta o primeiro cadastro e dialog preserva foco no celular
   const dialog = page.getByRole('dialog', { name: 'Criar restaurante' });
   await expect(dialog).toBeVisible();
   await expect(dialog.getByLabel('Nome do restaurante')).toBeFocused();
+  const configuredButtonColor = await createButton.evaluate(
+    (button) => getComputedStyle(button).backgroundColor,
+  );
+  await expect(dialog.getByRole('button', { name: 'Criar restaurante', exact: true })).toHaveCSS(
+    'background-color',
+    configuredButtonColor,
+  );
+  await captureReadmeScreenshot(page, 'super-admin-create-restaurant-mobile.png');
 
   const cancelBox = await dialog.getByRole('button', { name: 'Cancelar' }).boundingBox();
   const submitBox = await dialog.getByRole('button', { name: 'Criar restaurante' }).boundingBox();
@@ -606,3 +620,61 @@ test('estado vazio orienta o primeiro cadastro e dialog preserva foco no celular
     .poll(() => page.evaluate(() => document.documentElement.scrollWidth))
     .toBeLessThanOrEqual(321);
 });
+
+for (const width of [320, 900, 1440]) {
+  test(`todas as áreas do SUPER_ADMIN mantêm conteúdo e ações contidos em ${width}px`, async ({
+    page,
+  }) => {
+    test.setTimeout(60_000);
+    const state = createDashboard();
+    const writes: Array<{ path: string; body: Record<string, unknown> }> = [];
+    await page.setViewportSize({ width, height: 1000 });
+    await mockSuperAdminApi(page, state, writes);
+    await page.route('**/super-admin/sales-leads**', (route) =>
+      route.fulfill({
+        json: { items: [], total: 0, page: 1, pageSize: 20, emailConfigured: true },
+      }),
+    );
+    await page.goto('/super_admin/overview');
+    const views = [
+      ['overview', 'Visão geral', 'Visão geral da plataforma'],
+      ['sales-leads', 'Contatos comerciais', 'Contatos comerciais'],
+      ['restaurants', 'Restaurantes', 'Restaurantes'],
+      ['subscriptions', 'Assinaturas', 'Assinaturas'],
+      ['plans', 'Planos', 'Planos'],
+      ['billing', 'Faturamento', 'Faturamento'],
+      ['administrators', 'Administradores', 'Administradores'],
+      ['support', 'Suporte', 'Suporte'],
+      ['audit', 'Auditoria', 'Auditoria'],
+      ['settings', 'Configurações', 'Configurações da plataforma'],
+    ] as const;
+
+    for (const [view, label, title] of views) {
+      await test.step(label, async () => {
+        if (width <= 860) await page.getByRole('button', { name: 'Abrir menu' }).click();
+        const navigation = page.getByRole('complementary', {
+          name: 'Navegação do painel SUPER_ADMIN',
+          includeHidden: true,
+        });
+        const item = navigation.getByRole('button', {
+          name: label,
+          exact: true,
+          includeHidden: true,
+        });
+        await item.click();
+        await expect(page).toHaveURL(new RegExp(`/super_admin/${view}$`));
+        await expect(
+          page.getByRole('heading', { level: 1, name: title, exact: true }),
+        ).toBeVisible();
+        await expect(item).toHaveAttribute('aria-current', 'page');
+        await expect
+          .poll(() => page.evaluate(() => document.documentElement.scrollWidth))
+          .toBeLessThanOrEqual(width + 1);
+        const main = await page.locator('main').boundingBox();
+        expect(main!.width).toBeGreaterThanOrEqual(width <= 860 ? width - 1 : width - 300);
+        await captureReadmeScreenshot(page, `super-admin-${view}-${width}.png`, { fullPage: true });
+      });
+    }
+    expect(writes).toEqual([]);
+  });
+}

@@ -111,6 +111,7 @@ export default function SuperAdminPage() {
       {createRestaurantOpen ? (
         <CreateRestaurantDialog
           plans={data.plans}
+          primaryColor={data.settings.primaryColor}
           onClose={() => setCreateRestaurantOpen(false)}
           onCreated={refresh}
         />
