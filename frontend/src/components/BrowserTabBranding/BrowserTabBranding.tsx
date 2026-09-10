@@ -133,8 +133,8 @@ function applyMarketingBrowserBranding(pathname: string) {
 
   const favicon = document.querySelector<HTMLLinkElement>('link[rel~="icon"]');
   if (favicon) {
-    favicon.type = 'image/png';
-    favicon.href = '/gastronexa-logo.png';
+    favicon.type = 'image/svg+xml';
+    favicon.href = '/gastronexa-logo.svg';
   }
 }
 

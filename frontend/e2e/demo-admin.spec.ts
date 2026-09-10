@@ -3,6 +3,60 @@ import { expect, test } from '@playwright/test';
 import { createInitialDemoState, DEMO_STORAGE_KEY } from '../src/pages/Marketing/demo/demoDomain';
 import { captureReadmeScreenshot } from './helpers/readmeScreenshot';
 
+test('demo: clientes carregam, buscam e paginam no painel real sem acessar a API', async ({
+  page,
+}) => {
+  const requests: string[] = [];
+  const errors: string[] = [];
+  page.on('pageerror', (error) => errors.push(error.message));
+  await page.route(/:3000\/|\/api\//, (route) => {
+    const path = new URL(route.request().url()).pathname;
+    if (path.endsWith('/auth/refresh')) return route.fulfill({ status: 401, json: {} });
+    if (path.endsWith('/platform/status')) return route.fulfill({ json: { available: true } });
+    requests.push(path);
+    return route.abort();
+  });
+  const state = createInitialDemoState();
+  state.orders = Array.from({ length: 14 }, (_, index) => ({
+    ...state.orders[0],
+    id: 2000 + index,
+    publicId: `#${2000 + index}`,
+    customerName: `Cliente ${String(index + 1).padStart(2, '0')}`,
+    customerEmail: `cliente${index + 1}@example.test`,
+    total: (index + 1) * 10,
+  }));
+  await page.addInitScript(
+    ({ key, state }) => {
+      localStorage.setItem(key, JSON.stringify(state));
+      sessionStorage.setItem('gastronexa:demo:account', 'demo-admin');
+    },
+    { key: DEMO_STORAGE_KEY, state },
+  );
+  await page.goto('/demonstracao');
+  const admin = page.frameLocator('iframe[title="Painel administrativo demonstrativo"]');
+  await admin.getByRole('button', { name: 'Clientes', exact: true }).click();
+  const list = admin.locator('[aria-label="Lista de clientes"]');
+  await expect(list).toBeVisible();
+  await expect(list.locator('.identity')).toHaveCount(12);
+  await expect(admin.getByRole('status').filter({ hasText: 'Carregando clientes' })).toHaveCount(0);
+  await admin.getByRole('button', { name: 'Mostrar mais clientes', exact: true }).click();
+  await expect(list.locator('.identity')).toHaveCount(14);
+  await admin.getByLabel('Ordenar clientes').selectOption('NAME');
+  await expect(list.locator('.identity').first()).toContainText('Cliente 01');
+  await admin.getByLabel('Buscar cliente por nome ou e-mail').fill('CLIENTE14@');
+  await expect(list.locator('.identity')).toHaveCount(1);
+  await expect(list).toContainText('Cliente 14');
+  await admin.getByLabel('Buscar cliente por nome ou e-mail').fill('inexistente');
+  await expect(admin.getByText('Nenhum cliente encontrado', { exact: true })).toBeVisible();
+  await admin.getByLabel('Buscar cliente por nome ou e-mail').fill('');
+  await expect(list.locator('.identity')).toHaveCount(12);
+  await page.setViewportSize({ width: 390, height: 844 });
+  const frame = page.frames().find((item) => item.url().includes('demo-admin.html'))!;
+  expect(await frame.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  expect(requests).toEqual([]);
+  expect(errors).toEqual([]);
+});
+
 test('demo: administrador real abre todas as configurações sem API nem sessão real', async ({
   page,
 }) => {

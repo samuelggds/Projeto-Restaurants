@@ -29,7 +29,7 @@ export default function SystemMaintenancePage({ mode }: SystemMaintenancePagePro
     <S.Page>
       <S.Header>
         <S.BrandMark aria-hidden="true">
-          <img src="/gastronexa-logo.png" alt="" width="42" height="38" />
+          <img src="/gastronexa-logo.svg" alt="" width="42" height="38" />
         </S.BrandMark>
         <S.BrandCopy>
           <strong>GastroNexa</strong>

@@ -54,10 +54,10 @@ export function applyRestaurantBrowserBranding(
     targetDocument.head.appendChild(favicon);
   }
 
-  favicon.type = title === DEFAULT_BROWSER_TITLE ? 'image/png' : 'image/svg+xml';
+  favicon.type = 'image/svg+xml';
   favicon.href =
     title === DEFAULT_BROWSER_TITLE
-      ? '/gastronexa-logo.png'
+      ? '/gastronexa-logo.svg'
       : getRestaurantCategoryFavicon(category);
 }
 

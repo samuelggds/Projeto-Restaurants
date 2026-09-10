@@ -94,7 +94,7 @@ export default class AppRuntimeBoundary extends Component<
             }}
           >
             <img
-              src="/gastronexa-logo.png"
+              src="/gastronexa-logo.svg"
               alt=""
               width="42"
               height="38"

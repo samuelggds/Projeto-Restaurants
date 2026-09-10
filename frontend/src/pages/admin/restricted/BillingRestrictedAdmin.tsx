@@ -67,7 +67,7 @@ export default function BillingRestrictedAdmin() {
         <S.Brand>
           <span style={{ background: '#fff' }}>
             <img
-              src="/gastronexa-logo.png"
+              src="/gastronexa-logo.svg"
               alt=""
               width="36"
               height="32"

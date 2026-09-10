@@ -119,7 +119,7 @@ function DemoHeader({
       <S.DemoTopbarInner>
         <S.BrandButton type="button" onClick={onHome} aria-label="Início da demonstração">
           <img
-            src="/gastronexa-logo.png"
+            src="/gastronexa-logo.svg"
             alt=""
             width="42"
             height="36"

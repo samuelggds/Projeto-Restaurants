@@ -249,7 +249,7 @@ export function SuperAdminModule({
       <S.Sidebar ref={sidebar} $open={sidebarOpen} aria-label="Navegação do painel SUPER_ADMIN">
         <S.Brand>
           <span>
-            <img src="/gastronexa-logo.png" alt="" width="40" height="36" /> {brandName}
+            <img src="/gastronexa-logo.svg" alt="" width="40" height="36" /> {brandName}
           </span>
           <small>PAINEL SUPER ADMIN</small>
         </S.Brand>

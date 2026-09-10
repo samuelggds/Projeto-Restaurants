@@ -100,7 +100,7 @@ const questions = [
 function Brand({ light = false }: { light?: boolean }) {
   return (
     <S.Brand as={Link} to="/" $light={light} aria-label="GastroNexa - página inicial">
-      <img src="/gastronexa-logo.png" alt="" width="42" height="38" />
+      <img src="/gastronexa-logo.svg" alt="" width="42" height="38" />
       <span>
         GastroNexa<span className="brand-dot">.</span>
       </span>
