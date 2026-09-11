@@ -92,7 +92,8 @@ export function RecurringBillingPayment() {
   }, []);
 
   useEffect(() => {
-    void load();
+    const timer = window.setTimeout(() => void load(), 0);
+    return () => window.clearTimeout(timer);
   }, [load]);
 
   useEffect(() => {
@@ -145,7 +146,7 @@ export function RecurringBillingPayment() {
     };
   }, [modalOpen]);
 
-  async function usePix() {
+  async function switchToPix() {
     setChanging(true);
     setError('');
     try {
@@ -232,7 +233,7 @@ export function RecurringBillingPayment() {
           <button
             type="button"
             className={`method ${!cardActive ? 'active' : ''}`}
-            onClick={() => void usePix()}
+            onClick={() => void switchToPix()}
             disabled={changing}
           >
             <QrCode size={20} />
