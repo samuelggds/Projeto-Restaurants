@@ -45,9 +45,10 @@ test('processa itens posteriores em todas as fases e sinaliza falha ao JobRunner
   trialService.execute = async () => {
     throw new AggregateError([new Error('trial provider detail')], 'trial phase failed');
   };
+  const dueSoon = new Date(Date.now() + 24 * 60 * 60 * 1000);
   prisma.subscription.findMany = async () => [
-    { id: 1, restaurantId: 11 },
-    { id: 2, restaurantId: 12 },
+    { id: 1, restaurantId: 11, currentPeriodEnd: dueSoon, createdAt: new Date() },
+    { id: 2, restaurantId: 12, currentPeriodEnd: dueSoon, createdAt: new Date() },
   ];
 
   const attemptedActiveRestaurants = [];
@@ -87,6 +88,7 @@ test('processa itens posteriores em todas as fases e sinaliza falha ao JobRunner
   billingRepository.findSubscriptionByRestaurantId = async (restaurantId) => ({
     id: restaurantId + 1_000,
     restaurantId,
+    status: 'ATIVA',
   });
   billingRepository.updateSubscription = async (subscriptionId, data) => {
     expiredSubscriptions.push(subscriptionId);
