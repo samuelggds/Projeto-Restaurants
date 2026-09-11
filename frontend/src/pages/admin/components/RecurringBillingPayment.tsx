@@ -26,12 +26,6 @@ type MercadoPagoInstance = {
   };
 };
 
-declare global {
-  interface Window {
-    MercadoPago?: new (publicKey: string) => MercadoPagoInstance;
-  }
-}
-
 const SDK_URL = 'https://sdk.mercadopago.com/js/v2';
 let sdkPromise: Promise<void> | null = null;
 
