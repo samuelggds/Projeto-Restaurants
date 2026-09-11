@@ -1,15 +1,20 @@
 import { LocateFixed } from 'lucide-react';
 import styled from 'styled-components';
 
-type Props = { connected: boolean; message: string; hint: string };
+type Props = { connected: boolean; message: string; hint: string; label?: string };
 
-export function CourierLocationStatus({ connected, message, hint }: Props) {
+export function CourierLocationStatus({
+  connected,
+  message,
+  hint,
+  label = 'Localização ativa nesta conta',
+}: Props) {
   return (
     <Status role="status" aria-label="Status da localização" title={message}>
       <LocateFixed className="location-icon" aria-hidden="true" />
       <div>
         <div className="status-heading">
-          <strong>Localização ativa nesta conta</strong>
+          <strong>{label}</strong>
           <span className="connection" data-connected={connected}>
             <i aria-hidden="true" />
             {connected ? 'Conectado' : 'Reconectando'}

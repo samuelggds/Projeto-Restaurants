@@ -35,7 +35,8 @@ describe('WhatsAppSettings', () => {
     expect(markup).toContain('Seu número do WhatsApp');
     expect(markup).toContain('Mensagens automáticas');
     expect(markup).toContain('Exemplo de mensagens');
-    expect(markup).toContain('/orders/107/tracking');
+    expect(markup).toContain('https://gastronexa.com.br/orders/107/tracking');
+    expect(markup).not.toContain('localhost');
     expect(markup).toContain('Pedido confirmado / em preparo');
     expect(markup).toContain('Saiu para entrega');
     expect(markup).toContain('Confirmar entrega');
@@ -103,7 +104,9 @@ describe('WhatsAppSettings', () => {
       );
     });
 
-    const statusSwitch = container.querySelector('[name="receiveStatusNotifications"]') as HTMLInputElement;
+    const statusSwitch = container.querySelector(
+      '[name="receiveStatusNotifications"]',
+    ) as HTMLInputElement;
     act(() => statusSwitch.click());
     expect(update).toHaveBeenCalledWith('receiveStatusNotifications', true);
 

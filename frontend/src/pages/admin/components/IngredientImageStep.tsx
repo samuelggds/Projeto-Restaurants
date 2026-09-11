@@ -4,6 +4,7 @@ import type { IngredientImageSearchResult } from '../../../Services/ingredientsS
 
 type IngredientImageStepProps = {
   name: string;
+  provider?: 'Pexels' | 'Demo';
   results: IngredientImageSearchResult[];
   previewId: string | null;
   selectedResultId: string | null;
@@ -20,6 +21,7 @@ type IngredientImageStepProps = {
 
 export function IngredientImageStep({
   name,
+  provider = 'Pexels',
   results,
   previewId,
   selectedResultId,
@@ -47,7 +49,9 @@ export function IngredientImageStep({
             ? `Estamos procurando imagens para ${name}.`
             : results.length
               ? `Encontramos algumas imagens para ${name}.`
-              : 'A foto é opcional e pode ser adicionada depois.'}
+              : provider === 'Demo'
+                ? 'Ainda não temos uma foto de exemplo para este nome. Envie sua foto ou continue sem ela.'
+                : 'A foto é opcional e pode ser adicionada depois.'}
         </p>
       </div>
 
@@ -79,6 +83,8 @@ export function IngredientImageStep({
                 <b>{name}</b>
                 {uploadedImage ? (
                   <small>Sua foto</small>
+                ) : preview?.source === 'Demo' ? (
+                  <small>Foto demonstrativa GastroNexa</small>
                 ) : (
                   <small>
                     Foto de{' '}
@@ -147,14 +153,16 @@ export function IngredientImageStep({
               <ImageOff /> Continuar sem foto
             </button>
           </div>
-          <a
-            className="pexels-credit"
-            href="https://www.pexels.com"
-            target="_blank"
-            rel="noreferrer"
-          >
-            Fotos fornecidas por Pexels
-          </a>
+          {provider !== 'Demo' && preview?.source !== 'Demo' && (
+            <a
+              className="pexels-credit"
+              href="https://www.pexels.com"
+              target="_blank"
+              rel="noreferrer"
+            >
+              Fotos fornecidas por Pexels
+            </a>
+          )}
         </>
       )}
     </section>

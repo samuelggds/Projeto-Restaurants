@@ -27,7 +27,9 @@ describe('rotas e isolamento da demonstração', () => {
     await client.put('/kitchen-printing/settings', { copies: 2 });
     await client.post('/kitchen-printing/test');
     await client.put('/courier-compensation/admin/configuration', {
-      defaultPolicy: { fixedAmount: 7.5 },
+      model: 'FIXED_PER_DELIVERY',
+      fixedAmount: 7.5,
+      timezone: 'America/Sao_Paulo',
     });
     const reopened = axios.create({
       adapter: createDemoAdminApi(

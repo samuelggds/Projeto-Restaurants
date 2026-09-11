@@ -1,3 +1,8 @@
+import { sanitizeDemoSupport, type DemoSupportMessage } from './demoSupport';
+import { sanitizeDemoAttendant } from './demoAttendantPersistence';
+import { demoConfiguredLine, isDemoConfiguration } from './demoProductConfiguration';
+import type { ProductConfiguration } from '../../Home/domain/productCustomization';
+import type { HomeProduct } from '../../Home/types';
 import type { DemoTablePayment } from './demoTableAccount';
 export type DemoRole = 'CLIENTE' | 'ADMIN' | 'MOTOQUEIRO' | 'ATENDENTE' | 'COZINHA' | 'GARCOM';
 
@@ -8,6 +13,7 @@ export type DemoPaymentMethod = 'PIX' | 'CARD' | 'CASH';
 export type DemoCallStatus = 'WAITING' | 'IN_PROGRESS' | 'RESOLVED';
 
 export type DemoAccount = {
+  active?: boolean;
   id: string;
   name: string;
   email: string;
@@ -17,6 +23,9 @@ export type DemoAccount = {
 };
 
 export type DemoCartLine = {
+  cartId?: string;
+  configuration?: ProductConfiguration;
+  customizations?: string[];
   productId: string;
   name: string;
   unitPrice: number;
@@ -59,6 +68,13 @@ export type DemoCall = {
 };
 
 export type DemoState = {
+  supportMessages?: DemoSupportMessage[];
+  attendant?: {
+    details: Array<[number, import('../../attendant/operation-center/types').Raw]>;
+    threads: Array<[number, import('../../attendant/operation-center/types').SupportThread]>;
+  };
+  courierProfile?: { name: string; email: string; phone: string; role: string };
+
   version: 2;
   accounts: DemoAccount[];
   sessionAccountId: string | null;
@@ -306,7 +322,12 @@ function isCartLine(value: unknown): value is DemoCartLine {
     typeof value.name === 'string' &&
     isFiniteNumber(value.unitPrice) &&
     value.unitPrice >= 0 &&
-    isPositiveInteger(value.quantity)
+    isPositiveInteger(value.quantity) &&
+    (value.cartId === undefined || typeof value.cartId === 'string') &&
+    (value.configuration === undefined || isDemoConfiguration(value.configuration)) &&
+    (value.customizations === undefined ||
+      (Array.isArray(value.customizations) &&
+        value.customizations.every((item) => typeof item === 'string')))
   );
 }
 
@@ -390,7 +411,25 @@ export function sanitizeDemoState(value: unknown): DemoState {
     Array.isArray(value.tables) && value.tables.every(isDemoTable) ? value.tables : fallback.tables;
   const calls =
     Array.isArray(value.calls) && value.calls.every(isDemoCall) ? value.calls : fallback.calls;
-  const knownAccountIds = new Set(fallback.accounts.map((account) => account.id));
+  const accounts =
+    Array.isArray(value.accounts) &&
+    value.accounts.length &&
+    value.accounts.every(
+      (item) =>
+        isRecord(item) &&
+        ['id', 'name', 'email', 'passwordFingerprint', 'createdAt'].every(
+          (key) => typeof item[key] === 'string',
+        ) &&
+        ['CLIENTE', 'ADMIN', 'MOTOQUEIRO', 'ATENDENTE', 'COZINHA', 'GARCOM'].includes(
+          String(item.role),
+        ) &&
+        (item.active === undefined || typeof item.active === 'boolean'),
+    )
+      ? (value.accounts as DemoAccount[])
+      : fallback.accounts;
+  const knownAccountIds = new Set(
+    accounts.filter((account) => account.active !== false).map((account) => account.id),
+  );
   const sessionAccountId: string | null =
     typeof value.sessionAccountId === 'string' && knownAccountIds.has(value.sessionAccountId)
       ? value.sessionAccountId
@@ -407,7 +446,16 @@ export function sanitizeDemoState(value: unknown): DemoState {
 
   return {
     version: 2,
-    accounts: fallback.accounts,
+    accounts,
+    supportMessages: sanitizeDemoSupport(value.supportMessages),
+    attendant: sanitizeDemoAttendant(value.attendant),
+    courierProfile:
+      isRecord(value.courierProfile) &&
+      ['name', 'email', 'phone', 'role'].every(
+        (key) => typeof (value.courierProfile as Record<string, unknown>)[key] === 'string',
+      )
+        ? (value.courierProfile as DemoState['courierProfile'])
+        : undefined,
     sessionAccountId,
     cart,
     orders,
@@ -433,11 +481,18 @@ export function sanitizeDemoState(value: unknown): DemoState {
 }
 
 export function getDemoSessionAccount(state: DemoState) {
-  return state.accounts.find((account) => account.id === state.sessionAccountId) || null;
+  return (
+    state.accounts.find(
+      (account) => account.id === state.sessionAccountId && account.active !== false,
+    ) || null
+  );
 }
 
 export function getDemoAccountByRole(state: DemoState, role: DemoRole) {
-  return state.accounts.find((account) => account.role === role) || null;
+  const current = getDemoSessionAccount(state);
+  return current?.role === role
+    ? current
+    : state.accounts.find((account) => account.role === role && account.active !== false) || null;
 }
 
 export function authenticateDemoAccount(state: DemoState, emailInput: string, password: string) {
@@ -445,6 +500,7 @@ export function authenticateDemoAccount(state: DemoState, emailInput: string, pa
   const passwordFingerprint = fingerprintDemoPassword(password);
   const account = state.accounts.find(
     (candidate) =>
+      candidate.active !== false &&
       normalizedEmail(candidate.email) === email &&
       candidate.passwordFingerprint === passwordFingerprint,
   );
@@ -453,33 +509,37 @@ export function authenticateDemoAccount(state: DemoState, emailInput: string, pa
 }
 
 export function selectDemoAccount(state: DemoState, accountId: string | null) {
-  if (accountId && !state.accounts.some((account) => account.id === accountId)) return state;
+  if (
+    accountId &&
+    !state.accounts.some((account) => account.id === accountId && account.active !== false)
+  )
+    return state;
   return { ...state, sessionAccountId: accountId };
 }
 
 export function addDemoCartItem(
   state: DemoState,
-  product: { id: string; name: string; price: number },
+  product: Pick<HomeProduct, 'id' | 'name' | 'price'> & Partial<HomeProduct>,
+  configuration?: ProductConfiguration,
 ) {
-  const existing = state.cart.find((line) => line.productId === product.id);
+  const line = demoConfiguredLine(product, configuration);
+  const key = line.cartId ?? line.productId;
+  const existing = state.cart.some((item) => (item.cartId ?? item.productId) === key);
   const cart = existing
-    ? state.cart.map((line) =>
-        line.productId === product.id ? { ...line, quantity: line.quantity + 1 } : line,
+    ? state.cart.map((item) =>
+        (item.cartId ?? item.productId) === key ? { ...item, quantity: item.quantity + 1 } : item,
       )
-    : [
-        ...state.cart,
-        { productId: product.id, name: product.name, unitPrice: product.price, quantity: 1 },
-      ];
+    : [...state.cart, line];
   return { ...state, cart };
 }
 
-export function changeDemoCartQuantity(state: DemoState, productId: string, quantity: number) {
+export function changeDemoCartQuantity(state: DemoState, cartId: string, quantity: number) {
   const safeQuantity = Math.max(0, Math.floor(quantity));
   const cart =
     safeQuantity === 0
-      ? state.cart.filter((line) => line.productId !== productId)
+      ? state.cart.filter((line) => (line.cartId ?? line.productId) !== cartId)
       : state.cart.map((line) =>
-          line.productId === productId ? { ...line, quantity: safeQuantity } : line,
+          (line.cartId ?? line.productId) === cartId ? { ...line, quantity: safeQuantity } : line,
         );
   return { ...state, cart };
 }

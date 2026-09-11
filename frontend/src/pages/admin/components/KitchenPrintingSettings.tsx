@@ -51,6 +51,7 @@ export function KitchenPrintingSettings() {
   const mountedRef = useRef(true);
   const [configuration, setConfiguration] = useState<KitchenPrintingConfiguration | null>(null);
   const [draft, setDraft] = useState<KitchenPrinterSettings | null>(null);
+  const [copiesInput, setCopiesInput] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState<'save' | 'credential' | 'test' | 'revoke' | null>(null);
   const [feedback, setFeedback] = useState<{ tone: 'success' | 'error'; message: string } | null>(
@@ -101,9 +102,14 @@ export function KitchenPrintingSettings() {
     };
   }, [loadConfiguration]);
 
+  const copiesValue = copiesInput ?? String(draft?.copies ?? 1);
+  const copiesInvalid = !/^[1-5]$/.test(copiesValue);
   const dirty = useMemo(
-    () => Boolean(draft && configuration && !sameSettings(draft, configuration.settings)),
-    [configuration, draft],
+    () =>
+      Boolean(
+        draft && configuration && (copiesInvalid || !sameSettings(draft, configuration.settings)),
+      ),
+    [configuration, draft, copiesInvalid],
   );
   const filteredJobs = useMemo(
     () =>
@@ -120,7 +126,7 @@ export function KitchenPrintingSettings() {
   ) => setDraft((current) => (current ? { ...current, [key]: value } : current));
 
   const save = async () => {
-    if (!draft || busy) return;
+    if (!draft || busy || copiesInvalid) return;
     setBusy('save');
     setFeedback(null);
     try {
@@ -128,6 +134,7 @@ export function KitchenPrintingSettings() {
       if (!mountedRef.current) return;
       setConfiguration((current) => (current ? { ...current, settings: saved } : current));
       setDraft(saved);
+      setCopiesInput(null);
       setFeedback({ tone: 'success', message: 'Configuração de impressão salva com segurança.' });
     } catch (error) {
       if (!mountedRef.current) return;
@@ -368,7 +375,10 @@ export function KitchenPrintingSettings() {
               <input
                 type="checkbox"
                 checked={draft.enabled}
-                onChange={(event) => updateDraft('enabled', event.target.checked)}
+                onChange={(event) => {
+                  if (!event.target.checked) setCopiesInput(null);
+                  updateDraft('enabled', event.target.checked);
+                }}
               />
               <span />
             </label>
@@ -485,19 +495,24 @@ export function KitchenPrintingSettings() {
                 </fieldset>
                 <label className="copies">
                   <span className="field-title">Quantas cópias?</span>
-                  <small>De 1 a 5 por pedido.</small>
+                  <small id="kitchen-copies-hint">Escolha de 1 a 5 cópias por pedido.</small>
                   <input
                     aria-label="Número de cópias"
-                    type="number"
-                    min="1"
-                    max="5"
-                    value={draft.copies}
-                    onChange={(event) =>
-                      updateDraft(
-                        'copies',
-                        Math.max(1, Math.min(5, Math.round(Number(event.target.value) || 1))),
-                      )
-                    }
+                    aria-describedby="kitchen-copies-hint"
+                    aria-invalid={copiesInvalid}
+                    type="text"
+                    inputMode="numeric"
+                    pattern="[1-5]"
+                    maxLength={1}
+                    required
+                    value={copiesValue}
+                    onFocus={(event) => event.currentTarget.select()}
+                    onChange={(event) => {
+                      const value = event.target.value;
+                      if (!/^[1-5]?$/.test(value)) return;
+                      setCopiesInput(value);
+                      if (value) updateDraft('copies', Number(value));
+                    }}
                   />
                 </label>
               </div>
@@ -526,7 +541,7 @@ export function KitchenPrintingSettings() {
               <button
                 className="primary"
                 type="button"
-                disabled={busy !== null}
+                disabled={busy !== null || copiesInvalid}
                 onClick={() => void save()}
               >
                 {busy === 'save' ? 'Salvando…' : 'Salvar configuração'}

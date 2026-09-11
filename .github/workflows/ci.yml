@@ -33,6 +33,15 @@ jobs:
       - name: Check resolved production deployment isolation
         run: node scripts/verifyProductionCompose.mjs
 
+      - name: Check production CSP and embedded preview isolation
+        shell: bash
+        run: |
+          docker pull caddy:2.11.4-alpine
+          caddy_container=$(docker create caddy:2.11.4-alpine)
+          trap 'docker rm "$caddy_container" >/dev/null' EXIT
+          docker cp "$caddy_container:/usr/bin/caddy" "$RUNNER_TEMP/caddy"
+          CADDY_BIN="$RUNNER_TEMP/caddy" node scripts/verifyFrontendHeaders.mjs
+
       - name: Check operational script catalog and guards
         run: npm run check:scripts
 

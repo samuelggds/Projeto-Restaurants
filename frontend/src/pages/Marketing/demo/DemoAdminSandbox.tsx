@@ -19,6 +19,10 @@ import {
 } from './demoDomain';
 import { mapAdminOrder } from '../../admin/domain/adminOrderMapper';
 
+import { syncDemoEmployees } from './demoEmployees';
+import { addDemoSupportMessage } from './demoSupport';
+import { resolveDemoIngredientImage } from './demoIngredients';
+
 let scenario = createInitialDemoState();
 let adminData = createDemoAdminData();
 const send = (type: string, value: Record<string, unknown> = {}) =>
@@ -27,6 +31,11 @@ const changeScenario = (next: DemoState) => {
   scenario = next;
   window.dispatchEvent(new Event('demo-scenario'));
   send('demo-admin:state', { state: next });
+};
+const changeAdminData = (patch: Partial<DemoAdminData>) => {
+  adminData = { ...adminData, ...patch };
+  window.dispatchEvent(new Event('demo-catalog'));
+  send('demo-admin:data', { data: adminData });
 };
 function configureAdapter() {
   api.defaults.adapter = createDemoAdminApi(
@@ -37,6 +46,9 @@ function configureAdapter() {
       adminData = { ...adminData, runtime };
       send('demo-admin:data', { data: adminData });
     },
+    () => adminData.employees,
+    () => adminData.settings,
+    { get: () => adminData, save: changeAdminData },
   );
 }
 configureAdapter();
@@ -62,15 +74,20 @@ function Sandbox() {
       }
     };
     const sync = () => setState(scenario);
+    const syncCatalog = () => setData(adminData);
     window.addEventListener('message', receive);
     window.addEventListener('demo-scenario', sync);
+    window.addEventListener('demo-catalog', syncCatalog);
     send('demo-admin:ready');
     return () => {
       window.removeEventListener('message', receive);
       window.removeEventListener('demo-scenario', sync);
+      window.removeEventListener('demo-catalog', syncCatalog);
     };
   }, []);
-  const save = (patch: Partial<DemoAdminData>) => {
+  const save = (patch: Partial<DemoAdminData>, passwords: Record<string, string> = {}) => {
+    if (patch.employees)
+      changeScenario(syncDemoEmployees(scenario, patch.employees, adminData.employees, passwords));
     const next = { ...adminData, ...patch };
     adminData = next;
     setData(next);
@@ -85,7 +102,7 @@ function Sandbox() {
       initialSettings={data.settings}
       initialProducts={data.products}
       initialCategories={data.categories}
-      initialIngredients={data.ingredients}
+      initialIngredients={adminData.ingredients}
       initialEmployees={data.employees}
       initialCoupons={data.coupons}
       initialOrders={demoApiOrders(state).map(mapAdminOrder)}
@@ -107,7 +124,12 @@ function Sandbox() {
       onConfirmOrderPayment={async (id) => changeScenario(toggleDemoOrderPaid(scenario, id))}
       onCancelOrder={async (id) => changeScenario(updateDemoOrderStatus(scenario, id, 'CANCELADO'))}
       onSaveProduct={async (product) => {
-        const next = { ...product, id: product.id || `demo-product-${Date.now()}` };
+        const previous = adminData.products.find((item) => item.id === product.id);
+        const next = {
+          ...product,
+          id: product.id || `demo-product-${Date.now()}`,
+          configurationVersion: (previous?.configurationVersion ?? 0) + 1,
+        };
         save({
           products: data.products.some((item) => item.id === next.id)
             ? data.products.map((item) => (item.id === next.id ? next : item))
@@ -129,22 +151,27 @@ function Sandbox() {
         save({ categories: data.categories.filter((item) => item.id !== id) })
       }
       onCreateIngredient={async (ingredient) => {
-        const next = { ...ingredient, id: Date.now() };
-        save({ ingredients: [...data.ingredients, next] });
+        const next = { ...resolveDemoIngredientImage(ingredient), id: Date.now() };
+        save({ ingredients: [...adminData.ingredients, next] });
         return next;
       }}
-      onUpdateIngredient={async (ingredient) =>
+      onUpdateIngredient={async (ingredient, imageSelection) =>
         save({
-          ingredients: data.ingredients.map((item) =>
-            item.id === ingredient.id ? ingredient : item,
+          ingredients: adminData.ingredients.map((item) =>
+            item.id === ingredient.id
+              ? resolveDemoIngredientImage({
+                  ...ingredient,
+                  ...(imageSelection !== undefined ? { image: imageSelection } : {}),
+                })
+              : item,
           ),
         })
       }
       onDeleteIngredient={async (id) =>
-        save({ ingredients: data.ingredients.filter((item) => item.id !== id) })
+        save({ ingredients: adminData.ingredients.filter((item) => item.id !== id) })
       }
-      onReloadCatalog={async () => undefined}
-      onReloadPromotions={async () => undefined}
+      onReloadCatalog={async () => setData({ ...adminData })}
+      onReloadPromotions={async () => setData({ ...adminData })}
       onApplyProductDiscount={async (id, discount) =>
         save({
           products: data.products.map((item) => (item.id === id ? { ...item, discount } : item)),
@@ -173,14 +200,17 @@ function Sandbox() {
         void _password;
         void _confirmation;
         const next = { ...profile, id: String(Date.now()) };
-        save({ employees: [...data.employees, next] });
+        save({ employees: [...data.employees, next] }, _password ? { [next.id]: _password } : {});
         return next;
       }}
       onUpdateEmployee={async (employee) => {
         const { password: _password, confirmPassword: _confirmation, ...next } = employee;
         void _password;
         void _confirmation;
-        save({ employees: data.employees.map((item) => (item.id === next.id ? next : item)) });
+        save(
+          { employees: data.employees.map((item) => (item.id === next.id ? next : item)) },
+          _password ? { [next.id]: _password } : {},
+        );
         return next;
       }}
       onDeactivateEmployee={async (id) =>
@@ -200,7 +230,8 @@ function Sandbox() {
       onConnectMercadoPago={simulated}
       onConnectPagBank={simulated}
       onOnboardAsaas={simulated}
-      onReportSupport={async () => {
+      onReportSupport={async (payload) => {
+        changeScenario(addDemoSupportMessage(scenario, payload));
         toast.success('Solicitação registrada na demonstração.');
       }}
       onViewStore={() => send('demo-admin:store')}

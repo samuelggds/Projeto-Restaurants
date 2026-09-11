@@ -4,11 +4,16 @@ import type {
   TablePaymentIntent,
 } from '../../Home/domain/tableAccount';
 import type { DemoState } from './demoDomain';
+import type { TableAccountAdminSettings } from '../../admin/types';
 
 export type DemoTablePayment = { payment: TablePaymentIntent; allocations: Record<string, number> };
 export const demoParticipant = 'demo-cliente';
 
-export function demoTableAccount(state: DemoState, tableNumber = 8): TableAccountSnapshot {
+export function demoTableAccount(
+  state: DemoState,
+  tableNumber = 8,
+  settings?: TableAccountAdminSettings,
+): TableAccountSnapshot {
   const table = state.tables.find((item) => item.number === tableNumber);
   const orders = state.orders.filter(
     (order) =>
@@ -81,8 +86,16 @@ export function demoTableAccount(state: DemoState, tableNumber = 8): TableAccoun
     leftAt: null,
   }));
   const consumedCents = items.reduce((sum, item) => sum + item.unitPriceCents, 0);
-  const netPaidCents = items.reduce((sum, item) => sum + item.paidCents, 0);
-  const reservedCents = items.reduce((sum, item) => sum + item.reservedCents, 0);
+  const paidFees = payments
+    .filter((entry) => entry.payment.status === 'PAID')
+    .reduce((sum, entry) => sum + entry.payment.serviceFeeCents, 0);
+  const reservedFees = payments
+    .filter((entry) => entry.payment.status === 'RESERVED')
+    .reduce((sum, entry) => sum + entry.payment.serviceFeeCents, 0);
+  // The real account summarizes fees charged by paid intents, not a retroactive fee on every item.
+  const serviceFeeCents = paidFees;
+  const netPaidCents = items.reduce((sum, item) => sum + item.paidCents, 0) + paidFees;
+  const reservedCents = items.reduce((sum, item) => sum + item.reservedCents, 0) + reservedFees;
   return {
     contractVersion: 1,
     currentParticipantPublicId: demoParticipant,
@@ -95,19 +108,31 @@ export function demoTableAccount(state: DemoState, tableNumber = 8): TableAccoun
       serviceFeeMode: 'DISABLED',
       serviceFeeBasisPoints: 0,
       reservationTimeoutMinutes: 10,
+      ...(settings
+        ? {
+            enabled: settings.enabled,
+            allowCash: settings.allowCash,
+            allowCardMachine: settings.allowCardMachine,
+            allowOnlinePayment: settings.allowOnlinePayment,
+            allowSplit: settings.allowSplit,
+            serviceFeeMode: settings.serviceFeeMode,
+            serviceFeeBasisPoints: settings.serviceFeeBasisPoints,
+            reservationTimeoutMinutes: settings.reservationTimeoutMinutes,
+          }
+        : {}),
     },
     summary: {
       sessionPublicId,
       tableNumber,
       status: !table?.occupied ? 'CLOSED' : table.closingRequested ? 'CLOSING_REQUESTED' : 'OPEN',
       consumedCents,
-      serviceFeeCents: 0,
+      serviceFeeCents,
       grossPaidCents: netPaidCents,
       refundedCents: 0,
       netPaidCents,
       reservedCents,
       processingCents: 0,
-      remainingCents: consumedCents - netPaidCents,
+      remainingCents: Math.max(0, consumedCents + serviceFeeCents - netPaidCents),
       overpaidCents: 0,
       participantsCount: participants.length,
     },
@@ -120,12 +145,16 @@ export function demoTableAccount(state: DemoState, tableNumber = 8): TableAccoun
   };
 }
 
-function updatePaidOrders(state: DemoState): DemoState {
-  const snapshot = demoTableAccount(state);
+function updatePaidOrders(state: DemoState, tableNumber: number): DemoState {
+  const snapshot = demoTableAccount(state, tableNumber);
   return {
     ...state,
     orders: state.orders.map((order) => {
-      if (order.channel !== 'TABLE' || order.tableNumber !== 8 || order.status === 'CANCELADO')
+      if (
+        order.channel !== 'TABLE' ||
+        order.tableNumber !== tableNumber ||
+        order.status === 'CANCELADO'
+      )
         return order;
       const items = snapshot.items.filter((item) => item.orderPublicId === order.publicId);
       return items.length && items.every((item) => item.paidCents >= item.unitPriceCents)
@@ -139,8 +168,20 @@ export function createDemoTablePayment(
   state: DemoState,
   draft: TablePaymentDraft,
   now = Date.now(),
+  tableNumber = 8,
+  settings?: TableAccountAdminSettings,
 ) {
-  const snapshot = demoTableAccount(state);
+  const snapshot = demoTableAccount(state, tableNumber, settings);
+  const capabilities = snapshot.capabilities;
+  if (!capabilities.enabled) throw new Error('A conta da mesa está desativada nas configurações.');
+  if (
+    (draft.method === 'CASH' && !capabilities.allowCash) ||
+    (draft.method === 'CARD_MACHINE' && !capabilities.allowCardMachine) ||
+    (['PIX', 'CARD'].includes(draft.method) && !capabilities.allowOnlinePayment)
+  )
+    throw new Error('Essa forma de pagamento está desativada.');
+  if (!capabilities.allowSplit && !['FULL_ACCOUNT', 'WAITER'].includes(draft.selectionMode))
+    throw new Error('A divisão da conta está desativada.');
   if (snapshot.summary.status === 'CLOSED') throw new Error('A mesa está fechada.');
   let items = snapshot.items.filter((item) => item.availableCents > 0);
   if (draft.selectionMode === 'MY_ITEMS')
@@ -162,6 +203,12 @@ export function createDemoTablePayment(
     remaining -= value;
   }
   const createdAt = new Date(now).toISOString();
+  const chargeFee =
+    capabilities.serviceFeeMode === 'MANDATORY' ||
+    (capabilities.serviceFeeMode === 'OPTIONAL' && draft.includeOptionalServiceFee);
+  const serviceFeeCents = chargeFee
+    ? Math.round((totalCents * capabilities.serviceFeeBasisPoints) / 10000)
+    : 0;
   const payment: TablePaymentIntent = {
     publicId: `demo-table-payment:${now}:${(state.tablePayments?.length ?? 0) + 1}`,
     sessionPublicId: snapshot.summary.sessionPublicId,
@@ -171,20 +218,23 @@ export function createDemoTablePayment(
     status: ['CASH', 'CARD_MACHINE'].includes(draft.method) ? 'RESERVED' : 'PAID',
     billItemPublicIds: Object.keys(allocations),
     subtotalCents: totalCents,
-    serviceFeeCents: 0,
-    totalCents,
+    serviceFeeCents,
+    totalCents: totalCents + serviceFeeCents,
     provider: 'DEMO',
     externalId: null,
     checkoutUrl: null,
     paymentCode: null,
-    expiresAt: new Date(now + 600000).toISOString(),
+    expiresAt: new Date(now + capabilities.reservationTimeoutMinutes * 60000).toISOString(),
     createdAt,
     updatedAt: createdAt,
   };
-  const next = updatePaidOrders({
-    ...state,
-    tablePayments: [...(state.tablePayments ?? []), { payment, allocations }],
-  });
+  const next = updatePaidOrders(
+    {
+      ...state,
+      tablePayments: [...(state.tablePayments ?? []), { payment, allocations }],
+    },
+    tableNumber,
+  );
   return { state: next, payment };
 }
 
@@ -192,12 +242,19 @@ export function confirmDemoTablePayment(state: DemoState, id: string): DemoState
   const entry = state.tablePayments?.find((item) => item.payment.publicId === id);
   if (!entry || entry.payment.status !== 'RESERVED')
     throw new Error('Pagamento indisponível para confirmação.');
-  return updatePaidOrders({
-    ...state,
-    tablePayments: state.tablePayments!.map((item) =>
-      item === entry ? { ...item, payment: { ...item.payment, status: 'PAID' } } : item,
-    ),
-  });
+  const tableNumber = state.tables.find(
+    (table) => `demo-session:${table.id}` === entry.payment.sessionPublicId,
+  )?.number;
+  if (!tableNumber) throw new Error('Mesa fictícia não encontrada.');
+  return updatePaidOrders(
+    {
+      ...state,
+      tablePayments: state.tablePayments!.map((item) =>
+        item === entry ? { ...item, payment: { ...item.payment, status: 'PAID' } } : item,
+      ),
+    },
+    tableNumber,
+  );
 }
 
 export function cancelDemoTablePayment(state: DemoState, id: string): DemoState {

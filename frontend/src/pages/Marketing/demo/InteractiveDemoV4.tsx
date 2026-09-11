@@ -293,7 +293,9 @@ function PortalLogin({
   onSuccess: () => void;
 }) {
   const allowedRoles = rolesForPortal(portal);
-  const accounts = state.accounts.filter((account) => allowedRoles.includes(account.role));
+  const accounts = state.accounts.filter(
+    (account) => account.active !== false && allowedRoles.includes(account.role),
+  );
   const first = accounts[0];
   const [email, setEmail] = useState(first?.email || '');
   const [password, setPassword] = useState(DEMO_DEFAULT_PASSWORD);
@@ -572,7 +574,8 @@ export default function InteractiveDemoV4() {
             if (role === 'CLIENTE' || role === 'CLIENTE_QR')
               setCustomerView(role === 'CLIENTE_QR' ? 'QR' : 'HOME');
             const next = state.accounts.find(
-              (item) => item.role === (role === 'CLIENTE_QR' ? 'CLIENTE' : role),
+              (item) =>
+                item.active !== false && item.role === (role === 'CLIENTE_QR' ? 'CLIENTE' : role),
             );
             if (next) setState(selectDemoAccount(state, next.id));
           }}

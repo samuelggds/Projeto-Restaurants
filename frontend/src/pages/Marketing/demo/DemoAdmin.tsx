@@ -63,7 +63,7 @@ export function DemoAdmin({
       ref={frame}
       src="/demo-admin.html"
       title="Painel administrativo demonstrativo"
-      sandbox="allow-scripts allow-same-origin allow-downloads"
+      sandbox="allow-scripts allow-same-origin allow-downloads allow-forms"
       style={{
         display: 'block',
         width: '100%',

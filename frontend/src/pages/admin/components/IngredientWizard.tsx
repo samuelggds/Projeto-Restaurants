@@ -71,6 +71,8 @@ export function IngredientWizard({
   const [price, setPrice] = useState('0');
   const [hasAdditionalPrice, setHasAdditionalPrice] = useState(false);
   const [imageResults, setImageResults] = useState<IngredientImageSearchResult[]>([]);
+  const [imageProvider, setImageProvider] =
+    useState<IngredientImageSearchResponse['provider']>('Pexels');
   const [imagePage, setImagePage] = useState(1);
   const [previewImageId, setPreviewImageId] = useState<string | null>(null);
   const [selectedImage, setSelectedImage] = useState<SelectedImage | null>(null);
@@ -172,6 +174,7 @@ export function IngredientWizard({
               page: requestedPage,
             });
         setImageResults(response.results);
+        setImageProvider(response.provider);
         setImagePage(response.page);
         setPreviewImageId(response.results[0]?.id ?? null);
         setSelectedImage(null);
@@ -371,6 +374,7 @@ export function IngredientWizard({
               <IngredientImageStep
                 loading={imageLoading}
                 name={name}
+                provider={imageProvider}
                 previewId={previewImageId}
                 results={imageResults}
                 searchError={imageSearchError}

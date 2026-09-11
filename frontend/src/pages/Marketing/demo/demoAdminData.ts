@@ -11,8 +11,11 @@ import type {
 import { demoHomeData, demoProducts } from './demoCatalog';
 import { createInitialDemoState } from './demoDomain';
 
+import { createDemoIngredients } from './demoIngredients';
+
 export const DEMO_ADMIN_STORAGE_KEY = 'gastronexa:demo:admin:v1';
 export type DemoAdminData = {
+  catalogSeedVersion?: number;
   runtime?: DemoAdminRuntime;
   settings: AdminSettings;
   products: AdminProduct[];
@@ -36,6 +39,7 @@ export function discardDemoCredentials(settings: AdminSettings): AdminSettings {
 
 export function createDemoAdminData(): DemoAdminData {
   return {
+    catalogSeedVersion: 1,
     settings: {
       ...adminMockSettings,
       restaurantName: demoHomeData.brand.name,
@@ -79,7 +83,7 @@ export function createDemoAdminData(): DemoAdminData {
     categories: demoHomeData.categories
       .filter((category) => category.id !== 'todos')
       .map((category, index) => ({ id: index + 1, name: category.name })),
-    ingredients: [],
+    ingredients: createDemoIngredients(),
     coupons: [],
     employees: createInitialDemoState()
       .accounts.filter((account) => !['ADMIN', 'CLIENTE'].includes(account.role))
@@ -111,7 +115,25 @@ export function readDemoAdminData(): DemoAdminData {
       Array.isArray(value.ingredients) &&
       Array.isArray(value.coupons)
     )
-      return { ...value, settings: { ...createDemoAdminData().settings, ...value.settings } };
+      return {
+        ...value,
+        catalogSeedVersion: 1,
+        ingredients: value.catalogSeedVersion
+          ? value.ingredients
+          : [
+              ...value.ingredients,
+              ...createDemoIngredients().filter(
+                (seed) =>
+                  !value.ingredients.some(
+                    (item: AdminIngredient) =>
+                      item.id === seed.id ||
+                      item.name.trim().toLocaleLowerCase('pt-BR') ===
+                        seed.name.toLocaleLowerCase('pt-BR'),
+                  ),
+              ),
+            ],
+        settings: { ...createDemoAdminData().settings, ...value.settings },
+      };
   } catch {
     /* A broken local draft must not stop the demonstration. */
   }

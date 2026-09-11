@@ -1,11 +1,20 @@
 import { AxiosError, type AxiosAdapter } from 'axios';
 import type { OrderCustomersPage } from '../../../Services/ordersService';
 import type { DemoState, DemoOrderStatus } from './demoDomain';
+import { demoEmployeePayments } from './demoEmployeePayments';
+import { demoCourierPayments } from './demoCourierPayments';
+import type { CourierConfiguration } from '../../../Services/courierCompensationService';
+import type { Employee, AdminSettings } from '../../admin/types';
+import { demoAdminLocalOperations } from './demoAdminLocalOperations';
+import { demoIngredientImages } from './demoIngredients';
+import { demoOrderSupport } from './demoOrderSupport';
+import { importDemoCatalog, type DemoCatalogAccess } from './demoCatalogOperations';
 import { toggleDemoOrderPaid, updateDemoOrderStatus } from './demoDomain';
 
 export function demoApiOrders(state: DemoState) {
   return state.orders.map((order) => ({
     ...order,
+    issueThread: (state.attendant?.threads ?? []).find(([id]) => id === order.id)?.[1],
     orderNumber: order.publicId,
     type: order.channel === 'TABLE' ? 'MESA' : order.channel === 'PICKUP' ? 'RETIRADA' : 'DELIVERY',
     user: { name: order.customerName, email: order.customerEmail },
@@ -21,6 +30,7 @@ export function demoApiOrders(state: DemoState) {
       quantity: item.quantity,
       price: item.unitPrice,
       product: { name: item.name },
+      observation: item.customizations?.join(' · ') ?? '',
     })),
   }));
 }
@@ -56,6 +66,9 @@ export function createDemoAdminApi(
   update: (state: DemoState) => void,
   runtime?: DemoAdminRuntime,
   onRuntimeChange?: (runtime: DemoAdminRuntime) => void,
+  getEmployees?: () => Employee[],
+  getSettings?: () => AdminSettings,
+  catalog?: DemoCatalogAccess,
 ): AxiosAdapter {
   const records = new Map<string, unknown>(runtime?.records ?? []);
   let sequence = runtime?.sequence ?? 1;
@@ -95,7 +108,14 @@ export function createDemoAdminApi(
     const body: Record<string, unknown> =
       typeof config.data === 'string' ? JSON.parse(config.data || '{}') : (config.data ?? {});
     const query = config.params ?? {};
+    const idempotencyKey = config.headers.get('Idempotency-Key');
+    const requestKey =
+      method !== 'GET' && idempotencyKey
+        ? `request:${method}:${path}:${String(idempotencyKey)}`
+        : null;
+    const fingerprint = JSON.stringify(body);
     const response = (data: unknown) => {
+      if (requestKey) records.set(requestKey, { fingerprint, data });
       if (method !== 'GET')
         onRuntimeChange?.({ records: [...records], sequence, printer, jobs, compensation });
       return {
@@ -106,7 +126,59 @@ export function createDemoAdminApi(
         config,
       };
     };
+    try {
+      const previous = requestKey
+        ? (records.get(requestKey) as { fingerprint: string; data: unknown } | undefined)
+        : undefined;
+      if (previous) {
+        if (previous.fingerprint !== fingerprint)
+          throw new Error(
+            'Esta tentativa já foi usada com outros dados. Inicie uma nova operação.',
+          );
+        const data = previous.data;
+        return response(
+          data && typeof data === 'object' && 'idempotentReplay' in data
+            ? { ...data, idempotentReplay: true }
+            : data,
+        );
+      }
+      const context = {
+        path,
+        method,
+        body,
+        query,
+        state,
+        update,
+        records,
+        nextId: () => sequence++,
+        tableAccount: getSettings?.().tableAccount,
+      };
+      if (
+        catalog &&
+        method === 'POST' &&
+        ['/menu-import/ifood', '/menu-import/image'].includes(path)
+      )
+        return response(importDemoCatalog(catalog, () => sequence++));
+      const local =
+        demoOrderSupport(context) ??
+        demoAdminLocalOperations(context) ??
+        demoEmployeePayments({ ...context, employees: getEmployees?.() }) ??
+        demoCourierPayments(context, compensation as CourierConfiguration);
+      if (local) return response(local.data);
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : 'Não foi possível concluir a simulação.';
+      throw new AxiosError(message, 'DEMO_VALIDATION', config, undefined, {
+        data: { error: message },
+        status: 422,
+        statusText: 'Demo validation',
+        headers: {},
+        config,
+      });
+    }
     const orders = demoApiOrders(state);
+    if (path === '/ingredients/image-search' && method === 'POST')
+      return response(demoIngredientImages(String(body.name ?? ''), Number(body.page) || 1));
     if (path === '/orders' && method === 'GET') {
       let filtered = orders.filter(
         (order) =>
@@ -116,7 +188,14 @@ export function createDemoAdminApi(
               .toLowerCase()
               .includes(String(query.search).toLowerCase().replace('#', ''))),
       );
-      if (query.issuesOnly) filtered = [];
+      if (query.issuesOnly) {
+        const ids = new Set(
+          (state.attendant?.threads ?? [])
+            .filter(([, thread]) => !thread.isResolved)
+            .map(([id]) => id),
+        );
+        filtered = filtered.filter((order) => ids.has(order.id));
+      }
       if (query.queue === 'ACTIVE')
         filtered = filtered.filter((order) => !['ENTREGUE', 'CANCELADO'].includes(order.status));
       if (query.queue === 'PAYMENT')
@@ -259,7 +338,10 @@ export function createDemoAdminApi(
       const action = orderAction[2];
       if (order && method === 'GET' && !action) return response(order);
       if (order && method === 'GET' && action === 'issue-thread')
-        return response({ messages: [], hasMore: false });
+        return response({
+          ...(state.attendant?.threads ?? []).find(([id]) => id === order.id)?.[1],
+          hasMore: false,
+        });
       if (
         order &&
         ['PATCH', 'PUT', 'POST'].includes(method) &&
@@ -313,26 +395,29 @@ export function createDemoAdminApi(
       }
       return response({
         settings: printer,
-        agent: {
-          publicId: 'demo-printer',
-          name: 'Impressora fictícia',
-          printerName: 'Demo 80 mm',
-          lastSeenAt: new Date().toISOString(),
-          appVersion: 'Demo',
-          online: true,
-        },
+        agent: records.get('printer-revoked')
+          ? null
+          : {
+              publicId: 'demo-printer',
+              name: 'Impressora fictícia',
+              printerName: 'Demo 80 mm',
+              lastSeenAt: new Date().toISOString(),
+              appVersion: 'Demo',
+              online: true,
+            },
         queue: { PRINTED: jobs.length },
         onlineWindowSeconds: 90,
       });
     }
     if (path === '/kitchen-printing/jobs') return response(jobs);
-    if (path === '/kitchen-printing/test') {
+    const reprint = path.match(/^\/kitchen-printing\/orders\/(\d+)\/reprint$/);
+    if ((path === '/kitchen-printing/test' || reprint) && method === 'POST') {
       const publicId = `demo-print-${sequence++}`;
       jobs.unshift({
         publicId,
-        orderId: null,
-        type: 'TEST',
-        source: 'TEST',
+        orderId: reprint ? Number(reprint[1]) : null,
+        type: reprint ? 'ORDER' : 'TEST',
+        source: reprint ? 'REPRINT' : 'TEST',
         trigger: null,
         status: 'PRINTED',
         attempts: 1,
@@ -343,13 +428,42 @@ export function createDemoAdminApi(
       });
       return response({ jobPublicId: publicId, status: 'PRINTED' });
     }
-    if (path === '/kitchen-printing/devices/credential')
+    if (path === '/kitchen-printing/devices/credential') {
+      records.set('printer-revoked', false);
       return response({
         device: { publicId: 'demo-printer', name: 'Impressora fictícia' },
         credential: 'DEMO-SEM-ACESSO-A-IMPRESSORAS-REAIS',
         shownOnce: true,
       });
-    if (path.startsWith('/kitchen-printing/devices/')) return response({ success: true });
+    }
+    if (path.startsWith('/kitchen-printing/devices/') && method === 'DELETE') {
+      records.set('printer-revoked', true);
+      return response({ success: true });
+    }
+    const retryPrint = path.match(/^\/kitchen-printing\/jobs\/([^/]+)\/retry$/);
+    if (retryPrint && method === 'POST') {
+      const job = jobs.find((item) => item.publicId === retryPrint[1]);
+      if (job) {
+        Object.assign(job, {
+          status: 'PRINTED',
+          attempts: Number(job.attempts) + 1,
+          printedAt: new Date().toISOString(),
+        });
+        return response(job);
+      }
+    }
+    const courierRule = path.match(/^\/courier-compensation\/admin\/couriers\/(\d+)\/rule$/);
+    if (courierRule) {
+      compensation = {
+        ...compensation,
+        couriers: compensation.couriers.map((courier) =>
+          courier.id === Number(courierRule[1])
+            ? { ...courier, override: method === 'DELETE' ? null : body }
+            : courier,
+        ),
+      };
+      return response(compensation);
+    }
     if (path === '/courier-compensation/admin/configuration') {
       if (method !== 'GET')
         compensation = {
@@ -357,26 +471,10 @@ export function createDemoAdminApi(
           timezone: String(body.timezone ?? compensation.timezone),
           defaultPolicy: {
             ...compensation.defaultPolicy,
-            ...((body.defaultPolicy as Partial<typeof defaultPolicy>) ?? {}),
+            ...(body as Partial<typeof defaultPolicy>),
           },
         };
       return response(compensation);
-    }
-    if (path.startsWith('/courier-compensation/') || path.startsWith('/employee-compensation/')) {
-      const key = path.replace(/\/\d+\/(approve|reject|pay)$/, '');
-      if (method === 'GET') return response(records.get(key) ?? []);
-      const entry = {
-        ...body,
-        id: sequence++,
-        publicId: `demo-entry-${sequence}`,
-        status: 'APPROVED',
-        createdAt: new Date().toISOString(),
-        items: [],
-        payments: [],
-      };
-      const current = records.get(key);
-      records.set(key, [...(Array.isArray(current) ? current : []), entry]);
-      return response(entry);
     }
     if (path === '/billing/plans')
       return response([
