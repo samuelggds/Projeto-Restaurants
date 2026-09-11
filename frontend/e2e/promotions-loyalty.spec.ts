@@ -253,6 +253,10 @@ test('cliente vê promoção, aplica benefício de fidelidade e envia o resgate 
     'line-through',
   );
   await expect(featuredOffers.getByText('R$ 40,00')).toBeVisible();
+  const customerHub = page.getByTestId('floating-actions-control-customer');
+  await expect(customerHub).toHaveAttribute('aria-expanded', 'false');
+  await customerHub.click();
+  await expect(customerHub).toHaveAttribute('aria-expanded', 'true');
   const loyaltyNotice = page.getByRole('button', {
     name: /Você ganhou um cupom.*10% de desconto/i,
   });
@@ -352,6 +356,7 @@ test('cliente vê promoção, aplica benefício de fidelidade e envia o resgate 
   }
 
   await page.setViewportSize({ width: 390, height: 844 });
+  await page.getByRole('button', { name: 'Fechar central do cliente' }).click();
 
   await featuredOffers.getByRole('button', { name: 'Ver detalhes de Prato artesanal' }).click();
   await page.getByText('Base tradicional').click();
@@ -376,10 +381,9 @@ test('cliente vê promoção, aplica benefício de fidelidade e envia o resgate 
   await expect(page.locator('main[data-status="PAID"]')).toBeVisible();
   await expect(page.getByText('Recebemos a confirmação do seu pagamento.')).toBeVisible();
   await page.getByRole('button', { name: 'Voltar ao cardápio' }).click();
-  const loyaltyToggle = page.getByTestId('customer-coupon-status-toggle');
-  await expect(loyaltyToggle).toHaveAttribute('aria-expanded', 'false');
-  await loyaltyToggle.click();
-  await expect(loyaltyToggle).toHaveAttribute('aria-expanded', 'true');
+  await expect(customerHub).toHaveAttribute('aria-expanded', 'false');
+  await customerHub.click();
+  await expect(customerHub).toHaveAttribute('aria-expanded', 'true');
   await expect(
     page.getByRole('button', { name: /Faltam 5 pedidos.*próxima recompensa/i }),
   ).toBeVisible();
@@ -475,6 +479,10 @@ test('campanha criada com a Home aberta aparece quando o cliente volta para a ab
   await mockAuthRefresh(page, 22, 'e2e-customer-token');
   await page.goto('/restaurante-teste');
 
+  const customerHub = page.getByTestId('floating-actions-control-customer');
+  await expect(customerHub).toHaveAttribute('aria-expanded', 'false');
+  await customerHub.click();
+  await expect(customerHub).toHaveAttribute('aria-expanded', 'true');
   await expect(
     page.getByRole('button', {
       name: /Clube de vantagens.*Toque para verificar novos cupons/i,

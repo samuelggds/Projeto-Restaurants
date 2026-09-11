@@ -2,6 +2,8 @@ import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { ShoppingBag, X } from 'lucide-react';
 import { FloatingActionsControl } from './components/FloatingActionsControl';
+import { CustomerActionHub } from './components/CustomerActionHub';
+import { FloatingWhatsAppPortal } from './Home.whatsapp';
 import { PublicGuestOrderHelp } from '../../features/order-support/PublicGuestOrderHelp';
 import { useAuth } from '../../contexts/authContext';
 import { HomePage } from './HomePage';
@@ -1036,85 +1038,95 @@ export default function Home() {
 
       <HomeFeedback
         showLoginNudge={showLoginNudge}
+        hasFloatingWhatsapp={Boolean(whatsappUrl)}
         notifications={notifs}
         onLogin={navigateToLogin}
         onDismissNudge={() => setNudgeDismissed(true)}
         onDismissNotification={dismissNotif}
         onOpenCart={openHomeCart}
       />
-      <S.FloatingActions
-        ref={floatingActionsRef}
-        data-testid="floating-actions-layer"
-        style={floatingActionsStyle}
-        data-dragging={floatingActionsDragging ? 'true' : 'false'}
-        data-drag-positioned={floatingActionsPositioned ? 'true' : 'false'}
-        $aboveNudge={showLoginNudge}
-        $primary={primary}
-        onPointerDown={handleFloatingPointerDown}
-        onPointerMove={handleFloatingPointerMove}
-        onPointerUp={handleFloatingPointerUp}
-        onPointerCancel={handleFloatingPointerCancel}
-        onClickCapture={handleFloatingClickCapture}
-      >
-        <FloatingActionsControl
-          mode={mesaMode ? 'table' : 'customer'}
-          collapsed={floatingActionsCollapsed}
-          onToggle={() => setFloatingActionsCollapsed((collapsed) => !collapsed)}
-        />
-        {!floatingActionsCollapsed && (
-          <>
-            {mesaMode && tableSession && (
-              <TableServiceActions
-                embedded
-                tableNumber={mesaLabel}
-                waiterEnabled={tableSession.waiterCallEnabled !== false}
-                billEnabled={tableSession.billRequestEnabled !== false && !tableClosingRequested}
-                accountEnabled={Boolean(tableSession.sessionPublicId)}
-                loading={tableServiceLoading}
-                onCallWaiter={() => void requestTableService('WAITER')}
-                onRequestBill={() => void requestTableService('BILL')}
-                onOpenAccount={openTableAccount}
-              />
-            )}
-            {whatsappUrl && (
-              <S.Whatsapp
-                data-testid="floating-whatsapp-contact"
-                href={whatsappUrl}
-                target="_blank"
-                rel="noreferrer"
-                aria-label={`Falar com ${whatsappLabel} no WhatsApp`}
-                title={`Falar com ${whatsappLabel}`}
-              >
-                <WhatsAppIcon size={24} />
-              </S.Whatsapp>
-            )}
-            {loyaltyProgram && <LoyaltyProgramCard loyalty={loyaltyProgram} />}
-            {!user && !mesaMode && <PublicGuestOrderHelp inline restaurantId={restaurantId} />}
-            {mesaMode ? (
+      {whatsappUrl && (
+        <FloatingWhatsAppPortal
+          href={whatsappUrl}
+          target="_blank"
+          rel="noreferrer"
+          aria-label={`Falar com ${whatsappLabel} no WhatsApp`}
+          title={`Falar com ${whatsappLabel} no WhatsApp`}
+        >
+          <WhatsAppIcon size={25} />
+        </FloatingWhatsAppPortal>
+      )}
+      {mesaMode ? (
+        <S.FloatingActions
+          ref={floatingActionsRef}
+          data-testid="floating-actions-layer"
+          style={floatingActionsStyle}
+          data-dragging={floatingActionsDragging ? 'true' : 'false'}
+          data-drag-positioned={floatingActionsPositioned ? 'true' : 'false'}
+          $aboveNudge={showLoginNudge}
+          $primary={primary}
+          $hasWhatsapp={Boolean(whatsappUrl)}
+          onPointerDown={handleFloatingPointerDown}
+          onPointerMove={handleFloatingPointerMove}
+          onPointerUp={handleFloatingPointerUp}
+          onPointerCancel={handleFloatingPointerCancel}
+          onClickCapture={handleFloatingClickCapture}
+        >
+          <FloatingActionsControl
+            mode="table"
+            collapsed={floatingActionsCollapsed}
+            onToggle={() => setFloatingActionsCollapsed((collapsed) => !collapsed)}
+          />
+          {!floatingActionsCollapsed && (
+            <>
+              {mesaMode && tableSession && (
+                <TableServiceActions
+                  embedded
+                  tableNumber={mesaLabel}
+                  waiterEnabled={tableSession.waiterCallEnabled !== false}
+                  billEnabled={tableSession.billRequestEnabled !== false && !tableClosingRequested}
+                  accountEnabled={Boolean(tableSession.sessionPublicId)}
+                  loading={tableServiceLoading}
+                  onCallWaiter={() => void requestTableService('WAITER')}
+                  onRequestBill={() => void requestTableService('BILL')}
+                  onOpenAccount={openTableAccount}
+                />
+              )}
+              {loyaltyProgram && <LoyaltyProgramCard loyalty={loyaltyProgram} />}
               <TableOrderStatusNotice
                 primaryColor={primary}
                 tableLabel={mesaLabel}
                 order={tableOrder}
               />
-            ) : (
-              <ActiveOrderNotice
-                primaryColor={primary}
-                order={activeOrder}
-                onTrack={(orderId) => navigate(`/orders/${orderId}/tracking`)}
-                onConfirmDelivery={async (orderId) => {
-                  await ordersService.confirmDeliveryReceived(orderId);
-                  await refreshActiveOrder();
-                  notify(
-                    'success',
-                    'Recebimento confirmado',
-                    'A cozinha e o restaurante foram avisados.',
-                  );
-                }}
-              />
-            )}
-          </>
-        )}
-      </S.FloatingActions>
+            </>
+          )}
+        </S.FloatingActions>
+      ) : loyaltyProgram || activeOrder || !user ? (
+        <CustomerActionHub
+          primary={primary}
+          activeOrder={Boolean(activeOrder)}
+          hasWhatsapp={Boolean(whatsappUrl)}
+          aboveNudge={showLoginNudge}
+        >
+          <ActiveOrderNotice
+            embedded
+            primaryColor={primary}
+            order={activeOrder}
+            onTrack={(orderId) => navigate(`/orders/${orderId}/tracking`)}
+            onConfirmDelivery={async (orderId) => {
+              await ordersService.confirmDeliveryReceived(orderId);
+              await refreshActiveOrder();
+              notify(
+                'success',
+                'Recebimento confirmado',
+                'A cozinha e o restaurante foram avisados.',
+              );
+            }}
+          />
+          {loyaltyProgram && <LoyaltyProgramCard embedded loyalty={loyaltyProgram} />}
+          {!user && <PublicGuestOrderHelp inline restaurantId={restaurantId} />}
+        </CustomerActionHub>
+      ) : null}
     </S.HomeExperience>
   );
 }

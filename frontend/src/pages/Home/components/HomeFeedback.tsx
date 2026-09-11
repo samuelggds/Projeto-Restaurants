@@ -34,6 +34,7 @@ function NotificationIcon({ type }: { type: HomeNotification['type'] }) {
 
 type Props = {
   showLoginNudge: boolean;
+  hasFloatingWhatsapp?: boolean;
   notifications: HomeNotification[];
   onLogin: () => void;
   onDismissNudge: () => void;
@@ -45,7 +46,11 @@ export function HomeFeedback(props: Props) {
   return (
     <>
       {props.showLoginNudge && (
-        <S.LoginNudge role="region" aria-label="Acompanhe seus pedidos">
+        <S.LoginNudge
+          role="region"
+          aria-label="Acompanhe seus pedidos"
+          $hasWhatsapp={props.hasFloatingWhatsapp}
+        >
           <BellRing aria-hidden="true" />
           <span>
             <strong>Acompanhe seus pedidos</strong>

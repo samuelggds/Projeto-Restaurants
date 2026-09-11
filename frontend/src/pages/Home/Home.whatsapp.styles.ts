@@ -3,8 +3,8 @@ import styled from 'styled-components';
 export const FloatingWhatsApp = styled.a`
   position: fixed;
   right: clamp(16px, 2vw, 28px);
-  bottom: clamp(18px, 2vw, 30px);
-  z-index: 70;
+  bottom: calc(24px + env(safe-area-inset-bottom, 0px));
+  z-index: 58;
   width: 58px;
   height: 58px;
   border-radius: 50%;
@@ -37,7 +37,7 @@ export const FloatingWhatsApp = styled.a`
 
   @media (max-width: 700px) {
     right: 14px;
-    bottom: 16px;
+    bottom: calc(16px + env(safe-area-inset-bottom, 0px));
     width: 54px;
     height: 54px;
 
@@ -45,5 +45,8 @@ export const FloatingWhatsApp = styled.a`
       width: 25px;
       height: 25px;
     }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    transition: none;
   }
 `;
