@@ -1,6 +1,7 @@
 import { demoTableAccount } from './demoTableAccount';
 import type { DemoState } from './demoDomain';
 import type { WaiterAccountSession } from '../../waiter/types';
+import type { TableAccountAdminSettings } from '../../admin/types';
 const time = (value: string) =>
   new Date(value).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
 const sessionId = (tableId: string) => `demo-session:${tableId}`;
@@ -20,7 +21,9 @@ export function demoOperationalOrders(state: DemoState) {
     itemDetails: order.items.map((item) => ({
       name: item.name,
       quantity: item.quantity,
-      customizations: [],
+      customizations: item.customizations?.length
+        ? [{ groupName: 'Personalização', options: item.customizations }]
+        : [],
     })),
     createdAt: time(order.createdAt),
     createdAtIso: order.createdAt,
@@ -32,7 +35,10 @@ export function demoOperationalOrders(state: DemoState) {
   }));
 }
 
-export function demoWaiterAccounts(state: DemoState): WaiterAccountSession[] {
+export function demoWaiterAccounts(
+  state: DemoState,
+  settings?: TableAccountAdminSettings,
+): WaiterAccountSession[] {
   return state.tables
     .filter(
       (table) =>
@@ -55,7 +61,7 @@ export function demoWaiterAccounts(state: DemoState): WaiterAccountSession[] {
       const consumedCents = Math.round(
         orders.reduce((total, order) => total + order.total, 0) * 100,
       );
-      const financial = demoTableAccount(state, table.number);
+      const financial = demoTableAccount(state, table.number, settings);
       const netPaidCents = financial.summary.netPaidCents;
       const reservedPayments = (state.tablePayments ?? []).filter(
         (entry) =>
@@ -84,7 +90,7 @@ export function demoWaiterAccounts(state: DemoState): WaiterAccountSession[] {
           netPaidCents,
           reservedCents: financial.summary.reservedCents,
           processingCents: 0,
-          remainingCents: Math.max(0, consumedCents - netPaidCents),
+          remainingCents: financial.summary.remainingCents,
           participantsCount: table.guests || 1,
         },
         itemsCount: orders.reduce(

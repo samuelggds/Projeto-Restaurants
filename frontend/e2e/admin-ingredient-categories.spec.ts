@@ -5,6 +5,26 @@ import { mockAuthRefresh } from './helpers/mockAuthRefresh';
 
 const INGREDIENT_IMAGE = '/e2e/fixtures/readme/pizza-calabresa.jpg';
 
+async function expectPageWithinViewport(page: Page) {
+  const report = await page.evaluate(() => ({
+    width: document.documentElement.clientWidth,
+    scrollWidth: document.documentElement.scrollWidth,
+    overflowing: Array.from(document.querySelectorAll<HTMLElement>('body *'))
+      .filter(
+        (element) =>
+          element.offsetParent !== null && element.getBoundingClientRect().right > innerWidth + 1,
+      )
+      .map((element) => ({
+        tag: element.tagName,
+        className: element.className,
+        text: element.textContent?.slice(0, 80),
+        right: element.getBoundingClientRect().right,
+      }))
+      .slice(0, 12),
+  }));
+  expect(report.scrollWidth, JSON.stringify(report)).toBeLessThanOrEqual(report.width + 1);
+}
+
 async function openIngredientCatalog(page: Page, imageSearchFails = false) {
   const ingredients: Array<{
     id: number;
@@ -125,7 +145,11 @@ async function openIngredientCatalog(page: Page, imageSearchFails = false) {
     await route.fulfill({
       status: 200,
       contentType: 'application/json',
-      body: JSON.stringify(orderFixtureResponse(route.request().url(), responses['/orders']) ?? responses[pathname] ?? {}),
+      body: JSON.stringify(
+        orderFixtureResponse(route.request().url(), responses['/orders']) ??
+          responses[pathname] ??
+          {},
+      ),
     });
   });
 
@@ -138,7 +162,7 @@ async function openIngredientCatalog(page: Page, imageSearchFails = false) {
   });
   await mockAuthRefresh(page, 9, 'e2e-admin-token');
   await page.goto('/admin');
-  await page.getByRole('button', { name: 'Cardápio' }).click();
+  await page.getByRole('button', { name: 'Cardápio', exact: true }).click();
   await page.getByRole('button', { name: /Ingredientes \(0\)/ }).click();
 
   return { createdPayloads, updatePayloads };
@@ -205,12 +229,7 @@ test('admin escolhe uma foto sugerida, preserva e remove a imagem explicitamente
     await card.evaluate((element) => element.scrollWidth <= element.clientWidth + 1),
     'o formulário de edição deve permanecer contido no card em 320 px',
   ).toBe(true);
-  expect(
-    await page.evaluate(
-      () => document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1,
-    ),
-    'a edição não deve criar rolagem horizontal na página',
-  ).toBe(true);
+  await expectPageWithinViewport(page);
   await card.getByRole('button', { name: 'Remover foto' }).click();
   await card.getByRole('button', { name: 'Salvar Bacon' }).click();
   await expect(page.getByText('Ingrediente atualizado.')).toBeVisible();
@@ -227,11 +246,10 @@ test('falha na busca não bloqueia ingrediente sem foto e preserva o fallback', 
   await wizard.getByPlaceholder('Ex.: Bacon').fill('Catupiry');
   await wizard.getByRole('button', { name: 'Continuar', exact: true }).click();
   await expect(wizard.getByText('Não conseguimos buscar imagens agora.')).toBeVisible();
-  const overflow = await wizard.evaluate((element) => ({
-    dialog: element.scrollWidth <= element.clientWidth + 1,
-    page: document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1,
-  }));
-  expect(overflow).toEqual({ dialog: true, page: true });
+  expect(await wizard.evaluate((element) => element.scrollWidth <= element.clientWidth + 1)).toBe(
+    true,
+  );
+  await expectPageWithinViewport(page);
   await wizard.getByRole('button', { name: 'Continuar sem foto' }).click();
   await wizard.getByPlaceholder('Ex.: Molhos').fill('Adicionais');
   await wizard.getByRole('button', { name: 'Continuar', exact: true }).click();
@@ -375,7 +393,11 @@ test('admin separa ingredientes em categorias dinâmicas e configura cada grupo'
       return;
     }
     if (pathname === '/orders') {
-      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(orderFixtureResponse(route.request().url(), [])) });
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(orderFixtureResponse(route.request().url(), [])),
+      });
       return;
     }
     if (pathname === '/settings') {
@@ -403,7 +425,7 @@ test('admin separa ingredientes em categorias dinâmicas e configura cada grupo'
   await mockAuthRefresh(page, 9, 'e2e-admin-token');
   await page.goto('/admin');
 
-  await page.getByRole('button', { name: 'Cardápio' }).click();
+  await page.getByRole('button', { name: 'Cardápio', exact: true }).click();
   await page.getByRole('button', { name: /Ingredientes \(4\)/ }).click();
   await expect(page.getByRole('heading', { name: 'Ingredientes', exact: true })).toBeVisible();
   await expect(
@@ -561,7 +583,11 @@ test('editor de produto permanece contido e utilizável no celular', async ({ pa
     await route.fulfill({
       status: 200,
       contentType: 'application/json',
-      body: JSON.stringify(orderFixtureResponse(route.request().url(), responses['/orders']) ?? responses[pathname] ?? {}),
+      body: JSON.stringify(
+        orderFixtureResponse(route.request().url(), responses['/orders']) ??
+          responses[pathname] ??
+          {},
+      ),
     });
   });
 
@@ -573,6 +599,15 @@ test('editor de produto permanece contido e utilizável no celular', async ({ pa
     .getByRole('navigation', { name: 'Navegação administrativa móvel' })
     .getByRole('button', { name: 'Cardápio' })
     .click();
+  await expectPageWithinViewport(page);
+  const productCard = page.locator('article').filter({ hasText: 'Produto artesanal' });
+  await expect(productCard).toBeVisible();
+  expect((await productCard.boundingBox())!.height).toBeLessThan(125);
+  await expect(page.getByRole('button', { name: 'Importar cardápio', exact: true })).toBeVisible();
+  await page.screenshot({
+    path: '../artifacts/demo-functional-completeness/real-catalog-mobile.png',
+    animations: 'disabled',
+  });
   await page.getByRole('button', { name: 'Opções de Produto artesanal' }).click();
   await page.getByRole('button', { name: 'Editar produto' }).click();
 

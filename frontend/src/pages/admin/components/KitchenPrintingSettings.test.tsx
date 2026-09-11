@@ -40,6 +40,13 @@ async function flush() {
   });
 }
 
+function changeCopies(input: HTMLInputElement, value: string) {
+  act(() => {
+    Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(input, value);
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+  });
+}
+
 describe('configuração da impressora da cozinha', () => {
   let container: HTMLDivElement;
   let root: Root;
@@ -65,6 +72,55 @@ describe('configuração da impressora da cozinha', () => {
   afterEach(() => {
     act(() => root.unmount());
     container.remove();
+  });
+
+  it.each([1, 2, 3, 4, 5])(
+    'permite apagar e escolher %i cópias sem converter a digitação',
+    async (copies) => {
+      mocks.getConfiguration.mockResolvedValue({
+        ...initialConfiguration,
+        settings: { ...initialConfiguration.settings, enabled: true, copies: copies === 5 ? 1 : 5 },
+      });
+      await act(async () => root.render(<KitchenPrintingSettings />));
+      await flush();
+      const input = container.querySelector<HTMLInputElement>('[aria-label="Número de cópias"]')!;
+      act(() => input.focus());
+      expect(input.selectionStart).toBe(0);
+      expect(input.selectionEnd).toBe(1);
+      expect(input.inputMode).toBe('numeric');
+      changeCopies(input, '');
+      expect(input.value).toBe('');
+      expect(input.getAttribute('aria-invalid')).toBe('true');
+      const save = [...container.querySelectorAll('button')].find((button) =>
+        button.textContent?.includes('Salvar configuração'),
+      )!;
+      expect(save.disabled).toBe(true);
+      await act(async () => save.click());
+      expect(mocks.updateSettings).not.toHaveBeenCalled();
+
+      changeCopies(input, String(copies));
+      expect(input.value).toBe(String(copies));
+      expect(save.disabled).toBe(false);
+      await act(async () => save.click());
+      expect(mocks.updateSettings).toHaveBeenCalledWith(expect.objectContaining({ copies }));
+      expect(input.value).toBe(String(copies));
+      expect(container.textContent).toContain(`Via 1 de ${copies}`);
+    },
+  );
+
+  it('recusa valores fora de 1 a 5, decimais e texto sem substituir por outro número', async () => {
+    mocks.getConfiguration.mockResolvedValue({
+      ...initialConfiguration,
+      settings: { ...initialConfiguration.settings, enabled: true, copies: 3 },
+    });
+    await act(async () => root.render(<KitchenPrintingSettings />));
+    await flush();
+    const input = container.querySelector<HTMLInputElement>('[aria-label="Número de cópias"]')!;
+    for (const value of ['0', '6', '12', '-1', '2.5', '2,5', 'e', 'abc']) {
+      changeCopies(input, value);
+      expect(input.value).toBe('3');
+    }
+    expect(mocks.updateSettings).not.toHaveBeenCalled();
   });
 
   it('mantém o recurso opcional e salva somente a configuração privada escolhida', async () => {

@@ -155,6 +155,7 @@ function hasEstablishmentAddressInput(settings: typeof adminMockSettings) {
 }
 
 export function AdminPage({
+  initialArea = 'overview',
   initialSettings = adminMockSettings,
   initialEmployees = adminMockEmployees,
   initialOrders = [],
@@ -205,7 +206,7 @@ export function AdminPage({
     ? (requestedSettingsSection as SettingsSection)
     : 'brand';
   const [area, setArea] = useState<AdminSection>(
-    paymentOAuthStatus || requestedSettingsSection ? 'settings' : 'overview',
+    paymentOAuthStatus || requestedSettingsSection ? 'settings' : initialArea,
   );
   const [section, setSection] = useState<SettingsSection>(
     paymentOAuthStatus ? 'payments' : initialSettingsSection,

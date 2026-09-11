@@ -1,4 +1,5 @@
 import { useState, type ReactNode } from 'react';
+import { toast } from 'react-toastify';
 import {
   ArrowRight,
   Bike,
@@ -119,13 +120,25 @@ export function DemoCustomerHome({
   const [notice, setNotice] = useState('');
   const count = state.cart.reduce((total, line) => total + line.quantity, 0);
   const table = state.tables.find((item) => item.number === 8);
-  const orderingLocked = tableMenu && Boolean(table?.closingRequested);
+  const orderingLocked =
+    tableMenu &&
+    Boolean(table?.closingRequested) &&
+    data.tableAccount?.blockNewOrdersOnClosingRequest !== false;
   const checkoutError = orderingLocked
     ? 'Conta solicitada: aguarde o garçom concluir o atendimento.'
     : demoCheckoutError(state, data, channel, tableMenu ? 'CASH' : payment);
+  const tablePayment =
+    payment === 'CARD' && data.acceptsCard ? 'CARD' : data.acceptsPix ? 'PIX' : 'CARD';
   const submit = (method: DemoPaymentMethod) => {
-    if (!state.cart.length || checkoutError || demoCheckoutError(state, data, channel, method))
+    if (!state.cart.length) return;
+    const error = demoCheckoutError(state, data, channel, method, {
+      settlementMode:
+        channel === 'TABLE' ? (method === 'CASH' ? 'TABLE_ACCOUNT' : 'PAY_NOW') : undefined,
+    });
+    if (error) {
+      toast.error(error);
       return;
+    }
     const result = createDemoOrder(state, {
       channel: tableMenu ? 'TABLE' : channel,
       paymentMethod: method,
@@ -174,7 +187,9 @@ export function DemoCustomerHome({
           isTableMenu={tableMenu}
           tableLabel={tableMenu ? '08' : undefined}
           orderingLocked={orderingLocked}
-          onOpenTableAccount={() => setPanel('account')}
+          onOpenTableAccount={
+            data.tableAccount?.enabled === false ? undefined : () => setPanel('account')
+          }
           cartCount={count}
           userName={account?.name}
           userEmail={account?.email}
@@ -211,10 +226,10 @@ export function DemoCustomerHome({
               current.includes(id) ? current.filter((item) => item !== id) : [...current, id],
             )
           }
-          onAddProduct={(id) => {
+          onAddProduct={(id, configuration) => {
             const product = products.find((item) => item.id === id);
             if (product) {
-              onState(addDemoCartItem(state, product));
+              onState(addDemoCartItem(state, product, configuration));
               setPanel('cart');
             }
           }}
@@ -225,6 +240,7 @@ export function DemoCustomerHome({
             primary={data.brand.primaryColor}
             waiterEnabled={data.waiterCallEnabled !== false}
             billEnabled={data.billRequestEnabled !== false && !orderingLocked}
+            accountEnabled={data.tableAccount?.enabled !== false}
             onRequest={requestService}
             onAccount={() => setPanel('account')}
           />
@@ -280,13 +296,16 @@ export function DemoCustomerHome({
                   <H.CartItems>
                     {state.cart.length ? (
                       state.cart.map((line) => (
-                        <H.CartItemRow key={line.productId}>
+                        <H.CartItemRow key={line.cartId ?? line.productId}>
                           <img
                             src={products.find((item) => item.id === line.productId)?.image}
                             alt=""
                           />
                           <H.CartItemInfo>
                             <strong>{line.name}</strong>
+                            {line.customizations?.map((detail, index) => (
+                              <small key={index}>{detail}</small>
+                            ))}
                             <span>{money(line.unitPrice)}</span>
                             <H.CartQty>
                               <button
@@ -296,7 +315,7 @@ export function DemoCustomerHome({
                                   onState(
                                     changeDemoCartQuantity(
                                       state,
-                                      line.productId,
+                                      line.cartId ?? line.productId,
                                       line.quantity - 1,
                                     ),
                                   )
@@ -312,7 +331,7 @@ export function DemoCustomerHome({
                                   onState(
                                     changeDemoCartQuantity(
                                       state,
-                                      line.productId,
+                                      line.cartId ?? line.productId,
                                       line.quantity + 1,
                                     ),
                                   )
@@ -468,16 +487,20 @@ export function DemoCustomerHome({
       />
       <TableOrderContinuationModal
         open={continuation}
-        accountEnabled
+        accountEnabled={data.tableAccount?.enabled !== false}
         accountLoading={false}
-        payNowAvailable={data.acceptsPix || data.acceptsCard}
+        payNowAvailable={
+          data.tableAccount?.enabled !== false &&
+          data.tableAccount?.allowOnlinePayment !== false &&
+          (data.acceptsPix || data.acceptsCard)
+        }
         allowPix={data.acceptsPix}
         allowCard={data.acceptsCard}
-        paymentMethod={payment === 'CARD' ? 'card' : 'pix'}
+        paymentMethod={tablePayment === 'CARD' ? 'card' : 'pix'}
         busy={false}
         onPaymentMethodChange={(method) => setPayment(method === 'card' ? 'CARD' : 'PIX')}
         onChooseAccount={() => submit('CASH')}
-        onChoosePayNow={() => submit(payment)}
+        onChoosePayNow={() => submit(tablePayment)}
         onClose={() => {
           setContinuation(false);
           setPanel('cart');

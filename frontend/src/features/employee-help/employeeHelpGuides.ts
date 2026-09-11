@@ -21,6 +21,7 @@ export type EmployeeHelpPreview =
   | 'waiter-deliveries'
   | 'waiter-tables'
   | 'waiter-calls'
+  | 'waiter-payments'
   | 'courier-overview'
   | 'courier-pickup'
   | 'courier-delivery'
@@ -109,7 +110,7 @@ const guides: Record<EmployeeHelpRole, EmployeeHelpGuide[]> = {
       sidebarItems: ['Visão geral', 'Fila de pedidos', 'Prontos', 'Histórico'],
       steps: [
         'Objetivo: consultar pedidos que já deixaram a operação da cozinha e esclarecer dúvidas do turno sem alterar o fluxo atual.',
-        'Abra Histórico e escolha o período adequado antes de pesquisar.',
+        'Abra Histórico, filtre o canal e use Buscar no histórico. Use Carregar mais pedidos do histórico quando disponível.',
         'Busque pelo número do pedido e confira horário, itens, canal e sequência de status para localizar o registro correto.',
         'Compare o histórico com a dúvida apresentada pelo salão, cliente ou entrega; não refaça um pedido sem autorização.',
         'Confirme o resultado pela situação final e pelos horários registrados na linha do pedido.',
@@ -126,7 +127,7 @@ const guides: Record<EmployeeHelpRole, EmployeeHelpGuide[]> = {
       action: 'Ver entregas',
       icon: LayoutGrid,
       preview: 'waiter-overview',
-      sidebarItems: ['Visão geral', 'Para entregar', 'Mesas e QR Codes', 'Chamados'],
+      sidebarItems: ['Visão geral', 'Para entregar', 'Mesas e QR Codes', 'Chamados', 'Pagamentos'],
       steps: [
         'Objetivo: acompanhar em um só lugar pedidos prontos, mesas abertas pelo garçom e chamados pendentes do salão.',
         'Clique em Visão geral e confira se os indicadores do turno e os três blocos de atividade foram carregados.',
@@ -144,7 +145,7 @@ const guides: Record<EmployeeHelpRole, EmployeeHelpGuide[]> = {
       action: 'Abrir pedidos prontos',
       icon: ShoppingBag,
       preview: 'waiter-deliveries',
-      sidebarItems: ['Visão geral', 'Para entregar', 'Mesas e QR Codes', 'Chamados'],
+      sidebarItems: ['Visão geral', 'Para entregar', 'Mesas e QR Codes', 'Chamados', 'Pagamentos'],
       steps: [
         'Objetivo: retirar o pedido correto na expedição e entregá-lo à mesa certa com todos os itens e observações atendidos.',
         'Abra Para entregar e localize o pedido pelo número ou pela mesa, priorizando os que aguardam há mais tempo.',
@@ -162,7 +163,7 @@ const guides: Record<EmployeeHelpRole, EmployeeHelpGuide[]> = {
       action: 'Gerenciar mesas',
       icon: QrCode,
       preview: 'waiter-tables',
-      sidebarItems: ['Visão geral', 'Para entregar', 'Mesas e QR Codes', 'Chamados'],
+      sidebarItems: ['Visão geral', 'Para entregar', 'Mesas e QR Codes', 'Chamados', 'Pagamentos'],
       steps: [
         'Objetivo: controlar o atendimento das mesas cadastradas pelo administrador; cada mesa já possui seu próprio QR Code fixo vinculado ao número correto.',
         'Acesse Mesas e QR Codes, use a busca ou o filtro e confira o número físico e o status antes de qualquer ação.',
@@ -180,7 +181,7 @@ const guides: Record<EmployeeHelpRole, EmployeeHelpGuide[]> = {
       action: 'Ver chamados',
       icon: ClipboardList,
       preview: 'waiter-calls',
-      sidebarItems: ['Visão geral', 'Para entregar', 'Mesas e QR Codes', 'Chamados'],
+      sidebarItems: ['Visão geral', 'Para entregar', 'Mesas e QR Codes', 'Chamados', 'Pagamentos'],
       steps: [
         'Objetivo: responder aos pedidos de ajuda do salão com rapidez e impedir que um chamado atendido permaneça pendente.',
         'Abra Chamados, confira mesa, horário e motivo e priorize os registros mais antigos ou urgentes.',
@@ -188,6 +189,24 @@ const guides: Record<EmployeeHelpRole, EmployeeHelpGuide[]> = {
         'Se depender de outra área, avise o cliente e encaminhe a demanda mantendo o acompanhamento.',
         'Conclua o chamado somente após o atendimento e confirme que ele saiu da lista de pendentes.',
         'Acione o administrador se o chamado estiver duplicado, vier sem mesa, não puder ser concluído ou envolver cancelamento, cobrança ou falha do sistema.',
+      ],
+    },
+    {
+      id: 'payments',
+      title: 'Pagamentos',
+      area: 'Contas do salão',
+      helper: 'Confira contas abertas, valores recebidos e saldo da mesa.',
+      action: 'Conferir conta',
+      icon: ClipboardList,
+      preview: 'waiter-payments',
+      sidebarItems: ['Visão geral', 'Para entregar', 'Mesas e QR Codes', 'Chamados', 'Pagamentos'],
+      steps: [
+        'Abra Pagamentos no menu lateral ou na navegação móvel do garçom.',
+        'Localize a mesa e confira consumo, valores recebidos e saldo restante.',
+        'Abra a conta para revisar os itens e os pagamentos vinculados ao atendimento.',
+        'Confirme dinheiro ou maquininha somente depois de conferir o recebimento presencial.',
+        'Atualize a conta e confirme o novo saldo antes de fechar a mesa.',
+        'Acione o administrador para divergências, estornos e situações que exijam fechamento excepcional.',
       ],
     },
   ],
@@ -263,7 +282,7 @@ const guides: Record<EmployeeHelpRole, EmployeeHelpGuide[]> = {
         'Acesse Em entrega e confira cliente, endereço, referência, contato, pagamento e observações antes de seguir.',
         'Mantenha a localização ativada e use Minha rota para acompanhar o deslocamento sem manusear o celular enquanto dirige.',
         'Ao chegar, confirme o destinatário e, quando aplicável, receba ou valide o pagamento antes de finalizar.',
-        'Marque como entregue somente após a entrega física e confirme que o pedido saiu da lista e entrou no Histórico.',
+        'Após a entrega física e o recebimento, informe o código solicitado na tela, confirme a entrega e confira o Histórico. Na demonstração, o código fictício é 1234.',
         'Acione o administrador se não localizar o endereço ou cliente, houver problema de pagamento, recusa, acidente ou impossibilidade de concluir o status.',
       ],
     },
@@ -286,7 +305,7 @@ const guides: Record<EmployeeHelpRole, EmployeeHelpGuide[]> = {
       steps: [
         'Objetivo: compartilhar sua posição durante a entrega para apoiar a navegação e permitir o acompanhamento operacional.',
         'Abra Minha rota, toque em Ativar localização e permita o acesso solicitado pelo navegador ou dispositivo.',
-        'Confira se o mapa encontrou sua posição e se o indicador Localização ativa aparece antes de iniciar o deslocamento.',
+        'Confira o indicador de localização no cabeçalho. Se houver aviso de precisão insuficiente, aguarde um sinal melhor antes de iniciar o deslocamento.',
         'Mantenha a página e a localização disponíveis durante a rota; use um suporte adequado e não opere a tela enquanto dirige.',
         'Confirme periodicamente que o ponto continua atualizando e encerre o compartilhamento quando não houver entrega em andamento.',
         'Acione o administrador se a permissão estiver bloqueada, o ponto não atualizar, a rota mostrar local incorreto ou o compartilhamento cair repetidamente.',
@@ -310,7 +329,7 @@ const guides: Record<EmployeeHelpRole, EmployeeHelpGuide[]> = {
       ],
       steps: [
         'Objetivo: consultar entregas finalizadas e conferir horários, pedidos e registros do seu turno.',
-        'Abra Histórico, selecione o período correto e pesquise pelo número do pedido quando precisar localizar uma entrega.',
+        'Abra Histórico e pesquise pelo número do pedido. Use Carregar mais pedidos do histórico quando houver outra página.',
         'Confira cliente, destino, horário e situação final para garantir que está consultando o registro correto.',
         'Use os dados para esclarecer dúvidas operacionais; não repita uma entrega ou cobrança com base apenas na consulta.',
         'Confirme que uma entrega recém-finalizada aparece na lista após atualizar a tela.',
@@ -335,11 +354,11 @@ const guides: Record<EmployeeHelpRole, EmployeeHelpGuide[]> = {
       ],
       steps: [
         'Objetivo: manter seus dados de contato e disponibilidade corretos para que a operação consiga identificar e acionar você.',
-        'Abra Meu perfil e revise nome, telefone, e-mail e situação de disponibilidade antes de iniciar o turno.',
+        'Abra Meu perfil e confira nome, telefone, e-mail, CPF e cargo.',
         'Corrija apenas os dados que pertencem a você e confira com atenção telefone e e-mail antes de salvar.',
-        'Atualize a disponibilidade conforme sua condição real para não receber tarefas quando estiver fora da operação.',
+        'Use Editar perfil para os campos permitidos. CPF e cargo ficam disponíveis para consulta; solicite correções ao administrador.',
         'Clique em Salvar alterações, aguarde a confirmação e reabra a tela para verificar se os novos dados permaneceram.',
-        'Acione o administrador se algum campo estiver bloqueado, os dados não forem salvos, sua conta estiver incorreta ou você não conseguir alterar a disponibilidade.',
+        'Acione o administrador se os dados não forem salvos ou se for preciso corrigir CPF, função ou acesso.',
       ],
     },
   ],

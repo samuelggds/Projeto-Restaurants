@@ -16,6 +16,7 @@ export type MenuImportCreatedItem = {
 };
 
 export type MenuImportSummary = {
+  demoNotice?: string;
   restaurantName: string | null;
   sourceUrl?: string;
   sourceImageUrl?: string;

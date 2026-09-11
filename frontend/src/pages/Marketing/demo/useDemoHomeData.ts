@@ -1,24 +1,29 @@
 import { useEffect, useState } from 'react';
 import { normalizeHomeFontFamily } from '../../Home/domain/publicSettings';
 import type { HomeData } from '../../Home/types';
+import type { TableAccountAdminSettings } from '../../admin/types';
 import { DEMO_ADMIN_STORAGE_KEY, readDemoAdminData } from './demoAdminData';
+import { demoProductConfiguration } from './demoProductConfiguration';
 import { demoHomeData } from './demoCatalog';
 
 export type DemoHomeData = HomeData & {
   waiterCallEnabled?: boolean;
   billRequestEnabled?: boolean;
   tableOrderingEnabled?: boolean;
+  tableAccount?: TableAccountAdminSettings;
 };
 
 function read(): DemoHomeData {
   try {
-    if (!localStorage.getItem(DEMO_ADMIN_STORAGE_KEY)) return demoHomeData;
+    if (!localStorage.getItem(DEMO_ADMIN_STORAGE_KEY))
+      return { ...demoHomeData, tableAccount: readDemoAdminData().settings.tableAccount };
   } catch {
     return demoHomeData;
   }
-  const { settings, products, categories } = readDemoAdminData();
+  const { settings, products, categories, ingredients } = readDemoAdminData();
   return {
     ...demoHomeData,
+    tableAccount: settings.tableAccount,
     brand: {
       ...demoHomeData.brand,
       name: settings.restaurantName,
@@ -70,7 +75,7 @@ function read(): DemoHomeData {
         rating: 0,
         stock: product.stock,
         available: product.active !== false && product.stock !== 0,
-        saleMode: 'COMPLETE',
+        ...demoProductConfiguration(product, ingredients),
         promotion:
           value > 0
             ? {

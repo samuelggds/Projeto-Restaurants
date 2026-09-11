@@ -14,7 +14,7 @@ export type IngredientImageSearchResult = {
   id: string;
   thumbnailUrl: string;
   previewUrl: string;
-  source: 'Pexels';
+  source: 'Pexels' | 'Demo';
   sourceUrl: string;
   photographer: string;
   photographerUrl: string;
@@ -25,7 +25,7 @@ export type IngredientImageSearchResult = {
 export type IngredientImageSearchResponse = {
   query: string;
   page: number;
-  provider: 'Pexels';
+  provider: 'Pexels' | 'Demo';
   results: IngredientImageSearchResult[];
 };
 

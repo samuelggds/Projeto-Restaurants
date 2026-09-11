@@ -161,10 +161,14 @@ export function AdminMenuImport({ onClose, onImported }: AdminMenuImportProps) {
           <I.ImportNotice $tone="success" role="status">
             <CheckCircle2 />
             <span>
-              <b>Cardápio importado com sucesso</b>
+              <b>
+                {result.demoNotice
+                  ? 'Simulação de importação concluída'
+                  : 'Cardápio importado com sucesso'}
+              </b>
               <small>
-                Os itens novos já foram persistidos como produtos prontos e o catálogo foi
-                atualizado.
+                {result.demoNotice ??
+                  'Os itens novos já foram persistidos como produtos prontos e o catálogo foi atualizado.'}
               </small>
             </span>
           </I.ImportNotice>

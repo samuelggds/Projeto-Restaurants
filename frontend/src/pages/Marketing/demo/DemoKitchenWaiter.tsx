@@ -1,3 +1,5 @@
+import { addDemoSupportMessage } from './demoSupport';
+import { reprintDemoOrder } from './demoPrinting';
 import { confirmDemoTablePayment } from './demoTableAccount';
 import { KitchenModule } from '../../kitchen/KitchenModule';
 import { WaiterModule } from '../../waiter/WaiterModule';
@@ -6,6 +8,7 @@ import { demoOperationalOrders, demoWaiterAccounts } from './demoEmployeeAdapter
 import { useDemoHomeData } from './useDemoHomeData';
 import {
   deleteDemoCall,
+  getDemoAccountByRole,
   toggleDemoOrderPaid,
   toggleDemoTable,
   updateDemoCallStatus,
@@ -13,8 +16,14 @@ import {
   type DemoState,
 } from './demoDomain';
 
-type Props = { state: DemoState; onState: (state: DemoState) => void; onLogout: () => void };
-const help = { notificationsEnabled: false, onReport: async () => undefined };
+type Props = {
+  state: DemoState;
+  onState: (state: DemoState) => void;
+  onLogout: () => void;
+  initialKitchenView?: import('../../kitchen/KitchenModule').KitchenView;
+  initialWaiterView?: import('../../waiter/WaiterModule').WaiterView;
+};
+
 function useRestaurant() {
   const { brand } = useDemoHomeData();
   return {
@@ -27,11 +36,13 @@ function useRestaurant() {
 }
 const sessionId = (tableId: string) => `demo-session:${tableId}`;
 
-export function DemoKitchen({ state, onState, onLogout }: Props) {
+export function DemoKitchen({ state, onState, onLogout, initialKitchenView }: Props) {
   const restaurant = useRestaurant();
-  const account = state.accounts.find((item) => item.role === 'COZINHA')!;
+  const account = getDemoAccountByRole(state, 'COZINHA');
+  if (!account) return <p role="status">Ative um cozinheiro na equipe da demonstração.</p>;
   return (
     <KitchenModule
+      initialView={initialKitchenView}
       employee={{
         ...account,
         role: 'KITCHEN',
@@ -42,7 +53,10 @@ export function DemoKitchen({ state, onState, onLogout }: Props) {
       }}
       restaurant={restaurant}
       readingPreferenceKey="gastronexa:demo:kitchen-reading"
-      employeeHelp={help}
+      employeeHelp={{
+        notificationsEnabled: false,
+        onReport: async (payload) => onState(addDemoSupportMessage(state, payload)),
+      }}
       data={{ orders: demoOperationalOrders(state), tables: [], calls: [] }}
       workspaceState={{
         loading: false,
@@ -53,6 +67,7 @@ export function DemoKitchen({ state, onState, onLogout }: Props) {
       }}
       onRefresh={() => undefined}
       onLogout={onLogout}
+      onReprintOrder={(id) => reprintDemoOrder(state, id)}
       onUpdateOrderStatus={(id, status) => {
         const order = state.orders.find((item) => item.id === Number(id));
         if (
@@ -69,11 +84,13 @@ export function DemoKitchen({ state, onState, onLogout }: Props) {
   );
 }
 
-export function DemoWaiter({ state, onState, onLogout }: Props) {
+export function DemoWaiter({ state, onState, onLogout, initialWaiterView }: Props) {
   const restaurant = useRestaurant();
+  const { tableAccount } = useDemoHomeData();
   const [now] = useState(() => Date.now());
-  const account = state.accounts.find((item) => item.role === 'GARCOM')!;
-  const accounts = demoWaiterAccounts(state);
+  const account = getDemoAccountByRole(state, 'GARCOM');
+  if (!account) return <p role="status">Ative um garçom na equipe da demonstração.</p>;
+  const accounts = demoWaiterAccounts(state, tableAccount);
   const confirm = async (id: string) => {
     if (id.startsWith('demo-table-payment:')) {
       onState(confirmDemoTablePayment(state, id));
@@ -87,6 +104,7 @@ export function DemoWaiter({ state, onState, onLogout }: Props) {
   };
   return (
     <WaiterModule
+      initialView={initialWaiterView}
       employee={{
         ...account,
         role: 'WAITER',
@@ -96,7 +114,10 @@ export function DemoWaiter({ state, onState, onLogout }: Props) {
         }),
       }}
       restaurant={restaurant}
-      employeeHelp={help}
+      employeeHelp={{
+        notificationsEnabled: false,
+        onReport: async (payload) => onState(addDemoSupportMessage(state, payload)),
+      }}
       data={{
         orders: demoOperationalOrders(state).filter((order) => order.channel === 'TABLE'),
         tables: state.tables.map((table) => ({
@@ -159,7 +180,8 @@ export function DemoWaiter({ state, onState, onLogout }: Props) {
         const account = accounts.find((item) => item.tableSessionId === id);
         if (!account) throw new Error('Conta não encontrada.');
         if (
-          account.summary.remainingCents > 0 ||
+          (tableAccount?.preventCloseWithOutstandingBalance !== false &&
+            account.summary.remainingCents > 0) ||
           state.orders.some(
             (order) =>
               order.channel === 'TABLE' &&

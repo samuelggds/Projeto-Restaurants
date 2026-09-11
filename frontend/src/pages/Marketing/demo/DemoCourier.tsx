@@ -1,36 +1,42 @@
 import { lazy, Suspense, useState } from 'react';
 const DeliveryMap = lazy(() => import('../../Courier/components/DeliveryMap'));
 const ProfilePanel = lazy(() => import('../../Courier/components/ProfilePanel'));
-import { Bike, CheckCircle2, LocateFixed, PackageCheck } from 'lucide-react';
+import { Bike, CheckCircle2, PackageCheck } from 'lucide-react';
 import { CourierNavigation } from '../../Courier/CourierNavigation';
 import OrderCard from '../../Courier/components/OrderCard';
 import { CourierPickupQueue } from '../../Courier/components/CourierPickupQueue';
 import { CourierSyncControl } from '../../Courier/components/CourierSyncControl';
+import { CourierLocationStatus } from '../../Courier/components/CourierLocationStatus';
 import { EmployeeHelpCenter } from '../../../features/employee-help/EmployeeHelpCenter';
 import * as S from '../../Courier/styles';
 import { COURIER_VIEW_TITLES, type CourierView } from '../../Courier/courierViewMeta';
 import { useDemoHomeData } from './useDemoHomeData';
 import { demoCourierOrders } from './demoCourierAdapter';
+import { addDemoSupportMessage } from './demoSupport';
 import { toggleDemoOrderPaid, updateDemoOrderStatus, type DemoState } from './demoDomain';
 
 export function DemoCourier({
   state,
   onState,
   onLogout,
+  initialView = 'overview',
 }: {
+  initialView?: CourierView;
   state: DemoState;
   onState: (state: DemoState) => void;
   onLogout: () => void;
 }) {
   const data = useDemoHomeData();
-  const [view, setView] = useState<CourierView>('overview');
+  const [view, setView] = useState<CourierView>(initialView);
   const [sidebarOpen, setSidebarOpen] = useState(() => window.innerWidth > 820);
-  const [profile, setProfile] = useState({
-    name: 'Motoqueiro Demo',
-    email: 'motoqueiro@demo.gastronexa.com.br',
-    phone: '',
-    role: 'MOTOQUEIRO',
-  });
+  const [profile, setProfile] = useState(
+    state.courierProfile ?? {
+      name: 'Motoqueiro Demo',
+      email: 'motoqueiro@demo.gastronexa.com.br',
+      phone: '',
+      role: 'MOTOQUEIRO',
+    },
+  );
   const [routeStep, setRouteStep] = useState(0);
   const path = [
     { latitude: -23.5505, longitude: -46.6333 },
@@ -73,6 +79,14 @@ export function DemoCourier({
             <h1>{title[0]}</h1>
             <p>{title[1]}</p>
           </div>
+          {view !== 'help' && view !== 'profile' && (
+            <CourierLocationStatus
+              connected
+              label="Localização demonstrativa"
+              message="Trajeto fictício"
+              hint="Simulação: seu GPS não será acessado."
+            />
+          )}
           <CourierSyncControl
             lastUpdatedAt={new Date()}
             loading={false}
@@ -98,17 +112,6 @@ export function DemoCourier({
                 </button>
               </S.ActiveDeliveryActions>
             </S.ActiveDeliveryCard>
-          )}
-          {view !== 'help' && view !== 'profile' && (
-            <S.LocationAlertCard>
-              <S.LocationAlertIcon>
-                <LocateFixed />
-              </S.LocationAlertIcon>
-              <S.LocationAlertContent>
-                <strong>Localização demonstrativa</strong>
-                <p>Endereços e trajetos são fictícios. Seu GPS não será acessado.</p>
-              </S.LocationAlertContent>
-            </S.LocationAlertCard>
           )}
           {view === 'overview' && (
             <>
@@ -247,14 +250,18 @@ export function DemoCourier({
             <EmployeeHelpCenter
               role="courier"
               notificationsEnabled={false}
-              onReport={async () => undefined}
+              onReport={async (payload) => onState(addDemoSupportMessage(state, payload))}
             />
           )}
           {view === 'profile' && (
             <Suspense fallback={<p>Carregando perfil...</p>}>
               <ProfilePanel
                 user={profile}
-                onUpdated={(next) => setProfile((current) => ({ ...current, ...next }))}
+                onUpdated={(next) => {
+                  const updated = { ...profile, ...next };
+                  setProfile(updated);
+                  onState({ ...state, courierProfile: updated });
+                }}
                 saveProfile={async (next) => next}
               />
             </Suspense>

@@ -478,9 +478,8 @@ export function WhatsAppSettings({ settings, update }: Props) {
     [identity.category],
   );
   const avatar = profileImage || categoryImage;
-  const baseUrl =
-    typeof window === 'undefined' ? 'https://seu-restaurante.com' : window.location.origin;
-  const trackingUrl = `${baseUrl}/orders/107/tracking`;
+  const baseUrl = 'https://gastronexa.com.br/';
+  const trackingUrl = `${baseUrl}orders/107/tracking`;
   const greeting =
     String(settings.whatsappDefaultMessage || '').trim() ||
     `Olá! 👋 Bem-vindo(a) à ${displayName}!\nFaça seu pedido pelo nosso site:\n${baseUrl}`;

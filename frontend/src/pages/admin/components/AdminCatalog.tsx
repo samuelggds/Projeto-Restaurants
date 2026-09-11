@@ -542,7 +542,7 @@ export function AdminCatalog(props: AdminCatalogProps) {
                       ) : (
                         <>
                           <div className="ingredient-copy">
-                            <b>{ingredient.name}</b>
+                            <b title={ingredient.name}>{ingredient.name}</b>
                             <span className="category-badge">{ingredient.category}</span>
                           </div>
                           <div className="ingredient-state">
@@ -797,11 +797,11 @@ export function AdminCatalog(props: AdminCatalogProps) {
                 {product.image ? (
                   <img src={product.image} alt="" />
                 ) : (
-                  <C.ProductImageFallback>
+                  <C.ProductImageFallback className="product-image-fallback">
                     <ImageOff />
                   </C.ProductImageFallback>
                 )}
-                <div>
+                <div className="product-copy">
                   <b>{product.name}</b>
                   <span>{product.category}</span>
                   <footer>

@@ -20,16 +20,8 @@ export function DemoTableAccountPanel({
   onClose: () => void;
 }) {
   const [error, setError] = useState('');
-  const snapshot = demoTableAccount(state);
   const { tableAccount } = readDemoAdminData().settings;
-  snapshot.capabilities = {
-    ...snapshot.capabilities,
-    enabled: tableAccount.enabled,
-    allowCash: tableAccount.allowCash,
-    allowCardMachine: tableAccount.allowCardMachine,
-    allowOnlinePayment: tableAccount.allowOnlinePayment,
-    allowSplit: tableAccount.allowSplit,
-  };
+  const snapshot = demoTableAccount(state, 8, tableAccount);
   return (
     <TableAccountPanel
       open={open}
@@ -41,7 +33,7 @@ export function DemoTableAccountPanel({
       onRefresh={() => setError('')}
       onCreatePayment={async (draft) => {
         try {
-          const result = createDemoTablePayment(state, draft);
+          const result = createDemoTablePayment(state, draft, Date.now(), 8, tableAccount);
           onState(result.state);
           setError('');
           return { payment: result.payment, idempotentReplay: false };

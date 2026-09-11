@@ -507,6 +507,11 @@ export const Root = styled.section`
     box-shadow: 0 0 0 3px color-mix(in srgb, var(--a) 10%, transparent);
   }
 
+  .copies input {
+    min-height: 44px;
+    font-size: 16px;
+  }
+
   .locked-message {
     display: grid;
     gap: 3px;

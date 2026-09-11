@@ -97,8 +97,10 @@ export function createDemoAttendantServices({
   products?: DemoAttendantProduct[];
   now?: () => number;
 }): OperationServices {
-  const details = new Map<number, Raw>();
-  const threads = new Map<number, SupportThread>();
+  const details = new Map<number, Raw>(getState().attendant?.details ?? []);
+  const threads = new Map<number, SupportThread>(getState().attendant?.threads ?? []);
+  const persist = () =>
+    onState({ ...getState(), attendant: { details: [...details], threads: [...threads] } });
   const findOrder = (id: number) =>
     getState().orders.find((order) => order.id === id) ||
     fail('Pedido não encontrado na demonstração.');
@@ -213,6 +215,7 @@ export function createDemoAttendantServices({
         orders: created.state.orders.map((item) => (item.id === order.id ? order : item)),
       });
       details.set(order.id, payload);
+      persist();
       return { orderId: order.id };
     },
     async updateCallStatus(id, status) {
@@ -243,10 +246,12 @@ export function createDemoAttendantServices({
           sentAt: new Date(now()).toISOString(),
         },
       ];
+      persist();
       return { messages: value.messages };
     },
     async resolveIssue(id) {
       thread(id).isResolved = true;
+      persist();
       return {};
     },
     supportHistory: {

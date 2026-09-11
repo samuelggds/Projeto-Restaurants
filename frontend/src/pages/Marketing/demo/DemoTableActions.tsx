@@ -11,6 +11,7 @@ export function DemoTableActions({
   primary,
   waiterEnabled,
   billEnabled,
+  accountEnabled,
   onRequest,
   onAccount,
 }: {
@@ -18,6 +19,7 @@ export function DemoTableActions({
   primary: string;
   waiterEnabled: boolean;
   billEnabled: boolean;
+  accountEnabled: boolean;
   onRequest: (type: 'WAITER' | 'BILL') => void;
   onAccount: () => void;
 }) {
@@ -48,7 +50,7 @@ export function DemoTableActions({
             tableNumber="08"
             waiterEnabled={waiterEnabled}
             billEnabled={billEnabled}
-            accountEnabled
+            accountEnabled={accountEnabled}
             loading={null}
             onCallWaiter={() => onRequest('WAITER')}
             onRequestBill={() => onRequest('BILL')}
