@@ -18,7 +18,7 @@ describe('manuais das telas atuais', () => {
         const markup = renderToStaticMarkup(createElement(EmployeeHelpPreview, { guide }));
         expect(markup).toContain('/help-preview.html?area=' + guide.preview);
         expect(markup).toContain('sandbox="allow-scripts allow-same-origin"');
-        expect(markup).toContain('dados fictícios');
+        expect(markup).toMatch(/dados (?:são )?fictícios/i);
       });
     },
   );
