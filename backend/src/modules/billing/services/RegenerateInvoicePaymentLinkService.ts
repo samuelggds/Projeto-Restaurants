@@ -23,6 +23,11 @@ function hasReusablePix(invoice: {
   );
 }
 
+function pixIdempotencyKey(invoice: { id: number; paymentExternalId?: string | null }) {
+  const generation = String(invoice.paymentExternalId || 'initial').replace(/[^a-zA-Z0-9_-]/g, '-');
+  return `invoice-pix-${invoice.id}-${generation}`.slice(0, 120);
+}
+
 class RegenerateInvoicePaymentLinkService {
   async execute({ invoiceId, restaurantId }: RegenerateInvoicePaymentLinkPayload) {
     const invoice = await billingRepository.findInvoiceByIdAndRestaurantId(invoiceId, restaurantId);
@@ -58,6 +63,7 @@ class RegenerateInvoicePaymentLinkService {
       description: `Fatura ${invoice.month}/${invoice.year}`,
       amount: invoice.total,
       payerEmail: invoice.restaurant.email,
+      idempotencyKey: pixIdempotencyKey(invoice),
     });
 
     const updatedInvoice = await billingRepository.updateInvoicePaymentDetailsAndResetReconciliation(
@@ -83,5 +89,5 @@ class RegenerateInvoicePaymentLinkService {
   }
 }
 
-export { hasReusablePix };
+export { hasReusablePix, pixIdempotencyKey };
 export default new RegenerateInvoicePaymentLinkService();
