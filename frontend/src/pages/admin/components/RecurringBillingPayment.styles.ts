@@ -1,11 +1,16 @@
 import styled from 'styled-components';
 
+type ThemeColors = {
+  border?: string;
+  background?: string;
+};
+
 export const Card = styled.section`
   margin-bottom: 22px;
   padding: 22px;
-  border: 1px solid ${({ theme }) => theme.colors?.border || '#e5e7eb'};
+  border: 1px solid ${({ theme }) => (theme.colors as ThemeColors | undefined)?.border || '#e5e7eb'};
   border-radius: 18px;
-  background: ${({ theme }) => theme.colors?.background || '#fff'};
+  background: ${({ theme }) => (theme.colors as ThemeColors | undefined)?.background || '#fff'};
 
   header {
     display: flex;
