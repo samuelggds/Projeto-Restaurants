@@ -32,24 +32,33 @@ declare global {
   }
 }
 
+const SDK_URL = 'https://sdk.mercadopago.com/js/v2';
 let sdkPromise: Promise<void> | null = null;
+
 function loadMercadoPagoSdk() {
   if (window.MercadoPago) return Promise.resolve();
   if (sdkPromise) return sdkPromise;
+
   sdkPromise = new Promise<void>((resolve, reject) => {
-    const existing = document.querySelector<HTMLScriptElement>('script[src="https://sdk.mercadopago.com/js/v2"]');
-    if (existing) {
-      existing.addEventListener('load', () => resolve(), { once: true });
-      existing.addEventListener('error', () => reject(new Error('Falha ao carregar o Mercado Pago.')), { once: true });
-      return;
+    const existing = document.querySelector<HTMLScriptElement>(`script[src="${SDK_URL}"]`);
+    const script = existing || document.createElement('script');
+
+    const fail = () => {
+      sdkPromise = null;
+      script.remove();
+      reject(new Error('Falha ao carregar o Mercado Pago.'));
+    };
+
+    script.addEventListener('load', () => resolve(), { once: true });
+    script.addEventListener('error', fail, { once: true });
+
+    if (!existing) {
+      script.src = SDK_URL;
+      script.async = true;
+      document.head.appendChild(script);
     }
-    const script = document.createElement('script');
-    script.src = 'https://sdk.mercadopago.com/js/v2';
-    script.async = true;
-    script.onload = () => resolve();
-    script.onerror = () => reject(new Error('Falha ao carregar o Mercado Pago.'));
-    document.head.appendChild(script);
   });
+
   return sdkPromise;
 }
 
@@ -67,13 +76,15 @@ export function RecurringBillingPayment() {
   const [error, setError] = useState('');
   const [sdkReady, setSdkReady] = useState(false);
   const mercadoPagoRef = useRef<MercadoPagoInstance | null>(null);
+  const closeButtonRef = useRef<HTMLButtonElement | null>(null);
 
   const load = useCallback(async () => {
     try {
       setProfile(await monthlyBillingService.getRecurringProfile());
       setError('');
     } catch (reason) {
-      const message = (reason as { response?: { data?: { error?: string } } })?.response?.data?.error;
+      const message = (reason as { response?: { data?: { error?: string } } })?.response?.data
+        ?.error;
       setError(message || 'Não foi possível carregar a forma de pagamento da mensalidade.');
     } finally {
       setLoading(false);
@@ -86,8 +97,21 @@ export function RecurringBillingPayment() {
 
   useEffect(() => {
     if (!modalOpen) return undefined;
+
+    closeButtonRef.current?.focus();
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setModalOpen(false);
+    };
+    document.addEventListener('keydown', onKeyDown);
+
+    return () => document.removeEventListener('keydown', onKeyDown);
+  }, [modalOpen]);
+
+  useEffect(() => {
+    if (!modalOpen) return undefined;
     let active = true;
     const fields: MercadoPagoField[] = [];
+
     void monthlyBillingService
       .getRecurringConfig()
       .then(async (config) => {
@@ -106,8 +130,11 @@ export function RecurringBillingPayment() {
       })
       .catch((reason: unknown) => {
         if (!active) return;
-        const message = (reason as { response?: { data?: { error?: string } } })?.response?.data?.error;
-        setError(message || (reason instanceof Error ? reason.message : 'Cartão indisponível no momento.'));
+        const message = (reason as { response?: { data?: { error?: string } } })?.response?.data
+          ?.error;
+        setError(
+          message || (reason instanceof Error ? reason.message : 'Cartão indisponível no momento.'),
+        );
       });
 
     return () => {
@@ -124,7 +151,8 @@ export function RecurringBillingPayment() {
     try {
       setProfile(await monthlyBillingService.usePixBilling());
     } catch (reason) {
-      const message = (reason as { response?: { data?: { error?: string } } })?.response?.data?.error;
+      const message = (reason as { response?: { data?: { error?: string } } })?.response?.data
+        ?.error;
       setError(message || 'Não foi possível alterar para Pix.');
     } finally {
       setChanging(false);
@@ -176,15 +204,19 @@ export function RecurringBillingPayment() {
       setTaxId('');
       setConsent(false);
     } catch (reason) {
-      const message = (reason as { response?: { data?: { error?: string } } })?.response?.data?.error;
-      setError(message || (reason instanceof Error ? reason.message : 'Não foi possível salvar o cartão.'));
+      const message = (reason as { response?: { data?: { error?: string } } })?.response?.data
+        ?.error;
+      setError(
+        message || (reason instanceof Error ? reason.message : 'Não foi possível salvar o cartão.'),
+      );
     } finally {
       setChanging(false);
     }
   }
 
   if (loading) return null;
-  const cardActive = profile?.billingMethod === 'CARD' && profile.autoRenew;
+  const cardActive =
+    profile?.billingMethod === 'CARD' && profile.autoRenew && profile.status === 'AUTHORIZED';
 
   return (
     <>
@@ -220,49 +252,112 @@ export function RecurringBillingPayment() {
         </div>
         {cardActive ? (
           <div className="summary">
-            <span><strong>{profile?.cardBrand || 'Cartão'} •••• {profile?.cardLast4}</strong></span>
-            <span>Próxima cobrança: <strong>{date(profile?.nextBillingAt)}</strong></span>
+            <span>
+              <strong>
+                {profile?.cardBrand || 'Cartão'} •••• {profile?.cardLast4}
+              </strong>
+            </span>
+            <span>
+              Próxima cobrança: <strong>{date(profile?.nextBillingAt)}</strong>
+            </span>
           </div>
         ) : null}
         {profile?.lastFailureReason ? <p className="error">{profile.lastFailureReason}</p> : null}
-        {error ? <p className="error" role="alert">{error}</p> : null}
+        {error ? (
+          <p className="error" role="alert">
+            {error}
+          </p>
+        ) : null}
       </S.Card>
 
       {modalOpen ? (
-        <S.Overlay role="presentation" onMouseDown={(event) => event.target === event.currentTarget && setModalOpen(false)}>
-          <S.Modal onSubmit={(event) => void saveCard(event)} aria-label="Ativar cobrança automática">
+        <S.Overlay
+          role="presentation"
+          onMouseDown={(event) => event.target === event.currentTarget && setModalOpen(false)}
+        >
+          <S.Modal
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="recurring-billing-dialog-title"
+            onSubmit={(event) => void saveCard(event)}
+          >
             <header>
               <div>
-                <h3>Cartão para renovação automática</h3>
-                <p>Os dados sensíveis são tokenizados pelo Mercado Pago e não ficam salvos no GastroNexa.</p>
+                <h3 id="recurring-billing-dialog-title">Cartão para renovação automática</h3>
+                <p>
+                  Os dados sensíveis são tokenizados pelo Mercado Pago e não ficam salvos no
+                  GastroNexa.
+                </p>
               </div>
-              <button type="button" onClick={() => setModalOpen(false)} aria-label="Fechar"><X /></button>
+              <button
+                ref={closeButtonRef}
+                type="button"
+                onClick={() => setModalOpen(false)}
+                aria-label="Fechar"
+              >
+                <X />
+              </button>
             </header>
             <label>
               Nome do titular
-              <input value={holderName} onChange={(event) => setHolderName(event.target.value)} maxLength={60} required />
+              <input
+                value={holderName}
+                onChange={(event) => setHolderName(event.target.value)}
+                maxLength={60}
+                required
+              />
             </label>
             <label>
               Número do cartão
               <div id="billing-card-number" className="mp-field" />
             </label>
             <div className="row">
-              <label>Validade<div id="billing-card-expiration" className="mp-field" /></label>
-              <label>CVV<div id="billing-card-security" className="mp-field" /></label>
+              <label>
+                Validade<div id="billing-card-expiration" className="mp-field" />
+              </label>
+              <label>
+                CVV<div id="billing-card-security" className="mp-field" />
+              </label>
             </div>
             <label>
               CPF do titular
-              <input inputMode="numeric" value={taxId} onChange={(event) => setTaxId(event.target.value.replace(/\D/g, '').slice(0, 11))} minLength={11} required />
+              <input
+                inputMode="numeric"
+                value={taxId}
+                onChange={(event) => setTaxId(event.target.value.replace(/\D/g, '').slice(0, 11))}
+                minLength={11}
+                required
+              />
             </label>
             <label className="consent">
-              <input type="checkbox" checked={consent} onChange={(event) => setConsent(event.target.checked)} />
-              <span>Autorizo a cobrança recorrente mensal do plano contratado neste cartão até que eu desative a renovação automática.</span>
+              <input
+                type="checkbox"
+                checked={consent}
+                onChange={(event) => setConsent(event.target.checked)}
+              />
+              <span>
+                Autorizo a cobrança recorrente mensal do plano contratado neste cartão até que eu
+                desative a renovação automática.
+              </span>
             </label>
-            <p className="security"><ShieldCheck size={15} /> Número completo e CVV não são persistidos no banco da plataforma.</p>
-            {error ? <p className="error" role="alert">{error}</p> : null}
+            <p className="security">
+              <ShieldCheck size={15} /> Número completo e CVV não são persistidos no banco da
+              plataforma.
+            </p>
+            {error ? (
+              <p className="error" role="alert">
+                {error}
+              </p>
+            ) : null}
             <footer>
-              <button type="button" onClick={() => setModalOpen(false)}>Cancelar</button>
-              <button className="primary" type="submit" disabled={changing || !sdkReady || !consent}>
+              <button type="button" onClick={() => setModalOpen(false)}>
+                Cancelar
+              </button>
+              <button
+                className="primary"
+                type="submit"
+                disabled={changing || !sdkReady || !consent}
+              >
                 {changing ? 'Ativando...' : 'Ativar cobrança automática'}
               </button>
             </footer>
