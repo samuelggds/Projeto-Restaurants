@@ -27,6 +27,7 @@ import { useEmployeeIssueNotifications } from '../../features/employee-help/useE
 import { getAccessToken } from '../../modules/auth/session/authSession';
 import { useCourierOrderRecovery } from './useCourierOrderRecovery';
 import { CourierSyncControl } from './components/CourierSyncControl';
+import { CourierLocationStatus } from './components/CourierLocationStatus';
 import * as S from './styles';
 import * as V from './CourierViews.styles';
 import { CourierNavigation } from './CourierNavigation';
@@ -752,6 +753,16 @@ export default function CourierWorkspace() {
             <h1>{title}</h1>
             <p>{subtitle}</p>
           </div>
+          {view !== 'help' &&
+            view !== 'profile' &&
+            geoStatus === 'enabled' &&
+            locationTrackingRequested && (
+              <CourierLocationStatus
+                connected={socketConnected}
+                message={geoMessage}
+                hint={geoHint}
+              />
+            )}
           <CourierSyncControl
             lastUpdatedAt={lastUpdatedAt}
             loading={loading}
@@ -806,22 +817,7 @@ export default function CourierWorkspace() {
           )}
           {view !== 'help' &&
           view !== 'profile' &&
-          geoStatus === 'enabled' &&
-          locationTrackingRequested ? (
-            <S.LocationActiveCard role="status" aria-live="polite">
-              <S.LocationAlertIcon>
-                <LocateFixed />
-              </S.LocationAlertIcon>
-              <S.LocationAlertContent>
-                <strong>Localização ativa nesta conta</strong>
-                <p>{geoMessage}</p>
-                <small>{geoHint}</small>
-              </S.LocationAlertContent>
-              <S.TrackingConnection $connected={socketConnected}>
-                <i /> {socketConnected ? 'Conectado' : 'Reconectando'}
-              </S.TrackingConnection>
-            </S.LocationActiveCard>
-          ) : view !== 'help' && view !== 'profile' ? (
+          !(geoStatus === 'enabled' && locationTrackingRequested) ? (
             <S.LocationAlertCard>
               <S.LocationAlertIcon>
                 {geoStatus === 'unsupported' ? <MapPinOff /> : <LocateFixed />}
@@ -1229,7 +1225,9 @@ export default function CourierWorkspace() {
                   </V.ListSurface>
                 </Suspense>
               )}
-              {view === 'history' && <OrderHistoryPagination {...history} />}
+              {view === 'history' && (
+                <OrderHistoryPagination className="courier-history-pagination" {...history} />
+              )}
             </V.ViewStack>
           )}
         </S.CourierContent>

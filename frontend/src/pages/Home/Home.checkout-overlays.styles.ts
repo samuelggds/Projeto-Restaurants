@@ -175,7 +175,7 @@ export const CardSubmit = styled.button`
 `;
 
 /* ── Login nudge bar (shown when user is not authenticated) */
-export const LoginNudge = styled.div`
+export const LoginNudge = styled.div<{ $hasWhatsapp?: boolean }>`
   position: fixed;
   top: 98px;
   right: 24px;
@@ -269,7 +269,9 @@ export const LoginNudge = styled.div`
   @media (max-width: 620px) {
     top: auto;
     right: 10px;
-    bottom: 10px;
+    bottom: calc(
+      ${({ $hasWhatsapp }) => ($hasWhatsapp ? 82 : 10)}px + env(safe-area-inset-bottom, 0px)
+    );
     width: calc(100vw - 20px);
     min-height: 54px;
     padding: 8px;

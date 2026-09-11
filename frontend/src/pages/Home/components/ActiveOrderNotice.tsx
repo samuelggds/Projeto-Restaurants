@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useId, useState, type CSSProperties } from 'react';
 import { createPortal } from 'react-dom';
 import { Bike, ChefHat, ChevronRight, Clock3, PackageCheck, PackageSearch, X } from 'lucide-react';
 import styled from 'styled-components';
+import { useDialogFocusManagement } from '../../../shared/hooks/useDialogFocusManagement';
 import type { ActiveOrderNotice as ActiveOrder } from '../domain/activeOrderNotice';
 
 type Props = {
@@ -9,15 +10,17 @@ type Props = {
   order: ActiveOrder | null;
   onTrack: (orderId: string) => void;
   onConfirmDelivery: (orderId: string) => Promise<void>;
+  embedded?: boolean;
 };
 
 const DELIVERY_STATUS = 'SAIU_PARA_ENTREGA';
 
 function StatusIcon({ status, size = 20 }: { status: string; size?: number }) {
-  if (status === DELIVERY_STATUS) return <Bike size={size} />;
-  if (status === 'PREPARANDO') return <ChefHat size={size} />;
-  if (status === 'PRONTO') return <PackageCheck size={size} />;
-  return <PackageSearch size={size} />;
+  if (status === DELIVERY_STATUS) return <Bike size={size} aria-hidden="true" />;
+  if (status === 'PREPARANDO') return <ChefHat size={size} aria-hidden="true" />;
+  if (status === 'PRONTO' || status === 'ENTREGUE')
+    return <PackageCheck size={size} aria-hidden="true" />;
+  return <PackageSearch size={size} aria-hidden="true" />;
 }
 
 function progressFor(status: string) {
@@ -25,55 +28,94 @@ function progressFor(status: string) {
   return ['PENDENTE', 'PREPARANDO', 'PRONTO', DELIVERY_STATUS].indexOf(status) + 1;
 }
 
-const FloatingNotice = styled.button`
+const FloatingNotice = styled.button<{ $embedded: boolean }>`
   position: relative;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  width: min(320px, calc(100vw - 32px));
-  min-height: 52px;
-  padding: 7px 9px 7px 7px;
-  border: 1px solid #e5dfd8;
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.98);
-  color: #201c18;
-  box-shadow: 0 5px 16px rgba(55, 38, 26, 0.11);
+  display: grid;
+  gap: 14px;
+  box-sizing: border-box;
+  width: ${({ $embedded }) => ($embedded ? '100%' : 'min(320px, calc(100vw - 32px))')};
+  min-width: 0;
+  min-height: 44px;
+  padding: ${({ $embedded }) => ($embedded ? '0' : '16px')};
+  border: ${({ $embedded }) => ($embedded ? '0' : '1px solid #e5e8e4')};
+  border-radius: 16px;
+  background: #fff;
+  color: #25322d;
+  box-shadow: ${({ $embedded }) => ($embedded ? 'none' : '0 8px 24px #18282012')};
+  font: inherit;
   text-align: left;
-  transition:
-    transform 180ms ease,
-    box-shadow 180ms ease;
   cursor: pointer;
-  &:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 18px 38px rgba(55, 38, 26, 0.22);
+  &:focus-visible {
+    outline: 3px solid var(--home-primary, #d64d08);
+    outline-offset: 5px;
+  }
+  .order-heading {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
   }
   .icon {
     display: grid;
-    width: 36px;
-    height: 36px;
+    width: 42px;
+    height: 42px;
     flex: 0 0 auto;
     place-items: center;
-    border-radius: 7px;
-    background: #fff0e8;
+    border-radius: 13px;
+    background: color-mix(in srgb, var(--home-primary, #d64d08) 9%, white);
     color: var(--home-primary, #d64d08);
   }
-  span {
+  .order-copy {
     display: grid;
     min-width: 0;
-    gap: 2px;
+    gap: 3px;
+    flex: 1;
   }
   strong {
-    font-size: 12px;
+    font-size: 14px;
+    line-height: 1.4;
   }
   small {
-    overflow: hidden;
-    color: #6f6a63;
-    font-size: 10px;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    color: #66726b;
+    font-size: 12px;
+    line-height: 1.5;
+    overflow-wrap: anywhere;
   }
-  @media (max-width: 700px) {
-    width: min(300px, 100%);
+  .order-progress {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 5px;
+  }
+  .order-progress span {
+    height: 4px;
+    border-radius: 10px;
+    background: #e9ede9;
+  }
+  .order-progress .active {
+    background: var(--home-primary, #d64d08);
+  }
+  .order-action {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    min-height: 44px;
+    padding: 0 12px;
+    border: 1px solid #e3e8e3;
+    border-radius: 11px;
+    background: #f7f9f6;
+    color: #34443b;
+    font-size: 13px;
+    font-weight: 700;
+    transition: background 180ms ease;
+  }
+  &:hover .order-action {
+    background: #eef2ec;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .order-action {
+      transition: none;
+    }
   }
 `;
 
@@ -86,11 +128,18 @@ const Backdrop = styled.div<{ $primary: string }>`
   padding: 18px;
   background: rgba(25, 24, 22, 0.48);
   --home-primary: ${({ $primary }) => $primary};
+  overflow-y: auto;
+  box-sizing: border-box;
+  @media (max-width: 400px) {
+    padding: 12px;
+  }
 `;
 
 const Dialog = styled.section`
   width: min(420px, 100%);
-  overflow: hidden;
+  max-height: calc(100dvh - 36px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
   border: 1px solid #eadfd3;
   border-radius: 22px;
   background: #fffdf9;
@@ -129,8 +178,8 @@ const Dialog = styled.section`
   }
   .close {
     display: grid;
-    width: 32px;
-    height: 32px;
+    width: 44px;
+    height: 44px;
     flex: 0 0 auto;
     place-items: center;
     border: 0;
@@ -169,11 +218,10 @@ const Dialog = styled.section`
     font-size: 14px;
   }
   .status small {
-    overflow: hidden;
     color: #716961;
     font-size: 12px;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    line-height: 1.5;
+    overflow-wrap: anywhere;
   }
   .live {
     display: flex;
@@ -215,7 +263,7 @@ const Dialog = styled.section`
     gap: 4px;
     margin: -12px 0 18px;
     color: #8c837b;
-    font-size: 10px;
+    font-size: 12px;
     text-align: center;
   }
   .steps .active {
@@ -225,7 +273,8 @@ const Dialog = styled.section`
   .track {
     display: flex;
     width: 100%;
-    height: 46px;
+    min-height: 46px;
+    padding: 10px 12px;
     align-items: center;
     justify-content: center;
     gap: 8px;
@@ -272,7 +321,8 @@ const Dialog = styled.section`
   .receipt button {
     display: flex;
     width: 100%;
-    height: 42px;
+    min-height: 44px;
+    padding: 10px;
     align-items: center;
     justify-content: center;
     gap: 8px;
@@ -299,12 +349,42 @@ const Dialog = styled.section`
     color: #b83d2d;
     font-size: 12px;
   }
+  button:focus-visible {
+    outline: 3px solid var(--home-primary, #d64d08);
+    outline-offset: 3px;
+  }
+  @media (max-width: 400px) {
+    max-height: calc(100dvh - 24px);
+    .content {
+      padding: 16px;
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    animation: none;
+    .timeline span,
+    .track,
+    .receipt button {
+      transition: none;
+      transform: none;
+    }
+  }
 `;
 
-export function ActiveOrderNotice({ primaryColor, order, onTrack, onConfirmDelivery }: Props) {
+export function ActiveOrderNotice({
+  primaryColor,
+  order,
+  onTrack,
+  onConfirmDelivery,
+  embedded = false,
+}: Props) {
   const [isOpen, setIsOpen] = useState(false);
   const [isConfirming, setIsConfirming] = useState(false);
   const [confirmationError, setConfirmationError] = useState<string | null>(null);
+  const titleId = useId();
+  const dialogRef = useDialogFocusManagement<HTMLElement>(
+    () => setIsOpen(false),
+    isOpen && Boolean(order),
+  );
   if (!order) return null;
 
   const isOutForDelivery = order.status === DELIVERY_STATUS;
@@ -333,31 +413,47 @@ export function ActiveOrderNotice({ primaryColor, order, onTrack, onConfirmDeliv
 
   return (
     <>
-      <FloatingNotice type="button" onClick={() => setIsOpen(true)}>
-        <i className="icon">
-          <StatusIcon status={order.status} />
-        </i>
-        <span>
-          <strong>Pedido em andamento</strong>
-          <small>
-            {order.statusLabel} · Pedido #{order.id}
-          </small>
+      <FloatingNotice
+        type="button"
+        $embedded={embedded}
+        style={{ '--home-primary': primaryColor } as CSSProperties}
+        aria-haspopup="dialog"
+        onClick={() => setIsOpen(true)}
+      >
+        <span className="order-heading">
+          <i className="icon" aria-hidden="true">
+            <StatusIcon status={order.status} />
+          </i>
+          <span className="order-copy">
+            <strong>Pedido em andamento</strong>
+            <small>
+              #{order.id} · {order.statusLabel}
+            </small>
+          </span>
         </span>
-        <ChevronRight size={18} />
+        <span className="order-progress" aria-hidden="true">
+          {[1, 2, 3, 4].map((step) => (
+            <span key={step} className={step <= progress ? 'active' : ''} />
+          ))}
+        </span>
+        <span className="order-action">
+          Ver meu pedido <ChevronRight size={17} aria-hidden="true" />
+        </span>
       </FloatingNotice>
       {isOpen &&
         createPortal(
           <Backdrop $primary={primaryColor} role="presentation" onClick={() => setIsOpen(false)}>
             <Dialog
+              ref={dialogRef}
               role="dialog"
               aria-modal="true"
-              aria-labelledby="active-order-title"
+              aria-labelledby={titleId}
               onClick={(event) => event.stopPropagation()}
             >
               <div className="content">
                 <header>
                   <div>
-                    <h2 id="active-order-title">Pedido #{order.id}</h2>
+                    <h2 id={titleId}>Pedido #{order.id}</h2>
                     <p>Acompanhe cada etapa do seu pedido automaticamente.</p>
                   </div>
                   <button
@@ -366,11 +462,11 @@ export function ActiveOrderNotice({ primaryColor, order, onTrack, onConfirmDeliv
                     aria-label="Fechar aviso"
                     onClick={() => setIsOpen(false)}
                   >
-                    <X size={18} />
+                    <X size={18} aria-hidden="true" />
                   </button>
                 </header>
                 <div className="status">
-                  <i className="status-icon">
+                  <i className="status-icon" aria-hidden="true">
                     <StatusIcon status={order.status} />
                   </i>
                   <span>
@@ -379,9 +475,9 @@ export function ActiveOrderNotice({ primaryColor, order, onTrack, onConfirmDeliv
                   </span>
                 </div>
                 <div className="live">
-                  <i /> Status atualizado automaticamente
+                  <i aria-hidden="true" /> Status atualizado automaticamente
                 </div>
-                <div className="timeline" aria-label={`Progresso: ${order.statusLabel}`}>
+                <div className="timeline" aria-hidden="true">
                   {[1, 2, 3, 4].map((step) => (
                     <span key={step} className={step <= progress ? 'active' : ''} />
                   ))}
@@ -394,7 +490,8 @@ export function ActiveOrderNotice({ primaryColor, order, onTrack, onConfirmDeliv
                 </div>
                 {isOutForDelivery ? (
                   <button className="track" type="button" onClick={track}>
-                    <Bike size={19} /> Acompanhar entrega no GPS <ChevronRight size={18} />
+                    <Bike size={19} aria-hidden="true" /> Acompanhar entrega no GPS{' '}
+                    <ChevronRight size={18} aria-hidden="true" />
                   </button>
                 ) : isDelivered ? (
                   <div className="receipt">
@@ -407,15 +504,19 @@ export function ActiveOrderNotice({ primaryColor, order, onTrack, onConfirmDeliv
                       onClick={() => void confirmReceipt()}
                       disabled={isConfirming}
                     >
-                      <PackageCheck size={18} />{' '}
+                      <PackageCheck size={18} aria-hidden="true" />{' '}
                       {isConfirming ? 'Confirmando...' : 'Confirmar recebimento'}
                     </button>
-                    {confirmationError && <p className="receipt-error">{confirmationError}</p>}
+                    {confirmationError && (
+                      <p className="receipt-error" role="alert">
+                        {confirmationError}
+                      </p>
+                    )}
                   </div>
                 ) : (
                   <div className="waiting">
-                    <Clock3 size={18} /> O rastreamento por GPS será liberado quando o motoqueiro
-                    sair para a entrega.
+                    <Clock3 size={18} aria-hidden="true" /> O rastreamento por GPS será liberado
+                    quando o motoqueiro sair para a entrega.
                   </div>
                 )}
               </div>

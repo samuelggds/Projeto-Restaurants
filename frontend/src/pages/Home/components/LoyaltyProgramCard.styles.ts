@@ -83,7 +83,7 @@ export const CompactNotice = styled.button`
     color: #8d8279;
   }
 
-  &[data-guest='true'] {
+  &[data-guest='true']:not([data-embedded='true']) {
     width: 56px;
     min-height: 56px;
     padding: 0;
@@ -114,6 +114,97 @@ export const CompactNotice = styled.button`
 
     .chevron {
       display: none;
+    }
+  }
+
+  &[data-embedded='true'] {
+    display: grid;
+    grid-template-columns: 40px minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 5px 11px;
+    min-height: 82px;
+    padding: 13px;
+    border-radius: 14px;
+    border-color: #e8e3db;
+    background: #fff;
+    box-shadow: none;
+    font: inherit;
+
+    &:hover {
+      transform: none;
+      border-color: color-mix(in srgb, var(--home-primary, #d64d08) 40%, #e8e3db);
+      background: color-mix(in srgb, var(--home-primary, #d64d08) 3%, #fff);
+    }
+
+    &:focus-visible {
+      outline: 3px solid color-mix(in srgb, var(--home-primary, #d64d08) 30%, transparent);
+      outline-offset: 2px;
+    }
+
+    .icon {
+      width: 40px;
+      height: 40px;
+      border-radius: 12px;
+      align-self: start;
+    }
+
+    .icon svg {
+      width: 21px;
+      height: 21px;
+    }
+
+    strong,
+    small {
+      white-space: normal;
+      overflow: visible;
+      overflow-wrap: anywhere;
+      text-overflow: clip;
+    }
+
+    strong {
+      font-size: 14px;
+      line-height: 1.35;
+    }
+
+    small {
+      font-size: 12px;
+      line-height: 1.45;
+    }
+
+    .notice-badge {
+      display: none;
+    }
+
+    .chevron {
+      display: block;
+      width: 17px;
+    }
+
+    .notice-progress {
+      display: grid;
+      grid-column: 2 / -1;
+      gap: 6px;
+      padding-top: 5px;
+    }
+
+    .progress-track {
+      display: block;
+      height: 5px;
+      overflow: hidden;
+      border-radius: 99px;
+      background: color-mix(in srgb, var(--home-primary, #d64d08) 11%, #f5f2ed);
+    }
+
+    .progress-track i {
+      display: block;
+      height: 100%;
+      border-radius: inherit;
+      background: var(--home-primary, #d64d08);
+    }
+
+    .notice-progress small {
+      font-size: 11px;
+      color: #756b60;
     }
   }
 

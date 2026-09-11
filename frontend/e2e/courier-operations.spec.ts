@@ -712,6 +712,7 @@ test('motoqueiro retira, compartilha a rota do próprio pedido e encerra ao entr
   expect(Number.isNaN(Date.parse(state.claims[0].initialLocation?.sentAt || ''))).toBe(false);
   expect(state.trackingPoints[0]).toMatchObject({ orderId: 601, ...departure });
   await expect(page.getByRole('heading', { name: 'Entregas em andamento' })).toBeVisible();
+  await captureReadmeScreenshot(page, 'courier-location-header-desktop.png');
 
   await openCourierView(page, 'Em entrega');
   const routeOrder = orderCard(page, 601);
@@ -1020,6 +1021,10 @@ test('todas as áreas do motoqueiro cabem no celular sem overflow horizontal', a
   const state = initialState();
   state.orders[0].status = 'SAIU_PARA_ENTREGA';
   state.orders[0].assignedCourierId = COURIER_ID;
+  const completedOrder = state.orders.find((order) => order.id === 604)!;
+  state.orders.push(
+    ...Array.from({ length: 21 }, (_, index) => ({ ...completedOrder, id: 700 + index })),
+  );
   await page.setViewportSize({ width: 390, height: 844 });
   await enableSyntheticLocation(context);
   await mockCourierApi(page, state);
@@ -1082,6 +1087,13 @@ test('todas as áreas do motoqueiro cabem no celular sem overflow horizontal', a
       layout.documentWidth - layout.viewportWidth,
       `${tab}: overflow horizontal`,
     ).toBeLessThanOrEqual(1);
+    if (tab === 'Histórico') {
+      for (const width of [320, 390]) {
+        await page.setViewportSize({ width, height: 844 });
+        await page.getByRole('button', { name: 'Carregar histórico' }).scrollIntoViewIfNeeded();
+        await captureReadmeScreenshot(page, `courier-history-pagination-${width}.png`);
+      }
+    }
   }
 
   const navBounds = await mobileNav.boundingBox();
@@ -1099,6 +1111,7 @@ test('todas as áreas do motoqueiro cabem no celular sem overflow horizontal', a
     await activateLocation.click();
   }
   await expect(page.locator('.delivery-map-shell')).toBeVisible();
+  await captureReadmeScreenshot(page, 'courier-location-header-mobile.png');
   const mapBounds = await page.locator('.delivery-map-shell').boundingBox();
   expect(mapBounds).not.toBeNull();
   if (mapBounds) {

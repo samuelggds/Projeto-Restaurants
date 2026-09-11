@@ -1291,6 +1291,7 @@ export const CourierTop = styled.header`
   min-height: 84px;
   padding: 17px clamp(18px, 3vw, 38px);
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 15px;
   background: rgba(255, 255, 255, 0.94);
@@ -1299,6 +1300,10 @@ export const CourierTop = styled.header`
   position: sticky;
   top: 0;
   z-index: 30;
+  > div:first-child {
+    flex: 1;
+    min-width: min(160px, 100%);
+  }
   h1 {
     margin: 0 0 4px;
     font-size: 24px;
@@ -1331,6 +1336,9 @@ export const CourierContent = styled.div`
   }
   @media (max-width: 650px) {
     padding: 12px 10px 94px;
+    .courier-history-pagination {
+      padding-right: 76px;
+    }
   }
 `;
 
