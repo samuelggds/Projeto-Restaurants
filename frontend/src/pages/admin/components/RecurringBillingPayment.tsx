@@ -1,364 +1,252 @@
-import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
-import { CreditCard, QrCode, ShieldCheck, X } from 'lucide-react';
+import { useCallback, useEffect, useState } from 'react';
+import {
+  ArrowRight,
+  Check,
+  ChevronDown,
+  CreditCard,
+  QrCode,
+  RefreshCw,
+  ShieldCheck,
+} from 'lucide-react';
 import monthlyBillingService, {
   type PlatformBillingProfile,
 } from '../../../Services/monthlyBillingService';
+import { RecurringCardDialog } from './RecurringCardDialog';
 import * as S from './RecurringBillingPayment.styles';
 
-type MercadoPagoCardToken = {
-  id?: string;
-  last_four_digits?: string;
-  payment_method_id?: string;
-  expiration_month?: number;
-  expiration_year?: number;
-};
-type MercadoPagoField = {
-  mount(containerId: string): void;
-  unmount?(): void;
-};
-type MercadoPagoInstance = {
-  fields: {
-    create(
-      name: 'cardNumber' | 'expirationDate' | 'securityCode',
-      options: { placeholder: string },
-    ): MercadoPagoField;
-    createCardToken(input: Record<string, string>): Promise<MercadoPagoCardToken>;
-  };
-};
-
-const SDK_URL = 'https://sdk.mercadopago.com/js/v2';
-let sdkPromise: Promise<void> | null = null;
-
-function loadMercadoPagoSdk() {
-  if (window.MercadoPago) return Promise.resolve();
-  if (sdkPromise) return sdkPromise;
-
-  sdkPromise = new Promise<void>((resolve, reject) => {
-    const existing = document.querySelector<HTMLScriptElement>(`script[src="${SDK_URL}"]`);
-    const script = existing || document.createElement('script');
-
-    const fail = () => {
-      sdkPromise = null;
-      script.remove();
-      reject(new Error('Falha ao carregar o Mercado Pago.'));
-    };
-
-    script.addEventListener('load', () => resolve(), { once: true });
-    script.addEventListener('error', fail, { once: true });
-
-    if (!existing) {
-      script.src = SDK_URL;
-      script.async = true;
-      document.head.appendChild(script);
-    }
-  });
-
-  return sdkPromise;
+function billingDate(value?: string | null) {
+  const date = value ? new Date(value) : null;
+  return date && Number.isFinite(date.getTime())
+    ? new Intl.DateTimeFormat('pt-BR').format(date)
+    : 'A definir';
 }
 
-const date = (value?: string | null) =>
-  value ? new Intl.DateTimeFormat('pt-BR').format(new Date(value)) : 'A definir';
-
-export function RecurringBillingPayment() {
+export function RecurringBillingPayment({ onViewCharges }: { onViewCharges?: () => void }) {
   const [profile, setProfile] = useState<PlatformBillingProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [changing, setChanging] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
-  const [holderName, setHolderName] = useState('');
-  const [taxId, setTaxId] = useState('');
-  const [consent, setConsent] = useState(false);
+  const [pixExpanded, setPixExpanded] = useState(false);
   const [error, setError] = useState('');
-  const [sdkReady, setSdkReady] = useState(false);
-  const mercadoPagoRef = useRef<MercadoPagoInstance | null>(null);
-  const closeButtonRef = useRef<HTMLButtonElement | null>(null);
-
+  const [notice, setNotice] = useState('');
   const load = useCallback(async () => {
+    setLoading(true);
+    setError('');
     try {
       setProfile(await monthlyBillingService.getRecurringProfile());
-      setError('');
-    } catch (reason) {
-      const message = (reason as { response?: { data?: { error?: string } } })?.response?.data
-        ?.error;
-      setError(message || 'Não foi possível carregar a forma de pagamento da mensalidade.');
+    } catch {
+      setError('Não foi possível consultar sua forma de pagamento. Tente novamente em instantes.');
     } finally {
       setLoading(false);
     }
   }, []);
-
   useEffect(() => {
     const timer = window.setTimeout(() => void load(), 0);
     return () => window.clearTimeout(timer);
   }, [load]);
-
-  useEffect(() => {
-    if (!modalOpen) return undefined;
-
-    closeButtonRef.current?.focus();
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setModalOpen(false);
-    };
-    document.addEventListener('keydown', onKeyDown);
-
-    return () => document.removeEventListener('keydown', onKeyDown);
-  }, [modalOpen]);
-
-  useEffect(() => {
-    if (!modalOpen) return undefined;
-    let active = true;
-    const fields: MercadoPagoField[] = [];
-
-    void monthlyBillingService
-      .getRecurringConfig()
-      .then(async (config) => {
-        await loadMercadoPagoSdk();
-        if (!active || !window.MercadoPago) return;
-        const mp = new window.MercadoPago(config.publicKey);
-        const cardNumber = mp.fields.create('cardNumber', { placeholder: 'Número do cartão' });
-        const expiration = mp.fields.create('expirationDate', { placeholder: 'MM/AA' });
-        const securityCode = mp.fields.create('securityCode', { placeholder: 'CVV' });
-        cardNumber.mount('billing-card-number');
-        expiration.mount('billing-card-expiration');
-        securityCode.mount('billing-card-security');
-        fields.push(cardNumber, expiration, securityCode);
-        mercadoPagoRef.current = mp;
-        setSdkReady(true);
-      })
-      .catch((reason: unknown) => {
-        if (!active) return;
-        const message = (reason as { response?: { data?: { error?: string } } })?.response?.data
-          ?.error;
-        setError(
-          message || (reason instanceof Error ? reason.message : 'Cartão indisponível no momento.'),
-        );
-      });
-
-    return () => {
-      active = false;
-      fields.forEach((field) => field.unmount?.());
-      mercadoPagoRef.current = null;
-      setSdkReady(false);
-    };
-  }, [modalOpen]);
-
   async function switchToPix() {
+    if (changing || !profile) return;
     setChanging(true);
     setError('');
+    setNotice('');
     try {
       setProfile(await monthlyBillingService.usePixBilling());
-    } catch (reason) {
-      const message = (reason as { response?: { data?: { error?: string } } })?.response?.data
-        ?.error;
-      setError(message || 'Não foi possível alterar para Pix.');
-    } finally {
-      setChanging(false);
-    }
-  }
-
-  async function saveCard(event: FormEvent) {
-    event.preventDefault();
-    if (!consent) {
-      setError('Autorize a cobrança automática para continuar.');
-      return;
-    }
-    const normalizedTaxId = taxId.replace(/\D/g, '');
-    if (normalizedTaxId.length !== 11) {
-      setError('Informe um CPF válido do titular.');
-      return;
-    }
-    const mp = mercadoPagoRef.current;
-    if (!mp || !sdkReady) {
-      setError('Aguarde o carregamento seguro do cartão.');
-      return;
-    }
-
-    setChanging(true);
-    setError('');
-    try {
-      const token = await mp.fields.createCardToken({
-        cardholderName: holderName.trim(),
-        identificationType: 'CPF',
-        identificationNumber: normalizedTaxId,
-      });
-      const last4 = String(token.last_four_digits || '');
-      const expMonth = Number(token.expiration_month || 0);
-      const expYear = Number(token.expiration_year || 0);
-      const brand = String(token.payment_method_id || 'card');
-      if (!token.id || !/^\d{4}$/.test(last4) || !expMonth || !expYear) {
-        throw new Error('O Mercado Pago não conseguiu validar este cartão.');
-      }
-      const next = await monthlyBillingService.enableRecurringCard({
-        cardToken: token.id,
-        brand,
-        last4,
-        expMonth,
-        expYear,
-      });
-      setProfile(next);
-      setModalOpen(false);
-      setHolderName('');
-      setTaxId('');
-      setConsent(false);
-    } catch (reason) {
-      const message = (reason as { response?: { data?: { error?: string } } })?.response?.data
-        ?.error;
+      setNotice(
+        'Pagamento por Pix selecionado. As próximas mensalidades devem ser pagas manualmente.',
+      );
+      setPixExpanded(false);
+    } catch {
       setError(
-        message || (reason instanceof Error ? reason.message : 'Não foi possível salvar o cartão.'),
+        'Não foi possível mudar para Pix. Sua forma de pagamento foi mantida. Tente novamente.',
       );
     } finally {
       setChanging(false);
     }
   }
-
-  if (loading) return null;
-  const cardActive =
-    profile?.billingMethod === 'CARD' && profile.autoRenew && profile.status === 'AUTHORIZED';
-
+  const cardSelected = profile?.billingMethod === 'CARD' && profile.autoRenew;
+  const cardActive = cardSelected && profile?.status === 'AUTHORIZED';
+  const pixSelected = profile?.billingMethod === 'PIX' && !profile.autoRenew;
   return (
-    <>
-      <S.Card aria-labelledby="billing-payment-method-title">
-        <header>
-          <div>
-            <h3 id="billing-payment-method-title">Forma de pagamento da mensalidade</h3>
-            <p>Escolha pagar manualmente por Pix ou renovar automaticamente no cartão.</p>
-          </div>
-          {cardActive ? <span className="status">Renovação automática ativa</span> : null}
-        </header>
-        <div className="methods">
-          <button
-            type="button"
-            className={`method ${!cardActive ? 'active' : ''}`}
-            onClick={() => void switchToPix()}
-            disabled={changing}
-          >
-            <QrCode size={20} />
-            <strong>Pix manual</strong>
-            <span>QR Code e Pix copia e cola em cada mensalidade.</span>
-          </button>
-          <button
-            type="button"
-            className={`method ${cardActive ? 'active' : ''}`}
-            onClick={() => setModalOpen(true)}
-            disabled={changing}
-          >
-            <CreditCard size={20} />
-            <strong>Cartão automático</strong>
-            <span>Cadastre uma vez e renove a mensalidade automaticamente.</span>
+    <S.Card aria-labelledby="billing-payment-method-title" aria-busy={loading}>
+      <header className="section-heading">
+        <span className="eyebrow">SUA MENSALIDADE, SEM COMPLICAÇÃO</span>
+        <h2 id="billing-payment-method-title">Como você prefere pagar?</h2>
+        <p>Gerencie a renovação do seu plano em um só lugar.</p>
+      </header>
+      {loading ? (
+        <div className="loading" role="status">
+          <RefreshCw size={18} aria-hidden="true" /> Consultando sua forma de pagamento...
+        </div>
+      ) : null}
+      {notice ? (
+        <p className="notice" role="status">
+          <Check size={18} aria-hidden="true" />
+          {notice}
+        </p>
+      ) : null}
+      {error ? (
+        <div className="error" role="alert">
+          <p>{error}</p>
+          <button type="button" disabled={loading || changing} onClick={() => void load()}>
+            <RefreshCw size={15} aria-hidden="true" /> Tentar novamente
           </button>
         </div>
-        {cardActive ? (
-          <div className="summary">
-            <span>
-              <strong>
-                {profile?.cardBrand || 'Cartão'} •••• {profile?.cardLast4}
-              </strong>
+      ) : null}
+      <div className="card-option">
+        <div className="card-copy">
+          <div className="option-top">
+            <span className="option-icon">
+              <CreditCard size={23} aria-hidden="true" />
             </span>
-            <span>
-              Próxima cobrança: <strong>{date(profile?.nextBillingAt)}</strong>
+            <span className="recommended">
+              {cardActive ? 'Renovação automática ativa' : 'Recomendado'}
             </span>
           </div>
-        ) : null}
-        {profile?.lastFailureReason ? <p className="error">{profile.lastFailureReason}</p> : null}
-        {error ? (
-          <p className="error" role="alert">
-            {error}
+          <h3>{cardActive ? 'Seu cartão cuida da renovação' : 'Menos uma tarefa na sua rotina'}</h3>
+          <p>
+            Cadastre um cartão para renovar sua mensalidade automaticamente. Você acompanha cada
+            cobrança e pode mudar a forma de pagamento quando precisar.
           </p>
-        ) : null}
-      </S.Card>
-
-      {modalOpen ? (
-        <S.Overlay
-          role="presentation"
-          onMouseDown={(event) => event.target === event.currentTarget && setModalOpen(false)}
-        >
-          <S.Modal
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="recurring-billing-dialog-title"
-            onSubmit={(event) => void saveCard(event)}
+          <ul className="benefits">
+            <li>
+              <Check aria-hidden="true" /> Sem copiar códigos a cada mês
+            </li>
+            <li>
+              <Check aria-hidden="true" /> Histórico disponível na aba Cobranças
+            </li>
+          </ul>
+          <button
+            className="primary"
+            type="button"
+            onClick={() => {
+              setNotice('');
+              setModalOpen(true);
+            }}
+            disabled={loading || changing || !profile}
           >
-            <header>
-              <div>
-                <h3 id="recurring-billing-dialog-title">Cartão para renovação automática</h3>
-                <p>
-                  Os dados sensíveis são tokenizados pelo Mercado Pago e não ficam salvos no
-                  GastroNexa.
-                </p>
-              </div>
-              <button
-                ref={closeButtonRef}
-                type="button"
-                onClick={() => setModalOpen(false)}
-                aria-label="Fechar"
-              >
-                <X />
-              </button>
-            </header>
-            <label>
-              Nome do titular
-              <input
-                value={holderName}
-                onChange={(event) => setHolderName(event.target.value)}
-                maxLength={60}
-                required
-              />
-            </label>
-            <label>
-              Número do cartão
-              <div id="billing-card-number" className="mp-field" />
-            </label>
-            <div className="row">
-              <label>
-                Validade<div id="billing-card-expiration" className="mp-field" />
-              </label>
-              <label>
-                CVV<div id="billing-card-security" className="mp-field" />
-              </label>
-            </div>
-            <label>
-              CPF do titular
-              <input
-                inputMode="numeric"
-                value={taxId}
-                onChange={(event) => setTaxId(event.target.value.replace(/\D/g, '').slice(0, 11))}
-                minLength={11}
-                required
-              />
-            </label>
-            <label className="consent">
-              <input
-                type="checkbox"
-                checked={consent}
-                onChange={(event) => setConsent(event.target.checked)}
-              />
-              <span>
-                Autorizo a cobrança recorrente mensal do plano contratado neste cartão até que eu
-                desative a renovação automática.
-              </span>
-            </label>
-            <p className="security">
-              <ShieldCheck size={15} /> Número completo e CVV não são persistidos no banco da
-              plataforma.
-            </p>
-            {error ? (
-              <p className="error" role="alert">
-                {error}
-              </p>
-            ) : null}
-            <footer>
-              <button type="button" onClick={() => setModalOpen(false)}>
-                Cancelar
-              </button>
-              <button
-                className="primary"
-                type="submit"
-                disabled={changing || !sdkReady || !consent}
-              >
-                {changing ? 'Ativando...' : 'Ativar cobrança automática'}
-              </button>
-            </footer>
-          </S.Modal>
-        </S.Overlay>
+            {cardSelected ? 'Atualizar cartão' : 'Cadastrar cartão automático'}{' '}
+            <ArrowRight size={17} aria-hidden="true" />
+          </button>
+          <span className="security">
+            <ShieldCheck aria-hidden="true" /> Cadastro protegido pelo Mercado Pago
+          </span>
+        </div>
+        <aside className="payment-preview" aria-label="Forma de pagamento atual">
+          <small>FORMA ATUAL</small>
+          <div className="preview-card">
+            <CreditCard size={25} aria-hidden="true" />
+            <span>
+              {cardSelected ? profile?.cardBrand || 'Cartão cadastrado' : 'Cartão automático'}
+            </span>
+            <strong>
+              {cardSelected && profile?.cardLast4 ? `•••• ${profile.cardLast4}` : '•••• •••• ••••'}
+            </strong>
+            <small>
+              {cardActive
+                ? 'Renovação ativada'
+                : cardSelected
+                  ? 'Aguardando autorização'
+                  : 'Seu cartão aparece aqui'}
+            </small>
+          </div>
+          <p className="current-method">
+            {loading
+              ? 'Consultando...'
+              : !profile
+                ? 'Consulta indisponível'
+                : cardActive
+                  ? `Próxima cobrança: ${billingDate(profile.nextBillingAt)}`
+                  : cardSelected
+                    ? 'A renovação ainda não está ativa. Confira a situação das suas cobranças.'
+                    : pixSelected
+                      ? 'Você está usando Pix manual.'
+                      : 'Renovação automática desativada.'}
+          </p>
+          {onViewCharges ? (
+            <button type="button" className="text-button" onClick={onViewCharges}>
+              Ver minhas cobranças <ArrowRight size={14} aria-hidden="true" />
+            </button>
+          ) : null}
+        </aside>
+      </div>
+      {profile?.lastFailureReason ? (
+        <p className="warning" role="status">
+          A última tentativa de cobrança não foi concluída. Confira seu cartão e a situação da
+          mensalidade na aba Cobranças.
+        </p>
       ) : null}
-    </>
+      <div className="pix-alternative">
+        <button
+          type="button"
+          className="pix-toggle"
+          aria-expanded={pixExpanded}
+          aria-controls="billing-pix-details"
+          onClick={() => setPixExpanded(!pixExpanded)}
+        >
+          <QrCode size={19} aria-hidden="true" />
+          <span>
+            <strong>Prefere pagar por Pix?</strong>
+            <small>Pagamento manual a cada mensalidade</small>
+          </span>
+          <ChevronDown className={pixExpanded ? 'expanded' : ''} size={18} aria-hidden="true" />
+        </button>
+        {pixExpanded ? (
+          <div id="billing-pix-details" className="pix-details">
+            <p>
+              Na aba Cobranças, você gera o QR Code ou copia o código Pix quando a mensalidade
+              estiver disponível. O pagamento precisa ser feito por você a cada mês.
+            </p>
+            {pixSelected ? (
+              <>
+                <span className="pix-current">
+                  <Check size={16} aria-hidden="true" /> Pix já é sua forma de pagamento
+                </span>
+                {onViewCharges ? (
+                  <button type="button" className="secondary" onClick={onViewCharges}>
+                    Ir para Cobranças
+                  </button>
+                ) : null}
+              </>
+            ) : (
+              <>
+                {cardSelected ? (
+                  <p className="warning">
+                    Ao confirmar, a renovação automática no cartão será desativada. As mensalidades
+                    em aberto continuam na aba Cobranças.
+                  </p>
+                ) : null}
+                <button
+                  type="button"
+                  className="secondary"
+                  disabled={changing || loading || !profile}
+                  onClick={() => void switchToPix()}
+                >
+                  {changing
+                    ? 'Alterando...'
+                    : cardSelected
+                      ? 'Desativar renovação e usar Pix'
+                      : 'Usar Pix manual'}
+                </button>
+              </>
+            )}
+          </div>
+        ) : null}
+      </div>
+      {modalOpen ? (
+        <RecurringCardDialog
+          onClose={() => setModalOpen(false)}
+          onSaved={(next) => {
+            setProfile(next);
+            setModalOpen(false);
+            setError('');
+            setNotice(
+              next.autoRenew && next.status === 'AUTHORIZED'
+                ? 'Cartão cadastrado. Renovação automática ativada.'
+                : 'Cartão cadastrado. Acompanhe a confirmação da renovação.',
+            );
+          }}
+        />
+      ) : null}
+    </S.Card>
   );
 }

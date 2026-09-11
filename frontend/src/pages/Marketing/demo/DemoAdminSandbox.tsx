@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
 import api from '../../../Services/api';
+import { BillingSimulationContext } from '../../../contexts/BillingSimulationContext';
 import { AdminPage } from '../../admin/AdminPage';
 import { AppDialogProvider } from '../../../components/AppDialog/AppDialogProvider';
 import { NoticeViewport } from '../../../components/AppNotice/NoticeViewport';
@@ -245,7 +246,9 @@ createRoot(document.getElementById('root')!).render(
     <AppDialogProvider>
       <GlobalStyles />
       <NoticeViewport />
-      <Sandbox />
+      <BillingSimulationContext.Provider value={true}>
+        <Sandbox />
+      </BillingSimulationContext.Provider>
     </AppDialogProvider>
   </BrowserRouter>,
 );

@@ -166,10 +166,10 @@ export const adminHelpGuides: GuideSection[] = [
     area: 'Cobranças e assinaturas',
     path: 'Cobranças e assinaturas',
     preview: 'admin-subscriptions',
-    helper: 'Plano e faturas da plataforma.',
+    helper: 'Pagamento, plano e faturas da plataforma.',
     steps: [
-      'Abra Cobranças e assinaturas para consultar plano, situação e faturas.',
-      'Confira as condições apresentadas antes de escolher outro plano ou pagar uma mensalidade.',
+      'Abra Cobranças e assinaturas. A aba Pagamento aparece primeiro: cadastre o cartão e autorize a renovação automática, ou abra Prefere pagar por Pix? para escolher o pagamento manual.',
+      'Use Planos para comparar benefícios e Cobranças para consultar vencimentos, gerar o Pix disponível e acompanhar o histórico. Mudar para Pix desativa a renovação automática após sua confirmação.',
       'Acompanhe a confirmação da fatura. Na demonstração, a assinatura é fictícia e não gera cobrança real.',
     ],
   },
