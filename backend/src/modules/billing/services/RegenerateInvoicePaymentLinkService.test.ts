@@ -1,6 +1,9 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { hasReusablePix } from './RegenerateInvoicePaymentLinkService.js';
+import {
+  hasReusablePix,
+  pixIdempotencyKey,
+} from './RegenerateInvoicePaymentLinkService.js';
 
 test('reutiliza Pix enquanto a cobrança ainda está válida', () => {
   assert.equal(
@@ -34,4 +37,12 @@ test('não reutiliza Pix expirado ou incompleto', () => {
     }),
     false,
   );
+});
+
+test('usa a mesma chave para regenerações concorrentes da mesma geração', () => {
+  assert.equal(
+    pixIdempotencyKey({ id: 42, paymentExternalId: 'mp-old-123' }),
+    'invoice-pix-42-mp-old-123',
+  );
+  assert.equal(pixIdempotencyKey({ id: 42, paymentExternalId: null }), 'invoice-pix-42-initial');
 });
