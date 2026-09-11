@@ -20,7 +20,7 @@ import {
   findBlockingInvoice,
   getSystemBlockState,
 } from '../../../Services/systemBlock';
-import { MonthlyBilling } from '../components/MonthlyBilling';
+import { SubscriptionBillingArea } from '../components/SubscriptionBillingArea';
 import * as S from './BillingRestrictedAdmin.styles';
 
 const lockedSections = [
@@ -149,7 +149,7 @@ export default function BillingRestrictedAdmin() {
             </S.SupportHint>
           </S.Alert>
 
-          <MonthlyBilling restricted />
+          <SubscriptionBillingArea restricted />
         </S.Content>
       </S.Main>
     </S.Root>

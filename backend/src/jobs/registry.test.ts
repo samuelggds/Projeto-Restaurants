@@ -5,13 +5,21 @@ import { createJobDefinitions } from './registry.js';
 
 test('registro possui chaves únicas e agendas válidas', () => {
   const jobs = createJobDefinitions({});
-  assert.equal(jobs.length, 8);
+  assert.equal(jobs.length, 9);
   assert.equal(new Set(jobs.map((job) => job.key)).size, jobs.length);
-  assert.equal(jobs.filter((job) => job.runtime === 'worker').length, 7);
+  assert.equal(jobs.filter((job) => job.runtime === 'worker').length, 8);
   assert.deepEqual(
     jobs.filter((job) => job.runtime === 'api').map((job) => job.key),
     ['table-account.payment-expiration'],
   );
+
+  const recurring = jobs.find((job) => job.key === 'billing.recurring-card-reconciliation');
+  assert.ok(recurring);
+  assert.equal(recurring.runtime, 'worker');
+  assert.equal(recurring.schedule.kind, 'cron');
+  if (recurring.schedule.kind === 'cron') {
+    assert.equal(recurring.schedule.expression, '*/5 * * * *');
+  }
 
   for (const job of jobs) {
     assert.ok(job.leaseDurationMs > 0);

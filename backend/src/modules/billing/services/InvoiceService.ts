@@ -1,6 +1,6 @@
 import billingRepository from '../repositories/BillingRepository.js';
-import { addDays } from '../utils/dateUtils.js';
 import platformPlanCatalogService from './PlatformPlanCatalogService.js';
+import { resolveSubscriptionDueDate } from '../utils/billingCycle.js';
 
 type InvoicePayload = {
   restaurantId: number;
@@ -22,8 +22,7 @@ export class InvoiceService {
     > = platformPlanCatalogService,
   ) {}
 
-  async execute({ restaurantId, month, year, startDate, endDate }: InvoicePayload) {
-    // Busca a assinatura
+  async execute({ restaurantId, month, year, endDate }: InvoicePayload) {
     const subscription = await this.repository.findSubscriptionByRestaurantId(restaurantId);
 
     if (!subscription) {
@@ -47,26 +46,16 @@ export class InvoiceService {
       activePlan = updatedSubscription.plan;
     }
 
-    // Busca o plano
     const plan = await this.planCatalog.getByCode(activePlan, { activeOnly: false });
+    const dueDate = resolveSubscriptionDueDate(subscription) || endDate;
 
-    const total = plan.monthlyFee;
-
-    const trialEndsAtDate = subscription.trialEndsAt ? new Date(subscription.trialEndsAt) : null;
-    const dueDate =
-      subscription.status === 'TESTE' && trialEndsAtDate && !Number.isNaN(trialEndsAtDate.getTime())
-        ? trialEndsAtDate
-        : addDays(new Date(), 30);
-
-    // O upsert na chave unica mensal evita duplicidade mesmo com duas
-    // execucoes concorrentes (job, retry ou chamada administrativa).
     return this.repository.createMonthlyInvoiceIfAbsent({
       restaurantId,
       month,
       year,
       monthlyFee: plan.monthlyFee,
       systemFees: 0,
-      total,
+      total: plan.monthlyFee,
       dueDate,
       status: 'PENDENTE',
     });
