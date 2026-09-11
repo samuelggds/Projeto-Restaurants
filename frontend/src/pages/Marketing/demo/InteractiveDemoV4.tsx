@@ -327,7 +327,7 @@ function PortalLogin({
               <LockKeyhole aria-hidden="true" />
               <span>{copy.badge}</span>
             </LoginS.LoginAccessBadge>
-            <LoginS.WelcomeText>{copy.title}</LoginS.WelcomeText>
+            <LoginS.WelcomeText as="h1">{copy.title}</LoginS.WelcomeText>
             <LoginS.FormSubtitle>{copy.subtitle}</LoginS.FormSubtitle>
             <LoginS.Form onSubmit={submit} autoComplete="off">
               <LoginS.InputGroup>
@@ -393,6 +393,9 @@ function PortalLogin({
                 ))}
               </S.CredentialList>
             </S.CredentialAside>
+            <S.DemoRibbon>
+              Ambiente demonstrativo · dados fictícios armazenados somente neste navegador
+            </S.DemoRibbon>
           </LoginS.LoginFormWrapper>
         </LoginS.LoginFormSection>
       </LoginS.Container>
@@ -466,6 +469,9 @@ export default function InteractiveDemoV4() {
   useEffect(() => {
     document.title = 'Demonstração | GastroNexa';
   }, []);
+  useEffect(() => {
+    if (screen !== 'workspace') window.scrollTo({ top: 0, behavior: 'instant' });
+  }, [screen]);
   const reset = () => {
     try {
       localStorage.removeItem(DEMO_ADMIN_STORAGE_KEY);
@@ -569,10 +575,6 @@ export default function InteractiveDemoV4() {
           onReset={reset}
           onExit={logout}
         />
-      ) : screen === 'login' ? (
-        <S.DemoRibbon>
-          Ambiente demonstrativo · dados fictícios armazenados somente neste navegador
-        </S.DemoRibbon>
       ) : null}
     </S.Root>
   );

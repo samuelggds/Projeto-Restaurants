@@ -627,13 +627,32 @@ test('acessos da demonstração usam a marca vetorial e preservam as contas fict
     await expect(page.locator('#demo-email')).toHaveValue(/@demo\.gastronexa\.com\.br$/);
     await expect(page.locator('#demo-password')).toHaveValue('demo1234');
     await expect(art).toHaveAttribute('data-animate', portal === 0 ? 'true' : 'false');
+    await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
+    await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(0);
     if (portal === 0) {
       await page.screenshot({
         path: '../test-results/pr-49/demo-access-desktop.png',
         fullPage: true,
       });
+      for (const width of [320, 390, 768]) {
+        await page.setViewportSize({ width, height: 844 });
+        await page.evaluate(() => window.scrollTo(0, 0));
+        await expectNoHorizontalOverflow(page);
+        const layout = page.getByTestId('demo-login-layout');
+        await expect
+          .poll(async () => (await layout.locator('main > div').boundingBox())!.width)
+          .toBeGreaterThanOrEqual(Math.min(width - 36, 560));
+        const header = await page.getByRole('banner').boundingBox();
+        const mark = await art.boundingBox();
+        expect(mark!.y).toBeGreaterThanOrEqual(header!.y + header!.height);
+        const notice = layout.getByText('Ambiente demonstrativo', { exact: false });
+        const accounts = layout.locator('aside');
+        expect((await notice.boundingBox())!.y).toBeGreaterThanOrEqual(
+          (await accounts.boundingBox())!.y + (await accounts.boundingBox())!.height,
+        );
+      }
       await page.setViewportSize({ width: 390, height: 844 });
-      await expectNoHorizontalOverflow(page);
+      await page.evaluate(() => window.scrollTo(0, 0));
       await page.screenshot({
         path: '../test-results/pr-49/demo-access-mobile.png',
         fullPage: true,
