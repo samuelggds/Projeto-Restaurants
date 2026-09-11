@@ -1,3 +1,4 @@
+import { Prisma } from '@prisma/client';
 import billingRepository from '../repositories/BillingRepository.js';
 import prisma from '../../../config/prisma.js';
 import { hasBlockingInvoices } from '../utils/billingRules.js';
@@ -49,7 +50,7 @@ class ProcessPaymentService {
       const subscriptionWasCanceled = subscription?.status === 'CANCELADA';
 
       if (subscription && !subscriptionWasCanceled) {
-        const changes: Record<string, unknown> = {
+        const changes: Prisma.SubscriptionUpdateInput = {
           status: remainsBlocked
             ? 'EXPIRADA'
             : subscription.status === 'TESTE' && subscription.trialEndsAt && new Date() < subscription.trialEndsAt
