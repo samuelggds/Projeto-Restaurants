@@ -23,7 +23,10 @@ class PlatformRecurringBillingController {
       return res.json(await platformRecurringBillingService.getProfile(id));
     } catch (error) {
       return res.status(500).json({
-        error: error instanceof Error ? error.message : 'Não foi possível carregar a forma de cobrança.',
+        error:
+          error instanceof Error
+            ? error.message
+            : 'Não foi possível carregar a forma de cobrança.',
       });
     }
   }
@@ -47,14 +50,25 @@ class PlatformRecurringBillingController {
     }
 
     try {
+      const { cardToken, brand, last4, expMonth, expYear } = parsed.data;
+      if (!cardToken || !brand || !last4 || !expMonth || !expYear) {
+        return res.status(400).json({ error: 'Confira os dados do cartão e tente novamente.' });
+      }
       const profile = await platformRecurringBillingService.enableCard({
         restaurantId: id,
-        ...parsed.data,
+        cardToken,
+        brand,
+        last4,
+        expMonth,
+        expYear,
       });
       return res.status(200).json(profile);
     } catch (error) {
       return res.status(400).json({
-        error: error instanceof Error ? error.message : 'Não foi possível ativar a cobrança automática.',
+        error:
+          error instanceof Error
+            ? error.message
+            : 'Não foi possível ativar a cobrança automática.',
       });
     }
   }
@@ -66,7 +80,8 @@ class PlatformRecurringBillingController {
       return res.json(await platformRecurringBillingService.usePix(id));
     } catch (error) {
       return res.status(400).json({
-        error: error instanceof Error ? error.message : 'Não foi possível alterar a forma de cobrança.',
+        error:
+          error instanceof Error ? error.message : 'Não foi possível alterar a forma de cobrança.',
       });
     }
   }
