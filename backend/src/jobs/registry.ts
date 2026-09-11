@@ -1,6 +1,7 @@
 import billingJob from '../modules/billing/jobs/BillingJob.js';
 import auditRetentionJob from '../modules/audit/jobs/AuditRetentionJob.js';
 import reconcileMercadoPagoInvoicesService from '../modules/billing/services/ReconcileMercadoPagoInvoicesService.js';
+import reconcileRecurringCardBillingService from '../modules/billing/services/ReconcileRecurringCardBillingService.js';
 import loyaltyRedemptionExpirationJob from '../modules/coupon/jobs/LoyaltyRedemptionExpirationJob.js';
 import deliveryLocationCleanupJob from '../modules/orders/jobs/DeliveryLocationCleanupJob.js';
 import tablePaymentReservationExpirationJob from '../modules/tableAccount/jobs/TablePaymentReservationExpirationJob.js';
@@ -98,6 +99,21 @@ export function createJobDefinitions(env: Environment = process.env): JobDefinit
       execute: () => reconcileMercadoPagoInvoicesService.execute(),
     },
     {
+      key: 'billing.recurring-card-reconciliation',
+      description: 'Conciliação de mensalidades recorrentes no cartão',
+      runtime: 'worker',
+      schedule: {
+        kind: 'cron',
+        expression: String(env.BILLING_CARD_RECONCILE_CRON || '*/5 * * * *').trim(),
+        timezone,
+      },
+      leaseDurationMs: 10 * 60 * 1000,
+      successCooldownMs: 4 * 60 * 1000,
+      failureBackoffMs: 60 * 1000,
+      runOnStart: true,
+      execute: () => reconcileRecurringCardBillingService.execute(),
+    },
+    {
       key: 'coupon.loyalty-redemption-expiration',
       description: 'Expiração de resgates de fidelidade não utilizados',
       runtime: 'worker',
@@ -124,8 +140,6 @@ export function createJobDefinitions(env: Environment = process.env): JobDefinit
     {
       key: 'table-account.payment-expiration',
       description: 'Expiração de reservas de pagamento de mesa',
-      // Permanece temporariamente na API porque o evento Socket.IO ainda usa
-      // transporte em memória. O lease já impede duplicação entre réplicas.
       runtime: 'api',
       schedule: { kind: 'interval', intervalMs: tablePaymentIntervalMs },
       leaseDurationMs: 5 * 60 * 1000,
