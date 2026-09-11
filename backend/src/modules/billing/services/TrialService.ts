@@ -1,34 +1,46 @@
+import prisma from '../../../config/prisma.js';
 import billingRepository from '../repositories/BillingRepository.js';
 import invoiceService from './InvoiceService.js';
+import {
+  getInvoiceCreationDate,
+  invoicePeriodFromDueDate,
+  resolveSubscriptionDueDate,
+} from '../utils/billingCycle.js';
 
 class TrialService {
   async execute() {
-    const subscriptions = await billingRepository.findExpiredTrials();
+    const now = new Date();
+    const subscriptions = await prisma.subscription.findMany({
+      where: {
+        status: 'TESTE',
+        trialEndsAt: { not: null },
+      },
+    });
     const failures: Error[] = [];
 
     for (const subscription of subscriptions) {
       try {
-        const today = new Date();
+        const dueDate = resolveSubscriptionDueDate(subscription);
+        if (!dueDate) continue;
 
-        const month = today.getMonth() + 1;
-        const year = today.getFullYear();
+        if (now >= getInvoiceCreationDate(dueDate)) {
+          const { month, year } = invoicePeriodFromDueDate(dueDate);
+          await invoiceService.execute({
+            restaurantId: subscription.restaurantId,
+            month,
+            year,
+            startDate: subscription.currentPeriodStart || subscription.createdAt,
+            endDate: dueDate,
+          });
+        }
 
-        const startDate = new Date(year, month - 1, 1);
-        const endDate = new Date(year, month, 0);
-
-        await invoiceService.execute({
-          restaurantId: subscription.restaurantId,
-          month,
-          year,
-          startDate,
-          endDate,
-        });
-
-        await billingRepository.updateSubscription(subscription.id, {
-          status: 'ATIVA',
-        });
+        if (now >= dueDate) {
+          await billingRepository.updateSubscription(subscription.id, {
+            status: 'ATIVA',
+          });
+        }
       } catch (cause) {
-        failures.push(new Error('Failed to process an expired trial.', { cause }));
+        failures.push(new Error('Failed to process a trial billing cycle.', { cause }));
       }
     }
 
