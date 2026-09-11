@@ -126,7 +126,9 @@ export class PlatformRecurringBillingService {
   }
 
   getPublicConfig() {
-    const publicKey = String(process.env.MP_PUBLIC_KEY || process.env.MERCADO_PAGO_PUBLIC_KEY || '').trim();
+    const publicKey = String(
+      process.env.MP_PUBLIC_KEY || process.env.MERCADO_PAGO_PUBLIC_KEY || '',
+    ).trim();
     if (!publicKey) {
       throw new Error('Chave pública do Mercado Pago não configurada para a mensalidade.');
     }
@@ -136,7 +138,9 @@ export class PlatformRecurringBillingService {
   async enableCard(input: EnableCardInput) {
     const subscription = await billingRepository.findSubscriptionByRestaurantId(input.restaurantId);
     if (!subscription) throw new Error('Assinatura não encontrada.');
-    if (subscription.status === 'CANCELADA') throw new Error('Assinatura cancelada não pode ativar renovação automática.');
+    if (subscription.status === 'CANCELADA') {
+      throw new Error('Assinatura cancelada não pode ativar renovação automática.');
+    }
 
     const cardToken = String(input.cardToken || '').trim();
     const brand = String(input.brand || '').trim().toLowerCase();
@@ -178,6 +182,9 @@ export class PlatformRecurringBillingService {
     } else {
       providerSubscription = (await providerRequest('/preapproval', {
         method: 'POST',
+        headers: {
+          'X-Idempotency-Key': `platform-recurring-${input.restaurantId}`,
+        },
         body: JSON.stringify({
           reason: `Mensalidade GastroNexa - ${subscription.restaurant.name}`,
           external_reference: `platform-subscription:${input.restaurantId}`,
@@ -199,12 +206,16 @@ export class PlatformRecurringBillingService {
     const providerSubscriptionId = String(
       providerSubscription.id || existing.providerSubscriptionId || '',
     ).trim();
-    if (!providerSubscriptionId) throw new Error('Mercado Pago não retornou o identificador da assinatura.');
+    if (!providerSubscriptionId) {
+      throw new Error('Mercado Pago não retornou o identificador da assinatura.');
+    }
 
     const status = providerStatus(providerSubscription.status || 'authorized');
     const nextBillingAt = nextPaymentDate(providerSubscription.next_payment_date) || new Date(startDate);
     const providerCustomerId = String(providerSubscription.payer_id || '').trim() || null;
-    const providerBrand = String(providerSubscription.payment_method_id || brand).trim().toLowerCase();
+    const providerBrand = String(providerSubscription.payment_method_id || brand)
+      .trim()
+      .toLowerCase();
 
     await prisma.$executeRaw(Prisma.sql`
       INSERT INTO "PlatformBillingProfile" (
@@ -238,7 +249,10 @@ export class PlatformRecurringBillingService {
 
   async usePix(restaurantId: number) {
     const existing = await this.getProfile(restaurantId);
-    if (existing.providerSubscriptionId && existing.status === 'AUTHORIZED') {
+    if (
+      existing.providerSubscriptionId &&
+      ['AUTHORIZED', 'ERROR'].includes(existing.status)
+    ) {
       await providerRequest(`/preapproval/${encodeURIComponent(existing.providerSubscriptionId)}`, {
         method: 'PUT',
         body: JSON.stringify({ status: 'paused' }),
@@ -252,7 +266,11 @@ export class PlatformRecurringBillingService {
       ON CONFLICT ("restaurantId") DO UPDATE SET
         "billingMethod" = 'PIX',
         "autoRenew" = false,
-        "status" = CASE WHEN "PlatformBillingProfile"."providerSubscriptionId" IS NULL THEN 'INACTIVE' ELSE 'PAUSED' END,
+        "status" = CASE
+          WHEN "PlatformBillingProfile"."status" = 'CANCELED' THEN 'CANCELED'
+          WHEN "PlatformBillingProfile"."providerSubscriptionId" IS NULL THEN 'INACTIVE'
+          ELSE 'PAUSED'
+        END,
         "updatedAt" = CURRENT_TIMESTAMP
     `);
 
