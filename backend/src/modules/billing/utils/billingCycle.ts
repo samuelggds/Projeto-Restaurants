@@ -16,10 +16,14 @@ function validDate(value: Date | string | null | undefined) {
 }
 
 export function getInvoiceOpenDaysBeforeDue(env: Environment = process.env) {
-  const configured = Number(
-    env.BILLING_INVOICE_OPEN_DAYS_BEFORE_DUE || env.BILLING_PIX_OPEN_DAYS_BEFORE_DUE || '',
-  );
+  const rawValue =
+    env.BILLING_INVOICE_OPEN_DAYS_BEFORE_DUE ?? env.BILLING_PIX_OPEN_DAYS_BEFORE_DUE;
 
+  if (rawValue === undefined || rawValue.trim() === '') {
+    return DEFAULT_INVOICE_OPEN_DAYS;
+  }
+
+  const configured = Number(rawValue);
   if (!Number.isFinite(configured) || configured < 0 || configured > 31) {
     return DEFAULT_INVOICE_OPEN_DAYS;
   }
