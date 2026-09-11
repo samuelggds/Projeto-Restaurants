@@ -96,4 +96,19 @@ describe('brand typewriter', () => {
     );
     expect(letters('#gastro')).toEqual(Array(6).fill('1'));
   });
+
+  it('keeps the access usable when media queries are unavailable', () => {
+    vi.stubGlobal('matchMedia', undefined);
+    act(() =>
+      root.render(
+        <svg>
+          <text id="gastro">
+            <BrandTypewriter text="Gastro" animate />
+          </text>
+        </svg>,
+      ),
+    );
+    expect(letters('#gastro')).toEqual(Array(6).fill('1'));
+    expect(vi.getTimerCount()).toBe(0);
+  });
 });

@@ -14,10 +14,15 @@ export function BrandTypewriter({
   animate: boolean;
 }) {
   const [visible, setVisible] = useState(() =>
-    !animate || window.matchMedia('(prefers-reduced-motion: reduce)').matches ? text.length : 0,
+    !animate ||
+    typeof window === 'undefined' ||
+    typeof window.matchMedia !== 'function' ||
+    window.matchMedia('(prefers-reduced-motion: reduce)').matches
+      ? text.length
+      : 0,
   );
   useEffect(() => {
-    if (!animate) return;
+    if (!animate || typeof window.matchMedia !== 'function') return;
     const motion = window.matchMedia('(prefers-reduced-motion: reduce)');
     let timer: ReturnType<typeof setTimeout>;
     const started = performance.now();
@@ -41,10 +46,10 @@ export function BrandTypewriter({
       }
     };
     timer = setTimeout(tick, motion.matches ? 0 : start * 1000);
-    motion.addEventListener('change', reduceMotion);
+    motion.addEventListener?.('change', reduceMotion);
     return () => {
       clearTimeout(timer);
-      motion.removeEventListener('change', reduceMotion);
+      motion.removeEventListener?.('change', reduceMotion);
     };
   }, [animate, interval, start, text.length]);
   return [...text].map((letter, index) => (
