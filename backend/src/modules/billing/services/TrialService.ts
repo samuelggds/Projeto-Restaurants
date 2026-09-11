@@ -1,11 +1,7 @@
 import prisma from '../../../config/prisma.js';
 import billingRepository from '../repositories/BillingRepository.js';
 import invoiceService from './InvoiceService.js';
-import {
-  getInvoiceCreationDate,
-  invoicePeriodFromDueDate,
-  resolveSubscriptionDueDate,
-} from '../utils/billingCycle.js';
+import { getInvoiceCreationDate, invoicePeriodFromDueDate } from '../utils/billingCycle.js';
 
 class TrialService {
   async execute() {
@@ -20,8 +16,8 @@ class TrialService {
 
     for (const subscription of subscriptions) {
       try {
-        const dueDate = resolveSubscriptionDueDate(subscription);
-        if (!dueDate) continue;
+        const dueDate = subscription.trialEndsAt ? new Date(subscription.trialEndsAt) : null;
+        if (!dueDate || Number.isNaN(dueDate.getTime())) continue;
 
         if (now >= getInvoiceCreationDate(dueDate)) {
           const { month, year } = invoicePeriodFromDueDate(dueDate);
