@@ -17,7 +17,7 @@ import {
 import { lazy, useEffect, useState, type FormEvent, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ThemeProvider } from 'styled-components';
-import { TenantBrandHero } from '../../Login/components/TenantBrandHero';
+import { GastroNexaArtwork } from '../../Login/components/GastroNexaArtwork';
 import * as LoginS from '../../Login/styles';
 import * as S from './DemoExperienceV2.styles';
 import { DemoCustomerHome } from './DemoCustomerHome';
@@ -76,14 +76,6 @@ const loginTheme = {
   categoryAccent: '#f28a54',
   categoryAccentText: '#191816',
   categoryDeep: '#263d34',
-};
-
-const demoBranding = {
-  name: 'GastroNexa Burger',
-  description: 'Restaurante demonstrativo do GastroNexa.',
-  logoUrl: '',
-  primaryColor: '#d64d08',
-  category: 'RESTAURANTE' as const,
 };
 
 function money(value: number) {
@@ -327,12 +319,7 @@ function PortalLogin({
     <ThemeProvider theme={loginTheme}>
       <LoginS.Container data-testid="demo-login-layout">
         <LoginS.LoginBannerSection $hasLogo={false} data-has-cover="false">
-          <TenantBrandHero
-            branding={demoBranding}
-            mode="login"
-            contextLabel={copy.badge}
-            overrideText={copy.hero}
-          />
+          <GastroNexaArtwork />
         </LoginS.LoginBannerSection>
         <LoginS.LoginFormSection>
           <LoginS.LoginFormWrapper>

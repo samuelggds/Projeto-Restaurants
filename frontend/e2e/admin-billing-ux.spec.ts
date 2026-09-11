@@ -604,3 +604,48 @@ test('acesso GastroNexa adapta a composição vetorial ao desktop e celular', as
   await page.reload();
   await expect(artwork).toHaveAttribute('data-animate', 'true');
 });
+
+test('acessos da demonstração usam a marca vetorial e preservam as contas fictícias', async ({
+  page,
+}) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  const unexpected: string[] = [];
+  await page.route(API, (route) => {
+    const path = new URL(route.request().url()).pathname;
+    if (path.endsWith('/auth/refresh')) return route.fulfill({ status: 401, json: {} });
+    if (path.endsWith('/platform/status')) return route.fulfill({ json: { available: true } });
+    unexpected.push(path);
+    return route.abort();
+  });
+  await page.goto('/demonstracao');
+  const art = page.getByTestId('gastronexa-access-artwork');
+  for (const portal of [0, 1, 2]) {
+    await page.getByRole('button', { name: 'Entrar nesta área', exact: true }).nth(portal).click();
+    await expect(art).toBeVisible();
+    await expect(art.locator('img, image')).toHaveCount(0);
+    await expect(art.locator('.word-nexa')).toHaveText('Nexa');
+    await expect(page.locator('#demo-email')).toHaveValue(/@demo\.gastronexa\.com\.br$/);
+    await expect(page.locator('#demo-password')).toHaveValue('demo1234');
+    await expect(art).toHaveAttribute('data-animate', portal === 0 ? 'true' : 'false');
+    if (portal === 0) {
+      await page.screenshot({
+        path: '../test-results/pr-49/demo-access-desktop.png',
+        fullPage: true,
+      });
+      await page.setViewportSize({ width: 390, height: 844 });
+      await expectNoHorizontalOverflow(page);
+      await page.screenshot({
+        path: '../test-results/pr-49/demo-access-mobile.png',
+        fullPage: true,
+      });
+      await page.setViewportSize({ width: 1440, height: 1000 });
+    }
+    await page.getByRole('button', { name: 'Voltar', exact: true }).click();
+  }
+  await page.getByRole('button', { name: 'Entrar nesta área', exact: true }).first().click();
+  await page.getByRole('button', { name: 'Entrar na demonstração', exact: true }).click();
+  await expect(
+    page.getByRole('button', { name: 'Adicionar Burger Clássico', exact: true }).first(),
+  ).toBeVisible();
+  expect(unexpected).toEqual([]);
+});

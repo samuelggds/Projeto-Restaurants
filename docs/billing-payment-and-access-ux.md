@@ -12,6 +12,8 @@ A apresentação de acesso da GastroNexa usa SVG com contornos vetoriais suaviza
 
 ## Verificação
 
+A mesma composição é compartilhada pelos acessos de cliente, equipe e administrador da demonstração, preservando suas contas e seus dados fictícios.
+
 - Testes de digitação verificam as duas direções, conclusão sem letras ocultas e movimento reduzido.
 - O teste de navegador de cobrança cobre consentimento, Pix explícito, falhas amigáveis, teclado, planos, faturas e persistência fictícia.
 - A verificação do acesso cobre oito dimensões entre 320 e 1920 pixels, ausência de imagens rasterizadas e repetição apenas depois de recarregar.
