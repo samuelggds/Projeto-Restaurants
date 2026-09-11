@@ -29,7 +29,9 @@ const AdminManagement = lazy(() =>
   import('./components/AdminManagement').then((module) => ({ default: module.AdminManagement })),
 );
 const MonthlyBilling = lazy(() =>
-  import('./components/MonthlyBilling').then((module) => ({ default: module.MonthlyBilling })),
+  import('./components/SubscriptionBillingArea').then((module) => ({
+    default: module.SubscriptionBillingArea,
+  })),
 );
 const HelpCenter = lazy(() =>
   import('./components/HelpCenter').then((module) => ({ default: module.HelpCenter })),

@@ -39,6 +39,21 @@ export type Invoice = {
   pixQrCodeBase64?: string | null;
   pixExpiresAt?: string | null;
 };
+export type PlatformBillingProfile = {
+  billingMethod: 'PIX' | 'CARD';
+  autoRenew: boolean;
+  provider?: string | null;
+  providerSubscriptionId?: string | null;
+  cardBrand?: string | null;
+  cardLast4?: string | null;
+  cardExpMonth?: number | null;
+  cardExpYear?: number | null;
+  status: string;
+  nextBillingAt?: string | null;
+  lastChargeAt?: string | null;
+  lastFailureAt?: string | null;
+  lastFailureReason?: string | null;
+};
 export type BillingOverview = {
   invoices: Invoice[];
   billing?: {
@@ -81,8 +96,29 @@ const monthlyBillingService = {
         pixQrCode: string;
         pixQrCodeBase64: string;
         pixExpiresAt?: string | null;
+        reused?: boolean;
       }>(`/billing/invoices/${invoiceId}/regenerate-link`)
     ).data;
+  },
+  async getRecurringProfile() {
+    return (await api.get<PlatformBillingProfile>('/billing/recurring')).data;
+  },
+  async getRecurringConfig() {
+    return (
+      await api.get<{ provider: 'MERCADO_PAGO'; publicKey: string }>('/billing/recurring/config')
+    ).data;
+  },
+  async enableRecurringCard(payload: {
+    cardToken: string;
+    brand: string;
+    last4: string;
+    expMonth: number;
+    expYear: number;
+  }) {
+    return (await api.post<PlatformBillingProfile>('/billing/recurring/card', payload)).data;
+  },
+  async usePixBilling() {
+    return (await api.put<PlatformBillingProfile>('/billing/recurring/pix')).data;
   },
 };
 

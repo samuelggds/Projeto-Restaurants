@@ -2,6 +2,7 @@ import { PlanType } from '@prisma/client';
 import subscriptionRepository from '../repositories/SubscriptionRepository.js';
 import billingRepository from '../../billing/repositories/BillingRepository.js';
 import { isAvailablePlan } from '../../billing/config/planConfig.js';
+import { addBillingMonth } from '../../billing/utils/billingCycle.js';
 import { evaluatePlanChangeEligibility } from './PlanChangePolicy.js';
 
 type RequestPlanChangePayload = {
@@ -9,15 +10,9 @@ type RequestPlanChangePayload = {
   plan: PlanType;
 };
 
-function getNextMonthPeriod(fromDate: Date) {
-  const next = new Date(fromDate);
-  next.setDate(1);
-  next.setMonth(next.getMonth() + 1);
-
-  return {
-    month: next.getMonth() + 1,
-    year: next.getFullYear(),
-  };
+function periodKey(dateValue: Date | string) {
+  const date = new Date(dateValue);
+  return { month: date.getMonth() + 1, year: date.getFullYear() };
 }
 
 class RequestPlanChangeService {
@@ -39,26 +34,28 @@ class RequestPlanChangeService {
       hasScheduledPlan: Boolean(subscription.scheduledPlan),
     });
 
-    if (!eligibility.allowed || !eligibility.invoiceId) {
+    if (!eligibility.allowed) {
       throw new Error(eligibility.reason);
     }
 
     if (subscription.plan === plan) {
-      const updated = await subscriptionRepository.update(restaurantId, {
-        planChangeInvoiceId: eligibility.invoiceId,
-        planChangeLockedUntil: null,
-        scheduledPlan: null,
-        scheduledPlanEffectiveMonth: null,
-        scheduledPlanEffectiveYear: null,
-      });
-
       return {
-        ...updated,
-        message: 'Plano atual mantido para o próximo ciclo de faturamento.',
+        ...subscription,
+        message: 'Você já está neste plano.',
       };
     }
 
-    const nextPeriod = getNextMonthPeriod(new Date());
+    const pendingInvoice = invoices.find((invoice) =>
+      ['PENDENTE', 'ATRASADO', 'VENCIDO'].includes(String(invoice.status).toUpperCase()),
+    );
+    const currentPeriodEnd = subscription.currentPeriodEnd
+      ? new Date(subscription.currentPeriodEnd)
+      : new Date();
+    const effectiveDate = pendingInvoice
+      ? addBillingMonth(new Date(pendingInvoice.dueDate))
+      : currentPeriodEnd;
+    const nextPeriod = periodKey(effectiveDate);
+
     const updated = await subscriptionRepository.update(restaurantId, {
       planChangeInvoiceId: eligibility.invoiceId,
       scheduledPlan: plan,
