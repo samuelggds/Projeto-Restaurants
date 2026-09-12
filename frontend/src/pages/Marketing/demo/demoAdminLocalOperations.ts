@@ -5,6 +5,7 @@ import type {
 import type { PaymentTerminal } from '../../../Services/paymentTerminalService';
 import type { DemoState } from './demoDomain';
 import { demoTableAccount, confirmDemoTablePayment } from './demoTableAccount';
+import type { PlatformBillingProfile } from '../../../Services/monthlyBillingService';
 
 export type DemoOperationContext = {
   path: string;
@@ -32,6 +33,38 @@ export function demoAdminLocalOperations({
   const result = (data: unknown) => ({ data });
   const list = <T>(key: string): T[] => (records.get(key) as T[] | undefined) ?? [];
   const templatesKey = 'configuration-templates';
+  if (path.startsWith('/billing/recurring')) {
+    const initial: PlatformBillingProfile = {
+      billingMethod: 'PIX',
+      autoRenew: false,
+      status: 'INACTIVE',
+    };
+    const profile =
+      (records.get('recurring-profile') as PlatformBillingProfile | undefined) ?? initial;
+    if (path === '/billing/recurring' && method === 'GET') return result(profile);
+    if (path === '/billing/recurring/card' && method === 'POST') {
+      if (body.cardToken !== 'demo-recurring-card-token')
+        throw new Error('Use somente o cartão fictício da demonstração.');
+      const next: PlatformBillingProfile = {
+        billingMethod: 'CARD',
+        autoRenew: true,
+        status: 'AUTHORIZED',
+        provider: 'DEMO',
+        cardBrand: 'Demo',
+        cardLast4: '4242',
+        cardExpMonth: 12,
+        cardExpYear: new Date().getFullYear() + 5,
+        nextBillingAt: new Date(Date.now() + 30 * 86400000).toISOString(),
+      };
+      records.set('recurring-profile', next);
+      return result(next);
+    }
+    if (path === '/billing/recurring/pix' && method === 'PUT') {
+      const next = { ...profile, billingMethod: 'PIX', autoRenew: false, status: 'INACTIVE' };
+      records.set('recurring-profile', next);
+      return result(next);
+    }
+  }
   if (path === '/product-configuration-templates') {
     const templates = list<AdminProductConfigurationTemplate>(templatesKey);
     if (method === 'GET') return result({ templates });

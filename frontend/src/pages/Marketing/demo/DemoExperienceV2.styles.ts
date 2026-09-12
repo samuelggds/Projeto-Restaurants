@@ -208,27 +208,12 @@ export const CredentialButton = styled.button<{ $active?: boolean }>`
   }
 `;
 
-export const DemoRibbon = styled.div`
-  position: fixed;
-  left: 50%;
-  bottom: 16px;
-  z-index: 100;
-  transform: translateX(-50%);
-  min-width: min(560px, calc(100% - 24px));
-  padding: 9px 12px;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 8px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  color: #fff;
-  background: rgba(24, 22, 20, 0.93);
-  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.18);
-  backdrop-filter: blur(10px);
-  font-size: 10px;
-  font-weight: 750;
-  pointer-events: none;
+export const DemoRibbon = styled.p`
+  margin: 16px 0 0;
+  color: #74675d;
+  font-size: 11px;
+  line-height: 1.5;
+  text-align: center;
 `;
 
 export const Panel = styled.section<{ $span?: number }>`

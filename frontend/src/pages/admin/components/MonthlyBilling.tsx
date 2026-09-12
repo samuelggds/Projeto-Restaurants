@@ -9,7 +9,6 @@ import {
   CircleAlert,
   Clock3,
   Copy,
-  CreditCard,
   FileText,
   Info,
   Layers3,
@@ -31,6 +30,8 @@ import monthlyBillingService, {
 import { clearSystemBlockState, findBlockingInvoice } from '../../../Services/systemBlock';
 import { adminErrorMessage } from '../utils/adminErrorMessage';
 import * as S from './MonthlyBilling.styles';
+import { BillingTabs, type BillingView } from './BillingTabs';
+import { RecurringBillingPayment } from './RecurringBillingPayment';
 
 const benefits: Record<PlanCode, string[]> = {
   BASICO: ['Sistema de delivery', 'Suporte padrão'],
@@ -102,7 +103,7 @@ type BillingFeedback = {
 };
 
 export function MonthlyBilling({ restricted = false }: MonthlyBillingProps = {}) {
-  const [view, setView] = useState<'plans' | 'charges'>(restricted ? 'charges' : 'plans');
+  const [view, setView] = useState<BillingView>(restricted ? 'charges' : 'payment');
   const [plans, setPlans] = useState<BillingPlan[]>([]);
   const [subscription, setSubscription] = useState<Subscription | null>(null);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
@@ -281,54 +282,87 @@ export function MonthlyBilling({ restricted = false }: MonthlyBillingProps = {})
 
   return (
     <S.Shell>
-      <S.BillingHero aria-labelledby="billing-hero-title">
-        <S.HeroCopy>
-          <span className="eyebrow">
-            <Sparkles aria-hidden="true" /> Gestão da assinatura
-          </span>
-          <h2 id="billing-hero-title">
-            {active ? 'Sua assinatura está em dia' : 'Sua assinatura precisa de atenção'}
-          </h2>
-          <p>
-            Veja o plano contratado, acompanhe os próximos vencimentos e resolva pagamentos em um só
-            lugar.
-          </p>
-          <S.HeroFacts aria-label="Resumo da assinatura">
-            <span>
+      <BillingTabs
+        view={view}
+        onChange={setView}
+        restricted={restricted}
+        openInvoices={openInvoices.length}
+      />
+      {view === 'payment' ? (
+        <S.PaymentSummary aria-label="Resumo da assinatura">
+          <div>
+            <span className="plan-icon">
               <Layers3 aria-hidden="true" />
-              <small>Plano</small>
-              <strong>{currentPlan?.name || subscription?.plan || 'Não definido'}</strong>
             </span>
             <span>
-              <WalletCards aria-hidden="true" />
+              <small>Seu plano</small>
+              <strong>{currentPlan?.name || subscription?.plan || 'Não definido'}</strong>
+            </span>
+          </div>
+          <div>
+            <span>
               <small>Mensalidade</small>
               <strong>{currentPlan ? money(currentPlan.monthlyFee) : 'A definir'}</strong>
             </span>
+          </div>
+          <div>
             <span>
-              <CalendarDays aria-hidden="true" />
               <small>Próximo vencimento</small>
               <strong>{date(billing?.dueDate || currentInvoice?.dueDate)}</strong>
             </span>
-          </S.HeroFacts>
-        </S.HeroCopy>
+          </div>
+          <span className="subscription-status">{currentStatus}</span>
+        </S.PaymentSummary>
+      ) : (
+        <S.BillingHero aria-labelledby="billing-hero-title">
+          <S.HeroCopy>
+            <span className="eyebrow">
+              <Sparkles aria-hidden="true" /> Gestão da assinatura
+            </span>
+            <h2 id="billing-hero-title">
+              {active ? 'Sua assinatura está em dia' : 'Sua assinatura precisa de atenção'}
+            </h2>
+            <p>
+              Veja o plano contratado, acompanhe os próximos vencimentos e resolva pagamentos em um
+              só lugar.
+            </p>
+            <S.HeroFacts aria-label="Resumo da assinatura">
+              <span>
+                <Layers3 aria-hidden="true" />
+                <small>Plano</small>
+                <strong>{currentPlan?.name || subscription?.plan || 'Não definido'}</strong>
+              </span>
+              <span>
+                <WalletCards aria-hidden="true" />
+                <small>Mensalidade</small>
+                <strong>{currentPlan ? money(currentPlan.monthlyFee) : 'A definir'}</strong>
+              </span>
+              <span>
+                <CalendarDays aria-hidden="true" />
+                <small>Próximo vencimento</small>
+                <strong>{date(billing?.dueDate || currentInvoice?.dueDate)}</strong>
+              </span>
+            </S.HeroFacts>
+          </S.HeroCopy>
 
-        <S.HeroStatusPanel $active={active}>
-          <span className="status-icon" aria-hidden="true">
-            {active ? <ShieldCheck /> : <CircleAlert />}
-          </span>
-          <small>Status da assinatura</small>
-          <strong>{currentStatus}</strong>
-          <p>
-            {active
-              ? 'Todos os recursos do seu plano estão disponíveis.'
-              : 'Regularize a situação para manter a operação disponível.'}
-          </p>
-          <button type="button" onClick={() => setView('charges')}>
-            {currentInvoice ? 'Ver cobrança atual' : 'Ver histórico'}
-            <ArrowRight aria-hidden="true" />
-          </button>
-        </S.HeroStatusPanel>
-      </S.BillingHero>
+          <S.HeroStatusPanel $active={active}>
+            <span className="status-icon" aria-hidden="true">
+              {active ? <ShieldCheck /> : <CircleAlert />}
+            </span>
+            <small>Status da assinatura</small>
+            <strong>{currentStatus}</strong>
+            <p>
+              {active
+                ? 'Todos os recursos do seu plano estão disponíveis.'
+                : 'Regularize a situação para manter a operação disponível.'}
+            </p>
+            <button type="button" onClick={() => setView('charges')}>
+              {currentInvoice ? 'Ver cobrança atual' : 'Ver histórico'}
+              <ArrowRight aria-hidden="true" />
+            </button>
+          </S.HeroStatusPanel>
+        </S.BillingHero>
+      )}
 
       {feedback ? (
         <S.FeedbackBanner
@@ -380,40 +414,22 @@ export function MonthlyBilling({ restricted = false }: MonthlyBillingProps = {})
         </S.Notice>
       ) : null}
 
-      <S.ViewTabs role="tablist" aria-label="Seções de cobrança e assinatura">
-        {!restricted ? (
-          <button
-            role="tab"
-            type="button"
-            aria-selected={view === 'plans'}
-            className={view === 'plans' ? 'active' : ''}
-            onClick={() => setView('plans')}
-          >
-            <Layers3 aria-hidden="true" />
-            <span>
-              <strong>Planos</strong>
-              <small>Compare os benefícios</small>
-            </span>
-          </button>
-        ) : null}
-        <button
-          role="tab"
-          type="button"
-          aria-selected={view === 'charges'}
-          className={view === 'charges' ? 'active' : ''}
-          onClick={() => setView('charges')}
+      {view === 'payment' ? (
+        <S.ViewPanel
+          role="tabpanel"
+          id="billing-panel-payment"
+          aria-labelledby="billing-tab-payment"
+          tabIndex={0}
         >
-          <CreditCard aria-hidden="true" />
-          <span>
-            <strong>Cobranças</strong>
-            <small>Vencimentos e pagamentos</small>
-          </span>
-          {openInvoices.length ? <em>{openInvoices.length}</em> : null}
-        </button>
-      </S.ViewTabs>
-
-      {!restricted && view === 'plans' ? (
-        <S.ViewPanel role="tabpanel">
+          <RecurringBillingPayment onViewCharges={() => setView('charges')} />
+        </S.ViewPanel>
+      ) : !restricted && view === 'plans' ? (
+        <S.ViewPanel
+          role="tabpanel"
+          id="billing-panel-plans"
+          aria-labelledby="billing-tab-plans"
+          tabIndex={0}
+        >
           <S.SectionHeader>
             <div>
               <span className="section-icon" aria-hidden="true">
@@ -529,7 +545,12 @@ export function MonthlyBilling({ restricted = false }: MonthlyBillingProps = {})
           </S.PlanFootnote>
         </S.ViewPanel>
       ) : (
-        <S.ViewPanel role="tabpanel">
+        <S.ViewPanel
+          role="tabpanel"
+          id="billing-panel-charges"
+          aria-labelledby="billing-tab-charges"
+          tabIndex={0}
+        >
           <S.SectionHeader>
             <div>
               <span className="section-icon charges" aria-hidden="true">
