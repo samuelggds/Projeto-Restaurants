@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ArrowRight,
   BadgeCheck,
@@ -8,7 +8,6 @@ import {
   CheckCircle2,
   CircleAlert,
   Clock3,
-  Copy,
   FileText,
   Info,
   Layers3,
@@ -32,6 +31,8 @@ import { adminErrorMessage } from '../utils/adminErrorMessage';
 import * as S from './MonthlyBilling.styles';
 import { BillingTabs, type BillingView } from './BillingTabs';
 import { RecurringBillingPayment } from './RecurringBillingPayment';
+import { MonthlyBillingPixDialog, type MonthlyBillingPix } from './MonthlyBillingPixDialog';
+import { getBillingPixExpiry } from './useBillingPixExpiry';
 
 const benefits: Record<PlanCode, string[]> = {
   BASICO: ['Sistema de delivery', 'Suporte padrão'],
@@ -112,14 +113,19 @@ export function MonthlyBilling({ restricted = false }: MonthlyBillingProps = {})
   const [changingPlan, setChangingPlan] = useState<PlanCode | null>(null);
   const [payingInvoice, setPayingInvoice] = useState<number | null>(null);
   const [feedback, setFeedback] = useState<BillingFeedback | null>(null);
-  const [pixCopyState, setPixCopyState] = useState<'idle' | 'copied' | 'error'>('idle');
-  const [pix, setPix] = useState<{
-    invoice: Invoice;
-    qrCode: string;
-    qrCodeBase64: string;
-    expiresAt?: string | null;
-  } | null>(null);
-
+  const [pix, setPix] = useState<MonthlyBillingPix | null>(null);
+  const generationPending = useRef(false);
+  const generationRevision = useRef(0);
+  const closePix = useCallback(() => {
+    generationRevision.current += 1;
+    setPix(null);
+  }, []);
+  useEffect(
+    () => () => {
+      generationRevision.current += 1;
+    },
+    [],
+  );
   const load = useCallback(async () => {
     setLoading(true);
     try {
@@ -150,52 +156,19 @@ export function MonthlyBilling({ restricted = false }: MonthlyBillingProps = {})
     return () => window.clearTimeout(timer);
   }, [load]);
 
-  useEffect(() => {
-    if (!pix) return;
-
-    const timer = window.setInterval(async () => {
-      try {
-        const overview = await monthlyBillingService.getOverview();
-        const paidInvoice = overview.invoices.find(
-          (invoice) => invoice.id === pix.invoice.id && invoice.status === 'PAGO',
-        );
-
-        if (paidInvoice) {
-          window.clearInterval(timer);
-          setPix(null);
-          setFeedback({
-            tone: 'success',
-            message: 'Pagamento confirmado. A escolha do plano foi liberada.',
-          });
-          await load();
-        }
-      } catch {
-        // A próxima consulta tenta novamente sem interromper o pagamento.
-      }
-    }, 5000);
-
-    return () => window.clearInterval(timer);
-  }, [load, pix]);
-
+  const onPixConfirmed = useCallback(() => {
+    closePix();
+    setFeedback({
+      tone: 'success',
+      message: 'Pagamento confirmado. A escolha do plano foi liberada.',
+    });
+    void load();
+  }, [closePix, load]);
   useEffect(() => {
     if (feedback?.tone !== 'success') return;
     const timer = window.setTimeout(() => setFeedback(null), 4500);
     return () => window.clearTimeout(timer);
   }, [feedback]);
-
-  useEffect(() => {
-    if (!pix) return;
-    const previousOverflow = document.body.style.overflow;
-    const closeWithEscape = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setPix(null);
-    };
-    document.body.style.overflow = 'hidden';
-    window.addEventListener('keydown', closeWithEscape);
-    return () => {
-      document.body.style.overflow = previousOverflow;
-      window.removeEventListener('keydown', closeWithEscape);
-    };
-  }, [pix]);
 
   const changePlan = async (plan: PlanCode) => {
     setChangingPlan(plan);
@@ -217,36 +190,34 @@ export function MonthlyBilling({ restricted = false }: MonthlyBillingProps = {})
   };
 
   const payInvoice = async (invoice: Invoice) => {
+    if (generationPending.current) return;
+    generationPending.current = true;
+    const revision = ++generationRevision.current;
     setPayingInvoice(invoice.id);
+    setFeedback(null);
     try {
       const result = await monthlyBillingService.generatePix(invoice.id);
-      setPixCopyState('idle');
-      setPix({
-        invoice,
-        qrCode: result.pixQrCode,
-        qrCodeBase64: result.pixQrCodeBase64,
-        expiresAt: result.pixExpiresAt,
-      });
+      if (revision !== generationRevision.current) return;
+      if (
+        !result.pixQrCode?.trim() ||
+        getBillingPixExpiry(result.pixExpiresAt).status !== 'valid'
+      ) {
+        throw new Error(
+          'Não foi possível obter um Pix com validade confirmada. Tente gerar novamente.',
+        );
+      }
+      setPix({ invoice, qrCode: result.pixQrCode, expiresAt: result.pixExpiresAt });
     } catch (error) {
+      if (revision !== generationRevision.current) return;
       setFeedback({
         tone: 'error',
         message: errorMessage(error, 'Não foi possível criar a cobrança Pix.'),
       });
     } finally {
+      generationPending.current = false;
       setPayingInvoice(null);
     }
   };
-
-  const copyPix = async () => {
-    if (!pix?.qrCode) return;
-    try {
-      await navigator.clipboard.writeText(pix.qrCode);
-      setPixCopyState('copied');
-    } catch {
-      setPixCopyState('error');
-    }
-  };
-
   const displayedPlans = useMemo(() => (plans.length ? plans : fallbackPlans), [plans]);
   const active = subscription?.status === 'ATIVA' || subscription?.status === 'TESTE';
   const currentPlan = displayedPlans.find((plan) => plan.plan === subscription?.plan);
@@ -695,7 +666,7 @@ export function MonthlyBilling({ restricted = false }: MonthlyBillingProps = {})
               </div>
               <button
                 type="button"
-                disabled={!currentPixAvailable || payingInvoice === currentInvoice?.id}
+                disabled={!currentPixAvailable || payingInvoice !== null}
                 onClick={() => currentInvoice && void payInvoice(currentInvoice)}
               >
                 <QrCode aria-hidden="true" />
@@ -753,7 +724,7 @@ export function MonthlyBilling({ restricted = false }: MonthlyBillingProps = {})
                       ) : payableStatuses.has(invoice.status) ? (
                         <button
                           type="button"
-                          disabled={!pixAvailable || payingInvoice === invoice.id}
+                          disabled={!pixAvailable || payingInvoice !== null}
                           onClick={() => void payInvoice(invoice)}
                         >
                           {payingInvoice === invoice.id
@@ -782,57 +753,17 @@ export function MonthlyBilling({ restricted = false }: MonthlyBillingProps = {})
         </S.ViewPanel>
       )}
 
-      {pix ? (
-        <S.PixBackdrop role="presentation" onMouseDown={() => setPix(null)}>
-          <S.PixModal
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="pix-payment-title"
-            onMouseDown={(event) => event.stopPropagation()}
-          >
-            <button
-              className="close"
-              type="button"
-              aria-label="Fechar"
-              onClick={() => setPix(null)}
-            >
-              <X aria-hidden="true" />
-            </button>
-            <span className="brand">
-              <QrCode aria-hidden="true" /> Pagamento seguro via Pix
-            </span>
-            <h2 id="pix-payment-title">Pague sua mensalidade</h2>
-            <p>Escaneie o QR Code pelo aplicativo do seu banco ou copie o código Pix.</p>
-            <div className="qr-frame">
-              <img
-                src={`data:image/png;base64,${pix.qrCodeBase64}`}
-                alt="QR Code Pix da mensalidade"
-              />
-            </div>
-            <small className="amount-label">VALOR DA MENSALIDADE</small>
-            <div className="amount">{money(pix.invoice.total)}</div>
-            <button className="copy" type="button" onClick={() => void copyPix()}>
-              {pixCopyState === 'copied' ? (
-                <Check aria-hidden="true" />
-              ) : (
-                <Copy aria-hidden="true" />
-              )}
-              {pixCopyState === 'copied' ? 'Código copiado' : 'Copiar código Pix'}
-            </button>
-            {pixCopyState !== 'idle' ? (
-              <span className={`copy-feedback ${pixCopyState}`} role="status">
-                {pixCopyState === 'copied'
-                  ? 'Pronto! Agora cole o código no aplicativo do seu banco.'
-                  : 'Não foi possível copiar automaticamente. Tente novamente.'}
-              </span>
-            ) : null}
-            <div className="expires">
-              <Clock3 aria-hidden="true" />
-              <span>Válido até {date(pix.expiresAt)}. A confirmação acontece automaticamente.</span>
-            </div>
-          </S.PixModal>
-        </S.PixBackdrop>
-      ) : null}
+      {pix && (
+        <MonthlyBillingPixDialog
+          key={`${pix.invoice.id}:${pix.qrCode}:${pix.expiresAt}`}
+          pix={pix}
+          generating={payingInvoice !== null}
+          error={feedback?.tone === 'error' ? feedback.message : undefined}
+          onClose={closePix}
+          onGenerate={() => void payInvoice(pix.invoice)}
+          onConfirmed={onPixConfirmed}
+        />
+      )}
     </S.Shell>
   );
 }
