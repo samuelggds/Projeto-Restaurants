@@ -14,6 +14,7 @@ ARG VITE_SENTRY_DSN=
 ARG VITE_SENTRY_TRACES_SAMPLE_RATE=0.1
 
 COPY package*.json ./
+COPY .npmrc ./
 RUN npm ci
 
 COPY . .
