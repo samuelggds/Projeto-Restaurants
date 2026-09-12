@@ -69,8 +69,21 @@ test.describe('rolagem com mouse na central de ajuda', () => {
       await page.mouse.wheel(0, -2000);
       await expect.poll(() => preview.evaluate(() => scrollY)).toBe(0);
       await figure.locator('iframe').focus();
+      await preview.evaluate(() => {
+        document.documentElement.dataset.keyboardScroll = 'pending';
+        document.addEventListener(
+          'scrollend',
+          () => {
+            document.documentElement.dataset.keyboardScroll = 'complete';
+          },
+          { once: true },
+        );
+      });
       await page.keyboard.press('PageDown');
       await expect.poll(() => preview.evaluate(() => scrollY)).toBeGreaterThan(100);
+      // Native PageDown keeps animating after the first scroll event, even with reduced motion.
+      // Finish that gesture before testing the wheel in the opposite direction.
+      await expect(preview.locator('html')).toHaveAttribute('data-keyboard-scroll', 'complete');
       const currentBox = (await viewport.boundingBox())!;
       await page.mouse.move(
         currentBox.x + currentBox.width / 2,
