@@ -1,4 +1,4 @@
-import { Activity, LockKeyhole, RefreshCw, ShieldCheck, Wrench } from 'lucide-react';
+import { LockKeyhole, RefreshCw, ShieldCheck } from 'lucide-react';
 import { getPlatformMaintenanceState } from '../../Services/platformMaintenance';
 import { clearSystemBlockState } from '../../Services/systemBlock';
 import * as S from './styles';
@@ -14,16 +14,74 @@ export default function SystemMaintenancePage({ mode }: SystemMaintenancePagePro
   const platformState = getPlatformMaintenanceState();
   const resolvedMode: MaintenanceMode = mode || (platformState ? 'platform' : 'tenant');
   const isPlatformMaintenance = resolvedMode === 'platform';
-  const eyebrow = isPlatformMaintenance
-    ? 'Disponibilidade da plataforma'
-    : 'Disponibilidade do restaurante';
-  const description = isPlatformMaintenance
-    ? 'Estamos realizando uma manutenção. Tente novamente em alguns instantes.'
-    : 'Este restaurante está temporariamente indisponível. Tente novamente em alguns instantes.';
+
   const retry = () => {
     if (!isPlatformMaintenance) clearSystemBlockState();
     window.location.reload();
   };
+
+  if (!isPlatformMaintenance) {
+    return (
+      <S.TenantPage>
+        <S.TenantHeader>
+          <S.TenantBrand>
+            <img src="/gastronexa-logo.svg" alt="" width="52" height="46" />
+            <span>
+              <strong>
+                Gastro<em>Nexa</em>
+              </strong>
+              <small>Tecnologia para Restaurantes</small>
+            </span>
+          </S.TenantBrand>
+        </S.TenantHeader>
+
+        <S.TenantMain>
+          <S.TenantCopy role="status" aria-live="polite" aria-labelledby="tenant-unavailable-title">
+            <span className="eyebrow">Temporariamente indisponível</span>
+            <h1 id="tenant-unavailable-title">
+              Voltamos em <em>instantes</em>
+            </h1>
+            <p>
+              Este restaurante está temporariamente indisponível. Aguarde alguns instantes e tente
+              novamente para continuar de onde parou.
+            </p>
+
+            <S.TenantActions>
+              <S.PrimaryButton type="button" onClick={retry}>
+                <RefreshCw size={18} aria-hidden="true" /> Tentar novamente
+              </S.PrimaryButton>
+            </S.TenantActions>
+
+            <S.TenantAssurances aria-label="Informações sobre a indisponibilidade">
+              <span>
+                <ShieldCheck aria-hidden="true" />
+                <b>Seu acesso está protegido</b>
+                <small>Assim que o serviço voltar, você poderá continuar normalmente.</small>
+              </span>
+              <span>
+                <RefreshCw aria-hidden="true" />
+                <b>Retorno automático</b>
+                <small>Nenhuma ação adicional é necessária além de tentar novamente.</small>
+              </span>
+            </S.TenantAssurances>
+          </S.TenantCopy>
+
+          <S.BrandPanel aria-hidden="true">
+            <div className="mark">
+              <img src="/gastronexa-logo.svg" alt="" />
+            </div>
+            <strong>
+              Gastro<em>Nexa</em>
+            </strong>
+            <small>Tecnologia para Restaurantes</small>
+            <span>Boa experiência começa com uma operação bem cuidada.</span>
+          </S.BrandPanel>
+        </S.TenantMain>
+
+        <S.TenantFooter>© GastroNexa</S.TenantFooter>
+      </S.TenantPage>
+    );
+  }
 
   return (
     <S.Page>
@@ -39,19 +97,12 @@ export default function SystemMaintenancePage({ mode }: SystemMaintenancePagePro
 
       <S.Main>
         <S.NoticeCard role="status" aria-live="polite" aria-labelledby="maintenance-title">
-          <S.StatusPanel aria-hidden="true">
-            <S.IconWrap>
-              <Wrench size={34} />
-            </S.IconWrap>
-            <span>
-              <Activity size={16} /> Intervenção em andamento
-            </span>
-          </S.StatusPanel>
-
           <S.NoticeContent>
-            <S.Eyebrow>{eyebrow}</S.Eyebrow>
+            <S.Eyebrow>Disponibilidade da plataforma</S.Eyebrow>
             <S.Title id="maintenance-title">Sistema em manutenção</S.Title>
-            <S.Description>{description}</S.Description>
+            <S.Description>
+              Estamos realizando uma manutenção. Tente novamente em alguns instantes.
+            </S.Description>
 
             <S.Assurance>
               <ShieldCheck aria-hidden="true" />
@@ -70,11 +121,9 @@ export default function SystemMaintenancePage({ mode }: SystemMaintenancePagePro
 
       <S.Footer>
         <span>© GastroNexa</span>
-        {isPlatformMaintenance ? (
-          <S.TechnicalLink href="/super_admin/login">
-            <LockKeyhole size={14} /> Acesso técnico
-          </S.TechnicalLink>
-        ) : null}
+        <S.TechnicalLink href="/super_admin/login">
+          <LockKeyhole size={14} /> Acesso técnico
+        </S.TechnicalLink>
       </S.Footer>
     </S.Page>
   );

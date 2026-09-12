@@ -180,15 +180,15 @@ test('ADMIN inadimplente acessa somente mensalidades e volta após a liberação
   }, admin);
 
   await page.goto('/admin');
-  await expect(page.getByRole('heading', { name: 'Mensalidades e faturas' })).toBeVisible();
-  await expect(page.getByText('OPERAÇÃO TEMPORARIAMENTE PAUSADA')).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Regularize sua assinatura' })).toBeVisible();
+  await expect(page.getByText('Assinatura em atraso')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Pedidos' })).toBeDisabled();
   expect(requestedPaths).not.toContain('/orders');
   expect(requestedPaths).not.toContain('/products');
 
   blocked = false;
-  await page.getByRole('button', { name: 'Verificar liberação' }).click();
-  await expect(page.getByText('OPERAÇÃO TEMPORARIAMENTE PAUSADA')).not.toBeVisible();
+  await page.getByRole('button', { name: 'Verificar pagamento', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Regularize sua assinatura' })).not.toBeVisible();
 });
 
 test('login técnico recusa qualquer conta que não seja SUPER_ADMIN', async ({ page }) => {

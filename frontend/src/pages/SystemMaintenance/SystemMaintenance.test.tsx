@@ -21,15 +21,20 @@ describe('tela de manutenção', () => {
     expect(markup).toContain('href="/super_admin/login"');
   });
 
-  it('não revela inadimplência para clientes e funcionários', () => {
+  it('usa uma comunicação acolhedora sem revelar inadimplência para clientes e funcionários', () => {
     const markup = renderToStaticMarkup(
       <SystemMaintenancePage mode="tenant" message="Restaurante temporariamente indisponível." />,
     );
-    expect(markup).toContain('Sistema em manutenção');
-    expect(markup).toContain('Disponibilidade do restaurante');
-    expect(markup).toContain('Este restaurante está temporariamente indisponível');
+
+    expect(markup).toContain('Voltamos em');
+    expect(markup).toContain('instantes');
+    expect(markup).toContain('Temporariamente indisponível');
+    expect(markup).toContain('Seu acesso está protegido');
+    expect(markup).toContain('Retorno automático');
+    expect(markup).toContain('Gastro');
+    expect(markup).toContain('Nexa');
     expect(markup).not.toContain('inadimpl');
-    expect(markup).not.toContain('Restaurante temporariamente indisponível');
+    expect(markup).not.toContain('mensalidade');
     expect(markup).not.toContain('Acesso técnico');
   });
 });
