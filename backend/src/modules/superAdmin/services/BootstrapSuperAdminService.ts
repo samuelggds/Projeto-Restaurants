@@ -47,7 +47,10 @@ export class BootstrapSuperAdminService {
 
     return this.database.$transaction(
       async (transaction: Prisma.TransactionClient): Promise<SuperAdminBootstrapResult> => {
-        await transaction.$queryRaw`SELECT pg_advisory_xact_lock(${ADMIN_CHANGE_ADVISORY_LOCK})`;
+        await transaction.$queryRaw<Array<{ lockAcquired: number }>>`
+          SELECT 1::int AS "lockAcquired"
+          FROM pg_advisory_xact_lock(${ADMIN_CHANGE_ADVISORY_LOCK})
+        `;
 
         const superAdmins = await transaction.user.findMany({
           where: { role: UserRole.SUPER_ADMIN },
