@@ -1,0 +1,91 @@
+name: Deploy Production
+
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+
+concurrency:
+  group: production-deploy
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  APP_DIR: /opt/gastronexa
+
+jobs:
+  deploy:
+    name: Deploy approved main to Lightsail
+    if: >-
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'push' &&
+      github.event.workflow_run.head_branch == 'main' &&
+      vars.PRODUCTION_DEPLOY_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: production
+
+    steps:
+      - name: Validate deployment inputs
+        env:
+          LIGHTSAIL_HOST: ${{ secrets.LIGHTSAIL_HOST }}
+          LIGHTSAIL_USER: ${{ secrets.LIGHTSAIL_USER }}
+          LIGHTSAIL_SSH_KEY: ${{ secrets.LIGHTSAIL_SSH_KEY }}
+          LIGHTSAIL_KNOWN_HOSTS: ${{ secrets.LIGHTSAIL_KNOWN_HOSTS }}
+        run: |
+          set -euo pipefail
+          test -n "$LIGHTSAIL_HOST"
+          test -n "$LIGHTSAIL_USER"
+          test -n "$LIGHTSAIL_SSH_KEY"
+          test -n "$LIGHTSAIL_KNOWN_HOSTS"
+          test "${#LIGHTSAIL_HOST}" -le 255
+          test "${#LIGHTSAIL_USER}" -le 64
+
+      - name: Configure SSH
+        env:
+          LIGHTSAIL_SSH_KEY: ${{ secrets.LIGHTSAIL_SSH_KEY }}
+          LIGHTSAIL_KNOWN_HOSTS: ${{ secrets.LIGHTSAIL_KNOWN_HOSTS }}
+        run: |
+          set -euo pipefail
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$LIGHTSAIL_SSH_KEY" > ~/.ssh/gastronexa-prod
+          chmod 600 ~/.ssh/gastronexa-prod
+          printf '%s\n' "$LIGHTSAIL_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/known_hosts
+
+      - name: Deploy exact commit that passed CI
+        env:
+          LIGHTSAIL_HOST: ${{ secrets.LIGHTSAIL_HOST }}
+          LIGHTSAIL_USER: ${{ secrets.LIGHTSAIL_USER }}
+          DEPLOY_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          set -euo pipefail
+          [[ "$DEPLOY_SHA" =~ ^[0-9a-f]{40}$ ]]
+          ssh \
+            -i ~/.ssh/gastronexa-prod \
+            -o BatchMode=yes \
+            -o IdentitiesOnly=yes \
+            -o StrictHostKeyChecking=yes \
+            -o ConnectTimeout=15 \
+            "$LIGHTSAIL_USER@$LIGHTSAIL_HOST" \
+            "cd '$APP_DIR' && DEPLOY_SHA='$DEPLOY_SHA' APP_DIR='$APP_DIR' bash scripts/deploy-production.sh"
+
+      - name: Verify public endpoints
+        env:
+          APP_URL: ${{ vars.PRODUCTION_APP_URL }}
+          API_URL: ${{ vars.PRODUCTION_API_URL }}
+        run: |
+          set -euo pipefail
+          test -n "$APP_URL"
+          test -n "$API_URL"
+          case "$APP_URL" in https://*) ;; *) echo 'PRODUCTION_APP_URL deve usar HTTPS.' >&2; exit 1 ;; esac
+          case "$API_URL" in https://*) ;; *) echo 'PRODUCTION_API_URL deve usar HTTPS.' >&2; exit 1 ;; esac
+          curl --fail --silent --show-error --retry 5 --retry-delay 3 --max-time 15 "$APP_URL/healthz" >/dev/null
+          curl --fail --silent --show-error --retry 5 --retry-delay 3 --max-time 15 "$API_URL/health" >/dev/null
+          curl --fail --silent --show-error --retry 5 --retry-delay 3 --max-time 15 "$API_URL/ready" >/dev/null
+
+      - name: Remove temporary SSH key
+        if: always()
+        run: rm -f ~/.ssh/gastronexa-prod
