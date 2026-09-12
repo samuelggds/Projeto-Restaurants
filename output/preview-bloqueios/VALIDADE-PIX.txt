@@ -1,0 +1,8 @@
+ATUALIZAÇÃO: VALIDADE DO PIX
+O painel normal e a tela de bloqueio mostram contagem regressiva e horário de validade.
+Ao zerar, QR Code e copia e cola são ocultados e a renovação depende de clique.
+A volta à aba e o clique de copiar verificam novamente o horário absoluto de expiração.
+As capturas pix-contagem-mobile.png e pix-expirado-mobile.png mostram as duas situações.
+Os códigos das imagens são fictícios e não permitem pagamentos.
+Validação desta atualização: 34 testes unitários e 14 cenários de navegador,
+TypeScript, ESLint, Prettier, build, arquitetura e orçamento de bundle aprovados.
