@@ -185,7 +185,10 @@ async function main() {
   const result = await prisma.$transaction(async (transaction) => {
     // Compartilha a mesma trava dos demais fluxos administrativos e do bootstrap
     // para que duas promoções concorrentes não observem a ausência de SUPER_ADMIN.
-    await transaction.$queryRaw`SELECT pg_advisory_xact_lock(${ADMIN_CHANGE_ADVISORY_LOCK})`;
+    await transaction.$queryRaw<Array<{ lockAcquired: number }>>`
+      SELECT 1::int AS "lockAcquired"
+      FROM pg_advisory_xact_lock(${ADMIN_CHANGE_ADVISORY_LOCK})
+    `;
 
     const anotherSuperAdmin = await transaction.user.findFirst({
       where: {
