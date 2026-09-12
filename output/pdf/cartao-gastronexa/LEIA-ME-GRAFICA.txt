@@ -1,0 +1,47 @@
+﻿GASTRONEXA - CARTAO DE VISITA - ORIENTACOES PARA A GRAFICA
+
+ARQUIVO PRINCIPAL
+GastroNexa-cartao-90x50mm-sangria-3mm.pdf
+2 paginas: pagina 1 = frente clara; pagina 2 = verso escuro.
+Formato final de corte: 90 x 50 mm, horizontal.
+Pagina com sangria: 96 x 56 mm. Sangria: 3 mm em cada lado.
+TrimBox e BleedBox configuradas. Imprimir em tamanho real (100%).
+Sem espelhar as paginas. A grafica deve fazer a imposicao frente/verso.
+
+ALTERNATIVA, SE A GRAFICA PEDIR MARCAS DE CORTE
+GastroNexa-cartao-90x50mm-com-marcas-de-corte.pdf
+Mesmo cartao e mesmas caixas de corte/sangria, com marcas fora da sangria.
+Pagina total: 108 x 68 mm. Nao usar os dois PDFs como paginas adicionais.
+
+CORES E RESOLUCAO
+Impressao colorida nos dois lados (4x4), em CMYK.
+Perfil incorporado: ISO Coated v2 300% (ECI), FOGRA39.
+Conversao a partir de sRGB presumido (PNG original sem perfil).
+Perfil de referencia: https://eci.org/doku.php_id=en_downloads.html
+Confirmar com a grafica se o processo/papel exige outro perfil ICC.
+Arte original preservada como imagem a aproximadamente 463 DPI efetivos,
+sem compressao JPEG. Textos e logotipo fazem parte da imagem original;
+nao sao fontes editaveis/vetorizadas. QR Code e marcas sao vetoriais.
+O arquivo e PDF 1.4 CMYK com perfil e caixas de pagina; nao foi certificado
+como PDF/X por ferramenta de preflight comercial.
+
+QR CODE
+Destino preservado: https://www.gastronexa.com.br
+Quadrado externo de 19 x 19 mm; margem branca de 4 modulos;
+correcao de erros Q; modulos em preto 100% K, sobre branco sem tinta.
+Conferir a leitura tambem em uma prova fisica no tamanho final.
+
+CONFERENCIA DO CONTEUDO
+E-mail: contato@gastronexa.com.br
+Telefone: (85) 99834-1876
+Site impresso: www.gastronexa.com.br
+Local: Fortaleza - CE
+Os dados foram mantidos exatamente como nas imagens fornecidas.
+A validacao do QR confere o endereco codificado, nao o funcionamento
+do site, do e-mail ou do telefone.
+
+ACABAMENTO
+As texturas e o efeito cobre/laranja pertencem a arte impressa.
+Nao ha mascara de verniz, relevo, hot stamping ou tinta metalica.
+Papel, gramatura, laminacao e quantidade devem ser combinados com a grafica.
+Solicitar prova antes da tiragem para conferir cor, leitura e acabamento.
