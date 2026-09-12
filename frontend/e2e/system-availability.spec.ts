@@ -54,7 +54,7 @@ test('manutenção global cobre o negócio e mantém todos os logins válidos ac
   await page.goto('/qualquer-restaurante');
 
   await expect(page.getByRole('heading', { name: 'Sistema em manutenção' })).toBeVisible();
-  await expect(page.getByText('Tente novamente em alguns instantes')).toBeVisible();
+  await expect(page.getByText('A página será atualizada para verificar o acesso.')).toBeVisible();
   await expect(
     page.getByText('Atualização programada dos servidores de pagamento.'),
   ).not.toBeVisible();
@@ -182,7 +182,7 @@ test('ADMIN inadimplente acessa somente mensalidades e volta após a liberação
   await page.goto('/admin');
   await expect(page.getByRole('heading', { name: 'Regularize sua assinatura' })).toBeVisible();
   await expect(page.getByText('Assinatura em atraso')).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Pedidos' })).toBeDisabled();
+  await expect(page.getByRole('button', { name: 'Pedidos', exact: true })).toHaveCount(0);
   expect(requestedPaths).not.toContain('/orders');
   expect(requestedPaths).not.toContain('/products');
 

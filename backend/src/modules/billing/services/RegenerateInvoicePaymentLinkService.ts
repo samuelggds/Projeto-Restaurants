@@ -16,10 +16,10 @@ function hasReusablePix(invoice: {
 }) {
   return Boolean(
     invoice.paymentExternalId &&
-      invoice.pixQrCode &&
-      invoice.pixQrCodeBase64 &&
-      invoice.pixExpiresAt &&
-      new Date(invoice.pixExpiresAt).getTime() > Date.now() + 5_000,
+    invoice.pixQrCode &&
+    invoice.pixQrCodeBase64 &&
+    invoice.pixExpiresAt &&
+    new Date(invoice.pixExpiresAt).getTime() > Date.now(),
   );
 }
 
@@ -66,17 +66,18 @@ class RegenerateInvoicePaymentLinkService {
       idempotencyKey: pixIdempotencyKey(invoice),
     });
 
-    const updatedInvoice = await billingRepository.updateInvoicePaymentDetailsAndResetReconciliation(
-      invoice.id,
-      restaurantId,
-      {
-        paymentLink: payment.ticketUrl,
-        paymentExternalId: payment.id,
-        pixQrCode: payment.qrCode,
-        pixQrCodeBase64: payment.qrCodeBase64,
-        pixExpiresAt: payment.expiresAt ? new Date(payment.expiresAt) : null,
-      },
-    );
+    const updatedInvoice =
+      await billingRepository.updateInvoicePaymentDetailsAndResetReconciliation(
+        invoice.id,
+        restaurantId,
+        {
+          paymentLink: payment.ticketUrl,
+          paymentExternalId: payment.id,
+          pixQrCode: payment.qrCode,
+          pixQrCodeBase64: payment.qrCodeBase64,
+          pixExpiresAt: payment.expiresAt ? new Date(payment.expiresAt) : null,
+        },
+      );
 
     return {
       invoice: updatedInvoice,

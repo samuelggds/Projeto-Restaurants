@@ -1,442 +1,370 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
-  BarChart3,
-  CalendarDays,
+  ArrowRight,
+  Check,
   CircleAlert,
   Copy,
-  Crown,
-  HelpCircle,
   LockKeyhole,
   LogOut,
-  PackageOpen,
   QrCode,
+  ReceiptText,
   RefreshCw,
-  Settings2,
   ShieldCheck,
-  ShoppingBag,
-  Users,
-  WalletCards,
 } from 'lucide-react';
-import { toast } from 'react-toastify';
+import QRCode from 'react-qr-code';
 import { useAuth } from '../../../contexts/authContext';
-import monthlyBillingService, {
-  type BillingPlan,
-  type Invoice,
-  type Subscription,
-} from '../../../Services/monthlyBillingService';
-import {
-  clearSystemBlockState,
-  findBlockingInvoice,
-  getSystemBlockState,
-} from '../../../Services/systemBlock';
+import { getSystemBlockState, isBillingInvoiceBlocking } from '../../../Services/systemBlock';
+import { useBillingRecovery } from './useBillingRecovery';
+import { BillingPixValidity } from '../components/BillingPixValidity';
+import { getBillingPixExpiry, useBillingPixExpiry } from '../components/useBillingPixExpiry';
+import { gastroNexaGPath, gastroNexaXPath } from '../../Login/components/gastroNexaMark';
 import * as S from './BillingRestrictedAdmin.styles';
 
-const lockedSections = [
-  ['Visão geral', BarChart3],
-  ['Pedidos', ShoppingBag],
-  ['Produtos', PackageOpen],
-  ['Clientes', Users],
-  ['Configurações', Settings2],
-] as const;
-
-type PixState = {
-  qrCode: string;
-  qrCodeBase64: string;
-  expiresAt?: string | null;
-};
-
-const money = (value?: number | string | null) =>
-  Number(value || 0).toLocaleString('pt-BR', {
-    style: 'currency',
-    currency: 'BRL',
-  });
-
-const date = (value?: string | null) => {
-  if (!value) return 'Não informado';
-  const parsed = new Date(value);
-  if (Number.isNaN(parsed.getTime())) return 'Não informado';
-  return new Intl.DateTimeFormat('pt-BR').format(parsed);
-};
-
-const dateTime = (value?: string | null) => {
-  if (!value) return null;
-  const parsed = new Date(value);
-  if (Number.isNaN(parsed.getTime())) return null;
-  return new Intl.DateTimeFormat('pt-BR', {
-    day: '2-digit',
-    month: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-  }).format(parsed);
+const money = (value: number | string) =>
+  Number(value).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+const date = (value?: string | null, time = false) => {
+  if (!value || Number.isNaN(new Date(value).getTime())) return 'Não informado';
+  return new Intl.DateTimeFormat(
+    'pt-BR',
+    time
+      ? { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }
+      : { day: '2-digit', month: 'short', year: 'numeric' },
+  ).format(new Date(value));
 };
 
 export default function BillingRestrictedAdmin() {
   const { user, logout } = useAuth();
-  const blockState = getSystemBlockState();
-  const [invoice, setInvoice] = useState<Invoice | null>(null);
-  const [subscription, setSubscription] = useState<Subscription | null>(null);
-  const [plans, setPlans] = useState<BillingPlan[]>([]);
-  const [pix, setPix] = useState<PixState | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [checking, setChecking] = useState(false);
-  const [generatingPix, setGeneratingPix] = useState(false);
-  const [copied, setCopied] = useState(false);
+  const restaurantId = Number(
+    user?.restaurantId || user?.restaurant?.id || getSystemBlockState()?.restaurantId || 0,
+  );
+  const {
+    invoice,
+    invoices,
+    planName,
+    pix,
+    loading,
+    loadError,
+    checking,
+    generatingPix,
+    feedback,
+    load,
+    generatePix,
+    verifyRelease,
+  } = useBillingRecovery(restaurantId);
+  const [copyResult, setCopyResult] = useState<{
+    code: string;
+    status: 'idle' | 'copied' | 'error';
+  }>({ code: '', status: 'idle' });
+  const copyState = copyResult.code === pix?.qrCode ? copyResult.status : 'idle';
 
-  const loadBilling = useCallback(async () => {
-    setLoading(true);
-    try {
-      const [overview, currentSubscription, availablePlans] = await Promise.all([
-        monthlyBillingService.getOverview(),
-        monthlyBillingService.getSubscription(),
-        monthlyBillingService.getPlans(),
-      ]);
-      const blockingInvoice = findBlockingInvoice(overview.invoices || []) as Invoice | null;
+  const code = useRef<HTMLTextAreaElement>(null);
+  const codeDetails = useRef<HTMLDetailsElement>(null);
+  const copiedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const validity = useBillingPixExpiry(pix?.expiresAt ?? invoice?.pixExpiresAt);
+  const expired = validity.status === 'expired';
+  const overdueCount = invoices.filter((item) => isBillingInvoiceBlocking(item)).length;
+  const reference = invoice ? String(invoice.month).padStart(2, '0') + '/' + invoice.year : '';
 
-      setInvoice(blockingInvoice);
-      setSubscription(currentSubscription);
-      setPlans(availablePlans);
+  useEffect(
+    () => () => {
+      if (copiedTimer.current) clearTimeout(copiedTimer.current);
+    },
+    [],
+  );
 
-      if (!blockingInvoice) {
-        clearSystemBlockState();
-        return;
-      }
-
-      if (blockingInvoice.pixQrCode && blockingInvoice.pixQrCodeBase64) {
-        setPix({
-          qrCode: blockingInvoice.pixQrCode,
-          qrCodeBase64: blockingInvoice.pixQrCodeBase64,
-          expiresAt: blockingInvoice.pixExpiresAt,
-        });
-      }
-    } catch {
-      toast.error('Não foi possível carregar a mensalidade agora. Tente novamente em instantes.');
-    } finally {
-      setLoading(false);
+  async function copyPix() {
+    if (!pix || getBillingPixExpiry(pix.expiresAt).status !== 'valid') {
+      validity.refresh();
+      return;
     }
-  }, []);
-
-  useEffect(() => {
-    const timer = window.setTimeout(() => void loadBilling(), 0);
-    return () => window.clearTimeout(timer);
-  }, [loadBilling]);
-
-  const verifyRelease = async () => {
-    setChecking(true);
-    try {
-      const overview = await monthlyBillingService.getOverview();
-      const blockingInvoice = findBlockingInvoice(overview.invoices || []) as Invoice | null;
-      if (blockingInvoice) {
-        setInvoice(blockingInvoice);
-        toast.info('O pagamento ainda não foi confirmado. A liberação é automática após a baixa.');
-        return;
-      }
-      clearSystemBlockState();
-      toast.success('Pagamento confirmado. Todas as áreas do restaurante foram liberadas.');
-    } catch {
-      toast.error('Não foi possível consultar a liberação agora. Tente novamente em instantes.');
-    } finally {
-      setChecking(false);
-    }
-  };
-
-  const generatePix = async () => {
-    if (!invoice) return;
-    setGeneratingPix(true);
-    try {
-      const result = await monthlyBillingService.generatePix(invoice.id);
-      setPix({
-        qrCode: result.pixQrCode,
-        qrCodeBase64: result.pixQrCodeBase64,
-        expiresAt: result.pixExpiresAt,
-      });
-      setInvoice((current) =>
-        current
-          ? {
-              ...current,
-              pixQrCode: result.pixQrCode,
-              pixQrCodeBase64: result.pixQrCodeBase64,
-              pixExpiresAt: result.pixExpiresAt,
-            }
-          : current,
-      );
-      setCopied(false);
-    } catch {
-      toast.error('Não foi possível gerar o Pix agora. Tente novamente em instantes.');
-    } finally {
-      setGeneratingPix(false);
-    }
-  };
-
-  const copyPix = async () => {
-    if (!pix?.qrCode) return;
+    if (copiedTimer.current) clearTimeout(copiedTimer.current);
     try {
       await navigator.clipboard.writeText(pix.qrCode);
-      setCopied(true);
-      window.setTimeout(() => setCopied(false), 2200);
+      setCopyResult({ code: pix.qrCode, status: 'copied' });
+      copiedTimer.current = setTimeout(() => setCopyResult({ code: '', status: 'idle' }), 2500);
     } catch {
-      toast.error('Não foi possível copiar o código Pix.');
+      setCopyResult({ code: pix.qrCode, status: 'error' });
+      if (codeDetails.current) codeDetails.current.open = true;
+      code.current?.focus();
+      code.current?.select();
     }
+  }
+
+  const requestPix = () => {
+    setCopyResult({ code: '', status: 'idle' });
+
+    void generatePix();
   };
-
-  const initials = String(user?.name || 'Administrador')
-    .split(/\s+/u)
-    .slice(0, 2)
-    .map((part) => part[0])
-    .join('')
-    .toUpperCase();
-
-  const currentPlan = useMemo(
-    () => plans.find((plan) => plan.plan === subscription?.plan),
-    [plans, subscription?.plan],
-  );
-  const planName = currentPlan?.name || subscription?.plan || 'Plano atual';
-  const invoiceTotal = invoice ? invoice.total || invoice.monthlyFee : null;
-  const dueDate = blockState?.dueDate || invoice?.dueDate || null;
-  const pixExpiry = dateTime(pix?.expiresAt);
 
   return (
     <S.Root>
-      <S.Sidebar>
-        <S.Brand>
+      <S.Header>
+        <S.Brand aria-label="GastroNexa">
+          <svg
+            viewBox="0 0 600 470"
+            width="40"
+            height="36"
+            fill="currentColor"
+            aria-hidden="true"
+            focusable="false"
+          >
+            <path d={gastroNexaGPath} fillRule="evenodd" />
+            <path d={gastroNexaXPath} fillRule="evenodd" />
+          </svg>
           <span>
-            <img src="/gastronexa-logo.svg" alt="" width="44" height="40" />
+            Gastro<em>Nexa</em>
+            <small>CONTA DO RESTAURANTE</small>
           </span>
-          <div>
-            <strong>
-              Gastro<span>Nexa</span>
-            </strong>
-            <small>Tecnologia para Restaurantes</small>
-          </div>
         </S.Brand>
-
-        <S.RestrictionLabel>
-          <LockKeyhole size={14} /> Acesso temporariamente restrito
-        </S.RestrictionLabel>
-        <S.Navigation aria-label="Áreas administrativas bloqueadas">
-          {lockedSections.map(([label, Icon]) => (
-            <button key={label} type="button" disabled title="Disponível após a regularização">
-              <Icon size={18} />
-              <span>{label}</span>
-              <LockKeyhole className="lock" size={13} />
-            </button>
-          ))}
-          <button type="button" className="active" aria-current="page">
-            <WalletCards size={19} />
-            <span>Mensalidades</span>
+        <div className="header-actions">
+          <span className="secure">
+            <ShieldCheck size={15} /> Área financeira protegida
+          </span>
+          <button type="button" onClick={logout}>
+            <LogOut size={16} />
+            <span>Sair da conta</span>
           </button>
-        </S.Navigation>
-
-        <S.SidebarFooter>
-          <div className="identity">
-            <b>{initials || 'AD'}</b>
-            <span>
-              <strong>{user?.name || 'Administrador'}</strong>
-              <small>Administrador</small>
+        </div>
+      </S.Header>
+      <S.Main>
+        <S.Heading>
+          <span className="eyebrow">
+            MENSALIDADES <span>/</span> REGULARIZAÇÃO
+          </span>
+          <div className="title-row">
+            <div>
+              <h1>Regularize sua assinatura</h1>
+              <p>
+                Um passo para voltar à sua operação. Pague a fatura por aqui e acompanhe a
+                confirmação.
+              </p>
+            </div>
+            <span className="status">
+              <span />{' '}
+              {loading || loadError || invoice ? 'Assinatura em atraso' : 'Conferindo liberação'}
             </span>
           </div>
-          <button type="button" onClick={logout}>
-            <LogOut size={17} /> Sair
-          </button>
-        </S.SidebarFooter>
-      </S.Sidebar>
-
-      <S.Main>
-        <S.Topbar>
-          <S.TopbarBrand>
-            <img src="/gastronexa-logo.svg" alt="" width="36" height="32" />
-            <span>
-              <strong>
-                Gastro<em>Nexa</em>
-              </strong>
-              <small>Tecnologia para Restaurantes</small>
-            </span>
-          </S.TopbarBrand>
-          <S.VerifyButton type="button" onClick={() => void verifyRelease()} disabled={checking}>
-            <RefreshCw size={16} className={checking ? 'spin' : ''} />
-            {checking ? 'Verificando...' : 'Verificar pagamento'}
-          </S.VerifyButton>
-        </S.Topbar>
-
-        <S.Content>
-          <S.Hero>
-            <span className="eyebrow">
-              <CircleAlert size={15} /> Assinatura em atraso
-            </span>
-            <h1>Regularize sua assinatura</h1>
+        </S.Heading>
+        {loading ? (
+          <S.State role="status" aria-live="polite">
+            <RefreshCw className="spin" />
+            <h2>Carregando mensalidade...</h2>
+            <p>Estamos consultando os dados da sua fatura.</p>
+          </S.State>
+        ) : loadError ? (
+          <S.State role="alert">
+            <CircleAlert />
+            <h2>Vamos tentar mais uma vez?</h2>
+            <p>{loadError}</p>
+            <S.Primary type="button" onClick={() => void load()}>
+              <RefreshCw size={17} /> Recarregar fatura
+            </S.Primary>
+          </S.State>
+        ) : !invoice ? (
+          <S.State role="status">
+            <ReceiptText />
+            <h2>Conferindo a regularização</h2>
             <p>
-              Seus módulos operacionais estão temporariamente restritos até a confirmação do
-              pagamento. Resolva por aqui e o acesso volta automaticamente.
+              Não encontramos uma fatura em atraso nesta consulta. Vamos confirmar a disponibilidade
+              do restaurante antes de retomar o acesso.
             </p>
-          </S.Hero>
-
-          {loading ? (
-            <S.LoadingCard role="status" aria-live="polite">
-              <span className="spinner" />
-              <div>
-                <strong>Carregando mensalidade...</strong>
-                <small>Buscando a cobrança que precisa ser regularizada.</small>
-              </div>
-            </S.LoadingCard>
-          ) : (
-            <>
-              <S.SummaryGrid aria-label="Resumo da assinatura">
-                <S.SummaryItem>
-                  <span className="icon danger">
-                    <CircleAlert size={19} />
-                  </span>
-                  <div>
-                    <small>Status</small>
-                    <strong className="danger-text">Em atraso</strong>
-                  </div>
-                </S.SummaryItem>
-                <S.SummaryItem>
-                  <span className="icon">
-                    <Crown size={19} />
-                  </span>
-                  <div>
-                    <small>Plano</small>
-                    <strong>{planName}</strong>
-                  </div>
-                </S.SummaryItem>
-                <S.SummaryItem>
-                  <span className="icon">
-                    <WalletCards size={19} />
-                  </span>
-                  <div>
-                    <small>Mensalidade</small>
-                    <strong>{invoiceTotal ? money(invoiceTotal) : 'Não informado'}</strong>
-                  </div>
-                </S.SummaryItem>
-                <S.SummaryItem>
-                  <span className="icon">
-                    <CalendarDays size={19} />
-                  </span>
-                  <div>
-                    <small>Vencimento</small>
-                    <strong>{date(dueDate)}</strong>
-                  </div>
-                </S.SummaryItem>
-              </S.SummaryGrid>
-
-              <S.PaymentLayout>
-                <S.PixCard>
-                  <S.SectionHeading>
-                    <span className="section-icon">
-                      <QrCode size={21} />
-                    </span>
-                    <div>
-                      <h2>Pague com Pix</h2>
-                      <p>Use o QR Code ou copie o código Pix para regularizar a mensalidade.</p>
-                    </div>
-                  </S.SectionHeading>
-
-                  {pix?.qrCode && pix.qrCodeBase64 ? (
-                    <S.PixArea>
-                      <S.QrWrap>
-                        <img src={`data:image/png;base64,${pix.qrCodeBase64}`} alt="QR Code Pix" />
-                      </S.QrWrap>
-                      <S.PixDetails>
-                        <label htmlFor="billing-pix-code">Código Pix (copia e cola)</label>
-                        <div className="copy-row">
-                          <input id="billing-pix-code" value={pix.qrCode} readOnly />
-                          <button type="button" onClick={() => void copyPix()}>
-                            <Copy size={16} /> {copied ? 'Copiado' : 'Copiar código'}
-                          </button>
-                        </div>
-                        <button
-                          type="button"
-                          className="secondary"
-                          onClick={() => void generatePix()}
-                          disabled={generatingPix}
-                        >
-                          <RefreshCw size={16} className={generatingPix ? 'spin' : ''} />
-                          {generatingPix ? 'Gerando...' : 'Gerar novo QR Code'}
-                        </button>
-                        <small>
-                          {pixExpiry
-                            ? `QR Code válido até ${pixExpiry}. Se expirar, gere outro código.`
-                            : 'Se este QR Code expirar, gere outro código sem perder a fatura.'}
-                        </small>
-                      </S.PixDetails>
-                    </S.PixArea>
-                  ) : (
-                    <S.EmptyPix>
-                      <span>
-                        <QrCode size={30} />
-                      </span>
-                      <div>
-                        <strong>Gere o QR Code para pagar</strong>
-                        <p>O código é criado na hora e fica vinculado a esta mensalidade.</p>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => void generatePix()}
-                        disabled={!invoice || generatingPix}
-                      >
-                        <QrCode size={17} />
-                        {generatingPix ? 'Gerando...' : 'Gerar QR Code'}
-                      </button>
-                    </S.EmptyPix>
-                  )}
-                </S.PixCard>
-
-                <S.HelpCard>
-                  <S.SectionHeading>
-                    <span className="section-icon soft">
-                      <HelpCircle size={21} />
-                    </span>
-                    <div>
-                      <h2>Como liberar o acesso</h2>
-                      <p>São só três passos.</p>
-                    </div>
-                  </S.SectionHeading>
-                  <ol>
-                    <li>
-                      <b>1</b>
-                      <span>
-                        <strong>Gere ou use o Pix</strong>
-                        <small>Escaneie o QR Code ou copie o código.</small>
-                      </span>
-                    </li>
-                    <li>
-                      <b>2</b>
-                      <span>
-                        <strong>Faça o pagamento</strong>
-                        <small>Conclua normalmente no aplicativo do seu banco.</small>
-                      </span>
-                    </li>
-                    <li>
-                      <b>3</b>
-                      <span>
-                        <strong>Aguarde a confirmação</strong>
-                        <small>O sistema é liberado automaticamente após a baixa.</small>
-                      </span>
-                    </li>
-                  </ol>
-                  <S.Assurance>
-                    <ShieldCheck size={18} />
-                    <span>
-                      <strong>Seus dados continuam seguros</strong>
-                      <small>Nenhuma informação do restaurante é perdida durante o bloqueio.</small>
-                    </span>
-                  </S.Assurance>
-                </S.HelpCard>
-              </S.PaymentLayout>
-
-              <S.ReleaseButton
-                type="button"
-                onClick={() => void verifyRelease()}
-                disabled={checking}
+            <S.Primary type="button" disabled={checking} onClick={() => void verifyRelease()}>
+              <RefreshCw size={17} className={checking ? 'spin' : ''} /> Verificar pagamento
+            </S.Primary>
+            {feedback && (
+              <S.Feedback
+                $tone={feedback.tone}
+                role={feedback.tone === 'error' ? 'alert' : 'status'}
               >
-                <ShieldCheck size={18} />
-                {checking ? 'Verificando pagamento...' : 'Verificar pagamento e liberar sistema'}
-              </S.ReleaseButton>
-              <S.ReleaseNote>
-                A liberação também acontece automaticamente assim que o pagamento for confirmado.
-              </S.ReleaseNote>
-            </>
-          )}
-        </S.Content>
+                {feedback.message}
+              </S.Feedback>
+            )}
+          </S.State>
+        ) : (
+          <S.Layout>
+            <S.Receipt aria-labelledby="recovery-invoice-title">
+              <div className="receipt-top">
+                <span className="receipt-icon">
+                  <ReceiptText size={23} />
+                </span>
+                <span>
+                  FATURA EM ABERTO<small>Referência {reference}</small>
+                </span>
+              </div>
+              <h2 id="recovery-invoice-title">Sua mensalidade</h2>
+              <strong className="amount">{money(invoice.total ?? invoice.monthlyFee)}</strong>
+              <p className="plan">{planName === 'Plano atual' ? planName : `Plano ${planName}`}</p>
+              <dl>
+                <div>
+                  <dt>Vencimento</dt>
+                  <dd>{date(invoice.dueDate)}</dd>
+                </div>
+                <div>
+                  <dt>Fatura</dt>
+                  <dd>#{invoice.id}</dd>
+                </div>
+                {Number(invoice.systemFees) > 0 && (
+                  <>
+                    <div>
+                      <dt>Mensalidade</dt>
+                      <dd>{money(invoice.monthlyFee)}</dd>
+                    </div>
+                    <div>
+                      <dt>Taxas do sistema</dt>
+                      <dd>{money(invoice.systemFees)}</dd>
+                    </div>
+                  </>
+                )}
+                <div className="receipt-total">
+                  <dt>Total a pagar</dt>
+                  <dd>{money(invoice.total ?? invoice.monthlyFee)}</dd>
+                </div>
+              </dl>
+              <div className="receipt-note">
+                <LockKeyhole size={17} />
+                <span>O acesso às áreas operacionais fica pausado até a regularização.</span>
+              </div>
+              {overdueCount > 1 && (
+                <p className="other-invoices">
+                  Há {overdueCount} faturas em atraso. Após confirmar esta, mostraremos a próxima.
+                </p>
+              )}
+              <div className="receipt-bottom">
+                <span /> GastroNexa <span />
+              </div>
+            </S.Receipt>
+            <S.PaymentCard aria-labelledby="recovery-pix-title">
+              <div className="payment-heading">
+                <span className="pix-icon">
+                  <QrCode size={22} />
+                </span>
+                <div>
+                  <h2 id="recovery-pix-title">Pague com Pix</h2>
+                  <p>Use a câmera do banco ou o Pix copia e cola.</p>
+                </div>
+              </div>
+              {pix && validity.status === 'valid' ? (
+                <>
+                  <S.PixGrid>
+                    <div className="qr-column">
+                      <div className="qr" role="img" aria-label="QR Code Pix da fatura">
+                        <QRCode value={pix.qrCode} size={204} level="M" />
+                      </div>
+                      <small>Escaneie no aplicativo do seu banco</small>
+                    </div>
+                    <div className="copy-column">
+                      <span className="mini-label">PREFERE PAGAR NESTE CELULAR?</span>
+                      <h3>Copie, cole e pronto.</h3>
+                      <p>
+                        Copie o código e, no aplicativo do banco, escolha{' '}
+                        <strong>Pix copia e cola</strong>. Confira os dados antes de confirmar.
+                      </p>
+                      <S.Primary type="button" onClick={() => void copyPix()}>
+                        {copyState === 'copied' ? <Check size={18} /> : <Copy size={18} />}
+                        {copyState === 'copied' ? 'Código copiado' : 'Copiar código Pix'}
+                      </S.Primary>
+                      <span className="copy-feedback" role="status">
+                        {copyState === 'copied'
+                          ? 'Agora cole no aplicativo do seu banco.'
+                          : copyState === 'error'
+                            ? 'Selecione e copie o código abaixo manualmente.'
+                            : ''}
+                      </span>
+                      <details ref={codeDetails}>
+                        <summary>Ver código Pix</summary>
+                        <label htmlFor="recovery-pix-code" className="sr-only">
+                          Código Pix copia e cola
+                        </label>
+                        <textarea
+                          ref={code}
+                          id="recovery-pix-code"
+                          value={pix.qrCode}
+                          readOnly
+                          rows={3}
+                          onFocus={(event) => event.currentTarget.select()}
+                        />
+                      </details>
+                    </div>
+                  </S.PixGrid>
+                  <BillingPixValidity validity={validity} />
+                </>
+              ) : (
+                <S.Generate>
+                  <div className="qr-placeholder" aria-hidden="true">
+                    <QrCode size={52} strokeWidth={1.2} />
+                    <span>
+                      <LockKeyhole size={13} />
+                    </span>
+                  </div>
+                  <div>
+                    <h3>{expired ? 'Este código Pix expirou' : 'Seu Pix, em um clique.'}</h3>
+                    <p>
+                      {expired
+                        ? 'Gere outro código para a mesma fatura. Se já pagou, consulte a confirmação antes de pagar novamente.'
+                        : 'Gere um QR Code vinculado à sua mensalidade. O valor e a fatura permanecem os mesmos.'}
+                    </p>
+                    <S.Primary
+                      type="button"
+                      disabled={generatingPix || checking}
+                      onClick={requestPix}
+                    >
+                      {generatingPix ? (
+                        <RefreshCw size={18} className="spin" />
+                      ) : (
+                        <QrCode size={18} />
+                      )}
+                      {generatingPix
+                        ? 'Preparando seu Pix...'
+                        : expired
+                          ? 'Gerar novo Pix'
+                          : 'Gerar Pix da fatura'}
+                      {!generatingPix && <ArrowRight size={17} />}
+                    </S.Primary>
+                  </div>
+                </S.Generate>
+              )}
+              <S.Confirmation>
+                <div>
+                  <span className="confirm-icon">
+                    <ShieldCheck size={20} />
+                  </span>
+                  <span>
+                    <strong>Já fez o pagamento?</strong>
+                    <small>
+                      A liberação acontece após a confirmação do pagamento pelo sistema.
+                    </small>
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => void verifyRelease()}
+                  disabled={checking || generatingPix}
+                >
+                  <RefreshCw size={16} className={checking ? 'spin' : ''} />
+                  {checking ? 'Conferindo...' : 'Verificar pagamento'}
+                </button>
+              </S.Confirmation>
+              {feedback && (
+                <S.Feedback
+                  $tone={feedback.tone}
+                  role={feedback.tone === 'error' ? 'alert' : 'status'}
+                >
+                  {feedback.tone === 'error' ? (
+                    <CircleAlert size={17} />
+                  ) : (
+                    <ShieldCheck size={17} />
+                  )}
+                  <span>{feedback.message}</span>
+                </S.Feedback>
+              )}
+            </S.PaymentCard>
+          </S.Layout>
+        )}
+        <S.Footer>
+          <ShieldCheck size={17} />
+          <span>Seus cadastros e configurações continuam preservados durante a pausa.</span>
+          <span className="signature">TECNOLOGIA QUE MOVE SABORES</span>
+        </S.Footer>
       </S.Main>
     </S.Root>
   );
