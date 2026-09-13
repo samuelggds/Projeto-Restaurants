@@ -44,10 +44,16 @@ export default function AdminPortalEntry() {
   const key = String(accessKey || '').trim();
   const requestKey = `${slug}:${key}`;
   const entryStartedRef = useRef(false);
+  const hadSessionRef = useRef(Boolean(user));
+  const logoutRef = useRef(logout);
   const [entryState, setEntryState] = useState<EntryState>({
     requestKey: '',
     status: 'checking',
   });
+
+  useEffect(() => {
+    logoutRef.current = logout;
+  }, [logout]);
 
   useEffect(() => {
     if (!slug || !key || entryStartedRef.current) return;
@@ -56,7 +62,7 @@ export default function AdminPortalEntry() {
     // Links privados de outro portal representam uma nova fronteira de sessão.
     // A sessão atual (SUPER_ADMIN, ADMIN, funcionário ou cliente) não pode ser
     // reaproveitada no restaurante acessado pelo link.
-    if (user) logout();
+    if (hadSessionRef.current) logoutRef.current();
 
     persistTenantSlug(slug);
     let active = true;
@@ -73,7 +79,7 @@ export default function AdminPortalEntry() {
     return () => {
       active = false;
     };
-  }, [key, logout, navigate, requestKey, slug, user]);
+  }, [key, navigate, requestKey, slug]);
 
   const status: EntryStatus =
     !slug || !key
