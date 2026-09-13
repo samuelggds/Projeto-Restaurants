@@ -21,14 +21,7 @@ function readTargetRect(target: string): Rect | null {
 
 export function AiGuidedTour({ guide, onClose, onNavigate }: Props) {
   const [stepIndex, setStepIndex] = useState(0);
-  const [activeGuide, setActiveGuide] = useState<AiTourGuide | null>(guide);
   const [targetRect, setTargetRect] = useState<Rect | null>(null);
-
-  if (activeGuide !== guide) {
-    setActiveGuide(guide);
-    setStepIndex(0);
-  }
-
   const step = guide?.steps[stepIndex];
 
   useEffect(() => {
