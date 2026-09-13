@@ -14,6 +14,7 @@ import RefreshTokenController from '../controllers/RefreshTokenController.js';
 import LogoutController from '../controllers/LogoutController.js';
 import VerifyLoginMfaController from '../controllers/VerifyLoginMfaController.js';
 import ResendLoginMfaController from '../controllers/ResendLoginMfaController.js';
+import ClaimEmployeeOnboardingController from '../controllers/ClaimEmployeeOnboardingController.js';
 import UpdateMfaPreferenceController from '../controllers/UpdateMfaPreferenceController.js';
 import {
   passwordResetRateLimitMiddleware,
@@ -56,6 +57,10 @@ router.post('/login/verify-2fa', loginRateLimitMiddleware, (req, res) => {
 
 router.post('/login/resend-2fa', loginRateLimitMiddleware, (req, res) => {
   ResendLoginMfaController.handle(req, res);
+});
+
+router.post('/employee-onboarding/claim', authMiddleware, (req, res) => {
+  ClaimEmployeeOnboardingController.handle(req, res);
 });
 
 router.get('/google/client-id', (req, res) => {
