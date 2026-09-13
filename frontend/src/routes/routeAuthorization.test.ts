@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { authorizeRoute, TENANT_LOGIN_REDIRECT } from './routeAuthorization';
+import {
+  authorizeRoute,
+  shouldEndSuperAdminSession,
+  TENANT_LOGIN_REDIRECT,
+} from './routeAuthorization';
 import { TENANT_REQUIRED_PATH } from '../shared/navigation/authNavigation';
 
 const allowed = (path: string, user: Parameters<typeof authorizeRoute>[1]) =>
@@ -74,6 +78,30 @@ describe('política de autorização de rotas', () => {
     expect(allowed('/super_admin/restaurantes', user)).toBe(true);
     expect(authorizeRoute('/pizzaria', user)).toEqual({ allowed: false, redirectTo: '/super_admin' });
     expect(allowed('/admin', user)).toBe(false);
+  });
+
+  it('encerra a sessão SUPER_ADMIN ao sair do namespace técnico', () => {
+    const user = { role: 'SUPER_ADMIN' };
+
+    expect(shouldEndSuperAdminSession('/super_admin', user)).toBe(false);
+    expect(shouldEndSuperAdminSession('/super_admin/restaurantes?tab=ativos', user)).toBe(false);
+    expect(shouldEndSuperAdminSession('/pizzaria/admin/chave', user)).toBe(true);
+    expect(shouldEndSuperAdminSession('/admin', user)).toBe(true);
+    expect(shouldEndSuperAdminSession('/admin', { role: 'ADMIN' })).toBe(false);
+    expect(shouldEndSuperAdminSession('/admin', null)).toBe(false);
+  });
+
+  it('preserva a sessão SUPER_ADMIN somente para a troca obrigatória de senha', () => {
+    const user = { role: 'SUPER_ADMIN', mustChangePassword: true };
+
+    expect(shouldEndSuperAdminSession('/change-password', user)).toBe(false);
+    expect(shouldEndSuperAdminSession('/change-password/', user)).toBe(false);
+    expect(shouldEndSuperAdminSession('/admin', user)).toBe(true);
+    expect(authorizeRoute('/change-password', user)).toEqual({ allowed: true });
+    expect(authorizeRoute('/super_admin', user)).toEqual({
+      allowed: false,
+      redirectTo: '/change-password',
+    });
   });
 
   it('encaminha visitante do painel diretamente ao login técnico', () => {

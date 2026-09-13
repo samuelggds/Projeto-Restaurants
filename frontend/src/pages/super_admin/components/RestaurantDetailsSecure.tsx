@@ -27,6 +27,7 @@ export function RestaurantDetailsSecure({
   notify: (message: string, error?: boolean) => void;
 }) {
   const [confirmAccess, setConfirmAccess] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const [confirmRevokePortal, setConfirmRevokePortal] = useState(false);
   const [editingSubscription, setEditingSubscription] = useState(false);
   const [generatedLink, setGeneratedLink] = useState<GeneratedLink>(null);
@@ -214,6 +215,9 @@ export function RestaurantDetailsSecure({
           >
             {restaurant.active ? 'Bloquear acesso' : 'Liberar acesso'}
           </S.Button>
+          <S.Button $variant="danger" onClick={() => setConfirmDelete(true)}>
+            Excluir restaurante
+          </S.Button>
         </S.ActionGroup>
       </Modal>
 
@@ -234,6 +238,21 @@ export function RestaurantDetailsSecure({
               reason,
             });
             notify('Acesso do restaurante atualizado.');
+          }}
+        />
+      ) : null}
+
+      {confirmDelete ? (
+        <ConfirmAction
+          title="Excluir restaurante permanentemente"
+          description={`Esta ação remove ${restaurant.name} e não pode ser desfeita. Restaurantes com pedidos ou faturas registrados não podem ser excluídos para preservar o histórico operacional e financeiro.`}
+          confirmLabel="Excluir restaurante"
+          danger
+          onClose={() => setConfirmDelete(false)}
+          onConfirm={async (reason) => {
+            await actions.deleteRestaurant(restaurant.id, { reason });
+            onClose();
+            notify('Restaurante excluído permanentemente.');
           }}
         />
       ) : null}

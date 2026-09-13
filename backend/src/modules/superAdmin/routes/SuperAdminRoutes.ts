@@ -11,6 +11,9 @@ router.get('/dashboard', (req, res, next) => SuperAdminController.dashboard(req,
 router.get('/restaurants/:id', (req, res, next) =>
   SuperAdminController.restaurant(req, res, next),
 );
+router.delete('/restaurants/:id', (req, res, next) =>
+  SuperAdminController.deleteRestaurant(req, res, next),
+);
 router.put('/settings', (req, res, next) => SuperAdminController.settings(req, res, next));
 router.patch('/plans/:code', (req, res, next) => SuperAdminController.plan(req, res, next));
 router.patch('/restaurants/:id/access', (req, res, next) =>

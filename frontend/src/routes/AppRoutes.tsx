@@ -7,7 +7,7 @@ import {
   useLocation,
   useParams,
 } from 'react-router-dom';
-import { lazy, Suspense, useEffect, useState } from 'react';
+import { lazy, Suspense, useEffect, useRef, useState, type ReactNode } from 'react';
 
 const Login = lazy(() => import('../pages/Login/Login'));
 const AdminPortalEntry = lazy(() => import('../pages/Login/AdminPortalEntry'));
@@ -43,7 +43,11 @@ import {
   setSystemBlockState,
   subscribeSystemBlockState,
 } from '../Services/systemBlock';
-import { authorizeRoute, TENANT_LOGIN_REDIRECT } from './routeAuthorization';
+import {
+  authorizeRoute,
+  shouldEndSuperAdminSession,
+  TENANT_LOGIN_REDIRECT,
+} from './routeAuthorization';
 import SystemAvailabilityGate from './SystemAvailabilityGate';
 import SystemMaintenancePage from '../pages/SystemMaintenance/SystemMaintenance';
 import BrowserTabBranding from '../components/BrowserTabBranding/BrowserTabBranding';
@@ -79,6 +83,30 @@ function RouteLoading() {
       <span role="status">Carregando página…</span>
     </main>
   );
+}
+
+function SuperAdminSessionBoundary({ children }: { children: ReactNode }) {
+  const { user, logout, isLoading } = useAuth();
+  const location = useLocation();
+  const logoutInProgress = useRef(false);
+
+  useEffect(() => {
+    if (isLoading || logoutInProgress.current) return;
+    if (!shouldEndSuperAdminSession(location.pathname, user)) return;
+
+    logoutInProgress.current = true;
+    logout();
+  }, [isLoading, location.pathname, logout, user]);
+
+  useEffect(() => {
+    if (String(user?.role || '').toUpperCase() !== 'SUPER_ADMIN') {
+      logoutInProgress.current = false;
+    }
+  }, [user]);
+
+  if (isLoading) return <RouteLoading />;
+  if (shouldEndSuperAdminSession(location.pathname, user)) return <RouteLoading />;
+  return <>{children}</>;
 }
 
 function TenantRequiredPage() {
@@ -223,69 +251,71 @@ function BillingGate() {
 export default function AppRoutes() {
   return (
     <BrowserRouter>
-      <BrowserTabBranding />
-      <Suspense fallback={<RouteLoading />}>
-        <DeliveryCustomerAlertLayer />
-        <SystemAvailabilityGate>
-          <Routes>
-            <Route element={<PageTransition />}>
-              <Route path="/" element={<GastroNexaLanding />} />
-              <Route path="/demonstracao" element={<GastroNexaDemo />} />
-              <Route path="/super_admin/login" element={<Login />} />
-              <Route path="/:restaurantSlug/admin/:accessKey" element={<AdminPortalEntry />} />
-              <Route element={<RouteAuthorizationGuard />}>
-                <Route path="/:restaurantSlug/login" element={<Login />} />
-                <Route path="/:restaurantSlug/register" element={<Register />} />
-                <Route path="/:restaurantSlug/recover-password" element={<RecoverPassword />} />
-                <Route path="/:restaurantSlug/team" element={<Login />} />
-                <Route path="/:restaurantSlug/admin" element={<AdminPortalLoginGate />} />
-                <Route path="/system-maintenance" element={<SystemMaintenancePage />} />
-                <Route path={TENANT_REQUIRED_PATH} element={<TenantRequiredPage />} />
-                <Route path="/:restaurantSlug" element={<RestaurantMenuGate />} />
-                <Route path="/:restaurantSlug/mesa/:tableNumber" element={<DigitalMenu />} />
-                <Route path="/orders/:id/tracking" element={<DeliveryTrackingPage />} />
-                <Route path="/orders/:id/chat" element={<DeliveryChatPage />} />
+      <SuperAdminSessionBoundary>
+        <BrowserTabBranding />
+        <Suspense fallback={<RouteLoading />}>
+          <DeliveryCustomerAlertLayer />
+          <SystemAvailabilityGate>
+            <Routes>
+              <Route element={<PageTransition />}>
+                <Route path="/" element={<GastroNexaLanding />} />
+                <Route path="/demonstracao" element={<GastroNexaDemo />} />
+                <Route path="/super_admin/login" element={<Login />} />
+                <Route path="/:restaurantSlug/admin/:accessKey" element={<AdminPortalEntry />} />
+                <Route element={<RouteAuthorizationGuard />}>
+                  <Route path="/:restaurantSlug/login" element={<Login />} />
+                  <Route path="/:restaurantSlug/register" element={<Register />} />
+                  <Route path="/:restaurantSlug/recover-password" element={<RecoverPassword />} />
+                  <Route path="/:restaurantSlug/team" element={<Login />} />
+                  <Route path="/:restaurantSlug/admin" element={<AdminPortalLoginGate />} />
+                  <Route path="/system-maintenance" element={<SystemMaintenancePage />} />
+                  <Route path={TENANT_REQUIRED_PATH} element={<TenantRequiredPage />} />
+                  <Route path="/:restaurantSlug" element={<RestaurantMenuGate />} />
+                  <Route path="/:restaurantSlug/mesa/:tableNumber" element={<DigitalMenu />} />
+                  <Route path="/orders/:id/tracking" element={<DeliveryTrackingPage />} />
+                  <Route path="/orders/:id/chat" element={<DeliveryChatPage />} />
 
-                <Route element={<RequireAuth />}>
-                  <Route path="/change-password" element={<ChangePasswordPage />} />
-                  <Route path="/system-blocked" element={<SystemBlockedPage />} />
+                  <Route element={<RequireAuth />}>
+                    <Route path="/change-password" element={<ChangePasswordPage />} />
+                    <Route path="/system-blocked" element={<SystemBlockedPage />} />
 
-                  <Route element={<BillingGate />}>
-                    <Route path="/billing" element={<BillingPage />} />
-                    <Route path="/profile" element={<UserProfile />} />
-                    <Route path="/admin" element={<AdminDashboard />} />
-                    <Route
-                      path="/admin/configuracoes"
-                      element={<Navigate to="/admin?settings=brand" replace />}
-                    />
-                    <Route path="/courier" element={<CourierDashboard />} />
-                    <Route path="/kitchen" element={<KitchenPage />} />
-                    <Route path="/waiter" element={<WaiterPage />} />
-                    <Route path="/attendant" element={<AttendantPage />} />
+                    <Route element={<BillingGate />}>
+                      <Route path="/billing" element={<BillingPage />} />
+                      <Route path="/profile" element={<UserProfile />} />
+                      <Route path="/admin" element={<AdminDashboard />} />
+                      <Route
+                        path="/admin/configuracoes"
+                        element={<Navigate to="/admin?settings=brand" replace />}
+                      />
+                      <Route path="/courier" element={<CourierDashboard />} />
+                      <Route path="/kitchen" element={<KitchenPage />} />
+                      <Route path="/waiter" element={<WaiterPage />} />
+                      <Route path="/attendant" element={<AttendantPage />} />
+                    </Route>
+                  </Route>
+
+                  <Route element={<RequireAuth />}>
+                    <Route path="/super_admin" element={<SuperAdminPage />} />
+                    <Route path="/super_admin/*" element={<SuperAdminPage />} />
                   </Route>
                 </Route>
 
-                <Route element={<RequireAuth />}>
-                  <Route path="/super_admin" element={<SuperAdminPage />} />
-                  <Route path="/super_admin/*" element={<SuperAdminPage />} />
-                </Route>
+                <Route path="/login" element={<LegacyLoginRedirect />} />
+                <Route path="/register" element={<Navigate to={TENANT_REQUIRED_PATH} replace />} />
+                <Route
+                  path="/recover-password"
+                  element={<Navigate to={TENANT_REQUIRED_PATH} replace />}
+                />
+                <Route
+                  path="/mesa/:tableNumber"
+                  element={<Navigate to={TENANT_REQUIRED_PATH} replace />}
+                />
+                <Route path="*" element={<Navigate to={TENANT_REQUIRED_PATH} replace />} />
               </Route>
-
-              <Route path="/login" element={<LegacyLoginRedirect />} />
-              <Route path="/register" element={<Navigate to={TENANT_REQUIRED_PATH} replace />} />
-              <Route
-                path="/recover-password"
-                element={<Navigate to={TENANT_REQUIRED_PATH} replace />}
-              />
-              <Route
-                path="/mesa/:tableNumber"
-                element={<Navigate to={TENANT_REQUIRED_PATH} replace />}
-              />
-              <Route path="*" element={<Navigate to={TENANT_REQUIRED_PATH} replace />} />
-            </Route>
-          </Routes>
-        </SystemAvailabilityGate>
-      </Suspense>
+            </Routes>
+          </SystemAvailabilityGate>
+        </Suspense>
+      </SuperAdminSessionBoundary>
     </BrowserRouter>
   );
 }
