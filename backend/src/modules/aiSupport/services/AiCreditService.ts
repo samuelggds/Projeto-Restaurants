@@ -56,6 +56,17 @@ function metadataCostMicros(metadata: unknown) {
   return Number.isFinite(value) && value > 0 ? Math.round(value) : 0;
 }
 
+function toPrismaJson(value: unknown): Prisma.InputJsonValue {
+  if (value === undefined || value === null) return {};
+  try {
+    const serialized = JSON.stringify(value);
+    if (!serialized) return {};
+    return JSON.parse(serialized) as Prisma.InputJsonValue;
+  } catch {
+    return {};
+  }
+}
+
 function dollars(micros: number) {
   return Number((micros / 1_000_000).toFixed(6));
 }
@@ -162,7 +173,7 @@ class AiCreditService {
             costUsd: dollars(costMicros),
             providerCostUsd: dollars(requestedCostMicros),
             cappedAtMonthlyLimit: requestedCostMicros > remainingMicros,
-            usage: input.usage ?? null,
+            usage: toPrismaJson(input.usage),
             billingCycle: cycle.key,
           },
         },
