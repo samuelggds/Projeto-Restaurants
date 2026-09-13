@@ -91,22 +91,20 @@ export default function AdminAiLayer({ children }: { children: React.ReactNode }
   const navigate = useNavigate();
   const { user } = useAuth();
   const userSlug = useMemo(() => readSlug(user), [user]);
-  const [resolvedRestaurantSlug, setResolvedRestaurantSlug] = useState(userSlug);
+  const [fallbackRestaurantSlug, setFallbackRestaurantSlug] = useState('');
+  const resolvedRestaurantSlug = userSlug || fallbackRestaurantSlug;
   const [credits, setCredits] = useState<AiCreditBalance | null>(null);
   const [assistantOpen, setAssistantOpen] = useState(false);
   const [guide, setGuide] = useState<AiTourGuide | null>(null);
   const [sidebarPortal, setSidebarPortal] = useState<HTMLElement | null>(null);
 
   useEffect(() => {
-    if (userSlug) {
-      setResolvedRestaurantSlug(userSlug);
-      return;
-    }
+    if (userSlug) return undefined;
     let active = true;
     restaurantSettingsService
       .getMySettings()
       .then((settings) => {
-        if (active) setResolvedRestaurantSlug(readSlug(settings));
+        if (active) setFallbackRestaurantSlug(readSlug(settings));
       })
       .catch(() => undefined);
     return () => {
@@ -171,7 +169,6 @@ export default function AdminAiLayer({ children }: { children: React.ReactNode }
       observer.disconnect();
       window.clearInterval(interval);
       previewButton?.removeEventListener('click', openStore, true);
-      setSidebarPortal(null);
       portalNode?.remove();
     };
   }, [navigate, resolvedRestaurantSlug]);
@@ -234,7 +231,12 @@ export default function AdminAiLayer({ children }: { children: React.ReactNode }
         </AssistantPanel>
       )}
 
-      <AiGuidedTour guide={guide} onClose={() => setGuide(null)} onNavigate={navigateForTour} />
+      <AiGuidedTour
+        key={guide ? `${guide.title}:${guide.summary}` : 'no-guide'}
+        guide={guide}
+        onClose={() => setGuide(null)}
+        onNavigate={navigateForTour}
+      />
     </>
   );
 }
