@@ -49,6 +49,9 @@ export default function SuperAdminPage() {
       updateRestaurantAccess: async (id, input) => {
         await mutateAndRefresh(() => superAdminService.updateRestaurantAccess(id, input));
       },
+      deleteRestaurant: async (id, input) => {
+        await mutateAndRefresh(() => superAdminService.deleteRestaurant(id, input));
+      },
       updateSubscription: async (id, input) => {
         await mutateAndRefresh(() => superAdminService.updateRestaurantSubscription(id, input));
       },
