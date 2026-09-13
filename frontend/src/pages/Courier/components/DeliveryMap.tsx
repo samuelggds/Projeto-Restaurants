@@ -163,13 +163,13 @@ export default function DeliveryMap({
             />
             <Polyline
               positions={plannedRoute}
+              className="delivery-planned-route"
               pathOptions={{
                 color: '#2563eb',
                 weight: 5,
                 opacity: 0.96,
                 lineCap: 'round',
                 lineJoin: 'round',
-                className: 'delivery-planned-route',
               }}
             />
           </>
