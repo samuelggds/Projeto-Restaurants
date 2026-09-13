@@ -5,7 +5,7 @@ import { getJwtSecret } from '../../../config/auth.js';
 
 const ROTATED_ACTION = 'ADMIN_PORTAL_KEY_ROTATED';
 const REVOKED_ACTION = 'ADMIN_PORTAL_KEY_REVOKED';
-const GRANT_TTL: SignOptions['expiresIn'] = '10m';
+const GRANT_TTL: SignOptions['expiresIn'] = '1h';
 
 export class AdminPortalAccessError extends Error {
   constructor(
@@ -173,7 +173,7 @@ export class AdminPortalAccessService {
       { expiresIn: GRANT_TTL },
     );
 
-    return { grant, restaurantId: restaurant.id, slug: restaurant.slug, expiresInSeconds: 600 };
+    return { grant, restaurantId: restaurant.id, slug: restaurant.slug, expiresInSeconds: 3600 };
   }
 
   async verifyGrant(slugInput: unknown, grantInput: unknown) {
