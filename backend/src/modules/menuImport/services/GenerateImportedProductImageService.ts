@@ -1,5 +1,6 @@
 import OpenAI from 'openai';
 import prisma from '../../../config/prisma.js';
+import { setTenantDbContext } from '../../../database/tenantDbContext.js';
 import productRepository from '../../products/repositories/ProductRepository.js';
 
 const BRANDED_PRODUCT_TERMS = [
@@ -19,13 +20,10 @@ const BRANDED_PRODUCT_TERMS = [
   'corona',
   'brahma',
   'skol',
-  'antarctica',
   'ambev',
   'itaipava',
   'bohemia',
-  'original',
   'h2oh',
-  'del valle',
   'del valle',
   'kero coco',
   'nescau',
@@ -101,7 +99,10 @@ class GenerateImportedProductImageService {
       throw new Error('Produto ou restaurante inválido.');
     }
 
-    const product = await productRepository.findById(productId, restaurantId);
+    const product = await prisma.$transaction(async (db) => {
+      await setTenantDbContext(db, restaurantId);
+      return productRepository.findById(productId, restaurantId, db);
+    });
     if (!product) throw new Error('Produto não encontrado neste restaurante.');
 
     const brand = detectBrandedImportedProduct(product.name, product.description);
@@ -142,9 +143,9 @@ class GenerateImportedProductImageService {
     if (!base64) throw new Error('A IA não retornou uma imagem para o produto.');
 
     const imageDataUrl = `data:image/png;base64,${base64}`;
-    await prisma.product.updateMany({
-      where: { id: productId, restaurantId },
-      data: { image: imageDataUrl },
+    await prisma.$transaction(async (db) => {
+      await setTenantDbContext(db, restaurantId);
+      await productRepository.update(productId, { image: imageDataUrl }, restaurantId, db);
     });
 
     return {
