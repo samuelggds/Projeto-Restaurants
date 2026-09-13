@@ -1,11 +1,16 @@
 import { FormEvent, useState } from 'react';
 import styled from 'styled-components';
-import { LoaderCircle, Send, Sparkles } from 'lucide-react';
-import aiGuideService, { type AiGuide, type AiCreditBalance } from '../../../Services/aiGuideService';
+import { LoaderCircle, MessageCircleQuestion, Send, Sparkles, X } from 'lucide-react';
+import aiGuideService, {
+  type AiCreditBalance,
+  type AiGuide,
+  type AiSupportGuide,
+  type AiTourGuide,
+} from '../../../Services/aiGuideService';
 
 type Props = {
   disabled?: boolean;
-  onGuideReady: (guide: AiGuide) => void;
+  onGuideReady: (guide: AiTourGuide) => void;
   onCreditsChanged: (balance: AiCreditBalance) => void;
 };
 
@@ -13,6 +18,17 @@ export function AiGuideAssistant({ disabled = false, onGuideReady, onCreditsChan
   const [question, setQuestion] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [supportAnswer, setSupportAnswer] = useState<AiSupportGuide | null>(null);
+
+  const handleGuideResult = (guide: AiGuide) => {
+    if (guide.mode === 'TOUR') {
+      setSupportAnswer(null);
+      onGuideReady(guide);
+      return;
+    }
+
+    setSupportAnswer(guide);
+  };
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
@@ -23,12 +39,12 @@ export function AiGuideAssistant({ disabled = false, onGuideReady, onCreditsChan
     try {
       const result = await aiGuideService.createGuide(trimmed);
       onCreditsChanged(result.credits);
-      onGuideReady(result.guide);
+      handleGuideResult(result.guide);
       setQuestion('');
     } catch (requestError: unknown) {
       const errorLike = requestError as { response?: { data?: { error?: string } }; message?: string };
       setError(
-        String(errorLike.response?.data?.error || errorLike.message || 'Não foi possível criar o guia agora.'),
+        String(errorLike.response?.data?.error || errorLike.message || 'Não foi possível criar a orientação agora.'),
       );
     } finally {
       setLoading(false);
@@ -43,7 +59,9 @@ export function AiGuideAssistant({ disabled = false, onGuideReady, onCreditsChan
           <span className="eyebrow">Guia inteligente</span>
           <h2>Pergunte como usar o GastroNexa</h2>
           <p>
-            A OpenAI monta um tour visual e destaca na tela onde você deve clicar, passo a passo.
+            Para funções do painel ADMIN, a OpenAI cria um tour visual com balões. Para cozinha,
+            garçom, atendente, motoqueiro ou cliente, ela responde em um chat de suporte para você
+            orientar sua equipe.
           </p>
         </div>
       </div>
@@ -52,7 +70,7 @@ export function AiGuideAssistant({ disabled = false, onGuideReady, onCreditsChan
           value={question}
           disabled={disabled || loading}
           maxLength={800}
-          placeholder="Ex.: Como cadastro um produto? Como configuro o Pix? Como crio uma mesa com QR Code?"
+          placeholder="Ex.: Como cadastro um produto? Como o garçom atende uma mesa? Como a cozinha marca um pedido como pronto?"
           onChange={(event) => setQuestion(event.target.value)}
           aria-label="Pergunta para o guia com IA"
         />
@@ -60,11 +78,46 @@ export function AiGuideAssistant({ disabled = false, onGuideReady, onCreditsChan
           <span>{disabled ? 'Seus créditos de IA acabaram neste mês.' : 'O uso é descontado dos seus créditos OpenAI mensais.'}</span>
           <button type="submit" disabled={disabled || loading || question.trim().length < 3}>
             {loading ? <LoaderCircle className="spin" /> : <Send />}
-            {loading ? 'Criando guia...' : 'Criar tour com IA'}
+            {loading ? 'Consultando...' : 'Perguntar à IA'}
           </button>
         </div>
       </form>
       {error && <div className="error" role="alert">{error}</div>}
+
+      {supportAnswer && (
+        <SupportPanel aria-live="polite">
+          <div className="support-header">
+            <span className="support-icon"><MessageCircleQuestion /></span>
+            <div>
+              <small>Suporte para orientar sua equipe</small>
+              <h3>{supportAnswer.title}</h3>
+              <span className="audience">Tela/perfil: {supportAnswer.audience}</span>
+            </div>
+            <button
+              type="button"
+              className="close-support"
+              aria-label="Fechar resposta do suporte"
+              onClick={() => setSupportAnswer(null)}
+            >
+              <X />
+            </button>
+          </div>
+          <p className="summary">{supportAnswer.summary}</p>
+          <div className="answer">{supportAnswer.answer}</div>
+          <ol>
+            {supportAnswer.instructions.map((instruction, index) => (
+              <li key={`${index}-${instruction}`}>
+                <span>{index + 1}</span>
+                <p>{instruction}</p>
+              </li>
+            ))}
+          </ol>
+          <small className="support-note">
+            Essa orientação é para o administrador repassar à equipe. Nenhum funcionário precisa
+            acessar este assistente.
+          </small>
+        </SupportPanel>
+      )}
     </Card>
   );
 }
@@ -185,5 +238,111 @@ const Card = styled.section`
     padding: 17px;
     .actions { align-items: stretch; flex-direction: column; }
     button { width: 100%; }
+  }
+`;
+
+const SupportPanel = styled.section`
+  margin-top: 18px;
+  padding: 16px;
+  border: 1px solid #dedbd7;
+  border-radius: 16px;
+  background: linear-gradient(180deg, #fcfbfa, #f7f5f2);
+  box-shadow: inset 0 1px 0 #fff;
+
+  .support-header {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    gap: 11px;
+    align-items: start;
+  }
+  .support-icon {
+    width: 36px;
+    height: 36px;
+    display: grid;
+    place-items: center;
+    border-radius: 11px;
+    color: #fff;
+    background: #17191a;
+  }
+  .support-icon svg { width: 17px; }
+  .support-header small {
+    display: block;
+    color: #77706b;
+    font-size: 9px;
+    font-weight: 800;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+  }
+  h3 {
+    margin: 2px 0 3px;
+    color: #1b1918;
+    font-size: 16px;
+    line-height: 1.3;
+  }
+  .audience {
+    color: #645f5b;
+    font-size: 10px;
+    font-weight: 700;
+  }
+  .close-support {
+    width: 32px;
+    min-height: 32px;
+    padding: 0;
+    border: 1px solid #dedbd7;
+    border-radius: 9px;
+    color: #4d4946;
+    background: #fff;
+    box-shadow: none;
+  }
+  .close-support:hover { background: #f2efec; }
+  .summary {
+    margin-top: 13px;
+    color: #625c57;
+    font-weight: 650;
+  }
+  .answer {
+    margin-top: 11px;
+    padding: 12px 13px;
+    border-radius: 12px;
+    color: #292522;
+    background: #fff;
+    font-size: 12px;
+    line-height: 1.6;
+    white-space: pre-wrap;
+  }
+  ol {
+    display: grid;
+    gap: 8px;
+    margin: 12px 0 0;
+    padding: 0;
+    list-style: none;
+  }
+  li {
+    display: grid;
+    grid-template-columns: 28px 1fr;
+    gap: 9px;
+    align-items: start;
+  }
+  li > span {
+    width: 27px;
+    height: 27px;
+    display: grid;
+    place-items: center;
+    border-radius: 50%;
+    color: #fff;
+    background: #252729;
+    font-size: 10px;
+    font-weight: 850;
+  }
+  li p {
+    margin: 3px 0 0;
+    color: #4f4a46;
+  }
+  .support-note {
+    display: block;
+    margin-top: 13px;
+    color: #8a837d;
+    font-size: 9px;
+    line-height: 1.5;
   }
 `;
