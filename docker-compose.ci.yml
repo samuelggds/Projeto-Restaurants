@@ -36,7 +36,7 @@ services:
       SMTP_HOST: ''
       SENTRY_DSN: ''
       PRISMA_HIDE_UPDATE_MESSAGE: 'true'
-    command: ['sh', '-c', 'npx prisma migrate deploy && node dist/server.js']
+    command: ['sh', '-c', './node_modules/.bin/prisma migrate deploy && node dist/server.js']
     depends_on:
       postgres:
         condition: service_healthy
