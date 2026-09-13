@@ -1,0 +1,160 @@
+:root {
+  color-scheme: light;
+  --ink: #233c30;
+  --muted: #5f6e63;
+  --line: #dfe5d9;
+  --forest: #21392d;
+  --forest-strong: #172b21;
+  --lime: #e1ecb5;
+  --canvas: #faf9f5;
+}
+
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body {
+  margin: 0;
+  min-height: 100vh;
+  background:
+    radial-gradient(circle at 88% 5%, rgba(225, 236, 181, .52), transparent 30rem),
+    var(--canvas);
+  color: var(--ink);
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+a { color: inherit; }
+a:focus-visible { outline: 3px solid #75964e; outline-offset: 4px; }
+.site-header {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  border-bottom: 1px solid rgba(35, 60, 48, .1);
+  background: rgba(250, 249, 245, .94);
+  backdrop-filter: blur(16px);
+}
+.header-inner {
+  width: min(1120px, calc(100% - 64px));
+  min-height: 78px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+}
+.brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  text-decoration: none;
+  color: var(--forest);
+  font-size: 20px;
+  font-weight: 850;
+  letter-spacing: -.04em;
+}
+.brand img { width: 38px; height: 34px; }
+.brand-dot { color: #8aa251; }
+.back-link {
+  color: #536457;
+  font-size: 12px;
+  font-weight: 750;
+  text-decoration: none;
+}
+.back-link:hover { text-decoration: underline; text-underline-offset: 4px; }
+main {
+  width: min(920px, calc(100% - 64px));
+  margin: 0 auto;
+  padding: clamp(58px, 8vw, 96px) 0 80px;
+}
+.hero { max-width: 760px; margin-bottom: 36px; }
+.eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 18px;
+  color: #687c55;
+  font-size: 10px;
+  font-weight: 850;
+  letter-spacing: .16em;
+}
+.eyebrow::before { content: ""; width: 24px; height: 1px; background: #8da261; }
+h1 {
+  margin: 0;
+  color: var(--forest-strong);
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: clamp(42px, 7vw, 70px);
+  font-weight: 500;
+  letter-spacing: -.045em;
+  line-height: .98;
+}
+.lead {
+  max-width: 700px;
+  margin: 24px 0 0;
+  color: #607064;
+  font-size: clamp(15px, 2vw, 18px);
+  line-height: 1.75;
+}
+.updated { display: block; margin-top: 18px; color: #839084; font-size: 11px; }
+.document {
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 24px;
+  background: rgba(255,255,255,.9);
+  box-shadow: 0 22px 60px rgba(29,53,40,.07);
+}
+.intro {
+  padding: 28px clamp(22px, 5vw, 46px);
+  border-bottom: 1px solid var(--line);
+  background: #f2f6e9;
+  color: #526354;
+  font-size: 13px;
+  line-height: 1.8;
+}
+.intro strong { color: var(--forest); }
+section { padding: 32px clamp(22px, 5vw, 46px); }
+section + section { border-top: 1px solid #edf0e8; }
+h2 {
+  margin: 0 0 14px;
+  color: var(--forest-strong);
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: clamp(24px, 4vw, 31px);
+  font-weight: 500;
+  letter-spacing: -.025em;
+}
+h3 { margin: 25px 0 8px; color: var(--forest); font-size: 14px; }
+p, li { color: #59665d; font-size: 13px; line-height: 1.9; }
+p { margin: 0; }
+p + p { margin-top: 14px; }
+ul, ol { margin: 14px 0 0; padding-left: 20px; }
+li + li { margin-top: 7px; }
+section a { color: #2f6547; font-weight: 750; text-underline-offset: 3px; }
+.callout {
+  margin-top: 20px;
+  padding: 18px 20px;
+  border: 1px solid #dce6c9;
+  border-radius: 15px;
+  background: #f6f9ef;
+  color: #526252;
+  font-size: 12px;
+  line-height: 1.8;
+}
+.callout strong { color: var(--forest); }
+.site-footer {
+  width: min(920px, calc(100% - 64px));
+  margin: 0 auto;
+  border-top: 1px solid var(--line);
+  padding: 24px 0 40px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 24px;
+  color: #79857b;
+  font-size: 11px;
+}
+.footer-links { display: flex; flex-wrap: wrap; gap: 18px; }
+.footer-links a { color: #4c6152; font-weight: 750; text-decoration: none; }
+.footer-links a:hover { text-decoration: underline; text-underline-offset: 4px; }
+@media (max-width: 640px) {
+  .header-inner, main, .site-footer { width: calc(100% - 36px); }
+  .header-inner { min-height: 70px; }
+  main { padding-top: 42px; }
+  .site-footer { flex-direction: column; }
+  .back-link { font-size: 11px; }
+}
