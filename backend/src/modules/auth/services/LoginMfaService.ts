@@ -2,7 +2,6 @@ import bcrypt from 'bcrypt';
 import crypto from 'crypto';
 import jwt from 'jsonwebtoken';
 import nodemailer from 'nodemailer';
-import { UserRole } from '@prisma/client';
 import prisma from '../../../config/prisma.js';
 import { getJwtMfaExpiresIn, getJwtMfaSecret, getJwtSecret } from '../../../config/auth.js';
 import authTokenService from './AuthTokenService.js';
@@ -34,6 +33,18 @@ type LoginUser = {
   complement?: string | null;
   avatar?: string | null;
 };
+
+const MFA_RESEND_COOLDOWN_SECONDS = 60;
+
+export class MfaResendCooldownError extends Error {
+  readonly retryAfterSeconds: number;
+
+  constructor(retryAfterSeconds: number) {
+    super(`Aguarde ${retryAfterSeconds} segundos antes de solicitar outro código.`);
+    this.name = 'MfaResendCooldownError';
+    this.retryAfterSeconds = retryAfterSeconds;
+  }
+}
 
 function createTransporter() {
   const smtpHost = String(process.env.SMTP_HOST || '').trim();
@@ -105,6 +116,47 @@ function requiresMfa(user: Pick<LoginUser, 'role' | 'mfaEnabled'>) {
   return Boolean(user.mfaEnabled) || isMfaRequiredForRole(user.role);
 }
 
+function maskEmail(emailInput: unknown) {
+  const email = String(emailInput || '').trim();
+  const [localPart, domain] = email.split('@');
+  if (!localPart || !domain) return 'seu e-mail cadastrado';
+
+  const visibleLength = Math.min(3, Math.max(1, Math.floor(localPart.length / 3)));
+  const visible = localPart.slice(0, visibleLength);
+  return `${visible}${'*'.repeat(Math.max(4, localPart.length - visibleLength))}@${domain}`;
+}
+
+function createMfaToken(userId: number) {
+  return jwt.sign(
+    {
+      type: 'login_mfa',
+      userId,
+    },
+    getMfaSecret(),
+    {
+      expiresIn: getJwtMfaExpiresIn(),
+    },
+  );
+}
+
+function decodeMfaToken(mfaToken: unknown) {
+  const rawToken = String(mfaToken || '').trim();
+  if (!rawToken) throw new Error('Token de verificacao obrigatorio');
+
+  const decoded = jwt.verify(rawToken, getMfaSecret());
+  if (!decoded || typeof decoded === 'string') {
+    throw new Error('Token de verificacao invalido');
+  }
+
+  const tokenType = String((decoded as any).type || '').trim();
+  const userId = Number((decoded as any).userId || 0);
+  if (tokenType !== 'login_mfa' || !Number.isInteger(userId) || userId <= 0) {
+    throw new Error('Token de verificacao invalido');
+  }
+
+  return { userId };
+}
+
 function mapUser(user: any) {
   return {
     id: user.id,
@@ -131,18 +183,29 @@ function mapUser(user: any) {
 export class LoginMfaService {
   constructor(private readonly platformAccess: PlatformAccess = platformMaintenanceAccessService) {}
 
-  async beginIfRequired(user: LoginUser) {
-    if (!requiresMfa(user)) {
-      return null;
-    }
+  private async issueChallenge(user: LoginUser, enforceCooldown: boolean) {
+    const userId = Number(user.id);
+    const now = new Date();
 
     await prisma.authMfaChallenge.deleteMany({
       where: {
         expiresAt: {
-          lt: new Date(),
+          lt: now,
         },
       },
     });
+
+    if (enforceCooldown) {
+      const current = await prisma.authMfaChallenge.findUnique({ where: { userId } });
+      if (current) {
+        const lastIssuedAt = new Date(current.updatedAt || current.createdAt).getTime();
+        const retryAt = lastIssuedAt + MFA_RESEND_COOLDOWN_SECONDS * 1000;
+        const remainingMs = retryAt - Date.now();
+        if (remainingMs > 0) {
+          throw new MfaResendCooldownError(Math.max(1, Math.ceil(remainingMs / 1000)));
+        }
+      }
+    }
 
     const code = String(crypto.randomInt(100000, 1000000));
     const codeHash = await bcrypt.hash(code, 10);
@@ -150,31 +213,21 @@ export class LoginMfaService {
     const expiresAt = new Date(Date.now() + ttlMinutes * 60 * 1000);
 
     await prisma.authMfaChallenge.upsert({
-      where: {
-        userId: Number(user.id),
-      },
+      where: { userId },
       update: {
         codeHash,
         expiresAt,
+        failedAttempts: 0,
       },
       create: {
-        userId: Number(user.id),
+        userId,
         codeHash,
         expiresAt,
+        failedAttempts: 0,
       },
     });
 
-    const token = jwt.sign(
-      {
-        type: 'login_mfa',
-        userId: Number(user.id),
-      },
-      getMfaSecret(),
-      {
-        expiresIn: getJwtMfaExpiresIn(),
-      },
-    );
-
+    const token = createMfaToken(userId);
     const transporter = createTransporter();
     if (transporter) {
       const from =
@@ -185,8 +238,8 @@ export class LoginMfaService {
         await transporter.sendMail({
           from,
           to: user.email,
-          subject: 'Codigo de verificacao de login - Pizza IA',
-          text: `Seu codigo de verificacao e: ${code}. Ele expira em ${ttlMinutes} minutos.`,
+          subject: 'Código de verificação de login - GastroNexa',
+          text: `Seu código de verificação é: ${code}. Ele expira em ${ttlMinutes} minutos.`,
         });
       } catch (error) {
         if (process.env.NODE_ENV !== 'production') {
@@ -200,6 +253,8 @@ export class LoginMfaService {
           return {
             mfaRequired: true,
             mfaToken: token,
+            destination: maskEmail(user.email),
+            resendAfterSeconds: MFA_RESEND_COOLDOWN_SECONDS,
             message: 'Codigo de verificacao gerado (SMTP indisponivel em desenvolvimento).',
           };
         }
@@ -231,34 +286,43 @@ export class LoginMfaService {
     return {
       mfaRequired: true,
       mfaToken: token,
+      destination: maskEmail(user.email),
+      resendAfterSeconds: MFA_RESEND_COOLDOWN_SECONDS,
       message: 'Codigo de verificacao enviado para o e-mail cadastrado.',
     };
   }
 
-  async verifyAndIssueTokens({ mfaToken, code }: { mfaToken: string; code: string }) {
-    const rawToken = String(mfaToken || '').trim();
-    const rawCode = String(code || '').trim();
+  async beginIfRequired(user: LoginUser) {
+    if (!requiresMfa(user)) {
+      return null;
+    }
 
-    if (!rawToken || !rawCode) {
+    return this.issueChallenge(user, false);
+  }
+
+  async resend(mfaToken: string) {
+    const { userId } = decodeMfaToken(mfaToken);
+    const user = await userRepository.findByIdWithPassword(userId);
+    if (!user || !user.active) {
+      throw new Error('Conta desativada. Reative sua conta para continuar.');
+    }
+    if (!requiresMfa(user)) {
+      throw new Error('Verificacao em duas etapas nao esta habilitada para esta conta.');
+    }
+
+    await this.platformAccess.assertRoleAllowed(user.role);
+    return this.issueChallenge(user as LoginUser, true);
+  }
+
+  async verifyAndIssueTokens({ mfaToken, code }: { mfaToken: string; code: string }) {
+    const rawCode = String(code || '').trim();
+    if (!rawCode) {
       throw new Error('Token e codigo de verificacao sao obrigatorios');
     }
 
-    const decoded = jwt.verify(rawToken, getMfaSecret());
-    if (!decoded || typeof decoded === 'string') {
-      throw new Error('Token de verificacao invalido');
-    }
-
-    const tokenType = String((decoded as any).type || '').trim();
-    const userId = Number((decoded as any).userId || 0);
-
-    if (tokenType !== 'login_mfa' || !Number.isInteger(userId) || userId <= 0) {
-      throw new Error('Token de verificacao invalido');
-    }
-
+    const { userId } = decodeMfaToken(mfaToken);
     const challenge = await prisma.authMfaChallenge.findUnique({
-      where: {
-        userId,
-      },
+      where: { userId },
     });
 
     if (!challenge || new Date(challenge.expiresAt).getTime() <= Date.now()) {
@@ -275,8 +339,6 @@ export class LoginMfaService {
       throw new Error('Conta desativada. Reative sua conta para continuar.');
     }
 
-    // Verifica antes de consumir o desafio: um usuário bloqueado pela
-    // manutenção não perde um código válido só por tentar entrar.
     await this.platformAccess.assertRoleAllowed(user.role);
 
     const validCode = await bcrypt.compare(rawCode, challenge.codeHash);
@@ -325,4 +387,5 @@ export class LoginMfaService {
   }
 }
 
+export { MFA_RESEND_COOLDOWN_SECONDS };
 export default new LoginMfaService();
