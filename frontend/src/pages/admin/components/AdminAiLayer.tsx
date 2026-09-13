@@ -1,11 +1,13 @@
 import { useCallback, useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { useNavigate } from 'react-router-dom';
 import styled from 'styled-components';
 import { Sparkles, X } from 'lucide-react';
 import aiGuideService, {
   type AiCreditBalance,
   type AiTourGuide,
 } from '../../../Services/aiGuideService';
+import { useAuth } from '../../../contexts/authContext';
 import { AiCreditCard } from './AiCreditCard';
 import { AiGuideAssistant } from './AiGuideAssistant';
 import { AiGuidedTour } from './AiGuidedTour';
@@ -75,10 +77,17 @@ function tagTourTargets() {
 }
 
 export default function AdminAiLayer({ children }: { children: React.ReactNode }) {
+  const navigate = useNavigate();
+  const { user } = useAuth();
   const [credits, setCredits] = useState<AiCreditBalance | null>(null);
   const [assistantOpen, setAssistantOpen] = useState(false);
   const [guide, setGuide] = useState<AiTourGuide | null>(null);
   const [sidebarPortal, setSidebarPortal] = useState<HTMLElement | null>(null);
+  const restaurantRecord =
+    user?.restaurant && typeof user.restaurant === 'object'
+      ? (user.restaurant as Record<string, unknown>)
+      : null;
+  const restaurantSlug = String(user?.restaurantSlug || restaurantRecord?.slug || '').trim();
 
   useEffect(() => {
     let active = true;
@@ -98,6 +107,15 @@ export default function AdminAiLayer({ children }: { children: React.ReactNode }
   useEffect(() => {
     let disposed = false;
     let portalNode: HTMLDivElement | null = null;
+    let previewButton: HTMLButtonElement | null = null;
+
+    const openStore = (event: Event) => {
+      if (!restaurantSlug) return;
+      event.preventDefault();
+      event.stopPropagation();
+      if ('stopImmediatePropagation' in event) event.stopImmediatePropagation();
+      navigate(`/${encodeURIComponent(restaurantSlug)}`);
+    };
 
     const sync = () => {
       if (disposed) return;
@@ -110,6 +128,13 @@ export default function AdminAiLayer({ children }: { children: React.ReactNode }
         footer.insertBefore(portalNode, helpButton || footer.firstChild);
         setSidebarPortal(portalNode);
       }
+
+      const nextPreview = findButtonByLabel('Ver loja');
+      if (nextPreview !== previewButton) {
+        previewButton?.removeEventListener('click', openStore, true);
+        previewButton = nextPreview || null;
+        previewButton?.addEventListener('click', openStore, true);
+      }
     };
 
     sync();
@@ -120,10 +145,11 @@ export default function AdminAiLayer({ children }: { children: React.ReactNode }
       disposed = true;
       observer.disconnect();
       window.clearInterval(interval);
+      previewButton?.removeEventListener('click', openStore, true);
       setSidebarPortal(null);
       portalNode?.remove();
     };
-  }, []);
+  }, [navigate, restaurantSlug]);
 
   const navigateForTour = useCallback((destination?: string | null) => {
     if (!destination) {
