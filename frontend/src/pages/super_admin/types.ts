@@ -177,8 +177,8 @@ export interface PlatformMetrics {
   pendingInvoicesCount: number;
   pendingInvoicesTotal: number;
   mrr: number;
-  monthlyGrowth: { label: string; count: number }[];
-  monthlyRevenue: { label: string; value: number }[];
+  monthlyGrowth: { label: string; count?: number }[];
+  monthlyRevenue: { label: string; value?: number }[];
 }
 
 export type SystemPolicyValue = string | number | boolean | null;
@@ -214,6 +214,9 @@ export interface SuperAdminData {
 
 export interface RestaurantAccessInput {
   active: boolean;
+  reason: string;
+}
+export interface RestaurantDeleteInput {
   reason: string;
 }
 export interface SubscriptionUpdateInput {
@@ -257,6 +260,7 @@ export interface SuperAdminActions {
   updateSettings: (settings: PlatformSettings) => Promise<void>;
   updatePlan: (code: string, input: PlanUpdateInput) => Promise<void>;
   updateRestaurantAccess: (id: number, input: RestaurantAccessInput) => Promise<void>;
+  deleteRestaurant: (id: number, input: RestaurantDeleteInput) => Promise<void>;
   updateSubscription: (id: number, input: SubscriptionUpdateInput) => Promise<void>;
   createAdministrator: (id: number, input: AdministratorCreateInput) => Promise<void>;
   rotateAdminPortalKey: (id: number) => Promise<AdminPortalKeyResult>;
