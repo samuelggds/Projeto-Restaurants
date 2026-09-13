@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
 import styled from 'styled-components';
 import { ArrowLeft, ArrowRight, Sparkles, X } from 'lucide-react';
-import type { AiGuide } from '../../../Services/aiGuideService';
+import type { AiTourGuide } from '../../../Services/aiGuideService';
 
 type Props = {
-  guide: AiGuide | null;
+  guide: AiTourGuide | null;
   onClose: () => void;
   onNavigate: (destination?: string | null) => void;
 };
@@ -21,12 +21,15 @@ function readTargetRect(target: string): Rect | null {
 
 export function AiGuidedTour({ guide, onClose, onNavigate }: Props) {
   const [stepIndex, setStepIndex] = useState(0);
+  const [activeGuide, setActiveGuide] = useState<AiTourGuide | null>(guide);
   const [targetRect, setTargetRect] = useState<Rect | null>(null);
-  const step = guide?.steps[stepIndex];
 
-  useEffect(() => {
+  if (activeGuide !== guide) {
+    setActiveGuide(guide);
     setStepIndex(0);
-  }, [guide]);
+  }
+
+  const step = guide?.steps[stepIndex];
 
   useEffect(() => {
     if (!step) return undefined;
