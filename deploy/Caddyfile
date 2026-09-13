@@ -34,7 +34,9 @@
 		unhealthy_status 503
 		transport http {
 			dial_timeout 3s
-			response_header_timeout 30s
+			# OpenAI image generation/editing can legitimately take longer than 30 seconds.
+			# Keep this above the backend provider timeout (165s) and browser timeout (180s).
+			response_header_timeout 210s
 		}
 	}
 	header {
