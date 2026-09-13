@@ -4,6 +4,8 @@ const MONTHLY_LIMIT_MICROS = 5_000_000;
 const CREDIT_ACTION = 'OPENAI_CREDIT_USAGE';
 const CREDIT_TIME_ZONE = 'America/Sao_Paulo';
 
+type CreditDb = Parameters<Parameters<typeof prisma.$transaction>[0]>[0];
+
 export class AiCreditsExhaustedError extends Error {
   code = 'AI_CREDITS_EXHAUSTED' as const;
 
@@ -57,44 +59,64 @@ function dollars(micros: number) {
   return Number((micros / 1_000_000).toFixed(6));
 }
 
+function normalizeActor(actor: Pick<CreditActor, 'userId' | 'restaurantId'>) {
+  const userId = Number(actor.userId);
+  const restaurantId = Number(actor.restaurantId);
+  if (!Number.isInteger(userId) || userId <= 0 || !Number.isInteger(restaurantId) || restaurantId <= 0) {
+    throw new Error('Conta administrativa inválida para consultar créditos de IA.');
+  }
+  return { userId, restaurantId };
+}
+
+async function assertAdmin(db: CreditDb | typeof prisma, userId: number, restaurantId: number) {
+  const user = await db.user.findFirst({
+    where: { id: userId, restaurantId, role: 'ADMIN', active: true },
+    select: { id: true },
+  });
+  if (!user) throw new Error('Conta ADMIN não encontrada para este restaurante.');
+}
+
+async function readUsedMicros(
+  db: CreditDb | typeof prisma,
+  userId: number,
+  restaurantId: number,
+  cycle: ReturnType<typeof currentCycle>,
+) {
+  const entries = await db.auditLog.findMany({
+    where: {
+      userId,
+      restaurantId,
+      action: CREDIT_ACTION,
+      createdAt: { gte: cycle.start, lt: cycle.end },
+    },
+    select: { metadata: true },
+  });
+  return entries.reduce((sum, entry) => sum + metadataCostMicros(entry.metadata), 0);
+}
+
+function balancePayload(usedMicrosInput: number, cycle: ReturnType<typeof currentCycle>) {
+  const usedMicros = Math.min(MONTHLY_LIMIT_MICROS, Math.max(0, usedMicrosInput));
+  const remainingMicros = Math.max(0, MONTHLY_LIMIT_MICROS - usedMicros);
+  return {
+    provider: 'OPENAI' as const,
+    currency: 'USD' as const,
+    monthlyLimitUsd: dollars(MONTHLY_LIMIT_MICROS),
+    usedUsd: dollars(usedMicros),
+    remainingUsd: dollars(remainingMicros),
+    usedPercent: Math.min(100, Number(((usedMicros / MONTHLY_LIMIT_MICROS) * 100).toFixed(2))),
+    exhausted: remainingMicros <= 0,
+    cycle: cycle.key,
+    renewsAt: cycle.end.toISOString(),
+  };
+}
+
 class AiCreditService {
   async getBalance(actor: Pick<CreditActor, 'userId' | 'restaurantId'>) {
-    const userId = Number(actor.userId);
-    const restaurantId = Number(actor.restaurantId);
-    if (!Number.isInteger(userId) || userId <= 0 || !Number.isInteger(restaurantId) || restaurantId <= 0) {
-      throw new Error('Conta administrativa inválida para consultar créditos de IA.');
-    }
-
-    const user = await prisma.user.findFirst({
-      where: { id: userId, restaurantId, role: 'ADMIN', active: true },
-      select: { id: true },
-    });
-    if (!user) throw new Error('Conta ADMIN não encontrada para este restaurante.');
-
+    const { userId, restaurantId } = normalizeActor(actor);
+    await assertAdmin(prisma, userId, restaurantId);
     const cycle = currentCycle();
-    const entries = await prisma.auditLog.findMany({
-      where: {
-        userId,
-        restaurantId,
-        action: CREDIT_ACTION,
-        createdAt: { gte: cycle.start, lt: cycle.end },
-      },
-      select: { metadata: true },
-    });
-    const usedMicros = entries.reduce((sum, entry) => sum + metadataCostMicros(entry.metadata), 0);
-    const remainingMicros = Math.max(0, MONTHLY_LIMIT_MICROS - usedMicros);
-
-    return {
-      provider: 'OPENAI' as const,
-      currency: 'USD' as const,
-      monthlyLimitUsd: dollars(MONTHLY_LIMIT_MICROS),
-      usedUsd: dollars(usedMicros),
-      remainingUsd: dollars(remainingMicros),
-      usedPercent: Math.min(100, Number(((usedMicros / MONTHLY_LIMIT_MICROS) * 100).toFixed(2))),
-      exhausted: remainingMicros <= 0,
-      cycle: cycle.key,
-      renewsAt: cycle.end.toISOString(),
-    };
+    const usedMicros = await readUsedMicros(prisma, userId, restaurantId, cycle);
+    return balancePayload(usedMicros, cycle);
   }
 
   async assertAvailable(actor: Pick<CreditActor, 'userId' | 'restaurantId'>) {
@@ -107,29 +129,46 @@ class AiCreditService {
     const costUsd = Number(input.costUsd);
     if (!Number.isFinite(costUsd) || costUsd <= 0) return this.getBalance(input);
 
-    const costMicros = Math.max(1, Math.round(costUsd * 1_000_000));
-    const cycle = currentCycle();
-    await prisma.auditLog.create({
-      data: {
-        userId: input.userId,
-        userName: input.userName || undefined,
-        userRole: input.userRole || 'ADMIN',
-        restaurantId: input.restaurantId,
-        action: CREDIT_ACTION,
-        resource: 'OpenAI',
-        metadata: {
-          provider: 'OPENAI',
-          feature: input.feature,
-          model: input.model,
-          costMicros,
-          costUsd: dollars(costMicros),
-          usage: input.usage ?? null,
-          billingCycle: cycle.key,
-        },
-      },
-    });
+    const requestedCostMicros = Math.max(1, Math.round(costUsd * 1_000_000));
+    const { userId, restaurantId } = normalizeActor(input);
 
-    return this.getBalance(input);
+    return prisma.$transaction(async (db) => {
+      // Serialize every balance mutation for the same ADMIN account. This prevents
+      // two concurrent OpenAI responses from recording more than the monthly cap.
+      await db.$executeRaw`SELECT pg_advisory_xact_lock(${userId})`;
+      await assertAdmin(db, userId, restaurantId);
+
+      const cycle = currentCycle();
+      const usedMicros = await readUsedMicros(db, userId, restaurantId, cycle);
+      const remainingMicros = Math.max(0, MONTHLY_LIMIT_MICROS - usedMicros);
+      if (remainingMicros <= 0) throw new AiCreditsExhaustedError();
+
+      const costMicros = Math.min(requestedCostMicros, remainingMicros);
+      await db.auditLog.create({
+        data: {
+          userId,
+          userName: input.userName || undefined,
+          userRole: input.userRole || 'ADMIN',
+          restaurantId,
+          action: CREDIT_ACTION,
+          resource: 'OpenAI',
+          metadata: {
+            provider: 'OPENAI',
+            feature: input.feature,
+            model: input.model,
+            costMicros,
+            providerCostMicros: requestedCostMicros,
+            costUsd: dollars(costMicros),
+            providerCostUsd: dollars(requestedCostMicros),
+            cappedAtMonthlyLimit: requestedCostMicros > remainingMicros,
+            usage: input.usage ?? null,
+            billingCycle: cycle.key,
+          },
+        },
+      });
+
+      return balancePayload(usedMicros + costMicros, cycle);
+    });
   }
 }
 
