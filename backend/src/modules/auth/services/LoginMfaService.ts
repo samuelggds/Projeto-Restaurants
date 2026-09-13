@@ -217,7 +217,6 @@ export class LoginMfaService {
       update: {
         codeHash,
         expiresAt,
-        failedAttempts: 0,
       },
       create: {
         userId,
