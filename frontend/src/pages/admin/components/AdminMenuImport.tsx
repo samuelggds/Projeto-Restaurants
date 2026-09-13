@@ -17,7 +17,10 @@ import {
   Upload,
 } from 'lucide-react';
 
-import menuImportService, { type MenuImportSummary } from '../../../Services/menuImportService';
+import menuImportService, {
+  type ImportedProductImageResult,
+  type MenuImportSummary,
+} from '../../../Services/menuImportService';
 import { createPersistentImageDataUrl } from '../../../utils/persistentImage';
 import * as I from '../styles/AdminMenuImport.styles';
 
@@ -57,16 +60,48 @@ export function AdminMenuImport({ onClose, onImported }: AdminMenuImportProps) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [result, setResult] = useState<MenuImportSummary | null>(null);
+  const [generateProductImages, setGenerateProductImages] = useState(true);
+  const [generatingImages, setGeneratingImages] = useState(false);
+  const [imageResults, setImageResults] = useState<ImportedProductImageResult[]>([]);
+  const [imageGenerationError, setImageGenerationError] = useState('');
 
   const changeMethod = (nextMethod: 'ifood' | 'photo') => {
     setMethod(nextMethod);
     setError('');
     setResult(null);
+    setImageResults([]);
+    setImageGenerationError('');
+  };
+
+  const generateImagesForImportedProducts = async (summary: MenuImportSummary) => {
+    if (!generateProductImages || !summary.createdProducts.length) return;
+
+    setGeneratingImages(true);
+    setImageGenerationError('');
+    const generated: ImportedProductImageResult[] = [];
+
+    try {
+      for (const product of summary.createdProducts) {
+        try {
+          const productResult = await menuImportService.generateImportedProductImage(product.id);
+          generated.push(productResult);
+          setImageResults([...generated]);
+        } catch (generationError) {
+          setImageGenerationError(importErrorMessage(generationError));
+        }
+      }
+    } finally {
+      setGeneratingImages(false);
+      await Promise.resolve(onImported()).catch(() => undefined);
+    }
   };
 
   const finishImport = async (summary: MenuImportSummary) => {
     setResult(summary);
+    setImageResults([]);
+    setImageGenerationError('');
     await Promise.resolve(onImported()).catch(() => undefined);
+    await generateImagesForImportedProducts(summary);
   };
 
   const importFromIfood = async () => {
@@ -78,6 +113,7 @@ export function AdminMenuImport({ onClose, onImported }: AdminMenuImportProps) {
     setBusy(true);
     setError('');
     setResult(null);
+    setImageResults([]);
     try {
       await finishImport(await menuImportService.importIfoodMenu({ url }));
     } catch (importError) {
@@ -92,6 +128,7 @@ export function AdminMenuImport({ onClose, onImported }: AdminMenuImportProps) {
     setProcessingPhoto(true);
     setError('');
     setResult(null);
+    setImageResults([]);
     try {
       setPhoto(await createPersistentImageDataUrl(file, 1600));
       setPhotoName(file.name);
@@ -112,6 +149,7 @@ export function AdminMenuImport({ onClose, onImported }: AdminMenuImportProps) {
     setBusy(true);
     setError('');
     setResult(null);
+    setImageResults([]);
     try {
       await finishImport(await menuImportService.importMenuFromImage({ imageUrl: photo }));
     } catch (importError) {
@@ -120,6 +158,42 @@ export function AdminMenuImport({ onClose, onImported }: AdminMenuImportProps) {
       setBusy(false);
     }
   };
+
+  const generatedImages = imageResults.filter((item) => item.status === 'GENERATED');
+  const manualImages = imageResults.filter((item) => item.status === 'MANUAL_REQUIRED');
+
+  const imageGenerationOption = (
+    <I.ImportNotice role="note">
+      <CircleAlert />
+      <span>
+        <b>Imagens automáticas com IA</b>
+        <small>
+          Pratos e produtos genéricos podem receber uma imagem criada pela IA. Produtos com marca
+          registrada, como Coca-Cola, Pepsi, Heineken e similares, não terão imagem gerada: nesses
+          casos você deverá enviar a foto oficial manualmente.
+        </small>
+        <label
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 7,
+            marginTop: 5,
+            fontSize: 10,
+            fontWeight: 800,
+            cursor: 'pointer',
+          }}
+        >
+          <input
+            checked={generateProductImages}
+            disabled={busy || generatingImages}
+            type="checkbox"
+            onChange={(event) => setGenerateProductImages(event.target.checked)}
+          />
+          Gerar imagens com IA para os produtos importados sem marca
+        </label>
+      </span>
+    </I.ImportNotice>
+  );
 
   const resultPanel = (
     <>
@@ -172,6 +246,68 @@ export function AdminMenuImport({ onClose, onImported }: AdminMenuImportProps) {
               </small>
             </span>
           </I.ImportNotice>
+
+          {generatingImages && (
+            <I.ImportNotice role="status">
+              <Sparkles />
+              <span>
+                <b>Gerando imagens dos produtos</b>
+                <small>
+                  A IA está preparando as fotos uma a uma. Você pode acompanhar o resultado abaixo.
+                </small>
+              </span>
+            </I.ImportNotice>
+          )}
+
+          {generatedImages.length > 0 && (
+            <I.ImportNotice $tone="success" role="status">
+              <CheckCircle2 />
+              <span>
+                <b>{generatedImages.length} imagem(ns) gerada(s) com IA</b>
+                <small>As novas imagens já foram vinculadas aos respectivos produtos.</small>
+              </span>
+            </I.ImportNotice>
+          )}
+
+          {manualImages.length > 0 && (
+            <I.ImportNotice $tone="error" role="alert">
+              <CircleAlert />
+              <span>
+                <b>{manualImages.length} produto(s) com marca precisam de imagem manual</b>
+                <small>
+                  Para preservar a identidade real da marca, envie a foto oficial desses produtos no
+                  cadastro de cada item.
+                </small>
+              </span>
+            </I.ImportNotice>
+          )}
+
+          {imageGenerationError && (
+            <I.ImportNotice $tone="error" role="alert">
+              <CircleAlert />
+              <span>
+                <b>Algumas imagens não puderam ser geradas</b>
+                <small>{imageGenerationError}</small>
+              </span>
+            </I.ImportNotice>
+          )}
+
+          {manualImages.length > 0 && (
+            <I.CreatedList>
+              <header>
+                <b>Imagem manual necessária</b>
+                <span>{manualImages.length} item(ns)</span>
+              </header>
+              <ul>
+                {manualImages.map((product) => (
+                  <li key={product.productId}>
+                    <CircleAlert /> {product.productName}
+                  </li>
+                ))}
+              </ul>
+            </I.CreatedList>
+          )}
+
           <I.CreatedList>
             <header>
               <b>Produtos adicionados</b>
@@ -287,7 +423,8 @@ export function AdminMenuImport({ onClose, onImported }: AdminMenuImportProps) {
                 </small>
               </span>
             </div>
-            <button className="submit-import" disabled={busy} type="submit">
+            {imageGenerationOption}
+            <button className="submit-import" disabled={busy || generatingImages} type="submit">
               <Search /> {busy ? 'Analisando cardápio...' : 'Analisar e importar'}
             </button>
           </I.SourceCard>
@@ -325,6 +462,7 @@ export function AdminMenuImport({ onClose, onImported }: AdminMenuImportProps) {
                       setPhoto(null);
                       setPhotoName('');
                       setResult(null);
+                      setImageResults([]);
                     }}
                   >
                     <Trash2 /> Remover
@@ -377,17 +515,20 @@ export function AdminMenuImport({ onClose, onImported }: AdminMenuImportProps) {
                 <span>
                   <b>Atualizando o catálogo</b>
                   <small>
-                    {result
-                      ? 'Novos registros persistidos.'
-                      : 'Itens existentes serão preservados.'}
+                    {generatingImages
+                      ? 'Gerando imagens dos produtos sem marca...'
+                      : result
+                        ? 'Novos registros persistidos.'
+                        : 'Itens existentes serão preservados.'}
                   </small>
                 </span>
               </div>
             </div>
+            {imageGenerationOption}
             {resultPanel}
             <button
               className="analyze-photo"
-              disabled={!photo || busy || processingPhoto}
+              disabled={!photo || busy || processingPhoto || generatingImages}
               type="button"
               onClick={() => void importFromPhoto()}
             >
