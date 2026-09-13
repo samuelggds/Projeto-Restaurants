@@ -5,6 +5,7 @@ import getSuperAdminRestaurantService from '../services/GetSuperAdminRestaurantS
 import updatePlatformSettingsService from '../services/UpdatePlatformSettingsService.js';
 import updatePlatformPlanService from '../services/UpdatePlatformPlanService.js';
 import updateRestaurantAccessService from '../services/UpdateRestaurantAccessService.js';
+import deleteRestaurantService from '../services/DeleteRestaurantService.js';
 import updateRestaurantSubscriptionService from '../services/UpdateRestaurantSubscriptionService.js';
 import createRestaurantAdministratorService from '../services/CreateRestaurantAdministratorService.js';
 import updateAdministratorAccessService from '../services/UpdateAdministratorAccessService.js';
@@ -83,6 +84,22 @@ export class SuperAdminController {
         .status(200)
         .json(
           await updateRestaurantAccessService.execute(
+            firstParameter(req.params.id),
+            req.body,
+            auditContext(req),
+          ),
+        );
+    } catch (error) {
+      return next(error);
+    }
+  }
+
+  async deleteRestaurant(req: Request, res: Response, next: NextFunction) {
+    try {
+      return res
+        .status(200)
+        .json(
+          await deleteRestaurantService.execute(
             firstParameter(req.params.id),
             req.body,
             auditContext(req),
