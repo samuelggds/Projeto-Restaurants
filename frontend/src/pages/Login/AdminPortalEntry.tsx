@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { useAuth } from '../../contexts/authContext';
 import { persistTenantSlug } from '../../shared/navigation/tenantRouteContext';
 import { exchangeAdminPortalKey } from './domain/adminPortalSession';
 
@@ -38,16 +39,24 @@ function resolveEntryFailure(error: unknown): Pick<EntryState, 'status' | 'messa
 export default function AdminPortalEntry() {
   const navigate = useNavigate();
   const { restaurantSlug, accessKey } = useParams();
+  const { user, logout } = useAuth();
   const slug = String(restaurantSlug || '').trim().toLowerCase();
   const key = String(accessKey || '').trim();
   const requestKey = `${slug}:${key}`;
+  const entryStartedRef = useRef(false);
   const [entryState, setEntryState] = useState<EntryState>({
     requestKey: '',
     status: 'checking',
   });
 
   useEffect(() => {
-    if (!slug || !key) return;
+    if (!slug || !key || entryStartedRef.current) return;
+    entryStartedRef.current = true;
+
+    // Links privados de outro portal representam uma nova fronteira de sessão.
+    // A sessão atual (SUPER_ADMIN, ADMIN, funcionário ou cliente) não pode ser
+    // reaproveitada no restaurante acessado pelo link.
+    if (user) logout();
 
     persistTenantSlug(slug);
     let active = true;
@@ -64,7 +73,7 @@ export default function AdminPortalEntry() {
     return () => {
       active = false;
     };
-  }, [key, navigate, requestKey, slug]);
+  }, [key, logout, navigate, requestKey, slug, user]);
 
   const status: EntryStatus =
     !slug || !key
