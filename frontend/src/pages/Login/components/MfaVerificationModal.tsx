@@ -1,12 +1,28 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ClipboardEvent,
+  type FormEvent,
+  type KeyboardEvent,
+} from 'react';
 import { AlertCircle, CheckCircle2, LoaderCircle, ShieldCheck, X } from 'lucide-react';
 import * as S from './MfaVerificationModal.styles';
 
 type VerificationState = 'idle' | 'error' | 'success';
 
+type ResendResult = {
+  destination?: string;
+  resendAfterSeconds?: number;
+};
+
 type Props<T> = {
   open: boolean;
+  destination?: string;
+  resendAfterSeconds?: number;
   onVerify: (code: string) => Promise<T>;
+  onResend: () => Promise<ResendResult>;
   onSuccess: (result: T) => void;
   onCancel: () => void;
 };
@@ -25,37 +41,67 @@ function getErrorMessage(error: unknown) {
   return 'Código inválido. Confira o código recebido e tente novamente.';
 }
 
-export function MfaVerificationModal<T>({ open, onVerify, onSuccess, onCancel }: Props<T>) {
-  const [code, setCode] = useState('');
+function isMobileOtpCapable() {
+  if (typeof window === 'undefined' || typeof navigator === 'undefined') return false;
+  return (
+    navigator.maxTouchPoints > 0 &&
+    window.matchMedia('(max-width: 767px) and (pointer: coarse)').matches
+  );
+}
+
+function formatCountdown(seconds: number) {
+  const minutes = Math.floor(Math.max(0, seconds) / 60);
+  const remainingSeconds = Math.max(0, seconds) % 60;
+  return `${minutes}:${String(remainingSeconds).padStart(2, '0')}`;
+}
+
+export function MfaVerificationModal<T>({
+  open,
+  destination = 'seu e-mail cadastrado',
+  resendAfterSeconds = 60,
+  onVerify,
+  onResend,
+  onSuccess,
+  onCancel,
+}: Props<T>) {
+  const [digits, setDigits] = useState<string[]>(Array(6).fill(''));
   const [state, setState] = useState<VerificationState>('idle');
   const [message, setMessage] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [resending, setResending] = useState(false);
   const [shakeKey, setShakeKey] = useState(0);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const [secondsRemaining, setSecondsRemaining] = useState(Math.max(0, resendAfterSeconds));
+  const inputRefs = useRef<Array<HTMLInputElement | null>>([]);
+  const mobileOtpCapable = useMemo(isMobileOtpCapable, []);
+  const code = digits.join('');
 
   useEffect(() => {
     if (!open) return;
-    setCode('');
+    setDigits(Array(6).fill(''));
     setState('idle');
     setMessage('');
     setSubmitting(false);
-    const timeout = window.setTimeout(() => inputRef.current?.focus(), 40);
+    setResending(false);
+    setSecondsRemaining(Math.max(0, resendAfterSeconds));
+    const timeout = window.setTimeout(() => inputRefs.current[0]?.focus(), 60);
     return () => window.clearTimeout(timeout);
-  }, [open]);
+  }, [open, resendAfterSeconds]);
 
-  const normalizedCode = useMemo(() => code.replace(/\D/gu, '').slice(0, 6), [code]);
+  useEffect(() => {
+    if (!open || secondsRemaining <= 0) return undefined;
+    const timer = window.setInterval(() => {
+      setSecondsRemaining((current) => Math.max(0, current - 1));
+    }, 1000);
+    return () => window.clearInterval(timer);
+  }, [open, secondsRemaining]);
 
-  if (!open) return null;
-
-  const handleSubmit = async (event: React.FormEvent) => {
-    event.preventDefault();
-    if (submitting) return;
-
-    if (normalizedCode.length !== 6) {
+  const verifyCode = async (verificationCode: string) => {
+    if (submitting || state === 'success') return;
+    if (verificationCode.length !== 6) {
       setState('error');
       setMessage('Digite os 6 números do código de verificação.');
       setShakeKey((current) => current + 1);
-      inputRef.current?.focus();
+      inputRefs.current[Math.min(verificationCode.length, 5)]?.focus();
       return;
     }
 
@@ -64,7 +110,7 @@ export function MfaVerificationModal<T>({ open, onVerify, onSuccess, onCancel }:
     setMessage('');
 
     try {
-      const result = await onVerify(normalizedCode);
+      const result = await onVerify(verificationCode);
       setState('success');
       setMessage('Código confirmado. Acesso liberado com segurança.');
       window.setTimeout(() => onSuccess(result), 520);
@@ -73,7 +119,111 @@ export function MfaVerificationModal<T>({ open, onVerify, onSuccess, onCancel }:
       setMessage(getErrorMessage(error));
       setShakeKey((current) => current + 1);
       setSubmitting(false);
-      window.setTimeout(() => inputRef.current?.focus(), 40);
+      window.setTimeout(() => {
+        const firstEmpty = digits.findIndex((digit) => !digit);
+        inputRefs.current[firstEmpty >= 0 ? firstEmpty : 0]?.focus();
+      }, 40);
+    }
+  };
+
+  useEffect(() => {
+    if (!open || !mobileOtpCapable || code.length !== 6 || submitting || state === 'success') {
+      return undefined;
+    }
+    const timeout = window.setTimeout(() => {
+      void verifyCode(code);
+    }, 120);
+    return () => window.clearTimeout(timeout);
+    // verifyCode intentionally follows the current rendered code/state.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [code, mobileOtpCapable, open, state, submitting]);
+
+  if (!open) return null;
+
+  const assignDigits = (startIndex: number, rawValue: string) => {
+    const incoming = rawValue.replace(/\D/gu, '').slice(0, 6);
+    if (!incoming) return;
+
+    setDigits((current) => {
+      const next = [...current];
+      incoming.split('').forEach((digit, offset) => {
+        const targetIndex = startIndex + offset;
+        if (targetIndex < 6) next[targetIndex] = digit;
+      });
+      return next;
+    });
+    setState('idle');
+    setMessage('');
+    const nextIndex = Math.min(5, startIndex + incoming.length);
+    window.setTimeout(() => inputRefs.current[nextIndex]?.focus(), 0);
+  };
+
+  const handleChange = (index: number, value: string) => {
+    const numeric = value.replace(/\D/gu, '');
+    if (!numeric) {
+      setDigits((current) => current.map((digit, digitIndex) => (digitIndex === index ? '' : digit)));
+      if (state === 'error') {
+        setState('idle');
+        setMessage('');
+      }
+      return;
+    }
+    assignDigits(index, numeric);
+  };
+
+  const handleKeyDown = (index: number, event: KeyboardEvent<HTMLInputElement>) => {
+    if (event.key === 'Backspace' && !digits[index] && index > 0) {
+      event.preventDefault();
+      setDigits((current) =>
+        current.map((digit, digitIndex) => (digitIndex === index - 1 ? '' : digit)),
+      );
+      inputRefs.current[index - 1]?.focus();
+      return;
+    }
+    if (event.key === 'ArrowLeft' && index > 0) {
+      event.preventDefault();
+      inputRefs.current[index - 1]?.focus();
+    }
+    if (event.key === 'ArrowRight' && index < 5) {
+      event.preventDefault();
+      inputRefs.current[index + 1]?.focus();
+    }
+  };
+
+  const handlePaste = (index: number, event: ClipboardEvent<HTMLInputElement>) => {
+    const pasted = event.clipboardData.getData('text').replace(/\D/gu, '').slice(0, 6);
+    if (!pasted) return;
+    event.preventDefault();
+    assignDigits(index, pasted);
+  };
+
+  const handleSubmit = (event: FormEvent) => {
+    event.preventDefault();
+    void verifyCode(code);
+  };
+
+  const handleResend = async () => {
+    if (secondsRemaining > 0 || resending || submitting || state === 'success') return;
+    setResending(true);
+    setState('idle');
+    setMessage('');
+    try {
+      const result = await onResend();
+      setDigits(Array(6).fill(''));
+      setSecondsRemaining(Math.max(1, Number(result.resendAfterSeconds ?? 60)));
+      setMessage(`Novo código enviado para ${result.destination || destination}.`);
+      window.setTimeout(() => inputRefs.current[0]?.focus(), 40);
+    } catch (error) {
+      const response = (error as {
+        response?: { data?: { error?: string; retryAfterSeconds?: number } };
+      })?.response;
+      const retryAfter = Number(response?.data?.retryAfterSeconds || 0);
+      if (retryAfter > 0) setSecondsRemaining(retryAfter);
+      setState('error');
+      setMessage(response?.data?.error || getErrorMessage(error));
+      setShakeKey((current) => current + 1);
+    } finally {
+      setResending(false);
     }
   };
 
@@ -89,49 +239,52 @@ export function MfaVerificationModal<T>({ open, onVerify, onSuccess, onCancel }:
         $shake={state === 'error'}
       >
         <S.Header>
-          <S.Icon $state={state} aria-hidden="true">
-            {state === 'success' ? <CheckCircle2 /> : state === 'error' ? <AlertCircle /> : <ShieldCheck />}
-          </S.Icon>
+          <S.TitleMarker aria-hidden="true" />
           <S.HeaderText>
-            <h2 id="mfa-title">Verificação em duas etapas</h2>
+            <span className="eyebrow">Segurança da conta</span>
+            <h2 id="mfa-title">Autenticação de dois fatores</h2>
             <p id="mfa-description">
-              Digite o código de 6 números enviado para o seu e-mail. Se errar, você pode tentar
-              novamente aqui mesmo sem gerar outro código.
+              Enviamos um código de 6 números para <strong>{destination}</strong>. Digite o código
+              abaixo para concluir o acesso.
             </p>
           </S.HeaderText>
           <S.CloseButton
             type="button"
             onClick={onCancel}
-            aria-label="Cancelar verificação em duas etapas"
-            disabled={submitting || state === 'success'}
+            aria-label="Cancelar autenticação de dois fatores"
+            disabled={submitting || resending || state === 'success'}
           >
             <X />
           </S.CloseButton>
         </S.Header>
 
         <form onSubmit={handleSubmit}>
-          <S.CodeLabel htmlFor="mfa-code">Código de verificação</S.CodeLabel>
-          <S.CodeInput
-            ref={inputRef}
-            id="mfa-code"
-            name="mfa-code"
-            inputMode="numeric"
-            autoComplete="one-time-code"
-            pattern="[0-9]*"
-            maxLength={6}
-            value={normalizedCode}
-            onChange={(event) => {
-              setCode(event.target.value);
-              if (state === 'error') {
-                setState('idle');
-                setMessage('');
-              }
-            }}
-            placeholder="000000"
-            aria-invalid={state === 'error'}
-            aria-describedby={message ? 'mfa-feedback' : undefined}
-            disabled={submitting || state === 'success'}
-          />
+          <S.CodeLabel>O código recebido foi:</S.CodeLabel>
+          <S.CodeGrid aria-label="Código de verificação de seis dígitos">
+            {digits.map((digit, index) => (
+              <S.CodeCell
+                key={index}
+                ref={(element) => {
+                  inputRefs.current[index] = element;
+                }}
+                aria-label={`Dígito ${index + 1} do código`}
+                aria-invalid={state === 'error'}
+                $state={state}
+                $filled={Boolean(digit)}
+                type="text"
+                inputMode="numeric"
+                autoComplete={mobileOtpCapable && index === 0 ? 'one-time-code' : 'off'}
+                pattern="[0-9]*"
+                maxLength={mobileOtpCapable && index === 0 ? 6 : 1}
+                value={digit}
+                onChange={(event) => handleChange(index, event.target.value)}
+                onKeyDown={(event) => handleKeyDown(index, event)}
+                onPaste={(event) => handlePaste(index, event)}
+                onFocus={(event) => event.currentTarget.select()}
+                disabled={submitting || state === 'success'}
+              />
+            ))}
+          </S.CodeGrid>
 
           {message ? (
             <S.Feedback
@@ -140,35 +293,53 @@ export function MfaVerificationModal<T>({ open, onVerify, onSuccess, onCancel }:
               aria-live={state === 'error' ? 'assertive' : 'polite'}
               $state={state}
             >
-              {state === 'success' ? <CheckCircle2 /> : <AlertCircle />}
+              {state === 'success' ? (
+                <CheckCircle2 />
+              ) : state === 'error' ? (
+                <AlertCircle />
+              ) : (
+                <ShieldCheck />
+              )}
               <span>{message}</span>
             </S.Feedback>
           ) : (
-            <S.Hint>O mesmo código continua válido enquanto estiver dentro do prazo.</S.Hint>
+            <S.Hint>
+              {mobileOtpCapable
+                ? 'No celular, o código pode ser sugerido pelo sistema e será verificado quando os 6 dígitos forem preenchidos.'
+                : 'No computador, digite os 6 números e clique em Verificar código.'}
+            </S.Hint>
           )}
 
-          <S.Actions>
-            <S.CancelButton
+          <S.VerifyButton
+            type="submit"
+            disabled={submitting || resending || state === 'success' || code.length !== 6}
+          >
+            {submitting ? (
+              <>
+                <LoaderCircle className="spinner" /> Verificando...
+              </>
+            ) : state === 'success' ? (
+              <>
+                <CheckCircle2 /> Código correto
+              </>
+            ) : (
+              'Verificar código'
+            )}
+          </S.VerifyButton>
+
+          <S.ResendRow>
+            <span>Não recebeu o código?</span>
+            <S.ResendButton
               type="button"
-              onClick={onCancel}
-              disabled={submitting || state === 'success'}
+              onClick={() => void handleResend()}
+              disabled={secondsRemaining > 0 || resending || submitting || state === 'success'}
             >
-              Cancelar
-            </S.CancelButton>
-            <S.VerifyButton type="submit" disabled={submitting || state === 'success'}>
-              {submitting ? (
-                <>
-                  <LoaderCircle className="spinner" /> Verificando...
-                </>
-              ) : state === 'success' ? (
-                <>
-                  <CheckCircle2 /> Código correto
-                </>
-              ) : (
-                'Verificar código'
-              )}
-            </S.VerifyButton>
-          </S.Actions>
+              {resending ? 'Reenviando...' : 'Reenviar código'}
+            </S.ResendButton>
+            {secondsRemaining > 0 && (
+              <S.Countdown aria-live="polite">{formatCountdown(secondsRemaining)}</S.Countdown>
+            )}
+          </S.ResendRow>
         </form>
       </S.Dialog>
     </S.Backdrop>
