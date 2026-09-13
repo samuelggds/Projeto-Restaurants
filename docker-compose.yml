@@ -111,7 +111,7 @@ services:
     restart: 'no'
     environment:
       DATABASE_URL: ${DIRECT_URL:-postgresql://postgres:postgres@host.docker.internal:5432/pizza_ai}
-    command: ['npx', 'prisma', 'migrate', 'deploy']
+    command: ['./node_modules/.bin/prisma', 'migrate', 'deploy']
     extra_hosts:
       - 'host.docker.internal:host-gateway'
 
@@ -123,7 +123,7 @@ services:
       backend:
         condition: service_healthy
     environment: *backend-environment
-    command: ['npm', 'run', 'start:worker']
+    command: ['node', 'dist/worker.js']
     extra_hosts:
       - 'host.docker.internal:host-gateway'
 
