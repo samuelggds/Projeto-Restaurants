@@ -31,6 +31,9 @@ const DigitalMenu = lazy(() => import('../pages/digital-menu/DigitalMenuIdentity
 const KitchenPage = lazy(() => import('../pages/kitchen/KitchenPage'));
 const WaiterPage = lazy(() => import('../pages/waiter/WaiterPage'));
 const AttendantPage = lazy(() => import('../pages/attendant/AttendantPage'));
+const EmployeeOnboardingBoundary = lazy(
+  () => import('../components/EmployeeOnboarding/EmployeeOnboardingBoundary'),
+);
 const GastroNexaLanding = lazy(() => import('../pages/Marketing/GastroNexaLanding'));
 const GastroNexaDemo = lazy(() => import('../pages/Marketing/GastroNexaDemo'));
 import api from '../Services/api';
@@ -287,10 +290,12 @@ export default function AppRoutes() {
                         path="/admin/configuracoes"
                         element={<Navigate to="/admin?settings=brand" replace />}
                       />
-                      <Route path="/courier" element={<CourierDashboard />} />
-                      <Route path="/kitchen" element={<KitchenPage />} />
-                      <Route path="/waiter" element={<WaiterPage />} />
-                      <Route path="/attendant" element={<AttendantPage />} />
+                      <Route element={<EmployeeOnboardingBoundary />}>
+                        <Route path="/courier" element={<CourierDashboard />} />
+                        <Route path="/kitchen" element={<KitchenPage />} />
+                        <Route path="/waiter" element={<WaiterPage />} />
+                        <Route path="/attendant" element={<AttendantPage />} />
+                      </Route>
                     </Route>
                   </Route>
 
