@@ -2,19 +2,24 @@ import styled from 'styled-components';
 import GastroNexaLandingV2 from './GastroNexaLandingV2';
 
 const LegalBar = styled.nav`
-  border-top: 1px solid #405537;
-  background: #21392d;
-  padding: 0 24px 22px;
+  position: relative;
+  z-index: 2;
+  min-height: 40px;
+  margin-top: -40px;
+  padding: 0 24px;
   display: flex;
-  flex-wrap: wrap;
+  align-items: center;
   justify-content: center;
+  flex-wrap: wrap;
   gap: 18px;
+  pointer-events: none;
 
   a {
-    color: #b5c4aa;
-    font-size: 10px;
+    color: #a9b99d;
+    font-size: 9px;
     font-weight: 700;
     text-decoration: none;
+    pointer-events: auto;
   }
 
   a:hover,
@@ -22,6 +27,14 @@ const LegalBar = styled.nav`
     color: #eef4e7;
     text-decoration: underline;
     text-underline-offset: 4px;
+  }
+
+  @media (max-width: 760px) {
+    min-height: auto;
+    margin-top: 0;
+    padding: 0 18px 22px;
+    background: #21392d;
+    justify-content: flex-start;
   }
 `;
 
