@@ -1,10 +1,11 @@
+import type { Prisma } from '@prisma/client';
 import prisma from '../../../config/prisma.js';
 
 const MONTHLY_LIMIT_MICROS = 5_000_000;
 const CREDIT_ACTION = 'OPENAI_CREDIT_USAGE';
 const CREDIT_TIME_ZONE = 'America/Sao_Paulo';
 
-type CreditDb = Parameters<Parameters<typeof prisma.$transaction>[0]>[0];
+type CreditDb = Prisma.TransactionClient;
 
 export class AiCreditsExhaustedError extends Error {
   code = 'AI_CREDITS_EXHAUSTED' as const;
