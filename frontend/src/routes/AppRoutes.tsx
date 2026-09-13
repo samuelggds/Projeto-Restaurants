@@ -15,6 +15,7 @@ const AdminPortalLoginGate = lazy(() => import('../pages/Login/AdminPortalLoginG
 const RecoverPassword = lazy(() => import('../pages/RecoverPassword/RecoverPassword'));
 const ChangePasswordPage = lazy(() => import('../pages/ChangePassword/ChangePasswordPage'));
 const AdminDashboard = lazy(() => import('../pages/admin/Admin'));
+const AdminAiLayer = lazy(() => import('../pages/admin/components/AdminAiLayer'));
 const Register = lazy(() => import('../pages/Register/Register'));
 const UserProfile = lazy(() => import('../pages/Profile/Profile'));
 const CourierDashboard = lazy(() => import('../pages/Courier/CourierWorkspace'));
@@ -285,7 +286,14 @@ export default function AppRoutes() {
                     <Route element={<BillingGate />}>
                       <Route path="/billing" element={<BillingPage />} />
                       <Route path="/profile" element={<UserProfile />} />
-                      <Route path="/admin" element={<AdminDashboard />} />
+                      <Route
+                        path="/admin"
+                        element={
+                          <AdminAiLayer>
+                            <AdminDashboard />
+                          </AdminAiLayer>
+                        }
+                      />
                       <Route
                         path="/admin/configuracoes"
                         element={<Navigate to="/admin?settings=brand" replace />}
