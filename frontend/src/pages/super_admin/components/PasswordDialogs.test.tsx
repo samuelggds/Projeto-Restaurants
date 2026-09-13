@@ -27,6 +27,7 @@ const actions: SuperAdminActions = {
   updateSettings: vi.fn(async () => undefined),
   updatePlan: vi.fn(async () => undefined),
   updateRestaurantAccess: vi.fn(async () => undefined),
+  deleteRestaurant: vi.fn(async () => undefined),
   updateSubscription: vi.fn(async () => undefined),
   createAdministrator: vi.fn(async () => undefined),
   rotateAdminPortalKey: vi.fn(async () => ({
