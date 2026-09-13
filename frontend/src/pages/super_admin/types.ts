@@ -177,8 +177,8 @@ export interface PlatformMetrics {
   pendingInvoicesCount: number;
   pendingInvoicesTotal: number;
   mrr: number;
-  monthlyGrowth: { label: string; count?: number }[];
-  monthlyRevenue: { label: string; value?: number }[];
+  monthlyGrowth: { label: string; count: number }[];
+  monthlyRevenue: { label: string; value: number }[];
 }
 
 export type SystemPolicyValue = string | number | boolean | null;
