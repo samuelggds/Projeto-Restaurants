@@ -5,6 +5,7 @@ import type {
   PlanUpdateInput,
   PlatformSettings,
   RestaurantAccessInput,
+  RestaurantDeleteInput,
   SubscriptionUpdateInput,
   AdminPortalKeyResult,
 } from '../pages/super_admin/types';
@@ -46,6 +47,11 @@ class SuperAdminService {
 
   async updateRestaurantAccess(id: number, input: RestaurantAccessInput) {
     const response = await api.patch(`/super-admin/restaurants/${id}/access`, input);
+    return response.data;
+  }
+
+  async deleteRestaurant(id: number, input: RestaurantDeleteInput) {
+    const response = await api.delete(`/super-admin/restaurants/${id}`, { data: input });
     return response.data;
   }
 
