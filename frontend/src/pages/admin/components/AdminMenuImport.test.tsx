@@ -9,6 +9,7 @@ vi.mock('../../../Services/menuImportService', () => ({
   default: {
     importIfoodMenu: vi.fn(),
     importMenuFromImage: vi.fn(),
+    generateImportedProductImage: vi.fn(),
   },
 }));
 
@@ -84,8 +85,21 @@ describe('importação de cardápio', () => {
     expect(menuImportService.importIfoodMenu).not.toHaveBeenCalled();
   });
 
-  it('mostra o resumo persistido e recarrega o catálogo após importar', async () => {
+  it('mostra o resumo, gera imagens elegíveis e recarrega o catálogo após a geração', async () => {
     vi.mocked(menuImportService.importIfoodMenu).mockResolvedValue(summary);
+    vi.mocked(menuImportService.generateImportedProductImage)
+      .mockResolvedValueOnce({
+        productId: 10,
+        productName: 'Pizza Calabresa',
+        status: 'GENERATED',
+      })
+      .mockResolvedValueOnce({
+        productId: 11,
+        productName: 'Coca-Cola 350ml',
+        status: 'MANUAL_REQUIRED',
+        reason: 'BRANDED_PRODUCT',
+      });
+
     const onImported = await renderImport();
     const input = container.querySelector<HTMLInputElement>(
       'input[aria-label="Link público do restaurante no iFood"]',
@@ -100,8 +114,14 @@ describe('importação de cardápio', () => {
     expect(menuImportService.importIfoodMenu).toHaveBeenCalledWith({
       url: 'https://www.ifood.com.br/delivery/north-pizza',
     });
-    expect(onImported).toHaveBeenCalledTimes(1);
+    expect(menuImportService.generateImportedProductImage).toHaveBeenNthCalledWith(1, 10);
+    expect(menuImportService.generateImportedProductImage).toHaveBeenNthCalledWith(2, 11);
+    // O catálogo é recarregado logo após a importação para exibir os produtos e
+    // novamente quando a geração termina para refletir as novas imagens.
+    expect(onImported).toHaveBeenCalledTimes(2);
     expect(container.textContent).toContain('Cardápio importado com sucesso');
+    expect(container.textContent).toContain('1 imagem(ns) gerada(s) com IA');
+    expect(container.textContent).toContain('1 produto(s) com marca precisam de imagem manual');
     expect(container.textContent).toContain('Pizza Calabresa');
     expect(container.textContent).toContain('Coca-Cola 350ml');
   });
