@@ -143,7 +143,7 @@ for (const [label, change] of [
 }
 
 test('checkout ACTIVE sem pagamento continua pendente e EXPIRED nunca vira pago', async () => {
-  let body = checkout();
+  const body = checkout();
   globalThis.fetch = async () => json(body);
   assert.equal((await getPagBankCheckoutPayment(input)).status, 'PENDING');
   body.status = 'EXPIRED';

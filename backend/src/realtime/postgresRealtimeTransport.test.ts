@@ -2,6 +2,72 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { PostgresRealtimeTransport } from './postgresRealtimeTransport.js';
 
+test('evento gravado durante poll de recuperação chega no ciclo seguinte sem perder o cursor', async () => {
+  let denyWrites = true;
+  let releaseSnapshot: (() => void) | undefined;
+  let notifySnapshot: (() => void) | undefined;
+  const snapshotStarted = new Promise<void>((resolve) => {
+    notifySnapshot = resolve;
+  });
+  const snapshotHeld = new Promise<void>((resolve) => {
+    releaseSnapshot = resolve;
+  });
+  const stored: Array<{ id: bigint; room: null; event: string; payload: unknown[] }> = [];
+  const emitted: string[] = [];
+  let holdFirstRead = true;
+  const db = {
+    $queryRaw: async (sql: TemplateStringsArray, cursor: bigint) => {
+      if (sql.join('').includes('MAX')) return [{ id: 0n }];
+      const snapshot = stored.filter((row) => row.id > cursor);
+      if (holdFirstRead) {
+        holdFirstRead = false;
+        notifySnapshot?.();
+        await snapshotHeld;
+      }
+      return snapshot;
+    },
+    $executeRaw: async (sql: TemplateStringsArray, ...values: unknown[]) => {
+      if (!sql.join('').includes('INSERT')) return 0;
+      if (denyWrites) throw new Error('synthetic write outage');
+      stored.push({
+        id: BigInt(stored.length + 1),
+        room: null,
+        event: String(values.length === 2 ? values[1] : values[2]),
+        payload: [],
+      });
+      return 1;
+    },
+  } as unknown as ConstructorParameters<typeof PostgresRealtimeTransport>[1];
+  const local = {
+    emit: (event: string) => {
+      emitted.push(event);
+    },
+    to: () => local,
+  };
+  const relay = new PostgresRealtimeTransport(local, db);
+  await relay.start();
+  try {
+    await relay.emit('synthetic-before-recovery');
+    assert.equal(relay.healthy(), false);
+    denyWrites = false;
+    const recovering = relay.poll();
+    await snapshotStarted;
+    assert.equal(relay.healthy(), true, 'INSERT probe terminou antes da leitura em andamento');
+    await relay.emit('synthetic-after-recovery');
+    assert.equal(relay.poll(), recovering, 'poll concorrente aguarda a leitura existente');
+    releaseSnapshot?.();
+    await recovering;
+    assert.deepEqual(emitted, [], 'snapshot anterior ao novo INSERT não contém o evento');
+    await relay.poll();
+    assert.deepEqual(emitted, ['synthetic-after-recovery']);
+    await relay.poll();
+    assert.deepEqual(emitted, ['synthetic-after-recovery'], 'cursor evita entrega duplicada');
+  } finally {
+    releaseSnapshot?.();
+    await relay.stop();
+  }
+});
+
 for (const subscriber of [true, false]) {
   test(`relay recupera escrita sem tráfego HTTP (subscriber=${subscriber})`, async (t) => {
     let now = 20_000;

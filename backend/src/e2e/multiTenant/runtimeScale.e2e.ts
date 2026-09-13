@@ -58,8 +58,16 @@ test(
         while (!relay.healthy() && Date.now() < deadline) await pause(50);
         assert.equal(relay.healthy(), true);
         await relay.emit('synthetic-after-recovery', {});
-        await relay.poll();
-        assert.ok(emitted.includes('synthetic-after-recovery'));
+        // O probe pode restaurar healthy() enquanto o poll anterior ainda lê ou
+        // limpa a fila. Um poll() manual apenas aguardaria esse mesmo ciclo, que
+        // pode ter lido antes do INSERT acima. Espere a entrega agendada real.
+        const deliveryDeadline = Date.now() + 7_000;
+        while (!emitted.includes('synthetic-after-recovery') && Date.now() < deliveryDeadline)
+          await pause(50);
+        assert.ok(
+          emitted.includes('synthetic-after-recovery'),
+          'o relay recuperado deve entregar o novo evento sem outra publicação ou poll manual',
+        );
         assert.ok(!emitted.includes('__runtime_write_probe__'));
       } finally {
         await relay.stop();

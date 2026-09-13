@@ -23,6 +23,8 @@ No PagBank, `PAGBANK_CONNECT_API_URL` define a base oficial usada na autorizaç�
 
 Sem os pré-requisitos, o painel informa que a conexão está sendo preparada e não inicia uma autorização incompleta. Não colocar nenhuma dessas chaves em variáveis `VITE_*`, no frontend ou em commits. O arquivo `backend/.env.example` contém os nomes necessários, sem credenciais reais.
 
+No deploy com `docker-compose.production.yml`, configure os valores no arquivo `.env.production` usado pelo Compose, seguindo `.env.production.example`. O backend e o worker recebem a mesma lista explícita de opções de pagamento, incluindo `ASAAS_WEBHOOK_URL`; o arquivo `backend/.env` não é carregado por esses serviços. A verificação `node scripts/verifyProductionCompose.mjs` usa somente o exemplo e confere o repasse das opções sem iniciar containers ou exibir credenciais.
+
 ## Comportamento implementado
 
 - A autorização exige administrador autenticado e vincula estado de uso único ao restaurante, usuário, versão de autenticação e prazo. Repetição, conta incorreta ou estado vencido não salvam credenciais.
