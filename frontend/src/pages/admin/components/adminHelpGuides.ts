@@ -73,8 +73,11 @@ const settingsSteps: Record<SettingsSection, string[]> = {
     'Selecione as entregas para um acerto, confira valor e forma de pagamento e acompanhe a confirmação do motoqueiro.',
   ],
   payments: [
-    'Escolha as formas de pagamento aceitas e o provedor que será usado pelo restaurante.',
-    'No ambiente real, conecte a conta do provedor e valide uma transação antes de oferecer o pagamento.',
+    'Ative Pix, cartão ou os dois. Escolha a empresa que receberá cada pagamento; você pode usar empresas diferentes.',
+    'Clique em Conectar Mercado Pago ou Conectar PagBank e autorize a conta do restaurante no site da empresa. Suas escolhas são salvas antes de abrir a autorização.',
+    'Para Asaas, informe CPF ou CNPJ e faturamento; para CPF, informe também o nascimento do titular. O sistema usa os dados do negócio e endereço para criar a subconta e configurar as confirmações automáticas.',
+    'Confira o status em Contas de recebimento. Se houver documentos ou aprovação pendentes, conclua no Asaas e use Verificar conexões. Reconectar atualiza uma conta já vinculada.',
+    'O QR Code Pix é gerado na conta conectada. A chave digitada é opcional e não cadastra uma chave no banco. Teste a conexão antes de oferecer o pagamento aos clientes.',
     'Na demonstração, Pix e cartão são fictícios. Não informe chaves, credenciais ou dados de cartão reais.',
   ],
   social: [

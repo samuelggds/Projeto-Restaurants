@@ -229,6 +229,52 @@ test('deve abrir checkout de cartao usando a configuracao PagBank do restaurante
   assert.equal(deletedOrderId, null);
 });
 
+test('admin conectado via OAuth abre checkout PagBank moderno sem email cadastrado', async () => {
+  const publicId = '123e4567-e89b-42d3-a456-426614174001';
+  restaurantSettingsRepository.findByRestaurantId = async () => ({
+    restaurantId: 7,
+    cardGateway: 'PAGBANK',
+    pagbankToken: 'tenant-token',
+    pagbankRefreshToken: 'refresh-7',
+    pagbankTokenExpiresAt: new Date(Date.now() + 3600_000),
+  });
+  createOrderService.execute = async () => ({
+    id: 321,
+    publicId,
+    restaurantId: 7,
+    total: 25,
+    restaurant: { name: 'Restaurante' },
+  });
+  let saved;
+  orderRepository.setCardCheckoutSessionId = async (id, tenant, session) => {
+    assert.deepEqual([id, tenant], [321, 7]);
+    saved = session;
+  };
+  globalThis.fetch = async (url, init) => {
+    assert.equal(url, 'https://api.pagseguro.com/checkouts');
+    assert.equal(init.headers.Authorization, 'Bearer tenant-token');
+    const body = JSON.parse(init.body);
+    assert.equal(body.reference_id, 'ordercard:321:7:123e4567e89b42d3a456426614174001');
+    return new Response(
+      JSON.stringify({
+        id: 'CHEC_321',
+        reference_id: body.reference_id,
+        links: [{ rel: 'PAY', href: 'https://pagamento.pagbank.com.br/pagamento?code=321' }],
+      }),
+    );
+  };
+  const result = await createOrderCardCheckoutService.execute({
+    restaurantId: 7,
+    userRestaurantId: 7,
+    type: 'RETIRADA',
+    paymentMethod: 'CARTAO',
+    items: [{ productId: 1, quantity: 1 }],
+  });
+  assert.equal(saved, 'pagbank_checkout:CHEC_321');
+  assert.equal(result.sessionId, 'CHEC_321');
+  assert.equal(result.paid, false);
+});
+
 test('deve abrir checkout de cartao com Asaas e fazer fallback sem split quando rejeitado', async () => {
   let savedSessionId = null;
   let deletedOrderId = null;

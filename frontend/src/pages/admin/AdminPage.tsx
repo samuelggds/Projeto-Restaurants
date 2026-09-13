@@ -188,6 +188,7 @@ export function AdminPage({
   onOpenSettings,
   onSaveSettings,
   onConnectMercadoPago,
+  onLoadPaymentConnections,
   onConnectPagBank,
   onOnboardAsaas,
   onCreateEmployee,
@@ -935,9 +936,40 @@ export function AdminPage({
                   onDeleteCoupon={onDeleteCoupon}
                   onReloadPromotions={onReloadPromotions}
                   openEmployees={() => void changeArea('employees')}
-                  onConnectMercadoPago={onConnectMercadoPago}
-                  onConnectPagBank={onConnectPagBank}
-                  onOnboardAsaas={onOnboardAsaas}
+                  onLoadPaymentConnections={onLoadPaymentConnections}
+                  onConnectMercadoPago={
+                    onConnectMercadoPago &&
+                    (async () => {
+                      if (settingsDirty && !(await save())) {
+                        throw new Error(
+                          'Revise e salve as configurações antes de conectar a conta.',
+                        );
+                      }
+                      await onConnectMercadoPago();
+                    })
+                  }
+                  onConnectPagBank={
+                    onConnectPagBank &&
+                    (async () => {
+                      if (settingsDirty && !(await save())) {
+                        throw new Error(
+                          'Revise e salve as configurações antes de conectar a conta.',
+                        );
+                      }
+                      await onConnectPagBank();
+                    })
+                  }
+                  onOnboardAsaas={
+                    onOnboardAsaas &&
+                    (async (payload) => {
+                      if (settingsDirty && !(await save())) {
+                        throw new Error(
+                          'Revise e salve as configurações antes de conectar a conta.',
+                        );
+                      }
+                      await onOnboardAsaas(payload);
+                    })
+                  }
                 />
               )
             ) : (

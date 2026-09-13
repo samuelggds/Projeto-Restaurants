@@ -17,6 +17,8 @@ class OnboardRestaurantAsaasController {
         addressNumber,
         province,
         postalCode,
+        birthDate,
+        companyType,
       } = req.body;
 
       const result = await onboardRestaurantAsaasService.execute({
@@ -32,6 +34,8 @@ class OnboardRestaurantAsaasController {
         addressNumber,
         province,
         postalCode,
+        birthDate,
+        companyType,
       });
 
       return res.status(200).json(result);

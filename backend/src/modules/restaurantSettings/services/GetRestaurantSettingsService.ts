@@ -223,9 +223,12 @@ class GetRestaurantSettingsService {
       stripeSecretKey: null,
       stripeWebhookSecret: null,
       mercadoPagoAccessToken: null,
+      mercadoPagoRefreshToken: null,
       picpayToken: null,
       asaasAccessToken: null,
+      asaasWebhookTokenHash: null,
       pagbankToken: null,
+      pagbankRefreshToken: null,
       stripeSecretKeyConfigured: Boolean(String(settings?.stripeSecretKey || '').trim()),
       stripeWebhookSecretConfigured: Boolean(String(settings?.stripeWebhookSecret || '').trim()),
       mercadoPagoAccessTokenConfigured: Boolean(

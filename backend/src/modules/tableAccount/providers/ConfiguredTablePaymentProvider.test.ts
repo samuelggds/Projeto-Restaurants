@@ -28,6 +28,37 @@ const context = {
 const externalId = 'pagbank:ORDE_123';
 const expiresAt = new Date('2026-09-07T20:00:00.000Z');
 
+test('checkout hospedado da mesa cria referência exclusiva e notificação de pagamento', async () => {
+  restaurantSettingsRepository.findByRestaurantId = async () => ({
+    pagbankToken: 'tenant-seven',
+    pagbankRefreshToken: 'refresh-seven',
+    pagbankTokenExpiresAt: new Date(Date.now() + 3600000),
+  });
+  globalThis.fetch = async (url, init) => {
+    assert.match(String(url), /\/checkouts$/);
+    const body = JSON.parse(init.body);
+    assert.equal(body.reference_id, 'tablecard:91:7:423e4567e89b42d3a456426614174091');
+    assert.equal(body.items[0].unit_amount, 3000);
+    return new Response(
+      JSON.stringify({
+        id: 'CHEC_91',
+        reference_id: body.reference_id,
+        links: [{ rel: 'PAY', href: 'https://pagamento.pagbank.com.br/pagamento?code=91' }],
+      }),
+    );
+  };
+  const provider = new ConfiguredTablePaymentProvider({ ...context, method: 'CARD' }, 'PAGBANK');
+  const result = await provider.createPayment({
+    intentPublicId: context.intentPublicId,
+    amountCents: 3000,
+    method: 'CARD',
+    idempotencyKeyHash: 'stable-91',
+    expiresAt,
+  });
+  assert.equal(result.externalId, 'pagbank_checkout:CHEC_91');
+  assert.equal(result.status, 'PENDING');
+});
+
 function arrangePixStatus(status, amount) {
   prisma.tablePaymentIntent.findFirst = async (query) => {
     assert.deepEqual(query.where, {

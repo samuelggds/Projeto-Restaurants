@@ -1,4 +1,5 @@
 import { MercadoPagoConfig, Payment } from 'mercadopago';
+import { pagBankApiBaseUrl } from '../../payments/providers/pagBankCheckout.js';
 import {
   isMarketplaceSplitConfigurationError,
   parseProviderPaymentId,
@@ -17,6 +18,10 @@ import { mercadoPagoOrderNotificationFields } from '../../payments/providers/mer
 import { buildOrderItemCustomizationSnapshot } from '../utils/productIngredients.js';
 import { withTenantDbContext } from '../../../database/tenantDbContext.js';
 import orderRepository from '../repositories/OrderRepository.js';
+import {
+  getPagBankAccessToken,
+  getMercadoPagoAccessToken,
+} from '../../restaurantSettings/services/RestaurantPaymentCredentialsService.js';
 
 const APPROVED_PAYMENT_STATUSES = new Set(['approved', 'accredited', 'paid']);
 const APPROVED_ASAAS_PAYMENT_STATUSES = new Set(['received', 'confirmed', 'received_in_cash']);
@@ -160,20 +165,11 @@ type ParsedManualPixPaymentId = {
 
 class OrderPixPaymentService {
   getPagBankBaseUrl() {
-    return String(process.env.PAGBANK_API_BASE_URL || 'https://api.pagseguro.com')
-      .trim()
-      .replace(/\/+$/, '');
+    return pagBankApiBaseUrl();
   }
 
   async getPagBankToken(restaurantId: number) {
-    const settings = await restaurantSettingsRepository.findByRestaurantId(restaurantId);
-    const token = String(settings?.pagbankToken || '').trim();
-    if (!token) {
-      throw new Error(
-        'Pagamento PIX PagBank indisponível. Configure o token PagBank nas configurações do restaurante.',
-      );
-    }
-    return token;
+    return getPagBankAccessToken(restaurantId);
   }
 
   async fetchPagBankJson<T>(url: string, token: string, init: RequestInit = {}) {
@@ -343,7 +339,11 @@ class OrderPixPaymentService {
         : null;
     const settingsToken = String(settings?.mercadoPagoAccessToken || '').trim();
     const globalToken = String(process.env.MP_ACCESS_TOKEN || '').trim();
-    const accessToken = settingsToken || (allowGlobalFallback ? globalToken : '');
+    const accessToken = settingsToken
+      ? await getMercadoPagoAccessToken(normalizedRestaurantId)
+      : allowGlobalFallback
+        ? globalToken
+        : '';
 
     if (!accessToken) {
       throw new Error(
@@ -488,12 +488,6 @@ class OrderPixPaymentService {
     ) {
       throw new Error('O provedor PIX mudou. Concilie a tentativa anterior antes de continuar.');
     }
-    const pixKey = String(settings?.pixKey || '').trim();
-
-    if (!pixKey) {
-      throw new Error('Chave PIX não configurada para este restaurante.');
-    }
-
     const minimumOrder = Number(settings?.minimumOrder || 0);
     const deliveryFee = Number(settings?.deliveryFee || 0);
     const freeShippingMinimum = Number(settings?.freeShippingMinimum || 0);

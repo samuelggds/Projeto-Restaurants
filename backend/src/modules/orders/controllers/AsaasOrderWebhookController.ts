@@ -10,6 +10,8 @@ import {
 } from '../utils/waiterOrderRealtime.js';
 import failPendingOrderPaymentService from '../services/FailPendingOrderPaymentService.js';
 import reconcileLateCancelledPaymentService from '../services/ReconcileLateCancelledPaymentService.js';
+import asaasPaymentVerificationService from '../services/AsaasPaymentVerificationService.js';
+import { timingSafeEqual } from 'node:crypto';
 
 const TERMINAL_UNPAID_EVENTS = new Set(['PAYMENT_CANCELED', 'PAYMENT_DELETED', 'PAYMENT_REFUNDED']);
 
@@ -17,12 +19,13 @@ export interface AsaasWebhookPaymentPayload {
   id: string;
   externalReference: string;
   value: number;
-  walletId: string;
+  billingType?: string;
 }
 
 export interface AsaasWebhookPayload {
   event: string;
   payment: AsaasWebhookPaymentPayload;
+  account?: { id?: string };
 }
 
 class AsaasOrderWebhookController {
@@ -31,7 +34,11 @@ class AsaasOrderWebhookController {
       const tokenFromHeader = String(req.header('asaas-access-token') || '').trim();
       const expectedToken = String(process.env.ASAAS_WEBHOOK_TOKEN || '').trim();
 
-      if (!expectedToken || tokenFromHeader !== expectedToken) {
+      if (
+        !expectedToken ||
+        Buffer.byteLength(tokenFromHeader) !== Buffer.byteLength(expectedToken) ||
+        !timingSafeEqual(Buffer.from(tokenFromHeader), Buffer.from(expectedToken))
+      ) {
         return res.status(401).json({ error: 'Token de webhook invalido.' });
       }
 
@@ -40,7 +47,7 @@ class AsaasOrderWebhookController {
         .trim()
         .toUpperCase();
 
-      const isPaymentReceived = event === 'PAYMENT_RECEIVED';
+      const isPaymentReceived = event === 'PAYMENT_RECEIVED' || event === 'PAYMENT_CONFIRMED';
       const isTerminalUnpaidEvent = TERMINAL_UNPAID_EVENTS.has(event);
       if (!isPaymentReceived && !isTerminalUnpaidEvent) {
         return res.status(200).json({ received: true, ignored: true });
@@ -50,13 +57,12 @@ class AsaasOrderWebhookController {
       const externalReference = String(payment?.externalReference || '').trim();
       const asaasPaymentId = String(payment?.id || '').trim();
       const paymentValue = Number(payment?.value);
-      const walletId = String(payment?.walletId || '').trim();
+      const accountId = String(payload.account?.id || '').trim();
 
       const hasRequiredPaymentFields =
         Boolean(asaasPaymentId) &&
         Boolean(externalReference) &&
-        (isTerminalUnpaidEvent ||
-          (Number.isFinite(paymentValue) && paymentValue >= 0 && Boolean(walletId)));
+        (isTerminalUnpaidEvent || (Number.isFinite(paymentValue) && paymentValue >= 0));
 
       if (!hasRequiredPaymentFields) {
         return res.status(200).json({ received: true, ignored: true });
@@ -100,14 +106,6 @@ class AsaasOrderWebhookController {
         return res.status(200).json({ received: true, ignored: true });
       }
 
-      if (isTerminalUnpaidEvent) {
-        await failPendingOrderPaymentService.execute({
-          orderId: order.id,
-          restaurantId: order.restaurantId,
-        });
-        return res.status(200).json({ received: true, processed: true });
-      }
-
       if (Math.abs(paymentValue - Number(order.total)) > 0.009) {
         return res.status(200).json({ received: true, ignored: true });
       }
@@ -141,6 +139,26 @@ class AsaasOrderWebhookController {
         return res.status(200).json({ received: true, ignored: true });
       }
 
+      const verified = await asaasPaymentVerificationService.execute({
+        restaurantId: order.restaurantId,
+        orderId: order.id,
+        total: Number(order.total),
+        paymentId: asaasPaymentId,
+        method: normalizedPaymentMethod,
+        accountId,
+      });
+      if (!verified) return res.status(200).json({ received: true, ignored: true });
+      if (isTerminalUnpaidEvent) {
+        if (!verified.terminalUnpaid)
+          return res.status(200).json({ received: true, ignored: true });
+        await failPendingOrderPaymentService.execute({
+          orderId: order.id,
+          restaurantId: order.restaurantId,
+        });
+        return res.status(200).json({ received: true, processed: true });
+      }
+      if (!verified.approved) return res.status(200).json({ received: true, ignored: true });
+
       if (String(order.status) === 'CANCELADO' && order.paid !== true) {
         await reconcileLateCancelledPaymentService.execute({
           orderId: order.id,
@@ -149,27 +167,6 @@ class AsaasOrderWebhookController {
           paymentReference: providerPaymentId,
         });
         return res.status(200).json({ received: true, processed: true, refunded: true });
-      }
-
-      if (walletId) {
-        try {
-          await prisma.restaurantSettings.updateMany({
-            where: {
-              restaurantId: order.restaurantId,
-              OR: [{ gatewayMerchantId: null }, { gatewayMerchantId: '' }],
-            },
-            data: {
-              gatewayMerchantId: walletId,
-            },
-          });
-        } catch (settingsUpdateError: unknown) {
-          console.warn(
-            '[ASAAS_WEBHOOK_GATEWAY_ID_BACKFILL_ERROR]',
-            settingsUpdateError instanceof Error
-              ? settingsUpdateError.message
-              : String(settingsUpdateError),
-          );
-        }
       }
 
       if (!order.paid) {

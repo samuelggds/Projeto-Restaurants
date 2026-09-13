@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import { useAuth } from '../../contexts/authContext';
 import restaurantSettingsService from '../../Services/restaurantSettingsService';
+import { getPaymentConnections } from '../../Services/paymentConnectionService';
 import employeesService from '../../Services/employeesService';
 import ordersService from '../../Services/ordersService';
 import productsService from '../../Services/productsService';
@@ -939,6 +940,7 @@ export default function Admin() {
         }
         window.location.assign(authorizationUrl);
       }}
+      onLoadPaymentConnections={getPaymentConnections}
       onConnectPagBank={async () => {
         const result = await restaurantSettingsService.startPagBankOAuth();
         const authorizationUrl = String(
