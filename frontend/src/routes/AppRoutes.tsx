@@ -7,7 +7,7 @@ import {
   useLocation,
   useParams,
 } from 'react-router-dom';
-import { lazy, Suspense, useEffect, useState } from 'react';
+import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 
 const Login = lazy(() => import('../pages/Login/Login'));
 const AdminPortalEntry = lazy(() => import('../pages/Login/AdminPortalEntry'));
@@ -43,7 +43,11 @@ import {
   setSystemBlockState,
   subscribeSystemBlockState,
 } from '../Services/systemBlock';
-import { authorizeRoute, TENANT_LOGIN_REDIRECT } from './routeAuthorization';
+import {
+  authorizeRoute,
+  shouldEndSuperAdminSession,
+  TENANT_LOGIN_REDIRECT,
+} from './routeAuthorization';
 import SystemAvailabilityGate from './SystemAvailabilityGate';
 import SystemMaintenancePage from '../pages/SystemMaintenance/SystemMaintenance';
 import BrowserTabBranding from '../components/BrowserTabBranding/BrowserTabBranding';
@@ -130,10 +134,20 @@ function PageTransition() {
 }
 
 export function RouteAuthorizationGuard() {
-  const { user, isLoading } = useAuth();
+  const { user, logout, isLoading } = useAuth();
   const location = useLocation();
+  const logoutInProgress = useRef(false);
+
+  useEffect(() => {
+    if (isLoading || logoutInProgress.current) return;
+    if (!shouldEndSuperAdminSession(location.pathname, user)) return;
+
+    logoutInProgress.current = true;
+    logout();
+  }, [isLoading, location.pathname, logout, user]);
 
   if (isLoading) return <RouteLoading />;
+  if (shouldEndSuperAdminSession(location.pathname, user)) return <RouteLoading />;
 
   const decision = authorizeRoute(location.pathname, user);
   if ('redirectTo' in decision) {
