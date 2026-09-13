@@ -4,12 +4,15 @@ import prisma from '../../../config/prisma.js';
 import { notFound, SuperAdminError } from '../domain/superAdminErrors.js';
 import type { AuditContext } from '../repositories/SuperAdminRepository.js';
 import superAdminRepository from '../repositories/SuperAdminRepository.js';
+import { parseSuperAdminPayload, requireSuperAdminActor } from './superAdminServiceSupport.js';
 
 const deleteRestaurantSchema = z
   .object({
     reason: z.string().trim().min(8, 'Motivo deve ter no mínimo 8 caracteres.').max(500),
   })
   .strict();
+
+type DeleteRestaurantInput = z.infer<typeof deleteRestaurantSchema>;
 
 function parseRestaurantId(value: unknown) {
   const id = Number(value);
@@ -22,14 +25,10 @@ function parseRestaurantId(value: unknown) {
 export class DeleteRestaurantService {
   async execute(restaurantIdValue: unknown, payload: unknown, context: AuditContext) {
     const restaurantId = parseRestaurantId(restaurantIdValue);
-    const parsed = deleteRestaurantSchema.parse(payload);
+    const parsed = parseSuperAdminPayload<DeleteRestaurantInput>(deleteRestaurantSchema, payload);
 
     return prisma.$transaction(async (transaction) => {
-      const actor = await superAdminRepository.findActor(context.actorUserId, transaction);
-      if (!actor) {
-        throw new SuperAdminError('Acesso permitido apenas para SUPER_ADMIN.', 403, 'FORBIDDEN');
-      }
-
+      const actor = await requireSuperAdminActor(superAdminRepository, context, transaction);
       const restaurant = await transaction.restaurant.findUnique({
         where: { id: restaurantId },
         select: {
