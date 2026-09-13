@@ -36,7 +36,10 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: 'node ./node_modules/vite/bin/vite.js --host 127.0.0.1 --port 4181 --strictPort',
+    // Compile lazy routes before Playwright starts the first test's timeout.
+    // Keep the test build separate from dist's production artifacts and env mode.
+    command:
+      'node ./node_modules/vite/bin/vite.js build --mode e2e --outDir dist/e2e && node ./node_modules/vite/bin/vite.js preview --mode e2e --outDir dist/e2e --host 127.0.0.1 --port 4181 --strictPort',
     env: { ...webServerEnvironment, VITE_E2E_DIRECT_API: 'true' },
     url: 'http://127.0.0.1:4181',
     reuseExistingServer: false,

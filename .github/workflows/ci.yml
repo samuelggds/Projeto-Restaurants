@@ -304,7 +304,21 @@ jobs:
         run: npx playwright install --with-deps chromium
 
       - name: Run critical E2E journeys
-        run: npm --prefix frontend run test:e2e:critical
+        shell: bash
+        run: |
+          set -o pipefail
+          npm --prefix frontend run test:e2e:critical 2>&1 | tee critical-e2e.log
+
+      - name: Upload critical E2E diagnostics on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: critical-e2e-diagnostics
+          path: |
+            critical-e2e.log
+            frontend/test-results/
+          if-no-files-found: warn
+          retention-days: 3
 
   # ─────────────────────────────────────────────
   # 4. SECURITY AUDIT — npm audit (high+)
