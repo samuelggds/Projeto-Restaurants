@@ -2,6 +2,7 @@ import OpenAI from 'openai';
 import prisma from '../../../config/prisma.js';
 import { setTenantDbContext } from '../../../database/tenantDbContext.js';
 import productRepository from '../../products/repositories/ProductRepository.js';
+import { calculateImageUsageCostUsd } from '../../aiSupport/services/openAiUsageCost.js';
 
 const BRANDED_PRODUCT_TERMS = [
   'coca cola',
@@ -148,10 +149,16 @@ class GenerateImportedProductImageService {
       await productRepository.update(productId, { image: imageDataUrl }, restaurantId, db);
     });
 
+    const usage = (result as unknown as { usage?: unknown }).usage;
     return {
       productId,
       productName: product.name,
       status: 'GENERATED' as const,
+      aiUsage: {
+        model: 'gpt-image-2',
+        usage: usage ?? null,
+        costUsd: calculateImageUsageCostUsd(usage, 0.009),
+      },
     };
   }
 }
