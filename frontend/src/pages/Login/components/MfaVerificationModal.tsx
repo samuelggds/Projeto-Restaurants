@@ -1,6 +1,6 @@
 import {
+  useCallback,
   useEffect,
-  useMemo,
   useRef,
   useState,
   type ClipboardEvent,
@@ -71,19 +71,21 @@ export function MfaVerificationModal<T>({
   const [resending, setResending] = useState(false);
   const [shakeKey, setShakeKey] = useState(0);
   const [secondsRemaining, setSecondsRemaining] = useState(Math.max(0, resendAfterSeconds));
+  const [mobileOtpCapable] = useState(() => isMobileOtpCapable());
   const inputRefs = useRef<Array<HTMLInputElement | null>>([]);
-  const mobileOtpCapable = useMemo(isMobileOtpCapable, []);
   const code = digits.join('');
 
   useEffect(() => {
-    if (!open) return;
-    setDigits(Array(6).fill(''));
-    setState('idle');
-    setMessage('');
-    setSubmitting(false);
-    setResending(false);
-    setSecondsRemaining(Math.max(0, resendAfterSeconds));
-    const timeout = window.setTimeout(() => inputRefs.current[0]?.focus(), 60);
+    if (!open) return undefined;
+    const timeout = window.setTimeout(() => {
+      setDigits(Array(6).fill(''));
+      setState('idle');
+      setMessage('');
+      setSubmitting(false);
+      setResending(false);
+      setSecondsRemaining(Math.max(0, resendAfterSeconds));
+      inputRefs.current[0]?.focus();
+    }, 0);
     return () => window.clearTimeout(timeout);
   }, [open, resendAfterSeconds]);
 
@@ -95,36 +97,36 @@ export function MfaVerificationModal<T>({
     return () => window.clearInterval(timer);
   }, [open, secondsRemaining]);
 
-  const verifyCode = async (verificationCode: string) => {
-    if (submitting || state === 'success') return;
-    if (verificationCode.length !== 6) {
-      setState('error');
-      setMessage('Digite os 6 números do código de verificação.');
-      setShakeKey((current) => current + 1);
-      inputRefs.current[Math.min(verificationCode.length, 5)]?.focus();
-      return;
-    }
+  const verifyCode = useCallback(
+    async (verificationCode: string) => {
+      if (submitting || state === 'success') return;
+      if (verificationCode.length !== 6) {
+        setState('error');
+        setMessage('Digite os 6 números do código de verificação.');
+        setShakeKey((current) => current + 1);
+        inputRefs.current[Math.min(verificationCode.length, 5)]?.focus();
+        return;
+      }
 
-    setSubmitting(true);
-    setState('idle');
-    setMessage('');
+      setSubmitting(true);
+      setState('idle');
+      setMessage('');
 
-    try {
-      const result = await onVerify(verificationCode);
-      setState('success');
-      setMessage('Código confirmado. Acesso liberado com segurança.');
-      window.setTimeout(() => onSuccess(result), 520);
-    } catch (error) {
-      setState('error');
-      setMessage(getErrorMessage(error));
-      setShakeKey((current) => current + 1);
-      setSubmitting(false);
-      window.setTimeout(() => {
-        const firstEmpty = digits.findIndex((digit) => !digit);
-        inputRefs.current[firstEmpty >= 0 ? firstEmpty : 0]?.focus();
-      }, 40);
-    }
-  };
+      try {
+        const result = await onVerify(verificationCode);
+        setState('success');
+        setMessage('Código confirmado. Acesso liberado com segurança.');
+        window.setTimeout(() => onSuccess(result), 520);
+      } catch (error) {
+        setState('error');
+        setMessage(getErrorMessage(error));
+        setShakeKey((current) => current + 1);
+        setSubmitting(false);
+        window.setTimeout(() => inputRefs.current[0]?.focus(), 40);
+      }
+    },
+    [onSuccess, onVerify, state, submitting],
+  );
 
   useEffect(() => {
     if (!open || !mobileOtpCapable || code.length !== 6 || submitting || state === 'success') {
@@ -134,9 +136,7 @@ export function MfaVerificationModal<T>({
       void verifyCode(code);
     }, 120);
     return () => window.clearTimeout(timeout);
-    // verifyCode intentionally follows the current rendered code/state.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [code, mobileOtpCapable, open, state, submitting]);
+  }, [code, mobileOtpCapable, open, state, submitting, verifyCode]);
 
   if (!open) return null;
 
@@ -161,7 +161,9 @@ export function MfaVerificationModal<T>({
   const handleChange = (index: number, value: string) => {
     const numeric = value.replace(/\D/gu, '');
     if (!numeric) {
-      setDigits((current) => current.map((digit, digitIndex) => (digitIndex === index ? '' : digit)));
+      setDigits((current) =>
+        current.map((digit, digitIndex) => (digitIndex === index ? '' : digit)),
+      );
       if (state === 'error') {
         setState('idle');
         setMessage('');
