@@ -83,7 +83,10 @@ export function getRoleHome(user: RouteUser) {
 export function shouldEndSuperAdminSession(pathname: string, user: RouteUser) {
   const role = String(user?.role || '').toUpperCase();
   if (role !== 'SUPER_ADMIN') return false;
-  return !isPath(normalizePath(pathname), '/super_admin');
+
+  const path = normalizePath(pathname);
+  if (user?.mustChangePassword === true && path === '/change-password') return false;
+  return !isPath(path, '/super_admin');
 }
 
 export function authorizeRoute(pathname: string, user: RouteUser): RouteDecision {
@@ -101,17 +104,18 @@ export function authorizeRoute(pathname: string, user: RouteUser): RouteDecision
 
   const home = getRoleHome(user);
 
+  if (user.mustChangePassword === true) {
+    return path === '/change-password'
+      ? { allowed: true }
+      : { allowed: false, redirectTo: '/change-password' };
+  }
+
   // O namespace técnico é exclusivo do SUPER_ADMIN autenticado.
   if (isPath(path, '/super_admin')) {
     return role === 'SUPER_ADMIN' ? { allowed: true } : { allowed: false, redirectTo: home };
   }
 
   if (path === TENANT_REQUIRED_PATH) return { allowed: true };
-  if (user.mustChangePassword === true) {
-    return path === '/change-password'
-      ? { allowed: true }
-      : { allowed: false, redirectTo: '/change-password' };
-  }
   if (path === '/change-password') return { allowed: true };
   if (isPath(path, '/attendant')) {
     return role === 'FUNCIONARIO' && subRole === 'ATENDENTE'
