@@ -8,6 +8,8 @@ import UpdateRestaurantSettingsController from '../controllers/UpdateRestaurantS
 import GetPublicRestaurantSettingsController from '../controllers/GetPublicRestaurantSettingsController.js';
 import GetPublicRestaurantSettingsRevisionController from '../controllers/GetPublicRestaurantSettingsRevisionController.js';
 import OnboardRestaurantAsaasController from '../controllers/OnboardRestaurantAsaasController.js';
+import GetAsaasConnectionStatusController from '../controllers/GetAsaasConnectionStatusController.js';
+import GetPaymentConnectionsController from '../controllers/GetPaymentConnectionsController.js';
 import GetAsaasWalletBalanceController from '../controllers/GetAsaasWalletBalanceController.js';
 import WithdrawAsaasWalletController from '../controllers/WithdrawAsaasWalletController.js';
 import StartMercadoPagoOAuthController from '../controllers/StartMercadoPagoOAuthController.js';
@@ -52,6 +54,10 @@ router.get('/', authMiddleware, adminMiddleware, (req, res) =>
   GetRestaurantSettingsController.handle(req, res),
 );
 
+router.get('/payment-connections', authMiddleware, adminMiddleware, (req, res) =>
+  GetPaymentConnectionsController.handle(req, res),
+);
+
 router.post('/mercado-pago/oauth/start', authMiddleware, adminMiddleware, (req, res) =>
   StartMercadoPagoOAuthController.handle(req, res),
 );
@@ -70,6 +76,10 @@ router.get('/pagbank/oauth/callback', (req, res) =>
 
 router.post('/asaas/onboard', authMiddleware, adminMiddleware, (req, res) =>
   OnboardRestaurantAsaasController.handle(req, res),
+);
+
+router.get('/asaas/status', authMiddleware, adminMiddleware, (req, res) =>
+  GetAsaasConnectionStatusController.handle(req, res),
 );
 
 router.get('/asaas/wallet/balance', authMiddleware, adminMiddleware, (req, res) =>

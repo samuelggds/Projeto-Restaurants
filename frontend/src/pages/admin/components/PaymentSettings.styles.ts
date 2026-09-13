@@ -745,3 +745,47 @@ export const CurrentChoice = styled.footer`
     font-size: 9px;
   }
 `;
+
+export const ConnectionTools = styled.div`
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  color: #615c56;
+  font-size: 12px;
+
+  button {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 40px;
+    padding: 8px 14px;
+    border: 1px solid #ddd6ce;
+    border-radius: 10px;
+    background: #fff;
+    color: #254633;
+    font: inherit;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  button:disabled {
+    opacity: 0.6;
+    cursor: wait;
+  }
+  button:focus-visible {
+    outline: 2px solid #254633;
+    outline-offset: 3px;
+  }
+`;
+
+export const OnboardingLink = styled.a`
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 40px;
+  color: #254633;
+  font-size: 12px;
+  font-weight: 700;
+  text-underline-offset: 3px;
+`;

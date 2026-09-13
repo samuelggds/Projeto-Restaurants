@@ -116,24 +116,24 @@ model PlatformPlan {
 
 /// Public sales enquiries belong to the platform, before a restaurant account exists.
 model SalesLead {
-  id             String   @id @default(uuid()) @db.Uuid
-  idempotencyKey String   @unique @db.Uuid
-  payloadHash    String   @db.VarChar(64)
-  name           String   @db.VarChar(120)
-  restaurantName String   @db.VarChar(160)
-  email          String   @db.VarChar(254)
-  phone          String   @db.VarChar(15)
-  city           String   @db.VarChar(100)
-  state          String   @db.VarChar(2)
-  businessType   String   @db.VarChar(80)
+  id             String                @id @default(uuid()) @db.Uuid
+  idempotencyKey String                @unique @db.Uuid
+  payloadHash    String                @db.VarChar(64)
+  name           String                @db.VarChar(120)
+  restaurantName String                @db.VarChar(160)
+  email          String                @db.VarChar(254)
+  phone          String                @db.VarChar(15)
+  city           String                @db.VarChar(100)
+  state          String                @db.VarChar(2)
+  businessType   String                @db.VarChar(80)
   channels       String[]
-  planInterest   String   @db.VarChar(16)
-  message        String?  @db.VarChar(2000)
+  planInterest   String                @db.VarChar(16)
+  message        String?               @db.VarChar(2000)
   consent        Boolean
-  consentedAt    DateTime @default(now()) @db.Timestamptz(3)
-  status         String   @default("NEW") @db.VarChar(16)
-  createdAt      DateTime @default(now()) @db.Timestamptz(3)
-  updatedAt      DateTime @updatedAt @db.Timestamptz(3)
+  consentedAt    DateTime              @default(now()) @db.Timestamptz(3)
+  status         String                @default("NEW") @db.VarChar(16)
+  createdAt      DateTime              @default(now()) @db.Timestamptz(3)
+  updatedAt      DateTime              @updatedAt @db.Timestamptz(3)
   emailOutbox    SalesLeadEmailOutbox?
 
   @@index([status, createdAt, id])
@@ -142,16 +142,16 @@ model SalesLead {
 
 /// Durable platform email delivery; deliberately separate from restaurant WhatsApp outbox.
 model SalesLeadEmailOutbox {
-  id           String    @id @default(uuid()) @db.Uuid
-  leadId       String    @unique @db.Uuid
-  status       String    @default("PENDING") @db.VarChar(16)
-  attempts     Int       @default(0)
-  availableAt  DateTime  @default(now()) @db.Timestamptz(3)
-  lockedUntil  DateTime? @db.Timestamptz(3)
-  lockToken    String?   @db.Uuid
-  sentAt       DateTime? @db.Timestamptz(3)
-  createdAt    DateTime  @default(now()) @db.Timestamptz(3)
-  lead         SalesLead @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  id          String    @id @default(uuid()) @db.Uuid
+  leadId      String    @unique @db.Uuid
+  status      String    @default("PENDING") @db.VarChar(16)
+  attempts    Int       @default(0)
+  availableAt DateTime  @default(now()) @db.Timestamptz(3)
+  lockedUntil DateTime? @db.Timestamptz(3)
+  lockToken   String?   @db.Uuid
+  sentAt      DateTime? @db.Timestamptz(3)
+  createdAt   DateTime  @default(now()) @db.Timestamptz(3)
+  lead        SalesLead @relation(fields: [leadId], references: [id], onDelete: Cascade)
 
   @@index([status, availableAt])
 }
@@ -946,6 +946,7 @@ model TablePaymentIntent {
   totalCents          BigInt
   provider            String?
   providerExternalId  String?
+  providerChargeId    String?
   providerCheckoutUrl String?
   providerPaymentCode String?
   expiresAt           DateTime
@@ -969,6 +970,7 @@ model TablePaymentIntent {
 
   @@unique([restaurantId, tableSessionId, idempotencyKeyHash])
   @@unique([provider, providerExternalId])
+  @@unique([provider, providerChargeId])
   @@unique([id, restaurantId, tableSessionId])
   @@index([restaurantId, tableSessionId, status, expiresAt])
   @@index([status, expiresAt, restaurantId, tableSessionId])
@@ -1123,9 +1125,16 @@ model RestaurantSettings {
   companyContractFileUrl String?
 
   // Credenciais dos gateways
-  mercadoPagoAccessToken String?
-  picpayToken            String?
-  asaasAccessToken       String?
+  mercadoPagoAccessToken    String?
+  mercadoPagoRefreshToken   String?
+  mercadoPagoTokenExpiresAt DateTime?
+  mercadoPagoPublicKey      String?
+  picpayToken               String?
+  asaasAccessToken          String?
+  asaasAccountId            String?
+  asaasWebhookId            String?
+  asaasWebhookTokenHash     String?
+  asaasOnboardingState      String?
 
   createdAt  DateTime   @default(now())
   updatedAt  DateTime   @updatedAt
@@ -1999,16 +2008,16 @@ model RuntimeRealtimeEvent {
 }
 
 model NotificationOutbox {
-  id               String   @id @db.Uuid
-  deduplicationKey String   @unique @db.VarChar(64)
+  id               String    @id @db.Uuid
+  deduplicationKey String    @unique @db.VarChar(64)
   restaurantId     Int
-  status           String   @default("PENDING") @db.VarChar(16)
+  status           String    @default("PENDING") @db.VarChar(16)
   payload          String?
-  attempts         Int      @default(0)
-  availableAt      DateTime @default(now()) @db.Timestamptz(3)
+  attempts         Int       @default(0)
+  availableAt      DateTime  @default(now()) @db.Timestamptz(3)
   lockedUntil      DateTime? @db.Timestamptz(3)
   lockToken        String?   @db.Uuid
-  createdAt        DateTime @default(now()) @db.Timestamptz(3)
+  createdAt        DateTime  @default(now()) @db.Timestamptz(3)
   completedAt      DateTime? @db.Timestamptz(3)
 
   @@index([status, availableAt])

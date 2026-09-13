@@ -1,4 +1,5 @@
 import { OrderType, PaymentMethod } from '@prisma/client';
+import { pagBankApiBaseUrl } from '../../payments/providers/pagBankCheckout.js';
 import { load } from 'cheerio';
 import prisma from '../../../config/prisma.js';
 import { withTenantDbContext } from '../../../database/tenantDbContext.js';
@@ -14,6 +15,10 @@ import {
   type PixProvider,
 } from '../../payments/providers/providerCatalog.js';
 import restaurantSettingsRepository from '../../restaurantSettings/repositories/RestaurantSettingsRepository.js';
+import {
+  getPagBankAccessToken,
+  getMercadoPagoAccessToken,
+} from '../../restaurantSettings/services/RestaurantPaymentCredentialsService.js';
 import { getDirectTablePayment, mutateDirectTablePayment } from './tablePaymentGatewayMutation.js';
 import type {
   CreateProviderPaymentInput,
@@ -138,9 +143,7 @@ function asaasBaseUrl() {
 }
 
 function pagBankBaseUrl() {
-  return String(process.env.PAGBANK_API_BASE_URL || 'https://api.pagseguro.com')
-    .trim()
-    .replace(/\/+$/, '');
+  return pagBankApiBaseUrl();
 }
 
 async function settingsFor(restaurantId: number) {
@@ -162,8 +165,7 @@ function credentialReady(
   }
   if (provider === PIX_PROVIDERS.PAGBANK || provider === CARD_PROVIDERS.PAGBANK) {
     const token = Boolean(String(settings.pagbankToken || '').trim());
-    const email = Boolean(String(settings.pagbankEmail || '').trim());
-    return method === 'CARD' ? token && email : token;
+    return token;
   }
   return false;
 }
@@ -179,10 +181,7 @@ export async function getConfiguredTablePaymentReadiness(
 
   return {
     allowPix: Boolean(
-      settings.acceptsPix &&
-      String(settings.pixKey || '').trim() &&
-      pixProvider &&
-      credentialReady(settings, pixProvider, 'PIX'),
+      settings.acceptsPix && pixProvider && credentialReady(settings, pixProvider, 'PIX'),
     ),
     allowCard: Boolean(
       settings.acceptsCard && cardProvider && credentialReady(settings, cardProvider, 'CARD'),
@@ -293,6 +292,7 @@ async function createCard(
     cancelUrl: frontendUrl,
   };
   const checkout = await handler.createCheckout({
+    paymentScope: 'TABLE_ACCOUNT',
     payload,
     order: {
       id: context.intentId,
@@ -331,7 +331,7 @@ async function getMercadoPagoCard(
   expiresAt: Date,
 ) {
   const settings = await settingsFor(context.restaurantId);
-  const token = String(settings.mercadoPagoAccessToken || '').trim();
+  const token = await getMercadoPagoAccessToken(context.restaurantId);
   if (!token) throw new Error('Mercado Pago não configurado para este restaurante.');
   const reference = tableCardReference(context);
   const url = new URL('https://api.mercadopago.com/v1/payments/search');
@@ -391,7 +391,7 @@ async function getPagBankCard(
   expiresAt: Date,
 ) {
   const settings = await settingsFor(context.restaurantId);
-  const token = String(settings.pagbankToken || '').trim();
+  const token = await getPagBankAccessToken(context.restaurantId);
   const email = String(settings.pagbankEmail || '').trim();
 
   if (externalId.startsWith('pagbank_tx:')) {
@@ -478,7 +478,7 @@ export class ConfiguredTablePaymentProvider implements PaymentProvider {
         provider: this.code,
         providerExternalId: externalId,
       },
-      select: { totalCents: true, expiresAt: true },
+      select: { totalCents: true, expiresAt: true, providerChargeId: true },
     });
     if (!intent) throw new Error('Pagamento da mesa não encontrado para consulta no provedor.');
     const amountCents = Number(intent.totalCents);
@@ -487,6 +487,7 @@ export class ConfiguredTablePaymentProvider implements PaymentProvider {
       provider: this.code,
       externalId,
       amountCents,
+      providerChargeId: intent.providerChargeId,
       expiresAt: intent.expiresAt,
     });
     if (directPayment) return directPayment;
@@ -537,7 +538,7 @@ export class ConfiguredTablePaymentProvider implements PaymentProvider {
         provider: this.code,
         providerExternalId: input.externalId,
       },
-      select: { totalCents: true, expiresAt: true },
+      select: { totalCents: true, expiresAt: true, providerChargeId: true },
     });
     if (!intent) throw new Error('Pagamento não encontrado neste restaurante.');
     return mutateDirectTablePayment(
@@ -545,6 +546,7 @@ export class ConfiguredTablePaymentProvider implements PaymentProvider {
         ...this.context,
         provider: this.code,
         externalId: input.externalId,
+        providerChargeId: intent.providerChargeId,
         amountCents: Number(intent.totalCents),
         expiresAt: intent.expiresAt,
       },

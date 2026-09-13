@@ -110,7 +110,7 @@ test('roteia cartao Asaas e usa fallback global somente quando habilitado', asyn
 });
 
 test('estorna PIX PagBank localizando a charge paga com idempotencia', async () => {
-  process.env.PAGBANK_API_BASE_URL = 'https://sandbox.pagbank.test';
+  process.env.PAGBANK_API_BASE_URL = 'https://sandbox.api.pagseguro.com';
   restaurantSettingsRepository.findByRestaurantId = async (restaurantId) => {
     assert.equal(restaurantId, 9);
     return { pagbankToken: 'token-pagbank-tenant-9' };
@@ -148,7 +148,7 @@ test('estorna PIX PagBank localizando a charge paga com idempotencia', async () 
 
   assert.deepEqual(receipt, { provider: 'PAGBANK', externalId: 'CHAR_123' });
   assert.equal(requests.length, 2);
-  assert.equal(requests[1].url, 'https://sandbox.pagbank.test/charges/CHAR_123/cancel');
+  assert.equal(requests[1].url, 'https://sandbox.api.pagseguro.com/charges/CHAR_123/cancel');
   assert.equal(requests[1].init.headers.Authorization, 'Bearer token-pagbank-tenant-9');
   assert.equal(requests[1].init.headers['x-idempotency-key'], 'order-refund-9-93');
   assert.deepEqual(JSON.parse(String(requests[1].init.body)), {
@@ -251,6 +251,27 @@ test('bloqueia identificador de cartao PagBank sem transacao antes do Stripe', a
     /identificador PagBank não oferece estorno automático.*pedido não foi cancelado/i,
   );
   assert.equal(fetchCalls, 0);
+});
+
+test('checkout PagBank moderno sem charge vinculada não é enviado ao Stripe', async () => {
+  globalThis.fetch = async () => {
+    throw new Error('Não deveria chamar o gateway');
+  };
+  refundOrderPaymentService.createStripeClient = () => {
+    throw new Error('Não deveria usar Stripe');
+  };
+  await assert.rejects(
+    () =>
+      refundOrderPaymentService.execute({
+        id: 94,
+        restaurantId: 10,
+        total: 55,
+        paid: true,
+        paymentMethod: 'CARTAO',
+        cardCheckoutSessionId: 'pagbank_checkout:CHEC_94',
+      }),
+    /ainda não possui o código da transação/,
+  );
 });
 
 test('retorna erro seguro quando o Asaas recusa o estorno', async () => {

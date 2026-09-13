@@ -1,5 +1,6 @@
 import { createSingleUseOAuthState } from '../security/oauthState.js';
 import { resolveOAuthEndpoint } from '../security/oauthEndpoints.js';
+import { paymentConnectionConfiguration } from './GetPaymentConnectionsService.js';
 
 type StartMercadoPagoOAuthPayload = {
   restaurantId: number | string;
@@ -43,9 +44,9 @@ class StartMercadoPagoOAuthService {
     }
 
     const clientId = this.getClientId();
-    if (!clientId) {
+    if (!clientId || !paymentConnectionConfiguration('MERCADO_PAGO')) {
       throw new Error(
-        'Client ID OAuth do Mercado Pago nao configurado. Defina MP_OAUTH_CLIENT_ID (ou MP_CLIENT_ID / MERCADO_PAGO_CLIENT_ID) no backend.',
+        'A conexão com Mercado Pago está sendo preparada pela plataforma. Tente novamente após a configuração.',
       );
     }
 

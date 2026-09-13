@@ -4,12 +4,30 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { DialogContext } from '../../components/AppDialog/context';
 import { AdminPage } from './AdminPage';
 import { adminMockSettings } from './data';
-import type { AdminSettings } from './types';
+import type { AdminPageProps, AdminSettings } from './types';
+
+vi.mock('./components/PaymentTerminalSettings', () => ({ PaymentTerminalSettings: () => null }));
+vi.mock('../../Services/api', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../Services/api')>();
+  // Isola chamadas de componentes auxiliares: estes testes exercitam o painel
+  // e seus callbacks, sem depender de um backend em execução.
+  actual.default.defaults.adapter = async (config) => ({
+    data: { messages: [], orders: [], products: [], ingredients: [], categories: [] },
+    status: 200,
+    statusText: 'OK',
+    headers: {},
+    config,
+  });
+  return actual;
+});
 
 (globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT =
   true;
 
-function renderAdmin(onSaveSettings: (settings: AdminSettings) => void | Promise<void>) {
+function renderAdmin(
+  onSaveSettings: (settings: AdminSettings) => void | Promise<void>,
+  extra: Partial<AdminPageProps> = {},
+) {
   const container = document.createElement('div');
   document.body.appendChild(container);
   const root = createRoot(container);
@@ -31,6 +49,7 @@ function renderAdmin(onSaveSettings: (settings: AdminSettings) => void | Promise
             deliveryTime: 45,
           },
           onSaveSettings,
+          ...extra,
         }),
       ),
     );
@@ -195,6 +214,93 @@ describe('AdminPage save feedback', () => {
         .value,
     ).toBe('North Pizza');
 
+    cleanup(root, container);
+  });
+
+  for (const [provider, label, callback] of [
+    ['MERCADO_PAGO', 'Mercado Pago', 'onConnectMercadoPago'],
+    ['PAGBANK', 'PagBank', 'onConnectPagBank'],
+  ] as const) {
+    it(`salva a escolha de Pix antes de autorizar ${label} sem trocar a empresa do cartão`, async () => {
+      window.history.replaceState({}, '', '/admin?settings=payments');
+      const calls: string[] = [];
+      const save = vi.fn(async () => {
+        calls.push('save');
+      });
+      const connect = vi.fn(async () => {
+        calls.push('connect');
+      });
+      const { root, container } = renderAdmin(save, {
+        initialSettings: {
+          ...adminMockSettings,
+          restaurantName: 'North Pizza',
+          deliveryTime: 45,
+          acceptsPix: true,
+          acceptsCard: true,
+          pixProvider: 'ASAAS',
+          cardGateway: 'ASAAS',
+          mercadoPagoAccessTokenConfigured: false,
+          pagbankTokenConfigured: false,
+        },
+        [callback]: connect,
+      });
+      const field = Array.from(container.querySelectorAll('select')).find((select) =>
+        select.parentElement?.textContent?.includes('Empresa que receberá o Pix'),
+      )!;
+      act(() => {
+        Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value')?.set?.call(
+          field,
+          provider,
+        );
+        field.dispatchEvent(new Event('change', { bubbles: true }));
+      });
+      const button = Array.from(container.querySelectorAll('button')).find(
+        (item) => item.textContent === `Conectar ${label}`,
+      )!;
+      await act(async () => button.click());
+      expect(calls).toEqual(['save', 'connect']);
+      expect(save).toHaveBeenCalledWith(
+        expect.objectContaining({ pixProvider: provider, cardGateway: 'ASAAS' }),
+      );
+      cleanup(root, container);
+    });
+  }
+
+  it('não abre o provedor se as escolhas não puderem ser salvas', async () => {
+    window.history.replaceState({}, '', '/admin?settings=payments');
+    const connect = vi.fn();
+    const save = vi.fn().mockRejectedValue(new Error('Sem conexão para salvar'));
+    const { root, container } = renderAdmin(save, {
+      initialSettings: {
+        ...adminMockSettings,
+        restaurantName: 'North Pizza',
+        deliveryTime: 45,
+        acceptsPix: true,
+        acceptsCard: false,
+        pixProvider: 'PAGBANK',
+        pagbankTokenConfigured: false,
+      },
+      onConnectPagBank: connect,
+    });
+    const input = container.querySelector(
+      'input[placeholder="CPF, CNPJ, e-mail, telefone ou chave aleatória"]',
+    )!;
+    act(() => {
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set?.call(
+        input,
+        'teste@restaurante.test',
+      );
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    const button = Array.from(container.querySelectorAll('button')).find(
+      (item) => item.textContent === 'Conectar PagBank',
+    )!;
+    await act(async () => button.click());
+    expect(save).toHaveBeenCalledOnce();
+    expect(connect).not.toHaveBeenCalled();
+    expect(container.textContent).toContain(
+      'Revise e salve as configurações antes de conectar a conta.',
+    );
     cleanup(root, container);
   });
 });

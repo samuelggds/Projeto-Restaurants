@@ -247,13 +247,13 @@ test('normaliza referência, valor e moeda retornados pelo Mercado Pago', async 
 });
 
 test('normaliza referência, centavos e moeda retornados pelo PagBank', async () => {
-  process.env.PAGBANK_API_BASE_URL = 'https://sandbox.pagbank.test';
+  process.env.PAGBANK_API_BASE_URL = 'https://sandbox.api.pagseguro.com';
   restaurantSettingsRepository.findByRestaurantId = async (restaurantId) => {
     assert.equal(restaurantId, 7);
     return { pagbankToken: 'token-tenant-7' };
   };
   globalThis.fetch = async (input, init = {}) => {
-    assert.equal(String(input), 'https://sandbox.pagbank.test/orders/pay_123');
+    assert.equal(String(input), 'https://sandbox.api.pagseguro.com/orders/pay_123');
     assert.equal(init.headers.Authorization, 'Bearer token-tenant-7');
     return new Response(
       JSON.stringify({

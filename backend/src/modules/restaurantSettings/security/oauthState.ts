@@ -1,19 +1,8 @@
 import crypto from 'node:crypto';
-import jwt from 'jsonwebtoken';
 import prisma from '../../../config/prisma.js';
-import { getJwtSecret } from '../../../config/auth.js';
 
 export const OAUTH_STATE_TTL_MS = 10 * 60 * 1000;
 export type OAuthProvider = 'MERCADO_PAGO' | 'PAGBANK';
-
-type OAuthStatePayload = {
-  type: 'oauth_state';
-  provider: OAuthProvider;
-  restaurantId: number;
-  userId: number;
-  authVersion: number;
-  nonce: string;
-};
 
 function hashNonce(nonce: string) {
   return crypto.createHash('sha256').update(nonce).digest('hex');
@@ -37,12 +26,6 @@ function assertAuthVersion(authVersion: unknown) {
     throw new Error('Estado OAuth inválido.');
   }
   return normalizedAuthVersion;
-}
-
-function signingSecret() {
-  const secret = getJwtSecret();
-  if (secret.length < 32) throw new Error('JWT_SECRET inválido para proteger estado OAuth.');
-  return secret;
 }
 
 export async function createSingleUseOAuthState({
@@ -69,7 +52,9 @@ export async function createSingleUseOAuthState({
   }
 
   const authVersion = user.authVersion;
-  const nonce = crypto.randomBytes(32).toString('base64url');
+  // PagBank accepts at most 128 alphanumeric characters. Keep identity only in
+  // the database and send a random, single-use bearer nonce to both providers.
+  const nonce = crypto.randomBytes(32).toString('hex');
   const nonceHash = hashNonce(nonce);
   const expiresAt = new Date(Date.now() + OAUTH_STATE_TTL_MS);
 
@@ -91,29 +76,22 @@ export async function createSingleUseOAuthState({
     },
   });
 
-  const payload: OAuthStatePayload = {
-    type: 'oauth_state',
-    provider,
-    ...identity,
-    authVersion,
-    nonce,
-  };
-  return jwt.sign(payload, signingSecret(), { expiresIn: '10m' });
+  return nonce;
 }
 
 export async function consumeSingleUseOAuthState(rawState: unknown, provider: OAuthProvider) {
   const state = String(rawState || '').trim();
   if (!state) throw new Error('State OAuth não recebido.');
 
-  const decoded = jwt.verify(state, signingSecret());
-  if (!decoded || typeof decoded === 'string') throw new Error('Estado OAuth inválido.');
-  const payload = decoded as Partial<OAuthStatePayload>;
-  const identity = assertIdentity(payload.restaurantId, payload.userId);
-  const authVersion = assertAuthVersion(payload.authVersion);
-  const nonce = String(payload.nonce || '');
-  if (payload.type !== 'oauth_state' || payload.provider !== provider || nonce.length < 32) {
+  if (!/^[a-f0-9]{64}$/.test(state)) throw new Error('Estado OAuth inválido.');
+  const nonceHash = hashNonce(state);
+  const stored = await prisma.oAuthAuthorizationState.findUnique({ where: { nonceHash } });
+  if (!stored) throw new Error('Estado OAuth expirado, reutilizado ou substituído.');
+  if (stored.provider !== provider) {
     throw new Error('Estado OAuth inválido.');
   }
+  const identity = assertIdentity(stored.restaurantId, stored.userId);
+  const authVersion = assertAuthVersion(stored.authVersion);
 
   const consumedAt = new Date();
   const consumed = await prisma.oAuthAuthorizationState.updateMany({
@@ -122,7 +100,7 @@ export async function consumeSingleUseOAuthState(rawState: unknown, provider: OA
       userId: identity.userId,
       restaurantId: identity.restaurantId,
       authVersion,
-      nonceHash: hashNonce(nonce),
+      nonceHash,
       consumedAt: null,
       expiresAt: { gt: consumedAt },
       user: {

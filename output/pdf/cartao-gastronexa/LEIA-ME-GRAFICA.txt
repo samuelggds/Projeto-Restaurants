@@ -19,9 +19,12 @@ Perfil incorporado: ISO Coated v2 300% (ECI), FOGRA39.
 Conversao a partir de sRGB presumido (PNG original sem perfil).
 Perfil de referencia: https://eci.org/doku.php_id=en_downloads.html
 Confirmar com a grafica se o processo/papel exige outro perfil ICC.
-Arte original preservada como imagem a aproximadamente 463 DPI efetivos,
-sem compressao JPEG. Textos e logotipo fazem parte da imagem original;
-nao sao fontes editaveis/vetorizadas. QR Code e marcas sao vetoriais.
+Arte original preservada: mesmas fontes, logotipo, textura, cores e composicao.
+Fontes de 1642 x 958 pixels, a aproximadamente 463 DPI efetivos no tamanho
+de impressao. Nenhuma ampliacao artificial, redesenho ou compressao JPEG.
+Textos e logotipo permanecem na arte original; nao sao fontes editaveis
+ou vetorizadas. QR Code e marcas de corte sao vetoriais, sem limite de DPI.
+O QR foi substituido na mesma posicao, sem alterar o restante da arte.
 O arquivo e PDF 1.4 CMYK com perfil e caixas de pagina; nao foi certificado
 como PDF/X por ferramenta de preflight comercial.
 
@@ -29,6 +32,7 @@ QR CODE
 Destino preservado: https://www.gastronexa.com.br
 Quadrado externo de 19 x 19 mm; margem branca de 4 modulos;
 correcao de erros Q; modulos em preto 100% K, sobre branco sem tinta.
+Leitura digital conferida nos PDFs finais renderizados em 300 e 600 DPI.
 Conferir a leitura tambem em uma prova fisica no tamanho final.
 
 CONFERENCIA DO CONTEUDO

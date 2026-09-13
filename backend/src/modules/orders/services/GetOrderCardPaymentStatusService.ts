@@ -1,6 +1,9 @@
 import { OrderStatus, OrderType, PaymentMethod } from '@prisma/client';
 import { z } from 'zod';
 import orderRepository from '../repositories/OrderRepository.js';
+import reconcilePagBankCardPaymentService from './ReconcilePagBankCardPaymentService.js';
+import asaasPaymentVerificationService from './AsaasPaymentVerificationService.js';
+import finalizeOrderCardPaymentService from './FinalizeOrderCardPaymentService.js';
 
 const publicOrderIdSchema = z.string().uuid();
 const notFoundMessage = 'Pagamento com cartão não encontrado.';
@@ -22,7 +25,7 @@ class GetOrderCardPaymentStatusService {
       throw new Error(notFoundMessage);
     }
 
-    const order = await orderRepository.findCardPaymentStatusByPublicId(
+    let order = await orderRepository.findCardPaymentStatusByPublicId(
       parsedPublicId.data,
       restaurantId,
     );
@@ -47,6 +50,51 @@ class GetOrderCardPaymentStatusService {
       }
     } else if (!input.guest) {
       throw new Error(notFoundMessage);
+    }
+
+    const sessionId = String(order.cardCheckoutSessionId || '');
+    if (
+      !order.paid &&
+      order.status !== OrderStatus.CANCELADO &&
+      sessionId.startsWith('asaas_pay:')
+    ) {
+      try {
+        const verified = await asaasPaymentVerificationService.execute({
+          restaurantId: order.restaurantId,
+          orderId: order.id,
+          total: Number(order.total),
+          method: 'CARTAO',
+          paymentId: sessionId.slice('asaas_pay:'.length),
+        });
+        if (verified?.approved) {
+          const confirmed = await finalizeOrderCardPaymentService.execute({
+            orderId: order.id,
+            restaurantId: order.restaurantId,
+            checkoutSessionId: sessionId,
+          });
+          if (confirmed) order = { ...order, paid: confirmed.paid, status: confirmed.status };
+        }
+      } catch {
+        /* Falha de consulta mantém o estado pendente; o webhook também concilia. */
+      }
+    }
+
+    if (
+      !order.paid &&
+      order.status !== OrderStatus.CANCELADO &&
+      (sessionId.startsWith('pagbank_checkout:') ||
+        sessionId.startsWith('pagbank_charge:CHAR_') ||
+        sessionId.startsWith('pagbank_tx:CHAR_'))
+    ) {
+      try {
+        const confirmed = await reconcilePagBankCardPaymentService.execute({
+          orderId: order.id,
+          restaurantId,
+        });
+        if (confirmed) order = { ...order, paid: confirmed.paid, status: confirmed.status };
+      } catch {
+        /* A consulta não confirma pagamentos sem evidência; o webhook pode tentar novamente. */
+      }
     }
 
     const status =

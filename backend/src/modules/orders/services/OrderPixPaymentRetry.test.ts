@@ -80,6 +80,28 @@ test('PagBank usa a chave persistida, inclusive após timeout', async () => {
   assert.equal(requests[0].body, requests[1].body);
 });
 
+test('Pix PagBank conectado usa credencial tenant sem exigir chave Pix digitada no painel', async () => {
+  provider = 'PAGBANK';
+  settingsRepository.findPublicByRestaurantId = async () => ({
+    pixProvider: provider,
+    pixKey: null,
+    isOpenForOrders: true,
+    acceptsPix: true,
+  });
+  let calls = 0;
+  globalThis.fetch = async (url, init) => {
+    calls += 1;
+    assert.match(String(url), /api.pagseguro.com\/orders$/);
+    assert.equal(init.headers.Authorization, 'Bearer test-token');
+    assert.equal(JSON.parse(init.body).reference_id, 'orderpix:7:91');
+    assert.equal(JSON.parse(init.body).qr_codes[0].amount.value, 2500);
+    return new Response(JSON.stringify({ id: 'ORDE_91', qr_codes: [{ text: 'pix-payload' }] }));
+  };
+  const result = await pix.createPixPayment(payload);
+  assert.equal(result.paymentId, 'pagbank:ORDE_91');
+  assert.equal(calls, 1);
+});
+
 test('Asaas retoma cobrança existente por referência sem qualquer POST', async () => {
   provider = 'ASAAS';
   const calls = [];

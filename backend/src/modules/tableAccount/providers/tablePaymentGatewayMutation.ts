@@ -1,13 +1,27 @@
 import restaurantSettingsRepository from '../../restaurantSettings/repositories/RestaurantSettingsRepository.js';
+import {
+  getPagBankAccessToken,
+  getMercadoPagoAccessToken,
+} from '../../restaurantSettings/services/RestaurantPaymentCredentialsService.js';
+import {
+  getPagBankCheckoutPayment,
+  getPagBankCardChargePayment,
+  refundPagBankCardCharge,
+  mutatePagBankCheckoutPayment,
+  pagBankTableReference,
+  pagBankApiBaseUrl,
+} from '../../payments/providers/pagBankCheckout.js';
 import refundOrderPaymentService from '../../orders/services/RefundOrderPaymentService.js';
 import type { ProviderMutationInput, ProviderPayment } from './PaymentProvider.js';
 
 type BoundPayment = {
   restaurantId: number;
   intentId: number;
+  intentPublicId?: string;
   provider: string;
   method: 'PIX' | 'CARD';
   externalId: string;
+  providerChargeId?: string | null;
   amountCents: number;
   expiresAt: Date;
 };
@@ -33,10 +47,10 @@ async function connection(input: BoundPayment) {
   const settings = await restaurantSettingsRepository.findByRestaurantId(input.restaurantId);
   const token = String(
     (input.provider === 'MERCADO_PAGO'
-      ? settings?.mercadoPagoAccessToken
+      ? await getMercadoPagoAccessToken(input.restaurantId)
       : input.provider === 'ASAAS'
         ? settings?.asaasAccessToken
-        : settings?.pagbankToken) || '',
+        : await getPagBankAccessToken(input.restaurantId)) || '',
   ).trim();
   if (!token) throw new Error('Credencial do restaurante indisponível.');
   const url =
@@ -44,13 +58,45 @@ async function connection(input: BoundPayment) {
       ? `https://api.mercadopago.com/v1/payments/${id}`
       : input.provider === 'ASAAS'
         ? `${String(process.env.ASAAS_API_BASE_URL || 'https://api.asaas.com').replace(/\/+$/u, '')}/v3/payments/${id}`
-        : `${String(process.env.PAGBANK_API_BASE_URL || 'https://api.pagseguro.com').replace(/\/+$/u, '')}/${id.startsWith('ORDE') ? 'orders' : 'charges'}/${id}`;
+        : `${pagBankApiBaseUrl()}/${id.startsWith('ORDE') ? 'orders' : 'charges'}/${id}`;
   const headers: Record<string, string> =
     input.provider !== 'ASAAS' ? { Authorization: `Bearer ${token}` } : { access_token: token };
   return { id, url, headers };
 }
 
 export async function getDirectTablePayment(input: BoundPayment): Promise<ProviderPayment | null> {
+  if (
+    input.provider === 'PAGBANK' &&
+    input.method === 'CARD' &&
+    input.externalId.startsWith('pagbank_checkout:')
+  ) {
+    if (!input.intentPublicId) throw new Error('Identificação da conta da mesa não encontrada.');
+    const result = input.providerChargeId
+      ? await getPagBankCardChargePayment({
+          restaurantId: input.restaurantId,
+          chargeId: input.providerChargeId,
+          amountCents: input.amountCents,
+          hostedCheckout: true,
+        })
+      : await getPagBankCheckoutPayment({
+          restaurantId: input.restaurantId,
+          checkoutId: input.externalId.slice('pagbank_checkout:'.length),
+          reference: pagBankTableReference({
+            id: input.intentId,
+            restaurantId: input.restaurantId,
+            publicId: input.intentPublicId,
+          }),
+          amountCents: input.amountCents,
+        });
+    return {
+      externalId: input.externalId,
+      status: result.status === 'EXPIRED' ? 'EXPIRED' : result.status,
+      amountCents: input.amountCents,
+      expiresAt: input.expiresAt,
+      checkoutUrl: null,
+      paymentCode: null,
+    };
+  }
   if (!directReference(input)) return null;
   const { id, url, headers } = await connection(input);
   const response = await fetch(url, { headers, signal: AbortSignal.timeout(15_000) });
@@ -162,6 +208,55 @@ export async function mutateDirectTablePayment(
   operation: 'cancel' | 'refund',
   mutation: ProviderMutationInput,
 ) {
+  if (
+    input.provider === 'PAGBANK' &&
+    input.method === 'CARD' &&
+    input.externalId.startsWith('pagbank_checkout:')
+  ) {
+    if (!input.intentPublicId) throw new Error('Identificação da conta da mesa não encontrada.');
+    if (input.providerChargeId) {
+      const current = await getDirectTablePayment(input);
+      if (!current) throw new Error('Cobrança vinculada da mesa não encontrada.');
+      if (operation === 'cancel' || current.status !== 'PAID') return current;
+      await refundPagBankCardCharge({
+        restaurantId: input.restaurantId,
+        chargeId: input.providerChargeId,
+        amountCents: input.amountCents,
+        hostedCheckout: true,
+        reference: pagBankTableReference({
+          id: input.intentId,
+          restaurantId: input.restaurantId,
+          publicId: input.intentPublicId,
+        }),
+        idempotencyKey: mutation.idempotencyKey,
+      });
+      const after = await getDirectTablePayment(input);
+      if (!after) throw new Error('Estado final da cobrança PagBank indisponível.');
+      return after;
+    }
+    const result = await mutatePagBankCheckoutPayment(
+      {
+        restaurantId: input.restaurantId,
+        checkoutId: input.externalId.slice('pagbank_checkout:'.length),
+        reference: pagBankTableReference({
+          id: input.intentId,
+          restaurantId: input.restaurantId,
+          publicId: input.intentPublicId,
+        }),
+        amountCents: input.amountCents,
+        idempotencyKey: mutation.idempotencyKey,
+      },
+      operation,
+    );
+    return {
+      externalId: input.externalId,
+      status: result.status,
+      amountCents: input.amountCents,
+      expiresAt: input.expiresAt,
+      checkoutUrl: null,
+      paymentCode: null,
+    };
+  }
   const before = await getDirectTablePayment(input);
   if (!before)
     throw new Error(

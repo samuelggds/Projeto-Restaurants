@@ -90,6 +90,24 @@ function resolveTrustedEndpoint(definition: EndpointDefinition, env: Environment
 }
 
 export function resolveOAuthEndpoint(endpoint: OAuthEndpoint, env: Environment = process.env) {
+  if (endpoint === 'PAGBANK_API') {
+    const connect = String(env.PAGBANK_CONNECT_API_URL || '').trim();
+    const legacyAlias = String(env.PAGBANK_API_BASE_URL || '').trim();
+    if (
+      connect &&
+      legacyAlias &&
+      canonicalizeEndpoint('PAGBANK_CONNECT_API_URL', connect) !==
+        canonicalizeEndpoint('PAGBANK_API_BASE_URL', legacyAlias)
+    ) {
+      throw new Error(
+        'PAGBANK_CONNECT_API_URL e PAGBANK_API_BASE_URL devem apontar para o mesmo ambiente.',
+      );
+    }
+    return resolveTrustedEndpoint(ENDPOINTS.PAGBANK_API, {
+      ...env,
+      PAGBANK_CONNECT_API_URL: connect || legacyAlias,
+    });
+  }
   return resolveTrustedEndpoint(ENDPOINTS[endpoint], env);
 }
 

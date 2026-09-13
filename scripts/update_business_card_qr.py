@@ -1,125 +1,162 @@
+"""Preserve the approved print artwork and replace only its QR with CMYK vectors.
+
+Optional --source restores an approved 96 x 56 mm, two-page PDF.
+No rasterization, resampling, font substitution or logo reconstruction is done.
+"""
+
 from __future__ import annotations
 
+import argparse
+import sys
+import zipfile
 from io import BytesIO
 from pathlib import Path
-import zipfile
 
-import fitz
+ROOT = Path(__file__).resolve().parents[1]
+LOCAL_DEPS = ROOT / "tmp/pdfs/gastronexa-deps"
+if LOCAL_DEPS.exists():
+    sys.path.insert(0, str(LOCAL_DEPS))
+
 import qrcode
-from qrcode.constants import ERROR_CORRECT_Q
-from qrcode.image.svg import SvgPathImage
+from pypdf import PageObject, PdfReader, PdfWriter, Transformation
+from pypdf.generic import NameObject, RectangleObject
+from reportlab.pdfgen import canvas
 
 TARGET_URL = "https://www.gastronexa.com.br"
-ROOT = Path(__file__).resolve().parents[1]
-OUT = ROOT / "output" / "pdf" / "cartao-gastronexa"
-
+OUT = ROOT / "output/pdf/cartao-gastronexa"
 PDFS = [
     OUT / "GastroNexa-cartao-90x50mm-sangria-3mm.pdf",
     OUT / "GastroNexa-cartao-90x50mm-com-marcas-de-corte.pdf",
 ]
 README = OUT / "LEIA-ME-GRAFICA.txt"
 ZIP_PATH = OUT / "GastroNexa-cartao-pacote-grafica.zip"
-
 MM = 72.0 / 25.4
 
-# Position copied from the existing card artwork. Coordinates are in millimetres
-# relative to the 96 x 56 mm bleed artwork, using a top-left origin.
-WHITE_BOX = (72.5320, 16.6167, 20.2759, 20.2830)
-QR_BOX = (73.1700, 17.2582, 19.0, 19.0)
+# Exact position of the approved PDF's white QR square, in PDF points with
+# top-left origin. These are not source-PNG or screenshot coordinates.
+QR_X = 193.71969604492188
+QR_Y = 47.89134216308594
+QR_SIZE = 19 * MM
 
 
-def qr_vector_pdf() -> fitz.Document:
-    qr = qrcode.QRCode(
-        error_correction=ERROR_CORRECT_Q,
-        box_size=10,
-        border=4,
-    )
-    qr.add_data(TARGET_URL)
-    qr.make(fit=True)
-
-    svg = qr.make_image(image_factory=SvgPathImage)
+def qr_overlay() -> PdfReader:
+    code = qrcode.QRCode(error_correction=qrcode.constants.ERROR_CORRECT_Q, border=4)
+    code.add_data(TARGET_URL)
+    code.make(fit=True)
+    matrix = code.get_matrix()
+    module = QR_SIZE / len(matrix)
     buffer = BytesIO()
-    svg.save(buffer)
-
-    svg_doc = fitz.open(stream=buffer.getvalue(), filetype="svg")
-    pdf_doc = fitz.open(stream=svg_doc.convert_to_pdf(), filetype="pdf")
-    svg_doc.close()
-    return pdf_doc
-
-
-def mm_rect(x: float, y: float, w: float, h: float) -> fitz.Rect:
-    return fitz.Rect(x * MM, y * MM, (x + w) * MM, (y + h) * MM)
-
-
-def replace_qr(pdf_path: Path, qr_pdf: fitz.Document) -> None:
-    doc = fitz.open(pdf_path)
-    if doc.page_count < 2:
-        raise RuntimeError(f"{pdf_path.name}: esperado PDF com frente e verso")
-
-    page = doc[1]
-    width_mm = page.rect.width / MM
-    height_mm = page.rect.height / MM
-
-    if abs(width_mm - 96.0) < 0.8 and abs(height_mm - 56.0) < 0.8:
-        artwork_offset_x = 0.0
-        artwork_offset_y = 0.0
-    elif abs(width_mm - 108.0) < 0.8 and abs(height_mm - 68.0) < 0.8:
-        artwork_offset_x = 6.0
-        artwork_offset_y = 6.0
-    else:
-        raise RuntimeError(
-            f"{pdf_path.name}: tamanho inesperado {width_mm:.2f} x {height_mm:.2f} mm"
-        )
-
-    wx, wy, ww, wh = WHITE_BOX
-    qx, qy, qw, qh = QR_BOX
-
-    white_rect = mm_rect(
-        artwork_offset_x + wx,
-        artwork_offset_y + wy,
-        ww,
-        wh,
-    )
-    qr_rect = mm_rect(
-        artwork_offset_x + qx,
-        artwork_offset_y + qy,
-        qw,
-        qh,
-    )
-
-    # Cover only the previous QR white square. All other card elements remain intact.
-    page.draw_rect(white_rect, color=None, fill=(1, 1, 1), overlay=True)
-    page.show_pdf_page(qr_rect, qr_pdf, 0, overlay=True, keep_proportion=True)
-
-    tmp = pdf_path.with_suffix(".tmp.pdf")
-    doc.save(tmp, garbage=4, deflate=True, clean=True)
-    doc.close()
-    tmp.replace(pdf_path)
+    c = canvas.Canvas(buffer, pagesize=(96 * MM, 56 * MM), pageCompression=1, pdfVersion=(1, 4))
+    bottom = 56 * MM - QR_Y - QR_SIZE
+    c.setFillColorCMYK(0, 0, 0, 0)
+    c.rect(QR_X, bottom, QR_SIZE, QR_SIZE, fill=1, stroke=0)
+    path = c.beginPath()
+    for row, values in enumerate(matrix):
+        for col, enabled in enumerate(values):
+            if enabled:
+                path.rect(QR_X + col * module, bottom + (len(matrix) - row - 1) * module, module, module)
+    # One compound fill avoids antialias seams; every black module is 100% K.
+    c.setFillColorCMYK(0, 0, 0, 1)
+    c.drawPath(path, fill=1, stroke=0, fillMode=1)
+    c.showPage()
+    c.save()
+    buffer.seek(0)
+    return PdfReader(buffer)
 
 
-def rebuild_zip() -> None:
-    with zipfile.ZipFile(ZIP_PATH, "w", compression=zipfile.ZIP_DEFLATED, compresslevel=9) as zf:
+def crop_marks() -> PdfReader:
+    buffer = BytesIO()
+    c = canvas.Canvas(buffer, pagesize=(108 * MM, 68 * MM), pageCompression=1, pdfVersion=(1, 4))
+    c.setStrokeColorCMYK(0, 0, 0, 1)
+    c.setLineWidth(.25)
+    for x in (9 * MM, 99 * MM):
+        c.line(x, 2 * MM, x, 5 * MM)
+        c.line(x, 63 * MM, x, 66 * MM)
+    for y in (9 * MM, 59 * MM):
+        c.line(2 * MM, y, 5 * MM, y)
+        c.line(103 * MM, y, 106 * MM, y)
+    c.showPage()
+    c.save()
+    buffer.seek(0)
+    return PdfReader(buffer)
+
+
+def set_boxes(page, marks=False):
+    if not marks:
+        # Keep the approved boxes byte-for-byte, including harmless decimal
+        # rounding, so rendering starts on exactly the same pixel grid.
+        return
+    w, h, bleed, trim = 108, 68, 6, 9
+    page.mediabox = RectangleObject([0, 0, w * MM, h * MM])
+    page.cropbox = page.mediabox
+    page.bleedbox = RectangleObject([bleed * MM, bleed * MM, (w - bleed) * MM, (h - bleed) * MM])
+    page.trimbox = RectangleObject([trim * MM, trim * MM, (w - trim) * MM, (h - trim) * MM])
+
+
+def save_pdf(writer, source, destination):
+    # Copy the approved CMYK output profile without converting the artwork.
+    intent = source.trailer["/Root"].get("/OutputIntents")
+    if not intent:
+        raise ValueError("O PDF fonte precisa conter o perfil ICC CMYK aprovado.")
+    writer._root_object[NameObject("/OutputIntents")] = intent.clone(writer)
+    preferences = source.trailer["/Root"].get("/ViewerPreferences")
+    if preferences:
+        writer._root_object[NameObject("/ViewerPreferences")] = preferences.clone(writer)
+    writer.pdf_header = "%PDF-1.4"
+    metadata = dict(source.metadata or {})
+    metadata.update({
+        "/Title": "GastroNexa - Cartão 90x50 mm - Frente e verso",
+        "/Subject": "Arte original CMYK preservada; corte 90x50 mm; sangria 3 mm; QR vetorial https://www.gastronexa.com.br",
+    })
+    writer.add_metadata(metadata)
+    staging = destination.with_suffix(".tmp.pdf")
+    with staging.open("wb") as handle:
+        writer.write(handle)
+    staging.replace(destination)
+
+
+def prepare(source_path):
+    # Load in memory so replacement also works when source is the final PDF.
+    source = PdfReader(BytesIO(source_path.read_bytes()))
+    if len(source.pages) != 2:
+        raise ValueError("A arte aprovada deve conter exatamente frente e verso.")
+    for page in source.pages:
+        if abs(float(page.mediabox.width) / MM - 96) > .01 or abs(float(page.mediabox.height) / MM - 56) > .01:
+            raise ValueError("Use a arte fonte 96 x 56 mm (90 x 50 mm + sangria 3 mm).")
+    source.pages[1].merge_page(qr_overlay().pages[0])
+    plain = PdfWriter()
+    for original in source.pages:
+        page = plain.add_page(original)
+        set_boxes(page)
+    save_pdf(plain, source, PDFS[0])
+    marked = PdfWriter()
+    marks = crop_marks().pages[0]
+    for original in source.pages:
+        page = PageObject.create_blank_page(width=108 * MM, height=68 * MM)
+        page.merge_transformed_page(original, Transformation().translate(6 * MM, 6 * MM))
+        page.merge_page(marks)
+        set_boxes(page, marks=True)
+        marked.add_page(page)
+    save_pdf(marked, source, PDFS[1])
+
+
+def rebuild_zip():
+    staging = ZIP_PATH.with_suffix(".tmp.zip")
+    with zipfile.ZipFile(staging, "w", compression=zipfile.ZIP_DEFLATED, compresslevel=9) as archive:
         for path in [*PDFS, README]:
-            zf.write(path, arcname=path.name)
+            archive.write(path, arcname=path.name)
+    staging.replace(ZIP_PATH)
 
 
-def main() -> None:
-    for path in [*PDFS, README]:
-        if not path.exists():
-            raise FileNotFoundError(path)
-
-    qr_pdf = qr_vector_pdf()
-    try:
-        for pdf in PDFS:
-            replace_qr(pdf, qr_pdf)
-    finally:
-        qr_pdf.close()
-
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--source", type=Path, default=PDFS[0])
+    args = parser.parse_args()
+    prepare(args.source)
     rebuild_zip()
-    print(f"QR atualizado para: {TARGET_URL}")
-    for pdf in PDFS:
-        print(f"Atualizado: {pdf.relative_to(ROOT)}")
-    print(f"Atualizado: {ZIP_PATH.relative_to(ROOT)}")
+    print(f"Arte original preservada; QR vetorial: {TARGET_URL}")
+    for path in [*PDFS, ZIP_PATH]:
+        print(path.relative_to(ROOT))
 
 
 if __name__ == "__main__":
