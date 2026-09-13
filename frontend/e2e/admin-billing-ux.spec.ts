@@ -7,6 +7,7 @@ import { createInitialDemoState, DEMO_STORAGE_KEY } from '../src/pages/Marketing
 type BillingTestState = {
   requestedPlan: string | null;
   pixRequests: number;
+  pixExpiresAt: string;
   subscription: Record<string, unknown>;
   recurring: Record<string, unknown>;
   recurringError: boolean;
@@ -22,6 +23,7 @@ function createState(): BillingTestState {
   return {
     requestedPlan: null,
     pixRequests: 0,
+    pixExpiresAt: new Date(Date.now() + 30 * 60_000).toISOString(),
     recurring: { billingMethod: 'PIX', autoRenew: false, status: 'INACTIVE' },
     recurringError: false,
     configError: true,
@@ -164,7 +166,7 @@ async function mockAdminApi(page: Page, state: BillingTestState) {
           pixQrCode: '00020101021226890014br.gov.bcb.pix',
           pixQrCodeBase64:
             'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Y9Z3p8AAAAASUVORK5CYII=',
-          pixExpiresAt: '2026-09-23T23:59:59.000Z',
+          pixExpiresAt: state.pixExpiresAt,
         }),
       });
       return;
@@ -667,4 +669,47 @@ test('acessos da demonstração usam a marca vetorial e preservam as contas fict
     page.getByRole('button', { name: 'Adicionar Burger Clássico', exact: true }).first(),
   ).toBeVisible();
   expect(unexpected).toEqual([]);
+});
+
+test('Pix oculta os códigos ao zerar e renova somente por clique na mesma fatura', async ({
+  page,
+}) => {
+  const start = new Date('2026-09-20T12:00:00Z');
+  await page.clock.install({ time: start });
+  const state = createState();
+  state.pixExpiresAt = new Date(start.getTime() + 30 * 60_000).toISOString();
+  await openBilling(page, state);
+  await page.getByRole('tab', { name: /Cobranças/ }).click();
+  await page.getByRole('button', { name: 'Gerar QR Code Pix' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Pague sua mensalidade' });
+  await expect(dialog.getByRole('timer')).toBeVisible();
+  await expect(dialog).toContainText('Válido até');
+  await expect(dialog).toContainText('não altera o vencimento');
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expectNoHorizontalOverflow(page);
+  await dialog.getByRole('button', { name: 'Verificar pagamento', exact: true }).click();
+  await expect(dialog.getByRole('status')).toContainText('O pagamento ainda não foi confirmado');
+  await dialog.evaluate((element) => {
+    element.scrollTop = 0;
+  });
+  await dialog.screenshot({ path: '../output/preview-bloqueios/pix-contagem-mobile.png' });
+  await dialog.getByText('Ver código Pix', { exact: true }).click();
+  await expect(dialog.getByLabel('Código Pix copia e cola')).toBeVisible();
+  await page.clock.fastForward(30 * 60_000);
+  await expect(
+    dialog.getByRole('status').filter({ hasText: 'Este código Pix expirou' }),
+  ).toBeVisible();
+  await expect(dialog.getByRole('img', { name: 'QR Code Pix da mensalidade' })).toHaveCount(0);
+  await expect(dialog.getByRole('button', { name: 'Copiar código Pix' })).toHaveCount(0);
+  await expect(dialog.getByLabel('Código Pix copia e cola')).toHaveCount(0);
+  await expect(dialog.getByRole('button', { name: 'Gerar novo Pix' })).toBeEnabled();
+  expect(state.pixRequests).toBe(1);
+  await dialog.screenshot({ path: '../output/preview-bloqueios/pix-expirado-mobile.png' });
+  state.pixExpiresAt = new Date(start.getTime() + 60 * 60_000).toISOString();
+  await dialog.getByRole('button', { name: 'Gerar novo Pix' }).click();
+  await expect.poll(() => state.pixRequests).toBe(2);
+  await expect(dialog.getByRole('img', { name: 'QR Code Pix da mensalidade' })).toBeVisible();
+  await expect(dialog).toContainText('Fatura #91');
+  await expect(dialog).toContainText('R$ 249,90');
+  await expect(dialog.getByRole('timer')).toBeVisible();
 });

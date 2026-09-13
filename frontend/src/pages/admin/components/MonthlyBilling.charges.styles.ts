@@ -749,6 +749,104 @@ export const PixModal = styled.div`
   box-shadow: 0 30px 90px rgba(20, 14, 10, 0.34);
   text-align: center;
 
+  .qr-frame svg {
+    display: block;
+    width: 100%;
+    height: auto;
+  }
+  .copy:disabled {
+    cursor: wait;
+    opacity: 0.6;
+    transform: none;
+  }
+  button:focus-visible,
+  summary:focus-visible,
+  textarea:focus-visible {
+    outline: 3px solid #98b787;
+    outline-offset: 3px;
+  }
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+  }
+  details {
+    margin-top: 10px;
+    text-align: left;
+  }
+  summary {
+    padding: 8px 0;
+    cursor: pointer;
+    font-size: 12px;
+    color: #5d6a54;
+  }
+  textarea {
+    width: 100%;
+    min-height: 70px;
+    padding: 10px;
+    box-sizing: border-box;
+    border: 1px solid #dbe2d4;
+    border-radius: 8px;
+    resize: vertical;
+    font-size: 12px;
+  }
+  .expired-pix {
+    margin: 20px 0;
+    padding: 20px 15px;
+    background: #f6f7f0;
+    border: 1px solid #e0e5d6;
+    border-radius: 14px;
+    color: #34533d;
+  }
+  .expired-pix > svg {
+    width: 30px;
+    height: 30px;
+  }
+  .expired-pix h3 {
+    margin: 10px 0;
+    font-size: 19px;
+  }
+  .expired-pix p {
+    font-size: 12px;
+    line-height: 1.7;
+    margin: 0 0 15px;
+  }
+  .pix-error {
+    padding: 10px;
+    margin-top: 12px;
+    border-radius: 8px;
+    background: #fff1ea;
+    color: #a54622;
+    font-size: 12px;
+  }
+  .payment-confirmation {
+    margin-top: 20px;
+    padding-top: 15px;
+    border-top: 1px solid #e4e8de;
+    color: #67715f;
+    font-size: 11px;
+    line-height: 1.6;
+  }
+  .payment-confirmation button {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    width: 100%;
+    min-height: 44px;
+    margin-top: 10px;
+    border: 1px solid #dfe6d7;
+    border-radius: 10px;
+    background: #fafcf6;
+    color: #36583e;
+    cursor: pointer;
+  }
+  .payment-confirmation button:disabled {
+    opacity: 0.6;
+    cursor: wait;
+  }
   .close {
     position: absolute;
     right: 14px;

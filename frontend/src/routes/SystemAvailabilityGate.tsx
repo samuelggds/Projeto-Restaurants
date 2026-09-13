@@ -122,6 +122,12 @@ export default function SystemAvailabilityGate({ children }: { children: ReactNo
   if (marketingPath) return children;
 
   const role = String(user?.role || '').toUpperCase();
+  const audience =
+    role === 'ADMIN'
+      ? 'admin'
+      : ['ATENDENTE', 'GARCOM', 'COZINHA', 'MOTOQUEIRO'].includes(role)
+        ? 'staff'
+        : 'customer';
   const view = resolveAvailabilityView({
     pathname: location.pathname,
     role,
@@ -132,7 +138,13 @@ export default function SystemAvailabilityGate({ children }: { children: ReactNo
   });
 
   if (view === 'PLATFORM_MAINTENANCE') {
-    return <SystemMaintenancePage mode="platform" message={maintenanceState.message} />;
+    return (
+      <SystemMaintenancePage
+        mode="platform"
+        audience={audience}
+        message={maintenanceState.message}
+      />
+    );
   }
 
   if (view === 'LOADING') {
@@ -145,7 +157,7 @@ export default function SystemAvailabilityGate({ children }: { children: ReactNo
 
   if (view === 'BILLING_ADMIN') return <BillingRestrictedAdmin />;
   if (view === 'TENANT_MAINTENANCE') {
-    return <SystemMaintenancePage mode="tenant" message={blockState.message} />;
+    return <SystemMaintenancePage mode="tenant" audience={audience} message={blockState.message} />;
   }
 
   return children;

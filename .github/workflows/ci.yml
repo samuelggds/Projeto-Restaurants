@@ -8,7 +8,7 @@ on:
 
 # Cancel previous runs on the same branch to avoid wasted minutes
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 jobs:

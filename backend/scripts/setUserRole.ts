@@ -159,7 +159,10 @@ async function main() {
   const result = await prisma.$transaction(async (transaction) => {
     // Serializa mudanças administrativas para impedir duas demissões concorrentes
     // de observarem o mesmo total de SUPER_ADMINs ativos.
-    await transaction.$queryRaw`SELECT pg_advisory_xact_lock(742839105)`;
+    await transaction.$queryRaw<Array<{ lockAcquired: number }>>`
+      SELECT 1::int AS "lockAcquired"
+      FROM pg_advisory_xact_lock(742839105)
+    `;
     const current = await transaction.user.findUnique({
       where: { id: user.id },
       select: {
