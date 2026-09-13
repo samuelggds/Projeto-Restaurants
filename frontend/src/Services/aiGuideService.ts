@@ -19,11 +19,23 @@ export type AiGuideStep = {
   navigateTo?: string | null;
 };
 
-export type AiGuide = {
+export type AiTourGuide = {
+  mode: 'TOUR';
   title: string;
   summary: string;
   steps: AiGuideStep[];
 };
+
+export type AiSupportGuide = {
+  mode: 'SUPPORT_CHAT';
+  title: string;
+  summary: string;
+  audience: string;
+  answer: string;
+  instructions: string[];
+};
+
+export type AiGuide = AiTourGuide | AiSupportGuide;
 
 const aiGuideService = {
   async getCredits() {
