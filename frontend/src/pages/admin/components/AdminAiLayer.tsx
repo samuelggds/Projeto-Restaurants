@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import styled from 'styled-components';
@@ -7,6 +7,7 @@ import aiGuideService, {
   type AiCreditBalance,
   type AiTourGuide,
 } from '../../../Services/aiGuideService';
+import restaurantSettingsService from '../../../Services/restaurantSettingsService';
 import { useAuth } from '../../../contexts/authContext';
 import { AiCreditCard } from './AiCreditCard';
 import { AiGuideAssistant } from './AiGuideAssistant';
@@ -72,22 +73,46 @@ function tagTourTargets() {
   if (importButton) importButton.dataset.tour = 'catalog-import';
   const newProduct = findButtonByLabel('Novo produto');
   if (newProduct) newProduct.dataset.tour = 'catalog-new-product';
-  const content = document.querySelector<HTMLElement>('[data-admin-root] main');
+  const content = document.querySelector<HTMLElement>('[data-admin-root] main, main');
   if (content) content.dataset.tour = 'page-content';
+}
+
+function readSlug(value: unknown) {
+  if (!value || typeof value !== 'object') return '';
+  const record = value as Record<string, unknown>;
+  const restaurant =
+    record.restaurant && typeof record.restaurant === 'object'
+      ? (record.restaurant as Record<string, unknown>)
+      : null;
+  return String(record.restaurantSlug || restaurant?.slug || record.slug || '').trim();
 }
 
 export default function AdminAiLayer({ children }: { children: React.ReactNode }) {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const userSlug = useMemo(() => readSlug(user), [user]);
+  const [resolvedRestaurantSlug, setResolvedRestaurantSlug] = useState(userSlug);
   const [credits, setCredits] = useState<AiCreditBalance | null>(null);
   const [assistantOpen, setAssistantOpen] = useState(false);
   const [guide, setGuide] = useState<AiTourGuide | null>(null);
   const [sidebarPortal, setSidebarPortal] = useState<HTMLElement | null>(null);
-  const restaurantRecord =
-    user?.restaurant && typeof user.restaurant === 'object'
-      ? (user.restaurant as Record<string, unknown>)
-      : null;
-  const restaurantSlug = String(user?.restaurantSlug || restaurantRecord?.slug || '').trim();
+
+  useEffect(() => {
+    if (userSlug) {
+      setResolvedRestaurantSlug(userSlug);
+      return;
+    }
+    let active = true;
+    restaurantSettingsService
+      .getMySettings()
+      .then((settings) => {
+        if (active) setResolvedRestaurantSlug(readSlug(settings));
+      })
+      .catch(() => undefined);
+    return () => {
+      active = false;
+    };
+  }, [userSlug]);
 
   useEffect(() => {
     let active = true;
@@ -110,11 +135,11 @@ export default function AdminAiLayer({ children }: { children: React.ReactNode }
     let previewButton: HTMLButtonElement | null = null;
 
     const openStore = (event: Event) => {
-      if (!restaurantSlug) return;
+      if (!resolvedRestaurantSlug) return;
       event.preventDefault();
       event.stopPropagation();
-      if ('stopImmediatePropagation' in event) event.stopImmediatePropagation();
-      navigate(`/${encodeURIComponent(restaurantSlug)}`);
+      event.stopImmediatePropagation();
+      navigate(`/${encodeURIComponent(resolvedRestaurantSlug)}`);
     };
 
     const sync = () => {
@@ -149,7 +174,7 @@ export default function AdminAiLayer({ children }: { children: React.ReactNode }
       setSidebarPortal(null);
       portalNode?.remove();
     };
-  }, [navigate, restaurantSlug]);
+  }, [navigate, resolvedRestaurantSlug]);
 
   const navigateForTour = useCallback((destination?: string | null) => {
     if (!destination) {
