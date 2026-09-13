@@ -109,8 +109,9 @@ export default function Login() {
   const googleInitInFlightRef = useRef(false);
   const googleInitializedRef = useRef(false);
   const googleInitializedClientIdRef = useRef('');
-  const mfaResolveRef = useRef<((value: any) => void) | null>(null);
+  const mfaResolveRef = useRef<((value: unknown) => void) | null>(null);
   const mfaRejectRef = useRef<((reason?: unknown) => void) | null>(null);
+  const mfaToken = mfaChallenge?.mfaToken;
 
   useEffect(() => {
     clearLegacyRememberedAccountEmail();
@@ -228,18 +229,18 @@ export default function Login() {
 
   const handleMfaVerify = useCallback(
     async (code: string) => {
-      if (!mfaChallenge?.mfaToken) throw new Error('Sessão de verificação não encontrada.');
+      if (!mfaToken) throw new Error('Sessão de verificação não encontrada.');
       return authService.verifyLogin2fa({
-        mfaToken: mfaChallenge.mfaToken,
+        mfaToken,
         code,
       });
     },
-    [mfaChallenge?.mfaToken],
+    [mfaToken],
   );
 
   const handleMfaResend = useCallback(async () => {
-    if (!mfaChallenge?.mfaToken) throw new Error('Sessão de verificação não encontrada.');
-    const result = await authService.resendLogin2fa({ mfaToken: mfaChallenge.mfaToken });
+    if (!mfaToken) throw new Error('Sessão de verificação não encontrada.');
+    const result = await authService.resendLogin2fa({ mfaToken });
     setMfaChallenge((current) =>
       current
         ? {
@@ -251,7 +252,7 @@ export default function Login() {
         : current,
     );
     return result;
-  }, [mfaChallenge?.mfaToken]);
+  }, [mfaToken]);
 
   const handleMfaSuccess = useCallback((result: unknown) => {
     const resolve = mfaResolveRef.current;
