@@ -35,12 +35,17 @@ test.describe('critical portable browser behavior', () => {
   test('demo controls remain reachable after opening a modal', async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto('/demonstracao');
+    await page.getByRole('button', { name: 'Entrar nesta área', exact: true }).first().click();
+    await page.getByRole('button', { name: 'Entrar na demonstração', exact: true }).click();
+
     const controls = page.getByTestId('demo-controls');
     await expect(controls).toBeVisible();
 
-    await page.getByRole('button', { name: 'Entrar nesta área', exact: true }).first().click();
-    const dialog = page.getByRole('dialog').first();
-    await expect(dialog).toBeVisible();
+    await page
+      .getByRole('button', { name: 'Adicionar Burger Clássico', exact: true })
+      .first()
+      .click();
+    await expect(page.getByRole('dialog', { name: 'Sua sacola', exact: true })).toBeVisible();
     await expect(controls).toBeVisible();
   });
 
