@@ -1,9 +1,16 @@
 name: Deploy Production
 
 on:
-  workflow_run:
-    workflows: [Release Production Images]
-    types: [completed]
+  workflow_dispatch:
+    inputs:
+      release_run_id:
+        description: Successful Release Production Images run ID
+        required: true
+        type: string
+      release_sha:
+        description: Exact main commit published by the release run
+        required: true
+        type: string
 
 concurrency:
   group: production-deploy
@@ -17,11 +24,7 @@ permissions:
 jobs:
   deploy:
     name: Deploy approved immutable release to Lightsail
-    if: >-
-      github.event.workflow_run.conclusion == 'success' &&
-      github.event.workflow_run.event == 'workflow_dispatch' &&
-      github.event.workflow_run.head_branch == 'main' &&
-      vars.PRODUCTION_DEPLOY_ENABLED == 'true'
+    if: ${{ vars.PRODUCTION_DEPLOY_ENABLED == 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
     environment: production
@@ -29,12 +32,52 @@ jobs:
       APP_DIR: /opt/gastronexa
 
     steps:
+      - name: Resolve and validate exact production release run
+        id: release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_RUN_ID: ${{ inputs.release_run_id }}
+          RELEASE_SHA: ${{ inputs.release_sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          [[ "$RELEASE_RUN_ID" =~ ^[0-9]+$ ]]
+          [[ "$RELEASE_SHA" =~ ^[0-9a-f]{40}$ ]]
+
+          release_json=''
+          for attempt in $(seq 1 30); do
+            release_json="$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${RELEASE_RUN_ID}")"
+            status="$(printf '%s' "$release_json" | node -e "let d='';process.stdin.on('data',c=>d+=c).on('end',()=>process.stdout.write(JSON.parse(d).status||''))")"
+            if [ "$status" = 'completed' ]; then
+              break
+            fi
+            sleep 2
+          done
+
+          status="$(printf '%s' "$release_json" | node -e "let d='';process.stdin.on('data',c=>d+=c).on('end',()=>process.stdout.write(JSON.parse(d).status||''))")"
+          conclusion="$(printf '%s' "$release_json" | node -e "let d='';process.stdin.on('data',c=>d+=c).on('end',()=>process.stdout.write(JSON.parse(d).conclusion||''))")"
+          event="$(printf '%s' "$release_json" | node -e "let d='';process.stdin.on('data',c=>d+=c).on('end',()=>process.stdout.write(JSON.parse(d).event||''))")"
+          branch="$(printf '%s' "$release_json" | node -e "let d='';process.stdin.on('data',c=>d+=c).on('end',()=>process.stdout.write(JSON.parse(d).head_branch||''))")"
+          head_sha="$(printf '%s' "$release_json" | node -e "let d='';process.stdin.on('data',c=>d+=c).on('end',()=>process.stdout.write(JSON.parse(d).head_sha||''))")"
+          path="$(printf '%s' "$release_json" | node -e "let d='';process.stdin.on('data',c=>d+=c).on('end',()=>process.stdout.write(JSON.parse(d).path||''))")"
+
+          test "$status" = 'completed'
+          test "$conclusion" = 'success'
+          test "$event" = 'workflow_dispatch'
+          test "$branch" = 'main'
+          test "$head_sha" = "$RELEASE_SHA"
+          test "$path" = '.github/workflows/release-production-images.yml'
+
+          echo "run_id=$RELEASE_RUN_ID" >> "$GITHUB_OUTPUT"
+          echo "head_sha=$RELEASE_SHA" >> "$GITHUB_OUTPUT"
+
       - name: Download and validate release manifest from the exact release run
         id: manifest
         env:
           GH_TOKEN: ${{ github.token }}
-          RELEASE_RUN_ID: ${{ github.event.workflow_run.id }}
-          RELEASE_HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+          RELEASE_RUN_ID: ${{ steps.release.outputs.run_id }}
+          RELEASE_HEAD_SHA: ${{ steps.release.outputs.head_sha }}
         shell: bash
         run: |
           set -euo pipefail
