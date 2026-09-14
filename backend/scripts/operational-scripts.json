@@ -6,6 +6,7 @@
     "runAllTests.mjs",
     "runTenantE2E.mjs",
     "runTsxWithOsUserInfoFallback.cjs",
+    "seedIntegratedCi.mjs",
     "tenantE2eDatabaseSafety.mjs",
     "tenantE2eDatabaseSafety.test.mjs"
   ],
