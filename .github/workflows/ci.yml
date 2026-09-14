@@ -8,6 +8,7 @@ on:
 
 permissions:
   contents: read
+  checks: read
 
 # Cancel previous runs on the same branch to avoid wasted minutes
 concurrency:
@@ -18,6 +19,7 @@ jobs:
   quality:
     name: Formatting and architecture
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
@@ -53,6 +55,7 @@ jobs:
   lint:
     name: Lint
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
@@ -78,6 +81,7 @@ jobs:
   typecheck:
     name: Type Check
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     services:
       postgres:
         image: postgres:16-alpine
@@ -131,6 +135,7 @@ jobs:
   test:
     name: Tests
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
@@ -252,6 +257,7 @@ jobs:
   e2e-critical:
     name: Critical E2E journeys
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     needs: [test]
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
@@ -265,6 +271,11 @@ jobs:
           cache-dependency-path: frontend/package-lock.json
       - name: Install frontend dependencies
         run: npm --prefix frontend ci
+      - name: Cache Playwright Chromium
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright-chromium-${{ hashFiles('frontend/package-lock.json') }}
       - name: Install Chromium
         working-directory: frontend
         run: npx playwright install --with-deps chromium
@@ -287,6 +298,7 @@ jobs:
   audit:
     name: Security Audit
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
@@ -310,9 +322,24 @@ jobs:
       - name: Audit Print Agent packages
         run: npm --prefix print-agent audit --audit-level=high
 
+  dependency-review:
+    name: Dependency Review
+    if: ${{ github.event_name == 'pull_request' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - name: Block newly introduced high or critical dependency vulnerabilities
+        uses: actions/dependency-review-action@a1d282b36b6f3519aa1f3fc636f609c47dddb294 # v5.0.0
+        with:
+          fail-on-severity: high
+
   build:
     name: Build
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     needs:
       [
         quality,
@@ -353,6 +380,7 @@ jobs:
     name: Full Root CI Validation
     if: ${{ always() }}
     runs-on: ubuntu-latest
+    timeout-minutes: 25
     needs:
       - quality
       - lint
@@ -362,20 +390,122 @@ jobs:
       - rls-security-e2e
       - e2e-critical
       - audit
+      - dependency-review
       - build
     steps:
-      - name: Require every CI gate to pass
+      - name: Require every internal CI gate to pass
         env:
           JOB_RESULTS: ${{ toJson(needs) }}
+          EVENT_NAME: ${{ github.event_name }}
         run: |
           node <<'NODE'
+          const fs = require('fs');
           const jobs = JSON.parse(process.env.JOB_RESULTS);
-          const unsuccessful = Object.entries(jobs)
-            .filter(([, job]) => job.result !== 'success')
-            .map(([name, job]) => `${name}: ${job.result}`);
+          const eventName = process.env.EVENT_NAME;
+          const rows = [];
+          const unsuccessful = [];
+
+          for (const [name, job] of Object.entries(jobs)) {
+            const allowedSkip =
+              name === 'dependency-review' &&
+              eventName !== 'pull_request' &&
+              job.result === 'skipped';
+            const ok = job.result === 'success' || allowedSkip;
+            rows.push(`| ${name} | ${job.result} | ${ok ? 'PASS' : 'FAIL'} |`);
+            if (!ok) unsuccessful.push(`${name}: ${job.result}`);
+          }
+
+          fs.appendFileSync(
+            process.env.GITHUB_STEP_SUMMARY,
+            ['## Internal CI gates', '', '| Gate | Result | Policy |', '| --- | --- | --- |', ...rows, ''].join('\n'),
+          );
+
           if (unsuccessful.length > 0) {
             console.error(`Required CI gates did not pass:\n${unsuccessful.join('\n')}`);
             process.exit(1);
           }
-          console.log('All required CI gates passed.');
+          console.log('All required internal CI gates passed.');
           NODE
+
+      - name: Require same-commit cross-workflow production gates
+        if: >-
+          (github.event_name == 'pull_request' && github.base_ref == 'main') ||
+          (github.event_name == 'push' && github.ref == 'refs/heads/main')
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TARGET_SHA: ${{ github.sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          required=(
+            'Security Hardening Validation'
+            'Isolated Stack Smoke Validation'
+            'Cross-browser Critical Validation'
+            'Migration Compatibility Validation'
+          )
+
+          for attempt in $(seq 1 120); do
+            gh api -H 'Accept: application/vnd.github+json' \
+              "repos/${GITHUB_REPOSITORY}/commits/${TARGET_SHA}/check-runs?per_page=100" \
+              > "$RUNNER_TEMP/check-runs.json"
+
+            result="$(CHECKS_FILE="$RUNNER_TEMP/check-runs.json" node - "${required[@]}" <<'NODE'
+          const fs = require('fs');
+          const required = process.argv.slice(2);
+          const checks = JSON.parse(fs.readFileSync(process.env.CHECKS_FILE, 'utf8')).check_runs || [];
+          const pending = [];
+          const failed = [];
+
+          for (const name of required) {
+            const matching = checks
+              .filter((check) => check.name === name)
+              .sort((a, b) => new Date(b.started_at || b.created_at || 0) - new Date(a.started_at || a.created_at || 0));
+            const latest = matching[0];
+            if (!latest || latest.status !== 'completed') {
+              pending.push(name);
+              continue;
+            }
+            if (latest.conclusion !== 'success') {
+              failed.push(`${name}: ${latest.conclusion || 'unknown'}`);
+            }
+          }
+
+          if (failed.length) {
+            process.stdout.write(`failed:${failed.join('|')}`);
+          } else if (pending.length) {
+            process.stdout.write(`pending:${pending.join('|')}`);
+          } else {
+            process.stdout.write('success');
+          }
+          NODE
+            )"
+
+            case "$result" in
+              success)
+                {
+                  echo '## Cross-workflow production gates'
+                  echo
+                  for gate in "${required[@]}"; do
+                    echo "- ✅ ${gate}"
+                  done
+                } >> "$GITHUB_STEP_SUMMARY"
+                echo 'All same-commit cross-workflow production gates passed.'
+                exit 0
+                ;;
+              failed:*)
+                echo "Cross-workflow gate failure: ${result#failed:}" >&2
+                exit 1
+                ;;
+              pending:*)
+                echo "Waiting for: ${result#pending:}"
+                sleep 10
+                ;;
+              *)
+                echo "Unexpected gate status: $result" >&2
+                exit 1
+                ;;
+            esac
+          done
+
+          echo 'Timed out waiting for cross-workflow production gates.' >&2
+          exit 1
