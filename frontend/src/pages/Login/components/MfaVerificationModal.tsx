@@ -268,7 +268,7 @@ export function MfaVerificationModal<T>({
           <span id="mfa-code-legacy-label" hidden>
             Código de verificação, dígito 1 do código
           </span>
-          <S.CodeGrid aria-label="Código de verificação de seis dígitos">
+          <S.CodeGrid aria-label="Seis dígitos do código MFA">
             {digits.map((digit, index) => (
               <S.CodeCell
                 key={index}
