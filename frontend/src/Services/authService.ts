@@ -25,6 +25,12 @@ class AuthService {
     return response.data;
   }
 
+  async selectLogin2faChannel(data) {
+    const response = await api.post('/auth/login/select-2fa-channel', data);
+
+    return response.data;
+  }
+
   async verifyLogin2fa(data) {
     const response = await api.post('/auth/login/verify-2fa', data);
 
