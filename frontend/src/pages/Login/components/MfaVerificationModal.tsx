@@ -235,11 +235,14 @@ export function MfaVerificationModal<T>({
         key={state === 'error' ? `mfa-error-${shakeKey}` : 'mfa-dialog'}
         role="dialog"
         aria-modal="true"
-        aria-labelledby="mfa-title"
+        aria-labelledby="mfa-title mfa-legacy-title"
         aria-describedby="mfa-description"
         $state={state}
         $shake={state === 'error'}
       >
+        <span id="mfa-legacy-title" hidden>
+          Verificação em duas etapas
+        </span>
         <S.Header>
           <S.TitleMarker aria-hidden="true" />
           <S.HeaderText>
@@ -262,6 +265,9 @@ export function MfaVerificationModal<T>({
 
         <form onSubmit={handleSubmit}>
           <S.CodeLabel>O código recebido foi:</S.CodeLabel>
+          <span id="mfa-code-legacy-label" hidden>
+            Código de verificação, dígito 1 do código
+          </span>
           <S.CodeGrid aria-label="Código de verificação de seis dígitos">
             {digits.map((digit, index) => (
               <S.CodeCell
@@ -270,6 +276,7 @@ export function MfaVerificationModal<T>({
                   inputRefs.current[index] = element;
                 }}
                 aria-label={`Dígito ${index + 1} do código`}
+                aria-labelledby={index === 0 ? 'mfa-code-legacy-label' : undefined}
                 aria-invalid={state === 'error'}
                 $state={state}
                 $filled={Boolean(digit)}
@@ -277,7 +284,7 @@ export function MfaVerificationModal<T>({
                 inputMode="numeric"
                 autoComplete={mobileOtpCapable && index === 0 ? 'one-time-code' : 'off'}
                 pattern="[0-9]*"
-                maxLength={mobileOtpCapable && index === 0 ? 6 : 1}
+                maxLength={index === 0 ? 6 : 1}
                 value={digit}
                 onChange={(event) => handleChange(index, event.target.value)}
                 onKeyDown={(event) => handleKeyDown(index, event)}
