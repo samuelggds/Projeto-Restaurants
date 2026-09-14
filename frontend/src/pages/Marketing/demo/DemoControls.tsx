@@ -19,9 +19,6 @@ const Dock = styled.details`
     13px Inter,
     system-ui,
     sans-serif;
-  body:has([role='dialog'][aria-modal='true']) & {
-    visibility: hidden;
-  }
   summary {
     min-height: 44px;
     display: flex;
@@ -102,7 +99,7 @@ export function DemoControls({
   storageUnavailable: boolean;
 }) {
   return (
-    <Dock>
+    <Dock data-testid="demo-controls">
       <summary>
         <img src="/gastronexa-logo.svg" alt="" />
         Demonstração

@@ -12,6 +12,7 @@ const webServerEnvironment = Object.fromEntries(
   ),
 );
 const localChromeExecutable = processEnvironment.PLAYWRIGHT_CHROME_EXECUTABLE?.trim();
+const externalBaseUrl = processEnvironment.PLAYWRIGHT_EXTERNAL_BASE_URL?.trim();
 const allBrowsers = processEnvironment.PLAYWRIGHT_ALL_BROWSERS === 'true';
 
 const chromiumProject = {
@@ -31,7 +32,7 @@ export default defineConfig({
   retries: 0,
   reporter: 'list',
   use: {
-    baseURL: 'http://127.0.0.1:4181',
+    baseURL: externalBaseUrl || 'http://127.0.0.1:4181',
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
   },
@@ -42,14 +43,16 @@ export default defineConfig({
         { name: 'webkit', use: { ...devices['Desktop Safari'] } },
       ]
     : [chromiumProject],
-  webServer: {
-    // Compile lazy routes before Playwright starts the first test's timeout.
-    // Keep the test build separate from dist's production artifacts and env mode.
-    command:
-      'node ./node_modules/vite/bin/vite.js build --mode e2e --outDir dist/e2e && node ./node_modules/vite/bin/vite.js preview --mode e2e --outDir dist/e2e --host 127.0.0.1 --port 4181 --strictPort',
-    env: { ...webServerEnvironment, VITE_E2E_DIRECT_API: 'true' },
-    url: 'http://127.0.0.1:4181',
-    reuseExistingServer: false,
-    timeout: 120_000,
-  },
+  webServer: externalBaseUrl
+    ? undefined
+    : {
+        // Compile lazy routes before Playwright starts the first test's timeout.
+        // Keep the test build separate from dist's production artifacts and env mode.
+        command:
+          'node ./node_modules/vite/bin/vite.js build --mode e2e --outDir dist/e2e && node ./node_modules/vite/bin/vite.js preview --mode e2e --outDir dist/e2e --host 127.0.0.1 --port 4181 --strictPort',
+        env: { ...webServerEnvironment, VITE_E2E_DIRECT_API: 'true' },
+        url: 'http://127.0.0.1:4181',
+        reuseExistingServer: false,
+        timeout: 120_000,
+      },
 });

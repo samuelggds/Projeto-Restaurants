@@ -1,0 +1,14 @@
+# Production promotion overlay. The base compose file keeps local build definitions for
+# operator-controlled recovery, while trusted CI/CD always uses this overlay together with
+# --no-build so the exact scanned registry digests are deployed.
+services:
+  migrate:
+    image: ${BACKEND_IMAGE:?Defina BACKEND_IMAGE com digest imutável}
+  bootstrap:
+    image: ${BACKEND_IMAGE:?Defina BACKEND_IMAGE com digest imutável}
+  backend:
+    image: ${BACKEND_IMAGE:?Defina BACKEND_IMAGE com digest imutável}
+  worker:
+    image: ${BACKEND_IMAGE:?Defina BACKEND_IMAGE com digest imutável}
+  frontend:
+    image: ${FRONTEND_IMAGE:?Defina FRONTEND_IMAGE com digest imutável}

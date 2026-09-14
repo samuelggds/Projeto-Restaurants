@@ -16,13 +16,20 @@ concurrency:
 
 jobs:
   stack:
-    name: Frontend backend worker Postgres
+    name: Frontend backend worker PostgreSQL integration
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 40
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            backend/package-lock.json
+            frontend/package-lock.json
 
       - name: Validate compose model
         run: docker compose -f docker-compose.ci.yml config --quiet
@@ -49,6 +56,81 @@ jobs:
           docker compose -f docker-compose.ci.yml ps
           exit 1
 
+      - name: Verify restricted runtime database role
+        shell: bash
+        run: |
+          set -euo pipefail
+          secure_role="$(docker compose -f docker-compose.ci.yml exec -T postgres \
+            psql -U ci_owner -d gastronexa_ci -Atc \
+            "SELECT (NOT rolsuper AND NOT rolbypassrls AND NOT rolcreatedb AND NOT rolcreaterole)::text FROM pg_roles WHERE rolname='ci_runtime'")"
+          test "$secure_role" = 'true'
+          backend_role="$(docker compose -f docker-compose.ci.yml exec -T backend node -e \
+            "import('./dist/config/prisma.js').then(async m=>{const r=await m.default.\$queryRawUnsafe('select current_user as u'); console.log(r[0].u); await m.default.\$disconnect()})")"
+          test "$(printf '%s' "$backend_role" | tail -n 1)" = 'ci_runtime'
+
+      - name: Install host test dependencies for real integrated journey
+        run: |
+          npm --prefix backend ci
+          npm --prefix frontend ci
+          (cd frontend && npx playwright install --with-deps chromium)
+
+      - name: Seed disposable tenant fixtures through the migration owner only
+        env:
+          NODE_ENV: test
+          CI_INTEGRATION_OWNER_DATABASE_URL: postgresql://ci_owner:ci-owner-password@127.0.0.1:5432/gastronexa_ci?schema=public
+        shell: bash
+        run: |
+          set -euo pipefail
+          node backend/scripts/seedIntegratedCi.mjs > "$RUNNER_TEMP/integrated-fixture.json"
+          FIXTURE_FILE="$RUNNER_TEMP/integrated-fixture.json" node <<'NODE'
+          const fs = require('fs');
+          const fixture = JSON.parse(fs.readFileSync(process.env.FIXTURE_FILE, 'utf8'));
+          const pairs = {
+            CI_RESTAURANT_A_ID: fixture.restaurantAId,
+            CI_RESTAURANT_B_ID: fixture.restaurantBId,
+            CI_PRODUCT_A_ID: fixture.productAId,
+            CI_ATTENDANT_A_EMAIL: fixture.emails.attendantA,
+            CI_KITCHEN_A_EMAIL: fixture.emails.kitchenA,
+            CI_ATTENDANT_B_EMAIL: fixture.emails.attendantB,
+            CI_STAFF_PASSWORD: fixture.password,
+          };
+          fs.appendFileSync(process.env.GITHUB_ENV, Object.entries(pairs).map(([k,v]) => `${k}=${v}`).join('\n') + '\n');
+          NODE
+          rm -f "$RUNNER_TEMP/integrated-fixture.json"
+
+      - name: Run real browser API PostgreSQL authorization and order journey
+        working-directory: frontend
+        env:
+          PLAYWRIGHT_EXTERNAL_BASE_URL: http://localhost:8080
+          CI_INTEGRATED_API_URL: http://127.0.0.1:3000
+        shell: bash
+        run: |
+          set -o pipefail
+          npx playwright test e2e/integrated-stack.spec.ts --project=chromium 2>&1 | tee ../integrated-stack-browser.log
+
+      - name: Verify browser-created order persisted with the advanced status
+        shell: bash
+        run: |
+          set -euo pipefail
+          matching="$(docker compose -f docker-compose.ci.yml exec -T postgres \
+            psql -U ci_owner -d gastronexa_ci -Atc \
+            "SELECT count(*) FROM \"Order\" WHERE \"restaurantId\"=${CI_RESTAURANT_A_ID} AND status='PREPARANDO'")"
+          test "$matching" -ge 1
+
+      - name: Verify worker actually completes a scheduled task
+        shell: bash
+        run: |
+          set -euo pipefail
+          completed='0'
+          for attempt in $(seq 1 30); do
+            completed="$(docker compose -f docker-compose.ci.yml exec -T postgres \
+              psql -U ci_owner -d gastronexa_ci -Atc \
+              "SELECT count(*) FROM \"ScheduledJobState\" WHERE \"jobKey\" IN ('sales-leads.email-delivery','notifications.delivery') AND \"lastStartedAt\" IS NOT NULL AND \"lastCompletedAt\" IS NOT NULL")"
+            if [ "$completed" -ge 1 ]; then break; fi
+            sleep 2
+          done
+          test "$completed" -ge 1
+
       - name: Smoke backend readiness and frontend delivery
         shell: bash
         run: |
@@ -57,7 +139,7 @@ jobs:
           curl --fail --silent --show-error http://127.0.0.1:8080/ > "$RUNNER_TEMP/frontend-index.html"
           grep -qi '<html' "$RUNNER_TEMP/frontend-index.html"
 
-      - name: Record image ids for immutable promotion evidence
+      - name: Record image ids and commit evidence
         shell: bash
         run: |
           {
@@ -71,7 +153,7 @@ jobs:
             echo
             echo "Source commit: \`${GITHUB_SHA}\`"
             echo
-            echo 'This workflow does not publish or deploy these images.'
+            echo 'Verified: restricted runtime DB role, browser->API->PostgreSQL login/authorization/order transition, and actual worker scheduled-task completion.'
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Capture stack logs
@@ -87,9 +169,24 @@ jobs:
           path: |
             ${{ runner.temp }}/isolated-stack.log
             ${{ runner.temp }}/backend-ready.json
+            integrated-stack-browser.log
+            frontend/test-results/
           if-no-files-found: warn
           retention-days: 7
 
       - name: Tear down disposable stack
         if: always()
         run: docker compose -f docker-compose.ci.yml down --volumes --remove-orphans
+
+  isolated-stack-validation:
+    name: Isolated Stack Smoke Validation
+    if: ${{ always() }}
+    needs: [stack]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require integrated stack validation to pass
+        env:
+          STACK_RESULT: ${{ needs.stack.result }}
+        run: |
+          set -euo pipefail
+          test "$STACK_RESULT" = 'success'

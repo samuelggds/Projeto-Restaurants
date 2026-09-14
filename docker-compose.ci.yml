@@ -2,16 +2,36 @@ services:
   postgres:
     image: postgres:16-alpine
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
+      POSTGRES_USER: ci_owner
+      POSTGRES_PASSWORD: ci-owner-password
       POSTGRES_DB: gastronexa_ci
     healthcheck:
-      test: ['CMD-SHELL', 'pg_isready -U postgres -d gastronexa_ci']
+      test: ['CMD-SHELL', 'pg_isready -U ci_owner -d gastronexa_ci']
       interval: 5s
       timeout: 5s
       retries: 12
     tmpfs:
       - /var/lib/postgresql/data
+    ports:
+      - '127.0.0.1:5432:5432'
+
+  migrate:
+    build:
+      context: ./backend
+    environment:
+      NODE_ENV: test
+      DATABASE_URL: postgresql://ci_owner:ci-owner-password@postgres:5432/gastronexa_ci?schema=public
+      DIRECT_URL: postgresql://ci_owner:ci-owner-password@postgres:5432/gastronexa_ci?schema=public
+      RUNTIME_DATABASE_URL: postgresql://ci_runtime:ci-runtime-password-long-enough@postgres:5432/gastronexa_ci?schema=public
+    command:
+      [
+        'sh',
+        '-c',
+        './node_modules/.bin/prisma migrate deploy && node scripts/provisionRuntimeRole.mjs',
+      ]
+    depends_on:
+      postgres:
+        condition: service_healthy
 
   backend:
     build:
@@ -19,8 +39,8 @@ services:
     environment: &backend_environment
       NODE_ENV: test
       PORT: 3000
-      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/gastronexa_ci?schema=public
-      DIRECT_URL: postgresql://postgres:postgres@postgres:5432/gastronexa_ci?schema=public
+      DATABASE_URL: postgresql://ci_runtime:ci-runtime-password-long-enough@postgres:5432/gastronexa_ci?schema=public
+      RLS_VERIFY_RUNTIME_ROLE: 'true'
       JWT_SECRET: ci-only-jwt-secret-not-for-production-1234567890
       JWT_REFRESH_SECRET: ci-only-refresh-secret-not-for-production-1234567890
       JWT_MFA_SECRET: ci-only-mfa-secret-not-for-production-1234567890
@@ -29,6 +49,8 @@ services:
       SOCKET_CORS_ORIGINS: http://localhost:8080
       FRONTEND_URL: http://localhost:8080
       ALLOW_LOCAL_AUTH_CODE_LOGGING: 'false'
+      DISTRIBUTED_STATE: postgres
+      API_REPLICA_COUNT: '1'
       OPENAI_API_KEY: ''
       MP_ACCESS_TOKEN: ''
       PAGBANK_TOKEN: ''
@@ -36,10 +58,10 @@ services:
       SMTP_HOST: ''
       SENTRY_DSN: ''
       PRISMA_HIDE_UPDATE_MESSAGE: 'true'
-    command: ['sh', '-c', './node_modules/.bin/prisma migrate deploy && node dist/server.js']
+    command: ['node', 'dist/server.js']
     depends_on:
-      postgres:
-        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
     healthcheck:
       test:
         [
@@ -71,6 +93,7 @@ services:
         VITE_API_URL: http://localhost:3000
         VITE_SOCKET_URL: http://localhost:3000
         VITE_QR_BASE_URL: http://localhost:8080
+        VITE_MAP_TILE_URL: https://tile.openstreetmap.org/{z}/{x}/{y}.png
     depends_on:
       backend:
         condition: service_healthy

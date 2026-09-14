@@ -13,27 +13,121 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  database-recovery:
-    name: Migration backup and restore
+  previous-version-upgrade:
+    name: Previous-version database upgrade
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
     services:
       postgres:
         image: postgres:16-alpine
         env:
-          POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: postgres
-          POSTGRES_DB: gastronexa_recovery
+          POSTGRES_USER: upgrade_owner
+          POSTGRES_PASSWORD: upgrade-owner-password
+          POSTGRES_DB: gastronexa_upgrade
         ports:
           - 5432:5432
         options: >-
-          --health-cmd "pg_isready -U postgres -d gastronexa_recovery"
+          --health-cmd "pg_isready -U upgrade_owner -d gastronexa_upgrade"
           --health-interval 5s
           --health-timeout 5s
           --health-retries 10
     env:
-      DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/gastronexa_recovery?schema=public
-      PGPASSWORD: postgres
+      OWNER_URL: postgresql://upgrade_owner:upgrade-owner-password@127.0.0.1:5432/gastronexa_upgrade?schema=public
+      RUNTIME_URL: postgresql://upgrade_runtime:upgrade-runtime-password-long-enough@127.0.0.1:5432/gastronexa_upgrade?schema=public
+      PGPASSWORD: upgrade-owner-password
+      JWT_SECRET: upgrade-e2e-access-secret-32-characters-minimum
+      JWT_REFRESH_SECRET: upgrade-e2e-refresh-secret-32-characters-minimum
+      JWT_MFA_SECRET: upgrade-e2e-mfa-secret-32-characters-minimum
+      CREDENTIAL_ENCRYPTION_KEY: BwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwc=
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 2
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22
+      - name: Materialize immediate previous main version
+        shell: bash
+        run: git worktree add "$RUNNER_TEMP/previous" "${GITHUB_SHA}^"
+      - name: Install previous and current backend dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm --prefix "$RUNNER_TEMP/previous/backend" ci
+          npm --prefix backend ci
+      - name: Apply previous-version migrations and restricted runtime role
+        shell: bash
+        run: |
+          set -euo pipefail
+          (
+            cd "$RUNNER_TEMP/previous/backend"
+            DATABASE_URL="$OWNER_URL" DIRECT_URL="$OWNER_URL" npx prisma migrate deploy
+            DATABASE_URL="$OWNER_URL" DIRECT_URL="$OWNER_URL" RUNTIME_DATABASE_URL="$RUNTIME_URL" node scripts/provisionRuntimeRole.mjs
+          )
+      - name: Seed representative previous-version tenant data through real tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          runner="$RUNNER_TEMP/previous/backend/scripts/runTsxWithOsUserInfoFallback.cjs"
+          (
+            cd "$RUNNER_TEMP/previous/backend"
+            DATABASE_URL="$RUNTIME_URL" \
+            DIRECT_URL="$OWNER_URL" \
+            TENANT_E2E_DATABASE_URL="$RUNTIME_URL" \
+            TENANT_E2E_OWNER_DATABASE_URL="$OWNER_URL" \
+            TENANT_E2E_RUNTIME_DATABASE_URL="$RUNTIME_URL" \
+            NODE_ENV=test \
+            ALLOW_GLOBAL_PAYMENT_FALLBACK=false \
+            ALLOW_INSECURE_STRIPE_WEBHOOK=false \
+            STRIPE_SECRET_KEY=sk_test_upgrade_only \
+            ASAAS_WEBHOOK_TOKEN=upgrade-e2e-asaas-webhook-token \
+            MP_WEBHOOK_SECRET=upgrade-e2e-mp-webhook-secret \
+            node "$runner" --test --test-concurrency=1 src/e2e/multiTenant/tenantIsolationHttp.e2e.ts
+          )
+      - name: Snapshot representative relational data before upgrade
+        shell: bash
+        run: |
+          set -euo pipefail
+          psql -h 127.0.0.1 -U upgrade_owner -d gastronexa_upgrade -At -F: <<'SQL' > "$RUNNER_TEMP/before-counts.txt"
+          SELECT 'Restaurant', count(*) FROM "Restaurant";
+          SELECT 'User', count(*) FROM "User";
+          SELECT 'Order', count(*) FROM "Order";
+          SELECT 'Invoice', count(*) FROM "Invoice";
+          SQL
+          cat "$RUNNER_TEMP/before-counts.txt"
+          awk -F: '$2 <= 0 { exit 1 }' "$RUNNER_TEMP/before-counts.txt"
+      - name: Upgrade database with current migrations and reprovision runtime role
+        working-directory: backend
+        env:
+          DATABASE_URL: ${{ env.OWNER_URL }}
+          DIRECT_URL: ${{ env.OWNER_URL }}
+          RUNTIME_DATABASE_URL: ${{ env.RUNTIME_URL }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          npx prisma migrate deploy
+          node scripts/provisionRuntimeRole.mjs
+      - name: Verify data preservation, integrity and restricted role after upgrade
+        shell: bash
+        run: |
+          set -euo pipefail
+          psql -h 127.0.0.1 -U upgrade_owner -d gastronexa_upgrade -At -F: <<'SQL' > "$RUNNER_TEMP/after-counts.txt"
+          SELECT 'Restaurant', count(*) FROM "Restaurant";
+          SELECT 'User', count(*) FROM "User";
+          SELECT 'Order', count(*) FROM "Order";
+          SELECT 'Invoice', count(*) FROM "Invoice";
+          SQL
+          diff -u "$RUNNER_TEMP/before-counts.txt" "$RUNNER_TEMP/after-counts.txt"
+          invalid_fks="$(psql -h 127.0.0.1 -U upgrade_owner -d gastronexa_upgrade -Atc "SELECT count(*) FROM pg_constraint WHERE contype='f' AND NOT convalidated")"
+          test "$invalid_fks" = '0'
+          secure_role="$(psql -h 127.0.0.1 -U upgrade_owner -d gastronexa_upgrade -Atc "SELECT (NOT rolsuper AND NOT rolbypassrls)::text FROM pg_roles WHERE rolname='upgrade_runtime'")"
+          test "$secure_role" = 'true'
+
+  database-recovery:
+    name: Tenant backup restore and RLS drill
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
@@ -44,38 +138,21 @@ jobs:
           cache: npm
           cache-dependency-path: backend/package-lock.json
       - run: npm --prefix backend ci
-      - name: Apply every migration to clean database
-        working-directory: backend
-        run: npx prisma migrate deploy
-      - name: Add disposable recovery fixture
+      - name: Run real multi-tenant fixture, backup, restore, constraints and RLS verification
+        shell: bash
         run: |
-          psql -h 127.0.0.1 -U postgres -d gastronexa_recovery -v ON_ERROR_STOP=1 <<'SQL'
-          CREATE TABLE IF NOT EXISTS "CiRecoveryFixture" (
-            "id" integer PRIMARY KEY,
-            "marker" text NOT NULL
-          );
-          INSERT INTO "CiRecoveryFixture" ("id", "marker")
-          VALUES (1, 'backup-restore-ok')
-          ON CONFLICT ("id") DO UPDATE SET "marker" = EXCLUDED."marker";
-          SQL
-      - name: Backup disposable database
-        run: pg_dump -h 127.0.0.1 -U postgres -d gastronexa_recovery -Fc -f "$RUNNER_TEMP/gastronexa.dump"
-      - name: Restore into a second disposable database
-        run: |
-          createdb -h 127.0.0.1 -U postgres gastronexa_restored
-          pg_restore -h 127.0.0.1 -U postgres -d gastronexa_restored --no-owner --no-privileges "$RUNNER_TEMP/gastronexa.dump"
-          restored_marker="$(psql -h 127.0.0.1 -U postgres -d gastronexa_restored -Atc 'SELECT "marker" FROM "CiRecoveryFixture" WHERE "id" = 1')"
-          test "$restored_marker" = 'backup-restore-ok'
-          migration_count="$(psql -h 127.0.0.1 -U postgres -d gastronexa_restored -Atc 'SELECT count(*) FROM "_prisma_migrations" WHERE "finished_at" IS NOT NULL')"
-          test "$migration_count" -gt 0
-      - name: Upload disposable backup on failure
-        if: failure()
+          set -o pipefail
+          npm --prefix backend run test:e2e:tenant -- --restore-check 2>&1 | tee restore-drill.log
+      - name: Upload recovery evidence
+        if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: disposable-recovery-backup-${{ github.sha }}
-          path: ${{ runner.temp }}/gastronexa.dump
+          name: recovery-drill-${{ github.sha }}
+          path: |
+            restore-drill.log
+            artifacts/restore-drill-result.json
           if-no-files-found: warn
-          retention-days: 3
+          retention-days: 14
 
   payment-contracts:
     name: Payment lifecycle contracts
@@ -91,32 +168,34 @@ jobs:
           cache: npm
           cache-dependency-path: backend/package-lock.json
       - run: npm --prefix backend ci
-      - name: Run webhook refund duplicate delayed and expiry contracts without external charges
+      - name: Run duplicate out-of-order invalid-signature expiry timeout and reconciliation contracts
         run: npm --prefix backend run test:refund && npm --prefix backend run test:billing
-      - name: Report sandbox credential availability without making a transaction
+      - name: Report official sandbox validation status without pretending credential presence is validation
         env:
           MERCADO_PAGO_SANDBOX_TOKEN: ${{ secrets.MERCADO_PAGO_SANDBOX_TOKEN }}
           PAGBANK_SANDBOX_TOKEN: ${{ secrets.PAGBANK_SANDBOX_TOKEN }}
           ASAAS_SANDBOX_TOKEN: ${{ secrets.ASAAS_SANDBOX_TOKEN }}
         shell: bash
         run: |
-          missing=0
+          set -euo pipefail
           for variable in MERCADO_PAGO_SANDBOX_TOKEN PAGBANK_SANDBOX_TOKEN ASAAS_SANDBOX_TOKEN; do
             if [ -z "${!variable}" ]; then
-              echo "- ${variable}: missing; real provider sandbox validation skipped" >> "$GITHUB_STEP_SUMMARY"
-              missing=$((missing + 1))
+              echo "- ${variable}: NÃO EXECUTADO / PENDENTE — credencial de sandbox ausente." >> "$GITHUB_STEP_SUMMARY"
             else
-              echo "- ${variable}: configured; credential presence confirmed only (no charge/message created)" >> "$GITHUB_STEP_SUMMARY"
+              echo "- ${variable}: credencial presente, mas este workflow de contratos NÃO considera isso validação de sandbox." >> "$GITHUB_STEP_SUMMARY"
             fi
           done
           echo >> "$GITHUB_STEP_SUMMARY"
-          echo "No external payment, Pix, refund, webhook or message was created by this workflow." >> "$GITHUB_STEP_SUMMARY"
-          echo "Missing sandbox credentials: ${missing}" >> "$GITHUB_STEP_SUMMARY"
+          echo 'Validação contra provedores oficiais é separada e nunca usa credenciais ou cobranças reais.' >> "$GITHUB_STEP_SUMMARY"
 
   browser-matrix:
-    name: Critical E2E browser matrix
+    name: Scheduled browser suite - ${{ matrix.browser }}
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 50
+    strategy:
+      fail-fast: false
+      matrix:
+        browser: [chromium, firefox, webkit]
     env:
       PLAYWRIGHT_ALL_BROWSERS: 'true'
     steps:
@@ -129,21 +208,42 @@ jobs:
           cache: npm
           cache-dependency-path: frontend/package-lock.json
       - run: npm --prefix frontend ci
-      - name: Install Chromium Firefox and WebKit
+      - name: Install selected browser engine
         working-directory: frontend
-        run: npx playwright install --with-deps chromium firefox webkit
-      - name: Run critical journeys across browser engines
+        run: npx playwright install --with-deps ${{ matrix.browser }}
+      - name: Run full Chromium suite or portable equivalent on other engines
+        working-directory: frontend
         shell: bash
         run: |
-          set -o pipefail
-          npm --prefix frontend run test:e2e:critical 2>&1 | tee deep-browser-e2e.log
+          set -euo pipefail
+          if [ '${{ matrix.browser }}' = chromium ]; then
+            npm run test:e2e:critical -- --project=chromium 2>&1 | tee ../deep-browser-e2e-${{ matrix.browser }}.log
+            npx playwright test e2e/browser-portable.spec.ts --project=chromium
+          else
+            npm run test:e2e:critical -- \
+              --project='${{ matrix.browser }}' \
+              --grep-invert='impressão individual ocupa uma única folha A4|deslizar a prévia sem acionar os controles|logo GX preserva transparência real' \
+              2>&1 | tee ../deep-browser-e2e-${{ matrix.browser }}.log
+            npx playwright test e2e/browser-portable.spec.ts --project='${{ matrix.browser }}'
+          fi
       - name: Preserve browser diagnostics
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: deep-browser-diagnostics-${{ github.sha }}
+          name: deep-browser-${{ matrix.browser }}-${{ github.sha }}
           path: |
-            deep-browser-e2e.log
+            deep-browser-e2e-${{ matrix.browser }}.log
             frontend/test-results/
           if-no-files-found: warn
           retention-days: 7
+
+  deploy-failure-drills:
+    name: Deployment controller failure drills
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - name: Verify migration failure preserves the current app and readiness failure rolls back only app images
+        run: bash scripts/test-deploy-production-controller.sh
