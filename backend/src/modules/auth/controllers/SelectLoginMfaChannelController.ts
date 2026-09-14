@@ -5,11 +5,11 @@ import {
   platformMaintenanceResponse,
 } from '../../platform/services/PlatformMaintenanceService.js';
 
-class ResendLoginMfaController {
+class SelectLoginMfaChannelController {
   async handle(req: Request, res: Response) {
     try {
       const { mfaToken, channel } = req.body;
-      const result = await loginMfaService.resend(
+      const result = await loginMfaService.selectChannel(
         String(mfaToken || '').trim(),
         String(channel || '').trim(),
       );
@@ -36,11 +36,11 @@ class ResendLoginMfaController {
       }
 
       res.setHeader('Cache-Control', 'no-store');
-      return res.status(401).json({
-        error: error instanceof Error ? error.message : 'Falha ao reenviar o codigo de verificacao',
+      return res.status(400).json({
+        error: error instanceof Error ? error.message : 'Falha ao selecionar canal de verificacao',
       });
     }
   }
 }
 
-export default new ResendLoginMfaController();
+export default new SelectLoginMfaChannelController();

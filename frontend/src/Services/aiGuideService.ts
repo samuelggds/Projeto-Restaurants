@@ -3,13 +3,55 @@ import api from './api';
 export type AiCreditBalance = {
   provider: 'OPENAI';
   currency: 'USD';
-  monthlyLimitUsd: number;
-  usedUsd: number;
+  balanceUsd: number;
   remainingUsd: number;
-  usedPercent: number;
+  usedUsd: number;
+  freeGrantUsd: number;
+  freeGrantClaimed: boolean;
   exhausted: boolean;
-  cycle: string;
-  renewsAt: string;
+};
+
+export type AiCreditCardOption =
+  | { available: false }
+  | {
+      available: true;
+      brand: string;
+      brandLabel: string;
+      last4: string;
+      expMonth: number;
+      expYear: number;
+    };
+
+export type AiCreditTopUpQuote = {
+  creditUsd: number;
+  exchangeRateBrlPerUsd: number;
+  exchangeRateSource: string;
+  quotedAt: string;
+  baseAmountBrl: number;
+  markupPercent: number;
+  amountBrl: number;
+  card: AiCreditCardOption;
+};
+
+export type AiCreditTopUp = {
+  publicId: string;
+  creditUsd: number;
+  exchangeRateBrlPerUsd: number;
+  exchangeRateSource: string;
+  exchangeRateQuotedAt: string;
+  baseAmountBrl: number;
+  markupPercent: number;
+  amountBrl: number;
+  paymentMethod: 'PIX' | 'CARD';
+  status: 'PENDING' | 'PROCESSING' | 'PAID' | 'FAILED' | 'CANCELED' | 'EXPIRED';
+  providerPaymentId?: string | null;
+  providerOrderId?: string | null;
+  pixQrCode?: string | null;
+  pixQrCodeBase64?: string | null;
+  pixExpiresAt?: string | null;
+  paidAt?: string | null;
+  failureReason?: string | null;
+  createdAt: string;
 };
 
 export type AiGuideStep = {
@@ -41,6 +83,26 @@ const aiGuideService = {
   async getCredits() {
     const response = await api.get('/ai-support/credits');
     return response.data as AiCreditBalance;
+  },
+
+  async getTopUpQuote(amountUsd: number) {
+    const response = await api.get('/ai-support/credits/topup/quote', { params: { amountUsd } });
+    return response.data as AiCreditTopUpQuote;
+  },
+
+  async createPixTopUp(amountUsd: number) {
+    const response = await api.post('/ai-support/credits/topup/pix', { amountUsd });
+    return response.data as AiCreditTopUp;
+  },
+
+  async createCardTopUp(amountUsd: number) {
+    const response = await api.post('/ai-support/credits/topup/card', { amountUsd });
+    return response.data as AiCreditTopUp;
+  },
+
+  async listTopUps() {
+    const response = await api.get('/ai-support/credits/topups');
+    return response.data as AiCreditTopUp[];
   },
 
   async createGuide(question: string) {

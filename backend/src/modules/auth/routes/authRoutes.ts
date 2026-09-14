@@ -14,6 +14,7 @@ import RefreshTokenController from '../controllers/RefreshTokenController.js';
 import LogoutController from '../controllers/LogoutController.js';
 import VerifyLoginMfaController from '../controllers/VerifyLoginMfaController.js';
 import ResendLoginMfaController from '../controllers/ResendLoginMfaController.js';
+import SelectLoginMfaChannelController from '../controllers/SelectLoginMfaChannelController.js';
 import ClaimEmployeeOnboardingController from '../controllers/ClaimEmployeeOnboardingController.js';
 import UpdateMfaPreferenceController from '../controllers/UpdateMfaPreferenceController.js';
 import {
@@ -49,6 +50,10 @@ router.post('/refresh', (req, res) => {
 
 router.post('/logout', (req, res) => {
   LogoutController.handle(req, res);
+});
+
+router.post('/login/select-2fa-channel', loginRateLimitMiddleware, (req, res) => {
+  SelectLoginMfaChannelController.handle(req, res);
 });
 
 router.post('/login/verify-2fa', loginRateLimitMiddleware, (req, res) => {

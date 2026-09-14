@@ -1,20 +1,8 @@
-import type { Prisma } from '@prisma/client';
+import { Prisma } from '@prisma/client';
 import prisma from '../../../config/prisma.js';
+import { setTenantDbContext } from '../../../database/tenantDbContext.js';
 
-const MONTHLY_LIMIT_MICROS = 5_000_000;
-const CREDIT_ACTION = 'OPENAI_CREDIT_USAGE';
-const CREDIT_TIME_ZONE = 'America/Sao_Paulo';
-
-type CreditDb = Prisma.TransactionClient;
-
-export class AiCreditsExhaustedError extends Error {
-  code = 'AI_CREDITS_EXHAUSTED' as const;
-
-  constructor() {
-    super('Seus créditos mensais de OpenAI acabaram. O saldo será renovado no próximo mês.');
-    this.name = 'AiCreditsExhaustedError';
-  }
-}
+const FREE_PREMIUM_GRANT_MICROS = 2_000_000n;
 
 type CreditActor = {
   userId: number;
@@ -30,45 +18,20 @@ type RecordUsageInput = CreditActor & {
   usage?: unknown;
 };
 
-function currentCycle(reference = new Date()) {
-  const parts = new Intl.DateTimeFormat('en-US', {
-    timeZone: CREDIT_TIME_ZONE,
-    year: 'numeric',
-    month: '2-digit',
-  }).formatToParts(reference);
-  const year = Number(parts.find((part) => part.type === 'year')?.value || reference.getUTCFullYear());
-  const month = Number(parts.find((part) => part.type === 'month')?.value || reference.getUTCMonth() + 1);
-  const nextYear = month === 12 ? year + 1 : year;
-  const nextMonth = month === 12 ? 1 : month + 1;
-  const monthText = String(month).padStart(2, '0');
-  const nextMonthText = String(nextMonth).padStart(2, '0');
+type WalletRow = {
+  adminUserId: number;
+  restaurantId: number;
+  balanceMicros: bigint;
+  freeGrantClaimedAt: Date | null;
+};
 
-  return {
-    key: `${year}-${monthText}`,
-    start: new Date(`${year}-${monthText}-01T00:00:00-03:00`),
-    end: new Date(`${nextYear}-${nextMonthText}-01T00:00:00-03:00`),
-  };
-}
+export class AiCreditsExhaustedError extends Error {
+  code = 'AI_CREDITS_EXHAUSTED' as const;
 
-function metadataCostMicros(metadata: unknown) {
-  if (!metadata || typeof metadata !== 'object' || Array.isArray(metadata)) return 0;
-  const value = Number((metadata as Record<string, unknown>).costMicros || 0);
-  return Number.isFinite(value) && value > 0 ? Math.round(value) : 0;
-}
-
-function toPrismaJson(value: unknown): Prisma.InputJsonValue {
-  if (value === undefined || value === null) return {};
-  try {
-    const serialized = JSON.stringify(value);
-    if (!serialized) return {};
-    return JSON.parse(serialized) as Prisma.InputJsonValue;
-  } catch {
-    return {};
+  constructor() {
+    super('Seus créditos de IA acabaram. Faça uma recarga para continuar usando a IA.');
+    this.name = 'AiCreditsExhaustedError';
   }
-}
-
-function dollars(micros: number) {
-  return Number((micros / 1_000_000).toFixed(6));
 }
 
 function normalizeActor(actor: Pick<CreditActor, 'userId' | 'restaurantId'>) {
@@ -80,7 +43,30 @@ function normalizeActor(actor: Pick<CreditActor, 'userId' | 'restaurantId'>) {
   return { userId, restaurantId };
 }
 
-async function assertAdmin(db: CreditDb | typeof prisma, userId: number, restaurantId: number) {
+function microsFromUsd(value: number) {
+  if (!Number.isFinite(value) || value <= 0) return 0n;
+  return BigInt(Math.max(1, Math.round(value * 1_000_000)));
+}
+
+function usdFromMicros(value: bigint) {
+  return Number((Number(value) / 1_000_000).toFixed(6));
+}
+
+function toJson(value: unknown): Prisma.InputJsonValue {
+  if (value === undefined || value === null) return {};
+  try {
+    const serialized = JSON.stringify(value);
+    return serialized ? (JSON.parse(serialized) as Prisma.InputJsonValue) : {};
+  } catch {
+    return {};
+  }
+}
+
+async function assertActiveAdmin(
+  db: Prisma.TransactionClient | typeof prisma,
+  userId: number,
+  restaurantId: number,
+) {
   const user = await db.user.findFirst({
     where: { id: userId, restaurantId, role: 'ADMIN', active: true },
     select: { id: true },
@@ -88,47 +74,106 @@ async function assertAdmin(db: CreditDb | typeof prisma, userId: number, restaur
   if (!user) throw new Error('Conta ADMIN não encontrada para este restaurante.');
 }
 
-async function readUsedMicros(
-  db: CreditDb | typeof prisma,
-  userId: number,
+async function isPremiumRestaurant(
+  db: Prisma.TransactionClient | typeof prisma,
   restaurantId: number,
-  cycle: ReturnType<typeof currentCycle>,
 ) {
-  const entries = await db.auditLog.findMany({
-    where: {
-      userId,
-      restaurantId,
-      action: CREDIT_ACTION,
-      createdAt: { gte: cycle.start, lt: cycle.end },
-    },
-    select: { metadata: true },
+  const subscription = await db.subscription.findUnique({
+    where: { restaurantId },
+    select: { plan: true, status: true },
   });
-  return entries.reduce((sum, entry) => sum + metadataCostMicros(entry.metadata), 0);
+  if (!subscription) return false;
+  if (subscription.status === 'CANCELADA') return false;
+  return subscription.plan === 'PREMIUM';
 }
 
-function balancePayload(usedMicrosInput: number, cycle: ReturnType<typeof currentCycle>) {
-  const usedMicros = Math.min(MONTHLY_LIMIT_MICROS, Math.max(0, usedMicrosInput));
-  const remainingMicros = Math.max(0, MONTHLY_LIMIT_MICROS - usedMicros);
+async function readWallet(db: Prisma.TransactionClient, userId: number): Promise<WalletRow | null> {
+  const rows = await db.$queryRaw<WalletRow[]>(Prisma.sql`
+    SELECT
+      "adminUserId",
+      "restaurantId",
+      "balanceMicros",
+      "freeGrantClaimedAt"
+    FROM "AiCreditWallet"
+    WHERE "adminUserId" = ${userId}
+    LIMIT 1
+  `);
+  return rows[0] ?? null;
+}
+
+async function ensureWallet(db: Prisma.TransactionClient, userId: number, restaurantId: number) {
+  await db.$executeRaw(Prisma.sql`
+    INSERT INTO "AiCreditWallet" (
+      "adminUserId", "restaurantId", "balanceMicros", "createdAt", "updatedAt"
+    ) VALUES (${userId}, ${restaurantId}, 0, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+    ON CONFLICT ("adminUserId") DO NOTHING
+  `);
+
+  let wallet = await readWallet(db, userId);
+  if (!wallet || wallet.restaurantId !== restaurantId) {
+    throw new Error('Carteira de créditos de IA inconsistente para esta conta.');
+  }
+
+  if (!wallet.freeGrantClaimedAt && (await isPremiumRestaurant(db, restaurantId))) {
+    const idempotencyKey = `ai-free-grant:admin:${userId}`;
+    const inserted = await db.$executeRaw(Prisma.sql`
+      INSERT INTO "AiCreditLedgerEntry" (
+        "restaurantId", "adminUserId", "actorUserId", "kind", "amountMicros",
+        "balanceAfterMicros", "idempotencyKey", "referenceType", "referenceId", "metadata"
+      )
+      SELECT
+        ${restaurantId}, ${userId}, ${userId}, 'FREE_GRANT', ${FREE_PREMIUM_GRANT_MICROS},
+        "balanceMicros" + ${FREE_PREMIUM_GRANT_MICROS}, ${idempotencyKey},
+        'PREMIUM_INITIAL_GRANT', ${String(userId)},
+        ${JSON.stringify({ amountUsd: 2, oneTime: true })}::jsonb
+      FROM "AiCreditWallet"
+      WHERE "adminUserId" = ${userId}
+        AND "freeGrantClaimedAt" IS NULL
+      ON CONFLICT ("idempotencyKey") DO NOTHING
+    `);
+
+    if (inserted > 0) {
+      await db.$executeRaw(Prisma.sql`
+        UPDATE "AiCreditWallet"
+        SET
+          "balanceMicros" = "balanceMicros" + ${FREE_PREMIUM_GRANT_MICROS},
+          "freeGrantClaimedAt" = CURRENT_TIMESTAMP,
+          "updatedAt" = CURRENT_TIMESTAMP
+        WHERE "adminUserId" = ${userId}
+          AND "freeGrantClaimedAt" IS NULL
+      `);
+    }
+    wallet = await readWallet(db, userId);
+  }
+
+  if (!wallet) throw new Error('Não foi possível carregar a carteira de créditos de IA.');
+  return wallet;
+}
+
+function balancePayload(wallet: WalletRow) {
+  const balanceUsd = usdFromMicros(wallet.balanceMicros);
   return {
     provider: 'OPENAI' as const,
     currency: 'USD' as const,
-    monthlyLimitUsd: dollars(MONTHLY_LIMIT_MICROS),
-    usedUsd: dollars(usedMicros),
-    remainingUsd: dollars(remainingMicros),
-    usedPercent: Math.min(100, Number(((usedMicros / MONTHLY_LIMIT_MICROS) * 100).toFixed(2))),
-    exhausted: remainingMicros <= 0,
-    cycle: cycle.key,
-    renewsAt: cycle.end.toISOString(),
+    balanceUsd,
+    remainingUsd: balanceUsd,
+    usedUsd: 0,
+    freeGrantUsd: 2,
+    freeGrantClaimed: Boolean(wallet.freeGrantClaimedAt),
+    exhausted: wallet.balanceMicros <= 0n,
   };
 }
 
-class AiCreditService {
+export class AiCreditService {
   async getBalance(actor: Pick<CreditActor, 'userId' | 'restaurantId'>) {
     const { userId, restaurantId } = normalizeActor(actor);
-    await assertAdmin(prisma, userId, restaurantId);
-    const cycle = currentCycle();
-    const usedMicros = await readUsedMicros(prisma, userId, restaurantId, cycle);
-    return balancePayload(usedMicros, cycle);
+    return prisma.$transaction(async (db) => {
+      await setTenantDbContext(db, restaurantId);
+      await db.$executeRaw(Prisma.sql`SELECT pg_advisory_xact_lock(${userId})`);
+      await assertActiveAdmin(db, userId, restaurantId);
+      const wallet = await ensureWallet(db, userId, restaurantId);
+      return balancePayload(wallet);
+    });
   }
 
   async assertAvailable(actor: Pick<CreditActor, 'userId' | 'restaurantId'>) {
@@ -138,51 +183,93 @@ class AiCreditService {
   }
 
   async recordUsage(input: RecordUsageInput) {
-    const costUsd = Number(input.costUsd);
-    if (!Number.isFinite(costUsd) || costUsd <= 0) return this.getBalance(input);
-
-    const requestedCostMicros = Math.max(1, Math.round(costUsd * 1_000_000));
+    const requestedMicros = microsFromUsd(Number(input.costUsd));
+    if (requestedMicros <= 0n) return this.getBalance(input);
     const { userId, restaurantId } = normalizeActor(input);
 
     return prisma.$transaction(async (db) => {
-      // Serialize every balance mutation for the same ADMIN account. This prevents
-      // two concurrent OpenAI responses from recording more than the monthly cap.
-      await db.$executeRaw`SELECT pg_advisory_xact_lock(${userId})`;
-      await assertAdmin(db, userId, restaurantId);
+      await setTenantDbContext(db, restaurantId);
+      await db.$executeRaw(Prisma.sql`SELECT pg_advisory_xact_lock(${userId})`);
+      await assertActiveAdmin(db, userId, restaurantId);
+      let wallet = await ensureWallet(db, userId, restaurantId);
+      if (wallet.balanceMicros <= 0n) throw new AiCreditsExhaustedError();
 
-      const cycle = currentCycle();
-      const usedMicros = await readUsedMicros(db, userId, restaurantId, cycle);
-      const remainingMicros = Math.max(0, MONTHLY_LIMIT_MICROS - usedMicros);
-      if (remainingMicros <= 0) throw new AiCreditsExhaustedError();
+      // O custo real só é conhecido após a resposta do provedor. A última operação
+      // pode ultrapassar alguns micros do saldo; nesses casos a carteira é zerada
+      // e a plataforma absorve apenas esse excedente final, sem saldo negativo.
+      const chargedMicros =
+        requestedMicros > wallet.balanceMicros ? wallet.balanceMicros : requestedMicros;
+      const balanceAfter = wallet.balanceMicros - chargedMicros;
+      const idempotencyKey = `ai-usage:${userId}:${crypto.randomUUID()}`;
 
-      const costMicros = Math.min(requestedCostMicros, remainingMicros);
-      await db.auditLog.create({
-        data: {
-          userId,
-          userName: input.userName || undefined,
-          userRole: input.userRole || 'ADMIN',
-          restaurantId,
-          action: CREDIT_ACTION,
-          resource: 'OpenAI',
-          metadata: {
+      await db.$executeRaw(Prisma.sql`
+        UPDATE "AiCreditWallet"
+        SET "balanceMicros" = ${balanceAfter}, "updatedAt" = CURRENT_TIMESTAMP
+        WHERE "adminUserId" = ${userId}
+      `);
+      await db.$executeRaw(Prisma.sql`
+        INSERT INTO "AiCreditLedgerEntry" (
+          "restaurantId", "adminUserId", "actorUserId", "kind", "amountMicros",
+          "balanceAfterMicros", "idempotencyKey", "referenceType", "referenceId", "metadata"
+        ) VALUES (
+          ${restaurantId}, ${userId}, ${userId}, 'USAGE', ${-chargedMicros},
+          ${balanceAfter}, ${idempotencyKey}, 'OPENAI_USAGE', ${input.feature},
+          ${JSON.stringify({
             provider: 'OPENAI',
             feature: input.feature,
             model: input.model,
-            costMicros,
-            providerCostMicros: requestedCostMicros,
-            costUsd: dollars(costMicros),
-            providerCostUsd: dollars(requestedCostMicros),
-            cappedAtMonthlyLimit: requestedCostMicros > remainingMicros,
-            usage: toPrismaJson(input.usage),
-            billingCycle: cycle.key,
-          },
-        },
-      });
+            providerCostUsd: Number(input.costUsd),
+            chargedUsd: usdFromMicros(chargedMicros),
+            usage: toJson(input.usage),
+          })}::jsonb
+        )
+      `);
 
-      return balancePayload(usedMicros + costMicros, cycle);
+      wallet = { ...wallet, balanceMicros: balanceAfter };
+      return balancePayload(wallet);
+    });
+  }
+
+  async creditPurchase(
+    actor: Pick<CreditActor, 'userId' | 'restaurantId'>,
+    input: { topUpPublicId: string; amountUsdMicros: bigint },
+  ) {
+    const { userId, restaurantId } = normalizeActor(actor);
+    if (input.amountUsdMicros <= 0n) throw new Error('Valor de crédito inválido.');
+
+    return prisma.$transaction(async (db) => {
+      await setTenantDbContext(db, restaurantId);
+      await db.$executeRaw(Prisma.sql`SELECT pg_advisory_xact_lock(${userId})`);
+      await assertActiveAdmin(db, userId, restaurantId);
+      const wallet = await ensureWallet(db, userId, restaurantId);
+      const balanceAfter = wallet.balanceMicros + input.amountUsdMicros;
+      const idempotencyKey = `ai-topup-paid:${input.topUpPublicId}`;
+
+      const inserted = await db.$executeRaw(Prisma.sql`
+        INSERT INTO "AiCreditLedgerEntry" (
+          "restaurantId", "adminUserId", "actorUserId", "kind", "amountMicros",
+          "balanceAfterMicros", "idempotencyKey", "referenceType", "referenceId", "metadata"
+        ) VALUES (
+          ${restaurantId}, ${userId}, ${userId}, 'PURCHASE', ${input.amountUsdMicros},
+          ${balanceAfter}, ${idempotencyKey}, 'AI_CREDIT_TOPUP', ${input.topUpPublicId},
+          ${JSON.stringify({ source: 'MERCADO_PAGO' })}::jsonb
+        )
+        ON CONFLICT ("idempotencyKey") DO NOTHING
+      `);
+      if (inserted > 0) {
+        await db.$executeRaw(Prisma.sql`
+          UPDATE "AiCreditWallet"
+          SET "balanceMicros" = ${balanceAfter}, "updatedAt" = CURRENT_TIMESTAMP
+          WHERE "adminUserId" = ${userId}
+        `);
+      }
+
+      const current = await readWallet(db, userId);
+      if (!current) throw new Error('Carteira de créditos de IA não encontrada.');
+      return balancePayload(current);
     });
   }
 }
 
-export const AI_CREDIT_MONTHLY_LIMIT_USD = MONTHLY_LIMIT_MICROS / 1_000_000;
+export const AI_CREDIT_INITIAL_PREMIUM_GRANT_USD = 2;
 export default new AiCreditService();

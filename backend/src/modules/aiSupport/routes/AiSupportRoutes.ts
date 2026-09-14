@@ -20,6 +20,18 @@ router.get('/my-issue-updates', authMiddleware, (req, res) => {
 router.get('/credits', authMiddleware, adminMiddleware, (req, res) => {
   AdminAiGuideController.balance(req, res);
 });
+router.get('/credits/topups', authMiddleware, adminMiddleware, (req, res) => {
+  AdminAiGuideController.topUps(req, res);
+});
+router.get('/credits/topup/quote', authMiddleware, adminMiddleware, (req, res) => {
+  AdminAiGuideController.quote(req, res);
+});
+router.post('/credits/topup/pix', authMiddleware, adminMiddleware, (req, res) => {
+  AdminAiGuideController.pixTopUp(req, res);
+});
+router.post('/credits/topup/card', authMiddleware, adminMiddleware, (req, res) => {
+  AdminAiGuideController.cardTopUp(req, res);
+});
 router.post('/guide', authMiddleware, adminMiddleware, (req, res) => {
   AdminAiGuideController.guide(req, res);
 });

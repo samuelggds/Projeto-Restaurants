@@ -15,6 +15,9 @@ const router = Router();
 router.post('/webhook/mercadopago', MercadoPagoWebhookController.handle);
 router.post('/webhook/mercadopago/test', BillingWebhookController.handle);
 
+// Catálogo comercial público. O controller expõe apenas os campos comerciais
+// autorizados pelo PlatformPlanCatalogService e não remove a proteção do endpoint ADMIN.
+router.get('/plans/public', (req, res) => GetPlansController.handle(req, res));
 router.get('/plans', authMiddleware, adminMiddleware, (req, res) =>
   GetPlansController.handle(req, res),
 );

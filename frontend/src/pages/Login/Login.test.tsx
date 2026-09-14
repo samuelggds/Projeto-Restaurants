@@ -8,6 +8,7 @@ const mocks = vi.hoisted(() => ({
   loginWithGoogle: vi.fn(),
   verifyLogin2fa: vi.fn(),
   resendLogin2fa: vi.fn(),
+  getPendingMfaChallenge: vi.fn(),
   getGoogleClientId: vi.fn(),
   logout: vi.fn(),
   persistLogin: vi.fn(),
@@ -19,6 +20,7 @@ vi.mock('../../Services/authService', () => ({
     loginWithGoogle: mocks.loginWithGoogle,
     verifyLogin2fa: mocks.verifyLogin2fa,
     resendLogin2fa: mocks.resendLogin2fa,
+    getPendingMfaChallenge: mocks.getPendingMfaChallenge,
     getGoogleClientId: mocks.getGoogleClientId,
     logout: mocks.logout,
   },
@@ -102,6 +104,7 @@ describe('Login contextual do cliente', () => {
     vi.clearAllMocks();
     window.sessionStorage.clear();
     googleCallback = undefined;
+    mocks.getPendingMfaChallenge.mockReturnValue(null);
     mocks.getGoogleClientId.mockResolvedValue('google-client-id');
     mocks.resendLogin2fa.mockResolvedValue({
       mfaRequired: true,
@@ -202,6 +205,9 @@ describe('Login contextual do cliente', () => {
       (container.querySelector('form') as HTMLFormElement).requestSubmit();
       await Promise.resolve();
       await Promise.resolve();
+    });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0);
     });
 
     expect(container.textContent).toContain('Autenticação de dois fatores');
