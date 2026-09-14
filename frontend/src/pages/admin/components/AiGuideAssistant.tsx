@@ -1,6 +1,6 @@
 import { FormEvent, useState } from 'react';
 import styled from 'styled-components';
-import { LoaderCircle, MessageCircleQuestion, Send, X } from 'lucide-react';
+import { LoaderCircle, X } from 'lucide-react';
 import aiGuideService, {
   type AiCreditBalance,
   type AiGuide,
