@@ -15,13 +15,11 @@ export type AiCreditCardOption =
   | { available: false }
   | {
       available: true;
-      cardId: string;
       brand: string;
       brandLabel: string;
       last4: string;
       expMonth: number;
       expYear: number;
-      securityCodeLength: number;
     };
 
 export type AiCreditTopUpQuote = {
@@ -29,6 +27,8 @@ export type AiCreditTopUpQuote = {
   exchangeRateBrlPerUsd: number;
   exchangeRateSource: string;
   quotedAt: string;
+  baseAmountBrl: number;
+  markupPercent: number;
   amountBrl: number;
   card: AiCreditCardOption;
 };
@@ -39,10 +39,13 @@ export type AiCreditTopUp = {
   exchangeRateBrlPerUsd: number;
   exchangeRateSource: string;
   exchangeRateQuotedAt: string;
+  baseAmountBrl: number;
+  markupPercent: number;
   amountBrl: number;
   paymentMethod: 'PIX' | 'CARD';
   status: 'PENDING' | 'PROCESSING' | 'PAID' | 'FAILED' | 'CANCELED' | 'EXPIRED';
   providerPaymentId?: string | null;
+  providerOrderId?: string | null;
   pixQrCode?: string | null;
   pixQrCodeBase64?: string | null;
   pixExpiresAt?: string | null;
@@ -92,13 +95,8 @@ const aiGuideService = {
     return response.data as AiCreditTopUp;
   },
 
-  async createCardTopUp(payload: {
-    amountUsd: number;
-    cardToken: string;
-    cardId: string;
-    paymentMethodId: string;
-  }) {
-    const response = await api.post('/ai-support/credits/topup/card', payload);
+  async createCardTopUp(amountUsd: number) {
+    const response = await api.post('/ai-support/credits/topup/card', { amountUsd });
     return response.data as AiCreditTopUp;
   },
 
