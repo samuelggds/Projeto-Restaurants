@@ -50,6 +50,8 @@ test('carrega preço, trial e funcionalidades persistidos no catálogo', async (
       description: 'Plano configurado no banco.',
       monthlyFee: 319.9,
       trialDays: 21,
+      configuredTrialDays: 21,
+      usesDefaultTrialDays: false,
       features: ['Mesas', 'Suporte prioritário'],
       featured: true,
       active: true,

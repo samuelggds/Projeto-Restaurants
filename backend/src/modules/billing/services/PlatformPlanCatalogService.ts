@@ -1,4 +1,4 @@
-import { PlanType, type Prisma } from '@prisma/client';
+import { PlanType, Prisma } from '@prisma/client';
 import prisma from '../../../config/prisma.js';
 import { PLAN_CONFIG } from '../config/planConfig.js';
 

@@ -73,8 +73,10 @@ export class UpdatePlatformPlanService {
           resource: `PlatformPlan:${planCode}`,
           metadata: buildAuditMetadata({
             before,
-            after,
-            useDefaultTrialDays,
+            after:
+              useDefaultTrialDays === undefined
+                ? after
+                : { ...after, useDefaultTrialDays },
           }),
         },
         transaction,

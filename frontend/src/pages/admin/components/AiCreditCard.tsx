@@ -34,9 +34,9 @@ function requestMessage(error: unknown, fallback: string) {
 }
 
 export function AiCreditCard({ balance }: { balance: AiCreditBalance | null }) {
-  const [currentBalance, setCurrentBalance] = useState(balance);
+  const [balanceOverride, setBalanceOverride] = useState<AiCreditBalance | null>(null);
   const [open, setOpen] = useState(false);
-  useEffect(() => setCurrentBalance(balance), [balance]);
+  const currentBalance = balanceOverride ?? balance;
   const remaining = currentBalance?.remainingUsd ?? 0;
   const exhausted = currentBalance?.exhausted === true;
 
@@ -65,7 +65,7 @@ export function AiCreditCard({ balance }: { balance: AiCreditBalance | null }) {
         </p>
       </Card>
       {open ? (
-        <TopUpDialog onClose={() => setOpen(false)} onBalance={setCurrentBalance} />
+        <TopUpDialog onClose={() => setOpen(false)} onBalance={setBalanceOverride} />
       ) : null}
     </>
   );
@@ -88,10 +88,7 @@ function TopUpDialog({
   const [topUp, setTopUp] = useState<AiCreditTopUp | null>(null);
 
   useEffect(() => {
-    if (!Number.isFinite(amountUsd) || amountUsd <= 0) {
-      setQuote(null);
-      return;
-    }
+    if (!Number.isFinite(amountUsd) || amountUsd <= 0) return;
     const timeout = window.setTimeout(() => {
       setLoadingQuote(true);
       setError('');
@@ -166,7 +163,10 @@ function TopUpDialog({
           <input
             inputMode="decimal"
             value={amountText}
-            onChange={(event) => setAmountText(event.target.value.replace(/[^0-9.,]/g, ''))}
+            onChange={(event) => {
+              setAmountText(event.target.value.replace(/[^0-9.,]/g, ''));
+              setQuote(null);
+            }}
             placeholder="10.00"
             disabled={paying}
           />
