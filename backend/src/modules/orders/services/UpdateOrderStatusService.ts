@@ -4,6 +4,7 @@ import { OrderStateMachine } from '../state/orderStateMachine.js';
 import { OrderPermissions } from '../permissions/orderPermissions.js';
 import {
   FuncionarioSubRole,
+  OrderRefundStatus,
   OrderStatus,
   OrderType,
   PaymentMethod,
@@ -62,13 +63,21 @@ class UpdateOrderStatusService {
     const currentStatus = order.status;
     if (
       isWaiter &&
-      !(order.type === OrderType.MESA && currentStatus === OrderStatus.PRONTO && status === OrderStatus.ENTREGUE)
+      !(
+        order.type === OrderType.MESA &&
+        currentStatus === OrderStatus.PRONTO &&
+        status === OrderStatus.ENTREGUE
+      )
     ) {
       throw new Error('O garçom só pode marcar como entregue um pedido de mesa que esteja pronto.');
     }
     if (
       isAttendant &&
-      !(order.type === OrderType.RETIRADA && currentStatus === OrderStatus.PRONTO && status === OrderStatus.ENTREGUE)
+      !(
+        order.type === OrderType.RETIRADA &&
+        currentStatus === OrderStatus.PRONTO &&
+        status === OrderStatus.ENTREGUE
+      )
     ) {
       throw new Error('O atendente só pode concluir a retirada de um pedido que esteja pronto.');
     }
@@ -79,28 +88,31 @@ class UpdateOrderStatusService {
       throw new Error('Usuário não tem permissão para isso!');
     }
 
+    const courierId = Number(actorUserId || 0);
     if (normalizedRole === UserRole.MOTOQUEIRO) {
-      await courierAccessService.assertActiveCourier(Number(actorUserId || 0), Number(restaurantId));
+      await courierAccessService.assertActiveCourier(courierId, Number(restaurantId));
       if (order.type !== OrderType.DELIVERY) {
         throw new Error('Motoqueiros só podem atualizar pedidos de entrega.');
       }
-      if (order.assignedCourierId !== Number(actorUserId || 0)) {
+      if (order.assignedCourierId !== courierId) {
         throw new Error('Esta entrega não está atribuída a você.');
       }
     }
 
     const digitalMethods: PaymentMethod[] = [PaymentMethod.PIX, PaymentMethod.CARTAO];
-    const isPayOnDelivery = order.payOnDelivery === true || this.hasLegacyPayOnDeliveryMarker(order.observation);
+    const isPayOnDelivery =
+      order.payOnDelivery === true || this.hasLegacyPayOnDeliveryMarker(order.observation);
     const isDigitalPayment = !!order.paymentMethod && digitalMethods.includes(order.paymentMethod);
-    const isCashPaymentAtHandoff =
-      order.type === OrderType.DELIVERY && order.paymentMethod === PaymentMethod.DINHEIRO;
-
-    if (
+    const isCourierDeliveryCompletion =
       status === OrderStatus.ENTREGUE &&
       normalizedRole === UserRole.MOTOQUEIRO &&
-      order.type === OrderType.DELIVERY
-    ) {
-      if (order.paid !== true && !isCashPaymentAtHandoff) {
+      order.type === OrderType.DELIVERY;
+
+    if (isCourierDeliveryCompletion) {
+      if (currentStatus !== OrderStatus.SAIU_PARA_ENTREGA) {
+        throw new Error('A entrega só pode ser concluída depois que o pedido sair para entrega.');
+      }
+      if (order.paid !== true) {
         throw new Error('O pagamento precisa estar confirmado antes de concluir a entrega.');
       }
       const providedCode = String(deliveryConfirmationCode || '').replace(/\D/g, '');
@@ -147,7 +159,6 @@ class UpdateOrderStatusService {
     }
 
     let updatedOrder;
-    let cashPaymentConfirmedOnDelivery = false;
 
     if (status === OrderStatus.CANCELADO) {
       updatedOrder = await prisma.$transaction(async (tx) => {
@@ -164,55 +175,123 @@ class UpdateOrderStatusService {
       });
     } else if (status === OrderStatus.ENTREGUE) {
       updatedOrder = await prisma.$transaction(async (tx) => {
-        let deliveredOrder = await orderRepository.updateStatusIfCurrent(
+        let deliveredOrder;
+
+        if (isCourierDeliveryCompletion) {
+          const result = await tx.order.updateMany({
+            where: {
+              id: Number(orderId),
+              restaurantId,
+              type: OrderType.DELIVERY,
+              status: OrderStatus.SAIU_PARA_ENTREGA,
+              assignedCourierId: courierId,
+              paid: true,
+              deliveredAt: null,
+              refundStatus: {
+                notIn: [OrderRefundStatus.PROCESSING, OrderRefundStatus.SUCCEEDED],
+              },
+            },
+            data: {
+              status: OrderStatus.ENTREGUE,
+              deliveredAt: new Date(),
+            },
+          });
+
+          if (result.count !== 1) {
+            const current = await orderRepository.findById(orderId, restaurantId, tx);
+            if (!current) throw new Error('Pedido não encontrado!');
+            if (current.status === OrderStatus.ENTREGUE) {
+              throw new Error('Esta entrega já foi concluída. Atualize a tela.');
+            }
+            if (current.assignedCourierId !== courierId) {
+              throw new Error('Esta entrega não está atribuída a você.');
+            }
+            if (current.paid !== true) {
+              throw new Error('O pagamento precisa estar confirmado antes de concluir a entrega.');
+            }
+            throw new Error(
+              'O pedido foi atualizado por outro processo. Atualize a tela e tente novamente.',
+            );
+          }
+
+          deliveredOrder = await orderRepository.findById(orderId, restaurantId, tx);
+          if (!deliveredOrder) throw new Error('Pedido não encontrado após a atualização.');
+        } else {
+          deliveredOrder = await orderRepository.updateStatusIfCurrent(
+            orderId,
+            status,
+            restaurantId,
+            { status: currentStatus, paid: order.paid },
+            tx,
+          );
+          await tx.order.updateMany({
+            where: {
+              id: Number(orderId),
+              restaurantId,
+              status: OrderStatus.ENTREGUE,
+              deliveredAt: null,
+            },
+            data: { deliveredAt: new Date() },
+          });
+          deliveredOrder = await orderRepository.findById(orderId, restaurantId, tx);
+          if (!deliveredOrder) throw new Error('Pedido não encontrado após a atualização.');
+        }
+
+        if (normalizedRole === UserRole.ADMIN && order.type === OrderType.DELIVERY) {
+          await tx.auditLog.create({
+            data: {
+              restaurantId,
+              userId: actorUserId || null,
+              userRole: normalizedRole,
+              action: 'ORDER_DELIVERY_ADMIN_COMPLETED',
+              resource: 'Order',
+              metadata: {
+                orderId: Number(order.id),
+                previousStatus: currentStatus,
+                paid: order.paid === true,
+                assignedCourierId: order.assignedCourierId ?? null,
+              },
+            },
+          });
+        }
+
+        if (deliveredOrder.paid === true) {
+          await markCouponRedemptionUsedForOrder(orderId, restaurantId, tx);
+        }
+        return deliveredOrder;
+      });
+    } else if (status === OrderStatus.SAIU_PARA_ENTREGA && order.type === OrderType.DELIVERY) {
+      updatedOrder = await prisma.$transaction(async (tx) => {
+        let startedOrder = await orderRepository.updateStatusIfCurrent(
           orderId,
           status,
           restaurantId,
           { status: currentStatus, paid: order.paid },
           tx,
         );
-        if (!deliveredOrder) throw new Error('Pedido não encontrado para atualizar.');
-        deliveredOrder = await tx.order.update({
-          where: { id: deliveredOrder.id },
-          data: { deliveredAt: new Date() },
-          include: {
-            user: { select: { id: true, name: true, email: true, phone: true } },
-            restaurant: { select: { id: true, name: true, whatsapp: true } },
-            table: { select: { id: true, number: true, active: true, restaurantId: true } },
-            participant: { select: { id: true, publicId: true, displayName: true } },
-            items: { include: { product: true } },
-          },
-        });
-        if (isCashPaymentAtHandoff && deliveredOrder.paid !== true) {
-          cashPaymentConfirmedOnDelivery = true;
-          deliveredOrder = await orderRepository.confirmPayment(orderId, restaurantId, tx);
+
+        if (!startedOrder.deliveryStartedAt) {
+          await tx.order.updateMany({
+            where: {
+              id: Number(orderId),
+              restaurantId,
+              type: OrderType.DELIVERY,
+              status: OrderStatus.SAIU_PARA_ENTREGA,
+              deliveryStartedAt: null,
+            },
+            data: { deliveryStartedAt: new Date() },
+          });
+          startedOrder = await orderRepository.findById(orderId, restaurantId, tx);
+          if (!startedOrder) throw new Error('Pedido não encontrado após iniciar a entrega.');
         }
-        if (deliveredOrder?.paid === true) {
-          await markCouponRedemptionUsedForOrder(orderId, restaurantId, tx);
-        }
-        return deliveredOrder;
+
+        return startedOrder;
       });
     } else {
       updatedOrder = await orderRepository.updateStatusIfCurrent(orderId, status, restaurantId, {
         status: currentStatus,
         paid: order.paid,
       });
-    }
-
-    if (cashPaymentConfirmedOnDelivery && updatedOrder) {
-      io.to(`restaurant:${restaurantId}`).emit('order:payment-confirmed', {
-        orderId: updatedOrder.id,
-        paid: true,
-        paymentMethod: updatedOrder.paymentMethod,
-      });
-      if (updatedOrder.userId) {
-        io.to(`user:${updatedOrder.userId}`).emit('order:payment-confirmed', {
-          orderId: updatedOrder.id,
-          paid: true,
-          paymentMethod: updatedOrder.paymentMethod,
-        });
-      }
-      emitTableSessionOrderEvent(io, 'order:payment-confirmed', updatedOrder);
     }
 
     void notifyCustomerOrderStatusChanged({
