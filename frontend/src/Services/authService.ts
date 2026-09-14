@@ -1,9 +1,27 @@
 import api from './api';
 
-class AuthService {
-  pendingMfaChallenge = null;
+type MfaDeliveryChannel = 'EMAIL' | 'SMS' | 'WHATSAPP';
 
-  rememberMfaChallenge(payload) {
+type MfaDeliveryOption = {
+  channel: MfaDeliveryChannel;
+  label: string;
+  destination: string;
+};
+
+type PendingMfaChallenge = {
+  mfaRequired?: boolean;
+  mfaToken?: string;
+  destination?: string;
+  resendAfterSeconds?: number;
+  selectedChannel?: MfaDeliveryChannel;
+  channelSelectionRequired?: boolean;
+  deliveryOptions?: MfaDeliveryOption[];
+};
+
+class AuthService {
+  pendingMfaChallenge: PendingMfaChallenge | null = null;
+
+  rememberMfaChallenge(payload: PendingMfaChallenge) {
     if (payload?.mfaRequired && payload?.mfaToken) {
       this.pendingMfaChallenge = payload;
     }
@@ -38,7 +56,7 @@ class AuthService {
     return this.rememberMfaChallenge(response.data);
   }
 
-  async selectLogin2faChannel(data = {}) {
+  async selectLogin2faChannel(data: { mfaToken?: string; channel?: MfaDeliveryChannel } = {}) {
     const payload = {
       ...data,
       mfaToken: data.mfaToken || this.pendingMfaChallenge?.mfaToken,
@@ -57,7 +75,7 @@ class AuthService {
     return response.data;
   }
 
-  async resendLogin2fa(data = {}) {
+  async resendLogin2fa(data: { mfaToken?: string; channel?: MfaDeliveryChannel } = {}) {
     const payload = {
       ...data,
       mfaToken: data.mfaToken || this.pendingMfaChallenge?.mfaToken,
