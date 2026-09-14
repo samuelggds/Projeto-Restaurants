@@ -11,27 +11,32 @@ if (process.env.NODE_ENV !== 'test') throw new Error('Integrated CI fixture requ
 
 const prisma = new PrismaClient({ datasourceUrl: databaseUrl });
 const password = 'CiJourney123!';
-const email = 'customer-integrated-ci@example.test';
-const slug = 'integrated-ci-restaurant';
+const slugs = ['integrated-ci-a', 'integrated-ci-b'];
+const emails = {
+  attendantA: 'attendant-a-integrated-ci@example.test',
+  kitchenA: 'kitchen-a-integrated-ci@example.test',
+  attendantB: 'attendant-b-integrated-ci@example.test',
+};
 
-try {
-  const existing = await prisma.restaurant.findUnique({ where: { slug } });
-  if (existing) {
-    await prisma.order.deleteMany({ where: { restaurantId: existing.id } });
-    await prisma.product.deleteMany({ where: { restaurantId: existing.id } });
-    await prisma.category.deleteMany({ where: { restaurantId: existing.id } });
-    await prisma.restaurantSettings.deleteMany({ where: { restaurantId: existing.id } });
-    await prisma.subscription.deleteMany({ where: { restaurantId: existing.id } });
-    await prisma.invoice.deleteMany({ where: { restaurantId: existing.id } });
-    await prisma.restaurant.delete({ where: { id: existing.id } });
-  }
-  await prisma.user.deleteMany({ where: { email } });
+async function removeExistingRestaurant(slug) {
+  const restaurant = await prisma.restaurant.findUnique({ where: { slug } });
+  if (!restaurant) return;
+  await prisma.order.deleteMany({ where: { restaurantId: restaurant.id } });
+  await prisma.user.deleteMany({ where: { restaurantId: restaurant.id } });
+  await prisma.product.deleteMany({ where: { restaurantId: restaurant.id } });
+  await prisma.category.deleteMany({ where: { restaurantId: restaurant.id } });
+  await prisma.restaurantSettings.deleteMany({ where: { restaurantId: restaurant.id } });
+  await prisma.subscription.deleteMany({ where: { restaurantId: restaurant.id } });
+  await prisma.invoice.deleteMany({ where: { restaurantId: restaurant.id } });
+  await prisma.restaurant.delete({ where: { id: restaurant.id } });
+}
 
+async function createRestaurant(slug, suffix) {
   const restaurant = await prisma.restaurant.create({
     data: {
-      name: 'Integrated CI Restaurant',
+      name: `Integrated CI Restaurant ${suffix}`,
       slug,
-      email: 'restaurant-integrated-ci@example.test',
+      email: `restaurant-${suffix.toLowerCase()}-integrated-ci@example.test`,
       active: true,
     },
   });
@@ -47,13 +52,38 @@ try {
   await prisma.restaurantSettings.create({
     data: { restaurantId: restaurant.id, soundNotifications: false },
   });
-  const category = await prisma.category.create({
-    data: { restaurantId: restaurant.id, name: 'Integrated CI' },
-  });
-  const product = await prisma.product.create({
+  return restaurant;
+}
+
+async function createStaff({ restaurantId, email, name, subRole, hash }) {
+  return prisma.user.create({
     data: {
-      restaurantId: restaurant.id,
-      categoryId: category.id,
+      restaurantId,
+      name,
+      email,
+      password: hash,
+      role: 'FUNCIONARIO',
+      subRole,
+      active: true,
+    },
+  });
+}
+
+try {
+  for (const slug of slugs) await removeExistingRestaurant(slug);
+  await prisma.user.deleteMany({ where: { email: { in: Object.values(emails) } } });
+
+  const hash = await bcrypt.hash(password, 10);
+  const restaurantA = await createRestaurant(slugs[0], 'A');
+  const restaurantB = await createRestaurant(slugs[1], 'B');
+
+  const categoryA = await prisma.category.create({
+    data: { restaurantId: restaurantA.id, name: 'Integrated CI' },
+  });
+  const productA = await prisma.product.create({
+    data: {
+      restaurantId: restaurantA.id,
+      categoryId: categoryA.id,
       name: 'Integrated CI Product',
       description: 'Synthetic product used only by disposable integrated CI.',
       price: 25,
@@ -62,23 +92,35 @@ try {
       saleMode: 'COMPLETE',
     },
   });
-  const customer = await prisma.user.create({
-    data: {
-      name: 'Integrated CI Customer',
-      email,
-      password: await bcrypt.hash(password, 10),
-      role: 'CLIENTE',
-      active: true,
-      restaurantId: null,
-    },
+
+  await createStaff({
+    restaurantId: restaurantA.id,
+    email: emails.attendantA,
+    name: 'Integrated CI Attendant A',
+    subRole: 'ATENDENTE',
+    hash,
+  });
+  await createStaff({
+    restaurantId: restaurantA.id,
+    email: emails.kitchenA,
+    name: 'Integrated CI Kitchen A',
+    subRole: 'COZINHA',
+    hash,
+  });
+  await createStaff({
+    restaurantId: restaurantB.id,
+    email: emails.attendantB,
+    name: 'Integrated CI Attendant B',
+    subRole: 'ATENDENTE',
+    hash,
   });
 
   process.stdout.write(
     `${JSON.stringify({
-      restaurantId: restaurant.id,
-      productId: product.id,
-      customerId: customer.id,
-      email,
+      restaurantAId: restaurantA.id,
+      restaurantBId: restaurantB.id,
+      productAId: productA.id,
+      emails,
       password,
     })}\n`,
   );
