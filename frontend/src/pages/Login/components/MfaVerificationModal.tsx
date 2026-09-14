@@ -1,6 +1,7 @@
 import {
   useCallback,
   useEffect,
+  useMemo,
   useRef,
   useState,
   type ClipboardEvent,
@@ -16,6 +17,7 @@ import {
   ShieldCheck,
   X,
 } from 'lucide-react';
+import authService from '../../../Services/authService';
 import * as S from './MfaVerificationModal.styles';
 
 type VerificationState = 'idle' | 'error' | 'success';
@@ -42,7 +44,7 @@ type Props<T> = {
   channelSelectionRequired?: boolean;
   selectedChannel?: DeliveryChannel;
   deliveryOptions?: DeliveryOption[];
-  onSelectChannel: (channel: DeliveryChannel) => Promise<ResendResult>;
+  onSelectChannel?: (channel: DeliveryChannel) => Promise<ResendResult>;
   onVerify: (code: string) => Promise<T>;
   onResend: (channel?: DeliveryChannel) => Promise<ResendResult>;
   onSuccess: (result: T) => void;
@@ -85,30 +87,47 @@ export function MfaVerificationModal<T>({
   open,
   destination = 'seu telefone cadastrado',
   resendAfterSeconds = 60,
-  channelSelectionRequired = false,
+  channelSelectionRequired,
   selectedChannel,
-  deliveryOptions = [],
+  deliveryOptions,
   onSelectChannel,
   onVerify,
   onResend,
   onSuccess,
   onCancel,
 }: Props<T>) {
+  const pendingChallenge = authService.getPendingMfaChallenge();
+  const initialOptions = useMemo<DeliveryOption[]>(
+    () => deliveryOptions || pendingChallenge?.deliveryOptions || [],
+    [deliveryOptions, pendingChallenge?.deliveryOptions],
+  );
+  const initialSelectionRequired =
+    channelSelectionRequired ?? Boolean(pendingChallenge?.channelSelectionRequired);
+  const initialSelectedChannel = selectedChannel || pendingChallenge?.selectedChannel;
+  const initialDestination = destination || pendingChallenge?.destination || 'seu telefone cadastrado';
+
   const [digits, setDigits] = useState<string[]>(Array(6).fill(''));
   const [state, setState] = useState<VerificationState>('idle');
   const [message, setMessage] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [resending, setResending] = useState(false);
   const [selectingChannel, setSelectingChannel] = useState<DeliveryChannel | null>(null);
+  const [activeChannel, setActiveChannel] = useState<DeliveryChannel | undefined>(
+    initialSelectedChannel,
+  );
+  const [activeDestination, setActiveDestination] = useState(initialDestination);
+  const [options, setOptions] = useState<DeliveryOption[]>(initialOptions);
+  const [selectionRequired, setSelectionRequired] = useState(initialSelectionRequired);
   const [shakeKey, setShakeKey] = useState(0);
   const [secondsRemaining, setSecondsRemaining] = useState(Math.max(0, resendAfterSeconds));
   const [mobileOtpCapable] = useState(() => isMobileOtpCapable());
   const inputRefs = useRef<Array<HTMLInputElement | null>>([]);
   const code = digits.join('');
-  const waitingForChannel = channelSelectionRequired && !selectedChannel;
+  const waitingForChannel = selectionRequired && !activeChannel;
 
   useEffect(() => {
     if (!open) return undefined;
+    const current = authService.getPendingMfaChallenge();
     const timeout = window.setTimeout(() => {
       setDigits(Array(6).fill(''));
       setState('idle');
@@ -116,11 +135,29 @@ export function MfaVerificationModal<T>({
       setSubmitting(false);
       setResending(false);
       setSelectingChannel(null);
+      setActiveChannel(selectedChannel || current?.selectedChannel);
+      setActiveDestination(destination || current?.destination || 'seu telefone cadastrado');
+      setOptions(deliveryOptions || current?.deliveryOptions || []);
+      setSelectionRequired(
+        channelSelectionRequired ?? Boolean(current?.channelSelectionRequired),
+      );
       setSecondsRemaining(Math.max(0, resendAfterSeconds));
-      if (!waitingForChannel) inputRefs.current[0]?.focus();
     }, 0);
     return () => window.clearTimeout(timeout);
-  }, [open, resendAfterSeconds, waitingForChannel]);
+  }, [
+    channelSelectionRequired,
+    deliveryOptions,
+    destination,
+    open,
+    resendAfterSeconds,
+    selectedChannel,
+  ]);
+
+  useEffect(() => {
+    if (!open || waitingForChannel) return undefined;
+    const timeout = window.setTimeout(() => inputRefs.current[0]?.focus(), 40);
+    return () => window.clearTimeout(timeout);
+  }, [open, waitingForChannel]);
 
   useEffect(() => {
     if (!open || secondsRemaining <= 0) return undefined;
@@ -250,10 +287,16 @@ export function MfaVerificationModal<T>({
     setState('idle');
     setMessage('');
     try {
-      const result = await onSelectChannel(channel);
+      const result = onSelectChannel
+        ? await onSelectChannel(channel)
+        : await authService.selectLogin2faChannel({ channel });
+      setActiveChannel(result.selectedChannel || channel);
+      setActiveDestination(result.destination || activeDestination);
+      setOptions(result.deliveryOptions || options);
+      setSelectionRequired(Boolean(result.channelSelectionRequired));
       setDigits(Array(6).fill(''));
       setSecondsRemaining(Math.max(1, Number(result.resendAfterSeconds ?? 60)));
-      setMessage(`Código enviado para ${result.destination || destination}.`);
+      setMessage(`Código enviado para ${result.destination || activeDestination}.`);
       window.setTimeout(() => inputRefs.current[0]?.focus(), 40);
     } catch (error) {
       setState('error');
@@ -270,10 +313,14 @@ export function MfaVerificationModal<T>({
     setState('idle');
     setMessage('');
     try {
-      const result = await onResend(selectedChannel);
+      const result = activeChannel
+        ? await authService.resendLogin2fa({ channel: activeChannel })
+        : await onResend(activeChannel);
+      setActiveChannel(result.selectedChannel || activeChannel);
+      setActiveDestination(result.destination || activeDestination);
       setDigits(Array(6).fill(''));
       setSecondsRemaining(Math.max(1, Number(result.resendAfterSeconds ?? 60)));
-      setMessage(`Novo código enviado para ${result.destination || destination}.`);
+      setMessage(`Novo código enviado para ${result.destination || activeDestination}.`);
       window.setTimeout(() => inputRefs.current[0]?.focus(), 40);
     } catch (error) {
       const response = (error as {
@@ -313,8 +360,8 @@ export function MfaVerificationModal<T>({
                 'Escolha como deseja receber o código no telefone cadastrado.'
               ) : (
                 <>
-                  Enviamos um código de 6 números para <strong>{destination}</strong>. Digite o
-                  código abaixo para concluir o acesso.
+                  Enviamos um código de 6 números para <strong>{activeDestination}</strong>. Digite
+                  o código abaixo para concluir o acesso.
                 </>
               )}
             </p>
@@ -336,7 +383,7 @@ export function MfaVerificationModal<T>({
               número exibido é sempre mascarado.
             </S.ChannelDescription>
             <S.ChannelChoice>
-              {deliveryOptions.map((option) => (
+              {options.map((option) => (
                 <S.ChannelButton
                   key={option.channel}
                   type="button"
