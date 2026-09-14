@@ -117,10 +117,6 @@ function isAdministrativeRole(role: unknown) {
   return normalized === 'ADMIN' || normalized === 'SUPER_ADMIN';
 }
 
-function isMobileChannel(channel: MfaDeliveryChannel) {
-  return channel === 'SMS' || channel === 'WHATSAPP';
-}
-
 export class LoginMfaService {
   constructor(private readonly platformAccess: PlatformAccess = platformMaintenanceAccessService) {}
 
@@ -138,15 +134,7 @@ export class LoginMfaService {
   }
 
   private getOptions(user: LoginUser) {
-    const options = listAvailableMfaChannels(user);
-    if (!isAdministrativeRole(user.role)) return options;
-
-    const mobileOptions = options.filter((option) => isMobileChannel(option.channel));
-    if (mobileOptions.length || process.env.NODE_ENV === 'production') return mobileOptions;
-
-    // Em desenvolvimento/testes preservamos o canal local de e-mail para nao exigir
-    // credenciais externas. Em producao ADMIN/SUPER_ADMIN nunca recebem esse fallback.
-    return options.filter((option) => option.channel === 'EMAIL');
+    return listAvailableMfaChannels(user);
   }
 
   private async issueChallenge(
@@ -235,18 +223,17 @@ export class LoginMfaService {
     if (!options.length) {
       if (isAdministrativeRole(user.role)) {
         throw new Error(
-          'MFA administrativo indisponivel: cadastre um telefone valido e configure SMS ou WhatsApp.',
+          'MFA administrativo indisponivel: configure e-mail, SMS ou WhatsApp para esta conta.',
         );
       }
       throw new Error('Nenhum canal MFA esta configurado para esta conta.');
     }
 
-    const hasMobileOptions = options.some((option) => isMobileChannel(option.channel));
-    if (isAdministrativeRole(user.role) && hasMobileOptions) {
+    if (isAdministrativeRole(user.role) && options.length > 1) {
       return {
         mfaRequired: true,
         mfaToken: createMfaToken(Number(user.id)),
-        destination: 'seu telefone cadastrado',
+        destination: 'seu contato cadastrado',
         channelSelectionRequired: true,
         deliveryOptions: options,
         resendAfterSeconds: 0,
