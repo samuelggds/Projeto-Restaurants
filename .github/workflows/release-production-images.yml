@@ -52,6 +52,7 @@ jobs:
             'Security Hardening Validation',
             'Isolated Stack Smoke Validation',
             'Cross-browser Critical Validation',
+            'Migration Compatibility Validation',
           ];
           const errors = [];
           for (const name of required) {
