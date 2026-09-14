@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import styled from 'styled-components';
 import { CreditCard, QrCode, RefreshCw, X } from 'lucide-react';
 import aiGuideService, {
@@ -6,43 +6,7 @@ import aiGuideService, {
   type AiCreditTopUp,
   type AiCreditTopUpQuote,
 } from '../../../Services/aiGuideService';
-import monthlyBillingService from '../../../Services/monthlyBillingService';
 import { ChatGptLogo } from '../../../components/ChatGptLogo';
-
-type Field = { mount(id: string): void; unmount?(): void };
-type MercadoPagoInstance = {
-  fields: {
-    create(name: 'securityCode', options: { placeholder: string }): Field;
-    createCardToken(input: { cardId: string }): Promise<{
-      id?: string;
-      payment_method_id?: string;
-    }>;
-  };
-};
-
-const MP_SDK_URL = 'https://sdk.mercadopago.com/js/v2';
-let mpSdkPromise: Promise<void> | null = null;
-
-function loadMercadoPagoSdk() {
-  if (window.MercadoPago) return Promise.resolve();
-  if (mpSdkPromise) return mpSdkPromise;
-  mpSdkPromise = new Promise<void>((resolve, reject) => {
-    const existing = document.querySelector<HTMLScriptElement>(`script[src="${MP_SDK_URL}"]`);
-    const script = existing || document.createElement('script');
-    const loaded = () => (window.MercadoPago ? resolve() : reject(new Error('SDK indisponível')));
-    const failed = () => reject(new Error('SDK indisponível'));
-    script.addEventListener('load', loaded, { once: true });
-    script.addEventListener('error', failed, { once: true });
-    if (!existing) {
-      script.src = MP_SDK_URL;
-      script.async = true;
-      document.head.appendChild(script);
-    }
-  }).finally(() => {
-    mpSdkPromise = null;
-  });
-  return mpSdkPromise;
-}
 
 function usd(value: number) {
   return new Intl.NumberFormat('pt-BR', {
@@ -60,6 +24,15 @@ function brl(value: number) {
   }).format(Math.max(0, value));
 }
 
+function requestMessage(error: unknown, fallback: string) {
+  if (!error || typeof error !== 'object') return fallback;
+  const response = 'response' in error ? (error as { response?: { data?: { error?: unknown } } }).response : undefined;
+  const providerMessage = response?.data?.error;
+  if (typeof providerMessage === 'string' && providerMessage.trim()) return providerMessage;
+  if (error instanceof Error && error.message) return error.message;
+  return fallback;
+}
+
 export function AiCreditCard({ balance }: { balance: AiCreditBalance | null }) {
   const [currentBalance, setCurrentBalance] = useState(balance);
   const [open, setOpen] = useState(false);
@@ -71,22 +44,18 @@ export function AiCreditCard({ balance }: { balance: AiCreditBalance | null }) {
     <>
       <Card data-tour="ai-credits" $exhausted={exhausted}>
         <div className="topline">
-          <span className="icon" aria-hidden="true">
-            <ChatGptLogo />
-          </span>
+          <span className="icon" aria-hidden="true"><ChatGptLogo /></span>
           <span className="title-copy">
             <b>Créditos OpenAI</b>
             <small>Saldo da sua carteira</small>
           </span>
         </div>
-
         <div className="balance-row">
           <strong>{usd(remaining)}</strong>
           <span className="available">
             {exhausted ? 'Saldo esgotado' : 'disponíveis para usar com IA'}
           </span>
         </div>
-
         <button className="topup" type="button" onClick={() => setOpen(true)}>
           Recarregar créditos
         </button>
@@ -96,10 +65,7 @@ export function AiCreditCard({ balance }: { balance: AiCreditBalance | null }) {
         </p>
       </Card>
       {open ? (
-        <TopUpDialog
-          onClose={() => setOpen(false)}
-          onBalance={setCurrentBalance}
-        />
+        <TopUpDialog onClose={() => setOpen(false)} onBalance={setCurrentBalance} />
       ) : null}
     </>
   );
@@ -120,8 +86,6 @@ function TopUpDialog({
   const [paying, setPaying] = useState(false);
   const [error, setError] = useState('');
   const [topUp, setTopUp] = useState<AiCreditTopUp | null>(null);
-  const mpRef = useRef<MercadoPagoInstance | null>(null);
-  const cvvFieldRef = useRef<Field | null>(null);
 
   useEffect(() => {
     if (!Number.isFinite(amountUsd) || amountUsd <= 0) {
@@ -137,42 +101,14 @@ function TopUpDialog({
           setQuote(next);
           if (method === 'CARD' && !next.card.available) setMethod('PIX');
         })
-        .catch((requestError: any) => {
+        .catch((requestError: unknown) => {
           setQuote(null);
-          setError(requestError?.response?.data?.error || 'Não foi possível consultar a cotação.');
+          setError(requestMessage(requestError, 'Não foi possível consultar a cotação.'));
         })
         .finally(() => setLoadingQuote(false));
     }, 450);
     return () => window.clearTimeout(timeout);
   }, [amountUsd, method]);
-
-  useEffect(() => {
-    cvvFieldRef.current?.unmount?.();
-    cvvFieldRef.current = null;
-    mpRef.current = null;
-    if (method !== 'CARD' || !quote?.card.available) return;
-    let active = true;
-    void Promise.all([loadMercadoPagoSdk(), monthlyBillingService.getRecurringConfig()])
-      .then(([, config]) => {
-        if (!active || !window.MercadoPago) return;
-        const mp = new window.MercadoPago(config.publicKey) as MercadoPagoInstance;
-        const field = mp.fields.create('securityCode', {
-          placeholder: `CVV (${quote.card.securityCodeLength} dígitos)`,
-        });
-        field.mount('ai-credit-cvv');
-        mpRef.current = mp;
-        cvvFieldRef.current = field;
-      })
-      .catch(() => {
-        if (active) setError('Não foi possível preparar o cartão cadastrado.');
-      });
-    return () => {
-      active = false;
-      cvvFieldRef.current?.unmount?.();
-      cvvFieldRef.current = null;
-      mpRef.current = null;
-    };
-  }, [method, quote]);
 
   async function refreshBalance() {
     const next = await aiGuideService.getCredits();
@@ -187,37 +123,26 @@ function TopUpDialog({
       const result = await aiGuideService.createPixTopUp(quote.creditUsd);
       setTopUp(result);
       if (result.status === 'PAID') await refreshBalance();
-    } catch (requestError: any) {
-      setError(requestError?.response?.data?.error || 'Não foi possível gerar o Pix.');
+    } catch (requestError: unknown) {
+      setError(requestMessage(requestError, 'Não foi possível gerar o Pix.'));
     } finally {
       setPaying(false);
     }
   }
 
   async function payCard() {
-    if (!quote?.card.available || !mpRef.current) {
+    if (!quote?.card.available) {
       setError('Cartão cadastrado indisponível.');
       return;
     }
     setPaying(true);
     setError('');
     try {
-      const token = await mpRef.current.fields.createCardToken({ cardId: quote.card.cardId });
-      if (!token.id) throw new Error('Não foi possível validar o CVV do cartão.');
-      const result = await aiGuideService.createCardTopUp({
-        amountUsd: quote.creditUsd,
-        cardToken: token.id,
-        cardId: quote.card.cardId,
-        paymentMethodId: token.payment_method_id || quote.card.brand,
-      });
+      const result = await aiGuideService.createCardTopUp(quote.creditUsd);
       setTopUp(result);
       if (result.status === 'PAID') await refreshBalance();
-    } catch (requestError: any) {
-      setError(
-        requestError?.response?.data?.error ||
-          requestError?.message ||
-          'Não foi possível cobrar o cartão cadastrado.',
-      );
+    } catch (requestError: unknown) {
+      setError(requestMessage(requestError, 'Não foi possível cobrar o cartão cadastrado.'));
     } finally {
       setPaying(false);
     }
@@ -254,6 +179,8 @@ function TopUpDialog({
             <>
               <strong>{usd(quote.creditUsd)} em créditos</strong>
               <span>US$ 1 = {brl(quote.exchangeRateBrlPerUsd)}</span>
+              <span>Conversão: {brl(quote.baseAmountBrl)}</span>
+              {quote.markupPercent > 0 ? <span>Taxa de serviço: {quote.markupPercent}%</span> : null}
               <b>Você paga {brl(quote.amountBrl)}</b>
               <small>Cotação consultada automaticamente no momento da recarga.</small>
             </>
@@ -282,12 +209,10 @@ function TopUpDialog({
             >
               <CreditCard size={18} />
               <span>
-                <b>
-                  {quote.card.available ? `${quote.card.brandLabel} •••• ${quote.card.last4}` : 'Cartão indisponível'}
-                </b>
+                <b>{quote.card.available ? `${quote.card.brandLabel} •••• ${quote.card.last4}` : 'Cartão indisponível'}</b>
                 <small>
                   {quote.card.available
-                    ? 'Mesmo cartão da mensalidade'
+                    ? 'Mesmo cartão da mensalidade; cobrança automática após confirmar'
                     : 'Cadastre o cartão automático em Cobranças'}
                 </small>
               </span>
@@ -296,13 +221,9 @@ function TopUpDialog({
         ) : null}
 
         {method === 'CARD' && quote?.card.available ? (
-          <div className="cvv-block">
-            <label htmlFor="ai-credit-cvv">Confirme o CVV do cartão cadastrado</label>
-            <div id="ai-credit-cvv" className="mp-field" />
-            <small>
-              O Mercado Pago exige o código de segurança novamente. Nenhum outro cartão pode ser
-              usado nesta recarga.
-            </small>
+          <div className="saved-card-note">
+            Somente o cartão já autorizado para a cobrança mensal pode ser utilizado nesta recarga.
+            Nenhum número de cartão ou CVV é solicitado novamente pelo GastroNexa.
           </div>
         ) : null}
 
@@ -327,6 +248,9 @@ function TopUpDialog({
         {topUp && ['PENDING', 'PROCESSING'].includes(topUp.status) ? (
           <p className="pending">Aguardando confirmação do Mercado Pago.</p>
         ) : null}
+        {topUp && ['FAILED', 'CANCELED', 'EXPIRED'].includes(topUp.status) ? (
+          <p className="error">{topUp.failureReason || 'A cobrança não foi concluída.'}</p>
+        ) : null}
         {error ? <p className="error" role="alert">{error}</p> : null}
 
         <footer>
@@ -335,14 +259,14 @@ function TopUpDialog({
             <button
               type="button"
               className="primary"
-              disabled={paying || loadingQuote}
+              disabled={paying || loadingQuote || (method === 'CARD' && !quote.card.available)}
               onClick={() => void (method === 'PIX' ? payPix() : payCard())}
             >
               {paying
                 ? 'Processando...'
                 : method === 'PIX'
                   ? 'Gerar QR Code Pix'
-                  : `Pagar ${brl(quote.amountBrl)} no cartão`}
+                  : `Cobrar ${brl(quote.amountBrl)} no cartão cadastrado`}
             </button>
           ) : null}
         </footer>
@@ -359,7 +283,6 @@ const Card = styled.aside<{ $exhausted: boolean }>`
   color: #fff;
   background: transparent;
   box-shadow: none;
-
   .topline { display: flex; align-items: center; gap: 9px; }
   .topline .icon { width: 24px; height: 24px; flex: 0 0 24px; display: grid; place-items: center; color: ${({ $exhausted }) => ($exhausted ? '#fca5a5' : '#f4efeb')}; }
   .topline svg { width: 18px; height: 18px; }
@@ -398,10 +321,7 @@ const Modal = styled.div`
   .methods button:disabled { opacity:.55; cursor:not-allowed; }
   .methods span { display:grid; gap:2px; }
   .methods small { font-size:10px; color:#6d7772; }
-  .cvv-block { margin-top:14px; display:grid; gap:6px; }
-  .cvv-block label { font-size:12px; font-weight:750; }
-  .cvv-block small { color:#6d7772; font-size:10px; }
-  .mp-field { min-height:44px; border:1px solid #d9dedb; border-radius:10px; padding:10px 12px; background:#fff; }
+  .saved-card-note { margin-top:14px; padding:11px 12px; border-radius:10px; background:#f1f5f2; color:#56625d; font-size:11px; line-height:1.45; }
   .pix-result { margin-top:16px; display:grid; gap:10px; }
   .pix-result img { width:190px; max-width:100%; margin:auto; border-radius:10px; }
   .pix-result label { display:grid; gap:6px; font-size:11px; font-weight:750; }
