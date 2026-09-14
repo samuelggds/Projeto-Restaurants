@@ -29,6 +29,15 @@ export type IngredientImageSearchResponse = {
   results: IngredientImageSearchResult[];
 };
 
+export type IngredientAiImageResponse = {
+  image: string;
+  credits?: {
+    remainingUsd?: number;
+    usedUsd?: number;
+    exhausted?: boolean;
+  };
+};
+
 function unwrapIngredients(payload: unknown) {
   if (Array.isArray(payload)) return payload;
   if (!payload || typeof payload !== 'object') return [];
@@ -63,10 +72,12 @@ class IngredientsService {
   }
 
   async searchImages(input: { name: string; category?: string; page?: number }) {
-    const response = await api.post<IngredientImageSearchResponse>(
-      '/ingredients/image-search',
-      input,
-    );
+    const response = await api.post<IngredientImageSearchResponse>('/ingredients/image-search', input);
+    return response.data;
+  }
+
+  async generateAiImage(input: { name: string; category?: string }) {
+    const response = await api.post<IngredientAiImageResponse>('/ingredients/generate-image', input);
     return response.data;
   }
 
