@@ -10,6 +10,8 @@ BACKEND_IMAGE="${BACKEND_IMAGE:-}"
 FRONTEND_IMAGE="${FRONTEND_IMAGE:-}"
 RELEASE_STATE="${RELEASE_STATE:-.gastronexa-release.env}"
 COMPOSE_PARALLEL_LIMIT="${COMPOSE_PARALLEL_LIMIT:-1}"
+READINESS_ATTEMPTS="${READINESS_ATTEMPTS:-40}"
+READINESS_SLEEP_SECONDS="${READINESS_SLEEP_SECONDS:-3}"
 export COMPOSE_PARALLEL_LIMIT BACKEND_IMAGE FRONTEND_IMAGE
 
 cd "$APP_DIR"
@@ -32,9 +34,23 @@ require_digest_image() {
   fi
 }
 
+require_positive_integer() {
+  local value="$1"
+  local label="$2"
+  if [[ ! "$value" =~ ^[0-9]+$ ]] || (( value < 1 )); then
+    echo "$label deve ser inteiro positivo." >&2
+    exit 1
+  fi
+}
+
 require_sha "$DEPLOY_SHA" DEPLOY_SHA
 require_digest_image "$BACKEND_IMAGE" BACKEND_IMAGE
 require_digest_image "$FRONTEND_IMAGE" FRONTEND_IMAGE
+require_positive_integer "$READINESS_ATTEMPTS" READINESS_ATTEMPTS
+if [[ ! "$READINESS_SLEEP_SECONDS" =~ ^[0-9]+$ ]]; then
+  echo 'READINESS_SLEEP_SECONDS deve ser inteiro >= 0.' >&2
+  exit 1
+fi
 
 for required_file in "$ENV_FILE" "$COMPOSE_FILE" "$RELEASE_OVERLAY"; do
   if [[ ! -f "$required_file" ]]; then
@@ -128,7 +144,7 @@ phase='readiness'
 echo '[6/7] Aguardando readiness da nova versao...'
 backend_ready=false
 frontend_ready=false
-for _ in $(seq 1 40); do
+for _ in $(seq 1 "$READINESS_ATTEMPTS"); do
   if "${compose[@]}" exec -T backend node -e "fetch('http://127.0.0.1:3000/ready').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))" >/dev/null 2>&1; then
     backend_ready=true
   else
@@ -144,7 +160,7 @@ for _ in $(seq 1 40); do
   if [[ "$backend_ready" == true && "$frontend_ready" == true ]]; then
     break
   fi
-  sleep 3
+  sleep "$READINESS_SLEEP_SECONDS"
 done
 
 test "$backend_ready" = true
