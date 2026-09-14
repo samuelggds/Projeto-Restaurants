@@ -16,9 +16,9 @@ concurrency:
 
 jobs:
   stack:
-    name: Frontend backend worker Postgres
+    name: Frontend backend worker PostgreSQL integration
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 35
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
@@ -49,6 +49,35 @@ jobs:
           docker compose -f docker-compose.ci.yml ps
           exit 1
 
+      - name: Verify restricted runtime database role
+        shell: bash
+        run: |
+          set -euo pipefail
+          secure_role="$(docker compose -f docker-compose.ci.yml exec -T postgres \
+            psql -U ci_owner -d gastronexa_ci -Atc \
+            "SELECT (NOT rolsuper AND NOT rolbypassrls AND NOT rolcreatedb AND NOT rolcreaterole)::text FROM pg_roles WHERE rolname='ci_runtime'")"
+          test "$secure_role" = 'true'
+
+          backend_role="$(docker compose -f docker-compose.ci.yml exec -T backend node -e \
+            "import('./dist/config/prisma.js').then(async m=>{const r=await m.default.\$queryRawUnsafe('select current_user as u'); console.log(r[0].u); await m.default.\$disconnect()})")"
+          test "$(printf '%s' "$backend_role" | tail -n 1)" = 'ci_runtime'
+
+      - name: Verify worker actually completes a scheduled task
+        shell: bash
+        run: |
+          set -euo pipefail
+          completed='0'
+          for attempt in $(seq 1 30); do
+            completed="$(docker compose -f docker-compose.ci.yml exec -T postgres \
+              psql -U ci_owner -d gastronexa_ci -Atc \
+              "SELECT count(*) FROM \"ScheduledJobState\" WHERE \"jobKey\" IN ('sales-leads.email-delivery','notifications.delivery') AND \"lastStartedAt\" IS NOT NULL AND \"lastCompletedAt\" IS NOT NULL")"
+            if [ "$completed" -ge 1 ]; then
+              break
+            fi
+            sleep 2
+          done
+          test "$completed" -ge 1
+
       - name: Smoke backend readiness and frontend delivery
         shell: bash
         run: |
@@ -57,7 +86,7 @@ jobs:
           curl --fail --silent --show-error http://127.0.0.1:8080/ > "$RUNNER_TEMP/frontend-index.html"
           grep -qi '<html' "$RUNNER_TEMP/frontend-index.html"
 
-      - name: Record image ids for immutable promotion evidence
+      - name: Record image ids and commit evidence
         shell: bash
         run: |
           {
@@ -71,6 +100,7 @@ jobs:
             echo
             echo "Source commit: \`${GITHUB_SHA}\`"
             echo
+            echo 'Runtime database role and worker scheduled-task completion were verified.'
             echo 'This workflow does not publish or deploy these images.'
           } >> "$GITHUB_STEP_SUMMARY"
 
@@ -93,3 +123,16 @@ jobs:
       - name: Tear down disposable stack
         if: always()
         run: docker compose -f docker-compose.ci.yml down --volumes --remove-orphans
+
+  isolated-stack-validation:
+    name: Isolated Stack Smoke Validation
+    if: ${{ always() }}
+    needs: [stack]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require integrated stack validation to pass
+        env:
+          STACK_RESULT: ${{ needs.stack.result }}
+        run: |
+          set -euo pipefail
+          test "$STACK_RESULT" = 'success'
