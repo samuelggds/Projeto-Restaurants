@@ -167,8 +167,9 @@ CREATE TABLE "AdminPortalCredential" (
   CONSTRAINT "AdminPortalCredential_keyHash_check" CHECK ("keyHash" ~ '^[a-f0-9]{64}$')
 );
 
--- Migra o último link legado ainda válido. A janela de 30 dias evita invalidar
--- silenciosamente um link só porque os eventos antigos serão submetidos à retenção.
+-- Migra o último link legado ainda válido apenas para restaurantes que ainda
+-- existem. AuditLog é histórico e pode conter restaurantId/userId de entidades
+-- já removidas; esses registros não podem violar as FKs do estado operacional.
 WITH latest AS (
   SELECT DISTINCT ON ("restaurantId")
     "restaurantId", "action", "metadata", "userId"
@@ -181,13 +182,17 @@ INSERT INTO "AdminPortalCredential" (
   "restaurantId", "keyHash", "expiresAt", "rotatedByUserId"
 )
 SELECT
-  "restaurantId",
-  "metadata"->>'keyHash',
+  latest."restaurantId",
+  latest."metadata"->>'keyHash',
   CURRENT_TIMESTAMP + INTERVAL '30 days',
-  "userId"
+  existing_user."id"
 FROM latest
-WHERE "action" = 'ADMIN_PORTAL_KEY_ROTATED'
-  AND COALESCE("metadata"->>'keyHash', '') ~ '^[a-f0-9]{64}$'
+JOIN "Restaurant" existing_restaurant
+  ON existing_restaurant."id" = latest."restaurantId"
+LEFT JOIN "User" existing_user
+  ON existing_user."id" = latest."userId"
+WHERE latest."action" = 'ADMIN_PORTAL_KEY_ROTATED'
+  AND COALESCE(latest."metadata"->>'keyHash', '') ~ '^[a-f0-9]{64}$'
 ON CONFLICT ("restaurantId") DO NOTHING;
 
 ALTER TABLE "AiCreditWallet" ENABLE ROW LEVEL SECURITY;
