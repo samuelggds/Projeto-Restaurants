@@ -45,6 +45,35 @@ jobs:
             } >> "$GITHUB_STEP_SUMMARY"
             exit 0
           fi
+
+          existing_success="$(gh api \
+            "repos/${GITHUB_REPOSITORY}/actions/workflows/release-production-images.yml/runs?branch=main&event=workflow_dispatch&status=success&per_page=100" \
+            --jq "[.workflow_runs[] | select(.head_sha == \"${TARGET_SHA}\")] | length")"
+          if [ "$existing_success" -gt 0 ]; then
+            echo "promote=false" >> "$GITHUB_OUTPUT"
+            {
+              echo '## Automatic production promotion skipped'
+              echo
+              echo "Commit \`${TARGET_SHA}\` already has a successful production image release."
+              echo 'No duplicate release was dispatched.'
+            } >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
+          in_flight="$(gh api \
+            "repos/${GITHUB_REPOSITORY}/actions/workflows/release-production-images.yml/runs?branch=main&event=workflow_dispatch&per_page=100" \
+            --jq "[.workflow_runs[] | select(.head_sha == \"${TARGET_SHA}\" and (.status == \"queued\" or .status == \"in_progress\" or .status == \"waiting\" or .status == \"requested\" or .status == \"pending\"))] | length")"
+          if [ "$in_flight" -gt 0 ]; then
+            echo "promote=false" >> "$GITHUB_OUTPUT"
+            {
+              echo '## Automatic production promotion skipped'
+              echo
+              echo "Commit \`${TARGET_SHA}\` already has a production release in progress."
+              echo 'No duplicate release was dispatched.'
+            } >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
           echo "promote=true" >> "$GITHUB_OUTPUT"
           echo "sha=$TARGET_SHA" >> "$GITHUB_OUTPUT"
 
