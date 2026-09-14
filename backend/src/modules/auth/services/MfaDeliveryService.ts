@@ -67,7 +67,11 @@ export function normalizeMfaPhone(
 ) {
   const digits = String(value || '').replace(/\D/gu, '');
   const countryCode = String(defaultCountryCode || '').replace(/\D/gu, '');
-  if (!digits || !countryCode) return '';
+  if (!digits) return '';
+
+  if (!countryCode) {
+    return digits.length >= 10 && digits.length <= 15 ? digits : '';
+  }
 
   if (digits.startsWith(countryCode) && digits.length >= countryCode.length + 10) {
     return digits.length <= 15 ? digits : '';
