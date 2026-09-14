@@ -9,6 +9,14 @@ const attendantAEmail = process.env.CI_ATTENDANT_A_EMAIL || '';
 const kitchenAEmail = process.env.CI_KITCHEN_A_EMAIL || '';
 const attendantBEmail = process.env.CI_ATTENDANT_B_EMAIL || '';
 
+type OrderResponse = {
+  id?: number | string;
+  restaurantId?: number | string;
+  status?: string;
+};
+
+type OrderListResponse = OrderResponse[] | { orders?: OrderResponse[] };
+
 async function apiFromBrowser<T>(
   page: Page,
   path: string,
@@ -47,7 +55,7 @@ test('real browser -> API -> PostgreSQL preserves tenant auth and order state tr
   await expect(page.locator('body')).toBeVisible();
 
   const attendantAToken = await login(page, attendantAEmail);
-  const created = await apiFromBrowser<any>(page, '/orders', {
+  const created = await apiFromBrowser<OrderResponse>(page, '/orders', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -65,8 +73,9 @@ test('real browser -> API -> PostgreSQL preserves tenant auth and order state tr
   expect(Number(created.body.restaurantId)).toBe(restaurantAId);
   expect(Number(created.body.id)).toBeGreaterThan(0);
 
+  const orderId = Number(created.body.id);
   const kitchenAToken = await login(page, kitchenAEmail);
-  const advanced = await apiFromBrowser<any>(page, `/orders/${created.body.id}/status`, {
+  const advanced = await apiFromBrowser<OrderResponse>(page, `/orders/${orderId}/status`, {
     method: 'PUT',
     headers: {
       'Content-Type': 'application/json',
@@ -78,15 +87,11 @@ test('real browser -> API -> PostgreSQL preserves tenant auth and order state tr
   expect(advanced.body.status).toBe('PREPARANDO');
 
   const attendantBToken = await login(page, attendantBEmail);
-  const tenantBOrders = await apiFromBrowser<any>(page, '/orders?queue=ACTIVE&limit=50', {
+  const tenantBOrders = await apiFromBrowser<OrderListResponse>(page, '/orders?queue=ACTIVE&limit=50', {
     headers: { Authorization: `Bearer ${attendantBToken}` },
   });
   expect(tenantBOrders.status).toBe(200);
-  const orders = Array.isArray(tenantBOrders.body)
-    ? tenantBOrders.body
-    : Array.isArray(tenantBOrders.body?.orders)
-      ? tenantBOrders.body.orders
-      : [];
-  expect(orders.some((order: any) => Number(order.id) === Number(created.body.id))).toBe(false);
-  expect(orders.every((order: any) => Number(order.restaurantId) === restaurantBId)).toBe(true);
+  const orders = Array.isArray(tenantBOrders.body) ? tenantBOrders.body : tenantBOrders.body.orders || [];
+  expect(orders.some((order) => Number(order.id) === orderId)).toBe(false);
+  expect(orders.every((order) => Number(order.restaurantId) === restaurantBId)).toBe(true);
 });
