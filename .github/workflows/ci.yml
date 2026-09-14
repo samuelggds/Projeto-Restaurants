@@ -324,7 +324,7 @@ jobs:
 
   dependency-review:
     name: Dependency Review
-    if: ${{ github.event_name == 'pull_request' }}
+    if: ${{ github.event_name == 'pull_request' && vars.DEPENDENCY_REVIEW_ENABLED == 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -396,20 +396,15 @@ jobs:
       - name: Require every internal CI gate to pass
         env:
           JOB_RESULTS: ${{ toJson(needs) }}
-          EVENT_NAME: ${{ github.event_name }}
         run: |
           node <<'NODE'
           const fs = require('fs');
           const jobs = JSON.parse(process.env.JOB_RESULTS);
-          const eventName = process.env.EVENT_NAME;
           const rows = [];
           const unsuccessful = [];
 
           for (const [name, job] of Object.entries(jobs)) {
-            const allowedSkip =
-              name === 'dependency-review' &&
-              eventName !== 'pull_request' &&
-              job.result === 'skipped';
+            const allowedSkip = name === 'dependency-review' && job.result === 'skipped';
             const ok = job.result === 'success' || allowedSkip;
             rows.push(`| ${name} | ${job.result} | ${ok ? 'PASS' : 'FAIL'} |`);
             if (!ok) unsuccessful.push(`${name}: ${job.result}`);
