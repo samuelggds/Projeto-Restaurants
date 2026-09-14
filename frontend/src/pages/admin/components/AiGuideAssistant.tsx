@@ -1,12 +1,13 @@
 import { FormEvent, useState } from 'react';
 import styled from 'styled-components';
-import { LoaderCircle, MessageCircleQuestion, Send, Sparkles, X } from 'lucide-react';
+import { LoaderCircle, MessageCircleQuestion, Send, X } from 'lucide-react';
 import aiGuideService, {
   type AiCreditBalance,
   type AiGuide,
   type AiSupportGuide,
   type AiTourGuide,
 } from '../../../Services/aiGuideService';
+import { ChatGptLogo } from '../../../components/ChatGptLogo';
 
 type Props = {
   disabled?: boolean;
@@ -54,7 +55,7 @@ export function AiGuideAssistant({ disabled = false, onGuideReady, onCreditsChan
   return (
     <Card>
       <div className="heading">
-        <span className="icon"><Sparkles /></span>
+        <span className="icon"><ChatGptLogo /></span>
         <div>
           <span className="eyebrow">Guia inteligente</span>
           <h2>Pergunte como usar o GastroNexa</h2>
@@ -77,7 +78,7 @@ export function AiGuideAssistant({ disabled = false, onGuideReady, onCreditsChan
         <div className="actions">
           <span>{disabled ? 'Seus créditos de IA acabaram neste mês.' : 'O uso é descontado dos seus créditos OpenAI mensais.'}</span>
           <button type="submit" disabled={disabled || loading || question.trim().length < 3}>
-            {loading ? <LoaderCircle className="spin" /> : <Send />}
+            {loading ? <LoaderCircle className="spin" /> : <ChatGptLogo />}
             {loading ? 'Consultando...' : 'Perguntar à IA'}
           </button>
         </div>
@@ -87,7 +88,7 @@ export function AiGuideAssistant({ disabled = false, onGuideReady, onCreditsChan
       {supportAnswer && (
         <SupportPanel aria-live="polite">
           <div className="support-header">
-            <span className="support-icon"><MessageCircleQuestion /></span>
+            <span className="support-icon"><ChatGptLogo /></span>
             <div>
               <small>Suporte para orientar sua equipe</small>
               <h3>{supportAnswer.title}</h3>
@@ -149,7 +150,7 @@ const Card = styled.section`
     background: linear-gradient(145deg, #17191a, #34383d);
     box-shadow: 0 10px 24px rgba(17, 24, 39, 0.18);
   }
-  .icon svg { width: 19px; }
+  .icon svg { width: 20px; height: 20px; }
   .eyebrow {
     display: block;
     margin-bottom: 3px;
@@ -221,7 +222,7 @@ const Card = styled.section`
   }
   button:hover:not(:disabled) { background: #292c30; }
   button:disabled { opacity: 0.48; cursor: not-allowed; }
-  button svg { width: 15px; }
+  button svg { width: 15px; height: 15px; }
   .spin { animation: spin 800ms linear infinite; }
   @keyframes spin { to { transform: rotate(360deg); } }
   .error {
@@ -264,7 +265,7 @@ const SupportPanel = styled.section`
     color: #fff;
     background: #17191a;
   }
-  .support-icon svg { width: 17px; }
+  .support-icon svg { width: 18px; height: 18px; }
   .support-header small {
     display: block;
     color: #77706b;
