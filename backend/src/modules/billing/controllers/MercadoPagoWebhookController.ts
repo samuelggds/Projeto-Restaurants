@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { authenticateMercadoPagoWebhook } from '../../payments/providers/mercadoPagoWebhookSignature.js';
 import processMercadoPagoInvoiceWebhookService from '../services/ProcessMercadoPagoInvoiceWebhookService.js';
+import aiCreditTopUpService from '../../aiSupport/services/AiCreditTopUpService.js';
 import { debug, info, error as logError } from '../utils/billingLogger.js';
 
 class MercadoPagoWebhookController {
@@ -10,8 +11,12 @@ class MercadoPagoWebhookController {
       if (!paymentId) return res;
       debug('MP webhook received', { paymentId });
 
-      if (!paymentId) {
-        debug('webhook ignored: missing paymentId');
+      const aiTopUp = await aiCreditTopUpService.processPayment(paymentId);
+      if (aiTopUp.processed) {
+        info('AI credit top-up webhook processed', {
+          publicId: aiTopUp.publicId,
+          status: aiTopUp.status,
+        });
         return res.sendStatus(200);
       }
 
