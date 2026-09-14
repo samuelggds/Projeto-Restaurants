@@ -428,7 +428,7 @@ jobs:
           (github.event_name == 'push' && github.ref == 'refs/heads/main')
         env:
           GH_TOKEN: ${{ github.token }}
-          TARGET_SHA: ${{ github.sha }}
+          TARGET_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
         shell: bash
         run: |
           set -euo pipefail
