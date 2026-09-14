@@ -77,10 +77,11 @@ CREATE INDEX "AiCreditLedgerEntry_restaurant_created_idx"
 -- e depois escolhe PIX ou CARTÃO. Em PIX, o sistema gera QR Code e copia-e-cola.
 -- Em CARTÃO, só é permitido usar o cartão que já está autorizado no cadastro
 -- automático da mensalidade, na tela de Cobranças; não há cadastro de outro
--- cartão dentro da recarga de IA. O valor escolhido pelo ADMIN é convertido para
--- BRL usando a cotação registrada na criação da recarga. O pagamento vai para a
--- conta Mercado Pago da plataforma e o saldo só entra após confirmação real do
--- provedor/webhook/reconciliação, com idempotência.
+-- cartão dentro da recarga de IA.
+--
+-- A cotação USD/BRL é buscada no momento da recarga. O valor-base em BRL e a
+-- margem comercial ficam persistidos separadamente para que o histórico seja
+-- auditável mesmo que a cotação ou a política de margem mudem no futuro.
 CREATE TABLE "AiCreditTopUp" (
   "id" BIGSERIAL NOT NULL,
   "publicId" VARCHAR(64) NOT NULL,
@@ -91,6 +92,8 @@ CREATE TABLE "AiCreditTopUp" (
   "exchangeRateBrlPerUsd" DECIMAL(14, 6) NOT NULL,
   "exchangeRateSource" VARCHAR(40) NOT NULL,
   "exchangeRateQuotedAt" TIMESTAMP(3) NOT NULL,
+  "baseAmountBrl" DECIMAL(12, 2) NOT NULL,
+  "markupPercent" DECIMAL(6, 3) NOT NULL DEFAULT 0,
   "amountBrl" DECIMAL(12, 2) NOT NULL,
   "paymentMethod" TEXT NOT NULL,
   "status" TEXT NOT NULL DEFAULT 'PENDING',
@@ -118,6 +121,8 @@ CREATE TABLE "AiCreditTopUp" (
     ON DELETE RESTRICT ON UPDATE CASCADE,
   CONSTRAINT "AiCreditTopUp_credit_positive" CHECK ("creditUsdMicros" > 0),
   CONSTRAINT "AiCreditTopUp_rate_positive" CHECK ("exchangeRateBrlPerUsd" > 0),
+  CONSTRAINT "AiCreditTopUp_base_amount_positive" CHECK ("baseAmountBrl" > 0),
+  CONSTRAINT "AiCreditTopUp_markup_nonnegative" CHECK ("markupPercent" >= 0 AND "markupPercent" <= 100),
   CONSTRAINT "AiCreditTopUp_amount_positive" CHECK ("amountBrl" > 0),
   CONSTRAINT "AiCreditTopUp_method_check" CHECK ("paymentMethod" IN ('PIX', 'CARD')),
   CONSTRAINT "AiCreditTopUp_status_check"
@@ -134,11 +139,10 @@ CREATE INDEX "AiCreditTopUp_restaurant_created_idx"
 CREATE INDEX "AiCreditTopUp_status_created_idx"
   ON "AiCreditTopUp"("status", "createdAt");
 
--- O cartão cadastrado para cobrança mensal da plataforma passa a guardar somente
--- o identificador tokenizado necessário para reutilização segura pelo Mercado Pago.
--- Esse identificador só pode ser usado na recarga de IA quando o ADMIN escolher
--- CARTÃO e o perfil de cobrança mensal estiver ativo/autorizado. Nenhum PAN/CVV
--- é persistido localmente.
+-- O cartão cadastrado para cobrança mensal da plataforma mantém apenas
+-- identificadores do provedor. O perfil de pagamento do Mercado Pago habilita
+-- uma cobrança Card-on-File iniciada pelo ADMIN sem pedir os dados do cartão
+-- novamente. PAN e CVV nunca são persistidos pelo GastroNexa.
 ALTER TABLE "PlatformBillingProfile"
   ADD COLUMN IF NOT EXISTS "providerPaymentProfileId" TEXT,
   ADD COLUMN IF NOT EXISTS "providerPreviousTransactionReference" TEXT;
