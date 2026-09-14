@@ -20,6 +20,7 @@ jobs:
   secret-scan:
     name: Secret detection
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     permissions:
       contents: read
     steps:
@@ -35,6 +36,7 @@ jobs:
   dependency-audit:
     name: Dependency audit
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     permissions:
       contents: read
     steps:
@@ -62,6 +64,7 @@ jobs:
   security-regression:
     name: Security regression tests
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     permissions:
       contents: read
     steps:
@@ -82,6 +85,7 @@ jobs:
   codeql:
     name: CodeQL analysis completed
     runs-on: ubuntu-latest
+    timeout-minutes: 35
     permissions:
       contents: read
       security-events: write
@@ -155,6 +159,7 @@ jobs:
   container-scan:
     name: Build and scan Docker images
     runs-on: ubuntu-latest
+    timeout-minutes: 40
     permissions:
       contents: read
     steps:
@@ -207,6 +212,7 @@ jobs:
     name: Security Hardening Validation
     if: ${{ always() }}
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     needs: [secret-scan, dependency-audit, security-regression, codeql, container-scan]
     steps:
       - name: Require every security gate to pass
@@ -214,7 +220,13 @@ jobs:
           JOB_RESULTS: ${{ toJson(needs) }}
         run: |
           node <<'NODE'
+          const fs = require('fs');
           const jobs = JSON.parse(process.env.JOB_RESULTS);
+          const rows = Object.entries(jobs).map(([name, job]) => `| ${name} | ${job.result} |`);
+          fs.appendFileSync(
+            process.env.GITHUB_STEP_SUMMARY,
+            ['## Security hardening gates', '', '| Gate | Result |', '| --- | --- |', ...rows, ''].join('\n'),
+          );
           const unsuccessful = Object.entries(jobs)
             .filter(([, job]) => job.result !== 'success')
             .map(([name, job]) => `${name}: ${job.result}`);

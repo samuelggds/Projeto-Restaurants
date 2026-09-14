@@ -1,0 +1,100 @@
+name: Auto Production Release
+
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+
+permissions:
+  contents: read
+  actions: write
+
+concurrency:
+  group: auto-production-release
+  cancel-in-progress: false
+
+jobs:
+  promote:
+    name: Promote successful main CI to production release
+    if: >-
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'push' &&
+      github.event.workflow_run.head_branch == 'main' &&
+      vars.PRODUCTION_DEPLOY_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Verify successful CI belongs to the current main tip
+        id: target
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TARGET_SHA: ${{ github.event.workflow_run.head_sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$TARGET_SHA" =~ ^[0-9a-f]{40}$ ]]
+          main_sha="$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/heads/main" --jq '.object.sha')"
+          if [ "$TARGET_SHA" != "$main_sha" ]; then
+            echo "promote=false" >> "$GITHUB_OUTPUT"
+            {
+              echo '## Automatic production promotion skipped'
+              echo
+              echo "CI commit \`${TARGET_SHA}\` is no longer the current main tip (\`${main_sha}\`)."
+              echo 'A newer main CI run will be responsible for production promotion.'
+            } >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
+          existing_success="$(gh api \
+            "repos/${GITHUB_REPOSITORY}/actions/workflows/release-production-images.yml/runs?branch=main&event=workflow_dispatch&status=success&per_page=100" \
+            --jq "[.workflow_runs[] | select(.head_sha == \"${TARGET_SHA}\")] | length")"
+          if [ "$existing_success" -gt 0 ]; then
+            echo "promote=false" >> "$GITHUB_OUTPUT"
+            {
+              echo '## Automatic production promotion skipped'
+              echo
+              echo "Commit \`${TARGET_SHA}\` already has a successful production image release."
+              echo 'No duplicate release was dispatched.'
+            } >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
+          in_flight="$(gh api \
+            "repos/${GITHUB_REPOSITORY}/actions/workflows/release-production-images.yml/runs?branch=main&event=workflow_dispatch&per_page=100" \
+            --jq "[.workflow_runs[] | select(.head_sha == \"${TARGET_SHA}\" and (.status == \"queued\" or .status == \"in_progress\" or .status == \"waiting\" or .status == \"requested\" or .status == \"pending\"))] | length")"
+          if [ "$in_flight" -gt 0 ]; then
+            echo "promote=false" >> "$GITHUB_OUTPUT"
+            {
+              echo '## Automatic production promotion skipped'
+              echo
+              echo "Commit \`${TARGET_SHA}\` already has a production release in progress."
+              echo 'No duplicate release was dispatched.'
+            } >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
+          echo "promote=true" >> "$GITHUB_OUTPUT"
+          echo "sha=$TARGET_SHA" >> "$GITHUB_OUTPUT"
+
+      - name: Dispatch immutable production release for the exact approved commit
+        if: ${{ steps.target.outputs.promote == 'true' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TARGET_SHA: ${{ steps.target.outputs.sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh workflow run release-production-images.yml \
+            --repo "$GITHUB_REPOSITORY" \
+            --ref main \
+            -f target_sha="$TARGET_SHA"
+
+          {
+            echo '## Automatic production promotion started'
+            echo
+            echo "- Approved main commit: \`${TARGET_SHA}\`"
+            echo '- Dispatched: `Release Production Images`'
+            echo '- Next: the existing `Deploy Production` workflow will run automatically after a successful release.'
+            echo '- Emergency/manual release remains available through `workflow_dispatch`.'
+          } >> "$GITHUB_STEP_SUMMARY"
