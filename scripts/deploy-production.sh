@@ -12,6 +12,7 @@ RELEASE_STATE="${RELEASE_STATE:-.gastronexa-release.env}"
 COMPOSE_PARALLEL_LIMIT="${COMPOSE_PARALLEL_LIMIT:-1}"
 READINESS_ATTEMPTS="${READINESS_ATTEMPTS:-40}"
 READINESS_SLEEP_SECONDS="${READINESS_SLEEP_SECONDS:-3}"
+RECOVERABLE_MIGRATION='20260914130000_add_ai_credit_wallet_and_plan_policy'
 export COMPOSE_PARALLEL_LIMIT BACKEND_IMAGE FRONTEND_IMAGE
 
 cd "$APP_DIR"
@@ -131,7 +132,25 @@ echo '[3/7] Baixando exatamente os digests aprovados; compilacao no servidor est
 
 phase='migration'
 echo '[4/7] Aplicando migrations antes de alterar processos da aplicacao...'
-"${compose[@]}" run --rm --no-deps migrate
+migration_log="$(mktemp)"
+set +e
+"${compose[@]}" run --rm --no-deps migrate 2>&1 | tee "$migration_log"
+migration_exit=${PIPESTATUS[0]}
+set -e
+
+if (( migration_exit != 0 )); then
+  if grep -q 'P3009' "$migration_log" && grep -q "$RECOVERABLE_MIGRATION" "$migration_log"; then
+    echo "Estado falho conhecido detectado em $RECOVERABLE_MIGRATION; marcando tentativa anterior como rolled-back antes de reaplicar a versao corrigida."
+    "${compose[@]}" run --rm --no-deps migrate sh -c \
+      "./node_modules/.bin/prisma migrate resolve --rolled-back '$RECOVERABLE_MIGRATION'"
+    "${compose[@]}" run --rm --no-deps migrate
+  else
+    rm -f "$migration_log"
+    echo 'Falha de migration nao corresponde ao incidente recuperavel conhecido; deploy bloqueado.' >&2
+    exit "$migration_exit"
+  fi
+fi
+rm -f "$migration_log"
 
 phase='application-update'
 echo '[5/7] Atualizando aplicacao sem build local...'
