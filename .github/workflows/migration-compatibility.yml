@@ -1,0 +1,37 @@
+name: Migration Compatibility
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  expand-contract:
+    name: Expand-contract migration policy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Reject destructive changed migrations from the automatic deploy path
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: node scripts/checkMigrationCompatibility.mjs "$BASE_SHA" "$GITHUB_SHA"
+
+  migration-compatibility-validation:
+    name: Migration Compatibility Validation
+    if: ${{ always() }}
+    needs: [expand-contract]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require expand-contract policy to pass
+        env:
+          RESULT: ${{ needs.expand-contract.result }}
+        run: |
+          set -euo pipefail
+          test "$RESULT" = 'success'
