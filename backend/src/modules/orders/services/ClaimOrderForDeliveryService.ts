@@ -35,10 +35,7 @@ class ClaimOrderForDeliveryService {
     const hasInitialLocation =
       Boolean(initialLocation) && typeof initialLocation === 'object' && !Array.isArray(initialLocation);
     const initialLocationValidation = hasInitialLocation
-      ? validateDeliveryLocationPayload({
-          ...initialLocation,
-          orderId: normalizedOrderId,
-        })
+      ? validateDeliveryLocationPayload({ ...initialLocation, orderId: normalizedOrderId })
       : null;
     if (initialLocationValidation && 'error' in initialLocationValidation) {
       throw new Error(initialLocationValidation.error);
@@ -47,7 +44,6 @@ class ClaimOrderForDeliveryService {
     const result = await prisma.$transaction(async (tx) => {
       await setTenantDbContext(tx, restaurantId);
       await courierAccessService.assertActiveCourier(courierId, restaurantId, tx);
-
       const orderForCompensation = await tx.order.findFirst({
         where: {
           id: normalizedOrderId,
@@ -60,12 +56,8 @@ class ClaimOrderForDeliveryService {
       });
       if (!orderForCompensation) throw new Error('O pedido não está disponível para retirada.');
       const compensationPolicy = await findEffectiveCompensationPolicy(tx, restaurantId, courierId);
-      const courierEarning = calculateCourierCompensation(
-        compensationPolicy,
-        orderForCompensation.deliveryDistanceMeters,
-      );
+      const courierEarning = calculateCourierCompensation(compensationPolicy, orderForCompensation.deliveryDistanceMeters);
       const compensationCalculatedAt = new Date();
-
       const claimed = await tx.order.updateMany({
         where: {
           id: normalizedOrderId,
@@ -73,11 +65,7 @@ class ClaimOrderForDeliveryService {
           type: OrderType.DELIVERY,
           status: OrderStatus.PRONTO,
           assignedCourierId: null,
-          NOT: {
-            paid: false,
-            paymentMethod: { in: ['PIX', 'CARTAO'] },
-            payOnDelivery: false,
-          },
+          NOT: { paid: false, paymentMethod: { in: ['PIX', 'CARTAO'] }, payOnDelivery: false },
         },
         data: {
           assignedCourierId: courierId,
@@ -88,7 +76,6 @@ class ClaimOrderForDeliveryService {
           status: OrderStatus.SAIU_PARA_ENTREGA,
         },
       });
-
       if (claimed.count !== 1) {
         const current = await tx.order.findFirst({
           where: { id: normalizedOrderId, restaurantId },
@@ -96,18 +83,14 @@ class ClaimOrderForDeliveryService {
         });
         if (!current) throw new Error('Pedido não encontrado.');
         if (current.type !== OrderType.DELIVERY) throw new Error('Este pedido não é uma entrega.');
-        if (current.assignedCourierId)
-          throw new Error('Este pedido já foi retirado por outro motoqueiro.');
+        if (current.assignedCourierId) throw new Error('Este pedido já foi retirado por outro motoqueiro.');
         throw new Error('O pedido não está disponível para retirada.');
       }
-
       const updatedOrder = await orderRepository.findById(normalizedOrderId, restaurantId, tx);
       if (!updatedOrder) throw new Error('Não foi possível carregar o pedido.');
-
       if (!initialLocationValidation || 'error' in initialLocationValidation) {
         return { updatedOrder, location: null, savedLocation: null };
       }
-
       const location = initialLocationValidation.value;
       const savedLocation = await tx.deliveryLocation.create({
         data: {
@@ -122,29 +105,20 @@ class ClaimOrderForDeliveryService {
         },
         select: { recordedAt: true },
       });
-
       return { updatedOrder, location, savedLocation };
     });
 
     const { updatedOrder, location, savedLocation } = result;
-    const payOnDeliveryMethod = String(
-      updatedOrder.payOnDeliveryMethod || updatedOrder.paymentMethod || '',
-    ).toUpperCase();
+    const payOnDeliveryMethod = String(updatedOrder.payOnDeliveryMethod || updatedOrder.paymentMethod || '').toUpperCase();
     const requiresAutomatedDeliveryPayment =
-      updatedOrder.payOnDelivery === true &&
-      (payOnDeliveryMethod === 'PIX' || payOnDeliveryMethod === 'CARTAO');
-
+      updatedOrder.payOnDelivery === true && (payOnDeliveryMethod === 'PIX' || payOnDeliveryMethod === 'CARTAO');
     if (requiresAutomatedDeliveryPayment) {
       try {
         await paymentTerminalService.ensureForClaim(normalizedOrderId, restaurantId, courierId);
       } catch (error) {
-        console.warn(
-          '[DELIVERY_PAYMENT_SETUP_DEFERRED]',
-          error instanceof Error ? error.message : String(error),
-        );
+        console.warn('[DELIVERY_PAYMENT_SETUP_DEFERRED]', error instanceof Error ? error.message : String(error));
       }
     }
-
     const refreshedOrder = requiresAutomatedDeliveryPayment
       ? (await orderRepository.findById(normalizedOrderId, restaurantId)) || updatedOrder
       : updatedOrder;
@@ -156,19 +130,15 @@ class ClaimOrderForDeliveryService {
       restaurantName: refreshedOrder.restaurant?.name,
       restaurantWhatsapp: refreshedOrder.restaurant?.whatsapp,
       orderId: refreshedOrder.id,
+      publicId: refreshedOrder.publicId,
+      orderType: refreshedOrder.type,
       status: refreshedOrder.status,
     }).catch((error: unknown) => {
-      console.error(
-        '[CUSTOMER_STATUS_NOTIFICATION_UNHANDLED]',
-        error instanceof Error ? error.message : String(error),
-      );
+      console.error('[CUSTOMER_STATUS_NOTIFICATION_UNHANDLED]', error instanceof Error ? error.message : String(error));
     });
 
     io.to(`restaurant:${restaurantId}`).emit('order:status-changed', refreshedOrder);
-    if (refreshedOrder.userId) {
-      io.to(`user:${refreshedOrder.userId}`).emit('order:status-changed', refreshedOrder);
-    }
-
+    if (refreshedOrder.userId) io.to(`user:${refreshedOrder.userId}`).emit('order:status-changed', refreshedOrder);
     if (location && savedLocation) {
       const payload = {
         orderId: refreshedOrder.id,
@@ -182,12 +152,9 @@ class ClaimOrderForDeliveryService {
         recordedAt: savedLocation.recordedAt.toISOString(),
         updatedAt: new Date().toISOString(),
       };
-      if (refreshedOrder.userId) {
-        io.to(`user:${refreshedOrder.userId}`).emit('order:delivery-location', payload);
-      }
+      if (refreshedOrder.userId) io.to(`user:${refreshedOrder.userId}`).emit('order:delivery-location', payload);
       io.to(`restaurant:${restaurantId}:admin`).emit('order:delivery-location', payload);
     }
-
     return refreshedOrder;
   }
 }

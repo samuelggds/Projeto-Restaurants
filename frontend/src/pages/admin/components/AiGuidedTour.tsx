@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import styled from 'styled-components';
-import { ArrowLeft, ArrowRight, Sparkles, X } from 'lucide-react';
+import { ArrowLeft, ArrowRight, X } from 'lucide-react';
 import type { AiTourGuide } from '../../../Services/aiGuideService';
+import { ChatGptLogo } from '../../../components/ChatGptLogo';
 
 type Props = {
   guide: AiTourGuide | null;
@@ -120,7 +121,7 @@ export function AiGuidedTour({ guide, onClose, onNavigate }: Props) {
       <Bubble style={bubblePosition}>
         <header>
           <span className="ai-badge">
-            <Sparkles /> Guia com IA
+            <ChatGptLogo /> Guia com IA
           </span>
           <button type="button" aria-label="Fechar guia" onClick={onClose}>
             <X />
@@ -242,6 +243,7 @@ const Bubble = styled.section`
   }
   header svg {
     width: 16px;
+    height: 16px;
   }
   .ai-badge {
     display: inline-flex;
@@ -254,7 +256,8 @@ const Bubble = styled.section`
     text-transform: uppercase;
   }
   .ai-badge svg {
-    width: 15px;
+    width: 16px;
+    height: 16px;
   }
   .progress-track {
     height: 4px;

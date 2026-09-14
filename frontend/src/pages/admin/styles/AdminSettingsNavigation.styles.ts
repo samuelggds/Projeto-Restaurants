@@ -111,7 +111,7 @@ export const SettingsNav = styled.nav`
   }
 
   .settings-group > small {
-    padding: 4px 8px 7px;
+    padding: 4px 10px 7px;
     color: #8c827a;
     font-size: 9px;
     font-weight: 800;
@@ -142,8 +142,8 @@ export const SettingsNav = styled.nav`
     color: #5a524c;
     display: flex;
     align-items: center;
-    gap: 10px;
-    padding: 7px 10px;
+    gap: 12px;
+    padding: 8px 14px 8px 16px;
     text-align: left;
     font-size: 12px;
     font-weight: 600;

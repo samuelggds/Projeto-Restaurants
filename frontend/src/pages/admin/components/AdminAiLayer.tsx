@@ -2,13 +2,15 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import styled from 'styled-components';
-import { Sparkles, X } from 'lucide-react';
+import { X } from 'lucide-react';
 import aiGuideService, {
   type AiCreditBalance,
   type AiTourGuide,
 } from '../../../Services/aiGuideService';
 import restaurantSettingsService from '../../../Services/restaurantSettingsService';
 import { useAuth } from '../../../contexts/authContext';
+import { createRestaurantMonogram } from '../../../utils/restaurantMonogram';
+import { ChatGptLogo } from '../../../components/ChatGptLogo';
 import { AiCreditCard } from './AiCreditCard';
 import { AiGuideAssistant } from './AiGuideAssistant';
 import { AiGuidedTour } from './AiGuidedTour';
@@ -91,12 +93,15 @@ export default function AdminAiLayer({ children }: { children: React.ReactNode }
   const navigate = useNavigate();
   const { user } = useAuth();
   const userSlug = useMemo(() => readSlug(user), [user]);
+  const userName = useMemo(() => String(user?.name || '').trim() || 'Administrador', [user]);
+  const userInitials = useMemo(() => createRestaurantMonogram(userName), [userName]);
   const [fallbackRestaurantSlug, setFallbackRestaurantSlug] = useState('');
   const resolvedRestaurantSlug = userSlug || fallbackRestaurantSlug;
   const [credits, setCredits] = useState<AiCreditBalance | null>(null);
   const [assistantOpen, setAssistantOpen] = useState(false);
   const [guide, setGuide] = useState<AiTourGuide | null>(null);
   const [sidebarPortal, setSidebarPortal] = useState<HTMLElement | null>(null);
+  const [assistantLauncherPortal, setAssistantLauncherPortal] = useState<HTMLElement | null>(null);
 
   useEffect(() => {
     if (userSlug) return undefined;
@@ -129,7 +134,8 @@ export default function AdminAiLayer({ children }: { children: React.ReactNode }
 
   useEffect(() => {
     let disposed = false;
-    let portalNode: HTMLDivElement | null = null;
+    let creditsPortalNode: HTMLDivElement | null = null;
+    let launcherPortalNode: HTMLDivElement | null = null;
     let previewButton: HTMLButtonElement | null = null;
 
     const openStore = (event: Event) => {
@@ -140,16 +146,42 @@ export default function AdminAiLayer({ children }: { children: React.ReactNode }
       navigate(`/${encodeURIComponent(resolvedRestaurantSlug)}`);
     };
 
+    const syncUserIdentity = () => {
+      const logoutButton = document.querySelector<HTMLButtonElement>('aside button[aria-label="Sair"]');
+      const userBlock = logoutButton?.parentElement;
+      if (!userBlock) return;
+
+      const avatar = userBlock.querySelector<HTMLElement>('.avatar');
+      const name = userBlock.querySelector<HTMLElement>('b');
+      const role = userBlock.querySelector<HTMLElement>('small');
+
+      if (avatar && avatar.textContent !== userInitials) avatar.textContent = userInitials;
+      if (name && name.textContent !== userName) name.textContent = userName;
+      if (role && role.textContent !== 'Administrador') role.textContent = 'Administrador';
+    };
+
     const sync = () => {
       if (disposed) return;
       tagTourTargets();
+      syncUserIdentity();
+
       const helpButton = findButtonByLabel('Central de ajuda');
       const footer = helpButton?.parentElement;
-      if (footer && !portalNode) {
-        portalNode = document.createElement('div');
-        portalNode.dataset.aiCreditsPortal = 'true';
-        footer.insertBefore(portalNode, helpButton || footer.firstChild);
-        setSidebarPortal(portalNode);
+      if (footer && !creditsPortalNode) {
+        creditsPortalNode = document.createElement('div');
+        creditsPortalNode.dataset.aiCreditsPortal = 'true';
+        footer.insertBefore(creditsPortalNode, helpButton || footer.firstChild);
+        setSidebarPortal(creditsPortalNode);
+      }
+
+      const settingsButton = findButtonByLabel('Configurações');
+      const navigation = settingsButton?.parentElement;
+      if (navigation && settingsButton && !launcherPortalNode) {
+        launcherPortalNode = document.createElement('div');
+        launcherPortalNode.dataset.aiGuideLauncherPortal = 'true';
+        launcherPortalNode.style.display = 'contents';
+        settingsButton.insertAdjacentElement('afterend', launcherPortalNode);
+        setAssistantLauncherPortal(launcherPortalNode);
       }
 
       const nextPreview = findButtonByLabel('Ver loja');
@@ -169,9 +201,10 @@ export default function AdminAiLayer({ children }: { children: React.ReactNode }
       observer.disconnect();
       window.clearInterval(interval);
       previewButton?.removeEventListener('click', openStore, true);
-      portalNode?.remove();
+      creditsPortalNode?.remove();
+      launcherPortalNode?.remove();
     };
-  }, [navigate, resolvedRestaurantSlug]);
+  }, [navigate, resolvedRestaurantSlug, userInitials, userName]);
 
   const navigateForTour = useCallback((destination?: string | null) => {
     if (!destination) {
@@ -195,20 +228,35 @@ export default function AdminAiLayer({ children }: { children: React.ReactNode }
     window.setTimeout(tagTourTargets, 120);
   }, []);
 
+  const toggleAssistant = () => setAssistantOpen((current) => !current);
+
+  const launcher = (
+    <AssistantLauncher
+      type="button"
+      data-tour="ai-assistant"
+      aria-label="Abrir guia inteligente do GastroNexa"
+      aria-expanded={assistantOpen}
+      onClick={toggleAssistant}
+    >
+      <ChatGptLogo />
+      <span>Guia com IA</span>
+    </AssistantLauncher>
+  );
+
   return (
     <>
       {children}
       {sidebarPortal && createPortal(<AiCreditCard balance={credits} />, sidebarPortal)}
+      {assistantLauncherPortal && createPortal(launcher, assistantLauncherPortal)}
 
-      <AssistantLauncher
+      <MobileAssistantLauncher
         type="button"
-        data-tour="ai-assistant"
         aria-label="Abrir guia inteligente do GastroNexa"
-        onClick={() => setAssistantOpen((current) => !current)}
+        aria-expanded={assistantOpen}
+        onClick={toggleAssistant}
       >
-        <Sparkles />
-        <span>Guia com IA</span>
-      </AssistantLauncher>
+        <ChatGptLogo />
+      </MobileAssistantLauncher>
 
       {assistantOpen && (
         <AssistantPanel role="dialog" aria-label="Guia inteligente do GastroNexa">
@@ -242,40 +290,55 @@ export default function AdminAiLayer({ children }: { children: React.ReactNode }
 }
 
 const AssistantLauncher = styled.button`
-  position: fixed;
-  left: 22px;
-  bottom: 22px;
-  z-index: 9200;
-  min-height: 44px;
-  padding: 0 14px;
-  border: 0;
-  border-radius: 999px;
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  color: #fff;
-  background: #17191a;
-  box-shadow: 0 14px 32px rgba(17, 24, 39, 0.24);
-  font-size: 11px;
-  font-weight: 800;
   cursor: pointer;
 
-  svg { width: 17px; }
+  &[aria-expanded='true'] {
+    color: #fff;
+    background: rgba(255, 255, 255, 0.06);
+  }
 
-  @media (max-width: 760px) {
+  svg {
+    width: 17px;
+    height: 17px;
+  }
+
+  @media (max-width: 820px) {
+    display: none;
+  }
+`;
+
+const MobileAssistantLauncher = styled.button`
+  display: none;
+
+  @media (max-width: 820px) {
+    position: fixed;
     left: 14px;
     bottom: 82px;
-    span { display: none; }
+    z-index: 9200;
     width: 46px;
+    height: 46px;
     padding: 0;
+    border: 0;
+    border-radius: 999px;
+    display: flex;
+    align-items: center;
     justify-content: center;
+    color: #fff;
+    background: #17191a;
+    box-shadow: 0 14px 32px rgba(17, 24, 39, 0.24);
+    cursor: pointer;
+
+    svg {
+      width: 19px;
+      height: 19px;
+    }
   }
 `;
 
 const AssistantPanel = styled.div`
   position: fixed;
-  left: 22px;
-  bottom: 76px;
+  left: 248px;
+  bottom: 22px;
   z-index: 9300;
   width: min(520px, calc(100vw - 32px));
   max-height: min(680px, calc(100vh - 110px));
@@ -304,9 +367,11 @@ const AssistantPanel = styled.div`
     cursor: pointer;
   }
 
-  .close svg { width: 16px; }
+  .close svg {
+    width: 16px;
+  }
 
-  @media (max-width: 760px) {
+  @media (max-width: 820px) {
     left: 16px;
     bottom: 136px;
   }

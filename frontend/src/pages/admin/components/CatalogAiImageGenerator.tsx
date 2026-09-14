@@ -1,10 +1,11 @@
 import { useMemo, useState } from 'react';
 import styled from 'styled-components';
-import { CheckCircle2, ImageOff, LoaderCircle, Sparkles, TriangleAlert } from 'lucide-react';
+import { CheckCircle2, ImageOff, LoaderCircle, TriangleAlert } from 'lucide-react';
 import menuImportService, {
   type ImportedProductImageResult,
 } from '../../../Services/menuImportService';
 import type { AdminProduct } from '../types';
+import { ChatGptLogo } from '../../../components/ChatGptLogo';
 
 type Props = {
   products: AdminProduct[];
@@ -80,7 +81,7 @@ export function CatalogAiImageGenerator({ products, onCompleted }: Props) {
   return (
     <Panel data-tour="catalog-ai-images">
       <div className="copy">
-        <span className="icon"><Sparkles /></span>
+        <span className="icon"><ChatGptLogo /></span>
         <div>
           <strong>Imagens com IA para o catálogo</strong>
           <p>
@@ -94,7 +95,7 @@ export function CatalogAiImageGenerator({ products, onCompleted }: Props) {
         <span>{candidates.length === 1 ? 'produto sem foto' : 'produtos sem foto'}</span>
       </div>
       <button type="button" disabled={running || candidates.length === 0} onClick={() => void run()}>
-        {running ? <LoaderCircle className="spin" /> : <Sparkles />}
+        {running ? <LoaderCircle className="spin" /> : <ChatGptLogo />}
         {running ? `Gerando ${currentName ? `· ${currentName}` : '...'}` : 'Gerar imagens que faltam'}
       </button>
 
@@ -134,9 +135,9 @@ const Panel = styled.section`
     place-items: center;
     border-radius: 10px;
     color: #fff;
-    background: #e9530b;
+    background: #1f2022;
   }
-  .copy svg { width: 17px; }
+  .copy svg { width: 18px; height: 18px; }
   strong { color: #261f1b; font-size: 13px; }
   p { margin: 3px 0 0; color: #81756d; font-size: 10px; line-height: 1.45; }
   .status { display: grid; text-align: center; }
@@ -158,7 +159,7 @@ const Panel = styled.section`
     cursor: pointer;
   }
   > button:disabled { opacity: .55; cursor: not-allowed; }
-  > button svg { width: 16px; }
+  > button svg { width: 16px; height: 16px; }
   .spin { animation: spin .8s linear infinite; }
   @keyframes spin { to { transform: rotate(360deg); } }
 

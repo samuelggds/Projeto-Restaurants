@@ -1,10 +1,11 @@
 import { ChangeEvent, RefObject, useRef } from 'react';
-import { ImagePlus, LoaderCircle, Sparkles, Upload } from 'lucide-react';
+import { ImagePlus, LoaderCircle, Upload } from 'lucide-react';
 import { adminMockSettings } from '../data';
 import * as S from '../Admin.styles';
 import { createRestaurantMonogram } from '../../../utils/restaurantMonogram';
 import { validateBrandSettings } from '../domain/brandSettingsValidation';
 import { PromotionBannerSettings } from './PromotionBannerSettings';
+import { ChatGptLogo } from '../../../components/ChatGptLogo';
 
 type Settings = typeof adminMockSettings;
 
@@ -109,7 +110,7 @@ export function BrandSettings({
               disabled={!settings.coverImageUrl || isEnhancingCover}
               onClick={onEnhanceCover}
             >
-              {isEnhancingCover ? <LoaderCircle className="spin" /> : <Sparkles />}{' '}
+              {isEnhancingCover ? <LoaderCircle className="spin" /> : <ChatGptLogo />}{' '}
               {isEnhancingCover ? 'Melhorando...' : 'Melhorar com IA'}
             </button>
             <small>A IA reconstrói detalhes e prepara a capa em alta definição.</small>
