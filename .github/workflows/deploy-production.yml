@@ -12,9 +12,7 @@ concurrency:
 permissions:
   contents: read
   actions: read
-
-env:
-  APP_DIR: /opt/gastronexa
+  attestations: read
 
 jobs:
   deploy:
@@ -27,13 +25,16 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     environment: production
+    env:
+      APP_DIR: /opt/gastronexa
 
     steps:
-      - name: Download release manifest from the exact release run
+      - name: Download and validate release manifest from the exact release run
         id: manifest
         env:
           GH_TOKEN: ${{ github.token }}
           RELEASE_RUN_ID: ${{ github.event.workflow_run.id }}
+          RELEASE_HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
         shell: bash
         run: |
           set -euo pipefail
@@ -46,12 +47,43 @@ jobs:
           manifest="$RUNNER_TEMP/release/production-release-manifest.json"
           test -s "$manifest"
           node -e "JSON.parse(require('fs').readFileSync(process.argv[1], 'utf8'))" "$manifest"
+
+          schema="$(node -p "JSON.parse(require('fs').readFileSync(process.argv[1],'utf8')).schemaVersion" "$manifest")"
           sha="$(node -p "JSON.parse(require('fs').readFileSync(process.argv[1],'utf8')).commit" "$manifest")"
           backend="$(node -p "JSON.parse(require('fs').readFileSync(process.argv[1],'utf8')).backendImage" "$manifest")"
           frontend="$(node -p "JSON.parse(require('fs').readFileSync(process.argv[1],'utf8')).frontendImage" "$manifest")"
+          repository="$(node -p "JSON.parse(require('fs').readFileSync(process.argv[1],'utf8')).repository" "$manifest")"
+          manifest_run_id="$(node -p "JSON.parse(require('fs').readFileSync(process.argv[1],'utf8')).workflowRunId" "$manifest")"
+          backend_sbom_file="$(node -p "JSON.parse(require('fs').readFileSync(process.argv[1],'utf8')).sboms?.backend?.file || ''" "$manifest")"
+          frontend_sbom_file="$(node -p "JSON.parse(require('fs').readFileSync(process.argv[1],'utf8')).sboms?.frontend?.file || ''" "$manifest")"
+          backend_sbom_sha="$(node -p "JSON.parse(require('fs').readFileSync(process.argv[1],'utf8')).sboms?.backend?.sha256 || ''" "$manifest")"
+          frontend_sbom_sha="$(node -p "JSON.parse(require('fs').readFileSync(process.argv[1],'utf8')).sboms?.frontend?.sha256 || ''" "$manifest")"
+
+          test "$schema" = '2'
           [[ "$sha" =~ ^[0-9a-f]{40}$ ]]
-          [[ "$backend" =~ ^ghcr\.io/.+@sha256:[0-9a-f]{64}$ ]]
-          [[ "$frontend" =~ ^ghcr\.io/.+@sha256:[0-9a-f]{64}$ ]]
+          test "$sha" = "$RELEASE_HEAD_SHA"
+          test "$repository" = "$GITHUB_REPOSITORY"
+          test "$manifest_run_id" = "$RELEASE_RUN_ID"
+
+          owner="${GITHUB_REPOSITORY_OWNER,,}"
+          backend_prefix="ghcr.io/${owner}/gastronexa-backend@"
+          frontend_prefix="ghcr.io/${owner}/gastronexa-frontend@"
+          case "$backend" in "${backend_prefix}"*) ;; *) echo "Unexpected backend image: $backend" >&2; exit 1 ;; esac
+          case "$frontend" in "${frontend_prefix}"*) ;; *) echo "Unexpected frontend image: $frontend" >&2; exit 1 ;; esac
+          backend_digest="${backend#${backend_prefix}}"
+          frontend_digest="${frontend#${frontend_prefix}}"
+          [[ "$backend_digest" =~ ^sha256:[0-9a-f]{64}$ ]]
+          [[ "$frontend_digest" =~ ^sha256:[0-9a-f]{64}$ ]]
+
+          test "$backend_sbom_file" = 'backend.sbom.cdx.json'
+          test "$frontend_sbom_file" = 'frontend.sbom.cdx.json'
+          [[ "$backend_sbom_sha" =~ ^[0-9a-f]{64}$ ]]
+          [[ "$frontend_sbom_sha" =~ ^[0-9a-f]{64}$ ]]
+          test -s "$RUNNER_TEMP/release/$backend_sbom_file"
+          test -s "$RUNNER_TEMP/release/$frontend_sbom_file"
+          test "$(sha256sum "$RUNNER_TEMP/release/$backend_sbom_file" | awk '{print $1}')" = "$backend_sbom_sha"
+          test "$(sha256sum "$RUNNER_TEMP/release/$frontend_sbom_file" | awk '{print $1}')" = "$frontend_sbom_sha"
+
           echo "sha=$sha" >> "$GITHUB_OUTPUT"
           echo "backend=$backend" >> "$GITHUB_OUTPUT"
           echo "frontend=$frontend" >> "$GITHUB_OUTPUT"
@@ -92,6 +124,29 @@ jobs:
           test -n "$GHCR_READ_TOKEN"
           test "${#LIGHTSAIL_HOST}" -le 255
           test "${#LIGHTSAIL_USER}" -le 64
+
+      - name: Verify release provenance before production access
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GHCR_READ_USERNAME: ${{ secrets.GHCR_READ_USERNAME }}
+          GHCR_READ_TOKEN: ${{ secrets.GHCR_READ_TOKEN }}
+          DEPLOY_SHA: ${{ steps.manifest.outputs.sha }}
+          BACKEND_IMAGE: ${{ steps.manifest.outputs.backend }}
+          FRONTEND_IMAGE: ${{ steps.manifest.outputs.frontend }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          printf '%s' "$GHCR_READ_TOKEN" | docker login ghcr.io -u "$GHCR_READ_USERNAME" --password-stdin >/dev/null
+          trap 'docker logout ghcr.io >/dev/null 2>&1 || true' EXIT
+          for image in "$BACKEND_IMAGE" "$FRONTEND_IMAGE"; do
+            gh attestation verify "oci://${image}" \
+              --repo "$GITHUB_REPOSITORY" \
+              --bundle-from-oci \
+              --signer-workflow "$GITHUB_REPOSITORY/.github/workflows/release-production-images.yml" \
+              --source-ref 'refs/heads/main' \
+              --source-digest "$DEPLOY_SHA" \
+              --deny-self-hosted-runners
+          done
 
       - name: Configure SSH
         env:
@@ -141,7 +196,7 @@ jobs:
             "$LIGHTSAIL_USER@$LIGHTSAIL_HOST" \
             "docker login ghcr.io -u '$GHCR_READ_USERNAME' --password-stdin >/dev/null"
 
-      - name: Deploy exact scanned image digests
+      - name: Deploy exact scanned and attested image digests
         env:
           LIGHTSAIL_HOST: ${{ secrets.LIGHTSAIL_HOST }}
           LIGHTSAIL_USER: ${{ secrets.LIGHTSAIL_USER }}
@@ -173,6 +228,24 @@ jobs:
           curl --fail --silent --show-error --retry 5 --retry-delay 3 --max-time 15 "$APP_URL/healthz" >/dev/null
           curl --fail --silent --show-error --retry 5 --retry-delay 3 --max-time 15 "$API_URL/health" >/dev/null
           curl --fail --silent --show-error --retry 5 --retry-delay 3 --max-time 15 "$API_URL/ready" >/dev/null
+
+      - name: Write deployment evidence summary
+        env:
+          DEPLOY_SHA: ${{ steps.manifest.outputs.sha }}
+          BACKEND_IMAGE: ${{ steps.manifest.outputs.backend }}
+          FRONTEND_IMAGE: ${{ steps.manifest.outputs.frontend }}
+        shell: bash
+        run: |
+          {
+            echo '## Production deployment evidence'
+            echo
+            echo "- Commit: \`${DEPLOY_SHA}\`"
+            echo "- Backend: \`${BACKEND_IMAGE}\`"
+            echo "- Frontend: \`${FRONTEND_IMAGE}\`"
+            echo '- Manifest identity and SBOM hashes verified.'
+            echo '- OCI SLSA provenance verified against the release workflow and exact main commit before SSH access.'
+            echo '- Public health, readiness, and frontend endpoints verified after deployment.'
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Remove temporary credentials
         if: always()
