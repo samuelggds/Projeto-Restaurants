@@ -8,8 +8,11 @@ import {
 class ResendLoginMfaController {
   async handle(req: Request, res: Response) {
     try {
-      const { mfaToken } = req.body;
-      const result = await loginMfaService.resend(String(mfaToken || '').trim());
+      const { mfaToken, channel } = req.body;
+      const result = await loginMfaService.resend(
+        String(mfaToken || '').trim(),
+        String(channel || '').trim(),
+      );
 
       res.setHeader('Cache-Control', 'no-store');
       return res.status(200).json(result);
