@@ -1,0 +1,75 @@
+name: Cross-browser Critical
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cross-browser-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  portable-browser:
+    name: Portable critical - ${{ matrix.browser }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        browser: [chromium, firefox, webkit]
+    env:
+      PLAYWRIGHT_ALL_BROWSERS: 'true'
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm --prefix frontend ci
+      - name: Install selected browser engine
+        working-directory: frontend
+        run: npx playwright install --with-deps ${{ matrix.browser }}
+      - name: Run portable critical journeys
+        working-directory: frontend
+        shell: bash
+        run: |
+          set -euo pipefail
+          npx playwright test \
+            --project='${{ matrix.browser }}' \
+            e2e/browser-portable.spec.ts \
+            e2e/marketing-landing.spec.ts \
+            e2e/demo-workflow.spec.ts \
+            e2e/help-preview-scroll.spec.ts \
+            --grep-invert='logo GX preserva transparência real|deslizar a prévia sem acionar os controles' \
+            2>&1 | tee "../cross-browser-${{ matrix.browser }}.log"
+      - name: Upload browser diagnostics
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: cross-browser-${{ matrix.browser }}-${{ github.sha }}
+          path: |
+            cross-browser-${{ matrix.browser }}.log
+            frontend/test-results/
+          if-no-files-found: warn
+          retention-days: 7
+
+  cross-browser-validation:
+    name: Cross-browser Critical Validation
+    if: ${{ always() }}
+    needs: [portable-browser]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require all browser engines to pass
+        env:
+          RESULT: ${{ needs.portable-browser.result }}
+        run: |
+          set -euo pipefail
+          test "$RESULT" = 'success'
