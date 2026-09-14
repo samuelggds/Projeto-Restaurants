@@ -25,10 +25,6 @@ CREATE TABLE "AiCreditWallet" (
   "restaurantId" INTEGER NOT NULL,
   "balanceMicros" BIGINT NOT NULL DEFAULT 0,
   "freeGrantClaimedAt" TIMESTAMP(3),
-  "autoTopUpEnabled" BOOLEAN NOT NULL DEFAULT false,
-  "autoTopUpUsdMicros" BIGINT,
-  "lastAutoTopUpAttemptAt" TIMESTAMP(3),
-  "lastAutoTopUpFailure" VARCHAR(500),
   "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
   "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
   CONSTRAINT "AiCreditWallet_pkey" PRIMARY KEY ("adminUserId"),
@@ -38,12 +34,7 @@ CREATE TABLE "AiCreditWallet" (
   CONSTRAINT "AiCreditWallet_admin_restaurant_fkey"
     FOREIGN KEY ("adminUserId", "restaurantId") REFERENCES "User"("id", "restaurantId")
     ON DELETE CASCADE ON UPDATE CASCADE,
-  CONSTRAINT "AiCreditWallet_balance_nonnegative" CHECK ("balanceMicros" >= 0),
-  CONSTRAINT "AiCreditWallet_auto_topup_positive"
-    CHECK (
-      ("autoTopUpEnabled" = false)
-      OR ("autoTopUpUsdMicros" IS NOT NULL AND "autoTopUpUsdMicros" > 0)
-    )
+  CONSTRAINT "AiCreditWallet_balance_nonnegative" CHECK ("balanceMicros" >= 0)
 );
 CREATE INDEX "AiCreditWallet_restaurant_idx"
   ON "AiCreditWallet"("restaurantId", "adminUserId");
@@ -82,10 +73,13 @@ CREATE INDEX "AiCreditLedgerEntry_admin_created_idx"
 CREATE INDEX "AiCreditLedgerEntry_restaurant_created_idx"
   ON "AiCreditLedgerEntry"("restaurantId", "createdAt" DESC);
 
--- A cobrança da recarga é um registro financeiro da plataforma. O pagamento
--- vai para a conta Mercado Pago do dono da GastroNexa. PIX disponibiliza QR Code
--- e copia-e-cola. Cartão usa somente o perfil tokenizado autorizado; PAN/CVV
--- nunca são persistidos. O saldo só é creditado depois da confirmação real do
+-- Toda recarga é iniciada pelo próprio ADMIN. Ele escolhe primeiro o valor em USD
+-- e depois escolhe PIX ou CARTÃO. Em PIX, o sistema gera QR Code e copia-e-cola.
+-- Em CARTÃO, só é permitido usar o cartão que já está autorizado no cadastro
+-- automático da mensalidade, na tela de Cobranças; não há cadastro de outro
+-- cartão dentro da recarga de IA. O valor escolhido pelo ADMIN é convertido para
+-- BRL usando a cotação registrada na criação da recarga. O pagamento vai para a
+-- conta Mercado Pago da plataforma e o saldo só entra após confirmação real do
 -- provedor/webhook/reconciliação, com idempotência.
 CREATE TABLE "AiCreditTopUp" (
   "id" BIGSERIAL NOT NULL,
@@ -93,7 +87,6 @@ CREATE TABLE "AiCreditTopUp" (
   "restaurantId" INTEGER NOT NULL,
   "adminUserId" INTEGER NOT NULL,
   "requestedByUserId" INTEGER NOT NULL,
-  "trigger" TEXT NOT NULL DEFAULT 'MANUAL',
   "creditUsdMicros" BIGINT NOT NULL,
   "exchangeRateBrlPerUsd" DECIMAL(14, 6) NOT NULL,
   "exchangeRateSource" VARCHAR(40) NOT NULL,
@@ -123,8 +116,6 @@ CREATE TABLE "AiCreditTopUp" (
   CONSTRAINT "AiCreditTopUp_requestedByUserId_fkey"
     FOREIGN KEY ("requestedByUserId") REFERENCES "User"("id")
     ON DELETE RESTRICT ON UPDATE CASCADE,
-  CONSTRAINT "AiCreditTopUp_trigger_check"
-    CHECK ("trigger" IN ('MANUAL', 'AUTO_ZERO_BALANCE')),
   CONSTRAINT "AiCreditTopUp_credit_positive" CHECK ("creditUsdMicros" > 0),
   CONSTRAINT "AiCreditTopUp_rate_positive" CHECK ("exchangeRateBrlPerUsd" > 0),
   CONSTRAINT "AiCreditTopUp_amount_positive" CHECK ("amountBrl" > 0),
@@ -143,10 +134,11 @@ CREATE INDEX "AiCreditTopUp_restaurant_created_idx"
 CREATE INDEX "AiCreditTopUp_status_created_idx"
   ON "AiCreditTopUp"("status", "createdAt");
 
--- O cartão cadastrado para cobrança da plataforma passa a guardar somente o ID
--- do perfil/cartão tokenizado do Mercado Pago. Esse identificador também pode
--- ser usado para uma recarga automática de IA previamente autorizada pelo ADMIN.
--- Nenhum PAN/CVV é persistido localmente.
+-- O cartão cadastrado para cobrança mensal da plataforma passa a guardar somente
+-- o identificador tokenizado necessário para reutilização segura pelo Mercado Pago.
+-- Esse identificador só pode ser usado na recarga de IA quando o ADMIN escolher
+-- CARTÃO e o perfil de cobrança mensal estiver ativo/autorizado. Nenhum PAN/CVV
+-- é persistido localmente.
 ALTER TABLE "PlatformBillingProfile"
   ADD COLUMN IF NOT EXISTS "providerPaymentProfileId" TEXT,
   ADD COLUMN IF NOT EXISTS "providerPreviousTransactionReference" TEXT;
