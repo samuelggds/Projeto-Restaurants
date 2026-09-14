@@ -96,7 +96,7 @@ rollback_application() {
 }
 
 print_diagnostics() {
-  local exit_code=$?
+  local exit_code="${1:-$?}"
   trap - ERR
   echo "Deploy falhou na fase '$phase' (exit=$exit_code)." >&2
   "${compose[@]}" ps >&2 || true
@@ -133,10 +133,16 @@ echo '[3/7] Baixando exatamente os digests aprovados; compilacao no servidor est
 phase='migration'
 echo '[4/7] Aplicando migrations antes de alterar processos da aplicacao...'
 migration_log="$(mktemp)"
+# A primeira tentativa pode falhar de forma esperada quando o Prisma encontra
+# uma tentativa anterior marcada como failed (P3009). Suspendemos o ERR trap
+# somente durante essa captura para que a saida possa ser classificada com
+# seguranca antes de decidir por recuperar ou bloquear o deploy.
+trap - ERR
 set +e
 "${compose[@]}" run --rm --no-deps migrate 2>&1 | tee "$migration_log"
 migration_exit=${PIPESTATUS[0]}
 set -e
+trap print_diagnostics ERR
 
 if (( migration_exit != 0 )); then
   if grep -q 'P3009' "$migration_log" && grep -q "$RECOVERABLE_MIGRATION" "$migration_log"; then
@@ -147,7 +153,7 @@ if (( migration_exit != 0 )); then
   else
     rm -f "$migration_log"
     echo 'Falha de migration nao corresponde ao incidente recuperavel conhecido; deploy bloqueado.' >&2
-    exit "$migration_exit"
+    print_diagnostics "$migration_exit"
   fi
 fi
 rm -f "$migration_log"
