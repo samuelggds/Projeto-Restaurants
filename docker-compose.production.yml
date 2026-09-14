@@ -261,7 +261,7 @@ services:
     environment:
       DATABASE_URL: ${DIRECT_URL:?Defina DIRECT_URL de migração}
       RUNTIME_DATABASE_URL: ${DATABASE_URL:?Defina DATABASE_URL de runtime}
-    command: ['sh', '-c', 'npx prisma migrate deploy && node scripts/provisionRuntimeRole.mjs']
+    command: ['sh', '-c', './node_modules/.bin/prisma migrate deploy && node scripts/provisionRuntimeRole.mjs']
     depends_on:
       db:
         condition: service_healthy
@@ -321,7 +321,7 @@ services:
     restart: unless-stopped
     init: true
     environment: *production-backend-environment
-    command: ['npm', 'run', 'start:worker']
+    command: ['node', 'dist/worker.js']
     depends_on:
       backend:
         condition: service_healthy
