@@ -244,7 +244,9 @@ export function useCheckoutPayments(options: Options) {
     )
       return;
 
-    const initialCheckId = window.setTimeout(() => void verifyPixPayment(), 0);
+    // Give React one visible payment state before the first provider reconciliation.
+    // This avoids skipping the QR/Pix state entirely when a provider answers immediately.
+    const initialCheckId = window.setTimeout(() => void verifyPixPayment(), 1000);
     const intervalId = window.setInterval(() => {
       if (!document.hidden) void verifyPixPayment(true);
     }, 5000);
