@@ -1,0 +1,44 @@
+name: Load Validation
+
+on:
+  schedule:
+    - cron: '17 5 * * 6'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: load-validation-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  synthetic-scale:
+    name: Synthetic multi-tenant scale baseline
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+      - run: npm --prefix backend ci
+      - name: Run disposable 120-tenant measured workload
+        shell: bash
+        run: |
+          set -o pipefail
+          npm --prefix backend run test:scale 2>&1 | tee load-validation.log
+      - name: Upload measured results and diagnostics
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: load-validation-${{ github.sha }}
+          path: |
+            load-validation.log
+            artifacts/runtime-scale-120-restaurants.json
+          if-no-files-found: warn
+          retention-days: 14
