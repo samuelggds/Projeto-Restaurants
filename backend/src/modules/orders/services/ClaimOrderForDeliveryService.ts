@@ -156,6 +156,8 @@ class ClaimOrderForDeliveryService {
       restaurantName: refreshedOrder.restaurant?.name,
       restaurantWhatsapp: refreshedOrder.restaurant?.whatsapp,
       orderId: refreshedOrder.id,
+      publicId: refreshedOrder.publicId,
+      orderType: refreshedOrder.type,
       status: refreshedOrder.status,
     }).catch((error: unknown) => {
       console.error(
