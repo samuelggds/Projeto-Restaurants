@@ -92,17 +92,18 @@ function requireApiKey() {
 }
 
 function parseImageDataUrl(imageDataUrl: string) {
-  const match = /^data:image\/(jpeg|png);base64,([a-z0-9+/=\r\n]+)$/iu.exec(
+  const match = /^data:image\/(jpeg|png|webp);base64,([a-z0-9+/=\r\n]+)$/iu.exec(
     String(imageDataUrl || '').trim(),
   );
   if (!match) {
     throw new GupshupProfilePhotoError(
       'invalid_profile_photo',
-      'A foto do WhatsApp deve ser uma imagem PNG ou JPG válida.',
+      'A foto do WhatsApp deve ser uma imagem PNG, JPG ou WEBP válida.',
     );
   }
 
-  const mimeType = match[1].toLowerCase() === 'png' ? 'image/png' : 'image/jpeg';
+  const imageType = match[1].toLowerCase();
+  const mimeType = imageType === 'png' ? 'image/png' : imageType === 'webp' ? 'image/webp' : 'image/jpeg';
   const bytes = Buffer.from(match[2], 'base64');
   if (!bytes.length || bytes.length > 5 * 1024 * 1024) {
     throw new GupshupProfilePhotoError(
@@ -125,11 +126,12 @@ export async function updateGupshupProfilePhoto({
 }) {
   const appId = resolveGupshupAppId(source);
   const { mimeType, bytes } = parseImageDataUrl(imageDataUrl);
+  const extension = mimeType === 'image/png' ? 'png' : mimeType === 'image/webp' ? 'webp' : 'jpg';
   const form = new FormData();
   form.append(
     'image',
     new Blob([new Uint8Array(bytes)], { type: mimeType }),
-    mimeType === 'image/png' ? 'profile.png' : 'profile.jpg',
+    `profile.${extension}`,
   );
 
   const response = await send(profilePhotoEndpoint(appId), {
