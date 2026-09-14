@@ -22,6 +22,7 @@ import {
 } from '../utils/waiterOrderRealtime.js';
 import courierAccessService from './CourierAccessService.js';
 import { verifyDeliveryConfirmationCode } from '../utils/deliveryConfirmationCode.js';
+import { setTenantDbContext } from '../../../database/tenantDbContext.js';
 
 class UpdateOrderStatusService {
   private readonly PAY_ON_DELIVERY_MARKER = 'PAY_ON_DELIVERY:';
@@ -43,6 +44,8 @@ class UpdateOrderStatusService {
   ) {
     const normalizedRole = String(role || '').toUpperCase() as UserRole;
     const normalizedSubRole = String(actorSubRole || '').toUpperCase();
+    const normalizedActorUserId = Number(actorUserId || 0);
+    const normalizedOrderId = Number(orderId);
     const isWaiter =
       normalizedRole === UserRole.FUNCIONARIO && normalizedSubRole === FuncionarioSubRole.GARCOM;
     const isAttendant =
@@ -60,15 +63,53 @@ class UpdateOrderStatusService {
     }
 
     const currentStatus = order.status;
+
+    // Delivery completion is idempotent for an already completed order, but only for the
+    // same authorized actor. Returning here avoids duplicate events, notifications and audits.
+    if (
+      order.type === OrderType.DELIVERY &&
+      status === OrderStatus.ENTREGUE &&
+      currentStatus === OrderStatus.ENTREGUE
+    ) {
+      if (normalizedRole === UserRole.MOTOQUEIRO) {
+        await courierAccessService.assertActiveCourier(normalizedActorUserId, Number(restaurantId));
+        if (Number(order.assignedCourierId || 0) !== normalizedActorUserId) {
+          throw new Error('Esta entrega não está atribuída a você.');
+        }
+        return order;
+      }
+      if (normalizedRole === UserRole.ADMIN) {
+        const activeAdmin = await prisma.user.findFirst({
+          where: {
+            id: normalizedActorUserId,
+            restaurantId: Number(restaurantId),
+            role: UserRole.ADMIN,
+            active: true,
+          },
+          select: { id: true },
+        });
+        if (!activeAdmin) throw new Error('Administrador não autorizado para este restaurante.');
+        return order;
+      }
+    }
+
     if (
       isWaiter &&
-      !(order.type === OrderType.MESA && currentStatus === OrderStatus.PRONTO && status === OrderStatus.ENTREGUE)
+      !(
+        order.type === OrderType.MESA &&
+        currentStatus === OrderStatus.PRONTO &&
+        status === OrderStatus.ENTREGUE
+      )
     ) {
       throw new Error('O garçom só pode marcar como entregue um pedido de mesa que esteja pronto.');
     }
     if (
       isAttendant &&
-      !(order.type === OrderType.RETIRADA && currentStatus === OrderStatus.PRONTO && status === OrderStatus.ENTREGUE)
+      !(
+        order.type === OrderType.RETIRADA &&
+        currentStatus === OrderStatus.PRONTO &&
+        status === OrderStatus.ENTREGUE
+      )
     ) {
       throw new Error('O atendente só pode concluir a retirada de um pedido que esteja pronto.');
     }
@@ -80,34 +121,56 @@ class UpdateOrderStatusService {
     }
 
     if (normalizedRole === UserRole.MOTOQUEIRO) {
-      await courierAccessService.assertActiveCourier(Number(actorUserId || 0), Number(restaurantId));
+      await courierAccessService.assertActiveCourier(normalizedActorUserId, Number(restaurantId));
       if (order.type !== OrderType.DELIVERY) {
         throw new Error('Motoqueiros só podem atualizar pedidos de entrega.');
       }
-      if (order.assignedCourierId !== Number(actorUserId || 0)) {
+      if (order.assignedCourierId !== normalizedActorUserId) {
         throw new Error('Esta entrega não está atribuída a você.');
       }
     }
 
-    const digitalMethods: PaymentMethod[] = [PaymentMethod.PIX, PaymentMethod.CARTAO];
-    const isPayOnDelivery = order.payOnDelivery === true || this.hasLegacyPayOnDeliveryMarker(order.observation);
-    const isDigitalPayment = !!order.paymentMethod && digitalMethods.includes(order.paymentMethod);
-    const isCashPaymentAtHandoff =
-      order.type === OrderType.DELIVERY && order.paymentMethod === PaymentMethod.DINHEIRO;
+    // A DELIVERY may only enter the delivery phase through the claim endpoint. That path
+    // atomically assigns an active courier and records deliveryStartedAt, which is also the
+    // stable seed used by the customer delivery code.
+    if (order.type === OrderType.DELIVERY && status === OrderStatus.SAIU_PARA_ENTREGA) {
+      throw new Error(
+        'Inicie a entrega pelo fluxo de retirada do motoqueiro para registrar atribuição e código com segurança.',
+      );
+    }
 
-    if (
+    const digitalMethods: PaymentMethod[] = [PaymentMethod.PIX, PaymentMethod.CARTAO];
+    const isPayOnDelivery =
+      order.payOnDelivery === true || this.hasLegacyPayOnDeliveryMarker(order.observation);
+    const isDigitalPayment = !!order.paymentMethod && digitalMethods.includes(order.paymentMethod);
+
+    const isCourierDeliveryCompletion =
       status === OrderStatus.ENTREGUE &&
       normalizedRole === UserRole.MOTOQUEIRO &&
-      order.type === OrderType.DELIVERY
-    ) {
-      if (order.paid !== true && !isCashPaymentAtHandoff) {
+      order.type === OrderType.DELIVERY;
+    const isAdminDeliveryCompletion =
+      status === OrderStatus.ENTREGUE &&
+      normalizedRole === UserRole.ADMIN &&
+      order.type === OrderType.DELIVERY;
+
+    if (isCourierDeliveryCompletion || isAdminDeliveryCompletion) {
+      if (currentStatus !== OrderStatus.SAIU_PARA_ENTREGA) {
+        throw new Error('A entrega só pode ser concluída quando estiver em SAIU_PARA_ENTREGA.');
+      }
+      if (order.paid !== true) {
         throw new Error('O pagamento precisa estar confirmado antes de concluir a entrega.');
       }
+      if (!order.deliveryStartedAt) {
+        throw new Error('A entrega não possui um início válido registrado.');
+      }
+    }
+
+    if (isCourierDeliveryCompletion) {
       const providedCode = String(deliveryConfirmationCode || '').replace(/\D/g, '');
       if (!/^\d{4}$/u.test(providedCode)) {
         throw new Error('Informe o código de 4 dígitos exibido para o cliente.');
       }
-      if (!order.publicId || !order.deliveryStartedAt) {
+      if (!order.publicId) {
         throw new Error('Código de entrega indisponível para este pedido.');
       }
       if (
@@ -147,7 +210,6 @@ class UpdateOrderStatusService {
     }
 
     let updatedOrder;
-    let cashPaymentConfirmedOnDelivery = false;
 
     if (status === OrderStatus.CANCELADO) {
       updatedOrder = await prisma.$transaction(async (tx) => {
@@ -162,6 +224,102 @@ class UpdateOrderStatusService {
         await releaseCouponRedemptionForOrder(orderId, restaurantId, tx);
         return cancelledOrder;
       });
+    } else if (isCourierDeliveryCompletion || isAdminDeliveryCompletion) {
+      updatedOrder = await prisma.$transaction(async (tx) => {
+        await setTenantDbContext(tx, Number(restaurantId));
+
+        if (isCourierDeliveryCompletion) {
+          await courierAccessService.assertActiveCourier(
+            normalizedActorUserId,
+            Number(restaurantId),
+            tx,
+          );
+        } else {
+          const activeAdmin = await tx.user.findFirst({
+            where: {
+              id: normalizedActorUserId,
+              restaurantId: Number(restaurantId),
+              role: UserRole.ADMIN,
+              active: true,
+            },
+            select: { id: true, name: true },
+          });
+          if (!activeAdmin) throw new Error('Administrador não autorizado para este restaurante.');
+        }
+
+        const completed = await tx.order.updateMany({
+          where: {
+            id: normalizedOrderId,
+            restaurantId: Number(restaurantId),
+            type: OrderType.DELIVERY,
+            status: OrderStatus.SAIU_PARA_ENTREGA,
+            paid: true,
+            deliveryStartedAt: { not: null },
+            ...(isCourierDeliveryCompletion
+              ? { assignedCourierId: normalizedActorUserId }
+              : {}),
+          },
+          data: {
+            status: OrderStatus.ENTREGUE,
+            deliveredAt: new Date(),
+          },
+        });
+
+        if (completed.count !== 1) {
+          const concurrentOrder = await orderRepository.findById(
+            normalizedOrderId,
+            Number(restaurantId),
+            tx,
+          );
+          if (
+            concurrentOrder?.status === OrderStatus.ENTREGUE &&
+            (!isCourierDeliveryCompletion ||
+              Number(concurrentOrder.assignedCourierId || 0) === normalizedActorUserId)
+          ) {
+            return { order: concurrentOrder, changed: false };
+          }
+          throw new Error(
+            'A entrega mudou enquanto era concluída. Atualize o pedido e confira pagamento, atribuição e status.',
+          );
+        }
+
+        const deliveredOrder = await orderRepository.findById(
+          normalizedOrderId,
+          Number(restaurantId),
+          tx,
+        );
+        if (!deliveredOrder) throw new Error('Pedido não encontrado para atualizar.');
+
+        await markCouponRedemptionUsedForOrder(orderId, restaurantId, tx);
+
+        if (isAdminDeliveryCompletion) {
+          await tx.auditLog.create({
+            data: {
+              userId: normalizedActorUserId,
+              userRole: UserRole.ADMIN,
+              restaurantId: Number(restaurantId),
+              restaurantName: deliveredOrder.restaurant?.name || order.restaurant?.name || null,
+              action: 'ADMIN_DELIVERY_COMPLETED',
+              resource: `Order:${normalizedOrderId}`,
+              metadata: {
+                previousStatus: currentStatus,
+                paymentConfirmed: true,
+                deliveryCodeBypassedByAdmin: true,
+              },
+            },
+          });
+        }
+
+        return { order: deliveredOrder, changed: true };
+      }).then((result) => {
+        if (!result.changed) return result;
+        return result;
+      });
+
+      if (!updatedOrder.changed) {
+        return updatedOrder.order;
+      }
+      updatedOrder = updatedOrder.order;
     } else if (status === OrderStatus.ENTREGUE) {
       updatedOrder = await prisma.$transaction(async (tx) => {
         let deliveredOrder = await orderRepository.updateStatusIfCurrent(
@@ -183,10 +341,6 @@ class UpdateOrderStatusService {
             items: { include: { product: true } },
           },
         });
-        if (isCashPaymentAtHandoff && deliveredOrder.paid !== true) {
-          cashPaymentConfirmedOnDelivery = true;
-          deliveredOrder = await orderRepository.confirmPayment(orderId, restaurantId, tx);
-        }
         if (deliveredOrder?.paid === true) {
           await markCouponRedemptionUsedForOrder(orderId, restaurantId, tx);
         }
@@ -199,20 +353,8 @@ class UpdateOrderStatusService {
       });
     }
 
-    if (cashPaymentConfirmedOnDelivery && updatedOrder) {
-      io.to(`restaurant:${restaurantId}`).emit('order:payment-confirmed', {
-        orderId: updatedOrder.id,
-        paid: true,
-        paymentMethod: updatedOrder.paymentMethod,
-      });
-      if (updatedOrder.userId) {
-        io.to(`user:${updatedOrder.userId}`).emit('order:payment-confirmed', {
-          orderId: updatedOrder.id,
-          paid: true,
-          paymentMethod: updatedOrder.paymentMethod,
-        });
-      }
-      emitTableSessionOrderEvent(io, 'order:payment-confirmed', updatedOrder);
+    if (!updatedOrder) {
+      throw new Error('O pedido mudou enquanto era atualizado. Atualize a tela e tente novamente.');
     }
 
     void notifyCustomerOrderStatusChanged({
