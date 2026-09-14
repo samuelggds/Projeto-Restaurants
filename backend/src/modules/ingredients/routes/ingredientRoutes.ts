@@ -5,6 +5,7 @@ import { ingredientImageSearchRateLimitMiddleware } from '../../../middlewares/s
 import {
   createIngredient,
   deleteIngredient,
+  generateIngredientImage,
   listIngredients,
   searchIngredientImages,
   updateIngredient,
@@ -15,6 +16,7 @@ const router = Router();
 router.use(authMiddleware, adminMiddleware);
 router.get('/', listIngredients);
 router.post('/image-search', ingredientImageSearchRateLimitMiddleware, searchIngredientImages);
+router.post('/generate-image', ingredientImageSearchRateLimitMiddleware, generateIngredientImage);
 router.post('/', createIngredient);
 router.put('/:id', updateIngredient);
 router.delete('/:id', deleteIngredient);
