@@ -152,11 +152,11 @@ test('assume e resolve chamado', async ({ page }) => {
   await page.goto('/attendant');
   await page.getByRole('button', { name: 'Chamados', exact: true }).click();
   await page.getByRole('button', { name: 'Assumir chamado' }).click();
-  expect(state.calls[0].assignedToId).toBe(user.id);
+  await expect.poll(() => state.calls[0].assignedToId).toBe(user.id);
   await page.getByRole('button', { name: /Atualizar/ }).click();
   await expect(page.getByRole('button', { name: 'Marcar como resolvido' })).toBeVisible();
   await page.getByRole('button', { name: 'Marcar como resolvido' }).click();
-  expect(state.calls[0].status).toBe('RESOLVED');
+  await expect.poll(() => state.calls[0].status).toBe('RESOLVED');
 });
 
 test('registra pedido manual de retirada sem vincular o pedido ao atendente', async ({ page }) => {
