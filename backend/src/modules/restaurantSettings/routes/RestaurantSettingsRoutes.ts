@@ -16,6 +16,7 @@ import StartMercadoPagoOAuthController from '../controllers/StartMercadoPagoOAut
 import MercadoPagoOAuthCallbackController from '../controllers/MercadoPagoOAuthCallbackController.js';
 import StartPagBankOAuthController from '../controllers/StartPagBankOAuthController.js';
 import PagBankOAuthCallbackController from '../controllers/PagBankOAuthCallbackController.js';
+import UpdateWhatsappProfilePhotoController from '../controllers/UpdateWhatsappProfilePhotoController.js';
 import { staffMiddleware } from '../../../middlewares/staffMiddleware.js';
 import { adminMiddleware } from '../../../middlewares/adminMiddleware.js';
 import { publicRestaurantBillingMiddleware } from '../../../middlewares/publicRestaurantBillingMiddleware.js';
@@ -88,6 +89,10 @@ router.get('/asaas/wallet/balance', authMiddleware, adminMiddleware, (req, res) 
 
 router.post('/asaas/wallet/withdraw', authMiddleware, adminMiddleware, (req, res) =>
   WithdrawAsaasWalletController.handle(req, res),
+);
+
+router.put('/whatsapp/profile-photo', authMiddleware, adminMiddleware, (req, res) =>
+  UpdateWhatsappProfilePhotoController.handle(req, res),
 );
 
 router.put('/:id', authMiddleware, adminMiddleware, (req, res) =>
