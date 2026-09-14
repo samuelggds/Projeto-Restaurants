@@ -1,4 +1,5 @@
 import crypto from 'node:crypto';
+import { PaymentMethod } from '@prisma/client';
 import { realtimePublisher as io } from '../../../realtime/realtimePublisher.js';
 import orderRepository from '../repositories/OrderRepository.js';
 import { hashPaymentConfirmationPin } from '../utils/paymentConfirmationPin.js';
@@ -29,8 +30,13 @@ class GenerateOrderPaymentConfirmationPinService {
       throw new Error('Pagamento deste pedido já está confirmado.');
     }
 
-    if (order.payOnDelivery !== true || !order.paymentMethod) {
-      throw new Error('PIN de confirmação disponível apenas para pagamento na entrega.');
+    if (
+      order.payOnDelivery !== true ||
+      order.paymentMethod !== PaymentMethod.DINHEIRO
+    ) {
+      throw new Error(
+        'PIN de confirmação disponível apenas para recebimento em dinheiro na entrega.',
+      );
     }
 
     const pin = generateFourDigitPin();
