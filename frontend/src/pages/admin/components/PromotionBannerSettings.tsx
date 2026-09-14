@@ -5,7 +5,6 @@ import {
   ImagePlus,
   LoaderCircle,
   Plus,
-  Sparkles,
   Trash2,
   Upload,
 } from 'lucide-react';
@@ -17,6 +16,7 @@ import {
   validatePromotionBanners,
 } from '../domain/promotionBannerValidation';
 import * as S from './PromotionBannerSettings.styles';
+import { ChatGptLogo } from '../../../components/ChatGptLogo';
 
 type Props = {
   banners: AdminPromotionBanner[];
@@ -188,7 +188,7 @@ export function PromotionBannerSettings({
                     {isEnhancing ? (
                       <LoaderCircle className="spin" size={16} />
                     ) : (
-                      <Sparkles size={16} />
+                      <ChatGptLogo width={16} height={16} />
                     )}
                     {isEnhancing ? 'Melhorando...' : 'Melhorar com IA'}
                   </button>
@@ -267,13 +267,13 @@ export function PromotionBannerSettings({
                 </label>
 
                 <label className="field full">
-                  Descrição da promoção
+                  Descrição
                   <textarea
                     value={banner.description}
                     maxLength={PROMOTION_BANNER_LIMITS.description}
                     aria-label={`Descrição do banner ${index + 1}`}
                     aria-invalid={Boolean(bannerErrors.description)}
-                    placeholder="Conte ao cliente como aproveitar a oferta, o desconto ou o combo."
+                    placeholder="Conte em uma frase por que vale a pena abrir esta oferta."
                     onChange={(event) =>
                       changeBanner(banner.localId, 'description', event.target.value)
                     }
