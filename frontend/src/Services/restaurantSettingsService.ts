@@ -29,6 +29,37 @@ function publicSettingsFromResponse(response) {
   );
 }
 
+function currentRestaurantId() {
+  if (typeof window === 'undefined') return '';
+  try {
+    const user = JSON.parse(window.localStorage.getItem('user') || 'null');
+    return String(
+      user?.restaurantId ||
+        user?.restaurant?.id ||
+        window.localStorage.getItem('menuRestaurantId') ||
+        '',
+    ).trim();
+  } catch {
+    return String(window.localStorage.getItem('menuRestaurantId') || '').trim();
+  }
+}
+
+function selectedWhatsappProfileImage() {
+  if (typeof window === 'undefined') return '';
+  const restaurantId = currentRestaurantId();
+  if (!restaurantId) return '';
+  return String(
+    window.localStorage.getItem(`gastronexa:whatsapp-profile-image:${restaurantId}`) || '',
+  ).trim();
+}
+
+async function syncWhatsappProfilePhoto(payload) {
+  if (payload?.whatsappEnabled !== true) return;
+  const imageDataUrl = selectedWhatsappProfileImage();
+  if (!imageDataUrl) return;
+  await api.put('/settings/whatsapp/profile-photo', { imageDataUrl });
+}
+
 class RestaurantSettingsService {
   async getMySettings() {
     const response = await api.get('/settings');
@@ -37,12 +68,14 @@ class RestaurantSettingsService {
 
   async createSettings(payload) {
     const response = await api.post('/settings', payload);
+    await syncWhatsappProfilePhoto(payload);
     notifyRestaurantBrowserBrandingUpdated();
     return response.data;
   }
 
   async updateSettings(id, payload) {
     const response = await api.put(`/settings/${id}`, payload);
+    await syncWhatsappProfilePhoto(payload);
     notifyRestaurantBrowserBrandingUpdated();
     return response.data;
   }
