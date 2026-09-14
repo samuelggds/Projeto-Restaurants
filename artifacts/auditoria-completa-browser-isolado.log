@@ -1,0 +1,29 @@
+
+> frontend@0.0.0 test:e2e
+> playwright test --config=../artifacts/auditoria-browser.config.ts e2e/login-mobile-responsive.spec.ts e2e/admin-orders-refund.spec.ts e2e/kitchen-order-customizations.spec.ts e2e/product-customization.spec.ts --max-failures=5
+
+[WebServer] (node:46524) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+Running 20 tests using 1 worker
+
+(node:44028) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  x   1 [chromium] › e2e\admin-orders-refund.spec.ts:151:1 › central de pedidos mantém hierarquia e ações acessíveis em desktop e mobile (27.0s)
+(node:12820) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  x   2 [chromium] › e2e\admin-orders-refund.spec.ts:184:1 › admin cancela Pix online com estorno único e distingue pagamento na entrega (26.7s)
+(node:46704) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ok  3 [chromium] › e2e\kitchen-order-customizations.spec.ts:437:1 › pedido completo do tenant chega à fila e avança de pendente até pronto (24.6s)
+  ok  4 [chromium] › e2e\kitchen-order-customizations.spec.ts:500:1 › busca, status, canais, prontos e histórico refletem os dados recebidos (22.1s)
+  ok  5 [chromium] › e2e\kitchen-order-customizations.spec.ts:570:1 › exibe carregamento, permite tentar novamente após erro e diferencia retorno vazio (12.6s)
+  ok  6 [chromium] › e2e\kitchen-order-customizations.spec.ts:603:1 › todas as abas da cozinha permanecem acessíveis e sem overflow em celular (3.5s)
+  x   7 [chromium] › e2e\login-mobile-responsive.spec.ts:74:1 › login desktop preserva identidade e hierarquia visual (7.4s)
+(node:47472) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  x   8 [chromium] › e2e\login-mobile-responsive.spec.ts:105:3 › login mobile responsivo em 320x568 (25.5s)
+(node:48960) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  x   9 [chromium] › e2e\login-mobile-responsive.spec.ts:105:3 › login mobile responsivo em 360x740 (25.9s)
+Testing stopped early after 5 maximum allowed failures.

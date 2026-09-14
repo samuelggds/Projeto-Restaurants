@@ -5,6 +5,7 @@ import ordersService from '../../Services/ordersService';
 import restaurantSettingsService from '../../Services/restaurantSettingsService';
 import { acquireSocket } from '../../Services/socketService';
 import { getAccessToken } from '../../modules/auth/session/authSession';
+import { useOrderHistory } from '../../hooks/useOrderHistory';
 import { KitchenModule } from './KitchenModule';
 import type { EmployeeWorkspaceData, KitchenWorkspaceState, RestaurantBrand } from './types';
 import { mapOperationalOrders, mapRestaurantBrand } from '../operations/orderAdapter';
@@ -36,6 +37,7 @@ export default function KitchenPage() {
     soundNotifications: true,
     maxConcurrentOrders: 20,
   });
+  const history = useOrderHistory({ refreshSignal: data.orders });
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const restaurantId = Number((user as Record<string, unknown>)?.restaurantId || 0) || null;
   const accessToken = getAccessToken();
@@ -204,7 +206,8 @@ export default function KitchenPage() {
     <KitchenModule
       employee={employee}
       restaurant={restaurant}
-      data={data}
+      data={{ ...data, orders: [...data.orders, ...mapOperationalOrders(history.orders)] }}
+      historyPagination={history}
       workspaceState={workspaceState}
       onRefresh={restaurantId ? () => loadOrders(true) : undefined}
       onUpdateOrderStatus={

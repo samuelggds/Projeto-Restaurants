@@ -4,6 +4,7 @@ import {
   ImageEnhancementInputError,
   ImageEnhancementResultError,
 } from '../errors/ImageEnhancementErrors.js';
+import { calculateImageUsageCostUsd } from '../../aiSupport/services/openAiUsageCost.js';
 
 const DATA_URL_PATTERN = /^data:(image\/(?:jpeg|png|webp));base64,([A-Za-z0-9+/=\r\n]+)$/;
 export const IMAGE_ENHANCEMENT_PROVIDER_TIMEOUT_MS = 165_000;
@@ -15,6 +16,7 @@ export function getImageEnhancementProfile(purpose: RestaurantImagePurpose) {
     return {
       filename: 'restaurant-promotion-banner.webp',
       size: '1536x1024' as const,
+      fallbackCostUsd: 0.2,
       prompt:
         'Transform this image into a premium, photorealistic restaurant promotion banner. Preserve the food, products, logo and brand identity faithfully. Compose a wide horizontal scene intended to be cropped to a 1440 by 560 banner, keeping the main subject in the center-right and leaving a clean, darker safe area on the left for promotional text. Improve lighting, sharpness, color balance and appetizing food detail. Do not add any words, prices, badges, logos, watermarks or invented products. Do not crop important brand elements.',
     };
@@ -23,6 +25,7 @@ export function getImageEnhancementProfile(purpose: RestaurantImagePurpose) {
   return {
     filename: 'restaurant-cover.webp',
     size: '1024x1024' as const,
+    fallbackCostUsd: 0.133,
     prompt:
       'Create a polished high-definition square login hero from this restaurant brand image. Faithfully restore the complete original logo, lettering, colors and identity with crisp clean edges. Place the entire logo centered and clearly visible, occupying at most 55 percent of the canvas, with generous space around it. Build a tasteful, softly lit pizza restaurant background that complements the logo. Remove blur, pixelation and compression artifacts. Do not crop the logo, do not enlarge it to fill the canvas, do not alter its wording, and do not add new text, brands or watermarks.',
   };
@@ -43,8 +46,6 @@ class EnhanceRestaurantImageService {
       throw new ImageEnhancementInputError('A imagem deve ter no máximo 5 MB.');
     }
 
-    // Edição de imagem é uma operação paga e não idempotente. Um timeout deve
-    // encerrar a tentativa, sem o retry automático padrão do SDK.
     const client = new OpenAI({
       apiKey,
       timeout: IMAGE_ENHANCEMENT_PROVIDER_TIMEOUT_MS,
@@ -62,7 +63,15 @@ class EnhanceRestaurantImageService {
 
     const base64 = result.data?.[0]?.b64_json;
     if (!base64) throw new ImageEnhancementResultError();
-    return { imageDataUrl: `data:image/png;base64,${base64}` };
+    const usage = (result as unknown as { usage?: unknown }).usage;
+    return {
+      imageDataUrl: `data:image/png;base64,${base64}`,
+      aiUsage: {
+        model: 'gpt-image-2',
+        usage: usage ?? null,
+        costUsd: calculateImageUsageCostUsd(usage, profile.fallbackCostUsd),
+      },
+    };
   }
 }
 

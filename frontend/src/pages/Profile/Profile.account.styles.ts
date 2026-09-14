@@ -2,18 +2,19 @@ import styled from 'styled-components';
 
 export const AddressGrid = styled.div`
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 14px;
-  @media (max-width: 650px) {
+  @container profile-content (max-width: 700px) {
     grid-template-columns: 1fr;
   }
 `;
 export const AddressCard = styled.article`
+  min-width: 0;
   border: 1px solid var(--border);
   border-radius: 8px;
   padding: 18px;
   display: grid;
-  grid-template-columns: 44px 1fr auto;
+  grid-template-columns: 44px minmax(0, 1fr) auto;
   gap: 13px;
   align-items: start;
   i {
@@ -28,6 +29,8 @@ export const AddressCard = styled.article`
   }
   div {
     display: grid;
+    min-width: 0;
+    overflow-wrap: anywhere;
     gap: 5px;
   }
   span {
@@ -321,17 +324,19 @@ export const FavoriteCard = styled.article`
 export const SettingsForm = styled.form`
   max-width: 780px;
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 18px;
   padding-top: 20px;
   label {
     display: grid;
+    min-width: 0;
     gap: 7px;
     font-size: 12px;
     font-weight: 700;
   }
   input {
     width: 100%;
+    min-width: 0;
     height: 48px;
     border: 1px solid var(--border);
     border-radius: 8px;

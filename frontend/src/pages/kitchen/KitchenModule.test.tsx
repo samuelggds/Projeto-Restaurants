@@ -106,7 +106,7 @@ describe('KitchenModule workspace states', () => {
       '[aria-label="Abrir opções da cozinha"]',
     ) as HTMLButtonElement;
     act(() => more.click());
-    const menu = container.querySelector('[role="menu"]');
+    const menu = container.querySelector('[role="dialog"]');
     expect(menu?.textContent).toContain('Central de ajuda');
     expect(menu?.textContent).toContain('Sair da conta');
   });

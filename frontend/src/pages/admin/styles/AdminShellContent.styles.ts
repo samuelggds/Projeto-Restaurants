@@ -1,6 +1,8 @@
 import styled from 'styled-components';
 
 export const Main = styled.main`
+  grid-column: -2 / -1;
+  grid-row: 1;
   min-width: 0;
 `;
 
@@ -38,6 +40,18 @@ export const Top = styled.header`
     }
     p {
       font-size: 12px;
+    }
+  }
+  @media (max-width: 580px) {
+    min-height: 0;
+    flex-wrap: wrap;
+    gap: 10px;
+    > div:first-child {
+      flex: 1 1 100%;
+      min-width: 0;
+    }
+    h1 {
+      font-size: 20px;
     }
   }
 `;
@@ -86,15 +100,27 @@ export const TopActions = styled.div`
     box-shadow: 0 11px 26px color-mix(in srgb, var(--a) 32%, transparent);
   }
   @media (max-width: 580px) {
-    button {
-      width: 44px;
-      height: 44px;
-      padding: 0;
-      justify-content: center;
-      font-size: 0;
+    width: 100%;
+    margin-left: 0;
+    gap: 8px;
+    &:empty {
+      display: none;
     }
-    .save {
-      width: 44px;
+    && button {
+      flex: 1 1 0;
+      min-width: 0;
+      width: auto;
+      height: 44px;
+      padding: 0 10px;
+      justify-content: center;
+      gap: 6px;
+      font-size: 12px;
+      font-weight: 700;
+    }
+    button svg {
+      width: 16px;
+      height: 16px;
+      flex: 0 0 auto;
     }
   }
   @media (prefers-reduced-motion: reduce) {
@@ -310,9 +336,7 @@ export const LogoCard = styled.div`
     position: relative;
     border: 1px solid #ddd4cc;
     border-radius: 10px;
-    background:
-      linear-gradient(145deg, rgba(255, 255, 255, 0.08), transparent),
-      #171b1e;
+    background: linear-gradient(145deg, rgba(255, 255, 255, 0.08), transparent), #171b1e;
     display: grid;
     place-items: center;
     overflow: hidden;

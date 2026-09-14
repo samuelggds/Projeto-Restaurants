@@ -1,6 +1,9 @@
-import restaurantSettingsRepository from '../repositories/RestaurantSettingsRepository.js';
 import { consumeSingleUseOAuthState } from '../security/oauthState.js';
 import { resolveOAuthEndpoint } from '../security/oauthEndpoints.js';
+import {
+  parseOAuthCredentials,
+  saveRestaurantOAuthCredentials,
+} from './RestaurantPaymentCredentialsService.js';
 
 type TokenResponse = {
   access_token?: string;
@@ -15,7 +18,6 @@ class CompletePagBankOAuthService {
     code,
     state,
     providerError,
-    providerErrorDescription,
   }: {
     code?: string;
     state?: string;
@@ -27,9 +29,7 @@ class CompletePagBankOAuthService {
     if (!normalizedState) throw new Error('Estado OAuth PagBank não recebido.');
     const { restaurantId } = await consumeSingleUseOAuthState(normalizedState, 'PAGBANK');
     if (providerError) {
-      throw new Error(
-        String(providerErrorDescription || providerError || 'PagBank recusou a autorização.'),
-      );
+      throw new Error('PagBank não autorizou a conexão. Tente conectar a conta novamente.');
     }
     if (!normalizedCode) throw new Error('Código de autorização PagBank não recebido.');
 
@@ -66,31 +66,14 @@ class CompletePagBankOAuthService {
       }),
     });
     const body = (await response.json()) as TokenResponse;
-    const accessToken = String(body.access_token || '').trim();
-    if (!response.ok || !accessToken) {
-      throw new Error(String(body.error_description || body.error || 'PagBank recusou a conexão.'));
+    if (!response.ok) {
+      throw new Error('PagBank não concluiu a conexão. Tente conectar a conta novamente.');
     }
-    const refreshToken = String(body.refresh_token || '').trim() || null;
-    const expiresIn = Number(body.expires_in || 0);
-    const expiresAt =
-      expiresIn > 0 ? new Date(Date.now() + Math.max(expiresIn - 300, 60) * 1000) : null;
-    const existing = await restaurantSettingsRepository.findByRestaurantId(restaurantId);
-    const data = {
-      pixProvider: 'PAGBANK',
-      cardGateway: 'PAGBANK',
-      pagbankToken: accessToken,
-      pagbankRefreshToken: refreshToken,
-      pagbankTokenExpiresAt: expiresAt,
-      pagbankEnvironment: 'production',
-    };
-    if (existing) await restaurantSettingsRepository.update(restaurantId, data);
-    else
-      await restaurantSettingsRepository.create({
-        restaurantId,
-        deliveryFee: 0,
-        minimumOrder: 0,
-        ...data,
-      });
+    await saveRestaurantOAuthCredentials(restaurantId, 'PAGBANK', {
+      ...parseOAuthCredentials(body),
+      environment:
+        new URL(apiBaseUrl).hostname === 'sandbox.api.pagseguro.com' ? 'sandbox' : 'production',
+    });
     return { restaurantId, connected: true };
   }
 }

@@ -1,6 +1,8 @@
+import { Prisma } from '@prisma/client';
 import billingRepository from '../repositories/BillingRepository.js';
 import prisma from '../../../config/prisma.js';
 import { hasBlockingInvoices } from '../utils/billingRules.js';
+import { nextSubscriptionPeriod } from '../utils/billingCycle.js';
 import { info } from '../utils/billingLogger.js';
 
 type ProcessPaymentPayload = {
@@ -48,18 +50,33 @@ class ProcessPaymentService {
       const subscriptionWasCanceled = subscription?.status === 'CANCELADA';
 
       if (subscription && !subscriptionWasCanceled) {
-        await billingRepository.updateSubscription(
-          subscription.id,
-          { status: remainsBlocked ? 'EXPIRADA' : 'ATIVA' },
-          tx,
-        );
+        const changes: Prisma.SubscriptionUpdateInput = {
+          status: remainsBlocked
+            ? 'EXPIRADA'
+            : subscription.status === 'TESTE' && subscription.trialEndsAt && new Date() < subscription.trialEndsAt
+              ? 'TESTE'
+              : 'ATIVA',
+        };
+
+        if (payment.marked) {
+          const currentPeriodEnd = subscription.currentPeriodEnd
+            ? new Date(subscription.currentPeriodEnd)
+            : new Date(invoice.dueDate);
+          const invoiceDueDate = new Date(invoice.dueDate);
+          if (
+            !Number.isNaN(currentPeriodEnd.getTime()) &&
+            Math.abs(currentPeriodEnd.getTime() - invoiceDueDate.getTime()) < 60_000
+          ) {
+            Object.assign(changes, nextSubscriptionPeriod(currentPeriodEnd));
+          }
+        }
+
+        await billingRepository.updateSubscription(subscription.id, changes, tx);
       }
 
       if (remainsBlocked) {
         await billingRepository.deactivateRestaurant(invoice.restaurantId, tx);
       } else if (!subscriptionWasCanceled) {
-        // O repositório libera somente bloqueios com origem BILLING. Uma
-        // suspensão MANUAL do SUPER_ADMIN nunca é removida pelo webhook.
         await billingRepository.activateRestaurant(invoice.restaurantId, tx);
       }
 

@@ -1,0 +1,1195 @@
+
+> frontend@0.0.0 test
+> vitest run --maxWorkers=1 --reporter=verbose
+
+
+ RUN  v4.1.10 C:/Users/Samuel/Documents/Codex/RESTAURANT-DELIVERY-MESA/pizza-ia-delivery/frontend
+
+ ✓ src/pages/admin/AdminPage.saveFeedback.test.tsx > AdminPage save feedback > não exibe aviso pendente nem botão fixo enquanto o administrador edita 779ms
+ ✓ src/pages/admin/AdminPage.saveFeedback.test.tsx > AdminPage save feedback > oferece salvar ao trocar de seção e só navega depois do salvamento 4070ms
+ ✓ src/pages/admin/AdminPage.saveFeedback.test.tsx > AdminPage save feedback > descarta as mudanças quando escolhe não salvar e confirma isso na nova tela 3432ms
+ ✓ src/pages/Courier/CourierWorkspace.test.tsx > CourierWorkspace integration > filtra Delivery, exibe montagem e permite ativar GPS ao retirar 1843ms
+stderr | src/pages/Courier/CourierWorkspace.test.tsx > CourierWorkspace integration > mostra erro de carregamento e permite tentar novamente
+[courier] Falha ao carregar entregas Error: offline
+    at C:/Users/Samuel/Documents/Codex/RESTAURANT-DELIVERY-MESA/pizza-ia-delivery/frontend/src/pages/Courier/CourierWorkspace.test.tsx:306:30
+    at file:///C:/Users/Samuel/Documents/Codex/RESTAURANT-DELIVERY-MESA/pizza-ia-delivery/frontend/node_modules/@vitest/runner/dist/chunk-artifact.js:302:11
+    at file:///C:/Users/Samuel/Documents/Codex/RESTAURANT-DELIVERY-MESA/pizza-ia-delivery/frontend/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:26
+    at file:///C:/Users/Samuel/Documents/Codex/RESTAURANT-DELIVERY-MESA/pizza-ia-delivery/frontend/node_modules/@vitest/runner/dist/chunk-artifact.js:2326:20
+    at new Promise (<anonymous>)
+    at runWithCancel (file:///C:/Users/Samuel/Documents/Codex/RESTAURANT-DELIVERY-MESA/pizza-ia-delivery/frontend/node_modules/@vitest/runner/dist/chunk-artifact.js:2323:10)
+    at file:///C:/Users/Samuel/Documents/Codex/RESTAURANT-DELIVERY-MESA/pizza-ia-delivery/frontend/node_modules/@vitest/runner/dist/chunk-artifact.js:2305:20
+    at new Promise (<anonymous>)
+    at runWithTimeout (file:///C:/Users/Samuel/Documents/Codex/RESTAURANT-DELIVERY-MESA/pizza-ia-delivery/frontend/node_modules/@vitest/runner/dist/chunk-artifact.js:2272:10)
+    at file:///C:/Users/Samuel/Documents/Codex/RESTAURANT-DELIVERY-MESA/pizza-ia-delivery/frontend/node_modules/@vitest/runner/dist/chunk-artifact.js:2955:64
+
+ ✓ src/pages/Courier/CourierWorkspace.test.tsx > CourierWorkspace integration > permite retirar sem GPS mesmo quando a permissão de localização é negada 1299ms
+ ✓ src/pages/Courier/CourierWorkspace.test.tsx > CourierWorkspace integration > mostra erro de carregamento e permite tentar novamente 142ms
+ ✓ src/pages/Courier/CourierWorkspace.test.tsx > CourierWorkspace integration > descarta pedidos e eventos de outro restaurante 71ms
+ ✓ src/pages/Courier/CourierWorkspace.test.tsx > CourierWorkspace integration > mostra pedidos acumulados em blocos de 10 e permite voltar aos primeiros 10 363ms
+ ✓ src/pages/Courier/CourierWorkspace.test.tsx > CourierWorkspace integration > abre Histórico, Perfil e Ajuda pelo menu Mais da navegação inferior 55ms
+ ✓ src/pages/Courier/CourierWorkspace.test.tsx > CourierWorkspace integration > não enfileira posições offline e reenvia somente a posição atual ao reconectar 57ms
+ ✓ src/pages/admin/components/ProductDrawer.test.tsx > cadastro administrativo de produto > exige confirmação antes de descartar uma configuração existente 481ms
+ ✓ src/pages/admin/components/ProductDrawer.test.tsx > cadastro administrativo de produto > preserva o produto ao criar uma opção inline na personalização 1547ms
+ ✓ src/pages/admin/components/AdminOrders.test.tsx > AdminOrders > separa pagamento, modalidade, andamento e regras de devolução 242ms
+ ✓ src/pages/admin/components/AdminOrders.test.tsx > AdminOrders > busca uma página por clique e retorna à primeira sem carregar o histórico inteiro 478ms
+ ✓ src/pages/admin/components/AdminOrders.test.tsx > AdminOrders > usa indicadores globais e envia o filtro da fila ao servidor 62ms
+ ✓ src/pages/admin/components/AdminOrders.test.tsx > AdminOrders > só chama o cancelamento online depois da confirmação no diálogo interno 68ms
+ ✓ src/pages/admin/components/AdminOrders.test.tsx > AdminOrders > informa devolução manual para pagamento recebido na entrega 47ms
+ ✓ src/pages/admin/components/AdminOrders.test.tsx > AdminOrders > trata a rejeição da API e mostra o erro sem deixar a Promise escapar 30ms
+ ✓ src/pages/admin/components/IngredientWizard.test.tsx > wizard de ingrediente > exige uma categoria antes de avançar 187ms
+ ✓ src/pages/admin/components/IngredientWizard.test.tsx > wizard de ingrediente > usa a validação central para nome obrigatório e duplicidade 31ms
+ ✓ src/pages/admin/components/IngredientWizard.test.tsx > wizard de ingrediente > impede valor adicional negativo 66ms
+ ✓ src/pages/admin/components/IngredientWizard.test.tsx > wizard de ingrediente > pesquisa somente ao avançar e mostra loading antes das sugestões 28ms
+ ✓ src/pages/admin/components/IngredientWizard.test.tsx > wizard de ingrediente > só usa uma foto sugerida depois da confirmação do administrador 58ms
+ ✓ src/pages/admin/components/IngredientWizard.test.tsx > wizard de ingrediente > pesquisa novamente usando a próxima página 40ms
+ ✓ src/pages/admin/components/IngredientWizard.test.tsx > wizard de ingrediente > aceita upload próprio e envia a imagem persistente 52ms
+ ✓ src/pages/admin/components/IngredientWizard.test.tsx > wizard de ingrediente > falha do provider não bloqueia o caminho sem foto 42ms
+ ✓ src/pages/admin/components/IngredientWizard.test.tsx > wizard de ingrediente > preserva os dados ao voltar e avançar entre as etapas 100ms
+ ✓ src/pages/admin/components/IngredientWizard.test.tsx > wizard de ingrediente > cadastra no catálogo, exibe sucesso e permite iniciar outro cadastro 55ms
+ ✓ src/pages/admin/components/IngredientWizard.test.tsx > wizard de ingrediente > devolve o ingrediente criado e fecha imediatamente no modo inline 44ms
+ ✓ src/pages/admin/components/IngredientWizard.test.tsx > wizard de ingrediente > pede confirmação antes de descartar dados pelo botão de fechar 8ms
+ ✓ src/pages/admin/components/IngredientWizard.test.tsx > wizard de ingrediente > mantém o formulário aberto e mostra a mensagem devolvida pela API 21ms
+ ✓ src/pages/waiter/pages/WaiterPages.test.tsx > waiter operational pages > mostra somente métricas reais e substitui o antigo fluxo de PIN por mesas abertas 82ms
+ ✓ src/pages/waiter/pages/WaiterPages.test.tsx > waiter operational pages > abre a aba operacional ao clicar ou usar o teclado no cartão de pedido pronto 25ms
+ ✓ src/pages/waiter/pages/WaiterPages.test.tsx > waiter operational pages > usa a quantidade real de mesas na aba Para entregar e filtra pedidos 32ms
+ ✓ src/pages/waiter/pages/WaiterPages.test.tsx > waiter operational pages > permite ao garçom confirmar a entrega de um pedido pronto à mesa 15ms
+ ✓ src/pages/waiter/pages/WaiterPages.test.tsx > waiter operational pages > abre e fecha mesa somente após o callback real e mostra bloqueio do backend 33ms
+ ✓ src/pages/waiter/pages/WaiterPages.test.tsx > waiter operational pages > não simula abertura quando o endpoint não foi conectado 11ms
+ ✓ src/pages/waiter/pages/WaiterPages.test.tsx > waiter operational pages > reflete imediatamente dados novos recebidos do polling sem manter mesas obsoletas 21ms
+ ✓ src/pages/waiter/pages/WaiterPages.test.tsx > waiter operational pages > permite somente abrir ou fechar a mesa sem expor ações administrativas do QR 12ms
+ ✓ src/pages/waiter/pages/WaiterPages.test.tsx > waiter operational pages > distingue conta solicitada de mesa aberta e permite finalizar a sessão correta 9ms
+ ✓ src/pages/waiter/pages/WaiterPages.test.tsx > waiter operational pages > orienta o garçom a conferir pagamentos e confirmar a entrega operacional 13ms
+ ✓ src/pages/waiter/pages/WaiterPages.test.tsx > waiter operational pages > mostra a conta e permite confirmar somente dinheiro ou maquininha já recebidos 64ms
+ ✓ src/pages/waiter/pages/WaiterPages.test.tsx > waiter operational pages > organiza pagamentos presenciais em fila e confirma pelo ledger sem ações administrativas 82ms
+ ✓ src/pages/waiter/pages/WaiterPages.test.tsx > waiter operational pages > busca chamados e confirma Atender pelo contrato de atualização 23ms
+ ✓ src/pages/waiter/pages/WaiterPages.test.tsx > waiter operational pages > expande os concluídos de 10 em 10 e permite voltar para os primeiros 10 66ms
+ ✓ src/pages/RecoverPassword/RecoverPasswordCooldown.test.tsx > recuperacao: intervalo de 30 segundos > bloqueia no envio inicial, libera em 30s e reinicia depois de reenviar 185ms
+ ✓ src/pages/RecoverPassword/RecoverPasswordCooldown.test.tsx > recuperacao: intervalo de 30 segundos > nao permite contornar o intervalo usando alterar contato 40ms
+ ✓ src/pages/RecoverPassword/RecoverPasswordCooldown.test.tsx > recuperacao: intervalo de 30 segundos > mantem o prazo ao remontar a pagina, sem guardar email ou codigo 53ms
+ ✓ src/pages/RecoverPassword/RecoverPasswordCooldown.test.tsx > recuperacao: intervalo de 30 segundos > recalcula o prazo pelo relogio ao voltar para uma aba em segundo plano 33ms
+ ✓ src/pages/RecoverPassword/RecoverPasswordCooldown.test.tsx > recuperacao: intervalo de 30 segundos > nao bloqueia a redefinicao enquanto o reenvio esta em contagem 72ms
+ ✓ src/pages/RecoverPassword/RecoverPasswordCooldown.test.tsx > recuperacao: intervalo de 30 segundos > evita submissao duplicada mesmo antes da resposta da API 28ms
+ ✓ src/pages/RecoverPassword/RecoverPasswordCooldown.test.tsx > recuperacao: intervalo de 30 segundos > mantem espera depois de falha de rede e permite tentar novamente apos 30s 29ms
+ ✓ src/pages/RecoverPassword/RecoverPasswordCooldown.test.tsx > recuperacao: intervalo de 30 segundos > continua funcionando quando o navegador bloqueia sessionStorage 40ms
+stderr | src/pages/admin/components/TableMenuSettings.test.tsx > TableMenuSettings > reflete os recursos operacionais do cardápio de mesa
+The current testing environment is not configured to support act(...)
+
+stderr | src/pages/admin/components/TableMenuSettings.test.tsx > TableMenuSettings > reflete os recursos operacionais do cardápio de mesa
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+
+stderr | src/pages/admin/components/TableMenuSettings.test.tsx > TableMenuSettings > reflete os recursos operacionais do cardápio de mesa
+The current testing environment is not configured to support act(...)
+
+stderr | src/pages/admin/components/TableMenuSettings.test.tsx > TableMenuSettings > reflete os recursos operacionais do cardápio de mesa
+The current testing environment is not configured to support act(...)
+
+stderr | src/pages/admin/components/TableMenuSettings.test.tsx > TableMenuSettings > encaminha a alteração do pedido por mesa ao estado da tela
+The current testing environment is not configured to support act(...)
+
+stderr | src/pages/admin/components/TableMenuSettings.test.tsx > TableMenuSettings > encaminha a alteração do pedido por mesa ao estado da tela
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+
+stderr | src/pages/admin/components/TableMenuSettings.test.tsx > TableMenuSettings > encaminha a alteração do pedido por mesa ao estado da tela
+The current testing environment is not configured to support act(...)
+
+stderr | src/pages/admin/components/TableMenuSettings.test.tsx > TableMenuSettings > encaminha a alteração do pedido por mesa ao estado da tela
+The current testing environment is not configured to support act(...)
+
+stderr | src/pages/admin/components/TableMenuSettings.test.tsx > TableMenuSettings > explica o ciclo sem PIN e não exibe ação simulada de geração
+The current testing environment is not configured to support act(...)
+
+stderr | src/pages/admin/components/TableMenuSettings.test.tsx > TableMenuSettings > explica o ciclo sem PIN e não exibe ação simulada de geração
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+
+stderr | src/pages/admin/components/TableMenuSettings.test.tsx > TableMenuSettings > explica o ciclo sem PIN e não exibe ação simulada de geração
+The current testing environment is not configured to support act(...)
+
+stderr | src/pages/admin/components/TableMenuSettings.test.tsx > TableMenuSettings > explica o ciclo sem PIN e não exibe ação simulada de geração
+The current testing environment is not configured to support act(...)
+
+stderr | src/pages/admin/components/TableMenuSettings.test.tsx > TableMenuSettings > encaminha as preferências de chamar garçom e pedir a conta
+The current testing environment is not configured to support act(...)
+
+stderr | src/pages/admin/components/TableMenuSettings.test.tsx > TableMenuSettings > encaminha as preferências de chamar garçom e pedir a conta
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+
+stderr | src/pages/admin/components/TableMenuSettings.test.tsx > TableMenuSettings > encaminha as preferências de chamar garçom e pedir a conta
+The current testing environment is not configured to support act(...)
+
+stderr | src/pages/admin/components/TableMenuSettings.test.tsx > TableMenuSettings > encaminha as preferências de chamar garçom e pedir a conta
+The current testing environment is not configured to support act(...)
+
+stderr | src/pages/admin/components/TableMenuSettings.test.tsx > TableMenuSettings > lista o QR seguro e abre o diálogo acessível da mesa
+The current testing environment is not configured to support act(...)
+
+stderr | src/pages/admin/components/TableMenuSettings.test.tsx > TableMenuSettings > lista o QR seguro e abre o diálogo acessível da mesa
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+
+stderr | src/pages/admin/components/TableMenuSettings.test.tsx > TableMenuSettings > lista o QR seguro e abre o diálogo acessível da mesa
+The current testing environment is not configured to support act(...)
+
+ ✓ src/pages/admin/components/TableMenuSettings.test.tsx > TableMenuSettings > reflete os recursos operacionais do cardápio de mesa 100ms
+ ✓ src/pages/admin/components/TableMenuSettings.test.tsx > TableMenuSettings > encaminha a alteração do pedido por mesa ao estado da tela 21ms
+ ✓ src/pages/admin/components/TableMenuSettings.test.tsx > TableMenuSettings > explica o ciclo sem PIN e não exibe ação simulada de geração 24ms
+ ✓ src/pages/admin/components/TableMenuSettings.test.tsx > TableMenuSettings > encaminha as preferências de chamar garçom e pedir a conta 24ms
+stderr | src/pages/admin/components/TableMenuSettings.test.tsx > TableMenuSettings > lista o QR seguro e abre o diálogo acessível da mesa
+The current testing environment is not configured to support act(...)
+
+stderr | src/pages/admin/components/TableMenuSettings.test.tsx > TableMenuSettings > lista o QR seguro e abre o diálogo acessível da mesa
+The current testing environment is not configured to support act(...)
+
+stderr | src/pages/admin/components/TableMenuSettings.test.tsx > TableMenuSettings > valida o número e cria a mesa com QR vinculado retornado pelo backend
+The current testing environment is not configured to support act(...)
+
+stderr | src/pages/admin/components/TableMenuSettings.test.tsx > TableMenuSettings > valida o número e cria a mesa com QR vinculado retornado pelo backend
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+
+stderr | src/pages/admin/components/TableMenuSettings.test.tsx > TableMenuSettings > valida o número e cria a mesa com QR vinculado retornado pelo backend
+The current testing environment is not configured to support act(...)
+
+stderr | src/pages/admin/components/TableMenuSettings.test.tsx > TableMenuSettings > valida o número e cria a mesa com QR vinculado retornado pelo backend
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+
+stderr | src/pages/admin/components/TableMenuSettings.test.tsx > TableMenuSettings > valida o número e cria a mesa com QR vinculado retornado pelo backend
+The current testing environment is not configured to support act(...)
+
+stderr | src/pages/admin/components/TableMenuSettings.test.tsx > TableMenuSettings > valida o número e cria a mesa com QR vinculado retornado pelo backend
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+
+stderr | src/pages/admin/components/TableMenuSettings.test.tsx > TableMenuSettings > valida o número e cria a mesa com QR vinculado retornado pelo backend
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+
+ ✓ src/pages/admin/components/TableMenuSettings.test.tsx > TableMenuSettings > lista o QR seguro e abre o diálogo acessível da mesa 89ms
+stderr | src/pages/admin/components/TableMenuSettings.test.tsx > TableMenuSettings > valida o número e cria a mesa com QR vinculado retornado pelo backend
+The current testing environment is not configured to support act(...)
+
+stderr | src/pages/admin/components/TableMenuSettings.test.tsx > TableMenuSettings > imprime os QR Codes ativos pelo botão principal
+The current testing environment is not configured to support act(...)
+
+stderr | src/pages/admin/components/TableMenuSettings.test.tsx > TableMenuSettings > imprime os QR Codes ativos pelo botão principal
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+
+stderr | src/pages/admin/components/TableMenuSettings.test.tsx > TableMenuSettings > imprime os QR Codes ativos pelo botão principal
+The current testing environment is not configured to support act(...)
+
+stderr | src/pages/admin/components/TableMenuSettings.test.tsx > TableMenuSettings > imprime os QR Codes ativos pelo botão principal
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+
+stderr | src/pages/admin/components/TableMenuSettings.test.tsx > TableMenuSettings > imprime os QR Codes ativos pelo botão principal
+The current testing environment is not configured to support act(...)
+
+stderr | src/pages/admin/components/TableMenuSettings.test.tsx > TableMenuSettings > baixa o SVG do QR sem expor o token como texto na interface
+The current testing environment is not configured to support act(...)
+
+stderr | src/pages/admin/components/TableMenuSettings.test.tsx > TableMenuSettings > baixa o SVG do QR sem expor o token como texto na interface
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+
+stderr | src/pages/admin/components/TableMenuSettings.test.tsx > TableMenuSettings > baixa o SVG do QR sem expor o token como texto na interface
+The current testing environment is not configured to support act(...)
+
+stderr | src/pages/admin/components/TableMenuSettings.test.tsx > TableMenuSettings > baixa o SVG do QR sem expor o token como texto na interface
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+
+stderr | src/pages/admin/components/TableMenuSettings.test.tsx > TableMenuSettings > baixa o SVG do QR sem expor o token como texto na interface
+The current testing environment is not configured to support act(...)
+
+ ✓ src/pages/admin/components/TableMenuSettings.test.tsx > TableMenuSettings > valida o número e cria a mesa com QR vinculado retornado pelo backend 81ms
+ ✓ src/pages/admin/components/TableMenuSettings.test.tsx > TableMenuSettings > imprime os QR Codes ativos pelo botão principal 57ms
+ ✓ src/pages/admin/components/TableMenuSettings.test.tsx > TableMenuSettings > baixa o SVG do QR sem expor o token como texto na interface 38ms
+ ✓ src/pages/kitchen/pages/KitchenPages.test.tsx > páginas operacionais da cozinha > mostra todos os canais, ordena os mais antigos primeiro e busca sem depender de acento 127ms
+ ✓ src/pages/kitchen/pages/KitchenPages.test.tsx > páginas operacionais da cozinha > ordena pedidos em preparo pelo início da etapa atual 27ms
+ ✓ src/pages/kitchen/pages/KitchenPages.test.tsx > páginas operacionais da cozinha > bloqueia clique duplo durante a transição e mostra a rejeição do backend 33ms
+ ✓ src/pages/kitchen/pages/KitchenPages.test.tsx > páginas operacionais da cozinha > impede preparo de pedido sem produto e sinaliza o dado inválido 15ms
+ ✓ src/pages/kitchen/pages/KitchenPages.test.tsx > páginas operacionais da cozinha > solicita uma única reimpressão manual e mostra falhas do backend 29ms
+ ✓ src/pages/kitchen/pages/KitchenPages.test.tsx > páginas operacionais da cozinha > confirma visualmente quando a reimpressão é enviada 27ms
+ ✓ src/pages/kitchen/pages/KitchenPages.test.tsx > páginas operacionais da cozinha > expande a fila em blocos de 10 e permite voltar ao recorte inicial 80ms
+ ✓ src/pages/kitchen/pages/KitchenPages.test.tsx > páginas operacionais da cozinha > calcula o histórico do turno com timestamps reais e mantém itens consultáveis 38ms
+ ✓ src/pages/kitchen/pages/KitchenPages.test.tsx > páginas operacionais da cozinha > ignora pedidos concluídos antes do início do turno 8ms
+ ✓ src/pages/kitchen/pages/KitchenPages.test.tsx > páginas operacionais da cozinha > expande o histórico de 10 em 10 e volta para os primeiros pedidos 40ms
+ ✓ src/pages/admin/components/KitchenPrintingSettings.test.tsx > configuração da impressora da cozinha > mantém o recurso opcional e salva somente a configuração privada escolhida 262ms
+ ✓ src/pages/admin/components/KitchenPrintingSettings.test.tsx > configuração da impressora da cozinha > exibe o código apenas depois da emissão e explica que ele aparece uma vez 89ms
+ ✓ src/pages/admin/components/KitchenPrintingSettings.test.tsx > configuração da impressora da cozinha > mostra exemplos de comanda para delivery, mesa e retirada 41ms
+ ✓ src/pages/Profile/ProfilePage.test.tsx > ProfilePage > expõe a etapa atual do pedido e a navegação selecionada 215ms
+ ✓ src/pages/Profile/ProfilePage.test.tsx > ProfilePage > atualiza a seleção ao navegar pelas abas móveis 142ms
+ ✓ src/pages/Profile/ProfilePage.test.tsx > ProfilePage > expande o histórico em blocos de 10 e retorna ao início 127ms
+ ✓ src/pages/Home/HomePage.search.test.tsx > busca de produtos na Home > abre pela lupa, encontra pelo nome e abre os detalhes do produto escolhido 437ms
+ ✓ src/pages/Home/HomePage.search.test.tsx > busca de produtos na Home > abre a busca ao receber a intenção de navegação do perfil 34ms
+ ✓ src/pages/Home/HomePage.search.test.tsx > busca de produtos na Home > adiciona produto COMPLETE sem abrir o configurador nem a sacola 39ms
+ ✓ src/pages/admin/components/EmployeeCompensationSettings.test.tsx > remuneração dos funcionários > mostra políticas em reais e mantém motoqueiros fora do módulo 164ms
+ ✓ src/pages/admin/components/EmployeeCompensationSettings.test.tsx > remuneração dos funcionários > abre um pagamento parcial somente com o saldo restante do acerto 48ms
+ ✓ src/pages/admin/components/EmployeeCompensationSettings.test.tsx > remuneração dos funcionários > permite gerar novamente um acerto cancelado pelo detalhe 78ms
+ ✓ src/pages/Login/Login.test.tsx > Login contextual do cliente > aplica a identidade da categoria sem perder o contexto da mesa 101ms
+ ✓ src/pages/Login/Login.test.tsx > Login contextual do cliente > preserva a mesa durante email, senha e MFA até o redirect final 41ms
+ ✓ src/pages/Login/Login.test.tsx > Login contextual do cliente > usa o mesmo next seguro após o callback do Google 27ms
+ ✓ src/pages/Login/Login.test.tsx > Login contextual do cliente > usa o next mais recente no callback Google já inicializado 30ms
+ ✓ src/pages/Login/Login.test.tsx > Login contextual do cliente > preserva o next durante a troca obrigatória de senha do CLIENTE 35ms
+ ✓ src/pages/Login/Login.test.tsx > Login contextual do cliente > envia funcionário ATENDENTE à área exclusiva sem reutilizar o next do cliente 41ms
+ ✓ src/pages/admin/components/TableAccountSettings.test.tsx > TableAccountSettings > solicita o motivo do fechamento em um diálogo interno do sistema 147ms
+ ✓ src/pages/admin/components/TableAccountSettings.test.tsx > TableAccountSettings > confirma recebimento presencial somente após decisão explícita 77ms
+ ✓ src/pages/admin/components/TableAccountSettings.test.tsx > TableAccountSettings > coleta um motivo auditável antes de registrar o estorno 58ms
+ ✓ src/pages/admin/components/AdminOverview.test.tsx > AdminOverview > expande pedidos e produtos em blocos independentes de 10 190ms
+ ✓ src/pages/admin/components/AdminOverview.test.tsx > AdminOverview > oferece atalhos contextuais para pedidos, cardápio e clientes 21ms
+ ✓ src/pages/RecoverPassword/RecoverPassword.test.tsx > RecoverPassword > solicita o código por e-mail e preserva o contato durante a confirmação 115ms
+ ✓ src/pages/RecoverPassword/RecoverPassword.test.tsx > RecoverPassword > permite trocar o contato antes de solicitar um novo código 26ms
+ ✓ src/pages/RecoverPassword/RecoverPassword.test.tsx > RecoverPassword > retorna ao Login tenant-scoped com o next completo após redefinir a senha 78ms
+ ✓ src/pages/admin/components/PaymentSettings.test.tsx > PaymentSettings > controla os meios aceitos e desabilita configurações indisponíveis 100ms
+ ✓ src/pages/admin/components/PaymentSettings.test.tsx > PaymentSettings > diferencia método ativo de conta vinculada no resumo 28ms
+ ✓ src/pages/admin/components/PaymentSettings.test.tsx > PaymentSettings > valida CPF ou CNPJ antes de criar a subconta Asaas 78ms
+ ✓ src/pages/admin/components/HelpCenter.test.tsx > HelpCenter support channels > mantém relatos da equipe separados da conversa entre ADMIN e SUPER_ADMIN 251ms
+ ✓ src/pages/Home/components/TableAccountPanel.test.tsx > TableAccountPanel > abre somente a etapa de escolha do que pagar 43ms
+ ✓ src/pages/Home/components/TableAccountPanel.test.tsx > TableAccountPanel > avisa quando Pix e cartão online não estão configurados 6ms
+ ✓ src/pages/Home/components/TableAccountPanel.test.tsx > TableAccountPanel > limpa os itens escolhidos depois de criar uma reserva com sucesso 99ms
+ ✓ src/pages/Home/components/TableAccountPanel.test.tsx > TableAccountPanel > solicita dinheiro para os itens escolhidos sem usar o modo legado de garçom 46ms
+ ✓ src/pages/Home/components/TableAccountPanel.test.tsx > TableAccountPanel > retoma um Pix em processamento sem tratá-lo como pago 6ms
+ ✓ src/components/payment/PaymentResultView.test.tsx > PaymentResultView > mostra contagem e retorna uma única vez após cinco segundos no estado PAID 52ms
+ ✓ src/components/payment/PaymentResultView.test.tsx > PaymentResultView > mostra contagem e retorna uma única vez após cinco segundos no estado FAILED 9ms
+ ✓ src/components/payment/PaymentResultView.test.tsx > PaymentResultView > mostra contagem e retorna uma única vez após cinco segundos no estado CANCELED 7ms
+ ✓ src/components/payment/PaymentResultView.test.tsx > PaymentResultView > permanece na tela e não inicia contagem no estado PENDING 4ms
+ ✓ src/components/payment/PaymentResultView.test.tsx > PaymentResultView > permanece na tela e não inicia contagem no estado VERIFYING 4ms
+ ✓ src/components/payment/PaymentResultView.test.tsx > PaymentResultView > permanece na tela e não inicia contagem no estado ERROR 7ms
+ ✓ src/components/payment/PaymentResultView.test.tsx > PaymentResultView > permanece na tela e não inicia contagem no estado EXPIRED 5ms
+ ✓ src/components/payment/PaymentResultView.test.tsx > PaymentResultView > permanece na tela e não inicia contagem no estado REFUNDED 9ms
+ ✓ src/components/payment/PaymentResultView.test.tsx > PaymentResultView > não anuncia retorno automático quando nenhuma ação de retorno foi fornecida 6ms
+ ✓ src/components/payment/PaymentResultView.test.tsx > PaymentResultView > cancela o retorno quando o status deixa de ser elegível 7ms
+ ✓ src/components/payment/PaymentResultView.test.tsx > PaymentResultView > dá cinco segundos completos para um novo resultado terminal 7ms
+ ✓ src/components/payment/PaymentResultView.test.tsx > PaymentResultView > limpa o retorno pendente ao desmontar a tela 4ms
+ ✓ src/components/payment/PaymentResultView.test.tsx > PaymentResultView > usa o callback mais recente sem reiniciar a contagem a cada renderização 6ms
+ ✓ src/components/payment/PaymentResultView.test.tsx > PaymentResultView > cancela a contagem quando a ação de retorno é removida 6ms
+ ✓ src/components/payment/PaymentResultView.test.tsx > PaymentResultView > anuncia o novo resultado e move o foco para o título 6ms
+ ✓ src/components/payment/PaymentResultView.test.tsx > PaymentResultView > mantém as ações manuais disponíveis antes do retorno automático 12ms
+ ✓ src/components/payment/PaymentResultView.test.tsx > PaymentResultView > distingue o título de confirmação do cartão e do Pix 6ms
+ ✓ src/components/payment/PaymentResultView.test.tsx > PaymentResultView > usa o ícone da categoria do restaurante no cabeçalho 4ms
+ ✓ src/pages/tracking/DeliveryTrackingPage.test.tsx > DeliveryTrackingPage integration > mostra destino/rota e aceita realtime somente do pedido e restaurante corretos 102ms
+ ✓ src/pages/tracking/DeliveryTrackingPage.test.tsx > DeliveryTrackingPage integration > encerra o acompanhamento ao cancelar e ignora posições posteriores 18ms
+ ✓ src/pages/tracking/DeliveryTrackingPage.test.tsx > DeliveryTrackingPage integration > reinicia todo o estado ao navegar para outro pedido 26ms
+ ✓ src/pages/tracking/DeliveryTrackingPage.test.tsx > DeliveryTrackingPage integration > exibe falha amigável e recupera pelo botão de retry 20ms
+stderr | src/pages/Home/components/HomeHeader.test.tsx > endereço de entrega da Home > distingue endereços com o mesmo nome e sinaliza a seleção
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+
+ ✓ src/pages/Home/components/HomeHeader.test.tsx > status de funcionamento da Home > mostra no círculo a foto persistida do perfil do usuário 41ms
+ ✓ src/pages/Home/components/HomeHeader.test.tsx > status de funcionamento da Home > mantém as iniciais quando o usuário ainda não possui foto 4ms
+ ✓ src/pages/Home/components/HomeHeader.test.tsx > status de funcionamento da Home > mantém o nome completo do restaurante no cabeçalho 3ms
+ ✓ src/pages/Home/components/HomeHeader.test.tsx > status de funcionamento da Home > não renderiza o menu de navegação removido 3ms
+ ✓ src/pages/Home/components/HomeHeader.test.tsx > status de funcionamento da Home > mostra um único estado aberto com o horário de fechamento 7ms
+ ✓ src/pages/Home/components/HomeHeader.test.tsx > status de funcionamento da Home > mostra o estado fechado e a próxima abertura 3ms
+ ✓ src/pages/Home/components/HomeHeader.test.tsx > status de funcionamento da Home > omite um detalhe legado que contradiz o estado principal 3ms
+ ✓ src/pages/Home/components/HomeHeader.test.tsx > endereço de entrega da Home > não apresenta o endereço do restaurante como destino de um visitante 3ms
+ ✓ src/pages/Home/components/HomeHeader.test.tsx > endereço de entrega da Home > não apresenta o endereço do restaurante para um cliente sem endereço salvo 4ms
+ ✓ src/pages/Home/components/HomeHeader.test.tsx > endereço de entrega da Home > ignora endereços residuais quando a sessão não está autenticada 5ms
+ ✓ src/pages/Home/components/HomeHeader.test.tsx > endereço de entrega da Home > mostra somente o endereço real selecionado do cliente autenticado 3ms
+ ✓ src/pages/Home/components/HomeHeader.test.tsx > endereço de entrega da Home > distingue endereços com o mesmo nome e sinaliza a seleção 56ms
+stderr | src/pages/Home/components/HomeHeader.test.tsx > endereço de entrega da Home > explica a exigência de login antes de encaminhar o visitante
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+
+ ✓ src/pages/Home/components/HomeHeader.test.tsx > endereço de entrega da Home > explica a exigência de login antes de encaminhar o visitante 19ms
+ ✓ src/pages/digital-menu/DigitalMenuPage.test.tsx > DigitalMenuPage actions > não confirma chamado visualmente quando não existe callback de envio 96ms
+ ✓ src/pages/digital-menu/DigitalMenuPage.test.tsx > DigitalMenuPage actions > só mostra sucesso depois que o callback confirma o chamado 24ms
+ ✓ src/pages/digital-menu/DigitalMenuPage.test.tsx > DigitalMenuPage actions > não aceita callback vazio como confirmação do envio 23ms
+ ✓ src/pages/Register/Register.test.tsx > Register contextual do cliente > cria somente uma conta CLIENTE e mantém a mesa até o Login tenant-scoped 142ms
+ ✓ src/pages/kitchen/KitchenModule.test.tsx > KitchenModule workspace states > distingue carregamento de um retorno vazio confirmado 111ms
+ ✓ src/pages/kitchen/KitchenModule.test.tsx > KitchenModule workspace states > mostra erro bloqueante com retry sem renderizar um vazio enganoso 16ms
+ ✓ src/pages/kitchen/KitchenModule.test.tsx > KitchenModule workspace states > expõe navegação e ações principais como botões acessíveis 26ms
+ ✓ src/pages/admin/components/CoreSettings.test.tsx > configurações principais do administrador > mantém marca e identidade como controles gerenciados e restringe os uploads 73ms
+ ✓ src/pages/admin/components/CoreSettings.test.tsx > configurações principais do administrador > expõe dados do negócio persistidos em campos controlados 26ms
+ ✓ src/pages/admin/components/CoreSettings.test.tsx > configurações principais do administrador > normaliza a UF do endereço antes de atualizar o estado 6ms
+ ✓ src/pages/admin/components/CoreSettings.test.tsx > configurações principais do administrador > limita prazos e capacidade dos pedidos às faixas aceitas pelo backend 13ms
+ ✓ src/pages/admin/components/AdminMenuImport.test.tsx > importação de cardápio > recusa origem fora do domínio oficial antes de chamar a API 64ms
+ ✓ src/pages/admin/components/AdminMenuImport.test.tsx > importação de cardápio > mostra o resumo persistido e recarrega o catálogo após importar 28ms
+ ✓ src/pages/admin/components/AdminMenuImport.test.tsx > importação de cardápio > oferece a importação alternativa por foto sem exigir iFood 32ms
+ ✓ src/pages/admin/components/PromotionBannerSettings.test.tsx > PromotionBannerSettings > permite adicionar vários banners sem slots fixos e editar a prévia 89ms
+ ✓ src/pages/admin/components/PromotionBannerSettings.test.tsx > PromotionBannerSettings > reordena, oculta e remove banners mantendo as posições visuais 30ms
+ ✓ src/pages/admin/components/PromotionBannerSettings.test.tsx > PromotionBannerSettings > encaminha upload e melhoria por IA para o banner correto 8ms
+ ✓ src/pages/Home/components/PromotionCarousel.test.tsx > PromotionCarousel > expõe semântica acessível e deixa somente a promoção atual interativa 70ms
+ ✓ src/pages/Home/components/PromotionCarousel.test.tsx > PromotionCarousel > pré-decodifica o próximo banner para a troca manter-se fluida 7ms
+ ✓ src/pages/Home/components/PromotionCarousel.test.tsx > PromotionCarousel > permite navegar, escolher um banner e mantém a rotação após clicar no cardápio 25ms
+ ✓ src/pages/Home/components/PromotionCarousel.test.tsx > PromotionCarousel > mantém setas laterais e apenas o indicador ativo no fluxo do teclado 19ms
+ ✓ src/pages/Home/components/PromotionCarousel.test.tsx > PromotionCarousel > não mostra navegação nem pausa quando existe somente um banner 3ms
+ ✓ src/pages/Home/components/PromotionCarousel.test.tsx > PromotionCarousel > alterna os banners com gesto horizontal no touchscreen 9ms
+ ✓ src/pages/admin/components/AdminPeople.test.tsx > diretórios administrativos de pessoas > resume, ordena e filtra clientes pelo histórico de pedidos 90ms
+ ✓ src/pages/admin/components/AdminPeople.test.tsx > diretórios administrativos de pessoas > filtra funcionários sem ocultar cargo e executa as ações do acesso 48ms
+ ✓ src/pages/digital-menu/DigitalMenuEntryPage.test.tsx > DigitalMenuEntryPage > resolve tableNumber no restaurante e abre o fluxo funcional com o id interno correto 31ms
+ ✓ src/pages/digital-menu/DigitalMenuEntryPage.test.tsx > DigitalMenuEntryPage > não duplica a entrada nem o participante quando o StrictMode repete o efeito inicial 11ms
+ ✓ src/pages/digital-menu/DigitalMenuEntryPage.test.tsx > DigitalMenuEntryPage > não abre cardápio quando o backend retorna outra mesa 14ms
+ ✓ src/pages/digital-menu/DigitalMenuEntryPage.test.tsx > DigitalMenuEntryPage > só solicita a identidade depois de validar a mesa canônica 2ms
+ ✓ src/pages/digital-menu/DigitalMenuEntryPage.test.tsx > DigitalMenuEntryPage > valida o QR antes de pedir identidade e faz uma única entrada identificada 26ms
+ ✓ src/pages/digital-menu/DigitalMenuEntryPage.test.tsx > DigitalMenuEntryPage > usa o token como identidade principal quando o tid do QR está desatualizado 3ms
+ ✓ src/pages/digital-menu/DigitalMenuEntryPage.test.tsx > DigitalMenuEntryPage > orienta aguardar o garçom sem exibir campo de PIN quando a mesa está fechada 10ms
+ ✓ src/pages/digital-menu/DigitalMenuEntryPage.test.tsx > DigitalMenuEntryPage > libera o cardápio automaticamente quando o garçom abre a mesa 9ms
+ ✓ src/pages/digital-menu/DigitalMenuEntryPage.test.tsx > DigitalMenuEntryPage > entra no cardápio em modo de fechamento para permitir consultar e pagar a conta 2ms
+ ✓ src/pages/digital-menu/DigitalMenuEntryPage.test.tsx > DigitalMenuEntryPage > libera o cardápio em tempo real ao receber a abertura da mesa 7ms
+stderr | src/pages/Home/components/ProductSearchDialog.test.tsx > ProductSearchDialog > filtra por nome sem diferenciar maiúsculas ou acentos
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+
+stderr | src/pages/Home/components/ProductSearchDialog.test.tsx > ProductSearchDialog > filtra por nome sem diferenciar maiúsculas ou acentos
+The current testing environment is not configured to support act(...)
+
+stderr | src/pages/Home/components/ProductSearchDialog.test.tsx > ProductSearchDialog > mostra orientação inicial e estado vazio quando não encontra produtos
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+
+ ✓ src/pages/Home/components/ProductSearchDialog.test.tsx > ProductSearchDialog > filtra por nome sem diferenciar maiúsculas ou acentos 95ms
+stderr | src/pages/Home/components/ProductSearchDialog.test.tsx > ProductSearchDialog > mostra orientação inicial e estado vazio quando não encontra produtos
+The current testing environment is not configured to support act(...)
+
+stderr | src/pages/Home/components/ProductSearchDialog.test.tsx > ProductSearchDialog > seleciona o produto por clique e pela tecla Enter
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+
+stderr | src/pages/Home/components/ProductSearchDialog.test.tsx > ProductSearchDialog > seleciona o produto por clique e pela tecla Enter
+The current testing environment is not configured to support act(...)
+
+stderr | src/pages/Home/components/ProductSearchDialog.test.tsx > ProductSearchDialog > fecha ao pressionar Escape
+The current testing environment is not configured to support act(...)
+
+stderr | src/pages/Home/components/ProductSearchDialog.test.tsx > ProductSearchDialog > fecha ao pressionar Escape
+The current testing environment is not configured to support act(...)
+
+ ✓ src/pages/Home/components/ProductSearchDialog.test.tsx > ProductSearchDialog > mostra orientação inicial e estado vazio quando não encontra produtos 21ms
+ ✓ src/pages/Home/components/ProductSearchDialog.test.tsx > ProductSearchDialog > seleciona o produto por clique e pela tecla Enter 17ms
+ ✓ src/pages/Home/components/ProductSearchDialog.test.tsx > ProductSearchDialog > fecha ao pressionar Escape 10ms
+stderr | src/pages/admin/components/DeliverySettings.test.tsx > DeliverySettings > renderiza os canais e a taxa fixa persistida como controles gerenciados
+The current testing environment is not configured to support act(...)
+
+stderr | src/pages/admin/components/DeliverySettings.test.tsx > DeliverySettings > renderiza os canais e a taxa fixa persistida como controles gerenciados
+The current testing environment is not configured to support act(...)
+
+stderr | src/pages/admin/components/DeliverySettings.test.tsx > DeliverySettings > encaminha alterações dos canais ao estado da tela
+The current testing environment is not configured to support act(...)
+
+stderr | src/pages/admin/components/DeliverySettings.test.tsx > DeliverySettings > encaminha alterações dos canais ao estado da tela
+The current testing environment is not configured to support act(...)
+
+stderr | src/pages/admin/components/DeliverySettings.test.tsx > DeliverySettings > permite selecionar taxa por distância
+The current testing environment is not configured to support act(...)
+
+stderr | src/pages/admin/components/DeliverySettings.test.tsx > DeliverySettings > permite selecionar taxa por distância
+The current testing environment is not configured to support act(...)
+
+ ✓ src/pages/admin/components/DeliverySettings.test.tsx > DeliverySettings > renderiza os canais e a taxa fixa persistida como controles gerenciados 73ms
+ ✓ src/pages/admin/components/DeliverySettings.test.tsx > DeliverySettings > encaminha alterações dos canais ao estado da tela 15ms
+stderr | src/pages/admin/components/DeliverySettings.test.tsx > DeliverySettings > renderiza e edita faixas por distância
+The current testing environment is not configured to support act(...)
+
+stderr | src/pages/admin/components/DeliverySettings.test.tsx > DeliverySettings > renderiza e edita faixas por distância
+The current testing environment is not configured to support act(...)
+
+stderr | src/pages/admin/components/DeliverySettings.test.tsx > DeliverySettings > adiciona uma nova faixa por distância
+The current testing environment is not configured to support act(...)
+
+stderr | src/pages/admin/components/DeliverySettings.test.tsx > DeliverySettings > adiciona uma nova faixa por distância
+The current testing environment is not configured to support act(...)
+
+stderr | src/pages/admin/components/DeliverySettings.test.tsx > DeliverySettings > desabilita as regras de entrega enquanto o canal estiver desligado
+The current testing environment is not configured to support act(...)
+
+stderr | src/pages/admin/components/DeliverySettings.test.tsx > DeliverySettings > desabilita as regras de entrega enquanto o canal estiver desligado
+The current testing environment is not configured to support act(...)
+
+ ✓ src/pages/admin/components/DeliverySettings.test.tsx > DeliverySettings > permite selecionar taxa por distância 11ms
+ ✓ src/pages/admin/components/DeliverySettings.test.tsx > DeliverySettings > renderiza e edita faixas por distância 32ms
+ ✓ src/pages/admin/components/DeliverySettings.test.tsx > DeliverySettings > adiciona uma nova faixa por distância 12ms
+ ✓ src/pages/admin/components/DeliverySettings.test.tsx > DeliverySettings > desabilita as regras de entrega enquanto o canal estiver desligado 9ms
+stderr | src/pages/admin/components/WhatsAppSettings.test.tsx > WhatsAppSettings > encaminha alterações persistidas de canal, número e mensagens para o estado do admin
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+
+ ✓ src/pages/admin/components/WhatsAppSettings.test.tsx > WhatsAppSettings > organiza somente o conteúdo do WhatsApp em três passos e prévia didática 59ms
+ ✓ src/pages/admin/components/WhatsAppSettings.test.tsx > WhatsAppSettings > usa a logo monocromática da categoria quando não existe foto personalizada 4ms
+ ✓ src/pages/admin/components/WhatsAppSettings.test.tsx > WhatsAppSettings > mantém a ativação de status bloqueada enquanto o canal estiver desligado 4ms
+ ✓ src/pages/admin/components/WhatsAppSettings.test.tsx > WhatsAppSettings > valida o número comercial quando o canal estiver ativo 4ms
+ ✓ src/pages/admin/components/WhatsAppSettings.test.tsx > WhatsAppSettings > encaminha alterações persistidas de canal, número e mensagens para o estado do admin 41ms
+ ✓ src/pages/Cart/components/PixPaymentPanel.test.tsx > PixPaymentPanel > não anuncia confirmação no estado WAITING 39ms
+ ✓ src/pages/Cart/components/PixPaymentPanel.test.tsx > PixPaymentPanel > não anuncia confirmação no estado VERIFYING 11ms
+ ✓ src/pages/Cart/components/PixPaymentPanel.test.tsx > PixPaymentPanel > não anuncia confirmação no estado PENDING 4ms
+ ✓ src/pages/Cart/components/PixPaymentPanel.test.tsx > PixPaymentPanel > não anuncia confirmação no estado ERROR 7ms
+ ✓ src/pages/Cart/components/PixPaymentPanel.test.tsx > PixPaymentPanel > mostra confirmação somente no estado canônico PAID 32ms
+ ✓ src/pages/Home/HomePage.publicSettings.test.tsx > HomePage com configurações públicas > exibe frete grátis e somente contatos realmente configurados 104ms
+ ✓ src/pages/Home/HomePage.publicSettings.test.tsx > HomePage com configurações públicas > não anuncia frete grátis quando o delivery está desativado 9ms
+ ✓ src/pages/ChangePassword/ChangePasswordPage.test.tsx > ChangePasswordPage > explica os campos ausentes após a primeira tentativa de envio 52ms
+ ✓ src/pages/ChangePassword/ChangePasswordPage.test.tsx > ChangePasswordPage > preserva o destino contextual ao concluir a troca obrigatória 43ms
+ ✓ src/pages/admin/components/PromotionsSettings.test.tsx > configurações de descontos e fidelidade > explica as duas áreas e renderiza a oferta atual com preço final 72ms
+ ✓ src/pages/admin/components/PromotionsSettings.test.tsx > configurações de descontos e fidelidade > mostra estados de carregamento e erro com ação de nova tentativa 10ms
+ ✓ src/pages/admin/components/OpeningHoursSettings.test.tsx > OpeningHoursSettings > explica o status efetivo e apresenta a agenda semanal completa 59ms
+ ✓ src/pages/admin/components/OpeningHoursSettings.test.tsx > OpeningHoursSettings > deixa claro quando a pausa manual prevalece sobre a agenda 10ms
+ ✓ src/pages/admin/components/OpeningHoursSettings.test.tsx > OpeningHoursSettings > mostra a validação junto ao dia que precisa de correção 7ms
+ ✓ src/pages/admin/components/OpeningHoursSettings.test.tsx > OpeningHoursSettings > mantém a agenda padrão apenas como rascunho até o administrador alterá-la 9ms
+ ✓ src/pages/Home/components/TableOrderContinuationModal.test.tsx > TableOrderContinuationModal > mostra somente a decisão entre conta e pagamento imediato 24ms
+ ✓ src/pages/Home/components/TableOrderContinuationModal.test.tsx > TableOrderContinuationModal > bloqueia a conta quando o recurso não está habilitado 5ms
+ ✓ src/pages/Home/components/TableOrderContinuationModal.test.tsx > TableOrderContinuationModal > abre os métodos em uma segunda etapa e volta sem iniciar pagamento 48ms
+ ✓ src/pages/Courier/components/CourierSettlementsPanel.test.tsx > CourierSettlementsPanel > mostra pagamento aguardando e exige confirmação antes de confirmar recebimento 59ms
+ ✓ src/pages/Courier/components/CourierSettlementsPanel.test.tsx > CourierSettlementsPanel > permite informar não recebimento com motivo validado 24ms
+ ✓ src/pages/Home/hooks/useTableAccount.test.tsx > useTableAccount isolamento entre sessões > descarta resposta atrasada e oculta a conta assim que a sessão muda ou termina 29ms
+ ✓ src/pages/Home/hooks/useTableAccount.test.tsx > useTableAccount isolamento entre sessões > reutiliza a chave idempotente ao repetir após falha incerta do servidor 23ms
+ ✓ src/pages/Home/hooks/useTableAccount.test.tsx > useTableAccount isolamento entre sessões > atualiza pelo socket e avisa uma única vez quando o próprio pagamento é confirmado 10ms
+ ✓ src/pages/Home/hooks/useTableAccount.test.tsx > useTableAccount isolamento entre sessões > não anuncia pagamento confirmado até a leitura canônica do backend confirmar o status 8ms
+ ✓ src/pages/admin/components/AppearanceSettings.test.tsx > AppearanceSettings > renderiza os valores visuais e a descrição como controles gerenciados 73ms
+ ✓ src/pages/admin/components/AppearanceSettings.test.tsx > AppearanceSettings > encaminha a cor e a descrição ao estado persistível da tela 15ms
+ ✓ src/pages/Home/hooks/useCardPaymentReturn.test.tsx > useCardPaymentReturn > não confia no success da URL quando o backend continua pendente 24ms
+ ✓ src/pages/Home/hooks/useCardPaymentReturn.test.tsx > useCardPaymentReturn > confirma somente quando o backend devolve paid verdadeiro 8ms
+ ✓ src/pages/Home/hooks/useCardPaymentReturn.test.tsx > useCardPaymentReturn > não apresenta sucesso com PAID sem paid verdadeiro 10ms
+ ✓ src/pages/Home/hooks/useCardPaymentReturn.test.tsx > useCardPaymentReturn > mostra cancelamento canônico e encerra consultas automáticas 8ms
+ ✓ src/pages/Home/hooks/useCardPaymentReturn.test.tsx > useCardPaymentReturn > trata indisponibilidade de consulta como ERROR, sem inventar recusa 8ms
+ ✓ src/pages/Home/hooks/useCardPaymentReturn.test.tsx > useCardPaymentReturn > consulta em segundo plano sem alternar a tela para verificando a cada intervalo 3ms
+ ✓ src/pages/Home/hooks/useCardPaymentReturn.test.tsx > useCardPaymentReturn > ignora aprovação atrasada de um restaurante depois de mudar o contexto 14ms
+ ✓ src/pages/Profile/components/LoyaltyWallet.test.tsx > LoyaltyWallet > usa a validade individual do resgate antes da validade atual da regra 15ms
+ ✓ src/pages/Profile/components/LoyaltyWallet.test.tsx > LoyaltyWallet > mantém cupom utilizado no histórico mesmo antes da validade 0ms
+ ✓ src/pages/Profile/components/LoyaltyWallet.test.tsx > LoyaltyWallet > preserva na carteira o histórico de uma campanha que não está mais ativa 0ms
+ ✓ src/pages/Profile/components/LoyaltyWallet.test.tsx > LoyaltyWallet > mantém como em uso uma reserva vinculada mesmo após o prazo do cupom 0ms
+ ✓ src/pages/Profile/components/LoyaltyWallet.test.tsx > LoyaltyWallet > mostra o cupom válido guardado e o novo ciclo reiniciado em zero 49ms
+ ✓ src/pages/Profile/components/LoyaltyWallet.test.tsx > LoyaltyWallet > explica os estados vazio, carregando e de erro sem quebrar a carteira 14ms
+ ✓ src/pages/RecoverPassword/components/ResendCodeButton.test.tsx > ResendCodeButton: contorno retangular > usa um retangulo arredondado completo e nao um circulo em 30s 30ms
+ ✓ src/pages/RecoverPassword/components/ResendCodeButton.test.tsx > ResendCodeButton: contorno retangular > esvazia metade do contorno em 15s e acompanha fracoes de segundo 6ms
+ ✓ src/pages/RecoverPassword/components/ResendCodeButton.test.tsx > ResendCodeButton: contorno retangular > mantem o reenvio bloqueado no ultimo milissegundo 3ms
+ ✓ src/pages/RecoverPassword/components/ResendCodeButton.test.tsx > ResendCodeButton: contorno retangular > remove o contorno animado e libera o clique ao terminar 5ms
+ ✓ src/pages/RecoverPassword/components/ResendCodeButton.test.tsx > ResendCodeButton: contorno retangular > nao libera uma requisicao que ainda esta em andamento 2ms
+ ✓ src/pages/RecoverPassword/components/ResendCodeButton.test.tsx > ResendCodeButton: contorno retangular > oferece rotulo acessivel sem anunciar cada segundo na regiao live 5ms
+ ✓ src/pages/RecoverPassword/components/ResendCodeButton.test.tsx > ResendCodeButton: contorno retangular > limita progresso invalido e recomeca cheio para o proximo envio 3ms
+ ✓ src/pages/SystemBlocked/SystemBlocked.test.tsx > SystemBlockedPage > bloqueia cliques repetidos enquanto procura o link e fecha a aba sem destino 47ms
+ ✓ src/components/AppRuntimeBoundary/AppRuntimeBoundary.test.tsx > AppRuntimeBoundary > substitui uma árvore quebrada por uma recuperação visível 62ms
+ ✓ src/pages/Home/components/HomeProductCard.test.tsx > card de produto da Home > mostra o selo, o preço anterior e mantém a ação de abrir a montagem 43ms
+ ✓ src/pages/Home/components/HomeProductCard.test.tsx > card de produto da Home > usa uma etiqueta simples no conteúdo quando o produto está em destaque 5ms
+ ✓ src/pages/Home/components/HomeProductCard.test.tsx > card de produto da Home > bloqueia a montagem e a adição de produtos durante o fechamento da mesa 2ms
+ ✓ src/routes/AppRoutes.test.tsx > RequireAuth > preserva pathname, query e hash ao encaminhar rota protegida do cliente para o login do tenant lembrado 22ms
+ ✓ src/routes/AppRoutes.test.tsx > RequireAuth > encaminha a rota operacional /attendant para o portal da equipe sem next 3ms
+ ✓ src/routes/AppRoutes.test.tsx > RequireAuth > encaminha a rota operacional /courier para o portal da equipe sem next 2ms
+ ✓ src/routes/AppRoutes.test.tsx > RequireAuth > encaminha a rota operacional /kitchen para o portal da equipe sem next 2ms
+ ✓ src/routes/AppRoutes.test.tsx > RequireAuth > encaminha a rota operacional /waiter para o portal da equipe sem next 2ms
+ ✓ src/routes/AppRoutes.test.tsx > RouteAuthorizationGuard após login > prioriza o next seguro de mesa para CLIENTE 3ms
+ ✓ src/routes/AppRoutes.test.tsx > RouteAuthorizationGuard após login > mantém o dashboard como destino do ADMIN 2ms
+ ✓ src/routes/AppRoutes.test.tsx > RouteAuthorizationGuard após login > mantém a troca obrigatória de senha acima do next do CLIENTE 2ms
+ ✓ src/routes/AppRoutes.test.tsx > RouteAuthorizationGuard após login > retorna CLIENTE já autenticado ao contexto ao abrir /restaurante-teste/register 2ms
+ ✓ src/routes/AppRoutes.test.tsx > RouteAuthorizationGuard após login > retorna CLIENTE já autenticado ao contexto ao abrir /restaurante-teste/recover-password 2ms
+ ✓ src/routes/AppRoutes.test.tsx > RouteAuthorizationGuard após login > preserva a rota da mesa ao exigir troca de senha de CLIENTE já autenticado 2ms
+ ✓ src/routes/AppRoutes.test.tsx > RouteAuthorizationGuard após login > nunca expõe o marcador interno quando a sessão contém perfil desconhecido 2ms
+ ✓ src/pages/Home/components/CardPaymentReturnPanel.test.tsx > CardPaymentReturnPanel > não anuncia confirmação no estado VERIFYING 51ms
+ ✓ src/pages/Home/components/CardPaymentReturnPanel.test.tsx > CardPaymentReturnPanel > não anuncia confirmação no estado PENDING 8ms
+ ✓ src/pages/Home/components/CardPaymentReturnPanel.test.tsx > CardPaymentReturnPanel > não anuncia confirmação no estado CANCELED 9ms
+ ✓ src/pages/Home/components/CardPaymentReturnPanel.test.tsx > CardPaymentReturnPanel > não anuncia confirmação no estado ERROR 3ms
+ ✓ src/pages/Home/components/CardPaymentReturnPanel.test.tsx > CardPaymentReturnPanel > mostra confirmação somente quando a leitura canônica retorna PAID 5ms
+ ✓ src/pages/kitchen/KitchenPage.test.tsx > KitchenPage data integration > mantém a resposta da requisição mais nova quando polling e socket concorrem 36ms
+ ✓ src/pages/kitchen/KitchenPage.test.tsx > KitchenPage data integration > carrega capacidade, preferência sonora e início do turno 7ms
+ ✓ src/pages/kitchen/KitchenPage.test.tsx > KitchenPage data integration > preserva localmente o novo status quando o reload posterior falha 5ms
+ ✓ src/pages/kitchen/KitchenPage.test.tsx > KitchenPage data integration > encaminha reimpressão usando apenas o id normalizado do pedido 3ms
+stderr | src/pages/Home/hooks/useDraggableFloatingActions.test.ts > clampFloatingPosition > mantém a captura no botão para não bloquear o clique do mouse no desktop
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+
+stderr | src/pages/Home/hooks/useDraggableFloatingActions.test.ts > clampFloatingPosition > move visualmente sem renderizar novamente a Home a cada quadro
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+
+stderr | src/pages/Home/hooks/useDraggableFloatingActions.test.ts > clampFloatingPosition > move visualmente sem renderizar novamente a Home a cada quadro
+The current testing environment is not configured to support act(...)
+
+ ✓ src/pages/Home/hooks/useDraggableFloatingActions.test.ts > clampFloatingPosition > mantém o painel dentro da área visível 2ms
+ ✓ src/pages/Home/hooks/useDraggableFloatingActions.test.ts > clampFloatingPosition > alcança as bordas esquerda e superior da tela visível 0ms
+ ✓ src/pages/Home/hooks/useDraggableFloatingActions.test.ts > clampFloatingPosition > alcança as bordas direita e inferior sem deixar o painel sair da tela 0ms
+ ✓ src/pages/Home/hooks/useDraggableFloatingActions.test.ts > clampFloatingPosition > mantém a captura no botão para não bloquear o clique do mouse no desktop 37ms
+ ✓ src/pages/Home/hooks/useDraggableFloatingActions.test.ts > clampFloatingPosition > move visualmente sem renderizar novamente a Home a cada quadro 25ms
+ ✓ src/pages/admin/components/PremiumTableFeatureGate.test.tsx > PremiumTableFeatureGate > mantém o sistema de mesas bloqueado quando o backend exige Premium 47ms
+ ✓ src/pages/admin/components/PremiumTableFeatureGate.test.tsx > PremiumTableFeatureGate > libera o conteúdo quando a API protegida de mesas autoriza o restaurante 3ms
+ ✓ src/pages/admin/components/PremiumTableFeatureGate.test.tsx > PremiumTableFeatureGate > não libera o recurso quando a verificação falha por um erro inesperado 4ms
+ ✓ src/pages/Home/components/TableOrderStatusNotice.test.tsx > TableOrderStatusNotice > mostra o fluxo do salão sem GPS ou confirmação de delivery 61ms
+ ✓ src/pages/Home/hooks/useCheckoutPayments.flow.test.tsx > useCheckoutPayments confirmação canônica do Pix > esconde detalhes técnicos do gateway e mostra uma mensagem amigável ao cliente 21ms
+ ✓ src/pages/Home/hooks/useCheckoutPayments.flow.test.tsx > useCheckoutPayments confirmação canônica do Pix > não anuncia pago quando o provedor aprova mas o pedido canônico continua pendente 5ms
+ ✓ src/pages/Home/hooks/useCheckoutPayments.flow.test.tsx > useCheckoutPayments confirmação canônica do Pix > mostra pago somente depois que a confirmação final devolve paid verdadeiro 4ms
+ ✓ src/pages/Home/hooks/useCheckoutPayments.flow.test.tsx > useCheckoutPayments confirmação canônica do Pix > encerra o Pix rejected sem confirmar ou continuar consultando 2ms
+ ✓ src/pages/Home/hooks/useCheckoutPayments.flow.test.tsx > useCheckoutPayments confirmação canônica do Pix > encerra o Pix DECLINED sem confirmar ou continuar consultando 2ms
+ ✓ src/pages/Home/hooks/useCheckoutPayments.flow.test.tsx > useCheckoutPayments confirmação canônica do Pix > encerra o Pix cancelled sem confirmar ou continuar consultando 2ms
+ ✓ src/pages/Home/hooks/useCheckoutPayments.flow.test.tsx > useCheckoutPayments confirmação canônica do Pix > encerra o Pix EXPIRED sem confirmar ou continuar consultando 1ms
+ ✓ src/pages/Home/hooks/useCheckoutPayments.flow.test.tsx > useCheckoutPayments confirmação canônica do Pix > encerra o Pix refunded sem confirmar ou continuar consultando 1ms
+ ✓ src/pages/Home/hooks/useCheckoutPayments.flow.test.tsx > useCheckoutPayments confirmação canônica do Pix > não transforma falha de conexão em recusa e permite nova consulta 2ms
+ ✓ src/pages/Home/hooks/useCheckoutPayments.flow.test.tsx > useCheckoutPayments confirmação canônica do Pix > não confirma resposta que pertence a outro restaurante 1ms
+ ✓ src/pages/Home/hooks/useCheckoutPayments.flow.test.tsx > useCheckoutPayments confirmação canônica do Pix > ignora resposta atrasada depois de fechar a tela do Pix 2ms
+ ✓ src/pages/Home/hooks/useCheckoutPayments.flow.test.tsx > useCheckoutPayments confirmação canônica do Pix > interrompe o polling ao receber resultado terminal 3ms
+ ✓ src/pages/Home/hooks/useCheckoutPayments.flow.test.tsx > useCheckoutPayments confirmação canônica do Pix > mantém o Pix pendente visível enquanto consulta em segundo plano 2ms
+ ✓ src/pages/Home/hooks/useCheckoutPayments.flow.test.tsx > useCheckoutPayments confirmação canônica do Pix > abre resultado para cartão já pago mesmo sem URL de checkout e preserva sucesso se atualização auxiliar falhar 2ms
+ ✓ src/pages/Home/hooks/usePromotionCarousel.test.tsx > usePromotionCarousel > avança exatamente a cada 5 segundos e volta ao primeiro banner 25ms
+ ✓ src/pages/Home/hooks/usePromotionCarousel.test.tsx > usePromotionCarousel > reinicia os cinco segundos depois de qualquer navegação manual 8ms
+ ✓ src/pages/Home/hooks/usePromotionCarousel.test.tsx > usePromotionCarousel > pausa somente com a aba oculta e recomeça um ciclo completo ao voltar 3ms
+ ✓ src/pages/Home/hooks/usePromotionCarousel.test.tsx > usePromotionCarousel > não agenda rotação quando existe somente um item 2ms
+ ✓ src/pages/Home/hooks/usePromotionCarousel.test.tsx > usePromotionCarousel > preserva o banner ativo em reordenações e remove todos os timers ao desmontar 3ms
+ ✓ src/pages/admin/components/SocialMediaSettings.test.tsx > SocialMediaSettings > renderiza Instagram, Facebook, TikTok e YouTube a partir do estado 35ms
+ ✓ src/pages/admin/components/SocialMediaSettings.test.tsx > SocialMediaSettings > apresenta erro local e não cria link para perfil inválido 3ms
+ ✓ src/pages/admin/components/SocialMediaSettings.test.tsx > SocialMediaSettings > deixa perfis vazios opcionais e sem links externos 3ms
+ ✓ src/pages/admin/restricted/BillingRestrictedAdmin.test.tsx > painel administrativo restrito por cobrança > mostra apenas mensalidades e sinaliza as demais áreas como bloqueadas 39ms
+stderr | src/pages/Home/hooks/useDeliveryAddress.test.tsx > useDeliveryAddress > não consulta nem mantém endereços em contas que não são de cliente
+An update to Probe inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to Probe inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to Probe inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to Probe inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to Probe inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+ ✓ src/pages/Home/hooks/useDeliveryAddress.test.tsx > useDeliveryAddress > remove imediatamente o endereço privado depois do logout 32ms
+ ✓ src/pages/Home/hooks/useDeliveryAddress.test.tsx > useDeliveryAddress > não consulta nem mantém endereços em contas que não são de cliente 4ms
+ ✓ src/pages/Home/hooks/useRestaurantCatalog.test.tsx > useRestaurantCatalog settings refresh > atualiza o status da Home por polling e remove o timer ao desmontar 27ms
+ ✓ src/pages/Home/hooks/useRestaurantCatalog.test.tsx > useRestaurantCatalog settings refresh > não consulta em segundo plano e atualiza imediatamente quando a aba volta a ficar visível 4ms
+ ✓ src/pages/Home/hooks/useRestaurantCatalog.test.tsx > useRestaurantCatalog settings refresh > resolve e memoriza o restaurante padrão para uma visita anônima à raiz 2ms
+ ✓ src/pages/Home/hooks/useRestaurantCatalog.test.tsx > useRestaurantCatalog settings refresh > não baixa novamente imagens e configurações quando a revisão permanece igual 7ms
+ ✓ src/pages/Home/hooks/useRestaurantCatalog.test.tsx > useRestaurantCatalog settings refresh > não consulta o padrão quando já existe outro contexto de restaurante 2ms
+ ✓ src/Services/orderCreationAttempt.test.ts > tentativa de criação > mantém a chave após resposta perdida e usa outra após sucesso 13ms
+ ✓ src/Services/orderCreationAttempt.test.ts > tentativa de criação > duplo clique compartilha a requisição em andamento 18ms
+ ✓ src/Services/orderCreationAttempt.test.ts > tentativa de criação > deduplica antes do hash mesmo quando a primeira resposta chega antes do segundo hash 1ms
+ ✓ src/Services/orderCreationAttempt.test.ts > tentativa de criação > preserva retry na aba em HTTP/LAN sem persistir o conteúdo pessoal do pedido 1ms
+ ✓ src/pages/Home/components/PaymentOptions.test.tsx > PaymentOptions > remove Pix quando o restaurante aceita somente cartão 21ms
+ ✓ src/pages/Home/components/PaymentOptions.test.tsx > PaymentOptions > bloqueia visualmente o checkout quando nenhum canal de pagamento está disponível 1ms
+ ✓ src/pages/Home/components/PaymentOptions.test.tsx > PaymentOptions > oferece pagar no restaurante no canal de retirada mesmo sem pagamento online 2ms
+ ✓ src/pages/Home/components/PaymentOptions.test.tsx > PaymentOptions > calcula os métodos válidos para cada canal 1ms
+ ✓ src/pages/Home/components/PaymentOptions.test.tsx > PaymentOptions > solicita uma conta somente para cartão online de visitante 0ms
+ ✓ src/pages/Home/components/PaymentOptions.test.tsx > PaymentOptions > direciona o cadastro para a aba Meus cartões do perfil 8ms
+ ✓ src/pages/Home/hooks/useTableOrderNotice.test.tsx > useTableOrderNotice > consulta a sessão do QR mesmo sem login e reage aos eventos da mesa 25ms
+ ✓ src/pages/Home/hooks/useTableOrderNotice.test.tsx > useTableOrderNotice > descarta defensivamente um pedido que não pertence ao salão 8ms
+ ✓ src/pages/super_admin/components/PasswordDialogs.test.tsx > senhas temporárias do SUPER_ADMIN > mantém a política privilegiada no cadastro de restaurante 23ms
+ ✓ src/pages/super_admin/components/PasswordDialogs.test.tsx > senhas temporárias do SUPER_ADMIN > mantém a política privilegiada no cadastro de administrador 9ms
+ ✓ src/pages/SystemMaintenance/SystemMaintenance.test.tsx > tela de manutenção > mostra somente um aviso genérico e mantém o acesso técnico discreto 33ms
+ ✓ src/pages/SystemMaintenance/SystemMaintenance.test.tsx > tela de manutenção > não revela inadimplência para clientes e funcionários 2ms
+ ✓ src/pages/admin/hooks/useAdminUnreadIssues.test.tsx > useAdminUnreadIssues > calcula os chamados ativos ao abrir e não cria polling contínuo 24ms
+ ✓ src/pages/admin/hooks/useAdminUnreadIssues.test.tsx > useAdminUnreadIssues > atualiza por evento em tempo real e sincroniza somente quando solicitado 4ms
+ ✓ src/pages/admin/hooks/useAdminUnreadIssues.test.tsx > useAdminUnreadIssues > não incrementa novos alertas enquanto a central de ajuda está aberta 2ms
+ ✓ src/pages/Home/components/HomeFeedback.test.tsx > HomeFeedback > apresenta avisos com severidade, ícone e fechamento acessível 32ms
+ ✓ src/pages/Home/components/LoyaltyProgramCard.test.tsx > LoyaltyProgramCard > resume um cupom resgatado em um aviso compacto 23ms
+ ✓ src/pages/Home/components/LoyaltyProgramCard.test.tsx > LoyaltyProgramCard > explica que a carteira está cheia sem tratar o benefício como encerrado 2ms
+ ✓ src/pages/Home/components/LoyaltyProgramCard.test.tsx > LoyaltyProgramCard > oferece acesso ao programa para o cliente deslogado em tela móvel 1ms
+ ✓ src/pages/Home/components/LoyaltyProgramCard.test.tsx > LoyaltyProgramCard > diferencia falha de consulta de ausência de benefícios 1ms
+ ✓ src/pages/Home/components/LoyaltyProgramCard.test.tsx > LoyaltyProgramCard > mantém o atalho visível quando ainda não há campanha ativa 1ms
+ ✓ src/pages/admin/components/SecuritySettings.test.tsx > SecuritySettings > explica as proteções reais sem exibir controles ou sessões fictícias 29ms
+ ✓ src/pages/admin/components/EmployeeDrawer.test.tsx > EmployeeDrawer > oculta os requisitos até a digitação e bloqueia a criação enquanto a senha é inválida 36ms
+ ✓ src/contexts/authContext.test.tsx > AuthProvider bootstrap > restaura a sessão pelo refresh HttpOnly antes de consultar o usuário 23ms
+ ✓ src/contexts/authContext.test.tsx > AuthProvider bootstrap > remove o usuário legado quando o cookie de refresh não é aceito 4ms
+ ✓ src/contexts/authContext.test.tsx > AuthProvider bootstrap > não preserva identidade de outra conta quando outra aba troca a sessão do cookie 3ms
+ ✓ src/pages/Home/hooks/useTableSession.test.tsx > useTableSession após autenticação > mantém mesaMode pela rota e revalida a sessão restaurada no backend 19ms
+ ✓ src/pages/Home/hooks/useTableSession.test.tsx > useTableSession após autenticação > invalida a sessão encerrada sem redirecionar a rota para a Home 4ms
+ ✓ src/features/employee-help/employeeHelpGuides.test.ts > employee help guides > provides detailed guides for kitchen 1ms
+ ✓ src/features/employee-help/employeeHelpGuides.test.ts > employee help guides > provides detailed guides for waiter 0ms
+ ✓ src/features/employee-help/employeeHelpGuides.test.ts > employee help guides > provides detailed guides for courier 0ms
+ ✓ src/features/employee-help/employeeHelpGuides.test.ts > employee help guides > uses the operational role in the manual title 0ms
+ ✓ src/features/employee-help/employeeHelpGuides.test.ts > employee help guides > provides a complete marker sequence for every kitchen preview 0ms
+ ✓ src/features/employee-help/employeeHelpGuides.test.ts > employee help guides > provides a complete marker sequence for every waiter preview 0ms
+ ✓ src/features/employee-help/employeeHelpGuides.test.ts > employee help guides > provides a complete marker sequence for every courier preview 0ms
+ ✓ src/features/employee-help/employeeHelpGuides.test.ts > employee help guides > renders every kitchen preview marker without gaps 10ms
+ ✓ src/features/employee-help/employeeHelpGuides.test.ts > employee help guides > renders every waiter preview marker without gaps 4ms
+ ✓ src/features/employee-help/employeeHelpGuides.test.ts > employee help guides > renders every courier preview marker without gaps 6ms
+ ✓ src/features/employee-help/employeeHelpGuides.test.ts > employee help guides > documents that waiter table QR Codes are fixed and managed by the administrator 0ms
+ ✓ src/pages/attendant/AttendantPage.test.tsx > AttendantPage data integration > carrega o snapshot dedicado, identifica o atendente e assina invalidações operacionais 20ms
+ ✓ src/pages/attendant/AttendantPage.test.tsx > AttendantPage data integration > encerra a sessão e retorna ao portal tenant-scoped da equipe 3ms
+ ✓ src/features/password-policy/PasswordRequirements.test.tsx > PasswordRequirements > permanece oculto enquanto a pessoa ainda não começou a criar a senha 5ms
+ ✓ src/features/password-policy/PasswordRequirements.test.tsx > PasswordRequirements > aparece ao começar a digitar sem exibir selos de estado 15ms
+ ✓ src/features/password-policy/PasswordRequirements.test.tsx > PasswordRequirements > expõe o estado cumprido de forma acessível sem depender apenas de cor 3ms
+stdout | src/Services/socketService.test.ts > socketService > prioriza o proxy same-origin do Vite em desenvolvimento
+[socket-debug] manual disconnect user socket (same-origin-proxy) { socketId: undefined }
+
+stdout | src/Services/socketService.test.ts > socketService > usa endpoint direto sem desativar realtime no modo E2E de API direta
+[socket-debug] manual disconnect user socket (e2e-user) { socketId: undefined }
+
+stdout | src/Services/socketService.test.ts > socketService > reutiliza o socket do mesmo usuário durante o handshake
+[socket-debug] reuse user socket (operational-issue-notifications) {
+  socketId: undefined,
+  baseUrl: 'http://localhost:3000',
+  token: '17ch::ante',
+  previousContext: 'kitchen-orders'
+}
+[socket-debug] manual disconnect user socket (operational-issue-notifications) { socketId: undefined }
+
+stdout | src/Services/socketService.test.ts > socketService > substitui o socket quando a credencial muda
+[socket-debug] manual disconnect user socket (first) { socketId: undefined }
+[socket-debug] manual disconnect user socket (second) { socketId: undefined }
+
+stdout | src/Services/socketService.test.ts > socketService > cancela a desconexão transitória quando o StrictMode remonta o consumidor
+[socket-debug] reuse user socket (strict-mode-second-mount) {
+  socketId: undefined,
+  baseUrl: 'http://localhost:3000',
+  token: '17ch::ante',
+  previousContext: 'strict-mode-first-mount'
+}
+[socket-debug] manual disconnect user socket (strict-mode-second-mount) { socketId: undefined }
+
+stdout | src/Services/socketService.test.ts > socketService > desconecta após o período de tolerância em uma desmontagem real
+[socket-debug] manual disconnect user socket (real-unmount) { socketId: undefined }
+
+stdout | src/Services/socketService.test.ts > socketService > mantém o logout imediato mesmo com uma desconexão já agendada
+[socket-debug] manual disconnect user socket (logout) { socketId: undefined }
+
+stdout | src/Services/socketService.test.ts > socketService > mantém o socket enquanto ainda existe outro consumidor ativo
+[socket-debug] reuse user socket (notifications) {
+  socketId: undefined,
+  baseUrl: 'http://localhost:3000',
+  token: '17ch::ante',
+  previousContext: 'orders'
+}
+[socket-debug] manual disconnect user socket (notifications) { socketId: undefined }
+
+stdout | src/Services/socketService.test.ts > socketService > ignora a liberação antiga depois de trocar a credencial
+[socket-debug] manual disconnect user socket (old-account) { socketId: undefined }
+[socket-debug] manual disconnect user socket (current-account) { socketId: undefined }
+
+stdout | src/Services/socketService.test.ts > socketService > aplica a mesma tolerância às sessões de mesa
+[socket-debug] reuse table-session socket (second-mount) {
+  socketId: undefined,
+  baseUrl: 'http://localhost:3000',
+  sessionToken: '13ch::oken',
+  previousContext: 'first-mount'
+}
+[socket-debug] manual disconnect table-session socket (second-mount) { socketId: undefined }
+
+stdout | src/Services/socketService.test.ts > socketService > não mantém a sessão de mesa viva quando uma reconexão inválida ocorre no grace
+[socket-debug] manual disconnect table-session socket (valid-session) { socketId: undefined }
+
+ ✓ src/Services/socketService.test.ts > socketService > prioriza o proxy same-origin do Vite em desenvolvimento 9ms
+ ✓ src/Services/socketService.test.ts > socketService > usa endpoint direto sem desativar realtime no modo E2E de API direta 1ms
+ ✓ src/Services/socketService.test.ts > socketService > reutiliza o socket do mesmo usuário durante o handshake 1ms
+ ✓ src/Services/socketService.test.ts > socketService > substitui o socket quando a credencial muda 1ms
+ ✓ src/Services/socketService.test.ts > socketService > cancela a desconexão transitória quando o StrictMode remonta o consumidor 2ms
+ ✓ src/Services/socketService.test.ts > socketService > desconecta após o período de tolerância em uma desmontagem real 1ms
+ ✓ src/Services/socketService.test.ts > socketService > mantém o logout imediato mesmo com uma desconexão já agendada 1ms
+ ✓ src/Services/socketService.test.ts > socketService > mantém o socket enquanto ainda existe outro consumidor ativo 1ms
+ ✓ src/Services/socketService.test.ts > socketService > ignora a liberação antiga depois de trocar a credencial 1ms
+ ✓ src/Services/socketService.test.ts > socketService > aplica a mesma tolerância às sessões de mesa 1ms
+ ✓ src/Services/socketService.test.ts > socketService > não mantém a sessão de mesa viva quando uma reconexão inválida ocorre no grace 1ms
+ ✓ src/pages/kitchen/components/Shared.test.tsx > itens operacionais da cozinha > mostra escolhas por grupo e diferencia as duas observações sem exibir preços 24ms
+ ✓ src/pages/kitchen/components/Shared.test.tsx > itens operacionais da cozinha > continua exibindo pedidos antigos que possuem somente o resumo dos itens 1ms
+ ✓ src/pages/kitchen/components/Shared.test.tsx > itens operacionais da cozinha > sinaliza explicitamente quando o backend não devolve produtos 0ms
+ ✓ src/pages/admin/domain/businessHours.test.ts > businessHours > mantém o restaurante aberto por padrão e respeita o fechamento manual 2ms
+ ✓ src/pages/admin/domain/businessHours.test.ts > businessHours > normaliza a agenda persistida e rejeita horários fora do relógio 1ms
+ ✓ src/pages/admin/domain/businessHours.test.ts > businessHours > aceita expediente que atravessa a meia-noite e rejeita horários iguais 0ms
+ ✓ src/pages/admin/domain/businessHours.test.ts > businessHours > gera o horário de hoje 13ms
+ ✓ src/pages/admin/domain/businessHours.test.ts > businessHours > calcula abertura normal com início inclusivo e fechamento exclusivo 1ms
+ ✓ src/pages/admin/domain/businessHours.test.ts > businessHours > mantém aberto depois da meia-noite pelo expediente do dia anterior 1ms
+ ✓ src/pages/admin/domain/businessHours.test.ts > businessHours > combina pausa manual e agenda em um único estado sem contradição 1ms
+ ✓ src/pages/admin/domain/businessHours.test.ts > businessHours > informa a próxima abertura quando está fora do expediente 1ms
+ ✓ src/pages/admin/domain/businessHours.test.ts > businessHours > preserva compatibilidade quando nenhuma agenda válida foi persistida 0ms
+ ✓ src/pages/admin/domain/businessHours.test.ts > businessHours > usa o fuso do restaurante sem depender do relógio local do navegador 1ms
+ ✓ src/pages/Home/adapters/homeDataAdapter.test.ts > homeDataAdapter > preserva a imagem real do produto 1ms
+ ✓ src/pages/Home/adapters/homeDataAdapter.test.ts > homeDataAdapter > preserva imagens persistidas no formato data URL 0ms
+ ✓ src/pages/Home/adapters/homeDataAdapter.test.ts > homeDataAdapter > mantém produtos sem estoque visíveis, mas indisponíveis, e cria categorias únicas 2ms
+ ✓ src/pages/Home/adapters/homeDataAdapter.test.ts > homeDataAdapter > normaliza todos os banners ativos e usa posição e id como ordenação estável 1ms
+ ✓ src/pages/Home/adapters/homeDataAdapter.test.ts > homeDataAdapter > remove banners inativos ou inválidos e mantém compatibilidade com o banner principal 0ms
+ ✓ src/pages/Home/adapters/homeDataAdapter.test.ts > homeDataAdapter > combina o controle manual com a agenda persistida 12ms
+ ✓ src/pages/Home/adapters/homeDataAdapter.test.ts > homeDataAdapter > mantém compatibilidade manual quando o restaurante ainda não cadastrou uma agenda 0ms
+ ✓ src/pages/Home/adapters/homeDataAdapter.test.ts > homeDataAdapter > mapeia canais, frete, contato, redes, fonte e SEO persistidos 0ms
+ ✓ src/pages/Home/adapters/homeDataAdapter.test.ts > homeDataAdapter > oculta o WhatsApp quando a integração está explicitamente desativada 0ms
+ ✓ src/pages/Home/adapters/homeDataAdapter.test.ts > homeDataAdapter > mantém padrões seguros para respostas de servidores antigos 0ms
+ ✓ src/pages/Home/adapters/homeDataAdapter.test.ts > homeDataAdapter > usa somente o preço promocional calculado pelo servidor 0ms
+ ✓ src/pages/operations/orderAdapter.test.ts > operational order adapter > formata o tempo de espera 1ms
+ ✓ src/pages/operations/orderAdapter.test.ts > operational order adapter > reconhece a mesa no formato real retornado pelo backend e preserva os itens 1ms
+ ✓ src/pages/operations/orderAdapter.test.ts > operational order adapter > usa os timestamps reais de entrega e cancelamento no histórico 13ms
+ ✓ src/pages/operations/orderAdapter.test.ts > operational order adapter > preserva montagem por categoria e observações para a cozinha 0ms
+ ✓ src/pages/operations/orderAdapter.test.ts > operational order adapter > aceita ingredientes de pedidos antigos sem categoria e ignora dados inválidos 0ms
+ ✓ src/pages/operations/orderAdapter.test.ts > operational order adapter > preserva quantidades, porções e retiradas do snapshot imutável 0ms
+ ✓ src/pages/operations/orderAdapter.test.ts > operational order adapter > descarta entradas sem pedido e normaliza datas, total e status inválidos 1ms
+ ✓ src/pages/operations/orderAdapter.test.ts > operational order adapter > monta a identidade e as configurações operacionais do restaurante 1ms
+ ✓ src/pages/operations/orderAdapter.test.ts > operational order adapter > aplica defaults seguros para capacidade e som 0ms
+ ✓ src/pages/Home/components/DeliveryMethodSelector.test.tsx > DeliveryMethodSelector > mostra somente os canais habilitados pelo restaurante 15ms
+ ✓ src/pages/Home/components/DeliveryMethodSelector.test.tsx > DeliveryMethodSelector > explica quando nenhum canal está recebendo pedidos 1ms
+ ✓ src/pages/super_admin/domain/superAdminDomain.test.ts > superAdminDomain > resolve apenas rotas conhecidas do painel e gera links profundos 1ms
+ ✓ src/pages/super_admin/domain/superAdminDomain.test.ts > superAdminDomain > normaliza dados usados no cadastro sem perder caracteres relevantes 0ms
+ ✓ src/pages/super_admin/domain/superAdminDomain.test.ts > superAdminDomain > protege exportações CSV contra fórmulas e escapa aspas 0ms
+ ✓ src/pages/super_admin/domain/superAdminDomain.test.ts > superAdminDomain > valida configurações persistidas e exige mensagem durante manutenção 15ms
+ ✓ src/pages/waiter/waiterAdapter.test.ts > waiterAdapter > mapeia a sessão aberta sem expor o token administrativo do QR Code 16ms
+ ✓ src/pages/waiter/waiterAdapter.test.ts > waiterAdapter > mantém como ocupada a mesa cuja conta foi solicitada 0ms
+ ✓ src/pages/waiter/waiterAdapter.test.ts > waiterAdapter > não inventa sessão e ignora mesas inativas ou inválidas 0ms
+ ✓ src/pages/waiter/waiterAdapter.test.ts > waiterAdapter > mapeia chamados reais e descarta tipos antigos de código 0ms
+ ✓ src/pages/admin/domain/tableAccountSettingsValidation.test.ts > validação da conta e pagamento da mesa > aceita uma configuração operacional coerente 15ms
+ ✓ src/pages/admin/domain/tableAccountSettingsValidation.test.ts > validação da conta e pagamento da mesa > rejeita taxa incoerente, reserva inválida e período sem regra útil 1ms
+ ✓ src/config/browserBranding.test.ts > browserBranding > gera favicon preto e branco da categoria sem fundo 2ms
+ ✓ src/config/browserBranding.test.ts > browserBranding > mantém o nome do restaurante como título e aplica o favicon da categoria 8ms
+ ✓ src/pages/admin/domain/ingredientCategoryGroups.test.ts > categorias dinâmicas de ingredientes no produto > agrupa sem nomes fixos, normaliza caixa e preserva o array original 9ms
+ ✓ src/pages/admin/domain/ingredientCategoryGroups.test.ts > categorias dinâmicas de ingredientes no produto > infere a categoria quando todas as opções pertencem ao mesmo grupo 1ms
+ ✓ src/pages/admin/domain/ingredientCategoryGroups.test.ts > categorias dinâmicas de ingredientes no produto > marca grupos legados mistos ou com ingrediente ausente para revisão 0ms
+ ✓ src/pages/admin/domain/ingredientCategoryGroups.test.ts > categorias dinâmicas de ingredientes no produto > identifica apenas vínculos incompatíveis antes de trocar a categoria 1ms
+ ✓ src/Services/api.test.ts > api auth session > prioriza o proxy same-origin do Vite em desenvolvimento 2ms
+ ✓ src/Services/api.test.ts > api auth session > serializa a rotação do cookie de refresh entre abas quando Web Locks está disponível 3ms
+ ✓ src/Services/api.test.ts > api auth session > envia o token mantido em memória e elimina uma cópia legada 2ms
+ ✓ src/Services/api.test.ts > api auth session > não repete em outro endereço uma operação marcada como não repetível 3ms
+ ✓ src/Services/api.test.ts > api auth session > compartilha uma única renovação concorrente e mantém o novo token fora do storage 1ms
+ ✓ src/Services/api.test.ts > api auth session > descarta o resultado de um refresh iniciado antes de uma nova sessão 1ms
+ ✓ src/Services/api.test.ts > api auth session > não aplica token renovado para outra conta que assumiu o cookie em outra aba 0ms
+ ✓ src/pages/Home/domain/publicSettings.test.ts > configurações públicas da Home > preserva os canais de restaurantes antigos e respeita desativações explícitas 6ms
+ ✓ src/pages/Home/domain/publicSettings.test.ts > configurações públicas da Home > deriva somente formas de pagamento habilitadas 1ms
+ ✓ src/pages/Home/domain/publicSettings.test.ts > configurações públicas da Home > monta o contato de WhatsApp somente com número válido e mensagem codificada 0ms
+ ✓ src/pages/Home/domain/publicSettings.test.ts > configurações públicas da Home > normaliza perfis sociais com e sem protocolo 1ms
+ ✓ src/pages/Home/domain/publicSettings.test.ts > configurações públicas da Home > limita a fonte às famílias permitidas 0ms
+ ✓ src/pages/Home/domain/publicSettings.test.ts > configurações públicas da Home > preserva o nome dinâmico da aba e aplica somente a descrição SEO 3ms
+ ✓ src/shared/navigation/authNavigation.test.ts > authNavigation > aceita e preserva a rota interna /restaurante-x 2ms
+ ✓ src/shared/navigation/authNavigation.test.ts > authNavigation > aceita e preserva a rota interna /restaurante-x?foo=bar 0ms
+ ✓ src/shared/navigation/authNavigation.test.ts > authNavigation > aceita e preserva a rota interna /restaurante-x/mesa/5?rid=1&tk=abc 0ms
+ ✓ src/shared/navigation/authNavigation.test.ts > authNavigation > aceita e preserva a rota interna /restaurante-x/mesa/5?rid=1&tk=abc#menu 0ms
+ ✓ src/shared/navigation/authNavigation.test.ts > authNavigation > aceita e preserva a rota interna /profile 0ms
+ ✓ src/shared/navigation/authNavigation.test.ts > authNavigation > rejeita destino externo ou ambíguo https://evil.com 0ms
+ ✓ src/shared/navigation/authNavigation.test.ts > authNavigation > rejeita destino externo ou ambíguo http://evil.com 0ms
+ ✓ src/shared/navigation/authNavigation.test.ts > authNavigation > rejeita destino externo ou ambíguo //evil.com 0ms
+ ✓ src/shared/navigation/authNavigation.test.ts > authNavigation > rejeita destino externo ou ambíguo \evil.com 0ms
+ ✓ src/shared/navigation/authNavigation.test.ts > authNavigation > rejeita destino externo ou ambíguo /\evil.com 0ms
+ ✓ src/shared/navigation/authNavigation.test.ts > authNavigation > rejeita destino externo ou ambíguo /%2f%2fevil.com 0ms
+ ✓ src/shared/navigation/authNavigation.test.ts > authNavigation > rejeita destino externo ou ambíguo /%5cevil.com 0ms
+ ✓ src/shared/navigation/authNavigation.test.ts > authNavigation > rejeita destino externo ou ambíguo javascript:alert(1) 0ms
+ ✓ src/shared/navigation/authNavigation.test.ts > authNavigation > rejeita destino externo ou ambíguo data:text/html,<h1>evil</h1> 0ms
+ ✓ src/shared/navigation/authNavigation.test.ts > authNavigation > rejeita destino externo ou ambíguo /%252f%252fevil.com 0ms
+ ✓ src/shared/navigation/authNavigation.test.ts > authNavigation > rejeita destino externo ou ambíguo /%255cevil.com 0ms
+ ✓ src/shared/navigation/authNavigation.test.ts > authNavigation > rejeita destino externo ou ambíguo /seguro?valor=%0aexterno 0ms
+ ✓ src/shared/navigation/authNavigation.test.ts > authNavigation > rejeita destino externo ou ambíguo /seguro?valor=%250dexterno 0ms
+ ✓ src/shared/navigation/authNavigation.test.ts > authNavigation > rejeita destino externo ou ambíguo /seguro#%00externo 0ms
+ ✓ src/shared/navigation/authNavigation.test.ts > authNavigation > rejeita destino externo ou ambíguo  /seguro 0ms
+ ✓ src/shared/navigation/authNavigation.test.ts > authNavigation > rejeita destino externo ou ambíguo /seguro  0ms
+ ✓ src/shared/navigation/authNavigation.test.ts > authNavigation > rejeita caracteres de controle literais em qualquer parte de "/seguro\n" 0ms
+ ✓ src/shared/navigation/authNavigation.test.ts > authNavigation > rejeita caracteres de controle literais em qualquer parte de "/seguro?valor=linha\rquebrada" 0ms
+ ✓ src/shared/navigation/authNavigation.test.ts > authNavigation > rejeita caracteres de controle literais em qualquer parte de "/seguro#" 0ms
+ ✓ src/shared/navigation/authNavigation.test.ts > authNavigation > rejeita rota sem tenant ou de autenticação / como retorno 0ms
+ ✓ src/shared/navigation/authNavigation.test.ts > authNavigation > rejeita rota sem tenant ou de autenticação /mesa/5 como retorno 0ms
+ ✓ src/shared/navigation/authNavigation.test.ts > authNavigation > rejeita rota sem tenant ou de autenticação /login como retorno 0ms
+ ✓ src/shared/navigation/authNavigation.test.ts > authNavigation > rejeita rota sem tenant ou de autenticação /login?next=/restaurante-x como retorno 0ms
+ ✓ src/shared/navigation/authNavigation.test.ts > authNavigation > rejeita rota sem tenant ou de autenticação /LOGIN/ como retorno 0ms
+ ✓ src/shared/navigation/authNavigation.test.ts > authNavigation > rejeita rota sem tenant ou de autenticação /register como retorno 0ms
+ ✓ src/shared/navigation/authNavigation.test.ts > authNavigation > rejeita rota sem tenant ou de autenticação /recover-password como retorno 0ms
+ ✓ src/shared/navigation/authNavigation.test.ts > authNavigation > rejeita rota sem tenant ou de autenticação /change-password como retorno 0ms
+ ✓ src/shared/navigation/authNavigation.test.ts > authNavigation > rejeita rota sem tenant ou de autenticação /admin/login como retorno 0ms
+ ✓ src/shared/navigation/authNavigation.test.ts > authNavigation > rejeita rota sem tenant ou de autenticação /super_admin/login como retorno 0ms
+ ✓ src/shared/navigation/authNavigation.test.ts > authNavigation > rejeita rota sem tenant ou de autenticação /__TENANT_LOGIN__ como retorno 0ms
+ ✓ src/shared/navigation/authNavigation.test.ts > authNavigation > rejeita rota sem tenant ou de autenticação /restaurante-x/login como retorno 0ms
+ ✓ src/shared/navigation/authNavigation.test.ts > authNavigation > rejeita rota sem tenant ou de autenticação /restaurante-x/register como retorno 0ms
+ ✓ src/shared/navigation/authNavigation.test.ts > authNavigation > rejeita rota sem tenant ou de autenticação /restaurante-x/recover-password como retorno 0ms
+ ✓ src/shared/navigation/authNavigation.test.ts > authNavigation > rejeita rota sem tenant ou de autenticação /restaurante-x/team como retorno 0ms
+ ✓ src/shared/navigation/authNavigation.test.ts > authNavigation > rejeita rota sem tenant ou de autenticação /restaurante-x/admin/chave como retorno 0ms
+ ✓ src/shared/navigation/authNavigation.test.ts > authNavigation > não preserva área operacional /admin como retorno de login 0ms
+ ✓ src/shared/navigation/authNavigation.test.ts > authNavigation > não preserva área operacional /attendant como retorno de login 0ms
+ ✓ src/shared/navigation/authNavigation.test.ts > authNavigation > não preserva área operacional /attendant/orders como retorno de login 0ms
+ ✓ src/shared/navigation/authNavigation.test.ts > authNavigation > não preserva área operacional /billing como retorno de login 0ms
+ ✓ src/shared/navigation/authNavigation.test.ts > authNavigation > não preserva área operacional /courier como retorno de login 0ms
+ ✓ src/shared/navigation/authNavigation.test.ts > authNavigation > não preserva área operacional /kitchen como retorno de login 0ms
+ ✓ src/shared/navigation/authNavigation.test.ts > authNavigation > não preserva área operacional /super_admin como retorno de login 0ms
+ ✓ src/shared/navigation/authNavigation.test.ts > authNavigation > não preserva área operacional /waiter como retorno de login 0ms
+ ✓ src/shared/navigation/authNavigation.test.ts > authNavigation > mantém o slug e o retorno seguro na URL do login quando o cliente entra pelo restaurante 1ms
+ ✓ src/shared/navigation/authNavigation.test.ts > authNavigation > não inventa tenant quando a origem não possui slug ou usa marcador interno 0ms
+ ✓ src/shared/navigation/authNavigation.test.ts > authNavigation > mantém o slug e o retorno completo quando o login começa em uma mesa 0ms
+ ✓ src/shared/navigation/authNavigation.test.ts > authNavigation > monta cadastro contextual sem dupla codificação 0ms
+ ✓ src/shared/navigation/authNavigation.test.ts > authNavigation > resolve contexto TABLE apenas quando a mesa também possui slug 1ms
+ ✓ src/shared/navigation/authNavigation.test.ts > authNavigation > resolve rota pública normal como ONLINE 0ms
+ ✓ src/shared/navigation/authNavigation.test.ts > authNavigation > propaga somente contexto seguro e cria URL de auth com slug 0ms
+ ✓ src/shared/navigation/authNavigation.test.ts > authNavigation > não cria recuperação global com referências inválidas 0ms
+ ✓ src/shared/navigation/authNavigation.test.ts > authNavigation > manda áreas operacionais para o portal da equipe do tenant lembrado 0ms
+ ✓ src/shared/navigation/authNavigation.test.ts > authNavigation > manda áreas administrativas para o gate privado do tenant lembrado 0ms
+ ✓ src/shared/navigation/authNavigation.test.ts > authNavigation > mantém super admin isolado mesmo quando existe tenant lembrado 0ms
+ ✓ src/shared/navigation/authNavigation.test.ts > authNavigation > manda cliente para login contextual e preserva somente retorno interno seguro 0ms
+ ✓ src/shared/navigation/authNavigation.test.ts > authNavigation > reconhece /restaurante-x/login como entrypoint de autenticação 0ms
+ ✓ src/shared/navigation/authNavigation.test.ts > authNavigation > reconhece /restaurante-x/register como entrypoint de autenticação 0ms
+ ✓ src/shared/navigation/authNavigation.test.ts > authNavigation > reconhece /restaurante-x/recover-password como entrypoint de autenticação 0ms
+ ✓ src/shared/navigation/authNavigation.test.ts > authNavigation > reconhece /restaurante-x/team como entrypoint de autenticação 0ms
+ ✓ src/shared/navigation/authNavigation.test.ts > authNavigation > reconhece /restaurante-x/admin como entrypoint de autenticação 0ms
+ ✓ src/shared/navigation/authNavigation.test.ts > authNavigation > reconhece /restaurante-x/admin/chave como entrypoint de autenticação 0ms
+ ✓ src/shared/navigation/authNavigation.test.ts > authNavigation > reconhece /super_admin/login como entrypoint de autenticação 0ms
+ ✓ src/utils/persistentImage.test.ts > persistent image validation > reconhece apenas fontes persistíveis suportadas 2ms
+ ✓ src/utils/persistentImage.test.ts > persistent image validation > rejeita formato não suportado antes de ler o arquivo 2ms
+ ✓ src/utils/persistentImage.test.ts > persistent image validation > rejeita arquivo maior que 5 MB antes do processamento 2ms
+ ✓ src/utils/persistentImage.test.ts > persistent image validation > compacta a imagem de forma assíncrona sem bloquear com toDataURL 4ms
+ ✓ src/pages/admin/domain/adminCatalog.test.ts > catálogo administrativo > filtra por nome sem diferenciar maiúsculas e acentos já digitados 2ms
+ ✓ src/pages/admin/domain/adminCatalog.test.ts > catálogo administrativo > combina nome e categoria 0ms
+ ✓ src/pages/admin/domain/adminCatalog.test.ts > catálogo administrativo > conta os produtos vinculados à categoria 0ms
+ ✓ src/pages/admin/domain/adminCatalog.test.ts > categorias dos ingredientes > lista sugestões sem duplicar categorias por diferença de caixa 7ms
+ ✓ src/pages/admin/domain/adminCatalog.test.ts > categorias dos ingredientes > agrupa visualmente os ingredientes pela categoria preservada 0ms
+ ✓ src/pages/Home/domain/checkout.test.ts > checkout > resolve o canal do pedido 2ms
+ ✓ src/pages/Home/domain/checkout.test.ts > checkout > exige endereço completo no delivery 0ms
+ ✓ src/pages/Home/domain/checkout.test.ts > checkout > impede pagamento na entrega para retirada 0ms
+ ✓ src/pages/Home/domain/checkout.test.ts > checkout > restringe pagar no restaurante à retirada e exige celular 0ms
+ ✓ src/pages/Home/domain/checkout.test.ts > checkout > valida a identificação necessária para o pedido de visitante 0ms
+ ✓ src/pages/Home/domain/checkout.test.ts > checkout > não exige identidade do visitante no pedido por QR da mesa 0ms
+ ✓ src/pages/Home/domain/checkout.test.ts > checkout > monta e normaliza o pedido 1ms
+ ✓ src/pages/Home/domain/checkout.test.ts > checkout > cria retirada para pagar no balcão sem acionar gateway ou forjar método 1ms
+ ✓ src/pages/Home/domain/checkout.test.ts > checkout > adiciona o pedido à conta da mesa sem forjar uma forma de pagamento 0ms
+ ✓ src/pages/Home/domain/checkout.test.ts > checkout > mantém pagamento imediato por pix explícito sem enviar telefone vazio 0ms
+ ✓ src/pages/Home/domain/checkout.test.ts > checkout > mantém pagamento imediato por card explícito sem enviar telefone vazio 0ms
+ ✓ src/pages/Home/domain/checkout.test.ts > checkout > preserva um telefone válido quando o cliente o possui 0ms
+ ✓ src/pages/Home/domain/checkout.test.ts > checkout > leva o resgate escolhido para a cotação e para o pedido sem enviar preço do navegador 0ms
+ ✓ src/Services/superAdminService.test.ts > superAdminService > carrega o snapshot consolidado aceitando cancelamento 3ms
+ ✓ src/Services/superAdminService.test.ts > superAdminService > remove campos somente leitura ao salvar configurações 2ms
+ ✓ src/Services/superAdminService.test.ts > superAdminService > usa rotas explícitas para mudanças críticas e envia a justificativa 1ms
+ ✓ src/Services/superAdminService.test.ts > superAdminService > codifica o plano na URL e conversa pelo tenant selecionado 1ms
+ ✓ src/routes/routeAuthorization.test.ts > política de autorização de rotas > mantém apenas entradas públicas com slug e acesso seguro por pedido 3ms
+ ✓ src/routes/routeAuthorization.test.ts > política de autorização de rotas > limita CLIENTE ao tenant público, perfil, tracking e chat do pedido 0ms
+ ✓ src/routes/routeAuthorization.test.ts > política de autorização de rotas > permite todos os módulos operacionais ao ADMIN, menos super_admin 0ms
+ ✓ src/routes/routeAuthorization.test.ts > política de autorização de rotas > mantém SUPER_ADMIN exclusivamente em super_admin 0ms
+ ✓ src/routes/routeAuthorization.test.ts > política de autorização de rotas > encaminha visitante do painel diretamente ao login técnico 0ms
+ ✓ src/routes/routeAuthorization.test.ts > política de autorização de rotas > redireciona usuário já autenticado para a própria área ao tentar outro portal 0ms
+ ✓ src/routes/routeAuthorization.test.ts > política de autorização de rotas > isola qualquer conta com troca de senha obrigatória na página dedicada 0ms
+ ✓ src/routes/routeAuthorization.test.ts > política de autorização de rotas > isola motoqueiro, cozinha, garçom e atendente 0ms
+ ✓ src/routes/routeAuthorization.test.ts > política de autorização de rotas > reserva a rota de atendimento exclusivamente ao atendente 0ms
+ ✓ src/routes/routeAuthorization.test.ts > política de autorização de rotas > manda perfil desconhecido para resolução explícita de tenant sem expor marcador interno 0ms
+ ✓ src/routes/routeAuthorization.test.ts > política de autorização de rotas > não cria login global para funcionário sem subcargo 0ms
+ ✓ src/Services/availabilityState.test.ts > estados locais de disponibilidade > persiste, publica e limpa manutenção global sem expor outros dados 4ms
+ ✓ src/Services/availabilityState.test.ts > estados locais de disponibilidade > mantém os portais tenant-scoped e o painel técnico fora da manutenção visual 1ms
+ ✓ src/Services/availabilityState.test.ts > estados locais de disponibilidade > distingue suspensão manual de bloqueio financeiro 1ms
+ ✓ src/Services/availabilityState.test.ts > estados locais de disponibilidade > considera os cinco dias úteis de tolerância ao localizar a fatura bloqueante 0ms
+ ✓ src/pages/admin/domain/productCustomizationValidation.test.ts > validação do catálogo de ingredientes > aceita preço zero e rejeita nome duplicado ou preço inválido 2ms
+ ✓ src/pages/admin/domain/productCustomizationValidation.test.ts > validação do catálogo de ingredientes > permite editar o próprio ingrediente sem acusar duplicidade 0ms
+ ✓ src/pages/admin/domain/productCustomizationValidation.test.ts > validação do catálogo de ingredientes > exige uma categoria válida 0ms
+ ✓ src/pages/admin/domain/productCustomizationValidation.test.ts > validação dos grupos de montagem > aceita grupo obrigatório de escolha única 0ms
+ ✓ src/pages/admin/domain/productCustomizationValidation.test.ts > validação dos grupos de montagem > rejeita opção inativa e grupo sem opções 1ms
+ ✓ src/pages/admin/domain/productCustomizationValidation.test.ts > validação dos grupos de montagem > normaliza opções repetidas e os limites de escolha única 1ms
+ ✓ src/pages/admin/domain/productCustomizationValidation.test.ts > validação dos grupos de montagem > mantém mínimo obrigatório e zera o mínimo de categoria opcional 0ms
+ ✓ src/pages/admin/domain/productCustomizationValidation.test.ts > validação dos grupos de montagem > rejeita preço final vazio, quantidade fora do intervalo e seleção fixa sem padrão 0ms
+ ✓ src/pages/admin/domain/productCustomizationValidation.test.ts > validação dos grupos de montagem > rejeita opções iniciais acima do limite de escolhas 0ms
+ ✓ src/pages/Login/domain/loginBranding.test.ts > identidade dinâmica do login > resolve o restaurante pelo redirecionamento do cardápio 2ms
+ ✓ src/pages/Login/domain/loginBranding.test.ts > identidade dinâmica do login > não interpreta rota privada como slug 0ms
+ ✓ src/pages/Login/domain/loginBranding.test.ts > identidade dinâmica do login > prioriza o restaurante presente no retorno seguro da mesa 0ms
+ ✓ src/pages/Login/domain/loginBranding.test.ts > identidade dinâmica do login > ignora retorno legado /mesa sem slug e mantém o tenant explícito 0ms
+ ✓ src/pages/Login/domain/loginBranding.test.ts > identidade dinâmica do login > descarta slug explícito malformado 0ms
+ ✓ src/pages/Login/domain/loginBranding.test.ts > identidade dinâmica do login > mapeia nome, descrição, logo, cor e categoria cadastrados 0ms
+ ✓ src/pages/Login/domain/loginBranding.test.ts > identidade dinâmica do login > usa restaurante como categoria padrão quando ela não é informada 0ms
+ ✓ src/pages/Login/domain/loginBranding.test.ts > identidade dinâmica do login > prioriza a capa de alta resolução sobre o logotipo 0ms
+ ✓ src/pages/Login/domain/loginBranding.test.ts > identidade dinâmica do login > descarta uma cor inválida antes de aplicá-la ao tema público 0ms
+ ✓ src/pages/Login/domain/loginBranding.test.ts > identidade dinâmica do login > normaliza a notação hexadecimal curta 0ms
+ ✓ src/pages/Login/domain/loginBranding.test.ts > identidade dinâmica do login > escolhe texto legível para botões claros e escuros 0ms
+ ✓ src/pages/Login/domain/loginBranding.test.ts > identidade dinâmica do login > ajusta a cor da marca quando ela não contrasta com a superfície 1ms
+ ✓ src/config/restaurantCategory.test.ts > apresentação do login por categoria > oferece identidade visual válida para RESTAURANTE 3ms
+ ✓ src/config/restaurantCategory.test.ts > apresentação do login por categoria > oferece identidade visual válida para PIZZARIA 0ms
+ ✓ src/config/restaurantCategory.test.ts > apresentação do login por categoria > oferece identidade visual válida para HAMBURGUERIA 0ms
+ ✓ src/config/restaurantCategory.test.ts > apresentação do login por categoria > oferece identidade visual válida para ACAITERIA 0ms
+ ✓ src/config/restaurantCategory.test.ts > apresentação do login por categoria > oferece identidade visual válida para CAFETERIA 0ms
+ ✓ src/config/restaurantCategory.test.ts > apresentação do login por categoria > oferece identidade visual válida para JAPONESA 0ms
+ ✓ src/config/restaurantCategory.test.ts > apresentação do login por categoria > oferece identidade visual válida para CHURRASCARIA 0ms
+ ✓ src/config/restaurantCategory.test.ts > apresentação do login por categoria > oferece identidade visual válida para DOCERIA 0ms
+ ✓ src/config/restaurantCategory.test.ts > apresentação do login por categoria > oferece identidade visual válida para LANCHONETE 0ms
+ ✓ src/config/restaurantCategory.test.ts > apresentação do login por categoria > oferece identidade visual válida para PADARIA 0ms
+ ✓ src/config/restaurantCategory.test.ts > apresentação do login por categoria > oferece identidade visual válida para OUTRO 0ms
+ ✓ src/config/restaurantCategory.test.ts > apresentação do login por categoria > usa a apresentação neutra quando recebe uma categoria desconhecida 0ms
+ ✓ src/config/categoryIconMap.test.ts > ícones das categorias > seleciona um ícone Lucide para Massas 2ms
+ ✓ src/config/categoryIconMap.test.ts > ícones das categorias > seleciona um ícone Lucide para Molhos artesanais 0ms
+ ✓ src/config/categoryIconMap.test.ts > ícones das categorias > seleciona um ícone Lucide para PROTEÍNAS 0ms
+ ✓ src/config/categoryIconMap.test.ts > ícones das categorias > seleciona um ícone Lucide para Queijos 0ms
+ ✓ src/config/categoryIconMap.test.ts > ícones das categorias > seleciona um ícone Lucide para Ingredientes adicionais 0ms
+ ✓ src/config/categoryIconMap.test.ts > ícones das categorias > seleciona um ícone Lucide para Bordas recheadas 0ms
+ ✓ src/config/categoryIconMap.test.ts > ícones das categorias > seleciona um ícone Lucide para Cafeteria 0ms
+ ✓ src/config/categoryIconMap.test.ts > ícones das categorias > seleciona um ícone Lucide para Padaria artesanal 0ms
+ ✓ src/config/categoryIconMap.test.ts > ícones das categorias > seleciona um ícone Lucide para Doceria e confeitaria 0ms
+ ✓ src/config/categoryIconMap.test.ts > ícones das categorias > seleciona um ícone Lucide para Açaíteria 0ms
+ ✓ src/config/categoryIconMap.test.ts > ícones das categorias > usa um ícone genérico quando o nome ainda não tem correspondência 0ms
+ ✓ src/config/categoryIconMap.test.ts > ícones das categorias > define a cor semântica de Massas 0ms
+ ✓ src/config/categoryIconMap.test.ts > ícones das categorias > define a cor semântica de Molhos 0ms
+ ✓ src/config/categoryIconMap.test.ts > ícones das categorias > define a cor semântica de Proteínas 0ms
+ ✓ src/config/categoryIconMap.test.ts > ícones das categorias > define a cor semântica de Queijos 0ms
+ ✓ src/config/categoryIconMap.test.ts > ícones das categorias > define a cor semântica de Adicionais 0ms
+ ✓ src/config/categoryIconMap.test.ts > ícones das categorias > define a cor semântica de Bordas 0ms
+ ✓ src/config/categoryIconMap.test.ts > ícones das categorias > resolve ícone e cor juntos a partir do nome criado pelo administrador 1ms
+ ✓ src/config/categoryIconMap.test.ts > ícones das categorias > mantém uma cor estável para nomes personalizados 0ms
+ ✓ src/Services/courierCompensationService.test.ts > courierCompensationService > carrega configuração sem permitir seleção de tenant pelo cliente 2ms
+ ✓ src/Services/courierCompensationService.test.ts > courierCompensationService > salva regra padrão e fuso sem misturar taxa de entrega 1ms
+ ✓ src/Services/courierCompensationService.test.ts > courierCompensationService > declara acerto somente com ids e metadados financeiros necessários 0ms
+ ✓ src/Services/courierCompensationService.test.ts > courierCompensationService > confirma e contesta sempre pelo acerto autenticado 0ms
+ ✓ src/pages/admin/Admin.settingsMapping.test.ts > mapeamento das configurações administrativas > mapeia todos os banners promocionais pela posição e mantém ids estáveis 2ms
+ ✓ src/pages/admin/Admin.settingsMapping.test.ts > mapeamento das configurações administrativas > mantém marca, negócio, endereço e regras de pedidos no ciclo API/interface 1ms
+ ✓ src/pages/admin/Admin.settingsMapping.test.ts > mapeamento das configurações administrativas > mantém os campos de canais, WhatsApp, redes e aparência no ciclo API/interface 0ms
+ ✓ src/pages/admin/Admin.settingsMapping.test.ts > mapeamento das configurações administrativas > não envia blocos obrigatórios vazios ao salvar outra seção pela primeira vez 1ms
+ ✓ src/pages/admin/Admin.settingsMapping.test.ts > mapeamento das configurações administrativas > normaliza e preserva as regras da conta de mesa recebidas da API dedicada 0ms
+ ✓ src/features/password-policy/passwordPolicy.test.ts > política compartilhada de senha > aceita os seis requisitos padrão com no mínimo oito caracteres 3ms
+ ✓ src/features/password-policy/passwordPolicy.test.ts > política compartilhada de senha > informa cada requisito pendente, inclusive a confirmação 1ms
+ ✓ src/features/password-policy/passwordPolicy.test.ts > política compartilhada de senha > reconhece letras e números Unicode 1ms
+ ✓ src/features/password-policy/passwordPolicy.test.ts > política compartilhada de senha > respeita o limite seguro de 72 bytes mesmo abaixo de 72 caracteres 0ms
+ ✓ src/features/password-policy/passwordPolicy.test.ts > política compartilhada de senha > mantém o mínimo uniforme de oito caracteres no fluxo privilegiado 0ms
+ ✓ src/features/password-policy/passwordPolicy.test.ts > política compartilhada de senha > continua rejeitando valores previsíveis no fluxo privilegiado 0ms
+ ✓ src/pages/Home/domain/productCustomization.test.ts > montagem genérica de produto > exige o mínimo configurado e respeita escolha única 2ms
+ ✓ src/pages/Home/domain/productCustomization.test.ts > montagem genérica de produto > não ultrapassa o máximo e soma somente opções selecionadas 0ms
+ ✓ src/pages/Home/domain/productCustomization.test.ts > montagem genérica de produto > normaliza ingredientes antigos sem permitir remover os obrigatórios 0ms
+ ✓ src/pages/Home/domain/productCustomization.test.ts > montagem genérica de produto > trata limite vazio como todas as opções disponíveis em escolha múltipla 0ms
+ ✓ src/pages/Home/domain/productCustomization.test.ts > montagem genérica de produto > gera assinatura diferente para opções ou observações diferentes 0ms
+ ✓ src/pages/Home/domain/productCustomization.test.ts > montagem genérica de produto > calcula quantidade, preço absoluto e porções sem confiar esse total ao pedido 0ms
+ ✓ src/pages/Home/domain/productCustomization.test.ts > montagem genérica de produto > inclui quantidades, retiradas, porções e versão na assinatura 0ms
+ ✓ src/Services/waiterCallsService.test.ts > waiterCallsService > lista somente pela rota autenticada do restaurante do funcionário 3ms
+ ✓ src/Services/waiterCallsService.test.ts > waiterCallsService > envia o chamado público com o token da sessão no cabeçalho 0ms
+ ✓ src/Services/waiterCallsService.test.ts > waiterCallsService > recusa chamado sem sessão e atualiza apenas os estados permitidos pelo contrato 1ms
+ ✓ src/pages/super_admin/adapters/superAdminDataAdapter.test.ts > superAdminDataAdapter > normaliza tenant, administrador e assinatura sem inventar dados 2ms
+ ✓ src/pages/super_admin/adapters/superAdminDataAdapter.test.ts > superAdminDataAdapter > preserva status desconhecido para não apresentar acesso saudável indevidamente 0ms
+ ✓ src/pages/super_admin/adapters/superAdminDataAdapter.test.ts > superAdminDataAdapter > usa as métricas calculadas pelo backend e completa apenas contagens ausentes 0ms
+ ✓ src/pages/super_admin/adapters/superAdminDataAdapter.test.ts > superAdminDataAdapter > mapeia o contrato agregado do dashboard e suas políticas 1ms
+ ✓ src/pages/super_admin/adapters/superAdminDataAdapter.test.ts > superAdminDataAdapter > normaliza histórico de suporte retornado como envelope 0ms
+ ✓ src/modules/auth/session/authSession.test.ts > authSession > mantém o token somente em memória e o usuário apenas na sessão do navegador 3ms
+ ✓ src/modules/auth/session/authSession.test.ts > authSession > invalida a credencial em memória sem criar identidade persistente em localStorage 0ms
+ ✓ src/modules/auth/session/authSession.test.ts > authSession > remove toda a sessão e também dados legados do antigo lembrar de mim 0ms
+ ✓ src/modules/auth/session/authSession.test.ts > authSession > apaga tokens legados do Web Storage mesmo quando consulta a memória 0ms
+ ✓ src/modules/auth/session/authSession.test.ts > authSession > não deixa um refresh antigo ressuscitar a sessão depois do logout 0ms
+ ✓ src/modules/auth/session/authSession.test.ts > authSession > vincula à memória a identidade devolvida no bootstrap por refresh 0ms
+ ✓ src/modules/auth/session/authSession.test.ts > authSession > rejeita resposta de autenticação criada antes do logout 0ms
+ ✓ src/Services/ordersService.pagination.test.ts > ordersService paginação > preserva cursor, total e resumo e busca somente a página solicitada 4ms
+ ✓ src/Services/ordersService.pagination.test.ts > ordersService paginação > não transforma resposta sem metadados em histórico completo ou contagem parcial 1ms
+ ✓ src/Services/imageEnhancementService.test.ts > imageEnhancementService > usa o fluxo de IA específico para banners promocionais 5ms
+ ✓ src/Services/imageEnhancementService.test.ts > imageEnhancementService > aplica a mesma proteção à melhoria da capa do restaurante 0ms
+ ✓ src/Services/imageEnhancementService.test.ts > imageEnhancementService > traduz timeout longo para uma orientação compreensível 2ms
+ ✓ src/Services/tablesService.test.ts > tablesService > resolve a mesa pública mantendo número e id como campos diferentes 3ms
+ ✓ src/Services/tablesService.test.ts > tablesService > cria a mesa e preserva o token seguro retornado para o admin 1ms
+ ✓ src/Services/tablesService.test.ts > tablesService > abre sessão na rota registrada pelo backend 0ms
+ ✓ src/Services/tablesService.test.ts > tablesService > fecha a sessão pela rota operacional da mesa 0ms
+ ✓ src/Services/restaurantSettingsService.test.ts > restaurantSettingsService public performance contract > usa uma URL versionada somente ao baixar as configurações completas 3ms
+ ✓ src/Services/restaurantSettingsService.test.ts > restaurantSettingsService public performance contract > consulta revisões leves por id, slug e restaurante padrão 1ms
+ ✓ src/Services/restaurantSettingsService.test.ts > restaurantSettingsService public performance contract > converte referências públicas de mídia para a origem real da API 1ms
+ ✓ src/pages/admin/domain/promotionValidation.test.ts > validação de descontos de produtos > calcula porcentagem e valor fixo sem permitir preço negativo 1ms
+ ✓ src/pages/admin/domain/promotionValidation.test.ts > validação de descontos de produtos > rejeita percentual acima de 100, valor fixo maior que o produto e período invertido 1ms
+ ✓ src/pages/admin/domain/promotionValidation.test.ts > validação de descontos de produtos > serializa datas opcionais e nunca envia preço calculado pelo navegador 1ms
+ ✓ src/pages/admin/domain/promotionValidation.test.ts > validação de cupons de fidelidade > normaliza o código para o contrato aceito 0ms
+ ✓ src/pages/admin/domain/promotionValidation.test.ts > validação de cupons de fidelidade > exige meta, limite e desconto válidos 0ms
+ ✓ src/pages/admin/domain/promotionValidation.test.ts > validação de cupons de fidelidade > monta o payload da regra de fidelidade com números e validade opcional 0ms
+ ✓ src/shared/navigation/sessionEntry.test.ts > sessionEntry > recupera o portal correto após logout de FUNCIONARIO 2ms
+ ✓ src/shared/navigation/sessionEntry.test.ts > sessionEntry > recupera o portal correto após logout de MOTOQUEIRO 0ms
+ ✓ src/shared/navigation/sessionEntry.test.ts > sessionEntry > recupera o portal correto após logout de ADMIN 0ms
+ ✓ src/shared/navigation/sessionEntry.test.ts > sessionEntry > recupera o portal correto após logout de CLIENTE 1ms
+ ✓ src/shared/navigation/sessionEntry.test.ts > sessionEntry > recupera o portal correto após logout de SUPER_ADMIN 0ms
+ ✓ src/shared/navigation/sessionEntry.test.ts > sessionEntry > consome o papel apenas uma vez e volta a neutralizar /login 0ms
+ ✓ src/shared/navigation/sessionEntry.test.ts > sessionEntry > não usa o tenant lembrado quando não existe marcador de logout válido 0ms
+ ✓ src/pages/admin/domain/promotionBannerValidation.test.ts > promotion banner validation > aceita um banner completo e persistível 2ms
+ ✓ src/pages/admin/domain/promotionBannerValidation.test.ts > promotion banner validation > exige título e imagem e aplica os limites editoriais 1ms
+ ✓ src/pages/admin/domain/promotionBannerValidation.test.ts > promotion banner validation > mantém os erros associados ao localId e normaliza a ordem após mover ou remover 0ms
+ ✓ src/pages/Login/domain/adminPortalSession.test.ts > adminPortalSession > reutiliza a mesma troca quando StrictMode dispara o mesmo link duas vezes 3ms
+ ✓ src/pages/Login/domain/adminPortalSession.test.ts > adminPortalSession > reutiliza a mesma verificação concorrente do grant 1ms
+ ✓ src/pages/Courier/domain/courierOrders.test.ts > courierOrders > aceita somente delivery pronto para retirada 2ms
+ ✓ src/pages/Courier/domain/courierOrders.test.ts > courierOrders > ordena os pedidos mais antigos primeiro 1ms
+ ✓ src/pages/Courier/domain/courierOrders.test.ts > courierOrders > filtra por status e pelo número pesquisado 1ms
+ ✓ src/pages/Courier/domain/courierOrders.test.ts > courierOrders > normaliza somente pedidos delivery válidos para o fluxo do motoqueiro 1ms
+ ✓ src/pages/Courier/domain/courierOrders.test.ts > courierOrders > mostra disponíveis sem responsável e rotas apenas do motoqueiro autenticado 0ms
+ ✓ src/pages/Courier/domain/courierOrders.test.ts > courierOrders > preserva escolhas estruturadas, legado e observação do item 1ms
+ ✓ src/pages/Courier/domain/courierLocation.test.ts > courierLocation > valida e converte uma posição do celular em payload seguro 2ms
+ ✓ src/pages/Courier/domain/courierLocation.test.ts > courierLocation > classifica como compartilhável somente GPS com precisão de até 500 metros 0ms
+ ✓ src/pages/Courier/domain/courierLocation.test.ts > courierLocation > remove pontos inválidos/duplicados e limita o histórico local 0ms
+ ✓ src/pages/Courier/domain/courierLocation.test.ts > courierLocation > diferencia bloqueio, timeout e falha do GPS e vincula preferência à conta 0ms
+ ✓ src/Services/bannerService.test.ts > bannerService > lista e persiste o contrato completo dos banners 4ms
+ ✓ src/Services/bannerService.test.ts > bannerService > remove um banner persistido pela rota administrativa 0ms
+ ✓ src/Services/tableSessionService.test.ts > tableSessionService > entra na sessão aberta usando todos os identificadores do QR seguro 4ms
+ ✓ src/Services/tableSessionService.test.ts > tableSessionService > consulta a sessão atual e fecha apenas pelo identificador da sessão 1ms
+ ✓ src/pages/tracking/deliveryTracking.test.ts > deliveryTracking > normaliza somente um contrato de rastreamento válido 2ms
+ ✓ src/pages/tracking/deliveryTracking.test.ts > deliveryTracking > filtra eventos pelo pedido e restaurante, mantendo compatibilidade sem restaurantId 0ms
+ ✓ src/pages/tracking/deliveryTracking.test.ts > deliveryTracking > ignora novas posições após o status terminal ENTREGUE 0ms
+ ✓ src/pages/tracking/deliveryTracking.test.ts > deliveryTracking > ignora novas posições após o status terminal CANCELADO 0ms
+ ✓ src/config/cardPaymentWallet.test.ts > card payment validation > sanitizes the saved card fields 2ms
+ ✓ src/config/cardPaymentWallet.test.ts > card payment validation > formats a card number without keeping non-digits 0ms
+ ✓ src/config/cardPaymentWallet.test.ts > card payment validation > requires four CVV digits for American Express 0ms
+ ✓ src/config/cardPaymentWallet.test.ts > card payment validation > accepts a valid Visa checkout 0ms
+ ✓ src/config/cardPaymentWallet.test.ts > card payment validation > rejects a card number that fails the Luhn check 0ms
+ ✓ src/Services/menuImportService.test.ts > menuImportService > envia o link público ao endpoint autenticado do iFood 4ms
+ ✓ src/Services/menuImportService.test.ts > menuImportService > envia o data URL otimizado ao endpoint de análise por imagem 0ms
+ ✓ src/pages/Home/domain/tableOrderNotice.test.ts > getTableOrderNotice > traduz PENDENTE para o acompanhamento exclusivo da mesa 2ms
+ ✓ src/pages/Home/domain/tableOrderNotice.test.ts > getTableOrderNotice > traduz PREPARANDO para o acompanhamento exclusivo da mesa 0ms
+ ✓ src/pages/Home/domain/tableOrderNotice.test.ts > getTableOrderNotice > traduz PRONTO para o acompanhamento exclusivo da mesa 0ms
+ ✓ src/pages/Home/domain/tableOrderNotice.test.ts > getTableOrderNotice > traduz ENTREGUE para o acompanhamento exclusivo da mesa 0ms
+ ✓ src/pages/Home/domain/tableOrderNotice.test.ts > getTableOrderNotice > não transforma um pedido de delivery em status do cardápio digital 0ms
+ ✓ src/pages/Home/domain/tableOrderNotice.test.ts > getTableOrderNotice > explica o cancelamento sem reutilizar etapas de entrega 1ms
+ ✓ src/pages/Home/domain/tableOrderNotice.test.ts > getTableOrderNotice > preserva todos os itens, montagens e observações do pedido 0ms
+ ✓ src/pages/Profile/adapters/profileDataAdapter.test.ts > profileDataAdapter > traduz os status operacionais 1ms
+ ✓ src/pages/Profile/adapters/profileDataAdapter.test.ts > profileDataAdapter > resume pedidos com vários itens 0ms
+ ✓ src/pages/Profile/adapters/profileDataAdapter.test.ts > profileDataAdapter > preserva a foto real do produto no histórico 1ms
+ ✓ src/pages/Profile/adapters/profileDataAdapter.test.ts > profileDataAdapter > não inventa endereço do restaurante nem do cliente quando os dados estão ausentes 0ms
+ ✓ src/pages/Login/domain/rememberedAccount.test.ts > rememberedAccount > isola o e-mail por restaurante e portal de acesso 2ms
+ ✓ src/pages/Login/domain/rememberedAccount.test.ts > rememberedAccount > persiste somente o e-mail e nunca cria campos de senha ou token 0ms
+ ✓ src/pages/Login/domain/rememberedAccount.test.ts > rememberedAccount > remove o e-mail do escopo sem afetar outro restaurante 0ms
+ ✓ src/pages/Login/domain/rememberedAccount.test.ts > rememberedAccount > remove a chave legada global para evitar vazamento entre usuários 0ms
+ ✓ src/pages/admin/domain/adminOrders.test.ts > pedidos administrativos > busca por cliente ou número do pedido sem diferenciar maiúsculas 2ms
+ ✓ src/pages/admin/domain/adminOrders.test.ts > pedidos administrativos > combina busca e filtro de status 0ms
+ ✓ src/pages/admin/domain/adminOrders.test.ts > pedidos administrativos > permite somente transições operacionais válidas 0ms
+ ✓ src/pages/admin/domain/adminOrders.test.ts > pedidos administrativos > resume os estados que exigem atenção sem contar cancelados como pendentes 0ms
+ ✓ src/pages/admin/domain/adminOrders.test.ts > pedidos administrativos > só promete estorno automático para Pix ou cartão pagos online 0ms
+ ✓ src/pages/admin/domain/adminOrders.test.ts > pedidos administrativos > traduz pagamento, modalidade, progresso e auditoria de estorno para o admin 0ms
+ ✓ src/pages/admin/domain/adminOverview.test.ts > visão geral administrativa > calcula vendas e ticket somente com pedidos não cancelados do dia 2ms
+ ✓ src/pages/admin/domain/adminOverview.test.ts > visão geral administrativa > agrupa pedidos do mesmo cliente 1ms
+ ✓ src/pages/admin/domain/adminOverview.test.ts > visão geral administrativa > filtra clientes por nome ou e-mail 0ms
+ ✓ src/shared/navigation/tenantRouteContext.test.ts > tenantRouteContext > persiste somente o slug público quando abre um link administrativo 2ms
+ ✓ src/shared/navigation/tenantRouteContext.test.ts > tenantRouteContext > recupera o tenant persistido ao abrir uma rota operacional em outra aba 0ms
+ ✓ src/shared/navigation/tenantRouteContext.test.ts > tenantRouteContext > não trata rotas reservadas como slug de restaurante 0ms
+ ✓ src/shared/navigation/tenantRouteContext.test.ts > tenantRouteContext > troca o tenant persistido quando uma URL explícita aponta para outro restaurante 0ms
+ ✓ src/pages/Home/domain/checkout.quote.test.ts > buildOrderQuotePayload > envia o endereço para cotação de delivery 2ms
+ ✓ src/pages/Home/domain/checkout.quote.test.ts > buildOrderQuotePayload > não envia endereço para retirada 0ms
+ ✓ src/pages/Home/domain/checkout.quote.test.ts > buildOrderQuotePayload > envia somente a intenção avançada e a versão da configuração 1ms
+ ✓ src/pages/Login/domain/loginPortal.test.ts > loginPortal > resolve /pizzaria/login como CUSTOMER 1ms
+ ✓ src/pages/Login/domain/loginPortal.test.ts > loginPortal > resolve /pizzaria/team como STAFF 0ms
+ ✓ src/pages/Login/domain/loginPortal.test.ts > loginPortal > resolve /pizzaria/admin como ADMIN 0ms
+ ✓ src/pages/Login/domain/loginPortal.test.ts > loginPortal > resolve /super_admin/login como SUPER_ADMIN 0ms
+ ✓ src/pages/Login/domain/loginPortal.test.ts > loginPortal > resolve /login como GENERIC 0ms
+ ✓ src/pages/Login/domain/loginPortal.test.ts > loginPortal > resolve /pizzaria/equipe como GENERIC 0ms
+ ✓ src/pages/Login/domain/loginPortal.test.ts > loginPortal > resolve /admin/login como GENERIC 0ms
+ ✓ src/pages/Login/domain/loginPortal.test.ts > loginPortal > extrai slug somente de entradas contextuais de restaurante 0ms
+ ✓ src/pages/Login/domain/loginPortal.test.ts > loginPortal > restringe cada portal ao papel esperado 1ms
+ ✓ src/pages/Home/domain/deliveryAddress.test.ts > deliveryAddress > formata e limita o CEP a oito dígitos 1ms
+ ✓ src/pages/Home/domain/deliveryAddress.test.ts > deliveryAddress > cria um endereço vazio sem usuário 1ms
+ ✓ src/pages/Home/domain/deliveryAddress.test.ts > deliveryAddress > normaliza os dados existentes do cliente 1ms
+ ✓ src/pages/Home/domain/deliveryAddress.test.ts > deliveryAddress > valida todos os campos obrigatórios e limites 1ms
+ ✓ src/pages/admin/domain/brandSettingsValidation.test.ts > brand settings validation > aceita identidade e imagens persistíveis 2ms
+ ✓ src/pages/admin/domain/brandSettingsValidation.test.ts > brand settings validation > rejeita nome, cor, descrição e imagem temporária inválidos 1ms
+ ✓ src/pages/admin/domain/brandSettingsValidation.test.ts > brand settings validation > resume erros dos banners promocionais para impedir um salvamento parcial 0ms
+ ✓ src/pages/Profile/domain/cardBrand.test.ts > cardBrand > detects 4111111111111111 as visa 1ms
+ ✓ src/pages/Profile/domain/cardBrand.test.ts > cardBrand > detects 5555555555554444 as mastercard 0ms
+ ✓ src/pages/Profile/domain/cardBrand.test.ts > cardBrand > detects 378282246310005 as amex 0ms
+ ✓ src/pages/Profile/domain/cardBrand.test.ts > cardBrand > detects 4011780000000000 as elo 0ms
+ ✓ src/pages/Profile/domain/cardBrand.test.ts > cardBrand > detects 6062820000000000 as hipercard 0ms
+ ✓ src/pages/Profile/domain/cardBrand.test.ts > cardBrand > detects 6011111111111117 as discover 0ms
+ ✓ src/pages/Profile/domain/cardBrand.test.ts > cardBrand > detects 3530111333300000 as jcb 0ms
+ ✓ src/pages/Profile/domain/cardBrand.test.ts > cardBrand > normalizes the provider brand identifier 0ms
+ ✓ src/pages/Profile/domain/cardBrand.test.ts > cardBrand > shows only the last four digits in the visual preview 0ms
+ ✓ src/pages/Home/domain/tableSession.test.ts > tableSession > resolve os identificadores do QR Code 2ms
+ ✓ src/pages/Home/domain/tableSession.test.ts > tableSession > não confunde o número visível da mesa com o id interno 0ms
+ ✓ src/pages/Home/domain/tableSession.test.ts > tableSession > recusa uma sessão de outra mesa ou restaurante 0ms
+ ✓ src/pages/Home/domain/tableSession.test.ts > tableSession > aceita a sessão pelo número da mesa quando o QR não possui id interno 0ms
+ ✓ src/pages/Home/domain/tableSession.test.ts > tableSession > recusa uma sessão expirada mesmo quando mesa e restaurante conferem 0ms
+ ✓ src/pages/admin/domain/productStock.test.ts > regras de estoque do produto > considera estoque nulo ou indefinido como ilimitado 1ms
+ ✓ src/pages/admin/domain/productStock.test.ts > regras de estoque do produto > desativa automaticamente quando o estoque chega a zero 0ms
+ ✓ src/pages/admin/domain/productStock.test.ts > regras de estoque do produto > reativa quando o estoque volta a ser positivo ou ilimitado 0ms
+ ✓ src/pages/admin/domain/productStock.test.ts > regras de estoque do produto > normaliza apenas quantidades inteiras não negativas 1ms
+ ✓ src/pages/admin/domain/orderFlowSettingsValidation.test.ts > order flow settings validation > aceita limites inteiros dentro das faixas operacionais 3ms
+ ✓ src/pages/admin/domain/orderFlowSettingsValidation.test.ts > order flow settings validation > rejeita valores fracionários ou acima do limite 0ms
+ ✓ src/pages/Home/domain/activeOrderNotice.test.ts > getActiveOrderNotice > retorna o pedido DELIVERY ativo mais recente com um resumo 2ms
+ ✓ src/pages/Home/domain/activeOrderNotice.test.ts > getActiveOrderNotice > mantém o aviso quando uma entrega aguarda confirmação do cliente 0ms
+ ✓ src/pages/Home/domain/activeOrderNotice.test.ts > getActiveOrderNotice > ignora pedidos de MESA mesmo quando são mais recentes 0ms
+ ✓ src/pages/Home/domain/activeOrderNotice.test.ts > getActiveOrderNotice > expõe o código somente quando ele é válido e preserva o início da entrega 0ms
+ ✓ src/pages/Home/domain/activeOrderNotice.test.ts > getActiveOrderNotice > não mostra aviso quando o último DELIVERY já foi entregue e confirmado 0ms
+ ✓ src/Services/loyaltyService.test.ts > loyaltyService > normaliza progresso e resgates do restaurante 3ms
+ ✓ src/Services/loyaltyService.test.ts > loyaltyService > ignora cupons e resgates inválidos vindos da API 0ms
+ ✓ src/pages/Home/domain/buildableProduct.test.ts > produto montável no checkout > envia ids dos vínculos, grupos e observação, sem aceitar preços do cliente 2ms
+ ✓ src/routes/availabilityPolicy.test.ts > política de disponibilidade do sistema > prioriza a manutenção global e preserva o acesso do SUPER_ADMIN 2ms
+ ✓ src/routes/availabilityPolicy.test.ts > política de disponibilidade do sistema > mantém somente os portais de autenticação válidos disponíveis durante manutenção ou bloqueio local 0ms
+ ✓ src/routes/availabilityPolicy.test.ts > política de disponibilidade do sistema > deixa a rota SUPER_ADMIN chegar ao guard de autenticação e RBAC 0ms
+ ✓ src/routes/availabilityPolicy.test.ts > política de disponibilidade do sistema > mantém somente o financeiro para ADMIN inadimplente 0ms
+ ✓ src/routes/availabilityPolicy.test.ts > política de disponibilidade do sistema > não oferece o financeiro para suspensão manual 0ms
+ ✓ src/routes/availabilityPolicy.test.ts > política de disponibilidade do sistema > permite o portal ADMIN tenant-scoped sem sessão para regularizar a conta 0ms
+ ✓ src/pages/attendant/attendantApi.test.ts > normalizeAttendantWorkspace > normaliza o contrato operacional e descarta dados fora da allowlist 2ms
+ ✓ src/pages/attendant/attendantApi.test.ts > normalizeAttendantWorkspace > ignora registros sem identidade operacional e mantém fallback seguro 0ms
+ ✓ src/Services/customerPaymentMethodService.test.ts > selectSavedPaymentMethod > uses the card explicitly selected by the customer 1ms
+ ✓ src/Services/customerPaymentMethodService.test.ts > selectSavedPaymentMethod > falls back to the default card 0ms
+ ✓ src/Services/customerPaymentMethodService.test.ts > selectSavedPaymentMethod > returns null when no card is available 0ms
+ ✓ src/Services/customerPaymentMethodService.test.ts > getPaymentMethodErrorMessage > prioritizes the useful message returned by the backend 0ms
+ ✓ src/Services/customerPaymentMethodService.test.ts > getPaymentMethodErrorMessage > does not expose the generic Axios status message to the customer 0ms
+ ✓ src/Services/customerPaymentMethodService.test.ts > getPaymentMethodErrorMessage > hides internal provider configuration details from the customer 0ms
+ ✓ src/Services/customerPaymentMethodService.test.ts > getPaymentMethodErrorMessage > hides restaurant configuration details from employee and customer flows 0ms
+ ✓ src/config/pixPayload.test.ts > buildPixPayload > returns an empty payload when the Pix key is missing 1ms
+ ✓ src/config/pixPayload.test.ts > buildPixPayload > normalizes a Brazilian phone key and includes the amount 1ms
+ ✓ src/config/pixPayload.test.ts > buildPixPayload > normalizes an email key 0ms
+ ✓ src/pages/admin/domain/productWizard.test.ts > product wizard navigation > uses six focused questions for a ready-made product 2ms
+ ✓ src/pages/admin/domain/productWizard.test.ts > product wizard navigation > adds customization only for a customizable product 0ms
+ ✓ src/pages/admin/domain/productWizard.test.ts > product wizard navigation > skips customization in both directions for a ready-made product 0ms
+ ✓ src/pages/admin/domain/productWizard.test.ts > product wizard navigation > keeps customization between appearance and availability when buildable 0ms
+ ✓ src/pages/admin/domain/productWizard.test.ts > product wizard navigation > does not move beyond the first or last available step 0ms
+ ✓ src/pages/Home/domain/tableAccount.test.ts > tableAccount do cliente > envia somente os campos permitidos para cada forma de divisão 2ms
+ ✓ src/pages/Home/domain/tableAccount.test.ts > tableAccount do cliente > só permite cancelar uma cobrança ativa criada pelo participante atual 0ms
+ ✓ src/pages/Home/domain/tableAccount.test.ts > tableAccount do cliente > gera chave de idempotência longa e compatível com a API 0ms
+ ✓ src/Services/publicMediaSource.test.ts > publicMediaSource > resolve mídia relativa pela origem que respondeu à API 1ms
+ ✓ src/Services/publicMediaSource.test.ts > publicMediaSource > mantém URLs externas e normaliza imagens de produtos sem mutar a resposta 0ms
+ ✓ src/Services/publicMediaSource.test.ts > publicMediaSource > normaliza imagens persistidas de ingredientes pela mesma origem da API 1ms
+ ✓ src/pages/admin/domain/businessSettingsValidation.test.ts > business settings validation > valida dígitos verificadores do CNPJ 1ms
+ ✓ src/pages/admin/domain/businessSettingsValidation.test.ts > business settings validation > valida CPF quando este for o tipo escolhido 1ms
+ ✓ src/pages/admin/domain/businessSettingsValidation.test.ts > business settings validation > aceita os dados comerciais válidos 0ms
+ ✓ src/pages/admin/domain/establishmentAddress.test.ts > establishmentAddress > formata CEP e endereço público 1ms
+ ✓ src/pages/admin/domain/establishmentAddress.test.ts > establishmentAddress > valida os campos obrigatórios 1ms
+ ✓ src/Services/supportChatService.test.ts > supportChatService > solicita os canais PLATFORM e INTERNAL separadamente 2ms
+ ✓ src/pages/admin/domain/tableQr.test.ts > tableQr > mapeia somente mesas válidas e mantém o token seguro do admin 2ms
+ ✓ src/pages/admin/domain/tableQr.test.ts > tableQr > gera URL tenant-safe com restaurante e token codificado 1ms
+ ✓ src/pages/admin/Admin.employeeRoleMapping.test.ts > mapEmployeeRoleToApi > mapeia COOK para a identidade persistida correta 2ms
+ ✓ src/pages/admin/Admin.employeeRoleMapping.test.ts > mapEmployeeRoleToApi > mapeia WAITER para a identidade persistida correta 0ms
+ ✓ src/pages/admin/Admin.employeeRoleMapping.test.ts > mapEmployeeRoleToApi > mapeia ATTENDANT para a identidade persistida correta 0ms
+ ✓ src/pages/admin/Admin.employeeRoleMapping.test.ts > mapEmployeeRoleToApi > mapeia COURIER para a identidade persistida correta 0ms
+ ✓ src/pages/Profile/domain/favoriteCart.test.ts > addFavoriteToCart > adiciona o favorito ao carrinho 2ms
+ ✓ src/pages/Profile/domain/favoriteCart.test.ts > addFavoriteToCart > respeita o estoque disponível 0ms
+ ✓ src/pages/Profile/domain/reorderCart.test.ts > reorder cart > converte os itens persistidos do pedido para a sacola 2ms
+ ✓ src/pages/Profile/domain/reorderCart.test.ts > reorder cart > ignora itens sem produto válido e localiza o pedido pelo identificador exibido 0ms
+ ✓ src/utils/restaurantMonogram.test.ts > sigla do restaurante > usa as iniciais das duas primeiras palavras 2ms
+ ✓ src/utils/restaurantMonogram.test.ts > sigla do restaurante > ignora conectores formados apenas por símbolos 0ms
+ ✓ src/utils/restaurantMonogram.test.ts > sigla do restaurante > usa as duas primeiras letras quando existe uma palavra 0ms
+ ✓ src/pages/Home/domain/loyaltyRedemption.test.ts > estado utilizável do cupom de fidelidade > aceita somente um resgate CLAIMED ainda válido no checkout 1ms
+ ✓ src/pages/Home/domain/loyaltyRedemption.test.ts > estado utilizável do cupom de fidelidade > rejeita expiração pelo relógio ou pelo estado devolvido pela API 0ms
+ ✓ src/pages/Home/domain/loyaltyRedemption.test.ts > estado utilizável do cupom de fidelidade > mantém resgates reservados válidos como ativos, mas não reaplicáveis 0ms
+ ✓ src/pages/Home/domain/productAvailability.test.ts > disponibilidade do cardápio público > indisponibiliza produto inativo ou sem estoque 1ms
+ ✓ src/pages/Home/domain/productAvailability.test.ts > disponibilidade do cardápio público > mantém disponível produto com estoque ou estoque ilimitado 0ms
+ ✓ src/pages/Home/domain/productAvailability.test.ts > disponibilidade do cardápio público > normaliza somente identificadores inteiros positivos 0ms
+ ✓ src/components/AppRuntimeBoundary/runtimeRecovery.test.ts > runtimeRecovery > reconhece falhas causadas por módulos antigos do frontend 1ms
+ ✓ src/components/AppRuntimeBoundary/runtimeRecovery.test.ts > runtimeRecovery > reconhece falhas causadas por módulos antigos do frontend 0ms
+ ✓ src/components/AppRuntimeBoundary/runtimeRecovery.test.ts > runtimeRecovery > reconhece falhas causadas por módulos antigos do frontend 0ms
+ ✓ src/components/AppRuntimeBoundary/runtimeRecovery.test.ts > runtimeRecovery > reconhece falhas causadas por módulos antigos do frontend 0ms
+ ✓ src/components/AppRuntimeBoundary/runtimeRecovery.test.ts > runtimeRecovery > não recarrega automaticamente para um erro comum da aplicação 0ms
+ ✓ src/pages/admin/utils/adminErrorMessage.test.ts > adminErrorMessage > hides database internals and explains the required action 1ms
+ ✓ src/pages/admin/utils/adminErrorMessage.test.ts > adminErrorMessage > keeps a useful API message when it is safe to show 0ms
+ ✓ src/pages/admin/utils/adminErrorMessage.test.ts > adminErrorMessage > translates payment setup errors into an actionable admin message 0ms
+ ✓ src/pages/Home/hooks/useCheckoutPayments.test.ts > getCheckoutErrorMessage > prioriza a mensagem retornada pelo backend 1ms
+ ✓ src/pages/Home/hooks/useCheckoutPayments.test.ts > getCheckoutErrorMessage > usa a mensagem normal do erro como alternativa 0ms
+ ✓ src/pages/Home/hooks/useCheckoutPayments.test.ts > getCheckoutErrorMessage > converte o detalhe técnico do Zod em uma mensagem compreensível 0ms
+ ✓ src/pages/Home/hooks/useCheckoutPayments.test.ts > getCheckoutErrorMessage > não expõe uma resposta técnica inválida ao cliente 0ms
+ ✓ src/pages/Home/hooks/useCheckoutPayments.test.ts > getCheckoutErrorMessage > retorna vazio para valores desconhecidos 0ms
+ ✓ src/pages/admin/config/adminNavigation.test.ts > navegação agrupada das configurações > mantém cada subseção em um único grupo e inclui descontos e conta da mesa em operação 2ms
+ ✓ src/pages/Home/domain/promotionCarouselGesture.test.ts > resolveCarouselSwipe > avança quando o dedo desliza horizontalmente para a esquerda 1ms
+ ✓ src/pages/Home/domain/promotionCarouselGesture.test.ts > resolveCarouselSwipe > volta quando o dedo desliza horizontalmente para a direita 0ms
+ ✓ src/pages/Home/domain/promotionCarouselGesture.test.ts > resolveCarouselSwipe > ignora toques curtos e movimentos predominantemente verticais 0ms
+ ✓ src/pages/Home/domain/featuredProducts.test.ts > produtos em oferta na Home > mantém somente descontos ativos, positivos e disponíveis na ordem do cardápio 2ms
+ ✓ src/Services/promotionsService.test.ts > promotionsService > traduz os nomes visuais para o contrato autoritativo do backend 2ms
+ ✓ src/pages/Home/hooks/useOrderQuote.test.ts > useOrderQuote > normaliza a composição de valores devolvida pelo servidor 2ms
+ ✓ src/pages/Home/hooks/useLoyaltyExpirationClock.test.ts > relógio de expiração da fidelidade > agenda a atualização no primeiro CLAIMED futuro e ignora RESERVED 1ms
+ ✓ src/pages/Home/hooks/useLoyaltyExpirationClock.test.ts > relógio de expiração da fidelidade > não agenda resgates já vencidos 0ms
+ ✓ src/pages/Profile/domain/profileRestaurantNavigation.test.ts > profileRestaurantNavigation > usa o slug das configurações públicas para voltar ao restaurante correto 1ms
+ ✓ src/pages/Profile/domain/profileRestaurantNavigation.test.ts > profileRestaurantNavigation > usa o slug da conta como fallback enquanto as configurações carregam 0ms
+ ✓ src/pages/Profile/domain/profileRestaurantNavigation.test.ts > profileRestaurantNavigation > aponta o cardápio para a seção do restaurante atual 0ms
+ ✓ src/pages/Login/technicalAccess.test.ts > acesso técnico do Super Admin > aceita exclusivamente SUPER_ADMIN 1ms
+ ✓ src/pages/Profile/domain/profileView.test.ts > resolveProfileView > abre diretamente Meus cartões quando solicitado pela URL 1ms
+ ✓ src/pages/Profile/domain/profileView.test.ts > resolveProfileView > mantém uma tela segura para valores desconhecidos 0ms
+
+ Test Files  169 passed (169)
+      Tests  834 passed (834)
+   Start at  12:34:17
+   Duration  236.78s (transform 8.59s, setup 0ms, import 29.03s, tests 25.95s, environment 147.18s)
+

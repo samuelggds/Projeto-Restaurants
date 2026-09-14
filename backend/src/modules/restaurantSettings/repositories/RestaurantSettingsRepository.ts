@@ -49,6 +49,21 @@ function decryptCredentialRecord<T extends Record<string, any> | null>(
 }
 
 class RestaurantSettingsRepository {
+  async claimAsaasOnboarding(restaurantId: number) {
+    const result = await prisma.restaurantSettings.updateMany({
+      where: {
+        restaurantId,
+        AND: [
+          { OR: [{ asaasAccessToken: null }, { asaasAccessToken: '' }] },
+          { OR: [{ asaasAccountId: null }, { asaasAccountId: '' }] },
+          { OR: [{ asaasOnboardingState: null }, { asaasOnboardingState: 'FAILED' }] },
+        ],
+      },
+      data: { asaasOnboardingState: 'CREATING' },
+    });
+    return result.count === 1;
+  }
+
   async findByRestaurantId(restaurantId: number | string) {
     const settings = await prisma.restaurantSettings.findUnique({
       where: {

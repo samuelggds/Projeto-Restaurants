@@ -16,6 +16,7 @@ import {
   subscribeSystemBlockState,
 } from '../Services/systemBlock';
 import { useAuth } from '../contexts/authContext';
+import { isMarketingPath } from '../pages/Marketing/marketingPaths';
 import SystemMaintenancePage from '../pages/SystemMaintenance/SystemMaintenance';
 import BillingRestrictedAdmin from '../pages/admin/restricted/BillingRestrictedAdmin';
 import { resolveAvailabilityView } from './availabilityPolicy';
@@ -25,6 +26,7 @@ const STATUS_POLL_INTERVAL_MS = 15_000;
 export default function SystemAvailabilityGate({ children }: { children: ReactNode }) {
   const { user } = useAuth();
   const location = useLocation();
+  const marketingPath = isMarketingPath(location.pathname);
   const [maintenanceState, setMaintenanceState] = useState(() => getPlatformMaintenanceState());
   const [blockState, setBlockState] = useState(() => getSystemBlockState());
   const [initialStatusPending, setInitialStatusPending] = useState(
@@ -75,6 +77,8 @@ export default function SystemAvailabilityGate({ children }: { children: ReactNo
   }, [syncStoredStates]);
 
   useEffect(() => {
+    if (marketingPath) return undefined;
+
     void checkPlatformStatus();
     const timer = window.setInterval(() => void checkPlatformStatus(), STATUS_POLL_INTERVAL_MS);
     const onFocus = () => void checkPlatformStatus();
@@ -88,13 +92,15 @@ export default function SystemAvailabilityGate({ children }: { children: ReactNo
       window.removeEventListener('focus', onFocus);
       document.removeEventListener('visibilitychange', onVisibilityChange);
     };
-  }, [checkPlatformStatus]);
+  }, [checkPlatformStatus, marketingPath]);
 
   useEffect(() => {
+    if (marketingPath) return undefined;
+
     const restaurantId = Number(
       blockState?.restaurantId || user?.restaurantId || user?.restaurant?.id || 0,
     );
-    if (!blockState || !Number.isInteger(restaurantId) || restaurantId <= 0) return;
+    if (!blockState || !Number.isInteger(restaurantId) || restaurantId <= 0) return undefined;
 
     const checkRestaurantAvailability = async () => {
       try {
@@ -111,9 +117,17 @@ export default function SystemAvailabilityGate({ children }: { children: ReactNo
     void checkRestaurantAvailability();
     const timer = window.setInterval(() => void checkRestaurantAvailability(), 12_000);
     return () => window.clearInterval(timer);
-  }, [blockState, user?.restaurant?.id, user?.restaurantId]);
+  }, [blockState, marketingPath, user?.restaurant?.id, user?.restaurantId]);
+
+  if (marketingPath) return children;
 
   const role = String(user?.role || '').toUpperCase();
+  const audience =
+    role === 'ADMIN'
+      ? 'admin'
+      : ['ATENDENTE', 'GARCOM', 'COZINHA', 'MOTOQUEIRO'].includes(role)
+        ? 'staff'
+        : 'customer';
   const view = resolveAvailabilityView({
     pathname: location.pathname,
     role,
@@ -124,7 +138,13 @@ export default function SystemAvailabilityGate({ children }: { children: ReactNo
   });
 
   if (view === 'PLATFORM_MAINTENANCE') {
-    return <SystemMaintenancePage mode="platform" message={maintenanceState.message} />;
+    return (
+      <SystemMaintenancePage
+        mode="platform"
+        audience={audience}
+        message={maintenanceState.message}
+      />
+    );
   }
 
   if (view === 'LOADING') {
@@ -137,7 +157,7 @@ export default function SystemAvailabilityGate({ children }: { children: ReactNo
 
   if (view === 'BILLING_ADMIN') return <BillingRestrictedAdmin />;
   if (view === 'TENANT_MAINTENANCE') {
-    return <SystemMaintenancePage mode="tenant" message={blockState.message} />;
+    return <SystemMaintenancePage mode="tenant" audience={audience} message={blockState.message} />;
   }
 
   return children;

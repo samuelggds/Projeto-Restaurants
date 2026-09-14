@@ -431,19 +431,91 @@ export const ViewTabs = styled.div`
 
   @media (max-width: 560px) {
     width: 100%;
-    overflow-x: auto;
-    scrollbar-width: none;
-
-    &::-webkit-scrollbar {
-      display: none;
-    }
+    gap: 3px;
+    padding: 4px;
 
     button {
-      min-width: max(170px, calc(50vw - 28px));
+      flex: 1;
+      min-width: 0;
+      min-height: 52px;
+      padding: 8px 5px;
+      gap: 4px;
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      text-align: center;
+    }
+
+    button strong {
+      font-size: 11px;
+    }
+    button > svg {
+      width: 16px;
+      height: 16px;
+    }
+    button em {
+      min-width: 16px;
+      height: 16px;
     }
 
     button small {
       display: none;
+    }
+  }
+`;
+
+export const PaymentSummary = styled.div`
+  display: flex;
+  flex-wrap: wrap;
+  gap: 18px 32px;
+  align-items: center;
+  padding: 18px 22px;
+  background: #fff;
+  border: 1px solid var(--border, #e8e4df);
+  border-radius: 12px;
+  > div {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+  }
+  small {
+    display: block;
+    font-size: 11px;
+    color: #756e68;
+    margin-bottom: 3px;
+  }
+  strong {
+    font-size: 14px;
+  }
+  .plan-icon {
+    display: grid;
+    place-items: center;
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    color: var(--a);
+    background: color-mix(in srgb, var(--a) 8%, white);
+  }
+  .plan-icon svg {
+    width: 19px;
+  }
+  .subscription-status {
+    margin-left: auto;
+    font-size: 11px;
+    font-weight: 700;
+    padding: 7px 10px;
+    border-radius: 30px;
+    background: #f4f5f2;
+    color: #526256;
+  }
+  @media (max-width: 560px) {
+    padding: 15px;
+    gap: 14px 20px;
+    > div {
+      flex: 1 1 40%;
+    }
+    .subscription-status {
+      margin-left: 0;
     }
   }
 `;

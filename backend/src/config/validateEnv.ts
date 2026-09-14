@@ -1,4 +1,6 @@
 import { parseCredentialEncryptionKey } from '../modules/restaurantSettings/security/credentialEncryption.js';
+import { validateDistributedConfig } from '../runtime/distributedConfig.js';
+import { mercadoPagoWebhookSecrets } from '../modules/payments/providers/mercadoPagoWebhookSignature.js';
 import { validateConfiguredOAuthEndpoints } from '../modules/restaurantSettings/security/oauthEndpoints.js';
 import { collectSuperAdminBootstrapConfigErrors } from '../modules/superAdmin/security/superAdminBootstrapConfig.js';
 
@@ -75,6 +77,7 @@ function isPlaceholder(value: string) {
 }
 
 export function validateCriticalEnv() {
+  validateDistributedConfig();
   const isProduction = process.env.NODE_ENV === 'production';
   if (!isProduction) {
     return;
@@ -170,9 +173,14 @@ export function validateCriticalEnv() {
     errors.push('JWT_REFRESH_SECRET deve ser diferente de JWT_SECRET em producao.');
   }
 
-  const rateLimitMax = asNumber(String(process.env.RATE_LIMIT_MAX_REQUESTS || '300'), 300);
-  if (rateLimitMax <= 0) {
-    errors.push('RATE_LIMIT_MAX_REQUESTS deve ser maior que zero.');
+  const rateLimitMax = Number(process.env.RATE_LIMIT_MAX_REQUESTS || '3000');
+  if (!Number.isSafeInteger(rateLimitMax) || rateLimitMax <= 0) {
+    errors.push('RATE_LIMIT_MAX_REQUESTS deve ser um inteiro maior que zero.');
+  }
+  try {
+    mercadoPagoWebhookSecrets();
+  } catch {
+    errors.push('MP_WEBHOOK_SECRETS deve ser uma lista JSON de até 20 segredos não vazios.');
   }
 
   const authRateLimitMax = asNumber(String(process.env.AUTH_RATE_LIMIT_MAX_REQUESTS || '50'), 50);

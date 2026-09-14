@@ -3,6 +3,11 @@ import trialService from '../services/TrialService.js';
 import invoiceService from '../services/InvoiceService.js';
 import billingRepository from '../repositories/BillingRepository.js';
 import { isInvoiceBlocking } from '../utils/billingRules.js';
+import {
+  invoicePeriodFromDueDate,
+  isInvoiceCreationDue,
+  resolveSubscriptionDueDate,
+} from '../utils/billingCycle.js';
 import { debug, error, info, warn } from '../utils/billingLogger.js';
 
 class BillingJob {
@@ -11,7 +16,6 @@ class BillingJob {
     const now = new Date();
     const failures: Error[] = [];
 
-    // 1. Processa os Trials primeiro (Eles viram "ATIVA" e já ganham faturas com links da Stripe)
     try {
       await trialService.execute();
     } catch (cause) {
@@ -21,7 +25,6 @@ class BillingJob {
       });
     }
 
-    // 2. Busca assinaturas ATIVAS para checar quem precisa de renovação mensal
     let activeSubscriptions: Awaited<ReturnType<typeof prisma.subscription.findMany>> = [];
     try {
       activeSubscriptions = await prisma.subscription.findMany({
@@ -38,21 +41,18 @@ class BillingJob {
       count: activeSubscriptions.length,
     });
 
-    const month = now.getMonth() + 1;
-    const year = now.getFullYear();
-    const startDate = new Date(year, month - 1, 1);
-    const endDate = new Date(year, month, 0);
-
     for (const sub of activeSubscriptions) {
       try {
-        // Alimenta o InvoiceService. Ele cuidará de checar se a fatura já existe,
-        // calcular os valores, criar no banco e gerar a sessão correta na Stripe.
+        const dueDate = resolveSubscriptionDueDate(sub);
+        if (!dueDate || !isInvoiceCreationDue(dueDate, now)) continue;
+        const { month, year } = invoicePeriodFromDueDate(dueDate);
+
         await invoiceService.execute({
           restaurantId: sub.restaurantId,
           month,
           year,
-          startDate,
-          endDate,
+          startDate: sub.currentPeriodStart || sub.createdAt,
+          endDate: dueDate,
         });
       } catch (cause) {
         failures.push(new Error('Restaurant billing item failed.', { cause }));
@@ -63,7 +63,6 @@ class BillingJob {
       }
     }
 
-    // 3. Bloqueia quem ultrapassou 30 dias + 5 dias úteis de tolerância
     let pendingInvoices: Awaited<ReturnType<typeof billingRepository.findPendingInvoices>> = [];
     try {
       pendingInvoices = await billingRepository.findPendingInvoices();
@@ -75,11 +74,7 @@ class BillingJob {
     }
 
     for (const invoice of pendingInvoices) {
-      const shouldBlock = isInvoiceBlocking(invoice, now);
-
-      if (!shouldBlock) {
-        continue;
-      }
+      if (!isInvoiceBlocking(invoice, now)) continue;
 
       try {
         warn('applying block for overdue invoice', {
@@ -95,7 +90,7 @@ class BillingJob {
           invoice.restaurantId,
         );
 
-        if (subscription) {
+        if (subscription && subscription.status !== 'CANCELADA') {
           await billingRepository.updateSubscription(subscription.id, {
             status: 'EXPIRADA',
           });

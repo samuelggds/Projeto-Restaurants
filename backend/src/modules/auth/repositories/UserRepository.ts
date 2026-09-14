@@ -26,18 +26,26 @@ class UserRepository {
   async findByPhone(phone: string, db: PrismaClientLike = prisma) {
     const normalizedPhone = String(phone || '').replace(/\D/g, '');
 
-    if (!normalizedPhone) {
+    if (!/^\d{8,15}$/u.test(normalizedPhone)) {
       return null;
     }
+
+    const nationalPhone = /^55\d{10,11}$/u.test(normalizedPhone)
+      ? normalizedPhone.slice(2)
+      : normalizedPhone;
+    const internationalPhone = /^\d{10,11}$/u.test(nationalPhone)
+      ? `55${nationalPhone}`
+      : nationalPhone;
 
     const users = await db.$queryRaw<User[]>`
       SELECT *
       FROM "User"
-      WHERE regexp_replace(COALESCE("phone", ''), '[^0-9]', '', 'g') = ${normalizedPhone}
-      LIMIT 1
+      WHERE regexp_replace(COALESCE("phone", ''), '[^0-9]', '', 'g') IN (${nationalPhone}, ${internationalPhone})
+      LIMIT 2
     `;
 
-    return users[0] || null;
+    // A shared phone cannot identify one account safely. Recover those accounts by email.
+    return users.length === 1 ? users[0] : null;
   }
 
   async create(data: Prisma.UserUncheckedCreateInput, db: PrismaClientLike = prisma) {

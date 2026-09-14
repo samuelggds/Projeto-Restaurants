@@ -1,6 +1,7 @@
 import styled from 'styled-components';
 import type { OrderStatus } from './types';
 import { kitchenItemConfigurationStyles } from './KitchenItemConfiguration.styles';
+import { kitchenLargeReadingStyles } from './KitchenReadingMode.styles';
 export const Root = styled.div<{ $primary: string; $sidebarOpen?: boolean }>`
   --brand: ${(p) => p.$primary};
   --ink: #172522;
@@ -86,7 +87,12 @@ export const SidebarOpenTab = styled.button`
   }
 `;
 export const Main = styled.main`
+  grid-column: 2;
+  grid-row: 1;
   min-width: 0;
+  @media (max-width: 820px) {
+    grid-column: 1;
+  }
 `;
 export const Top = styled.header`
   min-height: 92px;
@@ -804,12 +810,12 @@ export const ChannelButtons = styled.div`
     }
   }
 `;
-export const StatusColumns = styled.div`
+export const StatusColumns = styled.div<{ $singleStatus?: boolean }>`
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: ${(p) => (p.$singleStatus ? 'minmax(0, 1fr)' : 'repeat(3, minmax(0, 1fr))')};
   gap: 14px;
   @media (max-width: 1000px) {
-    display: flex;
+    display: ${(p) => (p.$singleStatus ? 'grid' : 'flex')};
     overflow-x: auto;
     scroll-snap-type: x mandatory;
     margin-inline: 0;
@@ -995,6 +1001,7 @@ export const KitchenOrder = styled.article`
     font-weight: 850;
     text-transform: uppercase;
   }
+  ${kitchenLargeReadingStyles}
 `;
 export const Empty = styled.div`
   min-height: 106px;

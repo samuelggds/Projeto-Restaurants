@@ -8,6 +8,13 @@ import orderRepository from '../repositories/OrderRepository.js';
 import orderPixPaymentService from '../services/OrderPixPaymentService.js';
 import failPendingOrderPaymentService from '../services/FailPendingOrderPaymentService.js';
 import { matchesOrderPaymentEvidence } from '../utils/paymentEvidence.js';
+import { getPagBankAccessToken } from '../../restaurantSettings/services/RestaurantPaymentCredentialsService.js';
+import reconcilePagBankCardPaymentService from '../services/ReconcilePagBankCardPaymentService.js';
+import processPagBankTablePaymentWebhookService from '../../tableAccount/services/ProcessPagBankTablePaymentWebhookService.js';
+import {
+  pagBankCardReference,
+  pagBankApiBaseUrl,
+} from '../../payments/providers/pagBankCheckout.js';
 
 const APPROVED_TRANSACTION_STATUSES = new Set(['3', '4']);
 const TERMINAL_TRANSACTION_STATUSES = new Set(['6', '7', '8']);
@@ -92,9 +99,7 @@ function resolvePagBankApiBaseUrl(environment: 'production') {
 }
 
 function resolvePagBankOrdersApiBaseUrl() {
-  return String(process.env.PAGBANK_API_BASE_URL || 'https://api.pagseguro.com')
-    .trim()
-    .replace(/\/+$/, '');
+  return pagBankApiBaseUrl();
 }
 
 function asRecord(value: unknown): Record<string, unknown> {
@@ -130,11 +135,13 @@ function parsePagBankOrderDetails(value: unknown): PagBankOrderDetails {
 }
 
 async function fetchPagBankOrderById(pagBankOrderId: string, restaurantId: number) {
-  const { token } = await getPagBankCredentials(restaurantId);
+  const token = await getPagBankAccessToken(restaurantId);
   const response = await fetch(
     `${resolvePagBankOrdersApiBaseUrl()}/orders/${encodeURIComponent(pagBankOrderId)}`,
     {
       method: 'GET',
+      redirect: 'error',
+      signal: AbortSignal.timeout(15_000),
       headers: {
         Authorization: `Bearer ${token}`,
         Accept: 'application/json',
@@ -270,6 +277,46 @@ class PagBankOrderWebhookController {
             restaurantId: referenceRestaurantId,
           });
         }
+        return res.sendStatus(200);
+      }
+
+      const tableCardReference = /^tablecard:(\d+):(\d+):([a-f0-9]{32})$/i.exec(referenceId);
+      if (pagBankOrderId && tableCardReference) {
+        const restaurantId = Number(tableCardReference[2]);
+        if (restaurantIdHint && restaurantIdHint !== restaurantId)
+          return res.status(400).json({ error: 'Restaurante da transação não confere.' });
+        // Avisos CHEC descrevem o checkout. Só o evento Orders permite verificar
+        // a cobrança capturada; nenhum status/valor informado no corpo é prova.
+        if (/^ORDE_[\w-]+$/.test(pagBankOrderId)) {
+          await processPagBankTablePaymentWebhookService.execute({
+            intentId: Number(tableCardReference[1]),
+            restaurantId,
+            reference: referenceId,
+            providerOrderId: pagBankOrderId,
+          });
+        }
+        return res.sendStatus(200);
+      }
+
+      const modernCardReference = /^ordercard:(\d+):(\d+):([a-f0-9]{32})$/i.exec(referenceId);
+      if (pagBankOrderId && modernCardReference) {
+        const restaurantId = Number(modernCardReference[2]);
+        if (restaurantIdHint && restaurantIdHint !== restaurantId)
+          return res.status(400).json({ error: 'Restaurante da transação não confere.' });
+        const order = await orderRepository.findById(Number(modernCardReference[1]), restaurantId);
+        if (!order) return res.sendStatus(200);
+        if (pagBankCardReference(order) !== referenceId)
+          return res.status(400).json({ error: 'A referência PagBank não corresponde ao pedido.' });
+        const linked = String(order.cardCheckoutSessionId || '');
+        if (!linked.startsWith('pagbank_checkout:') && !linked.startsWith('pagbank_charge:CHAR_'))
+          return res
+            .status(400)
+            .json({ error: 'O pedido não está vinculado a este checkout PagBank.' });
+        await reconcilePagBankCardPaymentService.execute({
+          orderId: order.id,
+          restaurantId,
+          ...(/^ORDE_/.test(pagBankOrderId) ? { providerOrderId: pagBankOrderId } : {}),
+        });
         return res.sendStatus(200);
       }
 

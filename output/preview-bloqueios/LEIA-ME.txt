@@ -1,0 +1,13 @@
+CAPTURAS DAS TELAS DE BLOQUEIO — GASTRONEXA
+
+As imagens mostram a interface implementada localmente, renderizada no Chromium.
+Cliente e funcionário têm orientações próprias e não recebem dados financeiros.
+O administrador consulta a fatura, gera o Pix, copia o código e verifica a liberação.
+
+DADOS FICTÍCIOS: o QR Code das capturas é apenas uma prévia e não permite pagar.
+Desktop: 1440 × 1000. Mobile: largura 390 px, captura de toda a página com rolagem.
+Também foi verificada a ausência de transbordamento horizontal em 320 e 768 px.
+
+Validação: 32 testes unitários de frontend, 11 testes de permissões do backend,
+9 cenários de navegador, TypeScript, ESLint, Prettier, build e orçamento do bundle.
+Não houve publicação ou alteração de dados reais.

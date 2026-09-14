@@ -2,6 +2,14 @@ import Stripe from 'stripe';
 import { PaymentMethod } from '@prisma/client';
 import { getMercadoPagoPaymentRefundApi } from '../../payments/providers/mercadoPagoClient.js';
 import restaurantSettingsRepository from '../../restaurantSettings/repositories/RestaurantSettingsRepository.js';
+import {
+  getPagBankAccessToken,
+  getMercadoPagoAccessToken,
+} from '../../restaurantSettings/services/RestaurantPaymentCredentialsService.js';
+import {
+  refundPagBankCardCharge,
+  pagBankApiBaseUrl,
+} from '../../payments/providers/pagBankCheckout.js';
 
 export type RefundableOrder = {
   id: number | string;
@@ -263,6 +271,7 @@ class RefundOrderPaymentService {
   }
 
   private async getMercadoPagoAccessTokenByRestaurant(restaurantId?: number | string | null) {
+    if (Number(restaurantId) > 0) return getMercadoPagoAccessToken(Number(restaurantId));
     const allowGlobalFallback = process.env.ALLOW_GLOBAL_PAYMENT_FALLBACK === 'true';
     const normalizedRestaurantId = Number(restaurantId || 0);
     const settings =
@@ -322,12 +331,11 @@ class RefundOrderPaymentService {
   }
 
   private resolvePagBankOrderApiBaseUrl() {
-    return String(process.env.PAGBANK_API_BASE_URL || 'https://api.pagseguro.com')
-      .trim()
-      .replace(/\/+$/, '');
+    return pagBankApiBaseUrl();
   }
 
   private async getPagBankBearerToken(restaurantId?: number) {
+    if (Number(restaurantId) > 0) return getPagBankAccessToken(Number(restaurantId));
     const normalizedRestaurantId = Number(restaurantId || 0);
     const allowGlobalFallback = process.env.ALLOW_GLOBAL_PAYMENT_FALLBACK === 'true';
     const settings =
@@ -736,15 +744,33 @@ class RefundOrderPaymentService {
       );
     }
 
-    if (normalizedCheckoutSessionId.startsWith('pagbank_chk:')) {
+    if (
+      normalizedCheckoutSessionId.startsWith('pagbank_chk:') ||
+      normalizedCheckoutSessionId.startsWith('pagbank_checkout:')
+    ) {
       throw new AutomaticRefundError(
         'O pagamento PagBank ainda não possui o código da transação necessário para estorno automático. O pedido não foi cancelado.',
         'MISSING_REFERENCE',
       );
     }
 
-    if (normalizedCheckoutSessionId.startsWith('pagbank_tx:')) {
-      const transactionCode = checkoutSessionId.replace(/^pagbank_tx:/i, '').trim();
+    if (
+      normalizedCheckoutSessionId.startsWith('pagbank_tx:') ||
+      normalizedCheckoutSessionId.startsWith('pagbank_charge:')
+    ) {
+      const transactionCode = checkoutSessionId.replace(/^pagbank_(?:tx|charge):/i, '').trim();
+
+      if (/^CHAR_[\w-]+$/.test(transactionCode)) {
+        const chargeId = await refundPagBankCardCharge({
+          restaurantId: Number(order.restaurantId),
+          chargeId: transactionCode,
+          amountCents: Math.round(Number(order.total) * 100),
+          reference: `ordercard:${order.id}:${order.restaurantId}`,
+          idempotencyKey: options.idempotencyKey,
+          hostedCheckout: normalizedCheckoutSessionId.startsWith('pagbank_charge:'),
+        });
+        return { provider: 'PAGBANK', externalId: chargeId } satisfies RefundProviderReceipt;
+      }
 
       return this.refundPagBankByTransaction(transactionCode, order, options);
     }

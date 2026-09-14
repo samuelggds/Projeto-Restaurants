@@ -3,6 +3,7 @@ import { Bell, ChevronDown, ChevronUp, CreditCard, ReceiptText } from 'lucide-re
 import styled from 'styled-components';
 
 type Props = {
+  embedded?: boolean;
   tableNumber: string | number;
   waiterEnabled: boolean;
   billEnabled: boolean;
@@ -245,6 +246,7 @@ const Card = styled.div`
 `;
 
 export function TableServiceActions({
+  embedded = false,
   tableNumber,
   waiterEnabled,
   billEnabled,
@@ -261,39 +263,42 @@ export function TableServiceActions({
   if (!waiterEnabled && !billEnabled && !accountEnabled) return null;
 
   const tableLabel = String(tableNumber);
+  const isCollapsed = !embedded && collapsed;
 
   return (
     <Group
       aria-label={`Mesa e atendimento da mesa ${tableLabel}`}
-      data-collapsed={collapsed ? 'true' : 'false'}
+      data-collapsed={isCollapsed ? 'true' : 'false'}
     >
-      <GroupControl
-        type="button"
-        data-collapsed={collapsed ? 'true' : 'false'}
-        data-floating-drag-handle="true"
-        data-testid="table-service-actions-toggle"
-        aria-expanded={!collapsed}
-        aria-label={
-          collapsed
-            ? `Abrir atendimento da mesa ${tableLabel}`
-            : `Minimizar atendimento da mesa ${tableLabel}`
-        }
-        title={collapsed ? 'Abrir atendimento da mesa' : 'Minimizar atendimento da mesa'}
-        onClick={() => setCollapsed((current) => !current)}
-      >
-        <span className="control-icon" aria-hidden="true">
-          <Bell />
-        </span>
-        <span className="control-copy">
-          <strong>Atendimento da mesa</strong>
-          <small>Garçom, conta e pagamento · Mesa {tableLabel}</small>
-        </span>
-        <span className="action" aria-hidden="true">
-          {collapsed ? <ChevronUp /> : <ChevronDown />}
-        </span>
-      </GroupControl>
+      {!embedded && (
+        <GroupControl
+          type="button"
+          data-collapsed={collapsed ? 'true' : 'false'}
+          data-floating-drag-handle="true"
+          data-testid="table-service-actions-toggle"
+          aria-expanded={!collapsed}
+          aria-label={
+            collapsed
+              ? `Abrir atendimento da mesa ${tableLabel}`
+              : `Minimizar atendimento da mesa ${tableLabel}`
+          }
+          title={collapsed ? 'Abrir atendimento da mesa' : 'Minimizar atendimento da mesa'}
+          onClick={() => setCollapsed((current) => !current)}
+        >
+          <span className="control-icon" aria-hidden="true">
+            <Bell />
+          </span>
+          <span className="control-copy">
+            <strong>Atendimento da mesa</strong>
+            <small>Garçom, conta e pagamento · Mesa {tableLabel}</small>
+          </span>
+          <span className="action" aria-hidden="true">
+            {collapsed ? <ChevronUp /> : <ChevronDown />}
+          </span>
+        </GroupControl>
+      )}
 
-      {!collapsed && (
+      {!isCollapsed && (
         <Card>
           <header>
             <div>

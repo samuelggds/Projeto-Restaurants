@@ -508,6 +508,16 @@ class OrderRepository {
     throw new Error('O pagamento PIX não pôde ser confirmado no estado atual do pedido.');
   }
 
+  async bindCardPaymentReference(id: number, restaurantId: number, expected: string, paymentReference: string) {
+    const changed = await prisma.order.updateMany({
+      where: { id, restaurantId, cardCheckoutSessionId: expected },
+      data: { cardCheckoutSessionId: paymentReference },
+    });
+    if (changed.count === 1) return true;
+    const current = await this.findById(id, restaurantId);
+    return current?.cardCheckoutSessionId === paymentReference;
+  }
+
   async setCardCheckoutSessionId(
     id: number | string,
     restaurantId: number,
@@ -583,6 +593,9 @@ class OrderRepository {
     return db.order.findFirst({
       where: { publicId, restaurantId },
       select: {
+        id: true,
+        total: true,
+        cardCheckoutSessionId: true,
         publicId: true,
         restaurantId: true,
         userId: true,

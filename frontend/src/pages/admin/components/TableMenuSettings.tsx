@@ -15,6 +15,7 @@ import { createPortal } from 'react-dom';
 import QRCode from 'react-qr-code';
 import tablesService from '../../../Services/tablesService';
 import { adminMockSettings } from '../data';
+import { adminErrorMessage } from '../utils/adminErrorMessage';
 import {
   buildAdminTableQrUrl,
   mapAdminTableQr,
@@ -33,16 +34,8 @@ type Props = {
   ) => void;
 };
 
-type RequestError = {
-  response?: { data?: { error?: string; message?: string } };
-  message?: string;
-};
-
 function requestErrorMessage(error: unknown, fallback: string) {
-  const typed = error as RequestError;
-  return String(
-    typed.response?.data?.error || typed.response?.data?.message || typed.message || fallback,
-  );
+  return adminErrorMessage(error, fallback);
 }
 
 function validateTableNumber(value: string) {
@@ -135,7 +128,9 @@ export function TableMenuSettings({ settings, update }: Props) {
         throw new Error('A mesa foi criada, mas o servidor não retornou os dados do QR Code.');
       }
       if (!created.token) {
-        throw new Error('O token seguro do QR Code não foi retornado. Atualize e tente novamente.');
+        throw new Error(
+          'O código de segurança do QR Code não foi retornado. Atualize e tente novamente.',
+        );
       }
       setTables((current) =>
         [...current.filter((table) => table.id !== created.id), created].sort(

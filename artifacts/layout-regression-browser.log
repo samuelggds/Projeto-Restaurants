@@ -1,0 +1,15 @@
+[WebServer] (node:34896) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+Running 6 tests using 1 worker
+
+(node:25704) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ok 1 [chromium] › e2e\admin-people-ux.spec.ts:209:1 › admin: navegação e configurações conservam a largura ao recolher o menu (12.0s)
+  ok 2 [chromium] › e2e\courier-operations.spec.ts:1110:1 › motoqueiro: todas as abas ocupam a largura disponível ao recolher e expandir o menu (10.3s)
+  ok 3 [chromium] › e2e\demo-admin.spec.ts:185:1 › demo: menu de perfis cabe na caixa e painéis expandem ao recolher a navegação (9.1s)
+  ok 4 [chromium] › e2e\demo-workflow.spec.ts:351:1 › demo: entrada QR usa o cardápio da mesa, envia à cozinha e apresenta a conta real (8.0s)
+  ok 5 [chromium] › e2e\kitchen-order-customizations.spec.ts:752:1 › cozinha: todas as abas ocupam a largura disponível ao recolher e expandir o menu (8.6s)
+  ok 6 [chromium] › e2e\waiter-operations.spec.ts:846:1 › garçom: todas as abas ocupam a largura disponível ao recolher e expandir o menu (9.5s)
+
+  6 passed (1.0m)

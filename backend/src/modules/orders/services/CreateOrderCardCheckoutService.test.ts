@@ -7,6 +7,7 @@ import restaurantSettingsRepository from '../../restaurantSettings/repositories/
 import { BUSINESS_DAY_IDS } from '../../restaurantSettings/utils/businessHours.js';
 import prisma from '../../../config/prisma.js';
 import orderRepository from '../repositories/OrderRepository.js';
+import { PaymentCreationUncertainError } from './PaymentCreationUncertainError.js';
 
 const originalHttpCreateServer = http.createServer;
 
@@ -40,6 +41,51 @@ const originalFindCustomerPaymentMethod = prisma.customerPaymentMethod.findFirst
 const originalTransaction = prisma.$transaction;
 const originalQueryRaw = prisma.$queryRaw;
 const originalFetch = globalThis.fetch;
+
+test('timeout após cobrança de cartão preserva pedido confirmado, estoque e cupom', async () => {
+  restaurantSettingsRepository.findByRestaurantId = async () => ({
+    cardGateway: 'PAGBANK',
+    pagbankEmail: 'tenant@test',
+    pagbankToken: 'tenant-token',
+  });
+  const order = {
+    id: 321,
+    publicId: 'order-321',
+    restaurantId: 7,
+    total: 25,
+    paid: false,
+    restaurant: { name: 'Restaurante' },
+  };
+  createOrderService.execute = async () => order;
+  let deleted = false;
+  orderRepository.deleteById = async () => {
+    deleted = true;
+  };
+  prisma.$transaction = async () => {
+    throw new Error('Não deve liberar reservas após falha externa.');
+  };
+  globalThis.fetch = async () => {
+    order.paid = true;
+    throw new Error('timeout-token-secret');
+  };
+  await assert.rejects(
+    () =>
+      createOrderCardCheckoutService.execute({
+        restaurantId: 7,
+        userRestaurantId: 7,
+        type: 'RETIRADA',
+        paymentMethod: 'CARTAO',
+        items: [{ productId: 1, quantity: 1 }],
+      }),
+    (error) =>
+      error instanceof PaymentCreationUncertainError &&
+      error.orderId === 321 &&
+      error.orderPublicId === 'order-321' &&
+      !error.message.includes('token-secret'),
+  );
+  assert.equal(order.paid, true);
+  assert.equal(deleted, false);
+});
 
 beforeEach(() => {
   prisma.$transaction = async (callback) => callback(prisma);
@@ -181,6 +227,52 @@ test('deve abrir checkout de cartao usando a configuracao PagBank do restaurante
   );
   assert.equal(savedSessionId, 'pagbank_chk:CHK-ABC-123');
   assert.equal(deletedOrderId, null);
+});
+
+test('admin conectado via OAuth abre checkout PagBank moderno sem email cadastrado', async () => {
+  const publicId = '123e4567-e89b-42d3-a456-426614174001';
+  restaurantSettingsRepository.findByRestaurantId = async () => ({
+    restaurantId: 7,
+    cardGateway: 'PAGBANK',
+    pagbankToken: 'tenant-token',
+    pagbankRefreshToken: 'refresh-7',
+    pagbankTokenExpiresAt: new Date(Date.now() + 3600_000),
+  });
+  createOrderService.execute = async () => ({
+    id: 321,
+    publicId,
+    restaurantId: 7,
+    total: 25,
+    restaurant: { name: 'Restaurante' },
+  });
+  let saved;
+  orderRepository.setCardCheckoutSessionId = async (id, tenant, session) => {
+    assert.deepEqual([id, tenant], [321, 7]);
+    saved = session;
+  };
+  globalThis.fetch = async (url, init) => {
+    assert.equal(url, 'https://api.pagseguro.com/checkouts');
+    assert.equal(init.headers.Authorization, 'Bearer tenant-token');
+    const body = JSON.parse(init.body);
+    assert.equal(body.reference_id, 'ordercard:321:7:123e4567e89b42d3a456426614174001');
+    return new Response(
+      JSON.stringify({
+        id: 'CHEC_321',
+        reference_id: body.reference_id,
+        links: [{ rel: 'PAY', href: 'https://pagamento.pagbank.com.br/pagamento?code=321' }],
+      }),
+    );
+  };
+  const result = await createOrderCardCheckoutService.execute({
+    restaurantId: 7,
+    userRestaurantId: 7,
+    type: 'RETIRADA',
+    paymentMethod: 'CARTAO',
+    items: [{ productId: 1, quantity: 1 }],
+  });
+  assert.equal(saved, 'pagbank_checkout:CHEC_321');
+  assert.equal(result.sessionId, 'CHEC_321');
+  assert.equal(result.paid, false);
 });
 
 test('deve abrir checkout de cartao com Asaas e fazer fallback sem split quando rejeitado', async () => {

@@ -2,6 +2,7 @@ import bcrypt from 'bcrypt';
 import type { Request, Response } from 'express';
 import { generateStrongRandomPassword } from '../../auth/security/passwordPolicy.js';
 import createOrderService from '../../orders/services/CreateOrderService.js';
+import { resolveCustomerOrderLinks } from '../../../services/customerOrderMessaging.js';
 
 class CreateAttendantOrderController {
   async handle(req: Request, res: Response) {
@@ -9,7 +10,9 @@ class CreateAttendantOrderController {
       const restaurantId = Number(req.user.restaurantId);
       const type = String(req.body?.type || '').toUpperCase();
       if (type !== 'RETIRADA' && type !== 'DELIVERY') {
-        throw new Error('O atendente pode registrar pedidos de retirada ou delivery. Pedidos de mesa usam a sessão da mesa.');
+        throw new Error(
+          'O atendente pode registrar pedidos de retirada ou delivery. Pedidos de mesa usam a sessão da mesa.',
+        );
       }
 
       const paymentMethod = req.body?.paymentMethod;
@@ -52,7 +55,19 @@ class CreateAttendantOrderController {
         complement: req.body?.complement,
       });
 
-      return res.status(201).json(order);
+      const customerAccess =
+        type === 'DELIVERY' && order.publicId
+          ? await resolveCustomerOrderLinks({
+              restaurantId,
+              orderId: order.id,
+              publicId: order.publicId,
+            })
+          : undefined;
+
+      return res.status(201).json({
+        ...order,
+        ...(customerAccess ? { customerAccess } : {}),
+      });
     } catch (error: unknown) {
       return res.status(400).json({
         error: error instanceof Error ? error.message : 'Não foi possível registrar o pedido.',

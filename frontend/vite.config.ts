@@ -1,6 +1,7 @@
 /// <reference types="vitest" />
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
+import { fileURLToPath } from 'node:url';
 
 // https://vite.dev/config/
 export default defineConfig({
@@ -12,6 +13,11 @@ export default defineConfig({
   },
   build: {
     rollupOptions: {
+      input: {
+        app: fileURLToPath(new URL('./index.html', import.meta.url)),
+        demoAdmin: fileURLToPath(new URL('./demo-admin.html', import.meta.url)),
+        helpPreview: fileURLToPath(new URL('./help-preview.html', import.meta.url)),
+      },
       output: {
         manualChunks(id) {
           if (!id.includes('node_modules')) {
@@ -50,7 +56,8 @@ export default defineConfig({
   server: {
     host: true,
     strictPort: true,
-    allowedHosts: true,
+    // Vite already accepts localhost and IP addresses; custom hosts must be explicitly allowed.
+    allowedHosts: [],
     proxy: {
       '/api': {
         target: 'http://127.0.0.1:3000',

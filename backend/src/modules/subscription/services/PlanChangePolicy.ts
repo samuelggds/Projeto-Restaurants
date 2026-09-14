@@ -22,15 +22,14 @@ const normalizeDate = (value: Date | string) => new Date(value);
 
 export function evaluatePlanChangeEligibility({
   invoices,
-  consumedInvoiceId,
   hasScheduledPlan = false,
   now = new Date(),
 }: PlanChangePolicyInput): PlanChangeEligibility {
   if (hasScheduledPlan) {
     return {
       allowed: false,
-      invoiceId: consumedInvoiceId || null,
-      reason: 'A escolha deste ciclo já foi registrada e a troca está agendada.',
+      invoiceId: null,
+      reason: 'Já existe uma troca de plano agendada para o próximo ciclo.',
     };
   }
 
@@ -46,40 +45,15 @@ export function evaluatePlanChangeEligibility({
   if (overdueOpenInvoice) {
     return {
       allowed: false,
-      invoiceId: null,
-      reason: 'Pague a fatura vencida para liberar a escolha do próximo plano.',
+      invoiceId: overdueOpenInvoice.id,
+      reason: 'Pague a fatura vencida para alterar o plano.',
     };
   }
 
-  const paidOverdueInvoice = [...invoices]
-    .filter((invoice) => {
-      if (String(invoice.status || '').toUpperCase() !== 'PAGO' || !invoice.paidAt) {
-        return false;
-      }
-
-      return normalizeDate(invoice.paidAt) > normalizeDate(invoice.dueDate);
-    })
-    .sort((left, right) => Number(right.id) - Number(left.id))[0];
-
-  if (!paidOverdueInvoice) {
-    return {
-      allowed: false,
-      invoiceId: null,
-      reason: 'A escolha será liberada após o pagamento de uma fatura vencida.',
-    };
-  }
-
-  if (Number(consumedInvoiceId) === paidOverdueInvoice.id) {
-    return {
-      allowed: false,
-      invoiceId: paidOverdueInvoice.id,
-      reason: 'A escolha referente à última fatura paga já foi registrada.',
-    };
-  }
-
+  const latestInvoice = [...invoices].sort((left, right) => Number(right.id) - Number(left.id))[0];
   return {
     allowed: true,
-    invoiceId: paidOverdueInvoice.id,
-    reason: 'Fatura vencida paga. Escolha manter o plano atual ou trocar no próximo ciclo.',
+    invoiceId: latestInvoice?.id ?? null,
+    reason: 'Assinatura em dia. A alteração será aplicada sem mudar cobranças já emitidas.',
   };
 }

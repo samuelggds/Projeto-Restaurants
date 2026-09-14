@@ -58,6 +58,7 @@ test('histórico administrativo expõe auditoria útil sem devolver metadados ar
       totalCents: 1_500n,
       provider: 'FAKE_TABLE',
       providerExternalId: 'fake-table:payment',
+      providerChargeId: null,
       providerCheckoutUrl: null,
       providerPaymentCode: '000201FAKE',
       expiresAt: now,

@@ -1,5 +1,6 @@
 export const SUPER_ADMIN_VIEWS = [
   'overview',
+  'sales-leads',
   'restaurants',
   'subscriptions',
   'plans',
@@ -215,6 +216,9 @@ export interface RestaurantAccessInput {
   active: boolean;
   reason: string;
 }
+export interface RestaurantDeleteInput {
+  reason: string;
+}
 export interface SubscriptionUpdateInput {
   planCode?: string;
   status?: SubscriptionLifecycleStatus;
@@ -256,6 +260,7 @@ export interface SuperAdminActions {
   updateSettings: (settings: PlatformSettings) => Promise<void>;
   updatePlan: (code: string, input: PlanUpdateInput) => Promise<void>;
   updateRestaurantAccess: (id: number, input: RestaurantAccessInput) => Promise<void>;
+  deleteRestaurant: (id: number, input: RestaurantDeleteInput) => Promise<void>;
   updateSubscription: (id: number, input: SubscriptionUpdateInput) => Promise<void>;
   createAdministrator: (id: number, input: AdministratorCreateInput) => Promise<void>;
   rotateAdminPortalKey: (id: number) => Promise<AdminPortalKeyResult>;
@@ -279,4 +284,5 @@ export interface SuperAdminModuleProps {
   onLogout: () => void;
   refreshing?: boolean;
   loadError?: string | null;
+  updatedAt?: string | null;
 }

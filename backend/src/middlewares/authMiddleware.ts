@@ -32,17 +32,28 @@ export function canAccessBillingRecoveryRoute(req: Request) {
   const routePath = getNormalizedRequestPath(req);
   const method = String(req.method || '').toUpperCase();
 
-  // Durante inadimplência, o ADMIN recebe apenas as leituras necessárias para
-  // entender a cobrança e a ação pontual de regenerar o Pix. Alterações de
-  // plano e qualquer operação do restaurante continuam bloqueadas.
   if (
     method === 'GET' &&
-    ['/billing/plans', '/billing/invoices', '/subscription'].includes(routePath)
+    [
+      '/billing/plans',
+      '/billing/invoices',
+      '/billing/recurring',
+      '/billing/recurring/config',
+      '/subscription',
+    ].includes(routePath)
   ) {
     return true;
   }
 
-  return method === 'POST' && /^\/billing\/invoices\/\d+\/regenerate-link$/u.test(routePath);
+  if (method === 'POST' && /^\/billing\/invoices\/\d+\/regenerate-link$/u.test(routePath)) {
+    return true;
+  }
+
+  if (method === 'POST' && routePath === '/billing/recurring/card') {
+    return true;
+  }
+
+  return method === 'PUT' && routePath === '/billing/recurring/pix';
 }
 
 export async function authMiddleware(req: Request, res: Response, next: NextFunction) {

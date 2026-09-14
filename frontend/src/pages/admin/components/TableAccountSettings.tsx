@@ -4,12 +4,10 @@ import { toast } from 'react-toastify';
 import { useAppDialog } from '../../../components/AppDialog/context';
 import tableAccountService from '../../../Services/tableAccountService';
 import { adminMockSettings } from '../data';
-import {
-  isValidPrepaymentWindow,
-  validateTableAccountSettings,
-} from '../domain/tableAccountSettingsValidation';
-import type { TableAccountAdminSettings, TablePrepaymentWindow } from '../types';
+import { validateTableAccountSettings } from '../domain/tableAccountSettingsValidation';
+import type { TableAccountAdminSettings } from '../types';
 import * as S from './TableAccountSettings.styles';
+import { TablePrepaymentSettings } from './TablePrepaymentSettings';
 
 type Settings = typeof adminMockSettings;
 type Props = {
@@ -50,8 +48,6 @@ type AccountDetail = {
     payerParticipantPublicId: string;
   }>;
 };
-
-const dayLabels = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
 
 type BooleanSettingKey = {
   [Key in keyof TableAccountAdminSettings]: TableAccountAdminSettings[Key] extends boolean
@@ -117,23 +113,6 @@ function money(cents: number) {
   return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(cents / 100);
 }
 
-function minuteToTime(value: number) {
-  const hour = Math.floor(value / 60)
-    .toString()
-    .padStart(2, '0');
-  const minute = (value % 60).toString().padStart(2, '0');
-  return `${hour}:${minute}`;
-}
-
-function timeToMinute(value: string, fallback: number) {
-  const match = /^(\d{2}):(\d{2})$/.exec(value);
-  if (!match) return fallback;
-  const hour = Number(match[1]);
-  const minute = Number(match[2]);
-  if (!Number.isInteger(hour) || !Number.isInteger(minute)) return fallback;
-  return Math.min(1439, Math.max(0, hour * 60 + minute));
-}
-
 export function TableAccountSettings({ settings, update }: Props) {
   const { confirmDialog, promptDialog } = useAppDialog();
   const account = settings.tableAccount;
@@ -184,15 +163,6 @@ export function TableAccountSettings({ settings, update }: Props) {
       active = false;
     };
   }, []);
-
-  const changeWindow = (index: number, next: TablePrepaymentWindow) => {
-    change(
-      'prepaymentWindows',
-      account.prepaymentWindows.map((window, currentIndex) =>
-        currentIndex === index ? next : window,
-      ),
-    );
-  };
 
   const loadDetail = async (sessionPublicId: string) => {
     if (details[sessionPublicId]) {
@@ -460,136 +430,7 @@ export function TableAccountSettings({ settings, update }: Props) {
         </S.Card>
       </S.Grid>
 
-      <S.Card>
-        <header>
-          <div>
-            <h3>Quando exigir pagamento antecipado</h3>
-            <p>Use um limite de saldo, horários específicos ou os dois ao mesmo tempo.</p>
-          </div>
-          <S.Button
-            type="button"
-            onClick={() =>
-              change('prepaymentWindows', [
-                ...account.prepaymentWindows,
-                { weekdays: [1, 2, 3, 4, 5], startsAtMinute: 1080, endsAtMinute: 1380 },
-              ])
-            }
-          >
-            + Adicionar horário
-          </S.Button>
-        </header>
-        <S.Fields>
-          <label>
-            Limite da conta (R$)
-            <input
-              aria-label="Limite para pagamento antecipado"
-              type="number"
-              min="0"
-              step="0.01"
-              placeholder="Sem limite"
-              aria-invalid={Boolean(validation.requirePrepaymentAboveCents)}
-              value={
-                account.requirePrepaymentAboveCents === null
-                  ? ''
-                  : (account.requirePrepaymentAboveCents / 100).toFixed(2)
-              }
-              onChange={(event) =>
-                change(
-                  'requirePrepaymentAboveCents',
-                  event.target.value === ''
-                    ? null
-                    : Math.max(0, Math.round(Number(event.target.value) * 100)),
-                )
-              }
-            />
-            <small>Ao ultrapassar este saldo, o novo pedido precisa ser pago agora.</small>
-            {validation.requirePrepaymentAboveCents && (
-              <small className="field-error">{validation.requirePrepaymentAboveCents}</small>
-            )}
-          </label>
-        </S.Fields>
-        <S.Windows>
-          {account.prepaymentWindows.map((window, index) => (
-            <div
-              className={`window${isValidPrepaymentWindow(window) ? '' : ' invalid'}`}
-              key={`${index}-${window.startsAtMinute}`}
-            >
-              <div className="window-head">
-                <span>Período {index + 1}</span>
-                <S.Button
-                  $danger
-                  type="button"
-                  onClick={() =>
-                    change(
-                      'prepaymentWindows',
-                      account.prepaymentWindows.filter((_, currentIndex) => currentIndex !== index),
-                    )
-                  }
-                >
-                  Remover
-                </S.Button>
-              </div>
-              <div className="days" aria-label={`Dias do período ${index + 1}`}>
-                {dayLabels.map((label, day) => (
-                  <button
-                    type="button"
-                    className={window.weekdays.includes(day) ? 'active' : ''}
-                    aria-pressed={window.weekdays.includes(day)}
-                    key={label}
-                    onClick={() => {
-                      const selected = window.weekdays.includes(day);
-                      if (selected && window.weekdays.length === 1) {
-                        toast.info('Mantenha ao menos um dia neste período.');
-                        return;
-                      }
-                      changeWindow(index, {
-                        ...window,
-                        weekdays: selected
-                          ? window.weekdays.filter((current) => current !== day)
-                          : [...window.weekdays, day].sort(),
-                      });
-                    }}
-                  >
-                    {label}
-                  </button>
-                ))}
-              </div>
-              <div className="times">
-                <input
-                  aria-label={`Início do período ${index + 1}`}
-                  type="time"
-                  value={minuteToTime(window.startsAtMinute)}
-                  onChange={(event) =>
-                    changeWindow(index, {
-                      ...window,
-                      startsAtMinute: timeToMinute(event.target.value, window.startsAtMinute),
-                    })
-                  }
-                />
-                <input
-                  aria-label={`Fim do período ${index + 1}`}
-                  type="time"
-                  value={minuteToTime(window.endsAtMinute)}
-                  onChange={(event) =>
-                    changeWindow(index, {
-                      ...window,
-                      endsAtMinute: timeToMinute(event.target.value, window.endsAtMinute),
-                    })
-                  }
-                />
-              </div>
-              {!isValidPrepaymentWindow(window) && (
-                <small className="window-error">
-                  Escolha ao menos um dia e use horários de início e fim diferentes.
-                </small>
-              )}
-            </div>
-          ))}
-          {!account.prepaymentWindows.length && (
-            <S.Empty>Nenhum horário especial. Apenas o limite de valor será considerado.</S.Empty>
-          )}
-        </S.Windows>
-      </S.Card>
+      <TablePrepaymentSettings account={account} onChange={change} />
 
       <S.Card>
         <header>

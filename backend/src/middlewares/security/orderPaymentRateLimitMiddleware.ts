@@ -1,3 +1,4 @@
+import { distributedRateLimitOptions } from './PostgresRateLimitStore.js';
 import type { Request } from 'express';
 import rateLimit, { ipKeyGenerator } from 'express-rate-limit';
 
@@ -12,6 +13,7 @@ function getOrderActorKey(req: Request) {
 }
 
 export const paymentPinAttemptRateLimitMiddleware = rateLimit({
+  ...distributedRateLimitOptions('orderpayment:1'),
   windowMs: Number(process.env.PAYMENT_PIN_RATE_LIMIT_WINDOW_MS || 10 * 60 * 1000),
   max: Number(process.env.PAYMENT_PIN_RATE_LIMIT_MAX_REQUESTS || 8),
   standardHeaders: true,
@@ -24,6 +26,7 @@ export const paymentPinAttemptRateLimitMiddleware = rateLimit({
 });
 
 export const paymentPinRequestRateLimitMiddleware = rateLimit({
+  ...distributedRateLimitOptions('orderpayment:2'),
   windowMs: Number(process.env.PAYMENT_PIN_REQUEST_RATE_LIMIT_WINDOW_MS || 60 * 1000),
   max: Number(process.env.PAYMENT_PIN_REQUEST_RATE_LIMIT_MAX_REQUESTS || 3),
   standardHeaders: true,
@@ -35,6 +38,7 @@ export const paymentPinRequestRateLimitMiddleware = rateLimit({
 });
 
 export const deliveryConfirmationAttemptRateLimitMiddleware = rateLimit({
+  ...distributedRateLimitOptions('orderpayment:3'),
   windowMs: Number(process.env.DELIVERY_CODE_RATE_LIMIT_WINDOW_MS || 10 * 60 * 1000),
   max: Number(process.env.DELIVERY_CODE_RATE_LIMIT_MAX_REQUESTS || 5),
   standardHeaders: true,

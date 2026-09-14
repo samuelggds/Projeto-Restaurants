@@ -7,11 +7,19 @@ import {
   ReceiptText,
   Trash2,
   Users,
+  X,
 } from 'lucide-react';
 import { useEffect, useId, useMemo, useState, type ReactNode } from 'react';
 import type { CallStatus, Order, RestaurantTable, ServiceCall, TableStatus } from '../types';
 import { useWaiterWorkspace as useWorkspace } from '../useWaiterWorkspace';
-import { Empty, MetricCards, OrderItems, StatusBadge, brl } from '../components/Shared';
+import {
+  Empty,
+  MetricCards,
+  OrderItems,
+  StatusBadge,
+  WorkspaceSyncStatus,
+  brl,
+} from '../components/Shared';
 import { WaiterTableAccountDialog } from '../components/WaiterTableAccountDialog';
 import { WAITER_LIST_BATCH_SIZE, WaiterListControls } from '../components/WaiterListControls';
 import * as S from '../Waiter.styles';
@@ -19,6 +27,13 @@ import * as S from '../Waiter.styles';
 function getErrorMessage(error: unknown, fallback: string) {
   const typed = error as { response?: { data?: { error?: string } }; message?: string };
   return typed.response?.data?.error || typed.message || fallback;
+}
+
+function normalizeSearch(value: string) {
+  return value
+    .trim()
+    .toLocaleLowerCase('pt-BR')
+    .replace(/\b0+(?=\d)/g, '');
 }
 
 function durationInSeconds(value: string) {
@@ -341,9 +356,9 @@ export function WaiterDeliveriesPage({
             order.channel === 'TABLE' &&
             order.status === 'PRONTO' &&
             (table === 'ALL' || order.reference === table) &&
-            `${order.id} ${order.reference} ${order.customer || ''} ${order.items.join(' ')}`
-              .toLocaleLowerCase('pt-BR')
-              .includes(query.trim().toLocaleLowerCase('pt-BR')),
+            normalizeSearch(
+              `${order.id} ${order.reference} ${order.customer || ''} ${order.items.join(' ')}`,
+            ).includes(normalizeSearch(query)),
         )
         .sort((left, right) => durationInSeconds(right.elapsed) - durationInSeconds(left.elapsed)),
     [orders, query, table],
@@ -356,6 +371,7 @@ export function WaiterDeliveriesPage({
     <>
       <S.Toolbar aria-label="Filtros dos pedidos prontos">
         <input
+          type="search"
           aria-label="Buscar pedidos prontos"
           value={query}
           onChange={(event) => {
@@ -377,7 +393,19 @@ export function WaiterDeliveriesPage({
             <option key={item}>{item}</option>
           ))}
         </select>
-        <S.LiveStatus role="status">Atualização automática</S.LiveStatus>
+        {(query || table !== 'ALL') && (
+          <button
+            type="button"
+            onClick={() => {
+              setQuery('');
+              setTable('ALL');
+              setVisibleCount(WAITER_LIST_BATCH_SIZE);
+            }}
+          >
+            <X size={16} aria-hidden="true" /> Limpar filtros
+          </button>
+        )}
+        <WorkspaceSyncStatus />
       </S.Toolbar>
       <MetricCards
         items={[
@@ -497,7 +525,7 @@ export function WaiterTablesPage() {
         (status === 'CLOSING'
           ? table.sessionStatus === 'CLOSING_REQUESTED'
           : table.status === status)) &&
-      String(table.number).includes(query.trim()),
+      normalizeSearch(`mesa ${table.number}`).includes(normalizeSearch(query)),
   );
 
   return (
@@ -511,6 +539,7 @@ export function WaiterTablesPage() {
       </S.InlineNotice>
       <S.Toolbar aria-label="Filtros das mesas">
         <input
+          type="search"
           aria-label="Buscar mesa"
           value={query}
           onChange={(event) => {
@@ -533,6 +562,18 @@ export function WaiterTablesPage() {
           <option value="OCCUPIED">Ocupadas</option>
           <option value="CLOSING">Conta solicitada</option>
         </select>
+        {(query || status !== 'ALL') && (
+          <button
+            type="button"
+            onClick={() => {
+              setQuery('');
+              setStatus('ALL');
+              setVisibleCount(WAITER_LIST_BATCH_SIZE);
+            }}
+          >
+            <X size={16} aria-hidden="true" /> Limpar filtros
+          </button>
+        )}
       </S.Toolbar>
       <MetricCards
         items={[
@@ -756,11 +797,11 @@ export function WaiterCallsPage() {
     resolved: WAITER_LIST_BATCH_SIZE,
   });
   const [deleteCandidate, setDeleteCandidate] = useState<ServiceCall | null>(null);
-  const normalizedQuery = query.trim().toLocaleLowerCase('pt-BR');
+  const normalizedQuery = normalizeSearch(query);
   const filtered = calls.filter((call) =>
-    `mesa ${call.tableNumber} ${callTitle(call.type)} ${call.employeeName || ''}`
-      .toLocaleLowerCase('pt-BR')
-      .includes(normalizedQuery),
+    normalizeSearch(
+      `mesa ${call.tableNumber} ${callTitle(call.type)} ${call.employeeName || ''}`,
+    ).includes(normalizedQuery),
   );
   const waiting = filtered
     .filter((call) => call.status === 'WAITING')
@@ -779,6 +820,7 @@ export function WaiterCallsPage() {
     <>
       <S.Toolbar aria-label="Filtros dos chamados">
         <input
+          type="search"
           aria-label="Buscar chamados"
           value={query}
           onChange={(event) => {
@@ -786,7 +828,6 @@ export function WaiterCallsPage() {
             resetVisibleCounts();
           }}
           placeholder="Buscar mesa ou tipo de chamado"
-          inputMode="numeric"
         />
         <select
           aria-label="Filtrar chamados por status"
@@ -801,7 +842,19 @@ export function WaiterCallsPage() {
           <option value="IN_PROGRESS">Em atendimento</option>
           <option value="RESOLVED">Concluídos</option>
         </select>
-        <S.LiveStatus role="status">Atualização automática</S.LiveStatus>
+        {(query || filter !== 'ALL') && (
+          <button
+            type="button"
+            onClick={() => {
+              setQuery('');
+              setFilter('ALL');
+              resetVisibleCounts();
+            }}
+          >
+            <X size={16} aria-hidden="true" /> Limpar filtros
+          </button>
+        )}
+        <WorkspaceSyncStatus />
       </S.Toolbar>
       <MetricCards
         items={[
@@ -831,7 +884,11 @@ export function WaiterCallsPage() {
             description="Os chamados com maior espera aparecem primeiro."
             calls={waiting.slice(0, visibleCounts.waiting)}
             action={(call) => updateCall(call.id, 'IN_PROGRESS')}
-            empty="Nenhum chamado aguardando atendimento."
+            empty={
+              normalizedQuery
+                ? 'Nenhum chamado aguardando corresponde à busca.'
+                : 'Nenhum chamado aguardando atendimento.'
+            }
             footer={
               <WaiterListControls
                 visibleCount={Math.min(visibleCounts.waiting, waiting.length)}
@@ -860,7 +917,11 @@ export function WaiterCallsPage() {
             calls={attending.slice(0, visibleCounts.attending)}
             action={(call) => updateCall(call.id, 'RESOLVED')}
             actionLabel="Concluir"
-            empty="Nenhum chamado em atendimento."
+            empty={
+              normalizedQuery
+                ? 'Nenhum chamado em atendimento corresponde à busca.'
+                : 'Nenhum chamado em atendimento.'
+            }
             footer={
               <WaiterListControls
                 visibleCount={Math.min(visibleCounts.attending, attending.length)}

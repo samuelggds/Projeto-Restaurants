@@ -1,0 +1,57 @@
+[WebServer] (node:38668) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+Running 8 tests using 1 worker
+
+(node:42840) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ok 1 [chromium] › e2e\demo-admin.spec.ts:5:1 › demo: administrador real abre todas as configurações sem API nem sessão real (12.3s)
+  ok 2 [chromium] › e2e\demo-admin.spec.ts:97:1 › demo: home usa imagens locais, logo nova e layout responsivo (3.3s)
+  ok 3 [chromium] › e2e\demo-admin.spec.ts:136:1 › demo: quatro funções abrem no celular com navegação visível e sem APIs reais (4.4s)
+  ok 4 [chromium] › e2e\demo-workflow.spec.ts:234:1 › demo: delivery vai do cliente à cozinha e ao motoqueiro, com recebimento e código (8.9s)
+  ok 5 [chromium] › e2e\demo-workflow.spec.ts:265:1 › demo: pedido da mesa passa pela cozinha e é entregue pelo garçom (8.5s)
+  ok 6 [chromium] › e2e\demo-workflow.spec.ts:281:1 › demo: retirada paga passa pela cozinha e é entregue pelo atendente (7.9s)
+  ok 7 [chromium] › e2e\demo-workflow.spec.ts:299:1 › demo: cliente e cozinha sincronizam pedidos entre abas mantendo seus perfis (7.0s)
+  x  8 [chromium] › e2e\demo-workflow.spec.ts:351:1 › demo: entrada QR usa o cardápio da mesa, envia à cozinha e apresenta a conta real (12.0s)
+
+
+  1) [chromium] › e2e\demo-workflow.spec.ts:351:1 › demo: entrada QR usa o cardápio da mesa, envia à cozinha e apresenta a conta real 
+
+    Error: expect(locator).toBeVisible() failed
+
+    Locator: getByRole('dialog', { name: 'Conta da mesa 08', exact: true }).getByRole('heading', { name: 'Itens lançados', exact: true })
+    Expected: visible
+    Timeout: 5000ms
+    Error: element(s) not found
+
+    Call log:
+      - Expect "toBeVisible" with timeout 5000ms
+      - waiting for getByRole('dialog', { name: 'Conta da mesa 08', exact: true }).getByRole('heading', { name: 'Itens lançados', exact: true })
+
+
+      391 |   await page.getByRole('button', { name: 'Ver conta', exact: true }).click();
+      392 |   const account = page.getByRole('dialog', { name: 'Conta da mesa 08', exact: true });
+    > 393 |   await account.getByRole('button', { name: 'Ver detalhes da conta', exact: true }).click();
+          |                                                                                       ^
+      394 |   await expect(account.getByRole('heading', { name: 'Itens lançados', exact: true })).toBeVisible();
+      395 |   await expect(account).toContainText('Burger Clássico');
+      396 |   await expect(account).toContainText('92,80');
+        at C:\Users\Samuel\Documents\Codex\RESTAURANT-DELIVERY-MESA\pizza-ia-delivery\frontend\e2e\demo-workflow.spec.ts:393:87
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\demo-workflow-demo-entrada-daa18-ha-e-apresenta-a-conta-real-chromium\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\demo-workflow-demo-entrada-daa18-ha-e-apresenta-a-conta-real-chromium\error-context.md
+
+    attachment #4: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results\demo-workflow-demo-entrada-daa18-ha-e-apresenta-a-conta-real-chromium\trace.zip
+    Usage:
+
+        npx playwright show-trace test-results\demo-workflow-demo-entrada-daa18-ha-e-apresenta-a-conta-real-chromium\trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  1 failed
+    [chromium] › e2e\demo-workflow.spec.ts:351:1 › demo: entrada QR usa o cardápio da mesa, envia à cozinha e apresenta a conta real 
+  7 passed (1.1m)

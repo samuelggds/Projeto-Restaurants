@@ -10,6 +10,7 @@ export const RESTAURANT_CREDENTIAL_FIELDS = [
   'pagbankToken',
   'pagbankRefreshToken',
   'mercadoPagoAccessToken',
+  'mercadoPagoRefreshToken',
   'picpayToken',
   'asaasAccessToken',
 ] as const;

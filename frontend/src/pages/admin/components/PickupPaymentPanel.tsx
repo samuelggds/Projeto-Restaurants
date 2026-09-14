@@ -1,8 +1,11 @@
 import { useEffect, useState } from 'react';
 import QRCode from 'react-qr-code';
 import { Banknote, CheckCircle2, CreditCard, QrCode, RefreshCw } from 'lucide-react';
-import paymentTerminalService, { type PaymentTerminal } from '../../../Services/paymentTerminalService';
+import paymentTerminalService, {
+  type PaymentTerminal,
+} from '../../../Services/paymentTerminalService';
 import pickupPaymentService, { type PickupPayment } from '../../../Services/pickupPaymentService';
+import { adminErrorMessage } from '../utils/adminErrorMessage';
 import * as S from './PickupPaymentPanel.styles';
 
 type Method = 'PIX' | 'CARTAO' | 'DINHEIRO';
@@ -14,11 +17,7 @@ type Props = {
 };
 
 function messageFrom(error: unknown) {
-  return (
-    (error as { response?: { data?: { error?: string } } })?.response?.data?.error ||
-    (error as Error)?.message ||
-    'Não foi possível concluir a operação.'
-  );
+  return adminErrorMessage(error, 'Não foi possível concluir a cobrança.');
 }
 
 export default function PickupPaymentPanel({ orderId, total, onPaid }: Props) {
@@ -37,13 +36,16 @@ export default function PickupPaymentPanel({ orderId, total, onPaid }: Props) {
       .then((snapshot) => {
         if (!active) return;
         const available = snapshot.terminals.filter(
-          (terminal) => terminal.active && String(terminal.operatingMode || '').toUpperCase() === 'PDV',
+          (terminal) =>
+            terminal.active && String(terminal.operatingMode || '').toUpperCase() === 'PDV',
         );
         setTerminals(available);
         setTerminalPublicId((current) => current || available[0]?.publicId || '');
       })
       .catch(() => setTerminals([]));
-    return () => { active = false; };
+    return () => {
+      active = false;
+    };
   }, []);
 
   useEffect(() => {
@@ -63,7 +65,10 @@ export default function PickupPaymentPanel({ orderId, total, onPaid }: Props) {
       }
     };
     const timer = window.setInterval(() => void check(), 4_000);
-    return () => { active = false; window.clearInterval(timer); };
+    return () => {
+      active = false;
+      window.clearInterval(timer);
+    };
   }, [method, onPaid, orderId, paid, payment]);
 
   async function startAutomatic() {
@@ -119,28 +124,64 @@ export default function PickupPaymentPanel({ orderId, total, onPaid }: Props) {
     <S.Panel aria-label={`Pagamento da retirada do pedido ${orderId}`}>
       <div className="head">
         <div>
-          <strong>Pagamento no restaurante</strong>
-          <small>Pix e cartão são validados pelo provedor. Dinheiro exige confirmação do funcionário.</small>
+          <strong>Cobrança na retirada</strong>
+          <small>
+            Pix e cartão são aprovados pela empresa de pagamento. Dinheiro exige confirmação do
+            funcionário.
+          </small>
         </div>
         <b>{Number(total).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</b>
       </div>
 
       <S.Methods>
-        <button type="button" className={method === 'PIX' ? 'active' : ''} onClick={() => { setMethod('PIX'); setPayment(null); setError(''); }}>
-          <QrCode /><strong>Pix</strong><small>Confirmação automática</small>
+        <button
+          type="button"
+          className={method === 'PIX' ? 'active' : ''}
+          onClick={() => {
+            setMethod('PIX');
+            setPayment(null);
+            setError('');
+          }}
+        >
+          <QrCode />
+          <strong>Pix</strong>
+          <small>Confirmação automática</small>
         </button>
-        <button type="button" className={method === 'CARTAO' ? 'active' : ''} onClick={() => { setMethod('CARTAO'); setPayment(null); setError(''); }}>
-          <CreditCard /><strong>Cartão</strong><small>Point integrada</small>
+        <button
+          type="button"
+          className={method === 'CARTAO' ? 'active' : ''}
+          onClick={() => {
+            setMethod('CARTAO');
+            setPayment(null);
+            setError('');
+          }}
+        >
+          <CreditCard />
+          <strong>Cartão</strong>
+          <small>Point integrada</small>
         </button>
-        <button type="button" className={method === 'DINHEIRO' ? 'active' : ''} onClick={() => { setMethod('DINHEIRO'); setPayment(null); setError(''); }}>
-          <Banknote /><strong>Dinheiro</strong><small>Confirmação manual</small>
+        <button
+          type="button"
+          className={method === 'DINHEIRO' ? 'active' : ''}
+          onClick={() => {
+            setMethod('DINHEIRO');
+            setPayment(null);
+            setError('');
+          }}
+        >
+          <Banknote />
+          <strong>Dinheiro</strong>
+          <small>Confirmação manual</small>
         </button>
       </S.Methods>
 
       {method === 'CARTAO' && !payment ? (
         <S.TerminalSelect>
           Maquininha
-          <select value={terminalPublicId} onChange={(event) => setTerminalPublicId(event.target.value)}>
+          <select
+            value={terminalPublicId}
+            onChange={(event) => setTerminalPublicId(event.target.value)}
+          >
             <option value="">Selecione uma Point</option>
             {terminals.map((terminal) => (
               <option key={terminal.publicId} value={terminal.publicId}>
@@ -156,9 +197,16 @@ export default function PickupPaymentPanel({ orderId, total, onPaid }: Props) {
           <QRCode value={payment.pixCopyPaste} />
           <div>
             <strong>Mostre o QR Code para o cliente</strong>
-            <small>Assim que o provedor aprovar, o pedido muda para pago automaticamente.</small>
+            <small>
+              Assim que a empresa de pagamento aprovar, o pedido muda para pago automaticamente.
+            </small>
             <S.Actions>
-              <button type="button" onClick={() => void navigator.clipboard.writeText(payment.pixCopyPaste || '')}>Copiar Pix</button>
+              <button
+                type="button"
+                onClick={() => void navigator.clipboard.writeText(payment.pixCopyPaste || '')}
+              >
+                Copiar Pix
+              </button>
             </S.Actions>
           </div>
         </S.PixBox>
@@ -172,13 +220,23 @@ export default function PickupPaymentPanel({ orderId, total, onPaid }: Props) {
             : 'Aguardando confirmação do Pix.'}
         </S.Status>
       ) : null}
-      {paid ? <S.Status $paid><CheckCircle2 size={15} />Pagamento confirmado.</S.Status> : null}
+      {paid ? (
+        <S.Status $paid>
+          <CheckCircle2 size={15} />
+          Pagamento confirmado.
+        </S.Status>
+      ) : null}
       {error ? <S.Error role="alert">{error}</S.Error> : null}
 
       {!paid ? (
         <S.Actions>
           {method === 'DINHEIRO' ? (
-            <button type="button" className="cash" onClick={() => void confirmCash()} disabled={busy}>
+            <button
+              type="button"
+              className="cash"
+              onClick={() => void confirmCash()}
+              disabled={busy}
+            >
               <Banknote size={15} /> {busy ? 'Confirmando...' : 'Confirmar dinheiro recebido'}
             </button>
           ) : !payment ? (
@@ -189,7 +247,11 @@ export default function PickupPaymentPanel({ orderId, total, onPaid }: Props) {
               disabled={busy || (method === 'CARTAO' && !terminalPublicId)}
             >
               {method === 'PIX' ? <QrCode size={15} /> : <CreditCard size={15} />}
-              {busy ? 'Iniciando...' : method === 'PIX' ? 'Gerar Pix' : 'Enviar para maquininha'}
+              {busy
+                ? 'Iniciando...'
+                : method === 'PIX'
+                  ? 'Criar cobrança Pix'
+                  : 'Enviar para maquininha'}
             </button>
           ) : (
             <button type="button" onClick={() => void reconcile()} disabled={busy}>

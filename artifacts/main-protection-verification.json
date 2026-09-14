@@ -1,0 +1,64 @@
+{
+  "name": "main-reviewed-and-tested",
+  "effectiveBranchRules": [
+    {
+      "ruleset_id": 22624473,
+      "type": "deletion"
+    },
+    {
+      "ruleset_id": 22624473,
+      "type": "non_fast_forward"
+    },
+    {
+      "ruleset_id": 22624473,
+      "type": "pull_request"
+    },
+    {
+      "ruleset_id": 22624473,
+      "type": "required_status_checks"
+    }
+  ],
+  "repository": "samuelggds/Projeto-Restaurants",
+  "url": "https://github.com/samuelggds/Projeto-Restaurants/rules/22624473",
+  "rules": [
+    {
+      "type": "deletion"
+    },
+    {
+      "type": "non_fast_forward"
+    },
+    {
+      "type": "pull_request",
+      "parameters": {
+        "required_approving_review_count": 0,
+        "dismiss_stale_reviews_on_push": true,
+        "required_reviewers": [],
+        "require_code_owner_review": false,
+        "require_last_push_approval": false,
+        "required_review_thread_resolution": true,
+        "require_extra_approval_for_unattributed_changes": true,
+        "allowed_merge_methods": [
+          "merge",
+          "squash",
+          "rebase"
+        ]
+      }
+    },
+    {
+      "type": "required_status_checks",
+      "parameters": {
+        "strict_required_status_checks_policy": true,
+        "do_not_enforce_on_create": false,
+        "required_status_checks": [
+          {
+            "context": "Full Root CI Validation"
+          }
+        ]
+      }
+    }
+  ],
+  "enforcement": "active",
+  "rulesetId": 22624473,
+  "timestamp": "2026-09-09T08:44:16.7209029Z",
+  "bypassActors": []
+}

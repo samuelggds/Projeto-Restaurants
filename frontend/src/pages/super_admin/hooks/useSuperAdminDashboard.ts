@@ -9,6 +9,7 @@ export function useSuperAdminDashboard() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [updatedAt, setUpdatedAt] = useState<string | null>(null);
   const requestSequence = useRef(0);
   const abortController = useRef<AbortController | null>(null);
   const load = useCallback(async () => {
@@ -23,6 +24,7 @@ export function useSuperAdminDashboard() {
       const response = await superAdminService.getDashboard(controller.signal);
       if (requestId !== requestSequence.current || controller.signal.aborted) return;
       setData(mapSuperAdminDashboard(response));
+      setUpdatedAt(new Date().toISOString());
     } catch (requestError) {
       if (requestId !== requestSequence.current || controller.signal.aborted) return;
       setError(
@@ -45,5 +47,5 @@ export function useSuperAdminDashboard() {
     };
   }, [load]);
 
-  return { data, error, loading, refreshing, refresh: load };
+  return { data, error, loading, refreshing, updatedAt, refresh: load };
 }

@@ -9,6 +9,7 @@ import {
 } from 'react';
 import { workspaceMock } from './data';
 import type { EmployeeWorkspaceData, EmployeeWorkspaceProps, OrderStatus } from './types';
+import { useKitchenReadingMode } from './useKitchenReadingMode';
 
 export type KitchenModuleProps = Omit<
   EmployeeWorkspaceProps,
@@ -22,8 +23,11 @@ export type KitchenContextValue = KitchenModuleProps &
     updatingOrderIds: ReadonlySet<string>;
     reprintingOrderIds: ReadonlySet<string>;
     orderUpdateError: { orderId: string; message: string } | null;
+    orderUpdateSuccess: { orderId: string; status: OrderStatus } | null;
     reprintError: { orderId: string; message: string } | null;
     reprintSuccessOrderId: string | null;
+    largeReadingMode: boolean;
+    changeReadingMode: (enabled: boolean) => void;
   };
 // eslint-disable-next-line react-refresh/only-export-components
 export const KitchenContext = createContext<KitchenContextValue | null>(null);
@@ -34,14 +38,20 @@ export function KitchenProvider({
   ...props
 }: PropsWithChildren<KitchenModuleProps>) {
   const orders = data.orders;
+  const [largeReadingMode, changeReadingMode] = useKitchenReadingMode(props.readingPreferenceKey);
   const actionLocksRef = useRef(new Set<string>());
   const reprintLocksRef = useRef(new Set<string>());
   const reprintSuccessTimerRef = useRef<number | null>(null);
+  const orderUpdateSuccessTimerRef = useRef<number | null>(null);
   const [updatingOrderIds, setUpdatingOrderIds] = useState<ReadonlySet<string>>(new Set());
   const [reprintingOrderIds, setReprintingOrderIds] = useState<ReadonlySet<string>>(new Set());
   const [orderUpdateError, setOrderUpdateError] = useState<{
     orderId: string;
     message: string;
+  } | null>(null);
+  const [orderUpdateSuccess, setOrderUpdateSuccess] = useState<{
+    orderId: string;
+    status: OrderStatus;
   } | null>(null);
   const [reprintError, setReprintError] = useState<{ orderId: string; message: string } | null>(
     null,
@@ -53,6 +63,9 @@ export function KitchenProvider({
   useEffect(
     () => () => {
       if (reprintSuccessTimerRef.current) window.clearTimeout(reprintSuccessTimerRef.current);
+      if (orderUpdateSuccessTimerRef.current) {
+        window.clearTimeout(orderUpdateSuccessTimerRef.current);
+      }
     },
     [],
   );
@@ -77,9 +90,17 @@ export function KitchenProvider({
       actionLocksRef.current.add(id);
       setUpdatingOrderIds(new Set(actionLocksRef.current));
       setOrderUpdateError((currentError) => (currentError?.orderId === id ? null : currentError));
+      setOrderUpdateSuccess(null);
       try {
         await onUpdateOrderStatus(id, status);
         setOrderUpdateError((currentError) => (currentError?.orderId === id ? null : currentError));
+        setOrderUpdateSuccess({ orderId: id, status });
+        if (orderUpdateSuccessTimerRef.current) {
+          window.clearTimeout(orderUpdateSuccessTimerRef.current);
+        }
+        orderUpdateSuccessTimerRef.current = window.setTimeout(() => {
+          setOrderUpdateSuccess(null);
+        }, 8000);
       } catch (error: unknown) {
         const typed = error as {
           message?: string;
@@ -161,8 +182,11 @@ export function KitchenProvider({
       updatingOrderIds,
       reprintingOrderIds,
       orderUpdateError,
+      orderUpdateSuccess,
       reprintError,
       reprintSuccessOrderId,
+      largeReadingMode,
+      changeReadingMode,
     }),
     [
       props,
@@ -173,8 +197,11 @@ export function KitchenProvider({
       updatingOrderIds,
       reprintingOrderIds,
       orderUpdateError,
+      orderUpdateSuccess,
       reprintError,
       reprintSuccessOrderId,
+      largeReadingMode,
+      changeReadingMode,
     ],
   );
   return <KitchenContext.Provider value={value}>{children}</KitchenContext.Provider>;

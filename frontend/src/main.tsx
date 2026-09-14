@@ -1,3 +1,4 @@
+import './config/platformStorageMigration';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { GlobalStyles } from '../GlobalStyles/globalStyles.js';

@@ -80,10 +80,20 @@ export function getRoleHome(user: RouteUser) {
   return TENANT_REQUIRED_PATH;
 }
 
+export function shouldEndSuperAdminSession(pathname: string, user: RouteUser) {
+  const role = String(user?.role || '').toUpperCase();
+  if (role !== 'SUPER_ADMIN') return false;
+
+  const path = normalizePath(pathname);
+  if (user?.mustChangePassword === true && path === '/change-password') return false;
+  return !isPath(path, '/super_admin');
+}
+
 export function authorizeRoute(pathname: string, user: RouteUser): RouteDecision {
   const path = normalizePath(pathname);
   const role = String(user?.role || '').toUpperCase();
   const subRole = String(user?.subRole || '').toUpperCase();
+
   if (!user && isPath(path, '/super_admin') && path !== '/super_admin/login') {
     return { allowed: false, redirectTo: '/super_admin/login' };
   }
@@ -91,23 +101,32 @@ export function authorizeRoute(pathname: string, user: RouteUser): RouteDecision
     return isPublicRoute(path) || isGuestEntry(path)
       ? { allowed: true }
       : { allowed: false, redirectTo: TENANT_LOGIN_REDIRECT };
-  if (path === TENANT_REQUIRED_PATH) return { allowed: true };
+
   const home = getRoleHome(user);
+
   if (user.mustChangePassword === true) {
     return path === '/change-password'
       ? { allowed: true }
       : { allowed: false, redirectTo: '/change-password' };
   }
+
+  // O namespace técnico é exclusivo do SUPER_ADMIN autenticado.
+  if (isPath(path, '/super_admin')) {
+    return role === 'SUPER_ADMIN' ? { allowed: true } : { allowed: false, redirectTo: home };
+  }
+
+  if (path === TENANT_REQUIRED_PATH) return { allowed: true };
   if (path === '/change-password') return { allowed: true };
   if (isPath(path, '/attendant')) {
     return role === 'FUNCIONARIO' && subRole === 'ATENDENTE'
       ? { allowed: true }
       : { allowed: false, redirectTo: home };
   }
-  if (role === 'SUPER_ADMIN')
-    return isPath(path, '/super_admin') ? { allowed: true } : { allowed: false, redirectTo: home };
-  if (isPath(path, '/super_admin') || isGuestEntry(path))
-    return { allowed: false, redirectTo: home };
+
+  // Enquanto a fronteira global encerra a sessão, impede qualquer reaproveitamento
+  // da identidade SUPER_ADMIN em uma rota de outro portal.
+  if (role === 'SUPER_ADMIN') return { allowed: false, redirectTo: home };
+  if (isGuestEntry(path)) return { allowed: false, redirectTo: home };
   if (role === 'ADMIN') return { allowed: true };
   if (SERVICE_PATHS.includes(path)) return { allowed: true };
   if (role === 'CLIENTE') {

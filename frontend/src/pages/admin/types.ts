@@ -1,3 +1,5 @@
+import type { PaymentConnectionOverview } from '../../Services/paymentConnectionService';
+
 export type AdminSection =
   | 'overview'
   | 'orders'
@@ -327,6 +329,7 @@ export type EmployeeFormPayload = Omit<Employee, 'id'> & {
 };
 
 export type AdminPageProps = {
+  initialArea?: Exclude<AdminSection, 'help'>;
   initialSettings?: AdminSettings;
   initialEmployees?: Employee[];
   initialOrders?: AdminOrder[];
@@ -365,6 +368,7 @@ export type AdminPageProps = {
   onOpenSettings?: () => void;
   onSaveSettings?: (settings: AdminSettings) => void | Promise<void>;
   onConnectMercadoPago?: () => void | Promise<void>;
+  onLoadPaymentConnections?: () => Promise<PaymentConnectionOverview>;
   onConnectPagBank?: () => void | Promise<void>;
   onOnboardAsaas?: (payload: {
     cpf?: string;
@@ -372,6 +376,7 @@ export type AdminPageProps = {
     restaurantName: string;
     pixKey: string;
     incomeValue: number;
+    birthDate?: string;
   }) => void | Promise<void>;
   onCreateEmployee?: (employee: EmployeeFormPayload) => Employee | Promise<Employee>;
   onUpdateEmployee?: (

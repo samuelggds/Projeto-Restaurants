@@ -1,0 +1,13 @@
+
+> frontend@0.0.0 test
+> vitest run --maxWorkers=1
+
+
+ RUN  v4.1.11 C:/Users/Samuel/Documents/Codex/RESTAURANT-DELIVERY-MESA/pizza-ia-delivery/frontend
+
+
+ Test Files  175 passed (175)
+      Tests  910 passed (910)
+   Start at  11:48:33
+   Duration  224.22s (transform 4.53s, setup 0ms, import 23.84s, tests 27.44s, environment 140.96s)
+

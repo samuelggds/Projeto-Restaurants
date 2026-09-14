@@ -1,15 +1,21 @@
-export const BRAND_IDENTITY_STORAGE_KEY = '@PecaJaFood:brandIdentity';
-export const BRAND_IDENTITY_UPDATED_EVENT = 'pecajaf:brand-identity-updated';
+import { normalizePlatformName } from './platformStorageMigration';
+export const BRAND_IDENTITY_STORAGE_KEY = '@GastroNexa:brandIdentity';
+export const BRAND_IDENTITY_UPDATED_EVENT = 'gastronexa:brand-identity-updated';
 
 export type BrandIdentity = {
   name: string;
   logoUrl: string;
 };
 
-const DEFAULT_BRAND_NAME = 'Peça Já Food';
+const DEFAULT_BRAND_NAME = 'GastroNexa';
 
 function normalizeText(value: unknown) {
   return String(value || '').trim();
+}
+
+function normalizeLogoUrl(value: unknown) {
+  const url = normalizeText(value);
+  return url === '/gastronexa-logo.png' ? '/gastronexa-logo.svg' : url;
 }
 
 function parseJson(raw: string | null) {
@@ -41,8 +47,9 @@ function extractFromUserStorage(): BrandIdentity {
     normalizeText(restaurant?.restaurantLogo);
 
   return {
-    name,
-    logoUrl,
+    name: normalizePlatformName(name),
+    logoUrl:
+      normalizePlatformName(name) !== name ? '/gastronexa-logo.svg' : normalizeLogoUrl(logoUrl),
   };
 }
 
@@ -53,8 +60,11 @@ export function readBrandIdentityFromStorage(): BrandIdentity {
   > | null;
 
   return {
-    name: normalizeText(parsed?.name),
-    logoUrl: normalizeText(parsed?.logoUrl),
+    name: normalizePlatformName(normalizeText(parsed?.name)),
+    logoUrl:
+      normalizePlatformName(normalizeText(parsed?.name)) !== normalizeText(parsed?.name)
+        ? '/gastronexa-logo.svg'
+        : normalizeLogoUrl(parsed?.logoUrl),
   };
 }
 
@@ -64,7 +74,9 @@ export function getBrandIdentity(): BrandIdentity {
   if (fromStorage.name || fromStorage.logoUrl) {
     return {
       name: fromStorage.name || DEFAULT_BRAND_NAME,
-      logoUrl: fromStorage.logoUrl,
+      logoUrl:
+        fromStorage.logoUrl ||
+        (fromStorage.name === DEFAULT_BRAND_NAME ? '/gastronexa-logo.svg' : ''),
     };
   }
 
@@ -72,7 +84,11 @@ export function getBrandIdentity(): BrandIdentity {
 
   return {
     name: fromUserStorage.name || DEFAULT_BRAND_NAME,
-    logoUrl: fromUserStorage.logoUrl,
+    logoUrl:
+      fromUserStorage.logoUrl ||
+      (!fromUserStorage.name || fromUserStorage.name === DEFAULT_BRAND_NAME
+        ? '/gastronexa-logo.svg'
+        : ''),
   };
 }
 
@@ -80,7 +96,7 @@ export function persistBrandIdentity(partial: Partial<BrandIdentity>) {
   const previous = readBrandIdentityFromStorage();
   const next: BrandIdentity = {
     name: normalizeText(partial.name) || previous.name || DEFAULT_BRAND_NAME,
-    logoUrl: normalizeText(partial.logoUrl) || previous.logoUrl,
+    logoUrl: normalizeLogoUrl(partial.logoUrl) || previous.logoUrl,
   };
 
   localStorage.setItem(BRAND_IDENTITY_STORAGE_KEY, JSON.stringify(next));

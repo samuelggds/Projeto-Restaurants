@@ -11,6 +11,9 @@ import { notifyCriticalError } from './services/alertNotifier.js';
 import prisma from './config/prisma.js';
 import { registerRealtimeTransport } from './realtime/realtimePublisher.js';
 import { createSocketIoRealtimeTransport } from './realtime/socketIoRealtimeTransport.js';
+import { PostgresRealtimeTransport } from './realtime/postgresRealtimeTransport.js';
+import { distributedStateEnabled } from './runtime/distributedConfig.js';
+import { registerRuntimeRealtimeProbe } from './runtime/runtimeReadiness.js';
 import { createJobScheduler } from './jobs/runtime.js';
 import { safeErrorName, safeErrorSummary } from './services/telemetrySanitizer.js';
 import { assertSecureRuntimeDatabaseRole } from './database/tenantDbContext.js';
@@ -35,10 +38,23 @@ export const io = new Server(server, {
     methods: ['GET', 'POST'],
     credentials: true,
   },
-  transports: ['polling', 'websocket'],
+  // WebSocket connections stay on one replica; polling requires a sticky proxy.
+  transports: distributedStateEnabled() ? ['websocket'] : ['polling', 'websocket'],
+  maxHttpBufferSize: 64 * 1024,
+  allowRequest: (req, callback) => {
+    const origin = String(req.headers.origin || '')
+      .trim()
+      .replace(/\/+$/, '');
+    callback(null, !isProduction || !origin || socketAllowedOrigins.includes(origin));
+  },
 });
 
-const unregisterRealtimeTransport = registerRealtimeTransport(createSocketIoRealtimeTransport(io));
+const localRealtime = createSocketIoRealtimeTransport(io);
+const sharedRealtime = distributedStateEnabled()
+  ? new PostgresRealtimeTransport(localRealtime)
+  : null;
+const unregisterRealtimeTransport = registerRealtimeTransport(sharedRealtime || localRealtime);
+registerRuntimeRealtimeProbe(() => sharedRealtime?.healthy() ?? true);
 
 io.use(socketAuth);
 io.on('connection', socketHandler);
@@ -61,9 +77,11 @@ async function shutdown(signal: 'SIGINT' | 'SIGTERM', exitCode = 0) {
 
   try {
     await apiJobScheduler.stop();
-    unregisterRealtimeTransport();
     io.disconnectSockets(true);
     await new Promise<void>((resolve) => io.close(() => resolve()));
+    // io.close also drains the HTTP server; committed requests can still publish.
+    await sharedRealtime?.stop();
+    unregisterRealtimeTransport();
     server.closeIdleConnections?.();
     await prisma.$disconnect();
     await Sentry.flush(2_000);
@@ -104,6 +122,7 @@ async function startServer() {
     console.info('[RLS_RUNTIME_ROLE_VERIFIED]');
   }
 
+  await sharedRealtime?.start();
   server.listen(port, '0.0.0.0', () => {
     console.log(`Servidor rodando na porta ${port}`);
     apiJobScheduler.start();

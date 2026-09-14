@@ -1,0 +1,561 @@
+
+> backend@1.0.0 test:e2e:tenant
+> node scripts/runTenantE2E.mjs
+
+Criando PostgreSQL descartável pizza-tenant-e2e-24792-1788943049998 com postgres:16-alpine.
+eee492b537b3c7203c6b93d5750b1f7c19478259f890ea377dc9cbf31ad08cef
+Banco E2E owner validado: postgresql://tenant_e2e_owner:***@127.0.0.1:61654/tenant_e2e?schema=public
+Banco E2E runtime validado: postgresql://tenant_e2e_runtime:***@127.0.0.1:61654/tenant_e2e?schema=public
+Aplicando migrações Prisma com a conexão owner.
+Loaded Prisma config from prisma.config.ts.
+
+Prisma config detected, skipping environment variable loading.
+Prisma schema loaded from prisma\schema.prisma
+Datasource "db": PostgreSQL database "tenant_e2e", schema "public" at "127.0.0.1:61654"
+
+106 migrations found in prisma/migrations
+
+Applying migration `20260616231358_init`
+Applying migration `20260626131628_add_order_address`
+Applying migration `20260626181655_add_user_active`
+Applying migration `20260704115246_create_table_sessions`
+Applying migration `20260704181810_create_invoices`
+Applying migration `20260704194543_integrar_sistema_de_faturamento_e_split`
+Applying migration `20260704200715_update_schema`
+Applying migration `20260704234728_add_payment_link_to_invoice`
+Applying migration `20260705201000_convert_financial_fields_to_decimal`
+Applying migration `20260706001749_add_motoqueiro_user_role`
+Applying migration `20260706105739_add_order_payment_proof_fields`
+Applying migration `20260706153000_add_order_payment_confirmation_pin`
+Applying migration `20260707001033_add_product_ratings`
+Applying migration `20260707093939_add_cpf_to_user`
+Applying migration `20260707172907_add_password_reset_code_fields`
+Applying migration `20260707215616_add_order_paid_at_and_pix_payment_id`
+Applying migration `20260707223829_add_order_card_checkout_session_id`
+Applying migration `20260708103000_add_bank_and_card_gateway_settings`
+Applying migration `20260708113000_add_kyb_fields_to_restaurant_settings`
+Applying migration `20260708121454_add_scheduled_plan_change_fields`
+Applying migration `20260708142352_add_must_change_password_flag_for_admin_first_access`
+Applying migration `20260708165000_add_pagbank_credentials_to_restaurant_settings`
+Applying migration `20260708211201_add_restaurant_gateway_secret_credentials`
+Applying migration `20260709011133_add_distributed_auth_lockout_and_refresh_sessions`
+Applying migration `20260709011827_add_auth_mfa_challenge`
+Applying migration `20260710143345_add_order_pay_on_delivery_fields`
+Applying migration `20260710180233_persist_order_issue_chat_thread`
+Applying migration `20260710184614_add_support_chat_messages_history`
+Applying migration `20260711021817_add_restaurant_settings_picpay_token`
+Applying migration `20260801200856_add_user_avatar`
+Applying migration `20260802091943_add_cozinha_garcom_roles`
+Applying migration `20260802092748_add_funcionario_subrole`
+Applying migration `20260802102934_add_audit_log`
+Applying migration `20260806093000_add_stripe_webhook_secret`
+Applying migration `20260808_add_restaurant_operational_settings`
+Applying migration `20260808090000_add_courier_assignment`
+Applying migration `20260808110000_add_courier_finance_and_route`
+Applying migration `20260809110000_create_product_favorites`
+Applying migration `20260809123000_add_pagbank_connect_tokens`
+Applying migration `20260811140500_create_user_addresses`
+Applying migration `20260812113000_add_order_kitchen_timestamps`
+Applying migration `20260812123000_remove_professional_plan`
+Applying migration `20260812131500_add_invoice_pix_fields`
+Applying migration `20260812170000_add_plan_change_invoice_control`
+Applying migration `20260813100000_add_restaurant_address_details`
+Applying migration `20260813103000_add_restaurant_open_status`
+Applying migration `20260815093000_add_order_flow_settings`
+Applying migration `20260815120000_add_user_mfa_enabled`
+Applying migration `20260816120000_add_order_delivery_confirmation`
+Applying migration `20260816180000_add_operational_support_sender_roles`
+Applying migration `20260822000100_add_support_issue_status`
+Applying migration `20260822000200_add_support_issue_responder`
+Applying migration `20260822000300_add_buildable_product_ingredients`
+Applying migration `20260822000400_add_restaurant_ingredient_catalog`
+Applying migration `20260822000500_require_buildable_products`
+Applying migration `20260822000600_add_product_option_groups`
+Applying migration `20260822000700_add_ingredient_category`
+Applying migration `20260822000800_backfill_ingredient_categories_from_groups`
+Applying migration `20260823090000_add_product_discounts_and_loyalty_coupons`
+Applying migration `20260823160000_add_recurring_loyalty_expiration`
+Applying migration `20260823170000_restrict_coupon_deletion_with_redemptions`
+Applying migration `20260824093000_complete_admin_settings`
+Applying migration `20260824193000_add_waiter_service_calls`
+Applying migration `20260825103000_add_order_refund_audit`
+Applying migration `20260825113000_make_order_pix_payment_id_unique`
+Applying migration `20260825190000_add_table_participants`
+Applying migration `20260825190500_enforce_table_session_tenant`
+Applying migration `20260825200000_link_table_orders_to_participants`
+Applying migration `20260826100000_add_table_payment_intents`
+Applying migration `20260826143000_add_table_account_settings`
+Applying migration `20260827160000_add_asaas_withdrawal_requests`
+Applying migration `20260827161000_add_user_auth_version`
+Applying migration `20260827162000_add_mfa_failed_attempts`
+Applying migration `20260827163000_harden_password_reset`
+Applying migration `20260827164000_add_single_use_oauth_state`
+Applying migration `20260827165000_bind_oauth_state_to_auth_version`
+Applying migration `20260827170000_add_scheduled_job_state`
+Applying migration `20260827171000_add_background_job_indexes`
+Applying migration `20260827172000_add_invoice_reconciliation_schedule`
+Applying migration `20260827173000_enforce_single_super_admin`
+Applying migration `20260828100000_add_super_admin_platform_management`
+Applying migration `20260828140000_add_restaurant_access_block_reason`
+Applying migration `20260829100000_expand_promotion_banners`
+Applying migration `20260829222425_add_delivery_fee_by_distance`
+Applying migration `20260830160000_add_customer_payment_methods`
+Applying migration `20260830173000_add_payment_method_provider_customer`
+Applying migration `20260831150000_add_rls_foundation_pilot`
+Applying migration `20260831200000_add_kitchen_printing`
+Applying migration `20260901090000_add_courier_compensation_settlements`
+Applying migration `20260901140000_add_generic_product_builder`
+Applying migration `20260901160000_add_product_option_rls`
+Applying migration `20260901193000_add_table_payment_code`
+Applying migration `20260901204500_add_ingredient_image`
+Applying migration `20260902120000_add_employee_payments`
+Applying migration `20260902130000_repair_employee_compensation_ledger`
+Applying migration `20260902153000_backfill_attendant_subrole`
+Applying migration `20260903143000_add_participant_checkout_state`
+Applying migration `20260903193000_add_restaurant_category`
+Applying migration `20260904103000_add_delivery_payment_automation`
+Applying migration `20260904104500_add_delivery_payment_pix_payload`
+Applying migration `20260905134500_add_delivery_chat`
+Applying migration `20260905211500_delivery_chat_read_receipts`
+Applying migration `20260908110000_order_creation_idempotency`
+Applying migration `20260908150000_distributed_runtime_state`
+Applying migration `20260908160000_password_recovery_phone_lookup`
+Applying migration `20260908170000_notification_outbox`
+
+The following migration(s) have been applied:
+
+migrations/
+  └─ 20260616231358_init/
+    └─ migration.sql
+  └─ 20260626131628_add_order_address/
+    └─ migration.sql
+  └─ 20260626181655_add_user_active/
+    └─ migration.sql
+  └─ 20260704115246_create_table_sessions/
+    └─ migration.sql
+  └─ 20260704181810_create_invoices/
+    └─ migration.sql
+  └─ 20260704194543_integrar_sistema_de_faturamento_e_split/
+    └─ migration.sql
+  └─ 20260704200715_update_schema/
+    └─ migration.sql
+  └─ 20260704234728_add_payment_link_to_invoice/
+    └─ migration.sql
+  └─ 20260705201000_convert_financial_fields_to_decimal/
+    └─ migration.sql
+  └─ 20260706001749_add_motoqueiro_user_role/
+    └─ migration.sql
+  └─ 20260706105739_add_order_payment_proof_fields/
+    └─ migration.sql
+  └─ 20260706153000_add_order_payment_confirmation_pin/
+    └─ migration.sql
+  └─ 20260707001033_add_product_ratings/
+    └─ migration.sql
+  └─ 20260707093939_add_cpf_to_user/
+    └─ migration.sql
+  └─ 20260707172907_add_password_reset_code_fields/
+    └─ migration.sql
+  └─ 20260707215616_add_order_paid_at_and_pix_payment_id/
+    └─ migration.sql
+  └─ 20260707223829_add_order_card_checkout_session_id/
+    └─ migration.sql
+  └─ 20260708103000_add_bank_and_card_gateway_settings/
+    └─ migration.sql
+  └─ 20260708113000_add_kyb_fields_to_restaurant_settings/
+    └─ migration.sql
+  └─ 20260708121454_add_scheduled_plan_change_fields/
+    └─ migration.sql
+  └─ 20260708142352_add_must_change_password_flag_for_admin_first_access/
+    └─ migration.sql
+  └─ 20260708165000_add_pagbank_credentials_to_restaurant_settings/
+    └─ migration.sql
+  └─ 20260708211201_add_restaurant_gateway_secret_credentials/
+    └─ migration.sql
+  └─ 20260709011133_add_distributed_auth_lockout_and_refresh_sessions/
+    └─ migration.sql
+  └─ 20260709011827_add_auth_mfa_challenge/
+    └─ migration.sql
+  └─ 20260710143345_add_order_pay_on_delivery_fields/
+    └─ migration.sql
+  └─ 20260710180233_persist_order_issue_chat_thread/
+    └─ migration.sql
+  └─ 20260710184614_add_support_chat_messages_history/
+    └─ migration.sql
+  └─ 20260711021817_add_restaurant_settings_picpay_token/
+    └─ migration.sql
+  └─ 20260801200856_add_user_avatar/
+    └─ migration.sql
+  └─ 20260802091943_add_cozinha_garcom_roles/
+    └─ migration.sql
+  └─ 20260802092748_add_funcionario_subrole/
+    └─ migration.sql
+  └─ 20260802102934_add_audit_log/
+    └─ migration.sql
+  └─ 20260806093000_add_stripe_webhook_secret/
+    └─ migration.sql
+  └─ 20260808_add_restaurant_operational_settings/
+    └─ migration.sql
+  └─ 20260808090000_add_courier_assignment/
+    └─ migration.sql
+  └─ 20260808110000_add_courier_finance_and_route/
+    └─ migration.sql
+  └─ 20260809110000_create_product_favorites/
+    └─ migration.sql
+  └─ 20260809123000_add_pagbank_connect_tokens/
+    └─ migration.sql
+  └─ 20260811140500_create_user_addresses/
+    └─ migration.sql
+  └─ 20260812113000_add_order_kitchen_timestamps/
+    └─ migration.sql
+  └─ 20260812123000_remove_professional_plan/
+    └─ migration.sql
+  └─ 20260812131500_add_invoice_pix_fields/
+    └─ migration.sql
+  └─ 20260812170000_add_plan_change_invoice_control/
+    └─ migration.sql
+  └─ 20260813100000_add_restaurant_address_details/
+    └─ migration.sql
+  └─ 20260813103000_add_restaurant_open_status/
+    └─ migration.sql
+  └─ 20260815093000_add_order_flow_settings/
+    └─ migration.sql
+  └─ 20260815120000_add_user_mfa_enabled/
+    └─ migration.sql
+  └─ 20260816120000_add_order_delivery_confirmation/
+    └─ migration.sql
+  └─ 20260816180000_add_operational_support_sender_roles/
+    └─ migration.sql
+  └─ 20260822000100_add_support_issue_status/
+    └─ migration.sql
+  └─ 20260822000200_add_support_issue_responder/
+    └─ migration.sql
+  └─ 20260822000300_add_buildable_product_ingredients/
+    └─ migration.sql
+  └─ 20260822000400_add_restaurant_ingredient_catalog/
+    └─ migration.sql
+  └─ 20260822000500_require_buildable_products/
+    └─ migration.sql
+  └─ 20260822000600_add_product_option_groups/
+    └─ migration.sql
+  └─ 20260822000700_add_ingredient_category/
+    └─ migration.sql
+  └─ 20260822000800_backfill_ingredient_categories_from_groups/
+    └─ migration.sql
+  └─ 20260823090000_add_product_discounts_and_loyalty_coupons/
+    └─ migration.sql
+  └─ 20260823160000_add_recurring_loyalty_expiration/
+    └─ migration.sql
+  └─ 20260823170000_restrict_coupon_deletion_with_redemptions/
+    └─ migration.sql
+  └─ 20260824093000_complete_admin_settings/
+    └─ migration.sql
+  └─ 20260824193000_add_waiter_service_calls/
+    └─ migration.sql
+  └─ 20260825103000_add_order_refund_audit/
+    └─ migration.sql
+  └─ 20260825113000_make_order_pix_payment_id_unique/
+    └─ migration.sql
+  └─ 20260825190000_add_table_participants/
+    └─ migration.sql
+  └─ 20260825190500_enforce_table_session_tenant/
+    └─ migration.sql
+  └─ 20260825200000_link_table_orders_to_participants/
+    └─ migration.sql
+  └─ 20260826100000_add_table_payment_intents/
+    └─ migration.sql
+  └─ 20260826143000_add_table_account_settings/
+    └─ migration.sql
+  └─ 20260827160000_add_asaas_withdrawal_requests/
+    └─ migration.sql
+  └─ 20260827161000_add_user_auth_version/
+    └─ migration.sql
+  └─ 20260827162000_add_mfa_failed_attempts/
+    └─ migration.sql
+  └─ 20260827163000_harden_password_reset/
+    └─ migration.sql
+  └─ 20260827164000_add_single_use_oauth_state/
+    └─ migration.sql
+  └─ 20260827165000_bind_oauth_state_to_auth_version/
+    └─ migration.sql
+  └─ 20260827170000_add_scheduled_job_state/
+    └─ migration.sql
+  └─ 20260827171000_add_background_job_indexes/
+    └─ migration.sql
+  └─ 20260827172000_add_invoice_reconciliation_schedule/
+    └─ migration.sql
+  └─ 20260827173000_enforce_single_super_admin/
+    └─ migration.sql
+  └─ 20260828100000_add_super_admin_platform_management/
+    └─ migration.sql
+  └─ 20260828140000_add_restaurant_access_block_reason/
+    └─ migration.sql
+  └─ 20260829100000_expand_promotion_banners/
+    └─ migration.sql
+  └─ 20260829222425_add_delivery_fee_by_distance/
+    └─ migration.sql
+  └─ 20260830160000_add_customer_payment_methods/
+    └─ migration.sql
+  └─ 20260830173000_add_payment_method_provider_customer/
+    └─ migration.sql
+  └─ 20260831150000_add_rls_foundation_pilot/
+    └─ migration.sql
+  └─ 20260831200000_add_kitchen_printing/
+    └─ migration.sql
+  └─ 20260901090000_add_courier_compensation_settlements/
+    └─ migration.sql
+  └─ 20260901140000_add_generic_product_builder/
+    └─ migration.sql
+  └─ 20260901160000_add_product_option_rls/
+    └─ migration.sql
+  └─ 20260901193000_add_table_payment_code/
+    └─ migration.sql
+  └─ 20260901204500_add_ingredient_image/
+    └─ migration.sql
+  └─ 20260902120000_add_employee_payments/
+    └─ migration.sql
+  └─ 20260902130000_repair_employee_compensation_ledger/
+    └─ migration.sql
+  └─ 20260902153000_backfill_attendant_subrole/
+    └─ migration.sql
+  └─ 20260903143000_add_participant_checkout_state/
+    └─ migration.sql
+  └─ 20260903193000_add_restaurant_category/
+    └─ migration.sql
+  └─ 20260904103000_add_delivery_payment_automation/
+    └─ migration.sql
+  └─ 20260904104500_add_delivery_payment_pix_payload/
+    └─ migration.sql
+  └─ 20260905134500_add_delivery_chat/
+    └─ migration.sql
+  └─ 20260905211500_delivery_chat_read_receipts/
+    └─ migration.sql
+  └─ 20260908110000_order_creation_idempotency/
+    └─ migration.sql
+  └─ 20260908150000_distributed_runtime_state/
+    └─ migration.sql
+  └─ 20260908160000_password_recovery_phone_lookup/
+    └─ migration.sql
+  └─ 20260908170000_notification_outbox/
+    └─ migration.sql
+
+All migrations have been successfully applied.
+Provisionando a role runtime NOSUPERUSER/NOBYPASSRLS sem ownership.
+Role runtime provisionada sem privilégios administrativos.
+Executando 9 arquivo(s) E2E multi-tenant.
+▶ remuneração e acertos de motoqueiros permanecem isolados de ponta a ponta
+  ✔ restaurantId adulterado não muda a regra de outro restaurante (120.8052ms)
+  ✔ ADMIN A não inclui entrega real B em acerto A (19.7844ms)
+  ✔ admin declara, motoqueiro correto visualiza e outro tenant não visualiza (65.8ms)
+  ✔ motoqueiro A não confirma acerto B e confirmação B é idempotente (48.4085ms)
+  ✔ restrição do banco resolve corrida para a mesma entrega (44.3018ms)
+  ✔ ganho da retirada vem do backend e fica congelado no pedido (96.9644ms)
+✔ remuneração e acertos de motoqueiros permanecem isolados de ponta a ponta (14968.8144ms)
+▶ ledger de funcionários preserva tenant, snapshots, reversões e pagamentos parciais
+  ✔ employeeId de outro tenant não atravessa a autorização (68.7496ms)
+  ✔ admin cria política versionada para garçom do próprio tenant (27.8078ms)
+  ✔ assignment explícito direciona a comissão da conta canônica (67.6339ms)
+  ✔ reembolso total cria débito compensatório sem alterar o crédito (29.7559ms)
+  ✔ horas canceladas podem ser corrigidas e usam a policy vigente (193.4776ms)
+  ✔ ajustes idempotentes compõem o acerto mensal com a base (76.3946ms)
+  ✔ pagamentos parciais são idempotentes, quitáveis e reversíveis (129.6222ms)
+  ✔ funcionário consulta somente o próprio pagamento em formato público (17.2386ms)
+✔ ledger de funcionários preserva tenant, snapshots, reversões e pagamentos parciais (1764.6186ms)
+▶ impressão de cozinha durável permanece isolada por tenant de ponta a ponta
+  ✔ default seguro não cria job e configuração A não altera B (92.372ms)
+  ✔ validação rejeita trigger, largura, cópias e restaurantId adulterados (31.4958ms)
+[KITCHEN_PRINTING] {
+  event: 'PRINT_JOB_CREATED',
+  restaurantId: 1,
+  jobPublicId: '2ba649c5-71ce-4da3-884f-5b4f40b46ed1',
+  orderId: 1,
+  source: 'AUTOMATIC'
+}
+  ✔ NEW_ORDER cria uma vez, preserva customizações e minimiza dados (40.6555ms)
+  ✔ mudança de trigger e confirmação repetida não duplicam job automático (51.1756ms)
+[KITCHEN_PRINTING] {
+  event: 'PRINT_JOB_CREATED',
+  restaurantId: 2,
+  jobPublicId: '27be4cba-feca-4f25-8970-8e19ace494fa',
+  orderId: 2,
+  source: 'AUTOMATIC'
+}
+  ✔ PAYMENT_CONFIRMED só cria após transição paid false para true (48.0147ms)
+[KITCHEN_PRINTING] {
+  event: 'PRINT_JOB_CREATED',
+  restaurantId: 1,
+  jobPublicId: '7a0d56b0-d7e0-4464-944b-1903e21cb88f',
+  orderId: 1,
+  source: 'MANUAL'
+}
+  ✔ reimpressão manual é nova e Admin A não reimprime pedido B (32.3658ms)
+[KITCHEN_PRINTING] { event: 'PRINT_AGENT_AUTH_FAILED', reason: 'invalid_format' }
+[KITCHEN_PRINTING] {
+  event: 'PRINT_AGENT_AUTH_FAILED',
+  devicePublicId: '47f89ac7-9ecf-4938-841a-1faed3948ba5',
+  reason: 'invalid_or_revoked'
+}
+[KITCHEN_PRINTING] {
+  event: 'PRINT_AGENT_ONLINE',
+  restaurantId: 1,
+  devicePublicId: '47f89ac7-9ecf-4938-841a-1faed3948ba5'
+}
+  ✔ token inválido e token rotacionado são rejeitados (25.1877ms)
+  ✔ agente A nunca enxerga nem confirma job B (32.1432ms)
+[KITCHEN_PRINTING] {
+  event: 'PRINT_JOB_CREATED',
+  restaurantId: 1,
+  jobPublicId: '01daa14c-c08f-4cdc-a0ec-c9c392413ddb',
+  source: 'TEST'
+}
+[KITCHEN_PRINTING] {
+  event: 'PRINT_AGENT_ONLINE',
+  restaurantId: 1,
+  devicePublicId: '11722e05-a32f-4283-b702-b7f1e9af2f2d'
+}
+[KITCHEN_PRINTING] {
+  event: 'PRINT_JOB_CLAIMED',
+  restaurantId: 1,
+  devicePublicId: '47f89ac7-9ecf-4938-841a-1faed3948ba5',
+  jobPublicId: '01daa14c-c08f-4cdc-a0ec-c9c392413ddb',
+  attempts: 1
+}
+[KITCHEN_PRINTING] {
+  event: 'PRINT_JOB_PRINTED',
+  restaurantId: 1,
+  devicePublicId: '47f89ac7-9ecf-4938-841a-1faed3948ba5',
+  jobPublicId: '01daa14c-c08f-4cdc-a0ec-c9c392413ddb'
+}
+  ✔ dois agentes concorrentes obtêm no máximo um lease (63.2529ms)
+[KITCHEN_PRINTING] {
+  event: 'PRINT_JOB_CREATED',
+  restaurantId: 1,
+  jobPublicId: 'af666dfc-6d31-434b-ac75-9bb0750e0cd1',
+  source: 'TEST'
+}
+[KITCHEN_PRINTING] {
+  event: 'PRINT_JOB_CLAIMED',
+  restaurantId: 1,
+  devicePublicId: '47f89ac7-9ecf-4938-841a-1faed3948ba5',
+  jobPublicId: 'af666dfc-6d31-434b-ac75-9bb0750e0cd1',
+  attempts: 1
+}
+[KITCHEN_PRINTING] {
+  event: 'PRINT_JOB_CLAIMED',
+  restaurantId: 1,
+  devicePublicId: '47f89ac7-9ecf-4938-841a-1faed3948ba5',
+  jobPublicId: 'af666dfc-6d31-434b-ac75-9bb0750e0cd1',
+  attempts: 2
+}
+[KITCHEN_PRINTING] {
+  event: 'PRINT_JOB_FAILED',
+  restaurantId: 1,
+  devicePublicId: '47f89ac7-9ecf-4938-841a-1faed3948ba5',
+  jobPublicId: 'af666dfc-6d31-434b-ac75-9bb0750e0cd1',
+  attempts: 2,
+  reason: 'Papel ausente; Authorization: Bearer <redacted>'
+}
+[KITCHEN_PRINTING] {
+  event: 'PRINT_JOB_CLAIMED',
+  restaurantId: 1,
+  devicePublicId: '47f89ac7-9ecf-4938-841a-1faed3948ba5',
+  jobPublicId: 'af666dfc-6d31-434b-ac75-9bb0750e0cd1',
+  attempts: 3
+}
+  ✔ lease expirado é recuperado e FAILED aumenta tentativas com retry (62.7331ms)
+[KITCHEN_PRINTING] {
+  event: 'PRINT_JOB_CREATED',
+  restaurantId: 1,
+  jobPublicId: '1f9cd451-35a6-41dd-a829-5a8da270c23c',
+  source: 'TEST'
+}
+  ✔ sem agente o job permanece PENDING e não afeta o pedido (20.9873ms)
+[KITCHEN_PRINTING] {
+  event: 'PRINT_AGENT_ONLINE',
+  restaurantId: 2,
+  devicePublicId: '712ea2fd-b6ad-48c2-acf2-ca0178ae051b'
+}
+✔ impressão de cozinha durável permanece isolada por tenant de ponta a ponta (2540.5107ms)
+▶ avisos duráveis: concorrência, retry, consentimento e retenção com PostgreSQL real
+  ✔ evento repetido entre APIs mantém uma fila e payload cifrado (46.3281ms)
+[NOTIFICATION_DELIVERY_RETRY] { id: '263dcc41-4f55-45c1-90e1-34be60e33a09', attempt: 1 }
+  ✔ falha remota fica recuperável e nova tentativa preserva a chave (20.0872ms)
+  ✔ dois workers concorrentes não enviam a mesma linha reservada (9.0054ms)
+  ✔ desligar avisos antes do envio descarta dados sem contatar provedor (15.3414ms)
+[NOTIFICATION_DELIVERY_RETRY] { id: '6147ff1b-4907-4112-bf25-3cd875fdbe9c', attempt: 8 }
+  ✔ lease expirado retoma após queda do worker; falha final remove conteúdo privado (14.1243ms)
+✔ avisos duráveis: concorrência, retry, consentimento e retenção com PostgreSQL real (1208.5931ms)
+▶ checkout online: resposta perdida, concorrência e retry não repetem pedido ou gateway
+  ✔ PIX, gateway ambíguo=false (210.9084ms)
+[PIX_PAYMENT_CREATION_UNCERTAIN] { orderId: 9, restaurantId: 1, errorType: 'Error' }
+  ✔ PIX, gateway ambíguo=true (105.3134ms)
+  ✔ CARTAO, gateway ambíguo=false (123.7384ms)
+[CARD_PAYMENT_CREATION_UNCERTAIN] { orderId: 13, restaurantId: 1, errorType: 'Error' }
+  ✔ CARTAO, gateway ambíguo=true (142.4159ms)
+✔ checkout online: resposta perdida, concorrência e retry não repetem pedido ou gateway (1638.6642ms)
+▶ retirada: concorrência e retomada com HTTP/PostgreSQL reais e gateway simulado
+  ✔ cancelado e tenant externo não recebem nem iniciam cobrança (121.3277ms)
+  ✔ duas confirmações em dinheiro preservam a primeira data de pagamento (40.1216ms)
+  ✔ tentativa reservada bloqueia dinheiro, troca de método e cancelamento enquanto gateway responde (95.5336ms)
+[PICKUP_PAYMENT_CREATION_UNCERTAIN] { orderId: 11, restaurantId: 1, errorType: 'Error' }
+  ✔ timeout PIX retoma a mesma tentativa e chave pelo botão de consulta (73.8984ms)
+[PICKUP_PAYMENT_CREATION_UNCERTAIN] { orderId: 12, restaurantId: 1, errorType: 'Error' }
+  ✔ webhook que vence o timeout confirma pedido e tentativa na mesma transação (85.7485ms)
+  ✔ cancelamento que vence a reserva impede chamada externa (28.5024ms)
+[PICKUP_PAYMENT_CREATION_UNCERTAIN] { orderId: 14, restaurantId: 1, errorType: 'Error' }
+  ✔ Point retoma com chave estável e concilia sem duplicar confirmação (119.0736ms)
+  ✔ finalizadores PIX/cartão em corrida emitem confirmação somente no commit vencedor (79.1076ms)
+✔ retirada: concorrência e retomada com HTTP/PostgreSQL reais e gateway simulado (1671.1902ms)
+▶ duas APIs: rate limit compartilhado, eventos e isolamento real
+  ✔ incrementos atômicos, expiração e separação por finalidade (70.3225ms)
+  ✔ alternar réplicas não reinicia o limite HTTP (43.3552ms)
+  ✔ publicação em uma API chega à outra sem atravessar o tenant (1034.3457ms)
+  ✔ repetição simultânea nas duas APIs cria um único pedido (182.0814ms)
+✔ duas APIs: rate limit compartilhado, eventos e isolamento real (8357.2045ms)
+﹣ carga aberta: 120 restaurantes, 600 pedidos/min e 1200 leituras/min (0.1913ms) # SKIP
+▶ isolamento multi-tenant real por HTTP e webhooks
+  ✔ criação repetida e concorrente preserva um único pedido (231.1542ms)
+  ✔ autenticação real recarrega a identidade persistida e ignora tenant externo (10.558ms)
+  ✔ Restaurante A não lista nem consulta pedido real do Restaurante B (39.1317ms)
+  ✔ status, cancelamento e estorno não alteram pedido de outro tenant (37.6298ms)
+  ✔ chat de problema do pedido permanece privado ao Restaurante B (39.841ms)
+  ✔ CRUD e promoção de produto exigem id + restaurantId na prática (95.5577ms)
+  ✔ template de produto permanece privado ao tenant proprietário (35.9319ms)
+  ✔ funcionários não podem ser alterados, desativados ou reativados por outro tenant (93.9298ms)
+  ✔ mesas, sessões e conta da mesa rejeitam IDs reais do Restaurante B (93.8964ms)
+  ✔ pagamento da mesa de B não pode ser confirmado ou estornado pelo Admin A (15.9326ms)
+  ✔ cliente A não usa a sessão B para alterar participante ou cancelar pagamento (30.6592ms)
+  ✔ cupons ignoram tenant do body e bloqueiam update/delete cruzados (34.1722ms)
+  ✔ configurações privadas usam o tenant autenticado, nunca params/body (25.2723ms)
+  ✔ suporte interno ignora restaurantId da query e protege escrita/exclusão (22.3166ms)
+  ✔ faturas privadas não aceitam restaurantId por query ou header (9.638ms)
+  ✔ webhook Asaas com orderId B + restaurantId A é ignorado sem escrita (8.0693ms)
+  ✔ webhook Stripe assinado não cruza orderId B com metadata do Restaurante A (11.3922ms)
+  ✔ webhooks PagBank e Mercado Pago rejeitam ou ignoram tenant incompatível (34.1427ms)
+  ✔ clicar em pagar mantém a conta em processamento sem autoaprovação (2221.2761ms)
+✔ isolamento multi-tenant real por HTTP e webhooks (4985.4735ms)
+🔌 conectado: hXm2vJAaPRs2lmANAAAB
+🔌 conectado: dVghe0vhvbROgpLUAAAD
+🔌 conectado: FwGOwzprydtHos4hAAAF
+🔌 conectado: CH3ExXCXtEEzXWoAAAAH
+🔌 conectado: RGdZILzAtahBzUvPAAAJ
+▶ isolamento multi-tenant real em Socket.IO, eventos e GPS
+  ✔ handshake não permite forjar restaurantId nem entrar em room de outro tenant (0.5971ms)
+  ✔ evento de status do Restaurante B chega a B e nunca ao Restaurante A (601.1941ms)
+  ✔ relato interno do funcionário B não vaza para o Admin A (603.696ms)
+  ✔ motoqueiro A não grava GPS no pedido B (6.0439ms)
+❌ desconectado: hXm2vJAaPRs2lmANAAAB
+❌ desconectado: dVghe0vhvbROgpLUAAAD
+❌ desconectado: FwGOwzprydtHos4hAAAF
+❌ desconectado: CH3ExXCXtEEzXWoAAAAH
+❌ desconectado: RGdZILzAtahBzUvPAAAJ
+  ✔ GPS legítimo de B persiste e é emitido somente ao tenant B (602.5179ms)
+✔ isolamento multi-tenant real em Socket.IO, eventos e GPS (4102.9963ms)
+ℹ tests 80
+ℹ suites 0
+ℹ pass 79
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 1
+ℹ todo 0
+ℹ duration_ms 70928.8285
+PostgreSQL descartável pizza-tenant-e2e-24792-1788943049998 removido.

@@ -1,3 +1,4 @@
+import { OrderHistoryPagination } from '../../components/OrderHistoryPagination';
 import {
   Bike,
   CheckCircle2,
@@ -342,8 +343,8 @@ function PaymentMethods({
       <S.PaymentProtection>
         <ShieldCheck />{' '}
         <span>
-          <b>Pagamento protegido</b>O provedor de pagamento protege os dados sensíveis. Este site
-          armazena somente o token seguro e os quatro últimos dígitos.
+          <b>Pagamento protegido</b>O provedor de pagamento protege seus dados. Este site guarda
+          apenas as informações essenciais para o pagamento e os quatro últimos dígitos do cartão.
         </span>
       </S.PaymentProtection>
     </>
@@ -532,7 +533,7 @@ function Overview(props: ProfilePageProps) {
   );
 }
 
-function Orders({ data = profileMockData, onReorder, onViewOrder }: ProfilePageProps) {
+function Orders({ data = profileMockData, onReorder, onViewOrder, historyPagination }: ProfilePageProps) {
   const [visibleOrderLimit, setVisibleOrderLimit] = useState(ORDER_LIST_BATCH_SIZE);
   const visibleOrders = data.recentOrders.slice(0, visibleOrderLimit);
 
@@ -620,6 +621,7 @@ function Orders({ data = profileMockData, onReorder, onViewOrder }: ProfilePageP
             </div>
           </S.OrderPagination>
         )}
+        {historyPagination && <OrderHistoryPagination {...historyPagination} />}
       </S.PageCard>
     </>
   );

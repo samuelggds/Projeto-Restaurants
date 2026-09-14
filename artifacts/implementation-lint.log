@@ -1,0 +1,38 @@
+
+> pizza-ia-delivery@1.0.0 lint
+> npm --prefix backend run lint:ci && npm --prefix frontend run lint:ci && npm --prefix print-agent run lint
+
+
+> backend@1.0.0 lint:ci
+> eslint . --max-warnings 0
+
+
+> frontend@0.0.0 lint:ci
+> eslint . --max-warnings 0
+
+
+C:\Users\Samuel\Documents\Codex\RESTAURANT-DELIVERY-MESA\pizza-ia-delivery\frontend\src\components\payment\PaymentResultView.tsx
+  203:14  error  Error: Cannot create components during render
+
+Components created during render will reset their state each time they are created. Declare components outside of render.
+
+C:\Users\Samuel\Documents\Codex\RESTAURANT-DELIVERY-MESA\pizza-ia-delivery\frontend\src\components\payment\PaymentResultView.tsx:203:14
+  201 |         <S.Header>
+  202 |           <span aria-hidden="true" data-category-icon={normalizedCategory}>
+> 203 |             <CategoryIcon size={19} />
+      |              ^^^^^^^^^^^^ This component is created during render
+  204 |           </span>
+  205 |           <div>
+  206 |             <small>Seu pagamento</small>
+
+C:\Users\Samuel\Documents\Codex\RESTAURANT-DELIVERY-MESA\pizza-ia-delivery\frontend\src\components\payment\PaymentResultView.tsx:188:24
+  186 |   const StatusIcon = current.icon;
+  187 |   const normalizedCategory = normalizeRestaurantCategory(restaurantCategory);
+> 188 |   const CategoryIcon = resolveCategoryIcon(normalizedCategory);
+      |                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ The component is created during render here
+  189 |   const isCard = /cart[aã]o|card/i.test(method);
+  190 |   const title =
+  191 |     status === 'PAID' && /^pix$/i.test(method.trim()) ? 'Pix confirmado!' : current.title;  react-hooks/static-components
+
+✖ 1 problem (1 error, 0 warnings)
+

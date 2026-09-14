@@ -1,0 +1,237 @@
+name: Release Production Images
+
+on:
+  workflow_dispatch:
+    inputs:
+      target_sha:
+        description: Exact main commit to build and publish
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  checks: read
+  packages: write
+
+concurrency:
+  group: production-image-release
+  cancel-in-progress: false
+
+env:
+  REGISTRY: ghcr.io
+
+jobs:
+  release:
+    name: Build scan and publish approved images
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Validate target and required same-commit gates
+        id: target
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TARGET_SHA: ${{ inputs.target_sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$TARGET_SHA" =~ ^[0-9a-f]{40}$ ]]
+          main_sha="$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/heads/main" --jq '.object.sha')"
+          if [ "$TARGET_SHA" != "$main_sha" ]; then
+            echo "Only the current main tip may be released. target=$TARGET_SHA main=$main_sha" >&2
+            exit 1
+          fi
+
+          gh api -H 'Accept: application/vnd.github+json' \
+            "repos/${GITHUB_REPOSITORY}/commits/${TARGET_SHA}/check-runs?per_page=100" \
+            > "$RUNNER_TEMP/check-runs.json"
+          CHECKS_FILE="$RUNNER_TEMP/check-runs.json" node <<'NODE'
+          const fs = require('fs');
+          const checks = JSON.parse(fs.readFileSync(process.env.CHECKS_FILE, 'utf8')).check_runs || [];
+          const required = [
+            'Full Root CI Validation',
+            'Security Hardening Validation',
+            'Isolated Stack Smoke Validation',
+            'Cross-browser Critical Validation',
+            'Migration Compatibility Validation',
+          ];
+          const errors = [];
+          for (const name of required) {
+            const matching = checks.filter((check) => check.name === name);
+            if (!matching.length) {
+              errors.push(`${name}: missing`);
+              continue;
+            }
+            const latest = matching.sort((a, b) => new Date(b.started_at || 0) - new Date(a.started_at || 0))[0];
+            if (latest.status !== 'completed' || latest.conclusion !== 'success') {
+              errors.push(`${name}: ${latest.status}/${latest.conclusion || 'pending'}`);
+            }
+          }
+          if (errors.length) {
+            console.error(`Production release blocked:\n${errors.join('\n')}`);
+            process.exit(1);
+          }
+          console.log('All same-commit production gates are completed successfully.');
+          NODE
+          echo "sha=$TARGET_SHA" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ steps.target.outputs.sha }}
+          persist-credentials: false
+
+      - name: Validate production frontend build configuration
+        env:
+          APP_URL: ${{ vars.PRODUCTION_APP_URL }}
+          API_URL: ${{ vars.PRODUCTION_API_URL }}
+          MAP_TILE_URL: ${{ vars.PRODUCTION_VITE_MAP_TILE_URL }}
+        run: |
+          set -euo pipefail
+          case "$APP_URL" in https://*) ;; *) echo 'PRODUCTION_APP_URL must be HTTPS.' >&2; exit 1 ;; esac
+          case "$API_URL" in https://*) ;; *) echo 'PRODUCTION_API_URL must be HTTPS.' >&2; exit 1 ;; esac
+          test -n "$MAP_TILE_URL"
+
+      - name: Prepare immutable image names and build-config evidence
+        id: images
+        env:
+          TARGET_SHA: ${{ steps.target.outputs.sha }}
+          APP_URL: ${{ vars.PRODUCTION_APP_URL }}
+          API_URL: ${{ vars.PRODUCTION_API_URL }}
+          MAP_TILE_URL: ${{ vars.PRODUCTION_VITE_MAP_TILE_URL }}
+          MAP_TILE_ATTRIBUTION: ${{ vars.PRODUCTION_VITE_MAP_TILE_ATTRIBUTION }}
+          GOOGLE_CLIENT_ID: ${{ vars.PRODUCTION_VITE_GOOGLE_CLIENT_ID }}
+          SENTRY_DSN: ${{ vars.PRODUCTION_VITE_SENTRY_DSN }}
+          SENTRY_RATE: ${{ vars.PRODUCTION_VITE_SENTRY_TRACES_SAMPLE_RATE }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          owner="${GITHUB_REPOSITORY_OWNER,,}"
+          backend="ghcr.io/${owner}/gastronexa-backend:${TARGET_SHA}"
+          frontend="ghcr.io/${owner}/gastronexa-frontend:${TARGET_SHA}"
+          printf '%s\n' \
+            "VITE_API_URL=${API_URL}" \
+            "VITE_SOCKET_URL=${API_URL}" \
+            'VITE_SOCKET_PATH=/socket.io' \
+            'VITE_API_TIMEOUT_MS=15000' \
+            "VITE_QR_BASE_URL=${APP_URL}" \
+            "VITE_MAP_TILE_URL=${MAP_TILE_URL}" \
+            "VITE_MAP_TILE_ATTRIBUTION=${MAP_TILE_ATTRIBUTION}" \
+            "VITE_GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}" \
+            "VITE_SENTRY_DSN=${SENTRY_DSN}" \
+            "VITE_SENTRY_TRACES_SAMPLE_RATE=${SENTRY_RATE:-0.1}" \
+            > "$RUNNER_TEMP/frontend-build-config.txt"
+          config_sha="$(sha256sum "$RUNNER_TEMP/frontend-build-config.txt" | awk '{print $1}')"
+          echo "backend=$backend" >> "$GITHUB_OUTPUT"
+          echo "frontend=$frontend" >> "$GITHUB_OUTPUT"
+          echo "config_sha=$config_sha" >> "$GITHUB_OUTPUT"
+
+      - name: Build exact production images once
+        env:
+          TARGET_SHA: ${{ steps.target.outputs.sha }}
+          BACKEND_IMAGE: ${{ steps.images.outputs.backend }}
+          FRONTEND_IMAGE: ${{ steps.images.outputs.frontend }}
+          FRONTEND_CONFIG_SHA: ${{ steps.images.outputs.config_sha }}
+          APP_URL: ${{ vars.PRODUCTION_APP_URL }}
+          API_URL: ${{ vars.PRODUCTION_API_URL }}
+          MAP_TILE_URL: ${{ vars.PRODUCTION_VITE_MAP_TILE_URL }}
+          MAP_TILE_ATTRIBUTION: ${{ vars.PRODUCTION_VITE_MAP_TILE_ATTRIBUTION }}
+          GOOGLE_CLIENT_ID: ${{ vars.PRODUCTION_VITE_GOOGLE_CLIENT_ID }}
+          SENTRY_DSN: ${{ vars.PRODUCTION_VITE_SENTRY_DSN }}
+          SENTRY_RATE: ${{ vars.PRODUCTION_VITE_SENTRY_TRACES_SAMPLE_RATE }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker build --pull \
+            --label "org.opencontainers.image.revision=${TARGET_SHA}" \
+            --tag "$BACKEND_IMAGE" ./backend
+          docker build --pull \
+            --label "org.opencontainers.image.revision=${TARGET_SHA}" \
+            --label "com.gastronexa.frontend-config-sha256=${FRONTEND_CONFIG_SHA}" \
+            --build-arg "VITE_API_URL=${API_URL}" \
+            --build-arg "VITE_SOCKET_URL=${API_URL}" \
+            --build-arg 'VITE_SOCKET_PATH=/socket.io' \
+            --build-arg 'VITE_API_TIMEOUT_MS=15000' \
+            --build-arg "VITE_QR_BASE_URL=${APP_URL}" \
+            --build-arg "VITE_MAP_TILE_URL=${MAP_TILE_URL}" \
+            --build-arg "VITE_MAP_TILE_ATTRIBUTION=${MAP_TILE_ATTRIBUTION}" \
+            --build-arg "VITE_GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}" \
+            --build-arg "VITE_SENTRY_DSN=${SENTRY_DSN}" \
+            --build-arg "VITE_SENTRY_TRACES_SAMPLE_RATE=${SENTRY_RATE:-0.1}" \
+            --tag "$FRONTEND_IMAGE" ./frontend
+
+      - name: Scan exact backend image before publication
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: ${{ steps.images.outputs.backend }}
+          format: table
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: '1'
+
+      - name: Scan exact frontend image before publication
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: ${{ steps.images.outputs.frontend }}
+          format: table
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: '1'
+
+      - name: Authenticate to GHCR only after all build checks pass
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: printf '%s' "$GH_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
+
+      - name: Publish immutable images and resolve digests
+        id: publish
+        env:
+          BACKEND_IMAGE: ${{ steps.images.outputs.backend }}
+          FRONTEND_IMAGE: ${{ steps.images.outputs.frontend }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker push "$BACKEND_IMAGE"
+          docker push "$FRONTEND_IMAGE"
+          backend_digest="$(docker image inspect "$BACKEND_IMAGE" --format '{{index .RepoDigests 0}}')"
+          frontend_digest="$(docker image inspect "$FRONTEND_IMAGE" --format '{{index .RepoDigests 0}}')"
+          test -n "$backend_digest"
+          test -n "$frontend_digest"
+          echo "backend_digest=$backend_digest" >> "$GITHUB_OUTPUT"
+          echo "frontend_digest=$frontend_digest" >> "$GITHUB_OUTPUT"
+
+      - name: Write immutable release manifest
+        env:
+          TARGET_SHA: ${{ steps.target.outputs.sha }}
+          BACKEND_DIGEST: ${{ steps.publish.outputs.backend_digest }}
+          FRONTEND_DIGEST: ${{ steps.publish.outputs.frontend_digest }}
+          CONFIG_SHA: ${{ steps.images.outputs.config_sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const fs = require('fs');
+          const manifest = {
+            schemaVersion: 1,
+            commit: process.env.TARGET_SHA,
+            backendImage: process.env.BACKEND_DIGEST,
+            frontendImage: process.env.FRONTEND_DIGEST,
+            frontendBuildConfigSha256: process.env.CONFIG_SHA,
+            workflowRunId: process.env.GITHUB_RUN_ID,
+            repository: process.env.GITHUB_REPOSITORY,
+          };
+          fs.writeFileSync('production-release-manifest.json', JSON.stringify(manifest, null, 2) + '\n');
+          NODE
+          cp "$RUNNER_TEMP/frontend-build-config.txt" production-frontend-build-config.txt
+
+      - name: Upload release manifest
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: production-release-${{ steps.target.outputs.sha }}
+          path: |
+            production-release-manifest.json
+            production-frontend-build-config.txt
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Logout from registry
+        if: always()
+        run: docker logout ghcr.io || true

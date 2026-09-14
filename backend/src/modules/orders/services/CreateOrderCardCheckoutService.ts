@@ -12,10 +12,10 @@ import {
   type CreateOrderCardCheckoutPayload,
 } from './cardCheckoutProviders.js';
 import { resolveOrderRestaurantId } from '../utils/orderTenant.js';
-import prisma from '../../../config/prisma.js';
-import { releaseCouponRedemptionForOrder } from './couponRedemptionLifecycle.js';
-import { restoreOrderItemsStock } from './restoreOrderItemsStock.js';
+import { PaymentCreationUncertainError } from './PaymentCreationUncertainError.js';
 import finalizeOrderCardPaymentService from './FinalizeOrderCardPaymentService.js';
+import { replayCreatedOrder } from './orderCreationRequest.js';
+import { withTenantDbContext } from '../../../database/tenantDbContext.js';
 
 class CreateOrderCardCheckoutService {
   async resolveCardProvider(payload: CreateOrderCardCheckoutPayload) {
@@ -51,6 +51,16 @@ class CreateOrderCardCheckoutService {
   }
 
   async execute(payload: CreateOrderCardCheckoutPayload) {
+    if (payload.creationRequest) {
+      const restaurantId = resolveOrderRestaurantId({
+        requestedRestaurantId: payload.restaurantId,
+        contextRestaurantId: payload.userRestaurantId,
+      });
+      const previous = await withTenantDbContext(restaurantId, (db) =>
+        replayCreatedOrder(db, restaurantId, payload.creationRequest),
+      );
+      if (previous) throw new PaymentCreationUncertainError(previous.id, previous.publicId);
+    }
     const resolvedCardProvider = await this.resolveCardProvider(payload);
     this.ensureCardProviderSupported(resolvedCardProvider);
 
@@ -82,19 +92,14 @@ class CreateOrderCardCheckoutService {
         cancelUrlBase,
       });
     } catch (error) {
-      await prisma.$transaction(async (tx) => {
-        const pendingOrder = await orderRepository.findById(
-          createdOrder.id,
-          createdOrder.restaurantId,
-          tx,
-        );
-        if (pendingOrder) {
-          await restoreOrderItemsStock(tx, pendingOrder);
-        }
-        await releaseCouponRedemptionForOrder(createdOrder.id, createdOrder.restaurantId, tx);
-        await orderRepository.deleteById(createdOrder.id, createdOrder.restaurantId, tx);
+      // Even a missing/malformed response can follow a successful charge or webhook.
+      // Preserve the order, stock reservation and coupon until reconciliation.
+      console.error('[CARD_PAYMENT_CREATION_UNCERTAIN]', {
+        orderId: createdOrder.id,
+        restaurantId: createdOrder.restaurantId,
+        errorType: error instanceof Error ? error.name : 'UnknownError',
       });
-      throw error;
+      throw new PaymentCreationUncertainError(createdOrder.id, createdOrder.publicId);
     }
 
     try {

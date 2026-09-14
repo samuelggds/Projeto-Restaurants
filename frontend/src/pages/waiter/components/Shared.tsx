@@ -1,6 +1,7 @@
 /* eslint-disable react-refresh/only-export-components */
 import { BellRing, CheckCircle2, ChefHat, Clock3, ShoppingBag, Users } from 'lucide-react';
 import type { Order, OrderStatus } from '../types';
+import { useWaiterWorkspace } from '../useWaiterWorkspace';
 import * as S from '../Waiter.styles';
 
 export const statusLabel: Record<OrderStatus, string> = {
@@ -18,6 +19,23 @@ export const channelLabel = {
 } as const;
 export const brl = (value: number) =>
   value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+export function WorkspaceSyncStatus() {
+  const { workspaceState } = useWaiterWorkspace();
+  const state = workspaceState?.error
+    ? 'error'
+    : workspaceState?.refreshing || workspaceState?.loading
+      ? 'refreshing'
+      : 'ready';
+  return (
+    <S.LiveStatus role="status" data-state={state}>
+      {state === 'error'
+        ? 'Atualização incompleta'
+        : state === 'refreshing'
+          ? 'Atualizando dados...'
+          : 'Atualização automática'}
+    </S.LiveStatus>
+  );
+}
 export function MetricCards({
   items,
 }: {

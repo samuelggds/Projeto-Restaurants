@@ -28,20 +28,20 @@ function render(status: 'WAITING' | 'VERIFYING' | 'PENDING' | 'PAID' | 'ERROR') 
 describe('PixPaymentPanel', () => {
   it.each([
     ['WAITING', 'Aguardando pagamento'],
-    ['VERIFYING', 'Verificando com o provedor'],
+    ['VERIFYING', 'Verificando pagamento'],
     ['PENDING', 'Pagamento ainda pendente'],
-    ['ERROR', 'Não foi possível confirmar'],
+    ['ERROR', 'Não foi possível verificar'],
   ] as const)('não anuncia confirmação no estado %s', (status, label) => {
     const markup = render(status);
 
     expect(markup).toContain(label);
-    expect(markup).not.toContain('Pagamento confirmado');
+    expect(markup).not.toContain('Pix confirmado');
   });
 
   it('mostra confirmação somente no estado canônico PAID', () => {
     const markup = render('PAID');
 
-    expect(markup).toContain('Pagamento confirmado');
+    expect(markup).toContain('Pix confirmado');
     expect(markup).not.toContain('000201-pix-code');
   });
 });

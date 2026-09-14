@@ -1,4 +1,4 @@
-const REMEMBERED_ACCOUNT_PREFIX = 'pecajaf:remembered-account:v2';
+const REMEMBERED_ACCOUNT_PREFIX = 'gastronexa:remembered-account:v2';
 const LEGACY_REMEMBERED_EMAIL_KEY = 'rememberedEmail';
 
 export type RememberedAccountScope = {
@@ -14,10 +14,7 @@ function normalizeScopePart(value: string | null | undefined, fallback: string) 
   return normalized || fallback;
 }
 
-export function getRememberedAccountStorageKey({
-  portal,
-  restaurantSlug,
-}: RememberedAccountScope) {
+export function getRememberedAccountStorageKey({ portal, restaurantSlug }: RememberedAccountScope) {
   const normalizedPortal = normalizeScopePart(portal, 'generic');
   const normalizedRestaurant = normalizeScopePart(restaurantSlug, 'global');
   return `${REMEMBERED_ACCOUNT_PREFIX}:${normalizedPortal}:${normalizedRestaurant}`;
@@ -26,14 +23,19 @@ export function getRememberedAccountStorageKey({
 export function readRememberedAccountEmail(scope: RememberedAccountScope) {
   try {
     const value = window.localStorage.getItem(getRememberedAccountStorageKey(scope));
-    return String(value || '').trim().slice(0, 254);
+    return String(value || '')
+      .trim()
+      .slice(0, 254);
   } catch {
     return '';
   }
 }
 
 export function writeRememberedAccountEmail(scope: RememberedAccountScope, email: string) {
-  const normalizedEmail = String(email || '').trim().toLowerCase().slice(0, 254);
+  const normalizedEmail = String(email || '')
+    .trim()
+    .toLowerCase()
+    .slice(0, 254);
   if (!normalizedEmail) {
     clearRememberedAccountEmail(scope);
     return;

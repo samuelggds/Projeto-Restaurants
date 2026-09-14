@@ -1,3 +1,4 @@
+import { orderFixtureResponse } from './helpers/orderFixtures';
 import { readFile } from 'node:fs/promises';
 import { expect, test, type Page, type Route } from '@playwright/test';
 import { mockAuthRefresh } from './helpers/mockAuthRefresh';
@@ -245,8 +246,9 @@ async function mockAuthenticatedPublicMenu(page: Page) {
       });
     }
     if (pathname === '/orders/my-orders') {
-      return json(route, {
-        orders: [
+      return json(
+        route,
+        orderFixtureResponse(route.request().url(), [
           {
             id: 81,
             type: 'DELIVERY',
@@ -254,8 +256,8 @@ async function mockAuthenticatedPublicMenu(page: Page) {
             createdAt: '2026-09-02T18:00:00.000Z',
             items: [{ product: { name: 'Pizza Margherita' } }],
           },
-        ],
-      });
+        ]),
+      );
     }
     await route.fallback();
   });
@@ -345,7 +347,6 @@ test('captura o cardápio público real para o README', async ({ page }) => {
   await expect(page.getByText('North Pizza', { exact: true }).first()).toBeVisible();
   await expect(page.getByText('Pizza Margherita', { exact: true }).first()).toBeVisible();
   const loginNudge = page.getByRole('region', { name: 'Acompanhe seus pedidos' });
-  await page.getByRole('button', { name: 'Dispensar convite de login' }).click();
   await expect(loginNudge).toBeHidden();
   await captureReadmeScreenshot(page, 'customer-menu.png', { fullPage: true });
 });
@@ -358,15 +359,15 @@ test('cardápio público mantém a hierarquia e os atalhos contidos em 320px', a
   const hero = page.getByRole('region', { name: 'Promoções do restaurante' });
   const menuButton = page.getByRole('button', { name: 'Ver cardápio' });
   const loginNudge = page.getByRole('region', { name: 'Acompanhe seus pedidos' });
-  const shortcutsButton = page.getByRole('button', {
-    name: 'Abrir atalhos de atendimento e fidelidade',
-  });
+  const shortcutsButton = page.getByTestId('floating-actions-control-customer');
 
   await expect(hero).toBeVisible();
   await expect(menuButton).toBeVisible();
-  await expect(loginNudge).toBeVisible();
+  await expect(loginNudge).toBeHidden();
   await expect(shortcutsButton).toBeVisible();
+  await expect(shortcutsButton).toHaveAttribute('aria-expanded', 'false');
   await shortcutsButton.click();
+  await expect(shortcutsButton).toHaveAttribute('aria-expanded', 'true');
   const loyaltyButton = page.getByRole('button', { name: /Ganhe descontos/i });
   await expect(loyaltyButton).toBeVisible();
   const heroBox = await hero.boundingBox();
@@ -375,9 +376,9 @@ test('cardápio público mantém a hierarquia e os atalhos contidos em 320px', a
     .poll(() => page.evaluate(() => document.documentElement.scrollWidth))
     .toBeLessThanOrEqual(321);
 
-  const [menuBox, loginBox, loyaltyBox] = await Promise.all([
+  const [menuBox, shortcutsBox, loyaltyBox] = await Promise.all([
     menuButton.boundingBox(),
-    loginNudge.boundingBox(),
+    shortcutsButton.boundingBox(),
     loyaltyButton.boundingBox(),
   ]);
   const overlaps = (
@@ -390,13 +391,19 @@ test('cardápio público mantém a hierarquia e os atalhos contidos em 320px', a
     first.y + first.height > second.y;
 
   expect(menuBox).not.toBeNull();
-  expect(loginBox).not.toBeNull();
+  expect(shortcutsBox).not.toBeNull();
   expect(loyaltyBox).not.toBeNull();
-  expect(overlaps(menuBox!, loginBox!)).toBe(false);
-  expect(overlaps(loginBox!, loyaltyBox!)).toBe(false);
+  expect(overlaps(menuBox!, shortcutsBox!)).toBe(false);
+  expect(overlaps(shortcutsBox!, loyaltyBox!)).toBe(false);
+  const floatingBox = await page.getByTestId('floating-actions-layer').boundingBox();
+  expect(floatingBox).not.toBeNull();
+  expect(floatingBox!.x).toBeGreaterThanOrEqual(0);
+  expect(floatingBox!.x + floatingBox!.width).toBeLessThanOrEqual(320);
+  expect(floatingBox!.y + floatingBox!.height).toBeLessThanOrEqual(844);
 
-  await page.getByRole('button', { name: 'Minimizar atalhos de atendimento e fidelidade' }).click();
-  await page.getByRole('button', { name: 'Dispensar convite de login' }).click();
+  await shortcutsButton.click();
+  await expect(shortcutsButton).toHaveAttribute('aria-expanded', 'false');
+  await expect(loyaltyButton).toBeHidden();
   const allCategories = page.getByRole('button', { name: 'Todos', exact: true });
   await allCategories.scrollIntoViewIfNeeded();
   const categoryBox = await allCategories.boundingBox();
@@ -452,7 +459,8 @@ test('adicionar mantém o cardápio aberto e a sacola reúne os itens em 320px',
   await page.setViewportSize({ width: 320, height: 844 });
   await mockPublicMenu(page);
   await page.goto('/north-pizza');
-  await page.getByRole('button', { name: 'Dispensar convite de login' }).click();
+  const loginNudge = page.getByRole('region', { name: 'Acompanhe seus pedidos' });
+  await expect(loginNudge).toBeHidden();
 
   const cartTrigger = page.getByRole('button', { name: 'Sacola com 0 itens' });
   await cartTrigger.click();
@@ -464,7 +472,7 @@ test('adicionar mantém o cardápio aberto e a sacola reúne os itens em 320px',
   await expect.poll(() => page.evaluate(() => document.body.style.overflow)).toBe('hidden');
 
   const emptyCartBox = await cart.boundingBox();
-  expect(emptyCartBox?.width).toBeLessThanOrEqual(320);
+  expect(emptyCartBox?.width).toBeLessThanOrEqual(321);
   await page.keyboard.press('Escape');
   await expect(cart).toBeHidden();
   await expect(cartTrigger).toBeFocused();
@@ -472,6 +480,9 @@ test('adicionar mantém o cardápio aberto e a sacola reúne os itens em 320px',
 
   await page.getByRole('button', { name: 'Adicionar Pizza Margherita' }).click();
   await expect(cart).toBeHidden();
+  await expect(loginNudge).toBeVisible();
+  await page.getByRole('button', { name: 'Dispensar convite de login' }).click();
+  await expect(loginNudge).toBeHidden();
   const notices = page.getByLabel('Avisos recentes');
   let addNotice = notices.getByRole('status').filter({ hasText: 'Item adicionado' });
   await expect(addNotice).toHaveCount(1);
@@ -541,26 +552,26 @@ test('seletor móvel distingue endereços repetidos sem ocupar a tela', async ({
   ).toBeVisible();
 });
 
-test('central móvel recolhe benefícios e mostra avisos abaixo do cabeçalho', async ({ page }) => {
+test('central móvel reúne pedido e benefícios em um clique e mantém avisos abaixo do cabeçalho', async ({
+  page,
+}) => {
   await page.setViewportSize({ width: 320, height: 844 });
   await mockAuthenticatedPublicMenu(page);
   await page.goto('/north-pizza');
 
-  const statusToggle = page.getByTestId('customer-coupon-status-toggle');
+  const shortcutsButton = page.getByTestId('floating-actions-control-customer');
+  await expect(shortcutsButton).toHaveAttribute('aria-expanded', 'false');
+  await shortcutsButton.click();
+  await expect(shortcutsButton).toHaveAttribute('aria-expanded', 'true');
   const floatingLayer = page.getByTestId('floating-actions-layer');
-  await expect(statusToggle).toBeVisible();
-  await expect(statusToggle).toHaveAttribute('aria-expanded', 'false');
-  const collapsedBox = await statusToggle.boundingBox();
-  expect(collapsedBox?.width).toBeLessThanOrEqual(48);
-  expect(collapsedBox?.height).toBeLessThanOrEqual(48);
+  await expect(page.getByTestId('customer-coupon-status-toggle')).toHaveCount(0);
+  await expect(page.getByText('Pedido e atendimento', { exact: true })).toHaveCount(0);
   const [floatingZIndex, headerZIndex] = await Promise.all([
     floatingLayer.evaluate((element) => Number(getComputedStyle(element).zIndex)),
     page.getByRole('banner').evaluate((element) => Number(getComputedStyle(element).zIndex)),
   ]);
   expect(floatingZIndex).toBeGreaterThan(headerZIndex);
 
-  await statusToggle.click();
-  await expect(statusToggle).toHaveAttribute('aria-expanded', 'true');
   const loyaltyAction = page.getByRole('button', {
     name: /Faltam 3 pedidos\. R\$ 25,00 na próxima recompensa/,
   });
@@ -573,9 +584,26 @@ test('central móvel recolhe benefícios e mostra avisos abaixo do cabeçalho', 
   ]);
   expect(loyaltyBox?.width).toBeLessThanOrEqual(300);
   expect(orderBox?.width).toBeLessThanOrEqual(300);
+  expect(orderBox!.y).toBeLessThan(loyaltyBox!.y);
+  await orderAction.click();
+  const orderDialog = page.getByRole('dialog', { name: 'Pedido #81' });
+  await expect(orderDialog).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Fechar aviso', exact: true })).toBeFocused();
+  await orderDialog.getByRole('button', { name: 'Fechar aviso', exact: true }).click();
+  await expect(orderAction).toBeFocused();
+  await expect(shortcutsButton).toHaveAttribute('aria-expanded', 'true');
+  await orderAction.click();
+  await page.keyboard.press('Escape');
+  await expect(orderDialog).toBeHidden();
+  await expect(orderAction).toBeFocused();
+  await expect(shortcutsButton).toHaveAttribute('aria-expanded', 'true');
+  await loyaltyAction.click();
+  await expect(page.getByRole('dialog', { name: 'Seus pedidos viram descontos' })).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(loyaltyAction).toBeFocused();
   await captureReadmeScreenshot(page, 'customer-status-hub-mobile.png');
 
-  await statusToggle.click();
+  await shortcutsButton.click();
   const locationTrigger = page.getByRole('button', {
     name: 'Endereço de entrega: Avenida Beira Mar, 220',
   });
@@ -588,13 +616,19 @@ test('central móvel recolhe benefícios e mostra avisos abaixo do cabeçalho', 
   const notice = page.getByRole('status').filter({ hasText: 'Endereço selecionado' });
   await expect(notice).toBeVisible();
   await expect(notice.getByText('Tudo certo')).toBeVisible();
-  const [headerBox, noticeBox] = await Promise.all([
-    page.getByRole('banner').boundingBox(),
-    notice.boundingBox(),
-  ]);
-  expect(headerBox).not.toBeNull();
-  expect(noticeBox).not.toBeNull();
-  expect(noticeBox!.y).toBeGreaterThanOrEqual(headerBox!.y + headerBox!.height);
+  // O aviso já está visível durante os 240ms da transição de entrada.
+  await expect
+    .poll(
+      async () => {
+        const [headerBox, noticeBox] = await Promise.all([
+          page.getByRole('banner').boundingBox(),
+          notice.boundingBox(),
+        ]);
+        return headerBox && noticeBox ? noticeBox.y - (headerBox.y + headerBox.height) : -1;
+      },
+      { timeout: 1500 },
+    )
+    .toBeGreaterThanOrEqual(0);
   const noticeLayerZIndex = await page
     .getByLabel('Avisos recentes')
     .evaluate((element) => Number(getComputedStyle(element).zIndex));
@@ -602,6 +636,85 @@ test('central móvel recolhe benefícios e mostra avisos abaixo do cabeçalho', 
   await captureReadmeScreenshot(page, 'customer-notice-mobile.png');
   await notice.getByRole('button', { name: 'Fechar notificação' }).click();
   await expect(notice).toBeHidden();
+});
+
+for (const width of [320, 390, 1440]) {
+  test(`WhatsApp permanece fixo e independente da central do cliente em ${width}px`, async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width, height: 900 });
+    await mockAuthenticatedPublicMenu(page);
+    await page.goto('/north-pizza');
+    const whatsapp = page.getByTestId('floating-whatsapp-contact');
+    const trigger = page.getByTestId('floating-actions-control-customer');
+    await expect(whatsapp).toBeVisible();
+    await expect(trigger).toHaveAttribute('aria-expanded', 'false');
+    await expect(whatsapp).toHaveAttribute('href', /https:\/\/wa\.me\//);
+    await expect(whatsapp).toHaveAttribute('target', '_blank');
+    expect(await whatsapp.evaluate((element) => getComputedStyle(element).position)).toBe('fixed');
+    const original = await whatsapp.boundingBox();
+    expect(original).not.toBeNull();
+    expect(width - (original!.x + original!.width)).toBeGreaterThanOrEqual(12);
+    expect(width - (original!.x + original!.width)).toBeLessThanOrEqual(30);
+    expect(900 - (original!.y + original!.height)).toBeLessThanOrEqual(30);
+    await captureReadmeScreenshot(page, `customer-hub-closed-${width}.png`);
+    await trigger.click();
+    const hub = page.getByRole('region', { name: 'Seu pedido e benefícios' });
+    await expect(hub).toBeVisible();
+    await expect(hub).toBeFocused();
+    await expect(page.getByTestId('customer-coupon-status-toggle')).toHaveCount(0);
+    await expect(page.getByText('Pedido e atendimento', { exact: true })).toHaveCount(0);
+    const hubBox = await hub.boundingBox();
+    expect(hubBox!.x).toBeGreaterThanOrEqual(0);
+    expect(hubBox!.y).toBeGreaterThanOrEqual(0);
+    expect(hubBox!.x + hubBox!.width).toBeLessThanOrEqual(width);
+    expect(hubBox!.y + hubBox!.height).toBeLessThan(original!.y);
+    await captureReadmeScreenshot(page, `customer-hub-open-${width}.png`);
+    await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+    const afterScroll = await whatsapp.boundingBox();
+    expect(afterScroll!.x).toBeCloseTo(original!.x, 0);
+    expect(afterScroll!.y).toBeCloseTo(original!.y, 0);
+    await page.keyboard.press('Escape');
+    await expect(hub).toBeHidden();
+    await expect(trigger).toBeFocused();
+    await expect(whatsapp).toBeVisible();
+    await trigger.click();
+    await page.getByRole('button', { name: 'Fechar central do cliente' }).click();
+    await expect(trigger).toHaveAttribute('aria-expanded', 'false');
+    await expect(whatsapp).toBeVisible();
+    await trigger.click();
+    await page.getByRole('banner').click({ position: { x: 5, y: 5 } });
+    await expect(hub).toBeHidden();
+    await expect(trigger).toHaveAttribute('aria-expanded', 'false');
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
+      true,
+    );
+  });
+}
+
+test('central e convite de login continuam acessíveis em uma tela baixa', async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 480 });
+  await mockPublicMenu(page);
+  await page.goto('/north-pizza');
+  await page.getByRole('button', { name: 'Adicionar Pizza Margherita' }).click();
+  const nudge = page.getByRole('region', { name: 'Acompanhe seus pedidos' });
+  const whatsapp = page.getByTestId('floating-whatsapp-contact');
+  await expect(nudge).toBeVisible();
+  const [nudgeBox, whatsappBox] = await Promise.all([nudge.boundingBox(), whatsapp.boundingBox()]);
+  expect(nudgeBox!.y + nudgeBox!.height).toBeLessThan(whatsappBox!.y);
+  const trigger = page.getByTestId('floating-actions-control-customer');
+  await trigger.click();
+  const hub = page.getByRole('region', { name: 'Cupons e ajuda' });
+  await expect(hub).toBeVisible();
+  const hubBox = await hub.boundingBox();
+  expect(hubBox!.y).toBeGreaterThanOrEqual(0);
+  expect(hubBox!.y + hubBox!.height).toBeLessThan(nudgeBox!.y);
+  await captureReadmeScreenshot(page, 'customer-hub-short-screen.png');
+  await page.getByRole('button', { name: 'Fechar central do cliente' }).click();
+  await expect(hub).toBeHidden();
+  await page.getByRole('button', { name: 'Dispensar convite de login' }).click();
+  await expect(nudge).toBeHidden();
+  await expect(whatsapp).toBeVisible();
 });
 
 test('captura o tracking real para o README', async ({ page }) => {

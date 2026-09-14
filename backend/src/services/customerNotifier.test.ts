@@ -117,7 +117,8 @@ test('falha fechada, registra o erro técnico somente no servidor e retorna moti
   });
   assert.equal('error' in result, false);
   assert.equal(logs.length, 1);
-  assert.match(JSON.stringify(logs[0]), /database password leaked/);
+  assert.doesNotMatch(JSON.stringify(logs[0]), /database password leaked/);
+  assert.match(JSON.stringify(logs[0]), /Error/);
 });
 
 test('payload legado sem restaurantId não dispara consulta global ou cruzada', async () => {

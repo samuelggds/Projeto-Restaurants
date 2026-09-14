@@ -29,9 +29,9 @@ describe('superAdminService', () => {
 
   it('remove campos somente leitura ao salvar configurações', async () => {
     const settings: PlatformSettings = {
-      platformName: 'Peça Já',
-      platformDomain: 'app.pecaja.com.br',
-      supportEmail: 'suporte@pecaja.com.br',
+      platformName: 'GastroNexa',
+      platformDomain: 'app.gastronexa.example',
+      supportEmail: 'suporte@gastronexa.example',
       primaryColor: '#f4510b',
       locale: 'pt-BR',
       currency: 'BRL',
@@ -56,7 +56,7 @@ describe('superAdminService', () => {
     );
     expect(api.put).toHaveBeenCalledWith(
       '/super-admin/settings',
-      expect.objectContaining({ version: 4, platformName: 'Peça Já' }),
+      expect.objectContaining({ version: 4, platformName: 'GastroNexa' }),
     );
   });
 

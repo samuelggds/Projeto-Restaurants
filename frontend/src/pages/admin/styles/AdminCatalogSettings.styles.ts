@@ -1,5 +1,6 @@
 import styled from 'styled-components';
 import { ingredientImageStyles } from './AdminIngredientImage.styles';
+import { productMobileStyles } from './AdminProductMobile.styles';
 
 export const ProductGrid = styled.div`
   position: relative;
@@ -60,8 +61,7 @@ export const ProductGrid = styled.div`
   }
   @media (max-width: 480px) {
     grid-template-columns: 1fr;
-    justify-items: center;
-    gap: 10px;
+    gap: 8px;
   }
 `;
 export const ProductGroups = styled.div`
@@ -204,18 +204,7 @@ export const Product = styled.article`
       animation: none;
     }
   }
-  @media (max-width: 480px) {
-    width: min(100%, 350px);
-    img {
-      height: 70px;
-    }
-    div {
-      padding: 7px 8px;
-    }
-    footer strong {
-      font-size: 13px;
-    }
-  }
+  ${productMobileStyles}
 `;
 export const SettingSection = styled.div`
   display: grid;
@@ -877,6 +866,7 @@ export const IngredientListPanel = styled.section`
     gap: 6px;
   }
   .ingredient-copy b {
+    max-width: 100%;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -1101,7 +1091,7 @@ export const IngredientListPanel = styled.section`
   }
   @media (max-width: 1120px) {
     .ingredient-filters {
-      grid-template-columns: minmax(180px, 1fr) repeat(2, minmax(110px, auto)) 38px;
+      grid-template-columns: minmax(180px, 1fr) repeat(2, minmax(110px, auto)) 48px;
     }
     .ingredient-filters select[aria-label='Filtrar ingredientes por status'] {
       display: none;
@@ -1130,7 +1120,7 @@ export const IngredientListPanel = styled.section`
   }
   @media (max-width: 620px) {
     .ingredient-filters {
-      grid-template-columns: minmax(0, 1fr) minmax(125px, auto) 38px;
+      grid-template-columns: minmax(0, 1fr) minmax(125px, auto) 48px;
     }
     .ingredient-filters select[aria-label='Filtrar ingredientes por categoria'] {
       display: none;
@@ -1145,7 +1135,7 @@ export const IngredientListPanel = styled.section`
       grid-template-columns: repeat(2, minmax(0, 1fr));
     }
     .ingredient-filters {
-      grid-template-columns: minmax(0, 1fr) 38px;
+      grid-template-columns: minmax(0, 1fr) 48px;
     }
     .ingredient-filters select {
       display: none;
@@ -1158,6 +1148,15 @@ export const IngredientListPanel = styled.section`
     }
     article {
       grid-template-columns: auto minmax(0, 1fr) auto;
+      padding: 10px;
+      gap: 10px;
+    }
+    .ingredient-avatar {
+      width: 48px;
+      height: 48px;
+    }
+    .ingredient-copy b {
+      font-size: 13px;
     }
     .ingredient-state {
       grid-column: 2;

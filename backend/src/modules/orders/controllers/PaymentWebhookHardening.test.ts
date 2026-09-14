@@ -1,6 +1,7 @@
 import test, { afterEach, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 import http from 'node:http';
+import { createHmac } from 'node:crypto';
 import restaurantSettingsRepository from '../../restaurantSettings/repositories/RestaurantSettingsRepository.js';
 import orderRepository from '../repositories/OrderRepository.js';
 
@@ -40,6 +41,7 @@ const originalFindOrder = orderRepository.findById;
 const originalSetCardCheckoutSessionId = orderRepository.setCardCheckoutSessionId;
 const originalFetch = globalThis.fetch;
 const originalEnv = {
+  MP_WEBHOOK_SECRET: process.env.MP_WEBHOOK_SECRET,
   STRIPE_WEBHOOK_SECRET: process.env.STRIPE_WEBHOOK_SECRET,
   STRIPE_SECRET_KEY: process.env.STRIPE_SECRET_KEY,
   ALLOW_INSECURE_STRIPE_WEBHOOK: process.env.ALLOW_INSECURE_STRIPE_WEBHOOK,
@@ -71,6 +73,8 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  if (originalEnv.MP_WEBHOOK_SECRET === undefined) delete process.env.MP_WEBHOOK_SECRET;
+  else process.env.MP_WEBHOOK_SECRET = originalEnv.MP_WEBHOOK_SECRET;
   finalizeOrderCardPaymentService.execute = originalFinalizeExecute;
   restaurantSettingsRepository.findByRestaurantId = originalFindRestaurantSettings;
   orderRepository.findById = originalFindOrder;
@@ -349,6 +353,7 @@ for (const scenario of [
 
 test('deve exigir restaurantId no webhook Mercado Pago quando fallback global estiver desativado', async () => {
   process.env.ALLOW_GLOBAL_PAYMENT_FALLBACK = 'false';
+  process.env.MP_WEBHOOK_SECRET = 'test-webhook-secret';
 
   const req = {
     body: {
@@ -356,7 +361,11 @@ test('deve exigir restaurantId no webhook Mercado Pago quando fallback global es
         id: 'mp-payment-1',
       },
     },
-    query: {},
+    query: { 'data.id': 'mp-payment-1' },
+    headers: {
+      'x-request-id': 'request-1',
+      'x-signature': `ts=1742505638,v1=${createHmac('sha256', 'test-webhook-secret').update('id:mp-payment-1;request-id:request-1;ts:1742505638;').digest('hex')}`,
+    },
   } as any;
   const res = createMockResponse();
 

@@ -1,0 +1,179 @@
+
+> frontend@0.0.0 test:e2e
+> playwright test --max-failures=5 --timeout=15000
+
+
+Running 108 tests using 1 worker
+
+(node:43868) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  x    1 [chromium] › e2e\admin-billing-ux.spec.ts:204:1 › central financeira mantém leitura clara e responsiva em desktop e mobile (20.4s)
+(node:41380) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  x    2 [chromium] › e2e\admin-billing-ux.spec.ts:285:1 › admin agenda plano e abre o pagamento Pix pela cobrança atual (20.1s)
+(node:25312) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  x    3 [chromium] › e2e\admin-catalog-reference.spec.ts:150:1 › Cardápio e importação seguem a composição visual de referência no desktop (20.1s)
+(node:48056) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  x    4 [chromium] › e2e\admin-catalog-reference.spec.ts:377:1 › trocar de aba com produto alterado exige salvar ou descartar (20.1s)
+(node:46120) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  x    5 [chromium] › e2e\admin-catalog-reference.spec.ts:429:1 › Cardápio, ingredientes e importação permanecem contidos em 320 px (20.1s)
+Testing stopped early after 5 maximum allowed failures.
+
+
+  1) [chromium] › e2e\admin-billing-ux.spec.ts:204:1 › central financeira mantém leitura clara e responsiva em desktop e mobile 
+
+    Test timeout of 15000ms exceeded.
+
+    Error: locator.click: Test timeout of 15000ms exceeded.
+    Call log:
+      - waiting for getByRole('button', { name: 'Cobranças e assinaturas' })
+
+
+      190 |   await mockAdminApi(page, state);
+      191 |   await page.goto('/admin');
+    > 192 |   await page.getByRole('button', { name: 'Cobranças e assinaturas' }).click();
+          |                                                                       ^
+      193 |   await expect(page.getByRole('heading', { name: 'Sua assinatura está em dia' })).toBeVisible();
+      194 | }
+      195 |
+        at openBilling (C:\Users\Samuel\Documents\Codex\RESTAURANT-DELIVERY-MESA\pizza-ia-delivery\frontend\e2e\admin-billing-ux.spec.ts:192:71)
+        at C:\Users\Samuel\Documents\Codex\RESTAURANT-DELIVERY-MESA\pizza-ia-delivery\frontend\e2e\admin-billing-ux.spec.ts:209:3
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\admin-billing-ux-central-f-4aa09-ponsiva-em-desktop-e-mobile-chromium\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\admin-billing-ux-central-f-4aa09-ponsiva-em-desktop-e-mobile-chromium\error-context.md
+
+    attachment #3: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results\admin-billing-ux-central-f-4aa09-ponsiva-em-desktop-e-mobile-chromium\trace.zip
+    Usage:
+
+        npx playwright show-trace test-results\admin-billing-ux-central-f-4aa09-ponsiva-em-desktop-e-mobile-chromium\trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  2) [chromium] › e2e\admin-billing-ux.spec.ts:285:1 › admin agenda plano e abre o pagamento Pix pela cobrança atual 
+
+    Test timeout of 15000ms exceeded.
+
+    Error: page.goto: Test timeout of 15000ms exceeded.
+    Call log:
+      - navigating to "http://127.0.0.1:4173/admin", waiting until "load"
+
+
+      189 | async function openBilling(page: Page, state: BillingTestState) {
+      190 |   await mockAdminApi(page, state);
+    > 191 |   await page.goto('/admin');
+          |              ^
+      192 |   await page.getByRole('button', { name: 'Cobranças e assinaturas' }).click();
+      193 |   await expect(page.getByRole('heading', { name: 'Sua assinatura está em dia' })).toBeVisible();
+      194 | }
+        at openBilling (C:\Users\Samuel\Documents\Codex\RESTAURANT-DELIVERY-MESA\pizza-ia-delivery\frontend\e2e\admin-billing-ux.spec.ts:191:14)
+        at C:\Users\Samuel\Documents\Codex\RESTAURANT-DELIVERY-MESA\pizza-ia-delivery\frontend\e2e\admin-billing-ux.spec.ts:287:3
+
+    Error Context: test-results\admin-billing-ux-admin-age-41470-nto-Pix-pela-cobrança-atual-chromium\error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results\admin-billing-ux-admin-age-41470-nto-Pix-pela-cobrança-atual-chromium\trace.zip
+    Usage:
+
+        npx playwright show-trace test-results\admin-billing-ux-admin-age-41470-nto-Pix-pela-cobrança-atual-chromium\trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  3) [chromium] › e2e\admin-catalog-reference.spec.ts:150:1 › Cardápio e importação seguem a composição visual de referência no desktop 
+
+    Test timeout of 15000ms exceeded.
+
+    Error: page.goto: Test timeout of 15000ms exceeded.
+    Call log:
+      - navigating to "http://127.0.0.1:4173/admin", waiting until "load"
+
+
+      153 |   await mockCatalog(page);
+      154 |   await page.setViewportSize({ width: 1365, height: 768 });
+    > 155 |   await page.goto('/admin');
+          |              ^
+      156 |   await page.getByRole('button', { name: 'Cardápio' }).click();
+      157 |
+      158 |   await expect(page.getByRole('heading', { name: 'Cardápio' })).toBeVisible();
+        at C:\Users\Samuel\Documents\Codex\RESTAURANT-DELIVERY-MESA\pizza-ia-delivery\frontend\e2e\admin-catalog-reference.spec.ts:155:14
+
+    Error Context: test-results\admin-catalog-reference-Ca-c2403-al-de-referência-no-desktop-chromium\error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results\admin-catalog-reference-Ca-c2403-al-de-referência-no-desktop-chromium\trace.zip
+    Usage:
+
+        npx playwright show-trace test-results\admin-catalog-reference-Ca-c2403-al-de-referência-no-desktop-chromium\trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  4) [chromium] › e2e\admin-catalog-reference.spec.ts:377:1 › trocar de aba com produto alterado exige salvar ou descartar 
+
+    Test timeout of 15000ms exceeded.
+
+    Error: page.goto: Test timeout of 15000ms exceeded.
+    Call log:
+      - navigating to "http://127.0.0.1:4173/admin", waiting until "load"
+
+
+      377 | test('trocar de aba com produto alterado exige salvar ou descartar', async ({ page }) => {
+      378 |   await mockCatalog(page);
+    > 379 |   await page.goto('/admin');
+          |              ^
+      380 |   await page.getByRole('button', { name: 'Cardápio' }).click();
+      381 |
+      382 |   const openProductAndChangeName = async (name: string) => {
+        at C:\Users\Samuel\Documents\Codex\RESTAURANT-DELIVERY-MESA\pizza-ia-delivery\frontend\e2e\admin-catalog-reference.spec.ts:379:14
+
+    Error Context: test-results\admin-catalog-reference-tr-83753-o-exige-salvar-ou-descartar-chromium\error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results\admin-catalog-reference-tr-83753-o-exige-salvar-ou-descartar-chromium\trace.zip
+    Usage:
+
+        npx playwright show-trace test-results\admin-catalog-reference-tr-83753-o-exige-salvar-ou-descartar-chromium\trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  5) [chromium] › e2e\admin-catalog-reference.spec.ts:429:1 › Cardápio, ingredientes e importação permanecem contidos em 320 px 
+
+    Test timeout of 15000ms exceeded.
+
+    Error: page.goto: Test timeout of 15000ms exceeded.
+    Call log:
+      - navigating to "http://127.0.0.1:4173/admin", waiting until "load"
+
+
+      432 |   await mockCatalog(page);
+      433 |   await page.setViewportSize({ width: 320, height: 844 });
+    > 434 |   await page.goto('/admin');
+          |              ^
+      435 |   await page
+      436 |     .getByRole('navigation', { name: 'Navegação administrativa móvel' })
+      437 |     .getByRole('button', { name: 'Cardápio' })
+        at C:\Users\Samuel\Documents\Codex\RESTAURANT-DELIVERY-MESA\pizza-ia-delivery\frontend\e2e\admin-catalog-reference.spec.ts:434:14
+
+    Error Context: test-results\admin-catalog-reference-Ca-0aa22-rmanecem-contidos-em-320-px-chromium\error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results\admin-catalog-reference-Ca-0aa22-rmanecem-contidos-em-320-px-chromium\trace.zip
+    Usage:
+
+        npx playwright show-trace test-results\admin-catalog-reference-Ca-0aa22-rmanecem-contidos-em-320-px-chromium\trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  5 failed
+    [chromium] › e2e\admin-billing-ux.spec.ts:204:1 › central financeira mantém leitura clara e responsiva em desktop e mobile 
+    [chromium] › e2e\admin-billing-ux.spec.ts:285:1 › admin agenda plano e abre o pagamento Pix pela cobrança atual 
+    [chromium] › e2e\admin-catalog-reference.spec.ts:150:1 › Cardápio e importação seguem a composição visual de referência no desktop 
+    [chromium] › e2e\admin-catalog-reference.spec.ts:377:1 › trocar de aba com produto alterado exige salvar ou descartar 
+    [chromium] › e2e\admin-catalog-reference.spec.ts:429:1 › Cardápio, ingredientes e importação permanecem contidos em 320 px 
+  103 did not run
+  1 error was not a part of any test, see above for details

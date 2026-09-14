@@ -4,19 +4,28 @@ import {
   CreditCard,
   FileSearch,
   Headphones,
+  Inbox,
   Layers3,
-  LockKeyhole,
   LogOut,
   Menu,
   Plus,
   RefreshCw,
+  Search,
   Settings,
   ShieldAlert,
   Users,
   WalletCards,
   X,
 } from 'lucide-react';
-import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
+import {
+  Fragment,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type CSSProperties,
+} from 'react';
 import {
   AdministratorDetails,
   AuditDetails,
@@ -38,10 +47,14 @@ import {
   SupportPage,
 } from './pages';
 import type { SuperAdminModuleProps, SuperAdminView } from './types';
+import { SalesLeadsPage } from './pages/SalesLeadsPage';
 import * as S from './SuperAdmin.styles';
+import { QuickSearch } from './components/QuickSearch';
+import type { QuickSearchTarget } from './domain/quickSearch';
 
 const navigation = [
   ['overview', 'Visão geral', BarChart3],
+  ['sales-leads', 'Contatos comerciais', Inbox],
   ['restaurants', 'Restaurantes', Building2],
   ['subscriptions', 'Assinaturas', CreditCard],
   ['plans', 'Planos', Layers3],
@@ -52,7 +65,17 @@ const navigation = [
   ['settings', 'Configurações', Settings],
 ] as const;
 
+const navigationSections: Partial<Record<SuperAdminView, string>> = {
+  overview: 'Visão da plataforma',
+  restaurants: 'Gestão',
+  support: 'Administração',
+};
+
 const titles: Record<SuperAdminView, [title: string, description: string]> = {
+  'sales-leads': [
+    'Contatos comerciais',
+    'Acompanhe o interesse de novos restaurantes e organize o retorno da equipe comercial.',
+  ],
   overview: [
     'Visão geral da plataforma',
     'Acompanhe restaurantes, assinaturas, cobranças e pontos que exigem atenção.',
@@ -97,18 +120,24 @@ export function SuperAdminModule({
   onLogout,
   refreshing = false,
   loadError = null,
+  updatedAt = null,
 }: SuperAdminModuleProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [salesLeadsRevision, setSalesLeadsRevision] = useState(0);
   const [notice, setNotice] = useState<Notice>(null);
   const [selectedRestaurantId, setSelectedRestaurantId] = useState<number | null>(null);
   const [selectedPlanCode, setSelectedPlanCode] = useState<string | null>(null);
   const [selectedInvoiceId, setSelectedInvoiceId] = useState<number | null>(null);
   const [selectedAdministratorId, setSelectedAdministratorId] = useState<number | null>(null);
-  const [selectedTicketId, setSelectedTicketId] = useState<number | null>(null);
+  const [selectedSupportRestaurantId, setSelectedSupportRestaurantId] = useState<number | null>(
+    null,
+  );
   const [selectedAuditLogId, setSelectedAuditLogId] = useState<number | null>(null);
   const [creatingAdministrator, setCreatingAdministrator] = useState(false);
   const sidebar = useRef<HTMLElement>(null);
   const menuButton = useRef<HTMLButtonElement>(null);
+  const searchButton = useRef<HTMLButtonElement>(null);
   const focusSidebarClose = useCallback(
     (element: HTMLButtonElement | null) => {
       if (sidebarOpen) element?.focus();
@@ -136,6 +165,25 @@ export function SuperAdminModule({
     };
   }, [sidebarOpen]);
 
+  useEffect(() => {
+    if (currentUser.role !== 'SUPER_ADMIN') return;
+    const handleSearchShortcut = (event: KeyboardEvent) => {
+      if (
+        !(event.ctrlKey || event.metaKey) ||
+        event.altKey ||
+        event.shiftKey ||
+        event.key.toLowerCase() !== 'k'
+      )
+        return;
+      if (sidebarOpen || document.querySelector('[role="dialog"]')) return;
+      event.preventDefault();
+      searchButton.current?.focus();
+      setSearchOpen(true);
+    };
+    document.addEventListener('keydown', handleSearchShortcut);
+    return () => document.removeEventListener('keydown', handleSearchShortcut);
+  }, [currentUser.role, sidebarOpen]);
+
   const notify = useCallback((message: string, error = false) => {
     setNotice({ message, error });
   }, []);
@@ -152,7 +200,9 @@ export function SuperAdminModule({
   const selectedAdministrator = data.administrators.find(
     (item) => item.id === selectedAdministratorId,
   );
-  const selectedTicket = data.tickets.find((item) => item.id === selectedTicketId);
+  const selectedTicket = data.tickets.find(
+    (item) => item.restaurantId === selectedSupportRestaurantId,
+  );
   const selectedAuditLog = data.auditLogs.find((item) => item.id === selectedAuditLogId);
 
   const navigate = (nextView: SuperAdminView) => {
@@ -160,10 +210,52 @@ export function SuperAdminModule({
     onViewChange(nextView);
   };
 
+  const closeRecord = (close: () => void) => {
+    close();
+    window.requestAnimationFrame(() => {
+      // A atualização pode remover da fila o botão que abriu o caso resolvido.
+      if (document.activeElement === document.body) searchButton.current?.focus();
+    });
+  };
+
+  const openRecord = useCallback(
+    (target: QuickSearchTarget) => {
+      setSearchOpen(false);
+      switch (target.kind) {
+        case 'restaurant':
+          setSelectedRestaurantId(target.id);
+          break;
+        case 'invoice':
+          setSelectedInvoiceId(target.id);
+          break;
+        case 'administrator':
+          setSelectedAdministratorId(target.id);
+          break;
+        case 'support': {
+          const ticket = data.tickets.find((item) => item.id === target.id);
+          if (ticket) setSelectedSupportRestaurantId(ticket.restaurantId);
+          break;
+        }
+      }
+    },
+    [data.tickets],
+  );
+
   const page = useMemo(() => {
     switch (currentView) {
+      case 'sales-leads':
+        return <SalesLeadsPage refreshKey={salesLeadsRevision} />;
       case 'overview':
-        return <OverviewPage data={data} onSelect={(item) => setSelectedRestaurantId(item.id)} />;
+        return (
+          <OverviewPage
+            data={data}
+            onSelect={(item) => setSelectedRestaurantId(item.id)}
+            onOpenRecord={openRecord}
+            onRefresh={actions.refresh}
+            refreshing={refreshing}
+            updatedAt={updatedAt}
+          />
+        );
       case 'restaurants':
         return (
           <RestaurantsPage data={data} onSelect={(item) => setSelectedRestaurantId(item.id)} />
@@ -185,13 +277,27 @@ export function SuperAdminModule({
           />
         );
       case 'support':
-        return <SupportPage data={data} onSelect={(item) => setSelectedTicketId(item.id)} />;
+        return (
+          <SupportPage
+            data={data}
+            onSelect={(item) => setSelectedSupportRestaurantId(item.restaurantId)}
+          />
+        );
       case 'audit':
         return <AuditPage data={data} onSelect={(item) => setSelectedAuditLogId(item.id)} />;
       case 'settings':
         return <SettingsPage data={data} onSave={actions.updateSettings} />;
     }
-  }, [actions.updateSettings, currentView, data]);
+  }, [
+    actions.updateSettings,
+    actions.refresh,
+    currentView,
+    data,
+    salesLeadsRevision,
+    openRecord,
+    refreshing,
+    updatedAt,
+  ]);
 
   const primaryAction =
     currentView === 'overview' || currentView === 'restaurants'
@@ -211,7 +317,10 @@ export function SuperAdminModule({
         : {
             label: refreshing ? 'Atualizando…' : 'Atualizar dados',
             icon: <RefreshCw size={16} className={refreshing ? 'spin' : undefined} />,
-            run: () => void actions.refresh(),
+            run: () => {
+              if (currentView === 'sales-leads') setSalesLeadsRevision((value) => value + 1);
+              else void actions.refresh();
+            },
             disabled: refreshing,
           };
 
@@ -229,16 +338,14 @@ export function SuperAdminModule({
   }
 
   const [title, subtitle] = titles[currentView];
-  const brandParts = data.settings.platformName.trim().split(/\s+/);
-  const brandMark = brandParts.shift() || 'S&C';
-  const brandName = brandParts.join(' ') || 'Platform';
+  const brandName = data.settings.platformName.trim() || 'GastroNexa';
 
   return (
     <S.Root style={{ '--brand': data.settings.primaryColor || '#e9530b' } as CSSProperties}>
       <S.Sidebar ref={sidebar} $open={sidebarOpen} aria-label="Navegação do painel SUPER_ADMIN">
         <S.Brand>
           <span>
-            <b>{brandMark}</b> {brandName}
+            <img src="/gastronexa-logo.svg" alt="" width="40" height="36" /> {brandName}
           </span>
           <small>PAINEL SUPER ADMIN</small>
         </S.Brand>
@@ -252,16 +359,21 @@ export function SuperAdminModule({
         </S.Close>
         <S.Nav>
           {navigation.map(([id, label, Icon]) => (
-            <button
-              key={id}
-              type="button"
-              className={currentView === id ? 'active' : ''}
-              aria-current={currentView === id ? 'page' : undefined}
-              onClick={() => navigate(id)}
-            >
-              <Icon aria-hidden="true" />
-              {label}
-            </button>
+            <Fragment key={id}>
+              {navigationSections[id] ? (
+                <span className="nav-label">{navigationSections[id]}</span>
+              ) : null}
+              <button
+                type="button"
+                className={currentView === id ? 'active' : ''}
+                aria-current={currentView === id ? 'page' : undefined}
+                onClick={() => navigate(id)}
+              >
+                <Icon aria-hidden="true" />
+                <span>{label}</span>
+                {currentView === id ? <i className="nav-indicator" aria-hidden="true" /> : null}
+              </button>
+            </Fragment>
           ))}
         </S.Nav>
         <S.User>
@@ -302,23 +414,34 @@ export function SuperAdminModule({
             <Menu aria-hidden="true" />
           </S.MobileMenu>
           <div className="title">
-            <span className="crumb">PLATAFORMA / {currentView.toUpperCase()}</span>
+            <span className="crumb">PLATAFORMA / {title}</span>
             <h1>{title}</h1>
             <p>{subtitle}</p>
           </div>
-          <span className="access">
-            <LockKeyhole size={15} aria-hidden="true" />
-            Acesso exclusivo SUPER_ADMIN
-          </span>
-          <button
-            type="button"
-            className="primary"
-            disabled={primaryAction.disabled}
-            onClick={primaryAction.run}
-          >
-            {primaryAction.icon}
-            {primaryAction.label}
-          </button>
+          <div className="header-actions">
+            <button
+              ref={searchButton}
+              type="button"
+              className="quick-search"
+              aria-label="Buscar no painel"
+              aria-keyshortcuts="Control+k Meta+k"
+              onClick={() => setSearchOpen(true)}
+              title="Buscar no painel (Ctrl+K ou ⌘K)"
+            >
+              <Search size={17} aria-hidden="true" />
+              <span>Buscar no painel</span>
+              <kbd aria-hidden="true">Ctrl K</kbd>
+            </button>
+            <button
+              type="button"
+              className="primary"
+              disabled={primaryAction.disabled}
+              onClick={primaryAction.run}
+            >
+              {primaryAction.icon}
+              {primaryAction.label}
+            </button>
+          </div>
         </S.Header>
         <S.Content>
           {loadError ? (
@@ -333,12 +456,15 @@ export function SuperAdminModule({
         </S.Content>
       </S.Main>
 
+      {searchOpen ? (
+        <QuickSearch data={data} onClose={() => setSearchOpen(false)} onSelect={openRecord} />
+      ) : null}
       {selectedRestaurant ? (
         <RestaurantDetailsSecure
           restaurant={selectedRestaurant}
           plans={data.plans}
           actions={actions}
-          onClose={() => setSelectedRestaurantId(null)}
+          onClose={() => closeRecord(() => setSelectedRestaurantId(null))}
           notify={notify}
         />
       ) : null}
@@ -351,13 +477,16 @@ export function SuperAdminModule({
         />
       ) : null}
       {selectedInvoice ? (
-        <InvoiceDetails invoice={selectedInvoice} onClose={() => setSelectedInvoiceId(null)} />
+        <InvoiceDetails
+          invoice={selectedInvoice}
+          onClose={() => closeRecord(() => setSelectedInvoiceId(null))}
+        />
       ) : null}
       {selectedAdministrator ? (
         <AdministratorDetails
           administrator={selectedAdministrator}
           actions={actions}
-          onClose={() => setSelectedAdministratorId(null)}
+          onClose={() => closeRecord(() => setSelectedAdministratorId(null))}
           notify={notify}
         />
       ) : null}
@@ -373,7 +502,7 @@ export function SuperAdminModule({
         <SupportConversation
           ticket={selectedTicket}
           actions={actions}
-          onClose={() => setSelectedTicketId(null)}
+          onClose={() => closeRecord(() => setSelectedSupportRestaurantId(null))}
           notify={notify}
         />
       ) : null}

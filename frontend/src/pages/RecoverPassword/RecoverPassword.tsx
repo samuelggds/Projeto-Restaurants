@@ -14,10 +14,7 @@ import { useResendCooldown } from './hooks/useResendCooldown';
 import { ResendCodeButton } from './components/ResendCodeButton';
 import { useRestaurantLoginBranding } from '../Login/hooks/useRestaurantLoginBranding';
 import { TenantBrandHero } from '../Login/components/TenantBrandHero';
-import {
-  buildAuthEntryUrl,
-  resolveAuthExperience,
-} from '../../shared/navigation/authNavigation';
+import { buildAuthEntryUrl, resolveAuthExperience } from '../../shared/navigation/authNavigation';
 import {
   getRestaurantCategoryLabel,
   getRestaurantLoginVisual,
@@ -203,8 +200,8 @@ export default function RecoverPassword() {
             <S.FormSubtitle>
               {step === 'request'
                 ? isTableContext
-                  ? `Escolha e-mail ou telefone. Depois da redefinição você voltará ao login da ${tableLabel}.`
-                  : 'Escolha e-mail ou telefone e receba um código para redefinir sua senha.'
+                  ? `Informe o e-mail ou telefone do cadastro. O código será enviado ao e-mail cadastrado. Depois você voltará ao login da ${tableLabel}.`
+                  : 'Informe o e-mail ou telefone do cadastro. O código será enviado ao e-mail cadastrado. Se o telefone for compartilhado, informe o e-mail.'
                 : 'Digite o código recebido e informe sua nova senha.'}
             </S.FormSubtitle>
 
@@ -242,7 +239,9 @@ export default function RecoverPassword() {
                     id="identifier"
                     type={contactMethod === 'email' ? 'email' : 'text'}
                     inputMode={contactMethod === 'phone' ? 'tel' : undefined}
-                    placeholder={contactMethod === 'email' ? 'exemplo@email.com' : '(11) 99999-9999'}
+                    placeholder={
+                      contactMethod === 'email' ? 'exemplo@email.com' : '(11) 99999-9999'
+                    }
                     value={identifier}
                     onChange={(event) => setIdentifier(event.target.value)}
                     readOnly={step === 'reset' || isLoading}
@@ -260,7 +259,9 @@ export default function RecoverPassword() {
                   <S.InputGroup>
                     <S.Label htmlFor="reset-code">Código</S.Label>
                     <S.LoginInputField>
-                      <S.LoginInputIcon aria-hidden="true"><KeyRound /></S.LoginInputIcon>
+                      <S.LoginInputIcon aria-hidden="true">
+                        <KeyRound />
+                      </S.LoginInputIcon>
                       <S.Input
                         id="reset-code"
                         type="text"
@@ -279,7 +280,9 @@ export default function RecoverPassword() {
                   <S.InputGroup>
                     <S.Label htmlFor="new-password">Nova senha</S.Label>
                     <S.LoginInputField>
-                      <S.LoginInputIcon aria-hidden="true"><LockKeyhole /></S.LoginInputIcon>
+                      <S.LoginInputIcon aria-hidden="true">
+                        <LockKeyhole />
+                      </S.LoginInputIcon>
                       <S.Input
                         id="new-password"
                         type="password"
@@ -299,7 +302,9 @@ export default function RecoverPassword() {
                   <S.InputGroup>
                     <S.Label htmlFor="confirm-password">Confirmar nova senha</S.Label>
                     <S.LoginInputField>
-                      <S.LoginInputIcon aria-hidden="true"><LockKeyhole /></S.LoginInputIcon>
+                      <S.LoginInputIcon aria-hidden="true">
+                        <LockKeyhole />
+                      </S.LoginInputIcon>
                       <S.Input
                         id="confirm-password"
                         type="password"

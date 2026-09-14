@@ -44,7 +44,9 @@ export default function AttendantPage() {
   const attendantId = Number(account.id || 0) || null;
   const attendantName = String(account.name || 'Atendente').trim() || 'Atendente';
   const restaurantSlugRef = useRef(
-    String(account.restaurantSlug || accountRestaurant.slug || '').trim().toLowerCase(),
+    String(account.restaurantSlug || accountRestaurant.slug || '')
+      .trim()
+      .toLowerCase(),
   );
   const [snapshot, setSnapshot] = useState<AttendantWorkspaceSnapshot>(emptySnapshot);
   const [restaurant, setRestaurant] = useState<AttendantRestaurantBrand>({
@@ -93,7 +95,9 @@ export default function AttendantPage() {
           ...current,
           loading: false,
           refreshing: false,
-          error: 'A conexão com a operação falhou. Os últimos dados disponíveis foram preservados.',
+          error: current.lastUpdatedAt
+            ? 'A conexão com a operação falhou. Os últimos dados disponíveis foram preservados.'
+            : 'A conexão com a operação falhou antes de receber os primeiros dados. Tente atualizar novamente.',
         }));
       }
     },
@@ -181,7 +185,9 @@ export default function AttendantPage() {
       <main style={{ padding: 32, fontFamily: 'Inter, system-ui, sans-serif' }}>
         <h1>Não foi possível abrir a central do atendente</h1>
         <p>{workspaceState.error}</p>
-        <button type="button" onClick={handleLogout}>Sair e entrar novamente</button>
+        <button type="button" onClick={handleLogout}>
+          Sair e entrar novamente
+        </button>
       </main>
     );
   }

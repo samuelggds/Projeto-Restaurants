@@ -10,7 +10,7 @@ export function resolveTablePaymentProviderTransition(
   currentStatus: TablePaymentIntentStatus,
   providerStatus: ProviderPaymentStatus,
 ) {
-  const latePayment = providerStatus === 'PAID' && latePaymentStatuses.includes(currentStatus);
+  const latePayment = (providerStatus === 'PAID' || providerStatus === 'REFUNDED') && latePaymentStatuses.includes(currentStatus);
   if (latePayment) {
     return {
       nextStatus: null,

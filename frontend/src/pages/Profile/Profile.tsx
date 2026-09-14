@@ -1,3 +1,4 @@
+import { useOrderHistory } from '../../hooks/useOrderHistory';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { toast } from 'react-toastify';
@@ -66,7 +67,9 @@ export default function Profile() {
   const { user, logout, login } = useAuth();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const [orders, setOrders] = useState<Record<string, unknown>[]>([]);
+  const [activeOrders, setActiveOrders] = useState<Record<string, unknown>[]>([]);
+  const history = useOrderHistory({ mine: true, refreshSignal: user?.id });
+  const orders = useMemo(() => [...activeOrders, ...history.orders as Record<string, unknown>[]], [activeOrders, history.orders]);
   const [favorites, setFavorites] = useState<Record<string, unknown>[]>([]);
   const [addresses, setAddresses] = useState<Record<string, unknown>[]>([]);
   const [paymentMethods, setPaymentMethods] = useState<CustomerPaymentMethod[]>([]);
@@ -154,13 +157,13 @@ export default function Profile() {
             ? 'Seu pedido feito como visitante foi adicionado à sua conta.'
             : `${result.claimedCount} pedidos feitos como visitante foram adicionados à sua conta.`,
         );
-        return ordersService.listMyOrders().then((raw: unknown) => {
+        return ordersService.listMyActiveOrders().then((raw: unknown) => {
           const list = Array.isArray(raw)
             ? raw
             : Array.isArray((raw as Record<string, unknown>)?.orders)
               ? ((raw as Record<string, unknown>).orders as unknown[])
               : [];
-          setOrders(list as Record<string, unknown>[]);
+          setActiveOrders(list as Record<string, unknown>[]);
         });
       })
       .catch(() => {
@@ -190,7 +193,7 @@ export default function Profile() {
   useEffect(() => {
     let active = true;
     ordersService
-      .listMyOrders()
+      .listMyActiveOrders()
       .then((raw: unknown) => {
         if (!active) return;
         const list = Array.isArray(raw)
@@ -198,7 +201,7 @@ export default function Profile() {
           : Array.isArray((raw as Record<string, unknown>)?.orders)
             ? ((raw as Record<string, unknown>).orders as unknown[])
             : [];
-        setOrders(list as Record<string, unknown>[]);
+        setActiveOrders(list as Record<string, unknown>[]);
       })
       .catch(() => {});
     return () => {
@@ -485,6 +488,7 @@ export default function Profile() {
         onTrackOrder={handleTrackOrder}
         onViewOrder={handleTrackOrder}
         onReorder={handleReorder}
+        historyPagination={history}
         loyaltySummary={loyaltySummary}
         loyaltyLoading={loyaltyLoading}
         loyaltyError={loyaltyError}

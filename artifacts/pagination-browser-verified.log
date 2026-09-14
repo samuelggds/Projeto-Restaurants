@@ -1,0 +1,41 @@
+
+> frontend@0.0.0 test:e2e
+> playwright test e2e/admin-orders-refund.spec.ts e2e/admin-people-ux.spec.ts e2e/kitchen-order-customizations.spec.ts e2e/courier-operations.spec.ts e2e/waiter-operations.spec.ts e2e/attendant-operations.spec.ts e2e/profile-loyalty-wallet.spec.ts --max-failures=3
+
+[WebServer] (node:16528) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+Running 22 tests using 1 worker
+
+(node:18776) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ok  1 [chromium] › e2e\admin-orders-refund.spec.ts:153:1 › central de pedidos mantém hierarquia e ações acessíveis em desktop e mobile (21.9s)
+  ok  2 [chromium] › e2e\admin-orders-refund.spec.ts:186:1 › admin cancela Pix online com estorno único e distingue pagamento na entrega (17.0s)
+  ok  3 [chromium] › e2e\admin-orders-refund.spec.ts:226:1 › indicadores incluem mais de 100 pedidos e a fila ativa encontra um pedido antigo (4.1s)
+  ok  4 [chromium] › e2e\admin-people-ux.spec.ts:128:1 › clientes apresenta indicadores, busca e cards retangulares em desktop e mobile (4.6s)
+  ok  5 [chromium] › e2e\admin-people-ux.spec.ts:167:1 › funcionários mantém cargo e status legíveis, com filtros e ações acessíveis no mobile (3.8s)
+  ok  6 [chromium] › e2e\attendant-operations.spec.ts:132:1 › abre pedido e conclui retirada paga (3.7s)
+  ok  7 [chromium] › e2e\attendant-operations.spec.ts:144:1 › assume e resolve chamado (3.5s)
+  ok  8 [chromium] › e2e\attendant-operations.spec.ts:156:1 › registra pedido manual de retirada sem vincular o pedido ao atendente (3.5s)
+  x   9 [chromium] › e2e\courier-operations.spec.ts:656:1 › motoqueiro retira, compartilha a rota do próprio pedido e encerra ao entregar (25.6s)
+(node:12908) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] 23:20:46 [vite] (client) [console.error] [courier] Falha ao carregar entregas AxiosError: Request failed with status code 503
+[WebServer]     at settle (http://127.0.0.1:4181/node_modules/.vite/deps/axios.js?v=18ea16aa:1838:14)
+[WebServer]     at XMLHttpRequest.onloadend (http://127.0.0.1:4181/node_modules/.vite/deps/axios.js?v=18ea16aa:2231:4)
+[WebServer]     at Axios$1.request (http://127.0.0.1:4181/node_modules/.vite/deps/axios.js?v=18ea16aa:3024:37)
+[WebServer]     at async OrdersService.listRestaurantOrdersPage (http://127.0.0.1:4181/src/Services/ordersService.ts:145:20)
+[WebServer]     at async OrdersService.listActivePages (http://127.0.0.1:4181/src/Services/ordersService.ts:180:17)
+  ok 10 [chromium] › e2e\courier-operations.spec.ts:786:1 › erro de atualização permite tentar novamente e realtime busca somente o tenant (22.0s)
+  ok 11 [chromium] › e2e\courier-operations.spec.ts:836:1 › explica localização negada e navegador sem suporte sem enviar coordenadas (22.8s)
+  ok 12 [chromium] › e2e\courier-operations.spec.ts:902:1 › cliente acompanha somente a própria entrega, rota e destino até a conclusão (13.2s)
+  ok 13 [chromium] › e2e\courier-operations.spec.ts:982:1 › todas as áreas do motoqueiro cabem no celular sem overflow horizontal (5.6s)
+  ok 14 [chromium] › e2e\kitchen-order-customizations.spec.ts:440:1 › pedido completo do tenant chega à fila e avança de pendente até pronto (6.4s)
+  ok 15 [chromium] › e2e\kitchen-order-customizations.spec.ts:503:1 › busca, status, canais, prontos e histórico refletem os dados recebidos (4.0s)
+  ok 16 [chromium] › e2e\kitchen-order-customizations.spec.ts:573:1 › exibe carregamento, permite tentar novamente após erro e diferencia retorno vazio (3.4s)
+  ok 17 [chromium] › e2e\kitchen-order-customizations.spec.ts:606:1 › todas as abas da cozinha permanecem acessíveis e sem overflow em celular (3.4s)
+  ok 18 [chromium] › e2e\profile-loyalty-wallet.spec.ts:7:1 › cliente consulta cupons válidos, histórico e o novo ciclo no perfil (10.1s)
+  ok 19 [chromium] › e2e\waiter-operations.spec.ts:597:1 › garçom consulta visão geral, filtra entregas e atende chamados persistidos (4.5s)
+  ok 20 [chromium] › e2e\waiter-operations.spec.ts:666:1 › garçom confere e confirma pagamento presencial pelo ledger (3.6s)
+  ok 21 [chromium] › e2e\waiter-operations.spec.ts:690:1 › QR sem PIN só libera pedidos com mesa aberta e fechamento respeita pendências (10.2s)
+  ok 22 [chromium] › e2e\waiter-operations.spec.ts:772:1 › todas as abas do garçom permanecem acessíveis e sem overflow em celular (3.5s)

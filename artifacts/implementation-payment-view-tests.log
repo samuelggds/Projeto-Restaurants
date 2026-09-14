@@ -1,0 +1,13 @@
+
+> frontend@0.0.0 test
+> vitest run --maxWorkers=1 src/components/payment/PaymentResultView.test.tsx
+
+
+ RUN  v4.1.10 C:/Users/Samuel/Documents/Codex/RESTAURANT-DELIVERY-MESA/pizza-ia-delivery/frontend
+
+
+ Test Files  1 passed (1)
+      Tests  18 passed (18)
+   Start at  08:17:59
+   Duration  1.58s (transform 106ms, setup 0ms, import 293ms, tests 183ms, environment 902ms)
+

@@ -1,17 +1,14 @@
 import { MercadoPagoConfig, Payment, PaymentRefund, Preference } from 'mercadopago';
-import restaurantSettingsRepository from '../../restaurantSettings/repositories/RestaurantSettingsRepository.js';
+import { getMercadoPagoAccessToken } from '../../restaurantSettings/services/RestaurantPaymentCredentialsService.js';
 
 async function getAccessToken(restaurantId?: number | null) {
   const normalizedRestaurantId = Number(restaurantId || 0);
   const allowGlobalFallback = process.env.ALLOW_GLOBAL_PAYMENT_FALLBACK === 'true';
-  const settings =
-    Number.isInteger(normalizedRestaurantId) && normalizedRestaurantId > 0
-      ? await restaurantSettingsRepository.findByRestaurantId(normalizedRestaurantId)
-      : null;
-
-  const settingsToken = String(settings?.mercadoPagoAccessToken || '').trim();
+  if (Number.isSafeInteger(normalizedRestaurantId) && normalizedRestaurantId > 0) {
+    return getMercadoPagoAccessToken(normalizedRestaurantId);
+  }
   const globalToken = String(process.env.MP_ACCESS_TOKEN || '').trim();
-  const token = settingsToken || (allowGlobalFallback ? globalToken : '');
+  const token = allowGlobalFallback ? globalToken : '';
 
   if (!token) {
     throw new Error(

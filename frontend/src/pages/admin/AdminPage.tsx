@@ -25,9 +25,17 @@ import { createRestaurantMonogram } from '../../utils/restaurantMonogram';
 import { EmployeeDrawer } from './components/EmployeeDrawer';
 import { BrandSettings } from './components/BrandSettings';
 import { AdminSettingsContent } from './components/AdminSettingsContent';
-import { AdminManagement } from './components/AdminManagement';
-import { MonthlyBilling } from './components/MonthlyBilling';
-import { HelpCenter } from './components/HelpCenter';
+const AdminManagement = lazy(() =>
+  import('./components/AdminManagement').then((module) => ({ default: module.AdminManagement })),
+);
+const MonthlyBilling = lazy(() =>
+  import('./components/SubscriptionBillingArea').then((module) => ({
+    default: module.SubscriptionBillingArea,
+  })),
+);
+const HelpCenter = lazy(() =>
+  import('./components/HelpCenter').then((module) => ({ default: module.HelpCenter })),
+);
 import { sectionTitle, settingGroups, settingItems } from './config/adminNavigation';
 import * as S from './Admin.styles';
 import type {
@@ -149,6 +157,7 @@ function hasEstablishmentAddressInput(settings: typeof adminMockSettings) {
 }
 
 export function AdminPage({
+  initialArea = 'overview',
   initialSettings = adminMockSettings,
   initialEmployees = adminMockEmployees,
   initialOrders = [],
@@ -179,6 +188,7 @@ export function AdminPage({
   onOpenSettings,
   onSaveSettings,
   onConnectMercadoPago,
+  onLoadPaymentConnections,
   onConnectPagBank,
   onOnboardAsaas,
   onCreateEmployee,
@@ -199,7 +209,7 @@ export function AdminPage({
     ? (requestedSettingsSection as SettingsSection)
     : 'brand';
   const [area, setArea] = useState<AdminSection>(
-    paymentOAuthStatus || requestedSettingsSection ? 'settings' : 'overview',
+    paymentOAuthStatus || requestedSettingsSection ? 'settings' : initialArea,
   );
   const [section, setSection] = useState<SettingsSection>(
     paymentOAuthStatus ? 'payments' : initialSettingsSection,
@@ -834,144 +844,183 @@ export function AdminPage({
             area === 'subscriptions'
           }
         >
-          {area === 'help' ? (
-            <HelpCenter
-              onReport={async (payload) => {
-                if (!onReportSupport) {
-                  throw new Error('O canal de suporte não está disponível agora.');
+          <Suspense
+            fallback={
+              <S.Card role="status">
+                <p>Carregando painel...</p>
+              </S.Card>
+            }
+          >
+            {area === 'help' ? (
+              <HelpCenter
+                onReport={async (payload) => {
+                  if (!onReportSupport) {
+                    throw new Error('O canal de suporte não está disponível agora.');
+                  }
+                  await onReportSupport(payload);
+                }}
+              />
+            ) : area === 'employees' ? (
+              <Suspense
+                fallback={
+                  <S.Card role="status">
+                    <p>Carregando equipe...</p>
+                  </S.Card>
                 }
-                await onReportSupport(payload);
-              }}
-            />
-          ) : area === 'employees' ? (
-            <Suspense
-              fallback={
-                <S.Card role="status">
-                  <p>Carregando equipe...</p>
-                </S.Card>
-              }
-            >
-              <EmployeeList
-                employees={employees}
-                onNew={() => setEditing(null)}
-                onEdit={setEditing}
-                onDeactivate={async (employee) => {
-                  const confirmed = await confirmDialog({
-                    title: 'Desativar funcionário?',
-                    description: `${employee.name} perderá o acesso ao sistema até ser reativado.`,
-                    confirmLabel: 'Desativar',
-                    tone: 'danger',
-                  });
-                  if (!confirmed) return;
-                  await onDeactivateEmployee?.(employee.id);
-                  setEmployees((current) =>
-                    current.map((item) =>
-                      item.id === employee.id ? { ...item, active: false } : item,
-                    ),
-                  );
-                }}
-                onReactivate={async (employee) => {
-                  const confirmed = await confirmDialog({
-                    title: 'Reativar funcionário?',
-                    description: `${employee.name} voltará a ter acesso ao sistema.`,
-                    confirmLabel: 'Reativar',
-                  });
-                  if (!confirmed) return;
-                  await onReactivateEmployee?.(employee.id);
-                  setEmployees((current) =>
-                    current.map((item) =>
-                      item.id === employee.id ? { ...item, active: true } : item,
-                    ),
-                  );
-                }}
-              />
-            </Suspense>
-          ) : area === 'subscriptions' ? (
-            <MonthlyBilling />
-          ) : area === 'settings' ? (
-            section === 'brand' ? (
-              <BrandSettings
-                settings={settings}
-                update={update}
-                logoInput={logoInput}
-                onLogoChange={logo}
-                onCoverChange={cover}
-                onEnhanceCover={enhanceCover}
-                isEnhancingCover={isEnhancingCover}
-                onBannerImageChange={banner}
-                onEnhanceBanner={enhanceBanner}
-                enhancingBannerLocalId={enhancingBannerLocalId}
-              />
+              >
+                <EmployeeList
+                  employees={employees}
+                  onNew={() => setEditing(null)}
+                  onEdit={setEditing}
+                  onDeactivate={async (employee) => {
+                    const confirmed = await confirmDialog({
+                      title: 'Desativar funcionário?',
+                      description: `${employee.name} perderá o acesso ao sistema até ser reativado.`,
+                      confirmLabel: 'Desativar',
+                      tone: 'danger',
+                    });
+                    if (!confirmed) return;
+                    await onDeactivateEmployee?.(employee.id);
+                    setEmployees((current) =>
+                      current.map((item) =>
+                        item.id === employee.id ? { ...item, active: false } : item,
+                      ),
+                    );
+                  }}
+                  onReactivate={async (employee) => {
+                    const confirmed = await confirmDialog({
+                      title: 'Reativar funcionário?',
+                      description: `${employee.name} voltará a ter acesso ao sistema.`,
+                      confirmLabel: 'Reativar',
+                    });
+                    if (!confirmed) return;
+                    await onReactivateEmployee?.(employee.id);
+                    setEmployees((current) =>
+                      current.map((item) =>
+                        item.id === employee.id ? { ...item, active: true } : item,
+                      ),
+                    );
+                  }}
+                />
+              </Suspense>
+            ) : area === 'subscriptions' ? (
+              <MonthlyBilling />
+            ) : area === 'settings' ? (
+              section === 'brand' ? (
+                <BrandSettings
+                  settings={settings}
+                  update={update}
+                  logoInput={logoInput}
+                  onLogoChange={logo}
+                  onCoverChange={cover}
+                  onEnhanceCover={enhanceCover}
+                  isEnhancingCover={isEnhancingCover}
+                  onBannerImageChange={banner}
+                  onEnhanceBanner={enhanceBanner}
+                  enhancingBannerLocalId={enhancingBannerLocalId}
+                />
+              ) : (
+                <AdminSettingsContent
+                  section={section}
+                  settings={settings}
+                  update={update}
+                  employees={employees}
+                  products={products}
+                  coupons={coupons}
+                  promotionsLoading={promotionsLoading}
+                  promotionsError={promotionsError}
+                  onApplyProductDiscount={onApplyProductDiscount}
+                  onDeleteProductDiscount={onDeleteProductDiscount}
+                  onCreateCoupon={onCreateCoupon}
+                  onUpdateCoupon={onUpdateCoupon}
+                  onDeleteCoupon={onDeleteCoupon}
+                  onReloadPromotions={onReloadPromotions}
+                  openEmployees={() => void changeArea('employees')}
+                  onLoadPaymentConnections={onLoadPaymentConnections}
+                  onConnectMercadoPago={
+                    onConnectMercadoPago &&
+                    (async () => {
+                      if (settingsDirty && !(await save())) {
+                        throw new Error(
+                          'Revise e salve as configurações antes de conectar a conta.',
+                        );
+                      }
+                      await onConnectMercadoPago();
+                    })
+                  }
+                  onConnectPagBank={
+                    onConnectPagBank &&
+                    (async () => {
+                      if (settingsDirty && !(await save())) {
+                        throw new Error(
+                          'Revise e salve as configurações antes de conectar a conta.',
+                        );
+                      }
+                      await onConnectPagBank();
+                    })
+                  }
+                  onOnboardAsaas={
+                    onOnboardAsaas &&
+                    (async (payload) => {
+                      if (settingsDirty && !(await save())) {
+                        throw new Error(
+                          'Revise e salve as configurações antes de conectar a conta.',
+                        );
+                      }
+                      await onOnboardAsaas(payload);
+                    })
+                  }
+                />
+              )
             ) : (
-              <AdminSettingsContent
-                section={section}
-                settings={settings}
-                update={update}
-                employees={employees}
+              <AdminManagement
+                area={area}
+                orders={orders}
                 products={products}
-                coupons={coupons}
-                promotionsLoading={promotionsLoading}
-                promotionsError={promotionsError}
-                onApplyProductDiscount={onApplyProductDiscount}
-                onDeleteProductDiscount={onDeleteProductDiscount}
-                onCreateCoupon={onCreateCoupon}
-                onUpdateCoupon={onUpdateCoupon}
-                onDeleteCoupon={onDeleteCoupon}
-                onReloadPromotions={onReloadPromotions}
-                openEmployees={() => void changeArea('employees')}
-                onConnectMercadoPago={onConnectMercadoPago}
-                onConnectPagBank={onConnectPagBank}
-                onOnboardAsaas={onOnboardAsaas}
+                categories={categories}
+                ingredients={ingredients}
+                restaurantName={settings.restaurantName}
+                onNavigate={(destination) => void changeArea(destination)}
+                onUpdateOrderStatus={async (id, status) => {
+                  await onUpdateOrderStatus?.(id, status);
+                }}
+                onConfirmOrderPayment={async (id) => {
+                  await onConfirmOrderPayment?.(id);
+                }}
+                onCancelOrder={async (id) => {
+                  await onCancelOrder?.(id);
+                }}
+                onEditProduct={setEditingProduct}
+                onDeleteProduct={async (id) => {
+                  await onDeleteProduct?.(id);
+                }}
+                onNewProduct={() => setEditingProduct(null)}
+                onCreateCategory={async (name) => {
+                  await onCreateCategory?.(name);
+                }}
+                onUpdateCategory={async (id, name) => {
+                  await onUpdateCategory?.(id, name);
+                }}
+                onDeleteCategory={async (id) => {
+                  await onDeleteCategory?.(id);
+                }}
+                onCreateIngredient={async (ingredient) => {
+                  return onCreateIngredient?.(ingredient);
+                }}
+                onUpdateIngredient={async (ingredient, imageUpdate) => {
+                  await onUpdateIngredient?.(ingredient, imageUpdate);
+                }}
+                onDeleteIngredient={async (id) => {
+                  await onDeleteIngredient?.(id);
+                }}
+                catalogImportOpen={catalogImportOpen}
+                onCloseCatalogImport={() => setCatalogImportOpen(false)}
+                onCatalogImportComplete={async () => {
+                  await onReloadCatalog?.();
+                }}
               />
-            )
-          ) : (
-            <AdminManagement
-              area={area}
-              orders={orders}
-              products={products}
-              categories={categories}
-              ingredients={ingredients}
-              restaurantName={settings.restaurantName}
-              onNavigate={(destination) => void changeArea(destination)}
-              onUpdateOrderStatus={async (id, status) => {
-                await onUpdateOrderStatus?.(id, status);
-              }}
-              onConfirmOrderPayment={async (id) => {
-                await onConfirmOrderPayment?.(id);
-              }}
-              onCancelOrder={async (id) => {
-                await onCancelOrder?.(id);
-              }}
-              onEditProduct={setEditingProduct}
-              onDeleteProduct={async (id) => {
-                await onDeleteProduct?.(id);
-              }}
-              onNewProduct={() => setEditingProduct(null)}
-              onCreateCategory={async (name) => {
-                await onCreateCategory?.(name);
-              }}
-              onUpdateCategory={async (id, name) => {
-                await onUpdateCategory?.(id, name);
-              }}
-              onDeleteCategory={async (id) => {
-                await onDeleteCategory?.(id);
-              }}
-              onCreateIngredient={async (ingredient) => {
-                return onCreateIngredient?.(ingredient);
-              }}
-              onUpdateIngredient={async (ingredient, imageUpdate) => {
-                await onUpdateIngredient?.(ingredient, imageUpdate);
-              }}
-              onDeleteIngredient={async (id) => {
-                await onDeleteIngredient?.(id);
-              }}
-              catalogImportOpen={catalogImportOpen}
-              onCloseCatalogImport={() => setCatalogImportOpen(false)}
-              onCatalogImportComplete={async () => {
-                await onReloadCatalog?.();
-              }}
-            />
-          )}
+            )}
+          </Suspense>
         </S.Content>
       </S.Main>
       <S.MobileBottomNav aria-label="Navegação administrativa móvel">

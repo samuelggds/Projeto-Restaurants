@@ -76,6 +76,26 @@ class CancelOrderWorkflowService {
 
     try {
       const cancelledOrder = await prisma.$transaction(async (tx) => {
+        if (order.type === 'RETIRADA') {
+          // Serialize with pickup charge reservation and cash confirmation.
+          await tx.$queryRaw`
+            SELECT "id" FROM "Order" WHERE "id" = ${order.id}
+              AND "restaurantId" = ${order.restaurantId} FOR UPDATE
+          `;
+          const payments = await tx.$queryRaw<Array<{ status: string }>>`
+            SELECT "status" FROM "DeliveryPayment"
+            WHERE "orderId" = ${order.id} AND "restaurantId" = ${order.restaurantId}
+          `;
+          if (
+            payments.some(
+              (payment) => !['FAILED', 'CANCELLED', 'CANCELED', 'EXPIRED'].includes(payment.status),
+            )
+          ) {
+            throw new OrderCancellationError(
+              'Concilie a cobrança da retirada antes de cancelar o pedido. O pagamento pode estar em processamento.',
+            );
+          }
+        }
         const canceledAt = new Date();
         const updated = await orderRepository.updateStatusIfCurrent(
           order.id,

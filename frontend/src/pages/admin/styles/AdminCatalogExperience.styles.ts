@@ -56,6 +56,9 @@ export const IngredientWorkspace = styled.div`
   display: grid;
   gap: 22px;
   min-width: 0;
+  @media (max-width: 580px) {
+    gap: 14px;
+  }
   animation: catalog-view-enter 360ms cubic-bezier(0.22, 1, 0.36, 1) both;
   @keyframes catalog-view-enter {
     from {
@@ -117,6 +120,16 @@ export const IngredientPageHeader = styled.header`
     flex-direction: column;
     > button {
       align-self: flex-start;
+      min-height: 44px;
+      font-size: 12px;
+      padding: 0 14px;
+    }
+    gap: 12px;
+    h2 {
+      font-size: 22px;
+    }
+    p {
+      font-size: 12px;
     }
   }
 `;
@@ -215,6 +228,7 @@ export const IngredientHero = styled.section`
 `;
 
 export const IngredientWorkflowHint = styled.div`
+  min-width: 0;
   min-height: 50px;
   display: flex;
   align-items: center;
@@ -237,8 +251,16 @@ export const IngredientWorkflowHint = styled.div`
     font-style: normal;
   }
   @media (max-width: 560px) {
-    overflow-x: auto;
-    white-space: nowrap;
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 10px 12px;
+    font-size: 12px;
+    > b {
+      flex: 1 1 calc(100% - 32px);
+    }
+    > svg {
+      flex: 0 0 14px;
+    }
   }
 `;
 
@@ -294,6 +316,8 @@ export const ProductToolbar = styled.div`
     width: 17px;
   }
   @media (max-width: 650px) {
+    gap: 8px;
+    margin-bottom: 12px;
     grid-template-columns: minmax(0, 1fr) 44px;
     select {
       grid-column: 1 / -1;
@@ -346,9 +370,15 @@ export const NewProductTile = styled.button`
     transition: none;
   }
   @media (max-width: 480px) {
-    width: min(100%, 350px);
-    min-height: 160px;
+    width: 100%;
+    min-height: 48px;
     aspect-ratio: auto;
+    display: flex;
+    justify-content: center;
+    gap: 8px;
+    > svg {
+      width: 18px;
+    }
   }
 `;
 

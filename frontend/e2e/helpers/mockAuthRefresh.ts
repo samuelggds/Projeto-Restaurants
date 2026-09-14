@@ -43,6 +43,20 @@ export async function mockAuthRefresh(page: Page, userId: number, accessToken: s
       return;
     }
 
+    // Existing fixture accounts represent returning operational users. The real
+    // application claims onboarding durably server-side on the first visit, so
+    // these established fixtures must explicitly answer that the one-time tour
+    // has already been consumed. Keeping this here preserves each scenario's
+    // strict unexpected-request guard for every other endpoint.
+    if (pathname === '/auth/employee-onboarding/claim' && request.method() === 'POST') {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ showOnboarding: false }),
+      });
+      return;
+    }
+
     const publicSettingsMatch = pathname.match(PUBLIC_RESTAURANT_SETTINGS);
     const refererPathname = pathnameFromUrl(request.headers().referer);
     const pagePathname = pathnameFromUrl(page.url());

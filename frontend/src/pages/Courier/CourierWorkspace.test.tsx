@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
   listOrders: vi.fn(),
+  listPage: vi.fn(),
   claimDelivery: vi.fn(),
   updateStatus: vi.fn(),
   getFinance: vi.fn(),
@@ -42,6 +43,7 @@ vi.mock('../../contexts/authContext', () => ({
 vi.mock('../../Services/ordersService', () => ({
   default: {
     listRestaurantOrders: mocks.listOrders,
+    listRestaurantOrdersPage: mocks.listPage,
     claimDelivery: mocks.claimDelivery,
     updateStatus: mocks.updateStatus,
     getCourierFinance: mocks.getFinance,
@@ -50,6 +52,9 @@ vi.mock('../../Services/ordersService', () => ({
 }));
 vi.mock('../../Services/restaurantSettingsService', () => ({
   default: { getPublicSettings: mocks.getSettings },
+}));
+vi.mock('../../Services/deliveryChatService', () => ({
+  default: { courierInbox: vi.fn().mockResolvedValue([]) },
 }));
 vi.mock('../../Services/socketService', () => ({
   acquireSocket: () => ({ socket: mocks.socket, release: vi.fn() }),
@@ -119,7 +124,7 @@ function deliveryOrder(status = 'PRONTO') {
 }
 
 async function flushUntil(condition: () => boolean) {
-  for (let attempt = 0; attempt < 200 && !condition(); attempt += 1) {
+  for (let attempt = 0; attempt < 600 && !condition(); attempt += 1) {
     await act(async () => {
       await new Promise((resolve) => window.setTimeout(resolve, 5));
     });
@@ -143,6 +148,7 @@ describe('CourierWorkspace integration', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    mocks.listPage.mockResolvedValue({ orders: [], total: 0, hasMore: false, nextCursor: null });
     mocks.socket.connected = true;
     clearAuthSession();
     localStorage.clear();
@@ -209,7 +215,9 @@ describe('CourierWorkspace integration', () => {
     await act(async () => root.render(<CourierWorkspace />));
     await flushUntil(() => container.textContent?.includes('Pedidos aguardando você') === true);
     await act(async () => clickByText(container, 'button', 'Para retirar'));
-    await flushUntil(() => container.textContent?.includes('Pedido #81') === true);
+    await flushUntil(
+      () => container.querySelector('button[aria-label="Ver detalhes do pedido 81"]') !== null,
+    );
     expect(container.textContent).not.toContain('Pedido #99');
 
     await act(async () =>
@@ -220,20 +228,20 @@ describe('CourierWorkspace integration', () => {
     expect(container.textContent).toContain('Itens escolhidos: Bacon');
     expect(container.textContent).toContain('Observação do item: Sem cebola');
     expect(container.textContent).toContain('Tocar interfone');
-    const earningBar = container.querySelector<HTMLElement>('[title="Valor calculado pelo servidor"]');
+    const earningBar = container.querySelector<HTMLElement>(
+      '[title="Valor calculado pelo servidor"]',
+    );
     expect(earningBar?.textContent).toContain('Ganho');
     expect(earningBar?.textContent?.replaceAll('\u00a0', ' ')).toContain('R$ 8,50');
     expect(container.textContent).toContain('Rota calculada: 3.2 km');
 
     await act(async () => clickByText(container, 'button', 'Retirar e iniciar entrega'));
-    await flushUntil(() =>
-      container.textContent?.includes('Compartilhar localização durante a entrega?') === true,
+    await flushUntil(
+      () => container.textContent?.includes('Compartilhar localização durante a entrega?') === true,
     );
     expect(mocks.claimDelivery).not.toHaveBeenCalled();
 
-    await act(async () =>
-      clickByText(container, '[role="dialog"] button', 'Ativar localização'),
-    );
+    await act(async () => clickByText(container, '[role="dialog"] button', 'Ativar localização'));
     await flushUntil(() => mocks.claimDelivery.mock.calls.length === 1);
     expect(mocks.getCurrentPosition).toHaveBeenCalledTimes(1);
     expect(mocks.claimDelivery).toHaveBeenCalledWith(
@@ -269,6 +277,7 @@ describe('CourierWorkspace integration', () => {
     expect(mocks.updateStatus).toHaveBeenCalledWith(81, 'ENTREGUE', '1234');
     expect(mocks.clearWatch).toHaveBeenCalledWith(77);
     expect(localStorage.getItem('courier-location-tracking:44')).toBeNull();
+    expect(mocks.listPage).toHaveBeenLastCalledWith({ limit: 20, queue: 'DELIVERED' });
   });
 
   it('permite retirar sem GPS mesmo quando a permissão de localização é negada', async () => {
@@ -284,13 +293,11 @@ describe('CourierWorkspace integration', () => {
     await act(async () => clickByText(container, 'button', 'Para retirar'));
     await flushUntil(() => container.textContent?.includes('Retirar e iniciar entrega') === true);
     await act(async () => clickByText(container, 'button', 'Retirar e iniciar entrega'));
-    await flushUntil(() =>
-      container.textContent?.includes('Compartilhar localização durante a entrega?') === true,
+    await flushUntil(
+      () => container.textContent?.includes('Compartilhar localização durante a entrega?') === true,
     );
 
-    await act(async () =>
-      clickByText(container, '[role="dialog"] button', 'Ativar localização'),
-    );
+    await act(async () => clickByText(container, '[role="dialog"] button', 'Ativar localização'));
     await flushUntil(() => container.textContent?.includes('A localização foi bloqueada') === true);
     expect(mocks.claimDelivery).not.toHaveBeenCalled();
     expect(mocks.watchPosition).not.toHaveBeenCalled();
@@ -307,9 +314,121 @@ describe('CourierWorkspace integration', () => {
       .mockResolvedValueOnce([deliveryOrder()]);
     await act(async () => root.render(<CourierWorkspace />));
     await flushUntil(() => container.textContent?.includes('Confira a conexão') === true);
+    expect(container.textContent).toContain('Lista de retiradas indisponível');
+    expect(container.textContent).not.toContain('Tudo certo por aqui');
+    expect(container.textContent).not.toContain('Nenhum pedido aguardando retirada.');
     await act(async () => clickByText(container, 'button', 'Tentar novamente'));
     await flushUntil(() => mocks.listOrders.mock.calls.length === 2);
     expect(container.textContent).not.toContain('Confira a conexão');
+  });
+
+  it('distingue a consulta em andamento de uma fila realmente vazia', async () => {
+    let complete!: (orders: unknown[]) => void;
+    mocks.listOrders.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          complete = resolve;
+        }),
+    );
+    await act(async () => root.render(<CourierWorkspace />));
+    expect(container.textContent).toContain('Aguardando a primeira consulta');
+    expect(container.textContent).not.toContain('Pedidos atualizados às');
+    expect(container.textContent).toContain('Carregando retiradas...');
+    expect(container.textContent).not.toContain('Tudo certo por aqui');
+    expect(container.querySelector('[aria-busy="true"]')?.textContent).toContain('—');
+    await act(async () => complete([]));
+    expect(container.textContent).toContain('Pedidos atualizados às');
+    expect(container.textContent).toContain('Nenhum pedido aguardando retirada.');
+    expect(container.textContent).not.toContain('Carregando retiradas...');
+  });
+
+  it('reconsulta pedidos perdidos durante a desconexão mesmo sem GPS ativo', async () => {
+    mocks.listOrders.mockResolvedValueOnce([deliveryOrder()]).mockResolvedValue([]);
+    await act(async () => root.render(<CourierWorkspace />));
+    expect(container.textContent).toContain('Pedido #81');
+    const financeRequests = mocks.getFinance.mock.calls.length;
+    await act(async () => mocks.listeners.get('disconnect')?.());
+    expect(container.textContent).toContain('Atualização periódica');
+    await act(async () => mocks.listeners.get('connect')?.());
+    await flushUntil(() => mocks.listOrders.mock.calls.length === 2);
+    expect(container.textContent).toContain('Nenhum pedido aguardando retirada.');
+    expect(container.textContent).not.toContain('Pedido #81');
+    expect(mocks.getFinance).toHaveBeenCalledTimes(financeRequests);
+    expect(mocks.watchPosition).not.toHaveBeenCalled();
+    expect(mocks.socket.volatile.emit).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ['(85) 99999-1234', 'tel:85999991234'],
+    ['+55 (85) 99999-1234', 'tel:+5585999991234'],
+  ])(
+    'prioriza a entrega ativa e permite ligar para %s sem abrir os detalhes',
+    async (phoneNumber, expectedHref) => {
+      mocks.listOrders.mockResolvedValue([
+        {
+          ...deliveryOrder('SAIU_PARA_ENTREGA'),
+          user: { name: 'Cliente em rota', phone: phoneNumber },
+        },
+        { ...deliveryOrder(), id: 82 },
+        { ...deliveryOrder('SAIU_PARA_ENTREGA'), id: 83, restaurantId: 8 },
+      ]);
+      await act(async () => root.render(<CourierWorkspace />));
+      const priority = container.querySelector<HTMLElement>(
+        'section[aria-label="Entrega em andamento"]',
+      );
+      expect(priority?.textContent).toContain('Pedido #81');
+      expect(priority?.textContent).toContain('Rua das Flores, 10');
+      expect(priority?.textContent).not.toContain('Pedido #83');
+      const earnings = [...container.querySelectorAll('h2')].find(
+        (heading) => heading.textContent === 'Resumo financeiro',
+      );
+      expect(
+        priority &&
+          earnings &&
+          Boolean(priority.compareDocumentPosition(earnings) & Node.DOCUMENT_POSITION_FOLLOWING),
+      ).toBe(true);
+      await act(async () => clickByText(priority!, 'button', 'Continuar entrega #81'));
+      await flushUntil(
+        () => container.querySelector('a[aria-label="Ligar para o cliente do pedido 81"]') !== null,
+      );
+      const phone = container.querySelector<HTMLAnchorElement>(
+        'a[aria-label="Ligar para o cliente do pedido 81"]',
+      );
+      expect(phone?.getAttribute('href')).toBe(expectedHref);
+      expect(
+        container
+          .querySelector('button[aria-label="Ver detalhes do pedido 81"]')
+          ?.getAttribute('aria-expanded'),
+      ).toBe('false');
+      expect(container.textContent).not.toContain('Pedido #82');
+      expect(mocks.claimDelivery).not.toHaveBeenCalled();
+      expect(mocks.updateStatus).not.toHaveBeenCalled();
+      const deliver = [...container.querySelectorAll<HTMLButtonElement>('button')].find((button) =>
+        button.textContent?.includes('Marcar como Entregue'),
+      );
+      expect(deliver?.disabled).toBe(true);
+    },
+  );
+
+  it('não oferece ligação para contato inválido nem para pedido ainda aguardando retirada', async () => {
+    mocks.listOrders.mockResolvedValue([
+      {
+        ...deliveryOrder('SAIU_PARA_ENTREGA'),
+        user: { name: 'Cliente', phone: 'javascript:alert(1)' },
+      },
+      { ...deliveryOrder(), id: 82 },
+    ]);
+    await act(async () => root.render(<CourierWorkspace />));
+    await act(async () => clickByText(container, 'button', 'Em entrega'));
+    await flushUntil(
+      () => container.querySelector('button[aria-label="Ver detalhes do pedido 81"]') !== null,
+    );
+    expect(container.querySelector('a[href^="tel:"]')).toBeNull();
+    await act(async () => clickByText(container, 'button', 'Para retirar'));
+    await flushUntil(
+      () => container.querySelector('button[aria-label="Ver detalhes do pedido 82"]') !== null,
+    );
+    expect(container.querySelector('a[href^="tel:"]')).toBeNull();
   });
 
   it('descarta pedidos e eventos de outro restaurante', async () => {
@@ -334,13 +453,17 @@ describe('CourierWorkspace integration', () => {
     expect(container.textContent).not.toContain('Pedido #83');
   });
 
-  it('mostra pedidos acumulados em blocos de 10 e permite voltar aos primeiros 10', async () => {
-    mocks.listOrders.mockResolvedValue(
-      Array.from({ length: 21 }, (_, index) => ({
+  it('mostra histórico recebido por página em blocos de 10 e permite voltar aos primeiros 10', async () => {
+    mocks.listOrders.mockResolvedValue([]);
+    mocks.listPage.mockResolvedValue({
+      orders: Array.from({ length: 21 }, (_, index) => ({
         ...deliveryOrder('ENTREGUE'),
         id: 100 + index,
       })),
-    );
+      total: 21,
+      hasMore: false,
+      nextCursor: null,
+    });
 
     await act(async () => root.render(<CourierWorkspace />));
     await flushUntil(() => container.textContent?.includes('Pedidos aguardando você') === true);
@@ -392,6 +515,7 @@ describe('CourierWorkspace integration', () => {
     await act(async () => watchSuccess?.(geoPosition(-3.74, -38.54)));
     expect(mocks.socket.volatile.emit).not.toHaveBeenCalled();
 
+    mocks.listPage.mockResolvedValue({ orders: [], total: 0, hasMore: false, nextCursor: null });
     mocks.socket.connected = true;
     await act(async () => mocks.listeners.get('connect')?.());
     expect(mocks.socket.volatile.emit).toHaveBeenCalledTimes(1);

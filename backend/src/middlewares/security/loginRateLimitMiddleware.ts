@@ -1,3 +1,4 @@
+import { distributedRateLimitOptions } from './PostgresRateLimitStore.js';
 import type { Request } from 'express';
 import rateLimit, { ipKeyGenerator } from 'express-rate-limit';
 
@@ -9,19 +10,8 @@ function normalizeEmail(value: unknown) {
 }
 
 function getClientIp(req: Request) {
-  const forwarded = req.headers['x-forwarded-for'];
-  if (Array.isArray(forwarded) && forwarded.length) {
-    return (
-      String(forwarded[0] || '')
-        .split(',')[0]
-        ?.trim() || req.ip
-    );
-  }
-
-  if (typeof forwarded === 'string' && forwarded.trim()) {
-    return forwarded.split(',')[0]?.trim() || req.ip;
-  }
-
+  // Express resolves only the configured trusted proxy hop. The first raw
+  // X-Forwarded-For value can be supplied by the requester and must not set the key.
   return req.ip;
 }
 
@@ -29,6 +19,7 @@ const windowMs = Number(process.env.LOGIN_RATE_LIMIT_WINDOW_MS || 15 * 60 * 1000
 const max = Number(process.env.LOGIN_RATE_LIMIT_MAX_REQUESTS || 8);
 
 export const loginRateLimitMiddleware = rateLimit({
+  ...distributedRateLimitOptions('login:1'),
   windowMs,
   max,
   standardHeaders: true,

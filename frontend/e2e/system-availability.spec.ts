@@ -54,7 +54,7 @@ test('manutenção global cobre o negócio e mantém todos os logins válidos ac
   await page.goto('/qualquer-restaurante');
 
   await expect(page.getByRole('heading', { name: 'Sistema em manutenção' })).toBeVisible();
-  await expect(page.getByText('Tente novamente em alguns instantes')).toBeVisible();
+  await expect(page.getByText('A página será atualizada para verificar o acesso.')).toBeVisible();
   await expect(
     page.getByText('Atualização programada dos servidores de pagamento.'),
   ).not.toBeVisible();
@@ -180,15 +180,15 @@ test('ADMIN inadimplente acessa somente mensalidades e volta após a liberação
   }, admin);
 
   await page.goto('/admin');
-  await expect(page.getByRole('heading', { name: 'Mensalidades e faturas' })).toBeVisible();
-  await expect(page.getByText('OPERAÇÃO TEMPORARIAMENTE PAUSADA')).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Pedidos' })).toBeDisabled();
+  await expect(page.getByRole('heading', { name: 'Regularize sua assinatura' })).toBeVisible();
+  await expect(page.getByText('Assinatura em atraso')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Pedidos', exact: true })).toHaveCount(0);
   expect(requestedPaths).not.toContain('/orders');
   expect(requestedPaths).not.toContain('/products');
 
   blocked = false;
-  await page.getByRole('button', { name: 'Verificar liberação' }).click();
-  await expect(page.getByText('OPERAÇÃO TEMPORARIAMENTE PAUSADA')).not.toBeVisible();
+  await page.getByRole('button', { name: 'Verificar pagamento', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Regularize sua assinatura' })).not.toBeVisible();
 });
 
 test('login técnico recusa qualquer conta que não seja SUPER_ADMIN', async ({ page }) => {

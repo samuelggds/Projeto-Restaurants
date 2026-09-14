@@ -14,7 +14,7 @@ export default function SuperAdminPage() {
   const { user, logout } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
-  const { data, error, loading, refreshing, refresh } = useSuperAdminDashboard();
+  const { data, error, loading, refreshing, updatedAt, refresh } = useSuperAdminDashboard();
   const [createRestaurantOpen, setCreateRestaurantOpen] = useState(false);
   const currentView = viewFromPath(location.pathname);
 
@@ -48,6 +48,9 @@ export default function SuperAdminPage() {
       },
       updateRestaurantAccess: async (id, input) => {
         await mutateAndRefresh(() => superAdminService.updateRestaurantAccess(id, input));
+      },
+      deleteRestaurant: async (id, input) => {
+        await mutateAndRefresh(() => superAdminService.deleteRestaurant(id, input));
       },
       updateSubscription: async (id, input) => {
         await mutateAndRefresh(() => superAdminService.updateRestaurantSubscription(id, input));
@@ -107,10 +110,12 @@ export default function SuperAdminPage() {
         }}
         refreshing={refreshing}
         loadError={error}
+        updatedAt={updatedAt}
       />
       {createRestaurantOpen ? (
         <CreateRestaurantDialog
           plans={data.plans}
+          primaryColor={data.settings.primaryColor}
           onClose={() => setCreateRestaurantOpen(false)}
           onCreated={refresh}
         />

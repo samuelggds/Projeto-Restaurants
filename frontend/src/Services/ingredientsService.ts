@@ -14,7 +14,7 @@ export type IngredientImageSearchResult = {
   id: string;
   thumbnailUrl: string;
   previewUrl: string;
-  source: 'Pexels';
+  source: 'Pexels' | 'Demo';
   sourceUrl: string;
   photographer: string;
   photographerUrl: string;
@@ -25,8 +25,17 @@ export type IngredientImageSearchResult = {
 export type IngredientImageSearchResponse = {
   query: string;
   page: number;
-  provider: 'Pexels';
+  provider: 'Pexels' | 'Demo';
   results: IngredientImageSearchResult[];
+};
+
+export type IngredientAiImageResponse = {
+  image: string;
+  credits?: {
+    remainingUsd?: number;
+    usedUsd?: number;
+    exhausted?: boolean;
+  };
 };
 
 function unwrapIngredients(payload: unknown) {
@@ -63,10 +72,12 @@ class IngredientsService {
   }
 
   async searchImages(input: { name: string; category?: string; page?: number }) {
-    const response = await api.post<IngredientImageSearchResponse>(
-      '/ingredients/image-search',
-      input,
-    );
+    const response = await api.post<IngredientImageSearchResponse>('/ingredients/image-search', input);
+    return response.data;
+  }
+
+  async generateAiImage(input: { name: string; category?: string }) {
+    const response = await api.post<IngredientAiImageResponse>('/ingredients/generate-image', input);
     return response.data;
   }
 

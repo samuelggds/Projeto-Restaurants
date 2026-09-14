@@ -9,9 +9,9 @@ type FloatingActionsControlProps = {
 
 const copy = {
   customer: {
-    title: 'Cupom e status',
-    description: 'Fidelidade • Pedido em andamento',
-    aria: 'cupom, fidelidade e status do pedido',
+    title: 'Pedido e atendimento',
+    description: 'Status • Ajuda • WhatsApp • Cupons',
+    aria: 'status do pedido, ajuda, WhatsApp e cupons',
   },
   table: {
     title: 'Mesa e atendimento',
@@ -20,11 +20,7 @@ const copy = {
   },
 } as const;
 
-export function FloatingActionsControl({
-  mode,
-  collapsed,
-  onToggle,
-}: FloatingActionsControlProps) {
+export function FloatingActionsControl({ mode, collapsed, onToggle }: FloatingActionsControlProps) {
   const content = copy[mode];
   const action = collapsed ? 'Mostrar' : 'Minimizar';
 
@@ -60,8 +56,7 @@ const ControlButton = styled.button`
   gap: 8px;
   color: #3d352f;
   background:
-    linear-gradient(135deg, color-mix(in srgb, var(--home-primary) 7%, #fff), #fff 62%),
-    #fff;
+    linear-gradient(135deg, color-mix(in srgb, var(--home-primary) 7%, #fff), #fff 62%), #fff;
   box-shadow:
     0 12px 30px rgba(55, 38, 26, 0.14),
     0 2px 7px rgba(55, 38, 26, 0.06);

@@ -1,3 +1,4 @@
+import { orderFixtureResponse } from './helpers/orderFixtures';
 import { expect, test, type Page, type Route } from '@playwright/test';
 
 const LOCAL_API = /^http:\/\/(127\.0\.0\.1|localhost):3000\/.*$/;
@@ -46,6 +47,36 @@ const product = {
     },
   ],
 };
+
+test('visitante no celular controla as ações agrupadas e abre produto pelo teclado', async ({ page }) => {
+  const state: ContextState = { authenticated: false, tableOpen: true, loginCalls: 0,
+    googleLoginCalls: 0, sessionValidationCalls: 0, orderPayloads: [] };
+  await mockContextApi(page, state);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto(`/${RESTAURANT_SLUG}`);
+  const control = page.getByTestId('floating-actions-control-customer');
+  await expect(control).toBeVisible();
+  await expect(control).toHaveAttribute('aria-expanded', 'false');
+  await control.click();
+  await expect(control).toHaveAttribute('aria-expanded', 'true');
+  const bounds = await page.getByTestId('floating-actions-layer').boundingBox();
+  expect(bounds).not.toBeNull();
+  expect(bounds!.x).toBeGreaterThanOrEqual(0);
+  expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(390);
+  expect(bounds!.y + bounds!.height).toBeLessThanOrEqual(844);
+  await control.click();
+  await expect(control).toHaveAttribute('aria-expanded', 'false');
+  const productButton = page.getByRole('button', { name: `Ver detalhes de ${product.name}`, exact: true });
+  await productButton.focus();
+  await productButton.press('Enter');
+  const dialog = page.getByRole('dialog');
+  await expect(dialog).toBeVisible();
+  await expect(dialog.getByText('Arroz', { exact: true })).toBeVisible();
+  expect(await page.locator('button button, [role="button"] button').count()).toBe(0);
+  const documentWidth = await page.evaluate(() => document.documentElement.scrollWidth);
+  expect(documentWidth).toBeLessThanOrEqual(390);
+  expect(state.orderPayloads).toHaveLength(0);
+});
 
 type ContextState = {
   authenticated: boolean;
@@ -311,7 +342,7 @@ async function mockContextApi(page: Page, state: ContextState) {
       });
     }
 
-    if (pathname === '/orders/my-orders') return json(route, { orders: [] });
+    if (pathname === '/orders/my-orders') return json(route, orderFixtureResponse(route.request().url(), []));
     if (pathname === '/orders/table/current') return json(route, { order: null });
     if (pathname === '/table-accounts/sessions/323e4567-e89b-42d3-a456-426614174705') {
       return json(route, emptyTableAccount());

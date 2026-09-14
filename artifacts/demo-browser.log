@@ -1,0 +1,124 @@
+[WebServer] (node:29088) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+Running 5 tests using 1 worker
+
+(node:31588) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ok 1 [chromium] › e2e\demo-admin.spec.ts:5:1 › demo: administrador real abre todas as configurações sem API nem sessão real (6.8s)
+  ok 2 [chromium] › e2e\demo-admin.spec.ts:46:1 › demo: home usa imagens locais, logo nova e layout responsivo (3.4s)
+  x  3 [chromium] › e2e\demo-workflow.spec.ts:165:1 › demo: delivery vai do cliente à cozinha e ao motoqueiro, com recebimento e código (30.3s)
+(node:27816) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  x  4 [chromium] › e2e\demo-workflow.spec.ts:194:1 › demo: pedido da mesa passa pela cozinha e é entregue pelo garçom (30.3s)
+(node:5196) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  x  5 [chromium] › e2e\demo-workflow.spec.ts:210:1 › demo: retirada paga passa pela cozinha e é entregue pelo atendente (30.3s)
+
+
+  1) [chromium] › e2e\demo-workflow.spec.ts:165:1 › demo: delivery vai do cliente à cozinha e ao motoqueiro, com recebimento e código 
+
+    Test timeout of 30000ms exceeded.
+
+    Error: locator.click: Test timeout of 30000ms exceeded.
+    Call log:
+      - waiting for locator('main article').filter({ hasText: /#1059\b/ }).getByRole('button', { name: 'Ver detalhes', exact: true })
+
+
+      141 |     await switchRole(page, 'ATENDENTE');
+      142 |     await navigate(page, 'atendente', 'Pedidos');
+    > 143 |     await attendantOrder(page, id).getByRole('button', { name: 'Ver detalhes', exact: true }).click();
+          |                                                                                               ^
+      144 |     const dialog = page.getByRole('dialog', { name: 'Detalhes do pedido', exact: true });
+      145 |     await expect(dialog).toContainText(channel === 'TABLE' ? 'Mesa' : 'Delivery');
+      146 |     await expect(dialog.getByRole('button', { name: 'Confirmar retirada entregue', exact: true })).toHaveCount(0);
+        at assertOtherRolesCannotDeliver (C:\Users\Samuel\Documents\Codex\RESTAURANT-DELIVERY-MESA\pizza-ia-delivery\frontend\e2e\demo-workflow.spec.ts:143:95)
+        at C:\Users\Samuel\Documents\Codex\RESTAURANT-DELIVERY-MESA\pizza-ia-delivery\frontend\e2e\demo-workflow.spec.ts:168:3
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\demo-workflow-demo-deliver-fadbd-ro-com-recebimento-e-código-chromium\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\demo-workflow-demo-deliver-fadbd-ro-com-recebimento-e-código-chromium\error-context.md
+
+    attachment #4: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results\demo-workflow-demo-deliver-fadbd-ro-com-recebimento-e-código-chromium\trace.zip
+    Usage:
+
+        npx playwright show-trace test-results\demo-workflow-demo-deliver-fadbd-ro-com-recebimento-e-código-chromium\trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  2) [chromium] › e2e\demo-workflow.spec.ts:194:1 › demo: pedido da mesa passa pela cozinha e é entregue pelo garçom 
+
+    Test timeout of 30000ms exceeded.
+
+    Error: locator.click: Test timeout of 30000ms exceeded.
+    Call log:
+      - waiting for getByRole('navigation', { name: 'Navegação do motoqueiro', exact: true }).getByRole('button', { name: 'Para retirar', exact: true })
+
+
+      66 | async function navigate(page: Page, area: 'cozinha' | 'garçom' | 'motoqueiro' | 'atendente', label: string) {
+      67 |   const name = area === 'cozinha' ? 'Navegação da cozinha' : `Navegação do ${area}`;
+    > 68 |   await page.getByRole('navigation', { name, exact: true }).getByRole('button', { name: label, exact: true }).click();
+         |                                                                                                               ^
+      69 | }
+      70 |
+      71 | async function createCustomerOrder(page: Page, channel: DemoOrderChannel, payment: 'Pix' | 'Cartão' | 'Dinheiro') {
+        at navigate (C:\Users\Samuel\Documents\Codex\RESTAURANT-DELIVERY-MESA\pizza-ia-delivery\frontend\e2e\demo-workflow.spec.ts:68:111)
+        at assertOtherRolesCannotDeliver (C:\Users\Samuel\Documents\Codex\RESTAURANT-DELIVERY-MESA\pizza-ia-delivery\frontend\e2e\demo-workflow.spec.ts:136:11)
+        at C:\Users\Samuel\Documents\Codex\RESTAURANT-DELIVERY-MESA\pizza-ia-delivery\frontend\e2e\demo-workflow.spec.ts:197:3
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\demo-workflow-demo-pedido--07b84-ha-e-é-entregue-pelo-garçom-chromium\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\demo-workflow-demo-pedido--07b84-ha-e-é-entregue-pelo-garçom-chromium\error-context.md
+
+    attachment #4: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results\demo-workflow-demo-pedido--07b84-ha-e-é-entregue-pelo-garçom-chromium\trace.zip
+    Usage:
+
+        npx playwright show-trace test-results\demo-workflow-demo-pedido--07b84-ha-e-é-entregue-pelo-garçom-chromium\trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  3) [chromium] › e2e\demo-workflow.spec.ts:210:1 › demo: retirada paga passa pela cozinha e é entregue pelo atendente 
+
+    Test timeout of 30000ms exceeded.
+
+    Error: locator.click: Test timeout of 30000ms exceeded.
+    Call log:
+      - waiting for getByRole('navigation', { name: 'Navegação do motoqueiro', exact: true }).getByRole('button', { name: 'Para retirar', exact: true })
+
+
+      66 | async function navigate(page: Page, area: 'cozinha' | 'garçom' | 'motoqueiro' | 'atendente', label: string) {
+      67 |   const name = area === 'cozinha' ? 'Navegação da cozinha' : `Navegação do ${area}`;
+    > 68 |   await page.getByRole('navigation', { name, exact: true }).getByRole('button', { name: label, exact: true }).click();
+         |                                                                                                               ^
+      69 | }
+      70 |
+      71 | async function createCustomerOrder(page: Page, channel: DemoOrderChannel, payment: 'Pix' | 'Cartão' | 'Dinheiro') {
+        at navigate (C:\Users\Samuel\Documents\Codex\RESTAURANT-DELIVERY-MESA\pizza-ia-delivery\frontend\e2e\demo-workflow.spec.ts:68:111)
+        at assertOtherRolesCannotDeliver (C:\Users\Samuel\Documents\Codex\RESTAURANT-DELIVERY-MESA\pizza-ia-delivery\frontend\e2e\demo-workflow.spec.ts:136:11)
+        at C:\Users\Samuel\Documents\Codex\RESTAURANT-DELIVERY-MESA\pizza-ia-delivery\frontend\e2e\demo-workflow.spec.ts:213:3
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\demo-workflow-demo-retirad-cf688-e-é-entregue-pelo-atendente-chromium\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\demo-workflow-demo-retirad-cf688-e-é-entregue-pelo-atendente-chromium\error-context.md
+
+    attachment #4: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results\demo-workflow-demo-retirad-cf688-e-é-entregue-pelo-atendente-chromium\trace.zip
+    Usage:
+
+        npx playwright show-trace test-results\demo-workflow-demo-retirad-cf688-e-é-entregue-pelo-atendente-chromium\trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  3 failed
+    [chromium] › e2e\demo-workflow.spec.ts:165:1 › demo: delivery vai do cliente à cozinha e ao motoqueiro, com recebimento e código 
+    [chromium] › e2e\demo-workflow.spec.ts:194:1 › demo: pedido da mesa passa pela cozinha e é entregue pelo garçom 
+    [chromium] › e2e\demo-workflow.spec.ts:210:1 › demo: retirada paga passa pela cozinha e é entregue pelo atendente 
+  2 passed (1.8m)

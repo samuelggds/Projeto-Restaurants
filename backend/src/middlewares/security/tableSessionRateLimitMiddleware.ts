@@ -1,3 +1,4 @@
+import { distributedRateLimitOptions } from './PostgresRateLimitStore.js';
 import type { Request } from 'express';
 import rateLimit, { ipKeyGenerator } from 'express-rate-limit';
 
@@ -11,6 +12,7 @@ function getTableKey(req: Request) {
 }
 
 export const tablePinRateLimitMiddleware = rateLimit({
+  ...distributedRateLimitOptions('tablesession:1'),
   windowMs: Number(process.env.TABLE_PIN_RATE_LIMIT_WINDOW_MS || 5 * 60 * 1000),
   max: Number(process.env.TABLE_PIN_RATE_LIMIT_MAX_REQUESTS || 10),
   standardHeaders: true,
@@ -23,6 +25,7 @@ export const tablePinRateLimitMiddleware = rateLimit({
 });
 
 export const tablePinAssistanceRateLimitMiddleware = rateLimit({
+  ...distributedRateLimitOptions('tablesession:2'),
   windowMs: Number(process.env.TABLE_PIN_ASSISTANCE_RATE_LIMIT_WINDOW_MS || 60 * 1000),
   max: Number(process.env.TABLE_PIN_ASSISTANCE_RATE_LIMIT_MAX_REQUESTS || 3),
   standardHeaders: true,
@@ -34,6 +37,7 @@ export const tablePinAssistanceRateLimitMiddleware = rateLimit({
 });
 
 export const tableServiceCallRateLimitMiddleware = rateLimit({
+  ...distributedRateLimitOptions('tablesession:3'),
   windowMs: Number(process.env.TABLE_SERVICE_CALL_RATE_LIMIT_WINDOW_MS || 60 * 1000),
   max: Number(process.env.TABLE_SERVICE_CALL_RATE_LIMIT_MAX_REQUESTS || 6),
   standardHeaders: true,
@@ -51,6 +55,7 @@ export const tableServiceCallRateLimitMiddleware = rateLimit({
 });
 
 export const tableJoinRateLimitMiddleware = rateLimit({
+  ...distributedRateLimitOptions('tablesession:4'),
   windowMs: Number(process.env.TABLE_JOIN_RATE_LIMIT_WINDOW_MS || 60 * 1000),
   max: Number(process.env.TABLE_JOIN_RATE_LIMIT_MAX_REQUESTS || 12),
   standardHeaders: true,

@@ -1,4 +1,5 @@
 import { OrderType, PaymentMethod } from '@prisma/client';
+import { pagBankApiBaseUrl } from '../../payments/providers/pagBankCheckout.js';
 import { load } from 'cheerio';
 import prisma from '../../../config/prisma.js';
 import { withTenantDbContext } from '../../../database/tenantDbContext.js';
@@ -14,6 +15,11 @@ import {
   type PixProvider,
 } from '../../payments/providers/providerCatalog.js';
 import restaurantSettingsRepository from '../../restaurantSettings/repositories/RestaurantSettingsRepository.js';
+import {
+  getPagBankAccessToken,
+  getMercadoPagoAccessToken,
+} from '../../restaurantSettings/services/RestaurantPaymentCredentialsService.js';
+import { getDirectTablePayment, mutateDirectTablePayment } from './tablePaymentGatewayMutation.js';
 import type {
   CreateProviderPaymentInput,
   PaymentProvider,
@@ -35,7 +41,8 @@ const SUPPORTED_CARD = new Set<string>([
 ]);
 
 const PAID_STATUSES = new Set(['PAID', 'APPROVED', 'ACCREDITED', 'RECEIVED', 'CONFIRMED']);
-const FAILED_STATUSES = new Set(['FAILED', 'DECLINED', 'REJECTED', 'CANCELED', 'CANCELLED']);
+const FAILED_STATUSES = new Set(['FAILED', 'DECLINED', 'REJECTED']);
+const CANCELED_STATUSES = new Set(['CANCELED', 'CANCELLED']);
 const EXPIRED_STATUSES = new Set(['EXPIRED', 'OVERDUE']);
 const REFUNDED_STATUSES = new Set(['REFUNDED', 'CHARGED_BACK', 'CHARGEDBACK']);
 
@@ -93,14 +100,19 @@ type MercadoPagoSearchPayload = {
 };
 
 function normalizeProvider(value: unknown) {
-  return String(value || '').trim().toUpperCase();
+  return String(value || '')
+    .trim()
+    .toUpperCase();
 }
 
 function providerStatus(value: unknown): ProviderPayment['status'] {
-  const status = String(value || '').trim().toUpperCase();
+  const status = String(value || '')
+    .trim()
+    .toUpperCase();
   if (PAID_STATUSES.has(status)) return 'PAID';
   if (REFUNDED_STATUSES.has(status)) return 'REFUNDED';
   if (EXPIRED_STATUSES.has(status)) return 'EXPIRED';
+  if (CANCELED_STATUSES.has(status)) return 'CANCELED';
   if (FAILED_STATUSES.has(status)) return 'FAILED';
   return 'PENDING';
 }
@@ -115,7 +127,9 @@ function centsToMajor(cents: number) {
 function matchesAmount(value: unknown, expectedCents: number, minor = false) {
   const amount = Number(value);
   if (!Number.isFinite(amount)) return false;
-  return (minor ? Math.round(amount) : Math.round((amount + Number.EPSILON) * 100)) === expectedCents;
+  return (
+    (minor ? Math.round(amount) : Math.round((amount + Number.EPSILON) * 100)) === expectedCents
+  );
 }
 
 function tableCardReference(context: ConfiguredTablePaymentProviderContext) {
@@ -129,9 +143,7 @@ function asaasBaseUrl() {
 }
 
 function pagBankBaseUrl() {
-  return String(process.env.PAGBANK_API_BASE_URL || 'https://api.pagseguro.com')
-    .trim()
-    .replace(/\/+$/, '');
+  return pagBankApiBaseUrl();
 }
 
 async function settingsFor(restaurantId: number) {
@@ -153,8 +165,7 @@ function credentialReady(
   }
   if (provider === PIX_PROVIDERS.PAGBANK || provider === CARD_PROVIDERS.PAGBANK) {
     const token = Boolean(String(settings.pagbankToken || '').trim());
-    const email = Boolean(String(settings.pagbankEmail || '').trim());
-    return method === 'CARD' ? token && email : token;
+    return token;
   }
   return false;
 }
@@ -170,10 +181,7 @@ export async function getConfiguredTablePaymentReadiness(
 
   return {
     allowPix: Boolean(
-      settings.acceptsPix &&
-        String(settings.pixKey || '').trim() &&
-        pixProvider &&
-        credentialReady(settings, pixProvider, 'PIX'),
+      settings.acceptsPix && pixProvider && credentialReady(settings, pixProvider, 'PIX'),
     ),
     allowCard: Boolean(
       settings.acceptsCard && cardProvider && credentialReady(settings, cardProvider, 'CARD'),
@@ -198,7 +206,7 @@ async function readIdentity(
     name: name || 'Cliente da mesa',
     email: email.includes('@')
       ? email
-      : `guest.table.${context.restaurantId}.${context.participantId}@pecaja.local`,
+      : `guest.table.${context.restaurantId}.${context.participantId}@gastronexa.local`,
     cpf: String(user?.cpf || '').replace(/\D/g, ''),
     phone: String(user?.phone || context.participantPhone || '').replace(/\D/g, ''),
   };
@@ -284,6 +292,7 @@ async function createCard(
     cancelUrl: frontendUrl,
   };
   const checkout = await handler.createCheckout({
+    paymentScope: 'TABLE_ACCOUNT',
     payload,
     order: {
       id: context.intentId,
@@ -322,7 +331,7 @@ async function getMercadoPagoCard(
   expiresAt: Date,
 ) {
   const settings = await settingsFor(context.restaurantId);
-  const token = String(settings.mercadoPagoAccessToken || '').trim();
+  const token = await getMercadoPagoAccessToken(context.restaurantId);
   if (!token) throw new Error('Mercado Pago não configurado para este restaurante.');
   const reference = tableCardReference(context);
   const url = new URL('https://api.mercadopago.com/v1/payments/search');
@@ -348,7 +357,12 @@ async function getMercadoPagoCard(
   };
 }
 
-async function getAsaasCard(externalId: string, amountCents: number, expiresAt: Date, restaurantId: number) {
+async function getAsaasCard(
+  externalId: string,
+  amountCents: number,
+  expiresAt: Date,
+  restaurantId: number,
+) {
   const settings = await settingsFor(restaurantId);
   const token = String(settings.asaasAccessToken || '').trim();
   const paymentId = externalId.replace(/^asaas_pay:/, '');
@@ -377,7 +391,7 @@ async function getPagBankCard(
   expiresAt: Date,
 ) {
   const settings = await settingsFor(context.restaurantId);
-  const token = String(settings.pagbankToken || '').trim();
+  const token = await getPagBankAccessToken(context.restaurantId);
   const email = String(settings.pagbankEmail || '').trim();
 
   if (externalId.startsWith('pagbank_tx:')) {
@@ -464,22 +478,38 @@ export class ConfiguredTablePaymentProvider implements PaymentProvider {
         provider: this.code,
         providerExternalId: externalId,
       },
-      select: { totalCents: true, expiresAt: true },
+      select: { totalCents: true, expiresAt: true, providerChargeId: true },
     });
     if (!intent) throw new Error('Pagamento da mesa não encontrado para consulta no provedor.');
     const amountCents = Number(intent.totalCents);
+    const directPayment = await getDirectTablePayment({
+      ...this.context,
+      provider: this.code,
+      externalId,
+      amountCents,
+      providerChargeId: intent.providerChargeId,
+      expiresAt: intent.expiresAt,
+    });
+    if (directPayment) return directPayment;
 
     if (this.context.method === 'PIX') {
       const status = await orderPixPaymentService.getPaymentStatus({
         paymentId: externalId,
         restaurantId: this.context.restaurantId,
       });
-      if (Number.isFinite(Number(status.amount)) && !matchesAmount(status.amount, amountCents)) {
+      const normalizedStatus = status.isApproved ? 'PAID' : providerStatus(status.status);
+      const hasAmount = status.amount !== null && status.amount !== undefined;
+      // O PagBank pode omitir o valor enquanto o Pix não foi pago. Uma aprovação
+      // sempre precisa trazer um valor válido e correspondente à conta.
+      if (
+        (normalizedStatus === 'PAID' || hasAmount) &&
+        (!hasAmount || !matchesAmount(status.amount, amountCents))
+      ) {
         throw new Error('O valor retornado pelo Pix não corresponde à conta da mesa.');
       }
       return {
         externalId,
-        status: status.isApproved ? 'PAID' : providerStatus(status.status),
+        status: normalizedStatus,
         amountCents,
         checkoutUrl: null,
         paymentCode: null,
@@ -499,12 +529,38 @@ export class ConfiguredTablePaymentProvider implements PaymentProvider {
     throw new Error('Consulta de cartão não suportada para este gateway.');
   }
 
-  async cancelPayment(_input: ProviderMutationInput): Promise<ProviderPayment> {
-    throw new Error('Cancelamento remoto deste checkout ainda não está disponível.');
+  private async mutatePayment(input: ProviderMutationInput, operation: 'cancel' | 'refund') {
+    const intent = await prisma.tablePaymentIntent.findFirst({
+      where: {
+        id: this.context.intentId,
+        publicId: this.context.intentPublicId,
+        restaurantId: this.context.restaurantId,
+        provider: this.code,
+        providerExternalId: input.externalId,
+      },
+      select: { totalCents: true, expiresAt: true, providerChargeId: true },
+    });
+    if (!intent) throw new Error('Pagamento não encontrado neste restaurante.');
+    return mutateDirectTablePayment(
+      {
+        ...this.context,
+        provider: this.code,
+        externalId: input.externalId,
+        providerChargeId: intent.providerChargeId,
+        amountCents: Number(intent.totalCents),
+        expiresAt: intent.expiresAt,
+      },
+      operation,
+      input,
+    );
   }
 
-  async refundPayment(_input: ProviderMutationInput): Promise<ProviderPayment> {
-    throw new Error('Estorno remoto deve ser realizado pelo fluxo financeiro do gateway.');
+  async cancelPayment(input: ProviderMutationInput): Promise<ProviderPayment> {
+    return this.mutatePayment(input, 'cancel');
+  }
+
+  async refundPayment(input: ProviderMutationInput): Promise<ProviderPayment> {
+    return this.mutatePayment(input, 'refund');
   }
 
   async validateWebhook(_input: ProviderWebhookInput): Promise<ValidatedPaymentWebhook> {
@@ -523,7 +579,9 @@ export async function createConfiguredTablePaymentProvider(
     return new ConfiguredTablePaymentProvider(context, readiness.pixProvider);
   }
   if (!readiness.allowCard || !readiness.cardProvider) {
-    throw new Error('Cartão online não está configurado no painel de Pagamentos deste restaurante.');
+    throw new Error(
+      'Cartão online não está configurado no painel de Pagamentos deste restaurante.',
+    );
   }
   return new ConfiguredTablePaymentProvider(context, readiness.cardProvider);
 }
@@ -533,7 +591,8 @@ export function createConfiguredTablePaymentProviderForExisting(
   provider: string,
 ): PaymentProvider {
   const normalized = normalizeProvider(provider);
-  const supported = context.method === 'PIX' ? SUPPORTED_PIX.has(normalized) : SUPPORTED_CARD.has(normalized);
+  const supported =
+    context.method === 'PIX' ? SUPPORTED_PIX.has(normalized) : SUPPORTED_CARD.has(normalized);
   if (!supported) throw new Error('Provedor deste pagamento da mesa não é suportado.');
   return new ConfiguredTablePaymentProvider(context, normalized as PixProvider | CardProvider);
 }

@@ -190,7 +190,8 @@ export function PaymentOptions({
       <>
         <S.CartSectionLabel>Forma de pagamento</S.CartSectionLabel>
         <S.CheckoutUnavailable role="status">
-          Serviço indisponível. O restaurante ainda não configurou os pagamentos para novos pedidos.
+          Serviço indisponível. Este restaurante ainda não aceita esta forma de pagamento no
+          momento.
         </S.CheckoutUnavailable>
       </>
     );

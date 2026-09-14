@@ -20,6 +20,12 @@ export const Root = styled.div<{ $primary: string; $sidebarOpen?: boolean }>`
   button {
     cursor: pointer;
   }
+  button:focus-visible,
+  a:focus-visible,
+  [role='button']:focus-visible {
+    outline: 3px solid var(--brand);
+    outline-offset: 3px;
+  }
   a {
     cursor: pointer;
   }
@@ -28,6 +34,8 @@ export const Root = styled.div<{ $primary: string; $sidebarOpen?: boolean }>`
   }
 `;
 export const Main = styled.main`
+  grid-column: 2;
+  grid-row: 1;
   min-width: 0;
 `;
 export const Top = styled.header`
@@ -189,6 +197,21 @@ export const WorkspaceLoading = styled.div`
     }
   }
 `;
+export const WorkspaceUnavailable = styled.div`
+  min-height: 240px;
+  padding: 24px;
+  display: grid;
+  place-content: center;
+  gap: 8px;
+  text-align: center;
+  color: var(--muted);
+  b {
+    color: var(--ink);
+  }
+  span {
+    line-height: 1.5;
+  }
+`;
 export const Toolbar = styled.div`
   display: flex;
   align-items: center;
@@ -257,6 +280,19 @@ export const LiveStatus = styled.span`
     border-radius: 50%;
     background: #1f9c3b;
     box-shadow: 0 0 0 4px #dff2e3;
+  }
+  &[data-state='error'] {
+    border-color: #efc5ad;
+    color: #803d20;
+    background: #fff7f1;
+  }
+  &[data-state='error']::before {
+    background: #a55427;
+    box-shadow: none;
+  }
+  &[data-state='refreshing']::before {
+    background: #68766f;
+    box-shadow: none;
   }
   @media (max-width: 760px) {
     margin-left: 0;

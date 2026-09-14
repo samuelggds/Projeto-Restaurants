@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { publicOrderPayloadMiddleware } from '../middlewares/security/publicOrderPayloadMiddleware.js';
 
 import authRoutes from '../modules/auth/routes/authRoutes.js';
 import productRoutes from '../modules/products/routes/productsRoutes.js';
@@ -36,8 +37,11 @@ import attendantRoutes from '../modules/attendant/routes/AttendantRoutes.js';
 import paymentTerminalRoutes from '../modules/paymentTerminals/routes/PaymentTerminalRoutes.js';
 import deliveryChatRoutes from '../modules/deliveryChat/routes/DeliveryChatRoutes.js';
 import pickupPaymentRoutes from '../modules/pickupPayments/routes/PickupPaymentRoutes.js';
+import salesLeadRoutes from '../modules/salesLeads/routes/SalesLeadRoutes.js';
+import superAdminSalesLeadRoutes from '../modules/salesLeads/routes/SuperAdminSalesLeadRoutes.js';
 
 const router = Router();
+router.use(publicOrderPayloadMiddleware);
 
 router.post('/api/webhooks/asaas', (req, res) => {
   AsaasOrderWebhookController.handle(req, res);
@@ -78,6 +82,8 @@ router.use('/employee-payments', employeeCompensationRoutes);
 router.use('/product-configuration-templates', productConfigurationTemplateRoutes);
 router.use('/attendant', attendantRoutes);
 router.use('/payment-terminals', paymentTerminalRoutes);
+router.use('/sales-leads', salesLeadRoutes);
+router.use('/super-admin/sales-leads', superAdminSalesLeadRoutes);
 router.use('/super-admin', superAdminRoutes);
 router.use('/admin-portal', adminPortalRoutes);
 router.use('/public-media', publicMediaRoutes);

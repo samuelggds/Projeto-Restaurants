@@ -257,6 +257,10 @@ export function buildHomeData(
   const brand = {
     name: String(restaurantName || settings?.restaurantName || ''),
     monogram: createRestaurantMonogram(restaurantName || settings?.restaurantName),
+    logoUrl: isPersistentImageSource(restaurant.logo) ? String(restaurant.logo) : '',
+    category: String(
+      restaurant.category || settings?.restaurantCategory || settings?.category || 'RESTAURANTE',
+    ),
     address: formatFooterAddress(restaurant),
     primaryColor: String(settings?.primaryColor || '#d64d08'),
     whatsapp: whatsappEnabled ? rawWhatsapp : '',
@@ -269,7 +273,6 @@ export function buildHomeData(
     legalName: String(settings?.companyLegalName || ''),
     phone: String(settings?.ownerPhone || ''),
     email: String(settings?.ownerEmail || ''),
-    logoUrl: isPersistentImageSource(restaurant.logo) ? String(restaurant.logo) : '',
   };
   const products: HomeProduct[] = productsFromApi.map((product, index) => {
     const pricing = mapProductPricingFromApi(product);

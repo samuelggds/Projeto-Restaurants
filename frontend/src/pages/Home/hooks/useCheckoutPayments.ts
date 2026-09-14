@@ -1,12 +1,16 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import ordersService from '../../../Services/ordersService';
-import type {
-  CheckoutPaymentMethod,
-  ResolvedCheckoutPaymentMethod,
-} from '../domain/checkout';
+import type { CheckoutPaymentMethod, ResolvedCheckoutPaymentMethod } from '../domain/checkout';
 import customerPaymentMethodService from '../../../Services/customerPaymentMethodService';
+import {
+  getUnsuccessfulPaymentOutcome,
+  type TerminalPaymentOutcome,
+} from '../domain/paymentOutcome';
+import type { PaymentResultStatus } from '../../../components/payment/PaymentResultView';
+import { readStorage } from '../../../shared/storage/safeStorage';
 
 export type PixPaymentData = {
+  restaurantId?: number;
   orderId: number | null;
   total: number;
   paymentId?: string;
@@ -17,7 +21,28 @@ export type PixPaymentData = {
   paid?: boolean;
 };
 
-export type PixPaymentStatus = 'WAITING' | 'VERIFYING' | 'PENDING' | 'PAID' | 'ERROR';
+export type PixPaymentStatus =
+  'WAITING' | 'VERIFYING' | 'PENDING' | 'ERROR' | TerminalPaymentOutcome;
+
+type CheckoutPaymentResultBase = {
+  restaurantId: number;
+  method: 'Cartão' | 'Pix';
+  total: number;
+};
+
+export type UncertainCheckoutPaymentResult = CheckoutPaymentResultBase & {
+  status: 'PENDING';
+  reconciliationRequired: true;
+  orderId: number;
+};
+
+export type CheckoutPaymentResult =
+  | UncertainCheckoutPaymentResult
+  | (CheckoutPaymentResultBase & {
+      status: PaymentResultStatus;
+      reconciliationRequired?: false;
+      orderId: number | null;
+    });
 
 type Notify = (
   type: 'success' | 'error',
@@ -47,16 +72,42 @@ export function getCheckoutErrorMessage(error: unknown): string {
 
   if (Array.isArray(candidate)) {
     const firstMessage = (candidate[0] as { message?: unknown } | undefined)?.message;
-    return typeof firstMessage === 'string' ? firstMessage : '';
+    if (typeof firstMessage === 'string') return getCheckoutErrorMessage({ message: firstMessage });
+    return '';
   }
 
   const message = String(candidate).trim();
-  if (!message.startsWith('[')) return message;
+  if (!message)
+    return 'Não conseguimos concluir o pagamento neste momento. Tente outra forma ou tente novamente em alguns minutos.';
+
+  if (!message.startsWith('[')) {
+    const normalized = message.toLowerCase();
+    const hidesTechnicalConfig =
+      (normalized.includes('access token') ||
+        normalized.includes('configur') ||
+        normalized.includes('mercado pago') ||
+        normalized.includes('pagbank') ||
+        normalized.includes('asaas') ||
+        normalized.includes('credencial') ||
+        normalized.includes('token') ||
+        normalized.includes('integração') ||
+        normalized.includes('integracao')) &&
+      !/cart(?:ã|a)o|cvv|dados do cart(?:ã|a)o|dados do pagamento/i.test(message);
+
+    if (hidesTechnicalConfig) {
+      return 'Não conseguimos concluir o pagamento neste momento. Tente outra forma ou tente novamente em alguns minutos.';
+    }
+
+    return message;
+  }
 
   try {
     const issues = JSON.parse(message) as Array<{ message?: unknown }>;
     const firstMessage = issues.find((issue) => typeof issue?.message === 'string')?.message;
-    return typeof firstMessage === 'string' ? firstMessage : '';
+    if (typeof firstMessage !== 'string') {
+      return 'Não conseguimos concluir o pagamento neste momento. Tente outra forma ou tente novamente em alguns minutos.';
+    }
+    return getCheckoutErrorMessage({ message: firstMessage });
   } catch {
     return 'Revise os dados do pedido e tente novamente.';
   }
@@ -76,72 +127,110 @@ export function useCheckoutPayments(options: Options) {
   const [checkoutLoading, setCheckoutLoading] = useState(false);
   const [pixPaymentData, setPixPaymentData] = useState<PixPaymentData | null>(null);
   const [pixPaymentStatus, setPixPaymentStatus] = useState<PixPaymentStatus>('WAITING');
+  const pixIsTerminal = ['PAID', 'FAILED', 'CANCELED', 'EXPIRED', 'REFUNDED'].includes(
+    pixPaymentStatus,
+  );
   const [pixPaymentError, setPixPaymentError] = useState<string | null>(null);
+  const [paymentResult, setPaymentResult] = useState<CheckoutPaymentResult | null>(null);
   const pixCheckInFlightRef = useRef(false);
   const pixConfirmedRef = useRef(false);
+  const pixTerminalRef = useRef<TerminalPaymentOutcome | null>(null);
+  const attemptRef = useRef(0);
+  const currentRestaurantRef = useRef(restaurantId);
   const onPaymentConfirmedRef = useRef(onPaymentConfirmed);
 
   useEffect(() => {
     onPaymentConfirmedRef.current = onPaymentConfirmed;
   }, [onPaymentConfirmed]);
 
-  const verifyPixPayment = useCallback(async (): Promise<PixPaymentStatus> => {
-    if (pixCheckInFlightRef.current) return 'VERIFYING';
-    if (
-      !pixPaymentData?.paymentId ||
-      !pixPaymentData.orderId ||
-      !restaurantId ||
-      pixConfirmedRef.current
-    ) {
-      return pixConfirmedRef.current ? 'PAID' : 'ERROR';
-    }
+  useEffect(() => {
+    currentRestaurantRef.current = restaurantId;
+    return () => {
+      attemptRef.current += 1;
+      pixCheckInFlightRef.current = false;
+    };
+  }, [restaurantId]);
 
-    pixCheckInFlightRef.current = true;
-    setPixPaymentStatus('VERIFYING');
-    setPixPaymentError(null);
-    try {
-      const providerStatus = await ordersService.getPixPaymentStatus({
-        paymentId: pixPaymentData.paymentId,
-        restaurantId,
-      });
-      if (providerStatus?.isApproved !== true) {
-        setPixPaymentStatus('PENDING');
-        return 'PENDING';
+  const verifyPixPayment = useCallback(
+    async (background = false): Promise<PixPaymentStatus> => {
+      if (pixPaymentData?.restaurantId && pixPaymentData.restaurantId !== restaurantId)
+        return 'ERROR';
+      if (pixTerminalRef.current) return pixTerminalRef.current;
+      if (pixCheckInFlightRef.current) return 'VERIFYING';
+      if (
+        !pixPaymentData?.paymentId ||
+        !pixPaymentData.orderId ||
+        !restaurantId ||
+        pixConfirmedRef.current
+      ) {
+        return pixConfirmedRef.current ? 'PAID' : 'ERROR';
       }
 
-      const confirmedOrder = await ordersService.confirmPixPayment({
-        orderId: pixPaymentData.orderId,
-        paymentId: pixPaymentData.paymentId,
-        restaurantId,
-      });
-      if (confirmedOrder?.paid !== true) {
+      pixCheckInFlightRef.current = true;
+      const attempt = attemptRef.current;
+      const isCurrent = () =>
+        attempt === attemptRef.current && currentRestaurantRef.current === restaurantId;
+      if (!background) {
+        setPixPaymentStatus('VERIFYING');
+        setPixPaymentError(null);
+      }
+      try {
+        const providerStatus = await ordersService.getPixPaymentStatus({
+          paymentId: pixPaymentData.paymentId,
+          restaurantId,
+        });
+        if (!isCurrent()) return 'ERROR';
+        if (providerStatus?.sameRestaurant === false)
+          throw new Error('Não foi possível verificar este pagamento.');
+        const unsuccessful = getUnsuccessfulPaymentOutcome(providerStatus?.status);
+        if (unsuccessful) {
+          pixTerminalRef.current = unsuccessful;
+          setPixPaymentStatus(unsuccessful);
+          return unsuccessful;
+        }
+        if (providerStatus?.isApproved !== true) {
+          setPixPaymentStatus('PENDING');
+          return 'PENDING';
+        }
+
+        const confirmedOrder = await ordersService.confirmPixPayment({
+          orderId: pixPaymentData.orderId,
+          paymentId: pixPaymentData.paymentId,
+          restaurantId,
+        });
+        if (!isCurrent()) return 'ERROR';
+        if (confirmedOrder?.paid !== true) {
+          setPixPaymentStatus('ERROR');
+          setPixPaymentError(
+            'Seu pedido ainda aguarda confirmação. Aguarde um instante e verifique novamente.',
+          );
+          return 'ERROR';
+        }
+
+        pixConfirmedRef.current = true;
+        pixTerminalRef.current = 'PAID';
+        setPixPaymentData((current) => (current ? { ...current, paid: true } : current));
+        setPixPaymentStatus('PAID');
+        try {
+          await onPaymentConfirmedRef.current();
+        } catch {
+          // Atualizações auxiliares não alteram a confirmação canônica já recebida.
+        }
+        return 'PAID';
+      } catch (error: unknown) {
+        if (!isCurrent()) return 'ERROR';
         setPixPaymentStatus('ERROR');
         setPixPaymentError(
-          'O provedor respondeu, mas o pedido ainda não foi confirmado. Verifique novamente.',
+          getCheckoutErrorMessage(error) ||
+            'Não foi possível consultar o pagamento agora. O pedido continua sem confirmação.',
         );
         return 'ERROR';
+      } finally {
+        if (isCurrent()) pixCheckInFlightRef.current = false;
       }
-
-      pixConfirmedRef.current = true;
-      setPixPaymentData((current) => (current ? { ...current, paid: true } : current));
-      setPixPaymentStatus('PAID');
-      try {
-        await onPaymentConfirmedRef.current();
-      } catch {
-        // Atualizações auxiliares não alteram a confirmação canônica já recebida.
-      }
-      return 'PAID';
-    } catch (error: unknown) {
-      setPixPaymentStatus('ERROR');
-      setPixPaymentError(
-        getCheckoutErrorMessage(error) ||
-          'Não foi possível consultar o pagamento agora. O pedido continua sem confirmação.',
-      );
-      return 'ERROR';
-    } finally {
-      pixCheckInFlightRef.current = false;
-    }
-  }, [pixPaymentData, restaurantId]);
+    },
+    [pixPaymentData, restaurantId],
+  );
 
   useEffect(() => {
     if (
@@ -149,21 +238,29 @@ export function useCheckoutPayments(options: Options) {
       pixPaymentData.paid ||
       !pixPaymentData.paymentId ||
       !pixPaymentData.orderId ||
+      (pixPaymentData.restaurantId && pixPaymentData.restaurantId !== restaurantId) ||
+      pixIsTerminal ||
       !restaurantId
     )
       return;
 
-    const initialCheckId = window.setTimeout(() => void verifyPixPayment(), 0);
-    const intervalId = window.setInterval(() => void verifyPixPayment(), 5000);
+    // Give React one visible payment state before the first provider reconciliation.
+    // This avoids skipping the QR/Pix state entirely when a provider answers immediately.
+    const initialCheckId = window.setTimeout(() => void verifyPixPayment(), 1000);
+    const intervalId = window.setInterval(() => {
+      if (!document.hidden) void verifyPixPayment(true);
+    }, 5000);
     return () => {
       window.clearTimeout(initialCheckId);
       window.clearInterval(intervalId);
     };
-  }, [pixPaymentData, restaurantId, verifyPixPayment]);
+  }, [pixPaymentData, pixIsTerminal, restaurantId, verifyPixPayment]);
 
   const clearPixPayment = useCallback(() => {
+    attemptRef.current += 1;
     pixCheckInFlightRef.current = false;
     pixConfirmedRef.current = false;
+    pixTerminalRef.current = null;
     setPixPaymentData(null);
     setPixPaymentStatus('WAITING');
     setPixPaymentError(null);
@@ -177,6 +274,9 @@ export function useCheckoutPayments(options: Options) {
   ) => {
     if (checkoutLoading) return false;
     setCheckoutLoading(true);
+    const checkoutAttempt = ++attemptRef.current;
+    const isCurrentCheckout = () =>
+      checkoutAttempt === attemptRef.current && currentRestaurantRef.current === restaurantId;
     try {
       if (paymentMethod === 'pickup_store') {
         const order = await ordersService.createOrder(payload);
@@ -211,7 +311,9 @@ export function useCheckoutPayments(options: Options) {
           ...payload,
           pixProvider: String(pixProvider || ''),
         });
+        if (!isCurrentCheckout()) return false;
         setPixPaymentData({
+          restaurantId: restaurantId || undefined,
           orderId: Number(result.orderId) || null,
           total: Number(result.totalAmount || cartTotal),
           paymentId: String(result.paymentId || ''),
@@ -221,6 +323,8 @@ export function useCheckoutPayments(options: Options) {
           requiresStatusCheck: Boolean(result.requiresStatusCheck),
         });
         pixConfirmedRef.current = false;
+        pixTerminalRef.current = null;
+        pixCheckInFlightRef.current = false;
         setPixPaymentStatus('WAITING');
         setPixPaymentError(null);
         onPurchased();
@@ -233,7 +337,7 @@ export function useCheckoutPayments(options: Options) {
         ? await customerPaymentMethodService.list(restaurantId).catch(() => [])
         : [];
       const storedMethodId = restaurantId
-        ? localStorage.getItem(`selectedCustomerPaymentMethodId:${restaurantId}`)
+        ? readStorage(`selectedCustomerPaymentMethodId:${restaurantId}`)
         : '';
       const selectedSavedMethod =
         savedMethods.find((method) => method.publicId === storedMethodId) ||
@@ -245,26 +349,56 @@ export function useCheckoutPayments(options: Options) {
         successUrl: window.location.href,
         cancelUrl: window.location.href,
       });
+      if (!isCurrentCheckout()) return false;
       const checkoutUrl = String(result.checkoutUrl || '');
-      if (!/^https:\/\//i.test(checkoutUrl)) {
+      if (result.paid !== true && !/^https:\/\//i.test(checkoutUrl)) {
         throw new Error('O serviço de pagamento não retornou um endereço seguro.');
       }
       onPurchased();
       onClearCart();
-      if (result.paid) {
+      if (result.paid === true && restaurantId) {
         onCloseCart();
-        await onPaymentConfirmed();
-        notify(
-          'success',
-          'Pagamento aprovado',
-          `Pedido #${String(result.orderId || '')} confirmado automaticamente.`,
-          5000,
-        );
+        setPaymentResult({
+          restaurantId,
+          status: 'PAID',
+          method: 'Cartão',
+          orderId: Number(result.orderId) || null,
+          total: Number(result.totalAmount ?? cartTotal),
+        });
+        try {
+          await onPaymentConfirmedRef.current();
+        } catch {
+          // A atualização do cardápio não altera um pagamento já confirmado.
+        }
       } else {
         window.location.assign(checkoutUrl);
       }
       return true;
     } catch (error: unknown) {
+      if (!isCurrentCheckout()) return false;
+      const data = (error as { response?: { data?: Record<string, unknown> } })?.response?.data;
+      const preservedOrderId = Number(data?.orderId);
+      if (
+        data?.code === 'PAYMENT_CREATION_UNCERTAIN' &&
+        data.reconciliationRequired === true &&
+        Number.isSafeInteger(preservedOrderId) &&
+        preservedOrderId > 0 &&
+        restaurantId
+      ) {
+        // The order exists. Consuming this cart prevents a retry from creating another order.
+        onPurchased();
+        onClearCart();
+        onCloseCart();
+        setPaymentResult({
+          restaurantId,
+          orderId: preservedOrderId,
+          total: cartTotal,
+          method: paymentMethod === 'pix' ? 'Pix' : 'Cartão',
+          status: 'PENDING',
+          reconciliationRequired: true,
+        });
+        return true;
+      }
       notify(
         'error',
         paymentMethod === 'pickup_store'
@@ -280,7 +414,12 @@ export function useCheckoutPayments(options: Options) {
 
   return {
     checkoutLoading,
-    pixPaymentData,
+    pixPaymentData:
+      pixPaymentData?.restaurantId && pixPaymentData.restaurantId !== restaurantId
+        ? null
+        : pixPaymentData,
+    paymentResult: paymentResult?.restaurantId === restaurantId ? paymentResult : null,
+    clearPaymentResult: () => setPaymentResult(null),
     setPixPaymentData,
     pixPaymentStatus,
     pixPaymentError,

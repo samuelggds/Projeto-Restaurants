@@ -5,9 +5,17 @@
 {$APP_DOMAIN} {
 	encode zstd gzip
 	reverse_proxy frontend:80
+	# Only these isolated documents may be embedded by the application itself.
+	@demoAdmin path /demo-admin.html
+	@helpPreview path /help-preview.html
+	@application not path /demo-admin.html /help-preview.html
+	header @demoAdmin Content-Security-Policy "default-src 'self'; base-uri 'none'; object-src 'none'; frame-ancestors 'self'; form-action 'none'; script-src 'self'; frame-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob:; connect-src 'none'; upgrade-insecure-requests"
+	header @helpPreview Content-Security-Policy "default-src 'self'; base-uri 'none'; object-src 'none'; frame-ancestors 'self'; form-action 'none'; script-src 'self'; frame-src 'none'; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob:; connect-src 'none'; upgrade-insecure-requests"
+	# The image enhancement response is a data URL. AdminPage converts it to a Blob
+	# with fetch(data:...), so data: must be allowed by connect-src for the app only.
+	header @application Content-Security-Policy "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'self'; script-src 'self' https://accounts.google.com/gsi/client; frame-src 'self' https://accounts.google.com/gsi/; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://accounts.google.com/gsi/style; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: blob: https:; connect-src 'self' data: https://{$API_DOMAIN} wss://{$API_DOMAIN} https://*.sentry.io https://accounts.google.com/gsi/; upgrade-insecure-requests"
 	header {
 		Strict-Transport-Security "max-age=31536000; includeSubDomains"
-		Content-Security-Policy "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: blob: https:; connect-src 'self' https://{$API_DOMAIN} wss://{$API_DOMAIN} https://*.sentry.io; upgrade-insecure-requests"
 		Permissions-Policy "geolocation=(self), camera=(), microphone=()"
 		Referrer-Policy "strict-origin-when-cross-origin"
 		X-Content-Type-Options "nosniff"
@@ -17,7 +25,22 @@
 
 {$API_DOMAIN} {
 	encode zstd gzip
-	reverse_proxy backend:3000
+	reverse_proxy {
+		dynamic a backend 3000 {
+			refresh 5s
+			versions ipv4
+		}
+		lb_policy round_robin
+		fail_duration 10s
+		max_fails 2
+		unhealthy_status 503
+		transport http {
+			dial_timeout 3s
+			# OpenAI image generation/editing can legitimately take longer than 30 seconds.
+			# Keep this above the backend provider timeout (165s) and browser timeout (180s).
+			response_header_timeout 210s
+		}
+	}
 	header {
 		Strict-Transport-Security "max-age=31536000; includeSubDomains"
 		X-Content-Type-Options "nosniff"

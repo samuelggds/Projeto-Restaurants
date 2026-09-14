@@ -11,8 +11,9 @@ import {
   QrCode,
   RefreshCw,
   ShoppingBag,
+  X,
 } from 'lucide-react';
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { WaiterProvider, type WaiterModuleProps as BaseProps } from './WaiterContext';
 import { useWaiterWorkspace } from './useWaiterWorkspace';
 import {
@@ -27,21 +28,31 @@ import * as N from './WaiterNavigation.styles';
 import { EmployeeHelpCenter } from '../../features/employee-help/EmployeeHelpCenter';
 import { reportEmployeeIssue } from '../../features/employee-help/reportEmployeeIssue';
 import { useEmployeeIssueNotifications } from '../../features/employee-help/useEmployeeIssueNotifications';
+import { useDialogFocusManagement } from '../../shared/hooks/useDialogFocusManagement';
 
 export type WaiterView = 'overview' | 'deliveries' | 'tables' | 'calls' | 'payments';
 export interface WaiterModuleProps extends BaseProps {
   initialView?: WaiterView;
   onViewChange?: (view: WaiterView) => void;
+  employeeHelp?: {
+    notificationsEnabled?: boolean;
+    onReport?: typeof reportEmployeeIssue;
+  };
 }
 
 export function WaiterModule({
   initialView = 'overview',
   onViewChange,
+  employeeHelp,
   ...props
 }: WaiterModuleProps) {
   return (
     <WaiterProvider {...props}>
-      <WaiterShell initialView={initialView} onViewChange={onViewChange} />
+      <WaiterShell
+        initialView={initialView}
+        onViewChange={onViewChange}
+        employeeHelp={employeeHelp}
+      />
     </WaiterProvider>
   );
 }
@@ -49,11 +60,13 @@ export function WaiterModule({
 function WaiterShell({
   initialView,
   onViewChange,
+  employeeHelp,
 }: {
   initialView: WaiterView;
   onViewChange?: WaiterModuleProps['onViewChange'];
+  employeeHelp?: WaiterModuleProps['employeeHelp'];
 }) {
-  useEmployeeIssueNotifications();
+  useEmployeeIssueNotifications(employeeHelp?.notificationsEnabled);
   const {
     employee,
     restaurant,
@@ -70,6 +83,22 @@ function WaiterShell({
   const clearFocusedOrder = useCallback(() => setFocusedOrderId(null), []);
   const [open, setOpen] = useState(() => typeof window !== 'undefined' && window.innerWidth > 820);
   const [moreOpen, setMoreOpen] = useState(false);
+  const closeMore = useCallback(() => setMoreOpen(false), []);
+  const morePanel = useDialogFocusManagement<HTMLElement>(closeMore, moreOpen);
+  useEffect(() => {
+    if (!moreOpen) return;
+    const closeOnDesktop = () => {
+      if (window.innerWidth > 820) closeMore();
+    };
+    window.addEventListener('resize', closeOnDesktop);
+    return () => window.removeEventListener('resize', closeOnDesktop);
+  }, [closeMore, moreOpen]);
+  const hasWorkspaceData = Boolean(
+    orders.length || tables.length || calls.length || accounts.length,
+  );
+  const initialLoadFailed = Boolean(
+    workspaceState?.error && !workspaceState.lastUpdatedAt && !hasWorkspaceData,
+  );
   const navigate = (next: WaiterView | 'help') => {
     setView(next);
     setMoreOpen(false);
@@ -112,7 +141,7 @@ function WaiterShell({
   return (
     <S.Root $primary={restaurant.primaryColor} $sidebarOpen={open}>
       {open && (
-        <N.Sidebar>
+        <N.Sidebar inert={moreOpen}>
           <N.CollapseButton type="button" aria-label="Recolher menu" onClick={() => setOpen(false)}>
             <ChevronLeft />
           </N.CollapseButton>
@@ -167,11 +196,16 @@ function WaiterShell({
         </N.Sidebar>
       )}
       {!open && (
-        <N.SidebarOpenButton type="button" aria-label="Expandir menu" onClick={() => setOpen(true)}>
+        <N.SidebarOpenButton
+          inert={moreOpen}
+          type="button"
+          aria-label="Expandir menu"
+          onClick={() => setOpen(true)}
+        >
           <ChevronRight />
         </N.SidebarOpenButton>
       )}
-      <N.MobileNav aria-label="Navegação móvel do garçom">
+      <N.MobileNav aria-label="Navegação móvel do garçom" inert={moreOpen}>
         {nav.map(([id, label, mobileLabel, Icon, count]) => (
           <button
             type="button"
@@ -191,17 +225,22 @@ function WaiterShell({
       </N.MobileNav>
       {moreOpen && (
         <>
-          <N.MoreBackdrop
-            type="button"
-            aria-label="Fechar opções do garçom"
-            onClick={() => setMoreOpen(false)}
-          />
-          <N.MoreSheet role="dialog" aria-modal="true" aria-label="Opções do garçom">
+          <N.MoreBackdrop type="button" tabIndex={-1} aria-hidden="true" onClick={closeMore} />
+          <N.MoreSheet
+            ref={morePanel}
+            id="waiter-more-options"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Opções do garçom"
+          >
             <header>
               <span>
                 <b>{employee.name}</b>
                 <small>Garçom • turno iniciado às {employee.shift}</small>
               </span>
+              <button type="button" aria-label="Fechar opções do garçom" onClick={closeMore}>
+                <X />
+              </button>
             </header>
             <button
               type="button"
@@ -216,7 +255,7 @@ function WaiterShell({
           </N.MoreSheet>
         </>
       )}
-      <S.Main>
+      <S.Main inert={moreOpen}>
         <S.Top>
           <div>
             <h1>{title}</h1>
@@ -225,7 +264,7 @@ function WaiterShell({
           <S.Live
             type="button"
             onClick={() => void onRefresh?.()}
-            disabled={!onRefresh || workspaceState?.refreshing}
+            disabled={!onRefresh || workspaceState?.loading || workspaceState?.refreshing}
             aria-label="Atualizar dados do salão"
             title="Atualizar dados do salão"
           >
@@ -236,6 +275,8 @@ function WaiterShell({
             type="button"
             aria-label="Abrir opções do garçom"
             aria-expanded={moreOpen}
+            aria-controls={moreOpen ? 'waiter-more-options' : undefined}
+            aria-haspopup="dialog"
             onClick={() => setMoreOpen((current) => !current)}
           >
             <MoreHorizontal />
@@ -246,24 +287,43 @@ function WaiterShell({
             <S.WorkspaceNotice role="alert">
               <AlertTriangle />
               <span>
-                <b>Não foi possível atualizar todos os dados.</b>
+                <b>
+                  {initialLoadFailed
+                    ? 'Não foi possível carregar o salão.'
+                    : 'Não foi possível atualizar todos os dados.'}
+                </b>
                 <small>{workspaceState.error}</small>
               </span>
               {onRefresh && (
-                <button type="button" onClick={() => void onRefresh()}>
-                  Tentar novamente
+                <button
+                  type="button"
+                  disabled={workspaceState.loading || workspaceState.refreshing}
+                  onClick={() => void onRefresh()}
+                >
+                  {workspaceState.loading || workspaceState.refreshing
+                    ? 'Atualizando...'
+                    : 'Tentar novamente'}
                 </button>
               )}
             </S.WorkspaceNotice>
           )}
-          {workspaceState?.loading && !orders.length && !tables.length && !calls.length ? (
+          {view === 'help' ? (
+            <EmployeeHelpCenter
+              role="waiter"
+              onReport={employeeHelp?.onReport ?? reportEmployeeIssue}
+              notificationsEnabled={employeeHelp?.notificationsEnabled}
+            />
+          ) : workspaceState?.loading && !hasWorkspaceData ? (
             <S.WorkspaceLoading role="status" aria-live="polite">
               <RefreshCw />
               <b>Carregando o salão...</b>
               <span>Buscando pedidos, mesas e chamados do seu restaurante.</span>
             </S.WorkspaceLoading>
-          ) : view === 'help' ? (
-            <EmployeeHelpCenter role="waiter" onReport={reportEmployeeIssue} />
+          ) : initialLoadFailed ? (
+            <S.WorkspaceUnavailable>
+              <b>Os dados do salão ainda não estão disponíveis.</b>
+              <span>Tente novamente para consultar pedidos, mesas, chamados e pagamentos.</span>
+            </S.WorkspaceUnavailable>
           ) : view === 'overview' ? (
             <WaiterOverviewPage
               onOpenOrder={(orderId) => {

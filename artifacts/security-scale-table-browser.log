@@ -1,0 +1,22 @@
+
+> frontend@0.0.0 test:e2e
+> playwright test e2e/table-qr-role-flow.spec.ts e2e/waiter-operations.spec.ts --max-failures=3
+
+[WebServer] (node:35732) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+Running 9 tests using 1 worker
+
+(node:15812) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ok 1 [chromium] › e2e\table-qr-role-flow.spec.ts:639:1 › admin controla o QR, garçom apenas opera a mesa e cozinha recebe Mesa 1 (12.3s)
+  ok 2 [chromium] › e2e\table-qr-role-flow.spec.ts:776:3 › cliente separa escopo e método e só vê pago após reconciliação canônica (PIX) (6.6s)
+  ok 3 [chromium] › e2e\table-qr-role-flow.spec.ts:776:3 › cliente separa escopo e método e só vê pago após reconciliação canônica (CARD) (6.7s)
+  ok 4 [chromium] › e2e\table-qr-role-flow.spec.ts:892:1 › retorno success do cartão permanece pendente até o backend confirmar (3.8s)
+  ok 5 [chromium] › e2e\table-qr-role-flow.spec.ts:924:1 › impressão individual ocupa uma única folha A4 com QR Code grande (5.3s)
+  ok 6 [chromium] › e2e\waiter-operations.spec.ts:597:1 › garçom consulta visão geral, filtra entregas e atende chamados persistidos (4.7s)
+  ok 7 [chromium] › e2e\waiter-operations.spec.ts:666:1 › garçom confere e confirma pagamento presencial pelo ledger (3.9s)
+  ok 8 [chromium] › e2e\waiter-operations.spec.ts:690:1 › QR sem PIN só libera pedidos com mesa aberta e fechamento respeita pendências (10.8s)
+  ok 9 [chromium] › e2e\waiter-operations.spec.ts:772:1 › todas as abas do garçom permanecem acessíveis e sem overflow em celular (3.7s)
+
+  9 passed (1.0m)

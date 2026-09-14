@@ -212,6 +212,169 @@ export const RestaurantLogo = styled.img`
   opacity: 1;
 `;
 
+export const PlatformBrandArtwork = styled.div`
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  background: #faf9f5;
+  padding: 36px 28px 100px;
+
+  .brand-composition {
+    position: relative;
+    z-index: 1;
+    display: block;
+    width: min(92%, 650px);
+    height: min(80%, 670px);
+    overflow: visible;
+  }
+
+  .brand-corner {
+    position: absolute;
+    width: clamp(140px, 22vw, 380px);
+    fill: none;
+    stroke: #ce5d0e;
+    stroke-width: 2;
+    pointer-events: none;
+  }
+  .corner-top {
+    top: -5%;
+    left: -12%;
+  }
+  .corner-bottom {
+    bottom: -6%;
+    right: -13%;
+  }
+  .brand-motto {
+    position: absolute;
+    bottom: 24px;
+    left: 7%;
+    width: clamp(140px, 12vw, 190px);
+  }
+
+  .brand-stroke {
+    stroke-linecap: round;
+    stroke-dasharray: 100;
+    stroke-dashoffset: 0;
+    animation: gastronexa-draw-line 3.6s cubic-bezier(0.4, 0, 0.2, 1) both;
+  }
+
+  .gx-draw {
+    stroke-dasharray: 100;
+    stroke-dashoffset: 0;
+    animation: gastronexa-draw-line 3.6s cubic-bezier(0.4, 0, 0.2, 1) both;
+  }
+  .gx-draw-x-back {
+    animation-name: gastronexa-draw-x-back;
+  }
+  .gx-draw-x-front {
+    animation-name: gastronexa-draw-x-front;
+  }
+
+  @keyframes gastronexa-draw-line {
+    0% {
+      stroke-dashoffset: 100;
+      opacity: 0;
+    }
+    8% {
+      opacity: 1;
+    }
+    38%,
+    90% {
+      stroke-dashoffset: 0;
+      opacity: 1;
+    }
+    100% {
+      stroke-dashoffset: 0;
+      opacity: 1;
+    }
+  }
+
+  @keyframes gastronexa-draw-x-back {
+    0%,
+    10% {
+      stroke-dashoffset: 100;
+      opacity: 0;
+    }
+    14% {
+      opacity: 1;
+    }
+    40%,
+    90% {
+      stroke-dashoffset: 0;
+      opacity: 1;
+    }
+    100% {
+      stroke-dashoffset: 0;
+      opacity: 1;
+    }
+  }
+  @keyframes gastronexa-draw-x-front {
+    0%,
+    22% {
+      stroke-dashoffset: 100;
+      opacity: 0;
+    }
+    26% {
+      opacity: 1;
+    }
+    48%,
+    90% {
+      stroke-dashoffset: 0;
+      opacity: 1;
+    }
+    100% {
+      stroke-dashoffset: 0;
+      opacity: 1;
+    }
+  }
+  &[data-animate='false'] {
+    .brand-stroke,
+    .gx-draw,
+    .brand-letter {
+      animation: none;
+      stroke-dashoffset: 0;
+      opacity: 1;
+      clip-path: none;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .brand-stroke,
+    .gx-draw,
+    .brand-letter {
+      animation: none;
+      stroke-dashoffset: 0;
+      opacity: 1;
+      clip-path: none;
+    }
+  }
+
+  @media (max-width: 968px) {
+    padding: 14px 55px 36px;
+    .brand-composition {
+      width: min(100%, 310px);
+      height: 100%;
+    }
+    .brand-corner {
+      width: 150px;
+    }
+    .corner-top {
+      top: -58px;
+      left: -68px;
+    }
+    .corner-bottom {
+      bottom: -75px;
+      right: -68px;
+    }
+    .brand-motto {
+      display: none;
+    }
+  }
+`;
 export const BrandSubtitle = styled.p`
   position: relative;
   z-index: 2;

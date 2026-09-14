@@ -1,3 +1,5 @@
+import { exerciseWorkspaceSidebar } from './helpers/workspaceLayout';
+import { orderFixtureResponse } from './helpers/orderFixtures';
 import { expect, test, type BrowserContext, type Page, type Route } from '@playwright/test';
 import { mockAuthRefresh } from './helpers/mockAuthRefresh';
 import { captureReadmeScreenshot } from './helpers/readmeScreenshot';
@@ -49,6 +51,7 @@ type CourierE2EState = {
   holdNextOrdersRequest: boolean;
   releaseOrdersRequest?: () => void;
   sendSocketEvent?: (event: string, payload: unknown) => void;
+  disconnectSocket?: () => void;
   profileUpdates: Array<Record<string, unknown>>;
   trackingPoints: LocationFrame[];
   settlements: Array<Record<string, unknown>>;
@@ -250,6 +253,7 @@ function courierVisibleOrders(state: CourierE2EState) {
 
 async function mockSocket(page: Page, state: CourierE2EState) {
   await page.routeWebSocket(/\/socket\.io\//, (socket) => {
+    state.disconnectSocket = () => socket.close({ code: 1012, reason: 'Teste de reconexão' });
     socket.onMessage((rawMessage) => {
       const message = rawMessage.toString();
 
@@ -356,6 +360,10 @@ async function mockCourierApi(page: Page, state: CourierE2EState) {
     if (pathname === '/orders' && method === 'GET') {
       state.orderRequests += 1;
       state.orderRequestTokens.push(token);
+      // Fault injection targets the active operational request, not its independent history refresh.
+      if (new URL(request.url()).searchParams.get('queue') === 'DELIVERED') {
+        return json(route, orderFixtureResponse(request.url(), courierVisibleOrders(state), true));
+      }
 
       if (state.holdNextOrdersRequest) {
         state.holdNextOrdersRequest = false;
@@ -370,7 +378,7 @@ async function mockCourierApi(page: Page, state: CourierE2EState) {
         return json(route, { error: 'Falha simulada ao carregar entregas.' }, 503);
       }
 
-      return json(route, { orders: courierVisibleOrders(state) });
+      return json(route, orderFixtureResponse(request.url(), courierVisibleOrders(state), true));
     }
 
     if (pathname === '/orders/courier/finance' && method === 'GET') {
@@ -517,7 +525,7 @@ async function mockCourierApi(page: Page, state: CourierE2EState) {
 }
 
 async function enableSyntheticLocation(context: BrowserContext) {
-  await context.grantPermissions(['geolocation'], { origin: 'http://127.0.0.1:4173' });
+  await context.grantPermissions(['geolocation'], { origin: 'http://127.0.0.1:4181' });
   await context.setGeolocation({ ...departure, accuracy: 8 });
 }
 
@@ -580,8 +588,9 @@ async function mockCustomerTrackingApi(page: Page, state: CourierE2EState) {
       return json(route, { user: customerUser });
     }
     if (pathname === '/orders/my-orders' && method === 'GET') {
-      return json(route, {
-        orders: [
+      return json(
+        route,
+        orderFixtureResponse(request.url(), [
           {
             id: 601,
             restaurantId: RESTAURANT_ID,
@@ -589,12 +598,11 @@ async function mockCustomerTrackingApi(page: Page, state: CourierE2EState) {
             status: trackingStatus,
             createdAt: isoMinutesAgo(18),
             deliveryStartedAt,
-            deliveryConfirmationCode:
-              trackingStatus === 'SAIU_PARA_ENTREGA' ? DELIVERY_CODE : null,
+            deliveryConfirmationCode: trackingStatus === 'SAIU_PARA_ENTREGA' ? DELIVERY_CODE : null,
             items: [{ product: { name: 'Massa artesanal' } }],
           },
-        ],
-      });
+        ]),
+      );
     }
     if (pathname === '/orders/601/tracking' && method === 'GET') {
       state.trackingRequests.push(601);
@@ -605,8 +613,7 @@ async function mockCustomerTrackingApi(page: Page, state: CourierE2EState) {
           type: 'DELIVERY',
           status: trackingStatus,
           deliveryStartedAt,
-          deliveryConfirmationCode:
-            trackingStatus === 'SAIU_PARA_ENTREGA' ? DELIVERY_CODE : null,
+          deliveryConfirmationCode: trackingStatus === 'SAIU_PARA_ENTREGA' ? DELIVERY_CODE : null,
           deliveredAt: trackingStatus === 'ENTREGUE' ? new Date().toISOString() : null,
           estimatedArrival:
             trackingStatus === 'ENTREGUE' ? null : new Date(Date.now() + 720_000).toISOString(),
@@ -705,6 +712,7 @@ test('motoqueiro retira, compartilha a rota do próprio pedido e encerra ao entr
   expect(Number.isNaN(Date.parse(state.claims[0].initialLocation?.sentAt || ''))).toBe(false);
   expect(state.trackingPoints[0]).toMatchObject({ orderId: 601, ...departure });
   await expect(page.getByRole('heading', { name: 'Entregas em andamento' })).toBeVisible();
+  await captureReadmeScreenshot(page, 'courier-location-header-desktop.png');
 
   await openCourierView(page, 'Em entrega');
   const routeOrder = orderCard(page, 601);
@@ -830,6 +838,38 @@ test('erro de atualização permite tentar novamente e realtime busca somente o 
   await expectTenantSafeRequests(state);
 });
 
+test('recupera pedidos perdidos na conexão e ao voltar ao app sem ativar GPS', async ({ page }) => {
+  const state = initialState();
+  await mockCourierApi(page, state);
+  await page.goto('/courier');
+  await expect(page.getByRole('button', { name: 'Sincronizar pedidos' })).toBeVisible();
+  await expect(page.getByText('Atualização automática', { exact: true })).toBeVisible();
+  await expect.poll(() => Boolean(state.disconnectSocket)).toBe(true);
+  state.orders = state.orders.filter((order) => order.id !== 601);
+  state.orders.push({ ...orderFixtures()[0], id: 605 });
+  state.disconnectSocket?.();
+  await openCourierView(page, 'Para retirar');
+  await expect(orderCard(page, 605)).toBeVisible();
+  await expect(orderCard(page, 601)).toHaveCount(0);
+  await expect(page.getByText('Atualização automática', { exact: true })).toBeVisible();
+  expect(state.locationFrames).toEqual([]);
+
+  await page.evaluate(() => {
+    Object.defineProperty(document, 'visibilityState', { configurable: true, value: 'hidden' });
+    document.dispatchEvent(new Event('visibilitychange'));
+  });
+  state.orders = state.orders.filter((order) => order.id !== 605);
+  await page.evaluate(() => {
+    Object.defineProperty(document, 'visibilityState', { configurable: true, value: 'visible' });
+    document.dispatchEvent(new Event('visibilitychange'));
+  });
+  await expect(orderCard(page, 605)).toHaveCount(0);
+  await expect(page.getByText(/Pedidos atualizados às/)).toBeVisible();
+  await page.setViewportSize({ width: 390, height: 844 });
+  await captureReadmeScreenshot(page, 'courier-recovered-mobile.png');
+  await expectTenantSafeRequests(state);
+});
+
 test('explica localização negada e navegador sem suporte sem enviar coordenadas', async ({
   page,
 }) => {
@@ -904,9 +944,7 @@ test('cliente acompanha somente a própria entrega, rota e destino até a conclu
   const tracking = await mockCustomerTrackingApi(page, state);
   await page.goto('/orders/601/tracking');
 
-  await expect(
-    page.getByRole('banner').getByText('Pedido #601', { exact: true }),
-  ).toBeVisible();
+  await expect(page.getByRole('banner').getByText('Pedido #601', { exact: true })).toBeVisible();
   await expect(page.getByText('Saiu para entrega', { exact: true })).toBeVisible();
   await expect(page.getByText(courierUser.name)).toBeVisible();
   await expect(page.getByRole('link', { name: 'Ligar para o motoqueiro' })).toHaveAttribute(
@@ -983,6 +1021,10 @@ test('todas as áreas do motoqueiro cabem no celular sem overflow horizontal', a
   const state = initialState();
   state.orders[0].status = 'SAIU_PARA_ENTREGA';
   state.orders[0].assignedCourierId = COURIER_ID;
+  const completedOrder = state.orders.find((order) => order.id === 604)!;
+  state.orders.push(
+    ...Array.from({ length: 21 }, (_, index) => ({ ...completedOrder, id: 700 + index })),
+  );
   await page.setViewportSize({ width: 390, height: 844 });
   await enableSyntheticLocation(context);
   await mockCourierApi(page, state);
@@ -992,6 +1034,37 @@ test('todas as áreas do motoqueiro cabem no celular sem overflow horizontal', a
   await expect(mobileNav).toBeVisible();
   await expect(page.getByRole('navigation', { name: 'Navegação do motoqueiro' })).toBeHidden();
   await expect(page.getByRole('button', { name: 'Expandir navegação' })).toBeHidden();
+
+  const more = mobileNav.getByRole('button', { name: 'Mais', exact: true });
+  await more.click();
+  const options = page.getByRole('dialog', { name: 'Mais opções do motoqueiro' });
+  const closeOptions = options.getByRole('button', { name: 'Fechar mais opções' });
+  await expect(closeOptions).toBeFocused();
+  await page.keyboard.press('Shift+Tab');
+  await expect(options.getByRole('button', { name: 'Sair da conta' })).toBeFocused();
+  await page.keyboard.press('Tab');
+  await expect(closeOptions).toBeFocused();
+  await captureReadmeScreenshot(page, 'courier-mobile-menu.png');
+  await page.keyboard.press('Escape');
+  await expect(options).toHaveCount(0);
+  await expect(more).toBeFocused();
+  await expect.poll(() => page.evaluate(() => document.body.style.overflow)).toBe('');
+
+  const activeDelivery = page.getByRole('region', { name: 'Entrega em andamento' });
+  await expect(activeDelivery).toContainText('Pedido #601');
+  await expect(activeDelivery).toContainText('Rua das Flores, 120');
+  await captureReadmeScreenshot(page, 'courier-active-mobile.png');
+  await page.setViewportSize({ width: 1440, height: 960 });
+  await captureReadmeScreenshot(page, 'courier-active-desktop.png', { fullPage: true });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await activeDelivery.getByRole('button', { name: 'Continuar entrega #601' }).click();
+  const contact = page.getByRole('link', { name: 'Ligar para o cliente do pedido 601' });
+  await expect(contact).toHaveAttribute('href', 'tel:85999996789');
+  await expect(page.getByRole('button', { name: 'Ver detalhes do pedido 601' })).toHaveAttribute(
+    'aria-expanded',
+    'false',
+  );
+  await expect(page.getByRole('button', { name: 'Marcar como Entregue' })).toBeDisabled();
 
   const destinations = [
     ['Retirar', 'Prontos para retirada'],
@@ -1014,6 +1087,13 @@ test('todas as áreas do motoqueiro cabem no celular sem overflow horizontal', a
       layout.documentWidth - layout.viewportWidth,
       `${tab}: overflow horizontal`,
     ).toBeLessThanOrEqual(1);
+    if (tab === 'Histórico') {
+      for (const width of [320, 390]) {
+        await page.setViewportSize({ width, height: 844 });
+        await page.getByRole('button', { name: 'Carregar histórico' }).scrollIntoViewIfNeeded();
+        await captureReadmeScreenshot(page, `courier-history-pagination-${width}.png`);
+      }
+    }
   }
 
   const navBounds = await mobileNav.boundingBox();
@@ -1031,10 +1111,28 @@ test('todas as áreas do motoqueiro cabem no celular sem overflow horizontal', a
     await activateLocation.click();
   }
   await expect(page.locator('.delivery-map-shell')).toBeVisible();
+  await captureReadmeScreenshot(page, 'courier-location-header-mobile.png');
   const mapBounds = await page.locator('.delivery-map-shell').boundingBox();
   expect(mapBounds).not.toBeNull();
   if (mapBounds) {
     expect(mapBounds.x).toBeGreaterThanOrEqual(0);
     expect(mapBounds.x + mapBounds.width).toBeLessThanOrEqual(390);
   }
+});
+
+test('motoqueiro: todas as abas ocupam a largura disponível ao recolher e expandir o menu', async ({
+  page,
+}) => {
+  test.setTimeout(90000);
+  await page.setViewportSize({ width: 1440, height: 960 });
+  await mockCourierApi(page, initialState());
+  await page.goto('/courier');
+  await exerciseWorkspaceSidebar(page, {
+    navigation: 'Navegação do motoqueiro',
+    collapse: 'Recolher navegação',
+    expand: 'Expandir navegação',
+    sidebarWidth: 252,
+  });
+  await page.getByRole('button', { name: 'Recolher navegação', exact: true }).click();
+  await captureReadmeScreenshot(page, 'courier-collapsed-desktop.png');
 });

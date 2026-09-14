@@ -494,7 +494,7 @@ describe('waiter operational pages', () => {
     act(() => {
       changeInput(search, 'mesa 99');
     });
-    expect(container.textContent).toContain('Nenhum chamado aguardando atendimento.');
+    expect(container.textContent).toContain('Nenhum chamado aguardando corresponde à busca.');
   });
 
   it('expande os concluídos de 10 em 10 e permite voltar para os primeiros 10', () => {

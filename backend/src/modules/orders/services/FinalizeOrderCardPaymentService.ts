@@ -60,14 +60,22 @@ class FinalizeOrderCardPaymentService {
     }
 
     let updatedOrder;
+    let paymentChanged = false;
     try {
       updatedOrder = await prisma.$transaction(async (tx) => {
+        const locked = await tx.$queryRaw<Array<{ paid: boolean }>>`
+          SELECT "paid" FROM "Order" WHERE "id" = ${order.id}
+            AND "restaurantId" = ${order.restaurantId} FOR UPDATE
+        `;
+        if (locked[0]?.paid === true)
+          return orderRepository.findById(order.id, order.restaurantId, tx);
         const confirmedOrder = await orderRepository.confirmPayment(
           order.id,
           order.restaurantId,
           tx,
         );
         await markCouponRedemptionUsedForOrder(order.id, order.restaurantId, tx);
+        paymentChanged = true;
         return confirmedOrder;
       });
     } catch (error) {
@@ -85,6 +93,7 @@ class FinalizeOrderCardPaymentService {
       throw error;
     }
 
+    if (!paymentChanged) return updatedOrder;
     io.to(`restaurant:${updatedOrder.restaurantId}`).emit('order:payment-confirmed', {
       orderId: updatedOrder.id,
       paid: true,

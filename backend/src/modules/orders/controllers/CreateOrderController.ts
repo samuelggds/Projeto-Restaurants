@@ -1,7 +1,13 @@
 import { Request, Response } from 'express';
+import { ZodError } from 'zod';
+import { OrderRequestError } from '../domain/OrderRequestError.js';
+import { orderCreationContext } from '../services/orderCreationRequest.js';
+import { safeErrorName } from '../../../services/telemetrySanitizer.js';
 import createOrderService from '../services/CreateOrderService.js';
 import { issueGuestOrderTrackingToken } from '../utils/guestOrderTrackingToken.js';
 import { issueGuestOrderOwnershipToken } from '../utils/guestOrderOwnershipToken.js';
+import { withoutOrderCreationMetadata } from '../utils/orderPublicData.js';
+import { resolveCustomerOrderLinks } from '../../../services/customerOrderMessaging.js';
 
 class CreateOrderController {
   async handle(req: Request, res: Response) {
@@ -37,10 +43,11 @@ class CreateOrderController {
         String(payOnDeliveryMethod || paymentMethod || '').toUpperCase() === 'DINHEIRO' &&
         String(req.user?.role || '').toUpperCase() !== 'ADMIN'
       ) {
-        throw new Error('Pagamento em dinheiro é registrado somente pelo administrador.');
+        throw new OrderRequestError('Pagamento em dinheiro é registrado somente pelo administrador.');
       }
 
       const order = await createOrderService.execute({
+        creationRequest: orderCreationContext(req),
         userId,
         restaurantId,
         userRestaurantId,
@@ -69,8 +76,10 @@ class CreateOrderController {
       });
 
       const isGuestOrder = req.user?.isGuest === true;
-      const isGuestDelivery =
-        isGuestOrder && String(order.type || '').toUpperCase() === 'DELIVERY';
+      const isDelivery = String(order.type || '').toUpperCase() === 'DELIVERY';
+      const isGuestDelivery = isGuestOrder && isDelivery;
+      const isAdminManualDelivery =
+        isDelivery && String(req.user?.role || '').toUpperCase() === 'ADMIN' && Boolean(order.publicId);
       const guestTrackingToken = isGuestDelivery
         ? issueGuestOrderTrackingToken({
             orderId: Number(order.id),
@@ -83,16 +92,27 @@ class CreateOrderController {
             publicId: String(order.publicId),
           })
         : null;
+      const customerAccess = isAdminManualDelivery
+        ? await resolveCustomerOrderLinks({
+            restaurantId: order.restaurantId,
+            orderId: order.id,
+            publicId: order.publicId,
+          })
+        : undefined;
 
       return res.status(201).json({
-        ...order,
+        ...withoutOrderCreationMetadata(order),
         ...(guestTrackingToken ? { guestTrackingToken } : {}),
         ...(guestOwnershipToken ? { guestOwnershipToken } : {}),
+        ...(customerAccess ? { customerAccess } : {}),
       });
     } catch (error: unknown) {
-      return res.status(400).json({
-        error: error instanceof Error ? error.message : 'Erro ao criar pedido',
-      });
+      if (error instanceof OrderRequestError) {
+        return res.status(error.statusCode).json({ error: error.message, code: error.code, requestId: req.requestId });
+      }
+      if (error instanceof ZodError) return res.status(400).json({ error: error.issues[0]?.message || 'Dados do pedido inválidos.', requestId: req.requestId });
+      console.error('[ORDER_CREATION_FAILED]', { requestId: req.requestId, errorType: safeErrorName(error) });
+      return res.status(500).json({ error: 'Não foi possível criar o pedido. Tente novamente.', requestId: req.requestId });
     }
   }
 }

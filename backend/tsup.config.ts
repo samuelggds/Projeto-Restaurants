@@ -1,7 +1,12 @@
 import { defineConfig } from 'tsup';
 
 export default defineConfig({
-  entry: ['src/server.ts', 'src/worker.ts', 'src/bootstrapSuperAdmin.ts'],
+  entry: {
+    server: 'src/server.ts',
+    worker: 'src/worker.ts',
+    bootstrapSuperAdmin: 'src/bootstrapSuperAdmin.ts',
+    'config/prisma': 'src/config/prisma.ts',
+  },
   format: ['esm'],
   outDir: 'dist',
   target: 'es2022',

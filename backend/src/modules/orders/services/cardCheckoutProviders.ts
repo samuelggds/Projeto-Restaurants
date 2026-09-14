@@ -1,4 +1,5 @@
 import Stripe from 'stripe';
+import type { OrderCreationContext } from './orderCreationRequest.js';
 import type { OrderType, PaymentMethod } from '@prisma/client';
 import type { CardProvider } from '../../payments/providers/providerCatalog.js';
 import { CARD_PROVIDERS } from '../../payments/providers/providerCatalog.js';
@@ -8,6 +9,13 @@ import restaurantSettingsRepository from '../../restaurantSettings/repositories/
 import prisma from '../../../config/prisma.js';
 import { withTenantDbContext } from '../../../database/tenantDbContext.js';
 import { matchesOrderPaymentEvidence } from '../utils/paymentEvidence.js';
+import { getPagBankAccessToken } from '../../restaurantSettings/services/RestaurantPaymentCredentialsService.js';
+import {
+  createPagBankCheckout,
+  pagBankCardReference,
+  pagBankApiBaseUrl,
+  pagBankTableReference,
+} from '../../payments/providers/pagBankCheckout.js';
 
 type CheckoutOrder = {
   id: number;
@@ -21,6 +29,7 @@ type CheckoutOrder = {
 };
 
 export type CreateOrderCardCheckoutPayload = {
+  creationRequest?: OrderCreationContext;
   userId?: number | string | null;
   restaurantId?: number | string | null;
   userRestaurantId?: number | string | null;
@@ -71,6 +80,7 @@ type CardCheckoutProviderContext = {
   order: CheckoutOrder;
   successUrlBase: string;
   cancelUrlBase: string;
+  paymentScope?: 'ORDER' | 'TABLE_ACCOUNT';
 };
 
 export type CardCheckoutProviderHandler = {
@@ -111,6 +121,7 @@ type PagBankCredentials = {
   email: string;
   token: string;
   environment: 'production';
+  useConnect: boolean;
 };
 
 type AsaasErrorItem = {
@@ -146,16 +157,23 @@ async function getPagBankCredentials(restaurantId: number): Promise<PagBankCrede
   const globalEmail = String(process.env.PAGBANK_EMAIL || process.env.PAGSEGURO_EMAIL || '').trim();
   const globalToken = String(process.env.PAGBANK_TOKEN || process.env.PAGSEGURO_TOKEN || '').trim();
   const email = settingsEmail || (allowGlobalFallback ? globalEmail : '');
-  const token = settingsToken || (allowGlobalFallback ? globalToken : '');
+  const token = settingsToken
+    ? await getPagBankAccessToken(restaurantId)
+    : allowGlobalFallback
+      ? globalToken
+      : '';
   const environment = resolvePagBankEnvironment();
+  const useConnect = Boolean(
+    settings?.pagbankRefreshToken || settings?.pagbankTokenExpiresAt || !email,
+  );
 
-  if (!email || !token) {
+  if (!token) {
     throw new Error(
       'Pagamento com cartao PagBank indisponivel. Configure email/token PagBank nas configuracoes do restaurante.',
     );
   }
 
-  return { email, token, environment };
+  return { email, token, environment, useConnect };
 }
 
 function resolvePagBankCheckoutApiUrl(environment: 'production') {
@@ -212,6 +230,8 @@ async function fetchAsaasJson<T>(
 ) {
   const response = await fetch(url, {
     method,
+    signal: AbortSignal.timeout(15_000),
+    redirect: 'error',
     headers: {
       'Content-Type': 'application/json',
       access_token: accessToken,
@@ -447,8 +467,10 @@ const mercadoPagoCardCheckoutProvider: CardCheckoutProviderHandler = {
 };
 
 const pagBankCardCheckoutProvider: CardCheckoutProviderHandler = {
-  async createCheckout({ payload, order, successUrlBase }) {
-    const { email, token, environment } = await getPagBankCredentials(order.restaurantId);
+  async createCheckout({ payload, order, successUrlBase, paymentScope }) {
+    const { email, token, environment, useConnect } = await getPagBankCredentials(
+      order.restaurantId,
+    );
 
     const savedMethodId = String(payload.paymentMethodId || '').trim();
     if (savedMethodId) {
@@ -472,11 +494,11 @@ const pagBankCardCheckoutProvider: CardCheckoutProviderHandler = {
           'Cadastre um CPF válido nos seus dados pessoais para pagar com cartão salvo.',
         );
       }
-      const apiBaseUrl = String(process.env.PAGBANK_API_BASE_URL || 'https://api.pagseguro.com')
-        .trim()
-        .replace(/\/+$/, '');
+      const apiBaseUrl = pagBankApiBaseUrl();
       const response = await fetch(`${apiBaseUrl}/orders`, {
         method: 'POST',
+        signal: AbortSignal.timeout(15_000),
+        redirect: 'error',
         headers: {
           Authorization: `Bearer ${token}`,
           'Content-Type': 'application/json',
@@ -566,6 +588,29 @@ const pagBankCardCheckoutProvider: CardCheckoutProviderHandler = {
       };
     }
 
+    if (useConnect) {
+      const checkout = await createPagBankCheckout({
+        restaurantId: order.restaurantId,
+        reference:
+          paymentScope === 'TABLE_ACCOUNT'
+            ? pagBankTableReference(order)
+            : pagBankCardReference(order),
+        amountCents: Math.round(Number(order.total || 0) * 100),
+        title: `Pedido #${order.id}`,
+        redirectUrl: withQueryParam(successUrlBase, {
+          cardCheckoutStatus: 'pending',
+          orderPublicId: order.publicId,
+        }),
+        notificationUrl: resolvePagBankNotificationUrl(order.restaurantId),
+      });
+      return {
+        provider: CARD_PROVIDERS.PAGBANK,
+        sessionId: checkout.id,
+        persistenceSessionId: `pagbank_checkout:${checkout.id}`,
+        checkoutUrl: checkout.checkoutUrl,
+      };
+    }
+
     const params = new URLSearchParams();
     params.set('email', email);
     params.set('token', token);
@@ -590,6 +635,8 @@ const pagBankCardCheckoutProvider: CardCheckoutProviderHandler = {
 
     const response = await fetch(resolvePagBankCheckoutApiUrl(environment), {
       method: 'POST',
+      signal: AbortSignal.timeout(15_000),
+      redirect: 'error',
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
       },
@@ -705,8 +752,8 @@ const asaasCardCheckoutProvider: CardCheckoutProviderHandler = {
     const cpf = String(payload.customerCpf || '').replace(/\D/g, '');
     const normalizedEmail =
       String(payload.customerName || '').trim() && payload.customerCpf
-        ? `guest.card.${order.restaurantId}.${Date.now()}@pecaja.local`
-        : `guest.card.${order.restaurantId}.${Date.now()}@pecaja.local`;
+        ? `guest.card.${order.restaurantId}.${Date.now()}@gastronexa.local`
+        : `guest.card.${order.restaurantId}.${Date.now()}@gastronexa.local`;
 
     const customerResult = await fetchAsaasJson<AsaasCustomerPayload>(
       `${asaasBaseUrl}/v3/customers`,

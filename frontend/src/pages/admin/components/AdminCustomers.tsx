@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   CircleOff,
   RefreshCcw,
@@ -10,7 +10,7 @@ import {
 } from 'lucide-react';
 import * as S from './AdminPeople.styles';
 import type { AdminOrder } from '../types';
-import { filterCustomerSummaries, summarizeCustomers } from '../domain/adminOverview';
+import ordersService, { type OrderCustomersPage } from '../../../Services/ordersService';
 
 type AdminCustomersProps = {
   orders: AdminOrder[];
@@ -36,32 +36,43 @@ function getInitials(name: string) {
 export function AdminCustomers({ orders, money }: AdminCustomersProps) {
   const [search, setSearch] = useState('');
   const [sort, setSort] = useState<CustomerSort>('VALUE');
-  const [visibleLimit, setVisibleLimit] = useState(CUSTOMER_BATCH_SIZE);
-  const customers = useMemo(() => summarizeCustomers(orders), [orders]);
-  const visibleCustomers = useMemo(() => {
-    const filtered = filterCustomerSummaries(customers, search);
-    return [...filtered].sort((left, right) => {
-      if (sort === 'NAME') return left.name.localeCompare(right.name, 'pt-BR');
-      if (sort === 'ORDERS') return right.count - left.count || right.total - left.total;
-      return right.total - left.total || right.count - left.count;
-    });
-  }, [customers, search, sort]);
-  const displayedCustomers = visibleCustomers.slice(0, visibleLimit);
-  const totalOrders = useMemo(
-    () => customers.reduce((total, customer) => total + customer.count, 0),
-    [customers],
-  );
-  const totalMoved = useMemo(
-    () => customers.reduce((total, customer) => total + customer.total, 0),
-    [customers],
-  );
-  const returningCustomers = useMemo(
-    () => customers.filter((customer) => customer.count > 1).length,
-    [customers],
-  );
-  const returnRate = customers.length
-    ? Math.round((returningCustomers / customers.length) * 100)
-    : 0;
+  const [page, setPage] = useState<OrderCustomersPage>({ customers: [], total: 0, hasMore: false, nextOffset: null,
+    summary: { customers: 0, returningCustomers: 0, totalOrders: 0, totalMoved: 0 } });
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [retry, setRetry] = useState(0);
+  const version = useRef(0);
+  const busy = useRef(false);
+  useEffect(() => {
+    const requestId = ++version.current;
+    const timeout = window.setTimeout(() => {
+      busy.current = true;
+      setLoading(true);
+      setError('');
+      ordersService.getCustomers({ limit: CUSTOMER_BATCH_SIZE, search: search.trim(), sort }).then((result) => {
+        if (requestId === version.current) setPage(result);
+      }).catch(() => { if (requestId === version.current) setError('Não foi possível carregar os clientes.'); })
+        .finally(() => { if (requestId === version.current) { setLoading(false); busy.current = false; } });
+    }, 250);
+    return () => { window.clearTimeout(timeout); version.current += 1; busy.current = false; };
+  }, [search, sort, orders, retry]);
+  const loadMore = async () => {
+    if (busy.current || !page.hasMore || page.nextOffset === null) return;
+    const requestId = ++version.current;
+    busy.current = true;
+    setLoading(true);
+    setError('');
+    try {
+      const next = await ordersService.getCustomers({ limit: CUSTOMER_BATCH_SIZE, offset: page.nextOffset, search: search.trim(), sort });
+      if (requestId === version.current) setPage((current) => ({ ...next,
+        customers: [...new Map([...current.customers, ...next.customers].map((customer) => [customer.key, customer])).values()] }));
+    } catch { if (requestId === version.current) setError('Não foi possível carregar mais clientes.'); }
+    finally { if (requestId === version.current) { setLoading(false); busy.current = false; } }
+  };
+  const displayedCustomers = page.customers;
+  const customerCount = page.summary.customers;
+  const { totalOrders, totalMoved, returningCustomers } = page.summary;
+  const returnRate = customerCount ? Math.round((returningCustomers / customerCount) * 100) : 0;
 
   return (
     <S.PeopleWorkspace>
@@ -71,7 +82,7 @@ export function AdminCustomers({ orders, money }: AdminCustomersProps) {
             <Sparkles aria-hidden="true" /> Relacionamento com clientes
           </span>
           <h2 id="customers-hero-title">
-            {customers.length
+            {customerCount
               ? 'Conheça quem movimenta seu restaurante'
               : 'Sua base de clientes começa no primeiro pedido'}
           </h2>
@@ -81,8 +92,8 @@ export function AdminCustomers({ orders, money }: AdminCustomersProps) {
           </p>
           <div className="hero-status" aria-label="Resumo da base de clientes">
             <span>
-              <Users aria-hidden="true" /> {customers.length}{' '}
-              {customers.length === 1 ? 'cliente identificado' : 'clientes identificados'}
+              <Users aria-hidden="true" /> {customerCount}{' '}
+              {customerCount === 1 ? 'cliente identificado' : 'clientes identificados'}
             </span>
             <span>
               <RefreshCcw aria-hidden="true" /> {returningCustomers}{' '}
@@ -108,7 +119,7 @@ export function AdminCustomers({ orders, money }: AdminCustomersProps) {
           </span>
           <span className="metric-copy">
             <small>Clientes identificados</small>
-            <strong>{customers.length}</strong>
+            <strong>{customerCount}</strong>
             <em>Com pedidos no histórico</em>
           </span>
         </S.PeopleMetric>
@@ -170,7 +181,7 @@ export function AdminCustomers({ orders, money }: AdminCustomersProps) {
                 value={search}
                 onChange={(event) => {
                   setSearch(event.target.value);
-                  setVisibleLimit(CUSTOMER_BATCH_SIZE);
+
                 }}
                 placeholder="Buscar cliente"
               />
@@ -183,7 +194,7 @@ export function AdminCustomers({ orders, money }: AdminCustomersProps) {
               value={sort}
               onChange={(event) => {
                 setSort(event.target.value as CustomerSort);
-                setVisibleLimit(CUSTOMER_BATCH_SIZE);
+
               }}
             >
               <option value="VALUE">Maior valor</option>
@@ -192,11 +203,13 @@ export function AdminCustomers({ orders, money }: AdminCustomersProps) {
             </select>
           </label>
           <S.ResultCount aria-live="polite">
-            {visibleCustomers.length}{' '}
-            {visibleCustomers.length === 1 ? 'cliente encontrado' : 'clientes encontrados'}
+            {page.total}{' '}
+            {page.total === 1 ? 'cliente encontrado' : 'clientes encontrados'}
           </S.ResultCount>
         </S.DirectoryToolbar>
 
+        {error && <p role="alert">{error}</p>}
+        {loading && <p role="status">Carregando clientes...</p>}
         {displayedCustomers.length ? (
           <S.PeopleList aria-label="Lista de clientes">
             {displayedCustomers.map((customer) => (
@@ -224,10 +237,10 @@ export function AdminCustomers({ orders, money }: AdminCustomersProps) {
             <div>
               <CircleOff aria-hidden="true" />
               <strong>
-                {customers.length ? 'Nenhum cliente encontrado' : 'Ainda não há clientes'}
+                {customerCount ? 'Nenhum cliente encontrado' : 'Ainda não há clientes'}
               </strong>
               <span>
-                {customers.length
+                {customerCount
                   ? 'Tente buscar por outro nome ou e-mail.'
                   : 'Os clientes aparecerão aqui assim que os primeiros pedidos forem registrados.'}
               </span>
@@ -235,10 +248,11 @@ export function AdminCustomers({ orders, money }: AdminCustomersProps) {
           </S.EmptyState>
         )}
 
-        {visibleLimit < visibleCustomers.length && (
+        {(page.hasMore || error) && (
           <S.LoadMoreButton
             type="button"
-            onClick={() => setVisibleLimit((current) => current + CUSTOMER_BATCH_SIZE)}
+            disabled={loading}
+            onClick={() => void (error && !page.hasMore ? setRetry((current) => current + 1) : loadMore())}
           >
             Mostrar mais clientes
           </S.LoadMoreButton>

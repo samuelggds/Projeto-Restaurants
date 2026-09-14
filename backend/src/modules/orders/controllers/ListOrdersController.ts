@@ -1,31 +1,15 @@
 import { Request, Response } from 'express';
-import listOrdersService from '../services/ListOrdersService.js';
-import { OrderStatus } from '@prisma/client';
+import paginatedOrdersService from '../services/PaginatedOrdersService.js';
+import { parseOrderListQuery } from '../domain/orderListQuery.js';
+import { OrderRequestError } from '../domain/OrderRequestError.js';
 
 class ListOrdersController {
   async handle(req: Request, res: Response) {
     try {
-      const status = Array.isArray(req.query.status) ? req.query.status[0] : req.query.status;
-      const normalizedStatus = status ? (String(status).toUpperCase() as OrderStatus) : undefined;
-
-      if (normalizedStatus && !Object.values(OrderStatus).includes(normalizedStatus)) {
-        return res.status(400).json({ error: 'Status de pedido inválido.' });
-      }
-
-      const restaurantId = req.user.restaurantId;
-
-      const orders = await listOrdersService.execute(
-        restaurantId,
-        normalizedStatus,
-        req.user.role,
-        req.user.id,
-        req.user.subRole,
-      );
-
-      return res.json(orders);
+      return res.json(await paginatedOrdersService.staff(req.user, parseOrderListQuery(req.query)));
     } catch (error: unknown) {
-      return res.status(400).json({
-        error: error instanceof Error ? error.message : 'Erro ao listar pedidos',
+      return res.status(error instanceof OrderRequestError ? error.statusCode : 500).json({
+        error: error instanceof OrderRequestError ? error.message : 'Erro ao listar pedidos.',
       });
     }
   }

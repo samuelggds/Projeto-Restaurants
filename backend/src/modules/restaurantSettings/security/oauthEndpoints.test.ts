@@ -83,3 +83,41 @@ test('sandbox oficial do PagBank é permitido fora de produção sem liberar hos
     'https://sandbox.api.pagseguro.com',
   );
 });
+
+test('PagBank usa um único endpoint validado para OAuth, checkout, Pix e estorno', () => {
+  assert.equal(
+    resolveOAuthEndpoint('PAGBANK_API', {
+      NODE_ENV: 'test',
+      PAGBANK_API_BASE_URL: 'https://sandbox.api.pagseguro.com/',
+    }),
+    'https://sandbox.api.pagseguro.com',
+  );
+  assert.equal(
+    resolveOAuthEndpoint('PAGBANK_API', {
+      NODE_ENV: 'production',
+      PAGBANK_CONNECT_API_URL: 'https://api.pagseguro.com/',
+      PAGBANK_API_BASE_URL: 'https://api.pagseguro.com',
+    }),
+    'https://api.pagseguro.com',
+  );
+  assert.throws(
+    () =>
+      validateConfiguredOAuthEndpoints({
+        NODE_ENV: 'test',
+        PAGBANK_CONNECT_API_URL: 'https://api.pagseguro.com',
+        PAGBANK_API_BASE_URL: 'https://sandbox.api.pagseguro.com',
+      }),
+    /mesmo ambiente/,
+  );
+  for (const url of ['https://attacker.example', 'https://sandbox.api.pagseguro.com']) {
+    assert.throws(
+      () =>
+        resolveOAuthEndpoint('PAGBANK_API', {
+          NODE_ENV: 'production',
+          PAGBANK_API_BASE_URL: url,
+          ALLOW_UNTRUSTED_OAUTH_ENDPOINTS: 'true',
+        }),
+      /endpoint oficial.*producao/,
+    );
+  }
+});

@@ -1,6 +1,8 @@
 import type { Socket } from 'socket.io';
 import { OrderStatus, OrderType, UserRole } from '@prisma/client';
 import prisma from '../config/prisma.js';
+import { realtimePublisher } from '../realtime/realtimePublisher.js';
+import { distributedStateEnabled } from '../runtime/distributedConfig.js';
 import {
   canSendSupportChat,
   getSupportChatRecipientRooms,
@@ -330,8 +332,11 @@ export function socketHandler(socket: AppSocket) {
 
       // A localização é privada: somente o cliente dono do pedido e os admins
       // do mesmo restaurante recebem a posição em tempo real.
-      socket.to(`user:${order.userId}`).emit('order:delivery-location', payload);
-      socket.to(`restaurant:${order.restaurantId}:admin`).emit('order:delivery-location', payload);
+      const publisher = distributedStateEnabled() ? realtimePublisher : socket;
+      publisher.to(`user:${order.userId}`).emit('order:delivery-location', payload);
+      publisher
+        .to(`restaurant:${order.restaurantId}:admin`)
+        .emit('order:delivery-location', payload);
 
       reply({ ok: true });
     } catch (error) {
@@ -549,11 +554,12 @@ export function socketHandler(socket: AppSocket) {
       sentAt: savedMessage.sentAt?.toISOString?.() || new Date().toISOString(),
     };
 
-    socket.to(`user:${id}`).emit('support:chat-message', payload);
-    socket.emit('support:chat-message', payload);
+    const publisher = distributedStateEnabled() ? realtimePublisher : socket;
+    publisher.to(`user:${id}`).emit('support:chat-message', payload);
+    if (!distributedStateEnabled()) socket.emit('support:chat-message', payload);
 
     for (const room of getSupportChatRecipientRooms(normalizedRole, targetRestaurantId)) {
-      socket.to(room).emit('support:chat-message', payload);
+      publisher.to(room).emit('support:chat-message', payload);
     }
     reply({ ok: true });
   });

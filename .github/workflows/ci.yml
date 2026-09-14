@@ -6,9 +6,12 @@ on:
   pull_request:
     branches: [main, master, develop, development]
 
+permissions:
+  contents: read
+
 # Cancel previous runs on the same branch to avoid wasted minutes
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -16,8 +19,10 @@ jobs:
     name: Formatting and architecture
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 22
           cache: npm
@@ -30,21 +35,30 @@ jobs:
       - run: npm --prefix print-agent ci
       - name: Check architecture constraints
         run: npm run check:architecture
+      - name: Check resolved production deployment isolation
+        run: node scripts/verifyProductionCompose.mjs
+
+      - name: Check production CSP and embedded preview isolation
+        shell: bash
+        run: |
+          docker pull caddy:2.11.4-alpine
+          caddy_container=$(docker create caddy:2.11.4-alpine)
+          trap 'docker rm "$caddy_container" >/dev/null' EXIT
+          docker cp "$caddy_container:/usr/bin/caddy" "$RUNNER_TEMP/caddy"
+          CADDY_BIN="$RUNNER_TEMP/caddy" node scripts/verifyFrontendHeaders.mjs
 
       - name: Check operational script catalog and guards
         run: npm run check:scripts
 
-  # ─────────────────────────────────────────────
-  # 1. LINT — ESLint with zero warnings allowed
-  # ─────────────────────────────────────────────
   lint:
     name: Lint
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
       - name: Setup Node.js 22
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 22
           cache: npm
@@ -52,22 +66,15 @@ jobs:
             backend/package-lock.json
             frontend/package-lock.json
             print-agent/package-lock.json
-
       - name: Install backend dependencies
         run: npm --prefix backend ci
-
       - name: Install frontend dependencies
         run: npm --prefix frontend ci
-
       - name: Install Print Agent dependencies
         run: npm --prefix print-agent ci
-
       - name: ESLint backend and frontend (fail on warnings)
         run: npm run lint
 
-  # ─────────────────────────────────────────────
-  # 2. TYPE CHECK — tsc --noEmit (backend + frontend)
-  # ─────────────────────────────────────────────
   typecheck:
     name: Type Check
     runs-on: ubuntu-latest
@@ -86,10 +93,11 @@ jobs:
           --health-timeout 5s
           --health-retries 10
     steps:
-      - uses: actions/checkout@v4
-
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
       - name: Setup Node.js 22
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 22
           cache: npm
@@ -97,53 +105,38 @@ jobs:
             backend/package-lock.json
             frontend/package-lock.json
             print-agent/package-lock.json
-
       - name: Install backend dependencies
         run: npm --prefix backend ci
-
       - name: Install frontend dependencies
         run: npm --prefix frontend ci
-
       - name: Install Print Agent dependencies
         run: npm --prefix print-agent ci
-
       - name: Typecheck backend
         run: npm --prefix backend run typecheck
-
       - name: Validate Prisma schema
         working-directory: backend
         env:
           DATABASE_URL: postgresql://postgres:postgres@localhost:5432/ci_validation
         run: npx prisma validate
-
       - name: Apply migrations on a clean database
         working-directory: backend
         env:
           DATABASE_URL: postgresql://postgres:postgres@localhost:5432/ci_validation
         run: npx prisma migrate deploy
-
       - name: Typecheck frontend
         run: npm --prefix frontend run typecheck
-
       - name: Typecheck Print Agent
         run: npm --prefix print-agent run typecheck
 
-  # ─────────────────────────────────────────────
-  # 3. TESTS — regras e contratos na camada mais baixa possível
-  # ─────────────────────────────────────────────
   test:
     name: Tests
     runs-on: ubuntu-latest
-    # Inject required secrets as env vars for integration tests.
-    # Add repository secrets (Settings > Secrets) and reference them here:
-    # env:
-    #   DATABASE_URL: ${{ secrets.DATABASE_URL }}
-    #   JWT_SECRET: ${{ secrets.JWT_SECRET }}
     steps:
-      - uses: actions/checkout@v4
-
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
       - name: Setup Node.js 22
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 22
           cache: npm
@@ -151,51 +144,41 @@ jobs:
             backend/package-lock.json
             frontend/package-lock.json
             print-agent/package-lock.json
-
       - name: Install backend dependencies
         run: npm --prefix backend ci
-
       - name: Install frontend dependencies
         run: npm --prefix frontend ci
-
       - name: Install Print Agent dependencies
         run: npm --prefix print-agent ci
-
       - name: Run all discovered backend tests
         shell: bash
         run: |
           set -o pipefail
           npm --prefix backend test 2>&1 | tee backend-test.log
-
       - name: Upload backend test log on failure
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: backend-test-log
           path: backend-test.log
           if-no-files-found: error
           retention-days: 3
-
       - name: Run frontend tests with coverage thresholds
         shell: bash
         run: |
           set -o pipefail
           npm --prefix frontend run test:coverage 2>&1 | tee frontend-test.log
-
       - name: Upload frontend coverage log on failure
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: frontend-test-log
           path: frontend-test.log
           if-no-files-found: error
           retention-days: 3
-
       - name: Run Print Agent tests without hardware
         run: npm --prefix print-agent test
 
-  # Banco limpo + servidor Express/Socket.IO real. Este job não usa o banco
-  # compartilhado de desenvolvimento e falha diante de qualquer vazamento A -> B.
   multitenant-security-e2e:
     name: Multi-tenant security E2E
     runs-on: ubuntu-latest
@@ -217,23 +200,20 @@ jobs:
     env:
       TENANT_E2E_OWNER_DATABASE_URL: postgresql://tenant_e2e_owner:tenant-e2e-owner-password@127.0.0.1:5432/tenant_e2e?schema=public
     steps:
-      - uses: actions/checkout@v4
-
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
       - name: Setup Node.js 22
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 22
           cache: npm
           cache-dependency-path: backend/package-lock.json
-
       - name: Install backend dependencies
         run: npm --prefix backend ci
-
       - name: Apply migrations and run real tenant isolation suite
         run: npm run test:e2e:tenant
 
-  # Gate dedicado às policies do PostgreSQL. Mantê-lo separado impede que
-  # regressões de RLS fiquem escondidas por uma suíte multi-tenant mais ampla.
   rls-security-e2e:
     name: PostgreSQL RLS security E2E
     runs-on: ubuntu-latest
@@ -255,57 +235,64 @@ jobs:
     env:
       TENANT_E2E_OWNER_DATABASE_URL: postgresql://tenant_e2e_owner:tenant-e2e-owner-password@127.0.0.1:5432/tenant_e2e?schema=public
     steps:
-      - uses: actions/checkout@v4
-
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
       - name: Setup Node.js 22
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 22
           cache: npm
           cache-dependency-path: backend/package-lock.json
-
       - name: Install backend dependencies
         run: npm --prefix backend ci
-
       - name: Apply migrations and run PostgreSQL RLS suite
         run: npm run test:e2e:rls
 
-  # Somente jornadas que atravessam várias telas permanecem no E2E obrigatório.
   e2e-critical:
     name: Critical E2E journeys
     runs-on: ubuntu-latest
     needs: [test]
     steps:
-      - uses: actions/checkout@v4
-
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
       - name: Setup Node.js 22
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 22
           cache: npm
           cache-dependency-path: frontend/package-lock.json
-
       - name: Install frontend dependencies
         run: npm --prefix frontend ci
-
       - name: Install Chromium
         working-directory: frontend
         run: npx playwright install --with-deps chromium
-
       - name: Run critical E2E journeys
-        run: npm --prefix frontend run test:e2e:critical
+        shell: bash
+        run: |
+          set -o pipefail
+          npm --prefix frontend run test:e2e:critical 2>&1 | tee critical-e2e.log
+      - name: Upload critical E2E diagnostics
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: critical-e2e-diagnostics
+          path: |
+            critical-e2e.log
+            frontend/test-results/
+          if-no-files-found: warn
+          retention-days: 3
 
-  # ─────────────────────────────────────────────
-  # 4. SECURITY AUDIT — npm audit (high+)
-  # ─────────────────────────────────────────────
   audit:
     name: Security Audit
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
       - name: Setup Node.js 22
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 22
           cache: npm
@@ -313,28 +300,16 @@ jobs:
             backend/package-lock.json
             frontend/package-lock.json
             print-agent/package-lock.json
-
-      - name: Install backend dependencies
-        run: npm --prefix backend ci
-
-      - name: Install frontend dependencies
-        run: npm --prefix frontend ci
-
-      - name: Install Print Agent dependencies
-        run: npm --prefix print-agent ci
-
+      - run: npm --prefix backend ci
+      - run: npm --prefix frontend ci
+      - run: npm --prefix print-agent ci
       - name: Audit backend packages
         run: npm --prefix backend audit --audit-level=high
-
       - name: Audit frontend packages
         run: npm --prefix frontend audit --audit-level=high
-
       - name: Audit Print Agent packages
         run: npm --prefix print-agent audit --audit-level=high
 
-  # ─────────────────────────────────────────────
-  # 5. BUILD — vite build + tsup (only after all checks pass)
-  # ─────────────────────────────────────────────
   build:
     name: Build
     runs-on: ubuntu-latest
@@ -350,10 +325,11 @@ jobs:
         audit,
       ]
     steps:
-      - uses: actions/checkout@v4
-
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
       - name: Setup Node.js 22
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 22
           cache: npm
@@ -361,25 +337,15 @@ jobs:
             backend/package-lock.json
             frontend/package-lock.json
             print-agent/package-lock.json
-
-      - name: Install backend dependencies
-        run: npm --prefix backend ci
-
-      - name: Install frontend dependencies
-        run: npm --prefix frontend ci
-
-      - name: Install Print Agent dependencies
-        run: npm --prefix print-agent ci
-
+      - run: npm --prefix backend ci
+      - run: npm --prefix frontend ci
+      - run: npm --prefix print-agent ci
       - name: Build backend (tsup)
         run: npm --prefix backend run build
-
       - name: Build frontend (Vite)
         run: npm --prefix frontend run build
-
       - name: Lint and build Print Agent
         run: npm --prefix print-agent run lint && npm --prefix print-agent run build
-
       - name: Enforce frontend bundle budget
         run: npm run check:bundle
 
@@ -407,11 +373,9 @@ jobs:
           const unsuccessful = Object.entries(jobs)
             .filter(([, job]) => job.result !== 'success')
             .map(([name, job]) => `${name}: ${job.result}`);
-
           if (unsuccessful.length > 0) {
             console.error(`Required CI gates did not pass:\n${unsuccessful.join('\n')}`);
             process.exit(1);
           }
-
           console.log('All required CI gates passed.');
           NODE

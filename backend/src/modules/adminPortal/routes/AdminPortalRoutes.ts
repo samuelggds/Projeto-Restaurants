@@ -1,6 +1,7 @@
 import type { Request } from 'express';
 import { Router } from 'express';
 import rateLimit, { ipKeyGenerator } from 'express-rate-limit';
+import { distributedRateLimitOptions } from '../../../middlewares/security/PostgresRateLimitStore.js';
 import AdminPortalController from '../controllers/AdminPortalController.js';
 
 const router = Router();
@@ -15,6 +16,7 @@ export function adminPortalRateLimitKey(req: Request) {
 }
 
 export const exchangeLimiter = rateLimit({
+  ...distributedRateLimitOptions('admin-portal-exchange'),
   windowMs: 15 * 60 * 1000,
   max: 12,
   skipSuccessfulRequests: true,
@@ -25,6 +27,7 @@ export const exchangeLimiter = rateLimit({
 });
 
 export const verifyLimiter = rateLimit({
+  ...distributedRateLimitOptions('admin-portal-verify'),
   windowMs: 15 * 60 * 1000,
   max: 60,
   skipSuccessfulRequests: true,

@@ -7,6 +7,7 @@ import { consumeSingleUseOAuthState, createSingleUseOAuthState } from './oauthSt
 
 const originalUpsert = prisma.oAuthAuthorizationState.upsert;
 const originalUpdateMany = prisma.oAuthAuthorizationState.updateMany;
+const originalFindUnique = prisma.oAuthAuthorizationState.findUnique;
 const originalUserFindFirst = prisma.user.findFirst;
 const originalJwtSecret = process.env.JWT_SECRET;
 const states = new Map();
@@ -15,6 +16,7 @@ const users = new Map();
 afterEach(() => {
   prisma.oAuthAuthorizationState.upsert = originalUpsert;
   prisma.oAuthAuthorizationState.updateMany = originalUpdateMany;
+  prisma.oAuthAuthorizationState.findUnique = originalFindUnique;
   prisma.user.findFirst = originalUserFindFirst;
   process.env.JWT_SECRET = originalJwtSecret;
   states.clear();
@@ -47,6 +49,8 @@ function installStateStore() {
     states.set(key, next);
     return next;
   };
+  prisma.oAuthAuthorizationState.findUnique = async ({ where }) =>
+    [...states.values()].find((entry) => entry.nonceHash === where.nonceHash) || null;
   prisma.oAuthAuthorizationState.updateMany = async ({ where, data }) => {
     const key = `${where.provider}:${where.userId}`;
     const current = states.get(key);
@@ -80,6 +84,9 @@ test('state OAuth só pode ser consumido uma vez', async () => {
     userId: 11,
   });
 
+  assert.match(state, /^[a-f0-9]{64}$/);
+  assert.notEqual(states.get('MERCADO_PAGO:11').nonceHash, state);
+
   assert.deepEqual(await consumeSingleUseOAuthState(state, 'MERCADO_PAGO'), {
     restaurantId: 7,
     userId: 11,
@@ -89,6 +96,37 @@ test('state OAuth só pode ser consumido uma vez', async () => {
     () => consumeSingleUseOAuthState(state, 'MERCADO_PAGO'),
     /reutilizado|substituído/,
   );
+});
+
+test('state opaco rejeita alteração, expiração e comprimento incompatível', async () => {
+  installStateStore();
+  setUser({ id: 7, restaurantId: 2 });
+  const state = await createSingleUseOAuthState({
+    provider: 'PAGBANK',
+    restaurantId: 2,
+    userId: 7,
+  });
+  await assert.rejects(() => consumeSingleUseOAuthState('x'.repeat(129), 'PAGBANK'), /inválido/);
+  const modified = `${state[0] === 'a' ? 'b' : 'a'}${state.slice(1)}`;
+  await assert.rejects(() => consumeSingleUseOAuthState(modified, 'PAGBANK'), /substituído/);
+  states.get('PAGBANK:7').expiresAt = new Date(0);
+  await assert.rejects(() => consumeSingleUseOAuthState(state, 'PAGBANK'), /expirado/);
+  assert.equal(states.get('PAGBANK:7').consumedAt, null);
+});
+
+test('callbacks concorrentes não consomem o mesmo state duas vezes', async () => {
+  installStateStore();
+  setUser({ id: 7, restaurantId: 2 });
+  const state = await createSingleUseOAuthState({
+    provider: 'MERCADO_PAGO',
+    restaurantId: 2,
+    userId: 7,
+  });
+  const results = await Promise.allSettled([
+    consumeSingleUseOAuthState(state, 'MERCADO_PAGO'),
+    consumeSingleUseOAuthState(state, 'MERCADO_PAGO'),
+  ]);
+  assert.equal(results.filter((result) => result.status === 'fulfilled').length, 1);
 });
 
 test('novo início OAuth invalida state anterior do mesmo usuário/provedor', async () => {

@@ -1,3 +1,4 @@
+import { PaymentMethod } from '@prisma/client';
 import { realtimePublisher as io } from '../../../realtime/realtimePublisher.js';
 import prisma from '../../../config/prisma.js';
 import orderRepository from '../repositories/OrderRepository.js';
@@ -17,9 +18,12 @@ class ConfirmOrderPaymentService {
       throw new Error('Pedido não encontrado!');
     }
 
-    if (order.payOnDelivery !== true || !order.paymentMethod) {
+    if (
+      order.payOnDelivery !== true ||
+      order.paymentMethod !== PaymentMethod.DINHEIRO
+    ) {
       throw new Error(
-        'A confirmação manual está disponível apenas para pedidos com pagamento na entrega.',
+        'A confirmação manual é exclusiva para recebimento em dinheiro na entrega. PIX e cartão devem ser confirmados pelo provedor.',
       );
     }
 

@@ -6,7 +6,6 @@ import {
   type EmployeeHelpRole,
 } from './employeeHelpGuides';
 import { EmployeeHelpPreview } from './EmployeeHelpPreview';
-import { employeeHelpCallouts } from './employeeHelpCallouts';
 import type { EmployeeIssueReport } from './reportEmployeeIssue';
 import { useEmployeeIssueNotifications } from './useEmployeeIssueNotifications';
 import * as S from './EmployeeHelpCenter.styles';
@@ -14,10 +13,11 @@ import * as S from './EmployeeHelpCenter.styles';
 type Props = {
   role: EmployeeHelpRole;
   onReport: (payload: EmployeeIssueReport) => Promise<void>;
+  notificationsEnabled?: boolean;
 };
 
-export function EmployeeHelpCenter({ role, onReport }: Props) {
-  useEmployeeIssueNotifications();
+export function EmployeeHelpCenter({ role, onReport, notificationsEnabled = true }: Props) {
+  useEmployeeIssueNotifications(notificationsEnabled);
   const guides = getEmployeeHelpGuides(role);
   const [openGuide, setOpenGuide] = useState(guides[0]?.id);
   const [reporterName, setReporterName] = useState('');
@@ -94,7 +94,7 @@ export function EmployeeHelpCenter({ role, onReport }: Props) {
               <span>
                 <strong>{guide.title}</strong>
                 <small>
-                  {guide.area} · {employeeHelpCallouts[guide.preview].length} itens explicados
+                  {guide.area} · {guide.steps.length} passos
                 </small>
               </span>
               <ChevronDown
@@ -105,33 +105,15 @@ export function EmployeeHelpCenter({ role, onReport }: Props) {
             </S.GuideButton>
             {open && (
               <S.GuideContent>
-                <S.Steps aria-label="Legenda numerada da prévia">
-                  {employeeHelpCallouts[guide.preview].map((callout, index) => (
-                    <li key={callout.label}>
+                <S.Steps aria-label="Passo a passo da área">
+                  {guide.steps.map((step, index) => (
+                    <li key={step}>
                       <b>{index + 1}</b>
-                      <span>{callout.description}</span>
+                      <span>{step}</span>
                     </li>
                   ))}
                 </S.Steps>
-                <S.Preview>
-                  <aside className="side">
-                    <div className="brand">PAINEL OPERACIONAL</div>
-                    {guide.sidebarItems.map((item) => {
-                      const active = item === (guide.sidebarActiveItem ?? guide.title);
-
-                      return (
-                        <span
-                          className={active ? 'active' : ''}
-                          key={item}
-                          data-marker={active ? 1 : undefined}
-                        >
-                          {item}
-                        </span>
-                      );
-                    })}
-                  </aside>
-                  <EmployeeHelpPreview guide={guide} />
-                </S.Preview>
+                <EmployeeHelpPreview guide={guide} />
               </S.GuideContent>
             )}
           </S.Guide>

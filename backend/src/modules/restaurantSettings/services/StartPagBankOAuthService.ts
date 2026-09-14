@@ -1,5 +1,6 @@
 import { createSingleUseOAuthState } from '../security/oauthState.js';
 import { resolveOAuthEndpoint } from '../security/oauthEndpoints.js';
+import { paymentConnectionConfiguration } from './GetPaymentConnectionsService.js';
 
 type Payload = { restaurantId: number | string; userId: number | string };
 
@@ -12,8 +13,10 @@ class StartPagBankOAuthService {
     if (!normalizedRestaurantId || !normalizedUserId) {
       throw new Error('Restaurante ou administrador inválido para conectar PagBank.');
     }
-    if (!clientId) {
-      throw new Error('PAGBANK_CONNECT_CLIENT_ID não configurado no backend.');
+    if (!clientId || !paymentConnectionConfiguration('PAGBANK')) {
+      throw new Error(
+        'A conexão com PagBank está sendo preparada pela plataforma. Tente novamente após a configuração.',
+      );
     }
 
     const backendUrl = String(

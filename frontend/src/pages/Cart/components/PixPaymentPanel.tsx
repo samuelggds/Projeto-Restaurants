@@ -12,12 +12,17 @@ import {
 } from 'lucide-react';
 import QRCode from 'react-qr-code';
 import type { PixPaymentData, PixPaymentStatus } from '../../Home/hooks/useCheckoutPayments';
+import {
+  PaymentResultView,
+  type PaymentResultStatus,
+} from '../../../components/payment/PaymentResultView';
 
 type Props = {
   pixPaymentData: PixPaymentData;
   paymentStatus: PixPaymentStatus;
   paymentError: string | null;
   primaryColor?: string;
+  restaurantName?: string;
   formatCurrency: (value: number) => string;
   onCopyPixKey: () => void | Promise<void>;
   onVerify: () => void | Promise<unknown>;
@@ -36,24 +41,46 @@ const statusCopy: Record<
     tone: 'waiting',
   },
   VERIFYING: {
-    title: 'Verificando com o provedor',
-    description: 'Estamos consultando o pagamento. Isso não confirma o recebimento ainda.',
+    title: 'Verificando pagamento',
+    description:
+      'Estamos conferindo seu Pix. A confirmação aparecerá aqui assim que estiver disponível.',
     tone: 'checking',
   },
   PENDING: {
     title: 'Pagamento ainda pendente',
-    description: 'O backend consultou o provedor, mas o recebimento ainda não foi confirmado.',
+    description: 'Ainda aguardamos a confirmação do seu banco. Se já pagou, aguarde um instante.',
     tone: 'pending',
   },
   PAID: {
     title: 'Pagamento confirmado',
-    description: 'O backend confirmou o recebimento e o pedido foi liberado ao restaurante.',
+    description: 'Seu Pix foi recebido. O restaurante já pode dar continuidade ao pedido.',
     tone: 'success',
   },
   ERROR: {
-    title: 'Não foi possível confirmar',
-    description: 'O pedido continua sem confirmação. Aguarde um instante e verifique novamente.',
+    title: 'Não foi possível verificar',
+    description:
+      'A consulta está indisponível. Se já pagou, verifique novamente antes de fazer outro Pix.',
+    tone: 'pending',
+  },
+  FAILED: {
+    title: 'Pagamento não concluído',
+    description: 'O Pix não foi aprovado.',
     tone: 'error',
+  },
+  CANCELED: {
+    title: 'Pagamento não concluído',
+    description: 'Este Pix foi cancelado.',
+    tone: 'error',
+  },
+  EXPIRED: {
+    title: 'Prazo do Pix encerrado',
+    description: 'Este código não está mais disponível para pagamento.',
+    tone: 'pending',
+  },
+  REFUNDED: {
+    title: 'Pagamento estornado',
+    description: 'O estorno deste Pix foi registrado.',
+    tone: 'pending',
   },
 };
 
@@ -346,6 +373,7 @@ export default function PixPaymentPanel({
   paymentStatus,
   paymentError,
   primaryColor = '#bd4b1d',
+  restaurantName,
   formatCurrency,
   onCopyPixKey,
   onVerify,
@@ -357,6 +385,7 @@ export default function PixPaymentPanel({
     paymentStatus === 'PAID' && pixPaymentData.paid !== true ? 'ERROR' : paymentStatus;
   const content = statusCopy[resolvedStatus];
   const confirmed = resolvedStatus === 'PAID';
+  const terminal = ['PAID', 'FAILED', 'CANCELED', 'EXPIRED', 'REFUNDED'].includes(resolvedStatus);
 
   useEffect(
     () => () => {
@@ -374,6 +403,22 @@ export default function PixPaymentPanel({
     } catch {
       setCopied(false);
     }
+  }
+
+  if (terminal) {
+    return (
+      <PaymentResultView
+        status={resolvedStatus as PaymentResultStatus}
+        method="Pix"
+        restaurantName={restaurantName}
+        orderLabel={pixPaymentData.orderId ? `Pedido #${pixPaymentData.orderId}` : undefined}
+        amount={formatCurrency(pixPaymentData.total)}
+        onAutoReturn={onBackToCart}
+        primaryAction={
+          onBackToCart ? { label: 'Voltar ao cardápio', onClick: onBackToCart } : undefined
+        }
+      />
+    );
   }
 
   return (
@@ -429,8 +474,8 @@ export default function PixPaymentPanel({
               <SafetyNote>
                 <ShieldCheck size={16} />
                 <span>
-                  Clicar em pagar não significa pagamento confirmado. A liberação depende da
-                  resposta canônica do backend.
+                  A confirmação aparece automaticamente nesta tela. Se você já fez o Pix, aguarde a
+                  confirmação antes de pagar novamente.
                 </span>
               </SafetyNote>
             </>

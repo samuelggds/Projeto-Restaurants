@@ -11,36 +11,43 @@ import {
   LogOut,
   MoreHorizontal,
   RefreshCw,
+  X,
 } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { KitchenProvider, type KitchenModuleProps as BaseProps } from './KitchenContext';
 import { useKitchenWorkspace } from './useKitchenWorkspace';
-import {
-  KitchenHistoryPage,
-  KitchenQueuePage,
-  KitchenReadyPage,
-} from './pages/KitchenPages';
+import { KitchenHistoryPage, KitchenQueuePage, KitchenReadyPage } from './pages/KitchenPages';
 import { KitchenOverviewPage } from './pages/KitchenOverviewPage';
 import * as S from './Kitchen.styles';
 import * as N from './KitchenNavigation.styles';
 import { EmployeeHelpCenter } from '../../features/employee-help/EmployeeHelpCenter';
 import { reportEmployeeIssue } from '../../features/employee-help/reportEmployeeIssue';
 import { useEmployeeIssueNotifications } from '../../features/employee-help/useEmployeeIssueNotifications';
+import { useDialogFocusManagement } from '../../shared/hooks/useDialogFocusManagement';
 
 export type KitchenView = 'overview' | 'queue' | 'ready' | 'history';
 const INITIAL_SHIFT_TIME = new Date();
 export interface KitchenModuleProps extends BaseProps {
   initialView?: KitchenView;
   onViewChange?: (view: KitchenView) => void;
+  employeeHelp?: {
+    notificationsEnabled?: boolean;
+    onReport?: typeof reportEmployeeIssue;
+  };
 }
 export function KitchenModule({
   initialView = 'overview',
   onViewChange,
+  employeeHelp,
   ...props
 }: KitchenModuleProps) {
   return (
     <KitchenProvider {...props}>
-      <KitchenShell initialView={initialView} onViewChange={onViewChange} />
+      <KitchenShell
+        initialView={initialView}
+        onViewChange={onViewChange}
+        employeeHelp={employeeHelp}
+      />
     </KitchenProvider>
   );
 }
@@ -48,11 +55,13 @@ export function KitchenModule({
 function KitchenShell({
   initialView,
   onViewChange,
+  employeeHelp,
 }: {
   initialView: KitchenView;
   onViewChange?: KitchenModuleProps['onViewChange'];
+  employeeHelp?: KitchenModuleProps['employeeHelp'];
 }) {
-  useEmployeeIssueNotifications();
+  useEmployeeIssueNotifications(employeeHelp?.notificationsEnabled);
   const { employee, restaurant, orders, workspaceState, onRefresh, onLogout } =
     useKitchenWorkspace();
   const [currentTime, setCurrentTime] = useState(INITIAL_SHIFT_TIME);
@@ -65,6 +74,16 @@ function KitchenShell({
   const clearFocusedOrder = useCallback(() => setFocusedOrderId(null), []);
   const [open, setOpen] = useState(() => typeof window !== 'undefined' && window.innerWidth > 820);
   const [moreOpen, setMoreOpen] = useState(false);
+  const closeMore = useCallback(() => setMoreOpen(false), []);
+  const morePanel = useDialogFocusManagement<HTMLElement>(closeMore, moreOpen);
+  useEffect(() => {
+    if (!moreOpen) return;
+    const closeOnDesktop = () => {
+      if (window.innerWidth > 820) closeMore();
+    };
+    window.addEventListener('resize', closeOnDesktop);
+    return () => window.removeEventListener('resize', closeOnDesktop);
+  }, [closeMore, moreOpen]);
   const navigate = (next: KitchenView | 'help') => {
     setView(next);
     setMoreOpen(false);
@@ -91,7 +110,7 @@ function KitchenShell({
   return (
     <S.Root $primary={restaurant.primaryColor} $sidebarOpen={open}>
       {open && (
-        <N.Sidebar>
+        <N.Sidebar inert={moreOpen}>
           <N.CollapseButton
             type="button"
             aria-label="Recolher menu lateral"
@@ -151,6 +170,7 @@ function KitchenShell({
       )}
       {!open && (
         <N.SidebarOpenButton
+          inert={moreOpen}
           type="button"
           aria-label="Expandir menu lateral"
           onClick={() => setOpen(true)}
@@ -158,7 +178,7 @@ function KitchenShell({
           <ChevronRight />
         </N.SidebarOpenButton>
       )}
-      <N.MobileNav aria-label="Navegação móvel da cozinha">
+      <N.MobileNav aria-label="Navegação móvel da cozinha" inert={moreOpen}>
         {nav.map(([id, label, mobileLabel, Icon, count]) => (
           <button
             key={id}
@@ -178,33 +198,37 @@ function KitchenShell({
       </N.MobileNav>
       {moreOpen && (
         <>
-          <N.MoreBackdrop
-            type="button"
-            aria-label="Fechar opções da cozinha"
-            onClick={() => setMoreOpen(false)}
-          />
-          <N.MoreSheet role="menu" aria-label="Opções da cozinha">
+          <N.MoreBackdrop type="button" tabIndex={-1} aria-hidden="true" onClick={closeMore} />
+          <N.MoreSheet
+            ref={morePanel}
+            id="kitchen-more-options"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Opções da cozinha"
+          >
             <header>
               <span>
                 <b>{employee.name}</b>
                 <small>Cozinha • turno iniciado às {employee.shift}</small>
               </span>
+              <button type="button" aria-label="Fechar opções da cozinha" onClick={closeMore}>
+                <X />
+              </button>
             </header>
             <button
               type="button"
-              role="menuitem"
               className={view === 'help' ? 'active' : ''}
               onClick={() => navigate('help')}
             >
               <CircleHelp /> Central de ajuda
             </button>
-            <button type="button" role="menuitem" className="logout" onClick={onLogout}>
+            <button type="button" className="logout" onClick={onLogout}>
               <LogOut /> Sair da conta
             </button>
           </N.MoreSheet>
         </>
       )}
-      <S.Main>
+      <S.Main inert={moreOpen}>
         <S.Top>
           <div>
             <h1>{title}</h1>
@@ -213,7 +237,7 @@ function KitchenShell({
           <S.Live
             type="button"
             onClick={() => void onRefresh?.()}
-            disabled={!onRefresh || workspaceState?.refreshing}
+            disabled={!onRefresh || workspaceState?.loading || workspaceState?.refreshing}
             aria-label="Atualizar pedidos da cozinha"
             title={
               workspaceState?.lastUpdatedAt
@@ -234,7 +258,8 @@ function KitchenShell({
           <N.MobileMoreButton
             type="button"
             aria-label="Abrir opções da cozinha"
-            aria-haspopup="menu"
+            aria-haspopup="dialog"
+            aria-controls={moreOpen ? 'kitchen-more-options' : undefined}
             aria-expanded={moreOpen}
             onClick={() => setMoreOpen((current) => !current)}
           >
@@ -290,7 +315,11 @@ function KitchenShell({
           ) : view === 'history' ? (
             <KitchenHistoryPage />
           ) : (
-            <EmployeeHelpCenter role="kitchen" onReport={reportEmployeeIssue} />
+            <EmployeeHelpCenter
+              role="kitchen"
+              onReport={employeeHelp?.onReport ?? reportEmployeeIssue}
+              notificationsEnabled={employeeHelp?.notificationsEnabled}
+            />
           )}
         </S.Content>
       </S.Main>

@@ -1,6 +1,9 @@
-import restaurantSettingsRepository from '../repositories/RestaurantSettingsRepository.js';
 import { consumeSingleUseOAuthState } from '../security/oauthState.js';
 import { resolveOAuthEndpoint } from '../security/oauthEndpoints.js';
+import {
+  parseOAuthCredentials,
+  saveRestaurantOAuthCredentials,
+} from './RestaurantPaymentCredentialsService.js';
 
 type CompleteMercadoPagoOAuthPayload = {
   code?: string;
@@ -11,6 +14,9 @@ type CompleteMercadoPagoOAuthPayload = {
 
 type MercadoPagoOAuthTokenResponse = {
   access_token?: string;
+  refresh_token?: string;
+  expires_in?: number;
+  public_key?: string;
   error?: string;
   message?: string;
   status?: number;
@@ -49,23 +55,7 @@ class CompleteMercadoPagoOAuthService {
     ).trim();
   }
 
-  private extractProviderError(response: MercadoPagoOAuthTokenResponse) {
-    const apiError = String(response?.error || '').trim();
-    const apiMessage = String(response?.message || '').trim();
-
-    if (apiError || apiMessage) {
-      return [apiError, apiMessage].filter(Boolean).join(': ');
-    }
-
-    return 'Mercado Pago nao concluiu a autorizacao.';
-  }
-
-  async execute({
-    code,
-    state,
-    providerError,
-    providerErrorDescription,
-  }: CompleteMercadoPagoOAuthPayload) {
+  async execute({ code, state, providerError }: CompleteMercadoPagoOAuthPayload) {
     const normalizedState = String(state || '').trim();
     if (!normalizedState) {
       throw new Error('State OAuth do Mercado Pago nao recebido.');
@@ -73,9 +63,7 @@ class CompleteMercadoPagoOAuthService {
     const { restaurantId } = await consumeSingleUseOAuthState(normalizedState, 'MERCADO_PAGO');
 
     if (providerError) {
-      const details = String(providerErrorDescription || '').trim();
-      const baseMessage = `Mercado Pago recusou autorizacao (${providerError}).`;
-      throw new Error(details ? `${baseMessage} ${details}` : baseMessage);
+      throw new Error('Mercado Pago não autorizou a conexão. Tente conectar a conta novamente.');
     }
 
     const normalizedCode = String(code || '').trim();
@@ -114,32 +102,13 @@ class CompleteMercadoPagoOAuthService {
     const tokenBody = (await tokenResponse.json()) as MercadoPagoOAuthTokenResponse;
 
     if (!tokenResponse.ok) {
-      throw new Error(this.extractProviderError(tokenBody));
+      throw new Error('Mercado Pago não concluiu a conexão. Tente conectar a conta novamente.');
     }
-
-    const accessToken = String(tokenBody?.access_token || '').trim();
-    if (!accessToken) {
-      throw new Error('Mercado Pago nao retornou access_token valido.');
-    }
-
-    const existingSettings = await restaurantSettingsRepository.findByRestaurantId(restaurantId);
-
-    if (existingSettings) {
-      await restaurantSettingsRepository.update(restaurantId, {
-        pixProvider: 'MERCADO_PAGO',
-        cardGateway: 'MERCADO_PAGO',
-        mercadoPagoAccessToken: accessToken,
-      });
-    } else {
-      await restaurantSettingsRepository.create({
-        restaurantId,
-        deliveryFee: 0,
-        minimumOrder: 0,
-        pixProvider: 'MERCADO_PAGO',
-        cardGateway: 'MERCADO_PAGO',
-        mercadoPagoAccessToken: accessToken,
-      });
-    }
+    await saveRestaurantOAuthCredentials(
+      restaurantId,
+      'MERCADO_PAGO',
+      parseOAuthCredentials(tokenBody),
+    );
 
     return {
       restaurantId,

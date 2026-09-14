@@ -7,6 +7,7 @@ type CreatePaymentPayload = {
   description: string;
   amount: number | string | { toString(): string };
   payerEmail: string;
+  idempotencyKey?: string;
 };
 
 export type MercadoPagoPixPayment = {
@@ -25,6 +26,7 @@ class MercadoPagoService {
     description,
     amount,
     payerEmail,
+    idempotencyKey,
   }: CreatePaymentPayload): Promise<MercadoPagoPixPayment> {
     const isProduction = process.env.NODE_ENV === 'production';
     const port = process.env.PORT || 3000;
@@ -56,7 +58,7 @@ class MercadoPagoService {
           payer: { email: payerEmail },
         },
         requestOptions: {
-          idempotencyKey: `invoice-pix-${invoiceId}-${Date.now()}`,
+          idempotencyKey: idempotencyKey || `invoice-pix-${invoiceId}-initial`,
         },
       });
 

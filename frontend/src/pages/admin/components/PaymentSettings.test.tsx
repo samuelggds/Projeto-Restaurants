@@ -3,6 +3,9 @@ import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { adminMockSettings } from '../data';
 import { PaymentSettings } from './PaymentSettings';
+import type { PaymentConnectionOverview } from '../../../Services/paymentConnectionService';
+
+vi.mock('./PaymentTerminalSettings', () => ({ PaymentTerminalSettings: () => null }));
 
 (globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT =
   true;
@@ -78,7 +81,9 @@ describe('PaymentSettings', () => {
 
     expect(container.textContent).toContain('2meios ativos');
     expect(container.textContent).toContain('0/1contas vinculadas');
-    expect(container.textContent).toContain('Há etapas pendentes');
+    expect(container.textContent).toContain(
+      'Há etapas pendentes: vincule a conta Mercado Pago para liberar o Pix.',
+    );
     expect(container.textContent).toContain('Conta não vinculada');
   });
 
@@ -124,13 +129,160 @@ describe('PaymentSettings', () => {
     expect(container.textContent).toContain('Informe um faturamento mensal maior que zero');
 
     act(() => changeValue(incomeInput, '25.000,50'));
+    act(() =>
+      changeValue(container.querySelector('input[type="date"]') as HTMLInputElement, '1990-05-10'),
+    );
     await act(async () => connect.click());
     expect(onboard).toHaveBeenCalledWith({
       cpf: '52998224725',
       restaurantName: 'Restaurante Teste',
       pixKey: 'financeiro@restaurante.test',
       incomeValue: 25000.5,
+      birthDate: '1990-05-10',
     });
-    expect(update).toHaveBeenCalledWith('asaasAccessTokenConfigured', true);
+    expect(update).not.toHaveBeenCalledWith('asaasAccessTokenConfigured', true);
+  });
+
+  it('não exige chave Pix manual quando a conta conectada gera o QR Code', () => {
+    act(() =>
+      root.render(
+        <PaymentSettings
+          settings={{
+            ...adminMockSettings,
+            acceptsPix: true,
+            acceptsCard: false,
+            pixProvider: 'PAGBANK',
+            pixKey: '',
+            pagbankTokenConfigured: true,
+          }}
+          update={() => undefined}
+        />,
+      ),
+    );
+    expect(container.textContent).toContain('Configuração completa');
+    expect(container.textContent).toContain(
+      'O QR Code é gerado automaticamente pela conta conectada',
+    );
+  });
+
+  it('mantém cadastro Asaas pendente até a aprovação e permite conferir a atualização', async () => {
+    const pending: PaymentConnectionOverview = {
+      connections: [
+        {
+          provider: 'ASAAS',
+          connected: true,
+          canConnect: true,
+          readyForPix: false,
+          readyForCard: false,
+          status: 'PENDING_APPROVAL',
+          message: 'Conclua os documentos solicitados pelo Asaas.',
+          onboardingUrl: 'https://www.asaas.com/onboarding/exemplo',
+        },
+      ],
+    };
+    const load = vi
+      .fn()
+      .mockResolvedValueOnce(pending)
+      .mockResolvedValue({
+        connections: [
+          {
+            ...pending.connections[0],
+            status: 'CONNECTED',
+            readyForPix: true,
+            readyForCard: true,
+            message: 'Conta aprovada e confirmação configurada.',
+            onboardingUrl: null,
+          },
+        ],
+      });
+    act(() =>
+      root.render(
+        <PaymentSettings
+          settings={{
+            ...adminMockSettings,
+            acceptsPix: true,
+            acceptsCard: true,
+            pixProvider: 'ASAAS',
+            cardGateway: 'ASAAS',
+            asaasAccessTokenConfigured: true,
+          }}
+          update={() => undefined}
+          onLoadPaymentConnections={load}
+        />,
+      ),
+    );
+    await act(() => new Promise((resolve) => setTimeout(resolve, 10)));
+    expect(container.textContent).toContain('Cadastro em análise');
+    expect(container.textContent).not.toContain('Configuração completa');
+    expect(container.querySelector('a')?.href).toBe('https://www.asaas.com/onboarding/exemplo');
+    const refresh = Array.from(container.querySelectorAll('button')).find((button) =>
+      button.textContent?.includes('Verificar conexões'),
+    )!;
+    await act(async () => refresh.click());
+    expect(container.textContent).toContain('Configuração completa');
+    expect(container.querySelector('a')).toBeNull();
+  });
+
+  it('não anuncia conexão pronta nem libera autorização quando a consulta falha', async () => {
+    const load = vi.fn().mockRejectedValue(new Error('Falha de rede'));
+    act(() =>
+      root.render(
+        <PaymentSettings
+          settings={{
+            ...adminMockSettings,
+            acceptsPix: true,
+            acceptsCard: false,
+            pixProvider: 'PAGBANK',
+            pagbankTokenConfigured: true,
+          }}
+          update={() => undefined}
+          onLoadPaymentConnections={load}
+        />,
+      ),
+    );
+    await act(() => new Promise((resolve) => setTimeout(resolve, 10)));
+    expect(container.textContent).not.toContain('Configuração completa');
+    expect(container.textContent).toContain('Não foi possível verificar as conexões');
+    const connect = Array.from(container.querySelectorAll('button')).find(
+      (button) => button.textContent === 'Conectar PagBank',
+    )!;
+    expect(connect.disabled).toBe(true);
+  });
+
+  it('bloqueia cliques duplicados enquanto salva e inicia a autorização', async () => {
+    let finish!: () => void;
+    const connect = vi.fn(
+      () =>
+        new Promise<void>((resolve) => {
+          finish = resolve;
+        }),
+    );
+    act(() =>
+      root.render(
+        <PaymentSettings
+          settings={{
+            ...adminMockSettings,
+            acceptsPix: true,
+            acceptsCard: false,
+            pixProvider: 'PAGBANK',
+            pagbankTokenConfigured: false,
+          }}
+          update={() => undefined}
+          onConnectPagBank={connect}
+        />,
+      ),
+    );
+    const button = Array.from(container.querySelectorAll('button')).find(
+      (item) => item.textContent === 'Conectar PagBank',
+    )!;
+    act(() => {
+      button.click();
+      button.click();
+    });
+    expect(connect).toHaveBeenCalledTimes(1);
+    expect(button.disabled).toBe(true);
+    expect((container.querySelector('select') as HTMLSelectElement).disabled).toBe(true);
+    await act(async () => finish());
+    expect(button.disabled).toBe(false);
   });
 });

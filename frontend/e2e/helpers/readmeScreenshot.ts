@@ -11,7 +11,9 @@ export async function captureReadmeScreenshot(
 ) {
   if (process.env[SCREENSHOT_FLAG] !== 'true') return;
 
-  const outputDirectory = path.resolve(process.cwd(), '..', 'docs', 'assets', 'screenshots');
+  const outputDirectory = process.env.README_SCREENSHOT_OUTPUT_DIR
+    ? path.resolve(process.env.README_SCREENSHOT_OUTPUT_DIR)
+    : path.resolve(process.cwd(), '..', 'docs', 'assets', 'screenshots');
   await mkdir(outputDirectory, { recursive: true });
 
   await page.screenshot({

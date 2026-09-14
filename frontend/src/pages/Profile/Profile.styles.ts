@@ -339,6 +339,7 @@ export const AvatarOverlay = styled.div.attrs({ className: 'ov' })`
 `;
 export const Main = styled.section`
   min-width: 0;
+  container: profile-content / inline-size;
   padding-bottom: 16px;
 `;
 export const ViewTransition = styled.div`
@@ -371,7 +372,7 @@ export const Active = styled.article`
     min-width: 0;
     padding: 10px 22px 8px 18px;
   }
-  @media (max-width: 850px) {
+  @container profile-content (max-width: 700px) {
     grid-template-columns: 1fr;
     padding: 12px;
     .active-content {
@@ -589,7 +590,7 @@ export const ActiveVisual = styled.figure`
     color: #ffd4bf;
     font-size: 14px;
   }
-  @media (max-width: 850px) {
+  @container profile-content (max-width: 700px) {
     display: none;
   }
 `;
@@ -598,7 +599,7 @@ export const Bottom = styled.div`
   grid-template-columns: minmax(0, 1.08fr) minmax(310px, 0.92fr);
   gap: clamp(24px, 3vw, 38px);
   margin-top: 30px;
-  @media (max-width: 850px) {
+  @container profile-content (max-width: 700px) {
     grid-template-columns: 1fr;
   }
 `;

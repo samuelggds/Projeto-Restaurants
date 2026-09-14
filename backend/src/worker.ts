@@ -6,8 +6,12 @@ import { Sentry } from './config/sentry.js';
 import { createJobScheduler } from './jobs/runtime.js';
 import { notifyCriticalError } from './services/alertNotifier.js';
 import { assertSecureRuntimeDatabaseRole } from './database/tenantDbContext.js';
+import { PostgresRealtimeTransport } from './realtime/postgresRealtimeTransport.js';
+import { registerRealtimeTransport } from './realtime/realtimePublisher.js';
+import { distributedStateEnabled } from './runtime/distributedConfig.js';
 
 const scheduler = createJobScheduler('worker');
+const sharedRealtime = distributedStateEnabled() ? new PostgresRealtimeTransport() : null;
 let shuttingDown = false;
 
 async function shutdown(signal: 'SIGINT' | 'SIGTERM', exitCode = 0) {
@@ -26,6 +30,7 @@ async function shutdown(signal: 'SIGINT' | 'SIGTERM', exitCode = 0) {
 
   try {
     await scheduler.stop();
+    await sharedRealtime?.stop();
     await prisma.$disconnect();
     await Sentry.flush(2_000);
     clearTimeout(forceExitTimer);
@@ -64,6 +69,10 @@ async function startWorker() {
   if (process.env.NODE_ENV === 'production' || process.env.RLS_VERIFY_RUNTIME_ROLE === 'true') {
     await assertSecureRuntimeDatabaseRole();
     console.info('[RLS_RUNTIME_ROLE_VERIFIED]');
+  }
+  if (sharedRealtime) {
+    await sharedRealtime.start();
+    registerRealtimeTransport(sharedRealtime);
   }
   scheduler.start();
   console.info('[WORKER_STARTED]');

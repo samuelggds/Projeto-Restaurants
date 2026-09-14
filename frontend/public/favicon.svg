@@ -1,14 +1,7 @@
-﻿<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" fill="none">
-  <defs>
-    <linearGradient id="p-bg" x1="8" y1="8" x2="56" y2="56" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#0EA5E9" />
-      <stop offset="1" stop-color="#1D4ED8" />
-    </linearGradient>
-    <linearGradient id="p-fill" x1="18" y1="16" x2="46" y2="46" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#FFFFFF" />
-      <stop offset="1" stop-color="#E2E8F0" />
-    </linearGradient>
-  </defs>
-  <rect x="4" y="4" width="56" height="56" rx="16" fill="url(#p-bg)" />
-  <path d="M22 16H33.5C41.5 16 46.5 20.4 46.5 27.4C46.5 34.4 41.5 38.8 33.5 38.8H28.5V48H22V16ZM33.1 33.4C36.9 33.4 39.7 31.4 39.7 27.4C39.7 23.4 36.9 21.4 33.1 21.4H28.5V33.4H33.1Z" fill="url(#p-fill)" />
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" fill="none">
+  <style>
+    .mark { fill: #111111; }
+    @media (prefers-color-scheme: dark) { .mark { fill: #ffffff; } }
+  </style>
+  <text class="mark" x="32" y="49" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="48" font-weight="900">G</text>
 </svg>

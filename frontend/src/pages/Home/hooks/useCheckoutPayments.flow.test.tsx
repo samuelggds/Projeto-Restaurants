@@ -2,7 +2,7 @@ import { act, useEffect } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import ordersService from '../../../Services/ordersService';
-import { useCheckoutPayments } from './useCheckoutPayments';
+import { getCheckoutErrorMessage, useCheckoutPayments } from './useCheckoutPayments';
 
 vi.mock('../../../Services/ordersService', () => ({
   default: {
@@ -55,6 +55,9 @@ describe('useCheckoutPayments confirmação canônica do Pix', () => {
 
   beforeEach(async () => {
     vi.clearAllMocks();
+    onPaymentConfirmed.mockReset();
+    vi.mocked(ordersService.getPixPaymentStatus).mockReset();
+    vi.mocked(ordersService.confirmPixPayment).mockReset();
     checkoutPayments = { current: null };
     container = document.createElement('div');
     document.body.appendChild(container);
@@ -77,7 +80,71 @@ describe('useCheckoutPayments confirmação canônica do Pix', () => {
   afterEach(async () => {
     await act(async () => root.unmount());
     container.remove();
+    vi.useRealTimers();
+    vi.restoreAllMocks();
   });
+
+  it('esconde detalhes técnicos do gateway e mostra uma mensagem amigável ao cliente', () => {
+    const message = getCheckoutErrorMessage(
+      new Error(
+        'Pagamento PIX indisponivel no momento. Configure access token do Mercado Pago nas configuracoes do restaurante.',
+      ),
+    );
+
+    expect(message).toBe(
+      'Não conseguimos concluir o pagamento neste momento. Tente outra forma ou tente novamente em alguns minutos.',
+    );
+  });
+
+  it.each(['pix', 'card'] as const)(
+    'preserva pedido %s após resposta incerta sem anunciar pagamento',
+    async (method) => {
+      const error = {
+        response: {
+          status: 502,
+          data: { code: 'PAYMENT_CREATION_UNCERTAIN', orderId: 99, reconciliationRequired: true },
+        },
+      };
+      vi.mocked(ordersService.createPixPayment).mockRejectedValueOnce(error);
+      vi.mocked(ordersService.createCardCheckout).mockRejectedValueOnce(error);
+      let consumed = false;
+      await act(async () => {
+        consumed = await checkoutPayments.current!.executePayment(
+          {},
+          method,
+          false,
+          method === 'pix' ? 'PIX' : 'CARTAO',
+        );
+      });
+      expect(consumed).toBe(true);
+      expect(checkoutPayments.current?.paymentResult).toMatchObject({
+        orderId: 99,
+        status: 'PENDING',
+        reconciliationRequired: true,
+      });
+      expect(onPaymentConfirmed).not.toHaveBeenCalled();
+      vi.mocked(ordersService.createPixPayment).mockReset();
+      vi.mocked(ordersService.createCardCheckout).mockReset();
+    },
+  );
+
+  it.each([null, 0, -1])(
+    'não abre a tela de conciliação se a resposta não identifica um pedido válido: %s',
+    async (orderId) => {
+      vi.mocked(ordersService.createPixPayment).mockRejectedValueOnce({
+        response: {
+          data: { code: 'PAYMENT_CREATION_UNCERTAIN', reconciliationRequired: true, orderId },
+        },
+      });
+      let consumed = true;
+      await act(async () => {
+        consumed = await checkoutPayments.current!.executePayment({}, 'pix', false, 'PIX');
+      });
+      expect(consumed).toBe(false);
+      expect(checkoutPayments.current?.paymentResult).toBeNull();
+      expect(onPaymentConfirmed).not.toHaveBeenCalled();
+    },
+  );
 
   it('não anuncia pago quando o provedor aprova mas o pedido canônico continua pendente', async () => {
     vi.mocked(ordersService.getPixPaymentStatus).mockResolvedValue({ isApproved: true });
@@ -101,5 +168,157 @@ describe('useCheckoutPayments confirmação canônica do Pix', () => {
 
     expect(container.textContent).toBe('PAID');
     expect(onPaymentConfirmed).toHaveBeenCalledTimes(1);
+    expect(ordersService.confirmPixPayment).toHaveBeenCalledWith({
+      orderId: 91,
+      paymentId: 'pix-provider-91',
+      restaurantId: 7,
+    });
+  });
+
+  it.each([
+    ['rejected', 'FAILED'],
+    ['DECLINED', 'FAILED'],
+    ['cancelled', 'CANCELED'],
+    ['EXPIRED', 'EXPIRED'],
+    ['refunded', 'REFUNDED'],
+  ])('encerra o Pix %s sem confirmar ou continuar consultando', async (status, outcome) => {
+    vi.mocked(ordersService.getPixPaymentStatus).mockResolvedValue({ isApproved: false, status });
+    await act(async () => {
+      await checkoutPayments.current?.verifyPixPayment();
+    });
+    expect(container.textContent).toBe(outcome);
+    await act(async () => {
+      await checkoutPayments.current?.verifyPixPayment();
+    });
+    expect(ordersService.getPixPaymentStatus).toHaveBeenCalledTimes(1);
+    expect(ordersService.confirmPixPayment).not.toHaveBeenCalled();
+    expect(onPaymentConfirmed).not.toHaveBeenCalled();
+  });
+
+  it('não transforma falha de conexão em recusa e permite nova consulta', async () => {
+    vi.mocked(ordersService.getPixPaymentStatus)
+      .mockRejectedValueOnce(new Error('Conexão indisponível'))
+      .mockResolvedValueOnce({ isApproved: false, status: 'pending' });
+    await act(async () => {
+      await checkoutPayments.current?.verifyPixPayment();
+    });
+    expect(container.textContent).toBe('ERROR');
+    await act(async () => {
+      await checkoutPayments.current?.verifyPixPayment();
+    });
+    expect(container.textContent).toBe('PENDING');
+    expect(onPaymentConfirmed).not.toHaveBeenCalled();
+  });
+
+  it('não confirma resposta que pertence a outro restaurante', async () => {
+    vi.mocked(ordersService.getPixPaymentStatus).mockResolvedValue({
+      isApproved: true,
+      sameRestaurant: false,
+    });
+    await act(async () => {
+      await checkoutPayments.current?.verifyPixPayment();
+    });
+    expect(container.textContent).toBe('ERROR');
+    expect(ordersService.confirmPixPayment).not.toHaveBeenCalled();
+  });
+
+  it('ignora resposta atrasada depois de fechar a tela do Pix', async () => {
+    let resolveStatus!: (value: { isApproved: boolean }) => void;
+    vi.mocked(ordersService.getPixPaymentStatus).mockReturnValue(
+      new Promise((resolve) => {
+        resolveStatus = resolve;
+      }),
+    );
+    let check!: Promise<unknown>;
+    await act(async () => {
+      check = checkoutPayments.current!.verifyPixPayment();
+    });
+    await act(async () => {
+      checkoutPayments.current!.clearPixPayment();
+    });
+    await act(async () => {
+      resolveStatus({ isApproved: true });
+      await check;
+    });
+    expect(container.textContent).toBe('WAITING');
+    expect(checkoutPayments.current?.pixPaymentData).toBeNull();
+    expect(ordersService.confirmPixPayment).not.toHaveBeenCalled();
+  });
+
+  it('interrompe o polling ao receber resultado terminal', async () => {
+    vi.useFakeTimers();
+    vi.mocked(ordersService.getPixPaymentStatus).mockResolvedValue({
+      isApproved: false,
+      status: 'rejected',
+    });
+    await act(async () => {
+      checkoutPayments.current!.setPixPaymentData(
+        (value) => value && { ...value, requiresStatusCheck: true },
+      );
+    });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1000);
+    });
+    expect(container.textContent).toBe('FAILED');
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(20_000);
+    });
+    expect(ordersService.getPixPaymentStatus).toHaveBeenCalledTimes(1);
+  });
+
+  it('mantém o Pix pendente visível enquanto consulta em segundo plano', async () => {
+    vi.useFakeTimers();
+    let finishPoll!: (value: { isApproved: boolean; status: string }) => void;
+    vi.mocked(ordersService.getPixPaymentStatus)
+      .mockResolvedValueOnce({ isApproved: false, status: 'pending' })
+      .mockReturnValueOnce(
+        new Promise((resolve) => {
+          finishPoll = resolve;
+        }),
+      );
+    await act(async () => {
+      checkoutPayments.current!.setPixPaymentData(
+        (value) => value && { ...value, requiresStatusCheck: true },
+      );
+    });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1000);
+    });
+    expect(container.textContent).toBe('PENDING');
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(5_000);
+    });
+    expect(ordersService.getPixPaymentStatus).toHaveBeenCalledTimes(2);
+    expect(container.textContent).toBe('PENDING');
+    await act(async () => {
+      finishPoll({ isApproved: false, status: 'pending' });
+    });
+    expect(container.textContent).toBe('PENDING');
+    expect(ordersService.confirmPixPayment).not.toHaveBeenCalled();
+  });
+
+  it('abre resultado para cartão já pago mesmo sem URL de checkout e preserva sucesso se atualização auxiliar falhar', async () => {
+    vi.mocked(ordersService.createCardCheckout).mockResolvedValue({
+      paid: true,
+      orderId: 92,
+      totalAmount: 49.9,
+    });
+    onPaymentConfirmed.mockRejectedValueOnce(new Error('Atualização indisponível'));
+    await act(async () => {
+      expect(await checkoutPayments.current?.executePayment({}, 'card', false, 'CARTAO')).toBe(
+        true,
+      );
+    });
+    expect(checkoutPayments.current?.paymentResult).toMatchObject({
+      restaurantId: 7,
+      status: 'PAID',
+      method: 'Cartão',
+      orderId: 92,
+      total: 49.9,
+    });
+    await act(async () => {
+      checkoutPayments.current?.clearPaymentResult();
+    });
+    expect(checkoutPayments.current?.paymentResult).toBeNull();
   });
 });

@@ -73,6 +73,26 @@ export const Header = styled.header`
   gap: 14px;
 `;
 
+export const ContactLink = styled.a`
+  min-height: 46px;
+  padding: 10px 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: 1px solid #b8d9e6;
+  border-radius: 8px;
+  color: #14627f;
+  background: #f1f9fc;
+  font-size: 13px;
+  font-weight: 750;
+  text-decoration: none;
+  &:focus-visible {
+    outline: 3px solid #14627f;
+    outline-offset: 3px;
+  }
+`;
+
 export const HeaderIdentity = styled.div`
   min-width: 0;
   display: grid;

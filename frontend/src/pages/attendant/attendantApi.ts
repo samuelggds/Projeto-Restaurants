@@ -1,3 +1,4 @@
+import { toast } from 'react-toastify';
 import api from '../../Services/api';
 import type {
   AttendantCall,
@@ -124,9 +125,26 @@ export function normalizeAttendantWorkspace(value: unknown): AttendantWorkspaceS
   };
 }
 
+async function presentManualDeliveryAccess(payload: unknown) {
+  const response = record(payload);
+  const customerAccess = record(response?.customerAccess);
+  const trackingUrl = text(customerAccess?.trackingUrl);
+  if (!trackingUrl || typeof window === 'undefined') return;
+  try {
+    await navigator.clipboard.writeText(trackingUrl);
+    toast.info('Link seguro de acompanhamento copiado. Envie-o ao cliente por um canal autorizado.');
+  } catch {
+    toast.info(`Link seguro do cliente: ${trackingUrl}`, { autoClose: 12_000 });
+  }
+}
+
 const attendantApi = {
   async getWorkspace() {
     const response = await api.get('/attendant/workspace');
+    const input = record(response.data);
+    if (!input || !isoDate(input.generatedAt) || !Array.isArray(input.orders) || !Array.isArray(input.calls) || !Array.isArray(input.tables)) {
+      throw new Error('Não foi possível validar os dados da operação.');
+    }
     return normalizeAttendantWorkspace(response.data);
   },
   async updateCallStatus(id: string | number, status: 'IN_PROGRESS' | 'RESOLVED') {
@@ -135,7 +153,12 @@ const attendantApi = {
   },
   async getOrder(orderId: number) {
     const response = await api.get(`/orders/${orderId}`);
-    return response.data as UnknownRecord;
+    const order = record(response.data);
+    const total = typeof order?.total === 'number' ? order.total : typeof order?.total === 'string' && order.total.trim() ? Number(order.total) : Number.NaN;
+    if (!order || Number(order.id) !== orderId || typeof order.paid !== 'boolean' || !Number.isFinite(total) || total < 0) {
+      throw new Error('Não foi possível validar os detalhes do pedido.');
+    }
+    return order;
   },
   async completePickup(orderId: number) {
     const response = await api.put(`/orders/${orderId}/status`, { status: 'ENTREGUE' });
@@ -143,6 +166,7 @@ const attendantApi = {
   },
   async createOrder(payload: UnknownRecord) {
     const response = await api.post('/attendant/orders', payload);
+    await presentManualDeliveryAccess(response.data);
     return response.data;
   },
 };

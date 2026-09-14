@@ -123,6 +123,10 @@ export interface EmployeeWorkspaceData {
   accounts: WaiterAccountSession[];
 }
 export interface EmployeeWorkspaceProps {
+  tableAccountClient?: {
+    getAdminSnapshot: (sessionPublicId: string) => Promise<WaiterTableAccountSnapshot>;
+    confirmManualPayment: (paymentPublicId: string) => Promise<unknown>;
+  };
   role: EmployeeRole;
   employee: Employee;
   restaurant: RestaurantBrand;

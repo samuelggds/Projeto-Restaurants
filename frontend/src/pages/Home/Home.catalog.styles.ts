@@ -287,6 +287,29 @@ export const ProductCategoryGroup = styled.section`
   }
 `;
 export const ProductCard = styled.article`
+  position: relative;
+  .product-main-action {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    width: 100%;
+    height: 100%;
+    border: 0;
+    border-radius: inherit;
+    background: transparent;
+    cursor: pointer;
+  }
+  .product-main-action:focus-visible {
+    outline: 3px solid var(--home-primary);
+    outline-offset: -4px;
+  }
+  .product-main-action:disabled {
+    cursor: not-allowed;
+  }
+  footer button {
+    position: relative;
+    z-index: 2;
+  }
   min-width: 0;
   cursor: pointer;
   content-visibility: auto;
@@ -632,6 +655,9 @@ export const ProductModal = styled.div<{ $open: boolean; $primary: string }>`
   }
 `;
 export const ImageWrap = styled.div`
+  button {
+    z-index: 2;
+  }
   height: 168px;
   min-height: 0;
   position: relative;
@@ -745,13 +771,20 @@ export const About = styled.section`
     }
   }
 `;
-export const FloatingActions = styled.div<{ $aboveNudge: boolean; $primary: string }>`
+export const FloatingActions = styled.div<{
+  $aboveNudge: boolean;
+  $primary: string;
+  $hasWhatsapp?: boolean;
+}>`
   position: fixed;
   z-index: 59;
   right: 24px;
-  bottom: 24px;
+  bottom: ${({ $aboveNudge, $hasWhatsapp }) => ($aboveNudge ? '152px' : $hasWhatsapp ? '94px' : '24px')};
   width: min-content;
   max-width: calc(100vw - 32px);
+  max-height: min(70dvh, 580px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
   display: flex;
   flex-direction: column;
   align-items: flex-end;
@@ -785,28 +818,15 @@ export const FloatingActions = styled.div<{ $aboveNudge: boolean; $primary: stri
   @media (max-width: 700px) {
     left: 12px;
     right: 12px;
-    bottom: ${({ $aboveNudge }) => ($aboveNudge ? '76px' : '12px')};
+    bottom: calc(
+      ${({ $aboveNudge, $hasWhatsapp }) => ($aboveNudge ? '144px' : $hasWhatsapp ? '82px' : '12px')} +
+        env(safe-area-inset-bottom, 0px)
+    );
     width: auto;
     max-width: none;
   }
 `;
 
-export const Whatsapp = styled.a`
-  position: relative;
-  width: 56px;
-  height: 56px;
-  flex: 0 0 auto;
-  border-radius: 50%;
-  background: #3f8c3d;
-  color: #fff;
-  display: grid;
-  place-items: center;
-  box-shadow: 0 12px 30px rgba(40, 100, 40, 0.3);
-  @media (max-width: 600px) {
-    width: 52px;
-    height: 52px;
-  }
-`;
 export const CategoryPlaceholder = styled.span`
   width: 52px;
   height: 52px;

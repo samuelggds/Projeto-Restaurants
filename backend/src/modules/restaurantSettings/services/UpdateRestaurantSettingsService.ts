@@ -297,18 +297,25 @@ class UpdateRestaurantSettingsService {
       stripeWebhookSecret === undefined
         ? undefined
         : String(stripeWebhookSecret || '').trim() || null;
+    // Empty secret inputs mean "keep the saved credential". A different
+    // manual token must never retain the OAuth grant of the previous account.
     const normalizedMercadoPagoAccessToken =
-      mercadoPagoAccessToken === undefined
-        ? undefined
-        : String(mercadoPagoAccessToken || '').trim() || null;
+      String(mercadoPagoAccessToken || '').trim() || undefined;
+    const replacedMercadoPagoToken = Boolean(
+      normalizedMercadoPagoAccessToken &&
+      normalizedMercadoPagoAccessToken !== String(settings.mercadoPagoAccessToken || '').trim(),
+    );
     const normalizedPicPayToken =
       picpayToken === undefined ? undefined : String(picpayToken || '').trim() || null;
     const normalizedAsaasAccessToken =
       asaasAccessToken === undefined ? undefined : String(asaasAccessToken || '').trim() || null;
     const normalizedPagBankEmail =
       pagbankEmail === undefined ? undefined : String(pagbankEmail || '').trim() || null;
-    const normalizedPagBankToken =
-      pagbankToken === undefined ? undefined : String(pagbankToken || '').trim() || null;
+    const normalizedPagBankToken = String(pagbankToken || '').trim() || undefined;
+    const replacedPagBankToken = Boolean(
+      normalizedPagBankToken &&
+      normalizedPagBankToken !== String(settings.pagbankToken || '').trim(),
+    );
     const normalizedPagBankEnvironment = 'production';
     const normalizedBusinessHours = normalizeBusinessHours(businessHours);
     const normalizedIsOpenForOrders =
@@ -560,10 +567,18 @@ class UpdateRestaurantSettingsService {
       stripeSecretKey: normalizedStripeSecretKey,
       stripeWebhookSecret: normalizedStripeWebhookSecret,
       mercadoPagoAccessToken: normalizedMercadoPagoAccessToken,
+      ...(replacedMercadoPagoToken
+        ? {
+            mercadoPagoRefreshToken: null,
+            mercadoPagoTokenExpiresAt: null,
+            mercadoPagoPublicKey: null,
+          }
+        : {}),
       picpayToken: normalizedPicPayToken,
       asaasAccessToken: normalizedAsaasAccessToken,
       pagbankEmail: normalizedPagBankEmail,
       pagbankToken: normalizedPagBankToken,
+      ...(replacedPagBankToken ? { pagbankRefreshToken: null, pagbankTokenExpiresAt: null } : {}),
       pagbankEnvironment: normalizedPagBankEnvironment,
       ownerDocumentFileUrl:
         ownerDocumentFileUrl === undefined
@@ -664,9 +679,12 @@ class UpdateRestaurantSettingsService {
       stripeSecretKey: null,
       stripeWebhookSecret: null,
       mercadoPagoAccessToken: null,
+      mercadoPagoRefreshToken: null,
       picpayToken: null,
       asaasAccessToken: null,
+      asaasWebhookTokenHash: null,
       pagbankToken: null,
+      pagbankRefreshToken: null,
       stripeSecretKeyConfigured: Boolean(String(updated?.stripeSecretKey || '').trim()),
       stripeWebhookSecretConfigured: Boolean(String(updated?.stripeWebhookSecret || '').trim()),
       mercadoPagoAccessTokenConfigured: Boolean(

@@ -87,6 +87,14 @@ export interface EmployeeWorkspaceData {
   calls: ServiceCall[];
 }
 export interface EmployeeWorkspaceProps {
+  readingPreferenceKey?: string;
+  historyPagination?: {
+    loading: boolean;
+    error: string;
+    hasMore: boolean;
+    loadMore: () => unknown;
+    refresh: () => unknown;
+  };
   role: EmployeeRole;
   employee: Employee;
   restaurant: RestaurantBrand;

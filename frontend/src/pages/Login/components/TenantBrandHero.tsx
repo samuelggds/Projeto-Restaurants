@@ -8,6 +8,7 @@ import {
 } from '../../../config/restaurantCategory';
 import type { LoginBranding } from '../domain/loginBranding';
 import * as S from '../styles';
+import { GastroNexaArtwork } from './GastroNexaArtwork';
 
 type Props = {
   branding: LoginBranding;
@@ -24,6 +25,10 @@ export function TenantBrandHero({ branding, mode, overrideText, contextLabel }: 
   const categoryLabel = getRestaurantCategoryLabel(presentation.category);
   const supportText = overrideText || copy.support;
   const visibleContextLabel = contextLabel === 'Painel administrativo' ? 'ADMIN' : contextLabel;
+
+  if (branding.name.trim().toLocaleLowerCase('pt-BR') === 'gastronexa') {
+    return <GastroNexaArtwork />;
+  }
 
   return (
     <>

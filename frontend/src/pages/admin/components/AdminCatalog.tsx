@@ -30,6 +30,7 @@ import {
 import { validateIngredientDraft } from '../domain/productCustomizationValidation';
 import { IngredientWizard } from './IngredientWizard';
 import { AdminMenuImport } from './AdminMenuImport';
+import { CatalogAiImageGenerator } from './CatalogAiImageGenerator';
 import * as C from '../styles/AdminCatalogExperience.styles';
 
 type AdminCatalogProps = {
@@ -51,10 +52,10 @@ type AdminCatalogProps = {
   onImportComplete: () => void | Promise<void>;
 };
 
+import { adminErrorMessage } from '../utils/adminErrorMessage';
+
 function errorMessage(error: unknown, fallback: string) {
-  if (!error || typeof error !== 'object') return fallback;
-  const response = (error as { response?: { data?: Record<string, unknown> } }).response;
-  return String(response?.data?.error || response?.data?.message || fallback);
+  return adminErrorMessage(error, fallback);
 }
 
 export function AdminCatalog(props: AdminCatalogProps) {
@@ -542,7 +543,7 @@ export function AdminCatalog(props: AdminCatalogProps) {
                       ) : (
                         <>
                           <div className="ingredient-copy">
-                            <b>{ingredient.name}</b>
+                            <b title={ingredient.name}>{ingredient.name}</b>
                             <span className="category-badge">{ingredient.category}</span>
                           </div>
                           <div className="ingredient-state">
@@ -766,6 +767,7 @@ export function AdminCatalog(props: AdminCatalogProps) {
         </C.CategoryWorkspace>
       ) : (
         <>
+          <CatalogAiImageGenerator products={products} onCompleted={props.onImportComplete} />
           <C.ProductToolbar>
             <label className="product-search">
               <Search />
@@ -797,11 +799,11 @@ export function AdminCatalog(props: AdminCatalogProps) {
                 {product.image ? (
                   <img src={product.image} alt="" />
                 ) : (
-                  <C.ProductImageFallback>
+                  <C.ProductImageFallback className="product-image-fallback">
                     <ImageOff />
                   </C.ProductImageFallback>
                 )}
-                <div>
+                <div className="product-copy">
                   <b>{product.name}</b>
                   <span>{product.category}</span>
                   <footer>

@@ -4,6 +4,7 @@ import prisma from '../../../config/prisma.js';
 import categoryRepository from '../../categories/repositories/CategoryRepository.js';
 import productRepository from '../../products/repositories/ProductRepository.js';
 import { setTenantDbContext } from '../../../database/tenantDbContext.js';
+import { calculateTextUsageCostUsd } from '../../aiSupport/services/openAiUsageCost.js';
 
 type ImportMenuFromImageInput = {
   imageUrl: string;
@@ -63,9 +64,7 @@ function parsePrice(value: string | number | null | undefined) {
   }
 
   const text = normalizeText(value);
-  if (!text) {
-    return null;
-  }
+  if (!text) return null;
 
   const normalized = text
     .replace(/[^\d,.-]/g, '')
@@ -117,11 +116,7 @@ function buildPrompt() {
 
 function isValidHttpUrl(value: string | null | undefined) {
   const text = normalizeText(value);
-
-  if (!text) {
-    return false;
-  }
-
+  if (!text) return false;
   try {
     const parsed = new URL(text);
     return parsed.protocol === 'http:' || parsed.protocol === 'https:';
@@ -132,21 +127,17 @@ function isValidHttpUrl(value: string | null | undefined) {
 
 function createOpenAiClient() {
   const apiKey = String(process.env.OPENAI_API_KEY || '').trim();
-
   if (!apiKey) {
     throw new Error(
       'OPENAI_API_KEY nao configurada. Adicione a chave no ambiente antes de usar o importador por imagem.',
     );
   }
-
   return new OpenAI({ apiKey });
 }
 
 function parseImportedMenuContent(rawContent: string): ImportedMenuResult {
   const cleanedContent = stripCodeFences(normalizeText(rawContent));
-
   let parsed: unknown;
-
   try {
     parsed = JSON.parse(cleanedContent);
   } catch {
@@ -154,7 +145,6 @@ function parseImportedMenuContent(rawContent: string): ImportedMenuResult {
   }
 
   const validated = importedMenuResponseSchema.safeParse(parsed);
-
   if (!validated.success) {
     throw new Error('A resposta da OpenAI nao seguiu a estrutura esperada.');
   }
@@ -165,13 +155,11 @@ function parseImportedMenuContent(rawContent: string): ImportedMenuResult {
       name: normalizeText(category.name),
       items: category.items.map((item) => {
         const price = parsePrice(item.price);
-
         if (price === null) {
           throw new Error(
             `Preco invalido retornado pela OpenAI no item "${normalizeText(item.name)}".`,
           );
         }
-
         return {
           name: normalizeText(item.name),
           description: normalizeText(item.description) || null,
@@ -187,21 +175,18 @@ class ImportMenuFromImageService {
   async execute(input: ImportMenuFromImageInput, actor: Actor = {}) {
     const parsedInput = importInputSchema.parse(input);
     const restaurantId = Number(parsedInput.restaurantId);
-
     if (!Number.isInteger(restaurantId) || restaurantId <= 0) {
       throw new Error('restauranteId invalido.');
     }
 
     const openai = createOpenAiClient();
+    const model = 'gpt-4o';
     const completion = await openai.chat.completions.create({
-      model: 'gpt-4o',
+      model,
       temperature: 0.1,
       response_format: { type: 'json_object' },
       messages: [
-        {
-          role: 'system',
-          content: buildPrompt(),
-        },
+        { role: 'system', content: buildPrompt() },
         {
           role: 'user',
           content: [
@@ -209,25 +194,15 @@ class ImportMenuFromImageService {
               type: 'text',
               text: 'Extraia o cardapio desta imagem e retorne somente o JSON estruturado.',
             },
-            {
-              type: 'image_url',
-              image_url: {
-                url: parsedInput.imageUrl,
-              },
-            },
+            { type: 'image_url', image_url: { url: parsedInput.imageUrl } },
           ],
         },
       ],
     });
 
     const rawContent = completion.choices[0]?.message?.content;
-
-    if (!rawContent) {
-      throw new Error('A OpenAI nao retornou conteudo para ser processado.');
-    }
-
+    if (!rawContent) throw new Error('A OpenAI nao retornou conteudo para ser processado.');
     const menu = parseImportedMenuContent(rawContent);
-
     if (!menu.categories.length) {
       throw new Error('Nenhuma categoria foi identificada na imagem enviada.');
     }
@@ -239,12 +214,9 @@ class ImportMenuFromImageService {
 
       for (const categoryInput of menu.categories) {
         const categoryName = normalizeText(categoryInput.name);
-        if (!categoryName) {
-          continue;
-        }
+        if (!categoryName) continue;
 
         let category = await categoryRepository.findByName(categoryName, restaurantId, db);
-
         if (!category) {
           category = await categoryRepository.create(
             {
@@ -256,11 +228,7 @@ class ImportMenuFromImageService {
             restaurantId,
             db,
           );
-
-          createdCategories.push({
-            id: Number(category.id),
-            name: category.name,
-          });
+          createdCategories.push({ id: Number(category.id), name: category.name });
         }
 
         for (const itemInput of categoryInput.items) {
@@ -271,15 +239,9 @@ class ImportMenuFromImageService {
             ? normalizeText(itemInput.imageUrl)
             : null;
 
-          if (!productName || price === null) {
-            continue;
-          }
-
+          if (!productName || price === null) continue;
           const existingProduct = await productRepository.findByName(productName, restaurantId, db);
-
-          if (existingProduct) {
-            continue;
-          }
+          if (existingProduct) continue;
 
           const createdProduct = await productRepository.create(
             {
@@ -297,11 +259,7 @@ class ImportMenuFromImageService {
             restaurantId,
             db,
           );
-
-          createdProducts.push({
-            id: Number(createdProduct.id),
-            name: createdProduct.name,
-          });
+          createdProducts.push({ id: Number(createdProduct.id), name: createdProduct.name });
         }
       }
 
@@ -333,7 +291,14 @@ class ImportMenuFromImageService {
       };
     });
 
-    return summary;
+    return {
+      ...summary,
+      aiUsage: {
+        model,
+        usage: completion.usage ?? null,
+        costUsd: calculateTextUsageCostUsd(model, completion.usage),
+      },
+    };
   }
 }
 

@@ -1,0 +1,28 @@
+[CARD_PAYMENT_CREATION_UNCERTAIN] { orderId: 321, restaurantId: 7, errorType: 'Error' }
+[ASAAS_CARD_SPLIT_FALLBACK] Asaas rejeitou split. Recriando checkout sem split. { orderId: 654, restaurantId: 9, systemFee: 4.5 }
+✔ timeout após cobrança de cartão preserva pedido confirmado, estoque e cupom (3.9188ms)
+✔ não cria checkout de cartão fora da agenda semanal (20.6917ms)
+✔ não cria checkout quando o restaurante desativou pagamentos com cartão (0.4595ms)
+✔ deve abrir checkout de cartao usando a configuracao PagBank do restaurante (3.745ms)
+✔ deve abrir checkout de cartao com Asaas e fazer fallback sem split quando rejeitado (3.5269ms)
+✔ deve reutilizar token Asaas sem expor os dados completos do cartão (2.086ms)
+✔ não confirma cartão salvo Asaas com valor divergente na resposta aprovada (0.9118ms)
+✔ não confirma cartão salvo PagBank com valor divergente na resposta paga (1.0786ms)
+✔ retorna paid somente quando a finalização canônica confirma o cartão (1.8586ms)
+✔ Mercado Pago repete a mesma chave e o mesmo pagador na retomada (21.6107ms)
+✔ PagBank usa a chave persistida, inclusive após timeout (18.8293ms)
+✔ Asaas retoma cobrança existente por referência sem qualquer POST (1.3667ms)
+✔ imagem opcional PIX não vaza token nem perde cobrança (https://attacker.example.test/qr) (0.9847ms)
+✔ imagem opcional PIX não vaza token nem perde cobrança (https://api.pagseguro.com/qr) (0.6367ms)
+✔ Asaas recusa retomada ambígua ou divergente ([]) sem recriar (0.5926ms)
+✔ Asaas recusa retomada ambígua ou divergente ([{"id":"wrong","externalReference":"other-tenant","value":25}]) sem recriar (0.4812ms)
+✔ Asaas recusa retomada ambígua ou divergente ([{"id":"wrong","externalReference":"orderpix:7:91","value":0.01}]) sem recriar (0.4727ms)
+✔ Asaas recusa retomada ambígua ou divergente ([{"id":"a","externalReference":"orderpix:7:91","value":25},{"id":"b","externalReference":"orderpix:7:91","value":25}]) sem recriar (0.5842ms)
+ℹ tests 18
+ℹ suites 0
+ℹ pass 18
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1175.0738

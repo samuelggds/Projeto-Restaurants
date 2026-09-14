@@ -39,7 +39,6 @@ export async function restoreOrderItemsStock(tx: TransactionClient, order: Order
       },
       data: {
         stock: { increment: quantity },
-        active: true,
       },
     });
   }

@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
+import { useDialogFocusManagement } from '../../shared/hooks/useDialogFocusManagement';
 import {
   Bike,
   ChevronLeft,
@@ -32,6 +33,7 @@ type Props = {
   onSidebarClose: () => void;
   onGo: (view: CourierView) => void;
   onLogout: () => void;
+  chatNotificationsEnabled?: boolean;
 };
 
 export function CourierNavigation({
@@ -46,8 +48,19 @@ export function CourierNavigation({
   onSidebarClose,
   onGo,
   onLogout,
+  chatNotificationsEnabled = true,
 }: Props) {
   const [moreOpen, setMoreOpen] = useState(false);
+  const closeMore = useCallback(() => setMoreOpen(false), []);
+  const morePanel = useDialogFocusManagement<HTMLElement>(closeMore, moreOpen);
+  useEffect(() => {
+    if (!moreOpen) return;
+    const closeOnDesktop = () => {
+      if (window.innerWidth > 820) closeMore();
+    };
+    window.addEventListener('resize', closeOnDesktop);
+    return () => window.removeEventListener('resize', closeOnDesktop);
+  }, [closeMore, moreOpen]);
   const secondaryActive = ['history', 'profile', 'help'].includes(view);
   const go = (next: CourierView) => {
     setMoreOpen(false);
@@ -57,68 +70,74 @@ export function CourierNavigation({
   return (
     <>
       <CourierChatResponsiveStyles />
-      <CourierChatNotifications />
+      {chatNotificationsEnabled && <CourierChatNotifications />}
 
-      <S.Sidebar>
-        <L.CollapseBtn onClick={onSidebarClose} aria-label="Recolher navegação">
-          <ChevronLeft />
-        </L.CollapseBtn>
-        <S.Brand>
-          <span>{createRestaurantMonogram(restaurantName)}</span>
-          <b>{restaurantName}</b>
-          <small>Área do motoqueiro</small>
-        </S.Brand>
-        <S.Nav aria-label="Navegação do motoqueiro">
-          {(
-            [
-              ['overview', 'Visão geral', LayoutGrid, readyCount + routeCount],
-              ['ready', 'Para retirar', PackageCheck, readyCount],
-              ['route', 'Em entrega', Bike, routeCount],
-              ['map', 'Minha rota', MapPinned, routeCount],
-              ['history', 'Histórico', History, deliveredCount],
-              ['profile', 'Meu perfil', User, 0],
-            ] as const
-          ).map(([id, label, Icon, count]) => (
+      {sidebarOpen && (
+        <S.Sidebar inert={moreOpen}>
+          <L.CollapseBtn onClick={onSidebarClose} aria-label="Recolher navegação">
+            <ChevronLeft />
+          </L.CollapseBtn>
+          <S.Brand>
+            <span>{createRestaurantMonogram(restaurantName)}</span>
+            <b>{restaurantName}</b>
+            <small>Área do motoqueiro</small>
+          </S.Brand>
+          <S.Nav aria-label="Navegação do motoqueiro">
+            {(
+              [
+                ['overview', 'Visão geral', LayoutGrid, readyCount + routeCount],
+                ['ready', 'Para retirar', PackageCheck, readyCount],
+                ['route', 'Em entrega', Bike, routeCount],
+                ['map', 'Minha rota', MapPinned, routeCount],
+                ['history', 'Histórico', History, deliveredCount],
+                ['profile', 'Meu perfil', User, 0],
+              ] as const
+            ).map(([id, label, Icon, count]) => (
+              <button
+                key={id}
+                type="button"
+                className={view === id ? 'active' : ''}
+                aria-current={view === id ? 'page' : undefined}
+                onClick={() => go(id)}
+              >
+                <Icon /> {label} {count > 0 && <S.NavBadge>{count}</S.NavBadge>}
+              </button>
+            ))}
+          </S.Nav>
+          <S.SupportNav aria-label="Suporte do motoqueiro">
             <button
-              key={id}
               type="button"
-              className={view === id ? 'active' : ''}
-              aria-current={view === id ? 'page' : undefined}
-              onClick={() => go(id)}
+              className={view === 'help' ? 'active' : ''}
+              aria-current={view === 'help' ? 'page' : undefined}
+              onClick={() => go('help')}
             >
-              <Icon /> {label} {count > 0 && <S.NavBadge>{count}</S.NavBadge>}
+              <CircleHelp /> Central de ajuda
             </button>
-          ))}
-        </S.Nav>
-        <S.SupportNav aria-label="Suporte do motoqueiro">
-          <button
-            type="button"
-            className={view === 'help' ? 'active' : ''}
-            aria-current={view === 'help' ? 'page' : undefined}
-            onClick={() => go('help')}
-          >
-            <CircleHelp /> Central de ajuda
-          </button>
-        </S.SupportNav>
-        <S.UserBlock>
-          <span className="avatar">{createRestaurantMonogram(userName)}</span>
-          <span>
-            <b>{userName}</b>
-            <small>Motoqueiro</small>
-          </span>
-          <button type="button" onClick={onLogout} aria-label="Sair da área do motoqueiro">
-            <LogOut />
-          </button>
-        </S.UserBlock>
-      </S.Sidebar>
+          </S.SupportNav>
+          <S.UserBlock>
+            <span className="avatar">{createRestaurantMonogram(userName)}</span>
+            <span>
+              <b>{userName}</b>
+              <small>Motoqueiro</small>
+            </span>
+            <button type="button" onClick={onLogout} aria-label="Sair da área do motoqueiro">
+              <LogOut />
+            </button>
+          </S.UserBlock>
+        </S.Sidebar>
+      )}
 
       {!sidebarOpen && (
-        <S.SidebarOpenControl onClick={onSidebarOpen} aria-label="Expandir navegação">
+        <S.SidebarOpenControl
+          inert={moreOpen}
+          onClick={onSidebarOpen}
+          aria-label="Expandir navegação"
+        >
           <ChevronRight />
         </S.SidebarOpenControl>
       )}
 
-      <S.MobileNav aria-label="Navegação móvel do motoqueiro">
+      <S.MobileNav aria-label="Navegação móvel do motoqueiro" inert={moreOpen}>
         {(
           [
             ['overview', 'Início', LayoutGrid, 0],
@@ -147,7 +166,8 @@ export function CourierNavigation({
           aria-label="Mais"
           className={secondaryActive || moreOpen ? 'active' : ''}
           aria-expanded={moreOpen}
-          aria-controls="courier-mobile-more"
+          aria-controls={moreOpen ? 'courier-mobile-more' : undefined}
+          aria-haspopup="dialog"
           onClick={() => setMoreOpen((current) => !current)}
         >
           <span>
@@ -159,12 +179,9 @@ export function CourierNavigation({
 
       {moreOpen && (
         <>
-          <S.MoreBackdrop
-            type="button"
-            aria-label="Fechar mais opções"
-            onClick={() => setMoreOpen(false)}
-          />
+          <S.MoreBackdrop type="button" tabIndex={-1} aria-hidden="true" onClick={closeMore} />
           <S.MoreSheet
+            ref={morePanel}
             id="courier-mobile-more"
             role="dialog"
             aria-modal="true"
@@ -172,11 +189,7 @@ export function CourierNavigation({
           >
             <header>
               <h2>Mais opções</h2>
-              <button
-                type="button"
-                onClick={() => setMoreOpen(false)}
-                aria-label="Fechar mais opções"
-              >
+              <button type="button" onClick={closeMore} aria-label="Fechar mais opções">
                 <X />
               </button>
             </header>

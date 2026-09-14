@@ -1,12 +1,20 @@
 import restaurantSettingsRepository from '../repositories/RestaurantSettingsRepository.js';
 import { isValidCnpj, isValidCpf } from '../utils/adminSettingsValidation.js';
+import {
+  AsaasProviderError,
+  asaasRequest,
+  asaasWebhookConfiguration,
+  ensureAsaasWebhook,
+  asaasWebhookTokenHash,
+} from './asaasConnectionApi.js';
+import getAsaasConnectionStatusService from './GetAsaasConnectionStatusService.js';
 
 type OnboardRestaurantAsaasPayload = {
   restaurantId: number | string;
   cnpj?: string;
   cpf?: string;
   restaurantName: string;
-  pixKey: string;
+  pixKey?: string;
   email?: string | null;
   mobilePhone?: string | null;
   incomeValue?: number | string | null;
@@ -14,6 +22,8 @@ type OnboardRestaurantAsaasPayload = {
   addressNumber?: string | null;
   province?: string | null;
   postalCode?: string | null;
+  birthDate?: string | null;
+  companyType?: string | null;
 };
 
 type AsaasErrorItem = {
@@ -58,31 +68,12 @@ class OnboardRestaurantAsaasService {
     return /^\d{8}$/.test(digits) ? digits : '';
   }
 
-  private getAsaasBaseUrl() {
-    return String(process.env.ASAAS_API_BASE_URL || 'https://api.asaas.com')
-      .trim()
-      .replace(/\/+$/, '');
-  }
-
   private getAsaasApiKey() {
     return String(process.env.ASAAS_API_KEY || '').trim();
   }
 
-  private extractWalletIdentifier(payload: AsaasCreateAccountResponse) {
-    return String(payload?.walletId || payload?.id || '').trim();
-  }
-
   private extractAsaasToken(payload: AsaasCreateAccountResponse) {
     return String(payload?.accessToken || payload?.apiKey || '').trim();
-  }
-
-  private extractProviderError(payload: AsaasCreateAccountResponse) {
-    if (!Array.isArray(payload?.errors) || payload.errors.length === 0) {
-      return 'Falha ao criar conta no Asaas.';
-    }
-
-    const firstError = String(payload.errors[0]?.description || '').trim();
-    return firstError || 'Falha ao criar conta no Asaas.';
   }
 
   async execute({
@@ -98,6 +89,8 @@ class OnboardRestaurantAsaasService {
     addressNumber,
     province,
     postalCode,
+    birthDate,
+    companyType,
   }: OnboardRestaurantAsaasPayload) {
     const normalizedRestaurantId = Number(restaurantId);
     if (!Number.isInteger(normalizedRestaurantId) || normalizedRestaurantId <= 0) {
@@ -114,8 +107,41 @@ class OnboardRestaurantAsaasService {
       throw new Error('Restaurante nao encontrado para onboarding Asaas.');
     }
 
+    const existingToken = String(existingSettings?.asaasAccessToken || '').trim();
+    if (
+      existingToken &&
+      !['CREATING', 'REQUIRES_RECOVERY'].includes(
+        String(existingSettings?.asaasOnboardingState || ''),
+      )
+    ) {
+      const webhookId = await ensureAsaasWebhook(
+        existingToken,
+        String(existingSettings?.ownerEmail || restaurant.email || '').trim(),
+      );
+      await restaurantSettingsRepository.update(normalizedRestaurantId, {
+        asaasWebhookId: webhookId,
+        asaasWebhookTokenHash: asaasWebhookTokenHash(),
+      });
+      return {
+        ...(await getAsaasConnectionStatusService.execute({
+          restaurantId: normalizedRestaurantId,
+        })),
+        reused: true,
+      };
+    }
+    if (
+      existingSettings?.asaasAccountId ||
+      ['CREATING', 'REQUIRES_RECOVERY'].includes(
+        String(existingSettings?.asaasOnboardingState || ''),
+      )
+    ) {
+      throw new Error(
+        'A criação anterior precisa de conferência. Nenhuma nova subconta foi criada. Entre em contato com o suporte.',
+      );
+    }
+
     const normalizedCnpj = this.normalizeDocument(
-      cnpj || existingSettings?.companyDocument || restaurant.cnpj || '',
+      cnpj || (cpf ? '' : existingSettings?.companyDocument || restaurant.cnpj || ''),
     );
     const normalizedCpf = this.normalizeDocument(cpf || '');
 
@@ -164,10 +190,6 @@ class OnboardRestaurantAsaasService {
       throw new Error('Nome do restaurante invalido.');
     }
 
-    if (!normalizedPixKey) {
-      throw new Error('Chave PIX obrigatoria para onboarding Asaas.');
-    }
-
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
       throw new Error('E-mail do responsavel invalido. Complete os dados gerais do restaurante.');
     }
@@ -190,80 +212,111 @@ class OnboardRestaurantAsaasService {
       throw new Error('CEP invalido. Complete os dados gerais do restaurante.');
     }
 
+    const normalizedBirthDate = String(
+      birthDate || existingSettings?.ownerBirthDate?.toISOString().slice(0, 10) || '',
+    ).trim();
+    if (
+      legalDocumentType === 'CPF' &&
+      (!/^\d{4}-\d{2}-\d{2}$/.test(normalizedBirthDate) ||
+        !Number.isFinite(Date.parse(normalizedBirthDate)) ||
+        normalizedBirthDate >= new Date().toISOString().slice(0, 10))
+    ) {
+      throw new Error('Informe a data de nascimento do titular da conta Asaas.');
+    }
+    const normalizedCompanyType = String(companyType || '')
+      .trim()
+      .toUpperCase();
+    if (
+      normalizedCompanyType &&
+      !['MEI', 'LIMITED', 'INDIVIDUAL', 'ASSOCIATION'].includes(normalizedCompanyType)
+    ) {
+      throw new Error('Tipo de empresa inválido para o Asaas.');
+    }
+
     const asaasApiKey = this.getAsaasApiKey();
     if (!asaasApiKey) {
       throw new Error('ASAAS_API_KEY nao configurada no backend.');
     }
 
-    const asaasBaseUrl = this.getAsaasBaseUrl();
-    const response = await fetch(`${asaasBaseUrl}/v3/accounts`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        access_token: asaasApiKey,
-      },
-      body: JSON.stringify({
-        cpfCnpj: normalizedDocument,
-        name: normalizedRestaurantName,
-        email: normalizedEmail,
-        mobilePhone: normalizedMobilePhone,
-        incomeValue: Math.round(normalizedIncomeValue * 100) / 100,
-        address: normalizedAddress,
-        addressNumber: normalizedAddressNumber,
-        province: normalizedProvince,
-        postalCode: normalizedPostalCode,
-      }),
-    });
-
-    const responseBody = (await response.json()) as AsaasCreateAccountResponse;
-    if (!response.ok) {
-      throw new Error(this.extractProviderError(responseBody));
-    }
-
-    const walletIdentifier = this.extractWalletIdentifier(responseBody);
-    if (!walletIdentifier) {
-      throw new Error('Asaas nao retornou identificador da conta/carteira da subconta.');
-    }
-
-    const asaasSubaccountToken = this.extractAsaasToken(responseBody);
-    if (existingSettings) {
-      await restaurantSettingsRepository.update(normalizedRestaurantId, {
-        legalDocumentType,
-        companyDocument: normalizedDocument,
-        companyTradeName: normalizedRestaurantName,
-        pixProvider: 'ASAAS',
-        pixKey: normalizedPixKey,
-        monthlyRevenue: Math.round(normalizedIncomeValue * 100) / 100,
-        gatewayMerchantId: walletIdentifier,
-        ...(asaasSubaccountToken
-          ? {
-              asaasAccessToken: asaasSubaccountToken,
-            }
-          : {}),
-      });
-    } else {
+    const webhook = asaasWebhookConfiguration(normalizedEmail);
+    if (!existingSettings) {
       await restaurantSettingsRepository.create({
         restaurantId: normalizedRestaurantId,
         deliveryFee: 0,
         minimumOrder: 0,
-        pixProvider: 'ASAAS',
-        pixKey: normalizedPixKey,
-        monthlyRevenue: Math.round(normalizedIncomeValue * 100) / 100,
-        ownerEmail: normalizedEmail,
-        ownerPhone: normalizedMobilePhone,
-        legalDocumentType,
-        companyDocument: normalizedDocument,
-        companyTradeName: normalizedRestaurantName,
-        gatewayMerchantId: walletIdentifier,
-        asaasAccessToken: asaasSubaccountToken || null,
       });
     }
-
+    if (!(await restaurantSettingsRepository.claimAsaasOnboarding(normalizedRestaurantId))) {
+      throw new Error(
+        'A conexão Asaas já está em andamento ou precisa de conferência. Nenhuma nova subconta foi criada.',
+      );
+    }
+    let responseBody: AsaasCreateAccountResponse;
+    try {
+      responseBody = await asaasRequest<AsaasCreateAccountResponse>('/accounts', asaasApiKey, {
+        method: 'POST',
+        body: {
+          cpfCnpj: normalizedDocument,
+          name: normalizedRestaurantName,
+          email: normalizedEmail,
+          mobilePhone: normalizedMobilePhone,
+          incomeValue: Math.round(normalizedIncomeValue * 100) / 100,
+          address: normalizedAddress,
+          addressNumber: normalizedAddressNumber,
+          province: normalizedProvince,
+          postalCode: normalizedPostalCode,
+          ...(legalDocumentType === 'CPF' ? { birthDate: normalizedBirthDate } : {}),
+          ...(legalDocumentType === 'CNPJ' && normalizedCompanyType
+            ? { companyType: normalizedCompanyType }
+            : {}),
+          webhooks: [webhook],
+        },
+      });
+    } catch (error) {
+      const definitiveRejection =
+        error instanceof AsaasProviderError && [400, 401, 403, 422].includes(error.status);
+      await restaurantSettingsRepository.update(normalizedRestaurantId, {
+        asaasOnboardingState: definitiveRejection ? 'FAILED' : 'REQUIRES_RECOVERY',
+      });
+      if (definitiveRejection) throw error;
+      throw new Error(
+        'Não foi possível confirmar a criação no Asaas. A tentativa foi preservada para conferência, sem criar outra conta.',
+      );
+    }
+    const accountId = String(responseBody.id || '').trim();
+    const walletIdentifier = String(responseBody.walletId || '').trim();
+    const asaasSubaccountToken = this.extractAsaasToken(responseBody);
+    const complete = Boolean(accountId && walletIdentifier && asaasSubaccountToken);
+    // A API key só é entregue nesta resposta: persistir antes de consultar status ou webhooks.
+    await restaurantSettingsRepository.update(normalizedRestaurantId, {
+      legalDocumentType,
+      companyDocument: normalizedDocument,
+      companyTradeName: normalizedRestaurantName,
+      ...(normalizedPixKey ? { pixKey: normalizedPixKey } : {}),
+      monthlyRevenue: Math.round(normalizedIncomeValue * 100) / 100,
+      gatewayMerchantId: walletIdentifier || null,
+      asaasAccountId: accountId || null,
+      asaasOnboardingState: complete ? 'CREATED' : 'REQUIRES_RECOVERY',
+      ...(asaasSubaccountToken
+        ? {
+            asaasAccessToken: asaasSubaccountToken,
+          }
+        : {}),
+    });
+    if (complete) {
+      try {
+        const webhookId = await ensureAsaasWebhook(asaasSubaccountToken, normalizedEmail);
+        await restaurantSettingsRepository.update(normalizedRestaurantId, {
+          asaasWebhookId: webhookId,
+          asaasWebhookTokenHash: asaasWebhookTokenHash(),
+        });
+      } catch {
+        /* Conta preservada; reconectar conclui o webhook sem outra criação. */
+      }
+    }
     return {
-      restaurantId: normalizedRestaurantId,
-      walletId: walletIdentifier,
-      pixKey: normalizedPixKey,
-      asaasSubaccountTokenConfigured: Boolean(asaasSubaccountToken),
+      ...(await getAsaasConnectionStatusService.execute({ restaurantId: normalizedRestaurantId })),
+      reused: false,
     };
   }
 }

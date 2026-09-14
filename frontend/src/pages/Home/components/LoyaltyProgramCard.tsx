@@ -28,16 +28,17 @@ const FloatingGroup = styled.div`
     width: 46px;
   }
 
-  &[data-collapsed='true'] ~ * {
-    display: none !important;
-  }
-
   @media (max-width: 700px) {
     width: min(300px, 100%);
 
     &[data-collapsed='true'] {
       width: 46px;
     }
+  }
+
+  &[data-embedded='true'] {
+    width: 100%;
+    min-width: 0;
   }
 `;
 
@@ -256,12 +257,18 @@ function RewardCard({
   );
 }
 
-export function LoyaltyProgramCard({ loyalty }: { loyalty: LoyaltyProgramProps }) {
+export function LoyaltyProgramCard({
+  loyalty,
+  embedded = false,
+}: {
+  loyalty: LoyaltyProgramProps;
+  embedded?: boolean;
+}) {
   const [isOpen, setIsOpen] = useState(false);
   const [floatingCollapsed, setFloatingCollapsed] = useState(
     () => typeof window !== 'undefined' && window.innerWidth <= 700,
   );
-  const isFloatingCollapsed = loyalty.loggedIn && floatingCollapsed;
+  const isFloatingCollapsed = !embedded && loyalty.loggedIn && floatingCollapsed;
   const triggerRef = useRef<HTMLButtonElement>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
@@ -336,6 +343,24 @@ export function LoyaltyProgramCard({ loyalty }: { loyalty: LoyaltyProgramProps }
   const discount = highlightedReward
     ? rewardLabel(highlightedReward.coupon.discountType, highlightedReward.coupon.discount)
     : '';
+  const progressReward =
+    embedded &&
+    loyalty.loggedIn &&
+    !loyalty.loading &&
+    !loyalty.error &&
+    !claimed &&
+    highlightedReward &&
+    !highlightedReward.canRedeem &&
+    !highlightedReward.limitReached &&
+    highlightedReward.remaining > 0 &&
+    highlightedReward.purchasesRequired > 0 &&
+    highlightedReward.purchasesCompleted >= 0 &&
+    Number.isFinite(highlightedReward.progressPercent)
+      ? highlightedReward
+      : null;
+  const progress = progressReward
+    ? Math.min(100, Math.max(0, Math.round(progressReward.progressPercent)))
+    : 0;
 
   let title = 'Ganhe descontos';
   let description = 'Entre para acompanhar sua fidelidade';
@@ -379,18 +404,19 @@ export function LoyaltyProgramCard({ loyalty }: { loyalty: LoyaltyProgramProps }
   }
 
   return (
-    <FloatingGroup data-collapsed={isFloatingCollapsed ? 'true' : 'false'}>
-      {loyalty.loggedIn && (
+    <FloatingGroup
+      data-collapsed={isFloatingCollapsed ? 'true' : 'false'}
+      data-embedded={embedded || undefined}
+    >
+      {loyalty.loggedIn && !embedded && (
         <GroupControl
           type="button"
           data-collapsed={isFloatingCollapsed ? 'true' : 'false'}
           data-floating-drag-handle="true"
-          title={
-            isFloatingCollapsed ? 'Mostrar benefícios e pedido' : 'Recolher benefícios e pedido'
-          }
+          title={isFloatingCollapsed ? 'Mostrar benefícios' : 'Recolher benefícios'}
           data-testid="customer-coupon-status-toggle"
           aria-expanded={!isFloatingCollapsed}
-          aria-label={`${isFloatingCollapsed ? 'Mostrar' : 'Minimizar'} cupom, fidelidade e status do pedido`}
+          aria-label={`${isFloatingCollapsed ? 'Mostrar' : 'Minimizar'} cupons e fidelidade`}
           onClick={() => setFloatingCollapsed((collapsed) => !collapsed)}
         >
           <span className="control-icon" aria-hidden="true">
@@ -398,7 +424,7 @@ export function LoyaltyProgramCard({ loyalty }: { loyalty: LoyaltyProgramProps }
           </span>
           <span className="control-copy">
             <strong>Seus benefícios</strong>
-            <small>Cupom e andamento do pedido</small>
+            <small>Cupons e fidelidade</small>
           </span>
           <span className="action" aria-hidden="true">
             {isFloatingCollapsed ? <ChevronUp /> : <ChevronDown />}
@@ -410,13 +436,14 @@ export function LoyaltyProgramCard({ loyalty }: { loyalty: LoyaltyProgramProps }
         <S.CompactNotice
           ref={triggerRef}
           type="button"
-          data-floating-drag-handle="true"
-          title="Clique para abrir ou arraste para mover"
+          data-floating-drag-handle={embedded ? undefined : 'true'}
+          data-embedded={embedded || undefined}
+          title={embedded ? undefined : 'Clique para abrir ou arraste para mover'}
           onClick={() => setIsOpen(true)}
           aria-haspopup="dialog"
           aria-expanded={isOpen}
           aria-busy={loyalty.loading}
-          aria-label={`${title}. ${description}`}
+          aria-label={`${title}. ${description}${progressReward ? `. ${progressReward.purchasesCompleted} de ${progressReward.purchasesRequired} pedidos pagos e entregues` : ''}`}
           data-guest={!loyalty.loggedIn ? 'true' : undefined}
         >
           <i className="icon">
@@ -428,6 +455,25 @@ export function LoyaltyProgramCard({ loyalty }: { loyalty: LoyaltyProgramProps }
           </span>
           <b className="notice-badge">{badge}</b>
           <ChevronRight className="chevron" size={18} />
+          {progressReward && (
+            <span className="notice-progress">
+              <span
+                className="progress-track"
+                role="progressbar"
+                aria-label="Progresso para a próxima recompensa"
+                aria-valuemin={0}
+                aria-valuemax={100}
+                aria-valuenow={progress}
+                aria-valuetext={`${progressReward.purchasesCompleted} de ${progressReward.purchasesRequired} pedidos pagos e entregues`}
+              >
+                <i style={{ width: `${progress}%` }} />
+              </span>
+              <small>
+                {progressReward.purchasesCompleted} de {progressReward.purchasesRequired} pedidos
+                pagos e entregues
+              </small>
+            </span>
+          )}
         </S.CompactNotice>
       )}
 

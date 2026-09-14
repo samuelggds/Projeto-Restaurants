@@ -1,0 +1,190 @@
+name: Deploy Production
+
+on:
+  workflow_run:
+    workflows: [Release Production Images]
+    types: [completed]
+
+concurrency:
+  group: production-deploy
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  actions: read
+
+env:
+  APP_DIR: /opt/gastronexa
+
+jobs:
+  deploy:
+    name: Deploy approved immutable release to Lightsail
+    if: >-
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'workflow_dispatch' &&
+      github.event.workflow_run.head_branch == 'main' &&
+      vars.PRODUCTION_DEPLOY_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: production
+
+    steps:
+      - name: Download release manifest from the exact release run
+        id: manifest
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_RUN_ID: ${{ github.event.workflow_run.id }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          artifact_id="$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${RELEASE_RUN_ID}/artifacts" \
+            --jq '.artifacts[] | select(.name | startswith("production-release-")) | .id' | head -n 1)"
+          test -n "$artifact_id"
+          gh api "repos/${GITHUB_REPOSITORY}/actions/artifacts/${artifact_id}/zip" > "$RUNNER_TEMP/release.zip"
+          mkdir -p "$RUNNER_TEMP/release"
+          unzip -q "$RUNNER_TEMP/release.zip" -d "$RUNNER_TEMP/release"
+          manifest="$RUNNER_TEMP/release/production-release-manifest.json"
+          test -s "$manifest"
+          node -e "JSON.parse(require('fs').readFileSync(process.argv[1], 'utf8'))" "$manifest"
+          sha="$(node -p "JSON.parse(require('fs').readFileSync(process.argv[1],'utf8')).commit" "$manifest")"
+          backend="$(node -p "JSON.parse(require('fs').readFileSync(process.argv[1],'utf8')).backendImage" "$manifest")"
+          frontend="$(node -p "JSON.parse(require('fs').readFileSync(process.argv[1],'utf8')).frontendImage" "$manifest")"
+          [[ "$sha" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$backend" =~ ^ghcr\.io/.+@sha256:[0-9a-f]{64}$ ]]
+          [[ "$frontend" =~ ^ghcr\.io/.+@sha256:[0-9a-f]{64}$ ]]
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+          echo "backend=$backend" >> "$GITHUB_OUTPUT"
+          echo "frontend=$frontend" >> "$GITHUB_OUTPUT"
+
+      - name: Refuse stale release reruns
+        env:
+          GH_TOKEN: ${{ github.token }}
+          DEPLOY_SHA: ${{ steps.manifest.outputs.sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          current_main="$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/heads/main" --jq '.object.sha')"
+          if [ "$DEPLOY_SHA" != "$current_main" ]; then
+            echo "Stale release blocked: release=$DEPLOY_SHA current-main=$current_main" >&2
+            exit 1
+          fi
+
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ steps.manifest.outputs.sha }}
+          persist-credentials: false
+
+      - name: Validate deployment inputs
+        env:
+          LIGHTSAIL_HOST: ${{ secrets.LIGHTSAIL_HOST }}
+          LIGHTSAIL_USER: ${{ secrets.LIGHTSAIL_USER }}
+          LIGHTSAIL_SSH_KEY: ${{ secrets.LIGHTSAIL_SSH_KEY }}
+          LIGHTSAIL_KNOWN_HOSTS: ${{ secrets.LIGHTSAIL_KNOWN_HOSTS }}
+          GHCR_READ_USERNAME: ${{ secrets.GHCR_READ_USERNAME }}
+          GHCR_READ_TOKEN: ${{ secrets.GHCR_READ_TOKEN }}
+        run: |
+          set -euo pipefail
+          test -n "$LIGHTSAIL_HOST"
+          test -n "$LIGHTSAIL_USER"
+          test -n "$LIGHTSAIL_SSH_KEY"
+          test -n "$LIGHTSAIL_KNOWN_HOSTS"
+          test -n "$GHCR_READ_USERNAME"
+          test -n "$GHCR_READ_TOKEN"
+          test "${#LIGHTSAIL_HOST}" -le 255
+          test "${#LIGHTSAIL_USER}" -le 64
+
+      - name: Configure SSH
+        env:
+          LIGHTSAIL_SSH_KEY: ${{ secrets.LIGHTSAIL_SSH_KEY }}
+          LIGHTSAIL_KNOWN_HOSTS: ${{ secrets.LIGHTSAIL_KNOWN_HOSTS }}
+        run: |
+          set -euo pipefail
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$LIGHTSAIL_SSH_KEY" > ~/.ssh/gastronexa-prod
+          chmod 600 ~/.ssh/gastronexa-prod
+          printf '%s\n' "$LIGHTSAIL_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/known_hosts
+
+      - name: Install controller files from the approved commit
+        env:
+          LIGHTSAIL_HOST: ${{ secrets.LIGHTSAIL_HOST }}
+          LIGHTSAIL_USER: ${{ secrets.LIGHTSAIL_USER }}
+          DEPLOY_SHA: ${{ steps.manifest.outputs.sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          ssh -i ~/.ssh/gastronexa-prod -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes \
+            "$LIGHTSAIL_USER@$LIGHTSAIL_HOST" \
+            "mkdir -p '$APP_DIR/.controller-backups/$DEPLOY_SHA' '$APP_DIR/scripts' '$APP_DIR/deploy'; \
+             cp '$APP_DIR/docker-compose.production.yml' '$APP_DIR/.controller-backups/$DEPLOY_SHA/' 2>/dev/null || true; \
+             cp '$APP_DIR/scripts/deploy-production.sh' '$APP_DIR/.controller-backups/$DEPLOY_SHA/' 2>/dev/null || true"
+          scp -i ~/.ssh/gastronexa-prod -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes \
+            docker-compose.production.yml docker-compose.release.yml \
+            "$LIGHTSAIL_USER@$LIGHTSAIL_HOST:$APP_DIR/"
+          scp -i ~/.ssh/gastronexa-prod -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes \
+            scripts/deploy-production.sh "$LIGHTSAIL_USER@$LIGHTSAIL_HOST:$APP_DIR/scripts/deploy-production.sh"
+          scp -i ~/.ssh/gastronexa-prod -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes \
+            deploy/Caddyfile "$LIGHTSAIL_USER@$LIGHTSAIL_HOST:$APP_DIR/deploy/Caddyfile"
+
+      - name: Authenticate production host to read-only registry credentials
+        env:
+          LIGHTSAIL_HOST: ${{ secrets.LIGHTSAIL_HOST }}
+          LIGHTSAIL_USER: ${{ secrets.LIGHTSAIL_USER }}
+          GHCR_READ_USERNAME: ${{ secrets.GHCR_READ_USERNAME }}
+          GHCR_READ_TOKEN: ${{ secrets.GHCR_READ_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          printf '%s' "$GHCR_READ_TOKEN" | ssh \
+            -i ~/.ssh/gastronexa-prod \
+            -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes \
+            "$LIGHTSAIL_USER@$LIGHTSAIL_HOST" \
+            "docker login ghcr.io -u '$GHCR_READ_USERNAME' --password-stdin >/dev/null"
+
+      - name: Deploy exact scanned image digests
+        env:
+          LIGHTSAIL_HOST: ${{ secrets.LIGHTSAIL_HOST }}
+          LIGHTSAIL_USER: ${{ secrets.LIGHTSAIL_USER }}
+          DEPLOY_SHA: ${{ steps.manifest.outputs.sha }}
+          BACKEND_IMAGE: ${{ steps.manifest.outputs.backend }}
+          FRONTEND_IMAGE: ${{ steps.manifest.outputs.frontend }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          ssh \
+            -i ~/.ssh/gastronexa-prod \
+            -o BatchMode=yes \
+            -o IdentitiesOnly=yes \
+            -o StrictHostKeyChecking=yes \
+            -o ConnectTimeout=15 \
+            "$LIGHTSAIL_USER@$LIGHTSAIL_HOST" \
+            "cd '$APP_DIR' && chmod 700 scripts/deploy-production.sh && \
+             DEPLOY_SHA='$DEPLOY_SHA' BACKEND_IMAGE='$BACKEND_IMAGE' FRONTEND_IMAGE='$FRONTEND_IMAGE' APP_DIR='$APP_DIR' \
+             bash scripts/deploy-production.sh"
+
+      - name: Verify public endpoints
+        env:
+          APP_URL: ${{ vars.PRODUCTION_APP_URL }}
+          API_URL: ${{ vars.PRODUCTION_API_URL }}
+        run: |
+          set -euo pipefail
+          case "$APP_URL" in https://*) ;; *) echo 'PRODUCTION_APP_URL deve usar HTTPS.' >&2; exit 1 ;; esac
+          case "$API_URL" in https://*) ;; *) echo 'PRODUCTION_API_URL deve usar HTTPS.' >&2; exit 1 ;; esac
+          curl --fail --silent --show-error --retry 5 --retry-delay 3 --max-time 15 "$APP_URL/healthz" >/dev/null
+          curl --fail --silent --show-error --retry 5 --retry-delay 3 --max-time 15 "$API_URL/health" >/dev/null
+          curl --fail --silent --show-error --retry 5 --retry-delay 3 --max-time 15 "$API_URL/ready" >/dev/null
+
+      - name: Remove temporary credentials
+        if: always()
+        env:
+          LIGHTSAIL_HOST: ${{ secrets.LIGHTSAIL_HOST }}
+          LIGHTSAIL_USER: ${{ secrets.LIGHTSAIL_USER }}
+        shell: bash
+        run: |
+          set +e
+          if [ -f ~/.ssh/gastronexa-prod ] && [ -n "$LIGHTSAIL_HOST" ] && [ -n "$LIGHTSAIL_USER" ]; then
+            ssh -i ~/.ssh/gastronexa-prod -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes \
+              "$LIGHTSAIL_USER@$LIGHTSAIL_HOST" 'docker logout ghcr.io >/dev/null 2>&1 || true'
+          fi
+          rm -f ~/.ssh/gastronexa-prod "$RUNNER_TEMP/release.zip"
+          rm -rf "$RUNNER_TEMP/release"

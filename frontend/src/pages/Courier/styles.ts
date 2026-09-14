@@ -1273,6 +1273,8 @@ export const CourierShell = styled.div<{ $primary: string; $sidebarOpen?: boolea
 `;
 
 export const CourierMain = styled.main`
+  grid-column: 2;
+  grid-row: 1;
   min-width: 0;
   height: 100dvh;
   overflow-y: auto;
@@ -1289,6 +1291,7 @@ export const CourierTop = styled.header`
   min-height: 84px;
   padding: 17px clamp(18px, 3vw, 38px);
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 15px;
   background: rgba(255, 255, 255, 0.94);
@@ -1297,6 +1300,10 @@ export const CourierTop = styled.header`
   position: sticky;
   top: 0;
   z-index: 30;
+  > div:first-child {
+    flex: 1;
+    min-width: min(160px, 100%);
+  }
   h1 {
     margin: 0 0 4px;
     font-size: 24px;
@@ -1308,6 +1315,7 @@ export const CourierTop = styled.header`
     font-size: 12px;
   }
   @media (max-width: 650px) {
+    flex-wrap: wrap;
     min-height: 84px;
     padding: 13px 12px;
     h1 {
@@ -1328,6 +1336,9 @@ export const CourierContent = styled.div`
   }
   @media (max-width: 650px) {
     padding: 12px 10px 94px;
+    .courier-history-pagination {
+      padding-right: 76px;
+    }
   }
 `;
 
@@ -1369,6 +1380,93 @@ export const OverviewHero = styled.section`
   }
   @media (max-width: 720px) {
     grid-template-columns: 1fr;
+  }
+`;
+
+export const ActiveDeliveryCard = styled.section`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  margin-bottom: 18px;
+  padding: 20px;
+  border: 1px solid #b8d9e6;
+  border-left: 4px solid #197492;
+  border-radius: 12px;
+  background: #f1f9fc;
+  color: #183847;
+
+  > div {
+    min-width: 0;
+  }
+  small {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: #14627f;
+    font-size: 11px;
+    font-weight: 800;
+  }
+  small svg {
+    width: 18px;
+    height: 18px;
+  }
+  h2 {
+    margin: 10px 0 6px;
+    font-size: 23px;
+  }
+  p {
+    margin: 0 0 6px;
+    font-size: 14px;
+  }
+  strong {
+    display: block;
+    font-size: 14px;
+    line-height: 1.5;
+    overflow-wrap: anywhere;
+  }
+
+  @media (max-width: 620px) {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 16px;
+    padding: 16px;
+  }
+`;
+
+export const ActiveDeliveryActions = styled.div`
+  display: grid;
+  gap: 8px;
+  flex: 0 0 auto;
+
+  button {
+    min-height: 48px;
+    padding: 12px 16px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 8px;
+    border: 1px solid #14627f;
+    border-radius: 8px;
+    background: #14627f;
+    color: #fff;
+    font: inherit;
+    font-size: 14px;
+    font-weight: 750;
+    cursor: pointer;
+  }
+  button:focus-visible {
+    outline: 3px solid #183847;
+    outline-offset: 3px;
+  }
+  button.secondary {
+    color: #14627f;
+    background: transparent;
+  }
+  svg {
+    width: 18px;
+    height: 18px;
+    flex-shrink: 0;
   }
 `;
 

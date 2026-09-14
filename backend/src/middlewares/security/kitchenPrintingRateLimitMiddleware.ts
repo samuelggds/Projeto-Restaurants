@@ -1,9 +1,11 @@
+import { distributedRateLimitOptions } from './PostgresRateLimitStore.js';
 import type { Request } from 'express';
 import rateLimit, { ipKeyGenerator } from 'express-rate-limit';
 
 const ipKey = (req: Request) => ipKeyGenerator(String(req.ip || 'unknown'));
 
 export const printerAgentRateLimitMiddleware = rateLimit({
+  ...distributedRateLimitOptions('kitchenprinting:1'),
   windowMs: 60_000,
   max: 180,
   standardHeaders: true,
@@ -13,6 +15,7 @@ export const printerAgentRateLimitMiddleware = rateLimit({
 });
 
 export const printerCredentialRateLimitMiddleware = rateLimit({
+  ...distributedRateLimitOptions('kitchenprinting:2'),
   windowMs: 15 * 60_000,
   max: 10,
   standardHeaders: true,
