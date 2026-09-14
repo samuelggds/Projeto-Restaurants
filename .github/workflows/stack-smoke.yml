@@ -64,7 +64,6 @@ jobs:
             psql -U ci_owner -d gastronexa_ci -Atc \
             "SELECT (NOT rolsuper AND NOT rolbypassrls AND NOT rolcreatedb AND NOT rolcreaterole)::text FROM pg_roles WHERE rolname='ci_runtime'")"
           test "$secure_role" = 'true'
-
           backend_role="$(docker compose -f docker-compose.ci.yml exec -T backend node -e \
             "import('./dist/config/prisma.js').then(async m=>{const r=await m.default.\$queryRawUnsafe('select current_user as u'); console.log(r[0].u); await m.default.\$disconnect()})")"
           test "$(printf '%s' "$backend_role" | tail -n 1)" = 'ci_runtime'
@@ -73,10 +72,9 @@ jobs:
         run: |
           npm --prefix backend ci
           npm --prefix frontend ci
-          npx --prefix frontend playwright install --with-deps chromium
+          (cd frontend && npx playwright install --with-deps chromium)
 
       - name: Seed disposable tenant fixtures through the migration owner only
-        id: fixture
         env:
           NODE_ENV: test
           CI_INTEGRATION_OWNER_DATABASE_URL: postgresql://ci_owner:ci-owner-password@127.0.0.1:5432/gastronexa_ci?schema=public
@@ -96,14 +94,14 @@ jobs:
             CI_ATTENDANT_B_EMAIL: fixture.emails.attendantB,
             CI_STAFF_PASSWORD: fixture.password,
           };
-          const lines = Object.entries(pairs).map(([key, value]) => `${key}=${value}`).join('\n') + '\n';
-          fs.appendFileSync(process.env.GITHUB_ENV, lines);
+          fs.appendFileSync(process.env.GITHUB_ENV, Object.entries(pairs).map(([k,v]) => `${k}=${v}`).join('\n') + '\n');
           NODE
+          rm -f "$RUNNER_TEMP/integrated-fixture.json"
 
       - name: Run real browser API PostgreSQL authorization and order journey
         working-directory: frontend
         env:
-          PLAYWRIGHT_EXTERNAL_BASE_URL: http://127.0.0.1:8080
+          PLAYWRIGHT_EXTERNAL_BASE_URL: http://localhost:8080
           CI_INTEGRATED_API_URL: http://127.0.0.1:3000
         shell: bash
         run: |
@@ -128,9 +126,7 @@ jobs:
             completed="$(docker compose -f docker-compose.ci.yml exec -T postgres \
               psql -U ci_owner -d gastronexa_ci -Atc \
               "SELECT count(*) FROM \"ScheduledJobState\" WHERE \"jobKey\" IN ('sales-leads.email-delivery','notifications.delivery') AND \"lastStartedAt\" IS NOT NULL AND \"lastCompletedAt\" IS NOT NULL")"
-            if [ "$completed" -ge 1 ]; then
-              break
-            fi
+            if [ "$completed" -ge 1 ]; then break; fi
             sleep 2
           done
           test "$completed" -ge 1
@@ -158,7 +154,6 @@ jobs:
             echo "Source commit: \`${GITHUB_SHA}\`"
             echo
             echo 'Verified: restricted runtime DB role, browser->API->PostgreSQL login/authorization/order transition, and actual worker scheduled-task completion.'
-            echo 'This workflow uses only disposable synthetic data and does not publish or deploy these images.'
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Capture stack logs
@@ -174,7 +169,6 @@ jobs:
           path: |
             ${{ runner.temp }}/isolated-stack.log
             ${{ runner.temp }}/backend-ready.json
-            ${{ runner.temp }}/integrated-fixture.json
             integrated-stack-browser.log
             frontend/test-results/
           if-no-files-found: warn
