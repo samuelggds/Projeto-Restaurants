@@ -7,21 +7,34 @@ import express from 'express';
 import { adminMiddleware } from '../../../middlewares/adminMiddleware.js';
 import ingredientRoutes from './ingredientRoutes.js';
 
-test('busca de imagens exige autenticação', async (context) => {
+async function startApp(context) {
   const app = express();
   app.use(express.json());
   app.use('/ingredients', ingredientRoutes);
   const server = app.listen(0);
   context.after(() => server.close());
   await new Promise((resolve) => server.once('listening', resolve));
-  const { port } = server.address() as AddressInfo;
+  return (server.address() as AddressInfo).port;
+}
 
+test('busca de imagens exige autenticação', async (context) => {
+  const port = await startApp(context);
   const response = await fetch(`http://127.0.0.1:${port}/ingredients/image-search`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ name: 'Bacon' }),
   });
+  assert.equal(response.status, 401);
+  assert.match(JSON.stringify(await response.json()), /Token não informado/);
+});
 
+test('geração de imagem com IA exige autenticação administrativa', async (context) => {
+  const port = await startApp(context);
+  const response = await fetch(`http://127.0.0.1:${port}/ingredients/generate-image`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ name: 'Bacon' }),
+  });
   assert.equal(response.status, 401);
   assert.match(JSON.stringify(await response.json()), /Token não informado/);
 });
