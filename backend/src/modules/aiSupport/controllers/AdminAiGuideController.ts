@@ -84,14 +84,7 @@ class AdminAiGuideController {
   async cardTopUp(req: Request, res: Response) {
     try {
       const actor = actorFromRequest(req);
-      return res.status(201).json(
-        await aiCreditTopUpService.createCard(actor, {
-          amountUsd: req.body?.amountUsd,
-          cardToken: req.body?.cardToken,
-          cardId: req.body?.cardId,
-          paymentMethodId: req.body?.paymentMethodId,
-        }),
-      );
+      return res.status(201).json(await aiCreditTopUpService.createCard(actor, req.body?.amountUsd));
     } catch (error) {
       const mapped = mapError(error);
       return res.status(mapped.status).json(mapped.body);
