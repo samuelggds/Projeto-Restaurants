@@ -205,6 +205,8 @@ describe('Login contextual do cliente', () => {
       (container.querySelector('form') as HTMLFormElement).requestSubmit();
       await Promise.resolve();
       await Promise.resolve();
+    });
+    await act(async () => {
       await vi.advanceTimersByTimeAsync(0);
     });
 
