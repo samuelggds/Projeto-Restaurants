@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import styled from 'styled-components';
-import { Sparkles, X } from 'lucide-react';
+import { X } from 'lucide-react';
 import aiGuideService, {
   type AiCreditBalance,
   type AiTourGuide,
@@ -10,6 +10,7 @@ import aiGuideService, {
 import restaurantSettingsService from '../../../Services/restaurantSettingsService';
 import { useAuth } from '../../../contexts/authContext';
 import { createRestaurantMonogram } from '../../../utils/restaurantMonogram';
+import { ChatGptLogo } from '../../../components/ChatGptLogo';
 import { AiCreditCard } from './AiCreditCard';
 import { AiGuideAssistant } from './AiGuideAssistant';
 import { AiGuidedTour } from './AiGuidedTour';
@@ -237,7 +238,7 @@ export default function AdminAiLayer({ children }: { children: React.ReactNode }
       aria-expanded={assistantOpen}
       onClick={toggleAssistant}
     >
-      <Sparkles />
+      <ChatGptLogo />
       <span>Guia com IA</span>
     </AssistantLauncher>
   );
@@ -254,7 +255,7 @@ export default function AdminAiLayer({ children }: { children: React.ReactNode }
         aria-expanded={assistantOpen}
         onClick={toggleAssistant}
       >
-        <Sparkles />
+        <ChatGptLogo />
       </MobileAssistantLauncher>
 
       {assistantOpen && (
@@ -296,6 +297,11 @@ const AssistantLauncher = styled.button`
     background: rgba(255, 255, 255, 0.06);
   }
 
+  svg {
+    width: 17px;
+    height: 17px;
+  }
+
   @media (max-width: 820px) {
     display: none;
   }
@@ -323,7 +329,8 @@ const MobileAssistantLauncher = styled.button`
     cursor: pointer;
 
     svg {
-      width: 17px;
+      width: 19px;
+      height: 19px;
     }
   }
 `;
