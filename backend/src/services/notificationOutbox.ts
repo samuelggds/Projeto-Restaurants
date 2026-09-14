@@ -4,6 +4,11 @@ import {
   encryptCredential,
   decryptCredential,
 } from '../modules/restaurantSettings/security/credentialEncryption.js';
+import {
+  resolveWhatsAppDeliveryProvider,
+  sendGupshupTextMessage,
+  WhatsAppProviderConfigurationError,
+} from './whatsappProvider.js';
 
 type Message = {
   channel: 'whatsapp';
@@ -55,10 +60,14 @@ export async function enqueueWhatsappNotification(message: Message, db: Database
   const payload = encryptCredential(JSON.stringify(message), context(id));
   await db.$executeRaw`INSERT INTO "NotificationOutbox" ("id", "deduplicationKey", "restaurantId", "payload")
     VALUES (${id}::uuid, ${key}, ${order.restaurantId}, ${payload}) ON CONFLICT ("deduplicationKey") DO NOTHING`;
-  return { sent: false, queued: true, provider: 'whatsapp_webhook' } as const;
+  return {
+    sent: false,
+    queued: true,
+    provider: resolveWhatsAppDeliveryProvider(),
+  } as const;
 }
 
-function configuredEndpoint() {
+function configuredWebhookEndpoint() {
   const url = new URL(String(process.env.WHATSAPP_WEBHOOK_URL || ''));
   if (
     url.username ||
@@ -75,14 +84,58 @@ function configuredEndpoint() {
   return url;
 }
 
+async function sendLegacyWebhook(message: Message, rowId: string, send: typeof fetch) {
+  const endpoint = configuredWebhookEndpoint();
+  const token = String(process.env.WHATSAPP_WEBHOOK_TOKEN || '');
+  const response = await send(endpoint, {
+    method: 'POST',
+    redirect: 'error',
+    signal: AbortSignal.timeout(10_000),
+    headers: {
+      'Content-Type': 'application/json',
+      'Idempotency-Key': rowId,
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    body: JSON.stringify(message),
+  });
+  await response.body?.cancel();
+  if (!response.ok) throw new Error('Webhook recusou a notificação.');
+}
+
+async function deliverMessage(message: Message, rowId: string, send: typeof fetch) {
+  const provider = resolveWhatsAppDeliveryProvider();
+  if (provider === 'gupshup') {
+    await sendGupshupTextMessage({
+      source: message.from,
+      destination: message.to,
+      message: message.message,
+      send,
+    });
+    return;
+  }
+  if (provider === 'whatsapp_webhook') {
+    if (!String(process.env.WHATSAPP_WEBHOOK_URL || '').trim()) {
+      throw new WhatsAppProviderConfigurationError(
+        'whatsapp_webhook_missing',
+        'WHATSAPP_WEBHOOK_URL não configurada.',
+      );
+    }
+    await sendLegacyWebhook(message, rowId, send);
+    return;
+  }
+  throw new WhatsAppProviderConfigurationError(
+    provider === 'none' ? 'provider_not_configured' : 'provider_not_supported',
+    `Provedor de WhatsApp não suportado: ${provider}.`,
+  );
+}
+
 /** Durable retry, leased claims and a stable receiver idempotency key.
- * Delivery is at least once; a receiver must deduplicate Idempotency-Key.
+ * Delivery is at least once; providers/receivers should deduplicate when possible.
  * No external call runs inside a database transaction.
  */
 export async function deliverNotificationOutbox(db: Database = prisma, send: typeof fetch = fetch) {
-  if (!process.env.WHATSAPP_WEBHOOK_URL) return { processed: 0 };
-  const endpoint = configuredEndpoint();
-  const token = String(process.env.WHATSAPP_WEBHOOK_TOKEN || '');
+  if (resolveWhatsAppDeliveryProvider() === 'none') return { processed: 0, delivered: 0 };
+
   const lockToken = randomUUID();
   const rows = await db.$queryRaw<Row[]>`
     WITH picked AS (SELECT "id" FROM "NotificationOutbox"
@@ -114,27 +167,21 @@ export async function deliverNotificationOutbox(db: Database = prisma, send: typ
           WHERE "id" = ${row.id}::uuid AND "lockToken" = ${lockToken}::uuid`;
         return;
       }
-      const response = await send(endpoint, {
-        method: 'POST',
-        redirect: 'error',
-        signal: AbortSignal.timeout(10_000),
-        headers: {
-          'Content-Type': 'application/json',
-          'Idempotency-Key': row.id,
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
-        body: JSON.stringify(message),
-      });
-      await response.body?.cancel();
-      if (!response.ok) throw new Error('Webhook recusou a notificação.');
+
+      await deliverMessage(message, row.id, send);
       await db.$executeRaw`UPDATE "NotificationOutbox" SET "status" = 'DELIVERED', "payload" = NULL,
         "completedAt" = clock_timestamp(), "lockedUntil" = NULL, "lockToken" = NULL
         WHERE "id" = ${row.id}::uuid AND "lockToken" = ${lockToken}::uuid`;
       delivered++;
-    } catch {
-      // Never persist/log the remote body, phone, message, credentials or driver errors.
-      console.error('[NOTIFICATION_DELIVERY_RETRY]', { id: row.id, attempt: row.attempts });
-      const exhausted = row.attempts >= 8;
+    } catch (error) {
+      // Never persist/log the remote body, phone, message or credentials.
+      const configurationError = error instanceof WhatsAppProviderConfigurationError;
+      console.error('[NOTIFICATION_DELIVERY_RETRY]', {
+        id: row.id,
+        attempt: row.attempts,
+        kind: configurationError ? error.code : 'remote_delivery_error',
+      });
+      const exhausted = configurationError || row.attempts >= 8;
       const delayMs = Math.min(30 * 60_000, 30_000 * 2 ** Math.min(row.attempts - 1, 6));
       await db.$executeRaw`UPDATE "NotificationOutbox" SET "status" = ${exhausted ? 'FAILED' : 'PENDING'},
         "availableAt" = clock_timestamp() + ${delayMs} * INTERVAL '1 millisecond',
@@ -142,7 +189,6 @@ export async function deliverNotificationOutbox(db: Database = prisma, send: typ
         WHERE "id" = ${row.id}::uuid AND "lockToken" = ${lockToken}::uuid`;
     }
   };
-  // Bound outgoing concurrency so a slow receiver cannot exhaust sockets.
   for (let i = 0; i < rows.length; i += 8) await Promise.all(rows.slice(i, i + 8).map(processRow));
   await db.$executeRaw`DELETE FROM "NotificationOutbox" WHERE "id" IN
     (SELECT "id" FROM "NotificationOutbox" WHERE "createdAt" < clock_timestamp() - INTERVAL '30 days' LIMIT 1000)`;
