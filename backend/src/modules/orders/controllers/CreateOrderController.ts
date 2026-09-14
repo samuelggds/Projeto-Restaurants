@@ -7,6 +7,7 @@ import createOrderService from '../services/CreateOrderService.js';
 import { issueGuestOrderTrackingToken } from '../utils/guestOrderTrackingToken.js';
 import { issueGuestOrderOwnershipToken } from '../utils/guestOrderOwnershipToken.js';
 import { withoutOrderCreationMetadata } from '../utils/orderPublicData.js';
+import { resolveCustomerOrderLinks } from '../../../services/customerOrderMessaging.js';
 
 class CreateOrderController {
   async handle(req: Request, res: Response) {
@@ -75,8 +76,10 @@ class CreateOrderController {
       });
 
       const isGuestOrder = req.user?.isGuest === true;
-      const isGuestDelivery =
-        isGuestOrder && String(order.type || '').toUpperCase() === 'DELIVERY';
+      const isDelivery = String(order.type || '').toUpperCase() === 'DELIVERY';
+      const isGuestDelivery = isGuestOrder && isDelivery;
+      const isAdminManualDelivery =
+        isDelivery && String(req.user?.role || '').toUpperCase() === 'ADMIN' && Boolean(order.publicId);
       const guestTrackingToken = isGuestDelivery
         ? issueGuestOrderTrackingToken({
             orderId: Number(order.id),
@@ -89,11 +92,19 @@ class CreateOrderController {
             publicId: String(order.publicId),
           })
         : null;
+      const customerAccess = isAdminManualDelivery
+        ? await resolveCustomerOrderLinks({
+            restaurantId: order.restaurantId,
+            orderId: order.id,
+            publicId: order.publicId,
+          })
+        : undefined;
 
       return res.status(201).json({
         ...withoutOrderCreationMetadata(order),
         ...(guestTrackingToken ? { guestTrackingToken } : {}),
         ...(guestOwnershipToken ? { guestOwnershipToken } : {}),
+        ...(customerAccess ? { customerAccess } : {}),
       });
     } catch (error: unknown) {
       if (error instanceof OrderRequestError) {
