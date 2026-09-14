@@ -1,3 +1,4 @@
+import { PaymentMethod } from '@prisma/client';
 import { realtimePublisher as io } from '../../../realtime/realtimePublisher.js';
 import prisma from '../../../config/prisma.js';
 import orderRepository from '../repositories/OrderRepository.js';
@@ -44,8 +45,13 @@ class ConfirmOrderPaymentWithPinService {
       }
     }
 
-    if (order.payOnDelivery !== true || !order.paymentMethod) {
-      throw new Error('Confirmação por PIN disponível apenas para pagamento na entrega.');
+    if (
+      order.payOnDelivery !== true ||
+      order.paymentMethod !== PaymentMethod.DINHEIRO
+    ) {
+      throw new Error(
+        'A confirmação por PIN é exclusiva para recebimento em dinheiro na entrega. PIX e cartão devem ser confirmados pelo provedor.',
+      );
     }
 
     if (order.paid === true) {
