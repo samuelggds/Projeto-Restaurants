@@ -1,9 +1,6 @@
 name: Deploy Production
 
 on:
-  workflow_run:
-    workflows: [Release Production Images]
-    types: [completed]
   workflow_dispatch:
     inputs:
       release_run_id:
@@ -27,17 +24,7 @@ permissions:
 jobs:
   deploy:
     name: Deploy approved immutable release to Lightsail
-    if: >-
-      vars.PRODUCTION_DEPLOY_ENABLED == 'true' &&
-      (
-        github.event_name == 'workflow_dispatch' ||
-        (
-          github.event_name == 'workflow_run' &&
-          github.event.workflow_run.conclusion == 'success' &&
-          github.event.workflow_run.event == 'workflow_dispatch' &&
-          github.event.workflow_run.head_branch == 'main'
-        )
-      )
+    if: ${{ vars.PRODUCTION_DEPLOY_ENABLED == 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
     environment: production
@@ -49,36 +36,21 @@ jobs:
         id: release
         env:
           GH_TOKEN: ${{ github.token }}
-          EVENT_NAME: ${{ github.event_name }}
-          DISPATCH_RELEASE_RUN_ID: ${{ inputs.release_run_id }}
-          DISPATCH_RELEASE_SHA: ${{ inputs.release_sha }}
-          WORKFLOW_RELEASE_RUN_ID: ${{ github.event.workflow_run.id }}
-          WORKFLOW_RELEASE_SHA: ${{ github.event.workflow_run.head_sha }}
+          RELEASE_RUN_ID: ${{ inputs.release_run_id }}
+          RELEASE_SHA: ${{ inputs.release_sha }}
         shell: bash
         run: |
           set -euo pipefail
 
-          if [ "$EVENT_NAME" = 'workflow_dispatch' ]; then
-            release_run_id="$DISPATCH_RELEASE_RUN_ID"
-            release_sha="$DISPATCH_RELEASE_SHA"
-          else
-            release_run_id="$WORKFLOW_RELEASE_RUN_ID"
-            release_sha="$WORKFLOW_RELEASE_SHA"
-          fi
-
-          [[ "$release_run_id" =~ ^[0-9]+$ ]]
-          [[ "$release_sha" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$RELEASE_RUN_ID" =~ ^[0-9]+$ ]]
+          [[ "$RELEASE_SHA" =~ ^[0-9a-f]{40}$ ]]
 
           release_json=''
           for attempt in $(seq 1 30); do
-            release_json="$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${release_run_id}")"
+            release_json="$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${RELEASE_RUN_ID}")"
             status="$(printf '%s' "$release_json" | node -e "let d='';process.stdin.on('data',c=>d+=c).on('end',()=>process.stdout.write(JSON.parse(d).status||''))")"
             if [ "$status" = 'completed' ]; then
               break
-            fi
-            if [ "$EVENT_NAME" != 'workflow_dispatch' ]; then
-              echo "Release run is not completed: status=$status" >&2
-              exit 1
             fi
             sleep 2
           done
@@ -94,11 +66,11 @@ jobs:
           test "$conclusion" = 'success'
           test "$event" = 'workflow_dispatch'
           test "$branch" = 'main'
-          test "$head_sha" = "$release_sha"
+          test "$head_sha" = "$RELEASE_SHA"
           test "$path" = '.github/workflows/release-production-images.yml'
 
-          echo "run_id=$release_run_id" >> "$GITHUB_OUTPUT"
-          echo "head_sha=$release_sha" >> "$GITHUB_OUTPUT"
+          echo "run_id=$RELEASE_RUN_ID" >> "$GITHUB_OUTPUT"
+          echo "head_sha=$RELEASE_SHA" >> "$GITHUB_OUTPUT"
 
       - name: Download and validate release manifest from the exact release run
         id: manifest
