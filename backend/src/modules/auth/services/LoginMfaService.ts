@@ -1,15 +1,19 @@
 import bcrypt from 'bcrypt';
 import crypto from 'crypto';
 import jwt from 'jsonwebtoken';
-import nodemailer from 'nodemailer';
 import prisma from '../../../config/prisma.js';
 import { getJwtMfaExpiresIn, getJwtMfaSecret, getJwtSecret } from '../../../config/auth.js';
 import authTokenService from './AuthTokenService.js';
 import userRepository from '../repositories/UserRepository.js';
-import { canLogLocalAuthCode } from '../security/localAuthCodeLogging.js';
 import { isMfaRequiredForRole } from '../security/mfaPolicy.js';
 import successfulLoginRecorderService from './SuccessfulLoginRecorderService.js';
 import { platformMaintenanceAccessService } from '../../platform/services/PlatformMaintenanceService.js';
+import {
+  listAvailableMfaChannels,
+  parseMfaDeliveryChannel,
+  sendMfaCode,
+  type MfaDeliveryChannel,
+} from './MfaDeliveryService.js';
 
 type PlatformAccess = Pick<typeof platformMaintenanceAccessService, 'assertRoleAllowed'>;
 
@@ -46,84 +50,12 @@ export class MfaResendCooldownError extends Error {
   }
 }
 
-function createTransporter() {
-  const smtpHost = String(process.env.SMTP_HOST || '').trim();
-  const smtpPort = Number(process.env.SMTP_PORT || 587);
-  const smtpSecure = String(process.env.SMTP_SECURE || 'false') === 'true';
-  const smtpAuthType = String(process.env.SMTP_AUTH_TYPE || 'basic')
-    .trim()
-    .toLowerCase();
-  const smtpUser = String(process.env.SMTP_USER || '').trim();
-  const smtpPass = String(process.env.SMTP_PASS || '').trim();
-  const smtpClientId = String(process.env.SMTP_CLIENT_ID || '').trim();
-  const smtpClientSecret = String(process.env.SMTP_CLIENT_SECRET || '').trim();
-  const smtpRefreshToken = String(process.env.SMTP_REFRESH_TOKEN || '').trim();
-  const smtpAccessToken = String(process.env.SMTP_ACCESS_TOKEN || '').trim();
-
-  if (!smtpHost || !smtpPort || !smtpUser) {
-    return null;
-  }
-
-  if (smtpAuthType === 'oauth2') {
-    if (!smtpClientId || !smtpClientSecret || !smtpRefreshToken) {
-      return null;
-    }
-
-    return nodemailer.createTransport({
-      host: smtpHost,
-      port: smtpPort,
-      secure: smtpSecure,
-      requireTLS: true,
-      auth: {
-        type: 'OAuth2',
-        user: smtpUser,
-        clientId: smtpClientId,
-        clientSecret: smtpClientSecret,
-        refreshToken: smtpRefreshToken,
-        accessToken: smtpAccessToken || undefined,
-      },
-    });
-  }
-
-  if (!smtpPass) {
-    return null;
-  }
-
-  return nodemailer.createTransport({
-    host: smtpHost,
-    port: smtpPort,
-    secure: smtpSecure,
-    requireTLS: true,
-    auth: {
-      user: smtpUser,
-      pass: smtpPass,
-    },
-  });
-}
-
-function isBasicAuthDisabledError(error: unknown) {
-  const message = error instanceof Error ? error.message : String(error || '');
-  const normalized = message.toLowerCase();
-
-  return normalized.includes('535') && normalized.includes('basic authentication is disabled');
-}
-
 function getMfaSecret() {
   return getJwtMfaSecret() || getJwtSecret();
 }
 
 function requiresMfa(user: Pick<LoginUser, 'role' | 'mfaEnabled'>) {
   return Boolean(user.mfaEnabled) || isMfaRequiredForRole(user.role);
-}
-
-function maskEmail(emailInput: unknown) {
-  const email = String(emailInput || '').trim();
-  const [localPart, domain] = email.split('@');
-  if (!localPart || !domain) return 'seu e-mail cadastrado';
-
-  const visibleLength = Math.min(3, Math.max(1, Math.floor(localPart.length / 3)));
-  const visible = localPart.slice(0, visibleLength);
-  return `${visible}${'*'.repeat(Math.max(4, localPart.length - visibleLength))}@${domain}`;
 }
 
 function createMfaToken(userId: number) {
@@ -180,12 +112,47 @@ function mapUser(user: any) {
   };
 }
 
+function isAdministrativeRole(role: unknown) {
+  const normalized = String(role || '').trim().toUpperCase();
+  return normalized === 'ADMIN' || normalized === 'SUPER_ADMIN';
+}
+
 export class LoginMfaService {
   constructor(private readonly platformAccess: PlatformAccess = platformMaintenanceAccessService) {}
 
-  private async issueChallenge(user: LoginUser, enforceCooldown: boolean) {
+  private async loadEligibleUser(mfaToken: string) {
+    const { userId } = decodeMfaToken(mfaToken);
+    const user = await userRepository.findByIdWithPassword(userId);
+    if (!user || !user.active) {
+      throw new Error('Conta desativada. Reative sua conta para continuar.');
+    }
+    if (!requiresMfa(user)) {
+      throw new Error('Verificacao em duas etapas nao esta habilitada para esta conta.');
+    }
+    await this.platformAccess.assertRoleAllowed(user.role);
+    return user as LoginUser;
+  }
+
+  private getOptions(user: LoginUser) {
+    const options = listAvailableMfaChannels(user);
+    if (isAdministrativeRole(user.role)) {
+      return options.filter((option) => option.channel === 'SMS' || option.channel === 'WHATSAPP');
+    }
+    return options;
+  }
+
+  private async issueChallenge(
+    user: LoginUser,
+    enforceCooldown: boolean,
+    requestedChannel: MfaDeliveryChannel,
+  ) {
     const userId = Number(user.id);
     const now = new Date();
+    const options = this.getOptions(user);
+    const selectedOption = options.find((option) => option.channel === requestedChannel);
+    if (!selectedOption) {
+      throw new Error('Canal de verificacao indisponivel para esta conta.');
+    }
 
     await prisma.authMfaChallenge.deleteMany({
       where: {
@@ -217,6 +184,7 @@ export class LoginMfaService {
       update: {
         codeHash,
         expiresAt,
+        failedAttempts: 0,
       },
       create: {
         userId,
@@ -226,68 +194,27 @@ export class LoginMfaService {
       },
     });
 
-    const token = createMfaToken(userId);
-    const transporter = createTransporter();
-    if (transporter) {
-      const from =
-        String(process.env.ALERT_EMAIL_FROM || process.env.SMTP_USER || '').trim() ||
-        'no-reply@pizzaia.local';
-
-      try {
-        await transporter.sendMail({
-          from,
-          to: user.email,
-          subject: 'Código de verificação de login - GastroNexa',
-          text: `Seu código de verificação é: ${code}. Ele expira em ${ttlMinutes} minutos.`,
-        });
-      } catch (error) {
-        if (process.env.NODE_ENV !== 'production') {
-          if (canLogLocalAuthCode()) {
-            console.warn(`[login-2fa] Falha no SMTP local. Codigo para ${user.email}: ${code}`);
-          } else {
-            console.warn(
-              '[login-2fa] Falha no SMTP local; o codigo nao foi exibido. Configure o SMTP ou habilite explicitamente o fallback local.',
-            );
-          }
-          return {
-            mfaRequired: true,
-            mfaToken: token,
-            destination: maskEmail(user.email),
-            resendAfterSeconds: MFA_RESEND_COOLDOWN_SECONDS,
-            message: 'Codigo de verificacao gerado (SMTP indisponivel em desenvolvimento).',
-          };
-        }
-
-        if (isBasicAuthDisabledError(error)) {
-          throw new Error(
-            'Falha no SMTP: o provedor bloqueou login por usuario/senha (basic auth). Configure SMTP_AUTH_TYPE=oauth2 com credenciais OAuth2 ou use app password.',
-          );
-        }
-
-        throw error;
-      }
-    } else {
-      if (process.env.NODE_ENV === 'production') {
-        throw new Error(
-          'Falha no SMTP: configure SMTP_HOST, SMTP_PORT, SMTP_USER e credenciais validas para enviar o codigo 2FA por e-mail.',
-        );
-      }
-
-      if (canLogLocalAuthCode()) {
-        console.warn(`[login-2fa] SMTP nao configurado. Codigo para ${user.email}: ${code}`);
-      } else {
-        console.warn(
-          '[login-2fa] SMTP nao configurado; o codigo nao foi exibido. Configure o SMTP ou habilite explicitamente o fallback local.',
-        );
-      }
+    try {
+      await sendMfaCode({
+        channel: requestedChannel,
+        recipient: user,
+        code,
+        ttlMinutes,
+      });
+    } catch (error) {
+      await prisma.authMfaChallenge.deleteMany({ where: { userId, codeHash } });
+      throw error;
     }
 
     return {
       mfaRequired: true,
-      mfaToken: token,
-      destination: maskEmail(user.email),
+      mfaToken: createMfaToken(userId),
+      destination: selectedOption.destination,
+      selectedChannel: requestedChannel,
+      channelSelectionRequired: false,
+      deliveryOptions: options,
       resendAfterSeconds: MFA_RESEND_COOLDOWN_SECONDS,
-      message: 'Codigo de verificacao enviado para o e-mail cadastrado.',
+      message: `Codigo de verificacao enviado por ${selectedOption.label}.`,
     };
   }
 
@@ -296,21 +223,50 @@ export class LoginMfaService {
       return null;
     }
 
-    return this.issueChallenge(user, false);
+    const options = this.getOptions(user);
+    if (!options.length) {
+      if (isAdministrativeRole(user.role)) {
+        throw new Error(
+          'MFA administrativo indisponivel: cadastre um telefone valido e configure SMS ou WhatsApp.',
+        );
+      }
+      throw new Error('Nenhum canal MFA esta configurado para esta conta.');
+    }
+
+    if (isAdministrativeRole(user.role)) {
+      return {
+        mfaRequired: true,
+        mfaToken: createMfaToken(Number(user.id)),
+        destination: 'seu telefone cadastrado',
+        channelSelectionRequired: true,
+        deliveryOptions: options,
+        resendAfterSeconds: 0,
+        message: 'Escolha como deseja receber o codigo de verificacao.',
+      };
+    }
+
+    const preferredChannel = options.some((option) => option.channel === 'EMAIL')
+      ? 'EMAIL'
+      : options[0].channel;
+    return this.issueChallenge(user, false, preferredChannel);
   }
 
-  async resend(mfaToken: string) {
-    const { userId } = decodeMfaToken(mfaToken);
-    const user = await userRepository.findByIdWithPassword(userId);
-    if (!user || !user.active) {
-      throw new Error('Conta desativada. Reative sua conta para continuar.');
-    }
-    if (!requiresMfa(user)) {
-      throw new Error('Verificacao em duas etapas nao esta habilitada para esta conta.');
-    }
+  async selectChannel(mfaToken: string, channelInput: string) {
+    const user = await this.loadEligibleUser(mfaToken);
+    const channel = parseMfaDeliveryChannel(channelInput);
+    if (!channel) throw new Error('Canal de verificacao invalido.');
+    return this.issueChallenge(user, false, channel);
+  }
 
-    await this.platformAccess.assertRoleAllowed(user.role);
-    return this.issueChallenge(user as LoginUser, true);
+  async resend(mfaToken: string, channelInput?: string) {
+    const user = await this.loadEligibleUser(mfaToken);
+    const options = this.getOptions(user);
+    const requested = parseMfaDeliveryChannel(channelInput);
+    const channel = requested || (isAdministrativeRole(user.role) ? null : 'EMAIL');
+    if (!channel || !options.some((option) => option.channel === channel)) {
+      throw new Error('Escolha novamente como deseja receber o codigo de verificacao.');
+    }
+    return this.issueChallenge(user, true, channel);
   }
 
   async verifyAndIssueTokens({ mfaToken, code }: { mfaToken: string; code: string }) {
