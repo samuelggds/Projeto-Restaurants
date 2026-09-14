@@ -117,6 +117,10 @@ function isAdministrativeRole(role: unknown) {
   return normalized === 'ADMIN' || normalized === 'SUPER_ADMIN';
 }
 
+function isMobileChannel(channel: MfaDeliveryChannel) {
+  return channel === 'SMS' || channel === 'WHATSAPP';
+}
+
 export class LoginMfaService {
   constructor(private readonly platformAccess: PlatformAccess = platformMaintenanceAccessService) {}
 
@@ -135,10 +139,14 @@ export class LoginMfaService {
 
   private getOptions(user: LoginUser) {
     const options = listAvailableMfaChannels(user);
-    if (isAdministrativeRole(user.role)) {
-      return options.filter((option) => option.channel === 'SMS' || option.channel === 'WHATSAPP');
-    }
-    return options;
+    if (!isAdministrativeRole(user.role)) return options;
+
+    const mobileOptions = options.filter((option) => isMobileChannel(option.channel));
+    if (mobileOptions.length || process.env.NODE_ENV === 'production') return mobileOptions;
+
+    // Em desenvolvimento/testes preservamos o canal local de e-mail para nao exigir
+    // credenciais externas. Em producao ADMIN/SUPER_ADMIN nunca recebem esse fallback.
+    return options.filter((option) => option.channel === 'EMAIL');
   }
 
   private async issueChallenge(
@@ -233,7 +241,8 @@ export class LoginMfaService {
       throw new Error('Nenhum canal MFA esta configurado para esta conta.');
     }
 
-    if (isAdministrativeRole(user.role)) {
+    const hasMobileOptions = options.some((option) => isMobileChannel(option.channel));
+    if (isAdministrativeRole(user.role) && hasMobileOptions) {
       return {
         mfaRequired: true,
         mfaToken: createMfaToken(Number(user.id)),
@@ -262,7 +271,8 @@ export class LoginMfaService {
     const user = await this.loadEligibleUser(mfaToken);
     const options = this.getOptions(user);
     const requested = parseMfaDeliveryChannel(channelInput);
-    const channel = requested || (isAdministrativeRole(user.role) ? null : 'EMAIL');
+    const defaultChannel = options.some((option) => option.channel === 'EMAIL') ? 'EMAIL' : null;
+    const channel = requested || defaultChannel;
     if (!channel || !options.some((option) => option.channel === channel)) {
       throw new Error('Escolha novamente como deseja receber o codigo de verificacao.');
     }
