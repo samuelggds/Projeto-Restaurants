@@ -1,8 +1,15 @@
 import type { Request, Response } from 'express';
 import OpenAI from 'openai';
 import generateImportedProductImageService from '../services/GenerateImportedProductImageService.js';
+import aiCreditService, { AiCreditsExhaustedError } from '../../aiSupport/services/AiCreditService.js';
 
 function toHttpError(error: unknown) {
+  if (error instanceof AiCreditsExhaustedError) {
+    return {
+      status: 402,
+      body: { error: error.message, code: error.code },
+    };
+  }
   if (error instanceof OpenAI.AuthenticationError || error instanceof OpenAI.PermissionDeniedError) {
     return {
       status: 503,
@@ -63,7 +70,24 @@ class GenerateImportedProductImageController {
   async handle(req: Request, res: Response) {
     try {
       const restaurantId = Number(req.user?.restaurantId || 0);
+      const actor = {
+        userId: Number(req.user?.id || 0),
+        restaurantId,
+        userName: req.user?.email,
+        userRole: req.user?.role,
+      };
+      await aiCreditService.assertAvailable(actor);
       const result = await generateImportedProductImageService.execute(req.params.productId, restaurantId);
+      if (result.status === 'GENERATED' && result.aiUsage) {
+        const credits = await aiCreditService.recordUsage({
+          ...actor,
+          feature: 'GENERATE_PRODUCT_IMAGE',
+          model: result.aiUsage.model,
+          costUsd: result.aiUsage.costUsd,
+          usage: result.aiUsage.usage,
+        });
+        return res.json({ ...result, aiUsage: undefined, credits });
+      }
       return res.json(result);
     } catch (error) {
       const mapped = toHttpError(error);

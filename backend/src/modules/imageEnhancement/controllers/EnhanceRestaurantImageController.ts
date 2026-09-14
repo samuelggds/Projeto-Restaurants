@@ -8,6 +8,7 @@ import {
   ImageEnhancementInputError,
   ImageEnhancementResultError,
 } from '../errors/ImageEnhancementErrors.js';
+import aiCreditService, { AiCreditsExhaustedError } from '../../aiSupport/services/AiCreditService.js';
 
 type ImageEnhancementHttpError = {
   status: number;
@@ -15,6 +16,12 @@ type ImageEnhancementHttpError = {
 };
 
 export function toImageEnhancementHttpError(error: unknown): ImageEnhancementHttpError {
+  if (error instanceof AiCreditsExhaustedError) {
+    return {
+      status: 402,
+      body: { error: error.message, code: error.code },
+    };
+  }
   if (error instanceof ImageEnhancementInputError) {
     return {
       status: 400,
@@ -108,7 +115,22 @@ export function toImageEnhancementHttpError(error: unknown): ImageEnhancementHtt
 class EnhanceRestaurantImageController {
   async handle(req: Request, res: Response, purpose: RestaurantImagePurpose = 'COVER') {
     try {
-      return res.json(await enhanceRestaurantImageService.execute(req.body?.imageDataUrl, purpose));
+      const actor = {
+        userId: Number(req.user?.id || 0),
+        restaurantId: Number(req.user?.restaurantId || 0),
+        userName: req.user?.email,
+        userRole: req.user?.role,
+      };
+      await aiCreditService.assertAvailable(actor);
+      const result = await enhanceRestaurantImageService.execute(req.body?.imageDataUrl, purpose);
+      const credits = await aiCreditService.recordUsage({
+        ...actor,
+        feature: purpose === 'BANNER' ? 'ENHANCE_BANNER' : 'ENHANCE_COVER',
+        model: result.aiUsage.model,
+        costUsd: result.aiUsage.costUsd,
+        usage: result.aiUsage.usage,
+      });
+      return res.json({ imageDataUrl: result.imageDataUrl, credits });
     } catch (error) {
       const mappedError = toImageEnhancementHttpError(error);
       return res.status(mappedError.status).json(mappedError.body);

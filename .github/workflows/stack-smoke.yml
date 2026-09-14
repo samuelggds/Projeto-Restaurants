@@ -1,0 +1,95 @@
+name: Isolated Stack Smoke
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: isolated-stack-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  stack:
+    name: Frontend backend worker Postgres
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+
+      - name: Validate compose model
+        run: docker compose -f docker-compose.ci.yml config --quiet
+
+      - name: Build approved source images
+        run: docker compose -f docker-compose.ci.yml build --pull
+
+      - name: Start disposable isolated stack
+        run: docker compose -f docker-compose.ci.yml up -d
+
+      - name: Wait for application health
+        shell: bash
+        run: |
+          set -euo pipefail
+          for attempt in $(seq 1 60); do
+            backend_status="$(docker inspect --format='{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' "$(docker compose -f docker-compose.ci.yml ps -q backend)" 2>/dev/null || true)"
+            frontend_status="$(docker inspect --format='{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' "$(docker compose -f docker-compose.ci.yml ps -q frontend)" 2>/dev/null || true)"
+            worker_status="$(docker inspect --format='{{.State.Status}}' "$(docker compose -f docker-compose.ci.yml ps -q worker)" 2>/dev/null || true)"
+            if [ "$backend_status" = healthy ] && [ "$frontend_status" = healthy ] && [ "$worker_status" = running ]; then
+              exit 0
+            fi
+            sleep 5
+          done
+          docker compose -f docker-compose.ci.yml ps
+          exit 1
+
+      - name: Smoke backend readiness and frontend delivery
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --fail --silent --show-error http://127.0.0.1:3000/ready > "$RUNNER_TEMP/backend-ready.json"
+          curl --fail --silent --show-error http://127.0.0.1:8080/ > "$RUNNER_TEMP/frontend-index.html"
+          grep -qi '<html' "$RUNNER_TEMP/frontend-index.html"
+
+      - name: Record image ids for immutable promotion evidence
+        shell: bash
+        run: |
+          {
+            echo '### Isolated stack image evidence'
+            echo
+            for service in backend worker frontend; do
+              container_id="$(docker compose -f docker-compose.ci.yml ps -q "$service")"
+              image_id="$(docker inspect --format='{{.Image}}' "$container_id")"
+              echo "- ${service}: \`${image_id}\`"
+            done
+            echo
+            echo "Source commit: \`${GITHUB_SHA}\`"
+            echo
+            echo 'This workflow does not publish or deploy these images.'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Capture stack logs
+        if: always()
+        shell: bash
+        run: docker compose -f docker-compose.ci.yml logs --no-color > "$RUNNER_TEMP/isolated-stack.log" 2>&1 || true
+
+      - name: Upload stack diagnostics
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: isolated-stack-${{ github.sha }}
+          path: |
+            ${{ runner.temp }}/isolated-stack.log
+            ${{ runner.temp }}/backend-ready.json
+          if-no-files-found: warn
+          retention-days: 7
+
+      - name: Tear down disposable stack
+        if: always()
+        run: docker compose -f docker-compose.ci.yml down --volumes --remove-orphans

@@ -31,6 +31,12 @@ class AuthService {
     return response.data;
   }
 
+  async resendLogin2fa(data) {
+    const response = await api.post('/auth/login/resend-2fa', data);
+
+    return response.data;
+  }
+
   async logout(accessToken) {
     const response = await api.post(
       '/auth/logout',

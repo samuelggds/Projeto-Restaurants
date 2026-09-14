@@ -15,6 +15,7 @@ const AdminPortalLoginGate = lazy(() => import('../pages/Login/AdminPortalLoginG
 const RecoverPassword = lazy(() => import('../pages/RecoverPassword/RecoverPassword'));
 const ChangePasswordPage = lazy(() => import('../pages/ChangePassword/ChangePasswordPage'));
 const AdminDashboard = lazy(() => import('../pages/admin/Admin'));
+const AdminAiLayer = lazy(() => import('../pages/admin/components/AdminAiLayer'));
 const Register = lazy(() => import('../pages/Register/Register'));
 const UserProfile = lazy(() => import('../pages/Profile/Profile'));
 const CourierDashboard = lazy(() => import('../pages/Courier/CourierWorkspace'));
@@ -31,6 +32,9 @@ const DigitalMenu = lazy(() => import('../pages/digital-menu/DigitalMenuIdentity
 const KitchenPage = lazy(() => import('../pages/kitchen/KitchenPage'));
 const WaiterPage = lazy(() => import('../pages/waiter/WaiterPage'));
 const AttendantPage = lazy(() => import('../pages/attendant/AttendantPage'));
+const EmployeeOnboardingBoundary = lazy(
+  () => import('../components/EmployeeOnboarding/EmployeeOnboardingBoundary'),
+);
 const GastroNexaLanding = lazy(() => import('../pages/Marketing/GastroNexaLanding'));
 const GastroNexaDemo = lazy(() => import('../pages/Marketing/GastroNexaDemo'));
 import api from '../Services/api';
@@ -282,15 +286,24 @@ export default function AppRoutes() {
                     <Route element={<BillingGate />}>
                       <Route path="/billing" element={<BillingPage />} />
                       <Route path="/profile" element={<UserProfile />} />
-                      <Route path="/admin" element={<AdminDashboard />} />
+                      <Route
+                        path="/admin"
+                        element={
+                          <AdminAiLayer>
+                            <AdminDashboard />
+                          </AdminAiLayer>
+                        }
+                      />
                       <Route
                         path="/admin/configuracoes"
                         element={<Navigate to="/admin?settings=brand" replace />}
                       />
-                      <Route path="/courier" element={<CourierDashboard />} />
-                      <Route path="/kitchen" element={<KitchenPage />} />
-                      <Route path="/waiter" element={<WaiterPage />} />
-                      <Route path="/attendant" element={<AttendantPage />} />
+                      <Route element={<EmployeeOnboardingBoundary />}>
+                        <Route path="/courier" element={<CourierDashboard />} />
+                        <Route path="/kitchen" element={<KitchenPage />} />
+                        <Route path="/waiter" element={<WaiterPage />} />
+                        <Route path="/attendant" element={<AttendantPage />} />
+                      </Route>
                     </Route>
                   </Route>
 

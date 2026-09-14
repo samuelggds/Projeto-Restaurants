@@ -7,10 +7,10 @@ const mocks = vi.hoisted(() => ({
   loginRequest: vi.fn(),
   loginWithGoogle: vi.fn(),
   verifyLogin2fa: vi.fn(),
+  resendLogin2fa: vi.fn(),
   getGoogleClientId: vi.fn(),
   logout: vi.fn(),
   persistLogin: vi.fn(),
-  promptDialog: vi.fn(),
 }));
 
 vi.mock('../../Services/authService', () => ({
@@ -18,15 +18,13 @@ vi.mock('../../Services/authService', () => ({
     login: mocks.loginRequest,
     loginWithGoogle: mocks.loginWithGoogle,
     verifyLogin2fa: mocks.verifyLogin2fa,
+    resendLogin2fa: mocks.resendLogin2fa,
     getGoogleClientId: mocks.getGoogleClientId,
     logout: mocks.logout,
   },
 }));
 vi.mock('../../contexts/authContext.js', () => ({
   useAuth: () => ({ login: mocks.persistLogin }),
-}));
-vi.mock('../../components/AppDialog/context', () => ({
-  useAppDialog: () => ({ promptDialog: mocks.promptDialog }),
 }));
 vi.mock('./hooks/useRestaurantLoginBranding', () => ({
   useRestaurantLoginBranding: () => ({
@@ -105,6 +103,12 @@ describe('Login contextual do cliente', () => {
     window.sessionStorage.clear();
     googleCallback = undefined;
     mocks.getGoogleClientId.mockResolvedValue('google-client-id');
+    mocks.resendLogin2fa.mockResolvedValue({
+      mfaRequired: true,
+      mfaToken: 'new-mfa-token',
+      destination: 'cli****@teste.com',
+      resendAfterSeconds: 60,
+    });
     Object.defineProperty(window, 'google', {
       configurable: true,
       value: {
@@ -121,6 +125,19 @@ describe('Login contextual do cliente', () => {
           },
         },
       },
+    });
+    Object.defineProperty(window, 'matchMedia', {
+      configurable: true,
+      value: vi.fn(() => ({
+        matches: false,
+        media: '',
+        onchange: null,
+        addListener: vi.fn(),
+        removeListener: vi.fn(),
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+        dispatchEvent: vi.fn(),
+      })),
     });
     container = document.createElement('div');
     document.body.appendChild(container);
@@ -150,6 +167,7 @@ describe('Login contextual do cliente', () => {
     act(() => root.unmount());
     container.remove();
     Reflect.deleteProperty(window, 'google');
+    Reflect.deleteProperty(window, 'matchMedia');
     vi.useRealTimers();
   });
 
@@ -167,8 +185,12 @@ describe('Login contextual do cliente', () => {
   });
 
   it('preserva a mesa durante email, senha e MFA até o redirect final', async () => {
-    mocks.loginRequest.mockResolvedValue({ mfaRequired: true, mfaToken: 'mfa-token' });
-    mocks.promptDialog.mockResolvedValue('123456');
+    mocks.loginRequest.mockResolvedValue({
+      mfaRequired: true,
+      mfaToken: 'mfa-token',
+      destination: 'cli****@teste.com',
+      resendAfterSeconds: 60,
+    });
     mocks.verifyLogin2fa.mockResolvedValue({
       token: 'customer-token',
       user: { id: 21, name: 'Cliente Teste', role: 'CLIENTE' },
@@ -182,12 +204,33 @@ describe('Login contextual do cliente', () => {
       await Promise.resolve();
     });
 
+    expect(container.textContent).toContain('Autenticação de dois fatores');
+    expect(container.textContent).toContain('cli****@teste.com');
+    expect(container.textContent).toContain('1:00');
+
+    const otpInputs = Array.from(
+      container.querySelectorAll<HTMLInputElement>('[aria-label^="Dígito "]'),
+    );
+    expect(otpInputs).toHaveLength(6);
+    '123456'.split('').forEach((digit, index) => setInputValue(otpInputs[index], digit));
+
+    const verifyButton = Array.from(container.querySelectorAll<HTMLButtonElement>('button')).find(
+      (button) => button.textContent?.includes('Verificar código'),
+    );
+    await act(async () => {
+      verifyButton?.click();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
     expect(mocks.verifyLogin2fa).toHaveBeenCalledWith({
       mfaToken: 'mfa-token',
       code: '123456',
     });
 
     await act(async () => {
+      await vi.advanceTimersByTimeAsync(520);
+      await Promise.resolve();
       await vi.advanceTimersByTimeAsync(700);
     });
 

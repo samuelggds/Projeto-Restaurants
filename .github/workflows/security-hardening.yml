@@ -1,0 +1,114 @@
+name: Security Hardening
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  schedule:
+    - cron: '23 4 * * 2'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  security-events: write
+
+concurrency:
+  group: security-hardening-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  secret-scan:
+    name: Secret detection
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Scan repository history for secrets
+        uses: gitleaks/gitleaks-action@ff98106e4c7b2bc287b24eaf42907196329070c7 # v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  codeql:
+    name: CodeQL JavaScript/TypeScript
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@faaca9a8f6edddba5725ffe5adefdab6669a2eca # v3
+        with:
+          languages: javascript-typescript
+      - name: Setup Node.js 22
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            backend/package-lock.json
+            frontend/package-lock.json
+            print-agent/package-lock.json
+      - run: npm --prefix backend ci
+      - run: npm --prefix frontend ci
+      - run: npm --prefix print-agent ci
+      - name: Build application for analysis
+        run: npm run build
+      - name: Analyze source
+        uses: github/codeql-action/analyze@faaca9a8f6edddba5725ffe5adefdab6669a2eca # v3
+
+  container-scan:
+    name: Build and scan Docker images
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - name: Build backend image from this commit
+        run: docker build --pull --tag gastronexa-backend:${{ github.sha }} ./backend
+      - name: Build frontend image from this commit
+        run: >-
+          docker build --pull
+          --build-arg VITE_API_URL=http://127.0.0.1:3000
+          --build-arg VITE_SOCKET_URL=http://127.0.0.1:3000
+          --tag gastronexa-frontend:${{ github.sha }}
+          ./frontend
+      - name: Scan backend image for high and critical vulnerabilities
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: gastronexa-backend:${{ github.sha }}
+          format: table
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: '1'
+      - name: Scan frontend image for high and critical vulnerabilities
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: gastronexa-frontend:${{ github.sha }}
+          format: table
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: '1'
+      - name: Record immutable image identifiers
+        shell: bash
+        run: |
+          {
+            echo '### Docker images validated from this source commit'
+            echo
+            echo "Source commit: \`${GITHUB_SHA}\`"
+            echo
+            echo "Backend image id: \`$(docker image inspect gastronexa-backend:${GITHUB_SHA} --format '{{.Id}}')\`"
+            echo
+            echo "Frontend image id: \`$(docker image inspect gastronexa-frontend:${GITHUB_SHA} --format '{{.Id}}')\`"
+            echo
+            echo 'Production publishing/deployment is deliberately outside this pull-request workflow.'
+          } >> "$GITHUB_STEP_SUMMARY"

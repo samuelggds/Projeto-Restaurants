@@ -257,7 +257,7 @@ describe('useCheckoutPayments confirmação canônica do Pix', () => {
       );
     });
     await act(async () => {
-      await vi.advanceTimersByTimeAsync(1);
+      await vi.advanceTimersByTimeAsync(1000);
     });
     expect(container.textContent).toBe('FAILED');
     await act(async () => {
@@ -282,7 +282,7 @@ describe('useCheckoutPayments confirmação canônica do Pix', () => {
       );
     });
     await act(async () => {
-      await vi.advanceTimersByTimeAsync(1);
+      await vi.advanceTimersByTimeAsync(1000);
     });
     expect(container.textContent).toBe('PENDING');
     await act(async () => {

@@ -16,9 +16,9 @@ import {
 import authService from '../../Services/authService';
 import { useAuth } from '../../contexts/authContext.js';
 import * as S from './styles';
-import { useAppDialog } from '../../components/AppDialog/context';
 import { useRestaurantLoginBranding } from './hooks/useRestaurantLoginBranding';
 import { TenantBrandHero } from './components/TenantBrandHero';
+import { MfaVerificationModal } from './components/MfaVerificationModal';
 import { canUseTechnicalAccess, TECHNICAL_ACCESS_DENIED_MESSAGE } from './technicalAccess';
 import {
   buildAuthEntryUrl,
@@ -44,6 +44,14 @@ import {
   getRestaurantSlugFromAuthPath,
   resolveLoginPortal,
 } from './domain/loginPortal';
+
+type MfaChallenge = {
+  mfaRequired: true;
+  mfaToken: string;
+  destination?: string;
+  resendAfterSeconds?: number;
+  [key: string]: unknown;
+};
 
 export default function Login() {
   const navigate = useNavigate();
@@ -83,7 +91,6 @@ export default function Login() {
   const showCustomerSelfService =
     !isTechnicalAccess && !isAdminAccess && !isStaffAccess && (isCustomerAccess || portal === 'GENERIC');
   const { login } = useAuth();
-  const { promptDialog } = useAppDialog();
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -96,11 +103,15 @@ export default function Login() {
   } | null>(null);
   const [googleStatus, setGoogleStatus] = useState('loading');
   const [googleMessage, setGoogleMessage] = useState('');
+  const [mfaChallenge, setMfaChallenge] = useState<MfaChallenge | null>(null);
   const googleButtonRef = useRef(null);
   const isGoogleMountedRef = useRef(false);
   const googleInitInFlightRef = useRef(false);
   const googleInitializedRef = useRef(false);
   const googleInitializedClientIdRef = useRef('');
+  const mfaResolveRef = useRef<((value: unknown) => void) | null>(null);
+  const mfaRejectRef = useRef<((reason?: unknown) => void) | null>(null);
+  const mfaToken = mfaChallenge?.mfaToken;
 
   useEffect(() => {
     clearLegacyRememberedAccountEmail();
@@ -113,6 +124,15 @@ export default function Login() {
 
     return () => window.clearTimeout(timeoutId);
   }, [rememberScope]);
+
+  useEffect(
+    () => () => {
+      mfaRejectRef.current?.(new Error('Verificação em duas etapas interrompida.'));
+      mfaResolveRef.current = null;
+      mfaRejectRef.current = null;
+    },
+    [],
+  );
 
   const loadGoogleScript = useCallback(() => {
     if (window.google?.accounts?.id) {
@@ -195,31 +215,60 @@ export default function Login() {
     latestRedirectByRoleRef.current = redirectByRole;
   }, [redirectByRole]);
 
-  const completeLoginWithMfaIfNeeded = useCallback(
-    async (authResponse) => {
-      if (!authResponse?.mfaRequired) {
-        return authResponse;
-      }
+  const completeLoginWithMfaIfNeeded = useCallback(async (authResponse) => {
+    if (!authResponse?.mfaRequired) {
+      return authResponse;
+    }
 
-      const code = await promptDialog({
-        title: 'Verificação em duas etapas',
-        description: 'Digite o código de segurança enviado para o seu e-mail.',
-        inputLabel: 'Código de verificação',
-        placeholder: '000000',
-        confirmLabel: 'Verificar',
-      });
+    return new Promise((resolve, reject) => {
+      mfaResolveRef.current = resolve;
+      mfaRejectRef.current = reject;
+      setMfaChallenge(authResponse as MfaChallenge);
+    });
+  }, []);
 
-      if (!code || !String(code).trim()) {
-        throw new Error('Codigo 2FA nao informado.');
-      }
-
+  const handleMfaVerify = useCallback(
+    async (code: string) => {
+      if (!mfaToken) throw new Error('Sessão de verificação não encontrada.');
       return authService.verifyLogin2fa({
-        mfaToken: authResponse.mfaToken,
-        code: String(code).trim(),
+        mfaToken,
+        code,
       });
     },
-    [promptDialog],
+    [mfaToken],
   );
+
+  const handleMfaResend = useCallback(async () => {
+    if (!mfaToken) throw new Error('Sessão de verificação não encontrada.');
+    const result = await authService.resendLogin2fa({ mfaToken });
+    setMfaChallenge((current) =>
+      current
+        ? {
+            ...current,
+            ...result,
+            mfaRequired: true,
+            mfaToken: result?.mfaToken || current.mfaToken,
+          }
+        : current,
+    );
+    return result;
+  }, [mfaToken]);
+
+  const handleMfaSuccess = useCallback((result: unknown) => {
+    const resolve = mfaResolveRef.current;
+    mfaResolveRef.current = null;
+    mfaRejectRef.current = null;
+    setMfaChallenge(null);
+    resolve?.(result);
+  }, []);
+
+  const handleMfaCancel = useCallback(() => {
+    const reject = mfaRejectRef.current;
+    mfaResolveRef.current = null;
+    mfaRejectRef.current = null;
+    setMfaChallenge(null);
+    reject?.(new Error('Verificação em duas etapas cancelada.'));
+  }, []);
 
   const validatePortalAccess = useCallback(
     async (authResponse) => {
@@ -642,6 +691,16 @@ export default function Login() {
           </S.LoginFormWrapper>
         </S.LoginFormSection>
       </S.Container>
+
+      <MfaVerificationModal
+        open={Boolean(mfaChallenge)}
+        destination={mfaChallenge?.destination}
+        resendAfterSeconds={Number(mfaChallenge?.resendAfterSeconds ?? 60)}
+        onVerify={handleMfaVerify}
+        onResend={handleMfaResend}
+        onSuccess={handleMfaSuccess}
+        onCancel={handleMfaCancel}
+      />
     </ThemeProvider>
   );
 }

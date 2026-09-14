@@ -1,0 +1,149 @@
+name: Deep Validation
+
+on:
+  schedule:
+    - cron: '41 3 * * 1,4'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deep-validation-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  database-recovery:
+    name: Migration backup and restore
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: gastronexa_recovery
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d gastronexa_recovery"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/gastronexa_recovery?schema=public
+      PGPASSWORD: postgres
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+      - run: npm --prefix backend ci
+      - name: Apply every migration to clean database
+        working-directory: backend
+        run: npx prisma migrate deploy
+      - name: Add disposable recovery fixture
+        run: |
+          psql -h 127.0.0.1 -U postgres -d gastronexa_recovery -v ON_ERROR_STOP=1 <<'SQL'
+          CREATE TABLE IF NOT EXISTS "CiRecoveryFixture" (
+            "id" integer PRIMARY KEY,
+            "marker" text NOT NULL
+          );
+          INSERT INTO "CiRecoveryFixture" ("id", "marker")
+          VALUES (1, 'backup-restore-ok')
+          ON CONFLICT ("id") DO UPDATE SET "marker" = EXCLUDED."marker";
+          SQL
+      - name: Backup disposable database
+        run: pg_dump -h 127.0.0.1 -U postgres -d gastronexa_recovery -Fc -f "$RUNNER_TEMP/gastronexa.dump"
+      - name: Restore into a second disposable database
+        run: |
+          createdb -h 127.0.0.1 -U postgres gastronexa_restored
+          pg_restore -h 127.0.0.1 -U postgres -d gastronexa_restored --no-owner --no-privileges "$RUNNER_TEMP/gastronexa.dump"
+          restored_marker="$(psql -h 127.0.0.1 -U postgres -d gastronexa_restored -Atc 'SELECT "marker" FROM "CiRecoveryFixture" WHERE "id" = 1')"
+          test "$restored_marker" = 'backup-restore-ok'
+          migration_count="$(psql -h 127.0.0.1 -U postgres -d gastronexa_restored -Atc 'SELECT count(*) FROM "_prisma_migrations" WHERE "finished_at" IS NOT NULL')"
+          test "$migration_count" -gt 0
+      - name: Upload disposable backup on failure
+        if: failure()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: disposable-recovery-backup-${{ github.sha }}
+          path: ${{ runner.temp }}/gastronexa.dump
+          if-no-files-found: warn
+          retention-days: 3
+
+  payment-contracts:
+    name: Payment lifecycle contracts
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+      - run: npm --prefix backend ci
+      - name: Run webhook refund duplicate delayed and expiry contracts without external charges
+        run: npm --prefix backend run test:refund && npm --prefix backend run test:billing
+      - name: Report sandbox credential availability without making a transaction
+        env:
+          MERCADO_PAGO_SANDBOX_TOKEN: ${{ secrets.MERCADO_PAGO_SANDBOX_TOKEN }}
+          PAGBANK_SANDBOX_TOKEN: ${{ secrets.PAGBANK_SANDBOX_TOKEN }}
+          ASAAS_SANDBOX_TOKEN: ${{ secrets.ASAAS_SANDBOX_TOKEN }}
+        shell: bash
+        run: |
+          missing=0
+          for variable in MERCADO_PAGO_SANDBOX_TOKEN PAGBANK_SANDBOX_TOKEN ASAAS_SANDBOX_TOKEN; do
+            if [ -z "${!variable}" ]; then
+              echo "- ${variable}: missing; real provider sandbox validation skipped" >> "$GITHUB_STEP_SUMMARY"
+              missing=$((missing + 1))
+            else
+              echo "- ${variable}: configured; credential presence confirmed only (no charge/message created)" >> "$GITHUB_STEP_SUMMARY"
+            fi
+          done
+          echo >> "$GITHUB_STEP_SUMMARY"
+          echo "No external payment, Pix, refund, webhook or message was created by this workflow." >> "$GITHUB_STEP_SUMMARY"
+          echo "Missing sandbox credentials: ${missing}" >> "$GITHUB_STEP_SUMMARY"
+
+  browser-matrix:
+    name: Critical E2E browser matrix
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      PLAYWRIGHT_ALL_BROWSERS: 'true'
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm --prefix frontend ci
+      - name: Install Chromium Firefox and WebKit
+        working-directory: frontend
+        run: npx playwright install --with-deps chromium firefox webkit
+      - name: Run critical journeys across browser engines
+        shell: bash
+        run: |
+          set -o pipefail
+          npm --prefix frontend run test:e2e:critical 2>&1 | tee deep-browser-e2e.log
+      - name: Preserve browser diagnostics
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: deep-browser-diagnostics-${{ github.sha }}
+          path: |
+            deep-browser-e2e.log
+            frontend/test-results/
+          if-no-files-found: warn
+          retention-days: 7

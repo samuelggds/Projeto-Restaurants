@@ -30,6 +30,7 @@ import {
 import { validateIngredientDraft } from '../domain/productCustomizationValidation';
 import { IngredientWizard } from './IngredientWizard';
 import { AdminMenuImport } from './AdminMenuImport';
+import { CatalogAiImageGenerator } from './CatalogAiImageGenerator';
 import * as C from '../styles/AdminCatalogExperience.styles';
 
 type AdminCatalogProps = {
@@ -766,6 +767,7 @@ export function AdminCatalog(props: AdminCatalogProps) {
         </C.CategoryWorkspace>
       ) : (
         <>
+          <CatalogAiImageGenerator products={products} onCompleted={props.onImportComplete} />
           <C.ProductToolbar>
             <label className="product-search">
               <Search />

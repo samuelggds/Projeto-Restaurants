@@ -34,6 +34,9 @@ RUN node scripts/validateBuildEnv.mjs && npm run build
 
 FROM nginx:1.30.4-alpine
 
+# Keep the small runtime image patched against fixed Alpine CVEs reported by Trivy.
+RUN apk upgrade --no-cache
+
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 COPY --from=build /app/dist /usr/share/nginx/html
 

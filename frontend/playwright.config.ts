@@ -12,6 +12,17 @@ const webServerEnvironment = Object.fromEntries(
   ),
 );
 const localChromeExecutable = processEnvironment.PLAYWRIGHT_CHROME_EXECUTABLE?.trim();
+const allBrowsers = processEnvironment.PLAYWRIGHT_ALL_BROWSERS === 'true';
+
+const chromiumProject = {
+  name: 'chromium',
+  use: {
+    ...devices['Desktop Chrome'],
+    ...(localChromeExecutable
+      ? { launchOptions: { executablePath: localChromeExecutable } }
+      : {}),
+  },
+};
 
 export default defineConfig({
   testDir: './e2e',
@@ -24,17 +35,13 @@ export default defineConfig({
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
   },
-  projects: [
-    {
-      name: 'chromium',
-      use: {
-        ...devices['Desktop Chrome'],
-        ...(localChromeExecutable
-          ? { launchOptions: { executablePath: localChromeExecutable } }
-          : {}),
-      },
-    },
-  ],
+  projects: allBrowsers
+    ? [
+        chromiumProject,
+        { name: 'firefox', use: { ...devices['Desktop Firefox'] } },
+        { name: 'webkit', use: { ...devices['Desktop Safari'] } },
+      ]
+    : [chromiumProject],
   webServer: {
     // Compile lazy routes before Playwright starts the first test's timeout.
     // Keep the test build separate from dist's production artifacts and env mode.
