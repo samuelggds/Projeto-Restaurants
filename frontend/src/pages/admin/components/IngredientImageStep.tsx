@@ -1,6 +1,8 @@
+import { useState } from 'react';
 import { Check, ImageOff, LoaderCircle, RefreshCw, UploadCloud } from 'lucide-react';
-
 import type { IngredientImageSearchResult } from '../../../Services/ingredientsService';
+import ingredientsService from '../../../Services/ingredientsService';
+import { ChatGptLogo } from '../../../components/ChatGptLogo';
 
 type IngredientImageStepProps = {
   name: string;
@@ -19,6 +21,20 @@ type IngredientImageStepProps = {
   onContinueWithoutPhoto: () => void;
 };
 
+async function dataUrlToFile(dataUrl: string, name: string) {
+  const response = await fetch(dataUrl);
+  const blob = await response.blob();
+  const safeName =
+    name
+      .trim()
+      .toLocaleLowerCase('pt-BR')
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-|-$/g, '') || 'ingrediente';
+  return new File([blob], `${safeName}-ia.png`, { type: blob.type || 'image/png' });
+}
+
 export function IngredientImageStep({
   name,
   provider = 'Pexels',
@@ -35,8 +51,30 @@ export function IngredientImageStep({
   onSearchAgain,
   onContinueWithoutPhoto,
 }: IngredientImageStepProps) {
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiError, setAiError] = useState('');
   const preview = results.find((result) => result.id === previewId) || results[0];
   const displayImage = uploadedImage || preview?.previewUrl || '';
+
+  const generateWithAi = async () => {
+    if (!name.trim() || aiLoading || uploading) return;
+    setAiLoading(true);
+    setAiError('');
+    try {
+      const result = await ingredientsService.generateAiImage({ name: name.trim() });
+      if (!result.image) throw new Error('A IA não retornou uma imagem.');
+      onUpload(await dataUrlToFile(result.image, name));
+    } catch (error: unknown) {
+      const apiError = error as { response?: { data?: { error?: string } }; message?: string };
+      setAiError(
+        apiError.response?.data?.error ||
+          apiError.message ||
+          'Não foi possível gerar a imagem com IA agora.',
+      );
+    } finally {
+      setAiLoading(false);
+    }
+  };
 
   return (
     <section aria-labelledby="ingredient-wizard-title" className="image-step">
@@ -48,10 +86,10 @@ export function IngredientImageStep({
           {loading
             ? `Estamos procurando imagens para ${name}.`
             : results.length
-              ? `Encontramos algumas imagens para ${name}.`
+              ? `Encontramos algumas imagens para ${name}. Você também pode criar uma imagem exclusiva com IA.`
               : provider === 'Demo'
-                ? 'Ainda não temos uma foto de exemplo para este nome. Envie sua foto ou continue sem ela.'
-                : 'A foto é opcional e pode ser adicionada depois.'}
+                ? 'Ainda não temos uma foto de exemplo para este nome. Gere com IA, envie sua foto ou continue sem ela.'
+                : 'A foto é opcional. Você pode gerar com IA, enviar a sua ou adicionar depois.'}
         </p>
       </div>
 
@@ -68,7 +106,17 @@ export function IngredientImageStep({
               <ImageOff />
               <span>
                 <b>{searchError}</b>
-                <small>Você ainda pode enviar uma foto ou continuar sem ela.</small>
+                <small>Você ainda pode gerar com IA, enviar uma foto ou continuar sem ela.</small>
+              </span>
+            </div>
+          )}
+
+          {aiError && (
+            <div className="image-search-error" role="alert">
+              <ImageOff />
+              <span>
+                <b>Não foi possível gerar a imagem</b>
+                <small>{aiError}</small>
               </span>
             </div>
           )}
@@ -82,7 +130,7 @@ export function IngredientImageStep({
               <div>
                 <b>{name}</b>
                 {uploadedImage ? (
-                  <small>Sua foto</small>
+                  <small>Sua foto ou imagem gerada</small>
                 ) : preview?.source === 'Demo' ? (
                   <small>Foto demonstrativa GastroNexa</small>
                 ) : (
@@ -136,7 +184,15 @@ export function IngredientImageStep({
           )}
 
           <div className="image-actions">
-            <button type="button" onClick={onSearchAgain}>
+            <button
+              type="button"
+              disabled={aiLoading || uploading || !name.trim()}
+              onClick={() => void generateWithAi()}
+            >
+              {aiLoading ? <LoaderCircle className="spin" /> : <ChatGptLogo />}
+              {aiLoading ? 'Gerando com IA...' : 'Gerar com IA'}
+            </button>
+            <button type="button" disabled={aiLoading} onClick={onSearchAgain}>
               <RefreshCw /> Pesquisar novamente
             </button>
             <label>
@@ -144,22 +200,17 @@ export function IngredientImageStep({
               {uploadedImage ? 'Trocar minha foto' : 'Enviar minha foto'}
               <input
                 accept="image/jpeg,image/png,image/webp"
-                disabled={uploading}
+                disabled={uploading || aiLoading}
                 type="file"
                 onChange={(event) => onUpload(event.target.files?.[0])}
               />
             </label>
-            <button type="button" onClick={onContinueWithoutPhoto}>
+            <button type="button" disabled={aiLoading} onClick={onContinueWithoutPhoto}>
               <ImageOff /> Continuar sem foto
             </button>
           </div>
           {provider !== 'Demo' && preview?.source !== 'Demo' && (
-            <a
-              className="pexels-credit"
-              href="https://www.pexels.com"
-              target="_blank"
-              rel="noreferrer"
-            >
+            <a className="pexels-credit" href="https://www.pexels.com" target="_blank" rel="noreferrer">
               Fotos fornecidas por Pexels
             </a>
           )}
