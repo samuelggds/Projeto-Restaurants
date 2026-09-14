@@ -205,6 +205,7 @@ describe('Login contextual do cliente', () => {
       (container.querySelector('form') as HTMLFormElement).requestSubmit();
       await Promise.resolve();
       await Promise.resolve();
+      await vi.advanceTimersByTimeAsync(0);
     });
 
     expect(container.textContent).toContain('Autenticação de dois fatores');
