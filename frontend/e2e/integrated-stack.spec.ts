@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
 
 const apiUrl = process.env.CI_INTEGRATED_API_URL || 'http://127.0.0.1:3000';
 const restaurantAId = Number(process.env.CI_RESTAURANT_A_ID || 0);
@@ -10,7 +10,7 @@ const kitchenAEmail = process.env.CI_KITCHEN_A_EMAIL || '';
 const attendantBEmail = process.env.CI_ATTENDANT_B_EMAIL || '';
 
 async function apiFromBrowser<T>(
-  page: Parameters<typeof test>[0] extends never ? never : any,
+  page: Page,
   path: string,
   init: RequestInit = {},
 ): Promise<{ status: number; body: T }> {
@@ -24,7 +24,7 @@ async function apiFromBrowser<T>(
   );
 }
 
-async function login(page: any, email: string) {
+async function login(page: Page, email: string) {
   const result = await apiFromBrowser<{ token?: string; user?: { role?: string } }>(page, '/auth/login', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
