@@ -12,6 +12,7 @@ import {
   AlertCircle,
   CheckCircle2,
   LoaderCircle,
+  Mail,
   MessageCircleMore,
   MessageSquareText,
   ShieldCheck,
@@ -80,12 +81,19 @@ function formatCountdown(seconds: number) {
 }
 
 function ChannelIcon({ channel }: { channel: DeliveryChannel }) {
+  if (channel === 'EMAIL') return <Mail />;
   return channel === 'WHATSAPP' ? <MessageCircleMore /> : <MessageSquareText />;
+}
+
+function getChannelActionLabel(channel: DeliveryChannel) {
+  if (channel === 'EMAIL') return 'Receber por e-mail';
+  if (channel === 'SMS') return 'Receber por SMS';
+  return 'Receber pelo WhatsApp';
 }
 
 export function MfaVerificationModal<T>({
   open,
-  destination = 'seu telefone cadastrado',
+  destination = 'seu contato cadastrado',
   resendAfterSeconds = 60,
   channelSelectionRequired,
   selectedChannel,
@@ -104,7 +112,7 @@ export function MfaVerificationModal<T>({
   const initialSelectionRequired =
     channelSelectionRequired ?? Boolean(pendingChallenge?.channelSelectionRequired);
   const initialSelectedChannel = selectedChannel || pendingChallenge?.selectedChannel;
-  const initialDestination = destination || pendingChallenge?.destination || 'seu telefone cadastrado';
+  const initialDestination = destination || pendingChallenge?.destination || 'seu contato cadastrado';
 
   const [digits, setDigits] = useState<string[]>(Array(6).fill(''));
   const [state, setState] = useState<VerificationState>('idle');
@@ -136,7 +144,7 @@ export function MfaVerificationModal<T>({
       setResending(false);
       setSelectingChannel(null);
       setActiveChannel(selectedChannel || current?.selectedChannel);
-      setActiveDestination(destination || current?.destination || 'seu telefone cadastrado');
+      setActiveDestination(destination || current?.destination || 'seu contato cadastrado');
       setOptions(deliveryOptions || current?.deliveryOptions || []);
       setSelectionRequired(
         channelSelectionRequired ?? Boolean(current?.channelSelectionRequired),
@@ -357,7 +365,7 @@ export function MfaVerificationModal<T>({
             <h2 id="mfa-title">Autenticação de dois fatores</h2>
             <p id="mfa-description">
               {waitingForChannel ? (
-                'Escolha como deseja receber o código no telefone cadastrado.'
+                'Escolha como deseja receber o código de verificação.'
               ) : (
                 <>
                   Enviamos um código de 6 números para <strong>{activeDestination}</strong>. Digite
@@ -379,8 +387,8 @@ export function MfaVerificationModal<T>({
         {waitingForChannel ? (
           <>
             <S.ChannelDescription>
-              Para contas ADMIN e SUPER_ADMIN o código só é enviado depois da sua escolha. O
-              número exibido é sempre mascarado.
+              Para contas ADMIN e SUPER_ADMIN você pode receber o código por e-mail, SMS ou
+              WhatsApp. E-mail e telefone são exibidos de forma mascarada.
             </S.ChannelDescription>
             <S.ChannelChoice>
               {options.map((option) => (
@@ -396,9 +404,7 @@ export function MfaVerificationModal<T>({
                     <ChannelIcon channel={option.channel} />
                   )}
                   <span>
-                    <strong>
-                      {option.channel === 'SMS' ? 'Receber por SMS' : 'Receber pelo WhatsApp'}
-                    </strong>
+                    <strong>{getChannelActionLabel(option.channel)}</strong>
                     <span>{option.destination}</span>
                   </span>
                 </S.ChannelButton>
