@@ -51,7 +51,7 @@ test('envia a imagem como multipart para o endpoint oficial de foto do perfil', 
   assert.equal(image.type, 'image/png');
 });
 
-test('rejeita imagem que não seja PNG ou JPG', async () => {
+test('rejeita formato fora dos aceitos pelo painel', async () => {
   process.env.GUPSHUP_API_KEY = 'secret-api-key';
   process.env.GUPSHUP_APP_ID = 'app-id-123';
 
@@ -59,9 +59,9 @@ test('rejeita imagem que não seja PNG ou JPG', async () => {
     () =>
       updateGupshupProfilePhoto({
         source: '5585999999999',
-        imageDataUrl: `data:image/webp;base64,${Buffer.from('webp').toString('base64')}`,
+        imageDataUrl: `data:image/gif;base64,${Buffer.from('gif').toString('base64')}`,
         send: async () => new Response(null, { status: 200 }),
       }),
-    /PNG ou JPG/,
+    /PNG, JPG ou WEBP/,
   );
 });
