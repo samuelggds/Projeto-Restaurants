@@ -11,6 +11,7 @@ on:
 permissions:
   contents: read
   checks: read
+  actions: write
   packages: write
   id-token: write
   attestations: write
@@ -361,6 +362,29 @@ jobs:
             echo "- Frontend provenance: ${FRONTEND_PROVENANCE_URL}"
             echo '- CycloneDX SBOMs were generated, attested, and included in the release artifact.'
             echo '- Both OCI provenance attestations were verified against this repository, main, and the exact source commit.'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Dispatch production deploy from this exact release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_RUN_ID: ${{ github.run_id }}
+          RELEASE_SHA: ${{ steps.target.outputs.sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh workflow run deploy-production.yml \
+            --repo "$GITHUB_REPOSITORY" \
+            --ref main \
+            -f release_run_id="$RELEASE_RUN_ID" \
+            -f release_sha="$RELEASE_SHA"
+
+          {
+            echo
+            echo '## Production deploy dispatched'
+            echo
+            echo "- Release run: \`${RELEASE_RUN_ID}\`"
+            echo "- Commit: \`${RELEASE_SHA}\`"
+            echo '- Deploy Production will verify this exact successful release before accessing production.'
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Logout from registry
