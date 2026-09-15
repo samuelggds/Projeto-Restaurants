@@ -153,6 +153,16 @@ export function RequireAuth() {
   return <Outlet />;
 }
 
+function ProfileRoute() {
+  const { user, isLoading } = useAuth();
+
+  if (isLoading) return <RouteLoading />;
+  if (String(user?.role || '').toUpperCase() === 'ADMIN') {
+    return <Navigate to="/admin/profile" replace />;
+  }
+  return <UserProfile />;
+}
+
 function PageTransition() {
   const location = useLocation();
   return (
@@ -286,7 +296,7 @@ export default function AppRoutes() {
 
                     <Route element={<BillingGate />}>
                       <Route path="/billing" element={<BillingPage />} />
-                      <Route path="/profile" element={<UserProfile />} />
+                      <Route path="/profile" element={<ProfileRoute />} />
                       <Route path="/admin/profile" element={<AdminProfile />} />
                       <Route
                         path="/admin"
