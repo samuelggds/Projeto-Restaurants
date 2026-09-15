@@ -4,6 +4,7 @@ set -Eeuo pipefail
 APP_DIR="${APP_DIR:-$(pwd)}"
 ENV_FILE="${ENV_FILE:-.env.production}"
 COMPOSE_FILE="${COMPOSE_FILE:-docker-compose.production.yml}"
+EVOLUTION_OVERLAY="${EVOLUTION_OVERLAY:-docker-compose.evolution.yml}"
 RELEASE_OVERLAY="${RELEASE_OVERLAY:-docker-compose.release.yml}"
 DEPLOY_SHA="${DEPLOY_SHA:-}"
 BACKEND_IMAGE="${BACKEND_IMAGE:-}"
@@ -60,7 +61,14 @@ for required_file in "$ENV_FILE" "$COMPOSE_FILE" "$RELEASE_OVERLAY"; do
   fi
 done
 
-compose=(docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" -f "$RELEASE_OVERLAY")
+compose=(docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE")
+evolution_enabled=false
+if [[ -f "$EVOLUTION_OVERLAY" ]]; then
+  compose+=(-f "$EVOLUTION_OVERLAY")
+  evolution_enabled=true
+fi
+compose+=(-f "$RELEASE_OVERLAY")
+
 phase='preflight'
 previous_sha=''
 previous_backend=''
@@ -101,6 +109,9 @@ print_diagnostics() {
   echo "Deploy falhou na fase '$phase' (exit=$exit_code)." >&2
   "${compose[@]}" ps >&2 || true
   "${compose[@]}" logs --tail=120 backend worker frontend gateway >&2 || true
+  if [[ "$evolution_enabled" == true ]]; then
+    "${compose[@]}" logs --tail=80 evolution-api evolution-db evolution-redis >&2 || true
+  fi
 
   if [[ "$phase" == 'application-update' || "$phase" == 'readiness' ]]; then
     rollback_application || true
@@ -129,14 +140,13 @@ fi
 phase='image-pull'
 echo '[3/7] Baixando exatamente os digests aprovados; compilacao no servidor esta proibida...'
 "${compose[@]}" pull migrate backend worker frontend
+if [[ "$evolution_enabled" == true ]]; then
+  "${compose[@]}" pull evolution-api evolution-db evolution-redis
+fi
 
 phase='migration'
 echo '[4/7] Aplicando migrations antes de alterar processos da aplicacao...'
 migration_log="$(mktemp)"
-# A primeira tentativa pode falhar de forma esperada quando o Prisma encontra
-# uma tentativa anterior marcada como failed (P3009). Suspendemos o ERR trap
-# somente durante essa captura para que a saida possa ser classificada com
-# seguranca antes de decidir por recuperar ou bloquear o deploy.
 trap - ERR
 set +e
 "${compose[@]}" run --rm --no-deps migrate 2>&1 | tee "$migration_log"
@@ -160,6 +170,9 @@ rm -f "$migration_log"
 
 phase='application-update'
 echo '[5/7] Atualizando aplicacao sem build local...'
+if [[ "$evolution_enabled" == true ]]; then
+  "${compose[@]}" up -d --no-build evolution-db evolution-redis evolution-api
+fi
 "${compose[@]}" up -d --no-build --no-deps backend
 "${compose[@]}" up -d --no-build --no-deps worker
 "${compose[@]}" up -d --no-build --no-deps frontend
@@ -191,6 +204,11 @@ done
 test "$backend_ready" = true
 test "$frontend_ready" = true
 "${compose[@]}" ps --status running --services | grep -qx 'worker'
+if [[ "$evolution_enabled" == true ]]; then
+  "${compose[@]}" ps --status running --services | grep -qx 'evolution-api'
+  "${compose[@]}" ps --status running --services | grep -qx 'evolution-db'
+  "${compose[@]}" ps --status running --services | grep -qx 'evolution-redis'
+fi
 
 phase='commit-release'
 echo '[7/7] Registrando release imutavel implantada...'
