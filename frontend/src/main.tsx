@@ -1,4 +1,5 @@
 import './config/platformStorageMigration';
+import './styles/adminIngredientMenuFix.css';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { GlobalStyles } from '../GlobalStyles/globalStyles.js';
