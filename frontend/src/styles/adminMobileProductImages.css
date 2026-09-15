@@ -1,0 +1,20 @@
+@media (max-width: 480px) {
+  .product-row {
+    grid-template-columns: 44px minmax(0, 1fr) auto !important;
+    gap: 9px !important;
+  }
+
+  .product-row > img,
+  .product-row > .product-placeholder {
+    display: block !important;
+    width: 44px !important;
+    height: 44px !important;
+    border-radius: 10px !important;
+    object-fit: cover;
+  }
+
+  .product-row > .product-placeholder {
+    display: grid !important;
+    place-items: center;
+  }
+}
