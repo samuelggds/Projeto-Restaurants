@@ -93,11 +93,12 @@ export default function AdminPortalLoginGate() {
   const { restaurantSlug } = useParams();
   const slug = String(restaurantSlug || '').trim().toLowerCase();
   const [gateState, setGateState] = useState<GateState>({ slug: '', status: 'checking' });
-  const [showAccessNotice, setShowAccessNotice] = useState(true);
+  const [hiddenAccessNoticeSlug, setHiddenAccessNoticeSlug] = useState('');
+  const showAccessNotice = Boolean(slug) && hiddenAccessNoticeSlug !== slug;
 
   useEffect(() => {
-    setShowAccessNotice(true);
-    const timer = window.setTimeout(() => setShowAccessNotice(false), 10_000);
+    if (!slug) return undefined;
+    const timer = window.setTimeout(() => setHiddenAccessNoticeSlug(slug), 10_000);
     return () => window.clearTimeout(timer);
   }, [slug]);
 
@@ -133,7 +134,7 @@ export default function AdminPortalLoginGate() {
             <strong>Acesso temporário liberado por 1 hora</strong>
             <span>Este link libera 1 hora de acesso administrativo. Quando expirar, abra o mesmo link novamente para renovar por mais 1 hora.</span>
           </span>
-          <button className="close" type="button" aria-label="Fechar aviso" onClick={() => setShowAccessNotice(false)}><X /></button>
+          <button className="close" type="button" aria-label="Fechar aviso" onClick={() => setHiddenAccessNoticeSlug(slug)}><X /></button>
         </AccessWindowNotice>
       )}
       <Login />
