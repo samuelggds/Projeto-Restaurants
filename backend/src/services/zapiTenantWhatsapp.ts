@@ -114,7 +114,7 @@ async function zapiInstanceRequest(
       ...init,
       redirect: 'error',
       signal: AbortSignal.timeout(12_000),
-      headers: { ...clientHeaders(), ...(init.headers || {}) },
+      headers: clientHeaders(),
     },
   );
   const text = await response.text();
@@ -139,7 +139,6 @@ async function createOnDemandInstance(restaurantId: number, restaurantName: stri
   }
 
   const webhookSecret = randomBytes(32).toString('hex');
-  const callbackUrl = `${backendBaseUrl()}/api/webhooks/zapi/inbound/pending?token=${encodeURIComponent(webhookSecret)}`;
   const response = await fetch(`${normalizedBaseUrl()}/instances/integrator/on-demand`, {
     method: 'POST',
     redirect: 'error',
@@ -151,7 +150,6 @@ async function createOnDemandInstance(restaurantId: number, restaurantName: stri
     body: JSON.stringify({
       name: `GastroNexa - ${restaurantName} - ${restaurantId}`,
       sessionName: `GastroNexa - ${restaurantName}`,
-      receivedCallbackUrl: callbackUrl,
       callRejectAuto: true,
       autoReadMessage: false,
       businessDevice: true,
