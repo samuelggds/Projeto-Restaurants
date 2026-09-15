@@ -58,18 +58,22 @@ describe('política de autorização de rotas', () => {
     });
   });
 
-  it('permite todos os módulos operacionais ao ADMIN, menos super_admin', () => {
+  it('permite todos os módulos operacionais ao ADMIN, usando o perfil dedicado do painel', () => {
     const user = { role: 'ADMIN' };
     for (const path of [
       '/admin',
+      '/admin/profile',
       '/billing',
-      '/profile',
       '/orders/1/tracking',
       '/courier',
       '/kitchen',
       '/waiter',
     ])
       expect(allowed(path, user), path).toBe(true);
+    expect(authorizeRoute('/profile', user)).toEqual({
+      allowed: false,
+      redirectTo: '/admin/profile',
+    });
     expect(authorizeRoute('/super_admin', user)).toEqual({ allowed: false, redirectTo: '/admin' });
   });
 
