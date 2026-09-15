@@ -176,6 +176,12 @@ async function loadSafeSettings(db: Prisma.TransactionClient, restaurantId: numb
       acceptsDelivery: true,
       acceptsPickup: true,
       averageDeliveryTime: true,
+      tableOrderingEnabled: true,
+      waiterCallEnabled: true,
+      billRequestEnabled: true,
+      acceptsPix: true,
+      acceptsCard: true,
+      trackingRequiresLogin: true,
       whatsappEnabled: true,
       whatsappDisplayName: true,
       whatsappDefaultMessage: true,
@@ -281,6 +287,26 @@ async function buildSettingsPreview(
       acceptsDelivery: settings.acceptsDelivery,
       acceptsPickup: settings.acceptsPickup,
       averageDeliveryTime: settings.averageDeliveryTime,
+    };
+    const { actionType: _actionType, ...after } = proposal;
+    return { actionType: proposal.actionType, affectedRecords: 1, changes: changedFields(before, after) };
+  }
+
+  if (proposal.actionType === 'UPDATE_TABLE_SETTINGS') {
+    const before = {
+      tableOrderingEnabled: settings.tableOrderingEnabled,
+      waiterCallEnabled: settings.waiterCallEnabled,
+      billRequestEnabled: settings.billRequestEnabled,
+    };
+    const { actionType: _actionType, ...after } = proposal;
+    return { actionType: proposal.actionType, affectedRecords: 1, changes: changedFields(before, after) };
+  }
+
+  if (proposal.actionType === 'UPDATE_TABLE_ACCOUNT_SETTINGS') {
+    const before = {
+      acceptsPix: settings.acceptsPix,
+      acceptsCard: settings.acceptsCard,
+      trackingRequiresLogin: settings.trackingRequiresLogin,
     };
     const { actionType: _actionType, ...after } = proposal;
     return { actionType: proposal.actionType, affectedRecords: 1, changes: changedFields(before, after) };
@@ -525,6 +551,14 @@ async function executeSettingsProposal(proposal: AdminAiActionProposal, restaura
     return updateRestaurantSettingsService.execute({ restaurantId, ...changes });
   }
   if (proposal.actionType === 'UPDATE_DELIVERY_SETTINGS') {
+    const { actionType: _actionType, ...changes } = proposal;
+    return updateRestaurantSettingsService.execute({ restaurantId, ...changes });
+  }
+  if (proposal.actionType === 'UPDATE_TABLE_SETTINGS') {
+    const { actionType: _actionType, ...changes } = proposal;
+    return updateRestaurantSettingsService.execute({ restaurantId, ...changes });
+  }
+  if (proposal.actionType === 'UPDATE_TABLE_ACCOUNT_SETTINGS') {
     const { actionType: _actionType, ...changes } = proposal;
     return updateRestaurantSettingsService.execute({ restaurantId, ...changes });
   }
