@@ -178,20 +178,36 @@ function parseJson(raw: string) {
   }
 }
 
-function isMissingAiStorageError(error: unknown) {
+function snapshotFallbackReason(error: unknown) {
   const message = error instanceof Error ? error.message : String(error || '');
-  return /(?:RestaurantAiSnapshot|RestaurantAiAssistantSettings)/u.test(message) &&
+  const code =
+    error && typeof error === 'object' && 'code' in error
+      ? String((error as { code?: unknown }).code || '')
+      : '';
+
+  const missingStorage =
+    /(?:RestaurantAiSnapshot|RestaurantAiAssistantSettings)/u.test(message) &&
     /(?:does not exist|não existe|P2021|relation|table)/iu.test(message);
+  if (missingStorage || code === 'P2021') return 'assistant_storage_not_ready';
+
+  const invalidForecastGrouping =
+    code === 'P2010' &&
+    /(?:42803|GROUP BY clause|must appear in the GROUP BY)/iu.test(message) &&
+    /(?:order_row\.createdAt|order_row\."createdAt"|createdAt)/u.test(message);
+  if (invalidForecastGrouping) return 'forecast_snapshot_query_incompatible';
+
+  return null;
 }
 
 async function loadManagementSnapshot(actor: Actor) {
   try {
     return await adminRestaurantContextService.getManagementSnapshot(actor);
   } catch (error) {
-    if (!isMissingAiStorageError(error)) throw error;
+    const reason = snapshotFallbackReason(error);
+    if (!reason) throw error;
     console.warn('[ADMIN_AI_SNAPSHOT_FALLBACK]', {
       restaurantId: actor.restaurantId,
-      reason: 'assistant_storage_not_ready',
+      reason,
     });
     return adminRestaurantFallbackSnapshotService.execute(actor);
   }
