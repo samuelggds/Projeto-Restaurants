@@ -69,7 +69,7 @@ test('prontidão exige os pré-requisitos, rejeita callback externo e não usa t
   assert.equal(paymentConnectionConfiguration('ASAAS'), false);
 });
 
-test('credenciais e grants válidos do restaurante ficam prontos sem expor nenhum segredo', async () => {
+test('credenciais e grants renováveis do restaurante ficam prontos sem expor nenhum segredo', async () => {
   const requested: number[] = [];
   repository.findByRestaurantId = async (id) => {
     requested.push(id);
@@ -94,6 +94,22 @@ test('credenciais e grants válidos do restaurante ficam prontos sem expor nenhu
       ),
   );
   assert.equal(JSON.stringify(result).includes('private-'), false);
+});
+
+test('grant legado sem refresh token exige reconexão antes de pagamentos em produção', async () => {
+  repository.findByRestaurantId = async () => ({
+    restaurantId: 7,
+    mercadoPagoAccessToken: 'legacy-mp',
+    pagbankToken: 'legacy-pb',
+  });
+  const result = await service.execute({ restaurantId: 7 });
+  for (const connection of result.connections.slice(0, 2)) {
+    assert.equal(connection.connected, true);
+    assert.equal(connection.status, 'NEEDS_RECONNECT');
+    assert.equal(connection.readyForPix, false);
+    assert.equal(connection.readyForCard, false);
+    assert.equal(connection.canConnect, true);
+  }
 });
 
 test('um grant expirado sem renovação não é anunciado como pronto', async () => {
