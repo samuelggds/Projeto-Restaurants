@@ -44,6 +44,7 @@ export function OrderHistoryPagination({
         {(hasMore || error) && (
           <LoadMoreButton
             type="button"
+            aria-label={error ? 'Tentar novamente' : 'Carregar histórico'}
             disabled={loading}
             onClick={() => void (hasMore ? loadMore() : refresh())}
           >
