@@ -5,8 +5,12 @@ import {
   decryptCredential,
 } from '../modules/restaurantSettings/security/credentialEncryption.js';
 import {
+  resolveGupshupAutomaticTemplateMode,
+  resolveGupshupTemplateId,
   resolveWhatsAppDeliveryProvider,
+  sendGupshupTemplateMessage,
   sendGupshupTextMessage,
+  type GupshupTemplateKey,
   WhatsAppProviderConfigurationError,
 } from './whatsappProvider.js';
 
@@ -102,15 +106,63 @@ async function sendLegacyWebhook(message: Message, rowId: string, send: typeof f
   if (!response.ok) throw new Error('Webhook recusou a notificação.');
 }
 
+function resolveTemplateKey(message: Message): GupshupTemplateKey | null {
+  const event = String(message.metadata.event || '').toUpperCase();
+  if (event === 'PAYMENT_CONFIRMED') return 'PAYMENT_CONFIRMED';
+  if (event !== 'ORDER_STATUS_CHANGED') return null;
+
+  const status = String(message.metadata.status || '').toUpperCase();
+  if (status === 'PENDENTE') return 'ORDER_PENDING';
+  if (status === 'PREPARANDO') return 'ORDER_PREPARING';
+  if (status === 'PRONTO') return 'ORDER_READY';
+  if (status === 'SAIU_PARA_ENTREGA') return 'ORDER_OUT_FOR_DELIVERY';
+  if (status === 'ENTREGUE') return 'ORDER_DELIVERED';
+  if (status === 'CANCELADO') return 'ORDER_CANCELLED';
+  return null;
+}
+
+function templateParams(message: Message) {
+  const configured = message.metadata.templateParams;
+  return Array.isArray(configured)
+    ? configured.map((value) => String(value ?? ''))
+    : [String(message.message || '')];
+}
+
+async function deliverGupshup(message: Message, send: typeof fetch) {
+  const mode = resolveGupshupAutomaticTemplateMode();
+  const templateKey = resolveTemplateKey(message);
+  if (mode !== 'disabled' && templateKey) {
+    const templateId = resolveGupshupTemplateId(message.from, templateKey);
+    if (templateId) {
+      await sendGupshupTemplateMessage({
+        source: message.from,
+        destination: message.to,
+        templateId,
+        params: templateParams(message),
+        send,
+      });
+      return;
+    }
+    if (mode === 'required') {
+      throw new WhatsAppProviderConfigurationError(
+        'gupshup_template_not_configured',
+        `Template ${templateKey} não configurado para a notificação automática.`,
+      );
+    }
+  }
+
+  await sendGupshupTextMessage({
+    source: message.from,
+    destination: message.to,
+    message: message.message,
+    send,
+  });
+}
+
 async function deliverMessage(message: Message, rowId: string, send: typeof fetch) {
   const provider = resolveWhatsAppDeliveryProvider();
   if (provider === 'gupshup') {
-    await sendGupshupTextMessage({
-      source: message.from,
-      destination: message.to,
-      message: message.message,
-      send,
-    });
+    await deliverGupshup(message, send);
     return;
   }
   if (provider === 'whatsapp_webhook') {
@@ -174,7 +226,6 @@ export async function deliverNotificationOutbox(db: Database = prisma, send: typ
         WHERE "id" = ${row.id}::uuid AND "lockToken" = ${lockToken}::uuid`;
       delivered++;
     } catch (error) {
-      // Never persist/log the remote body, phone, message or credentials.
       const configurationError = error instanceof WhatsAppProviderConfigurationError;
       console.error('[NOTIFICATION_DELIVERY_RETRY]', {
         id: row.id,
