@@ -1,4 +1,5 @@
 import './config/platformStorageMigration';
+import './config/profileAvatarBranding';
 import './styles/adminIngredientMenuFix.css';
 import './styles/adminMobileProductImages.css';
 import { StrictMode } from 'react';
