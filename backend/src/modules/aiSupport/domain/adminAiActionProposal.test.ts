@@ -41,18 +41,22 @@ test('rejeita ações arbitrárias, SUPER_ADMIN e execução genérica', () => {
   }
 });
 
-test('schema de WhatsApp não aceita token, chave ou segredo do provedor', () => {
-  const parsed = adminAiActionProposalSchema.safeParse({
-    actionType: 'UPDATE_WHATSAPP_SETTINGS',
-    whatsappEnabled: true,
-    whatsapp: '5585999999999',
-    whatsappAccessToken: 'segredo',
-  });
-  assert.equal(parsed.success, true);
-  if (!parsed.success) return;
-  assert.equal('whatsappAccessToken' in parsed.data, false);
-  assert.equal('token' in parsed.data, false);
-  assert.equal('secret' in parsed.data, false);
+test('schema rejeita token, segredo e tentativa de escolher restaurantId', () => {
+  for (const extra of [
+    { whatsappAccessToken: 'segredo' },
+    { apiKey: 'segredo' },
+    { restaurantId: 999 },
+  ]) {
+    assert.equal(
+      adminAiActionProposalSchema.safeParse({
+        actionType: 'UPDATE_WHATSAPP_SETTINGS',
+        whatsappEnabled: true,
+        whatsapp: '5585999999999',
+        ...extra,
+      }).success,
+      false,
+    );
+  }
 });
 
 test('alterações exigem alvo/campo explícito em vez de atualização vazia', () => {
