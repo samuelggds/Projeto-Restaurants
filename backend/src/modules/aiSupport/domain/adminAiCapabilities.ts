@@ -25,9 +25,7 @@ export const ADMIN_AI_AREAS = [
 ] as const;
 
 export type AdminAiArea = (typeof ADMIN_AI_AREAS)[number];
-
 export type AdminAiCapabilityRisk = 'READ' | 'WRITE' | 'SENSITIVE_WRITE';
-
 export type AdminAiCapability = {
   id: string;
   area: AdminAiArea;
@@ -39,7 +37,7 @@ export type AdminAiCapability = {
 const capabilities = [
   ['READ_OVERVIEW', 'overview', 'READ', false, 'Consultar indicadores, prioridades e alertas do restaurante.'],
   ['READ_ORDERS', 'orders', 'READ', false, 'Consultar pedidos e detalhes operacionais do restaurante.'],
-  ['UPDATE_ORDER_STATUS', 'orders', 'WRITE', true, 'Preparar alteração de status de um pedido pertencente ao restaurante.'],
+  ['UPDATE_ORDER_STATUS', 'orders', 'WRITE', true, 'Preparar avanço de status de um pedido pertencente ao restaurante.'],
   ['PREPARE_ORDER_SUPPORT_REPLY', 'orders', 'WRITE', true, 'Preparar resposta editável para atendimento de um pedido.'],
   ['READ_CATALOG', 'catalog', 'READ', false, 'Consultar categorias, produtos, preços e disponibilidade do restaurante.'],
   ['CREATE_PRODUCT', 'catalog', 'WRITE', true, 'Preparar cadastro de produto em categoria existente do restaurante.'],
@@ -51,9 +49,8 @@ const capabilities = [
   ['GENERATE_PRODUCT_IMAGES', 'catalog', 'WRITE', true, 'Preparar jobs de imagens dos produtos do restaurante.'],
   ['READ_CUSTOMERS', 'customers', 'READ', false, 'Consultar clientes e histórico permitido do restaurante.'],
   ['READ_EMPLOYEES', 'employees', 'READ', false, 'Consultar equipe vinculada ao restaurante.'],
-  ['CREATE_EMPLOYEE', 'employees', 'SENSITIVE_WRITE', true, 'Preparar cadastro de funcionário sem ampliar privilégios além do ADMIN permitido.'],
-  ['UPDATE_EMPLOYEE', 'employees', 'SENSITIVE_WRITE', true, 'Preparar alteração de funcionário do restaurante.'],
-  ['DISABLE_EMPLOYEE', 'employees', 'SENSITIVE_WRITE', true, 'Preparar desativação de funcionário do restaurante.'],
+  ['UPDATE_EMPLOYEE', 'employees', 'SENSITIVE_WRITE', true, 'Preparar alteração de dados/cargo de funcionário ou entregador do restaurante sem senha.'],
+  ['SET_EMPLOYEE_ACTIVE', 'employees', 'SENSITIVE_WRITE', true, 'Preparar desativação ou reativação de funcionário/entregador do restaurante.'],
   ['READ_SUBSCRIPTION', 'subscriptions', 'READ', false, 'Consultar a assinatura do próprio restaurante.'],
   ['READ_BUSINESS_SETTINGS', 'settings:business', 'READ', false, 'Consultar dados operacionais e públicos do negócio.'],
   ['UPDATE_BUSINESS_SETTINGS', 'settings:business', 'WRITE', true, 'Preparar alteração de dados operacionais do negócio.'],
@@ -64,18 +61,16 @@ const capabilities = [
   ['READ_ORDER_SETTINGS', 'settings:orders', 'READ', false, 'Consultar preferências de pedidos.'],
   ['UPDATE_ORDER_SETTINGS', 'settings:orders', 'WRITE', true, 'Preparar alteração de preferências de pedidos.'],
   ['READ_PROMOTIONS', 'settings:promotions', 'READ', false, 'Consultar promoções e fidelidade.'],
-  ['CREATE_PROMOTION', 'settings:promotions', 'WRITE', true, 'Preparar criação de promoção.'],
-  ['UPDATE_PROMOTION', 'settings:promotions', 'WRITE', true, 'Preparar alteração de promoção.'],
+  ['UPSERT_PRODUCT_DISCOUNT', 'settings:promotions', 'WRITE', true, 'Preparar criação ou alteração de desconto de um produto do restaurante.'],
   ['READ_DELIVERY_SETTINGS', 'settings:delivery', 'READ', false, 'Consultar regras de delivery e retirada.'],
   ['UPDATE_DELIVERY_SETTINGS', 'settings:delivery', 'WRITE', true, 'Preparar alteração de delivery e retirada.'],
   ['READ_TABLE_SETTINGS', 'settings:table', 'READ', false, 'Consultar configuração do cardápio de mesa.'],
   ['UPDATE_TABLE_SETTINGS', 'settings:table', 'WRITE', true, 'Preparar alteração do cardápio de mesa.'],
   ['READ_TABLE_ACCOUNT_SETTINGS', 'settings:table-account', 'READ', false, 'Consultar configuração de conta e pagamento da mesa.'],
-  ['UPDATE_TABLE_ACCOUNT_SETTINGS', 'settings:table-account', 'WRITE', true, 'Preparar alteração da conta e pagamento da mesa.'],
+  ['UPDATE_TABLE_ACCOUNT_SETTINGS', 'settings:table-account', 'WRITE', true, 'Preparar alteração das preferências da conta de mesa sem credenciais de pagamento.'],
   ['READ_WHATSAPP_STATUS', 'settings:whatsapp', 'READ', false, 'Consultar apenas estado operacional e número comercial; nunca credenciais.'],
   ['UPDATE_WHATSAPP_SETTINGS', 'settings:whatsapp', 'SENSITIVE_WRITE', true, 'Preparar alteração de preferências operacionais do WhatsApp sem ler ou escrever segredos.'],
   ['READ_PRINTING_SETTINGS', 'settings:printing', 'READ', false, 'Consultar configuração operacional de impressão.'],
-  ['UPDATE_PRINTING_SETTINGS', 'settings:printing', 'WRITE', true, 'Preparar alteração operacional de impressão sem acesso à infraestrutura.'],
   ['READ_EMPLOYEE_SETTLEMENTS', 'settings:employee-payments', 'READ', false, 'Consultar acertos de funcionários do restaurante.'],
   ['READ_COURIER_SETTLEMENTS', 'settings:courier-payments', 'READ', false, 'Consultar acertos de entregadores do restaurante.'],
   ['READ_PAYMENT_STATUS', 'settings:payments', 'READ', false, 'Consultar estado operacional das integrações de pagamento sem credenciais.'],
@@ -87,20 +82,11 @@ const capabilities = [
 ] as const satisfies readonly (readonly [string, AdminAiArea, AdminAiCapabilityRisk, boolean, string])[];
 
 export const ADMIN_AI_CAPABILITIES: readonly AdminAiCapability[] = capabilities.map(
-  ([id, area, risk, approvalRequired, description]) => ({
-    id,
-    area,
-    risk,
-    approvalRequired,
-    description,
-  }),
+  ([id, area, risk, approvalRequired, description]) => ({ id, area, risk, approvalRequired, description }),
 );
 
 const byArea = new Map<AdminAiArea, readonly AdminAiCapability[]>(
-  ADMIN_AI_AREAS.map((area) => [
-    area,
-    ADMIN_AI_CAPABILITIES.filter((capability) => capability.area === area),
-  ]),
+  ADMIN_AI_AREAS.map((area) => [area, ADMIN_AI_CAPABILITIES.filter((capability) => capability.area === area)]),
 );
 
 export function normalizeAdminAiArea(value: unknown): AdminAiArea | null {
@@ -123,8 +109,6 @@ export function assertAdminAiCapabilityAllowed(capabilityId: unknown, areaInput?
   return capability;
 }
 
-// Barreiras estruturais: não existem capacidades para SUPER_ADMIN, leitura de segredos,
-// execução de SQL/comandos, acesso a arquivos/infraestrutura ou troca arbitrária de tenant.
 export const ADMIN_AI_STRUCTURAL_DENYLIST = Object.freeze([
   'SUPER_ADMIN',
   'READ_SECRETS',
@@ -134,4 +118,5 @@ export const ADMIN_AI_STRUCTURAL_DENYLIST = Object.freeze([
   'EXECUTE_SHELL',
   'SWITCH_TENANT',
   'READ_OTHER_RESTAURANT',
+  'CREATE_EMPLOYEE_WITH_PASSWORD',
 ] as const);
