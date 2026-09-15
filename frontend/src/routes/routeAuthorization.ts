@@ -127,7 +127,10 @@ export function authorizeRoute(pathname: string, user: RouteUser): RouteDecision
   // da identidade SUPER_ADMIN em uma rota de outro portal.
   if (role === 'SUPER_ADMIN') return { allowed: false, redirectTo: home };
   if (isGuestEntry(path)) return { allowed: false, redirectTo: home };
-  if (role === 'ADMIN') return { allowed: true };
+  if (role === 'ADMIN') {
+    if (path === '/profile') return { allowed: false, redirectTo: '/admin/profile' };
+    return { allowed: true };
+  }
   if (SERVICE_PATHS.includes(path)) return { allowed: true };
   if (role === 'CLIENTE') {
     const ok =
