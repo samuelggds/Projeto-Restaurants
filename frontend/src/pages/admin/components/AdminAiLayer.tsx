@@ -11,6 +11,7 @@ import { ChatGptLogo } from '../../../components/ChatGptLogo';
 import { AiCreditCard } from './AiCreditCard';
 import { AiGuideAssistant } from './AiGuideAssistant';
 import { AiGuidedTour } from './AiGuidedTour';
+import { AdminOverviewAiSummaryPortal } from './AdminOverviewAiSummaryPortal';
 
 const AREA_LABELS: Record<string, string> = {
   overview: 'Visão geral', orders: 'Pedidos', catalog: 'Cardápio', customers: 'Clientes',
@@ -195,6 +196,7 @@ export default function AdminAiLayer({ children }: { children: React.ReactNode }
   return (
     <>
       {children}
+      <AdminOverviewAiSummaryPortal onNavigate={(target) => navigateForTour(target)} />
       {sidebarPortal && createPortal(<AiCreditCard balance={credits} />, sidebarPortal)}
       {assistantLauncherPortal && createPortal(launcher, assistantLauncherPortal)}
       <MobileAssistantLauncher type="button" aria-label="Abrir Assistente do Restaurante" aria-expanded={assistantOpen} onClick={() => setAssistantOpen((current) => !current)}><ChatGptLogo /></MobileAssistantLauncher>
