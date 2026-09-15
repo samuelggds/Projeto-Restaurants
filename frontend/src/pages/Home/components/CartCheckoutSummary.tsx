@@ -98,9 +98,13 @@ export function CartCheckoutSummary({
         aria-busy={loading}
         onClick={onCheckout}
       >
-        <CheckoutIcon aria-hidden="true" />
+        <Summary.CheckoutIconSlot aria-hidden="true">
+          <CheckoutIcon />
+        </Summary.CheckoutIconSlot>
         <span>{buttonLabel}</span>
-        <ArrowRight className="checkout-arrow" aria-hidden="true" />
+        <Summary.CheckoutIconSlot aria-hidden="true">
+          <ArrowRight className="checkout-arrow" />
+        </Summary.CheckoutIconSlot>
       </S.CartCheckout>
     </div>
   );

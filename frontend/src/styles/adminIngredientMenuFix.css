@@ -1,0 +1,22 @@
+/*
+ * Os cards de ingredientes usam animation com transform e, por isso, cada card
+ * cria seu proprio stacking context. Elevar somente .ingredient-menu nao e
+ * suficiente: o card seguinte pode continuar sendo pintado por cima.
+ */
+[data-admin-root] .ingredient-list > article {
+  position: relative;
+  z-index: 0;
+  overflow: visible;
+}
+
+[data-admin-root] .ingredient-list > article:has(.ingredient-menu) {
+  z-index: 1000;
+}
+
+[data-admin-root] .ingredient-menu-wrap {
+  z-index: 1001;
+}
+
+[data-admin-root] .ingredient-menu {
+  z-index: 1002 !important;
+}
