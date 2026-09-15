@@ -118,12 +118,13 @@ async function zapiInstanceRequest(
     },
   );
   const text = await response.text();
-  let payload: unknown = null;
-  try {
-    payload = text ? JSON.parse(text) : null;
-  } catch {
-    payload = text;
-  }
+  const payload: unknown = (() => {
+    try {
+      return text ? JSON.parse(text) : null;
+    } catch {
+      return text;
+    }
+  })();
   if (!response.ok) {
     throw new Error(`Z-API recusou a operação (${response.status}).`);
   }
@@ -157,12 +158,13 @@ async function createOnDemandInstance(restaurantId: number, restaurantName: stri
     }),
   });
   const text = await response.text();
-  let body: Record<string, unknown> = {};
-  try {
-    body = text ? (JSON.parse(text) as Record<string, unknown>) : {};
-  } catch {
-    body = {};
-  }
+  const body: Record<string, unknown> = (() => {
+    try {
+      return text ? (JSON.parse(text) as Record<string, unknown>) : {};
+    } catch {
+      return {};
+    }
+  })();
   if (!response.ok) throw new Error(`Z-API recusou a criação da instância (${response.status}).`);
 
   const instanceId = String(body.id || '').trim();
