@@ -18,6 +18,9 @@ import {
 import { toast } from 'react-toastify';
 import { useAuth } from '../../../contexts/authContext';
 import authService from '../../../Services/authService';
+import api from '../../../Services/api';
+import { getAccessToken } from '../../../modules/auth/session/authSession';
+import { useAppDialog } from '../../../components/AppDialog/context';
 import * as S from './AdminProfile.styles';
 
 type Tab = 'profile' | 'security' | 'notifications';
@@ -42,12 +45,11 @@ function readNotificationPreferences(userId?: number): NotificationPreferences {
   try {
     const raw = window.localStorage.getItem(notificationStorageKey(userId));
     if (!raw) return { newOrders: true, billing: true, operationalAlerts: true };
+    const parsed = JSON.parse(raw) as Partial<NotificationPreferences>;
     return {
-      newOrders: raw.includes('newOrders') ? JSON.parse(raw).newOrders !== false : true,
-      billing: raw.includes('billing') ? JSON.parse(raw).billing !== false : true,
-      operationalAlerts: raw.includes('operationalAlerts')
-        ? JSON.parse(raw).operationalAlerts !== false
-        : true,
+      newOrders: parsed.newOrders !== false,
+      billing: parsed.billing !== false,
+      operationalAlerts: parsed.operationalAlerts !== false,
     };
   } catch {
     return { newOrders: true, billing: true, operationalAlerts: true };
@@ -64,11 +66,13 @@ function initials(name?: string) {
 }
 
 export default function AdminProfile() {
-  const { user, logout } = useAuth();
+  const { user, logout, login } = useAuth();
   const navigate = useNavigate();
+  const { confirmDialog } = useAppDialog();
   const avatarInputRef = useRef<HTMLInputElement>(null);
   const [activeTab, setActiveTab] = useState<Tab>('profile');
   const [saving, setSaving] = useState(false);
+  const [updatingMfa, setUpdatingMfa] = useState(false);
   const [form, setForm] = useState({
     name: String(user?.name || ''),
     email: String(user?.email || ''),
@@ -79,6 +83,7 @@ export default function AdminProfile() {
     readNotificationPreferences(user?.id),
   );
 
+  const mfaEnabled = Boolean(user?.mfaEnabled);
   const restaurantLabel = useMemo(() => {
     const restaurant = user?.restaurant as Record<string, unknown> | null | undefined;
     return String(
@@ -120,13 +125,24 @@ export default function AdminProfile() {
 
     setSaving(true);
     try {
-      await authService.updateProfile({
+      const updated = await authService.updateProfile({
         name: form.name.trim(),
         email: form.email.trim(),
         phone: form.phone.trim(),
         avatar: form.avatar,
       });
-      toast.success('Perfil atualizado com sucesso.');
+      const token = getAccessToken();
+      if (token && updated) {
+        login({ ...(user || {}), ...updated }, token);
+      }
+      setForm((current) => ({
+        ...current,
+        name: String(updated?.name ?? current.name),
+        email: String(updated?.email ?? current.email),
+        phone: String(updated?.phone ?? current.phone),
+        avatar: String(updated?.avatar ?? current.avatar),
+      }));
+      toast.success('Perfil e foto atualizados com sucesso.');
     } catch (error: unknown) {
       const requestError = error as {
         response?: { data?: { error?: string } };
@@ -142,6 +158,52 @@ export default function AdminProfile() {
     }
   };
 
+  const toggleMfa = async () => {
+    if (updatingMfa) return;
+    const nextEnabled = !mfaEnabled;
+    if (!nextEnabled) {
+      const confirmed = await confirmDialog({
+        title: 'Desativar a verificação em duas etapas?',
+        description:
+          'Sem a segunda confirmação, sua conta administrativa ficará protegida apenas pela senha. Isso reduz a segurança contra acessos indevidos. Você poderá ativar novamente depois.',
+        confirmLabel: 'Desativar mesmo assim',
+        cancelLabel: 'Manter proteção',
+        tone: 'danger',
+      });
+      if (!confirmed) return;
+    } else {
+      const confirmed = await confirmDialog({
+        title: 'Ativar a verificação em duas etapas?',
+        description:
+          'No próximo login você receberá uma confirmação adicional pelos canais disponíveis da sua conta.',
+        confirmLabel: 'Ativar proteção',
+        cancelLabel: 'Agora não',
+      });
+      if (!confirmed) return;
+    }
+
+    setUpdatingMfa(true);
+    try {
+      await api.patch('/auth/mfa', { enabled: nextEnabled });
+      toast.success(
+        nextEnabled
+          ? 'Verificação em duas etapas ativada. Entre novamente para continuar.'
+          : 'Verificação em duas etapas desativada. Entre novamente para continuar.',
+      );
+      logout();
+      navigate('/login', { replace: true });
+    } catch (error: unknown) {
+      const requestError = error as { response?: { data?: { error?: string } }; message?: string };
+      toast.error(
+        requestError.response?.data?.error ||
+          requestError.message ||
+          'Não foi possível alterar a verificação em duas etapas.',
+      );
+    } finally {
+      setUpdatingMfa(false);
+    }
+  };
+
   const saveNotifications = () => {
     window.localStorage.setItem(notificationStorageKey(user?.id), JSON.stringify(notifications));
     toast.success('Preferências salvas neste dispositivo.');
@@ -154,7 +216,10 @@ export default function AdminProfile() {
           <ArrowLeft aria-hidden="true" />
           Voltar ao painel
         </button>
-        <div className="brand">GastroNexa</div>
+        <div className="brand" aria-label="GastroNexa">
+          <img src="/gastronexa-logo.svg" alt="" aria-hidden="true" />
+          <span>Gastro<strong>Nexa</strong></span>
+        </div>
         <button type="button" className="logout" onClick={logout}>
           <LogOut aria-hidden="true" />
           Sair
@@ -194,7 +259,10 @@ export default function AdminProfile() {
           </div>
           <div className="security-score">
             <CheckCircle2 aria-hidden="true" />
-            <span><b>Conta protegida</b><small>Acesso administrativo</small></span>
+            <span>
+              <b>{mfaEnabled ? 'Conta protegida' : 'Proteção básica'}</b>
+              <small>{mfaEnabled ? '2 etapas ativadas' : 'Somente senha'}</small>
+            </span>
           </div>
         </S.ProfileHero>
 
@@ -285,8 +353,22 @@ export default function AdminProfile() {
                   </S.SecurityItem>
                   <S.SecurityItem>
                     <div className="icon"><ShieldCheck /></div>
-                    <div><b>Verificação em duas etapas</b><span>Adiciona uma segunda confirmação ao entrar na conta.</span></div>
-                    <span className={user?.mfaEnabled ? 'status on' : 'status'}>{user?.mfaEnabled ? 'Ativada' : 'Não ativada'}</span>
+                    <div>
+                      <b>Verificação em duas etapas</b>
+                      <span>
+                        {mfaEnabled
+                          ? 'Ativada para pedir uma segunda confirmação em novos acessos.'
+                          : 'Desativada. Sua conta depende apenas da senha para autenticação.'}
+                      </span>
+                    </div>
+                    <div className="mfa-control">
+                      <span className={mfaEnabled ? 'status on' : 'status'}>
+                        {mfaEnabled ? 'Ativada' : 'Desativada'}
+                      </span>
+                      <button type="button" disabled={updatingMfa} onClick={() => void toggleMfa()}>
+                        {updatingMfa ? 'Atualizando...' : mfaEnabled ? 'Desativar' : 'Ativar'}
+                      </button>
+                    </div>
                   </S.SecurityItem>
                   <S.SecurityItem>
                     <div className="icon"><Smartphone /></div>
