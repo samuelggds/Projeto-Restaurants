@@ -32,6 +32,9 @@ jobs:
         uses: gitleaks/gitleaks-action@ff98106e4c7b2bc287b24eaf42907196329070c7 # v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Prove the scanner detects an isolated synthetic secret
+        shell: bash
+        run: bash scripts/test-gitleaks-canary.sh
 
   dependency-audit:
     name: Dependency audit
@@ -143,9 +146,7 @@ jobs:
                 const rule = rules.get(result.ruleId) || {};
                 const score = Number(rule.properties?.['security-severity'] || 0);
                 const level = result.level || rule.defaultConfiguration?.level || 'none';
-                if (score >= 7 || level === 'error') {
-                  blockers.push({ ruleId: result.ruleId, score, level });
-                }
+                if (score >= 7 || level === 'error') blockers.push({ ruleId: result.ruleId, score, level });
               }
             }
           }
@@ -159,7 +160,7 @@ jobs:
   container-scan:
     name: Build and scan Docker images
     runs-on: ubuntu-latest
-    timeout-minutes: 40
+    timeout-minutes: 45
     permissions:
       contents: read
     steps:
@@ -177,7 +178,35 @@ jobs:
           --build-arg VITE_MAP_TILE_URL=https://tile.openstreetmap.org/{z}/{x}/{y}.png
           --tag gastronexa-frontend:${{ github.sha }}
           ./frontend
-      - name: Scan backend image for high and critical vulnerabilities
+      - name: Preserve complete backend high/critical vulnerability inventory
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: gastronexa-backend:${{ github.sha }}
+          format: json
+          output: backend-trivy-high-critical.json
+          severity: HIGH,CRITICAL
+          ignore-unfixed: false
+          exit-code: '0'
+      - name: Preserve complete frontend high/critical vulnerability inventory
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: gastronexa-frontend:${{ github.sha }}
+          format: json
+          output: frontend-trivy-high-critical.json
+          severity: HIGH,CRITICAL
+          ignore-unfixed: false
+          exit-code: '0'
+      - name: Upload complete vulnerability inventory
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: trivy-high-critical-${{ github.sha }}
+          path: |
+            backend-trivy-high-critical.json
+            frontend-trivy-high-critical.json
+          if-no-files-found: error
+          retention-days: 14
+      - name: Block fixable backend high and critical vulnerabilities
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
           image-ref: gastronexa-backend:${{ github.sha }}
@@ -185,7 +214,7 @@ jobs:
           severity: HIGH,CRITICAL
           ignore-unfixed: true
           exit-code: '1'
-      - name: Scan frontend image for high and critical vulnerabilities
+      - name: Block fixable frontend high and critical vulnerabilities
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
           image-ref: gastronexa-frontend:${{ github.sha }}
@@ -205,7 +234,7 @@ jobs:
             echo
             echo "Frontend image id: \`$(docker image inspect gastronexa-frontend:${GITHUB_SHA} --format '{{.Id}}')\`"
             echo
-            echo 'Unfixed vulnerabilities are reported by Trivy but are not treated as automatically remediable; any accepted exception must be documented before release.'
+            echo 'The complete HIGH/CRITICAL inventory includes unfixed findings and is retained as an artifact. Fixable HIGH/CRITICAL findings remain blocking.'
           } >> "$GITHUB_STEP_SUMMARY"
 
   security-hardening-validation:
