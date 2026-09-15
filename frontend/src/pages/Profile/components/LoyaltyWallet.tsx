@@ -1,5 +1,14 @@
-import { CalendarClock, CheckCircle2, Gift, ShoppingBag, Store, TicketPercent } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import {
+  CalendarClock,
+  CheckCircle2,
+  Gift,
+  History,
+  RotateCcw,
+  ShoppingBag,
+  Store,
+  TicketPercent,
+} from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
 import type { LoyaltySummary } from '../../Home/types';
 import { useLoyaltyExpirationClock } from '../../Home/hooks/useLoyaltyExpirationClock';
 import {
@@ -18,6 +27,7 @@ type Props = {
   onUseCoupon?: (redemptionId: number) => void;
 };
 
+const HISTORY_BATCH_SIZE = 10;
 const money = (value: number) =>
   value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
@@ -105,6 +115,7 @@ export function LoyaltyWallet({
   onUseCoupon,
 }: Props) {
   const [section, setSection] = useState<'active' | 'history'>('active');
+  const [historyVisibleCount, setHistoryVisibleCount] = useState(HISTORY_BATCH_SIZE);
   const loyaltyClock = useLoyaltyExpirationClock(summary || null);
   const entries = useMemo(
     () => buildLoyaltyWalletEntries(summary, restaurantName, loyaltyClock),
@@ -114,7 +125,13 @@ export function LoyaltyWallet({
     (entry) => entry.status === 'available' || entry.status === 'reserved',
   );
   const history = entries.filter((entry) => entry.status === 'used' || entry.status === 'expired');
-  const visible = section === 'active' ? active : history;
+
+  useEffect(() => {
+    setHistoryVisibleCount(HISTORY_BATCH_SIZE);
+  }, [restaurantName, summary]);
+
+  const visible =
+    section === 'active' ? active : history.slice(0, Math.min(historyVisibleCount, history.length));
 
   return (
     <>
@@ -220,14 +237,10 @@ export function LoyaltyWallet({
             </>
           ) : error ? (
             <S.State role="alert">
-              <i>
-                <TicketPercent />
-              </i>
+              <i><TicketPercent /></i>
               <b>Não foi possível carregar seus cupons</b>
               <p>{error}</p>
-              <button type="button" onClick={onRetry}>
-                Tentar novamente
-              </button>
+              <button type="button" onClick={onRetry}>Tentar novamente</button>
             </S.State>
           ) : visible.length ? (
             visible.map((entry) => (
@@ -235,12 +248,8 @@ export function LoyaltyWallet({
             ))
           ) : (
             <S.State>
-              <i>
-                <Gift />
-              </i>
-              <b>
-                {section === 'active' ? 'Nenhum cupom válido agora' : 'Seu histórico está vazio'}
-              </b>
+              <i><Gift /></i>
+              <b>{section === 'active' ? 'Nenhum cupom válido agora' : 'Seu histórico está vazio'}</b>
               <p>
                 {section === 'active'
                   ? 'Complete a meta de pedidos pagos e entregues, resgate o benefício e ele aparecerá guardado aqui.'
@@ -249,6 +258,27 @@ export function LoyaltyWallet({
             </S.State>
           )}
         </S.CouponGrid>
+
+        {section === 'history' && history.length > HISTORY_BATCH_SIZE ? (
+          <div
+            aria-label="Paginação do histórico de cupons"
+            style={{ display: 'flex', justifyContent: 'center', flexWrap: 'wrap', gap: 10, padding: '16px 0 4px' }}
+          >
+            {historyVisibleCount > HISTORY_BATCH_SIZE ? (
+              <button type="button" onClick={() => setHistoryVisibleCount(HISTORY_BATCH_SIZE)}>
+                <RotateCcw size={15} aria-hidden="true" /> Voltar para 10
+              </button>
+            ) : null}
+            {historyVisibleCount < history.length ? (
+              <button
+                type="button"
+                onClick={() => setHistoryVisibleCount((current) => current + HISTORY_BATCH_SIZE)}
+              >
+                <History size={15} aria-hidden="true" /> Mostrar +10
+              </button>
+            ) : null}
+          </div>
+        ) : null}
       </S.Wallet>
     </>
   );
