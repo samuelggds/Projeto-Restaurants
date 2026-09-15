@@ -261,12 +261,17 @@ export function createDemoAttendantServices({
       get total() {
         return issueOrders(true).length;
       },
+      get loadedCount() {
+        return issueOrders(true).length;
+      },
+      batchSize: 10,
       hasMore: false,
       nextCursor: null,
       loading: false,
       error: '',
       loadMore: async () => {},
       refresh: async () => {},
+      reset: async () => {},
     },
   };
 }
