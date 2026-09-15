@@ -1,9 +1,10 @@
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Bike, CheckCircle2, ImagePlus, Info, MessageCircle, PackageCheck, Trash2 } from 'lucide-react';
 import styled from 'styled-components';
 import { adminMockSettings } from '../data';
 import * as S from '../Admin.styles';
 import { getRestaurantCategoryFavicon } from '../../../config/browserBranding';
+import restaurantSettingsService from '../../../Services/restaurantSettingsService';
 
 type Settings = typeof adminMockSettings;
 type Props = { settings: Settings; update: <K extends keyof Settings>(key: K, value: Settings[K]) => void };
@@ -38,6 +39,21 @@ export function WhatsAppSettings({ settings, update }: Props) {
   const storageKey = `gastronexa:whatsapp-profile-image:${identity.id}`;
   const [profileImage, setProfileImage] = useState(() => typeof window === 'undefined' ? '' : window.localStorage.getItem(storageKey) || '');
   const [imageError, setImageError] = useState('');
+  const [restaurantSlug, setRestaurantSlug] = useState(identity.slug);
+
+  useEffect(() => {
+    let active = true;
+    void restaurantSettingsService.getMySettings()
+      .then((loaded) => {
+        if (!active) return;
+        const restaurant = loaded?.restaurant && typeof loaded.restaurant === 'object' ? loaded.restaurant : {};
+        const slug = normalizeSlug(restaurant?.slug);
+        if (slug) setRestaurantSlug(slug);
+      })
+      .catch(() => undefined);
+    return () => { active = false; };
+  }, []);
+
   const enabled = Boolean(settings.whatsappEnabled);
   const statusEnabled = Boolean(settings.receiveStatusNotifications);
   const displayName = String(settings.whatsappDisplayName || settings.restaurantName || 'Restaurante').trim();
@@ -50,7 +66,7 @@ export function WhatsAppSettings({ settings, update }: Props) {
   const exampleTotal = 'R$ 89,90';
   const trackingUrl = `https://gastronexa.com.br/orders/${exampleOrderId}/tracking#guestToken=token-seguro-exemplo`;
   const confirmationUrl = `https://gastronexa.com.br/orders/${exampleOrderId}/tracking?confirm=1#guestToken=token-seguro-exemplo`;
-  const storeUrl = identity.slug ? `${PUBLIC_STORE_ORIGIN}/${identity.slug}` : PUBLIC_STORE_ORIGIN;
+  const storeUrl = restaurantSlug ? `${PUBLIC_STORE_ORIGIN}/${restaurantSlug}` : PUBLIC_STORE_ORIGIN;
   const greetingText = String(settings.whatsappDefaultMessage || '').trim() || `Olá! 👋 Bem-vindo ao ${displayName}. Como podemos ajudar?`;
 
   const chooseImage = (file?: File) => {
