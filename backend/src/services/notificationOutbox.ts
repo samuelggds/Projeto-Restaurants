@@ -129,8 +129,6 @@ export async function enqueueWhatsappSessionGreeting({
     return { sent: false, queued: false, reason: 'restaurant_whatsapp_mismatch' } as const;
   }
 
-  // Uma saudação por cliente a cada janela de 24h evita repetir a mensagem inicial
-  // em cada frase do mesmo atendimento. O índice único do outbox torna isso atômico.
   const conversationBucket = Math.floor(receivedAt.getTime() / (24 * 60 * 60 * 1000));
   const key = sessionGreetingKey(restaurantId, destination, conversationBucket);
   const inserted = await insertOutbox(db, restaurantId, key, {
@@ -234,8 +232,6 @@ async function deliverGupshup(message: Message, send: typeof fetch) {
     }
   }
 
-  // A saudação inicial é resposta a uma mensagem que acabou de chegar do cliente,
-  // portanto usa texto de sessão e não um template proativo.
   await sendGupshupTextMessage({
     source: message.from,
     destination: message.to,
@@ -244,8 +240,22 @@ async function deliverGupshup(message: Message, send: typeof fetch) {
   });
 }
 
-async function deliverMessage(message: Message, rowId: string, send: typeof fetch) {
+async function deliverMessage(
+  restaurantId: number,
+  message: Message,
+  rowId: string,
+  send: typeof fetch,
+) {
   const provider = resolveWhatsAppDeliveryProvider();
+  if (provider === 'zapi') {
+    const { sendTenantZapiTextMessage } = await import('./zapiTenantWhatsapp.js');
+    await sendTenantZapiTextMessage({
+      restaurantId,
+      destination: message.to,
+      message: message.message,
+    });
+    return;
+  }
   if (provider === 'gupshup') {
     await deliverGupshup(message, send);
     return;
@@ -266,10 +276,6 @@ async function deliverMessage(message: Message, rowId: string, send: typeof fetc
   );
 }
 
-/** Durable retry, leased claims and a stable receiver idempotency key.
- * Delivery is at least once; providers/receivers should deduplicate when possible.
- * No external call runs inside a database transaction.
- */
 export async function deliverNotificationOutbox(db: Database = prisma, send: typeof fetch = fetch) {
   if (resolveWhatsAppDeliveryProvider() === 'none') return { processed: 0, delivered: 0 };
 
@@ -305,7 +311,7 @@ export async function deliverNotificationOutbox(db: Database = prisma, send: typ
         return;
       }
 
-      await deliverMessage(message, row.id, send);
+      await deliverMessage(row.restaurantId, message, row.id, send);
       await db.$executeRaw`UPDATE "NotificationOutbox" SET "status" = 'DELIVERED', "payload" = NULL,
         "completedAt" = clock_timestamp(), "lockedUntil" = NULL, "lockToken" = NULL
         WHERE "id" = ${row.id}::uuid AND "lockToken" = ${lockToken}::uuid`;

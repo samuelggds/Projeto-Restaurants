@@ -80,6 +80,36 @@ class RestaurantSettingsService {
     return response.data;
   }
 
+  async getWhatsappConnection() {
+    const response = await api.get('/settings/whatsapp/connection');
+    return response.data;
+  }
+
+  async createWhatsappConnection() {
+    const response = await api.post('/settings/whatsapp/connection');
+    return response.data;
+  }
+
+  async linkWhatsappConnection(payload) {
+    const response = await api.post('/settings/whatsapp/connection/link', payload);
+    return response.data;
+  }
+
+  async getWhatsappQrCode() {
+    const response = await api.get('/settings/whatsapp/connection/qr-code');
+    return response.data;
+  }
+
+  async refreshWhatsappConnection() {
+    const response = await api.post('/settings/whatsapp/connection/refresh');
+    return response.data;
+  }
+
+  async disconnectWhatsappConnection() {
+    const response = await api.post('/settings/whatsapp/connection/disconnect');
+    return response.data;
+  }
+
   async onboardAsaas(payload) {
     const response = await api.post('/settings/asaas/onboard', payload);
     return response.data;
