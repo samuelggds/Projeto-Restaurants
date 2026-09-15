@@ -187,8 +187,8 @@ export default function AdminAiLayer({ children }: { children: React.ReactNode }
   }, []);
 
   const launcher = (
-    <AssistantLauncher type="button" data-tour="ai-assistant" aria-label="Abrir guia inteligente do GastroNexa" aria-expanded={assistantOpen} onClick={() => setAssistantOpen((current) => !current)}>
-      <ChatGptLogo /><span>Guia com IA</span>
+    <AssistantLauncher type="button" data-tour="ai-assistant" aria-label="Abrir Assistente do Restaurante" aria-expanded={assistantOpen} onClick={() => setAssistantOpen((current) => !current)}>
+      <ChatGptLogo /><span>Assistente IA</span>
     </AssistantLauncher>
   );
 
@@ -197,11 +197,16 @@ export default function AdminAiLayer({ children }: { children: React.ReactNode }
       {children}
       {sidebarPortal && createPortal(<AiCreditCard balance={credits} />, sidebarPortal)}
       {assistantLauncherPortal && createPortal(launcher, assistantLauncherPortal)}
-      <MobileAssistantLauncher type="button" aria-label="Abrir guia inteligente do GastroNexa" aria-expanded={assistantOpen} onClick={() => setAssistantOpen((current) => !current)}><ChatGptLogo /></MobileAssistantLauncher>
+      <MobileAssistantLauncher type="button" aria-label="Abrir Assistente do Restaurante" aria-expanded={assistantOpen} onClick={() => setAssistantOpen((current) => !current)}><ChatGptLogo /></MobileAssistantLauncher>
       {assistantOpen && (
-        <AssistantPanel role="dialog" aria-label="Guia inteligente do GastroNexa">
-          <button className="close" type="button" aria-label="Fechar guia inteligente" onClick={() => setAssistantOpen(false)}><X /></button>
-          <AiGuideAssistant disabled={credits?.exhausted === true} onGuideReady={(nextGuide) => { setGuide(nextGuide); setAssistantOpen(false); }} onCreditsChanged={setCredits} />
+        <AssistantPanel role="dialog" aria-label="Assistente do Restaurante">
+          <button className="close" type="button" aria-label="Fechar Assistente do Restaurante" onClick={() => setAssistantOpen(false)}><X /></button>
+          <AiGuideAssistant
+            disabled={credits?.exhausted === true}
+            onGuideReady={(nextGuide) => { setGuide(nextGuide); setAssistantOpen(false); }}
+            onCreditsChanged={setCredits}
+            onNavigate={(target) => { navigateForTour(target); setAssistantOpen(false); }}
+          />
         </AssistantPanel>
       )}
       <AiGuidedTour key={guide ? `${guide.title}:${guide.summary}` : 'no-guide'} guide={guide} onClose={() => setGuide(null)} onNavigate={navigateForTour} />
@@ -216,5 +221,5 @@ const MobileAssistantLauncher = styled.button`
   display:none;@media(max-width:820px){position:fixed;left:14px;bottom:82px;z-index:9200;width:46px;height:46px;padding:0;border:0;border-radius:999px;display:flex;align-items:center;justify-content:center;color:#fff;background:#17191a;box-shadow:0 12px 26px rgba(17,24,39,.2);cursor:pointer;svg{width:19px;height:19px}}
 `;
 const AssistantPanel = styled.div`
-  position:fixed;left:248px;bottom:22px;z-index:9300;width:min(520px,calc(100vw - 32px));max-height:min(680px,calc(100vh - 110px));overflow:auto;padding:10px;border-radius:22px;background:#f7f4f2;box-shadow:0 24px 58px rgba(24,18,14,.24);border:1px solid rgba(64,49,40,.12);.close{position:sticky;top:4px;margin-left:auto;margin-bottom:-34px;z-index:2;width:32px;height:32px;border:0;border-radius:10px;display:grid;place-items:center;background:#fff;color:#514a45;box-shadow:0 5px 14px rgba(0,0,0,.09);cursor:pointer}.close svg{width:16px}@media(max-width:820px){left:16px;bottom:136px}
+  position:fixed;left:248px;bottom:22px;z-index:9300;width:min(620px,calc(100vw - 32px));max-height:min(760px,calc(100vh - 90px));overflow:auto;padding:10px;border-radius:22px;background:#f7f4f2;box-shadow:0 24px 58px rgba(24,18,14,.24);border:1px solid rgba(64,49,40,.12);.close{position:sticky;top:4px;margin-left:auto;margin-bottom:-34px;z-index:2;width:32px;height:32px;border:0;border-radius:10px;display:grid;place-items:center;background:#fff;color:#514a45;box-shadow:0 5px 14px rgba(0,0,0,.09);cursor:pointer}.close svg{width:16px}@media(max-width:820px){left:10px;right:10px;bottom:74px;width:auto;max-height:calc(100vh - 100px);border-radius:20px}
 `;
