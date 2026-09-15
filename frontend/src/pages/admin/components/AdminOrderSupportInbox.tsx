@@ -115,7 +115,10 @@ export function AdminOrderSupportInbox() {
     let active = true;
 
     const loadThread = async (quiet = false) => {
-      if (!quiet) setLoading(true);
+      if (!quiet) {
+        setLoading(true);
+        setAiDraft(null);
+      }
       try {
         const data = await ordersService.getIssueThread(selectedId);
         if (!active) return;
@@ -134,7 +137,6 @@ export function AdminOrderSupportInbox() {
       }
     };
 
-    setAiDraft(null);
     const initialRefresh = window.setTimeout(() => void loadThread(), 0);
     const interval = window.setInterval(() => void loadThread(true), 10_000);
     return () => {
@@ -175,7 +177,6 @@ export function AdminOrderSupportInbox() {
     if (!selectedId || !draft.trim() || sending || thread?.isResolved) return;
     setSending(true);
     try {
-      // Mesmo quando o texto nasceu de um rascunho de IA, o envio continua sendo a ação manual existente.
       const data = await ordersService.replyIssue(selectedId, draft.trim());
       setThread((current) => ({
         orderId: Number(data?.orderId || selectedId),
