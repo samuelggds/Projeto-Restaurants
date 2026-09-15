@@ -1,6 +1,7 @@
 import prisma from '../config/prisma.js';
 import { enqueueWhatsappNotification } from './notificationOutbox.js';
 import { resolveWhatsAppDeliveryProvider } from './whatsappProvider.js';
+import { hasWhatsappOrderNotificationOptIn } from './whatsappOrderConsent.js';
 import {
   buildAutomaticOrderStatusMessage,
   resolveCustomerOrderLinks,
@@ -104,6 +105,22 @@ async function resolveCustomerWhatsappPreference(
       message: getErrorMessage(error),
     });
     return { enabled: false, reason: 'notification_preference_lookup_failed' };
+  }
+}
+
+async function hasCustomerOrderWhatsappConsent(
+  restaurantId: number | string | null | undefined,
+  orderId: number | string | null | undefined,
+) {
+  try {
+    return await hasWhatsappOrderNotificationOptIn(restaurantId, orderId);
+  } catch (error) {
+    console.error('[CUSTOMER_NOTIFICATION_CONSENT_ERROR]', {
+      restaurantId,
+      orderId,
+      message: getErrorMessage(error),
+    });
+    return false;
   }
 }
 
@@ -222,6 +239,9 @@ async function queueWhatsappMessage({
 export async function notifyCustomerPaymentConfirmed(payload: PaymentConfirmedPayload) {
   const preference = await resolveCustomerWhatsappPreference(payload.restaurantId);
   if (!preference.enabled) return { sent: false, reason: preference.reason };
+  if (!(await hasCustomerOrderWhatsappConsent(payload.restaurantId, payload.orderId))) {
+    return { sent: false, reason: 'customer_whatsapp_opt_in_missing' } as const;
+  }
   const provider = resolveProvider();
   if (provider === 'none') return { sent: false, reason: 'provider_not_configured' };
   if (!['whatsapp_webhook', 'gupshup'].includes(provider)) {
@@ -253,9 +273,11 @@ export async function notifyCustomerPaymentConfirmed(payload: PaymentConfirmedPa
 export async function notifyCustomerOrderStatusChanged(payload: OrderStatusChangedPayload) {
   const preference = await resolveCustomerWhatsappPreference(payload.restaurantId);
   if (!preference.enabled) return { sent: false, reason: preference.reason };
+  if (!(await hasCustomerOrderWhatsappConsent(payload.restaurantId, payload.orderId))) {
+    return { sent: false, reason: 'customer_whatsapp_opt_in_missing' } as const;
+  }
 
-  // O cliente já iniciou a conversa com a mensagem configurada pelo restaurante e a
-  // confirmação de pagamento cobre o começo do pedido. Suprimir PENDENTE evita excesso
+  // A confirmação de pagamento cobre o começo do pedido. Suprimir PENDENTE evita excesso
   // de notificações e limita um delivery normal a no máximo cinco avisos automáticos:
   // pagamento, preparo, pronto, saiu para entrega e conclusão/cancelamento.
   const normalizedStatus = String(payload.status || '').trim().toUpperCase();
