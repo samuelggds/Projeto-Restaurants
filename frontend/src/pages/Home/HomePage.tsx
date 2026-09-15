@@ -429,11 +429,22 @@ export function HomePage({
             © {new Date().getFullYear()} {data.brand.name || 'Restaurante'}. Todos os direitos
             reservados.
           </span>
-          <span className="gastronexa-credit">
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
             Desenvolvido por
-            <strong className="gastronexa-brand" aria-label="GastroNexa">
-              <img src="/gastronexa-logo.svg" alt="" aria-hidden="true" />
-              <span className="gastro">Gastro</span><span className="nexa">Nexa</span>
+            <strong
+              aria-label="GastroNexa"
+              style={{ display: 'inline-flex', alignItems: 'center', color: '#ffffff', fontWeight: 800 }}
+            >
+              <img
+                src="/gastronexa-logo.svg"
+                alt=""
+                aria-hidden="true"
+                width={18}
+                height={18}
+                style={{ width: 18, height: 18, marginRight: 5, filter: 'brightness(0) invert(1)' }}
+              />
+              <span style={{ color: '#ffffff' }}>Gastro</span>
+              <span style={{ color: '#f26a21' }}>Nexa</span>
             </strong>
           </span>
         </S.FooterBottom>
