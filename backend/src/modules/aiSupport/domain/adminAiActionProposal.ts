@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
 const optionalText = (max: number) => z.string().trim().max(max).nullable().optional();
+const strictObject = <T extends z.ZodRawShape>(shape: T) => z.object(shape).strict();
 
 function requirePatch<T extends z.ZodRawShape>(schema: z.ZodObject<T>, fields: readonly (keyof T)[]) {
   return schema.refine(
@@ -9,7 +10,7 @@ function requirePatch<T extends z.ZodRawShape>(schema: z.ZodObject<T>, fields: r
   );
 }
 
-export const createProductProposalSchema = z.object({
+export const createProductProposalSchema = strictObject({
   actionType: z.literal('CREATE_PRODUCT'),
   name: z.string().trim().min(2).max(160),
   description: optionalText(1000),
@@ -20,7 +21,7 @@ export const createProductProposalSchema = z.object({
 });
 
 export const updateProductProposalSchema = requirePatch(
-  z.object({
+  strictObject({
     actionType: z.literal('UPDATE_PRODUCT'),
     productId: z.number().int().positive(),
     name: z.string().trim().min(2).max(160).optional(),
@@ -33,16 +34,15 @@ export const updateProductProposalSchema = requirePatch(
   ['name', 'description', 'price', 'categoryId', 'categoryName', 'active'],
 );
 
-export const adjustPricesProposalSchema = z
-  .object({
-    actionType: z.literal('ADJUST_PRODUCT_PRICES'),
-    productIds: z.array(z.number().int().positive()).min(1).max(100).optional(),
-    categoryId: z.number().int().positive().optional(),
-    categoryName: z.string().trim().min(1).max(120).optional(),
-    nameContains: z.string().trim().min(1).max(120).optional(),
-    deltaAmount: z.number().min(-100000).max(100000).optional(),
-    percent: z.number().min(-100).max(1000).optional(),
-  })
+export const adjustPricesProposalSchema = strictObject({
+  actionType: z.literal('ADJUST_PRODUCT_PRICES'),
+  productIds: z.array(z.number().int().positive()).min(1).max(100).optional(),
+  categoryId: z.number().int().positive().optional(),
+  categoryName: z.string().trim().min(1).max(120).optional(),
+  nameContains: z.string().trim().min(1).max(120).optional(),
+  deltaAmount: z.number().min(-100000).max(100000).optional(),
+  percent: z.number().min(-100).max(1000).optional(),
+})
   .refine((value) => value.deltaAmount !== undefined || value.percent !== undefined, {
     message: 'Informe o reajuste em valor ou percentual.',
   })
@@ -54,38 +54,36 @@ export const adjustPricesProposalSchema = z
     { message: 'Informe quais produtos serão reajustados.' },
   );
 
-export const toggleProductAvailabilityProposalSchema = z
-  .object({
-    actionType: z.literal('TOGGLE_PRODUCT_AVAILABILITY'),
-    active: z.boolean(),
-    productIds: z.array(z.number().int().positive()).min(1).max(100).optional(),
-    categoryId: z.number().int().positive().optional(),
-    categoryName: z.string().trim().min(1).max(120).optional(),
-    nameContains: z.string().trim().min(1).max(120).optional(),
-  })
-  .refine(
-    (value) =>
-      Boolean(
-        value.productIds?.length || value.categoryId || value.categoryName || value.nameContains,
-      ),
-    { message: 'Informe quais produtos terão a disponibilidade alterada.' },
-  );
+export const toggleProductAvailabilityProposalSchema = strictObject({
+  actionType: z.literal('TOGGLE_PRODUCT_AVAILABILITY'),
+  active: z.boolean(),
+  productIds: z.array(z.number().int().positive()).min(1).max(100).optional(),
+  categoryId: z.number().int().positive().optional(),
+  categoryName: z.string().trim().min(1).max(120).optional(),
+  nameContains: z.string().trim().min(1).max(120).optional(),
+}).refine(
+  (value) =>
+    Boolean(
+      value.productIds?.length || value.categoryId || value.categoryName || value.nameContains,
+    ),
+  { message: 'Informe quais produtos terão a disponibilidade alterada.' },
+);
 
-export const createCategoryProposalSchema = z.object({
+export const createCategoryProposalSchema = strictObject({
   actionType: z.literal('CREATE_CATEGORY'),
   name: z.string().trim().min(1).max(50),
   description: optionalText(255),
   active: z.boolean().optional().default(true),
 });
 
-export const updateOrderStatusProposalSchema = z.object({
+export const updateOrderStatusProposalSchema = strictObject({
   actionType: z.literal('UPDATE_ORDER_STATUS'),
   orderId: z.number().int().positive(),
   status: z.enum(['PREPARANDO', 'PRONTO', 'ENTREGUE']),
 });
 
 export const updateBusinessSettingsProposalSchema = requirePatch(
-  z.object({
+  strictObject({
     actionType: z.literal('UPDATE_BUSINESS_SETTINGS'),
     restaurantName: optionalText(160),
     restaurantDescription: optionalText(1000),
@@ -97,7 +95,7 @@ export const updateBusinessSettingsProposalSchema = requirePatch(
 );
 
 export const updateAddressProposalSchema = requirePatch(
-  z.object({
+  strictObject({
     actionType: z.literal('UPDATE_ADDRESS'),
     restaurantAddress: optionalText(200),
     restaurantAddressNumber: optionalText(30),
@@ -118,20 +116,20 @@ export const updateAddressProposalSchema = requirePatch(
   ],
 );
 
-const businessHourSchema = z.object({
+const businessHourSchema = strictObject({
   id: z.enum(['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday']),
   enabled: z.boolean(),
   openingTime: z.string().regex(/^(?:[01]\d|2[0-3]):[0-5]\d$/u),
   closingTime: z.string().regex(/^(?:[01]\d|2[0-3]):[0-5]\d$/u),
 });
 
-export const updateBusinessHoursProposalSchema = z.object({
+export const updateBusinessHoursProposalSchema = strictObject({
   actionType: z.literal('UPDATE_BUSINESS_HOURS'),
   businessHours: z.array(businessHourSchema).length(7),
 });
 
 export const updateOrderSettingsProposalSchema = requirePatch(
-  z.object({
+  strictObject({
     actionType: z.literal('UPDATE_ORDER_SETTINGS'),
     isOpenForOrders: z.boolean().optional(),
     autoAcceptOrders: z.boolean().optional(),
@@ -142,7 +140,7 @@ export const updateOrderSettingsProposalSchema = requirePatch(
 );
 
 export const updateDeliverySettingsProposalSchema = requirePatch(
-  z.object({
+  strictObject({
     actionType: z.literal('UPDATE_DELIVERY_SETTINGS'),
     deliveryFee: z.number().min(0).max(10000).optional(),
     minimumOrder: z.number().min(0).max(100000).optional(),
@@ -154,8 +152,28 @@ export const updateDeliverySettingsProposalSchema = requirePatch(
   ['deliveryFee', 'minimumOrder', 'freeShippingMinimum', 'acceptsDelivery', 'acceptsPickup', 'averageDeliveryTime'],
 );
 
+export const updateTableSettingsProposalSchema = requirePatch(
+  strictObject({
+    actionType: z.literal('UPDATE_TABLE_SETTINGS'),
+    tableOrderingEnabled: z.boolean().optional(),
+    waiterCallEnabled: z.boolean().optional(),
+    billRequestEnabled: z.boolean().optional(),
+  }),
+  ['tableOrderingEnabled', 'waiterCallEnabled', 'billRequestEnabled'],
+);
+
+export const updateTableAccountSettingsProposalSchema = requirePatch(
+  strictObject({
+    actionType: z.literal('UPDATE_TABLE_ACCOUNT_SETTINGS'),
+    acceptsPix: z.boolean().optional(),
+    acceptsCard: z.boolean().optional(),
+    trackingRequiresLogin: z.boolean().optional(),
+  }),
+  ['acceptsPix', 'acceptsCard', 'trackingRequiresLogin'],
+);
+
 export const updateWhatsappSettingsProposalSchema = requirePatch(
-  z.object({
+  strictObject({
     actionType: z.literal('UPDATE_WHATSAPP_SETTINGS'),
     whatsapp: optionalText(30),
     whatsappEnabled: z.boolean().optional(),
@@ -175,7 +193,7 @@ export const updateWhatsappSettingsProposalSchema = requirePatch(
 );
 
 export const updateSocialSettingsProposalSchema = requirePatch(
-  z.object({
+  strictObject({
     actionType: z.literal('UPDATE_SOCIAL_SETTINGS'),
     instagram: optionalText(300),
     facebook: optionalText(300),
@@ -186,7 +204,7 @@ export const updateSocialSettingsProposalSchema = requirePatch(
 );
 
 export const updateAppearanceSettingsProposalSchema = requirePatch(
-  z.object({
+  strictObject({
     actionType: z.literal('UPDATE_APPEARANCE_SETTINGS'),
     primaryColor: optionalText(20),
     fontFamily: optionalText(80),
@@ -208,6 +226,8 @@ export const adminAiActionProposalSchema = z.union([
   updateBusinessHoursProposalSchema,
   updateOrderSettingsProposalSchema,
   updateDeliverySettingsProposalSchema,
+  updateTableSettingsProposalSchema,
+  updateTableAccountSettingsProposalSchema,
   updateWhatsappSettingsProposalSchema,
   updateSocialSettingsProposalSchema,
   updateAppearanceSettingsProposalSchema,
@@ -227,6 +247,8 @@ export const IMPLEMENTED_ADMIN_AI_ACTION_TYPES = Object.freeze([
   'UPDATE_BUSINESS_HOURS',
   'UPDATE_ORDER_SETTINGS',
   'UPDATE_DELIVERY_SETTINGS',
+  'UPDATE_TABLE_SETTINGS',
+  'UPDATE_TABLE_ACCOUNT_SETTINGS',
   'UPDATE_WHATSAPP_SETTINGS',
   'UPDATE_SOCIAL_SETTINGS',
   'UPDATE_APPEARANCE_SETTINGS',
