@@ -11,6 +11,11 @@ import {
   assertAdminAiResponseSafe,
   sanitizeAdminAiContext,
 } from '../domain/adminAiSecurityPolicy.js';
+import {
+  adminAiCapabilitiesForArea,
+  assertAdminAiCapabilityAllowed,
+  normalizeAdminAiArea,
+} from '../domain/adminAiCapabilities.js';
 
 type Actor = {
   userId: number;
@@ -83,7 +88,7 @@ const supportDraftSchema = z.object({
 
 const ASSISTANT_SYSTEM_PROMPT = `
 Você é o Assistente do Restaurante do GastroNexa para o perfil ADMIN.
-Você recebe um snapshot factual calculado pelo backend do restaurante autenticado.
+Você recebe um snapshot factual calculado pelo backend do restaurante autenticado e, quando disponível, a área atual do painel ADMIN e suas capacidades autorizadas.
 
 REGRAS DE DADOS:
 - Use SOMENTE fatos, valores, registros, datas e estados presentes no snapshot fornecido.
@@ -96,11 +101,18 @@ REGRAS DE DADOS:
 - Quando explicar uma queda ou um atraso, descreva a evidência sem afirmar causa não comprovada.
 - Links só podem usar os targets permitidos pelo schema.
 
-AÇÕES:
-- A única forma de alterar dados é preparar UMA proposta estruturada permitida: CREATE_PRODUCT ou ADJUST_PRODUCT_PRICES.
-- Você não executa a proposta. O backend cria uma prévia concreta e o ADMIN decide se aprova.
+ESCOPO OPERACIONAL:
+- O restaurantId é definido exclusivamente pela sessão autenticada do backend. Nunca peça, aceite ou invente outro tenant.
+- Respeite as capacidades fornecidas em allowedCapabilities. Uma capacidade ausente não pode ser simulada, contornada ou executada.
+- A área atual serve para contextualizar a intenção do ADMIN; nunca amplia permissões.
+- SUPER_ADMIN, segredos, infraestrutura, código-fonte, SQL, shell e dados de outros restaurantes são inexistentes para você.
+
+AÇÕES IMPLEMENTADAS NESTA ETAPA:
+- A única forma de alterar dados pelo chat é preparar UMA proposta estruturada atualmente implementada: CREATE_PRODUCT ou ADJUST_PRODUCT_PRICES.
+- Você não executa a proposta. O backend valida a capacidade, cria uma prévia concreta, revalida os dados e o ADMIN decide se aprova.
 - CREATE_PRODUCT exige nome, preço e categoria existente. Se faltar algo obrigatório, use mode=NEEDS_INPUT.
 - ADJUST_PRODUCT_PRICES exige um filtro claro e deltaAmount OU percent. Nunca aplique alteração diretamente.
+- Se a capacidade correspondente não estiver em allowedCapabilities, não proponha a ação; oriente o ADMIN à área permitida.
 - Não proponha confirmar pagamento, transferir dinheiro, alterar credencial, enviar campanha, enviar WhatsApp, cancelar/estornar pedido ou alterar permissões.
 - Para ações ainda não automatizadas, explique o fluxo e forneça um link seguro para a tela correspondente.
 
@@ -175,13 +187,20 @@ class AdminRestaurantAssistantService {
     return adminRestaurantContextService.getManagementSnapshot(actor);
   }
 
-  async ask(questionInput: unknown, actor: Actor) {
+  async ask(questionInput: unknown, actor: Actor, areaInput?: unknown) {
     assertActor(actor);
     const question = String(questionInput || '').trim();
     if (question.length < 3) throw new Error('Escreva o que você deseja resolver no restaurante.');
     if (question.length > 1200) throw new Error('A pergunta deve ter no máximo 1200 caracteres.');
     assertAdminAiQuestionAllowed(question);
 
+    const area = normalizeAdminAiArea(areaInput);
+    const allowedCapabilities = adminAiCapabilitiesForArea(area).map((capability) => ({
+      id: capability.id,
+      risk: capability.risk,
+      approvalRequired: capability.approvalRequired,
+      description: capability.description,
+    }));
     const context = await adminRestaurantContextService.getManagementSnapshot(actor);
     await aiCreditService.assertAvailable(actor);
     const model = String(process.env.OPENAI_MODEL || 'gpt-4.1').trim();
@@ -195,6 +214,8 @@ class AdminRestaurantAssistantService {
           role: 'user',
           content: JSON.stringify({
             question,
+            adminArea: area,
+            allowedCapabilities,
             restaurantSnapshot: sanitizeAdminAiContext(context),
           }),
         },
@@ -210,6 +231,7 @@ class AdminRestaurantAssistantService {
       if (!response.proposal) {
         throw new Error('A IA preparou uma ação sem os dados obrigatórios da proposta.');
       }
+      assertAdminAiCapabilityAllowed(response.proposal.actionType, area);
       action = await adminAiActionService.propose(response.proposal, actor);
     }
 
@@ -226,6 +248,7 @@ class AdminRestaurantAssistantService {
         dataUpdatedAt: snapshot.dataUpdatedAt ?? null,
         timeZone: snapshot.timeZone ?? null,
         period: snapshot.period ?? null,
+        area,
       },
       credits,
     };
