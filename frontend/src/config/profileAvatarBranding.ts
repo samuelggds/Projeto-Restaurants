@@ -31,3 +31,9 @@ syncProfileAvatarBranding();
 window.addEventListener('storage', (event) => {
   if (!event.key || event.key === 'user') syncProfileAvatarBranding();
 });
+window.addEventListener('popstate', () => syncProfileAvatarBranding());
+document.addEventListener('click', (event) => {
+  if ((event.target as Element | null)?.closest('a,button')) {
+    window.setTimeout(() => syncProfileAvatarBranding(), 0);
+  }
+});
