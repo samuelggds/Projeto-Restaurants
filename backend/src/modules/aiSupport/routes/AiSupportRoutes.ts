@@ -52,9 +52,37 @@ router.post('/restaurant/actions/:publicId/approve', authMiddleware, adminMiddle
 router.post('/restaurant/actions/:publicId/cancel', authMiddleware, adminMiddleware, (req, res) => {
   AdminAiGuideController.cancelAction(req, res);
 });
+router.get('/restaurant/settings', authMiddleware, adminMiddleware, (req, res) => {
+  AdminAiGuideController.assistantSettings(req, res);
+});
+router.put('/restaurant/settings', authMiddleware, adminMiddleware, (req, res) => {
+  AdminAiGuideController.updateAssistantSettings(req, res);
+});
 router.post('/restaurant/orders/:orderId/support-draft', authMiddleware, adminMiddleware, (req, res) => {
   AdminAiGuideController.supportDraft(req, res);
 });
+
+router.post('/restaurant/image-batches/estimate', authMiddleware, adminMiddleware, (req, res) => {
+  AdminAiGuideController.estimateImageBatch(req, res);
+});
+router.post('/restaurant/image-batches', authMiddleware, adminMiddleware, (req, res) => {
+  AdminAiGuideController.createImageBatch(req, res);
+});
+router.get('/restaurant/image-batches', authMiddleware, adminMiddleware, (req, res) => {
+  AdminAiGuideController.imageBatches(req, res);
+});
+router.post(
+  '/restaurant/image-batches/:jobPublicId/items/:itemPublicId/cancel',
+  authMiddleware,
+  adminMiddleware,
+  (req, res) => AdminAiGuideController.cancelImageBatchItem(req, res),
+);
+router.post(
+  '/restaurant/image-batches/:jobPublicId/retry-failures',
+  authMiddleware,
+  adminMiddleware,
+  (req, res) => AdminAiGuideController.retryImageBatchFailures(req, res),
+);
 
 router.get('/tickets/all', authMiddleware, superAdminMiddleware, (req, res) => {
   GetAllSupportTicketsController.handle(req, res);
