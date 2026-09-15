@@ -277,7 +277,7 @@ describe('CourierWorkspace integration', () => {
     expect(mocks.updateStatus).toHaveBeenCalledWith(81, 'ENTREGUE', '1234');
     expect(mocks.clearWatch).toHaveBeenCalledWith(77);
     expect(localStorage.getItem('courier-location-tracking:44')).toBeNull();
-    expect(mocks.listPage).toHaveBeenLastCalledWith({ limit: 20, queue: 'DELIVERED' });
+    expect(mocks.listPage).toHaveBeenLastCalledWith({ limit: 10, queue: 'DELIVERED' });
   });
 
   it('permite retirar sem GPS mesmo quando a permissão de localização é negada', async () => {

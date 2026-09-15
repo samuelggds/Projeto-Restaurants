@@ -1,3 +1,5 @@
+import { toUserFacingErrorMessage } from '../../../shared/errors/userFacingError';
+
 type ApiError = {
   response?: { data?: { error?: unknown; message?: unknown } };
   message?: unknown;
@@ -26,7 +28,7 @@ export function adminErrorMessage(
     normalized.includes('does not exist in the current database') ||
     normalized.includes('prisma')
   ) {
-    return 'O sistema precisa de uma atualização técnica antes de concluir esta ação. Avise o responsável pelo sistema para atualizar o banco de dados e tente novamente.';
+    return 'Esta função está temporariamente indisponível. Tente novamente mais tarde ou fale com o suporte.';
   }
 
   if (
@@ -36,7 +38,7 @@ export function adminErrorMessage(
     normalized.includes('access token') ||
     normalized.includes('api key')
   ) {
-    return 'A conta de recebimento ainda não está vinculada. Abra Configurações > Pagamentos, conecte a empresa selecionada e tente novamente.';
+    return 'A conta de recebimento ainda não está vinculada. Abra Configurações > Pagamentos, conecte a empresa escolhida e tente novamente.';
   }
 
   if (
@@ -58,5 +60,5 @@ export function adminErrorMessage(
     return 'O serviço de pagamentos não respondeu agora. Confira se a conta está conectada em Configurações > Pagamentos e tente novamente em instantes.';
   }
 
-  return message || fallback;
+  return toUserFacingErrorMessage(message, fallback);
 }

@@ -104,7 +104,7 @@ describe('configuração da impressora da cozinha', () => {
       await act(async () => save.click());
       expect(mocks.updateSettings).toHaveBeenCalledWith(expect.objectContaining({ copies }));
       expect(input.value).toBe(String(copies));
-      expect(container.textContent).toContain(`Via 1 de ${copies}`);
+      expect(container.textContent).toContain(copies === 1 ? '1 via' : `${copies} vias`);
     },
   );
 
@@ -195,26 +195,29 @@ describe('configuração da impressora da cozinha', () => {
     expect(container.textContent).toContain('este código não poderá ser mostrado novamente');
   });
 
-  it('mostra exemplos de comanda para delivery, mesa e retirada', async () => {
+  it('mostra exemplos reais de impressão para entrega, mesa e retirada', async () => {
     await act(async () => root.render(<KitchenPrintingSettings />));
     await flush();
 
-    expect(container.textContent).toContain('DELIVERY');
+    expect(container.textContent).toContain('TIPO: ENTREGA');
     expect(container.textContent).toContain('Rua das Flores, 120');
-    expect(container.textContent).toContain('Via 1 de 1 • 80 mm');
+    expect(container.textContent).toContain('80 mm');
+    expect(container.textContent).toContain('1 via');
 
     const mesa = [...container.querySelectorAll('[role="tab"]')].find(
-      (tab) => tab.textContent === 'Mesa',
+      (tab) => tab.textContent?.trim() === 'Mesa',
     ) as HTMLButtonElement;
     act(() => mesa.click());
     expect(container.textContent).toContain('MESA 12');
-    expect(container.textContent).toContain('Garçom Rafael');
+    expect(container.textContent).toContain('Lucas');
+    expect(container.textContent).toContain('PAGAMENTO: CARTÃO - PENDENTE');
 
     const retirada = [...container.querySelectorAll('[role="tab"]')].find(
-      (tab) => tab.textContent === 'Retirada',
+      (tab) => tab.textContent?.trim() === 'Retirada',
     ) as HTMLButtonElement;
     act(() => retirada.click());
-    expect(container.textContent).toContain('RETIRADA');
-    expect(container.textContent).toContain('Retirada no balcão');
+    expect(container.textContent).toContain('TIPO: RETIRADA');
+    expect(container.textContent).toContain('RETIRADA NO LOCAL');
+    expect(container.textContent).toContain('Carlos Lima');
   });
 });

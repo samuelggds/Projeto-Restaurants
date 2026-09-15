@@ -133,7 +133,7 @@ describe('api auth session', () => {
     persistAuthSession({ id: 8 }, 'new-login-token');
     resolveRefresh?.({ data: { accessToken: 'stale-rotated-token', userId: 7 } });
 
-    await expect(staleRefresh).rejects.toThrow('sessão mudou');
+    await expect(staleRefresh).rejects.toThrow('Sua sessão foi atualizada em outra aba');
     expect(getAccessToken()).toBe('new-login-token');
   });
 
@@ -143,7 +143,7 @@ describe('api auth session', () => {
       data: { accessToken: 'account-eight-token', userId: 8 },
     });
 
-    await expect(refreshAccessToken()).rejects.toThrow('conta autenticada mudou');
+    await expect(refreshAccessToken()).rejects.toThrow('A conta conectada mudou em outra aba');
 
     expect(getAccessToken()).toBe('account-seven-token');
   });
