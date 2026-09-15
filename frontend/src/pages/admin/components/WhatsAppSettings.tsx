@@ -52,7 +52,6 @@ export function WhatsAppSettings({ settings, update }: Props) {
   const confirmationUrl = `https://gastronexa.com.br/orders/${exampleOrderId}/tracking?confirm=1#guestToken=token-seguro-exemplo`;
   const storeUrl = identity.slug ? `${PUBLIC_STORE_ORIGIN}/${identity.slug}` : PUBLIC_STORE_ORIGIN;
   const greetingText = String(settings.whatsappDefaultMessage || '').trim() || `Olá! 👋 Bem-vindo ao ${displayName}. Como podemos ajudar?`;
-  const initialMessage = `${greetingText}\n\n${storeUrl}`;
 
   const chooseImage = (file?: File) => {
     if (!file) return;
