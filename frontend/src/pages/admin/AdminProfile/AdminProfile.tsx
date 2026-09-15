@@ -127,8 +127,16 @@ export default function AdminProfile() {
         avatar: form.avatar,
       });
       toast.success('Perfil atualizado com sucesso.');
-    } catch (error: any) {
-      toast.error(error?.response?.data?.error || error?.message || 'Não foi possível atualizar o perfil.');
+    } catch (error: unknown) {
+      const requestError = error as {
+        response?: { data?: { error?: string } };
+        message?: string;
+      };
+      toast.error(
+        requestError.response?.data?.error ||
+          requestError.message ||
+          'Não foi possível atualizar o perfil.',
+      );
     } finally {
       setSaving(false);
     }
