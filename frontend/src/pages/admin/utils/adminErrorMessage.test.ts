@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { adminErrorMessage } from './adminErrorMessage';
 
 describe('adminErrorMessage', () => {
-  it('hides database internals and explains the required action', () => {
+  it('hides database internals behind a safe support message', () => {
     expect(
       adminErrorMessage({
         response: {
@@ -12,7 +12,7 @@ describe('adminErrorMessage', () => {
         },
       }),
     ).toBe(
-      'O sistema precisa de uma atualização técnica antes de concluir esta ação. Avise o responsável pelo sistema para atualizar o banco de dados e tente novamente.',
+      'Esta função está temporariamente indisponível. Tente novamente mais tarde ou fale com o suporte.',
     );
   });
 
