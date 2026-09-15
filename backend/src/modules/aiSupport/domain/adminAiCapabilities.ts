@@ -110,14 +110,14 @@ export function normalizeAdminAiArea(value: unknown): AdminAiArea | null {
 
 export function adminAiCapabilitiesForArea(areaInput: unknown) {
   const area = normalizeAdminAiArea(areaInput);
-  return area ? byArea.get(area) ?? [] : ADMIN_AI_CAPABILITIES;
+  return area ? byArea.get(area) ?? [] : [];
 }
 
 export function assertAdminAiCapabilityAllowed(capabilityId: unknown, areaInput?: unknown) {
   const id = String(capabilityId || '').trim();
   const area = normalizeAdminAiArea(areaInput);
   const capability = ADMIN_AI_CAPABILITIES.find((item) => item.id === id);
-  if (!capability || (area && capability.area !== area)) {
+  if (!area || !capability || capability.area !== area) {
     throw new Error('Ação não disponível para esta área do ADMIN.');
   }
   return capability;
