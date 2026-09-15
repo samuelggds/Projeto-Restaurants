@@ -15,7 +15,7 @@ class UpdateMfaPreferenceService {
 
       const updated = await userRepository.updateMfaEnabled(userId, enabled, transaction);
       await transaction.authRefreshSession.deleteMany({ where: { userId: Number(userId) } });
-      await transaction.authMfaChallenge.deleteMany({ where: { userId: Number(userId) } });
+      await transaction.authMfaChallenge?.deleteMany({ where: { userId: Number(userId) } });
       return updated;
     });
   }
