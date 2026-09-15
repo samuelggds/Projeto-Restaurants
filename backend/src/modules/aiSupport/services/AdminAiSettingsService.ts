@@ -24,6 +24,19 @@ type SettingsRow = {
   updatedAt: Date;
 };
 
+const DEFAULTS = {
+  autonomyMode: 'SUGGEST_ONLY',
+  automationsEnabled: false,
+  pendingOrderMinutes: 15,
+  preparingOrderMinutes: 45,
+  readyOrderMinutes: 20,
+  deliveryOrderMinutes: 90,
+  stockAlertThreshold: 5,
+  minimumForecastOrders: 30,
+  maxAiRequestsPerHour: 30,
+  maxConcurrentAiJobs: 1,
+} as const;
+
 const updateSchema = z.object({
   autonomyMode: z.enum(['SUGGEST_ONLY', 'APPROVAL_REQUIRED', 'BOUNDED_AUTOMATION']).optional(),
   automationsEnabled: z.boolean().optional(),
@@ -68,6 +81,26 @@ function serialize(row: SettingsRow) {
   };
 }
 
+function fallbackSettings(restaurantId: number) {
+  return serialize({
+    restaurantId,
+    ...DEFAULTS,
+    version: 1,
+    updatedAt: new Date(),
+  });
+}
+
+function isMissingSettingsStorage(error: unknown) {
+  const value = error as { code?: unknown; message?: unknown };
+  const code = String(value?.code || '');
+  const message = String(value?.message || error || '');
+  return (
+    code === 'P2021' ||
+    (/RestaurantAiAssistantSettings/iu.test(message) &&
+      /(?:does not exist|não existe|relation|table|undefined table)/iu.test(message))
+  );
+}
+
 async function ensureSettings(db: Prisma.TransactionClient, restaurantId: number, userId: number) {
   await db.$executeRaw(Prisma.sql`
     INSERT INTO "RestaurantAiAssistantSettings" (
@@ -96,80 +129,92 @@ class AdminAiSettingsService {
   async get(actor: Actor) {
     assertActor(actor);
     const restaurantId = Number(actor.restaurantId);
-    return withTenantDbContext(restaurantId, async (db) => {
-      await ensureSettings(db, restaurantId, Number(actor.userId));
-      return serialize(await read(db, restaurantId));
-    });
+    try {
+      return await withTenantDbContext(restaurantId, async (db) => {
+        await ensureSettings(db, restaurantId, Number(actor.userId));
+        return serialize(await read(db, restaurantId));
+      });
+    } catch (error) {
+      if (!isMissingSettingsStorage(error)) throw error;
+      console.warn('[ADMIN_AI_SETTINGS_FALLBACK]', {
+        restaurantId,
+        reason: 'assistant_settings_storage_not_ready',
+      });
+      return fallbackSettings(restaurantId);
+    }
   }
 
   async update(input: unknown, actor: Actor) {
     assertActor(actor);
     const parsed = updateSchema.parse(input);
     const restaurantId = Number(actor.restaurantId);
-    return withTenantDbContext(restaurantId, async (db) => {
-      await ensureSettings(db, restaurantId, Number(actor.userId));
-      const current = await read(db, restaurantId);
-      if (parsed.expectedVersion && parsed.expectedVersion !== current.version) {
-        throw new Error('As configurações do assistente foram alteradas por outra sessão. Recarregue antes de salvar.');
-      }
+    try {
+      return await withTenantDbContext(restaurantId, async (db) => {
+        await ensureSettings(db, restaurantId, Number(actor.userId));
+        const current = await read(db, restaurantId);
+        if (parsed.expectedVersion && parsed.expectedVersion !== current.version) {
+          throw new Error('As configurações do assistente foram alteradas por outra sessão. Recarregue antes de salvar.');
+        }
 
-      const next = {
-        autonomyMode: parsed.autonomyMode ?? current.autonomyMode,
-        automationsEnabled: parsed.automationsEnabled ?? current.automationsEnabled,
-        pendingOrderMinutes: parsed.pendingOrderMinutes ?? current.pendingOrderMinutes,
-        preparingOrderMinutes: parsed.preparingOrderMinutes ?? current.preparingOrderMinutes,
-        readyOrderMinutes: parsed.readyOrderMinutes ?? current.readyOrderMinutes,
-        deliveryOrderMinutes: parsed.deliveryOrderMinutes ?? current.deliveryOrderMinutes,
-        stockAlertThreshold: parsed.stockAlertThreshold ?? current.stockAlertThreshold,
-        minimumForecastOrders: parsed.minimumForecastOrders ?? current.minimumForecastOrders,
-        maxAiRequestsPerHour: parsed.maxAiRequestsPerHour ?? current.maxAiRequestsPerHour,
-        maxConcurrentAiJobs: parsed.maxConcurrentAiJobs ?? current.maxConcurrentAiJobs,
-      };
+        const next = {
+          autonomyMode: parsed.autonomyMode ?? current.autonomyMode,
+          automationsEnabled: parsed.automationsEnabled ?? current.automationsEnabled,
+          pendingOrderMinutes: parsed.pendingOrderMinutes ?? current.pendingOrderMinutes,
+          preparingOrderMinutes: parsed.preparingOrderMinutes ?? current.preparingOrderMinutes,
+          readyOrderMinutes: parsed.readyOrderMinutes ?? current.readyOrderMinutes,
+          deliveryOrderMinutes: parsed.deliveryOrderMinutes ?? current.deliveryOrderMinutes,
+          stockAlertThreshold: parsed.stockAlertThreshold ?? current.stockAlertThreshold,
+          minimumForecastOrders: parsed.minimumForecastOrders ?? current.minimumForecastOrders,
+          maxAiRequestsPerHour: parsed.maxAiRequestsPerHour ?? current.maxAiRequestsPerHour,
+          maxConcurrentAiJobs: parsed.maxConcurrentAiJobs ?? current.maxConcurrentAiJobs,
+        };
 
-      // Mesmo no modo de automação delimitada, nenhuma ação financeira/credencial é permitida.
-      // O flag apenas habilita tarefas explicitamente allowlisted por serviços futuros.
-      const rows = await db.$queryRaw<SettingsRow[]>(Prisma.sql`
-        UPDATE "RestaurantAiAssistantSettings"
-        SET
-          "autonomyMode" = ${next.autonomyMode},
-          "automationsEnabled" = ${next.automationsEnabled},
-          "pendingOrderMinutes" = ${next.pendingOrderMinutes},
-          "preparingOrderMinutes" = ${next.preparingOrderMinutes},
-          "readyOrderMinutes" = ${next.readyOrderMinutes},
-          "deliveryOrderMinutes" = ${next.deliveryOrderMinutes},
-          "stockAlertThreshold" = ${next.stockAlertThreshold},
-          "minimumForecastOrders" = ${next.minimumForecastOrders},
-          "maxAiRequestsPerHour" = ${next.maxAiRequestsPerHour},
-          "maxConcurrentAiJobs" = ${next.maxConcurrentAiJobs},
-          "updatedByUserId" = ${Number(actor.userId)},
-          "version" = "version" + 1,
-          "updatedAt" = CURRENT_TIMESTAMP
-        WHERE "restaurantId" = ${restaurantId}
-          AND "version" = ${current.version}
-        RETURNING
-          "restaurantId", "autonomyMode", "automationsEnabled", "pendingOrderMinutes",
-          "preparingOrderMinutes", "readyOrderMinutes", "deliveryOrderMinutes",
-          "stockAlertThreshold", "minimumForecastOrders", "maxAiRequestsPerHour",
-          "maxConcurrentAiJobs", "version", "updatedAt"
-      `);
-      if (!rows[0]) throw new Error('As configurações foram atualizadas por outra sessão.');
+        const rows = await db.$queryRaw<SettingsRow[]>(Prisma.sql`
+          UPDATE "RestaurantAiAssistantSettings"
+          SET
+            "autonomyMode" = ${next.autonomyMode},
+            "automationsEnabled" = ${next.automationsEnabled},
+            "pendingOrderMinutes" = ${next.pendingOrderMinutes},
+            "preparingOrderMinutes" = ${next.preparingOrderMinutes},
+            "readyOrderMinutes" = ${next.readyOrderMinutes},
+            "deliveryOrderMinutes" = ${next.deliveryOrderMinutes},
+            "stockAlertThreshold" = ${next.stockAlertThreshold},
+            "minimumForecastOrders" = ${next.minimumForecastOrders},
+            "maxAiRequestsPerHour" = ${next.maxAiRequestsPerHour},
+            "maxConcurrentAiJobs" = ${next.maxConcurrentAiJobs},
+            "updatedByUserId" = ${Number(actor.userId)},
+            "version" = "version" + 1,
+            "updatedAt" = CURRENT_TIMESTAMP
+          WHERE "restaurantId" = ${restaurantId}
+            AND "version" = ${current.version}
+          RETURNING
+            "restaurantId", "autonomyMode", "automationsEnabled", "pendingOrderMinutes",
+            "preparingOrderMinutes", "readyOrderMinutes", "deliveryOrderMinutes",
+            "stockAlertThreshold", "minimumForecastOrders", "maxAiRequestsPerHour",
+            "maxConcurrentAiJobs", "version", "updatedAt"
+        `);
+        if (!rows[0]) throw new Error('As configurações foram atualizadas por outra sessão.');
 
-      await db.auditLog.create({
-        data: {
-          restaurantId,
-          userId: Number(actor.userId),
-          userRole: actor.userRole || 'ADMIN',
-          action: 'AI_ASSISTANT_SETTINGS_UPDATED',
-          resource: 'RestaurantAiAssistantSettings',
-          metadata: {
-            autonomyMode: rows[0].autonomyMode,
-            automationsEnabled: rows[0].automationsEnabled,
-            version: rows[0].version,
+        await db.auditLog.create({
+          data: {
+            restaurantId,
+            userId: Number(actor.userId),
+            userRole: actor.userRole || 'ADMIN',
+            action: 'AI_ASSISTANT_SETTINGS_UPDATED',
+            resource: 'RestaurantAiAssistantSettings',
+            metadata: {
+              autonomyMode: rows[0].autonomyMode,
+              automationsEnabled: rows[0].automationsEnabled,
+              version: rows[0].version,
+            },
           },
-        },
+        });
+        return serialize(rows[0]);
       });
-      return serialize(rows[0]);
-    });
+    } catch (error) {
+      if (!isMissingSettingsStorage(error)) throw error;
+      throw new Error('As preferências da IA estão sendo atualizadas no servidor. O assistente continua disponível com as configurações seguras padrão.');
+    }
   }
 
   async assertRequestBudget(actor: Actor) {
