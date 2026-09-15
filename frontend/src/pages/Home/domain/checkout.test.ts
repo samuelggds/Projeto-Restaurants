@@ -2,8 +2,10 @@ import { describe, expect, it } from 'vitest';
 import {
   buildOrderPayload,
   buildOrderQuotePayload,
+  readWhatsappOrderOptIn,
   resolveOrderType,
   validateCheckout,
+  writeWhatsappOrderOptIn,
 } from './checkout';
 
 const address = {
@@ -169,6 +171,7 @@ describe('checkout', () => {
     expect(order.payload).not.toHaveProperty('paymentMethod');
     expect(order.payload).not.toHaveProperty('payOnDelivery');
     expect(order.payload).not.toHaveProperty('customerPhone');
+    expect(order.payload).not.toHaveProperty('whatsappOptIn');
   });
 
   it.each([
@@ -210,6 +213,25 @@ describe('checkout', () => {
     });
 
     expect(order.payload.customerPhone).toBe('(85) 99999-9999');
+  });
+
+  it('mantém o opt-in de WhatsApp isolado por restaurante e o envia só em pedido não-mesa', () => {
+    writeWhatsappOrderOptIn(7, true);
+    writeWhatsappOrderOptIn(8, false);
+    expect(readWhatsappOrderOptIn(7)).toBe(true);
+    expect(readWhatsappOrderOptIn(8)).toBe(false);
+
+    const order = buildOrderPayload({
+      restaurantId: 7,
+      type: 'RETIRADA',
+      paymentMethod: 'pix',
+      cart: [{ productId: '12', name: 'Pizza', price: 39.9, quantity: 1, image: '' }],
+      customer: { name: 'Samuel', phone: '(85) 99999-9999' },
+      deliveryAddress: address,
+    });
+
+    expect(order.payload.whatsappOptIn).toBe(true);
+    writeWhatsappOrderOptIn(7, false);
   });
 
   it('leva o resgate escolhido para a cotação e para o pedido sem enviar preço do navegador', () => {

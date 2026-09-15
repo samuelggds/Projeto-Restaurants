@@ -2,6 +2,7 @@ import {
   ChevronRight,
   CreditCard,
   LogIn,
+  MessageCircle,
   QrCode,
   ShieldCheck,
   Store,
@@ -13,7 +14,11 @@ import { useEffect, useState } from 'react';
 import customerPaymentMethodService, {
   type CustomerPaymentMethod,
 } from '../../../Services/customerPaymentMethodService';
-import type { CheckoutPaymentMethod } from '../domain/checkout';
+import {
+  readWhatsappOrderOptIn,
+  type CheckoutPaymentMethod,
+  writeWhatsappOrderOptIn,
+} from '../domain/checkout';
 import { shouldShowSavedCardAccountNotice } from '../domain/paymentAccountNotice';
 import { getAvailablePaymentMethods } from '../domain/publicSettings';
 import * as S from '../../Home/Home.styles';
@@ -150,6 +155,10 @@ export function PaymentOptions({
   const [savedCards, setSavedCards] = useState<CustomerPaymentMethod[]>([]);
   const [selectedCardId, setSelectedCardId] = useState('');
   const [showCardAccountNotice, setShowCardAccountNotice] = useState(false);
+  const [whatsappOptInOverrides, setWhatsappOptInOverrides] = useState<Record<number, boolean>>({});
+  const whatsappOrderOptIn = restaurantId
+    ? (whatsappOptInOverrides[restaurantId] ?? readWhatsappOrderOptIn(restaurantId))
+    : false;
   const handlePaymentChange = (method: CheckoutPaymentMethod) => {
     onChange(method);
     setShowCardAccountNotice(shouldShowSavedCardAccountNotice(loggedIn, method));
@@ -198,6 +207,33 @@ export function PaymentOptions({
   }
   return (
     <>
+      {restaurantId ? (
+        <S.CardAccountNotice as="label">
+          <div className="notice-icon">
+            <MessageCircle size={21} aria-hidden="true" />
+          </div>
+          <div className="notice-copy">
+            <b>Atualizações do pedido pelo WhatsApp</b>
+            <span>
+              <input
+                type="checkbox"
+                checked={whatsappOrderOptIn}
+                onChange={(event) => {
+                  const optedIn = event.target.checked;
+                  setWhatsappOptInOverrides((current) => ({
+                    ...current,
+                    [restaurantId]: optedIn,
+                  }));
+                  writeWhatsappOrderOptIn(restaurantId, optedIn);
+                }}
+              />{' '}
+              Aceito receber mensagens transacionais deste restaurante sobre pagamento e andamento
+              dos meus pedidos. Posso desmarcar esta opção para os próximos pedidos.
+            </span>
+          </div>
+        </S.CardAccountNotice>
+      ) : null}
+
       <S.CartSectionLabel>Pagar agora</S.CartSectionLabel>
       <OptionsGrid
         options={onlineOptions}
