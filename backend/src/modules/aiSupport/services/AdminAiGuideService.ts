@@ -109,12 +109,11 @@ class AdminAiGuideService {
 
     const apiKey = String(process.env.OPENAI_API_KEY || '').trim();
     if (!apiKey) throw new Error('OPENAI_API_KEY não configurada para o guia de IA.');
-    const model = String(process.env.OPENAI_MODEL || 'gpt-4.1').trim();
+    const model = String(process.env.OPENAI_MODEL || 'gpt-5.6-sol').trim();
     const client = new OpenAI({ apiKey, timeout: 60_000, maxRetries: 0 });
 
     const completion = await client.chat.completions.create({
       model,
-      temperature: 0.2,
       response_format: { type: 'json_object' },
       messages: [
         { role: 'system', content: SYSTEM_CONTEXT },
