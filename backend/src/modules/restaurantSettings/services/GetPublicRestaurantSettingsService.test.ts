@@ -26,6 +26,9 @@ test('mantém a cor personalizada na configuração pública', async () => {
     restaurantId: 7,
     primaryColor: '#123456',
     whatsapp: null,
+    whatsappEnabled: false,
+    whatsappDisplayName: null,
+    ownerPhone: null,
   });
 });
 
