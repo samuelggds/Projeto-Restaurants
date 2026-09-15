@@ -16,6 +16,10 @@ import {
   assertAdminAiCapabilityAllowed,
   normalizeAdminAiArea,
 } from '../domain/adminAiCapabilities.js';
+import {
+  adminAiActionProposalSchema,
+  IMPLEMENTED_ADMIN_AI_ACTION_TYPES,
+} from '../domain/adminAiActionProposal.js';
 
 type Actor = {
   userId: number;
@@ -33,39 +37,29 @@ const linkSchema = z.object({
     'customers',
     'employees',
     'subscriptions',
+    'settings:brand',
     'settings:business',
+    'settings:address',
     'settings:hours',
+    'settings:orders',
     'settings:promotions',
+    'settings:delivery',
+    'settings:table',
+    'settings:table-account',
     'settings:whatsapp',
+    'settings:printing',
     'settings:employee-payments',
     'settings:courier-payments',
     'settings:payments',
+    'settings:social',
+    'settings:appearance',
+    'settings:security',
   ]),
 });
 
 const evidenceSchema = z.object({
   label: z.string().trim().min(1).max(120),
   value: z.string().trim().min(1).max(280),
-});
-
-const createProductProposalSchema = z.object({
-  actionType: z.literal('CREATE_PRODUCT'),
-  name: z.string().trim().min(2).max(160),
-  description: z.string().trim().max(1000).nullable().optional(),
-  price: z.number().positive().max(100000),
-  categoryId: z.number().int().positive().optional(),
-  categoryName: z.string().trim().min(1).max(120).optional(),
-  active: z.boolean().optional(),
-});
-
-const adjustPricesProposalSchema = z.object({
-  actionType: z.literal('ADJUST_PRODUCT_PRICES'),
-  productIds: z.array(z.number().int().positive()).min(1).max(100).optional(),
-  categoryId: z.number().int().positive().optional(),
-  categoryName: z.string().trim().min(1).max(120).optional(),
-  nameContains: z.string().trim().min(1).max(120).optional(),
-  deltaAmount: z.number().min(-100000).max(100000).optional(),
-  percent: z.number().min(-100).max(1000).optional(),
 });
 
 const assistantResponseSchema = z.object({
@@ -75,7 +69,7 @@ const assistantResponseSchema = z.object({
   evidence: z.array(evidenceSchema).max(8).default([]),
   links: z.array(linkSchema).max(4).default([]),
   missingInformation: z.array(z.string().trim().min(1).max(180)).max(8).default([]),
-  proposal: z.discriminatedUnion('actionType', [createProductProposalSchema, adjustPricesProposalSchema]).nullable().optional(),
+  proposal: adminAiActionProposalSchema.nullable().optional(),
 });
 
 const supportDraftSchema = z.object({
@@ -88,7 +82,7 @@ const supportDraftSchema = z.object({
 
 const ASSISTANT_SYSTEM_PROMPT = `
 Você é o Assistente do Restaurante do GastroNexa para o perfil ADMIN.
-Você recebe um snapshot factual calculado pelo backend do restaurante autenticado e, quando disponível, a área atual do painel ADMIN e suas capacidades autorizadas.
+Você recebe um snapshot factual calculado pelo backend do restaurante autenticado, a área atual do painel ADMIN, as capacidades autorizadas naquela área e a lista de actionTypes realmente implementados.
 
 REGRAS DE DADOS:
 - Use SOMENTE fatos, valores, registros, datas e estados presentes no snapshot fornecido.
@@ -103,18 +97,22 @@ REGRAS DE DADOS:
 
 ESCOPO OPERACIONAL:
 - O restaurantId é definido exclusivamente pela sessão autenticada do backend. Nunca peça, aceite ou invente outro tenant.
-- Respeite as capacidades fornecidas em allowedCapabilities. Uma capacidade ausente não pode ser simulada, contornada ou executada.
+- Respeite allowedCapabilities. Uma capacidade ausente não pode ser simulada, contornada ou executada.
+- Respeite implementedActionTypes. Só produza ACTION_PROPOSAL quando o actionType estiver nessa lista.
+- Se adminArea for null, não proponha alterações; apenas responda ou oriente o ADMIN para uma tela apropriada.
 - A área atual serve para contextualizar a intenção do ADMIN; nunca amplia permissões.
 - SUPER_ADMIN, segredos, infraestrutura, código-fonte, SQL, shell e dados de outros restaurantes são inexistentes para você.
 
-AÇÕES IMPLEMENTADAS NESTA ETAPA:
-- A única forma de alterar dados pelo chat é preparar UMA proposta estruturada atualmente implementada: CREATE_PRODUCT ou ADJUST_PRODUCT_PRICES.
-- Você não executa a proposta. O backend valida a capacidade, cria uma prévia concreta, revalida os dados e o ADMIN decide se aprova.
-- CREATE_PRODUCT exige nome, preço e categoria existente. Se faltar algo obrigatório, use mode=NEEDS_INPUT.
-- ADJUST_PRODUCT_PRICES exige um filtro claro e deltaAmount OU percent. Nunca aplique alteração diretamente.
-- Se a capacidade correspondente não estiver em allowedCapabilities, não proponha a ação; oriente o ADMIN à área permitida.
-- Não proponha confirmar pagamento, transferir dinheiro, alterar credencial, enviar campanha, enviar WhatsApp, cancelar/estornar pedido ou alterar permissões.
-- Para ações ainda não automatizadas, explique o fluxo e forneça um link seguro para a tela correspondente.
+AÇÕES:
+- Você nunca altera dados diretamente. Para escrita, prepare UMA proposta estruturada permitida.
+- O backend valida a capacidade, cria uma prévia concreta, revalida o estado atual e o ADMIN decide se aprova.
+- Produto/categoria: você pode criar/editar produto, reajustar preços, ativar/desativar produtos e criar categoria quando essas ações aparecerem em implementedActionTypes.
+- Pedidos: UPDATE_ORDER_STATUS é apenas para avanço operacional permitido pelo backend; nunca use para confirmar pagamento, cancelar ou estornar.
+- Configurações: altere somente campos presentes no schema da ação da área atual. Nunca use campos de credencial, token, chave, conta bancária ou segredo.
+- UPDATE_WHATSAPP_SETTINGS trata apenas número comercial e preferências operacionais; nunca credenciais do provedor.
+- Se faltar informação obrigatória, use mode=NEEDS_INPUT em vez de inventar.
+- Para capacidades ainda não automatizadas, explique o fluxo e forneça um link seguro para a tela correspondente.
+- Nunca proponha confirmar pagamento, transferir dinheiro, editar credenciais, executar SQL/shell, acessar infraestrutura, cancelar/estornar pedido ou alterar permissões de plataforma.
 
 FORMATO:
 Retorne somente JSON válido:
@@ -201,6 +199,10 @@ class AdminRestaurantAssistantService {
       approvalRequired: capability.approvalRequired,
       description: capability.description,
     }));
+    const allowedIds = new Set(allowedCapabilities.map((capability) => capability.id));
+    const implementedActionTypes = IMPLEMENTED_ADMIN_AI_ACTION_TYPES.filter((type) =>
+      allowedIds.has(type),
+    );
     const context = await adminRestaurantContextService.getManagementSnapshot(actor);
     await aiCreditService.assertAvailable(actor);
     const model = String(process.env.OPENAI_MODEL || 'gpt-4.1').trim();
@@ -216,6 +218,7 @@ class AdminRestaurantAssistantService {
             question,
             adminArea: area,
             allowedCapabilities,
+            implementedActionTypes,
             restaurantSnapshot: sanitizeAdminAiContext(context),
           }),
         },
@@ -230,6 +233,9 @@ class AdminRestaurantAssistantService {
     if (response.mode === 'ACTION_PROPOSAL') {
       if (!response.proposal) {
         throw new Error('A IA preparou uma ação sem os dados obrigatórios da proposta.');
+      }
+      if (!implementedActionTypes.includes(response.proposal.actionType as never)) {
+        throw new Error('Ação ainda não automatizada nesta área do ADMIN.');
       }
       assertAdminAiCapabilityAllowed(response.proposal.actionType, area);
       action = await adminAiActionService.propose(response.proposal, actor);
