@@ -7,6 +7,7 @@ import authTokenService from './AuthTokenService.js';
 import userRepository from '../repositories/UserRepository.js';
 import successfulLoginRecorderService from './SuccessfulLoginRecorderService.js';
 import { platformMaintenanceAccessService } from '../../platform/services/PlatformMaintenanceService.js';
+import { isMfaRequiredForRole } from '../security/mfaPolicy.js';
 import {
   listAvailableMfaChannels,
   parseMfaDeliveryChannel,
@@ -53,8 +54,13 @@ function getMfaSecret() {
   return getJwtMfaSecret() || getJwtSecret();
 }
 
-function requiresMfa(user: Pick<LoginUser, 'mfaEnabled'>) {
-  return Boolean(user.mfaEnabled);
+function requiresMfa(user: Pick<LoginUser, 'mfaEnabled' | 'role'>) {
+  // Records loaded from the database always carry the boolean preference. The
+  // role policy is kept only as a backwards-compatible fallback for legacy
+  // callers/tests that do not yet provide the field.
+  return typeof user.mfaEnabled === 'boolean'
+    ? user.mfaEnabled
+    : isMfaRequiredForRole(user.role);
 }
 
 function createMfaToken(userId: number) {
