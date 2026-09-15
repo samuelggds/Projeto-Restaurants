@@ -45,7 +45,8 @@ function mapError(error: unknown) {
     return {
       status: 504,
       body: {
-        error: 'A IA demorou mais que o limite permitido. O restaurante continua funcionando normalmente.',
+        error:
+          'A IA demorou mais que o limite permitido. O restaurante continua funcionando normalmente.',
         code: 'OPENAI_TIMEOUT',
       },
     };
@@ -90,17 +91,25 @@ class AdminAiGuideController {
   }
 
   async pixTopUp(req: Request, res: Response) {
-    return respond(res, () => {
-      const actor = actorFromRequest(req);
-      return aiCreditTopUpService.createPix(actor, req.body?.amountUsd);
-    }, 201);
+    return respond(
+      res,
+      () => {
+        const actor = actorFromRequest(req);
+        return aiCreditTopUpService.createPix(actor, req.body?.amountUsd);
+      },
+      201,
+    );
   }
 
   async cardTopUp(req: Request, res: Response) {
-    return respond(res, () => {
-      const actor = actorFromRequest(req);
-      return aiCreditTopUpService.createCard(actor, req.body?.amountUsd);
-    }, 201);
+    return respond(
+      res,
+      () => {
+        const actor = actorFromRequest(req);
+        return aiCreditTopUpService.createCard(actor, req.body?.amountUsd);
+      },
+      201,
+    );
   }
 
   async topUps(req: Request, res: Response) {
@@ -116,15 +125,19 @@ class AdminAiGuideController {
   }
 
   async assistant(req: Request, res: Response) {
-    return respond(res, () =>
-      adminRestaurantAssistantService.ask(req.body?.question, actorFromRequest(req)),
-    );
+    return respond(res, async () => {
+      const actor = actorFromRequest(req);
+      await adminAiSettingsService.assertRequestBudget(actor);
+      return adminRestaurantAssistantService.ask(req.body?.question, actor);
+    });
   }
 
   async supportDraft(req: Request, res: Response) {
-    return respond(res, () =>
-      adminRestaurantAssistantService.supportDraft(req.params.orderId, actorFromRequest(req)),
-    );
+    return respond(res, async () => {
+      const actor = actorFromRequest(req);
+      await adminAiSettingsService.assertRequestBudget(actor);
+      return adminRestaurantAssistantService.supportDraft(req.params.orderId, actor);
+    });
   }
 
   async actions(req: Request, res: Response) {
@@ -162,7 +175,11 @@ class AdminAiGuideController {
   }
 
   async createImageBatch(req: Request, res: Response) {
-    return respond(res, () => aiImageBatchJobService.enqueue(req.body, actorFromRequest(req)), 201);
+    return respond(
+      res,
+      () => aiImageBatchJobService.enqueue(req.body, actorFromRequest(req)),
+      201,
+    );
   }
 
   async imageBatches(req: Request, res: Response) {
