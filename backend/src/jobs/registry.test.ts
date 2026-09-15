@@ -5,9 +5,9 @@ import { createJobDefinitions } from './registry.js';
 
 test('registro possui chaves únicas e agendas válidas', () => {
   const jobs = createJobDefinitions({});
-  assert.equal(jobs.length, 9);
+  assert.equal(jobs.length, 10);
   assert.equal(new Set(jobs.map((job) => job.key)).size, jobs.length);
-  assert.equal(jobs.filter((job) => job.runtime === 'worker').length, 8);
+  assert.equal(jobs.filter((job) => job.runtime === 'worker').length, 9);
   assert.deepEqual(
     jobs.filter((job) => job.runtime === 'api').map((job) => job.key),
     ['table-account.payment-expiration'],
@@ -20,6 +20,11 @@ test('registro possui chaves únicas e agendas válidas', () => {
   if (recurring.schedule.kind === 'cron') {
     assert.equal(recurring.schedule.expression, '*/5 * * * *');
   }
+
+  const aiImageBatch = jobs.find((job) => job.key === 'ai.product-image-batches');
+  assert.ok(aiImageBatch);
+  assert.equal(aiImageBatch.runtime, 'worker');
+  assert.equal(aiImageBatch.schedule.kind, 'interval');
 
   for (const job of jobs) {
     assert.ok(job.leaseDurationMs > 0);
