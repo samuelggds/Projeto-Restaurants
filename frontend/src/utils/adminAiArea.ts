@@ -41,10 +41,10 @@ export function inferAdminAiArea(root: ParentNode = document) {
   const mainLabel = normalizedText(currentNavigation);
 
   if (mainLabel === 'Configurações') {
-    const activeSettingsButton = adminRoot.querySelector<HTMLButtonElement>(
-      'nav button.active, [class*="SettingsNav"] button.active',
-    );
-    const settingsLabel = normalizedText(activeSettingsButton);
+    const activeSettingsButton = Array.from(
+      adminRoot.querySelectorAll<HTMLButtonElement>('button.active'),
+    ).find((button) => normalizedText(button) in SETTINGS_AREA_BY_LABEL);
+    const settingsLabel = normalizedText(activeSettingsButton || null);
     return SETTINGS_AREA_BY_LABEL[settingsLabel] || 'settings:brand';
   }
 
