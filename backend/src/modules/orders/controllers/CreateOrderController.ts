@@ -8,6 +8,7 @@ import { issueGuestOrderTrackingToken } from '../utils/guestOrderTrackingToken.j
 import { issueGuestOrderOwnershipToken } from '../utils/guestOrderOwnershipToken.js';
 import { withoutOrderCreationMetadata } from '../utils/orderPublicData.js';
 import { resolveCustomerOrderLinks } from '../../../services/customerOrderMessaging.js';
+import { recordWhatsappOrderNotificationOptIn } from '../../../services/whatsappOrderConsent.js';
 
 class CreateOrderController {
   async handle(req: Request, res: Response) {
@@ -22,6 +23,7 @@ class CreateOrderController {
         customerName,
         customerCpf,
         customerPhone,
+        whatsappOptIn,
         tableId,
         settlementMode,
         couponRedemptionId,
@@ -74,6 +76,23 @@ class CreateOrderController {
         zipCode,
         complement,
       });
+
+      if (whatsappOptIn === true && String(order.type || '').toUpperCase() !== 'MESA') {
+        try {
+          await recordWhatsappOrderNotificationOptIn({
+            restaurantId: order.restaurantId,
+            orderId: order.id,
+            userId: order.userId,
+          });
+        } catch (consentError) {
+          // Falhar ao registrar a evidência nunca amplia permissão: o pedido continua
+          // válido, porém o notifier não encontrará opt-in e não enviará WhatsApp.
+          console.warn('[WHATSAPP_ORDER_OPT_IN_RECORD_FAILED]', {
+            requestId: req.requestId,
+            errorType: safeErrorName(consentError),
+          });
+        }
+      }
 
       const isGuestOrder = req.user?.isGuest === true;
       const isDelivery = String(order.type || '').toUpperCase() === 'DELIVERY';

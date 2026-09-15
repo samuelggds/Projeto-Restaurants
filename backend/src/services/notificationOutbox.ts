@@ -4,6 +4,15 @@ import {
   encryptCredential,
   decryptCredential,
 } from '../modules/restaurantSettings/security/credentialEncryption.js';
+import {
+  resolveGupshupAutomaticTemplateMode,
+  resolveGupshupTemplateId,
+  resolveWhatsAppDeliveryProvider,
+  sendGupshupTemplateMessage,
+  sendGupshupTextMessage,
+  type GupshupTemplateKey,
+  WhatsAppProviderConfigurationError,
+} from './whatsappProvider.js';
 
 type Message = {
   channel: 'whatsapp';
@@ -15,6 +24,7 @@ type Message = {
 type Row = { id: string; restaurantId: number; payload: string; attempts: number; createdAt: Date };
 type Database = Pick<typeof prisma, '$queryRaw' | '$executeRaw' | 'order' | 'restaurantSettings'>;
 const context = (id: string) => `notification-outbox:${id}`;
+const digitsOnly = (value: unknown) => String(value || '').replace(/\D/g, '');
 
 export function notificationKey(
   restaurantId: number,
@@ -35,6 +45,25 @@ export function notificationKey(
     .digest('hex');
 }
 
+function sessionGreetingKey(restaurantId: number, destination: string, bucket: number) {
+  return createHash('sha256')
+    .update(JSON.stringify([restaurantId, 'INBOUND_GREETING', digitsOnly(destination), bucket]))
+    .digest('hex');
+}
+
+async function insertOutbox(
+  db: Database,
+  restaurantId: number,
+  key: string,
+  message: Message,
+) {
+  const id = randomUUID();
+  const payload = encryptCredential(JSON.stringify(message), context(id));
+  const inserted = await db.$executeRaw`INSERT INTO "NotificationOutbox" ("id", "deduplicationKey", "restaurantId", "payload")
+    VALUES (${id}::uuid, ${key}, ${restaurantId}, ${payload}) ON CONFLICT ("deduplicationKey") DO NOTHING`;
+  return inserted > 0;
+}
+
 export async function enqueueWhatsappNotification(message: Message, db: Database = prisma) {
   const orderId = Number(message.metadata.orderId);
   if (!Number.isSafeInteger(orderId) || orderId <= 0)
@@ -50,15 +79,80 @@ export async function enqueueWhatsappNotification(message: Message, db: Database
   ) {
     return { sent: false, reason: 'order_scope_mismatch' } as const;
   }
-  const id = randomUUID();
   const key = notificationKey(order.restaurantId, message.metadata);
-  const payload = encryptCredential(JSON.stringify(message), context(id));
-  await db.$executeRaw`INSERT INTO "NotificationOutbox" ("id", "deduplicationKey", "restaurantId", "payload")
-    VALUES (${id}::uuid, ${key}, ${order.restaurantId}, ${payload}) ON CONFLICT ("deduplicationKey") DO NOTHING`;
-  return { sent: false, queued: true, provider: 'whatsapp_webhook' } as const;
+  const inserted = await insertOutbox(db, order.restaurantId, key, message);
+  return {
+    sent: false,
+    queued: inserted,
+    duplicate: !inserted,
+    provider: resolveWhatsAppDeliveryProvider(),
+  } as const;
 }
 
-function configuredEndpoint() {
+export async function enqueueWhatsappSessionGreeting({
+  restaurantId,
+  from,
+  to,
+  message,
+  providerMessageId,
+  receivedAt = new Date(),
+  db = prisma,
+}: {
+  restaurantId: number;
+  from: string;
+  to: string;
+  message: string;
+  providerMessageId?: string | null;
+  receivedAt?: Date;
+  db?: Database;
+}) {
+  if (!Number.isSafeInteger(restaurantId) || restaurantId <= 0) {
+    return { sent: false, queued: false, reason: 'invalid_restaurant' } as const;
+  }
+  const source = digitsOnly(from);
+  const destination = digitsOnly(to);
+  if (!/^\d{10,15}$/u.test(source) || !/^\d{10,15}$/u.test(destination)) {
+    return { sent: false, queued: false, reason: 'invalid_phone' } as const;
+  }
+
+  const settings = await db.restaurantSettings.findUnique({
+    where: { restaurantId },
+    select: {
+      whatsappEnabled: true,
+      restaurant: { select: { whatsapp: true } },
+    },
+  });
+  if (!settings || settings.whatsappEnabled === false) {
+    return { sent: false, queued: false, reason: 'whatsapp_disabled' } as const;
+  }
+  if (digitsOnly(settings.restaurant?.whatsapp) !== source) {
+    return { sent: false, queued: false, reason: 'restaurant_whatsapp_mismatch' } as const;
+  }
+
+  const conversationBucket = Math.floor(receivedAt.getTime() / (24 * 60 * 60 * 1000));
+  const key = sessionGreetingKey(restaurantId, destination, conversationBucket);
+  const inserted = await insertOutbox(db, restaurantId, key, {
+    channel: 'whatsapp',
+    from: source,
+    to: destination,
+    message: String(message || '').trim(),
+    metadata: {
+      event: 'INBOUND_GREETING',
+      restaurantId,
+      providerMessageId: String(providerMessageId || '').trim() || null,
+      conversationBucket,
+    },
+  });
+
+  return {
+    sent: false,
+    queued: inserted,
+    duplicate: !inserted,
+    provider: resolveWhatsAppDeliveryProvider(),
+  } as const;
+}
+
+function configuredWebhookEndpoint() {
   const url = new URL(String(process.env.WHATSAPP_WEBHOOK_URL || ''));
   if (
     url.username ||
@@ -75,14 +169,116 @@ function configuredEndpoint() {
   return url;
 }
 
-/** Durable retry, leased claims and a stable receiver idempotency key.
- * Delivery is at least once; a receiver must deduplicate Idempotency-Key.
- * No external call runs inside a database transaction.
- */
-export async function deliverNotificationOutbox(db: Database = prisma, send: typeof fetch = fetch) {
-  if (!process.env.WHATSAPP_WEBHOOK_URL) return { processed: 0 };
-  const endpoint = configuredEndpoint();
+async function sendLegacyWebhook(message: Message, rowId: string, send: typeof fetch) {
+  const endpoint = configuredWebhookEndpoint();
   const token = String(process.env.WHATSAPP_WEBHOOK_TOKEN || '');
+  const response = await send(endpoint, {
+    method: 'POST',
+    redirect: 'error',
+    signal: AbortSignal.timeout(10_000),
+    headers: {
+      'Content-Type': 'application/json',
+      'Idempotency-Key': rowId,
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    body: JSON.stringify(message),
+  });
+  await response.body?.cancel();
+  if (!response.ok) throw new Error('Webhook recusou a notificação.');
+}
+
+function resolveTemplateKey(message: Message): GupshupTemplateKey | null {
+  const event = String(message.metadata.event || '').toUpperCase();
+  if (event === 'PAYMENT_CONFIRMED') return 'PAYMENT_CONFIRMED';
+  if (event !== 'ORDER_STATUS_CHANGED') return null;
+
+  const status = String(message.metadata.status || '').toUpperCase();
+  if (status === 'PENDENTE') return 'ORDER_PENDING';
+  if (status === 'PREPARANDO') return 'ORDER_PREPARING';
+  if (status === 'PRONTO') return 'ORDER_READY';
+  if (status === 'SAIU_PARA_ENTREGA') return 'ORDER_OUT_FOR_DELIVERY';
+  if (status === 'ENTREGUE') return 'ORDER_DELIVERED';
+  if (status === 'CANCELADO') return 'ORDER_CANCELLED';
+  return null;
+}
+
+function templateParams(message: Message) {
+  const configured = message.metadata.templateParams;
+  return Array.isArray(configured)
+    ? configured.map((value) => String(value ?? ''))
+    : [String(message.message || '')];
+}
+
+async function deliverGupshup(message: Message, send: typeof fetch) {
+  const mode = resolveGupshupAutomaticTemplateMode();
+  const templateKey = resolveTemplateKey(message);
+  if (mode !== 'disabled' && templateKey) {
+    const templateId = resolveGupshupTemplateId(message.from, templateKey);
+    if (templateId) {
+      await sendGupshupTemplateMessage({
+        source: message.from,
+        destination: message.to,
+        templateId,
+        params: templateParams(message),
+        send,
+      });
+      return;
+    }
+    if (mode === 'required') {
+      throw new WhatsAppProviderConfigurationError(
+        'gupshup_template_not_configured',
+        `Template ${templateKey} não configurado para a notificação automática.`,
+      );
+    }
+  }
+
+  await sendGupshupTextMessage({
+    source: message.from,
+    destination: message.to,
+    message: message.message,
+    send,
+  });
+}
+
+async function deliverMessage(
+  restaurantId: number,
+  message: Message,
+  rowId: string,
+  send: typeof fetch,
+) {
+  const provider = resolveWhatsAppDeliveryProvider();
+  if (provider === 'zapi') {
+    const { sendTenantZapiTextMessage } = await import('./zapiTenantWhatsapp.js');
+    await sendTenantZapiTextMessage({
+      restaurantId,
+      destination: message.to,
+      message: message.message,
+    });
+    return;
+  }
+  if (provider === 'gupshup') {
+    await deliverGupshup(message, send);
+    return;
+  }
+  if (provider === 'whatsapp_webhook') {
+    if (!String(process.env.WHATSAPP_WEBHOOK_URL || '').trim()) {
+      throw new WhatsAppProviderConfigurationError(
+        'whatsapp_webhook_missing',
+        'WHATSAPP_WEBHOOK_URL não configurada.',
+      );
+    }
+    await sendLegacyWebhook(message, rowId, send);
+    return;
+  }
+  throw new WhatsAppProviderConfigurationError(
+    provider === 'none' ? 'provider_not_configured' : 'provider_not_supported',
+    `Provedor de WhatsApp não suportado: ${provider}.`,
+  );
+}
+
+export async function deliverNotificationOutbox(db: Database = prisma, send: typeof fetch = fetch) {
+  if (resolveWhatsAppDeliveryProvider() === 'none') return { processed: 0, delivered: 0 };
+
   const lockToken = randomUUID();
   const rows = await db.$queryRaw<Row[]>`
     WITH picked AS (SELECT "id" FROM "NotificationOutbox"
@@ -114,27 +310,20 @@ export async function deliverNotificationOutbox(db: Database = prisma, send: typ
           WHERE "id" = ${row.id}::uuid AND "lockToken" = ${lockToken}::uuid`;
         return;
       }
-      const response = await send(endpoint, {
-        method: 'POST',
-        redirect: 'error',
-        signal: AbortSignal.timeout(10_000),
-        headers: {
-          'Content-Type': 'application/json',
-          'Idempotency-Key': row.id,
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
-        body: JSON.stringify(message),
-      });
-      await response.body?.cancel();
-      if (!response.ok) throw new Error('Webhook recusou a notificação.');
+
+      await deliverMessage(row.restaurantId, message, row.id, send);
       await db.$executeRaw`UPDATE "NotificationOutbox" SET "status" = 'DELIVERED', "payload" = NULL,
         "completedAt" = clock_timestamp(), "lockedUntil" = NULL, "lockToken" = NULL
         WHERE "id" = ${row.id}::uuid AND "lockToken" = ${lockToken}::uuid`;
       delivered++;
-    } catch {
-      // Never persist/log the remote body, phone, message, credentials or driver errors.
-      console.error('[NOTIFICATION_DELIVERY_RETRY]', { id: row.id, attempt: row.attempts });
-      const exhausted = row.attempts >= 8;
+    } catch (error) {
+      const configurationError = error instanceof WhatsAppProviderConfigurationError;
+      console.error('[NOTIFICATION_DELIVERY_RETRY]', {
+        id: row.id,
+        attempt: row.attempts,
+        kind: configurationError ? error.code : 'remote_delivery_error',
+      });
+      const exhausted = configurationError || row.attempts >= 8;
       const delayMs = Math.min(30 * 60_000, 30_000 * 2 ** Math.min(row.attempts - 1, 6));
       await db.$executeRaw`UPDATE "NotificationOutbox" SET "status" = ${exhausted ? 'FAILED' : 'PENDING'},
         "availableAt" = clock_timestamp() + ${delayMs} * INTERVAL '1 millisecond',
@@ -142,7 +331,6 @@ export async function deliverNotificationOutbox(db: Database = prisma, send: typ
         WHERE "id" = ${row.id}::uuid AND "lockToken" = ${lockToken}::uuid`;
     }
   };
-  // Bound outgoing concurrency so a slow receiver cannot exhaust sockets.
   for (let i = 0; i < rows.length; i += 8) await Promise.all(rows.slice(i, i + 8).map(processRow));
   await db.$executeRaw`DELETE FROM "NotificationOutbox" WHERE "id" IN
     (SELECT "id" FROM "NotificationOutbox" WHERE "createdAt" < clock_timestamp() - INTERVAL '30 days' LIMIT 1000)`;

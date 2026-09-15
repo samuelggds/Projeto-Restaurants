@@ -9,10 +9,12 @@ import {
   CircleAlert,
   Clock3,
   FileText,
+  History,
   Info,
   Layers3,
   LockKeyhole,
   QrCode,
+  RotateCcw,
   ShieldCheck,
   Sparkles,
   WalletCards,
@@ -34,6 +36,7 @@ import { RecurringBillingPayment } from './RecurringBillingPayment';
 import { MonthlyBillingPixDialog, type MonthlyBillingPix } from './MonthlyBillingPixDialog';
 import { getBillingPixExpiry } from './useBillingPixExpiry';
 
+const HISTORY_BATCH_SIZE = 10;
 const benefits: Record<PlanCode, string[]> = {
   BASICO: ['Sistema de delivery', 'Suporte padrão'],
   PREMIUM: ['Sistema de delivery', 'Cardápio digital com QR Code de mesa', 'Suporte prioritário'],
@@ -108,6 +111,7 @@ export function MonthlyBilling({ restricted = false }: MonthlyBillingProps = {})
   const [plans, setPlans] = useState<BillingPlan[]>([]);
   const [subscription, setSubscription] = useState<Subscription | null>(null);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
+  const [invoiceVisibleCount, setInvoiceVisibleCount] = useState(HISTORY_BATCH_SIZE);
   const [billing, setBilling] = useState<BillingOverview['billing']>();
   const [loading, setLoading] = useState(true);
   const [changingPlan, setChangingPlan] = useState<PlanCode | null>(null);
@@ -229,6 +233,7 @@ export function MonthlyBilling({ restricted = false }: MonthlyBillingProps = {})
   const currentPixAvailable = Boolean(currentInvoice && billing?.pixAvailable);
   const openInvoices = invoices.filter((invoice) => payableStatuses.has(invoice.status));
   const paidInvoices = invoices.filter((invoice) => invoice.status === 'PAGO');
+  const visibleInvoices = invoices.slice(0, Math.min(invoiceVisibleCount, invoices.length));
   const currentStatus =
     statusLabels[subscription?.status || ''] || subscription?.status || 'Não configurada';
 
@@ -695,51 +700,84 @@ export function MonthlyBilling({ restricted = false }: MonthlyBillingProps = {})
               </strong>
             </S.HistoryHeader>
             {invoices.length ? (
-              <S.Invoices>
-                {invoices.map((invoice) => {
-                  const pixAvailable = invoicePixAvailable(invoice);
-                  const tone = getInvoiceTone(invoice.status);
-                  return (
-                    <S.InvoiceRow key={invoice.id} $tone={tone}>
-                      <span className="invoice-icon" aria-hidden="true">
-                        {invoice.status === 'PAGO' ? <CheckCircle2 /> : <FileText />}
-                      </span>
-                      <div className="invoice-copy">
-                        <h3>
-                          Mensalidade {String(invoice.month).padStart(2, '0')}/{invoice.year}
-                        </h3>
-                        <p>
-                          Vencimento em {date(invoice.dueDate)}
-                          {invoice.paidAt ? ` • Pago em ${date(invoice.paidAt)}` : ''}
-                        </p>
-                      </div>
-                      <strong className="invoice-value">{money(invoice.total)}</strong>
-                      <S.InvoiceStatus $status={invoice.status}>
-                        {invoiceLabels[invoice.status] || invoice.status}
-                      </S.InvoiceStatus>
-                      {invoice.status === 'PAGO' ? (
-                        <S.PaidMark title="Mensalidade paga" aria-label="Mensalidade paga">
-                          <CheckCircle2 aria-hidden="true" />
-                        </S.PaidMark>
-                      ) : payableStatuses.has(invoice.status) ? (
-                        <button
-                          type="button"
-                          disabled={!pixAvailable || payingInvoice !== null}
-                          onClick={() => void payInvoice(invoice)}
-                        >
-                          {payingInvoice === invoice.id
-                            ? 'Gerando Pix...'
-                            : pixAvailable
-                              ? 'Pagar com Pix'
-                              : 'Pix em breve'}
-                        </button>
-                      ) : (
-                        <S.InvoiceUnavailable>Indisponível</S.InvoiceUnavailable>
-                      )}
-                    </S.InvoiceRow>
-                  );
-                })}
-              </S.Invoices>
+              <>
+                <S.Invoices>
+                  {visibleInvoices.map((invoice) => {
+                    const pixAvailable = invoicePixAvailable(invoice);
+                    const tone = getInvoiceTone(invoice.status);
+                    return (
+                      <S.InvoiceRow key={invoice.id} $tone={tone}>
+                        <span className="invoice-icon" aria-hidden="true">
+                          {invoice.status === 'PAGO' ? <CheckCircle2 /> : <FileText />}
+                        </span>
+                        <div className="invoice-copy">
+                          <h3>
+                            Mensalidade {String(invoice.month).padStart(2, '0')}/{invoice.year}
+                          </h3>
+                          <p>
+                            Vencimento em {date(invoice.dueDate)}
+                            {invoice.paidAt ? ` • Pago em ${date(invoice.paidAt)}` : ''}
+                          </p>
+                        </div>
+                        <strong className="invoice-value">{money(invoice.total)}</strong>
+                        <S.InvoiceStatus $status={invoice.status}>
+                          {invoiceLabels[invoice.status] || invoice.status}
+                        </S.InvoiceStatus>
+                        {invoice.status === 'PAGO' ? (
+                          <S.PaidMark title="Mensalidade paga" aria-label="Mensalidade paga">
+                            <CheckCircle2 aria-hidden="true" />
+                          </S.PaidMark>
+                        ) : payableStatuses.has(invoice.status) ? (
+                          <button
+                            type="button"
+                            disabled={!pixAvailable || payingInvoice !== null}
+                            onClick={() => void payInvoice(invoice)}
+                          >
+                            {payingInvoice === invoice.id
+                              ? 'Gerando Pix...'
+                              : pixAvailable
+                                ? 'Pagar com Pix'
+                                : 'Pix em breve'}
+                          </button>
+                        ) : (
+                          <S.InvoiceUnavailable>Indisponível</S.InvoiceUnavailable>
+                        )}
+                      </S.InvoiceRow>
+                    );
+                  })}
+                </S.Invoices>
+                {invoices.length > HISTORY_BATCH_SIZE ? (
+                  <div
+                    aria-label="Paginação do histórico de mensalidades"
+                    style={{
+                      display: 'flex',
+                      flexWrap: 'wrap',
+                      justifyContent: 'center',
+                      gap: 10,
+                      paddingTop: 16,
+                    }}
+                  >
+                    {invoiceVisibleCount > HISTORY_BATCH_SIZE ? (
+                      <button
+                        type="button"
+                        onClick={() => setInvoiceVisibleCount(HISTORY_BATCH_SIZE)}
+                      >
+                        <RotateCcw size={15} aria-hidden="true" /> Voltar para 10
+                      </button>
+                    ) : null}
+                    {invoiceVisibleCount < invoices.length ? (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setInvoiceVisibleCount((current) => current + HISTORY_BATCH_SIZE)
+                        }
+                      >
+                        <History size={15} aria-hidden="true" /> Mostrar +10
+                      </button>
+                    ) : null}
+                  </div>
+                ) : null}
+              </>
             ) : (
               <S.Empty>
                 <span aria-hidden="true">

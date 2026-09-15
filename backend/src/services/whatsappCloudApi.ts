@@ -46,9 +46,13 @@ function resolveConfig(): WhatsAppCloudApiConfig | null {
   const apiVersion = normalizeApiVersion(process.env.WHATSAPP_API_VERSION || 'v25.0');
   const phoneNumberId = String(process.env.WHATSAPP_PHONE_NUMBER_ID || '').trim();
   const accessToken = String(process.env.WHATSAPP_ACCESS_TOKEN || '').trim();
-  const templateName = String(process.env.WHATSAPP_PASSWORD_RESET_TEMPLATE || '').trim();
+  const templateName = String(
+    process.env.WHATSAPP_PASSWORD_RESET_TEMPLATE || process.env.WHATSAPP_MFA_TEMPLATE || '',
+  ).trim();
   const templateLanguage = String(
-    process.env.WHATSAPP_PASSWORD_RESET_TEMPLATE_LANGUAGE || 'pt_BR',
+    process.env.WHATSAPP_PASSWORD_RESET_TEMPLATE_LANGUAGE ||
+      process.env.WHATSAPP_MFA_TEMPLATE_LANGUAGE ||
+      'pt_BR',
   ).trim();
   const timeoutMs = Number(process.env.WHATSAPP_REQUEST_TIMEOUT_MS || 8000);
 

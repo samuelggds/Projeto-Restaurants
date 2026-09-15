@@ -115,8 +115,6 @@ async function loadRestaurantCategory(restaurantId: number): Promise<RestaurantC
     );
     return normalizeRestaurantCategory(rows[0]?.category);
   } catch {
-    // Compatibilidade durante rollout: antes da migration a coluna ainda não
-    // existe. O tenant continua funcional com a identidade genérica.
     return 'RESTAURANTE';
   }
 }
@@ -151,6 +149,10 @@ function externalizePublicRestaurantImages(
   };
 }
 
+function publicCommercialContact(value: unknown) {
+  return String(value || '').replace(/\D/g, '') || null;
+}
+
 class GetPublicRestaurantSettingsService {
   async execute({ restaurantId, slug, useDefault }: RestaurantIdPayload) {
     let normalizedRestaurantId = Number(restaurantId);
@@ -181,6 +183,7 @@ class GetPublicRestaurantSettingsService {
       }
 
       const category = await loadRestaurantCategory(normalizedRestaurantId);
+      const commercialNumber = publicCommercialContact(restaurant?.whatsapp);
       const fallback: PublicSettingsFallback = {
         restaurantId: normalizedRestaurantId,
         primaryColor: '#c95d3d',
@@ -203,9 +206,12 @@ class GetPublicRestaurantSettingsService {
         fontFamily: 'Inter',
         seoTitle: null,
         seoDescription: null,
-        whatsapp: String(restaurant?.whatsapp || '').replace(/\D/g, '') || null,
-        whatsappEnabled: false,
-        whatsappDisplayName: null,
+        whatsapp: commercialNumber,
+        // Na resposta pública este flag significa que há um contato disponível
+        // para a Home. A automação de mensagens continua governada pelas configs
+        // privadas e pelo notification outbox.
+        whatsappEnabled: Boolean(commercialNumber),
+        whatsappDisplayName: commercialNumber,
         whatsappDefaultMessage: null,
         receiveOrdersOnWhatsapp: false,
         receiveStatusNotifications: false,
@@ -254,13 +260,19 @@ class GetPublicRestaurantSettingsService {
     > | null;
     const category = await loadRestaurantCategory(normalizedRestaurantId);
     const restaurant = rawRestaurant ? { ...rawRestaurant, category } : null;
+    const commercialNumber = publicCommercialContact(settings.restaurant?.whatsapp);
 
     return {
       ...settings,
       ...(restaurant
         ? { restaurant: externalizePublicRestaurantImages(normalizedRestaurantId, restaurant) }
         : {}),
-      whatsapp: String(settings.restaurant?.whatsapp || '').replace(/\D/g, '') || null,
+      whatsapp: commercialNumber,
+      whatsappEnabled: Boolean(commercialNumber),
+      whatsappDisplayName: commercialNumber,
+      // ownerPhone é dado de cadastro/KYB e não deve ser exposto como segundo
+      // telefone público. A Home possui um único Número comercial.
+      ownerPhone: null,
     };
   }
 }

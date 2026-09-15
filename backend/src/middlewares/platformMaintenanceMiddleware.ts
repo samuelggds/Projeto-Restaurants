@@ -16,7 +16,9 @@ type AccessRoleResolver = (token: string) => Promise<string | null>;
 const AUTHENTICATION_BOOTSTRAP_ROUTES = new Set([
   'POST /auth/login',
   'POST /auth/google',
+  'POST /auth/login/select-2fa-channel',
   'POST /auth/login/verify-2fa',
+  'POST /auth/login/resend-2fa',
   'POST /auth/refresh',
   'POST /auth/logout',
   'GET /auth/google/client-id',

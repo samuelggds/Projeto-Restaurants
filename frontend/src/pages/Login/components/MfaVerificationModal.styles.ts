@@ -129,6 +129,61 @@ export const CloseButton = styled.button`
   }
 `;
 
+export const ChannelChoice = styled.div`
+  display: grid;
+  gap: 10px;
+`;
+
+export const ChannelButton = styled.button`
+  width: 100%;
+  min-height: 62px;
+  border-radius: 14px;
+  border: 1px solid ${(props) => props.theme.border};
+  background: ${(props) => props.theme.background};
+  color: ${(props) => props.theme.text};
+  padding: 12px 14px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  text-align: left;
+  cursor: pointer;
+
+  &:hover:not(:disabled) {
+    border-color: ${(props) => props.theme.primaryReadable};
+    transform: translateY(-1px);
+  }
+
+  &:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+  }
+
+  svg {
+    width: 22px;
+    height: 22px;
+    flex: 0 0 auto;
+    color: ${(props) => props.theme.primaryReadable};
+  }
+
+  strong,
+  span {
+    display: block;
+  }
+
+  span {
+    margin-top: 2px;
+    color: ${(props) => props.theme.textMuted};
+    font-size: 0.8rem;
+  }
+`;
+
+export const ChannelDescription = styled.p`
+  margin: 0 0 12px;
+  color: ${(props) => props.theme.textMuted};
+  font-size: 0.84rem;
+  line-height: 1.5;
+`;
+
 export const CodeLabel = styled.label`
   display: block;
   margin-bottom: 10px;

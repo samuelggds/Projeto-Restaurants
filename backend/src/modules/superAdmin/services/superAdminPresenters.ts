@@ -1,5 +1,4 @@
 import type { PlatformPlan, PlatformSettings, Subscription } from '@prisma/client';
-import { isMfaRequiredForRole } from '../../auth/security/mfaPolicy.js';
 import {
   decimalToNumber,
   mapInvoiceStatus,
@@ -66,7 +65,7 @@ export function presentAdministrator(
   administrator: Record<string, any>,
   restaurantName?: string | null,
 ) {
-  const mfaRequired = isMfaRequiredForRole('ADMIN');
+  const mfaEnabled = Boolean(administrator.mfaEnabled);
   return {
     id: administrator.id,
     name: administrator.name,
@@ -75,9 +74,9 @@ export function presentAdministrator(
     restaurant: restaurantName ?? administrator.restaurant?.name ?? null,
     status: administrator.active ? ('ACTIVE' as const) : ('BLOCKED' as const),
     lastAccessAt: toIso(administrator.lastLoginAt),
-    mfaEnabled: Boolean(administrator.mfaEnabled),
-    mfaRequired,
-    effectiveMfa: Boolean(administrator.mfaEnabled) || mfaRequired,
+    mfaEnabled,
+    mfaRequired: false,
+    effectiveMfa: mfaEnabled,
     mustChangePassword: Boolean(administrator.mustChangePassword),
     createdAt: toIso(administrator.createdAt),
   };

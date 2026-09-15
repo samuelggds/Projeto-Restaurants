@@ -1,14 +1,11 @@
 import prisma from '../config/prisma.js';
 import { enqueueWhatsappNotification } from './notificationOutbox.js';
+import { resolveWhatsAppDeliveryProvider } from './whatsappProvider.js';
+import { hasWhatsappOrderNotificationOptIn } from './whatsappOrderConsent.js';
 import {
   buildAutomaticOrderStatusMessage,
   resolveCustomerOrderLinks,
 } from './customerOrderMessaging.js';
-
-const configuredProvider = String(process.env.CUSTOMER_NOTIFICATION_PROVIDER || 'none')
-  .trim()
-  .toLowerCase();
-const whatsappWebhookUrl = String(process.env.WHATSAPP_WEBHOOK_URL || '').trim();
 
 type PaymentConfirmedPayload = {
   restaurantId?: number | string | null;
@@ -111,10 +108,24 @@ async function resolveCustomerWhatsappPreference(
   }
 }
 
+async function hasCustomerOrderWhatsappConsent(
+  restaurantId: number | string | null | undefined,
+  orderId: number | string | null | undefined,
+) {
+  try {
+    return await hasWhatsappOrderNotificationOptIn(restaurantId, orderId);
+  } catch (error) {
+    console.error('[CUSTOMER_NOTIFICATION_CONSENT_ERROR]', {
+      restaurantId,
+      orderId,
+      message: getErrorMessage(error),
+    });
+    return false;
+  }
+}
+
 function resolveProvider() {
-  if (configuredProvider && configuredProvider !== 'none') return configuredProvider;
-  if (whatsappWebhookUrl) return 'whatsapp_webhook';
-  return 'none';
+  return resolveWhatsAppDeliveryProvider();
 }
 
 function normalizeToE164Br(phone: string | number | null | undefined) {
@@ -182,29 +193,19 @@ function buildRestaurantIssueMessage({
     `Notificação - ${String(restaurantName || 'restaurante').trim()}`,
     `Cliente ${String(customerName || 'Cliente').trim()} relatou problema no pedido #${orderId}.`,
     customerPhone ? `Telefone do cliente: ${customerPhone}.` : null,
-    `Status: ${String(orderStatus || 'N/A')
-      .replace(/_/gu, ' ')
-      .toUpperCase()} | Tipo: ${String(orderType || 'N/A')
-      .replace(/_/gu, ' ')
-      .toUpperCase()} | Pagamento: ${String(paymentMethod || 'N/A')
-      .replace(/_/gu, ' ')
-      .toUpperCase()}.`,
+    `Status: ${String(orderStatus || 'N/A').replace(/_/gu, ' ').toUpperCase()} | Tipo: ${String(orderType || 'N/A').replace(/_/gu, ' ').toUpperCase()} | Pagamento: ${String(paymentMethod || 'N/A').replace(/_/gu, ' ').toUpperCase()}.`,
     `Total: ${formatCurrencyBrl(total)}.`,
     addressLabel ? `Endereço: ${addressLabel}.` : null,
     Array.isArray(itemsSummary) && itemsSummary.length
       ? `Itens: ${itemsSummary.slice(0, 8).join('; ')}.`
       : null,
     `Criado em: ${createdAt ? new Date(createdAt).toLocaleString('pt-BR') : 'N/A'}.`,
-    `Mensagem: ${
-      String(issueMessage || '')
-        .trim()
-        .slice(0, 600) || '(sem detalhes)'
-    }`,
+    `Mensagem: ${String(issueMessage || '').trim().slice(0, 600) || '(sem detalhes)'}`,
   ];
   return lines.filter(Boolean).join('\n');
 }
 
-async function sendWhatsappWebhook({
+async function queueWhatsappMessage({
   restaurantWhatsapp,
   destination,
   message,
@@ -215,7 +216,12 @@ async function sendWhatsappWebhook({
   message: string;
   metadata: Record<string, unknown>;
 }) {
-  if (!whatsappWebhookUrl) return { sent: false, reason: 'webhook_not_configured' } as const;
+  const provider = resolveProvider();
+  if (provider === 'none') return { sent: false, reason: 'provider_not_configured' } as const;
+  if (!['whatsapp_webhook', 'gupshup'].includes(provider)) {
+    return { sent: false, reason: 'provider_not_supported', provider } as const;
+  }
+
   const from = normalizeToE164Br(restaurantWhatsapp);
   if (!from) return { sent: false, reason: 'restaurant_whatsapp_not_configured' } as const;
   const to = normalizeToE164Br(destination);
@@ -226,20 +232,28 @@ async function sendWhatsappWebhook({
     from,
     to,
     message,
-    metadata: { ...metadata, restaurantWhatsapp: from },
+    metadata: { ...metadata, restaurantWhatsapp: from, provider },
   });
 }
 
 export async function notifyCustomerPaymentConfirmed(payload: PaymentConfirmedPayload) {
   const preference = await resolveCustomerWhatsappPreference(payload.restaurantId);
   if (!preference.enabled) return { sent: false, reason: preference.reason };
+  if (!(await hasCustomerOrderWhatsappConsent(payload.restaurantId, payload.orderId))) {
+    return { sent: false, reason: 'customer_whatsapp_opt_in_missing' } as const;
+  }
   const provider = resolveProvider();
   if (provider === 'none') return { sent: false, reason: 'provider_not_configured' };
-  if (provider !== 'whatsapp_webhook')
+  if (!['whatsapp_webhook', 'gupshup'].includes(provider)) {
     return { sent: false, reason: 'provider_not_supported', provider };
+  }
 
   try {
-    return await sendWhatsappWebhook({
+    const name = String(payload.customerName || 'Cliente').trim() || 'Cliente';
+    const restaurant = String(payload.restaurantName || 'restaurante').trim() || 'restaurante';
+    const method = String(payload.paymentMethod || 'PIX').toUpperCase();
+    const total = formatCurrencyBrl(payload.total);
+    return await queueWhatsappMessage({
       restaurantWhatsapp: payload.restaurantWhatsapp,
       destination: payload.customerPhone,
       message: buildCustomerPaymentMessage(payload),
@@ -247,6 +261,7 @@ export async function notifyCustomerPaymentConfirmed(payload: PaymentConfirmedPa
         restaurantId: payload.restaurantId,
         orderId: payload.orderId,
         event: 'PAYMENT_CONFIRMED',
+        templateParams: [name, method, String(payload.orderId || ''), restaurant, total],
       },
     });
   } catch (error) {
@@ -258,10 +273,23 @@ export async function notifyCustomerPaymentConfirmed(payload: PaymentConfirmedPa
 export async function notifyCustomerOrderStatusChanged(payload: OrderStatusChangedPayload) {
   const preference = await resolveCustomerWhatsappPreference(payload.restaurantId);
   if (!preference.enabled) return { sent: false, reason: preference.reason };
+  if (!(await hasCustomerOrderWhatsappConsent(payload.restaurantId, payload.orderId))) {
+    return { sent: false, reason: 'customer_whatsapp_opt_in_missing' } as const;
+  }
+
+  // A confirmação de pagamento cobre o começo do pedido. Suprimir PENDENTE evita excesso
+  // de notificações e limita um delivery normal a no máximo cinco avisos automáticos:
+  // pagamento, preparo, pronto, saiu para entrega e conclusão/cancelamento.
+  const normalizedStatus = String(payload.status || '').trim().toUpperCase();
+  if (normalizedStatus === 'PENDENTE') {
+    return { sent: false, reason: 'initial_status_suppressed' } as const;
+  }
+
   const provider = resolveProvider();
   if (provider === 'none') return { sent: false, reason: 'provider_not_configured' };
-  if (provider !== 'whatsapp_webhook')
+  if (!['whatsapp_webhook', 'gupshup'].includes(provider)) {
     return { sent: false, reason: 'provider_not_supported', provider };
+  }
 
   try {
     const links = await resolveCustomerOrderLinks({
@@ -277,7 +305,12 @@ export async function notifyCustomerOrderStatusChanged(payload: OrderStatusChang
       orderType: payload.orderType,
       ...links,
     });
-    return await sendWhatsappWebhook({
+    const name = String(payload.customerName || 'Cliente').trim() || 'Cliente';
+    const restaurant = String(payload.restaurantName || 'restaurante').trim() || 'restaurante';
+    const status = String(payload.status || '').toUpperCase();
+    const link =
+      status === 'ENTREGUE' ? links.confirmationUrl || '' : links.trackingUrl || links.storeUrl || '';
+    return await queueWhatsappMessage({
       restaurantWhatsapp: payload.restaurantWhatsapp,
       destination: payload.customerPhone,
       message,
@@ -286,6 +319,7 @@ export async function notifyCustomerOrderStatusChanged(payload: OrderStatusChang
         status: payload.status,
         restaurantId: payload.restaurantId,
         event: 'ORDER_STATUS_CHANGED',
+        templateParams: [name, String(payload.orderId || ''), restaurant, link],
       },
     });
   } catch (error) {
@@ -297,10 +331,11 @@ export async function notifyCustomerOrderStatusChanged(payload: OrderStatusChang
 export async function notifyRestaurantPaymentPinRequested(payload: RestaurantPinRequestedPayload) {
   const provider = resolveProvider();
   if (provider === 'none') return { sent: false, reason: 'provider_not_configured' };
-  if (provider !== 'whatsapp_webhook')
+  if (!['whatsapp_webhook', 'gupshup'].includes(provider)) {
     return { sent: false, reason: 'provider_not_supported', provider };
+  }
   try {
-    return await sendWhatsappWebhook({
+    return await queueWhatsappMessage({
       restaurantWhatsapp: payload.restaurantWhatsapp,
       destination: payload.restaurantWhatsapp,
       message: buildRestaurantPinRequestMessage(payload),
@@ -321,10 +356,11 @@ export async function notifyRestaurantOrderIssueReported(
 ) {
   const provider = resolveProvider();
   if (provider === 'none') return { sent: false, reason: 'provider_not_configured' };
-  if (provider !== 'whatsapp_webhook')
+  if (!['whatsapp_webhook', 'gupshup'].includes(provider)) {
     return { sent: false, reason: 'provider_not_supported', provider };
+  }
   try {
-    return await sendWhatsappWebhook({
+    return await queueWhatsappMessage({
       restaurantWhatsapp: payload.restaurantWhatsapp,
       destination: payload.restaurantWhatsapp,
       message: buildRestaurantIssueMessage(payload),

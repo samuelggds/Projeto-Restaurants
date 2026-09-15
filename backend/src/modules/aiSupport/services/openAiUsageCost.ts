@@ -11,17 +11,16 @@ type TokenUsage = {
 };
 
 // Standard API prices in USD per 1M tokens for models the application can use.
-// Keep this list intentionally small: unknown model names fall back to gpt-4.1 pricing
-// instead of inventing prices for ChatGPT-only model labels.
+// Keep this list intentionally small: unknown model names fall back to gpt-4.1 pricing.
 const TEXT_PRICING_PER_MILLION: Record<string, { input: number; output: number }> = {
+  'gpt-5.6-sol': { input: 4, output: 20 },
+  'gpt-5.6': { input: 4, output: 20 },
   'gpt-4.1': { input: 2, output: 8 },
   'gpt-4o': { input: 2.5, output: 10 },
 };
 
 const DEFAULT_TEXT_PRICING = TEXT_PRICING_PER_MILLION['gpt-4.1'];
 
-// GPT Image 2 token pricing. Cached tokens are allocated proportionally between
-// text and image input when the provider only returns one cached-token total.
 const IMAGE_PRICING_PER_MILLION = {
   textInput: 5,
   textCachedInput: 1.25,

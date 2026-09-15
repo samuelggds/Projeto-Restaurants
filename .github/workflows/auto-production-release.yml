@@ -1,0 +1,111 @@
+name: Auto Production Release
+
+run-name: Auto Production Release | source=${{ github.event.workflow_run.name }} | sha=${{ github.event.workflow_run.head_sha }}
+
+on:
+  workflow_run:
+    workflows: [CI, Deploy Production]
+    types: [completed]
+    branches: [main]
+
+permissions:
+  contents: read
+  actions: write
+
+concurrency:
+  group: auto-production-release
+  cancel-in-progress: false
+
+jobs:
+  promote:
+    name: Promote or resume the current approved main release
+    if: >-
+      vars.PRODUCTION_DEPLOY_ENABLED == 'true' &&
+      github.event.workflow_run.head_branch == 'main' &&
+      (
+        (github.event.workflow_run.name == 'CI' && github.event.workflow_run.event == 'push' && github.event.workflow_run.conclusion == 'success') ||
+        (github.event.workflow_run.name == 'Deploy Production' && github.event.workflow_run.event == 'workflow_dispatch' && (github.event.workflow_run.conclusion == 'failure' || github.event.workflow_run.conclusion == 'cancelled'))
+      )
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+
+      - name: Resolve current release-chain state without rebuilding approved images
+        id: target
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SOURCE_WORKFLOW: ${{ github.event.workflow_run.name }}
+          SOURCE_TITLE: ${{ github.event.workflow_run.display_title }}
+          SOURCE_SHA: ${{ github.event.workflow_run.head_sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          target_sha="$SOURCE_SHA"
+          if [ "$SOURCE_WORKFLOW" = 'Deploy Production' ]; then
+            target_sha="$(printf '%s' "$SOURCE_TITLE" | sed -nE 's/.*sha=([0-9a-f]{40}).*/\1/p')"
+            if [[ ! "$target_sha" =~ ^[0-9a-f]{40}$ ]]; then
+              echo 'Failed deploy did not expose a verifiable release SHA in its run name; automatic retry is refused.' >&2
+              exit 1
+            fi
+          fi
+          [[ "$target_sha" =~ ^[0-9a-f]{40}$ ]]
+
+          main_sha="$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/heads/main" --jq '.object.sha')"
+          gh api "repos/${GITHUB_REPOSITORY}/actions/workflows/release-production-images.yml/runs?branch=main&event=workflow_dispatch&per_page=100" > "$RUNNER_TEMP/release-runs.json"
+          gh api "repos/${GITHUB_REPOSITORY}/actions/workflows/deploy-production.yml/runs?branch=main&event=workflow_dispatch&per_page=100" > "$RUNNER_TEMP/deploy-runs.json"
+
+          decision="$(TARGET_SHA="$target_sha" MAIN_SHA="$main_sha" RELEASE_RUNS_JSON="$RUNNER_TEMP/release-runs.json" DEPLOY_RUNS_JSON="$RUNNER_TEMP/deploy-runs.json" node scripts/resolveProductionReleaseState.mjs)"
+          action="$(jq -r '.action' <<<"$decision")"
+          reason="$(jq -r '.reason' <<<"$decision")"
+          echo "action=$action" >> "$GITHUB_OUTPUT"
+          echo "reason=$reason" >> "$GITHUB_OUTPUT"
+          echo "sha=$target_sha" >> "$GITHUB_OUTPUT"
+          if [ "$action" = 'deploy' ]; then
+            echo "release_run_id=$(jq -r '.releaseRunId' <<<"$decision")" >> "$GITHUB_OUTPUT"
+          fi
+          {
+            echo '## Production release-chain state'
+            echo
+            echo "- Commit: \`${target_sha}\`"
+            echo "- Decision: \`${action}\`"
+            echo "- Reason: \`${reason}\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Publish immutable images for a commit that has no approved release yet
+        if: ${{ steps.target.outputs.action == 'release' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TARGET_SHA: ${{ steps.target.outputs.sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh workflow run release-production-images.yml --repo "$GITHUB_REPOSITORY" --ref main -f target_sha="$TARGET_SHA"
+          {
+            echo
+            echo '- State: checks approved -> image publication requested.'
+            echo '- Deployment success is not claimed by this asynchronous dispatch.'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Resume deploy from the already approved immutable release
+        if: ${{ steps.target.outputs.action == 'deploy' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TARGET_SHA: ${{ steps.target.outputs.sha }}
+          RELEASE_RUN_ID: ${{ steps.target.outputs.release_run_id }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh workflow run deploy-production.yml \
+            --repo "$GITHUB_REPOSITORY" \
+            --ref main \
+            -f release_run_id="$RELEASE_RUN_ID" \
+            -f release_sha="$TARGET_SHA"
+          {
+            echo
+            echo "- Reused release run: \`${RELEASE_RUN_ID}\`."
+            echo '- Approved manifest and image digests are reused; images are not rebuilt.'
+            echo '- This is a dispatch acknowledgement, not proof that deployment completed.'
+          } >> "$GITHUB_STEP_SUMMARY"

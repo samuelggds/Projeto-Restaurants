@@ -31,7 +31,7 @@ export function PaymentSettings({ settings, onChange }: Props) {
       const result = await restaurantSettingsService.startMercadoPagoOAuth();
       const authorizationUrl = String(result?.authorizationUrl || '');
       if (!/^https:\/\//i.test(authorizationUrl)) {
-        throw new Error('URL de autorização inválida.');
+        throw new Error('Não foi possível abrir a conexão com o Mercado Pago.');
       }
       window.location.assign(authorizationUrl);
     } catch (error) {
@@ -48,7 +48,9 @@ export function PaymentSettings({ settings, onChange }: Props) {
     try {
       const result = await restaurantSettingsService.startPagBankOAuth();
       const authorizationUrl = String(result?.authorizationUrl || '');
-      if (!/^https:\/\//i.test(authorizationUrl)) throw new Error('URL de autorização inválida.');
+      if (!/^https:\/\//i.test(authorizationUrl)) {
+        throw new Error('Não foi possível abrir a conexão com o PagBank.');
+      }
       window.location.assign(authorizationUrl);
     } catch (error) {
       setConnectionError(
@@ -90,14 +92,14 @@ export function PaymentSettings({ settings, onChange }: Props) {
   return (
     <S.Panel>
       <header>
-        <span>Integrações financeiras</span>
-        <h2>Pagamentos e webhooks</h2>
-        <p>As credenciais são enviadas somente ao backend e nunca são exibidas novamente.</p>
+        <span>Recebimentos do restaurante</span>
+        <h2>Pagamentos online</h2>
+        <p>Escolha onde receber Pix e cartão e conecte a conta do restaurante com segurança.</p>
       </header>
 
       <S.Card $stack>
         <S.Grid>
-          <Field label="Provedor Pix">
+          <Field label="Empresa que receberá o Pix">
             <FormSelect
               value={settings.pixProvider}
               onChange={(event) => onChange({ pixProvider: event.target.value })}
@@ -107,14 +109,14 @@ export function PaymentSettings({ settings, onChange }: Props) {
               <option value="PAGBANK">PagBank</option>
             </FormSelect>
           </Field>
-          <Field label="Chave Pix" hint="Chave ativa na conta do provedor selecionado.">
+          <Field label="Chave Pix" hint="Use uma chave válida da conta escolhida, quando necessário.">
             <FormInput
               value={settings.pixKey}
               onChange={(event) => onChange({ pixKey: event.target.value })}
               autoComplete="off"
             />
           </Field>
-          <Field label="Gateway de cartão">
+          <Field label="Empresa que processará o cartão">
             <FormSelect
               value={settings.cardGateway}
               onChange={(event) => onChange({ cardGateway: event.target.value })}
@@ -154,7 +156,7 @@ export function PaymentSettings({ settings, onChange }: Props) {
                 }}
               />
             </Field>
-            <Field label="Faturamento mensal estimado" hint="Valor usado para criar a conta Asaas.">
+            <Field label="Faturamento mensal estimado" hint="Usado para concluir o cadastro da conta.">
               <FormInput
                 value={asaasIncome}
                 inputMode="decimal"
@@ -190,8 +192,8 @@ export function PaymentSettings({ settings, onChange }: Props) {
         {asaasError && <S.InfoBox>{asaasError}</S.InfoBox>}
 
         <S.InfoBox>
-          Configure os webhooks no painel do provedor apontando para a URL do backend. Teste
-          primeiro no ambiente de homologação.
+          A confirmação dos pagamentos é feita automaticamente pelas empresas conectadas. Se alguma
+          conta precisar de atenção, esta tela mostrará o que deve ser feito.
         </S.InfoBox>
       </S.Card>
     </S.Panel>

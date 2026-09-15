@@ -5,6 +5,39 @@ export const GlobalStyles = createGlobalStyle`
     margin: 0;
     padding: 0;
     box-sizing: border-box;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(100, 116, 139, 0.62) transparent;
+  }
+
+  *::-webkit-scrollbar {
+    width: 9px;
+    height: 9px;
+  }
+
+  *::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  *::-webkit-scrollbar-thumb {
+    min-height: 42px;
+    border: 2px solid transparent;
+    border-radius: 999px;
+    background: rgba(100, 116, 139, 0.58);
+    background-clip: padding-box;
+  }
+
+  *::-webkit-scrollbar-thumb:hover {
+    background: rgba(71, 85, 105, 0.78);
+    background-clip: padding-box;
+  }
+
+  *::-webkit-scrollbar-thumb:active {
+    background: rgba(51, 65, 85, 0.9);
+    background-clip: padding-box;
+  }
+
+  *::-webkit-scrollbar-corner {
+    background: transparent;
   }
 
   body {
@@ -34,6 +67,11 @@ export const GlobalStyles = createGlobalStyle`
   button:disabled,
   select:disabled {
     cursor: not-allowed;
+  }
+
+  /* A proteção continua obrigatória no backend; o ADMIN não precisa ver a nota interna. */
+  .thresholds + .security-note {
+    display: none !important;
   }
 
   .Toastify__toast {

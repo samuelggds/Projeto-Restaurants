@@ -22,6 +22,8 @@ import imageEnhancementRoutes from '../modules/imageEnhancement/routes/ImageEnha
 import customerAddressRoutes from '../modules/customerAddresses/routes/CustomerAddressRoutes.js';
 import AsaasOrderWebhookController from '../modules/orders/controllers/AsaasOrderWebhookController.js';
 import AsaasWithdrawValidationWebhookController from '../modules/restaurantSettings/controllers/AsaasWithdrawValidationWebhookController.js';
+import GupshupInboundWebhookController from '../modules/restaurantSettings/controllers/GupshupInboundWebhookController.js';
+import ZapiInboundWebhookController from '../modules/restaurantSettings/controllers/ZapiInboundWebhookController.js';
 import ingredientRoutes from '../modules/ingredients/routes/ingredientRoutes.js';
 import tableServiceCallRoutes from '../modules/waiterCalls/routes/TableServiceCallRoutes.js';
 import tableAccountRoutes from '../modules/tableAccount/routes/TableAccountRoutes.js';
@@ -49,6 +51,14 @@ router.post('/api/webhooks/asaas', (req, res) => {
 
 router.post('/api/webhooks/asaas/withdraw-validation', (req, res) => {
   AsaasWithdrawValidationWebhookController.handle(req, res);
+});
+
+router.post('/api/webhooks/gupshup/inbound', (req, res) => {
+  GupshupInboundWebhookController.handle(req, res);
+});
+
+router.post('/api/webhooks/zapi/inbound/:instanceId', (req, res) => {
+  ZapiInboundWebhookController.handle(req, res);
 });
 
 router.use('/auth', authRoutes);

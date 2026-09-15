@@ -8,6 +8,7 @@ import tablePaymentReservationExpirationJob from '../modules/tableAccount/jobs/T
 import type { JobDefinition } from './JobDefinition.js';
 import { drainNotificationOutbox } from '../services/notificationOutbox.js';
 import { deliverSalesLeadEmails } from '../modules/salesLeads/services/SalesLeadEmailOutboxService.js';
+import { drainAiImageJobs } from '../modules/aiSupport/services/AiImageBatchJobService.js';
 
 type Environment = Record<string, string | undefined>;
 
@@ -61,6 +62,17 @@ export function createJobDefinitions(env: Environment = process.env): JobDefinit
       failureBackoffMs: 10_000,
       runOnStart: true,
       execute: () => drainNotificationOutbox(),
+    },
+    {
+      key: 'ai.product-image-batches',
+      description: 'Processamento persistente e recuperável de imagens de produtos por IA',
+      runtime: 'worker',
+      schedule: { kind: 'interval', intervalMs: 10_000 },
+      leaseDurationMs: 5 * 60 * 1000,
+      successCooldownMs: 5_000,
+      failureBackoffMs: 20_000,
+      runOnStart: true,
+      execute: () => drainAiImageJobs(),
     },
     {
       key: 'audit.retention-cleanup',

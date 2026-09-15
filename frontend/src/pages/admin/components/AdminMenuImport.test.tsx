@@ -3,13 +3,23 @@ import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import menuImportService from '../../../Services/menuImportService';
+import aiGuideService from '../../../Services/aiGuideService';
 import { AdminMenuImport } from './AdminMenuImport';
 
 vi.mock('../../../Services/menuImportService', () => ({
   default: {
     importIfoodMenu: vi.fn(),
-    importMenuFromImage: vi.fn(),
-    generateImportedProductImage: vi.fn(),
+    previewMenuFromImage: vi.fn(),
+    updateDraftItem: vi.fn(),
+    publishDraft: vi.fn(),
+    getDraft: vi.fn(),
+  },
+}));
+
+vi.mock('../../../Services/aiGuideService', () => ({
+  default: {
+    estimateImageBatch: vi.fn(),
+    createImageBatch: vi.fn(),
   },
 }));
 
@@ -85,20 +95,27 @@ describe('importação de cardápio', () => {
     expect(menuImportService.importIfoodMenu).not.toHaveBeenCalled();
   });
 
-  it('mostra o resumo, gera imagens elegíveis e recarrega o catálogo após a geração', async () => {
+  it('mostra o resumo e exige confirmação antes de criar o job persistente de imagens', async () => {
     vi.mocked(menuImportService.importIfoodMenu).mockResolvedValue(summary);
-    vi.mocked(menuImportService.generateImportedProductImage)
-      .mockResolvedValueOnce({
-        productId: 10,
-        productName: 'Pizza Calabresa',
-        status: 'GENERATED',
-      })
-      .mockResolvedValueOnce({
-        productId: 11,
-        productName: 'Coca-Cola 350ml',
-        status: 'MANUAL_REQUIRED',
-        reason: 'BRANDED_PRODUCT',
-      });
+    vi.mocked(aiGuideService.estimateImageBatch).mockResolvedValue({
+      productCount: 2,
+      estimatedCreditUsd: 0.08,
+      note: 'Estimativa máxima antes da confirmação.',
+    });
+    vi.mocked(aiGuideService.createImageBatch).mockResolvedValue({
+      publicId: 'job-1',
+      kind: 'PRODUCT_IMAGE_BATCH',
+      status: 'PENDING',
+      estimatedCreditUsd: 0.08,
+      actualCreditUsd: 0,
+      progress: { total: 2, completed: 0, failed: 0, pending: 2, running: 0 },
+      items: [
+        { publicId: 'item-10', productId: 10, status: 'PENDING', attempts: 0 },
+        { publicId: 'item-11', productId: 11, status: 'PENDING', attempts: 0 },
+      ],
+      createdAt: '2026-09-15T12:00:00.000Z',
+      completedAt: null,
+    });
 
     const onImported = await renderImport();
     const input = container.querySelector<HTMLInputElement>(
@@ -114,16 +131,22 @@ describe('importação de cardápio', () => {
     expect(menuImportService.importIfoodMenu).toHaveBeenCalledWith({
       url: 'https://www.ifood.com.br/delivery/north-pizza',
     });
-    expect(menuImportService.generateImportedProductImage).toHaveBeenNthCalledWith(1, 10);
-    expect(menuImportService.generateImportedProductImage).toHaveBeenNthCalledWith(2, 11);
-    // O catálogo é recarregado logo após a importação para exibir os produtos e
-    // novamente quando a geração termina para refletir as novas imagens.
-    expect(onImported).toHaveBeenCalledTimes(2);
-    expect(container.textContent).toContain('Cardápio importado com sucesso');
-    expect(container.textContent).toContain('1 imagem(ns) gerada(s) com IA');
-    expect(container.textContent).toContain('1 produto(s) com marca precisam de imagem manual');
-    expect(container.textContent).toContain('Pizza Calabresa');
-    expect(container.textContent).toContain('Coca-Cola 350ml');
+    expect(aiGuideService.estimateImageBatch).toHaveBeenCalledWith([10, 11]);
+    expect(aiGuideService.createImageBatch).not.toHaveBeenCalled();
+    expect(onImported).toHaveBeenCalledTimes(1);
+    expect(container.textContent).toContain('Importação concluída');
+    expect(container.textContent).toContain('Confirmar geração em lote');
+    expect(container.textContent).toContain('2 produto(s)');
+
+    const confirm = Array.from(container.querySelectorAll('button')).find((button) =>
+      button.textContent?.includes('Confirmar geração em segundo plano'),
+    );
+    expect(confirm).toBeTruthy();
+    await click(confirm as HTMLButtonElement);
+
+    expect(aiGuideService.createImageBatch).toHaveBeenCalledWith([10, 11]);
+    expect(container.textContent).toContain('Job de imagens criado');
+    expect(container.textContent).toContain('0/2 concluído(s)');
   });
 
   it('oferece a importação alternativa por foto sem exigir iFood', async () => {
@@ -133,10 +156,10 @@ describe('importação de cardápio', () => {
     );
     await click(photoTab as HTMLButtonElement);
 
-    expect(container.textContent).toContain('Envie a foto do cardápio');
+    expect(container.textContent).toContain('Envie a foto e revise a prévia');
     expect(container.querySelector('input[type="file"]')).toBeTruthy();
     const analyze = Array.from(container.querySelectorAll('button')).find((button) =>
-      button.textContent?.includes('Analisar e importar'),
+      button.textContent?.includes('Analisar para revisão'),
     );
     expect((analyze as HTMLButtonElement).disabled).toBe(true);
   });

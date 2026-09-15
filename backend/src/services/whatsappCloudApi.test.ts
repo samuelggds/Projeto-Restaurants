@@ -30,8 +30,24 @@ test('reports password reset integration as disabled without credentials', (t) =
     WHATSAPP_PHONE_NUMBER_ID: undefined,
     WHATSAPP_ACCESS_TOKEN: undefined,
     WHATSAPP_PASSWORD_RESET_TEMPLATE: undefined,
+    WHATSAPP_MFA_TEMPLATE: undefined,
   });
   assert.equal(isWhatsappPasswordResetConfigured(), false);
+});
+
+test('accepts the existing MFA authentication template as password reset fallback', (t) => {
+  withEnv(t, {
+    WHATSAPP_ENABLED: 'true',
+    WHATSAPP_API_VERSION: 'v25.0',
+    WHATSAPP_PHONE_NUMBER_ID: '123456789',
+    WHATSAPP_ACCESS_TOKEN: 'test-secret-token',
+    WHATSAPP_PASSWORD_RESET_TEMPLATE: undefined,
+    WHATSAPP_PASSWORD_RESET_TEMPLATE_LANGUAGE: undefined,
+    WHATSAPP_MFA_TEMPLATE: 'gastronexa_auth_code',
+    WHATSAPP_MFA_TEMPLATE_LANGUAGE: 'pt_BR',
+    WHATSAPP_REQUEST_TIMEOUT_MS: '5000',
+  });
+  assert.equal(isWhatsappPasswordResetConfigured(), true);
 });
 
 test('sends the OTP in both body and copy-code button without exposing token in payload', async (t) => {
@@ -68,7 +84,10 @@ test('sends the OTP in both body and copy-code button without exposing token in 
   assert.equal(result.messageId, 'wamid.test');
   assert.equal(calls.length, 1);
   assert.equal(calls[0].url, 'https://graph.facebook.com/v25.0/123456789/messages');
-  assert.equal(calls[0].init?.headers && (calls[0].init.headers as Record<string, string>).Authorization, 'Bearer test-secret-token');
+  assert.equal(
+    calls[0].init?.headers && (calls[0].init.headers as Record<string, string>).Authorization,
+    'Bearer test-secret-token',
+  );
 
   const body = JSON.parse(String(calls[0].init?.body));
   assert.equal(body.to, '5585999999999');

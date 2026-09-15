@@ -62,6 +62,7 @@ export const platformPlanUpdateSchema = z
     description: normalizedText(10, 500, 'Descrição').optional(),
     monthlyFee: z.number().finite().min(0).max(100_000).optional(),
     trialDays: z.number().int().min(0).max(90).optional(),
+    useDefaultTrialDays: z.boolean().optional(),
     features: z
       .array(normalizedText(2, 120, 'Funcionalidade'))
       .max(30)

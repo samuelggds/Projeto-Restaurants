@@ -2,6 +2,11 @@ import OpenAI from 'openai';
 import { z } from 'zod';
 import aiCreditService from './AiCreditService.js';
 import { calculateTextUsageCostUsd } from './openAiUsageCost.js';
+import {
+  ADMIN_AI_SECURITY_RULES,
+  assertAdminAiQuestionAllowed,
+  assertAdminAiResponseSafe,
+} from '../domain/adminAiSecurityPolicy.js';
 
 const guideStepSchema = z.object({
   title: z.string().trim().min(1).max(90),
@@ -42,6 +47,8 @@ const SYSTEM_CONTEXT = `
 Você é o assistente oficial de uso do GastroNexa, acessível SOMENTE dentro do painel ADMIN.
 Responda SOMENTE perguntas sobre como utilizar funcionalidades reais do GastroNexa.
 Nunca invente botões, telas, permissões, rotas ou procedimentos. Se a pergunta não for sobre o sistema, explique de forma curta que este assistente é exclusivo para orientar o uso do GastroNexa.
+
+${ADMIN_AI_SECURITY_RULES}
 
 REGRA DE EXPERIÊNCIA:
 1. Quando a pergunta for sobre uma funcionalidade que o ADMIN executa dentro do próprio painel administrativo, responda com mode="TOUR". O frontend exibirá balões modernos apontando para os elementos reais da tela.
@@ -97,16 +104,16 @@ class AdminAiGuideService {
     if (question.length < 3) throw new Error('Escreva o que você deseja aprender a fazer no sistema.');
     if (question.length > 800) throw new Error('A pergunta deve ter no máximo 800 caracteres.');
 
+    assertAdminAiQuestionAllowed(question);
     await aiCreditService.assertAvailable(actor);
 
     const apiKey = String(process.env.OPENAI_API_KEY || '').trim();
     if (!apiKey) throw new Error('OPENAI_API_KEY não configurada para o guia de IA.');
-    const model = String(process.env.OPENAI_MODEL || 'gpt-4.1').trim();
+    const model = String(process.env.OPENAI_MODEL || 'gpt-5.6-sol').trim();
     const client = new OpenAI({ apiKey, timeout: 60_000, maxRetries: 0 });
 
     const completion = await client.chat.completions.create({
       model,
-      temperature: 0.2,
       response_format: { type: 'json_object' },
       messages: [
         { role: 'system', content: SYSTEM_CONTEXT },
@@ -116,6 +123,7 @@ class AdminAiGuideService {
 
     const raw = completion.choices[0]?.message?.content;
     if (!raw) throw new Error('A OpenAI não retornou uma orientação para esta pergunta.');
+    assertAdminAiResponseSafe(raw);
 
     let parsed: unknown;
     try {
@@ -124,6 +132,8 @@ class AdminAiGuideService {
       throw new Error('A OpenAI retornou uma orientação em formato inválido.');
     }
     const guide = guideResponseSchema.parse(parsed);
+    assertAdminAiResponseSafe(guide);
+
     const costUsd = calculateTextUsageCostUsd(model, completion.usage);
     const credits = await aiCreditService.recordUsage({
       ...actor,

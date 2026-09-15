@@ -6,7 +6,7 @@ import { adminMockSettings } from '../src/pages/admin/data';
 import { createDemoIngredients } from '../src/pages/Marketing/demo/demoIngredients';
 test.use({ reducedMotion: 'reduce' });
 
-test('catálogo móvel: itens compactos, ações legíveis e prévia de ajuda menor', async ({
+test('catálogo móvel: itens compactos, ações legíveis e central de suporte responsiva', async ({
   page,
 }) => {
   await page.addInitScript(
@@ -47,17 +47,17 @@ test('catálogo móvel: itens compactos, ações legíveis e prévia de ajuda me
   });
   await page.setViewportSize({ width: 1440, height: 1000 });
   await admin.getByRole('button', { name: 'Central de ajuda', exact: true }).click();
-  await admin.getByRole('button', { name: /^Cardápio Cardápio · \d+ passos detalhados$/ }).click();
-  const figure = admin.getByRole('figure', { name: 'Prévia atual: Cardápio', exact: true });
-  await figure.getByRole('button', { name: 'Celular', exact: true }).click();
-  const preview = figure.frameLocator('iframe');
-  await expect(preview.getByRole('heading', { name: 'Cardápio', exact: true })).toBeVisible();
-  await expect(preview.locator('.product-copy').first()).toBeVisible();
-  await expect(preview.getByText('Carregando painel...')).toHaveCount(0);
-  expect((await figure.locator('.viewport').boundingBox())!.height).toBeLessThanOrEqual(601);
-  await figure.scrollIntoViewIfNeeded();
+  await expect(admin.getByRole('heading', { name: 'Suporte do restaurante', exact: true })).toBeVisible();
+  await expect(admin.getByRole('heading', { name: 'Suporte da equipe', exact: true })).toBeVisible();
+  await expect(admin.getByRole('heading', { name: 'Suporte da plataforma', exact: true })).toBeVisible();
+  const supportMessage = admin.getByRole('textbox', { name: 'Mensagem para o Super Admin' });
+  await supportMessage.scrollIntoViewIfNeeded();
+  await expect(supportMessage).toBeVisible();
+  await supportMessage.fill('Preciso de ajuda com o cardápio demonstrativo.');
+  await expect(admin.getByRole('button', { name: 'Enviar ao Super Admin' })).toBeEnabled();
+  await expect(admin.getByRole('figure')).toHaveCount(0);
   await page.screenshot({
-    path: '../artifacts/demo-functional-completeness/catalog-help-compact.png',
+    path: '../artifacts/demo-functional-completeness/catalog-support-center.png',
     animations: 'disabled',
   });
 });
@@ -240,25 +240,19 @@ test('demo: ingredientes de exemplo e cadastro completo sobrevivem à troca de t
     animations: 'disabled',
   });
   await admin.getByRole('button', { name: 'Central de ajuda', exact: true }).click();
-  const preview = admin.frameLocator('iframe[title="Exemplo ilustrativo de Visão geral"]');
-  await expect(
-    preview.getByRole('heading', { name: 'Visão geral', exact: true }).first(),
-  ).toBeVisible();
-  await expect(
-    preview.getByRole('heading', { name: 'Sua operação, em um só olhar' }),
-  ).toBeVisible();
+  await expect(admin.getByRole('heading', { name: 'Suporte do restaurante', exact: true })).toBeVisible();
+  await expect(admin.getByRole('heading', { name: 'Suporte da equipe', exact: true })).toBeVisible();
+  await expect(admin.getByRole('heading', { name: 'Suporte da plataforma', exact: true })).toBeVisible();
   await page.screenshot({
     path: '../artifacts/demo-functional-completeness/admin-help.png',
     animations: 'disabled',
   });
   await page.setViewportSize({ width: 390, height: 844 });
-  await admin.getByRole('button', { name: 'Celular', exact: true }).click();
-  await expect(
-    preview.getByRole('heading', { name: 'Visão geral', exact: true }).first(),
-  ).toBeVisible();
-  await expect(
-    preview.getByRole('heading', { name: 'Sua operação, em um só olhar' }),
-  ).toBeVisible();
+  const supportMessage = admin.getByRole('textbox', { name: 'Mensagem para o Super Admin' });
+  await supportMessage.scrollIntoViewIfNeeded();
+  await expect(supportMessage).toBeVisible();
+  await supportMessage.fill('Preciso de ajuda com os ingredientes da demonstração.');
+  await expect(admin.getByRole('button', { name: 'Enviar ao Super Admin' })).toBeEnabled();
   const frame = page.frames().find((item) => item.url().includes('demo-admin.html'))!;
   expect(await frame.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await page.screenshot({

@@ -8,6 +8,7 @@ import {
   requestErrorMessage,
   validateSettings,
 } from '../domain/superAdminDomain';
+import { SuperAdminMfaControl } from '../components/SuperAdminMfaControl';
 import * as S from '../SuperAdmin.styles';
 
 type SettingsCategory =
@@ -471,17 +472,18 @@ function SettingsEditor({
     if (category === 'security') {
       return (
         <S.FormGrid>
+          <SuperAdminMfaControl />
           <PolicyCard
             title="Controles de autenticação"
-            description="Políticas efetivas carregadas pelo backend e aplicadas a todas as contas."
-            items={data.systemPolicies.security}
+            description="Políticas efetivas carregadas pelo backend. O 2FA é uma preferência individual de cada conta."
+            items={data.systemPolicies.security.filter((item) => item.key !== 'mfaRequiredRoles')}
           />
           <S.FormCard>
             <header>
               <div>
                 <h2>Responsabilidade operacional</h2>
                 <p>
-                  Controles sensíveis devem ser modificados no deploy e revisados após a publicação.
+                  Segredos e credenciais de infraestrutura continuam controlados pelo ambiente de deploy.
                 </p>
               </div>
             </header>
@@ -496,10 +498,8 @@ function SettingsEditor({
                 <output>{data.administrators.length}</output>
               </div>
               <div className="policy">
-                <b>MFA efetivo</b>
-                <small>
-                  Contas protegidas por configuração individual ou política obrigatória.
-                </small>
+                <b>MFA ativado</b>
+                <small>Administradores que optaram por manter a segunda etapa habilitada.</small>
                 <output>{data.administrators.filter((admin) => admin.effectiveMfa).length}</output>
               </div>
             </S.PolicyList>

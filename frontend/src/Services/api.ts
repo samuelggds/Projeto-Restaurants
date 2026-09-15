@@ -10,6 +10,7 @@ import {
 import { setSystemBlockState } from './systemBlock';
 import { setPlatformMaintenanceState } from './platformMaintenance';
 import { buildLoginUrl } from '../shared/navigation/authNavigation';
+import { sanitizeApiErrorData } from '../shared/errors/userFacingError';
 
 const LOCAL_HOSTS = ['localhost', '127.0.0.1', '::1'];
 
@@ -20,42 +21,22 @@ function normalizeBaseUrl(url) {
 }
 
 function getRuntimeBaseUrl() {
-  if (typeof window === 'undefined') {
-    return '';
-  }
-
+  if (typeof window === 'undefined') return '';
   const protocol = window.location.protocol === 'https:' ? 'https:' : 'http:';
   const host = window.location.hostname;
-
-  if (!host) {
-    return '';
-  }
-
-  return `${protocol}//${host}:3000`;
+  return host ? `${protocol}//${host}:3000` : '';
 }
 
 function getRuntimeHost() {
-  if (typeof window === 'undefined') {
-    return '';
-  }
-
-  return window.location.hostname || '';
+  return typeof window === 'undefined' ? '' : window.location.hostname || '';
 }
 
 function getHostCandidates(host) {
-  if (!host) {
-    return [];
-  }
-
+  if (!host) return [];
   const protocol =
     typeof window !== 'undefined' && window.location.protocol === 'https:' ? 'https:' : 'http:';
   const candidates = [`${protocol}//${host}:3000`];
-
-  // Never try insecure HTTP fallbacks when the app is served over HTTPS.
-  if (protocol !== 'https:') {
-    candidates.push(`https://${host}:3000`);
-  }
-
+  if (protocol !== 'https:') candidates.push(`https://${host}:3000`);
   return candidates;
 }
 
@@ -77,20 +58,9 @@ function getApiBaseUrls() {
   const urls = new Set<string>();
   const isLocalRuntimeHost = LOCAL_HOSTS.includes(runtimeHost);
 
-  // Keep browser traffic on the Vite origin in development. Vite owns the
-  // canonical IPv4 proxy target, so localhost/127.0.0.1/IPv6 cannot select
-  // different backend processes merely because of hostname resolution.
-  // Playwright disables this proxy explicitly so page.route can intercept
-  // the direct API requests without requiring a real backend process.
-  if (developmentProxyUrl) {
-    urls.add(developmentProxyUrl);
-  }
+  if (developmentProxyUrl) urls.add(developmentProxyUrl);
 
-  // Direct loopback endpoints remain available only as network fallbacks.
   if (isLocalRuntimeHost) {
-    // Cookies HttpOnly com SameSite=Lax precisam manter o mesmo hostname.
-    // localhost e 127.0.0.1 apontam para a mesma máquina, mas são sites
-    // diferentes para o navegador.
     if (runtimeHost === 'localhost') {
       urls.add(defaultLocalUrl);
       urls.add(defaultLoopbackUrl);
@@ -100,33 +70,15 @@ function getApiBaseUrls() {
     }
   }
 
-  // In production-like hosts, never fall back to host:3000.
   if (!isLocalRuntimeHost) {
-    if (configuredUrl) {
-      urls.add(configuredUrl);
-    }
-
-    if (!developmentProxyUrl && sameOriginUrl) {
-      urls.add(sameOriginUrl);
-    }
-
+    if (configuredUrl) urls.add(configuredUrl);
+    if (!developmentProxyUrl && sameOriginUrl) urls.add(sameOriginUrl);
     return Array.from(urls);
   }
 
-  if (runtimeUrl) {
-    urls.add(runtimeUrl);
-  }
-
-  for (const candidate of runtimeCandidates) {
-    if (candidate) {
-      urls.add(candidate);
-    }
-  }
-
-  if (configuredUrl) {
-    urls.add(configuredUrl);
-  }
-
+  if (runtimeUrl) urls.add(runtimeUrl);
+  for (const candidate of runtimeCandidates) if (candidate) urls.add(candidate);
+  if (configuredUrl) urls.add(configuredUrl);
   return urls.size ? Array.from(urls) : [defaultLoopbackUrl, defaultLocalUrl];
 }
 
@@ -146,14 +98,14 @@ const AUTH_REFRESH_LOCK_NAME = 'pizza-ia-auth-refresh';
 
 export class AuthSessionChangedError extends Error {
   constructor() {
-    super('A sessão mudou durante a renovação do token.');
+    super('Sua sessão foi atualizada em outra aba. Entre novamente para continuar.');
     this.name = 'AuthSessionChangedError';
   }
 }
 
 export class AuthSessionIdentityChangedError extends Error {
   constructor() {
-    super('A conta autenticada mudou em outra aba.');
+    super('A conta conectada mudou em outra aba. Entre novamente para continuar.');
     this.name = 'AuthSessionIdentityChangedError';
   }
 }
@@ -164,13 +116,7 @@ function normalizeUserId(value: unknown) {
 }
 
 function withCrossTabRefreshLock<T>(callback: () => Promise<T>) {
-  if (typeof navigator === 'undefined' || !navigator.locks?.request) {
-    return callback();
-  }
-
-  // O refresh cookie e compartilhado entre abas. Serializar a rotacao evita
-  // que duas requisicoes legitimas reutilizem o mesmo token ao mesmo tempo e
-  // sejam interpretadas pelo backend como comprometimento da familia.
+  if (typeof navigator === 'undefined' || !navigator.locks?.request) return callback();
   const lockedRefresh = navigator.locks.request(
     AUTH_REFRESH_LOCK_NAME,
     { mode: 'exclusive' },
@@ -191,11 +137,9 @@ export function refreshAccessToken(expectedUserId: unknown = getAuthSessionUserI
         { withCredentials: true, timeout: API_TIMEOUT_MS },
       );
       const accessToken = String(response?.data?.accessToken || '').trim();
-      if (!accessToken) throw new Error('Backend não retornou um novo access token.');
+      if (!accessToken) throw new Error('Não foi possível renovar seu acesso. Entre novamente.');
       const refreshedUserId = normalizeUserId(response?.data?.userId);
-      if (!refreshedUserId) {
-        throw new Error('Backend não retornou a identidade da sessão renovada.');
-      }
+      if (!refreshedUserId) throw new Error('Não foi possível confirmar sua sessão. Entre novamente.');
       if (expectedSessionUserId && refreshedUserId !== expectedSessionUserId) {
         throw new AuthSessionIdentityChangedError();
       }
@@ -207,39 +151,28 @@ export function refreshAccessToken(expectedUserId: unknown = getAuthSessionUserI
       refreshRequest = null;
     });
   }
-
   return refreshRequest;
 }
 
-// Add auth token to all requests
 api.interceptors.request.use(
   (config) => {
     const token = getAccessToken();
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
-    }
+    if (token) config.headers.Authorization = `Bearer ${token}`;
 
     const tableSessionRaw = localStorage.getItem('tableSession');
-
     if (tableSessionRaw) {
       try {
         const tableSession = JSON.parse(tableSessionRaw);
         const sessionToken =
           localStorage.getItem('tableSessionToken') || tableSession?.sessionToken || null;
-
-        if (sessionToken) {
-          config.headers['x-session-token'] = sessionToken;
-        }
+        if (sessionToken) config.headers['x-session-token'] = sessionToken;
       } catch {
-        // Ignora sessão inválida e continua a requisição.
+        // Sessão inválida é ignorada e a requisição segue normalmente.
       }
     }
-
     return config;
   },
-  (error) => {
-    return Promise.reject(error);
-  },
+  (error) => Promise.reject(error),
 );
 
 api.interceptors.response.use(
@@ -248,16 +181,11 @@ api.interceptors.response.use(
     const originalConfig = error?.config;
     const hasHttpResponse = Boolean(error?.response);
 
-    // Retry across known base URLs when mobile/web is pointing to a stale host or protocol.
     if (!hasHttpResponse && originalConfig && !originalConfig.skipBaseUrlFallback) {
       const currentBase = normalizeBaseUrl(originalConfig.baseURL || api.defaults.baseURL);
       const tried = new Set((originalConfig.__triedBaseUrls || []).map(normalizeBaseUrl));
-      if (currentBase) {
-        tried.add(currentBase);
-      }
-
+      if (currentBase) tried.add(currentBase);
       const fallbackBase = API_BASE_URLS.find((url) => !tried.has(normalizeBaseUrl(url)));
-
       if (fallbackBase) {
         api.defaults.baseURL = fallbackBase;
         originalConfig.baseURL = fallbackBase;
@@ -267,7 +195,7 @@ api.interceptors.response.use(
     }
 
     const status = error?.response?.status;
-    const data = error?.response?.data;
+    const rawData = error?.response?.data;
     const requestPath = String(originalConfig?.url || '');
     const canRefresh =
       status === 401 &&
@@ -288,8 +216,6 @@ api.interceptors.response.use(
         })
         .catch((refreshError) => {
           if (refreshError instanceof AuthSessionIdentityChangedError) {
-            // O cookie HttpOnly e compartilhado entre abas. Nunca repita uma
-            // acao da conta antiga usando o token renovado da conta nova.
             invalidateAuthSessionMemory();
             if (typeof window !== 'undefined' && window.location.pathname !== '/login') {
               window.location.assign(buildLoginUrl(window.location));
@@ -313,7 +239,8 @@ api.interceptors.response.use(
     })();
     const role = currentUser?.role || null;
     const platformMaintenance =
-      status === 503 && (data?.code === 'PLATFORM_MAINTENANCE' || data?.maintenanceMode === true);
+      status === 503 &&
+      (rawData?.code === 'PLATFORM_MAINTENANCE' || rawData?.maintenanceMode === true);
 
     if (platformMaintenance) {
       const currentLocation =
@@ -321,45 +248,48 @@ api.interceptors.response.use(
           ? `${window.location.pathname}${window.location.search}${window.location.hash}`
           : null;
       setPlatformMaintenanceState({
-        message: data?.error || data?.maintenanceMessage || data?.message,
+        message: rawData?.error || rawData?.maintenanceMessage || rawData?.message,
         returnTo: currentLocation,
       });
-      return Promise.reject(error);
     }
 
     const blockedByBilling =
       (status === 403 || status === 423) &&
-      (data?.code === 'BILLING_BLOCKED' ||
-        String(data?.error || '')
+      (rawData?.code === 'BILLING_BLOCKED' ||
+        String(rawData?.error || '')
           .toLowerCase()
           .includes('bloqueado por inadimpl'));
     const blockedByManualRestriction =
-      (status === 403 || status === 423) && data?.code === 'RESTAURANT_ACCESS_BLOCKED';
+      (status === 403 || status === 423) && rawData?.code === 'RESTAURANT_ACCESS_BLOCKED';
 
     if (blockedByBilling || blockedByManualRestriction) {
-      if (role === 'SUPER_ADMIN') {
-        return Promise.reject(error);
-      }
+      if (role !== 'SUPER_ADMIN') {
+        setSystemBlockState({
+          reason: blockedByManualRestriction ? 'MANUAL' : 'BILLING',
+          message:
+            rawData?.error ||
+            (blockedByManualRestriction
+              ? 'Restaurante temporariamente indisponível'
+              : 'Sistema bloqueado por inadimplência'),
+          paymentLink: rawData?.paymentLink || null,
+          invoiceId: rawData?.invoiceId || null,
+          dueDate: rawData?.dueDate || null,
+          restaurantId:
+            rawData?.restaurantId || currentUser?.restaurantId || currentUser?.restaurant?.id || null,
+        });
 
-      setSystemBlockState({
-        reason: blockedByManualRestriction ? 'MANUAL' : 'BILLING',
-        message:
-          data?.error ||
-          (blockedByManualRestriction
-            ? 'Restaurante temporariamente indisponível'
-            : 'Sistema bloqueado por inadimplência'),
-        paymentLink: data?.paymentLink || null,
-        invoiceId: data?.invoiceId || null,
-        dueDate: data?.dueDate || null,
-        restaurantId:
-          data?.restaurantId || currentUser?.restaurantId || currentUser?.restaurant?.id || null,
-      });
-
-      const currentPath = window.location.pathname;
-      const adminCanUseBillingOnly = role === 'ADMIN' && !blockedByManualRestriction;
-      if (!adminCanUseBillingOnly && currentPath !== '/system-maintenance') {
-        window.location.assign('/system-maintenance');
+        const currentPath = window.location.pathname;
+        const adminCanUseBillingOnly = role === 'ADMIN' && !blockedByManualRestriction;
+        if (!adminCanUseBillingOnly && currentPath !== '/system-maintenance') {
+          window.location.assign('/system-maintenance');
+        }
       }
+    }
+
+    if (error?.response) {
+      error.response.data = sanitizeApiErrorData(rawData);
+    } else if (error instanceof Error) {
+      error.message = 'Não foi possível se comunicar com o sistema. Verifique sua conexão e tente novamente.';
     }
 
     return Promise.reject(error);

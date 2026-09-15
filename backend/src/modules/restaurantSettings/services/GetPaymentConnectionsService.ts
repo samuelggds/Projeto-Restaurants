@@ -150,9 +150,21 @@ class GetPaymentConnectionsService {
           };
         }
         if (!canConnect || !connected) return result;
+
+        const renewable =
+          provider === 'MERCADO_PAGO'
+            ? Boolean(settings?.mercadoPagoRefreshToken)
+            : Boolean(settings?.pagbankRefreshToken);
+        if (!renewable) {
+          return {
+            ...result,
+            status: 'NEEDS_RECONNECT',
+            message:
+              'Conta vinculada sem renovação automática. Reconecte agora antes de receber pagamentos em produção.',
+          };
+        }
+
         try {
-          // Refreshes an expired grant under the same tenant isolation as payments.
-          // No platform payment token may make an unconnected restaurant look ready.
           await (provider === 'MERCADO_PAGO'
             ? getMercadoPagoAccessToken(id)
             : getPagBankAccessToken(id));
@@ -161,13 +173,8 @@ class GetPaymentConnectionsService {
             readyForPix: true,
             readyForCard: true,
             status: 'CONNECTED',
-            message: (
-              provider === 'MERCADO_PAGO'
-                ? !settings?.mercadoPagoRefreshToken
-                : !settings?.pagbankRefreshToken
-            )
-              ? 'Conta vinculada. Reconecte uma vez para habilitar a renovação automática do acesso.'
-              : 'Conta vinculada para receber Pix e cartão. A aprovação de cada pagamento é confirmada pela empresa.',
+            message:
+              'Conta vinculada para receber Pix e cartão. A aprovação de cada pagamento é confirmada pela empresa.',
           };
         } catch {
           return {

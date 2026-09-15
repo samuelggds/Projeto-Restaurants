@@ -18,9 +18,17 @@ export function BusinessSettings({ settings, update }: Props) {
   const completedFields = [
     settings.companyLegalName,
     settings.companyDocument,
-    settings.businessPhone,
+    settings.whatsapp,
     settings.businessEmail,
   ].filter((value) => value.trim()).length;
+
+  const updateCommercialNumber = (value: string) => {
+    const formatted = formatBusinessPhone(value);
+    // `whatsapp` é o contato público canônico do restaurante. Mantemos
+    // businessPhone sincronizado somente para compatibilidade com o legado/KYB.
+    update('whatsapp', formatted);
+    update('businessPhone', formatted);
+  };
 
   return (
     <S.SettingSection>
@@ -104,16 +112,19 @@ export function BusinessSettings({ settings, update }: Props) {
             {errors.companyDocument && <small>{errors.companyDocument}</small>}
           </S.Field>
           <S.Field>
-            Telefone
+            Número comercial
             <input
-              aria-label="Telefone comercial"
+              aria-label="Número comercial"
               autoComplete="tel"
               inputMode="tel"
-              value={formatBusinessPhone(settings.businessPhone)}
-              onChange={(event) => update('businessPhone', formatBusinessPhone(event.target.value))}
-              aria-invalid={Boolean(errors.businessPhone)}
+              value={formatBusinessPhone(settings.whatsapp || settings.businessPhone)}
+              onChange={(event) => updateCommercialNumber(event.target.value)}
+              aria-invalid={Boolean(errors.whatsapp)}
             />
-            {errors.businessPhone && <small>{errors.businessPhone}</small>}
+            <small>
+              {errors.whatsapp ||
+                'Este é o mesmo número exibido em WhatsApp e nas páginas públicas do restaurante.'}
+            </small>
           </S.Field>
           <S.Field>
             E-mail comercial

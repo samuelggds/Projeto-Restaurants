@@ -1,15 +1,15 @@
 import bcrypt from 'bcrypt';
 import crypto from 'crypto';
 import { createSmtpTransporter as createTransporter } from '../../../services/smtpTransport.js';
+import {
+  isWhatsappPasswordResetConfigured,
+  sendWhatsappPasswordResetCode,
+} from '../../../services/whatsappCloudApi.js';
 import userRepository from '../repositories/UserRepository.js';
 import { forgotPasswordSchema } from '../../../validators/ForgotPasswordValidator.js';
 import { canLogLocalAuthCode } from '../security/localAuthCodeLogging.js';
 import passwordResetCodeRepository from '../repositories/PasswordResetCodeRepository.js';
 import { isPasswordResetCoolingDown } from '../security/passwordResetCooldown.js';
-import {
-  isWhatsappPasswordResetConfigured,
-  sendWhatsappPasswordResetCode,
-} from '../../../services/whatsappCloudApi.js';
 
 function isBasicAuthDisabledError(error: unknown) {
   const message = error instanceof Error ? error.message : String(error || '');
@@ -41,8 +41,9 @@ class RequestPasswordResetService {
       ? await userRepository.findByEmail(normalizedEmail)
       : await userRepository.findByPhone(normalizedPhone);
 
+    // Always return the same response to avoid exposing registered accounts.
     const safeMessage =
-      'Se os dados identificarem uma conta, enviamos um código para o e-mail cadastrado. Se o telefone estiver em mais de uma conta, informe o e-mail.';
+      'Se os dados identificarem uma conta, enviamos um código para o canal cadastrado. Se o telefone estiver em mais de uma conta, informe o e-mail.';
 
     if (!user) {
       return { message: safeMessage };
@@ -82,10 +83,7 @@ class RequestPasswordResetService {
       try {
         if (!isWhatsappPasswordResetConfigured()) {
           if (canLogPasswordResetCode()) {
-            console.warn(
-              `[password-reset] WhatsApp nao configurado. Codigo para telefone informado: ${code}`,
-            );
-            return { message: safeMessage };
+            console.warn(`[password-reset] WhatsApp nao configurado. Codigo: ${code}`);
           }
           return { message: safeMessage };
         }

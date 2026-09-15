@@ -20,6 +20,40 @@ const test = base.extend<{ apiIsolation: void }>({
           if (pathname === '/platform/status' && method === 'GET') {
             return route.fulfill({ json: { available: true, maintenanceMode: false } });
           }
+          if (pathname === '/platform/plans' && method === 'GET') {
+            return route.fulfill({
+              json: {
+                plans: [
+                  {
+                    code: 'BASICO',
+                    name: 'Básico',
+                    description: 'Para organizar seu delivery e começar uma nova fase.',
+                    monthlyFee: 149.9,
+                    trialDays: 30,
+                    features: [
+                      'Sistema de delivery',
+                      'Gestão dos pedidos de entrega',
+                      'Suporte padrão',
+                    ],
+                    featured: false,
+                  },
+                  {
+                    code: 'PREMIUM',
+                    name: 'Premium',
+                    description: 'Para conectar o delivery e o atendimento das suas mesas.',
+                    monthlyFee: 249.9,
+                    trialDays: 30,
+                    features: [
+                      'Tudo do plano Básico',
+                      'Cardápio digital com QR Code de mesa',
+                      'Suporte prioritário',
+                    ],
+                    featured: true,
+                  },
+                ],
+              },
+            });
+          }
           if (pathname === '/auth/refresh' && method === 'POST') {
             return route.fulfill({ status: 401, json: { error: 'Não autenticado.' } });
           }
