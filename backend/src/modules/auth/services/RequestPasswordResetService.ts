@@ -1,6 +1,10 @@
 import bcrypt from 'bcrypt';
 import crypto from 'crypto';
 import { createSmtpTransporter as createTransporter } from '../../../services/smtpTransport.js';
+import {
+  isWhatsappPasswordResetConfigured,
+  sendWhatsappPasswordResetCode,
+} from '../../../services/whatsappCloudApi.js';
 import userRepository from '../repositories/UserRepository.js';
 import { forgotPasswordSchema } from '../../../validators/ForgotPasswordValidator.js';
 import { canLogLocalAuthCode } from '../security/localAuthCodeLogging.js';
@@ -37,9 +41,9 @@ class RequestPasswordResetService {
       ? await userRepository.findByEmail(normalizedEmail)
       : await userRepository.findByPhone(normalizedPhone);
 
-    // Always return the same response to avoid exposing registered emails.
+    // Always return the same response to avoid exposing registered accounts.
     const safeMessage =
-      'Se os dados identificarem uma conta, enviamos um código para o e-mail cadastrado. Se o telefone estiver em mais de uma conta, informe o e-mail.';
+      'Se os dados identificarem uma conta, enviamos um código para o canal cadastrado. Se o telefone estiver em mais de uma conta, informe o e-mail.';
 
     if (!user) {
       return { message: safeMessage };
@@ -72,8 +76,30 @@ class RequestPasswordResetService {
       resetAttempts,
     });
     if (!claimed) {
-      // A concurrent request won, a lock was applied or the account changed.
-      // Do not send another code or disclose the existence of the account.
+      return { message: safeMessage };
+    }
+
+    if (normalizedPhone) {
+      try {
+        if (!isWhatsappPasswordResetConfigured()) {
+          if (canLogPasswordResetCode()) {
+            console.warn(`[password-reset] WhatsApp nao configurado. Codigo: ${code}`);
+          }
+          return { message: safeMessage };
+        }
+
+        await sendWhatsappPasswordResetCode({
+          to: user.phone || normalizedPhone,
+          code,
+        });
+      } catch (error) {
+        if (process.env.NODE_ENV === 'production') {
+          console.error('[password-reset] Nao foi possivel enviar o codigo pelo WhatsApp.');
+          return { message: safeMessage };
+        }
+        throw error;
+      }
+
       return { message: safeMessage };
     }
 
@@ -97,8 +123,6 @@ class RequestPasswordResetService {
         });
       } catch (error) {
         if (process.env.NODE_ENV === 'production') {
-          // Keep the public response indistinguishable from a successful request
-          // and never expose the recovery code or the account e-mail in logs.
           console.error('[password-reset] Nao foi possivel enviar o e-mail de recuperacao.');
           return { message: safeMessage };
         }
@@ -114,7 +138,6 @@ class RequestPasswordResetService {
     } else if (canLogPasswordResetCode()) {
       console.warn(`[password-reset] SMTP nao configurado. Codigo para ${user.email}: ${code}`);
     } else {
-      // Do not disclose whether the account exists and never print its reset code.
       return { message: safeMessage };
     }
 
