@@ -17,8 +17,9 @@ trap 'rm -rf "$tmp"' EXIT
 git -C "$tmp" init -q
 git -C "$tmp" config user.name 'GastroNexa CI Canary'
 git -C "$tmp" config user.email 'ci-canary@example.test'
-# Assemble at runtime so the GastroNexa repository never contains the canary token.
-canary="ghp_$(printf 'A%.0s' {1..36})"
+# Assemble a high-entropy synthetic token at runtime so no real secret or reusable
+# credential is ever stored in the GastroNexa repository.
+canary="ghp_$(openssl rand -base64 27 | tr -dc 'A-Za-z0-9' | head -c 36)"
 printf 'SYNTHETIC_GITHUB_TOKEN=%s\n' "$canary" > "$tmp/canary.env"
 git -C "$tmp" add canary.env
 git -C "$tmp" commit -q -m 'synthetic secret canary'
