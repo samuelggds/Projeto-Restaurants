@@ -1,3 +1,11 @@
+html[data-gastronexa-profile-avatar='true'] aside .avatar {
+  color: transparent !important;
+  background-image: var(--gastronexa-profile-avatar) !important;
+  background-size: cover !important;
+  background-position: center !important;
+  background-repeat: no-repeat !important;
+}
+
 @media (max-width: 480px) {
   .product-row {
     grid-template-columns: 44px minmax(0, 1fr) auto !important;
