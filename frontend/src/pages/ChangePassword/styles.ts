@@ -4,88 +4,221 @@ export const Page = styled.main`
   min-height: 100vh;
   display: grid;
   place-items: center;
-  padding: 24px;
+  padding: 32px;
   background:
-    radial-gradient(circle at 15% 15%, rgba(255, 177, 0, 0.22), transparent 34%),
-    radial-gradient(circle at 90% 85%, rgba(255, 111, 60, 0.2), transparent 38%), #120f0d;
-  color: #fff8ef;
+    radial-gradient(circle at 85% 8%, rgba(239, 109, 24, 0.11), transparent 26rem),
+    linear-gradient(180deg, #f8f7f5 0%, #f3f4f6 100%);
+  color: #17181a;
 
-  @media (max-width: 480px) {
+  @media (max-width: 680px) {
+    padding: 18px 12px;
     place-items: start center;
-    padding: 16px 12px;
   }
 `;
 
-export const Card = styled.section`
-  width: min(520px, 100%);
-  border: 1px solid #3d342d;
-  border-radius: 24px;
-  padding: clamp(24px, 6vw, 40px);
-  background: rgba(31, 26, 22, 0.96);
-  box-shadow: 0 30px 90px rgba(0, 0, 0, 0.42);
+export const Shell = styled.section`
+  width: min(1040px, 100%);
+  display: grid;
+  grid-template-columns: minmax(300px, 0.82fr) minmax(0, 1.18fr);
+  overflow: hidden;
+  border: 1px solid #e4e5e8;
+  border-radius: 28px;
+  background: #fff;
+  box-shadow: 0 28px 80px rgba(31, 29, 27, 0.11);
+
+  @media (max-width: 820px) {
+    grid-template-columns: 1fr;
+  }
 
   @media (max-width: 480px) {
-    padding: 22px 18px;
-    border-radius: 18px;
+    border-radius: 20px;
+  }
+`;
+
+export const Aside = styled.aside`
+  min-height: 650px;
+  padding: 38px;
+  display: flex;
+  flex-direction: column;
+  background:
+    radial-gradient(circle at 10% 10%, rgba(255, 126, 50, 0.18), transparent 20rem),
+    #1b1c1f;
+  color: #fff;
+
+  .aside-copy {
+    margin: auto 0;
+  }
+
+  .eyebrow {
+    color: #ff9a59;
+    font-size: 11px;
+    font-weight: 900;
+    letter-spacing: 0.14em;
+  }
+
+  h2 {
+    max-width: 360px;
+    margin: 10px 0 14px;
+    font-size: clamp(28px, 4vw, 40px);
+    line-height: 1.05;
+    letter-spacing: -0.045em;
+  }
+
+  p {
+    max-width: 370px;
+    margin: 0;
+    color: #b9bdc4;
+    line-height: 1.65;
+  }
+
+  .security-points {
+    display: grid;
+    gap: 10px;
+  }
+
+  .security-points span {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    color: #dfe2e7;
+    font-size: 13px;
+  }
+
+  .security-points svg {
+    width: 17px;
+    height: 17px;
+    color: #ff8a3d;
+  }
+
+  @media (max-width: 820px) {
+    min-height: auto;
+    padding: 26px;
+    .aside-copy { margin: 38px 0 30px; }
+    .security-points { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  }
+
+  @media (max-width: 620px) {
+    .security-points { grid-template-columns: 1fr; }
+  }
+`;
+
+export const Brand = styled.div`
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 20px;
+  font-weight: 900;
+  letter-spacing: -0.04em;
+
+  img {
+    width: 40px;
+    height: 36px;
+    object-fit: contain;
+  }
+
+  span {
+    display: inline-flex;
+  }
+
+  strong {
+    color: #ff7a28;
+    font: inherit;
+  }
+`;
+
+export const Card = styled.div`
+  padding: clamp(34px, 5vw, 58px);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  background: #fff;
+
+  @media (max-width: 480px) {
+    padding: 28px 20px;
   }
 `;
 
 export const Icon = styled.div`
-  width: 64px;
-  height: 64px;
+  width: 52px;
+  height: 52px;
   display: grid;
   place-items: center;
-  border-radius: 18px;
-  color: #1b130a;
-  background: linear-gradient(135deg, #ffb100, #ff6f3c);
+  border-radius: 15px;
+  color: #d85c0b;
+  background: #fff0e6;
+`;
+
+export const Eyebrow = styled.span`
+  margin-top: 20px;
+  color: #ef6d18;
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 0.14em;
 `;
 
 export const Title = styled.h1`
-  margin: 20px 0 8px;
-  font-size: clamp(28px, 6vw, 38px);
-  line-height: 1.1;
+  margin: 7px 0 9px;
+  color: #161719;
+  font-size: clamp(29px, 4vw, 39px);
+  line-height: 1.08;
+  letter-spacing: -0.045em;
 `;
 
 export const Description = styled.p`
-  margin: 0 0 24px;
-  color: #d8cabd;
+  margin: 0 0 28px;
+  color: #6f757d;
   line-height: 1.6;
 `;
 
 export const Form = styled.form`
   display: grid;
-  gap: 16px;
+  gap: 17px;
 `;
 
 export const Field = styled.label`
   display: grid;
   gap: 8px;
-  color: #f7ede4;
-  font-weight: 650;
+  color: #30343a;
+  font-size: 13px;
+  font-weight: 800;
 `;
 
 export const Input = styled.input`
   width: 100%;
-  height: 48px;
-  border: 1px solid #50443a;
+  height: 50px;
+  border: 1px solid #dfe2e6;
   border-radius: 12px;
   padding: 0 14px;
-  background: #16120f;
-  color: #fff8ef;
+  background: #fbfbfc;
+  color: #17181a;
   font: inherit;
+  transition: border-color 160ms ease, box-shadow 160ms ease, background 160ms ease;
 
   &:focus-visible {
-    outline: 3px solid rgba(255, 177, 0, 0.3);
-    border-color: #ffb100;
+    outline: 0;
+    border-color: #ff8a3d;
+    background: #fff;
+    box-shadow: 0 0 0 4px rgba(255, 116, 31, 0.1);
+  }
+
+  &:disabled {
+    opacity: 0.65;
   }
 `;
 
+export const RequirementsCard = styled.div`
+  padding: 14px 16px;
+  border: 1px solid #eceef0;
+  border-radius: 14px;
+  background: #f8f9fa;
+`;
+
 export const ErrorMessage = styled.div`
-  border: 1px solid rgba(255, 111, 60, 0.55);
+  border: 1px solid #f3c2b3;
   border-radius: 12px;
   padding: 12px 14px;
-  background: rgba(255, 111, 60, 0.1);
-  color: #ffd8c9;
+  background: #fff3ef;
+  color: #9a3d20;
   line-height: 1.45;
 `;
 
@@ -93,7 +226,7 @@ export const Actions = styled.div`
   display: flex;
   flex-wrap: wrap;
   gap: 12px;
-  margin-top: 6px;
+  margin-top: 4px;
 
   @media (max-width: 480px) {
     display: grid;
@@ -107,16 +240,21 @@ export const Actions = styled.div`
 `;
 
 export const PrimaryButton = styled.button`
-  min-height: 48px;
+  min-height: 50px;
   flex: 1 1 220px;
   border: 0;
   border-radius: 12px;
   padding: 0 18px;
   font: inherit;
-  font-weight: 750;
-  color: #1b130a;
-  background: linear-gradient(135deg, #ffb100, #ff6f3c);
+  font-weight: 850;
+  color: #fff;
+  background: #17181a;
   cursor: pointer;
+  box-shadow: 0 8px 18px rgba(23, 24, 26, 0.14);
+
+  &:hover:not(:disabled) {
+    background: #2c2e32;
+  }
 
   &:disabled {
     cursor: wait;
@@ -125,13 +263,20 @@ export const PrimaryButton = styled.button`
 `;
 
 export const SecondaryButton = styled.button`
-  min-height: 48px;
-  border: 1px solid #50443a;
+  min-height: 50px;
+  border: 1px solid #dfe2e6;
   border-radius: 12px;
   padding: 0 18px;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
   font: inherit;
-  font-weight: 700;
-  color: #fff8ef;
-  background: transparent;
+  font-weight: 800;
+  color: #535860;
+  background: #fff;
   cursor: pointer;
+
+  &:hover:not(:disabled) {
+    background: #f7f7f8;
+  }
 `;

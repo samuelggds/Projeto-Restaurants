@@ -79,8 +79,7 @@ export class BootstrapSuperAdminService {
           const hasSafePlatformScope =
             existingSuperAdmin.active &&
             existingSuperAdmin.restaurantId === null &&
-            existingSuperAdmin.subRole === null &&
-            existingSuperAdmin.mfaEnabled;
+            existingSuperAdmin.subRole === null;
 
           if (!matchesExpectedIdentity || !hasSafePlatformScope) {
             throw new Error(

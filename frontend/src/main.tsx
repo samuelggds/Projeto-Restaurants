@@ -1,5 +1,7 @@
 import './config/platformStorageMigration';
+import './config/profileAvatarBranding';
 import './styles/adminIngredientMenuFix.css';
+import './styles/adminMobileProductImages.css';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { GlobalStyles } from '../GlobalStyles/globalStyles.js';

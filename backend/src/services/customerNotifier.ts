@@ -253,6 +253,16 @@ export async function notifyCustomerPaymentConfirmed(payload: PaymentConfirmedPa
 export async function notifyCustomerOrderStatusChanged(payload: OrderStatusChangedPayload) {
   const preference = await resolveCustomerWhatsappPreference(payload.restaurantId);
   if (!preference.enabled) return { sent: false, reason: preference.reason };
+
+  // O cliente já iniciou a conversa com a mensagem configurada pelo restaurante e a
+  // confirmação de pagamento cobre o começo do pedido. Suprimir PENDENTE evita excesso
+  // de notificações e limita um delivery normal a no máximo cinco avisos automáticos:
+  // pagamento, preparo, pronto, saiu para entrega e conclusão/cancelamento.
+  const normalizedStatus = String(payload.status || '').trim().toUpperCase();
+  if (normalizedStatus === 'PENDENTE') {
+    return { sent: false, reason: 'initial_status_suppressed' } as const;
+  }
+
   const provider = resolveProvider();
   if (provider === 'none') return { sent: false, reason: 'provider_not_configured' };
   if (!['whatsapp_webhook', 'gupshup'].includes(provider)) {

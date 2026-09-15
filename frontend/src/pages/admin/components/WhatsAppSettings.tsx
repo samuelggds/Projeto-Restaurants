@@ -37,10 +37,7 @@ const Panel = styled(S.SettingSection)`
     align-items: center;
   }
 
-  .wa-header {
-    justify-content: space-between;
-    gap: 18px;
-  }
+  .wa-header { justify-content: space-between; gap: 18px; }
   .wa-title { gap: 13px; }
   .wa-title > span {
     width: 50px;
@@ -246,6 +243,10 @@ const Panel = styled(S.SettingSection)`
     gap: 9px;
     align-items: start;
   }
+  .chat-message.customer { grid-template-columns: minmax(0, 1fr); padding-left: 44px; }
+  .chat-message.customer .message-content { justify-self: end; max-width: 92%; }
+  .chat-message.customer .message-content > b { color: #706a65; text-align: right; }
+  .chat-message.customer .bubble { background: #dcf8c6; border-radius: 11px 4px 11px 11px; }
   .chat-avatar { width: 36px; height: 36px; padding: 7px; }
   .chat-avatar.custom { padding: 0; }
   .message-content > b {
@@ -341,6 +342,7 @@ export function WhatsAppSettings({ settings, update }: Props) {
   const exampleTotal = 'R$ 89,90';
   const trackingUrl = `${baseUrl}orders/${exampleOrderId}/tracking#guestToken=token-seguro-exemplo`;
   const confirmationUrl = `${baseUrl}orders/${exampleOrderId}/tracking?confirm=1#guestToken=token-seguro-exemplo`;
+  const initialMessage = String(settings.whatsappDefaultMessage || '').trim() || 'Olá! 👋 Gostaria de fazer um pedido.';
 
   const chooseImage = (file?: File) => {
     if (!file) return;
@@ -444,28 +446,28 @@ export function WhatsAppSettings({ settings, update }: Props) {
           <section className="card">
             <header className="card-heading">
               <span className="step">3</span>
-              <div><h3>Mensagens automáticas</h3><p>Defina a mensagem inicial e ative as atualizações do andamento do pedido.</p></div>
+              <div><h3>Mensagens automáticas</h3><p>Defina a mensagem inicial e mantenha o cliente informado sem excesso de avisos.</p></div>
             </header>
             <S.Field className="greeting">
               Mensagem inicial do atendimento
               <textarea name="whatsappDefaultMessage" maxLength={500} placeholder="Olá! 👋 Gostaria de fazer um pedido." value={settings.whatsappDefaultMessage} onChange={(event) => update('whatsappDefaultMessage', event.target.value)} />
-              <small className="help">Texto preenchido quando o cliente abre uma conversa com o restaurante. Não é uma atualização automática de pedido. {settings.whatsappDefaultMessage.length}/500 caracteres.</small>
+              <small className="help">Este é exatamente o texto preenchido no WhatsApp quando o cliente abre a conversa pelo site. A prévia ao lado muda enquanto você digita. {settings.whatsappDefaultMessage.length}/500 caracteres.</small>
             </S.Field>
 
             <div className="automation-list">
               <label className="automation-row master">
                 <span className="automation-icon"><MessageCircle size={16} /></span>
-                <span className="automation-copy"><b>Atualizações automáticas do pedido</b><span>Ative para enviar mudanças reais de status quando a conexão do WhatsApp estiver configurada.</span></span>
+                <span className="automation-copy"><b>Atualizações automáticas do pedido</b><span>Na produção, um pedido recebe no máximo 5 avisos automáticos: pagamento, preparo, pronto, entrega e conclusão/cancelamento.</span></span>
                 <input className="switch" name="receiveStatusNotifications" type="checkbox" role="switch" checked={statusEnabled} disabled={!enabled} onChange={(event) => update('receiveStatusNotifications', event.target.checked)} />
               </label>
               <div className="automation-row">
                 <span className="automation-icon"><CheckCircle2 size={16} /></span>
-                <span className="automation-copy"><b>Pedido e pagamento confirmados</b><span>Confirma o pedido e, quando aplicável, o pagamento recebido.</span></span>
+                <span className="automation-copy"><b>Pagamento confirmado</b><span>Confirma o pagamento quando houver confirmação eletrônica.</span></span>
                 <span className="badge">AUTOMÁTICO</span>
               </div>
               <div className="automation-row">
                 <span className="automation-icon"><CheckCircle2 size={16} /></span>
-                <span className="automation-copy"><b>Em preparo / pronto</b><span>Informa ao cliente cada avanço operacional do pedido.</span></span>
+                <span className="automation-copy"><b>Em preparo / pronto</b><span>Informa os dois avanços importantes da cozinha.</span></span>
                 <span className="badge">AUTOMÁTICO</span>
               </div>
               <div className="automation-row">
@@ -475,7 +477,7 @@ export function WhatsAppSettings({ settings, update }: Props) {
               </div>
               <div className="automation-row">
                 <span className="automation-icon"><PackageCheck size={16} /></span>
-                <span className="automation-copy"><b>Entregue / cancelado</b><span>Envia a confirmação segura de recebimento ou informa o cancelamento.</span></span>
+                <span className="automation-copy"><b>Entregue / cancelado</b><span>Fecha o fluxo com confirmação de entrega ou aviso de cancelamento.</span></span>
                 <span className="badge">AUTOMÁTICO</span>
               </div>
             </div>
@@ -485,24 +487,21 @@ export function WhatsAppSettings({ settings, update }: Props) {
         <aside className="preview-card">
           <header className="preview-heading">
             <span><MessageCircle size={16} /></span>
-            <div><h3>Mensagens reais do fluxo</h3><p>Exemplos com o mesmo texto usado nas notificações automáticas.</p></div>
+            <div><h3>Prévia do fluxo enxuto</h3><p>A primeira bolha usa sua mensagem inicial; depois aparecem apenas os principais avisos reais.</p></div>
           </header>
           <div className="preview-note">
             <Info size={14} />
-            <span>Cliente, pedido #{exampleOrderId}, {exampleTotal} e os links abaixo são dados fictícios. Em produção entram os dados reais e um token seguro do pedido.</span>
+            <span>Pedido #{exampleOrderId}, {exampleTotal} e os links são fictícios. Em produção entram os dados reais e tokens seguros. O aviso PENDENTE não é mais enviado automaticamente.</span>
           </div>
           <div className="chat-preview">
-            <PreviewMessage avatar={avatar} custom={Boolean(profileImage)} name={displayName}>
-              Oi, {exampleCustomerName}! ✅ Recebemos seu pedido #{exampleOrderId} no {displayName}. Em breve ele seguirá para o preparo.
-            </PreviewMessage>
+            <div className="chat-message customer">
+              <div className="message-content"><b>{exampleCustomerName}</b><div className="bubble">{initialMessage}</div></div>
+            </div>
             <PreviewMessage avatar={avatar} custom={Boolean(profileImage)} name={displayName}>
               Oi, {exampleCustomerName}! ✅ Seu pagamento via PIX foi confirmado.<br />Pedido #{exampleOrderId} no {displayName}.<br />Total: {exampleTotal}.<br />Agora é só aguardar o preparo.
             </PreviewMessage>
             <PreviewMessage avatar={avatar} custom={Boolean(profileImage)} name={displayName}>
-              Oi, {exampleCustomerName}! 👨‍🍳 Seu pedido #{exampleOrderId} no {displayName} já está em preparo.
-            </PreviewMessage>
-            <PreviewMessage avatar={avatar} custom={Boolean(profileImage)} name={displayName}>
-              Oi, {exampleCustomerName}! ✅ Seu pedido #{exampleOrderId} está pronto. Estamos preparando a próxima etapa.
+              Oi, {exampleCustomerName}! 👨‍🍳 Seu pedido #{exampleOrderId} no {displayName} já está em preparo. Quando ficar pronto, você recebe o próximo aviso.
             </PreviewMessage>
             <PreviewMessage avatar={avatar} custom={Boolean(profileImage)} name={displayName}>
               Oi, {exampleCustomerName}! 🛵 Seu pedido #{exampleOrderId} saiu para entrega.<br />Acompanhe em tempo real: <a href={trackingUrl}>{trackingUrl}</a>
@@ -510,11 +509,8 @@ export function WhatsAppSettings({ settings, update }: Props) {
             <PreviewMessage avatar={avatar} custom={Boolean(profileImage)} name={displayName}>
               Oi, {exampleCustomerName}! 📦 O pedido #{exampleOrderId} foi marcado como entregue.<br />Confirme o recebimento com segurança: <a href={confirmationUrl}>{confirmationUrl}</a><br />Obrigado por pedir no {displayName}!
             </PreviewMessage>
-            <PreviewMessage avatar={avatar} custom={Boolean(profileImage)} name={displayName}>
-              Oi, {exampleCustomerName}. O pedido #{exampleOrderId} no {displayName} foi cancelado. Se precisar de ajuda, fale com o restaurante.
-            </PreviewMessage>
           </div>
-          <div className="tip"><Info size={14} /><span>Esta área é apenas uma prévia. O envio real usa o número, pedido, status, pagamento e links seguros gerados pelo backend.</span></div>
+          <div className="tip"><Info size={14} /><span>O cliente vê no máximo 5 avisos automáticos durante o pedido. A mensagem inicial acima é iniciada pelo próprio cliente e usa a configuração salva nesta tela.</span></div>
         </aside>
       </div>
     </Panel>

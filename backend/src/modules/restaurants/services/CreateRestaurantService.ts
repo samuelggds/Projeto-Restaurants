@@ -54,9 +54,6 @@ async function persistRestaurantCategory(
     $executeRawUnsafe?: (query: string, ...values: unknown[]) => Promise<number>;
   }).$executeRawUnsafe;
 
-  // Alguns testes unitários usam um transaction double mínimo. Em produção o
-  // Prisma TransactionClient sempre fornece $executeRawUnsafe; os parâmetros
-  // continuam bindados e a categoria já passou pelo enum do Zod.
   if (typeof executeRawUnsafe !== 'function') return;
 
   await executeRawUnsafe.call(
@@ -84,52 +81,27 @@ export class CreateRestaurantService {
     const parsedRestaurant = parsedPayload.restaurant;
     const parsedAdmin = parsedPayload.admin;
 
-    // A senha fornecida é temporária porque o administrador deverá trocá-la
-    // no primeiro acesso, mas ainda precisa cumprir a política forte desde já.
     validateTemporaryAdministratorPassword(parsedAdmin.password);
 
     const restaurantExists = await restaurantRepository.findByEmail(parsedRestaurant.email);
-
-    if (restaurantExists) {
-      throw new Error('Já existe um restaurante com esse e-mail.');
-    }
+    if (restaurantExists) throw new Error('Já existe um restaurante com esse e-mail.');
 
     const slugExists = await restaurantRepository.findBySlug(parsedRestaurant.slug);
-
-    if (slugExists) {
-      throw new Error('Esse slug já existe. Escolha outro.');
-    }
+    if (slugExists) throw new Error('Esse slug já existe. Escolha outro.');
 
     const userExists = await userRepository.findByEmail(parsedAdmin.email);
+    if (userExists) throw new Error('Já existe um admin com esse e-mail.');
 
-    if (userExists) {
-      throw new Error('Já existe um admin com esse e-mail.');
-    }
-
-    // O hash é calculado antes da transação para não manter uma conexão e locks
-    // do banco ocupados durante uma operação intencionalmente custosa.
     const passwordHash = await bcrypt.hash(parsedAdmin.password, 12);
 
     return prisma.$transaction(async (tx) => {
       const selectedPlan = await platformPlanCatalogService.getByCode(
         parsedPayload.plan as PlanType,
-        {
-          activeOnly: true,
-          db: tx,
-        },
+        { activeOnly: true, db: tx },
       );
-      const requiredName = requireDefined(
-        parsedRestaurant.name,
-        'Nome do restaurante é obrigatório.',
-      );
-      const requiredSlug = requireDefined(
-        parsedRestaurant.slug,
-        'Slug do restaurante é obrigatório.',
-      );
-      const requiredEmail = requireDefined(
-        parsedRestaurant.email,
-        'Email do restaurante é obrigatório.',
-      );
+      const requiredName = requireDefined(parsedRestaurant.name, 'Nome do restaurante é obrigatório.');
+      const requiredSlug = requireDefined(parsedRestaurant.slug, 'Slug do restaurante é obrigatório.');
+      const requiredEmail = requireDefined(parsedRestaurant.email, 'Email do restaurante é obrigatório.');
       const { category, ...restaurantFields } = parsedRestaurant;
 
       const restaurantCreateData: Prisma.RestaurantUncheckedCreateInput = {
@@ -150,6 +122,7 @@ export class CreateRestaurantService {
           role: UserRole.ADMIN,
           active: true,
           mustChangePassword: true,
+          mfaEnabled: true,
           restaurantId: createdRestaurant.id,
         },
         tx,
@@ -170,9 +143,6 @@ export class CreateRestaurantService {
         tx,
       );
 
-      // O log participa da mesma transação: se ele falhar, restaurante,
-      // administrador e assinatura também são revertidos. Nenhum ator é
-      // fabricado quando o caller não fornece um contexto autenticado válido.
       if (isValidAuditActor(actor)) {
         const persistedActor = await tx.user.findUnique({
           where: { id: actor.userId },
