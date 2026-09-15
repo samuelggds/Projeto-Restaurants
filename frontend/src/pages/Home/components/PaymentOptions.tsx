@@ -155,16 +155,14 @@ export function PaymentOptions({
   const [savedCards, setSavedCards] = useState<CustomerPaymentMethod[]>([]);
   const [selectedCardId, setSelectedCardId] = useState('');
   const [showCardAccountNotice, setShowCardAccountNotice] = useState(false);
-  const [whatsappOrderOptIn, setWhatsappOrderOptIn] = useState(() =>
-    readWhatsappOrderOptIn(restaurantId),
-  );
+  const [whatsappOptInOverrides, setWhatsappOptInOverrides] = useState<Record<number, boolean>>({});
+  const whatsappOrderOptIn = restaurantId
+    ? (whatsappOptInOverrides[restaurantId] ?? readWhatsappOrderOptIn(restaurantId))
+    : false;
   const handlePaymentChange = (method: CheckoutPaymentMethod) => {
     onChange(method);
     setShowCardAccountNotice(shouldShowSavedCardAccountNotice(loggedIn, method));
   };
-  useEffect(() => {
-    setWhatsappOrderOptIn(readWhatsappOrderOptIn(restaurantId));
-  }, [restaurantId]);
   useEffect(() => {
     if (!loggedIn || !restaurantId || paymentMethod !== 'card') return;
     let active = true;
@@ -222,7 +220,10 @@ export function PaymentOptions({
                 checked={whatsappOrderOptIn}
                 onChange={(event) => {
                   const optedIn = event.target.checked;
-                  setWhatsappOrderOptIn(optedIn);
+                  setWhatsappOptInOverrides((current) => ({
+                    ...current,
+                    [restaurantId]: optedIn,
+                  }));
                   writeWhatsappOrderOptIn(restaurantId, optedIn);
                 }}
               />{' '}
