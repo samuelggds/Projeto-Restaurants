@@ -10,7 +10,9 @@ function safeTokenEquals(expected: string, received: string) {
 
 class GupshupInboundWebhookController {
   async handle(req: Request, res: Response) {
-    const configuredToken = String(process.env.GUPSHUP_INBOUND_WEBHOOK_TOKEN || '').trim();
+    const configuredToken = String(
+      process.env.GUPSHUP_INBOUND_WEBHOOK_TOKEN || process.env.WHATSAPP_WEBHOOK_TOKEN || '',
+    ).trim();
     if (process.env.NODE_ENV === 'production' && !configuredToken) {
       return res.status(503).json({ error: 'Webhook do WhatsApp ainda não configurado.' });
     }
