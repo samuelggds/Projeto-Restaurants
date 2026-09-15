@@ -18,11 +18,13 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: false
-      - name: Reject destructive changed migrations from the automatic deploy path
+      - name: Reject tampering with approved migration history and destructive new migrations
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
         run: node scripts/checkMigrationCompatibility.mjs "$BASE_SHA" "$GITHUB_SHA"
-      - name: Exercise migration failure and readiness rollback controller paths
+      - name: Exercise migration history modification deletion rename and valid addition
+        run: bash scripts/test-migration-history-policy.sh
+      - name: Exercise deployment migration failure and rollback controller paths
         run: bash scripts/test-deploy-production-controller.sh
 
   migration-compatibility-validation:
@@ -31,7 +33,7 @@ jobs:
     needs: [expand-contract]
     runs-on: ubuntu-latest
     steps:
-      - name: Require expand-contract policy and deploy failure drills to pass
+      - name: Require migration history policy and deploy failure drills to pass
         env:
           RESULT: ${{ needs.expand-contract.result }}
         run: |
