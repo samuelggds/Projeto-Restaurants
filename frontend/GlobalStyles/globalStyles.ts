@@ -38,8 +38,8 @@ export const GlobalStyles = createGlobalStyle`
 
   /*
    * Cabeçalho compacto da GastroNexa nos sidebars operacionais.
-   * `Gastro` usa a cor de texto do próprio sidebar (branco no escuro,
-   * preto no claro) e `Nexa` permanece laranja.
+   * Gastro usa a cor de texto do próprio sidebar (branco no escuro,
+   * preto no claro) e Nexa permanece laranja.
    */
   :is(
       aside[aria-label="Menu administrativo"],
