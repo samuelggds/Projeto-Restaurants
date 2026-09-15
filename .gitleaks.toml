@@ -1,0 +1,5 @@
+[extend]
+useDefault = true
+
+# Historical exceptions are exact fingerprints only. Broad path, test-directory,
+# .env, or history exclusions are intentionally prohibited.

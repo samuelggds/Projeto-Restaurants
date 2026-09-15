@@ -210,7 +210,6 @@ export function HomePage({
           </S.HeroStage>
         )}
 
-        {/* InfoBar: only shows fields that have real backend data */}
         {(data.minimumOrder > 0 || (data.acceptsDelivery && data.freeDeliveryFrom > 0)) && (
           <S.InfoBar>
             {data.minimumOrder > 0 && (
@@ -292,35 +291,33 @@ export function HomePage({
               {selectedCategory === 'todos' ? 'Todos os produtos' : activeCategoryName}
             </S.SectionTitle>
             {selectedCategory === 'todos' ? (
-              <>
-                <S.ProductCategoryGroups>
-                  {data.categories
-                    .filter((category) => category.id !== 'todos')
-                    .map((category) => {
-                      const categoryProducts = products.filter(
-                        (product) => product.categoryId === category.id,
-                      );
-                      if (!categoryProducts.length) return null;
-                      return (
-                        <S.ProductCategoryGroup key={category.id}>
-                          <h3>{category.name}</h3>
-                          <S.ProductGrid>
-                            {categoryProducts.map((product) => (
-                              <HomeProductCard
-                                key={product.id}
-                                product={product}
-                                orderingLocked={orderingLocked}
-                                favorite={favoriteIds.has(product.id)}
-                                onOpen={openProductDetails}
-                                onToggleFavorite={handleToggleFavorite}
-                              />
-                            ))}
-                          </S.ProductGrid>
-                        </S.ProductCategoryGroup>
-                      );
-                    })}
-                </S.ProductCategoryGroups>
-              </>
+              <S.ProductCategoryGroups>
+                {data.categories
+                  .filter((category) => category.id !== 'todos')
+                  .map((category) => {
+                    const categoryProducts = products.filter(
+                      (product) => product.categoryId === category.id,
+                    );
+                    if (!categoryProducts.length) return null;
+                    return (
+                      <S.ProductCategoryGroup key={category.id}>
+                        <h3>{category.name}</h3>
+                        <S.ProductGrid>
+                          {categoryProducts.map((product) => (
+                            <HomeProductCard
+                              key={product.id}
+                              product={product}
+                              orderingLocked={orderingLocked}
+                              favorite={favoriteIds.has(product.id)}
+                              onOpen={openProductDetails}
+                              onToggleFavorite={handleToggleFavorite}
+                            />
+                          ))}
+                        </S.ProductGrid>
+                      </S.ProductCategoryGroup>
+                    );
+                  })}
+              </S.ProductCategoryGroups>
             ) : (
               <S.ProductGrid key={selectedCategory}>
                 {products.map((product) => (
@@ -432,8 +429,23 @@ export function HomePage({
             © {new Date().getFullYear()} {data.brand.name || 'Restaurante'}. Todos os direitos
             reservados.
           </span>
-          <span>
-            Desenvolvido por <strong>SG Websites</strong>
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+            Desenvolvido por
+            <strong
+              aria-label="GastroNexa"
+              style={{ display: 'inline-flex', alignItems: 'center', color: '#ffffff', fontWeight: 800 }}
+            >
+              <img
+                src="/gastronexa-logo.svg"
+                alt=""
+                aria-hidden="true"
+                width={18}
+                height={18}
+                style={{ width: 18, height: 18, marginRight: 5, filter: 'brightness(0) invert(1)' }}
+              />
+              <span style={{ color: '#ffffff' }}>Gastro</span>
+              <span style={{ color: '#f26a21' }}>Nexa</span>
+            </strong>
           </span>
         </S.FooterBottom>
       </S.Footer>
