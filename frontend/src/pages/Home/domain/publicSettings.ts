@@ -4,7 +4,6 @@ export type HomeFontFamily = 'Inter' | 'Manrope' | 'DM Sans';
 export type HomeSocialNetwork = 'instagram' | 'facebook' | 'tiktok' | 'youtube';
 
 const HOME_FONT_FAMILIES = new Set<HomeFontFamily>(['Inter', 'Manrope', 'DM Sans']);
-const PUBLIC_STORE_ORIGIN = 'https://www.gastronexa.com.br';
 
 export function normalizeHomeFontFamily(value: unknown): HomeFontFamily {
   const normalized = String(value || '').trim() as HomeFontFamily;
@@ -55,52 +54,10 @@ export function getAvailablePaymentMethods({
   return methods;
 }
 
-function normalizeRestaurantSlug(value: unknown) {
-  return String(value || '')
-    .trim()
-    .toLowerCase()
-    .replace(/^\/+|\/+$/gu, '');
-}
-
-function currentPublicRestaurantSlug() {
-  if (typeof window === 'undefined') return '';
-  const firstSegment = window.location.pathname.split('/').filter(Boolean)[0] || '';
-  const normalized = normalizeRestaurantSlug(firstSegment);
-  if (!normalized) return '';
-  const reserved = new Set([
-    'admin',
-    'super-admin',
-    'login',
-    'register',
-    'recover-password',
-    'change-password',
-    'billing',
-    'system-maintenance',
-    'demo',
-  ]);
-  return reserved.has(normalized) ? '' : normalized;
-}
-
-export function buildRestaurantStoreUrl(restaurantSlug?: string) {
-  const normalizedSlug = normalizeRestaurantSlug(restaurantSlug || currentPublicRestaurantSlug());
-  return normalizedSlug ? `${PUBLIC_STORE_ORIGIN}/${normalizedSlug}` : '';
-}
-
-export function appendRestaurantStoreLink(message: string | undefined, restaurantSlug?: string) {
-  const normalizedMessage = String(message || '').trim();
-  const storeUrl = buildRestaurantStoreUrl(restaurantSlug);
-  if (!storeUrl) return normalizedMessage;
-  return normalizedMessage ? `${normalizedMessage}\n\n${storeUrl}` : storeUrl;
-}
-
-export function buildWhatsAppUrl(
-  number: string | undefined,
-  message?: string,
-  restaurantSlug?: string,
-) {
+export function buildWhatsAppUrl(number: string | undefined, message?: string) {
   const digits = String(number || '').replace(/\D/g, '');
   if (digits.length < 10 || digits.length > 13) return '';
-  const normalizedMessage = appendRestaurantStoreLink(message, restaurantSlug);
+  const normalizedMessage = String(message || '').trim();
   return `https://wa.me/${digits}${
     normalizedMessage ? `?text=${encodeURIComponent(normalizedMessage)}` : ''
   }`;
