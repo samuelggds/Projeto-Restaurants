@@ -89,6 +89,11 @@ class UpdateRestaurantSettingsController {
         maxConcurrentOrders,
       } = req.body;
 
+      // `whatsapp` é o número comercial canônico do restaurante. ownerPhone é
+      // mantido somente por compatibilidade com integrações/KYB antigas e recebe
+      // o mesmo valor sempre que o contato comercial é alterado.
+      const canonicalCommercialNumber = whatsapp !== undefined ? whatsapp : ownerPhone;
+
       const settings = await updateRestaurantSettingsService.execute({
         restaurantId,
         deliveryFee,
@@ -115,7 +120,7 @@ class UpdateRestaurantSettingsController {
         ownerCpf,
         ownerBirthDate,
         ownerEmail,
-        ownerPhone,
+        ownerPhone: canonicalCommercialNumber,
         ownerAddress,
         bankName,
         bankCode,
@@ -136,7 +141,7 @@ class UpdateRestaurantSettingsController {
         ownerDocumentFileUrl,
         bankProofFileUrl,
         companyContractFileUrl,
-        whatsapp,
+        whatsapp: canonicalCommercialNumber,
         whatsappEnabled,
         whatsappDisplayName,
         whatsappDefaultMessage,
