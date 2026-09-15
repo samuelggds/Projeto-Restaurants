@@ -8,10 +8,12 @@ import {
 } from './customerNotifier.js';
 
 const originalFindUnique = prisma.restaurantSettings.findUnique;
+const originalAuditFindFirst = prisma.auditLog.findFirst;
 const originalConsoleError = console.error;
 
 afterEach(() => {
   prisma.restaurantSettings.findUnique = originalFindUnique;
+  prisma.auditLog.findFirst = originalAuditFindFirst;
   console.error = originalConsoleError;
 });
 
@@ -27,10 +29,12 @@ test('não envia confirmação nem mudança de status quando o restaurante desat
 
   const confirmation = await notifyCustomerPaymentConfirmed({
     restaurantId: 41,
+    orderId: 100,
     customerPhone: '85999999999',
   });
   const status = await notifyCustomerOrderStatusChanged({
     restaurantId: 41,
+    orderId: 100,
     customerPhone: '85999999999',
   });
 
@@ -56,6 +60,7 @@ test('respeita o desligamento geral do WhatsApp do mesmo restaurante', async () 
 
   const result = await notifyCustomerOrderStatusChanged({
     restaurantId: 72,
+    orderId: 101,
     customerPhone: '85999999999',
   });
 
@@ -65,17 +70,44 @@ test('respeita o desligamento geral do WhatsApp do mesmo restaurante', async () 
   });
 });
 
-test('mantém compatibilidade quando mocks antigos não possuem os novos campos', async () => {
-  prisma.restaurantSettings.findUnique = async ({ where }) => {
-    assert.equal(where.restaurantId, 9);
-    return { restaurantId: 9 };
+test('bloqueia avisos automáticos quando o pedido não possui opt-in do cliente', async () => {
+  prisma.restaurantSettings.findUnique = async () => ({
+    whatsappEnabled: true,
+    receiveStatusNotifications: true,
+  });
+  prisma.auditLog.findFirst = async ({ where }) => {
+    assert.equal(where.restaurantId, 91);
+    assert.equal(where.action, 'WHATSAPP_ORDER_NOTIFICATIONS_OPT_IN');
+    assert.equal(where.resource, 'Order:501');
+    return null;
   };
 
   const result = await notifyCustomerPaymentConfirmed({
+    restaurantId: 91,
+    orderId: 501,
+    customerPhone: '85999999999',
+  });
+
+  assert.deepEqual(result, {
+    sent: false,
+    reason: 'customer_whatsapp_opt_in_missing',
+  });
+});
+
+test('com opt-in válido segue para a resolução do provedor', async () => {
+  prisma.restaurantSettings.findUnique = async () => ({
+    whatsappEnabled: true,
+    receiveStatusNotifications: true,
+  });
+  prisma.auditLog.findFirst = async () => ({ id: 77 });
+
+  const result = await notifyCustomerPaymentConfirmed({
     restaurantId: 9,
+    orderId: 502,
     customerPhone: null,
   });
 
+  assert.notEqual(result.reason, 'customer_whatsapp_opt_in_missing');
   assert.notEqual(result.reason, 'whatsapp_disabled');
   assert.notEqual(result.reason, 'status_notifications_disabled');
 });
@@ -89,6 +121,7 @@ test('não consulta outro tenant e bloqueia quando não há configurações para
 
   const result = await notifyCustomerOrderStatusChanged({
     restaurantId: 18,
+    orderId: 503,
     customerPhone: '85999999999',
   });
 
@@ -108,6 +141,7 @@ test('falha fechada, registra o erro técnico somente no servidor e retorna moti
 
   const result = await notifyCustomerPaymentConfirmed({
     restaurantId: 27,
+    orderId: 504,
     customerPhone: '85999999999',
   });
 
@@ -121,15 +155,24 @@ test('falha fechada, registra o erro técnico somente no servidor e retorna moti
   assert.match(JSON.stringify(logs[0]), /Error/);
 });
 
-test('payload legado sem restaurantId não dispara consulta global ou cruzada', async () => {
-  let wasCalled = false;
+test('payload legado sem restaurantId falha fechado para consentimento sem consulta cruzada', async () => {
+  let settingsCalled = false;
+  let auditCalled = false;
   prisma.restaurantSettings.findUnique = async () => {
-    wasCalled = true;
+    settingsCalled = true;
+    return null;
+  };
+  prisma.auditLog.findFirst = async () => {
+    auditCalled = true;
     return null;
   };
 
   const result = await notifyCustomerOrderStatusChanged({ customerPhone: null });
 
-  assert.equal(wasCalled, false);
-  assert.notEqual(result.reason, 'restaurant_settings_not_found');
+  assert.equal(settingsCalled, false);
+  assert.equal(auditCalled, false);
+  assert.deepEqual(result, {
+    sent: false,
+    reason: 'customer_whatsapp_opt_in_missing',
+  });
 });
