@@ -11,6 +11,41 @@ function formatMoney(value: number) {
   return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value || 0);
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
+}
+
+function hasNumber(record: Record<string, unknown>, key: string) {
+  return typeof record[key] === 'number' && Number.isFinite(record[key]);
+}
+
+function isManagementSummary(value: unknown): value is RestaurantManagementSummary {
+  if (!isRecord(value) || !isRecord(value.period) || !isRecord(value.sales)) return false;
+  if (typeof value.period.start !== 'string' || typeof value.period.end !== 'string') return false;
+  if (typeof value.dataUpdatedAt !== 'string' || typeof value.timeZone !== 'string') return false;
+  if (!Array.isArray(value.priorities)) return false;
+
+  const sales = value.sales;
+  const registered = sales.registered;
+  const confirmedPayments = sales.confirmedPayments;
+  const cancellations = sales.cancellations;
+  const refunds = sales.refunds;
+
+  if (
+    !isRecord(registered) ||
+    !isRecord(confirmedPayments) ||
+    !isRecord(cancellations) ||
+    !isRecord(refunds)
+  ) return false;
+
+  return (
+    hasNumber(registered, 'total') &&
+    hasNumber(confirmedPayments, 'total') &&
+    hasNumber(cancellations, 'count') &&
+    hasNumber(refunds, 'count')
+  );
+}
+
 export function AdminOverviewAiSummary({ onNavigate }: Props) {
   const [summary, setSummary] = useState<RestaurantManagementSummary | null>(null);
   const [error, setError] = useState('');
@@ -20,11 +55,17 @@ export function AdminOverviewAiSummary({ onNavigate }: Props) {
     aiGuideService.getManagementSummary()
       .then((data) => {
         if (!active) return;
+        if (!isManagementSummary(data)) {
+          setSummary(null);
+          setError('Resumo gerencial indisponível. Os indicadores tradicionais continuam funcionando.');
+          return;
+        }
         setSummary(data);
         setError('');
       })
       .catch(() => {
         if (!active) return;
+        setSummary(null);
         setError('Resumo gerencial indisponível. Os indicadores tradicionais continuam funcionando.');
       });
     return () => { active = false; };
