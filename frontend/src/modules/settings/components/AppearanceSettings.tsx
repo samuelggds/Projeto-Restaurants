@@ -30,7 +30,7 @@ export function AppearanceSettings({ settings, onChange }: Props) {
           </S.BrandInfo>
         </S.BrandPreview>
         <S.Grid>
-          <Field label="URL do logo" hint="No backend, conecte ao upload de imagens.">
+          <Field label="URL do logo" hint="Informe o endereço da imagem usada como logo.">
             <FormInput
               value={settings.logoUrl}
               placeholder="https://..."
