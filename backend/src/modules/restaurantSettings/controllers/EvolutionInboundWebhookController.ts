@@ -6,7 +6,7 @@ class EvolutionInboundWebhookController {
     try {
       const result = await processTenantEvolutionInbound(
         req.params.instanceName,
-        req.query.token,
+        req.get('x-gastronexa-webhook-token'),
         req.body,
       );
       if (!result.accepted) return res.status(result.status).json({ ok: false });
