@@ -1,6 +1,8 @@
 import api from './api';
 import { inferAdminAiArea } from '../utils/adminAiArea';
 
+const AI_REQUEST_TIMEOUT_MS = 70_000;
+
 export type AiCreditBalance = {
   provider: 'OPENAI';
   currency: 'USD';
@@ -243,7 +245,7 @@ const aiGuideService = {
   },
 
   async createGuide(question: string) {
-    const response = await api.post('/ai-support/guide', { question });
+    const response = await api.post('/ai-support/guide', { question }, { timeout: AI_REQUEST_TIMEOUT_MS });
     return response.data as { guide: AiGuide; credits: AiCreditBalance };
   },
 
@@ -260,7 +262,11 @@ const aiGuideService = {
   },
 
   async askRestaurant(question: string, area = inferAdminAiArea()) {
-    const response = await api.post('/ai-support/restaurant/ask', { question, area });
+    const response = await api.post(
+      '/ai-support/restaurant/ask',
+      { question, area },
+      { timeout: AI_REQUEST_TIMEOUT_MS },
+    );
     return response.data as RestaurantAssistantAskResult;
   },
 
@@ -290,7 +296,11 @@ const aiGuideService = {
   },
 
   async createSupportDraft(orderId: number) {
-    const response = await api.post(`/ai-support/restaurant/orders/${orderId}/support-draft`);
+    const response = await api.post(
+      `/ai-support/restaurant/orders/${orderId}/support-draft`,
+      undefined,
+      { timeout: AI_REQUEST_TIMEOUT_MS },
+    );
     return response.data as {
       orderId: number;
       summary: string;

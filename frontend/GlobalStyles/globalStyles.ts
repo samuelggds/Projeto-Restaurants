@@ -36,6 +36,44 @@ export const GlobalStyles = createGlobalStyle`
     cursor: not-allowed;
   }
 
+  /*
+   * Cabeçalho compacto da GastroNexa nos sidebars operacionais.
+   * Gastro usa a cor de texto do próprio sidebar (branco no escuro,
+   * preto no claro) e Nexa permanece laranja.
+   */
+  :is(
+      aside[aria-label="Menu administrativo"],
+      aside:has(nav[aria-label="Navegação do atendente"]),
+      aside:has(nav[aria-label="Navegação da cozinha"]),
+      aside:has(nav[aria-label="Navegação do garçom"]),
+      aside:has(nav[aria-label="Navegação do motoqueiro"])
+    )::before {
+    content: 'GastroNexa';
+    flex: 0 0 auto;
+    min-height: 38px;
+    margin: 0 8px 12px;
+    padding: 0 0 10px 38px;
+    display: flex;
+    align-items: center;
+    background:
+      url('/gastronexa-logo.svg') 2px 1px / 27px 25px no-repeat,
+      linear-gradient(90deg, currentColor 0 52%, #e9530b 52% 100%) 38px 0 /
+        92px 28px no-repeat;
+    background-clip: border-box, text;
+    -webkit-background-clip: border-box, text;
+    -webkit-text-fill-color: transparent;
+    font-family: 'Sora', 'Plus Jakarta Sans', sans-serif;
+    font-size: 15px;
+    font-weight: 800;
+    letter-spacing: -0.35px;
+    line-height: 1;
+  }
+
+  /* A proteção continua obrigatória no backend; o ADMIN não precisa ver a nota interna. */
+  .thresholds + .security-note {
+    display: none !important;
+  }
+
   .Toastify__toast {
     min-height: 64px;
     border: 1px solid rgba(255, 255, 255, 0.1);
@@ -124,6 +162,12 @@ export const GlobalStyles = createGlobalStyle`
     to {
       opacity: 1;
       transform: none;
+    }
+  }
+
+  @media (max-width: 900px) {
+    aside:has(nav[aria-label="Navegação do atendente"])::before {
+      display: none;
     }
   }
 
