@@ -36,6 +36,26 @@ router.post('/guide', authMiddleware, adminMiddleware, (req, res) => {
   AdminAiGuideController.guide(req, res);
 });
 
+// Assistente gerencial: sempre deriva o restaurante da sessão ADMIN autenticada.
+router.get('/restaurant/summary', authMiddleware, adminMiddleware, (req, res) => {
+  AdminAiGuideController.managementSummary(req, res);
+});
+router.post('/restaurant/ask', authMiddleware, adminMiddleware, (req, res) => {
+  AdminAiGuideController.assistant(req, res);
+});
+router.get('/restaurant/actions', authMiddleware, adminMiddleware, (req, res) => {
+  AdminAiGuideController.actions(req, res);
+});
+router.post('/restaurant/actions/:publicId/approve', authMiddleware, adminMiddleware, (req, res) => {
+  AdminAiGuideController.approveAction(req, res);
+});
+router.post('/restaurant/actions/:publicId/cancel', authMiddleware, adminMiddleware, (req, res) => {
+  AdminAiGuideController.cancelAction(req, res);
+});
+router.post('/restaurant/orders/:orderId/support-draft', authMiddleware, adminMiddleware, (req, res) => {
+  AdminAiGuideController.supportDraft(req, res);
+});
+
 router.get('/tickets/all', authMiddleware, superAdminMiddleware, (req, res) => {
   GetAllSupportTicketsController.handle(req, res);
 });
