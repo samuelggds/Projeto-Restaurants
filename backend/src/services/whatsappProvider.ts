@@ -157,6 +157,37 @@ export function resolveGupshupAppName(source: string) {
   );
 }
 
+export function resolveGupshupSourceForAppName(appNameInput: unknown) {
+  const appName = String(appNameInput || '').trim();
+  if (!appName) {
+    throw new WhatsAppProviderConfigurationError(
+      'gupshup_app_missing',
+      'Callback da Gupshup sem identificação do app.',
+    );
+  }
+
+  const matches = Object.entries(parseAppBySourceMap())
+    .filter(([, configuredApp]) => configuredApp === appName)
+    .map(([source]) => source);
+
+  if (matches.length === 1) return matches[0];
+  if (matches.length > 1) {
+    throw new WhatsAppProviderConfigurationError(
+      'gupshup_app_source_ambiguous',
+      'O mesmo app Gupshup está associado a mais de um número de origem.',
+    );
+  }
+
+  const fallbackApp = env('GUPSHUP_APP_NAME');
+  const fallbackSource = digitsOnly(env('GUPSHUP_SOURCE_NUMBER'));
+  if (fallbackApp === appName && /^\d{10,15}$/u.test(fallbackSource)) return fallbackSource;
+
+  throw new WhatsAppProviderConfigurationError(
+    'gupshup_source_not_mapped',
+    'Nenhum número de origem foi mapeado para o app informado pela Gupshup.',
+  );
+}
+
 export function resolveGupshupAutomaticTemplateMode(): GupshupAutomaticTemplateMode {
   const configured = env('GUPSHUP_AUTOMATIC_TEMPLATE_MODE').toLowerCase();
   if (!configured) return 'prefer';
