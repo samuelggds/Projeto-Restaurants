@@ -1,8 +1,10 @@
 name: Auto Production Release
 
+run-name: Auto Production Release | source=${{ github.event.workflow_run.name }} | sha=${{ github.event.workflow_run.head_sha }}
+
 on:
   workflow_run:
-    workflows: [CI]
+    workflows: [CI, Deploy Production]
     types: [completed]
     branches: [main]
 
@@ -16,85 +18,127 @@ concurrency:
 
 jobs:
   promote:
-    name: Promote successful main CI to production release
+    name: Promote or resume the current approved main release
     if: >-
-      github.event.workflow_run.conclusion == 'success' &&
-      github.event.workflow_run.event == 'push' &&
+      vars.PRODUCTION_DEPLOY_ENABLED == 'true' &&
       github.event.workflow_run.head_branch == 'main' &&
-      vars.PRODUCTION_DEPLOY_ENABLED == 'true'
+      (
+        (github.event.workflow_run.name == 'CI' && github.event.workflow_run.event == 'push' && github.event.workflow_run.conclusion == 'success') ||
+        (github.event.workflow_run.name == 'Deploy Production' && github.event.workflow_run.event == 'workflow_dispatch' && (github.event.workflow_run.conclusion == 'failure' || github.event.workflow_run.conclusion == 'cancelled'))
+      )
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - name: Verify successful CI belongs to the current main tip
+      - name: Resolve current release-chain state without rebuilding approved images
         id: target
         env:
           GH_TOKEN: ${{ github.token }}
-          TARGET_SHA: ${{ github.event.workflow_run.head_sha }}
+          SOURCE_WORKFLOW: ${{ github.event.workflow_run.name }}
+          SOURCE_TITLE: ${{ github.event.workflow_run.display_title }}
+          SOURCE_SHA: ${{ github.event.workflow_run.head_sha }}
         shell: bash
         run: |
           set -euo pipefail
-          [[ "$TARGET_SHA" =~ ^[0-9a-f]{40}$ ]]
+
+          target_sha="$SOURCE_SHA"
+          if [ "$SOURCE_WORKFLOW" = 'Deploy Production' ]; then
+            target_sha="$(printf '%s' "$SOURCE_TITLE" | sed -nE 's/.*sha=([0-9a-f]{40}).*/\1/p')"
+            if [[ ! "$target_sha" =~ ^[0-9a-f]{40}$ ]]; then
+              echo 'A failed deploy did not expose a verifiable release SHA in its run name; automatic retry is refused.' >&2
+              exit 1
+            fi
+          fi
+          [[ "$target_sha" =~ ^[0-9a-f]{40}$ ]]
+
           main_sha="$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/heads/main" --jq '.object.sha')"
-          if [ "$TARGET_SHA" != "$main_sha" ]; then
-            echo "promote=false" >> "$GITHUB_OUTPUT"
+          if [ "$target_sha" != "$main_sha" ]; then
+            echo 'action=skip' >> "$GITHUB_OUTPUT"
             {
-              echo '## Automatic production promotion skipped'
+              echo '## Automatic production chain stopped'
               echo
-              echo "CI commit \`${TARGET_SHA}\` is no longer the current main tip (\`${main_sha}\`)."
-              echo 'A newer main CI run will be responsible for production promotion.'
+              echo "Candidate \`${target_sha}\` is no longer the current main tip (\`${main_sha}\`)."
+              echo 'A newer main commit owns production promotion; the old release will not be retried.'
             } >> "$GITHUB_STEP_SUMMARY"
             exit 0
           fi
 
-          existing_success="$(gh api \
-            "repos/${GITHUB_REPOSITORY}/actions/workflows/release-production-images.yml/runs?branch=main&event=workflow_dispatch&status=success&per_page=100" \
-            --jq "[.workflow_runs[] | select(.head_sha == \"${TARGET_SHA}\")] | length")"
-          if [ "$existing_success" -gt 0 ]; then
-            echo "promote=false" >> "$GITHUB_OUTPUT"
+          deploy_runs="$(gh api "repos/${GITHUB_REPOSITORY}/actions/workflows/deploy-production.yml/runs?branch=main&event=workflow_dispatch&per_page=100")"
+          successful_deploys="$(jq --arg sha "$target_sha" '[.workflow_runs[] | select(.display_title | contains("sha=" + $sha)) | select(.conclusion == "success")] | length' <<<"$deploy_runs")"
+          in_flight_deploys="$(jq --arg sha "$target_sha" '[.workflow_runs[] | select(.display_title | contains("sha=" + $sha)) | select(.status == "queued" or .status == "in_progress" or .status == "waiting" or .status == "requested" or .status == "pending")] | length' <<<"$deploy_runs")"
+          failed_deploys="$(jq --arg sha "$target_sha" '[.workflow_runs[] | select(.display_title | contains("sha=" + $sha)) | select(.conclusion == "failure" or .conclusion == "cancelled")] | length' <<<"$deploy_runs")"
+
+          if [ "$successful_deploys" -gt 0 ]; then
+            echo 'action=skip' >> "$GITHUB_OUTPUT"
+            echo "Commit \`${target_sha}\` already has a completed production deploy." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          if [ "$in_flight_deploys" -gt 0 ]; then
+            echo 'action=skip' >> "$GITHUB_OUTPUT"
+            echo "Commit \`${target_sha}\` already has a deploy in progress; duplicate dispatch refused." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          if [ "$failed_deploys" -ge 2 ]; then
+            echo 'action=skip' >> "$GITHUB_OUTPUT"
             {
-              echo '## Automatic production promotion skipped'
+              echo '## Automatic production retry limit reached'
               echo
-              echo "Commit \`${TARGET_SHA}\` already has a successful production image release."
-              echo 'No duplicate release was dispatched.'
+              echo "Commit \`${target_sha}\` has ${failed_deploys} failed/cancelled deploy attempts."
+              echo 'Further retries require explicit operator treatment; configuration, security and migration failures are never retried indefinitely.'
             } >> "$GITHUB_STEP_SUMMARY"
             exit 0
           fi
 
-          in_flight="$(gh api \
-            "repos/${GITHUB_REPOSITORY}/actions/workflows/release-production-images.yml/runs?branch=main&event=workflow_dispatch&per_page=100" \
-            --jq "[.workflow_runs[] | select(.head_sha == \"${TARGET_SHA}\" and (.status == \"queued\" or .status == \"in_progress\" or .status == \"waiting\" or .status == \"requested\" or .status == \"pending\"))] | length")"
-          if [ "$in_flight" -gt 0 ]; then
-            echo "promote=false" >> "$GITHUB_OUTPUT"
-            {
-              echo '## Automatic production promotion skipped'
-              echo
-              echo "Commit \`${TARGET_SHA}\` already has a production release in progress."
-              echo 'No duplicate release was dispatched.'
-            } >> "$GITHUB_STEP_SUMMARY"
-            exit 0
+          release_runs="$(gh api "repos/${GITHUB_REPOSITORY}/actions/workflows/release-production-images.yml/runs?branch=main&event=workflow_dispatch&per_page=100")"
+          release_run_id="$(jq -r --arg sha "$target_sha" '[.workflow_runs[] | select(.head_sha == $sha and .conclusion == "success")] | sort_by(.created_at) | last | .id // empty' <<<"$release_runs")"
+          release_in_flight="$(jq --arg sha "$target_sha" '[.workflow_runs[] | select(.head_sha == $sha) | select(.status == "queued" or .status == "in_progress" or .status == "waiting" or .status == "requested" or .status == "pending")] | length' <<<"$release_runs")"
+
+          echo "sha=$target_sha" >> "$GITHUB_OUTPUT"
+          if [ -n "$release_run_id" ]; then
+            echo 'action=deploy' >> "$GITHUB_OUTPUT"
+            echo "release_run_id=$release_run_id" >> "$GITHUB_OUTPUT"
+          elif [ "$release_in_flight" -gt 0 ]; then
+            echo 'action=skip' >> "$GITHUB_OUTPUT"
+            echo "Release images for \`${target_sha}\` are already in progress." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo 'action=release' >> "$GITHUB_OUTPUT"
           fi
 
-          echo "promote=true" >> "$GITHUB_OUTPUT"
-          echo "sha=$TARGET_SHA" >> "$GITHUB_OUTPUT"
-
-      - name: Dispatch immutable production release for the exact approved commit
-        if: ${{ steps.target.outputs.promote == 'true' }}
+      - name: Publish immutable images for a commit that has no approved release yet
+        if: ${{ steps.target.outputs.action == 'release' }}
         env:
           GH_TOKEN: ${{ github.token }}
           TARGET_SHA: ${{ steps.target.outputs.sha }}
         shell: bash
         run: |
           set -euo pipefail
-          gh workflow run release-production-images.yml \
+          gh workflow run release-production-images.yml --repo "$GITHUB_REPOSITORY" --ref main -f target_sha="$TARGET_SHA"
+          {
+            echo '## Production release chain dispatched'
+            echo
+            echo "- Commit: \`${TARGET_SHA}\`"
+            echo '- State: checks approved -> image publication requested'
+            echo '- Deployment success is not claimed by this asynchronous dispatch.'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Resume deploy from the already approved immutable release
+        if: ${{ steps.target.outputs.action == 'deploy' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TARGET_SHA: ${{ steps.target.outputs.sha }}
+          RELEASE_RUN_ID: ${{ steps.target.outputs.release_run_id }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh workflow run deploy-production.yml \
             --repo "$GITHUB_REPOSITORY" \
             --ref main \
-            -f target_sha="$TARGET_SHA"
-
+            -f release_run_id="$RELEASE_RUN_ID" \
+            -f release_sha="$TARGET_SHA"
           {
-            echo '## Automatic production promotion started'
+            echo '## Existing production release resumed'
             echo
-            echo "- Approved main commit: \`${TARGET_SHA}\`"
-            echo '- Dispatched: `Release Production Images`'
-            echo '- Next: the existing `Deploy Production` workflow will run automatically after a successful release.'
-            echo '- Emergency/manual release remains available through `workflow_dispatch`.'
+            echo "- Commit: \`${TARGET_SHA}\`"
+            echo "- Reused release run: \`${RELEASE_RUN_ID}\`"
+            echo '- Approved image digests and manifest are reused; images are not rebuilt.'
+            echo '- This is a dispatch acknowledgement, not proof that deployment completed.'
           } >> "$GITHUB_STEP_SUMMARY"
