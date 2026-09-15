@@ -15,6 +15,7 @@ import {
   platformMaintenanceMiddleware,
   platformStatusHandler,
 } from './middlewares/platformMaintenanceMiddleware.js';
+import platformPlanCatalogService from './modules/billing/services/PlatformPlanCatalogService.js';
 
 const app = express();
 
@@ -38,8 +39,6 @@ app.use(
   }),
 );
 
-// Liveness e readiness ficam fora do rate limit para o orquestrador nao derrubar
-// uma instancia saudavel durante picos de pedidos ou rastreamento.
 app.get('/health', (_req, res) => {
   return res.status(200).json({
     status: 'ok',
@@ -61,9 +60,25 @@ app.get('/ready', async (_req, res) => {
 
 applyCorsAndGlobalRateLimit(app);
 
-// Disponibilidade pública e sem dados sensíveis permanece consultável mesmo
-// quando o relay de eventos está indisponível.
 app.get('/platform/status', platformStatusHandler);
+app.get('/platform/plans', async (_req, res) => {
+  try {
+    const plans = await platformPlanCatalogService.list({ activeOnly: true });
+    return res.status(200).json({
+      plans: plans.map((plan) => ({
+        code: plan.plan,
+        name: plan.name,
+        description: plan.description,
+        monthlyFee: plan.monthlyFee,
+        trialDays: plan.trialDays,
+        features: plan.features,
+        featured: plan.featured,
+      })),
+    });
+  } catch {
+    return res.status(503).json({ error: 'Planos temporariamente indisponíveis.' });
+  }
+});
 
 app.use((_req, res, next) => {
   if (!runtimeRealtimeReady()) {
@@ -74,21 +89,14 @@ app.use((_req, res, next) => {
   return next();
 });
 
-// O modo de manutenção é avaliado antes do parsing do corpo e das rotas de
-// negócio. Sondas, autenticação, webhooks e o painel do SUPER_ADMIN são
-// liberados pelo próprio middleware.
 app.use(platformMaintenanceMiddleware);
 
-// Stripe signature verification requires the exact raw request body.
 app.use('/orders/webhook/stripe', express.raw({ type: 'application/json' }));
 
-// Parse JSON for all routes
 app.use(express.json({ limit: process.env.MAX_JSON_BODY_SIZE || '1mb' }));
 app.use(express.urlencoded({ extended: true }));
 
 app.use('/auth', authRateLimit);
-
-// Billing routes (require JSON body parsing)
 app.use('/billing', billingRoutes);
 
 app.use(routes);
