@@ -34,10 +34,12 @@ describe('WhatsAppSettings', () => {
     expect(markup).toContain('Foto e nome do perfil');
     expect(markup).toContain('Seu número do WhatsApp');
     expect(markup).toContain('Mensagens automáticas');
-    expect(markup).toContain('Mensagens reais do fluxo');
+    expect(markup).toContain('Prévia do fluxo enxuto');
+    expect(markup).toContain('Olá! Bem-vindo à North Pizza.');
+    expect(markup).toContain('no máximo 5 avisos automáticos');
     expect(markup).toContain('https://gastronexa.com.br/orders/107/tracking');
     expect(markup).not.toContain('localhost');
-    expect(markup).toContain('Pedido e pagamento confirmados');
+    expect(markup).toContain('Pagamento confirmado');
     expect(markup).toContain('Saiu para entrega');
     expect(markup).toContain('Entregue / cancelado');
     expect(markup.match(/role="switch"/g)).toHaveLength(2);
