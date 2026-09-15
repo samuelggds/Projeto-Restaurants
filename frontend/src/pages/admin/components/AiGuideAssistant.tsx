@@ -106,17 +106,20 @@ export function AiGuideAssistant({
   };
 
   useEffect(() => {
-    if (tab === 'suggestions' && !summary) {
-      void refreshSuggestions().catch((loadError) => setError(requestErrorMessage(loadError, 'Não foi possível carregar as sugestões.')));
-    }
-    if (tab === 'history') {
-      void refreshHistory().catch((loadError) => setError(requestErrorMessage(loadError, 'Não foi possível carregar o histórico.')));
-    }
-    if (tab === 'settings' && !settings) {
-      void aiGuideService.getAssistantSettings().then(setSettings).catch((loadError) =>
-        setError(requestErrorMessage(loadError, 'Não foi possível carregar as configurações.')),
-      );
-    }
+    const refreshTimer = window.setTimeout(() => {
+      if (tab === 'suggestions' && !summary) {
+        void refreshSuggestions().catch((loadError) => setError(requestErrorMessage(loadError, 'Não foi possível carregar as sugestões.')));
+      }
+      if (tab === 'history') {
+        void refreshHistory().catch((loadError) => setError(requestErrorMessage(loadError, 'Não foi possível carregar o histórico.')));
+      }
+      if (tab === 'settings' && !settings) {
+        void aiGuideService.getAssistantSettings().then(setSettings).catch((loadError) =>
+          setError(requestErrorMessage(loadError, 'Não foi possível carregar as configurações.')),
+        );
+      }
+    }, 0);
+    return () => window.clearTimeout(refreshTimer);
   }, [tab, summary, settings]);
 
   const askRestaurant = async (event?: FormEvent) => {
