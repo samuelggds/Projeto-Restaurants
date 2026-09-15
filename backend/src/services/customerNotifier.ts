@@ -176,24 +176,14 @@ function buildRestaurantIssueMessage({
     `Notificação - ${String(restaurantName || 'restaurante').trim()}`,
     `Cliente ${String(customerName || 'Cliente').trim()} relatou problema no pedido #${orderId}.`,
     customerPhone ? `Telefone do cliente: ${customerPhone}.` : null,
-    `Status: ${String(orderStatus || 'N/A')
-      .replace(/_/gu, ' ')
-      .toUpperCase()} | Tipo: ${String(orderType || 'N/A')
-      .replace(/_/gu, ' ')
-      .toUpperCase()} | Pagamento: ${String(paymentMethod || 'N/A')
-      .replace(/_/gu, ' ')
-      .toUpperCase()}.`,
+    `Status: ${String(orderStatus || 'N/A').replace(/_/gu, ' ').toUpperCase()} | Tipo: ${String(orderType || 'N/A').replace(/_/gu, ' ').toUpperCase()} | Pagamento: ${String(paymentMethod || 'N/A').replace(/_/gu, ' ').toUpperCase()}.`,
     `Total: ${formatCurrencyBrl(total)}.`,
     addressLabel ? `Endereço: ${addressLabel}.` : null,
     Array.isArray(itemsSummary) && itemsSummary.length
       ? `Itens: ${itemsSummary.slice(0, 8).join('; ')}.`
       : null,
     `Criado em: ${createdAt ? new Date(createdAt).toLocaleString('pt-BR') : 'N/A'}.`,
-    `Mensagem: ${
-      String(issueMessage || '')
-        .trim()
-        .slice(0, 600) || '(sem detalhes)'
-    }`,
+    `Mensagem: ${String(issueMessage || '').trim().slice(0, 600) || '(sem detalhes)'}`,
   ];
   return lines.filter(Boolean).join('\n');
 }
@@ -239,6 +229,10 @@ export async function notifyCustomerPaymentConfirmed(payload: PaymentConfirmedPa
   }
 
   try {
+    const name = String(payload.customerName || 'Cliente').trim() || 'Cliente';
+    const restaurant = String(payload.restaurantName || 'restaurante').trim() || 'restaurante';
+    const method = String(payload.paymentMethod || 'PIX').toUpperCase();
+    const total = formatCurrencyBrl(payload.total);
     return await queueWhatsappMessage({
       restaurantWhatsapp: payload.restaurantWhatsapp,
       destination: payload.customerPhone,
@@ -247,6 +241,7 @@ export async function notifyCustomerPaymentConfirmed(payload: PaymentConfirmedPa
         restaurantId: payload.restaurantId,
         orderId: payload.orderId,
         event: 'PAYMENT_CONFIRMED',
+        templateParams: [name, method, String(payload.orderId || ''), restaurant, total],
       },
     });
   } catch (error) {
@@ -278,6 +273,11 @@ export async function notifyCustomerOrderStatusChanged(payload: OrderStatusChang
       orderType: payload.orderType,
       ...links,
     });
+    const name = String(payload.customerName || 'Cliente').trim() || 'Cliente';
+    const restaurant = String(payload.restaurantName || 'restaurante').trim() || 'restaurante';
+    const status = String(payload.status || '').toUpperCase();
+    const link =
+      status === 'ENTREGUE' ? links.confirmationUrl || '' : links.trackingUrl || links.storeUrl || '';
     return await queueWhatsappMessage({
       restaurantWhatsapp: payload.restaurantWhatsapp,
       destination: payload.customerPhone,
@@ -287,6 +287,7 @@ export async function notifyCustomerOrderStatusChanged(payload: OrderStatusChang
         status: payload.status,
         restaurantId: payload.restaurantId,
         event: 'ORDER_STATUS_CHANGED',
+        templateParams: [name, String(payload.orderId || ''), restaurant, link],
       },
     });
   } catch (error) {
