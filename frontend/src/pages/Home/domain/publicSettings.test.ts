@@ -1,6 +1,8 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import {
+  appendRestaurantStoreLink,
   applyHomeSeoMetadata,
+  buildRestaurantStoreUrl,
   buildSocialProfileUrl,
   buildWhatsAppUrl,
   getAvailablePaymentMethods,
@@ -36,6 +38,18 @@ describe('configurações públicas da Home', () => {
       'https://wa.me/85999990000?text=Ol%C3%A1%2C%20quero%20ajuda!',
     );
     expect(buildWhatsAppUrl('123', 'Olá')).toBe('');
+  });
+
+  it('anexa o endereço oficial do tenant à mensagem inicial sem permitir domínio customizado', () => {
+    expect(buildRestaurantStoreUrl('North-Pizza')).toBe(
+      'https://www.gastronexa.com.br/north-pizza',
+    );
+    expect(appendRestaurantStoreLink('Olá! Como podemos ajudar?', 'north-pizza')).toBe(
+      'Olá! Como podemos ajudar?\n\nhttps://www.gastronexa.com.br/north-pizza',
+    );
+    expect(buildWhatsAppUrl('5585999990000', 'Olá!', 'north-pizza')).toBe(
+      'https://wa.me/5585999990000?text=Ol%C3%A1!%0A%0Ahttps%3A%2F%2Fwww.gastronexa.com.br%2Fnorth-pizza',
+    );
   });
 
   it('normaliza perfis sociais com e sem protocolo', () => {
