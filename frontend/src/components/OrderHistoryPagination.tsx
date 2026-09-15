@@ -8,6 +8,9 @@ type Props = {
   hasMore: boolean;
   loadMore: () => unknown;
   refresh: () => unknown;
+  reset?: () => unknown;
+  loadedCount?: number;
+  batchSize?: number;
 };
 
 export function OrderHistoryPagination({
@@ -17,7 +20,12 @@ export function OrderHistoryPagination({
   hasMore,
   loadMore,
   refresh,
+  reset,
+  loadedCount = 0,
+  batchSize = 10,
 }: Props) {
+  const expanded = loadedCount > batchSize;
+
   return (
     <Pagination className={className} aria-label="Paginação do histórico" aria-busy={loading}>
       {error && <p role="alert">{error}</p>}
@@ -26,25 +34,31 @@ export function OrderHistoryPagination({
           Carregando histórico...
         </span>
       )}
-      {(hasMore || error) && (
-        <LoadMoreButton
-          type="button"
-          disabled={loading}
-          onClick={() => void (hasMore ? loadMore() : refresh())}
-        >
-          {loading ? (
-            <LoaderCircle className="spinner" aria-hidden="true" />
-          ) : error ? (
+      <div className="history-actions">
+        {expanded && reset && (
+          <LoadMoreButton type="button" disabled={loading} onClick={() => void reset()}>
             <RotateCcw aria-hidden="true" />
-          ) : (
-            <History aria-hidden="true" />
-          )}
-          <span>
-            {loading ? 'Carregando...' : error ? 'Tentar novamente' : 'Carregar histórico'}
-          </span>
-          {!loading && !error && <ChevronDown className="chevron" aria-hidden="true" />}
-        </LoadMoreButton>
-      )}
+            <span>Voltar para 10</span>
+          </LoadMoreButton>
+        )}
+        {(hasMore || error) && (
+          <LoadMoreButton
+            type="button"
+            disabled={loading}
+            onClick={() => void (hasMore ? loadMore() : refresh())}
+          >
+            {loading ? (
+              <LoaderCircle className="spinner" aria-hidden="true" />
+            ) : error ? (
+              <RotateCcw aria-hidden="true" />
+            ) : (
+              <History aria-hidden="true" />
+            )}
+            <span>{loading ? 'Carregando...' : error ? 'Tentar novamente' : 'Mostrar +10'}</span>
+            {!loading && !error && <ChevronDown className="chevron" aria-hidden="true" />}
+          </LoadMoreButton>
+        )}
+      </div>
     </Pagination>
   );
 }
@@ -60,6 +74,14 @@ const Pagination = styled.div`
   padding: 20px 16px 12px;
   min-width: 0;
   text-align: center;
+
+  .history-actions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 10px;
+  }
+
   p {
     margin: 0;
     max-width: 480px;
