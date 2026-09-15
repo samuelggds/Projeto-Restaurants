@@ -37,6 +37,9 @@ router.post('/guide', authMiddleware, adminMiddleware, (req, res) => {
 });
 
 // Assistente gerencial: sempre deriva o restaurante da sessão ADMIN autenticada.
+router.get('/restaurant/capabilities', authMiddleware, adminMiddleware, (req, res) => {
+  AdminAiGuideController.capabilities(req, res);
+});
 router.get('/restaurant/summary', authMiddleware, adminMiddleware, (req, res) => {
   AdminAiGuideController.managementSummary(req, res);
 });
