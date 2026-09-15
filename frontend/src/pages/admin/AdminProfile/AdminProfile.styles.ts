@@ -26,7 +26,10 @@ export const Topbar = styled.header`
   .back:hover, .logout:hover { background: #f2f3f5; color: #17181a; }
   .back svg, .logout svg { width: 18px; height: 18px; }
   .logout { justify-self: end; }
-  .brand { font-weight: 900; letter-spacing: -0.04em; font-size: 20px; }
+  .brand { display: inline-flex; align-items: center; gap: 9px; font-weight: 900; letter-spacing: -0.04em; font-size: 20px; }
+  .brand img { width: 34px; height: 30px; object-fit: contain; }
+  .brand > span { display: inline-flex; align-items: baseline; }
+  .brand strong { color: #ef6d18; font: inherit; }
 
   @media (max-width: 680px) {
     padding: 0 16px;
@@ -182,9 +185,16 @@ export const SecurityItem = styled.div`
   b { font-size: 14px; }
   span { color: #777d85; font-size: 12px; line-height: 1.5; }
   button { border: 1px solid #dddfe3; background: white; border-radius: 10px; padding: 9px 12px; font-weight: 800; cursor: pointer; }
+  button:hover { border-color: #f2a06b; background: #fff8f3; }
+  button:disabled { opacity: .55; cursor: wait; }
   .status { padding: 6px 9px; border-radius: 999px; background: #eff1f3; color: #666c74; font-weight: 800; white-space: nowrap; }
   .status.on { background: #e9f9ef; color: #267647; }
-  @media (max-width: 620px) { grid-template-columns: auto 1fr; button, .status { grid-column: 2; justify-self: start; } }
+  .mfa-control { display: flex; align-items: center; justify-content: flex-end; gap: 8px; }
+  @media (max-width: 620px) {
+    grid-template-columns: auto 1fr;
+    button, .status, .mfa-control { grid-column: 2; justify-self: start; }
+    .mfa-control { flex-wrap: wrap; justify-content: flex-start; }
+  }
 `;
 
 export const NotificationList = styled.div`
