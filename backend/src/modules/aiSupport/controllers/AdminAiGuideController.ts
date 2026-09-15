@@ -1,10 +1,13 @@
 import type { Request, Response } from 'express';
 import OpenAI from 'openai';
 import adminAiGuideService from '../services/AdminAiGuideService.js';
+import adminRestaurantAssistantService from '../services/AdminRestaurantAssistantService.js';
+import adminAiActionService from '../services/AdminAiActionService.js';
 import aiCreditService, { AiCreditsExhaustedError } from '../services/AiCreditService.js';
 import aiCreditTopUpService from '../services/AiCreditTopUpService.js';
+import { AdminAiRestrictedRequestError } from '../domain/adminAiSecurityPolicy.js';
 
-function actorFromRequest(req: Request) {
+export function actorFromRequest(req: Request) {
   const userId = Number(req.user?.id || 0);
   const restaurantId = Number(req.user?.restaurantId || 0);
   const email = String(req.user?.email || '').trim();
@@ -21,6 +24,9 @@ function actorFromRequest(req: Request) {
 }
 
 function mapError(error: unknown) {
+  if (error instanceof AdminAiRestrictedRequestError) {
+    return { status: 403, body: { error: error.message, code: error.code } };
+  }
   if (error instanceof AiCreditsExhaustedError) {
     return { status: 402, body: { error: error.message, code: error.code } };
   }
@@ -30,6 +36,15 @@ function mapError(error: unknown) {
       body: {
         error: 'A OpenAI recebeu muitas solicitações. Tente novamente em instantes.',
         code: 'OPENAI_RATE_LIMITED',
+      },
+    };
+  }
+  if (error instanceof OpenAI.APIConnectionTimeoutError) {
+    return {
+      status: 504,
+      body: {
+        error: 'A IA demorou mais que o limite permitido. O restaurante continua funcionando normalmente.',
+        code: 'OPENAI_TIMEOUT',
       },
     };
   }
@@ -51,62 +66,87 @@ function mapError(error: unknown) {
   };
 }
 
+async function respond(res: Response, operation: () => Promise<unknown>, status = 200) {
+  try {
+    return res.status(status).json(await operation());
+  } catch (error) {
+    const mapped = mapError(error);
+    return res.status(mapped.status).json(mapped.body);
+  }
+}
+
 class AdminAiGuideController {
   async balance(req: Request, res: Response) {
-    try {
-      return res.json(await aiCreditService.getBalance(actorFromRequest(req)));
-    } catch (error) {
-      const mapped = mapError(error);
-      return res.status(mapped.status).json(mapped.body);
-    }
+    return respond(res, () => aiCreditService.getBalance(actorFromRequest(req)));
   }
 
   async quote(req: Request, res: Response) {
-    try {
+    return respond(res, () => {
       const actor = actorFromRequest(req);
-      return res.json(await aiCreditTopUpService.quote(req.query.amountUsd, actor.restaurantId));
-    } catch (error) {
-      const mapped = mapError(error);
-      return res.status(mapped.status).json(mapped.body);
-    }
+      return aiCreditTopUpService.quote(req.query.amountUsd, actor.restaurantId);
+    });
   }
 
   async pixTopUp(req: Request, res: Response) {
-    try {
-      const actor = actorFromRequest(req);
-      return res.status(201).json(await aiCreditTopUpService.createPix(actor, req.body?.amountUsd));
-    } catch (error) {
-      const mapped = mapError(error);
-      return res.status(mapped.status).json(mapped.body);
-    }
+    return respond(
+      res,
+      () => {
+        const actor = actorFromRequest(req);
+        return aiCreditTopUpService.createPix(actor, req.body?.amountUsd);
+      },
+      201,
+    );
   }
 
   async cardTopUp(req: Request, res: Response) {
-    try {
-      const actor = actorFromRequest(req);
-      return res.status(201).json(await aiCreditTopUpService.createCard(actor, req.body?.amountUsd));
-    } catch (error) {
-      const mapped = mapError(error);
-      return res.status(mapped.status).json(mapped.body);
-    }
+    return respond(
+      res,
+      () => {
+        const actor = actorFromRequest(req);
+        return aiCreditTopUpService.createCard(actor, req.body?.amountUsd);
+      },
+      201,
+    );
   }
 
   async topUps(req: Request, res: Response) {
-    try {
-      return res.json(await aiCreditTopUpService.list(actorFromRequest(req)));
-    } catch (error) {
-      const mapped = mapError(error);
-      return res.status(mapped.status).json(mapped.body);
-    }
+    return respond(res, () => aiCreditTopUpService.list(actorFromRequest(req)));
   }
 
   async guide(req: Request, res: Response) {
-    try {
-      return res.json(await adminAiGuideService.execute(req.body?.question, actorFromRequest(req)));
-    } catch (error) {
-      const mapped = mapError(error);
-      return res.status(mapped.status).json(mapped.body);
-    }
+    return respond(res, () => adminAiGuideService.execute(req.body?.question, actorFromRequest(req)));
+  }
+
+  async managementSummary(req: Request, res: Response) {
+    return respond(res, () => adminRestaurantAssistantService.summary(actorFromRequest(req)));
+  }
+
+  async assistant(req: Request, res: Response) {
+    return respond(res, () =>
+      adminRestaurantAssistantService.ask(req.body?.question, actorFromRequest(req)),
+    );
+  }
+
+  async supportDraft(req: Request, res: Response) {
+    return respond(res, () =>
+      adminRestaurantAssistantService.supportDraft(req.params.orderId, actorFromRequest(req)),
+    );
+  }
+
+  async actions(req: Request, res: Response) {
+    return respond(res, () => adminAiActionService.list(actorFromRequest(req)));
+  }
+
+  async approveAction(req: Request, res: Response) {
+    return respond(res, () =>
+      adminAiActionService.approveAndExecute(req.params.publicId, actorFromRequest(req)),
+    );
+  }
+
+  async cancelAction(req: Request, res: Response) {
+    return respond(res, () =>
+      adminAiActionService.cancel(req.params.publicId, actorFromRequest(req)),
+    );
   }
 }
 
