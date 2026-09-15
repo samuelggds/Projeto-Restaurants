@@ -41,10 +41,7 @@ const Panel = styled(S.SettingSection)`
     justify-content: space-between;
     gap: 18px;
   }
-
-  .wa-title {
-    gap: 13px;
-  }
+  .wa-title { gap: 13px; }
   .wa-title > span {
     width: 50px;
     height: 50px;
@@ -54,16 +51,8 @@ const Panel = styled(S.SettingSection)`
     display: grid;
     place-items: center;
   }
-  .wa-title h2 {
-    margin: 0;
-    color: var(--wa-text);
-    font-size: clamp(24px, 2.2vw, 31px);
-  }
-  .wa-title p {
-    margin: 5px 0 0;
-    color: var(--wa-muted);
-    font-size: 11px;
-  }
+  .wa-title h2 { margin: 0; color: var(--wa-text); font-size: clamp(24px, 2.2vw, 31px); }
+  .wa-title p { margin: 5px 0 0; color: var(--wa-muted); font-size: 11px; }
 
   .channel-state {
     min-width: 225px;
@@ -74,18 +63,9 @@ const Panel = styled(S.SettingSection)`
     padding: 12px 14px;
     background: #f5fbf7;
   }
-  .channel-state span {
-    display: grid;
-    gap: 2px;
-  }
-  .channel-state b {
-    color: #176a3c;
-    font-size: 11px;
-  }
-  .channel-state small {
-    color: #707871;
-    font-size: 9px;
-  }
+  .channel-state span { display: grid; gap: 2px; }
+  .channel-state b { color: #176a3c; font-size: 11px; }
+  .channel-state small { color: #707871; font-size: 9px; }
 
   .switch {
     appearance: none;
@@ -109,16 +89,9 @@ const Panel = styled(S.SettingSection)`
     box-shadow: 0 2px 6px rgba(0, 0, 0, 0.18);
     transition: transform 160ms ease;
   }
-  .switch:checked {
-    background: var(--wa-green);
-  }
-  .switch:checked::after {
-    transform: translateX(20px);
-  }
-  .switch:disabled {
-    opacity: 0.45;
-    cursor: not-allowed;
-  }
+  .switch:checked { background: var(--wa-green); }
+  .switch:checked::after { transform: translateX(20px); }
+  .switch:disabled { opacity: 0.45; cursor: not-allowed; }
 
   .wa-grid {
     display: grid;
@@ -126,10 +99,7 @@ const Panel = styled(S.SettingSection)`
     gap: 18px;
     align-items: start;
   }
-  .left-column {
-    display: grid;
-    gap: 14px;
-  }
+  .left-column { display: grid; gap: 14px; }
 
   .card,
   .preview-card {
@@ -139,10 +109,7 @@ const Panel = styled(S.SettingSection)`
     background: #fff;
     box-shadow: 0 8px 24px rgba(56, 42, 30, 0.045);
   }
-  .preview-card {
-    position: sticky;
-    top: 18px;
-  }
+  .preview-card { position: sticky; top: 18px; }
 
   .card-heading,
   .preview-heading {
@@ -160,29 +127,12 @@ const Panel = styled(S.SettingSection)`
     display: grid;
     place-items: center;
   }
-  .step {
-    color: #fff;
-    background: var(--wa-green);
-    font-size: 12px;
-    font-weight: 900;
-  }
-  .preview-heading > span {
-    color: var(--wa-green);
-    background: var(--wa-soft);
-  }
+  .step { color: #fff; background: var(--wa-green); font-size: 12px; font-weight: 900; }
+  .preview-heading > span { color: var(--wa-green); background: var(--wa-soft); }
   .card-heading h3,
-  .preview-heading h3 {
-    margin: 0;
-    color: var(--wa-text);
-    font-size: 16px;
-  }
+  .preview-heading h3 { margin: 0; color: var(--wa-text); font-size: 16px; }
   .card-heading p,
-  .preview-heading p {
-    margin: 4px 0 0;
-    color: var(--wa-muted);
-    font-size: 10px;
-    line-height: 1.45;
-  }
+  .preview-heading p { margin: 4px 0 0; color: var(--wa-muted); font-size: 10px; line-height: 1.45; }
 
   .profile-layout {
     display: grid;
@@ -190,11 +140,7 @@ const Panel = styled(S.SettingSection)`
     gap: 18px;
     align-items: center;
   }
-  .profile-preview {
-    display: grid;
-    justify-items: center;
-    gap: 7px;
-  }
+  .profile-preview { display: grid; justify-items: center; gap: 7px; }
   .profile-image,
   .chat-avatar {
     border: 1px solid #e3ddd7;
@@ -202,14 +148,8 @@ const Panel = styled(S.SettingSection)`
     background: #fff;
     object-fit: cover;
   }
-  .profile-image {
-    width: 92px;
-    height: 92px;
-    padding: 13px;
-  }
-  .profile-image.custom {
-    padding: 0;
-  }
+  .profile-image { width: 92px; height: 92px; padding: 13px; }
+  .profile-image.custom { padding: 0; }
   .profile-preview b {
     max-width: 120px;
     overflow: hidden;
@@ -217,11 +157,7 @@ const Panel = styled(S.SettingSection)`
     white-space: nowrap;
     font-size: 10.5px;
   }
-  .profile-actions {
-    flex-wrap: wrap;
-    gap: 8px;
-    margin-bottom: 10px;
-  }
+  .profile-actions { flex-wrap: wrap; gap: 8px; margin-bottom: 10px; }
   .profile-action {
     min-height: 37px;
     border: 1px solid #ddd8d2;
@@ -237,26 +173,12 @@ const Panel = styled(S.SettingSection)`
     align-items: center;
     gap: 6px;
   }
-  .profile-action.danger {
-    color: #b42318;
-  }
+  .profile-action.danger { color: #b42318; }
   .help,
-  .error {
-    display: block;
-    margin-top: 6px;
-    font-size: 9px;
-    line-height: 1.45;
-  }
-  .help {
-    color: var(--wa-muted);
-  }
-  .error {
-    color: #b42318;
-  }
-
-  .greeting textarea {
-    min-height: 90px;
-  }
+  .error { display: block; margin-top: 6px; font-size: 9px; line-height: 1.45; }
+  .help { color: var(--wa-muted); }
+  .error { color: #b42318; }
+  .greeting textarea { min-height: 90px; }
 
   .automation-list {
     margin-top: 14px;
@@ -272,12 +194,8 @@ const Panel = styled(S.SettingSection)`
     gap: 10px;
     align-items: center;
   }
-  .automation-row + .automation-row {
-    border-top: 1px solid #eeeae6;
-  }
-  .automation-row.master {
-    background: #f7fbf8;
-  }
+  .automation-row + .automation-row { border-top: 1px solid #eeeae6; }
+  .automation-row.master { background: #f7fbf8; }
   .automation-icon {
     width: 33px;
     height: 33px;
@@ -287,19 +205,9 @@ const Panel = styled(S.SettingSection)`
     display: grid;
     place-items: center;
   }
-  .automation-copy {
-    display: grid;
-    gap: 2px;
-  }
-  .automation-copy b {
-    color: #302b27;
-    font-size: 10px;
-  }
-  .automation-copy span {
-    color: var(--wa-muted);
-    font-size: 8.8px;
-    line-height: 1.4;
-  }
+  .automation-copy { display: grid; gap: 2px; }
+  .automation-copy b { color: #302b27; font-size: 10px; }
+  .automation-copy span { color: var(--wa-muted); font-size: 8.8px; line-height: 1.4; }
   .badge {
     border-radius: 999px;
     padding: 5px 7px;
@@ -319,15 +227,8 @@ const Panel = styled(S.SettingSection)`
     line-height: 1.4;
     gap: 7px;
   }
-  .preview-note {
-    margin-bottom: 12px;
-    display: flex;
-    align-items: flex-start;
-  }
-  .tip {
-    margin-top: 12px;
-    align-items: flex-start;
-  }
+  .preview-note { margin-bottom: 12px; display: flex; align-items: flex-start; }
+  .tip { margin-top: 12px; align-items: flex-start; }
 
   .chat-preview {
     border: 1px solid #e7e1da;
@@ -336,6 +237,8 @@ const Panel = styled(S.SettingSection)`
     background: #faf7f2;
     display: grid;
     gap: 11px;
+    max-height: 620px;
+    overflow-y: auto;
   }
   .chat-message {
     display: grid;
@@ -343,14 +246,8 @@ const Panel = styled(S.SettingSection)`
     gap: 9px;
     align-items: start;
   }
-  .chat-avatar {
-    width: 36px;
-    height: 36px;
-    padding: 7px;
-  }
-  .chat-avatar.custom {
-    padding: 0;
-  }
+  .chat-avatar { width: 36px; height: 36px; padding: 7px; }
+  .chat-avatar.custom { padding: 0; }
   .message-content > b {
     display: block;
     margin: 0 0 4px 4px;
@@ -367,55 +264,26 @@ const Panel = styled(S.SettingSection)`
     overflow-wrap: anywhere;
     box-shadow: 0 2px 6px rgba(54, 41, 30, 0.07);
   }
-  .bubble a {
-    color: #1676d2;
-    font-weight: 700;
-    text-decoration: underline;
-  }
+  .bubble a { color: #1676d2; font-weight: 700; text-decoration: underline; }
 
   @media (max-width: 1050px) {
-    .wa-grid {
-      grid-template-columns: 1fr;
-    }
-    .preview-card {
-      position: static;
-    }
+    .wa-grid { grid-template-columns: 1fr; }
+    .preview-card { position: static; }
   }
   @media (max-width: 700px) {
-    .wa-header {
-      align-items: stretch;
-      flex-direction: column;
-    }
-    .channel-state {
-      width: 100%;
-    }
-    .profile-layout {
-      grid-template-columns: 1fr;
-    }
-    .profile-preview {
-      justify-items: start;
-    }
+    .wa-header { align-items: stretch; flex-direction: column; }
+    .channel-state { width: 100%; }
+    .profile-layout { grid-template-columns: 1fr; }
+    .profile-preview { justify-items: start; }
   }
   @media (max-width: 520px) {
     .card,
-    .preview-card {
-      padding: 15px;
-      border-radius: 15px;
-    }
-    .wa-title h2 {
-      font-size: 23px;
-    }
-    .automation-row {
-      grid-template-columns: 31px minmax(0, 1fr);
-    }
+    .preview-card { padding: 15px; border-radius: 15px; }
+    .wa-title h2 { font-size: 23px; }
+    .automation-row { grid-template-columns: 31px minmax(0, 1fr); }
     .automation-row .switch,
-    .badge {
-      grid-column: 2;
-      justify-self: start;
-    }
-    .chat-preview {
-      padding: 10px;
-    }
+    .badge { grid-column: 2; justify-self: start; }
+    .chat-preview { padding: 10px; max-height: none; }
   }
 `;
 
@@ -434,20 +302,14 @@ function getNumberError(value: string, required: boolean) {
 function readRestaurantIdentity() {
   if (typeof window === 'undefined') return { id: 'default', category: 'RESTAURANTE' };
   try {
-    const user = JSON.parse(window.localStorage.getItem('user') || 'null') as Record<
-      string,
-      unknown
-    > | null;
+    const user = JSON.parse(window.localStorage.getItem('user') || 'null') as Record<string, unknown> | null;
     const restaurant =
       user?.restaurant && typeof user.restaurant === 'object'
         ? (user.restaurant as Record<string, unknown>)
         : {};
     return {
       id: String(
-        user?.restaurantId ||
-          restaurant.id ||
-          window.localStorage.getItem('menuRestaurantId') ||
-          'default',
+        user?.restaurantId || restaurant.id || window.localStorage.getItem('menuRestaurantId') || 'default',
       ),
       category: user?.restaurantCategory || restaurant.category || 'RESTAURANTE',
     };
@@ -468,21 +330,17 @@ export function WhatsAppSettings({ settings, update }: Props) {
 
   const enabled = Boolean(settings.whatsappEnabled);
   const statusEnabled = Boolean(settings.receiveStatusNotifications);
-  const displayName = String(
-    settings.whatsappDisplayName || settings.restaurantName || 'Restaurante',
-  ).trim();
+  const displayName = String(settings.whatsappDisplayName || settings.restaurantName || 'Restaurante').trim();
   const number = normalizeWhatsAppNumber(settings.whatsapp);
   const numberError = getNumberError(settings.whatsapp, enabled);
-  const categoryImage = useMemo(
-    () => getRestaurantCategoryFavicon(identity.category),
-    [identity.category],
-  );
+  const categoryImage = useMemo(() => getRestaurantCategoryFavicon(identity.category), [identity.category]);
   const avatar = profileImage || categoryImage;
   const baseUrl = 'https://gastronexa.com.br/';
-  const trackingUrl = `${baseUrl}orders/107/tracking`;
-  const greeting =
-    String(settings.whatsappDefaultMessage || '').trim() ||
-    `Olá! 👋 Bem-vindo(a) à ${displayName}!\nFaça seu pedido pelo nosso site:\n${baseUrl}`;
+  const exampleCustomerName = 'Cliente';
+  const exampleOrderId = 107;
+  const exampleTotal = 'R$ 89,90';
+  const trackingUrl = `${baseUrl}orders/${exampleOrderId}/tracking#guestToken=token-seguro-exemplo`;
+  const confirmationUrl = `${baseUrl}orders/${exampleOrderId}/tracking?confirm=1#guestToken=token-seguro-exemplo`;
 
   const chooseImage = (file?: File) => {
     if (!file) return;
@@ -515,9 +373,7 @@ export function WhatsAppSettings({ settings, update }: Props) {
     <Panel>
       <header className="wa-header">
         <div className="wa-title">
-          <span aria-hidden="true">
-            <MessageCircle size={24} />
-          </span>
+          <span aria-hidden="true"><MessageCircle size={24} /></span>
           <div>
             <h2>Configurar WhatsApp</h2>
             <p>Configure o contato e veja como o cliente receberá as mensagens.</p>
@@ -545,56 +401,28 @@ export function WhatsAppSettings({ settings, update }: Props) {
           <section className="card">
             <header className="card-heading">
               <span className="step">1</span>
-              <div>
-                <h3>Foto e nome do perfil</h3>
-                <p>Escolha como o restaurante será apresentado nas mensagens.</p>
-              </div>
+              <div><h3>Foto e nome do perfil</h3><p>Escolha como o restaurante será apresentado nas mensagens.</p></div>
             </header>
             <div className="profile-layout">
               <div className="profile-preview">
-                <img
-                  className={`profile-image ${profileImage ? 'custom' : ''}`}
-                  src={avatar}
-                  alt="Foto do perfil do WhatsApp"
-                />
+                <img className={`profile-image ${profileImage ? 'custom' : ''}`} src={avatar} alt="Foto do perfil do WhatsApp" />
                 <b>{displayName}</b>
               </div>
               <div>
                 <div className="profile-actions">
-                  <button
-                    className="profile-action"
-                    type="button"
-                    onClick={() => inputRef.current?.click()}
-                  >
+                  <button className="profile-action" type="button" onClick={() => inputRef.current?.click()}>
                     <ImagePlus size={14} /> {profileImage ? 'Alterar foto' : 'Escolher foto'}
                   </button>
                   {profileImage ? (
-                    <button className="profile-action danger" type="button" onClick={removeImage}>
-                      <Trash2 size={14} /> Remover
-                    </button>
+                    <button className="profile-action danger" type="button" onClick={removeImage}><Trash2 size={14} /> Remover</button>
                   ) : null}
-                  <input
-                    ref={inputRef}
-                    type="file"
-                    accept="image/png,image/jpeg,image/webp"
-                    hidden
-                    onChange={(event) => chooseImage(event.target.files?.[0])}
-                  />
+                  <input ref={inputRef} type="file" accept="image/png,image/jpeg,image/webp" hidden onChange={(event) => chooseImage(event.target.files?.[0])} />
                 </div>
-                <span className="help">
-                  Por padrão usamos a logo preto e branco da categoria, sem fundo. A foto escolhida
-                  fica exclusiva desta configuração de WhatsApp.
-                </span>
+                <span className="help">Por padrão usamos a logo preto e branco da categoria, sem fundo. A foto escolhida fica exclusiva desta configuração de WhatsApp.</span>
                 {imageError ? <span className="error">{imageError}</span> : null}
                 <S.Field style={{ marginTop: 13 }}>
                   Nome no WhatsApp
-                  <input
-                    name="whatsappDisplayName"
-                    maxLength={80}
-                    placeholder="Ex.: North Pizza"
-                    value={settings.whatsappDisplayName}
-                    onChange={(event) => update('whatsappDisplayName', event.target.value)}
-                  />
+                  <input name="whatsappDisplayName" maxLength={80} placeholder="Ex.: North Pizza" value={settings.whatsappDisplayName} onChange={(event) => update('whatsappDisplayName', event.target.value)} />
                   <small className="help">Se ficar vazio, usamos o nome do restaurante.</small>
                 </S.Field>
               </div>
@@ -604,100 +432,50 @@ export function WhatsAppSettings({ settings, update }: Props) {
           <section className="card">
             <header className="card-heading">
               <span className="step">2</span>
-              <div>
-                <h3>Seu número do WhatsApp</h3>
-                <p>Informe o número comercial que receberá as mensagens dos clientes.</p>
-              </div>
+              <div><h3>Seu número do WhatsApp</h3><p>Informe o número comercial que receberá as mensagens dos clientes.</p></div>
             </header>
             <S.Field>
               Número comercial
-              <input
-                name="whatsapp"
-                inputMode="tel"
-                autoComplete="tel"
-                placeholder="Ex.: 55 11 99999-9999"
-                value={settings.whatsapp}
-                aria-invalid={Boolean(numberError)}
-                onChange={(event) => update('whatsapp', event.target.value)}
-              />
-              <small className={numberError ? 'error' : 'help'}>
-                {numberError || 'Use DDI + DDD + número. Ex.: 55 11 99999-9999.'}
-              </small>
+              <input name="whatsapp" inputMode="tel" autoComplete="tel" placeholder="Ex.: 55 11 99999-9999" value={settings.whatsapp} aria-invalid={Boolean(numberError)} onChange={(event) => update('whatsapp', event.target.value)} />
+              <small className={numberError ? 'error' : 'help'}>{numberError || 'Use DDI + DDD + número. Ex.: 55 11 99999-9999.'}</small>
             </S.Field>
           </section>
 
           <section className="card">
             <header className="card-heading">
               <span className="step">3</span>
-              <div>
-                <h3>Mensagens automáticas</h3>
-                <p>Defina a saudação e ative as atualizações do andamento do pedido.</p>
-              </div>
+              <div><h3>Mensagens automáticas</h3><p>Defina a mensagem inicial e ative as atualizações do andamento do pedido.</p></div>
             </header>
             <S.Field className="greeting">
-              Mensagem de saudação
-              <textarea
-                name="whatsappDefaultMessage"
-                maxLength={500}
-                placeholder="Olá! 👋 Bem-vindo(a) ao restaurante!"
-                value={settings.whatsappDefaultMessage}
-                onChange={(event) => update('whatsappDefaultMessage', event.target.value)}
-              />
-              <small className="help">
-                {settings.whatsappDefaultMessage.length}/500 caracteres
-              </small>
+              Mensagem inicial do atendimento
+              <textarea name="whatsappDefaultMessage" maxLength={500} placeholder="Olá! 👋 Gostaria de fazer um pedido." value={settings.whatsappDefaultMessage} onChange={(event) => update('whatsappDefaultMessage', event.target.value)} />
+              <small className="help">Texto preenchido quando o cliente abre uma conversa com o restaurante. Não é uma atualização automática de pedido. {settings.whatsappDefaultMessage.length}/500 caracteres.</small>
             </S.Field>
 
             <div className="automation-list">
               <label className="automation-row master">
-                <span className="automation-icon">
-                  <MessageCircle size={16} />
-                </span>
-                <span className="automation-copy">
-                  <b>Atualizações automáticas do pedido</b>
-                  <span>
-                    Ative para enviar mudanças de status quando a conexão do WhatsApp estiver
-                    configurada.
-                  </span>
-                </span>
-                <input
-                  className="switch"
-                  name="receiveStatusNotifications"
-                  type="checkbox"
-                  role="switch"
-                  checked={statusEnabled}
-                  disabled={!enabled}
-                  onChange={(event) => update('receiveStatusNotifications', event.target.checked)}
-                />
+                <span className="automation-icon"><MessageCircle size={16} /></span>
+                <span className="automation-copy"><b>Atualizações automáticas do pedido</b><span>Ative para enviar mudanças reais de status quando a conexão do WhatsApp estiver configurada.</span></span>
+                <input className="switch" name="receiveStatusNotifications" type="checkbox" role="switch" checked={statusEnabled} disabled={!enabled} onChange={(event) => update('receiveStatusNotifications', event.target.checked)} />
               </label>
               <div className="automation-row">
-                <span className="automation-icon">
-                  <CheckCircle2 size={16} />
-                </span>
-                <span className="automation-copy">
-                  <b>Pedido confirmado / em preparo</b>
-                  <span>Informa ao cliente a nova etapa do pedido.</span>
-                </span>
+                <span className="automation-icon"><CheckCircle2 size={16} /></span>
+                <span className="automation-copy"><b>Pedido e pagamento confirmados</b><span>Confirma o pedido e, quando aplicável, o pagamento recebido.</span></span>
                 <span className="badge">AUTOMÁTICO</span>
               </div>
               <div className="automation-row">
-                <span className="automation-icon">
-                  <Bike size={16} />
-                </span>
-                <span className="automation-copy">
-                  <b>Saiu para entrega</b>
-                  <span>Mostra o link real de rastreamento em /orders/:id/tracking.</span>
-                </span>
+                <span className="automation-icon"><CheckCircle2 size={16} /></span>
+                <span className="automation-copy"><b>Em preparo / pronto</b><span>Informa ao cliente cada avanço operacional do pedido.</span></span>
                 <span className="badge">AUTOMÁTICO</span>
               </div>
               <div className="automation-row">
-                <span className="automation-icon">
-                  <PackageCheck size={16} />
-                </span>
-                <span className="automation-copy">
-                  <b>Confirmar entrega</b>
-                  <span>Leva o cliente ao acompanhamento seguro do próprio pedido.</span>
-                </span>
+                <span className="automation-icon"><Bike size={16} /></span>
+                <span className="automation-copy"><b>Saiu para entrega</b><span>Envia o link seguro e real de rastreamento do próprio pedido.</span></span>
+                <span className="badge">AUTOMÁTICO</span>
+              </div>
+              <div className="automation-row">
+                <span className="automation-icon"><PackageCheck size={16} /></span>
+                <span className="automation-copy"><b>Entregue / cancelado</b><span>Envia a confirmação segura de recebimento ou informa o cancelamento.</span></span>
                 <span className="badge">AUTOMÁTICO</span>
               </div>
             </div>
@@ -706,78 +484,48 @@ export function WhatsAppSettings({ settings, update }: Props) {
 
         <aside className="preview-card">
           <header className="preview-heading">
-            <span>
-              <MessageCircle size={16} />
-            </span>
-            <div>
-              <h3>Exemplo de mensagens</h3>
-              <p>Veja como o cliente receberá cada atualização.</p>
-            </div>
+            <span><MessageCircle size={16} /></span>
+            <div><h3>Mensagens reais do fluxo</h3><p>Exemplos com o mesmo texto usado nas notificações automáticas.</p></div>
           </header>
           <div className="preview-note">
             <Info size={14} />
-            <span>Pedido #107 e horários são exemplos. Em produção usamos os dados reais.</span>
+            <span>Cliente, pedido #{exampleOrderId}, {exampleTotal} e os links abaixo são dados fictícios. Em produção entram os dados reais e um token seguro do pedido.</span>
           </div>
           <div className="chat-preview">
             <PreviewMessage avatar={avatar} custom={Boolean(profileImage)} name={displayName}>
-              <span style={{ whiteSpace: 'pre-line' }}>{greeting}</span>
+              Oi, {exampleCustomerName}! ✅ Recebemos seu pedido #{exampleOrderId} no {displayName}. Em breve ele seguirá para o preparo.
             </PreviewMessage>
             <PreviewMessage avatar={avatar} custom={Boolean(profileImage)} name={displayName}>
-              ✅ Seu pedido #107 foi confirmado!
-              <br />
-              Em breve começaremos o preparo.
+              Oi, {exampleCustomerName}! ✅ Seu pagamento via PIX foi confirmado.<br />Pedido #{exampleOrderId} no {displayName}.<br />Total: {exampleTotal}.<br />Agora é só aguardar o preparo.
             </PreviewMessage>
             <PreviewMessage avatar={avatar} custom={Boolean(profileImage)} name={displayName}>
-              🛵 Seu pedido #107 saiu para entrega!
-              <br />
-              Acompanhe em tempo real:
-              <br />
-              <a href={trackingUrl}>{trackingUrl}</a>
+              Oi, {exampleCustomerName}! 👨‍🍳 Seu pedido #{exampleOrderId} no {displayName} já está em preparo.
             </PreviewMessage>
             <PreviewMessage avatar={avatar} custom={Boolean(profileImage)} name={displayName}>
-              📦 Confirme o recebimento do pedido #107.
-              <br />
-              Abra o acompanhamento seguro:
-              <br />
-              <a href={trackingUrl}>{trackingUrl}</a>
+              Oi, {exampleCustomerName}! ✅ Seu pedido #{exampleOrderId} está pronto. Estamos preparando a próxima etapa.
+            </PreviewMessage>
+            <PreviewMessage avatar={avatar} custom={Boolean(profileImage)} name={displayName}>
+              Oi, {exampleCustomerName}! 🛵 Seu pedido #{exampleOrderId} saiu para entrega.<br />Acompanhe em tempo real: <a href={trackingUrl}>{trackingUrl}</a>
+            </PreviewMessage>
+            <PreviewMessage avatar={avatar} custom={Boolean(profileImage)} name={displayName}>
+              Oi, {exampleCustomerName}! 📦 O pedido #{exampleOrderId} foi marcado como entregue.<br />Confirme o recebimento com segurança: <a href={confirmationUrl}>{confirmationUrl}</a><br />Obrigado por pedir no {displayName}!
+            </PreviewMessage>
+            <PreviewMessage avatar={avatar} custom={Boolean(profileImage)} name={displayName}>
+              Oi, {exampleCustomerName}. O pedido #{exampleOrderId} no {displayName} foi cancelado. Se precisar de ajuda, fale com o restaurante.
             </PreviewMessage>
           </div>
-          <div className="tip">
-            <Info size={14} />
-            <span>
-              A prévia não envia mensagens. Os envios reais dependem da conexão configurada e das
-              regras do pedido.
-            </span>
-          </div>
+          <div className="tip"><Info size={14} /><span>Esta área é apenas uma prévia. O envio real usa o número, pedido, status, pagamento e links seguros gerados pelo backend.</span></div>
         </aside>
       </div>
     </Panel>
   );
 }
 
-function PreviewMessage({
-  avatar,
-  custom,
-  name,
-  children,
-}: {
-  avatar: string;
-  custom: boolean;
-  name: string;
-  children: React.ReactNode;
-}) {
+function PreviewMessage({ avatar, custom, name, children }: { avatar: string; custom: boolean; name: string; children: React.ReactNode }) {
   return (
     <div className="chat-message">
-      <img
-        className={`chat-avatar ${custom ? 'custom' : ''}`}
-        src={avatar}
-        alt=""
-        aria-hidden="true"
-      />
-      <div className="message-content">
-        <b>{name}</b>
-        <div className="bubble">{children}</div>
-      </div>
+      <img className={`chat-avatar ${custom ? 'custom' : ''}`} src={avatar} alt="" aria-hidden="true" />
+      <div className="message-content"><b>{name}</b><div className="bubble">{children}</div></div>
     </div>
   );
 }
