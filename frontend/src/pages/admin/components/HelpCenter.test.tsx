@@ -112,7 +112,7 @@ describe('HelpCenter support channels', () => {
     container.remove();
   });
 
-  it('mantém relatos da equipe separados da conversa entre ADMIN e SUPER_ADMIN', async () => {
+  it('mantém suporte da equipe separado da conversa entre ADMIN e SUPER_ADMIN', async () => {
     act(() => {
       root.render(
         <AppDialogProvider>
@@ -127,12 +127,13 @@ describe('HelpCenter support channels', () => {
     expect(mocks.getMessages).toHaveBeenCalledWith({ limit: 100, channel: 'internal' });
     expect(mocks.getMessages).toHaveBeenCalledWith({ limit: 100, channel: 'platform' });
 
-    expect(container.textContent).toContain('Relatos da equipe');
+    expect(container.textContent).toContain('Suporte da equipe');
     expect(container.textContent).toContain('Forno principal não está aquecendo.');
     expect(container.textContent).toContain('Suporte da plataforma');
     expect(container.textContent).toContain('Preciso de ajuda para configurar o gateway.');
     expect(container.textContent).toContain('Vou revisar a configuração com você.');
-    expect(container.textContent).toContain('Atendimento encerrado');
+    expect(container.textContent).toContain('Mensagem para o Super Admin');
+    expect(container.textContent).toContain('Enviar ao Super Admin');
 
     expect(container.textContent).not.toContain('Mensagem da plataforma indevida em relatos.');
     expect(container.textContent).not.toContain('Relato operacional indevido na plataforma.');
