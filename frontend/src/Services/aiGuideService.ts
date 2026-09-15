@@ -1,4 +1,5 @@
 import api from './api';
+import { inferAdminAiArea } from '../utils/adminAiArea';
 
 export type AiCreditBalance = {
   provider: 'OPENAI';
@@ -110,6 +111,7 @@ export type RestaurantAssistantAskResult = {
     dataUpdatedAt?: string | null;
     timeZone?: string | null;
     period?: unknown;
+    area?: string | null;
   };
   credits: AiCreditBalance;
 };
@@ -187,6 +189,14 @@ export type RestaurantAssistantSettings = {
   updatedAt: string;
 };
 
+export type AdminAiCapability = {
+  id: string;
+  area: string;
+  risk: 'READ' | 'WRITE' | 'SENSITIVE_WRITE';
+  approvalRequired: boolean;
+  description: string;
+};
+
 export type AiImageBatch = {
   publicId: string;
   kind: string;
@@ -242,8 +252,15 @@ const aiGuideService = {
     return response.data as RestaurantManagementSummary;
   },
 
-  async askRestaurant(question: string) {
-    const response = await api.post('/ai-support/restaurant/ask', { question });
+  async getCapabilities(area = inferAdminAiArea()) {
+    const response = await api.get('/ai-support/restaurant/capabilities', {
+      params: area ? { area } : undefined,
+    });
+    return response.data as { area: string | null; capabilities: AdminAiCapability[] };
+  },
+
+  async askRestaurant(question: string, area = inferAdminAiArea()) {
+    const response = await api.post('/ai-support/restaurant/ask', { question, area });
     return response.data as RestaurantAssistantAskResult;
   },
 
