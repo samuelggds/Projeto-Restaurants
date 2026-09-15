@@ -1,17 +1,7 @@
 import { FormEvent, useEffect, useState } from 'react';
+import { CircleHelp, Headphones, MessageCircle, Send } from 'lucide-react';
 import { toast } from 'react-toastify';
-import {
-  BookOpenCheck,
-  ChevronDown,
-  CircleHelp,
-  Headphones,
-  Send,
-  Settings2,
-  MessageCircle,
-} from 'lucide-react';
 import * as S from './HelpCenter.styles';
-import { FaithfulGuidePreview } from './HelpCenterPreviews';
-import { adminHelpGuides, type GuideSection } from './adminHelpGuides';
 import supportChatService from '../../../Services/supportChatService';
 import { acquireSocket } from '../../../Services/socketService';
 import { getAccessToken } from '../../../modules/auth/session/authSession';
@@ -20,6 +10,7 @@ import { useAppDialog } from '../../../components/AppDialog/context';
 type HelpCenterProps = {
   onReport: (payload: { subject: string; message: string }) => Promise<void>;
 };
+
 type EmployeeIssue = {
   id: string;
   senderLabel: string;
@@ -28,6 +19,7 @@ type EmployeeIssue = {
   issueResponse?: string | null;
   sentAt: string | null;
 };
+
 type PlatformSupportMessage = {
   id: string;
   senderRole: 'ADMIN' | 'SUPER_ADMIN';
@@ -36,54 +28,9 @@ type PlatformSupportMessage = {
   issueStatus?: string | null;
   sentAt: string | null;
 };
-const primaryGuideSections = adminHelpGuides.filter((section) => section.area !== 'Configurações');
-const settingsGuideSections = adminHelpGuides.filter((section) => section.area === 'Configurações');
-
-type GuideItemProps = {
-  section: GuideSection;
-  isOpen: boolean;
-  isSubtitle?: boolean;
-  onToggle: () => void;
-};
-
-function GuideItem({ section, isOpen, isSubtitle = false, onToggle }: GuideItemProps) {
-  const { title, icon: Icon, steps } = section;
-  const detailedSteps = steps;
-
-  return (
-    <article className={`${isOpen ? 'open' : ''}${isSubtitle ? ' settings-guide-item' : ''}`}>
-      <button type="button" aria-expanded={isOpen} onClick={onToggle}>
-        <i>
-          <Icon />
-        </i>
-        <span>
-          <b>{title}</b>
-          <small>
-            {isSubtitle
-              ? `${steps.length} passos detalhados`
-              : `${section.area} · ${steps.length} passos detalhados`}
-          </small>
-        </span>
-        <ChevronDown />
-      </button>
-      {isOpen && (
-        <div className="guide-details">
-          <ol>
-            {detailedSteps.map((step, index) => (
-              <li key={`${title}-${index}`}>{step}</li>
-            ))}
-          </ol>
-          <FaithfulGuidePreview {...section} />
-        </div>
-      )}
-    </article>
-  );
-}
 
 export function HelpCenter({ onReport }: HelpCenterProps) {
   const { confirmDialog } = useAppDialog();
-  const [openSection, setOpenSection] = useState<string | null>('Visão geral');
-  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [subject, setSubject] = useState('Dúvida sobre o sistema');
   const [message, setMessage] = useState('');
   const [status, setStatus] = useState<'idle' | 'sending' | 'success' | 'error'>('idle');
@@ -94,6 +41,7 @@ export function HelpCenter({ onReport }: HelpCenterProps) {
   const [platformState, setPlatformState] = useState<'loading' | 'ready' | 'error'>('loading');
   const [replyDrafts, setReplyDrafts] = useState<Record<string, string>>({});
   const [showIssueHistory, setShowIssueHistory] = useState(false);
+
   const loadEmployeeIssues = async () => {
     setIssuesState('loading');
     try {
@@ -108,6 +56,7 @@ export function HelpCenter({ onReport }: HelpCenterProps) {
       setIssuesState('error');
     }
   };
+
   const loadPlatformConversation = async () => {
     setPlatformState('loading');
     try {
@@ -122,6 +71,7 @@ export function HelpCenter({ onReport }: HelpCenterProps) {
       setPlatformState('error');
     }
   };
+
   useEffect(() => {
     const loadOnMount = window.setTimeout(() => {
       void loadEmployeeIssues();
@@ -129,12 +79,13 @@ export function HelpCenter({ onReport }: HelpCenterProps) {
     }, 0);
     return () => window.clearTimeout(loadOnMount);
   }, []);
+
   useEffect(() => {
     const token = getAccessToken();
     if (!token) return undefined;
 
     const { socket, release } = acquireSocket(token, 'admin-help-issues');
-    const refresh = () => void loadEmployeeIssues();
+    const refreshEmployeeIssues = () => void loadEmployeeIssues();
     const onNewIssue = (issue: {
       issueStatus?: string | null;
       senderRole?: string;
@@ -142,21 +93,19 @@ export function HelpCenter({ onReport }: HelpCenterProps) {
     }) => {
       if (issue.issueStatus === 'OPEN') {
         toast.info(`Novo relato da equipe: ${issue.senderLabel || 'funcionário'}.`);
-        refresh();
+        refreshEmployeeIssues();
         return;
       }
       if (issue.senderRole === 'ADMIN' || issue.senderRole === 'SUPER_ADMIN') {
-        if (issue.senderRole === 'SUPER_ADMIN') {
-          toast.info('Nova resposta do suporte da plataforma.');
-        }
+        if (issue.senderRole === 'SUPER_ADMIN') toast.info('Nova resposta do suporte da plataforma.');
         void loadPlatformConversation();
       }
     };
     const onUpdatedIssue = () => {
       toast.info('Um relato da equipe foi atualizado.');
-      refresh();
+      refreshEmployeeIssues();
     };
-    const onDeletedIssue = () => refresh();
+    const onDeletedIssue = () => refreshEmployeeIssues();
 
     socket.on('support:chat-message', onNewIssue);
     socket.on('support:issue-updated', onUpdatedIssue);
@@ -168,6 +117,7 @@ export function HelpCenter({ onReport }: HelpCenterProps) {
       release();
     };
   }, []);
+
   const updateEmployeeIssue = async (
     id: string,
     issueStatus: EmployeeIssue['issueStatus'],
@@ -181,6 +131,7 @@ export function HelpCenter({ onReport }: HelpCenterProps) {
       setIssuesState('error');
     }
   };
+
   const deleteEmployeeIssue = async (id: string) => {
     const confirmed = await confirmDialog({
       title: 'Excluir relato encerrado?',
@@ -197,9 +148,11 @@ export function HelpCenter({ onReport }: HelpCenterProps) {
       setIssuesState('error');
     }
   };
+
   const visibleEmployeeIssues = employeeIssues.filter((issue) =>
     showIssueHistory ? issue.issueStatus === 'CLOSED' : issue.issueStatus !== 'CLOSED',
   );
+
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (message.trim().length < 10 || status === 'sending') return;
@@ -217,77 +170,28 @@ export function HelpCenter({ onReport }: HelpCenterProps) {
       setStatus('error');
     }
   };
+
   return (
     <S.Root>
       <S.Hero>
         <span>
           <CircleHelp /> Central de ajuda
         </span>
-        <h2>Manual visual do seu restaurante</h2>
+        <h2>Suporte do restaurante</h2>
         <p>
-          Consulte os passos e a prévia atual de cada área. Alterne entre computador e celular para
-          reconhecer a tela antes de usar as ações do seu painel.
+          Esta área concentra somente os canais de suporte: funcionários falam com o administrador
+          e o administrador fala com o Super Admin da plataforma.
         </p>
       </S.Hero>
-      <S.Guide aria-label="Manual completo do painel administrativo">
-        {primaryGuideSections.map((section) => (
-          <GuideItem
-            key={section.title}
-            section={section}
-            isOpen={openSection === section.title}
-            onToggle={() => setOpenSection(openSection === section.title ? null : section.title)}
-          />
-        ))}
-        <S.SettingsGroup className={isSettingsOpen ? 'open' : ''}>
-          <button
-            type="button"
-            aria-expanded={isSettingsOpen}
-            onClick={() => setIsSettingsOpen(!isSettingsOpen)}
-          >
-            <i>
-              <Settings2 />
-            </i>
-            <span>
-              <b>Configurações</b>
-              <small>{settingsGuideSections.length} subtítulos para personalizar a operação</small>
-            </span>
-            <ChevronDown />
-          </button>
-          {isSettingsOpen && (
-            <div className="settings-guides">
-              <p className="settings-guides-intro">
-                Abra o subtítulo correspondente à configuração que deseja alterar. Cada guia mostra
-                a tela e o passo a passo específico.
-              </p>
-              {settingsGuideSections.map((section) => (
-                <GuideItem
-                  key={section.title}
-                  section={section}
-                  isSubtitle
-                  isOpen={openSection === section.title}
-                  onToggle={() =>
-                    setOpenSection(openSection === section.title ? null : section.title)
-                  }
-                />
-              ))}
-            </div>
-          )}
-        </S.SettingsGroup>
-      </S.Guide>
+
       <S.ReportCard>
         <div className="heading">
-          <i>
-            <Headphones />
-          </i>
+          <i><Headphones /></i>
           <div>
-            <h2>Relatos da equipe</h2>
-            <p>Mensagens de cozinha, salão e entregas enviadas pela Central de Ajuda.</p>
+            <h2>Suporte da equipe</h2>
+            <p>Solicitações enviadas pelos funcionários diretamente para o administrador.</p>
           </div>
-          <button
-            type="button"
-            className="refresh-issues"
-            onClick={() => void loadEmployeeIssues()}
-          >
+          <button type="button" className="refresh-issues" onClick={() => void loadEmployeeIssues()}>
             Atualizar relatos
           </button>
           <button
@@ -300,19 +204,13 @@ export function HelpCenter({ onReport }: HelpCenterProps) {
               : `Histórico (${employeeIssues.filter((issue) => issue.issueStatus === 'CLOSED').length})`}
           </button>
         </div>
+
         {issuesState === 'loading' && <p>Carregando relatos...</p>}
-        {issuesState === 'error' && (
-          <p className="error">
-            Não foi possível carregar ou atualizar os relatos. Tente novamente.
-          </p>
-        )}
+        {issuesState === 'error' && <p className="error">Não foi possível carregar os relatos.</p>}
         {issuesState === 'ready' && !visibleEmployeeIssues.length && (
-          <p>
-            {showIssueHistory
-              ? 'Nenhum relato encerrado no histórico.'
-              : 'Nenhum relato ativo no momento.'}
-          </p>
+          <p>{showIssueHistory ? 'Nenhum relato encerrado.' : 'Nenhum relato ativo no momento.'}</p>
         )}
+
         {visibleEmployeeIssues.map((issue) => (
           <div className="employee-issue" key={issue.id}>
             <b>
@@ -325,9 +223,7 @@ export function HelpCenter({ onReport }: HelpCenterProps) {
             </b>
             <pre>{issue.message}</pre>
             {issue.issueResponse && (
-              <p className="issue-response">
-                <strong>Resposta registrada:</strong> {issue.issueResponse}
-              </p>
+              <p className="issue-response"><strong>Resposta registrada:</strong> {issue.issueResponse}</p>
             )}
             {issue.issueStatus !== 'CLOSED' && (
               <label className="issue-reply">
@@ -344,10 +240,7 @@ export function HelpCenter({ onReport }: HelpCenterProps) {
             )}
             <footer>
               {issue.issueStatus === 'OPEN' && (
-                <button
-                  type="button"
-                  onClick={() => void updateEmployeeIssue(issue.id, 'IN_PROGRESS')}
-                >
+                <button type="button" onClick={() => void updateEmployeeIssue(issue.id, 'IN_PROGRESS')}>
                   Assumir
                 </button>
               )}
@@ -374,11 +267,7 @@ export function HelpCenter({ onReport }: HelpCenterProps) {
                 type="button"
                 className="delete-issue"
                 disabled={issue.issueStatus !== 'CLOSED'}
-                title={
-                  issue.issueStatus === 'CLOSED'
-                    ? 'Excluir relato permanentemente'
-                    : 'Encerre o relato antes de excluir'
-                }
+                title={issue.issueStatus === 'CLOSED' ? 'Excluir relato permanentemente' : 'Encerre o relato antes de excluir'}
                 onClick={() => void deleteEmployeeIssue(issue.id)}
               >
                 Excluir
@@ -387,28 +276,22 @@ export function HelpCenter({ onReport }: HelpCenterProps) {
           </div>
         ))}
       </S.ReportCard>
+
       <S.ReportCard>
         <div className="heading">
-          <i>
-            <Headphones />
-          </i>
+          <i><Headphones /></i>
           <div>
             <h2>Suporte da plataforma</h2>
-            <p>Canal exclusivo entre o administrador responsável e o Super Admin da plataforma.</p>
+            <p>Canal exclusivo entre o administrador responsável e o Super Admin.</p>
           </div>
-          <button
-            type="button"
-            className="refresh-issues"
-            onClick={() => void loadPlatformConversation()}
-          >
+          <button type="button" className="refresh-issues" onClick={() => void loadPlatformConversation()}>
             Atualizar conversa
           </button>
         </div>
+
         <div className="platform-conversation" aria-live="polite">
           {platformState === 'loading' && <p>Carregando conversa com a plataforma...</p>}
-          {platformState === 'error' && (
-            <p className="error">Não foi possível carregar a conversa. Tente novamente.</p>
-          )}
+          {platformState === 'error' && <p className="error">Não foi possível carregar a conversa.</p>}
           {platformState === 'ready' && !platformMessages.length && (
             <div className="platform-empty">
               <MessageCircle />
@@ -419,28 +302,20 @@ export function HelpCenter({ onReport }: HelpCenterProps) {
             </div>
           )}
           {platformMessages.map((item) => (
-            <article
-              key={item.id}
-              className={item.senderRole === 'ADMIN' ? 'from-admin' : 'from-platform'}
-            >
+            <article key={item.id} className={item.senderRole === 'ADMIN' ? 'from-admin' : 'from-platform'}>
               <header>
                 <b>{item.senderRole === 'SUPER_ADMIN' ? 'Suporte da plataforma' : 'Você'}</b>
                 <time>
                   {item.sentAt
-                    ? new Intl.DateTimeFormat('pt-BR', {
-                        dateStyle: 'short',
-                        timeStyle: 'short',
-                      }).format(new Date(item.sentAt))
-                    : 'Agora'}
+                    ? new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short', timeStyle: 'short' }).format(new Date(item.sentAt))
+                    : ''}
                 </time>
               </header>
               <p>{item.message}</p>
-              {item.issueStatus === 'CLOSED' ? (
-                <small className="conversation-status">Atendimento encerrado</small>
-              ) : null}
             </article>
           ))}
         </div>
+
         <form onSubmit={submit}>
           <label>
             Assunto
@@ -453,31 +328,25 @@ export function HelpCenter({ onReport }: HelpCenterProps) {
             </select>
           </label>
           <label>
-            Descreva o que aconteceu
+            Mensagem para o Super Admin
             <textarea
               value={message}
               onChange={(event) => setMessage(event.target.value)}
               minLength={10}
               maxLength={1100}
-              placeholder="Inclua o número do pedido, se houver, e os passos que levaram ao problema."
+              placeholder="Descreva o problema e inclua detalhes úteis para o suporte."
               required
             />
           </label>
           <footer>
-            {status === 'success' && (
-              <span className="success">Relato enviado ao Super Admin.</span>
-            )}
+            {status === 'success' && <span className="success">Relato enviado ao Super Admin.</span>}
             {status === 'error' && <span className="error">{errorMessage}</span>}
             <button type="submit" disabled={status === 'sending' || message.trim().length < 10}>
-              <Send /> {status === 'sending' ? 'Enviando...' : 'Reportar ao Super Admin'}
+              <Send /> {status === 'sending' ? 'Enviando...' : 'Enviar ao Super Admin'}
             </button>
           </footer>
         </form>
       </S.ReportCard>
-      <S.Tip>
-        <BookOpenCheck /> Dica: use o botão Ver loja depois de salvar para conferir cada mudança
-        como o cliente verá.
-      </S.Tip>
     </S.Root>
   );
 }

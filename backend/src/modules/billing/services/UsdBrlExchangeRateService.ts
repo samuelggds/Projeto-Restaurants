@@ -17,6 +17,8 @@ type AwesomeApiPayload = {
   };
 };
 
+const DEFAULT_MAX_QUOTE_AGE_SECONDS = 4 * 24 * 60 * 60;
+
 function positiveNumber(value: unknown, fallback: number) {
   const parsed = Number(value);
   return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
@@ -50,7 +52,16 @@ function resolveConfig() {
     .replace(/\/+$/u, '');
   const apiKey = String(process.env.FX_AWESOME_API_KEY || '').trim();
   const timeoutMs = positiveNumber(process.env.FX_REQUEST_TIMEOUT_MS, 5000);
-  const maxAgeSeconds = positiveNumber(process.env.FX_MAX_QUOTE_AGE_SECONDS, 180);
+  const configuredMaxAgeSeconds = positiveNumber(
+    process.env.FX_MAX_QUOTE_AGE_SECONDS,
+    DEFAULT_MAX_QUOTE_AGE_SECONDS,
+  );
+
+  // O timestamp do provedor representa o ultimo tick de mercado, nao o instante
+  // em que a API respondeu. Uma janela de poucos minutos quebra recargas a noite,
+  // em fins de semana e feriados. Mantemos um limite minimo de quatro dias para
+  // aceitar a ultima cotacao valida sem aceitar dados indefinidamente antigos.
+  const maxAgeSeconds = Math.max(configuredMaxAgeSeconds, DEFAULT_MAX_QUOTE_AGE_SECONDS);
 
   if (!/^https:\/\//iu.test(baseUrl)) {
     throw new Error('FX_AWESOME_BASE_URL deve usar HTTPS.');
