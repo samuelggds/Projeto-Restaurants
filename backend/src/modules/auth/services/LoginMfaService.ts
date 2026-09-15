@@ -5,7 +5,6 @@ import prisma from '../../../config/prisma.js';
 import { getJwtMfaExpiresIn, getJwtMfaSecret, getJwtSecret } from '../../../config/auth.js';
 import authTokenService from './AuthTokenService.js';
 import userRepository from '../repositories/UserRepository.js';
-import { isMfaRequiredForRole } from '../security/mfaPolicy.js';
 import successfulLoginRecorderService from './SuccessfulLoginRecorderService.js';
 import { platformMaintenanceAccessService } from '../../platform/services/PlatformMaintenanceService.js';
 import {
@@ -54,8 +53,8 @@ function getMfaSecret() {
   return getJwtMfaSecret() || getJwtSecret();
 }
 
-function requiresMfa(user: Pick<LoginUser, 'role' | 'mfaEnabled'>) {
-  return Boolean(user.mfaEnabled) || isMfaRequiredForRole(user.role);
+function requiresMfa(user: Pick<LoginUser, 'mfaEnabled'>) {
+  return Boolean(user.mfaEnabled);
 }
 
 function createMfaToken(userId: number) {
