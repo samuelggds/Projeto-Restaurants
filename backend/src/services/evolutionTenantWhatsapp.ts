@@ -1,4 +1,4 @@
-import { createHash, randomBytes } from 'node:crypto';
+import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
 import prisma from '../config/prisma.js';
 import {
   decryptCredential,
@@ -65,7 +65,13 @@ function tokenContext(restaurantId: number) {
 }
 
 function hashSecret(value: string) {
-  return createHash('sha256').update(value).digest('hex');
+  return createHash('sha256').update(value).digest();
+}
+
+function secretMatches(value: string, storedHex: string) {
+  const candidate = hashSecret(value);
+  const stored = Buffer.from(storedHex, 'hex');
+  return stored.length === candidate.length && timingSafeEqual(candidate, stored);
 }
 
 function instanceNameForRestaurant(restaurantId: number) {
@@ -138,18 +144,33 @@ async function evolutionRequest(
 }
 
 async function configureWebhook(row: ConnectionRow, webhookSecret: string) {
-  const webhookUrl = `${backendBaseUrl()}/api/webhooks/evolution/inbound/${encodeURIComponent(row.externalInstanceId)}?token=${encodeURIComponent(webhookSecret)}`;
+  const webhookUrl = `${backendBaseUrl()}/api/webhooks/evolution/inbound/${encodeURIComponent(row.externalInstanceId)}`;
   await evolutionRequest(`/webhook/set/${encodeURIComponent(row.externalInstanceId)}`, {
     method: 'POST',
     apiKey: instanceToken(row),
     body: {
-      enabled: true,
-      url: webhookUrl,
-      webhook_by_events: false,
-      webhook_base64: false,
-      events: ['MESSAGES_UPSERT', 'CONNECTION_UPDATE'],
+      webhook: {
+        enabled: true,
+        url: webhookUrl,
+        headers: {
+          'x-gastronexa-webhook-token': webhookSecret,
+        },
+        byEvents: false,
+        base64: false,
+        events: ['MESSAGES_UPSERT', 'CONNECTION_UPDATE'],
+      },
     },
   });
+}
+
+async function deleteEvolutionInstance(instanceName: string) {
+  try {
+    await evolutionRequest(`/instance/delete/${encodeURIComponent(instanceName)}`, {
+      method: 'DELETE',
+    });
+  } catch {
+    // Best-effort cleanup only. The original failure is more useful to the caller.
+  }
 }
 
 async function createEvolutionInstance(restaurantId: number) {
@@ -168,6 +189,7 @@ async function createEvolutionInstance(restaurantId: number) {
   });
 
   const ciphertext = encryptCredential(token, tokenContext(restaurantId));
+  const secretHashHex = hashSecret(webhookSecret).toString('hex');
   await prisma.$executeRaw`
     INSERT INTO "RestaurantWhatsappConnection" (
       "restaurantId", "provider", "externalInstanceId", "instanceTokenCiphertext",
@@ -175,7 +197,7 @@ async function createEvolutionInstance(restaurantId: number) {
       "connectedAt", "disconnectedAt", "createdAt", "updatedAt"
     ) VALUES (
       ${restaurantId}, 'EVOLUTION', ${instanceName}, ${ciphertext},
-      ${hashSecret(webhookSecret)}, 'PENDING', NULL, NULL,
+      ${secretHashHex}, 'PENDING', NULL, NULL,
       NULL, NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
     )
     ON CONFLICT ("restaurantId") DO UPDATE SET
@@ -192,8 +214,23 @@ async function createEvolutionInstance(restaurantId: number) {
   `;
 
   const row = await readConnectionByRestaurant(restaurantId);
-  if (!row) throw new Error('Não foi possível registrar a conexão Evolution API.');
-  await configureWebhook(row, webhookSecret);
+  if (!row) {
+    await deleteEvolutionInstance(instanceName);
+    throw new Error('Não foi possível registrar a conexão Evolution API.');
+  }
+
+  try {
+    await configureWebhook(row, webhookSecret);
+  } catch (error) {
+    await prisma.$executeRaw`
+      UPDATE "RestaurantWhatsappConnection"
+      SET "status" = 'ERROR', "updatedAt" = CURRENT_TIMESTAMP
+      WHERE "restaurantId" = ${restaurantId} AND "provider" = 'EVOLUTION'
+    `;
+    await deleteEvolutionInstance(instanceName);
+    throw error;
+  }
+
   return row;
 }
 
@@ -203,7 +240,9 @@ export async function getTenantEvolutionConnection(restaurantId: number) {
 
 export async function createTenantEvolutionConnection(restaurantId: number) {
   const existing = await readConnectionByRestaurant(restaurantId);
-  if (existing?.provider === 'EVOLUTION') return publicConnection(existing);
+  if (existing?.provider === 'EVOLUTION' && existing.status !== 'ERROR') {
+    return publicConnection(existing);
+  }
 
   const restaurant = await prisma.restaurant.findUnique({
     where: { id: restaurantId },
@@ -216,7 +255,7 @@ export async function createTenantEvolutionConnection(restaurantId: number) {
 
 export async function getTenantEvolutionQrCode(restaurantId: number) {
   let row = await readConnectionByRestaurant(restaurantId);
-  if (!row || row.provider !== 'EVOLUTION') {
+  if (!row || row.provider !== 'EVOLUTION' || row.status === 'ERROR') {
     row = await createEvolutionInstance(restaurantId);
   }
   const payload = (await evolutionRequest(
@@ -286,7 +325,7 @@ export async function sendTenantEvolutionTextMessage(input: {
   await evolutionRequest(`/message/sendText/${encodeURIComponent(row.externalInstanceId)}`, {
     method: 'POST',
     apiKey: instanceToken(row),
-    body: { number, textMessage: { text } },
+    body: { number, text },
   });
   return { sent: true, provider: 'evolution' } as const;
 }
@@ -330,7 +369,7 @@ export async function processTenantEvolutionInbound(
   if (!instanceName || !webhookToken) return { accepted: false, status: 401 } as const;
 
   const row = await readConnectionByInstance(instanceName);
-  if (!row || row.provider !== 'EVOLUTION' || hashSecret(webhookToken) !== row.webhookSecretHash) {
+  if (!row || row.provider !== 'EVOLUTION' || !secretMatches(webhookToken, row.webhookSecretHash)) {
     return { accepted: false, status: 401 } as const;
   }
 
@@ -414,5 +453,9 @@ export async function processTenantEvolutionInbound(
     message: greeting,
     providerMessageId,
   });
-  return { accepted: true, queued: Boolean(queued.queued), reason: queued.duplicate ? 'duplicate' : 'queued' } as const;
+  return {
+    accepted: true,
+    queued: Boolean(queued.queued),
+    reason: queued.duplicate ? 'duplicate' : 'queued',
+  } as const;
 }
