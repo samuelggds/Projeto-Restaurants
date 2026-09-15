@@ -2,6 +2,7 @@ import OpenAI from 'openai';
 import { z } from 'zod';
 import { withTenantDbContext } from '../../../database/tenantDbContext.js';
 import adminRestaurantContextService from './AdminRestaurantContextService.js';
+import adminRestaurantFallbackSnapshotService from './AdminRestaurantFallbackSnapshotService.js';
 import adminAiActionService from './AdminAiActionService.js';
 import aiCreditService from './AiCreditService.js';
 import { calculateTextUsageCostUsd } from './openAiUsageCost.js';
@@ -74,7 +75,16 @@ const assistantResponseSchema = z.object({
 
 const supportDraftSchema = z.object({
   summary: z.string().trim().min(1).max(700),
-  topic: z.enum(['PEDIDO', 'ATRASO', 'PAGAMENTO', 'CANCELAMENTO', 'ESTORNO', 'ENTREGA', 'PRODUTO', 'OUTRO']),
+  topic: z.enum([
+    'PEDIDO',
+    'ATRASO',
+    'PAGAMENTO',
+    'CANCELAMENTO',
+    'ESTORNO',
+    'ENTREGA',
+    'PRODUTO',
+    'OUTRO',
+  ]),
   urgency: z.enum(['LOW', 'MEDIUM', 'HIGH']),
   reason: z.string().trim().min(1).max(500),
   suggestedReply: z.string().trim().min(1).max(1600),
@@ -168,6 +178,25 @@ function parseJson(raw: string) {
   }
 }
 
+function isMissingAiStorageError(error: unknown) {
+  const message = error instanceof Error ? error.message : String(error || '');
+  return /(?:RestaurantAiSnapshot|RestaurantAiAssistantSettings)/u.test(message) &&
+    /(?:does not exist|não existe|P2021|relation|table)/iu.test(message);
+}
+
+async function loadManagementSnapshot(actor: Actor) {
+  try {
+    return await adminRestaurantContextService.getManagementSnapshot(actor);
+  } catch (error) {
+    if (!isMissingAiStorageError(error)) throw error;
+    console.warn('[ADMIN_AI_SNAPSHOT_FALLBACK]', {
+      restaurantId: actor.restaurantId,
+      reason: 'assistant_storage_not_ready',
+    });
+    return adminRestaurantFallbackSnapshotService.execute(actor);
+  }
+}
+
 async function recordUsage(actor: Actor, model: string, usage: unknown, feature: string) {
   const costUsd = calculateTextUsageCostUsd(model, usage as never);
   return aiCreditService.recordUsage({
@@ -182,7 +211,7 @@ async function recordUsage(actor: Actor, model: string, usage: unknown, feature:
 class AdminRestaurantAssistantService {
   async summary(actor: Actor) {
     assertActor(actor);
-    return adminRestaurantContextService.getManagementSnapshot(actor);
+    return loadManagementSnapshot(actor);
   }
 
   async ask(questionInput: unknown, actor: Actor, areaInput?: unknown) {
@@ -203,12 +232,11 @@ class AdminRestaurantAssistantService {
     const implementedActionTypes = IMPLEMENTED_ADMIN_AI_ACTION_TYPES.filter((type) =>
       allowedIds.has(type),
     );
-    const context = await adminRestaurantContextService.getManagementSnapshot(actor);
+    const context = await loadManagementSnapshot(actor);
     await aiCreditService.assertAvailable(actor);
-    const model = String(process.env.OPENAI_MODEL || 'gpt-4.1').trim();
+    const model = String(process.env.OPENAI_MODEL || 'gpt-5.6-sol').trim();
     const completion = await openAiClient().chat.completions.create({
       model,
-      temperature: 0.1,
       response_format: { type: 'json_object' },
       messages: [
         { role: 'system', content: ASSISTANT_SYSTEM_PROMPT },
@@ -344,10 +372,9 @@ class AdminRestaurantAssistantService {
     });
 
     await aiCreditService.assertAvailable(actor);
-    const model = String(process.env.OPENAI_MODEL || 'gpt-4.1').trim();
+    const model = String(process.env.OPENAI_MODEL || 'gpt-5.6-sol').trim();
     const completion = await openAiClient().chat.completions.create({
       model,
-      temperature: 0.1,
       response_format: { type: 'json_object' },
       messages: [
         { role: 'system', content: SUPPORT_SYSTEM_PROMPT },
