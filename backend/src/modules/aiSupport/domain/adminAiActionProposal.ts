@@ -1,3 +1,4 @@
+import { FuncionarioSubRole, UserRole } from '@prisma/client';
 import { z } from 'zod';
 
 const optionalText = (max: number) => z.string().trim().max(max).nullable().optional();
@@ -76,10 +77,47 @@ export const createCategoryProposalSchema = strictObject({
   active: z.boolean().optional().default(true),
 });
 
+export const upsertProductDiscountProposalSchema = strictObject({
+  actionType: z.literal('UPSERT_PRODUCT_DISCOUNT'),
+  productId: z.number().int().positive(),
+  kind: z.enum(['FIXED', 'PERCENTAGE']),
+  value: z.number().positive().max(999999),
+  label: z.string().trim().max(40).optional(),
+  active: z.boolean().optional().default(true),
+  startsAt: z.string().datetime({ offset: true }).nullable().optional(),
+  endsAt: z.string().datetime({ offset: true }).nullable().optional(),
+}).superRefine((data, ctx) => {
+  if (data.kind === 'PERCENTAGE' && data.value >= 100) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['value'], message: 'O desconto percentual deve ser menor que 100%.' });
+  }
+  if (data.startsAt && data.endsAt && new Date(data.startsAt) >= new Date(data.endsAt)) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['endsAt'], message: 'O término deve ser posterior ao início.' });
+  }
+});
+
 export const updateOrderStatusProposalSchema = strictObject({
   actionType: z.literal('UPDATE_ORDER_STATUS'),
   orderId: z.number().int().positive(),
   status: z.enum(['PREPARANDO', 'PRONTO', 'ENTREGUE']),
+});
+
+export const updateEmployeeProposalSchema = requirePatch(
+  strictObject({
+    actionType: z.literal('UPDATE_EMPLOYEE'),
+    employeeId: z.number().int().positive(),
+    name: z.string().trim().min(2).max(120).optional(),
+    email: z.string().trim().toLowerCase().email().max(180).optional(),
+    phone: z.string().trim().max(30).nullable().optional(),
+    role: z.enum([UserRole.FUNCIONARIO, UserRole.MOTOQUEIRO]).optional(),
+    subRole: z.nativeEnum(FuncionarioSubRole).nullable().optional(),
+  }),
+  ['name', 'email', 'phone', 'role', 'subRole'],
+);
+
+export const setEmployeeActiveProposalSchema = strictObject({
+  actionType: z.literal('SET_EMPLOYEE_ACTIVE'),
+  employeeId: z.number().int().positive(),
+  active: z.boolean(),
 });
 
 export const updateBusinessSettingsProposalSchema = requirePatch(
@@ -220,7 +258,10 @@ export const adminAiActionProposalSchema = z.union([
   adjustPricesProposalSchema,
   toggleProductAvailabilityProposalSchema,
   createCategoryProposalSchema,
+  upsertProductDiscountProposalSchema,
   updateOrderStatusProposalSchema,
+  updateEmployeeProposalSchema,
+  setEmployeeActiveProposalSchema,
   updateBusinessSettingsProposalSchema,
   updateAddressProposalSchema,
   updateBusinessHoursProposalSchema,
@@ -241,7 +282,10 @@ export const IMPLEMENTED_ADMIN_AI_ACTION_TYPES = Object.freeze([
   'ADJUST_PRODUCT_PRICES',
   'TOGGLE_PRODUCT_AVAILABILITY',
   'CREATE_CATEGORY',
+  'UPSERT_PRODUCT_DISCOUNT',
   'UPDATE_ORDER_STATUS',
+  'UPDATE_EMPLOYEE',
+  'SET_EMPLOYEE_ACTIVE',
   'UPDATE_BUSINESS_SETTINGS',
   'UPDATE_ADDRESS',
   'UPDATE_BUSINESS_HOURS',
