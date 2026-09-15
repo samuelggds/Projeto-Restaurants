@@ -81,7 +81,7 @@ function serialize(row: SettingsRow) {
   };
 }
 
-function fallbackSettings(restaurantId: number) {
+export function fallbackAiAssistantSettings(restaurantId: number) {
   return serialize({
     restaurantId,
     ...DEFAULTS,
@@ -90,7 +90,7 @@ function fallbackSettings(restaurantId: number) {
   });
 }
 
-function isMissingSettingsStorage(error: unknown) {
+export function isMissingAiSettingsStorage(error: unknown) {
   const value = error as { code?: unknown; message?: unknown };
   const code = String(value?.code || '');
   const message = String(value?.message || error || '');
@@ -135,12 +135,12 @@ class AdminAiSettingsService {
         return serialize(await read(db, restaurantId));
       });
     } catch (error) {
-      if (!isMissingSettingsStorage(error)) throw error;
+      if (!isMissingAiSettingsStorage(error)) throw error;
       console.warn('[ADMIN_AI_SETTINGS_FALLBACK]', {
         restaurantId,
         reason: 'assistant_settings_storage_not_ready',
       });
-      return fallbackSettings(restaurantId);
+      return fallbackAiAssistantSettings(restaurantId);
     }
   }
 
@@ -153,7 +153,9 @@ class AdminAiSettingsService {
         await ensureSettings(db, restaurantId, Number(actor.userId));
         const current = await read(db, restaurantId);
         if (parsed.expectedVersion && parsed.expectedVersion !== current.version) {
-          throw new Error('As configurações do assistente foram alteradas por outra sessão. Recarregue antes de salvar.');
+          throw new Error(
+            'As configurações do assistente foram alteradas por outra sessão. Recarregue antes de salvar.',
+          );
         }
 
         const next = {
@@ -212,8 +214,10 @@ class AdminAiSettingsService {
         return serialize(rows[0]);
       });
     } catch (error) {
-      if (!isMissingSettingsStorage(error)) throw error;
-      throw new Error('As preferências da IA estão sendo atualizadas no servidor. O assistente continua disponível com as configurações seguras padrão.');
+      if (!isMissingAiSettingsStorage(error)) throw error;
+      throw new Error(
+        'As preferências da IA estão sendo atualizadas no servidor. O assistente continua disponível com as configurações seguras padrão.',
+      );
     }
   }
 
@@ -232,7 +236,9 @@ class AdminAiSettingsService {
       }),
     );
     if (requests >= settings.maxAiRequestsPerHour) {
-      throw new Error(`Limite de ${settings.maxAiRequestsPerHour} solicitações de IA por hora atingido para esta conta.`);
+      throw new Error(
+        `Limite de ${settings.maxAiRequestsPerHour} solicitações de IA por hora atingido para esta conta.`,
+      );
     }
     await withTenantDbContext(restaurantId, (db) =>
       db.auditLog.create({
