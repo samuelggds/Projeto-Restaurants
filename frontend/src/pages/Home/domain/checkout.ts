@@ -34,6 +34,36 @@ function isValidCpf(value: unknown) {
   return digit(9) === Number(cpf[9]) && digit(10) === Number(cpf[10]);
 }
 
+export function whatsappOrderOptInStorageKey(restaurantId: number | null | undefined) {
+  const normalizedRestaurantId = Number(restaurantId || 0);
+  return Number.isSafeInteger(normalizedRestaurantId) && normalizedRestaurantId > 0
+    ? `gastronexa:whatsapp-order-opt-in:${normalizedRestaurantId}`
+    : '';
+}
+
+export function readWhatsappOrderOptIn(restaurantId: number | null | undefined) {
+  const key = whatsappOrderOptInStorageKey(restaurantId);
+  if (!key || typeof window === 'undefined') return false;
+  try {
+    return window.localStorage.getItem(key) === 'true';
+  } catch {
+    return false;
+  }
+}
+
+export function writeWhatsappOrderOptIn(
+  restaurantId: number | null | undefined,
+  optedIn: boolean,
+) {
+  const key = whatsappOrderOptInStorageKey(restaurantId);
+  if (!key || typeof window === 'undefined') return;
+  try {
+    window.localStorage.setItem(key, optedIn ? 'true' : 'false');
+  } catch {
+    // O checkout continua funcional mesmo se o navegador bloquear storage.
+  }
+}
+
 type ValidationInput = {
   type: OrderType;
   customerPhone: unknown;
@@ -246,6 +276,7 @@ export function buildOrderPayload(input: PayloadInput) {
       customerName: String(customer.name || 'Cliente'),
       customerCpf: String(customer.cpf || '').replace(/\D/g, '') || undefined,
       ...(customerPhone ? { customerPhone } : {}),
+      ...(type !== 'MESA' ? { whatsappOptIn: readWhatsappOrderOptIn(restaurantId) } : {}),
       address: deliveryAddress.address.trim(),
       number: deliveryAddress.number.trim(),
       district: deliveryAddress.district.trim(),
