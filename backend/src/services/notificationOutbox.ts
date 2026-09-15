@@ -24,6 +24,7 @@ type Message = {
 type Row = { id: string; restaurantId: number; payload: string; attempts: number; createdAt: Date };
 type Database = Pick<typeof prisma, '$queryRaw' | '$executeRaw' | 'order' | 'restaurantSettings'>;
 const context = (id: string) => `notification-outbox:${id}`;
+const digitsOnly = (value: unknown) => String(value || '').replace(/\D/g, '');
 
 export function notificationKey(
   restaurantId: number,
@@ -44,6 +45,25 @@ export function notificationKey(
     .digest('hex');
 }
 
+function sessionGreetingKey(restaurantId: number, destination: string, bucket: number) {
+  return createHash('sha256')
+    .update(JSON.stringify([restaurantId, 'INBOUND_GREETING', digitsOnly(destination), bucket]))
+    .digest('hex');
+}
+
+async function insertOutbox(
+  db: Database,
+  restaurantId: number,
+  key: string,
+  message: Message,
+) {
+  const id = randomUUID();
+  const payload = encryptCredential(JSON.stringify(message), context(id));
+  const inserted = await db.$executeRaw`INSERT INTO "NotificationOutbox" ("id", "deduplicationKey", "restaurantId", "payload")
+    VALUES (${id}::uuid, ${key}, ${restaurantId}, ${payload}) ON CONFLICT ("deduplicationKey") DO NOTHING`;
+  return inserted > 0;
+}
+
 export async function enqueueWhatsappNotification(message: Message, db: Database = prisma) {
   const orderId = Number(message.metadata.orderId);
   if (!Number.isSafeInteger(orderId) || orderId <= 0)
@@ -59,14 +79,77 @@ export async function enqueueWhatsappNotification(message: Message, db: Database
   ) {
     return { sent: false, reason: 'order_scope_mismatch' } as const;
   }
-  const id = randomUUID();
   const key = notificationKey(order.restaurantId, message.metadata);
-  const payload = encryptCredential(JSON.stringify(message), context(id));
-  await db.$executeRaw`INSERT INTO "NotificationOutbox" ("id", "deduplicationKey", "restaurantId", "payload")
-    VALUES (${id}::uuid, ${key}, ${order.restaurantId}, ${payload}) ON CONFLICT ("deduplicationKey") DO NOTHING`;
+  const inserted = await insertOutbox(db, order.restaurantId, key, message);
   return {
     sent: false,
-    queued: true,
+    queued: inserted,
+    duplicate: !inserted,
+    provider: resolveWhatsAppDeliveryProvider(),
+  } as const;
+}
+
+export async function enqueueWhatsappSessionGreeting({
+  restaurantId,
+  from,
+  to,
+  message,
+  providerMessageId,
+  receivedAt = new Date(),
+  db = prisma,
+}: {
+  restaurantId: number;
+  from: string;
+  to: string;
+  message: string;
+  providerMessageId?: string | null;
+  receivedAt?: Date;
+  db?: Database;
+}) {
+  if (!Number.isSafeInteger(restaurantId) || restaurantId <= 0) {
+    return { sent: false, queued: false, reason: 'invalid_restaurant' } as const;
+  }
+  const source = digitsOnly(from);
+  const destination = digitsOnly(to);
+  if (!/^\d{10,15}$/u.test(source) || !/^\d{10,15}$/u.test(destination)) {
+    return { sent: false, queued: false, reason: 'invalid_phone' } as const;
+  }
+
+  const settings = await db.restaurantSettings.findUnique({
+    where: { restaurantId },
+    select: {
+      whatsappEnabled: true,
+      restaurant: { select: { whatsapp: true } },
+    },
+  });
+  if (!settings || settings.whatsappEnabled === false) {
+    return { sent: false, queued: false, reason: 'whatsapp_disabled' } as const;
+  }
+  if (digitsOnly(settings.restaurant?.whatsapp) !== source) {
+    return { sent: false, queued: false, reason: 'restaurant_whatsapp_mismatch' } as const;
+  }
+
+  // Uma saudação por cliente a cada janela de 24h evita repetir a mensagem inicial
+  // em cada frase do mesmo atendimento. O índice único do outbox torna isso atômico.
+  const conversationBucket = Math.floor(receivedAt.getTime() / (24 * 60 * 60 * 1000));
+  const key = sessionGreetingKey(restaurantId, destination, conversationBucket);
+  const inserted = await insertOutbox(db, restaurantId, key, {
+    channel: 'whatsapp',
+    from: source,
+    to: destination,
+    message: String(message || '').trim(),
+    metadata: {
+      event: 'INBOUND_GREETING',
+      restaurantId,
+      providerMessageId: String(providerMessageId || '').trim() || null,
+      conversationBucket,
+    },
+  });
+
+  return {
+    sent: false,
+    queued: inserted,
+    duplicate: !inserted,
     provider: resolveWhatsAppDeliveryProvider(),
   } as const;
 }
@@ -151,6 +234,8 @@ async function deliverGupshup(message: Message, send: typeof fetch) {
     }
   }
 
+  // A saudação inicial é resposta a uma mensagem que acabou de chegar do cliente,
+  // portanto usa texto de sessão e não um template proativo.
   await sendGupshupTextMessage({
     source: message.from,
     destination: message.to,

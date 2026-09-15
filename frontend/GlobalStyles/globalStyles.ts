@@ -5,6 +5,39 @@ export const GlobalStyles = createGlobalStyle`
     margin: 0;
     padding: 0;
     box-sizing: border-box;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(100, 116, 139, 0.62) transparent;
+  }
+
+  *::-webkit-scrollbar {
+    width: 9px;
+    height: 9px;
+  }
+
+  *::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  *::-webkit-scrollbar-thumb {
+    min-height: 42px;
+    border: 2px solid transparent;
+    border-radius: 999px;
+    background: rgba(100, 116, 139, 0.58);
+    background-clip: padding-box;
+  }
+
+  *::-webkit-scrollbar-thumb:hover {
+    background: rgba(71, 85, 105, 0.78);
+    background-clip: padding-box;
+  }
+
+  *::-webkit-scrollbar-thumb:active {
+    background: rgba(51, 65, 85, 0.9);
+    background-clip: padding-box;
+  }
+
+  *::-webkit-scrollbar-corner {
+    background: transparent;
   }
 
   body {
@@ -34,39 +67,6 @@ export const GlobalStyles = createGlobalStyle`
   button:disabled,
   select:disabled {
     cursor: not-allowed;
-  }
-
-  /*
-   * Cabeçalho compacto da GastroNexa nos sidebars operacionais.
-   * Gastro usa a cor de texto do próprio sidebar (branco no escuro,
-   * preto no claro) e Nexa permanece laranja.
-   */
-  :is(
-      aside[aria-label="Menu administrativo"],
-      aside:has(nav[aria-label="Navegação do atendente"]),
-      aside:has(nav[aria-label="Navegação da cozinha"]),
-      aside:has(nav[aria-label="Navegação do garçom"]),
-      aside:has(nav[aria-label="Navegação do motoqueiro"])
-    )::before {
-    content: 'GastroNexa';
-    flex: 0 0 auto;
-    min-height: 38px;
-    margin: 0 8px 12px;
-    padding: 0 0 10px 38px;
-    display: flex;
-    align-items: center;
-    background:
-      url('/gastronexa-logo.svg') 2px 1px / 27px 25px no-repeat,
-      linear-gradient(90deg, currentColor 0 52%, #e9530b 52% 100%) 38px 0 /
-        92px 28px no-repeat;
-    background-clip: border-box, text;
-    -webkit-background-clip: border-box, text;
-    -webkit-text-fill-color: transparent;
-    font-family: 'Sora', 'Plus Jakarta Sans', sans-serif;
-    font-size: 15px;
-    font-weight: 800;
-    letter-spacing: -0.35px;
-    line-height: 1;
   }
 
   /* A proteção continua obrigatória no backend; o ADMIN não precisa ver a nota interna. */
@@ -162,12 +162,6 @@ export const GlobalStyles = createGlobalStyle`
     to {
       opacity: 1;
       transform: none;
-    }
-  }
-
-  @media (max-width: 900px) {
-    aside:has(nav[aria-label="Navegação do atendente"])::before {
-      display: none;
     }
   }
 
