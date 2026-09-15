@@ -8,23 +8,28 @@ import { getRestaurantCategoryFavicon } from '../../../config/browserBranding';
 type Settings = typeof adminMockSettings;
 type Props = { settings: Settings; update: <K extends keyof Settings>(key: K, value: Settings[K]) => void };
 const MAX_PROFILE_IMAGE_BYTES = 500_000;
+const PUBLIC_STORE_ORIGIN = 'https://www.gastronexa.com.br';
 
 function normalizeWhatsAppNumber(value: string) { return String(value || '').replace(/\D/g, ''); }
+function normalizeSlug(value: unknown) {
+  return String(value || '').trim().toLowerCase().replace(/^\/+|\/+$/gu, '');
+}
 function getNumberError(value: string, required: boolean) {
   const digits = normalizeWhatsAppNumber(value);
   if (!digits) return required ? 'Informe o número que será usado no WhatsApp.' : '';
   return digits.length < 10 || digits.length > 13 ? 'Use DDI, DDD e número, com 10 a 13 dígitos.' : '';
 }
 function readRestaurantIdentity() {
-  if (typeof window === 'undefined') return { id: 'default', category: 'RESTAURANTE' };
+  if (typeof window === 'undefined') return { id: 'default', category: 'RESTAURANTE', slug: '' };
   try {
     const user = JSON.parse(window.localStorage.getItem('user') || 'null') as Record<string, unknown> | null;
     const restaurant = user?.restaurant && typeof user.restaurant === 'object' ? user.restaurant as Record<string, unknown> : {};
     return {
       id: String(user?.restaurantId || restaurant.id || window.localStorage.getItem('menuRestaurantId') || 'default'),
       category: user?.restaurantCategory || restaurant.category || 'RESTAURANTE',
+      slug: normalizeSlug(user?.restaurantSlug || restaurant.slug),
     };
-  } catch { return { id: 'default', category: 'RESTAURANTE' }; }
+  } catch { return { id: 'default', category: 'RESTAURANTE', slug: '' }; }
 }
 
 export function WhatsAppSettings({ settings, update }: Props) {
@@ -45,7 +50,9 @@ export function WhatsAppSettings({ settings, update }: Props) {
   const exampleTotal = 'R$ 89,90';
   const trackingUrl = `https://gastronexa.com.br/orders/${exampleOrderId}/tracking#guestToken=token-seguro-exemplo`;
   const confirmationUrl = `https://gastronexa.com.br/orders/${exampleOrderId}/tracking?confirm=1#guestToken=token-seguro-exemplo`;
-  const initialMessage = String(settings.whatsappDefaultMessage || '').trim() || `Olá! 👋 Bem-vindo ao ${displayName}. Como podemos ajudar?`;
+  const storeUrl = identity.slug ? `${PUBLIC_STORE_ORIGIN}/${identity.slug}` : PUBLIC_STORE_ORIGIN;
+  const greetingText = String(settings.whatsappDefaultMessage || '').trim() || `Olá! 👋 Bem-vindo ao ${displayName}. Como podemos ajudar?`;
+  const initialMessage = `${greetingText}\n\n${storeUrl}`;
 
   const chooseImage = (file?: File) => {
     if (!file) return;
@@ -84,7 +91,7 @@ export function WhatsAppSettings({ settings, update }: Props) {
 
           <section className="card">
             <header className="card-heading"><span className="step">3</span><div><h3>Mensagens automáticas</h3><p>Defina a mensagem inicial do restaurante e os principais avisos do pedido.</p></div></header>
-            <S.Field className="greeting">Mensagem inicial do restaurante<textarea name="whatsappDefaultMessage" maxLength={500} placeholder="Olá! 👋 Bem-vindo ao nosso atendimento. Como podemos ajudar?" value={settings.whatsappDefaultMessage} onChange={(event) => update('whatsappDefaultMessage', event.target.value)} /><small className="help">Esta mensagem pertence ao restaurante — não ao cliente. Ela representa a abertura escolhida pelo administrador para iniciar o atendimento. A prévia ao lado muda enquanto você digita. {settings.whatsappDefaultMessage.length}/500 caracteres.</small></S.Field>
+            <S.Field className="greeting">Mensagem inicial do restaurante<textarea name="whatsappDefaultMessage" maxLength={500} placeholder="Olá! 👋 Bem-vindo ao nosso atendimento. Como podemos ajudar?" value={settings.whatsappDefaultMessage} onChange={(event) => update('whatsappDefaultMessage', event.target.value)} /><small className="help">Digite apenas a mensagem do restaurante. O GastroNexa acrescenta automaticamente o link fixo <b>{storeUrl}</b> ao final. {settings.whatsappDefaultMessage.length}/500 caracteres.</small></S.Field>
             <div className="automation-list">
               <label className="automation-row master"><span className="automation-icon"><MessageCircle size={16} /></span><span className="automation-copy"><b>Atualizações automáticas do pedido</b><span>Na produção, um pedido recebe no máximo 5 avisos automáticos: pagamento, preparo, pronto, entrega e conclusão/cancelamento.</span></span><input className="switch" name="receiveStatusNotifications" type="checkbox" role="switch" checked={statusEnabled} disabled={!enabled} onChange={(event) => update('receiveStatusNotifications', event.target.checked)} /></label>
               <Automation icon={<CheckCircle2 size={16} />} title="Pagamento confirmado" text="Confirma o pagamento quando houver confirmação eletrônica." />
@@ -96,17 +103,17 @@ export function WhatsAppSettings({ settings, update }: Props) {
         </div>
 
         <aside className="preview-card">
-          <header className="preview-heading"><span><MessageCircle size={16} /></span><div><h3>Prévia do fluxo enxuto</h3><p>O cliente inicia o contato; a primeira resposta exibida abaixo é a mensagem configurada pelo restaurante.</p></div></header>
-          <div className="preview-note"><Info size={14} /><span>Pedido #{exampleOrderId}, {exampleTotal} e os links são fictícios. Em produção entram os dados reais e tokens seguros. O aviso PENDENTE não é mais enviado automaticamente.</span></div>
+          <header className="preview-heading"><span><MessageCircle size={16} /></span><div><h3>Prévia do fluxo enxuto</h3><p>O cliente inicia o contato; a primeira resposta exibida abaixo é a mensagem configurada pelo restaurante mais o link fixo da loja.</p></div></header>
+          <div className="preview-note"><Info size={14} /><span>Pedido #{exampleOrderId}, {exampleTotal} e os links de pedido são fictícios. O link da loja usa o slug real deste restaurante.</span></div>
           <div className="chat-preview">
             <div className="chat-message customer"><div className="message-content"><b>{exampleCustomerName}</b><div className="bubble">Olá! Gostaria de falar com o restaurante.</div></div></div>
-            <PreviewMessage avatar={avatar} custom={Boolean(profileImage)} name={displayName}>{initialMessage}</PreviewMessage>
+            <PreviewMessage avatar={avatar} custom={Boolean(profileImage)} name={displayName}>{greetingText}<br /><br /><a href={storeUrl}>{storeUrl}</a></PreviewMessage>
             <PreviewMessage avatar={avatar} custom={Boolean(profileImage)} name={displayName}>Oi, {exampleCustomerName}! ✅ Seu pagamento via PIX foi confirmado.<br />Pedido #{exampleOrderId} no {displayName}.<br />Total: {exampleTotal}.<br />Agora é só aguardar o preparo.</PreviewMessage>
             <PreviewMessage avatar={avatar} custom={Boolean(profileImage)} name={displayName}>Oi, {exampleCustomerName}! 👨‍🍳 Seu pedido #{exampleOrderId} no {displayName} já está em preparo. Quando ficar pronto, você recebe o próximo aviso.</PreviewMessage>
             <PreviewMessage avatar={avatar} custom={Boolean(profileImage)} name={displayName}>Oi, {exampleCustomerName}! 🛵 Seu pedido #{exampleOrderId} saiu para entrega.<br />Acompanhe em tempo real: <a href={trackingUrl}>{trackingUrl}</a></PreviewMessage>
             <PreviewMessage avatar={avatar} custom={Boolean(profileImage)} name={displayName}>Oi, {exampleCustomerName}! 📦 O pedido #{exampleOrderId} foi marcado como entregue.<br />Confirme o recebimento com segurança: <a href={confirmationUrl}>{confirmationUrl}</a><br />Obrigado por pedir no {displayName}!</PreviewMessage>
           </div>
-          <div className="tip"><Info size={14} /><span>A mensagem inicial em destaque é sempre apresentada como mensagem do restaurante. Os demais avisos continuam limitados aos principais eventos do pedido.</span></div>
+          <div className="tip"><Info size={14} /><span>A mensagem inicial sempre inclui o endereço oficial {storeUrl}. O ADMIN edita somente o texto anterior ao link.</span></div>
         </aside>
       </div>
     </Panel>
