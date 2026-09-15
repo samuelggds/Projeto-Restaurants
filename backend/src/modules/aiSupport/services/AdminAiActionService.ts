@@ -1,10 +1,16 @@
 import crypto from 'node:crypto';
-import { Prisma } from '@prisma/client';
-import { z } from 'zod';
+import { OrderStatus, Prisma } from '@prisma/client';
 import { withTenantDbContext } from '../../../database/tenantDbContext.js';
 import createProductService from '../../products/services/CreateProductService.js';
 import updateProductService from '../../products/services/UpdateProductService.js';
+import createCategoryService from '../../categories/services/CreateCategoryService.js';
+import updateRestaurantSettingsService from '../../restaurantSettings/services/UpdateRestaurantSettingsService.js';
+import updateOrderStatusService from '../../orders/services/UpdateOrderStatusService.js';
 import { sanitizeAdminAiContext } from '../domain/adminAiSecurityPolicy.js';
+import {
+  adminAiActionProposalSchema,
+  type AdminAiActionProposal,
+} from '../domain/adminAiActionProposal.js';
 
 type Actor = {
   userId: number;
@@ -26,41 +32,6 @@ type ActionRow = {
   executedAt: Date | null;
   canceledAt: Date | null;
 };
-
-const createProductProposalSchema = z.object({
-  actionType: z.literal('CREATE_PRODUCT'),
-  name: z.string().trim().min(2).max(160),
-  description: z.string().trim().max(1000).nullable().optional(),
-  price: z.number().positive().max(100000),
-  categoryId: z.number().int().positive().optional(),
-  categoryName: z.string().trim().min(1).max(120).optional(),
-  active: z.boolean().optional().default(true),
-});
-
-const adjustPricesProposalSchema = z
-  .object({
-    actionType: z.literal('ADJUST_PRODUCT_PRICES'),
-    productIds: z.array(z.number().int().positive()).min(1).max(100).optional(),
-    categoryId: z.number().int().positive().optional(),
-    categoryName: z.string().trim().min(1).max(120).optional(),
-    nameContains: z.string().trim().min(1).max(120).optional(),
-    deltaAmount: z.number().min(-100000).max(100000).optional(),
-    percent: z.number().min(-100).max(1000).optional(),
-  })
-  .refine((value) => value.deltaAmount !== undefined || value.percent !== undefined, {
-    message: 'Informe o reajuste em valor ou percentual.',
-  })
-  .refine(
-    (value) =>
-      Boolean(
-        value.productIds?.length || value.categoryId || value.categoryName || value.nameContains,
-      ),
-    { message: 'Informe quais produtos serão reajustados.' },
-  );
-
-const proposalSchema = z.union([createProductProposalSchema, adjustPricesProposalSchema]);
-
-type Proposal = z.infer<typeof proposalSchema>;
 
 function assertActor(actor: Actor) {
   if (
@@ -88,7 +59,7 @@ function canonicalJson(value: unknown) {
   return JSON.stringify(canonicalize(sanitizeAdminAiContext(value)));
 }
 
-function stableKey(actor: Actor, proposal: Proposal) {
+function stableKey(actor: Actor, proposal: AdminAiActionProposal) {
   const serialized = canonicalJson(proposal);
   return `admin-ai:${actor.userId}:${crypto.createHash('sha256').update(serialized).digest('hex')}`;
 }
@@ -144,7 +115,220 @@ async function resolveCategory(
   return category;
 }
 
-async function buildPreview(db: Prisma.TransactionClient, restaurantId: number, proposal: Proposal) {
+function monetary(value: unknown) {
+  if (value === null || value === undefined) return value;
+  const number = Number(value);
+  return Number.isFinite(number) ? number : value;
+}
+
+async function selectProducts(
+  db: Prisma.TransactionClient,
+  restaurantId: number,
+  proposal: {
+    productIds?: number[];
+    categoryId?: number;
+    categoryName?: string;
+    nameContains?: string;
+  },
+) {
+  const category =
+    proposal.categoryId || proposal.categoryName
+      ? await resolveCategory(db, restaurantId, proposal)
+      : null;
+  const products = await db.product.findMany({
+    where: {
+      restaurantId,
+      ...(proposal.productIds?.length ? { id: { in: proposal.productIds } } : {}),
+      ...(category ? { categoryId: category.id } : {}),
+      ...(proposal.nameContains
+        ? { name: { contains: proposal.nameContains, mode: 'insensitive' } }
+        : {}),
+    },
+    select: {
+      id: true,
+      name: true,
+      price: true,
+      active: true,
+      categoryId: true,
+      configurationVersion: true,
+    },
+    orderBy: { name: 'asc' },
+    take: 100,
+  });
+  if (!products.length) throw new Error('Nenhum produto corresponde ao filtro informado.');
+  return { category, products };
+}
+
+async function loadSafeSettings(db: Prisma.TransactionClient, restaurantId: number) {
+  const settings = await db.restaurantSettings.findUnique({
+    where: { restaurantId },
+    select: {
+      companyLegalName: true,
+      companyTradeName: true,
+      businessHours: true,
+      isOpenForOrders: true,
+      autoAcceptOrders: true,
+      soundNotifications: true,
+      maxConcurrentOrders: true,
+      deliveryFee: true,
+      minimumOrder: true,
+      freeShippingMinimum: true,
+      acceptsDelivery: true,
+      acceptsPickup: true,
+      averageDeliveryTime: true,
+      whatsappEnabled: true,
+      whatsappDisplayName: true,
+      whatsappDefaultMessage: true,
+      receiveOrdersOnWhatsapp: true,
+      receiveStatusNotifications: true,
+      instagram: true,
+      facebook: true,
+      tiktok: true,
+      youtube: true,
+      primaryColor: true,
+      fontFamily: true,
+      seoTitle: true,
+      seoDescription: true,
+      restaurant: {
+        select: {
+          name: true,
+          description: true,
+          whatsapp: true,
+          address: true,
+          addressNumber: true,
+          addressComplement: true,
+          addressDistrict: true,
+          city: true,
+          state: true,
+          zipCode: true,
+        },
+      },
+    },
+  });
+  if (!settings) throw new Error('Configurações do restaurante não encontradas.');
+  return settings;
+}
+
+function changedFields(before: Record<string, unknown>, after: Record<string, unknown>) {
+  return Object.fromEntries(
+    Object.entries(after).map(([key, value]) => [key, { before: before[key] ?? null, after: value }]),
+  );
+}
+
+async function buildSettingsPreview(
+  db: Prisma.TransactionClient,
+  restaurantId: number,
+  proposal: AdminAiActionProposal,
+) {
+  const settings = await loadSafeSettings(db, restaurantId);
+  const restaurant = settings.restaurant;
+
+  if (proposal.actionType === 'UPDATE_BUSINESS_SETTINGS') {
+    const before = {
+      restaurantName: restaurant.name,
+      restaurantDescription: restaurant.description,
+      companyLegalName: settings.companyLegalName,
+      companyTradeName: settings.companyTradeName,
+      whatsapp: restaurant.whatsapp,
+    };
+    const { actionType: _actionType, ...after } = proposal;
+    return { actionType: proposal.actionType, affectedRecords: 1, changes: changedFields(before, after) };
+  }
+
+  if (proposal.actionType === 'UPDATE_ADDRESS') {
+    const before = {
+      restaurantAddress: restaurant.address,
+      restaurantAddressNumber: restaurant.addressNumber,
+      restaurantAddressComplement: restaurant.addressComplement,
+      restaurantAddressDistrict: restaurant.addressDistrict,
+      restaurantCity: restaurant.city,
+      restaurantState: restaurant.state,
+      restaurantZipCode: restaurant.zipCode,
+    };
+    const { actionType: _actionType, ...after } = proposal;
+    return { actionType: proposal.actionType, affectedRecords: 1, changes: changedFields(before, after) };
+  }
+
+  if (proposal.actionType === 'UPDATE_BUSINESS_HOURS') {
+    return {
+      actionType: proposal.actionType,
+      affectedRecords: 1,
+      changes: {
+        businessHours: {
+          before: sanitizeAdminAiContext(settings.businessHours),
+          after: proposal.businessHours,
+        },
+      },
+    };
+  }
+
+  if (proposal.actionType === 'UPDATE_ORDER_SETTINGS') {
+    const before = {
+      isOpenForOrders: settings.isOpenForOrders,
+      autoAcceptOrders: settings.autoAcceptOrders,
+      soundNotifications: settings.soundNotifications,
+      maxConcurrentOrders: settings.maxConcurrentOrders,
+    };
+    const { actionType: _actionType, ...after } = proposal;
+    return { actionType: proposal.actionType, affectedRecords: 1, changes: changedFields(before, after) };
+  }
+
+  if (proposal.actionType === 'UPDATE_DELIVERY_SETTINGS') {
+    const before = {
+      deliveryFee: monetary(settings.deliveryFee),
+      minimumOrder: monetary(settings.minimumOrder),
+      freeShippingMinimum: monetary(settings.freeShippingMinimum),
+      acceptsDelivery: settings.acceptsDelivery,
+      acceptsPickup: settings.acceptsPickup,
+      averageDeliveryTime: settings.averageDeliveryTime,
+    };
+    const { actionType: _actionType, ...after } = proposal;
+    return { actionType: proposal.actionType, affectedRecords: 1, changes: changedFields(before, after) };
+  }
+
+  if (proposal.actionType === 'UPDATE_WHATSAPP_SETTINGS') {
+    const before = {
+      whatsapp: restaurant.whatsapp,
+      whatsappEnabled: settings.whatsappEnabled,
+      whatsappDisplayName: settings.whatsappDisplayName,
+      whatsappDefaultMessage: settings.whatsappDefaultMessage,
+      receiveOrdersOnWhatsapp: settings.receiveOrdersOnWhatsapp,
+      receiveStatusNotifications: settings.receiveStatusNotifications,
+    };
+    const { actionType: _actionType, ...after } = proposal;
+    return { actionType: proposal.actionType, affectedRecords: 1, changes: changedFields(before, after) };
+  }
+
+  if (proposal.actionType === 'UPDATE_SOCIAL_SETTINGS') {
+    const before = {
+      instagram: settings.instagram,
+      facebook: settings.facebook,
+      tiktok: settings.tiktok,
+      youtube: settings.youtube,
+    };
+    const { actionType: _actionType, ...after } = proposal;
+    return { actionType: proposal.actionType, affectedRecords: 1, changes: changedFields(before, after) };
+  }
+
+  if (proposal.actionType === 'UPDATE_APPEARANCE_SETTINGS') {
+    const before = {
+      primaryColor: settings.primaryColor,
+      fontFamily: settings.fontFamily,
+      seoTitle: settings.seoTitle,
+      seoDescription: settings.seoDescription,
+    };
+    const { actionType: _actionType, ...after } = proposal;
+    return { actionType: proposal.actionType, affectedRecords: 1, changes: changedFields(before, after) };
+  }
+
+  return null;
+}
+
+async function buildPreview(
+  db: Prisma.TransactionClient,
+  restaurantId: number,
+  proposal: AdminAiActionProposal,
+) {
   if (proposal.actionType === 'CREATE_PRODUCT') {
     const category = await resolveCategory(db, restaurantId, proposal);
     const existing = await db.product.findFirst({
@@ -168,63 +352,201 @@ async function buildPreview(db: Prisma.TransactionClient, restaurantId: number, 
     };
   }
 
-  const category =
-    proposal.categoryId || proposal.categoryName
-      ? await resolveCategory(db, restaurantId, proposal)
-      : null;
-  const products = await db.product.findMany({
-    where: {
-      restaurantId,
-      ...(proposal.productIds?.length ? { id: { in: proposal.productIds } } : {}),
-      ...(category ? { categoryId: category.id } : {}),
-      ...(proposal.nameContains
-        ? { name: { contains: proposal.nameContains, mode: 'insensitive' } }
-        : {}),
-    },
-    select: { id: true, name: true, price: true, categoryId: true, configurationVersion: true },
-    orderBy: { name: 'asc' },
-    take: 100,
-  });
-  if (!products.length) throw new Error('Nenhum produto corresponde ao filtro informado.');
-
-  const changes = products.map((product) => {
-    const before = Number(product.price);
-    const next =
-      proposal.deltaAmount !== undefined
-        ? before + proposal.deltaAmount
-        : before * (1 + Number(proposal.percent || 0) / 100);
-    if (!Number.isFinite(next) || next <= 0 || next > 100000) {
-      throw new Error(`O reajuste deixaria “${product.name}” com preço inválido.`);
+  if (proposal.actionType === 'UPDATE_PRODUCT') {
+    const product = await db.product.findFirst({
+      where: { id: proposal.productId, restaurantId },
+      select: {
+        id: true,
+        name: true,
+        description: true,
+        price: true,
+        active: true,
+        categoryId: true,
+        configurationVersion: true,
+        category: { select: { name: true } },
+      },
+    });
+    if (!product) throw new Error('Produto não encontrado neste restaurante.');
+    const category =
+      proposal.categoryId || proposal.categoryName
+        ? await resolveCategory(db, restaurantId, proposal)
+        : { id: product.categoryId, name: product.category.name };
+    if (proposal.name && proposal.name.toLowerCase() !== product.name.toLowerCase()) {
+      const duplicate = await db.product.findFirst({
+        where: {
+          restaurantId,
+          id: { not: product.id },
+          name: { equals: proposal.name, mode: 'insensitive' },
+        },
+        select: { id: true },
+      });
+      if (duplicate) throw new Error('Já existe outro produto com o nome informado.');
     }
-    return {
-      productId: product.id,
+    const before = {
       name: product.name,
+      description: product.description,
+      price: Number(product.price),
       categoryId: product.categoryId,
-      configurationVersion: product.configurationVersion,
-      before: Number(before.toFixed(2)),
-      after: Number(next.toFixed(2)),
+      categoryName: product.category.name,
+      active: product.active,
     };
-  });
+    const after = {
+      name: proposal.name ?? product.name,
+      description: proposal.description !== undefined ? proposal.description : product.description,
+      price: proposal.price ?? Number(product.price),
+      categoryId: category.id,
+      categoryName: category.name,
+      active: proposal.active ?? product.active,
+    };
+    return {
+      actionType: proposal.actionType,
+      productId: product.id,
+      configurationVersion: product.configurationVersion,
+      affectedRecords: 1,
+      changes: changedFields(before, after),
+      exactAction: after,
+    };
+  }
 
-  return {
-    actionType: proposal.actionType,
-    filter: {
-      productIds: proposal.productIds ?? null,
-      categoryId: category?.id ?? null,
-      categoryName: category?.name ?? null,
-      nameContains: proposal.nameContains ?? null,
-      deltaAmount: proposal.deltaAmount ?? null,
-      percent: proposal.percent ?? null,
-    },
-    affectedRecords: changes.length,
-    changes,
-  };
+  if (proposal.actionType === 'ADJUST_PRODUCT_PRICES') {
+    const { category, products } = await selectProducts(db, restaurantId, proposal);
+    const changes = products.map((product) => {
+      const before = Number(product.price);
+      const next =
+        proposal.deltaAmount !== undefined
+          ? before + proposal.deltaAmount
+          : before * (1 + Number(proposal.percent || 0) / 100);
+      if (!Number.isFinite(next) || next <= 0 || next > 100000) {
+        throw new Error(`O reajuste deixaria “${product.name}” com preço inválido.`);
+      }
+      return {
+        productId: product.id,
+        name: product.name,
+        categoryId: product.categoryId,
+        configurationVersion: product.configurationVersion,
+        before: Number(before.toFixed(2)),
+        after: Number(next.toFixed(2)),
+      };
+    });
+    return {
+      actionType: proposal.actionType,
+      filter: {
+        productIds: proposal.productIds ?? null,
+        categoryId: category?.id ?? null,
+        categoryName: category?.name ?? null,
+        nameContains: proposal.nameContains ?? null,
+        deltaAmount: proposal.deltaAmount ?? null,
+        percent: proposal.percent ?? null,
+      },
+      affectedRecords: changes.length,
+      changes,
+    };
+  }
+
+  if (proposal.actionType === 'TOGGLE_PRODUCT_AVAILABILITY') {
+    const { category, products } = await selectProducts(db, restaurantId, proposal);
+    return {
+      actionType: proposal.actionType,
+      filter: {
+        productIds: proposal.productIds ?? null,
+        categoryId: category?.id ?? null,
+        categoryName: category?.name ?? null,
+        nameContains: proposal.nameContains ?? null,
+      },
+      affectedRecords: products.length,
+      changes: products.map((product) => ({
+        productId: product.id,
+        name: product.name,
+        configurationVersion: product.configurationVersion,
+        before: product.active,
+        after: proposal.active,
+      })),
+    };
+  }
+
+  if (proposal.actionType === 'CREATE_CATEGORY') {
+    const duplicate = await db.category.findFirst({
+      where: { restaurantId, name: { equals: proposal.name, mode: 'insensitive' } },
+      select: { id: true },
+    });
+    if (duplicate) throw new Error('Já existe uma categoria com esse nome.');
+    return {
+      actionType: proposal.actionType,
+      affectedRecords: 1,
+      exactAction: {
+        name: proposal.name,
+        description: proposal.description ?? null,
+        active: proposal.active,
+      },
+    };
+  }
+
+  if (proposal.actionType === 'UPDATE_ORDER_STATUS') {
+    const order = await db.order.findFirst({
+      where: { id: proposal.orderId, restaurantId },
+      select: { id: true, publicId: true, status: true, type: true, paid: true, total: true },
+    });
+    if (!order) throw new Error('Pedido não encontrado neste restaurante.');
+    return {
+      actionType: proposal.actionType,
+      affectedRecords: 1,
+      orderId: order.id,
+      publicId: order.publicId,
+      orderType: order.type,
+      paid: order.paid,
+      total: Number(order.total),
+      before: order.status,
+      after: proposal.status,
+    };
+  }
+
+  const settingsPreview = await buildSettingsPreview(db, restaurantId, proposal);
+  if (settingsPreview) return settingsPreview;
+  throw new Error('Ação ADMIN não implementada.');
+}
+
+async function executeSettingsProposal(proposal: AdminAiActionProposal, restaurantId: number) {
+  if (proposal.actionType === 'UPDATE_BUSINESS_SETTINGS') {
+    const { actionType: _actionType, ...changes } = proposal;
+    return updateRestaurantSettingsService.execute({ restaurantId, ...changes });
+  }
+  if (proposal.actionType === 'UPDATE_ADDRESS') {
+    const { actionType: _actionType, ...changes } = proposal;
+    return updateRestaurantSettingsService.execute({ restaurantId, ...changes });
+  }
+  if (proposal.actionType === 'UPDATE_BUSINESS_HOURS') {
+    return updateRestaurantSettingsService.execute({
+      restaurantId,
+      businessHours: proposal.businessHours,
+    });
+  }
+  if (proposal.actionType === 'UPDATE_ORDER_SETTINGS') {
+    const { actionType: _actionType, ...changes } = proposal;
+    return updateRestaurantSettingsService.execute({ restaurantId, ...changes });
+  }
+  if (proposal.actionType === 'UPDATE_DELIVERY_SETTINGS') {
+    const { actionType: _actionType, ...changes } = proposal;
+    return updateRestaurantSettingsService.execute({ restaurantId, ...changes });
+  }
+  if (proposal.actionType === 'UPDATE_WHATSAPP_SETTINGS') {
+    const { actionType: _actionType, ...changes } = proposal;
+    return updateRestaurantSettingsService.execute({ restaurantId, ...changes });
+  }
+  if (proposal.actionType === 'UPDATE_SOCIAL_SETTINGS') {
+    const { actionType: _actionType, ...changes } = proposal;
+    return updateRestaurantSettingsService.execute({ restaurantId, ...changes });
+  }
+  if (proposal.actionType === 'UPDATE_APPEARANCE_SETTINGS') {
+    const { actionType: _actionType, ...changes } = proposal;
+    return updateRestaurantSettingsService.execute({ restaurantId, ...changes });
+  }
+  return null;
 }
 
 export class AdminAiActionService {
   async propose(input: unknown, actor: Actor) {
     assertActor(actor);
-    const proposal = proposalSchema.parse(input);
+    const proposal = adminAiActionProposalSchema.parse(input);
     const restaurantId = Number(actor.restaurantId);
     const idempotencyKey = stableKey(actor, proposal);
 
@@ -298,7 +620,7 @@ export class AdminAiActionService {
       if (current.status !== 'PROPOSED') {
         throw new Error('Esta ação não está disponível para aprovação.');
       }
-      const proposal = proposalSchema.parse(current.proposal);
+      const proposal = adminAiActionProposalSchema.parse(current.proposal);
       const freshPreview = await buildPreview(db, restaurantId, proposal);
       if (canonicalJson(current.approvalSnapshot) !== canonicalJson(freshPreview)) {
         throw new Error('Os dados mudaram desde a prévia. Gere uma nova proposta antes de aprovar.');
@@ -319,9 +641,10 @@ export class AdminAiActionService {
     });
 
     if (action.status === 'EXECUTED') return serialize(action);
-    const proposal = proposalSchema.parse(action.proposal);
+    const proposal = adminAiActionProposalSchema.parse(action.proposal);
     try {
       let result: unknown;
+
       if (proposal.actionType === 'CREATE_PRODUCT') {
         const preview = action.approvalSnapshot as { exactAction?: { categoryId?: number } };
         const categoryId = Number(preview?.exactAction?.categoryId || 0);
@@ -343,7 +666,37 @@ export class AdminAiActionService {
             userRole: actor.userRole || undefined,
           },
         );
-      } else {
+      } else if (proposal.actionType === 'UPDATE_PRODUCT') {
+        const preview = action.approvalSnapshot as {
+          configurationVersion?: number;
+          exactAction?: {
+            name?: string;
+            description?: string | null;
+            price?: number;
+            categoryId?: number;
+            active?: boolean;
+          };
+        };
+        const exact = preview.exactAction;
+        if (!exact) throw new Error('Prévia do produto indisponível.');
+        result = await updateProductService.execute(
+          proposal.productId,
+          {
+            name: exact.name,
+            description: exact.description ?? undefined,
+            price: exact.price,
+            categoryId: exact.categoryId,
+            active: exact.active,
+            expectedConfigurationVersion: preview.configurationVersion,
+          },
+          restaurantId,
+          {
+            userId: Number(actor.userId),
+            userName: actor.userName || undefined,
+            userRole: actor.userRole || undefined,
+          },
+        );
+      } else if (proposal.actionType === 'ADJUST_PRODUCT_PRICES') {
         const preview = action.approvalSnapshot as {
           changes?: Array<{ productId: number; after: number; configurationVersion: number }>;
         };
@@ -364,6 +717,46 @@ export class AdminAiActionService {
           );
         }
         result = { updatedProducts: updated.length };
+      } else if (proposal.actionType === 'TOGGLE_PRODUCT_AVAILABILITY') {
+        const preview = action.approvalSnapshot as {
+          changes?: Array<{ productId: number; after: boolean; configurationVersion: number }>;
+        };
+        const changes = Array.isArray(preview?.changes) ? preview.changes : [];
+        for (const change of changes) {
+          await updateProductService.execute(
+            change.productId,
+            { active: change.after, expectedConfigurationVersion: change.configurationVersion },
+            restaurantId,
+            {
+              userId: Number(actor.userId),
+              userName: actor.userName || undefined,
+              userRole: actor.userRole || undefined,
+            },
+          );
+        }
+        result = { updatedProducts: changes.length, active: proposal.active };
+      } else if (proposal.actionType === 'CREATE_CATEGORY') {
+        result = await createCategoryService.execute(
+          {
+            name: proposal.name,
+            description: proposal.description ?? undefined,
+            active: proposal.active,
+          },
+          restaurantId,
+        );
+      } else if (proposal.actionType === 'UPDATE_ORDER_STATUS') {
+        result = await updateOrderStatusService.execute(
+          proposal.orderId,
+          restaurantId,
+          proposal.status as OrderStatus,
+          'ADMIN',
+          undefined,
+          Number(actor.userId),
+          null,
+        );
+      } else {
+        result = await executeSettingsProposal(proposal, restaurantId);
+        if (result === null) throw new Error('Ação ADMIN não implementada.');
       }
 
       return withTenantDbContext(restaurantId, async (db) => {
