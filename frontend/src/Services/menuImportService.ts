@@ -1,4 +1,5 @@
 import api from './api';
+import type { AiCreditBalance } from './aiGuideService';
 
 type ImportIfoodMenuPayload = {
   url: string;
@@ -24,6 +25,43 @@ export type MenuImportSummary = {
   productsCreated: number;
   createdCategories: MenuImportCreatedItem[];
   createdProducts: MenuImportCreatedItem[];
+};
+
+export type MenuImportDraftItem = {
+  publicId: string;
+  position: number;
+  category: string;
+  name: string;
+  description: string | null;
+  price: number;
+  image: string | null;
+  confidence: number | null;
+  uncertainFields: string[];
+  duplicateProductId: number | null;
+  action: 'CREATE' | 'UPDATE' | 'SKIP';
+  selected: boolean;
+  publishedProductId: number | null;
+  updatedAt: string;
+};
+
+export type MenuImportDraft = {
+  publicId: string;
+  sourceType: 'IMAGE' | 'IFOOD';
+  status: 'REVIEW' | 'PUBLISHED' | 'CANCELED' | 'EXPIRED';
+  createdAt: string;
+  updatedAt: string;
+  publishedAt: string | null;
+  expiresAt: string;
+  items: MenuImportDraftItem[];
+  summary: {
+    total: number;
+    selected: number;
+    duplicates: number;
+    uncertain: number;
+    missingDescription: number;
+    missingImage: number;
+  };
+  credits?: AiCreditBalance;
 };
 
 export type ImportedProductImageResult = {
@@ -57,6 +95,43 @@ class MenuImportService {
       payload,
       requestConfig,
     );
+    return response.data;
+  }
+
+  async previewMenuFromImage(payload: ImportMenuFromImagePayload): Promise<MenuImportDraft> {
+    const response = await api.post<MenuImportDraft>(
+      '/menu-import/image/preview',
+      payload,
+      requestConfig,
+    );
+    return response.data;
+  }
+
+  async getDraft(publicId: string): Promise<MenuImportDraft> {
+    const response = await api.get<MenuImportDraft>(`/menu-import/drafts/${encodeURIComponent(publicId)}`);
+    return response.data;
+  }
+
+  async updateDraftItem(
+    draftPublicId: string,
+    itemPublicId: string,
+    payload: Partial<Pick<MenuImportDraftItem, 'selected' | 'action' | 'category' | 'name' | 'description' | 'price' | 'image' | 'duplicateProductId'>>,
+  ): Promise<MenuImportDraft> {
+    const response = await api.patch<MenuImportDraft>(
+      `/menu-import/drafts/${encodeURIComponent(draftPublicId)}/items/${encodeURIComponent(itemPublicId)}`,
+      payload,
+    );
+    return response.data;
+  }
+
+  async publishDraft(publicId: string) {
+    const response = await api.post<{
+      draftPublicId: string;
+      status: 'PUBLISHED' | 'PARTIAL';
+      results: Array<{ itemPublicId: string; productId?: number; status: string; error?: string }>;
+      canRetryFailedItems: boolean;
+      undoNote: string;
+    }>(`/menu-import/drafts/${encodeURIComponent(publicId)}/publish`);
     return response.data;
   }
 
