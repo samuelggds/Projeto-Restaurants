@@ -7,54 +7,14 @@ const sections: Array<{
   label: string;
   description: string;
 }> = [
-  {
-    id: 'business',
-    icon: '⌂',
-    label: 'Restaurante',
-    description: 'Dados principais',
-  },
-  {
-    id: 'appearance',
-    icon: '◐',
-    label: 'Aparência',
-    description: 'Marca e cores',
-  },
-  {
-    id: 'contact',
-    icon: '◎',
-    label: 'Contato e redes',
-    description: 'Canais públicos',
-  },
-  {
-    id: 'whatsapp',
-    icon: '◉',
-    label: 'WhatsApp',
-    description: 'Atendimento e pedidos',
-  },
-  {
-    id: 'about',
-    icon: '≡',
-    label: 'Sobre',
-    description: 'Descrição institucional',
-  },
-  {
-    id: 'hours',
-    icon: '◷',
-    label: 'Horários',
-    description: 'Dias e funcionamento',
-  },
-  {
-    id: 'orders',
-    icon: '◇',
-    label: 'Pedidos e entrega',
-    description: 'Regras comerciais',
-  },
-  {
-    id: 'payments',
-    icon: 'R$',
-    label: 'Pagamentos',
-    description: 'Pix, cartão e webhooks',
-  },
+  { id: 'business', icon: '⌂', label: 'Restaurante', description: 'Dados principais' },
+  { id: 'appearance', icon: '◐', label: 'Aparência', description: 'Marca e cores' },
+  { id: 'contact', icon: '◎', label: 'Contato e redes', description: 'Canais públicos' },
+  { id: 'whatsapp', icon: '◉', label: 'WhatsApp', description: 'Atendimento e pedidos' },
+  { id: 'about', icon: '≡', label: 'Sobre', description: 'Descrição institucional' },
+  { id: 'hours', icon: '◷', label: 'Horários', description: 'Dias e funcionamento' },
+  { id: 'orders', icon: '◇', label: 'Pedidos e entrega', description: 'Regras comerciais' },
+  { id: 'payments', icon: 'R$', label: 'Pagamentos', description: 'Pix, cartão e contas' },
 ];
 
 type SettingsSidebarProps = {
