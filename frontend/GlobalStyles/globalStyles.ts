@@ -37,9 +37,9 @@ export const GlobalStyles = createGlobalStyle`
   }
 
   /*
-   * Marca da plataforma nos sidebars operacionais. O nome herda a cor de texto
-   * do próprio sidebar: Gastro fica branco em superfícies escuras e preto em
-   * superfícies claras; Nexa permanece laranja em qualquer tema.
+   * Cabeçalho compacto da GastroNexa nos sidebars operacionais.
+   * `Gastro` usa a cor de texto do próprio sidebar (branco no escuro,
+   * preto no claro) e `Nexa` permanece laranja.
    */
   :is(
       aside[aria-label="Menu administrativo"],
@@ -50,24 +50,22 @@ export const GlobalStyles = createGlobalStyle`
     )::before {
     content: 'GastroNexa';
     flex: 0 0 auto;
-    width: calc(100% - 16px);
-    min-height: 48px;
-    margin: 0 8px 13px;
-    padding-left: 46px;
+    min-height: 38px;
+    margin: 0 8px 12px;
+    padding: 0 0 10px 38px;
     display: flex;
     align-items: center;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.09);
     background:
-      url('/gastronexa-logo.svg') 4px center / 34px 30px no-repeat,
-      linear-gradient(90deg, currentColor 0 59%, #e9530b 59% 100%) 46px 0 /
-        calc(100% - 46px) 100% no-repeat;
+      url('/gastronexa-logo.svg') 2px 1px / 27px 25px no-repeat,
+      linear-gradient(90deg, currentColor 0 52%, #e9530b 52% 100%) 38px 0 /
+        92px 28px no-repeat;
     background-clip: border-box, text;
     -webkit-background-clip: border-box, text;
     -webkit-text-fill-color: transparent;
     font-family: 'Sora', 'Plus Jakarta Sans', sans-serif;
-    font-size: 18px;
-    font-weight: 850;
-    letter-spacing: -0.5px;
+    font-size: 15px;
+    font-weight: 800;
+    letter-spacing: -0.35px;
     line-height: 1;
   }
 
