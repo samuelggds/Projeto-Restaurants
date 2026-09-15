@@ -8,6 +8,7 @@ import aiImageBatchJobService from '../services/AiImageBatchJobService.js';
 import aiCreditService, { AiCreditsExhaustedError } from '../services/AiCreditService.js';
 import aiCreditTopUpService from '../services/AiCreditTopUpService.js';
 import { AdminAiRestrictedRequestError } from '../domain/adminAiSecurityPolicy.js';
+import { adminAiCapabilitiesForArea, normalizeAdminAiArea } from '../domain/adminAiCapabilities.js';
 
 export function actorFromRequest(req: Request) {
   const userId = Number(req.user?.id || 0);
@@ -120,6 +121,20 @@ class AdminAiGuideController {
     return respond(res, () => adminAiGuideService.execute(req.body?.question, actorFromRequest(req)));
   }
 
+  async capabilities(req: Request, res: Response) {
+    try {
+      actorFromRequest(req);
+      const area = normalizeAdminAiArea(req.query.area);
+      return res.json({
+        area,
+        capabilities: adminAiCapabilitiesForArea(area),
+      });
+    } catch (error) {
+      const mapped = mapError(error);
+      return res.status(mapped.status).json(mapped.body);
+    }
+  }
+
   async managementSummary(req: Request, res: Response) {
     return respond(res, () => adminRestaurantAssistantService.summary(actorFromRequest(req)));
   }
@@ -128,7 +143,7 @@ class AdminAiGuideController {
     return respond(res, async () => {
       const actor = actorFromRequest(req);
       await adminAiSettingsService.assertRequestBudget(actor);
-      return adminRestaurantAssistantService.ask(req.body?.question, actor);
+      return adminRestaurantAssistantService.ask(req.body?.question, actor, req.body?.area);
     });
   }
 
