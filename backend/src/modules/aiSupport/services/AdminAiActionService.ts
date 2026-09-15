@@ -37,24 +37,28 @@ const createProductProposalSchema = z.object({
   active: z.boolean().optional().default(true),
 });
 
-const adjustPricesProposalSchema = z.object({
-  actionType: z.literal('ADJUST_PRODUCT_PRICES'),
-  productIds: z.array(z.number().int().positive()).min(1).max(100).optional(),
-  categoryId: z.number().int().positive().optional(),
-  categoryName: z.string().trim().min(1).max(120).optional(),
-  nameContains: z.string().trim().min(1).max(120).optional(),
-  deltaAmount: z.number().min(-100000).max(100000).optional(),
-  percent: z.number().min(-100).max(1000).optional(),
-}).refine((value) => value.deltaAmount !== undefined || value.percent !== undefined, {
-  message: 'Informe o reajuste em valor ou percentual.',
-}).refine((value) => value.productIds?.length || value.categoryId || value.categoryName || value.nameContains, {
-  message: 'Informe quais produtos serão reajustados.',
-});
+const adjustPricesProposalSchema = z
+  .object({
+    actionType: z.literal('ADJUST_PRODUCT_PRICES'),
+    productIds: z.array(z.number().int().positive()).min(1).max(100).optional(),
+    categoryId: z.number().int().positive().optional(),
+    categoryName: z.string().trim().min(1).max(120).optional(),
+    nameContains: z.string().trim().min(1).max(120).optional(),
+    deltaAmount: z.number().min(-100000).max(100000).optional(),
+    percent: z.number().min(-100).max(1000).optional(),
+  })
+  .refine((value) => value.deltaAmount !== undefined || value.percent !== undefined, {
+    message: 'Informe o reajuste em valor ou percentual.',
+  })
+  .refine(
+    (value) =>
+      Boolean(
+        value.productIds?.length || value.categoryId || value.categoryName || value.nameContains,
+      ),
+    { message: 'Informe quais produtos serão reajustados.' },
+  );
 
-const proposalSchema = z.discriminatedUnion('actionType', [
-  createProductProposalSchema,
-  adjustPricesProposalSchema,
-]);
+const proposalSchema = z.union([createProductProposalSchema, adjustPricesProposalSchema]);
 
 type Proposal = z.infer<typeof proposalSchema>;
 
@@ -70,8 +74,22 @@ function assertActor(actor: Actor) {
   }
 }
 
+function canonicalize(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(canonicalize);
+  if (!value || typeof value !== 'object' || value instanceof Date) return value;
+  return Object.fromEntries(
+    Object.entries(value as Record<string, unknown>)
+      .sort(([first], [second]) => first.localeCompare(second))
+      .map(([key, item]) => [key, canonicalize(item)]),
+  );
+}
+
+function canonicalJson(value: unknown) {
+  return JSON.stringify(canonicalize(sanitizeAdminAiContext(value)));
+}
+
 function stableKey(actor: Actor, proposal: Proposal) {
-  const serialized = JSON.stringify(sanitizeAdminAiContext(proposal));
+  const serialized = canonicalJson(proposal);
   return `admin-ai:${actor.userId}:${crypto.createHash('sha256').update(serialized).digest('hex')}`;
 }
 
@@ -150,9 +168,10 @@ async function buildPreview(db: Prisma.TransactionClient, restaurantId: number, 
     };
   }
 
-  const category = proposal.categoryId || proposal.categoryName
-    ? await resolveCategory(db, restaurantId, proposal)
-    : null;
+  const category =
+    proposal.categoryId || proposal.categoryName
+      ? await resolveCategory(db, restaurantId, proposal)
+      : null;
   const products = await db.product.findMany({
     where: {
       restaurantId,
@@ -170,9 +189,10 @@ async function buildPreview(db: Prisma.TransactionClient, restaurantId: number, 
 
   const changes = products.map((product) => {
     const before = Number(product.price);
-    const next = proposal.deltaAmount !== undefined
-      ? before + proposal.deltaAmount
-      : before * (1 + Number(proposal.percent || 0) / 100);
+    const next =
+      proposal.deltaAmount !== undefined
+        ? before + proposal.deltaAmount
+        : before * (1 + Number(proposal.percent || 0) / 100);
     if (!Number.isFinite(next) || next <= 0 || next > 100000) {
       throw new Error(`O reajuste deixaria “${product.name}” com preço inválido.`);
     }
@@ -210,8 +230,8 @@ export class AdminAiActionService {
 
     return withTenantDbContext(restaurantId, async (db) => {
       const preview = await buildPreview(db, restaurantId, proposal);
-      const proposalJson = JSON.stringify(sanitizeAdminAiContext(proposal));
-      const previewJson = JSON.stringify(sanitizeAdminAiContext(preview));
+      const proposalJson = canonicalJson(proposal);
+      const previewJson = canonicalJson(preview);
       const rows = await db.$queryRaw<ActionRow[]>(Prisma.sql`
         INSERT INTO "RestaurantAiAction" (
           "restaurantId", "actorUserId", "actionType", "status", "proposal", "approvalSnapshot", "idempotencyKey"
@@ -280,9 +300,7 @@ export class AdminAiActionService {
       }
       const proposal = proposalSchema.parse(current.proposal);
       const freshPreview = await buildPreview(db, restaurantId, proposal);
-      const previousPreview = JSON.stringify(sanitizeAdminAiContext(current.approvalSnapshot));
-      const freshPreviewJson = JSON.stringify(sanitizeAdminAiContext(freshPreview));
-      if (previousPreview !== freshPreviewJson) {
+      if (canonicalJson(current.approvalSnapshot) !== canonicalJson(freshPreview)) {
         throw new Error('Os dados mudaram desde a prévia. Gere uma nova proposta antes de aprovar.');
       }
       const changed = await db.$executeRaw(Prisma.sql`
@@ -311,8 +329,7 @@ export class AdminAiActionService {
         result = await createProductService.execute(
           {
             name: proposal.name,
-            description: proposal.description ?? null,
-            image: null,
+            description: proposal.description ?? undefined,
             price: proposal.price,
             categoryId,
             active: proposal.active,
@@ -350,7 +367,7 @@ export class AdminAiActionService {
       }
 
       return withTenantDbContext(restaurantId, async (db) => {
-        const resultJson = JSON.stringify(sanitizeAdminAiContext(result));
+        const resultJson = canonicalJson(result);
         await db.$executeRaw(Prisma.sql`
           UPDATE "RestaurantAiAction"
           SET
@@ -368,7 +385,8 @@ export class AdminAiActionService {
       });
     } catch (error) {
       await withTenantDbContext(restaurantId, async (db) => {
-        const message = error instanceof Error ? error.message.slice(0, 1000) : 'Falha ao executar ação.';
+        const message =
+          error instanceof Error ? error.message.slice(0, 1000) : 'Falha ao executar ação.';
         await db.$executeRaw(Prisma.sql`
           UPDATE "RestaurantAiAction"
           SET "status" = 'FAILED', "error" = ${message}, "updatedAt" = CURRENT_TIMESTAMP
