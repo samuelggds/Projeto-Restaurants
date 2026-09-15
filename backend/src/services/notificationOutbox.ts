@@ -247,6 +247,15 @@ async function deliverMessage(
   send: typeof fetch,
 ) {
   const provider = resolveWhatsAppDeliveryProvider();
+  if (provider === 'evolution') {
+    const { sendTenantEvolutionTextMessage } = await import('./evolutionTenantWhatsapp.js');
+    await sendTenantEvolutionTextMessage({
+      restaurantId,
+      destination: message.to,
+      message: message.message,
+    });
+    return;
+  }
   if (provider === 'zapi') {
     const { sendTenantZapiTextMessage } = await import('./zapiTenantWhatsapp.js');
     await sendTenantZapiTextMessage({
