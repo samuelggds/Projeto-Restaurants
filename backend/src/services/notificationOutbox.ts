@@ -25,6 +25,40 @@ type Row = { id: string; restaurantId: number; payload: string; attempts: number
 type Database = Pick<typeof prisma, '$queryRaw' | '$executeRaw' | 'order' | 'restaurantSettings'>;
 const context = (id: string) => `notification-outbox:${id}`;
 const digitsOnly = (value: unknown) => String(value || '').replace(/\D/g, '');
+const CUSTOMER_EVENTS = new Set(['PAYMENT_CONFIRMED', 'ORDER_STATUS_CHANGED']);
+const IMMEDIATE_ORDER_STATUSES = new Set(['SAIU_PARA_ENTREGA', 'ENTREGUE', 'CANCELADO']);
+const RECIPIENT_KEY_LENGTH = 20;
+const ORDER_KEY_LENGTH = 12;
+const CLASS_KEY_LENGTH = 2;
+const THROTTLED_CLASS = 'T0';
+const PRIORITY_CLASS = 'P1';
+const AUTOMATIC_MESSAGE_MIN_INTERVAL_MS = 60_000;
+
+function hashSegment(value: unknown, length: number) {
+  return createHash('sha256').update(String(value)).digest('hex').slice(0, length);
+}
+
+function isCustomerAutomaticEvent(metadata: Record<string, unknown>) {
+  return CUSTOMER_EVENTS.has(String(metadata.event || '').trim().toUpperCase());
+}
+
+export function shouldThrottleCustomerAutomaticMessage(metadata: Record<string, unknown>) {
+  const event = String(metadata.event || '').trim().toUpperCase();
+  if (event !== 'ORDER_STATUS_CHANGED') return false;
+
+  const status = String(metadata.status || '').trim().toUpperCase();
+  if (status === 'PREPARANDO') return true;
+  if (status === 'PRONTO') {
+    return String(metadata.orderType || '').trim().toUpperCase() !== 'RETIRADA';
+  }
+  return !IMMEDIATE_ORDER_STATUSES.has(status);
+}
+
+function shouldSupersedeThrottledOrderMessages(metadata: Record<string, unknown>) {
+  const event = String(metadata.event || '').trim().toUpperCase();
+  if (event !== 'ORDER_STATUS_CHANGED') return false;
+  return !shouldThrottleCustomerAutomaticMessage(metadata);
+}
 
 export function notificationKey(
   restaurantId: number,
@@ -45,10 +79,45 @@ export function notificationKey(
     .digest('hex');
 }
 
+function customerQueueIdentity(
+  restaurantId: number,
+  destination: string,
+  metadata: Record<string, unknown>,
+) {
+  if (!isCustomerAutomaticEvent(metadata)) return null;
+  const normalizedDestination = digitsOnly(destination);
+  if (!/^\d{10,15}$/u.test(normalizedDestination)) return null;
+
+  const recipientKey = hashSegment(`${restaurantId}:${normalizedDestination}`, RECIPIENT_KEY_LENGTH);
+  const orderId = Number(metadata.orderId);
+  const orderKey =
+    Number.isSafeInteger(orderId) && orderId > 0
+      ? hashSegment(`${restaurantId}:${orderId}`, ORDER_KEY_LENGTH)
+      : '0'.repeat(ORDER_KEY_LENGTH);
+  const throttled = shouldThrottleCustomerAutomaticMessage(metadata);
+  const classKey = throttled ? THROTTLED_CLASS : PRIORITY_CLASS;
+  const eventKey = notificationKey(restaurantId, metadata).slice(
+    0,
+    64 - RECIPIENT_KEY_LENGTH - ORDER_KEY_LENGTH - CLASS_KEY_LENGTH,
+  );
+
+  return {
+    key: `${recipientKey}${orderKey}${classKey}${eventKey}`,
+    recipientKey,
+    orderKey,
+    throttled,
+    supersedesThrottled: shouldSupersedeThrottledOrderMessages(metadata),
+  };
+}
+
 function sessionGreetingKey(restaurantId: number, destination: string, bucket: number) {
   return createHash('sha256')
     .update(JSON.stringify([restaurantId, 'INBOUND_GREETING', digitsOnly(destination), bucket]))
     .digest('hex');
+}
+
+function encryptedPayload(message: Message, id: string) {
+  return encryptCredential(JSON.stringify(message), context(id));
 }
 
 async function insertOutbox(
@@ -58,10 +127,114 @@ async function insertOutbox(
   message: Message,
 ) {
   const id = randomUUID();
-  const payload = encryptCredential(JSON.stringify(message), context(id));
+  const payload = encryptedPayload(message, id);
   const inserted = await db.$executeRaw`INSERT INTO "NotificationOutbox" ("id", "deduplicationKey", "restaurantId", "payload")
     VALUES (${id}::uuid, ${key}, ${restaurantId}, ${payload}) ON CONFLICT ("deduplicationKey") DO NOTHING`;
   return inserted > 0;
+}
+
+async function insertImmediateCustomerOutbox(
+  db: Database,
+  restaurantId: number,
+  key: string,
+  recipientKey: string,
+  message: Message,
+) {
+  const id = randomUUID();
+  const payload = encryptedPayload(message, id);
+  const lockKey = `${restaurantId}:${recipientKey}`;
+  const rows = await db.$queryRaw<Array<{ id: string }>>`
+    WITH guard AS MATERIALIZED (
+      SELECT pg_advisory_xact_lock(hashtextextended(${lockKey}, 0))
+    )
+    INSERT INTO "NotificationOutbox" ("id", "deduplicationKey", "restaurantId", "payload", "availableAt")
+    SELECT ${id}::uuid, ${key}, ${restaurantId}, ${payload}, clock_timestamp()
+    FROM guard
+    ON CONFLICT ("deduplicationKey") DO NOTHING
+    RETURNING "id"`;
+  return rows.length > 0;
+}
+
+async function insertPriorityCustomerOutbox(
+  db: Database,
+  restaurantId: number,
+  key: string,
+  recipientKey: string,
+  orderKey: string,
+  message: Message,
+) {
+  const id = randomUUID();
+  const payload = encryptedPayload(message, id);
+  const lockKey = `${restaurantId}:${recipientKey}`;
+  const rows = await db.$queryRaw<Array<{ id: string }>>`
+    WITH guard AS MATERIALIZED (
+      SELECT pg_advisory_xact_lock(hashtextextended(${lockKey}, 0))
+    ), discarded AS (
+      UPDATE "NotificationOutbox" n
+      SET "status" = 'DISCARDED', "payload" = NULL, "completedAt" = clock_timestamp(),
+        "lockedUntil" = NULL, "lockToken" = NULL
+      FROM guard
+      WHERE n."restaurantId" = ${restaurantId}
+        AND LEFT(n."deduplicationKey", ${RECIPIENT_KEY_LENGTH}::int) = ${recipientKey}
+        AND SUBSTRING(n."deduplicationKey" FROM ${RECIPIENT_KEY_LENGTH + 1}::int FOR ${ORDER_KEY_LENGTH}::int) = ${orderKey}
+        AND SUBSTRING(n."deduplicationKey" FROM ${RECIPIENT_KEY_LENGTH + ORDER_KEY_LENGTH + 1}::int FOR ${CLASS_KEY_LENGTH}::int) = ${THROTTLED_CLASS}
+        AND n."status" = 'PENDING'
+      RETURNING n."id"
+    )
+    INSERT INTO "NotificationOutbox" ("id", "deduplicationKey", "restaurantId", "payload", "availableAt")
+    SELECT ${id}::uuid, ${key}, ${restaurantId}, ${payload}, clock_timestamp()
+    FROM guard
+    ON CONFLICT ("deduplicationKey") DO NOTHING
+    RETURNING "id"`;
+  return rows.length > 0;
+}
+
+async function insertThrottledCustomerOutbox(
+  db: Database,
+  restaurantId: number,
+  key: string,
+  recipientKey: string,
+  message: Message,
+) {
+  const id = randomUUID();
+  const payload = encryptedPayload(message, id);
+  const lockKey = `${restaurantId}:${recipientKey}`;
+  const rows = await db.$queryRaw<Array<{ id: string }>>`
+    WITH guard AS MATERIALIZED (
+      SELECT pg_advisory_xact_lock(hashtextextended(${lockKey}, 0))
+    ), latest AS (
+      SELECT CASE
+        WHEN MAX(
+          CASE
+            WHEN n."status" = 'PENDING' THEN n."availableAt"
+            WHEN n."status" = 'DELIVERED' THEN n."completedAt"
+            ELSE NULL
+          END
+        ) IS NULL THEN clock_timestamp()
+        ELSE GREATEST(
+          clock_timestamp(),
+          MAX(
+            CASE
+              WHEN n."status" = 'PENDING' THEN n."availableAt"
+              WHEN n."status" = 'DELIVERED' THEN n."completedAt"
+              ELSE NULL
+            END
+          ) + ${AUTOMATIC_MESSAGE_MIN_INTERVAL_MS} * INTERVAL '1 millisecond'
+        )
+      END AS slot
+      FROM guard
+      LEFT JOIN "NotificationOutbox" n
+        ON n."restaurantId" = ${restaurantId}
+       AND LEFT(n."deduplicationKey", ${RECIPIENT_KEY_LENGTH}::int) = ${recipientKey}
+       AND n."status" IN ('PENDING', 'DELIVERED')
+       AND n."createdAt" > clock_timestamp() - INTERVAL '24 hours'
+    )
+    INSERT INTO "NotificationOutbox" ("id", "deduplicationKey", "restaurantId", "payload", "availableAt")
+    SELECT ${id}::uuid, ${key}, ${restaurantId}, ${payload}, latest.slot
+    FROM latest
+    ON CONFLICT ("deduplicationKey") DO NOTHING
+    RETURNING "id"`;
+  return rows.length > 0;
 }
 
 export async function enqueueWhatsappNotification(message: Message, db: Database = prisma) {
@@ -79,8 +252,39 @@ export async function enqueueWhatsappNotification(message: Message, db: Database
   ) {
     return { sent: false, reason: 'order_scope_mismatch' } as const;
   }
-  const key = notificationKey(order.restaurantId, message.metadata);
-  const inserted = await insertOutbox(db, order.restaurantId, key, message);
+
+  const identity = customerQueueIdentity(order.restaurantId, message.to, message.metadata);
+  let inserted: boolean;
+  if (!identity) {
+    const key = notificationKey(order.restaurantId, message.metadata);
+    inserted = await insertOutbox(db, order.restaurantId, key, message);
+  } else if (identity.throttled) {
+    inserted = await insertThrottledCustomerOutbox(
+      db,
+      order.restaurantId,
+      identity.key,
+      identity.recipientKey,
+      message,
+    );
+  } else if (identity.supersedesThrottled) {
+    inserted = await insertPriorityCustomerOutbox(
+      db,
+      order.restaurantId,
+      identity.key,
+      identity.recipientKey,
+      identity.orderKey,
+      message,
+    );
+  } else {
+    inserted = await insertImmediateCustomerOutbox(
+      db,
+      order.restaurantId,
+      identity.key,
+      identity.recipientKey,
+      message,
+    );
+  }
+
   return {
     sent: false,
     queued: inserted,
@@ -285,9 +489,43 @@ async function deliverMessage(
   );
 }
 
+async function discardNotificationsWithoutConsent(db: Database) {
+  return db.$executeRaw`
+    WITH picked AS (
+      SELECT n."id"
+      FROM "NotificationOutbox" n
+      JOIN "RestaurantSettings" s ON s."restaurantId" = n."restaurantId"
+      WHERE n."status" = 'PENDING'
+        AND (n."lockedUntil" IS NULL OR n."lockedUntil" < clock_timestamp())
+        AND (
+          s."whatsappEnabled" IS FALSE
+          OR (
+            s."receiveStatusNotifications" IS FALSE
+            AND SUBSTRING(
+              n."deduplicationKey"
+              FROM ${RECIPIENT_KEY_LENGTH + ORDER_KEY_LENGTH + 1}::int
+              FOR ${CLASS_KEY_LENGTH}::int
+            ) IN (${THROTTLED_CLASS}, ${PRIORITY_CLASS})
+          )
+        )
+      ORDER BY n."createdAt", n."id"
+      LIMIT 1000
+      FOR UPDATE OF n SKIP LOCKED
+    )
+    UPDATE "NotificationOutbox" n
+    SET "status" = 'DISCARDED',
+      "payload" = NULL,
+      "completedAt" = clock_timestamp(),
+      "lockedUntil" = NULL,
+      "lockToken" = NULL
+    FROM picked
+    WHERE n."id" = picked."id"`;
+}
+
 export async function deliverNotificationOutbox(db: Database = prisma, send: typeof fetch = fetch) {
   if (resolveWhatsAppDeliveryProvider() === 'none') return { processed: 0, delivered: 0 };
 
+  const consentDiscarded = await discardNotificationsWithoutConsent(db);
   const lockToken = randomUUID();
   const rows = await db.$queryRaw<Row[]>`
     WITH picked AS (SELECT "id" FROM "NotificationOutbox"
@@ -343,7 +581,7 @@ export async function deliverNotificationOutbox(db: Database = prisma, send: typ
   for (let i = 0; i < rows.length; i += 8) await Promise.all(rows.slice(i, i + 8).map(processRow));
   await db.$executeRaw`DELETE FROM "NotificationOutbox" WHERE "id" IN
     (SELECT "id" FROM "NotificationOutbox" WHERE "createdAt" < clock_timestamp() - INTERVAL '30 days' LIMIT 1000)`;
-  return { processed: rows.length, delivered };
+  return { processed: consentDiscarded + rows.length, delivered };
 }
 
 export async function drainNotificationOutbox() {
