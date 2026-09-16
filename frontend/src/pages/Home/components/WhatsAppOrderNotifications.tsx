@@ -12,6 +12,12 @@ type Props = {
   restaurantId?: number | null;
 };
 
+type FormState = {
+  restaurantId?: number | null;
+  phone: string;
+  optedIn: boolean;
+};
+
 function formatWhatsappPhone(value: string) {
   const digits = value.replace(/\D/g, '').slice(0, 13);
   const hasCountryCode = digits.length > 11 && digits.startsWith('55');
@@ -26,13 +32,19 @@ function formatWhatsappPhone(value: string) {
 }
 
 export function WhatsAppOrderNotifications({ restaurantId }: Props) {
-  const [phone, setPhone] = useState('');
-  const [optedIn, setOptedIn] = useState(false);
+  const [formState, setFormState] = useState<FormState>(() => ({
+    restaurantId,
+    phone: '',
+    optedIn: false,
+  }));
+  const currentState =
+    formState.restaurantId === restaurantId
+      ? formState
+      : { restaurantId, phone: '', optedIn: false };
+  const { phone, optedIn } = currentState;
   const validPhone = useMemo(() => isValidWhatsappOrderPhone(phone), [phone]);
 
   useEffect(() => {
-    setPhone('');
-    setOptedIn(false);
     writeWhatsappOrderPhone(restaurantId, '');
     writeWhatsappOrderOptIn(restaurantId, false);
   }, [restaurantId]);
@@ -40,18 +52,18 @@ export function WhatsAppOrderNotifications({ restaurantId }: Props) {
   const handlePhoneChange = (value: string) => {
     const formatted = formatWhatsappPhone(value);
     const nextValid = isValidWhatsappOrderPhone(formatted);
-    setPhone(formatted);
+    const nextOptedIn = nextValid ? optedIn : false;
+    setFormState({ restaurantId, phone: formatted, optedIn: nextOptedIn });
     writeWhatsappOrderPhone(restaurantId, formatted);
 
     if (!nextValid && optedIn) {
-      setOptedIn(false);
       writeWhatsappOrderOptIn(restaurantId, false);
     }
   };
 
   const handleOptInChange = (checked: boolean) => {
     if (!validPhone) return;
-    setOptedIn(checked);
+    setFormState({ restaurantId, phone, optedIn: checked });
     writeWhatsappOrderOptIn(restaurantId, checked);
   };
 
