@@ -34,6 +34,16 @@ export function isValidCpf(value: string) {
   return cpf.endsWith(`${digit(cpf.slice(0, 9), 10)}${digit(cpf.slice(0, 10), 11)}`);
 }
 
+export function normalizeBusinessPhoneForBackend(value: string) {
+  const raw = digits(value).slice(0, 13);
+  return /^55\d{10,11}$/.test(raw) ? raw.slice(2) : raw;
+}
+
+export function isValidBusinessPhone(value: string) {
+  const raw = digits(value);
+  return /^\d{10,11}$/.test(raw) || /^55\d{10,11}$/.test(raw);
+}
+
 export function validateBusinessSettings(settings: AdminSettings): BusinessSettingsErrors {
   const errors: BusinessSettingsErrors = {};
   if (settings.companyLegalName.trim().length < 2)
@@ -44,8 +54,8 @@ export function validateBusinessSettings(settings: AdminSettings): BusinessSetti
       : !isValidCnpj(settings.companyDocument)
   )
     errors.companyDocument = `Informe um ${settings.legalDocumentType} válido.`;
-  if (!/^\d{10,13}$/.test(digits(settings.whatsapp || settings.businessPhone)))
-    errors.whatsapp = 'Informe o número comercial com DDD; DDI também é aceito.';
+  if (!isValidBusinessPhone(settings.whatsapp || settings.businessPhone))
+    errors.whatsapp = 'Informe DDD + número; o prefixo 55 também é aceito.';
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(settings.businessEmail.trim()))
     errors.businessEmail = 'Informe um e-mail comercial válido.';
   return errors;
@@ -68,10 +78,11 @@ export function formatCpf(value: string) {
 }
 export function formatBusinessPhone(value: string) {
   const raw = digits(value).slice(0, 13);
-  const phone = raw.startsWith('55') && raw.length > 11 ? raw.slice(2) : raw;
+  const international = /^55\d{10,11}$/.test(raw);
+  const phone = international ? raw.slice(2) : raw.slice(0, 11);
   const formatted =
     phone.length > 10
       ? phone.replace(/^(\d{2})(\d{5})(\d{0,4}).*/, '($1) $2-$3')
       : phone.replace(/^(\d{2})(\d{4})(\d{0,4}).*/, '($1) $2-$3');
-  return raw.startsWith('55') && raw.length > 11 ? `+55 ${formatted}` : formatted;
+  return international ? `+55 ${formatted}` : formatted;
 }
