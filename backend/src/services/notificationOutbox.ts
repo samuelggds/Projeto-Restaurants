@@ -90,9 +90,10 @@ function customerQueueIdentity(
 
   const recipientKey = hashSegment(`${restaurantId}:${normalizedDestination}`, RECIPIENT_KEY_LENGTH);
   const orderId = Number(metadata.orderId);
-  const orderKey = Number.isSafeInteger(orderId) && orderId > 0
-    ? hashSegment(`${restaurantId}:${orderId}`, ORDER_KEY_LENGTH)
-    : '0'.repeat(ORDER_KEY_LENGTH);
+  const orderKey =
+    Number.isSafeInteger(orderId) && orderId > 0
+      ? hashSegment(`${restaurantId}:${orderId}`, ORDER_KEY_LENGTH)
+      : '0'.repeat(ORDER_KEY_LENGTH);
   const throttled = shouldThrottleCustomerAutomaticMessage(metadata);
   const classKey = throttled ? THROTTLED_CLASS : PRIORITY_CLASS;
   const eventKey = notificationKey(restaurantId, metadata).slice(
@@ -488,9 +489,43 @@ async function deliverMessage(
   );
 }
 
+async function discardNotificationsWithoutConsent(db: Database) {
+  return db.$executeRaw`
+    WITH picked AS (
+      SELECT n."id"
+      FROM "NotificationOutbox" n
+      JOIN "RestaurantSettings" s ON s."restaurantId" = n."restaurantId"
+      WHERE n."status" = 'PENDING'
+        AND (n."lockedUntil" IS NULL OR n."lockedUntil" < clock_timestamp())
+        AND (
+          s."whatsappEnabled" IS FALSE
+          OR (
+            s."receiveStatusNotifications" IS FALSE
+            AND SUBSTRING(
+              n."deduplicationKey"
+              FROM ${RECIPIENT_KEY_LENGTH + ORDER_KEY_LENGTH + 1}::int
+              FOR ${CLASS_KEY_LENGTH}::int
+            ) IN (${THROTTLED_CLASS}, ${PRIORITY_CLASS})
+          )
+        )
+      ORDER BY n."createdAt", n."id"
+      LIMIT 1000
+      FOR UPDATE OF n SKIP LOCKED
+    )
+    UPDATE "NotificationOutbox" n
+    SET "status" = 'DISCARDED',
+      "payload" = NULL,
+      "completedAt" = clock_timestamp(),
+      "lockedUntil" = NULL,
+      "lockToken" = NULL
+    FROM picked
+    WHERE n."id" = picked."id"`;
+}
+
 export async function deliverNotificationOutbox(db: Database = prisma, send: typeof fetch = fetch) {
   if (resolveWhatsAppDeliveryProvider() === 'none') return { processed: 0, delivered: 0 };
 
+  const consentDiscarded = await discardNotificationsWithoutConsent(db);
   const lockToken = randomUUID();
   const rows = await db.$queryRaw<Row[]>`
     WITH picked AS (SELECT "id" FROM "NotificationOutbox"
@@ -546,7 +581,7 @@ export async function deliverNotificationOutbox(db: Database = prisma, send: typ
   for (let i = 0; i < rows.length; i += 8) await Promise.all(rows.slice(i, i + 8).map(processRow));
   await db.$executeRaw`DELETE FROM "NotificationOutbox" WHERE "id" IN
     (SELECT "id" FROM "NotificationOutbox" WHERE "createdAt" < clock_timestamp() - INTERVAL '30 days' LIMIT 1000)`;
-  return { processed: rows.length, delivered };
+  return { processed: consentDiscarded + rows.length, delivered };
 }
 
 export async function drainNotificationOutbox() {
