@@ -1,6 +1,14 @@
 import { createGlobalStyle } from 'styled-components';
 
 export const GlobalStyles = createGlobalStyle`
+  :root {
+    --motion-fast: 150ms;
+    --motion-base: 220ms;
+    --motion-slow: 320ms;
+    --motion-ease-standard: cubic-bezier(0.2, 0.8, 0.2, 1);
+    --motion-ease-emphasized: cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
   * {
     margin: 0;
     padding: 0;
@@ -24,6 +32,7 @@ export const GlobalStyles = createGlobalStyle`
     border-radius: 999px;
     background: rgba(100, 116, 139, 0.58);
     background-clip: padding-box;
+    transition: background-color var(--motion-fast) var(--motion-ease-standard);
   }
 
   *::-webkit-scrollbar-thumb:hover {
@@ -56,17 +65,82 @@ export const GlobalStyles = createGlobalStyle`
     min-height: 100dvh;
   }
 
+  :where(
+    button,
+    a[href],
+    input,
+    textarea,
+    select,
+    summary,
+    [role="button"],
+    [role="tab"]
+  ) {
+    transition:
+      background-color var(--motion-base) var(--motion-ease-standard),
+      border-color var(--motion-base) var(--motion-ease-standard),
+      color var(--motion-base) var(--motion-ease-standard),
+      box-shadow var(--motion-base) var(--motion-ease-standard),
+      opacity var(--motion-base) var(--motion-ease-standard),
+      filter var(--motion-base) var(--motion-ease-standard);
+  }
+
   button:not(:disabled),
   [role="button"],
   a[href],
   label[for],
-  select:not(:disabled) {
+  select:not(:disabled),
+  summary {
     cursor: pointer;
   }
 
   button:disabled,
   select:disabled {
     cursor: not-allowed;
+  }
+
+  select {
+    transition:
+      border-color var(--motion-base) var(--motion-ease-standard),
+      box-shadow var(--motion-base) var(--motion-ease-standard),
+      background-color var(--motion-base) var(--motion-ease-standard),
+      color var(--motion-base) var(--motion-ease-standard),
+      opacity var(--motion-base) var(--motion-ease-standard);
+  }
+
+  [role="tab"] {
+    transition:
+      background-color var(--motion-base) var(--motion-ease-standard),
+      border-color var(--motion-base) var(--motion-ease-standard),
+      color var(--motion-base) var(--motion-ease-standard),
+      box-shadow var(--motion-base) var(--motion-ease-standard),
+      opacity var(--motion-base) var(--motion-ease-standard);
+  }
+
+  [role="tabpanel"]:not([hidden]) {
+    animation: app-surface-enter var(--motion-slow) var(--motion-ease-emphasized) both;
+  }
+
+  details[open] > :not(summary) {
+    animation: app-reveal-enter var(--motion-base) var(--motion-ease-emphasized) both;
+  }
+
+  [role="dialog"],
+  [aria-modal="true"] {
+    transform-origin: center;
+    animation: app-dialog-enter 280ms var(--motion-ease-emphasized);
+  }
+
+  [role="menu"],
+  [role="listbox"],
+  [role="tooltip"],
+  [popover]:popover-open,
+  [data-state="open"] {
+    transform-origin: top center;
+    animation: app-floating-enter var(--motion-base) var(--motion-ease-emphasized) both;
+  }
+
+  dialog[open]::backdrop {
+    animation: app-backdrop-enter var(--motion-base) ease both;
   }
 
   /* A proteção continua obrigatória no backend; o ADMIN não precisa ver a nota interna. */
@@ -105,7 +179,7 @@ export const GlobalStyles = createGlobalStyle`
   .Toastify__close-button {
     color: #fff;
     opacity: 0.75;
-    transition: opacity 160ms ease, transform 160ms ease;
+    transition: opacity var(--motion-fast) ease, transform var(--motion-fast) ease;
   }
 
   .Toastify__close-button:hover {
@@ -122,7 +196,7 @@ export const GlobalStyles = createGlobalStyle`
     width: 100%;
     min-height: 100vh;
     min-height: 100dvh;
-    animation: app-page-enter 240ms ease both;
+    animation: app-page-enter var(--motion-slow) var(--motion-ease-emphasized) both;
   }
 
   .app-route-loading {
@@ -133,16 +207,12 @@ export const GlobalStyles = createGlobalStyle`
     padding: 24px;
     color: #334155;
     background: #f8fafc;
+    animation: app-fade-enter var(--motion-base) ease both;
   }
 
   :where(a, button, input, select, textarea, [tabindex]):focus-visible {
     outline: 3px solid #2563eb;
     outline-offset: 3px;
-  }
-
-  [role="dialog"],
-  [aria-modal="true"] {
-    animation: app-dialog-enter 220ms cubic-bezier(.22, .8, .35, 1);
   }
 
   @keyframes app-page-enter {
@@ -154,14 +224,65 @@ export const GlobalStyles = createGlobalStyle`
     }
   }
 
+  @keyframes app-surface-enter {
+    from {
+      opacity: 0;
+      transform: translateY(7px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
   @keyframes app-dialog-enter {
     from {
       opacity: 0;
-      transform: translateY(5px) scale(.992);
+      transform: translateY(10px) scale(0.985);
     }
     to {
       opacity: 1;
       transform: none;
+    }
+  }
+
+  @keyframes app-floating-enter {
+    from {
+      opacity: 0;
+      transform: translateY(-5px) scale(0.985);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
+  }
+
+  @keyframes app-reveal-enter {
+    from {
+      opacity: 0;
+      transform: translateY(-4px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes app-backdrop-enter {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+
+  @keyframes app-fade-enter {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
     }
   }
 

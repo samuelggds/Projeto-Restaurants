@@ -133,6 +133,7 @@ class ClaimOrderForDeliveryService {
       publicId: refreshedOrder.publicId,
       orderType: refreshedOrder.type,
       status: refreshedOrder.status,
+      deliveryStartedAt: refreshedOrder.deliveryStartedAt,
     }).catch((error: unknown) => {
       console.error('[CUSTOMER_STATUS_NOTIFICATION_UNHANDLED]', error instanceof Error ? error.message : String(error));
     });

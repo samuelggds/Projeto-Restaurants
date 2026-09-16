@@ -90,11 +90,6 @@ class RestaurantSettingsService {
     return response.data;
   }
 
-  async linkWhatsappConnection(payload) {
-    const response = await api.post('/settings/whatsapp/connection/link', payload);
-    return response.data;
-  }
-
   async getWhatsappQrCode() {
     const response = await api.get('/settings/whatsapp/connection/qr-code');
     return response.data;

@@ -1,5 +1,6 @@
 import type { Request, Response } from 'express';
 import OpenAI from 'openai';
+import { ZodError } from 'zod';
 import adminAiGuideService from '../services/AdminAiGuideService.js';
 import adminRestaurantAssistantService from '../services/AdminRestaurantAssistantService.js';
 import adminAiActionService from '../services/AdminAiActionService.js';
@@ -26,6 +27,14 @@ export function actorFromRequest(req: Request) {
   };
 }
 
+const SAFE_USER_MESSAGES = new Set([
+  'Escreva o que você deseja resolver no restaurante.',
+  'A pergunta deve ter no máximo 1200 caracteres.',
+  'Pedido inválido.',
+  'Pedido não encontrado neste restaurante.',
+  'Este pedido não possui uma conversa de atendimento.',
+]);
+
 function mapError(error: unknown) {
   if (error instanceof AdminAiRestrictedRequestError) {
     return { status: 403, body: { error: error.message, code: error.code } };
@@ -37,7 +46,7 @@ function mapError(error: unknown) {
     return {
       status: 429,
       body: {
-        error: 'A OpenAI recebeu muitas solicitações. Tente novamente em instantes.',
+        error: 'Estou recebendo muitas solicitações agora. Tente novamente em alguns instantes.',
         code: 'OPENAI_RATE_LIMITED',
       },
     };
@@ -46,8 +55,7 @@ function mapError(error: unknown) {
     return {
       status: 504,
       body: {
-        error:
-          'A IA demorou mais que o limite permitido. O restaurante continua funcionando normalmente.',
+        error: 'Demorei mais que o esperado para responder. Tente novamente.',
         code: 'OPENAI_TIMEOUT',
       },
     };
@@ -56,15 +64,38 @@ function mapError(error: unknown) {
     return {
       status: 503,
       body: {
-        error: 'O serviço OpenAI está temporariamente indisponível.',
+        error: 'O Assistente IA está temporariamente indisponível. Tente novamente mais tarde.',
         code: 'OPENAI_AUTH_ERROR',
       },
     };
   }
+  if (error instanceof ZodError) {
+    console.warn('[ADMIN_AI_RESPONSE_VALIDATION_ERROR]', {
+      issueCount: error.issues.length,
+      issues: error.issues.map((issue) => ({ code: issue.code, path: issue.path })),
+    });
+    return {
+      status: 502,
+      body: {
+        error: 'Não consegui organizar a resposta desta vez. Tente perguntar novamente.',
+        code: 'AI_RESPONSE_INVALID',
+      },
+    };
+  }
+
+  const message = error instanceof Error ? error.message : '';
+  if (SAFE_USER_MESSAGES.has(message)) {
+    return { status: 400, body: { error: message, code: 'AI_GUIDE_ERROR' } };
+  }
+
+  console.error('[ADMIN_AI_INTERNAL_ERROR]', {
+    name: error instanceof Error ? error.name : 'UnknownError',
+    message,
+  });
   return {
-    status: 400,
+    status: 500,
     body: {
-      error: error instanceof Error ? error.message : 'Não foi possível concluir a operação de IA.',
+      error: 'Não consegui concluir essa resposta agora. Tente novamente em alguns instantes.',
       code: 'AI_GUIDE_ERROR',
     },
   };

@@ -19,6 +19,7 @@ export type AutomaticOrderStatusMessageInput = CustomerOrderLinks & {
   orderId?: number | string | null;
   status?: string | null;
   orderType?: string | null;
+  deliveryConfirmationCode?: string | null;
 };
 
 function normalizeBaseUrl(value: string) {
@@ -138,6 +139,7 @@ export function buildAutomaticOrderStatusMessage({
   orderType,
   trackingUrl,
   confirmationUrl,
+  deliveryConfirmationCode,
 }: AutomaticOrderStatusMessageInput) {
   const name = String(customerName || 'Cliente').trim() || 'Cliente';
   const restaurant = String(restaurantName || 'restaurante').trim() || 'restaurante';
@@ -146,6 +148,9 @@ export function buildAutomaticOrderStatusMessage({
     .trim()
     .toUpperCase();
   const normalizedType = String(orderType || '').trim().toUpperCase();
+  const normalizedDeliveryCode = String(deliveryConfirmationCode || '')
+    .replace(/\D/g, '')
+    .slice(0, 4);
 
   if (normalizedStatus === 'PENDENTE') {
     return `Oi, ${name}! ✅ Recebemos seu pedido #${code} no ${restaurant}. Em breve ele seguirá para o preparo.`;
@@ -162,6 +167,12 @@ export function buildAutomaticOrderStatusMessage({
     return [
       `Oi, ${name}! 🛵 Seu pedido #${code} saiu para entrega.`,
       trackingUrl ? `Acompanhe em tempo real: ${trackingUrl}` : null,
+      /^\d{4}$/u.test(normalizedDeliveryCode)
+        ? `Código de confirmação da entrega: ${normalizedDeliveryCode}`
+        : null,
+      /^\d{4}$/u.test(normalizedDeliveryCode)
+        ? 'Informe esse código ao entregador somente quando estiver com o pedido em mãos.'
+        : null,
     ]
       .filter(Boolean)
       .join('\n');
