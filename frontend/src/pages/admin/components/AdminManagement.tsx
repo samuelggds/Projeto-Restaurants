@@ -9,6 +9,7 @@ import type {
 import { AdminOverview } from './AdminOverview';
 import { AdminOrders } from './AdminOrders';
 import { AdminCatalog } from './AdminCatalog';
+import { AdminPendingPayments } from './AdminPendingPayments';
 
 const AdminCustomers = lazy(() =>
   import('./AdminCustomers').then((module) => ({ default: module.AdminCustomers })),
@@ -64,6 +65,12 @@ export function AdminManagement(props: Props) {
         <Suspense fallback={<p role="status">Carregando suporte dos pedidos...</p>}>
           <AdminOrderSupportInbox />
         </Suspense>
+        <AdminPendingPayments
+          orders={props.orders}
+          money={money}
+          onConfirmPayment={props.onConfirmOrderPayment}
+          onCancelOrder={props.onCancelOrder}
+        />
         <AdminOrders
           orders={props.orders}
           restaurantName={props.restaurantName}
