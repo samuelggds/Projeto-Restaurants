@@ -6,6 +6,7 @@ const RESTRICTED_REQUEST_PATTERNS: RegExp[] = [
   /\b(c[oó]digo\s*fonte|source\s*code|reposit[oó]rio|arquitetura\s*interna|estrutura\s*interna)\b/iu,
   /\b(database[_\s-]*url|direct[_\s-]*url|connection\s*string|string\s*de\s*conex[aã]o)\b/iu,
   /\b(api[_\s-]*key|chave\s*de\s*api|access[_\s-]*token|token\s*de\s*acesso|webhook[_\s-]*secret)\b/iu,
+  /\b[a-z0-9]+(?:[_-][a-z0-9]+)*[_-](?:api[_-]*key|access[_-]*token|service[_-]*role[_-]*key|db[_-]*password|secret[_-]*key|webhook[_-]*secret|secret[_-]*access[_-]*key|session[_-]*token)\b/iu,
   /\b(jwt[_\s-]*secret|private[_\s-]*key|chave\s*privada|credenciais?|credentials?|senha\s*do\s*(banco|servidor|sistema))\b/iu,
   /\b(vari[aá]veis?\s*de\s*ambiente|environment\s*variables?|process\.env|arquivo\s*\.env)\b/iu,
   /\b(ssh|chave\s*ssh|aws[_\s-]*secret|aws[_\s-]*access|docker\s*compose\s*de\s*produ[cç][aã]o)\b/iu,
