@@ -31,48 +31,77 @@ type Actor = {
 
 const ASSISTANT_ANSWER_MAX_CHARS = 8000;
 
-const linkSchema = z.object({
-  label: z.string().trim().min(1).max(80),
-  target: z.enum([
-    'overview',
-    'orders',
-    'catalog',
-    'customers',
-    'employees',
-    'subscriptions',
-    'settings:brand',
-    'settings:business',
-    'settings:address',
-    'settings:hours',
-    'settings:orders',
-    'settings:promotions',
-    'settings:delivery',
-    'settings:table',
-    'settings:table-account',
-    'settings:whatsapp',
-    'settings:printing',
-    'settings:employee-payments',
-    'settings:courier-payments',
-    'settings:payments',
-    'settings:social',
-    'settings:appearance',
-    'settings:security',
-  ]),
+const ALLOWED_LINK_TARGETS = [
+  'overview',
+  'orders',
+  'catalog',
+  'customers',
+  'employees',
+  'subscriptions',
+  'settings:brand',
+  'settings:business',
+  'settings:address',
+  'settings:hours',
+  'settings:orders',
+  'settings:promotions',
+  'settings:delivery',
+  'settings:table',
+  'settings:table-account',
+  'settings:whatsapp',
+  'settings:printing',
+  'settings:employee-payments',
+  'settings:courier-payments',
+  'settings:payments',
+  'settings:social',
+  'settings:appearance',
+  'settings:security',
+] as const;
+
+type LinkTarget = (typeof ALLOWED_LINK_TARGETS)[number];
+const allowedLinkTargetSet = new Set<string>(ALLOWED_LINK_TARGETS);
+const linkTargetAliases: Record<string, LinkTarget> = {
+  product: 'catalog',
+  products: 'catalog',
+  menu: 'catalog',
+  cardapio: 'catalog',
+  promotions: 'settings:promotions',
+  promotion: 'settings:promotions',
+  whatsapp: 'settings:whatsapp',
+  payments: 'settings:payments',
+  payment: 'settings:payments',
+  settings: 'settings:business',
+};
+
+const looseLinkSchema = z.object({
+  label: z.string().trim().min(1).max(120),
+  target: z.string().trim().min(1).max(120),
 });
 
 const evidenceSchema = z.object({
   label: z.string().trim().min(1).max(120),
-  value: z.string().trim().min(1).max(280),
+  value: z.string().trim().min(1).max(500),
 });
 
+const boundedAnswerSchema = z.preprocess(
+  (value) =>
+    typeof value === 'string' ? value.trim().slice(0, ASSISTANT_ANSWER_MAX_CHARS) : value,
+  z.string().min(1),
+);
+
 const assistantResponseSchema = z.object({
-  mode: z.enum(['ANSWER', 'ACTION_PROPOSAL', 'NEEDS_INPUT']),
-  title: z.string().trim().min(1).max(120),
-  answer: z.string().trim().min(1).max(ASSISTANT_ANSWER_MAX_CHARS),
-  evidence: z.array(evidenceSchema).max(8).default([]),
-  links: z.array(linkSchema).max(4).default([]),
-  missingInformation: z.array(z.string().trim().min(1).max(180)).max(8).default([]),
-  proposal: adminAiActionProposalSchema.nullable().optional(),
+  mode: z.enum(['ANSWER', 'ACTION_PROPOSAL', 'NEEDS_INPUT']).catch('ANSWER'),
+  title: z.preprocess(
+    (value) => (typeof value === 'string' ? value.trim().slice(0, 120) : value),
+    z.string().min(1),
+  ).catch('Resposta'),
+  answer: boundedAnswerSchema,
+  evidence: z.array(evidenceSchema).max(8).catch([]),
+  links: z.array(looseLinkSchema).max(8).catch([]),
+  missingInformation: z
+    .array(z.string().trim().min(1).max(240))
+    .max(8)
+    .catch([]),
+  proposal: adminAiActionProposalSchema.nullable().optional().catch(null),
 });
 
 const supportDraftSchema = z.object({
@@ -92,28 +121,58 @@ const supportDraftSchema = z.object({
   suggestedReply: z.string().trim().min(1).max(1600),
 });
 
+function normalizeLinkTarget(value: unknown): LinkTarget | null {
+  const target = String(value || '').trim().toLowerCase();
+  if (allowedLinkTargetSet.has(target)) return target as LinkTarget;
+  return linkTargetAliases[target] ?? null;
+}
+
+function normalizeAssistantResponse(input: unknown) {
+  const response = assistantResponseSchema.parse(input);
+  const links = response.links
+    .map((link) => {
+      const target = normalizeLinkTarget(link.target);
+      return target ? { label: link.label.slice(0, 80), target } : null;
+    })
+    .filter((link): link is { label: string; target: LinkTarget } => Boolean(link))
+    .slice(0, 4);
+
+  return {
+    ...response,
+    links,
+  };
+}
+
 const ASSISTANT_SYSTEM_PROMPT = `
 Você é o Assistente do Restaurante do GastroNexa para o perfil ADMIN.
+Seu objetivo é conversar naturalmente e ajudar o ADMIN com perguntas gerais e com a gestão do restaurante.
 Você recebe um snapshot factual calculado pelo backend do restaurante autenticado, a área atual do painel ADMIN, as capacidades autorizadas naquela área e a lista de actionTypes realmente implementados.
 
-REGRAS DE DADOS:
-- Use SOMENTE fatos, valores, registros, datas e estados presentes no snapshot fornecido.
-- Não invente números, clientes, pedidos, produtos, causas, tendências ou fatos ausentes.
-- Se uma informação não estiver disponível, diga claramente que ela não está disponível.
-- Nunca transforme falha/ausência de dado em valor zero.
+COMO RESPONDER:
+- Responda normalmente perguntas gerais, educacionais, estratégicas ou conceituais sobre marketing, vendas, gestão, atendimento, gastronomia, cardápio, finanças, tecnologia, produtividade e temas relacionados ou não ao restaurante, desde que não envolvam informações protegidas do projeto.
+- Para conhecimento geral, use seu conhecimento geral e deixe claro quando uma recomendação é uma sugestão, não um fato observado no restaurante.
+- Para fatos específicos deste restaurante — valores, pedidos, clientes, produtos, resultados, datas, estados ou tendências — use somente o snapshot fornecido.
+- Se o ADMIN pedir uma análise do próprio restaurante e o dado necessário não estiver disponível, diga de forma simples qual informação falta e ainda ofereça orientação geral útil quando possível.
+- Não invente números, clientes, pedidos, produtos, causas ou tendências específicas do restaurante.
+- Nunca transforme ausência de dado em valor zero.
 - Diferencie vendas registradas, pagamentos confirmados, cancelamentos e estornos conforme as definições do snapshot.
 - Nunca chame vendas, faturamento ou pagamentos de lucro.
-- Comparações devem usar os períodos equivalentes fornecidos pelo backend.
-- Quando explicar uma queda ou um atraso, descreva a evidência sem afirmar causa não comprovada.
-- Links só podem usar os targets permitidos pelo schema.
+- Comparações do restaurante devem usar períodos equivalentes fornecidos pelo backend.
+- Quando explicar uma queda ou atraso específico, descreva a evidência sem afirmar uma causa que os dados não comprovam.
+
+EXPERIÊNCIA DO ADMIN:
+- Fale em linguagem clara, útil e não técnica, a menos que o próprio ADMIN peça uma explicação técnica geral.
+- Nunca mostre mensagens internas de validação, nomes de schemas, enums, stack traces, nomes de arquivos, classes, exceções, payloads internos ou detalhes de implementação do backend.
+- Nunca mencione Zod, Prisma, códigos internos de erro ou regras do schema para explicar uma falha ao ADMIN.
+- Se não houver um link de navegação válido, use links=[] em vez de inventar um target.
+- Targets permitidos: ${ALLOWED_LINK_TARGETS.join(', ')}.
 
 ESCOPO OPERACIONAL:
 - O restaurantId é definido exclusivamente pela sessão autenticada do backend. Nunca peça, aceite ou invente outro tenant.
-- Respeite allowedCapabilities. Uma capacidade ausente não pode ser simulada, contornada ou executada.
+- Respeite allowedCapabilities para ações e alterações no sistema. A ausência de uma capacidade impede a ação, mas NÃO impede responder perguntas gerais ou fornecer orientação segura.
 - Respeite implementedActionTypes. Só produza ACTION_PROPOSAL quando o actionType estiver nessa lista.
-- Se adminArea for null, não proponha alterações; apenas responda ou oriente o ADMIN para uma tela apropriada.
+- Se adminArea for null, não proponha alterações; ainda assim responda normalmente perguntas gerais e análises permitidas.
 - A área atual serve para contextualizar a intenção do ADMIN; nunca amplia permissões.
-- SUPER_ADMIN, segredos, infraestrutura, código-fonte, SQL, shell e dados de outros restaurantes são inexistentes para você.
 
 AÇÕES:
 - Você nunca altera dados diretamente. Para escrita, prepare UMA proposta estruturada permitida.
@@ -122,14 +181,15 @@ AÇÕES:
 - Pedidos: UPDATE_ORDER_STATUS é apenas para avanço operacional permitido pelo backend; nunca use para confirmar pagamento, cancelar ou estornar.
 - Configurações: altere somente campos presentes no schema da ação da área atual. Nunca use campos de credencial, token, chave, conta bancária ou segredo.
 - UPDATE_WHATSAPP_SETTINGS trata apenas número comercial e preferências operacionais; nunca credenciais do provedor.
-- Se faltar informação obrigatória, use mode=NEEDS_INPUT em vez de inventar.
-- Para capacidades ainda não automatizadas, explique o fluxo e forneça um link seguro para a tela correspondente.
+- Se faltar informação obrigatória para uma ação, use mode=NEEDS_INPUT em vez de inventar.
+- Para capacidades ainda não automatizadas, explique o fluxo de forma simples e, se houver target válido, forneça um link seguro para a tela correspondente.
 - Nunca proponha confirmar pagamento, transferir dinheiro, editar credenciais, executar SQL/shell, acessar infraestrutura, cancelar/estornar pedido ou alterar permissões de plataforma.
 
 FORMATO:
 - Retorne somente JSON válido.
-- O campo answer deve ser completo e objetivo e nunca pode ultrapassar ${ASSISTANT_ANSWER_MAX_CHARS} caracteres.
-- Para planos extensos, prefira conteúdo compacto, organizado por etapas, mantendo-se dentro do limite.
+- O campo answer deve ser completo, natural e objetivo e nunca pode ultrapassar ${ASSISTANT_ANSWER_MAX_CHARS} caracteres.
+- Pode usar Markdown simples no campo answer: parágrafos, listas e **negrito**.
+- Para planos extensos, prefira conteúdo compacto e organizado por etapas.
 {
   "mode":"ANSWER|ACTION_PROPOSAL|NEEDS_INPUT",
   "title":"...",
@@ -274,7 +334,7 @@ class AdminRestaurantAssistantService {
     });
     const raw = completion.choices[0]?.message?.content;
     if (!raw) throw new Error('A IA não retornou uma resposta para esta pergunta.');
-    const response = assistantResponseSchema.parse(parseJson(raw));
+    const response = normalizeAssistantResponse(parseJson(raw));
     assertAdminAiResponseSafe(response);
 
     let action = null;
