@@ -43,6 +43,11 @@ type Props = {
 };
 
 export function HomeFeedback(props: Props) {
+  const hasElevatedAlert = props.notifications.some(
+    (notification) =>
+      notification.visible && (notification.type === 'error' || notification.type === 'warning'),
+  );
+
   return (
     <>
       {props.showLoginNudge && (
@@ -70,7 +75,7 @@ export function HomeFeedback(props: Props) {
         </S.LoginNudge>
       )}
       <S.NotifStack
-        style={{ zIndex: 120 }}
+        style={hasElevatedAlert ? { zIndex: 120 } : undefined}
         aria-label="Avisos recentes"
         aria-live="polite"
         aria-relevant="additions"
