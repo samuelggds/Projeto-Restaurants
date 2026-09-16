@@ -4,11 +4,10 @@ export const ASAAS_TEMPORARILY_UNAVAILABLE_MESSAGE =
   'Asaas temporariamente indisponível até a plataforma concluir o cadastro empresarial necessário para operar subcontas.';
 
 export function asaasPlatformEnabled() {
-  return ['1', 'true', 'yes', 'on'].includes(
-    String(process.env.ASAAS_PLATFORM_ENABLED || '')
-      .trim()
-      .toLowerCase(),
-  );
+  // A carteira da plataforma só existe depois que a conta principal Asaas está
+  // pronta para operar subcontas. Enquanto ela não estiver configurada, o
+  // provedor permanece indisponível sem introduzir uma flag runtime paralela.
+  return Boolean(String(process.env.ASAAS_PLATFORM_WALLET_ID || '').trim());
 }
 
 export class AsaasProviderError extends Error {
