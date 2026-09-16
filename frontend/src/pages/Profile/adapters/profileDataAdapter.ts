@@ -4,6 +4,7 @@ import type {
   ProfileData,
   ProfileFavorite,
   ProfileOrder,
+  ProfileOrderChannel,
   ProfileOrderStatus,
 } from '../types';
 import { createRestaurantMonogram } from '../../../utils/restaurantMonogram';
@@ -19,6 +20,15 @@ export function mapOrderStatus(status: unknown): ProfileOrderStatus {
   if (normalized === 'CANCELADO') return 'cancelled';
   if (normalized === 'PREPARANDO' || normalized === 'PRONTO') return 'preparing';
   return 'confirmed';
+}
+
+export function getProfileOrderChannel(order: Record<string, unknown>): ProfileOrderChannel {
+  if (order.payOnDelivery === true) return 'Pagar na entrega';
+  const type = String(order.type || order.orderType || '').trim().toUpperCase();
+  if (type === 'DELIVERY') return 'Delivery';
+  if (type === 'RETIRADA' || type === 'PICKUP') return 'Retirada';
+  if (type === 'MESA' || type === 'TABLE' || type === 'TABLE_SESSION') return 'Mesa';
+  return 'Pedido';
 }
 
 export function buildOrderSummary(order: Record<string, unknown>): string {
@@ -115,6 +125,7 @@ export function buildProfileData({
         summary: buildOrderSummary(activeRaw),
         image: firstProductImage(activeRaw),
         total: Number(activeRaw.total || 0),
+        channel: getProfileOrderChannel(activeRaw),
       }
     : undefined;
   const recentOrders: ProfileOrder[] = orders
@@ -129,6 +140,7 @@ export function buildProfileData({
       total: Number(order.total || 0),
       image: firstProductImage(order),
       status: mapOrderStatus(order.status),
+      channel: getProfileOrderChannel(order),
     }));
   const addresses: ProfileAddress[] = rawAddresses.map((item) => ({
     id: String(item.id),
