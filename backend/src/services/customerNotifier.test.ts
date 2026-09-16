@@ -94,22 +94,26 @@ test('bloqueia avisos automáticos quando o pedido não possui opt-in do cliente
   });
 });
 
-test('com opt-in válido segue para a resolução do provedor', async () => {
+test('com opt-in válido usa o número vinculado ao pedido e segue para a resolução do provedor', async () => {
   prisma.restaurantSettings.findUnique = async () => ({
     whatsappEnabled: true,
     receiveStatusNotifications: true,
   });
-  prisma.auditLog.findFirst = async () => ({ id: 77 });
+  prisma.auditLog.findFirst = async () => ({
+    id: 77,
+    metadata: { destinationPhone: '+5585999999999' },
+  });
 
   const result = await notifyCustomerPaymentConfirmed({
     restaurantId: 9,
     orderId: 502,
-    customerPhone: null,
+    customerPhone: '+5511988887777',
   });
 
   assert.notEqual(result.reason, 'customer_whatsapp_opt_in_missing');
   assert.notEqual(result.reason, 'whatsapp_disabled');
   assert.notEqual(result.reason, 'status_notifications_disabled');
+  assert.notEqual(result.reason, 'invalid_or_missing_phone');
 });
 
 test('não consulta outro tenant e bloqueia quando não há configurações para o restaurantId', async () => {

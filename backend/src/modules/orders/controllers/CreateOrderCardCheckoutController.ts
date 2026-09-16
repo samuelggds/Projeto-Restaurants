@@ -5,6 +5,38 @@ import { issueGuestOrderOwnershipToken } from '../utils/guestOrderOwnershipToken
 import { PaymentCreationUncertainError } from '../services/PaymentCreationUncertainError.js';
 import { orderCreationContext } from '../services/orderCreationRequest.js';
 import { OrderRequestError } from '../domain/OrderRequestError.js';
+import { recordWhatsappOrderNotificationOptIn } from '../../../services/whatsappOrderConsent.js';
+import { notifyCustomerPaymentConfirmed } from '../../../services/customerNotifier.js';
+import { safeErrorName } from '../../../services/telemetrySanitizer.js';
+import { resolveOrderRestaurantId } from '../utils/orderTenant.js';
+import orderRepository from '../repositories/OrderRepository.js';
+
+async function recordUncertainCheckoutWhatsappOptIn(
+  req: Request,
+  orderId: number | string,
+) {
+  if (req.body?.whatsappOptIn !== true || String(req.body?.type || '').toUpperCase() === 'MESA') {
+    return;
+  }
+
+  try {
+    const resolvedRestaurantId = resolveOrderRestaurantId({
+      requestedRestaurantId: req.body?.restaurantId,
+      contextRestaurantId: req.user?.restaurantId ?? req.tableSession?.restaurantId ?? null,
+    });
+    await recordWhatsappOrderNotificationOptIn({
+      restaurantId: resolvedRestaurantId,
+      orderId,
+      userId: req.user?.id ?? null,
+      customerPhone: req.body?.customerPhone,
+    });
+  } catch (consentError) {
+    console.warn('[WHATSAPP_ORDER_OPT_IN_RECORD_FAILED]', {
+      requestId: req.requestId,
+      errorType: safeErrorName(consentError),
+    });
+  }
+}
 
 class CreateOrderCardCheckoutController {
   async handle(req: Request, res: Response) {
@@ -24,6 +56,7 @@ class CreateOrderCardCheckoutController {
         customerName,
         customerCpf,
         customerPhone,
+        whatsappOptIn,
         observation,
         tableId,
         settlementMode,
@@ -36,11 +69,15 @@ class CreateOrderCardCheckoutController {
 
       const userId = req.user?.id ?? null;
       const userRestaurantId = req.user?.restaurantId ?? req.tableSession?.restaurantId ?? null;
+      const resolvedRestaurantId = resolveOrderRestaurantId({
+        requestedRestaurantId: restaurantId,
+        contextRestaurantId: userRestaurantId,
+      });
 
       const result = await createOrderCardCheckoutService.execute({
         creationRequest: orderCreationContext(req, 'card'),
         userId,
-        restaurantId,
+        restaurantId: resolvedRestaurantId,
         userRestaurantId,
         tableSessionId: req.tableSession?.id ?? null,
         tableSessionTableId: req.tableSession?.tableId ?? null,
@@ -69,6 +106,45 @@ class CreateOrderCardCheckoutController {
         customerIp: req.ip,
       });
 
+      if (whatsappOptIn === true && String(type || '').toUpperCase() !== 'MESA') {
+        try {
+          const consentRecorded = await recordWhatsappOrderNotificationOptIn({
+            restaurantId: resolvedRestaurantId,
+            orderId: result.orderId,
+            userId,
+            customerPhone,
+          });
+
+          if (consentRecorded && result.paid === true) {
+            const paidOrder = await orderRepository.findById(result.orderId, resolvedRestaurantId);
+            if (paidOrder) {
+              void notifyCustomerPaymentConfirmed({
+                restaurantId: paidOrder.restaurantId,
+                customerPhone,
+                customerName: paidOrder.user?.name || customerName,
+                restaurantName: paidOrder.restaurant?.name,
+                restaurantWhatsapp: paidOrder.restaurant?.whatsapp,
+                orderId: paidOrder.id,
+                total: paidOrder.total,
+                paymentMethod: paidOrder.paymentMethod,
+              }).catch((notificationError: unknown) => {
+                console.error(
+                  '[CUSTOMER_NOTIFICATION_UNHANDLED]',
+                  notificationError instanceof Error
+                    ? notificationError.message
+                    : String(notificationError),
+                );
+              });
+            }
+          }
+        } catch (consentError) {
+          console.warn('[WHATSAPP_ORDER_OPT_IN_RECORD_FAILED]', {
+            requestId: req.requestId,
+            errorType: safeErrorName(consentError),
+          });
+        }
+      }
+
       const isGuestOrder = req.user?.isGuest === true;
       const isGuestDelivery = isGuestOrder && String(type || '').toUpperCase() === 'DELIVERY';
       const guestTrackingToken = isGuestDelivery
@@ -96,6 +172,7 @@ class CreateOrderCardCheckoutController {
           .json({ error: error.message, code: error.code, requestId: req.requestId });
       }
       if (error instanceof PaymentCreationUncertainError) {
+        await recordUncertainCheckoutWhatsappOptIn(req, error.orderId);
         return res.status(error.statusCode).json({
           error: error.message,
           code: error.code,

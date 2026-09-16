@@ -83,6 +83,7 @@ class CreateOrderController {
             restaurantId: order.restaurantId,
             orderId: order.id,
             userId: order.userId,
+            customerPhone,
           });
         } catch (consentError) {
           // Falhar ao registrar a evidência nunca amplia permissão: o pedido continua

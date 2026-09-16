@@ -3,7 +3,6 @@ import {
   ChevronRight,
   CreditCard,
   LogIn,
-  MessageCircle,
   QrCode,
   ShieldCheck,
   Store,
@@ -15,11 +14,7 @@ import { useEffect, useState } from 'react';
 import customerPaymentMethodService, {
   type CustomerPaymentMethod,
 } from '../../../Services/customerPaymentMethodService';
-import {
-  readWhatsappOrderOptIn,
-  type CheckoutPaymentMethod,
-  writeWhatsappOrderOptIn,
-} from '../domain/checkout';
+import { type CheckoutPaymentMethod } from '../domain/checkout';
 import { shouldShowSavedCardAccountNotice } from '../domain/paymentAccountNotice';
 import { getAvailablePaymentMethods } from '../domain/publicSettings';
 import * as S from '../../Home/Home.styles';
@@ -27,6 +22,7 @@ import {
   buildAuthEntryUrlForLocation,
   buildLoginUrl,
 } from '../../../shared/navigation/authNavigation';
+import { WhatsAppOrderNotifications } from './WhatsAppOrderNotifications';
 
 type Props = {
   paymentMethod: CheckoutPaymentMethod;
@@ -183,14 +179,12 @@ export function PaymentOptions({
   const [savedCards, setSavedCards] = useState<CustomerPaymentMethod[]>([]);
   const [selectedCardId, setSelectedCardId] = useState('');
   const [showCardAccountNotice, setShowCardAccountNotice] = useState(false);
-  const [whatsappOptInOverrides, setWhatsappOptInOverrides] = useState<Record<number, boolean>>({});
-  const whatsappOrderOptIn = restaurantId
-    ? (whatsappOptInOverrides[restaurantId] ?? readWhatsappOrderOptIn(restaurantId))
-    : false;
+
   const handlePaymentChange = (method: CheckoutPaymentMethod) => {
     onChange(method);
     setShowCardAccountNotice(shouldShowSavedCardAccountNotice(loggedIn, method));
   };
+
   useEffect(() => {
     if (!loggedIn || !restaurantId || paymentMethod !== 'card') return;
     let active = true;
@@ -214,6 +208,7 @@ export function PaymentOptions({
       active = false;
     };
   }, [loggedIn, paymentMethod, restaurantId]);
+
   const onlineOptions = filterOptions(ONLINE_OPTIONS, allowPix, allowCard);
   const deliveryOptions = filterOptions(DELIVERY_OPTIONS, allowPix, allowCard);
   const pickupOptions = filterOptions(PICKUP_OPTIONS, allowPix, allowCard);
@@ -223,9 +218,11 @@ export function PaymentOptions({
     allowPix,
     allowCard,
   });
+
   if (availableMethods.length === 0) {
     return (
       <>
+        <WhatsAppOrderNotifications restaurantId={restaurantId} />
         <S.CartSectionLabel>Forma de pagamento</S.CartSectionLabel>
         <S.CheckoutUnavailable role="status">
           Serviço indisponível. Este restaurante ainda não aceita esta forma de pagamento no
@@ -234,34 +231,10 @@ export function PaymentOptions({
       </>
     );
   }
+
   return (
     <>
-      {restaurantId ? (
-        <S.CardAccountNotice as="label">
-          <div className="notice-icon">
-            <MessageCircle size={21} aria-hidden="true" />
-          </div>
-          <div className="notice-copy">
-            <b>Atualizações do pedido pelo WhatsApp</b>
-            <span>
-              <input
-                type="checkbox"
-                checked={whatsappOrderOptIn}
-                onChange={(event) => {
-                  const optedIn = event.target.checked;
-                  setWhatsappOptInOverrides((current) => ({
-                    ...current,
-                    [restaurantId]: optedIn,
-                  }));
-                  writeWhatsappOrderOptIn(restaurantId, optedIn);
-                }}
-              />{' '}
-              Aceito receber mensagens transacionais deste restaurante sobre pagamento e andamento
-              dos meus pedidos. Posso desmarcar esta opção para os próximos pedidos.
-            </span>
-          </div>
-        </S.CardAccountNotice>
-      ) : null}
+      <WhatsAppOrderNotifications restaurantId={restaurantId} />
 
       <S.CartSectionLabel>Pagar agora</S.CartSectionLabel>
       <OptionsGrid

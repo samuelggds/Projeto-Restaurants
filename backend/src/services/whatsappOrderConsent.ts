@@ -11,6 +11,18 @@ function normalizeId(value: unknown) {
   return Number.isSafeInteger(id) && id > 0 ? id : null;
 }
 
+function normalizePhone(value: unknown) {
+  const digits = String(value || '').replace(/\D/g, '');
+  if (/^55\d{10,11}$/u.test(digits)) return `+${digits}`;
+  if (/^\d{10,11}$/u.test(digits)) return `+55${digits}`;
+  return '';
+}
+
+function destinationPhoneFromMetadata(metadata: unknown) {
+  if (!metadata || typeof metadata !== 'object' || Array.isArray(metadata)) return '';
+  return normalizePhone((metadata as Record<string, unknown>).destinationPhone);
+}
+
 function resourceForOrder(orderId: number) {
   return `Order:${orderId}`;
 }
@@ -20,13 +32,15 @@ export async function recordWhatsappOrderNotificationOptIn(
     restaurantId: unknown;
     orderId: unknown;
     userId?: unknown;
+    customerPhone?: unknown;
   },
   db: Database = prisma,
 ) {
   const restaurantId = normalizeId(input.restaurantId);
   const orderId = normalizeId(input.orderId);
   const userId = normalizeId(input.userId);
-  if (!restaurantId || !orderId) return false;
+  const destinationPhone = normalizePhone(input.customerPhone);
+  if (!restaurantId || !orderId || !destinationPhone) return false;
 
   const resource = resourceForOrder(orderId);
   const existing = await db.auditLog.findFirst({
@@ -35,9 +49,10 @@ export async function recordWhatsappOrderNotificationOptIn(
       action: CONSENT_ACTION,
       resource,
     },
-    select: { id: true },
+    select: { id: true, metadata: true },
+    orderBy: { id: 'desc' },
   });
-  if (existing) return true;
+  if (destinationPhoneFromMetadata(existing?.metadata) === destinationPhone) return true;
 
   await db.auditLog.create({
     data: {
@@ -50,6 +65,7 @@ export async function recordWhatsappOrderNotificationOptIn(
         channel: 'whatsapp',
         scope: CONSENT_SCOPE,
         source: 'CHECKOUT',
+        destinationPhone,
         consentedAt: new Date().toISOString(),
       },
     },
@@ -57,14 +73,14 @@ export async function recordWhatsappOrderNotificationOptIn(
   return true;
 }
 
-export async function hasWhatsappOrderNotificationOptIn(
+export async function getWhatsappOrderNotificationDestination(
   restaurantIdInput: unknown,
   orderIdInput: unknown,
   db: Database = prisma,
 ) {
   const restaurantId = normalizeId(restaurantIdInput);
   const orderId = normalizeId(orderIdInput);
-  if (!restaurantId || !orderId) return false;
+  if (!restaurantId || !orderId) return '';
 
   const consent = await db.auditLog.findFirst({
     where: {
@@ -72,9 +88,21 @@ export async function hasWhatsappOrderNotificationOptIn(
       action: CONSENT_ACTION,
       resource: resourceForOrder(orderId),
     },
-    select: { id: true },
+    select: { metadata: true },
+    orderBy: { id: 'desc' },
   });
-  return Boolean(consent);
+
+  return destinationPhoneFromMetadata(consent?.metadata);
+}
+
+export async function hasWhatsappOrderNotificationOptIn(
+  restaurantIdInput: unknown,
+  orderIdInput: unknown,
+  db: Database = prisma,
+) {
+  return Boolean(
+    await getWhatsappOrderNotificationDestination(restaurantIdInput, orderIdInput, db),
+  );
 }
 
 export const WHATSAPP_ORDER_CONSENT_ACTION = CONSENT_ACTION;
