@@ -196,7 +196,6 @@ export const GlobalStyles = createGlobalStyle`
     width: 100%;
     min-height: 100vh;
     min-height: 100dvh;
-    transform-origin: top center;
     animation: app-page-enter var(--motion-slow) var(--motion-ease-emphasized) both;
   }
 
@@ -219,11 +218,9 @@ export const GlobalStyles = createGlobalStyle`
   @keyframes app-page-enter {
     from {
       opacity: 0;
-      transform: translateY(9px) scale(0.997);
     }
     to {
       opacity: 1;
-      transform: translateY(0) scale(1);
     }
   }
 
