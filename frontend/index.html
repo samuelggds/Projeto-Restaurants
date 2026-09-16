@@ -19,24 +19,43 @@
   <body>
     <div id="root">
       <main class="app-bootstrap" aria-busy="true" aria-live="polite">
-        <img src="/gastronexa-logo.svg" width="56" height="49" alt="GastroNexa" />
-        <span>Carregando GastroNexa…</span>
+        <img src="/gastronexa-logo.svg" width="72" height="63" alt="GastroNexa" />
+        <strong>GastroNexa</strong>
+        <span role="status">Carregando...</span>
       </main>
     </div>
     <style>
+      html,
+      body,
+      #root {
+        margin: 0;
+        min-height: 100%;
+        background: #faf9f5;
+      }
+
       .app-bootstrap {
         align-items: center;
         background: #faf9f5;
         color: #475569;
         display: flex;
         flex-direction: column;
-        gap: 16px;
+        gap: 12px;
         box-sizing: border-box;
         font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
         justify-content: center;
         min-height: 100vh;
         min-height: 100dvh;
         padding: 24px;
+      }
+
+      .app-bootstrap strong {
+        color: #1f2937;
+        font-size: 18px;
+        line-height: 1;
+      }
+
+      .app-bootstrap span {
+        font-size: 14px;
       }
     </style>
     <script type="module" src="/src/main.tsx"></script>
