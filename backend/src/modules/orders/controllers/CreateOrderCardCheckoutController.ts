@@ -65,6 +65,16 @@ class CreateOrderCardCheckoutController {
         cancelUrl,
         couponRedemptionId,
         paymentMethodId,
+        cardToken,
+        cardPaymentMethodId,
+        encryptedCard,
+        cardData,
+        holderName,
+        holderTaxId,
+        expMonth,
+        expYear,
+        billingPostalCode,
+        billingAddressNumber,
       } = req.body;
 
       const userId = req.user?.id ?? null;
@@ -103,6 +113,16 @@ class CreateOrderCardCheckoutController {
         cancelUrl,
         couponRedemptionId,
         paymentMethodId,
+        cardToken,
+        cardPaymentMethodId,
+        encryptedCard,
+        cardData,
+        holderName,
+        holderTaxId,
+        expMonth,
+        expYear,
+        billingPostalCode,
+        billingAddressNumber,
         customerIp: req.ip,
       });
 
