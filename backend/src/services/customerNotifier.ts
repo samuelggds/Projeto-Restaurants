@@ -2,6 +2,7 @@ import prisma from '../config/prisma.js';
 import { enqueueWhatsappNotification } from './notificationOutbox.js';
 import { resolveWhatsAppDeliveryProvider } from './whatsappProvider.js';
 import { hasWhatsappOrderNotificationOptIn } from './whatsappOrderConsent.js';
+import { generateDeliveryConfirmationCode } from '../modules/orders/utils/deliveryConfirmationCode.js';
 import {
   buildAutomaticOrderStatusMessage,
   resolveCustomerOrderLinks,
@@ -28,6 +29,7 @@ type OrderStatusChangedPayload = {
   publicId?: string | null;
   orderType?: string | null;
   status?: string | null;
+  deliveryStartedAt?: Date | string | null;
 };
 
 type RestaurantPinRequestedPayload = {
@@ -61,6 +63,13 @@ type CustomerWhatsappPreference = {
     | 'status_notifications_disabled'
     | 'notification_preference_lookup_failed';
 };
+
+const SUPPORTED_QUEUE_PROVIDERS = new Set([
+  'whatsapp_webhook',
+  'gupshup',
+  'zapi',
+  'evolution',
+]);
 
 function getErrorMessage(error: unknown) {
   return error instanceof Error ? error.name : 'UnknownError';
@@ -126,6 +135,10 @@ async function hasCustomerOrderWhatsappConsent(
 
 function resolveProvider() {
   return resolveWhatsAppDeliveryProvider();
+}
+
+function providerSupported(provider: string) {
+  return SUPPORTED_QUEUE_PROVIDERS.has(provider);
 }
 
 function normalizeToE164Br(phone: string | number | null | undefined) {
@@ -218,7 +231,7 @@ async function queueWhatsappMessage({
 }) {
   const provider = resolveProvider();
   if (provider === 'none') return { sent: false, reason: 'provider_not_configured' } as const;
-  if (!['whatsapp_webhook', 'gupshup'].includes(provider)) {
+  if (!providerSupported(provider)) {
     return { sent: false, reason: 'provider_not_supported', provider } as const;
   }
 
@@ -244,7 +257,7 @@ export async function notifyCustomerPaymentConfirmed(payload: PaymentConfirmedPa
   }
   const provider = resolveProvider();
   if (provider === 'none') return { sent: false, reason: 'provider_not_configured' };
-  if (!['whatsapp_webhook', 'gupshup'].includes(provider)) {
+  if (!providerSupported(provider)) {
     return { sent: false, reason: 'provider_not_supported', provider };
   }
 
@@ -277,9 +290,6 @@ export async function notifyCustomerOrderStatusChanged(payload: OrderStatusChang
     return { sent: false, reason: 'customer_whatsapp_opt_in_missing' } as const;
   }
 
-  // A confirmação de pagamento cobre o começo do pedido. Suprimir PENDENTE evita excesso
-  // de notificações e limita um delivery normal a no máximo cinco avisos automáticos:
-  // pagamento, preparo, pronto, saiu para entrega e conclusão/cancelamento.
   const normalizedStatus = String(payload.status || '').trim().toUpperCase();
   if (normalizedStatus === 'PENDENTE') {
     return { sent: false, reason: 'initial_status_suppressed' } as const;
@@ -287,7 +297,7 @@ export async function notifyCustomerOrderStatusChanged(payload: OrderStatusChang
 
   const provider = resolveProvider();
   if (provider === 'none') return { sent: false, reason: 'provider_not_configured' };
-  if (!['whatsapp_webhook', 'gupshup'].includes(provider)) {
+  if (!providerSupported(provider)) {
     return { sent: false, reason: 'provider_not_supported', provider };
   }
 
@@ -297,12 +307,29 @@ export async function notifyCustomerOrderStatusChanged(payload: OrderStatusChang
       orderId: payload.orderId,
       publicId: payload.publicId,
     });
+
+    let deliveryConfirmationCode: string | undefined;
+    if (
+      normalizedStatus === 'SAIU_PARA_ENTREGA' &&
+      payload.publicId &&
+      payload.deliveryStartedAt &&
+      Number.isInteger(Number(payload.orderId)) &&
+      Number(payload.orderId) > 0
+    ) {
+      deliveryConfirmationCode = generateDeliveryConfirmationCode({
+        orderId: Number(payload.orderId),
+        publicId: String(payload.publicId),
+        deliveryStartedAt: payload.deliveryStartedAt,
+      });
+    }
+
     const message = buildAutomaticOrderStatusMessage({
       customerName: payload.customerName,
       restaurantName: payload.restaurantName,
       orderId: payload.orderId,
       status: payload.status,
       orderType: payload.orderType,
+      deliveryConfirmationCode,
       ...links,
     });
     const name = String(payload.customerName || 'Cliente').trim() || 'Cliente';
@@ -319,6 +346,7 @@ export async function notifyCustomerOrderStatusChanged(payload: OrderStatusChang
         status: payload.status,
         restaurantId: payload.restaurantId,
         event: 'ORDER_STATUS_CHANGED',
+        ...(deliveryConfirmationCode ? { deliveryConfirmationCode } : {}),
         templateParams: [name, String(payload.orderId || ''), restaurant, link],
       },
     });
@@ -331,7 +359,7 @@ export async function notifyCustomerOrderStatusChanged(payload: OrderStatusChang
 export async function notifyRestaurantPaymentPinRequested(payload: RestaurantPinRequestedPayload) {
   const provider = resolveProvider();
   if (provider === 'none') return { sent: false, reason: 'provider_not_configured' };
-  if (!['whatsapp_webhook', 'gupshup'].includes(provider)) {
+  if (!providerSupported(provider)) {
     return { sent: false, reason: 'provider_not_supported', provider };
   }
   try {
@@ -356,7 +384,7 @@ export async function notifyRestaurantOrderIssueReported(
 ) {
   const provider = resolveProvider();
   if (provider === 'none') return { sent: false, reason: 'provider_not_configured' };
-  if (!['whatsapp_webhook', 'gupshup'].includes(provider)) {
+  if (!providerSupported(provider)) {
     return { sent: false, reason: 'provider_not_supported', provider };
   }
   try {
