@@ -1,5 +1,16 @@
 import { createHash } from 'node:crypto';
 
+export const ASAAS_TEMPORARILY_UNAVAILABLE_MESSAGE =
+  'Asaas temporariamente indisponível até a plataforma concluir o cadastro empresarial necessário para operar subcontas.';
+
+export function asaasPlatformEnabled() {
+  return ['1', 'true', 'yes', 'on'].includes(
+    String(process.env.ASAAS_PLATFORM_ENABLED || '')
+      .trim()
+      .toLowerCase(),
+  );
+}
+
 export class AsaasProviderError extends Error {
   constructor(
     public readonly status: number,
