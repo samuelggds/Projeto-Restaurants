@@ -18,8 +18,13 @@ git -C "$tmp" init -q
 git -C "$tmp" config user.name 'GastroNexa CI Canary'
 git -C "$tmp" config user.email 'ci-canary@example.test'
 # Assemble a high-entropy synthetic token at runtime so no real secret or reusable
-# credential is ever stored in the GastroNexa repository.
-canary="ghp_$(openssl rand -base64 27 | tr -dc 'A-Za-z0-9' | head -c 36)"
+# credential is ever stored in the GastroNexa repository. Build the suffix first
+# and only truncate after filtering so the GitHub token shape is always 36 chars.
+canary_suffix=''
+while [[ ${#canary_suffix} -lt 36 ]]; do
+  canary_suffix+="$(openssl rand -base64 48 | tr -dc 'A-Za-z0-9')"
+done
+canary="ghp_${canary_suffix:0:36}"
 printf 'SYNTHETIC_GITHUB_TOKEN=%s\n' "$canary" > "$tmp/canary.env"
 git -C "$tmp" add canary.env
 git -C "$tmp" commit -q -m 'synthetic secret canary'
