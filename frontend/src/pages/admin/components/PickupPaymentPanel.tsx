@@ -13,7 +13,6 @@ type Method = 'PIX' | 'CARTAO' | 'DINHEIRO';
 type Props = {
   orderId: number;
   total: number;
-  preferredMethod?: Method;
   onPaid: () => void | Promise<void>;
 };
 
@@ -21,8 +20,8 @@ function messageFrom(error: unknown) {
   return adminErrorMessage(error, 'Não foi possível concluir a cobrança.');
 }
 
-export default function PickupPaymentPanel({ orderId, total, preferredMethod, onPaid }: Props) {
-  const [method, setMethod] = useState<Method>(preferredMethod || 'PIX');
+export default function PickupPaymentPanel({ orderId, total, onPaid }: Props) {
+  const [method, setMethod] = useState<Method>('PIX');
   const [payment, setPayment] = useState<PickupPayment | null>(null);
   const [terminals, setTerminals] = useState<PaymentTerminal[]>([]);
   const [terminalPublicId, setTerminalPublicId] = useState('');
@@ -127,8 +126,8 @@ export default function PickupPaymentPanel({ orderId, total, preferredMethod, on
         <div>
           <strong>Cobrança na retirada</strong>
           <small>
-            A forma escolhida pelo cliente já vem selecionada. Pix e cartão são aprovados pela
-            empresa de pagamento; dinheiro exige confirmação do funcionário.
+            Pix e cartão são aprovados pela empresa de pagamento. Dinheiro exige confirmação do
+            funcionário.
           </small>
         </div>
         <b>{Number(total).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</b>
