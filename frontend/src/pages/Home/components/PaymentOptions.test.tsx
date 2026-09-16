@@ -36,19 +36,32 @@ describe('PaymentOptions', () => {
     expect(markup).toContain('Serviço indisponível');
   });
 
-  it('oferece pagar no restaurante no canal de retirada mesmo sem pagamento online', () => {
+  it('oferece Pix cartão e dinheiro no restaurante para retirada', () => {
     const markup = renderToStaticMarkup(
       <PaymentOptions
-        paymentMethod="pickup_store"
+        paymentMethod="pickup_cash"
         allowPayOnDelivery={false}
-        allowPix={false}
-        allowCard={false}
+        allowPix
+        allowCard
         onChange={() => undefined}
       />,
     );
 
     expect(markup).toContain('Pagar no restaurante');
-    expect(markup).toContain('Pix e cartão são confirmados');
+    expect(markup).toContain('Pix no restaurante');
+    expect(markup).toContain('Cartão no restaurante');
+    expect(markup).toContain('Dinheiro');
+    expect(markup).toContain('entra na fila da cozinha como não pago');
+  });
+
+  it('mantém dinheiro na retirada mesmo quando pagamentos online estão desativados', () => {
+    expect(
+      getAvailablePaymentMethods({
+        allowPayOnDelivery: false,
+        allowPix: false,
+        allowCard: false,
+      }),
+    ).toEqual(['pickup_cash']);
   });
 
   it('calcula os métodos válidos para cada canal', () => {
@@ -57,7 +70,7 @@ describe('PaymentOptions', () => {
     ).toEqual(['pix', 'delivery_pix']);
     expect(
       getAvailablePaymentMethods({ allowPayOnDelivery: false, allowPix: false, allowCard: true }),
-    ).toEqual(['card', 'pickup_store']);
+    ).toEqual(['card', 'pickup_card', 'pickup_cash']);
     expect(
       getAvailablePaymentMethods({
         allowPayOnDelivery: false,
