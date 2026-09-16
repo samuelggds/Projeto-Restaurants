@@ -8,6 +8,7 @@ import {
 } from '../domain/paymentOutcome';
 import type { PaymentResultStatus } from '../../../components/payment/PaymentResultView';
 import { readStorage } from '../../../shared/storage/safeStorage';
+import { prepareCardPayment } from '../domain/cardPaymentPreparation';
 
 export type PixPaymentData = {
   restaurantId?: number;
@@ -337,19 +338,27 @@ export function useCheckoutPayments(options: Options) {
         return true;
       }
 
-      const savedMethods = restaurantId
-        ? await customerPaymentMethodService.list(restaurantId).catch(() => [])
-        : [];
-      const storedMethodId = restaurantId
-        ? readStorage(`selectedCustomerPaymentMethodId:${restaurantId}`)
-        : '';
-      const selectedSavedMethod =
-        savedMethods.find((method) => method.publicId === storedMethodId) ||
-        savedMethods.find((method) => method.isDefault) ||
-        savedMethods[0];
+      const tablePayment = String(payload.type || '').toUpperCase() === 'MESA';
+      let cardPayload: Record<string, unknown> = {};
+      if (tablePayment) {
+        const savedMethods = restaurantId
+          ? await customerPaymentMethodService.list(restaurantId).catch(() => [])
+          : [];
+        const storedMethodId = restaurantId
+          ? readStorage(`selectedCustomerPaymentMethodId:${restaurantId}`)
+          : '';
+        const selectedSavedMethod =
+          savedMethods.find((method) => method.publicId === storedMethodId) ||
+          savedMethods.find((method) => method.isDefault) ||
+          savedMethods[0];
+        cardPayload = selectedSavedMethod ? { paymentMethodId: selectedSavedMethod.publicId } : {};
+      } else {
+        cardPayload = await prepareCardPayment();
+      }
+
       const result = await ordersService.createCardCheckout({
         ...payload,
-        ...(selectedSavedMethod ? { paymentMethodId: selectedSavedMethod.publicId } : {}),
+        ...cardPayload,
         successUrl: window.location.href,
         cancelUrl: window.location.href,
       });
