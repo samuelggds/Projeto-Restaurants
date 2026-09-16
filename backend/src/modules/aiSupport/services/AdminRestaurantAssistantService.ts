@@ -29,6 +29,8 @@ type Actor = {
   userRole?: string | null;
 };
 
+const ASSISTANT_ANSWER_MAX_CHARS = 8000;
+
 const linkSchema = z.object({
   label: z.string().trim().min(1).max(80),
   target: z.enum([
@@ -66,7 +68,7 @@ const evidenceSchema = z.object({
 const assistantResponseSchema = z.object({
   mode: z.enum(['ANSWER', 'ACTION_PROPOSAL', 'NEEDS_INPUT']),
   title: z.string().trim().min(1).max(120),
-  answer: z.string().trim().min(1).max(2400),
+  answer: z.string().trim().min(1).max(ASSISTANT_ANSWER_MAX_CHARS),
   evidence: z.array(evidenceSchema).max(8).default([]),
   links: z.array(linkSchema).max(4).default([]),
   missingInformation: z.array(z.string().trim().min(1).max(180)).max(8).default([]),
@@ -125,7 +127,9 @@ AÇÕES:
 - Nunca proponha confirmar pagamento, transferir dinheiro, editar credenciais, executar SQL/shell, acessar infraestrutura, cancelar/estornar pedido ou alterar permissões de plataforma.
 
 FORMATO:
-Retorne somente JSON válido:
+- Retorne somente JSON válido.
+- O campo answer deve ser completo e objetivo e nunca pode ultrapassar ${ASSISTANT_ANSWER_MAX_CHARS} caracteres.
+- Para planos extensos, prefira conteúdo compacto, organizado por etapas, mantendo-se dentro do limite.
 {
   "mode":"ANSWER|ACTION_PROPOSAL|NEEDS_INPUT",
   "title":"...",
