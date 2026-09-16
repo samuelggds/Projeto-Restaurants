@@ -30,8 +30,8 @@ beforeEach(() => {
     PAGBANK_CONNECT_CLIENT_ID: 'test-pb-id',
     PAGBANK_CONNECT_CLIENT_SECRET: 'test-pb-secret',
     PAGBANK_CONNECT_PLATFORM_TOKEN: 'test-pb-platform',
-    ASAAS_PLATFORM_ENABLED: 'true',
     ASAAS_API_KEY: 'test-asaas-platform',
+    ASAAS_PLATFORM_WALLET_ID: 'wallet-platform-test',
     ASAAS_WEBHOOK_TOKEN: 'test-webhook-token-with-32-characters',
   });
   asaasStatus.execute = async () => ({ credentialsConfigured: false, recoveryRequired: false });
@@ -70,8 +70,8 @@ test('prontidão exige os pré-requisitos, rejeita callback externo e não usa t
   assert.equal(paymentConnectionConfiguration('ASAAS'), false);
 });
 
-test('Asaas fica indisponível por padrão até a plataforma habilitar o recurso', async () => {
-  delete process.env.ASAAS_PLATFORM_ENABLED;
+test('Asaas fica indisponível por padrão até a plataforma possuir wallet configurada', async () => {
+  delete process.env.ASAAS_PLATFORM_WALLET_ID;
   assert.equal(paymentConnectionConfiguration('ASAAS'), false);
   repository.findByRestaurantId = async () => null;
   const result = await service.execute({ restaurantId: 7 });
