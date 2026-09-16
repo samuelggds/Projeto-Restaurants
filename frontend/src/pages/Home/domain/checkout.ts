@@ -22,6 +22,10 @@ function optionalCustomerPhone(value: unknown) {
   return digits.length >= 10 && digits.length <= 13 ? phone : undefined;
 }
 
+export function isValidWhatsappOrderPhone(value: unknown) {
+  return Boolean(optionalCustomerPhone(value));
+}
+
 function isValidCpf(value: unknown) {
   const cpf = String(value || '').replace(/\D/g, '');
   if (cpf.length !== 11 || /^(\d)\1{10}$/.test(cpf)) return false;
@@ -40,6 +44,13 @@ export function whatsappOrderOptInStorageKey(restaurantId: number | null | undef
   const normalizedRestaurantId = Number(restaurantId || 0);
   return Number.isSafeInteger(normalizedRestaurantId) && normalizedRestaurantId > 0
     ? `gastronexa:whatsapp-order-opt-in:${normalizedRestaurantId}`
+    : '';
+}
+
+export function whatsappOrderPhoneStorageKey(restaurantId: number | null | undefined) {
+  const normalizedRestaurantId = Number(restaurantId || 0);
+  return Number.isSafeInteger(normalizedRestaurantId) && normalizedRestaurantId > 0
+    ? `gastronexa:whatsapp-order-phone:${normalizedRestaurantId}`
     : '';
 }
 
@@ -66,6 +77,29 @@ export function writeWhatsappOrderOptIn(
   }
 }
 
+export function readWhatsappOrderPhone(restaurantId: number | null | undefined) {
+  const key = whatsappOrderPhoneStorageKey(restaurantId);
+  if (!key || typeof window === 'undefined') return '';
+  try {
+    return String(window.localStorage.getItem(key) || '').trim();
+  } catch {
+    return '';
+  }
+}
+
+export function writeWhatsappOrderPhone(
+  restaurantId: number | null | undefined,
+  phone: string,
+) {
+  const key = whatsappOrderPhoneStorageKey(restaurantId);
+  if (!key || typeof window === 'undefined') return;
+  try {
+    window.localStorage.setItem(key, String(phone || '').trim());
+  } catch {
+    // O checkout continua funcional mesmo se o navegador bloquear storage.
+  }
+}
+
 type ValidationInput = {
   type: OrderType;
   customerPhone: unknown;
@@ -85,7 +119,6 @@ export function resolveOrderType(mesaMode: boolean, orderType: 'delivery' | 'pic
 export function validateCheckout(input: ValidationInput): CheckoutIssue | null {
   const {
     type,
-    customerPhone,
     customerName,
     customerCpf,
     requireGuestIdentity,
@@ -98,24 +131,12 @@ export function validateCheckout(input: ValidationInput): CheckoutIssue | null {
       return { title: 'Informe seu nome', message: 'Digite seu nome para identificar o pedido.' };
     if (!isValidCpf(customerCpf))
       return { title: 'CPF inválido', message: 'Informe um CPF válido com 11 dígitos.' };
-    const phoneDigits = String(customerPhone || '').replace(/\D/g, '');
-    if (phoneDigits.length < 10 || phoneDigits.length > 13)
-      return {
-        title: 'Celular inválido',
-        message: 'Informe um celular com DDD para acompanhar o pedido.',
-      };
   }
   if (type === 'DELIVERY') {
     const addressErrors = validateDeliveryAddress(deliveryAddress);
     const firstAddressError = Object.values(addressErrors)[0];
     if (firstAddressError) return { title: 'Revise seu endereço', message: firstAddressError };
 
-    const phoneDigits = String(customerPhone || '').replace(/\D/g, '');
-    if (phoneDigits.length < 10 || phoneDigits.length > 13)
-      return {
-        title: 'Celular inválido',
-        message: 'Cadastre um celular com DDD para receber atualizações do pedido.',
-      };
     if (cepStatus !== 'success')
       return {
         title: 'Confirme o CEP',
@@ -132,14 +153,6 @@ export function validateCheckout(input: ValidationInput): CheckoutIssue | null {
       title: 'Opção indisponível',
       message: 'Pagar no restaurante só está disponível para pedidos de retirada.',
     };
-  if (paymentMethod.startsWith('pickup_')) {
-    const phoneDigits = String(customerPhone || '').replace(/\D/g, '');
-    if (phoneDigits.length < 10 || phoneDigits.length > 13)
-      return {
-        title: 'Celular obrigatório',
-        message: 'Informe um celular com DDD para o restaurante identificar e contatar você.',
-      };
-  }
   return null;
 }
 
@@ -257,7 +270,7 @@ export function buildOrderPayload(input: PayloadInput) {
     : safePaymentMethod.includes('pix')
       ? 'PIX'
       : 'CARTAO';
-  const customerPhone = optionalCustomerPhone(customer.phone);
+  const customerPhone = optionalCustomerPhone(readWhatsappOrderPhone(restaurantId));
   return {
     payload: {
       restaurantId,
