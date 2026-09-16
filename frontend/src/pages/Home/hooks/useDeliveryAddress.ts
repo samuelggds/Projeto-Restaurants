@@ -43,9 +43,6 @@ export function useDeliveryAddress(user: unknown) {
     const accountAddress = isCustomer ? createDeliveryAddress(user) : createDeliveryAddress(null);
     let active = true;
 
-    // Clear the previous account immediately. Besides avoiding a misleading
-    // fallback, this prevents a customer's address from remaining visible
-    // after logout or while another account is being loaded.
     queueMicrotask(() => {
       if (!active) return;
       setSavedAddresses([]);
@@ -112,13 +109,18 @@ export function useDeliveryAddress(user: unknown) {
       const result = await lookupCep(digits);
       setDeliveryAddress((current) => ({
         ...current,
-        zipCode: result.cep,
-        address: result.address || current.address,
-        district: result.district || current.district,
-        city: result.city || current.city,
+        zipCode: formatCep(result.cep),
+        address: result.address,
+        district: result.district,
+        city: result.city,
+        state: result.state,
       }));
       setCepStatus('success');
-      setCepMessage('Endereço localizado.');
+      setCepMessage(
+        result.address && result.district && result.city && result.state
+          ? 'Endereço preenchido automaticamente.'
+          : 'CEP localizado. Complete os campos que não foram retornados.',
+      );
     } catch (error) {
       setCepStatus('error');
       setCepMessage(error instanceof Error ? error.message : 'CEP inválido.');
@@ -128,13 +130,19 @@ export function useDeliveryAddress(user: unknown) {
   const handleCepChange = (value: string) => {
     const formatted = formatCep(value);
     const digits = formatted.replace(/\D/g, '');
-    setDeliveryAddress((current) => ({
-      ...current,
-      zipCode: formatted,
-      number: formatted === current.zipCode ? current.number : '',
-      state: formatted === current.zipCode ? current.state : '',
-      complement: formatted === current.zipCode ? current.complement : '',
-    }));
+    setDeliveryAddress((current) => {
+      const sameCep = formatted === current.zipCode;
+      return {
+        ...current,
+        zipCode: formatted,
+        address: sameCep ? current.address : '',
+        number: sameCep ? current.number : '',
+        district: sameCep ? current.district : '',
+        city: sameCep ? current.city : '',
+        state: sameCep ? current.state : '',
+        complement: sameCep ? current.complement : '',
+      };
+    });
     setCepStatus('idle');
     setCepMessage('');
     if (digits.length === 8) void handleCepLookup(digits);
