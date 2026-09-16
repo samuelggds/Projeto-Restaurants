@@ -36,7 +36,7 @@ export type ProfileOrder = {
   total: number;
   image: string;
   status: ProfileOrderStatus;
-  channel: ProfileOrderChannel;
+  channel?: ProfileOrderChannel;
 };
 
 export type ProfileFavorite = {
@@ -69,7 +69,7 @@ export type ActiveProfileOrder = {
   summary: string;
   image: string;
   total: number;
-  channel: ProfileOrderChannel;
+  channel?: ProfileOrderChannel;
 };
 
 export type ProfileData = {
