@@ -7,6 +7,7 @@ import { orderCreationContext } from '../services/orderCreationRequest.js';
 import { OrderRequestError } from '../domain/OrderRequestError.js';
 import { recordWhatsappOrderNotificationOptIn } from '../../../services/whatsappOrderConsent.js';
 import { safeErrorName } from '../../../services/telemetrySanitizer.js';
+import { resolveOrderRestaurantId } from '../utils/orderTenant.js';
 
 class CreateOrderCardCheckoutController {
   async handle(req: Request, res: Response) {
@@ -39,11 +40,15 @@ class CreateOrderCardCheckoutController {
 
       const userId = req.user?.id ?? null;
       const userRestaurantId = req.user?.restaurantId ?? req.tableSession?.restaurantId ?? null;
+      const resolvedRestaurantId = resolveOrderRestaurantId({
+        requestedRestaurantId: restaurantId,
+        contextRestaurantId: userRestaurantId,
+      });
 
       const result = await createOrderCardCheckoutService.execute({
         creationRequest: orderCreationContext(req, 'card'),
         userId,
-        restaurantId,
+        restaurantId: resolvedRestaurantId,
         userRestaurantId,
         tableSessionId: req.tableSession?.id ?? null,
         tableSessionTableId: req.tableSession?.tableId ?? null,
@@ -75,7 +80,7 @@ class CreateOrderCardCheckoutController {
       if (whatsappOptIn === true && String(type || '').toUpperCase() !== 'MESA') {
         try {
           await recordWhatsappOrderNotificationOptIn({
-            restaurantId,
+            restaurantId: resolvedRestaurantId,
             orderId: result.orderId,
             userId,
             customerPhone,
