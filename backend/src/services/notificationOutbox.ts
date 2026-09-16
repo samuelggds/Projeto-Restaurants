@@ -32,15 +32,10 @@ const ORDER_KEY_LENGTH = 12;
 const CLASS_KEY_LENGTH = 2;
 const THROTTLED_CLASS = 'T0';
 const PRIORITY_CLASS = 'P1';
+const AUTOMATIC_MESSAGE_MIN_INTERVAL_MS = 60_000;
 
 function hashSegment(value: unknown, length: number) {
   return createHash('sha256').update(String(value)).digest('hex').slice(0, length);
-}
-
-function automaticMessageMinIntervalMs() {
-  const configured = Number(process.env.WHATSAPP_AUTOMATIC_MIN_INTERVAL_SECONDS || 60);
-  const seconds = Number.isFinite(configured) ? Math.trunc(configured) : 60;
-  return Math.min(300, Math.max(15, seconds)) * 1000;
 }
 
 function isCustomerAutomaticEvent(metadata: Record<string, unknown>) {
@@ -179,9 +174,9 @@ async function insertPriorityCustomerOutbox(
         "lockedUntil" = NULL, "lockToken" = NULL
       FROM guard
       WHERE n."restaurantId" = ${restaurantId}
-        AND LEFT(n."deduplicationKey", ${RECIPIENT_KEY_LENGTH}) = ${recipientKey}
-        AND SUBSTRING(n."deduplicationKey" FROM ${RECIPIENT_KEY_LENGTH + 1} FOR ${ORDER_KEY_LENGTH}) = ${orderKey}
-        AND SUBSTRING(n."deduplicationKey" FROM ${RECIPIENT_KEY_LENGTH + ORDER_KEY_LENGTH + 1} FOR ${CLASS_KEY_LENGTH}) = ${THROTTLED_CLASS}
+        AND LEFT(n."deduplicationKey", ${RECIPIENT_KEY_LENGTH}::int) = ${recipientKey}
+        AND SUBSTRING(n."deduplicationKey" FROM ${RECIPIENT_KEY_LENGTH + 1}::int FOR ${ORDER_KEY_LENGTH}::int) = ${orderKey}
+        AND SUBSTRING(n."deduplicationKey" FROM ${RECIPIENT_KEY_LENGTH + ORDER_KEY_LENGTH + 1}::int FOR ${CLASS_KEY_LENGTH}::int) = ${THROTTLED_CLASS}
         AND n."status" = 'PENDING'
       RETURNING n."id"
     )
@@ -203,7 +198,6 @@ async function insertThrottledCustomerOutbox(
   const id = randomUUID();
   const payload = encryptedPayload(message, id);
   const lockKey = `${restaurantId}:${recipientKey}`;
-  const intervalMs = automaticMessageMinIntervalMs();
   const rows = await db.$queryRaw<Array<{ id: string }>>`
     WITH guard AS MATERIALIZED (
       SELECT pg_advisory_xact_lock(hashtextextended(${lockKey}, 0))
@@ -224,13 +218,13 @@ async function insertThrottledCustomerOutbox(
               WHEN n."status" = 'DELIVERED' THEN n."completedAt"
               ELSE NULL
             END
-          ) + ${intervalMs} * INTERVAL '1 millisecond'
+          ) + ${AUTOMATIC_MESSAGE_MIN_INTERVAL_MS} * INTERVAL '1 millisecond'
         )
       END AS slot
       FROM guard
       LEFT JOIN "NotificationOutbox" n
         ON n."restaurantId" = ${restaurantId}
-       AND LEFT(n."deduplicationKey", ${RECIPIENT_KEY_LENGTH}) = ${recipientKey}
+       AND LEFT(n."deduplicationKey", ${RECIPIENT_KEY_LENGTH}::int) = ${recipientKey}
        AND n."status" IN ('PENDING', 'DELIVERED')
        AND n."createdAt" > clock_timestamp() - INTERVAL '24 hours'
     )
