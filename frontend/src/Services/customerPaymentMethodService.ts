@@ -3,6 +3,7 @@ import api from './api';
 export type CustomerPaymentMethod = {
   publicId: string;
   provider: string;
+  providerCardId?: string;
   brand: string;
   last4: string;
   expMonth: number;
