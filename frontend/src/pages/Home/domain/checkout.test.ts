@@ -56,7 +56,7 @@ describe('checkout', () => {
         customerPhone: '85999999999',
         deliveryAddress: address,
         cepStatus: 'success',
-        paymentMethod: 'pickup_store',
+        paymentMethod: 'pickup_pix',
       })?.title,
     ).toBe('Opção indisponível');
     expect(
@@ -65,7 +65,7 @@ describe('checkout', () => {
         customerPhone: '',
         deliveryAddress: address,
         cepStatus: 'idle',
-        paymentMethod: 'pickup_store',
+        paymentMethod: 'pickup_cash',
       })?.title,
     ).toBe('Celular obrigatório');
     expect(
@@ -74,7 +74,7 @@ describe('checkout', () => {
         customerPhone: '(85) 99999-9999',
         deliveryAddress: address,
         cepStatus: 'idle',
-        paymentMethod: 'pickup_store',
+        paymentMethod: 'pickup_card',
       }),
     ).toBeNull();
   });
@@ -127,29 +127,36 @@ describe('checkout', () => {
     });
   });
 
-  it('cria retirada para pagar no balcão sem acionar gateway ou forjar método', () => {
-    const result = buildOrderPayload({
-      restaurantId: 7,
-      type: 'RETIRADA',
-      paymentMethod: 'pickup_store',
-      cart: [{ productId: '12', name: 'Pizza', price: 39.9, quantity: 1, image: '' }],
-      customer: { name: 'Samuel', phone: '(85) 99999-9999' },
-      deliveryAddress: address,
-    });
-
-    expect(result).toMatchObject({
-      payOnDelivery: false,
-      payAtPickup: true,
-      resolvedPaymentMethod: 'PRESENCIAL',
-      payload: {
+  it.each([
+    ['pickup_pix', 'PIX'],
+    ['pickup_card', 'CARTAO'],
+    ['pickup_cash', 'DINHEIRO'],
+  ] as const)(
+    'cria retirada %s como não paga e preserva a forma escolhida',
+    (paymentMethod, expectedMethod) => {
+      const result = buildOrderPayload({
+        restaurantId: 7,
         type: 'RETIRADA',
+        paymentMethod,
+        cart: [{ productId: '12', name: 'Pizza', price: 39.9, quantity: 1, image: '' }],
+        customer: { name: 'Samuel', phone: '(85) 99999-9999' },
+        deliveryAddress: address,
+      });
+
+      expect(result).toMatchObject({
         payOnDelivery: false,
-        customerPhone: '(85) 99999-9999',
-      },
-    });
-    expect(result.payload).not.toHaveProperty('paymentMethod');
-    expect(result.payload).not.toHaveProperty('payOnDeliveryMethod');
-  });
+        payAtPickup: true,
+        resolvedPaymentMethod: expectedMethod,
+        payload: {
+          type: 'RETIRADA',
+          payOnDelivery: false,
+          payOnDeliveryMethod: expectedMethod,
+          customerPhone: '(85) 99999-9999',
+        },
+      });
+      expect(result.payload).not.toHaveProperty('paymentMethod');
+    },
+  );
 
   it('adiciona o pedido à conta da mesa sem forjar uma forma de pagamento', () => {
     const order = buildOrderPayload({
