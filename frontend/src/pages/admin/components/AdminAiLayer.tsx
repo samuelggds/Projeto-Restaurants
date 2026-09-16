@@ -111,11 +111,19 @@ export default function AdminAiLayer({ children }: { children: React.ReactNode }
     return () => { active = false; };
   }, []);
 
-  useEffect(() => {
-    if (assistantOpen) return;
+  const closeAssistant = useCallback(() => {
+    setAssistantOpen(false);
     setTourMenuOpen(false);
     setTourError('');
-  }, [assistantOpen]);
+  }, []);
+
+  const toggleAssistant = useCallback(() => {
+    if (assistantOpen) {
+      closeAssistant();
+      return;
+    }
+    setAssistantOpen(true);
+  }, [assistantOpen, closeAssistant]);
 
   useEffect(() => {
     let disposed = false;
@@ -227,7 +235,7 @@ export default function AdminAiLayer({ children }: { children: React.ReactNode }
       tagTourTargets();
       setTourMenuOpen(false);
       setGuide(result.guide);
-      setAssistantOpen(false);
+      closeAssistant();
     } catch {
       setTourError('Não foi possível preparar o tour agora. Tente novamente em instantes.');
     } finally {
@@ -236,7 +244,7 @@ export default function AdminAiLayer({ children }: { children: React.ReactNode }
   };
 
   const launcher = (
-    <AssistantLauncher type="button" data-tour="ai-assistant" aria-label="Abrir GastroNexa IA" aria-expanded={assistantOpen} onClick={() => setAssistantOpen((current) => !current)}>
+    <AssistantLauncher type="button" data-tour="ai-assistant" aria-label="Abrir GastroNexa IA" aria-expanded={assistantOpen} onClick={toggleAssistant}>
       <AssistantBrand>
         <GastroNexaTourBrand compact />
         <span className="ai-suffix">IA</span>
@@ -250,7 +258,7 @@ export default function AdminAiLayer({ children }: { children: React.ReactNode }
       <AdminOverviewAiSummaryPortal onNavigate={(target) => navigateForTour(target)} />
       {sidebarPortal && createPortal(<AiCreditCard balance={credits} />, sidebarPortal)}
       {assistantLauncherPortal && createPortal(launcher, assistantLauncherPortal)}
-      <MobileAssistantLauncher type="button" aria-label="Abrir GastroNexa IA" aria-expanded={assistantOpen} onClick={() => setAssistantOpen((current) => !current)}>
+      <MobileAssistantLauncher type="button" aria-label="Abrir GastroNexa IA" aria-expanded={assistantOpen} onClick={toggleAssistant}>
         <img src="/gastronexa-logo.svg" alt="" aria-hidden="true" />
       </MobileAssistantLauncher>
       {assistantOpen && (
@@ -298,13 +306,13 @@ export default function AdminAiLayer({ children }: { children: React.ReactNode }
                 </TourMenu>
               )}
             </TourPicker>
-            <button className="close" type="button" aria-label="Fechar GastroNexa IA" onClick={() => setAssistantOpen(false)}><X /></button>
+            <button className="close" type="button" aria-label="Fechar GastroNexa IA" onClick={closeAssistant}><X /></button>
           </PanelToolbar>
           <AiGuideAssistant
             disabled={credits?.exhausted === true}
-            onGuideReady={(nextGuide) => { setGuide(nextGuide); setAssistantOpen(false); }}
+            onGuideReady={(nextGuide) => { setGuide(nextGuide); closeAssistant(); }}
             onCreditsChanged={setCredits}
-            onNavigate={(target) => { navigateForTour(target); setAssistantOpen(false); }}
+            onNavigate={(target) => { navigateForTour(target); closeAssistant(); }}
           />
         </AssistantPanel>
       )}
