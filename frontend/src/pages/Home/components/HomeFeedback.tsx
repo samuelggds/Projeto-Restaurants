@@ -69,7 +69,12 @@ export function HomeFeedback(props: Props) {
           </button>
         </S.LoginNudge>
       )}
-      <S.NotifStack aria-label="Avisos recentes" aria-live="polite" aria-relevant="additions">
+      <S.NotifStack
+        style={{ zIndex: 120 }}
+        aria-label="Avisos recentes"
+        aria-live="polite"
+        aria-relevant="additions"
+      >
         {props.notifications.map((notification) => (
           <S.NotifItem
             key={notification.id}
