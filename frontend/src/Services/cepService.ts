@@ -39,10 +39,16 @@ export async function lookupCep(cepValue: string): Promise<CepAddress> {
       complement: String(data.complemento || ''),
     };
   } catch (error) {
-    if (error instanceof Error && ['CEP não encontrado.', 'Não foi possível consultar o CEP agora.'].includes(error.message)) {
+    if (
+      error instanceof Error &&
+      ['CEP não encontrado.', 'Não foi possível consultar o CEP agora.'].includes(error.message)
+    ) {
       throw error;
     }
-    throw new Error('Não foi possível consultar o CEP agora. Verifique sua conexão e tente novamente.');
+    throw new Error(
+      'Não foi possível consultar o CEP agora. Verifique sua conexão e tente novamente.',
+      { cause: error },
+    );
   } finally {
     window.clearTimeout(timeoutId);
   }
