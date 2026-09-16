@@ -22,5 +22,8 @@ export function toPublicPaymentMethod(method: StoredPaymentMethod) {
     holderName: method.holderName,
     isDefault: method.isDefault,
     createdAt: method.createdAt,
+    ...(method.provider === 'MERCADO_PAGO' && method.providerPaymentMethodId
+      ? { providerCardId: method.providerPaymentMethodId }
+      : {}),
   };
 }
