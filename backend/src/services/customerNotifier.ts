@@ -1,7 +1,7 @@
 import prisma from '../config/prisma.js';
 import { enqueueWhatsappNotification } from './notificationOutbox.js';
 import { resolveWhatsAppDeliveryProvider } from './whatsappProvider.js';
-import { hasWhatsappOrderNotificationOptIn } from './whatsappOrderConsent.js';
+import { getWhatsappOrderNotificationDestination } from './whatsappOrderConsent.js';
 import { generateDeliveryConfirmationCode } from '../modules/orders/utils/deliveryConfirmationCode.js';
 import {
   buildAutomaticOrderStatusMessage,
@@ -117,19 +117,19 @@ async function resolveCustomerWhatsappPreference(
   }
 }
 
-async function hasCustomerOrderWhatsappConsent(
+async function resolveOrderWhatsappDestination(
   restaurantId: number | string | null | undefined,
   orderId: number | string | null | undefined,
 ) {
   try {
-    return await hasWhatsappOrderNotificationOptIn(restaurantId, orderId);
+    return await getWhatsappOrderNotificationDestination(restaurantId, orderId);
   } catch (error) {
     console.error('[CUSTOMER_NOTIFICATION_CONSENT_ERROR]', {
       restaurantId,
       orderId,
       message: getErrorMessage(error),
     });
-    return false;
+    return '';
   }
 }
 
@@ -252,7 +252,8 @@ async function queueWhatsappMessage({
 export async function notifyCustomerPaymentConfirmed(payload: PaymentConfirmedPayload) {
   const preference = await resolveCustomerWhatsappPreference(payload.restaurantId);
   if (!preference.enabled) return { sent: false, reason: preference.reason };
-  if (!(await hasCustomerOrderWhatsappConsent(payload.restaurantId, payload.orderId))) {
+  const destination = await resolveOrderWhatsappDestination(payload.restaurantId, payload.orderId);
+  if (!destination) {
     return { sent: false, reason: 'customer_whatsapp_opt_in_missing' } as const;
   }
   const provider = resolveProvider();
@@ -268,7 +269,7 @@ export async function notifyCustomerPaymentConfirmed(payload: PaymentConfirmedPa
     const total = formatCurrencyBrl(payload.total);
     return await queueWhatsappMessage({
       restaurantWhatsapp: payload.restaurantWhatsapp,
-      destination: payload.customerPhone,
+      destination,
       message: buildCustomerPaymentMessage(payload),
       metadata: {
         restaurantId: payload.restaurantId,
@@ -286,7 +287,8 @@ export async function notifyCustomerPaymentConfirmed(payload: PaymentConfirmedPa
 export async function notifyCustomerOrderStatusChanged(payload: OrderStatusChangedPayload) {
   const preference = await resolveCustomerWhatsappPreference(payload.restaurantId);
   if (!preference.enabled) return { sent: false, reason: preference.reason };
-  if (!(await hasCustomerOrderWhatsappConsent(payload.restaurantId, payload.orderId))) {
+  const destination = await resolveOrderWhatsappDestination(payload.restaurantId, payload.orderId);
+  if (!destination) {
     return { sent: false, reason: 'customer_whatsapp_opt_in_missing' } as const;
   }
 
@@ -339,7 +341,7 @@ export async function notifyCustomerOrderStatusChanged(payload: OrderStatusChang
       status === 'ENTREGUE' ? links.confirmationUrl || '' : links.trackingUrl || links.storeUrl || '';
     return await queueWhatsappMessage({
       restaurantWhatsapp: payload.restaurantWhatsapp,
-      destination: payload.customerPhone,
+      destination,
       message,
       metadata: {
         orderId: payload.orderId,
