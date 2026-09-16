@@ -21,15 +21,19 @@ test('Evolution é aceito como provider de notificações automáticas', async (
     whatsappEnabled: true,
     receiveStatusNotifications: true,
   });
-  prisma.auditLog.findFirst = async () => ({ id: 1 });
+  prisma.auditLog.findFirst = async () => ({
+    id: 1,
+    metadata: { destinationPhone: '+5585999999999' },
+  });
 
   const result = await notifyCustomerPaymentConfirmed({
     restaurantId: 9,
-    restaurantWhatsapp: '85999999999',
+    restaurantWhatsapp: null,
     orderId: 502,
     customerPhone: null,
   });
 
-  assert.equal(result.reason, 'invalid_or_missing_phone');
+  assert.equal(result.reason, 'restaurant_whatsapp_not_configured');
   assert.notEqual(result.reason, 'provider_not_supported');
+  assert.notEqual(result.reason, 'customer_whatsapp_opt_in_missing');
 });
