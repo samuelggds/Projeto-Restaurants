@@ -2,7 +2,7 @@ import * as S from '../../Home/Home.styles';
 
 export type GuestCheckoutDetails = {
   name: string;
-  cpf: string;
+  cpf?: string;
   phone?: string;
 };
 
@@ -11,46 +11,26 @@ type Props = {
   onChange: (value: GuestCheckoutDetails) => void;
 };
 
-function formatCpf(value: string) {
-  return value
-    .replace(/\D/g, '')
-    .slice(0, 11)
-    .replace(/^(\d{3})(\d)/, '$1.$2')
-    .replace(/^(\d{3})\.(\d{3})(\d)/, '$1.$2.$3')
-    .replace(/\.(\d{3})(\d)/, '.$1-$2');
-}
-
 export function GuestCheckoutForm({ value, onChange }: Props) {
   return (
     <S.GuestCheckoutForm aria-label="Seus dados para o pedido">
       <div className="guest-heading">
-        <b>Seus dados para o pedido</b>
-        <span>Você continua como visitante. Não criaremos uma conta.</span>
+        <b>Como podemos chamar você?</b>
+        <span>Você continua como visitante. Não precisa criar conta nem informar CPF.</span>
       </div>
       <label className="full">
-        <span>Nome completo</span>
+        <span>Nome</span>
         <input
           autoComplete="name"
           value={value.name}
           onChange={(event) => onChange({ ...value, name: event.target.value.slice(0, 80) })}
-          placeholder="Como devemos chamar você?"
+          placeholder="Digite seu nome"
           minLength={2}
           required
         />
       </label>
-      <label className="full">
-        <span>CPF</span>
-        <input
-          inputMode="numeric"
-          autoComplete="off"
-          value={value.cpf}
-          onChange={(event) => onChange({ ...value, cpf: formatCpf(event.target.value) })}
-          placeholder="000.000.000-00"
-          required
-        />
-      </label>
       <small className="full">
-        O número para receber atualizações do pedido é informado separadamente na seção do WhatsApp.
+        O WhatsApp para receber as atualizações deste pedido é informado logo abaixo.
       </small>
     </S.GuestCheckoutForm>
   );
