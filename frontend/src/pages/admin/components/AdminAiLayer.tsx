@@ -7,7 +7,7 @@ import aiGuideService, { type AiCreditBalance, type AiTourGuide } from '../../..
 import restaurantSettingsService from '../../../Services/restaurantSettingsService';
 import { useAuth } from '../../../contexts/authContext';
 import { createRestaurantMonogram } from '../../../utils/restaurantMonogram';
-import { ChatGptLogo } from '../../../components/ChatGptLogo';
+import { GastroNexaTourBrand } from '../../../components/GastroNexaTourBrand';
 import { AiCreditCard } from './AiCreditCard';
 import { AiGuideAssistant } from './AiGuideAssistant';
 import { AiGuidedTour } from './AiGuidedTour';
@@ -188,8 +188,11 @@ export default function AdminAiLayer({ children }: { children: React.ReactNode }
   }, []);
 
   const launcher = (
-    <AssistantLauncher type="button" data-tour="ai-assistant" aria-label="Abrir Assistente do Restaurante" aria-expanded={assistantOpen} onClick={() => setAssistantOpen((current) => !current)}>
-      <ChatGptLogo /><span>Assistente IA</span>
+    <AssistantLauncher type="button" data-tour="ai-assistant" aria-label="Abrir GastroNexa IA" aria-expanded={assistantOpen} onClick={() => setAssistantOpen((current) => !current)}>
+      <AssistantBrand>
+        <GastroNexaTourBrand compact />
+        <span className="ai-suffix">IA</span>
+      </AssistantBrand>
     </AssistantLauncher>
   );
 
@@ -199,10 +202,12 @@ export default function AdminAiLayer({ children }: { children: React.ReactNode }
       <AdminOverviewAiSummaryPortal onNavigate={(target) => navigateForTour(target)} />
       {sidebarPortal && createPortal(<AiCreditCard balance={credits} />, sidebarPortal)}
       {assistantLauncherPortal && createPortal(launcher, assistantLauncherPortal)}
-      <MobileAssistantLauncher type="button" aria-label="Abrir Assistente do Restaurante" aria-expanded={assistantOpen} onClick={() => setAssistantOpen((current) => !current)}><ChatGptLogo /></MobileAssistantLauncher>
+      <MobileAssistantLauncher type="button" aria-label="Abrir GastroNexa IA" aria-expanded={assistantOpen} onClick={() => setAssistantOpen((current) => !current)}>
+        <img src="/gastronexa-logo.svg" alt="" aria-hidden="true" />
+      </MobileAssistantLauncher>
       {assistantOpen && (
-        <AssistantPanel role="dialog" aria-label="Assistente do Restaurante">
-          <button className="close" type="button" aria-label="Fechar Assistente do Restaurante" onClick={() => setAssistantOpen(false)}><X /></button>
+        <AssistantPanel role="dialog" aria-label="GastroNexa IA">
+          <button className="close" type="button" aria-label="Fechar GastroNexa IA" onClick={() => setAssistantOpen(false)}><X /></button>
           <AiGuideAssistant
             disabled={credits?.exhausted === true}
             onGuideReady={(nextGuide) => { setGuide(nextGuide); setAssistantOpen(false); }}
@@ -216,11 +221,25 @@ export default function AdminAiLayer({ children }: { children: React.ReactNode }
   );
 }
 
+const AssistantBrand = styled.span`
+  display:inline-flex;
+  align-items:center;
+  gap:5px;
+  min-width:0;
+  line-height:1;
+  .ai-suffix{color:#fff;font-size:12px;font-weight:900;letter-spacing:-.02em}
+`;
 const AssistantLauncher = styled.button`
-  cursor:pointer;&[aria-expanded='true']{color:#fff;background:rgba(255,255,255,.06)}svg{width:17px;height:17px}@media(max-width:820px){display:none}
+  cursor:pointer;
+  &[aria-expanded='true']{color:#fff;background:rgba(255,255,255,.06)}
+  @media(max-width:820px){display:none}
 `;
 const MobileAssistantLauncher = styled.button`
-  display:none;@media(max-width:820px){position:fixed;left:14px;bottom:82px;z-index:9200;width:46px;height:46px;padding:0;border:0;border-radius:999px;display:flex;align-items:center;justify-content:center;color:#fff;background:#17191a;box-shadow:0 12px 26px rgba(17,24,39,.2);cursor:pointer;svg{width:19px;height:19px}}
+  display:none;
+  @media(max-width:820px){
+    position:fixed;left:14px;bottom:82px;z-index:9200;width:46px;height:46px;padding:0;border:0;border-radius:999px;display:flex;align-items:center;justify-content:center;color:#fff;background:#17191a;box-shadow:0 12px 26px rgba(17,24,39,.2);cursor:pointer;
+    img{width:24px;height:24px;object-fit:contain;filter:grayscale(1) brightness(0) invert(1)}
+  }
 `;
 const AssistantPanel = styled.div`
   position:fixed;left:248px;bottom:22px;z-index:9300;width:min(620px,calc(100vw - 32px));max-height:min(760px,calc(100vh - 90px));overflow:auto;padding:10px;border-radius:22px;background:#f7f4f2;box-shadow:0 24px 58px rgba(24,18,14,.24);border:1px solid rgba(64,49,40,.12);.close{position:sticky;top:4px;margin-left:auto;margin-bottom:-34px;z-index:2;width:32px;height:32px;border:0;border-radius:10px;display:grid;place-items:center;background:#fff;color:#514a45;box-shadow:0 5px 14px rgba(0,0,0,.09);cursor:pointer}.close svg{width:16px}@media(max-width:820px){left:10px;right:10px;bottom:74px;width:auto;max-height:calc(100vh - 100px);border-radius:20px}
