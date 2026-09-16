@@ -18,6 +18,11 @@ function normalizePhone(value: unknown) {
   return '';
 }
 
+function destinationPhoneFromMetadata(metadata: unknown) {
+  if (!metadata || typeof metadata !== 'object' || Array.isArray(metadata)) return '';
+  return normalizePhone((metadata as Record<string, unknown>).destinationPhone);
+}
+
 function resourceForOrder(orderId: number) {
   return `Order:${orderId}`;
 }
@@ -44,9 +49,10 @@ export async function recordWhatsappOrderNotificationOptIn(
       action: CONSENT_ACTION,
       resource,
     },
-    select: { id: true },
+    select: { id: true, metadata: true },
+    orderBy: { id: 'desc' },
   });
-  if (existing) return true;
+  if (destinationPhoneFromMetadata(existing?.metadata) === destinationPhone) return true;
 
   await db.auditLog.create({
     data: {
@@ -83,13 +89,10 @@ export async function getWhatsappOrderNotificationDestination(
       resource: resourceForOrder(orderId),
     },
     select: { metadata: true },
+    orderBy: { id: 'desc' },
   });
 
-  if (!consent?.metadata || typeof consent.metadata !== 'object' || Array.isArray(consent.metadata)) {
-    return '';
-  }
-
-  return normalizePhone((consent.metadata as Record<string, unknown>).destinationPhone);
+  return destinationPhoneFromMetadata(consent?.metadata);
 }
 
 export async function hasWhatsappOrderNotificationOptIn(
