@@ -10,13 +10,14 @@ import {
   WalletCards,
   X,
 } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import customerPaymentMethodService, {
   type CustomerPaymentMethod,
 } from '../../../Services/customerPaymentMethodService';
 import { type CheckoutPaymentMethod } from '../domain/checkout';
 import { shouldShowSavedCardAccountNotice } from '../domain/paymentAccountNotice';
 import { getAvailablePaymentMethods } from '../domain/publicSettings';
+import { setCardPaymentPreparer } from '../domain/cardPaymentPreparation';
 import * as S from '../../Home/Home.styles';
 import {
   buildAuthEntryUrlForLocation,
@@ -186,6 +187,13 @@ export function PaymentOptions({
   const [savedCardsLoading, setSavedCardsLoading] = useState(false);
   const [selectedCardId, setSelectedCardId] = useState('');
   const [showCardAccountNotice, setShowCardAccountNotice] = useState(false);
+  const registerCardPreparer = useCallback(
+    (preparer: CardPaymentPreparer | null) => {
+      setCardPaymentPreparer(preparer);
+      onCardPreparerChange?.(preparer);
+    },
+    [onCardPreparerChange],
+  );
 
   const handlePaymentChange = (method: CheckoutPaymentMethod) => {
     onChange(method);
@@ -225,8 +233,9 @@ export function PaymentOptions({
   }, [loggedIn, paymentMethod, restaurantId]);
 
   useEffect(() => {
-    if (paymentMethod !== 'card') onCardPreparerChange?.(null);
-  }, [onCardPreparerChange, paymentMethod]);
+    if (paymentMethod !== 'card') registerCardPreparer(null);
+    return () => registerCardPreparer(null);
+  }, [paymentMethod, registerCardPreparer]);
 
   const selectedSavedCard = useMemo(
     () => savedCards.find((card) => card.publicId === selectedCardId) || savedCards[0] || null,
@@ -303,10 +312,7 @@ export function PaymentOptions({
       )}
 
       {paymentMethod === 'card' && restaurantId && !loggedIn && (
-        <OnlineCardPaymentForm
-          restaurantId={restaurantId}
-          onPreparerChange={(preparer) => onCardPreparerChange?.(preparer)}
-        />
+        <OnlineCardPaymentForm restaurantId={restaurantId} onPreparerChange={registerCardPreparer} />
       )}
 
       {loggedIn && paymentMethod === 'card' && restaurantId && (
@@ -385,7 +391,7 @@ export function PaymentOptions({
             <OnlineCardPaymentForm
               restaurantId={restaurantId}
               savedCard={selectedSavedCard}
-              onPreparerChange={(preparer) => onCardPreparerChange?.(preparer)}
+              onPreparerChange={registerCardPreparer}
             />
           )}
         </>
