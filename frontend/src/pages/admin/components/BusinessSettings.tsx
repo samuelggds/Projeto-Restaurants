@@ -4,6 +4,7 @@ import {
   formatBusinessPhone,
   formatCpf,
   formatCnpj,
+  normalizeBusinessPhoneForBackend,
   validateBusinessSettings,
 } from '../domain/businessSettingsValidation';
 import type { AdminSettings } from '../types';
@@ -24,10 +25,10 @@ export function BusinessSettings({ settings, update }: Props) {
 
   const updateCommercialNumber = (value: string) => {
     const formatted = formatBusinessPhone(value);
-    // `whatsapp` é o contato público canônico do restaurante. Mantemos
-    // businessPhone sincronizado somente para compatibilidade com o legado/KYB.
+    // O contato público/WhatsApp aceita tanto DDD+número quanto 55+DDD+número.
+    // O ownerPhone legado permanece no padrão nacional exigido pelo backend.
     update('whatsapp', formatted);
-    update('businessPhone', formatted);
+    update('businessPhone', normalizeBusinessPhoneForBackend(formatted));
   };
 
   return (
@@ -123,7 +124,7 @@ export function BusinessSettings({ settings, update }: Props) {
             />
             <small>
               {errors.whatsapp ||
-                'Este é o mesmo número exibido em WhatsApp e nas páginas públicas do restaurante.'}
+                'Aceita DDD + número ou 55 + DDD + número. Este contato é usado no WhatsApp e nas páginas públicas.'}
             </small>
           </S.Field>
           <S.Field>
