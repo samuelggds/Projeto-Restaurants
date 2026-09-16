@@ -1,9 +1,17 @@
 import { Request, Response } from 'express';
 import onboardRestaurantAsaasService from '../services/OnboardRestaurantAsaasService.js';
+import {
+  ASAAS_TEMPORARILY_UNAVAILABLE_MESSAGE,
+  asaasPlatformEnabled,
+} from '../services/asaasConnectionApi.js';
 
 class OnboardRestaurantAsaasController {
   async handle(req: Request, res: Response) {
     try {
+      if (!asaasPlatformEnabled()) {
+        return res.status(503).json({ error: ASAAS_TEMPORARILY_UNAVAILABLE_MESSAGE });
+      }
+
       const restaurantId = req.user?.restaurantId;
       const {
         cnpj,
