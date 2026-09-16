@@ -109,8 +109,7 @@ function SuperAdminSessionBoundary({ children }: { children: ReactNode }) {
     }
   }, [user]);
 
-  if (isLoading) return <RouteLoading />;
-  if (shouldEndSuperAdminSession(location.pathname, user)) return <RouteLoading />;
+  if (!isLoading && shouldEndSuperAdminSession(location.pathname, user)) return <RouteLoading />;
   return <>{children}</>;
 }
 
@@ -154,9 +153,8 @@ export function RequireAuth() {
 }
 
 function PageTransition() {
-  const location = useLocation();
   return (
-    <div className="app-page-transition" key={location.pathname}>
+    <div className="app-page-transition" style={{ animation: 'none' }}>
       <Outlet />
     </div>
   );
@@ -166,7 +164,10 @@ export function RouteAuthorizationGuard() {
   const { user, isLoading } = useAuth();
   const location = useLocation();
 
-  if (isLoading) return <RouteLoading />;
+  if (isLoading) {
+    const publicDecision = authorizeRoute(location.pathname, null);
+    return 'redirectTo' in publicDecision ? <RouteLoading /> : <Outlet />;
+  }
 
   const decision = authorizeRoute(location.pathname, user);
   if ('redirectTo' in decision) {
