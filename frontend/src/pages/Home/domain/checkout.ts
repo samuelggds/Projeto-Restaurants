@@ -26,20 +26,6 @@ export function isValidWhatsappOrderPhone(value: unknown) {
   return Boolean(optionalCustomerPhone(value));
 }
 
-function isValidCpf(value: unknown) {
-  const cpf = String(value || '').replace(/\D/g, '');
-  if (cpf.length !== 11 || /^(\d)\1{10}$/.test(cpf)) return false;
-  const digit = (length: number) => {
-    const sum = cpf
-      .slice(0, length)
-      .split('')
-      .reduce((total, item, index) => total + Number(item) * (length + 1 - index), 0);
-    const remainder = (sum * 10) % 11;
-    return remainder === 10 ? 0 : remainder;
-  };
-  return digit(9) === Number(cpf[9]) && digit(10) === Number(cpf[10]);
-}
-
 export function whatsappOrderOptInStorageKey(restaurantId: number | null | undefined) {
   const normalizedRestaurantId = Number(restaurantId || 0);
   return Number.isSafeInteger(normalizedRestaurantId) && normalizedRestaurantId > 0
@@ -117,21 +103,17 @@ export function resolveOrderType(mesaMode: boolean, orderType: 'delivery' | 'pic
 }
 
 export function validateCheckout(input: ValidationInput): CheckoutIssue | null {
-  const {
-    type,
-    customerName,
-    customerCpf,
-    requireGuestIdentity,
-    deliveryAddress,
-    cepStatus,
-    paymentMethod,
-  } = input;
-  if (requireGuestIdentity && type !== 'MESA') {
-    if (String(customerName || '').trim().length < 2)
-      return { title: 'Informe seu nome', message: 'Digite seu nome para identificar o pedido.' };
-    if (!isValidCpf(customerCpf))
-      return { title: 'CPF inválido', message: 'Informe um CPF válido com 11 dígitos.' };
+  const { type, customerName, requireGuestIdentity, deliveryAddress, cepStatus, paymentMethod } =
+    input;
+
+  if (
+    requireGuestIdentity &&
+    type !== 'MESA' &&
+    String(customerName || '').trim().length < 2
+  ) {
+    return { title: 'Informe seu nome', message: 'Digite seu nome para identificar o pedido.' };
   }
+
   if (type === 'DELIVERY') {
     const addressErrors = validateDeliveryAddress(deliveryAddress);
     const firstAddressError = Object.values(addressErrors)[0];
