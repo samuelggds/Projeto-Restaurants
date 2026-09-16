@@ -127,7 +127,7 @@ export const GlobalStyles = createGlobalStyle`
   [role="dialog"],
   [aria-modal="true"] {
     transform-origin: center;
-    animation: app-dialog-enter 280ms var(--motion-ease-emphasized) both;
+    animation: app-dialog-enter 280ms var(--motion-ease-emphasized);
   }
 
   [role="menu"],
@@ -242,7 +242,7 @@ export const GlobalStyles = createGlobalStyle`
     }
     to {
       opacity: 1;
-      transform: translateY(0) scale(1);
+      transform: none;
     }
   }
 
