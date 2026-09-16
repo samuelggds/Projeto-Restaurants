@@ -16,6 +16,15 @@ import { PaymentCreationUncertainError } from './PaymentCreationUncertainError.j
 import finalizeOrderCardPaymentService from './FinalizeOrderCardPaymentService.js';
 import { replayCreatedOrder } from './orderCreationRequest.js';
 import { withTenantDbContext } from '../../../database/tenantDbContext.js';
+import directOrderCardPaymentService, {
+  CardPaymentDeclinedError,
+  hasDirectCardPaymentPayload,
+  type DirectCardPaymentPayload,
+} from './DirectOrderCardPaymentService.js';
+import failPendingOrderPaymentService from './FailPendingOrderPaymentService.js';
+import { OrderRequestError } from '../domain/OrderRequestError.js';
+
+type CardCheckoutPayload = CreateOrderCardCheckoutPayload & DirectCardPaymentPayload;
 
 class CreateOrderCardCheckoutService {
   async resolveCardProvider(payload: CreateOrderCardCheckoutPayload) {
@@ -50,7 +59,7 @@ class CreateOrderCardCheckoutService {
     getCardCheckoutProviderHandler(provider);
   }
 
-  async execute(payload: CreateOrderCardCheckoutPayload) {
+  async execute(payload: CardCheckoutPayload) {
     if (payload.creationRequest) {
       const restaurantId = resolveOrderRestaurantId({
         requestedRestaurantId: payload.restaurantId,
@@ -75,23 +84,42 @@ class CreateOrderCardCheckoutService {
     ).trim();
     const cancelUrlBase = String(payload.cancelUrl || successUrlBase).trim();
 
+    const orderForPayment = {
+      id: createdOrder.id,
+      publicId: createdOrder.publicId,
+      restaurantId: createdOrder.restaurantId,
+      total: createdOrder.total,
+      systemFee: createdOrder.systemFee,
+      restaurant: createdOrder.restaurant,
+    };
+
     let checkout: CardCheckoutResult;
     try {
-      const providerHandler = getCardCheckoutProviderHandler(resolvedCardProvider);
-      checkout = await providerHandler.createCheckout({
-        payload,
-        order: {
-          id: createdOrder.id,
-          publicId: createdOrder.publicId,
-          restaurantId: createdOrder.restaurantId,
-          total: createdOrder.total,
-          systemFee: createdOrder.systemFee,
-          restaurant: createdOrder.restaurant,
-        },
-        successUrlBase,
-        cancelUrlBase,
-      });
+      if (hasDirectCardPaymentPayload(payload)) {
+        checkout = await directOrderCardPaymentService.execute({
+          provider: resolvedCardProvider,
+          payload,
+          order: orderForPayment,
+          successUrlBase,
+        });
+      } else {
+        const providerHandler = getCardCheckoutProviderHandler(resolvedCardProvider);
+        checkout = await providerHandler.createCheckout({
+          payload,
+          order: orderForPayment,
+          successUrlBase,
+          cancelUrlBase,
+        });
+      }
     } catch (error) {
+      if (error instanceof CardPaymentDeclinedError) {
+        await failPendingOrderPaymentService.execute({
+          orderId: createdOrder.id,
+          restaurantId: createdOrder.restaurantId,
+        });
+        throw new OrderRequestError(error.message, 402, 'CARD_DECLINED');
+      }
+
       // Even a missing/malformed response can follow a successful charge or webhook.
       // Preserve the order, stock reservation and coupon until reconciliation.
       console.error('[CARD_PAYMENT_CREATION_UNCERTAIN]', {
