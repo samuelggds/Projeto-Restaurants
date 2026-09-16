@@ -37,7 +37,8 @@ class StartPagBankOAuthService {
       response_type: 'code',
       client_id: clientId,
       redirect_uri: redirectUri,
-      scope: 'payments.read payments.create payments.refund checkout.create checkout.view',
+      scope:
+        'payments.read payments.create payments.refund checkout.create checkout.view checkout.update',
       state,
     });
 

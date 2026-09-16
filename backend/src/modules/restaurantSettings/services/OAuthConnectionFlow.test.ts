@@ -135,11 +135,26 @@ for (const [provider, start, complete, accessField, refreshField, expiresField] 
     assert.equal(storedState, null);
     assert.equal(requests.length, 0);
   });
-  test(`${provider}: conectar usa state opaco, persiste grant e preserva formas selecionadas`, async () => {
+  test(`${provider}: conectar usa state opaco, escopos de produção, persiste grant e preserva formas selecionadas`, async () => {
     const { authorizationUrl } = await start.execute({ restaurantId: 7, userId: 11 });
     const params = new URL(authorizationUrl).searchParams;
     const state = params.get('state');
     assert.match(state, /^[a-f0-9]{64}$/);
+    if (provider === 'MERCADO_PAGO') {
+      assert.deepEqual(new Set(params.get('scope')?.split(' ')), new Set(['read', 'write', 'offline_access']));
+    } else {
+      const scopes = new Set(params.get('scope')?.split(' '));
+      for (const required of [
+        'payments.read',
+        'payments.create',
+        'payments.refund',
+        'checkout.create',
+        'checkout.view',
+        'checkout.update',
+      ]) {
+        assert.equal(scopes.has(required), true);
+      }
+    }
     const before = Date.now();
     assert.deepEqual(await complete.execute({ code: 'authorization-code', state }), {
       restaurantId: 7,

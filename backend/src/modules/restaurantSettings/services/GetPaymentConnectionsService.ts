@@ -4,7 +4,11 @@ import {
   getPagBankAccessToken,
 } from './RestaurantPaymentCredentialsService.js';
 import getAsaasConnectionStatusService from './GetAsaasConnectionStatusService.js';
-import { asaasWebhookConfiguration } from './asaasConnectionApi.js';
+import {
+  ASAAS_TEMPORARILY_UNAVAILABLE_MESSAGE,
+  asaasPlatformEnabled,
+  asaasWebhookConfiguration,
+} from './asaasConnectionApi.js';
 import { mercadoPagoWebhookSecrets } from '../../payments/providers/mercadoPagoWebhookSignature.js';
 import { parseCredentialEncryptionKey } from '../security/credentialEncryption.js';
 import { resolveOAuthEndpoint } from '../security/oauthEndpoints.js';
@@ -64,6 +68,7 @@ export function paymentConnectionConfiguration(provider: Provider) {
   try {
     if (!parseCredentialEncryptionKey()) return false;
     if (provider === 'ASAAS') {
+      if (!asaasPlatformEnabled()) return false;
       asaasWebhookConfiguration('');
       return configured('ASAAS_API_KEY');
     }
@@ -114,6 +119,10 @@ class GetPaymentConnectionsService {
               : settings?.asaasAccessToken,
         );
         const canConnect = paymentConnectionConfiguration(provider);
+        const unavailableMessage =
+          provider === 'ASAAS' && !asaasPlatformEnabled()
+            ? ASAAS_TEMPORARILY_UNAVAILABLE_MESSAGE
+            : 'A conexão está sendo preparada pela plataforma. Tente novamente após a configuração.';
         const result: Connection = {
           provider,
           connected,
@@ -122,11 +131,12 @@ class GetPaymentConnectionsService {
           readyForCard: false,
           status: !canConnect ? 'UNAVAILABLE' : 'NOT_CONNECTED',
           message: !canConnect
-            ? 'A conexão está sendo preparada pela plataforma. Tente novamente após a configuração.'
+            ? unavailableMessage
             : 'Conecte a conta do restaurante para receber por Pix e cartão.',
         };
 
         if (provider === 'ASAAS') {
+          if (!asaasPlatformEnabled()) return result;
           const status = await getAsaasConnectionStatusService.execute({ restaurantId: id });
           if (status.recoveryRequired)
             return {

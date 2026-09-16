@@ -64,6 +64,7 @@ class StartMercadoPagoOAuthService {
       client_id: clientId,
       response_type: 'code',
       platform_id: 'mp',
+      scope: 'read write offline_access',
       state,
       redirect_uri: redirectUri,
     });
