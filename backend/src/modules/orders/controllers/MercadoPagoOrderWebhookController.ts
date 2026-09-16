@@ -1,15 +1,20 @@
 import { Request, Response } from 'express';
+import prisma from '../../../config/prisma.js';
 import { authenticateMercadoPagoWebhook } from '../../payments/providers/mercadoPagoWebhookSignature.js';
 import { safeErrorName } from '../../../services/telemetrySanitizer.js';
 import finalizeOrderPixPaymentService from '../services/FinalizeOrderPixPaymentService.js';
 import finalizeOrderCardPaymentService from '../services/FinalizeOrderCardPaymentService.js';
-import { getMercadoPagoPaymentApi } from '../../payments/providers/mercadoPagoClient.js';
+import {
+  getMercadoPagoOrderApi,
+  getMercadoPagoPaymentApi,
+} from '../../payments/providers/mercadoPagoClient.js';
 import orderRepository from '../repositories/OrderRepository.js';
 import failPendingOrderPaymentService from '../services/FailPendingOrderPaymentService.js';
 import { matchesOrderPaymentEvidence } from '../utils/paymentEvidence.js';
 
 const APPROVED_STATUSES = new Set(['approved', 'accredited', 'paid']);
 const TERMINAL_UNPAID_STATUSES = new Set(['cancelled', 'rejected', 'refunded', 'charged_back']);
+const TERMINAL_ORDER_STATUSES = new Set(['cancelled', 'expired', 'failed', 'refunded']);
 
 export function parseMercadoPagoOrderReference(externalReference: string) {
   const match = /^order(pix|card):(\d+):(\d+)$/i.exec(String(externalReference || '').trim());
@@ -30,17 +35,106 @@ export function parseMercadoPagoOrderReference(externalReference: string) {
   };
 }
 
+function isMercadoPagoOrderEvent(req: Request, resourceId: string) {
+  const eventType = String(req.body?.type || req.body?.topic || '').trim().toLowerCase();
+  return eventType === 'order' || /^ord[a-z0-9_-]+$/i.test(resourceId);
+}
+
+async function findOrderByMercadoPagoOrderId(providerOrderId: string) {
+  return prisma.order.findFirst({
+    where: {
+      cardCheckoutSessionId: {
+        in: [`mp_pref:${providerOrderId}`, `mp_order:${providerOrderId}`],
+      },
+    },
+    select: {
+      id: true,
+      restaurantId: true,
+      total: true,
+      paymentMethod: true,
+      cardCheckoutSessionId: true,
+    },
+  });
+}
+
+async function handleOrdersApiWebhook(providerOrderId: string, res: Response) {
+  const localOrder = await findOrderByMercadoPagoOrderId(providerOrderId);
+  if (!localOrder) {
+    // Não revelar existência de outros tenants nem provocar retries infinitos para
+    // orders que não pertencem a esta instalação.
+    return res.sendStatus(200);
+  }
+
+  const orderApi = await getMercadoPagoOrderApi(localOrder.restaurantId);
+  const remoteOrder = await orderApi.get(providerOrderId);
+  const status = String(remoteOrder.status || '').trim().toLowerCase();
+  const externalReference = String(remoteOrder.external_reference || '').trim();
+  const parsedReference = parseMercadoPagoOrderReference(externalReference);
+
+  if (
+    !parsedReference ||
+    parsedReference.type !== 'card' ||
+    parsedReference.orderId !== localOrder.id ||
+    parsedReference.restaurantId !== localOrder.restaurantId
+  ) {
+    return res.status(400).json({
+      error: 'Webhook Mercado Pago rejeitado: referência da order não confere.',
+    });
+  }
+
+  if (TERMINAL_ORDER_STATUSES.has(status)) {
+    await failPendingOrderPaymentService.execute({
+      orderId: localOrder.id,
+      restaurantId: localOrder.restaurantId,
+    });
+    return res.sendStatus(200);
+  }
+
+  if (status !== 'processed') {
+    return res.sendStatus(200);
+  }
+
+  if (
+    String(localOrder.paymentMethod || '').toUpperCase() !== 'CARTAO' ||
+    !matchesOrderPaymentEvidence({
+      expectedAmount: localOrder.total,
+      providerAmount: remoteOrder.total_paid_amount ?? remoteOrder.total_amount,
+      providerCurrency: remoteOrder.currency,
+    })
+  ) {
+    return res.status(400).json({
+      error: 'Webhook Mercado Pago rejeitado: dados financeiros da order não conferem.',
+    });
+  }
+
+  const providerSessionId = `mp_order:${providerOrderId}`;
+  await orderRepository.setCardCheckoutSessionId(
+    localOrder.id,
+    localOrder.restaurantId,
+    providerSessionId,
+  );
+  await finalizeOrderCardPaymentService.execute({
+    orderId: localOrder.id,
+    checkoutSessionId: providerSessionId,
+    restaurantId: localOrder.restaurantId,
+    allowMissingOrder: true,
+  });
+
+  return res.sendStatus(200);
+}
+
 class MercadoPagoOrderWebhookController {
   async handle(req: Request, res: Response) {
     try {
       const paymentId = authenticateMercadoPagoWebhook(req, res);
       if (!paymentId) return res;
+
+      if (isMercadoPagoOrderEvent(req, paymentId)) {
+        return handleOrdersApiWebhook(paymentId, res);
+      }
+
       const allowGlobalFallback = process.env.ALLOW_GLOBAL_PAYMENT_FALLBACK === 'true';
       const hintedRestaurantId = Number(req.query?.restaurantId || req.body?.restaurantId || 0);
-
-      if (!paymentId) {
-        return res.sendStatus(200);
-      }
 
       if (
         (!Number.isInteger(hintedRestaurantId) || hintedRestaurantId <= 0) &&
@@ -183,7 +277,7 @@ class MercadoPagoOrderWebhookController {
 
       return res.sendStatus(200);
     } catch (error: unknown) {
-      console.error('[ORDER_PIX_WEBHOOK_ERROR]', { errorType: safeErrorName(error) });
+      console.error('[ORDER_PAYMENT_WEBHOOK_ERROR]', { errorType: safeErrorName(error) });
 
       return res.sendStatus(500);
     }
