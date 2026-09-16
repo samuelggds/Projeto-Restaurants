@@ -70,10 +70,21 @@ export async function replayCreatedOrder(
   return orderRepository.findById(existing.id, restaurantId, db);
 }
 
+type RetryOrderTransactionOptions = {
+  pause?: (ms: number) => Promise<void>;
+  isolationLevel?: Prisma.TransactionIsolationLevel;
+};
+
 export async function retryOrderTransaction<T>(
   operation: () => Promise<T>,
-  pause = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms)),
+  optionsOrPause: RetryOrderTransactionOptions | ((ms: number) => Promise<void>) = {},
 ) {
+  const pause =
+    typeof optionsOrPause === 'function'
+      ? optionsOrPause
+      : optionsOrPause.pause ||
+        ((ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms)));
+
   for (let attempt = 0; ; attempt += 1) {
     try {
       return await operation();
