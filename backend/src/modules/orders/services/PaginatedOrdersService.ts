@@ -12,20 +12,42 @@ type Viewer = { restaurantId: number; id: number; role: string; subRole?: string
 
 export function staffOrderScope(viewer: Viewer): Prisma.OrderWhereInput {
   const { restaurantId, role, subRole, id } = viewer;
-  if (!Number.isSafeInteger(restaurantId) || restaurantId <= 0) throw new OrderRequestError('Restaurante inválido.');
+  if (!Number.isSafeInteger(restaurantId) || restaurantId <= 0)
+    throw new OrderRequestError('Restaurante inválido.');
+
+  // O ADMIN precisa enxergar qualquer pedido persistido do próprio restaurante,
+  // inclusive pagamentos online ainda pendentes. A trava operacional continua
+  // exclusiva para cozinha, atendente, garçom e motoqueiro, evitando que um
+  // pedido digital não pago entre no fluxo de preparo antes da confirmação.
+  if (role === 'ADMIN') return { restaurantId };
+
   const base: Prisma.OrderWhereInput = { restaurantId, AND: [operationalPaymentWhere] };
-  if (role === 'MOTOQUEIRO') return { ...base, type: 'DELIVERY',
-    status: { in: ['PRONTO', 'SAIU_PARA_ENTREGA', 'ENTREGUE'] },
-    OR: [{ status: 'PRONTO', assignedCourierId: null }, { assignedCourierId: id }],
-  };
-  if (role === 'FUNCIONARIO') {
-    if (subRole === 'GARCOM') return { ...base, type: 'MESA', status: 'PRONTO',
-      tableSession: { is: { restaurantId, status: { in: ['OPEN', 'CLOSING_REQUESTED'] },
-        OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }],
-      } },
+  if (role === 'MOTOQUEIRO')
+    return {
+      ...base,
+      type: 'DELIVERY',
+      status: { in: ['PRONTO', 'SAIU_PARA_ENTREGA', 'ENTREGUE'] },
+      OR: [{ status: 'PRONTO', assignedCourierId: null }, { assignedCourierId: id }],
     };
-    if (!['COZINHA', 'ATENDENTE'].includes(subRole || '')) throw new OrderRequestError('Funcionário sem perfil operacional válido.', 403);
-  } else if (role !== 'ADMIN') throw new OrderRequestError('Acesso negado.', 403);
+  if (role === 'FUNCIONARIO') {
+    if (subRole === 'GARCOM')
+      return {
+        ...base,
+        type: 'MESA',
+        status: 'PRONTO',
+        tableSession: {
+          is: {
+            restaurantId,
+            status: { in: ['OPEN', 'CLOSING_REQUESTED'] },
+            OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }],
+          },
+        },
+      };
+    if (!['COZINHA', 'ATENDENTE'].includes(subRole || ''))
+      throw new OrderRequestError('Funcionário sem perfil operacional válido.', 403);
+  } else {
+    throw new OrderRequestError('Acesso negado.', 403);
+  }
   return base;
 }
 
@@ -37,28 +59,47 @@ class PaginatedOrdersService {
     }
     return withTenantDbContext(viewer.restaurantId, async (db) => {
       const page = await readOrderPage(db, base, query, {
-        ascending: (viewer.role === 'MOTOQUEIRO' || viewer.subRole === 'GARCOM') && !['HISTORY', 'DELIVERED'].includes(query.queue),
+        ascending:
+          (viewer.role === 'MOTOQUEIRO' || viewer.subRole === 'GARCOM') &&
+          !['HISTORY', 'DELIVERED'].includes(query.queue),
         waiter: viewer.role === 'FUNCIONARIO' && viewer.subRole === 'GARCOM',
         includeSummary: viewer.role === 'ADMIN',
       });
       if (viewer.role !== 'MOTOQUEIRO') return page;
       const policy = await findEffectiveCompensationPolicy(db, viewer.restaurantId, viewer.id);
-      return { ...page, orders: page.orders.map((order) => {
-        try {
-          return { ...order, courierEarningPreview: { available: true,
-            amount: Number(calculateCourierCompensation(policy, order.deliveryDistanceMeters)),
-            model: policy.model, source: policy.source } };
-        } catch (error) {
-          return { ...order, courierEarningPreview: { available: false, amount: null,
-            model: policy.model, source: policy.source,
-            reason: error instanceof Error ? error.message : 'Valor indisponível.' } };
-        }
-      }) };
+      return {
+        ...page,
+        orders: page.orders.map((order) => {
+          try {
+            return {
+              ...order,
+              courierEarningPreview: {
+                available: true,
+                amount: Number(calculateCourierCompensation(policy, order.deliveryDistanceMeters)),
+                model: policy.model,
+                source: policy.source,
+              },
+            };
+          } catch (error) {
+            return {
+              ...order,
+              courierEarningPreview: {
+                available: false,
+                amount: null,
+                model: policy.model,
+                source: policy.source,
+                reason: error instanceof Error ? error.message : 'Valor indisponível.',
+              },
+            };
+          }
+        }),
+      };
     });
   }
 
   async mine(viewer: Viewer, query: OrderListQuery) {
-    const base: Prisma.OrderWhereInput = { userId: viewer.id,
+    const base: Prisma.OrderWhereInput = {
+      userId: viewer.id,
       ...(viewer.restaurantId > 0 ? { restaurantId: viewer.restaurantId } : {}),
       NOT: [
         { paymentMethod: 'PIX', paid: false, pixPaymentId: { not: null } },
@@ -66,7 +107,9 @@ class PaginatedOrdersService {
       ],
     };
     const read = (db: Prisma.TransactionClient) => readOrderPage(db, base, query);
-    return viewer.restaurantId > 0 ? withTenantDbContext(viewer.restaurantId, read) : prisma.$transaction(read);
+    return viewer.restaurantId > 0
+      ? withTenantDbContext(viewer.restaurantId, read)
+      : prisma.$transaction(read);
   }
 }
 

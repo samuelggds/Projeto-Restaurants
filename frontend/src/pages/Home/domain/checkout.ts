@@ -7,11 +7,13 @@ export type CheckoutPaymentMethod =
   | 'card'
   | 'delivery_pix'
   | 'delivery_card'
-  | 'pickup_store';
+  | 'pickup_pix'
+  | 'pickup_card'
+  | 'pickup_cash';
 export type OrderType = 'MESA' | 'DELIVERY' | 'RETIRADA';
 export type TableOrderSettlementMode = 'TABLE_ACCOUNT' | 'PAY_NOW';
 export type CheckoutIssue = { title: string; message: string };
-export type ResolvedCheckoutPaymentMethod = 'PIX' | 'CARTAO' | 'PRESENCIAL';
+export type ResolvedCheckoutPaymentMethod = 'PIX' | 'CARTAO' | 'DINHEIRO';
 
 function optionalCustomerPhone(value: unknown) {
   const phone = String(value || '').trim();
@@ -125,12 +127,12 @@ export function validateCheckout(input: ValidationInput): CheckoutIssue | null {
       title: 'Opção indisponível',
       message: 'Pagar na entrega só está disponível para delivery.',
     };
-  if (paymentMethod === 'pickup_store' && type !== 'RETIRADA')
+  if (paymentMethod.startsWith('pickup_') && type !== 'RETIRADA')
     return {
       title: 'Opção indisponível',
       message: 'Pagar no restaurante só está disponível para pedidos de retirada.',
     };
-  if (paymentMethod === 'pickup_store') {
+  if (paymentMethod.startsWith('pickup_')) {
     const phoneDigits = String(customerPhone || '').replace(/\D/g, '');
     if (phoneDigits.length < 10 || phoneDigits.length > 13)
       return {
@@ -248,10 +250,10 @@ export function buildOrderPayload(input: PayloadInput) {
   } = input;
   const isTableAccountOrder = type === 'MESA' && settlementMode === 'TABLE_ACCOUNT';
   const safePaymentMethod = paymentMethod || 'pix';
-  const payAtPickup = type === 'RETIRADA' && safePaymentMethod === 'pickup_store';
+  const payAtPickup = type === 'RETIRADA' && safePaymentMethod.startsWith('pickup_');
   const payOnDelivery = !isTableAccountOrder && safePaymentMethod.startsWith('delivery_');
-  const resolvedPaymentMethod: ResolvedCheckoutPaymentMethod = payAtPickup
-    ? 'PRESENCIAL'
+  const resolvedPaymentMethod: ResolvedCheckoutPaymentMethod = safePaymentMethod.includes('cash')
+    ? 'DINHEIRO'
     : safePaymentMethod.includes('pix')
       ? 'PIX'
       : 'CARTAO';
@@ -268,7 +270,10 @@ export function buildOrderPayload(input: PayloadInput) {
             payOnDeliveryMethod: payOnDelivery ? resolvedPaymentMethod : undefined,
           }
         : !isTableAccountOrder
-          ? { payOnDelivery: false }
+          ? {
+              payOnDelivery: false,
+              payOnDeliveryMethod: resolvedPaymentMethod,
+            }
           : {}),
       items: buildOrderItems(cart),
       ...(couponRedemptionId ? { couponRedemptionId } : {}),

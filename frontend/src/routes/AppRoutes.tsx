@@ -56,6 +56,7 @@ import {
 import SystemAvailabilityGate from './SystemAvailabilityGate';
 import SystemMaintenancePage from '../pages/SystemMaintenance/SystemMaintenance';
 import BrowserTabBranding from '../components/BrowserTabBranding/BrowserTabBranding';
+import AppLoadingScreen from '../components/AppLoadingScreen/AppLoadingScreen';
 import {
   buildAuthEntryUrl,
   buildSessionEntryUrl,
@@ -83,11 +84,7 @@ function getCustomerReturnPath(location: ReturnType<typeof useLocation>) {
 }
 
 function RouteLoading() {
-  return (
-    <main className="app-route-loading" aria-busy="true" aria-live="polite">
-      <span role="status">Carregando página…</span>
-    </main>
-  );
+  return <AppLoadingScreen />;
 }
 
 function SuperAdminSessionBoundary({ children }: { children: ReactNode }) {
@@ -109,8 +106,7 @@ function SuperAdminSessionBoundary({ children }: { children: ReactNode }) {
     }
   }, [user]);
 
-  if (isLoading) return <RouteLoading />;
-  if (shouldEndSuperAdminSession(location.pathname, user)) return <RouteLoading />;
+  if (!isLoading && shouldEndSuperAdminSession(location.pathname, user)) return <RouteLoading />;
   return <>{children}</>;
 }
 
@@ -154,9 +150,8 @@ export function RequireAuth() {
 }
 
 function PageTransition() {
-  const location = useLocation();
   return (
-    <div className="app-page-transition" key={location.pathname}>
+    <div className="app-page-transition" style={{ animation: 'none' }}>
       <Outlet />
     </div>
   );
@@ -166,7 +161,10 @@ export function RouteAuthorizationGuard() {
   const { user, isLoading } = useAuth();
   const location = useLocation();
 
-  if (isLoading) return <RouteLoading />;
+  if (isLoading) {
+    const publicDecision = authorizeRoute(location.pathname, null);
+    return 'redirectTo' in publicDecision ? <RouteLoading /> : <Outlet />;
+  }
 
   const decision = authorizeRoute(location.pathname, user);
   if ('redirectTo' in decision) {

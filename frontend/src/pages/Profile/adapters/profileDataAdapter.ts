@@ -4,6 +4,7 @@ import type {
   ProfileData,
   ProfileFavorite,
   ProfileOrder,
+  ProfileOrderChannel,
   ProfileOrderStatus,
 } from '../types';
 import { createRestaurantMonogram } from '../../../utils/restaurantMonogram';
@@ -19,6 +20,15 @@ export function mapOrderStatus(status: unknown): ProfileOrderStatus {
   if (normalized === 'CANCELADO') return 'cancelled';
   if (normalized === 'PREPARANDO' || normalized === 'PRONTO') return 'preparing';
   return 'confirmed';
+}
+
+export function getProfileOrderChannel(order: Record<string, unknown>): ProfileOrderChannel {
+  if (order.payOnDelivery === true) return 'Pagar na entrega';
+  const type = String(order.type || order.orderType || '').trim().toUpperCase();
+  if (type === 'DELIVERY') return 'Delivery';
+  if (type === 'RETIRADA' || type === 'PICKUP') return 'Retirada';
+  if (type === 'MESA' || type === 'TABLE' || type === 'TABLE_SESSION') return 'Mesa';
+  return 'Pedido';
 }
 
 export function buildOrderSummary(order: Record<string, unknown>): string {
@@ -108,28 +118,39 @@ export function buildProfileData({
     ACTIVE_STATUSES.has(String(order.status || '').toUpperCase()),
   );
   const activeOrder = activeRaw
-    ? {
-        id: `#${String(activeRaw.id).padStart(4, '0')}`,
-        status: mapOrderStatus(activeRaw.status),
-        estimatedArrival: estimateArrival(activeRaw, settings),
-        summary: buildOrderSummary(activeRaw),
-        image: firstProductImage(activeRaw),
-        total: Number(activeRaw.total || 0),
-      }
+    ? (() => {
+        const channel = getProfileOrderChannel(activeRaw);
+        return {
+          id: `#${String(activeRaw.id).padStart(4, '0')}`,
+          status: mapOrderStatus(activeRaw.status),
+          estimatedArrival: estimateArrival(activeRaw, settings),
+          summary: `${buildOrderSummary(activeRaw)} · ${channel}`,
+          image: firstProductImage(activeRaw),
+          total: Number(activeRaw.total || 0),
+          channel,
+        };
+      })()
     : undefined;
   const recentOrders: ProfileOrder[] = orders
     .filter(
       (order) =>
         String(order.id) !== String(activeRaw?.id || '') && Boolean(String(order.status || '')),
     )
-    .map((order) => ({
-      id: `#${String(order.id).padStart(4, '0')}`,
-      summary: buildOrderSummary(order),
-      date: order.createdAt ? new Date(String(order.createdAt)).toLocaleDateString('pt-BR') : '',
-      total: Number(order.total || 0),
-      image: firstProductImage(order),
-      status: mapOrderStatus(order.status),
-    }));
+    .map((order) => {
+      const channel = getProfileOrderChannel(order);
+      const date = order.createdAt
+        ? new Date(String(order.createdAt)).toLocaleDateString('pt-BR')
+        : '';
+      return {
+        id: `#${String(order.id).padStart(4, '0')}`,
+        summary: buildOrderSummary(order),
+        date: [date, channel].filter(Boolean).join(' · '),
+        total: Number(order.total || 0),
+        image: firstProductImage(order),
+        status: mapOrderStatus(order.status),
+        channel,
+      };
+    });
   const addresses: ProfileAddress[] = rawAddresses.map((item) => ({
     id: String(item.id),
     label: String(item.label || 'Endereço'),

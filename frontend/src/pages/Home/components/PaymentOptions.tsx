@@ -1,4 +1,5 @@
 import {
+  Banknote,
   ChevronRight,
   CreditCard,
   LogIn,
@@ -43,7 +44,7 @@ type Option = {
   name: string;
   description: string;
   color: string;
-  icon: 'pix' | 'card' | 'store';
+  icon: 'pix' | 'card' | 'store' | 'cash';
 };
 
 const ONLINE_OPTIONS: Option[] = [
@@ -67,7 +68,7 @@ const DELIVERY_OPTIONS: Option[] = [
   {
     method: 'delivery_pix',
     name: 'Pix na entrega',
-    description: 'QR Code ao receber',
+    description: 'QR Code ao receber com confirmação automática',
     color: '#32BCAD',
     icon: 'pix',
   },
@@ -80,16 +81,36 @@ const DELIVERY_OPTIONS: Option[] = [
   },
 ];
 
-const PICKUP_STORE_OPTION: Option = {
-  method: 'pickup_store',
-  name: 'Pagar no restaurante',
-  description: 'Escolha Pix, cartão ou dinheiro quando chegar',
-  color: '#111827',
-  icon: 'store',
-};
+const PICKUP_OPTIONS: Option[] = [
+  {
+    method: 'pickup_pix',
+    name: 'Pix no restaurante',
+    description: 'Pague no balcão com confirmação automática',
+    color: '#32BCAD',
+    icon: 'pix',
+  },
+  {
+    method: 'pickup_card',
+    name: 'Cartão no restaurante',
+    description: 'Pague na maquininha ao retirar',
+    color: '#3b6cf6',
+    icon: 'card',
+  },
+  {
+    method: 'pickup_cash',
+    name: 'Dinheiro',
+    description: 'Pagamento confirmado pelo funcionário',
+    color: '#8b5e3c',
+    icon: 'cash',
+  },
+];
 
 function filterOptions(options: Option[], allowPix: boolean, allowCard: boolean) {
-  return options.filter((option) => (option.icon === 'pix' ? allowPix : allowCard));
+  return options.filter((option) => {
+    if (option.icon === 'pix') return allowPix;
+    if (option.icon === 'card') return allowCard;
+    return true;
+  });
 }
 
 function PaymentOption({
@@ -101,7 +122,14 @@ function PaymentOption({
   active: boolean;
   onSelect: () => void;
 }) {
-  const Icon = option.icon === 'pix' ? QrCode : option.icon === 'card' ? CreditCard : Store;
+  const Icon =
+    option.icon === 'pix'
+      ? QrCode
+      : option.icon === 'card'
+        ? CreditCard
+        : option.icon === 'cash'
+          ? Banknote
+          : Store;
   return (
     <S.PaymentCard
       type="button"
@@ -188,6 +216,7 @@ export function PaymentOptions({
   }, [loggedIn, paymentMethod, restaurantId]);
   const onlineOptions = filterOptions(ONLINE_OPTIONS, allowPix, allowCard);
   const deliveryOptions = filterOptions(DELIVERY_OPTIONS, allowPix, allowCard);
+  const pickupOptions = filterOptions(PICKUP_OPTIONS, allowPix, allowCard);
   const availableMethods = getAvailablePaymentMethods({
     allowPayOnDelivery,
     allowPayAtPickup,
@@ -321,16 +350,17 @@ export function PaymentOptions({
       )}
       {allowPayAtPickup && (
         <>
-          <S.CartSectionLabel>Pagar quando retirar</S.CartSectionLabel>
+          <S.CartSectionLabel>Pagar no restaurante</S.CartSectionLabel>
           <OptionsGrid
-            options={[PICKUP_STORE_OPTION]}
+            options={pickupOptions}
             selected={paymentMethod}
             onChange={handlePaymentChange}
           />
-          {paymentMethod === 'pickup_store' && (
+          {paymentMethod.startsWith('pickup_') && (
             <S.CheckoutUnavailable role="status">
-              O pedido será preparado sem cobrança agora. No balcão, Pix e cartão são confirmados
-              automaticamente quando integrados; dinheiro é confirmado pelo funcionário.
+              O pedido entra na fila da cozinha como não pago. A equipe verá a forma escolhida;
+              Pix e cartão podem ser confirmados automaticamente pela integração e dinheiro é
+              confirmado pelo funcionário.
             </S.CheckoutUnavailable>
           )}
         </>

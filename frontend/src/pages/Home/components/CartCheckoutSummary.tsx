@@ -49,7 +49,9 @@ export function CartCheckoutSummary({
             ? 'Gerar código Pix'
             : paymentMethod === 'card'
               ? 'Ir para pagamento seguro'
-              : 'Fazer pedido e pagar na entrega';
+              : paymentMethod.startsWith('pickup_')
+                ? 'Fazer pedido'
+                : 'Fazer pedido e pagar na entrega';
   const CheckoutIcon =
     paymentMethod === 'pix' ? QrCode : paymentMethod === 'card' ? CreditCard : ReceiptText;
   return (

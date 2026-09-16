@@ -19,6 +19,7 @@ import { useAuth } from '../contexts/authContext';
 import { isMarketingPath } from '../pages/Marketing/marketingPaths';
 import SystemMaintenancePage from '../pages/SystemMaintenance/SystemMaintenance';
 import BillingRestrictedAdmin from '../pages/admin/restricted/BillingRestrictedAdmin';
+import AppLoadingScreen from '../components/AppLoadingScreen/AppLoadingScreen';
 import { resolveAvailabilityView } from './availabilityPolicy';
 
 const STATUS_POLL_INTERVAL_MS = 15_000;
@@ -147,13 +148,7 @@ export default function SystemAvailabilityGate({ children }: { children: ReactNo
     );
   }
 
-  if (view === 'LOADING') {
-    return (
-      <main className="app-route-loading" aria-busy="true" aria-live="polite">
-        <span role="status">Verificando disponibilidade…</span>
-      </main>
-    );
-  }
+  if (view === 'LOADING') return <AppLoadingScreen />;
 
   if (view === 'BILLING_ADMIN') return <BillingRestrictedAdmin />;
   if (view === 'TENANT_MAINTENANCE') {
