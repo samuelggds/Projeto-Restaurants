@@ -244,8 +244,6 @@ export function useCheckoutPayments(options: Options) {
     )
       return;
 
-    // Give React one visible payment state before the first provider reconciliation.
-    // This avoids skipping the QR/Pix state entirely when a provider answers immediately.
     const initialCheckId = window.setTimeout(() => void verifyPixPayment(), 1000);
     const intervalId = window.setInterval(() => {
       if (!document.hidden) void verifyPixPayment(true);
@@ -278,15 +276,21 @@ export function useCheckoutPayments(options: Options) {
     const isCurrentCheckout = () =>
       checkoutAttempt === attemptRef.current && currentRestaurantRef.current === restaurantId;
     try {
-      if (paymentMethod === 'pickup_store') {
+      if (paymentMethod.startsWith('pickup_')) {
         const order = await ordersService.createOrder(payload);
         onPurchased();
         onClearCart();
         onCloseCart();
+        const methodLabel =
+          resolvedPaymentMethod === 'PIX'
+            ? 'Pix'
+            : resolvedPaymentMethod === 'CARTAO'
+              ? 'cartão'
+              : 'dinheiro';
         notify(
           'success',
           `Pedido #${String(order?.id || '')} recebido`,
-          'Seu pedido será preparado. O pagamento será feito no restaurante quando você retirar.',
+          `Seu pedido será preparado. O pagamento em ${methodLabel} será feito no restaurante quando você retirar.`,
           6000,
         );
         return true;
@@ -385,7 +389,6 @@ export function useCheckoutPayments(options: Options) {
         preservedOrderId > 0 &&
         restaurantId
       ) {
-        // The order exists. Consuming this cart prevents a retry from creating another order.
         onPurchased();
         onClearCart();
         onCloseCart();
@@ -401,7 +404,7 @@ export function useCheckoutPayments(options: Options) {
       }
       notify(
         'error',
-        paymentMethod === 'pickup_store'
+        paymentMethod.startsWith('pickup_')
           ? 'Não foi possível criar o pedido para retirada'
           : 'Não foi possível iniciar o pagamento',
         getCheckoutErrorMessage(error) || 'Confira os dados do pedido e tente novamente.',
