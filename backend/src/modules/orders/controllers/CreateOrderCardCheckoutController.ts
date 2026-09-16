@@ -6,8 +6,10 @@ import { PaymentCreationUncertainError } from '../services/PaymentCreationUncert
 import { orderCreationContext } from '../services/orderCreationRequest.js';
 import { OrderRequestError } from '../domain/OrderRequestError.js';
 import { recordWhatsappOrderNotificationOptIn } from '../../../services/whatsappOrderConsent.js';
+import { notifyCustomerPaymentConfirmed } from '../../../services/customerNotifier.js';
 import { safeErrorName } from '../../../services/telemetrySanitizer.js';
 import { resolveOrderRestaurantId } from '../utils/orderTenant.js';
+import orderRepository from '../repositories/OrderRepository.js';
 
 class CreateOrderCardCheckoutController {
   async handle(req: Request, res: Response) {
@@ -79,12 +81,35 @@ class CreateOrderCardCheckoutController {
 
       if (whatsappOptIn === true && String(type || '').toUpperCase() !== 'MESA') {
         try {
-          await recordWhatsappOrderNotificationOptIn({
+          const consentRecorded = await recordWhatsappOrderNotificationOptIn({
             restaurantId: resolvedRestaurantId,
             orderId: result.orderId,
             userId,
             customerPhone,
           });
+
+          if (consentRecorded && result.paid === true) {
+            const paidOrder = await orderRepository.findById(result.orderId, resolvedRestaurantId);
+            if (paidOrder) {
+              void notifyCustomerPaymentConfirmed({
+                restaurantId: paidOrder.restaurantId,
+                customerPhone,
+                customerName: paidOrder.user?.name || customerName,
+                restaurantName: paidOrder.restaurant?.name,
+                restaurantWhatsapp: paidOrder.restaurant?.whatsapp,
+                orderId: paidOrder.id,
+                total: paidOrder.total,
+                paymentMethod: paidOrder.paymentMethod,
+              }).catch((notificationError: unknown) => {
+                console.error(
+                  '[CUSTOMER_NOTIFICATION_UNHANDLED]',
+                  notificationError instanceof Error
+                    ? notificationError.message
+                    : String(notificationError),
+                );
+              });
+            }
+          }
         } catch (consentError) {
           console.warn('[WHATSAPP_ORDER_OPT_IN_RECORD_FAILED]', {
             requestId: req.requestId,
