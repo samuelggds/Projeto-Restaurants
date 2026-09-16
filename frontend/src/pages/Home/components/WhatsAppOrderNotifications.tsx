@@ -1,11 +1,8 @@
 import { Check } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import styled from 'styled-components';
-import { readSessionUserRaw } from '../../../modules/auth/session/authSession';
 import {
   isValidWhatsappOrderPhone,
-  readWhatsappOrderOptIn,
-  readWhatsappOrderPhone,
   writeWhatsappOrderOptIn,
   writeWhatsappOrderPhone,
 } from '../domain/checkout';
@@ -13,7 +10,6 @@ import { WhatsAppIcon } from './SocialBrandIcons';
 
 type Props = {
   restaurantId?: number | null;
-  loggedIn?: boolean;
 };
 
 function formatWhatsappPhone(value: string) {
@@ -29,35 +25,17 @@ function formatWhatsappPhone(value: string) {
   return `${prefix}(${local.slice(0, 2)}) ${local.slice(2, 7)}-${local.slice(7, 11)}`;
 }
 
-function readLoggedCustomerPhone() {
-  try {
-    const raw = readSessionUserRaw();
-    if (!raw) return '';
-    const parsed = JSON.parse(raw) as { phone?: unknown };
-    return String(parsed.phone || '').trim();
-  } catch {
-    return '';
-  }
-}
-
-export function WhatsAppOrderNotifications({ restaurantId, loggedIn = false }: Props) {
+export function WhatsAppOrderNotifications({ restaurantId }: Props) {
   const [phone, setPhone] = useState('');
   const [optedIn, setOptedIn] = useState(false);
   const validPhone = useMemo(() => isValidWhatsappOrderPhone(phone), [phone]);
 
   useEffect(() => {
-    const savedPhone = readWhatsappOrderPhone(restaurantId);
-    const profilePhone = loggedIn ? readLoggedCustomerPhone() : '';
-    const initialPhone = savedPhone || (isValidWhatsappOrderPhone(profilePhone) ? profilePhone : '');
-    const formattedPhone = formatWhatsappPhone(initialPhone);
-    const savedOptIn = readWhatsappOrderOptIn(restaurantId);
-    const canOptIn = isValidWhatsappOrderPhone(formattedPhone);
-
-    setPhone(formattedPhone);
-    setOptedIn(savedOptIn && canOptIn);
-    writeWhatsappOrderPhone(restaurantId, formattedPhone);
-    writeWhatsappOrderOptIn(restaurantId, savedOptIn && canOptIn);
-  }, [loggedIn, restaurantId]);
+    setPhone('');
+    setOptedIn(false);
+    writeWhatsappOrderPhone(restaurantId, '');
+    writeWhatsappOrderOptIn(restaurantId, false);
+  }, [restaurantId]);
 
   const handlePhoneChange = (value: string) => {
     const formatted = formatWhatsappPhone(value);
