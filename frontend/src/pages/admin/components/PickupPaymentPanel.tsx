@@ -31,11 +31,6 @@ export default function PickupPaymentPanel({ orderId, total, preferredMethod, on
   const [error, setError] = useState('');
 
   useEffect(() => {
-    if (!preferredMethod || payment || paid) return;
-    setMethod(preferredMethod);
-  }, [paid, payment, preferredMethod]);
-
-  useEffect(() => {
     let active = true;
     paymentTerminalService
       .list()
