@@ -11,6 +11,33 @@ import { safeErrorName } from '../../../services/telemetrySanitizer.js';
 import { resolveOrderRestaurantId } from '../utils/orderTenant.js';
 import orderRepository from '../repositories/OrderRepository.js';
 
+async function recordUncertainCheckoutWhatsappOptIn(
+  req: Request,
+  orderId: number | string,
+) {
+  if (req.body?.whatsappOptIn !== true || String(req.body?.type || '').toUpperCase() === 'MESA') {
+    return;
+  }
+
+  try {
+    const resolvedRestaurantId = resolveOrderRestaurantId({
+      requestedRestaurantId: req.body?.restaurantId,
+      contextRestaurantId: req.user?.restaurantId ?? req.tableSession?.restaurantId ?? null,
+    });
+    await recordWhatsappOrderNotificationOptIn({
+      restaurantId: resolvedRestaurantId,
+      orderId,
+      userId: req.user?.id ?? null,
+      customerPhone: req.body?.customerPhone,
+    });
+  } catch (consentError) {
+    console.warn('[WHATSAPP_ORDER_OPT_IN_RECORD_FAILED]', {
+      requestId: req.requestId,
+      errorType: safeErrorName(consentError),
+    });
+  }
+}
+
 class CreateOrderCardCheckoutController {
   async handle(req: Request, res: Response) {
     try {
@@ -145,6 +172,7 @@ class CreateOrderCardCheckoutController {
           .json({ error: error.message, code: error.code, requestId: req.requestId });
       }
       if (error instanceof PaymentCreationUncertainError) {
+        await recordUncertainCheckoutWhatsappOptIn(req, error.orderId);
         return res.status(error.statusCode).json({
           error: error.message,
           code: error.code,
