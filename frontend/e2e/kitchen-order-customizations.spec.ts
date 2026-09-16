@@ -44,6 +44,13 @@ function isoMinutesAgo(minutes: number) {
   return new Date(Date.now() - minutes * 60_000).toISOString();
 }
 
+function isoMinutesAgoWithinCurrentDay(minutes: number) {
+  const now = new Date();
+  const startOfDay = new Date(now);
+  startOfDay.setHours(0, 0, 0, 0);
+  return new Date(Math.max(now.getTime() - minutes * 60_000, startOfDay.getTime())).toISOString();
+}
+
 function rawOrders(): RawOrder[] {
   const common = {
     restaurantId: RESTAURANT_ID,
@@ -197,7 +204,7 @@ function rawOrders(): RawOrder[] {
       status: 'ENTREGUE',
       tableNumber: 8,
       table: { id: 18, number: 8, restaurantId: RESTAURANT_ID },
-      completedAt: isoMinutesAgo(1),
+      completedAt: isoMinutesAgoWithinCurrentDay(1),
       observation: 'Pedido entregue com molho separado',
       items: [
         {
@@ -221,7 +228,7 @@ function rawOrders(): RawOrder[] {
       status: 'CANCELADO',
       tableNumber: 9,
       table: { id: 19, number: 9, restaurantId: RESTAURANT_ID },
-      completedAt: isoMinutesAgo(2),
+      completedAt: isoMinutesAgoWithinCurrentDay(2),
       observation: 'Cancelamento solicitado pelo cliente',
       items: [
         {
@@ -236,7 +243,7 @@ function rawOrders(): RawOrder[] {
       id: 94,
       type: 'DELIVERY',
       status: 'ENTREGUE',
-      completedAt: isoMinutesAgo(2),
+      completedAt: isoMinutesAgoWithinCurrentDay(2),
       customerName: 'Helena Delivery',
       items: [
         {
