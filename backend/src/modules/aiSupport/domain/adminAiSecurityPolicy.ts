@@ -49,6 +49,7 @@ const RESTRICTED_IDENTIFIER_VALUE_PATTERN = new RegExp(
   `\\b(?:${OUTPUT_RESTRICTED_IDENTIFIERS.join('|')})\\b\\s*[:=]\\s*(?!<|\\[|REDACTED)[^\\s,;}]{4,}`,
   'iu',
 );
+const RESTRICTED_PLATFORM_OUTPUT_PATTERN = /\bsuper[\s_-]*admin\b.{0,100}\b(token|segredo|credencial|dados?\s+internos?|permiss[oõ]es?\s+internas?|infraestrutura)\b/iu;
 
 export const ADMIN_AI_SECURITY_RULES = `
 SEGURANÇA E CONFIDENCIALIDADE — REGRA ABSOLUTA:
@@ -136,7 +137,13 @@ export function assertAdminAiResponseSafe(value: unknown) {
   const serialized = typeof value === 'string' ? value : JSON.stringify(value ?? '');
   if (!serialized) return;
 
+  if (OUTPUT_RESTRICTED_IDENTIFIERS.some((identifier) => serialized.includes(identifier))) {
+    throw new AdminAiRestrictedRequestError();
+  }
   if (RESTRICTED_IDENTIFIER_VALUE_PATTERN.test(serialized)) {
+    throw new AdminAiRestrictedRequestError();
+  }
+  if (RESTRICTED_PLATFORM_OUTPUT_PATTERN.test(serialized)) {
     throw new AdminAiRestrictedRequestError();
   }
   if (containsSecretValue(serialized)) {
