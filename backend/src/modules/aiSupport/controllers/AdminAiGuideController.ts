@@ -1,5 +1,6 @@
 import type { Request, Response } from 'express';
 import OpenAI from 'openai';
+import { ZodError } from 'zod';
 import adminAiGuideService from '../services/AdminAiGuideService.js';
 import adminRestaurantAssistantService from '../services/AdminRestaurantAssistantService.js';
 import adminAiActionService from '../services/AdminAiActionService.js';
@@ -58,6 +59,15 @@ function mapError(error: unknown) {
       body: {
         error: 'O serviço OpenAI está temporariamente indisponível.',
         code: 'OPENAI_AUTH_ERROR',
+      },
+    };
+  }
+  if (error instanceof ZodError) {
+    return {
+      status: 502,
+      body: {
+        error: 'A IA gerou uma resposta fora do formato esperado. Tente novamente.',
+        code: 'AI_RESPONSE_INVALID',
       },
     };
   }
