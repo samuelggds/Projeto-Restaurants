@@ -30,6 +30,7 @@ beforeEach(() => {
     PAGBANK_CONNECT_CLIENT_ID: 'test-pb-id',
     PAGBANK_CONNECT_CLIENT_SECRET: 'test-pb-secret',
     PAGBANK_CONNECT_PLATFORM_TOKEN: 'test-pb-platform',
+    ASAAS_PLATFORM_ENABLED: 'true',
     ASAAS_API_KEY: 'test-asaas-platform',
     ASAAS_WEBHOOK_TOKEN: 'test-webhook-token-with-32-characters',
   });
@@ -67,6 +68,17 @@ test('prontidão exige os pré-requisitos, rejeita callback externo e não usa t
   assert.equal(paymentConnectionConfiguration('MERCADO_PAGO'), false);
   assert.equal(paymentConnectionConfiguration('PAGBANK'), false);
   assert.equal(paymentConnectionConfiguration('ASAAS'), false);
+});
+
+test('Asaas fica indisponível por padrão até a plataforma habilitar o recurso', async () => {
+  delete process.env.ASAAS_PLATFORM_ENABLED;
+  assert.equal(paymentConnectionConfiguration('ASAAS'), false);
+  repository.findByRestaurantId = async () => null;
+  const result = await service.execute({ restaurantId: 7 });
+  const connection = result.connections.find((item) => item.provider === 'ASAAS');
+  assert.equal(connection?.canConnect, false);
+  assert.equal(connection?.status, 'UNAVAILABLE');
+  assert.match(connection?.message || '', /temporariamente indisponível/i);
 });
 
 test('credenciais e grants renováveis do restaurante ficam prontos sem expor nenhum segredo', async () => {
