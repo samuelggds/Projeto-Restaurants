@@ -17,7 +17,7 @@ import MercadoPagoOAuthCallbackController from '../controllers/MercadoPagoOAuthC
 import StartPagBankOAuthController from '../controllers/StartPagBankOAuthController.js';
 import PagBankOAuthCallbackController from '../controllers/PagBankOAuthCallbackController.js';
 import UpdateWhatsappProfilePhotoController from '../controllers/UpdateWhatsappProfilePhotoController.js';
-import ZapiWhatsappConnectionController from '../controllers/ZapiWhatsappConnectionController.js';
+import EvolutionWhatsappConnectionController from '../controllers/EvolutionWhatsappConnectionController.js';
 import { adminMiddleware } from '../../../middlewares/adminMiddleware.js';
 import { publicRestaurantBillingMiddleware } from '../../../middlewares/publicRestaurantBillingMiddleware.js';
 
@@ -96,27 +96,23 @@ router.put('/whatsapp/profile-photo', authMiddleware, adminMiddleware, (req, res
 );
 
 router.get('/whatsapp/connection', authMiddleware, adminMiddleware, (req, res) =>
-  ZapiWhatsappConnectionController.status(req, res),
+  EvolutionWhatsappConnectionController.status(req, res),
 );
 
 router.post('/whatsapp/connection', authMiddleware, adminMiddleware, (req, res) =>
-  ZapiWhatsappConnectionController.create(req, res),
-);
-
-router.post('/whatsapp/connection/link', authMiddleware, adminMiddleware, (req, res) =>
-  ZapiWhatsappConnectionController.link(req, res),
+  EvolutionWhatsappConnectionController.create(req, res),
 );
 
 router.get('/whatsapp/connection/qr-code', authMiddleware, adminMiddleware, (req, res) =>
-  ZapiWhatsappConnectionController.qrCode(req, res),
+  EvolutionWhatsappConnectionController.qrCode(req, res),
 );
 
 router.post('/whatsapp/connection/refresh', authMiddleware, adminMiddleware, (req, res) =>
-  ZapiWhatsappConnectionController.refresh(req, res),
+  EvolutionWhatsappConnectionController.refresh(req, res),
 );
 
 router.post('/whatsapp/connection/disconnect', authMiddleware, adminMiddleware, (req, res) =>
-  ZapiWhatsappConnectionController.disconnect(req, res),
+  EvolutionWhatsappConnectionController.disconnect(req, res),
 );
 
 router.put('/:id', authMiddleware, adminMiddleware, (req, res) =>
