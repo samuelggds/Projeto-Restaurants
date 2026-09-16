@@ -63,9 +63,12 @@ test('não registra opt-in sem um número válido para aquele pedido', async () 
   assert.equal(createCalls, 0);
 });
 
-test('não duplica a evidência quando o mesmo pedido é repetido por idempotência', async () => {
+test('não duplica a evidência quando o mesmo pedido repete o mesmo número', async () => {
   let createCalls = 0;
-  prisma.auditLog.findFirst = async () => ({ id: 99 });
+  prisma.auditLog.findFirst = async () => ({
+    id: 99,
+    metadata: { destinationPhone: '+5585999999999' },
+  });
   prisma.auditLog.create = async () => {
     createCalls += 1;
     return { id: 100 };
@@ -83,10 +86,33 @@ test('não duplica a evidência quando o mesmo pedido é repetido por idempotên
   assert.equal(createCalls, 0);
 });
 
-test('consulta destino e consentimento sempre pelo restaurante e pedido exatos', async () => {
-  let receivedWhere = null;
-  prisma.auditLog.findFirst = async ({ where }) => {
-    receivedWhere = where;
+test('registra uma nova evidência quando o WhatsApp do mesmo pedido muda', async () => {
+  let created = null;
+  prisma.auditLog.findFirst = async () => ({
+    id: 99,
+    metadata: { destinationPhone: '+5511988887777' },
+  });
+  prisma.auditLog.create = async ({ data }) => {
+    created = data;
+    return { id: 100, ...data };
+  };
+
+  assert.equal(
+    await recordWhatsappOrderNotificationOptIn({
+      restaurantId: 12,
+      orderId: 44,
+      userId: 7,
+      customerPhone: '(85) 99999-9999',
+    }),
+    true,
+  );
+  assert.equal(created.metadata.destinationPhone, '+5585999999999');
+});
+
+test('consulta o destino mais recente sempre pelo restaurante e pedido exatos', async () => {
+  let receivedArgs = null;
+  prisma.auditLog.findFirst = async (args) => {
+    receivedArgs = args;
     return {
       id: 8,
       metadata: { destinationPhone: '+5585999999999' },
@@ -95,11 +121,12 @@ test('consulta destino e consentimento sempre pelo restaurante e pedido exatos',
 
   assert.equal(await getWhatsappOrderNotificationDestination(21, 345), '+5585999999999');
   assert.equal(await hasWhatsappOrderNotificationOptIn(21, 345), true);
-  assert.deepEqual(receivedWhere, {
+  assert.deepEqual(receivedArgs.where, {
     restaurantId: 21,
     action: WHATSAPP_ORDER_CONSENT_ACTION,
     resource: 'Order:345',
   });
+  assert.deepEqual(receivedArgs.orderBy, { id: 'desc' });
 });
 
 test('falha fechado para ids ausentes ou inválidos sem consultar banco', async () => {
