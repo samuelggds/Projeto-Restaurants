@@ -96,12 +96,16 @@ export function OnlineCardPaymentForm({
 
   useEffect(() => {
     let active = true;
-    setConfig(null);
-    setError('');
     publicCardPaymentService
       .getConfig(restaurantId)
-      .then((next) => active && setConfig(next))
-      .catch(() => active && setError('Pagamento com cartão indisponível no momento.'));
+      .then((next) => {
+        if (!active) return;
+        setConfig(next);
+        setError('');
+      })
+      .catch(() => {
+        if (active) setError('Pagamento com cartão indisponível no momento.');
+      });
     return () => {
       active = false;
     };
@@ -111,7 +115,11 @@ export function OnlineCardPaymentForm({
     if (config?.provider !== 'MERCADO_PAGO' || !config.publicKey) return undefined;
     let active = true;
     const mounted: MercadoPagoField[] = [];
-    void loadSdk('mercado-pago', 'https://sdk.mercadopago.com/js/v2', () => Boolean(window.MercadoPago))
+    void loadSdk(
+      'mercado-pago',
+      'https://sdk.mercadopago.com/js/v2',
+      () => Boolean(window.MercadoPago),
+    )
       .then(() => {
         if (!active || !window.MercadoPago || !config.publicKey) return;
         const mp = new window.MercadoPago(config.publicKey);
@@ -130,7 +138,9 @@ export function OnlineCardPaymentForm({
           mounted.push(cardNumber, expiration, security);
         }
       })
-      .catch(() => active && setError('Não foi possível carregar a proteção do Mercado Pago.'));
+      .catch(() => {
+        if (active) setError('Não foi possível carregar a proteção do Mercado Pago.');
+      });
     return () => {
       active = false;
       mounted.forEach((field) => field.unmount?.());
@@ -145,7 +155,9 @@ export function OnlineCardPaymentForm({
       'pagbank',
       'https://assets.pagseguro.com.br/checkout-sdk-js/rc/dist/browser/pagseguro.min.js',
       () => Boolean(window.PagSeguro),
-    ).catch(() => active && setError('Não foi possível carregar a proteção do PagBank.'));
+    ).catch(() => {
+      if (active) setError('Não foi possível carregar a proteção do PagBank.');
+    });
     return () => {
       active = false;
     };
@@ -212,7 +224,9 @@ export function OnlineCardPaymentForm({
         if (cleanNumber.length < 13 || cleanNumber.length > 19) {
           throw new Error('Informe um número de cartão válido.');
         }
-        if (cleanCvv.length < 3 || cleanCvv.length > 4) throw new Error('Informe o CVV do cartão.');
+        if (cleanCvv.length < 3 || cleanCvv.length > 4) {
+          throw new Error('Informe o CVV do cartão.');
+        }
 
         if (config.provider === 'PAGBANK') {
           if (!config.publicKey || !window.PagSeguro) {
@@ -252,7 +266,8 @@ export function OnlineCardPaymentForm({
       } catch (reason) {
         const message = reason instanceof Error ? reason.message : 'Revise os dados do cartão.';
         setError(message);
-        throw new Error(message);
+        if (reason instanceof Error) throw reason;
+        throw new Error(message, { cause: reason });
       }
     };
 
@@ -300,7 +315,11 @@ export function OnlineCardPaymentForm({
       {!isSaved && (
         <label className="full">
           <span>Nome impresso no cartão</span>
-          <input autoComplete="cc-name" value={holder} onChange={(e) => setHolder(e.target.value.slice(0, 60))} />
+          <input
+            autoComplete="cc-name"
+            value={holder}
+            onChange={(event) => setHolder(event.target.value.slice(0, 60))}
+          />
         </label>
       )}
 
@@ -333,9 +352,9 @@ export function OnlineCardPaymentForm({
               inputMode="numeric"
               autoComplete="cc-number"
               value={number}
-              onChange={(e) =>
+              onChange={(event) =>
                 setNumber(
-                  digits(e.target.value)
+                  digits(event.target.value)
                     .slice(0, 19)
                     .replace(/(.{4})/g, '$1 ')
                     .trim(),
@@ -351,9 +370,9 @@ export function OnlineCardPaymentForm({
                 inputMode="numeric"
                 autoComplete="cc-exp"
                 value={expiry}
-                onChange={(e) =>
+                onChange={(event) =>
                   setExpiry(
-                    digits(e.target.value)
+                    digits(event.target.value)
                       .slice(0, 4)
                       .replace(/^(\d{2})(\d)/, '$1/$2'),
                   )
@@ -368,7 +387,7 @@ export function OnlineCardPaymentForm({
                 inputMode="numeric"
                 autoComplete="cc-csc"
                 value={cvv}
-                onChange={(e) => setCvv(digits(e.target.value).slice(0, 4))}
+                onChange={(event) => setCvv(digits(event.target.value).slice(0, 4))}
                 placeholder="123"
               />
             </label>
@@ -382,7 +401,7 @@ export function OnlineCardPaymentForm({
           <input
             inputMode="numeric"
             value={taxId}
-            onChange={(e) => setTaxId(digits(e.target.value).slice(0, 14))}
+            onChange={(event) => setTaxId(digits(event.target.value).slice(0, 14))}
             placeholder="Somente números"
           />
         </label>
@@ -395,13 +414,16 @@ export function OnlineCardPaymentForm({
             <input
               inputMode="numeric"
               value={postalCode}
-              onChange={(e) => setPostalCode(digits(e.target.value).slice(0, 8))}
+              onChange={(event) => setPostalCode(digits(event.target.value).slice(0, 8))}
               placeholder="00000000"
             />
           </label>
           <label>
             <span>Número</span>
-            <input value={addressNumber} onChange={(e) => setAddressNumber(e.target.value.slice(0, 12))} />
+            <input
+              value={addressNumber}
+              onChange={(event) => setAddressNumber(event.target.value.slice(0, 12))}
+            />
           </label>
         </div>
       )}
@@ -409,7 +431,11 @@ export function OnlineCardPaymentForm({
       <p className="security">
         <LockKeyhole size={15} /> O número completo e o CVV nunca são salvos no GastroNexa.
       </p>
-      {error && <p className="error" role="alert">{error}</p>}
+      {error && (
+        <p className="error" role="alert">
+          {error}
+        </p>
+      )}
     </CardForm>
   );
 }
@@ -429,13 +455,37 @@ const CardForm = styled.section`
     align-items: center;
     color: var(--home-primary);
   }
-  header div { display: grid; gap: 2px; }
-  header b { color: #282d2a; font-size: 13px; }
-  header span { color: #777e7a; font-size: 10px; line-height: 1.4; }
-  label { display: grid; gap: 5px; min-width: 0; }
-  label > span { color: #4e5652; font-size: 11px; font-weight: 800; }
-  .full { grid-column: 1 / -1; }
-  .row { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; }
+  header div {
+    display: grid;
+    gap: 2px;
+  }
+  header b {
+    color: #282d2a;
+    font-size: 13px;
+  }
+  header span {
+    color: #777e7a;
+    font-size: 10px;
+    line-height: 1.4;
+  }
+  label {
+    display: grid;
+    gap: 5px;
+    min-width: 0;
+  }
+  label > span {
+    color: #4e5652;
+    font-size: 11px;
+    font-weight: 800;
+  }
+  .full {
+    grid-column: 1 / -1;
+  }
+  .row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 9px;
+  }
   input,
   .secure-field {
     width: 100%;
@@ -454,9 +504,25 @@ const CardForm = styled.section`
     border-color: var(--home-primary);
     box-shadow: 0 0 0 3px color-mix(in srgb, var(--home-primary) 12%, transparent);
   }
-  .security { margin: 0; display: flex; align-items: center; gap: 6px; color: #68706b; font-size: 10px; }
-  .error { margin: 0; color: #a12d25; font-size: 11px; font-weight: 700; }
-  @media (max-width: 390px) { .row { grid-template-columns: 1fr; } }
+  .security {
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    color: #68706b;
+    font-size: 10px;
+  }
+  .error {
+    margin: 0;
+    color: #a12d25;
+    font-size: 11px;
+    font-weight: 700;
+  }
+  @media (max-width: 390px) {
+    .row {
+      grid-template-columns: 1fr;
+    }
+  }
 `;
 
 const SecureHint = styled.div`
@@ -468,7 +534,16 @@ const SecureHint = styled.div`
   border-radius: 12px;
   color: #226438;
   background: #f8fcf9;
-  span { display: grid; gap: 2px; }
-  b { font-size: 11px; }
-  small { color: #617068; font-size: 10px; line-height: 1.35; }
+  span {
+    display: grid;
+    gap: 2px;
+  }
+  b {
+    font-size: 11px;
+  }
+  small {
+    color: #617068;
+    font-size: 10px;
+    line-height: 1.35;
+  }
 `;
