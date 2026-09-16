@@ -25,7 +25,9 @@ export function DeliveryAddressForm(props: Props) {
           placeholder="00000-000"
           maxLength={9}
           value={props.address.zipCode}
-          onBlur={(event) => void props.onCepLookup(event.target.value)}
+          onBlur={(event) => {
+            if (props.cepStatus === 'idle') void props.onCepLookup(event.target.value);
+          }}
           onChange={(event) => props.onCepChange(event.target.value)}
         />
         {props.cepMessage && <small className={props.cepStatus}>{props.cepMessage}</small>}
