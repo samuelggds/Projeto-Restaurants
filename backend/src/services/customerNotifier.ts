@@ -344,6 +344,7 @@ export async function notifyCustomerOrderStatusChanged(payload: OrderStatusChang
       metadata: {
         orderId: payload.orderId,
         status: payload.status,
+        orderType: payload.orderType,
         restaurantId: payload.restaurantId,
         event: 'ORDER_STATUS_CHANGED',
         ...(deliveryConfirmationCode ? { deliveryConfirmationCode } : {}),
