@@ -5,6 +5,8 @@ import { issueGuestOrderOwnershipToken } from '../utils/guestOrderOwnershipToken
 import { PaymentCreationUncertainError } from '../services/PaymentCreationUncertainError.js';
 import { orderCreationContext } from '../services/orderCreationRequest.js';
 import { OrderRequestError } from '../domain/OrderRequestError.js';
+import { recordWhatsappOrderNotificationOptIn } from '../../../services/whatsappOrderConsent.js';
+import { safeErrorName } from '../../../services/telemetrySanitizer.js';
 
 class CreateOrderCardCheckoutController {
   async handle(req: Request, res: Response) {
@@ -24,6 +26,7 @@ class CreateOrderCardCheckoutController {
         customerName,
         customerCpf,
         customerPhone,
+        whatsappOptIn,
         observation,
         tableId,
         settlementMode,
@@ -68,6 +71,22 @@ class CreateOrderCardCheckoutController {
         paymentMethodId,
         customerIp: req.ip,
       });
+
+      if (whatsappOptIn === true && String(type || '').toUpperCase() !== 'MESA') {
+        try {
+          await recordWhatsappOrderNotificationOptIn({
+            restaurantId,
+            orderId: result.orderId,
+            userId,
+            customerPhone,
+          });
+        } catch (consentError) {
+          console.warn('[WHATSAPP_ORDER_OPT_IN_RECORD_FAILED]', {
+            requestId: req.requestId,
+            errorType: safeErrorName(consentError),
+          });
+        }
+      }
 
       const isGuestOrder = req.user?.isGuest === true;
       const isGuestDelivery = isGuestOrder && String(type || '').toUpperCase() === 'DELIVERY';
