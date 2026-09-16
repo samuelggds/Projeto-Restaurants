@@ -20,6 +20,7 @@ export type ProfileUser = {
 };
 
 export type ProfileOrderStatus = 'confirmed' | 'preparing' | 'onTheWay' | 'delivered' | 'cancelled';
+export type ProfileOrderChannel = 'Delivery' | 'Retirada' | 'Mesa' | 'Pagar na entrega' | 'Pedido';
 export type ProfileView =
   'overview' | 'orders' | 'coupons' | 'addresses' | 'paymentMethods' | 'favorites' | 'personalData' | 'security';
 
@@ -35,6 +36,7 @@ export type ProfileOrder = {
   total: number;
   image: string;
   status: ProfileOrderStatus;
+  channel: ProfileOrderChannel;
 };
 
 export type ProfileFavorite = {
@@ -67,6 +69,7 @@ export type ActiveProfileOrder = {
   summary: string;
   image: string;
   total: number;
+  channel: ProfileOrderChannel;
 };
 
 export type ProfileData = {
