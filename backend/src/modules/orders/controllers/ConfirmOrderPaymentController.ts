@@ -5,9 +5,14 @@ class ConfirmOrderPaymentController {
   async handle(req: Request, res: Response) {
     try {
       const { id } = req.params;
-      const { restaurantId, role } = req.user;
+      const { restaurantId, role, id: actorUserId } = req.user;
 
-      const updatedOrder = await confirmOrderPaymentService.execute(id, restaurantId, role);
+      const updatedOrder = await confirmOrderPaymentService.execute(
+        id,
+        restaurantId,
+        role,
+        actorUserId,
+      );
 
       return res.status(200).json(updatedOrder);
     } catch (error: unknown) {
