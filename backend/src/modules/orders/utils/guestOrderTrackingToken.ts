@@ -1,4 +1,4 @@
-import { createHmac, timingSafeEqual } from 'node:crypto';
+import { createHmac, scryptSync, timingSafeEqual } from 'node:crypto';
 import jwt, { type JwtPayload, type SignOptions } from 'jsonwebtoken';
 import { getJwtSecret } from '../../../config/auth.js';
 
@@ -7,11 +7,15 @@ const TOKEN_ISSUER = 'projeto-restaurants';
 const TOKEN_AUDIENCE = 'guest-order-tracking';
 const TOKEN_ALGORITHM = 'HS256' as const;
 const DEFAULT_EXPIRES_IN: SignOptions['expiresIn'] = '3d';
-const COMPACT_TOKEN_PREFIX = 'g1';
+const COMPACT_TOKEN_PREFIX = 'g2';
 const COMPACT_EXPIRES_IN_SECONDS = 3 * 24 * 60 * 60;
 const COMPACT_SIGNATURE_BYTES = 16;
+const COMPACT_SIGNING_KEY_BYTES = 32;
+const COMPACT_SIGNING_KEY_SALT = 'gastronexa:guest-order-tracking:v2';
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu;
+
+let cachedCompactSigningKey: { secret: string; key: Buffer } | null = null;
 
 function getGuestTrackingSecret() {
   const secret = String(process.env.GUEST_ORDER_TRACKING_SECRET || getJwtSecret()).trim();
@@ -25,6 +29,15 @@ function getGuestTrackingSecret() {
   }
 
   return secret;
+}
+
+function getCompactSigningKey() {
+  const secret = getGuestTrackingSecret();
+  if (cachedCompactSigningKey?.secret === secret) return cachedCompactSigningKey.key;
+
+  const key = scryptSync(secret, COMPACT_SIGNING_KEY_SALT, COMPACT_SIGNING_KEY_BYTES);
+  cachedCompactSigningKey = { secret, key };
+  return key;
 }
 
 type GuestOrderTrackingClaims = {
@@ -57,7 +70,7 @@ function expandCompactUuid(value: string) {
 }
 
 function compactSignature(orderId: number, publicIdPart: string, expiresAtPart: string) {
-  return createHmac('sha256', getGuestTrackingSecret())
+  return createHmac('sha256', getCompactSigningKey())
     .update(`${COMPACT_TOKEN_PREFIX}.${orderId}.${publicIdPart}.${expiresAtPart}`)
     .digest()
     .subarray(0, COMPACT_SIGNATURE_BYTES)
