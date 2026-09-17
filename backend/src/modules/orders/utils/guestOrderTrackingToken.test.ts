@@ -10,12 +10,31 @@ const originalSecret = process.env.GUEST_ORDER_TRACKING_SECRET;
 const testSecret = 'test-guest-order-tracking-secret-that-is-long-enough';
 process.env.GUEST_ORDER_TRACKING_SECRET = testSecret;
 
-test('emite acesso de visitante restrito ao pedido e publicId', () => {
+test('emite acesso de visitante restrito ao pedido e publicId legado', () => {
   const token = issueGuestOrderTrackingToken({ orderId: 81, publicId: 'public-81' });
   assert.deepEqual(verifyGuestOrderTrackingToken(token, 81), {
     orderId: 81,
     publicId: 'public-81',
   });
+});
+
+test('emite token compacto para publicId UUID e valida no mesmo pedido', () => {
+  const publicId = '2c0a5f7e-8b16-4e97-8c3e-1c1b1e7c2a4f';
+  const token = issueGuestOrderTrackingToken({ orderId: 91, publicId });
+
+  assert.match(token, /^g2\./);
+  assert.deepEqual(verifyGuestOrderTrackingToken(token, 91), {
+    orderId: 91,
+    publicId,
+  });
+});
+
+test('recusa reutilizar token compacto em outro pedido', () => {
+  const token = issueGuestOrderTrackingToken({
+    orderId: 91,
+    publicId: '2c0a5f7e-8b16-4e97-8c3e-1c1b1e7c2a4f',
+  });
+  assert.throws(() => verifyGuestOrderTrackingToken(token, 92), /Acesso de visitante inválido/);
 });
 
 test('recusa reutilizar token em outro pedido', () => {
