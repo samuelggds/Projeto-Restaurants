@@ -50,14 +50,14 @@ export function CartCheckoutSummary({
             : paymentMethod === 'card'
               ? 'Ir para pagamento seguro'
               : paymentMethod.startsWith('pickup_')
-                ? 'Fazer pedido'
-                : 'Fazer pedido e pagar na entrega';
+                ? 'Finalizar pedido'
+                : 'Finalizar pedido';
   const CheckoutIcon =
     paymentMethod === 'pix' ? QrCode : paymentMethod === 'card' ? CreditCard : ReceiptText;
   return (
     <div className="cart-checkout-area">
       {count > 0 && (
-        <S.CartSummaryRow>
+        <S.CartSummaryRow className="checkout-summary-row">
           <span>
             Subtotal ({count} {count === 1 ? 'item' : 'itens'})
           </span>
@@ -77,7 +77,7 @@ export function CartCheckoutSummary({
         </Summary.DiscountRow>
       )}
       {Boolean(quote?.deliveryFeeAmount) && (
-        <S.CartSummaryRow>
+        <S.CartSummaryRow className="checkout-summary-row">
           <span>Taxa de entrega</span>
           <span>{currency(quote?.deliveryFeeAmount || 0)}</span>
         </S.CartSummaryRow>
@@ -90,11 +90,15 @@ export function CartCheckoutSummary({
           O valor final será confirmado com segurança antes de criar o pedido.
         </Summary.Hint>
       )}
-      <S.CartTotal aria-label={`Total do pedido: ${currency(finalTotal)}`}>
+      <S.CartTotal
+        className="checkout-total-highlight"
+        aria-label={`Total do pedido: ${currency(finalTotal)}`}
+      >
         <span>Total</span>
         <span>{currency(finalTotal)}</span>
       </S.CartTotal>
       <S.CartCheckout
+        className="checkout-primary"
         type="button"
         disabled={loading || !isRestaurantOpen || Boolean(checkoutBlockedMessage)}
         aria-busy={loading}

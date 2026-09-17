@@ -17,7 +17,7 @@ describe('PaymentOptions', () => {
     );
 
     expect(markup).toContain('Cartão');
-    expect(markup).toContain('Cartão na entrega');
+    expect(markup).toContain('Cartão / maquininha');
     expect(markup).not.toContain('Pix');
   });
 
@@ -36,7 +36,7 @@ describe('PaymentOptions', () => {
     expect(markup).toContain('Serviço indisponível');
   });
 
-  it('oferece Pix cartão e dinheiro no restaurante para retirada', () => {
+  it('oferece Pix cartão e dinheiro na retirada', () => {
     const markup = renderToStaticMarkup(
       <PaymentOptions
         paymentMethod="pickup_cash"
@@ -47,9 +47,9 @@ describe('PaymentOptions', () => {
       />,
     );
 
-    expect(markup).toContain('Pagar no restaurante');
-    expect(markup).toContain('Pix no restaurante');
-    expect(markup).toContain('Cartão no restaurante');
+    expect(markup).toContain('Pagar na retirada');
+    expect(markup).toContain('Pix na retirada');
+    expect(markup).toContain('Cartão / maquininha');
     expect(markup).toContain('Dinheiro');
     expect(markup).toContain('entra na fila da cozinha como não pago');
   });
@@ -86,6 +86,33 @@ describe('PaymentOptions', () => {
     expect(shouldShowSavedCardAccountNotice(true, 'card')).toBe(false);
     expect(shouldShowSavedCardAccountNotice(false, 'delivery_card')).toBe(false);
     expect(shouldShowSavedCardAccountNotice(false, 'pix')).toBe(false);
+  });
+
+  it('mostra o atalho para cadastrar cartão somente para usuário logado', () => {
+    const loggedMarkup = renderToStaticMarkup(
+      <PaymentOptions
+        paymentMethod="pix"
+        allowPayOnDelivery
+        allowCard
+        onChange={() => undefined}
+        loggedIn
+        restaurantId={1}
+      />,
+    );
+    const guestMarkup = renderToStaticMarkup(
+      <PaymentOptions
+        paymentMethod="pix"
+        allowPayOnDelivery
+        allowCard
+        onChange={() => undefined}
+        loggedIn={false}
+        restaurantId={1}
+      />,
+    );
+
+    expect(loggedMarkup).toContain('Cadastrar cartão');
+    expect(loggedMarkup).toContain('href="/profile?view=paymentMethods"');
+    expect(guestMarkup).not.toContain('href="/profile?view=paymentMethods"');
   });
 
   it('direciona o cadastro para a aba Meus cartões do perfil', () => {
