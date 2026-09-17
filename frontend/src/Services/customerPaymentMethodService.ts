@@ -26,9 +26,20 @@ export function selectSavedPaymentMethod(
 
 export function getPaymentMethodErrorMessage(error: unknown, fallback: string) {
   const typed = error as {
-    response?: { data?: { error?: unknown; message?: unknown } };
+    response?: { data?: { error?: unknown; message?: unknown; code?: unknown } };
     message?: unknown;
   };
+  const code = String(typed?.response?.data?.code || '').trim();
+  if (code === 'MP_CONNECTION_RENEWAL_REQUIRED') {
+    return 'O pagamento com cartão está temporariamente indisponível porque a conexão do restaurante com o Mercado Pago precisa ser renovada.';
+  }
+  if (code === 'MP_CARD_INVALID') {
+    return 'O Mercado Pago não conseguiu validar este cartão. Confira número, validade e CVV e tente novamente.';
+  }
+  if (code === 'MP_CUSTOMER_UNAVAILABLE') {
+    return 'Não foi possível preparar seu cartão no Mercado Pago agora. Tente novamente em alguns instantes.';
+  }
+
   const message = typed?.response?.data?.error || typed?.response?.data?.message || typed?.message;
   const normalized = typeof message === 'string' ? message.trim() : '';
   if (!normalized || /^request failed with status code/i.test(normalized)) return fallback;
@@ -66,10 +77,12 @@ class CustomerPaymentMethodService {
     return (response.data?.paymentMethods || []) as CustomerPaymentMethod[];
   }
   async getConfig(restaurantId: number) {
-    // O perfil e o checkout precisam tokenizar com exatamente a mesma Public Key
-    // vinculada ao Access Token do restaurante. Usar a rota publica compartilhada
-    // evita que um fallback global gere um card token de outra conta do Mercado Pago.
-    const response = await api.get(`/settings/public/${restaurantId}/card-payment-config`);
+    // No perfil o cliente está autenticado, então usamos a configuração protegida.
+    // Ela valida a credencial privada do mesmo restaurante antes de entregar a Public Key,
+    // impedindo tokenização com uma conta que o backend não consegue mais operar.
+    const response = await api.get('/customer-payment-methods/config', {
+      params: { restaurantId },
+    });
     return response.data as { provider: 'PAGBANK' | 'MERCADO_PAGO' | 'ASAAS'; publicKey?: string };
   }
   async create(payload: Record<string, unknown>) {
