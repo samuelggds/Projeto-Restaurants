@@ -106,6 +106,7 @@ jobs:
           MAP_TILE_URL: ${{ vars.PRODUCTION_VITE_MAP_TILE_URL }}
           MAP_TILE_ATTRIBUTION: ${{ vars.PRODUCTION_VITE_MAP_TILE_ATTRIBUTION }}
           GOOGLE_CLIENT_ID: ${{ vars.PRODUCTION_VITE_GOOGLE_CLIENT_ID }}
+          GOOGLE_MAPS_API_KEY: ${{ vars.PRODUCTION_VITE_GOOGLE_MAPS_API_KEY }}
           SENTRY_DSN: ${{ vars.PRODUCTION_VITE_SENTRY_DSN }}
           SENTRY_RATE: ${{ vars.PRODUCTION_VITE_SENTRY_TRACES_SAMPLE_RATE }}
         shell: bash
@@ -123,6 +124,7 @@ jobs:
             "VITE_MAP_TILE_URL=${MAP_TILE_URL}" \
             "VITE_MAP_TILE_ATTRIBUTION=${MAP_TILE_ATTRIBUTION}" \
             "VITE_GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}" \
+            "VITE_GOOGLE_MAPS_API_KEY=${GOOGLE_MAPS_API_KEY}" \
             "VITE_SENTRY_DSN=${SENTRY_DSN}" \
             "VITE_SENTRY_TRACES_SAMPLE_RATE=${SENTRY_RATE:-0.1}" \
             > "$RUNNER_TEMP/frontend-build-config.txt"
@@ -142,6 +144,7 @@ jobs:
           MAP_TILE_URL: ${{ vars.PRODUCTION_VITE_MAP_TILE_URL }}
           MAP_TILE_ATTRIBUTION: ${{ vars.PRODUCTION_VITE_MAP_TILE_ATTRIBUTION }}
           GOOGLE_CLIENT_ID: ${{ vars.PRODUCTION_VITE_GOOGLE_CLIENT_ID }}
+          GOOGLE_MAPS_API_KEY: ${{ vars.PRODUCTION_VITE_GOOGLE_MAPS_API_KEY }}
           SENTRY_DSN: ${{ vars.PRODUCTION_VITE_SENTRY_DSN }}
           SENTRY_RATE: ${{ vars.PRODUCTION_VITE_SENTRY_TRACES_SAMPLE_RATE }}
         shell: bash
@@ -163,6 +166,7 @@ jobs:
             --build-arg "VITE_MAP_TILE_URL=${MAP_TILE_URL}" \
             --build-arg "VITE_MAP_TILE_ATTRIBUTION=${MAP_TILE_ATTRIBUTION}" \
             --build-arg "VITE_GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}" \
+            --build-arg "VITE_GOOGLE_MAPS_API_KEY=${GOOGLE_MAPS_API_KEY}" \
             --build-arg "VITE_SENTRY_DSN=${SENTRY_DSN}" \
             --build-arg "VITE_SENTRY_TRACES_SAMPLE_RATE=${SENTRY_RATE:-0.1}" \
             --tag "$FRONTEND_IMAGE" ./frontend
