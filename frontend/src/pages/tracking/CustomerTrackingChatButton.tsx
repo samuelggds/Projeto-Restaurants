@@ -4,8 +4,8 @@ import { useNavigate } from 'react-router-dom';
 import styled, { keyframes } from 'styled-components';
 import { useAuth } from '../../contexts/authContext';
 import { getAccessToken } from '../../modules/auth/session/authSession';
-import { acquireSocket } from '../../Services/socketService';
 import { getGuestOrderTrackingToken } from '../../Services/ordersService';
+import { acquireSocket } from '../../Services/socketService';
 import {
   clearDeliveryChatUnread,
   incrementDeliveryChatUnread,
@@ -60,9 +60,25 @@ const Button = styled.button<{ $hasUnread: boolean }>`
     color: #fff;
     background: #28705d;
   }
-  .copy { min-width: 0; display: grid; gap: 2px; }
-  strong { color: #173c42; font-size: 12px; font-weight: 900; }
-  small { color: #6a7771; font-size: 9px; font-weight: 700; }
+
+  .copy {
+    min-width: 0;
+    display: grid;
+    gap: 2px;
+  }
+
+  strong {
+    color: #173c42;
+    font-size: 12px;
+    font-weight: 900;
+  }
+
+  small {
+    color: #6a7771;
+    font-size: 9px;
+    font-weight: 700;
+  }
+
   .badge {
     min-width: 29px;
     height: 29px;
@@ -78,9 +94,21 @@ const Button = styled.button<{ $hasUnread: boolean }>`
     font-size: 10px;
     font-weight: 900;
   }
-  &:hover { border-color: rgba(37, 99, 235, 0.34); background: #f5f9ff; transform: translateY(-1px); }
-  &:focus-visible { outline: 3px solid rgba(37, 99, 235, 0.22); outline-offset: 2px; }
-  @media (prefers-reduced-motion: reduce) { animation: none; }
+
+  &:hover {
+    border-color: rgba(37, 99, 235, 0.34);
+    background: #f5f9ff;
+    transform: translateY(-1px);
+  }
+
+  &:focus-visible {
+    outline: 3px solid rgba(37, 99, 235, 0.22);
+    outline-offset: 2px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    animation: none;
+  }
 `;
 
 function playSingleBeep() {
@@ -89,6 +117,7 @@ function playSingleBeep() {
       window.AudioContext ||
       (window as typeof window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
     if (!AudioContextCtor) return;
+
     const context = new AudioContextCtor();
     const oscillator = context.createOscillator();
     const gain = context.createGain();
@@ -140,7 +169,11 @@ export function CustomerTrackingChatButton({ orderId }: { orderId: number }) {
   useEffect(() => {
     if (!customerId || !orderId) return;
     return subscribeDeliveryChatUnread((event) => {
-      if (event.scope === 'customer' && event.actorId === customerId && event.orderId === orderId) {
+      if (
+        event.scope === 'customer' &&
+        event.actorId === customerId &&
+        event.orderId === orderId
+      ) {
         setUnreadState({ customerId, orderId, count: event.count });
       }
     });
@@ -149,21 +182,30 @@ export function CustomerTrackingChatButton({ orderId }: { orderId: number }) {
   useEffect(() => {
     const token = getAccessToken();
     if (!token || !customerId || !orderId) return;
+
     const { socket, release } = acquireSocket(token, `customer-chat-alert:${customerId}:${orderId}`);
     const onMessage = (event: DeliveryChatRealtimeEvent) => {
       const eventOrderId = Number(event?.orderId || 0);
       const targetCustomerId = Number(event?.customerUserId || 0);
       const senderRole = String(event?.message?.senderRole || '').toUpperCase();
       const messageId = String(event?.message?.id || '').trim();
+
       if (
-        eventOrderId !== orderId || targetCustomerId !== customerId || senderRole !== 'COURIER' ||
-        !messageId || seenMessageIdsRef.current.has(messageId)
-      ) return;
+        eventOrderId !== orderId ||
+        targetCustomerId !== customerId ||
+        senderRole !== 'COURIER' ||
+        !messageId ||
+        seenMessageIdsRef.current.has(messageId)
+      ) {
+        return;
+      }
+
       seenMessageIdsRef.current.add(messageId);
       incrementDeliveryChatUnread('customer', customerId, orderId);
       playSingleBeep();
       vibrateOnce();
     };
+
     socket.on('delivery:chat-message', onMessage);
     return () => {
       socket.off('delivery:chat-message', onMessage);
@@ -178,18 +220,28 @@ export function CustomerTrackingChatButton({ orderId }: { orderId: number }) {
     <Button
       type="button"
       $hasUnread={unreadCount > 0}
-      aria-label={unreadCount > 0 ? `Falar com o motoqueiro. ${unreadCount} mensagens não lidas.` : 'Falar com o motoqueiro'}
+      aria-label={
+        unreadCount > 0
+          ? `Falar com o motoqueiro. ${unreadCount} mensagens não lidas.`
+          : 'Falar com o motoqueiro'
+      }
       onClick={() => {
         if (customerId) clearDeliveryChatUnread('customer', customerId, orderId);
         navigate(`/orders/${orderId}/chat`);
       }}
     >
-      <span className="icon"><MessageCircle size={18} /></span>
+      <span className="icon">
+        <MessageCircle size={18} />
+      </span>
       <span className="copy">
         <strong>Falar com o motoqueiro</strong>
-        <small>{guestAccess && !customerId ? 'Chat deste pedido' : `Chat em tempo real · Pedido #${orderId}`}</small>
+        <small>{guestAccess && !customerId ? 'Chat seguro deste pedido' : 'Chat em tempo real'} · Pedido #{orderId}</small>
       </span>
-      {unreadCount > 0 ? <span className="badge" aria-label={`${unreadCount} mensagens não lidas`}>{unreadLabel}</span> : null}
+      {unreadCount > 0 ? (
+        <span className="badge" aria-label={`${unreadCount} mensagens não lidas`}>
+          {unreadLabel}
+        </span>
+      ) : null}
     </Button>
   );
 }
