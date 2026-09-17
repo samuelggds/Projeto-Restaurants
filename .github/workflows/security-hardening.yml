@@ -88,7 +88,7 @@ jobs:
   codeql:
     name: CodeQL analysis completed
     runs-on: ubuntu-latest
-    timeout-minutes: 35
+    timeout-minutes: 20
     permissions:
       contents: read
       security-events: write
@@ -100,21 +100,8 @@ jobs:
         uses: github/codeql-action/init@faaca9a8f6edddba5725ffe5adefdab6669a2eca # v3
         with:
           languages: javascript-typescript
-      - name: Setup Node.js 22
-        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
-        with:
-          node-version: 22
-          cache: npm
-          cache-dependency-path: |
-            backend/package-lock.json
-            frontend/package-lock.json
-            print-agent/package-lock.json
-      - run: npm --prefix backend ci
-      - run: npm --prefix frontend ci
-      - run: npm --prefix print-agent ci
-      - name: Build application for analysis
-        run: npm run build
-      - name: Analyze source and preserve SARIF
+          config-file: ./.github/codeql/codeql-config.yml
+      - name: Analyze production source and preserve SARIF
         uses: github/codeql-action/analyze@faaca9a8f6edddba5725ffe5adefdab6669a2eca # v3
         with:
           output: ${{ runner.temp }}/codeql-sarif
