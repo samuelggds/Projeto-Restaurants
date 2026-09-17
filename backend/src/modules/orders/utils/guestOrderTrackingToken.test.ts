@@ -22,7 +22,7 @@ test('emite token compacto para publicId UUID e valida no mesmo pedido', () => {
   const publicId = '2c0a5f7e-8b16-4e97-8c3e-1c1b1e7c2a4f';
   const token = issueGuestOrderTrackingToken({ orderId: 91, publicId });
 
-  assert.match(token, /^g2\./);
+  assert.match(token, /^g3\.[A-Za-z0-9_-]+$/);
   assert.deepEqual(verifyGuestOrderTrackingToken(token, 91), {
     orderId: 91,
     publicId,
@@ -35,6 +35,15 @@ test('recusa reutilizar token compacto em outro pedido', () => {
     publicId: '2c0a5f7e-8b16-4e97-8c3e-1c1b1e7c2a4f',
   });
   assert.throws(() => verifyGuestOrderTrackingToken(token, 92), /Acesso de visitante inválido/);
+});
+
+test('recusa token compacto adulterado', () => {
+  const token = issueGuestOrderTrackingToken({
+    orderId: 91,
+    publicId: '2c0a5f7e-8b16-4e97-8c3e-1c1b1e7c2a4f',
+  });
+  const tampered = `${token.slice(0, -1)}${token.endsWith('A') ? 'B' : 'A'}`;
+  assert.throws(() => verifyGuestOrderTrackingToken(tampered, 91), /Acesso de visitante inválido/);
 });
 
 test('recusa reutilizar token em outro pedido', () => {
