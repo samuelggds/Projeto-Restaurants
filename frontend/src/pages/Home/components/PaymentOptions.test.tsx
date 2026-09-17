@@ -111,8 +111,8 @@ describe('PaymentOptions', () => {
     );
 
     expect(loggedMarkup).toContain('Cadastrar cartão');
-    expect(loggedMarkup).toContain('href="/profile?view=paymentMethods"');
-    expect(guestMarkup).not.toContain('href="/profile?view=paymentMethods"');
+    expect(loggedMarkup).toContain('href="/profile?view=paymentMethods&amp;restaurantId=1"');
+    expect(guestMarkup).not.toContain('href="/profile?view=paymentMethods');
   });
 
   it('direciona o cadastro para a aba Meus cartões do perfil', () => {
@@ -127,7 +127,7 @@ describe('PaymentOptions', () => {
       />,
     );
 
-    expect(markup).toContain('href="/profile?view=paymentMethods"');
+    expect(markup).toContain('href="/profile?view=paymentMethods&amp;restaurantId=1"');
     expect(markup).toContain('Cadastrar novo cartão');
   });
 });
