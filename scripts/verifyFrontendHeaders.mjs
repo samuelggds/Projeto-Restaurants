@@ -144,7 +144,14 @@ try {
         path,
       );
     } else {
-      assert.match(directives.get('connect-src') || '', /https:\/\/api\.headers\.test/u, path);
+      const scriptSrc = directives.get('script-src') || '';
+      const frameSrc = directives.get('frame-src') || '';
+      const connectSrc = directives.get('connect-src') || '';
+      assert.match(connectSrc, /https:\/\/api\.headers\.test/u, path);
+      assert.match(scriptSrc, /https:\/\/sdk\.mercadopago\.com/u, `${path}: Mercado Pago SDK`);
+      assert.match(frameSrc, /https:\/\/\*\.mercadopago\.com/u, `${path}: Mercado Pago secure fields`);
+      assert.match(connectSrc, /https:\/\/api\.mercadopago\.com/u, `${path}: Mercado Pago API`);
+      assert.match(connectSrc, /https:\/\/\*\.mercadopago\.com/u, `${path}: Mercado Pago services`);
     }
     assert.equal(response.headers.get('x-content-type-options'), 'nosniff', path);
     assert.equal(response.headers.get('referrer-policy'), 'strict-origin-when-cross-origin', path);
