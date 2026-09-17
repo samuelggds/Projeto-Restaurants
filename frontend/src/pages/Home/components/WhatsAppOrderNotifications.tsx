@@ -1,5 +1,5 @@
 import { Check, CheckCircle2, ChevronRight, X } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import styled from 'styled-components';
 import {
   isValidWhatsappOrderPhone,
@@ -51,14 +51,6 @@ export function WhatsAppOrderNotifications({ restaurantId }: Props) {
   const { phone, optedIn } = currentState;
   const validPhone = useMemo(() => isValidWhatsappOrderPhone(phone), [phone]);
   const active = validPhone && optedIn;
-
-  useEffect(() => {
-    setFormState({
-      restaurantId,
-      phone: readWhatsappOrderPhone(restaurantId),
-      optedIn: readWhatsappOrderOptIn(restaurantId),
-    });
-  }, [restaurantId]);
 
   const handlePhoneChange = (value: string) => {
     const formatted = formatWhatsappPhone(value);
