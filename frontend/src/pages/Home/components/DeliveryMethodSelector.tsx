@@ -1,5 +1,5 @@
 import { Check, ShoppingBag, Truck } from 'lucide-react';
-import type { ReactNode } from 'react';
+import { useId, type ReactNode } from 'react';
 import styled from 'styled-components';
 
 type Props = {
@@ -18,14 +18,23 @@ type MethodCardProps = {
 };
 
 function MethodCard({ active, icon, title, description, onClick }: MethodCardProps) {
+  const descriptionId = useId();
+
   return (
-    <Card type="button" $active={active} onClick={onClick} aria-pressed={active}>
+    <Card
+      type="button"
+      $active={active}
+      onClick={onClick}
+      aria-pressed={active}
+      aria-label={title}
+      aria-describedby={descriptionId}
+    >
       <span className="method-icon" aria-hidden="true">
         {icon}
       </span>
       <span className="method-copy">
         <b>{title}</b>
-        <small>{description}</small>
+        <small id={descriptionId}>{description}</small>
       </span>
       <span className="method-check" aria-hidden="true">
         {active ? <Check size={12} strokeWidth={3} /> : null}
