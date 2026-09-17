@@ -2,13 +2,13 @@ import styled from 'styled-components';
 
 export const PaymentIntro = styled.div`
   display: grid;
-  gap: 3px;
-  margin: 2px 0 10px;
+  gap: 4px;
+  margin: 4px 0 10px;
 
   strong {
     color: var(--home-text);
-    font-size: 15px;
-    font-weight: 850;
+    font-size: 16px;
+    font-weight: 900;
   }
 
   span {
@@ -18,105 +18,109 @@ export const PaymentIntro = styled.div`
   }
 `;
 
-export const PaymentModes = styled.div`
-  display: grid;
-  gap: 10px;
-`;
-
-export const PaymentMode = styled.section<{ $active: boolean; $open: boolean }>`
-  overflow: hidden;
-  border: 1px solid ${({ $active }) => ($active ? 'color-mix(in srgb, var(--home-primary) 45%, #d8ded9)' : '#d9dfdb')};
-  border-radius: 15px;
-  background: ${({ $active }) => ($active ? 'color-mix(in srgb, var(--home-primary) 4%, #fff)' : '#fff')};
-  box-shadow: ${({ $active }) => ($active ? '0 10px 26px rgba(28, 45, 37, 0.08)' : '0 2px 8px rgba(28, 45, 37, 0.03)')};
-  transition:
-    border-color 0.18s ease,
-    background 0.18s ease,
-    box-shadow 0.18s ease;
-`;
-
-export const PaymentModeButton = styled.button<{ $open: boolean }>`
+export const AccountShortcut = styled.a`
   width: 100%;
-  min-height: 72px;
-  padding: 12px 13px;
+  min-height: 62px;
+  padding: 11px 12px;
   display: grid;
-  grid-template-columns: 42px minmax(0, 1fr) auto;
+  grid-template-columns: 40px minmax(0, 1fr) auto;
   align-items: center;
   gap: 11px;
-  border: 0;
-  background: transparent;
+  border: 1px solid #e2ddd8;
+  border-radius: 14px;
+  background: #fff;
   color: var(--home-text);
-  text-align: left;
-  cursor: pointer;
+  text-decoration: none;
+  box-shadow: 0 5px 18px rgba(33, 27, 22, 0.04);
+  transition:
+    transform 0.18s ease,
+    border-color 0.18s ease,
+    box-shadow 0.18s ease;
 
-  .mode-icon {
-    width: 42px;
-    height: 42px;
+  &:hover {
+    transform: translateY(-1px);
+    border-color: color-mix(in srgb, var(--home-primary) 45%, #e2ddd8);
+    box-shadow: 0 9px 24px rgba(33, 27, 22, 0.08);
+  }
+
+  .shortcut-icon {
+    width: 40px;
+    height: 40px;
     display: grid;
     place-items: center;
-    border-radius: 12px;
+    border-radius: 11px;
     background: color-mix(in srgb, var(--home-primary) 10%, #fff);
     color: var(--home-primary);
   }
 
-  .mode-icon svg {
-    width: 20px;
-    height: 20px;
-  }
-
-  .mode-copy {
+  .shortcut-copy {
     min-width: 0;
     display: grid;
-    gap: 3px;
+    gap: 2px;
   }
 
-  .mode-copy strong {
-    font-size: 14px;
+  .shortcut-copy b {
+    color: #27231f;
+    font-size: 13px;
     font-weight: 900;
-    line-height: 1.25;
   }
 
-  .mode-copy small {
-    color: #737b76;
+  .shortcut-copy small {
+    overflow: hidden;
+    color: #7b746e;
     font-size: 10px;
     line-height: 1.4;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
-  .mode-selected {
-    color: var(--home-primary);
-    font-size: 9px;
-    font-weight: 850;
-  }
-
-  .mode-chevron {
-    width: 19px;
-    height: 19px;
-    color: #7c847f;
-    transform: rotate(${({ $open }) => ($open ? '180deg' : '0deg')});
-    transition: transform 0.18s ease;
-  }
-
-  &:focus-visible {
-    outline: 3px solid color-mix(in srgb, var(--home-primary) 20%, transparent);
-    outline-offset: -3px;
+  .shortcut-arrow {
+    color: #978f88;
   }
 `;
 
-export const PaymentModePanel = styled.div<{ $open: boolean }>`
-  display: ${({ $open }) => ($open ? 'grid' : 'none')};
-  gap: 10px;
-  padding: 0 12px 13px;
-  border-top: ${({ $open }) => ($open ? '1px solid #edf0ed' : '0')};
-  padding-top: ${({ $open }) => ($open ? '12px' : '0')};
+export const PaymentMethodHeading = styled.div`
+  display: grid;
+  gap: 3px;
+  margin-bottom: 10px;
 
-  > p:first-child {
-    margin-top: 0;
+  b {
+    color: #292521;
+    font-size: 13px;
+    font-weight: 900;
+  }
+
+  small {
+    color: #7b756f;
+    font-size: 10px;
+    line-height: 1.4;
   }
 `;
 
 export const PaymentModeHint = styled.p`
-  margin: -2px 1px 0;
+  margin: 2px 0 0;
   color: #7b827e;
   font-size: 10px;
   line-height: 1.45;
+`;
+
+export const SecurePaymentNote = styled.div`
+  min-height: 42px;
+  padding: 10px 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: 1px solid #dce7ef;
+  border-radius: 12px;
+  background: #f3f8fc;
+  color: #496172;
+  font-size: 10px;
+  line-height: 1.4;
+  text-align: center;
+
+  svg {
+    flex: 0 0 auto;
+    color: #2f69a3;
+  }
 `;
