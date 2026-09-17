@@ -193,8 +193,7 @@ export function PaymentOptions({
   const [savedCardsLoading, setSavedCardsLoading] = useState(false);
   const [selectedCardId, setSelectedCardId] = useState('');
   const [showCardAccountNotice, setShowCardAccountNotice] = useState(false);
-  const paymentMode = getPaymentMode(paymentMethod);
-  const [openMode, setOpenMode] = useState<'now' | 'later'>(paymentMode);
+  const openMode = getPaymentMode(paymentMethod);
   const registerCardPreparer = useCallback(
     (preparer: CardPaymentPreparer | null) => {
       setCardPaymentPreparer(preparer);
@@ -204,14 +203,9 @@ export function PaymentOptions({
   );
 
   const handlePaymentChange = (method: CheckoutPaymentMethod) => {
-    setOpenMode(getPaymentMode(method));
     onChange(method);
     setShowCardAccountNotice(shouldShowSavedCardAccountNotice(loggedIn, method));
   };
-
-  useEffect(() => {
-    setOpenMode(getPaymentMode(paymentMethod));
-  }, [paymentMethod]);
 
   useEffect(() => {
     if (!loggedIn || !restaurantId || paymentMethod !== 'card') return;
@@ -267,7 +261,11 @@ export function PaymentOptions({
   const laterTitle = allowPayAtPickup ? 'Pagar na retirada' : 'Pagar na entrega';
   const laterDescription = allowPayAtPickup
     ? 'Acerte o pagamento quando buscar o pedido.'
-    : 'Pix ou cartão / maquininha quando receber.';
+    : allowPix && allowCard
+      ? 'Pix ou cartão / maquininha quando receber.'
+      : allowPix
+        ? 'Pix quando receber.'
+        : 'Cartão / maquininha quando receber.';
   const onlineDescription =
     allowPix && allowCard
       ? 'Pix ou cartão online.'
@@ -278,7 +276,6 @@ export function PaymentOptions({
   const selectedOptions = openMode === 'now' ? onlineOptions : laterOptions;
 
   const selectMode = (mode: 'now' | 'later') => {
-    setOpenMode(mode);
     const options = mode === 'now' ? onlineOptions : laterOptions;
     if (!options.some((option) => option.method === paymentMethod) && options[0]) {
       handlePaymentChange(options[0].method);
