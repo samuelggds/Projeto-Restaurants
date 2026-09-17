@@ -3,6 +3,10 @@ import prisma from '../../../config/prisma.js';
 import getOsrmDeliveryRouteService from './GetOsrmDeliveryRouteService.js';
 import courierAccessService from './CourierAccessService.js';
 import { generateDeliveryConfirmationCode } from '../utils/deliveryConfirmationCode.js';
+import deliveryNavigationSessionRepository from '../repositories/DeliveryNavigationSessionRepository.js';
+import navigationConnectService, {
+  extractNavigationConnectTelemetry,
+} from './NavigationConnectService.js';
 
 class GetDeliveryTrackingService {
   async execute({
@@ -101,8 +105,41 @@ class GetDeliveryTrackingService {
       },
     });
     locations.reverse();
-    const latestLocation = locations.length ? locations[locations.length - 1] : null;
-    const routeEstimate =
+
+    let navigationTelemetry = null;
+    if (order.status === 'SAIU_PARA_ENTREGA' && navigationConnectService.isEnabled()) {
+      try {
+        const tripId = await deliveryNavigationSessionRepository.findTripIdByOrder(
+          id,
+          order.restaurantId,
+        );
+        if (tripId) {
+          navigationTelemetry = extractNavigationConnectTelemetry(
+            await navigationConnectService.getTrip(tripId),
+          );
+        }
+      } catch (error) {
+        console.warn(
+          '[NAVIGATION_CONNECT_TRACKING_FALLBACK]',
+          error instanceof Error ? error.message : String(error),
+        );
+      }
+    }
+
+    const databaseLatestLocation = locations.length ? locations[locations.length - 1] : null;
+    const navigationLocation = navigationTelemetry?.location
+      ? {
+          latitude: navigationTelemetry.location.latitude,
+          longitude: navigationTelemetry.location.longitude,
+          heading: null,
+          speed: null,
+          accuracy: null,
+          recordedAt: new Date(navigationTelemetry.location.recordedAt),
+        }
+      : null;
+    const latestLocation = navigationLocation || databaseLatestLocation;
+
+    const osrmRouteEstimate =
       order.status === 'SAIU_PARA_ENTREGA' && latestLocation
         ? await getOsrmDeliveryRouteService.execute({
             latitude: Number(latestLocation.latitude),
@@ -110,9 +147,29 @@ class GetDeliveryTrackingService {
             destination: order,
           })
         : null;
-    const estimatedArrival = routeEstimate
-      ? new Date(Date.now() + routeEstimate.durationSeconds * 1000).toISOString()
-      : null;
+
+    const hasNavigationEstimate =
+      navigationTelemetry &&
+      (navigationTelemetry.remainingDurationSeconds !== null ||
+        navigationTelemetry.remainingDistanceMeters !== null);
+    const routeEstimate = hasNavigationEstimate
+      ? {
+          ...(osrmRouteEstimate || {
+            durationSeconds: navigationTelemetry?.remainingDurationSeconds || 0,
+            distanceMeters: navigationTelemetry?.remainingDistanceMeters ?? null,
+          }),
+          durationSeconds:
+            navigationTelemetry?.remainingDurationSeconds ?? osrmRouteEstimate?.durationSeconds ?? 0,
+          distanceMeters:
+            navigationTelemetry?.remainingDistanceMeters ?? osrmRouteEstimate?.distanceMeters ?? null,
+          provider: 'NAVIGATION_CONNECT' as const,
+        }
+      : osrmRouteEstimate;
+
+    const estimatedArrival =
+      routeEstimate && routeEstimate.durationSeconds > 0
+        ? new Date(Date.now() + routeEstimate.durationSeconds * 1000).toISOString()
+        : null;
     const deliveryConfirmationCode =
       isCustomer && order.status === 'SAIU_PARA_ENTREGA' && order.deliveryStartedAt
         ? generateDeliveryConfirmationCode({
@@ -122,18 +179,27 @@ class GetDeliveryTrackingService {
           })
         : null;
 
+    const normalizedLocations = locations.map((point) => ({
+      ...point,
+      latitude: Number(point.latitude),
+      longitude: Number(point.longitude),
+    }));
+    if (navigationLocation) {
+      const latestStoredAt = databaseLatestLocation?.recordedAt?.getTime() || 0;
+      if (navigationLocation.recordedAt.getTime() >= latestStoredAt) {
+        normalizedLocations.push(navigationLocation);
+      }
+    }
+
     return {
       order: {
         ...order,
         estimatedArrival,
         routeEstimate,
+        navigationState: navigationTelemetry?.state || null,
         deliveryConfirmationCode,
       },
-      locations: locations.map((point) => ({
-        ...point,
-        latitude: Number(point.latitude),
-        longitude: Number(point.longitude),
-      })),
+      locations: normalizedLocations,
       latestLocation: latestLocation
         ? {
             ...latestLocation,
