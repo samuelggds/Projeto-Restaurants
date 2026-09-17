@@ -1,5 +1,6 @@
 import {
   Banknote,
+  ChevronDown,
   ChevronRight,
   CreditCard,
   LogIn,
@@ -28,6 +29,7 @@ import {
   OnlineCardPaymentForm,
   type CardPaymentPreparer,
 } from './OnlineCardPaymentForm';
+import * as P from './PaymentOptions.styles';
 
 type Props = {
   paymentMethod: CheckoutPaymentMethod;
@@ -187,6 +189,10 @@ export function PaymentOptions({
   const [savedCardsLoading, setSavedCardsLoading] = useState(false);
   const [selectedCardId, setSelectedCardId] = useState('');
   const [showCardAccountNotice, setShowCardAccountNotice] = useState(false);
+  const paymentMode = paymentMethod.startsWith('delivery_') || paymentMethod.startsWith('pickup_')
+    ? 'later'
+    : 'now';
+  const [openMode, setOpenMode] = useState<'now' | 'later'>(paymentMode);
   const registerCardPreparer = useCallback(
     (preparer: CardPaymentPreparer | null) => {
       setCardPaymentPreparer(preparer);
@@ -194,6 +200,10 @@ export function PaymentOptions({
     },
     [onCardPreparerChange],
   );
+
+  useEffect(() => {
+    setOpenMode(paymentMode);
+  }, [paymentMode]);
 
   const handlePaymentChange = (method: CheckoutPaymentMethod) => {
     onChange(method);
@@ -250,6 +260,12 @@ export function PaymentOptions({
     allowPix,
     allowCard,
   });
+  const laterOptions = allowPayAtPickup ? pickupOptions : deliveryOptions;
+  const laterTitle = allowPayAtPickup ? 'Pagar no restaurante' : 'Pagar na entrega';
+  const laterDescription = allowPayAtPickup
+    ? 'Faça o pedido agora e acerte o pagamento quando retirar.'
+    : 'Faça o pedido agora e pague quando receber.';
+  const hasLaterMode = (allowPayAtPickup || allowPayOnDelivery) && laterOptions.length > 0;
 
   if (availableMethods.length === 0) {
     return (
@@ -268,170 +284,201 @@ export function PaymentOptions({
     <>
       <WhatsAppOrderNotifications restaurantId={restaurantId} />
 
-      <S.CartSectionLabel>Pagar agora</S.CartSectionLabel>
-      <OptionsGrid
-        options={onlineOptions}
-        selected={paymentMethod}
-        onChange={handlePaymentChange}
-      />
+      <P.PaymentIntro>
+        <strong>Como você quer pagar?</strong>
+        <span>Escolha primeiro o momento do pagamento. Depois selecione Pix, cartão ou dinheiro.</span>
+      </P.PaymentIntro>
 
-      {showCardAccountNotice && (
-        <S.CardAccountNotice role="status" aria-live="polite">
-          <div className="notice-icon">
-            <ShieldCheck size={21} />
-          </div>
-          <div className="notice-copy">
-            <b>Você pode pagar como visitante</b>
-            <span>
-              Preencha os dados do cartão abaixo. Eles serão protegidos pelo provedor e não serão
-              salvos no GastroNexa.
-            </span>
-          </div>
-          <div className="notice-actions">
-            <button type="button" className="guest" onClick={() => setShowCardAccountNotice(false)}>
-              <X size={16} /> Continuar como visitante
-            </button>
-            <button
+      <P.PaymentModes>
+        {onlineOptions.length > 0 && (
+          <P.PaymentMode $active={paymentMode === 'now'} $open={openMode === 'now'}>
+            <P.PaymentModeButton
               type="button"
-              className="primary"
-              onClick={() =>
-                window.location.assign(buildAuthEntryUrlForLocation('/register', window.location))
-              }
+              $open={openMode === 'now'}
+              aria-expanded={openMode === 'now'}
+              onClick={() => setOpenMode('now')}
             >
-              <UserPlus size={16} /> Criar conta para salvar
-            </button>
-            <button
+              <span className="mode-icon"><ShieldCheck /></span>
+              <span className="mode-copy">
+                <strong>Pagar agora</strong>
+                <small>Pix ou cartão online com confirmação segura.</small>
+                {paymentMode === 'now' && <span className="mode-selected">Opção selecionada</span>}
+              </span>
+              <ChevronDown className="mode-chevron" />
+            </P.PaymentModeButton>
+            <P.PaymentModePanel $open={openMode === 'now'}>
+              <OptionsGrid
+                options={onlineOptions}
+                selected={paymentMethod}
+                onChange={handlePaymentChange}
+              />
+
+              {showCardAccountNotice && (
+                <S.CardAccountNotice role="status" aria-live="polite">
+                  <div className="notice-icon">
+                    <ShieldCheck size={21} />
+                  </div>
+                  <div className="notice-copy">
+                    <b>Você pode pagar como visitante</b>
+                    <span>
+                      Preencha os dados do cartão abaixo. Eles serão protegidos pelo provedor e não serão
+                      salvos no GastroNexa.
+                    </span>
+                  </div>
+                  <div className="notice-actions">
+                    <button type="button" className="guest" onClick={() => setShowCardAccountNotice(false)}>
+                      <X size={16} /> Continuar como visitante
+                    </button>
+                    <button
+                      type="button"
+                      className="primary"
+                      onClick={() =>
+                        window.location.assign(buildAuthEntryUrlForLocation('/register', window.location))
+                      }
+                    >
+                      <UserPlus size={16} /> Criar conta para salvar
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => window.location.assign(buildLoginUrl(window.location))}
+                    >
+                      <LogIn size={16} /> Já tenho conta
+                    </button>
+                  </div>
+                </S.CardAccountNotice>
+              )}
+
+              {paymentMethod === 'card' && restaurantId && !loggedIn && (
+                <OnlineCardPaymentForm restaurantId={restaurantId} onPreparerChange={registerCardPreparer} />
+              )}
+
+              {loggedIn && paymentMethod === 'card' && restaurantId && (
+                <>
+                  {savedCardsLoading ? (
+                    <S.CheckoutUnavailable role="status">Carregando seus cartões salvos…</S.CheckoutUnavailable>
+                  ) : savedCards.length === 0 ? (
+                    <>
+                      <S.CardAccountNotice role="status" aria-live="polite">
+                        <div className="notice-icon">
+                          <WalletCards size={21} />
+                        </div>
+                        <div className="notice-copy">
+                          <b>Cadastre um cartão para pagar online</b>
+                          <span>
+                            Sua conta ainda não tem cartão salvo. Cadastre uma vez no perfil e, nas próximas
+                            compras, basta selecionar o cartão para pagar.
+                          </span>
+                        </div>
+                      </S.CardAccountNotice>
+                      <S.SavedPaymentChooser>
+                        <a
+                          className="add"
+                          href="/profile?view=paymentMethods"
+                          aria-label="Cadastrar cartão em Meus cartões"
+                        >
+                          <span className="add-icon">
+                            <WalletCards size={19} />
+                          </span>
+                          <span className="add-copy">
+                            <b>Cadastrar novo cartão</b>
+                            <small>Abra “Meus cartões” no seu perfil</small>
+                          </span>
+                          <ChevronRight className="add-arrow" size={18} />
+                        </a>
+                      </S.SavedPaymentChooser>
+                    </>
+                  ) : (
+                    <S.SavedPaymentChooser>
+                      {savedCards.map((card) => (
+                        <button
+                          key={card.publicId}
+                          type="button"
+                          className={selectedCardId === card.publicId ? 'active' : ''}
+                          onClick={() => {
+                            setSelectedCardId(card.publicId);
+                            localStorage.setItem(
+                              `selectedCustomerPaymentMethodId:${restaurantId}`,
+                              card.publicId,
+                            );
+                          }}
+                        >
+                          <CreditCard size={18} />
+                          <span>
+                            <b>
+                              {card.brand.toUpperCase()} •••• {card.last4}
+                            </b>
+                            <small>
+                              Validade {String(card.expMonth).padStart(2, '0')}/{String(card.expYear).slice(-2)}
+                            </small>
+                            {card.provider === 'MERCADO_PAGO' && (
+                              <small>Por segurança, informe apenas o CVV abaixo antes de pagar.</small>
+                            )}
+                          </span>
+                        </button>
+                      ))}
+                      <a
+                        className="add"
+                        href="/profile?view=paymentMethods"
+                        aria-label="Cadastrar cartão em Meus cartões"
+                      >
+                        <span className="add-icon">
+                          <WalletCards size={19} />
+                        </span>
+                        <span className="add-copy">
+                          <b>Cadastrar outro cartão</b>
+                          <small>Abra “Meus cartões” no seu perfil</small>
+                        </span>
+                        <ChevronRight className="add-arrow" size={18} />
+                      </a>
+                    </S.SavedPaymentChooser>
+                  )}
+
+                  {selectedSavedCard && (
+                    <OnlineCardPaymentForm
+                      restaurantId={restaurantId}
+                      savedCard={selectedSavedCard}
+                      onPreparerChange={registerCardPreparer}
+                    />
+                  )}
+                </>
+              )}
+            </P.PaymentModePanel>
+          </P.PaymentMode>
+        )}
+
+        {hasLaterMode && (
+          <P.PaymentMode $active={paymentMode === 'later'} $open={openMode === 'later'}>
+            <P.PaymentModeButton
               type="button"
-              onClick={() => window.location.assign(buildLoginUrl(window.location))}
+              $open={openMode === 'later'}
+              aria-expanded={openMode === 'later'}
+              onClick={() => setOpenMode('later')}
             >
-              <LogIn size={16} /> Já tenho conta
-            </button>
-          </div>
-        </S.CardAccountNotice>
-      )}
-
-      {paymentMethod === 'card' && restaurantId && !loggedIn && (
-        <OnlineCardPaymentForm restaurantId={restaurantId} onPreparerChange={registerCardPreparer} />
-      )}
-
-      {loggedIn && paymentMethod === 'card' && restaurantId && (
-        <>
-          {savedCardsLoading ? (
-            <S.CheckoutUnavailable role="status">Carregando seus cartões salvos…</S.CheckoutUnavailable>
-          ) : savedCards.length === 0 ? (
-            <>
-              <S.CardAccountNotice role="status" aria-live="polite">
-                <div className="notice-icon">
-                  <WalletCards size={21} />
-                </div>
-                <div className="notice-copy">
-                  <b>Cadastre um cartão para pagar online</b>
-                  <span>
-                    Sua conta ainda não tem cartão salvo. Cadastre uma vez no perfil e, nas próximas
-                    compras, basta selecionar o cartão para pagar.
-                  </span>
-                </div>
-              </S.CardAccountNotice>
-              <S.SavedPaymentChooser>
-                <a
-                  className="add"
-                  href="/profile?view=paymentMethods"
-                  aria-label="Cadastrar cartão em Meus cartões"
-                >
-                  <span className="add-icon">
-                    <WalletCards size={19} />
-                  </span>
-                  <span className="add-copy">
-                    <b>Cadastrar novo cartão</b>
-                    <small>Abra “Meus cartões” no seu perfil</small>
-                  </span>
-                  <ChevronRight className="add-arrow" size={18} />
-                </a>
-              </S.SavedPaymentChooser>
-            </>
-          ) : (
-            <S.SavedPaymentChooser>
-              {savedCards.map((card) => (
-                <button
-                  key={card.publicId}
-                  type="button"
-                  className={selectedCardId === card.publicId ? 'active' : ''}
-                  onClick={() => {
-                    setSelectedCardId(card.publicId);
-                    localStorage.setItem(
-                      `selectedCustomerPaymentMethodId:${restaurantId}`,
-                      card.publicId,
-                    );
-                  }}
-                >
-                  <CreditCard size={18} />
-                  <span>
-                    <b>
-                      {card.brand.toUpperCase()} •••• {card.last4}
-                    </b>
-                    <small>
-                      Validade {String(card.expMonth).padStart(2, '0')}/{String(card.expYear).slice(-2)}
-                    </small>
-                    {card.provider === 'MERCADO_PAGO' && (
-                      <small>Por segurança, informe apenas o CVV abaixo antes de pagar.</small>
-                    )}
-                  </span>
-                </button>
-              ))}
-              <a
-                className="add"
-                href="/profile?view=paymentMethods"
-                aria-label="Cadastrar cartão em Meus cartões"
-              >
-                <span className="add-icon">
-                  <WalletCards size={19} />
-                </span>
-                <span className="add-copy">
-                  <b>Cadastrar outro cartão</b>
-                  <small>Abra “Meus cartões” no seu perfil</small>
-                </span>
-                <ChevronRight className="add-arrow" size={18} />
-              </a>
-            </S.SavedPaymentChooser>
-          )}
-
-          {selectedSavedCard && (
-            <OnlineCardPaymentForm
-              restaurantId={restaurantId}
-              savedCard={selectedSavedCard}
-              onPreparerChange={registerCardPreparer}
-            />
-          )}
-        </>
-      )}
-
-      {allowPayAtPickup && (
-        <>
-          <S.CartSectionLabel>Pagar no restaurante</S.CartSectionLabel>
-          <OptionsGrid
-            options={pickupOptions}
-            selected={paymentMethod}
-            onChange={handlePaymentChange}
-          />
-          {paymentMethod.startsWith('pickup_') && (
-            <S.CheckoutUnavailable role="status">
-              O pedido entra na fila da cozinha como não pago. A equipe verá a forma escolhida;
-              Pix e cartão podem ser confirmados automaticamente pela integração e dinheiro é
-              confirmado pelo funcionário.
-            </S.CheckoutUnavailable>
-          )}
-        </>
-      )}
-      {allowPayOnDelivery && deliveryOptions.length > 0 && (
-        <>
-          <S.CartSectionLabel>Pagar na entrega</S.CartSectionLabel>
-          <OptionsGrid
-            options={deliveryOptions}
-            selected={paymentMethod}
-            onChange={handlePaymentChange}
-          />
-        </>
-      )}
+              <span className="mode-icon">{allowPayAtPickup ? <Store /> : <Banknote />}</span>
+              <span className="mode-copy">
+                <strong>{laterTitle}</strong>
+                <small>{laterDescription}</small>
+                {paymentMode === 'later' && <span className="mode-selected">Opção selecionada</span>}
+              </span>
+              <ChevronDown className="mode-chevron" />
+            </P.PaymentModeButton>
+            <P.PaymentModePanel $open={openMode === 'later'}>
+              <OptionsGrid
+                options={laterOptions}
+                selected={paymentMethod}
+                onChange={handlePaymentChange}
+              />
+              {allowPayAtPickup && paymentMethod.startsWith('pickup_') && (
+                <P.PaymentModeHint>
+                  O pedido entra na fila da cozinha como não pago. A equipe verá a forma escolhida;
+                  Pix e cartão podem ser confirmados automaticamente pela integração e dinheiro é
+                  confirmado pelo funcionário.
+                </P.PaymentModeHint>
+              )}
+            </P.PaymentModePanel>
+          </P.PaymentMode>
+        )}
+      </P.PaymentModes>
     </>
   );
 }
