@@ -2,7 +2,6 @@ import { CheckCircle2, ChevronRight, MapPin, X } from 'lucide-react';
 import { useMemo, useState, type Dispatch, type SetStateAction } from 'react';
 import styled from 'styled-components';
 import type { DeliveryAddress } from '../hooks/useDeliveryAddress';
-import * as S from '../../Home/Home.styles';
 
 type Props = {
   address: DeliveryAddress;
@@ -61,8 +60,8 @@ export function DeliveryAddressForm(props: Props) {
             </button>
           </div>
 
-          <S.AddressForm>
-            <S.AddressField className="cep-field">
+          <AddressForm>
+            <AddressField className="cep-field">
               <span>CEP</span>
               <input
                 aria-label="CEP"
@@ -77,8 +76,8 @@ export function DeliveryAddressForm(props: Props) {
                 autoFocus
               />
               {props.cepMessage && <small className={props.cepStatus}>{props.cepMessage}</small>}
-            </S.AddressField>
-            <S.AddressField className="street">
+            </AddressField>
+            <AddressField className="street">
               <span>Rua ou avenida</span>
               <input
                 required
@@ -89,8 +88,8 @@ export function DeliveryAddressForm(props: Props) {
                 value={props.address.address}
                 onChange={(event) => update('address', event.target.value)}
               />
-            </S.AddressField>
-            <S.AddressField>
+            </AddressField>
+            <AddressField>
               <span>Número</span>
               <input
                 required
@@ -103,8 +102,8 @@ export function DeliveryAddressForm(props: Props) {
                   update('number', event.target.value.replace(/[^0-9A-Za-z]/g, '').slice(0, 10))
                 }
               />
-            </S.AddressField>
-            <S.AddressField>
+            </AddressField>
+            <AddressField>
               <span>Bairro</span>
               <input
                 required
@@ -115,8 +114,8 @@ export function DeliveryAddressForm(props: Props) {
                 value={props.address.district}
                 onChange={(event) => update('district', event.target.value)}
               />
-            </S.AddressField>
-            <S.AddressField className="city">
+            </AddressField>
+            <AddressField className="city">
               <span>Cidade</span>
               <input
                 required
@@ -127,8 +126,8 @@ export function DeliveryAddressForm(props: Props) {
                 value={props.address.city}
                 onChange={(event) => update('city', event.target.value)}
               />
-            </S.AddressField>
-            <S.AddressField className="state">
+            </AddressField>
+            <AddressField className="state">
               <span>UF</span>
               <input
                 aria-label="Estado"
@@ -139,8 +138,8 @@ export function DeliveryAddressForm(props: Props) {
                   update('state', event.target.value.replace(/[^A-Za-z]/g, '').toUpperCase())
                 }
               />
-            </S.AddressField>
-            <S.AddressField className="full">
+            </AddressField>
+            <AddressField className="full">
               <span>
                 Complemento <i>(opcional)</i>
               </span>
@@ -151,8 +150,8 @@ export function DeliveryAddressForm(props: Props) {
                 value={props.address.complement}
                 onChange={(event) => update('complement', event.target.value)}
               />
-            </S.AddressField>
-          </S.AddressForm>
+            </AddressField>
+          </AddressForm>
 
           <button type="button" className="save" disabled={!complete} onClick={() => setEditing(false)}>
             Usar este endereço
@@ -234,6 +233,88 @@ const SummaryButton = styled.button<{ $complete: boolean }>`
   }
 `;
 
+const AddressForm = styled.div`
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 110px;
+  gap: 8px;
+
+  .cep-field,
+  .full {
+    grid-column: 1 / -1;
+  }
+
+  .street {
+    grid-column: 1;
+  }
+
+  @media (max-width: 420px) {
+    grid-template-columns: 1fr;
+
+    .cep-field,
+    .full,
+    .street {
+      grid-column: 1;
+    }
+  }
+`;
+
+const AddressField = styled.label`
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+
+  > span {
+    color: #514b44;
+    font-size: 11px;
+    font-weight: 750;
+  }
+
+  i {
+    color: #8b837a;
+    font-style: normal;
+    font-weight: 500;
+  }
+
+  input,
+  select {
+    width: 100%;
+    height: 39px;
+    padding: 0 12px;
+    border: 1px solid #dcd2c7;
+    border-radius: 10px;
+    background: #fff;
+    color: #191816;
+    font: inherit;
+    font-size: 13px;
+    outline: none;
+    transition:
+      border-color 0.2s,
+      box-shadow 0.2s;
+  }
+
+  input:focus,
+  select:focus {
+    border-color: var(--primary, #d64d08);
+    box-shadow: 0 0 0 3px rgba(214, 77, 8, 0.1);
+  }
+
+  small {
+    font-size: 10px;
+  }
+
+  small.loading {
+    color: #7c5b20;
+  }
+
+  small.success {
+    color: #18773a;
+  }
+
+  small.error {
+    color: #b42318;
+  }
+`;
+
 const Editor = styled.div`
   display: grid;
   gap: 10px;
@@ -274,10 +355,6 @@ const Editor = styled.div`
     background: #f0ebe6;
     color: #615952;
     cursor: pointer;
-  }
-
-  ${S.AddressForm} {
-    margin: 0;
   }
 
   .save {
