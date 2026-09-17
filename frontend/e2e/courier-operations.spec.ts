@@ -40,7 +40,8 @@ type CourierE2EState = {
   orders: CourierOrder[];
   orderRequests: number;
   orderRequestTokens: string[];
-  claims: Array<{ id: number; initialLocation: InitialLocation | null }>;
+  claims: number[];
+  routeStarts: Array<{ id: number; initialLocation: InitialLocation | null }>;
   deliveries: Array<{ id: number; code: string }>;
   trackingRequests: number[];
   locationFrames: LocationFrame[];
@@ -199,6 +200,7 @@ function initialState(overrides: Partial<CourierE2EState> = {}): CourierE2EState
     orderRequests: 0,
     orderRequestTokens: [],
     claims: [],
+    routeStarts: [],
     deliveries: [],
     trackingRequests: [],
     locationFrames: [],
@@ -423,6 +425,24 @@ async function mockCourierApi(page: Page, state: CourierE2EState) {
     const claim = pathname.match(/^\/orders\/(\d+)\/claim-delivery$/);
     if (claim && method === 'PATCH') {
       const id = Number(claim[1]);
+      const order = state.orders.find(
+        (candidate) => candidate.id === id && candidate.restaurantId === RESTAURANT_ID,
+      );
+      if (!order || order.type !== 'DELIVERY') {
+        state.rejectedTenantRequests += 1;
+        return json(route, { error: 'Pedido não pertence ao restaurante autenticado.' }, 404);
+      }
+      if (order.status !== 'PRONTO' || order.assignedCourierId !== null) {
+        return json(route, { error: 'O pedido não está disponível para retirada.' }, 409);
+      }
+      order.assignedCourierId = COURIER_ID;
+      state.claims.push(id);
+      return json(route, order);
+    }
+
+    const startRoute = pathname.match(/^\/orders\/(\d+)\/start-route$/);
+    if (startRoute && method === 'PATCH') {
+      const id = Number(startRoute[1]);
       const rawPayload = request.postData();
       const payload = rawPayload
         ? (request.postDataJSON() as { initialLocation?: InitialLocation })
@@ -434,14 +454,23 @@ async function mockCourierApi(page: Page, state: CourierE2EState) {
         state.rejectedTenantRequests += 1;
         return json(route, { error: 'Pedido não pertence ao restaurante autenticado.' }, 404);
       }
-      if (order.status !== 'PRONTO' || order.assignedCourierId !== null) {
-        return json(route, { error: 'O pedido não está disponível para retirada.' }, 409);
+      if (order.status !== 'PRONTO' || order.assignedCourierId !== COURIER_ID) {
+        return json(route, { error: 'O pedido não está atribuído a este motoqueiro.' }, 409);
+      }
+      const anotherActiveRoute = state.orders.some(
+        (candidate) =>
+          candidate.id !== id &&
+          candidate.restaurantId === RESTAURANT_ID &&
+          candidate.assignedCourierId === COURIER_ID &&
+          candidate.status === 'SAIU_PARA_ENTREGA',
+      );
+      if (anotherActiveRoute) {
+        return json(route, { error: 'Finalize a rota ativa antes de iniciar outra entrega.' }, 409);
       }
       order.status = 'SAIU_PARA_ENTREGA';
-      order.assignedCourierId = COURIER_ID;
       order.deliveryStartedAt = new Date().toISOString();
       const initialLocation = payload.initialLocation || null;
-      state.claims.push({ id, initialLocation });
+      state.routeStarts.push({ id, initialLocation });
       if (initialLocation) {
         state.trackingPoints.push({ orderId: id, ...initialLocation });
       }
@@ -697,21 +726,24 @@ test('motoqueiro retira, compartilha a rota do próprio pedido e encerra ao entr
   await expect(readyOrder.getByText('Rota calculada: 4.2 km')).toBeVisible();
   await captureReadmeScreenshot(page, 'courier-dashboard.png', { fullPage: true });
 
-  await readyOrder.getByRole('button', { name: 'Retirar e iniciar entrega' }).click();
+  await readyOrder.getByRole('button', { name: 'Pegar pedido' }).click();
+  await expect.poll(() => state.claims).toEqual([601]);
+  await expect(readyOrder.getByText('Atribuído a você')).toBeVisible();
+  await readyOrder.getByRole('button', { name: 'Iniciar rota' }).click();
   const locationChoice = page.getByRole('dialog', {
     name: 'Compartilhar localização?',
   });
   await expect(locationChoice).toBeVisible();
-  await expect.poll(() => state.claims).toHaveLength(0);
+  await expect.poll(() => state.routeStarts).toHaveLength(0);
   await locationChoice.getByRole('button', { name: /Ativar localização/ }).click();
-  await expect.poll(() => state.claims).toHaveLength(1);
-  expect(state.claims[0]).toMatchObject({
+  await expect.poll(() => state.routeStarts).toHaveLength(1);
+  expect(state.routeStarts[0]).toMatchObject({
     id: 601,
     initialLocation: { ...departure, accuracy: 8 },
   });
-  expect(Number.isNaN(Date.parse(state.claims[0].initialLocation?.sentAt || ''))).toBe(false);
+  expect(Number.isNaN(Date.parse(state.routeStarts[0].initialLocation?.sentAt || ''))).toBe(false);
   expect(state.trackingPoints[0]).toMatchObject({ orderId: 601, ...departure });
-  await expect(page.getByRole('heading', { name: 'Entregas em andamento' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Minha rota', level: 1 })).toBeVisible();
   await captureReadmeScreenshot(page, 'courier-location-header-desktop.png');
 
   await openCourierView(page, 'Em entrega');
@@ -833,7 +865,7 @@ test('erro de atualização permite tentar novamente e realtime busca somente o 
     (order) => order.restaurantId !== RESTAURANT_ID || order.type !== 'DELIVERY',
   );
   await page.getByRole('button', { name: 'Atualizar' }).click();
-  await expect(page.getByText('Nenhum pedido aguardando retirada.')).toBeVisible();
+  await expect(page.getByText('Nenhum pedido aguardando retirada ou início de rota.')).toBeVisible();
 
   await expectTenantSafeRequests(state);
 });
@@ -925,7 +957,7 @@ test('explica localização negada e navegador sem suporte sem enviar coordenada
   await mockCourierApi(unsupportedPage, unsupportedState);
   await unsupportedPage.goto('/courier');
   await openCourierView(unsupportedPage, 'Minha rota');
-  await expect(unsupportedPage.getByText('Rastreamento em tempo real opcional')).toBeVisible();
+  await expect(unsupportedPage.getByText('Rota ativa sem rastreamento')).toBeVisible();
   await unsupportedPage.getByRole('button', { name: /(?:Ativar|Testar) localização/ }).click();
   await expect(
     unsupportedPage.getByText('Este aparelho não oferece geolocalização neste navegador.'),
@@ -1057,7 +1089,7 @@ test('todas as áreas do motoqueiro cabem no celular sem overflow horizontal', a
   await page.setViewportSize({ width: 1440, height: 960 });
   await captureReadmeScreenshot(page, 'courier-active-desktop.png', { fullPage: true });
   await page.setViewportSize({ width: 390, height: 844 });
-  await activeDelivery.getByRole('button', { name: 'Continuar entrega #601' }).click();
+  await activeDelivery.getByRole('button', { name: 'Ver entrega e finalizar' }).click();
   const contact = page.getByRole('link', { name: 'Ligar para o cliente do pedido 601' });
   await expect(contact).toHaveAttribute('href', 'tel:85999996789');
   await expect(page.getByRole('button', { name: 'Ver detalhes do pedido 601' })).toHaveAttribute(
@@ -1068,7 +1100,7 @@ test('todas as áreas do motoqueiro cabem no celular sem overflow horizontal', a
 
   const destinations = [
     ['Retirar', 'Prontos para retirada'],
-    ['Entregas', 'Entregas em andamento'],
+    ['Entrega', 'Entregas em andamento'],
     ['Rota', 'Minha rota'],
     ['Histórico', 'Histórico'],
     ['Meu perfil', 'Meu perfil'],
