@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../../contexts/authContext';
 import ordersService from '../../Services/ordersService';
+import courierRouteService from '../../Services/courierRouteService';
 import restaurantSettingsService from '../../Services/restaurantSettingsService';
 import { acquireSocket } from '../../Services/socketService';
 import { EmployeeHelpCenter } from '../../features/employee-help/EmployeeHelpCenter';
@@ -28,6 +29,7 @@ import { getAccessToken } from '../../modules/auth/session/authSession';
 import { useCourierOrderRecovery } from './useCourierOrderRecovery';
 import { CourierSyncControl } from './components/CourierSyncControl';
 import { CourierLocationStatus } from './components/CourierLocationStatus';
+import { CourierReadyOrderCard } from './components/CourierReadyOrderCard';
 import * as S from './styles';
 import * as V from './CourierViews.styles';
 import { CourierNavigation } from './CourierNavigation';
@@ -104,6 +106,14 @@ const DIGITAL_PAYMENT_METHODS = new Set(['PIX', 'CARTAO', 'CARTAO_DEBITO', 'CART
 const LOCATION_UPDATE_INTERVAL_MS = 4_000;
 const LIST_BATCH_SIZE = 10;
 
+function activeRouteOrderIdFrom(orders: CourierOrder[]) {
+  const active = orders.find(
+    (order) =>
+      isCourierDeliveryOrder(order) && getNormalizedOrderStatus(order) === 'SAIU_PARA_ENTREGA',
+  );
+  return Number(active?.id || 0) || null;
+}
+
 export default function CourierWorkspace() {
   useEmployeeIssueNotifications();
   const { user, login, logout } = useAuth();
@@ -125,10 +135,10 @@ export default function CourierWorkspace() {
   const [locationTrackingRequested, setLocationTrackingRequested] = useState(false);
   const [trackingAttempt, setTrackingAttempt] = useState(0);
   const [geoMessage, setGeoMessage] = useState(
-    'A localização é opcional e permite que o cliente acompanhe a entrega em tempo real.',
+    'O rastreamento começa quando você iniciar uma rota de entrega.',
   );
   const [geoHint, setGeoHint] = useState(
-    'Você pode ativar agora, ao retirar um pedido ou durante uma entrega em andamento.',
+    'Somente o cliente da rota ativa poderá acompanhar sua posição.',
   );
   const [socketConnected, setSocketConnected] = useState(false);
   const [finance, setFinance] = useState<FinanceData | null>(null);
@@ -139,11 +149,10 @@ export default function CourierWorkspace() {
   const [routeError, setRouteError] = useState('');
   const [routeLoading, setRouteLoading] = useState(false);
   const [routeRetry, setRouteRetry] = useState(0);
-  const [selectedRouteOrderId, setSelectedRouteOrderId] = useState<number | null>(null);
   const [lastUpdatedAt, setLastUpdatedAt] = useState<Date | null>(null);
   const ordersBusyRef = useRef(false);
   const ordersRef = useRef<CourierOrder[]>([]);
-  const selectedRouteOrderIdRef = useRef<number | null>(null);
+  const activeRouteOrderIdRef = useRef<number | null>(null);
   const socketRef = useRef<ReturnType<typeof acquireSocket>['socket'] | null>(null);
   const latestPositionRef = useRef<CourierRoutePoint | null>(null);
   const hadActiveRouteRef = useRef(false);
@@ -194,9 +203,7 @@ export default function CourierWorkspace() {
         }),
     [history.orders],
   );
-  const effectiveRouteOrderId = inRoute.some((order) => order.id === selectedRouteOrderId)
-    ? selectedRouteOrderId
-    : inRoute[0]?.id || null;
+  const effectiveRouteOrderId = Number(inRoute[0]?.id || 0) || null;
   const priorityDelivery = inRoute.find((order) => order.id === effectiveRouteOrderId);
 
   useEffect(() => {
@@ -204,7 +211,7 @@ export default function CourierWorkspace() {
   }, [orders]);
 
   useEffect(() => {
-    selectedRouteOrderIdRef.current = effectiveRouteOrderId;
+    activeRouteOrderIdRef.current = effectiveRouteOrderId;
   }, [effectiveRouteOrderId]);
 
   useEffect(() => {
@@ -306,16 +313,17 @@ export default function CourierWorkspace() {
       });
   }, [view, orders, effectiveRouteOrderId, routeRetry]);
 
-  const emitLocationForOrders = useCallback((point: CourierRoutePoint, orderIds: number[]) => {
-    const socket = socketRef.current;
-    if (!socket?.connected) {
-      setGeoHint(
-        'Sem conexão com o restaurante. A posição atual será enviada assim que reconectar.',
-      );
-      return;
-    }
+  const emitLocationForActiveRoute = useCallback(
+    (point: CourierRoutePoint, orderId: number | null | undefined) => {
+      if (!orderId) return;
+      const socket = socketRef.current;
+      if (!socket?.connected) {
+        setGeoHint(
+          'Sem conexão com o restaurante. A posição atual será enviada assim que reconectar.',
+        );
+        return;
+      }
 
-    orderIds.forEach((orderId) => {
       const payload = buildCourierLocationPayload(orderId, point);
       if (!payload) return;
       socket.volatile.emit(
@@ -326,23 +334,23 @@ export default function CourierWorkspace() {
             console.error('[courier] Localização rejeitada pelo servidor', result.error);
             setGeoHint(
               result.error ||
-                'O GPS está ativo, mas não foi possível atualizar este pedido no servidor.',
+                'O GPS está ativo, mas não foi possível atualizar esta rota no servidor.',
             );
           }
         },
       );
-    });
-  }, []);
+    },
+    [],
+  );
 
   const stopLocationTracking = useCallback(
-    (message = 'Rastreamento encerrado porque não há entrega em andamento.') => {
+    (message = 'Rastreamento encerrado porque não há rota ativa.') => {
       setLocationTrackingRequested(false);
       setGeoStatus('idle');
       setGeoMessage(message);
-      setGeoHint('Você pode ativar a localização quando iniciar outra entrega.');
+      setGeoHint('O GPS poderá ser ativado quando você iniciar outra rota.');
       latestPositionRef.current = null;
       localStorage.removeItem(trackingPreferenceKey);
-      setSelectedRouteOrderId(null);
       setRoutePoints([]);
       setRoutePath([]);
       setRouteDestination(null);
@@ -355,7 +363,7 @@ export default function CourierWorkspace() {
   const requestInitialPosition = useCallback(() => {
     setGeoStatus('checking');
     setGeoMessage('Confirmando a posição para iniciar o rastreamento...');
-    setGeoHint('Mantenha a localização precisa ativada durante toda a entrega.');
+    setGeoHint('Mantenha a localização precisa ativada durante toda a rota.');
 
     return new Promise<CourierRoutePoint>((resolve, reject) => {
       if (typeof window !== 'undefined' && window.isSecureContext === false) {
@@ -385,7 +393,7 @@ export default function CourierWorkspace() {
           }
           latestPositionRef.current = point;
           setGeoStatus('enabled');
-          setGeoMessage('Posição confirmada. O rastreamento será iniciado com a entrega.');
+          setGeoMessage('Posição confirmada. O rastreamento será iniciado com a rota.');
           setGeoHint(`Precisão informada pelo aparelho: ${Math.round(point.accuracy || 0)} m.`);
           resolve(point);
         },
@@ -416,10 +424,7 @@ export default function CourierWorkspace() {
       }
       const latest = latestPositionRef.current;
       if (!latest) return;
-      const activeIds = ordersRef.current.flatMap((order) =>
-        getNormalizedOrderStatus(order) === 'SAIU_PARA_ENTREGA' && order.id ? [order.id] : [],
-      );
-      emitLocationForOrders(latest, activeIds);
+      emitLocationForActiveRoute(latest, activeRouteOrderIdFrom(ordersRef.current));
     };
     const onDisconnect = () => {
       needsRecovery = true;
@@ -439,9 +444,11 @@ export default function CourierWorkspace() {
       const belongsToThisCourier = isCourierOrderVisibleToAccount(updated, accountId);
       setOrders((current) => {
         if (!belongsToThisCourier) return current.filter((order) => order.id !== updated.id);
-        return current.some((order) => order.id === updated.id)
+        const next = current.some((order) => order.id === updated.id)
           ? current.map((order) => (order.id === updated.id ? updated : order))
           : [updated, ...current];
+        ordersRef.current = next;
+        return next;
       });
       setLastUpdatedAt(new Date());
     };
@@ -452,7 +459,7 @@ export default function CourierWorkspace() {
       };
       if (
         (point.restaurantId && Number(point.restaurantId) !== restaurantId) ||
-        point.orderId !== selectedRouteOrderIdRef.current ||
+        point.orderId !== activeRouteOrderIdRef.current ||
         !isValidCourierRoutePoint(point)
       ) {
         return;
@@ -479,10 +486,10 @@ export default function CourierWorkspace() {
       socketRef.current = null;
       release();
     };
-  }, [accountId, emitLocationForOrders, restaurantId, recoverOrders]);
+  }, [accountId, emitLocationForActiveRoute, restaurantId, recoverOrders]);
 
   useEffect(() => {
-    if (!locationTrackingRequested || !inRoute.length) return;
+    if (!locationTrackingRequested || !effectiveRouteOrderId) return;
     if (!navigator.geolocation) {
       const unsupportedTimer = window.setTimeout(() => {
         setGeoStatus('unsupported');
@@ -498,11 +505,9 @@ export default function CourierWorkspace() {
     const sendLatest = () => {
       const point = latestPositionRef.current;
       if (!point) return;
-      const orderIds = ordersRef.current.flatMap((order) =>
-        getNormalizedOrderStatus(order) === 'SAIU_PARA_ENTREGA' && order.id ? [order.id] : [],
-      );
-      if (!orderIds.length) return;
-      emitLocationForOrders(point, orderIds);
+      const activeOrderId = activeRouteOrderIdFrom(ordersRef.current);
+      if (!activeOrderId) return;
+      emitLocationForActiveRoute(point, activeOrderId);
       lastSentAt = Date.now();
     };
 
@@ -513,7 +518,7 @@ export default function CourierWorkspace() {
         latestPositionRef.current = point;
         localStorage.setItem(trackingPreferenceKey, 'enabled');
         setGeoStatus('enabled');
-        setGeoMessage('Rastreamento ativo durante a entrega.');
+        setGeoMessage('Rastreamento ativo para a rota atual.');
         setGeoHint(
           `${socketRef.current?.connected ? 'Conectado ao restaurante' : 'Reconectando ao restaurante'} · precisão de ${Math.round(point.accuracy || 0)} m.`,
         );
@@ -539,15 +544,15 @@ export default function CourierWorkspace() {
       if (watchId !== null) navigator.geolocation.clearWatch(watchId);
     };
   }, [
-    emitLocationForOrders,
-    inRoute.length,
+    effectiveRouteOrderId,
+    emitLocationForActiveRoute,
     locationTrackingRequested,
     trackingAttempt,
     trackingPreferenceKey,
   ]);
 
   useEffect(() => {
-    if (inRoute.length) {
+    if (effectiveRouteOrderId) {
       hadActiveRouteRef.current = true;
       if (!locationTrackingRequested && localStorage.getItem(trackingPreferenceKey) === 'enabled') {
         const resumeTimer = window.setTimeout(() => {
@@ -563,10 +568,15 @@ export default function CourierWorkspace() {
       hadActiveRouteRef.current = false;
       stopLocationTracking();
     }
-  }, [inRoute.length, locationTrackingRequested, stopLocationTracking, trackingPreferenceKey]);
+  }, [
+    effectiveRouteOrderId,
+    locationTrackingRequested,
+    stopLocationTracking,
+    trackingPreferenceKey,
+  ]);
 
   useEffect(() => {
-    if (!locationTrackingRequested || !inRoute.length) return;
+    if (!locationTrackingRequested || !effectiveRouteOrderId) return;
     let active = true;
     const wakeLockApi = (
       navigator as Navigator & {
@@ -592,10 +602,10 @@ export default function CourierWorkspace() {
       void requestWakeLock();
       const latest = latestPositionRef.current;
       if (latest) {
-        const activeIds = ordersRef.current.flatMap((order) =>
-          getNormalizedOrderStatus(order) === 'SAIU_PARA_ENTREGA' && order.id ? [order.id] : [],
+        emitLocationForActiveRoute(
+          { ...latest, recordedAt: new Date().toISOString() },
+          activeRouteOrderIdFrom(ordersRef.current),
         );
-        emitLocationForOrders({ ...latest, recordedAt: new Date().toISOString() }, activeIds);
       }
     };
 
@@ -608,7 +618,8 @@ export default function CourierWorkspace() {
       wakeLockRef.current = null;
       if (sentinel && !sentinel.released) void sentinel.release().catch(() => {});
     };
-  }, [emitLocationForOrders, inRoute.length, locationTrackingRequested]);
+  }, [effectiveRouteOrderId, emitLocationForActiveRoute, locationTrackingRequested]);
+
   const current =
     view === 'ready'
       ? ready
@@ -641,19 +652,21 @@ export default function CourierWorkspace() {
     setVisibleOrderLimit(LIST_BATCH_SIZE);
     if (window.innerWidth <= 820) setSidebarOpen(false);
   };
+
   const requestLocation = async () => {
+    if (!effectiveRouteOrderId) return;
     try {
       const point = await requestInitialPosition();
       latestPositionRef.current = point;
       localStorage.setItem(trackingPreferenceKey, 'enabled');
       setLocationTrackingRequested(true);
       setTrackingAttempt((value) => value + 1);
-      const activeIds = inRoute.flatMap((order) => (order.id ? [order.id] : []));
-      if (activeIds.length) emitLocationForOrders(point, activeIds);
+      emitLocationForActiveRoute(point, effectiveRouteOrderId);
     } catch {
       // A mensagem e a orientação já são definidas por requestInitialPosition.
     }
   };
+
   const updateLocalOrder = (updated: unknown) => {
     const wrapped = updated as { order?: unknown };
     const order = normalizeCourierOrders([wrapped?.order || updated])[0];
@@ -669,7 +682,17 @@ export default function CourierWorkspace() {
     });
     return order;
   };
-  const claimDelivery = async (orderId: number, options: { shareLocation: boolean }) => {
+
+  const claimDelivery = async (orderId: number) => {
+    const order = updateLocalOrder(await ordersService.claimDelivery(orderId));
+    setView('ready');
+    setSearch(String(order.id || orderId));
+    setVisibleOrderLimit(LIST_BATCH_SIZE);
+    setGeoMessage(`Pedido #${orderId} atribuído a você.`);
+    setGeoHint('Quando estiver pronto para sair, toque em Iniciar rota.');
+  };
+
+  const startRoute = async (orderId: number, options: { shareLocation: boolean }) => {
     let initialPoint: CourierRoutePoint | null = null;
     let initialLocation:
       | {
@@ -685,14 +708,18 @@ export default function CourierWorkspace() {
     if (options.shareLocation) {
       initialPoint = await requestInitialPosition();
       const payload = buildCourierLocationPayload(orderId, initialPoint);
-      if (!payload) throw new Error('Não foi possível validar a posição inicial desta entrega.');
+      if (!payload) throw new Error('Não foi possível validar a posição inicial desta rota.');
       const { orderId: _orderId, ...locationPayload } = payload;
       initialLocation = locationPayload;
     }
 
-    const order = updateLocalOrder(await ordersService.claimDelivery(orderId, initialLocation));
-    setSelectedRouteOrderId(order.id || orderId);
-    setView('route');
+    updateLocalOrder(await courierRouteService.startRoute(orderId, initialLocation));
+    setRoutePoints(initialPoint ? [initialPoint] : []);
+    setRoutePath([]);
+    setRouteDestination(null);
+    setRouteError('');
+    setRouteLoading(true);
+    setView('map');
     setSearch('');
     setVisibleOrderLimit(LIST_BATCH_SIZE);
 
@@ -702,30 +729,26 @@ export default function CourierWorkspace() {
       setLocationTrackingRequested(true);
       setTrackingAttempt((value) => value + 1);
       setGeoStatus('enabled');
-      setGeoMessage(`Entrega #${orderId} iniciada com rastreamento ativo.`);
-      setGeoHint(
-        'Mantenha esta página aberta e a localização precisa ligada até concluir a entrega.',
-      );
-      setRoutePoints((current) => mergeCourierRoutePoints(current, [initialPoint]));
+      setGeoMessage(`Rota do pedido #${orderId} iniciada com rastreamento ativo.`);
+      setGeoHint('Sua posição é compartilhada somente com o cliente deste pedido.');
+      emitLocationForActiveRoute(initialPoint, orderId);
       return;
     }
 
-    if (!locationTrackingRequested) {
-      latestPositionRef.current = null;
-      localStorage.removeItem(trackingPreferenceKey);
-      setGeoStatus('idle');
-      setGeoMessage(`Entrega #${orderId} iniciada sem compartilhamento de localização.`);
-      setGeoHint('A entrega segue normalmente. Você pode ativar a localização a qualquer momento.');
-      setRoutePoints([]);
-    }
+    latestPositionRef.current = null;
+    localStorage.removeItem(trackingPreferenceKey);
+    setLocationTrackingRequested(false);
+    setGeoStatus('idle');
+    setGeoMessage(`Rota do pedido #${orderId} iniciada sem compartilhamento de localização.`);
+    setGeoHint('Você pode ativar a localização nesta rota a qualquer momento.');
   };
+
   const markDelivered = async (orderId: number, code: string) => {
     updateLocalOrder(await ordersService.updateStatus(orderId, 'ENTREGUE', code));
-    const remainingRoutes = ordersRef.current.filter(
-      (order) => getNormalizedOrderStatus(order) === 'SAIU_PARA_ENTREGA',
-    );
-    if (!remainingRoutes.length)
+    const remainingRouteId = activeRouteOrderIdFrom(ordersRef.current);
+    if (!remainingRouteId) {
       stopLocationTracking('Entrega concluída. O compartilhamento foi encerrado.');
+    }
   };
 
   return (
@@ -771,12 +794,13 @@ export default function CourierWorkspace() {
             onRefresh={recoverOrders}
           />
         </S.CourierTop>
+
         <S.CourierContent>
           {view === 'overview' && priorityDelivery && !loadError && (
             <S.ActiveDeliveryCard aria-label="Entrega em andamento">
               <div>
                 <small>
-                  <Bike aria-hidden="true" /> EM ENTREGA
+                  <Bike aria-hidden="true" /> ROTA ATIVA
                 </small>
                 <h2>Pedido #{priorityDelivery.id}</h2>
                 <p>
@@ -796,26 +820,19 @@ export default function CourierWorkspace() {
                 </strong>
               </div>
               <S.ActiveDeliveryActions>
-                <button
-                  type="button"
-                  onClick={() => {
-                    go('route');
-                    setSearch(String(priorityDelivery.id));
-                    setSelectedRouteOrderId(priorityDelivery.id);
-                  }}
-                >
-                  Continuar entrega #{priorityDelivery.id}
+                <button type="button" onClick={() => go('map')}>
+                  Abrir minha rota
                   <ChevronRight aria-hidden="true" />
                 </button>
-                {inRoute.length > 1 && (
-                  <button type="button" className="secondary" onClick={() => go('route')}>
-                    Ver {inRoute.length} entregas em andamento
-                  </button>
-                )}
+                <button type="button" className="secondary" onClick={() => go('route')}>
+                  Ver entrega e finalizar
+                </button>
               </S.ActiveDeliveryActions>
             </S.ActiveDeliveryCard>
           )}
-          {view !== 'help' &&
+
+          {effectiveRouteOrderId &&
+          view !== 'help' &&
           view !== 'profile' &&
           !(geoStatus === 'enabled' && locationTrackingRequested) ? (
             <S.LocationAlertCard>
@@ -828,7 +845,7 @@ export default function CourierWorkspace() {
                     ? 'Confirmando sua localização'
                     : geoStatus === 'blocked' || geoStatus === 'timeout' || geoStatus === 'error'
                       ? 'A localização precisa de atenção'
-                      : 'Rastreamento em tempo real opcional'}
+                      : 'Rota ativa sem rastreamento'}
                 </strong>
                 <p>{geoMessage}</p>
                 <small>{geoHint}</small>
@@ -851,31 +868,45 @@ export default function CourierWorkspace() {
               <S.SectionHeader>
                 <div>
                   <h2>Minha rota</h2>
-                  <p>Acompanhe sua posição e o caminho até o endereço do pedido.</p>
+                  <p>Acompanhe somente a entrega que está ativa agora.</p>
                 </div>
-                {inRoute.length > 1 ? (
-                  <S.RouteOrderSelect
-                    aria-label="Escolher entrega para visualizar no mapa"
-                    value={effectiveRouteOrderId || ''}
-                    onChange={(event) => {
-                      setRoutePoints([]);
-                      setRoutePath([]);
-                      setRouteDestination(null);
-                      setRouteError('');
-                      setRouteLoading(true);
-                      setSelectedRouteOrderId(Number(event.target.value));
-                    }}
-                  >
-                    {inRoute.map((order) => (
-                      <option key={order.id} value={order.id}>
-                        Pedido #{order.id}
-                      </option>
-                    ))}
-                  </S.RouteOrderSelect>
-                ) : inRoute.length === 1 ? (
-                  <S.LocationStatusChip>Pedido #{inRoute[0]?.id}</S.LocationStatusChip>
+                {effectiveRouteOrderId ? (
+                  <S.LocationStatusChip>Pedido #{effectiveRouteOrderId}</S.LocationStatusChip>
                 ) : null}
               </S.SectionHeader>
+
+              {priorityDelivery ? (
+                <S.ActiveDeliveryCard aria-label="Resumo da rota ativa">
+                  <div>
+                    <small>
+                      <Bike aria-hidden="true" /> ENTREGA ATIVA
+                    </small>
+                    <h2>Pedido #{priorityDelivery.id}</h2>
+                    <p>
+                      {String(
+                        (priorityDelivery.user as { name?: string } | undefined)?.name || 'Cliente',
+                      )}
+                    </p>
+                    <strong>
+                      {[
+                        priorityDelivery.address,
+                        priorityDelivery.number,
+                        priorityDelivery.district,
+                        priorityDelivery.city,
+                      ]
+                        .filter(Boolean)
+                        .join(', ') || 'Endereço não informado'}
+                    </strong>
+                  </div>
+                  <S.ActiveDeliveryActions>
+                    <button type="button" onClick={() => go('route')}>
+                      Ver detalhes e finalizar
+                      <ChevronRight aria-hidden="true" />
+                    </button>
+                  </S.ActiveDeliveryActions>
+                </S.ActiveDeliveryCard>
+              ) : null}
+
               {routeError ? (
                 <S.RouteError>
                   <span>{routeError}</span>
@@ -893,12 +924,13 @@ export default function CourierWorkspace() {
                   </S.RefreshButton>
                 </S.RouteError>
               ) : null}
+
               {routeLoading ? (
                 <S.EmptyState role="status" aria-live="polite">
                   <RefreshCw className="spinning" />
                   <p>Carregando posição, rota e destino deste pedido...</p>
                 </S.EmptyState>
-              ) : inRoute.length && routePoints.length ? (
+              ) : effectiveRouteOrderId && routePoints.length ? (
                 <Suspense
                   fallback={
                     <S.EmptyState>
@@ -911,25 +943,22 @@ export default function CourierWorkspace() {
                     routePath={routePath}
                     destination={routeDestination || undefined}
                     label={user?.name || 'Motoqueiro'}
-                    statusMessage="Sua rota está em andamento"
-                    statusDetail={
-                      routeDestination
-                        ? 'O destino exibido corresponde ao endereço salvo no pedido.'
-                        : 'Sua localização está sendo compartilhada; calculando o destino.'
-                    }
+                    statusMessage="Rastreamento ativo"
+                    statusDetail="Sua localização está sendo compartilhada somente com o cliente deste pedido."
                   />
                 </Suspense>
-              ) : inRoute.length ? (
+              ) : effectiveRouteOrderId ? (
                 <S.EmptyState>
                   <LocateFixed />
                   <p>
-                    Rastreamento desativado. Ative a localização se quiser compartilhar sua rota.
+                    Esta é sua única rota ativa. Ative a localização para compartilhar o trajeto com
+                    este cliente.
                   </p>
                 </S.EmptyState>
               ) : (
                 <S.EmptyState>
                   <MapPinned />
-                  <p>Retire um pedido para iniciar a rota.</p>
+                  <p>Pegue um pedido e toque em Iniciar rota para começar.</p>
                 </S.EmptyState>
               )}
             </S.RouteSection>
@@ -976,6 +1005,7 @@ export default function CourierWorkspace() {
                   </button>
                 </S.OverviewCounters>
               </S.OverviewHero>
+
               <S.EarningsPanel>
                 <S.EarningsHeading>
                   <div>
@@ -1023,6 +1053,7 @@ export default function CourierWorkspace() {
                   )
                 )}
               </S.EarningsPanel>
+
               <CourierPickupQueue
                 ready={ready}
                 loading={loading}
@@ -1032,9 +1063,11 @@ export default function CourierWorkspace() {
                   setSearch(String(order.id));
                 }}
               />
+
               <Suspense fallback={null}>
                 <CourierSettlementsPanel />
               </Suspense>
+
               {finance?.deliveries.length ? (
                 <S.PickupPanel>
                   <S.EarningsHeading>
@@ -1137,6 +1170,7 @@ export default function CourierWorkspace() {
                   <span>{listViewMeta.countLabel}</span>
                 </V.ContextCount>
               </V.ContextBand>
+
               <V.Toolbar>
                 <V.SearchField>
                   <Search />
@@ -1160,6 +1194,7 @@ export default function CourierWorkspace() {
                   <RefreshCw /> Atualizar
                 </S.RefreshButton>
               </V.Toolbar>
+
               {loadError ? (
                 <S.RouteError role="alert">
                   <span>{loadError}</span>
@@ -1183,48 +1218,52 @@ export default function CourierWorkspace() {
                   <listViewMeta.icon />
                   <p>
                     {view === 'ready'
-                      ? 'Nenhum pedido aguardando retirada.'
+                      ? 'Nenhum pedido aguardando retirada ou início de rota.'
                       : view === 'route'
-                        ? 'Nenhuma entrega em andamento.'
+                        ? 'Nenhuma rota ativa no momento.'
                         : 'Nenhuma entrega concluída neste período.'}
                   </p>
                 </S.EmptyState>
               ) : (
-                <Suspense
-                  fallback={
-                    <S.EmptyState>
-                      <RefreshCw className="spinning" />
-                    </S.EmptyState>
-                  }
-                >
-                  <V.ListSurface>
-                    <S.OrdersList>
-                      {displayedOrders.map((order) => (
-                        <OrderCard
+                <V.ListSurface>
+                  <S.OrdersList>
+                    {displayedOrders.map((order) =>
+                      view === 'ready' ? (
+                        <CourierReadyOrderCard
                           key={order.id}
-                          order={order as never}
-                          onClaimDelivery={claimDelivery}
-                          onMarkDelivered={markDelivered}
-                          digitalPaymentMethods={DIGITAL_PAYMENT_METHODS}
-                          paymentLabel={PAYMENT_LABEL}
-                          statusLabel={STATUS_LABEL}
+                          order={order}
+                          accountId={accountId}
+                          activeRouteOrderId={effectiveRouteOrderId}
+                          onClaim={claimDelivery}
+                          onStartRoute={startRoute}
                         />
-                      ))}
-                    </S.OrdersList>
-                    <CourierListControls
-                      visibleCount={displayedOrders.length}
-                      totalCount={visibleOrders.length}
-                      itemLabel="pedidos"
-                      onShowMore={() =>
-                        setVisibleOrderLimit((current) =>
-                          Math.min(current + LIST_BATCH_SIZE, visibleOrders.length),
-                        )
-                      }
-                      onReset={() => setVisibleOrderLimit(LIST_BATCH_SIZE)}
-                    />
-                  </V.ListSurface>
-                </Suspense>
+                      ) : (
+                        <Suspense key={order.id} fallback={null}>
+                          <OrderCard
+                            order={order as never}
+                            onMarkDelivered={markDelivered}
+                            digitalPaymentMethods={DIGITAL_PAYMENT_METHODS}
+                            paymentLabel={PAYMENT_LABEL}
+                            statusLabel={STATUS_LABEL}
+                          />
+                        </Suspense>
+                      ),
+                    )}
+                  </S.OrdersList>
+                  <CourierListControls
+                    visibleCount={displayedOrders.length}
+                    totalCount={visibleOrders.length}
+                    itemLabel="pedidos"
+                    onShowMore={() =>
+                      setVisibleOrderLimit((current) =>
+                        Math.min(current + LIST_BATCH_SIZE, visibleOrders.length),
+                      )
+                    }
+                    onReset={() => setVisibleOrderLimit(LIST_BATCH_SIZE)}
+                  />
+                </V.ListSurface>
               )}
+
               {view === 'history' && (
                 <OrderHistoryPagination className="courier-history-pagination" {...history} />
               )}

@@ -6,6 +6,7 @@ const mocks = vi.hoisted(() => ({
   listOrders: vi.fn(),
   listPage: vi.fn(),
   claimDelivery: vi.fn(),
+  startRoute: vi.fn(),
   updateStatus: vi.fn(),
   getFinance: vi.fn(),
   getTracking: vi.fn(),
@@ -49,6 +50,9 @@ vi.mock('../../Services/ordersService', () => ({
     getCourierFinance: mocks.getFinance,
     getDeliveryTracking: mocks.getTracking,
   },
+}));
+vi.mock('../../Services/courierRouteService', () => ({
+  default: { startRoute: mocks.startRoute },
 }));
 vi.mock('../../Services/restaurantSettingsService', () => ({
   default: { getPublicSettings: mocks.getSettings },
@@ -121,6 +125,10 @@ function deliveryOrder(status = 'PRONTO') {
     deliveryDistanceMeters: 3200,
     courierEarningPreview: { available: true, amount: 8.5 },
   };
+}
+
+function assignedReadyOrder() {
+  return { ...deliveryOrder(), assignedCourierId: 44 };
 }
 
 async function flushUntil(condition: () => boolean) {
@@ -200,12 +208,13 @@ describe('CourierWorkspace integration', () => {
     vi.restoreAllMocks();
   });
 
-  it('filtra Delivery, exibe montagem e permite ativar GPS ao retirar', async () => {
+  it('filtra Delivery, exibe montagem e compartilha GPS somente ao iniciar a rota', async () => {
     mocks.listOrders.mockResolvedValue([
       deliveryOrder(),
       { ...deliveryOrder(), id: 99, type: 'MESA' },
     ]);
-    mocks.claimDelivery.mockResolvedValue({ ...deliveryOrder('SAIU_PARA_ENTREGA'), paid: true });
+    mocks.claimDelivery.mockResolvedValue({ ...assignedReadyOrder(), paid: true });
+    mocks.startRoute.mockResolvedValue({ ...deliveryOrder('SAIU_PARA_ENTREGA'), paid: true });
     mocks.updateStatus.mockResolvedValue({
       ...deliveryOrder('ENTREGUE'),
       paid: true,
@@ -235,16 +244,20 @@ describe('CourierWorkspace integration', () => {
     expect(earningBar?.textContent?.replaceAll('\u00a0', ' ')).toContain('R$ 8,50');
     expect(container.textContent).toContain('Rota calculada: 3.2 km');
 
-    await act(async () => clickByText(container, 'button', 'Retirar e iniciar entrega'));
-    await flushUntil(
-      () => container.textContent?.includes('Compartilhar localização durante a entrega?') === true,
-    );
-    expect(mocks.claimDelivery).not.toHaveBeenCalled();
+    await act(async () => clickByText(container, 'button', 'Pegar pedido'));
+    await flushUntil(() => mocks.claimDelivery.mock.calls.length === 1);
+    expect(mocks.claimDelivery).toHaveBeenCalledWith(81);
+    expect(mocks.startRoute).not.toHaveBeenCalled();
+    await flushUntil(() => container.textContent?.includes('Iniciar rota') === true);
+
+    await act(async () => clickByText(container, 'button', 'Iniciar rota'));
+    await flushUntil(() => container.textContent?.includes('Compartilhar localização?') === true);
+    expect(mocks.startRoute).not.toHaveBeenCalled();
 
     await act(async () => clickByText(container, '[role="dialog"] button', 'Ativar localização'));
-    await flushUntil(() => mocks.claimDelivery.mock.calls.length === 1);
+    await flushUntil(() => mocks.startRoute.mock.calls.length === 1);
     expect(mocks.getCurrentPosition).toHaveBeenCalledTimes(1);
-    expect(mocks.claimDelivery).toHaveBeenCalledWith(
+    expect(mocks.startRoute).toHaveBeenCalledWith(
       81,
       expect.objectContaining({
         latitude: -3.7319,
@@ -252,8 +265,7 @@ describe('CourierWorkspace integration', () => {
         sentAt: expect.any(String),
       }),
     );
-    expect(mocks.watchPosition).toHaveBeenCalledTimes(1);
-    expect(container.textContent).toContain('Localização ativa nesta conta');
+    await flushUntil(() => mocks.watchPosition.mock.calls.length === 1);
 
     now = 6_000;
     await act(async () => watchSuccess?.(geoPosition(-3.732, -38.527)));
@@ -263,6 +275,10 @@ describe('CourierWorkspace integration', () => {
       expect.any(Function),
     );
 
+    await act(async () => clickByText(container, 'button', 'Em entrega'));
+    await flushUntil(
+      () => container.querySelector('input[placeholder="Código de 4 dígitos"]') !== null,
+    );
     const codeInput = container.querySelector<HTMLInputElement>(
       'input[placeholder="Código de 4 dígitos"]',
     );
@@ -280,9 +296,10 @@ describe('CourierWorkspace integration', () => {
     expect(mocks.listPage).toHaveBeenLastCalledWith({ limit: 10, queue: 'DELIVERED' });
   });
 
-  it('permite retirar sem GPS mesmo quando a permissão de localização é negada', async () => {
+  it('permite iniciar rota sem GPS mesmo quando a permissão de localização é negada', async () => {
     mocks.listOrders.mockResolvedValue([deliveryOrder()]);
-    mocks.claimDelivery.mockResolvedValue(deliveryOrder('SAIU_PARA_ENTREGA'));
+    mocks.claimDelivery.mockResolvedValue(assignedReadyOrder());
+    mocks.startRoute.mockResolvedValue(deliveryOrder('SAIU_PARA_ENTREGA'));
     mocks.getCurrentPosition.mockImplementation(
       (_success: PositionCallback, error: PositionErrorCallback) =>
         error({ code: 1, message: 'denied' } as GeolocationPositionError),
@@ -291,20 +308,22 @@ describe('CourierWorkspace integration', () => {
     await act(async () => root.render(<CourierWorkspace />));
     await flushUntil(() => container.textContent?.includes('Pedidos aguardando você') === true);
     await act(async () => clickByText(container, 'button', 'Para retirar'));
-    await flushUntil(() => container.textContent?.includes('Retirar e iniciar entrega') === true);
-    await act(async () => clickByText(container, 'button', 'Retirar e iniciar entrega'));
-    await flushUntil(
-      () => container.textContent?.includes('Compartilhar localização durante a entrega?') === true,
-    );
+    await flushUntil(() => container.textContent?.includes('Pegar pedido') === true);
+    await act(async () => clickByText(container, 'button', 'Pegar pedido'));
+    await flushUntil(() => mocks.claimDelivery.mock.calls.length === 1);
+    await flushUntil(() => container.textContent?.includes('Iniciar rota') === true);
+    await act(async () => clickByText(container, 'button', 'Iniciar rota'));
+    await flushUntil(() => container.textContent?.includes('Compartilhar localização?') === true);
 
     await act(async () => clickByText(container, '[role="dialog"] button', 'Ativar localização'));
     await flushUntil(() => container.textContent?.includes('A localização foi bloqueada') === true);
-    expect(mocks.claimDelivery).not.toHaveBeenCalled();
+    expect(mocks.startRoute).not.toHaveBeenCalled();
     expect(mocks.watchPosition).not.toHaveBeenCalled();
 
     await act(async () => clickByText(container, 'button', 'Continuar sem localização'));
-    await flushUntil(() => mocks.claimDelivery.mock.calls.length === 1);
-    expect(mocks.claimDelivery).toHaveBeenCalledWith(81, undefined);
+    await flushUntil(() => mocks.startRoute.mock.calls.length === 1);
+    expect(mocks.startRoute).toHaveBeenCalledWith(81, undefined);
+    expect(mocks.claimDelivery).toHaveBeenCalledTimes(1);
     expect(container.textContent).toContain('iniciada sem compartilhamento de localização');
   });
 
@@ -316,7 +335,7 @@ describe('CourierWorkspace integration', () => {
     await flushUntil(() => container.textContent?.includes('Confira a conexão') === true);
     expect(container.textContent).toContain('Lista de retiradas indisponível');
     expect(container.textContent).not.toContain('Tudo certo por aqui');
-    expect(container.textContent).not.toContain('Nenhum pedido aguardando retirada.');
+    expect(container.textContent).not.toContain('Nenhum pedido aguardando retirada ou início de rota.');
     await act(async () => clickByText(container, 'button', 'Tentar novamente'));
     await flushUntil(() => mocks.listOrders.mock.calls.length === 2);
     expect(container.textContent).not.toContain('Confira a conexão');
@@ -338,7 +357,7 @@ describe('CourierWorkspace integration', () => {
     expect(container.querySelector('[aria-busy="true"]')?.textContent).toContain('—');
     await act(async () => complete([]));
     expect(container.textContent).toContain('Pedidos atualizados às');
-    expect(container.textContent).toContain('Nenhum pedido aguardando retirada.');
+    expect(container.textContent).toContain('Nenhum pedido aguardando retirada ou início de rota.');
     expect(container.textContent).not.toContain('Carregando retiradas...');
   });
 
@@ -351,7 +370,7 @@ describe('CourierWorkspace integration', () => {
     expect(container.textContent).toContain('Atualização periódica');
     await act(async () => mocks.listeners.get('connect')?.());
     await flushUntil(() => mocks.listOrders.mock.calls.length === 2);
-    expect(container.textContent).toContain('Nenhum pedido aguardando retirada.');
+    expect(container.textContent).toContain('Nenhum pedido aguardando retirada ou início de rota.');
     expect(container.textContent).not.toContain('Pedido #81');
     expect(mocks.getFinance).toHaveBeenCalledTimes(financeRequests);
     expect(mocks.watchPosition).not.toHaveBeenCalled();
@@ -387,7 +406,7 @@ describe('CourierWorkspace integration', () => {
           earnings &&
           Boolean(priority.compareDocumentPosition(earnings) & Node.DOCUMENT_POSITION_FOLLOWING),
       ).toBe(true);
-      await act(async () => clickByText(priority!, 'button', 'Continuar entrega #81'));
+      await act(async () => clickByText(priority!, 'button', 'Ver entrega e finalizar'));
       await flushUntil(
         () => container.querySelector('a[aria-label="Ligar para o cliente do pedido 81"]') !== null,
       );
@@ -402,6 +421,7 @@ describe('CourierWorkspace integration', () => {
       ).toBe('false');
       expect(container.textContent).not.toContain('Pedido #82');
       expect(mocks.claimDelivery).not.toHaveBeenCalled();
+      expect(mocks.startRoute).not.toHaveBeenCalled();
       expect(mocks.updateStatus).not.toHaveBeenCalled();
       const deliver = [...container.querySelectorAll<HTMLButtonElement>('button')].find((button) =>
         button.textContent?.includes('Marcar como Entregue'),

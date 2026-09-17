@@ -4,6 +4,7 @@ export type CourierOrder = {
   status?: string;
   createdAt?: string;
   deliveredAt?: string;
+  assignedCourierId?: number | null;
   items?: unknown[];
   [key: string]: unknown;
 };
@@ -37,6 +38,11 @@ export function getNormalizedOrderStatus(order: CourierOrder): string {
   return String(order.status || '').toUpperCase();
 }
 
+export function getAssignedCourierId(order: CourierOrder): number {
+  const assignedCourier = asRecord(order.assignedCourier);
+  return Number(order.assignedCourierId || assignedCourier?.id || 0);
+}
+
 export function isCourierDeliveryOrder(order: CourierOrder): boolean {
   return String(order.type || '').toUpperCase() === 'DELIVERY';
 }
@@ -51,11 +57,15 @@ export function isCourierVisibleOrder(order: CourierOrder): boolean {
 
 export function isCourierOrderVisibleToAccount(order: CourierOrder, accountId: number): boolean {
   if (!isCourierVisibleOrder(order) || !Number.isInteger(accountId) || accountId <= 0) return false;
-  const assignedCourier = asRecord(order.assignedCourier);
-  const assignedCourierId = Number(order.assignedCourierId || assignedCourier?.id || 0);
-  return getNormalizedOrderStatus(order) === 'PRONTO'
-    ? !assignedCourierId
-    : assignedCourierId === accountId;
+  const assignedCourierId = getAssignedCourierId(order);
+  if (getNormalizedOrderStatus(order) === 'PRONTO') {
+    return !assignedCourierId || assignedCourierId === accountId;
+  }
+  return assignedCourierId === accountId;
+}
+
+export function isCourierOrderAssignedToAccount(order: CourierOrder, accountId: number): boolean {
+  return Number.isInteger(accountId) && accountId > 0 && getAssignedCourierId(order) === accountId;
 }
 
 export function normalizeCourierOrders(value: unknown): CourierOrder[] {
@@ -71,6 +81,7 @@ export function normalizeCourierOrders(value: unknown): CourierOrder[] {
       id,
       type: String(order.type || '').toUpperCase(),
       status: String(order.status || '').toUpperCase(),
+      assignedCourierId: Number(order.assignedCourierId || 0) || null,
       items: Array.isArray(order.items) ? order.items : [],
     };
 
@@ -123,6 +134,9 @@ function createdAtMs(order: CourierOrder): number {
 }
 
 export function compareReadyForPickupOrders(a: CourierOrder, b: CourierOrder): number {
+  const aAssigned = getAssignedCourierId(a) > 0 ? 0 : 1;
+  const bAssigned = getAssignedCourierId(b) > 0 ? 0 : 1;
+  if (aAssigned !== bAssigned) return aAssigned - bAssigned;
   const byDate = createdAtMs(a) - createdAtMs(b);
   return byDate !== 0 ? byDate : Number(a.id || 0) - Number(b.id || 0);
 }

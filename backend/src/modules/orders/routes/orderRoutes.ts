@@ -3,6 +3,7 @@ import CreateOrderController from '../controllers/CreateOrderController.js';
 import { adminMiddleware } from '../../../middlewares/adminMiddleware.js';
 import UpdateOrderStatusController from '../controllers/UpdateOrderStatusController.js';
 import ClaimOrderForDeliveryController from '../controllers/ClaimOrderForDeliveryController.js';
+import StartCourierRouteController from '../controllers/StartCourierRouteController.js';
 import ClaimGuestOrdersController from '../controllers/ClaimGuestOrdersController.js';
 import GetCourierFinanceController from '../controllers/GetCourierFinanceController.js';
 import GetDeliveryTrackingController from '../controllers/GetDeliveryTrackingController.js';
@@ -104,6 +105,10 @@ router.put(
 
 router.patch('/:id/claim-delivery', authMiddleware, (req, res) => {
   ClaimOrderForDeliveryController.handle(req, res);
+});
+
+router.patch('/:id/start-route', authMiddleware, (req, res) => {
+  StartCourierRouteController.handle(req, res);
 });
 
 router.get('/:id/delivery-payment', authMiddleware, (req, res) => {

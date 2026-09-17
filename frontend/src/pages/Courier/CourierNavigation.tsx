@@ -62,6 +62,7 @@ export function CourierNavigation({
     return () => window.removeEventListener('resize', closeOnDesktop);
   }, [closeMore, moreOpen]);
   const secondaryActive = ['history', 'profile', 'help'].includes(view);
+  const activeRouteCount = routeCount > 0 ? 1 : 0;
   const go = (next: CourierView) => {
     setMoreOpen(false);
     onGo(next);
@@ -85,10 +86,10 @@ export function CourierNavigation({
           <S.Nav aria-label="Navegação do motoqueiro">
             {(
               [
-                ['overview', 'Visão geral', LayoutGrid, readyCount + routeCount],
+                ['overview', 'Visão geral', LayoutGrid, readyCount + activeRouteCount],
                 ['ready', 'Para retirar', PackageCheck, readyCount],
-                ['route', 'Em entrega', Bike, routeCount],
-                ['map', 'Minha rota', MapPinned, routeCount],
+                ['route', 'Em entrega', Bike, activeRouteCount],
+                ['map', 'Minha rota', MapPinned, activeRouteCount],
                 ['history', 'Histórico', History, deliveredCount],
                 ['profile', 'Meu perfil', User, 0],
               ] as const
@@ -142,8 +143,8 @@ export function CourierNavigation({
           [
             ['overview', 'Início', LayoutGrid, 0],
             ['ready', 'Retirar', PackageCheck, readyCount],
-            ['route', 'Entregas', Bike, routeCount],
-            ['map', 'Rota', MapPinned, 0],
+            ['route', 'Entrega', Bike, activeRouteCount],
+            ['map', 'Rota', MapPinned, activeRouteCount],
           ] as const
         ).map(([id, label, Icon, count]) => (
           <button

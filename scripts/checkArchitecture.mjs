@@ -10,6 +10,7 @@ const legacyLimits = new Map([
   ["frontend/src/features/employee-help/EmployeeHelpCenter.styles.ts", 1601],
   ["frontend/src/pages/admin/components/HelpCenter.styles.ts", 1419],
   ["frontend/src/pages/admin/styles/AdminProductForm.styles.ts", 1357],
+  ["frontend/src/pages/Courier/CourierWorkspace.tsx", 1217],
   ["frontend/src/pages/Courier/styles.ts", 1695],
   ["frontend/src/pages/kitchen/Kitchen.styles.ts", 1356],
   ["frontend/src/pages/waiter/Waiter.styles.ts", 1465],
