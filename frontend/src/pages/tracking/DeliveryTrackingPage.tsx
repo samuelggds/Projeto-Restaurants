@@ -450,7 +450,7 @@ function DeliveryTrackingContent({ id }: { id?: string }) {
                   </S.Contact>
                 ) : null}
                 <S.Privacy>
-                  O mapa usa tiles do OpenStreetMap. A localização é exibida somente para quem tem acesso a este pedido.
+                  O mapa é exibido com Google Maps. A localização é exibida somente para quem tem acesso a este pedido.
                 </S.Privacy>
               </S.DetailsPanel>
             </S.Workspace>
