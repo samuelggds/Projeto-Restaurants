@@ -441,7 +441,7 @@ function DeliveryTrackingContent({ id }: { id?: string }) {
                     ) : null}
                   </S.Destination>
                 ) : null}
-                {data.order.status === 'SAIU_PARA_ENTREGA' && data.order.assignedCourier && !isGuestTracking ? (
+                {data.order.status === 'SAIU_PARA_ENTREGA' && data.order.assignedCourier ? (
                   <CustomerTrackingChatButton orderId={data.order.id} />
                 ) : null}
                 {data.order.assignedCourier?.phone ? (
