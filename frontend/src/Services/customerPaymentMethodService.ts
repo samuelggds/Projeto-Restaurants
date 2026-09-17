@@ -33,6 +33,14 @@ export function getPaymentMethodErrorMessage(error: unknown, fallback: string) {
   const normalized = typeof message === 'string' ? message.trim() : '';
   if (!normalized || /^request failed with status code/i.test(normalized)) return fallback;
 
+  const rejectedCardToken =
+    /invalid.*card.*token|card.*token.*invalid|token.*(?:cart(?:ã|a)o|card).*(?:invalid|inválid|recusad)/i.test(
+      normalized,
+    );
+  if (rejectedCardToken) {
+    return 'O Mercado Pago não conseguiu validar este cartão. Confira os dados e tente cadastrá-lo novamente.';
+  }
+
   const restaurantConfigIssue =
     /(?:configur(?:a|ado|ação|ações)|configura(?:ç|c)ões).*(?:restaurante|loja|estabelecimento|gateway|provedor|pagbank|mercado pago|asaas)/i.test(
       normalized,
@@ -58,9 +66,10 @@ class CustomerPaymentMethodService {
     return (response.data?.paymentMethods || []) as CustomerPaymentMethod[];
   }
   async getConfig(restaurantId: number) {
-    const response = await api.get('/customer-payment-methods/config', {
-      params: { restaurantId },
-    });
+    // O perfil e o checkout precisam tokenizar com exatamente a mesma Public Key
+    // vinculada ao Access Token do restaurante. Usar a rota publica compartilhada
+    // evita que um fallback global gere um card token de outra conta do Mercado Pago.
+    const response = await api.get(`/settings/public/${restaurantId}/card-payment-config`);
     return response.data as { provider: 'PAGBANK' | 'MERCADO_PAGO' | 'ASAAS'; publicKey?: string };
   }
   async create(payload: Record<string, unknown>) {
