@@ -3,11 +3,18 @@ import styled from 'styled-components';
 export const Shell = styled.div`
   position: relative;
   width: 100%;
-  min-height: 430px;
+  height: min(68vh, 660px);
+  min-height: 520px;
   overflow: hidden;
-  border-radius: inherit;
+  border: 1px solid #d7dcd7;
+  border-radius: 8px;
   background: #e8eef0;
   isolation: isolate;
+
+  @media (max-width: 560px) {
+    height: min(64vh, 560px);
+    min-height: 430px;
+  }
 `;
 
 export const Canvas = styled.div`
