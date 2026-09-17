@@ -1,0 +1,19 @@
+paths:
+  - backend/src
+  - frontend/src
+  - print-agent/src
+
+paths-ignore:
+  - backend/src/e2e/**
+  - backend/src/**/*.test.ts
+  - backend/src/**/*.test.tsx
+  - backend/src/**/*.spec.ts
+  - backend/src/**/*.spec.tsx
+  - frontend/src/**/*.test.ts
+  - frontend/src/**/*.test.tsx
+  - frontend/src/**/*.spec.ts
+  - frontend/src/**/*.spec.tsx
+  - print-agent/src/**/*.test.ts
+  - print-agent/src/**/*.test.tsx
+  - print-agent/src/**/*.spec.ts
+  - print-agent/src/**/*.spec.tsx
