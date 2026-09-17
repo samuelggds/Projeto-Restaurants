@@ -70,7 +70,7 @@ export function CourierPickupQueue({ ready, loading, loadError, onOpenOrder }: P
           <CheckCircle2 />
           <span>
             <b>Tudo certo por aqui</b>
-            <small>Nenhum pedido aguardando retirada.</small>
+            <small>Nenhum pedido aguardando retirada ou início de rota.</small>
           </span>
         </S.CompactEmpty>
       )}
