@@ -325,7 +325,7 @@ export async function sendTenantEvolutionTextMessage(input: {
   await evolutionRequest(`/message/sendText/${encodeURIComponent(row.externalInstanceId)}`, {
     method: 'POST',
     apiKey: instanceToken(row),
-    body: { number, text },
+    body: { number, text, linkPreview: false },
   });
   return { sent: true, provider: 'evolution' } as const;
 }
