@@ -1028,7 +1028,7 @@ test('cliente acompanha somente a própria entrega, rota e destino até a conclu
     status: 'ENTREGUE',
   });
   await expect(page.getByText('Entregue', { exact: true })).toBeVisible();
-  await expect(page.getByText('Seu pedido foi entregue')).toBeVisible();
+  await expect(page.getByText('Entrega concluída', { exact: true })).toBeVisible();
   await expect(trackingMap).toHaveAttribute('data-tracking-terminal', 'true');
 
   const deliveredLatitude = await trackingMap.getAttribute('data-courier-latitude');
