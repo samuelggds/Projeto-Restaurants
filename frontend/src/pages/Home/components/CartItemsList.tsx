@@ -96,7 +96,7 @@ export function CartItemsList({ items, onIncrease, onDecrease, onContinueShoppin
           <div className="icon">
             <ShoppingBag aria-hidden="true" />
           </div>
-          <strong>Carrinho vazio</strong>
+          <strong>Sacola vazia</strong>
           <p>Adicione itens do cardápio para começar seu pedido.</p>
           {onContinueShopping && (
             <button type="button" onClick={onContinueShopping}>
