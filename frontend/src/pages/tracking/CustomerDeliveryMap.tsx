@@ -10,7 +10,6 @@ type GoogleMapsApi = {
   Marker: new (options: Record<string, unknown>) => any;
   Polyline: new (options: Record<string, unknown>) => any;
   LatLngBounds: new () => any;
-  SymbolPath: { CIRCLE: unknown };
 };
 
 declare global {
@@ -40,7 +39,7 @@ const MAP_STYLES = [
 
 function loadGoogleMaps() {
   const apiKey = String(import.meta.env.VITE_GOOGLE_MAPS_API_KEY || '').trim();
-  if (!apiKey) return Promise.reject(new Error('VITE_GOOGLE_MAPS_API_KEY não configurada.'));
+  if (!apiKey) return Promise.reject(new Error('Google Maps ainda não foi configurado neste ambiente.'));
   if (window.google?.maps) return Promise.resolve(window.google.maps);
   if (window.__gastronexaGoogleMapsPromise) return window.__gastronexaGoogleMapsPromise;
 
@@ -148,6 +147,7 @@ export default function CustomerDeliveryMap({
   const animationRef = useRef<number | null>(null);
   const previousPositionRef = useRef<{ lat: number; lng: number } | null>(null);
   const [mapError, setMapError] = useState('');
+  const [mapsReady, setMapsReady] = useState(false);
 
   const latest = points[points.length - 1];
   const remaining = useMemo(
@@ -181,6 +181,7 @@ export default function CustomerDeliveryMap({
           zIndex: 2,
         });
         setMapError('');
+        setMapsReady(true);
       })
       .catch((error) => {
         if (active) setMapError(error instanceof Error ? error.message : 'Não foi possível carregar o mapa.');
@@ -195,7 +196,7 @@ export default function CustomerDeliveryMap({
   useEffect(() => {
     const maps = mapsRef.current;
     const map = mapRef.current;
-    if (!maps || !map || !latest) return;
+    if (!mapsReady || !maps || !map || !latest) return;
 
     const target = toLatLng(latest);
     if (!bikeMarkerRef.current) {
@@ -237,12 +238,12 @@ export default function CustomerDeliveryMap({
 
     const bounds = map.getBounds?.();
     if (initializedBoundsRef.current && bounds && !bounds.contains(target)) map.panTo(target);
-  }, [courierName, latest?.latitude, latest?.longitude, latest?.heading]);
+  }, [courierName, latest?.latitude, latest?.longitude, latest?.heading, mapsReady]);
 
   useEffect(() => {
     const maps = mapsRef.current;
     const map = mapRef.current;
-    if (!maps || !map) return;
+    if (!mapsReady || !maps || !map) return;
 
     if (destination) {
       const position = toLatLng(destination);
@@ -273,7 +274,7 @@ export default function CustomerDeliveryMap({
       map.fitBounds(bounds, { top: 90, right: 52, bottom: 72, left: 52 });
       initializedBoundsRef.current = true;
     }
-  }, [destination?.latitude, destination?.longitude, latest?.latitude, latest?.longitude, remaining]);
+  }, [destination?.latitude, destination?.longitude, latest?.latitude, latest?.longitude, mapsReady, remaining]);
 
   const recenter = () => {
     const maps = mapsRef.current;
@@ -288,7 +289,7 @@ export default function CustomerDeliveryMap({
 
   const distanceLabel = Number.isFinite(distanceMeters)
     ? `${(Number(distanceMeters) / 1000).toLocaleString('pt-BR', { maximumFractionDigits: 1 })} km restantes`
-    : 'Calculando distância';
+    : 'Rota em acompanhamento';
 
   return (
     <S.Shell className="customer-google-delivery-map">
@@ -304,7 +305,7 @@ export default function CustomerDeliveryMap({
         <>
           <S.EtaCard aria-live="polite">
             <small>{isTerminal ? 'Última rota' : 'Chegada estimada'}</small>
-            <strong>{etaMinutes ? `${etaMinutes} min` : 'Calculando'}</strong>
+            <strong>{etaMinutes ? `${etaMinutes} min` : 'Em rota'}</strong>
             <span>{distanceLabel}</span>
           </S.EtaCard>
           <S.RecenterButton type="button" onClick={recenter} aria-label="Centralizar rota">
