@@ -502,7 +502,7 @@ export const CartSectionLabel = styled.p`
   font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 0.1em;
-  color: #9a9591;
+  color: #8c8781;
   margin: 0 0 8px;
 `;
 
@@ -561,24 +561,184 @@ export const DeliveryBtn = styled.button<{ $active: boolean }>`
   }
 `;
 
+export const PaymentMomentGrid = styled.div`
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin-bottom: 10px;
+
+  @media (max-width: 420px) {
+    grid-template-columns: 1fr 1fr;
+  }
+`;
+
+export const PaymentMomentCard = styled.button<{ $active: boolean }>`
+  position: relative;
+  min-height: 66px;
+  padding: 10px 34px 10px 10px;
+  border: 1px solid ${({ $active }) => ($active ? 'var(--home-primary)' : '#ddd5ce')};
+  border-radius: 11px;
+  background: ${({ $active }) =>
+    $active ? 'color-mix(in srgb, var(--home-primary) 8%, #fff)' : '#fff'};
+  color: ${({ $active }) => ($active ? 'var(--home-primary)' : '#27231f')};
+  display: grid;
+  grid-template-columns: 32px minmax(0, 1fr);
+  gap: 9px;
+  align-items: center;
+  text-align: left;
+  cursor: pointer;
+  font: inherit;
+  box-shadow: ${({ $active }) =>
+    $active ? '0 7px 18px color-mix(in srgb, var(--home-primary) 14%, transparent)' : 'none'};
+  transition:
+    border-color 0.18s ease,
+    background 0.18s ease,
+    box-shadow 0.18s ease,
+    transform 0.18s ease;
+
+  &:hover {
+    transform: translateY(-1px);
+    border-color: color-mix(in srgb, var(--home-primary) 55%, #ddd5ce);
+  }
+
+  .moment-icon {
+    width: 32px;
+    height: 32px;
+    display: grid;
+    place-items: center;
+    border-radius: 9px;
+    background: ${({ $active }) =>
+      $active ? 'color-mix(in srgb, var(--home-primary) 16%, #fff)' : '#f4f1ed'};
+    color: ${({ $active }) => ($active ? 'var(--home-primary)' : '#4e4741')};
+  }
+
+  .moment-icon.later {
+    background: ${({ $active }) =>
+      $active ? 'color-mix(in srgb, var(--home-primary) 12%, #fff)' : '#f4f1ed'};
+  }
+
+  .moment-copy {
+    min-width: 0;
+    display: grid;
+    gap: 2px;
+  }
+
+  .moment-copy b {
+    font-size: 12px;
+    line-height: 1.2;
+    color: ${({ $active }) => ($active ? 'var(--home-primary)' : '#27231f')};
+  }
+
+  .moment-copy small {
+    color: #77716b;
+    font-size: 9px;
+    line-height: 1.3;
+  }
+
+  .moment-check {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    width: 19px;
+    height: 19px;
+    border-radius: 50%;
+    border: 1px solid ${({ $active }) => ($active ? 'var(--home-primary)' : '#d3ccc5')};
+    display: grid;
+    place-items: center;
+    background: ${({ $active }) => ($active ? 'var(--home-primary)' : '#fff')};
+    color: #fff;
+  }
+`;
+
+export const PaymentMethodPanel = styled.div`
+  margin-bottom: 10px;
+  padding: 10px;
+  border: 1px solid #e6ded7;
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 6px 18px rgba(38, 31, 25, 0.04);
+
+  .payment-method-heading {
+    display: grid;
+    gap: 2px;
+    margin-bottom: 8px;
+  }
+
+  .payment-method-heading b {
+    color: #2a2622;
+    font-size: 12px;
+  }
+
+  .payment-method-heading small {
+    color: #827b74;
+    font-size: 9px;
+  }
+`;
+
 export const PaymentGrid = styled.div`
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 8px;
-  background: #fffdf9;
-
-  @media (max-width: 820px) {
-    flex: 0 0 auto;
-    height: auto;
-    max-height: 34dvh;
-    padding: 14px 16px 10px;
-  }
-  margin-bottom: 10px;
+  background: transparent;
+  margin-bottom: 0;
 
   @media (max-width: 420px) {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 `;
+
+export const PaymentCard = styled.button<{ $active: boolean; $color: string }>`
+  min-height: 78px;
+  padding: 9px;
+  border: 1px solid ${({ $active, $color }) => ($active ? $color : '#e2dbd4')};
+  border-radius: 10px;
+  background: ${({ $active, $color }) =>
+    $active ? `color-mix(in srgb, ${$color} 8%, #fff)` : '#fff'};
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 3px;
+  text-align: left;
+  cursor: pointer;
+  font: inherit;
+  transition:
+    border-color 0.18s ease,
+    background 0.18s ease,
+    transform 0.18s ease,
+    box-shadow 0.18s ease;
+
+  &:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 6px 14px rgba(40, 32, 25, 0.06);
+  }
+
+  .pm-badge {
+    width: 30px;
+    height: 30px;
+    display: grid;
+    place-items: center;
+    border-radius: 8px;
+    background: ${({ $active, $color }) =>
+      $active ? `color-mix(in srgb, ${$color} 18%, #fff)` : '#f4f1ed'};
+    color: ${({ $active, $color }) => ($active ? $color : '#332f2b')};
+    margin-bottom: 2px;
+  }
+
+  .pm-name {
+    color: #27231f;
+    font-size: 12px;
+    font-weight: 800;
+    line-height: 1.2;
+  }
+
+  .pm-desc {
+    color: #7c756f;
+    font-size: 9px;
+    line-height: 1.3;
+  }
+`;
+
 export const SavedPaymentChooser = styled.div`
   display: grid;
   gap: 8px;
@@ -760,207 +920,8 @@ export const CardAccountNotice = styled.div`
     .notice-actions {
       grid-template-columns: 1fr;
     }
-  }
-`;
-
-export const GuestCheckoutForm = styled.div`
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 10px;
-  margin-bottom: 12px;
-  padding: 14px;
-  border: 1px solid #e7ddd2;
-  border-radius: 14px;
-  background: #fcfaf7;
-  animation: guestCheckoutIn 0.25s ease-out both;
-  @keyframes guestCheckoutIn {
-    from {
-      opacity: 0;
-      transform: translateY(4px);
+    button.guest {
+      grid-column: auto;
     }
-    to {
-      opacity: 1;
-      transform: translateY(0);
-    }
-  }
-  .guest-heading,
-  .full {
-    grid-column: 1 / -1;
-  }
-  .guest-heading {
-    display: flex;
-    flex-direction: column;
-    gap: 3px;
-  }
-  .guest-heading b {
-    font-size: 13px;
-    color: #2d2925;
-  }
-  .guest-heading span,
-  small {
-    color: #756e67;
-    font-size: 10px;
-    line-height: 1.4;
-  }
-  label {
-    display: grid;
-    gap: 5px;
-    min-width: 0;
-  }
-  label > span {
-    color: #514b44;
-    font-size: 11px;
-    font-weight: 750;
-  }
-  input {
-    width: 100%;
-    height: 40px;
-    padding: 0 11px;
-    border: 1px solid #dcd2c7;
-    border-radius: 10px;
-    background: #fff;
-    color: #241f1b;
-    font: inherit;
-    font-size: 12px;
-    outline: none;
-    transition:
-      border-color 0.2s,
-      box-shadow 0.2s;
-  }
-  input:focus {
-    border-color: var(--primary, #d65a38);
-    box-shadow: 0 0 0 3px rgba(214, 90, 56, 0.1);
-  }
-  @media (max-width: 390px) {
-    grid-template-columns: 1fr;
-    .guest-heading,
-    .full {
-      grid-column: 1;
-    }
-  }
-`;
-
-export const AddressForm = styled.div`
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 110px;
-  gap: 8px;
-  padding: 12px;
-  margin-bottom: 12px;
-  border: 1px solid #e9dfd5;
-  border-radius: 14px;
-  background: #fcfaf7;
-
-  .cep-field,
-  .full {
-    grid-column: 1 / -1;
-  }
-  .street {
-    grid-column: 1;
-  }
-
-  @media (max-width: 420px) {
-    grid-template-columns: 1fr;
-    .cep-field,
-    .full,
-    .street {
-      grid-column: 1;
-    }
-  }
-`;
-
-export const AddressField = styled.label`
-  display: grid;
-  gap: 5px;
-  min-width: 0;
-
-  > span {
-    color: #514b44;
-    font-size: 11px;
-    font-weight: 750;
-  }
-  i {
-    color: #8b837a;
-    font-style: normal;
-    font-weight: 500;
-  }
-  input,
-  select {
-    width: 100%;
-    height: 39px;
-    padding: 0 12px;
-    border: 1px solid #dcd2c7;
-    border-radius: 10px;
-    background: #fff;
-    color: #191816;
-    font: inherit;
-    font-size: 13px;
-    outline: none;
-    transition:
-      border-color 0.2s,
-      box-shadow 0.2s;
-  }
-  input:focus,
-  select:focus {
-    border-color: var(--primary, #d64d08);
-    box-shadow: 0 0 0 3px rgba(214, 77, 8, 0.1);
-  }
-  small {
-    font-size: 10px;
-  }
-  small.loading {
-    color: #7c5b20;
-  }
-  small.success {
-    color: #18773a;
-  }
-  small.error {
-    color: #b42318;
-  }
-`;
-
-export const PaymentCard = styled.button<{ $active: boolean; $color: string }>`
-  padding: 13px 11px;
-  border-radius: 12px;
-  border: 2px solid ${({ $active, $color }) => ($active ? $color : '#e4ddd5')};
-  background: ${({ $active, $color }) => ($active ? `${$color}12` : '#fff')};
-  cursor: pointer;
-  font-family: inherit;
-  text-align: left;
-  transition:
-    background-color 0.2s,
-    border-color 0.2s,
-    box-shadow 0.2s,
-    transform 0.2s;
-
-  &:hover {
-    border-color: ${({ $color }) => $color};
-    box-shadow: 0 4px 14px ${({ $color }) => $color}22;
-  }
-
-  .pm-badge {
-    width: 36px;
-    height: 36px;
-    border-radius: 10px;
-    background: ${({ $active, $color }) => ($active ? $color : '#f0ece6')};
-    display: grid;
-    place-items: center;
-    margin-bottom: 8px;
-    font-size: 18px;
-    transition: background 0.2s;
-  }
-
-  .pm-name {
-    display: block;
-    font-weight: 800;
-    font-size: 13px;
-    color: #191816;
-    margin-bottom: 2px;
-  }
-
-  .pm-desc {
-    display: block;
-    font-size: 10px;
-    color: #6f6a63;
-    line-height: 1.3;
   }
 `;
