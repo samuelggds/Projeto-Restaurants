@@ -122,11 +122,11 @@ print_diagnostics() {
 }
 trap print_diagnostics ERR
 
-echo '[1/7] Validando modelo de deploy por digest...'
+echo '[1/8] Validando modelo de deploy por digest...'
 "${compose[@]}" config --quiet
 
 phase='backup'
-echo '[2/7] Criando backup pre-deploy quando o PostgreSQL ja estiver em execucao...'
+echo '[2/8] Criando backup pre-deploy quando o PostgreSQL ja estiver em execucao...'
 mkdir -p backups/predeploy
 if "${compose[@]}" ps --status running --services | grep -qx 'db'; then
   backup_file="backups/predeploy/postgres-$(date -u +%Y%m%dT%H%M%SZ)-${DEPLOY_SHA:0:12}.sql.gz"
@@ -137,15 +137,28 @@ else
   echo 'Banco ainda nao esta em execucao; backup pre-deploy nao se aplica.'
 fi
 
+phase='disk-cleanup'
+echo '[3/8] Liberando espaco Docker nao utilizado antes de baixar a nova release...'
+echo 'Uso de disco Docker antes da limpeza:'
+docker system df || true
+# Nao remove volumes e nao remove imagens referenciadas por containers em execucao.
+# Containers parados sao descartaveis no host de producao; removelos permite que imagens antigas
+# deixem de ficar presas e sejam coletadas antes do pull da nova release.
+docker container prune -f >/dev/null 2>&1 || true
+docker image prune -af >/dev/null 2>&1 || true
+docker builder prune -af >/dev/null 2>&1 || true
+echo 'Uso de disco Docker depois da limpeza:'
+docker system df || true
+
 phase='image-pull'
-echo '[3/7] Baixando exatamente os digests aprovados; compilacao no servidor esta proibida...'
+echo '[4/8] Baixando exatamente os digests aprovados; compilacao no servidor esta proibida...'
 "${compose[@]}" pull migrate backend worker frontend
 if [[ "$evolution_enabled" == true ]]; then
   "${compose[@]}" pull evolution-api evolution-db evolution-redis
 fi
 
 phase='migration'
-echo '[4/7] Aplicando migrations antes de alterar processos da aplicacao...'
+echo '[5/8] Aplicando migrations antes de alterar processos da aplicacao...'
 migration_log="$(mktemp)"
 trap - ERR
 set +e
@@ -169,7 +182,7 @@ fi
 rm -f "$migration_log"
 
 phase='application-update'
-echo '[5/7] Atualizando aplicacao sem build local...'
+echo '[6/8] Atualizando aplicacao sem build local...'
 if [[ "$evolution_enabled" == true ]]; then
   "${compose[@]}" up -d --no-build evolution-db evolution-redis evolution-api
 fi
@@ -179,7 +192,7 @@ fi
 "${compose[@]}" up -d --no-build --no-deps --force-recreate gateway
 
 phase='readiness'
-echo '[6/7] Aguardando readiness da nova versao...'
+echo '[7/8] Aguardando readiness da nova versao...'
 backend_ready=false
 frontend_ready=false
 for _ in $(seq 1 "$READINESS_ATTEMPTS"); do
@@ -211,7 +224,7 @@ if [[ "$evolution_enabled" == true ]]; then
 fi
 
 phase='commit-release'
-echo '[7/7] Registrando release imutavel implantada...'
+echo '[8/8] Registrando release imutavel implantada...'
 cat > "$RELEASE_STATE.tmp" <<EOF
 GASTRONEXA_RELEASE_SHA=$DEPLOY_SHA
 GASTRONEXA_BACKEND_IMAGE=$BACKEND_IMAGE
