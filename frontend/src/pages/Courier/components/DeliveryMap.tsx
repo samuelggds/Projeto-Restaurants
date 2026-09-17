@@ -3,12 +3,14 @@ import { divIcon } from 'leaflet';
 import { Bike, Navigation } from 'lucide-react';
 import { MapContainer, Marker, Polyline, Popup, TileLayer, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
+import CustomerDeliveryMap from '../../tracking/CustomerDeliveryMap';
 import * as S from './DeliveryMap.styles';
 
 export type RoutePoint = {
   latitude: number;
   longitude: number;
   recordedAt?: string;
+  heading?: number | null;
   speed?: number | null;
 };
 
@@ -134,6 +136,21 @@ export default function DeliveryMap({
   statusDetail?: string;
   tilesEnabled?: boolean;
 }) {
+  const customerTrackingRoute =
+    typeof window !== 'undefined' && /^\/orders\/\d+\/tracking\/?$/u.test(window.location.pathname);
+
+  if (customerTrackingRoute) {
+    return (
+      <CustomerDeliveryMap
+        points={points}
+        routePath={routePath}
+        destination={destination}
+        courierName={label}
+        isTerminal={statusMessage === 'Seu pedido foi entregue' || statusMessage === 'Entrega cancelada'}
+      />
+    );
+  }
+
   const latest = points[points.length - 1] || { latitude: -23.5505, longitude: -46.6333 };
   const remainingRoute = remainingRouteFromCurrentPosition(routePath, latest);
   const plannedRoute = remainingRoute.map(
