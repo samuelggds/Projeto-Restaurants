@@ -418,7 +418,7 @@ export function PaymentOptions({
               </button>
               <button
                 type="button"
-                onClick={() => window.location.assign(buildLoginUrl(window.location))
+                onClick={() => window.location.assign(buildLoginUrl(window.location))}
               >
                 <LogIn size={16} /> Já tenho conta
               </button>
