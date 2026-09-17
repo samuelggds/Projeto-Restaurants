@@ -7,6 +7,7 @@ import GetRestaurantSettingsController from '../controllers/GetRestaurantSetting
 import UpdateRestaurantSettingsController from '../controllers/UpdateRestaurantSettingsController.js';
 import GetPublicRestaurantSettingsController from '../controllers/GetPublicRestaurantSettingsController.js';
 import GetPublicRestaurantSettingsRevisionController from '../controllers/GetPublicRestaurantSettingsRevisionController.js';
+import GetPublicCardPaymentConfigController from '../controllers/GetPublicCardPaymentConfigController.js';
 import OnboardRestaurantAsaasController from '../controllers/OnboardRestaurantAsaasController.js';
 import GetAsaasConnectionStatusController from '../controllers/GetAsaasConnectionStatusController.js';
 import GetPaymentConnectionsController from '../controllers/GetPaymentConnectionsController.js';
@@ -33,6 +34,10 @@ router.get('/public/slug/:slug/revision', publicRestaurantBillingMiddleware, (re
 
 router.get('/public/:restaurantId/revision', publicRestaurantBillingMiddleware, (req, res) =>
   GetPublicRestaurantSettingsRevisionController.handle(req, res),
+);
+
+router.get('/public/:restaurantId/card-payment-config', publicRestaurantBillingMiddleware, (req, res) =>
+  GetPublicCardPaymentConfigController.handle(req, res),
 );
 
 router.get('/public/default', publicRestaurantBillingMiddleware, (req, res) =>

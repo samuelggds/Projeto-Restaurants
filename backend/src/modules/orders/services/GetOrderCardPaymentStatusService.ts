@@ -4,6 +4,8 @@ import orderRepository from '../repositories/OrderRepository.js';
 import reconcilePagBankCardPaymentService from './ReconcilePagBankCardPaymentService.js';
 import asaasPaymentVerificationService from './AsaasPaymentVerificationService.js';
 import finalizeOrderCardPaymentService from './FinalizeOrderCardPaymentService.js';
+import { getMercadoPagoOrderApi } from '../../payments/providers/mercadoPagoClient.js';
+import { matchesOrderPaymentEvidence } from '../utils/paymentEvidence.js';
 
 const publicOrderIdSchema = z.string().uuid();
 const notFoundMessage = 'Pagamento com cartão não encontrado.';
@@ -53,6 +55,42 @@ class GetOrderCardPaymentStatusService {
     }
 
     const sessionId = String(order.cardCheckoutSessionId || '');
+
+    if (
+      !order.paid &&
+      order.status !== OrderStatus.CANCELADO &&
+      sessionId.startsWith('mp_order:')
+    ) {
+      try {
+        const providerOrderId = sessionId.slice('mp_order:'.length);
+        const remote = await (await getMercadoPagoOrderApi(order.restaurantId)).get(providerOrderId);
+        const reference = String(remote.external_reference || '').trim();
+        const validReference = new Set([
+          `ordercard:${order.id}:${order.restaurantId}`,
+          `ordercard-${order.id}-${order.restaurantId}`,
+          `ordercard_${order.id}_${order.restaurantId}`,
+        ]).has(reference);
+        if (
+          String(remote.status || '').toLowerCase() === 'processed' &&
+          validReference &&
+          matchesOrderPaymentEvidence({
+            expectedAmount: order.total,
+            providerAmount: remote.total_paid_amount ?? remote.total_amount,
+            providerCurrency: remote.currency || 'BRL',
+          })
+        ) {
+          const confirmed = await finalizeOrderCardPaymentService.execute({
+            orderId: order.id,
+            restaurantId: order.restaurantId,
+            checkoutSessionId: sessionId,
+          });
+          if (confirmed) order = { ...order, paid: confirmed.paid, status: confirmed.status };
+        }
+      } catch {
+        /* Falha de consulta mantém o estado pendente; o webhook também concilia. */
+      }
+    }
+
     if (
       !order.paid &&
       order.status !== OrderStatus.CANCELADO &&

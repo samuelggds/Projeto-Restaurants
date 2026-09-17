@@ -1,6 +1,7 @@
 import prisma from '../../../config/prisma.js';
 import { realtimePublisher as io } from '../../../realtime/realtimePublisher.js';
 import { notifyRestaurantOrderIssueReported } from '../../../services/customerNotifier.js';
+import cancelOrderService from './CancelOrderService.js';
 import {
   addOrderIssueMessage,
   ensureOrderIssueThread,
@@ -34,6 +35,14 @@ type Requester = {
   role?: string | null;
   guestPublicId?: string | null;
 };
+
+type CancellationOutcome = {
+  state: 'CANCELLED' | 'REQUESTED';
+  message: string;
+  refundStatus?: string | null;
+};
+
+const CANCELLATION_REQUEST_PREFIX = /^cancelamento\s*[—–-]\s*/iu;
 
 class ReportOrderIssueService {
   async execute(orderId: number | string, requester: Requester, issueMessage: string) {
@@ -155,7 +164,7 @@ class ReportOrderIssueService {
       itemsSummary: orderItemsSummary,
     });
 
-    const { thread, chatMessage } = await addOrderIssueMessage({
+    const { chatMessage } = await addOrderIssueMessage({
       orderId: order.id,
       restaurantId: order.restaurantId,
       senderType: 'CLIENT',
@@ -163,13 +172,63 @@ class ReportOrderIssueService {
       message: normalizedIssueMessage,
     });
 
-    const threadPayload = toOrderIssueThreadPayload(thread);
+    const isCancellationRequest = CANCELLATION_REQUEST_PREFIX.test(normalizedIssueMessage);
+    let cancellation: CancellationOutcome | null = null;
+    let effectiveOrderStatus = String(order.status || '');
+
+    if (isCancellationRequest) {
+      if (!isGuest && effectiveOrderStatus === 'PENDENTE') {
+        try {
+          const cancelledOrder = await cancelOrderService.execute(
+            order.id,
+            normalizedUserId,
+            order.restaurantId,
+          );
+          effectiveOrderStatus = String(cancelledOrder?.status || effectiveOrderStatus);
+          cancellation = {
+            state: 'CANCELLED',
+            message:
+              'Seu motivo foi enviado ao restaurante e o pedido foi cancelado. Se houver pagamento online confirmado, acompanhe o status do estorno no pedido.',
+            refundStatus: String(cancelledOrder?.refundStatus || '') || null,
+          };
+        } catch (error) {
+          console.warn('[ORDER_SUPPORT_AUTO_CANCEL_NOT_COMPLETED]', {
+            orderId: order.id,
+            restaurantId: order.restaurantId,
+            error: error instanceof Error ? error.message : String(error),
+          });
+          cancellation = {
+            state: 'REQUESTED',
+            message:
+              'Seu pedido não pôde ser cancelado automaticamente. A solicitação e o motivo foram enviados ao restaurante para análise.',
+          };
+        }
+      } else {
+        cancellation = {
+          state: 'REQUESTED',
+          message: isGuest
+            ? 'Sua solicitação de cancelamento e o motivo foram enviados ao restaurante para análise.'
+            : 'Como o pedido já avançou, sua solicitação de cancelamento e o motivo foram enviados ao restaurante para análise.',
+        };
+      }
+
+      await addOrderIssueMessage({
+        orderId: order.id,
+        restaurantId: order.restaurantId,
+        senderType: 'ADMIN',
+        senderName: 'Sistema',
+        message: cancellation.message,
+      });
+    }
+
+    const finalThread = await getOrderIssueThread(order.id, order.restaurantId);
+    const threadPayload = toOrderIssueThreadPayload(finalThread);
     if (!threadPayload) throw new Error('Não foi possível atualizar a conversa do pedido.');
 
     const payload = {
       orderId: order.id,
       userId: order.userId,
-      status: order.status,
+      status: effectiveOrderStatus,
       type: order.type,
       paymentMethod: order.paymentMethod,
       total: Number(order.total || 0),
@@ -184,6 +243,7 @@ class ReportOrderIssueService {
       isResolved: threadPayload.isResolved,
       messages: threadPayload.messages,
       guest: isGuest,
+      cancellation,
     };
 
     notifyRestaurantOrderIssueReported({
@@ -221,8 +281,15 @@ class ReportOrderIssueService {
 
     return {
       ...threadPayload,
+      status: effectiveOrderStatus,
+      cancellation,
       lastMessage: chatMessage,
-      info: 'Mensagem enviada ao restaurante com sucesso.',
+      info:
+        cancellation?.state === 'CANCELLED'
+          ? 'Pedido cancelado e motivo registrado no atendimento.'
+          : cancellation?.state === 'REQUESTED'
+            ? 'Solicitação de cancelamento enviada ao restaurante.'
+            : 'Mensagem enviada ao restaurante com sucesso.',
     };
   }
 }

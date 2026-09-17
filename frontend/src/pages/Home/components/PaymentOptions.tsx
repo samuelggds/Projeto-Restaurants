@@ -10,19 +10,24 @@ import {
   WalletCards,
   X,
 } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import customerPaymentMethodService, {
   type CustomerPaymentMethod,
 } from '../../../Services/customerPaymentMethodService';
 import { type CheckoutPaymentMethod } from '../domain/checkout';
 import { shouldShowSavedCardAccountNotice } from '../domain/paymentAccountNotice';
 import { getAvailablePaymentMethods } from '../domain/publicSettings';
+import { setCardPaymentPreparer } from '../domain/cardPaymentPreparation';
 import * as S from '../../Home/Home.styles';
 import {
   buildAuthEntryUrlForLocation,
   buildLoginUrl,
 } from '../../../shared/navigation/authNavigation';
 import { WhatsAppOrderNotifications } from './WhatsAppOrderNotifications';
+import {
+  OnlineCardPaymentForm,
+  type CardPaymentPreparer,
+} from './OnlineCardPaymentForm';
 
 type Props = {
   paymentMethod: CheckoutPaymentMethod;
@@ -33,6 +38,7 @@ type Props = {
   onChange: (method: CheckoutPaymentMethod) => void;
   restaurantId?: number | null;
   loggedIn?: boolean;
+  onCardPreparerChange?: (preparer: CardPaymentPreparer | null) => void;
 };
 
 type Option = {
@@ -54,7 +60,7 @@ const ONLINE_OPTIONS: Option[] = [
   {
     method: 'card',
     name: 'Cartão',
-    description: 'Pague agora em ambiente seguro',
+    description: 'Pague agora online com segurança',
     color: '#3b6cf6',
     icon: 'card',
   },
@@ -175,10 +181,19 @@ export function PaymentOptions({
   onChange,
   restaurantId,
   loggedIn = false,
+  onCardPreparerChange,
 }: Props) {
   const [savedCards, setSavedCards] = useState<CustomerPaymentMethod[]>([]);
+  const [savedCardsLoading, setSavedCardsLoading] = useState(false);
   const [selectedCardId, setSelectedCardId] = useState('');
   const [showCardAccountNotice, setShowCardAccountNotice] = useState(false);
+  const registerCardPreparer = useCallback(
+    (preparer: CardPaymentPreparer | null) => {
+      setCardPaymentPreparer(preparer);
+      onCardPreparerChange?.(preparer);
+    },
+    [onCardPreparerChange],
+  );
 
   const handlePaymentChange = (method: CheckoutPaymentMethod) => {
     onChange(method);
@@ -188,6 +203,9 @@ export function PaymentOptions({
   useEffect(() => {
     if (!loggedIn || !restaurantId || paymentMethod !== 'card') return;
     let active = true;
+    Promise.resolve().then(() => {
+      if (active) setSavedCardsLoading(true);
+    });
     customerPaymentMethodService
       .list(restaurantId)
       .then((cards) => {
@@ -198,16 +216,30 @@ export function PaymentOptions({
           cards.find((card) => card.publicId === localStorage.getItem(key)) ||
           cards.find((card) => card.isDefault) ||
           cards[0];
-        if (preferred) {
-          setSelectedCardId(preferred.publicId);
-          localStorage.setItem(key, preferred.publicId);
+        setSelectedCardId(preferred?.publicId || '');
+        if (preferred) localStorage.setItem(key, preferred.publicId);
+      })
+      .catch(() => {
+        if (active) {
+          setSavedCards([]);
+          setSelectedCardId('');
         }
       })
-      .catch(() => setSavedCards([]));
+      .finally(() => active && setSavedCardsLoading(false));
     return () => {
       active = false;
     };
   }, [loggedIn, paymentMethod, restaurantId]);
+
+  useEffect(() => {
+    if (paymentMethod !== 'card') registerCardPreparer(null);
+    return () => registerCardPreparer(null);
+  }, [paymentMethod, registerCardPreparer]);
+
+  const selectedSavedCard = useMemo(
+    () => savedCards.find((card) => card.publicId === selectedCardId) || savedCards[0] || null,
+    [savedCards, selectedCardId],
+  );
 
   const onlineOptions = filterOptions(ONLINE_OPTIONS, allowPix, allowCard);
   const deliveryOptions = filterOptions(DELIVERY_OPTIONS, allowPix, allowCard);
@@ -242,16 +274,17 @@ export function PaymentOptions({
         selected={paymentMethod}
         onChange={handlePaymentChange}
       />
+
       {showCardAccountNotice && (
         <S.CardAccountNotice role="status" aria-live="polite">
           <div className="notice-icon">
             <ShieldCheck size={21} />
           </div>
           <div className="notice-copy">
-            <b>Você pode pagar sem criar conta</b>
+            <b>Você pode pagar como visitante</b>
             <span>
-              Como visitante, informe o cartão no ambiente seguro do provedor a cada compra. Crie
-              uma conta somente se quiser salvar e reutilizar o cartão.
+              Preencha os dados do cartão abaixo. Eles serão protegidos pelo provedor e não serão
+              salvos no GastroNexa.
             </span>
           </div>
           <div className="notice-actions">
@@ -276,51 +309,102 @@ export function PaymentOptions({
           </div>
         </S.CardAccountNotice>
       )}
-      {loggedIn && paymentMethod === 'card' && restaurantId && (
-        <S.SavedPaymentChooser>
-          {savedCards.map((card) => (
-            <button
-              key={card.publicId}
-              type="button"
-              className={selectedCardId === card.publicId ? 'active' : ''}
-              onClick={() => {
-                setSelectedCardId(card.publicId);
-                localStorage.setItem(
-                  `selectedCustomerPaymentMethodId:${restaurantId}`,
-                  card.publicId,
-                );
-              }}
-            >
-              <CreditCard size={18} />
-              <span>
-                <b>
-                  {card.brand.toUpperCase()} •••• {card.last4}
-                </b>
-                <small>
-                  Validade {String(card.expMonth).padStart(2, '0')}/{String(card.expYear).slice(-2)}
-                </small>
-                {card.provider === 'MERCADO_PAGO' && (
-                  <small>O Mercado Pago confirmará o CVV no ambiente seguro.</small>
-                )}
-              </span>
-            </button>
-          ))}
-          <a
-            className="add"
-            href="/profile?view=paymentMethods"
-            aria-label="Cadastrar cartão em Meus cartões"
-          >
-            <span className="add-icon">
-              <WalletCards size={19} />
-            </span>
-            <span className="add-copy">
-              <b>Cadastrar novo cartão</b>
-              <small>Abra “Meus cartões” no seu perfil</small>
-            </span>
-            <ChevronRight className="add-arrow" size={18} />
-          </a>
-        </S.SavedPaymentChooser>
+
+      {paymentMethod === 'card' && restaurantId && !loggedIn && (
+        <OnlineCardPaymentForm restaurantId={restaurantId} onPreparerChange={registerCardPreparer} />
       )}
+
+      {loggedIn && paymentMethod === 'card' && restaurantId && (
+        <>
+          {savedCardsLoading ? (
+            <S.CheckoutUnavailable role="status">Carregando seus cartões salvos…</S.CheckoutUnavailable>
+          ) : savedCards.length === 0 ? (
+            <>
+              <S.CardAccountNotice role="status" aria-live="polite">
+                <div className="notice-icon">
+                  <WalletCards size={21} />
+                </div>
+                <div className="notice-copy">
+                  <b>Cadastre um cartão para pagar online</b>
+                  <span>
+                    Sua conta ainda não tem cartão salvo. Cadastre uma vez no perfil e, nas próximas
+                    compras, basta selecionar o cartão para pagar.
+                  </span>
+                </div>
+              </S.CardAccountNotice>
+              <S.SavedPaymentChooser>
+                <a
+                  className="add"
+                  href="/profile?view=paymentMethods"
+                  aria-label="Cadastrar cartão em Meus cartões"
+                >
+                  <span className="add-icon">
+                    <WalletCards size={19} />
+                  </span>
+                  <span className="add-copy">
+                    <b>Cadastrar novo cartão</b>
+                    <small>Abra “Meus cartões” no seu perfil</small>
+                  </span>
+                  <ChevronRight className="add-arrow" size={18} />
+                </a>
+              </S.SavedPaymentChooser>
+            </>
+          ) : (
+            <S.SavedPaymentChooser>
+              {savedCards.map((card) => (
+                <button
+                  key={card.publicId}
+                  type="button"
+                  className={selectedCardId === card.publicId ? 'active' : ''}
+                  onClick={() => {
+                    setSelectedCardId(card.publicId);
+                    localStorage.setItem(
+                      `selectedCustomerPaymentMethodId:${restaurantId}`,
+                      card.publicId,
+                    );
+                  }}
+                >
+                  <CreditCard size={18} />
+                  <span>
+                    <b>
+                      {card.brand.toUpperCase()} •••• {card.last4}
+                    </b>
+                    <small>
+                      Validade {String(card.expMonth).padStart(2, '0')}/{String(card.expYear).slice(-2)}
+                    </small>
+                    {card.provider === 'MERCADO_PAGO' && (
+                      <small>Por segurança, informe apenas o CVV abaixo antes de pagar.</small>
+                    )}
+                  </span>
+                </button>
+              ))}
+              <a
+                className="add"
+                href="/profile?view=paymentMethods"
+                aria-label="Cadastrar cartão em Meus cartões"
+              >
+                <span className="add-icon">
+                  <WalletCards size={19} />
+                </span>
+                <span className="add-copy">
+                  <b>Cadastrar outro cartão</b>
+                  <small>Abra “Meus cartões” no seu perfil</small>
+                </span>
+                <ChevronRight className="add-arrow" size={18} />
+              </a>
+            </S.SavedPaymentChooser>
+          )}
+
+          {selectedSavedCard && (
+            <OnlineCardPaymentForm
+              restaurantId={restaurantId}
+              savedCard={selectedSavedCard}
+              onPreparerChange={registerCardPreparer}
+            />
+          )}
+        </>
+      )}
+
       {allowPayAtPickup && (
         <>
           <S.CartSectionLabel>Pagar no restaurante</S.CartSectionLabel>

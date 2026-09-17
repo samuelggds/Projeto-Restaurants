@@ -2,6 +2,7 @@ import { act, useEffect } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import ordersService from '../../../Services/ordersService';
+import { setCardPaymentPreparer } from '../domain/cardPaymentPreparation';
 import { getCheckoutErrorMessage, useCheckoutPayments } from './useCheckoutPayments';
 
 vi.mock('../../../Services/ordersService', () => ({
@@ -58,6 +59,7 @@ describe('useCheckoutPayments confirmação canônica do Pix', () => {
     onPaymentConfirmed.mockReset();
     vi.mocked(ordersService.getPixPaymentStatus).mockReset();
     vi.mocked(ordersService.confirmPixPayment).mockReset();
+    setCardPaymentPreparer(async () => ({ cardToken: 'test-card-token' }));
     checkoutPayments = { current: null };
     container = document.createElement('div');
     document.body.appendChild(container);
@@ -78,6 +80,7 @@ describe('useCheckoutPayments confirmação canônica do Pix', () => {
   });
 
   afterEach(async () => {
+    setCardPaymentPreparer(null);
     await act(async () => root.unmount());
     container.remove();
     vi.useRealTimers();
