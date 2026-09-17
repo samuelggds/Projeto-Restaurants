@@ -779,9 +779,9 @@ test('motoqueiro retira, compartilha a rota do próprio pedido e encerra ao entr
     })
     .toBe(true);
   await expect(page.locator('.delivery-map-shell')).toBeVisible();
-  await expect(page.locator('.delivery-courier-marker')).toBeVisible();
-  await expect(page.locator('.delivery-destination-marker')).toBeVisible();
-  await expect(page.locator('.delivery-planned-route')).toBeVisible();
+  const wazeLink = page.getByRole('link', { name: 'Abrir no Waze' });
+  await expect(wazeLink).toBeVisible();
+  await expect(wazeLink).toHaveAttribute('href', /https:\/\/waze\.com\/ul\?.*navigate=yes/);
 
   await openCourierView(page, 'Em entrega');
   const deliveryOrder = orderCard(page, 601);
@@ -983,18 +983,17 @@ test('cliente acompanha somente a própria entrega, rota e destino até a conclu
     'href',
     `tel:${courierUser.phone}`,
   );
-  await expect(page.locator('.delivery-map-shell')).toBeVisible();
-  await expect(page.locator('.delivery-courier-marker')).toBeVisible();
-  await expect(page.locator('.delivery-destination-marker')).toBeVisible();
-  await expect(page.locator('.delivery-planned-route')).toBeVisible();
+  const trackingMap = page.locator('.customer-google-delivery-map');
+  await expect(trackingMap).toBeVisible();
+  await expect(trackingMap).toHaveAttribute('data-courier-latitude', String(departure.latitude));
+  await expect(trackingMap).toHaveAttribute('data-courier-longitude', String(departure.longitude));
   await expect(page.getByText(/Estimativa de rota: cerca de 12 min/)).toBeVisible();
   await expect
     .poll(() => page.evaluate(() => document.documentElement.scrollWidth))
     .toBeLessThanOrEqual(321);
 
   await expect.poll(() => Boolean(state.sendSocketEvent)).toBe(true);
-  const courierMarker = page.locator('.delivery-courier-marker');
-  const initialMarkerStyle = await courierMarker.getAttribute('style');
+  const initialLatitude = await trackingMap.getAttribute('data-courier-latitude');
 
   state.sendSocketEvent?.('order:delivery-location', {
     orderId: 602,
@@ -1009,7 +1008,7 @@ test('cliente acompanha somente a própria entrega, rota e destino até a conclu
     recordedAt: new Date().toISOString(),
   });
   await page.waitForTimeout(250);
-  expect(await courierMarker.getAttribute('style')).toBe(initialMarkerStyle);
+  expect(await trackingMap.getAttribute('data-courier-latitude')).toBe(initialLatitude);
 
   state.sendSocketEvent?.('order:delivery-location', {
     orderId: 601,
@@ -1017,7 +1016,9 @@ test('cliente acompanha somente a própria entrega, rota e destino até a conclu
     ...midpoint,
     recordedAt: new Date().toISOString(),
   });
-  await expect.poll(() => courierMarker.getAttribute('style')).not.toBe(initialMarkerStyle);
+  await expect
+    .poll(() => trackingMap.getAttribute('data-courier-latitude'))
+    .toBe(String(midpoint.latitude));
   await expect(page.getByText('Seu pedido está a caminho')).toBeVisible();
 
   tracking.markDelivered();
@@ -1028,9 +1029,9 @@ test('cliente acompanha somente a própria entrega, rota e destino até a conclu
   });
   await expect(page.getByText('Entregue', { exact: true })).toBeVisible();
   await expect(page.getByText('Seu pedido foi entregue')).toBeVisible();
-  await expect(page.locator('.delivery-planned-route')).toHaveCount(0);
+  await expect(trackingMap).toHaveAttribute('data-tracking-terminal', 'true');
 
-  const deliveredMarkerStyle = await courierMarker.getAttribute('style');
+  const deliveredLatitude = await trackingMap.getAttribute('data-courier-latitude');
   state.sendSocketEvent?.('order:delivery-location', {
     orderId: 601,
     restaurantId: RESTAURANT_ID,
@@ -1039,7 +1040,7 @@ test('cliente acompanha somente a própria entrega, rota e destino até a conclu
     recordedAt: new Date().toISOString(),
   });
   await page.waitForTimeout(250);
-  expect(await courierMarker.getAttribute('style')).toBe(deliveredMarkerStyle);
+  expect(await trackingMap.getAttribute('data-courier-latitude')).toBe(deliveredLatitude);
 
   expect(state.socketAuthTokens).toContain(CUSTOMER_TOKEN);
   expect(state.rejectedTenantRequests).toBe(0);
