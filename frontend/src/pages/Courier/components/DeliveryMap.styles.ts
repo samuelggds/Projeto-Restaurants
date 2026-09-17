@@ -318,3 +318,176 @@ export const MapStatus = styled.div`
     }
   }
 `;
+
+export const WazeLauncher = styled.section`
+  min-height: 430px;
+  padding: 38px;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: start;
+  gap: 22px;
+  border: 1px solid rgba(19, 55, 66, 0.1);
+  border-radius: 18px;
+  background:
+    radial-gradient(circle at 88% 12%, rgba(51, 204, 255, 0.22), transparent 28%),
+    linear-gradient(145deg, #f7fbfc 0%, #eef7f9 52%, #e7f3f5 100%);
+  box-shadow: 0 16px 42px rgba(29, 59, 69, 0.1);
+
+  @media (max-width: 560px) {
+    min-height: 0;
+    padding: 24px 18px;
+    grid-template-columns: 1fr;
+  }
+`;
+
+export const WazeMark = styled.div`
+  width: 72px;
+  height: 72px;
+  display: grid;
+  place-items: center;
+  border: 4px solid #fff;
+  border-radius: 24px;
+  color: #0b4858;
+  background: #33ccff;
+  box-shadow: 0 14px 30px rgba(51, 204, 255, 0.28);
+  font-size: 30px;
+  font-weight: 950;
+  line-height: 1;
+`;
+
+export const WazeCopy = styled.div`
+  min-width: 0;
+  max-width: 640px;
+  display: grid;
+  gap: 12px;
+
+  > small {
+    color: #167087;
+    font-size: 10px;
+    font-weight: 900;
+    letter-spacing: 0.08em;
+  }
+
+  h3,
+  p {
+    margin: 0;
+  }
+
+  h3 {
+    color: #153944;
+    font-size: clamp(24px, 3vw, 34px);
+    line-height: 1.06;
+  }
+
+  p {
+    max-width: 560px;
+    color: #5b6f75;
+    font-size: 13px;
+    line-height: 1.6;
+  }
+`;
+
+export const WazeDestination = styled.div`
+  margin-top: 4px;
+  padding: 13px 14px;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+  border: 1px solid rgba(21, 57, 68, 0.09);
+  border-radius: 13px;
+  color: #153944;
+  background: rgba(255, 255, 255, 0.78);
+
+  svg {
+    width: 20px;
+    height: 20px;
+    color: #e45118;
+  }
+
+  span {
+    min-width: 0;
+    display: grid;
+    gap: 2px;
+  }
+
+  small {
+    color: #718187;
+    font-size: 9px;
+    font-weight: 800;
+    text-transform: uppercase;
+  }
+
+  strong {
+    overflow-wrap: anywhere;
+    font-size: 12px;
+  }
+`;
+
+export const WazeButton = styled.a`
+  width: fit-content;
+  min-height: 52px;
+  margin-top: 4px;
+  padding: 0 20px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  border-radius: 14px;
+  color: #053744;
+  background: #33ccff;
+  box-shadow: 0 12px 28px rgba(51, 204, 255, 0.28);
+  text-decoration: none;
+  font-size: 14px;
+  font-weight: 900;
+  transition: transform 160ms ease, box-shadow 160ms ease;
+
+  svg {
+    width: 18px;
+    height: 18px;
+  }
+
+  &:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 15px 32px rgba(51, 204, 255, 0.34);
+  }
+
+  &:focus-visible {
+    outline: 3px solid rgba(51, 204, 255, 0.32);
+    outline-offset: 3px;
+  }
+
+  @media (max-width: 560px) {
+    width: 100%;
+  }
+`;
+
+export const WazeUnavailable = styled.div`
+  width: fit-content;
+  padding: 11px 13px;
+  border: 1px solid #e5c873;
+  border-radius: 10px;
+  color: #76540d;
+  background: #fff8de;
+  font-size: 11px;
+  font-weight: 800;
+`;
+
+export const WazeTrackingNote = styled.div`
+  margin-top: 4px;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  color: #40656f;
+  font-size: 11px;
+  font-weight: 750;
+
+  i {
+    width: 8px;
+    height: 8px;
+    flex: 0 0 auto;
+    border-radius: 50%;
+    background: #20a561;
+    box-shadow: 0 0 0 4px rgba(32, 165, 97, 0.13);
+  }
+`;
