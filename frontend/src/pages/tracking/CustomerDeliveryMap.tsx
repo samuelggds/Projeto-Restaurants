@@ -5,18 +5,39 @@ import * as S from './CustomerDeliveryMap.styles';
 
 type Destination = CourierRoutePoint & { label?: string };
 
+type LatLng = { lat: number; lng: number };
+type MapPadding = { top: number; right: number; bottom: number; left: number };
+type GoogleLatLngBounds = {
+  extend(position: LatLng): void;
+  contains(position: LatLng): boolean;
+};
+type GoogleMapInstance = {
+  getBounds(): GoogleLatLngBounds | undefined;
+  panTo(position: LatLng): void;
+  fitBounds(bounds: GoogleLatLngBounds, padding: MapPadding): void;
+};
+type GoogleMarkerInstance = {
+  setPosition(position: LatLng): void;
+  setIcon(icon: Record<string, unknown>): void;
+};
+type GooglePolylineInstance = {
+  setPath(path: LatLng[]): void;
+};
 type GoogleMapsApi = {
-  Map: new (element: HTMLElement, options: Record<string, unknown>) => any;
-  Marker: new (options: Record<string, unknown>) => any;
-  Polyline: new (options: Record<string, unknown>) => any;
-  LatLngBounds: new () => any;
+  Map: new (element: HTMLElement, options: Record<string, unknown>) => GoogleMapInstance;
+  Marker: new (options: Record<string, unknown>) => GoogleMarkerInstance;
+  Polyline: new (options: Record<string, unknown>) => GooglePolylineInstance;
+  LatLngBounds: new () => GoogleLatLngBounds;
 };
 
 declare global {
   interface Window {
-    google?: { maps?: GoogleMapsApi };
     __gastronexaGoogleMapsPromise?: Promise<GoogleMapsApi>;
   }
+}
+
+function getLoadedGoogleMaps() {
+  return (window.google as { maps?: GoogleMapsApi } | undefined)?.maps;
 }
 
 const GOOGLE_MAPS_SCRIPT_ID = 'gastronexa-google-maps';
@@ -40,14 +61,16 @@ const MAP_STYLES = [
 function loadGoogleMaps() {
   const apiKey = String(import.meta.env.VITE_GOOGLE_MAPS_API_KEY || '').trim();
   if (!apiKey) return Promise.reject(new Error('Google Maps ainda não foi configurado neste ambiente.'));
-  if (window.google?.maps) return Promise.resolve(window.google.maps);
+  const loadedMaps = getLoadedGoogleMaps();
+  if (loadedMaps) return Promise.resolve(loadedMaps);
   if (window.__gastronexaGoogleMapsPromise) return window.__gastronexaGoogleMapsPromise;
 
   window.__gastronexaGoogleMapsPromise = new Promise<GoogleMapsApi>((resolve, reject) => {
     const existing = document.getElementById(GOOGLE_MAPS_SCRIPT_ID) as HTMLScriptElement | null;
     if (existing) {
       existing.addEventListener('load', () => {
-        if (window.google?.maps) resolve(window.google.maps);
+        const maps = getLoadedGoogleMaps();
+        if (maps) resolve(maps);
         else reject(new Error('Google Maps não ficou disponível após o carregamento.'));
       });
       existing.addEventListener('error', () => reject(new Error('Falha ao carregar Google Maps.')));
@@ -61,7 +84,8 @@ function loadGoogleMaps() {
     script.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(apiKey)}&v=weekly`;
     script.referrerPolicy = 'strict-origin-when-cross-origin';
     script.onload = () => {
-      if (window.google?.maps) resolve(window.google.maps);
+      const maps = getLoadedGoogleMaps();
+        if (maps) resolve(maps);
       else reject(new Error('Google Maps não ficou disponível após o carregamento.'));
     };
     script.onerror = () => reject(new Error('Falha ao carregar Google Maps.'));
@@ -138,10 +162,10 @@ export default function CustomerDeliveryMap({
   isTerminal?: boolean;
 }) {
   const containerRef = useRef<HTMLDivElement | null>(null);
-  const mapRef = useRef<any>(null);
-  const bikeMarkerRef = useRef<any>(null);
-  const destinationMarkerRef = useRef<any>(null);
-  const routeLineRef = useRef<any>(null);
+  const mapRef = useRef<GoogleMapInstance | null>(null);
+  const bikeMarkerRef = useRef<GoogleMarkerInstance | null>(null);
+  const destinationMarkerRef = useRef<GoogleMarkerInstance | null>(null);
+  const routeLineRef = useRef<GooglePolylineInstance | null>(null);
   const mapsRef = useRef<GoogleMapsApi | null>(null);
   const initializedBoundsRef = useRef(false);
   const animationRef = useRef<number | null>(null);
@@ -150,6 +174,9 @@ export default function CustomerDeliveryMap({
   const [mapsReady, setMapsReady] = useState(false);
 
   const latest = points[points.length - 1];
+  const initialCenterRef = useRef(
+    latest ? toLatLng(latest) : destination ? toLatLng(destination) : DEFAULT_CENTER,
+  );
   const remaining = useMemo(
     () => (latest && !isTerminal ? remainingRoute(routePath, latest) : []),
     [isTerminal, latest, routePath],
@@ -161,9 +188,8 @@ export default function CustomerDeliveryMap({
       .then((maps) => {
         if (!active || !containerRef.current || mapRef.current) return;
         mapsRef.current = maps;
-        const initial = latest ? toLatLng(latest) : destination ? toLatLng(destination) : DEFAULT_CENTER;
         mapRef.current = new maps.Map(containerRef.current, {
-          center: initial,
+          center: initialCenterRef.current,
           zoom: 15,
           disableDefaultUI: true,
           clickableIcons: false,
@@ -238,7 +264,7 @@ export default function CustomerDeliveryMap({
 
     const bounds = map.getBounds?.();
     if (initializedBoundsRef.current && bounds && !bounds.contains(target)) map.panTo(target);
-  }, [courierName, latest?.latitude, latest?.longitude, latest?.heading, mapsReady]);
+  }, [courierName, latest, mapsReady]);
 
   useEffect(() => {
     const maps = mapsRef.current;
@@ -274,7 +300,7 @@ export default function CustomerDeliveryMap({
       map.fitBounds(bounds, { top: 90, right: 52, bottom: 72, left: 52 });
       initializedBoundsRef.current = true;
     }
-  }, [destination?.latitude, destination?.longitude, latest?.latitude, latest?.longitude, mapsReady, remaining]);
+  }, [destination, latest, mapsReady, remaining]);
 
   const recenter = () => {
     const maps = mapsRef.current;
@@ -292,7 +318,12 @@ export default function CustomerDeliveryMap({
     : 'Rota em acompanhamento';
 
   return (
-    <S.Shell className="customer-google-delivery-map">
+    <S.Shell
+      className="customer-google-delivery-map delivery-map-shell"
+      data-courier-latitude={latest?.latitude ?? ''}
+      data-courier-longitude={latest?.longitude ?? ''}
+      data-tracking-terminal={isTerminal ? 'true' : 'false'}
+    >
       <S.Canvas ref={containerRef} aria-label="Mapa Google com a rota da entrega" />
       {mapError ? (
         <S.ErrorState role="alert">
