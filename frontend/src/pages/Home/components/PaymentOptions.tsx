@@ -274,6 +274,12 @@ export function PaymentOptions({
         : 'Cartão online com pagamento seguro.';
   const hasLaterMode = (allowPayAtPickup || allowPayOnDelivery) && laterOptions.length > 0;
   const selectedOptions = openMode === 'now' ? onlineOptions : laterOptions;
+  const paymentMethodsHref = restaurantId
+    ? `/profile?view=paymentMethods&restaurantId=${encodeURIComponent(String(restaurantId))}`
+    : '/profile?view=paymentMethods';
+  const rememberPaymentRestaurant = () => {
+    if (restaurantId) localStorage.setItem('menuRestaurantId', String(restaurantId));
+  };
 
   const selectMode = (mode: 'now' | 'later') => {
     const options = mode === 'now' ? onlineOptions : laterOptions;
@@ -299,7 +305,8 @@ export function PaymentOptions({
     <>
       {loggedIn && allowCard && (
         <P.AccountShortcut
-          href="/profile?view=paymentMethods"
+          href={paymentMethodsHref}
+          onClick={rememberPaymentRestaurant}
           aria-label="Cadastrar ou gerenciar cartão em Meus cartões"
         >
           <span className="shortcut-icon" aria-hidden="true">
@@ -411,7 +418,7 @@ export function PaymentOptions({
               </button>
               <button
                 type="button"
-                onClick={() => window.location.assign(buildLoginUrl(window.location))}
+                onClick={() => window.location.assign(buildLoginUrl(window.location))
               >
                 <LogIn size={16} /> Já tenho conta
               </button>
@@ -439,29 +446,34 @@ export function PaymentOptions({
                     <WalletCards size={21} />
                   </div>
                   <div className="notice-copy">
-                    <b>Cadastre um cartão para pagar online</b>
+                    <b>Você ainda não tem cartão salvo</b>
                     <span>
-                      Sua conta ainda não tem cartão salvo. Cadastre uma vez no perfil e, nas
-                      próximas compras, basta selecionar o cartão para pagar.
+                      Você pode pagar com um cartão novo agora sem salvá-lo, ou cadastrá-lo em “Meus
+                      cartões” para reutilizar nas próximas compras.
                     </span>
                   </div>
                 </S.CardAccountNotice>
                 <S.SavedPaymentChooser>
                   <a
                     className="add"
-                    href="/profile?view=paymentMethods"
+                    href={paymentMethodsHref}
+                    onClick={rememberPaymentRestaurant}
                     aria-label="Cadastrar cartão em Meus cartões"
                   >
                     <span className="add-icon">
                       <WalletCards size={19} />
                     </span>
                     <span className="add-copy">
-                      <b>Cadastrar novo cartão</b>
+                      <b>Cadastrar cartão para próximas compras</b>
                       <small>Abra “Meus cartões” no seu perfil</small>
                     </span>
                     <ChevronRight className="add-arrow" size={18} />
                   </a>
                 </S.SavedPaymentChooser>
+                <OnlineCardPaymentForm
+                  restaurantId={restaurantId}
+                  onPreparerChange={registerCardPreparer}
+                />
               </>
             ) : (
               <S.SavedPaymentChooser>
@@ -495,7 +507,8 @@ export function PaymentOptions({
                 ))}
                 <a
                   className="add"
-                  href="/profile?view=paymentMethods"
+                  href={paymentMethodsHref}
+                  onClick={rememberPaymentRestaurant}
                   aria-label="Cadastrar cartão em Meus cartões"
                 >
                   <span className="add-icon">
