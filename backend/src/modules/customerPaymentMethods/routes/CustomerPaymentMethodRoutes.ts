@@ -77,6 +77,16 @@ function safeProviderError(body: Record<string, unknown>, fallback: string) {
     .slice(0, 240);
 }
 
+class ProviderRequestError extends Error {
+  constructor(
+    message: string,
+    readonly status: number,
+  ) {
+    super(message);
+    this.name = 'ProviderRequestError';
+  }
+}
+
 async function providerJson(url: string, headers: Record<string, string>, init?: RequestInit) {
   const response = await fetch(url, {
     ...init,
@@ -87,9 +97,32 @@ async function providerJson(url: string, headers: Record<string, string>, init?:
     },
   });
   const body = (await response.json().catch(() => ({}))) as Record<string, unknown>;
-  if (!response.ok)
-    throw new Error(safeProviderError(body, 'O provedor recusou a operação com o cartão.'));
+  if (!response.ok) {
+    throw new ProviderRequestError(
+      safeProviderError(body, 'O provedor recusou a operação com o cartão.'),
+      response.status,
+    );
+  }
   return body;
+}
+
+function mercadoPagoErrorCode(error: unknown, stage: 'config' | 'customer' | 'card') {
+  if (error instanceof ProviderRequestError && [401, 403].includes(error.status)) {
+    return 'MP_CONNECTION_RENEWAL_REQUIRED';
+  }
+  if (stage === 'customer') return 'MP_CUSTOMER_UNAVAILABLE';
+  if (stage === 'card') return 'MP_CARD_INVALID';
+  return 'MP_CONNECTION_RENEWAL_REQUIRED';
+}
+
+function safeMercadoPagoMessage(code: string) {
+  if (code === 'MP_CONNECTION_RENEWAL_REQUIRED') {
+    return 'A conexão do restaurante com o Mercado Pago precisa ser renovada.';
+  }
+  if (code === 'MP_CARD_INVALID') {
+    return 'O Mercado Pago não conseguiu validar este cartão.';
+  }
+  return 'Não foi possível preparar o cliente no Mercado Pago agora.';
 }
 
 async function gatewayContext(restaurantId: number) {
@@ -219,11 +252,15 @@ router.get('/config', async (req, res): Promise<void> => {
     }
     res.json({ provider: context.provider });
   } catch (error) {
-    res
-      .status(400)
-      .json({
-        error: error instanceof Error ? error.message : 'Falha ao preparar o cadastro seguro.',
-      });
+    const message = error instanceof Error ? error.message : 'Falha ao preparar o cadastro seguro.';
+    const code =
+      /mercado pago/i.test(message) || /credenciais? oauth/i.test(message)
+        ? mercadoPagoErrorCode(error, 'config')
+        : undefined;
+    res.status(400).json({
+      error: code ? safeMercadoPagoMessage(code) : message,
+      ...(code ? { code } : {}),
+    });
   }
 });
 
@@ -286,16 +323,32 @@ router.post('/', async (req, res): Promise<void> => {
       ).trim();
     } else if (context.provider === 'MERCADO_PAGO') {
       if (!parsed.data.cardToken) throw new Error('Token seguro do Mercado Pago não informado.');
-      providerCustomerId = await mercadoPagoCustomer(context.baseUrl, context.token, user);
-      const saved = await providerJson(
-        `${context.baseUrl}/v1/customers/${encodeURIComponent(providerCustomerId)}/cards`,
-        { Authorization: `Bearer ${context.token}` },
-        { method: 'POST', body: JSON.stringify({ token: parsed.data.cardToken }) },
-      );
-      providerId = String(saved.id || '').trim();
-      providerBrand = String(
-        saved.payment_method_id || (saved.payment_method as { id?: unknown } | undefined)?.id || '',
-      ).trim();
+      try {
+        providerCustomerId = await mercadoPagoCustomer(context.baseUrl, context.token, user);
+      } catch (error) {
+        const code = mercadoPagoErrorCode(error, 'customer');
+        const wrapped = new Error(safeMercadoPagoMessage(code)) as Error & { code?: string };
+        wrapped.code = code;
+        throw wrapped;
+      }
+      try {
+        const saved = await providerJson(
+          `${context.baseUrl}/v1/customers/${encodeURIComponent(providerCustomerId)}/cards`,
+          { Authorization: `Bearer ${context.token}` },
+          { method: 'POST', body: JSON.stringify({ token: parsed.data.cardToken }) },
+        );
+        providerId = String(saved.id || '').trim();
+        providerBrand = String(
+          saved.payment_method_id ||
+            (saved.payment_method as { id?: unknown } | undefined)?.id ||
+            '',
+        ).trim();
+      } catch (error) {
+        const code = mercadoPagoErrorCode(error, 'card');
+        const wrapped = new Error(safeMercadoPagoMessage(code)) as Error & { code?: string };
+        wrapped.code = code;
+        throw wrapped;
+      }
     } else {
       if (!parsed.data.cardData) throw new Error('Dados do cartão Asaas não informados.');
       providerCustomerId = await asaasCustomer(
@@ -372,11 +425,11 @@ router.post('/', async (req, res): Promise<void> => {
     });
     res.status(201).json({ paymentMethod: toPublicPaymentMethod(method) });
   } catch (error) {
-    res
-      .status(400)
-      .json({
-        error: error instanceof Error ? error.message : 'Não foi possível cadastrar o cartão.',
-      });
+    const typed = error as (Error & { code?: string }) | undefined;
+    res.status(400).json({
+      error: typed?.message || 'Não foi possível cadastrar o cartão.',
+      ...(typed?.code ? { code: typed.code } : {}),
+    });
   }
 });
 
