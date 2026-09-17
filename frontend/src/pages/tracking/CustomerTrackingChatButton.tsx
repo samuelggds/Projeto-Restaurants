@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import styled, { keyframes } from 'styled-components';
 import { useAuth } from '../../contexts/authContext';
 import { getAccessToken } from '../../modules/auth/session/authSession';
+import { getGuestOrderTrackingToken } from '../../Services/ordersService';
 import { acquireSocket } from '../../Services/socketService';
 import {
   clearDeliveryChatUnread,
@@ -146,6 +147,7 @@ export function CustomerTrackingChatButton({ orderId }: { orderId: number }) {
   const { user } = useAuth();
   const navigate = useNavigate();
   const customerId = Number(user?.id || 0);
+  const guestAccess = Boolean(getGuestOrderTrackingToken(orderId));
   const [unreadState, setUnreadState] = useState<{
     customerId: number;
     orderId: number;
@@ -211,7 +213,7 @@ export function CustomerTrackingChatButton({ orderId }: { orderId: number }) {
     };
   }, [customerId, orderId]);
 
-  if (!customerId) return null;
+  if (!customerId && !guestAccess) return null;
   const unreadLabel = unreadCount > 99 ? '99+' : String(unreadCount);
 
   return (
@@ -224,7 +226,7 @@ export function CustomerTrackingChatButton({ orderId }: { orderId: number }) {
           : 'Falar com o motoqueiro'
       }
       onClick={() => {
-        clearDeliveryChatUnread('customer', customerId, orderId);
+        if (customerId) clearDeliveryChatUnread('customer', customerId, orderId);
         navigate(`/orders/${orderId}/chat`);
       }}
     >
@@ -233,7 +235,7 @@ export function CustomerTrackingChatButton({ orderId }: { orderId: number }) {
       </span>
       <span className="copy">
         <strong>Falar com o motoqueiro</strong>
-        <small>Chat em tempo real · Pedido #{orderId}</small>
+        <small>{guestAccess && !customerId ? 'Chat seguro deste pedido' : 'Chat em tempo real'} · Pedido #{orderId}</small>
       </span>
       {unreadCount > 0 ? (
         <span className="badge" aria-label={`${unreadCount} mensagens não lidas`}>
