@@ -1019,7 +1019,7 @@ test('cliente acompanha somente a própria entrega, rota e destino até a conclu
   await expect
     .poll(() => trackingMap.getAttribute('data-courier-latitude'))
     .toBe(String(midpoint.latitude));
-  await expect(page.getByText('Seu pedido está a caminho')).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Acompanhe o trajeto do pedido' })).toBeVisible();
 
   tracking.markDelivered();
   state.sendSocketEvent?.('order:status-changed', {
