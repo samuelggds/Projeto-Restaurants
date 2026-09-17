@@ -201,12 +201,11 @@ export function PaymentOptions({
   };
 
   useEffect(() => {
-    if (!loggedIn || !restaurantId || paymentMethod !== 'card') {
-      setSavedCardsLoading(false);
-      return;
-    }
+    if (!loggedIn || !restaurantId || paymentMethod !== 'card') return;
     let active = true;
-    setSavedCardsLoading(true);
+    Promise.resolve().then(() => {
+      if (active) setSavedCardsLoading(true);
+    });
     customerPaymentMethodService
       .list(restaurantId)
       .then((cards) => {
@@ -320,27 +319,36 @@ export function PaymentOptions({
           {savedCardsLoading ? (
             <S.CheckoutUnavailable role="status">Carregando seus cartões salvos…</S.CheckoutUnavailable>
           ) : savedCards.length === 0 ? (
-            <S.CardAccountNotice role="status" aria-live="polite">
-              <div className="notice-icon">
-                <WalletCards size={21} />
-              </div>
-              <div className="notice-copy">
-                <b>Cadastre um cartão para pagar online</b>
-                <span>
-                  Sua conta ainda não tem cartão salvo. Cadastre uma vez no perfil e, nas próximas
-                  compras, basta selecionar o cartão para pagar.
-                </span>
-              </div>
-              <div className="notice-actions">
-                <button
-                  type="button"
-                  className="primary"
-                  onClick={() => window.location.assign('/profile?view=paymentMethods')}
+            <>
+              <S.CardAccountNotice role="status" aria-live="polite">
+                <div className="notice-icon">
+                  <WalletCards size={21} />
+                </div>
+                <div className="notice-copy">
+                  <b>Cadastre um cartão para pagar online</b>
+                  <span>
+                    Sua conta ainda não tem cartão salvo. Cadastre uma vez no perfil e, nas próximas
+                    compras, basta selecionar o cartão para pagar.
+                  </span>
+                </div>
+              </S.CardAccountNotice>
+              <S.SavedPaymentChooser>
+                <a
+                  className="add"
+                  href="/profile?view=paymentMethods"
+                  aria-label="Cadastrar cartão em Meus cartões"
                 >
-                  <WalletCards size={16} /> Cadastrar cartão no perfil
-                </button>
-              </div>
-            </S.CardAccountNotice>
+                  <span className="add-icon">
+                    <WalletCards size={19} />
+                  </span>
+                  <span className="add-copy">
+                    <b>Cadastrar novo cartão</b>
+                    <small>Abra “Meus cartões” no seu perfil</small>
+                  </span>
+                  <ChevronRight className="add-arrow" size={18} />
+                </a>
+              </S.SavedPaymentChooser>
+            </>
           ) : (
             <S.SavedPaymentChooser>
               {savedCards.map((card) => (
