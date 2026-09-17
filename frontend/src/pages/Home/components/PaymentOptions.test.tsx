@@ -128,6 +128,6 @@ describe('PaymentOptions', () => {
     );
 
     expect(markup).toContain('href="/profile?view=paymentMethods&amp;restaurantId=1"');
-    expect(markup).toContain('Cadastrar novo cartão');
+    expect(markup).toContain('Cadastrar cartão para próximas compras');
   });
 });
