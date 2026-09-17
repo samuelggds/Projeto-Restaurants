@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { divIcon } from 'leaflet';
-import { Bike, Navigation } from 'lucide-react';
+import { Bike, ExternalLink, MapPin, Navigation } from 'lucide-react';
 import { MapContainer, Marker, Polyline, Popup, TileLayer, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import CustomerDeliveryMap from '../../tracking/CustomerDeliveryMap';
@@ -87,6 +87,63 @@ function RecenterButton({ point, destination }: { point: RoutePoint; destination
   );
 }
 
+function wazeUrlFor(destination?: RoutePoint & { label?: string }) {
+  if (!destination) return '';
+  const url = new URL('https://waze.com/ul');
+  url.searchParams.set('ll', `${destination.latitude},${destination.longitude}`);
+  url.searchParams.set('navigate', 'yes');
+  return url.toString();
+}
+
+function CourierWazeLauncher({
+  destination,
+  routePath,
+  statusDetail,
+}: {
+  destination?: RoutePoint & { label?: string };
+  routePath: RoutePoint[];
+  statusDetail: string;
+}) {
+  const fallbackDestination = routePath[routePath.length - 1];
+  const target = destination || fallbackDestination;
+  const wazeUrl = wazeUrlFor(target);
+
+  return (
+    <S.WazeLauncher className="delivery-map-shell">
+      <S.WazeMark aria-hidden="true">W</S.WazeMark>
+      <S.WazeCopy>
+        <small>NAVEGAÇÃO DA ENTREGA</small>
+        <h3>Abrir rota no Waze</h3>
+        <p>
+          Use o Waze para navegar até o cliente. O GastroNexa continua compartilhando sua posição
+          com o cliente enquanto o rastreamento estiver ativo.
+        </p>
+        {destination?.label ? (
+          <S.WazeDestination>
+            <MapPin aria-hidden="true" />
+            <span>
+              <small>Destino</small>
+              <strong>{destination.label}</strong>
+            </span>
+          </S.WazeDestination>
+        ) : null}
+        {wazeUrl ? (
+          <S.WazeButton href={wazeUrl} rel="noreferrer">
+            Abrir no Waze
+            <ExternalLink aria-hidden="true" />
+          </S.WazeButton>
+        ) : (
+          <S.WazeUnavailable>Destino ainda não disponível para navegação.</S.WazeUnavailable>
+        )}
+        <S.WazeTrackingNote>
+          <i aria-hidden="true" />
+          {statusDetail}
+        </S.WazeTrackingNote>
+      </S.WazeCopy>
+    </S.WazeLauncher>
+  );
+}
+
 const courierIcon = divIcon({
   className: 'delivery-courier-marker',
   html: `<div class="delivery-courier-marker__halo"><div class="delivery-courier-marker__pin" aria-label="Posição do entregador">
@@ -136,8 +193,9 @@ export default function DeliveryMap({
   statusDetail?: string;
   tilesEnabled?: boolean;
 }) {
-  const customerTrackingRoute =
-    typeof window !== 'undefined' && /^\/orders\/\d+\/tracking\/?$/u.test(window.location.pathname);
+  const pathname = typeof window !== 'undefined' ? window.location.pathname : '';
+  const customerTrackingRoute = /^\/orders\/\d+\/tracking\/?$/u.test(pathname);
+  const courierRoute = /^\/courier\/?$/u.test(pathname);
 
   if (customerTrackingRoute) {
     return (
@@ -147,6 +205,16 @@ export default function DeliveryMap({
         destination={destination}
         courierName={label}
         isTerminal={statusMessage === 'Seu pedido foi entregue' || statusMessage === 'Entrega cancelada'}
+      />
+    );
+  }
+
+  if (courierRoute) {
+    return (
+      <CourierWazeLauncher
+        destination={destination}
+        routePath={routePath}
+        statusDetail={statusDetail}
       />
     );
   }
