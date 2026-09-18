@@ -125,6 +125,8 @@ class CreateOrderCardCheckoutController {
         billingPostalCode,
         billingAddressNumber,
         customerIp: req.ip,
+        enforceSingleActiveOnlinePayment:
+          String(req.user?.role || 'CLIENTE').toUpperCase() === 'CLIENTE',
       });
 
       if (whatsappOptIn === true && String(type || '').toUpperCase() !== 'MESA') {
