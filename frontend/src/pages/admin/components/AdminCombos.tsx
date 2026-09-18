@@ -404,55 +404,106 @@ export function AdminCombos({ products, money, onChanged }: Props) {
               <div className="combo-guide" role="note">
                 <Info size={18} />
                 <div>
-                  <strong>Como funciona</strong>
+                  <strong>Como criar um combo</strong>
                   <p>
-                    O combo usa produtos que já existem no seu cardápio. Você não precisa configurar
-                    regras complicadas: selecione os produtos abaixo e escreva como deseja apresentar
-                    a oferta para o cliente.
+                    Escolha produtos que já estão cadastrados no cardápio, dê um nome para a oferta,
+                    escreva uma descrição simples e defina o preço final. A foto é opcional.
                   </p>
                 </div>
               </div>
 
-              {feedback && <div className={`feedback ${feedback.tone}`} role="status">{feedback.message}</div>}
+              {feedback && (
+                <div className={`feedback ${feedback.tone}`} role="status">
+                  {feedback.message}
+                </div>
+              )}
 
               <section className="section">
-                <header><div><span className="step">PASSO 1</span><h3>Nome, preço e descrição</h3><p>Essas informações aparecem para o cliente no cardápio.</p></div></header>
+                <header>
+                  <div>
+                    <span className="step">PASSO 1</span>
+                    <h3>Nome, preço e descrição</h3>
+                    <p>Essas informações aparecem para o cliente no cardápio.</p>
+                  </div>
+                </header>
+
                 <div className="grid2">
-                  <label>Nome do combo
+                  <label>
+                    Nome do combo
                     <small>Ex.: Combo Casal, Combo Família ou Combo Executivo.</small>
-                    <input value={draft.name} maxLength={100} onChange={(e) => setDraft((current) => ({ ...current, name: e.target.value }))} placeholder="Ex.: Combo Casal" />
+                    <input
+                      value={draft.name}
+                      maxLength={100}
+                      onChange={(event) =>
+                        setDraft((current) => ({ ...current, name: event.target.value }))
+                      }
+                      placeholder="Ex.: Combo Casal"
+                    />
                   </label>
-                  <label>Preço final do combo
-                    <small>Digite o valor que o cliente pagará pelo combo completo.</small>
-                    <input type="number" min="0.01" step="0.01" value={draft.price || ''} onChange={(e) => setDraft((current) => ({ ...current, price: Number(e.target.value) }))} placeholder="59,90" />
-                  </label>
-                </div>
-                <label>Descrição do combo
-                  <small>Explique de forma simples quais produtos fazem parte da oferta.</small>
-                  <textarea value={draft.description} maxLength={600} onChange={(e) => setDraft((current) => ({ ...current, description: e.target.value }))} placeholder="Ex.: 2 burgers, batata grande e 2 bebidas para compartilhar." />
-                </label>
-                <div className="grid2">
-                  <label><span><input type="checkbox" checked={draft.active} onChange={(e) => setDraft((current) => ({ ...current, active: e.target.checked }))} /> Disponível no cardápio</span></label>
-                  <label><span><input type="checkbox" checked={draft.featured} onChange={(e) => setDraft((current) => ({ ...current, featured: e.target.checked }))} /> Destacar na Home</span></label>
-                </div>
-              </section>
 
-              <section className="section">
-                <header><div><span className="step">PASSO 3</span><h3>Foto do combo</h3><p>Opcional. Envie uma foto própria ou deixe a IA criar a imagem usando o nome, a descrição e os produtos escolhidos.</p></div></header>
-                <div className="photo">
-                  <div className="photo-preview">
-                    {draft.image ? <img src={draft.image} alt="Prévia do combo" /> : <ImageIcon size={38} />}
-                  </div>
-                  <div className="photo-actions">
-                    <input ref={fileRef} hidden type="file" accept="image/png,image/jpeg,image/webp" onChange={(e) => void uploadPhoto(e.target.files?.[0])} />
-                    <button type="button" onClick={() => fileRef.current?.click()} disabled={Boolean(busy)}><Upload size={17} /> {draft.image ? 'Trocar foto manual' : 'Enviar foto manual'}</button>
-                    {draft.image ? (
-                      <button className="ai" type="button" onClick={() => void enhancePhoto()} disabled={Boolean(busy)}><WandSparkles size={17} /> {busy === 'enhance' ? 'Melhorando...' : 'Melhorar foto com IA'}</button>
-                    ) : (
-                      <button className="ai" type="button" onClick={() => void generatePhoto()} disabled={Boolean(busy)}><Sparkles size={17} /> {busy === 'generate' ? 'Criando foto...' : 'Criar foto com IA'}</button>
-                    )}
-                    <div className="hint">A IA usa nome, descrição, preço e os produtos escolhidos como contexto. O preço não é escrito dentro da foto.</div>
-                  </div>
+                  <label>
+                    Preço final do combo
+                    <small>Digite o valor que o cliente pagará pelo combo completo.</small>
+                    <input
+                      type="number"
+                      min="0.01"
+                      step="0.01"
+                      value={draft.price || ''}
+                      onChange={(event) =>
+                        setDraft((current) => ({
+                          ...current,
+                          price: Number(event.target.value),
+                        }))
+                      }
+                      placeholder="59,90"
+                    />
+                  </label>
+                </div>
+
+                <label>
+                  Descrição do combo
+                  <small>
+                    Explique de forma simples o que vem na oferta. Ex.: “2 hambúrgueres, 1 batata
+                    grande e 2 refrigerantes”.
+                  </small>
+                  <textarea
+                    value={draft.description}
+                    maxLength={600}
+                    onChange={(event) =>
+                      setDraft((current) => ({ ...current, description: event.target.value }))
+                    }
+                    placeholder="Ex.: 2 burgers, batata grande e 2 bebidas para compartilhar."
+                  />
+                </label>
+
+                <div className="toggle-grid">
+                  <label className="toggle-card">
+                    <input
+                      type="checkbox"
+                      checked={draft.active}
+                      onChange={(event) =>
+                        setDraft((current) => ({ ...current, active: event.target.checked }))
+                      }
+                    />
+                    <span>
+                      <b>Disponível no cardápio</b>
+                      <small>Desative quando não quiser vender este combo.</small>
+                    </span>
+                  </label>
+
+                  <label className="toggle-card">
+                    <input
+                      type="checkbox"
+                      checked={draft.featured}
+                      onChange={(event) =>
+                        setDraft((current) => ({ ...current, featured: event.target.checked }))
+                      }
+                    />
+                    <span>
+                      <b>Destacar na Home</b>
+                      <small>Mostra o combo na área de destaques da loja.</small>
+                    </span>
+                  </label>
                 </div>
               </section>
 
@@ -462,8 +513,7 @@ export function AdminCombos({ products, money, onChanged }: Props) {
                     <span className="step">PASSO 2</span>
                     <h3>Escolha os produtos do combo</h3>
                     <p>
-                      Selecione apenas produtos que já estão no seu cardápio. Cada produto escolhido
-                      será incluído uma vez no combo.
+                      A lista abaixo mostra somente produtos já cadastrados e ativos neste restaurante.
                     </p>
                   </div>
                 </header>
@@ -471,7 +521,7 @@ export function AdminCombos({ products, money, onChanged }: Props) {
                 <div className="product-picker">
                   <label>
                     Produto cadastrado
-                    <small>Abra a lista e escolha o produto que deseja incluir.</small>
+                    <small>Abra o seletor, escolha um produto e clique em “Adicionar ao combo”.</small>
                     <select
                       value={selectedProductId}
                       onChange={(event) => setSelectedProductId(event.target.value)}
@@ -486,6 +536,7 @@ export function AdminCombos({ products, money, onChanged }: Props) {
                         ))}
                     </select>
                   </label>
+
                   <button
                     className="add-selected-product"
                     type="button"
@@ -501,9 +552,12 @@ export function AdminCombos({ products, money, onChanged }: Props) {
                     <div className="selected-products-head">
                       <CheckCircle2 size={18} />
                       <strong>
-                        {selectedProducts.length} produto{selectedProducts.length === 1 ? '' : 's'} no combo
+                        {selectedProducts.length} produto
+                        {selectedProducts.length === 1 ? '' : 's'} selecionado
+                        {selectedProducts.length === 1 ? '' : 's'}
                       </strong>
                     </div>
+
                     {selectedProducts.map((product) => (
                       <div className="selected-product" key={product.id}>
                         <div className="selected-product-image">
@@ -513,11 +567,16 @@ export function AdminCombos({ products, money, onChanged }: Props) {
                             <ImageIcon size={20} />
                           )}
                         </div>
+
                         <div className="selected-product-copy">
                           <b>{product.name}</b>
                           <small>{product.description || 'Produto do cardápio'}</small>
                         </div>
-                        <span>{money(Number(product.price))}</span>
+
+                        <span className="selected-product-price">
+                          {money(Number(product.price))}
+                        </span>
+
                         <button
                           type="button"
                           aria-label={`Remover ${product.name} do combo`}
@@ -532,11 +591,84 @@ export function AdminCombos({ products, money, onChanged }: Props) {
                   <div className="empty-products">
                     <Info size={18} />
                     <span>
-                      Nenhum produto selecionado ainda. Escolha o primeiro produto na lista acima.
+                      Nenhum produto selecionado. Escolha pelo menos um produto para poder salvar o
+                      combo e gerar a foto com IA.
                     </span>
                   </div>
                 )}
               </section>
+
+              <section className="section">
+                <header>
+                  <div>
+                    <span className="step">PASSO 3</span>
+                    <h3>Foto do combo</h3>
+                    <p>
+                      Opcional. Você pode enviar uma foto própria ou deixar a IA criar a imagem usando
+                      o nome, a descrição e os produtos escolhidos.
+                    </p>
+                  </div>
+                </header>
+
+                <div className="photo">
+                  <div className="photo-preview">
+                    {draft.image ? (
+                      <img src={draft.image} alt="Prévia do combo" />
+                    ) : (
+                      <div className="photo-empty">
+                        <ImageIcon size={38} />
+                        <span>Sem foto</span>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="photo-actions">
+                    <input
+                      ref={fileRef}
+                      hidden
+                      type="file"
+                      accept="image/png,image/jpeg,image/webp"
+                      onChange={(event) => void uploadPhoto(event.target.files?.[0])}
+                    />
+
+                    <button
+                      type="button"
+                      onClick={() => fileRef.current?.click()}
+                      disabled={Boolean(busy)}
+                    >
+                      <Upload size={17} />
+                      {draft.image ? 'Trocar foto manual' : 'Enviar foto manual'}
+                    </button>
+
+                    {draft.image ? (
+                      <button
+                        className="ai"
+                        type="button"
+                        onClick={() => void enhancePhoto()}
+                        disabled={Boolean(busy)}
+                      >
+                        <WandSparkles size={17} />
+                        {busy === 'enhance' ? 'Melhorando...' : 'Melhorar foto com IA'}
+                      </button>
+                    ) : (
+                      <button
+                        className="ai"
+                        type="button"
+                        onClick={() => void generatePhoto()}
+                        disabled={Boolean(busy) || !canGenerateImage}
+                      >
+                        <Sparkles size={17} />
+                        {busy === 'generate' ? 'Criando foto...' : 'Criar foto com IA'}
+                      </button>
+                    )}
+
+                    <div className="hint">
+                      <b>Como a IA funciona:</b> ela usa o nome do combo, a descrição e os produtos
+                      selecionados para montar a imagem. O preço continua no cardápio e não é escrito
+                      dentro da foto.
+                    </div>
+                  </div>
+                </div>
               </section>
             </div>
 
