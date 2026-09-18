@@ -33,6 +33,10 @@ export type CartItem = {
   removedCompositionItemIds?: string[];
   removedCompositionItems?: Array<{ id: string; name: string }>;
   portions?: Array<{ optionId: string; name?: string; observation?: string }>;
+  comboSelections?: Array<{
+    groupId: string;
+    items: Array<{ optionId: string; quantity: number }>;
+  }>;
   configurationVersion?: number;
   observation?: string;
   /** Compatibilidade com sacolas criadas antes dos grupos de opções. */
@@ -122,6 +126,20 @@ function isStoredCartItem(value: unknown): value is CartItem {
         optionalText(entry.observation),
     ) &&
     optionalArray(
+      value.comboSelections,
+      (entry) =>
+        isRecord(entry) &&
+        isId(entry.groupId) &&
+        Array.isArray(entry.items) &&
+        entry.items.every(
+          (item) =>
+            isRecord(item) &&
+            isId(item.optionId) &&
+            Number.isSafeInteger(item.quantity) &&
+            Number(item.quantity) > 0,
+        ),
+    ) &&
+    optionalArray(
       value.options,
       (entry) =>
         namedEntry(entry) &&
@@ -157,6 +175,7 @@ export function normalizeStoredCart(items: unknown): CartItem[] {
       optionQuantities: item.optionQuantities || [],
       removedCompositionItemIds: item.removedCompositionItemIds || [],
       portions: item.portions || [],
+      comboSelections: item.comboSelections || [],
       configurationVersion: item.configurationVersion,
     };
     return {
@@ -237,6 +256,12 @@ export function useCart(products: HomeProduct[], notify: Notify, restaurantId?: 
             ...(product.optionGroups || []).flatMap((group) =>
               group.options.map((option) => `${option.id}:${option.price}:${option.active}`),
             ),
+            ...(product.comboGroups || []).flatMap((group) =>
+              group.options.map(
+                (option) =>
+                  `${group.id}:${option.id}:${option.additionalPrice}:${option.active}:${option.stock ?? '∞'}`,
+              ),
+            ),
           ].join(':'),
         )
         .join('|'),
@@ -284,16 +309,36 @@ export function useCart(products: HomeProduct[], notify: Notify, restaurantId?: 
               selection.optionIds,
             ]),
           );
-          const nextPrice = productConfigurationTotal(
-            product.price,
-            normalizeProductOptionGroups(product),
-            selections,
-            {
-              optionQuantities: Object.fromEntries(optionQuantities),
-              portionConfiguration: product.portionConfiguration,
-              portions: item.portions,
-            },
-          );
+          const nextPrice =
+            product.kind === 'COMBO'
+              ? Number(product.price) +
+                (item.comboSelections || []).reduce((total, selectedGroup) => {
+                  const group = (product.comboGroups || []).find(
+                    (candidate) => candidate.id === selectedGroup.groupId,
+                  );
+                  return (
+                    total +
+                    selectedGroup.items.reduce((groupTotal, selectedItem) => {
+                      const option = group?.options.find(
+                        (candidate) => candidate.id === selectedItem.optionId,
+                      );
+                      return (
+                        groupTotal +
+                        Number(option?.additionalPrice || 0) * Number(selectedItem.quantity || 0)
+                      );
+                    }, 0)
+                  );
+                }, 0)
+              : productConfigurationTotal(
+                  product.price,
+                  normalizeProductOptionGroups(product),
+                  selections,
+                  {
+                    optionQuantities: Object.fromEntries(optionQuantities),
+                    portionConfiguration: product.portionConfiguration,
+                    portions: item.portions,
+                  },
+                );
           const currentPortions = (item.portions || []).map((portion) => ({
             ...portion,
             name: normalizeProductOptionGroups(product)
@@ -363,26 +408,61 @@ export function useCart(products: HomeProduct[], notify: Notify, restaurantId?: 
       const quantityByOption = new Map(
         (configuration.optionQuantities || []).map((entry) => [entry.optionId, entry.quantity]),
       );
-      const options = groups.flatMap((group) =>
-        group.options
-          .filter((option) => selectedIds.has(option.id))
-          .map((option) => ({
-            id: option.id,
-            groupId: group.id,
-            groupName: group.name,
-            name: option.name,
-            price: Number(option.absolutePrice ?? option.price ?? 0),
-            quantity: quantityByOption.get(option.id) ?? option.defaultQuantity ?? 1,
-          })),
-      );
+      const comboOptions =
+        product.kind === 'COMBO'
+          ? (configuration.comboSelections || []).flatMap((selectedGroup) => {
+              const group = (product.comboGroups || []).find(
+                (candidate) => candidate.id === selectedGroup.groupId,
+              );
+              return selectedGroup.items.flatMap((selectedItem) => {
+                const option = group?.options.find(
+                  (candidate) => candidate.id === selectedItem.optionId,
+                );
+                return option
+                  ? [
+                      {
+                        id: option.id,
+                        groupId: group?.id || selectedGroup.groupId,
+                        groupName: group?.name || 'Combo',
+                        name: option.name,
+                        price: Number(option.additionalPrice || 0),
+                        quantity: selectedItem.quantity,
+                      },
+                    ]
+                  : [];
+              });
+            })
+          : [];
+      const options =
+        product.kind === 'COMBO'
+          ? comboOptions
+          : groups.flatMap((group) =>
+              group.options
+                .filter((option) => selectedIds.has(option.id))
+                .map((option) => ({
+                  id: option.id,
+                  groupId: group.id,
+                  groupName: group.name,
+                  name: option.name,
+                  price: Number(option.absolutePrice ?? option.price ?? 0),
+                  quantity: quantityByOption.get(option.id) ?? option.defaultQuantity ?? 1,
+                })),
+            );
       const selections = Object.fromEntries(
         configuration.selectedOptions.map((selection) => [selection.groupId, selection.optionIds]),
       );
-      const unitPrice = productConfigurationTotal(product.price, groups, selections, {
-        optionQuantities: Object.fromEntries(quantityByOption),
-        portionConfiguration: product.portionConfiguration,
-        portions: configuration.portions,
-      });
+      const unitPrice =
+        product.kind === 'COMBO'
+          ? Number(product.price) +
+            comboOptions.reduce(
+              (total, option) => total + Number(option.price || 0) * Number(option.quantity || 1),
+              0,
+            )
+          : productConfigurationTotal(product.price, groups, selections, {
+              optionQuantities: Object.fromEntries(quantityByOption),
+              portionConfiguration: product.portionConfiguration,
+              portions: configuration.portions,
+            });
       const portions = (configuration.portions || []).map((portion) => ({
         ...portion,
         name: groups
@@ -410,6 +490,7 @@ export function useCart(products: HomeProduct[], notify: Notify, restaurantId?: 
           removedCompositionItemIds: configuration.removedCompositionItemIds,
           removedCompositionItems,
           portions,
+          comboSelections: configuration.comboSelections,
           configurationVersion: configuration.configurationVersion,
           observation: configuration.observation,
         },
