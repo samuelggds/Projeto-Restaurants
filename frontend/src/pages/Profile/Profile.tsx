@@ -393,6 +393,14 @@ export default function Profile() {
     [navigate],
   );
 
+  const handleContinuePayment = useCallback(
+    (orderPublicId: string) => {
+      const base = restaurantHomePath.replace(/\/+$/u, '');
+      navigate(`${base}/pedido/${orderPublicId}/pagamento`);
+    },
+    [navigate, restaurantHomePath],
+  );
+
   const handleReorder = useCallback(
     (orderId: string) => {
       const order = findOrderByDisplayId(orders, orderId);
@@ -487,6 +495,7 @@ export default function Profile() {
         }}
         onTrackOrder={handleTrackOrder}
         onViewOrder={handleTrackOrder}
+        onContinuePayment={handleContinuePayment}
         onReorder={handleReorder}
         historyPagination={history}
         loyaltySummary={loyaltySummary}
