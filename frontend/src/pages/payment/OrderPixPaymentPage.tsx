@@ -133,7 +133,10 @@ export default function OrderPixPaymentPage() {
   );
 
   useEffect(() => {
-    void loadPayment();
+    const timer = window.setTimeout(() => {
+      void loadPayment();
+    }, 0);
+    return () => window.clearTimeout(timer);
   }, [loadPayment]);
 
   useEffect(() => {
