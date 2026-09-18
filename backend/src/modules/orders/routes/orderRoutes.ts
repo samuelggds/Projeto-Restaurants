@@ -21,6 +21,7 @@ import CreateOrderCardCheckoutController from '../controllers/CreateOrderCardChe
 import GetOrderCardPaymentStatusController from '../controllers/GetOrderCardPaymentStatusController.js';
 import GetOrderPixPaymentStatusController from '../controllers/GetOrderPixPaymentStatusController.js';
 import ConfirmOrderPixPaymentController from '../controllers/ConfirmOrderPixPaymentController.js';
+import OrderPixPaymentRecoveryController from '../controllers/OrderPixPaymentRecoveryController.js';
 import ReportOrderIssueController from '../controllers/ReportOrderIssueController.js';
 import ReplyOrderIssueController from '../controllers/ReplyOrderIssueController.js';
 import GetOrderIssueThreadController from '../controllers/GetOrderIssueThreadController.js';
@@ -40,6 +41,7 @@ import { staffMiddleware } from '../../../middlewares/staffMiddleware.js';
 import { billingMiddleware } from '../../../middlewares/billingMiddleware.js';
 import { orderAccessMiddleware } from '../../../middlewares/orderAccessMiddleware.js';
 import { orderIssueAccessMiddleware } from '../../../middlewares/orderIssueAccessMiddleware.js';
+import { orderPaymentAccessMiddleware } from '../../../middlewares/orderPaymentAccessMiddleware.js';
 import { orderSupportStaffMiddleware } from '../../../middlewares/orderSupportStaffMiddleware.js';
 import { authMiddleware } from '../../../middlewares/authMiddleware.js';
 import { optionalAuthMiddleware } from '../../../middlewares/optionalAuthMiddleware.js';
@@ -87,6 +89,14 @@ router.post('/pix/payment/status', orderAccessMiddleware, premiumTableOrderMiddl
 
 router.post('/pix/payment/confirm', orderAccessMiddleware, premiumTableOrderMiddleware, billingMiddleware, (req, res) => {
   ConfirmOrderPixPaymentController.handle(req, res);
+});
+
+router.get('/payment/:publicId/pix', orderPaymentAccessMiddleware, (req, res) => {
+  OrderPixPaymentRecoveryController.get(req, res);
+});
+
+router.post('/payment/:publicId/pix/confirm', orderPaymentAccessMiddleware, (req, res) => {
+  OrderPixPaymentRecoveryController.confirm(req, res);
 });
 
 router.post('/claim-guest-orders', authMiddleware, (req, res) => {

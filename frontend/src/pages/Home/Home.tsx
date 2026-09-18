@@ -461,6 +461,10 @@ export default function Home() {
       await loyalty.refresh();
       if (mesaMode) await tableAccount.refresh({ silent: true });
     },
+    onPixPaymentCreated: ({ orderPublicId }) => {
+      if (!restaurantSlug || mesaMode) return;
+      navigate(`/${restaurantSlug}/pedido/${orderPublicId}/pagamento`);
+    },
     onClearCart: () => setCart([]),
     onCloseCart: () => setCartOpen(false),
   });
@@ -1113,6 +1117,10 @@ export default function Home() {
             primaryColor={primary}
             order={activeOrder}
             onTrack={(orderId) => navigate(`/orders/${orderId}/tracking`)}
+            onContinuePayment={(orderPublicId) => {
+              if (!restaurantSlug) return;
+              navigate(`/${restaurantSlug}/pedido/${orderPublicId}/pagamento`);
+            }}
             onConfirmDelivery={async (orderId) => {
               await ordersService.confirmDeliveryReceived(orderId);
               await refreshActiveOrder();

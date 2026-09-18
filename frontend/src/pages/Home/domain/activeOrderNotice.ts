@@ -5,6 +5,8 @@ export type ActiveOrderNotice = {
   statusLabel: string;
   deliveryConfirmationCode?: string | null;
   deliveryStartedAt?: string | null;
+  publicId?: string | null;
+  paymentPending?: boolean;
 };
 
 const ACTIVE_STATUSES = new Set(['PENDENTE', 'PREPARANDO', 'PRONTO', 'SAIU_PARA_ENTREGA']);
@@ -49,14 +51,20 @@ export function getActiveOrderNotice(orders: Record<string, unknown>[]): ActiveO
   if (!ACTIVE_STATUSES.has(status) && !awaitsReceiptConfirmation) return null;
 
   const code = String(latestOrder.deliveryConfirmationCode || '').trim();
+  const paymentPending =
+    String(latestOrder.paymentMethod || '').toUpperCase() === 'PIX' &&
+    latestOrder.paid !== true &&
+    Boolean(String(latestOrder.pixPaymentId || '').trim());
   return {
     id: String(latestOrder.id),
     status,
     summary: orderSummary(latestOrder),
-    statusLabel: STATUS_LABELS[status] || 'Pedido em andamento',
+    statusLabel: paymentPending ? 'Pagamento pendente' : STATUS_LABELS[status] || 'Pedido em andamento',
     deliveryConfirmationCode: /^\d{4}$/.test(code) ? code : null,
     deliveryStartedAt: latestOrder.deliveryStartedAt
       ? String(latestOrder.deliveryStartedAt)
       : null,
+    ...(latestOrder.publicId ? { publicId: String(latestOrder.publicId) } : {}),
+    ...(paymentPending ? { paymentPending: true } : {}),
   };
 }

@@ -34,6 +34,36 @@ describe('profileDataAdapter', () => {
     });
   });
 
+  it('mantém Pix pendente recuperável em Meus pedidos', () => {
+    const data = buildProfileData({
+      user: { name: 'Samuel', email: 'cliente@demo.com' },
+      settings: null,
+      favorites: [],
+      addresses: [],
+      avatarUrl: '',
+      orders: [
+        {
+          id: 91,
+          publicId: 'order-public-91',
+          status: 'PENDENTE',
+          type: 'DELIVERY',
+          paymentMethod: 'PIX',
+          paid: false,
+          pixPaymentId: 'pix-provider-91',
+          total: 49.9,
+          items: [{ product: { name: 'Pizza' } }],
+        },
+      ],
+    });
+
+    expect(data.activeOrder).toMatchObject({
+      id: '#0091',
+      publicId: 'order-public-91',
+      paymentPending: true,
+      total: 49.9,
+    });
+  });
+
   it('não inventa endereço do restaurante nem do cliente quando os dados estão ausentes', () => {
     const data = buildProfileData({
       user: { name: 'Samuel', email: 'cliente@demo.com' },

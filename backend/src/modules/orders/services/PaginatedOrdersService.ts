@@ -101,10 +101,7 @@ class PaginatedOrdersService {
     const base: Prisma.OrderWhereInput = {
       userId: viewer.id,
       ...(viewer.restaurantId > 0 ? { restaurantId: viewer.restaurantId } : {}),
-      NOT: [
-        { paymentMethod: 'PIX', paid: false, pixPaymentId: { not: null } },
-        { paymentMethod: 'CARTAO', paid: false, cardCheckoutSessionId: { not: null } },
-      ],
+      NOT: [{ paymentMethod: 'CARTAO', paid: false, cardCheckoutSessionId: { not: null } }],
     };
     const read = (db: Prisma.TransactionClient) => readOrderPage(db, base, query);
     return viewer.restaurantId > 0

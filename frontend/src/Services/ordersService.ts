@@ -76,6 +76,7 @@ const GUEST_TRACKING_TOKEN_PREFIX = 'guest-order-tracking-token:';
 const GUEST_OWNERSHIP_TOKEN_PREFIX = 'guest-order-ownership-token:';
 const GUEST_OWNED_ORDER_IDS_KEY = 'guest-order-owned-order-ids';
 const LAST_GUEST_DELIVERY_ORDER_KEY = 'last-guest-delivery-order-id';
+const GUEST_PUBLIC_ORDER_ID_PREFIX = 'guest-order-public-id:';
 
 function asRecord(value: unknown): GenericRecord | null {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
@@ -137,6 +138,8 @@ function rememberGuestOrderAccess(payload: unknown) {
   const ownershipToken = String(record.guestOwnershipToken || '').trim();
   if (ownershipToken) {
     safeStorageSet(`${GUEST_OWNERSHIP_TOKEN_PREFIX}${orderId}`, ownershipToken);
+    const publicId = String(record.orderPublicId || record.publicId || '').trim();
+    if (publicId) safeStorageSet(`${GUEST_PUBLIC_ORDER_ID_PREFIX}${publicId}`, String(orderId));
     const ids = [...new Set([...readOwnedOrderIds(), orderId])].slice(-50);
     safeStorageSet(GUEST_OWNED_ORDER_IDS_KEY, JSON.stringify(ids));
   }
@@ -164,6 +167,13 @@ export function getGuestOrderTrackingToken(orderId: string | number) {
 
 export function getGuestOrderOwnershipToken(orderId: string | number) {
   return safeStorageGet(`${GUEST_OWNERSHIP_TOKEN_PREFIX}${Number(orderId)}`) || '';
+}
+
+export function getGuestOrderOwnershipTokenByPublicId(publicId: string) {
+  const normalizedPublicId = String(publicId || '').trim();
+  if (!normalizedPublicId) return '';
+  const orderId = Number(safeStorageGet(`${GUEST_PUBLIC_ORDER_ID_PREFIX}${normalizedPublicId}`) || 0);
+  return Number.isInteger(orderId) && orderId > 0 ? getGuestOrderOwnershipToken(orderId) : '';
 }
 
 export function getGuestOwnedOrderProofs(): GuestOrderProof[] {
@@ -378,6 +388,25 @@ class OrdersService {
 
   async getPixPaymentStatus(payload: PixPaymentStatusPayload) {
     const response = await api.post('/orders/pix/payment/status', payload);
+    return response.data;
+  }
+
+  async recoverPixPayment(orderPublicId: string) {
+    const guestToken = getGuestOrderOwnershipTokenByPublicId(orderPublicId);
+    const response = await api.get(
+      `/orders/payment/${encodeURIComponent(orderPublicId)}/pix`,
+      guestToken ? { headers: { 'x-guest-order-ownership': guestToken } } : undefined,
+    );
+    return response.data;
+  }
+
+  async confirmRecoveredPixPayment(orderPublicId: string) {
+    const guestToken = getGuestOrderOwnershipTokenByPublicId(orderPublicId);
+    const response = await api.post(
+      `/orders/payment/${encodeURIComponent(orderPublicId)}/pix/confirm`,
+      {},
+      guestToken ? { headers: { 'x-guest-order-ownership': guestToken } } : undefined,
+    );
     return response.data;
   }
 

@@ -9,6 +9,7 @@ type Props = {
   primaryColor: string;
   order: ActiveOrder | null;
   onTrack: (orderId: string) => void;
+  onContinuePayment?: (orderPublicId: string) => void;
   onConfirmDelivery: (orderId: string) => Promise<void>;
   embedded?: boolean;
 };
@@ -374,6 +375,7 @@ export function ActiveOrderNotice({
   primaryColor,
   order,
   onTrack,
+  onContinuePayment,
   onConfirmDelivery,
   embedded = false,
 }: Props) {
@@ -418,14 +420,20 @@ export function ActiveOrderNotice({
         $embedded={embedded}
         style={{ '--home-primary': primaryColor } as CSSProperties}
         aria-haspopup="dialog"
-        onClick={() => setIsOpen(true)}
+        onClick={() => {
+          if (order.paymentPending && order.publicId && onContinuePayment) {
+            onContinuePayment(order.publicId);
+            return;
+          }
+          setIsOpen(true);
+        }}
       >
         <span className="order-heading">
           <i className="icon" aria-hidden="true">
             <StatusIcon status={order.status} />
           </i>
           <span className="order-copy">
-            <strong>Pedido em andamento</strong>
+            <strong>{order.paymentPending ? 'Pagamento pendente' : 'Pedido em andamento'}</strong>
             <small>
               #{order.id} · {order.statusLabel}
             </small>
@@ -437,7 +445,7 @@ export function ActiveOrderNotice({
           ))}
         </span>
         <span className="order-action">
-          Ver meu pedido <ChevronRight size={17} aria-hidden="true" />
+          {order.paymentPending ? 'Continuar pagamento' : 'Ver meu pedido'} <ChevronRight size={17} aria-hidden="true" />
         </span>
       </FloatingNotice>
       {isOpen &&

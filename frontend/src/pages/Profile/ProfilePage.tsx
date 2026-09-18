@@ -61,9 +61,18 @@ function OrderAction({
   order,
   onReorder,
   onViewOrder,
-}: Pick<ProfilePageProps, 'onReorder' | 'onViewOrder'> & {
+  onContinuePayment,
+}: Pick<ProfilePageProps, 'onReorder' | 'onViewOrder' | 'onContinuePayment'> & {
   order: ProfileOrder;
 }) {
+  if (order.paymentPending && order.publicId) {
+    return (
+      <button type="button" onClick={() => onContinuePayment?.(order.publicId!)}>
+        Continuar pagamento
+      </button>
+    );
+  }
+
   if (order.status === 'delivered') {
     return (
       <button type="button" onClick={() => onReorder?.(order.id)}>
@@ -82,6 +91,10 @@ function OrderAction({
 
   return null;
 }
+function displayOrderStatus(order: ProfileOrder) {
+  return order.paymentPending ? 'Pagamento pendente' : statusLabel[order.status];
+}
+
 const trackingSteps = [
   { label: 'Confirmado', icon: CheckCircle2 },
   { label: 'Em preparo', icon: ChefHat },
@@ -356,6 +369,7 @@ function Overview(props: ProfilePageProps) {
     data = profileMockData,
     onTrackOrder,
     onViewOrder,
+    onContinuePayment,
     onReorder,
     onViewAllOrders,
     onNewAddress,
@@ -375,11 +389,11 @@ function Overview(props: ProfilePageProps) {
             <S.Heading>
               <div>
                 <small>Pedido {activeOrder.id}</small>
-                <h2>Pedido em andamento</h2>
+                <h2>{activeOrder.paymentPending ? 'Pagamento pendente' : 'Pedido em andamento'}</h2>
               </div>
               <S.Status>
                 <Package size={17} />
-                {statusLabel[activeOrder.status]}
+                {activeOrder.paymentPending ? 'Aguardando Pix' : statusLabel[activeOrder.status]}
               </S.Status>
             </S.Heading>
             <S.Tracking aria-label="Progresso do pedido">
@@ -403,12 +417,23 @@ function Overview(props: ProfilePageProps) {
               Previsão de chegada: {activeOrder.estimatedArrival}
             </S.Eta>
             <S.Actions>
-              <button type="button" onClick={() => onTrackOrder?.(activeOrder.id)}>
-                Acompanhar em tempo real <MapPin size={16} />
-              </button>
-              <button type="button" onClick={() => onViewOrder?.(activeOrder.id)}>
-                Ver detalhes
-              </button>
+              {activeOrder.paymentPending && activeOrder.publicId ? (
+                <button
+                  type="button"
+                  onClick={() => onContinuePayment?.(activeOrder.publicId!)}
+                >
+                  Continuar pagamento <ChevronRight size={16} />
+                </button>
+              ) : (
+                <>
+                  <button type="button" onClick={() => onTrackOrder?.(activeOrder.id)}>
+                    Acompanhar em tempo real <MapPin size={16} />
+                  </button>
+                  <button type="button" onClick={() => onViewOrder?.(activeOrder.id)}>
+                    Ver detalhes
+                  </button>
+                </>
+              )}
             </S.Actions>
           </div>
           <S.ActiveVisual>
@@ -452,8 +477,13 @@ function Overview(props: ProfilePageProps) {
               </div>
               <aside>
                 <strong>{brl(order.total)}</strong>
-                <small>✓ {statusLabel[order.status]}</small>
-                <OrderAction order={order} onReorder={onReorder} onViewOrder={onViewOrder} />
+                <small>✓ {displayOrderStatus(order)}</small>
+                <OrderAction
+                  order={order}
+                  onReorder={onReorder}
+                  onViewOrder={onViewOrder}
+                  onContinuePayment={onContinuePayment}
+                />
               </aside>
             </S.Order>
           ))}
@@ -533,7 +563,13 @@ function Overview(props: ProfilePageProps) {
   );
 }
 
-function Orders({ data = profileMockData, onReorder, onViewOrder, historyPagination }: ProfilePageProps) {
+function Orders({
+  data = profileMockData,
+  onReorder,
+  onViewOrder,
+  onContinuePayment,
+  historyPagination,
+}: ProfilePageProps) {
   const [visibleOrderLimit, setVisibleOrderLimit] = useState(ORDER_LIST_BATCH_SIZE);
   const visibleOrders = data.recentOrders.slice(0, visibleOrderLimit);
 
@@ -553,13 +589,21 @@ function Orders({ data = profileMockData, onReorder, onViewOrder, historyPaginat
               <small>AGORA</small>
               <b>{data.activeOrder.summary}</b>
               <span>
-                Pedido {data.activeOrder.id} • {statusLabel[data.activeOrder.status]}
+                Pedido {data.activeOrder.id} • {data.activeOrder.paymentPending ? 'Pagamento pendente' : statusLabel[data.activeOrder.status]}
               </span>
             </div>
             <aside>
               <small>● Em andamento</small>
               <strong>{brl(data.activeOrder.total)}</strong>
-              <button onClick={() => onViewOrder?.(data.activeOrder!.id)}>Acompanhar</button>
+              <button
+                  onClick={() =>
+                    data.activeOrder?.paymentPending && data.activeOrder.publicId
+                      ? onContinuePayment?.(data.activeOrder.publicId)
+                      : onViewOrder?.(data.activeOrder!.id)
+                  }
+                >
+                  {data.activeOrder.paymentPending ? 'Continuar pagamento' : 'Acompanhar'}
+                </button>
             </aside>
           </S.FullOrder>
         )}
@@ -571,12 +615,17 @@ function Orders({ data = profileMockData, onReorder, onViewOrder, historyPaginat
                 <small>{order.date}</small>
                 <b>{order.summary}</b>
                 <span>
-                  {order.id} • {statusLabel[order.status]}
+                  {order.id} • {displayOrderStatus(order)}
                 </span>
               </div>
               <aside>
                 <strong>{brl(order.total)}</strong>
-                <OrderAction order={order} onReorder={onReorder} onViewOrder={onViewOrder} />
+                <OrderAction
+                  order={order}
+                  onReorder={onReorder}
+                  onViewOrder={onViewOrder}
+                  onContinuePayment={onContinuePayment}
+                />
               </aside>
             </S.FullOrder>
           ))}

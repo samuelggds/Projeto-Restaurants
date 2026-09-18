@@ -29,6 +29,29 @@ describe('getActiveOrderNotice', () => {
     });
   });
 
+  it('marca Pix não pago como pagamento pendente e mantém o publicId para reabrir a cobrança', () => {
+    expect(
+      getActiveOrderNotice([
+        {
+          id: 77,
+          publicId: 'order-public-77',
+          type: 'DELIVERY',
+          status: 'PENDENTE',
+          paymentMethod: 'PIX',
+          paid: false,
+          pixPaymentId: 'pix-provider-77',
+          createdAt: '2026-09-17T20:00:00.000Z',
+        },
+      ]),
+    ).toMatchObject({
+      id: '77',
+      publicId: 'order-public-77',
+      status: 'PENDENTE',
+      statusLabel: 'Pagamento pendente',
+      paymentPending: true,
+    });
+  });
+
   it('mantém o aviso quando uma entrega aguarda confirmação do cliente', () => {
     expect(
       getActiveOrderNotice([

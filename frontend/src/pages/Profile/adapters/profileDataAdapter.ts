@@ -120,6 +120,11 @@ export function buildProfileData({
   const activeOrder = activeRaw
     ? (() => {
         const channel = getProfileOrderChannel(activeRaw);
+        const paymentPending =
+          String(activeRaw.status || '').toUpperCase() !== 'CANCELADO' &&
+          String(activeRaw.paymentMethod || '').toUpperCase() === 'PIX' &&
+          activeRaw.paid !== true &&
+          Boolean(String(activeRaw.pixPaymentId || '').trim());
         return {
           id: `#${String(activeRaw.id).padStart(4, '0')}`,
           status: mapOrderStatus(activeRaw.status),
@@ -128,6 +133,8 @@ export function buildProfileData({
           image: firstProductImage(activeRaw),
           total: Number(activeRaw.total || 0),
           channel,
+          publicId: String(activeRaw.publicId || ''),
+          paymentPending,
         };
       })()
     : undefined;
@@ -141,6 +148,11 @@ export function buildProfileData({
       const date = order.createdAt
         ? new Date(String(order.createdAt)).toLocaleDateString('pt-BR')
         : '';
+      const paymentPending =
+        String(order.status || '').toUpperCase() !== 'CANCELADO' &&
+        String(order.paymentMethod || '').toUpperCase() === 'PIX' &&
+        order.paid !== true &&
+        Boolean(String(order.pixPaymentId || '').trim());
       return {
         id: `#${String(order.id).padStart(4, '0')}`,
         summary: buildOrderSummary(order),
@@ -149,6 +161,8 @@ export function buildProfileData({
         image: firstProductImage(order),
         status: mapOrderStatus(order.status),
         channel,
+        publicId: String(order.publicId || ''),
+        paymentPending,
       };
     });
   const addresses: ProfileAddress[] = rawAddresses.map((item) => ({

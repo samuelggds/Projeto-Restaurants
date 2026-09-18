@@ -37,6 +37,8 @@ export type ProfileOrder = {
   image: string;
   status: ProfileOrderStatus;
   channel?: ProfileOrderChannel;
+  publicId?: string;
+  paymentPending?: boolean;
 };
 
 export type ProfileFavorite = {
@@ -70,6 +72,8 @@ export type ActiveProfileOrder = {
   image: string;
   total: number;
   channel?: ProfileOrderChannel;
+  publicId?: string;
+  paymentPending?: boolean;
 };
 
 export type ProfileData = {
@@ -92,6 +96,7 @@ export type ProfilePageProps = {
   onOpenSearch?: () => void;
   onTrackOrder?: (orderId: string) => void;
   onViewOrder?: (orderId: string) => void;
+  onContinuePayment?: (orderPublicId: string) => void;
   onReorder?: (orderId: string) => void;
   onViewAllOrders?: () => void;
   onOpenCoupons?: () => void;

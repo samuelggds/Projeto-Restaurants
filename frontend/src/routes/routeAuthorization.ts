@@ -55,11 +55,13 @@ export function isPublicRoute(pathname: string) {
   const restaurantTable = path.match(/^\/([^/]+)\/mesa\/[^/]+$/)?.[1];
   const deliveryTracking = /^\/orders\/\d+\/tracking$/u.test(path);
   const deliveryChat = /^\/orders\/\d+\/chat$/u.test(path);
+  const orderPixPayment = /^\/[^/]+\/pedido\/[^/]+\/pagamento$/u.test(path);
   return (
     path === '/system-maintenance' ||
     path === TENANT_REQUIRED_PATH ||
     deliveryTracking ||
     deliveryChat ||
+    orderPixPayment ||
     isAllowedTenantRoot(singleSegment) ||
     isAllowedTenantRoot(restaurantTable)
   );

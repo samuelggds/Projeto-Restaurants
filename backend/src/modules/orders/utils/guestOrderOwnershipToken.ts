@@ -53,12 +53,9 @@ export function issueGuestOrderOwnershipToken({ orderId, publicId }: GuestOrderO
   );
 }
 
-export function verifyGuestOrderOwnershipToken(
-  rawToken: string,
-  expectedOrderId: number,
-): GuestOrderOwnershipClaims {
+function verifyGuestOrderOwnershipClaims(rawToken: string): GuestOrderOwnershipClaims {
   const token = String(rawToken || '').trim();
-  if (!token || !Number.isInteger(expectedOrderId) || expectedOrderId <= 0) {
+  if (!token) {
     throw new Error('Comprovação de propriedade do pedido inválida.');
   }
 
@@ -74,9 +71,40 @@ export function verifyGuestOrderOwnershipToken(
   const payload = decoded as JwtPayload;
   const orderId = Number(payload.orderId || 0);
   const publicId = String(payload.publicId || '').trim();
-  if (payload.type !== TOKEN_TYPE || orderId !== expectedOrderId || !publicId) {
+  if (payload.type !== TOKEN_TYPE || !Number.isInteger(orderId) || orderId <= 0 || !publicId) {
     throw new Error('Comprovação de propriedade do pedido inválida.');
   }
 
   return { orderId, publicId };
+}
+
+export function verifyGuestOrderOwnershipToken(
+  rawToken: string,
+  expectedOrderId: number,
+): GuestOrderOwnershipClaims {
+  if (!Number.isInteger(expectedOrderId) || expectedOrderId <= 0) {
+    throw new Error('Comprovação de propriedade do pedido inválida.');
+  }
+
+  const claims = verifyGuestOrderOwnershipClaims(rawToken);
+  if (claims.orderId !== expectedOrderId) {
+    throw new Error('Comprovação de propriedade do pedido inválida.');
+  }
+  return claims;
+}
+
+export function verifyGuestOrderOwnershipTokenByPublicId(
+  rawToken: string,
+  expectedPublicId: string,
+): GuestOrderOwnershipClaims {
+  const normalizedPublicId = String(expectedPublicId || '').trim();
+  if (!normalizedPublicId) {
+    throw new Error('Comprovação de propriedade do pedido inválida.');
+  }
+
+  const claims = verifyGuestOrderOwnershipClaims(rawToken);
+  if (claims.publicId !== normalizedPublicId) {
+    throw new Error('Comprovação de propriedade do pedido inválida.');
+  }
+  return claims;
 }

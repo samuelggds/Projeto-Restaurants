@@ -34,6 +34,7 @@ import {
 } from './tablePaymentSupport.js';
 import { tableAccountEvents } from '../realtime/tableAccountEvents.js';
 import { ProcessTablePaymentWebhookService } from './ProcessTablePaymentWebhookService.js';
+import { onlinePaymentExpiresAt } from '../../payments/domain/onlinePaymentPolicy.js';
 
 interface CreateTablePaymentIntentContext {
   tableSessionId: number;
@@ -168,7 +169,11 @@ export class CreateTablePaymentIntentService {
           : 0;
         const totalCents = sumMoneyCents([subtotalCents, serviceFeeCents]);
         const allocationSeeds = plan.allocations;
-        const expiresAt = new Date(now.getTime() + settings.reservationTimeoutMinutes * 60_000);
+        const onlinePayment =
+          input.method === TablePaymentMethod.PIX || input.method === TablePaymentMethod.CARD;
+        const expiresAt = onlinePayment
+          ? onlinePaymentExpiresAt(now)
+          : new Date(now.getTime() + settings.reservationTimeoutMinutes * 60_000);
 
         const created = await tx.tablePaymentIntent.create({
           data: {

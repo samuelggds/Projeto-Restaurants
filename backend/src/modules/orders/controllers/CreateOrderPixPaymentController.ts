@@ -9,6 +9,7 @@ import { orderCreationContext } from '../services/orderCreationRequest.js';
 import { OrderRequestError } from '../domain/OrderRequestError.js';
 import { recordWhatsappOrderNotificationOptIn } from '../../../services/whatsappOrderConsent.js';
 import { safeErrorName } from '../../../services/telemetrySanitizer.js';
+import { onlinePaymentExpiresAt } from '../../payments/domain/onlinePaymentPolicy.js';
 
 class CreateOrderPixPaymentController {
   async handle(req: Request, res: Response) {
@@ -87,6 +88,7 @@ class CreateOrderPixPaymentController {
         }
       }
 
+      const pixExpiresAt = onlinePaymentExpiresAt();
       let result;
       try {
         result = await orderPixPaymentService.createPixPayment({
@@ -108,6 +110,7 @@ class CreateOrderPixPaymentController {
           orderTotal: Number(order.total),
           orderSubtotal: Number(order.itemsSubtotal) - Number(order.couponDiscount),
           orderDeliveryFee: Number(order.deliveryFeeAmount),
+          expiresAt: pixExpiresAt,
         });
       } catch (error) {
         console.error('[PIX_PAYMENT_CREATION_UNCERTAIN]', {
@@ -123,6 +126,7 @@ class CreateOrderPixPaymentController {
           orderId: order.id,
           restaurantId: resolvedRestaurantId,
           paymentId: String(result.paymentId || ''),
+          expiresAt: pixExpiresAt,
         });
       } catch (error: unknown) {
         console.error(

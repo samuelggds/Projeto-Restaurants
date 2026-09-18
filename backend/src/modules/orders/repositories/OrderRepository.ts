@@ -610,6 +610,36 @@ class OrderRepository {
     });
   }
 
+  async findPixPaymentRecoveryByPublicId(
+    publicId: string,
+    db: PrismaClientLike = prisma,
+  ) {
+    return db.order.findFirst({
+      where: { publicId },
+      select: {
+        id: true,
+        publicId: true,
+        restaurantId: true,
+        userId: true,
+        total: true,
+        paid: true,
+        paidAt: true,
+        status: true,
+        type: true,
+        paymentMethod: true,
+        payOnDelivery: true,
+        pixPaymentId: true,
+        pixExpiresAt: true,
+        restaurant: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+      },
+    });
+  }
+
   async findByPublicIdForTableParticipant(
     publicId: string,
     tableSessionId: number,
@@ -778,6 +808,7 @@ class OrderRepository {
     restaurantId: number,
     pixPaymentId: string,
     db: PrismaClientLike = prisma,
+    pixExpiresAt?: Date | null,
   ) {
     const normalizedPaymentId = String(pixPaymentId || '').trim();
     if (!normalizedPaymentId) {
@@ -802,7 +833,10 @@ class OrderRepository {
           status: { not: OrderStatus.CANCELADO },
           OR: [{ pixPaymentId: null }, { pixPaymentId: normalizedPaymentId }],
         },
-        data: { pixPaymentId: normalizedPaymentId },
+        data: {
+          pixPaymentId: normalizedPaymentId,
+          ...(pixExpiresAt ? { pixExpiresAt } : {}),
+        },
       });
     } catch (error) {
       if (isUniqueConstraintError(error)) {

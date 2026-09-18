@@ -22,6 +22,7 @@ const UserProfile = lazy(() => import('../pages/Profile/Profile'));
 const CourierDashboard = lazy(() => import('../pages/Courier/CourierWorkspace'));
 const DeliveryTrackingPage = lazy(() => import('../pages/tracking/DeliveryTrackingPage'));
 const DeliveryChatPage = lazy(() => import('../pages/tracking/DeliveryChatPage'));
+const OrderPixPaymentPage = lazy(() => import('../pages/payment/OrderPixPaymentPage'));
 const DeliveryCustomerAlertLayer = lazy(
   () => import('../pages/tracking/DeliveryCustomerAlertLayer'),
 );
@@ -274,6 +275,10 @@ export default function AppRoutes() {
                   <Route path="/system-maintenance" element={<SystemMaintenancePage />} />
                   <Route path={TENANT_REQUIRED_PATH} element={<TenantRequiredPage />} />
                   <Route path="/:restaurantSlug" element={<RestaurantMenuGate />} />
+                  <Route
+                    path="/:restaurantSlug/pedido/:orderPublicId/pagamento"
+                    element={<OrderPixPaymentPage />}
+                  />
                   <Route path="/:restaurantSlug/mesa/:tableNumber" element={<DigitalMenu />} />
                   <Route path="/orders/:id/tracking" element={<DeliveryTrackingPage />} />
                   <Route path="/orders/:id/chat" element={<DeliveryChatPage />} />

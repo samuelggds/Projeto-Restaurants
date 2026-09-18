@@ -361,6 +361,33 @@ const ErrorDetail = styled.p`
   line-height: 1.4;
 `;
 
+const Expiration = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid #e1e5df;
+  border-radius: 8px;
+  background: #fafbf9;
+  color: #4f5d54;
+
+  span {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    font-size: 11px;
+    font-weight: 700;
+  }
+
+  strong {
+    min-width: 54px;
+    color: #25322d;
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+  }
+`;
+
 function StatusIcon({ status }: { status: PixPaymentStatus }) {
   if (status === 'PAID') return <CheckCircle2 />;
   if (status === 'ERROR') return <AlertTriangle />;
@@ -380,9 +407,17 @@ export default function PixPaymentPanel({
   onBackToCart,
 }: Props) {
   const [copied, setCopied] = useState(false);
+  const [nowMs, setNowMs] = useState(() => Date.now());
   const copyTimeoutRef = useRef<number | null>(null);
-  const resolvedStatus =
+  const expiresAtMs = pixPaymentData.expiresAt ? Date.parse(pixPaymentData.expiresAt) : Number.NaN;
+  const remainingSeconds = Number.isFinite(expiresAtMs)
+    ? Math.max(0, Math.ceil((expiresAtMs - nowMs) / 1000))
+    : null;
+  const expiredByClock =
+    pixPaymentData.paid !== true && remainingSeconds !== null && remainingSeconds <= 0;
+  const baseResolvedStatus =
     paymentStatus === 'PAID' && pixPaymentData.paid !== true ? 'ERROR' : paymentStatus;
+  const resolvedStatus = expiredByClock ? 'EXPIRED' : baseResolvedStatus;
   const content = statusCopy[resolvedStatus];
   const confirmed = resolvedStatus === 'PAID';
   const terminal = ['PAID', 'FAILED', 'CANCELED', 'EXPIRED', 'REFUNDED'].includes(resolvedStatus);
@@ -393,6 +428,12 @@ export default function PixPaymentPanel({
     },
     [],
   );
+
+  useEffect(() => {
+    if (!Number.isFinite(expiresAtMs) || confirmed || terminal) return;
+    const interval = window.setInterval(() => setNowMs(Date.now()), 1000);
+    return () => window.clearInterval(interval);
+  }, [confirmed, expiresAtMs, terminal]);
 
   async function handleCopy() {
     try {
@@ -443,6 +484,19 @@ export default function PixPaymentPanel({
 
           {resolvedStatus === 'ERROR' && paymentError && (
             <ErrorDetail role="alert">{paymentError}</ErrorDetail>
+          )}
+
+          {!confirmed && remainingSeconds !== null && (
+            <Expiration aria-live="polite">
+              <span>
+                <Clock3 size={15} />
+                Este Pix expira em
+              </span>
+              <strong>
+                {String(Math.floor(remainingSeconds / 60)).padStart(2, '0')}:
+                {String(remainingSeconds % 60).padStart(2, '0')}
+              </strong>
+            </Expiration>
           )}
 
           {!confirmed && (

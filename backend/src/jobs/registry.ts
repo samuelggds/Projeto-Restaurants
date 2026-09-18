@@ -4,6 +4,7 @@ import reconcileMercadoPagoInvoicesService from '../modules/billing/services/Rec
 import reconcileRecurringCardBillingService from '../modules/billing/services/ReconcileRecurringCardBillingService.js';
 import loyaltyRedemptionExpirationJob from '../modules/coupon/jobs/LoyaltyRedemptionExpirationJob.js';
 import deliveryLocationCleanupJob from '../modules/orders/jobs/DeliveryLocationCleanupJob.js';
+import orderPixPaymentExpirationJob from '../modules/orders/jobs/OrderPixPaymentExpirationJob.js';
 import tablePaymentReservationExpirationJob from '../modules/tableAccount/jobs/TablePaymentReservationExpirationJob.js';
 import type { JobDefinition } from './JobDefinition.js';
 import { drainNotificationOutbox } from '../services/notificationOutbox.js';
@@ -148,6 +149,17 @@ export function createJobDefinitions(env: Environment = process.env): JobDefinit
       successCooldownMs: 20 * 60 * 60 * 1000,
       failureBackoffMs: 60 * 60 * 1000,
       execute: () => deliveryLocationCleanupJob.execute(),
+    },
+    {
+      key: 'orders.pix-payment-expiration',
+      description: 'Expiração segura de pedidos Pix online não pagos',
+      runtime: 'worker',
+      schedule: { kind: 'interval', intervalMs: 60_000 },
+      leaseDurationMs: 2 * 60 * 1000,
+      successCooldownMs: 50_000,
+      failureBackoffMs: 30_000,
+      runOnStart: true,
+      execute: () => orderPixPaymentExpirationJob.execute(),
     },
     {
       key: 'table-account.payment-expiration',
