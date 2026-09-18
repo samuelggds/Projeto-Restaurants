@@ -95,6 +95,12 @@ jobs:
           set -euo pipefail
           case "$APP_URL" in https://*) ;; *) echo 'PRODUCTION_APP_URL must be HTTPS.' >&2; exit 1 ;; esac
           case "$API_URL" in https://*) ;; *) echo 'PRODUCTION_API_URL must be HTTPS.' >&2; exit 1 ;; esac
+          app_origin="$(node -p "new URL(process.argv[1]).origin" "$APP_URL")"
+          api_origin="$(node -p "new URL(process.argv[1]).origin" "$API_URL")"
+          if [ "$app_origin" = "$api_origin" ]; then
+            echo 'PRODUCTION_API_URL must use a dedicated API origin and cannot equal PRODUCTION_APP_URL.' >&2
+            exit 1
+          fi
           test -n "$MAP_TILE_URL"
 
       - name: Prepare immutable image names and build-config evidence
