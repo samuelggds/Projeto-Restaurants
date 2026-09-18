@@ -5,6 +5,7 @@ import restaurantSettingsRepository from '../../restaurantSettings/repositories/
 import { CARD_PROVIDERS } from '../../payments/providers/providerCatalog.js';
 import directOrderCardPaymentService, {
   CardPaymentProviderRequestError,
+  PaymentSplitConfigurationError,
   mercadoPagoDeclineDetails,
 } from './DirectOrderCardPaymentService.js';
 
@@ -166,4 +167,74 @@ test('extrai status_detail seguro da recusa Mercado Pago', () => {
       transactionStatusDetail: 'cc_rejected_bad_filled_security_code',
     },
   );
+});
+
+
+test('Mercado Pago falha fechado quando o split configurado é rejeitado', async () => {
+  let requests = 0;
+  globalThis.fetch = async () => {
+    requests += 1;
+    return new Response(
+      JSON.stringify({
+        message: 'marketplace_fee is not allowed for this application',
+        error: 'bad_request',
+      }),
+      { status: 400, headers: { 'Content-Type': 'application/json' } },
+    );
+  };
+
+  await assert.rejects(
+    () =>
+      directOrderCardPaymentService.execute({
+        provider: CARD_PROVIDERS.MERCADO_PAGO,
+        payload: {
+          cardToken: 'card-token-split',
+          cardPaymentMethodId: 'visa',
+          customerName: 'Cliente Teste',
+        },
+        order: {
+          id: 903,
+          publicId: 'order-public-903',
+          restaurantId: 7,
+          total: 100,
+          systemFee: 5,
+          restaurant: { name: 'North Pizza' },
+        },
+        successUrlBase: 'https://www.gastronexa.com.br/north-pizza',
+      }),
+    (error) => error instanceof PaymentSplitConfigurationError,
+  );
+
+  assert.equal(requests, 1);
+});
+
+test('PagBank bloqueia cobrança com taxa antes de chamar o gateway sem split', async () => {
+  let requests = 0;
+  globalThis.fetch = async () => {
+    requests += 1;
+    throw new Error('não deveria chamar a rede');
+  };
+
+  await assert.rejects(
+    () =>
+      directOrderCardPaymentService.execute({
+        provider: CARD_PROVIDERS.PAGBANK,
+        payload: {
+          encryptedCard: 'encrypted-card',
+          customerName: 'Cliente Teste',
+        },
+        order: {
+          id: 904,
+          publicId: 'order-public-904',
+          restaurantId: 7,
+          total: 100,
+          systemFee: 5,
+          restaurant: { name: 'North Pizza' },
+        },
+        successUrlBase: 'https://www.gastronexa.com.br/north-pizza',
+      }),
+    (error) => error instanceof PaymentSplitConfigurationError,
+  );
+
+  assert.equal(requests, 0);
 });
