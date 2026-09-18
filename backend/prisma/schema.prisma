@@ -781,6 +781,7 @@ model Order {
   paymentConfirmationPinExpiresAt DateTime?
   paidAt                          DateTime?
   pixPaymentId                    String?                    @unique
+  pixExpiresAt                    DateTime?
   cardCheckoutSessionId           String?
   refundStatus                    OrderRefundStatus          @default(NOT_REQUESTED)
   refundRequestedAt               DateTime?
@@ -829,6 +830,7 @@ model Order {
   @@index([restaurantId, refundStatus])
   @@index([assignedCourierId, deliveryStartedAt])
   @@index([restaurantId, userId, status, paid, deliveredAt])
+  @@index([status, paid, pixExpiresAt])
   @@index([restaurantId, tableSessionId, participantId, createdAt])
 }
 
