@@ -38,7 +38,6 @@ test('adapta Checkout Pro legado para POST /v1/orders com idempotência e checko
   const result = await api.create({
     body: {
       external_reference: 'ordercard_41_7',
-      marketplace_fee: 2.5,
       payer: { email: 'cliente@example.com' },
       items: [
         {
@@ -62,13 +61,13 @@ test('adapta Checkout Pro legado para POST /v1/orders com idempotência e checko
   assert.equal(calls[0].init?.method, 'POST');
   const headers = calls[0].init?.headers as Record<string, string>;
   assert.equal(headers.Authorization, 'Bearer test-access-token');
-  assert.equal(headers['X-Idempotency-Key'], 'ordercard_41_7-split');
+  assert.equal(headers['X-Idempotency-Key'], 'ordercard_41_7-base');
   const body = JSON.parse(String(calls[0].init?.body));
   assert.equal(body.type, 'online');
   assert.equal(body.processing_mode, 'manual');
   assert.equal(body.capture_mode, 'automatic_async');
   assert.equal(body.total_amount, '50.00');
-  assert.equal(body.marketplace_fee, '2.50');
+  assert.equal(Object.hasOwn(body, 'marketplace_fee'), false);
   assert.equal(body.external_reference, 'ordercard_41_7');
   assert.equal(body.items[0].unit_price, '50.00');
   assert.equal(body.config.online.auto_return, 'approved');

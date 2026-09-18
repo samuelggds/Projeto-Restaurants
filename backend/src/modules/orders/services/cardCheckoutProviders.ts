@@ -273,40 +273,6 @@ function extractXmlTagValue(xml: string, tag: string) {
   return String(match?.[1] || '').trim();
 }
 
-function extractProviderErrorText(error: unknown) {
-  if (typeof error === 'string') {
-    return error.trim().toLowerCase();
-  }
-
-  const asRecord =
-    typeof error === 'object' && error !== null ? (error as Record<string, unknown>) : null;
-  const message = String(
-    asRecord?.message || (asRecord?.cause as { message?: unknown } | undefined)?.message || '',
-  );
-  const causeText = String(asRecord?.cause || '');
-  return `${message} ${causeText}`.trim().toLowerCase();
-}
-
-function isMarketplaceSplitConfigurationError(error: unknown) {
-  const text = extractProviderErrorText(error);
-
-  if (!text) {
-    return false;
-  }
-
-  return (
-    text.includes('marketplace_fee') ||
-    text.includes('application_fee') ||
-    text.includes('marketplace') ||
-    text.includes('split') ||
-    text.includes('collector') ||
-    text.includes('platform') ||
-    text.includes('not allowed') ||
-    text.includes('unauthorized') ||
-    text.includes('invalid')
-  );
-}
-
 const stripeCardCheckoutProvider: CardCheckoutProviderHandler = {
   async createCheckout({ order, successUrlBase, cancelUrlBase }) {
     const stripe = await getStripeClient(order.restaurantId);
@@ -352,7 +318,6 @@ const stripeCardCheckoutProvider: CardCheckoutProviderHandler = {
 const mercadoPagoCardCheckoutProvider: CardCheckoutProviderHandler = {
   async createCheckout({ payload, order, successUrlBase, cancelUrlBase }) {
     const preferenceApi = await getMercadoPagoPreferenceApi(order.restaurantId);
-    const marketplaceFee = Number(order.systemFee || 0);
     const savedMethodId = String(payload.paymentMethodId || '').trim();
     let payerEmail = '';
 
@@ -380,7 +345,7 @@ const mercadoPagoCardCheckoutProvider: CardCheckoutProviderHandler = {
       payerEmail = String(payer?.email || '').trim();
     }
 
-    const buildPreferenceBody = (includeMarketplaceFee: boolean) => ({
+    const preferenceBody = {
       items: [
         {
           id: String(order.id),
@@ -398,7 +363,6 @@ const mercadoPagoCardCheckoutProvider: CardCheckoutProviderHandler = {
         source: 'order_card_checkout',
       },
       ...(payerEmail ? { payer: { email: payerEmail } } : {}),
-      ...(includeMarketplaceFee && marketplaceFee > 0 ? { marketplace_fee: marketplaceFee } : {}),
       ...mercadoPagoOrderNotificationFields(order.restaurantId),
       back_urls: {
         success: withQueryParam(successUrlBase, {
@@ -414,38 +378,11 @@ const mercadoPagoCardCheckoutProvider: CardCheckoutProviderHandler = {
           orderPublicId: order.publicId,
         }),
       },
+    };
+
+    const response = await preferenceApi.create({
+      body: preferenceBody,
     });
-
-    let response: unknown;
-
-    if (marketplaceFee > 0) {
-      try {
-        response = await preferenceApi.create({
-          body: buildPreferenceBody(true),
-        });
-      } catch (error) {
-        if (!isMarketplaceSplitConfigurationError(error)) {
-          throw error;
-        }
-
-        console.warn(
-          '[CARD_SPLIT_FALLBACK] Mercado Pago rejeitou marketplace_fee. Recriando checkout sem split.',
-          {
-            orderId: order.id,
-            restaurantId: order.restaurantId,
-            marketplaceFee,
-          },
-        );
-
-        response = await preferenceApi.create({
-          body: buildPreferenceBody(false),
-        });
-      }
-    } else {
-      response = await preferenceApi.create({
-        body: buildPreferenceBody(false),
-      });
-    }
 
     const preference =
       typeof response === 'object' && response !== null
@@ -784,12 +721,7 @@ const asaasCardCheckoutProvider: CardCheckoutProviderHandler = {
     }
 
     const customerId = String(customerResult.responseBody.id || '').trim();
-    const settings = await restaurantSettingsRepository.findByRestaurantId(order.restaurantId);
-    const walletId = String(settings?.gatewayMerchantId || '').trim();
-    const platformWalletId = String(process.env.ASAAS_PLATFORM_WALLET_ID || '').trim();
-    const systemFee = Number(order.systemFee || 0);
-
-    const buildPaymentBody = (includeSplit: boolean) => ({
+    const paymentBody = {
       customer: customerId,
       billingType: 'UNDEFINED',
       value: Number(order.total || 0),
@@ -803,61 +735,16 @@ const asaasCardCheckoutProvider: CardCheckoutProviderHandler = {
         }),
         autoRedirect: true,
       },
-      ...(includeSplit && systemFee > 0 && platformWalletId
-        ? {
-            split: [
-              {
-                walletId: platformWalletId,
-                fixedValue: systemFee,
-              },
-              ...(walletId
-                ? [
-                    {
-                      walletId,
-                      remainingValue: true,
-                    },
-                  ]
-                : []),
-            ],
-          }
-        : {}),
-    });
+    };
 
-    let paymentResult = await fetchAsaasJson<AsaasCardPaymentPayload>(
+    const paymentResult = await fetchAsaasJson<AsaasCardPaymentPayload>(
       `${asaasBaseUrl}/v3/payments`,
       accessToken,
       {
         method: 'POST',
-        body: buildPaymentBody(systemFee > 0),
+        body: paymentBody,
       },
     );
-
-    const shouldRetryWithoutSplit =
-      systemFee > 0 &&
-      !paymentResult.ok &&
-      isMarketplaceSplitConfigurationError(
-        getAsaasError(paymentResult.responseBody, 'Erro ao criar checkout de cartao no Asaas.'),
-      );
-
-    if (shouldRetryWithoutSplit) {
-      console.warn(
-        '[ASAAS_CARD_SPLIT_FALLBACK] Asaas rejeitou split. Recriando checkout sem split.',
-        {
-          orderId: order.id,
-          restaurantId: order.restaurantId,
-          systemFee,
-        },
-      );
-
-      paymentResult = await fetchAsaasJson<AsaasCardPaymentPayload>(
-        `${asaasBaseUrl}/v3/payments`,
-        accessToken,
-        {
-          method: 'POST',
-          body: buildPaymentBody(false),
-        },
-      );
-    }
 
     if (!paymentResult.ok) {
       throw new Error(

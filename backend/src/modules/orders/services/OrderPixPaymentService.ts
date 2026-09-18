@@ -1,14 +1,9 @@
 import { MercadoPagoConfig, Payment } from 'mercadopago';
 import { pagBankApiBaseUrl } from '../../payments/providers/pagBankCheckout.js';
-import {
-  isMarketplaceSplitConfigurationError,
-  parseProviderPaymentId,
-  normalizeTxid,
-} from './pixPayload.js';
+import { parseProviderPaymentId, normalizeTxid } from './pixPayload.js';
 import productRepository from '../../products/repositories/ProductRepository.js';
 import restaurantSettingsRepository from '../../restaurantSettings/repositories/RestaurantSettingsRepository.js';
 import { assertRestaurantIsOpenForOrders } from '../utils/restaurantAvailability.js';
-import splitService from '../../billing/services/SplitService.js';
 import {
   PIX_PROVIDERS,
   type PixProvider,
@@ -544,10 +539,6 @@ class OrderPixPaymentService {
           ? 0
           : Math.max(deliveryFee, 0)
         : 0;
-    const systemFee = await splitService.execute({
-      restaurantId: normalizedRestaurantId,
-      orderTotal: subtotal,
-    });
     const totalAmount = Number(
       (hasPersistedTotal ? persistedTotal : subtotal + additionalFee).toFixed(2),
     );
@@ -574,8 +565,6 @@ class OrderPixPaymentService {
     );
     const payerName = String(customerName || 'Cliente').trim();
     const cpf = this.normalizeCpf(customerCpf);
-    const normalizedSystemFee = Number(systemFee || 0);
-
     if (resolvedPixProvider === PIX_PROVIDERS.PAGBANK) {
       const token = await this.getPagBankToken(normalizedRestaurantId);
       const backendUrl = String(process.env.BACKEND_URL || '')
@@ -709,9 +698,6 @@ class OrderPixPaymentService {
           expiresAt: expiresAtIso,
         };
       }
-      const privateSettings =
-        await restaurantSettingsRepository.findByRestaurantId(normalizedRestaurantId);
-
       const customerResult = await this.fetchAsaasJson<AsaasCustomerPayload>(
         `${asaasBaseUrl}/v3/customers`,
         accessToken,
@@ -736,72 +722,24 @@ class OrderPixPaymentService {
       }
 
       const customerId = String(customerResult.responseBody.id || '').trim();
-      const walletId = String(privateSettings?.gatewayMerchantId || '').trim();
-      const platformWalletId = String(process.env.ASAAS_PLATFORM_WALLET_ID || '').trim();
 
-      const buildAsaasPaymentBody = (includeSplit: boolean) => ({
-        customer: customerId,
-        billingType: 'PIX',
-        value: totalAmount,
-        dueDate: new Date().toISOString().slice(0, 10),
-        description: `Pedido delivery restaurante ${normalizedRestaurantId}`,
-        externalReference: sourceOrderId
-          ? `orderpix:${normalizedRestaurantId}:${sourceOrderId}`
-          : `orderpix:${normalizedRestaurantId}:${Date.now()}`,
-        ...(includeSplit && normalizedSystemFee > 0 && platformWalletId
-          ? {
-              split: [
-                {
-                  walletId: platformWalletId,
-                  fixedValue: normalizedSystemFee,
-                },
-                ...(walletId
-                  ? [
-                      {
-                        walletId,
-                        remainingValue: true,
-                      },
-                    ]
-                  : []),
-              ],
-            }
-          : {}),
-      });
-
-      let paymentResult = await this.fetchAsaasJson<AsaasPaymentPayload>(
+      const paymentResult = await this.fetchAsaasJson<AsaasPaymentPayload>(
         `${asaasBaseUrl}/v3/payments`,
         accessToken,
         {
           method: 'POST',
-          body: buildAsaasPaymentBody(normalizedSystemFee > 0),
+          body: {
+            customer: customerId,
+            billingType: 'PIX',
+            value: totalAmount,
+            dueDate: new Date().toISOString().slice(0, 10),
+            description: `Pedido delivery restaurante ${normalizedRestaurantId}`,
+            externalReference: sourceOrderId
+              ? `orderpix:${normalizedRestaurantId}:${sourceOrderId}`
+              : `orderpix:${normalizedRestaurantId}:${Date.now()}`,
+          },
         },
       );
-
-      const shouldRetryWithoutSplit =
-        normalizedSystemFee > 0 &&
-        !paymentResult.ok &&
-        isMarketplaceSplitConfigurationError(
-          this.getAsaasError(paymentResult.responseBody, 'Erro ao criar pagamento PIX no Asaas.'),
-        );
-
-      if (shouldRetryWithoutSplit) {
-        console.warn(
-          '[ASAAS_PIX_SPLIT_FALLBACK] Asaas rejeitou split. Recriando pagamento sem split.',
-          {
-            restaurantId: normalizedRestaurantId,
-            systemFee: normalizedSystemFee,
-          },
-        );
-
-        paymentResult = await this.fetchAsaasJson<AsaasPaymentPayload>(
-          `${asaasBaseUrl}/v3/payments`,
-          accessToken,
-          {
-            method: 'POST',
-            body: buildAsaasPaymentBody(false),
-          },
-        );
-      }
 
       if (!paymentResult.ok) {
         throw new Error(
@@ -883,43 +821,10 @@ class OrderPixPaymentService {
       ...(expiresAtIso ? { date_of_expiration: expiresAtIso } : {}),
     };
 
-    let response: unknown;
-
-    if (normalizedSystemFee > 0) {
-      try {
-        response = await paymentApi.create({
-          ...(idempotencyKey ? { requestOptions: { idempotencyKey } } : {}),
-          body: {
-            ...baseBody,
-            application_fee: normalizedSystemFee,
-          },
-        });
-      } catch (error) {
-        if (!isMarketplaceSplitConfigurationError(error)) {
-          throw error;
-        }
-
-        console.warn(
-          '[PIX_SPLIT_FALLBACK] Mercado Pago rejeitou application_fee. Recriando pagamento sem split.',
-          {
-            restaurantId: normalizedRestaurantId,
-            systemFee: normalizedSystemFee,
-          },
-        );
-
-        response = await paymentApi.create({
-          ...(idempotencyKey
-            ? { requestOptions: { idempotencyKey: `${idempotencyKey}-nosplit` } }
-            : {}),
-          body: baseBody,
-        });
-      }
-    } else {
-      response = await paymentApi.create({
-        ...(idempotencyKey ? { requestOptions: { idempotencyKey } } : {}),
-        body: baseBody,
-      });
-    }
+    const response = await paymentApi.create({
+      ...(idempotencyKey ? { requestOptions: { idempotencyKey } } : {}),
+      body: baseBody,
+    });
 
     const payment =
       typeof response === 'object' && response !== null

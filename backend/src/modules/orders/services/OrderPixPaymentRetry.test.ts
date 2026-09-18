@@ -3,12 +3,10 @@ import test, { beforeEach, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
 import pix from './OrderPixPaymentService.js';
 import settingsRepository from '../../restaurantSettings/repositories/RestaurantSettingsRepository.js';
-import split from '../../billing/services/SplitService.js';
 
 const originals = {
   settings: settingsRepository.findPublicByRestaurantId,
   privateSettings: settingsRepository.findByRestaurantId,
-  split: split.execute,
   api: pix.getMercadoPagoPaymentApi,
   fetch: globalThis.fetch,
 };
@@ -24,12 +22,10 @@ beforeEach(() => {
     asaasAccessToken: 'test-token',
     pagbankToken: 'test-token',
   });
-  split.execute = async () => 0;
 });
 afterEach(() => {
   settingsRepository.findPublicByRestaurantId = originals.settings;
   settingsRepository.findByRestaurantId = originals.privateSettings;
-  split.execute = originals.split;
   pix.getMercadoPagoPaymentApi = originals.api;
   globalThis.fetch = originals.fetch;
 });
@@ -60,6 +56,7 @@ test('Mercado Pago repete a mesma chave e o mesmo pagador na retomada', async ()
   await pix.createPixPayment(payload);
   await pix.createPixPayment({ ...payload, resumeOnly: true });
   assert.equal(requests[0].requestOptions.idempotencyKey, payload.idempotencyKey);
+  assert.equal(Object.hasOwn(requests[0].body, 'application_fee'), false);
   assert.deepEqual(requests[0], requests[1]);
 });
 
@@ -178,3 +175,29 @@ for (const data of [
     assert.equal(calls, 1);
   });
 }
+
+
+test('Asaas cria Pix diretamente na conta do restaurante sem split', async () => {
+  provider = 'ASAAS';
+  const paymentBodies = [];
+  globalThis.fetch = async (url, init = {}) => {
+    if (String(url).endsWith('/v3/customers')) {
+      return new Response(JSON.stringify({ id: 'cus_91' }), { status: 200 });
+    }
+    if (String(url).endsWith('/v3/payments')) {
+      paymentBodies.push(JSON.parse(String(init.body || '{}')));
+      return new Response(JSON.stringify({ id: 'pay_91', status: 'PENDING' }), { status: 200 });
+    }
+    if (String(url).endsWith('/v3/payments/pay_91/pixQrCode')) {
+      return new Response(JSON.stringify({ payload: 'asaas-pix', encodedImage: null }), {
+        status: 200,
+      });
+    }
+    return new Response('{}', { status: 404 });
+  };
+
+  const result = await pix.createPixPayment(payload);
+  assert.equal(result.paymentId, 'asaas:pay_91');
+  assert.equal(paymentBodies.length, 1);
+  assert.equal(Object.hasOwn(paymentBodies[0], 'split'), false);
+});

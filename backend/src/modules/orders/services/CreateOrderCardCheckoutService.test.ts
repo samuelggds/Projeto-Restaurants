@@ -105,7 +105,6 @@ afterEach(() => {
   delete process.env.BACKEND_URL;
   delete process.env.PAGBANK_EMAIL;
   delete process.env.PAGBANK_TOKEN;
-  delete process.env.ASAAS_PLATFORM_WALLET_ID;
 });
 
 test('não cria checkout de cartão fora da agenda semanal', async () => {
@@ -275,17 +274,14 @@ test('admin conectado via OAuth abre checkout PagBank moderno sem email cadastra
   assert.equal(result.paid, false);
 });
 
-test('deve abrir checkout de cartao com Asaas e fazer fallback sem split quando rejeitado', async () => {
+test('checkout Asaas usa somente a conta do restaurante e nunca envia split', async () => {
   let savedSessionId = null;
   let deletedOrderId = null;
   const paymentBodies = [];
 
-  process.env.ASAAS_PLATFORM_WALLET_ID = 'wallet-platform-xyz';
-
   restaurantSettingsRepository.findByRestaurantId = async () => ({
     cardGateway: 'ASAAS',
     asaasAccessToken: 'asaas-token-restaurante',
-    gatewayMerchantId: 'wallet-restaurant-123',
   });
 
   createOrderService.execute = async () => ({
@@ -320,19 +316,6 @@ test('deve abrir checkout de cartao com Asaas e fazer fallback sem split quando 
     if (url.endsWith('/v3/payments')) {
       const body = JSON.parse(String(init.body || '{}'));
       paymentBodies.push(body);
-
-      if (paymentBodies.length === 1) {
-        return new Response(
-          JSON.stringify({
-            errors: [{ description: 'split not allowed for this account' }],
-          }),
-          {
-            status: 400,
-            headers: { 'Content-Type': 'application/json' },
-          },
-        );
-      }
-
       return new Response(
         JSON.stringify({
           id: 'pay_asaas_777',
@@ -369,12 +352,10 @@ test('deve abrir checkout de cartao com Asaas e fazer fallback sem split quando 
   assert.equal(result.checkoutUrl, 'https://sandbox.asaas.com/i/pay_asaas_777');
   assert.equal(savedSessionId, 'asaas_pay:pay_asaas_777');
   assert.equal(deletedOrderId, null);
-  assert.equal(paymentBodies.length, 2);
-  assert.ok(Array.isArray(paymentBodies[0].split));
-  assert.equal(paymentBodies[1].split, undefined);
+  assert.equal(paymentBodies.length, 1);
+  assert.equal(Object.hasOwn(paymentBodies[0], 'split'), false);
   assert.equal(paymentBodies[0].externalReference, 'ordercard:654:9');
-  assert.equal(paymentBodies[1].externalReference, 'ordercard:654:9');
-  assert.deepEqual(paymentBodies[1].callback, {
+  assert.deepEqual(paymentBodies[0].callback, {
     successUrl:
       'https://pedido.local/card-return?cardCheckoutStatus=success&orderPublicId=123e4567-e89b-42d3-a456-426614174001',
     autoRedirect: true,

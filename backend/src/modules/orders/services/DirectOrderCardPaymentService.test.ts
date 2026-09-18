@@ -62,7 +62,7 @@ test('checkout transparente Mercado Pago segue o contrato atual sem capture_mode
       publicId: 'order-public-901',
       restaurantId: 7,
       total: 1,
-      systemFee: 0,
+      systemFee: 4.5,
       restaurant: { name: 'North Pizza' },
     },
     successUrlBase: 'https://www.gastronexa.com.br/north-pizza',
@@ -74,6 +74,7 @@ test('checkout transparente Mercado Pago segue o contrato atual sem capture_mode
   assert.equal(Object.hasOwn(requestBody, 'capture_mode'), false);
   assert.equal(requestBody.total_amount, '1.00');
   assert.equal(requestBody.external_reference, 'ordercard_901_7');
+  assert.equal(Object.hasOwn(requestBody, 'marketplace_fee'), false);
   assert.match(String(requestBody.external_reference), /^[A-Za-z0-9_-]+$/);
   assert.deepEqual(requestBody.payer, {
     email: 'guest.card.7.901@gastronexa.local',
