@@ -13,14 +13,14 @@ class OrderPixPaymentExpirationJob {
         paymentMethod: PaymentMethod.PIX,
         payOnDelivery: false,
         pixPaymentId: { not: null },
-        pixExpiresAt: { not: null, lte: now },
+        onlinePaymentExpiresAt: { not: null, lte: now },
       },
       select: {
         id: true,
         restaurantId: true,
         pixPaymentId: true,
       },
-      orderBy: { pixExpiresAt: 'asc' },
+      orderBy: { onlinePaymentExpiresAt: 'asc' },
       take: 200,
     });
 
