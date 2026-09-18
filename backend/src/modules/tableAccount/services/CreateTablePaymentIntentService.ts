@@ -168,7 +168,10 @@ export class CreateTablePaymentIntentService {
           : 0;
         const totalCents = sumMoneyCents([subtotalCents, serviceFeeCents]);
         const allocationSeeds = plan.allocations;
-        const expiresAt = new Date(now.getTime() + settings.reservationTimeoutMinutes * 60_000);
+        const onlinePayment =
+          input.method === TablePaymentMethod.PIX || input.method === TablePaymentMethod.CARD;
+        const expirationMinutes = onlinePayment ? 30 : settings.reservationTimeoutMinutes;
+        const expiresAt = new Date(now.getTime() + expirationMinutes * 60_000);
 
         const created = await tx.tablePaymentIntent.create({
           data: {
