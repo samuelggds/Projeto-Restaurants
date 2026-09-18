@@ -65,10 +65,43 @@ type ProductPortionConfiguration = {
   allowPortionObservations: boolean;
 };
 
+type ComboComponentProduct = {
+  id: number;
+  restaurantId?: number;
+  name: string;
+  active: boolean;
+  kind?: 'STANDARD' | 'COMBO';
+  stock?: number | null;
+};
+
+type ProductComboOption = {
+  id: number;
+  restaurantId?: number;
+  componentProductId: number;
+  additionalPrice: unknown;
+  minQuantity: number;
+  maxQuantity: number;
+  defaultQuantity: number;
+  locked: boolean;
+  active: boolean;
+  componentProduct: ComboComponentProduct;
+};
+
+type ProductComboGroup = {
+  id: number;
+  restaurantId?: number;
+  name: string;
+  minSelections: number;
+  maxSelections: number;
+  active: boolean;
+  options: ProductComboOption[];
+};
+
 type ProductWithOptions = {
   id?: number;
   restaurantId?: number;
   name: string;
+  kind?: 'STANDARD' | 'COMBO';
   saleMode: 'COMPLETE' | 'BUILDABLE';
   configurationVersion?: number;
   price: unknown;
@@ -76,6 +109,7 @@ type ProductWithOptions = {
   optionGroups?: ProductOptionGroup[];
   compositionItems?: ProductCompositionItem[];
   portionConfiguration?: ProductPortionConfiguration | null;
+  comboGroups?: ProductComboGroup[];
   discount?: {
     kind: string;
     value: unknown;
@@ -93,6 +127,10 @@ export type OrderItemOptionSelection = {
   optionQuantities?: Array<{ optionId?: number; quantity?: number }>;
   removedCompositionItemIds?: number[];
   portions?: Array<{ optionId?: number; observation?: string | null }>;
+  comboSelections?: Array<{
+    groupId?: number;
+    items?: Array<{ optionId?: number; quantity?: number }>;
+  }>;
   configurationVersion?: number;
 };
 
@@ -383,6 +421,139 @@ function resolveLegacyIds(product: ProductWithOptions, ingredientIds: number[]) 
   });
 }
 
+function resolveComboConfiguration(
+  product: ProductWithOptions,
+  selection: OrderItemOptionSelection,
+) {
+  if (
+    selection.configurationVersion !== undefined &&
+    Number(selection.configurationVersion) !== Number(product.configurationVersion ?? 1)
+  ) {
+    throw new OrderRequestError('A configuração deste combo foi atualizada. Revise suas escolhas.');
+  }
+
+  const groups = (product.comboGroups || []).filter((group) => group.active);
+  if (!groups.length) throw new OrderRequestError(`${product.name} ainda não possui itens configurados.`);
+
+  const rawSelections = selection.comboSelections || [];
+  const selectionByGroup = new Map<number, Map<number, number>>();
+  rawSelections.forEach((entry) => {
+    const groupId = Number(entry.groupId);
+    if (!Number.isInteger(groupId) || groupId <= 0 || selectionByGroup.has(groupId)) {
+      throw new OrderRequestError('O combo contém um grupo inválido ou repetido.');
+    }
+    const quantities = new Map<number, number>();
+    (entry.items || []).forEach((item) => {
+      const optionId = Number(item.optionId);
+      const quantity = Number(item.quantity);
+      if (
+        !Number.isInteger(optionId) ||
+        optionId <= 0 ||
+        !Number.isInteger(quantity) ||
+        quantity <= 0 ||
+        quantities.has(optionId)
+      ) {
+        throw new OrderRequestError('O combo contém uma escolha ou quantidade inválida.');
+      }
+      quantities.set(optionId, quantity);
+    });
+    selectionByGroup.set(groupId, quantities);
+  });
+
+  const knownGroupIds = new Set(groups.map((group) => group.id));
+  if ([...selectionByGroup.keys()].some((groupId) => !knownGroupIds.has(groupId))) {
+    throw new OrderRequestError('Uma etapa selecionada não pertence a este combo.');
+  }
+
+  let additionalCents = 0;
+  const componentQuantities = new Map<number, { name: string; quantity: number }>();
+  const customizations = groups.map((group) => {
+    if (group.restaurantId !== undefined && group.restaurantId !== product.restaurantId) {
+      throw new OrderRequestError(`A configuração de ${product.name} pertence a outro restaurante.`);
+    }
+    const requested = selectionByGroup.get(group.id) || new Map<number, number>();
+    const available = group.options.filter(
+      (option) =>
+        option.active &&
+        option.componentProduct.active &&
+        option.componentProduct.kind !== 'COMBO' &&
+        (option.restaurantId === undefined || option.restaurantId === product.restaurantId) &&
+        (option.componentProduct.restaurantId === undefined ||
+          option.componentProduct.restaurantId === product.restaurantId),
+    );
+
+    available.forEach((option) => {
+      if (option.locked && !requested.has(option.id)) {
+        const fallback = Math.max(1, Number(option.defaultQuantity || option.minQuantity || 1));
+        requested.set(option.id, fallback);
+      } else if (!requested.has(option.id) && option.defaultQuantity > 0) {
+        requested.set(option.id, Number(option.defaultQuantity));
+      }
+    });
+
+    if ([...requested.keys()].some((optionId) => !available.some((option) => option.id === optionId))) {
+      throw new OrderRequestError(`Uma opção de ${group.name} não está disponível.`);
+    }
+
+    const selected = available.filter((option) => requested.has(option.id));
+    if (selected.length < group.minSelections || selected.length > group.maxSelections) {
+      throw new OrderRequestError(
+        `Escolha entre ${group.minSelections} e ${group.maxSelections} opção(ões) em ${group.name}.`,
+      );
+    }
+
+    const options = selected.map((option) => {
+      const quantity = Number(requested.get(option.id));
+      if (
+        !Number.isInteger(quantity) ||
+        quantity < Number(option.minQuantity) ||
+        quantity > Number(option.maxQuantity)
+      ) {
+        throw new OrderRequestError(
+          `A quantidade de ${option.componentProduct.name} deve ficar entre ${option.minQuantity} e ${option.maxQuantity}.`,
+        );
+      }
+      if (option.locked && quantity <= 0) {
+        throw new OrderRequestError(`${option.componentProduct.name} é um item fixo do combo.`);
+      }
+      additionalCents += cents(option.additionalPrice) * quantity;
+      const current = componentQuantities.get(option.componentProductId);
+      componentQuantities.set(option.componentProductId, {
+        name: option.componentProduct.name,
+        quantity: (current?.quantity || 0) + quantity,
+      });
+      return {
+        optionId: option.id,
+        productId: option.componentProductId,
+        name: option.componentProduct.name,
+        quantity,
+        additionalPrice: money(option.additionalPrice),
+        locked: option.locked,
+      };
+    });
+
+    return {
+      groupId: group.id,
+      groupName: group.name,
+      minSelections: group.minSelections,
+      maxSelections: group.maxSelections,
+      options,
+    };
+  });
+
+  const components = [...componentQuantities.entries()].map(([productId, entry]) => ({
+    productId,
+    name: entry.name,
+    quantity: entry.quantity,
+  }));
+
+  return {
+    price: fromCents(cents(product.price) + additionalCents),
+    components,
+    customizations,
+  };
+}
+
 /**
  * Fonte de verdade do preço e da montagem. O cliente informa somente ids;
  * nomes e valores são sempre recuperados da configuração do restaurante.
@@ -404,7 +575,8 @@ export function resolveOrderItemCustomizations(
     selection.selectedOptions?.some((group) => group.optionIds?.length) ||
     selection.optionQuantities?.length ||
     selection.removedCompositionItemIds?.length ||
-    selection.portions?.length,
+    selection.portions?.length ||
+    selection.comboSelections?.some((group) => group.items?.length),
   );
   if (product.saleMode === 'COMPLETE') {
     if (hasCustomizationIntent) {
@@ -573,6 +745,39 @@ export function buildOrderItemCustomizationSnapshot(
   product: ProductWithOptions & { id: number },
   item: OrderItemSnapshotInput,
 ) {
+  if (product.kind === 'COMBO') {
+    const resolvedCombo = resolveComboConfiguration(product, item);
+    const basePricing = resolveProductBasePricing(product);
+    const originalUnitPrice = roundMoney(resolvedCombo.price);
+    const unitDiscount = roundMoney(basePricing.discountAmount);
+    const effectiveUnitPrice = roundMoney(Math.max(originalUnitPrice - unitDiscount, 0));
+    const quantity = Number(item.quantity);
+    if (!Number.isInteger(quantity) || quantity <= 0) {
+      throw new OrderRequestError(`Quantidade inválida para ${product.name}.`);
+    }
+    const observation = String(item.observation || '').trim();
+    return {
+      productId: product.id,
+      quantity,
+      price: effectiveUnitPrice,
+      originalUnitPrice,
+      unitDiscount,
+      observation: observation || null,
+      ingredients: resolvedCombo.components.map((component) => ({
+        id: component.productId,
+        name: component.name,
+        price: 0,
+      })),
+      customizations: resolvedCombo.customizations,
+      configurationSnapshot: {
+        version: 3,
+        configurationVersion: Number(product.configurationVersion ?? 1),
+        kind: 'COMBO',
+        comboComponents: resolvedCombo.components,
+      },
+    };
+  }
+
   const resolved = resolveOrderItemCustomizations(product, item);
   const basePricing = resolveProductBasePricing(product);
   const originalUnitPrice = roundMoney(resolved.price);
