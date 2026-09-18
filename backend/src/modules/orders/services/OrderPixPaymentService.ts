@@ -960,6 +960,9 @@ class OrderPixPaymentService {
         paymentId: normalizedPaymentId,
         status: this.normalizeAsaasStatus(paymentResult.responseBody?.status),
         provider: PIX_PROVIDERS.ASAAS,
+        isApproved: APPROVED_ASAAS_PAYMENT_STATUSES.has(
+          this.normalizeAsaasStatus(paymentResult.responseBody?.status),
+        ),
         totalAmount: Number.isFinite(amount) ? amount : 0,
         qrCode: String(qrResult.responseBody?.payload || '').trim(),
         qrCodeBase64: String(qrResult.responseBody?.encodedImage || '').trim() || null,
@@ -980,10 +983,15 @@ class OrderPixPaymentService {
       const qrCode = String(result.body?.qr_codes?.[0]?.text || '').trim();
       if (!qrCode) throw new Error('O QR Code desta cobrança PIX não está disponível.');
       const amountInCents = Number(result.body?.qr_codes?.[0]?.amount?.value);
+      const pagBankStatuses = (result.body?.charges || []).map((charge) =>
+        String(charge.status || '').toUpperCase(),
+      );
+      const pagBankApproved = pagBankStatuses.includes('PAID');
       return {
         paymentId: normalizedPaymentId,
-        status: String(result.body?.charges?.[0]?.status || 'WAITING'),
+        status: pagBankApproved ? 'paid' : pagBankStatuses[0] || 'WAITING',
         provider: PIX_PROVIDERS.PAGBANK,
+        isApproved: pagBankApproved,
         totalAmount: Number.isFinite(amountInCents) ? amountInCents / 100 : 0,
         qrCode,
         qrCodeBase64: null,
@@ -1007,6 +1015,9 @@ class OrderPixPaymentService {
       paymentId: normalizedPaymentId,
       status: this.normalizePaymentStatus(paymentData?.status),
       provider: PIX_PROVIDERS.MERCADO_PAGO,
+      isApproved: APPROVED_PAYMENT_STATUSES.has(
+        this.normalizePaymentStatus(paymentData?.status),
+      ),
       totalAmount: Number.isFinite(amount) ? amount : 0,
       qrCode,
       qrCodeBase64: String(transactionData?.qr_code_base64 || '').trim() || null,
