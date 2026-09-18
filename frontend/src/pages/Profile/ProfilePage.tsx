@@ -369,6 +369,7 @@ function Overview(props: ProfilePageProps) {
     data = profileMockData,
     onTrackOrder,
     onViewOrder,
+    onContinuePayment,
     onReorder,
     onViewAllOrders,
     onNewAddress,
@@ -388,11 +389,11 @@ function Overview(props: ProfilePageProps) {
             <S.Heading>
               <div>
                 <small>Pedido {activeOrder.id}</small>
-                <h2>Pedido em andamento</h2>
+                <h2>{activeOrder.paymentPending ? 'Pagamento pendente' : 'Pedido em andamento'}</h2>
               </div>
               <S.Status>
                 <Package size={17} />
-                {statusLabel[activeOrder.status]}
+                {activeOrder.paymentPending ? 'Aguardando Pix' : statusLabel[activeOrder.status]}
               </S.Status>
             </S.Heading>
             <S.Tracking aria-label="Progresso do pedido">
@@ -416,12 +417,23 @@ function Overview(props: ProfilePageProps) {
               Previsão de chegada: {activeOrder.estimatedArrival}
             </S.Eta>
             <S.Actions>
-              <button type="button" onClick={() => onTrackOrder?.(activeOrder.id)}>
-                Acompanhar em tempo real <MapPin size={16} />
-              </button>
-              <button type="button" onClick={() => onViewOrder?.(activeOrder.id)}>
-                Ver detalhes
-              </button>
+              {activeOrder.paymentPending && activeOrder.publicId ? (
+                <button
+                  type="button"
+                  onClick={() => onContinuePayment?.(activeOrder.publicId!)}
+                >
+                  Continuar pagamento <ChevronRight size={16} />
+                </button>
+              ) : (
+                <>
+                  <button type="button" onClick={() => onTrackOrder?.(activeOrder.id)}>
+                    Acompanhar em tempo real <MapPin size={16} />
+                  </button>
+                  <button type="button" onClick={() => onViewOrder?.(activeOrder.id)}>
+                    Ver detalhes
+                  </button>
+                </>
+              )}
             </S.Actions>
           </div>
           <S.ActiveVisual>
@@ -551,7 +563,13 @@ function Overview(props: ProfilePageProps) {
   );
 }
 
-function Orders({ data = profileMockData, onReorder, onViewOrder, historyPagination }: ProfilePageProps) {
+function Orders({
+  data = profileMockData,
+  onReorder,
+  onViewOrder,
+  onContinuePayment,
+  historyPagination,
+}: ProfilePageProps) {
   const [visibleOrderLimit, setVisibleOrderLimit] = useState(ORDER_LIST_BATCH_SIZE);
   const visibleOrders = data.recentOrders.slice(0, visibleOrderLimit);
 
