@@ -8,6 +8,7 @@ import { mercadoPagoOrderNotificationFields } from '../../payments/providers/mer
 import restaurantSettingsRepository from '../../restaurantSettings/repositories/RestaurantSettingsRepository.js';
 import prisma from '../../../config/prisma.js';
 import { withTenantDbContext } from '../../../database/tenantDbContext.js';
+import { mercadoPagoCardExternalReference } from '../domain/mercadoPagoCardReference.js';
 import { matchesOrderPaymentEvidence } from '../utils/paymentEvidence.js';
 import { getPagBankAccessToken } from '../../restaurantSettings/services/RestaurantPaymentCredentialsService.js';
 import {
@@ -390,7 +391,7 @@ const mercadoPagoCardCheckoutProvider: CardCheckoutProviderHandler = {
           unit_price: Number(order.total || 0),
         },
       ],
-      external_reference: `ordercard:${order.id}:${order.restaurantId}`,
+      external_reference: mercadoPagoCardExternalReference(order.id, order.restaurantId),
       metadata: {
         order_id: String(order.id),
         restaurant_id: String(order.restaurantId),
