@@ -20,6 +20,7 @@ export type PixPaymentData = {
   qrCodeBase64: string | null;
   requiresStatusCheck?: boolean;
   paid?: boolean;
+  expiresAt?: string | null;
 };
 
 export type PixPaymentStatus =
@@ -328,6 +329,7 @@ export function useCheckoutPayments(options: Options) {
           pixCode: String(result.qrCode || ''),
           qrCodeBase64: result.qrCodeBase64 ? String(result.qrCodeBase64) : null,
           requiresStatusCheck: Boolean(result.requiresStatusCheck),
+          expiresAt: result.expiresAt ? String(result.expiresAt) : null,
         });
         pixConfirmedRef.current = false;
         pixTerminalRef.current = null;
