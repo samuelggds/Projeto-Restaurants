@@ -71,16 +71,23 @@ class GetOrderPixPaymentRecoveryService {
     });
 
     const expectedReference = `orderpix:${order.restaurantId}:${order.id}`;
-    if (
-      recovered.externalReference &&
-      String(recovered.externalReference) !== expectedReference
-    ) {
+    if (String(recovered.externalReference || '') !== expectedReference) {
       throw new Error('O pagamento PIX não corresponde ao pedido informado.');
+    }
+
+    const expectedAmountInCents = Math.round(Number(order.total) * 100);
+    const recoveredAmountInCents = Math.round(Number(recovered.totalAmount) * 100);
+    if (
+      !Number.isFinite(recoveredAmountInCents) ||
+      recoveredAmountInCents !== expectedAmountInCents
+    ) {
+      throw new Error('O valor do pagamento PIX não corresponde ao total do pedido.');
     }
 
     return {
       ...base,
       ...recovered,
+      totalAmount: Number(order.total),
     };
   }
 }
