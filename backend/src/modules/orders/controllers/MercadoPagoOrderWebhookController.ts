@@ -11,27 +11,31 @@ import {
 import orderRepository from '../repositories/OrderRepository.js';
 import failPendingOrderPaymentService from '../services/FailPendingOrderPaymentService.js';
 import { matchesOrderPaymentEvidence } from '../utils/paymentEvidence.js';
+import { parseMercadoPagoCardExternalReference } from '../domain/mercadoPagoCardReference.js';
 
 const APPROVED_STATUSES = new Set(['approved', 'accredited', 'paid']);
 const TERMINAL_UNPAID_STATUSES = new Set(['cancelled', 'rejected', 'refunded', 'charged_back']);
 const TERMINAL_ORDER_STATUSES = new Set(['cancelled', 'expired', 'failed', 'refunded']);
 
 export function parseMercadoPagoOrderReference(externalReference: string) {
-  const match = /^order(pix|card):(\d+):(\d+)$/i.exec(String(externalReference || '').trim());
-  if (!match) {
-    return null;
+  const normalized = String(externalReference || '').trim();
+
+  const cardReference = parseMercadoPagoCardExternalReference(normalized);
+  if (cardReference) {
+    return {
+      type: 'card' as const,
+      restaurantId: cardReference.restaurantId,
+      orderId: cardReference.orderId,
+    };
   }
 
-  const type = String(match[1] || '').toLowerCase() as 'pix' | 'card';
-  const firstId = Number(match[2] || 0);
-  const secondId = Number(match[3] || 0);
+  const pixMatch = /^orderpix:(\d+):(\d+)$/i.exec(normalized);
+  if (!pixMatch) return null;
 
-  // O Pix foi criado historicamente como orderpix:<restaurantId>:<orderId>,
-  // enquanto o checkout de cartão usa ordercard:<orderId>:<restaurantId>.
   return {
-    type,
-    restaurantId: type === 'pix' ? firstId : secondId,
-    orderId: type === 'pix' ? secondId : firstId,
+    type: 'pix' as const,
+    restaurantId: Number(pixMatch[1] || 0),
+    orderId: Number(pixMatch[2] || 0),
   };
 }
 
