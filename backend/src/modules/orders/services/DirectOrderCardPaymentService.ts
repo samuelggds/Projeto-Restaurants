@@ -10,6 +10,7 @@ import type { CardProvider } from '../../payments/providers/providerCatalog.js';
 import { CARD_PROVIDERS } from '../../payments/providers/providerCatalog.js';
 import { matchesOrderPaymentEvidence } from '../utils/paymentEvidence.js';
 import { normalizeMercadoPagoPaymentMethodId } from '../../customerPaymentMethods/domain/cardBrand.js';
+import { mercadoPagoCardExternalReference } from '../domain/mercadoPagoCardReference.js';
 
 export type DirectCardPaymentPayload = {
   cardToken?: string | null;
@@ -205,7 +206,7 @@ async function mercadoPagoPayment(payload: BasePayload, order: CardOrder, succes
   const settings = await restaurantSettingsRepository.findByRestaurantId(order.restaurantId);
   const total = amount(order.total);
   const marketplaceFee = Number(order.systemFee || 0);
-  const reference = `ordercard:${order.id}:${order.restaurantId}`;
+  const reference = mercadoPagoCardExternalReference(order.id, order.restaurantId);
   const email = await payerEmail(payload, order);
 
   const makeBody = (includeFee: boolean) => ({

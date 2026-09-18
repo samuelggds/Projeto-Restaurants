@@ -72,6 +72,8 @@ test('checkout transparente Mercado Pago segue o contrato atual sem capture_mode
   assert.equal(requestBody.processing_mode, 'automatic');
   assert.equal(Object.hasOwn(requestBody, 'capture_mode'), false);
   assert.equal(requestBody.total_amount, '1.00');
+  assert.equal(requestBody.external_reference, 'ordercard_901_7');
+  assert.match(String(requestBody.external_reference), /^[A-Za-z0-9_-]+$/);
   assert.deepEqual(requestBody.payer, {
     email: 'guest.card.7.901@gastronexa.local',
   });
