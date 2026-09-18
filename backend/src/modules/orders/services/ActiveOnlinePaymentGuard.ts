@@ -41,6 +41,7 @@ export async function assertNoActiveOnlinePayment({
         })
       : await lockCustomer({
           db,
+          restaurantId,
           userId,
         });
 
@@ -99,24 +100,24 @@ export async function assertNoActiveOnlinePayment({
 
 async function lockCustomer({
   db,
+  restaurantId,
   userId,
 }: {
   db: Prisma.TransactionClient;
+  restaurantId: number;
   userId: number | null;
 }) {
   if (!Number.isInteger(userId) || Number(userId) <= 0) {
     throw new OrderRequestError('Cliente inválido para iniciar pagamento online.');
   }
 
-  const locked = await db.$queryRaw<Array<{ id: number }>>`
-    SELECT "id"
-    FROM "User"
-    WHERE "id" = ${Number(userId)}
-    FOR UPDATE
+  // O cliente já foi resolvido/validado nesta mesma transação. A trava
+  // consultiva serializa somente checkouts concorrentes do mesmo cliente
+  // neste restaurante, sem repetir uma busca de existência.
+  await db.$queryRaw<Array<{ lockAcquired: number }>>`
+    SELECT 1::int AS "lockAcquired"
+    FROM pg_advisory_xact_lock(${restaurantId}::int, ${Number(userId)}::int)
   `;
-  if (!locked.length) {
-    throw new OrderRequestError('Cliente não encontrado para iniciar pagamento online.');
-  }
 
   return {
     userId: Number(userId),
@@ -146,17 +147,13 @@ async function lockTableParticipant({
     throw new OrderRequestError('Participante da mesa inválido para iniciar pagamento online.');
   }
 
-  const locked = await db.$queryRaw<Array<{ id: number }>>`
-    SELECT "id"
-    FROM "TableParticipant"
-    WHERE "id" = ${normalizedParticipantId}
-      AND "restaurantId" = ${restaurantId}
-      AND "tableSessionId" = ${normalizedSessionId}
-    FOR UPDATE
+  // O participante já foi validado por CreateOrderService nesta mesma
+  // transação. Namespace negativo separa participantes de clientes e mantém
+  // a trava restrita ao restaurante atual.
+  await db.$queryRaw<Array<{ lockAcquired: number }>>`
+    SELECT 1::int AS "lockAcquired"
+    FROM pg_advisory_xact_lock(${-restaurantId}::int, ${normalizedParticipantId}::int)
   `;
-  if (!locked.length) {
-    throw new OrderRequestError('Participante da mesa não encontrado para iniciar pagamento online.');
-  }
 
   return {
     type: OrderType.MESA,
