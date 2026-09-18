@@ -286,3 +286,51 @@ describe('PaymentSettings', () => {
     expect(button.disabled).toBe(false);
   });
 });
+
+
+  it('permite desconectar Mercado Pago somente quando a conta está vinculada', async () => {
+    const disconnect = vi.fn().mockResolvedValue(true);
+    act(() =>
+      root.render(
+        <PaymentSettings
+          settings={{
+            ...adminMockSettings,
+            acceptsPix: true,
+            acceptsCard: true,
+            pixProvider: 'MERCADO_PAGO',
+            cardGateway: 'MERCADO_PAGO',
+            mercadoPagoAccessTokenConfigured: true,
+          }}
+          update={() => undefined}
+          onDisconnectMercadoPago={disconnect}
+        />,
+      ),
+    );
+
+    const button = Array.from(container.querySelectorAll('button')).find(
+      (item) => item.textContent === 'Desconectar Mercado Pago',
+    ) as HTMLButtonElement | undefined;
+    expect(button).toBeTruthy();
+
+    await act(async () => button?.click());
+    expect(disconnect).toHaveBeenCalledTimes(1);
+
+    act(() =>
+      root.render(
+        <PaymentSettings
+          settings={{
+            ...adminMockSettings,
+            acceptsPix: true,
+            acceptsCard: true,
+            pixProvider: 'MERCADO_PAGO',
+            cardGateway: 'MERCADO_PAGO',
+            mercadoPagoAccessTokenConfigured: false,
+          }}
+          update={() => undefined}
+          onDisconnectMercadoPago={disconnect}
+        />,
+      ),
+    );
+
+    expect(container.textContent).not.toContain('Desconectar Mercado Pago');
+  });
