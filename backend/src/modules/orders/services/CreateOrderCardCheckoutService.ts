@@ -121,7 +121,12 @@ class CreateOrderCardCheckoutService {
           orderId: createdOrder.id,
           restaurantId: createdOrder.restaurantId,
         });
-        throw new OrderRequestError(error.message, 402, 'CARD_DECLINED');
+        throw new OrderRequestError(
+          error.message,
+          402,
+          error.diagnostic ? 'CARD_PAYMENT_FAILED' : 'CARD_DECLINED',
+          error.diagnostic ? { paymentError: error.diagnostic } : undefined,
+        );
       }
 
       if (error instanceof CardPaymentProviderRequestError) {
@@ -139,6 +144,7 @@ class CreateOrderCardCheckoutService {
           'Não foi possível processar o cartão neste momento. Tente novamente em alguns minutos.',
           502,
           'CARD_PROVIDER_ERROR',
+          error.diagnostic ? { paymentError: error.diagnostic } : undefined,
         );
       }
 
