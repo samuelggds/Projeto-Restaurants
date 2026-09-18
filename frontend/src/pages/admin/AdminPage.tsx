@@ -949,6 +949,22 @@ export function AdminPage({
                       await onConnectMercadoPago();
                     })
                   }
+                  onDisconnectMercadoPago={
+                    onDisconnectMercadoPago &&
+                    (async () => {
+                      const confirmed = await confirmDialog({
+                        title: 'Desconectar Mercado Pago?',
+                        description:
+                          'Novos pagamentos Pix e cartão que usam Mercado Pago serão desativados até a conta ser conectada novamente. Pedidos e pagamentos antigos permanecem no histórico.',
+                        confirmLabel: 'Desconectar',
+                        cancelLabel: 'Manter conectado',
+                        tone: 'danger',
+                      });
+                      if (!confirmed) return false;
+                      await onDisconnectMercadoPago();
+                      return true;
+                    })
+                  }
                   onConnectPagBank={
                     onConnectPagBank &&
                     (async () => {
