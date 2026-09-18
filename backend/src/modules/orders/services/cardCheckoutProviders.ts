@@ -81,6 +81,7 @@ type CardCheckoutProviderContext = {
   successUrlBase: string;
   cancelUrlBase: string;
   paymentScope?: 'ORDER' | 'TABLE_ACCOUNT';
+  expiresAt?: Date | null;
 };
 
 export type CardCheckoutProviderHandler = {
@@ -307,7 +308,7 @@ function isMarketplaceSplitConfigurationError(error: unknown) {
 }
 
 const stripeCardCheckoutProvider: CardCheckoutProviderHandler = {
-  async createCheckout({ order, successUrlBase, cancelUrlBase }) {
+  async createCheckout({ order, successUrlBase, cancelUrlBase, expiresAt }) {
     const stripe = await getStripeClient(order.restaurantId);
 
     const session = await stripe.checkout.sessions.create({
@@ -334,6 +335,7 @@ const stripeCardCheckoutProvider: CardCheckoutProviderHandler = {
         cardCheckoutStatus: 'success',
         orderPublicId: order.publicId,
       }),
+      ...(expiresAt ? { expires_at: Math.floor(expiresAt.getTime() / 1000) } : {}),
       cancel_url: withQueryParam(cancelUrlBase, {
         cardCheckoutStatus: 'cancel',
         orderPublicId: order.publicId,
@@ -349,7 +351,7 @@ const stripeCardCheckoutProvider: CardCheckoutProviderHandler = {
 };
 
 const mercadoPagoCardCheckoutProvider: CardCheckoutProviderHandler = {
-  async createCheckout({ payload, order, successUrlBase, cancelUrlBase }) {
+  async createCheckout({ payload, order, successUrlBase, cancelUrlBase, expiresAt }) {
     const preferenceApi = await getMercadoPagoPreferenceApi(order.restaurantId);
     const marketplaceFee = Number(order.systemFee || 0);
     const savedMethodId = String(payload.paymentMethodId || '').trim();
@@ -399,6 +401,13 @@ const mercadoPagoCardCheckoutProvider: CardCheckoutProviderHandler = {
       ...(payerEmail ? { payer: { email: payerEmail } } : {}),
       ...(includeMarketplaceFee && marketplaceFee > 0 ? { marketplace_fee: marketplaceFee } : {}),
       ...mercadoPagoOrderNotificationFields(order.restaurantId),
+      ...(expiresAt
+        ? {
+            expires: true,
+            expiration_date_from: new Date(expiresAt.getTime() - 30 * 60_000).toISOString(),
+            expiration_date_to: expiresAt.toISOString(),
+          }
+        : {}),
       back_urls: {
         success: withQueryParam(successUrlBase, {
           cardCheckoutStatus: 'success',
@@ -467,7 +476,7 @@ const mercadoPagoCardCheckoutProvider: CardCheckoutProviderHandler = {
 };
 
 const pagBankCardCheckoutProvider: CardCheckoutProviderHandler = {
-  async createCheckout({ payload, order, successUrlBase, paymentScope }) {
+  async createCheckout({ payload, order, successUrlBase, paymentScope, expiresAt }) {
     const { email, token, environment, useConnect } = await getPagBankCredentials(
       order.restaurantId,
     );
@@ -602,6 +611,7 @@ const pagBankCardCheckoutProvider: CardCheckoutProviderHandler = {
           orderPublicId: order.publicId,
         }),
         notificationUrl: resolvePagBankNotificationUrl(order.restaurantId),
+        expiresAt,
       });
       return {
         provider: CARD_PROVIDERS.PAGBANK,
