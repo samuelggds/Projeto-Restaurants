@@ -615,29 +615,31 @@ export function PaymentSettings({
                         : 'Criar e vincular conta Asaas'}
                   </PS.ConnectButton>
                 ) : (
-                  <PS.ConnectButton
-                    type="button"
-                    $provider={provider.id}
-                    disabled={busyProvider !== null || !canConnect}
-                    onClick={() => void connect(provider.id as Exclude<Provider, 'ASAAS'>)}
-                  >
-                    {connected ? <ShieldCheck /> : <ExternalLink />}
-                    {busy
-                      ? `Abrindo ${provider.name}...`
-                      : connected
-                        ? `Reconectar ${provider.name}`
-                        : `Conectar ${provider.name}`}
-                  </PS.ConnectButton>
-                  {provider.id === 'MERCADO_PAGO' && connected && (
-                    <PS.DisconnectButton
+                  <>
+                    <PS.ConnectButton
                       type="button"
-                      disabled={busyProvider !== null}
-                      onClick={() => void disconnectMercadoPago()}
+                      $provider={provider.id}
+                      disabled={busyProvider !== null || !canConnect}
+                      onClick={() => void connect(provider.id as Exclude<Provider, 'ASAAS'>)}
                     >
-                      <Unplug />
-                      {busy ? 'Desconectando...' : 'Desconectar Mercado Pago'}
-                    </PS.DisconnectButton>
-                  )}
+                      {connected ? <ShieldCheck /> : <ExternalLink />}
+                      {busy
+                        ? `Abrindo ${provider.name}...`
+                        : connected
+                          ? `Reconectar ${provider.name}`
+                          : `Conectar ${provider.name}`}
+                    </PS.ConnectButton>
+                    {provider.id === 'MERCADO_PAGO' && connected && (
+                      <PS.DisconnectButton
+                        type="button"
+                        disabled={busyProvider !== null}
+                        onClick={() => void disconnectMercadoPago()}
+                      >
+                        <Unplug />
+                        {busy ? 'Desconectando...' : 'Desconectar Mercado Pago'}
+                      </PS.DisconnectButton>
+                    )}
+                  </>
                 )
               ) : (
                 <PS.InactiveHint>
