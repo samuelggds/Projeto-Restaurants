@@ -53,8 +53,20 @@ type BasePayload = DirectCardPaymentPayload & {
   zipCode?: string | null;
 };
 
+export type CardPaymentProviderDiagnostic = {
+  provider: 'MERCADO_PAGO';
+  httpStatus: number;
+  providerCode: string | null;
+  status: string | null;
+  statusDetail: string | null;
+  providerRequestId: string | null;
+};
+
 export class CardPaymentDeclinedError extends Error {
-  constructor(message = 'O cartão não foi autorizado. Revise os dados ou use outro cartão.') {
+  constructor(
+    message = 'O cartão não foi autorizado. Revise os dados ou use outro cartão.',
+    public readonly diagnostic?: CardPaymentProviderDiagnostic,
+  ) {
     super(message);
     this.name = 'CardPaymentDeclinedError';
   }
@@ -65,6 +77,7 @@ export class CardPaymentProviderRequestError extends Error {
     message: string,
     public readonly providerStatus: number,
     public readonly providerCode: string,
+    public readonly diagnostic?: CardPaymentProviderDiagnostic,
   ) {
     super(message);
     this.name = 'CardPaymentProviderRequestError';
@@ -193,6 +206,26 @@ async function readResponse(response: Response) {
   return (await response.json().catch(() => ({}))) as Record<string, unknown>;
 }
 
+function mercadoPagoDiagnostic(
+  response: Response,
+  body: Record<string, unknown>,
+): CardPaymentProviderDiagnostic {
+  const decline = mercadoPagoDeclineDetails(body);
+  const providerCode = providerErrorCode(body);
+  const providerRequestId = String(response.headers.get('x-request-id') || '')
+    .trim()
+    .slice(0, 160);
+
+  return {
+    provider: 'MERCADO_PAGO',
+    httpStatus: response.status,
+    providerCode: providerCode || null,
+    status: decline.transactionStatus,
+    statusDetail: decline.transactionStatusDetail,
+    providerRequestId: providerRequestId || null,
+  };
+}
+
 async function payerEmail(payload: BasePayload, order: CardOrder) {
   const suppliedEmail = String(payload.payerEmail || '').trim().toLowerCase();
   if (isValidPayerEmail(suppliedEmail)) return suppliedEmail;
@@ -308,7 +341,8 @@ async function mercadoPagoPayment(payload: BasePayload, order: CardOrder, succes
   const result = await send();
   if (!result.response.ok) {
     if (isMercadoPagoRequestValidationError(result.response.status, result.body)) {
-      const providerCode = providerErrorCode(result.body) || 'invalid_request';
+      const diagnostic = mercadoPagoDiagnostic(result.response, result.body);
+      const providerCode = diagnostic.providerCode || 'invalid_request';
       const providerMessage = safeProviderMessage(
         result.body,
         'O Mercado Pago rejeitou os dados enviados pelo checkout.',
@@ -316,35 +350,43 @@ async function mercadoPagoPayment(payload: BasePayload, order: CardOrder, succes
       console.error('[MERCADO_PAGO_CARD_REQUEST_INVALID]', {
         orderId: order.id,
         restaurantId: order.restaurantId,
-        providerStatus: result.response.status,
+        providerStatus: diagnostic.httpStatus,
         providerCode,
         providerMessage,
+        transactionStatus: diagnostic.status,
+        transactionStatusDetail: diagnostic.statusDetail,
+        providerRequestId: diagnostic.providerRequestId,
       });
       throw new CardPaymentProviderRequestError(
         'Não foi possível processar o cartão neste momento.',
         result.response.status,
         providerCode,
+        diagnostic,
       );
     }
     if (result.response.status === 402) {
-      const decline = mercadoPagoDeclineDetails(result.body);
-      console.warn('[MERCADO_PAGO_CARD_DECLINED]', {
+      const diagnostic = mercadoPagoDiagnostic(result.response, result.body);
+      console.warn('[MERCADO_PAGO_CARD_PAYMENT_FAILED]', {
         orderId: order.id,
         restaurantId: order.restaurantId,
-        providerStatus: result.response.status,
-        providerCode: providerErrorCode(result.body) || 'card_declined',
-        transactionStatus: decline.transactionStatus,
-        transactionStatusDetail: decline.transactionStatusDetail,
+        providerStatus: diagnostic.httpStatus,
+        providerCode: diagnostic.providerCode || 'card_payment_failed',
+        transactionStatus: diagnostic.status,
+        transactionStatusDetail: diagnostic.statusDetail,
+        providerRequestId: diagnostic.providerRequestId,
       });
       throw new CardPaymentDeclinedError(
         safeProviderMessage(result.body, 'O Mercado Pago não autorizou este cartão.'),
+        diagnostic,
       );
     }
     if (result.response.status >= 400 && result.response.status < 500) {
+      const diagnostic = mercadoPagoDiagnostic(result.response, result.body);
       throw new CardPaymentProviderRequestError(
         'Não foi possível processar o cartão neste momento.',
         result.response.status,
-        providerErrorCode(result.body) || 'provider_request_error',
+        diagnostic.providerCode || 'provider_request_error',
+        diagnostic,
       );
     }
     throw new Error('Falha temporária ao processar o cartão no Mercado Pago.');
