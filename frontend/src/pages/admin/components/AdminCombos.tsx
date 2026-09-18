@@ -94,7 +94,21 @@ export function AdminCombos({ products, money, onChanged }: Props) {
   };
 
   useEffect(() => {
-    void load();
+    let active = true;
+    productComboService
+      .list()
+      .then((items) => {
+        if (active) setCombos(items);
+      })
+      .catch(() => {
+        if (active) setFeedback({ tone: 'error', message: 'Não foi possível carregar os combos.' });
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+    return () => {
+      active = false;
+    };
   }, []);
 
   const openNew = () => {
