@@ -130,9 +130,10 @@ export const adminHelpGuides: GuideSection[] = [
     preview: 'admin-catalog',
     helper: 'Produtos, categorias e ingredientes.',
     steps: [
-      'Abra Cardápio e navegue pelas abas Produtos, Categorias e Ingredientes.',
+      'Abra Cardápio e navegue pelas abas Produtos, Combos, Ingredientes e Categorias.',
       'Em Ingredientes, clique em Novo ingrediente: informe nome, escolha uma imagem ou continue sem foto, selecione a categoria e defina o adicional.',
       'Em Novo produto, preencha os dados e escolha a forma de venda. Composição define o que vem no produto; grupos de opções definem as escolhas do cliente.',
+      'Em Combos, clique em Novo combo, defina preço e crie etapas como itens fixos, bebidas ou acompanhamentos. Você pode enviar uma foto, melhorar a foto com IA ou gerar uma imagem a partir da descrição e dos produtos escolhidos.',
       'Confira preço, estoque e disponibilidade. Salve e use Ver loja para testar o produto no cardápio.',
     ],
   },
