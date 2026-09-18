@@ -58,6 +58,17 @@ export class CardPaymentDeclinedError extends Error {
   }
 }
 
+export class CardPaymentProviderRequestError extends Error {
+  constructor(
+    message: string,
+    public readonly providerStatus: number,
+    public readonly providerCode: string,
+  ) {
+    super(message);
+    this.name = 'CardPaymentProviderRequestError';
+  }
+}
+
 function digits(value: unknown) {
   return String(value || '').replace(/\D/g, '');
 }
@@ -81,16 +92,43 @@ function internalReturnUrl(baseUrl: string, order: CardOrder, status: 'success' 
   }
 }
 
+function providerErrorItems(body: Record<string, unknown>) {
+  if (Array.isArray(body.cause)) return body.cause;
+  if (Array.isArray(body.error_messages)) return body.error_messages;
+  if (Array.isArray(body.errors)) return body.errors;
+  return [];
+}
+
+function providerErrorCode(body: Record<string, unknown>) {
+  const first = providerErrorItems(body)[0] as { code?: unknown } | undefined;
+  return String(first?.code || body.code || body.error || '').trim().toLowerCase();
+}
+
 function safeProviderMessage(body: Record<string, unknown>, fallback: string) {
-  const errors = Array.isArray(body.error_messages)
-    ? body.error_messages
-    : Array.isArray(body.errors)
-      ? body.errors
-      : [];
-  const first = errors[0] as { description?: unknown; message?: unknown } | undefined;
-  return String(first?.description || first?.message || body.message || body.error || fallback)
+  const first = providerErrorItems(body)[0] as
+    | { description?: unknown; message?: unknown; code?: unknown }
+    | undefined;
+  return String(first?.description || first?.message || body.message || fallback)
     .replace(/\b\d{13,19}\b/g, '[cartão protegido]')
+    .replace(/(?:APP_USR|TEST)-[A-Za-z0-9_-]+/g, '[credencial protegida]')
     .slice(0, 220);
+}
+
+function isMercadoPagoRequestValidationError(status: number, body: Record<string, unknown>) {
+  if (status !== 400) return false;
+  return new Set([
+    'property_value',
+    'property_type',
+    'required_properties',
+    'unsupported_properties',
+    'invalid_properties',
+    'invalid_total_amount',
+    'json_syntax_error',
+    'minimum_properties',
+    'minimum_items',
+    'maximum_items',
+    'invalid_order_type',
+  ]).has(providerErrorCode(body));
 }
 
 function splitConfigurationError(value: unknown) {
@@ -172,7 +210,7 @@ async function mercadoPagoPayment(payload: BasePayload, order: CardOrder, succes
   const makeBody = (includeFee: boolean) => ({
     type: 'online',
     processing_mode: 'automatic',
-    capture_mode: 'automatic_async',
+    capture_mode: 'automatic',
     total_amount: total.toFixed(2),
     external_reference: reference,
     description: `Pedido #${order.id}`,
@@ -215,9 +253,35 @@ async function mercadoPagoPayment(payload: BasePayload, order: CardOrder, succes
     result = await send(false);
   }
   if (!result.response.ok) {
-    if (result.response.status >= 400 && result.response.status < 500) {
+    if (isMercadoPagoRequestValidationError(result.response.status, result.body)) {
+      const providerCode = providerErrorCode(result.body) || 'invalid_request';
+      const providerMessage = safeProviderMessage(
+        result.body,
+        'O Mercado Pago rejeitou os dados enviados pelo checkout.',
+      );
+      console.error('[MERCADO_PAGO_CARD_REQUEST_INVALID]', {
+        orderId: order.id,
+        restaurantId: order.restaurantId,
+        providerStatus: result.response.status,
+        providerCode,
+        providerMessage,
+      });
+      throw new CardPaymentProviderRequestError(
+        'Não foi possível processar o cartão neste momento.',
+        result.response.status,
+        providerCode,
+      );
+    }
+    if (result.response.status === 402) {
       throw new CardPaymentDeclinedError(
         safeProviderMessage(result.body, 'O Mercado Pago não autorizou este cartão.'),
+      );
+    }
+    if (result.response.status >= 400 && result.response.status < 500) {
+      throw new CardPaymentProviderRequestError(
+        'Não foi possível processar o cartão neste momento.',
+        result.response.status,
+        providerErrorCode(result.body) || 'provider_request_error',
       );
     }
     throw new Error('Falha temporária ao processar o cartão no Mercado Pago.');
