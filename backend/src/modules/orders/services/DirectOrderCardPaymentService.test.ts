@@ -36,7 +36,7 @@ afterEach(() => {
 test('checkout transparente Mercado Pago segue o contrato atual sem capture_mode', async () => {
   let requestBody: Record<string, unknown> | null = null;
 
-  globalThis.fetch = async (input, init = {}) => {
+  globalThis.fetch = async (input, init: RequestInit = {}) => {
     assert.equal(String(input), 'https://api.mercadopago.com/v1/orders');
     assert.equal(init.method, 'POST');
     requestBody = JSON.parse(String(init.body || '{}')) as Record<string, unknown>;
