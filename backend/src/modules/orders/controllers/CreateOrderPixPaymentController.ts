@@ -54,6 +54,8 @@ class CreateOrderPixPaymentController {
         participantId: req.tableParticipant?.id ?? null,
         settlementMode,
         deferRealtimeUntilPaid: true,
+        enforceSingleActiveOnlinePayment:
+          String(req.user?.role || 'CLIENTE').toUpperCase() === 'CLIENTE',
         type,
         paymentMethod,
         paid: false,
