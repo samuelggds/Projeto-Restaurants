@@ -285,8 +285,6 @@ describe('PaymentSettings', () => {
     await act(async () => finish());
     expect(button.disabled).toBe(false);
   });
-});
-
 
   it('permite desconectar Mercado Pago somente quando a conta está vinculada', async () => {
     const disconnect = vi.fn().mockResolvedValue(true);
@@ -334,3 +332,4 @@ describe('PaymentSettings', () => {
 
     expect(container.textContent).not.toContain('Desconectar Mercado Pago');
   });
+});
