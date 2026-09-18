@@ -42,6 +42,38 @@ class ProductComboController {
     }
   }
 
+  async generatePreviewImage(req: Request, res: Response) {
+    const actor = {
+      userId: Number(req.user?.id || 0),
+      restaurantId: Number(req.user?.restaurantId || 0),
+      userName: req.user?.email,
+      userRole: req.user?.role,
+    };
+    try {
+      await aiCreditService.assertAvailable(actor);
+      const result = await productComboService.generatePreviewImage(actor.restaurantId, req.body);
+      const credits = await aiCreditService.recordUsage({
+        ...actor,
+        feature: 'GENERATE_COMBO_IMAGE',
+        model: result.aiUsage.model,
+        costUsd: result.aiUsage.costUsd,
+        usage: result.aiUsage.usage,
+      });
+      return res.json({ image: result.image, credits });
+    } catch (error) {
+      if (error instanceof AiCreditsExhaustedError) {
+        return res.status(402).json({ error: error.message, code: error.code });
+      }
+      if (error instanceof OpenAI.RateLimitError) {
+        return res.status(429).json({ error: 'A IA recebeu muitas solicitações. Tente novamente em instantes.' });
+      }
+      if (error instanceof OpenAI.APIConnectionTimeoutError) {
+        return res.status(504).json({ error: 'A geração da imagem demorou demais. Tente novamente.' });
+      }
+      return res.status(400).json({ error: message(error) });
+    }
+  }
+
   async generateImage(req: Request, res: Response) {
     const actor = {
       userId: Number(req.user?.id || 0),
