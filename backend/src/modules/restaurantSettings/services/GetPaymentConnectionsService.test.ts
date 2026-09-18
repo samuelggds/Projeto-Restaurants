@@ -89,6 +89,7 @@ test('credenciais e grants renováveis do restaurante ficam prontos sem expor ne
       mercadoPagoAccessToken: 'private-mp',
       mercadoPagoRefreshToken: 'private-refresh-mp',
       mercadoPagoTokenExpiresAt: new Date(Date.now() + 3600_000),
+      mercadoPagoPublicKey: 'APP_USR-seller-public',
       pagbankToken: 'private-pb',
       pagbankRefreshToken: 'private-refresh-pb',
       pagbankTokenExpiresAt: new Date(Date.now() + 3600_000),
@@ -104,6 +105,26 @@ test('credenciais e grants renováveis do restaurante ficam prontos sem expor ne
           connection.status === 'CONNECTED' && connection.readyForPix && connection.readyForCard,
       ),
   );
+  assert.equal(JSON.stringify(result).includes('private-'), false);
+});
+
+test('Mercado Pago conectado sem public key exige reconexão antes do cartão', async () => {
+  repository.findByRestaurantId = async () => ({
+    restaurantId: 7,
+    mercadoPagoAccessToken: 'private-mp',
+    mercadoPagoRefreshToken: 'private-refresh-mp',
+    mercadoPagoTokenExpiresAt: new Date(Date.now() + 3600_000),
+    mercadoPagoPublicKey: null,
+  });
+
+  const result = await service.execute({ restaurantId: 7 });
+  const connection = result.connections.find((item) => item.provider === 'MERCADO_PAGO');
+
+  assert.equal(connection?.connected, true);
+  assert.equal(connection?.status, 'NEEDS_RECONNECT');
+  assert.equal(connection?.readyForPix, false);
+  assert.equal(connection?.readyForCard, false);
+  assert.match(connection?.message || '', /chave pública/i);
   assert.equal(JSON.stringify(result).includes('private-'), false);
 });
 
