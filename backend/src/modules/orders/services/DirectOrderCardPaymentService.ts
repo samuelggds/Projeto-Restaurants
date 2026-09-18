@@ -276,8 +276,8 @@ async function mercadoPagoPayment(payload: BasePayload, order: CardOrder, succes
       },
       body: JSON.stringify(body),
     });
-    const body = await readResponse(response);
-    return { response, body };
+    const responseBody = await readResponse(response);
+    return { response, body: responseBody };
   };
 
   const result = await send();
