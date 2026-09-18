@@ -248,6 +248,7 @@ async function createPix(
     orderTotal: centsToMajor(input.amountCents),
     orderSubtotal: centsToMajor(input.amountCents),
     orderDeliveryFee: 0,
+    expiresAt: input.expiresAt,
   });
 
   if (!String(result.paymentId || '').trim() || !String(result.qrCode || '').trim()) {
