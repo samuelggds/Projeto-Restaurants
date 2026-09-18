@@ -914,6 +914,107 @@ class OrderPixPaymentService {
     };
   }
 
+  async recoverExistingPixPayment({
+    paymentId,
+    restaurantId,
+  }: PaymentStatusPayload) {
+    const normalizedPaymentId = String(paymentId || '').trim();
+    if (!normalizedPaymentId) {
+      throw new Error('Pagamento PIX inválido.');
+    }
+
+    if (normalizedPaymentId.startsWith('manual:')) {
+      throw new Error('Pagamento PIX manual nao e permitido.');
+    }
+
+    const parsedPaymentId = parseProviderPaymentId(normalizedPaymentId);
+    const normalizedRestaurantId = Number(restaurantId || 0);
+    if (!Number.isInteger(normalizedRestaurantId) || normalizedRestaurantId <= 0) {
+      throw new Error('Restaurante inválido para recuperar pagamento PIX.');
+    }
+
+    if (parsedPaymentId.provider === PIX_PROVIDERS.ASAAS) {
+      const accessToken = await this.getAsaasAccessToken(normalizedRestaurantId);
+      const asaasBaseUrl = this.getAsaasBaseUrl();
+      const paymentResult = await this.fetchAsaasJson<AsaasPaymentPayload>(
+        `${asaasBaseUrl}/v3/payments/${encodeURIComponent(parsedPaymentId.rawPaymentId)}`,
+        accessToken,
+      );
+      if (!paymentResult.ok) {
+        throw new Error(
+          this.getAsaasError(
+            paymentResult.responseBody,
+            'Nao foi possivel recuperar pagamento PIX Asaas.',
+          ),
+        );
+      }
+      const qrResult = await this.fetchAsaasJson<AsaasPixQrCodePayload>(
+        `${asaasBaseUrl}/v3/payments/${encodeURIComponent(parsedPaymentId.rawPaymentId)}/pixQrCode`,
+        accessToken,
+      );
+      if (!qrResult.ok || !String(qrResult.responseBody?.payload || '').trim()) {
+        throw new Error('O QR Code desta cobrança PIX ainda não está disponível.');
+      }
+      const amount = Number(paymentResult.responseBody?.value);
+      return {
+        paymentId: normalizedPaymentId,
+        status: this.normalizeAsaasStatus(paymentResult.responseBody?.status),
+        provider: PIX_PROVIDERS.ASAAS,
+        totalAmount: Number.isFinite(amount) ? amount : 0,
+        qrCode: String(qrResult.responseBody?.payload || '').trim(),
+        qrCodeBase64: String(qrResult.responseBody?.encodedImage || '').trim() || null,
+        requiresStatusCheck: true,
+        externalReference: String(paymentResult.responseBody?.externalReference || '').trim(),
+      };
+    }
+
+    if (parsedPaymentId.provider === PIX_PROVIDERS.PAGBANK) {
+      const token = await this.getPagBankToken(normalizedRestaurantId);
+      const result = await this.fetchPagBankJson<PagBankOrderPayload>(
+        `${this.getPagBankBaseUrl()}/orders/${encodeURIComponent(parsedPaymentId.rawPaymentId)}`,
+        token,
+      );
+      if (!result.ok) {
+        throw new Error('Não foi possível recuperar o Pix no PagBank.');
+      }
+      const qrCode = String(result.body?.qr_codes?.[0]?.text || '').trim();
+      if (!qrCode) throw new Error('O QR Code desta cobrança PIX não está disponível.');
+      const amountInCents = Number(result.body?.qr_codes?.[0]?.amount?.value);
+      return {
+        paymentId: normalizedPaymentId,
+        status: String(result.body?.charges?.[0]?.status || 'WAITING'),
+        provider: PIX_PROVIDERS.PAGBANK,
+        totalAmount: Number.isFinite(amountInCents) ? amountInCents / 100 : 0,
+        qrCode,
+        qrCodeBase64: null,
+        requiresStatusCheck: true,
+        externalReference: String(result.body?.reference_id || '').trim(),
+      };
+    }
+
+    const paymentApi = await this.getMercadoPagoPaymentApi(normalizedRestaurantId);
+    const response = (await paymentApi.get({ id: parsedPaymentId.rawPaymentId })) as unknown;
+    const payment =
+      typeof response === 'object' && response !== null
+        ? ((response as { body?: unknown }).body ?? response)
+        : {};
+    const paymentData = payment as PixPaymentPayload;
+    const transactionData = paymentData?.point_of_interaction?.transaction_data || {};
+    const qrCode = String(transactionData?.qr_code || '').trim();
+    if (!qrCode) throw new Error('O QR Code desta cobrança PIX não está disponível.');
+    const amount = Number(paymentData?.transaction_amount);
+    return {
+      paymentId: normalizedPaymentId,
+      status: this.normalizePaymentStatus(paymentData?.status),
+      provider: PIX_PROVIDERS.MERCADO_PAGO,
+      totalAmount: Number.isFinite(amount) ? amount : 0,
+      qrCode,
+      qrCodeBase64: String(transactionData?.qr_code_base64 || '').trim() || null,
+      requiresStatusCheck: true,
+      externalReference: String(paymentData?.external_reference || '').trim(),
+    };
+  }
+
   async getPaymentStatus({ paymentId, restaurantId }: PaymentStatusPayload) {
     const normalizedPaymentId = String(paymentId || '').trim();
     if (!normalizedPaymentId) {
