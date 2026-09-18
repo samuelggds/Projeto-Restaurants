@@ -7,7 +7,7 @@ import {
   type TerminalPaymentOutcome,
 } from '../domain/paymentOutcome';
 import type { PaymentResultStatus } from '../../../components/payment/PaymentResultView';
-import { readStorage } from '../../../shared/storage/safeStorage';
+import { readStorage, removeStorage, writeStorage } from '../../../shared/storage/safeStorage';
 import { prepareCardPayment } from '../domain/cardPaymentPreparation';
 
 export type PixPaymentData = {
@@ -21,6 +21,79 @@ export type PixPaymentData = {
   requiresStatusCheck?: boolean;
   paid?: boolean;
 };
+
+const PENDING_PIX_PAYMENT_STORAGE_PREFIX = 'pendingPixPayment:';
+
+function pendingPixPaymentStorageKey(restaurantId: number) {
+  return `${PENDING_PIX_PAYMENT_STORAGE_PREFIX}${restaurantId}`;
+}
+
+function readPendingPixPayment(restaurantId: number): PixPaymentData | null {
+  if (!Number.isInteger(restaurantId) || restaurantId <= 0) return null;
+
+  const raw = readStorage(pendingPixPaymentStorageKey(restaurantId));
+  if (!raw) return null;
+
+  try {
+    const parsed = JSON.parse(raw) as { payment?: Partial<PixPaymentData> };
+    const payment = parsed?.payment;
+    const orderId = Number(payment?.orderId);
+    const total = Number(payment?.total);
+    const paymentRestaurantId = Number(payment?.restaurantId);
+    const paymentId = String(payment?.paymentId || '').trim();
+    const provider = String(payment?.provider || '').trim();
+    const pixCode = String(payment?.pixCode || '').trim();
+
+    if (
+      paymentRestaurantId !== restaurantId ||
+      !Number.isSafeInteger(orderId) ||
+      orderId <= 0 ||
+      !Number.isFinite(total) ||
+      total < 0 ||
+      !paymentId ||
+      !provider ||
+      !pixCode
+    ) {
+      removeStorage(pendingPixPaymentStorageKey(restaurantId));
+      return null;
+    }
+
+    return {
+      restaurantId,
+      orderId,
+      total,
+      paymentId,
+      provider,
+      pixCode,
+      qrCodeBase64: payment?.qrCodeBase64 ? String(payment.qrCodeBase64) : null,
+      requiresStatusCheck: Boolean(payment?.requiresStatusCheck),
+      paid: false,
+    };
+  } catch {
+    removeStorage(pendingPixPaymentStorageKey(restaurantId));
+    return null;
+  }
+}
+
+function rememberPendingPixPayment(payment: PixPaymentData) {
+  const restaurantId = Number(payment.restaurantId || 0);
+  if (!Number.isInteger(restaurantId) || restaurantId <= 0 || payment.paid === true) return;
+
+  writeStorage(
+    pendingPixPaymentStorageKey(restaurantId),
+    JSON.stringify({
+      version: 1,
+      savedAt: Date.now(),
+      payment,
+    }),
+  );
+}
+
+function forgetPendingPixPayment(restaurantId: number | null | undefined) {
+  const normalizedRestaurantId = Number(restaurantId || 0);
+  if (!Number.isInteger(normalizedRestaurantId) || normalizedRestaurantId <= 0) return;
+  removeStorage(pendingPixPaymentStorageKey(normalizedRestaurantId));
+}
 
 export type PixPaymentStatus =
   'WAITING' | 'VERIFYING' | 'PENDING' | 'ERROR' | TerminalPaymentOutcome;
@@ -141,6 +214,27 @@ export function useCheckoutPayments(options: Options) {
   const onPaymentConfirmedRef = useRef(onPaymentConfirmed);
 
   useEffect(() => {
+    if (!restaurantId) return;
+
+    const restored = readPendingPixPayment(restaurantId);
+    if (!restored) {
+      setPixPaymentData((current) =>
+        current?.restaurantId && current.restaurantId !== restaurantId ? null : current,
+      );
+      return;
+    }
+
+    setPixPaymentData((current) =>
+      current?.restaurantId === restaurantId && current.orderId ? current : restored,
+    );
+    pixConfirmedRef.current = false;
+    pixTerminalRef.current = null;
+    pixCheckInFlightRef.current = false;
+    setPixPaymentStatus('WAITING');
+    setPixPaymentError(null);
+  }, [restaurantId]);
+
+  useEffect(() => {
     onPaymentConfirmedRef.current = onPaymentConfirmed;
   }, [onPaymentConfirmed]);
 
@@ -186,6 +280,7 @@ export function useCheckoutPayments(options: Options) {
         const unsuccessful = getUnsuccessfulPaymentOutcome(providerStatus?.status);
         if (unsuccessful) {
           pixTerminalRef.current = unsuccessful;
+          forgetPendingPixPayment(restaurantId);
           setPixPaymentStatus(unsuccessful);
           return unsuccessful;
         }
@@ -210,6 +305,7 @@ export function useCheckoutPayments(options: Options) {
 
         pixConfirmedRef.current = true;
         pixTerminalRef.current = 'PAID';
+        forgetPendingPixPayment(restaurantId);
         setPixPaymentData((current) => (current ? { ...current, paid: true } : current));
         setPixPaymentStatus('PAID');
         try {
@@ -255,7 +351,7 @@ export function useCheckoutPayments(options: Options) {
     };
   }, [pixPaymentData, pixIsTerminal, restaurantId, verifyPixPayment]);
 
-  const clearPixPayment = useCallback(() => {
+  const hidePixPayment = useCallback(() => {
     attemptRef.current += 1;
     pixCheckInFlightRef.current = false;
     pixConfirmedRef.current = false;
@@ -264,6 +360,11 @@ export function useCheckoutPayments(options: Options) {
     setPixPaymentStatus('WAITING');
     setPixPaymentError(null);
   }, []);
+
+  const clearPixPayment = useCallback(() => {
+    forgetPendingPixPayment(pixPaymentData?.restaurantId || restaurantId);
+    hidePixPayment();
+  }, [hidePixPayment, pixPaymentData?.restaurantId, restaurantId]);
 
   const executePayment = async (
     payload: Record<string, unknown>,
@@ -317,7 +418,7 @@ export function useCheckoutPayments(options: Options) {
           pixProvider: String(pixProvider || ''),
         });
         if (!isCurrentCheckout()) return false;
-        setPixPaymentData({
+        const nextPixPaymentData: PixPaymentData = {
           restaurantId: restaurantId || undefined,
           orderId: Number(result.orderId) || null,
           total: Number(result.totalAmount || cartTotal),
@@ -326,7 +427,9 @@ export function useCheckoutPayments(options: Options) {
           pixCode: String(result.qrCode || ''),
           qrCodeBase64: result.qrCodeBase64 ? String(result.qrCodeBase64) : null,
           requiresStatusCheck: Boolean(result.requiresStatusCheck),
-        });
+        };
+        rememberPendingPixPayment(nextPixPaymentData);
+        setPixPaymentData(nextPixPaymentData);
         pixConfirmedRef.current = false;
         pixTerminalRef.current = null;
         pixCheckInFlightRef.current = false;
@@ -436,6 +539,7 @@ export function useCheckoutPayments(options: Options) {
     pixPaymentStatus,
     pixPaymentError,
     verifyPixPayment,
+    hidePixPayment,
     clearPixPayment,
     executePayment,
   };
