@@ -961,6 +961,11 @@ export function AdminPage({
                         tone: 'danger',
                       });
                       if (!confirmed) return false;
+                      if (settingsDirty && !(await save())) {
+                        throw new Error(
+                          'Revise e salve as configurações antes de desconectar a conta.',
+                        );
+                      }
                       await onDisconnectMercadoPago();
                       return true;
                     })
