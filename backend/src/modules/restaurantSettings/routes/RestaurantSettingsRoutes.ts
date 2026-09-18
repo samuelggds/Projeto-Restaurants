@@ -14,6 +14,7 @@ import GetPaymentConnectionsController from '../controllers/GetPaymentConnection
 import GetAsaasWalletBalanceController from '../controllers/GetAsaasWalletBalanceController.js';
 import WithdrawAsaasWalletController from '../controllers/WithdrawAsaasWalletController.js';
 import StartMercadoPagoOAuthController from '../controllers/StartMercadoPagoOAuthController.js';
+import DisconnectMercadoPagoController from '../controllers/DisconnectMercadoPagoController.js';
 import MercadoPagoOAuthCallbackController from '../controllers/MercadoPagoOAuthCallbackController.js';
 import StartPagBankOAuthController from '../controllers/StartPagBankOAuthController.js';
 import PagBankOAuthCallbackController from '../controllers/PagBankOAuthCallbackController.js';
@@ -66,6 +67,10 @@ router.get('/payment-connections', authMiddleware, adminMiddleware, (req, res) =
 
 router.post('/mercado-pago/oauth/start', authMiddleware, adminMiddleware, (req, res) =>
   StartMercadoPagoOAuthController.handle(req, res),
+);
+
+router.post('/mercado-pago/disconnect', authMiddleware, adminMiddleware, (req, res) =>
+  DisconnectMercadoPagoController.handle(req, res),
 );
 
 router.get('/mercado-pago/oauth/callback', (req, res) =>
