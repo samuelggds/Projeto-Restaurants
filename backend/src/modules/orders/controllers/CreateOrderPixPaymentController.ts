@@ -87,7 +87,10 @@ class CreateOrderPixPaymentController {
         }
       }
 
-      const pixExpiresAt = new Date(Date.now() + 30 * 60 * 1000);
+      const pixExpiresAt =
+        String(order.type || '').toUpperCase() === 'MESA'
+          ? null
+          : new Date(Date.now() + 30 * 60 * 1000);
       let result;
       try {
         result = await orderPixPaymentService.createPixPayment({
