@@ -1,5 +1,5 @@
 ALTER TABLE "Order"
-ADD COLUMN "pixExpiresAt" TIMESTAMP(3);
+ADD COLUMN "onlinePaymentExpiresAt" TIMESTAMP(3);
 
-CREATE INDEX "Order_status_paid_pixExpiresAt_idx"
-ON "Order"("status", "paid", "pixExpiresAt");
+CREATE INDEX "Order_status_paid_onlinePaymentExpiresAt_idx"
+ON "Order"("status", "paid", "onlinePaymentExpiresAt");
