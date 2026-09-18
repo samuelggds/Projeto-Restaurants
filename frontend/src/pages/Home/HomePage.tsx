@@ -15,6 +15,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import * as Offers from './components/FeaturedOffers.styles';
 import { HomeHeader } from './components/HomeHeader';
 import { HomeProductCard } from './components/HomeProductCard';
+import { HomeComboCard } from './components/HomeComboCard';
+import { ComboConfigurator } from './components/ComboConfigurator';
+import * as Combo from './components/HomeComboCard.styles';
 import { ProductConfigurator } from './components/ProductConfigurator';
 import { ProductSearchDialog } from './components/ProductSearchDialog';
 import { TableClosingNotice } from './components/TableClosingNotice';
@@ -60,6 +63,7 @@ export function HomePage({
 }: HomePageProps) {
   const [activeCategory, setActiveCategory] = useState(data.categories[0]?.id ?? '');
   const [selectedProduct, setSelectedProduct] = useState<HomeProduct | null>(null);
+  const [selectedCombo, setSelectedCombo] = useState<HomeProduct | null>(null);
   const [searchOpen, setSearchOpen] = useState(initialSearchOpen);
   const toggleFavoriteRef = useRef(onToggleFavorite);
 
@@ -85,14 +89,28 @@ export function HomePage({
     ? activeCategory
     : (data.categories[0]?.id ?? '');
 
+  const combos = useMemo(
+    () => data.products.filter((product) => product.kind === 'COMBO' && product.available),
+    [data.products],
+  );
   const products = useMemo(() => {
     if (!selectedCategory || selectedCategory === 'todos') {
-      return data.products;
+      return data.products.filter((product) => product.kind !== 'COMBO');
     }
 
     return data.products.filter((product) => product.categoryId === selectedCategory);
   }, [selectedCategory, data.products]);
-  const featuredProducts = useMemo(() => getFeaturedProducts(data.products), [data.products]);
+  const selectedCategoryIsCombos = useMemo(
+    () =>
+      data.categories.find((category) => category.id === selectedCategory)?.name
+        .trim()
+        .toLocaleLowerCase('pt-BR') === 'combos',
+    [data.categories, selectedCategory],
+  );
+  const featuredProducts = useMemo(
+    () => getFeaturedProducts(data.products.filter((product) => product.kind !== 'COMBO')),
+    [data.products],
+  );
   const searchableProducts = useMemo(
     () => data.products.filter((product) => product.available),
     [data.products],
@@ -145,6 +163,10 @@ export function HomePage({
     (product: HomeProduct) => {
       if (orderingLocked) {
         onOpenTableAccount?.();
+        return;
+      }
+      if (product.kind === 'COMBO') {
+        setSelectedCombo(product);
         return;
       }
       if (product.saleMode === 'COMPLETE') {
@@ -259,6 +281,31 @@ export function HomePage({
           </Offers.Section>
         )}
 
+        {combos.length > 0 && selectedCategory === 'todos' && (
+          <Combo.Section id="combos" aria-labelledby="home-combos-title">
+            <Combo.Header>
+              <div>
+                <span className="eyebrow"><Sparkles size={15} /> Combos especiais</span>
+                <h2 id="home-combos-title">Mais sabor em uma escolha só</h2>
+                <p>Combinações preparadas pelo restaurante para você montar e pedir com facilidade.</p>
+              </div>
+              <span className="count">
+                {combos.length} {combos.length === 1 ? 'combo disponível' : 'combos disponíveis'}
+              </span>
+            </Combo.Header>
+            <Combo.Grid>
+              {combos.map((combo) => (
+                <HomeComboCard
+                  key={combo.id}
+                  combo={combo}
+                  orderingLocked={orderingLocked}
+                  onOpen={openProductDetails}
+                />
+              ))}
+            </Combo.Grid>
+          </Combo.Section>
+        )}
+
         {data.categories.length > 0 && (
           <>
             <S.SectionTitle>O que você deseja hoje?</S.SectionTitle>
@@ -290,7 +337,20 @@ export function HomePage({
             <S.SectionTitle>
               {selectedCategory === 'todos' ? 'Todos os produtos' : activeCategoryName}
             </S.SectionTitle>
-            {selectedCategory === 'todos' ? (
+            {selectedCategoryIsCombos ? (
+              <Combo.Grid>
+                {products
+                  .filter((product) => product.kind === 'COMBO')
+                  .map((combo) => (
+                    <HomeComboCard
+                      key={combo.id}
+                      combo={combo}
+                      orderingLocked={orderingLocked}
+                      onOpen={openProductDetails}
+                    />
+                  ))}
+              </Combo.Grid>
+            ) : selectedCategory === 'todos' ? (
               <S.ProductCategoryGroups>
                 {data.categories
                   .filter((category) => category.id !== 'todos')
@@ -320,16 +380,18 @@ export function HomePage({
               </S.ProductCategoryGroups>
             ) : (
               <S.ProductGrid key={selectedCategory}>
-                {products.map((product) => (
-                  <HomeProductCard
-                    key={product.id}
-                    product={product}
-                    orderingLocked={orderingLocked}
-                    favorite={favoriteIds.has(product.id)}
-                    onOpen={openProductDetails}
-                    onToggleFavorite={handleToggleFavorite}
-                  />
-                ))}
+                {products
+                  .filter((product) => product.kind !== 'COMBO')
+                  .map((product) => (
+                    <HomeProductCard
+                      key={product.id}
+                      product={product}
+                      orderingLocked={orderingLocked}
+                      favorite={favoriteIds.has(product.id)}
+                      onOpen={openProductDetails}
+                      onToggleFavorite={handleToggleFavorite}
+                    />
+                  ))}
               </S.ProductGrid>
             )}
           </>
@@ -459,6 +521,18 @@ export function HomePage({
           onSelect={(product) => {
             setSearchOpen(false);
             openProductDetails(product);
+          }}
+        />
+      )}
+
+      {selectedCombo && (
+        <ComboConfigurator
+          product={selectedCombo}
+          primaryColor={primary}
+          onClose={() => setSelectedCombo(null)}
+          onConfirm={(configuration) => {
+            onAddProduct?.(selectedCombo.id, configuration);
+            setSelectedCombo(null);
           }}
         />
       )}
