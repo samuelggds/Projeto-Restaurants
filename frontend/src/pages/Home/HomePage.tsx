@@ -338,18 +338,38 @@ export function HomePage({
               {selectedCategory === 'todos' ? 'Todos os produtos' : activeCategoryName}
             </S.SectionTitle>
             {selectedCategoryIsCombos ? (
-              <Combo.Grid>
-                {products
-                  .filter((product) => product.kind === 'COMBO')
-                  .map((combo) => (
-                    <HomeComboCard
-                      key={combo.id}
-                      combo={combo}
-                      orderingLocked={orderingLocked}
-                      onOpen={openProductDetails}
-                    />
-                  ))}
-              </Combo.Grid>
+              <>
+                {products.some((product) => product.kind === 'COMBO') && (
+                  <Combo.Grid>
+                    {products
+                      .filter((product) => product.kind === 'COMBO')
+                      .map((combo) => (
+                        <HomeComboCard
+                          key={combo.id}
+                          combo={combo}
+                          orderingLocked={orderingLocked}
+                          onOpen={openProductDetails}
+                        />
+                      ))}
+                  </Combo.Grid>
+                )}
+                {products.some((product) => product.kind !== 'COMBO') && (
+                  <S.ProductGrid>
+                    {products
+                      .filter((product) => product.kind !== 'COMBO')
+                      .map((product) => (
+                        <HomeProductCard
+                          key={product.id}
+                          product={product}
+                          orderingLocked={orderingLocked}
+                          favorite={favoriteIds.has(product.id)}
+                          onOpen={openProductDetails}
+                          onToggleFavorite={handleToggleFavorite}
+                        />
+                      ))}
+                  </S.ProductGrid>
+                )}
+              </>
             ) : selectedCategory === 'todos' ? (
               <S.ProductCategoryGroups>
                 {data.categories
