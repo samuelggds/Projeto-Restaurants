@@ -46,6 +46,7 @@ export type HomeProduct = {
   rating: number;
   stock?: number | null;
   available: boolean;
+  kind?: 'STANDARD' | 'COMBO';
   saleMode?: 'COMPLETE' | 'BUILDABLE';
   configurationVersion?: number;
   ingredients?: Array<{ id: string; name: string; price: number; required: boolean }>;
@@ -56,6 +57,28 @@ export type HomeProduct = {
     name: string;
     removable: boolean;
     active: boolean;
+  }>;
+  comboGroups?: Array<{
+    id: string;
+    name: string;
+    description?: string;
+    minSelections: number;
+    maxSelections: number;
+    options: Array<{
+      id: string;
+      productId: string;
+      name: string;
+      description?: string;
+      image?: string | null;
+      basePrice: number;
+      additionalPrice: number;
+      minQuantity: number;
+      maxQuantity: number;
+      defaultQuantity: number;
+      locked: boolean;
+      active: boolean;
+      stock?: number | null;
+    }>;
   }>;
   portionConfiguration?: {
     enabled: boolean;
