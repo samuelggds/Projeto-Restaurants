@@ -174,6 +174,18 @@ class GetPaymentConnectionsService {
           };
         }
 
+        if (
+          provider === 'MERCADO_PAGO' &&
+          !String(settings?.mercadoPagoPublicKey || '').trim()
+        ) {
+          return {
+            ...result,
+            status: 'NEEDS_RECONNECT',
+            message:
+              'A conexão do Mercado Pago não possui a chave pública do restaurante. Reconecte a conta para receber pagamentos com cartão.',
+          };
+        }
+
         try {
           await (provider === 'MERCADO_PAGO'
             ? getMercadoPagoAccessToken(id)
