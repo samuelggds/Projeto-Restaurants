@@ -1,6 +1,8 @@
 import { UserRole } from '@prisma/client';
 import prisma from '../../../config/prisma.js';
 import getOsrmDeliveryRouteService from './GetOsrmDeliveryRouteService.js';
+import geoapifyDeliveryRoutingProvider from './GeoapifyDeliveryRoutingProvider.js';
+import { getConfiguredDeliveryRoutingProviderId } from './GetDeliveryRoutingProvider.js';
 import courierAccessService from './CourierAccessService.js';
 import { generateDeliveryConfirmationCode } from '../utils/deliveryConfirmationCode.js';
 import deliveryNavigationSessionRepository from '../repositories/DeliveryNavigationSessionRepository.js';
@@ -142,13 +144,20 @@ class GetDeliveryTrackingService {
       : null;
     const latestLocation = navigationLocation || databaseLatestLocation;
 
-    const osrmRouteEstimate =
+    const configuredRoutingProvider = getConfiguredDeliveryRoutingProviderId();
+    const configuredRouteEstimate =
       order.status === 'SAIU_PARA_ENTREGA' && latestLocation
-        ? await getOsrmDeliveryRouteService.execute({
-            latitude: Number(latestLocation.latitude),
-            longitude: Number(latestLocation.longitude),
-            destination: order,
-          })
+        ? configuredRoutingProvider === 'geoapify'
+          ? await geoapifyDeliveryRoutingProvider.calculateRouteEstimate({
+              latitude: Number(latestLocation.latitude),
+              longitude: Number(latestLocation.longitude),
+              destination: order,
+            })
+          : await getOsrmDeliveryRouteService.execute({
+              latitude: Number(latestLocation.latitude),
+              longitude: Number(latestLocation.longitude),
+              destination: order,
+            })
         : null;
 
     const hasNavigationEstimate =
@@ -157,17 +166,17 @@ class GetDeliveryTrackingService {
         navigationTelemetry.remainingDistanceMeters !== null);
     const routeEstimate = hasNavigationEstimate
       ? {
-          ...(osrmRouteEstimate || {
+          ...(configuredRouteEstimate || {
             durationSeconds: navigationTelemetry?.remainingDurationSeconds || 0,
             distanceMeters: navigationTelemetry?.remainingDistanceMeters ?? null,
           }),
           durationSeconds:
-            navigationTelemetry?.remainingDurationSeconds ?? osrmRouteEstimate?.durationSeconds ?? 0,
+            navigationTelemetry?.remainingDurationSeconds ?? configuredRouteEstimate?.durationSeconds ?? 0,
           distanceMeters:
-            navigationTelemetry?.remainingDistanceMeters ?? osrmRouteEstimate?.distanceMeters ?? null,
+            navigationTelemetry?.remainingDistanceMeters ?? configuredRouteEstimate?.distanceMeters ?? null,
           provider: 'NAVIGATION_CONNECT' as const,
         }
-      : osrmRouteEstimate;
+      : configuredRouteEstimate;
 
     const estimatedArrival =
       routeEstimate && routeEstimate.durationSeconds > 0
