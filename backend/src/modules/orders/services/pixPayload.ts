@@ -5,39 +5,6 @@ export type ParsedProviderPaymentId = {
   rawPaymentId: string;
 };
 
-export function extractErrorText(error: unknown) {
-  if (typeof error === 'string') {
-    return error.trim().toLowerCase();
-  }
-
-  const asRecord =
-    typeof error === 'object' && error !== null ? (error as Record<string, unknown>) : null;
-  const message = String(
-    asRecord?.message || (asRecord?.cause as { message?: unknown } | undefined)?.message || '',
-  );
-  const causeText = String(asRecord?.cause || '');
-  return `${message} ${causeText}`.trim().toLowerCase();
-}
-
-export function isMarketplaceSplitConfigurationError(error: unknown) {
-  const text = extractErrorText(error);
-
-  if (!text) {
-    return false;
-  }
-
-  return (
-    text.includes('application_fee') ||
-    text.includes('marketplace') ||
-    text.includes('split') ||
-    text.includes('collector') ||
-    text.includes('platform') ||
-    text.includes('not allowed') ||
-    text.includes('unauthorized') ||
-    text.includes('invalid')
-  );
-}
-
 export function parseProviderPaymentId(paymentId: string): ParsedProviderPaymentId {
   const normalizedPaymentId = String(paymentId || '').trim();
 
