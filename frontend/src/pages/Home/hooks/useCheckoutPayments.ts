@@ -59,6 +59,7 @@ type Options = {
   notify: Notify;
   onPurchased: () => void;
   onPaymentConfirmed: () => void | Promise<void>;
+  onPixPaymentCreated?: (payment: { orderId: number; orderPublicId: string }) => void;
   onClearCart: () => void;
   onCloseCart: () => void;
 };
@@ -122,6 +123,7 @@ export function useCheckoutPayments(options: Options) {
     notify,
     onPurchased,
     onPaymentConfirmed,
+    onPixPaymentCreated,
     onClearCart,
     onCloseCart,
   } = options;
@@ -335,6 +337,19 @@ export function useCheckoutPayments(options: Options) {
         onPurchased();
         onClearCart();
         onCloseCart();
+        const createdOrderId = Number(result.orderId || 0);
+        const createdOrderPublicId = String(result.orderPublicId || '').trim();
+        if (
+          onPixPaymentCreated &&
+          Number.isSafeInteger(createdOrderId) &&
+          createdOrderId > 0 &&
+          createdOrderPublicId
+        ) {
+          onPixPaymentCreated({
+            orderId: createdOrderId,
+            orderPublicId: createdOrderPublicId,
+          });
+        }
         return true;
       }
 
