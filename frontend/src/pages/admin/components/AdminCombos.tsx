@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Image as ImageIcon, Plus, Sparkles, Trash2, Upload, WandSparkles, X } from 'lucide-react';
+import { CheckCircle2, Image as ImageIcon, Info, Plus, Sparkles, Trash2, Upload, WandSparkles, X } from 'lucide-react';
 import productComboService, {
   type ComboGroupInput,
   type ComboInput,
@@ -17,9 +17,9 @@ type Props = {
 };
 
 const emptyGroup = (): ComboGroupInput => ({
-  name: 'Itens do combo',
-  description: 'Escolha os itens que fazem parte deste combo.',
-  minSelections: 1,
+  name: 'Produtos do combo',
+  description: 'Produtos incluídos neste combo.',
+  minSelections: 0,
   maxSelections: 1,
   active: true,
   options: [],
@@ -67,12 +67,43 @@ function toInput(combo: ComboRecord): ComboInput {
   };
 }
 
+function normalizeSimpleComboDraft(input: ComboInput): ComboInput {
+  const selectedOptions = input.groups
+    .flatMap((group) => group.options)
+    .filter((option) => option.componentProductId > 0)
+    .map((option) => ({
+      ...option,
+      additionalPrice: 0,
+      minQuantity: 1,
+      maxQuantity: 1,
+      defaultQuantity: 1,
+      locked: true,
+      active: true,
+    }));
+
+  const count = selectedOptions.length;
+  return {
+    ...input,
+    groups: [
+      {
+        name: 'Produtos do combo',
+        description: 'Produtos incluídos neste combo.',
+        minSelections: count,
+        maxSelections: Math.max(1, count),
+        active: true,
+        options: selectedOptions,
+      },
+    ],
+  };
+}
+
 export function AdminCombos({ products, money, onChanged }: Props) {
   const [combos, setCombos] = useState<ComboRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [editingId, setEditingId] = useState<number | null | undefined>();
   const [draft, setDraft] = useState<ComboInput>(emptyCombo());
   const [busy, setBusy] = useState('');
+  const [selectedProductId, setSelectedProductId] = useState('');
   const [feedback, setFeedback] = useState<{ tone: 'error' | 'success'; message: string } | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -83,6 +114,17 @@ export function AdminCombos({ products, money, onChanged }: Props) {
       ),
     [products],
   );
+
+  const selectedOptions = draft.groups.flatMap((group) => group.options);
+  const selectedProductIds = new Set(
+    selectedOptions.map((option) => String(option.componentProductId)),
+  );
+  const selectedProducts = selectedOptions
+    .map((option) =>
+      availableProducts.find((product) => String(product.id) === String(option.componentProductId)),
+    )
+    .filter((product): product is AdminProduct => Boolean(product));
+  const canGenerateImage = draft.name.trim().length >= 2 && selectedProducts.length > 0;
 
   const load = async () => {
     setLoading(true);
@@ -158,6 +200,59 @@ export function AdminCombos({ products, money, onChanged }: Props) {
     }));
   };
 
+
+  const addSelectedProduct = () => {
+    const productId = Number(selectedProductId);
+    if (!productId) {
+      setFeedback({ tone: 'error', message: 'Escolha um produto da lista para adicionar ao combo.' });
+      return;
+    }
+    if (selectedProductIds.has(String(productId))) {
+      setFeedback({ tone: 'error', message: 'Este produto já faz parte do combo.' });
+      return;
+    }
+    setDraft((current) =>
+      normalizeSimpleComboDraft({
+        ...current,
+        groups: [
+          {
+            ...(current.groups[0] || emptyGroup()),
+            options: [
+              ...(current.groups.flatMap((group) => group.options) || []),
+              {
+                componentProductId: productId,
+                additionalPrice: 0,
+                minQuantity: 1,
+                maxQuantity: 1,
+                defaultQuantity: 1,
+                locked: true,
+                active: true,
+              },
+            ],
+          },
+        ],
+      }),
+    );
+    setSelectedProductId('');
+    setFeedback(null);
+  };
+
+  const removeSelectedProduct = (productId: string | number) => {
+    setDraft((current) =>
+      normalizeSimpleComboDraft({
+        ...current,
+        groups: [
+          {
+            ...(current.groups[0] || emptyGroup()),
+            options: current.groups
+              .flatMap((group) => group.options)
+              .filter((option) => String(option.componentProductId) !== String(productId)),
+          },
+        ],
+      }),
+    );
+  };
+
   const uploadPhoto = async (file?: File) => {
     if (!file) return;
     setBusy('photo');
@@ -193,6 +288,13 @@ export function AdminCombos({ products, money, onChanged }: Props) {
   };
 
   const generatePhoto = async () => {
+    if (!canGenerateImage) {
+      setFeedback({
+        tone: 'error',
+        message: 'Para criar a foto com IA, informe o nome do combo e adicione pelo menos um produto.',
+      });
+      return;
+    }
     setBusy('generate');
     setFeedback(null);
     try {
@@ -212,11 +314,12 @@ export function AdminCombos({ products, money, onChanged }: Props) {
     try {
       if (!draft.name.trim()) throw new Error('Informe o nome do combo.');
       if (!(draft.price > 0)) throw new Error('Informe um preço maior que zero.');
-      if (!draft.groups.length || draft.groups.some((group) => !group.options.length)) {
-        throw new Error('Todo combo precisa ter pelo menos um grupo com produtos.');
+      if (!selectedProducts.length) {
+        throw new Error('Escolha pelo menos um produto para o combo.');
       }
-      if (editingId) await productComboService.update(editingId, draft);
-      else await productComboService.create(draft);
+      const payload = normalizeSimpleComboDraft(draft);
+      if (editingId) await productComboService.update(editingId, payload);
+      else await productComboService.create(payload);
       await Promise.all([load(), onChanged()]);
       setEditingId(undefined);
     } catch (error) {
@@ -247,7 +350,7 @@ export function AdminCombos({ products, money, onChanged }: Props) {
         <div>
           <h2>Combos</h2>
           <p>
-            Monte ofertas fáceis de entender, com itens fixos ou escolhas do cliente. O preço e o estoque são validados pelo servidor antes de cada pedido.
+            Crie combos usando os produtos que já estão cadastrados. Escolha os itens, informe o preço e escreva uma descrição simples para o cliente.
           </p>
         </div>
         <button type="button" onClick={openNew}><Plus size={18} /> Novo combo</button>
@@ -291,26 +394,41 @@ export function AdminCombos({ products, money, onChanged }: Props) {
           <C.Editor role="dialog" aria-modal="true" aria-label={editingId ? 'Editar combo' : 'Novo combo'}>
             <div className="head">
               <div>
-                <h2>{editingId ? 'Editar combo' : 'Novo combo'}</h2>
-                <p>Informações claras para o cliente e uma montagem simples para a equipe.</p>
+                <h2>{editingId ? 'Editar combo' : 'Criar novo combo'}</h2>
+                <p>É simples: escolha os produtos, dê um nome, defina o preço e salve.</p>
               </div>
               <button className="close" type="button" aria-label="Fechar" onClick={close}><X /></button>
             </div>
 
             <div className="content">
+              <div className="combo-guide" role="note">
+                <Info size={18} />
+                <div>
+                  <strong>Como funciona</strong>
+                  <p>
+                    O combo usa produtos que já existem no seu cardápio. Você não precisa configurar
+                    regras complicadas: selecione os produtos abaixo e escreva como deseja apresentar
+                    a oferta para o cliente.
+                  </p>
+                </div>
+              </div>
+
               {feedback && <div className={`feedback ${feedback.tone}`} role="status">{feedback.message}</div>}
 
               <section className="section">
-                <header><div><h3>1. Informações do combo</h3><p>Nome, descrição e preço que aparecem no cardápio.</p></div></header>
+                <header><div><span className="step">PASSO 1</span><h3>Nome, preço e descrição</h3><p>Essas informações aparecem para o cliente no cardápio.</p></div></header>
                 <div className="grid2">
                   <label>Nome do combo
+                    <small>Ex.: Combo Casal, Combo Família ou Combo Executivo.</small>
                     <input value={draft.name} maxLength={100} onChange={(e) => setDraft((current) => ({ ...current, name: e.target.value }))} placeholder="Ex.: Combo Casal" />
                   </label>
-                  <label>Preço
+                  <label>Preço final do combo
+                    <small>Digite o valor que o cliente pagará pelo combo completo.</small>
                     <input type="number" min="0.01" step="0.01" value={draft.price || ''} onChange={(e) => setDraft((current) => ({ ...current, price: Number(e.target.value) }))} placeholder="59,90" />
                   </label>
                 </div>
-                <label>Descrição
+                <label>Descrição do combo
+                  <small>Explique de forma simples quais produtos fazem parte da oferta.</small>
                   <textarea value={draft.description} maxLength={600} onChange={(e) => setDraft((current) => ({ ...current, description: e.target.value }))} placeholder="Ex.: 2 burgers, batata grande e 2 bebidas para compartilhar." />
                 </label>
                 <div className="grid2">
@@ -320,7 +438,7 @@ export function AdminCombos({ products, money, onChanged }: Props) {
               </section>
 
               <section className="section">
-                <header><div><h3>2. Foto do combo</h3><p>Envie sua foto e melhore com IA, ou deixe a IA criar uma composição usando as informações do combo.</p></div></header>
+                <header><div><span className="step">PASSO 3</span><h3>Foto do combo</h3><p>Opcional. Envie uma foto própria ou deixe a IA criar a imagem usando o nome, a descrição e os produtos escolhidos.</p></div></header>
                 <div className="photo">
                   <div className="photo-preview">
                     {draft.image ? <img src={draft.image} alt="Prévia do combo" /> : <ImageIcon size={38} />}
@@ -338,65 +456,87 @@ export function AdminCombos({ products, money, onChanged }: Props) {
                 </div>
               </section>
 
-              <section className="section">
+              <section className="section products-section">
                 <header>
-                  <div><h3>3. Itens e escolhas</h3><p>Crie etapas como “Escolha 2 burgers”, “Bebidas” ou “Acompanhamento”.</p></div>
-                  <button className="add-group" type="button" onClick={() => setDraft((current) => ({ ...current, groups: [...current.groups, emptyGroup()] }))}><Plus size={16} /> Etapa</button>
+                  <div>
+                    <span className="step">PASSO 2</span>
+                    <h3>Escolha os produtos do combo</h3>
+                    <p>
+                      Selecione apenas produtos que já estão no seu cardápio. Cada produto escolhido
+                      será incluído uma vez no combo.
+                    </p>
+                  </div>
                 </header>
 
-                {draft.groups.map((group, groupIndex) => (
-                  <div className="group" key={groupIndex}>
-                    <div className="group-head">
-                      <label>Nome da etapa
-                        <input value={group.name} onChange={(e) => updateGroup(groupIndex, { name: e.target.value })} placeholder="Ex.: Escolha 2 bebidas" />
-                      </label>
-                      <label>Mínimo
-                        <input type="number" min="0" max="20" value={group.minSelections} onChange={(e) => updateGroup(groupIndex, { minSelections: Number(e.target.value) })} />
-                      </label>
-                      <label>Máximo
-                        <input type="number" min="1" max="20" value={group.maxSelections} onChange={(e) => updateGroup(groupIndex, { maxSelections: Number(e.target.value) })} />
-                      </label>
-                      <button className="icon-button" type="button" aria-label="Remover etapa" disabled={draft.groups.length === 1} onClick={() => setDraft((current) => ({ ...current, groups: current.groups.filter((_, index) => index !== groupIndex) }))}><Trash2 /></button>
-                    </div>
+                <div className="product-picker">
+                  <label>
+                    Produto cadastrado
+                    <small>Abra a lista e escolha o produto que deseja incluir.</small>
+                    <select
+                      value={selectedProductId}
+                      onChange={(event) => setSelectedProductId(event.target.value)}
+                    >
+                      <option value="">Selecione um produto...</option>
+                      {availableProducts
+                        .filter((product) => !selectedProductIds.has(String(product.id)))
+                        .map((product) => (
+                          <option key={product.id} value={product.id}>
+                            {product.name} — {money(Number(product.price))}
+                          </option>
+                        ))}
+                    </select>
+                  </label>
+                  <button
+                    className="add-selected-product"
+                    type="button"
+                    onClick={addSelectedProduct}
+                    disabled={!selectedProductId}
+                  >
+                    <Plus size={17} /> Adicionar ao combo
+                  </button>
+                </div>
 
-                    {group.options.map((option, optionIndex) => (
-                      <div className="option" key={optionIndex}>
-                        <label>Produto
-                          <select value={option.componentProductId || ''} onChange={(e) => updateOption(groupIndex, optionIndex, { componentProductId: Number(e.target.value) })}>
-                            <option value="">Selecione...</option>
-                            {availableProducts.map((product) => <option key={product.id} value={product.id}>{product.name}</option>)}
-                          </select>
-                        </label>
-                        <label>+ Preço
-                          <input type="number" min="0" step="0.01" value={option.additionalPrice} onChange={(e) => updateOption(groupIndex, optionIndex, { additionalPrice: Number(e.target.value) })} />
-                        </label>
-                        <label>Qtd. padrão
-                          <input type="number" min="0" max="20" value={option.defaultQuantity} onChange={(e) => updateOption(groupIndex, optionIndex, { defaultQuantity: Number(e.target.value) })} />
-                        </label>
-                        <label>Mín.
-                          <input type="number" min="0" max="20" value={option.minQuantity} onChange={(e) => updateOption(groupIndex, optionIndex, { minQuantity: Number(e.target.value) })} />
-                        </label>
-                        <label>Máx.
-                          <input type="number" min="1" max="20" value={option.maxQuantity} onChange={(e) => updateOption(groupIndex, optionIndex, { maxQuantity: Number(e.target.value) })} />
-                        </label>
-                        <label className="fixed"><input type="checkbox" checked={option.locked} onChange={(e) => updateOption(groupIndex, optionIndex, { locked: e.target.checked, ...(e.target.checked && option.defaultQuantity < 1 ? { defaultQuantity: 1, minQuantity: Math.max(1, option.minQuantity) } : {}) })} /> Fixo</label>
-                        <button className="icon-button" type="button" aria-label="Remover produto" onClick={() => updateGroup(groupIndex, { options: group.options.filter((_, index) => index !== optionIndex) })}><Trash2 size={18} /></button>
+                {selectedProducts.length ? (
+                  <div className="selected-products" aria-label="Produtos selecionados">
+                    <div className="selected-products-head">
+                      <CheckCircle2 size={18} />
+                      <strong>
+                        {selectedProducts.length} produto{selectedProducts.length === 1 ? '' : 's'} no combo
+                      </strong>
+                    </div>
+                    {selectedProducts.map((product) => (
+                      <div className="selected-product" key={product.id}>
+                        <div className="selected-product-image">
+                          {product.image ? (
+                            <img src={product.image} alt="" />
+                          ) : (
+                            <ImageIcon size={20} />
+                          )}
+                        </div>
+                        <div className="selected-product-copy">
+                          <b>{product.name}</b>
+                          <small>{product.description || 'Produto do cardápio'}</small>
+                        </div>
+                        <span>{money(Number(product.price))}</span>
+                        <button
+                          type="button"
+                          aria-label={`Remover ${product.name} do combo`}
+                          onClick={() => removeSelectedProduct(product.id)}
+                        >
+                          <Trash2 size={17} />
+                        </button>
                       </div>
                     ))}
-
-                    <button className="add-option" type="button" onClick={() => updateGroup(groupIndex, {
-                      options: [...group.options, {
-                        componentProductId: 0,
-                        additionalPrice: 0,
-                        minQuantity: 0,
-                        maxQuantity: 1,
-                        defaultQuantity: 0,
-                        locked: false,
-                        active: true,
-                      }],
-                    })}><Plus size={16} /> Adicionar produto à etapa</button>
                   </div>
-                ))}
+                ) : (
+                  <div className="empty-products">
+                    <Info size={18} />
+                    <span>
+                      Nenhum produto selecionado ainda. Escolha o primeiro produto na lista acima.
+                    </span>
+                  </div>
+                )}
+              </section>
               </section>
             </div>
 
