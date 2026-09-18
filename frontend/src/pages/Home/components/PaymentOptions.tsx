@@ -40,6 +40,7 @@ type Props = {
   onChange: (method: CheckoutPaymentMethod) => void;
   restaurantId?: number | null;
   loggedIn?: boolean;
+  userEmail?: string;
   onCardPreparerChange?: (preparer: CardPaymentPreparer | null) => void;
 };
 
@@ -187,6 +188,7 @@ export function PaymentOptions({
   onChange,
   restaurantId,
   loggedIn = false,
+  userEmail = '',
   onCardPreparerChange,
 }: Props) {
   const [savedCards, setSavedCards] = useState<CustomerPaymentMethod[]>([]);
@@ -429,6 +431,7 @@ export function PaymentOptions({
         {openMode === 'now' && paymentMethod === 'card' && restaurantId && !loggedIn && (
           <OnlineCardPaymentForm
             restaurantId={restaurantId}
+            payerEmail={userEmail}
             onPreparerChange={registerCardPreparer}
           />
         )}
@@ -472,6 +475,7 @@ export function PaymentOptions({
                 </S.SavedPaymentChooser>
                 <OnlineCardPaymentForm
                   restaurantId={restaurantId}
+                  payerEmail={userEmail}
                   onPreparerChange={registerCardPreparer}
                 />
               </>
