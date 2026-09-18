@@ -631,6 +631,37 @@ export const ConnectButton = styled.button<{ $provider: Provider }>`
   }
 `;
 
+export const DisconnectButton = styled.button`
+  width: 100%;
+  min-height: 39px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  border: 1px solid #e3b8b3;
+  border-radius: 11px;
+  padding: 8px 12px;
+  color: #9a332c;
+  background: #fff8f7;
+  font-size: 9px;
+  font-weight: 800;
+  cursor: pointer;
+
+  svg {
+    width: 14px;
+    height: 14px;
+  }
+
+  &:hover:not(:disabled) {
+    background: #fff0ee;
+  }
+
+  &:disabled {
+    cursor: not-allowed;
+    opacity: 0.6;
+  }
+`;
+
 export const InactiveHint = styled.div`
   min-height: 43px;
   display: grid;
