@@ -47,6 +47,14 @@ export function isCourierDeliveryOrder(order: CourierOrder): boolean {
   return String(order.type || '').toUpperCase() === 'DELIVERY';
 }
 
+export function formatCourierDeliveryAddress(order?: CourierOrder | null): string {
+  if (!order) return '';
+  return [order.address, order.number, order.district, order.city, order.state, 'Brasil']
+    .map((part) => String(part || '').trim())
+    .filter(Boolean)
+    .join(', ');
+}
+
 export function isReadyForCourierPickup(order: CourierOrder): boolean {
   return isCourierDeliveryOrder(order) && getNormalizedOrderStatus(order) === 'PRONTO';
 }
