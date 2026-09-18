@@ -523,6 +523,7 @@ class OrderRepository {
     restaurantId: number,
     cardCheckoutSessionId: string,
     db: PrismaClientLike = prisma,
+    onlinePaymentExpiresAt?: Date | null,
   ) {
     await db.order.updateMany({
       where: {
@@ -531,6 +532,7 @@ class OrderRepository {
       },
       data: {
         cardCheckoutSessionId,
+        ...(onlinePaymentExpiresAt ? { onlinePaymentExpiresAt } : {}),
       },
     });
 
@@ -596,6 +598,7 @@ class OrderRepository {
         id: true,
         total: true,
         cardCheckoutSessionId: true,
+        onlinePaymentExpiresAt: true,
         publicId: true,
         restaurantId: true,
         userId: true,
