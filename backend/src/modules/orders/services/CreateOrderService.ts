@@ -72,6 +72,7 @@ type CreateOrderPayload = {
   participantId?: number | string | null;
   settlementMode?: string | null;
   deferRealtimeUntilPaid?: boolean;
+  enforceSingleActiveOnlinePayment?: boolean;
   type: OrderType;
   paymentMethod?: PaymentMethod;
   payOnDelivery?: boolean;
@@ -212,6 +213,7 @@ class CreateOrderService {
     participantId,
     settlementMode,
     deferRealtimeUntilPaid,
+    enforceSingleActiveOnlinePayment = true,
     type,
     paymentMethod,
     payOnDelivery,
@@ -551,7 +553,7 @@ class CreateOrderService {
                     guestPasswordHash,
                   });
 
-            if (isUnpaidDigitalPayment) {
+            if (isUnpaidDigitalPayment && enforceSingleActiveOnlinePayment) {
               await assertNoActiveOnlinePayment({
                 db: tx,
                 restaurantId: resolvedRestaurantId,
