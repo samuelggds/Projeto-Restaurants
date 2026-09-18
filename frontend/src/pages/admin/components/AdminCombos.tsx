@@ -155,12 +155,14 @@ export function AdminCombos({ products, money, onChanged }: Props) {
 
   const openNew = () => {
     setDraft(emptyCombo());
+    setSelectedProductId('');
     setEditingId(null);
     setFeedback(null);
   };
 
   const openEdit = (combo: ComboRecord) => {
     setDraft(toInput(combo));
+    setSelectedProductId('');
     setEditingId(combo.id);
     setFeedback(null);
   };
@@ -168,6 +170,64 @@ export function AdminCombos({ products, money, onChanged }: Props) {
   const close = () => {
     if (busy) return;
     setEditingId(undefined);
+    setFeedback(null);
+  };
+
+  const addSelectedProduct = () => {
+    const productId = Number(selectedProductId);
+    if (!Number.isSafeInteger(productId) || productId <= 0) {
+      setFeedback({
+        tone: 'error',
+        message: 'Escolha um produto da lista para adicionar ao combo.',
+      });
+      return;
+    }
+
+    if (selectedProductIds.has(String(productId))) {
+      setFeedback({ tone: 'error', message: 'Este produto já faz parte do combo.' });
+      return;
+    }
+
+    setDraft((current) =>
+      normalizeSimpleComboDraft({
+        ...current,
+        groups: [
+          {
+            ...(current.groups[0] || emptyGroup()),
+            options: [
+              ...current.groups.flatMap((group) => group.options),
+              {
+                componentProductId: productId,
+                additionalPrice: 0,
+                minQuantity: 1,
+                maxQuantity: 1,
+                defaultQuantity: 1,
+                locked: true,
+                active: true,
+              },
+            ],
+          },
+        ],
+      }),
+    );
+    setSelectedProductId('');
+    setFeedback(null);
+  };
+
+  const removeSelectedProduct = (productId: string | number) => {
+    setDraft((current) =>
+      normalizeSimpleComboDraft({
+        ...current,
+        groups: [
+          {
+            ...(current.groups[0] || emptyGroup()),
+            options: current.groups
+              .flatMap((group) => group.options)
+              .filter((option) => String(option.componentProductId) !== String(productId)),
+          },
+        ],
+      }),
+    );
     setFeedback(null);
   };
 
