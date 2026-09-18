@@ -68,6 +68,17 @@ function digits(value: string) {
   return value.replace(/\D/g, '');
 }
 
+function isValidPayerEmail(value: string) {
+  if (value.length < 3 || value.length > 254 || /\s/u.test(value)) return false;
+
+  const at = value.indexOf('@');
+  if (at <= 0 || at !== value.lastIndexOf('@') || at > 64 || at >= value.length - 1) return false;
+
+  const domain = value.slice(at + 1);
+  const dot = domain.indexOf('.');
+  return dot > 0 && dot < domain.length - 1;
+}
+
 function parseExpiry(value: string) {
   const [rawMonth, rawYear] = value.split('/');
   const month = Number(rawMonth || 0);
@@ -232,7 +243,7 @@ export function OnlineCardPaymentForm({
 
         if (config.provider === 'MERCADO_PAGO') {
           const normalizedPayerEmail = payerEmail.trim().toLowerCase();
-          if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedPayerEmail)) {
+          if (!isValidPayerEmail(normalizedPayerEmail)) {
             throw new Error('Informe um e-mail válido do comprador.');
           }
           if (!mercadoPagoRef.current) throw new Error('Aguarde a preparação segura do cartão.');
