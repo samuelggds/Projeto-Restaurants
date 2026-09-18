@@ -214,7 +214,7 @@ export function OnlineCardPaymentForm({
             return {
               paymentMethodId: savedCard.publicId,
               cardToken: token.id,
-              cardPaymentMethodId: savedCard.brand,
+              cardPaymentMethodId: String(token.payment_method_id || savedCard.brand).trim(),
             };
           }
           return { paymentMethodId: savedCard.publicId };
