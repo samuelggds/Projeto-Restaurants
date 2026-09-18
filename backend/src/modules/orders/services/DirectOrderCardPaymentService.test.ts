@@ -5,6 +5,7 @@ import prisma from '../../../config/prisma.js';
 import restaurantSettingsRepository from '../../restaurantSettings/repositories/RestaurantSettingsRepository.js';
 import { CARD_PROVIDERS } from '../../payments/providers/providerCatalog.js';
 import directOrderCardPaymentService, {
+  CardPaymentDeclinedError,
   CardPaymentProviderRequestError,
   mercadoPagoDeclineDetails,
 } from './DirectOrderCardPaymentService.js';
@@ -210,6 +211,8 @@ test('property_value do Mercado Pago não é tratado como cartão recusado', asy
       error instanceof CardPaymentProviderRequestError &&
       error.providerStatus === 400 &&
       error.providerCode === 'property_value' &&
+      error.diagnostic?.provider === 'MERCADO_PAGO' &&
+      error.diagnostic.httpStatus === 400 &&
       error.message === 'Não foi possível processar o cartão neste momento.',
   );
 });
@@ -234,6 +237,115 @@ test('extrai status_detail seguro da recusa Mercado Pago', () => {
     {
       transactionStatus: 'failed',
       transactionStatusDetail: 'cc_rejected_bad_filled_security_code',
+    },
+  );
+});
+
+
+test('preserva diagnóstico seguro do Mercado Pago em processing_error', async () => {
+  globalThis.fetch = async () =>
+    new Response(
+      JSON.stringify({
+        errors: [{ message: 'The following transactions failed' }],
+        data: {
+          transactions: {
+            payments: [
+              {
+                status: 'failed',
+                status_detail: 'processing_error',
+                token: 'card-token-nao-deve-sair',
+              },
+            ],
+          },
+        },
+      }),
+      {
+        status: 402,
+        headers: {
+          'Content-Type': 'application/json',
+          'x-request-id': 'mp-request-processing-123',
+        },
+      },
+    );
+
+  await assert.rejects(
+    () =>
+      directOrderCardPaymentService.execute({
+        provider: CARD_PROVIDERS.MERCADO_PAGO,
+        payload: {
+          cardToken: 'card-token-003',
+          cardPaymentMethodId: 'visa',
+          payerEmail: 'cliente.real@example.com',
+        },
+        order: {
+          id: 904,
+          publicId: 'order-public-904',
+          restaurantId: 7,
+          total: 49.9,
+          restaurant: { name: 'North Pizza' },
+        },
+        successUrlBase: 'https://www.gastronexa.com.br/north-pizza',
+      }),
+    (error) => {
+      assert.ok(error instanceof CardPaymentDeclinedError);
+      assert.deepEqual(error.diagnostic, {
+        provider: 'MERCADO_PAGO',
+        httpStatus: 402,
+        providerCode: null,
+        status: 'failed',
+        statusDetail: 'processing_error',
+        providerRequestId: 'mp-request-processing-123',
+      });
+      assert.equal(JSON.stringify(error.diagnostic).includes('card-token'), false);
+      return true;
+    },
+  );
+});
+
+test('preserva invalid_card_token sem expor o token recebido', async () => {
+  globalThis.fetch = async () =>
+    new Response(
+      JSON.stringify({
+        errors: [
+          {
+            message: 'The following transactions failed',
+            details: [{ status: 'failed', code: 'invalid_card_token' }],
+          },
+        ],
+      }),
+      {
+        status: 402,
+        headers: {
+          'Content-Type': 'application/json',
+          'x-request-id': 'mp-request-token-456',
+        },
+      },
+    );
+
+  await assert.rejects(
+    () =>
+      directOrderCardPaymentService.execute({
+        provider: CARD_PROVIDERS.MERCADO_PAGO,
+        payload: {
+          cardToken: 'secret-card-token-004',
+          cardPaymentMethodId: 'master',
+          payerEmail: 'cliente.real@example.com',
+        },
+        order: {
+          id: 905,
+          publicId: 'order-public-905',
+          restaurantId: 7,
+          total: 59.9,
+          restaurant: { name: 'North Pizza' },
+        },
+        successUrlBase: 'https://www.gastronexa.com.br/north-pizza',
+      }),
+    (error) => {
+      assert.ok(error instanceof CardPaymentDeclinedError);
+      assert.equal(error.diagnostic?.statusDetail, 'invalid_card_token');
+      assert.equal(error.diagnostic?.providerRequestId, 'mp-request-token-456');
+      assert.equal(JSON.stringify(error.diagnostic).includes('secret-card-token-004'), false);
+      return true;
     },
   );
 });
