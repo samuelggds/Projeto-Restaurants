@@ -46,7 +46,7 @@ test('bloqueia um segundo Pix online ativo do mesmo cliente e restaurante', asyn
       error.paymentMethod === PaymentMethod.PIX &&
       error.expiresAt === '2026-09-18T12:20:00.000Z',
   );
-  assert.match(queries.join('\n'), /FROM "User"/u);
+  assert.match(queries.join('\n'), /pg_advisory_xact_lock/u);
 });
 
 test('bloqueia cartão online pendente dentro da janela de trinta minutos', async () => {
@@ -102,5 +102,5 @@ test('mesa serializa e consulta pelo participante da sessão, não pela mesa int
       now: new Date('2026-09-18T12:00:00.000Z'),
     }),
   );
-  assert.match(queries.join('\n'), /FROM "TableParticipant"/u);
+  assert.match(queries.join('\n'), /pg_advisory_xact_lock/u);
 });
