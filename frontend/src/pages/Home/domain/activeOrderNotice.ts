@@ -64,7 +64,7 @@ export function getActiveOrderNotice(orders: Record<string, unknown>[]): ActiveO
     deliveryStartedAt: latestOrder.deliveryStartedAt
       ? String(latestOrder.deliveryStartedAt)
       : null,
-    publicId: latestOrder.publicId ? String(latestOrder.publicId) : null,
-    paymentPending,
+    ...(latestOrder.publicId ? { publicId: String(latestOrder.publicId) } : {}),
+    ...(paymentPending ? { paymentPending: true } : {}),
   };
 }
