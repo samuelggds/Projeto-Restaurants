@@ -46,12 +46,18 @@ export function TablePaymentStatusView({
 }: Props) {
   const [copied, setCopied] = useState(false);
   const [verificationMessage, setVerificationMessage] = useState('');
+  const [nowMs, setNowMs] = useState(() => Date.now());
   const manual = payment.method === 'CASH' || payment.method === 'CARD_MACHINE';
   const pending = status === 'RESERVED' || status === 'PROCESSING';
   const checkoutUrl = /^https:\/\//i.test(payment.checkoutUrl || '')
     ? String(payment.checkoutUrl)
     : '';
   const awaitingCardDetails = pending && payment.method === 'CARD' && Boolean(checkoutUrl);
+
+  const expiresAtMs = Date.parse(payment.expiresAt);
+  const remainingSeconds = Number.isFinite(expiresAtMs)
+    ? Math.max(0, Math.ceil((expiresAtMs - nowMs) / 1000))
+    : null;
 
   const title = manual
     ? 'Aguardando o garçom'
@@ -98,6 +104,12 @@ export function TablePaymentStatusView({
     }, 5_000);
     return () => window.clearInterval(intervalId);
   }, [actionLoading, manual, onVerify, pending]);
+
+  useEffect(() => {
+    if (!pending || manual || remainingSeconds === null) return undefined;
+    const intervalId = window.setInterval(() => setNowMs(Date.now()), 1_000);
+    return () => window.clearInterval(intervalId);
+  }, [manual, pending, remainingSeconds]);
 
   if (status !== 'RESERVED' && status !== 'PROCESSING') {
     const methodLabels = {
@@ -148,6 +160,13 @@ export function TablePaymentStatusView({
             ? 'Aguardando dados do cartão'
             : 'Em confirmação'}
       </span>
+
+      {!manual && remainingSeconds !== null && (
+        <span className="status-chip" aria-live="polite">
+          Expira em {String(Math.floor(remainingSeconds / 60)).padStart(2, '0')}:
+          {String(remainingSeconds % 60).padStart(2, '0')}
+        </span>
+      )}
 
       <S.AmountBreakdown aria-label="Composição do pagamento">
         <span>
