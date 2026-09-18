@@ -305,6 +305,7 @@ async function createCard(
     },
     successUrlBase: frontendUrl,
     cancelUrlBase: frontendUrl,
+    expiresAt: input.expiresAt,
   });
   const externalId = String(checkout.persistenceSessionId || checkout.sessionId || '').trim();
   if (!externalId) throw new Error('O gateway não retornou uma referência de pagamento válida.');
