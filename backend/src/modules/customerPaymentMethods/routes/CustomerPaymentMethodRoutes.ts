@@ -35,14 +35,16 @@ const createSchema = z.object({
     .trim()
     .min(2)
     .max(20)
-    .transform((value) => value.toLowerCase()),
-  last4: z.string().regex(/^\d{4}$/),
-  expMonth: z.coerce.number().int().min(1).max(12),
+    .transform((value) => value.toLowerCase())
+    .optional(),
+  last4: z.string().regex(/^\d{4}$/).optional(),
+  expMonth: z.coerce.number().int().min(1).max(12).optional(),
   expYear: z.coerce
     .number()
     .int()
     .min(new Date().getFullYear())
-    .max(new Date().getFullYear() + 30),
+    .max(new Date().getFullYear() + 30)
+    .optional(),
   holderName: z.string().trim().min(2).max(60),
   isDefault: z.boolean().optional().default(false),
 });
@@ -270,6 +272,9 @@ router.post('/', async (req, res): Promise<void> => {
     let providerId = '';
     let providerCustomerId: string | null = null;
     let providerBrand = '';
+    let providerLast4 = '';
+    let providerExpMonth = 0;
+    let providerExpYear = 0;
     if (context.provider === 'PAGBANK') {
       if (!parsed.data.encryptedCard)
         throw new Error('Cartão PagBank criptografado não informado.');
@@ -296,6 +301,9 @@ router.post('/', async (req, res): Promise<void> => {
       providerBrand = String(
         saved.payment_method_id || (saved.payment_method as { id?: unknown } | undefined)?.id || '',
       ).trim();
+      providerLast4 = String(saved.last_four_digits || saved.last4 || '').replace(/\D/g, '').slice(-4);
+      providerExpMonth = Number(saved.expiration_month || saved.exp_month || 0);
+      providerExpYear = Number(saved.expiration_year || saved.exp_year || 0);
     } else {
       if (!parsed.data.cardData) throw new Error('Dados do cartão Asaas não informados.');
       providerCustomerId = await asaasCustomer(
@@ -344,6 +352,21 @@ router.post('/', async (req, res): Promise<void> => {
       providerBrand = String(saved.creditCardBrand || saved.brand || '').trim();
     }
     if (!providerId) throw new Error(`${context.provider} não retornou o token seguro do cartão.`);
+    const resolvedBrand = providerBrand || parsed.data.brand || '';
+    const resolvedLast4 = providerLast4 || parsed.data.last4 || '';
+    const resolvedExpMonth = providerExpMonth || Number(parsed.data.expMonth || 0);
+    const resolvedExpYear = providerExpYear || Number(parsed.data.expYear || 0);
+    if (
+      !resolvedBrand ||
+      !/^\d{4}$/.test(resolvedLast4) ||
+      !Number.isInteger(resolvedExpMonth) ||
+      resolvedExpMonth < 1 ||
+      resolvedExpMonth > 12 ||
+      !Number.isInteger(resolvedExpYear) ||
+      resolvedExpYear < new Date().getFullYear()
+    ) {
+      throw new Error('O provedor não retornou os dados necessários para salvar este cartão.');
+    }
     const method = await withTenantDbContext(restaurantId, async (db) => {
       const count = await db.customerPaymentMethod.count({
         where: { userId, restaurantId, active: true },
@@ -361,10 +384,10 @@ router.post('/', async (req, res): Promise<void> => {
           provider: context.provider,
           providerPaymentMethodId: providerId,
           providerCustomerId,
-          brand: normalizeStoredCardBrand(providerBrand || parsed.data.brand),
-          last4: parsed.data.last4,
-          expMonth: parsed.data.expMonth,
-          expYear: parsed.data.expYear,
+          brand: normalizeStoredCardBrand(resolvedBrand),
+          last4: resolvedLast4,
+          expMonth: resolvedExpMonth,
+          expYear: resolvedExpYear,
           holderName: parsed.data.holderName,
           isDefault: makeDefault,
         },
