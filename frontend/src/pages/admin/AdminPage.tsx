@@ -792,7 +792,7 @@ export function AdminPage({
                     : area === 'catalog' && catalogImportOpen
                       ? 'Use um link público do iFood ou uma foto nítida do seu cardápio.'
                       : area === 'catalog'
-                        ? 'Gerencie seus produtos, ingredientes e categorias.'
+                        ? 'Gerencie produtos, combos, ingredientes e categorias.'
                         : 'Acompanhe e gerencie a operação em um só lugar.'}
             </p>
           </div>
