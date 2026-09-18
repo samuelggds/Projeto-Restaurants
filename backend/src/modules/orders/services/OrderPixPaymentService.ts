@@ -248,7 +248,7 @@ class OrderPixPaymentService {
       method = 'GET',
       body,
     }: {
-      method?: 'GET' | 'POST';
+      method?: 'GET' | 'POST' | 'DELETE';
       body?: unknown;
     } = {},
   ) {
@@ -1045,6 +1045,40 @@ class OrderPixPaymentService {
       requiresStatusCheck: true,
       externalReference: String(paymentData?.external_reference || '').trim(),
     };
+  }
+
+  async expirePendingPixPayment({
+    paymentId,
+    restaurantId,
+  }: PaymentStatusPayload) {
+    const normalizedPaymentId = String(paymentId || '').trim();
+    const normalizedRestaurantId = Number(restaurantId || 0);
+    if (!normalizedPaymentId || !Number.isInteger(normalizedRestaurantId) || normalizedRestaurantId <= 0) {
+      throw new Error('Pagamento PIX inválido para expiração.');
+    }
+
+    const parsed = parseProviderPaymentId(normalizedPaymentId);
+    if (parsed.provider !== PIX_PROVIDERS.ASAAS) {
+      return { provider: parsed.provider, canceledAtProvider: false };
+    }
+
+    const accessToken = await this.getAsaasAccessToken(normalizedRestaurantId);
+    const result = await this.fetchAsaasJson<{ deleted?: boolean; errors?: AsaasErrorItem[] }>(
+      `${this.getAsaasBaseUrl()}/v3/payments/${encodeURIComponent(parsed.rawPaymentId)}`,
+      accessToken,
+      { method: 'DELETE' },
+    );
+
+    if (!result.ok) {
+      throw new Error(
+        this.getAsaasError(
+          result.responseBody,
+          'Não foi possível expirar a cobrança PIX no Asaas.',
+        ),
+      );
+    }
+
+    return { provider: PIX_PROVIDERS.ASAAS, canceledAtProvider: true };
   }
 
   async getPaymentStatus({ paymentId, restaurantId }: PaymentStatusPayload) {
