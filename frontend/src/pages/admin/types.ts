@@ -97,6 +97,7 @@ export type AdminProduct = {
   description?: string;
   stock?: number | null;
   active?: boolean;
+  kind?: 'STANDARD' | 'COMBO';
   saleMode?: 'COMPLETE' | 'BUILDABLE';
   configurationVersion?: number;
   confirmDiscardConfiguration?: boolean;
