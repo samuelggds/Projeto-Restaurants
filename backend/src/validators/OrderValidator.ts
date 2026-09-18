@@ -96,6 +96,22 @@ export const createOrderSchema = z
             )
             .max(8)
             .optional(),
+          comboSelections: z
+            .array(
+              z.object({
+                groupId: z.number().int().positive(),
+                items: z
+                  .array(
+                    z.object({
+                      optionId: z.number().int().positive(),
+                      quantity: z.number().int().positive().max(20),
+                    }),
+                  )
+                  .max(30),
+              }),
+            )
+            .max(12)
+            .optional(),
           configurationVersion: z.number().int().positive().optional(),
         }),
       )
