@@ -7,16 +7,28 @@ export async function orderPaymentAccessMiddleware(
   res: Response,
   next: NextFunction,
 ) {
-  if (req.headers.authorization) {
-    return authMiddleware(req, res, next);
-  }
-
   const rawPublicId = Array.isArray(req.params.publicId)
     ? req.params.publicId[0]
     : req.params.publicId;
   const publicId = String(rawPublicId || '').trim();
   const tokenHeader = req.headers['x-guest-order-ownership'];
   const token = Array.isArray(tokenHeader) ? tokenHeader[0] : String(tokenHeader || '');
+
+  const attachGuestProof = () => {
+    if (!token) return;
+    try {
+      req.guestOrderOwnership = verifyGuestOrderOwnershipTokenByPublicId(token, publicId);
+    } catch {
+      // Authenticated ownership may still authorize the order without a guest proof.
+    }
+  };
+
+  if (req.headers.authorization) {
+    return authMiddleware(req, res, () => {
+      attachGuestProof();
+      return next();
+    });
+  }
 
   try {
     const guestAccess = verifyGuestOrderOwnershipTokenByPublicId(token, publicId);
