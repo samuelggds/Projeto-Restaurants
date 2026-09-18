@@ -19,6 +19,10 @@ export type PricingItemInput = {
   optionQuantities?: Array<{ optionId?: number; quantity?: number }>;
   removedCompositionItemIds?: number[];
   portions?: Array<{ optionId?: number; observation?: string | null }>;
+  comboSelections?: Array<{
+    groupId?: number;
+    items?: Array<{ optionId?: number; quantity?: number }>;
+  }>;
   configurationVersion?: number;
 };
 
@@ -89,6 +93,57 @@ class OrderPricingService {
     const orderItems = items.map((item, index) =>
       buildOrderItemCustomizationSnapshot(products[index]!, item),
     );
+
+    const comboStockRequirements = new Map<number, { name: string; quantity: number; stock: number | null }>();
+    orderItems.forEach((orderItem, index) => {
+      const product = products[index]!;
+      const snapshot = orderItem.configurationSnapshot as
+        | { kind?: string; comboComponents?: Array<{ productId?: number; name?: string; quantity?: number }> }
+        | undefined;
+      if (snapshot?.kind !== 'COMBO') return;
+      const componentCatalog = new Map(
+        (product.comboGroups || [])
+          .flatMap((group) => group.options)
+          .map((option) => [option.componentProductId, option.componentProduct] as const),
+      );
+      (snapshot.comboComponents || []).forEach((component) => {
+        const componentId = Number(component.productId);
+        const perCombo = Number(component.quantity);
+        const catalogProduct = componentCatalog.get(componentId);
+        if (
+          !Number.isInteger(componentId) ||
+          componentId <= 0 ||
+          !Number.isInteger(perCombo) ||
+          perCombo <= 0 ||
+          !catalogProduct ||
+          catalogProduct.active === false
+        ) {
+          throw new OrderRequestError(`Um item de ${product.name} não está mais disponível.`);
+        }
+        const needed = perCombo * Number(orderItem.quantity);
+        const current = comboStockRequirements.get(componentId);
+        comboStockRequirements.set(componentId, {
+          name: catalogProduct.name,
+          quantity: (current?.quantity || 0) + needed,
+          stock:
+            catalogProduct.stock === null || catalogProduct.stock === undefined
+              ? null
+              : Number(catalogProduct.stock),
+        });
+      });
+    });
+    comboStockRequirements.forEach((requirement) => {
+      if (
+        Number.isInteger(requirement.stock) &&
+        Number(requirement.stock) >= 0 &&
+        requirement.quantity > Number(requirement.stock)
+      ) {
+        throw new OrderRequestError(
+          `Estoque insuficiente para ${requirement.name}. Disponível: ${requirement.stock}.`,
+        );
+      }
+    });
+
     const itemsSubtotal = roundMoney(
       orderItems.reduce((sum, item) => sum + Number(item.price) * item.quantity, 0),
     );
