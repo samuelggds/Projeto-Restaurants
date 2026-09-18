@@ -20,6 +20,7 @@ type RecoveryPayload = {
   qrCode?: string | null;
   qrCodeBase64?: string | null;
   requiresStatusCheck?: boolean;
+  expiresAt?: string | null;
 };
 
 const Loading = styled.main`
@@ -200,6 +201,7 @@ export default function OrderPixPaymentPage() {
     qrCodeBase64: payment.qrCodeBase64 ? String(payment.qrCodeBase64) : null,
     requiresStatusCheck: payment.requiresStatusCheck !== false,
     paid: payment.paid === true,
+    expiresAt: payment.expiresAt ? String(payment.expiresAt) : null,
   };
 
   return (
