@@ -54,6 +54,7 @@ import {
   deliveryConfirmationAttemptRateLimitMiddleware,
   paymentPinAttemptRateLimitMiddleware,
   paymentPinRequestRateLimitMiddleware,
+  onlineCheckoutRateLimitMiddleware,
 } from '../../../middlewares/security/orderPaymentRateLimitMiddleware.js';
 
 const router = Router();
@@ -71,13 +72,27 @@ router.post('/quote', orderAccessMiddleware, premiumTableOrderMiddleware, billin
   QuoteOrderController.handle(req, res);
 });
 
-router.post('/pix/payment', orderAccessMiddleware, premiumTableOrderMiddleware, billingMiddleware, (req, res) => {
-  CreateOrderPixPaymentController.handle(req, res);
-});
+router.post(
+  '/pix/payment',
+  orderAccessMiddleware,
+  onlineCheckoutRateLimitMiddleware,
+  premiumTableOrderMiddleware,
+  billingMiddleware,
+  (req, res) => {
+    CreateOrderPixPaymentController.handle(req, res);
+  },
+);
 
-router.post('/card/checkout', orderAccessMiddleware, premiumTableOrderMiddleware, billingMiddleware, (req, res) => {
-  CreateOrderCardCheckoutController.handle(req, res);
-});
+router.post(
+  '/card/checkout',
+  orderAccessMiddleware,
+  onlineCheckoutRateLimitMiddleware,
+  premiumTableOrderMiddleware,
+  billingMiddleware,
+  (req, res) => {
+    CreateOrderCardCheckoutController.handle(req, res);
+  },
+);
 
 router.post('/card/checkout/status', orderAccessMiddleware, premiumTableOrderMiddleware, billingMiddleware, (req, res) => {
   GetOrderCardPaymentStatusController.handle(req, res);
