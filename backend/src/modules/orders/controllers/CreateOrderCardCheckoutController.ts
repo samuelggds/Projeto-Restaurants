@@ -204,9 +204,12 @@ class CreateOrderCardCheckoutController {
         });
       }
       if (error instanceof OrderRequestError) {
-        return res
-          .status(error.statusCode)
-          .json({ error: error.message, code: error.code, requestId: req.requestId });
+        return res.status(error.statusCode).json({
+          error: error.message,
+          code: error.code,
+          ...(error.details || {}),
+          requestId: req.requestId,
+        });
       }
       if (error instanceof PaymentCreationUncertainError) {
         await recordUncertainCheckoutWhatsappOptIn(req, error.orderId);
