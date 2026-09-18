@@ -36,6 +36,7 @@ import kitchenPrintingRoutes from '../modules/kitchenPrinting/routes/KitchenPrin
 import courierCompensationRoutes from '../modules/courierCompensation/routes/CourierCompensationRoutes.js';
 import employeeCompensationRoutes from '../modules/employeeCompensation/routes/EmployeeCompensationRoutes.js';
 import productConfigurationTemplateRoutes from '../modules/productConfigurationTemplates/routes/ProductConfigurationTemplateRoutes.js';
+import productComboRoutes from '../modules/productCombos/routes/ProductComboRoutes.js';
 import attendantRoutes from '../modules/attendant/routes/AttendantRoutes.js';
 import paymentTerminalRoutes from '../modules/paymentTerminals/routes/PaymentTerminalRoutes.js';
 import deliveryChatRoutes from '../modules/deliveryChat/routes/DeliveryChatRoutes.js';
@@ -95,6 +96,7 @@ router.use('/courier-compensation', courierCompensationRoutes);
 router.use('/employee-compensation', employeeCompensationRoutes);
 router.use('/employee-payments', employeeCompensationRoutes);
 router.use('/product-configuration-templates', productConfigurationTemplateRoutes);
+router.use('/product-combos', productComboRoutes);
 router.use('/attendant', attendantRoutes);
 router.use('/payment-terminals', paymentTerminalRoutes);
 router.use('/sales-leads', salesLeadRoutes);
