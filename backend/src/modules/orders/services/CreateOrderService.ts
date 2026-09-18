@@ -58,6 +58,7 @@ import bcrypt from 'bcrypt';
 import { generateStrongRandomPassword } from '../../auth/security/passwordPolicy.js';
 import kitchenPrintingService from '../../kitchenPrinting/services/KitchenPrintingService.js';
 import { withoutOrderCreationMetadata } from '../utils/orderPublicData.js';
+import { assertNoActiveOnlinePayment } from './ActiveOnlinePaymentGuard.js';
 
 type OrderItemInput = z.infer<typeof createOrderSchema>['items'][number];
 
@@ -549,6 +550,18 @@ class CreateOrderService {
                     customerPhone,
                     guestPasswordHash,
                   });
+
+            if (isUnpaidDigitalPayment) {
+              await assertNoActiveOnlinePayment({
+                db: tx,
+                restaurantId: resolvedRestaurantId,
+                type,
+                userId: resolvedUserId,
+                tableSessionId: type === OrderType.MESA ? Number(tableSessionId) : null,
+                participantId: type === OrderType.MESA ? Number(tableParticipant?.id) : null,
+              });
+            }
+
             const pricing = await orderPricingService.quote({
               restaurantId: resolvedRestaurantId,
               userId: resolvedUserId,
