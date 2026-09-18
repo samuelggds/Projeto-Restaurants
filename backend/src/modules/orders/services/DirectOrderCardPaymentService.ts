@@ -42,6 +42,7 @@ type BasePayload = DirectCardPaymentPayload & {
   paymentMethodId?: string | null;
   customerName?: string | null;
   customerPhone?: string | null;
+  payerEmail?: string | null;
   customerIp?: string | null;
   address?: string | null;
   number?: string | null;
@@ -182,6 +183,9 @@ async function readResponse(response: Response) {
 }
 
 async function payerEmail(payload: BasePayload, order: CardOrder) {
+  const suppliedEmail = String(payload.payerEmail || '').trim().toLowerCase();
+  if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(suppliedEmail)) return suppliedEmail;
+
   const userId = Number(payload.userId || 0);
   if (Number.isSafeInteger(userId) && userId > 0) {
     const user = await prisma.user.findUnique({ where: { id: userId }, select: { email: true } });
