@@ -22,6 +22,7 @@ export type DirectCardPaymentPayload = {
   } | null;
   holderName?: string | null;
   holderTaxId?: string | null;
+  payerEmail?: string | null;
   expMonth?: number | string | null;
   expYear?: number | string | null;
   billingPostalCode?: string | null;
@@ -42,7 +43,6 @@ type BasePayload = DirectCardPaymentPayload & {
   paymentMethodId?: string | null;
   customerName?: string | null;
   customerPhone?: string | null;
-  payerEmail?: string | null;
   customerIp?: string | null;
   address?: string | null;
   number?: string | null;
