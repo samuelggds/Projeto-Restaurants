@@ -65,6 +65,17 @@ type PaymentStatusPayload = {
   restaurantId?: number | string;
 };
 
+type PixPaymentCreationResult = {
+  paymentId: string;
+  status: string;
+  provider: PixProvider;
+  totalAmount: number;
+  qrCode: string;
+  qrCodeBase64: string | null;
+  requiresStatusCheck: boolean;
+  expiresAt?: string | null;
+};
+
 type PaymentApprovalPayload = PaymentStatusPayload & {
   expectedOrderId?: number | string;
   expectedAmount?: number | string;
@@ -435,7 +446,7 @@ class OrderPixPaymentService {
     expiresAt,
     idempotencyKey,
     resumeOnly = false,
-  }: CreatePixPayload) {
+  }: CreatePixPayload): Promise<PixPaymentCreationResult> {
     const normalizedRestaurantId = Number(restaurantId);
     const normalizedType = String(type || '').toUpperCase();
     const normalizedPaymentMethod = String(paymentMethod || '').toUpperCase();
