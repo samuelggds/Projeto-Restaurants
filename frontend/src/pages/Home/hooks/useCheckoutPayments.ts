@@ -61,6 +61,12 @@ type Options = {
   onPurchased: () => void;
   onPaymentConfirmed: () => void | Promise<void>;
   onPixPaymentCreated?: (payment: { orderId: number; orderPublicId: string }) => void;
+  onActivePaymentExists?: (payment: {
+    orderId: number;
+    orderPublicId: string;
+    paymentMethod: 'PIX' | 'CARTAO';
+    expiresAt?: string | null;
+  }) => void;
   onClearCart: () => void;
   onCloseCart: () => void;
 };
@@ -125,6 +131,7 @@ export function useCheckoutPayments(options: Options) {
     onPurchased,
     onPaymentConfirmed,
     onPixPaymentCreated,
+    onActivePaymentExists,
     onClearCart,
     onCloseCart,
   } = options;
@@ -408,6 +415,39 @@ export function useCheckoutPayments(options: Options) {
       if (!isCurrentCheckout()) return false;
       const data = (error as { response?: { data?: Record<string, unknown> } })?.response?.data;
       const preservedOrderId = Number(data?.orderId);
+
+      if (data?.code === 'ACTIVE_PAYMENT_EXISTS') {
+        const orderPublicId = String(data.orderPublicId || '').trim();
+        const existingPaymentMethod = String(data.paymentMethod || '').toUpperCase();
+        const supportedMethod =
+          existingPaymentMethod === 'PIX' || existingPaymentMethod === 'CARTAO'
+            ? existingPaymentMethod
+            : null;
+        if (
+          Number.isSafeInteger(preservedOrderId) &&
+          preservedOrderId > 0 &&
+          orderPublicId &&
+          supportedMethod
+        ) {
+          onCloseCart();
+          notify(
+            'warning',
+            'Você já possui um pagamento pendente',
+            supportedMethod === 'PIX'
+              ? 'Conclua o Pix que já está aberto antes de fazer outro pedido.'
+              : 'A cobrança por cartão anterior ainda está sendo processada. Aguarde a confirmação ou a expiração antes de tentar novamente.',
+            7000,
+          );
+          onActivePaymentExists?.({
+            orderId: preservedOrderId,
+            orderPublicId,
+            paymentMethod: supportedMethod,
+            expiresAt: data.expiresAt ? String(data.expiresAt) : null,
+          });
+          return false;
+        }
+      }
+
       if (
         data?.code === 'PAYMENT_CREATION_UNCERTAIN' &&
         data.reconciliationRequired === true &&
