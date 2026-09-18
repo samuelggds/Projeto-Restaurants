@@ -75,6 +75,17 @@ function digits(value: unknown) {
   return String(value || '').replace(/\D/g, '');
 }
 
+function isValidPayerEmail(value: string) {
+  if (value.length < 3 || value.length > 254 || /\s/u.test(value)) return false;
+
+  const at = value.indexOf('@');
+  if (at <= 0 || at !== value.lastIndexOf('@') || at > 64 || at >= value.length - 1) return false;
+
+  const domain = value.slice(at + 1);
+  const dot = domain.indexOf('.');
+  return dot > 0 && dot < domain.length - 1;
+}
+
 function amount(value: unknown) {
   const normalized = Number(value || 0);
   if (!Number.isFinite(normalized) || normalized <= 0) {
@@ -184,7 +195,7 @@ async function readResponse(response: Response) {
 
 async function payerEmail(payload: BasePayload, order: CardOrder) {
   const suppliedEmail = String(payload.payerEmail || '').trim().toLowerCase();
-  if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(suppliedEmail)) return suppliedEmail;
+  if (isValidPayerEmail(suppliedEmail)) return suppliedEmail;
 
   const userId = Number(payload.userId || 0);
   if (Number.isSafeInteger(userId) && userId > 0) {
