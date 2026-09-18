@@ -53,6 +53,7 @@ export async function createPagBankCheckout(input: {
   title: string;
   redirectUrl: string;
   notificationUrl: string;
+  expiresAt?: Date | null;
 }) {
   const body = await request(input.restaurantId, '/checkouts', {
     method: 'POST',
@@ -74,6 +75,7 @@ export async function createPagBankCheckout(input: {
       ],
       redirect_url: input.redirectUrl,
       return_url: input.redirectUrl,
+      ...(input.expiresAt ? { expiration_date: input.expiresAt.toISOString() } : {}),
       ...(input.notificationUrl
         ? {
             notification_urls: [input.notificationUrl],
