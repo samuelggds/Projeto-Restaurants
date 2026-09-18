@@ -18,6 +18,7 @@ import { replayCreatedOrder } from './orderCreationRequest.js';
 import { withTenantDbContext } from '../../../database/tenantDbContext.js';
 import directOrderCardPaymentService, {
   CardPaymentDeclinedError,
+  CardPaymentProviderRequestError,
   hasDirectCardPaymentPayload,
   type DirectCardPaymentPayload,
 } from './DirectOrderCardPaymentService.js';
@@ -118,6 +119,24 @@ class CreateOrderCardCheckoutService {
           restaurantId: createdOrder.restaurantId,
         });
         throw new OrderRequestError(error.message, 402, 'CARD_DECLINED');
+      }
+
+      if (error instanceof CardPaymentProviderRequestError) {
+        await failPendingOrderPaymentService.execute({
+          orderId: createdOrder.id,
+          restaurantId: createdOrder.restaurantId,
+        });
+        console.error('[CARD_PROVIDER_REQUEST_ERROR]', {
+          orderId: createdOrder.id,
+          restaurantId: createdOrder.restaurantId,
+          providerStatus: error.providerStatus,
+          providerCode: error.providerCode,
+        });
+        throw new OrderRequestError(
+          'Não foi possível processar o cartão neste momento. Tente novamente em alguns minutos.',
+          502,
+          'CARD_PROVIDER_ERROR',
+        );
       }
 
       // Even a missing/malformed response can follow a successful charge or webhook.
