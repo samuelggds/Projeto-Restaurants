@@ -23,7 +23,6 @@ class GetOrderPixPaymentRecoveryService {
       Number(actor.userId || 0) > 0 &&
       Number(order.userId || 0) === Number(actor.userId);
     const guestCustomer =
-      actor.userId == null &&
       Number(actor.guestOrderId || 0) === Number(order.id) &&
       String(actor.guestPublicId || '') === String(order.publicId);
 
@@ -46,6 +45,19 @@ class GetOrderPixPaymentRecoveryService {
       orderStatus: order.status,
       paymentMethod: order.paymentMethod,
     };
+
+    if (String(order.status || '').toUpperCase() === 'CANCELADO' && !order.paid) {
+      return {
+        ...base,
+        paymentId: order.pixPaymentId || null,
+        provider: null,
+        status: 'canceled',
+        isApproved: false,
+        qrCode: null,
+        qrCodeBase64: null,
+        requiresStatusCheck: false,
+      };
+    }
 
     if (order.paid) {
       return {
