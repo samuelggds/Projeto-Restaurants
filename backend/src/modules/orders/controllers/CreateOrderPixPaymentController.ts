@@ -10,6 +10,7 @@ import { OrderRequestError } from '../domain/OrderRequestError.js';
 import { recordWhatsappOrderNotificationOptIn } from '../../../services/whatsappOrderConsent.js';
 import { safeErrorName } from '../../../services/telemetrySanitizer.js';
 import { onlinePaymentExpiresAt } from '../../payments/domain/onlinePaymentPolicy.js';
+import { ActiveOnlinePaymentError } from '../domain/ActiveOnlinePaymentError.js';
 
 class CreateOrderPixPaymentController {
   async handle(req: Request, res: Response) {
@@ -159,6 +160,18 @@ class CreateOrderPixPaymentController {
         ...(guestOwnershipToken ? { guestOwnershipToken } : {}),
       });
     } catch (error: unknown) {
+      if (error instanceof ActiveOnlinePaymentError) {
+        return res.status(error.statusCode).json({
+          error: error.message,
+          code: error.code,
+          orderId: error.orderId,
+          orderPublicId: error.orderPublicId,
+          paymentMethod: error.paymentMethod,
+          orderType: error.orderType,
+          expiresAt: error.expiresAt,
+          requestId: req.requestId,
+        });
+      }
       if (error instanceof OrderRequestError) {
         return res
           .status(error.statusCode)
