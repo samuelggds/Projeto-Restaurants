@@ -177,16 +177,6 @@ function isMercadoPagoRequestValidationError(status: number, body: Record<string
   ]).has(providerErrorCode(body));
 }
 
-function splitConfigurationError(value: unknown) {
-  const text = String(value || '').toLowerCase();
-  return (
-    text.includes('marketplace_fee') ||
-    text.includes('marketplace') ||
-    text.includes('split') ||
-    text.includes('wallet')
-  );
-}
-
 async function readResponse(response: Response) {
   return (await response.json().catch(() => ({}))) as Record<string, unknown>;
 }
@@ -247,19 +237,16 @@ async function mercadoPagoPayment(payload: BasePayload, order: CardOrder, succes
   }
 
   const accessToken = await getMercadoPagoAccessToken(order.restaurantId);
-  const settings = await restaurantSettingsRepository.findByRestaurantId(order.restaurantId);
   const total = amount(order.total);
-  const marketplaceFee = Number(order.systemFee || 0);
   const reference = mercadoPagoCardExternalReference(order.id, order.restaurantId);
   const email = await payerEmail(payload, order);
 
-  const makeBody = (includeFee: boolean) => ({
+  const body = {
     type: 'online',
     processing_mode: 'automatic',
     total_amount: total.toFixed(2),
     external_reference: reference,
     description: `Pedido #${order.id}`,
-    ...(includeFee && marketplaceFee > 0 ? { marketplace_fee: marketplaceFee.toFixed(2) } : {}),
     payer: { email },
     transactions: {
       payments: [
@@ -274,9 +261,9 @@ async function mercadoPagoPayment(payload: BasePayload, order: CardOrder, succes
         },
       ],
     },
-  });
+  };
 
-  const send = async (includeFee: boolean) => {
+  const send = async () => {
     const response = await fetch('https://api.mercadopago.com/v1/orders', {
       method: 'POST',
       redirect: 'error',
@@ -285,22 +272,15 @@ async function mercadoPagoPayment(payload: BasePayload, order: CardOrder, succes
         Authorization: `Bearer ${accessToken}`,
         Accept: 'application/json',
         'Content-Type': 'application/json',
-        'X-Idempotency-Key': `order-card-${order.restaurantId}-${order.id}-${includeFee ? 'split' : 'base'}`,
+        'X-Idempotency-Key': `order-card-${order.restaurantId}-${order.id}`,
       },
-      body: JSON.stringify(makeBody(includeFee)),
+      body: JSON.stringify(body),
     });
     const body = await readResponse(response);
     return { response, body };
   };
 
-  let result = await send(marketplaceFee > 0);
-  if (
-    !result.response.ok &&
-    marketplaceFee > 0 &&
-    splitConfigurationError(safeProviderMessage(result.body, ''))
-  ) {
-    result = await send(false);
-  }
+  const result = await send();
   if (!result.response.ok) {
     if (isMercadoPagoRequestValidationError(result.response.status, result.body)) {
       const providerCode = providerErrorCode(result.body) || 'invalid_request';
@@ -542,10 +522,7 @@ async function asaasPayment(payload: BasePayload, order: CardOrder, successUrlBa
   const customerId = String(customerResult.body.id || '').trim();
   if (!customerId) throw new Error('Asaas não retornou a identificação do cliente.');
 
-  const systemFee = Number(order.systemFee || 0);
-  const walletId = String(settings?.gatewayMerchantId || '').trim();
-  const platformWalletId = String(process.env.ASAAS_PLATFORM_WALLET_ID || '').trim();
-  const buildBody = (includeSplit: boolean) => ({
+  const paymentBody = {
     customer: customerId,
     billingType: 'CREDIT_CARD',
     value: amount(order.total),
@@ -569,28 +546,13 @@ async function asaasPayment(payload: BasePayload, order: CardOrder, successUrlBa
       ...(phone ? { mobilePhone: phone } : {}),
     },
     remoteIp: String(payload.customerIp || '').trim(),
-    ...(includeSplit && systemFee > 0 && platformWalletId
-      ? {
-          split: [
-            { walletId: platformWalletId, fixedValue: systemFee },
-            ...(walletId ? [{ walletId, remainingValue: true }] : []),
-          ],
-        }
-      : {}),
-  });
+  };
 
-  let paymentResult = await asaasJson(
+  const paymentResult = await asaasJson(
     `${baseUrl}/v3/payments`,
     accessToken,
-    buildBody(systemFee > 0),
+    paymentBody,
   );
-  if (
-    !paymentResult.response.ok &&
-    systemFee > 0 &&
-    splitConfigurationError(safeProviderMessage(paymentResult.body, ''))
-  ) {
-    paymentResult = await asaasJson(`${baseUrl}/v3/payments`, accessToken, buildBody(false));
-  }
   if (!paymentResult.response.ok) {
     if (paymentResult.response.status >= 400 && paymentResult.response.status < 500) {
       throw new CardPaymentDeclinedError(
