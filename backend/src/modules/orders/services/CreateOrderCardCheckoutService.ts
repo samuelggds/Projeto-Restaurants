@@ -23,6 +23,7 @@ import directOrderCardPaymentService, {
 } from './DirectOrderCardPaymentService.js';
 import failPendingOrderPaymentService from './FailPendingOrderPaymentService.js';
 import { OrderRequestError } from '../domain/OrderRequestError.js';
+import { onlinePaymentExpiresAt } from '../../payments/domain/onlinePaymentPolicy.js';
 
 type CardCheckoutPayload = CreateOrderCardCheckoutPayload & DirectCardPaymentPayload;
 
@@ -92,6 +93,7 @@ class CreateOrderCardCheckoutService {
       systemFee: createdOrder.systemFee,
       restaurant: createdOrder.restaurant,
     };
+    const paymentExpiresAt = onlinePaymentExpiresAt();
 
     let checkout: CardCheckoutResult;
     try {
@@ -109,6 +111,7 @@ class CreateOrderCardCheckoutService {
           order: orderForPayment,
           successUrlBase,
           cancelUrlBase,
+          expiresAt: paymentExpiresAt,
         });
       }
     } catch (error) {
@@ -135,6 +138,8 @@ class CreateOrderCardCheckoutService {
         createdOrder.id,
         createdOrder.restaurantId,
         String(checkout.persistenceSessionId || checkout.sessionId),
+        undefined,
+        paymentExpiresAt,
       );
     } catch (error: unknown) {
       // Do not delete an order after an external checkout exists. Every
