@@ -82,10 +82,12 @@ function parseExpiry(value: string) {
 export function OnlineCardPaymentForm({
   restaurantId,
   savedCard,
+  payerEmail: initialPayerEmail = '',
   onPreparerChange,
 }: {
   restaurantId: number;
   savedCard?: CustomerPaymentMethod | null;
+  payerEmail?: string;
   onPreparerChange: (preparer: CardPaymentPreparer | null) => void;
 }) {
   const [config, setConfig] = useState<PublicCardPaymentConfig | null>(null);
@@ -94,6 +96,7 @@ export function OnlineCardPaymentForm({
   const [expiry, setExpiry] = useState('');
   const [cvv, setCvv] = useState('');
   const [taxId, setTaxId] = useState('');
+  const [payerEmail, setPayerEmail] = useState(initialPayerEmail);
   const [postalCode, setPostalCode] = useState('');
   const [addressNumber, setAddressNumber] = useState('');
   const [error, setError] = useState('');
@@ -228,6 +231,10 @@ export function OnlineCardPaymentForm({
         }
 
         if (config.provider === 'MERCADO_PAGO') {
+          const normalizedPayerEmail = payerEmail.trim().toLowerCase();
+          if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedPayerEmail)) {
+            throw new Error('Informe um e-mail válido do comprador.');
+          }
           if (!mercadoPagoRef.current) throw new Error('Aguarde a preparação segura do cartão.');
           const token = await mercadoPagoRef.current.fields.createCardToken({
             cardholderName: holderName,
@@ -245,6 +252,7 @@ export function OnlineCardPaymentForm({
             cardPaymentMethodId: paymentMethodId,
             holderName,
             holderTaxId,
+            payerEmail: normalizedPayerEmail,
           };
         }
 
@@ -312,6 +320,7 @@ export function OnlineCardPaymentForm({
     mercadoPagoPaymentMethodId,
     number,
     onPreparerChange,
+    payerEmail,
     postalCode,
     savedCard,
     taxId,
@@ -425,6 +434,19 @@ export function OnlineCardPaymentForm({
           </div>
         </>
       ) : null}
+
+      {!isSaved && config?.provider === 'MERCADO_PAGO' && (
+        <label className="full">
+          <span>E-mail do comprador</span>
+          <input
+            type="email"
+            autoComplete="email"
+            value={payerEmail}
+            onChange={(event) => setPayerEmail(event.target.value.slice(0, 160))}
+            placeholder="voce@exemplo.com"
+          />
+        </label>
+      )}
 
       {!isSaved && (
         <label className="full">
