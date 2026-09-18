@@ -135,12 +135,19 @@ class GetOrderCardPaymentStatusService {
       }
     }
 
+    const expired =
+      order.paid !== true &&
+      order.onlinePaymentExpiresAt instanceof Date &&
+      order.onlinePaymentExpiresAt.getTime() <= Date.now();
+
     const status =
       order.status === OrderStatus.CANCELADO
         ? 'CANCELED'
         : order.paid === true
           ? 'PAID'
-          : 'PENDING';
+          : expired
+            ? 'EXPIRED'
+            : 'PENDING';
 
     return {
       orderPublicId: order.publicId,
