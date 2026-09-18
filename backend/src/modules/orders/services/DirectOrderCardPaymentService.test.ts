@@ -57,6 +57,7 @@ test('checkout transparente Mercado Pago segue o contrato atual sem capture_mode
       cardToken: 'card-token-001',
       cardPaymentMethodId: 'master',
       customerName: 'Cliente Teste',
+      payerEmail: 'cliente.real@example.com',
     },
     order: {
       id: 901,
@@ -78,7 +79,7 @@ test('checkout transparente Mercado Pago segue o contrato atual sem capture_mode
   assert.equal(Object.hasOwn(requestBody, 'marketplace_fee'), false);
   assert.match(String(requestBody.external_reference), /^[A-Za-z0-9_-]+$/);
   assert.deepEqual(requestBody.payer, {
-    email: 'guest.card.7.901@gastronexa.local',
+    email: 'cliente.real@example.com',
   });
 
   const transactions = requestBody.transactions as {
