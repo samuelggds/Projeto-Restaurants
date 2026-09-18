@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test, { afterEach, beforeEach } from 'node:test';
 
+import prisma from '../../../config/prisma.js';
 import restaurantSettingsRepository from '../../restaurantSettings/repositories/RestaurantSettingsRepository.js';
 import { CARD_PROVIDERS } from '../../payments/providers/providerCatalog.js';
 import directOrderCardPaymentService, {
