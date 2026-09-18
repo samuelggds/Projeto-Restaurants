@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test, { afterEach, beforeEach } from 'node:test';
 
+import prisma from '../../../config/prisma.js';
 import restaurantSettingsRepository from '../../restaurantSettings/repositories/RestaurantSettingsRepository.js';
 import { CARD_PROVIDERS } from '../../payments/providers/providerCatalog.js';
 import directOrderCardPaymentService, {
@@ -56,6 +57,7 @@ test('checkout transparente Mercado Pago segue o contrato atual sem capture_mode
       cardToken: 'card-token-001',
       cardPaymentMethodId: 'master',
       customerName: 'Cliente Teste',
+      payerEmail: 'cliente.real@example.com',
     },
     order: {
       id: 901,
@@ -77,7 +79,7 @@ test('checkout transparente Mercado Pago segue o contrato atual sem capture_mode
   assert.equal(Object.hasOwn(requestBody, 'marketplace_fee'), false);
   assert.match(String(requestBody.external_reference), /^[A-Za-z0-9_-]+$/);
   assert.deepEqual(requestBody.payer, {
-    email: 'guest.card.7.901@gastronexa.local',
+    email: 'cliente.real@example.com',
   });
 
   const transactions = requestBody.transactions as {
@@ -100,6 +102,73 @@ test('checkout transparente Mercado Pago segue o contrato atual sem capture_mode
   });
   assert.equal(result.provider, CARD_PROVIDERS.MERCADO_PAGO);
   assert.equal(result.paymentApproved, true);
+});
+
+test('cartão salvo Mercado Pago envia payer.customer_id na Orders API', async () => {
+  let requestBody: Record<string, unknown> | null = null;
+
+  restaurantSettingsRepository.findByRestaurantId = async () =>
+    ({
+      restaurantId: 7,
+      cardGateway: 'MERCADO_PAGO',
+      mercadoPagoAccessToken: 'restaurant-access-token',
+      mercadoPagoRefreshToken: 'restaurant-refresh-token',
+      mercadoPagoTokenExpiresAt: new Date(Date.now() + 3_600_000),
+    }) as never;
+
+  const originalTransaction = prisma.$transaction;
+  prisma.$transaction = async (callback: any) =>
+    callback({
+      $queryRaw: async () => [{ set_config: '7' }],
+      customerPaymentMethod: {
+        findFirst: async () => ({
+          publicId: 'saved-card-public-id',
+          userId: 33,
+          restaurantId: 7,
+          provider: 'MERCADO_PAGO',
+          providerCustomerId: 'customer-mp-123',
+          brand: 'master',
+          active: true,
+        }),
+      },
+    });
+
+  globalThis.fetch = async (_input, init: RequestInit = {}) => {
+    requestBody = JSON.parse(String(init.body || '{}')) as Record<string, unknown>;
+    return new Response(
+      JSON.stringify({
+        id: 'ORD_CARD_SAVED_001',
+        status: 'processed',
+      }),
+      { status: 201, headers: { 'Content-Type': 'application/json' } },
+    );
+  };
+
+  try {
+    const result = await directOrderCardPaymentService.execute({
+      provider: CARD_PROVIDERS.MERCADO_PAGO,
+      payload: {
+        userId: 33,
+        paymentMethodId: 'saved-card-public-id',
+        cardToken: 'saved-card-cvv-token',
+        cardPaymentMethodId: 'master',
+      },
+      order: {
+        id: 903,
+        publicId: 'order-public-903',
+        restaurantId: 7,
+        total: 50,
+        restaurant: { name: 'North Pizza' },
+      },
+      successUrlBase: 'https://www.gastronexa.com.br/north-pizza',
+    });
+
+    assert.ok(requestBody);
+    assert.deepEqual(requestBody.payer, { customer_id: 'customer-mp-123' });
+    assert.equal(result.paymentApproved, true);
+  } finally {
+    prisma.$transaction = originalTransaction;
+  }
 });
 
 test('property_value do Mercado Pago não é tratado como cartão recusado', async () => {

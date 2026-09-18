@@ -982,6 +982,7 @@ export default function Home() {
                 allowCard={homeData.acceptsCard}
                 restaurantId={restaurantId}
                 loggedIn={Boolean(user)}
+                userEmail={user ? String((user as Record<string, unknown>).email || '') : undefined}
                 onChange={setPaymentMethod}
               />
             )}

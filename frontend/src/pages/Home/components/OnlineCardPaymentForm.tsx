@@ -68,6 +68,17 @@ function digits(value: string) {
   return value.replace(/\D/g, '');
 }
 
+function isValidPayerEmail(value: string) {
+  if (value.length < 3 || value.length > 254 || /\s/u.test(value)) return false;
+
+  const at = value.indexOf('@');
+  if (at <= 0 || at !== value.lastIndexOf('@') || at > 64 || at >= value.length - 1) return false;
+
+  const domain = value.slice(at + 1);
+  const dot = domain.indexOf('.');
+  return dot > 0 && dot < domain.length - 1;
+}
+
 function parseExpiry(value: string) {
   const [rawMonth, rawYear] = value.split('/');
   const month = Number(rawMonth || 0);
@@ -82,10 +93,12 @@ function parseExpiry(value: string) {
 export function OnlineCardPaymentForm({
   restaurantId,
   savedCard,
+  payerEmail: initialPayerEmail = '',
   onPreparerChange,
 }: {
   restaurantId: number;
   savedCard?: CustomerPaymentMethod | null;
+  payerEmail?: string;
   onPreparerChange: (preparer: CardPaymentPreparer | null) => void;
 }) {
   const [config, setConfig] = useState<PublicCardPaymentConfig | null>(null);
@@ -94,6 +107,7 @@ export function OnlineCardPaymentForm({
   const [expiry, setExpiry] = useState('');
   const [cvv, setCvv] = useState('');
   const [taxId, setTaxId] = useState('');
+  const [payerEmail, setPayerEmail] = useState(initialPayerEmail);
   const [postalCode, setPostalCode] = useState('');
   const [addressNumber, setAddressNumber] = useState('');
   const [error, setError] = useState('');
@@ -228,6 +242,10 @@ export function OnlineCardPaymentForm({
         }
 
         if (config.provider === 'MERCADO_PAGO') {
+          const normalizedPayerEmail = payerEmail.trim().toLowerCase();
+          if (!isValidPayerEmail(normalizedPayerEmail)) {
+            throw new Error('Informe um e-mail válido do comprador.');
+          }
           if (!mercadoPagoRef.current) throw new Error('Aguarde a preparação segura do cartão.');
           const token = await mercadoPagoRef.current.fields.createCardToken({
             cardholderName: holderName,
@@ -245,6 +263,7 @@ export function OnlineCardPaymentForm({
             cardPaymentMethodId: paymentMethodId,
             holderName,
             holderTaxId,
+            payerEmail: normalizedPayerEmail,
           };
         }
 
@@ -312,6 +331,7 @@ export function OnlineCardPaymentForm({
     mercadoPagoPaymentMethodId,
     number,
     onPreparerChange,
+    payerEmail,
     postalCode,
     savedCard,
     taxId,
@@ -425,6 +445,19 @@ export function OnlineCardPaymentForm({
           </div>
         </>
       ) : null}
+
+      {!isSaved && config?.provider === 'MERCADO_PAGO' && (
+        <label className="full">
+          <span>E-mail do comprador</span>
+          <input
+            type="email"
+            autoComplete="email"
+            value={payerEmail}
+            onChange={(event) => setPayerEmail(event.target.value.slice(0, 160))}
+            placeholder="voce@exemplo.com"
+          />
+        </label>
+      )}
 
       {!isSaved && (
         <label className="full">

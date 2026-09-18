@@ -22,6 +22,7 @@ export type DirectCardPaymentPayload = {
   } | null;
   holderName?: string | null;
   holderTaxId?: string | null;
+  payerEmail?: string | null;
   expMonth?: number | string | null;
   expYear?: number | string | null;
   billingPostalCode?: string | null;
@@ -72,6 +73,17 @@ export class CardPaymentProviderRequestError extends Error {
 
 function digits(value: unknown) {
   return String(value || '').replace(/\D/g, '');
+}
+
+function isValidPayerEmail(value: string) {
+  if (value.length < 3 || value.length > 254 || /\s/u.test(value)) return false;
+
+  const at = value.indexOf('@');
+  if (at <= 0 || at !== value.lastIndexOf('@') || at > 64 || at >= value.length - 1) return false;
+
+  const domain = value.slice(at + 1);
+  const dot = domain.indexOf('.');
+  return dot > 0 && dot < domain.length - 1;
 }
 
 function amount(value: unknown) {
@@ -182,6 +194,9 @@ async function readResponse(response: Response) {
 }
 
 async function payerEmail(payload: BasePayload, order: CardOrder) {
+  const suppliedEmail = String(payload.payerEmail || '').trim().toLowerCase();
+  if (isValidPayerEmail(suppliedEmail)) return suppliedEmail;
+
   const userId = Number(payload.userId || 0);
   if (Number.isSafeInteger(userId) && userId > 0) {
     const user = await prisma.user.findUnique({ where: { id: userId }, select: { email: true } });
@@ -239,7 +254,17 @@ async function mercadoPagoPayment(payload: BasePayload, order: CardOrder, succes
   const accessToken = await getMercadoPagoAccessToken(order.restaurantId);
   const total = amount(order.total);
   const reference = mercadoPagoCardExternalReference(order.id, order.restaurantId);
-  const email = await payerEmail(payload, order);
+  const storedCustomerId = String(stored?.providerCustomerId || '').trim();
+
+  if (stored && !storedCustomerId) {
+    throw new CardPaymentDeclinedError(
+      'Este cartão salvo precisa ser cadastrado novamente antes do pagamento.',
+    );
+  }
+
+  const payer = stored
+    ? { customer_id: storedCustomerId }
+    : { email: await payerEmail(payload, order) };
 
   const body = {
     type: 'online',
@@ -247,7 +272,7 @@ async function mercadoPagoPayment(payload: BasePayload, order: CardOrder, succes
     total_amount: total.toFixed(2),
     external_reference: reference,
     description: `Pedido #${order.id}`,
-    payer: { email },
+    payer,
     transactions: {
       payments: [
         {
