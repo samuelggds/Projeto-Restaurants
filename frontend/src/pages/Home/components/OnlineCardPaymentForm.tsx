@@ -97,6 +97,7 @@ export function OnlineCardPaymentForm({
   const [postalCode, setPostalCode] = useState('');
   const [addressNumber, setAddressNumber] = useState('');
   const [error, setError] = useState('');
+  const [mercadoPagoPaymentMethodId, setMercadoPagoPaymentMethodId] = useState('');
   const mercadoPagoRef = useRef<MercadoPagoInstance | null>(null);
   const isSaved = Boolean(savedCard);
   const isSavedMercadoPago = savedCard?.provider === 'MERCADO_PAGO';
@@ -137,6 +138,24 @@ export function OnlineCardPaymentForm({
           mounted.push(security);
         } else {
           const cardNumber = mp.fields.create('cardNumber', { placeholder: 'Número do cartão' });
+          cardNumber.on?.('binChange', ({ bin }) => {
+            const normalizedBin = String(bin || '')
+              .replace(/\D/g, '')
+              .slice(0, 8);
+            if (!active) return;
+            setMercadoPagoPaymentMethodId('');
+            if (normalizedBin.length < 6) return;
+            void mp
+              .getPaymentMethods({ bin: normalizedBin })
+              .then((response) => {
+                if (active) {
+                  setMercadoPagoPaymentMethodId(String(response.results?.[0]?.id || '').trim());
+                }
+              })
+              .catch(() => {
+                if (active) setMercadoPagoPaymentMethodId('');
+              });
+          });
           const expiration = mp.fields.create('expirationDate', { placeholder: 'MM/AA' });
           const security = mp.fields.create('securityCode', { placeholder: 'CVV' });
           cardNumber.mount('checkout-mp-card-number');
@@ -152,6 +171,7 @@ export function OnlineCardPaymentForm({
       active = false;
       mounted.forEach((field) => field.unmount?.());
       mercadoPagoRef.current = null;
+      setMercadoPagoPaymentMethodId('');
     };
   }, [config, isSavedMercadoPago]);
 
@@ -214,12 +234,15 @@ export function OnlineCardPaymentForm({
             identificationType: holderTaxId.length === 11 ? 'CPF' : 'CNPJ',
             identificationNumber: holderTaxId,
           });
-          if (!token.id || !token.payment_method_id) {
-            throw new Error('Revise os dados do cartão e tente novamente.');
+          const paymentMethodId = String(
+            token.payment_method_id || mercadoPagoPaymentMethodId || '',
+          ).trim();
+          if (!token.id || !paymentMethodId) {
+            throw new Error('Não foi possível identificar a bandeira do cartão. Revise os dados e tente novamente.');
           }
           return {
             cardToken: token.id,
-            cardPaymentMethodId: token.payment_method_id,
+            cardPaymentMethodId: paymentMethodId,
             holderName,
             holderTaxId,
           };
@@ -286,6 +309,7 @@ export function OnlineCardPaymentForm({
     cvv,
     expiry,
     holder,
+    mercadoPagoPaymentMethodId,
     number,
     onPreparerChange,
     postalCode,
