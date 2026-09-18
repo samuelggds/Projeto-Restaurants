@@ -63,6 +63,20 @@ class ListProductsService {
           ingredient: presentIngredientImage(option.ingredient, normalizedRestaurantId),
         })),
       }));
+      const publicComboGroups = (product.comboGroups || []).map((group) => ({
+        ...group,
+        options: group.options.map((option) => ({
+          ...option,
+          componentProduct: {
+            ...option.componentProduct,
+            image: createPublicMediaReference(
+              option.componentProduct.image,
+              `/public-media/restaurants/${normalizedRestaurantId}/products/${option.componentProduct.id}`,
+              option.componentProduct.updatedAt,
+            ),
+          },
+        })),
+      }));
 
       if (Number.isFinite(stockValue) && stockValue <= 0) {
         return {
@@ -71,6 +85,7 @@ class ListProductsService {
           ingredients: publicIngredients,
           compositionItems: publicCompositionItems,
           optionGroups: publicOptionGroups,
+          comboGroups: publicComboGroups,
           active: false,
           pricing,
         };
@@ -82,6 +97,7 @@ class ListProductsService {
         ingredients: publicIngredients,
         compositionItems: publicCompositionItems,
         optionGroups: publicOptionGroups,
+        comboGroups: publicComboGroups,
         pricing,
       };
     });

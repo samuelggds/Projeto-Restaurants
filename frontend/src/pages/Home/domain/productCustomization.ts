@@ -40,6 +40,10 @@ export type ProductConfiguration = {
   optionQuantities?: Array<{ optionId: string; quantity: number }>;
   removedCompositionItemIds?: string[];
   portions?: Array<{ optionId: string; observation?: string }>;
+  comboSelections?: Array<{
+    groupId: string;
+    items: Array<{ optionId: string; quantity: number }>;
+  }>;
   configurationVersion?: number;
 };
 
@@ -345,11 +349,21 @@ export function productConfigurationSignature(configuration: ProductConfiguratio
           .toLocaleLowerCase('pt-BR')}`,
     )
     .join('|');
+  const combo = (configuration.comboSelections || [])
+    .map((group) =>
+      `${group.groupId}:${group.items
+        .map((item) => `${item.optionId}=${item.quantity}`)
+        .sort()
+        .join(',')}`,
+    )
+    .sort()
+    .join('|');
   return [
     groups,
     quantities,
     removals,
     portions,
+    combo,
     configuration.observation.trim().toLocaleLowerCase('pt-BR'),
     configuration.configurationVersion ?? '',
   ].join('::');

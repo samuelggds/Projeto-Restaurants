@@ -22,4 +22,12 @@ router.post(
   imageEnhancementRateLimitMiddleware,
   (req, res) => controller.handle(req, res, 'BANNER'),
 );
+router.post(
+  '/combo',
+  authMiddleware,
+  adminMiddleware,
+  billingMiddleware,
+  imageEnhancementRateLimitMiddleware,
+  (req, res) => controller.handle(req, res, 'COMBO'),
+);
 export default router;

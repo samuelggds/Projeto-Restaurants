@@ -766,21 +766,79 @@ class CreateOrderService {
             }
 
             const requestedQuantityByProduct = new Map<number, number>();
-            orderItems.forEach((item) =>
+            orderItems.forEach((item) => {
+              const snapshot = item.configurationSnapshot as
+                | {
+                    kind?: string;
+                    comboComponents?: Array<{ productId?: number; quantity?: number }>;
+                  }
+                | undefined;
+              if (snapshot?.kind === 'COMBO') {
+                (snapshot.comboComponents || []).forEach((component) => {
+                  const productId = Number(component.productId);
+                  const perCombo = Number(component.quantity);
+                  if (!Number.isInteger(productId) || productId <= 0 || !Number.isInteger(perCombo) || perCombo <= 0) {
+                    throw new OrderRequestError('A composição do combo ficou inválida. Atualize a sacola.');
+                  }
+                  const requestedQuantity = perCombo * Number(item.quantity);
+                  requestedQuantityByProduct.set(
+                    productId,
+                    (requestedQuantityByProduct.get(productId) || 0) + requestedQuantity,
+                  );
+                });
+                return;
+              }
               requestedQuantityByProduct.set(
                 item.productId,
                 (requestedQuantityByProduct.get(item.productId) || 0) + Number(item.quantity),
-              ),
+              );
+            });
+
+            const stockProductById = new Map(
+              products.map((product) => [
+                product.id,
+                {
+                  id: product.id,
+                  name: product.name,
+                  stock: product.stock,
+                  active: product.active,
+                },
+              ]),
             );
+            const missingStockProductIds = [...requestedQuantityByProduct.keys()].filter(
+              (productId) => !stockProductById.has(productId),
+            );
+            if (missingStockProductIds.length) {
+              const comboComponents = await tx.product.findMany({
+                where: {
+                  restaurantId: resolvedRestaurantId,
+                  id: { in: missingStockProductIds },
+                },
+                select: { id: true, name: true, stock: true, active: true },
+              });
+              comboComponents.forEach((product) => stockProductById.set(product.id, product));
+            }
+            if (
+              [...requestedQuantityByProduct.keys()].some(
+                (productId) => !stockProductById.has(productId),
+              )
+            ) {
+              throw new OrderRequestError('Um produto do pedido não está mais disponível.');
+            }
+
             for (const [productId, requestedQuantity] of requestedQuantityByProduct) {
-              const product = products.find((candidate) => candidate.id === productId)!;
+              const product = stockProductById.get(productId)!;
+              if (product.active === false) {
+                throw new OrderRequestError(`Produto indisponível: ${product.name}.`);
+              }
               const stockValue =
                 product.stock === null || product.stock === undefined ? null : Number(product.stock);
-              if (!Number.isInteger(stockValue) || stockValue < 0) continue;
+              if (!Number.isInteger(stockValue) || Number(stockValue) < 0) continue;
               const decremented = await tx.product.updateMany({
                 where: {
                   id: productId,
                   restaurantId: resolvedRestaurantId,
+                  active: true,
                   stock: { gte: requestedQuantity },
                 },
                 data: { stock: { decrement: requestedQuantity } },

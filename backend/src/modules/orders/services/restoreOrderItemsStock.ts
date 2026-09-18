@@ -7,6 +7,7 @@ type OrderLike = {
   items?: Array<{
     productId?: number | string | null;
     quantity?: number | string | null;
+    configurationSnapshot?: unknown;
   }>;
 };
 
@@ -15,17 +16,39 @@ export async function restoreOrderItemsStock(tx: TransactionClient, order: Order
   const quantityByProduct = new Map<number, number>();
 
   for (const item of items) {
-    const productId = Number(item?.productId || 0);
     const quantity = Number(item?.quantity || 0);
+    if (!Number.isInteger(quantity) || quantity <= 0) continue;
 
-    if (!Number.isInteger(productId) || productId <= 0) {
+    const snapshot =
+      item?.configurationSnapshot && typeof item.configurationSnapshot === 'object'
+        ? (item.configurationSnapshot as {
+            kind?: string;
+            comboComponents?: Array<{ productId?: number; quantity?: number }>;
+          })
+        : null;
+
+    if (snapshot?.kind === 'COMBO') {
+      for (const component of snapshot.comboComponents || []) {
+        const componentProductId = Number(component.productId || 0);
+        const perCombo = Number(component.quantity || 0);
+        if (
+          !Number.isInteger(componentProductId) ||
+          componentProductId <= 0 ||
+          !Number.isInteger(perCombo) ||
+          perCombo <= 0
+        ) {
+          continue;
+        }
+        quantityByProduct.set(
+          componentProductId,
+          (quantityByProduct.get(componentProductId) || 0) + perCombo * quantity,
+        );
+      }
       continue;
     }
 
-    if (!Number.isInteger(quantity) || quantity <= 0) {
-      continue;
-    }
-
+    const productId = Number(item?.productId || 0);
+    if (!Number.isInteger(productId) || productId <= 0) continue;
     quantityByProduct.set(productId, (quantityByProduct.get(productId) || 0) + quantity);
   }
 

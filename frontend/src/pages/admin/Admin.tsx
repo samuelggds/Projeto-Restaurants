@@ -160,6 +160,7 @@ function mapProduct(value: unknown): AdminProduct {
     description: String(raw.description ?? ''),
     stock: raw.stock === null || raw.stock === undefined ? null : Number(raw.stock),
     active: raw.active !== false,
+    kind: raw.kind === 'COMBO' ? 'COMBO' : 'STANDARD',
     saleMode: raw.saleMode === 'COMPLETE' ? 'COMPLETE' : 'BUILDABLE',
     configurationVersion: Math.max(1, Number(raw.configurationVersion ?? 1)),
     optionGroups,

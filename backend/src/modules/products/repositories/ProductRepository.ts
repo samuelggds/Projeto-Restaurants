@@ -30,6 +30,29 @@ const productConfigurationInclude = {
       },
     },
   },
+  comboGroups: {
+    orderBy: [{ position: 'asc' as const }, { id: 'asc' as const }],
+    include: {
+      options: {
+        orderBy: [{ position: 'asc' as const }, { id: 'asc' as const }],
+        include: {
+          componentProduct: {
+            select: {
+              id: true,
+              name: true,
+              description: true,
+              image: true,
+              price: true,
+              stock: true,
+              active: true,
+              kind: true,
+              updatedAt: true,
+            },
+          },
+        },
+      },
+    },
+  },
 };
 
 class ProductRepository {

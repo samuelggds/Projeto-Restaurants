@@ -9,9 +9,19 @@ import { calculateImageUsageCostUsd } from '../../aiSupport/services/openAiUsage
 const DATA_URL_PATTERN = /^data:(image\/(?:jpeg|png|webp));base64,([A-Za-z0-9+/=\r\n]+)$/;
 export const IMAGE_ENHANCEMENT_PROVIDER_TIMEOUT_MS = 165_000;
 
-export type RestaurantImagePurpose = 'COVER' | 'BANNER';
+export type RestaurantImagePurpose = 'COVER' | 'BANNER' | 'COMBO';
 
 export function getImageEnhancementProfile(purpose: RestaurantImagePurpose) {
+  if (purpose === 'COMBO') {
+    return {
+      filename: 'restaurant-combo.webp',
+      size: '1024x1024' as const,
+      fallbackCostUsd: 0.133,
+      prompt:
+        'Transform this photo into a premium, photorealistic square restaurant combo image. Preserve the real foods, portions and recognizable product types faithfully. Improve lighting, sharpness, color balance, texture and appetizing presentation. Arrange the items as one coherent combo on a clean delivery-friendly scene while keeping every important item visible. Do not add or remove foods, do not invent branded packaging, do not add words, prices, badges, logos, watermarks or people.',
+    };
+  }
+
   if (purpose === 'BANNER') {
     return {
       filename: 'restaurant-promotion-banner.webp',

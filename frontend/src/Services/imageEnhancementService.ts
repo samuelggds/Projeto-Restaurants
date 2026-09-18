@@ -46,6 +46,9 @@ const imageEnhancementService = {
   async enhanceBannerImage(imageDataUrl: string) {
     return enhanceImage('/image-enhancement/banner', imageDataUrl);
   },
+  async enhanceComboImage(imageDataUrl: string) {
+    return enhanceImage('/image-enhancement/combo', imageDataUrl);
+  },
 };
 
 export default imageEnhancementService;

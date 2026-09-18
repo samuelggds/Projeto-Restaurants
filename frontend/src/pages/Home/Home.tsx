@@ -420,7 +420,38 @@ export default function Home() {
   });
   const checkoutTotal = orderQuote.quote?.total ?? cartTotal;
   function applyPurchasedStockToHome() {
-    const purchased = new Map(cart.map((item) => [String(item.productId), Number(item.quantity)]));
+    const purchased = new Map<string, number>();
+
+    cart.forEach((item) => {
+      const homeProduct = homeData.products.find(
+        (product) => String(product.id) === String(item.productId),
+      );
+      if (homeProduct?.kind === 'COMBO') {
+        (item.comboSelections || []).forEach((selection) => {
+          const group = (homeProduct.comboGroups || []).find(
+            (candidate) => candidate.id === selection.groupId,
+          );
+          selection.items.forEach((selectedItem) => {
+            const option = group?.options.find(
+              (candidate) => candidate.id === selectedItem.optionId,
+            );
+            if (!option) return;
+            const quantity = Number(selectedItem.quantity) * Number(item.quantity);
+            purchased.set(
+              String(option.productId),
+              (purchased.get(String(option.productId)) || 0) + quantity,
+            );
+          });
+        });
+        return;
+      }
+
+      purchased.set(
+        String(item.productId),
+        (purchased.get(String(item.productId)) || 0) + Number(item.quantity),
+      );
+    });
+
     setBackendProducts((products) =>
       products.map((product) => {
         const quantity = purchased.get(String(product.id));
@@ -431,6 +462,7 @@ export default function Home() {
         return {
           ...product,
           stock: nextStock,
+          active: nextStock > 0 ? product.active : false,
         };
       }),
     );

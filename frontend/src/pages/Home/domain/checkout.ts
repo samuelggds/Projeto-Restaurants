@@ -190,6 +190,26 @@ export function buildOrderItems(cart: CartItem[]) {
           : {}),
       }))
       .filter((portion) => Number.isInteger(portion.optionId) && portion.optionId > 0);
+    const comboSelections = (item.comboSelections || [])
+      .map((group) => ({
+        groupId: Number(group.groupId),
+        items: group.items
+          .map((entry) => ({
+            optionId: Number(entry.optionId),
+            quantity: Number(entry.quantity),
+          }))
+          .filter(
+            (entry) =>
+              Number.isInteger(entry.optionId) &&
+              entry.optionId > 0 &&
+              Number.isInteger(entry.quantity) &&
+              entry.quantity > 0,
+          ),
+      }))
+      .filter(
+        (group) =>
+          Number.isInteger(group.groupId) && group.groupId > 0 && group.items.length > 0,
+      );
     return {
       productId: Number(item.productId),
       quantity: item.quantity,
@@ -199,6 +219,7 @@ export function buildOrderItems(cart: CartItem[]) {
       ...(optionQuantities.length ? { optionQuantities } : {}),
       ...(removedCompositionItemIds.length ? { removedCompositionItemIds } : {}),
       ...(portions.length ? { portions } : {}),
+      ...(comboSelections.length ? { comboSelections } : {}),
       ...(item.configurationVersion ? { configurationVersion: item.configurationVersion } : {}),
       ...(observation ? { observation } : {}),
     };

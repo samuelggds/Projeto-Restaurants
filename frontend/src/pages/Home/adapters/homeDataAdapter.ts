@@ -288,7 +288,53 @@ export function buildHomeData(
       rating: Number(product.averageRating || 0),
       stock: product.stock === null || product.stock === undefined ? null : Number(product.stock),
       available: !isProductUnavailable(product),
+      kind: product.kind === 'COMBO' ? 'COMBO' : 'STANDARD',
       saleMode: product.saleMode === 'COMPLETE' ? 'COMPLETE' : 'BUILDABLE',
+      comboGroups: Array.isArray(product.comboGroups)
+        ? product.comboGroups
+            .map((rawGroup) => {
+              const group = rawGroup as Record<string, unknown>;
+              const options = Array.isArray(group.options)
+                ? group.options
+                    .map((rawOption) => {
+                      const option = rawOption as Record<string, unknown>;
+                      const component = (option.componentProduct as Record<string, unknown> | null) ?? {};
+                      const stock =
+                        component.stock === null || component.stock === undefined
+                          ? null
+                          : Number(component.stock);
+                      return {
+                        id: String(option.id ?? ''),
+                        productId: String(option.componentProductId ?? component.id ?? ''),
+                        name: String(component.name || ''),
+                        description: String(component.description || ''),
+                        image: component.image ? String(component.image) : null,
+                        basePrice: Number(component.price || 0),
+                        additionalPrice: Number(option.additionalPrice || 0),
+                        minQuantity: Math.max(0, Number(option.minQuantity ?? 0)),
+                        maxQuantity: Math.max(1, Number(option.maxQuantity ?? 1)),
+                        defaultQuantity: Math.max(0, Number(option.defaultQuantity ?? 0)),
+                        locked: option.locked === true,
+                        active:
+                          option.active !== false &&
+                          component.active !== false &&
+                          (stock === null || stock > 0),
+                        stock,
+                      };
+                    })
+                    .filter((option) => option.id && option.productId && option.name)
+                : [];
+              return {
+                id: String(group.id ?? ''),
+                name: String(group.name || 'Escolhas'),
+                description: String(group.description || ''),
+                minSelections: Math.max(0, Number(group.minSelections ?? 1)),
+                maxSelections: Math.max(1, Number(group.maxSelections ?? 1)),
+                options,
+              };
+            })
+            .filter((group) => group.id && group.options.length > 0)
+        : [],
       configurationVersion: Math.max(1, Number(product.configurationVersion ?? 1)),
       ingredients: Array.isArray(product.ingredients)
         ? product.ingredients
