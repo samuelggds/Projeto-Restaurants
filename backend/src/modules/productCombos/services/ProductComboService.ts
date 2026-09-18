@@ -52,6 +52,41 @@ export const comboInputSchema = z.object({
   groups: z.array(groupSchema).min(1).max(12),
 });
 
+const comboImagePreviewOptionSchema = z.object({
+  componentProductId: z.number().int().min(0).default(0),
+  minQuantity: z.number().int().min(0).max(20).default(0),
+  defaultQuantity: z.number().int().min(0).max(20).default(0),
+  locked: z.boolean().default(false),
+});
+
+export const comboImagePreviewInputSchema = z
+  .object({
+    name: z.string().trim().min(2, 'Informe o nome do combo antes de gerar a foto.').max(100),
+    description: z.string().trim().max(600).default(''),
+    price: z.number().finite().min(0).max(1_000_000).default(0),
+    groups: z
+      .array(
+        z.object({
+          name: z.string().trim().max(80).default('Itens do combo'),
+          options: z.array(comboImagePreviewOptionSchema).max(30).default([]),
+        }),
+      )
+      .max(12)
+      .default([]),
+  })
+  .superRefine((input, ctx) => {
+    const selectedProducts = input.groups.flatMap((group) =>
+      group.options.filter((option) => option.componentProductId > 0),
+    );
+    if (!selectedProducts.length) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['groups'],
+        message: 'Adicione pelo menos um produto ao combo antes de gerar a foto com IA.',
+      });
+    }
+  });
+
 function restaurantId(value: unknown) {
   const id = Number(value);
   if (!Number.isSafeInteger(id) || id <= 0) throw new Error('Restaurante inválido.');
@@ -267,12 +302,11 @@ class ProductComboService {
 
   async generatePreviewImage(restaurantIdInput: unknown, rawInput: unknown) {
     const tenantId = restaurantId(restaurantIdInput);
-    const input = comboInputSchema.parse(rawInput);
-    const componentIds = [
-      ...new Set(
-        input.groups.flatMap((group) => group.options.map((option) => option.componentProductId)),
-      ),
-    ];
+    const input = comboImagePreviewInputSchema.parse(rawInput);
+    const selectedOptions = input.groups.flatMap((group) =>
+      group.options.filter((option) => option.componentProductId > 0),
+    );
+    const componentIds = [...new Set(selectedOptions.map((option) => option.componentProductId))];
 
     const components = await withTenantDbContext(tenantId, (db) =>
       db.product.findMany({
@@ -305,7 +339,9 @@ class ProductComboService {
       'Crie uma fotografia comercial quadrada, premium, realista e muito apetitosa para um combo de restaurante.',
       `Nome interno do combo: ${input.name}.`,
       input.description ? `Descrição: ${input.description}.` : '',
-      `Preço de venda usado apenas como contexto: R$ ${input.price.toFixed(2)}.`,
+      input.price > 0
+        ? `Preço de venda usado apenas como contexto: R$ ${input.price.toFixed(2)}.`
+        : '',
       `Itens que devem compor visualmente o combo: ${itemSummary}.`,
       'Mostre a refeição completa com os tipos de alimentos e bebidas relevantes visíveis, proporcionais e organizados como um único combo.',
       'Use iluminação de estúdio suave, fundo limpo, enquadramento central e aparência de fotografia profissional de delivery.',
