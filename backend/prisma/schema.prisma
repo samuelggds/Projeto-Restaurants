@@ -206,6 +206,8 @@ model Restaurant {
   orders                        Order[]
   products                      Product[]
   productDiscounts              ProductDiscount[]
+  productComboGroups             ProductComboGroup[]
+  productComboOptions            ProductComboOption[]
   ingredients                   Ingredient[]
   productOptionGroups           ProductOptionGroup[]
   productOptions                ProductOption[]
@@ -392,6 +394,7 @@ model Product {
   createdAt            DateTime                     @default(now())
   updatedAt            DateTime                     @updatedAt
   configurationVersion Int                          @default(1)
+  kind                 ProductKind                   @default(STANDARD)
   items                OrderItem[]
   category             Category                     @relation(fields: [categoryId], references: [id], onDelete: Cascade)
   restaurant           Restaurant                   @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
@@ -403,6 +406,8 @@ model Product {
   compositionItems     ProductCompositionItem[]
   portionConfiguration ProductPortionConfiguration?
   discount             ProductDiscount?
+  comboGroups          ProductComboGroup[]            @relation("ComboProductGroups")
+  comboOptions         ProductComboOption[]           @relation("ComboComponentOptions")
 
   @@unique([id, restaurantId])
 }
@@ -429,6 +434,11 @@ model ProductDiscount {
 enum ProductSaleMode {
   COMPLETE
   BUILDABLE
+}
+
+enum ProductKind {
+  STANDARD
+  COMBO
 }
 
 enum DiscountKind {
@@ -600,6 +610,54 @@ model ProductConfigurationTemplate {
   @@unique([restaurantId, name])
   @@unique([id, restaurantId])
   @@index([restaurantId, active, createdAt])
+}
+
+
+model ProductComboGroup {
+  id            Int                  @id @default(autoincrement())
+  restaurantId  Int
+  productId     Int
+  name          String
+  description   String?
+  minSelections Int                  @default(1)
+  maxSelections Int                  @default(1)
+  position      Int                  @default(0)
+  active        Boolean              @default(true)
+  createdAt     DateTime             @default(now())
+  updatedAt     DateTime             @updatedAt
+  restaurant    Restaurant           @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  product       Product              @relation("ComboProductGroups", fields: [productId, restaurantId], references: [id, restaurantId], onDelete: Cascade)
+  options       ProductComboOption[]
+
+  @@unique([productId, name])
+  @@unique([id, restaurantId])
+  @@index([restaurantId, active])
+  @@index([productId, position])
+}
+
+model ProductComboOption {
+  id                 Int               @id @default(autoincrement())
+  restaurantId       Int
+  groupId            Int
+  componentProductId Int
+  additionalPrice    Decimal           @default(0) @db.Decimal(10, 2)
+  minQuantity        Int               @default(0)
+  maxQuantity        Int               @default(1)
+  defaultQuantity    Int               @default(0)
+  locked             Boolean           @default(false)
+  active             Boolean           @default(true)
+  position           Int               @default(0)
+  createdAt          DateTime          @default(now())
+  updatedAt          DateTime          @updatedAt
+  restaurant         Restaurant        @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  group              ProductComboGroup @relation(fields: [groupId, restaurantId], references: [id, restaurantId], onDelete: Cascade)
+  componentProduct   Product           @relation("ComboComponentOptions", fields: [componentProductId, restaurantId], references: [id, restaurantId], onDelete: Restrict)
+
+  @@unique([groupId, componentProductId])
+  @@unique([id, restaurantId])
+  @@index([restaurantId, active])
+  @@index([groupId, active, position])
+  @@index([componentProductId])
 }
 
 model ProductFavorite {
