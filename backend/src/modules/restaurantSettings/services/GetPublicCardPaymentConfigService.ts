@@ -1,6 +1,7 @@
 import restaurantSettingsRepository from '../repositories/RestaurantSettingsRepository.js';
 import { getPagBankAccessToken } from './RestaurantPaymentCredentialsService.js';
 import { pagBankApiBaseUrl } from '../../payments/providers/pagBankCheckout.js';
+import { getMercadoPagoMarketplacePublicKey } from './MercadoPagoMarketplaceCardConfig.js';
 
 type SupportedCardProvider = 'MERCADO_PAGO' | 'PAGBANK' | 'ASAAS';
 
@@ -68,16 +69,10 @@ class GetPublicCardPaymentConfigService {
     if (!provider) throw new Error('Pagamento com cartão indisponível no momento.');
 
     if (provider === 'MERCADO_PAGO') {
-      const allowGlobalFallback = process.env.ALLOW_GLOBAL_PAYMENT_FALLBACK === 'true';
-      const publicKey = String(
-        settings.mercadoPagoPublicKey ||
-          (allowGlobalFallback
-            ? process.env.MERCADO_PAGO_PUBLIC_KEY || process.env.MP_PUBLIC_KEY
-            : '') ||
-          '',
-      ).trim();
-      if (!publicKey) throw new Error('Pagamento com cartão indisponível no momento.');
-      return { provider, publicKey } as const;
+      return {
+        provider,
+        publicKey: getMercadoPagoMarketplacePublicKey(),
+      } as const;
     }
 
     if (provider === 'PAGBANK') {
