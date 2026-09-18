@@ -77,7 +77,10 @@ export function AdminCombos({ products, money, onChanged }: Props) {
   const fileRef = useRef<HTMLInputElement>(null);
 
   const availableProducts = useMemo(
-    () => products.filter((product) => product.id && product.active !== false && !String(product.category).toLowerCase().includes('combo')),
+    () =>
+      products.filter(
+        (product) => product.id && product.active !== false && product.kind !== 'COMBO',
+      ),
     [products],
   );
 
