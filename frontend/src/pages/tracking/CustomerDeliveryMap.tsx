@@ -121,16 +121,51 @@ function toLatLng(point: CourierRoutePoint) {
   return { lat: point.latitude, lng: point.longitude };
 }
 
-function bikeSvg(heading = 0) {
-  const rotation = Number.isFinite(heading) ? Number(heading) : 0;
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="66" height="66" viewBox="0 0 66 66">
-    <g transform="rotate(${rotation} 33 33)">
-      <circle cx="33" cy="33" r="28" fill="#fff" stroke="#d9e4e7" stroke-width="2"/>
-      <circle cx="33" cy="33" r="23" fill="#20a561"/>
-      <path d="M33 12l7 13h-5v13h-4V25h-5l7-13z" fill="#fff" opacity=".95"/>
-      <circle cx="24" cy="43" r="5" fill="none" stroke="#fff" stroke-width="2.5"/>
-      <circle cx="43" cy="43" r="5" fill="none" stroke="#fff" stroke-width="2.5"/>
-      <path d="M24 43l7-10h7l5 10M31 33l-3-5h7" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+function courierScooterSvg() {
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="104" height="92" viewBox="0 0 104 92">
+    <defs>
+      <linearGradient id="orange" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0" stop-color="#ff8a18"/>
+        <stop offset="1" stop-color="#e45118"/>
+      </linearGradient>
+      <linearGradient id="black" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0" stop-color="#24282b"/>
+        <stop offset="1" stop-color="#0e1113"/>
+      </linearGradient>
+      <filter id="shadow" x="-30%" y="-30%" width="160%" height="180%">
+        <feDropShadow dx="0" dy="3" stdDeviation="2.6" flood-color="#071012" flood-opacity=".35"/>
+      </filter>
+    </defs>
+    <g filter="url(#shadow)">
+      <ellipse cx="51" cy="83" rx="38" ry="5" fill="#122024" opacity=".18"/>
+      <circle cx="27" cy="72" r="12" fill="#171a1c"/>
+      <circle cx="27" cy="72" r="6" fill="#aab2b5"/>
+      <circle cx="80" cy="72" r="12" fill="#171a1c"/>
+      <circle cx="80" cy="72" r="6" fill="#aab2b5"/>
+      <path d="M25 62h44l10-22h10l-6 30H44c-8 0-14-3-19-8z" fill="url(#orange)"/>
+      <path d="M42 49h32l5 15H38z" fill="url(#black)"/>
+      <path d="M69 36h17l4 6H74z" fill="#111517"/>
+      <rect x="12" y="32" width="30" height="25" rx="5" fill="url(#black)" stroke="#ff7a18" stroke-width="2"/>
+      <rect x="15" y="35" width="24" height="4" rx="2" fill="#ff7a18"/>
+      <text x="27" y="48" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="8" font-weight="800" fill="#fff">GX</text>
+      <text x="27" y="54" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="4.3" font-weight="700" fill="#ff7a18">GastroNexa</text>
+      <path d="M49 27c0-9 6-16 15-16 9 0 15 7 15 16v9H49z" fill="url(#black)"/>
+      <path d="M54 16c4-5 12-6 18-2l4 4-22 2z" fill="#ff7a18"/>
+      <path d="M73 19h10c2 0 4 2 4 4l-12 2z" fill="#b9d7df" opacity=".9"/>
+      <path d="M49 32h19c5 0 9 4 9 9v15H48z" fill="#181c1f"/>
+      <path d="M51 36h7l5 20h-9z" fill="#ff7a18"/>
+      <path d="M70 37l12 11-4 5-15-10z" fill="#161a1d"/>
+      <path d="M80 48l8 2-1 4-10-1z" fill="#161a1d"/>
+      <circle cx="88" cy="51" r="2.8" fill="#0d1113"/>
+      <text x="61" y="29" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="6.8" font-weight="900" fill="#fff">GX</text>
+      <path d="M45 57h24v6H43z" fill="#121618"/>
+      <path d="M43 61h-7l-6 9h18z" fill="#121618"/>
+      <path d="M66 60l7 12h7l-5-14z" fill="#121618"/>
+      <path d="M84 39l4-11h5" fill="none" stroke="#171b1d" stroke-width="3" stroke-linecap="round"/>
+      <circle cx="94" cy="27" r="3.2" fill="#24282b"/>
+      <path d="M89 40h9" stroke="#171b1d" stroke-width="3" stroke-linecap="round"/>
+      <circle cx="98" cy="40" r="2" fill="#171b1d"/>
+      <path d="M18 58h9" stroke="#ff4d2e" stroke-width="3" stroke-linecap="round"/>
     </g>
   </svg>`;
   return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`;
@@ -233,17 +268,17 @@ export default function CustomerDeliveryMap({
         optimized: false,
         zIndex: 8,
         icon: {
-          url: bikeSvg(latest.heading || 0),
-          scaledSize: { width: 66, height: 66 },
-          anchor: { x: 33, y: 33 },
+          url: courierScooterSvg(),
+          scaledSize: { width: 92, height: 81 },
+          anchor: { x: 46, y: 74 },
         },
       });
       previousPositionRef.current = target;
     } else {
       bikeMarkerRef.current.setIcon({
-        url: bikeSvg(latest.heading || 0),
-        scaledSize: { width: 66, height: 66 },
-        anchor: { x: 33, y: 33 },
+        url: courierScooterSvg(),
+        scaledSize: { width: 92, height: 81 },
+        anchor: { x: 46, y: 74 },
       });
       const start = previousPositionRef.current || target;
       const startedAt = performance.now();
