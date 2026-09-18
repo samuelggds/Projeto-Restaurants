@@ -1,4 +1,5 @@
 import { MercadoPagoConfig, Payment } from 'mercadopago';
+import { PaymentSplitConfigurationError } from '../../payments/domain/paymentErrors.js';
 import { pagBankApiBaseUrl } from '../../payments/providers/pagBankCheckout.js';
 import {
   isMarketplaceSplitConfigurationError,
@@ -577,6 +578,11 @@ class OrderPixPaymentService {
     const normalizedSystemFee = Number(systemFee || 0);
 
     if (resolvedPixProvider === PIX_PROVIDERS.PAGBANK) {
+      if (normalizedSystemFee > 0) {
+        throw new PaymentSplitConfigurationError(
+          'O split do PagBank ainda não está configurado para cobranças Pix. O pagamento foi bloqueado para evitar cobrar sem repassar a taxa da plataforma.',
+        );
+      }
       const token = await this.getPagBankToken(normalizedRestaurantId);
       const backendUrl = String(process.env.BACKEND_URL || '')
         .trim()
@@ -739,7 +745,13 @@ class OrderPixPaymentService {
       const walletId = String(privateSettings?.gatewayMerchantId || '').trim();
       const platformWalletId = String(process.env.ASAAS_PLATFORM_WALLET_ID || '').trim();
 
-      const buildAsaasPaymentBody = (includeSplit: boolean) => ({
+      if (normalizedSystemFee > 0 && !platformWalletId) {
+        throw new PaymentSplitConfigurationError(
+          'A carteira da plataforma Asaas não está configurada. O pagamento foi bloqueado para evitar cobrança sem split.',
+        );
+      }
+
+      const asaasPaymentBody = {
         customer: customerId,
         billingType: 'PIX',
         value: totalAmount,
@@ -748,7 +760,7 @@ class OrderPixPaymentService {
         externalReference: sourceOrderId
           ? `orderpix:${normalizedRestaurantId}:${sourceOrderId}`
           : `orderpix:${normalizedRestaurantId}:${Date.now()}`,
-        ...(includeSplit && normalizedSystemFee > 0 && platformWalletId
+        ...(normalizedSystemFee > 0
           ? {
               split: [
                 {
@@ -766,40 +778,26 @@ class OrderPixPaymentService {
               ],
             }
           : {}),
-      });
+      };
 
-      let paymentResult = await this.fetchAsaasJson<AsaasPaymentPayload>(
+      const paymentResult = await this.fetchAsaasJson<AsaasPaymentPayload>(
         `${asaasBaseUrl}/v3/payments`,
         accessToken,
         {
           method: 'POST',
-          body: buildAsaasPaymentBody(normalizedSystemFee > 0),
+          body: asaasPaymentBody,
         },
       );
 
-      const shouldRetryWithoutSplit =
-        normalizedSystemFee > 0 &&
+      if (
         !paymentResult.ok &&
+        normalizedSystemFee > 0 &&
         isMarketplaceSplitConfigurationError(
           this.getAsaasError(paymentResult.responseBody, 'Erro ao criar pagamento PIX no Asaas.'),
-        );
-
-      if (shouldRetryWithoutSplit) {
-        console.warn(
-          '[ASAAS_PIX_SPLIT_FALLBACK] Asaas rejeitou split. Recriando pagamento sem split.',
-          {
-            restaurantId: normalizedRestaurantId,
-            systemFee: normalizedSystemFee,
-          },
-        );
-
-        paymentResult = await this.fetchAsaasJson<AsaasPaymentPayload>(
-          `${asaasBaseUrl}/v3/payments`,
-          accessToken,
-          {
-            method: 'POST',
-            body: buildAsaasPaymentBody(false),
-          },
+        )
+      ) {
+        throw new PaymentSplitConfigurationError(
+          'O Asaas rejeitou a divisão da taxa da plataforma. Revise a configuração de split antes de receber este pagamento.',
         );
       }
 
@@ -898,21 +896,9 @@ class OrderPixPaymentService {
         if (!isMarketplaceSplitConfigurationError(error)) {
           throw error;
         }
-
-        console.warn(
-          '[PIX_SPLIT_FALLBACK] Mercado Pago rejeitou application_fee. Recriando pagamento sem split.',
-          {
-            restaurantId: normalizedRestaurantId,
-            systemFee: normalizedSystemFee,
-          },
+        throw new PaymentSplitConfigurationError(
+          'O Mercado Pago rejeitou a divisão da taxa da plataforma. Revise a configuração Marketplace antes de receber este pagamento.',
         );
-
-        response = await paymentApi.create({
-          ...(idempotencyKey
-            ? { requestOptions: { idempotencyKey: `${idempotencyKey}-nosplit` } }
-            : {}),
-          body: baseBody,
-        });
       }
     } else {
       response = await paymentApi.create({
