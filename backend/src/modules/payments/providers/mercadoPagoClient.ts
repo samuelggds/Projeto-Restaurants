@@ -79,7 +79,6 @@ type LegacyPreferenceBody = {
   }>;
   external_reference?: string;
   payer?: { email?: string };
-  marketplace_fee?: number;
   back_urls?: { success?: string; failure?: string; pending?: string };
 };
 
@@ -90,7 +89,6 @@ type MercadoPagoOrder = {
   external_reference?: string;
   total_amount?: string | number;
   total_paid_amount?: string | number;
-  marketplace_fee?: string | number;
   checkout_url?: string;
   user_id?: string | number;
   currency?: string;
@@ -122,14 +120,12 @@ export async function getMercadoPagoPreferenceApi(restaurantId?: number | null) 
       if (!externalReference || !items.length) {
         throw new Error('Checkout Mercado Pago incompleto.');
       }
-      const hasMarketplaceFee = Number(body.marketplace_fee || 0) > 0;
       const orderBody = {
         type: 'online',
         processing_mode: 'manual',
         capture_mode: 'automatic_async',
         total_amount: normalizeAmount(total),
         external_reference: externalReference,
-        ...(hasMarketplaceFee ? { marketplace_fee: normalizeAmount(body.marketplace_fee) } : {}),
         ...(body.payer?.email ? { payer: { email: String(body.payer.email).trim() } } : {}),
         config: {
           online: {
@@ -150,7 +146,7 @@ export async function getMercadoPagoPreferenceApi(restaurantId?: number | null) 
       const response = await mercadoPagoJson<MercadoPagoOrder>(restaurantId, '/v1/orders', {
         method: 'POST',
         body: orderBody,
-        idempotencyKey: `${externalReference}-${hasMarketplaceFee ? 'split' : 'base'}`.slice(0, 128),
+        idempotencyKey: `${externalReference}-base`.slice(0, 128),
       });
       const id = String(response.id || '').trim();
       const checkoutUrl = String(response.checkout_url || '').trim();
