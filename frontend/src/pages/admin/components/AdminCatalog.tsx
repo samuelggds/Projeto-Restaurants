@@ -31,6 +31,7 @@ import { validateIngredientDraft } from '../domain/productCustomizationValidatio
 import { IngredientWizard } from './IngredientWizard';
 import { AdminMenuImport } from './AdminMenuImport';
 import { CatalogAiImageGenerator } from './CatalogAiImageGenerator';
+import { AdminCombos } from './AdminCombos';
 import * as C from '../styles/AdminCatalogExperience.styles';
 
 type AdminCatalogProps = {
@@ -67,7 +68,7 @@ export function AdminCatalog(props: AdminCatalogProps) {
   const [categoryBusy, setCategoryBusy] = useState(false);
   const [categoryFeedback, setCategoryFeedback] = useState('');
   const [openProductMenu, setOpenProductMenu] = useState<string | null>(null);
-  const [catalogTab, setCatalogTab] = useState<'products' | 'ingredients' | 'categories'>(
+  const [catalogTab, setCatalogTab] = useState<'products' | 'combos' | 'ingredients' | 'categories'>(
     'products',
   );
   const [ingredientWizardOpen, setIngredientWizardOpen] = useState(false);
@@ -305,6 +306,12 @@ export function AdminCatalog(props: AdminCatalogProps) {
           Produtos
         </button>
         <button
+          className={catalogTab === 'combos' ? 'primary' : ''}
+          onClick={() => setCatalogTab('combos')}
+        >
+          Combos
+        </button>
+        <button
           className={catalogTab === 'ingredients' ? 'primary' : ''}
           aria-label={`Ingredientes (${ingredients.length})`}
           onClick={() => setCatalogTab('ingredients')}
@@ -318,7 +325,13 @@ export function AdminCatalog(props: AdminCatalogProps) {
           Categorias
         </button>
       </S.CatalogTabs>
-      {catalogTab === 'ingredients' ? (
+      {catalogTab === 'combos' ? (
+        <AdminCombos
+          products={products}
+          money={money}
+          onChanged={props.onImportComplete}
+        />
+      ) : catalogTab === 'ingredients' ? (
         <S.IngredientWorkspace>
           <C.IngredientWorkflowHint>
             <CircleHelp /> <b>Como funciona?</b> <span>Cadastre</span> <ArrowRight />
