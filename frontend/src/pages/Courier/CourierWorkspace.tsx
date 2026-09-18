@@ -942,6 +942,16 @@ export default function CourierWorkspace() {
                     points={routePoints}
                     routePath={routePath}
                     destination={routeDestination || undefined}
+                    destinationQuery={[
+                      priorityDelivery?.address,
+                      priorityDelivery?.number,
+                      priorityDelivery?.district,
+                      priorityDelivery?.city,
+                      priorityDelivery?.state,
+                      'Brasil',
+                    ]
+                      .filter(Boolean)
+                      .join(', ')}
                     label={user?.name || 'Motoqueiro'}
                     statusMessage="Rastreamento ativo"
                     statusDetail="Sua localização está sendo compartilhada somente com o cliente deste pedido."
