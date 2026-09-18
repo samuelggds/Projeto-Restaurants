@@ -686,6 +686,9 @@ test('pagamento imediato mantém cartão no pedido e reserva as unidades como PR
   };
   const tx = {
     $queryRaw: async () => [],
+    order: {
+      findFirst: async () => null,
+    },
     restaurantSettings: {
       findUnique: async () => ({ deliveryFee: 0, minimumOrder: 0, tableOrderingEnabled: true }),
     },
