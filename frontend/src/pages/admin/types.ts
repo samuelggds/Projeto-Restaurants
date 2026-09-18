@@ -368,6 +368,7 @@ export type AdminPageProps = {
   onOpenSettings?: () => void;
   onSaveSettings?: (settings: AdminSettings) => void | Promise<void>;
   onConnectMercadoPago?: () => void | Promise<void>;
+  onDisconnectMercadoPago?: () => void | Promise<void>;
   onLoadPaymentConnections?: () => Promise<PaymentConnectionOverview>;
   onConnectPagBank?: () => void | Promise<void>;
   onOnboardAsaas?: (payload: {
