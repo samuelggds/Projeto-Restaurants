@@ -9,6 +9,7 @@ import { pagBankApiBaseUrl } from '../../payments/providers/pagBankCheckout.js';
 import type { CardProvider } from '../../payments/providers/providerCatalog.js';
 import { CARD_PROVIDERS } from '../../payments/providers/providerCatalog.js';
 import { matchesOrderPaymentEvidence } from '../utils/paymentEvidence.js';
+import { normalizeMercadoPagoPaymentMethodId } from '../../customerPaymentMethods/domain/cardBrand.js';
 
 export type DirectCardPaymentPayload = {
   cardToken?: string | null;
@@ -144,7 +145,19 @@ async function mercadoPagoPayment(payload: BasePayload, order: CardOrder, succes
   if (payload.paymentMethodId && !stored) {
     throw new CardPaymentDeclinedError('O cartão salvo selecionado não foi encontrado.');
   }
-  const paymentMethodId = String(stored?.brand || payload.cardPaymentMethodId || '').trim();
+  const tokenPaymentMethodId = normalizeMercadoPagoPaymentMethodId(payload.cardPaymentMethodId);
+  const storedPaymentMethodId = normalizeMercadoPagoPaymentMethodId(stored?.brand);
+  if (
+    stored &&
+    tokenPaymentMethodId &&
+    storedPaymentMethodId &&
+    tokenPaymentMethodId !== storedPaymentMethodId
+  ) {
+    throw new CardPaymentDeclinedError(
+      'O cartão validado não corresponde à bandeira do cartão salvo.',
+    );
+  }
+  const paymentMethodId = tokenPaymentMethodId || storedPaymentMethodId;
   if (!paymentMethodId) {
     throw new CardPaymentDeclinedError('Não foi possível identificar a bandeira do cartão.');
   }
