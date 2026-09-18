@@ -87,6 +87,7 @@ class CreateOrderPixPaymentController {
         }
       }
 
+      const pixExpiresAt = new Date(Date.now() + 30 * 60 * 1000);
       let result;
       try {
         result = await orderPixPaymentService.createPixPayment({
@@ -108,6 +109,7 @@ class CreateOrderPixPaymentController {
           orderTotal: Number(order.total),
           orderSubtotal: Number(order.itemsSubtotal) - Number(order.couponDiscount),
           orderDeliveryFee: Number(order.deliveryFeeAmount),
+          expiresAt: pixExpiresAt,
         });
       } catch (error) {
         console.error('[PIX_PAYMENT_CREATION_UNCERTAIN]', {
@@ -123,6 +125,7 @@ class CreateOrderPixPaymentController {
           orderId: order.id,
           restaurantId: resolvedRestaurantId,
           paymentId: String(result.paymentId || ''),
+          expiresAt: pixExpiresAt,
         });
       } catch (error: unknown) {
         console.error(
