@@ -71,8 +71,11 @@ function getApiBaseUrls() {
   }
 
   if (!isLocalRuntimeHost) {
-    if (configuredUrl) urls.add(configuredUrl);
-    if (!developmentProxyUrl && sameOriginUrl) urls.add(sameOriginUrl);
+    // Production uses a dedicated API origin. Falling back to the frontend origin is unsafe:
+    // nginx serves the SPA there and rejects API POSTs with 405, while GETs may return index.html.
+    // Keep production requests pinned to VITE_API_URL instead of mutating the client to APP_DOMAIN
+    // after a transient network failure.
+    if (configuredUrl && configuredUrl !== sameOriginUrl) urls.add(configuredUrl);
     return Array.from(urls);
   }
 
@@ -156,6 +159,15 @@ export function refreshAccessToken(expectedUserId: unknown = getAuthSessionUserI
 
 api.interceptors.request.use(
   (config) => {
+    const runtimeHost = getRuntimeHost();
+    const isProductionBrowser =
+      typeof window !== 'undefined' && !import.meta.env.DEV && !LOCAL_HOSTS.includes(runtimeHost);
+    if (isProductionBrowser && !normalizeBaseUrl(config.baseURL || api.defaults.baseURL)) {
+      return Promise.reject(
+        new Error('A API do sistema não está configurada corretamente. Atualize a página e tente novamente.'),
+      );
+    }
+
     const token = getAccessToken();
     if (token) config.headers.Authorization = `Bearer ${token}`;
 
