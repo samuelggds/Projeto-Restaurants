@@ -461,6 +461,10 @@ export default function Home() {
       await loyalty.refresh();
       if (mesaMode) await tableAccount.refresh({ silent: true });
     },
+    onPixPaymentCreated: ({ orderPublicId }) => {
+      if (!restaurantSlug) return;
+      navigate(`/${restaurantSlug}/pedido/${orderPublicId}/pagamento`);
+    },
     onClearCart: () => setCart([]),
     onCloseCart: () => setCartOpen(false),
   });
