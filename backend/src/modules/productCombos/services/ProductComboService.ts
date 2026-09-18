@@ -103,17 +103,34 @@ async function ensureComboCategory(db: Parameters<typeof setTenantDbContext>[0],
   return created.id;
 }
 
-function normalizeCombo<T extends Record<string, any>>(product: T) {
+type ComboPresentationProduct = Record<string, unknown> & {
+  price?: unknown;
+  comboGroups?: Array<
+    Record<string, unknown> & {
+      options?: Array<
+        Record<string, unknown> & {
+          additionalPrice?: unknown;
+          componentProduct?: (Record<string, unknown> & { price?: unknown }) | null;
+        }
+      >;
+    }
+  >;
+};
+
+function normalizeCombo(product: ComboPresentationProduct) {
   return {
     ...product,
     price: Number(product.price || 0),
-    comboGroups: (product.comboGroups || []).map((group: Record<string, any>) => ({
+    comboGroups: (product.comboGroups || []).map((group) => ({
       ...group,
-      options: (group.options || []).map((option: Record<string, any>) => ({
+      options: (group.options || []).map((option) => ({
         ...option,
         additionalPrice: Number(option.additionalPrice || 0),
         componentProduct: option.componentProduct
-          ? { ...option.componentProduct, price: Number(option.componentProduct.price || 0) }
+          ? {
+              ...option.componentProduct,
+              price: Number(option.componentProduct.price || 0),
+            }
           : null,
       })),
     })),
@@ -129,7 +146,7 @@ class ProductComboService {
         include: comboInclude,
         orderBy: [{ active: 'desc' }, { createdAt: 'desc' }],
       });
-      return combos.map((combo) => normalizeCombo(combo as never));
+      return combos.map((combo) => normalizeCombo(combo as unknown as ComboPresentationProduct));
     });
   }
 
@@ -227,7 +244,7 @@ class ProductComboService {
         include: comboInclude,
       });
       if (!saved) throw new Error('Não foi possível carregar o combo salvo.');
-      return normalizeCombo(saved as never);
+      return normalizeCombo(saved as unknown as ComboPresentationProduct);
     });
   }
 
