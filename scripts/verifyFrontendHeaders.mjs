@@ -149,6 +149,16 @@ try {
       const connectSrc = directives.get('connect-src') || '';
       assert.match(connectSrc, /https:\/\/api\.headers\.test/u, path);
       assert.match(scriptSrc, /https:\/\/sdk\.mercadopago\.com/u, `${path}: Mercado Pago SDK`);
+      assert.match(
+        scriptSrc,
+        /sha256-jScCZLu0SadLFc4DoxXZPwUjNQGwU92I1\+SMbW1n2Uk=/u,
+        `${path}: Mercado Pago inline SDK hash`,
+      );
+      assert.doesNotMatch(
+        scriptSrc,
+        /'unsafe-inline'/u,
+        `${path}: scripts inline continuam bloqueados por padrão`,
+      );
       assert.match(frameSrc, /https:\/\/\*\.mercadopago\.com/u, `${path}: Mercado Pago secure fields`);
       assert.match(connectSrc, /https:\/\/api\.mercadopago\.com/u, `${path}: Mercado Pago API`);
       assert.match(connectSrc, /https:\/\/\*\.mercadopago\.com/u, `${path}: Mercado Pago services`);
