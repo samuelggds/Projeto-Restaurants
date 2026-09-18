@@ -11,7 +11,6 @@ import {
   getMercadoPagoAccessToken,
   getPagBankAccessToken,
 } from '../../restaurantSettings/services/RestaurantPaymentCredentialsService.js';
-import { getMercadoPagoMarketplacePublicKey } from '../../restaurantSettings/services/MercadoPagoMarketplaceCardConfig.js';
 
 const router = Router();
 router.use(authMiddleware);
@@ -107,11 +106,17 @@ async function gatewayContext(restaurantId: number) {
   }
   if (provider === 'MERCADO_PAGO') {
     const token = await getMercadoPagoAccessToken(restaurantId);
+    const publicKey = String(settings?.mercadoPagoPublicKey || '').trim();
+    if (!publicKey) {
+      throw new Error(
+        'Mercado Pago desconectado ou incompleto. Reconecte este restaurante antes de cadastrar cartões.',
+      );
+    }
     return {
       provider,
       token,
       baseUrl: 'https://api.mercadopago.com',
-      publicKey: getMercadoPagoMarketplacePublicKey(),
+      publicKey,
     };
   }
   if (provider === 'ASAAS') {
