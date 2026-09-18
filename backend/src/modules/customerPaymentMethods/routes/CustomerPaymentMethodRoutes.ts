@@ -368,29 +368,49 @@ router.post('/', async (req, res): Promise<void> => {
       throw new Error('O provedor não retornou os dados necessários para salvar este cartão.');
     }
     const method = await withTenantDbContext(restaurantId, async (db) => {
+      const uniquePaymentMethod = {
+        userId,
+        restaurantId,
+        provider: context.provider,
+        providerPaymentMethodId: providerId,
+      };
+      const existing = await db.customerPaymentMethod.findUnique({
+        where: {
+          userId_restaurantId_provider_providerPaymentMethodId: uniquePaymentMethod,
+        },
+      });
       const count = await db.customerPaymentMethod.count({
         where: { userId, restaurantId, active: true },
       });
-      const makeDefault = parsed.data.isDefault || count === 0;
+      const makeDefault =
+        parsed.data.isDefault || count === 0 || Boolean(existing?.active && existing.isDefault);
+
       if (makeDefault)
         await db.customerPaymentMethod.updateMany({
           where: { userId, restaurantId },
           data: { isDefault: false },
         });
-      return db.customerPaymentMethod.create({
-        data: {
-          userId,
-          restaurantId,
-          provider: context.provider,
-          providerPaymentMethodId: providerId,
-          providerCustomerId,
-          brand: normalizeStoredCardBrand(resolvedBrand),
-          last4: resolvedLast4,
-          expMonth: resolvedExpMonth,
-          expYear: resolvedExpYear,
-          holderName: parsed.data.holderName,
-          isDefault: makeDefault,
+
+      const paymentMethodData = {
+        providerCustomerId,
+        brand: normalizeStoredCardBrand(resolvedBrand),
+        last4: resolvedLast4,
+        expMonth: resolvedExpMonth,
+        expYear: resolvedExpYear,
+        holderName: parsed.data.holderName,
+        isDefault: makeDefault,
+        active: true,
+      };
+
+      return db.customerPaymentMethod.upsert({
+        where: {
+          userId_restaurantId_provider_providerPaymentMethodId: uniquePaymentMethod,
         },
+        create: {
+          ...uniquePaymentMethod,
+          ...paymentMethodData,
+        },
+        update: paymentMethodData,
       });
     });
     res.status(201).json({ paymentMethod: toPublicPaymentMethod(method) });
