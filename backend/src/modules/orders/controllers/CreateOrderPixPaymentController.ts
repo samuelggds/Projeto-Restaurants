@@ -9,6 +9,7 @@ import { orderCreationContext } from '../services/orderCreationRequest.js';
 import { OrderRequestError } from '../domain/OrderRequestError.js';
 import { recordWhatsappOrderNotificationOptIn } from '../../../services/whatsappOrderConsent.js';
 import { safeErrorName } from '../../../services/telemetrySanitizer.js';
+import { onlinePaymentExpiresAt } from '../../payments/domain/onlinePaymentPolicy.js';
 
 class CreateOrderPixPaymentController {
   async handle(req: Request, res: Response) {
@@ -87,7 +88,7 @@ class CreateOrderPixPaymentController {
         }
       }
 
-      const pixExpiresAt = new Date(Date.now() + 30 * 60 * 1000);
+      const pixExpiresAt = onlinePaymentExpiresAt();
       let result;
       try {
         result = await orderPixPaymentService.createPixPayment({
