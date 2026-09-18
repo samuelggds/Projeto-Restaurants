@@ -4,6 +4,7 @@ import jwt from 'jsonwebtoken';
 import {
   issueGuestOrderOwnershipToken,
   verifyGuestOrderOwnershipToken,
+  verifyGuestOrderOwnershipTokenByPublicId,
 } from './guestOrderOwnershipToken.js';
 
 const originalSecret = process.env.GUEST_ORDER_OWNERSHIP_SECRET;
@@ -16,6 +17,22 @@ test('emite comprovante restrito ao pedido e publicId', () => {
     orderId: 91,
     publicId: 'public-91',
   });
+});
+
+test('valida o mesmo comprovante pelo publicId da rota de pagamento', () => {
+  const token = issueGuestOrderOwnershipToken({ orderId: 91, publicId: 'public-91' });
+  assert.deepEqual(verifyGuestOrderOwnershipTokenByPublicId(token, 'public-91'), {
+    orderId: 91,
+    publicId: 'public-91',
+  });
+});
+
+test('recusa usar o comprovante em outro publicId', () => {
+  const token = issueGuestOrderOwnershipToken({ orderId: 91, publicId: 'public-91' });
+  assert.throws(
+    () => verifyGuestOrderOwnershipTokenByPublicId(token, 'public-92'),
+    /Comprovação de propriedade do pedido inválida/,
+  );
 });
 
 test('recusa usar o comprovante em outro pedido', () => {
