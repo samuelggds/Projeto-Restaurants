@@ -1,4 +1,5 @@
 import OpenAI from 'openai';
+import type { Prisma } from '@prisma/client';
 import { z } from 'zod';
 import { setTenantDbContext, withTenantDbContext } from '../../../database/tenantDbContext.js';
 import { calculateImageUsageCostUsd } from '../../aiSupport/services/openAiUsageCost.js';
@@ -87,7 +88,7 @@ const comboInclude = {
       },
     },
   },
-} as const;
+} satisfies Prisma.ProductInclude;
 
 async function ensureComboCategory(db: Parameters<typeof setTenantDbContext>[0], tenantId: number) {
   const existing = await db.category.findFirst({
