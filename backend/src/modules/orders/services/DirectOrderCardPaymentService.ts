@@ -239,7 +239,17 @@ async function mercadoPagoPayment(payload: BasePayload, order: CardOrder, succes
   const accessToken = await getMercadoPagoAccessToken(order.restaurantId);
   const total = amount(order.total);
   const reference = mercadoPagoCardExternalReference(order.id, order.restaurantId);
-  const email = await payerEmail(payload, order);
+  const storedCustomerId = String(stored?.providerCustomerId || '').trim();
+
+  if (stored && !storedCustomerId) {
+    throw new CardPaymentDeclinedError(
+      'Este cartão salvo precisa ser cadastrado novamente antes do pagamento.',
+    );
+  }
+
+  const payer = stored
+    ? { customer_id: storedCustomerId }
+    : { email: await payerEmail(payload, order) };
 
   const body = {
     type: 'online',
@@ -247,7 +257,7 @@ async function mercadoPagoPayment(payload: BasePayload, order: CardOrder, succes
     total_amount: total.toFixed(2),
     external_reference: reference,
     description: `Pedido #${order.id}`,
-    payer: { email },
+    payer,
     transactions: {
       payments: [
         {
