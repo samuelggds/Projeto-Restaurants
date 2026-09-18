@@ -629,6 +629,7 @@ class OrderRepository {
         paymentMethod: true,
         payOnDelivery: true,
         pixPaymentId: true,
+        pixExpiresAt: true,
         restaurant: {
           select: {
             id: true,
@@ -807,6 +808,7 @@ class OrderRepository {
     restaurantId: number,
     pixPaymentId: string,
     db: PrismaClientLike = prisma,
+    pixExpiresAt?: Date | null,
   ) {
     const normalizedPaymentId = String(pixPaymentId || '').trim();
     if (!normalizedPaymentId) {
@@ -831,7 +833,10 @@ class OrderRepository {
           status: { not: OrderStatus.CANCELADO },
           OR: [{ pixPaymentId: null }, { pixPaymentId: normalizedPaymentId }],
         },
-        data: { pixPaymentId: normalizedPaymentId },
+        data: {
+          pixPaymentId: normalizedPaymentId,
+          ...(pixExpiresAt ? { pixExpiresAt } : {}),
+        },
       });
     } catch (error) {
       if (isUniqueConstraintError(error)) {
