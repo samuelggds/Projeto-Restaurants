@@ -44,6 +44,7 @@ class GetOrderPixPaymentRecoveryService {
       paidAt: order.paidAt,
       orderStatus: order.status,
       paymentMethod: order.paymentMethod,
+      expiresAt: order.pixExpiresAt,
     };
 
     if (String(order.status || '').toUpperCase() === 'CANCELADO' && !order.paid) {
@@ -52,6 +53,19 @@ class GetOrderPixPaymentRecoveryService {
         paymentId: order.pixPaymentId || null,
         provider: null,
         status: 'canceled',
+        isApproved: false,
+        qrCode: null,
+        qrCodeBase64: null,
+        requiresStatusCheck: false,
+      };
+    }
+
+    if (order.pixExpiresAt && order.pixExpiresAt.getTime() <= Date.now() && !order.paid) {
+      return {
+        ...base,
+        paymentId: order.pixPaymentId || null,
+        provider: null,
+        status: 'expired',
         isApproved: false,
         qrCode: null,
         qrCodeBase64: null,
