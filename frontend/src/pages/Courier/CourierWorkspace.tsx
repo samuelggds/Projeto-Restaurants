@@ -38,6 +38,7 @@ import { CourierPickupQueue } from './components/CourierPickupQueue';
 import { COURIER_VIEW_TITLES, getCourierListViewMeta, type CourierView } from './courierViewMeta';
 import {
   compareReadyForPickupOrders,
+  formatCourierDeliveryAddress,
   getNormalizedOrderStatus,
   isCourierDeliveryOrder,
   isCourierOrderVisibleToAccount,
@@ -809,14 +810,7 @@ export default function CourierWorkspace() {
                   )}
                 </p>
                 <strong>
-                  {[
-                    priorityDelivery.address,
-                    priorityDelivery.number,
-                    priorityDelivery.district,
-                    priorityDelivery.city,
-                  ]
-                    .filter(Boolean)
-                    .join(', ') || 'Endereço não informado'}
+                  {formatCourierDeliveryAddress(priorityDelivery) || 'Endereço não informado'}
                 </strong>
               </div>
               <S.ActiveDeliveryActions>
@@ -888,14 +882,7 @@ export default function CourierWorkspace() {
                       )}
                     </p>
                     <strong>
-                      {[
-                        priorityDelivery.address,
-                        priorityDelivery.number,
-                        priorityDelivery.district,
-                        priorityDelivery.city,
-                      ]
-                        .filter(Boolean)
-                        .join(', ') || 'Endereço não informado'}
+                      {formatCourierDeliveryAddress(priorityDelivery) || 'Endereço não informado'}
                     </strong>
                   </div>
                   <S.ActiveDeliveryActions>
@@ -942,6 +929,7 @@ export default function CourierWorkspace() {
                     points={routePoints}
                     routePath={routePath}
                     destination={routeDestination || undefined}
+                    destinationQuery={formatCourierDeliveryAddress(priorityDelivery)}
                     label={user?.name || 'Motoqueiro'}
                     statusMessage="Rastreamento ativo"
                     statusDetail="Sua localização está sendo compartilhada somente com o cliente deste pedido."

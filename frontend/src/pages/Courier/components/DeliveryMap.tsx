@@ -87,10 +87,18 @@ function RecenterButton({ point, destination }: { point: RoutePoint; destination
   );
 }
 
-function wazeUrlFor(destination?: RoutePoint & { label?: string }) {
-  if (!destination) return '';
+function wazeUrlFor(
+  destination?: RoutePoint & { label?: string },
+  destinationQuery?: string,
+) {
+  const query = String(destinationQuery || destination?.label || '').trim();
+  if (!destination && !query) return '';
   const url = new URL('https://waze.com/ul');
-  url.searchParams.set('ll', `${destination.latitude},${destination.longitude}`);
+  if (destination) {
+    url.searchParams.set('ll', `${destination.latitude},${destination.longitude}`);
+  } else {
+    url.searchParams.set('q', query);
+  }
   url.searchParams.set('navigate', 'yes');
   return url.toString();
 }
@@ -99,14 +107,16 @@ function CourierWazeLauncher({
   destination,
   routePath,
   statusDetail,
+  destinationQuery,
 }: {
   destination?: RoutePoint & { label?: string };
   routePath: RoutePoint[];
   statusDetail: string;
+  destinationQuery?: string;
 }) {
   const fallbackDestination = routePath[routePath.length - 1];
   const target = destination || fallbackDestination;
-  const wazeUrl = wazeUrlFor(target);
+  const wazeUrl = wazeUrlFor(target, destinationQuery);
 
   return (
     <S.WazeLauncher className="delivery-map-shell">
@@ -184,10 +194,12 @@ export default function DeliveryMap({
   statusMessage = 'Seu pedido está a caminho',
   statusDetail = 'A posição é atualizada automaticamente.',
   tilesEnabled = true,
+  destinationQuery,
 }: {
   points: RoutePoint[];
   routePath?: RoutePoint[];
   destination?: RoutePoint & { label?: string };
+  destinationQuery?: string;
   label?: string;
   statusMessage?: string;
   statusDetail?: string;
@@ -215,6 +227,7 @@ export default function DeliveryMap({
         destination={destination}
         routePath={routePath}
         statusDetail={statusDetail}
+        destinationQuery={destinationQuery}
       />
     );
   }

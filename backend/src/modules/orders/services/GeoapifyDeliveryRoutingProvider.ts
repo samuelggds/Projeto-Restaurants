@@ -1,13 +1,14 @@
-import { buildDeliveryDestination, hasValidCoordinates } from '../utils/deliveryRouteEstimate.js';
+import {
+  buildDeliveryDestination,
+  hasValidCoordinates,
+  limitRouteCoordinates,
+  type DeliveryCoordinates,
+  type DeliveryRouteEstimate,
+} from '../utils/deliveryRouteEstimate.js';
 import type {
   DeliveryRoutingProvider,
   DeliveryRoutingRequest,
 } from './DeliveryRoutingProvider.js';
-
-type DeliveryCoordinates = {
-  latitude: number;
-  longitude: number;
-};
 
 type GeoapifyGeocodeResponse = {
   results?: Array<{
@@ -17,8 +18,21 @@ type GeoapifyGeocodeResponse = {
 };
 
 type GeoapifyRoutingResponse = {
+  features?: Array<{
+    properties?: {
+      distance?: number;
+      time?: number;
+    };
+    geometry?: {
+      coordinates?: unknown;
+    };
+  }>;
   results?: Array<{
     distance?: number;
+    time?: number;
+    geometry?: {
+      coordinates?: unknown;
+    };
   }>;
 };
 
@@ -75,11 +89,35 @@ function setBoundedCacheValue<T>(
   });
 }
 
+function parseRouteCoordinates(value: unknown): DeliveryCoordinates[] {
+  const coordinates: DeliveryCoordinates[] = [];
+
+  const visit = (node: unknown) => {
+    if (!Array.isArray(node)) return;
+    if (
+      node.length >= 2 &&
+      typeof node[0] === 'number' &&
+      typeof node[1] === 'number'
+    ) {
+      const point = {
+        longitude: Number(node[0]),
+        latitude: Number(node[1]),
+      };
+      if (hasValidCoordinates(point)) coordinates.push(point);
+      return;
+    }
+    node.forEach(visit);
+  };
+
+  visit(value);
+  return coordinates;
+}
+
 class GeoapifyDeliveryRoutingProvider implements DeliveryRoutingProvider {
   readonly id = 'geoapify' as const;
 
   private geocodeCache = new Map<string, CachedValue<DeliveryCoordinates | null>>();
-  private routeCache = new Map<string, CachedValue<number | null>>();
+  private routeCache = new Map<string, CachedValue<DeliveryRouteEstimate | null>>();
 
   private get apiKey() {
     return String(process.env.GEOAPIFY_API_KEY || '').trim();
@@ -99,7 +137,7 @@ class GeoapifyDeliveryRoutingProvider implements DeliveryRoutingProvider {
     return positiveInteger(process.env.ROUTING_CACHE_MAX_ENTRIES, 5000);
   }
 
-  private async geocode(address: DeliveryRoutingRequest['origin']) {
+  async geocodeAddress(address: DeliveryRoutingRequest['origin']) {
     if (!this.apiKey) return null;
 
     const text = buildDeliveryDestination(address);
@@ -147,33 +185,42 @@ class GeoapifyDeliveryRoutingProvider implements DeliveryRoutingProvider {
     }
   }
 
-  async calculateDistanceMeters({ origin, destination }: DeliveryRoutingRequest) {
-    if (!this.apiKey) return null;
-
-    const [originCoordinates, destinationCoordinates] = await Promise.all([
-      this.geocode(origin),
-      this.geocode(destination),
-    ]);
-
-    if (!originCoordinates || !destinationCoordinates) return null;
+  private async calculateRoute(
+    origin: DeliveryCoordinates,
+    destination: DeliveryCoordinates,
+    destinationLabel: string,
+    mode: 'drive' | 'motorcycle',
+    requireDuration = true,
+  ): Promise<DeliveryRouteEstimate | null> {
+    if (!this.apiKey || !hasValidCoordinates(origin) || !hasValidCoordinates(destination)) {
+      return null;
+    }
 
     const routeCacheKey = [
-      originCoordinates.latitude.toFixed(5),
-      originCoordinates.longitude.toFixed(5),
-      destinationCoordinates.latitude.toFixed(5),
-      destinationCoordinates.longitude.toFixed(5),
+      mode,
+      origin.latitude.toFixed(5),
+      origin.longitude.toFixed(5),
+      destination.latitude.toFixed(5),
+      destination.longitude.toFixed(5),
     ].join(':');
     const cachedRoute = getFreshCachedValue(this.routeCache, routeCacheKey);
-    if (cachedRoute !== undefined) return cachedRoute;
+    if (cachedRoute !== undefined) {
+      return cachedRoute
+        ? {
+            ...cachedRoute,
+            destination: { ...destination, label: destinationLabel },
+          }
+        : null;
+    }
 
     try {
       const url = new URL(`${this.baseUrl}/v1/routing`);
       url.searchParams.set(
         'waypoints',
-        `${originCoordinates.latitude},${originCoordinates.longitude}|${destinationCoordinates.latitude},${destinationCoordinates.longitude}`,
+        `${origin.latitude},${origin.longitude}|${destination.latitude},${destination.longitude}`,
       );
-      url.searchParams.set('mode', 'drive');
-      url.searchParams.set('format', 'json');
+      url.searchParams.set('mode', mode);
+      url.searchParams.set('format', 'geojson');
       url.searchParams.set('apiKey', this.apiKey);
 
       const response = await fetch(url, {
@@ -183,18 +230,39 @@ class GeoapifyDeliveryRoutingProvider implements DeliveryRoutingProvider {
       if (!response.ok) return null;
 
       const payload = (await response.json()) as GeoapifyRoutingResponse;
-      const rawDistanceMeters = Number(payload.results?.[0]?.distance);
-      const distanceMeters =
-        Number.isFinite(rawDistanceMeters) && rawDistanceMeters >= 0 ? rawDistanceMeters : null;
+      const feature = payload.features?.[0];
+      const result = payload.results?.[0];
+      const rawDurationSeconds = Number(feature?.properties?.time ?? result?.time);
+      const rawDistanceMeters = Number(feature?.properties?.distance ?? result?.distance);
+      const routeCoordinates = limitRouteCoordinates(
+        parseRouteCoordinates(feature?.geometry?.coordinates ?? result?.geometry?.coordinates),
+      );
+      const hasDuration = Number.isFinite(rawDurationSeconds) && rawDurationSeconds > 0;
+      const hasDistance = Number.isFinite(rawDistanceMeters) && rawDistanceMeters >= 0;
+
+      const estimate =
+        (requireDuration ? hasDuration : hasDistance)
+          ? {
+              durationSeconds: hasDuration ? Math.round(rawDurationSeconds) : 0,
+              distanceMeters: hasDistance ? Math.round(rawDistanceMeters) : null,
+              provider: 'GEOAPIFY' as const,
+              routeCoordinates:
+                routeCoordinates.length >= 2 ? routeCoordinates : [origin, destination],
+              destination: {
+                ...destination,
+                label: destinationLabel,
+              },
+            }
+          : null;
 
       setBoundedCacheValue(
         this.routeCache,
         routeCacheKey,
-        distanceMeters,
+        estimate,
         ROUTE_CACHE_TTL_MS,
         this.maximumCacheEntries,
       );
-      return distanceMeters;
+      return estimate;
     } catch (error) {
       console.warn(
         '[delivery-route] Geoapify nao conseguiu calcular a rota',
@@ -202,6 +270,43 @@ class GeoapifyDeliveryRoutingProvider implements DeliveryRoutingProvider {
       );
       return null;
     }
+  }
+
+  async calculateRouteEstimate(input: DeliveryCoordinates & {
+    destination: DeliveryRoutingRequest['destination'];
+  }) {
+    const destinationLabel = buildDeliveryDestination(input.destination);
+    if (!destinationLabel || !hasValidCoordinates(input)) return null;
+
+    const destinationCoordinates = await this.geocodeAddress(input.destination);
+    if (!destinationCoordinates) return null;
+
+    return this.calculateRoute(
+      { latitude: input.latitude, longitude: input.longitude },
+      destinationCoordinates,
+      destinationLabel,
+      'motorcycle',
+    );
+  }
+
+  async calculateDistanceMeters({ origin, destination }: DeliveryRoutingRequest) {
+    if (!this.apiKey) return null;
+
+    const [originCoordinates, destinationCoordinates] = await Promise.all([
+      this.geocodeAddress(origin),
+      this.geocodeAddress(destination),
+    ]);
+
+    if (!originCoordinates || !destinationCoordinates) return null;
+
+    const estimate = await this.calculateRoute(
+      originCoordinates,
+      destinationCoordinates,
+      buildDeliveryDestination(destination),
+      'drive',
+      false,
+    );
+    return estimate?.distanceMeters ?? null;
   }
 }
 

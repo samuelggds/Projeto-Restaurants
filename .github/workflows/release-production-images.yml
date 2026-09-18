@@ -91,6 +91,7 @@ jobs:
           APP_URL: ${{ vars.PRODUCTION_APP_URL }}
           API_URL: ${{ vars.PRODUCTION_API_URL }}
           MAP_TILE_URL: ${{ vars.PRODUCTION_VITE_MAP_TILE_URL }}
+          GOOGLE_MAPS_API_KEY: ${{ vars.PRODUCTION_VITE_GOOGLE_MAPS_API_KEY }}
         run: |
           set -euo pipefail
           case "$APP_URL" in https://*) ;; *) echo 'PRODUCTION_APP_URL must be HTTPS.' >&2; exit 1 ;; esac
@@ -102,6 +103,7 @@ jobs:
             exit 1
           fi
           test -n "$MAP_TILE_URL"
+          test -n "$GOOGLE_MAPS_API_KEY" || { echo 'PRODUCTION_VITE_GOOGLE_MAPS_API_KEY is required for customer delivery tracking.' >&2; exit 1; }
 
       - name: Prepare immutable image names and build-config evidence
         id: images
