@@ -6,6 +6,7 @@ import asaasPaymentVerificationService from './AsaasPaymentVerificationService.j
 import finalizeOrderCardPaymentService from './FinalizeOrderCardPaymentService.js';
 import { getMercadoPagoOrderApi } from '../../payments/providers/mercadoPagoClient.js';
 import { matchesOrderPaymentEvidence } from '../utils/paymentEvidence.js';
+import { mercadoPagoCardExternalReferenceCandidates } from '../domain/mercadoPagoCardReference.js';
 
 const publicOrderIdSchema = z.string().uuid();
 const notFoundMessage = 'Pagamento com cartão não encontrado.';
@@ -65,11 +66,9 @@ class GetOrderCardPaymentStatusService {
         const providerOrderId = sessionId.slice('mp_order:'.length);
         const remote = await (await getMercadoPagoOrderApi(order.restaurantId)).get(providerOrderId);
         const reference = String(remote.external_reference || '').trim();
-        const validReference = new Set([
-          `ordercard:${order.id}:${order.restaurantId}`,
-          `ordercard-${order.id}-${order.restaurantId}`,
-          `ordercard_${order.id}_${order.restaurantId}`,
-        ]).has(reference);
+        const validReference = new Set(
+          mercadoPagoCardExternalReferenceCandidates(order.id, order.restaurantId),
+        ).has(reference);
         if (
           String(remote.status || '').toLowerCase() === 'processed' &&
           validReference &&
