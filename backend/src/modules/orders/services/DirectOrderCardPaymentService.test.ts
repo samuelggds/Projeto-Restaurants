@@ -5,6 +5,7 @@ import restaurantSettingsRepository from '../../restaurantSettings/repositories/
 import { CARD_PROVIDERS } from '../../payments/providers/providerCatalog.js';
 import directOrderCardPaymentService, {
   CardPaymentProviderRequestError,
+  mercadoPagoDeclineDetails,
 } from './DirectOrderCardPaymentService.js';
 
 const originalFetch = globalThis.fetch;
@@ -140,5 +141,29 @@ test('property_value do Mercado Pago não é tratado como cartão recusado', asy
       error.providerStatus === 400 &&
       error.providerCode === 'property_value' &&
       error.message === 'Não foi possível processar o cartão neste momento.',
+  );
+});
+
+
+test('extrai status_detail seguro da recusa Mercado Pago', () => {
+  assert.deepEqual(
+    mercadoPagoDeclineDetails({
+      errors: [{ message: 'The following transactions failed' }],
+      data: {
+        transactions: {
+          payments: [
+            {
+              status: 'failed',
+              status_detail: 'cc_rejected_bad_filled_security_code',
+              token: 'nao-deve-ser-logado',
+            },
+          ],
+        },
+      },
+    }),
+    {
+      transactionStatus: 'failed',
+      transactionStatusDetail: 'cc_rejected_bad_filled_security_code',
+    },
   );
 });

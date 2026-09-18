@@ -116,6 +116,50 @@ function safeProviderMessage(body: Record<string, unknown>, fallback: string) {
     .slice(0, 220);
 }
 
+export function mercadoPagoDeclineDetails(body: Record<string, unknown>) {
+  const data =
+    body.data && typeof body.data === 'object'
+      ? (body.data as Record<string, unknown>)
+      : body;
+  const transactions =
+    data.transactions && typeof data.transactions === 'object'
+      ? (data.transactions as Record<string, unknown>)
+      : null;
+  const payments = Array.isArray(transactions?.payments) ? transactions?.payments : [];
+  const payment =
+    payments[0] && typeof payments[0] === 'object'
+      ? (payments[0] as Record<string, unknown>)
+      : null;
+
+  const errors = providerErrorItems(body);
+  const firstError =
+    errors[0] && typeof errors[0] === 'object'
+      ? (errors[0] as Record<string, unknown>)
+      : null;
+  const errorDetails = Array.isArray(firstError?.details) ? firstError?.details : [];
+  const firstDetail =
+    errorDetails[0] && typeof errorDetails[0] === 'object'
+      ? (errorDetails[0] as Record<string, unknown>)
+      : null;
+
+  const status = String(payment?.status || firstDetail?.status || '').trim().slice(0, 80);
+  const statusDetail = String(
+    payment?.status_detail ||
+      payment?.statusDetail ||
+      firstDetail?.status_detail ||
+      firstDetail?.statusDetail ||
+      firstDetail?.code ||
+      '',
+  )
+    .trim()
+    .slice(0, 160);
+
+  return {
+    transactionStatus: status || null,
+    transactionStatusDetail: statusDetail || null,
+  };
+}
+
 function isMercadoPagoRequestValidationError(status: number, body: Record<string, unknown>) {
   if (status !== 400) return false;
   return new Set([
@@ -278,6 +322,15 @@ async function mercadoPagoPayment(payload: BasePayload, order: CardOrder, succes
       );
     }
     if (result.response.status === 402) {
+      const decline = mercadoPagoDeclineDetails(result.body);
+      console.warn('[MERCADO_PAGO_CARD_DECLINED]', {
+        orderId: order.id,
+        restaurantId: order.restaurantId,
+        providerStatus: result.response.status,
+        providerCode: providerErrorCode(result.body) || 'card_declined',
+        transactionStatus: decline.transactionStatus,
+        transactionStatusDetail: decline.transactionStatusDetail,
+      });
       throw new CardPaymentDeclinedError(
         safeProviderMessage(result.body, 'O Mercado Pago não autorizou este cartão.'),
       );

@@ -11,6 +11,7 @@ import {
   getMercadoPagoAccessToken,
   getPagBankAccessToken,
 } from '../../restaurantSettings/services/RestaurantPaymentCredentialsService.js';
+import { getMercadoPagoMarketplacePublicKey } from '../../restaurantSettings/services/MercadoPagoMarketplaceCardConfig.js';
 
 const router = Router();
 router.use(authMiddleware);
@@ -110,7 +111,7 @@ async function gatewayContext(restaurantId: number) {
       provider,
       token,
       baseUrl: 'https://api.mercadopago.com',
-      publicKey: settings?.mercadoPagoPublicKey,
+      publicKey: getMercadoPagoMarketplacePublicKey(),
     };
   }
   if (provider === 'ASAAS') {
@@ -209,14 +210,7 @@ router.get('/config', async (req, res): Promise<void> => {
       return;
     }
     if (context.provider === 'MERCADO_PAGO') {
-      const publicKey = String(
-        context.publicKey || process.env.MERCADO_PAGO_PUBLIC_KEY || process.env.MP_PUBLIC_KEY || '',
-      ).trim();
-      if (!publicKey)
-        throw new Error(
-          'Configure MERCADO_PAGO_PUBLIC_KEY para cadastrar cartões com Mercado Pago.',
-        );
-      res.json({ provider: context.provider, publicKey });
+      res.json({ provider: context.provider, publicKey: context.publicKey });
       return;
     }
     res.json({ provider: context.provider });
