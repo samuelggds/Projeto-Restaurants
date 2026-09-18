@@ -63,7 +63,7 @@ class ListProductsService {
           ingredient: presentIngredientImage(option.ingredient, normalizedRestaurantId),
         })),
       }));
-      const publicComboGroups = product.comboGroups.map((group) => ({
+      const publicComboGroups = (product.comboGroups || []).map((group) => ({
         ...group,
         options: group.options.map((option) => ({
           ...option,
