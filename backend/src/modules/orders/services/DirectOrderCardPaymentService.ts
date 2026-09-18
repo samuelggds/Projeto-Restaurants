@@ -210,7 +210,6 @@ async function mercadoPagoPayment(payload: BasePayload, order: CardOrder, succes
   const makeBody = (includeFee: boolean) => ({
     type: 'online',
     processing_mode: 'automatic',
-    capture_mode: 'automatic',
     total_amount: total.toFixed(2),
     external_reference: reference,
     description: `Pedido #${order.id}`,
