@@ -10,6 +10,7 @@ import { notifyCustomerPaymentConfirmed } from '../../../services/customerNotifi
 import { safeErrorName } from '../../../services/telemetrySanitizer.js';
 import { resolveOrderRestaurantId } from '../utils/orderTenant.js';
 import orderRepository from '../repositories/OrderRepository.js';
+import { ActiveOnlinePaymentError } from '../domain/ActiveOnlinePaymentError.js';
 
 async function recordUncertainCheckoutWhatsappOptIn(
   req: Request,
@@ -124,6 +125,8 @@ class CreateOrderCardCheckoutController {
         billingPostalCode,
         billingAddressNumber,
         customerIp: req.ip,
+        enforceSingleActiveOnlinePayment:
+          String(req.user?.role || 'CLIENTE').toUpperCase() === 'CLIENTE',
       });
 
       if (whatsappOptIn === true && String(type || '').toUpperCase() !== 'MESA') {
@@ -186,6 +189,18 @@ class CreateOrderCardCheckoutController {
         ...(guestOwnershipToken ? { guestOwnershipToken } : {}),
       });
     } catch (error: unknown) {
+      if (error instanceof ActiveOnlinePaymentError) {
+        return res.status(error.statusCode).json({
+          error: error.message,
+          code: error.code,
+          orderId: error.orderId,
+          orderPublicId: error.orderPublicId,
+          paymentMethod: error.paymentMethod,
+          orderType: error.orderType,
+          expiresAt: error.expiresAt,
+          requestId: req.requestId,
+        });
+      }
       if (error instanceof OrderRequestError) {
         return res
           .status(error.statusCode)

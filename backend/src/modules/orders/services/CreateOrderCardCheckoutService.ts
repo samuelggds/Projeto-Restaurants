@@ -25,7 +25,10 @@ import directOrderCardPaymentService, {
 import failPendingOrderPaymentService from './FailPendingOrderPaymentService.js';
 import { OrderRequestError } from '../domain/OrderRequestError.js';
 
-type CardCheckoutPayload = CreateOrderCardCheckoutPayload & DirectCardPaymentPayload;
+type CardCheckoutPayload = CreateOrderCardCheckoutPayload &
+  DirectCardPaymentPayload & {
+    enforceSingleActiveOnlinePayment?: boolean;
+  };
 
 class CreateOrderCardCheckoutService {
   async resolveCardProvider(payload: CreateOrderCardCheckoutPayload) {

@@ -26,6 +26,7 @@ vi.mock('../../../Services/customerPaymentMethodService', () => ({
 type CheckoutPayments = ReturnType<typeof useCheckoutPayments>;
 type CheckoutPaymentsRef = { current: CheckoutPayments | null };
 const onPaymentConfirmed = vi.fn();
+const onActivePaymentExists = vi.fn();
 
 function Probe({ paymentsRef }: { paymentsRef: CheckoutPaymentsRef }) {
   const checkoutPayments = useCheckoutPayments({
@@ -35,6 +36,7 @@ function Probe({ paymentsRef }: { paymentsRef: CheckoutPaymentsRef }) {
     notify: vi.fn(),
     onPurchased: vi.fn(),
     onPaymentConfirmed,
+    onActivePaymentExists,
     onClearCart: vi.fn(),
     onCloseCart: vi.fn(),
   });
@@ -57,6 +59,7 @@ describe('useCheckoutPayments confirmação canônica do Pix', () => {
   beforeEach(async () => {
     vi.clearAllMocks();
     onPaymentConfirmed.mockReset();
+    onActivePaymentExists.mockReset();
     vi.mocked(ordersService.getPixPaymentStatus).mockReset();
     vi.mocked(ordersService.confirmPixPayment).mockReset();
     setCardPaymentPreparer(async () => ({ cardToken: 'test-card-token' }));
@@ -148,6 +151,35 @@ describe('useCheckoutPayments confirmação canônica do Pix', () => {
       expect(onPaymentConfirmed).not.toHaveBeenCalled();
     },
   );
+
+  it('reaproveita o Pix pendente existente em vez de criar outro pedido', async () => {
+    vi.mocked(ordersService.createPixPayment).mockRejectedValueOnce({
+      response: {
+        status: 409,
+        data: {
+          code: 'ACTIVE_PAYMENT_EXISTS',
+          orderId: 77,
+          orderPublicId: '77777777-7777-4777-8777-777777777777',
+          paymentMethod: 'PIX',
+          expiresAt: '2026-09-18T12:20:00.000Z',
+        },
+      },
+    });
+
+    let consumed = true;
+    await act(async () => {
+      consumed = await checkoutPayments.current!.executePayment({}, 'pix', false, 'PIX');
+    });
+
+    expect(consumed).toBe(false);
+    expect(onActivePaymentExists).toHaveBeenCalledWith({
+      orderId: 77,
+      orderPublicId: '77777777-7777-4777-8777-777777777777',
+      paymentMethod: 'PIX',
+      expiresAt: '2026-09-18T12:20:00.000Z',
+    });
+    expect(onPaymentConfirmed).not.toHaveBeenCalled();
+  });
 
   it('não anuncia pago quando o provedor aprova mas o pedido canônico continua pendente', async () => {
     vi.mocked(ordersService.getPixPaymentStatus).mockResolvedValue({ isApproved: true });
