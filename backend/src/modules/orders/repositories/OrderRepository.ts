@@ -629,7 +629,7 @@ class OrderRepository {
         paymentMethod: true,
         payOnDelivery: true,
         pixPaymentId: true,
-        pixExpiresAt: true,
+        onlinePaymentExpiresAt: true,
         restaurant: {
           select: {
             id: true,
@@ -808,7 +808,7 @@ class OrderRepository {
     restaurantId: number,
     pixPaymentId: string,
     db: PrismaClientLike = prisma,
-    pixExpiresAt?: Date | null,
+    onlinePaymentExpiresAt?: Date | null,
   ) {
     const normalizedPaymentId = String(pixPaymentId || '').trim();
     if (!normalizedPaymentId) {
@@ -835,7 +835,7 @@ class OrderRepository {
         },
         data: {
           pixPaymentId: normalizedPaymentId,
-          ...(pixExpiresAt ? { pixExpiresAt } : {}),
+          ...(onlinePaymentExpiresAt ? { onlinePaymentExpiresAt } : {}),
         },
       });
     } catch (error) {
