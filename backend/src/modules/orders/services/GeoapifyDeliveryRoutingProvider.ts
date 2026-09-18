@@ -27,6 +27,13 @@ type GeoapifyRoutingResponse = {
       coordinates?: unknown;
     };
   }>;
+  results?: Array<{
+    distance?: number;
+    time?: number;
+    geometry?: {
+      coordinates?: unknown;
+    };
+  }>;
 };
 
 type CachedValue<T> = {
@@ -183,6 +190,7 @@ class GeoapifyDeliveryRoutingProvider implements DeliveryRoutingProvider {
     destination: DeliveryCoordinates,
     destinationLabel: string,
     mode: 'drive' | 'motorcycle',
+    requireDuration = true,
   ): Promise<DeliveryRouteEstimate | null> {
     if (!this.apiKey || !hasValidCoordinates(origin) || !hasValidCoordinates(destination)) {
       return null;
@@ -223,20 +231,20 @@ class GeoapifyDeliveryRoutingProvider implements DeliveryRoutingProvider {
 
       const payload = (await response.json()) as GeoapifyRoutingResponse;
       const feature = payload.features?.[0];
-      const rawDurationSeconds = Number(feature?.properties?.time);
-      const rawDistanceMeters = Number(feature?.properties?.distance);
+      const result = payload.results?.[0];
+      const rawDurationSeconds = Number(feature?.properties?.time ?? result?.time);
+      const rawDistanceMeters = Number(feature?.properties?.distance ?? result?.distance);
       const routeCoordinates = limitRouteCoordinates(
-        parseRouteCoordinates(feature?.geometry?.coordinates),
+        parseRouteCoordinates(feature?.geometry?.coordinates ?? result?.geometry?.coordinates),
       );
+      const hasDuration = Number.isFinite(rawDurationSeconds) && rawDurationSeconds > 0;
+      const hasDistance = Number.isFinite(rawDistanceMeters) && rawDistanceMeters >= 0;
 
       const estimate =
-        Number.isFinite(rawDurationSeconds) && rawDurationSeconds > 0
+        (requireDuration ? hasDuration : hasDistance)
           ? {
-              durationSeconds: Math.round(rawDurationSeconds),
-              distanceMeters:
-                Number.isFinite(rawDistanceMeters) && rawDistanceMeters >= 0
-                  ? Math.round(rawDistanceMeters)
-                  : null,
+              durationSeconds: hasDuration ? Math.round(rawDurationSeconds) : 0,
+              distanceMeters: hasDistance ? Math.round(rawDistanceMeters) : null,
               provider: 'GEOAPIFY' as const,
               routeCoordinates:
                 routeCoordinates.length >= 2 ? routeCoordinates : [origin, destination],
@@ -296,6 +304,7 @@ class GeoapifyDeliveryRoutingProvider implements DeliveryRoutingProvider {
       destinationCoordinates,
       buildDeliveryDestination(destination),
       'drive',
+      false,
     );
     return estimate?.distanceMeters ?? null;
   }
