@@ -1117,6 +1117,10 @@ export default function Home() {
             primaryColor={primary}
             order={activeOrder}
             onTrack={(orderId) => navigate(`/orders/${orderId}/tracking`)}
+            onContinuePayment={(orderPublicId) => {
+              if (!restaurantSlug) return;
+              navigate(`/${restaurantSlug}/pedido/${orderPublicId}/pagamento`);
+            }}
             onConfirmDelivery={async (orderId) => {
               await ordersService.confirmDeliveryReceived(orderId);
               await refreshActiveOrder();
