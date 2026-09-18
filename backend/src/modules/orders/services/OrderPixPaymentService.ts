@@ -982,7 +982,7 @@ class OrderPixPaymentService {
       }
       const qrCode = String(result.body?.qr_codes?.[0]?.text || '').trim();
       if (!qrCode) throw new Error('O QR Code desta cobrança PIX não está disponível.');
-      const amountInCents = Number(result.body?.qr_codes?.[0]?.amount?.value);
+      const amountInCents = Number(result.body?.charges?.[0]?.amount?.value);
       const pagBankStatuses = (result.body?.charges || []).map((charge) =>
         String(charge.status || '').toUpperCase(),
       );
