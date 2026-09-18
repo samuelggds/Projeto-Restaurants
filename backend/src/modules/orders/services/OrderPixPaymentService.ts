@@ -54,6 +54,7 @@ type CreatePixPayload = {
   orderTotal?: number;
   orderSubtotal?: number;
   orderDeliveryFee?: number;
+  expiresAt?: Date | string | null;
   /** Supplied only by a persisted, immutable payment attempt. */
   idempotencyKey?: string;
   resumeOnly?: boolean;
@@ -431,6 +432,7 @@ class OrderPixPaymentService {
     orderTotal,
     orderSubtotal,
     orderDeliveryFee,
+    expiresAt,
     idempotencyKey,
     resumeOnly = false,
   }: CreatePixPayload) {
@@ -543,6 +545,15 @@ class OrderPixPaymentService {
       throw new Error('Total do pedido inválido para gerar cobrança PIX.');
     }
 
+    const requestedExpiresAt = expiresAt ? new Date(expiresAt) : null;
+    if (requestedExpiresAt && Number.isNaN(requestedExpiresAt.getTime())) {
+      throw new Error('Expiração PIX inválida.');
+    }
+    if (requestedExpiresAt && requestedExpiresAt.getTime() <= Date.now()) {
+      throw new Error('A expiração PIX precisa estar no futuro.');
+    }
+    const expiresAtIso = requestedExpiresAt?.toISOString() || null;
+
     const payerEmail = this.normalizeEmail(
       userEmail ||
         (sourceOrderId
@@ -585,7 +596,12 @@ class OrderPixPaymentService {
                 unit_amount: Math.round(totalAmount * 100),
               },
             ],
-            qr_codes: [{ amount: { value: Math.round(totalAmount * 100) } }],
+            qr_codes: [
+              {
+                amount: { value: Math.round(totalAmount * 100) },
+                ...(expiresAtIso ? { expiration_date: expiresAtIso } : {}),
+              },
+            ],
             ...(notificationUrl ? { notification_urls: [notificationUrl] } : {}),
           }),
         },
@@ -631,6 +647,7 @@ class OrderPixPaymentService {
         qrCode,
         qrCodeBase64,
         requiresStatusCheck: true,
+        expiresAt: expiresAtIso,
       };
     }
 
@@ -678,6 +695,7 @@ class OrderPixPaymentService {
           qrCode: String(qr.responseBody.payload),
           qrCodeBase64: qr.responseBody.encodedImage || null,
           requiresStatusCheck: true,
+          expiresAt: expiresAtIso,
         };
       }
       const privateSettings =
@@ -814,6 +832,7 @@ class OrderPixPaymentService {
         qrCode,
         qrCodeBase64: qrCodeBase64 || null,
         requiresStatusCheck: true,
+        expiresAt: expiresAtIso,
       };
     }
 
@@ -850,6 +869,7 @@ class OrderPixPaymentService {
       external_reference: sourceOrderId
         ? `orderpix:${normalizedRestaurantId}:${sourceOrderId}`
         : `orderpix:${normalizedRestaurantId}:${Date.now()}`,
+      ...(expiresAtIso ? { date_of_expiration: expiresAtIso } : {}),
     };
 
     let response: unknown;
@@ -911,6 +931,7 @@ class OrderPixPaymentService {
       qrCode,
       qrCodeBase64: qrCodeBase64 || null,
       requiresStatusCheck: true,
+      expiresAt: expiresAtIso,
     };
   }
 
@@ -1216,17 +1237,29 @@ class OrderPixPaymentService {
     orderId,
     restaurantId,
     paymentId,
+    expiresAt,
   }: {
     orderId: number | string;
     restaurantId: number;
     paymentId: string;
+    expiresAt?: Date | string | null;
   }) {
     const normalizedPaymentId = String(paymentId || '').trim();
     if (!normalizedPaymentId) {
       throw new Error('O provedor não retornou um identificador de pagamento PIX.');
     }
 
-    await orderRepository.claimPixPaymentId(orderId, restaurantId, normalizedPaymentId);
+    const normalizedExpiresAt = expiresAt ? new Date(expiresAt) : null;
+    if (normalizedExpiresAt && Number.isNaN(normalizedExpiresAt.getTime())) {
+      throw new Error('Expiração PIX inválida para vincular ao pedido.');
+    }
+    await orderRepository.claimPixPaymentId(
+      orderId,
+      restaurantId,
+      normalizedPaymentId,
+      undefined,
+      normalizedExpiresAt,
+    );
   }
 }
 
