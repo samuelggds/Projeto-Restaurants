@@ -113,7 +113,7 @@ test('cartão salvo Mercado Pago envia payer.customer_id na Orders API', async (
       cardGateway: 'MERCADO_PAGO',
       mercadoPagoAccessToken: 'restaurant-access-token',
       mercadoPagoRefreshToken: 'restaurant-refresh-token',
-      mercadoPagoTokenExpiresAt: new Date(Date.now() + 60_000),
+      mercadoPagoTokenExpiresAt: new Date(Date.now() + 3_600_000),
     }) as never;
 
   const originalTransaction = prisma.$transaction;
