@@ -101,13 +101,14 @@ function providerErrorItems(body: Record<string, unknown>) {
 
 function providerErrorCode(body: Record<string, unknown>) {
   const first = providerErrorItems(body)[0] as { code?: unknown } | undefined;
-  return String(first?.code || body.code || body.error || '').trim().toLowerCase();
+  return String(first?.code || body.code || body.error || '')
+    .trim()
+    .toLowerCase();
 }
 
 function safeProviderMessage(body: Record<string, unknown>, fallback: string) {
   const first = providerErrorItems(body)[0] as
-    | { description?: unknown; message?: unknown; code?: unknown }
-    | undefined;
+    { description?: unknown; message?: unknown; code?: unknown } | undefined;
   return String(first?.description || first?.message || body.message || fallback)
     .replace(/\b\d{13,19}\b/g, '[cartão protegido]')
     .replace(/(?:APP_USR|TEST)-[A-Za-z0-9_-]+/g, '[credencial protegida]')
@@ -214,7 +215,7 @@ async function mercadoPagoPayment(payload: BasePayload, order: CardOrder, succes
     external_reference: reference,
     description: `Pedido #${order.id}`,
     ...(includeFee && marketplaceFee > 0 ? { marketplace_fee: marketplaceFee.toFixed(2) } : {}),
-    payer: stored?.providerCustomerId ? { customer_id: stored.providerCustomerId } : { email },
+    payer: { email },
     transactions: {
       payments: [
         {
@@ -248,7 +249,11 @@ async function mercadoPagoPayment(payload: BasePayload, order: CardOrder, succes
   };
 
   let result = await send(marketplaceFee > 0);
-  if (!result.response.ok && marketplaceFee > 0 && splitConfigurationError(safeProviderMessage(result.body, ''))) {
+  if (
+    !result.response.ok &&
+    marketplaceFee > 0 &&
+    splitConfigurationError(safeProviderMessage(result.body, ''))
+  ) {
     result = await send(false);
   }
   if (!result.response.ok) {
@@ -287,7 +292,9 @@ async function mercadoPagoPayment(payload: BasePayload, order: CardOrder, succes
   }
 
   const providerOrderId = String(result.body.id || '').trim();
-  const status = String(result.body.status || '').trim().toLowerCase();
+  const status = String(result.body.status || '')
+    .trim()
+    .toLowerCase();
   if (!providerOrderId) throw new Error('Mercado Pago não retornou a identificação da cobrança.');
   const approved = status === 'processed';
 
@@ -302,13 +309,16 @@ async function mercadoPagoPayment(payload: BasePayload, order: CardOrder, succes
 
 async function pagBankPayment(payload: BasePayload, order: CardOrder, successUrlBase: string) {
   const encryptedCard = String(payload.encryptedCard || '').trim();
-  if (!encryptedCard) throw new CardPaymentDeclinedError('Informe os dados do cartão para continuar.');
+  if (!encryptedCard)
+    throw new CardPaymentDeclinedError('Informe os dados do cartão para continuar.');
   const token = await getPagBankAccessToken(order.restaurantId);
   const totalCents = Math.round(amount(order.total) * 100);
   const reference = `ordercard:${order.id}:${order.restaurantId}`;
   const taxId = digits(payload.holderTaxId);
   const email = await payerEmail(payload, order);
-  const backendUrl = String(process.env.BACKEND_URL || '').trim().replace(/\/+$/, '');
+  const backendUrl = String(process.env.BACKEND_URL || '')
+    .trim()
+    .replace(/\/+$/, '');
   const notificationUrl = backendUrl
     ? `${backendUrl}/orders/webhook/pagbank?restaurantId=${order.restaurantId}`
     : '';
@@ -371,7 +381,9 @@ async function pagBankPayment(payload: BasePayload, order: CardOrder, successUrl
   const charges = Array.isArray(body.charges) ? body.charges : [];
   const charge = (charges[0] || {}) as Record<string, unknown>;
   const chargeId = String(charge.id || '').trim();
-  const status = String(charge.status || '').trim().toUpperCase();
+  const status = String(charge.status || '')
+    .trim()
+    .toUpperCase();
   const chargeAmount =
     typeof charge.amount === 'object' && charge.amount !== null
       ? (charge.amount as Record<string, unknown>)
@@ -535,7 +547,9 @@ async function asaasPayment(payload: BasePayload, order: CardOrder, successUrlBa
   }
 
   const paymentId = String(paymentResult.body.id || '').trim();
-  const status = String(paymentResult.body.status || '').trim().toUpperCase();
+  const status = String(paymentResult.body.status || '')
+    .trim()
+    .toUpperCase();
   if (!paymentId) throw new Error('Asaas não retornou a identificação da cobrança.');
   const approved =
     ['CONFIRMED', 'RECEIVED'].includes(status) &&
@@ -560,8 +574,8 @@ async function asaasPayment(payload: BasePayload, order: CardOrder, successUrlBa
 export function hasDirectCardPaymentPayload(payload: DirectCardPaymentPayload) {
   return Boolean(
     String(payload.cardToken || '').trim() ||
-      String(payload.encryptedCard || '').trim() ||
-      digits(payload.cardData?.number),
+    String(payload.encryptedCard || '').trim() ||
+    digits(payload.cardData?.number),
   );
 }
 
