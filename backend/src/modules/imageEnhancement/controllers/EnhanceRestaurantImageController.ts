@@ -125,7 +125,12 @@ class EnhanceRestaurantImageController {
       const result = await enhanceRestaurantImageService.execute(req.body?.imageDataUrl, purpose);
       const credits = await aiCreditService.recordUsage({
         ...actor,
-        feature: purpose === 'BANNER' ? 'ENHANCE_BANNER' : 'ENHANCE_COVER',
+        feature:
+          purpose === 'BANNER'
+            ? 'ENHANCE_BANNER'
+            : purpose === 'COMBO'
+              ? 'ENHANCE_COMBO'
+              : 'ENHANCE_COVER',
         model: result.aiUsage.model,
         costUsd: result.aiUsage.costUsd,
         usage: result.aiUsage.usage,
