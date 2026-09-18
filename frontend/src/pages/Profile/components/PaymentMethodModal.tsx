@@ -220,10 +220,7 @@ export function PaymentMethodModal({
           identificationType: 'CPF',
           identificationNumber: taxId.replace(/\D/g, ''),
         });
-        const tokenMonth = Number(token.expiration_month || 0);
-        const tokenYear = Number(token.expiration_year || 0);
-        const tokenLast4 = String(token.last_four_digits || '');
-        if (!token.id || !/^\d{4}$/.test(tokenLast4) || !tokenMonth || !tokenYear) {
+        if (!token.id) {
           throw new Error(
             'Não foi possível validar este cartão no momento. Verifique os dados e tente novamente.',
           );
@@ -231,9 +228,9 @@ export function PaymentMethodModal({
         secured = { cardToken: token.id, holderTaxId: taxId };
         display = {
           brand: String(token.payment_method_id || mercadoPagoBrand || detectedBrand.id),
-          last4: tokenLast4,
-          month: tokenMonth,
-          year: tokenYear,
+          last4: String(token.last_four_digits || ''),
+          month: Number(token.expiration_month || 0),
+          year: Number(token.expiration_year || 0),
         };
       } else {
         secured = await securePayload(providerConfig, digits, month, fullYear);
@@ -242,10 +239,10 @@ export function PaymentMethodModal({
         restaurantId,
         ...secured,
         holderName: holder.trim(),
-        brand: display.brand,
-        last4: display.last4,
-        expMonth: display.month,
-        expYear: display.year,
+        brand: display.brand || undefined,
+        last4: display.last4 || undefined,
+        expMonth: display.month || undefined,
+        expYear: display.year || undefined,
       });
       setNumber('');
       setCvv('');
