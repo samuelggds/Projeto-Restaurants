@@ -794,19 +794,40 @@ class CreateOrderService {
               );
             });
 
-            const stockProducts = await tx.product.findMany({
-              where: {
-                restaurantId: resolvedRestaurantId,
-                id: { in: [...requestedQuantityByProduct.keys()] },
-              },
-              select: { id: true, name: true, stock: true, active: true },
-            });
-            if (stockProducts.length !== requestedQuantityByProduct.size) {
+            const stockProductById = new Map(
+              products.map((product) => [
+                product.id,
+                {
+                  id: product.id,
+                  name: product.name,
+                  stock: product.stock,
+                  active: product.active,
+                },
+              ]),
+            );
+            const missingStockProductIds = [...requestedQuantityByProduct.keys()].filter(
+              (productId) => !stockProductById.has(productId),
+            );
+            if (missingStockProductIds.length) {
+              const comboComponents = await tx.product.findMany({
+                where: {
+                  restaurantId: resolvedRestaurantId,
+                  id: { in: missingStockProductIds },
+                },
+                select: { id: true, name: true, stock: true, active: true },
+              });
+              comboComponents.forEach((product) => stockProductById.set(product.id, product));
+            }
+            if (
+              [...requestedQuantityByProduct.keys()].some(
+                (productId) => !stockProductById.has(productId),
+              )
+            ) {
               throw new OrderRequestError('Um produto do pedido não está mais disponível.');
             }
 
             for (const [productId, requestedQuantity] of requestedQuantityByProduct) {
-              const product = stockProducts.find((candidate) => candidate.id === productId)!;
+              const product = stockProductById.get(productId)!;
               if (product.active === false) {
                 throw new OrderRequestError(`Produto indisponível: ${product.name}.`);
               }
