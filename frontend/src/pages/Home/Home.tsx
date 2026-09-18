@@ -462,7 +462,7 @@ export default function Home() {
       if (mesaMode) await tableAccount.refresh({ silent: true });
     },
     onPixPaymentCreated: ({ orderPublicId }) => {
-      if (!restaurantSlug) return;
+      if (!restaurantSlug || mesaMode) return;
       navigate(`/${restaurantSlug}/pedido/${orderPublicId}/pagamento`);
     },
     onClearCart: () => setCart([]),
