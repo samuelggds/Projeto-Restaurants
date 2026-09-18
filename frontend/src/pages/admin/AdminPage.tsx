@@ -188,6 +188,7 @@ export function AdminPage({
   onOpenSettings,
   onSaveSettings,
   onConnectMercadoPago,
+  onDisconnectMercadoPago,
   onLoadPaymentConnections,
   onConnectPagBank,
   onOnboardAsaas,
