@@ -18,3 +18,12 @@ test('usa composição horizontal com área segura para o texto do banner', () =
   assert.match(profile.prompt, /safe area on the left/i);
   assert.match(profile.prompt, /do not add any words/i);
 });
+
+
+test('usa composição quadrada sem texto ao melhorar foto manual de combo', () => {
+  const profile = getImageEnhancementProfile('COMBO');
+  assert.equal(profile.size, '1024x1024');
+  assert.match(profile.prompt, /combo/iu);
+  assert.match(profile.prompt, /do not add words/iu);
+  assert.match(profile.prompt, /do not add or remove foods/iu);
+});
