@@ -125,6 +125,11 @@ class RestaurantSettingsService {
     return response.data;
   }
 
+  async disconnectMercadoPago() {
+    const response = await api.post('/settings/mercado-pago/disconnect');
+    return response.data;
+  }
+
   async startPagBankOAuth() {
     const response = await api.post('/settings/pagbank/oauth/start');
     return response.data;
