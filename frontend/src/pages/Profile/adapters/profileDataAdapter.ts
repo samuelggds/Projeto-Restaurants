@@ -121,6 +121,7 @@ export function buildProfileData({
     ? (() => {
         const channel = getProfileOrderChannel(activeRaw);
         const paymentPending =
+          String(activeRaw.status || '').toUpperCase() !== 'CANCELADO' &&
           String(activeRaw.paymentMethod || '').toUpperCase() === 'PIX' &&
           activeRaw.paid !== true &&
           Boolean(String(activeRaw.pixPaymentId || '').trim());
@@ -148,6 +149,7 @@ export function buildProfileData({
         ? new Date(String(order.createdAt)).toLocaleDateString('pt-BR')
         : '';
       const paymentPending =
+        String(order.status || '').toUpperCase() !== 'CANCELADO' &&
         String(order.paymentMethod || '').toUpperCase() === 'PIX' &&
         order.paid !== true &&
         Boolean(String(order.pixPaymentId || '').trim());
