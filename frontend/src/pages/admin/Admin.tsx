@@ -940,6 +940,21 @@ export default function Admin() {
         }
         window.location.assign(authorizationUrl);
       }}
+      onDisconnectMercadoPago={async () => {
+        await restaurantSettingsService.disconnectMercadoPago();
+        const [refreshed, refreshedBanners, refreshedTableAccount] = await Promise.all([
+          restaurantSettingsService.getMySettings(),
+          bannerService.list(),
+          tableAccountService.getSettings(),
+        ]);
+        setSettings(
+          mapSettingsFromApi(
+            refreshed as Record<string, unknown>,
+            refreshedBanners,
+            refreshedTableAccount,
+          ),
+        );
+      }}
       onLoadPaymentConnections={getPaymentConnections}
       onConnectPagBank={async () => {
         const result = await restaurantSettingsService.startPagBankOAuth();

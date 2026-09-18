@@ -60,6 +60,7 @@ type Props = {
   onDeleteCoupon?: (id: string) => void | Promise<void>;
   onReloadPromotions?: () => void | Promise<void>;
   onConnectMercadoPago?: () => void | Promise<void>;
+  onDisconnectMercadoPago?: () => Promise<boolean>;
   onLoadPaymentConnections?: () => Promise<PaymentConnectionOverview>;
   onConnectPagBank?: () => void | Promise<void>;
   onOnboardAsaas?: (payload: {
@@ -131,6 +132,7 @@ export function AdminSettingsContent(props: Props) {
           settings={settings}
           update={update}
           onConnectMercadoPago={props.onConnectMercadoPago}
+          onDisconnectMercadoPago={props.onDisconnectMercadoPago}
           onLoadPaymentConnections={props.onLoadPaymentConnections}
           onConnectPagBank={props.onConnectPagBank}
           onOnboardAsaas={props.onOnboardAsaas}

@@ -16,6 +16,7 @@ import {
   QrCode,
   RefreshCw,
   ShieldCheck,
+  Unplug,
   WalletCards,
 } from 'lucide-react';
 import { adminMockSettings } from '../data';
@@ -31,6 +32,7 @@ type Props = {
   settings: Settings;
   update: <K extends keyof Settings>(key: K, value: Settings[K]) => void;
   onConnectMercadoPago?: () => void | Promise<void>;
+  onDisconnectMercadoPago?: () => Promise<boolean>;
   onLoadPaymentConnections?: () => Promise<PaymentConnectionOverview>;
   onConnectPagBank?: () => void | Promise<void>;
   onOnboardAsaas?: (payload: {
@@ -128,6 +130,7 @@ export function PaymentSettings({
   settings,
   update,
   onConnectMercadoPago,
+  onDisconnectMercadoPago,
   onLoadPaymentConnections,
   onConnectPagBank,
   onOnboardAsaas,
@@ -204,6 +207,26 @@ export function PaymentSettings({
           error,
           `Não foi possível conectar ao ${provider === 'MERCADO_PAGO' ? 'Mercado Pago' : 'PagBank'}.`,
         ),
+      );
+    } finally {
+      connecting.current = false;
+      setBusyProvider(null);
+    }
+  };
+
+  const disconnectMercadoPago = async () => {
+    if (connecting.current || !onDisconnectMercadoPago) return;
+    connecting.current = true;
+    setConnectionError('');
+    setBusyProvider('MERCADO_PAGO');
+    try {
+      const disconnected = await onDisconnectMercadoPago();
+      if (disconnected) {
+        await connections.refresh();
+      }
+    } catch (error) {
+      setConnectionError(
+        errorMessage(error, 'Não foi possível desconectar a conta Mercado Pago.'),
       );
     } finally {
       connecting.current = false;
@@ -592,19 +615,31 @@ export function PaymentSettings({
                         : 'Criar e vincular conta Asaas'}
                   </PS.ConnectButton>
                 ) : (
-                  <PS.ConnectButton
-                    type="button"
-                    $provider={provider.id}
-                    disabled={busyProvider !== null || !canConnect}
-                    onClick={() => void connect(provider.id as Exclude<Provider, 'ASAAS'>)}
-                  >
-                    {connected ? <ShieldCheck /> : <ExternalLink />}
-                    {busy
-                      ? `Abrindo ${provider.name}...`
-                      : connected
-                        ? `Reconectar ${provider.name}`
-                        : `Conectar ${provider.name}`}
-                  </PS.ConnectButton>
+                  <>
+                    <PS.ConnectButton
+                      type="button"
+                      $provider={provider.id}
+                      disabled={busyProvider !== null || !canConnect}
+                      onClick={() => void connect(provider.id as Exclude<Provider, 'ASAAS'>)}
+                    >
+                      {connected ? <ShieldCheck /> : <ExternalLink />}
+                      {busy
+                        ? `Abrindo ${provider.name}...`
+                        : connected
+                          ? `Reconectar ${provider.name}`
+                          : `Conectar ${provider.name}`}
+                    </PS.ConnectButton>
+                    {provider.id === 'MERCADO_PAGO' && connected && (
+                      <PS.DisconnectButton
+                        type="button"
+                        disabled={busyProvider !== null}
+                        onClick={() => void disconnectMercadoPago()}
+                      >
+                        <Unplug />
+                        {busy ? 'Desconectando...' : 'Desconectar Mercado Pago'}
+                      </PS.DisconnectButton>
+                    )}
+                  </>
                 )
               ) : (
                 <PS.InactiveHint>
