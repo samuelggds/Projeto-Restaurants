@@ -1,6 +1,5 @@
 import OpenAI from 'openai';
 import { z } from 'zod';
-import prisma from '../../../config/prisma.js';
 import { setTenantDbContext, withTenantDbContext } from '../../../database/tenantDbContext.js';
 import { calculateImageUsageCostUsd } from '../../aiSupport/services/openAiUsageCost.js';
 
@@ -246,6 +245,77 @@ class ProductComboService {
       await db.product.deleteMany({ where: { id, restaurantId: tenantId, kind: 'COMBO' } });
       return { archived: false };
     });
+  }
+
+  async generatePreviewImage(restaurantIdInput: unknown, rawInput: unknown) {
+    const tenantId = restaurantId(restaurantIdInput);
+    const input = comboInputSchema.parse(rawInput);
+    const componentIds = [
+      ...new Set(
+        input.groups.flatMap((group) => group.options.map((option) => option.componentProductId)),
+      ),
+    ];
+
+    const components = await withTenantDbContext(tenantId, (db) =>
+      db.product.findMany({
+        where: { restaurantId: tenantId, id: { in: componentIds }, kind: 'STANDARD' },
+        select: { id: true, name: true, description: true },
+      }),
+    );
+    if (components.length !== componentIds.length) {
+      throw new Error('Revise os produtos do combo antes de gerar a foto.');
+    }
+    const byId = new Map(components.map((product) => [product.id, product]));
+    const itemSummary = input.groups
+      .flatMap((group) =>
+        group.options.map((option) => {
+          const product = byId.get(option.componentProductId);
+          const quantity = Math.max(
+            option.defaultQuantity,
+            option.minQuantity,
+            option.locked ? 1 : 0,
+          );
+          return `${group.name}: ${quantity || 'opção'}x ${product?.name || 'produto'}`;
+        }),
+      )
+      .join('; ');
+
+    const apiKey = String(process.env.OPENAI_API_KEY || '').trim();
+    if (!apiKey) throw new Error('OPENAI_API_KEY não configurada para geração de imagens.');
+
+    const prompt = [
+      'Crie uma fotografia comercial quadrada, premium, realista e muito apetitosa para um combo de restaurante.',
+      `Nome interno do combo: ${input.name}.`,
+      input.description ? `Descrição: ${input.description}.` : '',
+      `Preço de venda usado apenas como contexto: R$ ${input.price.toFixed(2)}.`,
+      `Itens que devem compor visualmente o combo: ${itemSummary}.`,
+      'Mostre a refeição completa com os tipos de alimentos e bebidas relevantes visíveis, proporcionais e organizados como um único combo.',
+      'Use iluminação de estúdio suave, fundo limpo, enquadramento central e aparência de fotografia profissional de delivery.',
+      'Não escreva nome, preço, palavras, selos ou marca d’água. Não invente logotipos. Se um nome indicar marca, represente apenas o tipo de produto sem reproduzir identidade visual da marca.',
+      'A imagem deve parecer uma fotografia real, não uma ilustração.',
+    ]
+      .filter(Boolean)
+      .join(' ');
+
+    const client = new OpenAI({ apiKey, timeout: 165_000, maxRetries: 0 });
+    const result = await client.images.generate({
+      model: 'gpt-image-2',
+      prompt,
+      size: '1024x1024',
+      quality: 'low',
+      n: 1,
+    });
+    const base64 = result.data?.[0]?.b64_json;
+    if (!base64) throw new Error('A IA não retornou uma imagem para o combo.');
+    const usage = (result as unknown as { usage?: unknown }).usage;
+    return {
+      image: `data:image/png;base64,${base64}`,
+      aiUsage: {
+        model: 'gpt-image-2',
+        usage: usage ?? null,
+        costUsd: calculateImageUsageCostUsd(usage, 0.009),
+      },
+    };
   }
 
   async generateImage(idInput: unknown, restaurantIdInput: unknown) {
