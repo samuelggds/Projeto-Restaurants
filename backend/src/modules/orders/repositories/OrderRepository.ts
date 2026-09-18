@@ -610,6 +610,35 @@ class OrderRepository {
     });
   }
 
+  async findPixPaymentRecoveryByPublicId(
+    publicId: string,
+    db: PrismaClientLike = prisma,
+  ) {
+    return db.order.findFirst({
+      where: { publicId },
+      select: {
+        id: true,
+        publicId: true,
+        restaurantId: true,
+        userId: true,
+        total: true,
+        paid: true,
+        paidAt: true,
+        status: true,
+        type: true,
+        paymentMethod: true,
+        payOnDelivery: true,
+        pixPaymentId: true,
+        restaurant: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+      },
+    });
+  }
+
   async findByPublicIdForTableParticipant(
     publicId: string,
     tableSessionId: number,
