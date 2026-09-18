@@ -132,11 +132,13 @@ class OrderPricingService {
         });
       });
     });
-    comboStockRequirements.forEach((requirement) => {
+    comboStockRequirements.forEach((requirement, productId) => {
+      const totalRequested =
+        requirement.quantity + Number(requestedQuantityByProduct.get(productId) || 0);
       if (
         Number.isInteger(requirement.stock) &&
         Number(requirement.stock) >= 0 &&
-        requirement.quantity > Number(requirement.stock)
+        totalRequested > Number(requirement.stock)
       ) {
         throw new OrderRequestError(
           `Estoque insuficiente para ${requirement.name}. Disponível: ${requirement.stock}.`,
