@@ -10,6 +10,7 @@ import {
   refundPagBankCardCharge,
   pagBankApiBaseUrl,
 } from '../../payments/providers/pagBankCheckout.js';
+import { mercadoPagoCardExternalReferenceCandidates } from '../domain/mercadoPagoCardReference.js';
 
 export type RefundableOrder = {
   id: number | string;
@@ -699,36 +700,48 @@ class RefundOrderPaymentService {
         );
       }
 
-      const externalReference =
-        Number.isInteger(restaurantId) && restaurantId > 0
-          ? `ordercard:${orderId}:${restaurantId}`
-          : `ordercard:${orderId}`;
-      const searchUrl = new URL('https://api.mercadopago.com/v1/payments/search');
-      searchUrl.searchParams.set('external_reference', externalReference);
-      searchUrl.searchParams.set('sort', 'date_created');
-      searchUrl.searchParams.set('criteria', 'desc');
-      searchUrl.searchParams.set('limit', '1');
-
-      const response = await fetch(searchUrl.toString(), {
-        method: 'GET',
-        headers: {
-          Authorization: `Bearer ${await this.getMercadoPagoAccessTokenByRestaurant(order.restaurantId)}`,
-          'Content-Type': 'application/json',
-        },
-      });
-
-      const payload = (await response.json().catch(() => ({}))) as {
-        results?: Array<{ id?: string | number | null }>;
-      };
-
-      if (!response.ok) {
+      if (!Number.isInteger(restaurantId) || restaurantId <= 0) {
         throw new AutomaticRefundError(
-          'O Mercado Pago não permitiu localizar o pagamento para estorno. O pedido não foi cancelado.',
-          'PROVIDER_FAILURE',
+          'Este pagamento Mercado Pago não possui restaurante válido para localizar a cobrança. O pedido não foi cancelado.',
+          'MISSING_REFERENCE',
         );
       }
 
-      const resolvedPaymentId = String(payload?.results?.[0]?.id || '').trim();
+      const accessToken = await this.getMercadoPagoAccessTokenByRestaurant(order.restaurantId);
+      let resolvedPaymentId = '';
+
+      for (const externalReference of mercadoPagoCardExternalReferenceCandidates(
+        orderId,
+        restaurantId,
+      )) {
+        const searchUrl = new URL('https://api.mercadopago.com/v1/payments/search');
+        searchUrl.searchParams.set('external_reference', externalReference);
+        searchUrl.searchParams.set('sort', 'date_created');
+        searchUrl.searchParams.set('criteria', 'desc');
+        searchUrl.searchParams.set('limit', '1');
+
+        const response = await fetch(searchUrl.toString(), {
+          method: 'GET',
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            'Content-Type': 'application/json',
+          },
+        });
+
+        const payload = (await response.json().catch(() => ({}))) as {
+          results?: Array<{ id?: string | number | null }>;
+        };
+
+        if (!response.ok) {
+          throw new AutomaticRefundError(
+            'O Mercado Pago não permitiu localizar o pagamento para estorno. O pedido não foi cancelado.',
+            'PROVIDER_FAILURE',
+          );
+        }
+
+        resolvedPaymentId = String(payload?.results?.[0]?.id || '').trim();
+        if (resolvedPaymentId) break;
+      }
 
       if (!resolvedPaymentId) {
         throw new AutomaticRefundError(
