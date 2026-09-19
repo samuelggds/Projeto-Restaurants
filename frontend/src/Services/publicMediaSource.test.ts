@@ -35,6 +35,20 @@ describe('publicMediaSource', () => {
             ],
           },
         ],
+        comboGroups: [
+          {
+            id: 40,
+            options: [
+              {
+                id: 50,
+                componentProduct: {
+                  id: 11,
+                  image: '/public-media/restaurants/3/products/11?v=3',
+                },
+              },
+            ],
+          },
+        ],
       },
       { id: 2, image: 'https://cdn.example.com/product.webp' },
     ];
@@ -50,12 +64,18 @@ describe('publicMediaSource', () => {
     expect(
       (resolved[0] as (typeof products)[0]).optionGroups?.[0].options[1].ingredient.image,
     ).toBe(null);
+    expect(
+      (resolved[0] as (typeof products)[0]).comboGroups?.[0].options[0].componentProduct.image,
+    ).toBe('https://api.example.com/public-media/restaurants/3/products/11?v=3');
     expect((resolved[1] as (typeof products)[1]).image).toBe(
       'https://cdn.example.com/product.webp',
     );
     expect(products[0].image).toBe('/public-media/restaurants/3/products/1?v=1');
     expect(products[0].optionGroups[0].options[0].ingredient.image).toBe(
       '/public-media/restaurants/3/ingredients/9?v=2',
+    );
+    expect(products[0].comboGroups[0].options[0].componentProduct.image).toBe(
+      '/public-media/restaurants/3/products/11?v=3',
     );
   });
 
