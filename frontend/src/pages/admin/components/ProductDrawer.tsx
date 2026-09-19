@@ -294,6 +294,55 @@ export const ProductDrawer = forwardRef<ProductDrawerHandle, ProductDrawerProps>
       }));
     };
 
+    const addHalfHalfProduct = (referenceProductId: number) => {
+      setOptionGroups((current) =>
+        current.map((group, index) => {
+          if (groupCategories[index] !== 'Meio a Meio') return group;
+          if (
+            group.options.some(
+              (option) => Number(option.referenceProductId) === referenceProductId,
+            )
+          ) {
+            return group;
+          }
+          return {
+            ...group,
+            options: [
+              ...group.options,
+              {
+                referenceProductId,
+                additionalPrice: 0,
+                pricingMode: 'ABSOLUTE',
+                absolutePrice: 0,
+                allowQuantity: false,
+                minQuantity: 1,
+                maxQuantity: 1,
+                defaultQuantity: 1,
+                defaultSelected: false,
+                locked: false,
+                active: true,
+              },
+            ],
+          };
+        }),
+      );
+    };
+
+    const removeHalfHalfProduct = (referenceProductId: number) => {
+      setOptionGroups((current) =>
+        current.map((group, index) =>
+          groupCategories[index] === 'Meio a Meio'
+            ? {
+                ...group,
+                options: group.options.filter(
+                  (option) => Number(option.referenceProductId) !== referenceProductId,
+                ),
+              }
+            : group,
+        ),
+      );
+    };
+
     const updateGroupOption = (
       groupIndex: number,
       ingredientId: number,
@@ -1040,6 +1089,8 @@ export const ProductDrawer = forwardRef<ProductDrawerHandle, ProductDrawerProps>
                       selectGroupCategory={selectGroupCategory}
                       confirmGroupCategoryChange={confirmGroupCategoryChange}
                       toggleGroupIngredient={toggleGroupIngredient}
+                      addHalfHalfProduct={addHalfHalfProduct}
+                      removeHalfHalfProduct={removeHalfHalfProduct}
                       toggleCompositionIngredient={toggleCompositionIngredient}
                       setPendingCategoryChange={setPendingCategoryChange}
                       setCompositionItems={setCompositionItems}
