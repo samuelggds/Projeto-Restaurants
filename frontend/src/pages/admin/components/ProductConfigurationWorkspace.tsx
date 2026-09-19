@@ -75,8 +75,8 @@ type ProductConfigurationWorkspaceProps = {
   selectGroupCategory: (groupIndex: number, nextCategory: string) => void;
   confirmGroupCategoryChange: () => void;
   toggleGroupIngredient: (groupIndex: number, ingredientId: number, selected: boolean) => void;
-  addHalfHalfProduct: (referenceProductId: number) => void;
-  removeHalfHalfProduct: (referenceProductId: number) => void;
+  addHalfHalfProduct: (groupIndex: number, referenceProductId: number) => void;
+  removeHalfHalfProduct: (groupIndex: number, referenceProductId: number) => void;
   toggleCompositionIngredient: (ingredientId: number, selected: boolean) => void;
   setPendingCategoryChange: Dispatch<SetStateAction<PendingCategoryChange | null>>;
   setCompositionItems: Dispatch<SetStateAction<AdminProductCompositionItem[]>>;
@@ -570,8 +570,12 @@ export function ProductConfigurationWorkspace({
                         <HalfHalfProductSelector
                           products={products}
                           group={group}
-                          addProduct={addHalfHalfProduct}
-                          removeProduct={removeHalfHalfProduct}
+                          addProduct={(referenceProductId) =>
+                            addHalfHalfProduct(groupIndex, referenceProductId)
+                          }
+                          removeProduct={(referenceProductId) =>
+                            removeHalfHalfProduct(groupIndex, referenceProductId)
+                          }
                         />
                       ) : (
                       <fieldset className="group-options">
