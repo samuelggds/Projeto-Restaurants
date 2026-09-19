@@ -3,17 +3,14 @@ import { useCallback, useEffect, useState } from 'react';
 export function formatBillingPixRemaining(totalSeconds: number) {
   const seconds = Math.max(0, Math.floor(totalSeconds));
   const days = Math.floor(seconds / 86_400);
-  const hours = Math.floor((seconds % 86_400) / 3_600);
-  const minutes = Math.floor((seconds % 3_600) / 60);
-  const remainingSeconds = seconds % 60;
 
   if (days > 0) {
+    const hours = Math.floor((seconds % 86_400) / 3_600);
+    const minutes = Math.floor((seconds % 3_600) / 60);
     return `${days} ${days === 1 ? 'dia' : 'dias'} ${hours}h ${minutes}min`;
   }
-  if (hours > 0) {
-    return `${hours}h ${minutes}min ${remainingSeconds}s`;
-  }
-  return `${minutes}min ${remainingSeconds}s`;
+
+  return `${String(Math.floor(seconds / 60)).padStart(2, '0')}:${String(seconds % 60).padStart(2, '0')}`;
 }
 
 export function getBillingPixExpiry(expiresAt?: string | null, now = Date.now()) {
