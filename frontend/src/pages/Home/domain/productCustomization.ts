@@ -128,6 +128,9 @@ export function normalizeProductOptionGroups(product: ConfigurableProduct): Prod
             ...option,
             id: String(option.id),
             ingredientId: option.ingredientId ? String(option.ingredientId) : undefined,
+            referenceProductId: option.referenceProductId
+              ? String(option.referenceProductId)
+              : undefined,
             price: Number(option.price || 0),
             absolutePrice:
               option.absolutePrice === null || option.absolutePrice === undefined
