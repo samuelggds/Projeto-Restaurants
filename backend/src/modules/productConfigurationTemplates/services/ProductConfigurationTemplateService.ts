@@ -50,7 +50,8 @@ async function normalizeConfiguration(
       minSelections: group.minSelections,
       maxSelections: group.maxSelections,
       options: group.options.create.map((option) => ({
-        ingredientId: option.ingredientId,
+        ingredientId: option.ingredientId ?? undefined,
+        referenceProductId: option.referenceProductId ?? undefined,
         additionalPrice: Number(option.additionalPrice),
         pricingMode: option.pricingMode,
         absolutePrice: option.absolutePrice === null ? null : Number(option.absolutePrice),
