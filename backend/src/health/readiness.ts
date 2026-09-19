@@ -16,8 +16,11 @@ export async function probeDatabaseReadiness(
     await Promise.race([
       probe(),
       new Promise<never>((_resolve, reject) => {
+        // Keep the timeout referenced until the readiness race settles.
+        // If this timer is unref'ed and the probe never resolves, Node may
+        // finish the event loop before the timeout rejects, cancelling the
+        // readiness check instead of returning { ready: false }.
         timer = setTimeout(() => reject(new Error('database readiness timeout')), timeoutMs);
-        timer.unref?.();
       }),
     ]);
     return { ready: true as const };
