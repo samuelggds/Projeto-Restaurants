@@ -720,8 +720,10 @@ export function resolveOrderItemCustomizations(
         const totalPrice = money(unitPrice * quantity);
         return {
           optionId: option.id,
-          ingredientId: option.ingredient?.id,
-          referenceProductId: option.referenceProduct?.id,
+          ...(option.ingredient?.id ? { ingredientId: option.ingredient.id } : {}),
+          ...(option.referenceProduct?.id
+            ? { referenceProductId: option.referenceProduct.id }
+            : {}),
           name: optionDisplayName(option),
           pricingMode: option.referenceProduct ? 'ABSOLUTE' : option.pricingMode ?? 'ADDITIVE',
           unitPrice,
