@@ -316,13 +316,11 @@ jobs:
       - run: npm --prefix frontend ci
       - run: npm --prefix print-agent ci
       - name: Audit backend packages
-        # Audit the committed lockfile so npm does not fall back to the retiring
-        # quick-audit endpoint when the installed peer/override tree is transiently invalid.
-        run: npm --prefix backend audit --package-lock-only --audit-level=high
+        run: node scripts/auditNpmLockfile.mjs backend/package-lock.json --audit-level=high
       - name: Audit frontend packages
-        run: npm --prefix frontend audit --package-lock-only --audit-level=high
+        run: node scripts/auditNpmLockfile.mjs frontend/package-lock.json --audit-level=high
       - name: Audit Print Agent packages
-        run: npm --prefix print-agent audit --package-lock-only --audit-level=high
+        run: node scripts/auditNpmLockfile.mjs print-agent/package-lock.json --audit-level=high
 
   dependency-review:
     name: Dependency Review
