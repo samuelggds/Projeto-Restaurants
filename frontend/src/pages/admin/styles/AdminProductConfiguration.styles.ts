@@ -1024,6 +1024,23 @@ export const ProductAdvancedConfiguration = styled.div`
     font-size: 9px;
     line-height: 1.35;
   }
+  .half-half-rules {
+    grid-column: 1 / -1;
+    display: grid;
+    gap: 6px;
+    padding: 12px;
+    border: 1px solid color-mix(in srgb, var(--a) 28%, #e1dad3);
+    border-radius: 10px;
+    background: color-mix(in srgb, var(--a) 5%, #fff);
+  }
+  .half-half-rules b {
+    color: #3f342d;
+    font-size: 11px;
+  }
+  .half-half-rules span {
+    color: #6c6159;
+    font-size: 10px;
+  }
   .portion-observation-toggle {
     grid-column: 1 / -1;
     display: flex;
