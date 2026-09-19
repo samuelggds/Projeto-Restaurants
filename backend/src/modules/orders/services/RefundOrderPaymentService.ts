@@ -501,6 +501,68 @@ class RefundOrderPaymentService {
     return this.executeMercadoPagoRefund(paymentId, order.restaurantId, options.idempotencyKey);
   }
 
+  private async refundMercadoPagoOrder(
+    providerOrderId: string,
+    order: RefundableOrder,
+    options: RefundOrderPaymentOptions,
+  ) {
+    const normalizedOrderId = String(providerOrderId || '').trim();
+    const restaurantId = Number(order.restaurantId || 0);
+
+    if (!normalizedOrderId) {
+      throw new AutomaticRefundError(
+        'Este pagamento Mercado Pago não possui uma referência de Order válida para estorno automático. O pedido não foi cancelado.',
+        'MISSING_REFERENCE',
+      );
+    }
+
+    if (!Number.isInteger(restaurantId) || restaurantId <= 0) {
+      throw new AutomaticRefundError(
+        'Não foi possível identificar o restaurante para estornar esta Order do Mercado Pago. O pedido não foi cancelado.',
+        'MISSING_CREDENTIALS',
+      );
+    }
+
+    const accessToken = await getMercadoPagoAccessToken(restaurantId);
+    const response = await fetch(
+      `https://api.mercadopago.com/v1/orders/${encodeURIComponent(normalizedOrderId)}/refund`,
+      {
+        method: 'POST',
+        redirect: 'error',
+        signal: AbortSignal.timeout(20_000),
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          Accept: 'application/json',
+          'Content-Type': 'application/json',
+          ...(options.idempotencyKey
+            ? { 'X-Idempotency-Key': String(options.idempotencyKey).trim() }
+            : {}),
+        },
+      },
+    );
+
+    const payload = (await response.json().catch(() => ({}))) as Record<string, unknown>;
+
+    if (!response.ok) {
+      console.error('[MERCADO_PAGO_ORDER_REFUND_ERROR]', {
+        orderId: order.id,
+        restaurantId,
+        providerOrderId: normalizedOrderId,
+        status: response.status,
+        providerCode: String(payload.code || payload.error || '').trim() || undefined,
+      });
+      throw new AutomaticRefundError(
+        'O Mercado Pago não confirmou o estorno do cartão. O pedido não foi cancelado e pode ser tentado novamente.',
+        'PROVIDER_FAILURE',
+      );
+    }
+
+    return {
+      provider: 'MERCADO_PAGO',
+      externalId: String(payload.id || normalizedOrderId).trim() || normalizedOrderId,
+    } satisfies RefundProviderReceipt;
+  }
+
   private async refundStripeCard(order: RefundableOrder, options: RefundOrderPaymentOptions) {
     const rawSessionId = String(order.cardCheckoutSessionId || '').trim();
     const stripeSessionId = rawSessionId;
@@ -686,6 +748,11 @@ class RefundOrderPaymentService {
       }
 
       return this.executeMercadoPagoRefund(paymentId, order.restaurantId, options.idempotencyKey);
+    }
+
+    if (normalizedCheckoutSessionId.startsWith('mp_order:')) {
+      const providerOrderId = checkoutSessionId.replace(/^mp_order:/i, '').trim();
+      return this.refundMercadoPagoOrder(providerOrderId, order, options);
     }
 
     if (normalizedCheckoutSessionId.startsWith('mp_pref:')) {
