@@ -77,33 +77,67 @@ export const Empty = styled.div`
 `;
 
 export const Overlay = styled.div`
-  position: fixed; inset: 0; z-index: 1200; background: rgba(14, 18, 25, .58);
-  display: flex; justify-content: flex-end;
-  @media (max-width: 760px) { align-items: flex-end; }
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  display: grid;
+  place-items: center;
+  padding: clamp(14px, 2.2vw, 30px);
+  background: rgba(14, 18, 25, 0.58);
+  backdrop-filter: blur(3px);
+
+  @media (max-width: 760px) {
+    padding: 0;
+    place-items: stretch;
+  }
 `;
 
 export const Editor = styled.div`
-  width: min(760px, 100vw);
-  height: 100%;
+  width: min(1180px, calc(100vw - 40px));
+  height: min(92dvh, 980px);
+  min-height: 640px;
+  border: 1px solid rgba(255, 255, 255, 0.42);
+  border-radius: 22px;
   background: #fff;
-  overflow: auto;
-  box-shadow: -20px 0 60px rgba(0,0,0,.18);
-  display: flex; flex-direction: column;
+  overflow: hidden;
+  box-shadow: 0 28px 80px rgba(0, 0, 0, 0.24);
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
 
   .head {
-    position: sticky; top: 0; z-index: 3; background: rgba(255,255,255,.96);
-    backdrop-filter: blur(12px); border-bottom: 1px solid #eceef1;
-    padding: 18px 22px; display: flex; justify-content: space-between; gap: 12px; align-items: center;
+    z-index: 3;
+    background: rgba(255,255,255,.97);
+    backdrop-filter: blur(12px);
+    border-bottom: 1px solid #eceef1;
+    padding: 20px 24px;
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    align-items: center;
   }
   .head h2 { margin: 0; font-size: 22px; }
   .head p { margin: 3px 0 0; color: #737985; font-size: 13px; }
   .close { border: 0; background: #f3f4f6; border-radius: 50%; width: 38px; height: 38px; cursor: pointer; }
-  .content { padding: 22px; display: grid; gap: 20px; }
-  .section { border: 1px solid #e8e9ed; border-radius: 16px; padding: 18px; display: grid; gap: 14px; }
+  .content {
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding: 24px;
+    display: grid;
+    align-content: start;
+    gap: 20px;
+  }
+  .section {
+    border: 1px solid #e8e9ed;
+    border-radius: 16px;
+    padding: 20px;
+    display: grid;
+    gap: 16px;
+  }
   .section > header { display: flex; justify-content: space-between; gap: 12px; align-items: start; }
   .section h3 { margin: 0; font-size: 17px; }
   .section header p { margin: 4px 0 0; color: #767d88; font-size: 13px; line-height: 1.4; }
-  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .grid2 { display: grid; grid-template-columns: 1.2fr .8fr; gap: 14px; }
   label { display: grid; gap: 6px; font-size: 12px; font-weight: 800; color: #3e444d; }
   input, textarea, select {
     width: 100%; box-sizing: border-box; border: 1px solid #d8dbe1; border-radius: 11px;
@@ -111,7 +145,10 @@ export const Editor = styled.div`
   }
   textarea { min-height: 90px; resize: vertical; }
   .photo {
-    display: grid; grid-template-columns: 180px 1fr; gap: 16px; align-items: start;
+    display: grid;
+    grid-template-columns: minmax(220px, 280px) minmax(0, 1fr);
+    gap: 20px;
+    align-items: start;
   }
   .photo-preview {
     aspect-ratio: 1; border-radius: 14px; overflow: hidden; background: #f2f3f5;
@@ -135,9 +172,14 @@ export const Editor = styled.div`
   .option .fixed input { width: auto; }
   .icon-button { border: 0; background: transparent; color: #a33; cursor: pointer; padding: 10px; }
   .footer {
-    position: sticky; bottom: 0; z-index: 3; background: rgba(255,255,255,.97);
-    backdrop-filter: blur(12px); border-top: 1px solid #eceef1;
-    padding: 14px 22px; display: flex; gap: 10px; justify-content: flex-end;
+    z-index: 3;
+    background: rgba(255,255,255,.98);
+    backdrop-filter: blur(12px);
+    border-top: 1px solid #eceef1;
+    padding: 14px 24px;
+    display: flex;
+    gap: 10px;
+    justify-content: flex-end;
   }
   .footer button { border-radius: 11px; padding: 11px 16px; font-weight: 800; cursor: pointer; }
   .footer .secondary { background: #fff; border: 1px solid #dfe2e7; }
@@ -295,11 +337,40 @@ export const Editor = styled.div`
   }
   .hint b { color: #40454c; }
 
+  @media (max-width: 960px) {
+    width: min(100%, calc(100vw - 24px));
+    height: min(94dvh, 980px);
+    min-height: 0;
+    .grid2, .photo, .toggle-grid { grid-template-columns: 1fr; }
+    .photo-preview { max-width: 320px; width: 100%; }
+  }
+
   @media (max-width: 760px) {
-    width: 100%; height: min(94vh, 900px); border-radius: 22px 22px 0 0;
-    .content { padding: 16px; }
+    width: 100%;
+    height: 100dvh;
+    min-height: 100dvh;
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+
+    .head {
+      padding: 14px 16px;
+    }
+    .head h2 { font-size: 19px; }
+    .head p { font-size: 11px; }
+
+    .content {
+      padding: 16px;
+      gap: 16px;
+    }
+
+    .section {
+      padding: 15px;
+      border-radius: 14px;
+    }
+
     .grid2, .photo, .toggle-grid, .product-picker { grid-template-columns: 1fr; }
-    .photo-preview { max-width: 240px; width: 100%; }
+    .photo-preview { max-width: 260px; width: 100%; }
     .group-head { grid-template-columns: 1fr 1fr; }
     .group-head > label:first-child { grid-column: 1 / -1; }
     .option { grid-template-columns: 1fr 1fr; }
@@ -310,6 +381,10 @@ export const Editor = styled.div`
     }
     .selected-product-price { grid-column: 2 / 3; }
     .selected-product > button { grid-column: 3; grid-row: 1 / span 2; }
-    .footer { display: grid; grid-template-columns: 1fr 1fr; }
+    .footer {
+      padding: 12px 16px calc(12px + env(safe-area-inset-bottom));
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+    }
   }
 `;
