@@ -235,6 +235,14 @@ test('rejeita flags temporárias de compatibilidade em produção', () => {
   );
 });
 
+test('aceita PagBank sandbox oficial em runtime de produção quando PAGBANK_ENV=sandbox', () => {
+  process.env.PAGBANK_ENV = 'sandbox';
+  process.env.PAGBANK_CONNECT_API_URL = 'https://sandbox.api.pagseguro.com';
+  process.env.PAGBANK_CONNECT_AUTH_URL = 'https://connect.sandbox.pagbank.com.br/oauth2/authorize';
+
+  assert.doesNotThrow(() => validateCriticalEnv());
+});
+
 test('rejeita endpoint OAuth não oficial e redirect fora da origem do backend', () => {
   process.env.MP_OAUTH_API_BASE_URL = 'https://attacker.example';
   process.env.PAGBANK_CONNECT_REDIRECT_URI = 'https://other.example/oauth/callback';
