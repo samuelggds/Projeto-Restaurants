@@ -321,12 +321,8 @@ function resolvePortions(
   if (!group || group.restaurantId !== product.restaurantId) {
     throw new OrderRequestError(`A configuração de porções de ${product.name} está incompleta.`);
   }
-  const availableOptions = group.options.filter(
-    (option) =>
-      option.active &&
-      option.ingredient.active &&
-      option.ingredient.restaurantId === product.restaurantId &&
-      (option.restaurantId === undefined || option.restaurantId === product.restaurantId),
+  const availableOptions = group.options.filter((option) =>
+    optionIsAvailable(option, product.restaurantId),
   );
 
   const portions = requestedPortions.map((portion, index) => {
@@ -352,8 +348,9 @@ function resolvePortions(
       fractionNumerator: 1,
       fractionDenominator: portionCount,
       optionId: option.id,
-      ingredientId: option.ingredient.id,
-      optionName: option.ingredient.name,
+      ingredientId: option.ingredient?.id,
+      referenceProductId: option.referenceProduct?.id,
+      optionName: optionDisplayName(option),
       pricingMode: option.pricingMode ?? 'ADDITIVE',
       unitPrice,
       observation: observation || null,
