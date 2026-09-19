@@ -294,53 +294,45 @@ export const ProductDrawer = forwardRef<ProductDrawerHandle, ProductDrawerProps>
       }));
     };
 
-    const addHalfHalfProduct = (referenceProductId: number) => {
-      setOptionGroups((current) =>
-        current.map((group, index) => {
-          if (groupCategories[index] !== 'Meio a Meio') return group;
-          if (
-            group.options.some(
-              (option) => Number(option.referenceProductId) === referenceProductId,
-            )
-          ) {
-            return group;
-          }
-          return {
-            ...group,
-            options: [
-              ...group.options,
-              {
-                referenceProductId,
-                additionalPrice: 0,
-                pricingMode: 'ABSOLUTE',
-                absolutePrice: 0,
-                allowQuantity: false,
-                minQuantity: 1,
-                maxQuantity: 1,
-                defaultQuantity: 1,
-                defaultSelected: false,
-                locked: false,
-                active: true,
-              },
-            ],
-          };
-        }),
-      );
+    const addHalfHalfProduct = (groupIndex: number, referenceProductId: number) => {
+      updateGroup(groupIndex, (group) => {
+        if (
+          group.options.some(
+            (option) => Number(option.referenceProductId) === referenceProductId,
+          )
+        ) {
+          return group;
+        }
+
+        return {
+          ...group,
+          options: [
+            ...group.options,
+            {
+              referenceProductId,
+              additionalPrice: 0,
+              pricingMode: 'ABSOLUTE',
+              absolutePrice: 0,
+              allowQuantity: false,
+              minQuantity: 1,
+              maxQuantity: 1,
+              defaultQuantity: 1,
+              defaultSelected: false,
+              locked: false,
+              active: true,
+            },
+          ],
+        };
+      });
     };
 
-    const removeHalfHalfProduct = (referenceProductId: number) => {
-      setOptionGroups((current) =>
-        current.map((group, index) =>
-          groupCategories[index] === 'Meio a Meio'
-            ? {
-                ...group,
-                options: group.options.filter(
-                  (option) => Number(option.referenceProductId) !== referenceProductId,
-                ),
-              }
-            : group,
+    const removeHalfHalfProduct = (groupIndex: number, referenceProductId: number) => {
+      updateGroup(groupIndex, (group) => ({
+        ...group,
+        options: group.options.filter(
+          (option) => Number(option.referenceProductId) !== referenceProductId,
         ),
-      );
+      }));
     };
 
     const updateGroupOption = (
@@ -367,9 +359,8 @@ export const ProductDrawer = forwardRef<ProductDrawerHandle, ProductDrawerProps>
     const addPreset = (preset: 'SINGLE' | 'EXTRAS' | 'PORTIONS') => {
       if (preset === 'PORTIONS') {
         const firstHalf = { ...groupPreset('SINGLE'), name: 'Opção 1' };
-        const secondHalf = { ...groupPreset('SINGLE'), name: 'Opção 2' };
-        setOptionGroups((current) => [...current, firstHalf, secondHalf]);
-        setGroupCategories((current) => [...current, 'Meio a Meio', 'Meio a Meio']);
+        setOptionGroups((current) => [...current, firstHalf]);
+        setGroupCategories((current) => [...current, 'Meio a Meio']);
         setEditingGroupIndex(optionGroups.length);
         setPortionConfiguration(null);
         setPendingCategoryChange(null);
