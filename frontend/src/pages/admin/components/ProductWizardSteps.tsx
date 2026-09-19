@@ -385,6 +385,7 @@ export function ProductReviewStep({
   onToggleCustomerPreview,
   optionGroups,
   price,
+  dynamicPrice = false,
   saleMode,
   selectedProductCategory,
   showCustomerPreview,
@@ -399,6 +400,7 @@ export function ProductReviewStep({
   onToggleCustomerPreview: () => void;
   optionGroups: AdminProductOptionGroup[];
   price: string;
+  dynamicPrice?: boolean;
   saleMode: SaleMode;
   selectedProductCategory: string;
   showCustomerPreview: boolean;
@@ -426,8 +428,8 @@ export function ProductReviewStep({
           <small>{selectedProductCategory || 'Sem categoria'}</small>
           <h4>{name || 'Produto sem nome'}</h4>
           <strong>
-            {saleMode === 'BUILDABLE' ? 'A partir de ' : ''}
-            {money(Number(price) || 0)}
+            {!dynamicPrice && saleMode === 'BUILDABLE' ? 'A partir de ' : ''}
+            {dynamicPrice ? 'Preço conforme as escolhas' : money(Number(price) || 0)}
           </strong>
         </div>
         <span>{saleMode === 'BUILDABLE' ? 'Produto personalizável' : 'Produto pronto'}</span>
@@ -448,7 +450,7 @@ export function ProductReviewStep({
           <CheckCircle2 />
           <div>
             <b>Preço</b>
-            <span>{money(Number(price) || 0)}</span>
+            <span>{dynamicPrice ? 'Preço conforme as escolhas' : money(Number(price) || 0)}</span>
           </div>
           <button type="button" onClick={() => onEdit('PRICE')}>
             Editar
@@ -515,8 +517,8 @@ export function ProductReviewStep({
               <b>{name}</b>
               <small>{description}</small>
               <strong>
-                {saleMode === 'BUILDABLE' ? 'A partir de ' : ''}
-                {money(Number(price) || 0)}
+                {!dynamicPrice && saleMode === 'BUILDABLE' ? 'A partir de ' : ''}
+                {dynamicPrice ? 'Preço conforme as escolhas' : money(Number(price) || 0)}
               </strong>
             </span>
           </div>

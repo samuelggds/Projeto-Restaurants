@@ -48,6 +48,7 @@ export type HomeProduct = {
   available: boolean;
   kind?: 'STANDARD' | 'COMBO';
   saleMode?: 'COMPLETE' | 'BUILDABLE';
+  pricingMode?: 'BASE' | 'HIGHEST_OPTION';
   configurationVersion?: number;
   ingredients?: Array<{ id: string; name: string; price: number; required: boolean }>;
   optionGroups?: ProductOptionGroup[];

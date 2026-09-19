@@ -98,6 +98,7 @@ export function DigitalMenuPage({
       ),
       {
         optionQuantities: Object.fromEntries(quantityByOption),
+        pricingMode: product.pricingMode,
         portionConfiguration: product.portionConfiguration,
         portions: configuration.portions,
       },
@@ -274,7 +275,11 @@ export function DigitalMenuPage({
                   {featured.saleMode === 'COMPLETE' ? 'Pronto para pedir' : 'Monte do seu jeito'}
                 </S.Tag>
                 <footer>
-                  <strong>{brl(featured.price)}</strong>
+                  <strong>
+                    {featured.pricingMode === 'HIGHEST_OPTION'
+                      ? 'Preço conforme as escolhas'
+                      : brl(featured.price)}
+                  </strong>
                   <button onClick={() => add()}>
                     Adicionar <Plus />
                   </button>
@@ -305,7 +310,11 @@ export function DigitalMenuPage({
             >
               <img src={product.image} alt={product.name} />
               <b>{product.name}</b>
-              <strong>{brl(product.price)}</strong>
+              <strong>
+                {product.pricingMode === 'HIGHEST_OPTION'
+                  ? 'Preço conforme as escolhas'
+                  : brl(product.price)}
+              </strong>
             </article>
           ))}
         </S.Products>

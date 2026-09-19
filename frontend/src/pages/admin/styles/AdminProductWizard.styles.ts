@@ -10,6 +10,72 @@ export const ProductWizardStepSection = styled(ProductFormSection)`
   .guided-price-field {
     width: min(100%, 360px);
   }
+  .pricing-mode-options {
+    border: 0;
+    padding: 0;
+    margin: 0 0 20px;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+    max-width: 820px;
+  }
+  .pricing-mode-options legend {
+    padding: 0 0 10px;
+    font-weight: 700;
+  }
+  .pricing-mode-options label {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 18px;
+    border: 1px solid #e2dad3;
+    border-radius: 12px;
+    cursor: pointer;
+    background: #fff;
+  }
+  .pricing-mode-options label.selected {
+    border-color: var(--a);
+    background: #fcf4ef;
+  }
+  .pricing-mode-options label:focus-within {
+    outline: 2px solid var(--a);
+    outline-offset: 3px;
+  }
+  .pricing-mode-options input {
+    width: 18px;
+    height: 18px;
+    margin: 2px 0 0;
+    accent-color: var(--a);
+    flex-shrink: 0;
+  }
+  .pricing-mode-options span {
+    display: grid;
+    gap: 6px;
+  }
+  .pricing-mode-options small {
+    color: var(--muted);
+    line-height: 1.5;
+  }
+  .dynamic-price-info {
+    max-width: 820px;
+    padding: 18px;
+    border-radius: 12px;
+    background: #f4f7f4;
+    border: 1px solid #d9e4da;
+    color: #334f3d;
+  }
+  .dynamic-price-info p {
+    margin: 8px 0;
+    line-height: 1.6;
+  }
+  .dynamic-price-info small {
+    line-height: 1.5;
+  }
+  @media (max-width: 600px) {
+    .pricing-mode-options {
+      grid-template-columns: 1fr;
+    }
+  }
   .guided-money-input {
     display: grid;
     grid-template-columns: auto minmax(0, 1fr);

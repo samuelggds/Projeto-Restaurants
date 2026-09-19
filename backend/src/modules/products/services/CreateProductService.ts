@@ -9,6 +9,7 @@ import {
   buildProductOptionGroupsCreate,
 } from '../utils/productOptionGroups.js';
 import { setTenantDbContext } from '../../../database/tenantDbContext.js';
+import { validateDynamicProductPricing } from '../utils/productPricingMode.js';
 
 type CreateProductInput = z.infer<typeof createProductSchema>;
 type Actor = { userId?: number; userName?: string; userRole?: string };
@@ -34,7 +35,10 @@ class CreateProductService {
     const activeFromStock = normalizedStock === null || normalizedStock > 0;
 
     const requiredName = requireDefined(parsedData.name, 'Nome do produto é obrigatório.');
-    const requiredPrice = requireDefined(parsedData.price, 'Preço do produto é obrigatório.');
+    const requiredPrice =
+      parsedData.pricingMode === 'HIGHEST_OPTION'
+        ? 0
+        : requireDefined(parsedData.price, 'Preço do produto é obrigatório.');
     const requiredCategoryId = requireDefined(
       parsedData.categoryId,
       'Categoria do produto é obrigatória.',
@@ -94,6 +98,12 @@ class CreateProductService {
         throw new Error('Adicione ao menos um grupo de opções para montar o produto.');
       }
 
+      validateDynamicProductPricing({
+        pricingMode: parsedData.pricingMode,
+        saleMode: effectiveSaleMode,
+        optionGroups: configuredGroups,
+        portionConfiguration: configuredPortions,
+      });
       const normalizedGroups =
         effectiveSaleMode === 'BUILDABLE'
           ? await buildProductOptionGroupsCreate(tx, restaurantId, configuredGroups)
@@ -182,6 +192,7 @@ class CreateProductService {
             metadata: {
               productId: createdProduct.id,
               saleMode: effectiveSaleMode,
+              pricingMode: parsedData.pricingMode ?? 'BASE',
               basePrice: Number(requiredPrice),
               optionGroupCount: normalizedGroups.length,
               compositionItemCount: normalizedComposition.length,

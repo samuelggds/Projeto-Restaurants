@@ -1,3 +1,4 @@
+import { productPricingConfigurationError } from '../domain/productPricingMode';
 import {
   forwardRef,
   useCallback,
@@ -88,6 +89,9 @@ export const ProductDrawer = forwardRef<ProductDrawerHandle, ProductDrawerProps>
     const [description, setDescription] = useState(product?.description ?? '');
     const [image, setImage] = useState(product?.image ?? '');
     const [price, setPrice] = useState(String(product?.price ?? ''));
+    const [pricingMode, setPricingMode] = useState<'BASE' | 'HIGHEST_OPTION'>(
+      product?.pricingMode ?? 'BASE',
+    );
     const [categoryId, setCategoryId] = useState(initialCategoryId);
     const [stock, setStock] = useState(String(product?.stock ?? ''));
     const [unlimitedStock, setUnlimitedStock] = useState(isUnlimitedStock(product?.stock));
@@ -136,6 +140,7 @@ export const ProductDrawer = forwardRef<ProductDrawerHandle, ProductDrawerProps>
         description: product?.description ?? '',
         image: product?.image ?? '',
         price: String(product?.price ?? ''),
+        pricingMode: product?.pricingMode ?? 'BASE',
         categoryId: initialCategoryId,
         stock: String(product?.stock ?? ''),
         unlimitedStock: isUnlimitedStock(product?.stock),
@@ -174,6 +179,7 @@ export const ProductDrawer = forwardRef<ProductDrawerHandle, ProductDrawerProps>
         description,
         image,
         price,
+        pricingMode,
         categoryId,
         stock,
         unlimitedStock,
@@ -297,9 +303,7 @@ export const ProductDrawer = forwardRef<ProductDrawerHandle, ProductDrawerProps>
     const addHalfHalfProduct = (groupIndex: number, referenceProductId: number) => {
       updateGroup(groupIndex, (group) => {
         if (
-          group.options.some(
-            (option) => Number(option.referenceProductId) === referenceProductId,
-          )
+          group.options.some((option) => Number(option.referenceProductId) === referenceProductId)
         ) {
           return group;
         }
@@ -603,7 +607,9 @@ export const ProductDrawer = forwardRef<ProductDrawerHandle, ProductDrawerProps>
 
     const validatePriceStep = () => {
       const numericPrice = Number(price);
-      const valid = Boolean(price.trim()) && Number.isFinite(numericPrice) && numericPrice >= 0;
+      const valid =
+        pricingMode === 'HIGHEST_OPTION' ||
+        (Boolean(price.trim()) && Number.isFinite(numericPrice) && numericPrice >= 0);
       setFieldErrors((current) => ({
         ...current,
         price: valid ? undefined : 'Informe um preço igual ou maior que zero.',
@@ -622,20 +628,14 @@ export const ProductDrawer = forwardRef<ProductDrawerHandle, ProductDrawerProps>
       }
 
       const normalizedGroups = optionGroups.map(normalizeOptionGroup);
+      const pricingError = productPricingConfigurationError(
+        pricingMode,
+        normalizedGroups,
+        portionConfiguration,
+      );
+      if (pricingError) return pricingError;
       const customizationErrors = validateOptionGroups(normalizedGroups, ingredients);
       if (customizationErrors.length) return customizationErrors[0];
-      if (
-        portionConfiguration?.enabled &&
-        !normalizedGroups.some((group) => group.name === portionConfiguration.optionGroupName)
-      ) {
-        return 'Escolha uma etapa existente para definir as opções de cada porção.';
-      }
-      if (
-        portionConfiguration?.enabled &&
-        portionConfiguration.minPortions > portionConfiguration.maxPortions
-      ) {
-        return 'O mínimo de porções não pode ser maior que o máximo.';
-      }
       return '';
     };
 
@@ -685,13 +685,16 @@ export const ProductDrawer = forwardRef<ProductDrawerHandle, ProductDrawerProps>
     const saveDraft = async (): Promise<boolean> => {
       setError('');
 
-      const numericPrice = Number(price);
+      const numericPrice = pricingMode === 'HIGHEST_OPTION' ? 0 : Number(price);
       if (!name.trim() || !categoryId) {
         validateBasicStep();
         setCurrentStep('BASIC');
         return false;
       }
-      if (!price.trim() || !Number.isFinite(numericPrice) || numericPrice < 0) {
+      if (
+        pricingMode !== 'HIGHEST_OPTION' &&
+        (!price.trim() || !Number.isFinite(numericPrice) || numericPrice < 0)
+      ) {
         validatePriceStep();
         setCurrentStep('PRICE');
         return false;
@@ -699,41 +702,11 @@ export const ProductDrawer = forwardRef<ProductDrawerHandle, ProductDrawerProps>
 
       let normalizedGroups: AdminProductOptionGroup[] = [];
       if (saleMode === 'BUILDABLE') {
-        const unresolvedCategoryIndex = optionGroups.findIndex(
-          (_, index) =>
-            !groupCategories[index] || groupCategories[index] === MIXED_INGREDIENT_CATEGORY,
-        );
-        if (unresolvedCategoryIndex >= 0) {
-          setError(
-            `Escolha uma categoria de ingredientes na etapa ${unresolvedCategoryIndex + 1} antes de salvar.`,
-          );
+        if (!validateCustomizationStep()) {
           setCurrentStep('CUSTOMIZATION');
           return false;
         }
-
         normalizedGroups = optionGroups.map(normalizeOptionGroup);
-        const customizationErrors = validateOptionGroups(normalizedGroups, ingredients);
-        if (customizationErrors.length) {
-          setError(customizationErrors[0]);
-          setCurrentStep('CUSTOMIZATION');
-          return false;
-        }
-        if (
-          portionConfiguration?.enabled &&
-          !normalizedGroups.some((group) => group.name === portionConfiguration.optionGroupName)
-        ) {
-          setError('Escolha uma etapa existente para definir as opções de cada porção.');
-          setCurrentStep('CUSTOMIZATION');
-          return false;
-        }
-        if (
-          portionConfiguration?.enabled &&
-          portionConfiguration.minPortions > portionConfiguration.maxPortions
-        ) {
-          setError('O mínimo de porções não pode ser maior que o máximo.');
-          setCurrentStep('CUSTOMIZATION');
-          return false;
-        }
       } else if (hasPersistedConfiguration && !confirmDiscardConfiguration) {
         setError('Confirme a remoção da personalização antes de salvar como produto simples.');
         setCurrentStep('TYPE');
@@ -754,6 +727,7 @@ export const ProductDrawer = forwardRef<ProductDrawerHandle, ProductDrawerProps>
           description: description.trim(),
           image: image.trim(),
           price: numericPrice,
+          pricingMode,
           categoryId,
           category: categories.find((item) => item.id === categoryId)?.name ?? '',
           stock: normalizedStock,
@@ -789,6 +763,16 @@ export const ProductDrawer = forwardRef<ProductDrawerHandle, ProductDrawerProps>
       discard: close,
     }));
 
+    const canConfigureOptions = Boolean(
+      activeIngredients.length ||
+      products.some(
+        (item) =>
+          item.active !== false &&
+          item.kind !== 'COMBO' &&
+          item.pricingMode !== 'HIGHEST_OPTION' &&
+          item.id !== product?.id,
+      ),
+    );
     const hasCustomizationStages = optionGroups.length > 0;
     const customizationRulesReady =
       hasCustomizationStages &&
@@ -860,6 +844,7 @@ export const ProductDrawer = forwardRef<ProductDrawerHandle, ProductDrawerProps>
               onConfirmDiscardConfigurationChange={setConfirmDiscardConfiguration}
               onSaleModeChange={(nextSaleMode) => {
                 setSaleMode(nextSaleMode);
+                if (nextSaleMode === 'COMPLETE') setPricingMode('BASE');
                 if (nextSaleMode === 'BUILDABLE') setConfirmDiscardConfiguration(false);
                 setError('');
               }}
@@ -887,11 +872,26 @@ export const ProductDrawer = forwardRef<ProductDrawerHandle, ProductDrawerProps>
               saleMode={saleMode}
               onClearFieldError={clearFieldError}
               onPriceChange={setPrice}
+              pricingMode={pricingMode}
+              onPricingModeChange={(mode) => {
+                setPricingMode(mode);
+                clearFieldError('price');
+                setError('');
+                if (mode === 'HIGHEST_OPTION' && !optionGroups.length) {
+                  setOptionGroups([
+                    { ...emptyGroup(), name: 'Primeira metade' },
+                    { ...emptyGroup(), name: 'Segunda metade' },
+                  ]);
+                  setGroupCategories(['Meio a Meio', 'Meio a Meio']);
+                  setEditingGroupIndex(0);
+                }
+              }}
             />
           )}
 
           {currentStep === 'APPEARANCE' && (
             <ProductAppearanceStep
+              dynamicPrice={pricingMode === 'HIGHEST_OPTION'}
               description={description}
               headingRef={stepHeadingRef}
               image={image}
@@ -971,21 +971,21 @@ export const ProductDrawer = forwardRef<ProductDrawerHandle, ProductDrawerProps>
                     </ol>
                   </div>
 
-                  {!activeIngredients.length && (
+                  {!canConfigureOptions && (
                     <S.ProductCustomizationEmpty className="customization-prerequisite">
                       <PackageOpen />
                       <div>
                         <b>Cadastre as opções antes de criar uma etapa</b>
                         <p>
                           Ingredientes são as opções que o cliente poderá escolher, como tamanhos,
-                          massas, bordas e adicionais. Cadastre pelo menos um ingrediente no
-                          cardápio para continuar.
+                          massas, bordas e adicionais. Cadastre pelo menos um ingrediente ou um
+                          produto com preço fixo no cardápio para continuar.
                         </p>
                       </div>
                     </S.ProductCustomizationEmpty>
                   )}
 
-                  {!!activeIngredients.length && !hasCustomizationStages && (
+                  {canConfigureOptions && !hasCustomizationStages && (
                     <div className="customization-start">
                       <header>
                         <small>PASSO 1</small>
@@ -1030,7 +1030,7 @@ export const ProductDrawer = forwardRef<ProductDrawerHandle, ProductDrawerProps>
                     </div>
                   )}
 
-                  {!!activeIngredients.length && hasCustomizationStages && (
+                  {canConfigureOptions && hasCustomizationStages && (
                     <div className="customization-actions">
                       <div>
                         <small>ETAPAS DO CLIENTE</small>
@@ -1046,8 +1046,9 @@ export const ProductDrawer = forwardRef<ProductDrawerHandle, ProductDrawerProps>
                     </div>
                   )}
 
-                  {!!activeIngredients.length && hasCustomizationStages && (
+                  {canConfigureOptions && hasCustomizationStages && (
                     <ProductConfigurationWorkspace
+                      dynamicPrice={pricingMode === 'HIGHEST_OPTION'}
                       name={name}
                       description={description}
                       image={image}
@@ -1177,6 +1178,7 @@ export const ProductDrawer = forwardRef<ProductDrawerHandle, ProductDrawerProps>
 
           {currentStep === 'REVIEW' && (
             <ProductReviewStep
+              dynamicPrice={pricingMode === 'HIGHEST_OPTION'}
               description={description}
               headingRef={stepHeadingRef}
               image={image}

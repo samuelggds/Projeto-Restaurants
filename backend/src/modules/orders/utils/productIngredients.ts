@@ -40,6 +40,7 @@ type ProductOption = {
     price: unknown;
     active: boolean;
     kind?: 'STANDARD' | 'COMBO';
+    pricingMode?: 'BASE' | 'HIGHEST_OPTION';
     stock?: number | null;
   } | null;
 };
@@ -113,6 +114,7 @@ type ProductWithOptions = {
   name: string;
   kind?: 'STANDARD' | 'COMBO';
   saleMode: 'COMPLETE' | 'BUILDABLE';
+  pricingMode?: 'BASE' | 'HIGHEST_OPTION';
   configurationVersion?: number;
   price: unknown;
   ingredients: LegacyIngredient[];
@@ -177,13 +179,12 @@ function optionIsAvailable(option: ProductOption, restaurantId: number | undefin
     return (
       option.referenceProduct.active &&
       option.referenceProduct.kind !== 'COMBO' &&
+      option.referenceProduct.pricingMode !== 'HIGHEST_OPTION' &&
       option.referenceProduct.restaurantId === restaurantId
     );
   }
 
-  return Boolean(
-    option.ingredient?.active && option.ingredient.restaurantId === restaurantId,
-  );
+  return Boolean(option.ingredient?.active && option.ingredient.restaurantId === restaurantId);
 }
 
 function optionUnitPrice(option: ProductOption) {
@@ -277,7 +278,9 @@ function resolveComposition(
       throw new OrderRequestError(`Um item removido está indisponível para ${product.name}.`);
     }
     if (!item.removable) {
-      throw new OrderRequestError(`${item.ingredient.name} faz parte da receita e não pode ser removido.`);
+      throw new OrderRequestError(
+        `${item.ingredient.name} faz parte da receita e não pode ser removido.`,
+      );
     }
   });
 
@@ -332,7 +335,9 @@ function resolvePortions(
     }
     const option = availableOptions.find((candidate) => candidate.id === optionId);
     if (!option) {
-      throw new OrderRequestError(`A opção da porção ${index + 1} está indisponível para ${product.name}.`);
+      throw new OrderRequestError(
+        `A opção da porção ${index + 1} está indisponível para ${product.name}.`,
+      );
     }
     const observation = String(portion.observation || '').trim();
     if (observation && !configuration.allowPortionObservations) {
@@ -349,9 +354,7 @@ function resolvePortions(
       fractionDenominator: portionCount,
       optionId: option.id,
       ...(option.ingredient?.id ? { ingredientId: option.ingredient.id } : {}),
-      ...(option.referenceProduct?.id
-        ? { referenceProductId: option.referenceProduct.id }
-        : {}),
+      ...(option.referenceProduct?.id ? { referenceProductId: option.referenceProduct.id } : {}),
       optionName: optionDisplayName(option),
       pricingMode: option.pricingMode ?? 'ADDITIVE',
       unitPrice,
@@ -435,7 +438,9 @@ function resolveExplicitOptionIds(
     const flatSignature = [...flatIds].sort((a, b) => a - b).join(',');
     const structuredSignature = [...structuredIds].sort((a, b) => a - b).join(',');
     if (flatSignature !== structuredSignature) {
-      throw new OrderRequestError('Os campos optionIds e selectedOptions informam montagens diferentes.');
+      throw new OrderRequestError(
+        'Os campos optionIds e selectedOptions informam montagens diferentes.',
+      );
     }
   }
 
@@ -466,7 +471,8 @@ function resolveComboConfiguration(
   }
 
   const groups = (product.comboGroups || []).filter((group) => group.active);
-  if (!groups.length) throw new OrderRequestError(`${product.name} ainda não possui itens configurados.`);
+  if (!groups.length)
+    throw new OrderRequestError(`${product.name} ainda não possui itens configurados.`);
 
   const rawSelections = selection.comboSelections || [];
   const selectionByGroup = new Map<number, Map<number, number>>();
@@ -502,7 +508,9 @@ function resolveComboConfiguration(
   const componentQuantities = new Map<number, { name: string; quantity: number }>();
   const customizations = groups.map((group) => {
     if (group.restaurantId !== undefined && group.restaurantId !== product.restaurantId) {
-      throw new OrderRequestError(`A configuração de ${product.name} pertence a outro restaurante.`);
+      throw new OrderRequestError(
+        `A configuração de ${product.name} pertence a outro restaurante.`,
+      );
     }
     const requested = selectionByGroup.get(group.id) || new Map<number, number>();
     const available = group.options.filter(
@@ -524,7 +532,9 @@ function resolveComboConfiguration(
       }
     });
 
-    if ([...requested.keys()].some((optionId) => !available.some((option) => option.id === optionId))) {
+    if (
+      [...requested.keys()].some((optionId) => !available.some((option) => option.id === optionId))
+    ) {
       throw new OrderRequestError(`Uma opção de ${group.name} não está disponível.`);
     }
 
@@ -599,7 +609,9 @@ export function resolveOrderItemCustomizations(
     selection.configurationVersion !== undefined &&
     Number(selection.configurationVersion) !== Number(product.configurationVersion ?? 1)
   ) {
-    throw new OrderRequestError('A configuração deste produto foi atualizada. Revise suas escolhas.');
+    throw new OrderRequestError(
+      'A configuração deste produto foi atualizada. Revise suas escolhas.',
+    );
   }
 
   const hasCustomizationIntent = Boolean(
@@ -611,6 +623,12 @@ export function resolveOrderItemCustomizations(
     selection.portions?.length ||
     selection.comboSelections?.some((group) => group.items?.length),
   );
+  if (
+    product.pricingMode === 'HIGHEST_OPTION' &&
+    (product.saleMode !== 'BUILDABLE' || !product.optionGroups?.some((group) => group.active))
+  ) {
+    throw new OrderRequestError('O meio a meio está sem opções disponíveis. Atualize o cardápio.');
+  }
   if (product.saleMode === 'COMPLETE') {
     if (hasCustomizationIntent) {
       throw new OrderRequestError(`${product.name} é vendido sem etapas de montagem.`);
@@ -644,13 +662,17 @@ export function resolveOrderItemCustomizations(
       };
     }
     if (!composition.composition.some((item) => item.removable)) {
-      throw new OrderRequestError(`${product.name} ainda não possui opções de montagem configuradas.`);
+      throw new OrderRequestError(
+        `${product.name} ainda não possui opções de montagem configuradas.`,
+      );
     }
   }
 
   activeGroups.forEach((group) => {
     if (group.restaurantId !== product.restaurantId) {
-      throw new OrderRequestError(`A configuração de ${product.name} pertence a outro restaurante.`);
+      throw new OrderRequestError(
+        `A configuração de ${product.name} pertence a outro restaurante.`,
+      );
     }
   });
 
@@ -661,9 +683,7 @@ export function resolveOrderItemCustomizations(
   }
 
   const allActiveOptions = regularGroups.flatMap((group) =>
-    group.options.filter(
-      (option) => optionIsAvailable(option, product.restaurantId),
-    ),
+    group.options.filter((option) => optionIsAvailable(option, product.restaurantId)),
   );
   const allActiveOptionIds = new Set(allActiveOptions.map((option) => option.id));
   if (selectedIds.some((id) => !allActiveOptionIds.has(id))) {
@@ -671,15 +691,17 @@ export function resolveOrderItemCustomizations(
   }
 
   const groupSelections = regularGroups.map((group) => {
-    const availableOptions = group.options.filter(
-      (option) => optionIsAvailable(option, product.restaurantId),
+    const availableOptions = group.options.filter((option) =>
+      optionIsAvailable(option, product.restaurantId),
     );
     const selected = availableOptions.filter((option) => selectedIds.includes(option.id));
     const minimum = group.required ? Math.max(1, group.minSelections) : group.minSelections;
     const maximum = group.selectionType === 'SINGLE' ? 1 : group.maxSelections;
 
     if (availableOptions.length < minimum) {
-      throw new OrderRequestError(`O grupo ${group.name} está sem opções suficientes. Avise o restaurante.`);
+      throw new OrderRequestError(
+        `O grupo ${group.name} está sem opções suficientes. Avise o restaurante.`,
+      );
     }
     if (selected.length < minimum) {
       throw new OrderRequestError(
@@ -727,7 +749,7 @@ export function resolveOrderItemCustomizations(
             ? { referenceProductId: option.referenceProduct.id }
             : {}),
           name: optionDisplayName(option),
-          pricingMode: option.referenceProduct ? 'ABSOLUTE' : option.pricingMode ?? 'ADDITIVE',
+          pricingMode: option.referenceProduct ? 'ABSOLUTE' : (option.pricingMode ?? 'ADDITIVE'),
           unitPrice,
           quantity,
           price: totalPrice,
@@ -739,6 +761,9 @@ export function resolveOrderItemCustomizations(
 
   const selectedOptions = customizations.flatMap((group) => group.options);
   const productBackedOptions = selectedOptions.filter((option) => option.referenceProductId);
+  if (product.pricingMode === 'HIGHEST_OPTION' && !productBackedOptions.length) {
+    throw new OrderRequestError('Escolha os produtos do meio a meio para calcular o preço.');
+  }
   const regularAbsoluteOptions = selectedOptions.filter(
     (option) => option.pricingMode === 'ABSOLUTE' && !option.referenceProductId,
   );
@@ -747,7 +772,10 @@ export function resolveOrderItemCustomizations(
   }
 
   const portions = resolvePortions(product, activeGroups, selection.portions);
-  if ((regularAbsoluteOptions.length || productBackedOptions.length) && portions.absoluteCents !== null) {
+  if (
+    (regularAbsoluteOptions.length || productBackedOptions.length) &&
+    portions.absoluteCents !== null
+  ) {
     throw new OrderRequestError('A montagem possui mais de uma etapa definindo o preço base.');
   }
 
@@ -857,7 +885,9 @@ function resolveLegacyProductIngredients(
   const available = product.ingredients.filter((ingredient) => ingredient.active);
 
   if (!available.length) {
-    throw new OrderRequestError(`${product.name} ainda não possui opções de montagem configuradas.`);
+    throw new OrderRequestError(
+      `${product.name} ainda não possui opções de montagem configuradas.`,
+    );
   }
 
   const selected = selectedIds.map((id) => available.find((ingredient) => ingredient.id === id));

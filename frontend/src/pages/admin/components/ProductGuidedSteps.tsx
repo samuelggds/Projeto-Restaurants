@@ -105,6 +105,8 @@ export function ProductPriceStep({
   onPriceChange,
   price,
   saleMode,
+  pricingMode,
+  onPricingModeChange,
 }: {
   fieldErrors: ProductFieldErrors;
   headingRef: StepHeadingRef;
@@ -112,6 +114,8 @@ export function ProductPriceStep({
   onPriceChange: (price: string) => void;
   price: string;
   saleMode: 'COMPLETE' | 'BUILDABLE';
+  pricingMode: 'BASE' | 'HIGHEST_OPTION';
+  onPricingModeChange: (mode: 'BASE' | 'HIGHEST_OPTION') => void;
 }) {
   return (
     <S.ProductWizardStepSection aria-labelledby="product-step-price">
@@ -121,43 +125,90 @@ export function ProductPriceStep({
           <h3 id="product-step-price" ref={headingRef} tabIndex={-1}>
             Quanto custa?
           </h3>
-          <p>Informe o valor que o cliente verá no cardápio.</p>
+          <p>Escolha como o preço será calculado para o cliente.</p>
         </div>
       </div>
 
-      <div className="guided-price-field">
-        <S.Field $full>
-          Preço
-          <div className="guided-money-input">
-            <span>R$</span>
-            <input
-              aria-describedby={fieldErrors.price ? 'product-price-error' : 'product-price-help'}
-              aria-invalid={Boolean(fieldErrors.price)}
-              inputMode="decimal"
-              min="0"
-              max="999999"
-              placeholder="29,90"
-              required
-              step="0.01"
-              type="number"
-              value={price}
-              onChange={(event) => {
-                onPriceChange(event.target.value);
-                onClearFieldError('price');
-              }}
-            />
-          </div>
-          <small
-            className={fieldErrors.price ? 'field-error' : ''}
-            id={fieldErrors.price ? 'product-price-error' : 'product-price-help'}
-          >
-            {fieldErrors.price ||
-              (saleMode === 'COMPLETE'
-                ? 'Esse é o preço final deste produto.'
-                : 'Esse é o preço inicial. As escolhas podem alterar o valor.')}
+      {saleMode === 'BUILDABLE' && (
+        <fieldset className="pricing-mode-options">
+          <legend>Como cobrar este produto?</legend>
+          {(
+            [
+              [
+                'BASE',
+                'Preço fixo',
+                'Informe o preço inicial. Adicionais seguem as regras das etapas.',
+              ],
+              [
+                'HIGHEST_OPTION',
+                'Meio a meio',
+                'O cliente paga o maior preço entre os produtos escolhidos.',
+              ],
+            ] as const
+          ).map(([mode, label, description]) => (
+            <label key={mode} className={pricingMode === mode ? 'selected' : ''}>
+              <input
+                type="radio"
+                name="product-pricing-mode"
+                value={mode}
+                checked={pricingMode === mode}
+                onChange={() => onPricingModeChange(mode)}
+              />
+              <span>
+                <b>{label}</b>
+                <small>{description}</small>
+              </span>
+            </label>
+          ))}
+        </fieldset>
+      )}
+      {pricingMode === 'HIGHEST_OPTION' ? (
+        <div className="dynamic-price-info" role="status">
+          <b>Preço definido pelas escolhas do cliente</b>
+          <p>
+            Não é necessário preencher um valor. Nas próximas etapas, selecione os produtos de cada
+            metade.
+          </p>
+          <small>
+            Exemplo: sabores de R$ 35,00 e R$ 42,00 → preço de R$ 42,00. Adicionais opcionais são
+            cobrados à parte.
           </small>
-        </S.Field>
-      </div>
+        </div>
+      ) : (
+        <div className="guided-price-field">
+          <S.Field $full>
+            Preço
+            <div className="guided-money-input">
+              <span>R$</span>
+              <input
+                aria-describedby={fieldErrors.price ? 'product-price-error' : 'product-price-help'}
+                aria-invalid={Boolean(fieldErrors.price)}
+                inputMode="decimal"
+                min="0"
+                max="999999"
+                placeholder="29,90"
+                required
+                step="0.01"
+                type="number"
+                value={price}
+                onChange={(event) => {
+                  onPriceChange(event.target.value);
+                  onClearFieldError('price');
+                }}
+              />
+            </div>
+            <small
+              className={fieldErrors.price ? 'field-error' : ''}
+              id={fieldErrors.price ? 'product-price-error' : 'product-price-help'}
+            >
+              {fieldErrors.price ||
+                (saleMode === 'COMPLETE'
+                  ? 'Esse é o preço final deste produto.'
+                  : 'Esse é o preço inicial. As escolhas podem alterar o valor.')}
+            </small>
+          </S.Field>
+        </div>
+      )}
     </S.ProductWizardStepSection>
   );
 }
@@ -170,6 +221,7 @@ export function ProductAppearanceStep({
   onDescriptionChange,
   onUploadImage,
   price,
+  dynamicPrice = false,
   selectedProductCategory,
 }: {
   description: string;
@@ -179,6 +231,7 @@ export function ProductAppearanceStep({
   onDescriptionChange: (description: string) => void;
   onUploadImage: (file?: File) => void;
   price: string;
+  dynamicPrice?: boolean;
   selectedProductCategory: string;
 }) {
   return (
@@ -208,7 +261,13 @@ export function ProductAppearanceStep({
             <div className="preview-caption">
               <small>{selectedProductCategory || 'Categoria'}</small>
               <b>{name || 'Nome do produto'}</b>
-              <strong>{Number(price) >= 0 ? money(Number(price)) : 'R$ 0,00'}</strong>
+              <strong>
+                {dynamicPrice
+                  ? 'Preço conforme as escolhas'
+                  : Number(price) >= 0
+                    ? money(Number(price))
+                    : 'R$ 0,00'}
+              </strong>
             </div>
           </div>
           <label className="image-upload-action" htmlFor="product-image-upload">
@@ -242,7 +301,9 @@ export function ProductAppearanceStep({
             <span>
               <b>{name || 'Nome do produto'}</b>
               <small>{description || 'Descrição opcional'}</small>
-              <strong>{money(Number(price) || 0)}</strong>
+              <strong>
+                {dynamicPrice ? 'Preço conforme as escolhas' : money(Number(price) || 0)}
+              </strong>
             </span>
           </div>
         </div>

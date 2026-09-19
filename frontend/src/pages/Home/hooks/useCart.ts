@@ -252,6 +252,7 @@ export function useCart(products: HomeProduct[], notify: Notify, restaurantId?: 
           [
             product.id,
             product.price,
+            product.pricingMode,
             product.stock ?? '∞',
             ...(product.optionGroups || []).flatMap((group) =>
               group.options.map((option) => `${option.id}:${option.price}:${option.active}`),
@@ -335,6 +336,7 @@ export function useCart(products: HomeProduct[], notify: Notify, restaurantId?: 
                   selections,
                   {
                     optionQuantities: Object.fromEntries(optionQuantities),
+                    pricingMode: product.pricingMode,
                     portionConfiguration: product.portionConfiguration,
                     portions: item.portions,
                   },
@@ -460,6 +462,7 @@ export function useCart(products: HomeProduct[], notify: Notify, restaurantId?: 
             )
           : productConfigurationTotal(product.price, groups, selections, {
               optionQuantities: Object.fromEntries(quantityByOption),
+              pricingMode: product.pricingMode,
               portionConfiguration: product.portionConfiguration,
               portions: configuration.portions,
             });

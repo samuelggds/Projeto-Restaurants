@@ -180,7 +180,11 @@ export function ProductSearchDialog({
                       {product.promotion?.active && product.originalPrice > product.price && (
                         <del>{brl(product.originalPrice)}</del>
                       )}
-                      <strong>{brl(product.price)}</strong>
+                      <strong>
+                        {product.pricingMode === 'HIGHEST_OPTION'
+                          ? 'Preço conforme as escolhas'
+                          : brl(product.price)}
+                      </strong>
                     </Price>
                   </ProductInfo>
                   <ChevronCircle aria-hidden="true">

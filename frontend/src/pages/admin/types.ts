@@ -99,6 +99,7 @@ export type AdminProduct = {
   active?: boolean;
   kind?: 'STANDARD' | 'COMBO';
   saleMode?: 'COMPLETE' | 'BUILDABLE';
+  pricingMode?: 'BASE' | 'HIGHEST_OPTION';
   configurationVersion?: number;
   confirmDiscardConfiguration?: boolean;
   ingredients?: Array<{

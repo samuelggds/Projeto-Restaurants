@@ -59,6 +59,68 @@ const product = {
   ],
 };
 
+for (const width of [1440, 390]) {
+  test(`meio a meio calcula o maior sabor na sacola em ${width}px`, async ({ page }, testInfo) => {
+    await mockStorefront(page);
+    const halfHalf = {
+      ...product,
+      id: 505,
+      name: 'Meio a meio dinâmico',
+      price: 0,
+      pricingMode: 'HIGHEST_OPTION',
+      optionGroups: [1, 2].map((half) => ({
+        id: half,
+        name: `Metade ${half}`,
+        required: true,
+        selectionType: 'SINGLE',
+        minSelections: 1,
+        maxSelections: 1,
+        options: [35, 42].map((price, index) => ({
+          id: half * 10 + index,
+          active: true,
+          referenceProductId: 100 + index,
+          pricingMode: 'ABSOLUTE',
+          absolutePrice: 0,
+          referenceProduct: {
+            id: 100 + index,
+            name: index ? 'Especial' : 'Calabresa',
+            price,
+            active: true,
+            kind: 'STANDARD',
+            pricingMode: 'BASE',
+          },
+        })),
+      })),
+    };
+    await page.route('**/products?*', (route) => route.fulfill({ json: { products: [halfHalf] } }));
+    await page.route('**/products', (route) => route.fulfill({ json: { products: [halfHalf] } }));
+    await page.setViewportSize({ width, height: 900 });
+    await page.goto('/restaurante-teste');
+    await page.getByRole('button', { name: 'Ver detalhes de Meio a meio dinâmico' }).click();
+    const dialog = page.getByRole('dialog', { name: 'Montar Meio a meio dinâmico' });
+    const footer = dialog.getByTestId('product-configurator-footer');
+    await expect(footer).toContainText('Escolha os sabores');
+    await expect(footer).not.toContainText('R$ 0,00');
+    await dialog
+      .locator('label')
+      .filter({ has: page.locator('input[value="10"]') })
+      .click();
+    await dialog
+      .locator('label')
+      .filter({ has: page.locator('input[value="21"]') })
+      .click();
+    await expect(footer).toContainText('42,00');
+    await page.screenshot({
+      path: testInfo.outputPath(`meio-a-meio-cliente-${width}.png`),
+      fullPage: true,
+    });
+    await dialog.getByRole('button', { name: 'Adicionar à sacola' }).click();
+    const cart = await openCartAfterAddition(page);
+    await expect(cart).toContainText('42,00');
+    await expect(cart).not.toContainText('77,00');
+  });
+}
+
 const advancedProduct = {
   id: 202,
   name: 'Pizza em porções',

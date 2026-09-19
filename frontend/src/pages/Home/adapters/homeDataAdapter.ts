@@ -83,18 +83,14 @@ export function mapProductOptionGroupsFromApi(product: Record<string, unknown>) 
               const ingredient = (option.ingredient as Record<string, unknown> | null) ?? {};
               const referenceProduct =
                 (option.referenceProduct as Record<string, unknown> | null) ?? {};
-              const isProductBacked = Boolean(
-                option.referenceProductId || referenceProduct.id,
-              );
+              const isProductBacked = Boolean(option.referenceProductId || referenceProduct.id);
               const linkedPrice = Number(referenceProduct.price ?? 0);
               return {
                 id: String(option.id ?? ''),
                 ingredientId: String(option.ingredientId ?? ingredient.id ?? '') || undefined,
                 referenceProductId:
                   String(option.referenceProductId ?? referenceProduct.id ?? '') || undefined,
-                name: String(
-                  referenceProduct.name || ingredient.name || option.name || '',
-                ),
+                name: String(referenceProduct.name || ingredient.name || option.name || ''),
                 image: isPersistentImageSource(referenceProduct.image)
                   ? String(referenceProduct.image).trim()
                   : isPersistentImageSource(ingredient.image)
@@ -123,7 +119,8 @@ export function mapProductOptionGroupsFromApi(product: Record<string, unknown>) 
                   option.active !== false &&
                   (isProductBacked
                     ? referenceProduct.active !== false &&
-                      referenceProduct.kind !== 'COMBO'
+                      referenceProduct.kind !== 'COMBO' &&
+                      referenceProduct.pricingMode !== 'HIGHEST_OPTION'
                     : ingredient.active !== false),
               };
             })
@@ -313,6 +310,7 @@ export function buildHomeData(
       available: !isProductUnavailable(product),
       kind: product.kind === 'COMBO' ? 'COMBO' : 'STANDARD',
       saleMode: product.saleMode === 'COMPLETE' ? 'COMPLETE' : 'BUILDABLE',
+      pricingMode: product.pricingMode === 'HIGHEST_OPTION' ? 'HIGHEST_OPTION' : 'BASE',
       comboGroups: Array.isArray(product.comboGroups)
         ? product.comboGroups
             .map((rawGroup) => {
@@ -321,7 +319,8 @@ export function buildHomeData(
                 ? group.options
                     .map((rawOption) => {
                       const option = rawOption as Record<string, unknown>;
-                      const component = (option.componentProduct as Record<string, unknown> | null) ?? {};
+                      const component =
+                        (option.componentProduct as Record<string, unknown> | null) ?? {};
                       const stock =
                         component.stock === null || component.stock === undefined
                           ? null

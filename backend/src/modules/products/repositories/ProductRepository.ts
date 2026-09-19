@@ -33,6 +33,7 @@ const productConfigurationInclude = {
               name: true,
               image: true,
               price: true,
+              pricingMode: true,
               active: true,
               kind: true,
               stock: true,

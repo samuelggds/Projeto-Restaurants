@@ -107,6 +107,86 @@ describe('cadastro administrativo de produto', () => {
     await clickButton('Continuar');
   };
 
+  it('permite preço meio a meio sem valor fixo e preserva o modo ao salvar', async () => {
+    const save = vi.fn().mockResolvedValue(undefined);
+    const halfHalf = {
+      ...configuredProduct,
+      optionGroups: [
+        {
+          ...configuredProduct.optionGroups![0],
+          name: 'Sabores',
+          options: [{ referenceProductId: 201, pricingMode: 'ABSOLUTE' as const }],
+        },
+      ],
+    };
+    await act(async () =>
+      root.render(
+        <ProductDrawer
+          product={halfHalf}
+          products={[
+            { ...configuredProduct, id: '201', name: 'Calabresa', price: 35, saleMode: 'COMPLETE' },
+          ]}
+          categories={[{ id: 9, name: 'Pizzas' }]}
+          ingredients={[]}
+          close={vi.fn()}
+          save={save}
+        />,
+      ),
+    );
+    await clickButton('Continuar');
+    await clickButton('Continuar');
+    const price = container.querySelector('input[type="number"]');
+    const setValue = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!;
+    await act(async () => {
+      setValue.call(price, '');
+      price!.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    await clickButton('Continuar');
+    expect(container.textContent).toContain('Informe o preço para continuar.');
+    await act(async () =>
+      (container.querySelector('input[value="HIGHEST_OPTION"]') as HTMLInputElement).click(),
+    );
+    expect(container.querySelector('input[type="number"]')).toBeNull();
+    await clickButton('Continuar');
+    expect(container.textContent).toContain('Preço conforme as escolhas');
+    await clickButton('Continuar');
+    expect(container.textContent).toContain('Calabresa');
+    await clickButton('Continuar');
+    await clickButton('Continuar');
+    expect(container.textContent).toContain('Preço conforme as escolhas');
+    await clickButton('Salvar alterações');
+    expect(save).toHaveBeenCalledOnce();
+    expect(save.mock.calls[0][0]).toMatchObject({
+      price: 0,
+      pricingMode: 'HIGHEST_OPTION',
+      saleMode: 'BUILDABLE',
+    });
+  });
+
+  it('reabre produto meio a meio sem exigir o preço e mantém as etapas salvas', async () => {
+    await act(async () =>
+      root.render(
+        <ProductDrawer
+          product={{ ...configuredProduct, price: 0, pricingMode: 'HIGHEST_OPTION' }}
+          categories={[{ id: 9, name: 'Pizzas' }]}
+          ingredients={[]}
+          close={vi.fn()}
+          save={vi.fn()}
+        />,
+      ),
+    );
+    await clickButton('Continuar');
+    await clickButton('Continuar');
+    expect(
+      (container.querySelector('input[value="HIGHEST_OPTION"]') as HTMLInputElement).checked,
+    ).toBe(true);
+    expect(container.querySelector('input[type="number"]')).toBeNull();
+    await act(async () =>
+      (container.querySelector('input[value="BASE"]') as HTMLInputElement).click(),
+    );
+    expect(container.querySelector('input[type="number"]')).not.toBeNull();
+  });
+
   it('exige confirmação antes de descartar uma configuração existente', async () => {
     const save = vi.fn().mockResolvedValue(undefined);
     await act(async () => {

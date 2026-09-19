@@ -25,17 +25,17 @@ export const HomeProductCard = memo(function HomeProductCard({
   orderingLocked = false,
 }: HomeProductCardProps) {
   return (
-    <S.ProductCard
-      data-featured={featured || undefined}
-    >
+    <S.ProductCard data-featured={featured || undefined}>
       <button
         type="button"
         className="product-main-action"
         disabled={orderingLocked}
         aria-disabled={orderingLocked || undefined}
-        aria-label={orderingLocked
-          ? `${product.name}: novos pedidos bloqueados, conta solicitada`
-          : `Ver detalhes de ${product.name}`}
+        aria-label={
+          orderingLocked
+            ? `${product.name}: novos pedidos bloqueados, conta solicitada`
+            : `Ver detalhes de ${product.name}`
+        }
         onClick={() => onOpen(product)}
       />
       <S.ImageWrap data-featured={featured || undefined}>
@@ -72,7 +72,11 @@ export const HomeProductCard = memo(function HomeProductCard({
             {product.promotion?.active && product.originalPrice > product.price && (
               <del>{brl(product.originalPrice)}</del>
             )}
-            <strong>{brl(product.price)}</strong>
+            <strong>
+              {product.pricingMode === 'HIGHEST_OPTION'
+                ? 'Preço conforme as escolhas'
+                : brl(product.price)}
+            </strong>
           </Promotion.Price>
           <button
             type="button"
