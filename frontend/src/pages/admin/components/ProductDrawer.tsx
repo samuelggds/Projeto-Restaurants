@@ -308,7 +308,10 @@ export const ProductDrawer = forwardRef<ProductDrawerHandle, ProductDrawerProps>
     };
 
     const addPreset = (preset: 'SINGLE' | 'EXTRAS' | 'PORTIONS') => {
-      const group = groupPreset(preset);
+      const group =
+        preset === 'PORTIONS'
+          ? { ...groupPreset(preset), name: 'Sabores' }
+          : groupPreset(preset);
       setOptionGroups((current) => [...current, group]);
       setGroupCategories((current) => [...current, '']);
       setEditingGroupIndex(optionGroups.length);
