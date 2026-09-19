@@ -37,7 +37,6 @@ export async function buildProductOptionGroupsCreate(
   );
 
   return groups.map((group, groupIndex) => ({
-    restaurantId,
     name: group.name.trim(),
     description: String(group.description || '').trim() || null,
     required: group.required,
@@ -48,7 +47,6 @@ export async function buildProductOptionGroupsCreate(
     active: true,
     options: {
       create: group.options.map((option, optionIndex) => ({
-        restaurantId,
         ingredientId: option.ingredientId,
         additionalPrice: option.additionalPrice ?? ingredientPrices.get(option.ingredientId) ?? 0,
         pricingMode: option.pricingMode,
@@ -87,7 +85,6 @@ export async function buildProductCompositionCreate(
   }
 
   return items.map((item, position) => ({
-    restaurantId,
     ingredientId: item.ingredientId,
     removable: item.removable,
     active: item.active !== false,

@@ -103,6 +103,8 @@ test('mantém compatibilidade inferindo BUILDABLE quando cliente legado envia gr
 
   assert.equal(saved.createdData.saleMode, 'BUILDABLE');
   assert.equal(saved.createdData.optionGroups.create.length, 1);
+  assert.equal(saved.createdData.optionGroups.create[0].restaurantId, undefined);
+  assert.equal(saved.createdData.optionGroups.create[0].options.create[0].restaurantId, undefined);
 });
 
 test('exige confirmação antes de apagar configuração BUILDABLE', async () => {
