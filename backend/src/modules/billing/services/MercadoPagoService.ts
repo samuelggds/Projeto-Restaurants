@@ -19,6 +19,13 @@ export type MercadoPagoPixPayment = {
   expiresAt: string | null;
 };
 
+export const BILLING_PIX_EXPIRATION_DAYS = 7;
+const DAY_IN_MS = 24 * 60 * 60 * 1000;
+
+export function getBillingPixExpiresAt(now = Date.now()) {
+  return new Date(now + BILLING_PIX_EXPIRATION_DAYS * DAY_IN_MS).toISOString();
+}
+
 class MercadoPagoService {
   async createPayment({
     invoiceId,
@@ -42,7 +49,7 @@ class MercadoPagoService {
       );
     }
 
-    const expiresAt = new Date(Date.now() + 30 * 60 * 1000).toISOString();
+    const expiresAt = getBillingPixExpiresAt();
     debug('creating Mercado Pago Pix', { invoiceId, amount: Number(amount) });
 
     try {
