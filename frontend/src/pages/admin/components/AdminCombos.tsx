@@ -185,10 +185,7 @@ export function AdminCombos({ products, money, onChanged }: Props) {
     };
   }, [editingId]);
 
-  const editorPortalTarget =
-    typeof document === 'undefined'
-      ? null
-      : document.querySelector<HTMLElement>('[data-admin-root]') || document.body;
+  const editorPortalTarget = typeof document === 'undefined' ? null : document.body;
 
   const addSelectedProduct = () => {
     const productId = Number(selectedProductId);
