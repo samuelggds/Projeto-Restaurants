@@ -13,6 +13,7 @@ import {
 import * as S from '../Admin.styles';
 import type {
   AdminIngredient,
+  AdminProduct,
   AdminProductCompositionItem,
   AdminProductOptionGroup,
   AdminProductPortionConfiguration,
@@ -41,6 +42,7 @@ type ProductConfigurationWorkspaceProps = {
   price: string;
   showComposition?: boolean;
   ingredients: AdminIngredient[];
+  products: AdminProduct[];
   activeIngredients: AdminIngredient[];
   activeIngredientSections: IngredientCategorySection[];
   ingredientCategories: string[];
@@ -103,6 +105,7 @@ export function ProductConfigurationWorkspace({
   price,
   showComposition = true,
   ingredients,
+  products,
   activeIngredients,
   activeIngredientSections,
   ingredientCategories,
@@ -171,8 +174,18 @@ export function ProductConfigurationWorkspace({
         ) : (
           <S.ProductOptionGroupList className="configuration-list">
             {optionGroups.map((group, groupIndex) => {
-              const selectedIds = new Set(group.options.map((option) => option.ingredientId));
+              const selectedIds = new Set(
+                group.options.flatMap((option) =>
+                  option.ingredientId ? [option.ingredientId] : [],
+                ),
+              );
+              const selectedProductIds = new Set(
+                group.options.flatMap((option) =>
+                  option.referenceProductId ? [option.referenceProductId] : [],
+                ),
+              );
               const sourceCategory = groupCategories[groupIndex] || '';
+              const isHalfHalf = sourceCategory === 'Meio a Meio';
               const legacyCategory = inferGroupIngredientCategory(group, ingredients);
               const isLegacyMixed = sourceCategory === MIXED_INGREDIENT_CATEGORY;
               const visibleIngredients = isLegacyMixed
@@ -223,9 +236,13 @@ export function ProductConfigurationWorkspace({
                     </div>
                     <div className="group-option-preview" aria-hidden="true">
                       {group.options.slice(0, 3).map((option) => (
-                        <span key={option.ingredientId}>
-                          {ingredients.find((item) => item.id === option.ingredientId)?.name ||
-                            `Opção ${option.ingredientId}`}
+                        <span key={option.id ?? option.referenceProductId ?? option.ingredientId}>
+                          {option.referenceProductId
+                            ? products.find(
+                                (item) => Number(item.id) === Number(option.referenceProductId),
+                              )?.name || `Produto ${option.referenceProductId}`
+                            : ingredients.find((item) => item.id === option.ingredientId)?.name ||
+                              `Opção ${option.ingredientId}`}
                         </span>
                       ))}
                       {group.options.length > 3 && <span>+{group.options.length - 3}</span>}
@@ -347,7 +364,9 @@ export function ProductConfigurationWorkspace({
                             ))}
                           </select>
                           <small>
-                            Mostra somente os ingredientes que poderão responder a esta pergunta.
+                            {sourceCategory === 'Meio a Meio'
+                              ? 'Neste modo, as opções vêm dos produtos já cadastrados no cardápio.'
+                              : 'Mostra somente os ingredientes que poderão responder a esta pergunta.'}
                           </small>
                         </S.Field>
                         <S.Field $full>
@@ -545,10 +564,11 @@ export function ProductConfigurationWorkspace({
                       <div className="guided-step-heading">
                         <i>3</i>
                         <span>
-                          <b>Marque as respostas que aparecerão</b>
+                          <b>{isHalfHalf ? 'Escolha as pizzas disponíveis' : 'Marque as respostas que aparecerão'}</b>
                           <small>
-                            Selecione os ingredientes desta categoria. O nome e o preço de cada um
-                            serão mostrados ao cliente na mesma ordem.
+                            {isHalfHalf
+                              ? 'Adicione quantos produtos quiser. Nome, imagem e preço vêm do produto cadastrado.'
+                              : 'Selecione os ingredientes desta categoria. O nome e o preço de cada um serão mostrados ao cliente na mesma ordem.'}
                           </small>
                         </span>
                         <em className={group.options.length ? '' : 'pending'}>
@@ -557,6 +577,115 @@ export function ProductConfigurationWorkspace({
                             : 'Selecione ao menos 1'}
                         </em>
                       </div>
+                      {isHalfHalf ? (
+                        <fieldset className="group-options">
+                          <legend>
+                            <span>Produtos disponíveis · {group.options.length} selecionado(s)</span>
+                          </legend>
+                          <p className="group-options-hint">
+                            Escolha um produto por vez. Você pode usar este seletor quantas vezes quiser.
+                            O preço é sempre lido do produto cadastrado.
+                          </p>
+                          <S.Field $full>
+                            Adicionar produto ao meio a meio
+                            <select
+                              aria-label="Adicionar produto ao meio a meio"
+                              defaultValue=""
+                              onChange={(event) => {
+                                const referenceProductId = Number(event.target.value);
+                                if (!referenceProductId) return;
+                                updateGroup(groupIndex, (current) =>
+                                  current.options.some(
+                                    (option) =>
+                                      Number(option.referenceProductId) === referenceProductId,
+                                  )
+                                    ? current
+                                    : {
+                                        ...current,
+                                        options: [
+                                          ...current.options,
+                                          {
+                                            referenceProductId,
+                                            additionalPrice: 0,
+                                            pricingMode: 'ABSOLUTE',
+                                            absolutePrice: 0,
+                                            allowQuantity: false,
+                                            minQuantity: 1,
+                                            maxQuantity: 1,
+                                            defaultQuantity: 1,
+                                            defaultSelected: false,
+                                            locked: false,
+                                            active: true,
+                                          },
+                                        ],
+                                      },
+                                );
+                                event.currentTarget.value = '';
+                              }}
+                            >
+                              <option value="">Selecione um produto</option>
+                              {products
+                                .filter(
+                                  (candidate) =>
+                                    candidate.active !== false &&
+                                    candidate.kind !== 'COMBO' &&
+                                    !selectedProductIds.has(Number(candidate.id)),
+                                )
+                                .map((candidate) => (
+                                  <option key={candidate.id} value={candidate.id}>
+                                    {candidate.name} — {money(Number(candidate.price || 0))}
+                                  </option>
+                                ))}
+                            </select>
+                          </S.Field>
+
+                          <div className="configured-option-list">
+                            {group.options
+                              .filter((option) => option.referenceProductId)
+                              .map((option) => {
+                                const linkedProduct = products.find(
+                                  (candidate) =>
+                                    Number(candidate.id) === Number(option.referenceProductId),
+                                );
+                                return (
+                                  <article key={option.referenceProductId}>
+                                    <div className="configured-option-title">
+                                      <span>
+                                        <b>{linkedProduct?.name || 'Produto indisponível'}</b>
+                                        <small>
+                                          {linkedProduct
+                                            ? `Preço atual: ${money(Number(linkedProduct.price || 0))}`
+                                            : 'O produto vinculado não está mais disponível.'}
+                                        </small>
+                                      </span>
+                                    </div>
+                                    <button
+                                      className="remove-group"
+                                      type="button"
+                                      onClick={() =>
+                                        updateGroup(groupIndex, (current) => ({
+                                          ...current,
+                                          options: current.options.filter(
+                                            (candidate) =>
+                                              candidate.referenceProductId !==
+                                              option.referenceProductId,
+                                          ),
+                                        }))
+                                      }
+                                    >
+                                      <Trash2 /> Remover
+                                    </button>
+                                  </article>
+                                );
+                              })}
+                          </div>
+                          {!group.options.some((option) => option.referenceProductId) && (
+                            <div className="source-category-empty">
+                              Adicione pelo menos uma pizza cadastrada.
+                            </div>
+                          )}
+                        </fieldset>
+                      ) : (
                       <fieldset className="group-options">
                         <legend>
                           <span>Opções disponíveis · {group.options.length} selecionada(s)</span>
@@ -627,7 +756,10 @@ export function ProductConfigurationWorkspace({
                         )}
                       </fieldset>
 
-                      {!!group.options.length && (
+
+                      )}
+
+                      {!!group.options.length && !isHalfHalf && (
                         <details className="advanced-settings option-settings">
                           <summary>Configurações avançadas das opções</summary>
                           <S.ProductOptionConfiguration>
