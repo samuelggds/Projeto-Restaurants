@@ -940,17 +940,17 @@ export function ProductConfigurationWorkspace({
             </section>
           )}
 
-          <details className="advanced-settings portion-settings">
+          <details className="advanced-settings portion-settings" open={portionConfiguration?.enabled === true}>
             <summary>
-              Configurações avançadas de divisão em porções
+              Configuração de pizza meio a meio
               <span>{portionConfiguration?.enabled ? 'Ativada' : 'Desativada'}</span>
             </summary>
             <section>
               <header>
                 <div>
-                  <small>PORÇÕES</small>
-                  <h4>O produto pode ser dividido?</h4>
-                  <p>Use uma das etapas acima como catálogo para cada parte do produto.</p>
+                  <small>MEIO A MEIO</small>
+                  <h4>Duas metades, um sabor em cada lado</h4>
+                  <p>Use uma única etapa de sabores para as duas metades. O valor final usa o sabor de maior preço.</p>
                 </div>
                 <label className="feature-switch">
                   <input
@@ -996,65 +996,12 @@ export function ProductConfigurationWorkspace({
                     </select>
                     <small>As opções vinculadas a essa etapa serão oferecidas em cada parte.</small>
                   </S.Field>
-                  <S.Field>
-                    Mínimo de porções
-                    <input
-                      type="number"
-                      min="1"
-                      max="8"
-                      value={portionConfiguration.minPortions}
-                      onChange={(event) =>
-                        setPortionConfiguration((current) =>
-                          current
-                            ? { ...current, minPortions: Number(event.target.value) }
-                            : current,
-                        )
-                      }
-                    />
-                  </S.Field>
-                  <S.Field>
-                    Máximo de porções
-                    <input
-                      type="number"
-                      min="1"
-                      max="8"
-                      value={portionConfiguration.maxPortions}
-                      onChange={(event) =>
-                        setPortionConfiguration((current) =>
-                          current
-                            ? { ...current, maxPortions: Number(event.target.value) }
-                            : current,
-                        )
-                      }
-                    />
-                  </S.Field>
-                  <S.Field $full>
-                    Como calcular o valor das porções?
-                    <select
-                      value={portionConfiguration.pricingStrategy}
-                      onChange={(event) =>
-                        setPortionConfiguration((current) =>
-                          current
-                            ? {
-                                ...current,
-                                pricingStrategy: event.target
-                                  .value as AdminProductPortionConfiguration['pricingStrategy'],
-                              }
-                            : current,
-                        )
-                      }
-                    >
-                      <option value="HIGHEST">Usar a opção de maior valor</option>
-                      <option value="AVERAGE">Usar a média das opções</option>
-                      <option value="PROPORTIONAL">Dividir proporcionalmente</option>
-                      <option value="ADD">Somar todas as opções</option>
-                      <option value="FIXED">Manter somente o preço inicial</option>
-                    </select>
-                    <small>
-                      O total exibido ao cliente é uma estimativa; o servidor recalcula antes do
-                      pedido.
-                    </small>
-                  </S.Field>
+                  <div className="half-half-rules">
+                    <b>Regra aplicada automaticamente</b>
+                    <span>2 metades obrigatórias</span>
+                    <span>1 sabor por metade</span>
+                    <span>Preço final = sabor de maior valor</span>
+                  </div>
                   <label className="portion-observation-toggle">
                     <input
                       type="checkbox"
