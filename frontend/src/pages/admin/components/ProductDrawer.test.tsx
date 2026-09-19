@@ -71,7 +71,7 @@ describe('cadastro administrativo de produto', () => {
   });
 
   const clickButton = async (text: string) => {
-    const button = Array.from(container.querySelectorAll('button')).find((candidate) =>
+    const button = Array.from(document.body.querySelectorAll('button')).find((candidate) =>
       candidate.textContent?.includes(text),
     ) as HTMLButtonElement | undefined;
     expect(button, `Botão “${text}” não encontrado`).toBeTruthy();
@@ -126,11 +126,13 @@ describe('cadastro administrativo de produto', () => {
     await clickButton('Salvar alterações');
 
     expect(save).not.toHaveBeenCalled();
-    expect(container.textContent).toContain(
+    expect(document.body.textContent).toContain(
       'Confirme a remoção da personalização antes de salvar como produto simples.',
     );
 
-    const confirmation = container.querySelector('input[type="checkbox"]') as HTMLInputElement;
+    const confirmation = document.body.querySelector(
+      'input[type="checkbox"]',
+    ) as HTMLInputElement;
     await act(async () => confirmation.click());
     await advanceReadyMadeProductToReview();
     await clickButton('Salvar alterações');
@@ -183,7 +185,7 @@ describe('cadastro administrativo de produto', () => {
     await clickButton('Cadastrar novo ingrediente');
     await act(async () => document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' })));
     expect(document.querySelector('[data-ingredient-wizard]')).toBeNull();
-    expect(container.textContent).toContain('Como o cliente poderá personalizar?');
+    expect(document.body.textContent).toContain('Como o cliente poderá personalizar?');
     await clickButton('Cadastrar novo ingrediente');
     await fillIngredientWizardInput('input[placeholder="Ex.: Bacon"]', 'Pequeno');
     await clickIngredientWizardButton('Continuar');
@@ -191,7 +193,7 @@ describe('cadastro administrativo de produto', () => {
     await clickIngredientWizardButton('Continuar');
     await clickIngredientWizardButton('Concluir');
 
-    expect(container.textContent).toContain('2 opção(ões)');
+    expect(document.body.textContent).toContain('2 opção(ões)');
     await clickButton('Continuar');
     await clickButton('Continuar');
     await clickButton('Salvar alterações');
