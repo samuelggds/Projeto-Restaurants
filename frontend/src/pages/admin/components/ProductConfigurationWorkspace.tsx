@@ -61,7 +61,7 @@ type ProductConfigurationWorkspaceProps = {
   ) => void;
   updateGroupOption: (
     groupIndex: number,
-    ingredientId: number,
+    ingredientId: number | undefined,
     patch: Partial<AdminProductOptionGroup['options'][number]>,
   ) => void;
   moveGroup: (groupIndex: number, direction: -1 | 1) => void;
@@ -92,7 +92,11 @@ function customerSelectionHint(group: AdminProductOptionGroup) {
 function customerOptionPrice(
   option: AdminProductOptionGroup['options'][number],
   ingredient: AdminIngredient | undefined,
+  referenceProduct?: AdminProduct,
 ) {
+  if (option.referenceProductId && referenceProduct) {
+    return money(Number(referenceProduct.price || 0));
+  }
   if (option.pricingMode === 'ABSOLUTE') {
     return `Preço final ${money(Number(option.absolutePrice ?? option.additionalPrice ?? 0))}`;
   }
@@ -1252,14 +1256,25 @@ export function ProductConfigurationWorkspace({
                       const ingredient = ingredients.find(
                         (item) => item.id === option.ingredientId,
                       );
+                      const referenceProduct = products.find(
+                        (item) => Number(item.id) === Number(option.referenceProductId),
+                      );
                       return (
-                        <div key={option.ingredientId}>
+                        <div
+                          key={option.id ?? option.referenceProductId ?? option.ingredientId}
+                        >
                           <i className={group.selectionType === 'SINGLE' ? 'radio' : ''} />
                           <span>
-                            <b>{ingredient?.name || `Opção ${option.ingredientId}`}</b>
+                            <b>
+                              {referenceProduct?.name ||
+                                ingredient?.name ||
+                                `Opção ${option.referenceProductId || option.ingredientId}`}
+                            </b>
                             {option.locked && <small>Já acompanha o produto</small>}
                           </span>
-                          <strong>{customerOptionPrice(option, ingredient)}</strong>
+                          <strong>
+                            {customerOptionPrice(option, ingredient, referenceProduct)}
+                          </strong>
                         </div>
                       );
                     })}
