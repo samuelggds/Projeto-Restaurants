@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { CheckCircle2, Image as ImageIcon, Info, Plus, Sparkles, Trash2, Upload, WandSparkles, X } from 'lucide-react';
 import productComboService, {
   type ComboGroupInput,
@@ -172,6 +173,22 @@ export function AdminCombos({ products, money, onChanged }: Props) {
     setEditingId(undefined);
     setFeedback(null);
   };
+
+  useEffect(() => {
+    if (editingId === undefined) return undefined;
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [editingId]);
+
+  const editorPortalTarget =
+    typeof document === 'undefined'
+      ? null
+      : document.querySelector<HTMLElement>('[data-admin-root]') || document.body;
 
   const addSelectedProduct = () => {
     const productId = Number(selectedProductId);
@@ -367,8 +384,10 @@ export function AdminCombos({ products, money, onChanged }: Props) {
         </C.Empty>
       )}
 
-      {editingId !== undefined && (
-        <C.Overlay role="presentation">
+      {editingId !== undefined &&
+        editorPortalTarget &&
+        createPortal(
+          <C.Overlay role="presentation">
           <C.Editor role="dialog" aria-modal="true" aria-label={editingId ? 'Editar combo' : 'Novo combo'}>
             <div className="head">
               <div>
@@ -655,8 +674,9 @@ export function AdminCombos({ products, money, onChanged }: Props) {
               <button className="save" type="button" onClick={() => void save()} disabled={Boolean(busy)}>{busy === 'save' ? 'Salvando...' : 'Salvar combo'}</button>
             </div>
           </C.Editor>
-        </C.Overlay>
-      )}
+        </C.Overlay>,
+          editorPortalTarget,
+        )}
     </C.Workspace>
   );
 }
