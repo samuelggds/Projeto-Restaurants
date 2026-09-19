@@ -35,7 +35,14 @@ export function validateIngredientDraft(draft: IngredientDraft, ingredients: Adm
 
 export function normalizeOptionGroup(group: AdminProductOptionGroup): AdminProductOptionGroup {
   const uniqueOptions = Array.from(
-    new Map(group.options.map((option) => [option.ingredientId, option])).values(),
+    new Map(
+      group.options.map((option) => [
+        option.referenceProductId
+          ? `product:${option.referenceProductId}`
+          : `ingredient:${option.ingredientId}`,
+        option,
+      ]),
+    ).values(),
   );
   const optionCount = uniqueOptions.length;
   const minSelections = group.required ? Math.max(1, group.minSelections) : 0;
@@ -78,7 +85,11 @@ export function validateOptionGroups(
     if (normalizedName) names.add(normalizedName);
 
     if (!group.options.length) errors.push(`${label}: selecione ao menos uma opção.`);
-    if (group.options.some((option) => !activeIngredientIds.has(option.ingredientId))) {
+    if (
+      group.options.some(
+        (option) => !option.referenceProductId && !activeIngredientIds.has(option.ingredientId || 0),
+      )
+    ) {
       errors.push(`${label}: remova opções inativas ou indisponíveis.`);
     }
     if (!Number.isInteger(group.minSelections) || group.minSelections < 0) {
@@ -110,14 +121,16 @@ export function validateOptionGroups(
       errors.push(`${label}: as opções que já vêm selecionadas não podem superar o limite.`);
     }
     group.options.forEach((option) => {
-      const optionName =
-        ingredients.find((ingredient) => ingredient.id === option.ingredientId)?.name ||
-        `Opção #${option.ingredientId}`;
+      const optionName = option.referenceProductId
+        ? `Produto #${option.referenceProductId}`
+        : ingredients.find((ingredient) => ingredient.id === option.ingredientId)?.name ||
+          `Opção #${option.ingredientId}`;
       const additionalPrice = Number(option.additionalPrice ?? 0);
       if (!Number.isFinite(additionalPrice) || additionalPrice < 0 || additionalPrice > 9999) {
         errors.push(`${label} · ${optionName}: informe um acréscimo válido.`);
       }
       if (
+        !option.referenceProductId &&
         option.pricingMode === 'ABSOLUTE' &&
         (option.absolutePrice === null ||
           option.absolutePrice === undefined ||
