@@ -8,11 +8,11 @@ describe('formatBillingPixRemaining', () => {
     );
   });
 
-  it('mostra horas quando falta menos de um dia', () => {
-    expect(formatBillingPixRemaining(23 * 3_600 + 42 * 60 + 7)).toBe('23h 42min 7s');
+  it('preserva o formato existente quando falta menos de um dia', () => {
+    expect(formatBillingPixRemaining(23 * 3_600 + 42 * 60 + 7)).toBe('1422:07');
   });
 
-  it('mostra minutos e segundos quando falta menos de uma hora', () => {
-    expect(formatBillingPixRemaining(9 * 60 + 5)).toBe('9min 5s');
+  it('preserva minutos e segundos para prazos curtos', () => {
+    expect(formatBillingPixRemaining(9 * 60 + 5)).toBe('09:05');
   });
 });
