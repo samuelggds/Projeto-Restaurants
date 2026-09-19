@@ -345,9 +345,10 @@ export const ProductDrawer = forwardRef<ProductDrawerHandle, ProductDrawerProps>
 
     const updateGroupOption = (
       groupIndex: number,
-      ingredientId: number,
+      ingredientId: number | undefined,
       patch: Partial<AdminProductOptionGroup['options'][number]>,
     ) => {
+      if (!ingredientId) return;
       updateGroup(groupIndex, (group) => ({
         ...group,
         options: group.options.map((option) =>
