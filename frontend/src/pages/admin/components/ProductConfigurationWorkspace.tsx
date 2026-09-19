@@ -26,6 +26,7 @@ import {
   type IngredientCategorySection,
 } from '../domain/ingredientCategoryGroups';
 import { IngredientThumbnail } from './IngredientThumbnail';
+import { HalfHalfProductSelector } from './HalfHalfProductSelector';
 import * as C from '../styles/AdminProductConfigurationExperience.styles';
 
 export type PendingCategoryChange = {
@@ -593,83 +594,12 @@ export function ProductConfigurationWorkspace({
                         </em>
                       </div>
                       {isHalfHalf ? (
-                        <fieldset className="group-options">
-                          <legend>
-                            <span>Produtos disponíveis · {group.options.length} selecionado(s)</span>
-                          </legend>
-                          <p className="group-options-hint">
-                            Escolha um produto por vez. Você pode usar este seletor quantas vezes quiser.
-                            O preço é sempre lido do produto cadastrado.
-                          </p>
-                          <S.Field $full>
-                            Adicionar produto ao meio a meio
-                            <select
-                              aria-label="Adicionar produto ao meio a meio"
-                              defaultValue=""
-                              onChange={(event) => {
-                                const referenceProductId = Number(event.target.value);
-                                if (!referenceProductId) return;
-                                addHalfHalfProduct(referenceProductId);
-                                event.currentTarget.value = '';
-                              }}
-                            >
-                              <option value="">Selecione um produto</option>
-                              {products
-                                .filter(
-                                  (candidate) =>
-                                    candidate.active !== false &&
-                                    candidate.kind !== 'COMBO' &&
-                                    !selectedProductIds.has(Number(candidate.id)),
-                                )
-                                .map((candidate) => (
-                                  <option key={candidate.id} value={candidate.id}>
-                                    {candidate.name} — {money(Number(candidate.price || 0))}
-                                  </option>
-                                ))}
-                            </select>
-                          </S.Field>
-
-                          <div className="configured-option-list">
-                            {group.options
-                              .filter((option) => option.referenceProductId)
-                              .map((option) => {
-                                const linkedProduct = products.find(
-                                  (candidate) =>
-                                    Number(candidate.id) === Number(option.referenceProductId),
-                                );
-                                return (
-                                  <article key={option.referenceProductId}>
-                                    <div className="configured-option-title">
-                                      <span>
-                                        <b>{linkedProduct?.name || 'Produto indisponível'}</b>
-                                        <small>
-                                          {linkedProduct
-                                            ? `Preço atual: ${money(Number(linkedProduct.price || 0))}`
-                                            : 'O produto vinculado não está mais disponível.'}
-                                        </small>
-                                      </span>
-                                    </div>
-                                    <button
-                                      className="remove-group"
-                                      type="button"
-                                      onClick={() =>
-                                        removeHalfHalfProduct(
-                                          Number(option.referenceProductId),
-                                        )
-                                      }
-                                    >
-                                      <Trash2 /> Remover
-                                    </button>
-                                  </article>
-                                );
-                              })}
-                          </div>
-                          {!group.options.some((option) => option.referenceProductId) && (
-                            <div className="source-category-empty">
-                              Adicione pelo menos uma pizza cadastrada.
-                            </div>
-                          )}
-                        </fieldset>
+                        <HalfHalfProductSelector
+                          products={products}
+                          group={group}
+                          addProduct={addHalfHalfProduct}
+                          removeProduct={removeHalfHalfProduct}
+                        />
                       ) : (
                       <fieldset className="group-options">
                         <legend>
