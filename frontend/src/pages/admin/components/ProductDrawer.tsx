@@ -122,8 +122,10 @@ export const ProductDrawer = forwardRef<ProductDrawerHandle, ProductDrawerProps>
         product?.portionConfiguration ? { ...product.portionConfiguration } : null,
       );
     const [groupCategories, setGroupCategories] = useState<string[]>(() =>
-      (product?.optionGroups || []).map(
-        (group) => inferGroupIngredientCategory(group, ingredients).value,
+      (product?.optionGroups || []).map((group) =>
+        group.options.some((option) => option.referenceProductId)
+          ? 'Meio a Meio'
+          : inferGroupIngredientCategory(group, ingredients).value,
       ),
     );
     const [pendingCategoryChange, setPendingCategoryChange] =
@@ -257,6 +259,7 @@ export const ProductDrawer = forwardRef<ProductDrawerHandle, ProductDrawerProps>
 
     const toggleGroupIngredient = (groupIndex: number, ingredientId: number, selected: boolean) => {
       const sourceCategory = groupCategories[groupIndex];
+      if (sourceCategory === 'Meio a Meio') return;
       const ingredient = ingredients.find((item) => item.id === ingredientId);
       if (
         selected &&
@@ -312,20 +315,21 @@ export const ProductDrawer = forwardRef<ProductDrawerHandle, ProductDrawerProps>
     };
 
     const addPreset = (preset: 'SINGLE' | 'EXTRAS' | 'PORTIONS') => {
+      if (preset === 'PORTIONS') {
+        const firstHalf = { ...groupPreset('SINGLE'), name: 'Opção 1' };
+        const secondHalf = { ...groupPreset('SINGLE'), name: 'Opção 2' };
+        setOptionGroups((current) => [...current, firstHalf, secondHalf]);
+        setGroupCategories((current) => [...current, 'Meio a Meio', 'Meio a Meio']);
+        setEditingGroupIndex(optionGroups.length);
+        setPortionConfiguration(null);
+        setPendingCategoryChange(null);
+        return;
+      }
+
       const group = groupPreset(preset);
       setOptionGroups((current) => [...current, group]);
       setGroupCategories((current) => [...current, '']);
       setEditingGroupIndex(optionGroups.length);
-      if (preset === 'PORTIONS') {
-        setPortionConfiguration({
-          enabled: true,
-          optionGroupName: group.name,
-          minPortions: 2,
-          maxPortions: 2,
-          pricingStrategy: 'HIGHEST',
-          allowPortionObservations: true,
-        });
-      }
       setPendingCategoryChange(null);
     };
 
@@ -363,7 +367,11 @@ export const ProductDrawer = forwardRef<ProductDrawerHandle, ProductDrawerProps>
       }));
       setOptionGroups(groups);
       setGroupCategories(
-        groups.map((group) => inferGroupIngredientCategory(group, ingredients).value),
+        groups.map((group) =>
+          group.options.some((option) => option.referenceProductId)
+            ? 'Meio a Meio'
+            : inferGroupIngredientCategory(group, ingredients).value,
+        ),
       );
       setEditingGroupIndex(groups.length ? 0 : null);
       setCompositionItems(
@@ -467,6 +475,18 @@ export const ProductDrawer = forwardRef<ProductDrawerHandle, ProductDrawerProps>
       if (!nextCategory || nextCategory === MIXED_INGREDIENT_CATEGORY) return;
       const group = optionGroups[groupIndex];
       if (!group || groupCategories[groupIndex] === nextCategory) return;
+
+      if (nextCategory === 'Meio a Meio') {
+        updateGroup(groupIndex, (current) => ({
+          ...current,
+          options: current.options.filter((option) => option.referenceProductId),
+        }));
+        setGroupCategories((current) =>
+          current.map((category, index) => (index === groupIndex ? nextCategory : category)),
+        );
+        setPendingCategoryChange(null);
+        return;
+      }
       const incompatible = incompatibleOptionsForCategory(group.options, ingredients, nextCategory);
       if (!incompatible.length) {
         setGroupCategories((current) =>
