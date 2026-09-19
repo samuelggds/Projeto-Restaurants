@@ -1,5 +1,5 @@
 import { orderFixtureResponse } from './helpers/orderFixtures';
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test, type Locator, type Page } from '@playwright/test';
 
 import { mockAuthRefresh } from './helpers/mockAuthRefresh';
 import { createInitialDemoState, DEMO_STORAGE_KEY } from '../src/pages/Marketing/demo/demoDomain';
@@ -40,6 +40,45 @@ function createState(): BillingTestState {
       },
     },
   };
+}
+
+async function mockMercadoPagoFields(page: Page) {
+  await page.addInitScript(() => {
+    Object.defineProperty(window, 'MercadoPago', {
+      value: class {
+        fields = {
+          create: (_name: string, options: { placeholder: string }) => {
+            let frame: HTMLIFrameElement | null = null;
+            return {
+              mount: (id: string) => {
+                frame = document.createElement('iframe');
+                frame.title = options.placeholder;
+                frame.setAttribute('sandbox', '');
+                // Match the browser's intrinsic iframe size so missing host sizing is visible.
+                frame.width = '300';
+                frame.height = '150';
+                frame.srcdoc = `<!doctype html><html><head><style>
+                  html, body { height: 100%; margin: 0; }
+                  input { box-sizing: border-box; width: 100%; height: 100%; min-width: 0;
+                    border: 0; padding: 0; font: 16px Arial, sans-serif; }
+                </style></head><body><input aria-label="${options.placeholder}"
+                  placeholder="${options.placeholder}" inputmode="numeric" /></body></html>`;
+                document.getElementById(id)?.append(frame);
+              },
+              unmount: () => frame?.remove(),
+            };
+          },
+          createCardToken: async () => ({
+            id: 'provider-token-test',
+            last_four_digits: '4242',
+            payment_method_id: 'visa',
+            expiration_month: 12,
+            expiration_year: 2035,
+          }),
+        };
+      },
+    });
+  });
 }
 
 async function mockAdminApi(page: Page, state: BillingTestState) {
@@ -262,6 +301,18 @@ async function expectNoHorizontalOverflow(page: Page) {
   expect(dimensions.documentWidth - dimensions.viewportWidth).toBeLessThanOrEqual(1);
 }
 
+async function expectInsideViewport(locator: Locator, page: Page) {
+  await expect(locator).toBeVisible();
+  const bounds = await locator.boundingBox();
+  const viewport = page.viewportSize();
+  expect(bounds).not.toBeNull();
+  expect(viewport).not.toBeNull();
+  expect(bounds!.x).toBeGreaterThanOrEqual(-1);
+  expect(bounds!.y).toBeGreaterThanOrEqual(-1);
+  expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(viewport!.width + 1);
+  expect(bounds!.y + bounds!.height).toBeLessThanOrEqual(viewport!.height + 1);
+}
+
 test('central financeira mantém leitura clara e responsiva em desktop e mobile', async ({
   page,
 }) => {
@@ -401,39 +452,139 @@ test('erros técnicos ficam fora da interface e o cadastro permite tentar novame
   await expect(page.getByRole('button', { name: 'Cadastrar cartão automático' })).toBeFocused();
 });
 
+for (const viewport of [
+  { width: 1440, height: 900 },
+  { width: 390, height: 844 },
+  { width: 320, height: 568 },
+]) {
+  test(`cadastro de cartão mantém campos seguros e ações acessíveis em ${viewport.width}x${viewport.height}`, async ({
+    page,
+  }, testInfo) => {
+    const state = createState();
+    state.configError = false;
+    await mockMercadoPagoFields(page);
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await openBilling(page, state);
+    await page.setViewportSize(viewport);
+    const trigger = page.getByRole('button', { name: 'Cadastrar cartão automático' });
+    const previousOverflow = await page.evaluate(() => document.body.style.overflow);
+    await trigger.click();
+    const dialog = page.getByRole('dialog', { name: 'Cartão para renovação automática' });
+    const close = dialog.getByRole('button', { name: 'Fechar cadastro de cartão' });
+    const cancel = dialog.getByRole('button', { name: 'Cancelar', exact: true });
+    const activate = dialog.getByRole('button', { name: 'Ativar renovação automática' });
+    await expect(dialog.locator('.mp-field iframe')).toHaveCount(3);
+    await expect(dialog.getByRole('checkbox')).toBeEnabled();
+    await expectInsideViewport(dialog, page);
+    await expectInsideViewport(dialog.getByRole('heading'), page);
+    await expectInsideViewport(close, page);
+    await expectInsideViewport(cancel, page);
+    await expectInsideViewport(activate, page);
+    await expect(cancel).toHaveCSS('font-family', /sans-serif/);
+    const overlay = await dialog.locator('..').boundingBox();
+    expect(overlay).not.toBeNull();
+    expect(Math.abs(overlay!.x)).toBeLessThanOrEqual(1);
+    expect(Math.abs(overlay!.y)).toBeLessThanOrEqual(1);
+    expect(Math.abs(overlay!.width - viewport.width)).toBeLessThanOrEqual(1);
+    expect(Math.abs(overlay!.height - viewport.height)).toBeLessThanOrEqual(1);
+    // The mobile AI launcher sits above ordinary content and must stay behind the dialog.
+    const overlayCoversLauncher = await dialog.locator('..').evaluate((element) => {
+      const topmost = document.elementFromPoint(36, window.innerHeight - 105);
+      return topmost !== null && element.contains(topmost);
+    });
+    expect(overlayCoversLauncher).toBe(true);
+    await expect(page.locator('body')).toHaveCSS('overflow', 'hidden');
+    await expectNoHorizontalOverflow(page);
+
+    for (const field of await dialog.locator('input:not([type="checkbox"]), .mp-field').all()) {
+      const bounds = await field.boundingBox();
+      expect(bounds).not.toBeNull();
+      expect(bounds!.height).toBeGreaterThanOrEqual(44);
+      expect(bounds!.height).toBeLessThanOrEqual(52);
+    }
+    for (const field of await dialog.locator('.mp-field').all()) {
+      const host = await field.boundingBox();
+      const frame = await field.locator('iframe').boundingBox();
+      expect(host).not.toBeNull();
+      expect(frame).not.toBeNull();
+      expect(frame!.height).toBeGreaterThanOrEqual(20);
+      expect(frame!.x).toBeGreaterThanOrEqual(host!.x - 1);
+      expect(frame!.y).toBeGreaterThanOrEqual(host!.y - 1);
+      expect(frame!.x + frame!.width).toBeLessThanOrEqual(host!.x + host!.width + 1);
+      expect(frame!.y + frame!.height).toBeLessThanOrEqual(host!.y + host!.height + 1);
+    }
+    await page.screenshot({ path: testInfo.outputPath(`recurring-card-${viewport.width}.png`) });
+
+    if (viewport.width === 1440) {
+      await close.focus();
+      await page.keyboard.press('Shift+Tab');
+      await expect(cancel).toBeFocused();
+      await page.keyboard.press('Tab');
+      await expect(close).toBeFocused();
+      await page.keyboard.press('Tab');
+      await expect(dialog.getByLabel('Nome do titular')).toBeFocused();
+      await page.keyboard.press('Tab');
+      await expect(
+        dialog.frameLocator('#billing-card-number iframe').getByRole('textbox'),
+      ).toBeFocused();
+      await page.keyboard.press('Tab');
+      await expect(
+        dialog.frameLocator('#billing-card-expiration iframe').getByRole('textbox'),
+      ).toBeFocused();
+      await page.keyboard.press('Tab');
+      await expect(
+        dialog.frameLocator('#billing-card-security iframe').getByRole('textbox'),
+      ).toBeFocused();
+      await page.keyboard.press('Tab');
+      await expect(dialog.getByLabel('CPF do titular')).toBeFocused();
+    }
+    const number = dialog.frameLocator('#billing-card-number iframe').getByRole('textbox');
+    await number.fill('4111111111111111');
+    await expect(number).toBeFocused();
+    await expect(number).toHaveValue('4111111111111111');
+    await dialog.getByLabel('CPF do titular').fill('12345678901');
+    await dialog.getByRole('checkbox').check();
+    await expect(activate).toBeEnabled();
+    await expectInsideViewport(activate, page);
+    if (viewport.height === 568) {
+      const body = dialog.locator('.dialog-body');
+      const scroll = await body.evaluate((element) => ({
+        height: element.clientHeight,
+        contentHeight: element.scrollHeight,
+        top: element.scrollTop,
+      }));
+      expect(scroll.contentHeight).toBeGreaterThan(scroll.height);
+      expect(scroll.top).toBeGreaterThan(0);
+    }
+    // Key events inside cross-origin secure fields do not bubble to the parent document.
+    await close.focus();
+    await page.keyboard.press('Escape');
+    await expect(dialog).not.toBeVisible();
+    await expect(trigger).toBeFocused();
+    await expect
+      .poll(() => page.evaluate(() => document.body.style.overflow))
+      .toBe(previousOverflow);
+    expect(state.cardPayload).toBeNull();
+  });
+}
+
 test('cartão depende do consentimento e Pix só desativa renovação após confirmação explícita', async ({
   page,
 }) => {
   const state = createState();
   state.configError = false;
-  await page.addInitScript(() => {
-    Object.defineProperty(window, 'MercadoPago', {
-      value: class {
-        fields = {
-          create: () => ({
-            mount: (id: string) => {
-              const input = document.createElement('input');
-              input.setAttribute('aria-label', id);
-              document.getElementById(id)?.append(input);
-            },
-            unmount: () => undefined,
-          }),
-          createCardToken: async () => ({
-            id: 'provider-token-test',
-            last_four_digits: '4242',
-            payment_method_id: 'visa',
-            expiration_month: 12,
-            expiration_year: 2035,
-          }),
-        };
-      },
-    });
-  });
+  await mockMercadoPagoFields(page);
   await openBilling(page, state);
   await page.getByRole('button', { name: 'Cadastrar cartão automático' }).click();
   const dialog = page.getByRole('dialog');
   await dialog.getByLabel('Nome do titular').fill('Cliente Teste');
   await dialog.getByLabel('CPF do titular').fill('12345678901');
+  await dialog
+    .frameLocator('#billing-card-number iframe')
+    .getByRole('textbox')
+    .fill('4111111111111111');
+  await dialog.frameLocator('#billing-card-expiration iframe').getByRole('textbox').fill('12/35');
+  await dialog.frameLocator('#billing-card-security iframe').getByRole('textbox').fill('123');
   const activate = dialog.getByRole('button', { name: 'Ativar renovação automática' });
   await expect(activate).toBeDisabled();
   await dialog.getByRole('checkbox').check();
