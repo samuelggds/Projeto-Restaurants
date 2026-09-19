@@ -407,70 +407,45 @@ export function ProductConfigurator({
             <S.PortionBuilder $error={Boolean(errors.portions)}>
               <S.GroupHeader>
                 <div>
-                  <h3>
-                    {portionConfiguration.minPortions === 2 &&
-                    portionConfiguration.maxPortions === 2 &&
-                    portionConfiguration.pricingStrategy === 'HIGHEST'
-                      ? 'Escolha os dois sabores'
-                      : 'Divida em porções'}
-                  </h3>
-                  <p>
-                    {portionConfiguration.minPortions === 2 &&
-                    portionConfiguration.maxPortions === 2 &&
-                    portionConfiguration.pricingStrategy === 'HIGHEST'
-                      ? 'Selecione um sabor para cada metade. O valor final considera o sabor de maior preço.'
-                      : 'Escolha quantas porções deseja e defina uma opção para cada parte.'}
-                  </p>
+                  <h3>Divida em porções</h3>
+                  <p>Escolha quantas porções deseja e defina uma opção para cada parte.</p>
                 </div>
                 <S.Badge $required>Obrigatório</S.Badge>
               </S.GroupHeader>
-              {!(
-                portionConfiguration.minPortions === 2 &&
-                portionConfiguration.maxPortions === 2 &&
-                portionConfiguration.pricingStrategy === 'HIGHEST'
-              ) && (
-                <div className="portion-count" role="group" aria-label="Quantidade de porções">
-                  {Array.from(
-                    {
-                      length:
-                        portionConfiguration.maxPortions - portionConfiguration.minPortions + 1,
-                    },
-                    (_, index) => portionConfiguration.minPortions + index,
-                  ).map((count) => (
-                    <button
-                      className={portions.length === count ? 'active' : ''}
-                      key={count}
-                      type="button"
-                      onClick={() => {
-                        setPortions((current) =>
-                          Array.from({ length: count }, (_, index) =>
-                            current[index] ? current[index] : { optionId: '' },
-                          ),
-                        );
-                        setErrors((current) => {
-                          const next = { ...current };
-                          delete next.portions;
-                          return next;
-                        });
-                      }}
-                    >
-                      {count} {count === 1 ? 'porção' : 'porções'}
-                    </button>
-                  ))}
-                </div>
-              )}
+              <div className="portion-count" role="group" aria-label="Quantidade de porções">
+                {Array.from(
+                  {
+                    length: portionConfiguration.maxPortions - portionConfiguration.minPortions + 1,
+                  },
+                  (_, index) => portionConfiguration.minPortions + index,
+                ).map((count) => (
+                  <button
+                    className={portions.length === count ? 'active' : ''}
+                    key={count}
+                    type="button"
+                    onClick={() => {
+                      setPortions((current) =>
+                        Array.from({ length: count }, (_, index) =>
+                          current[index] ? current[index] : { optionId: '' },
+                        ),
+                      );
+                      setErrors((current) => {
+                        const next = { ...current };
+                        delete next.portions;
+                        return next;
+                      });
+                    }}
+                  >
+                    {count} {count === 1 ? 'porção' : 'porções'}
+                  </button>
+                ))}
+              </div>
               <div className="portion-list">
                 {portions.map((portion, index) => (
                   <div className="portion-row" key={`portion-${index}`}>
                     <span className="portion-number">
                       <UtensilsCrossed />
-                      <b>
-                        {portionConfiguration.minPortions === 2 &&
-                        portionConfiguration.maxPortions === 2 &&
-                        portionConfiguration.pricingStrategy === 'HIGHEST'
-                          ? `Metade ${index + 1}`
-                          : `Porção ${index + 1}`}
-                      </b>
+                      <b>Porção {index + 1}</b>
                       <small>1/{portions.length}</small>
                     </span>
                     <label>
