@@ -36,6 +36,7 @@ const productConfigurationInclude = {
               active: true,
               kind: true,
               stock: true,
+              updatedAt: true,
             },
           },
         },
