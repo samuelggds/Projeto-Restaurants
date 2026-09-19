@@ -348,8 +348,10 @@ function resolvePortions(
       fractionNumerator: 1,
       fractionDenominator: portionCount,
       optionId: option.id,
-      ingredientId: option.ingredient?.id,
-      referenceProductId: option.referenceProduct?.id,
+      ...(option.ingredient?.id ? { ingredientId: option.ingredient.id } : {}),
+      ...(option.referenceProduct?.id
+        ? { referenceProductId: option.referenceProduct.id }
+        : {}),
       optionName: optionDisplayName(option),
       pricingMode: option.pricingMode ?? 'ADDITIVE',
       unitPrice,
