@@ -28,6 +28,7 @@ export function HalfHalfProductSelector({
     (candidate) =>
       candidate.active !== false &&
       candidate.kind !== 'COMBO' &&
+      candidate.pricingMode !== 'HIGHEST_OPTION' &&
       !selectedProductIds.has(Number(candidate.id)),
   );
 

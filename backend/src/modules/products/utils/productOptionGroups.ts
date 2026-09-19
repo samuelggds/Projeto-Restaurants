@@ -54,6 +54,7 @@ export async function buildProductOptionGroupsCreate(
             id: { in: referenceProductIds },
             active: true,
             kind: 'STANDARD',
+            pricingMode: 'BASE',
           },
           select: { id: true, price: true },
         })
@@ -71,39 +72,42 @@ export async function buildProductOptionGroupsCreate(
     ingredients.map((ingredient) => [ingredient.id, Number(ingredient.price)] as const),
   );
 
-  return groups.map((group, groupIndex) => ({
-    name: group.name.trim(),
-    description: String(group.description || '').trim() || null,
-    required: group.required,
-    selectionType: group.selectionType as ProductOptionSelectionType,
-    minSelections: group.minSelections,
-    maxSelections: group.maxSelections,
-    position: groupIndex,
-    active: true,
-    options: {
-      create: group.options.map((option, optionIndex) => ({
-        ingredientId: option.ingredientId ?? null,
-        referenceProductId: option.referenceProductId ?? null,
-        additionalPrice: option.referenceProductId
-          ? 0
-          : option.additionalPrice ?? ingredientPrices.get(option.ingredientId || 0) ?? 0,
-        pricingMode: option.referenceProductId ? 'ABSOLUTE' : option.pricingMode,
-        absolutePrice: option.referenceProductId
-          ? 0
-          : option.pricingMode === 'ABSOLUTE'
-            ? option.absolutePrice
-            : null,
-        allowQuantity: option.allowQuantity,
-        minQuantity: option.minQuantity,
-        maxQuantity: option.maxQuantity,
-        defaultQuantity: option.defaultQuantity,
-        defaultSelected: option.defaultSelected,
-        locked: option.locked,
-        active: option.active !== false,
-        position: optionIndex,
-      })),
-    },
-  }) satisfies ProductOptionGroupNestedCreate);
+  return groups.map(
+    (group, groupIndex) =>
+      ({
+        name: group.name.trim(),
+        description: String(group.description || '').trim() || null,
+        required: group.required,
+        selectionType: group.selectionType as ProductOptionSelectionType,
+        minSelections: group.minSelections,
+        maxSelections: group.maxSelections,
+        position: groupIndex,
+        active: true,
+        options: {
+          create: group.options.map((option, optionIndex) => ({
+            ingredientId: option.ingredientId ?? null,
+            referenceProductId: option.referenceProductId ?? null,
+            additionalPrice: option.referenceProductId
+              ? 0
+              : (option.additionalPrice ?? ingredientPrices.get(option.ingredientId || 0) ?? 0),
+            pricingMode: option.referenceProductId ? 'ABSOLUTE' : option.pricingMode,
+            absolutePrice: option.referenceProductId
+              ? 0
+              : option.pricingMode === 'ABSOLUTE'
+                ? option.absolutePrice
+                : null,
+            allowQuantity: option.allowQuantity,
+            minQuantity: option.minQuantity,
+            maxQuantity: option.maxQuantity,
+            defaultQuantity: option.defaultQuantity,
+            defaultSelected: option.defaultSelected,
+            locked: option.locked,
+            active: option.active !== false,
+            position: optionIndex,
+          })),
+        },
+      }) satisfies ProductOptionGroupNestedCreate,
+  );
 }
 
 export async function buildProductCompositionCreate(

@@ -49,6 +49,7 @@ export type ProductConfiguration = {
 };
 
 export type ConfigurableProduct = {
+  pricingMode?: 'BASE' | 'HIGHEST_OPTION';
   optionGroups?: ProductOptionGroup[];
   ingredients?: Array<{
     id: string;
@@ -81,6 +82,7 @@ export type OptionQuantityState = Record<string, number>;
 export type PortionSelection = { optionId: string; observation?: string };
 
 type ConfigurationPriceDetails = {
+  pricingMode?: 'BASE' | 'HIGHEST_OPTION';
   optionQuantities?: OptionQuantityState;
   portionConfiguration?: ConfigurableProduct['portionConfiguration'];
   portions?: PortionSelection[];
@@ -269,7 +271,11 @@ export function productConfigurationTotal(
         ),
       )
     : Math.round(
-        Number(regularAbsolute?.absolutePrice ?? regularAbsolute?.price ?? basePrice ?? 0) * 100,
+        Number(
+          details.pricingMode === 'HIGHEST_OPTION'
+            ? 0
+            : (regularAbsolute?.absolutePrice ?? regularAbsolute?.price ?? basePrice ?? 0),
+        ) * 100,
       );
   let portionCents = 0;
   const portionConfiguration = details.portionConfiguration;
@@ -363,11 +369,12 @@ export function productConfigurationSignature(configuration: ProductConfiguratio
     )
     .join('|');
   const combo = (configuration.comboSelections || [])
-    .map((group) =>
-      `${group.groupId}:${group.items
-        .map((item) => `${item.optionId}=${item.quantity}`)
-        .sort()
-        .join(',')}`,
+    .map(
+      (group) =>
+        `${group.groupId}:${group.items
+          .map((item) => `${item.optionId}=${item.quantity}`)
+          .sort()
+          .join(',')}`,
     )
     .sort()
     .join('|');

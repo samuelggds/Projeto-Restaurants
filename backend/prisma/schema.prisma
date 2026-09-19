@@ -401,6 +401,7 @@ model Product {
   ratings              ProductRating[]
   favorites            ProductFavorite[]
   saleMode             ProductSaleMode              @default(BUILDABLE)
+  pricingMode          ProductPricingMode           @default(BASE)
   ingredients          ProductIngredient[]
   optionGroups         ProductOptionGroup[]
   compositionItems     ProductCompositionItem[]
@@ -430,6 +431,11 @@ model ProductDiscount {
 
   @@index([restaurantId, active])
   @@index([restaurantId, startsAt, endsAt])
+}
+
+enum ProductPricingMode {
+  BASE
+  HIGHEST_OPTION
 }
 
 enum ProductSaleMode {

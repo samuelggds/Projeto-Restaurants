@@ -196,6 +196,39 @@ test('meio a meio com produtos vinculados cobra o maior preço atual', () => {
   assert.equal(resolved.price, 25);
   assert.equal(resolved.customizations[0].options[0].name, 'Pizza de Calabresa');
   assert.equal(resolved.customizations[1].options[0].name, 'Pizza de Mussarela');
+
+  const dynamicPizza = { ...pizza, pricingMode: 'HIGHEST_OPTION' as const, price: 0 };
+  assert.equal(resolveOrderItemCustomizations(dynamicPizza, { optionIds: [11, 12] }).price, 25);
+  assert.throws(
+    () => resolveOrderItemCustomizations(dynamicPizza, { optionIds: [11] }),
+    /escolha|selecione/i,
+  );
+  // Source prices are read from the catalog again, even after the customer built the item.
+  const secondHalf = half(102, 12, 202, 'Pizza de Mussarela', 42);
+  const updatedPizza = product({
+    ...dynamicPizza,
+    optionGroups: [half(101, 11, 201, 'Pizza de Calabresa', 25), secondHalf],
+  });
+  assert.equal(resolveOrderItemCustomizations(updatedPizza, { optionIds: [11, 12] }).price, 42);
+  secondHalf.options[0].referenceProduct.restaurantId = 99;
+  assert.throws(
+    () => resolveOrderItemCustomizations(updatedPizza, { optionIds: [11, 12] }),
+    /inválid|disponív|restaurante/i,
+  );
+});
+
+test('produto dinâmico nunca pode ser comprado vazio por zero mesmo com configuração inválida', () => {
+  const dynamic = product({ pricingMode: 'HIGHEST_OPTION', price: 0, optionGroups: [] });
+  assert.throws(() => resolveOrderItemCustomizations(dynamic, {}), /sem opções/);
+  const optional = product({
+    pricingMode: 'HIGHEST_OPTION',
+    price: 0,
+    optionGroups: [group(100, 'Adicionais', [option(1, 'Bacon', 4)])],
+  });
+  assert.throws(
+    () => resolveOrderItemCustomizations(optional, { optionIds: [1] }),
+    /Escolha os produtos/,
+  );
 });
 
 test('registra somente remoções permitidas e congela nomes no snapshot', () => {

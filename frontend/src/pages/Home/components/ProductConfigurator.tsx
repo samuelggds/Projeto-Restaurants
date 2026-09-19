@@ -109,10 +109,20 @@ export function ProductConfigurator({
     ? Math.round((completedStepCount / requiredStepCount) * 100)
     : 100;
   const total = productConfigurationTotal(product.price, groups, selections, {
+    pricingMode: product.pricingMode,
     optionQuantities,
     portionConfiguration,
     portions,
   });
+  const dynamicPrice = product.pricingMode === 'HIGHEST_OPTION';
+  const priceReady =
+    !dynamicPrice ||
+    regularGroups.some((group) =>
+      group.options.some(
+        (option) => option.referenceProductId && selections[group.id]?.includes(option.id),
+      ),
+    );
+  const priceLabel = priceReady ? brl(total) : 'Escolha os sabores';
   const configurable = Boolean(
     regularGroups.length ||
     product.compositionItems?.some((item) => item.active && item.removable) ||
@@ -179,7 +189,14 @@ export function ProductConfigurator({
                   <del>{brl(Number(product.originalPrice))}</del>
                 </S.PromotionPrice>
               )}
-            <strong>A partir de {brl(product.price)}</strong>
+            <strong aria-live="polite">
+              {dynamicPrice ? priceLabel : `A partir de ${brl(product.price)}`}
+            </strong>
+            {dynamicPrice && (
+              <p>
+                Vale o maior preço entre os produtos escolhidos. Adicionais são cobrados à parte.
+              </p>
+            )}
             {product.promotion?.active && (
               <S.PromotionHint>
                 O desconto já está aplicado ao produto-base. Adicionais mantêm o valor informado.
@@ -336,7 +353,7 @@ export function ProductConfigurator({
                           </S.OptionIdentity>
                           <strong>
                             {option.pricingMode === 'ABSOLUTE'
-                              ? `Preço final ${brl(Number(option.absolutePrice ?? option.price))}`
+                              ? `${dynamicPrice ? 'Valor da opção' : 'Preço final'} ${brl(Number(option.absolutePrice ?? option.price))}`
                               : option.price > 0
                                 ? `+ ${brl(option.price)}`
                                 : 'Incluso'}
@@ -529,15 +546,17 @@ export function ProductConfigurator({
           <S.BottomBar data-testid="product-configurator-footer">
             <div>
               <small>Total deste item</small>
-              <strong id={totalDescriptionId}>{brl(total)}</strong>
+              <strong id={totalDescriptionId} aria-live="polite">
+                {priceLabel}
+              </strong>
             </div>
             <button
               type="submit"
-              disabled={!configurable}
+              disabled={!configurable || !priceReady}
               aria-label="Adicionar à sacola"
               aria-describedby={totalDescriptionId}
             >
-              Adicionar — {brl(total)}
+              {priceReady ? `Adicionar — ${brl(total)}` : 'Escolha os sabores'}
             </button>
           </S.BottomBar>
         </S.Form>

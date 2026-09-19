@@ -8,6 +8,7 @@ import {
 } from '../utils/productOptionGroups.js';
 import { isPublicProductMediaReference } from '../../publicMedia/utils/publicMediaReference.js';
 import { setTenantDbContext, withTenantDbContext } from '../../../database/tenantDbContext.js';
+import { validateDynamicProductPricing } from '../utils/productPricingMode.js';
 
 type UpdateProductInput = z.infer<typeof updateProductSchema>;
 type Actor = { userId?: number; userName?: string; userRole?: string };
@@ -60,8 +61,30 @@ class UpdateProductService {
     } = payload;
     const effectiveSaleMode =
       saleMode ?? (optionGroups !== undefined ? 'BUILDABLE' : (product.saleMode ?? 'BUILDABLE'));
+    const effectivePricingMode = parsedData.pricingMode ?? product.pricingMode ?? 'BASE';
+    if (effectivePricingMode === 'HIGHEST_OPTION' && product.kind === 'COMBO') {
+      throw new Error(
+        'O preço meio a meio é exclusivo de produtos personalizáveis, não de combos.',
+      );
+    }
+    validateDynamicProductPricing({
+      pricingMode: effectivePricingMode,
+      saleMode: effectiveSaleMode,
+      optionGroups: optionGroups ?? product.optionGroups,
+      portionConfiguration:
+        portionConfiguration !== undefined ? portionConfiguration : product.portionConfiguration,
+    });
+    if (
+      product.pricingMode === 'HIGHEST_OPTION' &&
+      effectivePricingMode === 'BASE' &&
+      parsedData.price === undefined
+    ) {
+      throw new Error('Informe o preço ao mudar para preço fixo.');
+    }
     const persistedProductData = {
       ...productData,
+      pricingMode: effectivePricingMode,
+      ...(effectivePricingMode === 'HIGHEST_OPTION' ? { price: 0 } : {}),
       ...(isPublicProductMediaReference(productData.image, restaurantId, Number(product.id))
         ? { image: product.image || '' }
         : {}),
@@ -184,6 +207,7 @@ class UpdateProductService {
 
         const changedConfigurationFields = [
           saleMode !== undefined ? 'saleMode' : null,
+          parsedData.pricingMode !== undefined ? 'pricingMode' : null,
           productData.price !== undefined ? 'basePrice' : null,
           optionGroups !== undefined ? 'optionGroups' : null,
           compositionItems !== undefined ? 'compositionItems' : null,
@@ -204,7 +228,8 @@ class UpdateProductService {
                 previousSaleMode: product.saleMode,
                 saleMode: effectiveSaleMode,
                 previousBasePrice: Number(product.price),
-                basePrice: Number(productData.price ?? product.price),
+                pricingMode: effectivePricingMode,
+                basePrice: Number(persistedProductData.price ?? product.price),
                 previousConfigurationVersion: Number(product.configurationVersion ?? 1),
                 configurationVersion: Number(product.configurationVersion ?? 1) + 1,
               },

@@ -68,9 +68,9 @@ export function AdminCatalog(props: AdminCatalogProps) {
   const [categoryBusy, setCategoryBusy] = useState(false);
   const [categoryFeedback, setCategoryFeedback] = useState('');
   const [openProductMenu, setOpenProductMenu] = useState<string | null>(null);
-  const [catalogTab, setCatalogTab] = useState<'products' | 'combos' | 'ingredients' | 'categories'>(
-    'products',
-  );
+  const [catalogTab, setCatalogTab] = useState<
+    'products' | 'combos' | 'ingredients' | 'categories'
+  >('products');
   const [ingredientWizardOpen, setIngredientWizardOpen] = useState(false);
   const [ingredientSearch, setIngredientSearch] = useState('');
   const [ingredientFilter, setIngredientFilter] = useState<'all' | 'active' | 'inactive'>('all');
@@ -326,11 +326,7 @@ export function AdminCatalog(props: AdminCatalogProps) {
         </button>
       </S.CatalogTabs>
       {catalogTab === 'combos' ? (
-        <AdminCombos
-          products={products}
-          money={money}
-          onChanged={props.onImportComplete}
-        />
+        <AdminCombos products={products} money={money} onChanged={props.onImportComplete} />
       ) : catalogTab === 'ingredients' ? (
         <S.IngredientWorkspace>
           <C.IngredientWorkflowHint>
@@ -820,7 +816,11 @@ export function AdminCatalog(props: AdminCatalogProps) {
                   <b>{product.name}</b>
                   <span>{product.category}</span>
                   <footer>
-                    <strong>{money(product.price)}</strong>
+                    <strong>
+                      {product.pricingMode === 'HIGHEST_OPTION'
+                        ? 'Preço dinâmico'
+                        : money(product.price)}
+                    </strong>
                     <div className="product-actions">
                       <button
                         className="product-menu-trigger"

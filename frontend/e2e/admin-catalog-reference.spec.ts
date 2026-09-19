@@ -5,6 +5,58 @@ import { mockAuthRefresh } from './helpers/mockAuthRefresh';
 
 const PRODUCT_IMAGE = '/e2e/fixtures/readme/pizza-calabresa.jpg';
 
+for (const width of [1440, 390]) {
+  test(`preço meio a meio dispensa valor fixo no cadastro em ${width}px`, async ({
+    page,
+  }, testInfo) => {
+    await mockCatalog(page);
+    let saved: Record<string, unknown> | undefined;
+    await page.route('**/ingredients', (route) => route.fulfill({ json: { ingredients: [] } }));
+    await page.route('**/products', async (route) => {
+      if (route.request().method() !== 'POST') return route.fallback();
+      saved = route.request().postDataJSON();
+      await route.fulfill({ status: 201, json: { product: { ...saved, id: 701 } } });
+    });
+    await page.setViewportSize({ width, height: 900 });
+    await page.goto('/admin');
+    await page.getByRole('button', { name: 'Cardápio', exact: true }).click();
+    await page.getByRole('button', { name: 'Novo produto', exact: true }).first().click();
+    const editor = page.getByRole('dialog', { name: 'Novo produto', exact: true });
+    await editor.getByRole('radio', { name: /Produto personalizável/ }).click();
+    const next = () => editor.getByRole('button', { name: 'Continuar', exact: true }).click();
+    await next();
+    await editor.getByLabel('Nome do produto').fill('Pizza Meio a Meio');
+    await next();
+    await editor.getByRole('radio', { name: /Meio a meio/ }).check();
+    await expect(editor.locator('input[type="number"]')).toHaveCount(0);
+    await expect(editor.getByText('Preço definido pelas escolhas do cliente')).toBeVisible();
+    expect(await editor.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(
+      true,
+    );
+    await page.screenshot({
+      path: testInfo.outputPath(`preco-meio-a-meio-${width}.png`),
+      fullPage: true,
+    });
+    await next();
+    await next();
+    await editor.getByLabel('Adicionar produto ao meio a meio').first().selectOption('1');
+    // Each half is an independent required stage.
+    await editor
+      .getByRole('article', { name: 'Etapa 2: Segunda metade' })
+      .getByRole('button', { name: 'Editar', exact: true })
+      .click();
+    await editor.getByLabel('Adicionar produto ao meio a meio').last().selectOption('2');
+    await next();
+    await next();
+    await expect(editor.getByText('Preço conforme as escolhas').first()).toBeVisible();
+    await editor.getByRole('button', { name: /Criar produto/ }).click();
+    await expect
+      .poll(() => saved)
+      .toMatchObject({ pricingMode: 'HIGHEST_OPTION', price: 0, saleMode: 'BUILDABLE' });
+    expect((saved?.optionGroups as unknown[]).length).toBe(2);
+  });
+}
+
 const products = [
   ['1', 'Pizza Calabresa', 49.9, 'Pizzas', 'BUILDABLE'],
   ['2', 'Macarrão à Bolonhesa', 32.9, 'Massas', 'COMPLETE'],
@@ -134,7 +186,11 @@ async function mockCatalog(page: Page) {
     await route.fulfill({
       status: 200,
       contentType: 'application/json',
-      body: JSON.stringify(orderFixtureResponse(route.request().url(), responses['/orders']) ?? responses[pathname] ?? {}),
+      body: JSON.stringify(
+        orderFixtureResponse(route.request().url(), responses['/orders']) ??
+          responses[pathname] ??
+          {},
+      ),
     });
   });
 

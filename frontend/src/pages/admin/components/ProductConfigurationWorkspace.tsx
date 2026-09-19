@@ -1,13 +1,13 @@
+import { Eye } from 'lucide-react';
+import { money } from './productConfigurationWorkspaceUtils';
 import type { Dispatch, SetStateAction } from 'react';
 import {
   CheckCircle2,
   ChevronDown,
   ChevronUp,
-  Eye,
   Layers3,
   PackageOpen,
   Plus,
-  ShoppingBag,
   Trash2,
 } from 'lucide-react';
 import * as S from '../Admin.styles';
@@ -27,11 +27,7 @@ import {
 } from '../domain/ingredientCategoryGroups';
 import { IngredientThumbnail } from './IngredientThumbnail';
 import { HalfHalfProductSelector } from './HalfHalfProductSelector';
-import {
-  customerOptionPrice,
-  customerSelectionHint,
-  money,
-} from './productConfigurationWorkspaceUtils';
+import { ProductCustomerPreview } from './ProductCustomerPreview';
 import * as C from '../styles/AdminProductConfigurationExperience.styles';
 
 export type PendingCategoryChange = {
@@ -46,6 +42,7 @@ type ProductConfigurationWorkspaceProps = {
   description: string;
   image: string;
   price: string;
+  dynamicPrice?: boolean;
   showComposition?: boolean;
   ingredients: AdminIngredient[];
   products: AdminProduct[];
@@ -88,6 +85,7 @@ export function ProductConfigurationWorkspace({
   description,
   image,
   price,
+  dynamicPrice = false,
   showComposition = true,
   ingredients,
   products,
@@ -139,7 +137,7 @@ export function ProductConfigurationWorkspace({
   return (
     <C.ProductConfigurationLayout>
       <div className="configuration-groups">
-        {!activeIngredients.length ? (
+        {!activeIngredients.length && !products.length ? (
           <S.ProductCustomizationEmpty>
             <Layers3 />
             <div>
@@ -553,7 +551,11 @@ export function ProductConfigurationWorkspace({
                       <div className="guided-step-heading">
                         <i>3</i>
                         <span>
-                          <b>{isHalfHalf ? 'Escolha as pizzas disponíveis' : 'Marque as respostas que aparecerão'}</b>
+                          <b>
+                            {isHalfHalf
+                              ? 'Escolha as pizzas disponíveis'
+                              : 'Marque as respostas que aparecerão'}
+                          </b>
                           <small>
                             {isHalfHalf
                               ? 'Adicione quantos produtos quiser. Nome, imagem e preço vêm do produto cadastrado.'
@@ -578,77 +580,75 @@ export function ProductConfigurationWorkspace({
                           }
                         />
                       ) : (
-                      <fieldset className="group-options">
-                        <legend>
-                          <span>Opções disponíveis · {group.options.length} selecionada(s)</span>
-                          {canCreateIngredient && (
-                            <button
-                              type="button"
-                              disabled={!sourceCategory || isLegacyMixed}
-                              onClick={() => openIngredientWizard(groupIndex)}
-                            >
-                              <Plus /> Cadastrar novo ingrediente
-                            </button>
-                          )}
-                        </legend>
-                        <p className="group-options-hint">
-                          {isLegacyMixed
-                            ? 'Por segurança, abaixo aparecem somente as opções antigas já vinculadas, separadas por categoria.'
-                            : sourceCategory
-                              ? `Exibindo os ingredientes de “${sourceCategory}”. O nome da etapa continua independente.`
-                              : 'Escolha uma categoria de ingredientes acima para visualizar as opções disponíveis.'}
-                        </p>
-                        {visibleSections.map((section) => (
-                          <section className="source-category-section" key={section.key}>
-                            <header>
-                              <b>{section.category}</b>
-                              <span>{section.ingredients.length} opção(ões)</span>
-                            </header>
-                            <div>
-                              {section.ingredients.map((ingredient) => {
-                                const selected = selectedIds.has(ingredient.id);
-                                return (
-                                  <label
-                                    className={`${selected ? 'selected' : ''} ${ingredient.active ? '' : 'inactive'}`}
-                                    key={ingredient.id}
-                                  >
-                                    <input
-                                      type="checkbox"
-                                      checked={selected}
-                                      disabled={!ingredient.active && !selected}
-                                      onChange={(event) =>
-                                        toggleGroupIngredient(
-                                          groupIndex,
-                                          ingredient.id,
-                                          event.target.checked,
-                                        )
-                                      }
-                                    />
-                                    <IngredientThumbnail ingredient={ingredient} />
-                                    <span>
-                                      <b>{ingredient.name}</b>
-                                      <small>
-                                        {!ingredient.active
-                                          ? 'Inativo'
-                                          : ingredient.price > 0
-                                            ? `+ ${money(ingredient.price)}`
-                                            : 'Sem acréscimo'}
-                                      </small>
-                                    </span>
-                                  </label>
-                                );
-                              })}
+                        <fieldset className="group-options">
+                          <legend>
+                            <span>Opções disponíveis · {group.options.length} selecionada(s)</span>
+                            {canCreateIngredient && (
+                              <button
+                                type="button"
+                                disabled={!sourceCategory || isLegacyMixed}
+                                onClick={() => openIngredientWizard(groupIndex)}
+                              >
+                                <Plus /> Cadastrar novo ingrediente
+                              </button>
+                            )}
+                          </legend>
+                          <p className="group-options-hint">
+                            {isLegacyMixed
+                              ? 'Por segurança, abaixo aparecem somente as opções antigas já vinculadas, separadas por categoria.'
+                              : sourceCategory
+                                ? `Exibindo os ingredientes de “${sourceCategory}”. O nome da etapa continua independente.`
+                                : 'Escolha uma categoria de ingredientes acima para visualizar as opções disponíveis.'}
+                          </p>
+                          {visibleSections.map((section) => (
+                            <section className="source-category-section" key={section.key}>
+                              <header>
+                                <b>{section.category}</b>
+                                <span>{section.ingredients.length} opção(ões)</span>
+                              </header>
+                              <div>
+                                {section.ingredients.map((ingredient) => {
+                                  const selected = selectedIds.has(ingredient.id);
+                                  return (
+                                    <label
+                                      className={`${selected ? 'selected' : ''} ${ingredient.active ? '' : 'inactive'}`}
+                                      key={ingredient.id}
+                                    >
+                                      <input
+                                        type="checkbox"
+                                        checked={selected}
+                                        disabled={!ingredient.active && !selected}
+                                        onChange={(event) =>
+                                          toggleGroupIngredient(
+                                            groupIndex,
+                                            ingredient.id,
+                                            event.target.checked,
+                                          )
+                                        }
+                                      />
+                                      <IngredientThumbnail ingredient={ingredient} />
+                                      <span>
+                                        <b>{ingredient.name}</b>
+                                        <small>
+                                          {!ingredient.active
+                                            ? 'Inativo'
+                                            : ingredient.price > 0
+                                              ? `+ ${money(ingredient.price)}`
+                                              : 'Sem acréscimo'}
+                                        </small>
+                                      </span>
+                                    </label>
+                                  );
+                                })}
+                              </div>
+                            </section>
+                          ))}
+                          {!visibleSections.length && (
+                            <div className="source-category-empty">
+                              Nenhum ingrediente disponível nesta categoria.
                             </div>
-                          </section>
-                        ))}
-                        {!visibleSections.length && (
-                          <div className="source-category-empty">
-                            Nenhum ingrediente disponível nesta categoria.
-                          </div>
-                        )}
-                      </fieldset>
-
-
+                          )}
+                        </fieldset>
                       )}
 
                       {!!group.options.length && !isHalfHalf && (
@@ -1107,107 +1107,16 @@ export function ProductConfigurationWorkspace({
       </div>
 
       <div className="configuration-preview">
-        <S.ProductCustomerPreview aria-label="Prévia do produto para o cliente" role="region">
-          <header>
-            <Eye />
-            <div>
-              <b>Como ficará para o cliente</b>
-              <span>Resumo da experiência do cliente, atualizado em tempo real</span>
-            </div>
-            <em>PRÉVIA</em>
-          </header>
-          <div className="customer-preview-screen">
-            <div className="customer-preview-cover">
-              {image ? <img src={image} alt={`Foto de ${name || 'produto'}`} /> : <PackageOpen />}
-              <span>VISÃO DO CLIENTE</span>
-            </div>
-            <div className="customer-preview-product">
-              <small>PERSONALIZE SEU PEDIDO</small>
-              <b>{name || 'Seu produto'}</b>
-              <p>{description || 'Escolha as opções disponíveis para montar este produto.'}</p>
-              <strong>A partir de {Number(price) > 0 ? money(Number(price)) : 'R$ 0,00'}</strong>
-            </div>
-            <div className="customer-preview-intro">
-              <div>
-                <b>Monte seu produto</b>
-                <span>Faça as escolhas abaixo para continuar.</span>
-              </div>
-              <small>
-                {optionGroups.length} {optionGroups.length === 1 ? 'etapa' : 'etapas'}
-              </small>
-            </div>
-            <div className="customer-preview-steps">
-              {optionGroups.map((group, groupIndex) => (
-                <section
-                  className={group.name.trim() && group.options.length ? 'ready' : 'pending'}
-                  key={group.id ?? `preview-${groupIndex}`}
-                >
-                  <header>
-                    <div>
-                      <span>ETAPA {groupIndex + 1}</span>
-                      <b>{group.name || `Etapa ${groupIndex + 1}`}</b>
-                      {group.description && <p>{group.description}</p>}
-                    </div>
-                    <em className={group.required ? 'required' : ''}>
-                      {group.required ? 'Obrigatório' : 'Opcional'}
-                    </em>
-                  </header>
-                  <div className="customer-selection-rule">
-                    <span>{customerSelectionHint(group)}</span>
-                    <small>
-                      {group.options.length} {group.options.length === 1 ? 'opção' : 'opções'}
-                    </small>
-                  </div>
-                  <div className="customer-option-list">
-                    {group.options.map((option) => {
-                      const ingredient = ingredients.find(
-                        (item) => item.id === option.ingredientId,
-                      );
-                      const referenceProduct = products.find(
-                        (item) => Number(item.id) === Number(option.referenceProductId),
-                      );
-                      return (
-                        <div
-                          key={option.id ?? option.referenceProductId ?? option.ingredientId}
-                        >
-                          <i className={group.selectionType === 'SINGLE' ? 'radio' : ''} />
-                          <span>
-                            <b>
-                              {referenceProduct?.name ||
-                                ingredient?.name ||
-                                `Opção ${option.referenceProductId || option.ingredientId}`}
-                            </b>
-                            {option.locked && <small>Já acompanha o produto</small>}
-                          </span>
-                          <strong>
-                            {customerOptionPrice(option, ingredient, referenceProduct)}
-                          </strong>
-                        </div>
-                      );
-                    })}
-                    {!group.options.length && (
-                      <p className="customer-options-empty">As opções aparecerão aqui.</p>
-                    )}
-                  </div>
-                </section>
-              ))}
-            </div>
-            <div className="customer-preview-footer">
-              <span>
-                <ShoppingBag />
-                <b>Adicionar ao pedido</b>
-              </span>
-              <strong>{Number(price) > 0 ? money(Number(price)) : 'R$ 0,00'}</strong>
-            </div>
-          </div>
-          <div className="customer-preview-note">
-            <Eye />
-            <div>
-              <b>Esta é uma simulação</b>
-              <small>O cliente verá esta sequência no cardápio após você salvar.</small>
-            </div>
-          </div>
-        </S.ProductCustomerPreview>
+        <ProductCustomerPreview
+          name={name}
+          description={description}
+          image={image}
+          price={price}
+          dynamicPrice={dynamicPrice}
+          optionGroups={optionGroups}
+          ingredients={ingredients}
+          products={products}
+        />
       </div>
     </C.ProductConfigurationLayout>
   );

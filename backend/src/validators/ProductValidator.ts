@@ -243,7 +243,10 @@ const productSchema = z.object({
       invalid_type_error: 'Preço deve ser um número.',
       required_error: 'Preço deve ser um número.',
     })
-    .min(0, 'Preço não pode ser negativo!'),
+    .min(0, 'Preço não pode ser negativo!')
+    .optional(),
+
+  pricingMode: z.enum(['BASE', 'HIGHEST_OPTION']).optional(),
 
   active: z.boolean().optional(),
 
@@ -286,7 +289,7 @@ const productSchema = z.object({
 });
 
 function validateUniqueGroupNames(
-  product: { optionGroups?: Array<{ name: string }> },
+  product: { optionGroups?: Array<{ name?: string }> },
   ctx: z.RefinementCtx,
 ) {
   if (!product.optionGroups) {
@@ -294,7 +297,9 @@ function validateUniqueGroupNames(
   }
 
   const normalizedNames = product.optionGroups.map((group) =>
-    group.name.trim().toLocaleLowerCase(),
+    String(group.name || '')
+      .trim()
+      .toLocaleLowerCase(),
   );
   if (new Set(normalizedNames).size !== normalizedNames.length) {
     ctx.addIssue({
@@ -305,7 +310,16 @@ function validateUniqueGroupNames(
   }
 }
 
-export const createProductSchema = productSchema.superRefine(validateUniqueGroupNames);
+export const createProductSchema = productSchema.superRefine((product, ctx) => {
+  validateUniqueGroupNames(product, ctx);
+  if (product.pricingMode !== 'HIGHEST_OPTION' && product.price === undefined) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['price'],
+      message: 'Preço deve ser um número.',
+    });
+  }
+});
 export const updateProductSchema = productSchema
   .partial()
   .extend({
