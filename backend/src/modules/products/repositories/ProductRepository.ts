@@ -26,6 +26,18 @@ const productConfigurationInclude = {
         orderBy: [{ position: 'asc' as const }, { id: 'asc' as const }],
         include: {
           ingredient: true,
+          referenceProduct: {
+            select: {
+              id: true,
+              restaurantId: true,
+              name: true,
+              image: true,
+              price: true,
+              active: true,
+              kind: true,
+              stock: true,
+            },
+          },
         },
       },
     },
