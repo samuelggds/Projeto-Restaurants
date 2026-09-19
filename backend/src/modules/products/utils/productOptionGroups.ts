@@ -13,7 +13,7 @@ export async function buildProductOptionGroupsCreate(
   tx: PrismaClientLike,
   restaurantId: number,
   groups: ProductOptionGroupInput[],
-) {
+): Promise<Prisma.ProductOptionGroupUncheckedCreateWithoutProductInput[]> {
   const ingredientIds = [
     ...new Set(
       groups.flatMap((group) =>
@@ -58,8 +58,8 @@ export async function buildProductOptionGroupsCreate(
     throw new Error('Um ou mais produtos do meio a meio estão indisponíveis neste restaurante.');
   }
 
-  const ingredientPrices = new Map(
-    ingredients.map((ingredient) => [ingredient.id, Number(ingredient.price)]),
+  const ingredientPrices = new Map<number, number>(
+    ingredients.map((ingredient) => [ingredient.id, Number(ingredient.price)] as const),
   );
 
   return groups.map((group, groupIndex) => ({
@@ -94,7 +94,7 @@ export async function buildProductOptionGroupsCreate(
         position: optionIndex,
       })),
     },
-  }));
+  }) satisfies Prisma.ProductOptionGroupUncheckedCreateWithoutProductInput);
 }
 
 export async function buildProductCompositionCreate(
