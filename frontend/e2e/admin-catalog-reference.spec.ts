@@ -342,7 +342,7 @@ test('Cardápio e importação seguem a composição visual de referência no de
     emptyCustomizationEditor.getByRole('button', { name: /Vários adicionais/ }),
   ).toBeVisible();
   await expect(
-    emptyCustomizationEditor.getByRole('button', { name: /Dividir em partes/ }),
+    emptyCustomizationEditor.getByRole('button', { name: /Pizza meio a meio/ }),
   ).toBeVisible();
   await page.screenshot({ path: testInfo.outputPath('product-customization-empty.png') });
 
