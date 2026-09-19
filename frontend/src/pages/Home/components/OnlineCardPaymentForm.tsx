@@ -44,6 +44,7 @@ declare global {
       };
     };
     MercadoPago?: new (publicKey: string) => MercadoPagoInstance;
+    MP_DEVICE_SESSION_ID?: string;
   }
 }
 
@@ -225,10 +226,12 @@ export function OnlineCardPaymentForm({
               cardId: savedCard.providerCardId,
             });
             if (!token.id) throw new Error('Não foi possível validar o CVV do cartão salvo.');
+            const mercadoPagoDeviceId = String(window.MP_DEVICE_SESSION_ID || '').trim();
             return {
               paymentMethodId: savedCard.publicId,
               cardToken: token.id,
               cardPaymentMethodId: String(token.payment_method_id || savedCard.brand).trim(),
+              ...(mercadoPagoDeviceId ? { mercadoPagoDeviceId } : {}),
             };
           }
           return { paymentMethodId: savedCard.publicId };
@@ -258,12 +261,14 @@ export function OnlineCardPaymentForm({
           if (!token.id || !paymentMethodId) {
             throw new Error('Não foi possível identificar a bandeira do cartão. Revise os dados e tente novamente.');
           }
+          const mercadoPagoDeviceId = String(window.MP_DEVICE_SESSION_ID || '').trim();
           return {
             cardToken: token.id,
             cardPaymentMethodId: paymentMethodId,
             holderName,
             holderTaxId,
             payerEmail: normalizedPayerEmail,
+            ...(mercadoPagoDeviceId ? { mercadoPagoDeviceId } : {}),
           };
         }
 
