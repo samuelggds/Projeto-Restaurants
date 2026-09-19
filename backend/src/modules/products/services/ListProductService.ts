@@ -60,7 +60,19 @@ class ListProductsService {
         ...group,
         options: group.options.map((option) => ({
           ...option,
-          ingredient: presentIngredientImage(option.ingredient, normalizedRestaurantId),
+          ingredient: option.ingredient
+            ? presentIngredientImage(option.ingredient, normalizedRestaurantId)
+            : null,
+          referenceProduct: option.referenceProduct
+            ? {
+                ...option.referenceProduct,
+                image: createPublicMediaReference(
+                  option.referenceProduct.image,
+                  `/public-media/restaurants/${normalizedRestaurantId}/products/${option.referenceProduct.id}`,
+                  option.referenceProduct.updatedAt,
+                ),
+              }
+            : null,
         })),
       }));
       const publicComboGroups = (product.comboGroups || []).map((group) => ({

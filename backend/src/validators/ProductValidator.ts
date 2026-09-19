@@ -11,7 +11,8 @@ const ingredientSchema = z.object({
 export const productOptionSchema = z
   .object({
     id: z.number().int().positive().optional(),
-    ingredientId: z.number().int().positive('Ingrediente inválido.'),
+    ingredientId: z.number().int().positive('Ingrediente inválido.').optional(),
+    referenceProductId: z.number().int().positive('Produto inválido.').optional(),
     additionalPrice: z
       .number()
       .min(0, 'O preço adicional não pode ser negativo.')
@@ -33,6 +34,16 @@ export const productOptionSchema = z
     active: z.boolean().optional(),
   })
   .superRefine((option, ctx) => {
+    const sources = [option.ingredientId, option.referenceProductId].filter(
+      (value) => value !== undefined,
+    );
+    if (sources.length !== 1) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['ingredientId'],
+        message: 'Escolha um ingrediente ou um produto de referência.',
+      });
+    }
     if (option.pricingMode === 'ABSOLUTE' && option.absolutePrice == null) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
@@ -127,12 +138,16 @@ export const productOptionGroupSchema = z
       });
     }
 
-    const uniqueIngredientIds = new Set(group.options.map((option) => option.ingredientId));
-    if (uniqueIngredientIds.size !== group.options.length) {
+    const optionKeys = group.options.map((option) =>
+      option.referenceProductId
+        ? `product:${option.referenceProductId}`
+        : `ingredient:${option.ingredientId}`,
+    );
+    if (new Set(optionKeys).size !== group.options.length) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         path: ['options'],
-        message: 'Um ingrediente não pode aparecer duas vezes no mesmo grupo.',
+        message: 'A mesma opção não pode aparecer duas vezes no mesmo grupo.',
       });
     }
 

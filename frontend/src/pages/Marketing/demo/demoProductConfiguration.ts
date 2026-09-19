@@ -105,6 +105,7 @@ export function demoConfigurationIsCurrent(
 export function demoProductConfiguration(
   product: AdminProduct,
   ingredients: AdminIngredient[],
+  products: AdminProduct[] = [],
 ): Pick<
   HomeProduct,
   'saleMode' | 'optionGroups' | 'compositionItems' | 'portionConfiguration' | 'configurationVersion'
@@ -114,14 +115,37 @@ export function demoProductConfiguration(
     id: String(group.id ?? `${product.id}-group-${index}`),
     options: group.options.map((option, optionIndex) => {
       const ingredient = ingredients.find((item) => item.id === option.ingredientId);
+      const referenceProduct = products.find(
+        (item) => Number(item.id) === Number(option.referenceProductId),
+      );
+      const isProductBacked = Boolean(option.referenceProductId);
+      const linkedPrice = Number(referenceProduct?.price ?? 0);
+
       return {
         ...option,
         id: String(option.id ?? `${product.id}-option-${index}-${optionIndex}`),
-        ingredientId: String(option.ingredientId),
-        name: ingredient?.name ?? 'Ingrediente indisponível',
-        image: ingredient?.image,
-        price: option.additionalPrice ?? ingredient?.price ?? 0,
-        active: Boolean(ingredient && ingredient.active !== false && option.active !== false),
+        ingredientId: option.ingredientId ? String(option.ingredientId) : undefined,
+        referenceProductId: option.referenceProductId
+          ? String(option.referenceProductId)
+          : undefined,
+        name:
+          referenceProduct?.name ??
+          ingredient?.name ??
+          (isProductBacked ? 'Produto indisponível' : 'Ingrediente indisponível'),
+        image: referenceProduct?.image ?? ingredient?.image,
+        price: isProductBacked
+          ? linkedPrice
+          : Number(option.additionalPrice ?? ingredient?.price ?? 0),
+        pricingMode: isProductBacked ? ('ABSOLUTE' as const) : option.pricingMode,
+        absolutePrice: isProductBacked ? linkedPrice : option.absolutePrice,
+        active: isProductBacked
+          ? Boolean(
+              referenceProduct &&
+                referenceProduct.active !== false &&
+                referenceProduct.kind !== 'COMBO' &&
+                option.active !== false,
+            )
+          : Boolean(ingredient && ingredient.active !== false && option.active !== false),
       };
     }),
   }));

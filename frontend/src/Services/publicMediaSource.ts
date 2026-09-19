@@ -34,9 +34,20 @@ export function resolvePublicProductImages(products: unknown, baseUrl: unknown) 
                 ? groupRecord.options.map((option) => {
                     if (!option || typeof option !== 'object') return option;
                     const optionRecord = option as Record<string, unknown>;
+                    const referenceProduct =
+                      optionRecord.referenceProduct &&
+                      typeof optionRecord.referenceProduct === 'object'
+                        ? (optionRecord.referenceProduct as Record<string, unknown>)
+                        : null;
                     return {
                       ...optionRecord,
                       ingredient: resolvePublicIngredientImage(optionRecord.ingredient, baseUrl),
+                      referenceProduct: referenceProduct
+                        ? {
+                            ...referenceProduct,
+                            image: resolvePublicMediaSource(referenceProduct.image, baseUrl),
+                          }
+                        : optionRecord.referenceProduct,
                     };
                   })
                 : groupRecord.options,

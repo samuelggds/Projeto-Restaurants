@@ -75,6 +75,8 @@ export function inferGroupIngredientCategory(
   const missingIngredientIds: number[] = [];
   const categoryMap = new Map<string, string>();
   group.options.forEach((option) => {
+    if (option.referenceProductId) return;
+    if (!option.ingredientId) return;
     const ingredient = byId.get(option.ingredientId);
     if (!ingredient) {
       missingIngredientIds.push(option.ingredientId);
@@ -107,6 +109,8 @@ export function incompatibleOptionsForCategory(
 ) {
   const byId = new Map(ingredients.map((ingredient) => [ingredient.id, ingredient]));
   return options.filter((option) => {
+    if (option.referenceProductId) return category !== 'Meio a Meio';
+    if (!option.ingredientId) return true;
     const ingredient = byId.get(option.ingredientId);
     return !ingredient || !ingredientBelongsToCategory(ingredient, category);
   });

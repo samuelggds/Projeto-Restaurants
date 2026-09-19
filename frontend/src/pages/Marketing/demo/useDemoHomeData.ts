@@ -75,7 +75,7 @@ function read(): DemoHomeData {
         rating: 0,
         stock: product.stock,
         available: product.active !== false && product.stock !== 0,
-        ...demoProductConfiguration(product, ingredients),
+        ...demoProductConfiguration(product, ingredients, products),
         promotion:
           value > 0
             ? {

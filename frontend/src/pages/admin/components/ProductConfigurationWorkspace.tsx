@@ -13,6 +13,7 @@ import {
 import * as S from '../Admin.styles';
 import type {
   AdminIngredient,
+  AdminProduct,
   AdminProductCompositionItem,
   AdminProductOptionGroup,
   AdminProductPortionConfiguration,
@@ -25,6 +26,12 @@ import {
   type IngredientCategorySection,
 } from '../domain/ingredientCategoryGroups';
 import { IngredientThumbnail } from './IngredientThumbnail';
+import { HalfHalfProductSelector } from './HalfHalfProductSelector';
+import {
+  customerOptionPrice,
+  customerSelectionHint,
+  money,
+} from './productConfigurationWorkspaceUtils';
 import * as C from '../styles/AdminProductConfigurationExperience.styles';
 
 export type PendingCategoryChange = {
@@ -41,6 +48,7 @@ type ProductConfigurationWorkspaceProps = {
   price: string;
   showComposition?: boolean;
   ingredients: AdminIngredient[];
+  products: AdminProduct[];
   activeIngredients: AdminIngredient[];
   activeIngredientSections: IngredientCategorySection[];
   ingredientCategories: string[];
@@ -59,7 +67,7 @@ type ProductConfigurationWorkspaceProps = {
   ) => void;
   updateGroupOption: (
     groupIndex: number,
-    ingredientId: number,
+    ingredientId: number | undefined,
     patch: Partial<AdminProductOptionGroup['options'][number]>,
   ) => void;
   moveGroup: (groupIndex: number, direction: -1 | 1) => void;
@@ -67,34 +75,13 @@ type ProductConfigurationWorkspaceProps = {
   selectGroupCategory: (groupIndex: number, nextCategory: string) => void;
   confirmGroupCategoryChange: () => void;
   toggleGroupIngredient: (groupIndex: number, ingredientId: number, selected: boolean) => void;
+  addHalfHalfProduct: (referenceProductId: number) => void;
+  removeHalfHalfProduct: (referenceProductId: number) => void;
   toggleCompositionIngredient: (ingredientId: number, selected: boolean) => void;
   setPendingCategoryChange: Dispatch<SetStateAction<PendingCategoryChange | null>>;
   setCompositionItems: Dispatch<SetStateAction<AdminProductCompositionItem[]>>;
   setPortionConfiguration: Dispatch<SetStateAction<AdminProductPortionConfiguration | null>>;
 };
-
-const money = (value: number) =>
-  value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-
-function customerSelectionHint(group: AdminProductOptionGroup) {
-  if (group.selectionType === 'SINGLE') return 'Escolha 1 opção';
-  if (group.minSelections > 0 && group.minSelections !== group.maxSelections) {
-    return `Escolha de ${group.minSelections} até ${group.maxSelections}`;
-  }
-  if (group.minSelections > 0) return `Escolha pelo menos ${group.minSelections}`;
-  return `Escolha até ${group.maxSelections}`;
-}
-
-function customerOptionPrice(
-  option: AdminProductOptionGroup['options'][number],
-  ingredient: AdminIngredient | undefined,
-) {
-  if (option.pricingMode === 'ABSOLUTE') {
-    return `Preço final ${money(Number(option.absolutePrice ?? option.additionalPrice ?? 0))}`;
-  }
-  const additionalPrice = Number(option.additionalPrice ?? ingredient?.price ?? 0);
-  return additionalPrice > 0 ? `+ ${money(additionalPrice)}` : 'Incluso';
-}
 
 export function ProductConfigurationWorkspace({
   name,
@@ -103,6 +90,7 @@ export function ProductConfigurationWorkspace({
   price,
   showComposition = true,
   ingredients,
+  products,
   activeIngredients,
   activeIngredientSections,
   ingredientCategories,
@@ -122,6 +110,8 @@ export function ProductConfigurationWorkspace({
   selectGroupCategory,
   confirmGroupCategoryChange,
   toggleGroupIngredient,
+  addHalfHalfProduct,
+  removeHalfHalfProduct,
   toggleCompositionIngredient,
   setPendingCategoryChange,
   setCompositionItems,
@@ -171,8 +161,13 @@ export function ProductConfigurationWorkspace({
         ) : (
           <S.ProductOptionGroupList className="configuration-list">
             {optionGroups.map((group, groupIndex) => {
-              const selectedIds = new Set(group.options.map((option) => option.ingredientId));
+              const selectedIds = new Set(
+                group.options.flatMap((option) =>
+                  option.ingredientId ? [option.ingredientId] : [],
+                ),
+              );
               const sourceCategory = groupCategories[groupIndex] || '';
+              const isHalfHalf = sourceCategory === 'Meio a Meio';
               const legacyCategory = inferGroupIngredientCategory(group, ingredients);
               const isLegacyMixed = sourceCategory === MIXED_INGREDIENT_CATEGORY;
               const visibleIngredients = isLegacyMixed
@@ -223,9 +218,13 @@ export function ProductConfigurationWorkspace({
                     </div>
                     <div className="group-option-preview" aria-hidden="true">
                       {group.options.slice(0, 3).map((option) => (
-                        <span key={option.ingredientId}>
-                          {ingredients.find((item) => item.id === option.ingredientId)?.name ||
-                            `Opção ${option.ingredientId}`}
+                        <span key={option.id ?? option.referenceProductId ?? option.ingredientId}>
+                          {option.referenceProductId
+                            ? products.find(
+                                (item) => Number(item.id) === Number(option.referenceProductId),
+                              )?.name || `Produto ${option.referenceProductId}`
+                            : ingredients.find((item) => item.id === option.ingredientId)?.name ||
+                              `Opção ${option.ingredientId}`}
                         </span>
                       ))}
                       {group.options.length > 3 && <span>+{group.options.length - 3}</span>}
@@ -340,6 +339,13 @@ export function ProductConfigurationWorkspace({
                                 Etapa antiga com categorias misturadas
                               </option>
                             )}
+                            {!ingredientCategories.some(
+                              (ingredientCategory) => ingredientCategory === 'Meio a Meio',
+                            ) && (
+                              <option value="Meio a Meio">
+                                Meio a Meio — produtos cadastrados
+                              </option>
+                            )}
                             {ingredientCategories.map((ingredientCategory) => (
                               <option key={ingredientCategory} value={ingredientCategory}>
                                 {ingredientCategory}
@@ -347,7 +353,9 @@ export function ProductConfigurationWorkspace({
                             ))}
                           </select>
                           <small>
-                            Mostra somente os ingredientes que poderão responder a esta pergunta.
+                            {sourceCategory === 'Meio a Meio'
+                              ? 'Neste modo, as opções vêm dos produtos já cadastrados no cardápio.'
+                              : 'Mostra somente os ingredientes que poderão responder a esta pergunta.'}
                           </small>
                         </S.Field>
                         <S.Field $full>
@@ -545,10 +553,11 @@ export function ProductConfigurationWorkspace({
                       <div className="guided-step-heading">
                         <i>3</i>
                         <span>
-                          <b>Marque as respostas que aparecerão</b>
+                          <b>{isHalfHalf ? 'Escolha as pizzas disponíveis' : 'Marque as respostas que aparecerão'}</b>
                           <small>
-                            Selecione os ingredientes desta categoria. O nome e o preço de cada um
-                            serão mostrados ao cliente na mesma ordem.
+                            {isHalfHalf
+                              ? 'Adicione quantos produtos quiser. Nome, imagem e preço vêm do produto cadastrado.'
+                              : 'Selecione os ingredientes desta categoria. O nome e o preço de cada um serão mostrados ao cliente na mesma ordem.'}
                           </small>
                         </span>
                         <em className={group.options.length ? '' : 'pending'}>
@@ -557,6 +566,14 @@ export function ProductConfigurationWorkspace({
                             : 'Selecione ao menos 1'}
                         </em>
                       </div>
+                      {isHalfHalf ? (
+                        <HalfHalfProductSelector
+                          products={products}
+                          group={group}
+                          addProduct={addHalfHalfProduct}
+                          removeProduct={removeHalfHalfProduct}
+                        />
+                      ) : (
                       <fieldset className="group-options">
                         <legend>
                           <span>Opções disponíveis · {group.options.length} selecionada(s)</span>
@@ -627,7 +644,10 @@ export function ProductConfigurationWorkspace({
                         )}
                       </fieldset>
 
-                      {!!group.options.length && (
+
+                      )}
+
+                      {!!group.options.length && !isHalfHalf && (
                         <details className="advanced-settings option-settings">
                           <summary>Configurações avançadas das opções</summary>
                           <S.ProductOptionConfiguration>
@@ -1139,14 +1159,25 @@ export function ProductConfigurationWorkspace({
                       const ingredient = ingredients.find(
                         (item) => item.id === option.ingredientId,
                       );
+                      const referenceProduct = products.find(
+                        (item) => Number(item.id) === Number(option.referenceProductId),
+                      );
                       return (
-                        <div key={option.ingredientId}>
+                        <div
+                          key={option.id ?? option.referenceProductId ?? option.ingredientId}
+                        >
                           <i className={group.selectionType === 'SINGLE' ? 'radio' : ''} />
                           <span>
-                            <b>{ingredient?.name || `Opção ${option.ingredientId}`}</b>
+                            <b>
+                              {referenceProduct?.name ||
+                                ingredient?.name ||
+                                `Opção ${option.referenceProductId || option.ingredientId}`}
+                            </b>
                             {option.locked && <small>Já acompanha o produto</small>}
                           </span>
-                          <strong>{customerOptionPrice(option, ingredient)}</strong>
+                          <strong>
+                            {customerOptionPrice(option, ingredient, referenceProduct)}
+                          </strong>
                         </div>
                       );
                     })}

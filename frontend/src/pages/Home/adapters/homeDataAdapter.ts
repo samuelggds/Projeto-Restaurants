@@ -81,18 +81,36 @@ export function mapProductOptionGroupsFromApi(product: Record<string, unknown>) 
             .map((rawOption) => {
               const option = rawOption as Record<string, unknown>;
               const ingredient = (option.ingredient as Record<string, unknown> | null) ?? {};
+              const referenceProduct =
+                (option.referenceProduct as Record<string, unknown> | null) ?? {};
+              const isProductBacked = Boolean(
+                option.referenceProductId || referenceProduct.id,
+              );
+              const linkedPrice = Number(referenceProduct.price ?? 0);
               return {
                 id: String(option.id ?? ''),
-                ingredientId: String(option.ingredientId ?? ingredient.id ?? ''),
-                name: String(ingredient.name || option.name || ''),
-                image: isPersistentImageSource(ingredient.image)
-                  ? String(ingredient.image).trim()
-                  : null,
-                price: Number(option.additionalPrice ?? ingredient.price ?? option.price ?? 0),
-                pricingMode:
-                  option.pricingMode === 'ABSOLUTE' ? ('ABSOLUTE' as const) : ('ADDITIVE' as const),
-                absolutePrice:
-                  option.absolutePrice === null || option.absolutePrice === undefined
+                ingredientId: String(option.ingredientId ?? ingredient.id ?? '') || undefined,
+                referenceProductId:
+                  String(option.referenceProductId ?? referenceProduct.id ?? '') || undefined,
+                name: String(
+                  referenceProduct.name || ingredient.name || option.name || '',
+                ),
+                image: isPersistentImageSource(referenceProduct.image)
+                  ? String(referenceProduct.image).trim()
+                  : isPersistentImageSource(ingredient.image)
+                    ? String(ingredient.image).trim()
+                    : null,
+                price: isProductBacked
+                  ? linkedPrice
+                  : Number(option.additionalPrice ?? ingredient.price ?? option.price ?? 0),
+                pricingMode: isProductBacked
+                  ? ('ABSOLUTE' as const)
+                  : option.pricingMode === 'ABSOLUTE'
+                    ? ('ABSOLUTE' as const)
+                    : ('ADDITIVE' as const),
+                absolutePrice: isProductBacked
+                  ? linkedPrice
+                  : option.absolutePrice === null || option.absolutePrice === undefined
                     ? null
                     : Number(option.absolutePrice),
                 allowQuantity: option.allowQuantity === true,
@@ -101,7 +119,12 @@ export function mapProductOptionGroupsFromApi(product: Record<string, unknown>) 
                 defaultQuantity: Math.max(1, Number(option.defaultQuantity ?? 1)),
                 defaultSelected: option.defaultSelected === true,
                 locked: option.locked === true,
-                active: option.active !== false && ingredient.active !== false,
+                active:
+                  option.active !== false &&
+                  (isProductBacked
+                    ? referenceProduct.active !== false &&
+                      referenceProduct.kind !== 'COMBO'
+                    : ingredient.active !== false),
               };
             })
             .filter((option) => option.id && option.name && option.active)

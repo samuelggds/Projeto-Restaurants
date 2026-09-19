@@ -408,6 +408,7 @@ model Product {
   discount             ProductDiscount?
   comboGroups          ProductComboGroup[]            @relation("ComboProductGroups")
   comboOptions         ProductComboOption[]           @relation("ComboComponentOptions")
+  optionPriceReferences ProductOption[]                @relation("ProductOptionPriceReference")
 
   @@unique([id, restaurantId])
 }
@@ -526,32 +527,36 @@ model ProductOptionGroup {
 }
 
 model ProductOption {
-  id              Int                      @id @default(autoincrement())
-  restaurantId    Int
-  groupId         Int
-  ingredientId    Int
-  additionalPrice Decimal                  @default(0) @db.Decimal(10, 2)
-  pricingMode     ProductOptionPricingMode @default(ADDITIVE)
-  absolutePrice   Decimal?                 @db.Decimal(10, 2)
-  allowQuantity   Boolean                  @default(false)
-  minQuantity     Int                      @default(1)
-  maxQuantity     Int                      @default(1)
-  defaultQuantity Int                      @default(1)
-  defaultSelected Boolean                  @default(false)
-  locked          Boolean                  @default(false)
-  active          Boolean                  @default(true)
-  position        Int                      @default(0)
-  createdAt       DateTime                 @default(now())
-  updatedAt       DateTime                 @updatedAt
-  restaurant      Restaurant               @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
-  group           ProductOptionGroup       @relation(fields: [groupId, restaurantId], references: [id, restaurantId], onDelete: Cascade)
-  ingredient      Ingredient               @relation(fields: [ingredientId, restaurantId], references: [id, restaurantId], onDelete: Restrict)
+  id                 Int                      @id @default(autoincrement())
+  restaurantId       Int
+  groupId            Int
+  ingredientId       Int?
+  referenceProductId Int?
+  additionalPrice    Decimal                  @default(0) @db.Decimal(10, 2)
+  pricingMode        ProductOptionPricingMode @default(ADDITIVE)
+  absolutePrice      Decimal?                 @db.Decimal(10, 2)
+  allowQuantity      Boolean                  @default(false)
+  minQuantity        Int                      @default(1)
+  maxQuantity        Int                      @default(1)
+  defaultQuantity    Int                      @default(1)
+  defaultSelected    Boolean                  @default(false)
+  locked             Boolean                  @default(false)
+  active             Boolean                  @default(true)
+  position           Int                      @default(0)
+  createdAt          DateTime                 @default(now())
+  updatedAt          DateTime                 @updatedAt
+  restaurant         Restaurant               @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  group              ProductOptionGroup       @relation(fields: [groupId, restaurantId], references: [id, restaurantId], onDelete: Cascade)
+  ingredient         Ingredient?              @relation(fields: [ingredientId, restaurantId], references: [id, restaurantId], onDelete: Restrict)
+  referenceProduct   Product?                 @relation("ProductOptionPriceReference", fields: [referenceProductId, restaurantId], references: [id, restaurantId], onDelete: Restrict)
 
   @@unique([groupId, ingredientId])
+  @@unique([groupId, referenceProductId])
   @@unique([id, restaurantId])
   @@index([restaurantId, active])
   @@index([groupId, active, position])
   @@index([ingredientId])
+  @@index([referenceProductId])
 }
 
 model ProductCompositionItem {
