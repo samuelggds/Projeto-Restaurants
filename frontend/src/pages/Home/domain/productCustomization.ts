@@ -248,9 +248,12 @@ export function productConfigurationTotal(
     : null;
   const regularGroups = groups.filter((group) => group.id !== portionGroupId);
   const regularOptions = selectedProductOptions(regularGroups, selections);
-  const absolute = regularOptions.find((option) => option.pricingMode === 'ABSOLUTE');
+  const productBacked = regularOptions.filter((option) => option.referenceProductId);
+  const regularAbsolute = regularOptions.find(
+    (option) => option.pricingMode === 'ABSOLUTE' && !option.referenceProductId,
+  );
   const additiveCents = regularOptions
-    .filter((option) => option.pricingMode !== 'ABSOLUTE')
+    .filter((option) => option.pricingMode !== 'ABSOLUTE' && !option.referenceProductId)
     .reduce(
       (total, option) =>
         total +
@@ -259,9 +262,15 @@ export function productConfigurationTotal(
       0,
     );
 
-  let resolvedBaseCents = Math.round(
-    Number(absolute?.absolutePrice ?? absolute?.price ?? basePrice ?? 0) * 100,
-  );
+  let resolvedBaseCents = productBacked.length
+    ? Math.max(
+        ...productBacked.map((option) =>
+          Math.round(Number(option.absolutePrice ?? option.price ?? 0) * 100),
+        ),
+      )
+    : Math.round(
+        Number(regularAbsolute?.absolutePrice ?? regularAbsolute?.price ?? basePrice ?? 0) * 100,
+      );
   let portionCents = 0;
   const portionConfiguration = details.portionConfiguration;
   if (portionConfiguration?.enabled && details.portions?.length) {
