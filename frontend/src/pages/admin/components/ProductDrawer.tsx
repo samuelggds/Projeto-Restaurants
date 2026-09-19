@@ -7,6 +7,7 @@ import {
   useRef,
   useState,
 } from 'react';
+import { createPortal } from 'react-dom';
 import { ArrowLeft, ArrowRight, Check, Copy, PackageOpen, Plus, Trash2, X } from 'lucide-react';
 import { useAppDialog } from '../../../components/AppDialog/context';
 import { createPersistentImageDataUrl } from '../../../utils/persistentImage';
@@ -212,6 +213,20 @@ export const ProductDrawer = forwardRef<ProductDrawerHandle, ProductDrawerProps>
       });
       if (confirmed) close();
     }, [close, confirmDialog, hasUnsavedChanges]);
+
+    useEffect(() => {
+      const previousOverflow = document.body.style.overflow;
+      document.body.style.overflow = 'hidden';
+
+      return () => {
+        document.body.style.overflow = previousOverflow;
+      };
+    }, []);
+
+    const editorPortalTarget =
+      typeof document === 'undefined'
+        ? null
+        : document.querySelector<HTMLElement>('[data-admin-root]') || document.body;
 
     useEffect(() => {
       const handleKeyDown = (event: KeyboardEvent) => {
@@ -731,7 +746,9 @@ export const ProductDrawer = forwardRef<ProductDrawerHandle, ProductDrawerProps>
     const customizationOptionsReady =
       customizationRulesReady && optionGroups.every((group) => group.options.length > 0);
 
-    return (
+    if (!editorPortalTarget) return null;
+
+    return createPortal(
       <S.Overlay
         className="product-editor-overlay"
         aria-label={product ? 'Editar produto' : 'Novo produto'}
@@ -1175,7 +1192,8 @@ export const ProductDrawer = forwardRef<ProductDrawerHandle, ProductDrawerProps>
             }}
           />
         )}
-      </S.Overlay>
+      </S.Overlay>,
+      editorPortalTarget,
     );
   },
 );
