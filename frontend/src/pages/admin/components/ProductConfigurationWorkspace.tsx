@@ -1,15 +1,7 @@
 import { Eye } from 'lucide-react';
 import { money } from './productConfigurationWorkspaceUtils';
 import type { Dispatch, SetStateAction } from 'react';
-import {
-  CheckCircle2,
-  ChevronDown,
-  ChevronUp,
-  Layers3,
-  PackageOpen,
-  Plus,
-  Trash2,
-} from 'lucide-react';
+import { CheckCircle2, ChevronDown, ChevronUp, Layers3, Plus, Trash2 } from 'lucide-react';
 import * as S from '../Admin.styles';
 import type {
   AdminIngredient,
