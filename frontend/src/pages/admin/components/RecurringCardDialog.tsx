@@ -1,4 +1,5 @@
 import { useContext, useEffect, useRef, useState, type FormEvent } from 'react';
+import { createPortal } from 'react-dom';
 import { CreditCard, RefreshCw, ShieldCheck, X } from 'lucide-react';
 import monthlyBillingService, {
   type PlatformBillingProfile,
@@ -175,7 +176,7 @@ export function RecurringCardDialog({
       setSaving(false);
     }
   }
-  return (
+  const dialog = (
     <S.Overlay
       onMouseDown={(event) => {
         if (event.target === event.currentTarget && !saving) onClose();
@@ -189,134 +190,142 @@ export function RecurringCardDialog({
         aria-describedby="recurring-billing-dialog-description"
         onSubmit={(event) => void save(event)}
       >
-        <header>
-          <span className="dialog-icon">
-            <CreditCard aria-hidden="true" />
-          </span>
-          <button
-            ref={closeButtonRef}
-            className="close"
-            type="button"
-            onClick={onClose}
-            disabled={saving}
-            aria-label="Fechar cadastro de cartão"
-          >
-            <X size={20} />
-          </button>
-        </header>
-        <h2 id="recurring-billing-dialog-title">Cartão para renovação automática</h2>
-        <p id="recurring-billing-dialog-description">
-          A mensalidade do plano contratado será renovada neste cartão. Você pode desativar a
-          renovação quando precisar.
-        </p>
-        {simulated ? (
-          <div className="demo-card">
-            <strong>Cartão fictício •••• 4242</strong>
-            <p>Esta é uma simulação. Não informe dados reais; nenhuma cobrança será feita.</p>
+        <header className="dialog-header">
+          <div className="dialog-heading">
+            <span className="dialog-icon">
+              <CreditCard aria-hidden="true" />
+            </span>
+            <button
+              ref={closeButtonRef}
+              className="close"
+              type="button"
+              onClick={onClose}
+              disabled={saving}
+              aria-label="Fechar cadastro de cartão"
+            >
+              <X size={20} />
+            </button>
           </div>
-        ) : (
-          <>
-            {!ready && !sdkError ? (
-              <p className="loading" role="status">
-                Preparando cadastro seguro...
-              </p>
-            ) : null}
-            {sdkError ? (
-              <div className="error" role="alert">
-                <p>
-                  O cadastro de cartão está indisponível no momento. Tente novamente em instantes.
-                  Você também pode consultar o Pix na aba Cobranças.
-                </p>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSdkError(false);
-                    setReady(false);
-                    setAttempt((value) => value + 1);
-                  }}
-                >
-                  <RefreshCw size={15} /> Tentar novamente
-                </button>
-              </div>
-            ) : null}
-            <fieldset disabled={!ready || saving} hidden={sdkError}>
-              <label htmlFor="billing-holder">
-                Nome do titular
-                <input
-                  id="billing-holder"
-                  autoComplete="cc-name"
-                  value={holderName}
-                  onChange={(event) => setHolderName(event.target.value)}
-                  maxLength={60}
-                  required
-                />
-              </label>
-              <div className="field-label" id="billing-card-number-label">
-                Número do cartão
-                <div
-                  id="billing-card-number"
-                  className="mp-field"
-                  role="group"
-                  aria-labelledby="billing-card-number-label"
-                />
-              </div>
-              <div className="row">
-                <div className="field-label" id="billing-expiration-label">
-                  Validade
-                  <div
-                    id="billing-card-expiration"
-                    className="mp-field"
-                    role="group"
-                    aria-labelledby="billing-expiration-label"
-                  />
-                </div>
-                <div className="field-label" id="billing-security-label">
-                  Código de segurança
-                  <div
-                    id="billing-card-security"
-                    className="mp-field"
-                    role="group"
-                    aria-labelledby="billing-security-label"
-                  />
-                </div>
-              </div>
-              <label htmlFor="billing-tax-id">
-                CPF do titular
-                <input
-                  id="billing-tax-id"
-                  inputMode="numeric"
-                  value={taxId}
-                  onChange={(event) => setTaxId(event.target.value.replace(/\D/g, '').slice(0, 11))}
-                  minLength={11}
-                  required
-                />
-              </label>
-            </fieldset>
-          </>
-        )}
-        <label className="consent">
-          <input
-            type="checkbox"
-            checked={consent}
-            disabled={saving || !ready}
-            onChange={(event) => setConsent(event.target.checked)}
-          />
-          <span>
-            Autorizo a cobrança recorrente mensal do plano contratado neste cartão até que eu
-            desative a renovação automática.
-          </span>
-        </label>
-        <p className="security">
-          <ShieldCheck size={16} aria-hidden="true" />
-          {simulated
-            ? 'Somente dados fictícios nesta demonstração.'
-            : 'Seus dados de cartão são protegidos pelo Mercado Pago.'}
-        </p>
-        {error ? (
-          <p className="error" role="alert">
-            {error}
+          <h2 id="recurring-billing-dialog-title">Cartão para renovação automática</h2>
+          <p id="recurring-billing-dialog-description">
+            A mensalidade do plano contratado será renovada neste cartão. Você pode desativar a
+            renovação quando precisar.
           </p>
-        ) : null}
+        </header>
+        <div className="dialog-body">
+          {simulated ? (
+            <div className="demo-card">
+              <strong>Cartão fictício •••• 4242</strong>
+              <p>Esta é uma simulação. Não informe dados reais; nenhuma cobrança será feita.</p>
+            </div>
+          ) : (
+            <>
+              {!ready && !sdkError ? (
+                <p className="loading" role="status">
+                  Preparando cadastro seguro...
+                </p>
+              ) : null}
+              {sdkError ? (
+                <div className="error" role="alert">
+                  <p>
+                    O cadastro de cartão está indisponível no momento. Tente novamente em instantes.
+                    Você também pode consultar o Pix na aba Cobranças.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSdkError(false);
+                      setReady(false);
+                      setAttempt((value) => value + 1);
+                    }}
+                  >
+                    <RefreshCw size={15} /> Tentar novamente
+                  </button>
+                </div>
+              ) : null}
+              <fieldset disabled={!ready || saving} hidden={sdkError}>
+                <label htmlFor="billing-holder">
+                  Nome do titular
+                  <input
+                    id="billing-holder"
+                    autoComplete="cc-name"
+                    placeholder="Como está no cartão"
+                    value={holderName}
+                    onChange={(event) => setHolderName(event.target.value)}
+                    maxLength={60}
+                    required
+                  />
+                </label>
+                <div className="field-label" id="billing-card-number-label">
+                  Número do cartão
+                  <div
+                    id="billing-card-number"
+                    className="mp-field"
+                    role="group"
+                    aria-labelledby="billing-card-number-label"
+                  />
+                </div>
+                <div className="row">
+                  <div className="field-label" id="billing-expiration-label">
+                    Validade
+                    <div
+                      id="billing-card-expiration"
+                      className="mp-field"
+                      role="group"
+                      aria-labelledby="billing-expiration-label"
+                    />
+                  </div>
+                  <div className="field-label" id="billing-security-label">
+                    Código de segurança
+                    <div
+                      id="billing-card-security"
+                      className="mp-field"
+                      role="group"
+                      aria-labelledby="billing-security-label"
+                    />
+                  </div>
+                </div>
+                <label htmlFor="billing-tax-id">
+                  CPF do titular
+                  <input
+                    id="billing-tax-id"
+                    inputMode="numeric"
+                    placeholder="Somente números"
+                    value={taxId}
+                    onChange={(event) =>
+                      setTaxId(event.target.value.replace(/\D/g, '').slice(0, 11))
+                    }
+                    minLength={11}
+                    required
+                  />
+                </label>
+              </fieldset>
+            </>
+          )}
+          <label className="consent">
+            <input
+              type="checkbox"
+              checked={consent}
+              disabled={saving || !ready}
+              onChange={(event) => setConsent(event.target.checked)}
+            />
+            <span>
+              Autorizo a cobrança recorrente mensal do plano contratado neste cartão até que eu
+              desative a renovação automática.
+            </span>
+          </label>
+          <p className="security">
+            <ShieldCheck size={16} aria-hidden="true" />
+            {simulated
+              ? 'Somente dados fictícios nesta demonstração.'
+              : 'Seus dados de cartão são protegidos pelo Mercado Pago.'}
+          </p>
+          {error ? (
+            <p className="error" role="alert">
+              {error}
+            </p>
+          ) : null}
+        </div>
         <footer>
           <button type="button" disabled={saving} onClick={onClose}>
             Cancelar
@@ -332,4 +341,9 @@ export function RecurringCardDialog({
       </S.Modal>
     </S.Overlay>
   );
+  const portalTarget =
+    typeof document !== 'undefined'
+      ? document.querySelector('[data-admin-root]') || document.body
+      : null;
+  return portalTarget ? createPortal(dialog, portalTarget) : dialog;
 }

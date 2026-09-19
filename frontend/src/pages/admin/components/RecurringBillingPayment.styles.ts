@@ -308,28 +308,49 @@ export const Card = styled.section`
 `;
 
 export const Overlay = styled.div`
+  box-sizing: border-box;
   position: fixed;
   inset: 0;
-  z-index: 1200;
-  background: #14201bd1;
+  z-index: 10000;
+  background: #14201ba6;
   display: grid;
   place-items: center;
-  padding: 18px;
+  padding: 16px;
+  @media (max-width: 540px) {
+    padding: 12px;
+  }
 `;
 export const Modal = styled.form`
   box-sizing: border-box;
-  width: min(510px, 100%);
-  max-height: calc(100dvh - 36px);
-  overflow-y: auto;
-  padding: 28px;
+  display: flex;
+  flex-direction: column;
+  width: min(540px, 100%);
+  min-width: 0;
+  max-height: calc(100dvh - 32px);
+  overflow: hidden;
+  margin: 0;
   border-radius: 18px;
+  border: 1px solid #e5e4dd;
   background: #fffefa;
   color: #272d25;
   box-shadow: 0 24px 90px #0005;
-  header {
+  .dialog-header {
+    flex-shrink: 0;
+    padding: 24px 24px 20px;
+    border-bottom: 1px solid #e9e5db;
+  }
+  .dialog-heading {
     display: flex;
+    align-items: center;
     justify-content: space-between;
-    margin-bottom: 16px;
+    margin-bottom: 14px;
+  }
+  .dialog-body {
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding: 20px 24px;
+    scrollbar-width: thin;
   }
   .dialog-icon {
     padding: 10px;
@@ -339,25 +360,32 @@ export const Modal = styled.form`
     display: flex;
   }
   .close {
-    width: 40px;
+    width: 44px;
+    flex-shrink: 0;
     padding: 0;
     background: transparent;
   }
   h2 {
-    font-size: 22px;
+    font-size: clamp(20px, 3vw, 22px);
     line-height: 1.25;
     margin: 0 0 9px;
   }
   p {
+    margin: 0;
     font-size: 12px;
     color: #756f66;
     line-height: 1.6;
   }
   fieldset {
-    margin: 18px 0;
+    margin: 0;
     padding: 0;
     border: 0;
     min-width: 0;
+    display: grid;
+    gap: 16px;
+  }
+  fieldset[hidden] {
+    display: none;
   }
   fieldset:disabled {
     opacity: 0.5;
@@ -365,29 +393,51 @@ export const Modal = styled.form`
   label,
   .field-label {
     display: block;
-    margin: 13px 0;
+    min-width: 0;
+    margin: 0;
     font-size: 12px;
     font-weight: 650;
+    line-height: 1.5;
   }
   input:not([type='checkbox']),
   .mp-field {
     width: 100%;
     box-sizing: border-box;
     margin-top: 7px;
-    min-height: 46px;
+    height: 48px;
+    min-height: 48px;
     border: 1px solid #d8d9cf;
     border-radius: 9px;
     padding: 11px 12px;
     background: #fff;
     font: inherit;
     font-size: 16px;
+    font-weight: 400;
   }
+  input:not([type='checkbox']):focus-visible,
+  .mp-field:focus-within {
+    border-color: #31563e;
+    outline: 3px solid #31563e26;
+    outline-offset: 1px;
+  }
+  .mp-field {
+    padding: 0 12px;
+    overflow: hidden;
+  }
+  /* Secure Fields render iframes with an intrinsic height of 150px. */
+  .mp-field > div,
   .mp-field iframe {
+    display: block;
+    width: 100%;
     max-width: 100%;
+    height: 100%;
+    min-height: 0;
+    max-height: 100%;
+    border: 0;
   }
   .row {
     display: grid;
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 14px;
   }
   .row .field-label {
@@ -398,7 +448,7 @@ export const Modal = styled.form`
     gap: 10px;
     font-weight: 400;
     line-height: 1.6;
-    margin-top: 22px;
+    margin-top: 20px;
   }
   .consent input {
     width: 17px;
@@ -409,8 +459,9 @@ export const Modal = styled.form`
   }
   .security {
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     gap: 7px;
+    margin-top: 12px;
     font-size: 11px;
   }
   .security svg {
@@ -421,7 +472,12 @@ export const Modal = styled.form`
     border: 1px solid #dce6d6;
     border-radius: 10px;
     padding: 18px;
-    margin-top: 20px;
+  }
+  .loading {
+    padding: 12px;
+    margin-bottom: 16px;
+    border-radius: 9px;
+    background: #f2f3ef;
   }
   .error {
     margin: 12px 0;
@@ -436,14 +492,15 @@ export const Modal = styled.form`
     margin: 0 0 10px;
   }
   footer {
+    flex-shrink: 0;
     display: flex;
     justify-content: flex-end;
     gap: 10px;
-    padding-top: 18px;
-    margin-top: 20px;
+    padding: 16px 24px;
     border-top: 1px solid #e9e5db;
+    background: #fffefa;
   }
-  button {
+  && button {
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -456,6 +513,7 @@ export const Modal = styled.form`
     color: #51564b;
     cursor: pointer;
     font: inherit;
+    font-family: 'DM Sans', sans-serif;
     font-size: 12px;
     font-weight: 650;
   }
@@ -464,17 +522,46 @@ export const Modal = styled.form`
     color: #fff;
     border-color: #254333;
   }
+  button:hover:not(:disabled) {
+    background: #f0f5ee;
+  }
+  button.primary:hover:not(:disabled) {
+    background: #193325;
+  }
+  button:focus-visible {
+    outline: 3px solid #31563e59;
+    outline-offset: 2px;
+  }
   button:disabled {
     opacity: 0.5;
     cursor: not-allowed;
   }
   @media (max-width: 540px) {
-    padding: 21px;
+    max-height: calc(100dvh - 24px);
+    border-radius: 14px;
+    .dialog-header,
+    .dialog-body {
+      padding: 18px;
+    }
     footer {
+      padding: 12px 18px;
       flex-direction: column-reverse;
     }
     footer button {
       width: 100%;
+    }
+  }
+  @media (max-height: 600px) {
+    .dialog-header {
+      padding-top: 14px;
+      padding-bottom: 14px;
+    }
+    .dialog-heading {
+      float: right;
+      margin: 0 0 8px 12px;
+    }
+    .dialog-icon {
+      display: none;
     }
   }
 `;
