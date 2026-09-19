@@ -364,6 +364,63 @@ test('usa PaymentRefund oficial do Mercado Pago para PIX e cartao com chave idem
   );
 });
 
+test('estorna cartão Mercado Pago criado pela Orders API sem cair no Stripe', async () => {
+  restaurantSettingsRepository.findByRestaurantId = async (restaurantId) => {
+    assert.equal(restaurantId, 12);
+    return {
+      mercadoPagoAccessToken: 'mp-order-token-12',
+      mercadoPagoRefreshToken: 'refresh-12',
+      mercadoPagoTokenExpiresAt: new Date(Date.now() + 3_600_000),
+    };
+  };
+
+  refundOrderPaymentService.createStripeClient = () => {
+    throw new Error('Não deveria usar Stripe para mp_order');
+  };
+
+  let request = null;
+  globalThis.fetch = async (input, init = {}) => {
+    request = { url: String(input), init };
+    return new Response(
+      JSON.stringify({
+        id: 'ORD_CARD_123',
+        status: 'refunded',
+      }),
+      { status: 200, headers: { 'Content-Type': 'application/json' } },
+    );
+  };
+
+  const receipt = await refundOrderPaymentService.execute(
+    {
+      id: 99,
+      restaurantId: 12,
+      total: 1,
+      paid: true,
+      paymentMethod: 'CARTAO',
+      cardCheckoutSessionId: 'mp_order:ORD_CARD_123',
+    },
+    { idempotencyKey: 'order-refund-12-99' },
+  );
+
+  assert.deepEqual(receipt, {
+    provider: 'MERCADO_PAGO',
+    externalId: 'ORD_CARD_123',
+  });
+  assert.equal(
+    request.url,
+    'https://api.mercadopago.com/v1/orders/ORD_CARD_123/refund',
+  );
+  assert.equal(request.init.method, 'POST');
+  assert.equal(
+    new Headers(request.init.headers).get('authorization'),
+    'Bearer mp-order-token-12',
+  );
+  assert.equal(
+    new Headers(request.init.headers).get('x-idempotency-key'),
+    'order-refund-12-99',
+  );
+});
+
 test('estorna cartao Stripe com a mesma chave idempotente do pedido', async () => {
   restaurantSettingsRepository.findByRestaurantId = async () => ({
     stripeSecretKey: 'sk_test_tenant',
