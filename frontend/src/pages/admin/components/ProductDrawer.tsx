@@ -61,7 +61,7 @@ type ProductDrawerProps = {
   product: AdminProduct | null;
   categories: AdminCategory[];
   ingredients: AdminIngredient[];
-  products: AdminProduct[];
+  products?: AdminProduct[];
   createIngredient?: (
     ingredient: Omit<AdminIngredient, 'id'>,
   ) => AdminIngredient | void | Promise<AdminIngredient | void>;
@@ -79,7 +79,7 @@ type IngredientWizardTarget = { kind: 'OPTION'; groupIndex: number };
 
 export const ProductDrawer = forwardRef<ProductDrawerHandle, ProductDrawerProps>(
   function ProductDrawer(
-    { product, categories, ingredients, products, createIngredient, close, save },
+    { product, categories, ingredients, products = [], createIngredient, close, save },
     ref,
   ) {
     const { confirmDialog } = useAppDialog();
