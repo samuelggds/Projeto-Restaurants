@@ -188,11 +188,6 @@ export function ProductConfigurationWorkspace({
                   option.ingredientId ? [option.ingredientId] : [],
                 ),
               );
-              const selectedProductIds = new Set(
-                group.options.flatMap((option) =>
-                  option.referenceProductId ? [option.referenceProductId] : [],
-                ),
-              );
               const sourceCategory = groupCategories[groupIndex] || '';
               const isHalfHalf = sourceCategory === 'Meio a Meio';
               const legacyCategory = inferGroupIngredientCategory(group, ingredients);
