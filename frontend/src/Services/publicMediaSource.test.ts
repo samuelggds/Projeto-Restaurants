@@ -32,6 +32,14 @@ describe('publicMediaSource', () => {
                 },
               },
               { id: 31, ingredient: { id: 10, image: null } },
+              {
+                id: 32,
+                ingredient: null,
+                referenceProduct: {
+                  id: 12,
+                  image: '/public-media/restaurants/3/products/12?v=4',
+                },
+              },
             ],
           },
         ],
@@ -65,6 +73,9 @@ describe('publicMediaSource', () => {
       (resolved[0] as (typeof products)[0]).optionGroups?.[0].options[1].ingredient.image,
     ).toBe(null);
     expect(
+      (resolved[0] as (typeof products)[0]).optionGroups?.[0].options[2].referenceProduct.image,
+    ).toBe('https://api.example.com/public-media/restaurants/3/products/12?v=4');
+    expect(
       (resolved[0] as (typeof products)[0]).comboGroups?.[0].options[0].componentProduct.image,
     ).toBe('https://api.example.com/public-media/restaurants/3/products/11?v=3');
     expect((resolved[1] as (typeof products)[1]).image).toBe(
@@ -73,6 +84,9 @@ describe('publicMediaSource', () => {
     expect(products[0].image).toBe('/public-media/restaurants/3/products/1?v=1');
     expect(products[0].optionGroups[0].options[0].ingredient.image).toBe(
       '/public-media/restaurants/3/ingredients/9?v=2',
+    );
+    expect(products[0].optionGroups[0].options[2].referenceProduct.image).toBe(
+      '/public-media/restaurants/3/products/12?v=4',
     );
     expect(products[0].comboGroups[0].options[0].componentProduct.image).toBe(
       '/public-media/restaurants/3/products/11?v=3',
