@@ -9,11 +9,20 @@ type ProductOptionGroupInput = z.infer<typeof productOptionGroupSchema>;
 type ProductCompositionItemInput = z.infer<typeof productCompositionItemSchema>;
 type PrismaClientLike = Prisma.TransactionClient;
 
+type ProductOptionGroupNestedCreate = Omit<
+  Prisma.ProductOptionGroupUncheckedCreateWithoutProductInput,
+  'options'
+> & {
+  options: {
+    create: Prisma.ProductOptionUncheckedCreateWithoutGroupInput[];
+  };
+};
+
 export async function buildProductOptionGroupsCreate(
   tx: PrismaClientLike,
   restaurantId: number,
   groups: ProductOptionGroupInput[],
-): Promise<Prisma.ProductOptionGroupUncheckedCreateWithoutProductInput[]> {
+): Promise<ProductOptionGroupNestedCreate[]> {
   const ingredientIds = [
     ...new Set(
       groups.flatMap((group) =>
@@ -94,7 +103,7 @@ export async function buildProductOptionGroupsCreate(
         position: optionIndex,
       })),
     },
-  }) satisfies Prisma.ProductOptionGroupUncheckedCreateWithoutProductInput);
+  }) satisfies ProductOptionGroupNestedCreate);
 }
 
 export async function buildProductCompositionCreate(
