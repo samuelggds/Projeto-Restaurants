@@ -316,11 +316,11 @@ jobs:
       - run: npm --prefix frontend ci
       - run: npm --prefix print-agent ci
       - name: Audit backend packages
-        run: npm --prefix backend audit --audit-level=high
+        run: node scripts/auditNpmLockfile.mjs backend/package-lock.json --audit-level=high
       - name: Audit frontend packages
-        run: npm --prefix frontend audit --audit-level=high
+        run: node scripts/auditNpmLockfile.mjs frontend/package-lock.json --audit-level=high
       - name: Audit Print Agent packages
-        run: npm --prefix print-agent audit --audit-level=high
+        run: node scripts/auditNpmLockfile.mjs print-agent/package-lock.json --audit-level=high
 
   dependency-review:
     name: Dependency Review

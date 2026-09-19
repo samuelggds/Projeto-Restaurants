@@ -84,6 +84,56 @@ test('sandbox oficial do PagBank é permitido fora de produção sem liberar hos
   );
 });
 
+test('produção permite apenas endpoints oficiais do sandbox PagBank quando PAGBANK_ENV=sandbox', () => {
+  const env = {
+    NODE_ENV: 'production',
+    PAGBANK_ENV: 'sandbox',
+    PAGBANK_CONNECT_API_URL: 'https://sandbox.api.pagseguro.com',
+    PAGBANK_CONNECT_AUTH_URL: 'https://connect.sandbox.pagbank.com.br/oauth2/authorize',
+  };
+
+  assert.equal(
+    resolveOAuthEndpoint('PAGBANK_API', env),
+    'https://sandbox.api.pagseguro.com',
+  );
+  assert.equal(
+    resolveOAuthEndpoint('PAGBANK_AUTHORIZATION', env),
+    'https://connect.sandbox.pagbank.com.br/oauth2/authorize',
+  );
+  assert.doesNotThrow(() => validateConfiguredOAuthEndpoints(env));
+});
+
+test('produção com PAGBANK_ENV=sandbox continua bloqueando hosts arbitrários e não altera Mercado Pago', () => {
+  assert.throws(
+    () =>
+      resolveOAuthEndpoint('PAGBANK_API', {
+        NODE_ENV: 'production',
+        PAGBANK_ENV: 'sandbox',
+        PAGBANK_CONNECT_API_URL: 'https://attacker.example',
+      }),
+    /endpoint oficial.*producao/i,
+  );
+
+  assert.throws(
+    () =>
+      resolveOAuthEndpoint('MERCADO_PAGO_API', {
+        NODE_ENV: 'production',
+        PAGBANK_ENV: 'sandbox',
+        MP_OAUTH_API_BASE_URL: 'https://attacker.example',
+      }),
+    /endpoint oficial.*producao/i,
+  );
+
+  assert.equal(
+    resolveOAuthEndpoint('MERCADO_PAGO_API', {
+      NODE_ENV: 'production',
+      PAGBANK_ENV: 'sandbox',
+      MP_OAUTH_API_BASE_URL: 'https://api.mercadopago.com',
+    }),
+    'https://api.mercadopago.com',
+  );
+});
+
 test('PagBank usa um único endpoint validado para OAuth, checkout, Pix e estorno', () => {
   assert.equal(
     resolveOAuthEndpoint('PAGBANK_API', {
