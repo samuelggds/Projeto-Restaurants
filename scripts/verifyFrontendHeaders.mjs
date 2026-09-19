@@ -159,6 +159,11 @@ try {
         /sha256-wwP5jNOjC64B5S85JsNvBy023Uf8dFD\+I\/Zg9MGPiDc=/u,
         `${path}: Mercado Pago current inline SDK hash`,
       );
+      assert.match(
+        scriptSrc,
+        /sha256-YbJPKtzVNFfNAaJXmQ9fk\+1BnAC1QR8xVDJ9Zr56qI=/u,
+        `${path}: Mercado Pago latest inline SDK hash`,
+      );
       assert.doesNotMatch(
         scriptSrc,
         /'unsafe-inline'/u,
