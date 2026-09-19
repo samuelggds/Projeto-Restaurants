@@ -23,6 +23,7 @@ export type DirectCardPaymentPayload = {
   holderName?: string | null;
   holderTaxId?: string | null;
   payerEmail?: string | null;
+  mercadoPagoDeviceId?: string | null;
   expMonth?: number | string | null;
   expYear?: number | string | null;
   billingPostalCode?: string | null;
@@ -331,6 +332,9 @@ async function mercadoPagoPayment(payload: BasePayload, order: CardOrder, succes
         Accept: 'application/json',
         'Content-Type': 'application/json',
         'X-Idempotency-Key': `order-card-${order.restaurantId}-${order.id}`,
+        ...(String(payload.mercadoPagoDeviceId || '').trim()
+          ? { 'X-meli-session-id': String(payload.mercadoPagoDeviceId).trim().slice(0, 256) }
+          : {}),
       },
       body: JSON.stringify(body),
     });
