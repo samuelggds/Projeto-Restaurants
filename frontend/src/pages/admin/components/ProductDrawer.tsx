@@ -223,10 +223,7 @@ export const ProductDrawer = forwardRef<ProductDrawerHandle, ProductDrawerProps>
       };
     }, []);
 
-    const editorPortalTarget =
-      typeof document === 'undefined'
-        ? null
-        : document.querySelector<HTMLElement>('[data-admin-root]') || document.body;
+    const editorPortalTarget = typeof document === 'undefined' ? null : document.body;
 
     useEffect(() => {
       const handleKeyDown = (event: KeyboardEvent) => {
