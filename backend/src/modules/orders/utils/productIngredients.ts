@@ -21,7 +21,8 @@ type ProductOption = {
   id: number;
   restaurantId?: number;
   active: boolean;
-  ingredientId: number;
+  ingredientId?: number | null;
+  referenceProductId?: number | null;
   additionalPrice?: unknown;
   pricingMode?: 'ADDITIVE' | 'ABSOLUTE';
   absolutePrice?: unknown | null;
@@ -31,7 +32,16 @@ type ProductOption = {
   defaultQuantity?: number;
   defaultSelected?: boolean;
   locked?: boolean;
-  ingredient: CatalogIngredient;
+  ingredient?: CatalogIngredient | null;
+  referenceProduct?: {
+    id: number;
+    restaurantId: number;
+    name: string;
+    price: unknown;
+    active: boolean;
+    kind?: 'STANDARD' | 'COMBO';
+    stock?: number | null;
+  } | null;
 };
 
 type ProductOptionGroup = {
@@ -155,11 +165,35 @@ function fromCents(value: number) {
   return Math.round(value) / 100;
 }
 
+function optionDisplayName(option: ProductOption) {
+  return option.referenceProduct?.name || option.ingredient?.name || 'Opção';
+}
+
+function optionIsAvailable(option: ProductOption, restaurantId: number | undefined) {
+  if (!option.active) return false;
+  if (option.restaurantId !== undefined && option.restaurantId !== restaurantId) return false;
+
+  if (option.referenceProduct) {
+    return (
+      option.referenceProduct.active &&
+      option.referenceProduct.kind !== 'COMBO' &&
+      option.referenceProduct.restaurantId === restaurantId
+    );
+  }
+
+  return Boolean(
+    option.ingredient?.active && option.ingredient.restaurantId === restaurantId,
+  );
+}
+
 function optionUnitPrice(option: ProductOption) {
+  if (option.referenceProduct) {
+    return money(option.referenceProduct.price);
+  }
   if (option.pricingMode === 'ABSOLUTE') {
     return money(option.absolutePrice);
   }
-  return money(option.additionalPrice ?? option.ingredient.price);
+  return money(option.additionalPrice ?? option.ingredient?.price ?? 0);
 }
 
 function uniquePositiveIds(values: number[] | undefined, field: string) {
@@ -203,7 +237,7 @@ function resolveOptionQuantities(
       const quantity = requested.get(option.id) ?? defaultQuantity;
       if (!Number.isInteger(quantity) || quantity < minimum || quantity > maximum) {
         throw new OrderRequestError(
-          `A quantidade de ${option.ingredient.name} deve ficar entre ${minimum} e ${maximum}.`,
+          `A quantidade de ${optionDisplayName(option)} deve ficar entre ${minimum} e ${maximum}.`,
         );
       }
       return [option.id, quantity] as const;
@@ -287,12 +321,8 @@ function resolvePortions(
   if (!group || group.restaurantId !== product.restaurantId) {
     throw new OrderRequestError(`A configuração de porções de ${product.name} está incompleta.`);
   }
-  const availableOptions = group.options.filter(
-    (option) =>
-      option.active &&
-      option.ingredient.active &&
-      option.ingredient.restaurantId === product.restaurantId &&
-      (option.restaurantId === undefined || option.restaurantId === product.restaurantId),
+  const availableOptions = group.options.filter((option) =>
+    optionIsAvailable(option, product.restaurantId),
   );
 
   const portions = requestedPortions.map((portion, index) => {
@@ -318,8 +348,11 @@ function resolvePortions(
       fractionNumerator: 1,
       fractionDenominator: portionCount,
       optionId: option.id,
-      ingredientId: option.ingredient.id,
-      optionName: option.ingredient.name,
+      ...(option.ingredient?.id ? { ingredientId: option.ingredient.id } : {}),
+      ...(option.referenceProduct?.id
+        ? { referenceProductId: option.referenceProduct.id }
+        : {}),
+      optionName: optionDisplayName(option),
       pricingMode: option.pricingMode ?? 'ADDITIVE',
       unitPrice,
       observation: observation || null,
@@ -629,11 +662,7 @@ export function resolveOrderItemCustomizations(
 
   const allActiveOptions = regularGroups.flatMap((group) =>
     group.options.filter(
-      (option) =>
-        option.active &&
-        option.ingredient.active &&
-        option.ingredient.restaurantId === product.restaurantId &&
-        (option.restaurantId === undefined || option.restaurantId === product.restaurantId),
+      (option) => optionIsAvailable(option, product.restaurantId),
     ),
   );
   const allActiveOptionIds = new Set(allActiveOptions.map((option) => option.id));
@@ -643,11 +672,7 @@ export function resolveOrderItemCustomizations(
 
   const groupSelections = regularGroups.map((group) => {
     const availableOptions = group.options.filter(
-      (option) =>
-        option.active &&
-        option.ingredient.active &&
-        option.ingredient.restaurantId === product.restaurantId &&
-        (option.restaurantId === undefined || option.restaurantId === product.restaurantId),
+      (option) => optionIsAvailable(option, product.restaurantId),
     );
     const selected = availableOptions.filter((option) => selectedIds.includes(option.id));
     const minimum = group.required ? Math.max(1, group.minSelections) : group.minSelections;
@@ -671,7 +696,9 @@ export function resolveOrderItemCustomizations(
       (option) => option.locked && !selectedIds.includes(option.id),
     );
     if (missingLockedOption) {
-      throw new OrderRequestError(`${missingLockedOption.ingredient.name} é uma opção fixa de ${group.name}.`);
+      throw new OrderRequestError(
+        `${optionDisplayName(missingLockedOption)} é uma opção fixa de ${group.name}.`,
+      );
     }
 
     return { group, selected, minimum, maximum };
@@ -695,9 +722,12 @@ export function resolveOrderItemCustomizations(
         const totalPrice = money(unitPrice * quantity);
         return {
           optionId: option.id,
-          ingredientId: option.ingredient.id,
-          name: option.ingredient.name,
-          pricingMode: option.pricingMode ?? 'ADDITIVE',
+          ...(option.ingredient?.id ? { ingredientId: option.ingredient.id } : {}),
+          ...(option.referenceProduct?.id
+            ? { referenceProductId: option.referenceProduct.id }
+            : {}),
+          name: optionDisplayName(option),
+          pricingMode: option.referenceProduct ? 'ABSOLUTE' : option.pricingMode ?? 'ADDITIVE',
           unitPrice,
           quantity,
           price: totalPrice,
@@ -708,26 +738,37 @@ export function resolveOrderItemCustomizations(
   });
 
   const selectedOptions = customizations.flatMap((group) => group.options);
-  const absoluteOptions = selectedOptions.filter((option) => option.pricingMode === 'ABSOLUTE');
-  if (absoluteOptions.length > 1) {
+  const productBackedOptions = selectedOptions.filter((option) => option.referenceProductId);
+  const regularAbsoluteOptions = selectedOptions.filter(
+    (option) => option.pricingMode === 'ABSOLUTE' && !option.referenceProductId,
+  );
+  if (regularAbsoluteOptions.length > 1) {
     throw new OrderRequestError('A montagem selecionou mais de uma opção que define o preço base.');
   }
+
   const portions = resolvePortions(product, activeGroups, selection.portions);
-  if (absoluteOptions.length && portions.absoluteCents !== null) {
+  if ((regularAbsoluteOptions.length || productBackedOptions.length) && portions.absoluteCents !== null) {
     throw new OrderRequestError('A montagem possui mais de uma etapa definindo o preço base.');
   }
+
+  const linkedProductBaseCents = productBackedOptions.length
+    ? Math.max(...productBackedOptions.map((option) => cents(option.unitPrice)))
+    : null;
   const baseCents =
     portions.absoluteCents ??
-    (absoluteOptions.length ? cents(absoluteOptions[0].unitPrice) : cents(product.price));
+    linkedProductBaseCents ??
+    (regularAbsoluteOptions.length
+      ? cents(regularAbsoluteOptions[0].unitPrice)
+      : cents(product.price));
   const additionalCents = selectedOptions
-    .filter((option) => option.pricingMode === 'ADDITIVE')
+    .filter((option) => option.pricingMode === 'ADDITIVE' && !option.referenceProductId)
     .reduce((total, option) => total + cents(option.totalPrice), portions.additiveCents);
   const price = fromCents(baseCents + additionalCents);
 
   return {
     price,
     ingredients: selectedOptions.map((option) => ({
-      id: option.ingredientId,
+      id: option.referenceProductId || option.ingredientId,
       name: option.name,
       price: option.price,
     })),

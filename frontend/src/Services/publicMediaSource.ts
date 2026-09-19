@@ -34,15 +34,55 @@ export function resolvePublicProductImages(products: unknown, baseUrl: unknown) 
                 ? groupRecord.options.map((option) => {
                     if (!option || typeof option !== 'object') return option;
                     const optionRecord = option as Record<string, unknown>;
+                    const referenceProduct =
+                      optionRecord.referenceProduct &&
+                      typeof optionRecord.referenceProduct === 'object'
+                        ? (optionRecord.referenceProduct as Record<string, unknown>)
+                        : null;
                     return {
                       ...optionRecord,
                       ingredient: resolvePublicIngredientImage(optionRecord.ingredient, baseUrl),
+                      referenceProduct: referenceProduct
+                        ? {
+                            ...referenceProduct,
+                            image: resolvePublicMediaSource(referenceProduct.image, baseUrl),
+                          }
+                        : optionRecord.referenceProduct,
                     };
                   })
                 : groupRecord.options,
             };
           })
         : record.optionGroups,
+      comboGroups: Array.isArray(record.comboGroups)
+        ? record.comboGroups.map((group) => {
+            if (!group || typeof group !== 'object') return group;
+            const groupRecord = group as Record<string, unknown>;
+            return {
+              ...groupRecord,
+              options: Array.isArray(groupRecord.options)
+                ? groupRecord.options.map((option) => {
+                    if (!option || typeof option !== 'object') return option;
+                    const optionRecord = option as Record<string, unknown>;
+                    const component =
+                      optionRecord.componentProduct &&
+                      typeof optionRecord.componentProduct === 'object'
+                        ? (optionRecord.componentProduct as Record<string, unknown>)
+                        : null;
+                    return {
+                      ...optionRecord,
+                      componentProduct: component
+                        ? {
+                            ...component,
+                            image: resolvePublicMediaSource(component.image, baseUrl),
+                          }
+                        : optionRecord.componentProduct,
+                    };
+                  })
+                : groupRecord.options,
+            };
+          })
+        : record.comboGroups,
     };
   });
 }

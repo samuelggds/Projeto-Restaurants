@@ -176,7 +176,8 @@ export type AdminIngredient = {
 
 export type AdminProductOption = {
   id?: number;
-  ingredientId: number;
+  ingredientId?: number;
+  referenceProductId?: number;
   additionalPrice?: number;
   pricingMode?: 'ADDITIVE' | 'ABSOLUTE';
   absolutePrice?: number | null;

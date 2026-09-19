@@ -87,11 +87,18 @@ function mapProduct(value: unknown): AdminProduct {
       const options = (Array.isArray(group.options) ? group.options : [])
         .map((optionValue) => {
           const option = asRecord(optionValue);
+          const referenceProduct = asRecord(option.referenceProduct);
           return {
             id: Number(option.id ?? 0) || undefined,
-            ingredientId: Number(option.ingredientId ?? asRecord(option.ingredient).id ?? 0),
+            ingredientId:
+              Number(option.ingredientId ?? asRecord(option.ingredient).id ?? 0) || undefined,
+            referenceProductId:
+              Number(option.referenceProductId ?? referenceProduct.id ?? 0) || undefined,
             additionalPrice: Number(
-              option.additionalPrice ?? asRecord(option.ingredient).price ?? 0,
+              option.additionalPrice ??
+                asRecord(option.ingredient).price ??
+                referenceProduct.price ??
+                0,
             ),
             pricingMode:
               option.pricingMode === 'ABSOLUTE' ? ('ABSOLUTE' as const) : ('ADDITIVE' as const),
@@ -108,7 +115,7 @@ function mapProduct(value: unknown): AdminProduct {
             active: option.active !== false,
           };
         })
-        .filter((option) => option.ingredientId > 0);
+        .filter((option) => Boolean(option.ingredientId || option.referenceProductId));
       const minSelections = Math.max(0, Number(group.minSelections ?? 0));
       return {
         id: Number(group.id ?? 0) || undefined,

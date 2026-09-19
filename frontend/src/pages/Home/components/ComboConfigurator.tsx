@@ -222,7 +222,13 @@ const Dialog = styled.div<{ $primary: string }>`
     font-weight: 900;
     text-transform: uppercase;
   }
-  > header h2 { margin: 5px 0 4px; font-size: 1.5rem; }
+  > header h2 {
+    margin: 5px 0 4px;
+    color: #211d1a;
+    font-size: 1.5rem;
+    font-weight: 900;
+    line-height: 1.18;
+  }
   > header p { margin: 0; color: #776e67; font-size: .85rem; line-height: 1.4; }
   .close { flex: 0 0 auto; width: 38px; height: 38px; border: 0; border-radius: 50%; background: #f4f1ee; cursor: pointer; }
   .body { overflow-y: auto; padding: 18px 22px 24px; display: grid; gap: 18px; }
@@ -242,7 +248,13 @@ const Dialog = styled.div<{ $primary: string }>`
   section { display: grid; gap: 10px; }
   .group-title { display: flex; justify-content: space-between; gap: 14px; align-items: end; }
   .group-title small { color: var(--combo-primary); font-weight: 900; font-size: .68rem; text-transform: uppercase; }
-  .group-title h3 { margin: 2px 0; font-size: 1.02rem; }
+  .group-title h3 {
+    margin: 2px 0;
+    color: #27211d;
+    font-size: 1.02rem;
+    font-weight: 900;
+    line-height: 1.25;
+  }
   .group-title p { margin: 0; color: #7a726c; font-size: .78rem; }
   .group-title > span {
     padding: 6px 9px; border-radius: 999px; background: #f6f2ee; color: #6d655f;
@@ -261,9 +273,27 @@ const Dialog = styled.div<{ $primary: string }>`
     transition: border-color .15s ease, background .15s ease;
   }
   article.selected { border-color: color-mix(in srgb, var(--combo-primary) 45%, #e9e4df); background: color-mix(in srgb, var(--combo-primary) 4%, #fff); }
-  article img, .image-fallback { width: 62px; height: 56px; border-radius: 10px; object-fit: cover; background: #f2eeea; display: grid; place-items: center; color: #a09993; }
+  article img, .image-fallback {
+    width: 62px;
+    height: 56px;
+    border-radius: 10px;
+    object-fit: cover;
+    background: #f2eeea;
+    display: grid;
+    place-items: center;
+    color: #a09993;
+  }
+  article img {
+    display: block;
+  }
   .copy { min-width: 0; }
-  .copy b { display: block; font-size: .9rem; }
+  .copy b {
+    display: block;
+    color: #2e2925;
+    font-size: .9rem;
+    font-weight: 850;
+    line-height: 1.25;
+  }
   .copy small { display: -webkit-box; overflow: hidden; -webkit-box-orient: vertical; -webkit-line-clamp: 1; color: #817870; font-size: .72rem; }
   .copy em { display: block; color: var(--combo-primary); font-style: normal; font-size: .72rem; font-weight: 800; margin-top: 3px; }
   .copy span { display: inline-block; margin-top: 4px; padding: 3px 6px; border-radius: 999px; background: #f3eee9; color: #655e58; font-size: .64rem; font-weight: 800; }

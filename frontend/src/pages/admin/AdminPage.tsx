@@ -1183,6 +1183,7 @@ export function AdminPage({
             product={editingProduct}
             categories={categories}
             ingredients={ingredients}
+            products={products}
             createIngredient={async (ingredient) => onCreateIngredient?.(ingredient)}
             close={() => setEditingProduct(undefined)}
             save={async (product) => {

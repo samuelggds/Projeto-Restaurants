@@ -144,6 +144,60 @@ test('opção ABSOLUTE define o preço-base e mantém adicionais separados', () 
   assert.equal(resolveOrderItemCustomizations(sized, { optionIds: [1, 2] }).price, 44);
 });
 
+test('meio a meio com produtos vinculados cobra o maior preço atual', () => {
+  const half = (
+    groupId: number,
+    optionId: number,
+    referenceProductId: number,
+    name: string,
+    price: number,
+  ) => ({
+    ...group(groupId, `Metade ${groupId}`, [], {
+      required: true,
+      selectionType: 'SINGLE',
+      minSelections: 1,
+      maxSelections: 1,
+    }),
+    options: [
+      {
+        ...option(optionId, name, 0),
+        ingredientId: null,
+        ingredient: null,
+        referenceProductId,
+        referenceProduct: {
+          id: referenceProductId,
+          restaurantId: 7,
+          name,
+          price,
+          active: true,
+          kind: 'STANDARD',
+          stock: null,
+        },
+        pricingMode: 'ABSOLUTE',
+        absolutePrice: 0,
+      },
+    ],
+  });
+
+  const pizza = product({
+    name: 'Pizza Meio a Meio',
+    price: 19.9,
+    optionGroups: [
+      half(101, 11, 201, 'Pizza de Calabresa', 25),
+      half(102, 12, 202, 'Pizza de Mussarela', 22),
+    ],
+    portionConfiguration: null,
+  });
+
+  const resolved = resolveOrderItemCustomizations(pizza, {
+    optionIds: [11, 12],
+  });
+
+  assert.equal(resolved.price, 25);
+  assert.equal(resolved.customizations[0].options[0].name, 'Pizza de Calabresa');
+  assert.equal(resolved.customizations[1].options[0].name, 'Pizza de Mussarela');
+});
+
 test('registra somente remoções permitidas e congela nomes no snapshot', () => {
   const compositionProduct = product({
     optionGroups: [],
