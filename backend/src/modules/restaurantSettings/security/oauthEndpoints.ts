@@ -8,6 +8,7 @@ type EndpointDefinition = {
   defaultUrl: string;
   productionUrls: readonly string[];
   developmentUrls?: readonly string[];
+  productionSandboxUrls?: readonly string[];
 };
 
 const ENDPOINTS: Record<OAuthEndpoint, EndpointDefinition> = {
@@ -29,12 +30,14 @@ const ENDPOINTS: Record<OAuthEndpoint, EndpointDefinition> = {
     defaultUrl: 'https://api.pagseguro.com',
     productionUrls: ['https://api.pagseguro.com'],
     developmentUrls: ['https://sandbox.api.pagseguro.com'],
+    productionSandboxUrls: ['https://sandbox.api.pagseguro.com'],
   },
   PAGBANK_AUTHORIZATION: {
     envName: 'PAGBANK_CONNECT_AUTH_URL',
     defaultUrl: 'https://connect.pagbank.com.br/oauth2/authorize',
     productionUrls: ['https://connect.pagbank.com.br/oauth2/authorize'],
     developmentUrls: ['https://connect.sandbox.pagbank.com.br/oauth2/authorize'],
+    productionSandboxUrls: ['https://connect.sandbox.pagbank.com.br/oauth2/authorize'],
   },
 };
 
@@ -77,6 +80,12 @@ function resolveTrustedEndpoint(definition: EndpointDefinition, env: Environment
 
   const isProduction = env.NODE_ENV === 'production';
   if (!isProduction && definition.developmentUrls?.includes(resolved)) return resolved;
+
+  const isPagBankSandboxRuntime =
+    isProduction &&
+    String(env.PAGBANK_ENV || '').trim().toLowerCase() === 'sandbox' &&
+    definition.productionSandboxUrls?.includes(resolved);
+  if (isPagBankSandboxRuntime) return resolved;
 
   const allowUntrusted = env.ALLOW_UNTRUSTED_OAUTH_ENDPOINTS === 'true';
   if (!isProduction && allowUntrusted) return resolved;
