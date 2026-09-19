@@ -1,5 +1,21 @@
 import { useCallback, useEffect, useState } from 'react';
 
+export function formatBillingPixRemaining(totalSeconds: number) {
+  const seconds = Math.max(0, Math.floor(totalSeconds));
+  const days = Math.floor(seconds / 86_400);
+  const hours = Math.floor((seconds % 86_400) / 3_600);
+  const minutes = Math.floor((seconds % 3_600) / 60);
+  const remainingSeconds = seconds % 60;
+
+  if (days > 0) {
+    return `${days} ${days === 1 ? 'dia' : 'dias'} ${hours}h ${minutes}min`;
+  }
+  if (hours > 0) {
+    return `${hours}h ${minutes}min ${remainingSeconds}s`;
+  }
+  return `${minutes}min ${remainingSeconds}s`;
+}
+
 export function getBillingPixExpiry(expiresAt?: string | null, now = Date.now()) {
   const deadline = expiresAt ? Date.parse(expiresAt) : NaN;
   const known = Number.isFinite(deadline);
@@ -11,7 +27,7 @@ export function getBillingPixExpiry(expiresAt?: string | null, now = Date.now())
         ? ('valid' as const)
         : ('expired' as const),
     remainingSeconds,
-    remainingLabel: `${String(Math.floor(remainingSeconds / 60)).padStart(2, '0')}:${String(remainingSeconds % 60).padStart(2, '0')}`,
+    remainingLabel: formatBillingPixRemaining(remainingSeconds),
     expiresLabel: known
       ? new Intl.DateTimeFormat('pt-BR', {
           day: '2-digit',
