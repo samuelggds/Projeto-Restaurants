@@ -3,6 +3,7 @@ export type ProductSelectionType = 'SINGLE' | 'MULTIPLE';
 export type ProductOption = {
   id: string;
   ingredientId?: string;
+  referenceProductId?: string;
   name: string;
   image?: string | null;
   price: number;
