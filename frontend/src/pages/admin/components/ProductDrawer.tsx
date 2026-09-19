@@ -61,6 +61,7 @@ type ProductDrawerProps = {
   product: AdminProduct | null;
   categories: AdminCategory[];
   ingredients: AdminIngredient[];
+  products: AdminProduct[];
   createIngredient?: (
     ingredient: Omit<AdminIngredient, 'id'>,
   ) => AdminIngredient | void | Promise<AdminIngredient | void>;
@@ -77,7 +78,10 @@ export type ProductDrawerHandle = {
 type IngredientWizardTarget = { kind: 'OPTION'; groupIndex: number };
 
 export const ProductDrawer = forwardRef<ProductDrawerHandle, ProductDrawerProps>(
-  function ProductDrawer({ product, categories, ingredients, createIngredient, close, save }, ref) {
+  function ProductDrawer(
+    { product, categories, ingredients, products, createIngredient, close, save },
+    ref,
+  ) {
     const { confirmDialog } = useAppDialog();
     const initialCategoryId = product?.categoryId ?? categories[0]?.id ?? 0;
     const [name, setName] = useState(product?.name ?? '');
@@ -989,6 +993,12 @@ export const ProductDrawer = forwardRef<ProductDrawerHandle, ProductDrawerProps>
                       price={price}
                       showComposition={false}
                       ingredients={ingredients}
+                      products={products.filter(
+                        (candidate) =>
+                          candidate.active !== false &&
+                          candidate.kind !== 'COMBO' &&
+                          candidate.id !== product?.id,
+                      )}
                       activeIngredients={activeIngredients}
                       activeIngredientSections={activeIngredientSections}
                       ingredientCategories={ingredientCategories}
