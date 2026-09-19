@@ -1,9 +1,13 @@
 import type { Request, Response } from 'express';
 import OpenAI from 'openai';
+import { ZodError } from 'zod';
 import productComboService from '../services/ProductComboService.js';
-import aiCreditService, { AiCreditsExhaustedError } from '../../aiSupport/services/AiCreditService.js';
+import aiCreditService, {
+  AiCreditsExhaustedError,
+} from '../../aiSupport/services/AiCreditService.js';
 
 function message(error: unknown) {
+  if (error instanceof ZodError) return error.issues[0]?.message || 'Revise os dados do combo.';
   return error instanceof Error ? error.message : 'Não foi possível processar o combo.';
 }
 
@@ -65,10 +69,14 @@ class ProductComboController {
         return res.status(402).json({ error: error.message, code: error.code });
       }
       if (error instanceof OpenAI.RateLimitError) {
-        return res.status(429).json({ error: 'A IA recebeu muitas solicitações. Tente novamente em instantes.' });
+        return res
+          .status(429)
+          .json({ error: 'A IA recebeu muitas solicitações. Tente novamente em instantes.' });
       }
       if (error instanceof OpenAI.APIConnectionTimeoutError) {
-        return res.status(504).json({ error: 'A geração da imagem demorou demais. Tente novamente.' });
+        return res
+          .status(504)
+          .json({ error: 'A geração da imagem demorou demais. Tente novamente.' });
       }
       return res.status(400).json({ error: message(error) });
     }
@@ -97,10 +105,14 @@ class ProductComboController {
         return res.status(402).json({ error: error.message, code: error.code });
       }
       if (error instanceof OpenAI.RateLimitError) {
-        return res.status(429).json({ error: 'A IA recebeu muitas solicitações. Tente novamente em instantes.' });
+        return res
+          .status(429)
+          .json({ error: 'A IA recebeu muitas solicitações. Tente novamente em instantes.' });
       }
       if (error instanceof OpenAI.APIConnectionTimeoutError) {
-        return res.status(504).json({ error: 'A geração da imagem demorou demais. Tente novamente.' });
+        return res
+          .status(504)
+          .json({ error: 'A geração da imagem demorou demais. Tente novamente.' });
       }
       return res.status(400).json({ error: message(error) });
     }

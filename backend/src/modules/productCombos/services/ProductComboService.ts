@@ -25,32 +25,87 @@ const groupSchema = z
   })
   .superRefine((group, ctx) => {
     if (group.maxSelections < group.minSelections) {
-      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['maxSelections'], message: 'O máximo deve ser maior ou igual ao mínimo.' });
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['maxSelections'],
+        message: 'O máximo deve ser maior ou igual ao mínimo.',
+      });
+    }
+    if (group.active) {
+      const activeOptions = group.options.filter((option) => option.active);
+      if (activeOptions.length < group.minSelections) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['minSelections'],
+          message: 'O mínimo de escolhas não pode superar a quantidade de opções ativas do grupo.',
+        });
+      }
+      const defaultSelections = activeOptions.filter(
+        (option) => option.locked || option.defaultQuantity > 0,
+      ).length;
+      if (defaultSelections > group.maxSelections) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['maxSelections'],
+          message:
+            'O máximo de escolhas precisa incluir todos os itens fixos ou selecionados por padrão.',
+        });
+      }
     }
     const repeated = new Set<number>();
     group.options.forEach((option, index) => {
       if (repeated.has(option.componentProductId)) {
-        ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['options', index, 'componentProductId'], message: 'O mesmo produto não pode aparecer duas vezes no mesmo grupo.' });
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['options', index, 'componentProductId'],
+          message: 'O mesmo produto não pode aparecer duas vezes no mesmo grupo.',
+        });
       }
       repeated.add(option.componentProductId);
-      if (option.maxQuantity < option.minQuantity || option.defaultQuantity < option.minQuantity || option.defaultQuantity > option.maxQuantity) {
-        ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['options', index], message: 'Revise as quantidades mínima, padrão e máxima desta opção.' });
+      if (
+        option.maxQuantity < option.minQuantity ||
+        option.defaultQuantity < option.minQuantity ||
+        option.defaultQuantity > option.maxQuantity
+      ) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['options', index],
+          message: 'Revise as quantidades mínima, padrão e máxima desta opção.',
+        });
       }
       if (option.locked && option.defaultQuantity < 1) {
-        ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['options', index, 'defaultQuantity'], message: 'Item fixo precisa ter quantidade padrão maior que zero.' });
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['options', index, 'defaultQuantity'],
+          message: 'Item fixo precisa ter quantidade padrão maior que zero.',
+        });
       }
     });
   });
 
-export const comboInputSchema = z.object({
-  name: z.string().trim().min(2).max(100),
-  description: z.string().trim().max(600).default(''),
-  image: z.string().trim().max(8_000_000).default(''),
-  price: z.number().finite().positive().max(1_000_000),
-  active: z.boolean().default(true),
-  featured: z.boolean().default(true),
-  groups: z.array(groupSchema).min(1).max(12),
-});
+export const comboInputSchema = z
+  .object({
+    name: z.string().trim().min(2).max(100),
+    description: z.string().trim().max(600).default(''),
+    image: z.string().trim().max(8_000_000).default(''),
+    price: z.number().finite().positive().max(1_000_000),
+    active: z.boolean().default(true),
+    featured: z.boolean().default(true),
+    groups: z.array(groupSchema).min(1).max(12),
+  })
+  .superRefine((input, ctx) => {
+    const names = new Set<string>();
+    input.groups.forEach((group, index) => {
+      if (names.has(group.name)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['groups', index, 'name'],
+          message: 'Cada grupo do combo precisa ter um nome diferente.',
+        });
+      }
+      names.add(group.name);
+    });
+  });
 
 const comboImagePreviewOptionSchema = z.object({
   componentProductId: z.number().int().min(0).default(0),
@@ -130,11 +185,17 @@ async function ensureComboCategory(db: Parameters<typeof setTenantDbContext>[0],
     where: { restaurantId: tenantId, name: { equals: 'Combos', mode: 'insensitive' } },
   });
   if (existing) {
-    if (!existing.active) await db.category.update({ where: { id: existing.id }, data: { active: true } });
+    if (!existing.active)
+      await db.category.update({ where: { id: existing.id }, data: { active: true } });
     return existing.id;
   }
   const created = await db.category.create({
-    data: { restaurantId: tenantId, name: 'Combos', description: 'Combos e ofertas montadas pelo restaurante.', active: true },
+    data: {
+      restaurantId: tenantId,
+      name: 'Combos',
+      description: 'Combos e ofertas montadas pelo restaurante.',
+      active: true,
+    },
   });
   return created.id;
 }
@@ -192,7 +253,11 @@ class ProductComboService {
     const id = idInput == null ? null : comboId(idInput);
 
     return withTenantDbContext(tenantId, async (db) => {
-      const componentIds = [...new Set(input.groups.flatMap((group) => group.options.map((option) => option.componentProductId)))];
+      const componentIds = [
+        ...new Set(
+          input.groups.flatMap((group) => group.options.map((option) => option.componentProductId)),
+        ),
+      ];
       const components = await db.product.findMany({
         where: { restaurantId: tenantId, id: { in: componentIds } },
         select: { id: true, name: true, kind: true },
@@ -207,7 +272,9 @@ class ProductComboService {
       const categoryId = await ensureComboCategory(db, tenantId);
       let productId = id;
       if (productId) {
-        const current = await db.product.findFirst({ where: { id: productId, restaurantId: tenantId, kind: 'COMBO' } });
+        const current = await db.product.findFirst({
+          where: { id: productId, restaurantId: tenantId, kind: 'COMBO' },
+        });
         if (!current) throw new Error('Combo não encontrado neste restaurante.');
         await db.product.updateMany({
           where: { id: productId, restaurantId: tenantId },
@@ -288,11 +355,20 @@ class ProductComboService {
     const tenantId = restaurantId(restaurantIdInput);
     const id = comboId(idInput);
     return withTenantDbContext(tenantId, async (db) => {
-      const combo = await db.product.findFirst({ where: { id, restaurantId: tenantId, kind: 'COMBO' }, select: { id: true } });
+      const combo = await db.product.findFirst({
+        where: { id, restaurantId: tenantId, kind: 'COMBO' },
+        select: { id: true },
+      });
       if (!combo) throw new Error('Combo não encontrado neste restaurante.');
-      const used = await db.orderItem.findFirst({ where: { productId: id, order: { restaurantId: tenantId } }, select: { id: true } });
+      const used = await db.orderItem.findFirst({
+        where: { productId: id, order: { restaurantId: tenantId } },
+        select: { id: true },
+      });
       if (used) {
-        await db.product.updateMany({ where: { id, restaurantId: tenantId }, data: { active: false } });
+        await db.product.updateMany({
+          where: { id, restaurantId: tenantId },
+          data: { active: false },
+        });
         return { archived: true };
       }
       await db.product.deleteMany({ where: { id, restaurantId: tenantId, kind: 'COMBO' } });
@@ -376,7 +452,10 @@ class ProductComboService {
     const tenantId = restaurantId(restaurantIdInput);
     const id = comboId(idInput);
     const combo = await withTenantDbContext(tenantId, async (db) =>
-      db.product.findFirst({ where: { id, restaurantId: tenantId, kind: 'COMBO' }, include: comboInclude }),
+      db.product.findFirst({
+        where: { id, restaurantId: tenantId, kind: 'COMBO' },
+        include: comboInclude,
+      }),
     );
     if (!combo) throw new Error('Combo não encontrado neste restaurante.');
 
@@ -386,7 +465,11 @@ class ProductComboService {
     const itemSummary = combo.comboGroups
       .flatMap((group) =>
         group.options.map((option) => {
-          const quantity = Math.max(option.defaultQuantity, option.minQuantity, option.locked ? 1 : 0);
+          const quantity = Math.max(
+            option.defaultQuantity,
+            option.minQuantity,
+            option.locked ? 1 : 0,
+          );
           return `${quantity || 'opção'}x ${option.componentProduct.name}${Number(option.additionalPrice) > 0 ? ` (+R$ ${Number(option.additionalPrice).toFixed(2)})` : ''}`;
         }),
       )
@@ -402,7 +485,9 @@ class ProductComboService {
       'Use iluminação de estúdio suave, fundo limpo e composição de delivery premium.',
       'Não escreva nome, preço, palavras, selos ou marca d’água na imagem. Não invente logotipos. Se algum nome indicar uma marca, represente a categoria do produto sem reproduzir a marca visual.',
       'A imagem deve parecer uma fotografia real do combo, não uma ilustração.',
-    ].filter(Boolean).join(' ');
+    ]
+      .filter(Boolean)
+      .join(' ');
 
     const client = new OpenAI({ apiKey, timeout: 165_000, maxRetries: 0 });
     const result = await client.images.generate({
@@ -417,7 +502,10 @@ class ProductComboService {
     const image = `data:image/png;base64,${base64}`;
 
     await withTenantDbContext(tenantId, async (db) => {
-      await db.product.updateMany({ where: { id, restaurantId: tenantId, kind: 'COMBO' }, data: { image } });
+      await db.product.updateMany({
+        where: { id, restaurantId: tenantId, kind: 'COMBO' },
+        data: { image },
+      });
     });
 
     const usage = (result as unknown as { usage?: unknown }).usage;
