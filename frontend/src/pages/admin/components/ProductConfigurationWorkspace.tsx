@@ -69,6 +69,8 @@ type ProductConfigurationWorkspaceProps = {
   selectGroupCategory: (groupIndex: number, nextCategory: string) => void;
   confirmGroupCategoryChange: () => void;
   toggleGroupIngredient: (groupIndex: number, ingredientId: number, selected: boolean) => void;
+  addHalfHalfProduct: (referenceProductId: number) => void;
+  removeHalfHalfProduct: (referenceProductId: number) => void;
   toggleCompositionIngredient: (ingredientId: number, selected: boolean) => void;
   setPendingCategoryChange: Dispatch<SetStateAction<PendingCategoryChange | null>>;
   setCompositionItems: Dispatch<SetStateAction<AdminProductCompositionItem[]>>;
@@ -125,6 +127,8 @@ export function ProductConfigurationWorkspace({
   selectGroupCategory,
   confirmGroupCategoryChange,
   toggleGroupIngredient,
+  addHalfHalfProduct,
+  removeHalfHalfProduct,
   toggleCompositionIngredient,
   setPendingCategoryChange,
   setCompositionItems,
@@ -355,6 +359,13 @@ export function ProductConfigurationWorkspace({
                             {isLegacyMixed && (
                               <option disabled value={MIXED_INGREDIENT_CATEGORY}>
                                 Etapa antiga com categorias misturadas
+                              </option>
+                            )}
+                            {!ingredientCategories.some(
+                              (ingredientCategory) => ingredientCategory === 'Meio a Meio',
+                            ) && (
+                              <option value="Meio a Meio">
+                                Meio a Meio — produtos cadastrados
                               </option>
                             )}
                             {ingredientCategories.map((ingredientCategory) => (
@@ -594,32 +605,7 @@ export function ProductConfigurationWorkspace({
                               onChange={(event) => {
                                 const referenceProductId = Number(event.target.value);
                                 if (!referenceProductId) return;
-                                updateGroup(groupIndex, (current) =>
-                                  current.options.some(
-                                    (option) =>
-                                      Number(option.referenceProductId) === referenceProductId,
-                                  )
-                                    ? current
-                                    : {
-                                        ...current,
-                                        options: [
-                                          ...current.options,
-                                          {
-                                            referenceProductId,
-                                            additionalPrice: 0,
-                                            pricingMode: 'ABSOLUTE',
-                                            absolutePrice: 0,
-                                            allowQuantity: false,
-                                            minQuantity: 1,
-                                            maxQuantity: 1,
-                                            defaultQuantity: 1,
-                                            defaultSelected: false,
-                                            locked: false,
-                                            active: true,
-                                          },
-                                        ],
-                                      },
-                                );
+                                addHalfHalfProduct(referenceProductId);
                                 event.currentTarget.value = '';
                               }}
                             >
@@ -663,14 +649,9 @@ export function ProductConfigurationWorkspace({
                                       className="remove-group"
                                       type="button"
                                       onClick={() =>
-                                        updateGroup(groupIndex, (current) => ({
-                                          ...current,
-                                          options: current.options.filter(
-                                            (candidate) =>
-                                              candidate.referenceProductId !==
-                                              option.referenceProductId,
-                                          ),
-                                        }))
+                                        removeHalfHalfProduct(
+                                          Number(option.referenceProductId),
+                                        )
                                       }
                                     >
                                       <Trash2 /> Remover
