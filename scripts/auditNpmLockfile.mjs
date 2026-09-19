@@ -95,6 +95,12 @@ async function main() {
   const packageCount = Object.keys(payload).length;
 
   if (packageCount === 0) {
+    if (omitDev) {
+      console.log(
+        `Nenhuma dependencia de producao encontrada em ${lockfilePath}; nada para auditar.`,
+      );
+      return;
+    }
     throw new Error(`Nenhum pacote auditavel encontrado em ${lockfilePath}.`);
   }
 
