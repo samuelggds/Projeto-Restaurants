@@ -2,7 +2,7 @@ import { Prisma } from '@prisma/client';
 import billingRepository from '../repositories/BillingRepository.js';
 import prisma from '../../../config/prisma.js';
 import { hasBlockingInvoices } from '../utils/billingRules.js';
-import { nextSubscriptionPeriod } from '../utils/billingCycle.js';
+import { addBillingMonth, nextSubscriptionPeriod } from '../utils/billingCycle.js';
 import { info } from '../utils/billingLogger.js';
 
 type ProcessPaymentPayload = {
@@ -48,6 +48,7 @@ class ProcessPaymentService {
       });
       const remainsBlocked = hasBlockingInvoices(openInvoices, new Date());
       const subscriptionWasCanceled = subscription?.status === 'CANCELADA';
+      const wasBillingBlocked = subscription?.restaurant?.accessBlockReason === 'BILLING';
 
       if (subscription && !subscriptionWasCanceled) {
         const changes: Prisma.SubscriptionUpdateInput = {
@@ -58,16 +59,25 @@ class ProcessPaymentService {
               : 'ATIVA',
         };
 
-        if (payment.marked) {
-          const currentPeriodEnd = subscription.currentPeriodEnd
-            ? new Date(subscription.currentPeriodEnd)
-            : new Date(invoice.dueDate);
-          const invoiceDueDate = new Date(invoice.dueDate);
-          if (
-            !Number.isNaN(currentPeriodEnd.getTime()) &&
-            Math.abs(currentPeriodEnd.getTime() - invoiceDueDate.getTime()) < 60_000
-          ) {
-            Object.assign(changes, nextSubscriptionPeriod(currentPeriodEnd));
+        if (payment.marked && !remainsBlocked) {
+          const paidAt = invoice.paidAt ? new Date(invoice.paidAt) : new Date();
+
+          if (wasBillingBlocked && !Number.isNaN(paidAt.getTime())) {
+            Object.assign(changes, {
+              currentPeriodStart: paidAt,
+              currentPeriodEnd: addBillingMonth(paidAt),
+            });
+          } else {
+            const currentPeriodEnd = subscription.currentPeriodEnd
+              ? new Date(subscription.currentPeriodEnd)
+              : new Date(invoice.dueDate);
+            const invoiceDueDate = new Date(invoice.dueDate);
+            if (
+              !Number.isNaN(currentPeriodEnd.getTime()) &&
+              Math.abs(currentPeriodEnd.getTime() - invoiceDueDate.getTime()) < 60_000
+            ) {
+              Object.assign(changes, nextSubscriptionPeriod(currentPeriodEnd));
+            }
           }
         }
 

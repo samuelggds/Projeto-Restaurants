@@ -359,3 +359,102 @@ test('deve preservar o primeiro paidAt quando perder o compare-and-set concorren
   assert.equal(result.status, 'PAGO');
   assert.equal(result.paidAt, winnerPaidAt);
 });
+
+
+test('pagamento apos bloqueio reinicia o ciclo na data real da reativacao', async () => {
+  silenceServiceLogs();
+  useImmediateTransaction();
+
+  const paidAt = new Date('2026-10-20T15:30:00.000Z');
+  let subscriptionUpdate = null;
+
+  billingRepository.markInvoicePaidIfOpen = async (invoiceId) => ({
+    marked: true,
+    invoice: {
+      id: invoiceId,
+      restaurantId: 80,
+      status: 'PAGO',
+      dueDate: new Date('2026-10-05T15:30:00.000Z'),
+      paidAt,
+    },
+  });
+  billingRepository.findSubscriptionByRestaurantId = async () => ({
+    id: 90,
+    restaurantId: 80,
+    status: 'EXPIRADA',
+    currentPeriodStart: new Date('2026-09-05T15:30:00.000Z'),
+    currentPeriodEnd: new Date('2026-10-05T15:30:00.000Z'),
+    restaurant: {
+      accessBlockReason: 'BILLING',
+    },
+  });
+  prisma.invoice.findMany = async () => [];
+  billingRepository.updateSubscription = async (_id, data) => {
+    subscriptionUpdate = data;
+    return { id: 90, ...data };
+  };
+  billingRepository.activateRestaurant = async (restaurantId) => ({
+    id: restaurantId,
+    active: true,
+  });
+
+  await processPaymentService.execute({ invoiceId: 800 });
+
+  assert.equal(subscriptionUpdate.status, 'ATIVA');
+  assert.equal(subscriptionUpdate.currentPeriodStart.toISOString(), paidAt.toISOString());
+  assert.equal(
+    subscriptionUpdate.currentPeriodEnd.toISOString(),
+    '2026-11-20T15:30:00.000Z',
+  );
+});
+
+test('pagamento antes do bloqueio preserva a data original do ciclo', async () => {
+  silenceServiceLogs();
+  useImmediateTransaction();
+
+  const dueDate = new Date('2026-10-05T15:30:00.000Z');
+  const paidAt = new Date('2026-10-08T15:30:00.000Z');
+  let subscriptionUpdate = null;
+
+  billingRepository.markInvoicePaidIfOpen = async (invoiceId) => ({
+    marked: true,
+    invoice: {
+      id: invoiceId,
+      restaurantId: 81,
+      status: 'PAGO',
+      dueDate,
+      paidAt,
+    },
+  });
+  billingRepository.findSubscriptionByRestaurantId = async () => ({
+    id: 91,
+    restaurantId: 81,
+    status: 'ATIVA',
+    currentPeriodStart: new Date('2026-09-05T15:30:00.000Z'),
+    currentPeriodEnd: dueDate,
+    restaurant: {
+      accessBlockReason: 'NONE',
+    },
+  });
+  prisma.invoice.findMany = async () => [];
+  billingRepository.updateSubscription = async (_id, data) => {
+    subscriptionUpdate = data;
+    return { id: 91, ...data };
+  };
+  billingRepository.activateRestaurant = async (restaurantId) => ({
+    id: restaurantId,
+    active: true,
+  });
+
+  await processPaymentService.execute({ invoiceId: 801 });
+
+  assert.equal(subscriptionUpdate.status, 'ATIVA');
+  assert.equal(
+    subscriptionUpdate.currentPeriodStart.toISOString(),
+    dueDate.toISOString(),
+  );
+  assert.equal(
+    subscriptionUpdate.currentPeriodEnd.toISOString(),
+    '2026-11-05T15:30:00.000Z',
+  );
+});
