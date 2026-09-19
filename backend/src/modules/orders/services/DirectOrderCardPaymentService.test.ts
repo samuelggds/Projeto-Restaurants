@@ -38,10 +38,12 @@ afterEach(() => {
 
 test('checkout transparente Mercado Pago segue o contrato atual sem capture_mode', async () => {
   let requestBody: Record<string, unknown> | null = null;
+  let requestHeaders: Headers | null = null;
 
   globalThis.fetch = async (input, init: RequestInit = {}) => {
     assert.equal(String(input), 'https://api.mercadopago.com/v1/orders');
     assert.equal(init.method, 'POST');
+    requestHeaders = new Headers(init.headers);
     requestBody = JSON.parse(String(init.body || '{}')) as Record<string, unknown>;
     return new Response(
       JSON.stringify({
@@ -59,6 +61,7 @@ test('checkout transparente Mercado Pago segue o contrato atual sem capture_mode
       cardPaymentMethodId: 'master',
       customerName: 'Cliente Teste',
       payerEmail: 'cliente.real@example.com',
+      mercadoPagoDeviceId: 'device-session-901',
     },
     order: {
       id: 901,
@@ -72,6 +75,8 @@ test('checkout transparente Mercado Pago segue o contrato atual sem capture_mode
   });
 
   assert.ok(requestBody);
+  assert.ok(requestHeaders);
+  assert.equal(requestHeaders.get('x-meli-session-id'), 'device-session-901');
   assert.equal(requestBody.type, 'online');
   assert.equal(requestBody.processing_mode, 'automatic');
   assert.equal(Object.hasOwn(requestBody, 'capture_mode'), false);
