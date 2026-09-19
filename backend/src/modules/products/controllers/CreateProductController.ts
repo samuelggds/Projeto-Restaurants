@@ -5,7 +5,7 @@ function isPrismaInternalError(error: unknown) {
   if (!(error instanceof Error)) return false;
   return (
     /^PrismaClient/u.test(error.name) ||
-    /Invalid \`prisma\./u.test(error.message) ||
+    error.message.includes('Invalid `prisma.') ||
     /Unknown argument/u.test(error.message)
   );
 }
