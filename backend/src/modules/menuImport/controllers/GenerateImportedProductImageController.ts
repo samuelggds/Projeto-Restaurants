@@ -77,15 +77,9 @@ class GenerateImportedProductImageController {
         userRole: req.user?.role,
       };
       await aiCreditService.assertAvailable(actor);
-      const result = await generateImportedProductImageService.execute(req.params.productId, restaurantId);
+      const result = await generateImportedProductImageService.execute(req.params.productId, restaurantId, actor);
       if (result.status === 'GENERATED' && result.aiUsage) {
-        const credits = await aiCreditService.recordUsage({
-          ...actor,
-          feature: 'GENERATE_PRODUCT_IMAGE',
-          model: result.aiUsage.model,
-          costUsd: result.aiUsage.costUsd,
-          usage: result.aiUsage.usage,
-        });
+        const credits = await aiCreditService.getBalance(actor);
         return res.json({ ...result, aiUsage: undefined, credits });
       }
       return res.json(result);

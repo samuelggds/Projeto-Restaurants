@@ -11,3 +11,11 @@ coverage/
 test-results/
 backups/
 backend/load-test-reports/
+
+# Local secrets and backup packages (examples remain versioned).
+**/.env.*
+!**/.env*.example
+**/*env*.7z
+**/*.pem
+**/*.p12
+**/*.pfx

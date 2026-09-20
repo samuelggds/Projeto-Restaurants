@@ -1,4 +1,5 @@
-const RECOVERY_STORAGE_KEY = 'pizza-ia-runtime-recovery-at';
+const RECOVERY_STORAGE_KEY = 'gastronexa-runtime-recovery-at';
+const LEGACY_RECOVERY_STORAGE_KEY = 'pizza-ia-runtime-recovery-at';
 const RECOVERY_COOLDOWN_MS = 15_000;
 const RECOVERY_DELAY_MS = 650;
 
@@ -29,7 +30,7 @@ export function isRecoverableRuntimeError(error: unknown) {
 
 function readLastRecoveryAttempt() {
   try {
-    return Number(window.sessionStorage.getItem(RECOVERY_STORAGE_KEY) || 0);
+    return Number(window.sessionStorage.getItem(RECOVERY_STORAGE_KEY) || window.sessionStorage.getItem(LEGACY_RECOVERY_STORAGE_KEY) || 0);
   } catch {
     return 0;
   }
@@ -48,6 +49,7 @@ export function clearRuntimeRecoveryAttempt() {
 
   try {
     window.sessionStorage.removeItem(RECOVERY_STORAGE_KEY);
+    window.sessionStorage.removeItem(LEGACY_RECOVERY_STORAGE_KEY);
   } catch {
     // Nada a limpar quando o armazenamento da sessão está indisponível.
   }

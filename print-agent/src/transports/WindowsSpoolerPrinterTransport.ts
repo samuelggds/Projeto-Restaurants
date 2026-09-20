@@ -75,7 +75,7 @@ export class WindowsSpoolerPrinterTransport implements PrinterTransport {
     if (!selected) throw new Error('A impressora selecionada não está instalada.');
     if (selected.offline) throw new Error('A impressora selecionada está offline.');
 
-    const directory = await mkdtemp(path.join(tmpdir(), 'pizza-print-agent-'));
+    const directory = await mkdtemp(path.join(tmpdir(), 'gastronexa-print-agent-'));
     const filePath = path.join(directory, 'command.txt');
     try {
       await writeFile(filePath, request.content, { encoding: 'utf8', mode: 0o600 });

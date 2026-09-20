@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import importMenuFromImageService from '../services/ImportMenuFromImageService.js';
+import { publicAiFailure } from '../../aiSupport/services/publicAiFailure.js';
 import aiCreditService, { AiCreditsExhaustedError } from '../../aiSupport/services/AiCreditService.js';
 
 class ImportMenuFromImageController {
@@ -26,13 +27,7 @@ class ImportMenuFromImageController {
           userRole: actor.userRole || undefined,
         },
       );
-      const credits = await aiCreditService.recordUsage({
-        ...actor,
-        feature: 'IMPORT_MENU_FROM_IMAGE',
-        model: summary.aiUsage.model,
-        costUsd: summary.aiUsage.costUsd,
-        usage: summary.aiUsage.usage,
-      });
+      const credits = await aiCreditService.getBalance(actor);
       const { aiUsage: _aiUsage, ...publicSummary } = summary;
       return res.status(201).json({ ...publicSummary, credits });
     } catch (error: unknown) {
@@ -40,8 +35,7 @@ class ImportMenuFromImageController {
         return res.status(402).json({ error: error.message, code: error.code });
       }
       return res.status(400).json({
-        error:
-          error instanceof Error ? error.message : 'Erro ao importar cardapio a partir da imagem',
+        error: publicAiFailure(error),
       });
     }
   }

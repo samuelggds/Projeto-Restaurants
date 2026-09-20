@@ -37,15 +37,19 @@ function resolveProvider() {
     return 'email';
   }
 
-  if (alertWebhookUrl.includes('discord.com/api/webhooks')) {
+  let target: URL;
+  try { target = new URL(alertWebhookUrl); } catch { return 'generic'; }
+  if (target.protocol !== 'https:' || target.username || target.password) return 'generic';
+
+  if (target.hostname === 'discord.com' && target.pathname.startsWith('/api/webhooks/')) {
     return 'discord';
   }
 
-  if (alertWebhookUrl.includes('hooks.slack.com/services/')) {
+  if (target.hostname === 'hooks.slack.com' && target.pathname.startsWith('/services/')) {
     return 'slack';
   }
 
-  if (alertWebhookUrl.includes('chat.googleapis.com/')) {
+  if (target.hostname === 'chat.googleapis.com') {
     return 'google_chat';
   }
 

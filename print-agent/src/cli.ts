@@ -22,7 +22,7 @@ function transportFor(config: LocalAgentConfig): PrinterTransport {
 
 function help() {
   console.log(`
-Pizza IA Delivery - Print Agent
+GastroNexa - Print Agent
 
 Comandos:
   pair --url <https://saas> [--token <credencial>] [--mock]
@@ -109,7 +109,7 @@ async function main() {
       {
         version: 1,
         kind: 'TEST',
-        restaurantName: 'Pizza IA Delivery',
+        restaurantName: 'GastroNexa',
         requestedAt: new Date().toISOString(),
         message: 'Teste local do Print Agent concluído.',
       },

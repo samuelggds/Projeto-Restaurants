@@ -100,6 +100,8 @@ class EmployeeRepository {
       data: {
         active: false,
         authVersion: { increment: 1 },
+        resetPasswordCodeHash: null,
+        resetPasswordCodeExpiresAt: null,
       },
       select: employeePublicSelect,
     });

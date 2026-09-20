@@ -10,7 +10,7 @@ import { generateStrongRandomPassword } from '../src/modules/auth/security/passw
 
 async function ensureBaseData() {
   const courier = await prisma.user.findFirst({
-    where: { email: 'motoqueiro@pizzaia.demo' },
+    where: { email: 'motoqueiro@gastronexa.demo' },
     select: { id: true, restaurantId: true },
   });
 
@@ -31,7 +31,7 @@ async function ensureBaseData() {
     customer = await prisma.user.create({
       data: {
         name: 'Cliente Teste Fluxo',
-        email: `cliente.teste.fluxo.${Date.now()}@pizzaia.demo`,
+        email: `cliente.teste.fluxo.${Date.now()}@gastronexa.demo`,
         password: passwordHash,
         role: 'CLIENTE',
         active: true,

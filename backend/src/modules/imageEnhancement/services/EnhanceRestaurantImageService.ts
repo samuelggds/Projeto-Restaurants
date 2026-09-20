@@ -1,3 +1,5 @@
+import { paidImageEdit } from '../../aiSupport/services/budgetedOpenAi.js';
+import type { CreditActor } from '../../aiSupport/services/AiCreditService.js';
 import OpenAI, { toFile } from 'openai';
 import {
   ImageEnhancementConfigurationError,
@@ -42,7 +44,7 @@ export function getImageEnhancementProfile(purpose: RestaurantImagePurpose) {
 }
 
 class EnhanceRestaurantImageService {
-  async execute(imageDataUrl: unknown, purpose: RestaurantImagePurpose = 'COVER') {
+  async execute(imageDataUrl: unknown, purpose: RestaurantImagePurpose = 'COVER', actor: CreditActor) {
     const apiKey = String(process.env.OPENAI_API_KEY || '').trim();
     if (!apiKey) throw new ImageEnhancementConfigurationError();
 
@@ -69,7 +71,7 @@ class EnhanceRestaurantImageService {
       size: profile.size,
       quality: 'high',
     };
-    const result = await client.images.edit(editRequest);
+    const result = await paidImageEdit(client, actor, 'ENHANCE_RESTAURANT_IMAGE', editRequest);
 
     const base64 = result.data?.[0]?.b64_json;
     if (!base64) throw new ImageEnhancementResultError();

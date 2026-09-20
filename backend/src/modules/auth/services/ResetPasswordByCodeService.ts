@@ -33,6 +33,7 @@ class ResetPasswordByCodeService {
 
     if (
       !user?.resetPasswordCodeHash ||
+      (!user.active && user.role !== 'CLIENTE') ||
       !user.resetPasswordCodeExpiresAt ||
       new Date(user.resetPasswordCodeExpiresAt).getTime() <= now.getTime() ||
       Number(user.resetPasswordFailedAttempts || 0) >= MAX_RESET_ATTEMPTS ||
@@ -89,6 +90,9 @@ class ResetPasswordByCodeService {
       const claimed = await transaction.user.updateMany({
         where: {
           id: user.id,
+          authVersion: user.authVersion,
+          role: user.role,
+          active: user.active,
           resetPasswordCodeHash: user.resetPasswordCodeHash,
           resetPasswordCodeExpiresAt: { gt: now },
           resetPasswordFailedAttempts: { lt: MAX_RESET_ATTEMPTS },
@@ -101,7 +105,7 @@ class ResetPasswordByCodeService {
           resetPasswordFailedAttempts: 0,
           resetPasswordLockedUntil: null,
           mustChangePassword: false,
-          active: true,
+          active: user.active || user.role === 'CLIENTE',
           authVersion: { increment: 1 },
         },
       });
@@ -112,7 +116,7 @@ class ResetPasswordByCodeService {
     });
 
     if (!consumed) throw new Error(INVALID_CODE_MESSAGE);
-    return { message: 'Senha redefinida e conta reativada quando necessário' };
+    return { message: 'Senha redefinida com sucesso.' };
   }
 }
 

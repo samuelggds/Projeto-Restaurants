@@ -6,19 +6,19 @@ import prisma from '../src/config/prisma.js';
 
 async function main() {
   const restaurant = await prisma.restaurant.findFirst({
-    where: { slug: 'pizza-ia-demo' },
+    where: { slug: 'gastronexa-demo' },
     select: { id: true },
   });
 
   if (!restaurant) {
-    throw new Error('Restaurante pizza-ia-demo nao encontrado.');
+    throw new Error('Restaurante gastronexa-demo nao encontrado.');
   }
 
   const settings = await prisma.restaurantSettings.update({
     where: { restaurantId: restaurant.id },
     data: {
       pixProvider: 'NUBANK',
-      pixKey: 'contato@pizzaia.demo',
+      pixKey: 'contato@gastronexa.demo',
     },
     select: {
       restaurantId: true,

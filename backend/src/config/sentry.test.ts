@@ -30,11 +30,8 @@ test('beforeSend remove query, credenciais, PII e variáveis sensíveis do event
   assert.equal(result.request?.url, 'https://api.example.com/oauth/callback');
   assert.equal(result.request?.query_string, undefined);
   assert.equal(result.request?.cookies, undefined);
-  assert.equal(result.request?.headers?.authorization, '[REDACTED]');
-  assert.deepEqual(result.request?.data, {
-    payerEmail: '[REDACTED]',
-    accessToken: '[REDACTED]',
-  });
+  assert.equal(result.request?.headers, undefined);
+  assert.equal(result.request?.data, undefined);
   assert.deepEqual(result.user, { id: '7' });
   assert.doesNotMatch(
     result.exception?.values?.[0]?.value || '',

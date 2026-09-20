@@ -4,7 +4,7 @@ import { setTenantDbContext } from '../../../database/tenantDbContext.js';
 
 const FREE_PREMIUM_GRANT_MICROS = 2_000_000n;
 
-type CreditActor = {
+export type CreditActor = {
   userId: number;
   restaurantId: number;
   userName?: string | null;
@@ -23,13 +23,16 @@ type WalletRow = {
   restaurantId: number;
   balanceMicros: bigint;
   freeGrantClaimedAt: Date | null;
+  reservedMicros: bigint;
+  pendingRequest: boolean;
 };
 
 export class AiCreditsExhaustedError extends Error {
-  code = 'AI_CREDITS_EXHAUSTED' as const;
+  code: string;
 
-  constructor() {
-    super('Seus créditos de IA acabaram. Faça uma recarga para continuar usando a IA.');
+  constructor(message = 'Saldo de IA insuficiente para esta operação. Faça uma recarga para continuar.', code = 'AI_CREDITS_EXHAUSTED') {
+    super(message);
+    this.code = code;
     this.name = 'AiCreditsExhaustedError';
   }
 }
@@ -45,7 +48,7 @@ function normalizeActor(actor: Pick<CreditActor, 'userId' | 'restaurantId'>) {
 
 function microsFromUsd(value: number) {
   if (!Number.isFinite(value) || value <= 0) return 0n;
-  return BigInt(Math.max(1, Math.round(value * 1_000_000)));
+  return BigInt(Math.max(1, Math.ceil(value * 1_000_000)));
 }
 
 function usdFromMicros(value: bigint) {
@@ -93,7 +96,12 @@ async function readWallet(db: Prisma.TransactionClient, userId: number): Promise
       "adminUserId",
       "restaurantId",
       "balanceMicros",
-      "freeGrantClaimedAt"
+      "freeGrantClaimedAt",
+      COALESCE((SELECT SUM(r."reservedMicros") FROM "AiCreditReservation" r
+        WHERE r."adminUserId" = ${userId} AND r."restaurantId" = "AiCreditWallet"."restaurantId"
+        AND r."status" IN ('HELD', 'UNCERTAIN')), 0)::bigint AS "reservedMicros",
+      EXISTS(SELECT 1 FROM "AiCreditReservation" r WHERE r."adminUserId" = ${userId}
+        AND r."restaurantId" = "AiCreditWallet"."restaurantId" AND r."status" IN ('HELD', 'UNCERTAIN')) AS "pendingRequest"
     FROM "AiCreditWallet"
     WHERE "adminUserId" = ${userId}
     LIMIT 1
@@ -151,16 +159,19 @@ async function ensureWallet(db: Prisma.TransactionClient, userId: number, restau
 }
 
 function balancePayload(wallet: WalletRow) {
-  const balanceUsd = usdFromMicros(wallet.balanceMicros);
+  const available = wallet.balanceMicros - wallet.reservedMicros;
+  const balanceUsd = usdFromMicros(available > 0n ? available : 0n);
   return {
     provider: 'OPENAI' as const,
     currency: 'USD' as const,
     balanceUsd,
+    reservedUsd: usdFromMicros(wallet.reservedMicros),
+    pendingRequest: wallet.pendingRequest,
     remainingUsd: balanceUsd,
     usedUsd: 0,
     freeGrantUsd: 2,
     freeGrantClaimed: Boolean(wallet.freeGrantClaimedAt),
-    exhausted: wallet.balanceMicros <= 0n,
+    exhausted: available <= 0n,
   };
 }
 
@@ -178,29 +189,65 @@ export class AiCreditService {
 
   async assertAvailable(actor: Pick<CreditActor, 'userId' | 'restaurantId'>) {
     const balance = await this.getBalance(actor);
+    if (balance.pendingRequest) throw new AiCreditsExhaustedError('Existe uma solicitação de IA em andamento ou aguardando confirmação. Aguarde; se persistir, contate o suporte.', 'AI_CREDIT_PENDING');
     if (balance.exhausted) throw new AiCreditsExhaustedError();
     return balance;
   }
 
-  async recordUsage(input: RecordUsageInput) {
+  async reserve(input: CreditActor & { feature: string; model: string; budgetUsd: number }) {
+    const { userId, restaurantId } = normalizeActor(input);
+    const reservedMicros = microsFromUsd(input.budgetUsd);
+    if (reservedMicros <= 0n) throw new Error('Orçamento de IA inválido.');
+    return prisma.$transaction(async (db) => {
+      await setTenantDbContext(db, restaurantId);
+      await db.$executeRaw(Prisma.sql`SELECT pg_advisory_xact_lock(${userId})`);
+      await assertActiveAdmin(db, userId, restaurantId);
+      const wallet = await ensureWallet(db, userId, restaurantId);
+      if (wallet.pendingRequest) throw new AiCreditsExhaustedError('Existe uma solicitação de IA em andamento ou aguardando confirmação. Aguarde; se persistir, contate o suporte.', 'AI_CREDIT_PENDING');
+      if (wallet.balanceMicros < reservedMicros) throw new AiCreditsExhaustedError();
+      const id = crypto.randomUUID();
+      await db.$executeRaw(Prisma.sql`
+        INSERT INTO "AiCreditReservation" ("id", "adminUserId", "restaurantId", "feature", "model", "reservedMicros")
+        VALUES (${id}::uuid, ${userId}, ${restaurantId}, ${input.feature}, ${input.model}, ${reservedMicros})
+      `);
+      return id;
+    });
+  }
+
+  async markReservation(input: CreditActor, id: string, status: 'RELEASED' | 'UNCERTAIN', providerRequestId?: string) {
+    const { userId, restaurantId } = normalizeActor(input);
+    await prisma.$transaction(async (db) => {
+      await setTenantDbContext(db, restaurantId);
+      await db.$executeRaw(Prisma.sql`SELECT pg_advisory_xact_lock(${userId})`);
+      await db.$executeRaw(Prisma.sql`
+        UPDATE "AiCreditReservation" SET "status" = ${status}, "updatedAt" = CURRENT_TIMESTAMP,
+          "providerRequestId" = COALESCE(${providerRequestId?.slice(0, 191) ?? null}, "providerRequestId")
+        WHERE "id" = ${id}::uuid AND "adminUserId" = ${userId} AND "restaurantId" = ${restaurantId} AND "status" = 'HELD'
+      `);
+    });
+  }
+
+  async settleReservation(input: RecordUsageInput & { reservationId: string; providerRequestId?: string }) {
     const requestedMicros = microsFromUsd(Number(input.costUsd));
-    if (requestedMicros <= 0n) return this.getBalance(input);
+    if (requestedMicros <= 0n) throw new Error('Uso do provedor ausente ou inválido; conciliação necessária.');
     const { userId, restaurantId } = normalizeActor(input);
 
     return prisma.$transaction(async (db) => {
       await setTenantDbContext(db, restaurantId);
       await db.$executeRaw(Prisma.sql`SELECT pg_advisory_xact_lock(${userId})`);
-      await assertActiveAdmin(db, userId, restaurantId);
-      let wallet = await ensureWallet(db, userId, restaurantId);
-      if (wallet.balanceMicros <= 0n) throw new AiCreditsExhaustedError();
-
-      // O custo real só é conhecido após a resposta do provedor. A última operação
-      // pode ultrapassar alguns micros do saldo; nesses casos a carteira é zerada
-      // e a plataforma absorve apenas esse excedente final, sem saldo negativo.
-      const chargedMicros =
-        requestedMicros > wallet.balanceMicros ? wallet.balanceMicros : requestedMicros;
+      const wallet = await readWallet(db, userId);
+      if (!wallet || wallet.restaurantId !== restaurantId) throw new Error('Carteira inválida.');
+      const rows = await db.$queryRaw<Array<{ status: string; reservedMicros: bigint }>>(Prisma.sql`
+        SELECT "status", "reservedMicros" FROM "AiCreditReservation"
+        WHERE "id" = ${input.reservationId}::uuid AND "adminUserId" = ${userId} AND "restaurantId" = ${restaurantId}
+      `);
+      const reservation = rows[0];
+      if (reservation?.status === 'SETTLED') return balancePayload(wallet);
+      if (!reservation || !['HELD', 'UNCERTAIN'].includes(reservation.status)) throw new Error('Reserva de IA inválida.');
+      if (requestedMicros > reservation.reservedMicros || requestedMicros > wallet.balanceMicros) throw new Error('Custo de IA excedeu a reserva; conciliação necessária.');
+      const chargedMicros = requestedMicros;
       const balanceAfter = wallet.balanceMicros - chargedMicros;
-      const idempotencyKey = `ai-usage:${userId}:${crypto.randomUUID()}`;
+      const idempotencyKey = `ai-usage:${input.reservationId}`;
 
       await db.$executeRaw(Prisma.sql`
         UPDATE "AiCreditWallet"
@@ -225,8 +272,12 @@ export class AiCreditService {
         )
       `);
 
-      wallet = { ...wallet, balanceMicros: balanceAfter };
-      return balancePayload(wallet);
+      await db.$executeRaw(Prisma.sql`
+        UPDATE "AiCreditReservation" SET "status" = 'SETTLED', "chargedMicros" = ${chargedMicros},
+          "providerRequestId" = ${input.providerRequestId?.slice(0, 191) ?? null}, "updatedAt" = CURRENT_TIMESTAMP
+        WHERE "id" = ${input.reservationId}::uuid AND "adminUserId" = ${userId} AND "restaurantId" = ${restaurantId}
+      `);
+      return balancePayload({ ...wallet, balanceMicros: balanceAfter, reservedMicros: 0n, pendingRequest: false });
     });
   }
 

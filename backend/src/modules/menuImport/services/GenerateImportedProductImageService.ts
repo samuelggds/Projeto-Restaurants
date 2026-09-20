@@ -1,3 +1,5 @@
+import { paidImageGeneration } from '../../aiSupport/services/budgetedOpenAi.js';
+import type { CreditActor } from '../../aiSupport/services/AiCreditService.js';
 import OpenAI from 'openai';
 import prisma from '../../../config/prisma.js';
 import { setTenantDbContext } from '../../../database/tenantDbContext.js';
@@ -92,7 +94,7 @@ function productPrompt(input: {
 }
 
 class GenerateImportedProductImageService {
-  async execute(productIdInput: unknown, restaurantIdInput: unknown) {
+  async execute(productIdInput: unknown, restaurantIdInput: unknown, actor: CreditActor) {
     const productId = Number(productIdInput);
     const restaurantId = Number(restaurantIdInput);
 
@@ -128,7 +130,7 @@ class GenerateImportedProductImageService {
     if (!apiKey) throw new Error('OPENAI_API_KEY não configurada para geração de imagens.');
 
     const client = new OpenAI({ apiKey, timeout: 165_000, maxRetries: 0 });
-    const result = await client.images.generate({
+    const result = await paidImageGeneration(client, actor, 'GENERATE_PRODUCT_IMAGE', {
       model: 'gpt-image-2',
       prompt: productPrompt({
         name: product.name,

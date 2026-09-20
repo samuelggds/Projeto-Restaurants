@@ -35,6 +35,9 @@ async function installResetState() {
     user: {
       updateMany: async ({ where, data }) => {
         if (where.resetPasswordCodeHash !== state.resetPasswordCodeHash) return { count: 0 };
+        if (where.authVersion !== undefined && where.authVersion !== state.authVersion) return { count: 0 };
+        if (where.active !== undefined && where.active !== state.active) return { count: 0 };
+        if (where.role !== undefined && where.role !== state.role) return { count: 0 };
         if (data.resetPasswordFailedAttempts?.increment) {
           if (state.resetPasswordFailedAttempts >= 5) return { count: 0 };
           state.resetPasswordFailedAttempts += 1;
@@ -52,7 +55,7 @@ async function installResetState() {
           state.resetPasswordCodeExpiresAt = null;
           state.resetPasswordFailedAttempts = 0;
           state.resetPasswordLockedUntil = null;
-          state.active = true;
+          state.active = data.active;
           state.mustChangePassword = data.mustChangePassword;
           state.authVersion += 1;
           return { count: 1 };
@@ -128,6 +131,7 @@ test('código válido é consumido uma vez, reativa conta e revoga sessões', as
 test('SUPER_ADMIN não consegue redefinir a conta com senha fraca', async () => {
   const { state, revoked } = await installResetState();
   state.role = 'SUPER_ADMIN';
+  state.active = true;
 
   await assert.rejects(() => resetPasswordByCodeService.execute(validPayload), /previsível/);
 
@@ -139,6 +143,7 @@ test('SUPER_ADMIN não consegue redefinir a conta com senha fraca', async () => 
 test('recuperação do SUPER_ADMIN aceita senha forte com oito caracteres e usa bcrypt 12', async () => {
   const { state, revoked } = await installResetState();
   state.role = 'SUPER_ADMIN';
+  state.active = true;
   state.mustChangePassword = true;
 
   await resetPasswordByCodeService.execute({
@@ -150,4 +155,30 @@ test('recuperação do SUPER_ADMIN aceita senha forte com oito caracteres e usa 
   assert.equal(state.mustChangePassword, false);
   assert.equal(bcrypt.getRounds(state.password), 12);
   assert.equal(revoked(), 1);
+});
+
+for (const role of ['ADMIN', 'SUPER_ADMIN', 'FUNCIONARIO', 'MOTOQUEIRO']) {
+  test(`a valid code cannot reactivate suspended ${role}`, async () => {
+    const { state, revoked } = await installResetState();
+    state.role = role;
+    await assert.rejects(() => resetPasswordByCodeService.execute(validPayload), /Codigo invalido/);
+    assert.equal(state.active, false);
+    assert.equal(state.authVersion, 2);
+    assert.equal(revoked(), 0);
+  });
+}
+
+test('suspension after loading the reset account cannot be overwritten', async () => {
+  const { state, revoked } = await installResetState();
+  state.active = true;
+  state.role = 'FUNCIONARIO';
+  userRepository.findByEmail = async () => {
+    const snapshot = { ...state };
+    state.active = false;
+    state.authVersion += 1;
+    return snapshot;
+  };
+  await assert.rejects(() => resetPasswordByCodeService.execute(validPayload), /Codigo invalido/);
+  assert.equal(state.active, false);
+  assert.equal(revoked(), 0);
 });

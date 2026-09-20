@@ -30,7 +30,7 @@ async function main() {
     customer = await prisma.user.create({
       data: {
         name: 'Cliente Teste PayOnDelivery',
-        email: `cliente.payondelivery.${Date.now()}@pizzaia.demo`,
+        email: `cliente.payondelivery.${Date.now()}@gastronexa.demo`,
         password: passwordHash,
         role: UserRole.CLIENTE,
         active: true,

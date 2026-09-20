@@ -1,3 +1,4 @@
+import { isBoundedEmail } from '../../../validators/boundedEmail.js';
 import restaurantSettingsRepository from '../repositories/RestaurantSettingsRepository.js';
 import { isValidCnpj, isValidCpf } from '../utils/adminSettingsValidation.js';
 import {
@@ -190,7 +191,7 @@ class OnboardRestaurantAsaasService {
       throw new Error('Nome do restaurante invalido.');
     }
 
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
+    if (!isBoundedEmail(normalizedEmail)) {
       throw new Error('E-mail do responsavel invalido. Complete os dados gerais do restaurante.');
     }
 

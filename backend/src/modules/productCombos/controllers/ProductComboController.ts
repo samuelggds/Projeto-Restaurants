@@ -1,12 +1,14 @@
 import type { Request, Response } from 'express';
 import OpenAI from 'openai';
 import { ZodError } from 'zod';
+import { publicAiFailure } from '../../aiSupport/services/publicAiFailure.js';
 import productComboService from '../services/ProductComboService.js';
 import aiCreditService, {
   AiCreditsExhaustedError,
 } from '../../aiSupport/services/AiCreditService.js';
 
 function message(error: unknown) {
+  if (error instanceof OpenAI.APIError) return publicAiFailure(error);
   if (error instanceof ZodError) return error.issues[0]?.message || 'Revise os dados do combo.';
   return error instanceof Error ? error.message : 'Não foi possível processar o combo.';
 }
@@ -55,14 +57,8 @@ class ProductComboController {
     };
     try {
       await aiCreditService.assertAvailable(actor);
-      const result = await productComboService.generatePreviewImage(actor.restaurantId, req.body);
-      const credits = await aiCreditService.recordUsage({
-        ...actor,
-        feature: 'GENERATE_COMBO_IMAGE',
-        model: result.aiUsage.model,
-        costUsd: result.aiUsage.costUsd,
-        usage: result.aiUsage.usage,
-      });
+      const result = await productComboService.generatePreviewImage(actor.restaurantId, req.body, actor);
+      const credits = await aiCreditService.getBalance(actor);
       return res.json({ image: result.image, credits });
     } catch (error) {
       if (error instanceof AiCreditsExhaustedError) {
@@ -91,14 +87,8 @@ class ProductComboController {
     };
     try {
       await aiCreditService.assertAvailable(actor);
-      const result = await productComboService.generateImage(req.params.id, actor.restaurantId);
-      const credits = await aiCreditService.recordUsage({
-        ...actor,
-        feature: 'GENERATE_COMBO_IMAGE',
-        model: result.aiUsage.model,
-        costUsd: result.aiUsage.costUsd,
-        usage: result.aiUsage.usage,
-      });
+      const result = await productComboService.generateImage(req.params.id, actor.restaurantId, actor);
+      const credits = await aiCreditService.getBalance(actor);
       return res.json({ image: result.image, credits });
     } catch (error) {
       if (error instanceof AiCreditsExhaustedError) {

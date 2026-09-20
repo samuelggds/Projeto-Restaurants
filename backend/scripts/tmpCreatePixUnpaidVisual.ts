@@ -9,7 +9,7 @@ import { generateStrongRandomPassword } from '../src/modules/auth/security/passw
 
 async function main() {
   const courier = await prisma.user.findFirst({
-    where: { email: 'motoqueiro@pizzaia.demo' },
+    where: { email: 'motoqueiro@gastronexa.demo' },
     select: { restaurantId: true },
   });
 
@@ -30,7 +30,7 @@ async function main() {
     customer = await prisma.user.create({
       data: {
         name: 'Cliente Pix Pendente',
-        email: `cliente.pixpend.${Date.now()}@pizzaia.demo`,
+        email: `cliente.pixpend.${Date.now()}@gastronexa.demo`,
         password: passwordHash,
         role: UserRole.CLIENTE,
         active: true,

@@ -32,6 +32,7 @@ test('one conditional write guards time, prior code, auth version and recovery l
   assert.deepEqual(where, {
     id: 12,
     authVersion: 4,
+    OR: [{ active: true }, { role: 'CLIENTE' }],
     resetPasswordCodeHash: 'previous-hash',
     AND: [
       {

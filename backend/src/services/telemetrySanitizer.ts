@@ -10,16 +10,17 @@ const SENSITIVE_KEY_PATTERN =
   /(?:^|[-_.])(authorization|proxy[-_]?authorization|cookie|set[-_]?cookie|password|passwd|senha|secret|client[-_]?secret|token|jwt|api[-_]?key|access[-_]?key|private[-_]?key|session|signature|credential|database[-_]?url|dsn|pix[-_]?key|csrf|state|code|otp|mfa)(?:$|[-_.])/iu;
 const PII_KEY_PATTERN =
   /(?:^|[-_.])(email|e[-_]?mail|phone|telefone|celular|cpf|cnpj|document|documento|address|endereco|cep|postal[-_]?code)(?:$|[-_.])/iu;
+const PAYMENT_KEY_PATTERN = /(?:card|cvv|ccv|pan|security.?code|holder)/iu;
 
 const AUTH_PATTERN = /\b(Bearer|Basic)\s+[A-Za-z0-9._~+/=-]+/giu;
 const JWT_PATTERN = /\beyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\b/gu;
 const DATABASE_URL_PATTERN =
-  /\b((?:postgres(?:ql)?|mysql|mongodb(?:\+srv)?|redis):\/\/)[^\s/@]+(?::[^\s/@]*)?@/giu;
+  /\b((?:postgres(?:ql)?|mysql|mongodb(?:\+srv)?|redis):\/\/)[^\s/@:]+(?::[^\s/@]*)?@/giu;
 const SENSITIVE_ASSIGNMENT_PATTERN =
   /\b((?:authorization|password|passwd|senha|secret|client[_-]?secret|access[_-]?token|refresh[_-]?token|token|jwt|api[_-]?key|access[_-]?key|private[_-]?key|session|signature|cookie|set-cookie|database[_-]?url|dsn)\s*[:=]\s*)(?:"[^"]*"|'[^']*'|[^\s,;&]+)/giu;
 const SENSITIVE_QUERY_PATTERN =
   /([?&](?:authorization|password|passwd|senha|secret|client_secret|access_token|refresh_token|token|jwt|api_key|key|signature|session|code)=)[^&#\s]*/giu;
-const EMAIL_PATTERN = /\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/giu;
+const EMAIL_PATTERN = /\b[A-Z0-9._%+-]{1,64}@[A-Z0-9.-]{1,253}\.[A-Z]{2,63}\b/giu;
 const FORMATTED_CPF_PATTERN = /\b\d{3}\.\d{3}\.\d{3}-\d{2}\b/gu;
 const FORMATTED_CNPJ_PATTERN = /\b\d{2}\.\d{3}\.\d{3}\/\d{4}-\d{2}\b/gu;
 const BRAZILIAN_PHONE_PATTERN = /(?<!\d)(?:\+?55[\s.-]?)?\(?\d{2}\)?[\s.-]?9?\d{4}[\s.-]?\d{4}(?!\d)/gu;
@@ -64,7 +65,11 @@ export function redactTelemetryText(
   value: unknown,
   maximumLength = DEFAULT_MAX_STRING_LENGTH,
 ): string {
-  const redacted = String(value ?? '')
+  const text = String(value ?? '');
+  // Discard oversized values before regex work; truncating a secret mid-token
+  // and then redacting it could otherwise leak the truncated prefix.
+  if (text.length > 8_192) return limitTelemetryText('[REDACTED_OVERSIZE]', maximumLength);
+  const redacted = text
     .replace(DATABASE_URL_PATTERN, '$1[REDACTED]@')
     .replace(AUTH_PATTERN, '$1 [REDACTED]')
     .replace(JWT_PATTERN, '[REDACTED_JWT]')
@@ -101,7 +106,7 @@ function sanitizeValue(
   context: SanitizationContext,
 ): unknown {
   const normalizedKey = key.replace(/([a-z\d])([A-Z])/gu, '$1_$2').toLowerCase();
-  if (SENSITIVE_KEY_PATTERN.test(normalizedKey) || PII_KEY_PATTERN.test(normalizedKey)) {
+  if (SENSITIVE_KEY_PATTERN.test(normalizedKey) || PII_KEY_PATTERN.test(normalizedKey) || PAYMENT_KEY_PATTERN.test(normalizedKey)) {
     return REDACTED;
   }
 
@@ -197,9 +202,17 @@ export function sanitizeTelemetryValue(
 }
 
 export function safeErrorName(error: unknown): string {
-  const candidate = error instanceof Error ? error.name : 'UnknownError';
-  const normalized = candidate.replace(/[^A-Za-z0-9_.-]/gu, '').slice(0, 80);
-  return normalized || 'Error';
+  if (!(error instanceof Error)) return 'UnknownError';
+  // Only constants can reach logs, even if an upstream error.name contains data.
+  switch (error.name) {
+    case 'TypeError': return 'TypeError';
+    case 'RangeError': return 'RangeError';
+    case 'SyntaxError': return 'SyntaxError';
+    case 'ZodError': return 'ZodError';
+    case 'AxiosError': return 'AxiosError';
+    case 'AbortError': return 'AbortError';
+    default: return 'Error';
+  }
 }
 
 export function safeErrorSummary(error: unknown, maximumLength = DEFAULT_MAX_STRING_LENGTH): string {

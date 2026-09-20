@@ -17,6 +17,7 @@ import api from '../../Services/api';
 import { useAuth } from '../../contexts/authContext.js';
 import { getAccessToken } from '../../modules/auth/session/authSession';
 import { clearSystemBlockState, setSystemBlockState } from '../../Services/systemBlock';
+import { isValidPaymentLink } from '../../shared/security/paymentLink';
 
 const darkTheme = {
   background: '#0a0a0a',
@@ -72,14 +73,6 @@ export default function BillingPage() {
 
   const PLAN_BENEFITS = {
     PREMIUM: ['Sistema de delivery', 'Cardapio digital com QR Code de mesa', 'Suporte prioritario'],
-  };
-
-  const isValidPaymentLink = (link) => {
-    if (typeof link !== 'string') {
-      return false;
-    }
-
-    return link.includes('mercadopago.com') && link.includes('pref_id=');
   };
 
   const fetchInvoices = useCallback(async () => {

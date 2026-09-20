@@ -34,15 +34,18 @@ app.set('trust proxy', 1);
 app.use(requestIdMiddleware);
 app.use(
   helmet({
-    contentSecurityPolicy: false,
-    crossOriginEmbedderPolicy: false,
+    // This host only serves API/media responses, never the web application's scripts.
+    contentSecurityPolicy: {
+      useDefaults: false,
+      directives: { defaultSrc: ["'none'"], frameAncestors: ["'none'"], baseUri: ["'none'"] },
+    },
   }),
 );
 
 app.get('/health', (_req, res) => {
   return res.status(200).json({
     status: 'ok',
-    service: 'pizza-ia-backend',
+    service: 'gastronexa-backend',
     timestamp: new Date().toISOString(),
   });
 });

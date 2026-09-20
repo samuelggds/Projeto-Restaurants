@@ -97,3 +97,13 @@ test('safeErrorSummary mantém apenas nome e mensagem redigida, sem stack', () =
   assert.match(summary, /^TypeError:/);
   assert.doesNotMatch(summary, /admin@example\.com|top-secret|STACK_WITH_SECRET/u);
 });
+
+test('oversized values and payment fields never retain a secret prefix', () => {
+  assert.equal(redactTelemetryText('password=' + 's'.repeat(20000)), '[REDACTED_OVERSIZE]');
+  assert.deepEqual(sanitizeTelemetryValue({ cardToken: 'secret', cvv: '123', securityCode: '456' }), {
+    cardToken: '[REDACTED]', cvv: '[REDACTED]', securityCode: '[REDACTED]',
+  });
+  const error = new Error('test');
+  error.name = 'password=secret';
+  assert.equal(safeErrorName(error), 'Error');
+});

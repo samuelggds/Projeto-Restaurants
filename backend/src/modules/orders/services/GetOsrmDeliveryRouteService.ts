@@ -124,7 +124,7 @@ class GetOsrmDeliveryRouteService {
       const response = await fetch(url, {
         headers: {
           Accept: 'application/json',
-          'User-Agent': String(process.env.ROUTING_USER_AGENT || 'PizzaIADelivery/1.0'),
+          'User-Agent': String(process.env.ROUTING_USER_AGENT || 'GastroNexa/1.0'),
         },
         signal: AbortSignal.timeout(this.geocoderTimeoutMs),
       });

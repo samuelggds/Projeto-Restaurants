@@ -57,7 +57,7 @@ test('desativação devolve somente projeção pública e revoga refresh', async
   assert.deepEqual(await deactivateUserService.execute(7), { id: 7, active: false });
 });
 
-test('recuperação de senha reativa conta e revoga access tokens antigos', async () => {
+test('atualização de senha preserva suspensão e revoga access tokens antigos', async () => {
   let capturedData;
   const db = {
     user: {
@@ -70,7 +70,7 @@ test('recuperação de senha reativa conta e revoga access tokens antigos', asyn
 
   await userRepository.updatePasswordAndClearResetCode(5, 'hash', db);
 
-  assert.equal(capturedData.active, true);
+  assert.equal(Object.hasOwn(capturedData, 'active'), false);
   assert.deepEqual(capturedData.authVersion, { increment: 1 });
   assert.equal(capturedData.resetPasswordCodeHash, null);
 });

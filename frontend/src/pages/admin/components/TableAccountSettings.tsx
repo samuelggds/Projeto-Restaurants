@@ -1,3 +1,4 @@
+import { safeErrorName } from '../../../shared/security/telemetrySanitizer';
 import { useCallback, useEffect, useState } from 'react';
 import { RefreshCw, ShieldCheck, WalletCards } from 'lucide-react';
 import { toast } from 'react-toastify';
@@ -137,7 +138,7 @@ export function TableAccountSettings({ settings, update }: Props) {
       const result = await tableAccountService.listAdminSessions();
       setSessions(Array.isArray(result?.sessions) ? result.sessions : []);
     } catch (error) {
-      console.error('Não foi possível consultar as contas de mesa.', error);
+      console.error('Não foi possível consultar as contas de mesa.', safeErrorName(error));
       toast.error('Não foi possível atualizar as contas de mesa.');
     } finally {
       setLoading(false);
@@ -153,7 +154,7 @@ export function TableAccountSettings({ settings, update }: Props) {
       })
       .catch((error) => {
         if (!active) return;
-        console.error('Não foi possível consultar as contas de mesa.', error);
+        console.error('Não foi possível consultar as contas de mesa.', safeErrorName(error));
         toast.error('Não foi possível atualizar as contas de mesa.');
       })
       .finally(() => {

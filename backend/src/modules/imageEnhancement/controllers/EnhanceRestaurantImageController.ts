@@ -122,19 +122,8 @@ class EnhanceRestaurantImageController {
         userRole: req.user?.role,
       };
       await aiCreditService.assertAvailable(actor);
-      const result = await enhanceRestaurantImageService.execute(req.body?.imageDataUrl, purpose);
-      const credits = await aiCreditService.recordUsage({
-        ...actor,
-        feature:
-          purpose === 'BANNER'
-            ? 'ENHANCE_BANNER'
-            : purpose === 'COMBO'
-              ? 'ENHANCE_COMBO'
-              : 'ENHANCE_COVER',
-        model: result.aiUsage.model,
-        costUsd: result.aiUsage.costUsd,
-        usage: result.aiUsage.usage,
-      });
+      const result = await enhanceRestaurantImageService.execute(req.body?.imageDataUrl, purpose, actor);
+      const credits = await aiCreditService.getBalance(actor);
       return res.json({ imageDataUrl: result.imageDataUrl, credits });
     } catch (error) {
       const mappedError = toImageEnhancementHttpError(error);

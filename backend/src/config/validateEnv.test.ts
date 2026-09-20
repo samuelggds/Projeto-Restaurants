@@ -45,7 +45,7 @@ function setValidProductionEnv() {
     ROUTING_PROVIDER: 'osrm',
     OSRM_BASE_URL: 'http://osrm:5000',
     GEOCODER_BASE_URL: 'http://nominatim:8080',
-    ROUTING_USER_AGENT: 'PizzaIADelivery/1.0 (ops@example.com)',
+    ROUTING_USER_AGENT: 'GastroNexa/1.0 (ops@example.com)',
     ROUTING_REQUEST_TIMEOUT_MS: '4000',
     GEOCODER_REQUEST_TIMEOUT_MS: '4000',
     ROUTING_CACHE_MAX_ENTRIES: '5000',

@@ -35,6 +35,8 @@ function setup(t: TestContext, changes: Partial<ResetUser> = {}) {
   }
   const user = {
     id: 12,
+    role: 'CLIENTE',
+    active: true,
     authVersion: 2,
     email: 'cliente@example.test',
     resetPasswordCodeHash: null,
@@ -83,6 +85,15 @@ test('unknown accounts keep the same public response and send nothing', async (t
   assert.equal(state.claim.mock.callCount(), 0);
   assert.equal(state.messages.length, 0);
 });
+
+for (const role of ['ADMIN', 'SUPER_ADMIN', 'FUNCIONARIO', 'MOTOQUEIRO'] as const) {
+  test(`inactive ${role} cannot obtain a reset code or reveal suspension`, async (t) => {
+    const state = setup(t, { active: false, role });
+    assert.deepEqual(await requestPasswordResetService.execute({ email: state.user.email }), safeResponse);
+    assert.equal(state.claim.mock.callCount(), 0);
+    assert.equal(state.messages.length, 0);
+  });
+}
 
 test('a request at 29.999 seconds does not replace the code or send another email', async (t) => {
   const state = setup(t, {
