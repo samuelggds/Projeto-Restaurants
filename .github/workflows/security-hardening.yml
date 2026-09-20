@@ -106,43 +106,10 @@ jobs:
         with:
           output: ${{ runner.temp }}/codeql-sarif
           upload: true
+      - name: Test CodeQL blocking policy
+        run: node --test scripts/checkCodeqlSarif.test.mjs
       - name: Enforce blocking CodeQL alert policy
-        shell: bash
-        run: |
-          set -euo pipefail
-          SARIF_DIR="$RUNNER_TEMP/codeql-sarif" node <<'NODE'
-          const fs = require('fs');
-          const path = require('path');
-          const root = process.env.SARIF_DIR;
-          const files = [];
-          const walk = (dir) => {
-            for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
-              const target = path.join(dir, entry.name);
-              if (entry.isDirectory()) walk(target);
-              else if (entry.name.endsWith('.sarif')) files.push(target);
-            }
-          };
-          walk(root);
-          if (!files.length) throw new Error('CodeQL concluiu sem produzir SARIF para a política de alertas.');
-          const blockers = [];
-          for (const file of files) {
-            const sarif = JSON.parse(fs.readFileSync(file, 'utf8'));
-            for (const run of sarif.runs || []) {
-              const rules = new Map((run.tool?.driver?.rules || []).map((rule) => [rule.id, rule]));
-              for (const result of run.results || []) {
-                const rule = rules.get(result.ruleId) || {};
-                const score = Number(rule.properties?.['security-severity'] || 0);
-                const level = result.level || rule.defaultConfiguration?.level || 'none';
-                if (score >= 7 || level === 'error') blockers.push({ ruleId: result.ruleId, score, level });
-              }
-            }
-          }
-          if (blockers.length) {
-            console.error('Blocking CodeQL findings:', JSON.stringify(blockers, null, 2));
-            process.exit(1);
-          }
-          console.log('CodeQL analysis completed and no high/critical or error-level finding matched the blocking policy.');
-          NODE
+        run: node scripts/checkCodeqlSarif.mjs "$RUNNER_TEMP/codeql-sarif"
 
   container-scan:
     name: Build and scan Docker images

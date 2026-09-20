@@ -267,7 +267,7 @@ async function sendEmailCode(recipient: MfaRecipient, code: string, ttlMinutes: 
   const transporter = createTransporter(config);
   const from =
     String(process.env.ALERT_EMAIL_FROM || process.env.SMTP_USER || '').trim() ||
-    'no-reply@pizzaia.local';
+    'no-reply@gastronexa.local';
 
   try {
     await transporter.sendMail({

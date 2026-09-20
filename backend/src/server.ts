@@ -17,12 +17,12 @@ import { registerRuntimeRealtimeProbe } from './runtime/runtimeReadiness.js';
 import { createJobScheduler } from './jobs/runtime.js';
 import { safeErrorName, safeErrorSummary } from './services/telemetrySanitizer.js';
 import { assertSecureRuntimeDatabaseRole } from './database/tenantDbContext.js';
+import { normalizeOrigin } from './middlewares/security/httpAccessProtection.js';
 
 const server = http.createServer(app);
 const apiJobScheduler = createJobScheduler('api');
 const port = Number(process.env.PORT) || 3000;
 const isProduction = process.env.NODE_ENV === 'production';
-const normalizeOrigin = (value: string) => value.trim().replace(/\/+$/, '');
 const socketAllowedOrigins = [
   process.env.SOCKET_CORS_ORIGINS || '',
   process.env.CORS_ORIGINS || '',
@@ -42,9 +42,7 @@ export const io = new Server(server, {
   transports: distributedStateEnabled() ? ['websocket'] : ['polling', 'websocket'],
   maxHttpBufferSize: 64 * 1024,
   allowRequest: (req, callback) => {
-    const origin = String(req.headers.origin || '')
-      .trim()
-      .replace(/\/+$/, '');
+    const origin = normalizeOrigin(String(req.headers.origin || ''));
     callback(null, !isProduction || !origin || socketAllowedOrigins.includes(origin));
   },
 });

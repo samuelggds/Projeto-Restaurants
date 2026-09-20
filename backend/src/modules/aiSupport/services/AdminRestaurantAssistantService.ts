@@ -1,3 +1,4 @@
+import { paidChatCompletion } from './budgetedOpenAi.js';
 import OpenAI from 'openai';
 import { z } from 'zod';
 import { withTenantDbContext } from '../../../database/tenantDbContext.js';
@@ -5,7 +6,6 @@ import adminRestaurantContextService from './AdminRestaurantContextService.js';
 import adminRestaurantFallbackSnapshotService from './AdminRestaurantFallbackSnapshotService.js';
 import adminAiActionService from './AdminAiActionService.js';
 import aiCreditService from './AiCreditService.js';
-import { calculateTextUsageCostUsd } from './openAiUsageCost.js';
 import {
   ADMIN_AI_SECURITY_RULES,
   assertAdminAiQuestionAllowed,
@@ -277,16 +277,6 @@ async function loadManagementSnapshot(actor: Actor) {
   }
 }
 
-async function recordUsage(actor: Actor, model: string, usage: unknown, feature: string) {
-  const costUsd = calculateTextUsageCostUsd(model, usage as never);
-  return aiCreditService.recordUsage({
-    ...actor,
-    feature,
-    model,
-    costUsd,
-    usage,
-  });
-}
 
 class AdminRestaurantAssistantService {
   async summary(actor: Actor) {
@@ -315,7 +305,7 @@ class AdminRestaurantAssistantService {
     const context = await loadManagementSnapshot(actor);
     await aiCreditService.assertAvailable(actor);
     const model = String(process.env.OPENAI_MODEL || 'gpt-5.6-sol').trim();
-    const completion = await openAiClient().chat.completions.create({
+    const completion = await paidChatCompletion(openAiClient(), actor, 'ADMIN_RESTAURANT_ASSISTANT', {
       model,
       response_format: { type: 'json_object' },
       messages: [
@@ -349,7 +339,7 @@ class AdminRestaurantAssistantService {
       action = await adminAiActionService.propose(response.proposal, actor);
     }
 
-    const credits = await recordUsage(actor, model, completion.usage, 'ADMIN_RESTAURANT_ASSISTANT');
+    const credits = await aiCreditService.getBalance(actor);
     const snapshot = context as Record<string, unknown>;
     return {
       response: {
@@ -453,7 +443,7 @@ class AdminRestaurantAssistantService {
 
     await aiCreditService.assertAvailable(actor);
     const model = String(process.env.OPENAI_MODEL || 'gpt-5.6-sol').trim();
-    const completion = await openAiClient().chat.completions.create({
+    const completion = await paidChatCompletion(openAiClient(), actor, 'ADMIN_RESTAURANT_ASSISTANT', {
       model,
       response_format: { type: 'json_object' },
       messages: [
@@ -465,7 +455,7 @@ class AdminRestaurantAssistantService {
     if (!raw) throw new Error('A IA não retornou um rascunho para este atendimento.');
     const draft = supportDraftSchema.parse(parseJson(raw));
     assertAdminAiResponseSafe(draft);
-    const credits = await recordUsage(actor, model, completion.usage, 'ADMIN_ORDER_SUPPORT_DRAFT');
+    const credits = await aiCreditService.getBalance(actor);
     return {
       orderId,
       ...draft,

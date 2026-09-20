@@ -1,3 +1,4 @@
+import { safeErrorName } from '../../shared/security/telemetrySanitizer';
 /* eslint-disable react-refresh/only-export-components -- os mapeadores exportados são contratos puros cobertos por testes. */
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -620,7 +621,7 @@ export default function Admin() {
       const couponData = await promotionsService.listCoupons();
       setCoupons(couponData.map(mapCoupon).filter((coupon) => coupon.id && coupon.code));
     } catch (error) {
-      console.error('Não foi possível carregar os descontos e cupons.', error);
+      console.error('Não foi possível carregar os descontos e cupons.', safeErrorName(error));
       setPromotionsError('Não foi possível carregar os cupons deste restaurante.');
     } finally {
       setPromotionsLoading(false);
@@ -633,7 +634,7 @@ export default function Admin() {
       .then(async () => {
         if (mounted) await Promise.all([loadOrders(), loadCatalog()]);
       })
-      .catch((error) => console.error('Não foi possível carregar a operação.', error));
+      .catch((error) => console.error('Não foi possível carregar a operação.', safeErrorName(error)));
     return () => {
       mounted = false;
     };
@@ -650,7 +651,7 @@ export default function Admin() {
     const { socket, release } = acquireSocket(token, 'admin-orders');
     const refreshOrders = () => {
       void loadOrders().catch((error) =>
-        console.error('Não foi possível atualizar os pedidos em tempo real.', error),
+        console.error('Não foi possível atualizar os pedidos em tempo real.', safeErrorName(error)),
       );
     };
     const onNewOrder = () => {
@@ -700,7 +701,7 @@ export default function Admin() {
         );
       })
       .catch((error) => {
-        console.error('Não foi possível carregar as configurações.', error);
+        console.error('Não foi possível carregar as configurações.', safeErrorName(error));
       });
     return () => {
       mounted = false;
@@ -717,7 +718,7 @@ export default function Admin() {
           setEmployees(data.map((e) => mapEmployee(e as Record<string, unknown>)));
       })
       .catch((error) => {
-        console.error('Não foi possível carregar os funcionários.', error);
+        console.error('Não foi possível carregar os funcionários.', safeErrorName(error));
       });
     return () => {
       mounted = false;
@@ -773,7 +774,7 @@ export default function Admin() {
       setSettingsId(Number(refreshedRecord?.id ?? 0) || null);
       setSettings(mapSettingsFromApi(refreshedRecord, refreshedBanners, refreshedTableAccount));
     } catch (error) {
-      console.error('Não foi possível salvar as configurações.', error);
+      console.error('Não foi possível salvar as configurações.', safeErrorName(error));
       throw error;
     }
   }
@@ -792,7 +793,7 @@ export default function Admin() {
       const mappedEmployee = mapEmployee(created as Record<string, unknown>);
       return mappedEmployee;
     } catch (error) {
-      console.error('Não foi possível criar o funcionário.', error);
+      console.error('Não foi possível criar o funcionário.', safeErrorName(error));
       throw error;
     }
   }
@@ -808,7 +809,7 @@ export default function Admin() {
       });
       return employee;
     } catch (error) {
-      console.error('Não foi possível atualizar o funcionário.', error);
+      console.error('Não foi possível atualizar o funcionário.', safeErrorName(error));
       throw error;
     }
   }

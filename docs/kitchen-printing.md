@@ -155,7 +155,7 @@ Pré-requisitos:
 - Windows com a impressora já instalada e imprimindo uma página de teste pelo sistema;
 - PowerShell com os comandos `Get-Printer` e `Out-Printer`;
 - Node.js 22 ou superior;
-- acesso HTTPS ao backend do Pizza IA Delivery.
+- acesso HTTPS ao backend do GastroNexa.
 
 No PowerShell, a partir do repositório:
 
@@ -182,7 +182,7 @@ node dist/cli.js pair --url http://localhost:3000
 Remove-Item Env:PRINT_AGENT_CREDENTIAL
 ```
 
-A configuração fica em `%APPDATA%\PizzaIADelivery\print-agent.json`, com escrita atômica e
+A configuração fica em `%APPDATA%\GastroNexa\print-agent.json`, com leitura de compatibilidade do diretório antigo `PizzaIADelivery`, escrita atômica e
 permissão restritiva quando suportada pelo sistema. Esse arquivo contém a credencial e nunca deve
 ser enviado ao Git, suporte ou logs.
 

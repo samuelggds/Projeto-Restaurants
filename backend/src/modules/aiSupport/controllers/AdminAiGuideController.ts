@@ -1,6 +1,7 @@
 import type { Request, Response } from 'express';
 import OpenAI from 'openai';
 import { ZodError } from 'zod';
+import { safeErrorName } from '../../../services/telemetrySanitizer.js';
 import adminAiGuideService from '../services/AdminAiGuideService.js';
 import adminRestaurantAssistantService from '../services/AdminRestaurantAssistantService.js';
 import adminAiActionService from '../services/AdminAiActionService.js';
@@ -55,7 +56,7 @@ function mapError(error: unknown) {
     return {
       status: 504,
       body: {
-        error: 'Demorei mais que o esperado para responder. Tente novamente.',
+        error: 'A confirmação demorou mais que o esperado. O saldo está reservado enquanto verificamos a solicitação. Se persistir, contate o suporte.',
         code: 'OPENAI_TIMEOUT',
       },
     };
@@ -89,8 +90,7 @@ function mapError(error: unknown) {
   }
 
   console.error('[ADMIN_AI_INTERNAL_ERROR]', {
-    name: error instanceof Error ? error.name : 'UnknownError',
-    message,
+    name: safeErrorName(error),
   });
   return {
     status: 500,

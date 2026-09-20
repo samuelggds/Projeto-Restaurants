@@ -5,6 +5,7 @@ import prisma from '../../../config/prisma.js';
 import { withTenantDbContext } from '../../../database/tenantDbContext.js';
 import generateImportedProductImageService from '../../menuImport/services/GenerateImportedProductImageService.js';
 import aiCreditService from './AiCreditService.js';
+import { publicAiFailure } from './publicAiFailure.js';
 
 const ESTIMATED_IMAGE_COST_USD = 0.009;
 const LOCK_MS = 4 * 60 * 1000;
@@ -375,7 +376,7 @@ async function finishClaim(claim: ClaimedItem, result: unknown, error?: unknown)
           ? 'SKIPPED'
           : 'COMPLETED';
     const resultJson = JSON.stringify(result ?? {});
-    const errorMessage = error instanceof Error ? error.message.slice(0, 1000) : error ? String(error).slice(0, 1000) : null;
+    const errorMessage = error ? publicAiFailure(error) : null;
     await db.$executeRaw(Prisma.sql`
       UPDATE "RestaurantAiJobItem"
       SET "status" = ${normalizedStatus}, "result" = ${resultJson}::jsonb, "error" = ${errorMessage},
@@ -406,19 +407,10 @@ export async function drainAiImageJobs() {
         }),
       );
       if (!actor) throw new Error('ADMIN responsável pelo job não está mais ativo.');
-      const result = await generateImportedProductImageService.execute(Number(claim.entityId), claim.restaurantId);
+      const result = await generateImportedProductImageService.execute(Number(claim.entityId), claim.restaurantId, { userId: actor.id, restaurantId: claim.restaurantId });
       const usage = (result as { aiUsage?: { model?: string; costUsd?: number; usage?: unknown } }).aiUsage;
       if (usage?.costUsd && usage.model) {
-        const balance = await aiCreditService.recordUsage({
-          userId: actor.id,
-          restaurantId: claim.restaurantId,
-          userName: actor.email,
-          userRole: actor.role,
-          feature: 'PRODUCT_IMAGE_BATCH',
-          model: usage.model,
-          costUsd: usage.costUsd,
-          usage: usage.usage,
-        });
+        const balance = await aiCreditService.getBalance({ userId: actor.id, restaurantId: claim.restaurantId });
         await withTenantDbContext(claim.restaurantId, async (db) => {
           await db.$executeRaw(Prisma.sql`
             UPDATE "RestaurantAiJob"

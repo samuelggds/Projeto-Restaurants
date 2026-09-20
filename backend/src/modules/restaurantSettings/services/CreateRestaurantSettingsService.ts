@@ -1,3 +1,4 @@
+import { isBoundedEmail } from '../../../validators/boundedEmail.js';
 import type { Prisma } from '@prisma/client';
 import restaurantSettingsRepository from '../repositories/RestaurantSettingsRepository.js';
 import prisma from '../../../config/prisma.js';
@@ -283,7 +284,7 @@ class CreateRestaurantSettingsService {
             .toLowerCase();
     if (
       normalizedOwnerEmail !== undefined &&
-      (!normalizedOwnerEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedOwnerEmail))
+      (!normalizedOwnerEmail || !isBoundedEmail(normalizedOwnerEmail))
     ) {
       throw new Error('E-mail comercial inválido.');
     }

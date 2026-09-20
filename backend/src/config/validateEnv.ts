@@ -393,7 +393,7 @@ export function validateCriticalEnv() {
       if (geocoderUrl && publicDemoHosts.has(geocoderUrl.hostname.toLowerCase())) {
         errors.push('GEOCODER_BASE_URL nao pode usar o Nominatim publico em producao.');
       }
-      if (routingUserAgent && routingUserAgent === 'PizzaIADelivery/1.0') {
+      if (routingUserAgent && ['GastroNexa/1.0', 'PizzaIADelivery/1.0'].includes(routingUserAgent)) {
         errors.push('ROUTING_USER_AGENT deve incluir um contato real em producao.');
       }
 

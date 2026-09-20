@@ -1,8 +1,8 @@
 <div align="center">
 
-![Pizza IA Delivery](docs/assets/readme-hero.png)
+![GastroNexa](frontend/public/gastronexa-logo.svg)
 
-# Pizza IA Delivery
+# GastroNexa
 
 ### Plataforma SaaS multi-restaurante para pedidos, mesas, cozinha e delivery em tempo real
 
@@ -30,7 +30,7 @@ Do primeiro acesso ao cardápio até a entrega: uma operação integrada para **
 
 ## Visão do produto
 
-O **Pizza IA Delivery** foi desenvolvido como um produto operacional completo, não apenas como um CRUD. Cada restaurante possui sua identidade, configurações, catálogo, equipe, pedidos e integrações isolados por tenant. A plataforma conecta o atendimento público às áreas internas e mantém todos os perfis trabalhando sobre a mesma fonte de verdade.
+O **GastroNexa** foi desenvolvido como um produto operacional completo, não apenas como um CRUD. Cada restaurante possui sua identidade, configurações, catálogo, equipe, pedidos e integrações isolados por tenant. A plataforma conecta o atendimento público às áreas internas e mantém todos os perfis trabalhando sobre a mesma fonte de verdade.
 
 | Pilar                      | O que está implementado                                                                  |
 | -------------------------- | ---------------------------------------------------------------------------------------- |
@@ -407,6 +407,8 @@ O isolamento não depende de esconder botões no frontend. Rotas privadas resolv
 
 O modelo de ameaça, as invariantes, as superfícies revisadas e a matriz de testes estão documentados em [SECURITY_MULTI_TENANT_AUDIT.md](docs/SECURITY_MULTI_TENANT_AUDIT.md).
 
+Os controles recentes, a ativação de backups externos, o exercício de recuperação e a conciliação protegida de créditos de IA estão em [Segurança operacional de produção](docs/production-security-hardening.md).
+
 ```mermaid
 sequenceDiagram
     participant U as Usuário
@@ -714,5 +716,5 @@ Desenvolvido por **Samuel Gomes**.
 ---
 
 <div align="center">
-  <strong>Pizza IA Delivery — tecnologia conectando cardápio, operação e entrega.</strong>
+  <strong>GastroNexa — tecnologia conectando cardápio, operação e entrega.</strong>
 </div>

@@ -1,3 +1,5 @@
+import { paidImageGeneration } from '../../aiSupport/services/budgetedOpenAi.js';
+import type { CreditActor } from '../../aiSupport/services/AiCreditService.js';
 import OpenAI from 'openai';
 import { calculateImageUsageCostUsd } from '../../aiSupport/services/openAiUsageCost.js';
 
@@ -24,7 +26,7 @@ function ingredientPrompt(name: string, category: string) {
 }
 
 class GenerateIngredientImageService {
-  async execute(input: GenerateIngredientImageInput) {
+  async execute(input: GenerateIngredientImageInput, actor: CreditActor) {
     const name = normalizeText(input.name, 80);
     const category = normalizeText(input.category, 60);
     if (name.length < 2) throw new Error('Informe o nome do ingrediente para gerar a imagem.');
@@ -33,7 +35,7 @@ class GenerateIngredientImageService {
     if (!apiKey) throw new Error('OPENAI_API_KEY não configurada para geração de imagens.');
 
     const client = new OpenAI({ apiKey, timeout: 165_000, maxRetries: 0 });
-    const result = await client.images.generate({
+    const result = await paidImageGeneration(client, actor, 'GENERATE_INGREDIENT_IMAGE', {
       model: 'gpt-image-2',
       prompt: ingredientPrompt(name, category),
       size: '1024x1024',

@@ -1,0 +1,11 @@
+[Unit]
+Description=GastroNexa hourly offsite backup
+
+[Timer]
+OnCalendar=hourly
+RandomizedDelaySec=5min
+Persistent=true
+Unit=gastronexa-backup.service
+
+[Install]
+WantedBy=timers.target

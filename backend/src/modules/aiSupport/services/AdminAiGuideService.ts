@@ -1,7 +1,7 @@
+import { paidChatCompletion } from './budgetedOpenAi.js';
 import OpenAI from 'openai';
 import { z } from 'zod';
 import aiCreditService from './AiCreditService.js';
-import { calculateTextUsageCostUsd } from './openAiUsageCost.js';
 import {
   ADMIN_AI_SECURITY_RULES,
   assertAdminAiQuestionAllowed,
@@ -112,7 +112,7 @@ class AdminAiGuideService {
     const model = String(process.env.OPENAI_MODEL || 'gpt-5.6-sol').trim();
     const client = new OpenAI({ apiKey, timeout: 60_000, maxRetries: 0 });
 
-    const completion = await client.chat.completions.create({
+    const completion = await paidChatCompletion(client, actor, 'ADMIN_GUIDED_TOUR', {
       model,
       response_format: { type: 'json_object' },
       messages: [
@@ -134,14 +134,7 @@ class AdminAiGuideService {
     const guide = guideResponseSchema.parse(parsed);
     assertAdminAiResponseSafe(guide);
 
-    const costUsd = calculateTextUsageCostUsd(model, completion.usage);
-    const credits = await aiCreditService.recordUsage({
-      ...actor,
-      feature: guide.mode === 'TOUR' ? 'ADMIN_GUIDED_TOUR' : 'ADMIN_SUPPORT_CHAT',
-      model,
-      costUsd,
-      usage: completion.usage,
-    });
+    const credits = await aiCreditService.getBalance(actor);
 
     return { guide, credits };
   }

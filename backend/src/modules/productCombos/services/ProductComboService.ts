@@ -1,3 +1,5 @@
+import { paidImageGeneration } from '../../aiSupport/services/budgetedOpenAi.js';
+import type { CreditActor } from '../../aiSupport/services/AiCreditService.js';
 import OpenAI from 'openai';
 import type { Prisma } from '@prisma/client';
 import { z } from 'zod';
@@ -376,7 +378,7 @@ class ProductComboService {
     });
   }
 
-  async generatePreviewImage(restaurantIdInput: unknown, rawInput: unknown) {
+  async generatePreviewImage(restaurantIdInput: unknown, rawInput: unknown, actor: CreditActor) {
     const tenantId = restaurantId(restaurantIdInput);
     const input = comboImagePreviewInputSchema.parse(rawInput);
     const selectedOptions = input.groups.flatMap((group) =>
@@ -428,7 +430,7 @@ class ProductComboService {
       .join(' ');
 
     const client = new OpenAI({ apiKey, timeout: 165_000, maxRetries: 0 });
-    const result = await client.images.generate({
+    const result = await paidImageGeneration(client, actor, 'GENERATE_COMBO_IMAGE', {
       model: 'gpt-image-2',
       prompt,
       size: '1024x1024',
@@ -448,7 +450,7 @@ class ProductComboService {
     };
   }
 
-  async generateImage(idInput: unknown, restaurantIdInput: unknown) {
+  async generateImage(idInput: unknown, restaurantIdInput: unknown, actor: CreditActor) {
     const tenantId = restaurantId(restaurantIdInput);
     const id = comboId(idInput);
     const combo = await withTenantDbContext(tenantId, async (db) =>
@@ -490,7 +492,7 @@ class ProductComboService {
       .join(' ');
 
     const client = new OpenAI({ apiKey, timeout: 165_000, maxRetries: 0 });
-    const result = await client.images.generate({
+    const result = await paidImageGeneration(client, actor, 'GENERATE_COMBO_IMAGE', {
       model: 'gpt-image-2',
       prompt,
       size: '1024x1024',

@@ -11,15 +11,13 @@ type TokenUsage = {
 };
 
 // Standard API prices in USD per 1M tokens for models the application can use.
-// Keep this list intentionally small: unknown model names fall back to gpt-4.1 pricing.
+// Unknown models must be priced explicitly before any billable request.
 const TEXT_PRICING_PER_MILLION: Record<string, { input: number; output: number }> = {
   'gpt-5.6-sol': { input: 4, output: 20 },
   'gpt-5.6': { input: 4, output: 20 },
   'gpt-4.1': { input: 2, output: 8 },
   'gpt-4o': { input: 2.5, output: 10 },
 };
-
-const DEFAULT_TEXT_PRICING = TEXT_PRICING_PER_MILLION['gpt-4.1'];
 
 const IMAGE_PRICING_PER_MILLION = {
   textInput: 5,
@@ -37,7 +35,8 @@ function finite(value: unknown) {
 export function calculateTextUsageCostUsd(model: string, usage: unknown) {
   const parsed = (usage || {}) as TokenUsage;
   const normalizedModel = String(model || '').trim().toLowerCase();
-  const pricing = TEXT_PRICING_PER_MILLION[normalizedModel] || DEFAULT_TEXT_PRICING;
+  const pricing = TEXT_PRICING_PER_MILLION[normalizedModel];
+  if (!pricing) throw new Error('Modelo de IA sem política de preço configurada.');
   const inputTokens = finite(parsed.prompt_tokens ?? parsed.input_tokens);
   const outputTokens = finite(parsed.completion_tokens ?? parsed.output_tokens);
   return (inputTokens * pricing.input + outputTokens * pricing.output) / 1_000_000;

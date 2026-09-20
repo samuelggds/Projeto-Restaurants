@@ -4,9 +4,9 @@ import path from 'node:path';
 
 import type { LocalAgentConfig } from '../types.js';
 
-function defaultConfigPath() {
+function defaultConfigPath(legacy = false) {
   const base = process.env.APPDATA || path.join(os.homedir(), '.config');
-  return path.join(base, 'PizzaIADelivery', 'print-agent.json');
+  return path.join(base, legacy ? 'PizzaIADelivery' : 'GastroNexa', 'print-agent.json');
 }
 
 function normalizeApiBaseUrl(value: unknown) {
@@ -45,7 +45,15 @@ export class LocalConfigStore {
   constructor(readonly filePath = defaultConfigPath()) {}
 
   async load() {
-    const raw = await readFile(this.filePath, 'utf8');
+    let raw: string;
+    try {
+      raw = await readFile(this.filePath, 'utf8');
+    } catch (error) {
+      // Existing paired agents keep working after the rename. Never fall back
+      // for malformed or unreadable current configs, nor for custom paths.
+      if ((error as NodeJS.ErrnoException).code !== 'ENOENT' || this.filePath !== defaultConfigPath()) throw error;
+      raw = await readFile(defaultConfigPath(true), 'utf8');
+    }
     return validateLocalAgentConfig(JSON.parse(raw));
   }
 

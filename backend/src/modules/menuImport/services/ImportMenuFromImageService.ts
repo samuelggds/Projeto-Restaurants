@@ -1,3 +1,4 @@
+import { paidChatCompletion } from '../../aiSupport/services/budgetedOpenAi.js';
 import OpenAI from 'openai';
 import { z } from 'zod';
 import prisma from '../../../config/prisma.js';
@@ -132,7 +133,7 @@ function createOpenAiClient() {
       'OPENAI_API_KEY nao configurada. Adicione a chave no ambiente antes de usar o importador por imagem.',
     );
   }
-  return new OpenAI({ apiKey });
+  return new OpenAI({ apiKey, timeout: 75_000, maxRetries: 0 });
 }
 
 function parseImportedMenuContent(rawContent: string): ImportedMenuResult {
@@ -181,7 +182,7 @@ class ImportMenuFromImageService {
 
     const openai = createOpenAiClient();
     const model = 'gpt-4o';
-    const completion = await openai.chat.completions.create({
+    const completion = await paidChatCompletion(openai, { ...actor, userId: Number(actor.userId), restaurantId }, 'IMPORT_MENU_FROM_IMAGE', {
       model,
       temperature: 0.1,
       response_format: { type: 'json_object' },

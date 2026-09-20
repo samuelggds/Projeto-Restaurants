@@ -47,14 +47,8 @@ export async function generateIngredientImage(req: Request, res: Response) {
 
   try {
     await aiCreditService.assertAvailable(actor);
-    const result = await generateIngredientImageService.execute(req.body || {});
-    const credits = await aiCreditService.recordUsage({
-      ...actor,
-      feature: 'GENERATE_INGREDIENT_IMAGE',
-      model: result.aiUsage.model,
-      costUsd: result.aiUsage.costUsd,
-      usage: result.aiUsage.usage,
-    });
+    const result = await generateIngredientImageService.execute(req.body || {}, actor);
+    const credits = await aiCreditService.getBalance(actor);
     return res.json({ image: result.image, credits });
   } catch (error) {
     if (error instanceof AiCreditsExhaustedError) {

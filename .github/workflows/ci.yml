@@ -51,6 +51,12 @@ jobs:
 
       - name: Check operational script catalog and guards
         run: npm run check:scripts
+      - name: Validate offsite backup controls
+        shell: bash
+        run: |
+          bash -n scripts/backup-production.sh scripts/restore-backup-drill.sh
+          bash scripts/test-backup-production.sh
+          node --test scripts/checkCodeqlSarif.test.mjs
 
   lint:
     name: Lint

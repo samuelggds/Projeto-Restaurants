@@ -9,12 +9,12 @@ import { validatePassword } from '../src/modules/auth/security/passwordPolicy.js
 
 async function main() {
   const restaurant = await prisma.restaurant.findFirst({
-    where: { slug: 'pizza-ia-demo' },
+    where: { slug: 'gastronexa-demo' },
     select: { id: true, slug: true },
   });
 
   if (!restaurant) {
-    throw new Error('Restaurante pizza-ia-demo nao encontrado.');
+    throw new Error('Restaurante gastronexa-demo nao encontrado.');
   }
 
   const password = 'Teste123!';
@@ -22,9 +22,9 @@ async function main() {
   const passwordHash = await bcrypt.hash(password, 10);
 
   const user = await prisma.user.upsert({
-    where: { email: 'cliente.pizzaia.demo@pizzaia.demo' },
+    where: { email: 'cliente.gastronexa.demo@gastronexa.demo' },
     update: {
-      name: 'Cliente Pizza IA',
+      name: 'Cliente GastroNexa',
       password: passwordHash,
       role: UserRole.CLIENTE,
       active: true,
@@ -32,8 +32,8 @@ async function main() {
       phone: '+5585999998888',
     },
     create: {
-      name: 'Cliente Pizza IA',
-      email: 'cliente.pizzaia.demo@pizzaia.demo',
+      name: 'Cliente GastroNexa',
+      email: 'cliente.gastronexa.demo@gastronexa.demo',
       password: passwordHash,
       role: UserRole.CLIENTE,
       active: true,

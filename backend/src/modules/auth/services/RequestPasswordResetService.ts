@@ -41,7 +41,9 @@ class RequestPasswordResetService {
     const safeMessage =
       'Se os dados identificarem uma conta, enviamos um código para o e-mail cadastrado. Se o telefone estiver em mais de uma conta, informe o e-mail.';
 
-    if (!user) {
+    // Recovering a password must never undo an administrator's suspension.
+    // Only the existing CLIENTE self-deactivation flow permits self-reactivation.
+    if (!user || (!user.active && user.role !== 'CLIENTE')) {
       return { message: safeMessage };
     }
 
@@ -86,7 +88,7 @@ class RequestPasswordResetService {
     if (transporter) {
       const from =
         String(process.env.ALERT_EMAIL_FROM || process.env.SMTP_USER || '').trim() ||
-        'no-reply@pizzaia.local';
+        'no-reply@gastronexa.local';
 
       try {
         await transporter.sendMail({

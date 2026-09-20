@@ -31,6 +31,7 @@ export class PasswordResetCodeRepository {
       where: {
         id: userId,
         authVersion,
+        OR: [{ active: true }, { role: 'CLIENTE' }],
         resetPasswordCodeHash: previousCodeHash,
         AND: [
           {

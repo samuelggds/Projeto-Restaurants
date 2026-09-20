@@ -12,12 +12,7 @@ const environment = process.env.NODE_ENV || 'development';
 function sanitizeEvent<T extends Event>(event: T): T {
   if (event.request) {
     event.request.url = telemetryPath(event.request.url);
-    event.request.query_string = undefined;
-    event.request.cookies = undefined;
-    event.request.headers = sanitizeTelemetryValue(
-      event.request.headers,
-    ) as NonNullable<Event['request']>['headers'];
-    event.request.data = sanitizeTelemetryValue(event.request.data);
+    event.request = { method: event.request.method, url: event.request.url };
   }
 
   if (event.user) {

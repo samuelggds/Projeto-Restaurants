@@ -1,10 +1,11 @@
 {
-  "name": "pizza-ia-kitchen-print-agent",
+  "name": "gastronexa-kitchen-print-agent",
   "version": "1.0.0",
   "private": true,
   "type": "module",
   "description": "Agente local para impressão silenciosa de comandas operacionais da cozinha.",
   "bin": {
+    "gastronexa-print-agent": "dist/cli.js",
     "pizza-print-agent": "dist/cli.js"
   },
   "scripts": {

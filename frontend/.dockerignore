@@ -4,3 +4,20 @@ npm-debug.log
 .git
 .gitignore
 dist
+
+# Keep credentials, local archives and diagnostics out of image build contexts.
+.env.*
+!.env*.example
+**/*.pem
+**/*.key
+**/*.p12
+**/*.pfx
+**/*.7z
+**/*.zip
+**/*.dump
+**/*.sql.gz
+**/*.log
+backups
+tmp
+artifacts
+coverage

@@ -35,6 +35,7 @@
     "tmpVerifyAsaasSetup.ts"
   ],
   "guardedWrite": [
+    "reconcileAiCreditReservation.ts",
     "createSuperAdmin.ts",
     "encryptGatewayCredentials.ts",
     "loadTestOrders.ts",

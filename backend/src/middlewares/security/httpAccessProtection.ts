@@ -3,7 +3,12 @@ import cors from 'cors';
 import rateLimit from 'express-rate-limit';
 import { distributedRateLimitOptions } from './PostgresRateLimitStore.js';
 
-const normalizeOrigin = (value: string) => value.trim().replace(/\/+$/, '');
+export function normalizeOrigin(value: string) {
+  const normalized = value.trim();
+  let end = normalized.length;
+  while (end > 0 && normalized[end - 1] === '/') end -= 1;
+  return normalized.slice(0, end);
+}
 
 export function resolveGlobalRateLimitMax(isProduction: boolean, configuredMax: number) {
   return Number.isSafeInteger(configuredMax) && configuredMax > 0

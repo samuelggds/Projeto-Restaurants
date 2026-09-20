@@ -1,3 +1,4 @@
+import { paidChatCompletion } from '../../aiSupport/services/budgetedOpenAi.js';
 import OpenAI from 'openai';
 import { Prisma } from '@prisma/client';
 import { z } from 'zod';
@@ -6,7 +7,6 @@ import categoryRepository from '../../categories/repositories/CategoryRepository
 import createProductService from '../../products/services/CreateProductService.js';
 import updateProductService from '../../products/services/UpdateProductService.js';
 import aiCreditService from '../../aiSupport/services/AiCreditService.js';
-import { calculateTextUsageCostUsd } from '../../aiSupport/services/openAiUsageCost.js';
 import { sanitizeAdminAiContext } from '../../aiSupport/domain/adminAiSecurityPolicy.js';
 
 type Actor = {
@@ -185,7 +185,7 @@ class MenuImportDraftService {
     }
     await aiCreditService.assertAvailable(actor);
     const model = String(process.env.OPENAI_VISION_MODEL || 'gpt-4o').trim();
-    const completion = await client().chat.completions.create({
+    const completion = await paidChatCompletion(client(), actor, 'MENU_IMPORT_IMAGE_PREVIEW', {
       model,
       temperature: 0,
       response_format: { type: 'json_object' },
@@ -249,14 +249,7 @@ class MenuImportDraftService {
       return result;
     });
 
-    const costUsd = calculateTextUsageCostUsd(model, completion.usage);
-    const credits = await aiCreditService.recordUsage({
-      ...actor,
-      feature: 'MENU_IMPORT_IMAGE_PREVIEW',
-      model,
-      costUsd,
-      usage: completion.usage,
-    });
+    const credits = await aiCreditService.getBalance(actor);
     return { ...draft, credits };
   }
 

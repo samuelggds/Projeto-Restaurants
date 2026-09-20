@@ -195,7 +195,6 @@ class UserRepository {
         resetPasswordCodeExpiresAt: null,
         resetPasswordFailedAttempts: 0,
         resetPasswordLockedUntil: null,
-        active: true,
         authVersion: { increment: 1 },
       },
     });

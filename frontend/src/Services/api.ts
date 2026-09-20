@@ -10,7 +10,7 @@ import {
 import { setSystemBlockState } from './systemBlock';
 import { setPlatformMaintenanceState } from './platformMaintenance';
 import { buildLoginUrl } from '../shared/navigation/authNavigation';
-import { sanitizeApiErrorData } from '../shared/errors/userFacingError';
+import { publicApiError } from '../shared/errors/publicApiError';
 
 const LOCAL_HOSTS = ['localhost', '127.0.0.1', '::1'];
 
@@ -98,6 +98,8 @@ const api = axios.create({
 
 let refreshRequest: Promise<string> | null = null;
 const AUTH_REFRESH_LOCK_NAME = 'pizza-ia-auth-refresh';
+// Compatibility lock shared with tabs opened before the GastroNexa rename.
+// Renaming it would allow simultaneous rotation of the same refresh cookie.
 
 export class AuthSessionChangedError extends Error {
   constructor() {
@@ -150,7 +152,7 @@ export function refreshAccessToken(expectedUserId: unknown = getAuthSessionUserI
         throw new AuthSessionChangedError();
       }
       return accessToken;
-    }).finally(() => {
+    }).catch((error) => { throw publicApiError(error); }).finally(() => {
       refreshRequest = null;
     });
   }
@@ -184,7 +186,7 @@ api.interceptors.request.use(
     }
     return config;
   },
-  (error) => Promise.reject(error),
+  (error) => Promise.reject(publicApiError(error)),
 );
 
 api.interceptors.response.use(
@@ -238,7 +240,7 @@ api.interceptors.response.use(
               window.location.assign(buildLoginUrl(window.location));
             }
           }
-          return Promise.reject(refreshError);
+          return Promise.reject(publicApiError(refreshError));
         });
     }
 
@@ -298,13 +300,7 @@ api.interceptors.response.use(
       }
     }
 
-    if (error?.response) {
-      error.response.data = sanitizeApiErrorData(rawData);
-    } else if (error instanceof Error) {
-      error.message = 'Não foi possível se comunicar com o sistema. Verifique sua conexão e tente novamente.';
-    }
-
-    return Promise.reject(error);
+    return Promise.reject(publicApiError(error));
   },
 );
 

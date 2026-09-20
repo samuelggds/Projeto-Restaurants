@@ -20,8 +20,11 @@ function normalizeRestaurantId(restaurantId: number) {
  */
 export async function setTenantDbContext(db: TenantDbClient, restaurantId: number) {
   const normalizedRestaurantId = normalizeRestaurantId(restaurantId);
+  // Prisma timestamps use UTC. SQL NOW() comparisons must use the same zone
+  // for leases/retries even on hosts with a local database timezone.
   await db.$queryRaw<Array<{ set_config: string }>>`
-    SELECT set_config('app.restaurant_id', ${String(normalizedRestaurantId)}, true)
+    SELECT set_config('app.restaurant_id', ${String(normalizedRestaurantId)}, true),
+           set_config('TimeZone', 'UTC', true) AS time_zone
   `;
   return normalizedRestaurantId;
 }
@@ -77,6 +80,9 @@ export async function assertSecureRuntimeDatabaseRole(): Promise<RuntimeDatabase
         WHERE namespaces.nspname = 'public'
           AND relations.relname IN (
             'CustomerPaymentMethod',
+            'AiCreditWallet',
+            'AiCreditLedgerEntry',
+            'AiCreditReservation',
             'OrderIssueThread',
             'RestaurantPrinterSettings',
             'KitchenPrintJob',
