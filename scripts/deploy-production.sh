@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
+umask 077
 
 APP_DIR="${APP_DIR:-$(pwd)}"
 ENV_FILE="${ENV_FILE:-.env.production}"
@@ -121,6 +122,8 @@ print_diagnostics() {
   exit "$exit_code"
 }
 trap print_diagnostics ERR
+predeploy_tmp=''
+trap 'if [[ -n "$predeploy_tmp" ]]; then rm -f -- "$predeploy_tmp"; fi' EXIT
 
 echo '[1/8] Validando modelo de deploy por digest...'
 "${compose[@]}" config --quiet
@@ -128,10 +131,25 @@ echo '[1/8] Validando modelo de deploy por digest...'
 phase='backup'
 echo '[2/8] Criando backup pre-deploy quando o PostgreSQL ja estiver em execucao...'
 mkdir -p backups/predeploy
+chmod 700 backups/predeploy
 if "${compose[@]}" ps --status running --services | grep -qx 'db'; then
-  backup_file="backups/predeploy/postgres-$(date -u +%Y%m%dT%H%M%SZ)-${DEPLOY_SHA:0:12}.sql.gz"
-  "${compose[@]}" exec -T db sh -c 'pg_dump -U "$POSTGRES_USER" "$POSTGRES_DB"' | gzip -9 > "$backup_file"
-  find backups/predeploy -type f -name 'postgres-*.sql.gz' -mtime +7 -delete
+  command -v age >/dev/null || { echo 'Instale age para proteger o backup anterior ao deploy.' >&2; exit 1; }
+  # Only a PUBLIC recipient is read, never source/evaluate the secrets file.
+  recipient="${BACKUP_AGE_RECIPIENT:-}"
+  if [[ -z "$recipient" && -r "$ENV_FILE" ]]; then
+    recipient=$(sed -n 's/^BACKUP_AGE_RECIPIENT=\(age1[a-z0-9]*\)$/\1/p' "$ENV_FILE")
+  fi
+  [[ "$recipient" =~ ^age1[a-z0-9]+$ ]] || { echo 'Configure BACKUP_AGE_RECIPIENT (chave publica age) antes do deploy.' >&2; exit 1; }
+  backup_file="backups/predeploy/postgres-$(date -u +%Y%m%dT%H%M%SZ)-${DEPLOY_SHA:0:12}.dump.age"
+  predeploy_tmp=$(mktemp backups/predeploy/.partial.XXXXXXXX)
+  "${compose[@]}" exec -T db sh -c 'exec pg_dump -U "$POSTGRES_USER" "$POSTGRES_DB" --format=custom --no-owner --no-acl' \
+    | age --recipient "$recipient" --output "$predeploy_tmp"
+  [[ -s "$predeploy_tmp" ]]
+  chmod 600 "$predeploy_tmp"
+  mv -- "$predeploy_tmp" "$backup_file"
+  predeploy_tmp=''
+  find backups/predeploy -type f -name 'postgres-*' -exec chmod 600 {} +
+  find backups/predeploy -type f \( -name 'postgres-*.sql.gz' -o -name 'postgres-*.dump.age' \) -mtime +7 -delete
   echo "Backup criado para recuperacao manual: $backup_file"
 else
   echo 'Banco ainda nao esta em execucao; backup pre-deploy nao se aplica.'

@@ -1,7 +1,7 @@
 import { OrderRefundStatus, OrderStatus, PaymentMethod } from '@prisma/client';
 import prisma from '../../../config/prisma.js';
 import orderRepository from '../repositories/OrderRepository.js';
-import refundOrderPaymentService from './RefundOrderPaymentService.js';
+import refundOrderPaymentService, { AutomaticRefundError } from './RefundOrderPaymentService.js';
 
 type ReconcileLateCancelledPaymentPayload = {
   orderId: number | string;
@@ -29,16 +29,11 @@ class ReconcileLateCancelledPaymentService {
       return false;
     }
 
-    if (order.refundStatus === OrderRefundStatus.SUCCEEDED) {
-      return true;
-    }
-    if (order.refundStatus === OrderRefundStatus.PROCESSING) {
-      throw new Error('Estorno de pagamento tardio já está em processamento.');
-    }
+    const reconcileOnly = order.refundStatus === OrderRefundStatus.PROCESSING;
 
     const isPix = normalizedMethod === PaymentMethod.PIX;
     const isCard = normalizedMethod === PaymentMethod.CARTAO;
-    if (!isPix && !isCard) {
+    if ((!isPix && !isCard) || order.paymentMethod !== normalizedMethod) {
       return false;
     }
 
@@ -52,36 +47,50 @@ class ReconcileLateCancelledPaymentService {
     if (currentReference === completedMarker) {
       return true;
     }
-    if (currentReference.startsWith('late_refund_pending:')) {
+    if (
+      (reconcileOnly && currentReference !== pendingMarker) ||
+      (!reconcileOnly && currentReference.startsWith('late_refund_pending:'))
+    ) {
       throw new Error('Estorno de pagamento tardio já está em processamento.');
     }
+    if (
+      order.refundStatus === OrderRefundStatus.SUCCEEDED ||
+      (currentReference &&
+        currentReference !== normalizedReference &&
+        currentReference !== pendingMarker)
+    ) {
+      throw new Error('A referência do pagamento não corresponde ao pedido cancelado.');
+    }
 
-    const claim = await prisma.order.updateMany({
-      where: {
-        id: order.id,
-        restaurantId: order.restaurantId,
-        status: OrderStatus.CANCELADO,
-        paid: false,
-        ...(isPix
-          ? { pixPaymentId: order.pixPaymentId }
-          : { cardCheckoutSessionId: order.cardCheckoutSessionId }),
-      },
-      data: isPix
-        ? {
-            pixPaymentId: pendingMarker,
-            refundStatus: OrderRefundStatus.PROCESSING,
-            refundRequestedAt: new Date(),
-            refundFailureReason: null,
-            refundIdempotencyKey: idempotencyKey,
-          }
-        : {
-            cardCheckoutSessionId: pendingMarker,
-            refundStatus: OrderRefundStatus.PROCESSING,
-            refundRequestedAt: new Date(),
-            refundFailureReason: null,
-            refundIdempotencyKey: idempotencyKey,
+    const claim = reconcileOnly
+      ? { count: 1 }
+      : await prisma.order.updateMany({
+          where: {
+            id: order.id,
+            restaurantId: order.restaurantId,
+            status: OrderStatus.CANCELADO,
+            paid: false,
+            refundStatus: order.refundStatus,
+            ...(isPix
+              ? { pixPaymentId: order.pixPaymentId }
+              : { cardCheckoutSessionId: order.cardCheckoutSessionId }),
           },
-    });
+          data: isPix
+            ? {
+                pixPaymentId: pendingMarker,
+                refundStatus: OrderRefundStatus.PROCESSING,
+                refundRequestedAt: new Date(),
+                refundFailureReason: null,
+                refundIdempotencyKey: idempotencyKey,
+              }
+            : {
+                cardCheckoutSessionId: pendingMarker,
+                refundStatus: OrderRefundStatus.PROCESSING,
+                refundRequestedAt: new Date(),
+                refundFailureReason: null,
+                refundIdempotencyKey: idempotencyKey,
+              },
+        });
 
     if (claim.count !== 1) {
       const latest = await orderRepository.findById(order.id, order.restaurantId);
@@ -106,10 +115,16 @@ class ReconcileLateCancelledPaymentService {
         },
         {
           idempotencyKey,
+          reconcileOnly,
           verifyExistingRefund: order.refundStatus === OrderRefundStatus.FAILED,
         },
       );
     } catch (error) {
+      if (
+        reconcileOnly ||
+        (error instanceof AutomaticRefundError && error.code === 'REFUND_PENDING')
+      )
+        throw error;
       await prisma.order.updateMany({
         where: {
           id: order.id,

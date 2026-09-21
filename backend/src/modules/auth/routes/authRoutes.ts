@@ -20,6 +20,7 @@ import UpdateMfaPreferenceController from '../controllers/UpdateMfaPreferenceCon
 import {
   passwordResetRateLimitMiddleware,
   registrationRateLimitMiddleware,
+  securityPreferenceRateLimitMiddleware,
 } from '../../../middlewares/security/accountActionRateLimitMiddleware.js';
 
 const router = Router();
@@ -93,7 +94,7 @@ router.put('/profile', authMiddleware, (req, res) => {
   UpdateProfileController.handle(req, res);
 });
 
-router.patch('/mfa', authMiddleware, (req, res) => {
+router.patch('/mfa', authMiddleware, securityPreferenceRateLimitMiddleware, (req, res) => {
   UpdateMfaPreferenceController.handle(req, res);
 });
 

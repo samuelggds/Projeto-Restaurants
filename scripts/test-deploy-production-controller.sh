@@ -13,7 +13,7 @@ make_fixture() {
   local dir="$1"
   mkdir -p "$dir/bin" "$dir/scripts"
   cp "$ROOT/scripts/deploy-production.sh" "$dir/scripts/deploy-production.sh"
-  : > "$dir/.env.production"
+  printf 'BACKUP_AGE_RECIPIENT=age1synthetictestrecipient\n' > "$dir/.env.production"
   : > "$dir/docker-compose.production.yml"
   : > "$dir/docker-compose.release.yml"
   cat > "$dir/.gastronexa-release.env" <<EOF
@@ -49,11 +49,22 @@ if [[ "$*" == *'compose'*'exec -T frontend'* ]] && [[ "${FAKE_READINESS_FAIL:-fa
   exit 19
 fi
 if [[ "$*" == *'compose'*'ps --status running --services'* ]]; then
-  printf 'worker\n'
+  if [[ "${FAKE_DATABASE_RUNNING:-false}" == true ]]; then printf 'db\nworker\n'; else printf 'worker\n'; fi
 fi
+if [[ "$*" == *'pg_dump'* ]]; then printf 'synthetic-private-database'; [[ "${FAKE_DUMP_FAIL:-false}" != true ]]; exit; fi
 exit 0
 EOF
+  cat > "$dir/bin/age" <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+[[ "${FAKE_AGE_FAIL:-false}" != true ]]
+input=$(cat)
+if [[ "$input" == recipient-check ]]; then exit 0; fi
+[[ "$input" == synthetic-private-database ]]
+printf 'age-encryption.org/v1\nsynthetic-ciphertext' > "$4"
+EOF
   chmod +x "$dir/bin/docker"
+  chmod +x "$dir/bin/age"
 }
 
 run_case() {
@@ -74,8 +85,46 @@ run_case() {
   export FAKE_MIGRATION_FAIL=false
   export FAKE_RECOVERABLE_MIGRATION_FAIL=false
   export FAKE_READINESS_FAIL=false
+  export FAKE_DATABASE_RUNNING=false FAKE_DUMP_FAIL=false FAKE_AGE_FAIL=false
 
   case "$mode" in
+    backup-recipient-config)
+      printf 'DATABASE_URL=preserve-existing\nBACKUP_AGE_RECIPIENT=age1old\n' > "$dir/.env.production"
+      printf 'SECRET=never-copy-this\nBACKUP_AGE_RECIPIENT=age1synthetictestrecipient\n' > "$dir/backup.env"
+      bash "$ROOT/scripts/configure-predeploy-backup-key.sh" "$dir/backup.env" "$dir/.env.production" > "$dir/output.log"
+      grep -qx 'DATABASE_URL=preserve-existing' "$dir/.env.production"
+      grep -qx 'BACKUP_AGE_RECIPIENT=age1synthetictestrecipient' "$dir/.env.production"
+      if grep -q 'never-copy-this' "$dir/.env.production" "$dir/output.log"; then exit 1; fi
+      before=$(sha256sum "$dir/.env.production")
+      export FAKE_AGE_FAIL=true
+      if bash "$ROOT/scripts/configure-predeploy-backup-key.sh" "$dir/backup.env" "$dir/.env.production" > "$dir/output.log" 2>&1; then exit 1; fi
+      test "$before" = "$(sha256sum "$dir/.env.production")"
+      export FAKE_AGE_FAIL=false
+      printf 'BACKUP_AGE_RECIPIENT=age1duplicate\n' >> "$dir/backup.env"
+      if bash "$ROOT/scripts/configure-predeploy-backup-key.sh" "$dir/backup.env" "$dir/.env.production" > "$dir/output.log" 2>&1; then exit 1; fi
+      test "$before" = "$(sha256sum "$dir/.env.production")"
+      if [[ "$(uname -s)" == Linux ]]; then [[ $(stat -c %a "$dir/.env.production") == 600 ]]; fi
+      ;;
+    backup)
+      export FAKE_DATABASE_RUNNING=true
+      bash "$dir/scripts/deploy-production.sh" >"$dir/output.log" 2>&1
+      file=$(find "$dir/backups/predeploy" -name '*.dump.age')
+      [[ -n "$file" && -s "$file" ]]
+      grep -q 'age-encryption.org/v1' "$file"
+      if grep -q synthetic-private-database "$file"; then echo 'Plaintext backup written'; exit 1; fi
+      if [[ "$(uname -s)" == Linux ]]; then
+        [[ $(stat -c %a "$file") == 600 && $(stat -c %a "$dir/backups/predeploy") == 700 ]]
+      fi
+      ;;
+    backup-missing-key|backup-dump-failure|backup-encryption-failure)
+      export FAKE_DATABASE_RUNNING=true
+      [[ "$mode" != backup-missing-key ]] || : > "$dir/.env.production"
+      [[ "$mode" != backup-dump-failure ]] || export FAKE_DUMP_FAIL=true
+      [[ "$mode" != backup-encryption-failure ]] || export FAKE_AGE_FAIL=true
+      if bash "$dir/scripts/deploy-production.sh" >"$dir/output.log" 2>&1; then echo 'Unsafe backup accepted'; exit 1; fi
+      [[ -z $(find "$dir/backups/predeploy" -type f) ]]
+      if grep -q 'run --rm --no-deps migrate' "$dir/docker.log"; then echo 'Migrated after backup failure'; exit 1; fi
+      ;;
     migration)
       export FAKE_MIGRATION_FAIL=true
       if bash "$dir/scripts/deploy-production.sh" >"$dir/output.log" 2>&1; then
@@ -123,4 +172,9 @@ run_case() {
 run_case migration
 run_case recoverable-migration
 run_case readiness
+run_case backup
+run_case backup-missing-key
+run_case backup-dump-failure
+run_case backup-encryption-failure
+run_case backup-recipient-config
 printf 'Deploy controller failure drills passed.\n'

@@ -26,7 +26,7 @@ import { toast } from 'react-toastify';
 import { useAppDialog } from '../../../components/AppDialog/context';
 import * as S from './AdminOrders.styles';
 import type { AdminOrder } from '../types';
-import type { RestaurantOrdersQueue } from '../../../Services/ordersService';
+import ordersService, { type RestaurantOrdersQueue } from '../../../Services/ordersService';
 import {
   ADMIN_ORDERS_PAGE_SIZE,
   useAdminOrdersPage,
@@ -120,6 +120,7 @@ export function AdminOrders({
   const [queueView, setQueueView] = useState<QueueView>('ALL');
   const [cancellingOrderId, setCancellingOrderId] = useState<number | null>(null);
   const [confirmingPaymentId, setConfirmingPaymentId] = useState<number | null>(null);
+  const [checkingRefundId, setCheckingRefundId] = useState<number | null>(null);
   const page = useAdminOrdersPage({
     search,
     status,
@@ -183,6 +184,25 @@ export function AdminOrders({
       toast.error(getActionErrorMessage(error, 'Não foi possível confirmar o pagamento.'));
     } finally {
       setConfirmingPaymentId(null);
+    }
+  };
+
+  const checkRefund = async (order: AdminOrder) => {
+    setCheckingRefundId(order.numericId);
+    try {
+      const result = await ordersService.reconcileOrderRefund(order.numericId);
+      await page.refresh();
+      toast.success(
+        result.refunded
+          ? 'Estorno confirmado pelo provedor.'
+          : 'Consulta concluída; nenhuma nova devolução foi solicitada.',
+      );
+    } catch (error) {
+      toast.error(
+        getActionErrorMessage(error, 'Não foi possível consultar o estorno. Tente novamente.'),
+      );
+    } finally {
+      setCheckingRefundId(null);
     }
   };
 
@@ -627,6 +647,20 @@ export function AdminOrders({
                       </span>
                     )}
 
+                    {isRefundProcessing && (
+                      <div className="action-buttons">
+                        <button
+                          type="button"
+                          onClick={() => void checkRefund(order)}
+                          disabled={checkingRefundId !== null}
+                          aria-label={`Consultar estorno do pedido ${order.id}`}
+                        >
+                          {checkingRefundId === order.numericId
+                            ? 'Consultando…'
+                            : 'Consultar estorno'}
+                        </button>
+                      </div>
+                    )}
                     {!isFinished && !isRefundProcessing && (
                       <div className="action-buttons">
                         {!order.paid && order.payOnDelivery && (

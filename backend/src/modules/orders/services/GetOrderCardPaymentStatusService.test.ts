@@ -3,11 +3,16 @@ import assert from 'node:assert/strict';
 import test, { afterEach } from 'node:test';
 import orderRepository from '../repositories/OrderRepository.js';
 import getOrderCardPaymentStatusService from './GetOrderCardPaymentStatusService.js';
+import { issueGuestOrderOwnershipToken } from '../utils/guestOrderOwnershipToken.js';
+import createOrderService from './CreateOrderService.js';
 
 const originalFindCardPaymentStatusByPublicId = orderRepository.findCardPaymentStatusByPublicId;
+const originalSecret = process.env.GUEST_ORDER_OWNERSHIP_SECRET;
 
 afterEach(() => {
   orderRepository.findCardPaymentStatusByPublicId = originalFindCardPaymentStatusByPublicId;
+  if (originalSecret === undefined) delete process.env.GUEST_ORDER_OWNERSHIP_SECRET;
+  else process.env.GUEST_ORDER_OWNERSHIP_SECRET = originalSecret;
 });
 
 const orderPublicId = '123e4567-e89b-42d3-a456-426614174001';
@@ -101,11 +106,20 @@ test('confirma somente o pedido canônico pertencente ao cliente autenticado', a
   );
 });
 
-test('aceita o publicId como credencial de retorno para pedido convidado e preserva cancelamento', async () => {
+test('visitante criado recebe status somente com prova assinada do seu pedido', async () => {
+  process.env.GUEST_ORDER_OWNERSHIP_SECRET = 'synthetic-guest-proof-secret-more-than-32-chars';
+  const guestId = await createOrderService.resolveOrderUser({
+    tx: { user: { upsert: async () => ({ id: 33 }) } },
+    restaurantId: 9,
+    customerName: 'Visitante',
+    customerPhone: '11999999999',
+    guestPasswordHash: 'synthetic-hash',
+  });
   orderRepository.findCardPaymentStatusByPublicId = async () => ({
+    id: 501,
     publicId: orderPublicId,
     restaurantId: 9,
-    userId: null,
+    userId: guestId,
     type: 'RETIRADA',
     tableSessionId: null,
     participantId: null,
@@ -119,10 +133,31 @@ test('aceita o publicId como credencial de retorno para pedido convidado e prese
     orderPublicId,
     restaurantId: 9,
     guest: true,
+    guestOwnershipToken: issueGuestOrderOwnershipToken({ orderId: 501, publicId: orderPublicId }),
   });
 
   assert.equal(result.status, 'CANCELED');
   assert.equal(result.paid, false);
+  for (const token of [
+    '',
+    'invalid',
+    issueGuestOrderOwnershipToken({ orderId: 999, publicId: orderPublicId }),
+    issueGuestOrderOwnershipToken({
+      orderId: 501,
+      publicId: '123e4567-e89b-42d3-a456-426614174002',
+    }),
+  ]) {
+    await assert.rejects(
+      () =>
+        getOrderCardPaymentStatusService.execute({
+          orderPublicId,
+          restaurantId: 9,
+          guest: true,
+          guestOwnershipToken: token,
+        }),
+      /não encontrado/,
+    );
+  }
 });
 
 test('rejeita UUID inválido e pedidos que não são checkout online de cartão', async () => {

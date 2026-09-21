@@ -69,7 +69,10 @@ export default function Profile() {
   const [searchParams] = useSearchParams();
   const [activeOrders, setActiveOrders] = useState<Record<string, unknown>[]>([]);
   const history = useOrderHistory({ mine: true, refreshSignal: user?.id });
-  const orders = useMemo(() => [...activeOrders, ...history.orders as Record<string, unknown>[]], [activeOrders, history.orders]);
+  const orders = useMemo(
+    () => [...activeOrders, ...(history.orders as Record<string, unknown>[])],
+    [activeOrders, history.orders],
+  );
   const [favorites, setFavorites] = useState<Record<string, unknown>[]>([]);
   const [addresses, setAddresses] = useState<Record<string, unknown>[]>([]);
   const [paymentMethods, setPaymentMethods] = useState<CustomerPaymentMethod[]>([]);
@@ -131,10 +134,7 @@ export default function Profile() {
   }, [loadLoyaltyWallet]);
 
   useEffect(() => {
-    if (
-      guestClaimAttemptedRef.current ||
-      String(user?.role || '').toUpperCase() !== 'CLIENTE'
-    ) {
+    if (guestClaimAttemptedRef.current || String(user?.role || '').toUpperCase() !== 'CLIENTE') {
       return;
     }
     const proofs = getGuestOwnedOrderProofs();
@@ -283,10 +283,8 @@ export default function Profile() {
   );
   const restaurantHomePath = useMemo(
     () =>
-      buildProfileRestaurantHomePath(
-        settings,
-        (user as Record<string, unknown> | null) || null,
-      ) || '/',
+      buildProfileRestaurantHomePath(settings, (user as Record<string, unknown> | null) || null) ||
+      '/',
     [settings, user],
   );
   const restaurantMenuPath = useMemo(
@@ -348,8 +346,8 @@ export default function Profile() {
   );
 
   const handleToggleTwoFactor = useCallback(
-    async (enabled: boolean) => {
-      await api.patch('/auth/mfa', { enabled });
+    async (enabled: boolean, currentPassword: string) => {
+      await api.patch('/auth/mfa', { enabled, currentPassword });
       toast.success(
         `${enabled ? 'Verificação em duas etapas ativada' : 'Verificação em duas etapas desativada'}. Entre novamente.`,
       );

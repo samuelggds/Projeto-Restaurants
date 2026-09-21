@@ -47,6 +47,18 @@ function getTablePaymentKey(req: Request) {
   return `${ip}:${sessionPublicId}:${participantPublicId}`;
 }
 
+export const securityPreferenceRateLimitMiddleware = rateLimit({
+  ...distributedRateLimitOptions('account-security-preference'),
+  windowMs: 15 * 60 * 1000,
+  max: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: (req) => String(req.user?.id || ipKeyGenerator(String(req.ip || 'unknown'))),
+  message: {
+    error: 'Muitas tentativas de alteração de segurança. Aguarde antes de tentar novamente.',
+  },
+});
+
 export const tablePaymentActionRateLimitMiddleware = rateLimit({
   ...distributedRateLimitOptions('accountaction:3'),
   windowMs: Number(process.env.TABLE_PAYMENT_RATE_LIMIT_WINDOW_MS || 60_000),

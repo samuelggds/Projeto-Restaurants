@@ -1,8 +1,9 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, type RefObject } from 'react';
 
 export function useDialogFocusManagement<T extends HTMLElement>(
   onClose: () => void,
   enabled = true,
+  returnFocusRef?: RefObject<HTMLElement | null>,
 ) {
   const panel = useRef<T>(null);
   const onCloseRef = useRef(onClose);
@@ -13,7 +14,9 @@ export function useDialogFocusManagement<T extends HTMLElement>(
 
   useEffect(() => {
     if (!enabled) return;
-    const previous = document.activeElement as HTMLElement | null;
+    // Safari does not focus buttons clicked with a pointer. Capture the explicit
+    // opener when available, so closing restores focus to the same workflow.
+    const previous = returnFocusRef?.current || (document.activeElement as HTMLElement | null);
     const previousOverflow = document.body.style.overflow;
     const isTopmost = () => {
       const dialogs = document.querySelectorAll('[role="dialog"]');
@@ -69,7 +72,7 @@ export function useDialogFocusManagement<T extends HTMLElement>(
       document.removeEventListener('keydown', handleKeyDown);
       if (previous?.isConnected) previous.focus();
     };
-  }, [enabled]);
+  }, [enabled, returnFocusRef]);
 
   return panel;
 }

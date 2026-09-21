@@ -172,7 +172,9 @@ export function getGuestOrderOwnershipToken(orderId: string | number) {
 export function getGuestOrderOwnershipTokenByPublicId(publicId: string) {
   const normalizedPublicId = String(publicId || '').trim();
   if (!normalizedPublicId) return '';
-  const orderId = Number(safeStorageGet(`${GUEST_PUBLIC_ORDER_ID_PREFIX}${normalizedPublicId}`) || 0);
+  const orderId = Number(
+    safeStorageGet(`${GUEST_PUBLIC_ORDER_ID_PREFIX}${normalizedPublicId}`) || 0,
+  );
   return Number.isInteger(orderId) && orderId > 0 ? getGuestOrderOwnershipToken(orderId) : '';
 }
 
@@ -382,7 +384,12 @@ class OrdersService {
   }
 
   async getCardPaymentStatus(payload: PixPaymentStatusPayload) {
-    const response = await api.post('/orders/card/checkout/status', payload);
+    const guestToken = getGuestOrderOwnershipTokenByPublicId(String(payload.orderPublicId || ''));
+    const response = await api.post(
+      '/orders/card/checkout/status',
+      payload,
+      guestToken ? { headers: { 'x-guest-order-ownership': guestToken } } : undefined,
+    );
     return response.data;
   }
 
@@ -557,6 +564,11 @@ class OrdersService {
 
   async refundOrder(orderId: string | number) {
     const response = await api.patch(`/orders/${orderId}/refund`);
+    return response.data;
+  }
+
+  async reconcileOrderRefund(orderId: string | number) {
+    const response = await api.post(`/orders/${orderId}/refund/status`);
     return response.data;
   }
 

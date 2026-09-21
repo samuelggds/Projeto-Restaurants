@@ -18,9 +18,7 @@ import {
 import { toast } from 'react-toastify';
 import { useAuth } from '../../../contexts/authContext';
 import authService from '../../../Services/authService';
-import api from '../../../Services/api';
 import { getAccessToken } from '../../../modules/auth/session/authSession';
-import { useAppDialog } from '../../../components/AppDialog/context';
 import * as S from './AdminProfile.styles';
 
 type Tab = 'profile' | 'security' | 'notifications';
@@ -68,11 +66,9 @@ function initials(name?: string) {
 export default function AdminProfile() {
   const { user, logout, login } = useAuth();
   const navigate = useNavigate();
-  const { confirmDialog } = useAppDialog();
   const avatarInputRef = useRef<HTMLInputElement>(null);
   const [activeTab, setActiveTab] = useState<Tab>('profile');
   const [saving, setSaving] = useState(false);
-  const [updatingMfa, setUpdatingMfa] = useState(false);
   const [form, setForm] = useState({
     name: String(user?.name || ''),
     email: String(user?.email || ''),
@@ -83,7 +79,6 @@ export default function AdminProfile() {
     readNotificationPreferences(user?.id),
   );
 
-  const mfaEnabled = Boolean(user?.mfaEnabled);
   const restaurantLabel = useMemo(() => {
     const restaurant = user?.restaurant as Record<string, unknown> | null | undefined;
     return String(
@@ -108,7 +103,8 @@ export default function AdminProfile() {
     }
 
     const reader = new FileReader();
-    reader.onload = () => setForm((current) => ({ ...current, avatar: String(reader.result || '') }));
+    reader.onload = () =>
+      setForm((current) => ({ ...current, avatar: String(reader.result || '') }));
     reader.onerror = () => toast.error('Não foi possível carregar essa imagem.');
     reader.readAsDataURL(file);
   };
@@ -158,52 +154,6 @@ export default function AdminProfile() {
     }
   };
 
-  const toggleMfa = async () => {
-    if (updatingMfa) return;
-    const nextEnabled = !mfaEnabled;
-    if (!nextEnabled) {
-      const confirmed = await confirmDialog({
-        title: 'Desativar a verificação em duas etapas?',
-        description:
-          'Sem a segunda confirmação, sua conta administrativa ficará protegida apenas pela senha. Isso reduz a segurança contra acessos indevidos. Você poderá ativar novamente depois.',
-        confirmLabel: 'Desativar mesmo assim',
-        cancelLabel: 'Manter proteção',
-        tone: 'danger',
-      });
-      if (!confirmed) return;
-    } else {
-      const confirmed = await confirmDialog({
-        title: 'Ativar a verificação em duas etapas?',
-        description:
-          'No próximo login você receberá uma confirmação adicional pelos canais disponíveis da sua conta.',
-        confirmLabel: 'Ativar proteção',
-        cancelLabel: 'Agora não',
-      });
-      if (!confirmed) return;
-    }
-
-    setUpdatingMfa(true);
-    try {
-      await api.patch('/auth/mfa', { enabled: nextEnabled });
-      toast.success(
-        nextEnabled
-          ? 'Verificação em duas etapas ativada. Entre novamente para continuar.'
-          : 'Verificação em duas etapas desativada. Entre novamente para continuar.',
-      );
-      logout();
-      navigate('/login', { replace: true });
-    } catch (error: unknown) {
-      const requestError = error as { response?: { data?: { error?: string } }; message?: string };
-      toast.error(
-        requestError.response?.data?.error ||
-          requestError.message ||
-          'Não foi possível alterar a verificação em duas etapas.',
-      );
-    } finally {
-      setUpdatingMfa(false);
-    }
-  };
-
   const saveNotifications = () => {
     window.localStorage.setItem(notificationStorageKey(user?.id), JSON.stringify(notifications));
     toast.success('Preferências salvas neste dispositivo.');
@@ -218,7 +168,9 @@ export default function AdminProfile() {
         </button>
         <div className="brand" aria-label="GastroNexa">
           <img src="/gastronexa-logo.svg" alt="" aria-hidden="true" />
-          <span>Gastro<strong>Nexa</strong></span>
+          <span>
+            Gastro<strong>Nexa</strong>
+          </span>
         </div>
         <button type="button" className="logout" onClick={logout}>
           <LogOut aria-hidden="true" />
@@ -230,7 +182,11 @@ export default function AdminProfile() {
         <S.ProfileHero>
           <div className="avatar-wrap">
             <div className="avatar" aria-label="Foto do administrador">
-              {form.avatar ? <img src={form.avatar} alt="Foto do administrador" /> : initials(form.name)}
+              {form.avatar ? (
+                <img src={form.avatar} alt="Foto do administrador" />
+              ) : (
+                initials(form.name)
+              )}
             </div>
             <button
               type="button"
@@ -253,15 +209,21 @@ export default function AdminProfile() {
             <h1>{form.name || 'Administrador'}</h1>
             <p>{form.email || 'Conta administrativa'}</p>
             <div className="badges">
-              <span><ShieldCheck aria-hidden="true" /> Administrador</span>
-              {restaurantLabel && <span><Building2 aria-hidden="true" /> {restaurantLabel}</span>}
+              <span>
+                <ShieldCheck aria-hidden="true" /> Administrador
+              </span>
+              {restaurantLabel && (
+                <span>
+                  <Building2 aria-hidden="true" /> {restaurantLabel}
+                </span>
+              )}
             </div>
           </div>
           <div className="security-score">
             <CheckCircle2 aria-hidden="true" />
             <span>
-              <b>{mfaEnabled ? 'Conta protegida' : 'Proteção básica'}</b>
-              <small>{mfaEnabled ? '2 etapas ativadas' : 'Somente senha'}</small>
+              <b>Conta protegida</b>
+              <small>2 etapas obrigatórias</small>
             </span>
           </div>
         </S.ProfileHero>
@@ -274,7 +236,10 @@ export default function AdminProfile() {
               onClick={() => setActiveTab('profile')}
             >
               <UserRound aria-hidden="true" />
-              <span><b>Meus dados</b><small>Informações pessoais</small></span>
+              <span>
+                <b>Meus dados</b>
+                <small>Informações pessoais</small>
+              </span>
             </button>
             <button
               type="button"
@@ -282,7 +247,10 @@ export default function AdminProfile() {
               onClick={() => setActiveTab('security')}
             >
               <LockKeyhole aria-hidden="true" />
-              <span><b>Segurança</b><small>Senha e proteção</small></span>
+              <span>
+                <b>Segurança</b>
+                <small>Senha e proteção</small>
+              </span>
             </button>
             <button
               type="button"
@@ -290,7 +258,10 @@ export default function AdminProfile() {
               onClick={() => setActiveTab('notifications')}
             >
               <Bell aria-hidden="true" />
-              <span><b>Notificações</b><small>Alertas administrativos</small></span>
+              <span>
+                <b>Notificações</b>
+                <small>Alertas administrativos</small>
+              </span>
             </button>
           </S.SideNav>
 
@@ -308,22 +279,48 @@ export default function AdminProfile() {
                 <S.FormGrid>
                   <label className="full">
                     <span>Nome completo</span>
-                    <div className="input-wrap"><UserRound /><input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></div>
+                    <div className="input-wrap">
+                      <UserRound />
+                      <input
+                        value={form.name}
+                        onChange={(e) => setForm({ ...form, name: e.target.value })}
+                      />
+                    </div>
                   </label>
                   <label>
                     <span>E-mail</span>
-                    <div className="input-wrap"><Mail /><input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} /></div>
+                    <div className="input-wrap">
+                      <Mail />
+                      <input
+                        type="email"
+                        value={form.email}
+                        onChange={(e) => setForm({ ...form, email: e.target.value })}
+                      />
+                    </div>
                     <small>Ao trocar o e-mail, use um endereço ao qual você tenha acesso.</small>
                   </label>
                   <label>
                     <span>Telefone</span>
-                    <div className="input-wrap"><Smartphone /><input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} placeholder="(85) 99999-9999" /></div>
+                    <div className="input-wrap">
+                      <Smartphone />
+                      <input
+                        value={form.phone}
+                        onChange={(e) => setForm({ ...form, phone: e.target.value })}
+                        placeholder="(85) 99999-9999"
+                      />
+                    </div>
                   </label>
                 </S.FormGrid>
 
                 <S.RelatedCard>
-                  <div className="icon"><Building2 /></div>
-                  <div><small>RESTAURANTE VINCULADO</small><b>{restaurantLabel || 'Restaurante da conta'}</b><span>Este vínculo não pode ser alterado pelo perfil.</span></div>
+                  <div className="icon">
+                    <Building2 />
+                  </div>
+                  <div>
+                    <small>RESTAURANTE VINCULADO</small>
+                    <b>{restaurantLabel || 'Restaurante da conta'}</b>
+                    <span>Este vínculo não pode ser alterado pelo perfil.</span>
+                  </div>
                   <span className="readonly">Somente leitura</span>
                 </S.RelatedCard>
 
@@ -347,32 +344,42 @@ export default function AdminProfile() {
 
                 <S.SecurityList>
                   <S.SecurityItem>
-                    <div className="icon"><KeyRound /></div>
-                    <div><b>Senha de acesso</b><span>Altere sua senha sempre que suspeitar de um acesso indevido.</span></div>
-                    <button type="button" onClick={() => navigate('/change-password')}>Alterar senha</button>
+                    <div className="icon">
+                      <KeyRound />
+                    </div>
+                    <div>
+                      <b>Senha de acesso</b>
+                      <span>Altere sua senha sempre que suspeitar de um acesso indevido.</span>
+                    </div>
+                    <button type="button" onClick={() => navigate('/change-password')}>
+                      Alterar senha
+                    </button>
                   </S.SecurityItem>
                   <S.SecurityItem>
-                    <div className="icon"><ShieldCheck /></div>
+                    <div className="icon">
+                      <ShieldCheck />
+                    </div>
                     <div>
                       <b>Verificação em duas etapas</b>
                       <span>
-                        {mfaEnabled
-                          ? 'Ativada para pedir uma segunda confirmação em novos acessos.'
-                          : 'Desativada. Sua conta depende apenas da senha para autenticação.'}
+                        Uma segunda confirmação é obrigatória em novos acessos administrativos.
                       </span>
                     </div>
                     <div className="mfa-control">
-                      <span className={mfaEnabled ? 'status on' : 'status'}>
-                        {mfaEnabled ? 'Ativada' : 'Desativada'}
-                      </span>
-                      <button type="button" disabled={updatingMfa} onClick={() => void toggleMfa()}>
-                        {updatingMfa ? 'Atualizando...' : mfaEnabled ? 'Desativar' : 'Ativar'}
-                      </button>
+                      <span className="status on">Obrigatória</span>
                     </div>
                   </S.SecurityItem>
                   <S.SecurityItem>
-                    <div className="icon"><Smartphone /></div>
-                    <div><b>Sessões abertas</b><span>O gerenciamento de outras sessões será exibido aqui quando o backend disponibilizar esse controle.</span></div>
+                    <div className="icon">
+                      <Smartphone />
+                    </div>
+                    <div>
+                      <b>Sessões abertas</b>
+                      <span>
+                        O gerenciamento de outras sessões será exibido aqui quando o backend
+                        disponibilizar esse controle.
+                      </span>
+                    </div>
                     <span className="status">Sessão atual</span>
                   </S.SecurityItem>
                 </S.SecurityList>
@@ -391,21 +398,43 @@ export default function AdminProfile() {
 
                 <S.NotificationList>
                   {[
-                    ['newOrders', 'Novos pedidos', 'Receba destaque visual para novos pedidos e eventos importantes da operação.'],
-                    ['billing', 'Cobranças e assinatura', 'Avisos sobre mensalidade, vencimentos e situações que possam afetar o acesso.'],
-                    ['operationalAlerts', 'Alertas operacionais', 'Problemas de integração, disponibilidade e ocorrências que exigem ação do administrador.'],
+                    [
+                      'newOrders',
+                      'Novos pedidos',
+                      'Receba destaque visual para novos pedidos e eventos importantes da operação.',
+                    ],
+                    [
+                      'billing',
+                      'Cobranças e assinatura',
+                      'Avisos sobre mensalidade, vencimentos e situações que possam afetar o acesso.',
+                    ],
+                    [
+                      'operationalAlerts',
+                      'Alertas operacionais',
+                      'Problemas de integração, disponibilidade e ocorrências que exigem ação do administrador.',
+                    ],
                   ].map(([key, title, description]) => (
                     <label key={key}>
-                      <span><b>{title}</b><small>{description}</small></span>
+                      <span>
+                        <b>{title}</b>
+                        <small>{description}</small>
+                      </span>
                       <input
                         type="checkbox"
                         checked={notifications[key as keyof NotificationPreferences]}
-                        onChange={(event) => setNotifications((current) => ({ ...current, [key]: event.target.checked }))}
+                        onChange={(event) =>
+                          setNotifications((current) => ({
+                            ...current,
+                            [key]: event.target.checked,
+                          }))
+                        }
                       />
                     </label>
                   ))}
                 </S.NotificationList>
-                <S.DeviceNotice>As preferências desta versão ficam salvas no navegador usado pelo administrador.</S.DeviceNotice>
+                <S.DeviceNotice>
+                  As preferências desta versão ficam salvas no navegador usado pelo administrador.
+                </S.DeviceNotice>
                 <S.Actions>
                   <button type="button" className="primary" onClick={saveNotifications}>
                     <Save aria-hidden="true" /> Salvar preferências

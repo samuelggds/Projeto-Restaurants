@@ -7,6 +7,7 @@ import finalizeOrderCardPaymentService from './FinalizeOrderCardPaymentService.j
 import { getMercadoPagoOrderApi } from '../../payments/providers/mercadoPagoClient.js';
 import { matchesOrderPaymentEvidence } from '../utils/paymentEvidence.js';
 import { mercadoPagoCardExternalReferenceCandidates } from '../domain/mercadoPagoCardReference.js';
+import { verifyGuestOrderOwnershipTokenByPublicId } from '../utils/guestOrderOwnershipToken.js';
 
 const publicOrderIdSchema = z.string().uuid();
 const notFoundMessage = 'Pagamento com cartão não encontrado.';
@@ -18,6 +19,7 @@ type Input = {
   tableSessionId?: number | string | null;
   participantId?: number | string | null;
   guest?: boolean;
+  guestOwnershipToken?: string;
 };
 
 class GetOrderCardPaymentStatusService {
@@ -47,12 +49,17 @@ class GetOrderCardPaymentStatusService {
       ) {
         throw new Error(notFoundMessage);
       }
-    } else if (order.userId) {
-      if (order.userId !== Number(input.userId || 0)) {
+    } else if (!order.userId || order.userId !== Number(input.userId || 0)) {
+      try {
+        const proof = verifyGuestOrderOwnershipTokenByPublicId(
+          input.guestOwnershipToken || '',
+          parsedPublicId.data,
+        );
+        if (proof.orderId !== order.id || order.restaurantId !== restaurantId)
+          throw new Error(notFoundMessage);
+      } catch {
         throw new Error(notFoundMessage);
       }
-    } else if (!input.guest) {
-      throw new Error(notFoundMessage);
     }
 
     const sessionId = String(order.cardCheckoutSessionId || '');
@@ -64,7 +71,9 @@ class GetOrderCardPaymentStatusService {
     ) {
       try {
         const providerOrderId = sessionId.slice('mp_order:'.length);
-        const remote = await (await getMercadoPagoOrderApi(order.restaurantId)).get(providerOrderId);
+        const remote = await (
+          await getMercadoPagoOrderApi(order.restaurantId)
+        ).get(providerOrderId);
         const reference = String(remote.external_reference || '').trim();
         const validReference = new Set(
           mercadoPagoCardExternalReferenceCandidates(order.id, order.restaurantId),

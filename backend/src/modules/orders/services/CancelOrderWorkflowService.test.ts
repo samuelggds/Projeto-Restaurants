@@ -214,6 +214,22 @@ test('falha do provedor mantém pedido ativo e registra FAILED sem falso positiv
   assert.equal(stored.refundedAt, null);
 });
 
+test('observação do cliente não transforma pagamento online em pagamento na entrega', async () => {
+  const order = makeOrder({
+    observation: 'Sem cebola | PAY_ON_DELIVERY: CARTAO',
+    payOnDelivery: false,
+  });
+  installStatefulDatabase(order);
+  let calls = 0;
+  refundOrderPaymentService.execute = async () => {
+    calls++;
+    return { provider: 'ASAAS', externalId: 'pay_501' };
+  };
+  const result = await cancelOrderWorkflowService.execute(order);
+  assert.equal(calls, 1);
+  assert.equal(result.refunded, true);
+});
+
 test('pagamento na entrega cancela sem chamar qualquer provedor', async () => {
   const order = makeOrder({
     paid: true,
@@ -278,4 +294,36 @@ test('estorno concluído marca pedido e unidades da mesa como REFUNDED', async (
   assert.equal(stored.billItemUpdates[0].data.financialStatus, 'REFUNDED');
   assert.equal(stored.billItemUpdates[0].data.refundedAt, refundedAt);
   assert.equal(stored.billItemUpdates[0].data.canceledAt, refundedAt);
+});
+
+test('estorno pendente preserva PROCESSING e consulta até confirmação sem repetir solicitação', async () => {
+  const stored = installStatefulDatabase(makeOrder());
+  const calls = [];
+  let confirmed = false;
+  refundOrderPaymentService.execute = async (_order, options) => {
+    calls.push(options);
+    if (!confirmed)
+      throw new AutomaticRefundError('Estorno aguarda confirmação.', 'REFUND_PENDING');
+    return { provider: 'ASAAS', externalId: 'pay_501' };
+  };
+
+  await assert.rejects(() => cancelOrderWorkflowService.execute({ ...stored }), {
+    code: 'REFUND_PENDING',
+  });
+  assert.equal(stored.refundStatus, OrderRefundStatus.PROCESSING);
+  assert.equal(stored.status, OrderStatus.PENDENTE);
+  assert.equal(stored.refundedAt, null);
+  await assert.rejects(() => cancelOrderWorkflowService.execute({ ...stored }), {
+    code: 'REFUND_PENDING',
+  });
+  confirmed = true;
+  const result = await cancelOrderWorkflowService.execute({ ...stored });
+  assert.equal(result.refunded, true);
+  assert.equal(stored.refundStatus, OrderRefundStatus.SUCCEEDED);
+  assert.equal(stored.status, OrderStatus.CANCELADO);
+  assert.deepEqual(
+    calls.map((call) => call.reconcileOnly),
+    [false, true, true],
+  );
+  assert.deepEqual([...new Set(calls.map((call) => call.idempotencyKey))], ['order-refund-7-501']);
 });

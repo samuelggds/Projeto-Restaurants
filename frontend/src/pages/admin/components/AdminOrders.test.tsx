@@ -8,10 +8,13 @@ import { AdminOrders } from './AdminOrders';
 import type { RestaurantOrdersPageQuery } from '../../../Services/ordersService';
 import { getAdminOrdersSummary } from '../domain/adminOrders';
 
-const mocks = vi.hoisted(() => ({ listPage: vi.fn() }));
+const mocks = vi.hoisted(() => ({ listPage: vi.fn(), reconcileRefund: vi.fn() }));
 
 vi.mock('../../../Services/ordersService', () => ({
-  default: { listRestaurantOrdersPage: mocks.listPage },
+  default: {
+    listRestaurantOrdersPage: mocks.listPage,
+    reconcileOrderRefund: mocks.reconcileRefund,
+  },
 }));
 vi.mock('../../../Services/paymentTerminalService', () => ({
   default: { list: vi.fn().mockResolvedValue({ terminals: [] }) },
@@ -136,6 +139,19 @@ describe('AdminOrders', () => {
     expect(container.textContent).toContain('Entrega');
     expect(container.textContent).toContain('Retirada no balcão');
     expect(container.querySelectorAll('[role="progressbar"]')).toHaveLength(3);
+  });
+
+  it('consulta um estorno pendente sem pedir outro cancelamento ou confirmação de pagamento', async () => {
+    mocks.reconcileRefund.mockResolvedValue({ refunded: true });
+    const { onCancelOrder, onConfirmPayment } = await renderOrders(undefined, [
+      { ...orders[0], refundStatus: 'PROCESSING' },
+    ]);
+    await act(async () => buttonByLabel(container, 'Consultar estorno do pedido #301').click());
+    expect(mocks.reconcileRefund).toHaveBeenCalledWith(301);
+    expect(onCancelOrder).not.toHaveBeenCalled();
+    expect(onConfirmPayment).not.toHaveBeenCalled();
+    expect(toast.success).toHaveBeenCalledWith('Estorno confirmado pelo provedor.');
+    expect(container.querySelector('button[aria-label="Cancelar pedido #301"]')).toBeNull();
   });
 
   it('busca uma página por clique e retorna à primeira sem carregar o histórico inteiro', async () => {

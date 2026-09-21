@@ -1,4 +1,4 @@
-import { OrderStatus, OrderType, UserRole } from '@prisma/client';
+import { OrderRefundStatus, OrderStatus, OrderType, UserRole } from '@prisma/client';
 import prisma from '../../../config/prisma.js';
 import { realtimePublisher as io } from '../../../realtime/realtimePublisher.js';
 import orderRepository from '../repositories/OrderRepository.js';
@@ -38,12 +38,21 @@ class ClaimOrderForDeliveryService {
           id: true,
           type: true,
           status: true,
+          refundStatus: true,
           assignedCourierId: true,
           deliveryDistanceMeters: true,
         },
       });
       if (!current) throw new Error('Pedido não encontrado.');
       if (current.type !== OrderType.DELIVERY) throw new Error('Este pedido não é uma entrega.');
+      if (
+        current.refundStatus === OrderRefundStatus.PROCESSING ||
+        current.refundStatus === OrderRefundStatus.SUCCEEDED
+      ) {
+        throw new Error(
+          'Pedido com estorno em processamento ou concluído não está disponível para retirada.',
+        );
+      }
 
       if (
         current.status === OrderStatus.PRONTO &&
@@ -75,6 +84,7 @@ class ClaimOrderForDeliveryService {
           type: OrderType.DELIVERY,
           status: OrderStatus.PRONTO,
           assignedCourierId: null,
+          refundStatus: { notIn: [OrderRefundStatus.PROCESSING, OrderRefundStatus.SUCCEEDED] },
           NOT: {
             paid: false,
             paymentMethod: { in: ['PIX', 'CARTAO'] },
@@ -92,12 +102,28 @@ class ClaimOrderForDeliveryService {
       if (claimed.count !== 1) {
         const concurrent = await tx.order.findFirst({
           where: { id: normalizedOrderId, restaurantId },
-          select: { type: true, status: true, assignedCourierId: true },
+          select: { type: true, status: true, assignedCourierId: true, refundStatus: true },
         });
         if (!concurrent) throw new Error('Pedido não encontrado.');
-        if (concurrent.type !== OrderType.DELIVERY) throw new Error('Este pedido não é uma entrega.');
-        if (Number(concurrent.assignedCourierId || 0) === courierId && concurrent.status === OrderStatus.PRONTO) {
-          const alreadyClaimed = await orderRepository.findById(normalizedOrderId, restaurantId, tx);
+        if (concurrent.type !== OrderType.DELIVERY)
+          throw new Error('Este pedido não é uma entrega.');
+        if (
+          concurrent.refundStatus === OrderRefundStatus.PROCESSING ||
+          concurrent.refundStatus === OrderRefundStatus.SUCCEEDED
+        ) {
+          throw new Error(
+            'Pedido com estorno em processamento ou concluído não está disponível para retirada.',
+          );
+        }
+        if (
+          Number(concurrent.assignedCourierId || 0) === courierId &&
+          concurrent.status === OrderStatus.PRONTO
+        ) {
+          const alreadyClaimed = await orderRepository.findById(
+            normalizedOrderId,
+            restaurantId,
+            tx,
+          );
           if (alreadyClaimed) return alreadyClaimed;
         }
         if (concurrent.assignedCourierId) {

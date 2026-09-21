@@ -64,13 +64,25 @@ router.post('/webhook/mercadopago-point', MercadoPagoPointWebhookController.hand
 router.post('/webhook/stripe', StripeOrderWebhookController.handle);
 router.post('/webhook/pagbank', PagBankOrderWebhookController.handle);
 
-router.post('/', orderAccessMiddleware, premiumTableOrderMiddleware, billingMiddleware, (req, res) => {
-  CreateOrderController.handle(req, res);
-});
+router.post(
+  '/',
+  orderAccessMiddleware,
+  premiumTableOrderMiddleware,
+  billingMiddleware,
+  (req, res) => {
+    CreateOrderController.handle(req, res);
+  },
+);
 
-router.post('/quote', orderAccessMiddleware, premiumTableOrderMiddleware, billingMiddleware, (req, res) => {
-  QuoteOrderController.handle(req, res);
-});
+router.post(
+  '/quote',
+  orderAccessMiddleware,
+  premiumTableOrderMiddleware,
+  billingMiddleware,
+  (req, res) => {
+    QuoteOrderController.handle(req, res);
+  },
+);
 
 router.post(
   '/pix/payment',
@@ -94,17 +106,35 @@ router.post(
   },
 );
 
-router.post('/card/checkout/status', orderAccessMiddleware, premiumTableOrderMiddleware, billingMiddleware, (req, res) => {
-  GetOrderCardPaymentStatusController.handle(req, res);
-});
+router.post(
+  '/card/checkout/status',
+  orderAccessMiddleware,
+  premiumTableOrderMiddleware,
+  billingMiddleware,
+  (req, res) => {
+    GetOrderCardPaymentStatusController.handle(req, res);
+  },
+);
 
-router.post('/pix/payment/status', orderAccessMiddleware, premiumTableOrderMiddleware, billingMiddleware, (req, res) => {
-  GetOrderPixPaymentStatusController.handle(req, res);
-});
+router.post(
+  '/pix/payment/status',
+  orderAccessMiddleware,
+  premiumTableOrderMiddleware,
+  billingMiddleware,
+  (req, res) => {
+    GetOrderPixPaymentStatusController.handle(req, res);
+  },
+);
 
-router.post('/pix/payment/confirm', orderAccessMiddleware, premiumTableOrderMiddleware, billingMiddleware, (req, res) => {
-  ConfirmOrderPixPaymentController.handle(req, res);
-});
+router.post(
+  '/pix/payment/confirm',
+  orderAccessMiddleware,
+  premiumTableOrderMiddleware,
+  billingMiddleware,
+  (req, res) => {
+    ConfirmOrderPixPaymentController.handle(req, res);
+  },
+);
 
 router.get('/payment/:publicId/pix', orderPaymentAccessMiddleware, (req, res) => {
   OrderPixPaymentRecoveryController.get(req, res);
@@ -261,6 +291,10 @@ router.patch('/:id/resolve-issue', authMiddleware, orderSupportStaffMiddleware, 
 
 router.patch('/:id/refund', authMiddleware, adminMiddleware, (req, res) => {
   RefundOrderByAdminController.handle(req, res);
+});
+
+router.post('/:id/refund/status', authMiddleware, adminMiddleware, (req, res) => {
+  RefundOrderByAdminController.handle(req, res, true);
 });
 
 export default router;

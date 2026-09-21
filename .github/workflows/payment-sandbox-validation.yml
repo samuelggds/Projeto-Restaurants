@@ -1,7 +1,14 @@
-name: Payment Sandbox Validation
+name: Payment Sandbox Preflight
 
 on:
   workflow_dispatch:
+    inputs:
+      provider:
+        description: Provedor de teste a validar (não executa cobrança)
+        type: choice
+        required: true
+        default: mercado-pago
+        options: [mercado-pago, pagbank, asaas]
 
 permissions:
   contents: read
@@ -30,21 +37,32 @@ jobs:
     environment: payment-sandbox
     steps:
       - name: Mercado Pago sandbox/test credential preflight
+        if: inputs.provider == 'mercado-pago'
         env:
           TOKEN: ${{ secrets.MERCADO_PAGO_SANDBOX_TOKEN }}
+          TEST_ACCOUNT_ID: ${{ vars.MERCADO_PAGO_SANDBOX_USER_ID }}
         shell: bash
         run: |
           set -euo pipefail
           if [ -z "$TOKEN" ]; then
             echo '- Mercado Pago: NÃO EXECUTADO / PENDENTE — credencial de teste ausente.' >> "$GITHUB_STEP_SUMMARY"
+            exit 1
           else
+            case "$TOKEN" in TEST-*|APP_USR-*) ;; *) echo 'Use exclusivamente a credencial de teste do Mercado Pago.' >&2; exit 1 ;; esac
             code="$(curl --silent --show-error --output "$RUNNER_TEMP/mp.json" --write-out '%{http_code}' \
               --max-time 15 -H "Authorization: Bearer $TOKEN" https://api.mercadopago.com/users/me)"
             test "$code" = '200'
+            # Orders test credentials can also start with APP_USR. Prefix alone
+            # must never be treated as proof that an account is a test account.
+            if [[ "$TOKEN" == APP_USR-* ]]; then
+              [[ "$TEST_ACCOUNT_ID" =~ ^[0-9]+$ ]]
+              jq -e --arg id "$TEST_ACCOUNT_ID" '(.id | tostring) == $id and ((.tags // []) | index("test_user") != null)' "$RUNNER_TEMP/mp.json" >/dev/null
+            fi
             echo '- Mercado Pago: autenticação de credencial de teste validada em chamada somente leitura. Fluxo completo de pagamento sandbox continua separado.' >> "$GITHUB_STEP_SUMMARY"
           fi
 
       - name: PagBank sandbox preflight
+        if: inputs.provider == 'pagbank'
         env:
           TOKEN: ${{ secrets.PAGBANK_SANDBOX_TOKEN }}
           ACCOUNT_ID: ${{ vars.PAGBANK_SANDBOX_ACCOUNT_ID }}
@@ -53,6 +71,7 @@ jobs:
           set -euo pipefail
           if [ -z "$TOKEN" ] || [ -z "$ACCOUNT_ID" ]; then
             echo '- PagBank: NÃO EXECUTADO / PENDENTE — token sandbox e/ou account id ausente.' >> "$GITHUB_STEP_SUMMARY"
+            exit 1
           else
             [[ "$ACCOUNT_ID" =~ ^ACCO_[A-Za-z0-9_-]+$ ]]
             code="$(curl --silent --show-error --output "$RUNNER_TEMP/pagbank.json" --write-out '%{http_code}' \
@@ -63,6 +82,7 @@ jobs:
           fi
 
       - name: Asaas sandbox preflight
+        if: inputs.provider == 'asaas'
         env:
           TOKEN: ${{ secrets.ASAAS_SANDBOX_TOKEN }}
         shell: bash
@@ -70,6 +90,7 @@ jobs:
           set -euo pipefail
           if [ -z "$TOKEN" ]; then
             echo '- Asaas: NÃO EXECUTADO / PENDENTE — chave sandbox ausente.' >> "$GITHUB_STEP_SUMMARY"
+            exit 1
           else
             case "$TOKEN" in '$aact_hmlg_'*) ;; *) echo 'A chave fornecida não possui prefixo de Sandbox do Asaas.' >&2; exit 1 ;; esac
             code="$(curl --silent --show-error --output "$RUNNER_TEMP/asaas.json" --write-out '%{http_code}' \
@@ -86,6 +107,7 @@ jobs:
         run: |
           {
             echo
-            echo 'Este workflow nunca usa endpoints de produção e não cria cobranças reais.'
+            echo 'Este workflow faz consultas somente leitura; Mercado Pago usa a API oficial com credencial de teste. Não cria pagamentos.'
+            echo 'Provedores não selecionados não foram validados. Asaas segue desativado e PagBank depende de homologação antes de uso comercial.'
             echo 'Presença de segredo por si só não é registrada como integração homologada.'
           } >> "$GITHUB_STEP_SUMMARY"

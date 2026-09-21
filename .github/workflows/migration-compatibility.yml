@@ -10,6 +10,9 @@ permissions:
   contents: read
 
 jobs:
+  previous-version-upgrade:
+    uses: ./.github/workflows/database-upgrade.yml
+
   expand-contract:
     name: Expand-contract migration policy
     runs-on: ubuntu-latest
@@ -30,12 +33,14 @@ jobs:
   migration-compatibility-validation:
     name: Migration Compatibility Validation
     if: ${{ always() }}
-    needs: [expand-contract]
+    needs: [expand-contract, previous-version-upgrade]
     runs-on: ubuntu-latest
     steps:
       - name: Require migration history policy and deploy failure drills to pass
         env:
+          UPGRADE_RESULT: ${{ needs.previous-version-upgrade.result }}
           RESULT: ${{ needs.expand-contract.result }}
         run: |
           set -euo pipefail
           test "$RESULT" = 'success'
+          test "$UPGRADE_RESULT" = 'success'
