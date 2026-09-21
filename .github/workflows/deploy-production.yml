@@ -30,6 +30,7 @@ jobs:
     environment: production
     env:
       APP_DIR: /opt/gastronexa
+      DEPLOY_USER: gastronexa-deploy
 
     steps:
       - name: Resolve and validate exact production release run
@@ -152,7 +153,6 @@ jobs:
       - name: Validate deployment inputs
         env:
           LIGHTSAIL_HOST: ${{ secrets.LIGHTSAIL_HOST }}
-          LIGHTSAIL_USER: ${{ secrets.LIGHTSAIL_USER }}
           LIGHTSAIL_SSH_KEY: ${{ secrets.LIGHTSAIL_SSH_KEY }}
           LIGHTSAIL_KNOWN_HOSTS: ${{ secrets.LIGHTSAIL_KNOWN_HOSTS }}
           GHCR_READ_USERNAME: ${{ secrets.GHCR_READ_USERNAME }}
@@ -160,13 +160,11 @@ jobs:
         run: |
           set -euo pipefail
           test -n "$LIGHTSAIL_HOST"
-          test -n "$LIGHTSAIL_USER"
           test -n "$LIGHTSAIL_SSH_KEY"
           test -n "$LIGHTSAIL_KNOWN_HOSTS"
           test -n "$GHCR_READ_USERNAME"
           test -n "$GHCR_READ_TOKEN"
           test "${#LIGHTSAIL_HOST}" -le 255
-          test "${#LIGHTSAIL_USER}" -le 64
 
       - name: Verify release provenance before production access
         env:
@@ -203,62 +201,42 @@ jobs:
           printf '%s\n' "$LIGHTSAIL_KNOWN_HOSTS" > ~/.ssh/known_hosts
           chmod 600 ~/.ssh/known_hosts
 
-      - name: Install controller files from the approved commit
+      - name: Authenticate production host through restricted deploy account
         env:
           LIGHTSAIL_HOST: ${{ secrets.LIGHTSAIL_HOST }}
-          LIGHTSAIL_USER: ${{ secrets.LIGHTSAIL_USER }}
-          DEPLOY_SHA: ${{ steps.manifest.outputs.sha }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          ssh -i ~/.ssh/gastronexa-prod -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes \
-            "$LIGHTSAIL_USER@$LIGHTSAIL_HOST" \
-            "mkdir -p '$APP_DIR/.controller-backups/$DEPLOY_SHA' '$APP_DIR/scripts' '$APP_DIR/deploy'; \
-             cp '$APP_DIR/docker-compose.production.yml' '$APP_DIR/.controller-backups/$DEPLOY_SHA/' 2>/dev/null || true; \
-             cp '$APP_DIR/scripts/deploy-production.sh' '$APP_DIR/.controller-backups/$DEPLOY_SHA/' 2>/dev/null || true"
-          scp -i ~/.ssh/gastronexa-prod -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes \
-            docker-compose.production.yml docker-compose.release.yml \
-            "$LIGHTSAIL_USER@$LIGHTSAIL_HOST:$APP_DIR/"
-          scp -i ~/.ssh/gastronexa-prod -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes \
-            scripts/deploy-production.sh "$LIGHTSAIL_USER@$LIGHTSAIL_HOST:$APP_DIR/scripts/deploy-production.sh"
-          scp -i ~/.ssh/gastronexa-prod -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes \
-            deploy/Caddyfile "$LIGHTSAIL_USER@$LIGHTSAIL_HOST:$APP_DIR/deploy/Caddyfile"
-
-      - name: Authenticate production host to read-only registry credentials
-        env:
-          LIGHTSAIL_HOST: ${{ secrets.LIGHTSAIL_HOST }}
-          LIGHTSAIL_USER: ${{ secrets.LIGHTSAIL_USER }}
           GHCR_READ_USERNAME: ${{ secrets.GHCR_READ_USERNAME }}
           GHCR_READ_TOKEN: ${{ secrets.GHCR_READ_TOKEN }}
         shell: bash
         run: |
           set -euo pipefail
+          [[ "$GHCR_READ_USERNAME" =~ ^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$ ]]
           printf '%s' "$GHCR_READ_TOKEN" | ssh \
             -i ~/.ssh/gastronexa-prod \
             -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes \
-            "$LIGHTSAIL_USER@$LIGHTSAIL_HOST" \
-            "docker login ghcr.io -u '$GHCR_READ_USERNAME' --password-stdin >/dev/null"
+            -o ConnectTimeout=15 \
+            "$DEPLOY_USER@$LIGHTSAIL_HOST" \
+            "registry-login $GHCR_READ_USERNAME"
 
-      - name: Deploy exact scanned and attested image digests
+      - name: Deploy exact scanned and attested image digests through restricted controller
         env:
           LIGHTSAIL_HOST: ${{ secrets.LIGHTSAIL_HOST }}
-          LIGHTSAIL_USER: ${{ secrets.LIGHTSAIL_USER }}
           DEPLOY_SHA: ${{ steps.manifest.outputs.sha }}
           BACKEND_IMAGE: ${{ steps.manifest.outputs.backend }}
           FRONTEND_IMAGE: ${{ steps.manifest.outputs.frontend }}
         shell: bash
         run: |
           set -euo pipefail
+          [[ "$DEPLOY_SHA" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$BACKEND_IMAGE" =~ ^ghcr\.io/samuelggds/gastronexa-backend@sha256:[0-9a-f]{64}$ ]]
+          [[ "$FRONTEND_IMAGE" =~ ^ghcr\.io/samuelggds/gastronexa-frontend@sha256:[0-9a-f]{64}$ ]]
           ssh \
             -i ~/.ssh/gastronexa-prod \
             -o BatchMode=yes \
             -o IdentitiesOnly=yes \
             -o StrictHostKeyChecking=yes \
             -o ConnectTimeout=15 \
-            "$LIGHTSAIL_USER@$LIGHTSAIL_HOST" \
-            "cd '$APP_DIR' && chmod 700 scripts/deploy-production.sh && \
-             DEPLOY_SHA='$DEPLOY_SHA' BACKEND_IMAGE='$BACKEND_IMAGE' FRONTEND_IMAGE='$FRONTEND_IMAGE' APP_DIR='$APP_DIR' \
-             bash scripts/deploy-production.sh"
+            "$DEPLOY_USER@$LIGHTSAIL_HOST" \
+            "deploy $DEPLOY_SHA $BACKEND_IMAGE $FRONTEND_IMAGE"
 
       - name: Verify public endpoints
         env:
@@ -294,13 +272,13 @@ jobs:
         if: always()
         env:
           LIGHTSAIL_HOST: ${{ secrets.LIGHTSAIL_HOST }}
-          LIGHTSAIL_USER: ${{ secrets.LIGHTSAIL_USER }}
         shell: bash
         run: |
           set +e
-          if [ -f ~/.ssh/gastronexa-prod ] && [ -n "$LIGHTSAIL_HOST" ] && [ -n "$LIGHTSAIL_USER" ]; then
+          if [ -f ~/.ssh/gastronexa-prod ] && [ -n "$LIGHTSAIL_HOST" ]; then
             ssh -i ~/.ssh/gastronexa-prod -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes \
-              "$LIGHTSAIL_USER@$LIGHTSAIL_HOST" 'docker logout ghcr.io >/dev/null 2>&1 || true'
+              -o ConnectTimeout=15 \
+              "$DEPLOY_USER@$LIGHTSAIL_HOST" 'registry-logout' >/dev/null 2>&1 || true
           fi
           rm -f ~/.ssh/gastronexa-prod "$RUNNER_TEMP/release.zip"
           rm -rf "$RUNNER_TEMP/release"
