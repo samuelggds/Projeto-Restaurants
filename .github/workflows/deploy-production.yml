@@ -20,6 +20,7 @@ permissions:
   contents: read
   actions: read
   attestations: read
+  id-token: write
 
 jobs:
   deploy:
@@ -152,19 +153,23 @@ jobs:
 
       - name: Validate deployment inputs
         env:
-          LIGHTSAIL_HOST: ${{ secrets.LIGHTSAIL_HOST }}
+          TAILSCALE_PROD_HOST: ${{ secrets.TAILSCALE_PROD_HOST }}
+          TS_OAUTH_CLIENT_ID: ${{ secrets.TS_OAUTH_CLIENT_ID }}
+          TS_AUDIENCE: ${{ secrets.TS_AUDIENCE }}
           LIGHTSAIL_SSH_KEY: ${{ secrets.LIGHTSAIL_SSH_KEY }}
           LIGHTSAIL_KNOWN_HOSTS: ${{ secrets.LIGHTSAIL_KNOWN_HOSTS }}
           GHCR_READ_USERNAME: ${{ secrets.GHCR_READ_USERNAME }}
           GHCR_READ_TOKEN: ${{ secrets.GHCR_READ_TOKEN }}
         run: |
           set -euo pipefail
-          test -n "$LIGHTSAIL_HOST"
+          test -n "$TAILSCALE_PROD_HOST"
+          test -n "$TS_OAUTH_CLIENT_ID"
+          test -n "$TS_AUDIENCE"
           test -n "$LIGHTSAIL_SSH_KEY"
           test -n "$LIGHTSAIL_KNOWN_HOSTS"
           test -n "$GHCR_READ_USERNAME"
           test -n "$GHCR_READ_TOKEN"
-          test "${#LIGHTSAIL_HOST}" -le 255
+          [[ "$TAILSCALE_PROD_HOST" =~ ^100\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$ ]]
 
       - name: Verify release provenance before production access
         env:
@@ -189,6 +194,15 @@ jobs:
               --deny-self-hosted-runners
           done
 
+      - name: Connect runner to production tailnet with GitHub OIDC
+        uses: tailscale/github-action@780049a30b6ff5c378a9e7b389d15ece7a204888 # v4.1.3
+        with:
+          oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
+          audience: ${{ secrets.TS_AUDIENCE }}
+          tags: tag:ci
+          version: '1.102.4'
+          ping: ${{ secrets.TAILSCALE_PROD_HOST }}
+
       - name: Configure SSH
         env:
           LIGHTSAIL_SSH_KEY: ${{ secrets.LIGHTSAIL_SSH_KEY }}
@@ -198,12 +212,17 @@ jobs:
           install -d -m 700 ~/.ssh
           printf '%s\n' "$LIGHTSAIL_SSH_KEY" > ~/.ssh/gastronexa-prod
           chmod 600 ~/.ssh/gastronexa-prod
-          printf '%s\n' "$LIGHTSAIL_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          printf '%s\n' "$LIGHTSAIL_KNOWN_HOSTS" | awk '
+            /^[[:space:]]*#/ || NF < 3 { next }
+            $1 ~ /^@/ && NF >= 4 { $2="gastronexa-prod-tailscale"; print; next }
+            { $1="gastronexa-prod-tailscale"; print }
+          ' > ~/.ssh/known_hosts
+          test -s ~/.ssh/known_hosts
           chmod 600 ~/.ssh/known_hosts
 
       - name: Authenticate production host through restricted deploy account
         env:
-          LIGHTSAIL_HOST: ${{ secrets.LIGHTSAIL_HOST }}
+          TAILSCALE_PROD_HOST: ${{ secrets.TAILSCALE_PROD_HOST }}
           GHCR_READ_USERNAME: ${{ secrets.GHCR_READ_USERNAME }}
           GHCR_READ_TOKEN: ${{ secrets.GHCR_READ_TOKEN }}
         shell: bash
@@ -213,13 +232,14 @@ jobs:
           printf '%s' "$GHCR_READ_TOKEN" | ssh \
             -i ~/.ssh/gastronexa-prod \
             -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes \
+            -o HostKeyAlias=gastronexa-prod-tailscale \
             -o ConnectTimeout=15 \
-            "$DEPLOY_USER@$LIGHTSAIL_HOST" \
+            "$DEPLOY_USER@$TAILSCALE_PROD_HOST" \
             "registry-login $GHCR_READ_USERNAME"
 
       - name: Deploy exact scanned and attested image digests through restricted controller
         env:
-          LIGHTSAIL_HOST: ${{ secrets.LIGHTSAIL_HOST }}
+          TAILSCALE_PROD_HOST: ${{ secrets.TAILSCALE_PROD_HOST }}
           DEPLOY_SHA: ${{ steps.manifest.outputs.sha }}
           BACKEND_IMAGE: ${{ steps.manifest.outputs.backend }}
           FRONTEND_IMAGE: ${{ steps.manifest.outputs.frontend }}
@@ -234,8 +254,9 @@ jobs:
             -o BatchMode=yes \
             -o IdentitiesOnly=yes \
             -o StrictHostKeyChecking=yes \
+            -o HostKeyAlias=gastronexa-prod-tailscale \
             -o ConnectTimeout=15 \
-            "$DEPLOY_USER@$LIGHTSAIL_HOST" \
+            "$DEPLOY_USER@$TAILSCALE_PROD_HOST" \
             "deploy $DEPLOY_SHA $BACKEND_IMAGE $FRONTEND_IMAGE"
 
       - name: Verify public endpoints
@@ -271,14 +292,15 @@ jobs:
       - name: Remove temporary credentials
         if: always()
         env:
-          LIGHTSAIL_HOST: ${{ secrets.LIGHTSAIL_HOST }}
+          TAILSCALE_PROD_HOST: ${{ secrets.TAILSCALE_PROD_HOST }}
         shell: bash
         run: |
           set +e
-          if [ -f ~/.ssh/gastronexa-prod ] && [ -n "$LIGHTSAIL_HOST" ]; then
+          if [ -f ~/.ssh/gastronexa-prod ] && [ -n "$TAILSCALE_PROD_HOST" ]; then
             ssh -i ~/.ssh/gastronexa-prod -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes \
-              -o ConnectTimeout=15 \
-              "$DEPLOY_USER@$LIGHTSAIL_HOST" 'registry-logout' >/dev/null 2>&1 || true
+              -o HostKeyAlias=gastronexa-prod-tailscale \
+            -o ConnectTimeout=15 \
+              "$DEPLOY_USER@$TAILSCALE_PROD_HOST" 'registry-logout' >/dev/null 2>&1 || true
           fi
           rm -f ~/.ssh/gastronexa-prod "$RUNNER_TEMP/release.zip"
           rm -rf "$RUNNER_TEMP/release"
