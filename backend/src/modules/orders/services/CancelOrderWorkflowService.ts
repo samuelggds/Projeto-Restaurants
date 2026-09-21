@@ -17,7 +17,6 @@ import { restoreOrderItemsStock } from './restoreOrderItemsStock.js';
 type CancellationOrder = NonNullable<Awaited<ReturnType<typeof orderRepository.findById>>>;
 
 const DIGITAL_PAYMENT_METHODS = new Set<string>([PaymentMethod.PIX, PaymentMethod.CARTAO]);
-const PAY_ON_DELIVERY_MARKER = 'PAY_ON_DELIVERY:';
 
 export class OrderCancellationError extends Error {
   constructor(message: string) {
@@ -38,12 +37,7 @@ export function isOrderPaidOnDelivery(order: {
   payOnDelivery?: boolean | null;
   observation?: string | null;
 }) {
-  return (
-    order.payOnDelivery === true ||
-    String(order.observation || '')
-      .toUpperCase()
-      .includes(PAY_ON_DELIVERY_MARKER)
-  );
+  return order.payOnDelivery === true;
 }
 
 export function requiresAutomaticOrderRefund(order: {
@@ -281,32 +275,29 @@ class CancelOrderWorkflowService {
       return this.finalizeSucceededRefund(order);
     }
 
-    if (order.refundStatus === OrderRefundStatus.PROCESSING) {
-      throw new OrderCancellationError(
-        'O estorno deste pedido já está em processamento ou aguardando conciliação. Aguarde a atualização antes de tentar novamente.',
-      );
-    }
-
     const previousRefundStatus = order.refundStatus;
     const idempotencyKey =
       String(order.refundIdempotencyKey || '').trim() || this.buildIdempotencyKey(order);
-    const claim = await prisma.order.updateMany({
-      where: {
-        id: order.id,
-        restaurantId: order.restaurantId,
-        status: order.status,
-        paid: true,
-        refundStatus: previousRefundStatus,
-      },
-      data: {
-        refundStatus: OrderRefundStatus.PROCESSING,
-        refundRequestedAt: new Date(),
-        refundFailureReason: null,
-        refundIdempotencyKey: idempotencyKey,
-        refundProvider: null,
-        refundExternalId: null,
-      },
-    });
+    const reconcileOnly = previousRefundStatus === OrderRefundStatus.PROCESSING;
+    const claim = reconcileOnly
+      ? { count: 1 }
+      : await prisma.order.updateMany({
+          where: {
+            id: order.id,
+            restaurantId: order.restaurantId,
+            status: order.status,
+            paid: true,
+            refundStatus: previousRefundStatus,
+          },
+          data: {
+            refundStatus: OrderRefundStatus.PROCESSING,
+            refundRequestedAt: new Date(),
+            refundFailureReason: null,
+            refundIdempotencyKey: idempotencyKey,
+            refundProvider: null,
+            refundExternalId: null,
+          },
+        });
 
     if (claim.count !== 1) {
       const latest = await orderRepository.findById(order.id, order.restaurantId);
@@ -332,6 +323,7 @@ class CancelOrderWorkflowService {
     try {
       receipt = await refundOrderPaymentService.execute(order, {
         idempotencyKey,
+        reconcileOnly,
         verifyExistingRefund: previousRefundStatus === OrderRefundStatus.FAILED,
       });
     } catch (error) {
@@ -341,7 +333,9 @@ class CancelOrderWorkflowService {
           : new AutomaticRefundError(
               'O provedor de pagamento não confirmou o estorno. O pedido não foi cancelado e pode ser tentado novamente.',
             );
-      await this.markRefundFailed(order, idempotencyKey, safeError);
+      if (!reconcileOnly && safeError.code !== 'REFUND_PENDING') {
+        await this.markRefundFailed(order, idempotencyKey, safeError);
+      }
       throw safeError;
     }
 

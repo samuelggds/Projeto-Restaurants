@@ -164,6 +164,27 @@ test('deve ignorar 2FA para role nao configurada', async () => {
   assert.equal(result, null);
 });
 
+for (const role of ['ADMIN', 'SUPER_ADMIN']) {
+  test(`política obrigatória exige MFA de ${role} mesmo com preferência falsa`, async () => {
+    installPrismaMocks();
+    process.env.MFA_REQUIRED_ROLES = role === 'SUPER_ADMIN' ? '' : 'ADMIN,SUPER_ADMIN';
+    process.env.JWT_SECRET = 'test_jwt_secret_with_minimum_32_chars_123456';
+    process.env.JWT_MFA_SECRET = 'test_mfa_secret_with_minimum_32_chars_123456';
+    const result = await loginMfaService.beginIfRequired({
+      id: 10,
+      role,
+      restaurantId: 1,
+      email: 'admin@example.test',
+      name: 'Admin',
+      active: true,
+      mustChangePassword: false,
+      mfaEnabled: false,
+    });
+    assert.equal(result.mfaRequired, true);
+    assert.ok(result.mfaToken);
+  });
+}
+
 test('deve exigir 2FA quando o proprio cliente o habilita', async () => {
   installPrismaMocks();
   process.env.MFA_REQUIRED_ROLES = 'ADMIN,SUPER_ADMIN';

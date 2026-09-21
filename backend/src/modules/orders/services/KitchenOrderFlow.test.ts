@@ -140,7 +140,7 @@ test('pagamento digital não confirmado não avança na cozinha em nenhum canal'
       paymentMethod,
       payOnDelivery: false,
       paid: false,
-      observation: null,
+      observation: 'Sem cebola. PAY_ON_DELIVERY: DINHEIRO',
     });
 
     await assert.rejects(

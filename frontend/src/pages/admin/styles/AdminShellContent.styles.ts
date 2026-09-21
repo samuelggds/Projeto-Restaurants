@@ -167,6 +167,14 @@ export const SettingsMotionFrame = styled.div`
     min-width: 0;
   }
 
+  @media (max-width: 760px) {
+    /* Keep controls revealed by focus/scroll below the sticky section selector
+       and above the bottom navigation, including the embedded demo on Safari. */
+    :is(input, select, textarea, button, [tabindex]) {
+      scroll-margin-block: 76px 112px;
+    }
+  }
+
   @keyframes settings-page-enter {
     0% {
       opacity: 0;

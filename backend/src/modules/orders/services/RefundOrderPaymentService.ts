@@ -30,6 +30,7 @@ export type RefundProviderReceipt = {
 export type RefundOrderPaymentOptions = {
   idempotencyKey?: string | null;
   verifyExistingRefund?: boolean;
+  reconcileOnly?: boolean;
 };
 
 export class AutomaticRefundError extends Error {
@@ -39,6 +40,7 @@ export class AutomaticRefundError extends Error {
       | 'NOT_SUPPORTED'
       | 'MISSING_REFERENCE'
       | 'MISSING_CREDENTIALS'
+      | 'REFUND_PENDING'
       | 'PROVIDER_FAILURE' = 'PROVIDER_FAILURE',
   ) {
     super(message);
@@ -50,6 +52,8 @@ type AsaasRefundResponse = {
   id?: string;
   status?: string;
   value?: number;
+  externalReference?: string;
+  refunds?: Array<{ status?: string; value?: number }>;
   errors?: Array<{
     code?: string;
     description?: string;
@@ -107,14 +111,6 @@ class RefundOrderPaymentService {
     return accessToken;
   }
 
-  private extractAsaasError(payload: AsaasRefundResponse) {
-    const firstError = Array.isArray(payload?.errors) ? payload.errors[0] : undefined;
-    return {
-      code: String(firstError?.code || '').trim(),
-      description: String(firstError?.description || '').trim(),
-    };
-  }
-
   private async executeAsaasRefund(
     paymentId: string,
     order: RefundableOrder,
@@ -133,62 +129,80 @@ class RefundOrderPaymentService {
     const accessToken = await this.getAsaasAccessToken(restaurantId);
     const amount = this.parseAmount(order.total);
     const paymentUrl = `${this.resolveAsaasApiBaseUrl()}/v3/payments/${encodeURIComponent(normalizedPaymentId)}`;
-    if (options.verifyExistingRefund) {
-      const currentPaymentResponse = await fetch(paymentUrl, {
-        headers: {
-          Accept: 'application/json',
-          access_token: accessToken,
-        },
-      });
-      const currentPayment = (await currentPaymentResponse
-        .json()
-        .catch(() => ({}))) as AsaasRefundResponse;
-
-      if (
-        currentPaymentResponse.ok &&
-        String(currentPayment.status || '').toUpperCase() === 'REFUNDED'
-      ) {
-        return {
-          provider: 'ASAAS',
-          externalId: String(currentPayment.id || normalizedPaymentId).trim(),
-        } satisfies RefundProviderReceipt;
-      }
-    }
-
-    const response = await fetch(`${paymentUrl}/refund`, {
-      method: 'POST',
-      headers: {
-        Accept: 'application/json',
-        'Content-Type': 'application/json',
-        access_token: accessToken,
-      },
-      body: JSON.stringify({
-        ...(amount ? { value: amount } : {}),
-        description: `Estorno do pedido #${String(order.id)}`,
-      }),
-    });
-    const payload = (await response.json().catch(() => ({}))) as AsaasRefundResponse;
-
-    if (!response.ok) {
-      const providerError = this.extractAsaasError(payload);
-      console.error('[ASAAS_REFUND_ERROR]', {
-        orderId: order.id,
-        restaurantId,
-        paymentId: normalizedPaymentId,
-        status: response.status,
-        code: providerError.code || undefined,
-        description: providerError.description || undefined,
-      });
-      throw new AutomaticRefundError(
-        'O Asaas não confirmou o estorno. O pedido não foi cancelado e pode ser tentado novamente.',
-        'PROVIDER_FAILURE',
+    const pending = () =>
+      new AutomaticRefundError(
+        'O estorno Asaas aguarda confirmação. O pedido não foi cancelado. Consulte novamente para conciliar, sem gerar outro estorno.',
+        'REFUND_PENDING',
       );
+    const headers = { Accept: 'application/json', access_token: accessToken };
+    const readPayment = async () => {
+      const response = await fetch(paymentUrl, {
+        headers,
+        redirect: 'error',
+        signal: AbortSignal.timeout(15_000),
+      });
+      if (!response.ok) throw pending();
+      const payment = (await response.json()) as AsaasRefundResponse;
+      const expectedReference =
+        String(order.paymentMethod).toUpperCase() === 'PIX'
+          ? `orderpix:${restaurantId}:${order.id}`
+          : `ordercard:${order.id}:${restaurantId}`;
+      if (
+        !amount ||
+        payment.id !== normalizedPaymentId ||
+        payment.externalReference !== expectedReference ||
+        !Number.isFinite(payment.value) ||
+        Math.round(Number(payment.value) * 100) !== Math.round(amount * 100)
+      ) {
+        throw pending();
+      }
+      return payment;
+    };
+    const confirmed = (payment: AsaasRefundResponse) => {
+      const refunds = payment.refunds || [];
+      const returnedCents = refunds
+        .filter((refund) => refund.status === 'DONE')
+        .reduce(
+          (total, refund) =>
+            total +
+            (Number.isFinite(refund.value) && Number(refund.value) > 0
+              ? Math.round(Number(refund.value) * 100)
+              : 0),
+          0,
+        );
+      return amount !== null && returnedCents === Math.round(amount * 100);
+    };
+    const receipt: RefundProviderReceipt = { provider: 'ASAAS', externalId: normalizedPaymentId };
+    try {
+      const current = await readPayment();
+      if (confirmed(current)) return receipt;
+      // An existing attempt, partial refund or uncertain previous submission must be reconciled.
+      // Never repeat a non-idempotent refund POST based only on an HTTP status.
+      if (
+        options.reconcileOnly ||
+        options.verifyExistingRefund ||
+        current.refunds?.length ||
+        !['RECEIVED', 'CONFIRMED', 'RECEIVED_IN_CASH'].includes(String(current.status))
+      )
+        throw pending();
+      const response = await fetch(`${paymentUrl}/refund`, {
+        method: 'POST',
+        headers: { ...headers, 'Content-Type': 'application/json' },
+        redirect: 'error',
+        signal: AbortSignal.timeout(15_000),
+        body: JSON.stringify({
+          value: amount,
+          description: `Estorno do pedido #${String(order.id)}`,
+        }),
+      });
+      // The canonical payment contains the final status and refunded amounts, even if POST timed out upstream.
+      if (!response.ok) throw pending();
+      if (!confirmed(await readPayment())) throw pending();
+      return receipt;
+    } catch {
+      // Ambiguous network responses must retain PROCESSING and cannot authorize a second refund.
+      throw pending();
     }
-
-    return {
-      provider: 'ASAAS',
-      externalId: String(payload.id || normalizedPaymentId).trim() || normalizedPaymentId,
-    } satisfies RefundProviderReceipt;
   }
 
   private resolvePagBankEnvironment(): 'production' {
@@ -870,6 +884,14 @@ class RefundOrderPaymentService {
     options: RefundOrderPaymentOptions = {},
   ): Promise<RefundProviderReceipt> {
     const paymentMethod = String(order.paymentMethod || '').toUpperCase();
+    const reference =
+      paymentMethod === PaymentMethod.PIX ? order.pixPaymentId : order.cardCheckoutSessionId;
+    if (options.reconcileOnly && !/^asaas(?:_pay)?:/.test(String(reference || ''))) {
+      throw new AutomaticRefundError(
+        'O estorno aguarda conciliação pelo provedor. Nenhuma nova solicitação foi enviada.',
+        'REFUND_PENDING',
+      );
+    }
 
     if (order.paid !== true) {
       throw new AutomaticRefundError(

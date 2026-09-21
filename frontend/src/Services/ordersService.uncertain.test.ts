@@ -7,6 +7,31 @@ describe('checkout incerto preserva acesso do visitante', () => {
     localStorage.clear();
     vi.clearAllMocks();
   });
+  it('envia prova do pedido criado na consulta do cartão e não reutiliza prova de outro pedido', async () => {
+    const orderPublicId = '123e4567-e89b-42d3-a456-426614174001';
+    vi.mocked(api.post)
+      .mockResolvedValueOnce({
+        data: {
+          orderId: 99,
+          orderPublicId,
+          guestOwnershipToken: 'synthetic-ownership',
+        },
+      })
+      .mockResolvedValue({ data: { paid: false, status: 'PENDING' } });
+    await service.createCardCheckout({ restaurantId: 12 });
+    await service.getCardPaymentStatus({ restaurantId: 12, orderPublicId });
+    expect(api.post).toHaveBeenLastCalledWith(
+      '/orders/card/checkout/status',
+      { restaurantId: 12, orderPublicId },
+      { headers: { 'x-guest-order-ownership': 'synthetic-ownership' } },
+    );
+    await service.getCardPaymentStatus({ restaurantId: 12, orderPublicId: 'another-order' });
+    expect(api.post).toHaveBeenLastCalledWith(
+      '/orders/card/checkout/status',
+      { restaurantId: 12, orderPublicId: 'another-order' },
+      undefined,
+    );
+  });
   it.each(['createPixPayment', 'createCardCheckout'] as const)(
     '%s mantém tokens antes de propagar erro',
     async (method) => {

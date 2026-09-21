@@ -76,6 +76,7 @@ function completionTx({ count = 1, current }) {
         assert.equal(where.type, OrderType.DELIVERY);
         assert.equal(where.status, OrderStatus.SAIU_PARA_ENTREGA);
         assert.equal(where.paid, true);
+        assert.deepEqual(where.refundStatus, { notIn: ['PROCESSING', 'SUCCEEDED'] });
         assert.equal(where.assignedCourierId, 31);
         assert.equal(data.status, OrderStatus.ENTREGUE);
         return { count };
@@ -113,14 +114,25 @@ test('pago + código ausente ou incorreto permanece bloqueado', async () => {
   activeCourier();
   orderRepository.findById = async () => order;
   let transactions = 0;
-  prisma.$transaction = async () => { transactions += 1; };
+  prisma.$transaction = async () => {
+    transactions += 1;
+  };
 
   await assert.rejects(
-    () => updateOrderStatusService.execute(91, 7, OrderStatus.ENTREGUE, UserRole.MOTOQUEIRO, '', 31),
+    () =>
+      updateOrderStatusService.execute(91, 7, OrderStatus.ENTREGUE, UserRole.MOTOQUEIRO, '', 31),
     /código de 4 dígitos/i,
   );
   await assert.rejects(
-    () => updateOrderStatusService.execute(91, 7, OrderStatus.ENTREGUE, UserRole.MOTOQUEIRO, '0000', 31),
+    () =>
+      updateOrderStatusService.execute(
+        91,
+        7,
+        OrderStatus.ENTREGUE,
+        UserRole.MOTOQUEIRO,
+        '0000',
+        31,
+      ),
     /Código de entrega inválido/,
   );
   assert.equal(transactions, 0);
@@ -131,25 +143,75 @@ test('não pago + código correto é bloqueado, inclusive dinheiro ainda não co
   activeCourier();
   orderRepository.findById = async () => order;
   await assert.rejects(
-    () => updateOrderStatusService.execute(91, 7, OrderStatus.ENTREGUE, UserRole.MOTOQUEIRO, codeFor(order), 31),
+    () =>
+      updateOrderStatusService.execute(
+        91,
+        7,
+        OrderStatus.ENTREGUE,
+        UserRole.MOTOQUEIRO,
+        codeFor(order),
+        31,
+      ),
     /pagamento precisa estar confirmado/i,
   );
 });
+
+for (const refundStatus of ['PROCESSING', 'SUCCEEDED']) {
+  test(`estorno ${refundStatus} impede entrega mesmo com pagamento e código corretos`, async () => {
+    const order = deliveryOrder({
+      refundStatus,
+      paymentMethod: PaymentMethod.CARTAO,
+      payOnDelivery: false,
+    });
+    activeCourier();
+    orderRepository.findById = async () => order;
+    let transactions = 0;
+    prisma.$transaction = async () => {
+      transactions += 1;
+    };
+    for (const role of [UserRole.MOTOQUEIRO, UserRole.ADMIN]) {
+      await assert.rejects(
+        () =>
+          updateOrderStatusService.execute(91, 7, OrderStatus.ENTREGUE, role, codeFor(order), 31),
+        /estorno.*não pode ser entregue/i,
+      );
+    }
+    assert.equal(transactions, 0);
+  });
+}
 
 test('outro motoqueiro é bloqueado', async () => {
   activeCourier();
   orderRepository.findById = async () => deliveryOrder({ assignedCourierId: 32 });
   await assert.rejects(
-    () => updateOrderStatusService.execute(91, 7, OrderStatus.ENTREGUE, UserRole.MOTOQUEIRO, '1234', 31),
+    () =>
+      updateOrderStatusService.execute(
+        91,
+        7,
+        OrderStatus.ENTREGUE,
+        UserRole.MOTOQUEIRO,
+        '1234',
+        31,
+      ),
     /não está atribuída a você/,
   );
 });
 
 test('conta de motoqueiro inativa é bloqueada', async () => {
   orderRepository.findById = async () => deliveryOrder();
-  courierAccessService.assertActiveCourier = async () => { throw new Error('Motoqueiro inativo.'); };
+  courierAccessService.assertActiveCourier = async () => {
+    throw new Error('Motoqueiro inativo.');
+  };
   await assert.rejects(
-    () => updateOrderStatusService.execute(91, 7, OrderStatus.ENTREGUE, UserRole.MOTOQUEIRO, '1234', 31),
+    () =>
+      updateOrderStatusService.execute(
+        91,
+        7,
+        OrderStatus.ENTREGUE,
+        UserRole.MOTOQUEIRO,
+        '1234',
+        31,
+      ),
     /inativo/,
   );
 });
@@ -159,15 +221,32 @@ test('pedido em status inadequado é bloqueado', async () => {
   const order = deliveryOrder({ status: OrderStatus.PRONTO });
   orderRepository.findById = async () => order;
   await assert.rejects(
-    () => updateOrderStatusService.execute(91, 7, OrderStatus.ENTREGUE, UserRole.MOTOQUEIRO, codeFor(order), 31),
+    () =>
+      updateOrderStatusService.execute(
+        91,
+        7,
+        OrderStatus.ENTREGUE,
+        UserRole.MOTOQUEIRO,
+        codeFor(order),
+        31,
+      ),
     /Transição inválida|SAIU_PARA_ENTREGA/,
   );
 });
 
 test('outro restaurante não encontra o pedido no tenant solicitado', async () => {
-  orderRepository.findById = async (_id, restaurantId) => (restaurantId === 7 ? deliveryOrder() : null);
+  orderRepository.findById = async (_id, restaurantId) =>
+    restaurantId === 7 ? deliveryOrder() : null;
   await assert.rejects(
-    () => updateOrderStatusService.execute(91, 8, OrderStatus.ENTREGUE, UserRole.MOTOQUEIRO, '1234', 31),
+    () =>
+      updateOrderStatusService.execute(
+        91,
+        8,
+        OrderStatus.ENTREGUE,
+        UserRole.MOTOQUEIRO,
+        '1234',
+        31,
+      ),
     /Pedido não encontrado/,
   );
 });
@@ -177,11 +256,23 @@ test('requisição simultânea que perdeu a corrida retorna estado já concluíd
   const delivered = { ...order, status: OrderStatus.ENTREGUE, deliveredAt: new Date() };
   activeCourier();
   orderRepository.findById = async (_id, _restaurantId, db) => (db ? delivered : order);
-  prisma.$transaction = async (callback) => callback(completionTx({ count: 0, current: delivered }));
+  prisma.$transaction = async (callback) =>
+    callback(completionTx({ count: 0, current: delivered }));
   let emissions = 0;
-  io.to = () => ({ emit() { emissions += 1; } });
+  io.to = () => ({
+    emit() {
+      emissions += 1;
+    },
+  });
 
-  const result = await updateOrderStatusService.execute(91, 7, OrderStatus.ENTREGUE, UserRole.MOTOQUEIRO, codeFor(order), 31);
+  const result = await updateOrderStatusService.execute(
+    91,
+    7,
+    OrderStatus.ENTREGUE,
+    UserRole.MOTOQUEIRO,
+    codeFor(order),
+    31,
+  );
   assert.equal(result.status, OrderStatus.ENTREGUE);
   assert.equal(emissions, 0);
 });
@@ -191,8 +282,19 @@ test('requisição repetida após conclusão é idempotente e não emite eventos
   activeCourier();
   orderRepository.findById = async () => delivered;
   let emissions = 0;
-  io.to = () => ({ emit() { emissions += 1; } });
-  const result = await updateOrderStatusService.execute(91, 7, OrderStatus.ENTREGUE, UserRole.MOTOQUEIRO, '0000', 31);
+  io.to = () => ({
+    emit() {
+      emissions += 1;
+    },
+  });
+  const result = await updateOrderStatusService.execute(
+    91,
+    7,
+    OrderStatus.ENTREGUE,
+    UserRole.MOTOQUEIRO,
+    '0000',
+    31,
+  );
   assert.equal(result.status, OrderStatus.ENTREGUE);
   assert.equal(emissions, 0);
 });
@@ -200,12 +302,13 @@ test('requisição repetida após conclusão é idempotente e não emite eventos
 test('PIX e cartão não podem ser transformados em pagos por PIN', async () => {
   activeCourier();
   for (const paymentMethod of [PaymentMethod.PIX, PaymentMethod.CARTAO]) {
-    orderRepository.findById = async () => deliveryOrder({
-      paid: false,
-      paymentMethod,
-      paymentConfirmationPin: 'hash',
-      paymentConfirmationPinExpiresAt: new Date(Date.now() + 60_000),
-    });
+    orderRepository.findById = async () =>
+      deliveryOrder({
+        paid: false,
+        paymentMethod,
+        paymentConfirmationPin: 'hash',
+        paymentConfirmationPinExpiresAt: new Date(Date.now() + 60_000),
+      });
     await assert.rejects(
       () => requestOrderPaymentConfirmationPinService.execute(91, 7, UserRole.MOTOQUEIRO, 31),
       /dinheiro/,
@@ -222,26 +325,38 @@ test('exceção administrativa exige ADMIN ativo do mesmo restaurante e gera aud
   const delivered = { ...order, status: OrderStatus.ENTREGUE, deliveredAt: new Date() };
   let audits = 0;
   orderRepository.findById = async (_id, _restaurantId, db) => (db ? delivered : order);
-  prisma.$transaction = async (callback) => callback({
-    ...completionTx({ current: delivered }),
-    user: { findFirst: async ({ where }) => {
-      assert.equal(where.restaurantId, 7);
-      assert.equal(where.role, UserRole.ADMIN);
-      assert.equal(where.active, true);
-      return { id: 44, name: 'Admin' };
-    } },
-    order: {
-      updateMany: async () => ({ count: 1 }),
-      findFirst: async () => ({ couponRedemptionId: null }),
-    },
-    auditLog: { create: async ({ data }) => {
-      audits += 1;
-      assert.equal(data.action, 'ADMIN_DELIVERY_COMPLETED');
-      return { id: 1 };
-    } },
-  });
+  prisma.$transaction = async (callback) =>
+    callback({
+      ...completionTx({ current: delivered }),
+      user: {
+        findFirst: async ({ where }) => {
+          assert.equal(where.restaurantId, 7);
+          assert.equal(where.role, UserRole.ADMIN);
+          assert.equal(where.active, true);
+          return { id: 44, name: 'Admin' };
+        },
+      },
+      order: {
+        updateMany: async () => ({ count: 1 }),
+        findFirst: async () => ({ couponRedemptionId: null }),
+      },
+      auditLog: {
+        create: async ({ data }) => {
+          audits += 1;
+          assert.equal(data.action, 'ADMIN_DELIVERY_COMPLETED');
+          return { id: 1 };
+        },
+      },
+    });
   io.to = () => ({ emit() {} });
-  const result = await updateOrderStatusService.execute(91, 7, OrderStatus.ENTREGUE, UserRole.ADMIN, undefined, 44);
+  const result = await updateOrderStatusService.execute(
+    91,
+    7,
+    OrderStatus.ENTREGUE,
+    UserRole.ADMIN,
+    undefined,
+    44,
+  );
   assert.equal(result.status, OrderStatus.ENTREGUE);
   assert.equal(audits, 1);
 });

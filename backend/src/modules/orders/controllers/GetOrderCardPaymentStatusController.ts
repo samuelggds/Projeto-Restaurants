@@ -16,6 +16,7 @@ class GetOrderCardPaymentStatusController {
         tableSessionId: req.tableSession?.id,
         participantId: req.tableParticipant?.id,
         guest: req.user?.isGuest === true,
+        guestOwnershipToken: req.get('x-guest-order-ownership'),
       });
 
       res.setHeader('Cache-Control', 'no-store');

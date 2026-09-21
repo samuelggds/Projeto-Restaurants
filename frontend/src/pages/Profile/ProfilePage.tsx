@@ -418,10 +418,7 @@ function Overview(props: ProfilePageProps) {
             </S.Eta>
             <S.Actions>
               {activeOrder.paymentPending && activeOrder.publicId ? (
-                <button
-                  type="button"
-                  onClick={() => onContinuePayment?.(activeOrder.publicId!)}
-                >
+                <button type="button" onClick={() => onContinuePayment?.(activeOrder.publicId!)}>
                   Continuar pagamento <ChevronRight size={16} />
                 </button>
               ) : (
@@ -589,21 +586,24 @@ function Orders({
               <small>AGORA</small>
               <b>{data.activeOrder.summary}</b>
               <span>
-                Pedido {data.activeOrder.id} • {data.activeOrder.paymentPending ? 'Pagamento pendente' : statusLabel[data.activeOrder.status]}
+                Pedido {data.activeOrder.id} •{' '}
+                {data.activeOrder.paymentPending
+                  ? 'Pagamento pendente'
+                  : statusLabel[data.activeOrder.status]}
               </span>
             </div>
             <aside>
               <small>● Em andamento</small>
               <strong>{brl(data.activeOrder.total)}</strong>
               <button
-                  onClick={() =>
-                    data.activeOrder?.paymentPending && data.activeOrder.publicId
-                      ? onContinuePayment?.(data.activeOrder.publicId)
-                      : onViewOrder?.(data.activeOrder!.id)
-                  }
-                >
-                  {data.activeOrder.paymentPending ? 'Continuar pagamento' : 'Acompanhar'}
-                </button>
+                onClick={() =>
+                  data.activeOrder?.paymentPending && data.activeOrder.publicId
+                    ? onContinuePayment?.(data.activeOrder.publicId)
+                    : onViewOrder?.(data.activeOrder!.id)
+                }
+              >
+                {data.activeOrder.paymentPending ? 'Continuar pagamento' : 'Acompanhar'}
+              </button>
             </aside>
           </S.FullOrder>
         )}
@@ -870,6 +870,7 @@ function Security({
   const [pwError, setPwError] = useState('');
   const [pwSuccess, setPwSuccess] = useState(false);
   const [updatingTwoFactor, setUpdatingTwoFactor] = useState(false);
+  const [mfaPassword, setMfaPassword] = useState('');
   const [showDeactivateConfirmation, setShowDeactivateConfirmation] = useState(false);
   const [deactivating, setDeactivating] = useState(false);
   const [securityError, setSecurityError] = useState('');
@@ -905,13 +906,18 @@ function Security({
   }
 
   async function handleToggleTwoFactor() {
+    if (!mfaPassword) {
+      setSecurityError('Confirme sua senha atual para alterar a proteção.');
+      return;
+    }
     setUpdatingTwoFactor(true);
     setSecurityError('');
     try {
-      await onToggleTwoFactor?.(!twoFactorEnabled);
+      await onToggleTwoFactor?.(!twoFactorEnabled, mfaPassword);
     } catch {
       setSecurityError('Não foi possível atualizar a verificação em duas etapas.');
     } finally {
+      setMfaPassword('');
       setUpdatingTwoFactor(false);
     }
   }
@@ -1036,10 +1042,32 @@ function Security({
                   : 'Receba um código no e-mail ao entrar na conta'}
               </span>
             </div>
-            <button type="button" onClick={handleToggleTwoFactor} disabled={updatingTwoFactor}>
+            <button
+              type="button"
+              onClick={handleToggleTwoFactor}
+              disabled={updatingTwoFactor || !mfaPassword}
+            >
               {updatingTwoFactor ? 'Atualizando...' : twoFactorEnabled ? 'Desativar' : 'Ativar'}
             </button>
           </div>
+          <S.SettingsForm
+            onSubmit={(event) => {
+              event.preventDefault();
+              void handleToggleTwoFactor();
+            }}
+          >
+            <label>
+              Senha atual para alterar a verificação em duas etapas
+              <input
+                type="password"
+                autoComplete="current-password"
+                maxLength={128}
+                value={mfaPassword}
+                onChange={(event) => setMfaPassword(event.target.value)}
+                disabled={updatingTwoFactor}
+              />
+            </label>
+          </S.SettingsForm>
           <div className="security-row">
             <i>
               <Trash2 />

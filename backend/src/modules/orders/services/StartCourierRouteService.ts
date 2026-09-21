@@ -1,4 +1,4 @@
-import { OrderStatus, OrderType, UserRole } from '@prisma/client';
+import { OrderRefundStatus, OrderStatus, OrderType, UserRole } from '@prisma/client';
 import prisma from '../../../config/prisma.js';
 import { setTenantDbContext } from '../../../database/tenantDbContext.js';
 import { realtimePublisher as io } from '../../../realtime/realtimePublisher.js';
@@ -26,7 +26,9 @@ class StartCourierRouteService {
     }
 
     const hasInitialLocation =
-      Boolean(initialLocation) && typeof initialLocation === 'object' && !Array.isArray(initialLocation);
+      Boolean(initialLocation) &&
+      typeof initialLocation === 'object' &&
+      !Array.isArray(initialLocation);
     const initialLocationValidation = hasInitialLocation
       ? validateDeliveryLocationPayload({ ...initialLocation, orderId: normalizedOrderId })
       : null;
@@ -67,9 +69,7 @@ class StartCourierRouteService {
       });
 
       if (activeRoute && activeRoute.id !== normalizedOrderId) {
-        throw new Error(
-          `Finalize a entrega #${activeRoute.id} antes de iniciar outra rota.`,
-        );
+        throw new Error(`Finalize a entrega #${activeRoute.id} antes de iniciar outra rota.`);
       }
 
       if (activeRoute?.id === normalizedOrderId) {
@@ -85,6 +85,7 @@ class StartCourierRouteService {
           assignedCourierId: courierId,
           type: OrderType.DELIVERY,
           status: OrderStatus.PRONTO,
+          refundStatus: { notIn: [OrderRefundStatus.PROCESSING, OrderRefundStatus.SUCCEEDED] },
         },
         select: {
           id: true,
@@ -122,6 +123,7 @@ class StartCourierRouteService {
           assignedCourierId: courierId,
           type: OrderType.DELIVERY,
           status: OrderStatus.PRONTO,
+          refundStatus: { notIn: [OrderRefundStatus.PROCESSING, OrderRefundStatus.SUCCEEDED] },
         },
         data: {
           status: OrderStatus.SAIU_PARA_ENTREGA,

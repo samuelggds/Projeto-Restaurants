@@ -110,8 +110,8 @@ node scripts/runTsxWithOsUserInfoFallback.cjs scripts/reconcileAiCreditReservati
 - O débito e a baixa da reserva são atômicos e registrados em `AuditLog` e ledger. Repetir a mesma conclusão não debita novamente; uma reserva encerrada não pode ser sobrescrita com outro valor.
 - Não apagar registros nem executar UPDATE direto para “destravar” a carteira. Corrigir a causa de timeout/modelo/custo antes de liberar novas chamadas.
 
-## DNS e pendências reais de produção
+## Domínio e validação comercial
 
-Na verificação de 20/09/2026, `www.gastronexa.com.br` respondeu com `54.20.145.129`, mas o domínio raiz `gastronexa.com.br` não retornou registro A. Isso não é corrigido por PR. Confirmar primeiro o IP estático atualmente vinculado à instância Lightsail e configurar o registro A do domínio raiz no provedor DNS; conferir também AAAA/CNAME conflitantes, resolução e certificado HTTPS. Não copiar um IP antigo sem conferir a instância atual.
+O domínio público escolhido é somente `www.gastronexa.com.br`. A configuração do domínio sem www não é requisito desta entrega. Manter o HTTPS e as origens permitidas coerentes com o domínio www e com a API.
 
-Antes de declarar a operação pronta para vendas, ainda é necessário comprovar no ambiente real: DNS/HTTPS, backup externo ativo e restauração, alertas atendidos, credenciais de produção e permissões mínimas dos gateways, conciliação de pagamentos e procedimento de recuperação. As alterações desta branch não executam cobrança real nem modificam o servidor de produção.
+Em 21/09/2026 o responsável informou: backup externo configurado com restauração testada; Mercado Pago em produção; PagBank em homologação; Asaas desativado até regularização cadastral. Essas informações operacionais não substituem evidência de cada fluxo de pagamento. A revisão complementar e os passos de implantação estão em [sales-readiness-2026-09.md](operations/sales-readiness-2026-09.md).

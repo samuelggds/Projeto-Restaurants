@@ -22,11 +22,24 @@ export type ProfileUser = {
 export type ProfileOrderStatus = 'confirmed' | 'preparing' | 'onTheWay' | 'delivered' | 'cancelled';
 export type ProfileOrderChannel = 'Delivery' | 'Retirada' | 'Mesa' | 'Pagar na entrega' | 'Pedido';
 export type ProfileView =
-  'overview' | 'orders' | 'coupons' | 'addresses' | 'paymentMethods' | 'favorites' | 'personalData' | 'security';
+  | 'overview'
+  | 'orders'
+  | 'coupons'
+  | 'addresses'
+  | 'paymentMethods'
+  | 'favorites'
+  | 'personalData'
+  | 'security';
 
 export type ProfilePaymentMethod = {
-  publicId: string; provider: string; brand: string; last4: string; expMonth: number; expYear: number;
-  holderName?: string | null; isDefault: boolean;
+  publicId: string;
+  provider: string;
+  brand: string;
+  last4: string;
+  expMonth: number;
+  expYear: number;
+  holderName?: string | null;
+  isDefault: boolean;
 };
 
 export type ProfileOrder = {
@@ -86,7 +99,13 @@ export type ProfileData = {
 };
 
 export type ProfilePageProps = {
-  historyPagination?: { loading: boolean; error: string; hasMore: boolean; loadMore: () => unknown; refresh: () => unknown };
+  historyPagination?: {
+    loading: boolean;
+    error: string;
+    hasMore: boolean;
+    loadMore: () => unknown;
+    refresh: () => unknown;
+  };
   data?: ProfileData;
   initialView?: ProfileView;
   cartCount?: number;
@@ -118,7 +137,7 @@ export type ProfilePageProps = {
   onSavePersonalData?: (data: { name: string; email: string; phone: string }) => Promise<void>;
   onChangePassword?: (data: { currentPassword: string; newPassword: string }) => Promise<void>;
   twoFactorEnabled?: boolean;
-  onToggleTwoFactor?: (enabled: boolean) => Promise<void>;
+  onToggleTwoFactor?: (enabled: boolean, currentPassword: string) => Promise<void>;
   onDeactivateAccount?: () => Promise<void>;
   onUploadAvatar?: (file: File) => Promise<void>;
   loyaltySummary?: LoyaltySummary | null;

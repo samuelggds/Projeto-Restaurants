@@ -3,7 +3,7 @@ import refundOrderByAdminService from '../services/RefundOrderByAdminService.js'
 import { getPublicOrderCancellationErrorMessage } from '../services/CancelOrderWorkflowService.js';
 
 class RefundOrderByAdminController {
-  async handle(req: Request, res: Response) {
+  async handle(req: Request, res: Response, reconcileOnly = false) {
     try {
       const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
       const { restaurantId, id: adminUserId } = req.user;
@@ -12,6 +12,7 @@ class RefundOrderByAdminController {
         orderId: id,
         restaurantId,
         adminUserId,
+        ...(reconcileOnly ? { reconcileOnly: true } : {}),
       });
 
       return res.status(200).json(result);

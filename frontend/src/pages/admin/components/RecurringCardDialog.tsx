@@ -1,4 +1,4 @@
-import { useContext, useEffect, useRef, useState, type FormEvent } from 'react';
+import { useContext, useEffect, useRef, useState, type FormEvent, type RefObject } from 'react';
 import { createPortal } from 'react-dom';
 import { CreditCard, RefreshCw, ShieldCheck, X } from 'lucide-react';
 import monthlyBillingService, {
@@ -69,9 +69,11 @@ function loadSdk() {
 export function RecurringCardDialog({
   onClose,
   onSaved,
+  returnFocusRef,
 }: {
   onClose: () => void;
   onSaved: (profile: PlatformBillingProfile) => void;
+  returnFocusRef?: RefObject<HTMLElement | null>;
 }) {
   const simulated = useContext(BillingSimulationContext);
   const [holderName, setHolderName] = useState('');
@@ -84,9 +86,13 @@ export function RecurringCardDialog({
   const [saving, setSaving] = useState(false);
   const mpRef = useRef<MercadoPagoInstance | null>(null);
   const closeButtonRef = useRef<HTMLButtonElement | null>(null);
-  const panel = useDialogFocusManagement<HTMLFormElement>(() => {
-    if (!saving) onClose();
-  });
+  const panel = useDialogFocusManagement<HTMLFormElement>(
+    () => {
+      if (!saving) onClose();
+    },
+    true,
+    returnFocusRef,
+  );
   useEffect(() => {
     closeButtonRef.current?.focus();
   }, []);

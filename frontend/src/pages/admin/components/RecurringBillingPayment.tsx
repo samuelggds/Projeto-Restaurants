@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ArrowRight,
   Check,
@@ -29,6 +29,7 @@ export function RecurringBillingPayment({ onViewCharges }: { onViewCharges?: () 
   const [pixExpanded, setPixExpanded] = useState(false);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
+  const cardTriggerRef = useRef<HTMLButtonElement>(null);
   const load = useCallback(async () => {
     setLoading(true);
     setError('');
@@ -116,6 +117,7 @@ export function RecurringBillingPayment({ onViewCharges }: { onViewCharges?: () 
             </li>
           </ul>
           <button
+            ref={cardTriggerRef}
             className="primary"
             type="button"
             onClick={() => {
@@ -234,6 +236,7 @@ export function RecurringBillingPayment({ onViewCharges }: { onViewCharges?: () 
       </div>
       {modalOpen ? (
         <RecurringCardDialog
+          returnFocusRef={cardTriggerRef}
           onClose={() => setModalOpen(false)}
           onSaved={(next) => {
             setProfile(next);

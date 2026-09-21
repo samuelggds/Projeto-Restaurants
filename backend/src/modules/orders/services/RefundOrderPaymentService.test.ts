@@ -53,11 +53,21 @@ test('roteia PIX Asaas para o endpoint oficial usando a credencial do restaurant
 
   let request = null;
   globalThis.fetch = async (input, init = {}) => {
-    request = { url: String(input), init };
-    return new Response(JSON.stringify({ id: 'pay_pix_123', status: 'REFUNDED' }), {
-      status: 200,
-      headers: { 'Content-Type': 'application/json' },
-    });
+    const submitted = Boolean(request);
+    if (init.method === 'POST') request = { url: String(input), init };
+    return new Response(
+      JSON.stringify({
+        id: 'pay_pix_123',
+        value: 49.9,
+        externalReference: 'orderpix:7:91',
+        status: submitted ? 'REFUNDED' : 'RECEIVED',
+        refunds: submitted ? [{ status: 'DONE', value: 49.9 }] : [],
+      }),
+      {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      },
+    );
   };
 
   await refundOrderPaymentService.execute({
@@ -85,11 +95,21 @@ test('roteia cartao Asaas e usa fallback global somente quando habilitado', asyn
 
   let request = null;
   globalThis.fetch = async (input, init = {}) => {
-    request = { url: String(input), init };
-    return new Response(JSON.stringify({ id: 'pay_card_456', status: 'REFUNDED' }), {
-      status: 200,
-      headers: { 'Content-Type': 'application/json' },
-    });
+    const submitted = Boolean(request);
+    if (init.method === 'POST') request = { url: String(input), init };
+    return new Response(
+      JSON.stringify({
+        id: 'pay_card_456',
+        value: 110.5,
+        externalReference: 'ordercard:92:8',
+        status: submitted ? 'REFUNDED' : 'RECEIVED',
+        refunds: submitted ? [{ status: 'DONE', value: 110.5 }] : [],
+      }),
+      {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      },
+    );
   };
 
   await refundOrderPaymentService.execute({
@@ -298,7 +318,7 @@ test('retorna erro seguro quando o Asaas recusa o estorno', async () => {
     (error) => {
       assert.equal(
         error.message,
-        'O Asaas não confirmou o estorno. O pedido não foi cancelado e pode ser tentado novamente.',
+        'O estorno Asaas aguarda confirmação. O pedido não foi cancelado. Consulte novamente para conciliar, sem gerar outro estorno.',
       );
       assert.equal(error.message.includes('detalhe interno'), false);
       assert.equal(error.message.includes('token-tenant'), false);
@@ -406,19 +426,10 @@ test('estorna cartão Mercado Pago criado pela Orders API sem cair no Stripe', a
     provider: 'MERCADO_PAGO',
     externalId: 'ORD_CARD_123',
   });
-  assert.equal(
-    request.url,
-    'https://api.mercadopago.com/v1/orders/ORD_CARD_123/refund',
-  );
+  assert.equal(request.url, 'https://api.mercadopago.com/v1/orders/ORD_CARD_123/refund');
   assert.equal(request.init.method, 'POST');
-  assert.equal(
-    new Headers(request.init.headers).get('authorization'),
-    'Bearer mp-order-token-12',
-  );
-  assert.equal(
-    new Headers(request.init.headers).get('x-idempotency-key'),
-    'order-refund-12-99',
-  );
+  assert.equal(new Headers(request.init.headers).get('authorization'), 'Bearer mp-order-token-12');
+  assert.equal(new Headers(request.init.headers).get('x-idempotency-key'), 'order-refund-12-99');
 });
 
 test('estorna cartao Stripe com a mesma chave idempotente do pedido', async () => {
@@ -463,3 +474,42 @@ test('estorna cartao Stripe com a mesma chave idempotente do pedido', async () =
     { idempotencyKey: 'order-refund-13-98' },
   ]);
 });
+
+for (const scenario of ['PENDING', 'CANCELLED', 'PARTIAL', 'WRONG_REFERENCE', 'TIMEOUT', 'DONE']) {
+  test(`Asaas concilia ${scenario} sem repetir o POST nem assumir sucesso HTTP`, async () => {
+    restaurantSettingsRepository.findByRestaurantId = async () => ({
+      asaasAccessToken: 'tenant-test',
+    });
+    let posts = 0;
+    globalThis.fetch = async (_input, init = {}) => {
+      if (init.method === 'POST') posts++;
+      if (scenario === 'TIMEOUT') throw new Error('timeout');
+      return Response.json({
+        id: 'pay_safe',
+        value: 60,
+        externalReference: scenario === 'WRONG_REFERENCE' ? 'orderpix:99:99' : 'orderpix:11:95',
+        status: 'REFUNDED',
+        refunds: [
+          {
+            status: scenario === 'PARTIAL' ? 'DONE' : scenario,
+            value: scenario === 'PARTIAL' ? 30 : 60,
+          },
+        ],
+      });
+    };
+    const operation = refundOrderPaymentService.execute(
+      {
+        id: 95,
+        restaurantId: 11,
+        total: 60,
+        paid: true,
+        paymentMethod: 'PIX',
+        pixPaymentId: 'asaas:pay_safe',
+      },
+      { reconcileOnly: true },
+    );
+    if (scenario === 'DONE') assert.equal((await operation).provider, 'ASAAS');
+    else await assert.rejects(operation, { code: 'REFUND_PENDING' });
+    assert.equal(posts, 0);
+  });
+}

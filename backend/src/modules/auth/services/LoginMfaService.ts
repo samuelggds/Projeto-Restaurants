@@ -55,12 +55,7 @@ function getMfaSecret() {
 }
 
 function requiresMfa(user: Pick<LoginUser, 'mfaEnabled' | 'role'>) {
-  // Records loaded from the database always carry the boolean preference. The
-  // role policy is kept only as a backwards-compatible fallback for legacy
-  // callers/tests that do not yet provide the field.
-  return typeof user.mfaEnabled === 'boolean'
-    ? user.mfaEnabled
-    : isMfaRequiredForRole(user.role);
+  return user.role === 'SUPER_ADMIN' || isMfaRequiredForRole(user.role) || user.mfaEnabled === true;
 }
 
 function createMfaToken(userId: number) {
@@ -113,12 +108,14 @@ function mapUser(user: any) {
     complement: user.complement,
     avatar: user.avatar,
     restaurantId: user.restaurantId,
-    mfaEnabled: Boolean(user.mfaEnabled),
+    mfaEnabled: requiresMfa(user),
   };
 }
 
 function isAdministrativeRole(role: unknown) {
-  const normalized = String(role || '').trim().toUpperCase();
+  const normalized = String(role || '')
+    .trim()
+    .toUpperCase();
   return normalized === 'ADMIN' || normalized === 'SUPER_ADMIN';
 }
 

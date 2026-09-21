@@ -266,6 +266,48 @@ test('pedido entregue é rejeitado antes de gateway, cancelamento ou estoque', a
   assertIssueThreadQuery();
 });
 
+for (const refundStatus of ['NOT_REQUESTED', 'FAILED']) {
+  test(`consulta de estorno ${refundStatus} não inicia devolução nem cancelamento`, async () => {
+    const order = makeOrder({ refundStatus });
+    orderRepository.findById = async () => order;
+    prisma.user.findFirst = async () => ({ name: 'Admin autorizado' });
+    mockMissingIssueThread();
+    cancelOrderWorkflowService.execute = async () => {
+      throw new Error('consulta iniciou workflow financeiro');
+    };
+    await assert.rejects(
+      refundOrderByAdminService.execute({
+        orderId: 701,
+        restaurantId: 17,
+        adminUserId: 99,
+        reconcileOnly: true,
+      }),
+      /Não há estorno em processamento/,
+    );
+  });
+}
+
+test('consulta de estorno pendente mantém isolamento de restaurante e admin', async () => {
+  orderRepository.findById = async (orderId, restaurantId) => {
+    assert.equal(restaurantId, 17);
+    return makeOrder({ refundStatus: 'PROCESSING' });
+  };
+  prisma.user.findFirst = async () => null;
+  mockMissingIssueThread();
+  cancelOrderWorkflowService.execute = async () => {
+    throw new Error('consulta iniciou workflow financeiro');
+  };
+  await assert.rejects(
+    refundOrderByAdminService.execute({
+      orderId: 701,
+      restaurantId: 17,
+      adminUserId: 99,
+      reconcileOnly: true,
+    }),
+    /Admin sem permissão/,
+  );
+});
+
 test('controllers ignoram restaurantId forjado em body, query e params', async () => {
   const received = [];
   cancelOrderService.execute = async (...args) => {
@@ -300,12 +342,17 @@ test('controllers ignoram restaurantId forjado em body, query e params', async (
     createResponse(),
   );
   await RefundOrderByAdminController.handle(forgedRequest, createResponse());
+  await RefundOrderByAdminController.handle(forgedRequest, createResponse(), true);
 
   assert.deepEqual(received, [
     { operation: 'cancel', args: ['701', 41, 17] },
     {
       operation: 'refund',
       args: { orderId: '701', restaurantId: 17, adminUserId: 99 },
+    },
+    {
+      operation: 'refund',
+      args: { orderId: '701', restaurantId: 17, adminUserId: 99, reconcileOnly: true },
     },
   ]);
 });

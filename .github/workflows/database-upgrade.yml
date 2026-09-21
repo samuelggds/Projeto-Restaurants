@@ -1,0 +1,133 @@
+name: Previous database upgrade
+
+on:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  previous-version-upgrade:
+    name: Previous-version database upgrade
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: upgrade_owner
+          POSTGRES_PASSWORD: upgrade-owner-password
+          POSTGRES_DB: gastronexa_upgrade_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U upgrade_owner -d gastronexa_upgrade_ci"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      OWNER_URL: postgresql://upgrade_owner:upgrade-owner-password@127.0.0.1:5432/gastronexa_upgrade_ci?schema=public
+      RUNTIME_URL: postgresql://upgrade_runtime:upgrade-runtime-password-long-enough@127.0.0.1:5432/gastronexa_upgrade_ci?schema=public
+      PGPASSWORD: upgrade-owner-password
+      JWT_SECRET: upgrade-e2e-access-secret-32-characters-minimum
+      JWT_REFRESH_SECRET: upgrade-e2e-refresh-secret-32-characters-minimum
+      JWT_MFA_SECRET: upgrade-e2e-mfa-secret-32-characters-minimum
+      CREDENTIAL_ENCRYPTION_KEY: BwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwc=
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22
+      - name: Materialize previous base version
+        env:
+          PREVIOUS_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          previous="$PREVIOUS_SHA"
+          if [[ -z "$previous" || "$previous" =~ ^0+$ ]]; then previous="${GITHUB_SHA}^"; fi
+          git worktree add "$RUNNER_TEMP/previous" "$previous"
+      - name: Install previous and current backend dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm --prefix "$RUNNER_TEMP/previous/backend" ci
+          npm --prefix backend ci
+      - name: Apply previous-version migrations and restricted runtime role
+        shell: bash
+        run: |
+          set -euo pipefail
+          (
+            cd "$RUNNER_TEMP/previous/backend"
+            DATABASE_URL="$OWNER_URL" DIRECT_URL="$OWNER_URL" npx prisma migrate deploy
+            DATABASE_URL="$OWNER_URL" DIRECT_URL="$OWNER_URL" RUNTIME_DATABASE_URL="$RUNTIME_URL" node scripts/provisionRuntimeRole.mjs
+          )
+      - name: Seed and preserve representative data with the previous application
+        shell: bash
+        run: |
+          set -euo pipefail
+          runner="$RUNNER_TEMP/previous/backend/scripts/runTsxWithOsUserInfoFallback.cjs"
+          (
+            cd "$RUNNER_TEMP/previous/backend"
+            DATABASE_URL="$RUNTIME_URL" \
+            DIRECT_URL="$OWNER_URL" \
+            TENANT_E2E_DATABASE_URL="$RUNTIME_URL" \
+            TENANT_E2E_OWNER_DATABASE_URL="$OWNER_URL" \
+            TENANT_E2E_RUNTIME_DATABASE_URL="$RUNTIME_URL" \
+            NODE_ENV=test \
+            ALLOW_GLOBAL_PAYMENT_FALLBACK=false \
+            ALLOW_INSECURE_STRIPE_WEBHOOK=false \
+            STRIPE_SECRET_KEY=sk_test_upgrade_only \
+            ASAAS_WEBHOOK_TOKEN=upgrade-e2e-asaas-webhook-token \
+            MP_WEBHOOK_SECRET=upgrade-e2e-mp-webhook-secret \
+            node "$runner" -e 'import("./src/e2e/multiTenant/tenantE2EHarness.ts").then(async (h) => { try { h.assertDisposableTenantDatabase(); await h.resetTenantE2EDatabase(); await h.seedTenantE2EFixture(); } finally { await h.prisma.$disconnect(); await h.runtimePrisma.$disconnect(); } }).catch(() => { process.exitCode = 1; })'
+          )
+      - name: Snapshot representative relational data before upgrade
+        shell: bash
+        run: |
+          set -euo pipefail
+          psql -v ON_ERROR_STOP=1 -h 127.0.0.1 -U upgrade_owner -d gastronexa_upgrade_ci -At -F: <<'SQL' > "$RUNNER_TEMP/before-counts.txt"
+          SELECT 'Restaurant', count(*) FROM "Restaurant";
+          SELECT 'User', count(*) FROM "User";
+          SELECT 'Order', count(*) FROM "Order";
+          SELECT 'Invoice', count(*) FROM "Invoice";
+          SELECT 'OrderDigest', md5(string_agg(concat_ws('|', "id", "restaurantId", "userId", "total", "paid", "status"), ',' ORDER BY "id")) FROM "Order";
+          SELECT 'InvoiceDigest', md5(string_agg(concat_ws('|', "id", "restaurantId", "total", "status"), ',' ORDER BY "id")) FROM "Invoice";
+          SQL
+          cat "$RUNNER_TEMP/before-counts.txt"
+          awk -F: '$1 !~ /Digest$/ && $2 <= 0 { exit 1 }' "$RUNNER_TEMP/before-counts.txt"
+      - name: Upgrade database with current migrations and reprovision runtime role
+        working-directory: backend
+        env:
+          DATABASE_URL: ${{ env.OWNER_URL }}
+          DIRECT_URL: ${{ env.OWNER_URL }}
+          RUNTIME_DATABASE_URL: ${{ env.RUNTIME_URL }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          npx prisma migrate deploy
+          node scripts/provisionRuntimeRole.mjs
+      - name: Verify data preservation, integrity and restricted role after upgrade
+        shell: bash
+        run: |
+          set -euo pipefail
+          psql -v ON_ERROR_STOP=1 -h 127.0.0.1 -U upgrade_owner -d gastronexa_upgrade_ci -At -F: <<'SQL' > "$RUNNER_TEMP/after-counts.txt"
+          SELECT 'Restaurant', count(*) FROM "Restaurant";
+          SELECT 'User', count(*) FROM "User";
+          SELECT 'Order', count(*) FROM "Order";
+          SELECT 'Invoice', count(*) FROM "Invoice";
+          SELECT 'OrderDigest', md5(string_agg(concat_ws('|', "id", "restaurantId", "userId", "total", "paid", "status"), ',' ORDER BY "id")) FROM "Order";
+          SELECT 'InvoiceDigest', md5(string_agg(concat_ws('|', "id", "restaurantId", "total", "status"), ',' ORDER BY "id")) FROM "Invoice";
+          SQL
+          diff -u "$RUNNER_TEMP/before-counts.txt" "$RUNNER_TEMP/after-counts.txt"
+          invalid_fks="$(psql -v ON_ERROR_STOP=1 -h 127.0.0.1 -U upgrade_owner -d gastronexa_upgrade_ci -Atc "SELECT count(*) FROM pg_constraint WHERE contype='f' AND NOT convalidated")"
+          test "$invalid_fks" = '0'
+          secure_role="$(psql -v ON_ERROR_STOP=1 -h 127.0.0.1 -U upgrade_owner -d gastronexa_upgrade_ci -Atc "SELECT (NOT rolsuper AND NOT rolbypassrls)::text FROM pg_roles WHERE rolname='upgrade_runtime'")"
+          test "$secure_role" = 'true'
+          pilot_rows="$(psql -v ON_ERROR_STOP=1 -h 127.0.0.1 -U upgrade_owner -d gastronexa_upgrade_ci -Atc 'SELECT count(*) FROM "OrderIssueThread"')"
+          test "$pilot_rows" -gt 0
+          visible_without_tenant="$(PGPASSWORD=upgrade-runtime-password-long-enough psql -v ON_ERROR_STOP=1 -h 127.0.0.1 -U upgrade_runtime -d gastronexa_upgrade_ci -Atc 'SELECT count(*) FROM "OrderIssueThread"')"
+          test "$visible_without_tenant" = '0'

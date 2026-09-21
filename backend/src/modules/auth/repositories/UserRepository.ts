@@ -128,9 +128,17 @@ class UserRepository {
     });
   }
 
-  async updateMfaEnabled(id: number | string, mfaEnabled: boolean, db: PrismaClientLike = prisma) {
+  async updateMfaEnabled(
+    id: number | string,
+    mfaEnabled: boolean,
+    db: PrismaClientLike = prisma,
+    authVersion?: number,
+  ) {
     return db.user.update({
-      where: { id: Number(id) },
+      where: {
+        id: Number(id),
+        ...(authVersion === undefined ? {} : { authVersion, active: true }),
+      },
       data: {
         mfaEnabled,
         authVersion: { increment: 1 },

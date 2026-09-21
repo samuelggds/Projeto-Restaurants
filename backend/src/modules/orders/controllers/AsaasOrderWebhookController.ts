@@ -11,9 +11,17 @@ import {
 import failPendingOrderPaymentService from '../services/FailPendingOrderPaymentService.js';
 import reconcileLateCancelledPaymentService from '../services/ReconcileLateCancelledPaymentService.js';
 import asaasPaymentVerificationService from '../services/AsaasPaymentVerificationService.js';
+import cancelOrderWorkflowService from '../services/CancelOrderWorkflowService.js';
+import { AutomaticRefundError } from '../services/RefundOrderPaymentService.js';
 import { timingSafeEqual } from 'node:crypto';
 
-const TERMINAL_UNPAID_EVENTS = new Set(['PAYMENT_CANCELED', 'PAYMENT_DELETED', 'PAYMENT_REFUNDED']);
+const TERMINAL_UNPAID_EVENTS = new Set([
+  'PAYMENT_CANCELED',
+  'PAYMENT_DELETED',
+  'PAYMENT_REFUNDED',
+  'PAYMENT_REFUND_IN_PROGRESS',
+  'PAYMENT_PARTIALLY_REFUNDED',
+]);
 
 export interface AsaasWebhookPaymentPayload {
   id: string;
@@ -90,6 +98,7 @@ class AsaasOrderWebhookController {
           restaurantId: true,
           userId: true,
           paid: true,
+          refundStatus: true,
           status: true,
           paymentMethod: true,
           pixPaymentId: true,
@@ -106,7 +115,7 @@ class AsaasOrderWebhookController {
         return res.status(200).json({ received: true, ignored: true });
       }
 
-      if (Math.abs(paymentValue - Number(order.total)) > 0.009) {
+      if (!Number.isFinite(paymentValue) || Math.abs(paymentValue - Number(order.total)) > 0.009) {
         return res.status(200).json({ received: true, ignored: true });
       }
 
@@ -135,10 +144,33 @@ class AsaasOrderWebhookController {
       const linkedPaymentId = String(
         normalizedPaymentMethod === 'PIX' ? order.pixPaymentId : order.cardCheckoutSessionId,
       ).trim();
-      if (linkedPaymentId && linkedPaymentId !== providerPaymentId) {
+      const latePending =
+        order.refundStatus === 'PROCESSING' &&
+        order.status === 'CANCELADO' &&
+        !order.paid &&
+        linkedPaymentId === `late_refund_pending:${providerPaymentId}`;
+      if (linkedPaymentId && linkedPaymentId !== providerPaymentId && !latePending) {
         return res.status(200).json({ received: true, ignored: true });
       }
 
+      if (
+        order.refundStatus === 'PROCESSING' &&
+        (linkedPaymentId === providerPaymentId || latePending)
+      ) {
+        // A signed notification only schedules reconciliation; re-read the tenant's canonical payment.
+        if (latePending) {
+          await reconcileLateCancelledPaymentService.execute({
+            orderId: order.id,
+            restaurantId: order.restaurantId,
+            paymentMethod: normalizedPaymentMethod,
+            paymentReference: providerPaymentId,
+          });
+        } else {
+          const fullOrder = await orderRepository.findById(order.id, order.restaurantId);
+          if (fullOrder) await cancelOrderWorkflowService.execute(fullOrder);
+        }
+        return res.status(200).json({ received: true, processed: true });
+      }
       const verified = await asaasPaymentVerificationService.execute({
         restaurantId: order.restaurantId,
         orderId: order.id,
@@ -228,6 +260,9 @@ class AsaasOrderWebhookController {
 
       return res.status(200).json({ received: true, processed: true });
     } catch (error: unknown) {
+      if (error instanceof AutomaticRefundError && error.code === 'REFUND_PENDING') {
+        return res.status(200).json({ received: true, pending: true });
+      }
       console.error('[ASAAS_WEBHOOK_ERROR]', { errorType: safeErrorName(error) });
 
       return res.status(500).json({ received: true, processed: false });

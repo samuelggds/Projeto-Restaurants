@@ -3,6 +3,7 @@ import prisma from '../../../config/prisma.js';
 import { realtimePublisher as io } from '../../../realtime/realtimePublisher.js';
 import { notifyCustomerOrderStatusChanged } from '../../../services/customerNotifier.js';
 import orderRepository from '../repositories/OrderRepository.js';
+import reconcileLateCancelledPaymentService from './ReconcileLateCancelledPaymentService.js';
 import cancelOrderWorkflowService, {
   OrderCancellationError,
   requiresAutomaticOrderRefund,
@@ -22,10 +23,12 @@ class RefundOrderByAdminService {
     orderId,
     restaurantId,
     adminUserId,
+    reconcileOnly = false,
   }: {
     orderId: number | string;
     restaurantId: number | string | null;
     adminUserId: number | string;
+    reconcileOnly?: boolean;
   }) {
     const normalizedOrderId = Number(orderId);
     const normalizedRestaurantId = Number(restaurantId || 0);
@@ -67,10 +70,38 @@ class RefundOrderByAdminService {
       throw new OrderCancellationError('Admin sem permissão para este restaurante.');
     }
 
+    if (
+      reconcileOnly &&
+      order.refundStatus !== OrderRefundStatus.PROCESSING &&
+      order.refundStatus !== OrderRefundStatus.SUCCEEDED
+    ) {
+      throw new OrderCancellationError(
+        'Não há estorno em processamento para consultar. Nenhuma devolução foi solicitada.',
+      );
+    }
+
     if (order.status === OrderStatus.CANCELADO) {
-      const alreadyRefunded = order.refundStatus === OrderRefundStatus.SUCCEEDED;
+      let reconciledOrder = order;
+      if (order.refundStatus === OrderRefundStatus.PROCESSING && !order.paid) {
+        const reference = String(
+          order.paymentMethod === 'PIX' ? order.pixPaymentId : order.cardCheckoutSessionId,
+        );
+        if (!reference.startsWith('late_refund_pending:')) {
+          throw new OrderCancellationError(
+            'O estorno aguarda conciliação financeira. Nenhuma devolução foi solicitada.',
+          );
+        }
+        await reconcileLateCancelledPaymentService.execute({
+          orderId: order.id,
+          restaurantId: order.restaurantId,
+          paymentMethod: String(order.paymentMethod),
+          paymentReference: reference.slice('late_refund_pending:'.length),
+        });
+        reconciledOrder = (await orderRepository.findById(order.id, order.restaurantId)) || order;
+      }
+      const alreadyRefunded = reconciledOrder.refundStatus === OrderRefundStatus.SUCCEEDED;
       return {
-        order,
+        order: reconciledOrder,
         refunded: alreadyRefunded,
         info: alreadyRefunded
           ? 'Este pedido já está cancelado e o estorno já foi confirmado.'
@@ -86,6 +117,11 @@ class RefundOrderByAdminService {
     }
 
     const hasOnlinePaymentToRefund = requiresAutomaticOrderRefund(order);
+    if (reconcileOnly && !hasOnlinePaymentToRefund) {
+      throw new OrderCancellationError(
+        'O estorno aguarda conciliação financeira. Nenhuma devolução foi solicitada.',
+      );
+    }
     const { order: updatedOrder, refunded } = await cancelOrderWorkflowService.execute(order);
 
     const resolvedByName = String(adminUser?.name || 'Admin').trim() || 'Admin';

@@ -48,6 +48,9 @@ jobs:
             e2e/marketing-landing.spec.ts \
             e2e/demo-workflow.spec.ts \
             e2e/help-preview-scroll.spec.ts \
+            e2e/admin-billing-ux.spec.ts \
+            e2e/admin-settings-inputs.spec.ts \
+            e2e/admin-payment-connections.spec.ts \
             --grep-invert='logo GX preserva transparência real|deslizar a prévia sem acionar os controles' \
             2>&1 | tee "../cross-browser-${{ matrix.browser }}.log"
       - name: Upload browser diagnostics

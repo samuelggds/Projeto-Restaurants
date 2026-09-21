@@ -42,6 +42,8 @@ type TopUpRow = {
   adminUserId: number;
   requestedByUserId: number;
   creditUsdMicros: bigint;
+  reversedUsdMicros: bigint;
+  reversalPending: boolean;
   exchangeRateBrlPerUsd: Prisma.Decimal | string | number;
   exchangeRateSource: string;
   exchangeRateQuotedAt: Date;
@@ -75,11 +77,125 @@ function record(value: unknown): Record<string, unknown> {
     : {};
 }
 
+function amountCents(value: unknown) {
+  const text = String(value ?? '');
+  if (!/^\d{1,12}(?:\.\d{1,2})?$/u.test(text)) return null;
+  const [whole, fraction = ''] = text.split('.');
+  const cents = Number(whole) * 100 + Number(fraction.padEnd(2, '0'));
+  return Number.isSafeInteger(cents) ? cents : null;
+}
+
+function providerSnapshotAt(value: unknown) {
+  if (typeof value !== 'string' || !value) return null;
+  const date = new Date(value);
+  return Number.isFinite(date.getTime()) ? date : null;
+}
+
+type Reversal = {
+  state: 'NONE' | 'UNKNOWN' | 'CONFIRMED';
+  cents: number;
+  reason: 'REFUNDED' | 'CHARGED_BACK';
+};
+
+export function getTopUpReversal(
+  payment: Record<string, unknown>,
+  totalCents: number,
+  order?: Record<string, unknown>,
+): Reversal {
+  const statuses = [payment.status, order?.status].map((value) =>
+    String(value || '').toLowerCase(),
+  );
+  if (statuses.includes('charged_back')) {
+    return { state: 'CONFIRMED', cents: totalCents, reason: 'CHARGED_BACK' };
+  }
+  if (statuses.includes('in_mediation'))
+    return { state: 'UNKNOWN', cents: 0, reason: 'CHARGED_BACK' };
+  const partial = [payment.status_detail, order?.status_detail].some(
+    (value) => value === 'partially_refunded',
+  );
+  if (statuses.includes('refunded') && !partial)
+    return { state: 'CONFIRMED', cents: totalCents, reason: 'REFUNDED' };
+  if (!order) {
+    const refunded = amountCents(payment.transaction_amount_refunded ?? 0);
+    if (refunded === null || refunded > totalCents || (partial && refunded === 0)) {
+      return { state: 'UNKNOWN', cents: 0, reason: 'REFUNDED' };
+    }
+    return { state: refunded > 0 ? 'CONFIRMED' : 'NONE', cents: refunded, reason: 'REFUNDED' };
+  }
+  const refunds = record(order.transactions).refunds;
+  if (refunds !== undefined && !Array.isArray(refunds))
+    return { state: 'UNKNOWN', cents: 0, reason: 'REFUNDED' };
+  let refunded = 0;
+  const seen = new Set<string>();
+  for (const raw of Array.isArray(refunds) ? refunds : []) {
+    const refund = record(raw);
+    // Refund transactions must refer to the exact payment that funded this wallet.
+    // Only a canonical `processed` refund is financially complete (processing is not).
+    if (['failed', 'canceled', 'cancelled'].includes(String(refund.status))) continue;
+    const id = String(refund.id || '');
+    const cents = amountCents(refund.amount);
+    if (
+      String(refund.transaction_id || '') !== String(payment.id) ||
+      !id ||
+      seen.has(id) ||
+      refund.status !== 'processed' ||
+      cents === null ||
+      cents <= 0
+    ) {
+      return { state: 'UNKNOWN', cents: 0, reason: 'REFUNDED' };
+    }
+    seen.add(id);
+    refunded += cents;
+  }
+  if (refunded > totalCents || (partial && refunded === 0))
+    return { state: 'UNKNOWN', cents: 0, reason: 'REFUNDED' };
+  return { state: refunded > 0 ? 'CONFIRMED' : 'NONE', cents: refunded, reason: 'REFUNDED' };
+}
+
+async function reconcileReversal(
+  topUp: TopUpRow,
+  reversal: Reversal,
+  identity: {
+    providerPaymentId: string;
+    providerOrderId?: string | null;
+    snapshotAt: Date | null;
+  },
+) {
+  const actor = { userId: topUp.adminUserId, restaurantId: topUp.restaurantId };
+  if (reversal.state === 'UNKNOWN') {
+    await aiCreditService.holdPurchaseForReconciliation(actor, {
+      ...identity,
+      topUpPublicId: topUp.publicId,
+    });
+    // Keep provider delivery retryable. No fabricated debit or approved response.
+    throw new Error('Reversão da recarga aguardando confirmação do valor pelo provedor.');
+  }
+  if (reversal.state === 'NONE') return null;
+  const total = BigInt(amountCents(topUp.amountBrl)!);
+  const cumulative = (topUp.creditUsdMicros * BigInt(reversal.cents) + total - 1n) / total;
+  await aiCreditService.reversePurchase(actor, {
+    ...identity,
+    topUpPublicId: topUp.publicId,
+    cumulativeUsdMicros: cumulative,
+    reason: reversal.reason,
+  });
+  return {
+    processed: true as const,
+    status: cumulative === topUp.creditUsdMicros ? 'CANCELED' : 'PAID',
+    publicId: topUp.publicId,
+  };
+}
+
 function normalizeActor(actor: Actor) {
   const userId = Number(actor.userId);
   const restaurantId = Number(actor.restaurantId);
   const email = String(actor.email || '').trim();
-  if (!Number.isInteger(userId) || userId <= 0 || !Number.isInteger(restaurantId) || restaurantId <= 0) {
+  if (
+    !Number.isInteger(userId) ||
+    userId <= 0 ||
+    !Number.isInteger(restaurantId) ||
+    restaurantId <= 0
+  ) {
     throw new Error('Conta ADMIN inválida para recarga de créditos.');
   }
   if (!email || !email.includes('@')) throw new Error('E-mail do ADMIN inválido para pagamento.');
@@ -89,7 +205,8 @@ function normalizeActor(actor: Actor) {
 function normalizeUsd(value: unknown) {
   const raw = typeof value === 'string' ? value.replace(',', '.') : value;
   const parsed = Number(raw);
-  if (!Number.isFinite(parsed) || parsed <= 0) throw new Error('Informe um valor de recarga válido.');
+  if (!Number.isFinite(parsed) || parsed <= 0)
+    throw new Error('Informe um valor de recarga válido.');
   if (parsed > 10_000) throw new Error('O valor máximo por recarga é US$ 10.000,00.');
   return Number(parsed.toFixed(2));
 }
@@ -114,14 +231,17 @@ function billedAmounts(amountUsd: number, exchangeRate: number) {
   const baseAmountBrl = money(amountUsd * exchangeRate);
   const markup = markupPercent();
   const amountBrl = money(baseAmountBrl * (1 + markup / 100));
-  if (baseAmountBrl <= 0 || amountBrl <= 0) throw new Error('Valor em reais inválido para a recarga.');
+  if (baseAmountBrl <= 0 || amountBrl <= 0)
+    throw new Error('Valor em reais inválido para a recarga.');
   return { baseAmountBrl, markupPercent: markup, amountBrl };
 }
 
 function notificationUrl() {
   const explicit = String(process.env.MP_NOTIFICATION_URL || '').trim();
   if (explicit) return explicit;
-  const base = String(process.env.BACKEND_URL || '').trim().replace(/\/+$/u, '');
+  const base = String(process.env.BACKEND_URL || '')
+    .trim()
+    .replace(/\/+$/u, '');
   const url = base ? `${base}/billing/webhook/mercadopago` : '';
   if (process.env.NODE_ENV === 'production' && !/^https:\/\//iu.test(url)) {
     throw new Error('MP_NOTIFICATION_URL HTTPS é obrigatória para recargas de IA.');
@@ -145,11 +265,11 @@ async function providerRequest(path: string, init: RequestInit = {}) {
   });
   const body = (await response.json().catch(() => ({}))) as unknown;
   if (!response.ok) {
-    const payload = record(body);
-    const message = String(payload.message || payload.error || 'O Mercado Pago recusou a operação.');
-    throw new Error(message.replace(/\b\d{13,19}\b/gu, '[cartão protegido]').slice(0, 240));
+    throw new Error(
+      'Não foi possível confirmar a operação no Mercado Pago. Tente novamente ou contate o suporte.',
+    );
   }
-  return record(body);
+  return Array.isArray(body) && path.endsWith('/cards') ? { cards: body } : record(body);
 }
 
 async function getBillingProfile(restaurantId: number) {
@@ -242,7 +362,9 @@ async function ensurePaymentProfile(restaurantId: number) {
     },
   );
   const paymentProfileId = String(created.id || '').trim();
-  const status = String(created.status || '').trim().toUpperCase();
+  const status = String(created.status || '')
+    .trim()
+    .toUpperCase();
   if (!paymentProfileId || (status && !['READY', 'PENDING'].includes(status))) {
     throw new Error('Mercado Pago não disponibilizou o cartão cadastrado para cobranças avulsas.');
   }
@@ -272,6 +394,8 @@ function mapTopUp(row: TopUpRow) {
     amountBrl: Number(row.amountBrl),
     paymentMethod: row.paymentMethod,
     status: row.status,
+    reversedUsd: Number(row.reversedUsdMicros || 0n) / 1_000_000,
+    reversalPending: row.reversalPending,
     providerPaymentId: row.providerPaymentId,
     providerOrderId: row.providerOrderId,
     pixQrCode: row.pixQrCode,
@@ -404,9 +528,9 @@ export class AiCreditTopUpService {
           "pixQrCode" = ${String(transaction.qr_code)},
           "pixQrCodeBase64" = ${String(transaction.qr_code_base64)},
           "pixExpiresAt" = ${new Date(String(payment.date_of_expiration || expiresAt))},
-          "status" = ${String(payment.status || 'pending').toLowerCase() === 'approved' ? 'PAID' : 'PENDING'},
+          "status" = 'PENDING',
           "updatedAt" = CURRENT_TIMESTAMP
-        WHERE "publicId" = ${topUp.publicId}
+        WHERE "publicId" = ${topUp.publicId} AND "status" <> 'PAID' AND "reversedUsdMicros" = 0 AND NOT "reversalPending"
       `);
 
       if (String(payment.status || '').toLowerCase() === 'approved') {
@@ -421,7 +545,7 @@ export class AiCreditTopUpService {
         SET "status" = 'FAILED',
             "failureReason" = ${String(error instanceof Error ? error.message : error).slice(0, 500)},
             "updatedAt" = CURRENT_TIMESTAMP
-        WHERE "publicId" = ${topUp.publicId} AND "status" <> 'PAID'
+        WHERE "publicId" = ${topUp.publicId} AND "status" <> 'PAID' AND "reversedUsdMicros" = 0 AND NOT "reversalPending"
       `);
       throw error;
     }
@@ -479,7 +603,7 @@ export class AiCreditTopUpService {
           "providerTransactionReference" = ${transactionReference},
           "status" = 'PROCESSING',
           "updatedAt" = CURRENT_TIMESTAMP
-        WHERE "publicId" = ${topUp.publicId}
+        WHERE "publicId" = ${topUp.publicId} AND "status" <> 'PAID' AND "reversedUsdMicros" = 0 AND NOT "reversalPending"
       `);
       await this.processOrder(order, topUp.publicId);
       const updated = await getTopUpByPublicId(topUp.publicId);
@@ -491,7 +615,7 @@ export class AiCreditTopUpService {
         SET "status" = 'FAILED',
             "failureReason" = ${String(error instanceof Error ? error.message : error).slice(0, 500)},
             "updatedAt" = CURRENT_TIMESTAMP
-        WHERE "publicId" = ${topUp.publicId} AND "status" <> 'PAID'
+        WHERE "publicId" = ${topUp.publicId} AND "status" <> 'PAID' AND "reversedUsdMicros" = 0 AND NOT "reversalPending"
       `);
       throw error;
     }
@@ -516,16 +640,33 @@ export class AiCreditTopUpService {
     const topUp = await getTopUpByPublicId(publicId);
     if (!topUp || topUp.paymentMethod !== 'CARD') return { processed: false as const };
 
+    if (
+      !order.id ||
+      (topUp.providerOrderId && topUp.providerOrderId !== String(order.id)) ||
+      orderPayments(order).length !== 1
+    )
+      return { processed: false as const };
     const payment = orderPayments(order)[0];
-    if (!payment) return { processed: false as const };
+    if (
+      !payment ||
+      !payment.id ||
+      (topUp.providerPaymentId && topUp.providerPaymentId !== String(payment.id))
+    )
+      return { processed: false as const };
     const providerAmount = Number(payment.amount ?? order.total_amount);
     const expectedAmount = Number(topUp.amountBrl);
-    if (!Number.isFinite(providerAmount) || Math.abs(providerAmount - expectedAmount) > 0.009) {
+    if (
+      amountCents(payment.amount ?? order.total_amount) !== amountCents(topUp.amountBrl) ||
+      !Number.isFinite(providerAmount) ||
+      Math.abs(providerAmount - expectedAmount) > 0.009 ||
+      (order.currency && order.currency !== 'BRL') ||
+      (order.country_code && order.country_code !== 'BRA')
+    ) {
       await prisma.$executeRaw(Prisma.sql`
         UPDATE "AiCreditTopUp"
         SET "status" = 'FAILED', "failureReason" = 'Pagamento com valor divergente.',
             "updatedAt" = CURRENT_TIMESTAMP
-        WHERE "publicId" = ${topUp.publicId} AND "status" <> 'PAID'
+        WHERE "publicId" = ${topUp.publicId} AND "status" <> 'PAID' AND "reversedUsdMicros" = 0 AND NOT "reversalPending"
       `);
       return { processed: true as const, status: 'FAILED', publicId: topUp.publicId };
     }
@@ -537,31 +678,29 @@ export class AiCreditTopUpService {
     const transactionReference =
       String(payment.reference_id || topUp.providerTransactionReference || '').trim() || null;
 
+    const reversalResult = await reconcileReversal(
+      topUp,
+      getTopUpReversal(payment as Record<string, unknown>, amountCents(topUp.amountBrl)!, order),
+      {
+        providerPaymentId: paymentId!,
+        providerOrderId: orderId,
+        snapshotAt: providerSnapshotAt(order.last_updated_date),
+      },
+    );
+    if (reversalResult) return reversalResult;
     if (status === 'processed' && detail === 'accredited') {
-      await aiCreditService.creditPurchase(
+      const result = await aiCreditService.creditPurchase(
         { userId: topUp.adminUserId, restaurantId: topUp.restaurantId },
-        { topUpPublicId: topUp.publicId, amountUsdMicros: topUp.creditUsdMicros },
+        {
+          topUpPublicId: topUp.publicId,
+          amountUsdMicros: topUp.creditUsdMicros,
+          providerPaymentId: paymentId!,
+          providerOrderId: orderId,
+          transactionReference,
+          snapshotAt: providerSnapshotAt(order.last_updated_date),
+        },
       );
-      await prisma.$transaction(async (db) => {
-        await db.$executeRaw(Prisma.sql`
-          UPDATE "AiCreditTopUp"
-          SET "providerOrderId" = ${orderId},
-              "providerPaymentId" = ${paymentId},
-              "providerTransactionReference" = ${transactionReference},
-              "status" = 'PAID', "paidAt" = COALESCE("paidAt", CURRENT_TIMESTAMP),
-              "failureReason" = NULL, "updatedAt" = CURRENT_TIMESTAMP
-          WHERE "publicId" = ${topUp.publicId}
-        `);
-        if (transactionReference) {
-          await db.$executeRaw(Prisma.sql`
-            UPDATE "PlatformBillingProfile"
-            SET "providerPreviousTransactionReference" = ${transactionReference},
-                "updatedAt" = CURRENT_TIMESTAMP
-            WHERE "restaurantId" = ${topUp.restaurantId}
-          `);
-        }
-      });
-      return { processed: true as const, status: 'PAID', publicId: topUp.publicId };
+      return { processed: true as const, status: result.topUpStatus, publicId: topUp.publicId };
     }
 
     const failed = ['failed', 'canceled', 'expired', 'charged_back', 'refunded'].includes(status);
@@ -574,7 +713,7 @@ export class AiCreditTopUpService {
           "status" = ${nextStatus},
           "failureReason" = ${failed ? String(payment.status_detail || 'Cobrança não aprovada.').slice(0, 500) : null},
           "updatedAt" = CURRENT_TIMESTAMP
-      WHERE "publicId" = ${topUp.publicId} AND "status" <> 'PAID'
+      WHERE "publicId" = ${topUp.publicId} AND "status" <> 'PAID' AND "reversedUsdMicros" = 0 AND NOT "reversalPending"
     `);
     return { processed: true as const, status: nextStatus, publicId: topUp.publicId };
   }
@@ -586,7 +725,9 @@ export class AiCreditTopUpService {
     let topUp = await getTopUpByOrderId(resourceId);
     topUp ||= await getTopUpByPaymentId(resourceId);
     if (topUp?.paymentMethod === 'CARD' && topUp.providerOrderId) {
-      const order = await providerRequest(`/v1/orders/${encodeURIComponent(topUp.providerOrderId)}`);
+      const order = await providerRequest(
+        `/v1/orders/${encodeURIComponent(topUp.providerOrderId)}`,
+      );
       return this.processOrder(order, topUp.publicId);
     }
 
@@ -606,33 +747,50 @@ export class AiCreditTopUpService {
       return { processed: false as const };
     }
 
+    if (
+      String(payment.id) !== resourceId ||
+      (topUp.providerPaymentId && topUp.providerPaymentId !== resourceId)
+    )
+      return { processed: false as const };
     const providerAmount = Number(payment.transaction_amount);
     const expectedAmount = Number(topUp.amountBrl);
     const currency = String(payment.currency_id || 'BRL').toUpperCase();
-    if (!Number.isFinite(providerAmount) || Math.abs(providerAmount - expectedAmount) > 0.009 || currency !== 'BRL') {
+    if (
+      !Number.isFinite(providerAmount) ||
+      Math.abs(providerAmount - expectedAmount) > 0.009 ||
+      currency !== 'BRL' ||
+      amountCents(payment.transaction_amount) !== amountCents(topUp.amountBrl)
+    ) {
       await prisma.$executeRaw(Prisma.sql`
         UPDATE "AiCreditTopUp"
         SET "status" = 'FAILED', "failureReason" = 'Pagamento com valor ou moeda divergente.',
             "updatedAt" = CURRENT_TIMESTAMP
-        WHERE "publicId" = ${topUp.publicId} AND "status" <> 'PAID'
+        WHERE "publicId" = ${topUp.publicId} AND "status" <> 'PAID' AND "reversedUsdMicros" = 0 AND NOT "reversalPending"
       `);
       return { processed: true as const, status: 'FAILED', publicId: topUp.publicId };
     }
 
     const status = String(payment.status || '').toLowerCase();
+    const reversalResult = await reconcileReversal(
+      topUp,
+      getTopUpReversal(payment, amountCents(topUp.amountBrl)!),
+      {
+        providerPaymentId: resourceId,
+        snapshotAt: providerSnapshotAt(payment.date_last_updated),
+      },
+    );
+    if (reversalResult) return reversalResult;
     if (status === 'approved') {
-      await aiCreditService.creditPurchase(
+      const result = await aiCreditService.creditPurchase(
         { userId: topUp.adminUserId, restaurantId: topUp.restaurantId },
-        { topUpPublicId: topUp.publicId, amountUsdMicros: topUp.creditUsdMicros },
+        {
+          topUpPublicId: topUp.publicId,
+          amountUsdMicros: topUp.creditUsdMicros,
+          providerPaymentId: resourceId,
+          snapshotAt: providerSnapshotAt(payment.date_last_updated),
+        },
       );
-      await prisma.$executeRaw(Prisma.sql`
-        UPDATE "AiCreditTopUp"
-        SET "providerPaymentId" = ${resourceId}, "status" = 'PAID',
-            "paidAt" = COALESCE("paidAt", CURRENT_TIMESTAMP), "failureReason" = NULL,
-            "updatedAt" = CURRENT_TIMESTAMP
-        WHERE "publicId" = ${topUp.publicId}
-      `);
-      return { processed: true as const, status: 'PAID', publicId: topUp.publicId };
+      return { processed: true as const, status: result.topUpStatus, publicId: topUp.publicId };
     }
 
     const nextStatus = ['cancelled', 'canceled'].includes(status)
@@ -645,7 +803,7 @@ export class AiCreditTopUpService {
       SET "providerPaymentId" = ${resourceId}, "status" = ${nextStatus},
           "failureReason" = ${nextStatus === 'FAILED' ? String(payment.status_detail || 'Pagamento recusado.').slice(0, 500) : null},
           "updatedAt" = CURRENT_TIMESTAMP
-      WHERE "publicId" = ${topUp.publicId} AND "status" <> 'PAID'
+      WHERE "publicId" = ${topUp.publicId} AND "status" <> 'PAID' AND "reversedUsdMicros" = 0 AND NOT "reversalPending"
     `);
     return { processed: true as const, status: nextStatus, publicId: topUp.publicId };
   }

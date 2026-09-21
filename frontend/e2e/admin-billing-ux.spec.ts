@@ -459,6 +459,7 @@ for (const viewport of [
 ]) {
   test(`cadastro de cartão mantém campos seguros e ações acessíveis em ${viewport.width}x${viewport.height}`, async ({
     page,
+    browserName,
   }, testInfo) => {
     const state = createState();
     state.configError = false;
@@ -524,6 +525,12 @@ for (const viewport of [
       await page.keyboard.press('Tab');
       await expect(dialog.getByLabel('Nome do titular')).toBeFocused();
       await page.keyboard.press('Tab');
+      if (browserName === 'firefox') {
+        // Firefox first focuses the isolated frame document before entering its
+        // textbox. Keep the sandbox and verify both native keyboard stops.
+        await expect(dialog.locator('#billing-card-number iframe')).toBeFocused();
+        await page.keyboard.press('Tab');
+      }
       await expect(
         dialog.frameLocator('#billing-card-number iframe').getByRole('textbox'),
       ).toBeFocused();
@@ -824,7 +831,7 @@ test('acessos da demonstração usam a marca vetorial e preservam as contas fict
 
 test('Pix oculta os códigos ao zerar e renova somente por clique na mesma fatura', async ({
   page,
-}) => {
+}, testInfo) => {
   const start = new Date('2026-09-20T12:00:00Z');
   await page.clock.install({ time: start });
   const state = createState();
@@ -843,7 +850,7 @@ test('Pix oculta os códigos ao zerar e renova somente por clique na mesma fatur
   await dialog.evaluate((element) => {
     element.scrollTop = 0;
   });
-  await dialog.screenshot({ path: '../output/preview-bloqueios/pix-contagem-mobile.png' });
+  await dialog.screenshot({ path: testInfo.outputPath('pix-contagem-mobile.png') });
   await dialog.getByText('Ver código Pix', { exact: true }).click();
   await expect(dialog.getByLabel('Código Pix copia e cola')).toBeVisible();
   await page.clock.fastForward(30 * 60_000);
@@ -855,7 +862,7 @@ test('Pix oculta os códigos ao zerar e renova somente por clique na mesma fatur
   await expect(dialog.getByLabel('Código Pix copia e cola')).toHaveCount(0);
   await expect(dialog.getByRole('button', { name: 'Gerar novo Pix' })).toBeEnabled();
   expect(state.pixRequests).toBe(1);
-  await dialog.screenshot({ path: '../output/preview-bloqueios/pix-expirado-mobile.png' });
+  await dialog.screenshot({ path: testInfo.outputPath('pix-expirado-mobile.png') });
   state.pixExpiresAt = new Date(start.getTime() + 60 * 60_000).toISOString();
   await dialog.getByRole('button', { name: 'Gerar novo Pix' }).click();
   await expect.poll(() => state.pixRequests).toBe(2);
