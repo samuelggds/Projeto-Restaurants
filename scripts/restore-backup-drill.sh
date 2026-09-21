@@ -34,8 +34,16 @@ container=$(docker run -d --network none --read-only --cap-drop ALL --security-o
   -e PGDATA=/tmp/data -e POSTGRES_HOST_AUTH_METHOD=trust -e POSTGRES_DB=gastronexa_restore_test postgres:16-alpine)
 [[ "$container" =~ ^[a-f0-9]{64}$ ]] || exit 1
 ready=false
-for ((attempt=0; attempt<60; attempt++)); do
-  if docker exec "$container" pg_isready -U postgres -d gastronexa_restore_test >/dev/null 2>&1; then ready=true; break; fi
+for ((attempt=0; attempt<90; attempt++)); do
+  if docker logs "$container" 2>&1 | grep -Fq "PostgreSQL init process complete; ready for start up."; then
+    if docker exec "$container" pg_isready -U postgres -d gastronexa_restore_test >/dev/null 2>&1; then
+      sleep 2
+      if docker exec "$container" pg_isready -U postgres -d gastronexa_restore_test >/dev/null 2>&1; then
+        ready=true
+        break
+      fi
+    fi
+  fi
   sleep 1
 done
 [[ "$ready" == true ]] || { echo 'Recovery database did not start.' >&2; exit 1; }
