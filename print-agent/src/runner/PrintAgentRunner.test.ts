@@ -6,9 +6,12 @@ import { MockPrinterTransport } from '../transports/MockPrinterTransport.js';
 import type { AgentLogger } from '../logger.js';
 import type { ClaimedPrintJob, LocalAgentConfig } from '../types.js';
 
+const TEST_DEVICE_ID = '2f7a7df8-a444-4db9-a47a-5b79560352be';
+const testCredential = `pa_${TEST_DEVICE_ID}.${'x'.repeat(43)}`;
+
 const config: LocalAgentConfig = {
   apiBaseUrl: 'http://localhost:3000',
-  credential: 'pa_2f7a7df8-a444-4db9-a47a-5b79560352be.abcdefghijklmnopqrstuvwxyzABCDEFGH123456789',
+  credential: testCredential,
   printerName: 'Mock Thermal Printer',
   transport: 'mock',
   pollIntervalMs: 1_000,
