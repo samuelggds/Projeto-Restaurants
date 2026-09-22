@@ -191,8 +191,8 @@ test('reimpressão manual cria solicitações próprias e valida ator/tenant', a
 });
 
 test('erro reportado pelo agente remove token e cabeçalhos sensíveis', () => {
-  const token =
-    'pa_2f7a7df8-a444-4db9-a47a-5b79560352be.abcdefghijklmnopqrstuvwxyzABCDEFGH123456789';
+  const deviceId = '2f7a7df8-a444-4db9-a47a-5b79560352be';
+  const token = `pa_${deviceId}.${'x'.repeat(43)}`;
   const sanitized = sanitizePrinterError(`Falha\nAuthorization: Bearer ${token}`);
   assert.equal(sanitized.includes(token), false);
   assert.match(sanitized, /Bearer <redacted>/u);
