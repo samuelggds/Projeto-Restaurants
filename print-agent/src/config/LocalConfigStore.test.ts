@@ -8,8 +8,8 @@ import { LocalConfigStore, validateLocalAgentConfig } from './LocalConfigStore.j
 import { sanitizeFields } from '../logger.js';
 import type { LocalAgentConfig } from '../types.js';
 
-const credential =
-  'pa_2f7a7df8-a444-4db9-a47a-5b79560352be.abcdefghijklmnopqrstuvwxyzABCDEFGH123456789';
+const TEST_DEVICE_ID = '2f7a7df8-a444-4db9-a47a-5b79560352be';
+const credential = `pa_${TEST_DEVICE_ID}.${'x'.repeat(43)}`;
 
 test('config local salva pareamento e seleção sem expor token no resumo/log', async () => {
   const directory = await mkdtemp(path.join(os.tmpdir(), 'print-agent-config-test-'));
