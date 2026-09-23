@@ -21,7 +21,10 @@ import {
   getRestaurantLoginVisual,
 } from '../../config/restaurantCategory';
 import { getAccessibleBrandColor, getReadableTextColor } from '../Login/domain/loginBranding';
-import { executePhoneCaptcha } from '../../modules/auth/phoneCaptcha';
+import {
+  executePhoneCaptcha,
+  IDENTITY_PLATFORM_PHONE_RECAPTCHA_ACTION,
+} from '../../modules/auth/phoneCaptcha';
 
 type ContactMethod = 'email' | 'phone';
 
@@ -137,7 +140,7 @@ export default function RecoverPassword() {
               phone: String(identifier || '').trim(),
               captchaResponse: await executePhoneCaptcha(
                 phoneAuth.siteKey,
-                'password_reset_sms',
+                IDENTITY_PLATFORM_PHONE_RECAPTCHA_ACTION,
               ),
             })
           : await authService.forgotPassword(buildIdentifierPayload());
