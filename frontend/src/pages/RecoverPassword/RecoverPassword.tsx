@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { PasswordVisibilityField } from '../../components/PasswordVisibilityField/PasswordVisibilityField';
 import { toast } from 'react-toastify';
 import { ThemeProvider } from 'styled-components';
 import { ArrowRight, KeyRound, LockKeyhole, Mail, Moon, Phone, Sun } from 'lucide-react';
@@ -340,7 +341,8 @@ export default function RecoverPassword() {
                       <S.LoginInputIcon aria-hidden="true">
                         <LockKeyhole />
                       </S.LoginInputIcon>
-                      <S.Input
+                      <PasswordVisibilityField label="senha">
+                        <S.Input
                         id="new-password"
                         type="password"
                         placeholder="Mínimo 8 caracteres"
@@ -352,7 +354,8 @@ export default function RecoverPassword() {
                         aria-invalid={passwordHasError}
                         aria-describedby="recover-password-requirements"
                         required
-                      />
+                        />
+                      </PasswordVisibilityField>
                     </S.LoginInputField>
                   </S.InputGroup>
 
@@ -362,7 +365,8 @@ export default function RecoverPassword() {
                       <S.LoginInputIcon aria-hidden="true">
                         <LockKeyhole />
                       </S.LoginInputIcon>
-                      <S.Input
+                      <PasswordVisibilityField label="senha">
+                        <S.Input
                         id="confirm-password"
                         type="password"
                         placeholder="••••••••"
@@ -374,7 +378,8 @@ export default function RecoverPassword() {
                         aria-invalid={confirmationHasError}
                         aria-describedby="recover-password-requirements"
                         required
-                      />
+                        />
+                      </PasswordVisibilityField>
                     </S.LoginInputField>
                   </S.InputGroup>
 
