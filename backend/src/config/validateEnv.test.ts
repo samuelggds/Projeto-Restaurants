@@ -225,6 +225,34 @@ test('exige um transporte SMTP utilizável para entregar o MFA em produção', (
   );
 });
 
+test('mantem SMS de recuperacao desativado sem exigir credenciais Google', () => {
+  process.env.GOOGLE_PHONE_AUTH_ENABLED = 'false';
+  delete process.env.GOOGLE_IDENTITY_PLATFORM_API_KEY;
+  delete process.env.GOOGLE_PHONE_RECAPTCHA_SITE_KEY;
+  assert.doesNotThrow(() => validateCriticalEnv());
+});
+
+test('falha fechado quando SMS Google e ativado sem configuracao completa', () => {
+  process.env.GOOGLE_PHONE_AUTH_ENABLED = 'true';
+  delete process.env.GOOGLE_IDENTITY_PLATFORM_API_KEY;
+  delete process.env.GOOGLE_PHONE_RECAPTCHA_SITE_KEY;
+  assert.throws(
+    () => validateCriticalEnv(),
+    /GOOGLE_IDENTITY_PLATFORM_API_KEY e obrigatoria.*GOOGLE_PHONE_RECAPTCHA_SITE_KEY e obrigatoria/u,
+  );
+});
+
+test('aceita configuracao completa do SMS Google e valida TTL de e-mail', () => {
+  process.env.GOOGLE_PHONE_AUTH_ENABLED = 'true';
+  process.env.GOOGLE_IDENTITY_PLATFORM_API_KEY = 'api_key_example_with_more_than_20_chars';
+  process.env.GOOGLE_PHONE_RECAPTCHA_SITE_KEY = 'site_key_example_with_more_than_20_chars';
+  process.env.EMAIL_VERIFICATION_TTL_MINUTES = '1440';
+  assert.doesNotThrow(() => validateCriticalEnv());
+
+  process.env.EMAIL_VERIFICATION_TTL_MINUTES = '5';
+  assert.throws(() => validateCriticalEnv(), /EMAIL_VERIFICATION_TTL_MINUTES deve estar/u);
+});
+
 test('rejeita flags temporárias de compatibilidade em produção', () => {
   process.env.ALLOW_LEGACY_ACCESS_TOKENS = 'true';
   process.env.ALLOW_UNTRUSTED_OAUTH_ENDPOINTS = 'true';
