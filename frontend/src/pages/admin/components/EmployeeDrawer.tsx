@@ -1,5 +1,4 @@
 import { FormEvent, useMemo, useState } from 'react';
-import { PasswordVisibilityField } from '../../../components/PasswordVisibilityField/PasswordVisibilityField';
 import { X } from 'lucide-react';
 import {
   evaluatePassword,
@@ -94,35 +93,28 @@ export function EmployeeDrawer({ employee, close, save }: EmployeeDrawerProps) {
         </header>
         <S.Field>
           Nome completo
-          <PasswordVisibilityField label="senha">
-            <input value={name} onChange={(event) => setName(event.target.value)} />
-          </PasswordVisibilityField>
+          <input value={name} onChange={(event) => setName(event.target.value)} />
         </S.Field>
         <S.Field>
           E-mail de acesso
-          <PasswordVisibilityField label="senha">
-            <input type="email" value={email} onChange={(event) => setEmail(event.target.value)} />
-          </PasswordVisibilityField>
+          <input type="email" value={email} onChange={(event) => setEmail(event.target.value)} />
         </S.Field>
         <S.Field>
           Telefone com DDD
-          <PasswordVisibilityField label="senha">
-            <input
+          <input
             type="tel"
             inputMode="tel"
             autoComplete="tel"
             value={phone}
             placeholder="(85) 99999-9999"
             onChange={(event) => setPhone(event.target.value)}
-            />
-          </PasswordVisibilityField>
+          />
         </S.Field>
         {!employee && (
           <>
             <S.Field>
               Senha de acesso
-              <PasswordVisibilityField label="senha">
-                <input
+              <input
                 type="password"
                 autoComplete="new-password"
                 minLength={STANDARD_PASSWORD_POLICY.minLength}
@@ -131,13 +123,11 @@ export function EmployeeDrawer({ employee, close, save }: EmployeeDrawerProps) {
                 value={password}
                 placeholder="Mínimo de 8 caracteres"
                 onChange={(event) => setPassword(event.target.value)}
-                />
-              </PasswordVisibilityField>
+              />
             </S.Field>
             <S.Field>
               Confirmar senha
-              <PasswordVisibilityField label="senha">
-                <input
+              <input
                 type="password"
                 autoComplete="new-password"
                 minLength={STANDARD_PASSWORD_POLICY.minLength}
@@ -146,8 +136,7 @@ export function EmployeeDrawer({ employee, close, save }: EmployeeDrawerProps) {
                 value={confirmPassword}
                 placeholder="Digite a mesma senha"
                 onChange={(event) => setConfirmPassword(event.target.value)}
-                />
-              </PasswordVisibilityField>
+              />
             </S.Field>
             <PasswordRequirements
               id="employee-password-requirements"
