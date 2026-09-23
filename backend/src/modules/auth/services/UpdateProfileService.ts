@@ -1,5 +1,7 @@
 import { UserRole, type Prisma } from '@prisma/client';
+import prisma from '../../../config/prisma.js';
 import userRepository from '../repositories/UserRepository.js';
+import emailVerificationService from './EmailVerificationService.js';
 
 type UpdateProfilePayload = {
   name?: string;
@@ -54,8 +56,19 @@ class UpdateProfileService {
     const updates: Prisma.UserUpdateInput = {};
 
     if (hasField('name')) updates.name = String(profileData.name || '').trim();
+    const emailChanged = hasField('email') && nextEmail !== currentEmail;
+    const nextPhone = hasField('phone') ? String(profileData.phone || '').trim() || null : undefined;
+    const phoneChanged =
+      hasField('phone') && String(nextPhone || '') !== String(currentUser.phone || '');
+
     if (hasField('email')) updates.email = nextEmail;
-    if (hasField('phone')) updates.phone = String(profileData.phone || '').trim() || null;
+    if (emailChanged) {
+      updates.emailVerifiedAt = null;
+      updates.emailVerificationRequired = true;
+      updates.authVersion = { increment: 1 };
+    }
+    if (hasField('phone')) updates.phone = nextPhone;
+    if (phoneChanged) updates.phoneVerifiedAt = null;
     if (hasField('cpf')) updates.cpf = String(profileData.cpf || '').replace(/\D/g, '') || null;
     if (hasField('address')) updates.address = String(profileData.address || '').trim() || null;
     if (hasField('number')) updates.number = String(profileData.number || '').trim() || null;
@@ -67,7 +80,31 @@ class UpdateProfileService {
       updates.complement = String(profileData.complement || '').trim() || null;
     if (hasField('avatar')) updates.avatar = String(profileData.avatar || '').trim() || null;
 
-    return userRepository.updateProfile(userId, updates);
+    const updated = await prisma.$transaction(async (tx) => {
+      const next = await userRepository.updateProfile(userId, updates, tx);
+      if (emailChanged) {
+        await tx.authRefreshSession.deleteMany({ where: { userId: Number(userId) } });
+        await tx.emailVerificationToken.deleteMany({ where: { userId: Number(userId) } });
+      }
+      if (phoneChanged) {
+        await tx.phoneVerificationChallenge.deleteMany({ where: { userId: Number(userId) } });
+      }
+      return next;
+    });
+
+    if (emailChanged) {
+      try {
+        await emailVerificationService.issueAndSend({
+          userId: Number(userId),
+          email: nextEmail,
+        });
+      } catch (error) {
+        if (process.env.NODE_ENV !== 'production') throw error;
+        console.error('[profile] E-mail alterado, mas a confirmação não pôde ser enviada.');
+      }
+    }
+
+    return updated;
   }
 }
 
