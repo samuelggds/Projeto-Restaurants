@@ -134,7 +134,12 @@ export type ProfilePageProps = {
   onOpenSecurity?: () => void;
   onSupport?: () => void;
   onLogout?: () => void;
-  onSavePersonalData?: (data: { name: string; email: string; phone: string }) => Promise<void>;
+  onSavePersonalData?: (data: {
+    name: string;
+    email: string;
+    phone: string;
+    currentPassword?: string;
+  }) => Promise<void>;
   onChangePassword?: (data: { currentPassword: string; newPassword: string }) => Promise<void>;
   twoFactorEnabled?: boolean;
   onToggleTwoFactor?: (enabled: boolean, currentPassword: string) => Promise<void>;
