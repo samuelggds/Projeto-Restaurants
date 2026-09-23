@@ -68,6 +68,9 @@ class UserRepository {
         mustChangePassword: true,
         mfaEnabled: true,
         phone: true,
+        emailVerifiedAt: true,
+        emailVerificationRequired: true,
+        phoneVerifiedAt: true,
         cpf: true,
         address: true,
         number: true,
@@ -101,6 +104,9 @@ class UserRepository {
         mustChangePassword: true,
         mfaEnabled: true,
         phone: true,
+        emailVerifiedAt: true,
+        emailVerificationRequired: true,
+        phoneVerifiedAt: true,
         cpf: true,
         address: true,
         number: true,
@@ -111,6 +117,35 @@ class UserRepository {
         complement: true,
         restaurantId: true,
         avatar: true,
+      },
+    });
+  }
+
+  async markEmailVerified(
+    id: number | string,
+    verifiedAt: Date = new Date(),
+    db: PrismaClientLike = prisma,
+  ) {
+    return db.user.update({
+      where: { id: Number(id) },
+      data: {
+        emailVerifiedAt: verifiedAt,
+        emailVerificationRequired: true,
+      },
+    });
+  }
+
+  async markPhoneVerified(
+    id: number | string,
+    phone: string,
+    verifiedAt: Date = new Date(),
+    db: PrismaClientLike = prisma,
+  ) {
+    return db.user.update({
+      where: { id: Number(id) },
+      data: {
+        phone,
+        phoneVerifiedAt: verifiedAt,
       },
     });
   }
