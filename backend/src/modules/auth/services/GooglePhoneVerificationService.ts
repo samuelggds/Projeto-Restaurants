@@ -127,7 +127,7 @@ async function verifyCode(sessionInfo: string, code: unknown) {
 async function createChallenge(userId: number, purpose: PhonePurpose, phoneE164: string, sessionInfo: string) {
   const id = crypto.randomUUID();
   await prisma.phoneVerificationChallenge.deleteMany({
-    where: { userId, purpose, consumedAt: null },
+    where: { userId, purpose },
   });
   await prisma.phoneVerificationChallenge.create({
     data: {
