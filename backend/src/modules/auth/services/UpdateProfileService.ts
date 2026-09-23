@@ -106,9 +106,17 @@ class UpdateProfileService {
 
     if (emailChanged) {
       try {
+        const restaurant =
+          currentUser.restaurantId != null
+            ? await prisma.restaurant.findUnique({
+                where: { id: Number(currentUser.restaurantId) },
+                select: { slug: true },
+              })
+            : null;
         await emailVerificationService.issueAndSend({
           userId: Number(userId),
           email: nextEmail,
+          restaurantSlug: restaurant?.slug || null,
         });
       } catch (error) {
         if (process.env.NODE_ENV !== 'production') throw error;
