@@ -1,4 +1,5 @@
 import { OrderHistoryPagination } from '../../components/OrderHistoryPagination';
+import { PasswordVisibilityField } from '../../components/PasswordVisibilityField/PasswordVisibilityField';
 import {
   Bike,
   CheckCircle2,
@@ -847,14 +848,16 @@ function PersonalData({ data = profileMockData, onSavePersonalData }: ProfilePag
           {email.trim().toLowerCase() !== user.email.trim().toLowerCase() ? (
             <label className="full">
               Senha atual para confirmar a alteração do e-mail
-              <input
-                type="password"
-                autoComplete="current-password"
-                maxLength={128}
-                value={currentPassword}
-                onChange={(event) => setCurrentPassword(event.target.value)}
-                required
-              />
+              <PasswordVisibilityField label="senha atual">
+                <input
+                  type="password"
+                  autoComplete="current-password"
+                  maxLength={128}
+                  value={currentPassword}
+                  onChange={(event) => setCurrentPassword(event.target.value)}
+                  required
+                />
+              </PasswordVisibilityField>
             </label>
           ) : null}
           <label className="full">
@@ -902,6 +905,8 @@ function Security({
   const [pwSuccess, setPwSuccess] = useState(false);
   const [updatingTwoFactor, setUpdatingTwoFactor] = useState(false);
   const [mfaPassword, setMfaPassword] = useState('');
+  const [showMfaPassword, setShowMfaPassword] = useState(false);
+  const [mfaPasswordRequired, setMfaPasswordRequired] = useState(false);
   const [showDeactivateConfirmation, setShowDeactivateConfirmation] = useState(false);
   const [deactivating, setDeactivating] = useState(false);
   const [securityError, setSecurityError] = useState('');
@@ -937,11 +942,18 @@ function Security({
   }
 
   async function handleToggleTwoFactor() {
+    if (!showMfaPassword) {
+      setShowMfaPassword(true);
+      setMfaPasswordRequired(true);
+      setSecurityError('');
+      return;
+    }
     if (!mfaPassword) {
-      setSecurityError('Confirme sua senha atual para alterar a proteção.');
+      setMfaPasswordRequired(true);
       return;
     }
     setUpdatingTwoFactor(true);
+    setMfaPasswordRequired(false);
     setSecurityError('');
     try {
       await onToggleTwoFactor?.(!twoFactorEnabled, mfaPassword);
@@ -998,39 +1010,45 @@ function Security({
             <S.SettingsForm onSubmit={handlePasswordSubmit} style={{ marginTop: 8 }}>
               <label>
                 Senha atual
-                <input
-                  type="password"
-                  autoComplete="current-password"
-                  value={currentPassword}
-                  onChange={(e) => setCurrentPassword(e.target.value)}
-                  required
-                />
+                <PasswordVisibilityField label="senha atual">
+                  <input
+                    type="password"
+                    autoComplete="current-password"
+                    value={currentPassword}
+                    onChange={(e) => setCurrentPassword(e.target.value)}
+                    required
+                  />
+                </PasswordVisibilityField>
               </label>
               <label>
                 Nova senha
-                <input
-                  type="password"
-                  autoComplete="new-password"
-                  minLength={STANDARD_PASSWORD_POLICY.minLength}
-                  maxLength={STANDARD_PASSWORD_POLICY.maxLength}
-                  aria-describedby="profile-password-requirements"
-                  value={newPassword}
-                  onChange={(e) => setNewPassword(e.target.value)}
-                  required
-                />
+                <PasswordVisibilityField label="nova senha">
+                  <input
+                    type="password"
+                    autoComplete="new-password"
+                    minLength={STANDARD_PASSWORD_POLICY.minLength}
+                    maxLength={STANDARD_PASSWORD_POLICY.maxLength}
+                    aria-describedby="profile-password-requirements"
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    required
+                  />
+                </PasswordVisibilityField>
               </label>
               <label>
                 Confirmar nova senha
-                <input
-                  type="password"
-                  autoComplete="new-password"
-                  minLength={STANDARD_PASSWORD_POLICY.minLength}
-                  maxLength={STANDARD_PASSWORD_POLICY.maxLength}
-                  aria-describedby="profile-password-requirements"
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                  required
-                />
+                <PasswordVisibilityField label="confirmação da nova senha">
+                  <input
+                    type="password"
+                    autoComplete="new-password"
+                    minLength={STANDARD_PASSWORD_POLICY.minLength}
+                    maxLength={STANDARD_PASSWORD_POLICY.maxLength}
+                    aria-describedby="profile-password-requirements"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    required
+                  />
+                </PasswordVisibilityField>
               </label>
               <div className="password-requirements">
                 <PasswordRequirements
@@ -1073,32 +1091,44 @@ function Security({
                   : 'Receba um código no e-mail ao entrar na conta'}
               </span>
             </div>
-            <button
-              type="button"
-              onClick={handleToggleTwoFactor}
-              disabled={updatingTwoFactor || !mfaPassword}
-            >
+            <button type="button" onClick={() => void handleToggleTwoFactor()} disabled={updatingTwoFactor}>
               {updatingTwoFactor ? 'Atualizando...' : twoFactorEnabled ? 'Desativar' : 'Ativar'}
             </button>
           </div>
-          <S.SettingsForm
-            onSubmit={(event) => {
-              event.preventDefault();
-              void handleToggleTwoFactor();
-            }}
-          >
-            <label>
-              Senha atual para alterar a verificação em duas etapas
-              <input
-                type="password"
-                autoComplete="current-password"
-                maxLength={128}
-                value={mfaPassword}
-                onChange={(event) => setMfaPassword(event.target.value)}
-                disabled={updatingTwoFactor}
-              />
-            </label>
-          </S.SettingsForm>
+          {showMfaPassword ? (
+            <S.ExpandableSecurityForm
+              onSubmit={(event) => {
+                event.preventDefault();
+                void handleToggleTwoFactor();
+              }}
+            >
+              <label>
+                Senha atual para alterar a verificação em duas etapas
+                <PasswordVisibilityField label="senha atual">
+                  <input
+                    className={mfaPasswordRequired && !mfaPassword ? 'security-password-invalid' : undefined}
+                    type="password"
+                    autoComplete="current-password"
+                    maxLength={128}
+                    value={mfaPassword}
+                    onChange={(event) => {
+                      setMfaPassword(event.target.value);
+                      if (event.target.value) setMfaPasswordRequired(false);
+                    }}
+                    aria-invalid={mfaPasswordRequired && !mfaPassword}
+                    aria-describedby={mfaPasswordRequired && !mfaPassword ? 'mfa-password-required' : undefined}
+                    disabled={updatingTwoFactor}
+                    autoFocus
+                  />
+                </PasswordVisibilityField>
+                {mfaPasswordRequired && !mfaPassword ? (
+                  <span id="mfa-password-required" className="security-password-error" role="alert">
+                    Digite sua senha atual antes de {twoFactorEnabled ? 'desativar' : 'ativar'} a verificação em duas etapas.
+                  </span>
+                ) : null}
+              </label>
+            </S.ExpandableSecurityForm>
+          ) : null}
           <SmsRecoverySecurity
             smsRecoveryAvailable={smsRecoveryAvailable}
             smsRecoveryEnabled={smsRecoveryEnabled}

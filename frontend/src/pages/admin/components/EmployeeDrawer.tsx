@@ -1,4 +1,5 @@
 import { FormEvent, useMemo, useState } from 'react';
+import { PasswordVisibilityField } from '../../../components/PasswordVisibilityField/PasswordVisibilityField';
 import { X } from 'lucide-react';
 import {
   evaluatePassword,
@@ -114,7 +115,8 @@ export function EmployeeDrawer({ employee, close, save }: EmployeeDrawerProps) {
           <>
             <S.Field>
               Senha de acesso
-              <input
+              <PasswordVisibilityField label="senha">
+                <input
                 type="password"
                 autoComplete="new-password"
                 minLength={STANDARD_PASSWORD_POLICY.minLength}
@@ -123,11 +125,13 @@ export function EmployeeDrawer({ employee, close, save }: EmployeeDrawerProps) {
                 value={password}
                 placeholder="Mínimo de 8 caracteres"
                 onChange={(event) => setPassword(event.target.value)}
-              />
+                />
+              </PasswordVisibilityField>
             </S.Field>
             <S.Field>
               Confirmar senha
-              <input
+              <PasswordVisibilityField label="senha">
+                <input
                 type="password"
                 autoComplete="new-password"
                 minLength={STANDARD_PASSWORD_POLICY.minLength}
@@ -136,7 +140,8 @@ export function EmployeeDrawer({ employee, close, save }: EmployeeDrawerProps) {
                 value={confirmPassword}
                 placeholder="Digite a mesma senha"
                 onChange={(event) => setConfirmPassword(event.target.value)}
-              />
+                />
+              </PasswordVisibilityField>
             </S.Field>
             <PasswordRequirements
               id="employee-password-requirements"

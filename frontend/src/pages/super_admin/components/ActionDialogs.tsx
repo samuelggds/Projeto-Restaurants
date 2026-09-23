@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { PasswordVisibilityField } from '../../../components/PasswordVisibilityField/PasswordVisibilityField';
 import {
   evaluatePassword,
   PasswordRequirements,
@@ -525,7 +526,8 @@ export function CreateAdministratorDialog({
         </label>
         <label>
           Senha temporária
-          <input
+          <PasswordVisibilityField label="senha">
+            <input
             type="password"
             autoComplete="new-password"
             minLength={PRIVILEGED_PASSWORD_POLICY.minLength}
@@ -533,11 +535,13 @@ export function CreateAdministratorDialog({
             aria-describedby="administrator-password-requirements"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-          />
+            />
+          </PasswordVisibilityField>
         </label>
         <label>
           Confirmar senha
-          <input
+          <PasswordVisibilityField label="senha">
+            <input
             type="password"
             autoComplete="new-password"
             minLength={PRIVILEGED_PASSWORD_POLICY.minLength}
@@ -545,7 +549,8 @@ export function CreateAdministratorDialog({
             aria-describedby="administrator-password-requirements"
             value={confirmation}
             onChange={(e) => setConfirmation(e.target.value)}
-          />
+            />
+          </PasswordVisibilityField>
         </label>
       </S.Fields>
       <PasswordRequirements

@@ -1,4 +1,15 @@
-import styled from 'styled-components';
+import styled, { keyframes } from 'styled-components';
+
+const securityFormReveal = keyframes`
+  from {
+    opacity: 0;
+    transform: translateY(-8px) scale(0.992);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+`;
 
 export const AddressGrid = styled.div`
   display: grid;
@@ -410,6 +421,29 @@ export const SettingsForm = styled.form`
     }
   }
 `;
+export const ExpandableSecurityForm = styled(SettingsForm)`
+  transform-origin: top center;
+  animation: ${securityFormReveal} 260ms cubic-bezier(0.22, 1, 0.36, 1) both;
+
+  .security-password-invalid,
+  .security-password-invalid:hover:not(:disabled),
+  .security-password-invalid:focus:not(:disabled) {
+    border-color: #c94040;
+    box-shadow: 0 0 0 3px rgba(201, 64, 64, 0.12);
+  }
+
+  .security-password-error {
+    color: #c94040;
+    font-size: 12px;
+    font-weight: 700;
+    line-height: 1.4;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    animation: none;
+  }
+`;
+
 export const SecurityList = styled.div`
   display: grid;
   .security-row {
@@ -454,6 +488,7 @@ export const SecurityList = styled.div`
   }
   .security-confirmation {
     display: grid;
+    animation: ${securityFormReveal} 260ms cubic-bezier(0.22, 1, 0.36, 1) both;
     gap: 7px;
     margin: 10px 0 2px 58px;
     padding: 14px;
@@ -491,6 +526,11 @@ export const SecurityList = styled.div`
   .security-error {
     color: #c94040;
     margin: 10px 0;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .security-confirmation {
+      animation: none;
+    }
   }
   @media (max-width: 520px) {
     .security-row {

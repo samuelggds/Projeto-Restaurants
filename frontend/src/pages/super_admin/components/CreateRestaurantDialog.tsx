@@ -1,4 +1,5 @@
 import { useMemo, useState, type CSSProperties, type FormEvent } from 'react';
+import { PasswordVisibilityField } from '../../../components/PasswordVisibilityField/PasswordVisibilityField';
 import { X } from 'lucide-react';
 import {
   evaluatePassword,
@@ -207,7 +208,8 @@ export function CreateRestaurantDialog({ plans, primaryColor, onClose, onCreated
           </label>
           <label>
             Senha temporária
-            <input
+            <PasswordVisibilityField label="senha">
+              <input
               required
               type="password"
               minLength={PRIVILEGED_PASSWORD_POLICY.minLength}
@@ -216,11 +218,13 @@ export function CreateRestaurantDialog({ plans, primaryColor, onClose, onCreated
               aria-describedby="restaurant-admin-password-requirements"
               value={form.admin.password}
               onChange={(e) => setAdmin('password', e.target.value)}
-            />
+              />
+            </PasswordVisibilityField>
           </label>
           <label>
             Confirmar senha
-            <input
+            <PasswordVisibilityField label="senha">
+              <input
               required
               type="password"
               minLength={PRIVILEGED_PASSWORD_POLICY.minLength}
@@ -229,9 +233,10 @@ export function CreateRestaurantDialog({ plans, primaryColor, onClose, onCreated
               aria-describedby="restaurant-admin-password-requirements"
               value={form.passwordConfirmation}
               onChange={(e) =>
-                setForm((current) => ({ ...current, passwordConfirmation: e.target.value }))
+              setForm((current) => ({ ...current, passwordConfirmation: e.target.value }))
               }
-            />
+              />
+            </PasswordVisibilityField>
           </label>
           <div className="wide">
             <PasswordRequirements
