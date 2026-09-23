@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { PasswordVisibilityField } from '../../../components/PasswordVisibilityField/PasswordVisibilityField';
 import {
   evaluatePassword,
   PasswordRequirements,
@@ -274,19 +275,23 @@ export function SubscriptionDialog({
         </label>
         <label>
           Fim do trial
-          <input
+          <PasswordVisibilityField label="senha">
+            <input
             type="datetime-local"
             value={trialEndsAt}
             onChange={(e) => setTrialEndsAt(e.target.value)}
-          />
+            />
+          </PasswordVisibilityField>
         </label>
         <label>
           Próxima cobrança
-          <input
+          <PasswordVisibilityField label="senha">
+            <input
             type="datetime-local"
             value={nextBillingAt}
             onChange={(e) => setNextBillingAt(e.target.value)}
-          />
+            />
+          </PasswordVisibilityField>
         </label>
         <label className="wide">
           Motivo
@@ -372,27 +377,33 @@ export function EditPlanDialog({
       <S.Fields>
         <label>
           Nome
-          <input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
+          <PasswordVisibilityField label="senha">
+            <input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
+          </PasswordVisibilityField>
         </label>
         <label>
           Mensalidade
-          <input
+          <PasswordVisibilityField label="senha">
+            <input
             type="number"
             min="0"
             step="0.01"
             value={form.monthlyFee}
             onChange={(e) => setForm({ ...form, monthlyFee: Number(e.target.value) })}
-          />
+            />
+          </PasswordVisibilityField>
         </label>
         <label>
           Dias de trial
-          <input
+          <PasswordVisibilityField label="senha">
+            <input
             type="number"
             min="0"
             max="90"
             value={form.trialDays}
             onChange={(e) => setForm({ ...form, trialDays: Number(e.target.value) })}
-          />
+            />
+          </PasswordVisibilityField>
         </label>
         <label className="wide">
           Descrição
@@ -512,20 +523,25 @@ export function CreateAdministratorDialog({
         </label>
         <label>
           Nome completo
-          <input autoComplete="name" value={name} onChange={(e) => setName(e.target.value)} />
+          <PasswordVisibilityField label="senha">
+            <input autoComplete="name" value={name} onChange={(e) => setName(e.target.value)} />
+          </PasswordVisibilityField>
         </label>
         <label>
           E-mail
-          <input
+          <PasswordVisibilityField label="senha">
+            <input
             type="email"
             autoComplete="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-          />
+            />
+          </PasswordVisibilityField>
         </label>
         <label>
           Senha temporária
-          <input
+          <PasswordVisibilityField label="senha">
+            <input
             type="password"
             autoComplete="new-password"
             minLength={PRIVILEGED_PASSWORD_POLICY.minLength}
@@ -533,11 +549,13 @@ export function CreateAdministratorDialog({
             aria-describedby="administrator-password-requirements"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-          />
+            />
+          </PasswordVisibilityField>
         </label>
         <label>
           Confirmar senha
-          <input
+          <PasswordVisibilityField label="senha">
+            <input
             type="password"
             autoComplete="new-password"
             minLength={PRIVILEGED_PASSWORD_POLICY.minLength}
@@ -545,7 +563,8 @@ export function CreateAdministratorDialog({
             aria-describedby="administrator-password-requirements"
             value={confirmation}
             onChange={(e) => setConfirmation(e.target.value)}
-          />
+            />
+          </PasswordVisibilityField>
         </label>
       </S.Fields>
       <PasswordRequirements
