@@ -4,7 +4,10 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import api from '../../Services/api';
 import authService from '../../Services/authService';
-import { executePhoneCaptcha } from '../../modules/auth/phoneCaptcha';
+import {
+  executePhoneCaptcha,
+  IDENTITY_PLATFORM_PHONE_RECAPTCHA_ACTION,
+} from '../../modules/auth/phoneCaptcha';
 import ordersService, { getGuestOwnedOrderProofs } from '../../Services/ordersService';
 import restaurantSettingsService from '../../Services/restaurantSettingsService';
 import favoritesService from '../../Services/favoritesService';
@@ -399,7 +402,7 @@ export default function Profile() {
       }
       const captchaResponse = await executePhoneCaptcha(
         phoneAuthConfig.siteKey,
-        'phone_enrollment',
+        IDENTITY_PLATFORM_PHONE_RECAPTCHA_ACTION,
       );
       return authService.requestPhoneVerification({ currentPassword, captchaResponse });
     },
