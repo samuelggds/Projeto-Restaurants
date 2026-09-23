@@ -29,7 +29,8 @@ import {
   passwordResetRateLimitMiddleware,
   registrationRateLimitMiddleware,
   securityPreferenceRateLimitMiddleware,
-  smsRecoveryRateLimitMiddleware,
+  smsRecoveryRequestRateLimitMiddleware,
+  smsRecoveryVerifyRateLimitMiddleware,
 } from '../../../middlewares/security/accountActionRateLimitMiddleware.js';
 
 const router = Router();
@@ -62,11 +63,11 @@ router.post('/phone-verification/confirm', authMiddleware, securityPreferenceRat
   ConfirmPhoneVerificationController.handle(req, res);
 });
 
-router.post('/forgot-password/sms', smsRecoveryRateLimitMiddleware, (req, res) => {
+router.post('/forgot-password/sms', smsRecoveryRequestRateLimitMiddleware, (req, res) => {
   RequestSmsPasswordResetController.handle(req, res);
 });
 
-router.post('/reset-password/sms', smsRecoveryRateLimitMiddleware, (req, res) => {
+router.post('/reset-password/sms', smsRecoveryVerifyRateLimitMiddleware, (req, res) => {
   ResetPasswordBySmsController.handle(req, res);
 });
 
