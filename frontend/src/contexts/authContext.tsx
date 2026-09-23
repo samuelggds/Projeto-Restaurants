@@ -19,6 +19,9 @@ type AuthUser = {
   name?: string;
   email?: string;
   phone?: string;
+  emailVerifiedAt?: string | null;
+  emailVerificationRequired?: boolean;
+  phoneVerifiedAt?: string | null;
   role?: string;
   mustChangePassword?: boolean;
   mfaEnabled?: boolean;
