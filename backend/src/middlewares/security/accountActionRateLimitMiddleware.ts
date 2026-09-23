@@ -36,8 +36,8 @@ export const emailVerificationRateLimitMiddleware = rateLimit({
   },
 });
 
-export const smsRecoveryRateLimitMiddleware = rateLimit({
-  ...distributedRateLimitOptions('account-sms-recovery'),
+export const smsRecoveryRequestRateLimitMiddleware = rateLimit({
+  ...distributedRateLimitOptions('account-sms-recovery-request'),
   windowMs: 15 * 60 * 1000,
   max: 3,
   standardHeaders: true,
@@ -45,6 +45,18 @@ export const smsRecoveryRateLimitMiddleware = rateLimit({
   keyGenerator: (req) => ipKeyGenerator(String(req.ip || 'unknown').trim()),
   message: {
     error: 'Muitas solicitações de SMS. Aguarde antes de tentar novamente.',
+  },
+});
+
+export const smsRecoveryVerifyRateLimitMiddleware = rateLimit({
+  ...distributedRateLimitOptions('account-sms-recovery-verify'),
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: (req) => ipKeyGenerator(String(req.ip || 'unknown').trim()),
+  message: {
+    error: 'Muitas tentativas de código. Aguarde antes de tentar novamente.',
   },
 });
 
