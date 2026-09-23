@@ -17,6 +17,7 @@ describe('política de autorização de rotas', () => {
       '/pizzaria/login',
       '/pizzaria/register',
       '/pizzaria/recover-password',
+      '/recover-password',
       '/pizzaria/team',
       '/pizzaria/admin',
       '/orders/42/tracking',
@@ -30,7 +31,6 @@ describe('política de autorização de rotas', () => {
       '/mesa/12',
       '/login',
       '/register',
-      '/recover-password',
       '/pizzaria/equipe',
       '/__TENANT_LOGIN__',
     ]) {
