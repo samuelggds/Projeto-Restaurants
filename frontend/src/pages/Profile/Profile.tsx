@@ -349,7 +349,7 @@ export default function Profile() {
   );
 
   const handleSavePersonalData = useCallback(
-    async (payload: { name: string; email: string; phone: string }) => {
+    async (payload: { name: string; email: string; phone: string; currentPassword?: string }) => {
       const previousEmail = String(user?.email || '').trim().toLowerCase();
       const nextEmail = String(payload.email || '').trim().toLowerCase();
       const { data: updated } = await api.put('/auth/profile', payload);
