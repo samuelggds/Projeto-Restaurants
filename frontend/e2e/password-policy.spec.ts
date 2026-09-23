@@ -83,7 +83,7 @@ test('cadastro exige os seis requisitos e aceita senha forte com exatamente 8 ca
   await page.getByLabel('Telefone').fill('(85) 99999-9999');
   await submit.click();
 
-  await expect(page.getByText('Confira seu e-mail')).toBeVisible();
+  await expect(page.getByText('Confira seu e-mail', { exact: true })).toBeVisible();
   expect(submitted).toEqual([
     {
       name: 'Cliente E2E',
