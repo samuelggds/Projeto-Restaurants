@@ -18,7 +18,6 @@ import {
   RotateCcw,
   ShoppingBag,
   ShieldCheck,
-  Smartphone,
   TicketPercent,
   Trash2,
   UserRound,
@@ -37,6 +36,7 @@ import { profileTabs as tabs } from './config/profileTabs';
 import { profileMockData } from './data';
 import { getCardBrandDetails } from './domain/cardBrand';
 import { CardBrandLogo } from './components/CardBrandLogo';
+import { SmsRecoverySecurity } from './components/SmsRecoverySecurity';
 import * as S from './Profile.styles';
 import type { ProfileOrder, ProfileOrderStatus, ProfilePageProps, ProfileView } from './types';
 
@@ -902,11 +902,6 @@ function Security({
   const [pwSuccess, setPwSuccess] = useState(false);
   const [updatingTwoFactor, setUpdatingTwoFactor] = useState(false);
   const [mfaPassword, setMfaPassword] = useState('');
-  const [smsPassword, setSmsPassword] = useState('');
-  const [smsChallengeId, setSmsChallengeId] = useState('');
-  const [smsDestination, setSmsDestination] = useState('');
-  const [smsCode, setSmsCode] = useState('');
-  const [smsLoading, setSmsLoading] = useState(false);
   const [showDeactivateConfirmation, setShowDeactivateConfirmation] = useState(false);
   const [deactivating, setDeactivating] = useState(false);
   const [securityError, setSecurityError] = useState('');
@@ -955,52 +950,6 @@ function Security({
     } finally {
       setMfaPassword('');
       setUpdatingTwoFactor(false);
-    }
-  }
-
-  async function handleRequestSmsRecovery() {
-    if (!smsRecoveryAvailable) {
-      setSecurityError('A recuperação por SMS ainda não está disponível.');
-      return;
-    }
-    if (!smsPassword) {
-      setSecurityError('Confirme sua senha atual para verificar o telefone.');
-      return;
-    }
-
-    setSmsLoading(true);
-    setSecurityError('');
-    try {
-      const result = await onRequestSmsRecoveryVerification?.(smsPassword);
-      if (!result?.challengeId) throw new Error('Sessão de verificação não encontrada.');
-      setSmsChallengeId(result.challengeId);
-      setSmsDestination(result.destination || smsRecoveryDestination || '');
-      setSmsCode('');
-    } catch (error) {
-      setSecurityError(
-        error instanceof Error ? error.message : 'Não foi possível enviar o código por SMS.',
-      );
-    } finally {
-      setSmsLoading(false);
-    }
-  }
-
-  async function handleConfirmSmsRecovery() {
-    if (!smsChallengeId || !/^\d{6}$/u.test(smsCode)) {
-      setSecurityError('Informe o código de 6 dígitos recebido por SMS.');
-      return;
-    }
-    setSmsLoading(true);
-    setSecurityError('');
-    try {
-      await onConfirmSmsRecoveryVerification?.(smsChallengeId, smsCode);
-      setSmsChallengeId('');
-      setSmsCode('');
-      setSmsPassword('');
-    } catch (error) {
-      setSecurityError(error instanceof Error ? error.message : 'Código inválido ou expirado.');
-    } finally {
-      setSmsLoading(false);
     }
   }
 
@@ -1150,78 +1099,14 @@ function Security({
               />
             </label>
           </S.SettingsForm>
-          <div className="security-row">
-            <i>
-              <Smartphone />
-            </i>
-            <div>
-              <b>Recuperação por SMS</b>
-              <span>
-                {smsRecoveryEnabled
-                  ? 'Ativa: este telefone pode receber códigos de recuperação'
-                  : smsRecoveryAvailable
-                    ? 'Opcional: confirme seu telefone uma vez para habilitar recuperação por SMS'
-                    : 'Ainda não configurada pela plataforma'}
-              </span>
-            </div>
-            <button
-              type="button"
-              onClick={() => void handleRequestSmsRecovery()}
-              disabled={smsRecoveryEnabled || !smsRecoveryAvailable || smsLoading || !smsPassword}
-            >
-              {smsRecoveryEnabled ? 'Ativada' : smsLoading ? 'Enviando...' : 'Verificar telefone'}
-            </button>
-          </div>
-          {!smsRecoveryEnabled && smsRecoveryAvailable && (
-            <S.SettingsForm
-              onSubmit={(event) => {
-                event.preventDefault();
-                void (smsChallengeId ? handleConfirmSmsRecovery() : handleRequestSmsRecovery());
-              }}
-            >
-              {!smsChallengeId ? (
-                <label>
-                  Senha atual para verificar o telefone cadastrado
-                  <input
-                    type="password"
-                    autoComplete="current-password"
-                    maxLength={128}
-                    value={smsPassword}
-                    onChange={(event) => setSmsPassword(event.target.value)}
-                    disabled={smsLoading}
-                    required
-                  />
-                </label>
-              ) : (
-                <>
-                  <label>
-                    Código enviado para {smsDestination || 'seu telefone'}
-                    <input
-                      type="text"
-                      inputMode="numeric"
-                      pattern="[0-9]*"
-                      autoComplete="one-time-code"
-                      maxLength={6}
-                      value={smsCode}
-                      onChange={(event) =>
-                        setSmsCode(event.target.value.replace(/\D/gu, '').slice(0, 6))
-                      }
-                      disabled={smsLoading}
-                      required
-                    />
-                  </label>
-                  <footer>
-                    <button
-                      type="submit"
-                      disabled={smsLoading || smsCode.length !== 6}
-                    >
-                      {smsLoading ? 'Verificando...' : 'Confirmar telefone'}
-                    </button>
-                  </footer>
-                </>
-              )}
-            </S.SettingsForm>
-          )}
+          <SmsRecoverySecurity
+            smsRecoveryAvailable={smsRecoveryAvailable}
+            smsRecoveryEnabled={smsRecoveryEnabled}
+            smsRecoveryDestination={smsRecoveryDestination}
+            onRequestSmsRecoveryVerification={onRequestSmsRecoveryVerification}
+            onConfirmSmsRecoveryVerification={onConfirmSmsRecoveryVerification}
+            onError={setSecurityError}
+          />
           <div className="security-row">
             <i>
               <Trash2 />
