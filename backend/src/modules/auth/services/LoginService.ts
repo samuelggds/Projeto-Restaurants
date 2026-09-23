@@ -48,6 +48,11 @@ export class LoginService {
       throw new Error('Email ou senha inválidos!');
     }
 
+    if (user.emailVerificationRequired && !user.emailVerifiedAt) {
+      await loginLockoutService.registerSuccess(normalizedEmail);
+      throw new Error('Confirme seu e-mail antes de entrar. Reenvie a confirmação se necessário.');
+    }
+
     await loginLockoutService.registerSuccess(normalizedEmail);
     await this.platformAccess.assertRoleAllowed(user.role);
 
@@ -78,6 +83,9 @@ export class LoginService {
         mustChangePassword: user.mustChangePassword,
         mfaEnabled: user.mfaEnabled,
         phone: user.phone,
+        emailVerifiedAt: user.emailVerifiedAt,
+        emailVerificationRequired: user.emailVerificationRequired,
+        phoneVerifiedAt: user.phoneVerifiedAt,
         address: user.address,
         number: user.number,
         district: user.district,
