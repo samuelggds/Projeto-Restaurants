@@ -1,4 +1,5 @@
 import { useMemo, useState, type CSSProperties, type FormEvent } from 'react';
+import { PasswordVisibilityField } from '../../../components/PasswordVisibilityField/PasswordVisibilityField';
 import { X } from 'lucide-react';
 import {
   evaluatePassword,
@@ -131,13 +132,15 @@ export function CreateRestaurantDialog({ plans, primaryColor, onClose, onCreated
         <div className="fields">
           <label>
             Nome do restaurante
-            <input
+            <PasswordVisibilityField label="senha">
+              <input
               required
               minLength={2}
               maxLength={120}
               value={form.restaurant.name}
               onChange={(e) => setRestaurant('name', e.target.value)}
-            />
+              />
+            </PasswordVisibilityField>
           </label>
           <label>
             Categoria do estabelecimento
@@ -155,59 +158,70 @@ export function CreateRestaurantDialog({ plans, primaryColor, onClose, onCreated
           </label>
           <label>
             Endereço público (slug)
-            <input
+            <PasswordVisibilityField label="senha">
+              <input
               required
               minLength={3}
               maxLength={60}
               pattern="[a-z0-9-]+"
               value={form.restaurant.slug}
               onChange={(e) => {
-                setSlugEdited(true);
-                setRestaurant('slug', slugify(e.target.value));
+              setSlugEdited(true);
+              setRestaurant('slug', slugify(e.target.value));
               }}
-            />
+              />
+            </PasswordVisibilityField>
           </label>
           <label>
             E-mail do restaurante
-            <input
+            <PasswordVisibilityField label="senha">
+              <input
               required
               type="email"
               value={form.restaurant.email}
               onChange={(e) => setRestaurant('email', e.target.value)}
-            />
+              />
+            </PasswordVisibilityField>
           </label>
           <label>
             Telefone
-            <input
+            <PasswordVisibilityField label="senha">
+              <input
               inputMode="numeric"
               placeholder="DDD + número"
               value={form.restaurant.phone}
               onChange={(e) => setRestaurant('phone', e.target.value)}
-            />
+              />
+            </PasswordVisibilityField>
           </label>
           <label>
             Nome do administrador
-            <input
+            <PasswordVisibilityField label="senha">
+              <input
               required
               minLength={2}
               maxLength={120}
               value={form.admin.name}
               onChange={(e) => setAdmin('name', e.target.value)}
-            />
+              />
+            </PasswordVisibilityField>
           </label>
           <label>
             E-mail do administrador
-            <input
+            <PasswordVisibilityField label="senha">
+              <input
               required
               type="email"
               autoComplete="off"
               value={form.admin.email}
               onChange={(e) => setAdmin('email', e.target.value)}
-            />
+              />
+            </PasswordVisibilityField>
           </label>
           <label>
             Senha temporária
-            <input
+            <PasswordVisibilityField label="senha">
+              <input
               required
               type="password"
               minLength={PRIVILEGED_PASSWORD_POLICY.minLength}
@@ -216,11 +230,13 @@ export function CreateRestaurantDialog({ plans, primaryColor, onClose, onCreated
               aria-describedby="restaurant-admin-password-requirements"
               value={form.admin.password}
               onChange={(e) => setAdmin('password', e.target.value)}
-            />
+              />
+            </PasswordVisibilityField>
           </label>
           <label>
             Confirmar senha
-            <input
+            <PasswordVisibilityField label="senha">
+              <input
               required
               type="password"
               minLength={PRIVILEGED_PASSWORD_POLICY.minLength}
@@ -229,9 +245,10 @@ export function CreateRestaurantDialog({ plans, primaryColor, onClose, onCreated
               aria-describedby="restaurant-admin-password-requirements"
               value={form.passwordConfirmation}
               onChange={(e) =>
-                setForm((current) => ({ ...current, passwordConfirmation: e.target.value }))
+              setForm((current) => ({ ...current, passwordConfirmation: e.target.value }))
               }
-            />
+              />
+            </PasswordVisibilityField>
           </label>
           <div className="wide">
             <PasswordRequirements
