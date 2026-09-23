@@ -101,6 +101,8 @@ export default function Login() {
     type: 'success' | 'error';
     message: string;
   } | null>(null);
+  const [showResendVerification, setShowResendVerification] = useState(false);
+  const [resendingVerification, setResendingVerification] = useState(false);
   const [googleStatus, setGoogleStatus] = useState('loading');
   const [googleMessage, setGoogleMessage] = useState('');
   const [mfaChallenge, setMfaChallenge] = useState<MfaChallenge | null>(null);
@@ -124,6 +126,23 @@ export default function Login() {
 
     return () => window.clearTimeout(timeoutId);
   }, [rememberScope]);
+
+  useEffect(() => {
+    const status = searchParams.get('emailVerified');
+    if (status === 'success') {
+      setFeedback({
+        type: 'success',
+        message: 'E-mail verificado com sucesso. Agora você pode entrar.',
+      });
+      setShowResendVerification(false);
+    } else if (status === 'invalid') {
+      setFeedback({
+        type: 'error',
+        message: 'Este link de confirmação é inválido ou expirou. Solicite um novo e-mail.',
+      });
+      setShowResendVerification(true);
+    }
+  }, [searchParams]);
 
   useEffect(
     () => () => {
@@ -412,6 +431,7 @@ export default function Login() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setFeedback(null);
+    setShowResendVerification(false);
     setIsLoading(true);
     try {
       const firstStep = await authService.login({ email, password });
@@ -438,6 +458,7 @@ export default function Login() {
             ? error.message
             : 'E-mail ou senha incorretos.');
       setFeedback({ type: 'error', message });
+      setShowResendVerification(/confirme seu e-mail|link de confirmação/iu.test(message));
     } finally {
       setIsLoading(false);
     }
@@ -581,6 +602,39 @@ export default function Login() {
                 <span>{feedback.message}</span>
               </S.LoginFeedback>
             )}
+
+            {showResendVerification && showCustomerSelfService ? (
+              <S.GoogleFallbackButton
+                type="button"
+                disabled={resendingVerification || !email.trim()}
+                onClick={async () => {
+                  if (!email.trim()) {
+                    setFeedback({ type: 'error', message: 'Informe seu e-mail para reenviar a confirmação.' });
+                    return;
+                  }
+                  try {
+                    setResendingVerification(true);
+                    await authService.resendEmailVerification({
+                      email: email.trim(),
+                      restaurantSlug: portalSlug || undefined,
+                    });
+                    setFeedback({
+                      type: 'success',
+                      message: 'Se a conta estiver pendente, enviaremos uma nova confirmação.',
+                    });
+                  } catch {
+                    setFeedback({
+                      type: 'error',
+                      message: 'Não foi possível reenviar a confirmação agora.',
+                    });
+                  } finally {
+                    setResendingVerification(false);
+                  }
+                }}
+              >
+                {resendingVerification ? 'Reenviando confirmação...' : 'Reenviar e-mail de confirmação'}
+              </S.GoogleFallbackButton>
+            ) : null}
 
             <S.Form onSubmit={handleSubmit} autoComplete="off">
               <S.InputGroup>
