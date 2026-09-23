@@ -292,6 +292,28 @@ export function validateCriticalEnv() {
     }
   }
 
+  const emailVerificationTtl = Number(process.env.EMAIL_VERIFICATION_TTL_MINUTES || '1440');
+  if (
+    !Number.isInteger(emailVerificationTtl) ||
+    emailVerificationTtl < 10 ||
+    emailVerificationTtl > 7 * 24 * 60
+  ) {
+    errors.push('EMAIL_VERIFICATION_TTL_MINUTES deve estar entre 10 e 10080.');
+  }
+
+  const googlePhoneAuthEnabled =
+    String(process.env.GOOGLE_PHONE_AUTH_ENABLED || 'false').trim().toLowerCase() === 'true';
+  if (googlePhoneAuthEnabled) {
+    const identityApiKey = requireValue('GOOGLE_IDENTITY_PLATFORM_API_KEY', errors);
+    const recaptchaSiteKey = requireValue('GOOGLE_PHONE_RECAPTCHA_SITE_KEY', errors);
+    if (identityApiKey && identityApiKey.length < 20) {
+      errors.push('GOOGLE_IDENTITY_PLATFORM_API_KEY parece invalida.');
+    }
+    if (recaptchaSiteKey && !/^[A-Za-z0-9_-]{20,200}$/u.test(recaptchaSiteKey)) {
+      errors.push('GOOGLE_PHONE_RECAPTCHA_SITE_KEY parece invalida.');
+    }
+  }
+
   const allowInsecureStripe =
     String(process.env.ALLOW_INSECURE_STRIPE_WEBHOOK || 'false').trim() === 'true';
   if (allowInsecureStripe) {
