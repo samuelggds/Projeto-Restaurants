@@ -75,6 +75,7 @@ test('normaliza somente os campos enviados na edição do perfil', async () => {
 
   assert.deepEqual(savedUpdate, {
     phone: '(85) 99999-0000',
+    phoneVerifiedAt: null,
     cpf: '12345678900',
   });
 });
