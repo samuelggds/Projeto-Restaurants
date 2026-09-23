@@ -270,6 +270,7 @@ export default function AppRoutes() {
                   <Route path="/:restaurantSlug/login" element={<Login />} />
                   <Route path="/:restaurantSlug/register" element={<Register />} />
                   <Route path="/:restaurantSlug/recover-password" element={<RecoverPassword />} />
+                  <Route path="/recover-password" element={<RecoverPassword />} />
                   <Route path="/:restaurantSlug/team" element={<Login />} />
                   <Route path="/:restaurantSlug/admin" element={<AdminPortalLoginGate />} />
                   <Route path="/system-maintenance" element={<SystemMaintenancePage />} />
@@ -320,10 +321,6 @@ export default function AppRoutes() {
 
                 <Route path="/login" element={<LegacyLoginRedirect />} />
                 <Route path="/register" element={<Navigate to={TENANT_REQUIRED_PATH} replace />} />
-                <Route
-                  path="/recover-password"
-                  element={<Navigate to={TENANT_REQUIRED_PATH} replace />}
-                />
                 <Route
                   path="/mesa/:tableNumber"
                   element={<Navigate to={TENANT_REQUIRED_PATH} replace />}
