@@ -148,6 +148,26 @@ try {
       const frameSrc = directives.get('frame-src') || '';
       const connectSrc = directives.get('connect-src') || '';
       assert.match(connectSrc, /https:\/\/api\.headers\.test/u, path);
+      assert.match(
+        scriptSrc,
+        /https:\/\/www\.google\.com\/recaptcha\//u,
+        `${path}: reCAPTCHA Enterprise script`,
+      );
+      assert.match(
+        scriptSrc,
+        /https:\/\/www\.gstatic\.com\/recaptcha\//u,
+        `${path}: reCAPTCHA static resources`,
+      );
+      assert.match(
+        frameSrc,
+        /https:\/\/www\.google\.com\/recaptcha\//u,
+        `${path}: reCAPTCHA frame`,
+      );
+      assert.match(
+        connectSrc,
+        /https:\/\/recaptchaenterprise\.googleapis\.com/u,
+        `${path}: reCAPTCHA Enterprise API`,
+      );
       assert.match(scriptSrc, /https:\/\/sdk\.mercadopago\.com/u, `${path}: Mercado Pago SDK`);
       assert.match(
         scriptSrc,
