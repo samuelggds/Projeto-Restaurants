@@ -10,6 +10,7 @@ const mocks = vi.hoisted(() => ({
   resendLogin2fa: vi.fn(),
   getPendingMfaChallenge: vi.fn(),
   getGoogleClientId: vi.fn(),
+  resendEmailVerification: vi.fn(),
   logout: vi.fn(),
   persistLogin: vi.fn(),
 }));
@@ -22,6 +23,7 @@ vi.mock('../../Services/authService', () => ({
     resendLogin2fa: mocks.resendLogin2fa,
     getPendingMfaChallenge: mocks.getPendingMfaChallenge,
     getGoogleClientId: mocks.getGoogleClientId,
+    resendEmailVerification: mocks.resendEmailVerification,
     logout: mocks.logout,
   },
 }));
@@ -106,6 +108,7 @@ describe('Login contextual do cliente', () => {
     googleCallback = undefined;
     mocks.getPendingMfaChallenge.mockReturnValue(null);
     mocks.getGoogleClientId.mockResolvedValue('google-client-id');
+    mocks.resendEmailVerification.mockResolvedValue({ message: 'Solicitação recebida.' });
     mocks.resendLogin2fa.mockResolvedValue({
       mfaRequired: true,
       mfaToken: 'new-mfa-token',
