@@ -1,4 +1,5 @@
 import { type FormEvent, useLayoutEffect, useMemo, useState } from 'react';
+import { PasswordVisibilityField } from '../../components/PasswordVisibilityField/PasswordVisibilityField';
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import { ThemeProvider } from 'styled-components';
@@ -228,7 +229,8 @@ export default function Register() {
                   <S.LoginInputIcon aria-hidden="true">
                     <User />
                   </S.LoginInputIcon>
-                  <S.Input
+                  <PasswordVisibilityField label="senha">
+                    <S.Input
                     id="name"
                     type="text"
                     placeholder="Seu nome completo"
@@ -237,7 +239,8 @@ export default function Register() {
                     onChange={(event) => setName(event.target.value)}
                     disabled={isSubmitting}
                     required
-                  />
+                    />
+                  </PasswordVisibilityField>
                 </S.LoginInputField>
               </S.InputGroup>
 
@@ -247,7 +250,8 @@ export default function Register() {
                   <S.LoginInputIcon aria-hidden="true">
                     <Mail />
                   </S.LoginInputIcon>
-                  <S.Input
+                  <PasswordVisibilityField label="senha">
+                    <S.Input
                     id="email"
                     type="email"
                     placeholder="exemplo@email.com"
@@ -256,7 +260,8 @@ export default function Register() {
                     onChange={(event) => setEmail(event.target.value)}
                     disabled={isSubmitting}
                     required
-                  />
+                    />
+                  </PasswordVisibilityField>
                 </S.LoginInputField>
               </S.InputGroup>
 
@@ -266,7 +271,8 @@ export default function Register() {
                   <S.LoginInputIcon aria-hidden="true">
                     <Phone />
                   </S.LoginInputIcon>
-                  <S.Input
+                  <PasswordVisibilityField label="senha">
+                    <S.Input
                     id="phone"
                     type="tel"
                     inputMode="tel"
@@ -276,7 +282,8 @@ export default function Register() {
                     onChange={(event) => setPhone(event.target.value)}
                     disabled={isSubmitting}
                     required
-                  />
+                    />
+                  </PasswordVisibilityField>
                 </S.LoginInputField>
               </S.InputGroup>
 
@@ -286,7 +293,8 @@ export default function Register() {
                   <S.LoginInputIcon aria-hidden="true">
                     <LockKeyhole />
                   </S.LoginInputIcon>
-                  <S.Input
+                  <PasswordVisibilityField label="senha">
+                    <S.Input
                     id="password"
                     type="password"
                     placeholder="Mínimo 8 caracteres"
@@ -299,7 +307,8 @@ export default function Register() {
                     aria-describedby="register-password-requirements"
                     disabled={isSubmitting}
                     required
-                  />
+                    />
+                  </PasswordVisibilityField>
                 </S.LoginInputField>
               </S.InputGroup>
 
@@ -309,7 +318,8 @@ export default function Register() {
                   <S.LoginInputIcon aria-hidden="true">
                     <LockKeyhole />
                   </S.LoginInputIcon>
-                  <S.Input
+                  <PasswordVisibilityField label="senha">
+                    <S.Input
                     id="confirmPassword"
                     type="password"
                     placeholder="Repita sua senha"
@@ -322,7 +332,8 @@ export default function Register() {
                     aria-describedby="register-password-requirements"
                     disabled={isSubmitting}
                     required
-                  />
+                    />
+                  </PasswordVisibilityField>
                 </S.LoginInputField>
               </S.InputGroup>
 
