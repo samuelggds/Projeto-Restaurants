@@ -97,11 +97,26 @@ export default function Login() {
   const [rememberMe, setRememberMe] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const initialEmailVerificationStatus = searchParams.get('emailVerified');
   const [feedback, setFeedback] = useState<{
     type: 'success' | 'error';
     message: string;
-  } | null>(null);
-  const [showResendVerification, setShowResendVerification] = useState(false);
+  } | null>(() =>
+    initialEmailVerificationStatus === 'success'
+      ? {
+          type: 'success',
+          message: 'E-mail verificado com sucesso. Agora você pode entrar.',
+        }
+      : initialEmailVerificationStatus === 'invalid'
+        ? {
+            type: 'error',
+            message: 'Este link de confirmação é inválido ou expirou. Solicite um novo e-mail.',
+          }
+        : null,
+  );
+  const [showResendVerification, setShowResendVerification] = useState(
+    initialEmailVerificationStatus === 'invalid',
+  );
   const [resendingVerification, setResendingVerification] = useState(false);
   const [googleStatus, setGoogleStatus] = useState('loading');
   const [googleMessage, setGoogleMessage] = useState('');
@@ -126,23 +141,6 @@ export default function Login() {
 
     return () => window.clearTimeout(timeoutId);
   }, [rememberScope]);
-
-  useEffect(() => {
-    const status = searchParams.get('emailVerified');
-    if (status === 'success') {
-      setFeedback({
-        type: 'success',
-        message: 'E-mail verificado com sucesso. Agora você pode entrar.',
-      });
-      setShowResendVerification(false);
-    } else if (status === 'invalid') {
-      setFeedback({
-        type: 'error',
-        message: 'Este link de confirmação é inválido ou expirou. Solicite um novo e-mail.',
-      });
-      setShowResendVerification(true);
-    }
-  }, [searchParams]);
 
   useEffect(
     () => () => {
