@@ -1,6 +1,7 @@
 import crypto from 'crypto';
 import prisma from '../../../config/prisma.js';
 import { createSmtpTransporter } from '../../../services/smtpTransport.js';
+import userRepository from '../repositories/UserRepository.js';
 
 const DEFAULT_TTL_MINUTES = 24 * 60;
 const SAFE_RESEND_MESSAGE =
@@ -122,7 +123,7 @@ export class EmailVerificationService {
     const normalizedEmail = normalizeEmail(email);
     if (!normalizedEmail) return { message: SAFE_RESEND_MESSAGE };
 
-    const user = await prisma.user.findUnique({ where: { email: normalizedEmail } });
+    const user = await userRepository.findByEmail(normalizedEmail);
     if (
       user &&
       user.emailVerificationRequired &&
