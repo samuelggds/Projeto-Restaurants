@@ -104,15 +104,50 @@ class AuthService {
     return response.data?.clientId || null;
   }
 
+  async resendEmailVerification(data: { email: string; restaurantSlug?: string }) {
+    const response = await api.post('/auth/resend-email-verification', data);
+    return response.data;
+  }
+
+  async getPhoneAuthConfig() {
+    const response = await api.get('/auth/phone-auth/config');
+    return response.data as { enabled?: boolean; siteKey?: string | null };
+  }
+
+  async requestPhoneVerification(data: { currentPassword: string; captchaResponse: string }) {
+    const response = await api.post('/auth/phone-verification/request', data);
+    return response.data;
+  }
+
+  async confirmPhoneVerification(data: { challengeId: string; code: string }) {
+    const response = await api.post('/auth/phone-verification/confirm', data);
+    return response.data;
+  }
+
   async forgotPassword(data) {
     const response = await api.post('/auth/forgot-password', data);
 
     return response.data;
   }
 
+  async forgotPasswordSms(data: { phone: string; captchaResponse: string }) {
+    const response = await api.post('/auth/forgot-password/sms', data);
+    return response.data;
+  }
+
   async resetPassword(data) {
     const response = await api.post('/auth/reset-password', data);
 
+    return response.data;
+  }
+
+  async resetPasswordSms(data: {
+    challengeId: string;
+    code: string;
+    newPassword: string;
+    confirmPassword: string;
+  }) {
+    const response = await api.post('/auth/reset-password/sms', data);
     return response.data;
   }
 }
