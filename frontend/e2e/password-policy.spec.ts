@@ -5,6 +5,8 @@ const RESTAURANT_SLUG = 'restaurante-teste';
 type RegisterPayload = {
   name: string;
   email: string;
+  phone: string;
+  restaurantSlug?: string;
   password: string;
   confirmPassword: string;
 };
@@ -78,13 +80,16 @@ test('cadastro exige os seis requisitos e aceita senha forte com exatamente 8 ca
 
   await page.getByLabel('Nome Completo').fill('Cliente E2E');
   await page.getByLabel('E-mail').fill('cliente.e2e@example.test');
+  await page.getByLabel('Telefone').fill('(85) 99999-9999');
   await submit.click();
 
-  await expect(page).toHaveURL(new RegExp(`/${RESTAURANT_SLUG}/login(?:\\?.*)?$`, 'u'));
+  await expect(page.getByText('Confira seu e-mail')).toBeVisible();
   expect(submitted).toEqual([
     {
       name: 'Cliente E2E',
       email: 'cliente.e2e@example.test',
+      phone: '(85) 99999-9999',
+      restaurantSlug: RESTAURANT_SLUG,
       password: 'Ab1!cdef',
       confirmPassword: 'Ab1!cdef',
     },
@@ -138,6 +143,7 @@ test('cadastro preserva o restaurante, anuncia o envio e apresenta o erro da API
 
   await page.getByLabel('Nome Completo').fill('Cliente Existente');
   await page.getByLabel('E-mail').fill('existente@example.test');
+  await page.getByLabel('Telefone').fill('(85) 99999-9999');
   await page.getByLabel('Senha', { exact: true }).fill('Ab1!cdef');
   await page.getByLabel('Confirmar Senha', { exact: true }).fill('Ab1!cdef');
   await page.getByRole('button', { name: 'Criar conta e continuar na Mesa 5' }).click();
