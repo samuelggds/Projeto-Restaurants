@@ -11,6 +11,8 @@ declare global {
   }
 }
 
+export const IDENTITY_PLATFORM_PHONE_RECAPTCHA_ACTION = 'sendVerificationCode';
+
 let loadedSiteKey = '';
 let loadingPromise: Promise<void> | null = null;
 
