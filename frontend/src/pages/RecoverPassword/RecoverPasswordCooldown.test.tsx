@@ -3,7 +3,13 @@ import { createRoot, type Root } from 'react-dom/client';
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-const mocks = vi.hoisted(() => ({ forgotPassword: vi.fn(), resetPassword: vi.fn() }));
+const mocks = vi.hoisted(() => ({
+  forgotPassword: vi.fn(),
+  forgotPasswordSms: vi.fn(),
+  resetPassword: vi.fn(),
+  resetPasswordSms: vi.fn(),
+  getPhoneAuthConfig: vi.fn(),
+}));
 vi.mock('../../Services/authService', () => ({ default: mocks }));
 vi.mock('react-toastify', () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 vi.mock('../Login/hooks/useRestaurantLoginBranding', () => ({
@@ -68,6 +74,7 @@ describe('recuperacao: intervalo de 30 segundos', () => {
     vi.clearAllMocks();
     sessionStorage.clear();
     mocks.forgotPassword.mockResolvedValue({ message: 'Solicitacao recebida.' });
+    mocks.getPhoneAuthConfig.mockResolvedValue({ enabled: false, siteKey: null });
     container = document.createElement('div');
     document.body.appendChild(container);
     root = createRoot(container);
