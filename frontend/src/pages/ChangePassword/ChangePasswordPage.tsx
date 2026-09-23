@@ -1,5 +1,4 @@
 import { type FormEvent, useState } from 'react';
-import { PasswordVisibilityField } from '../../components/PasswordVisibilityField/PasswordVisibilityField';
 import { CheckCircle2, KeyRound, LockKeyhole, LogOut, ShieldCheck } from 'lucide-react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { toast } from 'react-toastify';
@@ -106,26 +105,23 @@ export default function ChangePasswordPage() {
           <S.Form onSubmit={handleSubmit} noValidate aria-busy={isSubmitting}>
             <S.Field>
               {forcedChange ? 'Senha temporária atual' : 'Senha atual'}
-              <PasswordVisibilityField label="senha">
-                <S.Input
+              <S.Input
                 type="password"
                 autoComplete="current-password"
                 value={currentPassword}
                 onChange={(event) => setCurrentPassword(event.target.value)}
                 aria-invalid={hasAttemptedSubmit && !currentPassword}
                 aria-describedby={
-                hasAttemptedSubmit && !currentPassword ? 'change-password-error' : undefined
+                  hasAttemptedSubmit && !currentPassword ? 'change-password-error' : undefined
                 }
                 disabled={isSubmitting}
                 required
-                />
-              </PasswordVisibilityField>
+              />
             </S.Field>
 
             <S.Field>
               Nova senha
-              <PasswordVisibilityField label="senha">
-                <S.Input
+              <S.Input
                 type="password"
                 autoComplete="new-password"
                 minLength={PRIVILEGED_PASSWORD_POLICY.minLength}
@@ -134,21 +130,19 @@ export default function ChangePasswordPage() {
                 onChange={(event) => setNewPassword(event.target.value)}
                 aria-describedby="change-password-requirements"
                 aria-invalid={
-                (newPassword.length > 0 || hasAttemptedSubmit) &&
-                passwordEvaluation.requirements.some(
-                (requirement) => requirement.id !== 'confirmation' && !requirement.met,
-                )
+                  (newPassword.length > 0 || hasAttemptedSubmit) &&
+                  passwordEvaluation.requirements.some(
+                    (requirement) => requirement.id !== 'confirmation' && !requirement.met,
+                  )
                 }
                 disabled={isSubmitting}
                 required
-                />
-              </PasswordVisibilityField>
+              />
             </S.Field>
 
             <S.Field>
               Confirmar nova senha
-              <PasswordVisibilityField label="senha">
-                <S.Input
+              <S.Input
                 type="password"
                 autoComplete="new-password"
                 minLength={PRIVILEGED_PASSWORD_POLICY.minLength}
@@ -157,15 +151,14 @@ export default function ChangePasswordPage() {
                 onChange={(event) => setConfirmation(event.target.value)}
                 aria-describedby="change-password-requirements"
                 aria-invalid={
-                (confirmation.length > 0 || hasAttemptedSubmit) &&
-                passwordEvaluation.requirements.some(
-                (requirement) => requirement.id === 'confirmation' && !requirement.met,
-                )
+                  (confirmation.length > 0 || hasAttemptedSubmit) &&
+                  passwordEvaluation.requirements.some(
+                    (requirement) => requirement.id === 'confirmation' && !requirement.met,
+                  )
                 }
                 disabled={isSubmitting}
                 required
-                />
-              </PasswordVisibilityField>
+              />
             </S.Field>
 
             <S.RequirementsCard>
