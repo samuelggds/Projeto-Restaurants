@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from 'react';
-import { PasswordVisibilityField } from '../../components/PasswordVisibilityField/PasswordVisibilityField';
 import { toast } from 'react-toastify';
 import { ThemeProvider } from 'styled-components';
 import { ArrowRight, KeyRound, LockKeyhole, Mail, Moon, Phone, Sun } from 'lucide-react';
@@ -290,21 +289,19 @@ export default function RecoverPassword() {
                   <S.LoginInputIcon aria-hidden="true">
                     {contactMethod === 'email' ? <Mail /> : <Phone />}
                   </S.LoginInputIcon>
-                  <PasswordVisibilityField label="senha">
-                    <S.Input
+                  <S.Input
                     id="identifier"
                     type={contactMethod === 'email' ? 'email' : 'text'}
                     inputMode={contactMethod === 'phone' ? 'tel' : undefined}
                     placeholder={
-                    contactMethod === 'email' ? 'exemplo@email.com' : '(11) 99999-9999'
+                      contactMethod === 'email' ? 'exemplo@email.com' : '(11) 99999-9999'
                     }
                     value={identifier}
                     onChange={(event) => setIdentifier(event.target.value)}
                     readOnly={step === 'reset' || isLoading}
                     autoComplete={contactMethod === 'email' ? 'email' : 'tel'}
                     required
-                    />
-                  </PasswordVisibilityField>
+                  />
                 </S.LoginInputField>
               </S.InputGroup>
 
@@ -321,8 +318,7 @@ export default function RecoverPassword() {
                       <S.LoginInputIcon aria-hidden="true">
                         <KeyRound />
                       </S.LoginInputIcon>
-                      <PasswordVisibilityField label="senha">
-                        <S.Input
+                      <S.Input
                         id="reset-code"
                         type="text"
                         inputMode="numeric"
@@ -331,11 +327,10 @@ export default function RecoverPassword() {
                         placeholder="Código de 6 dígitos"
                         value={code}
                         onChange={(event) =>
-                        setCode(event.target.value.replace(/\D/g, '').slice(0, 6))
+                          setCode(event.target.value.replace(/\D/g, '').slice(0, 6))
                         }
                         required
-                        />
-                      </PasswordVisibilityField>
+                      />
                     </S.LoginInputField>
                   </S.InputGroup>
 
@@ -345,8 +340,7 @@ export default function RecoverPassword() {
                       <S.LoginInputIcon aria-hidden="true">
                         <LockKeyhole />
                       </S.LoginInputIcon>
-                      <PasswordVisibilityField label="senha">
-                        <S.Input
+                      <S.Input
                         id="new-password"
                         type="password"
                         placeholder="Mínimo 8 caracteres"
@@ -358,8 +352,7 @@ export default function RecoverPassword() {
                         aria-invalid={passwordHasError}
                         aria-describedby="recover-password-requirements"
                         required
-                        />
-                      </PasswordVisibilityField>
+                      />
                     </S.LoginInputField>
                   </S.InputGroup>
 
@@ -369,8 +362,7 @@ export default function RecoverPassword() {
                       <S.LoginInputIcon aria-hidden="true">
                         <LockKeyhole />
                       </S.LoginInputIcon>
-                      <PasswordVisibilityField label="senha">
-                        <S.Input
+                      <S.Input
                         id="confirm-password"
                         type="password"
                         placeholder="••••••••"
@@ -382,8 +374,7 @@ export default function RecoverPassword() {
                         aria-invalid={confirmationHasError}
                         aria-describedby="recover-password-requirements"
                         required
-                        />
-                      </PasswordVisibilityField>
+                      />
                     </S.LoginInputField>
                   </S.InputGroup>
 
