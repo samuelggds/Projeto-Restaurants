@@ -3,6 +3,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import api from '../../Services/api';
+import authService from '../../Services/authService';
+import { executePhoneCaptcha } from '../../modules/auth/phoneCaptcha';
 import ordersService, { getGuestOwnedOrderProofs } from '../../Services/ordersService';
 import restaurantSettingsService from '../../Services/restaurantSettingsService';
 import favoritesService from '../../Services/favoritesService';
@@ -88,6 +90,10 @@ export default function Profile() {
   const loyaltyRequestSequence = useRef(0);
   const guestClaimAttemptedRef = useRef(false);
   const [localAvatar, setLocalAvatar] = useState('');
+  const [phoneAuthConfig, setPhoneAuthConfig] = useState<{ enabled: boolean; siteKey: string | null }>({
+    enabled: false,
+    siteKey: null,
+  });
   const avatarUrl = localAvatar || String((user as Record<string, unknown>)?.avatar || '');
   const restaurantId = useMemo(() => {
     const authUser = (user as Record<string, unknown> | null) || {};
@@ -102,7 +108,26 @@ export default function Profile() {
     return Number.isInteger(resolved) && resolved > 0 ? resolved : null;
   }, [user]);
 
-  const loadLoyaltyWallet = useCallback(async () => {
+  useEffect(() => {
+    let active = true;
+    void authService
+      .getPhoneAuthConfig()
+      .then((config) => {
+        if (!active) return;
+        setPhoneAuthConfig({
+          enabled: Boolean(config?.enabled),
+          siteKey: typeof config?.siteKey === 'string' ? config.siteKey : null,
+        });
+      })
+      .catch(() => {
+        if (active) setPhoneAuthConfig({ enabled: false, siteKey: null });
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+    const loadLoyaltyWallet = useCallback(async () => {
     const requestId = ++loyaltyRequestSequence.current;
     if (!restaurantId || String(user?.role || '').toUpperCase() !== 'CLIENTE') {
       setLoyaltySummary(null);
@@ -325,11 +350,21 @@ export default function Profile() {
 
   const handleSavePersonalData = useCallback(
     async (payload: { name: string; email: string; phone: string }) => {
+      const previousEmail = String(user?.email || '').trim().toLowerCase();
+      const nextEmail = String(payload.email || '').trim().toLowerCase();
       const { data: updated } = await api.put('/auth/profile', payload);
+
+      if (nextEmail && nextEmail !== previousEmail) {
+        logout();
+        toast.success('E-mail atualizado. Confirme o novo endereço antes de entrar novamente.');
+        navigate('/login');
+        return;
+      }
+
       const token = getAccessToken() || '';
       if (token && updated) login({ ...(user ?? {}), ...updated }, token);
     },
-    [user, login],
+    [user, login, logout, navigate],
   );
 
   const handleChangePassword = useCallback(
@@ -355,6 +390,38 @@ export default function Profile() {
       navigate('/login');
     },
     [logout, navigate],
+  );
+
+  const handleRequestSmsRecoveryVerification = useCallback(
+    async (currentPassword: string) => {
+      if (!phoneAuthConfig.enabled || !phoneAuthConfig.siteKey) {
+        throw new Error('Recuperação por SMS ainda não está configurada.');
+      }
+      const captchaResponse = await executePhoneCaptcha(
+        phoneAuthConfig.siteKey,
+        'phone_enrollment',
+      );
+      return authService.requestPhoneVerification({ currentPassword, captchaResponse });
+    },
+    [phoneAuthConfig],
+  );
+
+  const handleConfirmSmsRecoveryVerification = useCallback(
+    async (challengeId: string, code: string) => {
+      const result = await authService.confirmPhoneVerification({ challengeId, code });
+      const token = getAccessToken() || '';
+      if (token) {
+        login(
+          {
+            ...(user ?? {}),
+            phoneVerifiedAt: result?.phoneVerifiedAt || new Date().toISOString(),
+          },
+          token,
+        );
+      }
+      toast.success('Telefone verificado. Recuperação por SMS ativada.');
+    },
+    [login, user],
   );
 
   const handleDeactivateAccount = useCallback(async () => {
@@ -468,6 +535,11 @@ export default function Profile() {
         onChangePassword={handleChangePassword}
         twoFactorEnabled={Boolean((user as Record<string, unknown>)?.mfaEnabled)}
         onToggleTwoFactor={handleToggleTwoFactor}
+        smsRecoveryAvailable={phoneAuthConfig.enabled}
+        smsRecoveryEnabled={Boolean((user as Record<string, unknown>)?.phoneVerifiedAt)}
+        smsRecoveryDestination={String((user as Record<string, unknown>)?.phone || '')}
+        onRequestSmsRecoveryVerification={handleRequestSmsRecoveryVerification}
+        onConfirmSmsRecoveryVerification={handleConfirmSmsRecoveryVerification}
         onDeactivateAccount={handleDeactivateAccount}
         onNewAddress={() => setAddressModalOpen(true)}
         onSelectAddress={selectAddress}
