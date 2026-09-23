@@ -23,19 +23,56 @@ function apiKey() {
   return String(process.env.GOOGLE_IDENTITY_PLATFORM_API_KEY || '').trim();
 }
 
-function recaptchaSiteKey() {
-  return String(process.env.GOOGLE_PHONE_RECAPTCHA_SITE_KEY || '').trim();
-}
-
 export function isGooglePhoneAuthConfigured() {
-  return enabled() && Boolean(apiKey()) && Boolean(recaptchaSiteKey());
+  return enabled() && Boolean(apiKey());
 }
 
-export function googlePhonePublicConfig() {
-  return {
-    enabled: isGooglePhoneAuthConfigured(),
-    siteKey: isGooglePhoneAuthConfigured() ? recaptchaSiteKey() : null,
-  };
+function extractRecaptchaSiteKey(value: unknown) {
+  const resourceName = String(value || '').trim();
+  const match = resourceName.match(/\/keys\/([A-Za-z0-9_-]{20,200})$/u);
+  return match?.[1] || '';
+}
+
+async function fetchIdentityPlatformRecaptchaSiteKey() {
+  if (!isGooglePhoneAuthConfigured()) return '';
+
+  const endpoint = new URL('https://identitytoolkit.googleapis.com/v2/recaptchaConfig');
+  endpoint.searchParams.set('key', apiKey());
+  endpoint.searchParams.set('clientType', 'CLIENT_TYPE_WEB');
+  endpoint.searchParams.set('version', 'RECAPTCHA_ENTERPRISE');
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 5_000);
+
+  try {
+    const response = await fetch(endpoint, {
+      method: 'GET',
+      headers: { Accept: 'application/json' },
+      signal: controller.signal,
+    });
+    const payload = (await response.json().catch(() => ({}))) as Record<string, unknown>;
+    if (!response.ok) return '';
+
+    return extractRecaptchaSiteKey(payload.recaptchaKey);
+  } catch {
+    return '';
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+export async function googlePhonePublicConfig() {
+  if (!isGooglePhoneAuthConfigured()) {
+    return { enabled: false, siteKey: null };
+  }
+
+  const siteKey = await fetchIdentityPlatformRecaptchaSiteKey();
+  if (!siteKey) {
+    console.error('[phone-auth-config] Chave WEB do reCAPTCHA do Identity Platform indisponível.');
+    return { enabled: false, siteKey: null };
+  }
+
+  return { enabled: true, siteKey };
 }
 
 export function normalizePhoneE164Br(value: unknown) {
@@ -198,7 +235,7 @@ async function verifyChallenge(record: NonNullable<Awaited<ReturnType<typeof rea
 }
 
 export class GooglePhoneVerificationService {
-  config() {
+  async config() {
     return googlePhonePublicConfig();
   }
 
