@@ -413,7 +413,7 @@ async function registerCustomer(page: Page) {
   await page.getByLabel('Senha', { exact: true }).fill('Senha@123');
   await page.getByLabel('Confirmar Senha', { exact: true }).fill('Senha@123');
   await page.getByRole('button', { name: /Criar conta|Finalizar Cadastro/u }).click();
-  await expect(page.getByText('Confira seu e-mail')).toBeVisible();
+  await expect(page.getByText('Confira seu e-mail', { exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'Ir para o login' }).click();
 }
 
