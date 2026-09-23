@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Smartphone } from 'lucide-react';
+import { PasswordVisibilityField } from '../../../components/PasswordVisibilityField/PasswordVisibilityField';
 import * as S from '../Profile.styles';
 import type { ProfilePageProps } from '../types';
 
@@ -27,14 +28,22 @@ export function SmsRecoverySecurity({
   const [destination, setDestination] = useState('');
   const [code, setCode] = useState('');
   const [loading, setLoading] = useState(false);
+  const [showPasswordPrompt, setShowPasswordPrompt] = useState(false);
+  const [passwordRequired, setPasswordRequired] = useState(false);
 
   async function requestVerification() {
     if (!smsRecoveryAvailable) {
       onError('A recuperação por SMS ainda não está disponível.');
       return;
     }
+    if (!showPasswordPrompt) {
+      setShowPasswordPrompt(true);
+      setPasswordRequired(true);
+      onError('');
+      return;
+    }
     if (!password) {
-      onError('Confirme sua senha atual para verificar o telefone.');
+      setPasswordRequired(true);
       return;
     }
 
@@ -46,6 +55,7 @@ export function SmsRecoverySecurity({
       setChallengeId(result.challengeId);
       setDestination(result.destination || smsRecoveryDestination || '');
       setCode('');
+      setPasswordRequired(false);
     } catch (error) {
       onError(error instanceof Error ? error.message : 'Não foi possível enviar o código por SMS.');
     } finally {
@@ -92,14 +102,14 @@ export function SmsRecoverySecurity({
         <button
           type="button"
           onClick={() => void requestVerification()}
-          disabled={smsRecoveryEnabled || !smsRecoveryAvailable || loading || !password}
+          disabled={smsRecoveryEnabled || !smsRecoveryAvailable || loading}
         >
           {smsRecoveryEnabled ? 'Ativada' : loading ? 'Enviando...' : 'Verificar telefone'}
         </button>
       </div>
 
-      {!smsRecoveryEnabled && smsRecoveryAvailable ? (
-        <S.SettingsForm
+      {!smsRecoveryEnabled && smsRecoveryAvailable && (showPasswordPrompt || challengeId) ? (
+        <S.ExpandableSecurityForm
           onSubmit={(event) => {
             event.preventDefault();
             void (challengeId ? confirmVerification() : requestVerification());
@@ -108,15 +118,29 @@ export function SmsRecoverySecurity({
           {!challengeId ? (
             <label>
               Senha atual para verificar o telefone cadastrado
-              <input
-                type="password"
-                autoComplete="current-password"
-                maxLength={128}
-                value={password}
-                onChange={(event) => setPassword(event.target.value)}
-                disabled={loading}
-                required
-              />
+              <PasswordVisibilityField label="senha atual">
+                <input
+                  className={passwordRequired && !password ? 'security-password-invalid' : undefined}
+                  type="password"
+                  autoComplete="current-password"
+                  maxLength={128}
+                  value={password}
+                  onChange={(event) => {
+                    setPassword(event.target.value);
+                    if (event.target.value) setPasswordRequired(false);
+                  }}
+                  aria-invalid={passwordRequired && !password}
+                  aria-describedby={passwordRequired && !password ? 'sms-password-required' : undefined}
+                  disabled={loading}
+                  autoFocus
+                  required
+                />
+              </PasswordVisibilityField>
+              {passwordRequired && !password ? (
+                <span id="sms-password-required" className="security-password-error" role="alert">
+                  Digite sua senha atual antes de verificar o telefone.
+                </span>
+              ) : null}
             </label>
           ) : (
             <>
@@ -131,6 +155,7 @@ export function SmsRecoverySecurity({
                   value={code}
                   onChange={(event) => setCode(event.target.value.replace(/\D/gu, '').slice(0, 6))}
                   disabled={loading}
+                  autoFocus
                   required
                 />
               </label>
@@ -141,7 +166,7 @@ export function SmsRecoverySecurity({
               </footer>
             </>
           )}
-        </S.SettingsForm>
+        </S.ExpandableSecurityForm>
       ) : null}
     </>
   );
