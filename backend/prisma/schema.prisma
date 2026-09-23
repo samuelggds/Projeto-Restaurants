@@ -23,6 +23,9 @@ model User {
   authVersion                   Int                          @default(0)
   createdAt                     DateTime                     @default(now())
   phone                         String?
+  emailVerifiedAt               DateTime?
+  emailVerificationRequired     Boolean                      @default(false)
+  phoneVerifiedAt               DateTime?
   restaurantId                  Int?
   updatedAt                     DateTime                     @updatedAt
   lastLoginAt                   DateTime?
@@ -39,6 +42,8 @@ model User {
   avatar                        String?
   authMfaChallenge              AuthMfaChallenge?
   authRefreshSession            AuthRefreshSession?
+  emailVerificationToken        EmailVerificationToken?
+  phoneVerificationChallenges   PhoneVerificationChallenge[]
   orders                        Order[]
   assignedDeliveries            Order[]                      @relation("CourierDeliveries")
   deliveryLocations             DeliveryLocation[]
@@ -1683,6 +1688,38 @@ model AuthRefreshSession {
   @@index([expiresAt])
 }
 
+model EmailVerificationToken {
+  id              String   @id @default(uuid())
+  userId          Int      @unique
+  tokenHash       String   @unique @db.VarChar(64)
+  emailNormalized String   @db.VarChar(254)
+  restaurantSlug  String?  @db.VarChar(191)
+  expiresAt       DateTime
+  consumedAt      DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([expiresAt])
+}
+
+model PhoneVerificationChallenge {
+  id                    String                   @id @default(uuid())
+  userId                Int
+  purpose               PhoneVerificationPurpose
+  phoneE164             String                   @db.VarChar(16)
+  sessionInfoCiphertext String
+  failedAttempts        Int                      @default(0)
+  expiresAt             DateTime
+  consumedAt            DateTime?
+  createdAt             DateTime                 @default(now())
+  updatedAt             DateTime                 @updatedAt
+  user                  User                     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, purpose, expiresAt])
+  @@index([expiresAt])
+}
+
 model LoginLockout {
   id              Int       @id @default(autoincrement())
   emailNormalized String    @unique
@@ -1764,6 +1801,11 @@ model AuditLog {
   @@index([createdAt])
   @@index([userId])
   @@index([restaurantId, createdAt])
+}
+
+enum PhoneVerificationPurpose {
+  ENROLLMENT
+  PASSWORD_RESET
 }
 
 enum UserRole {
