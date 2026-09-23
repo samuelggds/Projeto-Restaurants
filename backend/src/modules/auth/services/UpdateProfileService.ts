@@ -1,3 +1,4 @@
+import bcrypt from 'bcrypt';
 import { UserRole, type Prisma } from '@prisma/client';
 import prisma from '../../../config/prisma.js';
 import userRepository from '../repositories/UserRepository.js';
@@ -16,6 +17,7 @@ type UpdateProfilePayload = {
   zipCode?: string;
   complement?: string;
   avatar?: string;
+  currentPassword?: string;
 };
 
 class UpdateProfileService {
@@ -53,10 +55,20 @@ class UpdateProfileService {
       }
     }
 
+    const emailChanged = hasField('email') && nextEmail !== currentEmail;
+    if (emailChanged) {
+      const userWithPassword = await userRepository.findByIdWithPassword(userId);
+      const passwordMatches =
+        Boolean(userWithPassword?.password) &&
+        (await bcrypt.compare(String(profileData.currentPassword || ''), userWithPassword!.password));
+      if (!passwordMatches) {
+        throw new Error('Confirme sua senha atual para alterar o e-mail.');
+      }
+    }
+
     const updates: Prisma.UserUpdateInput = {};
 
     if (hasField('name')) updates.name = String(profileData.name || '').trim();
-    const emailChanged = hasField('email') && nextEmail !== currentEmail;
     const nextPhone = hasField('phone') ? String(profileData.phone || '').trim() || null : undefined;
     const phoneChanged =
       hasField('phone') && String(nextPhone || '') !== String(currentUser.phone || '');
