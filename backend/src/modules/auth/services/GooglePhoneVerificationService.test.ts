@@ -23,32 +23,41 @@ test('normaliza apenas telefones brasileiros plausiveis para E.164', () => {
   assert.equal(normalizePhoneE164Br(''), '');
 });
 
-test('SMS permanece fail-closed enquanto a configuracao Google nao estiver completa', () => {
+test('SMS permanece fail-closed enquanto a configuracao Google nao estiver completa', async () => {
   process.env.GOOGLE_PHONE_AUTH_ENABLED = 'false';
   process.env.GOOGLE_IDENTITY_PLATFORM_API_KEY = 'api_key_example_with_more_than_20_chars';
-  process.env.GOOGLE_PHONE_RECAPTCHA_SITE_KEY = 'site_key_example_with_more_than_20_chars';
 
   assert.equal(isGooglePhoneAuthConfigured(), false);
-  assert.deepEqual(googlePhonePublicConfig(), { enabled: false, siteKey: null });
+  assert.deepEqual(await googlePhonePublicConfig(), { enabled: false, siteKey: null });
 
   process.env.GOOGLE_PHONE_AUTH_ENABLED = 'true';
   delete process.env.GOOGLE_IDENTITY_PLATFORM_API_KEY;
   assert.equal(isGooglePhoneAuthConfigured(), false);
-  assert.deepEqual(googlePhonePublicConfig(), { enabled: false, siteKey: null });
+  assert.deepEqual(await googlePhonePublicConfig(), { enabled: false, siteKey: null });
 });
 
-test('frontend recebe apenas a site key publica quando o SMS esta habilitado', () => {
+test('frontend recebe a site key provisionada pelo Identity Platform quando o SMS esta habilitado', async () => {
   process.env.GOOGLE_PHONE_AUTH_ENABLED = 'true';
   process.env.GOOGLE_IDENTITY_PLATFORM_API_KEY = 'api_key_example_with_more_than_20_chars';
-  process.env.GOOGLE_PHONE_RECAPTCHA_SITE_KEY = 'site_key_example_with_more_than_20_chars';
 
-  assert.equal(isGooglePhoneAuthConfigured(), true);
-  assert.deepEqual(googlePhonePublicConfig(), {
-    enabled: true,
-    siteKey: 'site_key_example_with_more_than_20_chars',
-  });
-  assert.equal(
-    Object.prototype.hasOwnProperty.call(googlePhonePublicConfig(), 'apiKey'),
-    false,
-  );
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = (async () =>
+    new Response(
+      JSON.stringify({
+        recaptchaKey: 'projects/gastronexa-production/keys/site_key_example_with_more_than_20_chars',
+      }),
+      { status: 200, headers: { 'Content-Type': 'application/json' } },
+    )) as typeof fetch;
+
+  try {
+    assert.equal(isGooglePhoneAuthConfigured(), true);
+    const config = await googlePhonePublicConfig();
+    assert.deepEqual(config, {
+      enabled: true,
+      siteKey: 'site_key_example_with_more_than_20_chars',
+    });
+    assert.equal(Object.prototype.hasOwnProperty.call(config, 'apiKey'), false);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
 });
