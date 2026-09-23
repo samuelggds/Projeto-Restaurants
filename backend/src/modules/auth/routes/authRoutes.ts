@@ -17,10 +17,20 @@ import ResendLoginMfaController from '../controllers/ResendLoginMfaController.js
 import SelectLoginMfaChannelController from '../controllers/SelectLoginMfaChannelController.js';
 import ClaimEmployeeOnboardingController from '../controllers/ClaimEmployeeOnboardingController.js';
 import UpdateMfaPreferenceController from '../controllers/UpdateMfaPreferenceController.js';
+import VerifyEmailController from '../controllers/VerifyEmailController.js';
+import ResendEmailVerificationController from '../controllers/ResendEmailVerificationController.js';
+import PhoneAuthConfigController from '../controllers/PhoneAuthConfigController.js';
+import RequestPhoneVerificationController from '../controllers/RequestPhoneVerificationController.js';
+import ConfirmPhoneVerificationController from '../controllers/ConfirmPhoneVerificationController.js';
+import RequestSmsPasswordResetController from '../controllers/RequestSmsPasswordResetController.js';
+import ResetPasswordBySmsController from '../controllers/ResetPasswordBySmsController.js';
 import {
+  emailVerificationRateLimitMiddleware,
   passwordResetRateLimitMiddleware,
   registrationRateLimitMiddleware,
   securityPreferenceRateLimitMiddleware,
+  smsRecoveryRequestRateLimitMiddleware,
+  smsRecoveryVerifyRateLimitMiddleware,
 } from '../../../middlewares/security/accountActionRateLimitMiddleware.js';
 
 const router = Router();
@@ -32,6 +42,35 @@ router.post('/register', registrationRateLimitMiddleware, (req, res) => {
 router.post('/login', loginRateLimitMiddleware, (req, res) => {
   LoginController.handle(req, res);
 });
+
+router.get('/verify-email', (req, res) => {
+  VerifyEmailController.handle(req, res);
+});
+
+router.post('/resend-email-verification', emailVerificationRateLimitMiddleware, (req, res) => {
+  ResendEmailVerificationController.handle(req, res);
+});
+
+router.get('/phone-auth/config', (_req, res) => {
+  PhoneAuthConfigController.handle(_req, res);
+});
+
+router.post('/phone-verification/request', authMiddleware, securityPreferenceRateLimitMiddleware, (req, res) => {
+  RequestPhoneVerificationController.handle(req, res);
+});
+
+router.post('/phone-verification/confirm', authMiddleware, securityPreferenceRateLimitMiddleware, (req, res) => {
+  ConfirmPhoneVerificationController.handle(req, res);
+});
+
+router.post('/forgot-password/sms', smsRecoveryRequestRateLimitMiddleware, (req, res) => {
+  RequestSmsPasswordResetController.handle(req, res);
+});
+
+router.post('/reset-password/sms', smsRecoveryVerifyRateLimitMiddleware, (req, res) => {
+  ResetPasswordBySmsController.handle(req, res);
+});
+
 
 router.post('/forgot-password', passwordResetRateLimitMiddleware, (req, res) => {
   RequestPasswordResetController.handle(req, res);

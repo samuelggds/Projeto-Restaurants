@@ -52,6 +52,9 @@ async function installSuccessfulPasswordLogin(events: string[], role = 'CLIENTE'
     active: true,
     mustChangePassword: false,
     mfaEnabled: false,
+    emailVerificationRequired: false,
+    emailVerifiedAt: null,
+    phoneVerifiedAt: null,
   });
   authTokenService.createAccessToken = () => {
     events.push('access-token');
@@ -81,6 +84,28 @@ test('registra lastLoginAt somente depois de emitir a sessão completa', async (
   assert.equal(result.token, 'access');
   assert.equal(result.refreshToken, 'refresh');
   assert.deepEqual(events, ['access-token', 'refresh-token', 'last-login:15']);
+});
+
+test('não emite sessão para novo cadastro com e-mail ainda não confirmado', async () => {
+  const events = [];
+  const password = await installSuccessfulPasswordLogin(events);
+  const originalFind = userRepository.findByEmail;
+  userRepository.findByEmail = async (...args) => {
+    const user = await originalFind(...args);
+    return user
+      ? { ...user, emailVerificationRequired: true, emailVerifiedAt: null }
+      : user;
+  };
+  loginMfaService.beginIfRequired = async () => {
+    events.push('mfa');
+    return null;
+  };
+
+  await assert.rejects(
+    loginService.execute({ email: 'cliente@pizza.test', password }),
+    /Confirme seu e-mail antes de entrar/u,
+  );
+  assert.deepEqual(events, []);
 });
 
 test('não registra lastLoginAt enquanto o MFA ainda está pendente', async () => {

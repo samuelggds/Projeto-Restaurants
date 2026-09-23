@@ -75,7 +75,11 @@ export class GoogleAuthService {
         email,
         password: passwordHash,
         role: UserRole.CLIENTE,
+        emailVerificationRequired: true,
+        emailVerifiedAt: new Date(),
       });
+    } else if (user.emailVerificationRequired && !user.emailVerifiedAt) {
+      user = await userRepository.markEmailVerified(user.id);
     }
 
     if (!user.active) {
@@ -109,6 +113,9 @@ export class GoogleAuthService {
         mustChangePassword: user.mustChangePassword,
         mfaEnabled: user.mfaEnabled,
         phone: user.phone,
+        emailVerifiedAt: user.emailVerifiedAt,
+        emailVerificationRequired: user.emailVerificationRequired,
+        phoneVerifiedAt: user.phoneVerifiedAt,
         address: user.address,
         number: user.number,
         district: user.district,

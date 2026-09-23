@@ -134,10 +134,24 @@ export type ProfilePageProps = {
   onOpenSecurity?: () => void;
   onSupport?: () => void;
   onLogout?: () => void;
-  onSavePersonalData?: (data: { name: string; email: string; phone: string }) => Promise<void>;
+  onSavePersonalData?: (data: {
+    name: string;
+    email: string;
+    phone: string;
+    currentPassword?: string;
+  }) => Promise<void>;
   onChangePassword?: (data: { currentPassword: string; newPassword: string }) => Promise<void>;
   twoFactorEnabled?: boolean;
   onToggleTwoFactor?: (enabled: boolean, currentPassword: string) => Promise<void>;
+  smsRecoveryAvailable?: boolean;
+  smsRecoveryEnabled?: boolean;
+  smsRecoveryDestination?: string;
+  onRequestSmsRecoveryVerification?: (currentPassword: string) => Promise<{
+    challengeId: string;
+    destination?: string;
+    expiresInSeconds?: number;
+  }>;
+  onConfirmSmsRecoveryVerification?: (challengeId: string, code: string) => Promise<void>;
   onDeactivateAccount?: () => Promise<void>;
   onUploadAvatar?: (file: File) => Promise<void>;
   loyaltySummary?: LoyaltySummary | null;

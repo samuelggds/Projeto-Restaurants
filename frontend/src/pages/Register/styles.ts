@@ -36,3 +36,34 @@ export const FormError = styled.p`
   font-size: 0.82rem;
   line-height: 1.45;
 `;
+
+
+export const VerificationNotice = styled.div`
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid color-mix(in srgb, (p) => p.theme.primary 35%, (p) => p.theme.border);
+  border-radius: 12px;
+  background: color-mix(in srgb, (p) => p.theme.primary 7%, (p) => p.theme.surface);
+  font-size: 0.88rem;
+  line-height: 1.5;
+
+  strong {
+    font-size: 1rem;
+  }
+
+  p {
+    margin: 0;
+  }
+
+  button {
+    justify-self: start;
+    border: 0;
+    background: transparent;
+    color: (p) => p.theme.primaryReadable;
+    font: inherit;
+    font-weight: 700;
+    cursor: pointer;
+    padding: 0;
+  }
+`;

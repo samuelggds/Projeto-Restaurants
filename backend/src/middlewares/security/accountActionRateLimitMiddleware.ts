@@ -24,6 +24,42 @@ export const passwordResetRateLimitMiddleware = rateLimit({
   },
 });
 
+export const emailVerificationRateLimitMiddleware = rateLimit({
+  ...distributedRateLimitOptions('account-email-verification'),
+  windowMs: 15 * 60 * 1000,
+  max: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: getEmailKey,
+  message: {
+    error: 'Muitas solicitações de confirmação. Aguarde antes de tentar novamente.',
+  },
+});
+
+export const smsRecoveryRequestRateLimitMiddleware = rateLimit({
+  ...distributedRateLimitOptions('account-sms-recovery-request'),
+  windowMs: 15 * 60 * 1000,
+  max: 3,
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: (req) => ipKeyGenerator(String(req.ip || 'unknown').trim()),
+  message: {
+    error: 'Muitas solicitações de SMS. Aguarde antes de tentar novamente.',
+  },
+});
+
+export const smsRecoveryVerifyRateLimitMiddleware = rateLimit({
+  ...distributedRateLimitOptions('account-sms-recovery-verify'),
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: (req) => ipKeyGenerator(String(req.ip || 'unknown').trim()),
+  message: {
+    error: 'Muitas tentativas de código. Aguarde antes de tentar novamente.',
+  },
+});
+
 export const registrationRateLimitMiddleware = rateLimit({
   ...distributedRateLimitOptions('accountaction:2'),
   windowMs: Number(process.env.REGISTRATION_RATE_LIMIT_WINDOW_MS || 60 * 60 * 1000),

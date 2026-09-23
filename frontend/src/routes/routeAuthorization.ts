@@ -58,6 +58,7 @@ export function isPublicRoute(pathname: string) {
   const orderPixPayment = /^\/[^/]+\/pedido\/[^/]+\/pagamento$/u.test(path);
   return (
     path === '/system-maintenance' ||
+    path === '/recover-password' ||
     path === TENANT_REQUIRED_PATH ||
     deliveryTracking ||
     deliveryChat ||

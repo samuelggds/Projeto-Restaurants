@@ -5,12 +5,16 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
   register: vi.fn(),
+  resendEmailVerification: vi.fn(),
   toastSuccess: vi.fn(),
   toastError: vi.fn(),
 }));
 
 vi.mock('../../Services/authService', () => ({
-  default: { register: mocks.register },
+  default: {
+    register: mocks.register,
+    resendEmailVerification: mocks.resendEmailVerification,
+  },
 }));
 vi.mock('react-toastify', () => ({
   toast: { success: mocks.toastSuccess, error: mocks.toastError },
@@ -50,7 +54,8 @@ describe('Register contextual do cliente', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    mocks.register.mockResolvedValue({ message: 'Cadastro concluído.' });
+    mocks.register.mockResolvedValue({ verificationEmailSent: true });
+    mocks.resendEmailVerification.mockResolvedValue({ message: 'Solicitação recebida.' });
     container = document.createElement('div');
     document.body.appendChild(container);
     root = createRoot(container);
@@ -82,6 +87,7 @@ describe('Register contextual do cliente', () => {
 
     setInputValue(container.querySelector('#name') as HTMLInputElement, ' Samuel Cliente ');
     setInputValue(container.querySelector('#email') as HTMLInputElement, ' cliente@teste.com ');
+    setInputValue(container.querySelector('#phone') as HTMLInputElement, '(85) 99999-9999');
     setInputValue(container.querySelector('#password') as HTMLInputElement, 'Senha@123');
     setInputValue(container.querySelector('#confirmPassword') as HTMLInputElement, 'Senha@123');
 
@@ -94,10 +100,18 @@ describe('Register contextual do cliente', () => {
     expect(mocks.register).toHaveBeenCalledWith({
       name: 'Samuel Cliente',
       email: 'cliente@teste.com',
+      phone: '(85) 99999-9999',
+      restaurantSlug: 'restaurante-teste',
       password: 'Senha@123',
       confirmPassword: 'Senha@123',
     });
     expect(mocks.register.mock.calls[0][0]).not.toHaveProperty('role');
+
+    expect(container.textContent).toContain('Confira seu e-mail');
+    const goLogin = [...container.querySelectorAll('button')].find(
+      (button) => button.textContent?.trim() === 'Ir para o login',
+    ) as HTMLButtonElement;
+    act(() => goLogin.click());
 
     const location = container.textContent || '';
     expect(location).toMatch(/^\/restaurante-teste\/login\?next=/u);

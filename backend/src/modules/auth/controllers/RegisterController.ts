@@ -4,16 +4,18 @@ import registerService from '../services/RegisterService.js';
 class RegisterController {
   async handle(req: Request, res: Response) {
     try {
-      const { name, email, password, confirmPassword } = req.body;
+      const { name, email, phone, restaurantSlug, password, confirmPassword } = req.body;
 
-      const user = await registerService.execute({
+      const result = await registerService.execute({
         name,
         email,
+        phone,
+        restaurantSlug,
         password,
         confirmPassword,
       });
 
-      return res.status(201).json({ user });
+      return res.status(201).json(result);
     } catch (error: unknown) {
       return res.status(400).json({
         error: error instanceof Error ? error.message : 'Erro ao registrar usuario',

@@ -36,6 +36,7 @@ import { profileTabs as tabs } from './config/profileTabs';
 import { profileMockData } from './data';
 import { getCardBrandDetails } from './domain/cardBrand';
 import { CardBrandLogo } from './components/CardBrandLogo';
+import { SmsRecoverySecurity } from './components/SmsRecoverySecurity';
 import * as S from './Profile.styles';
 import type { ProfileOrder, ProfileOrderStatus, ProfilePageProps, ProfileView } from './types';
 
@@ -790,6 +791,7 @@ function PersonalData({ data = profileMockData, onSavePersonalData }: ProfilePag
   const [name, setName] = useState(user.fullName);
   const [email, setEmail] = useState(user.email);
   const [phone, setPhone] = useState(user.phone || '');
+  const [currentPassword, setCurrentPassword] = useState('');
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [saveError, setSaveError] = useState('');
@@ -800,7 +802,18 @@ function PersonalData({ data = profileMockData, onSavePersonalData }: ProfilePag
     setSaved(false);
     setSaveError('');
     try {
-      await onSavePersonalData?.({ name, email, phone });
+      const emailChanged = email.trim().toLowerCase() !== user.email.trim().toLowerCase();
+      if (emailChanged && !currentPassword) {
+        setSaveError('Informe sua senha atual para alterar o e-mail.');
+        return;
+      }
+      await onSavePersonalData?.({
+        name,
+        email,
+        phone,
+        ...(emailChanged ? { currentPassword } : {}),
+      });
+      setCurrentPassword('');
       setSaved(true);
     } catch {
       setSaveError('Erro ao salvar. Tente novamente.');
@@ -831,6 +844,19 @@ function PersonalData({ data = profileMockData, onSavePersonalData }: ProfilePag
             Telefone
             <input value={phone} onChange={(e) => setPhone(e.target.value)} />
           </label>
+          {email.trim().toLowerCase() !== user.email.trim().toLowerCase() ? (
+            <label className="full">
+              Senha atual para confirmar a alteração do e-mail
+              <input
+                type="password"
+                autoComplete="current-password"
+                maxLength={128}
+                value={currentPassword}
+                onChange={(event) => setCurrentPassword(event.target.value)}
+                required
+              />
+            </label>
+          ) : null}
           <label className="full">
             CPF
             <input placeholder="Não informado" disabled />
@@ -860,6 +886,11 @@ function Security({
   onChangePassword,
   twoFactorEnabled = false,
   onToggleTwoFactor,
+  smsRecoveryAvailable = false,
+  smsRecoveryEnabled = false,
+  smsRecoveryDestination,
+  onRequestSmsRecoveryVerification,
+  onConfirmSmsRecoveryVerification,
   onDeactivateAccount,
 }: ProfilePageProps) {
   const [showForm, setShowForm] = useState(false);
@@ -1068,6 +1099,14 @@ function Security({
               />
             </label>
           </S.SettingsForm>
+          <SmsRecoverySecurity
+            smsRecoveryAvailable={smsRecoveryAvailable}
+            smsRecoveryEnabled={smsRecoveryEnabled}
+            smsRecoveryDestination={smsRecoveryDestination}
+            onRequestSmsRecoveryVerification={onRequestSmsRecoveryVerification}
+            onConfirmSmsRecoveryVerification={onConfirmSmsRecoveryVerification}
+            onError={setSecurityError}
+          />
           <div className="security-row">
             <i>
               <Trash2 />

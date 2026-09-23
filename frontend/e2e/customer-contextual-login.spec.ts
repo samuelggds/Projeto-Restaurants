@@ -409,9 +409,12 @@ async function loginWithPassword(page: Page) {
 async function registerCustomer(page: Page) {
   await page.getByLabel('Nome Completo').fill(customer.name);
   await page.getByLabel('E-mail').fill(CUSTOMER_EMAIL);
+  await page.getByLabel('Telefone').fill(customer.phone);
   await page.getByLabel('Senha', { exact: true }).fill('Senha@123');
   await page.getByLabel('Confirmar Senha', { exact: true }).fill('Senha@123');
   await page.getByRole('button', { name: /Criar conta|Finalizar Cadastro/u }).click();
+  await expect(page.getByText('Confira seu e-mail', { exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Ir para o login' }).click();
 }
 
 async function recoverCustomerPassword(page: Page) {

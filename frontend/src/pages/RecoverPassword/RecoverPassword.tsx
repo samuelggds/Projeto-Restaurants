@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { toast } from 'react-toastify';
 import { ThemeProvider } from 'styled-components';
 import { ArrowRight, KeyRound, LockKeyhole, Mail, Moon, Phone, Sun } from 'lucide-react';
@@ -20,6 +20,7 @@ import {
   getRestaurantLoginVisual,
 } from '../../config/restaurantCategory';
 import { getAccessibleBrandColor, getReadableTextColor } from '../Login/domain/loginBranding';
+import { executePhoneCaptcha } from '../../modules/auth/phoneCaptcha';
 
 type ContactMethod = 'email' | 'phone';
 
@@ -39,8 +40,13 @@ export default function RecoverPassword() {
   const tableLabel = authExperience.tableNumber ? `Mesa ${authExperience.tableNumber}` : 'sua mesa';
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [step, setStep] = useState<'request' | 'reset'>('request');
-  const [contactMethod, setContactMethod] = useState<ContactMethod>('phone');
+  const [contactMethod, setContactMethod] = useState<ContactMethod>('email');
   const [identifier, setIdentifier] = useState('');
+  const [smsChallengeId, setSmsChallengeId] = useState('');
+  const [phoneAuth, setPhoneAuth] = useState<{ enabled: boolean; siteKey: string | null }>({
+    enabled: false,
+    siteKey: null,
+  });
   const [code, setCode] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -67,10 +73,34 @@ export default function RecoverPassword() {
   const categoryLabel = getRestaurantCategoryLabel(categoryVisual.category);
   const baseTheme = isDarkMode ? S.darkTheme : S.lightTheme;
 
+  useEffect(() => {
+    let active = true;
+    void authService
+      .getPhoneAuthConfig()
+      .then((config) => {
+        if (!active) return;
+        setPhoneAuth({
+          enabled: Boolean(config?.enabled),
+          siteKey: typeof config?.siteKey === 'string' ? config.siteKey : null,
+        });
+      })
+      .catch(() => {
+        if (active) setPhoneAuth({ enabled: false, siteKey: null });
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
   const selectContactMethod = (method: ContactMethod) => {
     if (method === contactMethod) return;
+    if (method === 'phone' && !phoneAuth.enabled) {
+      toast.info('Recuperação por SMS ainda não está disponível.');
+      return;
+    }
     setContactMethod(method);
     setIdentifier('');
+    setSmsChallengeId('');
   };
 
   const changeContact = () => {
@@ -78,6 +108,7 @@ export default function RecoverPassword() {
     setCode('');
     setNewPassword('');
     setConfirmPassword('');
+    setSmsChallengeId('');
   };
 
   const buildIdentifierPayload = () => {
@@ -99,12 +130,24 @@ export default function RecoverPassword() {
     startCooldown();
     try {
       setIsLoading(true);
-      const response = await authService.forgotPassword(buildIdentifierPayload());
+      const response =
+        contactMethod === 'phone'
+          ? await authService.forgotPasswordSms({
+              phone: String(identifier || '').trim(),
+              captchaResponse: await executePhoneCaptcha(
+                phoneAuth.siteKey,
+                'password_reset_sms',
+              ),
+            })
+          : await authService.forgotPassword(buildIdentifierPayload());
       startCooldown();
       setCode('');
+      setSmsChallengeId(contactMethod === 'phone' ? String(response?.challengeId || '') : '');
       toast.success(
         response?.message ||
-          'Se os dados informados existirem, enviamos um código para redefinir a senha.',
+          (contactMethod === 'phone'
+            ? 'Se o número estiver habilitado para recuperação, enviaremos um código por SMS.'
+            : 'Se os dados informados existirem, enviamos um código para redefinir a senha.'),
       );
       setStep('reset');
     } catch {
@@ -125,12 +168,20 @@ export default function RecoverPassword() {
 
     try {
       setIsLoading(true);
-      const response = await authService.resetPassword({
-        ...buildIdentifierPayload(),
-        code,
-        newPassword,
-        confirmPassword,
-      });
+      const response =
+        contactMethod === 'phone'
+          ? await authService.resetPasswordSms({
+              challengeId: smsChallengeId,
+              code,
+              newPassword,
+              confirmPassword,
+            })
+          : await authService.resetPassword({
+              ...buildIdentifierPayload(),
+              code,
+              newPassword,
+              confirmPassword,
+            });
 
       toast.success(
         response?.message ||
@@ -200,9 +251,11 @@ export default function RecoverPassword() {
             <S.FormSubtitle>
               {step === 'request'
                 ? isTableContext
-                  ? `Informe o e-mail ou telefone do cadastro. O código será enviado ao e-mail cadastrado. Depois você voltará ao login da ${tableLabel}.`
-                  : 'Informe o e-mail ou telefone do cadastro. O código será enviado ao e-mail cadastrado. Se o telefone for compartilhado, informe o e-mail.'
-                : 'Digite o código recebido e informe sua nova senha.'}
+                  ? `Escolha e-mail ou SMS. O SMS só funciona para um telefone previamente verificado na conta. Depois você voltará ao login da ${tableLabel}.`
+                  : 'Escolha e-mail ou SMS. A recuperação por SMS só funciona para um telefone previamente verificado na conta.'
+                : contactMethod === 'phone'
+                  ? 'Digite o código recebido por SMS e informe sua nova senha.'
+                  : 'Digite o código recebido no e-mail e informe sua nova senha.'}
             </S.FormSubtitle>
 
             <S.Form onSubmit={step === 'request' ? handleRequestCode : handleResetPassword}>
@@ -220,10 +273,11 @@ export default function RecoverPassword() {
                   type="button"
                   $active={contactMethod === 'phone'}
                   aria-pressed={contactMethod === 'phone'}
-                  disabled={step === 'reset' || isLoading}
+                  disabled={step === 'reset' || isLoading || !phoneAuth.enabled}
                   onClick={() => selectContactMethod('phone')}
+                  title={phoneAuth.enabled ? 'Receber código por SMS' : 'SMS ainda não configurado'}
                 >
-                  Telefone
+                  SMS
                 </S.SwitchButton>
               </S.SwitchRow>
 
@@ -254,7 +308,9 @@ export default function RecoverPassword() {
               {step === 'reset' && (
                 <>
                   <S.AvailabilityNote role="status">
-                    Código solicitado para {identifier}.
+                    {contactMethod === 'phone'
+                      ? `Se este telefone estiver habilitado, o SMS foi solicitado para ${identifier}.`
+                      : `Código solicitado para ${identifier}.`}
                   </S.AvailabilityNote>
                   <S.InputGroup>
                     <S.Label htmlFor="reset-code">Código</S.Label>
@@ -267,6 +323,7 @@ export default function RecoverPassword() {
                         type="text"
                         inputMode="numeric"
                         pattern="[0-9]*"
+                        autoComplete="one-time-code"
                         placeholder="Código de 6 dígitos"
                         value={code}
                         onChange={(event) =>

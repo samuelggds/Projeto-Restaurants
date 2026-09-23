@@ -2,7 +2,7 @@ import { type FormEvent, useLayoutEffect, useMemo, useState } from 'react';
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import { ThemeProvider } from 'styled-components';
-import { ArrowRight, LoaderCircle, LockKeyhole, Mail, Moon, Sun, User } from 'lucide-react';
+import { ArrowRight, CheckCircle2, LoaderCircle, LockKeyhole, Mail, Moon, Phone, Sun, User } from 'lucide-react';
 import authService from '../../Services/authService';
 import {
   evaluatePassword,
@@ -58,6 +58,9 @@ export default function Register() {
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
+  const [verificationPending, setVerificationPending] = useState(false);
+  const [resendingVerification, setResendingVerification] = useState(false);
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -94,18 +97,14 @@ export default function Register() {
       await authService.register({
         name: name.trim(),
         email: email.trim(),
+        phone: phone.trim(),
+        restaurantSlug: pathSlug || undefined,
         password,
         confirmPassword,
       });
 
-      toast.success(
-        isTableContext
-          ? `Cadastro realizado! Entre para continuar na ${tableLabel}.`
-          : pathSlug
-            ? `Cadastro realizado! Entre para continuar no ${branding.name}.`
-            : 'Cadastro realizado com sucesso! Faça login para continuar.',
-      );
-      navigate(loginPath);
+      setVerificationPending(true);
+      toast.success('Cadastro criado. Confira seu e-mail para confirmar a conta.');
     } catch (error) {
       const typed = error as {
         message?: string;
@@ -188,6 +187,40 @@ export default function Register() {
                   : 'Preencha os campos abaixo para começar.'}
             </S.FormSubtitle>
 
+            {verificationPending ? (
+              <S.VerificationNotice role="status" aria-live="polite">
+                <CheckCircle2 aria-hidden="true" />
+                <strong>Confira seu e-mail</strong>
+                <p>
+                  Enviamos um link de confirmação para <b>{email.trim()}</b>. Clique nele para
+                  validar o endereço e liberar o login.
+                </p>
+                <p>Não recebeu? Verifique também a caixa de spam.</p>
+                <button
+                  type="button"
+                  disabled={resendingVerification}
+                  onClick={async () => {
+                    try {
+                      setResendingVerification(true);
+                      await authService.resendEmailVerification({
+                        email: email.trim(),
+                        restaurantSlug: pathSlug || undefined,
+                      });
+                      toast.success('Se a conta estiver pendente, enviaremos uma nova confirmação.');
+                    } catch {
+                      toast.error('Não foi possível reenviar agora. Tente novamente mais tarde.');
+                    } finally {
+                      setResendingVerification(false);
+                    }
+                  }}
+                >
+                  {resendingVerification ? 'Reenviando...' : 'Reenviar e-mail de confirmação'}
+                </button>
+                <button type="button" onClick={() => navigate(loginPath)}>
+                  Ir para o login
+                </button>
+              </S.VerificationNotice>
+            ) : (
             <S.Form onSubmit={handleSubmit} aria-busy={isSubmitting}>
               <S.InputGroup>
                 <S.Label htmlFor="name">Nome Completo</S.Label>
@@ -221,6 +254,26 @@ export default function Register() {
                     autoComplete="email"
                     value={email}
                     onChange={(event) => setEmail(event.target.value)}
+                    disabled={isSubmitting}
+                    required
+                  />
+                </S.LoginInputField>
+              </S.InputGroup>
+
+              <S.InputGroup>
+                <S.Label htmlFor="phone">Telefone</S.Label>
+                <S.LoginInputField>
+                  <S.LoginInputIcon aria-hidden="true">
+                    <Phone />
+                  </S.LoginInputIcon>
+                  <S.Input
+                    id="phone"
+                    type="tel"
+                    inputMode="tel"
+                    placeholder="(85) 99999-9999"
+                    autoComplete="tel"
+                    value={phone}
+                    onChange={(event) => setPhone(event.target.value)}
                     disabled={isSubmitting}
                     required
                   />
@@ -309,6 +362,7 @@ export default function Register() {
                 )}
               </S.Button>
             </S.Form>
+            )}
 
             <S.LoginRegisterText>
               Já possui uma conta? <Link to={loginPath}>Fazer Login</Link>

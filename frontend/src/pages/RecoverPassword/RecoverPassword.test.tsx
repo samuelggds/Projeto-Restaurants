@@ -5,13 +5,19 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
   forgotPassword: vi.fn(),
+  forgotPasswordSms: vi.fn(),
   resetPassword: vi.fn(),
+  resetPasswordSms: vi.fn(),
+  getPhoneAuthConfig: vi.fn(),
 }));
 
 vi.mock('../../Services/authService', () => ({
   default: {
     forgotPassword: mocks.forgotPassword,
+    forgotPasswordSms: mocks.forgotPasswordSms,
     resetPassword: mocks.resetPassword,
+    resetPasswordSms: mocks.resetPasswordSms,
+    getPhoneAuthConfig: mocks.getPhoneAuthConfig,
   },
 }));
 vi.mock('../Login/hooks/useRestaurantLoginBranding', () => ({
@@ -51,6 +57,7 @@ describe('RecoverPassword', () => {
     window.sessionStorage.clear();
     window.sessionStorage.setItem('gastronexa:tenant-slug', 'restaurante-teste');
     mocks.forgotPassword.mockResolvedValue({ message: 'Código enviado.' });
+    mocks.getPhoneAuthConfig.mockResolvedValue({ enabled: false, siteKey: null });
     container = document.createElement('div');
     document.body.appendChild(container);
     root = createRoot(container);
@@ -98,8 +105,12 @@ describe('RecoverPassword', () => {
   });
 
   it('permite trocar o contato antes de solicitar um novo código', async () => {
+    const emailMethod = [...container.querySelectorAll('button')].find(
+      (button) => button.textContent?.trim() === 'E-mail',
+    ) as HTMLButtonElement;
+    act(() => emailMethod.click());
     const identifier = container.querySelector('#identifier') as HTMLInputElement;
-    setInputValue(identifier, '(11) 99999-9999');
+    setInputValue(identifier, 'cliente@example.test');
 
     await act(async () => {
       (container.querySelector('form') as HTMLFormElement).requestSubmit();
