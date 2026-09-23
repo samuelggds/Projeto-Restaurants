@@ -268,9 +268,16 @@ export class GooglePhoneVerificationService {
       return { message: SAFE_SMS_MESSAGE, challengeId: fakeChallengeId };
     }
 
-    const sessionInfo = await sendVerificationCode(phoneE164, captchaResponse);
-    const challengeId = await createChallenge(user.id, 'PASSWORD_RESET', phoneE164, sessionInfo);
-    return { message: SAFE_SMS_MESSAGE, challengeId };
+    try {
+      const sessionInfo = await sendVerificationCode(phoneE164, captchaResponse);
+      const challengeId = await createChallenge(user.id, 'PASSWORD_RESET', phoneE164, sessionInfo);
+      return { message: SAFE_SMS_MESSAGE, challengeId };
+    } catch {
+      // A resposta pública não pode revelar se o telefone existe, está verificado
+      // ou se o provedor recusou o desafio antiabuso.
+      console.error('[password-reset-sms] Nao foi possivel concluir o envio solicitado.');
+      return { message: SAFE_SMS_MESSAGE, challengeId: fakeChallengeId };
+    }
   }
 
   async resetPassword({
