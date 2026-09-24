@@ -356,7 +356,7 @@ export function validateCriticalEnv() {
     errors.push(error instanceof Error ? error.message : 'Endpoints OAuth invalidos.');
   }
 
-  for (const redirectName of ['MP_OAUTH_REDIRECT_URI', 'PAGBANK_CONNECT_REDIRECT_URI']) {
+  for (const redirectName of ['MP_OAUTH_REDIRECT_URI']) {
     const redirectValue = String(process.env[redirectName] || '').trim();
     if (!redirectValue) continue;
     const redirectUrl = parsePublicUrl(redirectName, redirectValue, errors);
