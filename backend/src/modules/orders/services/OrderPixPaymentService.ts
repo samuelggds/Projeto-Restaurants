@@ -489,7 +489,7 @@ class OrderPixPaymentService {
 
     void pixProvider;
     const resolvedPixProvider = this.normalizePixProvider(settings?.pixProvider);
-    if (resolvedPixProvider === PIX_PROVIDERS.PAGBANK) {
+    if (resolvedPixProvider === PIX_PROVIDERS.PAGBANK && !resumeOnly) {
       throw new Error(
         'PagBank não está disponível para novas cobranças. Escolha Mercado Pago ou Asaas nas configurações.',
       );
