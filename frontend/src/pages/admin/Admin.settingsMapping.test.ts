@@ -179,6 +179,22 @@ describe('mapeamento das configurações administrativas', () => {
     expect(payload).not.toHaveProperty('restaurantZipCode');
   });
 
+  it('não envia campos de provedores futuros indisponíveis no salvamento geral', () => {
+    const payload = mapSettingsToApi({
+      ...adminMockSettings,
+      restaurantName: 'Restaurante novo',
+      pagarmeEnvironment: 'production',
+      pagarmeSecretKey: '',
+      pagarmePublicKey: '',
+      asaasAccessToken: '',
+    });
+
+    expect(payload).not.toHaveProperty('pagarmeEnvironment');
+    expect(payload).not.toHaveProperty('pagarmeSecretKey');
+    expect(payload).not.toHaveProperty('pagarmePublicKey');
+    expect(payload).not.toHaveProperty('asaasAccessToken');
+  });
+
   it('normaliza e preserva as regras da conta de mesa recebidas da API dedicada', () => {
     const tableAccount = mapTableAccountSettingsFromApi({
       enabled: true,
