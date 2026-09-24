@@ -1,11 +1,11 @@
 import styled from 'styled-components';
 
-type Provider = 'MERCADO_PAGO' | 'ASAAS' | 'PAGBANK';
+type Provider = 'MERCADO_PAGO' | 'PAGARME' | 'ASAAS';
 
 const providerColors: Record<Provider, { main: string; soft: string }> = {
   MERCADO_PAGO: { main: '#087fbd', soft: '#e9f7ff' },
+  PAGARME: { main: '#5b21b6', soft: '#f3efff' },
   ASAAS: { main: '#087f5b', soft: '#eafaf3' },
-  PAGBANK: { main: '#15803d', soft: '#effbef' },
 };
 
 export const Page = styled.div`
