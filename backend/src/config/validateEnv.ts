@@ -310,6 +310,17 @@ export function validateCriticalEnv() {
     }
   }
 
+  const belvoEnabled =
+    String(process.env.BELVO_PAYMENTS_ENABLED || 'false').trim().toLowerCase() === 'true';
+  if (belvoEnabled) {
+    requireValue('BELVO_SECRET_ID', errors);
+    requireValue('BELVO_SECRET_PASSWORD', errors);
+    const belvoEnv = String(process.env.BELVO_ENV || 'sandbox').trim().toLowerCase();
+    if (!['sandbox', 'production'].includes(belvoEnv)) {
+      errors.push('BELVO_ENV deve ser sandbox ou production.');
+    }
+  }
+
   const allowInsecureStripe =
     String(process.env.ALLOW_INSECURE_STRIPE_WEBHOOK || 'false').trim() === 'true';
   if (allowInsecureStripe) {
