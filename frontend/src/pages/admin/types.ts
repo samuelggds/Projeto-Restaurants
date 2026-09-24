@@ -310,9 +310,6 @@ export type AdminSettings = {
   pagarmeSecretKeyConfigured: boolean;
   asaasAccessToken: string;
   asaasAccessTokenConfigured: boolean;
-  pagbankEmail: string;
-  pagbankToken: string;
-  pagbankTokenConfigured: boolean;
   promotionalBanners: AdminPromotionBanner[];
   deliveryFeeRanges: DeliveryFeeRangeAdmin[];
 };
@@ -378,7 +375,6 @@ export type AdminPageProps = {
   onConnectMercadoPago?: () => void | Promise<void>;
   onDisconnectMercadoPago?: () => void | Promise<void>;
   onLoadPaymentConnections?: () => Promise<PaymentConnectionOverview>;
-  onConnectPagBank?: () => void | Promise<void>;
   onOnboardAsaas?: (payload: {
     cpf?: string;
     cnpj?: string;
