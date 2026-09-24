@@ -1,98 +1,41 @@
 import restaurantSettingsRepository from '../repositories/RestaurantSettingsRepository.js';
-import { getPagBankAccessToken } from './RestaurantPaymentCredentialsService.js';
-import { pagBankApiBaseUrl } from '../../payments/providers/pagBankCheckout.js';
 
-type SupportedCardProvider = 'MERCADO_PAGO' | 'PAGARME' | 'PAGBANK' | 'ASAAS';
+type SupportedCardProvider = 'MERCADO_PAGO' | 'PAGARME' | 'ASAAS';
 
 function normalizeProvider(value: unknown): SupportedCardProvider | null {
   const provider = String(value || '').trim().toUpperCase();
-  return ['MERCADO_PAGO', 'PAGARME', 'PAGBANK', 'ASAAS'].includes(provider)
+  return ['MERCADO_PAGO', 'PAGARME', 'ASAAS'].includes(provider)
     ? (provider as SupportedCardProvider)
     : null;
 }
 
-async function fetchPagBankPublicKey(restaurantId: number) {
-  const accessToken = await getPagBankAccessToken(restaurantId);
-  const headers = {
-    Authorization: `Bearer ${accessToken}`,
-    Accept: 'application/json',
-    'Content-Type': 'application/json',
-  };
-
-  const readCurrent = async () => {
-    const response = await fetch(`${pagBankApiBaseUrl()}/public-keys/card`, {
-      method: 'GET',
-      redirect: 'error',
-      signal: AbortSignal.timeout(15_000),
-      headers,
-    });
-    if (!response.ok) return '';
-    const body = (await response.json().catch(() => ({}))) as Record<string, unknown>;
-    return String(body.public_key || body.publicKey || '').trim();
-  };
-
-  const current = await readCurrent();
-  if (current) return current;
-
-  const response = await fetch(`${pagBankApiBaseUrl()}/public-keys`, {
-    method: 'POST',
-    redirect: 'error',
-    signal: AbortSignal.timeout(15_000),
-    headers,
-    body: JSON.stringify({ type: 'card' }),
-  });
-  const body = (await response.json().catch(() => ({}))) as Record<string, unknown>;
-  const publicKey = String(body.public_key || body.publicKey || '').trim();
-  if (!response.ok || !publicKey) {
-    throw new Error('Pagamento com cartão indisponível no momento.');
-  }
-  return publicKey;
-}
-
 class GetPublicCardPaymentConfigService {
-  async execute(rawRestaurantId: unknown) {
-    const restaurantId = Number(rawRestaurantId || 0);
-    if (!Number.isSafeInteger(restaurantId) || restaurantId <= 0) {
+  async execute({ restaurantId }: { restaurantId: number | string }) {
+    const normalizedRestaurantId = Number(restaurantId);
+    if (!Number.isSafeInteger(normalizedRestaurantId) || normalizedRestaurantId <= 0) {
       throw new Error('Restaurante inválido.');
     }
 
-    const [restaurant, settings] = await Promise.all([
-      restaurantSettingsRepository.findRestaurantById(restaurantId),
-      restaurantSettingsRepository.findByRestaurantId(restaurantId),
-    ]);
-    if (!restaurant || restaurant.active === false || !settings || settings.acceptsCard === false) {
-      throw new Error('Pagamento com cartão indisponível no momento.');
+    const settings =
+      await restaurantSettingsRepository.findPublicByRestaurantId(normalizedRestaurantId);
+    const provider = normalizeProvider(settings?.cardGateway);
+
+    // Apenas Mercado Pago está ativo neste momento. Pagar.me e Asaas ficam
+    // estruturados para integração futura, mas não podem ser usados no checkout.
+    if (provider !== 'MERCADO_PAGO') {
+      throw new Error(
+        'Pagamento com cartão temporariamente indisponível. No momento, apenas Mercado Pago está ativo.',
+      );
     }
 
-    const provider = normalizeProvider(settings.cardGateway);
-    if (!provider) throw new Error('Pagamento com cartão indisponível no momento.');
-
-    if (provider === 'MERCADO_PAGO') {
-      const publicKey = String(settings.mercadoPagoPublicKey || '').trim();
-      if (!publicKey) {
-        throw new Error(
-          'Pagamento com cartão indisponível. Reconecte o Mercado Pago deste restaurante.',
-        );
-      }
-      return {
-        provider,
-        publicKey,
-      } as const;
+    const publicKey = String(settings?.mercadoPagoPublicKey || '').trim();
+    if (!publicKey) {
+      throw new Error(
+        'A conexão Mercado Pago deste restaurante precisa ser atualizada antes de aceitar cartão.',
+      );
     }
 
-    if (provider === 'PAGARME') {
-      const publicKey = String(settings.pagarmePublicKey || '').trim();
-      if (!publicKey || !String(settings.pagarmeSecretKey || '').trim()) {
-        throw new Error('Pagamento com cartão indisponível. Configure o Pagar.me deste restaurante.');
-      }
-      return { provider, publicKey } as const;
-    }
-
-    if (provider === 'PAGBANK') {
-      return { provider, publicKey: await fetchPagBankPublicKey(restaurantId) } as const;
-    }
-
-    return { provider } as const;
+    return { provider, publicKey } as const;
   }
 }
 
