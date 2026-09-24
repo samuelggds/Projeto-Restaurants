@@ -22,6 +22,7 @@ beforeEach(() => {
   }
   Object.assign(process.env, {
     CREDENTIAL_ENCRYPTION_KEY: Buffer.alloc(32, 4).toString('base64'),
+    ENABLE_FUTURE_PAYMENT_PROVIDERS: 'true',
     BACKEND_URL: 'https://api.gastronexa.example',
     FRONTEND_URL: 'https://gastronexa.example',
     MP_OAUTH_CLIENT_ID: 'test-mp-id',
@@ -84,9 +85,7 @@ test('credenciais e grants renováveis do restaurante ficam prontos sem expor ne
       mercadoPagoRefreshToken: 'private-refresh-mp',
       mercadoPagoTokenExpiresAt: new Date(Date.now() + 3600_000),
       mercadoPagoPublicKey: 'APP_USR-seller-public',
-      pagbankToken: 'private-pb',
-      pagbankRefreshToken: 'private-refresh-pb',
-      pagbankTokenExpiresAt: new Date(Date.now() + 3600_000),
+
     };
   };
   const result = await service.execute({ restaurantId: 7 });
@@ -185,15 +184,12 @@ test('resposta das configurações não vaza tokens de renovação ou hash do we
     restaurantId: 7,
     mercadoPagoAccessToken: 'private-access',
     mercadoPagoRefreshToken: 'private-refresh',
-    pagbankToken: 'private-access-pb',
-    pagbankRefreshToken: 'private-refresh-pb',
     asaasAccessToken: 'private-asaas',
     asaasWebhookTokenHash: 'private-hash',
     restaurant: { deliveryFeeRanges: [] },
   });
   const settings = await getSettings.execute({ restaurantId: 7 });
   assert.equal(settings.mercadoPagoRefreshToken, null);
-  assert.equal(settings.pagbankRefreshToken, null);
   assert.equal(settings.asaasWebhookTokenHash, null);
   assert.equal(JSON.stringify(settings).includes('private-'), false);
 });
