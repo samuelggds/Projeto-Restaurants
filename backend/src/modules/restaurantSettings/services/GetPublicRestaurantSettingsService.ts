@@ -45,6 +45,7 @@ type PublicSettingsFallback = {
   acceptsDelivery: boolean;
   acceptsPickup: boolean;
   acceptsPix: boolean;
+  openFinancePixEnabled: boolean;
   acceptsCard: boolean;
   tableOrderingEnabled: boolean;
   waiterCallEnabled: boolean;
@@ -193,6 +194,7 @@ class GetPublicRestaurantSettingsService {
         acceptsDelivery: true,
         acceptsPickup: true,
         acceptsPix: true,
+        openFinancePixEnabled: false,
         acceptsCard: true,
         tableOrderingEnabled: true,
         waiterCallEnabled: true,
