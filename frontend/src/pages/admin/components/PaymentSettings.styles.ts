@@ -278,7 +278,7 @@ export const SectionHeading = styled.header`
 
 export const MethodGrid = styled.div`
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 16px;
 
   @media (max-width: 850px) {
@@ -485,6 +485,41 @@ export const Field = styled.label<{ $full?: boolean }>`
   select[aria-invalid='true'] + small {
     color: #a3342c;
     font-weight: 650;
+  }
+`;
+
+export const OpenFinanceStatus = styled.div<{ $ready: boolean }>`
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  min-height: 58px;
+  padding: 12px;
+  border: 1px solid ${({ $ready }) => ($ready ? '#bde5cd' : '#ead8cb')};
+  border-radius: 11px;
+  background: ${({ $ready }) => ($ready ? '#eefaf2' : '#fff7f2')};
+  color: ${({ $ready }) => ($ready ? '#166b3a' : '#925039')};
+
+  > svg {
+    flex: 0 0 auto;
+    width: 18px;
+    height: 18px;
+    margin-top: 1px;
+  }
+
+  > div {
+    display: grid;
+    gap: 3px;
+  }
+
+  strong {
+    font-size: 10px;
+  }
+
+  small {
+    min-height: 0;
+    color: inherit;
+    font-size: 9px;
+    line-height: 1.4;
   }
 `;
 
