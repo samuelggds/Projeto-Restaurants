@@ -8,6 +8,13 @@ export type ParsedProviderPaymentId = {
 export function parseProviderPaymentId(paymentId: string): ParsedProviderPaymentId {
   const normalizedPaymentId = String(paymentId || '').trim();
 
+  if (normalizedPaymentId.toLowerCase().startsWith('belvo:')) {
+    return {
+      provider: PIX_PROVIDERS.BELVO,
+      rawPaymentId: normalizedPaymentId.slice('belvo:'.length).trim(),
+    };
+  }
+
   if (normalizedPaymentId.toLowerCase().startsWith('asaas:')) {
     return {
       provider: PIX_PROVIDERS.ASAAS,
