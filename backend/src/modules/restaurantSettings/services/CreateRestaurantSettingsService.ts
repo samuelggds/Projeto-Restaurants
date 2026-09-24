@@ -302,6 +302,18 @@ class CreateRestaurantSettingsService {
       );
     }
 
+    const futureProvidersEnabled = process.env.ENABLE_FUTURE_PAYMENT_PROVIDERS === 'true';
+    if (
+      !futureProvidersEnabled &&
+      (String(pagarmeSecretKey || '').trim() ||
+        String(pagarmePublicKey || '').trim() ||
+        String(asaasAccessToken || '').trim())
+    ) {
+      throw new Error(
+        'Asaas e Pagar.me estão preparados para integração futura, mas permanecem indisponíveis até a liberação do cadastro empresarial/CNPJ.',
+      );
+    }
+
     const created = await restaurantSettingsRepository.create({
       restaurantId: Number(restaurantId),
       deliveryFee: normalizeNonNegativeMoney(deliveryFee, 'Taxa de entrega'),
