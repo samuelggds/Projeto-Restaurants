@@ -91,7 +91,7 @@ test('Asaas retoma cobrança existente por referência sem qualquer POST', async
   assert.equal(calls.length, 2);
 });
 
-or (const data of [
+for (const data of [
   [],
   [{ id: 'wrong', externalReference: 'other-tenant', value: 25 }],
   [{ id: 'wrong', externalReference: 'orderpix:7:91', value: 0.01 }],
