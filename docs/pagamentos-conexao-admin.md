@@ -7,7 +7,7 @@ O painel **Configurações > Pagamentos** separa os meios de pagamento disponív
 | Integração | Estado | Uso |
 | --- | --- | --- |
 | Mercado Pago | Ativa | Pix QR Code e cartão online |
-| Open Finance Mercado Pago | Em preparação | Segunda opção de pagamento via Mercado Pago, separada do Pix QR Code |
+| Open Finance Mercado Pago | Ativa quando a conta Mercado Pago do restaurante está conectada | Checkout Pro separado do Pix QR Code; Open Finance é exibido pelo Mercado Pago quando elegível |
 | Pagar.me | Temporariamente indisponível | Estrutura preservada para ativação futura após cadastro empresarial/CNPJ |
 | Asaas | Temporariamente indisponível | Estrutura preservada para ativação futura após cadastro empresarial/CNPJ |
 
@@ -35,20 +35,23 @@ segurança.
 
 ## Pix via Open Finance
 
-Open Finance é uma integração separada do Pix QR Code. Quando habilitado, o
-restaurante informa a chave Pix beneficiária e o cliente paga autorizando a operação
-no aplicativo da instituição bancária.
+Open Finance é uma segunda jornada do Mercado Pago, separada do Pix QR Code/copia e cola.
 
-Configuração da plataforma:
+Quando o restaurante habilita essa opção, o GastroNexa cria uma **Order Checkout Pro**
+com a mesma conta Mercado Pago conectada via OAuth. O cliente é redirecionado ao
+ambiente seguro do Mercado Pago e pode escolher Open Finance quando o método estiver
+disponível para aquela compra.
 
-- ``
-- ``
-- ``
-- `` em produção
+Não há chave Pix beneficiária manual nem credenciais adicionais de Open Finance.
+A disponibilidade no painel depende da conexão Mercado Pago do restaurante estar
+válida e renovável.
 
-A disponibilidade exibida no painel depende dessas credenciais. O redirecionamento
-para o banco deve acontecer fora de iframe/WebView e a confirmação financeira deve
-ser baseada no estado remoto/webhook do provedor, nunca apenas no retorno do navegador.
+O retorno do navegador nunca confirma o pagamento. O backend consulta novamente a
+Order do Mercado Pago, valida referência externa, tenant, valor e moeda, e só então
+marca o pedido como pago. Webhook, cancelamento de Order pendente e estorno também
+usam a API de Orders.
+
+O runbook completo está em `docs/open-finance-mercado-pago-production.md`.
 
 ## Asaas e Pagar.me
 
