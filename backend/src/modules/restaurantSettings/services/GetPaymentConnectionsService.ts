@@ -13,7 +13,6 @@ import { futurePaymentProvidersEnabled } from '../../payments/providers/futurePa
 import { mercadoPagoWebhookSecrets } from '../../payments/providers/mercadoPagoWebhookSignature.js';
 import { parseCredentialEncryptionKey } from '../security/credentialEncryption.js';
 import { resolveOAuthEndpoint } from '../security/oauthEndpoints.js';
-import { isBelvoOpenFinanceConfigured } from '../../payments/providers/belvoOpenFinance.js';
 
 type Provider = 'MERCADO_PAGO' | 'PAGARME' | 'ASAAS';
 type Connection = {
@@ -223,26 +222,14 @@ class GetPaymentConnectionsService {
         'A conexão Mercado Pago ainda não está configurada corretamente na plataforma.';
     }
 
-    const openFinanceAvailable = isBelvoOpenFinanceConfigured();
-    const openFinanceReady = Boolean(
-      openFinanceAvailable &&
-        settings?.openFinancePixEnabled &&
-        String(settings?.pixKey || '').trim(),
-    );
-
     return {
       connections,
       openFinance: {
-        available: openFinanceAvailable,
+        available: false,
         enabled: settings?.openFinancePixEnabled === true,
-        ready: openFinanceReady,
-        message: !openFinanceAvailable
-          ? 'Pix pelo app do banco ainda não está habilitado pela plataforma.'
-          : !settings?.openFinancePixEnabled
-            ? 'Ative Pix pelo app do banco para oferecer Open Finance no checkout.'
-            : !String(settings?.pixKey || '').trim()
-              ? 'Cadastre a chave Pix do restaurante para receber via Open Finance.'
-              : 'Pix pelo app do banco está pronto para uso.',
+        ready: false,
+        message:
+          'Open Finance está temporariamente indisponível enquanto a integração Mercado Pago é preparada.',
       },
     };
   }
