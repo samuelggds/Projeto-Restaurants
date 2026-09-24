@@ -123,8 +123,13 @@ describe('PaymentSettings', () => {
     );
     expect(container.textContent).toContain('Configuração completa');
     expect(container.textContent).toContain(
-      'O QR Code é gerado automaticamente pela conta conectada',
+      'O QR Code e o código copia e cola são gerados automaticamente pela conta conectada',
     );
+    expect(
+      container.querySelector(
+        'input[placeholder="CPF, CNPJ, e-mail, telefone ou chave aleatória"]',
+      ),
+    ).toBeNull();
   });
 
   it('mantém cadastro Asaas pendente até a aprovação e permite conferir a atualização', async () => {
