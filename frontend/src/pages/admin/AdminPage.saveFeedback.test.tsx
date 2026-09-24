@@ -280,16 +280,6 @@ describe('AdminPage save feedback', () => {
       },
       onConnectMercadoPago: connect,
     });
-    const input = container.querySelector(
-      'input[placeholder="CPF, CNPJ, e-mail, telefone ou chave aleatória"]',
-    )!;
-    act(() => {
-      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set?.call(
-        input,
-        'teste@restaurante.test',
-      );
-      input.dispatchEvent(new Event('input', { bubbles: true }));
-    });
     const button = Array.from(container.querySelectorAll('button')).find(
       (item) => item.textContent === 'Conectar Mercado Pago',
     )!;
