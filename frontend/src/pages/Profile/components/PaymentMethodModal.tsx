@@ -158,8 +158,8 @@ export function PaymentMethodModal({
   async function securePayload(
     providerConfig: ProviderConfig,
     digits: string,
-    month: number,
-    fullYear: number,
+    _month: number,
+    _fullYear: number,
   ) {
     return { cardData: { number: digits, securityCode: cvv }, holderTaxId: taxId };
   }
