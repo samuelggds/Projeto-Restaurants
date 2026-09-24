@@ -299,9 +299,12 @@ class CreateRestaurantSettingsService {
 
     const requestedPixProvider = String(pixProvider || 'MERCADO_PAGO').trim().toUpperCase();
     const requestedCardGateway = String(cardGateway || '').trim().toUpperCase();
-    if (requestedPixProvider === 'PAGBANK' || requestedCardGateway === 'PAGBANK') {
+    if (
+      ['PAGBANK', 'PAGARME', 'ASAAS'].includes(requestedPixProvider) ||
+      ['PAGBANK', 'PAGARME', 'ASAAS'].includes(requestedCardGateway)
+    ) {
       throw new Error(
-        'PagBank não está disponível. Escolha Mercado Pago ou Asaas para pagamentos online.',
+        'No momento, apenas Mercado Pago está disponível para Pix e cartão. Asaas e Pagar.me serão liberados futuramente após o cadastro empresarial/CNPJ.',
       );
     }
 
