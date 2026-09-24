@@ -22,7 +22,7 @@
 ## Webhooks e pagamentos
 
 - Stripe webhook com assinatura valida ativa em producao
-- Mercado Pago/PagBank com restaurantId obrigatorio em ambiente multi-tenant
+- Mercado Pago com restaurantId obrigatorio em ambiente multi-tenant; Open Finance deve manter vínculo inequívoco entre restaurante, pedido e Payment Intent
 - fallback global de credenciais desativado em producao
 - logs de webhook com correlation id por evento
 - idempotencia para evitar dupla confirmacao

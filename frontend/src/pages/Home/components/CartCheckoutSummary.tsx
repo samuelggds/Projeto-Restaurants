@@ -53,7 +53,11 @@ export function CartCheckoutSummary({
                 ? 'Finalizar pedido'
                 : 'Finalizar pedido';
   const CheckoutIcon =
-    paymentMethod === 'pix' ? QrCode : paymentMethod === 'card' ? CreditCard : ReceiptText;
+    paymentMethod === 'pix' || paymentMethod === 'open_finance_pix'
+      ? QrCode
+      : paymentMethod === 'card'
+        ? CreditCard
+        : ReceiptText;
   return (
     <div className="cart-checkout-area">
       {count > 0 && (

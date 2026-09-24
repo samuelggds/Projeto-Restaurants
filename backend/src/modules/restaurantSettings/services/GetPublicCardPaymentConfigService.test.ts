@@ -52,6 +52,6 @@ test('Mercado Pago exige public key do restaurante conectado', async () => {
 
   await assert.rejects(
     () => service.execute(2),
-    /Reconecte o Mercado Pago deste restaurante/,
+    /conexão Mercado Pago.*precisa ser atualizada/i,
   );
 });

@@ -444,6 +444,7 @@ export function buildHomeData(
     acceptsDelivery: readPublicFeatureFlag(settings, 'acceptsDelivery'),
     acceptsPickup: readPublicFeatureFlag(settings, 'acceptsPickup'),
     acceptsPix: readPublicFeatureFlag(settings, 'acceptsPix'),
+    openFinancePixEnabled: settings?.openFinancePixEnabled === true,
     acceptsCard: readPublicFeatureFlag(settings, 'acceptsCard'),
     fontFamily: normalizeHomeFontFamily(settings?.fontFamily),
     seoTitle: String(settings?.seoTitle || '').trim(),

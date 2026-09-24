@@ -25,156 +25,104 @@ const context = {
   intentPublicId: '423e4567-e89b-42d3-a456-426614174091',
   method: 'PIX',
 };
-const externalId = 'pagbank:ORDE_123';
+
+const externalId = '1234';
 const expiresAt = new Date('2026-09-07T20:00:00.000Z');
 
-test('checkout hospedado da mesa cria referência exclusiva e notificação de pagamento', async () => {
-  restaurantSettingsRepository.findByRestaurantId = async () => ({
-    pagbankToken: 'tenant-seven',
-    pagbankRefreshToken: 'refresh-seven',
-    pagbankTokenExpiresAt: new Date(Date.now() + 3600000),
-  });
-  globalThis.fetch = async (url, init) => {
-    assert.match(String(url), /\/checkouts$/);
-    const body = JSON.parse(init.body);
-    assert.equal(body.reference_id, 'tablecard:91:7:423e4567e89b42d3a456426614174091');
-    assert.equal(body.items[0].unit_amount, 3000);
-    return new Response(
-      JSON.stringify({
-        id: 'CHEC_91',
-        reference_id: body.reference_id,
-        links: [{ rel: 'PAY', href: 'https://pagamento.pagbank.com.br/pagamento?code=91' }],
-      }),
-    );
-  };
-  const provider = new ConfiguredTablePaymentProvider({ ...context, method: 'CARD' }, 'PAGBANK');
-  const result = await provider.createPayment({
-    intentPublicId: context.intentPublicId,
-    amountCents: 3000,
-    method: 'CARD',
-    idempotencyKeyHash: 'stable-91',
-    expiresAt,
-  });
-  assert.equal(result.externalId, 'pagbank_checkout:CHEC_91');
-  assert.equal(result.status, 'PENDING');
-});
-
-function arrangePixStatus(status, amount) {
+function arrangeIntent() {
   prisma.tablePaymentIntent.findFirst = async (query) => {
     assert.deepEqual(query.where, {
       id: context.intentId,
       publicId: context.intentPublicId,
       restaurantId: context.restaurantId,
-      provider: 'PAGBANK',
+      provider: 'MERCADO_PAGO',
       providerExternalId: externalId,
     });
-    return { totalCents: 3_000n, expiresAt };
+    return { totalCents: 3_000n, expiresAt, providerChargeId: null };
   };
   restaurantSettingsRepository.findByRestaurantId = async (restaurantId) => {
     assert.equal(restaurantId, context.restaurantId);
-    return { pagbankToken: 'tenant-token' };
+    return {
+      restaurantId,
+      mercadoPagoAccessToken: 'tenant-mp-token',
+      mercadoPagoRefreshToken: null,
+      mercadoPagoTokenExpiresAt: null,
+    };
   };
+}
+
+function provider() {
+  return new ConfiguredTablePaymentProvider(context, 'MERCADO_PAGO');
+}
+
+test('reconcilia Pix pendente sem alterar o valor da intenção', async () => {
+  arrangeIntent();
   globalThis.fetch = async (url, init) => {
-    assert.equal(new URL(url).pathname, '/orders/ORDE_123');
-    assert.equal(init.headers.Authorization, 'Bearer tenant-token');
+    assert.equal(String(url), 'https://api.mercadopago.com/v1/payments/1234');
+    assert.equal(init.headers.Authorization, 'Bearer tenant-mp-token');
     return new Response(
       JSON.stringify({
-        id: 'ORDE_123',
-        charges: [
-          {
-            id: 'CHAR_123',
-            status,
-            amount: { value: amount == null ? amount : Math.round(amount * 100), currency: 'BRL' },
-          },
-        ],
+        id: 1234,
+        status: 'pending',
+        transaction_amount: 30,
+        currency_id: 'BRL',
       }),
       { status: 200, headers: { 'content-type': 'application/json' } },
     );
   };
-  return new ConfiguredTablePaymentProvider(context, 'PAGBANK');
-}
 
-for (const [providerStatus, expectedStatus] of [
-  ['waiting', 'PENDING'],
-  ['DECLINED', 'FAILED'],
-  ['rejected', 'FAILED'],
-  ['CANCELED', 'CANCELED'],
-  ['cancelled', 'CANCELED'],
-]) {
-  test(`reconcilia Pix ${providerStatus} sem converter valor ausente em zero`, async () => {
-    const provider = arrangePixStatus(providerStatus, null);
-    const payment = await provider.getPayment(externalId);
-    assert.equal(payment.status, expectedStatus);
-    assert.equal(payment.amountCents, 3_000);
-    assert.equal(payment.externalId, externalId);
-  });
-}
-
-for (const invalidAmount of [null, undefined, Number.NaN, Infinity, 0, 29.99, 30.01]) {
-  test(`não confirma Pix aprovado com valor inválido ou divergente: ${String(invalidAmount)}`, async () => {
-    const provider = arrangePixStatus('paid', invalidAmount, true);
-    await assert.rejects(
-      () => provider.getPayment(externalId),
-      /Evidência financeira PagBank divergente/,
-    );
-  });
-}
-
-test('exige valor também quando o status bruto do provedor indica pagamento', async () => {
-  const provider = arrangePixStatus('PAID', null, false);
-  await assert.rejects(
-    () => provider.getPayment(externalId),
-    /Evidência financeira PagBank divergente/,
-  );
+  const payment = await provider().getPayment(externalId);
+  assert.equal(payment.status, 'PENDING');
+  assert.equal(payment.amountCents, 3_000);
+  assert.equal(payment.externalId, externalId);
 });
 
-test('confirma Pix com valor validado e correspondente à intenção deste restaurante', async () => {
-  const provider = arrangePixStatus('paid', 30, true);
-  const payment = await provider.getPayment(externalId);
+test('confirma Pix somente com ID, valor e moeda correspondentes à intenção', async () => {
+  arrangeIntent();
+  globalThis.fetch = async () =>
+    new Response(
+      JSON.stringify({
+        id: 1234,
+        status: 'approved',
+        transaction_amount: 30,
+        currency_id: 'BRL',
+      }),
+      { status: 200, headers: { 'content-type': 'application/json' } },
+    );
+
+  const payment = await provider().getPayment(externalId);
   assert.equal(payment.status, 'PAID');
   assert.equal(payment.amountCents, 3_000);
 });
 
-test('continua rejeitando valor divergente informado em Pix pendente', async () => {
-  const provider = arrangePixStatus('WAITING', 10);
-  await assert.rejects(
-    () => provider.getPayment(externalId),
-    /Evidência financeira PagBank divergente/,
-  );
-});
+for (const body of [
+  { id: 9999, status: 'approved', transaction_amount: 30, currency_id: 'BRL' },
+  { id: 1234, status: 'approved', transaction_amount: 30, currency_id: 'USD' },
+  { id: 1234, status: 'approved', transaction_amount: 0.01, currency_id: 'BRL' },
+]) {
+  test(`rejeita evidência financeira divergente: ${JSON.stringify(body)}`, async () => {
+    arrangeIntent();
+    globalThis.fetch = async () =>
+      new Response(JSON.stringify(body), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      });
 
-test('não consulta o provedor quando a intenção não pertence ao escopo informado', async () => {
-  const provider = arrangePixStatus('paid', 30, true);
+    await assert.rejects(() => provider().getPayment(externalId), /não corresponde/i);
+  });
+}
+
+test('não consulta o gateway quando a intenção não pertence ao tenant/escopo', async () => {
   prisma.tablePaymentIntent.findFirst = async () => null;
   let queried = false;
   globalThis.fetch = async () => {
     queried = true;
+    return new Response('{}');
   };
-  await assert.rejects(() => provider.getPayment(externalId), /Pagamento da mesa não encontrado/);
+
+  await assert.rejects(
+    () => provider().getPayment(externalId),
+    /Pagamento da mesa não encontrado/,
+  );
   assert.equal(queried, false);
-});
-
-test('Pix PagBank com QR válido e ainda sem cobrança permanece pendente', async () => {
-  const provider = arrangePixStatus('WAITING', null);
-  globalThis.fetch = async () =>
-    new Response(
-      JSON.stringify({ id: 'ORDE_123', charges: [], qr_codes: [{ amount: { value: 3000 } }] }),
-    );
-  const result = await provider.getPayment(externalId);
-  assert.equal(result.status, 'PENDING');
-  assert.equal(result.amountCents, 3000);
-});
-
-test('não aceita ID remoto trocado, moeda divergente ou cobranças ambíguas', async () => {
-  const provider = arrangePixStatus('PAID', 30);
-  const charge = { id: 'CHAR_123', status: 'PAID', amount: { value: 3000, currency: 'BRL' } };
-  for (const body of [
-    { id: 'ORDE_OTHER', charges: [charge] },
-    { id: 'ORDE_123', charges: [{ ...charge, amount: { value: 3000, currency: 'USD' } }] },
-    { id: 'ORDE_123', charges: [charge, { ...charge, id: 'CHAR_456' }] },
-    { id: 'ORDE_123', charges: [], qr_codes: [{ amount: { value: 1 } }] },
-  ]) {
-    globalThis.fetch = async () => new Response(JSON.stringify(body));
-    await assert.rejects(() => provider.getPayment(externalId), /divergente|ambígua/);
-  }
 });

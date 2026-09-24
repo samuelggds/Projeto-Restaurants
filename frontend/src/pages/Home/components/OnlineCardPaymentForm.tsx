@@ -36,13 +36,6 @@ type MercadoPagoInstance = {
 
 declare global {
   interface Window {
-    PagSeguro?: {
-      encryptCard(input: Record<string, string>): {
-        encryptedCard?: string;
-        hasErrors?: boolean;
-        errors?: Array<{ message?: string }>;
-      };
-    };
     MercadoPago?: new (publicKey: string) => MercadoPagoInstance;
     MP_DEVICE_SESSION_ID?: string;
   }
@@ -190,20 +183,6 @@ export function OnlineCardPaymentForm({
     };
   }, [config, isSavedMercadoPago]);
 
-  useEffect(() => {
-    if (config?.provider !== 'PAGBANK' || !config.publicKey || isSaved) return undefined;
-    let active = true;
-    void loadSdk(
-      'pagbank',
-      'https://assets.pagseguro.com.br/checkout-sdk-js/rc/dist/browser/pagseguro.min.js',
-      () => Boolean(window.PagSeguro),
-    ).catch(() => {
-      if (active) setError('Não foi possível carregar a proteção do PagBank.');
-    });
-    return () => {
-      active = false;
-    };
-  }, [config, isSaved]);
 
   useEffect(() => {
     if (!config) {
@@ -282,25 +261,49 @@ export function OnlineCardPaymentForm({
           throw new Error('Informe o CVV do cartão.');
         }
 
-        if (config.provider === 'PAGBANK') {
-          if (!config.publicKey || !window.PagSeguro) {
-            throw new Error('Aguarde a preparação segura do PagBank.');
+        if (config.provider === 'PAGARME') {
+          if (!config.publicKey) {
+            throw new Error('Aguarde a configuração segura do Pagar.me.');
           }
-          const encrypted = window.PagSeguro.encryptCard({
-            publicKey: config.publicKey,
-            holder: holderName,
-            number: cleanNumber,
-            expMonth: String(month).padStart(2, '0'),
-            expYear: String(year),
-            securityCode: cleanCvv,
-          });
-          if (!encrypted.encryptedCard || encrypted.hasErrors) {
-            throw new Error(encrypted.errors?.[0]?.message || 'Revise os dados do cartão.');
+          const cleanPostalCode = digits(postalCode);
+          const normalizedPayerEmail = payerEmail.trim().toLowerCase();
+          if (!isValidPayerEmail(normalizedPayerEmail)) {
+            throw new Error('Informe um e-mail válido do comprador.');
+          }
+          if (cleanPostalCode.length !== 8 || !addressNumber.trim()) {
+            throw new Error('Informe o CEP e o número do endereço do titular.');
+          }
+          const tokenResponse = await fetch(
+            `https://api.pagar.me/core/v5/tokens?appId=${encodeURIComponent(config.publicKey)}`,
+            {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                type: 'card',
+                card: {
+                  number: cleanNumber,
+                  holder_name: holderName,
+                  exp_month: month,
+                  exp_year: year,
+                  cvv: cleanCvv,
+                },
+              }),
+            },
+          );
+          const tokenBody = (await tokenResponse.json().catch(() => ({}))) as {
+            id?: string;
+            message?: string;
+          };
+          if (!tokenResponse.ok || !tokenBody.id) {
+            throw new Error(tokenBody.message || 'Não foi possível proteger o cartão no Pagar.me.');
           }
           return {
-            encryptedCard: encrypted.encryptedCard,
+            cardToken: tokenBody.id,
             holderName,
             holderTaxId,
+            payerEmail: normalizedPayerEmail,
+            billingPostalCode: cleanPostalCode,
+            billingAddressNumber: addressNumber.trim(),
           };
         }
 
@@ -451,7 +454,7 @@ export function OnlineCardPaymentForm({
         </>
       ) : null}
 
-      {!isSaved && config?.provider === 'MERCADO_PAGO' && (
+      {!isSaved && (config?.provider === 'MERCADO_PAGO' || config?.provider === 'PAGARME') && (
         <label className="full">
           <span>E-mail do comprador</span>
           <input
@@ -476,7 +479,7 @@ export function OnlineCardPaymentForm({
         </label>
       )}
 
-      {!isSaved && config?.provider === 'ASAAS' && (
+      {!isSaved && (config?.provider === 'ASAAS' || config?.provider === 'PAGARME') && (
         <div className="row">
           <label>
             <span>CEP do titular</span>

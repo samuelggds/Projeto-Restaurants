@@ -6,10 +6,14 @@ import {
   validateConfiguredOAuthEndpoints,
 } from './oauthEndpoints.js';
 
-test('usa por padrão os endpoints oficiais dos provedores', () => {
+test('usa por padrão os endpoints oficiais do Mercado Pago', () => {
   const env = { NODE_ENV: 'production' };
   assert.equal(resolveOAuthEndpoint('MERCADO_PAGO_API', env), 'https://api.mercadopago.com');
-  assert.equal(resolveOAuthEndpoint('PAGBANK_API', env), 'https://api.pagseguro.com');
+  assert.equal(
+    resolveOAuthEndpoint('MERCADO_PAGO_AUTHORIZATION', env),
+    'https://auth.mercadopago.com/authorization',
+  );
+  assert.equal(resolveMercadoPagoApiEndpoint(env), 'https://api.mercadopago.com');
   assert.doesNotThrow(() => validateConfiguredOAuthEndpoints(env));
 });
 
@@ -23,6 +27,7 @@ test('produção rejeita host arbitrário mesmo com flag de override', () => {
       }),
     /endpoint oficial.*producao/i,
   );
+
   assert.throws(
     () =>
       resolveMercadoPagoApiEndpoint({
@@ -35,14 +40,15 @@ test('produção rejeita host arbitrário mesmo com flag de override', () => {
 });
 
 test('override local só funciona mediante flag explícita', () => {
-  const baseEnv = {
+  const oauthEnv = {
     NODE_ENV: 'development',
     MP_OAUTH_API_BASE_URL: 'http://127.0.0.1:4321/mock',
   };
-  assert.throws(() => resolveOAuthEndpoint('MERCADO_PAGO_API', baseEnv), /ALLOW_UNTRUSTED/i);
+
+  assert.throws(() => resolveOAuthEndpoint('MERCADO_PAGO_API', oauthEnv), /ALLOW_UNTRUSTED/i);
   assert.equal(
     resolveOAuthEndpoint('MERCADO_PAGO_API', {
-      ...baseEnv,
+      ...oauthEnv,
       ALLOW_UNTRUSTED_OAUTH_ENDPOINTS: 'true',
     }),
     'http://127.0.0.1:4321/mock',
@@ -52,6 +58,7 @@ test('override local só funciona mediante flag explícita', () => {
     NODE_ENV: 'development',
     MP_API_BASE_URL: 'http://127.0.0.1:4321/reconciliation',
   };
+
   assert.throws(() => resolveMercadoPagoApiEndpoint(reconciliationEnv), /ALLOW_UNTRUSTED/i);
   assert.equal(
     resolveMercadoPagoApiEndpoint({
@@ -65,109 +72,11 @@ test('override local só funciona mediante flag explícita', () => {
 test('rejeita URL com credenciais, query string ou fragmento', () => {
   assert.throws(
     () =>
-      resolveOAuthEndpoint('PAGBANK_API', {
+      resolveOAuthEndpoint('MERCADO_PAGO_API', {
         NODE_ENV: 'development',
         ALLOW_UNTRUSTED_OAUTH_ENDPOINTS: 'true',
-        PAGBANK_CONNECT_API_URL: 'https://user:pass@example.test/base?secret=1',
+        MP_OAUTH_API_BASE_URL: 'https://user:pass@example.test/base?secret=1',
       }),
     /nao pode conter credenciais/i,
   );
-});
-
-test('sandbox oficial do PagBank é permitido fora de produção sem liberar hosts arbitrários', () => {
-  assert.equal(
-    resolveOAuthEndpoint('PAGBANK_API', {
-      NODE_ENV: 'test',
-      PAGBANK_CONNECT_API_URL: 'https://sandbox.api.pagseguro.com/',
-    }),
-    'https://sandbox.api.pagseguro.com',
-  );
-});
-
-test('produção permite apenas endpoints oficiais do sandbox PagBank quando PAGBANK_ENV=sandbox', () => {
-  const env = {
-    NODE_ENV: 'production',
-    PAGBANK_ENV: 'sandbox',
-    PAGBANK_CONNECT_API_URL: 'https://sandbox.api.pagseguro.com',
-    PAGBANK_CONNECT_AUTH_URL: 'https://connect.sandbox.pagbank.com.br/oauth2/authorize',
-  };
-
-  assert.equal(
-    resolveOAuthEndpoint('PAGBANK_API', env),
-    'https://sandbox.api.pagseguro.com',
-  );
-  assert.equal(
-    resolveOAuthEndpoint('PAGBANK_AUTHORIZATION', env),
-    'https://connect.sandbox.pagbank.com.br/oauth2/authorize',
-  );
-  assert.doesNotThrow(() => validateConfiguredOAuthEndpoints(env));
-});
-
-test('produção com PAGBANK_ENV=sandbox continua bloqueando hosts arbitrários e não altera Mercado Pago', () => {
-  assert.throws(
-    () =>
-      resolveOAuthEndpoint('PAGBANK_API', {
-        NODE_ENV: 'production',
-        PAGBANK_ENV: 'sandbox',
-        PAGBANK_CONNECT_API_URL: 'https://attacker.example',
-      }),
-    /endpoint oficial.*producao/i,
-  );
-
-  assert.throws(
-    () =>
-      resolveOAuthEndpoint('MERCADO_PAGO_API', {
-        NODE_ENV: 'production',
-        PAGBANK_ENV: 'sandbox',
-        MP_OAUTH_API_BASE_URL: 'https://attacker.example',
-      }),
-    /endpoint oficial.*producao/i,
-  );
-
-  assert.equal(
-    resolveOAuthEndpoint('MERCADO_PAGO_API', {
-      NODE_ENV: 'production',
-      PAGBANK_ENV: 'sandbox',
-      MP_OAUTH_API_BASE_URL: 'https://api.mercadopago.com',
-    }),
-    'https://api.mercadopago.com',
-  );
-});
-
-test('PagBank usa um único endpoint validado para OAuth, checkout, Pix e estorno', () => {
-  assert.equal(
-    resolveOAuthEndpoint('PAGBANK_API', {
-      NODE_ENV: 'test',
-      PAGBANK_API_BASE_URL: 'https://sandbox.api.pagseguro.com/',
-    }),
-    'https://sandbox.api.pagseguro.com',
-  );
-  assert.equal(
-    resolveOAuthEndpoint('PAGBANK_API', {
-      NODE_ENV: 'production',
-      PAGBANK_CONNECT_API_URL: 'https://api.pagseguro.com/',
-      PAGBANK_API_BASE_URL: 'https://api.pagseguro.com',
-    }),
-    'https://api.pagseguro.com',
-  );
-  assert.throws(
-    () =>
-      validateConfiguredOAuthEndpoints({
-        NODE_ENV: 'test',
-        PAGBANK_CONNECT_API_URL: 'https://api.pagseguro.com',
-        PAGBANK_API_BASE_URL: 'https://sandbox.api.pagseguro.com',
-      }),
-    /mesmo ambiente/,
-  );
-  for (const url of ['https://attacker.example', 'https://sandbox.api.pagseguro.com']) {
-    assert.throws(
-      () =>
-        resolveOAuthEndpoint('PAGBANK_API', {
-          NODE_ENV: 'production',
-          PAGBANK_API_BASE_URL: url,
-          ALLOW_UNTRUSTED_OAUTH_ENDPOINTS: 'true',
-        }),
-      /endpoint oficial.*producao/,
-    );
-  }
 });

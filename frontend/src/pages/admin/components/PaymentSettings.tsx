@@ -27,14 +27,13 @@ import { usePaymentConnections } from './usePaymentConnections';
 import * as PS from './PaymentSettings.styles';
 
 type Settings = typeof adminMockSettings;
-type Provider = 'MERCADO_PAGO' | 'ASAAS' | 'PAGBANK';
+type Provider = 'MERCADO_PAGO' | 'PAGARME' | 'ASAAS';
 type Props = {
   settings: Settings;
   update: <K extends keyof Settings>(key: K, value: Settings[K]) => void;
   onConnectMercadoPago?: () => void | Promise<void>;
   onDisconnectMercadoPago?: () => Promise<boolean>;
   onLoadPaymentConnections?: () => Promise<PaymentConnectionOverview>;
-  onConnectPagBank?: () => void | Promise<void>;
   onOnboardAsaas?: (payload: {
     cpf?: string;
     cnpj?: string;
@@ -58,17 +57,18 @@ const providers: Array<{
     description: 'Conecte a conta do restaurante sem copiar senhas ou códigos de acesso.',
   },
   {
+    id: 'PAGARME',
+    name: 'Pagar.me',
+    initials: 'PG',
+    description:
+      'Integração preparada para uso futuro. Temporariamente indisponível até a liberação do cadastro empresarial/CNPJ.',
+  },
+  {
     id: 'ASAAS',
     name: 'Asaas',
     initials: 'AS',
     description:
-      'Crie uma conta de recebimento ligada ao restaurante usando o CPF ou CNPJ do responsável.',
-  },
-  {
-    id: 'PAGBANK',
-    name: 'PagBank',
-    initials: 'PB',
-    description: 'Conecte a conta PagBank pelo processo seguro de autorização.',
+      'Integração preparada para uso futuro. Temporariamente indisponível até a liberação do cadastro empresarial/CNPJ.',
   },
 ];
 
@@ -78,8 +78,17 @@ function errorMessage(error: unknown, fallback: string) {
 
 function providerIsConnected(settings: Settings, provider: Provider) {
   if (provider === 'MERCADO_PAGO') return settings.mercadoPagoAccessTokenConfigured;
-  if (provider === 'ASAAS') return settings.asaasAccessTokenConfigured;
-  return settings.pagbankTokenConfigured;
+  if (provider === 'PAGARME') {
+    return settings.pagarmeSecretKeyConfigured && Boolean(settings.pagarmePublicKey.trim());
+  }
+  return settings.asaasAccessTokenConfigured;
+}
+
+function activeProvider(value: string): Provider | null {
+  const normalized = String(value || '').trim().toUpperCase();
+  return normalized === 'MERCADO_PAGO' || normalized === 'PAGARME' || normalized === 'ASAAS'
+    ? (normalized as Provider)
+    : null;
 }
 
 function providerName(provider: string) {
@@ -132,7 +141,6 @@ export function PaymentSettings({
   onConnectMercadoPago,
   onDisconnectMercadoPago,
   onLoadPaymentConnections,
-  onConnectPagBank,
   onOnboardAsaas,
 }: Props) {
   const [busyProvider, setBusyProvider] = useState<Provider | null>(null);
@@ -150,64 +158,66 @@ export function PaymentSettings({
       : providerIsConnected(settings, provider);
   const isReady = (provider: Provider, method: 'readyForPix' | 'readyForCard') =>
     connections.verifying ? Boolean(connections.get(provider)?.[method]) : isConnected(provider);
+  const canSelectProvider = (provider: Provider) =>
+    provider === 'MERCADO_PAGO' || Boolean(connections.get(provider)?.canConnect);
+
+  const pixProvider = activeProvider(settings.pixProvider);
+  const cardProvider = activeProvider(settings.cardGateway);
 
   const selectedProviders = useMemo(() => {
     const selected = new Set<Provider>();
-    if (settings.acceptsPix && settings.pixProvider) {
-      selected.add(settings.pixProvider as Provider);
-    }
-    if (settings.acceptsCard && settings.cardGateway) {
-      selected.add(settings.cardGateway as Provider);
-    }
+    if (settings.acceptsPix && pixProvider) selected.add(pixProvider);
+    if (settings.acceptsCard && cardProvider) selected.add(cardProvider);
     return selected;
-  }, [settings.acceptsCard, settings.acceptsPix, settings.cardGateway, settings.pixProvider]);
+  }, [settings.acceptsCard, settings.acceptsPix, pixProvider, cardProvider]);
 
-  const activeMethods = Number(settings.acceptsPix) + Number(settings.acceptsCard);
+  const activeMethods =
+    Number(settings.acceptsPix) +
+    Number(settings.openFinancePixEnabled) +
+    Number(settings.acceptsCard);
   const connectedSelectedProviders = Array.from(selectedProviders).filter((provider) =>
     isConnected(provider),
   ).length;
-  const pixReady =
-    !settings.acceptsPix ||
-    (Boolean(settings.pixProvider) && isReady(settings.pixProvider as Provider, 'readyForPix'));
+  const pixReady = !settings.acceptsPix || Boolean(pixProvider && isReady(pixProvider, 'readyForPix'));
+  const openFinanceReady =
+    !settings.openFinancePixEnabled ||
+    Boolean(connections.openFinance?.ready && settings.acceptsPix && settings.pixKey.trim());
   const cardReady =
-    !settings.acceptsCard ||
-    (Boolean(settings.cardGateway) && isReady(settings.cardGateway as Provider, 'readyForCard'));
-  const configurationReady = activeMethods > 0 && pixReady && cardReady;
+    !settings.acceptsCard || Boolean(cardProvider && isReady(cardProvider, 'readyForCard'));
+  const configurationReady = activeMethods > 0 && pixReady && openFinanceReady && cardReady;
   const configurationNotice = !activeMethods
     ? 'Há etapas pendentes: ative Pix ou cartão para aceitar pagamentos online.'
     : connections.loading
       ? 'Verificando as conexões de pagamento...'
       : connections.error
         ? connections.error
-        : settings.acceptsPix && !pixReady
-          ? connections.get(settings.pixProvider as Provider)?.message ||
-            `Há etapas pendentes: vincule a conta ${providerName(settings.pixProvider)} para liberar o Pix.`
-          : settings.acceptsPix && !isConnected(settings.pixProvider as Provider)
-            ? `Há etapas pendentes: vincule a conta ${providerName(settings.pixProvider)} para liberar o Pix.`
-            : settings.acceptsCard && !settings.cardGateway
-              ? 'Há etapas pendentes: escolha quem processará os pagamentos com cartão.'
-              : settings.acceptsCard && !cardReady
-                ? connections.get(settings.cardGateway as Provider)?.message ||
-                  `Há etapas pendentes: vincule a conta ${providerName(settings.cardGateway)} para liberar o cartão.`
-                : 'Há etapas pendentes: revise o cadastro dos meios de pagamento.';
+        : settings.acceptsPix && !pixProvider
+          ? 'Escolha Mercado Pago para receber por Pix.'
+          : settings.acceptsPix && !pixReady
+            ? connections.get(pixProvider as Provider)?.message ||
+              `Há etapas pendentes: vincule a conta ${providerName(settings.pixProvider)} para liberar o Pix.`
+            : settings.acceptsPix && pixProvider && !isConnected(pixProvider)
+              ? `Há etapas pendentes: vincule a conta ${providerName(settings.pixProvider)} para liberar o Pix.`
+              : settings.acceptsCard && !cardProvider
+                ? 'Escolha Mercado Pago para processar cartão.'
+                : settings.acceptsCard && !cardReady
+                  ? connections.get(cardProvider as Provider)?.message ||
+                    `Há etapas pendentes: vincule a conta ${providerName(settings.cardGateway)} para liberar o cartão.`
+                  : 'Há etapas pendentes: revise o cadastro dos meios de pagamento.';
 
-  const connect = async (provider: 'MERCADO_PAGO' | 'PAGBANK') => {
+  const connectMercadoPago = async () => {
     if (connecting.current) return;
     connecting.current = true;
     setConnectionError('');
-    setBusyProvider(provider);
+    setBusyProvider('MERCADO_PAGO');
     try {
-      const handler = provider === 'MERCADO_PAGO' ? onConnectMercadoPago : onConnectPagBank;
-      if (!handler) throw new Error('A conexão desta empresa não está disponível nesta tela.');
-      await handler();
+      if (!onConnectMercadoPago) {
+        throw new Error('A conexão do Mercado Pago não está disponível nesta tela.');
+      }
+      await onConnectMercadoPago();
       await connections.refresh();
     } catch (error) {
-      setConnectionError(
-        errorMessage(
-          error,
-          `Não foi possível conectar ao ${provider === 'MERCADO_PAGO' ? 'Mercado Pago' : 'PagBank'}.`,
-        ),
-      );
+      setConnectionError(errorMessage(error, 'Não foi possível conectar ao Mercado Pago.'));
     } finally {
       connecting.current = false;
       setBusyProvider(null);
@@ -394,28 +404,85 @@ export function PaymentSettings({
             <PS.Field>
               <span>Empresa que receberá o Pix</span>
               <select
-                value={settings.pixProvider}
+                value={pixProvider || ''}
                 disabled={!settings.acceptsPix || busyProvider !== null}
                 onChange={(event) => update('pixProvider', event.target.value)}
               >
+                <option value="">Selecione uma empresa</option>
                 <option value="MERCADO_PAGO">Mercado Pago</option>
-                <option value="ASAAS">Asaas</option>
-                <option value="PAGBANK">PagBank</option>
+                <option value="PAGARME" disabled={!canSelectProvider('PAGARME')}>
+                  Pagar.me{canSelectProvider('PAGARME') ? '' : ' — temporariamente indisponível'}
+                </option>
+                <option value="ASAAS" disabled={!canSelectProvider('ASAAS')}>
+                  Asaas{canSelectProvider('ASAAS') ? '' : ' — temporariamente indisponível'}
+                </option>
               </select>
               <small>Os valores serão recebidos na conta conectada desta empresa.</small>
             </PS.Field>
             <PS.Field>
-              <span>Chave Pix do restaurante (opcional)</span>
+              <span>
+                Chave Pix do restaurante{settings.openFinancePixEnabled ? ' (obrigatória no Open Finance)' : ' (opcional)'}
+              </span>
               <input
                 value={settings.pixKey}
                 disabled={!settings.acceptsPix || busyProvider !== null}
+                aria-invalid={settings.openFinancePixEnabled && !settings.pixKey.trim()}
                 placeholder="CPF, CNPJ, e-mail, telefone ou chave aleatória"
                 autoComplete="off"
                 onChange={(event) => update('pixKey', event.target.value)}
               />
               <small>
-                O QR Code é gerado automaticamente pela conta conectada. Este campo não cadastra uma
-                chave no banco.
+                {settings.openFinancePixEnabled
+                  ? 'No Open Finance, esta é a chave que identifica o restaurante beneficiário do Pix.'
+                  : 'O QR Code é gerado automaticamente pela conta conectada. Este campo não cadastra uma chave no banco.'}
+              </small>
+            </PS.Field>
+          </PS.ControlGrid>
+        </PS.MethodCard>
+
+        <PS.MethodCard $enabled={settings.openFinancePixEnabled}>
+          <PS.MethodHeader>
+            <PS.MethodIcon aria-hidden="true">
+              <Landmark />
+            </PS.MethodIcon>
+            <div>
+              <span>PIX VIA OPEN FINANCE</span>
+              <h3>Pix pelo app do banco</h3>
+              <p>O cliente escolhe o banco, autoriza no aplicativo bancário e retorna ao pedido.</p>
+            </div>
+            <PS.SwitchLabel>
+              <span>{settings.openFinancePixEnabled ? 'Ativado' : 'Desativado'}</span>
+              <input
+                type="checkbox"
+                role="switch"
+                aria-label="Aceitar Pix pelo app do banco via Open Finance"
+                checked={settings.openFinancePixEnabled}
+                disabled={
+                  busyProvider !== null ||
+                  !settings.acceptsPix ||
+                  connections.openFinance?.available === false
+                }
+                onChange={(event) => update('openFinancePixEnabled', event.target.checked)}
+              />
+            </PS.SwitchLabel>
+          </PS.MethodHeader>
+          <PS.ControlGrid>
+            <PS.Field $full>
+              <span>Status do Open Finance</span>
+              <PS.OpenFinanceStatus $ready={Boolean(connections.openFinance?.ready)}>
+                {connections.openFinance?.ready ? <BadgeCheck /> : <CircleAlert />}
+                <div>
+                  <strong>
+                    {connections.openFinance?.ready ? 'Pronto para receber' : 'Configuração pendente'}
+                  </strong>
+                  <small>
+                    {connections.openFinance?.message ||
+                      'Salve as alterações e verifique as conexões para validar o Open Finance.'}
+                  </small>
+                </div>
+              </PS.OpenFinanceStatus>
+              <small>
+                A autorização acontece no banco do cliente. O GastroNexa nunca recebe senha ou acesso bancário.
               </small>
             </PS.Field>
           </PS.ControlGrid>
@@ -448,15 +515,19 @@ export function PaymentSettings({
             <PS.Field $full>
               <span>Empresa que processará o cartão</span>
               <select
-                value={settings.cardGateway}
+                value={cardProvider || ''}
                 disabled={!settings.acceptsCard || busyProvider !== null}
                 aria-invalid={settings.acceptsCard && !settings.cardGateway}
                 onChange={(event) => update('cardGateway', event.target.value)}
               >
                 <option value="">Selecione uma empresa</option>
                 <option value="MERCADO_PAGO">Mercado Pago</option>
-                <option value="PAGBANK">PagBank</option>
-                <option value="ASAAS">Asaas</option>
+                <option value="PAGARME" disabled={!canSelectProvider('PAGARME')}>
+                  Pagar.me{canSelectProvider('PAGARME') ? '' : ' — temporariamente indisponível'}
+                </option>
+                <option value="ASAAS" disabled={!canSelectProvider('ASAAS')}>
+                  Asaas{canSelectProvider('ASAAS') ? '' : ' — temporariamente indisponível'}
+                </option>
               </select>
               <small>
                 {settings.acceptsCard && !settings.cardGateway
@@ -513,7 +584,10 @@ export function PaymentSettings({
           const ready = connection
             ? connection.status === 'CONNECTED'
             : !connections.verifying && connected;
-          const canConnect = !connections.verifying || Boolean(connection?.canConnect);
+          const canConnect =
+            provider.id === 'MERCADO_PAGO'
+              ? !connections.verifying || Boolean(connection?.canConnect)
+              : Boolean(connection?.canConnect);
           const onboardingUrl = asaasOnboardingUrl(connection?.onboardingUrl);
           const uses = selectedUse(provider.id);
           const selected = uses.length > 0;
@@ -543,7 +617,58 @@ export function PaymentSettings({
                   : 'Não selecionado nos meios ativos'}
               </PS.UsedFor>
 
-              {provider.id === 'ASAAS' && selected && !connected && (
+              {provider.id === 'PAGARME' && selected && canConnect && (
+                <PS.AsaasFields>
+                  <PS.Field>
+                    <span>Public Key do Pagar.me</span>
+                    <input
+                      value={settings.pagarmePublicKey}
+                      disabled={busyProvider !== null}
+                      placeholder="pk_... ou pk_test_..."
+                      autoComplete="off"
+                      onChange={(event) => update('pagarmePublicKey', event.target.value.trim())}
+                    />
+                    <small>
+                      Usada somente no navegador para tokenizar o cartão sem enviar número ou CVV ao GastroNexa.
+                    </small>
+                  </PS.Field>
+                  <PS.Field>
+                    <span>Secret Key do Pagar.me</span>
+                    <input
+                      type="password"
+                      value={settings.pagarmeSecretKey}
+                      disabled={busyProvider !== null}
+                      placeholder={
+                        settings.pagarmeSecretKeyConfigured
+                          ? 'Já configurada — deixe em branco para manter'
+                          : 'sk_... ou sk_test_...'
+                      }
+                      autoComplete="new-password"
+                      onChange={(event) => update('pagarmeSecretKey', event.target.value.trim())}
+                    />
+                    <small>A chave secreta é criptografada no servidor e nunca volta para esta tela.</small>
+                  </PS.Field>
+                  <PS.Field>
+                    <span>Ambiente</span>
+                    <select
+                      value={settings.pagarmeEnvironment}
+                      disabled={busyProvider !== null}
+                      onChange={(event) =>
+                        update(
+                          'pagarmeEnvironment',
+                          event.target.value === 'sandbox' ? 'sandbox' : 'production',
+                        )
+                      }
+                    >
+                      <option value="sandbox">Sandbox / testes</option>
+                      <option value="production">Produção</option>
+                    </select>
+                    <small>As duas chaves precisam pertencer ao mesmo ambiente.</small>
+                  </PS.Field>
+                </PS.AsaasFields>
+              )}
+
+              {provider.id === 'ASAAS' && selected && canConnect && !connected && (
                 <PS.AsaasFields>
                   <PS.Field>
                     <span>CPF ou CNPJ do responsável</span>
@@ -598,7 +723,13 @@ export function PaymentSettings({
               )}
 
               {selected ? (
-                provider.id === 'ASAAS' ? (
+                provider.id === 'PAGARME' ? (
+                  <PS.InactiveHint>
+                    {ready
+                      ? 'Chaves validadas. Para trocar a conta, informe novas chaves e salve as alterações.'
+                      : 'Informe as chaves acima e use “Salvar alterações”. Depois clique em “Verificar conexões”.'}
+                  </PS.InactiveHint>
+                ) : provider.id === 'ASAAS' ? (
                   <PS.ConnectButton
                     type="button"
                     $provider={provider.id}
@@ -620,7 +751,7 @@ export function PaymentSettings({
                       type="button"
                       $provider={provider.id}
                       disabled={busyProvider !== null || !canConnect}
-                      onClick={() => void connect(provider.id as Exclude<Provider, 'ASAAS'>)}
+                      onClick={() => void connectMercadoPago()}
                     >
                       {connected ? <ShieldCheck /> : <ExternalLink />}
                       {busy

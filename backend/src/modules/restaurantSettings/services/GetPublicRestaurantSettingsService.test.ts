@@ -25,6 +25,7 @@ test('mantém a cor personalizada na configuração pública', async () => {
   assert.deepEqual(settings, {
     restaurantId: 7,
     primaryColor: '#123456',
+    openFinancePixEnabled: false,
     whatsapp: null,
     whatsappEnabled: false,
     whatsappDisplayName: null,

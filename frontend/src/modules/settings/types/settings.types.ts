@@ -33,6 +33,7 @@ export type RestaurantSettings = {
   courierFeePerDelivery: number;
   averageDeliveryTime: string;
   acceptsPix: boolean;
+  openFinancePixEnabled: boolean;
   acceptsCard: boolean;
   whatsappEnabled: boolean;
   whatsappNumber: string;
@@ -49,12 +50,13 @@ export type RestaurantSettings = {
   stripeWebhookSecretConfigured: boolean;
   mercadoPagoAccessToken: string;
   mercadoPagoAccessTokenConfigured: boolean;
+  pagarmeSecretKey: string;
+  pagarmePublicKey: string;
+  pagarmeEnvironment: 'sandbox' | 'production';
+  pagarmeSecretKeyConfigured: boolean;
   asaasAccessToken: string;
   asaasAccessTokenConfigured: boolean;
   monthlyRevenue: number | null;
-  pagbankEmail: string;
-  pagbankToken: string;
-  pagbankTokenConfigured: boolean;
 };
 
 export type SettingsSectionId =

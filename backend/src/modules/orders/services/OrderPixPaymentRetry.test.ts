@@ -11,7 +11,9 @@ const originals = {
   fetch: globalThis.fetch,
 };
 let provider: string;
+const originalFutureProviders = process.env.ENABLE_FUTURE_PAYMENT_PROVIDERS;
 beforeEach(() => {
+  process.env.ENABLE_FUTURE_PAYMENT_PROVIDERS = 'true';
   provider = 'MERCADO_PAGO';
   settingsRepository.findPublicByRestaurantId = async () => ({
     pixProvider: provider,
@@ -20,7 +22,6 @@ beforeEach(() => {
   });
   settingsRepository.findByRestaurantId = async () => ({
     asaasAccessToken: 'test-token',
-    pagbankToken: 'test-token',
   });
 });
 afterEach(() => {
@@ -28,6 +29,8 @@ afterEach(() => {
   settingsRepository.findByRestaurantId = originals.privateSettings;
   pix.getMercadoPagoPaymentApi = originals.api;
   globalThis.fetch = originals.fetch;
+  if (originalFutureProviders === undefined) delete process.env.ENABLE_FUTURE_PAYMENT_PROVIDERS;
+  else process.env.ENABLE_FUTURE_PAYMENT_PROVIDERS = originalFutureProviders;
 });
 const payload = {
   restaurantId: 7,
@@ -60,45 +63,6 @@ test('Mercado Pago repete a mesma chave e o mesmo pagador na retomada', async ()
   assert.deepEqual(requests[0], requests[1]);
 });
 
-test('PagBank usa a chave persistida, inclusive após timeout', async () => {
-  provider = 'PAGBANK';
-  const requests = [];
-  globalThis.fetch = async (_url, init) => {
-    requests.push(init);
-    if (requests.length === 1) throw new Error('timeout');
-    return new Response(JSON.stringify({ id: 'ORDE-91', qr_codes: [{ text: 'pix-payload' }] }), {
-      status: 200,
-    });
-  };
-  await assert.rejects(() => pix.createPixPayment(payload), /timeout/);
-  await pix.createPixPayment({ ...payload, resumeOnly: true });
-  assert.equal(requests[0].headers['x-idempotency-key'], payload.idempotencyKey);
-  assert.equal(requests[0].headers['x-idempotency-key'], requests[1].headers['x-idempotency-key']);
-  assert.equal(requests[0].body, requests[1].body);
-});
-
-test('Pix PagBank conectado usa credencial tenant sem exigir chave Pix digitada no painel', async () => {
-  provider = 'PAGBANK';
-  settingsRepository.findPublicByRestaurantId = async () => ({
-    pixProvider: provider,
-    pixKey: null,
-    isOpenForOrders: true,
-    acceptsPix: true,
-  });
-  let calls = 0;
-  globalThis.fetch = async (url, init) => {
-    calls += 1;
-    assert.match(String(url), /api.pagseguro.com\/orders$/);
-    assert.equal(init.headers.Authorization, 'Bearer test-token');
-    assert.equal(JSON.parse(init.body).reference_id, 'orderpix:7:91');
-    assert.equal(JSON.parse(init.body).qr_codes[0].amount.value, 2500);
-    return new Response(JSON.stringify({ id: 'ORDE_91', qr_codes: [{ text: 'pix-payload' }] }));
-  };
-  const result = await pix.createPixPayment(payload);
-  assert.equal(result.paymentId, 'pagbank:ORDE_91');
-  assert.equal(calls, 1);
-});
-
 test('Asaas retoma cobrança existente por referência sem qualquer POST', async () => {
   provider = 'ASAAS';
   const calls = [];
@@ -126,30 +90,6 @@ test('Asaas retoma cobrança existente por referência sem qualquer POST', async
   assert.equal(result.qrCode, 'existing-pix');
   assert.equal(calls.length, 2);
 });
-
-for (const imageUrl of ['https://attacker.example.test/qr', 'https://api.pagseguro.com/qr']) {
-  test(`imagem opcional PIX não vaza token nem perde cobrança (${imageUrl})`, async () => {
-    provider = 'PAGBANK';
-    const calls = [];
-    globalThis.fetch = async (url, init) => {
-      calls.push(String(url));
-      assert.equal(init.redirect, 'error');
-      assert.ok(init.signal instanceof AbortSignal);
-      if (calls.length > 1) throw new Error('optional image timeout');
-      return new Response(
-        JSON.stringify({
-          id: 'ORDE-91',
-          qr_codes: [{ text: 'existing-qr', links: [{ rel: 'QRCODE.BASE64', href: imageUrl }] }],
-        }),
-      );
-    };
-    const result = await pix.createPixPayment(payload);
-    assert.equal(result.qrCode, 'existing-qr');
-    assert.equal(result.paymentId, 'pagbank:ORDE-91');
-    assert.equal(result.qrCodeBase64, null);
-    assert.equal(calls.length, imageUrl.includes('attacker') ? 1 : 2);
-  });
-}
 
 for (const data of [
   [],

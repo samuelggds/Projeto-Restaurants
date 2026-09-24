@@ -31,6 +31,7 @@ type CreateRestaurantSettingsPayload = {
   acceptsDelivery?: boolean;
   acceptsPickup?: boolean;
   acceptsPix?: boolean;
+  openFinancePixEnabled?: boolean;
   acceptsCard?: boolean;
   tableOrderingEnabled?: boolean;
   waiterCallEnabled?: boolean;
@@ -61,11 +62,11 @@ type CreateRestaurantSettingsPayload = {
   stripeSecretKey?: string | null;
   stripeWebhookSecret?: string | null;
   mercadoPagoAccessToken?: string | null;
+  pagarmeSecretKey?: string | null;
+  pagarmePublicKey?: string | null;
+  pagarmeEnvironment?: string | null;
   picpayToken?: string | null;
   asaasAccessToken?: string | null;
-  pagbankEmail?: string | null;
-  pagbankToken?: string | null;
-  pagbankEnvironment?: string | null;
   ownerDocumentFileUrl?: string | null;
   bankProofFileUrl?: string | null;
   companyContractFileUrl?: string | null;
@@ -113,6 +114,7 @@ class CreateRestaurantSettingsService {
     acceptsDelivery,
     acceptsPickup,
     acceptsPix,
+    openFinancePixEnabled,
     acceptsCard,
     tableOrderingEnabled,
     waiterCallEnabled,
@@ -143,11 +145,11 @@ class CreateRestaurantSettingsService {
     stripeSecretKey,
     stripeWebhookSecret,
     mercadoPagoAccessToken,
+    pagarmeSecretKey,
+    pagarmePublicKey,
+    pagarmeEnvironment,
     picpayToken,
     asaasAccessToken,
-    pagbankEmail,
-    pagbankToken,
-    pagbankEnvironment,
     ownerDocumentFileUrl,
     bankProofFileUrl,
     companyContractFileUrl,
@@ -289,6 +291,29 @@ class CreateRestaurantSettingsService {
       throw new Error('E-mail comercial inválido.');
     }
 
+    const requestedPixProvider = String(pixProvider || 'MERCADO_PAGO').trim().toUpperCase();
+    const requestedCardGateway = String(cardGateway || '').trim().toUpperCase();
+    if (
+      requestedPixProvider !== 'MERCADO_PAGO' ||
+      (requestedCardGateway && requestedCardGateway !== 'MERCADO_PAGO')
+    ) {
+      throw new Error(
+        'No momento, apenas Mercado Pago está disponível para Pix e cartão. Asaas e Pagar.me serão liberados futuramente após o cadastro empresarial/CNPJ.',
+      );
+    }
+
+    const futureProvidersEnabled = process.env.ENABLE_FUTURE_PAYMENT_PROVIDERS === 'true';
+    if (
+      !futureProvidersEnabled &&
+      (String(pagarmeSecretKey || '').trim() ||
+        String(pagarmePublicKey || '').trim() ||
+        String(asaasAccessToken || '').trim())
+    ) {
+      throw new Error(
+        'Asaas e Pagar.me estão preparados para integração futura, mas permanecem indisponíveis até a liberação do cadastro empresarial/CNPJ.',
+      );
+    }
+
     const created = await restaurantSettingsRepository.create({
       restaurantId: Number(restaurantId),
       deliveryFee: normalizeNonNegativeMoney(deliveryFee, 'Taxa de entrega'),
@@ -304,6 +329,11 @@ class CreateRestaurantSettingsService {
       acceptsDelivery: normalizeStrictBoolean(acceptsDelivery, 'Delivery', true),
       acceptsPickup: normalizeStrictBoolean(acceptsPickup, 'Retirada', true),
       acceptsPix: normalizeStrictBoolean(acceptsPix, 'Pagamento por PIX', true),
+      openFinancePixEnabled: normalizeStrictBoolean(
+        openFinancePixEnabled,
+        'Pix via Open Finance',
+        false,
+      ),
       acceptsCard: normalizeStrictBoolean(acceptsCard, 'Pagamento por cartão', true),
       tableOrderingEnabled: normalizeStrictBoolean(
         tableOrderingEnabled,
@@ -312,9 +342,7 @@ class CreateRestaurantSettingsService {
       ),
       waiterCallEnabled: normalizeStrictBoolean(waiterCallEnabled, 'Chamados ao garçom', true),
       billRequestEnabled: normalizeStrictBoolean(billRequestEnabled, 'Solicitação da conta', true),
-      pixProvider: String(pixProvider || 'MERCADO_PAGO')
-        .trim()
-        .toUpperCase(),
+      pixProvider: requestedPixProvider,
       pixKey,
       legalDocumentType: normalizedLegalDocumentType || null,
       companyDocument: normalizedCompanyDocument || null,
@@ -339,16 +367,19 @@ class CreateRestaurantSettingsService {
       bankBranch: String(bankBranch || '').trim() || null,
       bankAccount: String(bankAccount || '').trim() || null,
       bankHolderDocument: normalizedBankHolderDocument || null,
-      cardGateway: String(cardGateway || '').trim() || null,
+      cardGateway: requestedCardGateway || null,
       gatewayMerchantId: String(gatewayMerchantId || '').trim() || null,
       stripeSecretKey: String(stripeSecretKey || '').trim() || null,
       stripeWebhookSecret: String(stripeWebhookSecret || '').trim() || null,
       mercadoPagoAccessToken: String(mercadoPagoAccessToken || '').trim() || null,
+      pagarmeSecretKey: String(pagarmeSecretKey || '').trim() || null,
+      pagarmePublicKey: String(pagarmePublicKey || '').trim() || null,
+      pagarmeEnvironment:
+        String(pagarmeEnvironment || '').trim().toLowerCase() === 'sandbox'
+          ? 'sandbox'
+          : 'production',
       picpayToken: String(picpayToken || '').trim() || null,
       asaasAccessToken: String(asaasAccessToken || '').trim() || null,
-      pagbankEmail: String(pagbankEmail || '').trim() || null,
-      pagbankToken: String(pagbankToken || '').trim() || null,
-      pagbankEnvironment: 'production',
       ownerDocumentFileUrl: String(ownerDocumentFileUrl || '').trim() || null,
       bankProofFileUrl: String(bankProofFileUrl || '').trim() || null,
       companyContractFileUrl: String(companyContractFileUrl || '').trim() || null,
@@ -455,8 +486,6 @@ class CreateRestaurantSettingsService {
       picpayToken: null,
       asaasAccessToken: null,
       asaasWebhookTokenHash: null,
-      pagbankToken: null,
-      pagbankRefreshToken: null,
       stripeSecretKeyConfigured: Boolean(String(created?.stripeSecretKey || '').trim()),
       stripeWebhookSecretConfigured: Boolean(String(created?.stripeWebhookSecret || '').trim()),
       mercadoPagoAccessTokenConfigured: Boolean(
@@ -464,7 +493,6 @@ class CreateRestaurantSettingsService {
       ),
       picpayTokenConfigured: Boolean(String(created?.picpayToken || '').trim()),
       asaasAccessTokenConfigured: Boolean(String(created?.asaasAccessToken || '').trim()),
-      pagbankTokenConfigured: Boolean(String(created?.pagbankToken || '').trim()),
       whatsapp: normalizedWhatsapp ?? null,
       restaurantName: normalizedRestaurantName ?? null,
       restaurantLogo: normalizedRestaurantLogo ?? null,

@@ -95,7 +95,7 @@ export function getCheckoutErrorMessage(error: unknown): string {
       (normalized.includes('access token') ||
         normalized.includes('configur') ||
         normalized.includes('mercado pago') ||
-        normalized.includes('pagbank') ||
+        normalized.includes('belvo') ||
         normalized.includes('asaas') ||
         normalized.includes('credencial') ||
         normalized.includes('token') ||
@@ -321,6 +321,32 @@ export function useCheckoutPayments(options: Options) {
         return true;
       }
 
+      if (paymentMethod === 'open_finance_pix') {
+        if (!restaurantId) throw new Error('Restaurante inválido para Open Finance.');
+        const payerInstitution = readStorage(
+          `gastronexa:open-finance-institution:${restaurantId}`,
+        );
+        if (!payerInstitution) {
+          throw new Error('Escolha seu banco antes de continuar.');
+        }
+
+        const result = await ordersService.createOpenFinancePayment({
+          ...payload,
+          payerInstitution,
+        });
+        if (!isCurrentCheckout()) return false;
+
+        const redirectUrl = String(result.redirectUrl || '').trim();
+        if (!/^https:\/\//iu.test(redirectUrl)) {
+          throw new Error('O banco não retornou uma autorização segura.');
+        }
+
+        onPurchased();
+        onClearCart();
+        window.location.assign(redirectUrl);
+        return true;
+      }
+
       if (paymentMethod === 'pix') {
         const result = await ordersService.createPixPayment({
           ...payload,
@@ -462,7 +488,10 @@ export function useCheckoutPayments(options: Options) {
           restaurantId,
           orderId: preservedOrderId,
           total: cartTotal,
-          method: paymentMethod === 'pix' ? 'Pix' : 'Cartão',
+          method:
+            paymentMethod === 'pix' || paymentMethod === 'open_finance_pix'
+              ? 'Pix'
+              : 'Cartão',
           status: 'PENDING',
           reconciliationRequired: true,
         });

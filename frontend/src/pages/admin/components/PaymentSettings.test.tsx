@@ -10,15 +10,6 @@ vi.mock('./PaymentTerminalSettings', () => ({ PaymentTerminalSettings: () => nul
 (globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT =
   true;
 
-function changeValue(element: HTMLInputElement, value: string) {
-  Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')?.set?.call(
-    element,
-    value,
-  );
-  element.dispatchEvent(new Event('input', { bubbles: true }));
-  element.dispatchEvent(new Event('change', { bubbles: true }));
-}
-
 describe('PaymentSettings', () => {
   let container: HTMLDivElement;
   let root: Root;
@@ -87,9 +78,8 @@ describe('PaymentSettings', () => {
     expect(container.textContent).toContain('Conta não vinculada');
   });
 
-  it('valida CPF ou CNPJ antes de criar a subconta Asaas', async () => {
-    const update = vi.fn();
-    const onboard = vi.fn().mockResolvedValue(undefined);
+  it('mantém Asaas preparado, mas indisponível até a liberação futura', () => {
+    const onboard = vi.fn();
     act(() =>
       root.render(
         <PaymentSettings
@@ -98,49 +88,21 @@ describe('PaymentSettings', () => {
             restaurantName: 'Restaurante Teste',
             acceptsPix: true,
             acceptsCard: false,
-            pixProvider: 'ASAAS',
+            pixProvider: 'MERCADO_PAGO',
             pixKey: 'financeiro@restaurante.test',
             asaasAccessTokenConfigured: false,
           }}
-          update={update}
+          update={() => undefined}
           onOnboardAsaas={onboard}
         />,
       ),
     );
 
-    const documentInput = container.querySelector(
-      'input[placeholder="Somente números"]',
-    ) as HTMLInputElement;
-    const incomeInput = container.querySelector(
-      'input[placeholder="Ex.: 25000"]',
-    ) as HTMLInputElement;
-    const connect = Array.from(container.querySelectorAll('button')).find((button) =>
-      button.textContent?.includes('Criar e vincular conta Asaas'),
-    ) as HTMLButtonElement;
-
-    act(() => changeValue(documentInput, '11111111111'));
-    await act(async () => connect.click());
+    expect(container.textContent).toContain('Asaas');
+    expect(container.textContent).toContain('Temporariamente indisponível');
+    expect(container.textContent).not.toContain('Criar e vincular conta Asaas');
+    expect(container.querySelector('input[placeholder="Somente números"]')).toBeNull();
     expect(onboard).not.toHaveBeenCalled();
-    expect(container.textContent).toContain('Informe um CPF ou CNPJ válido');
-
-    act(() => changeValue(documentInput, '52998224725'));
-    await act(async () => connect.click());
-    expect(onboard).not.toHaveBeenCalled();
-    expect(container.textContent).toContain('Informe um faturamento mensal maior que zero');
-
-    act(() => changeValue(incomeInput, '25.000,50'));
-    act(() =>
-      changeValue(container.querySelector('input[type="date"]') as HTMLInputElement, '1990-05-10'),
-    );
-    await act(async () => connect.click());
-    expect(onboard).toHaveBeenCalledWith({
-      cpf: '52998224725',
-      restaurantName: 'Restaurante Teste',
-      pixKey: 'financeiro@restaurante.test',
-      incomeValue: 25000.5,
-      birthDate: '1990-05-10',
-    });
-    expect(update).not.toHaveBeenCalledWith('asaasAccessTokenConfigured', true);
   });
 
   it('não exige chave Pix manual quando a conta conectada gera o QR Code', () => {
@@ -151,9 +113,9 @@ describe('PaymentSettings', () => {
             ...adminMockSettings,
             acceptsPix: true,
             acceptsCard: false,
-            pixProvider: 'PAGBANK',
+            pixProvider: 'MERCADO_PAGO',
             pixKey: '',
-            pagbankTokenConfigured: true,
+            mercadoPagoAccessTokenConfigured: true,
           }}
           update={() => undefined}
         />,
@@ -232,8 +194,8 @@ describe('PaymentSettings', () => {
             ...adminMockSettings,
             acceptsPix: true,
             acceptsCard: false,
-            pixProvider: 'PAGBANK',
-            pagbankTokenConfigured: true,
+            pixProvider: 'MERCADO_PAGO',
+            mercadoPagoAccessTokenConfigured: true,
           }}
           update={() => undefined}
           onLoadPaymentConnections={load}
@@ -244,7 +206,7 @@ describe('PaymentSettings', () => {
     expect(container.textContent).not.toContain('Configuração completa');
     expect(container.textContent).toContain('Não foi possível verificar as conexões');
     const connect = Array.from(container.querySelectorAll('button')).find(
-      (button) => button.textContent === 'Conectar PagBank',
+      (button) => button.textContent === 'Conectar Mercado Pago',
     )!;
     expect(connect.disabled).toBe(true);
   });
@@ -264,16 +226,16 @@ describe('PaymentSettings', () => {
             ...adminMockSettings,
             acceptsPix: true,
             acceptsCard: false,
-            pixProvider: 'PAGBANK',
-            pagbankTokenConfigured: false,
+            pixProvider: 'MERCADO_PAGO',
+            mercadoPagoAccessTokenConfigured: false,
           }}
           update={() => undefined}
-          onConnectPagBank={connect}
+          onConnectMercadoPago={connect}
         />,
       ),
     );
     const button = Array.from(container.querySelectorAll('button')).find(
-      (item) => item.textContent === 'Conectar PagBank',
+      (item) => item.textContent === 'Conectar Mercado Pago',
     )!;
     act(() => {
       button.click();
@@ -284,6 +246,21 @@ describe('PaymentSettings', () => {
     expect((container.querySelector('select') as HTMLSelectElement).disabled).toBe(true);
     await act(async () => finish());
     expect(button.disabled).toBe(false);
+  });
+
+  it('não oferece PagBank como opção de novos pagamentos', () => {
+    act(() =>
+      root.render(
+        <PaymentSettings
+          settings={{ ...adminMockSettings, acceptsPix: true, acceptsCard: true }}
+          update={() => undefined}
+        />,
+      ),
+    );
+    expect(container.textContent).not.toContain('PagBank');
+    for (const select of Array.from(container.querySelectorAll('select'))) {
+      expect(Array.from(select.options).some((option) => option.value === 'PAGBANK')).toBe(false);
+    }
   });
 
   it('permite desconectar Mercado Pago somente quando a conta está vinculada', async () => {

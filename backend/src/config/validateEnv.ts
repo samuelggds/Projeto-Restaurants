@@ -310,6 +310,27 @@ export function validateCriticalEnv() {
     }
   }
 
+  const belvoEnabled =
+    String(process.env.BELVO_PAYMENTS_ENABLED || 'false').trim().toLowerCase() === 'true';
+  if (belvoEnabled) {
+    requireValue('BELVO_SECRET_ID', errors);
+    requireValue('BELVO_SECRET_PASSWORD', errors);
+    const webhookToken = requireValue('BELVO_WEBHOOK_TOKEN', errors);
+    const belvoEnv = String(process.env.BELVO_ENV || 'sandbox').trim().toLowerCase();
+
+    if (!['sandbox', 'production'].includes(belvoEnv)) {
+      errors.push('BELVO_ENV deve ser sandbox ou production.');
+    }
+
+    if (process.env.NODE_ENV === 'production' && belvoEnv !== 'production') {
+      errors.push('BELVO_ENV deve ser production quando Open Finance estiver ativo em producao.');
+    }
+
+    if (webhookToken && webhookToken.length < 32) {
+      errors.push('BELVO_WEBHOOK_TOKEN deve ter pelo menos 32 caracteres.');
+    }
+  }
+
   const allowInsecureStripe =
     String(process.env.ALLOW_INSECURE_STRIPE_WEBHOOK || 'false').trim() === 'true';
   if (allowInsecureStripe) {
@@ -345,7 +366,7 @@ export function validateCriticalEnv() {
     errors.push(error instanceof Error ? error.message : 'Endpoints OAuth invalidos.');
   }
 
-  for (const redirectName of ['MP_OAUTH_REDIRECT_URI', 'PAGBANK_CONNECT_REDIRECT_URI']) {
+  for (const redirectName of ['MP_OAUTH_REDIRECT_URI']) {
     const redirectValue = String(process.env[redirectName] || '').trim();
     if (!redirectValue) continue;
     const redirectUrl = parsePublicUrl(redirectName, redirectValue, errors);

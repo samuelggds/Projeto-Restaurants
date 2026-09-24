@@ -2,7 +2,7 @@ import crypto from 'node:crypto';
 import prisma from '../../../config/prisma.js';
 
 export const OAUTH_STATE_TTL_MS = 10 * 60 * 1000;
-export type OAuthProvider = 'MERCADO_PAGO' | 'PAGBANK';
+export type OAuthProvider = 'MERCADO_PAGO';
 
 function hashNonce(nonce: string) {
   return crypto.createHash('sha256').update(nonce).digest('hex');
@@ -52,8 +52,7 @@ export async function createSingleUseOAuthState({
   }
 
   const authVersion = user.authVersion;
-  // PagBank accepts at most 128 alphanumeric characters. Keep identity only in
-  // the database and send a random, single-use bearer nonce to both providers.
+  // Keep identity only in the database and send a random, single-use bearer nonce.
   const nonce = crypto.randomBytes(32).toString('hex');
   const nonceHash = hashNonce(nonce);
   const expiresAt = new Date(Date.now() + OAUTH_STATE_TTL_MS);

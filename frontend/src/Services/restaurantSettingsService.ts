@@ -130,10 +130,6 @@ class RestaurantSettingsService {
     return response.data;
   }
 
-  async startPagBankOAuth() {
-    const response = await api.post('/settings/pagbank/oauth/start');
-    return response.data;
-  }
 
   async getPublicSettings(restaurantId, revision = '') {
     const response = await api.get(`/settings/public/${restaurantId}`, {

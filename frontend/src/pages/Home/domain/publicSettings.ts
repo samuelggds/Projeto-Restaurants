@@ -38,15 +38,18 @@ export function getAvailablePaymentMethods({
   allowPayOnDelivery,
   allowPayAtPickup = !allowPayOnDelivery,
   allowPix = true,
+  allowOpenFinancePix = false,
   allowCard = true,
 }: {
   allowPayOnDelivery: boolean;
   allowPayAtPickup?: boolean;
   allowPix?: boolean;
+  allowOpenFinancePix?: boolean;
   allowCard?: boolean;
 }): CheckoutPaymentMethod[] {
   const methods: CheckoutPaymentMethod[] = [];
   if (allowPix) methods.push('pix');
+  if (allowOpenFinancePix) methods.push('open_finance_pix');
   if (allowCard) methods.push('card');
   if (allowPayOnDelivery && allowPix) methods.push('delivery_pix');
   if (allowPayOnDelivery && allowCard) methods.push('delivery_card');

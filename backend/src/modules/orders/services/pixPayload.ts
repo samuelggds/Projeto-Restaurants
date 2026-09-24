@@ -8,6 +8,13 @@ export type ParsedProviderPaymentId = {
 export function parseProviderPaymentId(paymentId: string): ParsedProviderPaymentId {
   const normalizedPaymentId = String(paymentId || '').trim();
 
+  if (normalizedPaymentId.toLowerCase().startsWith('belvo:')) {
+    return {
+      provider: PIX_PROVIDERS.BELVO,
+      rawPaymentId: normalizedPaymentId.slice('belvo:'.length).trim(),
+    };
+  }
+
   if (normalizedPaymentId.toLowerCase().startsWith('asaas:')) {
     return {
       provider: PIX_PROVIDERS.ASAAS,
@@ -15,12 +22,13 @@ export function parseProviderPaymentId(paymentId: string): ParsedProviderPayment
     };
   }
 
-  if (normalizedPaymentId.toLowerCase().startsWith('pagbank:')) {
+  if (normalizedPaymentId.toLowerCase().startsWith('pagarme:')) {
     return {
-      provider: PIX_PROVIDERS.PAGBANK,
-      rawPaymentId: normalizedPaymentId.slice('pagbank:'.length).trim(),
+      provider: PIX_PROVIDERS.PAGARME,
+      rawPaymentId: normalizedPaymentId.slice('pagarme:'.length).trim(),
     };
   }
+
 
   return {
     provider: PIX_PROVIDERS.MERCADO_PAGO,

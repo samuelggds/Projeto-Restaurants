@@ -52,11 +52,21 @@ class CreateOrderCardCheckoutService {
       );
     }
 
-    if (!['MERCADO_PAGO', 'ASAAS', 'PAGBANK'].includes(configuredProvider.toUpperCase())) {
-      throw new Error('Gateway inválido. Escolha Mercado Pago, Asaas ou PagBank.');
+    const normalizedProvider = configuredProvider.toUpperCase();
+    if (!['MERCADO_PAGO', 'PAGARME', 'ASAAS'].includes(normalizedProvider)) {
+      throw new Error('Gateway de cartão indisponível.');
     }
 
-    return normalizeCardProvider(configuredProvider);
+    if (
+      normalizedProvider !== 'MERCADO_PAGO' &&
+      process.env.ENABLE_FUTURE_PAYMENT_PROVIDERS !== 'true'
+    ) {
+      throw new Error(
+        'No momento, apenas Mercado Pago está disponível para cartão. Asaas e Pagar.me serão liberados após o cadastro empresarial/CNPJ.',
+      );
+    }
+
+    return normalizeCardProvider(normalizedProvider);
   }
 
   ensureCardProviderSupported(provider: CardProvider) {

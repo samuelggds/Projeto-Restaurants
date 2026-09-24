@@ -6,11 +6,7 @@ import { authMiddleware } from '../../../middlewares/authMiddleware.js';
 import restaurantSettingsRepository from '../../restaurantSettings/repositories/RestaurantSettingsRepository.js';
 import { normalizeStoredCardBrand } from '../domain/cardBrand.js';
 import { toPublicPaymentMethod } from '../domain/paymentMethodSecurity.js';
-import { pagBankApiBaseUrl } from '../../payments/providers/pagBankCheckout.js';
-import {
-  getMercadoPagoAccessToken,
-  getPagBankAccessToken,
-} from '../../restaurantSettings/services/RestaurantPaymentCredentialsService.js';
+import { getMercadoPagoAccessToken } from '../../restaurantSettings/services/RestaurantPaymentCredentialsService.js';
 
 const router = Router();
 router.use(authMiddleware);
@@ -100,10 +96,6 @@ async function gatewayContext(restaurantId: number) {
     .trim()
     .toUpperCase();
   const fallback = process.env.ALLOW_GLOBAL_PAYMENT_FALLBACK === 'true';
-  if (provider === 'PAGBANK') {
-    const token = await getPagBankAccessToken(restaurantId);
-    return { provider, token, baseUrl: pagBankApiBaseUrl() };
-  }
   if (provider === 'MERCADO_PAGO') {
     const token = await getMercadoPagoAccessToken(restaurantId);
     const publicKey = String(settings?.mercadoPagoPublicKey || '').trim();
@@ -120,6 +112,11 @@ async function gatewayContext(restaurantId: number) {
     };
   }
   if (provider === 'ASAAS') {
+    if (process.env.ENABLE_FUTURE_PAYMENT_PROVIDERS !== 'true') {
+      throw new Error(
+        'Asaas temporariamente indisponível. A integração será liberada após o cadastro empresarial/CNPJ.',
+      );
+    }
     const token = String(
       settings?.asaasAccessToken || (fallback ? process.env.ASAAS_API_KEY : '') || '',
     ).trim();
@@ -133,7 +130,7 @@ async function gatewayContext(restaurantId: number) {
       ),
     };
   }
-  throw new Error('Configure PagBank, Mercado Pago ou Asaas para cadastrar cartões.');
+  throw new Error('No momento, apenas Mercado Pago está disponível para cadastrar cartões.');
 }
 
 async function mercadoPagoCustomer(
@@ -199,21 +196,6 @@ router.get('/config', async (req, res): Promise<void> => {
   }
   try {
     const context = await gatewayContext(parsed.data);
-    if (context.provider === 'PAGBANK') {
-      let key = await providerJson(`${context.baseUrl}/public-keys/card`, {
-        Authorization: `Bearer ${context.token}`,
-      });
-      if (!String(key.public_key || key.publicKey || '').trim())
-        key = await providerJson(
-          `${context.baseUrl}/public-keys`,
-          { Authorization: `Bearer ${context.token}` },
-          { method: 'POST', body: JSON.stringify({ type: 'card' }) },
-        );
-      const publicKey = String(key.public_key || key.publicKey || '').trim();
-      if (!publicKey) throw new Error('O PagBank não retornou a chave pública do cartão.');
-      res.json({ provider: context.provider, publicKey });
-      return;
-    }
     if (context.provider === 'MERCADO_PAGO') {
       res.json({ provider: context.provider, publicKey: context.publicKey });
       return;
@@ -274,21 +256,7 @@ router.post('/', async (req, res): Promise<void> => {
     let providerLast4 = '';
     let providerExpMonth = 0;
     let providerExpYear = 0;
-    if (context.provider === 'PAGBANK') {
-      if (!parsed.data.encryptedCard)
-        throw new Error('Cartão PagBank criptografado não informado.');
-      const saved = await providerJson(
-        `${context.baseUrl}/tokens/cards`,
-        { Authorization: `Bearer ${context.token}` },
-        { method: 'POST', body: JSON.stringify({ encrypted: parsed.data.encryptedCard }) },
-      );
-      providerId = String(
-        saved.id || (saved.card as { id?: unknown } | undefined)?.id || '',
-      ).trim();
-      providerBrand = String(
-        saved.brand || (saved.card as { brand?: unknown } | undefined)?.brand || '',
-      ).trim();
-    } else if (context.provider === 'MERCADO_PAGO') {
+    if (context.provider === 'MERCADO_PAGO') {
       if (!parsed.data.cardToken) throw new Error('Token seguro do Mercado Pago não informado.');
       providerCustomerId = await mercadoPagoCustomer(context.baseUrl, context.token, user);
       const saved = await providerJson(

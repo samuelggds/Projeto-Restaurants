@@ -10,13 +10,7 @@ import prisma from '../../../config/prisma.js';
 import { withTenantDbContext } from '../../../database/tenantDbContext.js';
 import { mercadoPagoCardExternalReference } from '../domain/mercadoPagoCardReference.js';
 import { matchesOrderPaymentEvidence } from '../utils/paymentEvidence.js';
-import { getPagBankAccessToken } from '../../restaurantSettings/services/RestaurantPaymentCredentialsService.js';
-import {
-  createPagBankCheckout,
-  pagBankCardReference,
-  pagBankApiBaseUrl,
-  pagBankTableReference,
-} from '../../payments/providers/pagBankCheckout.js';
+import { assertFuturePaymentProviderEnabled } from '../../payments/providers/futurePaymentProviders.js';
 
 type CheckoutOrder = {
   id: number;
@@ -118,12 +112,6 @@ async function getStripeClient(restaurantId: number) {
   return new Stripe(secretKey);
 }
 
-type PagBankCredentials = {
-  email: string;
-  token: string;
-  environment: 'production';
-  useConnect: boolean;
-};
 
 type AsaasErrorItem = {
   code?: string;
@@ -145,47 +133,6 @@ type AsaasCardPaymentPayload = {
   errors?: AsaasErrorItem[];
 };
 
-function resolvePagBankEnvironment(): 'production' {
-  // Ambiente de checkout PagBank fixado em producao.
-  return 'production';
-}
-
-async function getPagBankCredentials(restaurantId: number): Promise<PagBankCredentials> {
-  const allowGlobalFallback = process.env.ALLOW_GLOBAL_PAYMENT_FALLBACK === 'true';
-  const settings = await restaurantSettingsRepository.findByRestaurantId(restaurantId);
-  const settingsEmail = String(settings?.pagbankEmail || '').trim();
-  const settingsToken = String(settings?.pagbankToken || '').trim();
-  const globalEmail = String(process.env.PAGBANK_EMAIL || process.env.PAGSEGURO_EMAIL || '').trim();
-  const globalToken = String(process.env.PAGBANK_TOKEN || process.env.PAGSEGURO_TOKEN || '').trim();
-  const email = settingsEmail || (allowGlobalFallback ? globalEmail : '');
-  const token = settingsToken
-    ? await getPagBankAccessToken(restaurantId)
-    : allowGlobalFallback
-      ? globalToken
-      : '';
-  const environment = resolvePagBankEnvironment();
-  const useConnect = Boolean(
-    settings?.pagbankRefreshToken || settings?.pagbankTokenExpiresAt || !email,
-  );
-
-  if (!token) {
-    throw new Error(
-      'Pagamento com cartao PagBank indisponivel. Configure email/token PagBank nas configuracoes do restaurante.',
-    );
-  }
-
-  return { email, token, environment, useConnect };
-}
-
-function resolvePagBankCheckoutApiUrl(environment: 'production') {
-  void environment;
-  return 'https://ws.pagseguro.uol.com.br/v2/checkout';
-}
-
-function resolvePagBankCheckoutPageBaseUrl(environment: 'production') {
-  void environment;
-  return 'https://pagseguro.uol.com.br/v2/checkout/payment.html';
-}
 
 function resolveAsaasBaseUrl() {
   return String(process.env.ASAAS_API_BASE_URL || 'https://api.asaas.com')
@@ -248,30 +195,6 @@ async function fetchAsaasJson<T>(
   };
 }
 
-function resolvePagBankNotificationUrl(restaurantId?: number) {
-  const explicitNotificationUrl = String(process.env.PAGBANK_NOTIFICATION_URL || '').trim();
-
-  const backendUrl = String(process.env.BACKEND_URL || '')
-    .trim()
-    .replace(/\/+$/, '');
-  const baseNotificationUrl =
-    explicitNotificationUrl || (backendUrl ? `${backendUrl}/orders/webhook/pagbank` : '');
-
-  if (!baseNotificationUrl || !restaurantId) {
-    return baseNotificationUrl;
-  }
-
-  return withQueryParam(baseNotificationUrl, {
-    restaurantId: String(restaurantId),
-  });
-}
-
-function extractXmlTagValue(xml: string, tag: string) {
-  const regex = new RegExp(`<${tag}>([^<]+)</${tag}>`, 'i');
-  const match = regex.exec(String(xml || ''));
-
-  return String(match?.[1] || '').trim();
-}
 
 const stripeCardCheckoutProvider: CardCheckoutProviderHandler = {
   async createCheckout({ order, successUrlBase, cancelUrlBase }) {
@@ -399,208 +322,6 @@ const mercadoPagoCardCheckoutProvider: CardCheckoutProviderHandler = {
       provider: CARD_PROVIDERS.MERCADO_PAGO,
       sessionId: preferenceId,
       persistenceSessionId: `mp_pref:${preferenceId}`,
-      checkoutUrl,
-    };
-  },
-};
-
-const pagBankCardCheckoutProvider: CardCheckoutProviderHandler = {
-  async createCheckout({ payload, order, successUrlBase, paymentScope }) {
-    const { email, token, environment, useConnect } = await getPagBankCredentials(
-      order.restaurantId,
-    );
-
-    const savedMethodId = String(payload.paymentMethodId || '').trim();
-    if (savedMethodId) {
-      const userId = Number(payload.userId || 0);
-      if (!userId) throw new Error('Entre na sua conta para pagar com um cartão salvo.');
-      const savedMethod = await withTenantDbContext(order.restaurantId, (db) =>
-        db.customerPaymentMethod.findFirst({
-          where: {
-            publicId: savedMethodId,
-            userId,
-            restaurantId: order.restaurantId,
-            provider: 'PAGBANK',
-            active: true,
-          },
-        }),
-      );
-      if (!savedMethod) throw new Error('O cartão selecionado não foi encontrado.');
-      const cpf = String(payload.customerCpf || '').replace(/\D/g, '');
-      if (![11, 14].includes(cpf.length)) {
-        throw new Error(
-          'Cadastre um CPF válido nos seus dados pessoais para pagar com cartão salvo.',
-        );
-      }
-      const apiBaseUrl = pagBankApiBaseUrl();
-      const response = await fetch(`${apiBaseUrl}/orders`, {
-        method: 'POST',
-        signal: AbortSignal.timeout(15_000),
-        redirect: 'error',
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json',
-          Accept: 'application/json',
-          'x-idempotency-key': `order-card-${order.restaurantId}-${order.id}`,
-        },
-        body: JSON.stringify({
-          reference_id: `ordercard:${order.id}:${order.restaurantId}`,
-          customer: {
-            name: String(payload.customerName || 'Cliente').trim(),
-            tax_id: cpf,
-          },
-          items: [
-            {
-              reference_id: String(order.id),
-              name: `Pedido #${order.id}`,
-              quantity: 1,
-              unit_amount: Math.round(Number(order.total || 0) * 100),
-            },
-          ],
-          charges: [
-            {
-              reference_id: `ordercard:${order.id}:${order.restaurantId}`,
-              description: `Pedido #${order.id}`,
-              amount: { value: Math.round(Number(order.total || 0) * 100), currency: 'BRL' },
-              payment_method: {
-                type: 'CREDIT_CARD',
-                installments: 1,
-                capture: true,
-                card: { id: savedMethod.providerPaymentMethodId },
-                holder: {
-                  name: savedMethod.holderName || String(payload.customerName || 'Cliente'),
-                  tax_id: cpf,
-                },
-              },
-            },
-          ],
-          ...(resolvePagBankNotificationUrl(order.restaurantId)
-            ? { notification_urls: [resolvePagBankNotificationUrl(order.restaurantId)] }
-            : {}),
-        }),
-      });
-      const responseBody = (await response.json().catch(() => ({}))) as Record<string, unknown>;
-      const charges = Array.isArray(responseBody.charges) ? responseBody.charges : [];
-      const charge = (charges[0] || {}) as Record<string, unknown>;
-      if (!response.ok) {
-        const errors = Array.isArray(responseBody.error_messages)
-          ? responseBody.error_messages
-          : [];
-        const first = errors[0] as { description?: unknown } | undefined;
-        throw new Error(
-          String(first?.description || responseBody.message || 'O PagBank recusou o pagamento.'),
-        );
-      }
-      const status = String(charge.status || '').toUpperCase();
-      const transactionId = String(charge.id || '').trim();
-      if (!transactionId) throw new Error('O PagBank não retornou a identificação do pagamento.');
-      const expectedReference = `ordercard:${order.id}:${order.restaurantId}`;
-      const chargeAmount =
-        typeof charge.amount === 'object' && charge.amount !== null
-          ? (charge.amount as Record<string, unknown>)
-          : {};
-      const paymentMethod =
-        typeof charge.payment_method === 'object' && charge.payment_method !== null
-          ? (charge.payment_method as Record<string, unknown>)
-          : {};
-      const paymentApproved =
-        status === 'PAID' &&
-        String(responseBody.reference_id || '').trim() === expectedReference &&
-        String(charge.reference_id || '').trim() === expectedReference &&
-        String(paymentMethod.type || '').toUpperCase() === 'CREDIT_CARD' &&
-        matchesOrderPaymentEvidence({
-          expectedAmount: order.total,
-          providerAmount: chargeAmount.value,
-          providerAmountUnit: 'MINOR',
-          providerCurrency: chargeAmount.currency,
-        });
-      return {
-        provider: CARD_PROVIDERS.PAGBANK,
-        sessionId: transactionId,
-        persistenceSessionId: `pagbank_tx:${transactionId}`,
-        checkoutUrl: withQueryParam(successUrlBase, {
-          cardCheckoutStatus: paymentApproved ? 'success' : 'pending',
-          orderPublicId: order.publicId,
-        }),
-        paymentApproved,
-      };
-    }
-
-    if (useConnect) {
-      const checkout = await createPagBankCheckout({
-        restaurantId: order.restaurantId,
-        reference:
-          paymentScope === 'TABLE_ACCOUNT'
-            ? pagBankTableReference(order)
-            : pagBankCardReference(order),
-        amountCents: Math.round(Number(order.total || 0) * 100),
-        title: `Pedido #${order.id}`,
-        redirectUrl: withQueryParam(successUrlBase, {
-          cardCheckoutStatus: 'pending',
-          orderPublicId: order.publicId,
-        }),
-        notificationUrl: resolvePagBankNotificationUrl(order.restaurantId),
-      });
-      return {
-        provider: CARD_PROVIDERS.PAGBANK,
-        sessionId: checkout.id,
-        persistenceSessionId: `pagbank_checkout:${checkout.id}`,
-        checkoutUrl: checkout.checkoutUrl,
-      };
-    }
-
-    const params = new URLSearchParams();
-    params.set('email', email);
-    params.set('token', token);
-    params.set('currency', 'BRL');
-    params.set('itemId1', String(order.id));
-    params.set('itemDescription1', `Pedido #${order.id}`);
-    params.set('itemAmount1', Number(order.total || 0).toFixed(2));
-    params.set('itemQuantity1', '1');
-    params.set('reference', `ordercard:${order.id}:${order.restaurantId}`);
-    params.set(
-      'redirectURL',
-      withQueryParam(successUrlBase, {
-        cardCheckoutStatus: 'success',
-        orderPublicId: order.publicId,
-      }),
-    );
-
-    const notificationUrl = resolvePagBankNotificationUrl(order.restaurantId);
-    if (notificationUrl) {
-      params.set('notificationURL', notificationUrl);
-    }
-
-    const response = await fetch(resolvePagBankCheckoutApiUrl(environment), {
-      method: 'POST',
-      signal: AbortSignal.timeout(15_000),
-      redirect: 'error',
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
-      },
-      body: params.toString(),
-    });
-
-    const responseText = await response.text();
-    if (!response.ok) {
-      const providerMessage =
-        extractXmlTagValue(responseText, 'message') ||
-        extractXmlTagValue(responseText, 'error') ||
-        'Falha ao criar checkout no PagBank.';
-      throw new Error(`PagBank: ${providerMessage}`);
-    }
-
-    const checkoutCode = extractXmlTagValue(responseText, 'code');
-    if (!checkoutCode) {
-      throw new Error('PagBank nao retornou codigo de checkout.');
-    }
-
-    const checkoutUrl = `${resolvePagBankCheckoutPageBaseUrl(environment)}?code=${encodeURIComponent(checkoutCode)}`;
-
-    return {
-      provider: CARD_PROVIDERS.PAGBANK,
-      sessionId: checkoutCode,
-      persistenceSessionId: `pagbank_chk:${checkoutCode}`,
       checkoutUrl,
     };
   },
@@ -775,16 +496,17 @@ const CARD_CHECKOUT_PROVIDER_HANDLERS: Partial<Record<CardProvider, CardCheckout
   {
     [CARD_PROVIDERS.STRIPE]: stripeCardCheckoutProvider,
     [CARD_PROVIDERS.MERCADO_PAGO]: mercadoPagoCardCheckoutProvider,
-    [CARD_PROVIDERS.PAGBANK]: pagBankCardCheckoutProvider,
     [CARD_PROVIDERS.ASAAS]: asaasCardCheckoutProvider,
   };
 
 export function getCardCheckoutProviderHandler(provider: CardProvider) {
+  if (provider === CARD_PROVIDERS.ASAAS) assertFuturePaymentProviderEnabled('ASAAS');
+  if (provider === CARD_PROVIDERS.PAGARME) assertFuturePaymentProviderEnabled('PAGARME');
   const handler = CARD_CHECKOUT_PROVIDER_HANDLERS[provider];
 
   if (!handler) {
     throw new Error(
-      `Gateway de cartao ${provider} ainda nao integrado. Configure STRIPE, MERCADO_PAGO, PAGBANK ou ASAAS para processar checkout com cartao no momento.`,
+      `Gateway de cartao ${provider} ainda nao integrado. Configure STRIPE, MERCADO_PAGO ou ASAAS para processar checkout com cartao no momento.`,
     );
   }
 

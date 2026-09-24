@@ -1,6 +1,6 @@
 import api from './api';
 
-export type PaymentProvider = 'MERCADO_PAGO' | 'PAGBANK' | 'ASAAS';
+export type PaymentProvider = 'MERCADO_PAGO' | 'PAGARME' | 'ASAAS';
 export type PaymentConnection = {
   provider: PaymentProvider;
   connected: boolean;
@@ -17,7 +17,15 @@ export type PaymentConnection = {
   message: string;
   onboardingUrl?: string | null;
 };
-export type PaymentConnectionOverview = { connections: PaymentConnection[] };
+export type PaymentConnectionOverview = {
+  connections: PaymentConnection[];
+  openFinance?: {
+    available: boolean;
+    enabled: boolean;
+    ready: boolean;
+    message: string;
+  };
+};
 
 export async function getPaymentConnections(): Promise<PaymentConnectionOverview> {
   const { data } = await api.get<PaymentConnectionOverview>('/settings/payment-connections');

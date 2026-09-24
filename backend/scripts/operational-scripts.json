@@ -17,7 +17,6 @@
     "printDatabaseFingerprint.mjs"
   ],
   "guardedRead": [
-    "checkPagbankCredentialSource.ts",
     "checkVisibleOrdersById.ts",
     "debugLoginUser.mjs",
     "getOrderDetails.ts",
@@ -64,11 +63,7 @@
     "setOpenInvoiceOneReal.mjs",
     "simulateBillingWarningGrace.mjs",
     "testCancelCardRefundBehavior.ts",
-    "testCancelPagbankRefundBehavior.ts",
     "testCancelRefundBehavior.ts",
-    "testPagBankFlow.mjs",
-    "testPagBankTransaction.mjs",
-    "testPagBankWebhook.mjs",
     "tmpCreatePayOnDeliveryPixOrder.ts",
     "tmpCreatePixUnpaidVisual.ts",
     "tmpCreateTestClient.ts",

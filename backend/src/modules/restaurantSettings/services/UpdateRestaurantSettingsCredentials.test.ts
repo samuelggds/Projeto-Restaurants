@@ -15,15 +15,12 @@ const savedCredentials = () => ({
   id: 1,
   restaurantId: 7,
   pixProvider: 'MERCADO_PAGO',
-  cardGateway: 'PAGBANK',
+  cardGateway: 'MERCADO_PAGO',
   restaurant: {},
   mercadoPagoAccessToken: 'mp-current-account',
   mercadoPagoRefreshToken: 'mp-current-grant',
   mercadoPagoTokenExpiresAt: new Date('2099-01-01T00:00:00Z'),
   mercadoPagoPublicKey: 'mp-current-public-key',
-  pagbankToken: 'pb-current-account',
-  pagbankRefreshToken: 'pb-current-grant',
-  pagbankTokenExpiresAt: new Date('2099-01-01T00:00:00Z'),
 });
 
 function store() {
@@ -47,7 +44,6 @@ for (const [access, refresh, expiry, current] of [
     'mercadoPagoTokenExpiresAt',
     'mp-current-account',
   ],
-  ['pagbankToken', 'pagbankRefreshToken', 'pagbankTokenExpiresAt', 'pb-current-account'],
 ]) {
   test(`${access}: troca manual limpa apenas o grant anterior do provedor alterado`, async () => {
     const state = store();
@@ -56,15 +52,7 @@ for (const [access, refresh, expiry, current] of [
     assert.equal(state()[access], 'new-manual-account');
     assert.equal(state()[refresh], null);
     assert.equal(state()[expiry], null);
-    if (access === 'mercadoPagoAccessToken') {
-      assert.equal(state().mercadoPagoPublicKey, null);
-      assert.equal(state().pagbankRefreshToken, initial.pagbankRefreshToken);
-      assert.deepEqual(state().pagbankTokenExpiresAt, initial.pagbankTokenExpiresAt);
-    } else {
-      assert.equal(state().mercadoPagoRefreshToken, initial.mercadoPagoRefreshToken);
-      assert.equal(state().mercadoPagoPublicKey, initial.mercadoPagoPublicKey);
-      assert.deepEqual(state().mercadoPagoTokenExpiresAt, initial.mercadoPagoTokenExpiresAt);
-    }
+    assert.equal(state().mercadoPagoPublicKey, null);
   });
 
   test(`${access}: reenvio da mesma credencial mantém o grant de renovação`, async () => {

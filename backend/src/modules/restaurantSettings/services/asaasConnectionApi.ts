@@ -4,7 +4,10 @@ export const ASAAS_TEMPORARILY_UNAVAILABLE_MESSAGE =
   'Asaas temporariamente indisponível até a plataforma concluir o cadastro empresarial e configurar a integração principal.';
 
 export function asaasPlatformEnabled() {
-  return Boolean(String(process.env.ASAAS_API_KEY || '').trim());
+  return (
+    process.env.ENABLE_FUTURE_PAYMENT_PROVIDERS === 'true' &&
+    Boolean(String(process.env.ASAAS_API_KEY || '').trim())
+  );
 }
 
 export class AsaasProviderError extends Error {

@@ -281,6 +281,7 @@ export type AdminSettings = {
   acceptsDelivery: boolean;
   acceptsPickup: boolean;
   acceptsPix: boolean;
+  openFinancePixEnabled: boolean;
   acceptsCard: boolean;
   deliveryTime: number;
   autoAcceptOrders: boolean;
@@ -303,11 +304,12 @@ export type AdminSettings = {
   stripeWebhookSecretConfigured: boolean;
   mercadoPagoAccessToken: string;
   mercadoPagoAccessTokenConfigured: boolean;
+  pagarmeSecretKey: string;
+  pagarmePublicKey: string;
+  pagarmeEnvironment: 'sandbox' | 'production';
+  pagarmeSecretKeyConfigured: boolean;
   asaasAccessToken: string;
   asaasAccessTokenConfigured: boolean;
-  pagbankEmail: string;
-  pagbankToken: string;
-  pagbankTokenConfigured: boolean;
   promotionalBanners: AdminPromotionBanner[];
   deliveryFeeRanges: DeliveryFeeRangeAdmin[];
 };
@@ -373,7 +375,6 @@ export type AdminPageProps = {
   onConnectMercadoPago?: () => void | Promise<void>;
   onDisconnectMercadoPago?: () => void | Promise<void>;
   onLoadPaymentConnections?: () => Promise<PaymentConnectionOverview>;
-  onConnectPagBank?: () => void | Promise<void>;
   onOnboardAsaas?: (payload: {
     cpf?: string;
     cnpj?: string;

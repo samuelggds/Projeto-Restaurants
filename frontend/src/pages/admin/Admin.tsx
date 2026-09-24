@@ -396,6 +396,7 @@ export function mapSettingsFromApi(
     acceptsDelivery: raw?.acceptsDelivery !== false,
     acceptsPickup: raw?.acceptsPickup !== false,
     acceptsPix: raw?.acceptsPix !== false,
+    openFinancePixEnabled: raw?.openFinancePixEnabled === true,
     acceptsCard: raw?.acceptsCard !== false,
     deliveryTime: Number(raw?.averageDeliveryTime ?? adminMockSettings.deliveryTime),
     autoAcceptOrders: raw?.autoAcceptOrders === true,
@@ -423,11 +424,15 @@ export function mapSettingsFromApi(
     stripeWebhookSecretConfigured: Boolean(raw?.stripeWebhookSecretConfigured),
     mercadoPagoAccessToken: '',
     mercadoPagoAccessTokenConfigured: Boolean(raw?.mercadoPagoAccessTokenConfigured),
+    pagarmeSecretKey: '',
+    pagarmePublicKey: String(raw?.pagarmePublicKey ?? ''),
+    pagarmeEnvironment:
+      String(raw?.pagarmeEnvironment ?? 'production').toLowerCase() === 'sandbox'
+        ? 'sandbox'
+        : 'production',
+    pagarmeSecretKeyConfigured: Boolean(raw?.pagarmeSecretKeyConfigured),
     asaasAccessToken: '',
     asaasAccessTokenConfigured: Boolean(raw?.asaasAccessTokenConfigured),
-    pagbankEmail: String(raw?.pagbankEmail ?? ''),
-    pagbankToken: '',
-    pagbankTokenConfigured: Boolean(raw?.pagbankTokenConfigured),
     promotionalBanners,
   };
 }
@@ -500,6 +505,7 @@ export function mapSettingsToApi(settings: AdminSettings): Record<string, unknow
     acceptsDelivery: settings.acceptsDelivery,
     acceptsPickup: settings.acceptsPickup,
     acceptsPix: settings.acceptsPix,
+    openFinancePixEnabled: settings.openFinancePixEnabled,
     acceptsCard: settings.acceptsCard,
     averageDeliveryTime: settings.deliveryTime,
     autoAcceptOrders: settings.autoAcceptOrders,
@@ -515,14 +521,15 @@ export function mapSettingsToApi(settings: AdminSettings): Record<string, unknow
     pixProvider: settings.pixProvider,
     pixKey: settings.pixKey,
     cardGateway: settings.cardGateway,
-    pagbankEmail: settings.pagbankEmail,
     ...(settings.stripeSecretKey ? { stripeSecretKey: settings.stripeSecretKey } : {}),
     ...(settings.stripeWebhookSecret ? { stripeWebhookSecret: settings.stripeWebhookSecret } : {}),
     ...(settings.mercadoPagoAccessToken
       ? { mercadoPagoAccessToken: settings.mercadoPagoAccessToken }
       : {}),
+    ...(settings.pagarmeSecretKey ? { pagarmeSecretKey: settings.pagarmeSecretKey } : {}),
+    ...(settings.pagarmePublicKey ? { pagarmePublicKey: settings.pagarmePublicKey } : {}),
+    pagarmeEnvironment: settings.pagarmeEnvironment,
     ...(settings.asaasAccessToken ? { asaasAccessToken: settings.asaasAccessToken } : {}),
-    ...(settings.pagbankToken ? { pagbankToken: settings.pagbankToken } : {}),
   };
 }
 
@@ -967,16 +974,6 @@ export default function Admin() {
         );
       }}
       onLoadPaymentConnections={getPaymentConnections}
-      onConnectPagBank={async () => {
-        const result = await restaurantSettingsService.startPagBankOAuth();
-        const authorizationUrl = String(
-          (result as Record<string, unknown>)?.authorizationUrl || '',
-        );
-        if (!/^https:\/\//i.test(authorizationUrl)) {
-          throw new Error('O PagBank não retornou uma URL segura de autorização.');
-        }
-        window.location.assign(authorizationUrl);
-      }}
       onOnboardAsaas={async (payload) => {
         await restaurantSettingsService.onboardAsaas(payload);
         const [refreshed, refreshedBanners, refreshedTableAccount] = await Promise.all([

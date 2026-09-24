@@ -1,5 +1,4 @@
 import { MercadoPagoConfig, Payment } from 'mercadopago';
-import { pagBankApiBaseUrl } from '../../payments/providers/pagBankCheckout.js';
 import { parseProviderPaymentId, normalizeTxid } from './pixPayload.js';
 import productRepository from '../../products/repositories/ProductRepository.js';
 import restaurantSettingsRepository from '../../restaurantSettings/repositories/RestaurantSettingsRepository.js';
@@ -10,13 +9,22 @@ import {
   normalizePixProvider,
 } from '../../payments/providers/providerCatalog.js';
 import { mercadoPagoOrderNotificationFields } from '../../payments/providers/mercadoPagoOrderNotification.js';
+import {
+  getRestaurantPagarmeCredentials,
+  pagarmeJson,
+  safePagarmeError,
+} from '../../payments/providers/pagarmeV5.js';
 import { buildOrderItemCustomizationSnapshot } from '../utils/productIngredients.js';
 import { withTenantDbContext } from '../../../database/tenantDbContext.js';
 import orderRepository from '../repositories/OrderRepository.js';
+import { getMercadoPagoAccessToken } from '../../restaurantSettings/services/RestaurantPaymentCredentialsService.js';
+import { assertFuturePaymentProviderEnabled } from '../../payments/providers/futurePaymentProviders.js';
 import {
-  getPagBankAccessToken,
-  getMercadoPagoAccessToken,
-} from '../../restaurantSettings/services/RestaurantPaymentCredentialsService.js';
+  belvoIdempotencyKey,
+  belvoJson,
+  isUuid,
+  safeBelvoError,
+} from '../../payments/providers/belvoOpenFinance.js';
 
 const APPROVED_PAYMENT_STATUSES = new Set(['approved', 'accredited', 'paid']);
 const APPROVED_ASAAS_PAYMENT_STATUSES = new Set(['received', 'confirmed', 'received_in_cash']);
@@ -119,22 +127,46 @@ type AsaasPixQrCodePayload = {
   errors?: AsaasErrorItem[];
 };
 
-type PagBankOrderPayload = {
+type PagarmeChargePayload = {
   id?: string;
-  reference_id?: string;
-  qr_codes?: Array<{
-    text?: string;
-    links?: Array<{ rel?: string; href?: string }>;
-  }>;
-  charges?: Array<{
+  amount?: number;
+  paid_amount?: number;
+  status?: string;
+  currency?: string;
+  payment_method?: string;
+  order?: {
+    code?: string;
+    metadata?: Record<string, unknown>;
+  };
+  last_transaction?: {
+    id?: string;
     status?: string;
-    amount?: {
-      value?: number;
-      currency?: string;
-    };
-  }>;
-  error_messages?: Array<{ description?: string }>;
+    amount?: number;
+    qr_code?: string;
+    qr_code_url?: string;
+    expires_at?: string;
+  };
 };
+
+type PagarmeOrderPayload = {
+  id?: string;
+  code?: string;
+  amount?: number;
+  currency?: string;
+  status?: string;
+  charges?: PagarmeChargePayload[];
+  message?: string;
+};
+type BelvoPaymentIntentPayload = {
+  id?: string;
+  external_id?: string;
+  status?: string;
+  amount?: string | number;
+  currency?: string;
+  failure_code?: string | null;
+  failure_message?: string | null;
+};
+
 
 function normalizeReferenceToken(value: string | number | null | undefined) {
   return String(value || '')
@@ -171,32 +203,6 @@ type ParsedManualPixPaymentId = {
 };
 
 class OrderPixPaymentService {
-  getPagBankBaseUrl() {
-    return pagBankApiBaseUrl();
-  }
-
-  async getPagBankToken(restaurantId: number) {
-    return getPagBankAccessToken(restaurantId);
-  }
-
-  async fetchPagBankJson<T>(url: string, token: string, init: RequestInit = {}) {
-    const response = await fetch(url, {
-      ...init,
-      signal: init.signal
-        ? AbortSignal.any([init.signal, AbortSignal.timeout(15_000)])
-        : AbortSignal.timeout(15_000),
-      redirect: 'error',
-      headers: {
-        Authorization: `Bearer ${token}`,
-        Accept: 'application/json',
-        'Content-Type': 'application/json',
-        ...(init.headers || {}),
-      },
-    });
-    const body = (await response.json()) as T;
-    return { ok: response.ok, body };
-  }
-
   getAsaasBaseUrl() {
     return String(process.env.ASAAS_API_BASE_URL || 'https://api.asaas.com')
       .trim()
@@ -489,6 +495,7 @@ class OrderPixPaymentService {
 
     void pixProvider;
     const resolvedPixProvider = this.normalizePixProvider(settings?.pixProvider);
+
     if (
       idempotencyKey &&
       pixProvider &&
@@ -565,93 +572,97 @@ class OrderPixPaymentService {
     );
     const payerName = String(customerName || 'Cliente').trim();
     const cpf = this.normalizeCpf(customerCpf);
-    if (resolvedPixProvider === PIX_PROVIDERS.PAGBANK) {
-      const token = await this.getPagBankToken(normalizedRestaurantId);
-      const backendUrl = String(process.env.BACKEND_URL || '')
-        .trim()
-        .replace(/\/+$/, '');
-      const notificationUrl = backendUrl
-        ? `${backendUrl}/orders/webhook/pagbank?restaurantId=${normalizedRestaurantId}`
-        : '';
-      const result = await this.fetchPagBankJson<PagBankOrderPayload>(
-        `${this.getPagBankBaseUrl()}/orders`,
-        token,
-        {
-          method: 'POST',
-          headers: { 'x-idempotency-key': idempotencyKey || crypto.randomUUID() },
-          body: JSON.stringify({
-            reference_id: sourceOrderId
-              ? `orderpix:${normalizedRestaurantId}:${sourceOrderId}`
-              : `orderpix:${normalizedRestaurantId}:${Date.now()}`,
-            customer: {
-              name: payerName || 'Cliente',
-              email: payerEmail,
-              ...(cpf ? { tax_id: cpf } : {}),
+    if (resolvedPixProvider === PIX_PROVIDERS.PAGARME) {
+      assertFuturePaymentProviderEnabled('PAGARME');
+      if (!sourceOrderId) {
+        throw new Error('Pedido obrigatório para gerar Pix no Pagar.me.');
+      }
+      if (!cpf) {
+        throw new Error('Informe um CPF válido para pagar via Pix no Pagar.me.');
+      }
+
+      const rawPhone = String(customerPhone || '').replace(/\D/g, '');
+      const nationalPhone = rawPhone.startsWith('55') && rawPhone.length >= 12 ? rawPhone.slice(2) : rawPhone;
+      if (!/^\d{10,11}$/.test(nationalPhone)) {
+        throw new Error('Informe um telefone válido para pagar via Pix no Pagar.me.');
+      }
+
+      const { secretKey } = await getRestaurantPagarmeCredentials(normalizedRestaurantId);
+      const reference = `orderpix:${normalizedRestaurantId}:${sourceOrderId}`;
+      const expiresIn = requestedExpiresAt
+        ? Math.max(60, Math.floor((requestedExpiresAt.getTime() - Date.now()) / 1000))
+        : 900;
+      const areaCode = nationalPhone.slice(0, 2);
+      const phoneNumber = nationalPhone.slice(2);
+
+      const result = await pagarmeJson<PagarmeOrderPayload>(secretKey, '/orders', {
+        method: 'POST',
+        body: JSON.stringify({
+          code: reference,
+          items: [
+            {
+              amount: Math.round(totalAmount * 100),
+              description: `Pedido #${sourceOrderId}`,
+              quantity: 1,
+              code: String(sourceOrderId),
             },
-            items: [
-              {
-                reference_id: `restaurant-${normalizedRestaurantId}`,
-                name: `Pedido restaurante ${normalizedRestaurantId}`,
-                quantity: 1,
-                unit_amount: Math.round(totalAmount * 100),
+          ],
+          customer: {
+            name: payerName || 'Cliente',
+            email: payerEmail,
+            type: 'individual',
+            document: cpf,
+            phones: {
+              mobile_phone: {
+                country_code: '55',
+                area_code: areaCode,
+                number: phoneNumber,
               },
-            ],
-            qr_codes: [
-              {
-                amount: { value: Math.round(totalAmount * 100) },
-                ...(expiresAtIso ? { expiration_date: expiresAtIso } : {}),
+            },
+          },
+          payments: [
+            {
+              payment_method: 'pix',
+              pix: {
+                expires_in: expiresIn,
+                additional_information: [
+                  { name: 'Pedido', value: String(sourceOrderId) },
+                ],
               },
-            ],
-            ...(notificationUrl ? { notification_urls: [notificationUrl] } : {}),
-          }),
-        },
-      );
-      const providerError = String(result.body?.error_messages?.[0]?.description || '').trim();
-      const orderId = String(result.body?.id || '').trim();
-      const qrCode = String(result.body?.qr_codes?.[0]?.text || '').trim();
-      if (!result.ok || !orderId || !qrCode) {
-        throw new Error(providerError || 'Não foi possível gerar o Pix no PagBank.');
+            },
+          ],
+          closed: true,
+          metadata: {
+            restaurant_id: String(normalizedRestaurantId),
+            order_id: String(sourceOrderId),
+          },
+        }),
+      });
+
+      const charge = Array.isArray(result.body?.charges) ? result.body.charges[0] : undefined;
+      const chargeId = String(charge?.id || '').trim();
+      const transaction = charge?.last_transaction;
+      const qrCode = String(transaction?.qr_code || '').trim();
+      if (!result.response.ok || !chargeId || !qrCode) {
+        throw new Error(
+          safePagarmeError(result.body, 'Não foi possível gerar o Pix no Pagar.me.'),
+        );
       }
-      const base64Url = String(
-        result.body?.qr_codes?.[0]?.links?.find((link) => link.rel === 'QRCODE.BASE64')?.href || '',
-      ).trim();
-      let qrCodeBase64: string | null = null;
-      if (base64Url) {
-        // A remote link must not redirect the merchant token to another origin.
-        // The copy-and-paste PIX text remains usable when its optional image fails.
-        try {
-          const imageUrl = new URL(base64Url);
-          if (
-            imageUrl.origin === new URL(this.getPagBankBaseUrl()).origin &&
-            imageUrl.protocol === 'https:' &&
-            !imageUrl.username &&
-            !imageUrl.password
-          ) {
-            const imageResponse = await fetch(imageUrl, {
-              headers: { Authorization: `Bearer ${token}` },
-              signal: AbortSignal.timeout(5_000),
-              redirect: 'error',
-            });
-            if (imageResponse.ok) qrCodeBase64 = (await imageResponse.text()).trim() || null;
-            else await imageResponse.body?.cancel();
-          }
-        } catch {
-          /* Optional image: preserve the already-created PIX. */
-        }
-      }
+
       return {
-        paymentId: `pagbank:${orderId}`,
-        status: 'WAITING',
-        provider: resolvedPixProvider,
+        paymentId: `pagarme:${chargeId}`,
+        status: String(transaction?.status || charge?.status || 'waiting_payment'),
+        provider: PIX_PROVIDERS.PAGARME,
         totalAmount,
         qrCode,
-        qrCodeBase64,
+        qrCodeBase64: null,
         requiresStatusCheck: true,
-        expiresAt: expiresAtIso,
+        expiresAt: String(transaction?.expires_at || expiresAtIso || '') || null,
       };
     }
 
     if (resolvedPixProvider === PIX_PROVIDERS.ASAAS) {
+      assertFuturePaymentProviderEnabled('ASAAS');
       const accessToken = await this.getAsaasAccessToken(normalizedRestaurantId);
       const asaasBaseUrl = this.getAsaasBaseUrl();
       if (resumeOnly) {
@@ -870,6 +881,50 @@ class OrderPixPaymentService {
       throw new Error('Restaurante inválido para recuperar pagamento PIX.');
     }
 
+    if (parsedPaymentId.provider === PIX_PROVIDERS.BELVO) {
+      if (!isUuid(parsedPaymentId.rawPaymentId)) {
+        throw new Error('Payment Intent Open Finance inválida.');
+      }
+      const order = await orderRepository.findByPixPaymentId(normalizedPaymentId);
+      if (!order || order.restaurantId !== normalizedRestaurantId) {
+        throw new Error('Pagamento Open Finance não corresponde a este restaurante.');
+      }
+      const result = await belvoJson<BelvoPaymentIntentPayload>(
+        `/payments/br/payment-intents/${encodeURIComponent(parsedPaymentId.rawPaymentId)}/`,
+        { method: 'GET' },
+      );
+      if (!result.response.ok) {
+        throw new Error(
+          safeBelvoError(result.body, 'Não foi possível recuperar o pagamento Open Finance.'),
+        );
+      }
+      const expectedExternalId = belvoIdempotencyKey(
+        `orderpix:${normalizedRestaurantId}:${order.id}`,
+      );
+      const amount = Number(result.body.amount);
+      if (
+        String(result.body.id || '') !== parsedPaymentId.rawPaymentId ||
+        String(result.body.external_id || '') !== expectedExternalId ||
+        !Number.isFinite(amount) ||
+        Math.round(amount * 100) !== Math.round(Number(order.total) * 100) ||
+        String(result.body.currency || 'BRL').trim().toUpperCase() !== 'BRL'
+      ) {
+        throw new Error('A Payment Intent Open Finance não corresponde ao pedido.');
+      }
+      const status = String(result.body.status || '').trim().toUpperCase();
+      return {
+        paymentId: normalizedPaymentId,
+        status,
+        provider: PIX_PROVIDERS.BELVO,
+        isApproved: status === 'SUCCEEDED',
+        totalAmount: amount,
+        qrCode: '',
+        qrCodeBase64: null,
+        requiresStatusCheck: !['SUCCEEDED', 'FAILED'].includes(status),
+        externalReference: `orderpix:${normalizedRestaurantId}:${order.id}`,
+      };
+    }
+
     if (parsedPaymentId.provider === PIX_PROVIDERS.ASAAS) {
       const accessToken = await this.getAsaasAccessToken(normalizedRestaurantId);
       const asaasBaseUrl = this.getAsaasBaseUrl();
@@ -908,32 +963,32 @@ class OrderPixPaymentService {
       };
     }
 
-    if (parsedPaymentId.provider === PIX_PROVIDERS.PAGBANK) {
-      const token = await this.getPagBankToken(normalizedRestaurantId);
-      const result = await this.fetchPagBankJson<PagBankOrderPayload>(
-        `${this.getPagBankBaseUrl()}/orders/${encodeURIComponent(parsedPaymentId.rawPaymentId)}`,
-        token,
+    if (parsedPaymentId.provider === PIX_PROVIDERS.PAGARME) {
+      const { secretKey } = await getRestaurantPagarmeCredentials(normalizedRestaurantId);
+      const result = await pagarmeJson<PagarmeChargePayload>(
+        secretKey,
+        `/charges/${encodeURIComponent(parsedPaymentId.rawPaymentId)}`,
+        { method: 'GET' },
       );
-      if (!result.ok) {
-        throw new Error('Não foi possível recuperar o Pix no PagBank.');
+      const transaction = result.body?.last_transaction;
+      const qrCode = String(transaction?.qr_code || '').trim();
+      if (!result.response.ok || !qrCode) {
+        throw new Error('O QR Code desta cobrança Pagar.me não está disponível.');
       }
-      const qrCode = String(result.body?.qr_codes?.[0]?.text || '').trim();
-      if (!qrCode) throw new Error('O QR Code desta cobrança PIX não está disponível.');
-      const amountInCents = Number(result.body?.charges?.[0]?.amount?.value);
-      const pagBankStatuses = (result.body?.charges || []).map((charge) =>
-        String(charge.status || '').toUpperCase(),
-      );
-      const pagBankApproved = pagBankStatuses.includes('PAID');
+      const amountCents = Number(result.body?.amount);
+      const status = String(transaction?.status || result.body?.status || '')
+        .trim()
+        .toLowerCase();
       return {
         paymentId: normalizedPaymentId,
-        status: pagBankApproved ? 'paid' : pagBankStatuses[0] || 'WAITING',
-        provider: PIX_PROVIDERS.PAGBANK,
-        isApproved: pagBankApproved,
-        totalAmount: Number.isFinite(amountInCents) ? amountInCents / 100 : 0,
+        status,
+        provider: PIX_PROVIDERS.PAGARME,
+        isApproved: status === 'paid',
+        totalAmount: Number.isFinite(amountCents) ? amountCents / 100 : 0,
         qrCode,
         qrCodeBase64: null,
         requiresStatusCheck: true,
-        externalReference: String(result.body?.reference_id || '').trim(),
+        externalReference: String(result.body?.order?.code || '').trim(),
       };
     }
 
@@ -1010,6 +1065,63 @@ class OrderPixPaymentService {
     const parsedPaymentId = parseProviderPaymentId(normalizedPaymentId);
     const normalizedRestaurantIdNumber = Number(restaurantId || 0);
 
+    if (parsedPaymentId.provider === PIX_PROVIDERS.BELVO) {
+      if (!isUuid(parsedPaymentId.rawPaymentId)) {
+        throw new Error('Payment Intent Open Finance inválida.');
+      }
+      const order = await orderRepository.findByPixPaymentId(normalizedPaymentId);
+      if (!order) throw new Error('Pedido do pagamento Open Finance não encontrado.');
+      const sameRestaurant =
+        !normalizedRestaurantIdNumber || order.restaurantId === normalizedRestaurantIdNumber;
+      if (!sameRestaurant) {
+        return {
+          paymentId: normalizedPaymentId,
+          status: 'FAILED',
+          provider: PIX_PROVIDERS.BELVO,
+          isApproved: false,
+          sameRestaurant: false,
+          externalReference: '',
+          amount: null,
+          currency: 'BRL',
+          requiresStatusCheck: false,
+        };
+      }
+      const result = await belvoJson<BelvoPaymentIntentPayload>(
+        `/payments/br/payment-intents/${encodeURIComponent(parsedPaymentId.rawPaymentId)}/`,
+        { method: 'GET' },
+      );
+      if (!result.response.ok) {
+        throw new Error(
+          safeBelvoError(result.body, 'Não foi possível consultar o pagamento Open Finance.'),
+        );
+      }
+      const expectedExternalId = belvoIdempotencyKey(
+        `orderpix:${order.restaurantId}:${order.id}`,
+      );
+      const amount = Number(result.body.amount);
+      const validEvidence =
+        String(result.body.id || '') === parsedPaymentId.rawPaymentId &&
+        String(result.body.external_id || '') === expectedExternalId &&
+        Number.isFinite(amount) &&
+        Math.round(amount * 100) === Math.round(Number(order.total) * 100) &&
+        String(result.body.currency || 'BRL').trim().toUpperCase() === 'BRL';
+      if (!validEvidence) {
+        throw new Error('A Payment Intent Open Finance não corresponde ao pedido.');
+      }
+      const status = String(result.body.status || '').trim().toUpperCase();
+      return {
+        paymentId: normalizedPaymentId,
+        status,
+        provider: PIX_PROVIDERS.BELVO,
+        isApproved: status === 'SUCCEEDED',
+        sameRestaurant: true,
+        externalReference: `orderpix:${order.restaurantId}:${order.id}`,
+        amount,
+        currency: 'BRL',
+        requiresStatusCheck: !['SUCCEEDED', 'FAILED'].includes(status),
+      };
+    }
+
     if (parsedPaymentId.provider === PIX_PROVIDERS.ASAAS) {
       const effectiveRestaurantId =
         Number.isInteger(normalizedRestaurantIdNumber) && normalizedRestaurantIdNumber > 0
@@ -1054,37 +1166,39 @@ class OrderPixPaymentService {
       };
     }
 
-    if (parsedPaymentId.provider === PIX_PROVIDERS.PAGBANK) {
+    if (parsedPaymentId.provider === PIX_PROVIDERS.PAGARME) {
       if (!normalizedRestaurantIdNumber) {
-        throw new Error('Restaurante inválido para consultar Pix PagBank.');
+        throw new Error('Restaurante inválido para consultar Pix Pagar.me.');
       }
-      const token = await this.getPagBankToken(normalizedRestaurantIdNumber);
-      const result = await this.fetchPagBankJson<PagBankOrderPayload>(
-        `${this.getPagBankBaseUrl()}/orders/${encodeURIComponent(parsedPaymentId.rawPaymentId)}`,
-        token,
+      const { secretKey } = await getRestaurantPagarmeCredentials(normalizedRestaurantIdNumber);
+      const result = await pagarmeJson<PagarmeChargePayload>(
+        secretKey,
+        `/charges/${encodeURIComponent(parsedPaymentId.rawPaymentId)}`,
+        { method: 'GET' },
       );
-      if (!result.ok) {
-        throw new Error('Não foi possível consultar o Pix no PagBank.');
+      if (!result.response.ok) {
+        throw new Error('Não foi possível consultar o Pix no Pagar.me.');
       }
-      const statuses = (result.body?.charges || []).map((charge) =>
-        String(charge.status || '').toUpperCase(),
-      );
-      const isApproved = statuses.includes('PAID');
-      const approvedCharge = (result.body?.charges || []).find(
-        (charge) => String(charge.status || '').toUpperCase() === 'PAID',
-      );
-      const amountInCents = Number(approvedCharge?.amount?.value);
+      const transactionStatus = String(
+        result.body?.last_transaction?.status || result.body?.status || '',
+      )
+        .trim()
+        .toLowerCase();
+      const amountInCents = Number(result.body?.amount);
+      const metadataRestaurantId = String(
+        result.body?.order?.metadata?.restaurant_id || '',
+      ).trim();
+      const sameRestaurant =
+        !metadataRestaurantId || metadataRestaurantId === String(normalizedRestaurantIdNumber);
       return {
         paymentId: normalizedPaymentId,
-        status: isApproved ? 'paid' : statuses[0] || 'waiting',
-        provider: PIX_PROVIDERS.PAGBANK,
-        isApproved,
-        sameRestaurant: true,
-        externalReference: String(result.body?.reference_id || '').trim(),
+        status: transactionStatus || 'waiting_payment',
+        provider: PIX_PROVIDERS.PAGARME,
+        isApproved: transactionStatus === 'paid',
+        sameRestaurant,
+        externalReference: String(result.body?.order?.code || '').trim(),
         amount: Number.isFinite(amountInCents) ? amountInCents / 100 : null,
-        currency: String(approvedCharge?.amount?.currency || '')
-          .trim()
-          .toUpperCase(),
+        currency: String(result.body?.currency || 'BRL').trim().toUpperCase(),
         requiresStatusCheck: true,
       };
     }

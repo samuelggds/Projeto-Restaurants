@@ -38,9 +38,6 @@ function setValidProductionEnv() {
     MP_API_BASE_URL: 'https://api.mercadopago.com',
     MP_OAUTH_AUTH_URL: 'https://auth.mercadopago.com/authorization',
     MP_OAUTH_REDIRECT_URI: '',
-    PAGBANK_CONNECT_API_URL: 'https://api.pagseguro.com',
-    PAGBANK_CONNECT_AUTH_URL: 'https://connect.pagbank.com.br/oauth2/authorize',
-    PAGBANK_CONNECT_REDIRECT_URI: '',
     ROUTING_REQUIRED: 'true',
     ROUTING_PROVIDER: 'osrm',
     OSRM_BASE_URL: 'http://osrm:5000',
@@ -260,20 +257,12 @@ test('rejeita flags temporárias de compatibilidade em produção', () => {
   );
 });
 
-test('aceita PagBank sandbox oficial em runtime de produção quando PAGBANK_ENV=sandbox', () => {
-  process.env.PAGBANK_ENV = 'sandbox';
-  process.env.PAGBANK_CONNECT_API_URL = 'https://sandbox.api.pagseguro.com';
-  process.env.PAGBANK_CONNECT_AUTH_URL = 'https://connect.sandbox.pagbank.com.br/oauth2/authorize';
 
-  assert.doesNotThrow(() => validateCriticalEnv());
-});
-
-test('rejeita endpoint OAuth não oficial e redirect fora da origem do backend', () => {
+test('rejeita endpoint OAuth não oficial', () => {
   process.env.MP_OAUTH_API_BASE_URL = 'https://attacker.example';
-  process.env.PAGBANK_CONNECT_REDIRECT_URI = 'https://other.example/oauth/callback';
   assert.throws(
     () => validateCriticalEnv(),
-    /MP_OAUTH_API_BASE_URL deve apontar.*PAGBANK_CONNECT_REDIRECT_URI deve usar a mesma origem/i,
+    /MP_OAUTH_API_BASE_URL deve apontar.*producao/i,
   );
 });
 
@@ -306,4 +295,22 @@ test('impõe limite seguro para busca e segredo forte quando configurado', () =>
     () => validateCriticalEnv(),
     /INGREDIENT_IMAGE_SEARCH_RATE_LIMIT_MAX_REQUESTS deve estar entre 1 e 100.*INGREDIENT_IMAGE_SEARCH_RATE_LIMIT_WINDOW_MS deve ser de pelo menos 60000.*INGREDIENT_IMAGE_TOKEN_SECRET deve ter pelo menos 32 caracteres/u,
   );
+});
+
+
+test('exige Belvo production e webhook protegido quando Open Finance está ativo', () => {
+  process.env.BELVO_PAYMENTS_ENABLED = 'true';
+  process.env.BELVO_SECRET_ID = 'belvo-secret-id';
+  process.env.BELVO_SECRET_PASSWORD = 'belvo-secret-password';
+  process.env.BELVO_ENV = 'sandbox';
+  process.env.BELVO_WEBHOOK_TOKEN = 'short';
+
+  assert.throws(
+    () => validateCriticalEnv(),
+    /BELVO_ENV deve ser production.*BELVO_WEBHOOK_TOKEN deve ter pelo menos 32 caracteres/is,
+  );
+
+  process.env.BELVO_ENV = 'production';
+  process.env.BELVO_WEBHOOK_TOKEN = 'b'.repeat(48);
+  assert.doesNotThrow(() => validateCriticalEnv());
 });

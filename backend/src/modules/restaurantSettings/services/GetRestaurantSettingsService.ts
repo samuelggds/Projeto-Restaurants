@@ -20,6 +20,7 @@ type RestaurantSettingsFallback = {
   acceptsDelivery: boolean;
   acceptsPickup: boolean;
   acceptsPix: boolean;
+  openFinancePixEnabled: boolean;
   acceptsCard: boolean;
   tableOrderingEnabled: boolean;
   waiterCallEnabled: boolean;
@@ -50,6 +51,9 @@ type RestaurantSettingsFallback = {
   stripeSecretKey: string | null;
   stripeWebhookSecret: string | null;
   mercadoPagoAccessToken: string | null;
+  pagarmeSecretKey: string | null;
+  pagarmePublicKey: string | null;
+  pagarmeEnvironment: string | null;
   picpayToken: string | null;
   asaasAccessToken: string | null;
   pagbankEmail: string | null;
@@ -58,6 +62,7 @@ type RestaurantSettingsFallback = {
   stripeSecretKeyConfigured: boolean;
   stripeWebhookSecretConfigured: boolean;
   mercadoPagoAccessTokenConfigured: boolean;
+  pagarmeSecretKeyConfigured: boolean;
   picpayTokenConfigured: boolean;
   asaasAccessTokenConfigured: boolean;
   pagbankTokenConfigured: boolean;
@@ -125,6 +130,7 @@ class GetRestaurantSettingsService {
         acceptsDelivery: true,
         acceptsPickup: true,
         acceptsPix: true,
+        openFinancePixEnabled: false,
         acceptsCard: true,
         tableOrderingEnabled: true,
         waiterCallEnabled: true,
@@ -155,6 +161,9 @@ class GetRestaurantSettingsService {
         stripeSecretKey: null,
         stripeWebhookSecret: null,
         mercadoPagoAccessToken: null,
+        pagarmeSecretKey: null,
+        pagarmePublicKey: null,
+        pagarmeEnvironment: 'production',
         picpayToken: null,
         asaasAccessToken: null,
         pagbankEmail: null,
@@ -163,6 +172,7 @@ class GetRestaurantSettingsService {
         stripeSecretKeyConfigured: false,
         stripeWebhookSecretConfigured: false,
         mercadoPagoAccessTokenConfigured: false,
+        pagarmeSecretKeyConfigured: false,
         picpayTokenConfigured: false,
         asaasAccessTokenConfigured: false,
         pagbankTokenConfigured: false,
@@ -224,19 +234,18 @@ class GetRestaurantSettingsService {
       stripeWebhookSecret: null,
       mercadoPagoAccessToken: null,
       mercadoPagoRefreshToken: null,
+      pagarmeSecretKey: null,
       picpayToken: null,
       asaasAccessToken: null,
       asaasWebhookTokenHash: null,
-      pagbankToken: null,
-      pagbankRefreshToken: null,
       stripeSecretKeyConfigured: Boolean(String(settings?.stripeSecretKey || '').trim()),
       stripeWebhookSecretConfigured: Boolean(String(settings?.stripeWebhookSecret || '').trim()),
       mercadoPagoAccessTokenConfigured: Boolean(
         String(settings?.mercadoPagoAccessToken || '').trim(),
       ),
+      pagarmeSecretKeyConfigured: Boolean(String(settings?.pagarmeSecretKey || '').trim()),
       picpayTokenConfigured: Boolean(String(settings?.picpayToken || '').trim()),
       asaasAccessTokenConfigured: Boolean(String(settings?.asaasAccessToken || '').trim()),
-      pagbankTokenConfigured: Boolean(String(settings?.pagbankToken || '').trim()),
       whatsapp: String(settings?.restaurant?.whatsapp || '').trim() || null,
     };
   }

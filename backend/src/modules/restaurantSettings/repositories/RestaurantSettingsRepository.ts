@@ -197,6 +197,7 @@ class RestaurantSettingsRepository {
         acceptsDelivery: true,
         acceptsPickup: true,
         acceptsPix: true,
+        openFinancePixEnabled: true,
         acceptsCard: true,
         tableOrderingEnabled: true,
         waiterCallEnabled: true,

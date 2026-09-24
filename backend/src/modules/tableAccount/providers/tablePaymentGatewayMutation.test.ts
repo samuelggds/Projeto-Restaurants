@@ -32,7 +32,6 @@ function credentials() {
     return {
       mercadoPagoAccessToken: 'tenant-mp',
       asaasAccessToken: 'tenant-asaas',
-      pagbankToken: 'tenant-pagbank',
     };
   };
 }
@@ -156,101 +155,4 @@ test('Asaas: soma somente devoluções DONE, sem contar PENDING/CANCELLED', asyn
       done === 30 ? 'REFUNDED' : 'PENDING',
     );
   }
-});
-
-test('PagBank: cancelado só representa estorno quando devolução integral está comprovada', async () => {
-  credentials();
-  for (const refunded of [0, 1000, 3000]) {
-    globalThis.fetch = async () =>
-      json({
-        id: 'CHAR_abc',
-        status: 'CANCELED',
-        amount: { value: 3000, currency: 'BRL', summary: { refunded } },
-      });
-    const result = await getDirectTablePayment({
-      ...input,
-      provider: 'PAGBANK',
-      method: 'CARD',
-      externalId: 'pagbank_tx:CHAR_abc',
-    });
-    assert.equal(result.status, refunded === 3000 ? 'REFUNDED' : 'CANCELED');
-  }
-});
-
-const checkoutInput = {
-  ...input,
-  provider: 'PAGBANK',
-  method: 'CARD',
-  externalId: 'pagbank_checkout:CHEC_91',
-  intentPublicId: '423e4567-e89b-42d3-a456-426614174091',
-};
-const checkoutReference = 'tablecard:91:7:423e4567e89b42d3a456426614174091';
-function checkoutBody(charges = [], status = 'ACTIVE') {
-  return {
-    id: 'CHEC_91',
-    reference_id: checkoutReference,
-    status,
-  };
-}
-function checkoutCharge(refunded = false) {
-  return {
-    id: 'CHAR_91',
-    status: refunded ? 'CANCELED' : 'PAID',
-    amount: { value: 3000, currency: 'BRL', summary: { refunded: refunded ? 3000 : 0 } },
-    payment_method: { type: 'CREDIT_CARD' },
-  };
-}
-
-test('PagBank Connect: mesa concilia checkout moderno e estorna a charge verificada sem email', async () => {
-  credentials();
-  let refunded = false;
-  globalThis.fetch = async (url, init) => {
-    assert.equal(init.headers.Authorization, 'Bearer tenant-pagbank');
-    if (String(url).includes('/checkouts/')) return json(checkoutBody([checkoutCharge(refunded)]));
-    if (String(url).endsWith('/cancel')) {
-      assert.equal(init.headers['x-idempotency-key'], 'stable-key');
-      assert.deepEqual(JSON.parse(init.body), { amount: { value: 3000 } });
-      refunded = true;
-    }
-    assert.match(String(url), /charges\/CHAR_91/);
-    return json(checkoutCharge(refunded));
-  };
-  const boundInput = { ...checkoutInput, providerChargeId: 'CHAR_91' };
-  assert.equal((await getDirectTablePayment(boundInput)).status, 'PAID');
-  assert.equal((await mutateDirectTablePayment(boundInput, 'refund', mutation)).status, 'REFUNDED');
-  assert.equal((await getDirectTablePayment(boundInput)).status, 'REFUNDED');
-});
-
-test('PagBank Connect: cancelar mesa inativa checkout e verifica estado final', async () => {
-  credentials();
-  let inactive = false;
-  globalThis.fetch = async (url, init) => {
-    if (String(url).endsWith('/inactivate')) {
-      assert.equal(init.method, 'POST');
-      inactive = true;
-    }
-    return json(checkoutBody([], inactive ? 'INACTIVE' : 'ACTIVE'));
-  };
-  assert.equal(
-    (await mutateDirectTablePayment(checkoutInput, 'cancel', mutation)).status,
-    'CANCELED',
-  );
-  assert.equal(inactive, true);
-});
-
-test('PagBank Connect: referência de outra mesa impede estorno', async () => {
-  credentials();
-  let mutationCalls = 0;
-  globalThis.fetch = async (_url, init) => {
-    if (init.method === 'POST') mutationCalls++;
-    return json({
-      ...checkoutBody([checkoutCharge()]),
-      reference_id: 'ordercard:92:7:another-table',
-    });
-  };
-  await assert.rejects(
-    () => mutateDirectTablePayment(checkoutInput, 'refund', mutation),
-    /não pertence/,
-  );
-  assert.equal(mutationCalls, 0);
 });

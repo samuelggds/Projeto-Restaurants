@@ -1,14 +1,12 @@
 type Environment = Record<string, string | undefined>;
 
-export type OAuthEndpoint =
-  'MERCADO_PAGO_API' | 'MERCADO_PAGO_AUTHORIZATION' | 'PAGBANK_API' | 'PAGBANK_AUTHORIZATION';
+export type OAuthEndpoint = 'MERCADO_PAGO_API' | 'MERCADO_PAGO_AUTHORIZATION';
 
 type EndpointDefinition = {
   envName: string;
   defaultUrl: string;
   productionUrls: readonly string[];
   developmentUrls?: readonly string[];
-  productionSandboxUrls?: readonly string[];
 };
 
 const ENDPOINTS: Record<OAuthEndpoint, EndpointDefinition> = {
@@ -24,20 +22,6 @@ const ENDPOINTS: Record<OAuthEndpoint, EndpointDefinition> = {
       'https://auth.mercadopago.com/authorization',
       'https://auth.mercadopago.com.br/authorization',
     ],
-  },
-  PAGBANK_API: {
-    envName: 'PAGBANK_CONNECT_API_URL',
-    defaultUrl: 'https://api.pagseguro.com',
-    productionUrls: ['https://api.pagseguro.com'],
-    developmentUrls: ['https://sandbox.api.pagseguro.com'],
-    productionSandboxUrls: ['https://sandbox.api.pagseguro.com'],
-  },
-  PAGBANK_AUTHORIZATION: {
-    envName: 'PAGBANK_CONNECT_AUTH_URL',
-    defaultUrl: 'https://connect.pagbank.com.br/oauth2/authorize',
-    productionUrls: ['https://connect.pagbank.com.br/oauth2/authorize'],
-    developmentUrls: ['https://connect.sandbox.pagbank.com.br/oauth2/authorize'],
-    productionSandboxUrls: ['https://connect.sandbox.pagbank.com.br/oauth2/authorize'],
   },
 };
 
@@ -66,26 +50,14 @@ function canonicalizeEndpoint(name: string, rawValue: string) {
   return `${url.origin}${normalizedPath}`;
 }
 
-/**
- * Impede que uma configuração adulterada envie client secrets/tokens para um
- * host arbitrário. Overrides locais exigem uma liberação explícita e nunca são
- * aceitos em produção.
- */
 function resolveTrustedEndpoint(definition: EndpointDefinition, env: Environment) {
   const configured = String(env[definition.envName] || definition.defaultUrl).trim();
   const resolved = canonicalizeEndpoint(definition.envName, configured);
-  const productionAllowed = definition.productionUrls.includes(resolved);
 
-  if (productionAllowed) return resolved;
+  if (definition.productionUrls.includes(resolved)) return resolved;
 
   const isProduction = env.NODE_ENV === 'production';
   if (!isProduction && definition.developmentUrls?.includes(resolved)) return resolved;
-
-  const isPagBankSandboxRuntime =
-    isProduction &&
-    String(env.PAGBANK_ENV || '').trim().toLowerCase() === 'sandbox' &&
-    definition.productionSandboxUrls?.includes(resolved);
-  if (isPagBankSandboxRuntime) return resolved;
 
   const allowUntrusted = env.ALLOW_UNTRUSTED_OAUTH_ENDPOINTS === 'true';
   if (!isProduction && allowUntrusted) return resolved;
@@ -99,24 +71,6 @@ function resolveTrustedEndpoint(definition: EndpointDefinition, env: Environment
 }
 
 export function resolveOAuthEndpoint(endpoint: OAuthEndpoint, env: Environment = process.env) {
-  if (endpoint === 'PAGBANK_API') {
-    const connect = String(env.PAGBANK_CONNECT_API_URL || '').trim();
-    const legacyAlias = String(env.PAGBANK_API_BASE_URL || '').trim();
-    if (
-      connect &&
-      legacyAlias &&
-      canonicalizeEndpoint('PAGBANK_CONNECT_API_URL', connect) !==
-        canonicalizeEndpoint('PAGBANK_API_BASE_URL', legacyAlias)
-    ) {
-      throw new Error(
-        'PAGBANK_CONNECT_API_URL e PAGBANK_API_BASE_URL devem apontar para o mesmo ambiente.',
-      );
-    }
-    return resolveTrustedEndpoint(ENDPOINTS.PAGBANK_API, {
-      ...env,
-      PAGBANK_CONNECT_API_URL: connect || legacyAlias,
-    });
-  }
   return resolveTrustedEndpoint(ENDPOINTS[endpoint], env);
 }
 
@@ -124,9 +78,9 @@ export function resolveMercadoPagoApiEndpoint(env: Environment = process.env) {
   return resolveTrustedEndpoint(MERCADO_PAGO_RECONCILIATION_API, env);
 }
 
+
 export function validateConfiguredOAuthEndpoints(env: Environment = process.env) {
-  (Object.keys(ENDPOINTS) as OAuthEndpoint[]).forEach((endpoint) => {
-    resolveOAuthEndpoint(endpoint, env);
-  });
+  resolveOAuthEndpoint('MERCADO_PAGO_API', env);
+  resolveOAuthEndpoint('MERCADO_PAGO_AUTHORIZATION', env);
   resolveMercadoPagoApiEndpoint(env);
 }

@@ -1,7 +1,8 @@
 export const PIX_PROVIDERS = {
   MERCADO_PAGO: 'MERCADO_PAGO',
+  BELVO: 'BELVO',
   ASAAS: 'ASAAS',
-  PAGBANK: 'PAGBANK',
+  PAGARME: 'PAGARME',
   NUBANK: 'NUBANK',
   PICPAY: 'PICPAY',
 } as const;
@@ -13,7 +14,6 @@ export const CARD_PROVIDERS = {
   MERCADO_PAGO: 'MERCADO_PAGO',
   ASAAS: 'ASAAS',
   PAGARME: 'PAGARME',
-  PAGBANK: 'PAGBANK',
   STONE: 'STONE',
   ZOOP: 'ZOOP',
 } as const;

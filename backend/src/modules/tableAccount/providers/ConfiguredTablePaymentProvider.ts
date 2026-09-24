@@ -1,6 +1,4 @@
 import { OrderType, PaymentMethod } from '@prisma/client';
-import { pagBankApiBaseUrl } from '../../payments/providers/pagBankCheckout.js';
-import { load } from 'cheerio';
 import prisma from '../../../config/prisma.js';
 import { withTenantDbContext } from '../../../database/tenantDbContext.js';
 import orderPixPaymentService from '../../orders/services/OrderPixPaymentService.js';
@@ -15,10 +13,7 @@ import {
   type PixProvider,
 } from '../../payments/providers/providerCatalog.js';
 import restaurantSettingsRepository from '../../restaurantSettings/repositories/RestaurantSettingsRepository.js';
-import {
-  getPagBankAccessToken,
-  getMercadoPagoAccessToken,
-} from '../../restaurantSettings/services/RestaurantPaymentCredentialsService.js';
+import { getMercadoPagoAccessToken } from '../../restaurantSettings/services/RestaurantPaymentCredentialsService.js';
 import { getDirectTablePayment, mutateDirectTablePayment } from './tablePaymentGatewayMutation.js';
 import type {
   CreateProviderPaymentInput,
@@ -29,16 +24,10 @@ import type {
   ValidatedPaymentWebhook,
 } from './PaymentProvider.js';
 
-const SUPPORTED_PIX = new Set<string>([
-  PIX_PROVIDERS.MERCADO_PAGO,
-  PIX_PROVIDERS.ASAAS,
-  PIX_PROVIDERS.PAGBANK,
-]);
-const SUPPORTED_CARD = new Set<string>([
-  CARD_PROVIDERS.MERCADO_PAGO,
-  CARD_PROVIDERS.ASAAS,
-  CARD_PROVIDERS.PAGBANK,
-]);
+const ACTIVE_PIX = new Set<string>([PIX_PROVIDERS.MERCADO_PAGO]);
+const ACTIVE_CARD = new Set<string>([CARD_PROVIDERS.MERCADO_PAGO]);
+const HISTORICAL_PIX = ACTIVE_PIX;
+const HISTORICAL_CARD = ACTIVE_CARD;
 
 const PAID_STATUSES = new Set(['PAID', 'APPROVED', 'ACCREDITED', 'RECEIVED', 'CONFIRMED']);
 const FAILED_STATUSES = new Set(['FAILED', 'DECLINED', 'REJECTED']);
@@ -80,12 +69,6 @@ type AsaasPaymentPayload = {
   errors?: Array<{ description?: string }>;
 };
 
-type PagBankChargePayload = {
-  id?: string;
-  status?: string;
-  reference_id?: string;
-  amount?: { value?: number; currency?: string };
-};
 
 type MercadoPagoPaymentPayload = {
   id?: string | number;
@@ -142,9 +125,6 @@ function asaasBaseUrl() {
     .replace(/\/+$/, '');
 }
 
-function pagBankBaseUrl() {
-  return pagBankApiBaseUrl();
-}
 
 async function settingsFor(restaurantId: number) {
   const settings = await restaurantSettingsRepository.findByRestaurantId(restaurantId);
@@ -163,10 +143,6 @@ function credentialReady(
   if (provider === PIX_PROVIDERS.ASAAS || provider === CARD_PROVIDERS.ASAAS) {
     return Boolean(String(settings.asaasAccessToken || '').trim());
   }
-  if (provider === PIX_PROVIDERS.PAGBANK || provider === CARD_PROVIDERS.PAGBANK) {
-    const token = Boolean(String(settings.pagbankToken || '').trim());
-    return token;
-  }
   return false;
 }
 
@@ -176,8 +152,8 @@ export async function getConfiguredTablePaymentReadiness(
   const settings = await settingsFor(restaurantId);
   const pixRaw = normalizeProvider(settings.pixProvider);
   const cardRaw = normalizeProvider(settings.cardGateway);
-  const pixProvider = SUPPORTED_PIX.has(pixRaw) ? (pixRaw as PixProvider) : null;
-  const cardProvider = SUPPORTED_CARD.has(cardRaw) ? (cardRaw as CardProvider) : null;
+  const pixProvider = ACTIVE_PIX.has(pixRaw) ? (pixRaw as PixProvider) : null;
+  const cardProvider = ACTIVE_CARD.has(cardRaw) ? (cardRaw as CardProvider) : null;
 
   return {
     allowPix: Boolean(
@@ -385,75 +361,6 @@ async function getAsaasCard(
   };
 }
 
-async function getPagBankCard(
-  context: ConfiguredTablePaymentProviderContext,
-  externalId: string,
-  amountCents: number,
-  expiresAt: Date,
-) {
-  const settings = await settingsFor(context.restaurantId);
-  const token = await getPagBankAccessToken(context.restaurantId);
-  const email = String(settings.pagbankEmail || '').trim();
-
-  if (externalId.startsWith('pagbank_tx:')) {
-    const chargeId = externalId.replace(/^pagbank_tx:/, '');
-    const { response, body } = await fetchJson<PagBankChargePayload>(
-      `${pagBankBaseUrl()}/charges/${encodeURIComponent(chargeId)}`,
-      { headers: { Authorization: `Bearer ${token}`, Accept: 'application/json' } },
-    );
-    if (!response.ok || !matchesAmount(body.amount?.value, amountCents, true)) {
-      throw new Error('A cobrança retornada pelo PagBank não corresponde à conta da mesa.');
-    }
-    return {
-      externalId,
-      status: providerStatus(body.status),
-      amountCents,
-      checkoutUrl: null,
-      paymentCode: null,
-      expiresAt,
-    };
-  }
-
-  if (!email || !token || !externalId.startsWith('pagbank_chk:')) {
-    throw new Error('Referência PagBank inválida.');
-  }
-  const reference = tableCardReference(context);
-  const url = new URL('https://ws.pagseguro.uol.com.br/v2/transactions');
-  url.searchParams.set('email', email);
-  url.searchParams.set('token', token);
-  url.searchParams.set('reference', reference);
-  url.searchParams.set('page', '1');
-  url.searchParams.set('maxPageResults', '10');
-  const response = await fetch(url, { headers: { Accept: 'application/xml' } });
-  const xml = await response.text();
-  if (!response.ok) throw new Error('Não foi possível consultar o checkout no PagBank.');
-  const parsed = load(xml, { xmlMode: true });
-  let status = '';
-  parsed('transaction').each((_index, node) => {
-    if (status) return;
-    const transaction = parsed(node);
-    if (
-      transaction.children('reference').first().text().trim() === reference &&
-      matchesAmount(transaction.children('grossAmount').first().text().trim(), amountCents)
-    ) {
-      status = transaction.children('status').first().text().trim();
-    }
-  });
-  return {
-    externalId,
-    status:
-      status === '3' || status === '4'
-        ? ('PAID' as const)
-        : ['6', '7', '8'].includes(status)
-          ? ('FAILED' as const)
-          : ('PENDING' as const),
-    amountCents,
-    checkoutUrl: null,
-    paymentCode: null,
-    expiresAt,
-  };
-}
-
 export class ConfiguredTablePaymentProvider implements PaymentProvider {
   readonly code: string;
 
@@ -500,8 +407,7 @@ export class ConfiguredTablePaymentProvider implements PaymentProvider {
       });
       const normalizedStatus = status.isApproved ? 'PAID' : providerStatus(status.status);
       const hasAmount = status.amount !== null && status.amount !== undefined;
-      // O PagBank pode omitir o valor enquanto o Pix não foi pago. Uma aprovação
-      // sempre precisa trazer um valor válido e correspondente à conta.
+      // Uma aprovação sempre precisa trazer valor válido e correspondente à conta.
       if (
         (normalizedStatus === 'PAID' || hasAmount) &&
         (!hasAmount || !matchesAmount(status.amount, amountCents))
@@ -523,9 +429,6 @@ export class ConfiguredTablePaymentProvider implements PaymentProvider {
     }
     if (this.provider === CARD_PROVIDERS.ASAAS) {
       return getAsaasCard(externalId, amountCents, intent.expiresAt, this.context.restaurantId);
-    }
-    if (this.provider === CARD_PROVIDERS.PAGBANK) {
-      return getPagBankCard(this.context, externalId, amountCents, intent.expiresAt);
     }
     throw new Error('Consulta de cartão não suportada para este gateway.');
   }
@@ -593,7 +496,7 @@ export function createConfiguredTablePaymentProviderForExisting(
 ): PaymentProvider {
   const normalized = normalizeProvider(provider);
   const supported =
-    context.method === 'PIX' ? SUPPORTED_PIX.has(normalized) : SUPPORTED_CARD.has(normalized);
+    context.method === 'PIX' ? HISTORICAL_PIX.has(normalized) : HISTORICAL_CARD.has(normalized);
   if (!supported) throw new Error('Provedor deste pagamento da mesa não é suportado.');
   return new ConfiguredTablePaymentProvider(context, normalized as PixProvider | CardProvider);
 }

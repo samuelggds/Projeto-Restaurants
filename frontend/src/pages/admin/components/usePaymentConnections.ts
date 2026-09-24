@@ -42,5 +42,6 @@ export function usePaymentConnections(load?: () => Promise<PaymentConnectionOver
     verifying: Boolean(load),
     get: (provider: PaymentProvider) =>
       overview?.connections.find((connection) => connection.provider === provider),
+    openFinance: overview?.openFinance ?? null,
   };
 }

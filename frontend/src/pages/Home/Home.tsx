@@ -394,9 +394,15 @@ export default function Home() {
       getAvailablePaymentMethods({
         allowPayOnDelivery,
         allowPix: homeData.acceptsPix,
+        allowOpenFinancePix: homeData.openFinancePixEnabled,
         allowCard: homeData.acceptsCard,
       }),
-    [allowPayOnDelivery, homeData.acceptsCard, homeData.acceptsPix],
+    [
+      allowPayOnDelivery,
+      homeData.acceptsCard,
+      homeData.acceptsPix,
+      homeData.openFinancePixEnabled,
+    ],
   );
   const checkoutChannelAvailable =
     mesaMode ||
@@ -1011,6 +1017,7 @@ export default function Home() {
                 paymentMethod={selectedCheckoutPaymentMethod}
                 allowPayOnDelivery={allowPayOnDelivery}
                 allowPix={homeData.acceptsPix}
+                allowOpenFinancePix={homeData.openFinancePixEnabled}
                 allowCard={homeData.acceptsCard}
                 restaurantId={restaurantId}
                 loggedIn={Boolean(user)}

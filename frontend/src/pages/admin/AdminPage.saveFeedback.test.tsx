@@ -219,7 +219,6 @@ describe('AdminPage save feedback', () => {
 
   for (const [provider, label, callback] of [
     ['MERCADO_PAGO', 'Mercado Pago', 'onConnectMercadoPago'],
-    ['PAGBANK', 'PagBank', 'onConnectPagBank'],
   ] as const) {
     it(`salva a escolha de Pix antes de autorizar ${label} sem trocar a empresa do cartão`, async () => {
       window.history.replaceState({}, '', '/admin?settings=payments');
@@ -240,7 +239,6 @@ describe('AdminPage save feedback', () => {
           pixProvider: 'ASAAS',
           cardGateway: 'ASAAS',
           mercadoPagoAccessTokenConfigured: false,
-          pagbankTokenConfigured: false,
         },
         [callback]: connect,
       });
@@ -266,7 +264,7 @@ describe('AdminPage save feedback', () => {
     });
   }
 
-  it('não abre o provedor se as escolhas não puderem ser salvas', async () => {
+  it('não abre o Mercado Pago se as escolhas não puderem ser salvas', async () => {
     window.history.replaceState({}, '', '/admin?settings=payments');
     const connect = vi.fn();
     const save = vi.fn().mockRejectedValue(new Error('Sem conexão para salvar'));
@@ -277,10 +275,10 @@ describe('AdminPage save feedback', () => {
         deliveryTime: 45,
         acceptsPix: true,
         acceptsCard: false,
-        pixProvider: 'PAGBANK',
-        pagbankTokenConfigured: false,
+        pixProvider: 'MERCADO_PAGO',
+        mercadoPagoAccessTokenConfigured: false,
       },
-      onConnectPagBank: connect,
+      onConnectMercadoPago: connect,
     });
     const input = container.querySelector(
       'input[placeholder="CPF, CNPJ, e-mail, telefone ou chave aleatória"]',
@@ -293,7 +291,7 @@ describe('AdminPage save feedback', () => {
       input.dispatchEvent(new Event('input', { bubbles: true }));
     });
     const button = Array.from(container.querySelectorAll('button')).find(
-      (item) => item.textContent === 'Conectar PagBank',
+      (item) => item.textContent === 'Conectar Mercado Pago',
     )!;
     await act(async () => button.click());
     expect(save).toHaveBeenCalledOnce();

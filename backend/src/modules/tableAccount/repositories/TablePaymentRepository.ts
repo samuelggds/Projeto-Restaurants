@@ -94,44 +94,6 @@ export type TablePaymentIntentAdminRecord = Prisma.TablePaymentIntentGetPayload<
 }>;
 
 export class TablePaymentRepository {
-  async findPagBankCheckout(id: number, restaurantId: number) {
-    return withTenantDbContext(restaurantId, (db) =>
-      db.tablePaymentIntent.findFirst({
-        where: { id, restaurantId, provider: 'PAGBANK', method: 'CARD' },
-        select: tablePaymentIntentDtoSelect,
-      }),
-    );
-  }
-
-  async bindPagBankCharge(input: {
-    id: number;
-    restaurantId: number;
-    publicId: string;
-    checkoutReference: string;
-    chargeId: string;
-  }) {
-    return withTenantDbContext(input.restaurantId, async (db) => {
-      const where = {
-        id: input.id,
-        restaurantId: input.restaurantId,
-        publicId: input.publicId,
-        provider: 'PAGBANK',
-        method: 'CARD' as const,
-        providerExternalId: input.checkoutReference,
-      };
-      const changed = await db.tablePaymentIntent.updateMany({
-        where: { ...where, providerChargeId: null },
-        data: { providerChargeId: input.chargeId },
-      });
-      if (changed.count === 1) return true;
-      const current = await db.tablePaymentIntent.findFirst({
-        where,
-        select: { providerChargeId: true },
-      });
-      return current?.providerChargeId === input.chargeId;
-    });
-  }
-
   async findSessionParticipantForPayment(
     tableSessionId: number,
     restaurantId: number,

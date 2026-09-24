@@ -13,7 +13,6 @@ type Props = {
 export function PaymentSettings({ settings, onChange }: Props) {
   const [connecting, setConnecting] = useState(false);
   const [connectionError, setConnectionError] = useState('');
-  const [connectingPagBank, setConnectingPagBank] = useState(false);
   const [onboardingAsaas, setOnboardingAsaas] = useState(false);
   const [asaasDocument, setAsaasDocument] = useState('');
   const [asaasIncome, setAsaasIncome] = useState('');
@@ -39,24 +38,6 @@ export function PaymentSettings({ settings, onChange }: Props) {
         error instanceof Error ? error.message : 'Não foi possível conectar ao Mercado Pago.',
       );
       setConnecting(false);
-    }
-  }
-
-  async function connectPagBank() {
-    setConnectingPagBank(true);
-    setConnectionError('');
-    try {
-      const result = await restaurantSettingsService.startPagBankOAuth();
-      const authorizationUrl = String(result?.authorizationUrl || '');
-      if (!/^https:\/\//i.test(authorizationUrl)) {
-        throw new Error('Não foi possível abrir a conexão com o PagBank.');
-      }
-      window.location.assign(authorizationUrl);
-    } catch (error) {
-      setConnectionError(
-        error instanceof Error ? error.message : 'Não foi possível conectar ao PagBank.',
-      );
-      setConnectingPagBank(false);
     }
   }
 
@@ -105,8 +86,8 @@ export function PaymentSettings({ settings, onChange }: Props) {
               onChange={(event) => onChange({ pixProvider: event.target.value })}
             >
               <option value="MERCADO_PAGO">Mercado Pago</option>
-              <option value="ASAAS">Asaas</option>
-              <option value="PAGBANK">PagBank</option>
+              <option value="PAGARME" disabled>Pagar.me — futuro</option>
+              <option value="ASAAS" disabled>Asaas — futuro</option>
             </FormSelect>
           </Field>
           <Field label="Chave Pix" hint="Use uma chave válida da conta escolhida, quando necessário.">
@@ -123,7 +104,7 @@ export function PaymentSettings({ settings, onChange }: Props) {
             >
               <option value="">Selecione</option>
               <option value="MERCADO_PAGO">Mercado Pago</option>
-              <option value="PAGBANK">PagBank</option>
+              <option value="PAGARME">Pagar.me</option>
               <option value="ASAAS">Asaas</option>
             </FormSelect>
           </Field>
@@ -139,6 +120,49 @@ export function PaymentSettings({ settings, onChange }: Props) {
                   : 'Conectar minha conta Mercado Pago'}
             </S.SaveButton>
             {connectionError && <S.InfoBox>{connectionError}</S.InfoBox>}
+          </>
+        )}
+
+        {(settings.cardGateway === 'PAGARME' || settings.pixProvider === 'PAGARME') && (
+          <>
+            <Field label="Public Key do Pagar.me">
+              <FormInput
+                value={settings.pagarmePublicKey}
+                placeholder="pk_... ou pk_test_..."
+                autoComplete="off"
+                onChange={(event) => onChange({ pagarmePublicKey: event.target.value.trim() })}
+              />
+            </Field>
+            <Field label="Secret Key do Pagar.me" hint="Nunca é exibida depois de salva.">
+              <FormInput
+                type="password"
+                value={settings.pagarmeSecretKey}
+                placeholder={
+                  settings.pagarmeSecretKeyConfigured
+                    ? 'Já configurada — deixe em branco para manter'
+                    : 'sk_... ou sk_test_...'
+                }
+                autoComplete="new-password"
+                onChange={(event) => onChange({ pagarmeSecretKey: event.target.value.trim() })}
+              />
+            </Field>
+            <Field label="Ambiente">
+              <FormSelect
+                value={settings.pagarmeEnvironment}
+                onChange={(event) =>
+                  onChange({
+                    pagarmeEnvironment:
+                      event.target.value === 'sandbox' ? 'sandbox' : 'production',
+                  })
+                }
+              >
+                <option value="sandbox">Sandbox / testes</option>
+                <option value="production">Produção</option>
+              </FormSelect>
+            </Field>
+            <S.InfoBox>
+              Salve as alterações para validar as chaves do Pagar.me. Número do cartão e CVV não são enviados ao servidor do GastroNexa.
+            </S.InfoBox>
           </>
         )}
 
@@ -178,15 +202,7 @@ export function PaymentSettings({ settings, onChange }: Props) {
           </>
         )}
 
-        {(settings.cardGateway === 'PAGBANK' || settings.pixProvider === 'PAGBANK') && (
-          <S.SaveButton type="button" onClick={connectPagBank} disabled={connectingPagBank}>
-            {connectingPagBank
-              ? 'Abrindo PagBank...'
-              : settings.pagbankTokenConfigured
-                ? 'Reconectar conta PagBank'
-                : 'Conectar minha conta PagBank'}
-          </S.SaveButton>
-        )}
+
 
         {connectionError && <S.InfoBox>{connectionError}</S.InfoBox>}
         {asaasError && <S.InfoBox>{asaasError}</S.InfoBox>}

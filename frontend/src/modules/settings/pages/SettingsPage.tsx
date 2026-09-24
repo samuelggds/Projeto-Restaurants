@@ -88,15 +88,19 @@ function buildSettingsFromApi(raw: Record<string, unknown>): RestaurantSettings 
     stripeWebhookSecretConfigured: Boolean(raw?.stripeWebhookSecretConfigured),
     mercadoPagoAccessToken: '',
     mercadoPagoAccessTokenConfigured: Boolean(raw?.mercadoPagoAccessTokenConfigured),
+    pagarmeSecretKey: '',
+    pagarmePublicKey: String(raw?.pagarmePublicKey ?? ''),
+    pagarmeEnvironment:
+      String(raw?.pagarmeEnvironment ?? 'production').toLowerCase() === 'sandbox'
+        ? 'sandbox'
+        : 'production',
+    pagarmeSecretKeyConfigured: Boolean(raw?.pagarmeSecretKeyConfigured),
     asaasAccessToken: '',
     asaasAccessTokenConfigured: Boolean(raw?.asaasAccessTokenConfigured),
     monthlyRevenue:
       raw?.monthlyRevenue === null || raw?.monthlyRevenue === undefined
         ? null
         : Number(raw.monthlyRevenue),
-    pagbankEmail: String(raw?.pagbankEmail ?? ''),
-    pagbankToken: '',
-    pagbankTokenConfigured: Boolean(raw?.pagbankTokenConfigured),
     social: {
       instagram: String(raw?.instagram ?? ''),
       facebook: String(raw?.facebook ?? ''),
@@ -114,6 +118,7 @@ function buildSettingsFromApi(raw: Record<string, unknown>): RestaurantSettings 
     courierFeePerDelivery: Number(raw?.courierFeePerDelivery ?? 0),
     averageDeliveryTime: String(raw?.averageDeliveryTime ?? ''),
     acceptsPix: Boolean(raw?.acceptsPix ?? true),
+    openFinancePixEnabled: Boolean(raw?.openFinancePixEnabled ?? false),
     acceptsCard: Boolean(raw?.acceptsCard ?? true),
     whatsappEnabled: Boolean(raw?.whatsappEnabled ?? false),
     whatsappNumber: String(raw?.whatsappNumber ?? raw?.whatsapp ?? ''),
@@ -145,6 +150,7 @@ function buildApiPayload(settings: RestaurantSettings) {
     courierFeePerDelivery: settings.courierFeePerDelivery,
     averageDeliveryTime: settings.averageDeliveryTime,
     acceptsPix: settings.acceptsPix,
+    openFinancePixEnabled: settings.openFinancePixEnabled,
     acceptsCard: settings.acceptsCard,
     whatsappEnabled: settings.whatsappEnabled,
     whatsappNumber: settings.whatsappNumber,
@@ -160,12 +166,13 @@ function buildApiPayload(settings: RestaurantSettings) {
     pixProvider: settings.pixProvider,
     pixKey: settings.pixKey,
     cardGateway: settings.cardGateway,
-    pagbankEmail: settings.pagbankEmail,
     ...(settings.mercadoPagoAccessToken
       ? { mercadoPagoAccessToken: settings.mercadoPagoAccessToken }
       : {}),
+    ...(settings.pagarmeSecretKey ? { pagarmeSecretKey: settings.pagarmeSecretKey } : {}),
+    ...(settings.pagarmePublicKey ? { pagarmePublicKey: settings.pagarmePublicKey } : {}),
+    pagarmeEnvironment: settings.pagarmeEnvironment,
     ...(settings.asaasAccessToken ? { asaasAccessToken: settings.asaasAccessToken } : {}),
-    ...(settings.pagbankToken ? { pagbankToken: settings.pagbankToken } : {}),
   };
 }
 
