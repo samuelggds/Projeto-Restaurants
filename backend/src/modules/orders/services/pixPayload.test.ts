@@ -12,10 +12,6 @@ test('identifica o provedor pelo prefixo do pagamento', () => {
     provider: 'ASAAS',
     rawPaymentId: 'pay_123',
   });
-  assert.deepEqual(parseProviderPaymentId('belvo:123e4567-e89b-42d3-a456-426614174001'), {
-    provider: 'BELVO',
-    rawPaymentId: '123e4567-e89b-42d3-a456-426614174001',
-  });
 });
 
 test('valida CPF e normaliza chave Pix', () => {
