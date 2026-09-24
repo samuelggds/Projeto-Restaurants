@@ -13,7 +13,6 @@ type Props = {
 export function PaymentSettings({ settings, onChange }: Props) {
   const [connecting, setConnecting] = useState(false);
   const [connectionError, setConnectionError] = useState('');
-  const [connectingPagBank, setConnectingPagBank] = useState(false);
   const [onboardingAsaas, setOnboardingAsaas] = useState(false);
   const [asaasDocument, setAsaasDocument] = useState('');
   const [asaasIncome, setAsaasIncome] = useState('');
@@ -39,24 +38,6 @@ export function PaymentSettings({ settings, onChange }: Props) {
         error instanceof Error ? error.message : 'Não foi possível conectar ao Mercado Pago.',
       );
       setConnecting(false);
-    }
-  }
-
-  async function connectPagBank() {
-    setConnectingPagBank(true);
-    setConnectionError('');
-    try {
-      const result = await restaurantSettingsService.startPagBankOAuth();
-      const authorizationUrl = String(result?.authorizationUrl || '');
-      if (!/^https:\/\//i.test(authorizationUrl)) {
-        throw new Error('Não foi possível abrir a conexão com o PagBank.');
-      }
-      window.location.assign(authorizationUrl);
-    } catch (error) {
-      setConnectionError(
-        error instanceof Error ? error.message : 'Não foi possível conectar ao PagBank.',
-      );
-      setConnectingPagBank(false);
     }
   }
 
@@ -106,7 +87,6 @@ export function PaymentSettings({ settings, onChange }: Props) {
             >
               <option value="MERCADO_PAGO">Mercado Pago</option>
               <option value="ASAAS">Asaas</option>
-              <option value="PAGBANK">PagBank</option>
             </FormSelect>
           </Field>
           <Field label="Chave Pix" hint="Use uma chave válida da conta escolhida, quando necessário.">
@@ -123,7 +103,6 @@ export function PaymentSettings({ settings, onChange }: Props) {
             >
               <option value="">Selecione</option>
               <option value="MERCADO_PAGO">Mercado Pago</option>
-              <option value="PAGBANK">PagBank</option>
               <option value="ASAAS">Asaas</option>
             </FormSelect>
           </Field>
@@ -178,15 +157,7 @@ export function PaymentSettings({ settings, onChange }: Props) {
           </>
         )}
 
-        {(settings.cardGateway === 'PAGBANK' || settings.pixProvider === 'PAGBANK') && (
-          <S.SaveButton type="button" onClick={connectPagBank} disabled={connectingPagBank}>
-            {connectingPagBank
-              ? 'Abrindo PagBank...'
-              : settings.pagbankTokenConfigured
-                ? 'Reconectar conta PagBank'
-                : 'Conectar minha conta PagBank'}
-          </S.SaveButton>
-        )}
+
 
         {connectionError && <S.InfoBox>{connectionError}</S.InfoBox>}
         {asaasError && <S.InfoBox>{asaasError}</S.InfoBox>}
