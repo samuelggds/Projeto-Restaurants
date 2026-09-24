@@ -70,7 +70,7 @@ class CustomerPaymentMethodService {
     // vinculada ao Access Token do restaurante. Usar a rota publica compartilhada
     // evita que um fallback global gere um card token de outra conta do Mercado Pago.
     const response = await api.get(`/settings/public/${restaurantId}/card-payment-config`);
-    return response.data as { provider: 'PAGBANK' | 'MERCADO_PAGO' | 'ASAAS'; publicKey?: string };
+    return response.data as { provider: 'MERCADO_PAGO' | 'ASAAS'; publicKey?: string };
   }
   async create(payload: Record<string, unknown>) {
     const response = await api.post('/customer-payment-methods', payload);
