@@ -495,6 +495,83 @@ class OrderPixPaymentService {
 
     void pixProvider;
     const resolvedPixProvider = this.normalizePixProvider(settings?.pixProvider);
+
+    if (
+      idempotencyKey &&
+      pixProvider &&
+      this.normalizePixProvider(pixProvider) !== resolvedPixProvider
+    ) {
+      throw new Error('O provedor PIX mudou. Concilie a tentativa anterior antes de continuar.');
+    }
+    const minimumOrder = Number(settings?.minimumOrder || 0);
+    const deliveryFee = Number(settings?.deliveryFee || 0);
+    const freeShippingMinimum = Number(settings?.freeShippingMinimum || 0);
+
+    const persistedTotal = Number(orderTotal);
+    const hasPersistedTotal = Number.isFinite(persistedTotal) && persistedTotal >= 0;
+    const persistedSubtotal = Number(orderSubtotal);
+    const persistedDeliveryFee = Number(orderDeliveryFee);
+    const subtotal = hasPersistedTotal
+      ? Number.isFinite(persistedSubtotal) && persistedSubtotal >= 0
+        ? persistedSubtotal
+        : Math.max(
+            persistedTotal -
+              (Number.isFinite(persistedDeliveryFee)
+                ? persistedDeliveryFee
+                : normalizedType === 'DELIVERY'
+                  ? Math.max(deliveryFee, 0)
+                  : 0),
+            0,
+          )
+      : await this.calculateOrderSubtotal({
+          restaurantId: normalizedRestaurantId,
+          items,
+        });
+
+    if (
+      !hasPersistedTotal &&
+      normalizedType === 'DELIVERY' &&
+      minimumOrder > 0 &&
+      subtotal < minimumOrder
+    ) {
+      throw new Error(
+        `Pedido mínimo sobre o subtotal para delivery: R$ ${minimumOrder.toFixed(2)}. A taxa de entrega é cobrada à parte.`,
+      );
+    }
+
+    const additionalFee = hasPersistedTotal
+      ? Math.max(Number.isFinite(persistedDeliveryFee) ? persistedDeliveryFee : 0, 0)
+      : normalizedType === 'DELIVERY'
+        ? freeShippingMinimum > 0 && subtotal >= freeShippingMinimum
+          ? 0
+          : Math.max(deliveryFee, 0)
+        : 0;
+    const totalAmount = Number(
+      (hasPersistedTotal ? persistedTotal : subtotal + additionalFee).toFixed(2),
+    );
+
+    if (totalAmount <= 0) {
+      throw new Error('Total do pedido inválido para gerar cobrança PIX.');
+    }
+
+    const requestedExpiresAt = expiresAt ? new Date(expiresAt) : null;
+    if (requestedExpiresAt && Number.isNaN(requestedExpiresAt.getTime())) {
+      throw new Error('Expiração PIX inválida.');
+    }
+    if (requestedExpiresAt && requestedExpiresAt.getTime() <= Date.now()) {
+      throw new Error('A expiração PIX precisa estar no futuro.');
+    }
+    const expiresAtIso = requestedExpiresAt?.toISOString() || null;
+
+    const payerEmail = this.normalizeEmail(
+      userEmail ||
+        (sourceOrderId
+          ? `guest.pix.${normalizedRestaurantId}.${sourceOrderId}@gastronexa.local`
+          : null),
+      normalizedRestaurantId,
+    );
+    const payerName = String(customerName || 'Cliente').trim();
+    const cpf = this.normalizeCpf(customerCpf);
     if (resolvedPixProvider === PIX_PROVIDERS.PAGARME) {
       assertFuturePaymentProviderEnabled('PAGARME');
       if (!sourceOrderId) {
@@ -584,82 +661,6 @@ class OrderPixPaymentService {
       };
     }
 
-    if (
-      idempotencyKey &&
-      pixProvider &&
-      this.normalizePixProvider(pixProvider) !== resolvedPixProvider
-    ) {
-      throw new Error('O provedor PIX mudou. Concilie a tentativa anterior antes de continuar.');
-    }
-    const minimumOrder = Number(settings?.minimumOrder || 0);
-    const deliveryFee = Number(settings?.deliveryFee || 0);
-    const freeShippingMinimum = Number(settings?.freeShippingMinimum || 0);
-
-    const persistedTotal = Number(orderTotal);
-    const hasPersistedTotal = Number.isFinite(persistedTotal) && persistedTotal >= 0;
-    const persistedSubtotal = Number(orderSubtotal);
-    const persistedDeliveryFee = Number(orderDeliveryFee);
-    const subtotal = hasPersistedTotal
-      ? Number.isFinite(persistedSubtotal) && persistedSubtotal >= 0
-        ? persistedSubtotal
-        : Math.max(
-            persistedTotal -
-              (Number.isFinite(persistedDeliveryFee)
-                ? persistedDeliveryFee
-                : normalizedType === 'DELIVERY'
-                  ? Math.max(deliveryFee, 0)
-                  : 0),
-            0,
-          )
-      : await this.calculateOrderSubtotal({
-          restaurantId: normalizedRestaurantId,
-          items,
-        });
-
-    if (
-      !hasPersistedTotal &&
-      normalizedType === 'DELIVERY' &&
-      minimumOrder > 0 &&
-      subtotal < minimumOrder
-    ) {
-      throw new Error(
-        `Pedido mínimo sobre o subtotal para delivery: R$ ${minimumOrder.toFixed(2)}. A taxa de entrega é cobrada à parte.`,
-      );
-    }
-
-    const additionalFee = hasPersistedTotal
-      ? Math.max(Number.isFinite(persistedDeliveryFee) ? persistedDeliveryFee : 0, 0)
-      : normalizedType === 'DELIVERY'
-        ? freeShippingMinimum > 0 && subtotal >= freeShippingMinimum
-          ? 0
-          : Math.max(deliveryFee, 0)
-        : 0;
-    const totalAmount = Number(
-      (hasPersistedTotal ? persistedTotal : subtotal + additionalFee).toFixed(2),
-    );
-
-    if (totalAmount <= 0) {
-      throw new Error('Total do pedido inválido para gerar cobrança PIX.');
-    }
-
-    const requestedExpiresAt = expiresAt ? new Date(expiresAt) : null;
-    if (requestedExpiresAt && Number.isNaN(requestedExpiresAt.getTime())) {
-      throw new Error('Expiração PIX inválida.');
-    }
-    if (requestedExpiresAt && requestedExpiresAt.getTime() <= Date.now()) {
-      throw new Error('A expiração PIX precisa estar no futuro.');
-    }
-    const expiresAtIso = requestedExpiresAt?.toISOString() || null;
-
-    const payerEmail = this.normalizeEmail(
-      userEmail ||
-        (sourceOrderId
-          ? `guest.pix.${normalizedRestaurantId}.${sourceOrderId}@gastronexa.local`
-          : null),
-      normalizedRestaurantId,
-    );
-    const payerName = String(customerName || 'Cliente').trim();
-    const cpf = this.normalizeCpf(customerCpf);
     if (resolvedPixProvider === PIX_PROVIDERS.ASAAS) {
       assertFuturePaymentProviderEnabled('ASAAS');
       const accessToken = await this.getAsaasAccessToken(normalizedRestaurantId);
