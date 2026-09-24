@@ -65,9 +65,6 @@ type UpdateRestaurantSettingsPayload = {
   pagarmeEnvironment?: string | null;
   picpayToken?: string | null;
   asaasAccessToken?: string | null;
-  pagbankEmail?: string | null;
-  pagbankToken?: string | null;
-  pagbankEnvironment?: string | null;
   ownerDocumentFileUrl?: string | null;
   bankProofFileUrl?: string | null;
   companyContractFileUrl?: string | null;
@@ -209,9 +206,6 @@ class UpdateRestaurantSettingsService {
     pagarmeEnvironment,
     picpayToken,
     asaasAccessToken,
-    pagbankEmail,
-    pagbankToken,
-    pagbankEnvironment,
     ownerDocumentFileUrl,
     bankProofFileUrl,
     companyContractFileUrl,
@@ -328,14 +322,6 @@ class UpdateRestaurantSettingsService {
       picpayToken === undefined ? undefined : String(picpayToken || '').trim() || null;
     const normalizedAsaasAccessToken =
       asaasAccessToken === undefined ? undefined : String(asaasAccessToken || '').trim() || null;
-    const normalizedPagBankEmail =
-      pagbankEmail === undefined ? undefined : String(pagbankEmail || '').trim() || null;
-    const normalizedPagBankToken = String(pagbankToken || '').trim() || undefined;
-    const replacedPagBankToken = Boolean(
-      normalizedPagBankToken &&
-      normalizedPagBankToken !== String(settings.pagbankToken || '').trim(),
-    );
-    const normalizedPagBankEnvironment = 'production';
     const normalizedBusinessHours = normalizeBusinessHours(businessHours);
     const normalizedIsOpenForOrders =
       isOpenForOrders === undefined
@@ -422,8 +408,8 @@ class UpdateRestaurantSettingsService {
     const requestedCardGateway =
       cardGateway === undefined ? null : String(cardGateway || '').trim().toUpperCase();
     if (
-      ['PAGBANK', 'PAGARME', 'ASAAS'].includes(requestedPixProvider || '') ||
-      ['PAGBANK', 'PAGARME', 'ASAAS'].includes(requestedCardGateway || '')
+      (requestedPixProvider && requestedPixProvider !== 'MERCADO_PAGO') ||
+      (requestedCardGateway && requestedCardGateway !== 'MERCADO_PAGO')
     ) {
       throw new Error(
         'No momento, apenas Mercado Pago está disponível para Pix e cartão. Asaas e Pagar.me serão liberados futuramente após o cadastro empresarial/CNPJ.',
@@ -615,10 +601,6 @@ class UpdateRestaurantSettingsService {
         : {}),
       picpayToken: normalizedPicPayToken,
       asaasAccessToken: normalizedAsaasAccessToken,
-      pagbankEmail: normalizedPagBankEmail,
-      pagbankToken: normalizedPagBankToken,
-      ...(replacedPagBankToken ? { pagbankRefreshToken: null, pagbankTokenExpiresAt: null } : {}),
-      pagbankEnvironment: normalizedPagBankEnvironment,
       ownerDocumentFileUrl:
         ownerDocumentFileUrl === undefined
           ? undefined
@@ -722,8 +704,6 @@ class UpdateRestaurantSettingsService {
       picpayToken: null,
       asaasAccessToken: null,
       asaasWebhookTokenHash: null,
-      pagbankToken: null,
-      pagbankRefreshToken: null,
       stripeSecretKeyConfigured: Boolean(String(updated?.stripeSecretKey || '').trim()),
       stripeWebhookSecretConfigured: Boolean(String(updated?.stripeWebhookSecret || '').trim()),
       mercadoPagoAccessTokenConfigured: Boolean(
@@ -731,7 +711,6 @@ class UpdateRestaurantSettingsService {
       ),
       picpayTokenConfigured: Boolean(String(updated?.picpayToken || '').trim()),
       asaasAccessTokenConfigured: Boolean(String(updated?.asaasAccessToken || '').trim()),
-      pagbankTokenConfigured: Boolean(String(updated?.pagbankToken || '').trim()),
       whatsapp:
         whatsapp !== undefined
           ? normalizedWhatsapp
