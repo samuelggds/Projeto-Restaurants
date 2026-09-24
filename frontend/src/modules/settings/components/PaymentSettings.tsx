@@ -86,6 +86,7 @@ export function PaymentSettings({ settings, onChange }: Props) {
               onChange={(event) => onChange({ pixProvider: event.target.value })}
             >
               <option value="MERCADO_PAGO">Mercado Pago</option>
+              <option value="PAGARME">Pagar.me</option>
               <option value="ASAAS">Asaas</option>
             </FormSelect>
           </Field>
@@ -103,6 +104,7 @@ export function PaymentSettings({ settings, onChange }: Props) {
             >
               <option value="">Selecione</option>
               <option value="MERCADO_PAGO">Mercado Pago</option>
+              <option value="PAGARME">Pagar.me</option>
               <option value="ASAAS">Asaas</option>
             </FormSelect>
           </Field>
@@ -118,6 +120,49 @@ export function PaymentSettings({ settings, onChange }: Props) {
                   : 'Conectar minha conta Mercado Pago'}
             </S.SaveButton>
             {connectionError && <S.InfoBox>{connectionError}</S.InfoBox>}
+          </>
+        )}
+
+        {(settings.cardGateway === 'PAGARME' || settings.pixProvider === 'PAGARME') && (
+          <>
+            <Field label="Public Key do Pagar.me">
+              <FormInput
+                value={settings.pagarmePublicKey}
+                placeholder="pk_... ou pk_test_..."
+                autoComplete="off"
+                onChange={(event) => onChange({ pagarmePublicKey: event.target.value.trim() })}
+              />
+            </Field>
+            <Field label="Secret Key do Pagar.me" hint="Nunca é exibida depois de salva.">
+              <FormInput
+                type="password"
+                value={settings.pagarmeSecretKey}
+                placeholder={
+                  settings.pagarmeSecretKeyConfigured
+                    ? 'Já configurada — deixe em branco para manter'
+                    : 'sk_... ou sk_test_...'
+                }
+                autoComplete="new-password"
+                onChange={(event) => onChange({ pagarmeSecretKey: event.target.value.trim() })}
+              />
+            </Field>
+            <Field label="Ambiente">
+              <FormSelect
+                value={settings.pagarmeEnvironment}
+                onChange={(event) =>
+                  onChange({
+                    pagarmeEnvironment:
+                      event.target.value === 'sandbox' ? 'sandbox' : 'production',
+                  })
+                }
+              >
+                <option value="sandbox">Sandbox / testes</option>
+                <option value="production">Produção</option>
+              </FormSelect>
+            </Field>
+            <S.InfoBox>
+              Salve as alterações para validar as chaves do Pagar.me. Número do cartão e CVV não são enviados ao servidor do GastroNexa.
+            </S.InfoBox>
           </>
         )}
 
