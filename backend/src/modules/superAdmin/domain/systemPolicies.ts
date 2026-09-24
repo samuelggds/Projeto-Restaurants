@@ -64,13 +64,6 @@ export function getPublicSystemPolicies(
   const mercadoPagoConfigured =
     configuredValue(env, 'PLATFORM_MP_ACCESS_TOKEN', 'MP_ACCESS_TOKEN') ||
     allConfigured(env, ['MP_OAUTH_CLIENT_ID', 'MP_OAUTH_CLIENT_SECRET']);
-  const pagBankConfigured =
-    allConfigured(env, ['PAGBANK_EMAIL', 'PAGBANK_TOKEN']) ||
-    allConfigured(env, [
-      'PAGBANK_CONNECT_CLIENT_ID',
-      'PAGBANK_CONNECT_CLIENT_SECRET',
-      'PAGBANK_CONNECT_PLATFORM_TOKEN',
-    ]);
   const stripeConfigured = allConfigured(env, ['STRIPE_SECRET_KEY', 'STRIPE_WEBHOOK_SECRET']);
   const whatsappConfigured = allConfigured(env, ['WHATSAPP_WEBHOOK_URL', 'WHATSAPP_WEBHOOK_TOKEN']);
 
@@ -134,13 +127,6 @@ export function getPublicSystemPolicies(
         mercadoPagoConfigured ? 'Configurado' : 'Não configurado',
         'Credencial global ou OAuth da plataforma; o segredo nunca é exibido.',
         mercadoPagoConfigured,
-      ),
-      policy(
-        'pagBank',
-        'PagBank',
-        pagBankConfigured ? 'Configurado' : 'Não configurado',
-        'Credencial global ou Connect; o segredo nunca é exibido.',
-        pagBankConfigured,
       ),
       policy(
         'asaas',
