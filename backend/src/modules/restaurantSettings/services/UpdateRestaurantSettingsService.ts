@@ -412,7 +412,7 @@ class UpdateRestaurantSettingsService {
       (requestedCardGateway && requestedCardGateway !== 'MERCADO_PAGO')
     ) {
       throw new Error(
-        'No momento, apenas Mercado Pago está disponível para Pix e cartão. Asaas e Pagar.me serão liberados futuramente após o cadastro empresarial/CNPJ.',
+        'No momento, apenas Mercado Pago está disponível para Pix e cartão. Asaas e Pagar.me estão temporariamente indisponíveis.',
       );
     }
 
@@ -421,11 +421,10 @@ class UpdateRestaurantSettingsService {
       !futureProvidersEnabled &&
       (normalizedPagarmeSecretKey !== undefined ||
         normalizedPagarmePublicKey !== undefined ||
-        normalizedPagarmeEnvironment !== undefined ||
         normalizedAsaasAccessToken !== undefined)
     ) {
       throw new Error(
-        'Asaas e Pagar.me estão preparados para integração futura, mas permanecem indisponíveis até a liberação do cadastro empresarial/CNPJ.',
+        'Asaas e Pagar.me estão temporariamente indisponíveis.',
       );
     }
 
