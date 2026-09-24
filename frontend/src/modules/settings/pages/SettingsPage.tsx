@@ -94,9 +94,6 @@ function buildSettingsFromApi(raw: Record<string, unknown>): RestaurantSettings 
       raw?.monthlyRevenue === null || raw?.monthlyRevenue === undefined
         ? null
         : Number(raw.monthlyRevenue),
-    pagbankEmail: String(raw?.pagbankEmail ?? ''),
-    pagbankToken: '',
-    pagbankTokenConfigured: Boolean(raw?.pagbankTokenConfigured),
     social: {
       instagram: String(raw?.instagram ?? ''),
       facebook: String(raw?.facebook ?? ''),
@@ -160,12 +157,10 @@ function buildApiPayload(settings: RestaurantSettings) {
     pixProvider: settings.pixProvider,
     pixKey: settings.pixKey,
     cardGateway: settings.cardGateway,
-    pagbankEmail: settings.pagbankEmail,
     ...(settings.mercadoPagoAccessToken
       ? { mercadoPagoAccessToken: settings.mercadoPagoAccessToken }
       : {}),
     ...(settings.asaasAccessToken ? { asaasAccessToken: settings.asaasAccessToken } : {}),
-    ...(settings.pagbankToken ? { pagbankToken: settings.pagbankToken } : {}),
   };
 }
 
