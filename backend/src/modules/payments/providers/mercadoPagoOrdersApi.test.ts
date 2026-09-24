@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {
   getMercadoPagoOrderApi,
   getMercadoPagoPreferenceApi,
+  mercadoPagoCheckoutIdempotencyKey,
 } from './mercadoPagoClient.js';
 
 const originalFetch = globalThis.fetch;
@@ -75,6 +76,37 @@ test('adapta Checkout Pro legado para POST /v1/orders com idempotência e checko
     id: 'ORD01ABC',
     init_point: 'https://www.mercadopago.com.br/checkout/v1/redirect?order_id=ORD01ABC',
   });
+});
+
+test('gera idempotência UUID estável para Checkout Pro', () => {
+  const first = mercadoPagoCheckoutIdempotencyKey('open-finance:7:91');
+  const second = mercadoPagoCheckoutIdempotencyKey('open-finance:7:91');
+  assert.equal(first, second);
+  assert.match(first, /^[0-9a-f]{8}-[0-9a-f]{4}-5[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
+});
+
+test('cancela uma order com chave idempotente', async () => {
+  let requested = '';
+  let requestInit: RequestInit | undefined;
+  globalThis.fetch = async (input, init) => {
+    requested = String(input);
+    requestInit = init;
+    return Response.json({ id: 'ORD_OPEN_123', status: 'cancelled' });
+  };
+
+  const api = await getMercadoPagoOrderApi();
+  const result = await api.cancel(
+    'ORD_OPEN_123',
+    '5d90783e-4f75-5b45-ab4a-06829cc70dc2',
+  );
+
+  assert.equal(requested, 'https://api.mercadopago.com/v1/orders/ORD_OPEN_123/cancel');
+  assert.equal(requestInit?.method, 'POST');
+  assert.equal(
+    new Headers(requestInit?.headers).get('x-idempotency-key'),
+    '5d90783e-4f75-5b45-ab4a-06829cc70dc2',
+  );
+  assert.equal(result.status, 'cancelled');
 });
 
 test('consulta uma order pelo endpoint oficial', async () => {
