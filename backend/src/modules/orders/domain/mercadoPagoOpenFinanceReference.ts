@@ -4,11 +4,11 @@ export function mercadoPagoOpenFinanceExternalReference(
   orderId: number | string,
   restaurantId: number | string,
 ) {
-  return `orderopenfinance:${Number(restaurantId)}:${Number(orderId)}`;
+  return `orderopenfinance_${Number(restaurantId)}_${Number(orderId)}`;
 }
 
 export function parseMercadoPagoOpenFinanceExternalReference(value: unknown) {
-  const match = /^orderopenfinance:(\d+):(\d+)$/i.exec(String(value || '').trim());
+  const match = /^orderopenfinance_(\d+)_(\d+)$/i.exec(String(value || '').trim());
   if (!match) return null;
 
   const restaurantId = Number(match[1] || 0);
