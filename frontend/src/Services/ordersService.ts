@@ -353,6 +353,16 @@ class OrdersService {
     return this.createOnlinePayment('/orders/pix/payment', payload);
   }
 
+  async listOpenFinanceInstitutions() {
+    const response = await api.get('/orders/open-finance/institutions');
+    const institutions = Array.isArray(response.data?.institutions) ? response.data.institutions : [];
+    return institutions as Array<{ id: string; name: string; logo?: string | null }>;
+  }
+
+  async createOpenFinancePayment(payload: PixPaymentPayload & { payerInstitution: string }) {
+    return this.createOnlinePayment('/orders/open-finance/payment', payload);
+  }
+
   async createCardCheckout(payload: PixPaymentPayload) {
     return this.createOnlinePayment('/orders/card/checkout', payload);
   }
