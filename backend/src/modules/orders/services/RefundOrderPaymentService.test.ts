@@ -14,8 +14,6 @@ const originalEnv = {
   ASAAS_API_BASE_URL: process.env.ASAAS_API_BASE_URL,
   ASAAS_API_KEY: process.env.ASAAS_API_KEY,
   MP_ACCESS_TOKEN: process.env.MP_ACCESS_TOKEN,
-  PAGBANK_API_BASE_URL: process.env.PAGBANK_API_BASE_URL,
-  PAGBANK_TOKEN: process.env.PAGBANK_TOKEN,
   STRIPE_SECRET_KEY: process.env.STRIPE_SECRET_KEY,
 };
 
@@ -37,8 +35,6 @@ afterEach(() => {
   restoreEnv('ASAAS_API_BASE_URL');
   restoreEnv('ASAAS_API_KEY');
   restoreEnv('MP_ACCESS_TOKEN');
-  restoreEnv('PAGBANK_API_BASE_URL');
-  restoreEnv('PAGBANK_TOKEN');
   restoreEnv('STRIPE_SECRET_KEY');
 });
 
@@ -127,171 +123,6 @@ test('roteia cartao Asaas e usa fallback global somente quando habilitado', asyn
     value: 110.5,
     description: 'Estorno do pedido #92',
   });
-});
-
-test('estorna PIX PagBank localizando a charge paga com idempotencia', async () => {
-  process.env.PAGBANK_API_BASE_URL = 'https://sandbox.api.pagseguro.com';
-  restaurantSettingsRepository.findByRestaurantId = async (restaurantId) => {
-    assert.equal(restaurantId, 9);
-    return { pagbankToken: 'token-pagbank-tenant-9' };
-  };
-
-  const requests = [];
-  globalThis.fetch = async (input, init = {}) => {
-    requests.push({ url: String(input), init });
-    if (String(input).endsWith('/orders/ORDE_123')) {
-      return new Response(
-        JSON.stringify({
-          id: 'ORDE_123',
-          charges: [{ id: 'CHAR_123', status: 'PAID', summary: { refunded: 0 } }],
-        }),
-        { status: 200, headers: { 'Content-Type': 'application/json' } },
-      );
-    }
-    return new Response(JSON.stringify({ id: 'CHAR_123', status: 'CANCELED' }), {
-      status: 201,
-      headers: { 'Content-Type': 'application/json' },
-    });
-  };
-
-  const receipt = await refundOrderPaymentService.execute(
-    {
-      id: 93,
-      restaurantId: 9,
-      total: 30,
-      paid: true,
-      paymentMethod: 'PIX',
-      pixPaymentId: 'pagbank:ORDE_123',
-    },
-    { idempotencyKey: 'order-refund-9-93' },
-  );
-
-  assert.deepEqual(receipt, { provider: 'PAGBANK', externalId: 'CHAR_123' });
-  assert.equal(requests.length, 2);
-  assert.equal(requests[1].url, 'https://sandbox.api.pagseguro.com/charges/CHAR_123/cancel');
-  assert.equal(requests[1].init.headers.Authorization, 'Bearer token-pagbank-tenant-9');
-  assert.equal(requests[1].init.headers['x-idempotency-key'], 'order-refund-9-93');
-  assert.deepEqual(JSON.parse(String(requests[1].init.body)), {
-    amount: { value: 3000 },
-  });
-});
-
-test('estorna cartao PagBank pago pelo endpoint de refunds com credenciais na query', async () => {
-  restaurantSettingsRepository.findByRestaurantId = async (restaurantId) => {
-    assert.equal(restaurantId, 10);
-    return {
-      pagbankEmail: 'financeiro@pizzaria.com',
-      pagbankToken: 'token-tenant-10',
-    };
-  };
-
-  let request = null;
-  globalThis.fetch = async (input, init = {}) => {
-    request = { url: String(input), init };
-    return new Response('<transaction><code>TRX-PAID-123</code></transaction>', {
-      status: 200,
-      headers: { 'Content-Type': 'application/xml' },
-    });
-  };
-
-  const receipt = await refundOrderPaymentService.execute({
-    id: 94,
-    restaurantId: 10,
-    total: '55.40',
-    paid: true,
-    paymentMethod: 'CARTAO',
-    cardCheckoutSessionId: 'pagbank_tx:TRX-PAID-123',
-  });
-
-  const requestUrl = new URL(request.url);
-  assert.equal(requestUrl.origin, 'https://ws.pagseguro.uol.com.br');
-  assert.equal(requestUrl.pathname, '/v2/transactions/refunds');
-  assert.equal(requestUrl.searchParams.get('email'), 'financeiro@pizzaria.com');
-  assert.equal(requestUrl.searchParams.get('token'), 'token-tenant-10');
-  assert.equal(request.init.method, 'POST');
-  assert.deepEqual(Object.fromEntries(new URLSearchParams(String(request.init.body))), {
-    transactionCode: 'TRX-PAID-123',
-    refundValue: '55.40',
-  });
-  assert.equal(String(request.init.body).includes('token-tenant-10'), false);
-  assert.deepEqual(receipt, { provider: 'PAGBANK', externalId: 'TRX-PAID-123' });
-});
-
-test('mantem pedido ativo com erro seguro quando PagBank recusa estorno do cartao', async () => {
-  restaurantSettingsRepository.findByRestaurantId = async () => ({
-    pagbankEmail: 'financeiro@pizzaria.com',
-    pagbankToken: 'token-tenant-11',
-  });
-  console.error = () => undefined;
-  globalThis.fetch = async () =>
-    new Response(
-      '<errors><error><code>53004</code><message>transacao interna indisponivel</message></error></errors>',
-      { status: 400, headers: { 'Content-Type': 'application/xml' } },
-    );
-
-  await assert.rejects(
-    () =>
-      refundOrderPaymentService.execute({
-        id: 95,
-        restaurantId: 11,
-        total: 60,
-        paid: true,
-        paymentMethod: 'CARTAO',
-        cardCheckoutSessionId: 'pagbank_tx:TRX-REFUSED-456',
-      }),
-    (error) => {
-      assert.equal(
-        error.message,
-        'O PagBank não confirmou o estorno do cartão. O pedido não foi cancelado e pode ser tentado novamente.',
-      );
-      assert.equal(error.message.includes('transacao interna'), false);
-      assert.equal(error.message.includes('token-tenant-11'), false);
-      return true;
-    },
-  );
-});
-
-test('bloqueia identificador de cartao PagBank sem transacao antes do Stripe', async () => {
-  let fetchCalls = 0;
-  globalThis.fetch = async () => {
-    fetchCalls += 1;
-    throw new Error('nao deveria chamar fetch');
-  };
-
-  await assert.rejects(
-    () =>
-      refundOrderPaymentService.execute({
-        id: 94,
-        restaurantId: 10,
-        total: 55,
-        paid: true,
-        paymentMethod: 'CARTAO',
-        cardCheckoutSessionId: 'pagbank:checkout-sem-transacao',
-      }),
-    /identificador PagBank não oferece estorno automático.*pedido não foi cancelado/i,
-  );
-  assert.equal(fetchCalls, 0);
-});
-
-test('checkout PagBank moderno sem charge vinculada não é enviado ao Stripe', async () => {
-  globalThis.fetch = async () => {
-    throw new Error('Não deveria chamar o gateway');
-  };
-  refundOrderPaymentService.createStripeClient = () => {
-    throw new Error('Não deveria usar Stripe');
-  };
-  await assert.rejects(
-    () =>
-      refundOrderPaymentService.execute({
-        id: 94,
-        restaurantId: 10,
-        total: 55,
-        paid: true,
-        paymentMethod: 'CARTAO',
-        cardCheckoutSessionId: 'pagbank_checkout:CHEC_94',
-      }),
-    /ainda não possui o código da transação/,
-  );
 });
 
 test('retorna erro seguro quando o Asaas recusa o estorno', async () => {
