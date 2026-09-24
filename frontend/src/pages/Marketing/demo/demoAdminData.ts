@@ -33,7 +33,6 @@ export function discardDemoCredentials(settings: AdminSettings): AdminSettings {
     stripeWebhookSecret: '',
     mercadoPagoAccessToken: '',
     asaasAccessToken: '',
-    pagbankToken: '',
   };
 }
 
