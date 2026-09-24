@@ -28,10 +28,14 @@ test(
     const productId = fixture.products.a.id;
     await prisma.restaurantSettings.update({
       where: { restaurantId },
-      data: { cardGateway: 'PAGBANK', pixProvider: 'MERCADO_PAGO' },
+      data: {
+        cardGateway: 'ASAAS',
+        asaasAccessToken: 'tenant-e2e-token',
+        pixProvider: 'MERCADO_PAGO',
+      },
     });
     await prisma.product.update({ where: { id: productId }, data: { stock: 10 } });
-    const card = getCardCheckoutProviderHandler('PAGBANK');
+    const card = getCardCheckoutProviderHandler('ASAAS');
     const originalPix = pix.createPixPayment;
     const originalCard = card.createCheckout;
     const initialOrders = await prisma.order.count({ where: { restaurantId } });
@@ -58,7 +62,7 @@ test(
               calls++;
               if (ambiguous) throw new Error('synthetic lost gateway response');
               return {
-                provider: 'PAGBANK',
+                provider: 'ASAAS',
                 sessionId: `checkout-${randomUUID()}`,
                 checkoutUrl: 'https://payments.example.test/checkout',
               };
