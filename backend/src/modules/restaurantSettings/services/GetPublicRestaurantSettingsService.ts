@@ -2,6 +2,7 @@ import prisma from '../../../config/prisma.js';
 import restaurantSettingsRepository from '../repositories/RestaurantSettingsRepository.js';
 import restaurantRepository from '../../restaurants/repositories/RestaurantRepository.js';
 import { createPublicMediaReference } from '../../publicMedia/utils/publicMediaReference.js';
+import { isBelvoOpenFinanceConfigured } from '../../payments/providers/belvoOpenFinance.js';
 
 type RestaurantIdPayload = {
   restaurantId?: number | string;
@@ -266,6 +267,12 @@ class GetPublicRestaurantSettingsService {
 
     return {
       ...settings,
+      openFinancePixEnabled: Boolean(
+        settings.openFinancePixEnabled &&
+          settings.acceptsPix &&
+          String(settings.pixKey || '').trim() &&
+          isBelvoOpenFinanceConfigured(),
+      ),
       ...(restaurant
         ? { restaurant: externalizePublicRestaurantImages(normalizedRestaurantId, restaurant) }
         : {}),
