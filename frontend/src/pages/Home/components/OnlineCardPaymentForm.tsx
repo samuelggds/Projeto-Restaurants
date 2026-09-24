@@ -36,13 +36,6 @@ type MercadoPagoInstance = {
 
 declare global {
   interface Window {
-    PagSeguro?: {
-      encryptCard(input: Record<string, string>): {
-        encryptedCard?: string;
-        hasErrors?: boolean;
-        errors?: Array<{ message?: string }>;
-      };
-    };
     MercadoPago?: new (publicKey: string) => MercadoPagoInstance;
     MP_DEVICE_SESSION_ID?: string;
   }
@@ -190,20 +183,6 @@ export function OnlineCardPaymentForm({
     };
   }, [config, isSavedMercadoPago]);
 
-  useEffect(() => {
-    if (config?.provider !== 'PAGBANK' || !config.publicKey || isSaved) return undefined;
-    let active = true;
-    void loadSdk(
-      'pagbank',
-      'https://assets.pagseguro.com.br/checkout-sdk-js/rc/dist/browser/pagseguro.min.js',
-      () => Boolean(window.PagSeguro),
-    ).catch(() => {
-      if (active) setError('Não foi possível carregar a proteção do PagBank.');
-    });
-    return () => {
-      active = false;
-    };
-  }, [config, isSaved]);
 
   useEffect(() => {
     if (!config) {
@@ -325,28 +304,6 @@ export function OnlineCardPaymentForm({
             payerEmail: normalizedPayerEmail,
             billingPostalCode: cleanPostalCode,
             billingAddressNumber: addressNumber.trim(),
-          };
-        }
-
-        if (config.provider === 'PAGBANK') {
-          if (!config.publicKey || !window.PagSeguro) {
-            throw new Error('Aguarde a preparação segura do PagBank.');
-          }
-          const encrypted = window.PagSeguro.encryptCard({
-            publicKey: config.publicKey,
-            holder: holderName,
-            number: cleanNumber,
-            expMonth: String(month).padStart(2, '0'),
-            expYear: String(year),
-            securityCode: cleanCvv,
-          });
-          if (!encrypted.encryptedCard || encrypted.hasErrors) {
-            throw new Error(encrypted.errors?.[0]?.message || 'Revise os dados do cartão.');
-          }
-          return {
-            encryptedCard: encrypted.encryptedCard,
-            holderName,
-            holderTaxId,
           };
         }
 
