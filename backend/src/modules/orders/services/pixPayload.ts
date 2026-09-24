@@ -9,6 +9,13 @@ export function parseProviderPaymentId(paymentId: string): ParsedProviderPayment
   const normalizedPaymentId = String(paymentId || '').trim();
 
 
+  if (normalizedPaymentId.toLowerCase().startsWith('mp_open_finance_order:')) {
+    return {
+      provider: PIX_PROVIDERS.MERCADO_PAGO_OPEN_FINANCE,
+      rawPaymentId: normalizedPaymentId.slice('mp_open_finance_order:'.length).trim(),
+    };
+  }
+
   if (normalizedPaymentId.toLowerCase().startsWith('asaas:')) {
     return {
       provider: PIX_PROVIDERS.ASAAS,
