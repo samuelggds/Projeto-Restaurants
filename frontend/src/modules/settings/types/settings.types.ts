@@ -57,9 +57,6 @@ export type RestaurantSettings = {
   asaasAccessToken: string;
   asaasAccessTokenConfigured: boolean;
   monthlyRevenue: number | null;
-  pagbankEmail: string;
-  pagbankToken: string;
-  pagbankTokenConfigured: boolean;
 };
 
 export type SettingsSectionId =
