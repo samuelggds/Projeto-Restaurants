@@ -132,6 +132,62 @@ describe('PaymentSettings', () => {
     ).toBeNull();
   });
 
+  it('habilita Open Finance pela mesma conexão Mercado Pago sem exigir chave Pix manual', async () => {
+    const load = vi.fn().mockResolvedValue({
+      connections: [
+        {
+          provider: 'MERCADO_PAGO',
+          connected: true,
+          canConnect: true,
+          readyForPix: true,
+          readyForCard: true,
+          status: 'CONNECTED',
+          message: 'Conta Mercado Pago vinculada.',
+        },
+      ],
+      openFinance: {
+        available: true,
+        enabled: true,
+        ready: true,
+        message: 'Checkout Pro conectado.',
+      },
+    } satisfies PaymentConnectionOverview);
+    const update = vi.fn();
+
+    act(() =>
+      root.render(
+        <PaymentSettings
+          settings={{
+            ...adminMockSettings,
+            acceptsPix: true,
+            openFinancePixEnabled: true,
+            acceptsCard: true,
+            pixProvider: 'MERCADO_PAGO',
+            cardGateway: 'MERCADO_PAGO',
+            pixKey: '',
+            mercadoPagoAccessTokenConfigured: true,
+          }}
+          update={update}
+          onLoadPaymentConnections={load}
+        />,
+      ),
+    );
+
+    await act(() => new Promise((resolve) => setTimeout(resolve, 10)));
+
+    const toggle = container.querySelector(
+      '[aria-label="Aceitar Pix pelo app do banco via Open Finance"]',
+    ) as HTMLInputElement;
+    expect(toggle.checked).toBe(true);
+    expect(toggle.disabled).toBe(false);
+    expect(container.textContent).toContain('Checkout Pro conectado');
+    expect(
+      container.querySelector(
+        'input[placeholder="CPF, CNPJ, e-mail, telefone ou chave aleatória"]',
+      ),
+    ).toBeNull();
+  });
+
   it('mantém cadastro Asaas pendente até a aprovação e permite conferir a atualização', async () => {
     const pending: PaymentConnectionOverview = {
       connections: [
