@@ -1,16 +1,6 @@
 import restaurantSettingsRepository from '../repositories/RestaurantSettingsRepository.js';
 import { getMercadoPagoAccessToken } from './RestaurantPaymentCredentialsService.js';
-import getAsaasConnectionStatusService from './GetAsaasConnectionStatusService.js';
-import {
-  ASAAS_TEMPORARILY_UNAVAILABLE_MESSAGE,
-  asaasPlatformEnabled,
-  asaasWebhookConfiguration,
-} from './asaasConnectionApi.js';
 import { mercadoPagoWebhookSecrets } from '../../payments/providers/mercadoPagoWebhookSignature.js';
-import {
-  pagarmeJson,
-  validatePagarmeKeys,
-} from '../../payments/providers/pagarmeV5.js';
 import { parseCredentialEncryptionKey } from '../security/credentialEncryption.js';
 import { resolveOAuthEndpoint } from '../security/oauthEndpoints.js';
 import { isBelvoOpenFinanceConfigured } from '../../payments/providers/belvoOpenFinance.js';
@@ -32,6 +22,9 @@ type Connection = {
   message: string;
   onboardingUrl?: string | null;
 };
+
+const FUTURE_PROVIDER_MESSAGE =
+  'Integração preparada, mas temporariamente indisponível. Será liberada quando a plataforma concluir o cadastro empresarial/CNPJ.';
 
 function configured(...names: string[]) {
   return names.some((name) => Boolean(String(process.env[name] || '').trim()));
@@ -69,31 +62,28 @@ function validCallback(value: string | undefined, path: string) {
 export function paymentConnectionConfiguration(provider: Provider) {
   try {
     if (!parseCredentialEncryptionKey()) return false;
-    if (provider === 'ASAAS') {
-      if (!asaasPlatformEnabled()) return false;
-      asaasWebhookConfiguration('');
-      return configured('ASAAS_API_KEY');
-    }
-    if (provider === 'PAGARME') {
-      return true;
-    }
-    if (!publicHttps(process.env.FRONTEND_URL) || !publicHttps(process.env.BACKEND_URL))
+
+    // Asaas e Pagar.me permanecem estruturados para integração futura, mas
+    // não podem ser ativados enquanto a plataforma não liberar o cadastro empresarial.
+    if (provider === 'ASAAS' || provider === 'PAGARME') return false;
+
+    if (!publicHttps(process.env.FRONTEND_URL) || !publicHttps(process.env.BACKEND_URL)) {
       return false;
-    if (provider === 'MERCADO_PAGO') {
-      resolveOAuthEndpoint('MERCADO_PAGO_API');
-      resolveOAuthEndpoint('MERCADO_PAGO_AUTHORIZATION');
-      return (
-        configured('MP_OAUTH_CLIENT_ID', 'MP_CLIENT_ID', 'MERCADO_PAGO_CLIENT_ID') &&
-        configured('MP_OAUTH_CLIENT_SECRET', 'MP_CLIENT_SECRET', 'MERCADO_PAGO_CLIENT_SECRET') &&
-        validCallback(process.env.MP_OAUTH_REDIRECT_URI, '/settings/mercado-pago/oauth/callback') &&
-        mercadoPagoWebhookSecrets().length > 0 &&
-        publicHttps(
-          process.env.MP_ORDER_NOTIFICATION_URL ||
-            `${process.env.BACKEND_URL}/orders/webhook/mercadopago`,
-        )
-      );
     }
-    return false;
+
+    resolveOAuthEndpoint('MERCADO_PAGO_API');
+    resolveOAuthEndpoint('MERCADO_PAGO_AUTHORIZATION');
+
+    return (
+      configured('MP_OAUTH_CLIENT_ID', 'MP_CLIENT_ID', 'MERCADO_PAGO_CLIENT_ID') &&
+      configured('MP_OAUTH_CLIENT_SECRET', 'MP_CLIENT_SECRET', 'MERCADO_PAGO_CLIENT_SECRET') &&
+      validCallback(process.env.MP_OAUTH_REDIRECT_URI, '/settings/mercado-pago/oauth/callback') &&
+      mercadoPagoWebhookSecrets().length > 0 &&
+      publicHttps(
+        process.env.MP_ORDER_NOTIFICATION_URL ||
+          `${process.env.BACKEND_URL}/orders/webhook/mercadopago`,
+      )
+    );
   } catch {
     return false;
   }
@@ -103,144 +93,77 @@ class GetPaymentConnectionsService {
   async execute({ restaurantId }: { restaurantId: number | string }) {
     const id = Number(restaurantId);
     if (!Number.isSafeInteger(id) || id <= 0) throw new Error('Restaurante inválido.');
+
     const settings = await restaurantSettingsRepository.findByRestaurantId(id);
-    const connections = await Promise.all(
-      (['MERCADO_PAGO', 'PAGARME', 'ASAAS'] as const).map(async (provider): Promise<Connection> => {
-        const connected = Boolean(
-          provider === 'MERCADO_PAGO'
-            ? settings?.mercadoPagoAccessToken
-            : provider === 'PAGARME'
-              ? settings?.pagarmeSecretKey && settings?.pagarmePublicKey
-              : settings?.asaasAccessToken,
-        );
-        const canConnect = paymentConnectionConfiguration(provider);
-        const unavailableMessage =
-          provider === 'ASAAS' && !asaasPlatformEnabled()
-            ? ASAAS_TEMPORARILY_UNAVAILABLE_MESSAGE
-            : 'A conexão está sendo preparada pela plataforma. Tente novamente após a configuração.';
-        const result: Connection = {
-          provider,
-          connected,
-          canConnect,
-          readyForPix: false,
-          readyForCard: false,
-          status: !canConnect ? 'UNAVAILABLE' : 'NOT_CONNECTED',
-          message: !canConnect
-            ? unavailableMessage
-            : 'Conecte a conta do restaurante para receber por Pix e cartão.',
-        };
 
-        if (provider === 'ASAAS') {
-          if (!asaasPlatformEnabled()) return result;
-          const status = await getAsaasConnectionStatusService.execute({ restaurantId: id });
-          if (status.recoveryRequired)
-            return {
-              ...result,
-              canConnect: false,
-              status: 'ACTION_REQUIRED',
-              message: status.message,
-            };
-          if (!canConnect || !connected) return result;
-          return {
-            ...result,
-            readyForPix: status.readyForPayments,
-            readyForCard: status.readyForPayments,
-            status: status.readyForPayments
-              ? 'CONNECTED'
-              : status.approvalStatus === 'PENDING'
-                ? 'PENDING_APPROVAL'
-                : 'ACTION_REQUIRED',
-            message: status.message,
-            onboardingUrl: status.onboardingUrl,
-          };
-        }
-        if (provider === 'PAGARME') {
-          if (!connected) return result;
-          try {
-            const credentials = validatePagarmeKeys(
-              settings?.pagarmeSecretKey,
-              settings?.pagarmePublicKey,
-            );
-            const check = await pagarmeJson<Record<string, unknown>>(
-              credentials.secretKey,
-              '/orders?page=1&size=1',
-              { method: 'GET', signal: AbortSignal.timeout(8_000) },
-            );
-            if (!check.response.ok) {
-              return {
-                ...result,
-                status: 'ACTION_REQUIRED',
-                message:
-                  'As chaves do Pagar.me não foram aceitas. Revise as credenciais e salve novamente.',
-              };
-            }
-            return {
-              ...result,
-              readyForPix: true,
-              readyForCard: true,
-              status: 'CONNECTED',
-              message:
-                'Pagar.me validado para receber Pix e cartão nesta conta do restaurante.',
-            };
-          } catch {
-            return {
-              ...result,
-              status: 'ACTION_REQUIRED',
-              message:
-                'Não foi possível validar o Pagar.me. Revise as chaves e o ambiente configurado.',
-            };
-          }
-        }
-        if (!canConnect || !connected) return result;
+    const connections: Connection[] = [
+      {
+        provider: 'MERCADO_PAGO',
+        connected: Boolean(settings?.mercadoPagoAccessToken),
+        canConnect: paymentConnectionConfiguration('MERCADO_PAGO'),
+        readyForPix: false,
+        readyForCard: false,
+        status: 'NOT_CONNECTED',
+        message: 'Conecte a conta Mercado Pago do restaurante para receber Pix e cartão.',
+      },
+      {
+        provider: 'PAGARME',
+        connected: false,
+        canConnect: false,
+        readyForPix: false,
+        readyForCard: false,
+        status: 'UNAVAILABLE',
+        message: FUTURE_PROVIDER_MESSAGE,
+      },
+      {
+        provider: 'ASAAS',
+        connected: false,
+        canConnect: false,
+        readyForPix: false,
+        readyForCard: false,
+        status: 'UNAVAILABLE',
+        message: FUTURE_PROVIDER_MESSAGE,
+      },
+    ];
 
-        const renewable = Boolean(settings?.mercadoPagoRefreshToken);
-        if (!renewable) {
-          return {
-            ...result,
-            status: 'NEEDS_RECONNECT',
-            message:
-              'Conta vinculada sem renovação automática. Reconecte agora antes de receber pagamentos em produção.',
-          };
-        }
-
-        if (
-          provider === 'MERCADO_PAGO' &&
-          !String(settings?.mercadoPagoPublicKey || '').trim()
-        ) {
-          return {
-            ...result,
-            status: 'NEEDS_RECONNECT',
-            message:
-              'A conexão do Mercado Pago não possui a chave pública do restaurante. Reconecte a conta para receber pagamentos com cartão.',
-          };
-        }
-
+    const mercadoPago = connections[0];
+    if (mercadoPago.canConnect && mercadoPago.connected) {
+      const renewable = Boolean(settings?.mercadoPagoRefreshToken);
+      if (!renewable) {
+        mercadoPago.status = 'NEEDS_RECONNECT';
+        mercadoPago.message =
+          'Conta vinculada sem renovação automática. Reconecte agora antes de receber pagamentos em produção.';
+      } else if (!String(settings?.mercadoPagoPublicKey || '').trim()) {
+        mercadoPago.status = 'NEEDS_RECONNECT';
+        mercadoPago.message =
+          'A conexão do Mercado Pago não possui a chave pública do restaurante. Reconecte a conta para receber pagamentos com cartão.';
+      } else {
         try {
           await getMercadoPagoAccessToken(id);
-          return {
-            ...result,
-            readyForPix: true,
-            readyForCard: true,
-            status: 'CONNECTED',
-            message:
-              'Conta vinculada para receber Pix e cartão. A aprovação de cada pagamento é confirmada pela empresa.',
-          };
+          mercadoPago.readyForPix = true;
+          mercadoPago.readyForCard = true;
+          mercadoPago.status = 'CONNECTED';
+          mercadoPago.message =
+            'Conta Mercado Pago vinculada e pronta para receber Pix e cartão.';
         } catch {
-          return {
-            ...result,
-            status: 'NEEDS_RECONNECT',
-            message:
-              'Não foi possível validar a conexão. Conecte a conta novamente para retomar os pagamentos.',
-          };
+          mercadoPago.status = 'NEEDS_RECONNECT';
+          mercadoPago.message =
+            'Não foi possível validar a conexão Mercado Pago. Conecte a conta novamente.';
         }
-      }),
-    );
+      }
+    } else if (!mercadoPago.canConnect) {
+      mercadoPago.status = 'UNAVAILABLE';
+      mercadoPago.message =
+        'A conexão Mercado Pago ainda não está configurada corretamente na plataforma.';
+    }
+
     const openFinanceAvailable = isBelvoOpenFinanceConfigured();
     const openFinanceReady = Boolean(
       openFinanceAvailable &&
         settings?.openFinancePixEnabled &&
         String(settings?.pixKey || '').trim(),
     );
+
     return {
       connections,
       openFinance: {
