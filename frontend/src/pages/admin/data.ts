@@ -96,9 +96,6 @@ export const adminMockSettings: AdminSettings = {
   pagarmeSecretKeyConfigured: false,
   asaasAccessToken: '',
   asaasAccessTokenConfigured: false,
-  pagbankEmail: '',
-  pagbankToken: '',
-  pagbankTokenConfigured: false,
   promotionalBanners: [],
 
   deliveryFeeMode: 'FIXED',
