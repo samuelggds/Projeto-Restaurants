@@ -158,6 +158,8 @@ export function PaymentSettings({
       : providerIsConnected(settings, provider);
   const isReady = (provider: Provider, method: 'readyForPix' | 'readyForCard') =>
     connections.verifying ? Boolean(connections.get(provider)?.[method]) : isConnected(provider);
+  const canSelectProvider = (provider: Provider) =>
+    provider === 'MERCADO_PAGO' || Boolean(connections.get(provider)?.canConnect);
 
   const pixProvider = activeProvider(settings.pixProvider);
   const cardProvider = activeProvider(settings.cardGateway);
@@ -408,8 +410,12 @@ export function PaymentSettings({
               >
                 <option value="">Selecione uma empresa</option>
                 <option value="MERCADO_PAGO">Mercado Pago</option>
-                <option value="PAGARME" disabled>Pagar.me — temporariamente indisponível</option>
-                <option value="ASAAS" disabled>Asaas — temporariamente indisponível</option>
+                <option value="PAGARME" disabled={!canSelectProvider('PAGARME')}>
+                  Pagar.me{canSelectProvider('PAGARME') ? '' : ' — temporariamente indisponível'}
+                </option>
+                <option value="ASAAS" disabled={!canSelectProvider('ASAAS')}>
+                  Asaas{canSelectProvider('ASAAS') ? '' : ' — temporariamente indisponível'}
+                </option>
               </select>
               <small>Os valores serão recebidos na conta conectada desta empresa.</small>
             </PS.Field>
@@ -516,8 +522,12 @@ export function PaymentSettings({
               >
                 <option value="">Selecione uma empresa</option>
                 <option value="MERCADO_PAGO">Mercado Pago</option>
-                <option value="PAGARME" disabled>Pagar.me — temporariamente indisponível</option>
-                <option value="ASAAS" disabled>Asaas — temporariamente indisponível</option>
+                <option value="PAGARME" disabled={!canSelectProvider('PAGARME')}>
+                  Pagar.me{canSelectProvider('PAGARME') ? '' : ' — temporariamente indisponível'}
+                </option>
+                <option value="ASAAS" disabled={!canSelectProvider('ASAAS')}>
+                  Asaas{canSelectProvider('ASAAS') ? '' : ' — temporariamente indisponível'}
+                </option>
               </select>
               <small>
                 {settings.acceptsCard && !settings.cardGateway
@@ -575,8 +585,9 @@ export function PaymentSettings({
             ? connection.status === 'CONNECTED'
             : !connections.verifying && connected;
           const canConnect =
-            provider.id === 'MERCADO_PAGO' &&
-            (!connections.verifying || Boolean(connection?.canConnect));
+            provider.id === 'MERCADO_PAGO'
+              ? !connections.verifying || Boolean(connection?.canConnect)
+              : Boolean(connection?.canConnect);
           const onboardingUrl = asaasOnboardingUrl(connection?.onboardingUrl);
           const uses = selectedUse(provider.id);
           const selected = uses.length > 0;
