@@ -10,15 +10,6 @@ vi.mock('./PaymentTerminalSettings', () => ({ PaymentTerminalSettings: () => nul
 (globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT =
   true;
 
-function changeValue(element: HTMLInputElement, value: string) {
-  Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')?.set?.call(
-    element,
-    value,
-  );
-  element.dispatchEvent(new Event('input', { bubbles: true }));
-  element.dispatchEvent(new Event('change', { bubbles: true }));
-}
-
 describe('PaymentSettings', () => {
   let container: HTMLDivElement;
   let root: Root;
