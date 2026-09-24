@@ -151,9 +151,9 @@ describe('PaymentSettings', () => {
             ...adminMockSettings,
             acceptsPix: true,
             acceptsCard: false,
-            pixProvider: 'PAGBANK',
+            pixProvider: 'MERCADO_PAGO',
             pixKey: '',
-            pagbankTokenConfigured: true,
+            mercadoPagoAccessTokenConfigured: true,
           }}
           update={() => undefined}
         />,
@@ -232,8 +232,8 @@ describe('PaymentSettings', () => {
             ...adminMockSettings,
             acceptsPix: true,
             acceptsCard: false,
-            pixProvider: 'PAGBANK',
-            pagbankTokenConfigured: true,
+            pixProvider: 'MERCADO_PAGO',
+            mercadoPagoAccessTokenConfigured: true,
           }}
           update={() => undefined}
           onLoadPaymentConnections={load}
@@ -244,7 +244,7 @@ describe('PaymentSettings', () => {
     expect(container.textContent).not.toContain('Configuração completa');
     expect(container.textContent).toContain('Não foi possível verificar as conexões');
     const connect = Array.from(container.querySelectorAll('button')).find(
-      (button) => button.textContent === 'Conectar PagBank',
+      (button) => button.textContent === 'Conectar Mercado Pago',
     )!;
     expect(connect.disabled).toBe(true);
   });
@@ -264,16 +264,16 @@ describe('PaymentSettings', () => {
             ...adminMockSettings,
             acceptsPix: true,
             acceptsCard: false,
-            pixProvider: 'PAGBANK',
-            pagbankTokenConfigured: false,
+            pixProvider: 'MERCADO_PAGO',
+            mercadoPagoAccessTokenConfigured: false,
           }}
           update={() => undefined}
-          onConnectPagBank={connect}
+          onConnectMercadoPago={connect}
         />,
       ),
     );
     const button = Array.from(container.querySelectorAll('button')).find(
-      (item) => item.textContent === 'Conectar PagBank',
+      (item) => item.textContent === 'Conectar Mercado Pago',
     )!;
     act(() => {
       button.click();
@@ -284,6 +284,21 @@ describe('PaymentSettings', () => {
     expect((container.querySelector('select') as HTMLSelectElement).disabled).toBe(true);
     await act(async () => finish());
     expect(button.disabled).toBe(false);
+  });
+
+  it('não oferece PagBank como opção de novos pagamentos', () => {
+    act(() =>
+      root.render(
+        <PaymentSettings
+          settings={{ ...adminMockSettings, acceptsPix: true, acceptsCard: true }}
+          update={() => undefined}
+        />,
+      ),
+    );
+    expect(container.textContent).not.toContain('PagBank');
+    for (const select of Array.from(container.querySelectorAll('select'))) {
+      expect(Array.from(select.options).some((option) => option.value === 'PAGBANK')).toBe(false);
+    }
   });
 
   it('permite desconectar Mercado Pago somente quando a conta está vinculada', async () => {
