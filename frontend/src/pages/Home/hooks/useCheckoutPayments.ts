@@ -322,11 +322,7 @@ export function useCheckoutPayments(options: Options) {
 
       if (paymentMethod === 'open_finance_pix') {
         if (!restaurantId) throw new Error('Restaurante inválido para Open Finance.');
-        const result = await ordersService.createOpenFinancePayment({
-          ...payload,
-          successUrl: window.location.href,
-          cancelUrl: window.location.href,
-        });
+        const result = await ordersService.createOpenFinancePayment(payload);
         if (!isCurrentCheckout()) return false;
 
         const redirectUrl = String(result.redirectUrl || '').trim();
