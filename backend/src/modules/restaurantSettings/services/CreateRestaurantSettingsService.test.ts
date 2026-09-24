@@ -73,30 +73,24 @@ test('deve cadastrar banco e cartao como um dono de restaurante e normalizar os 
     bankHolderDocument: '11222333000181',
     cardGateway: 'MERCADO_PAGO',
     gatewayMerchantId: 'merchant-123',
-    pagbankEmail: 'pagbank@pizzaria.com',
-    pagbankToken: 'token-real',
     whatsapp: '5511999998888',
     instagram: '@pizzariadocarlos',
     restaurantName: 'Pizzaria do Carlos',
   });
 
   assert.equal(result.restaurantId, 7);
-  assert.equal(result.pagbankToken, null);
   assert.equal(result.restaurantName, 'Pizzaria do Carlos');
   assert.equal(capturedCreateData.companyDocument, '11222333000181');
   assert.equal(capturedCreateData.bankHolderDocument, '11222333000181');
   assert.equal(capturedCreateData.bankAccountType, 'CC');
   assert.equal(capturedCreateData.cardGateway, 'MERCADO_PAGO');
-  assert.equal(capturedCreateData.pagbankEnvironment, 'production');
-  assert.equal(capturedCreateData.pagbankEmail, 'pagbank@pizzaria.com');
-  assert.equal(capturedCreateData.pagbankToken, 'token-real');
   assert.deepEqual(capturedRestaurantUpdate, {
     name: 'Pizzaria do Carlos',
     whatsapp: '5511999998888',
   });
 });
 
-test('rejeita PagBank em novas configurações de pagamento', async () => {
+test('rejeita provedor antigo em novas configurações de pagamento', async () => {
   restaurantSettingsRepository.findByRestaurantId = async () => null;
   await assert.rejects(
     () =>
@@ -106,7 +100,7 @@ test('rejeita PagBank em novas configurações de pagamento', async () => {
         minimumOrder: 0,
         pixProvider: 'PAGBANK',
       }),
-    /PagBank não está disponível/i,
+    /apenas Mercado Pago está disponível/i,
   );
 });
 
@@ -129,7 +123,7 @@ test('deve rejeitar cadastro quando o documento do titular da conta nao bater co
         bankBranch: '1234-5',
         bankAccount: '99876-5',
         bankHolderDocument: '11.111.111/1111-11',
-        cardGateway: 'PAGBANK',
+        cardGateway: 'MERCADO_PAGO',
       }),
     /A titularidade da conta bancária deve ser igual ao documento cadastrado/,
   );
