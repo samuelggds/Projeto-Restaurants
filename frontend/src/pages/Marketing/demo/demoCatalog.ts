@@ -124,6 +124,7 @@ export const demoHomeData: HomeData = {
   acceptsDelivery: true,
   acceptsPickup: true,
   acceptsPix: true,
+  openFinancePixEnabled: false,
   acceptsCard: true,
   fontFamily: 'Inter',
   seoTitle: 'Demonstração | GastroNexa',
