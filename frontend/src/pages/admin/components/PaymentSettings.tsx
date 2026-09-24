@@ -574,7 +574,9 @@ export function PaymentSettings({
           const ready = connection
             ? connection.status === 'CONNECTED'
             : !connections.verifying && connected;
-          const canConnect = !connections.verifying || Boolean(connection?.canConnect);
+          const canConnect =
+            provider.id === 'MERCADO_PAGO' &&
+            (!connections.verifying || Boolean(connection?.canConnect));
           const onboardingUrl = asaasOnboardingUrl(connection?.onboardingUrl);
           const uses = selectedUse(provider.id);
           const selected = uses.length > 0;
