@@ -30,7 +30,6 @@ import RefundOrderByAdminController from '../controllers/RefundOrderByAdminContr
 import ClearOrdersAndCategoriesController from '../controllers/ClearOrdersAndCategoriesController.js';
 import MercadoPagoOrderWebhookController from '../controllers/MercadoPagoOrderWebhookController.js';
 import StripeOrderWebhookController from '../controllers/StripeOrderWebhookController.js';
-import PagBankOrderWebhookController from '../controllers/PagBankOrderWebhookController.js';
 import PagarmeOrderWebhookController from '../controllers/PagarmeOrderWebhookController.js';
 import GetCurrentTableOrderController from '../controllers/GetCurrentTableOrderController.js';
 import ConfirmOrderDeliveryReceivedController from '../controllers/ConfirmOrderDeliveryReceivedController.js';
@@ -63,7 +62,6 @@ const router = Router();
 router.post('/webhook/mercadopago', MercadoPagoOrderWebhookController.handle);
 router.post('/webhook/mercadopago-point', MercadoPagoPointWebhookController.handle);
 router.post('/webhook/stripe', StripeOrderWebhookController.handle);
-router.post('/webhook/pagbank', PagBankOrderWebhookController.handle);
 router.post('/webhook/pagarme', (req, res) => PagarmeOrderWebhookController.handle(req, res));
 
 router.post(
