@@ -170,14 +170,20 @@ export function PaymentSettings({
     return selected;
   }, [settings.acceptsCard, settings.acceptsPix, pixProvider, cardProvider]);
 
-  const activeMethods = Number(settings.acceptsPix) + Number(settings.acceptsCard);
+  const activeMethods =
+    Number(settings.acceptsPix) +
+    Number(settings.openFinancePixEnabled) +
+    Number(settings.acceptsCard);
   const connectedSelectedProviders = Array.from(selectedProviders).filter((provider) =>
     isConnected(provider),
   ).length;
   const pixReady = !settings.acceptsPix || Boolean(pixProvider && isReady(pixProvider, 'readyForPix'));
+  const openFinanceReady =
+    !settings.openFinancePixEnabled ||
+    Boolean(connections.openFinance?.ready && settings.acceptsPix && settings.pixKey.trim());
   const cardReady =
     !settings.acceptsCard || Boolean(cardProvider && isReady(cardProvider, 'readyForCard'));
-  const configurationReady = activeMethods > 0 && pixReady && cardReady;
+  const configurationReady = activeMethods > 0 && pixReady && openFinanceReady && cardReady;
   const configurationNotice = !activeMethods
     ? 'Há etapas pendentes: ative Pix ou cartão para aceitar pagamentos online.'
     : connections.loading
@@ -409,17 +415,69 @@ export function PaymentSettings({
               <small>Os valores serão recebidos na conta conectada desta empresa.</small>
             </PS.Field>
             <PS.Field>
-              <span>Chave Pix do restaurante (opcional)</span>
+              <span>
+                Chave Pix do restaurante{settings.openFinancePixEnabled ? ' (obrigatória no Open Finance)' : ' (opcional)'}
+              </span>
               <input
                 value={settings.pixKey}
                 disabled={!settings.acceptsPix || busyProvider !== null}
+                aria-invalid={settings.openFinancePixEnabled && !settings.pixKey.trim()}
                 placeholder="CPF, CNPJ, e-mail, telefone ou chave aleatória"
                 autoComplete="off"
                 onChange={(event) => update('pixKey', event.target.value)}
               />
               <small>
-                O QR Code é gerado automaticamente pela conta conectada. Este campo não cadastra uma
-                chave no banco.
+                {settings.openFinancePixEnabled
+                  ? 'No Open Finance, esta é a chave que identifica o restaurante beneficiário do Pix.'
+                  : 'O QR Code é gerado automaticamente pela conta conectada. Este campo não cadastra uma chave no banco.'}
+              </small>
+            </PS.Field>
+          </PS.ControlGrid>
+        </PS.MethodCard>
+
+        <PS.MethodCard $enabled={settings.openFinancePixEnabled}>
+          <PS.MethodHeader>
+            <PS.MethodIcon aria-hidden="true">
+              <Landmark />
+            </PS.MethodIcon>
+            <div>
+              <span>PIX VIA OPEN FINANCE</span>
+              <h3>Pix pelo app do banco</h3>
+              <p>O cliente escolhe o banco, autoriza no aplicativo bancário e retorna ao pedido.</p>
+            </div>
+            <PS.SwitchLabel>
+              <span>{settings.openFinancePixEnabled ? 'Ativado' : 'Desativado'}</span>
+              <input
+                type="checkbox"
+                role="switch"
+                aria-label="Aceitar Pix pelo app do banco via Open Finance"
+                checked={settings.openFinancePixEnabled}
+                disabled={
+                  busyProvider !== null ||
+                  !settings.acceptsPix ||
+                  connections.openFinance?.available === false
+                }
+                onChange={(event) => update('openFinancePixEnabled', event.target.checked)}
+              />
+            </PS.SwitchLabel>
+          </PS.MethodHeader>
+          <PS.ControlGrid>
+            <PS.Field $full>
+              <span>Status do Open Finance</span>
+              <PS.OpenFinanceStatus $ready={Boolean(connections.openFinance?.ready)}>
+                {connections.openFinance?.ready ? <BadgeCheck /> : <CircleAlert />}
+                <div>
+                  <strong>
+                    {connections.openFinance?.ready ? 'Pronto para receber' : 'Configuração pendente'}
+                  </strong>
+                  <small>
+                    {connections.openFinance?.message ||
+                      'Salve as alterações e verifique as conexões para validar o Open Finance.'}
+                  </small>
+                </div>
+              </PS.OpenFinanceStatus>
+              <small>
+                A autorização acontece no banco do cliente. O GastroNexa nunca recebe senha ou acesso bancário.
               </small>
             </PS.Field>
           </PS.ControlGrid>
