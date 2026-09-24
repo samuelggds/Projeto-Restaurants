@@ -2,11 +2,11 @@ import restaurantSettingsRepository from '../repositories/RestaurantSettingsRepo
 import { getPagBankAccessToken } from './RestaurantPaymentCredentialsService.js';
 import { pagBankApiBaseUrl } from '../../payments/providers/pagBankCheckout.js';
 
-type SupportedCardProvider = 'MERCADO_PAGO' | 'PAGBANK' | 'ASAAS';
+type SupportedCardProvider = 'MERCADO_PAGO' | 'PAGARME' | 'PAGBANK' | 'ASAAS';
 
 function normalizeProvider(value: unknown): SupportedCardProvider | null {
   const provider = String(value || '').trim().toUpperCase();
-  return ['MERCADO_PAGO', 'PAGBANK', 'ASAAS'].includes(provider)
+  return ['MERCADO_PAGO', 'PAGARME', 'PAGBANK', 'ASAAS'].includes(provider)
     ? (provider as SupportedCardProvider)
     : null;
 }
@@ -78,6 +78,14 @@ class GetPublicCardPaymentConfigService {
         provider,
         publicKey,
       } as const;
+    }
+
+    if (provider === 'PAGARME') {
+      const publicKey = String(settings.pagarmePublicKey || '').trim();
+      if (!publicKey || !String(settings.pagarmeSecretKey || '').trim()) {
+        throw new Error('Pagamento com cartão indisponível. Configure o Pagar.me deste restaurante.');
+      }
+      return { provider, publicKey } as const;
     }
 
     if (provider === 'PAGBANK') {
