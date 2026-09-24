@@ -42,10 +42,7 @@
     "db:studio": "prisma studio",
     "db:seed": "node ./scripts/runTsxWithOsUserInfoFallback.cjs prisma/seed.ts",
     "loadtest:orders": "node ./scripts/runTsxWithOsUserInfoFallback.cjs scripts/loadTestOrders.ts",
-    "create:superadmin": "node ./scripts/runTsxWithOsUserInfoFallback.cjs scripts/createSuperAdmin.ts",
-    "test:pagbank-webhook": "node scripts/testPagBankWebhook.mjs",
-    "test:pagbank-transaction": "node scripts/testPagBankTransaction.mjs",
-    "test:pagbank-flow": "node scripts/testPagBankFlow.mjs"
+    "create:superadmin": "node ./scripts/runTsxWithOsUserInfoFallback.cjs scripts/createSuperAdmin.ts"
   },
   "keywords": [],
   "author": "",
