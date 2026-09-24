@@ -62,14 +62,14 @@ const providers: Array<{
     name: 'Pagar.me',
     initials: 'PG',
     description:
-      'Use as chaves da conta Pagar.me do restaurante para receber Pix e cartão diretamente.',
+      'Integração preparada para uso futuro. Temporariamente indisponível até a liberação do cadastro empresarial/CNPJ.',
   },
   {
     id: 'ASAAS',
     name: 'Asaas',
     initials: 'AS',
     description:
-      'Crie uma conta de recebimento ligada ao restaurante usando o CPF ou CNPJ do responsável.',
+      'Integração preparada para uso futuro. Temporariamente indisponível até a liberação do cadastro empresarial/CNPJ.',
   },
 ];
 
@@ -191,14 +191,14 @@ export function PaymentSettings({
       : connections.error
         ? connections.error
         : settings.acceptsPix && !pixProvider
-          ? 'Escolha Mercado Pago, Pagar.me ou Asaas para receber por Pix.'
+          ? 'Escolha Mercado Pago para receber por Pix.'
           : settings.acceptsPix && !pixReady
             ? connections.get(pixProvider as Provider)?.message ||
               `Há etapas pendentes: vincule a conta ${providerName(settings.pixProvider)} para liberar o Pix.`
             : settings.acceptsPix && pixProvider && !isConnected(pixProvider)
               ? `Há etapas pendentes: vincule a conta ${providerName(settings.pixProvider)} para liberar o Pix.`
               : settings.acceptsCard && !cardProvider
-                ? 'Escolha Mercado Pago, Pagar.me ou Asaas para processar cartão.'
+                ? 'Escolha Mercado Pago para processar cartão.'
                 : settings.acceptsCard && !cardReady
                   ? connections.get(cardProvider as Provider)?.message ||
                     `Há etapas pendentes: vincule a conta ${providerName(settings.cardGateway)} para liberar o cartão.`
@@ -409,8 +409,8 @@ export function PaymentSettings({
               >
                 <option value="">Selecione uma empresa</option>
                 <option value="MERCADO_PAGO">Mercado Pago</option>
-                <option value="PAGARME">Pagar.me</option>
-                <option value="ASAAS">Asaas</option>
+                <option value="PAGARME" disabled>Pagar.me — temporariamente indisponível</option>
+                <option value="ASAAS" disabled>Asaas — temporariamente indisponível</option>
               </select>
               <small>Os valores serão recebidos na conta conectada desta empresa.</small>
             </PS.Field>
@@ -517,8 +517,8 @@ export function PaymentSettings({
               >
                 <option value="">Selecione uma empresa</option>
                 <option value="MERCADO_PAGO">Mercado Pago</option>
-                <option value="PAGARME">Pagar.me</option>
-                <option value="ASAAS">Asaas</option>
+                <option value="PAGARME" disabled>Pagar.me — temporariamente indisponível</option>
+                <option value="ASAAS" disabled>Asaas — temporariamente indisponível</option>
               </select>
               <small>
                 {settings.acceptsCard && !settings.cardGateway
@@ -605,7 +605,7 @@ export function PaymentSettings({
                   : 'Não selecionado nos meios ativos'}
               </PS.UsedFor>
 
-              {provider.id === 'PAGARME' && selected && (
+              {provider.id === 'PAGARME' && selected && canConnect && (
                 <PS.AsaasFields>
                   <PS.Field>
                     <span>Public Key do Pagar.me</span>
@@ -656,7 +656,7 @@ export function PaymentSettings({
                 </PS.AsaasFields>
               )}
 
-              {provider.id === 'ASAAS' && selected && !connected && (
+              {provider.id === 'ASAAS' && selected && canConnect && !connected && (
                 <PS.AsaasFields>
                   <PS.Field>
                     <span>CPF ou CNPJ do responsável</span>
