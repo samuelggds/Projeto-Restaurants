@@ -34,7 +34,7 @@ type Connection = {
 };
 
 const FUTURE_PROVIDER_MESSAGE =
-  'Integração preparada, mas temporariamente indisponível. Será liberada quando a plataforma concluir o cadastro empresarial/CNPJ.';
+  'Integração preparada para uso futuro. Temporariamente indisponível.';
 
 function configured(...names: string[]) {
   return names.some((name) => Boolean(String(process.env[name] || '').trim()));
