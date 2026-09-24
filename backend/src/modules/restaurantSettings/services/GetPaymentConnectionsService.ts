@@ -222,14 +222,25 @@ class GetPaymentConnectionsService {
         'A conexão Mercado Pago ainda não está configurada corretamente na plataforma.';
     }
 
+    const openFinanceAvailable =
+      mercadoPago.canConnect && mercadoPago.connected && mercadoPago.status === 'CONNECTED';
+    const openFinanceReady = Boolean(
+      openFinanceAvailable && settings?.openFinancePixEnabled === true,
+    );
+
     return {
       connections,
       openFinance: {
-        available: false,
+        available: openFinanceAvailable,
         enabled: settings?.openFinancePixEnabled === true,
-        ready: false,
-        message:
-          'Open Finance está temporariamente indisponível enquanto a integração Mercado Pago é preparada.',
+        ready: openFinanceReady,
+        message: !mercadoPago.connected
+          ? 'Conecte a conta Mercado Pago do restaurante para habilitar o Open Finance.'
+          : mercadoPago.status !== 'CONNECTED'
+            ? 'Reconecte o Mercado Pago antes de habilitar o Open Finance.'
+            : !settings?.openFinancePixEnabled
+              ? 'Ative Open Finance para oferecer o Checkout Pro como segunda opção de pagamento.'
+              : 'Checkout Pro conectado. O Mercado Pago exibirá Open Finance quando disponível para o comprador.',
       },
     };
   }
