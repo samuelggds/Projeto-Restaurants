@@ -12,6 +12,7 @@ import { CARD_PROVIDERS } from '../../payments/providers/providerCatalog.js';
 import { matchesOrderPaymentEvidence } from '../utils/paymentEvidence.js';
 import { normalizeMercadoPagoPaymentMethodId } from '../../customerPaymentMethods/domain/cardBrand.js';
 import { mercadoPagoCardExternalReference } from '../domain/mercadoPagoCardReference.js';
+import { assertFuturePaymentProviderEnabled } from '../../payments/providers/futurePaymentProviders.js';
 
 export type DirectCardPaymentPayload = {
   cardToken?: string | null;
@@ -684,9 +685,11 @@ class DirectOrderCardPaymentService {
       return mercadoPagoPayment(input.payload, input.order, input.successUrlBase);
     }
     if (input.provider === CARD_PROVIDERS.PAGARME) {
+      assertFuturePaymentProviderEnabled('PAGARME');
       return pagarmePayment(input.payload, input.order, input.successUrlBase);
     }
     if (input.provider === CARD_PROVIDERS.ASAAS) {
+      assertFuturePaymentProviderEnabled('ASAAS');
       return asaasPayment(input.payload, input.order, input.successUrlBase);
     }
     throw new CardPaymentDeclinedError('Este provedor não aceita checkout transparente de cartão.');
