@@ -238,8 +238,6 @@ class GetRestaurantSettingsService {
       picpayToken: null,
       asaasAccessToken: null,
       asaasWebhookTokenHash: null,
-      pagbankToken: null,
-      pagbankRefreshToken: null,
       stripeSecretKeyConfigured: Boolean(String(settings?.stripeSecretKey || '').trim()),
       stripeWebhookSecretConfigured: Boolean(String(settings?.stripeWebhookSecret || '').trim()),
       mercadoPagoAccessTokenConfigured: Boolean(
@@ -248,7 +246,6 @@ class GetRestaurantSettingsService {
       pagarmeSecretKeyConfigured: Boolean(String(settings?.pagarmeSecretKey || '').trim()),
       picpayTokenConfigured: Boolean(String(settings?.picpayToken || '').trim()),
       asaasAccessTokenConfigured: Boolean(String(settings?.asaasAccessToken || '').trim()),
-      pagbankTokenConfigured: Boolean(String(settings?.pagbankToken || '').trim()),
       whatsapp: String(settings?.restaurant?.whatsapp || '').trim() || null,
     };
   }
