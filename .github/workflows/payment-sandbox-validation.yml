@@ -96,6 +96,6 @@ jobs:
           {
             echo
             echo 'Este workflow faz consultas somente leitura; Mercado Pago usa a API oficial com credencial de teste. Não cria pagamentos.'
-            echo 'Provedores não selecionados não foram validados. Asaas e Pagar.me permanecem desativados até cadastro empresarial/CNPJ; Belvo exige configuração própria de produção antes do uso comercial.'
+            echo 'Provedores não selecionados não foram validados. Asaas e Pagar.me permanecem desativados até homologação própria.'
             echo 'Presença de segredo por si só não é registrada como integração homologada.'
           } >> "$GITHUB_STEP_SUMMARY"
