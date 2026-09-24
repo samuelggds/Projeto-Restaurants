@@ -19,11 +19,13 @@ describe('configuração inicial do administrador demonstrativo', () => {
       ...createDemoAdminData().settings,
       stripeSecretKey: 'valor-exemplo',
       mercadoPagoAccessToken: 'valor-exemplo',
-      pagbankToken: 'valor-exemplo',
+      pagarmeSecretKey: 'valor-exemplo',
+      asaasAccessToken: 'valor-exemplo',
     });
     expect(result.stripeSecretKey).toBe('');
     expect(result.mercadoPagoAccessToken).toBe('');
-    expect(result.pagbankToken).toBe('');
+    expect(result.pagarmeSecretKey).toBe('');
+    expect(result.asaasAccessToken).toBe('');
     expect(result.restaurantName).toBe('GastroNexa Burger');
   });
 });
