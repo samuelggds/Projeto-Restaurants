@@ -32,6 +32,7 @@ export function discardDemoCredentials(settings: AdminSettings): AdminSettings {
     stripeSecretKey: '',
     stripeWebhookSecret: '',
     mercadoPagoAccessToken: '',
+    pagarmeSecretKey: '',
     asaasAccessToken: '',
   };
 }
