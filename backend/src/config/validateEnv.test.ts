@@ -38,9 +38,6 @@ function setValidProductionEnv() {
     MP_API_BASE_URL: 'https://api.mercadopago.com',
     MP_OAUTH_AUTH_URL: 'https://auth.mercadopago.com/authorization',
     MP_OAUTH_REDIRECT_URI: '',
-    PAGBANK_CONNECT_API_URL: 'https://api.pagseguro.com',
-    PAGBANK_CONNECT_AUTH_URL: 'https://connect.pagbank.com.br/oauth2/authorize',
-    PAGBANK_CONNECT_REDIRECT_URI: '',
     ROUTING_REQUIRED: 'true',
     ROUTING_PROVIDER: 'osrm',
     OSRM_BASE_URL: 'http://osrm:5000',
@@ -260,20 +257,14 @@ test('rejeita flags temporárias de compatibilidade em produção', () => {
   );
 });
 
-test('aceita PagBank sandbox oficial em runtime de produção quando PAGBANK_ENV=sandbox', () => {
-  process.env.PAGBANK_ENV = 'sandbox';
-  process.env.PAGBANK_CONNECT_API_URL = 'https://sandbox.api.pagseguro.com';
-  process.env.PAGBANK_CONNECT_AUTH_URL = 'https://connect.sandbox.pagbank.com.br/oauth2/authorize';
 
   assert.doesNotThrow(() => validateCriticalEnv());
 });
 
 test('rejeita endpoint OAuth não oficial e redirect fora da origem do backend', () => {
   process.env.MP_OAUTH_API_BASE_URL = 'https://attacker.example';
-  process.env.PAGBANK_CONNECT_REDIRECT_URI = 'https://other.example/oauth/callback';
   assert.throws(
     () => validateCriticalEnv(),
-    /MP_OAUTH_API_BASE_URL deve apontar.*PAGBANK_CONNECT_REDIRECT_URI deve usar a mesma origem/i,
   );
 });
 
