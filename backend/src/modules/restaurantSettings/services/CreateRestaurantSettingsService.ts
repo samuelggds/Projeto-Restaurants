@@ -61,6 +61,9 @@ type CreateRestaurantSettingsPayload = {
   stripeSecretKey?: string | null;
   stripeWebhookSecret?: string | null;
   mercadoPagoAccessToken?: string | null;
+  pagarmeSecretKey?: string | null;
+  pagarmePublicKey?: string | null;
+  pagarmeEnvironment?: string | null;
   picpayToken?: string | null;
   asaasAccessToken?: string | null;
   pagbankEmail?: string | null;
@@ -143,6 +146,9 @@ class CreateRestaurantSettingsService {
     stripeSecretKey,
     stripeWebhookSecret,
     mercadoPagoAccessToken,
+    pagarmeSecretKey,
+    pagarmePublicKey,
+    pagarmeEnvironment,
     picpayToken,
     asaasAccessToken,
     pagbankEmail,
@@ -350,6 +356,12 @@ class CreateRestaurantSettingsService {
       stripeSecretKey: String(stripeSecretKey || '').trim() || null,
       stripeWebhookSecret: String(stripeWebhookSecret || '').trim() || null,
       mercadoPagoAccessToken: String(mercadoPagoAccessToken || '').trim() || null,
+      pagarmeSecretKey: String(pagarmeSecretKey || '').trim() || null,
+      pagarmePublicKey: String(pagarmePublicKey || '').trim() || null,
+      pagarmeEnvironment:
+        String(pagarmeEnvironment || '').trim().toLowerCase() === 'sandbox'
+          ? 'sandbox'
+          : 'production',
       picpayToken: String(picpayToken || '').trim() || null,
       asaasAccessToken: String(asaasAccessToken || '').trim() || null,
       pagbankEmail: String(pagbankEmail || '').trim() || null,
