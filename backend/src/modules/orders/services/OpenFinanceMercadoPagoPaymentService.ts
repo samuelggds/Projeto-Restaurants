@@ -1,7 +1,11 @@
 import prisma from '../../../config/prisma.js';
 import orderRepository from '../repositories/OrderRepository.js';
 import restaurantSettingsRepository from '../../restaurantSettings/repositories/RestaurantSettingsRepository.js';
-import { getMercadoPagoPreferenceApi, getMercadoPagoOrderApi } from '../../payments/providers/mercadoPagoClient.js';
+import {
+  getMercadoPagoPreferenceApi,
+  getMercadoPagoOrderApi,
+  mercadoPagoCheckoutIdempotencyKey,
+} from '../../payments/providers/mercadoPagoClient.js';
 import {
   mercadoPagoOpenFinanceExternalReference,
   mercadoPagoOpenFinancePaymentId,
@@ -103,7 +107,14 @@ class OpenFinanceMercadoPagoPaymentService {
     if (!Number.isFinite(total) || total <= 0) throw new Error('Total do pedido inválido.');
 
     const preferenceApi = await getMercadoPagoPreferenceApi(normalizedRestaurantId);
+    const externalReference = mercadoPagoOpenFinanceExternalReference(
+      order.id,
+      normalizedRestaurantId,
+    );
     const response = await preferenceApi.create({
+      idempotencyKey: mercadoPagoCheckoutIdempotencyKey(
+        `open-finance:${normalizedRestaurantId}:${order.id}`,
+      ),
       body: {
         items: [
           {
@@ -114,7 +125,7 @@ class OpenFinanceMercadoPagoPaymentService {
             unit_price: total,
           },
         ],
-        external_reference: mercadoPagoOpenFinanceExternalReference(order.id, normalizedRestaurantId),
+        external_reference: externalReference,
         back_urls: {
           success: callbackUrl(restaurant.slug, String(order.publicId), 'success'),
           pending: callbackUrl(restaurant.slug, String(order.publicId), 'pending'),
