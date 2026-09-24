@@ -95,7 +95,6 @@ export function getCheckoutErrorMessage(error: unknown): string {
       (normalized.includes('access token') ||
         normalized.includes('configur') ||
         normalized.includes('mercado pago') ||
-        normalized.includes('belvo') ||
         normalized.includes('asaas') ||
         normalized.includes('credencial') ||
         normalized.includes('token') ||
