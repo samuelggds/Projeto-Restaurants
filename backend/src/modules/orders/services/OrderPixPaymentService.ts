@@ -893,7 +893,6 @@ class OrderPixPaymentService {
       const result = await belvoJson<BelvoPaymentIntentPayload>(
         `/payments/br/payment-intents/${encodeURIComponent(parsedPaymentId.rawPaymentId)}/`,
         { method: 'GET' },
-        { timeoutMs },
       );
       if (!result.response.ok) {
         throw new Error(
@@ -1091,6 +1090,7 @@ class OrderPixPaymentService {
       const result = await belvoJson<BelvoPaymentIntentPayload>(
         `/payments/br/payment-intents/${encodeURIComponent(parsedPaymentId.rawPaymentId)}/`,
         { method: 'GET' },
+        { timeoutMs },
       );
       if (!result.response.ok) {
         throw new Error(
