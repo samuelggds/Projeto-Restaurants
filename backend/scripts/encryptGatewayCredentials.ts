@@ -86,8 +86,6 @@ async function main() {
       restaurantId: true,
       stripeSecretKey: true,
       stripeWebhookSecret: true,
-      pagbankToken: true,
-      pagbankRefreshToken: true,
       mercadoPagoAccessToken: true,
       picpayToken: true,
       asaasAccessToken: true,
