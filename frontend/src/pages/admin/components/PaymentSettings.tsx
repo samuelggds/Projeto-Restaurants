@@ -47,28 +47,26 @@ type Props = {
 const providers: Array<{
   id: Provider;
   name: string;
-  initials: string;
+  logoUrl: string;
   description: string;
 }> = [
   {
     id: 'MERCADO_PAGO',
     name: 'Mercado Pago',
-    initials: 'MP',
+    logoUrl: 'https://www.mercadopago.com.br/favicon.ico',
     description: 'Conecte a conta do restaurante sem copiar senhas ou códigos de acesso.',
   },
   {
     id: 'PAGARME',
     name: 'Pagar.me',
-    initials: 'PG',
-    description:
-      'Integração preparada para uso futuro. Temporariamente indisponível até a liberação do cadastro empresarial/CNPJ.',
+    logoUrl: 'https://www.pagar.me/favicon.ico',
+    description: 'Integração preparada para uso futuro. Temporariamente indisponível.',
   },
   {
     id: 'ASAAS',
     name: 'Asaas',
-    initials: 'AS',
-    description:
-      'Integração preparada para uso futuro. Temporariamente indisponível até a liberação do cadastro empresarial/CNPJ.',
+    logoUrl: 'https://www.asaas.com/favicon.ico',
+    description: 'Integração preparada para uso futuro. Temporariamente indisponível.',
   },
 ];
 
@@ -118,7 +116,7 @@ const connectionLabels: Record<PaymentConnection['status'], string> = {
   NEEDS_RECONNECT: 'Reconexão necessária',
   PENDING_APPROVAL: 'Cadastro em análise',
   ACTION_REQUIRED: 'Ação necessária',
-  UNAVAILABLE: 'Conexão indisponível',
+  UNAVAILABLE: 'Temporariamente indisponível',
 };
 
 function asaasOnboardingUrl(value?: string | null) {
@@ -401,7 +399,7 @@ export function PaymentSettings({
           </PS.MethodHeader>
 
           <PS.ControlGrid>
-            <PS.Field>
+            <PS.Field $full>
               <span>Empresa que receberá o Pix</span>
               <select
                 value={pixProvider || ''}
@@ -417,24 +415,8 @@ export function PaymentSettings({
                   Asaas{canSelectProvider('ASAAS') ? '' : ' — temporariamente indisponível'}
                 </option>
               </select>
-              <small>Os valores serão recebidos na conta conectada desta empresa.</small>
-            </PS.Field>
-            <PS.Field>
-              <span>
-                Chave Pix do restaurante{settings.openFinancePixEnabled ? ' (obrigatória no Open Finance)' : ' (opcional)'}
-              </span>
-              <input
-                value={settings.pixKey}
-                disabled={!settings.acceptsPix || busyProvider !== null}
-                aria-invalid={settings.openFinancePixEnabled && !settings.pixKey.trim()}
-                placeholder="CPF, CNPJ, e-mail, telefone ou chave aleatória"
-                autoComplete="off"
-                onChange={(event) => update('pixKey', event.target.value)}
-              />
               <small>
-                {settings.openFinancePixEnabled
-                  ? 'No Open Finance, esta é a chave que identifica o restaurante beneficiário do Pix.'
-                  : 'O QR Code é gerado automaticamente pela conta conectada. Este campo não cadastra uma chave no banco.'}
+                O QR Code e o código copia e cola são gerados automaticamente pela conta conectada.
               </small>
             </PS.Field>
           </PS.ControlGrid>
@@ -485,6 +467,23 @@ export function PaymentSettings({
                 A autorização acontece no banco do cliente. O GastroNexa nunca recebe senha ou acesso bancário.
               </small>
             </PS.Field>
+            {settings.openFinancePixEnabled && (
+              <PS.Field $full>
+                <span>Chave beneficiária do Open Finance</span>
+                <input
+                  value={settings.pixKey}
+                  disabled={busyProvider !== null}
+                  aria-invalid={!settings.pixKey.trim()}
+                  placeholder="CPF, CNPJ, e-mail, telefone ou chave aleatória"
+                  autoComplete="off"
+                  onChange={(event) => update('pixKey', event.target.value)}
+                />
+                <small>
+                  Necessária somente para o Pix via Open Finance. O Pix normal do Mercado Pago não
+                  precisa deste campo.
+                </small>
+              </PS.Field>
+            )}
           </PS.ControlGrid>
         </PS.MethodCard>
 
@@ -596,7 +595,9 @@ export function PaymentSettings({
           return (
             <PS.ProviderCard key={provider.id} $selected={selected}>
               <PS.ProviderTop>
-                <PS.ProviderLogo $provider={provider.id}>{provider.initials}</PS.ProviderLogo>
+                <PS.ProviderLogo $provider={provider.id}>
+                  <img src={provider.logoUrl} alt="" aria-hidden="true" loading="lazy" />
+                </PS.ProviderLogo>
                 <PS.ConnectionBadge $connected={ready}>
                   {ready ? <Check /> : <KeyRound />}
                   {statusLabel}
@@ -614,7 +615,9 @@ export function PaymentSettings({
                 <Landmark />
                 {selected
                   ? `Selecionado para ${uses.join(' e ')}`
-                  : 'Não selecionado nos meios ativos'}
+                  : provider.id === 'MERCADO_PAGO'
+                    ? 'Não selecionado nos meios ativos'
+                    : 'Não disponível no momento'}
               </PS.UsedFor>
 
               {provider.id === 'PAGARME' && selected && canConnect && (
@@ -774,7 +777,9 @@ export function PaymentSettings({
                 )
               ) : (
                 <PS.InactiveHint>
-                  Selecione esta empresa no Pix ou no cartão para conectá-la.
+                  {provider.id === 'MERCADO_PAGO'
+                    ? 'Selecione esta empresa no Pix ou no cartão para conectá-la.'
+                    : 'Em breve você poderá conectar esta conta.'}
                 </PS.InactiveHint>
               )}
             </PS.ProviderCard>

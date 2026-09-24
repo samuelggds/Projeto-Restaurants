@@ -275,20 +275,20 @@ describe('AdminPage save feedback', () => {
         deliveryTime: 45,
         acceptsPix: true,
         acceptsCard: false,
-        pixProvider: 'MERCADO_PAGO',
+        pixProvider: 'ASAAS',
         mercadoPagoAccessTokenConfigured: false,
       },
       onConnectMercadoPago: connect,
     });
-    const input = container.querySelector(
-      'input[placeholder="CPF, CNPJ, e-mail, telefone ou chave aleatória"]',
+    const field = Array.from(container.querySelectorAll('select')).find((select) =>
+      select.parentElement?.textContent?.includes('Empresa que receberá o Pix'),
     )!;
     act(() => {
-      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set?.call(
-        input,
-        'teste@restaurante.test',
+      Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value')?.set?.call(
+        field,
+        'MERCADO_PAGO',
       );
-      input.dispatchEvent(new Event('input', { bubbles: true }));
+      field.dispatchEvent(new Event('change', { bubbles: true }));
     });
     const button = Array.from(container.querySelectorAll('button')).find(
       (item) => item.textContent === 'Conectar Mercado Pago',
