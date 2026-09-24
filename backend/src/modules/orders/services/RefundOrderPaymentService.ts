@@ -268,6 +268,11 @@ class RefundOrderPaymentService {
     }
 
 
+    if (normalizedPaymentId.startsWith('mp_open_finance_order:')) {
+      const providerOrderId = paymentId.slice('mp_open_finance_order:'.length).trim();
+      return this.refundMercadoPagoOrder(providerOrderId, order, options);
+    }
+
     if (normalizedPaymentId.startsWith('asaas:')) {
       const asaasPaymentId = paymentId.slice('asaas:'.length).trim();
       return this.executeAsaasRefund(asaasPaymentId, order, options);
@@ -328,7 +333,7 @@ class RefundOrderPaymentService {
         providerCode: String(payload.code || payload.error || '').trim() || undefined,
       });
       throw new AutomaticRefundError(
-        'O Mercado Pago não confirmou o estorno do cartão. O pedido não foi cancelado e pode ser tentado novamente.',
+        'O Mercado Pago não confirmou o estorno da Order. O pedido não foi cancelado e pode ser tentado novamente.',
         'PROVIDER_FAILURE',
       );
     }
