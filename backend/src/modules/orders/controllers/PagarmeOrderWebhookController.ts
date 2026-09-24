@@ -27,8 +27,16 @@ type PagarmeCharge = {
   };
 };
 
-const SUCCESS = new Set(['paid']);
-const TERMINAL_UNPAID = new Set(['failed', 'canceled', 'chargedback', 'refunded']);
+const SUCCESS = new Set(['paid', 'captured']);
+const TERMINAL_UNPAID = new Set([
+  'failed',
+  'canceled',
+  'cancelled',
+  'chargedback',
+  'not_authorized',
+  'voided',
+  'with_error',
+]);
 
 function resourceChargeId(req: Request) {
   const type = String(req.body?.type || '').trim().toLowerCase();
@@ -97,10 +105,17 @@ class PagarmeOrderWebhookController {
       )
         .trim()
         .toLowerCase();
+      const paymentMethod = String(remote.body?.payment_method || '').trim().toLowerCase();
       const providerAmount =
         Number(remote.body?.paid_amount || 0) > 0
           ? Number(remote.body?.paid_amount)
           : Number(remote.body?.amount);
+
+      if ((isPix && paymentMethod !== 'pix') || (isCard && paymentMethod !== 'credit_card')) {
+        return res.status(400).json({
+          error: 'Webhook Pagar.me rejeitado: meio de pagamento não confere.',
+        });
+      }
 
       if (TERMINAL_UNPAID.has(status)) {
         await failPendingOrderPaymentService.execute({
