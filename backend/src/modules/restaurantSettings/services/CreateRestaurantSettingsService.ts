@@ -289,6 +289,14 @@ class CreateRestaurantSettingsService {
       throw new Error('E-mail comercial inválido.');
     }
 
+    const requestedPixProvider = String(pixProvider || 'MERCADO_PAGO').trim().toUpperCase();
+    const requestedCardGateway = String(cardGateway || '').trim().toUpperCase();
+    if (requestedPixProvider === 'PAGBANK' || requestedCardGateway === 'PAGBANK') {
+      throw new Error(
+        'PagBank não está disponível. Escolha Mercado Pago ou Asaas para pagamentos online.',
+      );
+    }
+
     const created = await restaurantSettingsRepository.create({
       restaurantId: Number(restaurantId),
       deliveryFee: normalizeNonNegativeMoney(deliveryFee, 'Taxa de entrega'),
@@ -312,9 +320,7 @@ class CreateRestaurantSettingsService {
       ),
       waiterCallEnabled: normalizeStrictBoolean(waiterCallEnabled, 'Chamados ao garçom', true),
       billRequestEnabled: normalizeStrictBoolean(billRequestEnabled, 'Solicitação da conta', true),
-      pixProvider: String(pixProvider || 'MERCADO_PAGO')
-        .trim()
-        .toUpperCase(),
+      pixProvider: requestedPixProvider,
       pixKey,
       legalDocumentType: normalizedLegalDocumentType || null,
       companyDocument: normalizedCompanyDocument || null,
@@ -339,7 +345,7 @@ class CreateRestaurantSettingsService {
       bankBranch: String(bankBranch || '').trim() || null,
       bankAccount: String(bankAccount || '').trim() || null,
       bankHolderDocument: normalizedBankHolderDocument || null,
-      cardGateway: String(cardGateway || '').trim() || null,
+      cardGateway: requestedCardGateway || null,
       gatewayMerchantId: String(gatewayMerchantId || '').trim() || null,
       stripeSecretKey: String(stripeSecretKey || '').trim() || null,
       stripeWebhookSecret: String(stripeWebhookSecret || '').trim() || null,
