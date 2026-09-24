@@ -6,6 +6,11 @@ import {
   getPagBankAccessToken,
 } from '../../restaurantSettings/services/RestaurantPaymentCredentialsService.js';
 import { pagBankApiBaseUrl } from '../../payments/providers/pagBankCheckout.js';
+import {
+  getRestaurantPagarmeCredentials,
+  pagarmeJson,
+  safePagarmeError,
+} from '../../payments/providers/pagarmeV5.js';
 import type { CardProvider } from '../../payments/providers/providerCatalog.js';
 import { CARD_PROVIDERS } from '../../payments/providers/providerCatalog.js';
 import { matchesOrderPaymentEvidence } from '../utils/paymentEvidence.js';
@@ -524,6 +529,116 @@ async function pagBankPayment(payload: BasePayload, order: CardOrder, successUrl
   } as const;
 }
 
+async function pagarmePayment(payload: BasePayload, order: CardOrder, successUrlBase: string) {
+  const cardToken = String(payload.cardToken || '').trim();
+  if (!cardToken) {
+    throw new CardPaymentDeclinedError('Informe os dados do cartão para continuar.');
+  }
+
+  const { secretKey } = await getRestaurantPagarmeCredentials(order.restaurantId);
+  const totalCents = Math.round(amount(order.total) * 100);
+  const document = digits(payload.holderTaxId);
+  const phone = digits(payload.customerPhone);
+  const email = await payerEmail(payload, order);
+  const name = String(payload.customerName || payload.holderName || 'Cliente').trim();
+
+  if (![11, 14].includes(document.length)) {
+    throw new CardPaymentDeclinedError('Informe o CPF ou CNPJ do titular do pagamento.');
+  }
+  if (phone.length < 10 || phone.length > 13) {
+    throw new CardPaymentDeclinedError('Informe um telefone válido do comprador.');
+  }
+
+  const nationalPhone = phone.startsWith('55') && phone.length >= 12 ? phone.slice(2) : phone;
+  const areaCode = nationalPhone.slice(0, 2);
+  const phoneNumber = nationalPhone.slice(2);
+
+  const { response, body } = await pagarmeJson<Record<string, unknown>>(
+    secretKey,
+    '/orders',
+    {
+      method: 'POST',
+      body: JSON.stringify({
+        code: `gastronexa-${order.restaurantId}-${order.id}`,
+        items: [
+          {
+            amount: totalCents,
+            description: `Pedido #${order.id}`,
+            quantity: 1,
+            code: String(order.id),
+          },
+        ],
+        customer: {
+          name,
+          email,
+          type: document.length === 14 ? 'company' : 'individual',
+          document,
+          phones: {
+            home_phone: {
+              country_code: '55',
+              area_code: areaCode,
+              number: phoneNumber,
+            },
+          },
+        },
+        payments: [
+          {
+            payment_method: 'credit_card',
+            credit_card: {
+              installments: 1,
+              operation_type: 'auth_and_capture',
+              statement_descriptor: 'GASTRONEXA',
+              card_token: cardToken,
+            },
+          },
+        ],
+        closed: true,
+        metadata: {
+          restaurant_id: String(order.restaurantId),
+          order_id: String(order.id),
+          order_public_id: order.publicId,
+        },
+      }),
+    },
+  );
+
+  if (!response.ok) {
+    if (response.status >= 400 && response.status < 500) {
+      throw new CardPaymentDeclinedError(
+        safePagarmeError(body, 'O Pagar.me não autorizou este cartão.'),
+      );
+    }
+    throw new Error('Falha temporária ao processar o cartão no Pagar.me.');
+  }
+
+  const charges = Array.isArray(body.charges) ? body.charges : [];
+  const charge =
+    charges[0] && typeof charges[0] === 'object'
+      ? (charges[0] as Record<string, unknown>)
+      : {};
+  const chargeId = String(charge.id || '').trim();
+  const status = String(charge.status || '').trim().toLowerCase();
+  const chargeAmount = Number(charge.amount);
+
+  if (!chargeId) throw new Error('Pagar.me não retornou a identificação da cobrança.');
+  if (['failed', 'canceled', 'chargedback'].includes(status)) {
+    throw new CardPaymentDeclinedError('O Pagar.me não autorizou este cartão.');
+  }
+
+  const approved =
+    status === 'paid' &&
+    Number.isFinite(chargeAmount) &&
+    Math.round(chargeAmount) === totalCents;
+
+  return {
+    provider: CARD_PROVIDERS.PAGARME,
+    sessionId: chargeId,
+    persistenceSessionId: `pagarme_charge:${chargeId}`,
+    checkoutUrl: internalReturnUrl(successUrlBase, order, approved ? 'success' : 'pending'),
+    paymentApproved: approved,
+  } as const;
+}
+
 async function asaasJson(url: string, accessToken: string, body: unknown) {
   const response = await fetch(url, {
     method: 'POST',
@@ -675,6 +790,9 @@ class DirectOrderCardPaymentService {
   }) {
     if (input.provider === CARD_PROVIDERS.MERCADO_PAGO) {
       return mercadoPagoPayment(input.payload, input.order, input.successUrlBase);
+    }
+    if (input.provider === CARD_PROVIDERS.PAGARME) {
+      return pagarmePayment(input.payload, input.order, input.successUrlBase);
     }
     if (input.provider === CARD_PROVIDERS.PAGBANK) {
       return pagBankPayment(input.payload, input.order, input.successUrlBase);
