@@ -8,6 +8,8 @@ export const RESTAURANT_CREDENTIAL_FIELDS = [
   'stripeSecretKey',
   'stripeWebhookSecret',
   'pagarmeSecretKey',
+  'pagbankToken',
+  'pagbankRefreshToken',
   'mercadoPagoAccessToken',
   'mercadoPagoRefreshToken',
   'picpayToken',
