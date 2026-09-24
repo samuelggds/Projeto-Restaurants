@@ -194,7 +194,7 @@ class GetPublicRestaurantSettingsService {
         acceptsDelivery: true,
         acceptsPickup: true,
         acceptsPix: true,
-        openFinancePixEnabled: false,
+        openFinancePixEnabled: openFinanceReady,
         acceptsCard: true,
         tableOrderingEnabled: true,
         waiterCallEnabled: true,
@@ -255,6 +255,14 @@ class GetPublicRestaurantSettingsService {
     if (settings.restaurant?.active === false) {
       throw new Error('Restaurante não encontrado ou indisponível.');
     }
+
+    const privateSettings =
+      await restaurantSettingsRepository.findByRestaurantId(normalizedRestaurantId);
+    const openFinanceReady = Boolean(
+      settings.openFinancePixEnabled &&
+        privateSettings?.mercadoPagoAccessToken &&
+        privateSettings?.mercadoPagoRefreshToken,
+    );
 
     const rawRestaurant = settings.restaurant as unknown as Omit<
       PublicSettingsFallback['restaurant'],
