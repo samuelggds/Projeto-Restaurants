@@ -420,6 +420,7 @@ export default function PixPaymentPanel({
   const resolvedStatus = expiredByClock ? 'EXPIRED' : baseResolvedStatus;
   const content = statusCopy[resolvedStatus];
   const confirmed = resolvedStatus === 'PAID';
+  const openFinance = String(pixPaymentData.provider || '').toUpperCase() === 'BELVO';
   const terminal = ['PAID', 'FAILED', 'CANCELED', 'EXPIRED', 'REFUNDED'].includes(resolvedStatus);
 
   useEffect(
@@ -467,8 +468,14 @@ export default function PixPaymentPanel({
       <Card>
         <Header>
           <div>
-            <small>Pagamento via Pix</small>
-            <h1>{confirmed ? 'Tudo certo com seu pedido' : 'Conclua seu pagamento'}</h1>
+            <small>{openFinance ? 'Pix pelo app do banco' : 'Pagamento via Pix'}</small>
+            <h1>
+              {confirmed
+                ? 'Tudo certo com seu pedido'
+                : openFinance
+                  ? 'Aguardando confirmação do banco'
+                  : 'Conclua seu pagamento'}
+            </h1>
           </div>
           <strong>{formatCurrency(pixPaymentData.total)}</strong>
         </Header>
@@ -499,7 +506,7 @@ export default function PixPaymentPanel({
             </Expiration>
           )}
 
-          {!confirmed && (
+          {!confirmed && !openFinance && (
             <>
               <PaymentArea>
                 <QrWrap aria-label="QR Code Pix">
@@ -533,6 +540,17 @@ export default function PixPaymentPanel({
                 </span>
               </SafetyNote>
             </>
+          )}
+
+          {!confirmed && openFinance && (
+            <SafetyNote>
+              <ShieldCheck size={16} />
+              <span>
+                A autorização acontece no ambiente seguro do seu banco. Esta tela consulta o
+                provedor antes de confirmar o pedido; voltar ao GastroNexa não marca o Pix como
+                pago automaticamente.
+              </span>
+            </SafetyNote>
           )}
 
           <Actions>
