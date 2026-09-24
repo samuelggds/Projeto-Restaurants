@@ -271,8 +271,11 @@ export function PaymentOptions({
     }
 
     let active = true;
-    setOpenFinanceBanksLoading(true);
-    setOpenFinanceBanksError('');
+    Promise.resolve().then(() => {
+      if (!active) return;
+      setOpenFinanceBanksLoading(true);
+      setOpenFinanceBanksError('');
+    });
     ordersService
       .listOpenFinanceInstitutions()
       .then((institutions) => {
