@@ -416,6 +416,19 @@ class UpdateRestaurantSettingsService {
       );
     }
 
+    const futureProvidersEnabled = process.env.ENABLE_FUTURE_PAYMENT_PROVIDERS === 'true';
+    if (
+      !futureProvidersEnabled &&
+      (normalizedPagarmeSecretKey !== undefined ||
+        normalizedPagarmePublicKey !== undefined ||
+        normalizedPagarmeEnvironment !== undefined ||
+        normalizedAsaasAccessToken !== undefined)
+    ) {
+      throw new Error(
+        'Asaas e Pagar.me estão preparados para integração futura, mas permanecem indisponíveis até a liberação do cadastro empresarial/CNPJ.',
+      );
+    }
+
     let resolvedGatewayMerchantId =
       normalizedGatewayMerchantId === undefined
         ? String(settings.gatewayMerchantId || '').trim() || null
