@@ -12,6 +12,10 @@ test('identifica o provedor pelo prefixo do pagamento', () => {
     provider: 'ASAAS',
     rawPaymentId: 'pay_123',
   });
+  assert.deepEqual(parseProviderPaymentId('mp_open_finance_order:ORD_OPEN_123'), {
+    provider: 'MERCADO_PAGO_OPEN_FINANCE',
+    rawPaymentId: 'ORD_OPEN_123',
+  });
 });
 
 test('valida CPF e normaliza chave Pix', () => {
