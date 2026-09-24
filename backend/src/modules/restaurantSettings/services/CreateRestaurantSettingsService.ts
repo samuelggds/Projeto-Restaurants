@@ -31,6 +31,7 @@ type CreateRestaurantSettingsPayload = {
   acceptsDelivery?: boolean;
   acceptsPickup?: boolean;
   acceptsPix?: boolean;
+  openFinancePixEnabled?: boolean;
   acceptsCard?: boolean;
   tableOrderingEnabled?: boolean;
   waiterCallEnabled?: boolean;
@@ -116,6 +117,7 @@ class CreateRestaurantSettingsService {
     acceptsDelivery,
     acceptsPickup,
     acceptsPix,
+    openFinancePixEnabled,
     acceptsCard,
     tableOrderingEnabled,
     waiterCallEnabled,
@@ -318,6 +320,11 @@ class CreateRestaurantSettingsService {
       acceptsDelivery: normalizeStrictBoolean(acceptsDelivery, 'Delivery', true),
       acceptsPickup: normalizeStrictBoolean(acceptsPickup, 'Retirada', true),
       acceptsPix: normalizeStrictBoolean(acceptsPix, 'Pagamento por PIX', true),
+      openFinancePixEnabled: normalizeStrictBoolean(
+        openFinancePixEnabled,
+        'Pix via Open Finance',
+        false,
+      ),
       acceptsCard: normalizeStrictBoolean(acceptsCard, 'Pagamento por cartão', true),
       tableOrderingEnabled: normalizeStrictBoolean(
         tableOrderingEnabled,
