@@ -29,6 +29,7 @@ type UpdateRestaurantSettingsPayload = {
   acceptsDelivery?: boolean;
   acceptsPickup?: boolean;
   acceptsPix?: boolean;
+  openFinancePixEnabled?: boolean;
   acceptsCard?: boolean;
   tableOrderingEnabled?: boolean;
   waiterCallEnabled?: boolean;
@@ -172,6 +173,7 @@ class UpdateRestaurantSettingsService {
     acceptsDelivery,
     acceptsPickup,
     acceptsPix,
+    openFinancePixEnabled,
     acceptsCard,
     tableOrderingEnabled,
     waiterCallEnabled,
@@ -537,6 +539,10 @@ class UpdateRestaurantSettingsService {
         acceptsPix === undefined
           ? undefined
           : normalizeStrictBoolean(acceptsPix, 'Pagamento por PIX', true),
+      openFinancePixEnabled:
+        openFinancePixEnabled === undefined
+          ? undefined
+          : normalizeStrictBoolean(openFinancePixEnabled, 'Pix via Open Finance', false),
       acceptsCard:
         acceptsCard === undefined
           ? undefined
