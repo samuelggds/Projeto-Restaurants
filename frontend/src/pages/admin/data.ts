@@ -52,6 +52,7 @@ export const adminMockSettings: AdminSettings = {
   acceptsDelivery: true,
   acceptsPickup: true,
   acceptsPix: true,
+  openFinancePixEnabled: false,
   acceptsCard: true,
   deliveryTime: 0,
   autoAcceptOrders: false,
