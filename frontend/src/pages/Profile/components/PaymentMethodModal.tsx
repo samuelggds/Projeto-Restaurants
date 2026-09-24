@@ -34,13 +34,6 @@ type MercadoPagoInstance = {
 };
 declare global {
   interface Window {
-    PagSeguro?: {
-      encryptCard(input: Record<string, string>): {
-        encryptedCard?: string;
-        hasErrors?: boolean;
-        errors?: Array<{ message?: string }>;
-      };
-    };
     MercadoPago?: new (publicKey: string) => MercadoPagoInstance;
   }
 }
@@ -168,30 +161,6 @@ export function PaymentMethodModal({
     month: number,
     fullYear: number,
   ) {
-    if (providerConfig.provider === 'PAGBANK') {
-      if (!providerConfig.publicKey)
-        throw new Error(
-          'Não foi possível validar este cartão no momento. Tente novamente em alguns minutos.',
-        );
-      await loadSdk(
-        'PagBank',
-        'https://assets.pagseguro.com.br/checkout-sdk-js/rc/dist/browser/pagseguro.min.js',
-        () => Boolean(window.PagSeguro),
-      );
-      const result = window.PagSeguro?.encryptCard({
-        publicKey: providerConfig.publicKey,
-        holder: holder.trim(),
-        number: digits,
-        expMonth: String(month).padStart(2, '0'),
-        expYear: String(fullYear),
-        securityCode: cvv,
-      });
-      if (!result?.encryptedCard || result.hasErrors)
-        throw new Error(
-          result?.errors?.[0]?.message || 'Revise os dados do cartão e tente novamente.',
-        );
-      return { encryptedCard: result.encryptedCard };
-    }
     return { cardData: { number: digits, securityCode: cvv }, holderTaxId: taxId };
   }
 
@@ -385,7 +354,6 @@ export function PaymentMethodModal({
             </div>
           </>
         )}
-        {config?.provider !== 'PAGBANK' && (
           <label>
             CPF do titular
             <input
@@ -397,7 +365,6 @@ export function PaymentMethodModal({
               required
             />
           </label>
-        )}
         <p className="payment-security">
           <LockKeyhole /> O número completo e o CVV nunca são salvos no banco de dados.
         </p>
