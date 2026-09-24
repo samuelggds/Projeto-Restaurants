@@ -38,7 +38,7 @@ Depois de cada tentativa crítica, a suíte consulta o PostgreSQL diretamente e 
 - cupons e configurações privadas;
 - suporte interno e faturas;
 - tentativas de sobrescrever tenant por body, query, params, headers e handshake Socket.IO;
-- webhooks Asaas, Stripe, PagBank e Mercado Pago;
+- webhooks dos provedores ativos, incluindo Mercado Pago e Open Finance, sempre vinculados ao restaurante correto;
 - rooms e eventos realtime por restaurante;
 - atualização de GPS pelo entregador atribuído.
 
