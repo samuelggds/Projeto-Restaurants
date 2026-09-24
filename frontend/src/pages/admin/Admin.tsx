@@ -433,9 +433,6 @@ export function mapSettingsFromApi(
     pagarmeSecretKeyConfigured: Boolean(raw?.pagarmeSecretKeyConfigured),
     asaasAccessToken: '',
     asaasAccessTokenConfigured: Boolean(raw?.asaasAccessTokenConfigured),
-    pagbankEmail: String(raw?.pagbankEmail ?? ''),
-    pagbankToken: '',
-    pagbankTokenConfigured: Boolean(raw?.pagbankTokenConfigured),
     promotionalBanners,
   };
 }
@@ -524,7 +521,6 @@ export function mapSettingsToApi(settings: AdminSettings): Record<string, unknow
     pixProvider: settings.pixProvider,
     pixKey: settings.pixKey,
     cardGateway: settings.cardGateway,
-    pagbankEmail: settings.pagbankEmail,
     ...(settings.stripeSecretKey ? { stripeSecretKey: settings.stripeSecretKey } : {}),
     ...(settings.stripeWebhookSecret ? { stripeWebhookSecret: settings.stripeWebhookSecret } : {}),
     ...(settings.mercadoPagoAccessToken
@@ -534,7 +530,6 @@ export function mapSettingsToApi(settings: AdminSettings): Record<string, unknow
     ...(settings.pagarmePublicKey ? { pagarmePublicKey: settings.pagarmePublicKey } : {}),
     pagarmeEnvironment: settings.pagarmeEnvironment,
     ...(settings.asaasAccessToken ? { asaasAccessToken: settings.asaasAccessToken } : {}),
-    ...(settings.pagbankToken ? { pagbankToken: settings.pagbankToken } : {}),
   };
 }
 
@@ -979,16 +974,6 @@ export default function Admin() {
         );
       }}
       onLoadPaymentConnections={getPaymentConnections}
-      onConnectPagBank={async () => {
-        const result = await restaurantSettingsService.startPagBankOAuth();
-        const authorizationUrl = String(
-          (result as Record<string, unknown>)?.authorizationUrl || '',
-        );
-        if (!/^https:\/\//i.test(authorizationUrl)) {
-          throw new Error('O PagBank não retornou uma URL segura de autorização.');
-        }
-        window.location.assign(authorizationUrl);
-      }}
       onOnboardAsaas={async (payload) => {
         await restaurantSettingsService.onboardAsaas(payload);
         const [refreshed, refreshedBanners, refreshedTableAccount] = await Promise.all([
