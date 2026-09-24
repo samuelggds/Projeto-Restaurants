@@ -1,5 +1,15 @@
 import restaurantSettingsRepository from '../repositories/RestaurantSettingsRepository.js';
 import { getMercadoPagoAccessToken } from './RestaurantPaymentCredentialsService.js';
+import getAsaasConnectionStatusService from './GetAsaasConnectionStatusService.js';
+import {
+  asaasPlatformEnabled,
+  asaasWebhookConfiguration,
+} from './asaasConnectionApi.js';
+import {
+  pagarmeJson,
+  validatePagarmeKeys,
+} from '../../payments/providers/pagarmeV5.js';
+import { futurePaymentProvidersEnabled } from '../../payments/providers/futurePaymentProviders.js';
 import { mercadoPagoWebhookSecrets } from '../../payments/providers/mercadoPagoWebhookSignature.js';
 import { parseCredentialEncryptionKey } from '../security/credentialEncryption.js';
 import { resolveOAuthEndpoint } from '../security/oauthEndpoints.js';
@@ -63,9 +73,12 @@ export function paymentConnectionConfiguration(provider: Provider) {
   try {
     if (!parseCredentialEncryptionKey()) return false;
 
-    // Asaas e Pagar.me permanecem estruturados para integração futura, mas
-    // não podem ser ativados enquanto a plataforma não liberar o cadastro empresarial.
-    if (provider === 'ASAAS' || provider === 'PAGARME') return false;
+    if (provider === 'PAGARME') return futurePaymentProvidersEnabled();
+    if (provider === 'ASAAS') {
+      if (!futurePaymentProvidersEnabled() || !asaasPlatformEnabled()) return false;
+      asaasWebhookConfiguration('');
+      return configured('ASAAS_API_KEY');
+    }
 
     if (!publicHttps(process.env.FRONTEND_URL) || !publicHttps(process.env.BACKEND_URL)) {
       return false;
@@ -108,8 +121,8 @@ class GetPaymentConnectionsService {
       },
       {
         provider: 'PAGARME',
-        connected: false,
-        canConnect: false,
+        connected: Boolean(settings?.pagarmeSecretKey && settings?.pagarmePublicKey),
+        canConnect: paymentConnectionConfiguration('PAGARME'),
         readyForPix: false,
         readyForCard: false,
         status: 'UNAVAILABLE',
@@ -117,14 +130,67 @@ class GetPaymentConnectionsService {
       },
       {
         provider: 'ASAAS',
-        connected: false,
-        canConnect: false,
+        connected: Boolean(settings?.asaasAccessToken),
+        canConnect: paymentConnectionConfiguration('ASAAS'),
         readyForPix: false,
         readyForCard: false,
         status: 'UNAVAILABLE',
         message: FUTURE_PROVIDER_MESSAGE,
       },
     ];
+
+    const pagarme = connections.find((item) => item.provider === 'PAGARME')!;
+    if (pagarme.canConnect && pagarme.connected) {
+      try {
+        const credentials = validatePagarmeKeys(
+          settings?.pagarmeSecretKey,
+          settings?.pagarmePublicKey,
+        );
+        const check = await pagarmeJson<Record<string, unknown>>(
+          credentials.secretKey,
+          '/orders?page=1&size=1',
+          { method: 'GET', signal: AbortSignal.timeout(8_000) },
+        );
+        if (check.response.ok) {
+          pagarme.readyForPix = true;
+          pagarme.readyForCard = true;
+          pagarme.status = 'CONNECTED';
+          pagarme.message = 'Pagar.me validado e pronto para receber Pix e cartão.';
+        } else {
+          pagarme.status = 'ACTION_REQUIRED';
+          pagarme.message = 'As chaves Pagar.me não foram aceitas. Revise as credenciais.';
+        }
+      } catch {
+        pagarme.status = 'ACTION_REQUIRED';
+        pagarme.message = 'Não foi possível validar as credenciais Pagar.me.';
+      }
+    } else if (pagarme.canConnect) {
+      pagarme.status = 'NOT_CONNECTED';
+      pagarme.message = 'Informe as chaves Pagar.me do restaurante para concluir a conexão.';
+    }
+
+    const asaas = connections.find((item) => item.provider === 'ASAAS')!;
+    if (asaas.canConnect) {
+      const status = await getAsaasConnectionStatusService.execute({ restaurantId: id });
+      if (status.recoveryRequired) {
+        asaas.canConnect = false;
+        asaas.status = 'ACTION_REQUIRED';
+        asaas.message = status.message;
+      } else if (asaas.connected) {
+        asaas.readyForPix = status.readyForPayments;
+        asaas.readyForCard = status.readyForPayments;
+        asaas.status = status.readyForPayments
+          ? 'CONNECTED'
+          : status.approvalStatus === 'PENDING'
+            ? 'PENDING_APPROVAL'
+            : 'ACTION_REQUIRED';
+        asaas.message = status.message;
+        asaas.onboardingUrl = status.onboardingUrl;
+      } else {
+        asaas.status = 'NOT_CONNECTED';
+        asaas.message = 'Crie e vincule a conta Asaas do restaurante.';
+      }
+    }
 
     const mercadoPago = connections[0];
     if (mercadoPago.canConnect && mercadoPago.connected) {
