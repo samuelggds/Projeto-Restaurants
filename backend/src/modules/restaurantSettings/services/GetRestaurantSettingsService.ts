@@ -20,6 +20,7 @@ type RestaurantSettingsFallback = {
   acceptsDelivery: boolean;
   acceptsPickup: boolean;
   acceptsPix: boolean;
+  openFinancePixEnabled: boolean;
   acceptsCard: boolean;
   tableOrderingEnabled: boolean;
   waiterCallEnabled: boolean;
