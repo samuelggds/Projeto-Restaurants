@@ -1175,13 +1175,6 @@ model RestaurantSettings {
   pagarmePublicKey    String?
   pagarmeEnvironment  String?
 
-  // Legado PagBank: preservado temporariamente apenas para conciliar/estornar
-  // transações históricas. Não é oferecido para novas configurações.
-  pagbankEmail          String?
-  pagbankToken          String?
-  pagbankRefreshToken   String?
-  pagbankTokenExpiresAt DateTime?
-  pagbankEnvironment    String?
 
   // Dados financeiros / onboarding
   bankName               String?
