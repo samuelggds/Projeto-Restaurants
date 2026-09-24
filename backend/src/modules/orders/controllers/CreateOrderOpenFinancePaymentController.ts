@@ -34,8 +34,6 @@ class CreateOrderOpenFinancePaymentController {
         customerPhone,
         whatsappOptIn,
         couponRedemptionId,
-        successUrl,
-        cancelUrl,
       } = req.body;
 
       if (String(paymentMethod || '').toUpperCase() !== 'PIX') {
@@ -101,8 +99,6 @@ class CreateOrderOpenFinancePaymentController {
         result = await openFinanceMercadoPagoPaymentService.start({
           orderId: order.id,
           restaurantId: resolvedRestaurantId,
-          successUrl,
-          cancelUrl,
         });
       } catch (error) {
         console.error('[OPEN_FINANCE_PAYMENT_CREATION_UNCERTAIN]', {
