@@ -9,7 +9,13 @@ function enabled() {
 function credentials() {
   const secretId = String(process.env.BELVO_SECRET_ID || '').trim();
   const secretPassword = String(process.env.BELVO_SECRET_PASSWORD || '').trim();
-  if (!enabled() || !secretId || !secretPassword) {
+  const webhookToken = String(process.env.BELVO_WEBHOOK_TOKEN || '').trim();
+  if (
+    !enabled() ||
+    !secretId ||
+    !secretPassword ||
+    (process.env.NODE_ENV === 'production' && webhookToken.length < 32)
+  ) {
     throw new Error('Pix via Open Finance ainda não está disponível.');
   }
   return { secretId, secretPassword };
