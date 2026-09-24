@@ -129,6 +129,7 @@ class GetRestaurantSettingsService {
         acceptsDelivery: true,
         acceptsPickup: true,
         acceptsPix: true,
+        openFinancePixEnabled: false,
         acceptsCard: true,
         tableOrderingEnabled: true,
         waiterCallEnabled: true,
