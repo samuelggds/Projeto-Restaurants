@@ -1250,11 +1250,12 @@ class OrderPixPaymentService {
     expectedOrderId,
     expectedAmount,
     expectedCurrency = 'BRL',
+    timeoutMs,
   }: PaymentApprovalPayload) {
     const statusResult = await this.getPaymentStatus({
       paymentId,
       restaurantId,
-      timeoutMs: arguments[0]?.timeoutMs,
+      timeoutMs,
     });
 
     if (!statusResult.sameRestaurant) {
