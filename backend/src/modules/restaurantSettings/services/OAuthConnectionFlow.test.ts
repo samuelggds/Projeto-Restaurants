@@ -124,7 +124,6 @@ for (const [provider, start, complete, accessField, refreshField, expiresField] 
     'mercadoPagoRefreshToken',
     'mercadoPagoTokenExpiresAt',
   ],
-  ['PAGBANK', startPB, completePB, 'pagbankToken', 'pagbankRefreshToken', 'pagbankTokenExpiresAt'],
 ]) {
   test(`${provider}: impede iniciar conexão incompleta antes de criar state`, async () => {
     delete process.env.CREDENTIAL_ENCRYPTION_KEY;
@@ -175,8 +174,7 @@ for (const [provider, start, complete, accessField, refreshField, expiresField] 
     assert.ok(settings[expiresField].getTime() >= before + 3_600_000);
     assert.equal(settings.pixProvider, 'ASAAS');
     assert.equal(settings.cardGateway, 'PAGBANK');
-    if (provider === 'PAGBANK') assert.equal(settings.pagbankEnvironment, 'production');
-    else assert.equal(settings.mercadoPagoPublicKey, 'seller-public');
+    assert.equal(settings.mercadoPagoPublicKey, 'seller-public');
     await assert.rejects(
       () => complete.execute({ code: 'authorization-code', state }),
       /reutilizado/,
@@ -201,3 +199,12 @@ for (const [provider, start, complete, accessField, refreshField, expiresField] 
     assert.deepEqual(settings, { restaurantId: 7, pixProvider: 'ASAAS', cardGateway: 'PAGBANK' });
   });
 }
+
+test('PAGBANK: novas conexões permanecem desativadas sem criar state ou chamar provedor', async () => {
+  await assert.rejects(
+    () => startPB.execute({ restaurantId: 7, userId: 11 }),
+    /descontinuado no GastroNexa/i,
+  );
+  assert.equal(storedState, null);
+  assert.equal(requests.length, 0);
+});

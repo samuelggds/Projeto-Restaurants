@@ -44,9 +44,8 @@ const originalFetch = globalThis.fetch;
 
 test('timeout após cobrança de cartão preserva pedido confirmado, estoque e cupom', async () => {
   restaurantSettingsRepository.findByRestaurantId = async () => ({
-    cardGateway: 'PAGBANK',
-    pagbankEmail: 'tenant@test',
-    pagbankToken: 'tenant-token',
+    cardGateway: 'ASAAS',
+    asaasAccessToken: 'tenant-token',
   });
   const order = {
     id: 321,
@@ -168,68 +167,33 @@ test('não cria checkout quando o restaurante desativou pagamentos com cartão',
   assert.equal(createOrderCalled, false);
 });
 
-test('deve abrir checkout de cartao usando a configuracao PagBank do restaurante', async () => {
-  let savedSessionId = null;
-  let deletedOrderId = null;
-
+test('não abre novo checkout de cartão com configuração legada PagBank', async () => {
   restaurantSettingsRepository.findByRestaurantId = async () => ({
     cardGateway: 'PAGBANK',
-    pagbankEmail: 'dono@pizzaria.com',
-    pagbankToken: 'token-real',
+    pagbankToken: 'legacy-token',
   });
 
-  createOrderService.execute = async () => ({
-    id: 321,
-    restaurantId: 7,
-    total: 79.9,
-    restaurant: {
-      name: 'Pizzaria do Carlos',
-    },
-  });
-
-  orderRepository.setCardCheckoutSessionId = async (_orderId, _restaurantId, sessionId) => {
-    savedSessionId = sessionId;
+  let createOrderCalled = false;
+  createOrderService.execute = async () => {
+    createOrderCalled = true;
+    throw new Error('não deveria criar pedido');
   };
 
-  orderRepository.deleteById = async (orderId) => {
-    deletedOrderId = orderId;
-  };
-
-  globalThis.fetch = async () =>
-    new Response('<checkout><code>CHK-ABC-123</code></checkout>', {
-      status: 200,
-      headers: {
-        'Content-Type': 'application/xml',
-      },
-    });
-
-  const result = await createOrderCardCheckoutService.execute({
-    restaurantId: 7,
-    userRestaurantId: 7,
-    cardProvider: 'STRIPE',
-    type: 'DELIVERY',
-    paymentMethod: 'CARTAO',
-    items: [{ productId: 1, quantity: 2 }],
-    customerName: 'Carlos Silva',
-    customerCpf: '12345678900',
-    customerPhone: '11999998888',
-    successUrl: 'http://frontend.local/cart/sucesso',
-    cancelUrl: 'http://frontend.local/cart/cancelado',
-  });
-
-  assert.equal(result.orderId, 321);
-  assert.equal(result.provider, 'PAGBANK');
-  assert.equal(result.sessionId, 'CHK-ABC-123');
-  assert.equal(
-    result.checkoutUrl,
-    'https://pagseguro.uol.com.br/v2/checkout/payment.html?code=CHK-ABC-123',
+  await assert.rejects(
+    () =>
+      createOrderCardCheckoutService.execute({
+        restaurantId: 7,
+        userRestaurantId: 7,
+        type: 'DELIVERY',
+        paymentMethod: 'CARTAO',
+        items: [{ productId: 1, quantity: 1 }],
+      }),
+    /Gateway de cartão indisponível/i,
   );
-  assert.equal(savedSessionId, 'pagbank_chk:CHK-ABC-123');
-  assert.equal(deletedOrderId, null);
+  assert.equal(createOrderCalled, false);
 });
 
-test('admin conectado via OAuth abre checkout PagBank moderno sem email cadastrado', async () => {
-  const publicId = '123e4567-e89b-42d3-a456-426614174001';
+test('credencial OAuth legada PagBank não reativa novos checkouts', async () => {
   restaurantSettingsRepository.findByRestaurantId = async () => ({
     restaurantId: 7,
     cardGateway: 'PAGBANK',
@@ -237,41 +201,18 @@ test('admin conectado via OAuth abre checkout PagBank moderno sem email cadastra
     pagbankRefreshToken: 'refresh-7',
     pagbankTokenExpiresAt: new Date(Date.now() + 3600_000),
   });
-  createOrderService.execute = async () => ({
-    id: 321,
-    publicId,
-    restaurantId: 7,
-    total: 25,
-    restaurant: { name: 'Restaurante' },
-  });
-  let saved;
-  orderRepository.setCardCheckoutSessionId = async (id, tenant, session) => {
-    assert.deepEqual([id, tenant], [321, 7]);
-    saved = session;
-  };
-  globalThis.fetch = async (url, init) => {
-    assert.equal(url, 'https://api.pagseguro.com/checkouts');
-    assert.equal(init.headers.Authorization, 'Bearer tenant-token');
-    const body = JSON.parse(init.body);
-    assert.equal(body.reference_id, 'ordercard:321:7:123e4567e89b42d3a456426614174001');
-    return new Response(
-      JSON.stringify({
-        id: 'CHEC_321',
-        reference_id: body.reference_id,
-        links: [{ rel: 'PAY', href: 'https://pagamento.pagbank.com.br/pagamento?code=321' }],
+
+  await assert.rejects(
+    () =>
+      createOrderCardCheckoutService.execute({
+        restaurantId: 7,
+        userRestaurantId: 7,
+        type: 'RETIRADA',
+        paymentMethod: 'CARTAO',
+        items: [{ productId: 1, quantity: 1 }],
       }),
-    );
-  };
-  const result = await createOrderCardCheckoutService.execute({
-    restaurantId: 7,
-    userRestaurantId: 7,
-    type: 'RETIRADA',
-    paymentMethod: 'CARTAO',
-    items: [{ productId: 1, quantity: 1 }],
-  });
-  assert.equal(saved, 'pagbank_checkout:CHEC_321');
-  assert.equal(result.sessionId, 'CHEC_321');
-  assert.equal(result.paid, false);
+    /Gateway de cartão indisponível/i,
+  );
 });
 
 test('checkout Asaas usa somente a conta do restaurante e nunca envia split', async () => {
@@ -475,63 +416,37 @@ test('não confirma cartão salvo Asaas com valor divergente na resposta aprovad
   assert.equal(finalizeCalls, 0);
 });
 
-test('não confirma cartão salvo PagBank com valor divergente na resposta paga', async () => {
+test('cartão salvo PagBank legado não inicia nova cobrança', async () => {
   restaurantSettingsRepository.findByRestaurantId = async () => ({
     cardGateway: 'PAGBANK',
-    pagbankEmail: 'restaurant@example.com',
     pagbankToken: 'tenant-token',
-  });
-  createOrderService.execute = async () => ({
-    id: 657,
-    restaurantId: 9,
-    total: 89.9,
-    systemFee: 0,
-    restaurant: { name: 'Pizzaria da Ana' },
   });
   prisma.customerPaymentMethod.findFirst = async () => ({
     publicId: 'saved-card-public-id',
     providerPaymentMethodId: 'CARD-TOKEN-001',
     active: true,
   });
-  orderRepository.setCardCheckoutSessionId = async () => null;
-  globalThis.fetch = async () =>
-    new Response(
-      JSON.stringify({
-        id: 'ORDE-001',
-        reference_id: 'ordercard:657:9',
-        charges: [
-          {
-            id: 'CHAR-001',
-            reference_id: 'ordercard:657:9',
-            status: 'PAID',
-            amount: { value: 1, currency: 'BRL' },
-            payment_method: { type: 'CREDIT_CARD' },
-          },
-        ],
-      }),
-      { status: 200, headers: { 'Content-Type': 'application/json' } },
-    );
 
-  let finalizeCalls = 0;
-  finalizeOrderCardPaymentService.execute = async () => {
-    finalizeCalls += 1;
-    return null;
+  let networkCalls = 0;
+  globalThis.fetch = async () => {
+    networkCalls += 1;
+    return new Response('{}');
   };
 
-  const result = await createOrderCardCheckoutService.execute({
-    userId: 33,
-    restaurantId: 9,
-    userRestaurantId: 9,
-    type: 'DELIVERY',
-    paymentMethod: 'CARTAO',
-    paymentMethodId: 'saved-card-public-id',
-    customerCpf: '12345678901',
-    items: [{ productId: 1, quantity: 1 }],
-    successUrl: 'https://pedido.local/sucesso',
-  });
-
-  assert.equal(result.paid, false);
-  assert.equal(finalizeCalls, 0);
+  await assert.rejects(
+    () =>
+      createOrderCardCheckoutService.execute({
+        userId: 33,
+        restaurantId: 9,
+        userRestaurantId: 9,
+        type: 'DELIVERY',
+        paymentMethod: 'CARTAO',
+        paymentMethodId: 'saved-card-public-id',
+        items: [{ productId: 1, quantity: 1 }],
+      }),
+    /Gateway de cartão indisponível/i,
+  );
+  assert.equal(networkCalls, 0);
 });
 
 test('retorna paid somente quando a finalização canônica confirma o cartão', async () => {

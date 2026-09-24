@@ -27,7 +27,7 @@ import { usePaymentConnections } from './usePaymentConnections';
 import * as PS from './PaymentSettings.styles';
 
 type Settings = typeof adminMockSettings;
-type Provider = 'MERCADO_PAGO' | 'ASAAS' | 'PAGBANK';
+type Provider = 'MERCADO_PAGO' | 'ASAAS';
 type Props = {
   settings: Settings;
   update: <K extends keyof Settings>(key: K, value: Settings[K]) => void;
@@ -64,12 +64,6 @@ const providers: Array<{
     description:
       'Crie uma conta de recebimento ligada ao restaurante usando o CPF ou CNPJ do responsável.',
   },
-  {
-    id: 'PAGBANK',
-    name: 'PagBank',
-    initials: 'PB',
-    description: 'Conecte a conta PagBank pelo processo seguro de autorização.',
-  },
 ];
 
 function errorMessage(error: unknown, fallback: string) {
@@ -78,8 +72,14 @@ function errorMessage(error: unknown, fallback: string) {
 
 function providerIsConnected(settings: Settings, provider: Provider) {
   if (provider === 'MERCADO_PAGO') return settings.mercadoPagoAccessTokenConfigured;
-  if (provider === 'ASAAS') return settings.asaasAccessTokenConfigured;
-  return settings.pagbankTokenConfigured;
+  return settings.asaasAccessTokenConfigured;
+}
+
+function activeProvider(value: string): Provider | null {
+  const normalized = String(value || '').trim().toUpperCase();
+  return normalized === 'MERCADO_PAGO' || normalized === 'ASAAS'
+    ? (normalized as Provider)
+    : null;
 }
 
 function providerName(provider: string) {
@@ -132,7 +132,6 @@ export function PaymentSettings({
   onConnectMercadoPago,
   onDisconnectMercadoPago,
   onLoadPaymentConnections,
-  onConnectPagBank,
   onOnboardAsaas,
 }: Props) {
   const [busyProvider, setBusyProvider] = useState<Provider | null>(null);
@@ -151,27 +150,23 @@ export function PaymentSettings({
   const isReady = (provider: Provider, method: 'readyForPix' | 'readyForCard') =>
     connections.verifying ? Boolean(connections.get(provider)?.[method]) : isConnected(provider);
 
+  const pixProvider = activeProvider(settings.pixProvider);
+  const cardProvider = activeProvider(settings.cardGateway);
+
   const selectedProviders = useMemo(() => {
     const selected = new Set<Provider>();
-    if (settings.acceptsPix && settings.pixProvider) {
-      selected.add(settings.pixProvider as Provider);
-    }
-    if (settings.acceptsCard && settings.cardGateway) {
-      selected.add(settings.cardGateway as Provider);
-    }
+    if (settings.acceptsPix && pixProvider) selected.add(pixProvider);
+    if (settings.acceptsCard && cardProvider) selected.add(cardProvider);
     return selected;
-  }, [settings.acceptsCard, settings.acceptsPix, settings.cardGateway, settings.pixProvider]);
+  }, [settings.acceptsCard, settings.acceptsPix, pixProvider, cardProvider]);
 
   const activeMethods = Number(settings.acceptsPix) + Number(settings.acceptsCard);
   const connectedSelectedProviders = Array.from(selectedProviders).filter((provider) =>
     isConnected(provider),
   ).length;
-  const pixReady =
-    !settings.acceptsPix ||
-    (Boolean(settings.pixProvider) && isReady(settings.pixProvider as Provider, 'readyForPix'));
+  const pixReady = !settings.acceptsPix || Boolean(pixProvider && isReady(pixProvider, 'readyForPix'));
   const cardReady =
-    !settings.acceptsCard ||
-    (Boolean(settings.cardGateway) && isReady(settings.cardGateway as Provider, 'readyForCard'));
+    !settings.acceptsCard || Boolean(cardProvider && isReady(cardProvider, 'readyForCard'));
   const configurationReady = activeMethods > 0 && pixReady && cardReady;
   const configurationNotice = !activeMethods
     ? 'Há etapas pendentes: ative Pix ou cartão para aceitar pagamentos online.'
@@ -179,35 +174,33 @@ export function PaymentSettings({
       ? 'Verificando as conexões de pagamento...'
       : connections.error
         ? connections.error
-        : settings.acceptsPix && !pixReady
-          ? connections.get(settings.pixProvider as Provider)?.message ||
-            `Há etapas pendentes: vincule a conta ${providerName(settings.pixProvider)} para liberar o Pix.`
-          : settings.acceptsPix && !isConnected(settings.pixProvider as Provider)
-            ? `Há etapas pendentes: vincule a conta ${providerName(settings.pixProvider)} para liberar o Pix.`
-            : settings.acceptsCard && !settings.cardGateway
-              ? 'Há etapas pendentes: escolha quem processará os pagamentos com cartão.'
-              : settings.acceptsCard && !cardReady
-                ? connections.get(settings.cardGateway as Provider)?.message ||
-                  `Há etapas pendentes: vincule a conta ${providerName(settings.cardGateway)} para liberar o cartão.`
-                : 'Há etapas pendentes: revise o cadastro dos meios de pagamento.';
+        : settings.acceptsPix && !pixProvider
+          ? 'PagBank não está mais disponível. Escolha Mercado Pago ou Asaas para receber por Pix.'
+          : settings.acceptsPix && !pixReady
+            ? connections.get(pixProvider as Provider)?.message ||
+              `Há etapas pendentes: vincule a conta ${providerName(settings.pixProvider)} para liberar o Pix.`
+            : settings.acceptsPix && pixProvider && !isConnected(pixProvider)
+              ? `Há etapas pendentes: vincule a conta ${providerName(settings.pixProvider)} para liberar o Pix.`
+              : settings.acceptsCard && !cardProvider
+                ? 'PagBank não está mais disponível. Escolha Mercado Pago ou Asaas para processar cartão.'
+                : settings.acceptsCard && !cardReady
+                  ? connections.get(cardProvider as Provider)?.message ||
+                    `Há etapas pendentes: vincule a conta ${providerName(settings.cardGateway)} para liberar o cartão.`
+                  : 'Há etapas pendentes: revise o cadastro dos meios de pagamento.';
 
-  const connect = async (provider: 'MERCADO_PAGO' | 'PAGBANK') => {
+  const connectMercadoPago = async () => {
     if (connecting.current) return;
     connecting.current = true;
     setConnectionError('');
-    setBusyProvider(provider);
+    setBusyProvider('MERCADO_PAGO');
     try {
-      const handler = provider === 'MERCADO_PAGO' ? onConnectMercadoPago : onConnectPagBank;
-      if (!handler) throw new Error('A conexão desta empresa não está disponível nesta tela.');
-      await handler();
+      if (!onConnectMercadoPago) {
+        throw new Error('A conexão do Mercado Pago não está disponível nesta tela.');
+      }
+      await onConnectMercadoPago();
       await connections.refresh();
     } catch (error) {
-      setConnectionError(
-        errorMessage(
-          error,
-          `Não foi possível conectar ao ${provider === 'MERCADO_PAGO' ? 'Mercado Pago' : 'PagBank'}.`,
-        ),
-      );
+      setConnectionError(errorMessage(error, 'Não foi possível conectar ao Mercado Pago.'));
     } finally {
       connecting.current = false;
       setBusyProvider(null);
@@ -394,13 +387,13 @@ export function PaymentSettings({
             <PS.Field>
               <span>Empresa que receberá o Pix</span>
               <select
-                value={settings.pixProvider}
+                value={pixProvider || ''}
                 disabled={!settings.acceptsPix || busyProvider !== null}
                 onChange={(event) => update('pixProvider', event.target.value)}
               >
+                <option value="">Selecione uma empresa</option>
                 <option value="MERCADO_PAGO">Mercado Pago</option>
                 <option value="ASAAS">Asaas</option>
-                <option value="PAGBANK">PagBank</option>
               </select>
               <small>Os valores serão recebidos na conta conectada desta empresa.</small>
             </PS.Field>
@@ -448,14 +441,13 @@ export function PaymentSettings({
             <PS.Field $full>
               <span>Empresa que processará o cartão</span>
               <select
-                value={settings.cardGateway}
+                value={cardProvider || ''}
                 disabled={!settings.acceptsCard || busyProvider !== null}
                 aria-invalid={settings.acceptsCard && !settings.cardGateway}
                 onChange={(event) => update('cardGateway', event.target.value)}
               >
                 <option value="">Selecione uma empresa</option>
                 <option value="MERCADO_PAGO">Mercado Pago</option>
-                <option value="PAGBANK">PagBank</option>
                 <option value="ASAAS">Asaas</option>
               </select>
               <small>
@@ -620,7 +612,7 @@ export function PaymentSettings({
                       type="button"
                       $provider={provider.id}
                       disabled={busyProvider !== null || !canConnect}
-                      onClick={() => void connect(provider.id as Exclude<Provider, 'ASAAS'>)}
+                      onClick={() => void connectMercadoPago()}
                     >
                       {connected ? <ShieldCheck /> : <ExternalLink />}
                       {busy

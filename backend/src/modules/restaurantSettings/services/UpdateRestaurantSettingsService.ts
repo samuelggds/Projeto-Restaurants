@@ -399,6 +399,16 @@ class UpdateRestaurantSettingsService {
             .trim()
             .toUpperCase();
 
+    const requestedPixProvider =
+      pixProvider === undefined ? null : String(pixProvider || '').trim().toUpperCase();
+    const requestedCardGateway =
+      cardGateway === undefined ? null : String(cardGateway || '').trim().toUpperCase();
+    if (requestedPixProvider === 'PAGBANK' || requestedCardGateway === 'PAGBANK') {
+      throw new Error(
+        'PagBank não está disponível. Escolha Mercado Pago ou Asaas para pagamentos online.',
+      );
+    }
+
     let resolvedGatewayMerchantId =
       normalizedGatewayMerchantId === undefined
         ? String(settings.gatewayMerchantId || '').trim() || null

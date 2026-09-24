@@ -1,8 +1,5 @@
 import restaurantSettingsRepository from '../repositories/RestaurantSettingsRepository.js';
-import {
-  getMercadoPagoAccessToken,
-  getPagBankAccessToken,
-} from './RestaurantPaymentCredentialsService.js';
+import { getMercadoPagoAccessToken } from './RestaurantPaymentCredentialsService.js';
 import getAsaasConnectionStatusService from './GetAsaasConnectionStatusService.js';
 import {
   ASAAS_TEMPORARILY_UNAVAILABLE_MESSAGE,
@@ -13,7 +10,7 @@ import { mercadoPagoWebhookSecrets } from '../../payments/providers/mercadoPagoW
 import { parseCredentialEncryptionKey } from '../security/credentialEncryption.js';
 import { resolveOAuthEndpoint } from '../security/oauthEndpoints.js';
 
-type Provider = 'MERCADO_PAGO' | 'PAGBANK' | 'ASAAS';
+type Provider = 'MERCADO_PAGO' | 'ASAAS';
 type Connection = {
   provider: Provider;
   connected: boolean;
@@ -88,17 +85,7 @@ export function paymentConnectionConfiguration(provider: Provider) {
         )
       );
     }
-    resolveOAuthEndpoint('PAGBANK_API');
-    resolveOAuthEndpoint('PAGBANK_AUTHORIZATION');
-    return (
-      configured('PAGBANK_CONNECT_CLIENT_ID') &&
-      configured('PAGBANK_CONNECT_CLIENT_SECRET') &&
-      validCallback(process.env.PAGBANK_CONNECT_REDIRECT_URI, '/settings/pagbank/oauth/callback') &&
-      configured('PAGBANK_CONNECT_PLATFORM_TOKEN') &&
-      publicHttps(
-        process.env.PAGBANK_NOTIFICATION_URL || `${process.env.BACKEND_URL}/orders/webhook/pagbank`,
-      )
-    );
+    return false;
   } catch {
     return false;
   }
@@ -110,13 +97,11 @@ class GetPaymentConnectionsService {
     if (!Number.isSafeInteger(id) || id <= 0) throw new Error('Restaurante inválido.');
     const settings = await restaurantSettingsRepository.findByRestaurantId(id);
     const connections = await Promise.all(
-      (['MERCADO_PAGO', 'PAGBANK', 'ASAAS'] as const).map(async (provider): Promise<Connection> => {
+      (['MERCADO_PAGO', 'ASAAS'] as const).map(async (provider): Promise<Connection> => {
         const connected = Boolean(
           provider === 'MERCADO_PAGO'
             ? settings?.mercadoPagoAccessToken
-            : provider === 'PAGBANK'
-              ? settings?.pagbankToken
-              : settings?.asaasAccessToken,
+            : settings?.asaasAccessToken,
         );
         const canConnect = paymentConnectionConfiguration(provider);
         const unavailableMessage =
@@ -161,10 +146,7 @@ class GetPaymentConnectionsService {
         }
         if (!canConnect || !connected) return result;
 
-        const renewable =
-          provider === 'MERCADO_PAGO'
-            ? Boolean(settings?.mercadoPagoRefreshToken)
-            : Boolean(settings?.pagbankRefreshToken);
+        const renewable = Boolean(settings?.mercadoPagoRefreshToken);
         if (!renewable) {
           return {
             ...result,
@@ -187,9 +169,7 @@ class GetPaymentConnectionsService {
         }
 
         try {
-          await (provider === 'MERCADO_PAGO'
-            ? getMercadoPagoAccessToken(id)
-            : getPagBankAccessToken(id));
+          await getMercadoPagoAccessToken(id);
           return {
             ...result,
             readyForPix: true,

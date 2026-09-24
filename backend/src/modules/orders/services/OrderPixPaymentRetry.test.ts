@@ -70,33 +70,25 @@ test('PagBank usa a chave persistida, inclusive após timeout', async () => {
       status: 200,
     });
   };
-  await assert.rejects(() => pix.createPixPayment(payload), /timeout/);
+  await assert.rejects(() => pix.createPixPayment({ ...payload, resumeOnly: true }), /timeout/);
   await pix.createPixPayment({ ...payload, resumeOnly: true });
   assert.equal(requests[0].headers['x-idempotency-key'], payload.idempotencyKey);
   assert.equal(requests[0].headers['x-idempotency-key'], requests[1].headers['x-idempotency-key']);
   assert.equal(requests[0].body, requests[1].body);
 });
 
-test('Pix PagBank conectado usa credencial tenant sem exigir chave Pix digitada no painel', async () => {
+test('Pix PagBank não cria novas cobranças mesmo com credencial legada presente', async () => {
   provider = 'PAGBANK';
-  settingsRepository.findPublicByRestaurantId = async () => ({
-    pixProvider: provider,
-    pixKey: null,
-    isOpenForOrders: true,
-    acceptsPix: true,
-  });
   let calls = 0;
-  globalThis.fetch = async (url, init) => {
+  globalThis.fetch = async () => {
     calls += 1;
-    assert.match(String(url), /api.pagseguro.com\/orders$/);
-    assert.equal(init.headers.Authorization, 'Bearer test-token');
-    assert.equal(JSON.parse(init.body).reference_id, 'orderpix:7:91');
-    assert.equal(JSON.parse(init.body).qr_codes[0].amount.value, 2500);
-    return new Response(JSON.stringify({ id: 'ORDE_91', qr_codes: [{ text: 'pix-payload' }] }));
+    return new Response('{}');
   };
-  const result = await pix.createPixPayment(payload);
-  assert.equal(result.paymentId, 'pagbank:ORDE_91');
-  assert.equal(calls, 1);
+  await assert.rejects(
+    () => pix.createPixPayment(payload),
+    /PagBank não está disponível para novas cobranças/i,
+  );
+  assert.equal(calls, 0);
 });
 
 test('Asaas retoma cobrança existente por referência sem qualquer POST', async () => {
@@ -143,7 +135,7 @@ for (const imageUrl of ['https://attacker.example.test/qr', 'https://api.pagsegu
         }),
       );
     };
-    const result = await pix.createPixPayment(payload);
+    const result = await pix.createPixPayment({ ...payload, resumeOnly: true });
     assert.equal(result.qrCode, 'existing-qr');
     assert.equal(result.paymentId, 'pagbank:ORDE-91');
     assert.equal(result.qrCodeBase64, null);

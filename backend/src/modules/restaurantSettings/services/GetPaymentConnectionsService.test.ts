@@ -27,9 +27,6 @@ beforeEach(() => {
     MP_OAUTH_CLIENT_ID: 'test-mp-id',
     MP_OAUTH_CLIENT_SECRET: 'test-mp-secret',
     MP_WEBHOOK_SECRET: 'test-webhook',
-    PAGBANK_CONNECT_CLIENT_ID: 'test-pb-id',
-    PAGBANK_CONNECT_CLIENT_SECRET: 'test-pb-secret',
-    PAGBANK_CONNECT_PLATFORM_TOKEN: 'test-pb-platform',
     ASAAS_API_KEY: 'test-asaas-platform',
     ASAAS_WEBHOOK_TOKEN: 'test-webhook-token-with-32-characters',
   });
@@ -47,14 +44,12 @@ afterEach(() => {
 
 test('prontidão exige os pré-requisitos, rejeita callback externo e não usa tokens globais como conta vinculada', async () => {
   assert.equal(paymentConnectionConfiguration('MERCADO_PAGO'), true);
-  assert.equal(paymentConnectionConfiguration('PAGBANK'), true);
   assert.equal(paymentConnectionConfiguration('ASAAS'), true);
   process.env.MP_OAUTH_REDIRECT_URI = 'https://external.example/callback';
   assert.equal(paymentConnectionConfiguration('MERCADO_PAGO'), false);
   delete process.env.MP_OAUTH_REDIRECT_URI;
   process.env.ALLOW_GLOBAL_PAYMENT_FALLBACK = 'true';
   process.env.MP_ACCESS_TOKEN = 'global-mp';
-  process.env.PAGBANK_TOKEN = 'global-pb';
   repository.findByRestaurantId = async () => null;
   const result = await service.execute({ restaurantId: 7 });
   assert.ok(
@@ -65,7 +60,6 @@ test('prontidão exige os pré-requisitos, rejeita callback externo e não usa t
   assert.ok(result.connections.every((connection) => connection.canConnect));
   delete process.env.CREDENTIAL_ENCRYPTION_KEY;
   assert.equal(paymentConnectionConfiguration('MERCADO_PAGO'), false);
-  assert.equal(paymentConnectionConfiguration('PAGBANK'), false);
   assert.equal(paymentConnectionConfiguration('ASAAS'), false);
 });
 
@@ -97,14 +91,10 @@ test('credenciais e grants renováveis do restaurante ficam prontos sem expor ne
   };
   const result = await service.execute({ restaurantId: 7 });
   assert.ok(requested.every((id) => id === 7));
-  assert.ok(
-    result.connections
-      .slice(0, 2)
-      .every(
-        (connection) =>
-          connection.status === 'CONNECTED' && connection.readyForPix && connection.readyForCard,
-      ),
-  );
+  const mercadoPago = result.connections.find((connection) => connection.provider === 'MERCADO_PAGO');
+  assert.equal(mercadoPago?.status, 'CONNECTED');
+  assert.equal(mercadoPago?.readyForPix, true);
+  assert.equal(mercadoPago?.readyForCard, true);
   assert.equal(JSON.stringify(result).includes('private-'), false);
 });
 
@@ -132,16 +122,14 @@ test('grant legado sem refresh token exige reconexão antes de pagamentos em pro
   repository.findByRestaurantId = async () => ({
     restaurantId: 7,
     mercadoPagoAccessToken: 'legacy-mp',
-    pagbankToken: 'legacy-pb',
   });
   const result = await service.execute({ restaurantId: 7 });
-  for (const connection of result.connections.slice(0, 2)) {
-    assert.equal(connection.connected, true);
-    assert.equal(connection.status, 'NEEDS_RECONNECT');
-    assert.equal(connection.readyForPix, false);
-    assert.equal(connection.readyForCard, false);
-    assert.equal(connection.canConnect, true);
-  }
+  const connection = result.connections.find((item) => item.provider === 'MERCADO_PAGO');
+  assert.equal(connection?.connected, true);
+  assert.equal(connection?.status, 'NEEDS_RECONNECT');
+  assert.equal(connection?.readyForPix, false);
+  assert.equal(connection?.readyForCard, false);
+  assert.equal(connection?.canConnect, true);
 });
 
 test('um grant expirado sem renovação não é anunciado como pronto', async () => {
@@ -176,14 +164,18 @@ test('Asaas mantém cadastro pendente e bloqueia nova criação após resposta i
       message: 'Envie seus documentos.',
     };
   };
-  let connection = (await service.execute({ restaurantId: 7 })).connections[2];
+  let connection = (await service.execute({ restaurantId: 7 })).connections.find(
+    (item) => item.provider === 'ASAAS',
+  )!;
   assert.equal(connection.status, 'PENDING_APPROVAL');
   assert.equal(connection.readyForCard, false);
   asaasStatus.execute = async () => ({
     recoveryRequired: true,
     message: 'Confira a criação anterior.',
   });
-  connection = (await service.execute({ restaurantId: 7 })).connections[2];
+  connection = (await service.execute({ restaurantId: 7 })).connections.find(
+    (item) => item.provider === 'ASAAS',
+  )!;
   assert.equal(connection.status, 'ACTION_REQUIRED');
   assert.equal(connection.canConnect, false);
 });

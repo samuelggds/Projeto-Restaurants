@@ -71,7 +71,7 @@ test('deve cadastrar banco e cartao como um dono de restaurante e normalizar os 
     bankBranch: '1234-5',
     bankAccount: '99876-5',
     bankHolderDocument: '11222333000181',
-    cardGateway: 'PAGBANK',
+    cardGateway: 'MERCADO_PAGO',
     gatewayMerchantId: 'merchant-123',
     pagbankEmail: 'pagbank@pizzaria.com',
     pagbankToken: 'token-real',
@@ -86,7 +86,7 @@ test('deve cadastrar banco e cartao como um dono de restaurante e normalizar os 
   assert.equal(capturedCreateData.companyDocument, '11222333000181');
   assert.equal(capturedCreateData.bankHolderDocument, '11222333000181');
   assert.equal(capturedCreateData.bankAccountType, 'CC');
-  assert.equal(capturedCreateData.cardGateway, 'PAGBANK');
+  assert.equal(capturedCreateData.cardGateway, 'MERCADO_PAGO');
   assert.equal(capturedCreateData.pagbankEnvironment, 'production');
   assert.equal(capturedCreateData.pagbankEmail, 'pagbank@pizzaria.com');
   assert.equal(capturedCreateData.pagbankToken, 'token-real');
@@ -94,6 +94,20 @@ test('deve cadastrar banco e cartao como um dono de restaurante e normalizar os 
     name: 'Pizzaria do Carlos',
     whatsapp: '5511999998888',
   });
+});
+
+test('rejeita PagBank em novas configurações de pagamento', async () => {
+  restaurantSettingsRepository.findByRestaurantId = async () => null;
+  await assert.rejects(
+    () =>
+      createRestaurantSettingsService.execute({
+        restaurantId: 7,
+        deliveryFee: 0,
+        minimumOrder: 0,
+        pixProvider: 'PAGBANK',
+      }),
+    /PagBank não está disponível/i,
+  );
 });
 
 test('deve rejeitar cadastro quando o documento do titular da conta nao bater com o cadastro', async () => {

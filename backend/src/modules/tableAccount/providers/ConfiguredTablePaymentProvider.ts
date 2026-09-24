@@ -29,14 +29,20 @@ import type {
   ValidatedPaymentWebhook,
 } from './PaymentProvider.js';
 
-const SUPPORTED_PIX = new Set<string>([
+const ACTIVE_PIX = new Set<string>([
   PIX_PROVIDERS.MERCADO_PAGO,
   PIX_PROVIDERS.ASAAS,
-  PIX_PROVIDERS.PAGBANK,
 ]);
-const SUPPORTED_CARD = new Set<string>([
+const ACTIVE_CARD = new Set<string>([
   CARD_PROVIDERS.MERCADO_PAGO,
   CARD_PROVIDERS.ASAAS,
+]);
+const HISTORICAL_PIX = new Set<string>([
+  ...ACTIVE_PIX,
+  PIX_PROVIDERS.PAGBANK,
+]);
+const HISTORICAL_CARD = new Set<string>([
+  ...ACTIVE_CARD,
   CARD_PROVIDERS.PAGBANK,
 ]);
 
@@ -176,8 +182,8 @@ export async function getConfiguredTablePaymentReadiness(
   const settings = await settingsFor(restaurantId);
   const pixRaw = normalizeProvider(settings.pixProvider);
   const cardRaw = normalizeProvider(settings.cardGateway);
-  const pixProvider = SUPPORTED_PIX.has(pixRaw) ? (pixRaw as PixProvider) : null;
-  const cardProvider = SUPPORTED_CARD.has(cardRaw) ? (cardRaw as CardProvider) : null;
+  const pixProvider = ACTIVE_PIX.has(pixRaw) ? (pixRaw as PixProvider) : null;
+  const cardProvider = ACTIVE_CARD.has(cardRaw) ? (cardRaw as CardProvider) : null;
 
   return {
     allowPix: Boolean(
@@ -593,7 +599,7 @@ export function createConfiguredTablePaymentProviderForExisting(
 ): PaymentProvider {
   const normalized = normalizeProvider(provider);
   const supported =
-    context.method === 'PIX' ? SUPPORTED_PIX.has(normalized) : SUPPORTED_CARD.has(normalized);
+    context.method === 'PIX' ? HISTORICAL_PIX.has(normalized) : HISTORICAL_CARD.has(normalized);
   if (!supported) throw new Error('Provedor deste pagamento da mesa não é suportado.');
   return new ConfiguredTablePaymentProvider(context, normalized as PixProvider | CardProvider);
 }
