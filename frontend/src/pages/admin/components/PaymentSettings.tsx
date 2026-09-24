@@ -178,8 +178,7 @@ export function PaymentSettings({
   ).length;
   const pixReady = !settings.acceptsPix || Boolean(pixProvider && isReady(pixProvider, 'readyForPix'));
   const openFinanceReady =
-    !settings.openFinancePixEnabled ||
-    Boolean(connections.openFinance?.ready && settings.acceptsPix && settings.pixKey.trim());
+    !settings.openFinancePixEnabled || Boolean(connections.openFinance?.ready);
   const cardReady =
     !settings.acceptsCard || Boolean(cardProvider && isReady(cardProvider, 'readyForCard'));
   const configurationReady = activeMethods > 0 && pixReady && openFinanceReady && cardReady;
@@ -430,7 +429,7 @@ export function PaymentSettings({
             <div>
               <span>PIX VIA OPEN FINANCE</span>
               <h3>Pix pelo app do banco</h3>
-              <p>O cliente escolhe o banco, autoriza no aplicativo bancário e retorna ao pedido.</p>
+              <p>O cliente abre o Checkout Pro e escolhe pagar pelo banco via Open Finance.</p>
             </div>
             <PS.SwitchLabel>
               <span>{settings.openFinancePixEnabled ? 'Ativado' : 'Desativado'}</span>
@@ -440,9 +439,7 @@ export function PaymentSettings({
                 aria-label="Aceitar Pix pelo app do banco via Open Finance"
                 checked={settings.openFinancePixEnabled}
                 disabled={
-                  busyProvider !== null ||
-                  !settings.acceptsPix ||
-                  connections.openFinance?.available === false
+                  busyProvider !== null || connections.openFinance?.available === false
                 }
                 onChange={(event) => update('openFinancePixEnabled', event.target.checked)}
               />
@@ -464,26 +461,11 @@ export function PaymentSettings({
                 </div>
               </PS.OpenFinanceStatus>
               <small>
-                A autorização acontece no banco do cliente. O GastroNexa nunca recebe senha ou acesso bancário.
+                A autorização acontece no ambiente do Mercado Pago e no banco escolhido. O
+                GastroNexa nunca recebe senha ou acesso bancário. A disponibilidade do Open Finance
+                para cada comprador é definida pelo próprio Mercado Pago.
               </small>
             </PS.Field>
-            {settings.openFinancePixEnabled && (
-              <PS.Field $full>
-                <span>Chave beneficiária do Open Finance</span>
-                <input
-                  value={settings.pixKey}
-                  disabled={busyProvider !== null}
-                  aria-invalid={!settings.pixKey.trim()}
-                  placeholder="CPF, CNPJ, e-mail, telefone ou chave aleatória"
-                  autoComplete="off"
-                  onChange={(event) => update('pixKey', event.target.value)}
-                />
-                <small>
-                  Necessária somente para o Pix via Open Finance. O Pix normal do Mercado Pago não
-                  precisa deste campo.
-                </small>
-              </PS.Field>
-            )}
           </PS.ControlGrid>
         </PS.MethodCard>
 
