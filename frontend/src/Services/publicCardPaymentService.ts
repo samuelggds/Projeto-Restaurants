@@ -1,7 +1,7 @@
 import api from './api';
 
 export type PublicCardPaymentConfig = {
-  provider: 'MERCADO_PAGO' | 'PAGBANK' | 'ASAAS';
+  provider: 'MERCADO_PAGO' | 'PAGARME' | 'PAGBANK' | 'ASAAS';
   publicKey?: string;
 };
 

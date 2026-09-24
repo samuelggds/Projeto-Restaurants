@@ -15,6 +15,13 @@ export function parseProviderPaymentId(paymentId: string): ParsedProviderPayment
     };
   }
 
+  if (normalizedPaymentId.toLowerCase().startsWith('pagarme:')) {
+    return {
+      provider: PIX_PROVIDERS.PAGARME,
+      rawPaymentId: normalizedPaymentId.slice('pagarme:'.length).trim(),
+    };
+  }
+
   if (normalizedPaymentId.toLowerCase().startsWith('pagbank:')) {
     return {
       provider: PIX_PROVIDERS.PAGBANK,

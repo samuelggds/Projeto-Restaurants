@@ -303,6 +303,10 @@ export type AdminSettings = {
   stripeWebhookSecretConfigured: boolean;
   mercadoPagoAccessToken: string;
   mercadoPagoAccessTokenConfigured: boolean;
+  pagarmeSecretKey: string;
+  pagarmePublicKey: string;
+  pagarmeEnvironment: 'sandbox' | 'production';
+  pagarmeSecretKeyConfigured: boolean;
   asaasAccessToken: string;
   asaasAccessTokenConfigured: boolean;
   pagbankEmail: string;

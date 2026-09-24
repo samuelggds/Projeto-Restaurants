@@ -59,6 +59,9 @@ type UpdateRestaurantSettingsPayload = {
   stripeSecretKey?: string | null;
   stripeWebhookSecret?: string | null;
   mercadoPagoAccessToken?: string | null;
+  pagarmeSecretKey?: string | null;
+  pagarmePublicKey?: string | null;
+  pagarmeEnvironment?: string | null;
   picpayToken?: string | null;
   asaasAccessToken?: string | null;
   pagbankEmail?: string | null;
@@ -199,6 +202,9 @@ class UpdateRestaurantSettingsService {
     stripeSecretKey,
     stripeWebhookSecret,
     mercadoPagoAccessToken,
+    pagarmeSecretKey,
+    pagarmePublicKey,
+    pagarmeEnvironment,
     picpayToken,
     asaasAccessToken,
     pagbankEmail,
@@ -306,6 +312,16 @@ class UpdateRestaurantSettingsService {
       normalizedMercadoPagoAccessToken &&
       normalizedMercadoPagoAccessToken !== String(settings.mercadoPagoAccessToken || '').trim(),
     );
+    const normalizedPagarmeSecretKey =
+      pagarmeSecretKey === undefined ? undefined : String(pagarmeSecretKey || '').trim() || null;
+    const normalizedPagarmePublicKey =
+      pagarmePublicKey === undefined ? undefined : String(pagarmePublicKey || '').trim() || null;
+    const normalizedPagarmeEnvironment =
+      pagarmeEnvironment === undefined
+        ? undefined
+        : String(pagarmeEnvironment || '').trim().toLowerCase() === 'sandbox'
+          ? 'sandbox'
+          : 'production';
     const normalizedPicPayToken =
       picpayToken === undefined ? undefined : String(picpayToken || '').trim() || null;
     const normalizedAsaasAccessToken =
@@ -578,6 +594,9 @@ class UpdateRestaurantSettingsService {
       stripeSecretKey: normalizedStripeSecretKey,
       stripeWebhookSecret: normalizedStripeWebhookSecret,
       mercadoPagoAccessToken: normalizedMercadoPagoAccessToken,
+      pagarmeSecretKey: normalizedPagarmeSecretKey,
+      pagarmePublicKey: normalizedPagarmePublicKey,
+      pagarmeEnvironment: normalizedPagarmeEnvironment,
       ...(replacedMercadoPagoToken
         ? {
             mercadoPagoRefreshToken: null,

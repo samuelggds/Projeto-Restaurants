@@ -1164,12 +1164,18 @@ model RestaurantSettings {
   receiveStatusNotifications Boolean @default(false)
 
   // Pix e gateways
-  pixKey                String?
-  pixProvider           String    @default("MERCADO_PAGO")
-  cardGateway           String?
-  gatewayMerchantId     String?
-  stripeSecretKey       String?
-  stripeWebhookSecret   String?
+  pixKey              String?
+  pixProvider         String    @default("MERCADO_PAGO")
+  cardGateway         String?
+  gatewayMerchantId   String?
+  stripeSecretKey     String?
+  stripeWebhookSecret String?
+  pagarmeSecretKey    String?
+  pagarmePublicKey    String?
+  pagarmeEnvironment  String?
+
+  // Legado PagBank: preservado temporariamente apenas para conciliar/estornar
+  // transações históricas. Não é oferecido para novas configurações.
   pagbankEmail          String?
   pagbankToken          String?
   pagbankRefreshToken   String?

@@ -10,6 +10,11 @@ import {
   normalizePixProvider,
 } from '../../payments/providers/providerCatalog.js';
 import { mercadoPagoOrderNotificationFields } from '../../payments/providers/mercadoPagoOrderNotification.js';
+import {
+  getRestaurantPagarmeCredentials,
+  pagarmeJson,
+  safePagarmeError,
+} from '../../payments/providers/pagarmeV5.js';
 import { buildOrderItemCustomizationSnapshot } from '../utils/productIngredients.js';
 import { withTenantDbContext } from '../../../database/tenantDbContext.js';
 import orderRepository from '../repositories/OrderRepository.js';
@@ -117,6 +122,37 @@ type AsaasPixQrCodePayload = {
   payload?: string;
   encodedImage?: string;
   errors?: AsaasErrorItem[];
+};
+
+type PagarmeChargePayload = {
+  id?: string;
+  amount?: number;
+  paid_amount?: number;
+  status?: string;
+  currency?: string;
+  payment_method?: string;
+  order?: {
+    code?: string;
+    metadata?: Record<string, unknown>;
+  };
+  last_transaction?: {
+    id?: string;
+    status?: string;
+    amount?: number;
+    qr_code?: string;
+    qr_code_url?: string;
+    expires_at?: string;
+  };
+};
+
+type PagarmeOrderPayload = {
+  id?: string;
+  code?: string;
+  amount?: number;
+  currency?: string;
+  status?: string;
+  charges?: PagarmeChargePayload[];
+  message?: string;
 };
 
 type PagBankOrderPayload = {
@@ -489,6 +525,94 @@ class OrderPixPaymentService {
 
     void pixProvider;
     const resolvedPixProvider = this.normalizePixProvider(settings?.pixProvider);
+    if (resolvedPixProvider === PIX_PROVIDERS.PAGARME) {
+      if (!sourceOrderId) {
+        throw new Error('Pedido obrigatório para gerar Pix no Pagar.me.');
+      }
+      if (!cpf) {
+        throw new Error('Informe um CPF válido para pagar via Pix no Pagar.me.');
+      }
+
+      const rawPhone = String(customerPhone || '').replace(/\D/g, '');
+      const nationalPhone = rawPhone.startsWith('55') && rawPhone.length >= 12 ? rawPhone.slice(2) : rawPhone;
+      if (!/^\d{10,11}$/.test(nationalPhone)) {
+        throw new Error('Informe um telefone válido para pagar via Pix no Pagar.me.');
+      }
+
+      const { secretKey } = await getRestaurantPagarmeCredentials(normalizedRestaurantId);
+      const reference = `orderpix:${normalizedRestaurantId}:${sourceOrderId}`;
+      const expiresIn = requestedExpiresAt
+        ? Math.max(60, Math.floor((requestedExpiresAt.getTime() - Date.now()) / 1000))
+        : 900;
+      const areaCode = nationalPhone.slice(0, 2);
+      const phoneNumber = nationalPhone.slice(2);
+
+      const result = await pagarmeJson<PagarmeOrderPayload>(secretKey, '/orders', {
+        method: 'POST',
+        body: JSON.stringify({
+          code: reference,
+          items: [
+            {
+              amount: Math.round(totalAmount * 100),
+              description: `Pedido #${sourceOrderId}`,
+              quantity: 1,
+              code: String(sourceOrderId),
+            },
+          ],
+          customer: {
+            name: payerName || 'Cliente',
+            email: payerEmail,
+            type: 'individual',
+            document: cpf,
+            phones: {
+              mobile_phone: {
+                country_code: '55',
+                area_code: areaCode,
+                number: phoneNumber,
+              },
+            },
+          },
+          payments: [
+            {
+              payment_method: 'pix',
+              pix: {
+                expires_in: expiresIn,
+                additional_information: [
+                  { name: 'Pedido', value: String(sourceOrderId) },
+                ],
+              },
+            },
+          ],
+          closed: true,
+          metadata: {
+            restaurant_id: String(normalizedRestaurantId),
+            order_id: String(sourceOrderId),
+          },
+        }),
+      });
+
+      const charge = Array.isArray(result.body?.charges) ? result.body.charges[0] : undefined;
+      const chargeId = String(charge?.id || '').trim();
+      const transaction = charge?.last_transaction;
+      const qrCode = String(transaction?.qr_code || '').trim();
+      if (!result.response.ok || !chargeId || !qrCode) {
+        throw new Error(
+          safePagarmeError(result.body, 'Não foi possível gerar o Pix no Pagar.me.'),
+        );
+      }
+
+      return {
+        paymentId: `pagarme:${chargeId}`,
+        status: String(transaction?.status || charge?.status || 'waiting_payment'),
+        provider: PIX_PROVIDERS.PAGARME,
+        totalAmount,
+        qrCode,
+        qrCodeBase64: null,
+        requiresStatusCheck: true,
+        expiresAt: String(transaction?.expires_at || expiresAtIso || '') || null,
+      };
+    }
+
     if (resolvedPixProvider === PIX_PROVIDERS.PAGBANK) {
       throw new Error(
         'PagBank não está disponível para novas cobranças. Escolha Mercado Pago ou Asaas nas configurações.',
@@ -913,6 +1037,35 @@ class OrderPixPaymentService {
       };
     }
 
+    if (parsedPaymentId.provider === PIX_PROVIDERS.PAGARME) {
+      const { secretKey } = await getRestaurantPagarmeCredentials(normalizedRestaurantId);
+      const result = await pagarmeJson<PagarmeChargePayload>(
+        secretKey,
+        `/charges/${encodeURIComponent(parsedPaymentId.rawPaymentId)}`,
+        { method: 'GET' },
+      );
+      const transaction = result.body?.last_transaction;
+      const qrCode = String(transaction?.qr_code || '').trim();
+      if (!result.response.ok || !qrCode) {
+        throw new Error('O QR Code desta cobrança Pagar.me não está disponível.');
+      }
+      const amountCents = Number(result.body?.amount);
+      const status = String(transaction?.status || result.body?.status || '')
+        .trim()
+        .toLowerCase();
+      return {
+        paymentId: normalizedPaymentId,
+        status,
+        provider: PIX_PROVIDERS.PAGARME,
+        isApproved: status === 'paid',
+        totalAmount: Number.isFinite(amountCents) ? amountCents / 100 : 0,
+        qrCode,
+        qrCodeBase64: null,
+        requiresStatusCheck: true,
+        externalReference: String(result.body?.order?.code || '').trim(),
+      };
+    }
+
     if (parsedPaymentId.provider === PIX_PROVIDERS.PAGBANK) {
       const token = await this.getPagBankToken(normalizedRestaurantId);
       const result = await this.fetchPagBankJson<PagBankOrderPayload>(
@@ -1055,6 +1208,43 @@ class OrderPixPaymentService {
         currency: String(statusResult.responseBody?.currency || 'BRL')
           .trim()
           .toUpperCase(),
+        requiresStatusCheck: true,
+      };
+    }
+
+    if (parsedPaymentId.provider === PIX_PROVIDERS.PAGARME) {
+      if (!normalizedRestaurantIdNumber) {
+        throw new Error('Restaurante inválido para consultar Pix Pagar.me.');
+      }
+      const { secretKey } = await getRestaurantPagarmeCredentials(normalizedRestaurantIdNumber);
+      const result = await pagarmeJson<PagarmeChargePayload>(
+        secretKey,
+        `/charges/${encodeURIComponent(parsedPaymentId.rawPaymentId)}`,
+        { method: 'GET' },
+      );
+      if (!result.response.ok) {
+        throw new Error('Não foi possível consultar o Pix no Pagar.me.');
+      }
+      const transactionStatus = String(
+        result.body?.last_transaction?.status || result.body?.status || '',
+      )
+        .trim()
+        .toLowerCase();
+      const amountInCents = Number(result.body?.amount);
+      const metadataRestaurantId = String(
+        result.body?.order?.metadata?.restaurant_id || '',
+      ).trim();
+      const sameRestaurant =
+        !metadataRestaurantId || metadataRestaurantId === String(normalizedRestaurantIdNumber);
+      return {
+        paymentId: normalizedPaymentId,
+        status: transactionStatus || 'waiting_payment',
+        provider: PIX_PROVIDERS.PAGARME,
+        isApproved: transactionStatus === 'paid',
+        sameRestaurant,
+        externalReference: String(result.body?.order?.code || '').trim(),
+        amount: Number.isFinite(amountInCents) ? amountInCents / 100 : null,
+        currency: String(result.body?.currency || 'BRL').trim().toUpperCase(),
         requiresStatusCheck: true,
       };
     }
