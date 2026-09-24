@@ -305,12 +305,8 @@ export function validateCriticalEnv() {
     String(process.env.GOOGLE_PHONE_AUTH_ENABLED || 'false').trim().toLowerCase() === 'true';
   if (googlePhoneAuthEnabled) {
     const identityApiKey = requireValue('GOOGLE_IDENTITY_PLATFORM_API_KEY', errors);
-    const recaptchaSiteKey = requireValue('GOOGLE_PHONE_RECAPTCHA_SITE_KEY', errors);
     if (identityApiKey && identityApiKey.length < 20) {
       errors.push('GOOGLE_IDENTITY_PLATFORM_API_KEY parece invalida.');
-    }
-    if (recaptchaSiteKey && !/^[A-Za-z0-9_-]{20,200}$/u.test(recaptchaSiteKey)) {
-      errors.push('GOOGLE_PHONE_RECAPTCHA_SITE_KEY parece invalida.');
     }
   }
 
