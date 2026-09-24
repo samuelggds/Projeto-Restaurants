@@ -574,16 +574,19 @@ export const ProviderTop = styled.div`
 `;
 
 export const ProviderLogo = styled.div<{ $provider: Provider }>`
-  width: 42px;
+  width: 54px;
   height: 42px;
   display: grid;
   place-items: center;
+  overflow: hidden;
   border-radius: 13px;
-  color: ${({ $provider }) => providerColors[$provider].main};
   background: ${({ $provider }) => providerColors[$provider].soft};
-  font-size: 12px;
-  font-weight: 900;
-  letter-spacing: -0.02em;
+
+  img {
+    width: 30px;
+    height: 30px;
+    object-fit: contain;
+  }
 `;
 
 export const ConnectionBadge = styled.span<{ $connected: boolean }>`
