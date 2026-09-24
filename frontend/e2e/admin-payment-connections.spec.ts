@@ -17,8 +17,8 @@ async function setup(page: Page) {
     averageDeliveryTime: 45,
   };
   const overview: PaymentConnectionOverview = {
-    connections: ['MERCADO_PAGO', 'PAGBANK', 'ASAAS'].map((provider) => ({
-      provider: provider as 'MERCADO_PAGO' | 'PAGBANK' | 'ASAAS',
+    connections: ['MERCADO_PAGO', 'ASAAS'].map((provider) => ({
+      provider: provider as 'MERCADO_PAGO' | 'ASAAS',
       connected: false,
       canConnect: true,
       readyForPix: false,
@@ -35,7 +35,7 @@ async function setup(page: Page) {
       events.push('save');
       return route.fulfill({ json: settings });
     }
-    const oauth = path.match(/^\/settings\/(mercado-pago|pagbank)\/oauth\/start$/);
+    const oauth = path.match(/^\/settings\/(mercado-pago)\/oauth\/start$/);
     if (oauth) {
       events.push(oauth[1]);
       return route.fulfill({
@@ -93,7 +93,6 @@ async function setup(page: Page) {
 
 for (const [provider, label, apiName, width] of [
   ['MERCADO_PAGO', 'Mercado Pago', 'mercado-pago', 1440],
-  ['PAGBANK', 'PagBank', 'pagbank', 390],
 ] as const) {
   test(`${label}: salva escolhas antes da autorização e mantém Pix e cartão após o retorno`, async ({
     page,
@@ -117,7 +116,7 @@ for (const [provider, label, apiName, width] of [
       status: 'CONNECTED',
       message: 'Conta vinculada para receber pagamentos.',
     });
-    await page.goto(`/admin?${provider === 'MERCADO_PAGO' ? 'mp_oauth' : 'pagbank_oauth'}=success`);
+    await page.goto(`/admin?mp_oauth=success`);
     await expect(page.getByLabel('Empresa que receberá o Pix', { exact: false })).toHaveValue(
       provider,
     );
