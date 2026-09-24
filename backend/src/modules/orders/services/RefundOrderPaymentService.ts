@@ -267,12 +267,6 @@ class RefundOrderPaymentService {
       );
     }
 
-    if (normalizedPaymentId.startsWith('belvo:')) {
-      throw new AutomaticRefundError(
-        'O Pix via Open Finance foi liquidado fora do Mercado Pago e não possui devolução automática pela API da Belvo. Faça a devolução pela conta recebedora e concilie o pedido antes de cancelar.',
-        'NOT_SUPPORTED',
-      );
-    }
 
     if (normalizedPaymentId.startsWith('asaas:')) {
       const asaasPaymentId = paymentId.slice('asaas:'.length).trim();
