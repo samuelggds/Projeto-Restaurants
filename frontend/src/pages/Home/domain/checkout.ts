@@ -126,15 +126,6 @@ export function validateCheckout(input: ValidationInput): CheckoutIssue | null {
         message: 'Informe um CEP válido e aguarde o preenchimento do endereço.',
       };
   }
-  if (paymentMethod === 'open_finance_pix') {
-    const cpf = String(input.customerCpf || '').replace(/\D/g, '');
-    if (cpf.length !== 11) {
-      return {
-        title: 'Informe seu CPF',
-        message: 'O Pix pelo app do banco precisa do CPF do pagador para iniciar a autorização.',
-      };
-    }
-  }
   if (paymentMethod.startsWith('delivery_') && type !== 'DELIVERY')
     return {
       title: 'Opção indisponível',
