@@ -423,6 +423,13 @@ export function mapSettingsFromApi(
     stripeWebhookSecretConfigured: Boolean(raw?.stripeWebhookSecretConfigured),
     mercadoPagoAccessToken: '',
     mercadoPagoAccessTokenConfigured: Boolean(raw?.mercadoPagoAccessTokenConfigured),
+    pagarmeSecretKey: '',
+    pagarmePublicKey: String(raw?.pagarmePublicKey ?? ''),
+    pagarmeEnvironment:
+      String(raw?.pagarmeEnvironment ?? 'production').toLowerCase() === 'sandbox'
+        ? 'sandbox'
+        : 'production',
+    pagarmeSecretKeyConfigured: Boolean(raw?.pagarmeSecretKeyConfigured),
     asaasAccessToken: '',
     asaasAccessTokenConfigured: Boolean(raw?.asaasAccessTokenConfigured),
     pagbankEmail: String(raw?.pagbankEmail ?? ''),
@@ -521,6 +528,9 @@ export function mapSettingsToApi(settings: AdminSettings): Record<string, unknow
     ...(settings.mercadoPagoAccessToken
       ? { mercadoPagoAccessToken: settings.mercadoPagoAccessToken }
       : {}),
+    ...(settings.pagarmeSecretKey ? { pagarmeSecretKey: settings.pagarmeSecretKey } : {}),
+    ...(settings.pagarmePublicKey ? { pagarmePublicKey: settings.pagarmePublicKey } : {}),
+    pagarmeEnvironment: settings.pagarmeEnvironment,
     ...(settings.asaasAccessToken ? { asaasAccessToken: settings.asaasAccessToken } : {}),
     ...(settings.pagbankToken ? { pagbankToken: settings.pagbankToken } : {}),
   };
