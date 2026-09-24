@@ -126,6 +126,16 @@ class OpenFinanceMercadoPagoPaymentService {
           },
         ],
         external_reference: externalReference,
+        expiration_time: 'PT30M',
+        payment_method: {
+          not_allowed_types: [
+            'credit_card',
+            'debit_card',
+            'ticket',
+            'account_money',
+            'digital_currency',
+          ],
+        },
         back_urls: {
           success: callbackUrl(restaurant.slug, String(order.publicId), 'success'),
           pending: callbackUrl(restaurant.slug, String(order.publicId), 'pending'),
@@ -141,7 +151,14 @@ class OpenFinanceMercadoPagoPaymentService {
     }
 
     const paymentId = mercadoPagoOpenFinancePaymentId(providerOrderId);
-    await orderRepository.claimPixPaymentId(order.id, normalizedRestaurantId, paymentId);
+    const localExpiresAt = new Date(Date.now() + 32 * 60 * 1000);
+    await orderRepository.claimPixPaymentId(
+      order.id,
+      normalizedRestaurantId,
+      paymentId,
+      undefined,
+      localExpiresAt,
+    );
 
     return {
       paymentId,
@@ -152,6 +169,7 @@ class OpenFinanceMercadoPagoPaymentService {
       orderId: order.id,
       orderPublicId: order.publicId,
       totalAmount: total,
+      expiresAt: localExpiresAt.toISOString(),
     };
   }
 }
