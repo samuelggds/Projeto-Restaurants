@@ -178,6 +178,7 @@ export type HomeData = {
   acceptsDelivery: boolean;
   acceptsPickup: boolean;
   acceptsPix: boolean;
+  openFinancePixEnabled: boolean;
   acceptsCard: boolean;
   fontFamily: HomeFontFamily;
   seoTitle: string;
