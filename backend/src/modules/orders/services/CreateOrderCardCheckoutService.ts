@@ -52,9 +52,9 @@ class CreateOrderCardCheckoutService {
       );
     }
 
-    if (!['MERCADO_PAGO', 'ASAAS'].includes(configuredProvider.toUpperCase())) {
+    if (!['MERCADO_PAGO', 'PAGARME', 'ASAAS'].includes(configuredProvider.toUpperCase())) {
       throw new Error(
-        'Gateway de cartão indisponível. Escolha Mercado Pago ou Asaas nas configurações.',
+        'Gateway de cartão indisponível. Escolha Mercado Pago, Pagar.me ou Asaas nas configurações.',
       );
     }
 
