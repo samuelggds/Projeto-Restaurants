@@ -1,7 +1,6 @@
 import { OrderStatus, OrderType, PaymentMethod } from '@prisma/client';
 import { z } from 'zod';
 import orderRepository from '../repositories/OrderRepository.js';
-import reconcilePagBankCardPaymentService from './ReconcilePagBankCardPaymentService.js';
 import asaasPaymentVerificationService from './AsaasPaymentVerificationService.js';
 import finalizeOrderCardPaymentService from './FinalizeOrderCardPaymentService.js';
 import { getMercadoPagoOrderApi } from '../../payments/providers/mercadoPagoClient.js';
@@ -125,23 +124,6 @@ class GetOrderCardPaymentStatusService {
       }
     }
 
-    if (
-      !order.paid &&
-      order.status !== OrderStatus.CANCELADO &&
-      (sessionId.startsWith('pagbank_checkout:') ||
-        sessionId.startsWith('pagbank_charge:CHAR_') ||
-        sessionId.startsWith('pagbank_tx:CHAR_'))
-    ) {
-      try {
-        const confirmed = await reconcilePagBankCardPaymentService.execute({
-          orderId: order.id,
-          restaurantId,
-        });
-        if (confirmed) order = { ...order, paid: confirmed.paid, status: confirmed.status };
-      } catch {
-        /* A consulta não confirma pagamentos sem evidência; o webhook pode tentar novamente. */
-      }
-    }
 
     const status =
       order.status === OrderStatus.CANCELADO
