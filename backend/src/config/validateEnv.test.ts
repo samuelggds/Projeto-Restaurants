@@ -258,13 +258,11 @@ test('rejeita flags temporárias de compatibilidade em produção', () => {
 });
 
 
-  assert.doesNotThrow(() => validateCriticalEnv());
-});
-
-test('rejeita endpoint OAuth não oficial e redirect fora da origem do backend', () => {
+test('rejeita endpoint OAuth não oficial', () => {
   process.env.MP_OAUTH_API_BASE_URL = 'https://attacker.example';
   assert.throws(
     () => validateCriticalEnv(),
+    /MP_OAUTH_API_BASE_URL deve apontar.*producao/i,
   );
 });
 
