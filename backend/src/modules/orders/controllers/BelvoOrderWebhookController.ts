@@ -28,6 +28,7 @@ function intentIdFromBody(body: unknown) {
     nested.id,
     nested.payment_intent_id,
     data.payment_intent_id,
+    data.object_id,
     data.id,
     data.resource_id,
   ]) {
