@@ -22,12 +22,6 @@ export function parseProviderPaymentId(paymentId: string): ParsedProviderPayment
     };
   }
 
-  if (normalizedPaymentId.toLowerCase().startsWith('pagbank:')) {
-    return {
-      provider: PIX_PROVIDERS.PAGBANK,
-      rawPaymentId: normalizedPaymentId.slice('pagbank:'.length).trim(),
-    };
-  }
 
   return {
     provider: PIX_PROVIDERS.MERCADO_PAGO,
