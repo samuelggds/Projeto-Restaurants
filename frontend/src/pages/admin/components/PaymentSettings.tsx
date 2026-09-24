@@ -34,7 +34,6 @@ type Props = {
   onConnectMercadoPago?: () => void | Promise<void>;
   onDisconnectMercadoPago?: () => Promise<boolean>;
   onLoadPaymentConnections?: () => Promise<PaymentConnectionOverview>;
-  onConnectPagBank?: () => void | Promise<void>;
   onOnboardAsaas?: (payload: {
     cpf?: string;
     cnpj?: string;
