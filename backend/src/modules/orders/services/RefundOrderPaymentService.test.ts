@@ -38,6 +38,33 @@ afterEach(() => {
   restoreEnv('STRIPE_SECRET_KEY');
 });
 
+test('nunca envia Pix Open Finance da Belvo para outro provedor ao estornar', async () => {
+  let providerCalled = false;
+  globalThis.fetch = async () => {
+    providerCalled = true;
+    throw new Error('nenhum provedor deve ser chamado');
+  };
+
+  await assert.rejects(
+    () =>
+      refundOrderPaymentService.execute({
+        id: 90,
+        restaurantId: 7,
+        total: 49.9,
+        paid: true,
+        paymentMethod: 'PIX',
+        pixPaymentId: 'belvo:0d3ffb69-f83b-456e-ad8e-208d0998d71d',
+      }),
+    (error) => {
+      assert.equal(error.code, 'NOT_SUPPORTED');
+      assert.match(error.message, /Open Finance.*devolução.*Belvo/i);
+      return true;
+    },
+  );
+
+  assert.equal(providerCalled, false);
+});
+
 test('roteia PIX Asaas para o endpoint oficial usando a credencial do restaurante', async () => {
   process.env.ALLOW_GLOBAL_PAYMENT_FALLBACK = 'true';
   process.env.ASAAS_API_KEY = 'token-global-que-nao-deve-ser-usado';
