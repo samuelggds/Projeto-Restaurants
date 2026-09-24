@@ -1171,6 +1171,15 @@ model RestaurantSettings {
   gatewayMerchantId   String?
   stripeSecretKey     String?
   stripeWebhookSecret String?
+
+  // Colunas legadas PagBank ficam inertes durante a fase expand. O runtime não
+  // lê nem escreve esses campos; a remoção física deve ocorrer em contract migration.
+  pagbankEmail          String?
+  pagbankToken          String?
+  pagbankRefreshToken   String?
+  pagbankTokenExpiresAt DateTime?
+  pagbankEnvironment    String?
+
   pagarmeSecretKey    String?
   pagarmePublicKey    String?
   pagarmeEnvironment  String?
