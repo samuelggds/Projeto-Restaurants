@@ -296,3 +296,21 @@ test('impõe limite seguro para busca e segredo forte quando configurado', () =>
     /INGREDIENT_IMAGE_SEARCH_RATE_LIMIT_MAX_REQUESTS deve estar entre 1 e 100.*INGREDIENT_IMAGE_SEARCH_RATE_LIMIT_WINDOW_MS deve ser de pelo menos 60000.*INGREDIENT_IMAGE_TOKEN_SECRET deve ter pelo menos 32 caracteres/u,
   );
 });
+
+
+test('exige Belvo production e webhook protegido quando Open Finance está ativo', () => {
+  process.env.BELVO_PAYMENTS_ENABLED = 'true';
+  process.env.BELVO_SECRET_ID = 'belvo-secret-id';
+  process.env.BELVO_SECRET_PASSWORD = 'belvo-secret-password';
+  process.env.BELVO_ENV = 'sandbox';
+  process.env.BELVO_WEBHOOK_TOKEN = 'short';
+
+  assert.throws(
+    () => validateCriticalEnv(),
+    /BELVO_ENV deve ser production.*BELVO_WEBHOOK_TOKEN deve ter pelo menos 32 caracteres/is,
+  );
+
+  process.env.BELVO_ENV = 'production';
+  process.env.BELVO_WEBHOOK_TOKEN = 'b'.repeat(48);
+  assert.doesNotThrow(() => validateCriticalEnv());
+});
