@@ -33,6 +33,7 @@ export type RestaurantSettings = {
   courierFeePerDelivery: number;
   averageDeliveryTime: string;
   acceptsPix: boolean;
+  openFinancePixEnabled: boolean;
   acceptsCard: boolean;
   whatsappEnabled: boolean;
   whatsappNumber: string;
