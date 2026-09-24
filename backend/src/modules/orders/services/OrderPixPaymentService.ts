@@ -18,7 +18,10 @@ import { buildOrderItemCustomizationSnapshot } from '../utils/productIngredients
 import { withTenantDbContext } from '../../../database/tenantDbContext.js';
 import orderRepository from '../repositories/OrderRepository.js';
 import { getMercadoPagoAccessToken } from '../../restaurantSettings/services/RestaurantPaymentCredentialsService.js';
-import { getMercadoPagoOrderApi } from '../../payments/providers/mercadoPagoClient.js';
+import {
+  getMercadoPagoOrderApi,
+  mercadoPagoCheckoutIdempotencyKey,
+} from '../../payments/providers/mercadoPagoClient.js';
 import { mercadoPagoOpenFinanceExternalReference } from '../domain/mercadoPagoOpenFinanceReference.js';
 import { assertFuturePaymentProviderEnabled } from '../../payments/providers/futurePaymentProviders.js';
 
@@ -1010,6 +1013,30 @@ class OrderPixPaymentService {
     }
 
     const parsed = parseProviderPaymentId(normalizedPaymentId);
+
+    if (parsed.provider === PIX_PROVIDERS.MERCADO_PAGO_OPEN_FINANCE) {
+      const orderApi = await getMercadoPagoOrderApi(normalizedRestaurantId);
+      const current = await orderApi.get(parsed.rawPaymentId);
+      const status = String(current.status || '').trim().toLowerCase();
+      if (['cancelled', 'expired', 'failed', 'refunded'].includes(status)) {
+        return { provider: parsed.provider, canceledAtProvider: true };
+      }
+      if (status === 'processed') {
+        throw new Error('O pagamento Open Finance foi processado durante a expiração.');
+      }
+      const cancelled = await orderApi.cancel(
+        parsed.rawPaymentId,
+        mercadoPagoCheckoutIdempotencyKey(
+          `open-finance-expire:${normalizedRestaurantId}:${parsed.rawPaymentId}`,
+        ),
+      );
+      const cancelledStatus = String(cancelled.status || '').trim().toLowerCase();
+      if (!['cancelled', 'expired', 'failed'].includes(cancelledStatus)) {
+        throw new Error('O Mercado Pago ainda não confirmou a expiração do checkout.');
+      }
+      return { provider: parsed.provider, canceledAtProvider: true };
+    }
+
     if (parsed.provider !== PIX_PROVIDERS.ASAAS) {
       return { provider: parsed.provider, canceledAtProvider: false };
     }
