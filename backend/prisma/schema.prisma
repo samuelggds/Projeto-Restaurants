@@ -1164,17 +1164,15 @@ model RestaurantSettings {
   receiveStatusNotifications Boolean @default(false)
 
   // Pix e gateways
-  pixKey                String?
-  pixProvider           String    @default("MERCADO_PAGO")
-  cardGateway           String?
-  gatewayMerchantId     String?
-  stripeSecretKey       String?
-  stripeWebhookSecret   String?
-  pagbankEmail          String?
-  pagbankToken          String?
-  pagbankRefreshToken   String?
-  pagbankTokenExpiresAt DateTime?
-  pagbankEnvironment    String?
+  pixKey              String?
+  pixProvider         String    @default("MERCADO_PAGO")
+  cardGateway         String?
+  gatewayMerchantId   String?
+  stripeSecretKey     String?
+  stripeWebhookSecret String?
+  pagarmeSecretKey    String?
+  pagarmePublicKey    String?
+  pagarmeEnvironment  String?
 
   // Dados financeiros / onboarding
   bankName               String?
