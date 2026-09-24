@@ -29,6 +29,7 @@ export const homeMockData: HomeData = {
   acceptsDelivery: true,
   acceptsPickup: true,
   acceptsPix: true,
+  openFinancePixEnabled: false,
   acceptsCard: true,
   fontFamily: 'Inter',
   seoTitle: '',
