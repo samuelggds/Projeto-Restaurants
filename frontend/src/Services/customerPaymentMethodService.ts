@@ -42,10 +42,10 @@ export function getPaymentMethodErrorMessage(error: unknown, fallback: string) {
   }
 
   const restaurantConfigIssue =
-    /(?:configur(?:a|ado|ação|ações)|configura(?:ç|c)ões).*(?:restaurante|loja|estabelecimento|gateway|provedor|pagbank|mercado pago|asaas)/i.test(
+    /(?:configur(?:a|ado|ação|ações)|configura(?:ç|c)ões).*(?:restaurante|loja|estabelecimento|gateway|provedor|mercado pago|asaas)/i.test(
       normalized,
     ) ||
-    /(?:ainda não foi configurad|configure|configur).*?(?:gateway|pagbank|mercado pago|asaas|restaurante|loja|estabelecimento)/i.test(
+    /(?:ainda não foi configurad|configure|configur).*?(?:gateway|mercado pago|asaas|restaurante|loja|estabelecimento)/i.test(
       normalized,
     );
   const exposesTechnicalDetails =
