@@ -282,6 +282,52 @@ export function OnlineCardPaymentForm({
           throw new Error('Informe o CVV do cartão.');
         }
 
+        if (config.provider === 'PAGARME') {
+          if (!config.publicKey) {
+            throw new Error('Aguarde a configuração segura do Pagar.me.');
+          }
+          const cleanPostalCode = digits(postalCode);
+          const normalizedPayerEmail = payerEmail.trim().toLowerCase();
+          if (!isValidPayerEmail(normalizedPayerEmail)) {
+            throw new Error('Informe um e-mail válido do comprador.');
+          }
+          if (cleanPostalCode.length !== 8 || !addressNumber.trim()) {
+            throw new Error('Informe o CEP e o número do endereço do titular.');
+          }
+          const tokenResponse = await fetch(
+            `https://api.pagar.me/core/v5/tokens?appId=${encodeURIComponent(config.publicKey)}`,
+            {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                type: 'card',
+                card: {
+                  number: cleanNumber,
+                  holder_name: holderName,
+                  exp_month: month,
+                  exp_year: year,
+                  cvv: cleanCvv,
+                },
+              }),
+            },
+          );
+          const tokenBody = (await tokenResponse.json().catch(() => ({}))) as {
+            id?: string;
+            message?: string;
+          };
+          if (!tokenResponse.ok || !tokenBody.id) {
+            throw new Error(tokenBody.message || 'Não foi possível proteger o cartão no Pagar.me.');
+          }
+          return {
+            cardToken: tokenBody.id,
+            holderName,
+            holderTaxId,
+            payerEmail: normalizedPayerEmail,
+            billingPostalCode: cleanPostalCode,
+            billingAddressNumber: addressNumber.trim(),
+          };
+        }
+
         if (config.provider === 'PAGBANK') {
           if (!config.publicKey || !window.PagSeguro) {
             throw new Error('Aguarde a preparação segura do PagBank.');
@@ -451,7 +497,7 @@ export function OnlineCardPaymentForm({
         </>
       ) : null}
 
-      {!isSaved && config?.provider === 'MERCADO_PAGO' && (
+      {!isSaved && (config?.provider === 'MERCADO_PAGO' || config?.provider === 'PAGARME') && (
         <label className="full">
           <span>E-mail do comprador</span>
           <input
@@ -476,7 +522,7 @@ export function OnlineCardPaymentForm({
         </label>
       )}
 
-      {!isSaved && config?.provider === 'ASAAS' && (
+      {!isSaved && (config?.provider === 'ASAAS' || config?.provider === 'PAGARME') && (
         <div className="row">
           <label>
             <span>CEP do titular</span>
