@@ -81,6 +81,12 @@ type LegacyPreferenceBody = {
   external_reference?: string;
   payer?: { email?: string };
   back_urls?: { success?: string; failure?: string; pending?: string };
+  expiration_time?: string;
+  payment_method?: {
+    not_allowed_types?: string[];
+    not_allowed_ids?: string[];
+    max_installments?: number;
+  };
 };
 
 type MercadoPagoOrder = {
@@ -143,6 +149,7 @@ export async function getMercadoPagoPreferenceApi(restaurantId?: number | null) 
         capture_mode: 'automatic_async',
         total_amount: normalizeAmount(total),
         external_reference: externalReference,
+        ...(body.expiration_time ? { expiration_time: String(body.expiration_time).trim() } : {}),
         ...(body.payer?.email ? { payer: { email: String(body.payer.email).trim() } } : {}),
         config: {
           online: {
@@ -151,6 +158,7 @@ export async function getMercadoPagoPreferenceApi(restaurantId?: number | null) 
             ...(body.back_urls?.pending ? { pending_url: body.back_urls.pending } : {}),
             auto_return: 'approved',
           },
+          ...(body.payment_method ? { payment_method: body.payment_method } : {}),
         },
         items: items.map((item) => ({
           external_code: String(item.id || externalReference).slice(0, 64),
