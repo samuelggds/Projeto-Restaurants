@@ -77,3 +77,10 @@ export function resolveOAuthEndpoint(endpoint: OAuthEndpoint, env: Environment =
 export function resolveMercadoPagoApiEndpoint(env: Environment = process.env) {
   return resolveTrustedEndpoint(MERCADO_PAGO_RECONCILIATION_API, env);
 }
+
+
+export function validateConfiguredOAuthEndpoints(env: Environment = process.env) {
+  resolveOAuthEndpoint('MERCADO_PAGO_API', env);
+  resolveOAuthEndpoint('MERCADO_PAGO_AUTHORIZATION', env);
+  resolveMercadoPagoApiEndpoint(env);
+}
