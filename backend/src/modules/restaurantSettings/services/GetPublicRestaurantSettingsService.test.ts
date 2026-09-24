@@ -1,5 +1,5 @@
 // @ts-nocheck
-import test, { afterEach } from 'node:test';
+import test, { afterEach, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 import restaurantSettingsRepository from '../repositories/RestaurantSettingsRepository.js';
 import GetPublicRestaurantSettingsService from './GetPublicRestaurantSettingsService.js';
@@ -9,7 +9,9 @@ const originalFindSettings = restaurantSettingsRepository.findByRestaurantId;
 const originalFindRestaurant = restaurantSettingsRepository.findRestaurantById;
 const originalFindDefault = restaurantSettingsRepository.findDefaultActiveRestaurant;
 
-restaurantSettingsRepository.findByRestaurantId = async () => null as never;
+beforeEach(() => {
+  restaurantSettingsRepository.findByRestaurantId = async () => null as never;
+});
 
 afterEach(() => {
   restaurantSettingsRepository.findPublicByRestaurantId = originalFindPublic;
