@@ -281,6 +281,7 @@ export type AdminSettings = {
   acceptsDelivery: boolean;
   acceptsPickup: boolean;
   acceptsPix: boolean;
+  openFinancePixEnabled: boolean;
   acceptsCard: boolean;
   deliveryTime: number;
   autoAcceptOrders: boolean;
