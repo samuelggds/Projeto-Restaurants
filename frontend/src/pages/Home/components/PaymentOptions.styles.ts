@@ -124,3 +124,46 @@ export const SecurePaymentNote = styled.div`
     color: #2f69a3;
   }
 `;
+
+export const OpenFinanceBankPicker = styled.label`
+  display: grid;
+  gap: 7px;
+  margin-top: 12px;
+  padding: 12px;
+  border: 1px solid #dce7ef;
+  border-radius: 12px;
+  background: #f7fafc;
+  color: #364a58;
+  font-size: 11px;
+  font-weight: 800;
+
+  span {
+    display: block;
+  }
+
+  small {
+    color: #74818a;
+    font-size: 10px;
+    font-weight: 500;
+    line-height: 1.45;
+  }
+
+  select {
+    width: 100%;
+    min-height: 44px;
+    padding: 0 11px;
+    border: 1px solid #cfdbe3;
+    border-radius: 10px;
+    background: #fff;
+    color: #283740;
+    font: inherit;
+    font-size: 12px;
+  }
+`;
+
+export const OpenFinanceNotice = styled.p`
+  margin: 8px 0 0;
+  color: #62737d;
+  font-size: 10px;
+  line-height: 1.45;
+`;
