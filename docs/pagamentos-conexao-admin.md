@@ -7,7 +7,7 @@ O painel **Configurações > Pagamentos** separa os meios de pagamento disponív
 | Integração | Estado | Uso |
 | --- | --- | --- |
 | Mercado Pago | Ativa | Pix QR Code e cartão online |
-| Open Finance / Belvo | Ativa quando as credenciais Belvo da plataforma estiverem configuradas | Pix pelo aplicativo do banco usando a chave Pix do restaurante |
+| Open Finance Mercado Pago | Em preparação | Segunda opção de pagamento via Mercado Pago, separada do Pix QR Code |
 | Pagar.me | Temporariamente indisponível | Estrutura preservada para ativação futura após cadastro empresarial/CNPJ |
 | Asaas | Temporariamente indisponível | Estrutura preservada para ativação futura após cadastro empresarial/CNPJ |
 
@@ -41,10 +41,10 @@ no aplicativo da instituição bancária.
 
 Configuração da plataforma:
 
-- `BELVO_PAYMENTS_ENABLED=true`
-- `BELVO_SECRET_ID`
-- `BELVO_SECRET_PASSWORD`
-- `BELVO_ENV=production` em produção
+- ``
+- ``
+- ``
+- `` em produção
 
 A disponibilidade exibida no painel depende dessas credenciais. O redirecionamento
 para o banco deve acontecer fora de iframe/WebView e a confirmação financeira deve
