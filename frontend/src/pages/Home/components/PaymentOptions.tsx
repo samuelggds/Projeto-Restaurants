@@ -13,7 +13,6 @@ import {
   X,
 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import ordersService from '../../../Services/ordersService';
 import customerPaymentMethodService, {
   type CustomerPaymentMethod,
 } from '../../../Services/customerPaymentMethodService';
@@ -201,15 +200,6 @@ export function PaymentOptions({
   const [savedCardsLoading, setSavedCardsLoading] = useState(false);
   const [selectedCardId, setSelectedCardId] = useState('');
   const [showCardAccountNotice, setShowCardAccountNotice] = useState(false);
-  const [openFinanceInstitutions, setOpenFinanceInstitutions] = useState<
-    Array<{ id: string; name: string; logo?: string | null }>
-  >([]);
-  const [openFinanceBanksLoading, setOpenFinanceBanksLoading] = useState(false);
-  const [openFinanceBanksError, setOpenFinanceBanksError] = useState('');
-  const [selectedOpenFinanceInstitution, setSelectedOpenFinanceInstitution] = useState(() => {
-    if (!restaurantId || typeof window === 'undefined') return '';
-    return localStorage.getItem(`gastronexa:open-finance-institution:${restaurantId}`) || '';
-  });
   const openMode = getPaymentMode(paymentMethod);
   const registerCardPreparer = useCallback(
     (preparer: CardPaymentPreparer | null) => {
@@ -260,54 +250,6 @@ export function PaymentOptions({
     return () => registerCardPreparer(null);
   }, [paymentMethod, registerCardPreparer]);
 
-  useEffect(() => {
-    if (
-      paymentMethod !== 'open_finance_pix' ||
-      !allowOpenFinancePix ||
-      !restaurantId ||
-      openFinanceInstitutions.length > 0
-    ) {
-      return;
-    }
-
-    let active = true;
-    Promise.resolve().then(() => {
-      if (!active) return;
-      setOpenFinanceBanksLoading(true);
-      setOpenFinanceBanksError('');
-    });
-    ordersService
-      .listOpenFinanceInstitutions()
-      .then((institutions) => {
-        if (!active) return;
-        setOpenFinanceInstitutions(institutions);
-        const stored =
-          localStorage.getItem(`gastronexa:open-finance-institution:${restaurantId}`) || '';
-        const selected =
-          institutions.find((institution) => institution.id === stored)?.id ||
-          institutions[0]?.id ||
-          '';
-        setSelectedOpenFinanceInstitution(selected);
-        if (selected) {
-          localStorage.setItem(`gastronexa:open-finance-institution:${restaurantId}`, selected);
-        }
-      })
-      .catch(() => {
-        if (active) setOpenFinanceBanksError('Não foi possível carregar os bancos agora.');
-      })
-      .finally(() => {
-        if (active) setOpenFinanceBanksLoading(false);
-      });
-
-    return () => {
-      active = false;
-    };
-  }, [
-    allowOpenFinancePix,
-    openFinanceInstitutions.length,
-    paymentMethod,
-    restaurantId,
-  ]);
 
   const selectedSavedCard = useMemo(
     () => savedCards.find((card) => card.publicId === selectedCardId) || savedCards[0] || null,
@@ -318,8 +260,8 @@ export function PaymentOptions({
   if (allowOpenFinancePix) {
     onlineOptions.splice(Math.min(1, onlineOptions.length), 0, {
       method: 'open_finance_pix',
-      name: 'Pix pelo app do banco',
-      description: 'Escolha o banco e autorize no app',
+      name: 'Open Finance',
+      description: 'Pague pelo seu banco no Checkout Mercado Pago',
       color: '#245f79',
       icon: 'bank',
     });
@@ -463,41 +405,6 @@ export function PaymentOptions({
           onChange={handlePaymentChange}
         />
 
-        {openMode === 'now' && paymentMethod === 'open_finance_pix' && (
-          <P.OpenFinanceBankPicker>
-            <span>Escolha o banco para autorizar o Pix</span>
-            <small>
-              Você será levado ao ambiente seguro do seu banco e voltará ao GastroNexa após a autorização.
-            </small>
-            <select
-              value={selectedOpenFinanceInstitution}
-              disabled={openFinanceBanksLoading}
-              onChange={(event) => {
-                const value = event.target.value;
-                setSelectedOpenFinanceInstitution(value);
-                if (restaurantId) {
-                  localStorage.setItem(
-                    `gastronexa:open-finance-institution:${restaurantId}`,
-                    value,
-                  );
-                }
-              }}
-              aria-label="Banco para Pix pelo app"
-            >
-              <option value="">
-                {openFinanceBanksLoading ? 'Carregando bancos…' : 'Selecione seu banco'}
-              </option>
-              {openFinanceInstitutions.map((institution) => (
-                <option key={institution.id} value={institution.id}>
-                  {institution.name}
-                </option>
-              ))}
-            </select>
-            {openFinanceBanksError && (
-              <P.OpenFinanceNotice role="alert">{openFinanceBanksError}</P.OpenFinanceNotice>
-            )}
-          </P.OpenFinanceBankPicker>
-        )}
 
         {openMode === 'now' && showCardAccountNotice && (
           <S.CardAccountNotice role="status" aria-live="polite">
