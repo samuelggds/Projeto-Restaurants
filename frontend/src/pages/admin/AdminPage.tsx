@@ -190,7 +190,6 @@ export function AdminPage({
   onConnectMercadoPago,
   onDisconnectMercadoPago,
   onLoadPaymentConnections,
-  onConnectPagBank,
   onOnboardAsaas,
   onCreateEmployee,
   onUpdateEmployee,
@@ -203,8 +202,7 @@ export function AdminPage({
   const { confirmDialog } = useAppDialog();
   const oauthParams = new URLSearchParams(window.location.search);
   const mercadoPagoOAuthStatus = oauthParams.get('mp_oauth');
-  const pagBankOAuthStatus = oauthParams.get('pagbank_oauth');
-  const paymentOAuthStatus = mercadoPagoOAuthStatus || pagBankOAuthStatus;
+  const paymentOAuthStatus = mercadoPagoOAuthStatus;
   const requestedSettingsSection = oauthParams.get('settings');
   const initialSettingsSection = settingItems.some(([id]) => id === requestedSettingsSection)
     ? (requestedSettingsSection as SettingsSection)
@@ -497,8 +495,6 @@ export function AdminPage({
         asaasAccessToken: '',
         asaasAccessTokenConfigured:
           settings.asaasAccessTokenConfigured || Boolean(settings.asaasAccessToken),
-        pagbankToken: '',
-        pagbankTokenConfigured: settings.pagbankTokenConfigured || Boolean(settings.pagbankToken),
       };
       setLastSavedSettings(persistedSettings);
       setSettings(persistedSettings);
@@ -968,17 +964,6 @@ export function AdminPage({
                       }
                       await onDisconnectMercadoPago();
                       return true;
-                    })
-                  }
-                  onConnectPagBank={
-                    onConnectPagBank &&
-                    (async () => {
-                      if (settingsDirty && !(await save())) {
-                        throw new Error(
-                          'Revise e salve as configurações antes de conectar a conta.',
-                        );
-                      }
-                      await onConnectPagBank();
                     })
                   }
                   onOnboardAsaas={
