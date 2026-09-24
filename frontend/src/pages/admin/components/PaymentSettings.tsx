@@ -27,7 +27,7 @@ import { usePaymentConnections } from './usePaymentConnections';
 import * as PS from './PaymentSettings.styles';
 
 type Settings = typeof adminMockSettings;
-type Provider = 'MERCADO_PAGO' | 'ASAAS';
+type Provider = 'MERCADO_PAGO' | 'PAGARME' | 'ASAAS';
 type Props = {
   settings: Settings;
   update: <K extends keyof Settings>(key: K, value: Settings[K]) => void;
@@ -58,6 +58,13 @@ const providers: Array<{
     description: 'Conecte a conta do restaurante sem copiar senhas ou códigos de acesso.',
   },
   {
+    id: 'PAGARME',
+    name: 'Pagar.me',
+    initials: 'PG',
+    description:
+      'Use as chaves da conta Pagar.me do restaurante para receber Pix e cartão diretamente.',
+  },
+  {
     id: 'ASAAS',
     name: 'Asaas',
     initials: 'AS',
@@ -72,12 +79,15 @@ function errorMessage(error: unknown, fallback: string) {
 
 function providerIsConnected(settings: Settings, provider: Provider) {
   if (provider === 'MERCADO_PAGO') return settings.mercadoPagoAccessTokenConfigured;
+  if (provider === 'PAGARME') {
+    return settings.pagarmeSecretKeyConfigured && Boolean(settings.pagarmePublicKey.trim());
+  }
   return settings.asaasAccessTokenConfigured;
 }
 
 function activeProvider(value: string): Provider | null {
   const normalized = String(value || '').trim().toUpperCase();
-  return normalized === 'MERCADO_PAGO' || normalized === 'ASAAS'
+  return normalized === 'MERCADO_PAGO' || normalized === 'PAGARME' || normalized === 'ASAAS'
     ? (normalized as Provider)
     : null;
 }
@@ -175,14 +185,14 @@ export function PaymentSettings({
       : connections.error
         ? connections.error
         : settings.acceptsPix && !pixProvider
-          ? 'PagBank não está mais disponível. Escolha Mercado Pago ou Asaas para receber por Pix.'
+          ? 'Escolha Mercado Pago, Pagar.me ou Asaas para receber por Pix.'
           : settings.acceptsPix && !pixReady
             ? connections.get(pixProvider as Provider)?.message ||
               `Há etapas pendentes: vincule a conta ${providerName(settings.pixProvider)} para liberar o Pix.`
             : settings.acceptsPix && pixProvider && !isConnected(pixProvider)
               ? `Há etapas pendentes: vincule a conta ${providerName(settings.pixProvider)} para liberar o Pix.`
               : settings.acceptsCard && !cardProvider
-                ? 'PagBank não está mais disponível. Escolha Mercado Pago ou Asaas para processar cartão.'
+                ? 'Escolha Mercado Pago, Pagar.me ou Asaas para processar cartão.'
                 : settings.acceptsCard && !cardReady
                   ? connections.get(cardProvider as Provider)?.message ||
                     `Há etapas pendentes: vincule a conta ${providerName(settings.cardGateway)} para liberar o cartão.`
@@ -393,6 +403,7 @@ export function PaymentSettings({
               >
                 <option value="">Selecione uma empresa</option>
                 <option value="MERCADO_PAGO">Mercado Pago</option>
+                <option value="PAGARME">Pagar.me</option>
                 <option value="ASAAS">Asaas</option>
               </select>
               <small>Os valores serão recebidos na conta conectada desta empresa.</small>
@@ -448,6 +459,7 @@ export function PaymentSettings({
               >
                 <option value="">Selecione uma empresa</option>
                 <option value="MERCADO_PAGO">Mercado Pago</option>
+                <option value="PAGARME">Pagar.me</option>
                 <option value="ASAAS">Asaas</option>
               </select>
               <small>
@@ -535,6 +547,57 @@ export function PaymentSettings({
                   : 'Não selecionado nos meios ativos'}
               </PS.UsedFor>
 
+              {provider.id === 'PAGARME' && selected && (
+                <PS.AsaasFields>
+                  <PS.Field>
+                    <span>Public Key do Pagar.me</span>
+                    <input
+                      value={settings.pagarmePublicKey}
+                      disabled={busyProvider !== null}
+                      placeholder="pk_... ou pk_test_..."
+                      autoComplete="off"
+                      onChange={(event) => update('pagarmePublicKey', event.target.value.trim())}
+                    />
+                    <small>
+                      Usada somente no navegador para tokenizar o cartão sem enviar número ou CVV ao GastroNexa.
+                    </small>
+                  </PS.Field>
+                  <PS.Field>
+                    <span>Secret Key do Pagar.me</span>
+                    <input
+                      type="password"
+                      value={settings.pagarmeSecretKey}
+                      disabled={busyProvider !== null}
+                      placeholder={
+                        settings.pagarmeSecretKeyConfigured
+                          ? 'Já configurada — deixe em branco para manter'
+                          : 'sk_... ou sk_test_...'
+                      }
+                      autoComplete="new-password"
+                      onChange={(event) => update('pagarmeSecretKey', event.target.value.trim())}
+                    />
+                    <small>A chave secreta é criptografada no servidor e nunca volta para esta tela.</small>
+                  </PS.Field>
+                  <PS.Field>
+                    <span>Ambiente</span>
+                    <select
+                      value={settings.pagarmeEnvironment}
+                      disabled={busyProvider !== null}
+                      onChange={(event) =>
+                        update(
+                          'pagarmeEnvironment',
+                          event.target.value === 'sandbox' ? 'sandbox' : 'production',
+                        )
+                      }
+                    >
+                      <option value="sandbox">Sandbox / testes</option>
+                      <option value="production">Produção</option>
+                    </select>
+                    <small>As duas chaves precisam pertencer ao mesmo ambiente.</small>
+                  </PS.Field>
+                </PS.AsaasFields>
+              )}
+
               {provider.id === 'ASAAS' && selected && !connected && (
                 <PS.AsaasFields>
                   <PS.Field>
@@ -590,7 +653,13 @@ export function PaymentSettings({
               )}
 
               {selected ? (
-                provider.id === 'ASAAS' ? (
+                provider.id === 'PAGARME' ? (
+                  <PS.InactiveHint>
+                    {ready
+                      ? 'Chaves validadas. Para trocar a conta, informe novas chaves e salve as alterações.'
+                      : 'Informe as chaves acima e use “Salvar alterações”. Depois clique em “Verificar conexões”.'}
+                  </PS.InactiveHint>
+                ) : provider.id === 'ASAAS' ? (
                   <PS.ConnectButton
                     type="button"
                     $provider={provider.id}
