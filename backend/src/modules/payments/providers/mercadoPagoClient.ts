@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { MercadoPagoConfig, Payment, PaymentRefund } from 'mercadopago';
 import { getMercadoPagoAccessToken } from '../../restaurantSettings/services/RestaurantPaymentCredentialsService.js';
 
@@ -108,9 +109,25 @@ function normalizeAmount(value: unknown) {
  * converte o corpo legado de Preference em POST /v1/orders e devolve o shape
  * mínimo que o serviço de checkout já espera (`id` + `init_point`).
  */
+export function mercadoPagoCheckoutIdempotencyKey(value: unknown) {
+  const digest = Buffer.from(
+    createHash('sha256').update(String(value || '').trim()).digest().subarray(0, 16),
+  );
+  digest[6] = (digest[6] & 0x0f) | 0x50;
+  digest[8] = (digest[8] & 0x3f) | 0x80;
+  const hex = digest.toString('hex');
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+}
+
 export async function getMercadoPagoPreferenceApi(restaurantId?: number | null) {
   return {
-    create: async ({ body }: { body: LegacyPreferenceBody }) => {
+    create: async ({
+      body,
+      idempotencyKey,
+    }: {
+      body: LegacyPreferenceBody;
+      idempotencyKey?: string;
+    }) => {
       const items = Array.isArray(body.items) ? body.items : [];
       const total = items.reduce(
         (sum, item) => sum + Number(item.unit_price || 0) * Number(item.quantity || 0),
@@ -146,7 +163,8 @@ export async function getMercadoPagoPreferenceApi(restaurantId?: number | null) 
       const response = await mercadoPagoJson<MercadoPagoOrder>(restaurantId, '/v1/orders', {
         method: 'POST',
         body: orderBody,
-        idempotencyKey: `${externalReference}-base`.slice(0, 128),
+        idempotencyKey:
+          String(idempotencyKey || '').trim() || `${externalReference}-base`.slice(0, 128),
       });
       const id = String(response.id || '').trim();
       const checkoutUrl = String(response.checkout_url || '').trim();
@@ -164,6 +182,15 @@ export async function getMercadoPagoOrderApi(restaurantId?: number | null) {
       mercadoPagoJson<MercadoPagoOrder>(
         restaurantId,
         `/v1/orders/${encodeURIComponent(String(orderId || '').trim())}`,
+      ),
+    cancel: (orderId: string, idempotencyKey: string) =>
+      mercadoPagoJson<MercadoPagoOrder>(
+        restaurantId,
+        `/v1/orders/${encodeURIComponent(String(orderId || '').trim())}/cancel`,
+        {
+          method: 'POST',
+          idempotencyKey: String(idempotencyKey || '').trim(),
+        },
       ),
   };
 }
