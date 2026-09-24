@@ -25,7 +25,8 @@ export function validatePagarmeKeys(secretKey: unknown, publicKey: unknown) {
   if (secretSandbox !== publicSandbox) {
     throw new Error('As chaves do Pagar.me precisam pertencer ao mesmo ambiente.');
   }
-  return { secretKey: secret, publicKey: pub, environment: secretSandbox ? 'sandbox' : 'production' as const };
+  const environment = secretSandbox ? ('sandbox' as const) : ('production' as const);
+  return { secretKey: secret, publicKey: pub, environment };
 }
 
 export async function getRestaurantPagarmeCredentials(restaurantId: number) {
