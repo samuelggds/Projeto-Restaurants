@@ -43,7 +43,7 @@ POST /orders/open-finance/payment
 O backend:
 
 - cria o pedido local como pagamento online pendente;
-- usa `external_reference=orderopenfinance:<restaurantId>:<orderId>`;
+- usa `external_reference=orderopenfinance_<restaurantId>_<orderId>`;
 - cria uma Order Checkout Pro via `POST /v1/orders`;
 - usa chave de idempotência determinística do pedido;
 - salva `pixPaymentId=mp_open_finance_order:<orderIdMercadoPago>`;
