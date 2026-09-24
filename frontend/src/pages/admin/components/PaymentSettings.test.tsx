@@ -87,9 +87,8 @@ describe('PaymentSettings', () => {
     expect(container.textContent).toContain('Conta não vinculada');
   });
 
-  it('valida CPF ou CNPJ antes de criar a subconta Asaas', async () => {
-    const update = vi.fn();
-    const onboard = vi.fn().mockResolvedValue(undefined);
+  it('mantém Asaas preparado, mas indisponível até a liberação futura', () => {
+    const onboard = vi.fn();
     act(() =>
       root.render(
         <PaymentSettings
@@ -98,49 +97,21 @@ describe('PaymentSettings', () => {
             restaurantName: 'Restaurante Teste',
             acceptsPix: true,
             acceptsCard: false,
-            pixProvider: 'ASAAS',
+            pixProvider: 'MERCADO_PAGO',
             pixKey: 'financeiro@restaurante.test',
             asaasAccessTokenConfigured: false,
           }}
-          update={update}
+          update={() => undefined}
           onOnboardAsaas={onboard}
         />,
       ),
     );
 
-    const documentInput = container.querySelector(
-      'input[placeholder="Somente números"]',
-    ) as HTMLInputElement;
-    const incomeInput = container.querySelector(
-      'input[placeholder="Ex.: 25000"]',
-    ) as HTMLInputElement;
-    const connect = Array.from(container.querySelectorAll('button')).find((button) =>
-      button.textContent?.includes('Criar e vincular conta Asaas'),
-    ) as HTMLButtonElement;
-
-    act(() => changeValue(documentInput, '11111111111'));
-    await act(async () => connect.click());
+    expect(container.textContent).toContain('Asaas');
+    expect(container.textContent).toContain('Temporariamente indisponível');
+    expect(container.textContent).not.toContain('Criar e vincular conta Asaas');
+    expect(container.querySelector('input[placeholder="Somente números"]')).toBeNull();
     expect(onboard).not.toHaveBeenCalled();
-    expect(container.textContent).toContain('Informe um CPF ou CNPJ válido');
-
-    act(() => changeValue(documentInput, '52998224725'));
-    await act(async () => connect.click());
-    expect(onboard).not.toHaveBeenCalled();
-    expect(container.textContent).toContain('Informe um faturamento mensal maior que zero');
-
-    act(() => changeValue(incomeInput, '25.000,50'));
-    act(() =>
-      changeValue(container.querySelector('input[type="date"]') as HTMLInputElement, '1990-05-10'),
-    );
-    await act(async () => connect.click());
-    expect(onboard).toHaveBeenCalledWith({
-      cpf: '52998224725',
-      restaurantName: 'Restaurante Teste',
-      pixKey: 'financeiro@restaurante.test',
-      incomeValue: 25000.5,
-      birthDate: '1990-05-10',
-    });
-    expect(update).not.toHaveBeenCalledWith('asaasAccessTokenConfigured', true);
   });
 
   it('não exige chave Pix manual quando a conta conectada gera o QR Code', () => {
