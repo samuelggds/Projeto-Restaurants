@@ -66,6 +66,7 @@ type CreatePixPayload = {
 type PaymentStatusPayload = {
   paymentId: string;
   restaurantId?: number | string;
+  timeoutMs?: number;
 };
 
 type PixPaymentCreationResult = {
@@ -1052,7 +1053,7 @@ class OrderPixPaymentService {
     return { provider: PIX_PROVIDERS.ASAAS, canceledAtProvider: true };
   }
 
-  async getPaymentStatus({ paymentId, restaurantId }: PaymentStatusPayload) {
+  async getPaymentStatus({ paymentId, restaurantId, timeoutMs }: PaymentStatusPayload) {
     const normalizedPaymentId = String(paymentId || '').trim();
     if (!normalizedPaymentId) {
       throw new Error('Pagamento PIX inválido.');
@@ -1089,6 +1090,7 @@ class OrderPixPaymentService {
       const result = await belvoJson<BelvoPaymentIntentPayload>(
         `/payments/br/payment-intents/${encodeURIComponent(parsedPaymentId.rawPaymentId)}/`,
         { method: 'GET' },
+        { timeoutMs },
       );
       if (!result.response.ok) {
         throw new Error(
@@ -1248,10 +1250,12 @@ class OrderPixPaymentService {
     expectedOrderId,
     expectedAmount,
     expectedCurrency = 'BRL',
+    timeoutMs,
   }: PaymentApprovalPayload) {
     const statusResult = await this.getPaymentStatus({
       paymentId,
       restaurantId,
+      timeoutMs,
     });
 
     if (!statusResult.sameRestaurant) {

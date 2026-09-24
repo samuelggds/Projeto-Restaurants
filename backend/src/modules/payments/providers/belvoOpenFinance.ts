@@ -50,16 +50,25 @@ function authorization() {
 export async function belvoJson<T>(
   path: string,
   init: RequestInit = {},
+  options: {
+    timeoutMs?: number;
+    resourceVersion?: 'Payments-BR.V2';
+  } = {},
 ): Promise<{ response: Response; body: T }> {
+  const timeoutMs = Number(options.timeoutMs || 15_000);
+  const safeTimeoutMs =
+    Number.isFinite(timeoutMs) && timeoutMs >= 500 && timeoutMs <= 30_000 ? timeoutMs : 15_000;
   const response = await fetch(`${belvoBaseUrl()}${path}`, {
     ...init,
     redirect: 'error',
-    signal: init.signal || AbortSignal.timeout(15_000),
+    signal: init.signal || AbortSignal.timeout(safeTimeoutMs),
     headers: {
       Authorization: authorization(),
       Accept: 'application/json',
       'Content-Type': 'application/json',
-      'X-Belvo-API-Resource-Version': 'Payments-BR.V2',
+      ...(options.resourceVersion
+        ? { 'X-Belvo-API-Resource-Version': options.resourceVersion }
+        : {}),
       ...(init.headers || {}),
     },
   });

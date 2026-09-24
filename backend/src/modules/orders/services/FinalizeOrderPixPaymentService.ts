@@ -17,6 +17,7 @@ type FinalizeOrderPixPaymentPayload = {
   paymentId: string;
   restaurantId?: number | null;
   allowMissingOrder?: boolean;
+  providerTimeoutMs?: number;
 };
 
 class FinalizeOrderPixPaymentService {
@@ -34,6 +35,7 @@ class FinalizeOrderPixPaymentService {
     paymentId,
     restaurantId,
     allowMissingOrder = false,
+    providerTimeoutMs,
   }: FinalizeOrderPixPaymentPayload) {
     const normalizedPaymentId = String(paymentId || '').trim();
 
@@ -70,6 +72,7 @@ class FinalizeOrderPixPaymentService {
       expectedOrderId: order.id,
       expectedAmount: Number(order.total),
       expectedCurrency: 'BRL',
+      timeoutMs: providerTimeoutMs,
     });
 
     const storedPaymentId = String(order.pixPaymentId || '').trim();
