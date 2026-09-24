@@ -315,9 +315,19 @@ export function validateCriticalEnv() {
   if (belvoEnabled) {
     requireValue('BELVO_SECRET_ID', errors);
     requireValue('BELVO_SECRET_PASSWORD', errors);
+    const webhookToken = requireValue('BELVO_WEBHOOK_TOKEN', errors);
     const belvoEnv = String(process.env.BELVO_ENV || 'sandbox').trim().toLowerCase();
+
     if (!['sandbox', 'production'].includes(belvoEnv)) {
       errors.push('BELVO_ENV deve ser sandbox ou production.');
+    }
+
+    if (process.env.NODE_ENV === 'production' && belvoEnv !== 'production') {
+      errors.push('BELVO_ENV deve ser production quando Open Finance estiver ativo em producao.');
+    }
+
+    if (webhookToken && webhookToken.length < 32) {
+      errors.push('BELVO_WEBHOOK_TOKEN deve ter pelo menos 32 caracteres.');
     }
   }
 
