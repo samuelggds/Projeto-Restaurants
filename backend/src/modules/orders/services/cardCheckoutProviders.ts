@@ -10,6 +10,7 @@ import prisma from '../../../config/prisma.js';
 import { withTenantDbContext } from '../../../database/tenantDbContext.js';
 import { mercadoPagoCardExternalReference } from '../domain/mercadoPagoCardReference.js';
 import { matchesOrderPaymentEvidence } from '../utils/paymentEvidence.js';
+import { assertFuturePaymentProviderEnabled } from '../../payments/providers/futurePaymentProviders.js';
 
 type CheckoutOrder = {
   id: number;
@@ -499,6 +500,8 @@ const CARD_CHECKOUT_PROVIDER_HANDLERS: Partial<Record<CardProvider, CardCheckout
   };
 
 export function getCardCheckoutProviderHandler(provider: CardProvider) {
+  if (provider === CARD_PROVIDERS.ASAAS) assertFuturePaymentProviderEnabled('ASAAS');
+  if (provider === CARD_PROVIDERS.PAGARME) assertFuturePaymentProviderEnabled('PAGARME');
   const handler = CARD_CHECKOUT_PROVIDER_HANDLERS[provider];
 
   if (!handler) {
