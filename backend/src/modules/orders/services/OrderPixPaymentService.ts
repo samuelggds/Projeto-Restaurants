@@ -18,6 +18,7 @@ import { buildOrderItemCustomizationSnapshot } from '../utils/productIngredients
 import { withTenantDbContext } from '../../../database/tenantDbContext.js';
 import orderRepository from '../repositories/OrderRepository.js';
 import { getMercadoPagoAccessToken } from '../../restaurantSettings/services/RestaurantPaymentCredentialsService.js';
+import { assertFuturePaymentProviderEnabled } from '../../payments/providers/futurePaymentProviders.js';
 import {
   belvoIdempotencyKey,
   belvoJson,
@@ -495,6 +496,7 @@ class OrderPixPaymentService {
     void pixProvider;
     const resolvedPixProvider = this.normalizePixProvider(settings?.pixProvider);
     if (resolvedPixProvider === PIX_PROVIDERS.PAGARME) {
+      assertFuturePaymentProviderEnabled('PAGARME');
       if (!sourceOrderId) {
         throw new Error('Pedido obrigatório para gerar Pix no Pagar.me.');
       }
@@ -659,6 +661,7 @@ class OrderPixPaymentService {
     const payerName = String(customerName || 'Cliente').trim();
     const cpf = this.normalizeCpf(customerCpf);
     if (resolvedPixProvider === PIX_PROVIDERS.ASAAS) {
+      assertFuturePaymentProviderEnabled('ASAAS');
       const accessToken = await this.getAsaasAccessToken(normalizedRestaurantId);
       const asaasBaseUrl = this.getAsaasBaseUrl();
       if (resumeOnly) {
