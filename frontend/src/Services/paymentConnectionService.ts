@@ -1,6 +1,6 @@
 import api from './api';
 
-export type PaymentProvider = 'MERCADO_PAGO' | 'PAGARME' | 'PAGBANK' | 'ASAAS';
+export type PaymentProvider = 'MERCADO_PAGO' | 'PAGARME' | 'ASAAS';
 export type PaymentConnection = {
   provider: PaymentProvider;
   connected: boolean;
