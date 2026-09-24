@@ -526,10 +526,10 @@ export function mapSettingsToApi(settings: AdminSettings): Record<string, unknow
     ...(settings.mercadoPagoAccessToken
       ? { mercadoPagoAccessToken: settings.mercadoPagoAccessToken }
       : {}),
-    ...(settings.pagarmeSecretKey ? { pagarmeSecretKey: settings.pagarmeSecretKey } : {}),
-    ...(settings.pagarmePublicKey ? { pagarmePublicKey: settings.pagarmePublicKey } : {}),
-    pagarmeEnvironment: settings.pagarmeEnvironment,
-    ...(settings.asaasAccessToken ? { asaasAccessToken: settings.asaasAccessToken } : {}),
+    // Asaas e Pagar.me permanecem indisponíveis por enquanto. Não envie
+    // credenciais ou metadados desses providers no salvamento geral do admin.
+    // Isso evita que alterações de outras seções sejam confundidas com uma
+    // tentativa de configurar um provider futuro.
   };
 }
 
