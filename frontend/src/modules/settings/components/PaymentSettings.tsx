@@ -86,8 +86,8 @@ export function PaymentSettings({ settings, onChange }: Props) {
               onChange={(event) => onChange({ pixProvider: event.target.value })}
             >
               <option value="MERCADO_PAGO">Mercado Pago</option>
-              <option value="PAGARME">Pagar.me</option>
-              <option value="ASAAS">Asaas</option>
+              <option value="PAGARME" disabled>Pagar.me — futuro</option>
+              <option value="ASAAS" disabled>Asaas — futuro</option>
             </FormSelect>
           </Field>
           <Field label="Chave Pix" hint="Use uma chave válida da conta escolhida, quando necessário.">
