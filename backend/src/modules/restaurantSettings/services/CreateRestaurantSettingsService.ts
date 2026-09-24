@@ -67,9 +67,6 @@ type CreateRestaurantSettingsPayload = {
   pagarmeEnvironment?: string | null;
   picpayToken?: string | null;
   asaasAccessToken?: string | null;
-  pagbankEmail?: string | null;
-  pagbankToken?: string | null;
-  pagbankEnvironment?: string | null;
   ownerDocumentFileUrl?: string | null;
   bankProofFileUrl?: string | null;
   companyContractFileUrl?: string | null;
@@ -153,9 +150,6 @@ class CreateRestaurantSettingsService {
     pagarmeEnvironment,
     picpayToken,
     asaasAccessToken,
-    pagbankEmail,
-    pagbankToken,
-    pagbankEnvironment,
     ownerDocumentFileUrl,
     bankProofFileUrl,
     companyContractFileUrl,
@@ -300,8 +294,8 @@ class CreateRestaurantSettingsService {
     const requestedPixProvider = String(pixProvider || 'MERCADO_PAGO').trim().toUpperCase();
     const requestedCardGateway = String(cardGateway || '').trim().toUpperCase();
     if (
-      ['PAGBANK', 'PAGARME', 'ASAAS'].includes(requestedPixProvider) ||
-      ['PAGBANK', 'PAGARME', 'ASAAS'].includes(requestedCardGateway)
+      requestedPixProvider !== 'MERCADO_PAGO' ||
+      (requestedCardGateway && requestedCardGateway !== 'MERCADO_PAGO')
     ) {
       throw new Error(
         'No momento, apenas Mercado Pago está disponível para Pix e cartão. Asaas e Pagar.me serão liberados futuramente após o cadastro empresarial/CNPJ.',
@@ -374,9 +368,6 @@ class CreateRestaurantSettingsService {
           : 'production',
       picpayToken: String(picpayToken || '').trim() || null,
       asaasAccessToken: String(asaasAccessToken || '').trim() || null,
-      pagbankEmail: String(pagbankEmail || '').trim() || null,
-      pagbankToken: String(pagbankToken || '').trim() || null,
-      pagbankEnvironment: 'production',
       ownerDocumentFileUrl: String(ownerDocumentFileUrl || '').trim() || null,
       bankProofFileUrl: String(bankProofFileUrl || '').trim() || null,
       companyContractFileUrl: String(companyContractFileUrl || '').trim() || null,
@@ -483,8 +474,6 @@ class CreateRestaurantSettingsService {
       picpayToken: null,
       asaasAccessToken: null,
       asaasWebhookTokenHash: null,
-      pagbankToken: null,
-      pagbankRefreshToken: null,
       stripeSecretKeyConfigured: Boolean(String(created?.stripeSecretKey || '').trim()),
       stripeWebhookSecretConfigured: Boolean(String(created?.stripeWebhookSecret || '').trim()),
       mercadoPagoAccessTokenConfigured: Boolean(
@@ -492,7 +481,6 @@ class CreateRestaurantSettingsService {
       ),
       picpayTokenConfigured: Boolean(String(created?.picpayToken || '').trim()),
       asaasAccessTokenConfigured: Boolean(String(created?.asaasAccessToken || '').trim()),
-      pagbankTokenConfigured: Boolean(String(created?.pagbankToken || '').trim()),
       whatsapp: normalizedWhatsapp ?? null,
       restaurantName: normalizedRestaurantName ?? null,
       restaurantLogo: normalizedRestaurantLogo ?? null,
