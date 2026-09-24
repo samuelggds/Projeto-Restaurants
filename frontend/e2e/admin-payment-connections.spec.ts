@@ -50,13 +50,16 @@ async function setup(page: Page) {
         incomeValue: 25000,
       });
       settings.asaasAccessTokenConfigured = true;
-      overview.connections[2] = {
-        ...overview.connections[2],
-        connected: true,
-        status: 'PENDING_APPROVAL',
-        message: 'Conclua os documentos solicitados pelo Asaas.',
-        onboardingUrl: 'https://www.asaas.com/onboarding/exemplo',
-      };
+      const asaasIndex = overview.connections.findIndex((item) => item.provider === 'ASAAS');
+      if (asaasIndex >= 0) {
+        overview.connections[asaasIndex] = {
+          ...overview.connections[asaasIndex],
+          connected: true,
+          status: 'PENDING_APPROVAL',
+          message: 'Conclua os documentos solicitados pelo Asaas.',
+          onboardingUrl: 'https://www.asaas.com/onboarding/exemplo',
+        };
+      }
       return route.fulfill({
         json: { credentialsConfigured: true, readyForPayments: false, approvalStatus: 'PENDING' },
       });
