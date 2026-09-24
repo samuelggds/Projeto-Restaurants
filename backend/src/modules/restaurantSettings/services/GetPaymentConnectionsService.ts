@@ -7,10 +7,14 @@ import {
   asaasWebhookConfiguration,
 } from './asaasConnectionApi.js';
 import { mercadoPagoWebhookSecrets } from '../../payments/providers/mercadoPagoWebhookSignature.js';
+import {
+  pagarmeJson,
+  validatePagarmeKeys,
+} from '../../payments/providers/pagarmeV5.js';
 import { parseCredentialEncryptionKey } from '../security/credentialEncryption.js';
 import { resolveOAuthEndpoint } from '../security/oauthEndpoints.js';
 
-type Provider = 'MERCADO_PAGO' | 'ASAAS';
+type Provider = 'MERCADO_PAGO' | 'PAGARME' | 'ASAAS';
 type Connection = {
   provider: Provider;
   connected: boolean;
@@ -69,6 +73,9 @@ export function paymentConnectionConfiguration(provider: Provider) {
       asaasWebhookConfiguration('');
       return configured('ASAAS_API_KEY');
     }
+    if (provider === 'PAGARME') {
+      return true;
+    }
     if (!publicHttps(process.env.FRONTEND_URL) || !publicHttps(process.env.BACKEND_URL))
       return false;
     if (provider === 'MERCADO_PAGO') {
@@ -97,11 +104,13 @@ class GetPaymentConnectionsService {
     if (!Number.isSafeInteger(id) || id <= 0) throw new Error('Restaurante inválido.');
     const settings = await restaurantSettingsRepository.findByRestaurantId(id);
     const connections = await Promise.all(
-      (['MERCADO_PAGO', 'ASAAS'] as const).map(async (provider): Promise<Connection> => {
+      (['MERCADO_PAGO', 'PAGARME', 'ASAAS'] as const).map(async (provider): Promise<Connection> => {
         const connected = Boolean(
           provider === 'MERCADO_PAGO'
             ? settings?.mercadoPagoAccessToken
-            : settings?.asaasAccessToken,
+            : provider === 'PAGARME'
+              ? settings?.pagarmeSecretKey && settings?.pagarmePublicKey
+              : settings?.asaasAccessToken,
         );
         const canConnect = paymentConnectionConfiguration(provider);
         const unavailableMessage =
@@ -143,6 +152,43 @@ class GetPaymentConnectionsService {
             message: status.message,
             onboardingUrl: status.onboardingUrl,
           };
+        }
+        if (provider === 'PAGARME') {
+          if (!connected) return result;
+          try {
+            const credentials = validatePagarmeKeys(
+              settings?.pagarmeSecretKey,
+              settings?.pagarmePublicKey,
+            );
+            const check = await pagarmeJson<Record<string, unknown>>(
+              credentials.secretKey,
+              '/orders?page=1&size=1',
+              { method: 'GET', signal: AbortSignal.timeout(8_000) },
+            );
+            if (!check.response.ok) {
+              return {
+                ...result,
+                status: 'ACTION_REQUIRED',
+                message:
+                  'As chaves do Pagar.me não foram aceitas. Revise as credenciais e salve novamente.',
+              };
+            }
+            return {
+              ...result,
+              readyForPix: true,
+              readyForCard: true,
+              status: 'CONNECTED',
+              message:
+                'Pagar.me validado para receber Pix e cartão nesta conta do restaurante.',
+            };
+          } catch {
+            return {
+              ...result,
+              status: 'ACTION_REQUIRED',
+              message:
+                'Não foi possível validar o Pagar.me. Revise as chaves e o ambiente configurado.',
+            };
+          }
         }
         if (!canConnect || !connected) return result;
 
