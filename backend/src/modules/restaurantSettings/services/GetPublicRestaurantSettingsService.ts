@@ -194,7 +194,7 @@ class GetPublicRestaurantSettingsService {
         acceptsDelivery: true,
         acceptsPickup: true,
         acceptsPix: true,
-        openFinancePixEnabled: openFinanceReady,
+        openFinancePixEnabled: false,
         acceptsCard: true,
         tableOrderingEnabled: true,
         waiterCallEnabled: true,
@@ -274,7 +274,7 @@ class GetPublicRestaurantSettingsService {
 
     return {
       ...settings,
-      openFinancePixEnabled: false,
+      openFinancePixEnabled: openFinanceReady,
       ...(restaurant
         ? { restaurant: externalizePublicRestaurantImages(normalizedRestaurantId, restaurant) }
         : {}),
