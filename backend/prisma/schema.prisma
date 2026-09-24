@@ -1164,9 +1164,10 @@ model RestaurantSettings {
   receiveStatusNotifications Boolean @default(false)
 
   // Pix e gateways
-  pixKey              String?
-  pixProvider         String    @default("MERCADO_PAGO")
-  cardGateway         String?
+  pixKey                String?
+  pixProvider           String    @default("MERCADO_PAGO")
+  openFinancePixEnabled Boolean   @default(false)
+  cardGateway           String?
   gatewayMerchantId   String?
   stripeSecretKey     String?
   stripeWebhookSecret String?
