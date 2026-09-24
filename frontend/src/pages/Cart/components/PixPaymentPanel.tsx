@@ -420,6 +420,8 @@ export default function PixPaymentPanel({
   const resolvedStatus = expiredByClock ? 'EXPIRED' : baseResolvedStatus;
   const content = statusCopy[resolvedStatus];
   const confirmed = resolvedStatus === 'PAID';
+  const openFinance =
+    String(pixPaymentData.provider || '').toUpperCase() === 'MERCADO_PAGO_OPEN_FINANCE';
   const terminal = ['PAID', 'FAILED', 'CANCELED', 'EXPIRED', 'REFUNDED'].includes(resolvedStatus);
 
   useEffect(
@@ -467,7 +469,7 @@ export default function PixPaymentPanel({
       <Card>
         <Header>
           <div>
-            <small>Pagamento via Pix</small>
+            <small>{openFinance ? 'Open Finance Mercado Pago' : 'Pagamento via Pix'}</small>
             <h1>
               {confirmed
                 ? 'Tudo certo com seu pedido' : 'Conclua seu pagamento'}
@@ -502,7 +504,7 @@ export default function PixPaymentPanel({
             </Expiration>
           )}
 
-          {!confirmed && (
+          {!confirmed && !openFinance && (
             <>
               <PaymentArea>
                 <QrWrap aria-label="QR Code Pix">
@@ -536,6 +538,17 @@ export default function PixPaymentPanel({
                 </span>
               </SafetyNote>
             </>
+          )}
+
+          {!confirmed && openFinance && (
+            <SafetyNote>
+              <ShieldCheck size={16} />
+              <span>
+                Continue no Checkout Mercado Pago e escolha Open Finance quando essa opção estiver
+                disponível. O pedido só é confirmado depois que o backend consulta a Order no
+                Mercado Pago.
+              </span>
+            </SafetyNote>
           )}
 
           <Actions>
