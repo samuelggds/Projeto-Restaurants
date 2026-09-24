@@ -19,23 +19,23 @@ function webhookAuthorized(req: Request) {
   return Boolean(received && secureEquals(received, expected));
 }
 
-function intentIdFromBody(body: unknown) {
-  if (!body || typeof body !== 'object') return '';
+function paymentIntentEvent(body: unknown) {
+  if (!body || typeof body !== 'object') return null;
   const data = body as Record<string, unknown>;
-  const nested =
+  const webhookType = String(data.webhook_type || '').trim().toUpperCase();
+  const webhookCode = String(data.webhook_code || '').trim().toUpperCase();
+
+  // Payment Intents use the Belvo Payments webhook V1 schema.
+  if (webhookType !== 'PAYMENT_INTENTS' || webhookCode !== 'STATUS_UPDATE') return null;
+
+  const intentId = String(data.object_id || '').trim();
+  if (!isUuid(intentId)) return null;
+
+  const eventData =
     data.data && typeof data.data === 'object' ? (data.data as Record<string, unknown>) : {};
-  for (const candidate of [
-    nested.id,
-    nested.payment_intent_id,
-    data.payment_intent_id,
-    data.object_id,
-    data.id,
-    data.resource_id,
-  ]) {
-    const value = String(candidate || '').trim();
-    if (isUuid(value)) return value;
-  }
-  return '';
+  const status = String(eventData.status || '').trim().toUpperCase();
+
+  return { intentId, status };
 }
 
 class BelvoOrderWebhookController {
@@ -44,12 +44,16 @@ class BelvoOrderWebhookController {
       return res.status(401).json({ error: 'Webhook não autorizado.' });
     }
 
-    const intentId = intentIdFromBody(req.body);
-    if (!intentId) {
+    const event = paymentIntentEvent(req.body);
+    if (!event) {
       return res.status(200).json({ received: true });
     }
 
-    const paymentId = `belvo:${intentId}`;
+    if (event.status !== 'SUCCEEDED') {
+      return res.status(200).json({ received: true });
+    }
+
+    const paymentId = `belvo:${event.intentId}`;
     const order = await orderRepository.findByPixPaymentId(paymentId);
     if (!order) {
       return res.status(200).json({ received: true });
@@ -60,6 +64,7 @@ class BelvoOrderWebhookController {
         orderId: order.id,
         restaurantId: order.restaurantId,
         paymentId,
+        providerTimeoutMs: 3_500,
       });
       return res.status(200).json({ received: true });
     } catch (error: unknown) {
