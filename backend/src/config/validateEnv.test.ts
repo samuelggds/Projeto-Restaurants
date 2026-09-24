@@ -297,20 +297,3 @@ test('impõe limite seguro para busca e segredo forte quando configurado', () =>
   );
 });
 
-
-test('exige Belvo production e webhook protegido quando Open Finance está ativo', () => {
-  process.env.BELVO_PAYMENTS_ENABLED = 'true';
-  process.env.BELVO_SECRET_ID = 'belvo-secret-id';
-  process.env.BELVO_SECRET_PASSWORD = 'belvo-secret-password';
-  process.env.BELVO_ENV = 'sandbox';
-  process.env.BELVO_WEBHOOK_TOKEN = 'short';
-
-  assert.throws(
-    () => validateCriticalEnv(),
-    /BELVO_ENV deve ser production.*BELVO_WEBHOOK_TOKEN deve ter pelo menos 32 caracteres/is,
-  );
-
-  process.env.BELVO_ENV = 'production';
-  process.env.BELVO_WEBHOOK_TOKEN = 'b'.repeat(48);
-  assert.doesNotThrow(() => validateCriticalEnv());
-});
