@@ -1,11 +1,7 @@
 import prisma from '../../../config/prisma.js';
 import { withTenantDbContext } from '../../../database/tenantDbContext.js';
 import restaurantSettingsRepository from '../../restaurantSettings/repositories/RestaurantSettingsRepository.js';
-import {
-  getMercadoPagoAccessToken,
-  getPagBankAccessToken,
-} from '../../restaurantSettings/services/RestaurantPaymentCredentialsService.js';
-import { pagBankApiBaseUrl } from '../../payments/providers/pagBankCheckout.js';
+import { getMercadoPagoAccessToken } from '../../restaurantSettings/services/RestaurantPaymentCredentialsService.js';
 import {
   getRestaurantPagarmeCredentials,
   pagarmeJson,
@@ -417,118 +413,6 @@ async function mercadoPagoPayment(payload: BasePayload, order: CardOrder, succes
   } as const;
 }
 
-async function pagBankPayment(payload: BasePayload, order: CardOrder, successUrlBase: string) {
-  const encryptedCard = String(payload.encryptedCard || '').trim();
-  if (!encryptedCard)
-    throw new CardPaymentDeclinedError('Informe os dados do cartão para continuar.');
-  const token = await getPagBankAccessToken(order.restaurantId);
-  const totalCents = Math.round(amount(order.total) * 100);
-  const reference = `ordercard:${order.id}:${order.restaurantId}`;
-  const taxId = digits(payload.holderTaxId);
-  const email = await payerEmail(payload, order);
-  const backendUrl = String(process.env.BACKEND_URL || '')
-    .trim()
-    .replace(/\/+$/, '');
-  const notificationUrl = backendUrl
-    ? `${backendUrl}/orders/webhook/pagbank?restaurantId=${order.restaurantId}`
-    : '';
-
-  const response = await fetch(`${pagBankApiBaseUrl()}/orders`, {
-    method: 'POST',
-    redirect: 'error',
-    signal: AbortSignal.timeout(20_000),
-    headers: {
-      Authorization: `Bearer ${token}`,
-      Accept: 'application/json',
-      'Content-Type': 'application/json',
-      'x-idempotency-key': `order-card-${order.restaurantId}-${order.id}`,
-    },
-    body: JSON.stringify({
-      reference_id: reference,
-      customer: {
-        name: String(payload.customerName || payload.holderName || 'Cliente').trim(),
-        email,
-        ...(taxId ? { tax_id: taxId } : {}),
-      },
-      items: [
-        {
-          reference_id: String(order.id),
-          name: `Pedido #${order.id}`,
-          quantity: 1,
-          unit_amount: totalCents,
-        },
-      ],
-      charges: [
-        {
-          reference_id: reference,
-          description: `Pedido #${order.id}`,
-          amount: { value: totalCents, currency: 'BRL' },
-          payment_method: {
-            type: 'CREDIT_CARD',
-            installments: 1,
-            capture: true,
-            card: { encrypted: encryptedCard },
-            holder: {
-              name: String(payload.holderName || payload.customerName || 'Cliente').trim(),
-              ...(taxId ? { tax_id: taxId } : {}),
-            },
-          },
-        },
-      ],
-      ...(notificationUrl ? { notification_urls: [notificationUrl] } : {}),
-    }),
-  });
-  const body = await readResponse(response);
-  if (!response.ok) {
-    if (response.status >= 400 && response.status < 500) {
-      throw new CardPaymentDeclinedError(
-        safeProviderMessage(body, 'O PagBank não autorizou este cartão.'),
-      );
-    }
-    throw new Error('Falha temporária ao processar o cartão no PagBank.');
-  }
-
-  const charges = Array.isArray(body.charges) ? body.charges : [];
-  const charge = (charges[0] || {}) as Record<string, unknown>;
-  const chargeId = String(charge.id || '').trim();
-  const status = String(charge.status || '')
-    .trim()
-    .toUpperCase();
-  const chargeAmount =
-    typeof charge.amount === 'object' && charge.amount !== null
-      ? (charge.amount as Record<string, unknown>)
-      : {};
-  const paymentMethod =
-    typeof charge.payment_method === 'object' && charge.payment_method !== null
-      ? (charge.payment_method as Record<string, unknown>)
-      : {};
-  if (!/^CHAR_[\w-]+$/.test(chargeId)) {
-    throw new Error('PagBank não retornou a identificação da cobrança.');
-  }
-  if (['DECLINED', 'CANCELED', 'CANCELLED'].includes(status)) {
-    throw new CardPaymentDeclinedError('O PagBank não autorizou este cartão.');
-  }
-  const approved =
-    status === 'PAID' &&
-    String(body.reference_id || '').trim() === reference &&
-    String(charge.reference_id || '').trim() === reference &&
-    String(paymentMethod.type || '').toUpperCase() === 'CREDIT_CARD' &&
-    matchesOrderPaymentEvidence({
-      expectedAmount: order.total,
-      providerAmount: chargeAmount.value,
-      providerAmountUnit: 'MINOR',
-      providerCurrency: chargeAmount.currency,
-    });
-
-  return {
-    provider: CARD_PROVIDERS.PAGBANK,
-    sessionId: chargeId,
-    persistenceSessionId: `pagbank_tx:${chargeId}`,
-    checkoutUrl: internalReturnUrl(successUrlBase, order, approved ? 'success' : 'pending'),
-    paymentApproved: approved,
-  } as const;
-}
-
 async function pagarmePayment(payload: BasePayload, order: CardOrder, successUrlBase: string) {
   const cardToken = String(payload.cardToken || '').trim();
   if (!cardToken) {
@@ -801,9 +685,6 @@ class DirectOrderCardPaymentService {
     }
     if (input.provider === CARD_PROVIDERS.PAGARME) {
       return pagarmePayment(input.payload, input.order, input.successUrlBase);
-    }
-    if (input.provider === CARD_PROVIDERS.PAGBANK) {
-      return pagBankPayment(input.payload, input.order, input.successUrlBase);
     }
     if (input.provider === CARD_PROVIDERS.ASAAS) {
       return asaasPayment(input.payload, input.order, input.successUrlBase);
