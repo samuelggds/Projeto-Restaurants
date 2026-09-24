@@ -131,9 +131,11 @@ class OpenFinanceMercadoPagoPaymentService {
           not_allowed_types: [
             'credit_card',
             'debit_card',
+            'prepaid_card',
             'ticket',
             'account_money',
             'digital_currency',
+            'atm',
           ],
         },
         back_urls: {
