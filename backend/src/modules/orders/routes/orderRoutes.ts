@@ -17,6 +17,8 @@ import ConfirmOrderPaymentWithPinController from '../controllers/ConfirmOrderPay
 import GenerateOrderPaymentConfirmationPinController from '../controllers/GenerateOrderPaymentConfirmationPinController.js';
 import RequestOrderPaymentConfirmationPinController from '../controllers/RequestOrderPaymentConfirmationPinController.js';
 import CreateOrderPixPaymentController from '../controllers/CreateOrderPixPaymentController.js';
+import CreateOrderOpenFinancePaymentController from '../controllers/CreateOrderOpenFinancePaymentController.js';
+import OpenFinanceInstitutionsController from '../controllers/OpenFinanceInstitutionsController.js';
 import CreateOrderCardCheckoutController from '../controllers/CreateOrderCardCheckoutController.js';
 import GetOrderCardPaymentStatusController from '../controllers/GetOrderCardPaymentStatusController.js';
 import GetOrderPixPaymentStatusController from '../controllers/GetOrderPixPaymentStatusController.js';
@@ -92,6 +94,21 @@ router.post(
   billingMiddleware,
   (req, res) => {
     CreateOrderPixPaymentController.handle(req, res);
+  },
+);
+
+router.get('/open-finance/institutions', onlineCheckoutRateLimitMiddleware, (req, res) => {
+  OpenFinanceInstitutionsController.handle(req, res);
+});
+
+router.post(
+  '/open-finance/payment',
+  orderAccessMiddleware,
+  onlineCheckoutRateLimitMiddleware,
+  premiumTableOrderMiddleware,
+  billingMiddleware,
+  (req, res) => {
+    CreateOrderOpenFinancePaymentController.handle(req, res);
   },
 );
 
