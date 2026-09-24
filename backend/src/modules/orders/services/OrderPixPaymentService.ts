@@ -19,12 +19,6 @@ import { withTenantDbContext } from '../../../database/tenantDbContext.js';
 import orderRepository from '../repositories/OrderRepository.js';
 import { getMercadoPagoAccessToken } from '../../restaurantSettings/services/RestaurantPaymentCredentialsService.js';
 import { assertFuturePaymentProviderEnabled } from '../../payments/providers/futurePaymentProviders.js';
-import {
-  belvoIdempotencyKey,
-  belvoJson,
-  isUuid,
-  safeBelvoError,
-} from '../../payments/providers/belvoOpenFinance.js';
 
 const APPROVED_PAYMENT_STATUSES = new Set(['approved', 'accredited', 'paid']);
 const APPROVED_ASAAS_PAYMENT_STATUSES = new Set(['received', 'confirmed', 'received_in_cash']);
@@ -157,15 +151,6 @@ type PagarmeOrderPayload = {
   status?: string;
   charges?: PagarmeChargePayload[];
   message?: string;
-};
-type BelvoPaymentIntentPayload = {
-  id?: string;
-  external_id?: string;
-  status?: string;
-  amount?: string | number;
-  currency?: string;
-  failure_code?: string | null;
-  failure_message?: string | null;
 };
 
 
@@ -882,50 +867,6 @@ class OrderPixPaymentService {
       throw new Error('Restaurante inválido para recuperar pagamento PIX.');
     }
 
-    if (parsedPaymentId.provider === PIX_PROVIDERS.BELVO) {
-      if (!isUuid(parsedPaymentId.rawPaymentId)) {
-        throw new Error('Payment Intent Open Finance inválida.');
-      }
-      const order = await orderRepository.findByPixPaymentId(normalizedPaymentId);
-      if (!order || order.restaurantId !== normalizedRestaurantId) {
-        throw new Error('Pagamento Open Finance não corresponde a este restaurante.');
-      }
-      const result = await belvoJson<BelvoPaymentIntentPayload>(
-        `/payments/br/payment-intents/${encodeURIComponent(parsedPaymentId.rawPaymentId)}/`,
-        { method: 'GET' },
-      );
-      if (!result.response.ok) {
-        throw new Error(
-          safeBelvoError(result.body, 'Não foi possível recuperar o pagamento Open Finance.'),
-        );
-      }
-      const expectedExternalId = belvoIdempotencyKey(
-        `orderpix:${normalizedRestaurantId}:${order.id}`,
-      );
-      const amount = Number(result.body.amount);
-      if (
-        String(result.body.id || '') !== parsedPaymentId.rawPaymentId ||
-        String(result.body.external_id || '') !== expectedExternalId ||
-        !Number.isFinite(amount) ||
-        Math.round(amount * 100) !== Math.round(Number(order.total) * 100) ||
-        String(result.body.currency || 'BRL').trim().toUpperCase() !== 'BRL'
-      ) {
-        throw new Error('A Payment Intent Open Finance não corresponde ao pedido.');
-      }
-      const status = String(result.body.status || '').trim().toUpperCase();
-      return {
-        paymentId: normalizedPaymentId,
-        status,
-        provider: PIX_PROVIDERS.BELVO,
-        isApproved: status === 'SUCCEEDED',
-        totalAmount: amount,
-        qrCode: '',
-        qrCodeBase64: null,
-        requiresStatusCheck: !['SUCCEEDED', 'FAILED'].includes(status),
-        externalReference: `orderpix:${normalizedRestaurantId}:${order.id}`,
-      };
-    }
-
     if (parsedPaymentId.provider === PIX_PROVIDERS.ASAAS) {
       const accessToken = await this.getAsaasAccessToken(normalizedRestaurantId);
       const asaasBaseUrl = this.getAsaasBaseUrl();
@@ -1065,64 +1006,6 @@ class OrderPixPaymentService {
 
     const parsedPaymentId = parseProviderPaymentId(normalizedPaymentId);
     const normalizedRestaurantIdNumber = Number(restaurantId || 0);
-
-    if (parsedPaymentId.provider === PIX_PROVIDERS.BELVO) {
-      if (!isUuid(parsedPaymentId.rawPaymentId)) {
-        throw new Error('Payment Intent Open Finance inválida.');
-      }
-      const order = await orderRepository.findByPixPaymentId(normalizedPaymentId);
-      if (!order) throw new Error('Pedido do pagamento Open Finance não encontrado.');
-      const sameRestaurant =
-        !normalizedRestaurantIdNumber || order.restaurantId === normalizedRestaurantIdNumber;
-      if (!sameRestaurant) {
-        return {
-          paymentId: normalizedPaymentId,
-          status: 'FAILED',
-          provider: PIX_PROVIDERS.BELVO,
-          isApproved: false,
-          sameRestaurant: false,
-          externalReference: '',
-          amount: null,
-          currency: 'BRL',
-          requiresStatusCheck: false,
-        };
-      }
-      const result = await belvoJson<BelvoPaymentIntentPayload>(
-        `/payments/br/payment-intents/${encodeURIComponent(parsedPaymentId.rawPaymentId)}/`,
-        { method: 'GET' },
-        { timeoutMs },
-      );
-      if (!result.response.ok) {
-        throw new Error(
-          safeBelvoError(result.body, 'Não foi possível consultar o pagamento Open Finance.'),
-        );
-      }
-      const expectedExternalId = belvoIdempotencyKey(
-        `orderpix:${order.restaurantId}:${order.id}`,
-      );
-      const amount = Number(result.body.amount);
-      const validEvidence =
-        String(result.body.id || '') === parsedPaymentId.rawPaymentId &&
-        String(result.body.external_id || '') === expectedExternalId &&
-        Number.isFinite(amount) &&
-        Math.round(amount * 100) === Math.round(Number(order.total) * 100) &&
-        String(result.body.currency || 'BRL').trim().toUpperCase() === 'BRL';
-      if (!validEvidence) {
-        throw new Error('A Payment Intent Open Finance não corresponde ao pedido.');
-      }
-      const status = String(result.body.status || '').trim().toUpperCase();
-      return {
-        paymentId: normalizedPaymentId,
-        status,
-        provider: PIX_PROVIDERS.BELVO,
-        isApproved: status === 'SUCCEEDED',
-        sameRestaurant: true,
-        externalReference: `orderpix:${order.restaurantId}:${order.id}`,
-        amount,
-        currency: 'BRL',
-        requiresStatusCheck: !['SUCCEEDED', 'FAILED'].includes(status),
-      };
-    }
 
     if (parsedPaymentId.provider === PIX_PROVIDERS.ASAAS) {
       const effectiveRestaurantId =
