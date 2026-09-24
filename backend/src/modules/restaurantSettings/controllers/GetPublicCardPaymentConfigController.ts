@@ -4,7 +4,7 @@ import getPublicCardPaymentConfigService from '../services/GetPublicCardPaymentC
 class GetPublicCardPaymentConfigController {
   async handle(req: Request, res: Response) {
     try {
-      const config = await getPublicCardPaymentConfigService.execute(req.params.restaurantId);
+      const config = await getPublicCardPaymentConfigService.execute(String(req.params.restaurantId));
       res.setHeader('Cache-Control', 'no-store');
       return res.status(200).json(config);
     } catch (error: unknown) {
