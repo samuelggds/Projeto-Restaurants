@@ -1,5 +1,4 @@
 import { MercadoPagoConfig, Payment } from 'mercadopago';
-import { pagBankApiBaseUrl } from '../../payments/providers/pagBankCheckout.js';
 import { parseProviderPaymentId, normalizeTxid } from './pixPayload.js';
 import productRepository from '../../products/repositories/ProductRepository.js';
 import restaurantSettingsRepository from '../../restaurantSettings/repositories/RestaurantSettingsRepository.js';
@@ -18,10 +17,7 @@ import {
 import { buildOrderItemCustomizationSnapshot } from '../utils/productIngredients.js';
 import { withTenantDbContext } from '../../../database/tenantDbContext.js';
 import orderRepository from '../repositories/OrderRepository.js';
-import {
-  getPagBankAccessToken,
-  getMercadoPagoAccessToken,
-} from '../../restaurantSettings/services/RestaurantPaymentCredentialsService.js';
+import { getMercadoPagoAccessToken } from '../../restaurantSettings/services/RestaurantPaymentCredentialsService.js';
 
 const APPROVED_PAYMENT_STATUSES = new Set(['approved', 'accredited', 'paid']);
 const APPROVED_ASAAS_PAYMENT_STATUSES = new Set(['received', 'confirmed', 'received_in_cash']);
@@ -155,23 +151,6 @@ type PagarmeOrderPayload = {
   message?: string;
 };
 
-type PagBankOrderPayload = {
-  id?: string;
-  reference_id?: string;
-  qr_codes?: Array<{
-    text?: string;
-    links?: Array<{ rel?: string; href?: string }>;
-  }>;
-  charges?: Array<{
-    status?: string;
-    amount?: {
-      value?: number;
-      currency?: string;
-    };
-  }>;
-  error_messages?: Array<{ description?: string }>;
-};
-
 function normalizeReferenceToken(value: string | number | null | undefined) {
   return String(value || '')
     .toLowerCase()
@@ -207,32 +186,6 @@ type ParsedManualPixPaymentId = {
 };
 
 class OrderPixPaymentService {
-  getPagBankBaseUrl() {
-    return pagBankApiBaseUrl();
-  }
-
-  async getPagBankToken(restaurantId: number) {
-    return getPagBankAccessToken(restaurantId);
-  }
-
-  async fetchPagBankJson<T>(url: string, token: string, init: RequestInit = {}) {
-    const response = await fetch(url, {
-      ...init,
-      signal: init.signal
-        ? AbortSignal.any([init.signal, AbortSignal.timeout(15_000)])
-        : AbortSignal.timeout(15_000),
-      redirect: 'error',
-      headers: {
-        Authorization: `Bearer ${token}`,
-        Accept: 'application/json',
-        'Content-Type': 'application/json',
-        ...(init.headers || {}),
-      },
-    });
-    const body = (await response.json()) as T;
-    return { ok: response.ok, body };
-  }
-
   getAsaasBaseUrl() {
     return String(process.env.ASAAS_API_BASE_URL || 'https://api.asaas.com')
       .trim()
@@ -613,11 +566,6 @@ class OrderPixPaymentService {
       };
     }
 
-    if (resolvedPixProvider === PIX_PROVIDERS.PAGBANK && !resumeOnly) {
-      throw new Error(
-        'PagBank não está disponível para novas cobranças. Escolha Mercado Pago ou Asaas nas configurações.',
-      );
-    }
     if (
       idempotencyKey &&
       pixProvider &&
@@ -694,92 +642,6 @@ class OrderPixPaymentService {
     );
     const payerName = String(customerName || 'Cliente').trim();
     const cpf = this.normalizeCpf(customerCpf);
-    if (resolvedPixProvider === PIX_PROVIDERS.PAGBANK) {
-      const token = await this.getPagBankToken(normalizedRestaurantId);
-      const backendUrl = String(process.env.BACKEND_URL || '')
-        .trim()
-        .replace(/\/+$/, '');
-      const notificationUrl = backendUrl
-        ? `${backendUrl}/orders/webhook/pagbank?restaurantId=${normalizedRestaurantId}`
-        : '';
-      const result = await this.fetchPagBankJson<PagBankOrderPayload>(
-        `${this.getPagBankBaseUrl()}/orders`,
-        token,
-        {
-          method: 'POST',
-          headers: { 'x-idempotency-key': idempotencyKey || crypto.randomUUID() },
-          body: JSON.stringify({
-            reference_id: sourceOrderId
-              ? `orderpix:${normalizedRestaurantId}:${sourceOrderId}`
-              : `orderpix:${normalizedRestaurantId}:${Date.now()}`,
-            customer: {
-              name: payerName || 'Cliente',
-              email: payerEmail,
-              ...(cpf ? { tax_id: cpf } : {}),
-            },
-            items: [
-              {
-                reference_id: `restaurant-${normalizedRestaurantId}`,
-                name: `Pedido restaurante ${normalizedRestaurantId}`,
-                quantity: 1,
-                unit_amount: Math.round(totalAmount * 100),
-              },
-            ],
-            qr_codes: [
-              {
-                amount: { value: Math.round(totalAmount * 100) },
-                ...(expiresAtIso ? { expiration_date: expiresAtIso } : {}),
-              },
-            ],
-            ...(notificationUrl ? { notification_urls: [notificationUrl] } : {}),
-          }),
-        },
-      );
-      const providerError = String(result.body?.error_messages?.[0]?.description || '').trim();
-      const orderId = String(result.body?.id || '').trim();
-      const qrCode = String(result.body?.qr_codes?.[0]?.text || '').trim();
-      if (!result.ok || !orderId || !qrCode) {
-        throw new Error(providerError || 'Não foi possível gerar o Pix no PagBank.');
-      }
-      const base64Url = String(
-        result.body?.qr_codes?.[0]?.links?.find((link) => link.rel === 'QRCODE.BASE64')?.href || '',
-      ).trim();
-      let qrCodeBase64: string | null = null;
-      if (base64Url) {
-        // A remote link must not redirect the merchant token to another origin.
-        // The copy-and-paste PIX text remains usable when its optional image fails.
-        try {
-          const imageUrl = new URL(base64Url);
-          if (
-            imageUrl.origin === new URL(this.getPagBankBaseUrl()).origin &&
-            imageUrl.protocol === 'https:' &&
-            !imageUrl.username &&
-            !imageUrl.password
-          ) {
-            const imageResponse = await fetch(imageUrl, {
-              headers: { Authorization: `Bearer ${token}` },
-              signal: AbortSignal.timeout(5_000),
-              redirect: 'error',
-            });
-            if (imageResponse.ok) qrCodeBase64 = (await imageResponse.text()).trim() || null;
-            else await imageResponse.body?.cancel();
-          }
-        } catch {
-          /* Optional image: preserve the already-created PIX. */
-        }
-      }
-      return {
-        paymentId: `pagbank:${orderId}`,
-        status: 'WAITING',
-        provider: resolvedPixProvider,
-        totalAmount,
-        qrCode,
-        qrCodeBase64,
-        requiresStatusCheck: true,
-        expiresAt: expiresAtIso,
-      };
-    }
-
     if (resolvedPixProvider === PIX_PROVIDERS.ASAAS) {
       const accessToken = await this.getAsaasAccessToken(normalizedRestaurantId);
       const asaasBaseUrl = this.getAsaasBaseUrl();
@@ -1066,35 +928,6 @@ class OrderPixPaymentService {
       };
     }
 
-    if (parsedPaymentId.provider === PIX_PROVIDERS.PAGBANK) {
-      const token = await this.getPagBankToken(normalizedRestaurantId);
-      const result = await this.fetchPagBankJson<PagBankOrderPayload>(
-        `${this.getPagBankBaseUrl()}/orders/${encodeURIComponent(parsedPaymentId.rawPaymentId)}`,
-        token,
-      );
-      if (!result.ok) {
-        throw new Error('Não foi possível recuperar o Pix no PagBank.');
-      }
-      const qrCode = String(result.body?.qr_codes?.[0]?.text || '').trim();
-      if (!qrCode) throw new Error('O QR Code desta cobrança PIX não está disponível.');
-      const amountInCents = Number(result.body?.charges?.[0]?.amount?.value);
-      const pagBankStatuses = (result.body?.charges || []).map((charge) =>
-        String(charge.status || '').toUpperCase(),
-      );
-      const pagBankApproved = pagBankStatuses.includes('PAID');
-      return {
-        paymentId: normalizedPaymentId,
-        status: pagBankApproved ? 'paid' : pagBankStatuses[0] || 'WAITING',
-        provider: PIX_PROVIDERS.PAGBANK,
-        isApproved: pagBankApproved,
-        totalAmount: Number.isFinite(amountInCents) ? amountInCents / 100 : 0,
-        qrCode,
-        qrCodeBase64: null,
-        requiresStatusCheck: true,
-        externalReference: String(result.body?.reference_id || '').trim(),
-      };
-    }
-
     const paymentApi = await this.getMercadoPagoPaymentApi(normalizedRestaurantId);
     const response = (await paymentApi.get({ id: parsedPaymentId.rawPaymentId })) as unknown;
     const payment =
@@ -1245,41 +1078,6 @@ class OrderPixPaymentService {
         externalReference: String(result.body?.order?.code || '').trim(),
         amount: Number.isFinite(amountInCents) ? amountInCents / 100 : null,
         currency: String(result.body?.currency || 'BRL').trim().toUpperCase(),
-        requiresStatusCheck: true,
-      };
-    }
-
-    if (parsedPaymentId.provider === PIX_PROVIDERS.PAGBANK) {
-      if (!normalizedRestaurantIdNumber) {
-        throw new Error('Restaurante inválido para consultar Pix PagBank.');
-      }
-      const token = await this.getPagBankToken(normalizedRestaurantIdNumber);
-      const result = await this.fetchPagBankJson<PagBankOrderPayload>(
-        `${this.getPagBankBaseUrl()}/orders/${encodeURIComponent(parsedPaymentId.rawPaymentId)}`,
-        token,
-      );
-      if (!result.ok) {
-        throw new Error('Não foi possível consultar o Pix no PagBank.');
-      }
-      const statuses = (result.body?.charges || []).map((charge) =>
-        String(charge.status || '').toUpperCase(),
-      );
-      const isApproved = statuses.includes('PAID');
-      const approvedCharge = (result.body?.charges || []).find(
-        (charge) => String(charge.status || '').toUpperCase() === 'PAID',
-      );
-      const amountInCents = Number(approvedCharge?.amount?.value);
-      return {
-        paymentId: normalizedPaymentId,
-        status: isApproved ? 'paid' : statuses[0] || 'waiting',
-        provider: PIX_PROVIDERS.PAGBANK,
-        isApproved,
-        sameRestaurant: true,
-        externalReference: String(result.body?.reference_id || '').trim(),
-        amount: Number.isFinite(amountInCents) ? amountInCents / 100 : null,
-        currency: String(approvedCharge?.amount?.currency || '')
-          .trim()
-          .toUpperCase(),
         requiresStatusCheck: true,
       };
     }
