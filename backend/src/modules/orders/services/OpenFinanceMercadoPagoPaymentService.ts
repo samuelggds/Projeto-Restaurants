@@ -21,21 +21,22 @@ function requireHttpsUrl(raw: unknown, label: string) {
   return url.toString();
 }
 
-function callbackBase(raw: unknown) {
-  return requireHttpsUrl(raw, 'URL de retorno');
+function callbackUrl(slug: string, publicId: string, status: 'success' | 'pending' | 'cancel') {
+  const frontend = new URL(requireHttpsUrl(process.env.FRONTEND_URL, 'FRONTEND_URL'));
+  frontend.pathname = `/${encodeURIComponent(slug)}/pedido/${encodeURIComponent(publicId)}/pagamento`;
+  frontend.search = '';
+  frontend.searchParams.set('openFinanceReturn', status);
+  frontend.hash = '';
+  return frontend.toString();
 }
 
 class OpenFinanceMercadoPagoPaymentService {
   async start({
     orderId,
     restaurantId,
-    successUrl,
-    cancelUrl,
   }: {
     orderId: number | string;
     restaurantId: number | string;
-    successUrl: unknown;
-    cancelUrl: unknown;
   }) {
     const normalizedRestaurantId = Number(restaurantId);
     const normalizedOrderId = Number(orderId);
@@ -94,21 +95,12 @@ class OpenFinanceMercadoPagoPaymentService {
 
     const restaurant = await prisma.restaurant.findFirst({
       where: { id: normalizedRestaurantId, active: true },
-      select: { name: true },
+      select: { name: true, slug: true },
     });
-    if (!restaurant) throw new Error('Restaurante indisponível para este pagamento.');
+    if (!restaurant?.slug) throw new Error('Restaurante indisponível para este pagamento.');
 
     const total = Number(order.total);
     if (!Number.isFinite(total) || total <= 0) throw new Error('Total do pedido inválido.');
-
-    const successBase = callbackBase(successUrl);
-    const cancelBase = callbackBase(cancelUrl || successBase);
-    const withParams = (base: string, status: string) => {
-      const url = new URL(base);
-      url.searchParams.set('openFinanceCheckoutStatus', status);
-      url.searchParams.set('orderPublicId', String(order.publicId));
-      return url.toString();
-    };
 
     const preferenceApi = await getMercadoPagoPreferenceApi(normalizedRestaurantId);
     const response = await preferenceApi.create({
@@ -124,9 +116,9 @@ class OpenFinanceMercadoPagoPaymentService {
         ],
         external_reference: mercadoPagoOpenFinanceExternalReference(order.id, normalizedRestaurantId),
         back_urls: {
-          success: withParams(successBase, 'success'),
-          pending: withParams(successBase, 'pending'),
-          failure: withParams(cancelBase, 'cancel'),
+          success: callbackUrl(restaurant.slug, String(order.publicId), 'success'),
+          pending: callbackUrl(restaurant.slug, String(order.publicId), 'pending'),
+          failure: callbackUrl(restaurant.slug, String(order.publicId), 'cancel'),
         },
       },
     });
