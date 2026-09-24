@@ -16,8 +16,6 @@ import WithdrawAsaasWalletController from '../controllers/WithdrawAsaasWalletCon
 import StartMercadoPagoOAuthController from '../controllers/StartMercadoPagoOAuthController.js';
 import DisconnectMercadoPagoController from '../controllers/DisconnectMercadoPagoController.js';
 import MercadoPagoOAuthCallbackController from '../controllers/MercadoPagoOAuthCallbackController.js';
-import StartPagBankOAuthController from '../controllers/StartPagBankOAuthController.js';
-import PagBankOAuthCallbackController from '../controllers/PagBankOAuthCallbackController.js';
 import UpdateWhatsappProfilePhotoController from '../controllers/UpdateWhatsappProfilePhotoController.js';
 import EvolutionWhatsappConnectionController from '../controllers/EvolutionWhatsappConnectionController.js';
 import { adminMiddleware } from '../../../middlewares/adminMiddleware.js';
@@ -77,13 +75,7 @@ router.get('/mercado-pago/oauth/callback', (req, res) =>
   MercadoPagoOAuthCallbackController.handle(req, res),
 );
 
-router.post('/pagbank/oauth/start', authMiddleware, adminMiddleware, (req, res) =>
-  StartPagBankOAuthController.handle(req, res),
-);
 
-router.get('/pagbank/oauth/callback', (req, res) =>
-  PagBankOAuthCallbackController.handle(req, res),
-);
 
 router.post('/asaas/onboard', authMiddleware, adminMiddleware, (req, res) =>
   OnboardRestaurantAsaasController.handle(req, res),
