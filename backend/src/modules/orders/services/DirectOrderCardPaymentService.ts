@@ -618,15 +618,23 @@ async function pagarmePayment(payload: BasePayload, order: CardOrder, successUrl
       : {};
   const chargeId = String(charge.id || '').trim();
   const status = String(charge.status || '').trim().toLowerCase();
+  const lastTransaction =
+    charge.last_transaction && typeof charge.last_transaction === 'object'
+      ? (charge.last_transaction as Record<string, unknown>)
+      : {};
+  const transactionStatus = String(lastTransaction.status || '').trim().toLowerCase();
   const chargeAmount = Number(charge.amount);
 
   if (!chargeId) throw new Error('Pagar.me não retornou a identificação da cobrança.');
-  if (['failed', 'canceled', 'chargedback'].includes(status)) {
+  if (
+    ['failed', 'canceled', 'chargedback'].includes(status) ||
+    ['failed', 'not_authorized', 'chargedback'].includes(transactionStatus)
+  ) {
     throw new CardPaymentDeclinedError('O Pagar.me não autorizou este cartão.');
   }
 
   const approved =
-    status === 'paid' &&
+    (status === 'paid' || transactionStatus === 'captured') &&
     Number.isFinite(chargeAmount) &&
     Math.round(chargeAmount) === totalCents;
 
