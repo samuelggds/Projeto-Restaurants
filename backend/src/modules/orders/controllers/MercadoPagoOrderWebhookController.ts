@@ -12,6 +12,10 @@ import orderRepository from '../repositories/OrderRepository.js';
 import failPendingOrderPaymentService from '../services/FailPendingOrderPaymentService.js';
 import { matchesOrderPaymentEvidence } from '../utils/paymentEvidence.js';
 import { parseMercadoPagoCardExternalReference } from '../domain/mercadoPagoCardReference.js';
+import {
+  mercadoPagoOpenFinancePaymentId,
+  parseMercadoPagoOpenFinanceExternalReference,
+} from '../domain/mercadoPagoOpenFinanceReference.js';
 
 const APPROVED_STATUSES = new Set(['approved', 'accredited', 'paid']);
 const TERMINAL_UNPAID_STATUSES = new Set(['cancelled', 'rejected', 'refunded', 'charged_back']);
@@ -26,6 +30,15 @@ export function parseMercadoPagoOrderReference(externalReference: string) {
       type: 'card' as const,
       restaurantId: cardReference.restaurantId,
       orderId: cardReference.orderId,
+    };
+  }
+
+  const openFinanceReference = parseMercadoPagoOpenFinanceExternalReference(normalized);
+  if (openFinanceReference) {
+    return {
+      type: 'open_finance' as const,
+      restaurantId: openFinanceReference.restaurantId,
+      orderId: openFinanceReference.orderId,
     };
   }
 
@@ -47,9 +60,14 @@ function isMercadoPagoOrderEvent(req: Request, resourceId: string) {
 async function findOrderByMercadoPagoOrderId(providerOrderId: string) {
   return prisma.order.findFirst({
     where: {
-      cardCheckoutSessionId: {
-        in: [`mp_pref:${providerOrderId}`, `mp_order:${providerOrderId}`],
-      },
+      OR: [
+        {
+          cardCheckoutSessionId: {
+            in: [`mp_pref:${providerOrderId}`, `mp_order:${providerOrderId}`],
+          },
+        },
+        { pixPaymentId: mercadoPagoOpenFinancePaymentId(providerOrderId) },
+      ],
     },
     select: {
       id: true,
@@ -57,6 +75,7 @@ async function findOrderByMercadoPagoOrderId(providerOrderId: string) {
       total: true,
       paymentMethod: true,
       cardCheckoutSessionId: true,
+      pixPaymentId: true,
     },
   });
 }
@@ -77,7 +96,7 @@ async function handleOrdersApiWebhook(providerOrderId: string, res: Response) {
 
   if (
     !parsedReference ||
-    parsedReference.type !== 'card' ||
+    !['card', 'open_finance'].includes(parsedReference.type) ||
     parsedReference.orderId !== localOrder.id ||
     parsedReference.restaurantId !== localOrder.restaurantId
   ) {
@@ -98,8 +117,10 @@ async function handleOrdersApiWebhook(providerOrderId: string, res: Response) {
     return res.sendStatus(200);
   }
 
+  const isOpenFinance = parsedReference.type === 'open_finance';
+  const expectedPaymentMethod = isOpenFinance ? 'PIX' : 'CARTAO';
   if (
-    String(localOrder.paymentMethod || '').toUpperCase() !== 'CARTAO' ||
+    String(localOrder.paymentMethod || '').toUpperCase() !== expectedPaymentMethod ||
     !matchesOrderPaymentEvidence({
       expectedAmount: localOrder.total,
       providerAmount: remoteOrder.total_paid_amount ?? remoteOrder.total_amount,
@@ -109,6 +130,22 @@ async function handleOrdersApiWebhook(providerOrderId: string, res: Response) {
     return res.status(400).json({
       error: 'Webhook Mercado Pago rejeitado: dados financeiros da order não conferem.',
     });
+  }
+
+  if (isOpenFinance) {
+    const paymentId = mercadoPagoOpenFinancePaymentId(providerOrderId);
+    if (String(localOrder.pixPaymentId || '') !== paymentId) {
+      return res.status(400).json({
+        error: 'Webhook Mercado Pago rejeitado: identificação Open Finance não confere.',
+      });
+    }
+    await finalizeOrderPixPaymentService.execute({
+      orderId: localOrder.id,
+      paymentId,
+      restaurantId: localOrder.restaurantId,
+      allowMissingOrder: true,
+    });
+    return res.sendStatus(200);
   }
 
   const providerSessionId = `mp_order:${providerOrderId}`;
@@ -208,6 +245,12 @@ class MercadoPagoOrderWebhookController {
       }
 
       if (!APPROVED_STATUSES.has(status)) {
+        return res.sendStatus(200);
+      }
+
+      if (referenceType === 'open_finance') {
+        // Checkout Pro/Open Finance is reconciled from the canonical Orders API webhook.
+        // Payment notifications are acknowledged to avoid binding a payment id as a normal Pix.
         return res.sendStatus(200);
       }
 
