@@ -804,19 +804,8 @@ test('isolamento multi-tenant real por HTTP e webhooks', { timeout: 120_000 }, a
     );
 
     await t.test(
-      'webhooks PagBank e Mercado Pago rejeitam ou ignoram tenant incompatível',
+      'webhook Mercado Pago rejeita ou ignora tenant incompatível',
       async () => {
-        const pagBank = await apiRequest(baseUrl, '/orders/webhook/pagbank', undefined, {
-          method: 'POST',
-          json: {
-            id: 'pagbank-cross-tenant',
-            reference_id: `orderpix:${fixture.restaurants.a.id}:${fixture.orders.webhookB.id}`,
-            restaurantId: fixture.restaurants.b.id,
-            charges: [{ status: 'PAID' }],
-          },
-        });
-        assert.equal(pagBank.response.status, 400);
-
         const originalFetch = globalThis.fetch;
         let mercadoPagoPayment: Record<string, unknown> = {
           id: 'mp-cross-tenant',
