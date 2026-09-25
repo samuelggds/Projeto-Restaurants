@@ -1030,25 +1030,7 @@ class OrderRepository {
     }
 
     return db.order.findMany({
-      where: {
-        ...where,
-        NOT: [
-          {
-            paymentMethod: PaymentMethod.PIX,
-            paid: false,
-            pixPaymentId: {
-              not: null,
-            },
-          },
-          {
-            paymentMethod: PaymentMethod.CARTAO,
-            paid: false,
-            cardCheckoutSessionId: {
-              not: null,
-            },
-          },
-        ],
-      },
+      where,
       include: {
         items: {
           include: {
