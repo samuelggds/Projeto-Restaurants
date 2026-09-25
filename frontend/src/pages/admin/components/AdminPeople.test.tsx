@@ -77,8 +77,8 @@ describe('diretórios administrativos de pessoas', () => {
     ];
 
     const customers = [
-      { key: 'b', name: 'Bruno Alves', username: 'brunoentrega', count: 1, total: 80 },
-      { key: 'a', name: 'Ana Lima', username: 'anacozinha', count: 2, total: 50 },
+      { key: 'b', name: 'Bruno Alves', email: 'bruno@teste.com', count: 1, total: 80 },
+      { key: 'a', name: 'Ana Lima', email: 'ana@teste.com', count: 2, total: 50 },
     ];
     mocks.customers.mockImplementation(async ({ search, sort }) => {
       const filtered = customers.filter((customer) => !search || customer.email.includes(search));
