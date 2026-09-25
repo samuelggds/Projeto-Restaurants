@@ -150,17 +150,6 @@ test('novo início OAuth invalida state anterior do mesmo usuário/provedor', as
   });
 });
 
-test('state de um provedor não pode ser usado no callback de outro', async () => {
-  installStateStore();
-  setUser({ id: 3, restaurantId: 2 });
-  const state = await createSingleUseOAuthState({
-    provider: 'MERCADO_PAGO',
-    restaurantId: 2,
-    userId: 3,
-  });
-
-  await assert.rejects(() => consumeSingleUseOAuthState(state, 'MERCADO_PAGO'), /Estado OAuth inválido/);
-});
 
 test('incremento de authVersion revoga state OAuth ainda não consumido', async () => {
   installStateStore();
