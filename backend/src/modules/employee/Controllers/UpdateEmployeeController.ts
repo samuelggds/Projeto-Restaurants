@@ -9,13 +9,13 @@ class UpdateEmployeeController {
 
       const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
 
-      const { name, email, phone, role, subRole } = UpdateEmployeeSchema.parse(req.body);
+      const { name, username, phone, role, subRole } = UpdateEmployeeSchema.parse(req.body);
 
       const employee = await updateEmployeeService.execute({
         id,
         restaurantId,
         name,
-        email,
+        username,
         phone,
         role,
         subRole,
