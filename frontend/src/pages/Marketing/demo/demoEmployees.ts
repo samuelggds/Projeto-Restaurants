@@ -15,12 +15,14 @@ export function syncDemoEmployees(
   const accounts: DemoAccount[] = employees.map((employee) => {
     const old = previous.find((item) => item.id === employee.id);
     const account = state.accounts.find(
-      (item) => item.id === `demo-employee-${employee.id}` || item.email === old?.email,
+      (item) =>
+        item.id === `demo-employee-${employee.id}` ||
+        item.email === `${old?.username || 'usuario'}@demo.gastronexa.local`,
     );
     return {
       id: account?.id ?? `demo-employee-${employee.id}`,
       name: employee.name,
-      email: employee.email,
+      email: `${employee.username}@demo.gastronexa.local`,
       role: {
         COOK: 'COZINHA' as const,
         WAITER: 'GARCOM' as const,
