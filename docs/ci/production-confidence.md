@@ -25,7 +25,7 @@ The active `main-reviewed-and-tested` repository rule set requires `Full Root CI
 
 ## Provider sandbox status
 
-The repository can validate webhook/idempotency/refund/expiry business rules without external charges. A real Mercado Pago, Open Finance/Belvo, Asaas or Pagar.me homologation run requires explicit provider credentials configured in repository/environment secrets. The scheduled workflow only reports credential presence; it deliberately does **not** create a Pix charge, refund, webhook or message by itself.
+The repository can validate webhook/idempotency/refund/expiry business rules without external charges. A real Mercado Pago, Open Finance Mercado Pago, Asaas or Pagar.me homologation run requires explicit provider credentials configured in repository/environment secrets. The scheduled workflow only reports credential presence; it deliberately does **not** create a Pix charge, refund, webhook or message by itself.
 
 A real provider sandbox exercise must use dedicated sandbox accounts and test fixtures and must record the provider response/evidence separately. Missing credentials are an external validation gap, not a passing provider test.
 

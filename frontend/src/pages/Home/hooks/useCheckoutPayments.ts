@@ -95,7 +95,6 @@ export function getCheckoutErrorMessage(error: unknown): string {
       (normalized.includes('access token') ||
         normalized.includes('configur') ||
         normalized.includes('mercado pago') ||
-        normalized.includes('belvo') ||
         normalized.includes('asaas') ||
         normalized.includes('credencial') ||
         normalized.includes('token') ||
@@ -323,22 +322,12 @@ export function useCheckoutPayments(options: Options) {
 
       if (paymentMethod === 'open_finance_pix') {
         if (!restaurantId) throw new Error('Restaurante inválido para Open Finance.');
-        const payerInstitution = readStorage(
-          `gastronexa:open-finance-institution:${restaurantId}`,
-        );
-        if (!payerInstitution) {
-          throw new Error('Escolha seu banco antes de continuar.');
-        }
-
-        const result = await ordersService.createOpenFinancePayment({
-          ...payload,
-          payerInstitution,
-        });
+        const result = await ordersService.createOpenFinancePayment(payload);
         if (!isCurrentCheckout()) return false;
 
         const redirectUrl = String(result.redirectUrl || '').trim();
         if (!/^https:\/\//iu.test(redirectUrl)) {
-          throw new Error('O banco não retornou uma autorização segura.');
+          throw new Error('O Mercado Pago não retornou um checkout seguro.');
         }
 
         onPurchased();

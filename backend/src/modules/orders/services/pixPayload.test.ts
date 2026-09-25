@@ -12,9 +12,9 @@ test('identifica o provedor pelo prefixo do pagamento', () => {
     provider: 'ASAAS',
     rawPaymentId: 'pay_123',
   });
-  assert.deepEqual(parseProviderPaymentId('belvo:123e4567-e89b-42d3-a456-426614174001'), {
-    provider: 'BELVO',
-    rawPaymentId: '123e4567-e89b-42d3-a456-426614174001',
+  assert.deepEqual(parseProviderPaymentId('mp_open_finance_order:ORD_OPEN_123'), {
+    provider: 'MERCADO_PAGO_OPEN_FINANCE',
+    rawPaymentId: 'ORD_OPEN_123',
   });
 });
 

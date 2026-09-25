@@ -32,7 +32,7 @@ backend/src/modules/<feature>/
   routes/             endpoints do módulo
 ```
 
-Controllers não devem conter regras de negócio. Services não devem conhecer detalhes de Express. Integrações com Mercado Pago, Open Finance/Belvo e provedores futuros como Asaas/Pagar.me devem permanecer em providers separados e ser consumidas por casos de uso coordenadores.
+Controllers não devem conter regras de negócio. Services não devem conhecer detalhes de Express. Integrações com Mercado Pago, Open Finance e provedores futuros como Asaas/Pagar.me devem permanecer em providers separados e ser consumidas por casos de uso coordenadores.
 
 ## Limites práticos
 

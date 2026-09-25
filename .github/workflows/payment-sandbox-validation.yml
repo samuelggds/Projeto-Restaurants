@@ -8,7 +8,7 @@ on:
         type: choice
         required: true
         default: mercado-pago
-        options: [mercado-pago, open-finance-belvo, asaas, pagarme]
+        options: [mercado-pago, asaas, pagarme]
 
 permissions:
   contents: read
@@ -61,22 +61,6 @@ jobs:
             echo '- Mercado Pago: autenticação de credencial de teste validada em chamada somente leitura. Fluxo completo de pagamento sandbox continua separado.' >> "$GITHUB_STEP_SUMMARY"
           fi
 
-      - name: Belvo Open Finance sandbox preflight
-        if: inputs.provider == 'open-finance-belvo'
-        env:
-          SECRET_ID: ${{ secrets.BELVO_SANDBOX_SECRET_ID }}
-          SECRET_PASSWORD: ${{ secrets.BELVO_SANDBOX_SECRET_PASSWORD }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          if [ -z "$SECRET_ID" ] || [ -z "$SECRET_PASSWORD" ]; then
-            echo '- Belvo Open Finance: NÃO EXECUTADO / PENDENTE — credenciais sandbox ausentes.' >> "$GITHUB_STEP_SUMMARY"
-            exit 1
-          fi
-          code="$(curl --silent --show-error --output "$RUNNER_TEMP/belvo.json" --write-out '%{http_code}'             --max-time 15             --user "$SECRET_ID:$SECRET_PASSWORD"             -H 'Accept: application/json'             -H 'X-Belvo-API-Resource-Version: Payments-BR.V2'             'https://sandbox.belvo.com/payments/br/institutions/?page_size=1')"
-          test "$code" = '200'
-          echo '- Belvo Open Finance: credenciais sandbox validadas em consulta somente leitura de instituições.' >> "$GITHUB_STEP_SUMMARY"
-
 
       - name: Asaas sandbox preflight
         if: inputs.provider == 'asaas'
@@ -112,6 +96,6 @@ jobs:
           {
             echo
             echo 'Este workflow faz consultas somente leitura; Mercado Pago usa a API oficial com credencial de teste. Não cria pagamentos.'
-            echo 'Provedores não selecionados não foram validados. Asaas e Pagar.me permanecem desativados até cadastro empresarial/CNPJ; Belvo exige configuração própria de produção antes do uso comercial.'
+            echo 'Provedores não selecionados não foram validados. Asaas e Pagar.me permanecem desativados até homologação própria.'
             echo 'Presença de segredo por si só não é registrada como integração homologada.'
           } >> "$GITHUB_STEP_SUMMARY"

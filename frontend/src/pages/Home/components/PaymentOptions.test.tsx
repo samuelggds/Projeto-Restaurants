@@ -36,6 +36,24 @@ describe('PaymentOptions', () => {
     expect(markup).toContain('Serviço indisponível');
   });
 
+  it('oferece Open Finance Mercado Pago sem seletor de banco local', () => {
+    const markup = renderToStaticMarkup(
+      <PaymentOptions
+        paymentMethod="open_finance_pix"
+        allowPayOnDelivery={false}
+        allowPix
+        allowOpenFinancePix
+        allowCard
+        onChange={() => undefined}
+      />,
+    );
+
+    expect(markup).toContain('Open Finance');
+    expect(markup).toContain('Checkout Mercado Pago');
+    expect(markup).not.toContain('Escolha seu banco');
+    expect(markup).not.toContain('<select');
+  });
+
   it('oferece Pix cartão e dinheiro na retirada', () => {
     const markup = renderToStaticMarkup(
       <PaymentOptions

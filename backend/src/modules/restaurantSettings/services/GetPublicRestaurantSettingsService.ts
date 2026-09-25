@@ -2,7 +2,6 @@ import prisma from '../../../config/prisma.js';
 import restaurantSettingsRepository from '../repositories/RestaurantSettingsRepository.js';
 import restaurantRepository from '../../restaurants/repositories/RestaurantRepository.js';
 import { createPublicMediaReference } from '../../publicMedia/utils/publicMediaReference.js';
-import { isBelvoOpenFinanceConfigured } from '../../payments/providers/belvoOpenFinance.js';
 
 type RestaurantIdPayload = {
   restaurantId?: number | string;
@@ -257,6 +256,14 @@ class GetPublicRestaurantSettingsService {
       throw new Error('Restaurante não encontrado ou indisponível.');
     }
 
+    const privateSettings =
+      await restaurantSettingsRepository.findByRestaurantId(normalizedRestaurantId);
+    const openFinanceReady = Boolean(
+      settings.openFinancePixEnabled &&
+        privateSettings?.mercadoPagoAccessToken &&
+        privateSettings?.mercadoPagoRefreshToken,
+    );
+
     const rawRestaurant = settings.restaurant as unknown as Omit<
       PublicSettingsFallback['restaurant'],
       'category'
@@ -267,12 +274,7 @@ class GetPublicRestaurantSettingsService {
 
     return {
       ...settings,
-      openFinancePixEnabled: Boolean(
-        settings.openFinancePixEnabled &&
-          settings.acceptsPix &&
-          String(settings.pixKey || '').trim() &&
-          isBelvoOpenFinanceConfigured(),
-      ),
+      openFinancePixEnabled: openFinanceReady,
       ...(restaurant
         ? { restaurant: externalizePublicRestaurantImages(normalizedRestaurantId, restaurant) }
         : {}),

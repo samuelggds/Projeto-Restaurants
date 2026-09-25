@@ -18,7 +18,6 @@ import GenerateOrderPaymentConfirmationPinController from '../controllers/Genera
 import RequestOrderPaymentConfirmationPinController from '../controllers/RequestOrderPaymentConfirmationPinController.js';
 import CreateOrderPixPaymentController from '../controllers/CreateOrderPixPaymentController.js';
 import CreateOrderOpenFinancePaymentController from '../controllers/CreateOrderOpenFinancePaymentController.js';
-import OpenFinanceInstitutionsController from '../controllers/OpenFinanceInstitutionsController.js';
 import CreateOrderCardCheckoutController from '../controllers/CreateOrderCardCheckoutController.js';
 import GetOrderCardPaymentStatusController from '../controllers/GetOrderCardPaymentStatusController.js';
 import GetOrderPixPaymentStatusController from '../controllers/GetOrderPixPaymentStatusController.js';
@@ -32,7 +31,6 @@ import RefundOrderByAdminController from '../controllers/RefundOrderByAdminContr
 import ClearOrdersAndCategoriesController from '../controllers/ClearOrdersAndCategoriesController.js';
 import MercadoPagoOrderWebhookController from '../controllers/MercadoPagoOrderWebhookController.js';
 import StripeOrderWebhookController from '../controllers/StripeOrderWebhookController.js';
-import BelvoOrderWebhookController from '../controllers/BelvoOrderWebhookController.js';
 import PagarmeOrderWebhookController from '../controllers/PagarmeOrderWebhookController.js';
 import GetCurrentTableOrderController from '../controllers/GetCurrentTableOrderController.js';
 import ConfirmOrderDeliveryReceivedController from '../controllers/ConfirmOrderDeliveryReceivedController.js';
@@ -65,7 +63,6 @@ const router = Router();
 router.post('/webhook/mercadopago', MercadoPagoOrderWebhookController.handle);
 router.post('/webhook/mercadopago-point', MercadoPagoPointWebhookController.handle);
 router.post('/webhook/stripe', StripeOrderWebhookController.handle);
-router.post('/webhook/belvo', (req, res) => BelvoOrderWebhookController.handle(req, res));
 router.post('/webhook/pagarme', (req, res) => PagarmeOrderWebhookController.handle(req, res));
 
 router.post(
@@ -99,9 +96,6 @@ router.post(
   },
 );
 
-router.get('/open-finance/institutions', onlineCheckoutRateLimitMiddleware, (req, res) => {
-  OpenFinanceInstitutionsController.handle(req, res);
-});
 
 router.post(
   '/open-finance/payment',

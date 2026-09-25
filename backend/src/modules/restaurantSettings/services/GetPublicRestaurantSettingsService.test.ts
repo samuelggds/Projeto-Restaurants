@@ -1,15 +1,21 @@
 // @ts-nocheck
-import test, { afterEach } from 'node:test';
+import test, { afterEach, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 import restaurantSettingsRepository from '../repositories/RestaurantSettingsRepository.js';
 import GetPublicRestaurantSettingsService from './GetPublicRestaurantSettingsService.js';
 
 const originalFindPublic = restaurantSettingsRepository.findPublicByRestaurantId;
+const originalFindSettings = restaurantSettingsRepository.findByRestaurantId;
 const originalFindRestaurant = restaurantSettingsRepository.findRestaurantById;
 const originalFindDefault = restaurantSettingsRepository.findDefaultActiveRestaurant;
 
+beforeEach(() => {
+  restaurantSettingsRepository.findByRestaurantId = async () => null as never;
+});
+
 afterEach(() => {
   restaurantSettingsRepository.findPublicByRestaurantId = originalFindPublic;
+  restaurantSettingsRepository.findByRestaurantId = originalFindSettings;
   restaurantSettingsRepository.findRestaurantById = originalFindRestaurant;
   restaurantSettingsRepository.findDefaultActiveRestaurant = originalFindDefault;
 });
@@ -31,6 +37,29 @@ test('mantém a cor personalizada na configuração pública', async () => {
     whatsappDisplayName: null,
     ownerPhone: null,
   });
+});
+
+test('expõe Open Finance somente com Mercado Pago OAuth renovável conectado', async () => {
+  restaurantSettingsRepository.findPublicByRestaurantId = async () =>
+    ({
+      restaurantId: 7,
+      openFinancePixEnabled: true,
+      restaurant: { active: true, banners: [] },
+    }) as never;
+  restaurantSettingsRepository.findByRestaurantId = async () =>
+    ({
+      restaurantId: 7,
+      mercadoPagoAccessToken: 'access',
+      mercadoPagoRefreshToken: 'refresh',
+    }) as never;
+
+  const settings = await GetPublicRestaurantSettingsService.execute({ restaurantId: 7 });
+  assert.equal(settings.openFinancePixEnabled, true);
+
+  restaurantSettingsRepository.findByRestaurantId = async () =>
+    ({ restaurantId: 7, mercadoPagoAccessToken: 'access', mercadoPagoRefreshToken: null }) as never;
+  const disconnected = await GetPublicRestaurantSettingsService.execute({ restaurantId: 7 });
+  assert.equal(disconnected.openFinancePixEnabled, false);
 });
 
 test('expõe somente os campos públicos necessários para a Home respeitar a configuração', async () => {

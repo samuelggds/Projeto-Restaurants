@@ -18,13 +18,12 @@ import { buildOrderItemCustomizationSnapshot } from '../utils/productIngredients
 import { withTenantDbContext } from '../../../database/tenantDbContext.js';
 import orderRepository from '../repositories/OrderRepository.js';
 import { getMercadoPagoAccessToken } from '../../restaurantSettings/services/RestaurantPaymentCredentialsService.js';
-import { assertFuturePaymentProviderEnabled } from '../../payments/providers/futurePaymentProviders.js';
 import {
-  belvoIdempotencyKey,
-  belvoJson,
-  isUuid,
-  safeBelvoError,
-} from '../../payments/providers/belvoOpenFinance.js';
+  getMercadoPagoOrderApi,
+  mercadoPagoCheckoutIdempotencyKey,
+} from '../../payments/providers/mercadoPagoClient.js';
+import { mercadoPagoOpenFinanceExternalReference } from '../domain/mercadoPagoOpenFinanceReference.js';
+import { assertFuturePaymentProviderEnabled } from '../../payments/providers/futurePaymentProviders.js';
 
 const APPROVED_PAYMENT_STATUSES = new Set(['approved', 'accredited', 'paid']);
 const APPROVED_ASAAS_PAYMENT_STATUSES = new Set(['received', 'confirmed', 'received_in_cash']);
@@ -157,15 +156,6 @@ type PagarmeOrderPayload = {
   status?: string;
   charges?: PagarmeChargePayload[];
   message?: string;
-};
-type BelvoPaymentIntentPayload = {
-  id?: string;
-  external_id?: string;
-  status?: string;
-  amount?: string | number;
-  currency?: string;
-  failure_code?: string | null;
-  failure_message?: string | null;
 };
 
 
@@ -882,47 +872,40 @@ class OrderPixPaymentService {
       throw new Error('Restaurante inválido para recuperar pagamento PIX.');
     }
 
-    if (parsedPaymentId.provider === PIX_PROVIDERS.BELVO) {
-      if (!isUuid(parsedPaymentId.rawPaymentId)) {
-        throw new Error('Payment Intent Open Finance inválida.');
-      }
+    if (parsedPaymentId.provider === PIX_PROVIDERS.MERCADO_PAGO_OPEN_FINANCE) {
       const order = await orderRepository.findByPixPaymentId(normalizedPaymentId);
       if (!order || order.restaurantId !== normalizedRestaurantId) {
         throw new Error('Pagamento Open Finance não corresponde a este restaurante.');
       }
-      const result = await belvoJson<BelvoPaymentIntentPayload>(
-        `/payments/br/payment-intents/${encodeURIComponent(parsedPaymentId.rawPaymentId)}/`,
-        { method: 'GET' },
+      const remoteOrder = await (await getMercadoPagoOrderApi(normalizedRestaurantId)).get(
+        parsedPaymentId.rawPaymentId,
       );
-      if (!result.response.ok) {
-        throw new Error(
-          safeBelvoError(result.body, 'Não foi possível recuperar o pagamento Open Finance.'),
-        );
-      }
-      const expectedExternalId = belvoIdempotencyKey(
-        `orderpix:${normalizedRestaurantId}:${order.id}`,
+      const status = String(remoteOrder.status || '').trim().toLowerCase();
+      const amount = Number(remoteOrder.total_paid_amount ?? remoteOrder.total_amount);
+      const expectedReference = mercadoPagoOpenFinanceExternalReference(
+        order.id,
+        normalizedRestaurantId,
       );
-      const amount = Number(result.body.amount);
       if (
-        String(result.body.id || '') !== parsedPaymentId.rawPaymentId ||
-        String(result.body.external_id || '') !== expectedExternalId ||
+        String(remoteOrder.external_reference || '').trim() !== expectedReference ||
         !Number.isFinite(amount) ||
         Math.round(amount * 100) !== Math.round(Number(order.total) * 100) ||
-        String(result.body.currency || 'BRL').trim().toUpperCase() !== 'BRL'
+        String(remoteOrder.currency || 'BRL').trim().toUpperCase() !== 'BRL'
       ) {
-        throw new Error('A Payment Intent Open Finance não corresponde ao pedido.');
+        throw new Error('A Order Open Finance do Mercado Pago não corresponde ao pedido.');
       }
-      const status = String(result.body.status || '').trim().toUpperCase();
       return {
         paymentId: normalizedPaymentId,
         status,
-        provider: PIX_PROVIDERS.BELVO,
-        isApproved: status === 'SUCCEEDED',
+        provider: PIX_PROVIDERS.MERCADO_PAGO_OPEN_FINANCE,
+        isApproved: status === 'processed',
         totalAmount: amount,
         qrCode: '',
         qrCodeBase64: null,
-        requiresStatusCheck: !['SUCCEEDED', 'FAILED'].includes(status),
-        externalReference: `orderpix:${normalizedRestaurantId}:${order.id}`,
+        requiresStatusCheck: !['processed', 'cancelled', 'expired', 'failed', 'refunded'].includes(
+          status,
+        ),
+        externalReference: expectedReference,
       };
     }
 
@@ -1030,6 +1013,30 @@ class OrderPixPaymentService {
     }
 
     const parsed = parseProviderPaymentId(normalizedPaymentId);
+
+    if (parsed.provider === PIX_PROVIDERS.MERCADO_PAGO_OPEN_FINANCE) {
+      const orderApi = await getMercadoPagoOrderApi(normalizedRestaurantId);
+      const current = await orderApi.get(parsed.rawPaymentId);
+      const status = String(current.status || '').trim().toLowerCase();
+      if (['cancelled', 'expired', 'failed', 'refunded'].includes(status)) {
+        return { provider: parsed.provider, canceledAtProvider: true };
+      }
+      if (status === 'processed') {
+        throw new Error('O pagamento Open Finance foi processado durante a expiração.');
+      }
+      const cancelled = await orderApi.cancel(
+        parsed.rawPaymentId,
+        mercadoPagoCheckoutIdempotencyKey(
+          `open-finance-expire:${normalizedRestaurantId}:${parsed.rawPaymentId}`,
+        ),
+      );
+      const cancelledStatus = String(cancelled.status || '').trim().toLowerCase();
+      if (!['cancelled', 'expired', 'failed'].includes(cancelledStatus)) {
+        throw new Error('O Mercado Pago ainda não confirmou a expiração do checkout.');
+      }
+      return { provider: parsed.provider, canceledAtProvider: true };
+    }
+
     if (parsed.provider !== PIX_PROVIDERS.ASAAS) {
       return { provider: parsed.provider, canceledAtProvider: false };
     }
@@ -1066,61 +1073,39 @@ class OrderPixPaymentService {
     const parsedPaymentId = parseProviderPaymentId(normalizedPaymentId);
     const normalizedRestaurantIdNumber = Number(restaurantId || 0);
 
-    if (parsedPaymentId.provider === PIX_PROVIDERS.BELVO) {
-      if (!isUuid(parsedPaymentId.rawPaymentId)) {
-        throw new Error('Payment Intent Open Finance inválida.');
+    if (parsedPaymentId.provider === PIX_PROVIDERS.MERCADO_PAGO_OPEN_FINANCE) {
+      if (!normalizedRestaurantIdNumber) {
+        throw new Error('Restaurante inválido para consultar Open Finance Mercado Pago.');
       }
-      const order = await orderRepository.findByPixPaymentId(normalizedPaymentId);
-      if (!order) throw new Error('Pedido do pagamento Open Finance não encontrado.');
-      const sameRestaurant =
-        !normalizedRestaurantIdNumber || order.restaurantId === normalizedRestaurantIdNumber;
-      if (!sameRestaurant) {
-        return {
-          paymentId: normalizedPaymentId,
-          status: 'FAILED',
-          provider: PIX_PROVIDERS.BELVO,
-          isApproved: false,
-          sameRestaurant: false,
-          externalReference: '',
-          amount: null,
-          currency: 'BRL',
-          requiresStatusCheck: false,
-        };
-      }
-      const result = await belvoJson<BelvoPaymentIntentPayload>(
-        `/payments/br/payment-intents/${encodeURIComponent(parsedPaymentId.rawPaymentId)}/`,
-        { method: 'GET' },
-        { timeoutMs },
+      const localOrder = await orderRepository.findByPixPaymentId(
+        normalizedPaymentId,
+        normalizedRestaurantIdNumber,
       );
-      if (!result.response.ok) {
-        throw new Error(
-          safeBelvoError(result.body, 'Não foi possível consultar o pagamento Open Finance.'),
-        );
+      if (!localOrder) {
+        throw new Error('Pedido do pagamento Open Finance não encontrado.');
       }
-      const expectedExternalId = belvoIdempotencyKey(
-        `orderpix:${order.restaurantId}:${order.id}`,
+      const remoteOrder = await (await getMercadoPagoOrderApi(normalizedRestaurantIdNumber)).get(
+        parsedPaymentId.rawPaymentId,
       );
-      const amount = Number(result.body.amount);
-      const validEvidence =
-        String(result.body.id || '') === parsedPaymentId.rawPaymentId &&
-        String(result.body.external_id || '') === expectedExternalId &&
-        Number.isFinite(amount) &&
-        Math.round(amount * 100) === Math.round(Number(order.total) * 100) &&
-        String(result.body.currency || 'BRL').trim().toUpperCase() === 'BRL';
-      if (!validEvidence) {
-        throw new Error('A Payment Intent Open Finance não corresponde ao pedido.');
-      }
-      const status = String(result.body.status || '').trim().toUpperCase();
+      const status = String(remoteOrder.status || '').trim().toLowerCase();
+      const amount = Number(remoteOrder.total_paid_amount ?? remoteOrder.total_amount);
+      const expectedReference = mercadoPagoOpenFinanceExternalReference(
+        localOrder.id,
+        normalizedRestaurantIdNumber,
+      );
       return {
         paymentId: normalizedPaymentId,
         status,
-        provider: PIX_PROVIDERS.BELVO,
-        isApproved: status === 'SUCCEEDED',
-        sameRestaurant: true,
-        externalReference: `orderpix:${order.restaurantId}:${order.id}`,
-        amount,
-        currency: 'BRL',
-        requiresStatusCheck: !['SUCCEEDED', 'FAILED'].includes(status),
+        provider: PIX_PROVIDERS.MERCADO_PAGO_OPEN_FINANCE,
+        isApproved: status === 'processed',
+        sameRestaurant:
+          String(remoteOrder.external_reference || '').trim() === expectedReference,
+        externalReference: String(remoteOrder.external_reference || '').trim(),
+        amount: Number.isFinite(amount) ? amount : null,
+        currency: String(remoteOrder.currency || 'BRL').trim().toUpperCase(),
+        requiresStatusCheck: !['processed', 'cancelled', 'expired', 'failed', 'refunded'].includes(
+          status,
+        ),
       };
     }
 
@@ -1285,7 +1270,10 @@ class OrderPixPaymentService {
       throw new Error('Não foi possível validar o vínculo do pagamento PIX com o pedido.');
     }
 
-    const expectedReference = `orderpix:${normalizedRestaurantId}:${normalizedOrderId}`;
+    const expectedReference =
+      statusResult.provider === PIX_PROVIDERS.MERCADO_PAGO_OPEN_FINANCE
+        ? mercadoPagoOpenFinanceExternalReference(normalizedOrderId, normalizedRestaurantId)
+        : `orderpix:${normalizedRestaurantId}:${normalizedOrderId}`;
     if (statusResult.externalReference !== expectedReference) {
       throw new Error('Pagamento PIX não corresponde ao pedido informado.');
     }

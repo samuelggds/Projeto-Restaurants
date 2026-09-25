@@ -1,6 +1,6 @@
 import type { Request, Response } from 'express';
 import createOrderService from '../services/CreateOrderService.js';
-import openFinancePixPaymentService from '../services/OpenFinancePixPaymentService.js';
+import openFinanceMercadoPagoPaymentService from '../services/OpenFinanceMercadoPagoPaymentService.js';
 import { resolveOrderRestaurantId } from '../utils/orderTenant.js';
 import { issueGuestOrderTrackingToken } from '../utils/guestOrderTrackingToken.js';
 import { issueGuestOrderOwnershipToken } from '../utils/guestOrderOwnershipToken.js';
@@ -18,7 +18,6 @@ class CreateOrderOpenFinancePaymentController {
         restaurantId,
         type,
         paymentMethod,
-        payerInstitution,
         observation,
         tableId,
         settlementMode,
@@ -49,7 +48,7 @@ class CreateOrderOpenFinancePaymentController {
       });
 
       const order = await createOrderService.execute({
-        creationRequest: orderCreationContext(req, 'open-finance-pix'),
+        creationRequest: orderCreationContext(req, 'open-finance-mercado-pago'),
         userId,
         restaurantId: resolvedRestaurantId,
         userRestaurantId,
@@ -97,11 +96,9 @@ class CreateOrderOpenFinancePaymentController {
 
       let result;
       try {
-        result = await openFinancePixPaymentService.start({
+        result = await openFinanceMercadoPagoPaymentService.start({
           orderId: order.id,
           restaurantId: resolvedRestaurantId,
-          payerInstitution,
-          customerCpf,
         });
       } catch (error) {
         console.error('[OPEN_FINANCE_PAYMENT_CREATION_UNCERTAIN]', {
@@ -109,7 +106,12 @@ class CreateOrderOpenFinancePaymentController {
           restaurantId: resolvedRestaurantId,
           errorType: safeErrorName(error),
         });
-        if (error instanceof Error && /banco válido|CPF válido|desativado|não está disponível/i.test(error.message)) {
+        if (
+          error instanceof Error &&
+          /desativado|Conecte a conta Mercado Pago|inválido|indisponível|já possui outra tentativa/i.test(
+            error.message,
+          )
+        ) {
           throw error;
         }
         throw new PaymentCreationUncertainError(order.id, order.publicId);
@@ -132,8 +134,6 @@ class CreateOrderOpenFinancePaymentController {
 
       return res.status(201).json({
         ...result,
-        orderId: order.id,
-        orderPublicId: order.publicId,
         ...(guestTrackingToken ? { guestTrackingToken } : {}),
         ...(guestOwnershipToken ? { guestOwnershipToken } : {}),
       });
@@ -184,7 +184,7 @@ class CreateOrderOpenFinancePaymentController {
         error:
           error instanceof Error
             ? error.message
-            : 'Não foi possível iniciar o pagamento pelo app do banco.',
+            : 'Não foi possível iniciar o Open Finance Mercado Pago.',
       });
     }
   }

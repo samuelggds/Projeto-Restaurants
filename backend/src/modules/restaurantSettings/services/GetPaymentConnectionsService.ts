@@ -13,7 +13,6 @@ import { futurePaymentProvidersEnabled } from '../../payments/providers/futurePa
 import { mercadoPagoWebhookSecrets } from '../../payments/providers/mercadoPagoWebhookSignature.js';
 import { parseCredentialEncryptionKey } from '../security/credentialEncryption.js';
 import { resolveOAuthEndpoint } from '../security/oauthEndpoints.js';
-import { isBelvoOpenFinanceConfigured } from '../../payments/providers/belvoOpenFinance.js';
 
 type Provider = 'MERCADO_PAGO' | 'PAGARME' | 'ASAAS';
 type Connection = {
@@ -223,11 +222,10 @@ class GetPaymentConnectionsService {
         'A conexão Mercado Pago ainda não está configurada corretamente na plataforma.';
     }
 
-    const openFinanceAvailable = isBelvoOpenFinanceConfigured();
+    const openFinanceAvailable =
+      mercadoPago.canConnect && mercadoPago.connected && mercadoPago.status === 'CONNECTED';
     const openFinanceReady = Boolean(
-      openFinanceAvailable &&
-        settings?.openFinancePixEnabled &&
-        String(settings?.pixKey || '').trim(),
+      openFinanceAvailable && settings?.openFinancePixEnabled === true,
     );
 
     return {
@@ -236,13 +234,13 @@ class GetPaymentConnectionsService {
         available: openFinanceAvailable,
         enabled: settings?.openFinancePixEnabled === true,
         ready: openFinanceReady,
-        message: !openFinanceAvailable
-          ? 'Pix pelo app do banco ainda não está habilitado pela plataforma.'
-          : !settings?.openFinancePixEnabled
-            ? 'Ative Pix pelo app do banco para oferecer Open Finance no checkout.'
-            : !String(settings?.pixKey || '').trim()
-              ? 'Cadastre a chave Pix do restaurante para receber via Open Finance.'
-              : 'Pix pelo app do banco está pronto para uso.',
+        message: !mercadoPago.connected
+          ? 'Conecte a conta Mercado Pago do restaurante para habilitar o Open Finance.'
+          : mercadoPago.status !== 'CONNECTED'
+            ? 'Reconecte o Mercado Pago antes de habilitar o Open Finance.'
+            : !settings?.openFinancePixEnabled
+              ? 'Ative Open Finance para oferecer o Checkout Pro como segunda opção de pagamento.'
+              : 'Checkout Pro conectado. O Mercado Pago exibirá Open Finance quando disponível para o comprador.',
       },
     };
   }

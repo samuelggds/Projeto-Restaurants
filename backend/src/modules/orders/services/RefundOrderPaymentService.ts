@@ -267,11 +267,10 @@ class RefundOrderPaymentService {
       );
     }
 
-    if (normalizedPaymentId.startsWith('belvo:')) {
-      throw new AutomaticRefundError(
-        'O Pix via Open Finance foi liquidado fora do Mercado Pago e não possui devolução automática pela API da Belvo. Faça a devolução pela conta recebedora e concilie o pedido antes de cancelar.',
-        'NOT_SUPPORTED',
-      );
+
+    if (normalizedPaymentId.startsWith('mp_open_finance_order:')) {
+      const providerOrderId = paymentId.slice('mp_open_finance_order:'.length).trim();
+      return this.refundMercadoPagoOrder(providerOrderId, order, options);
     }
 
     if (normalizedPaymentId.startsWith('asaas:')) {
@@ -334,7 +333,7 @@ class RefundOrderPaymentService {
         providerCode: String(payload.code || payload.error || '').trim() || undefined,
       });
       throw new AutomaticRefundError(
-        'O Mercado Pago não confirmou o estorno do cartão. O pedido não foi cancelado e pode ser tentado novamente.',
+        'O Mercado Pago não confirmou o estorno da Order. O pedido não foi cancelado e pode ser tentado novamente.',
         'PROVIDER_FAILURE',
       );
     }
