@@ -46,6 +46,7 @@ class GetDeliveryTrackingService {
         state: true,
         deliveryStartedAt: true,
         deliveredAt: true,
+        deliveryConfirmedAt: true,
         assignedCourier: { select: { id: true, name: true, phone: true, avatar: true } },
       },
     });
@@ -210,6 +211,8 @@ class GetDeliveryTrackingService {
         routeEstimate,
         navigationState: navigationTelemetry?.state || null,
         deliveryConfirmationCode,
+        canConfirmDeliveryReceipt:
+          isCustomer && order.status === 'ENTREGUE' && !order.deliveryConfirmedAt,
       },
       locations: normalizedLocations,
       latestLocation: latestLocation
