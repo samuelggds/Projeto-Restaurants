@@ -33,7 +33,6 @@ import ResolveOrderIssueController from '../controllers/ResolveOrderIssueControl
 import RefundOrderByAdminController from '../controllers/RefundOrderByAdminController.js';
 import ClearOrdersAndCategoriesController from '../controllers/ClearOrdersAndCategoriesController.js';
 import MercadoPagoOrderWebhookController from '../controllers/MercadoPagoOrderWebhookController.js';
-import StripeOrderWebhookController from '../controllers/StripeOrderWebhookController.js';
 import PagarmeOrderWebhookController from '../controllers/PagarmeOrderWebhookController.js';
 import GetCurrentTableOrderController from '../controllers/GetCurrentTableOrderController.js';
 import ConfirmOrderDeliveryReceivedController from '../controllers/ConfirmOrderDeliveryReceivedController.js';
@@ -67,7 +66,6 @@ router.post('/webhook/mercadopago', MercadoPagoOrderWebhookController.handle);
 router.post('/webhook/efi-open-finance', (req, res) => EfiOpenFinanceWebhookController.handle(req, res));
 router.get('/open-finance/efi/return', (req, res) => EfiOpenFinanceReturnController.handle(req, res));
 router.post('/webhook/mercadopago-point', MercadoPagoPointWebhookController.handle);
-router.post('/webhook/stripe', StripeOrderWebhookController.handle);
 router.post('/webhook/pagarme', (req, res) => PagarmeOrderWebhookController.handle(req, res));
 
 router.post(
