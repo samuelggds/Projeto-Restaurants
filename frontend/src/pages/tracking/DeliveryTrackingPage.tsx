@@ -417,6 +417,12 @@ function DeliveryTrackingContent({ id }: { id?: string }) {
             ) : null}
             <S.Workspace>
               <S.MapArea aria-label="Mapa da entrega">
+                {data.order.routeEstimate?.provider === 'GOOGLE_ROUTES' ? (
+                  <S.RouteNotice>
+                    Rota de motocicleta calculada com regras viárias e trânsito. Condições locais,
+                    interdições e sinalização podem mudar; o entregador deve sempre obedecer à via.
+                  </S.RouteNotice>
+                ) : null}
                 {data.locations.length ? (
                   <Suspense
                     fallback={
