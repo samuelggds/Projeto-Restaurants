@@ -124,7 +124,7 @@ Use a política de baixo custo de manutenção descrita em [TESTING.md](./TESTIN
 
 - Use credenciais de produção e URLs de webhook em `https://API_DOMAIN/...`.
 - Configure `MP_WEBHOOK_SECRET` com a chave de Webhooks da aplicação Mercado Pago, não com o access token. Para aplicações distintas ou rotação, use `MP_WEBHOOK_SECRETS` como lista JSON de segredos ativos. Pedidos, billing e Point autenticam `x-signature` + `x-request-id` + `data.id` da URL antes do processamento; segredo ausente retorna 503 e assinatura inválida retorna 401. Migre notificações IPN antigas para Webhooks assinados antes de publicar esta versão.
-- Mantenha `ALLOW_INSECURE_STRIPE_WEBHOOK=false`, `ALLOW_GLOBAL_PAYMENT_FALLBACK=false` e `ENABLE_TEST_PAYMENT_WEBHOOK=false`.
+- Mantenha `ALLOW_GLOBAL_PAYMENT_FALLBACK=false` e `ENABLE_TEST_PAYMENT_WEBHOOK=false`.
 - Autorize `https://APP_DOMAIN` no Google OAuth.
 - Faça um pagamento controlado de cada provedor habilitado e confirme idempotência do webhook antes de abrir ao público.
 
