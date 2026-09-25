@@ -518,7 +518,7 @@ export class AiCreditService {
         input.cumulativeUsdMicros < topUp.creditUsdMicros;
       if ((purchase && delta > 0n) || establishPurchase) {
         const wallet = establishPurchase
-          ? await ensureWallet(db, userId, restaurantId)
+          ? await ensureWallet(db, userId, restaurantId, false)
           : await readWallet(db, userId);
         if (!wallet || wallet.restaurantId !== restaurantId)
           throw new Error('Carteira de estorno inválida.');
