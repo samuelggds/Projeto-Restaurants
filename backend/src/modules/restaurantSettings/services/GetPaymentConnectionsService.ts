@@ -13,6 +13,7 @@ import { futurePaymentProvidersEnabled } from '../../payments/providers/futurePa
 import { mercadoPagoWebhookSecrets } from '../../payments/providers/mercadoPagoWebhookSignature.js';
 import { parseCredentialEncryptionKey } from '../security/credentialEncryption.js';
 import { resolveOAuthEndpoint } from '../security/oauthEndpoints.js';
+import { efiOpenFinanceConfigured } from '../../payments/providers/efiOpenFinance.js';
 
 type Provider = 'MERCADO_PAGO' | 'PAGARME' | 'ASAAS';
 type Connection = {
@@ -222,25 +223,28 @@ class GetPaymentConnectionsService {
         'A conexão Mercado Pago ainda não está configurada corretamente na plataforma.';
     }
 
-    const openFinanceAvailable =
-      mercadoPago.canConnect && mercadoPago.connected && mercadoPago.status === 'CONNECTED';
+    const openFinanceAvailable = efiOpenFinanceConfigured();
+    const beneficiaryPixKey = String(settings?.pixKey || '').trim();
     const openFinanceReady = Boolean(
-      openFinanceAvailable && settings?.openFinancePixEnabled === true,
+      openFinanceAvailable &&
+        settings?.openFinancePixEnabled === true &&
+        beneficiaryPixKey,
     );
 
     return {
       connections,
       openFinance: {
+        provider: 'EFI',
         available: openFinanceAvailable,
         enabled: settings?.openFinancePixEnabled === true,
         ready: openFinanceReady,
-        message: !mercadoPago.connected
-          ? 'Conecte a conta Mercado Pago do restaurante para habilitar o Open Finance.'
-          : mercadoPago.status !== 'CONNECTED'
-            ? 'Reconecte o Mercado Pago antes de habilitar o Open Finance.'
+        message: !openFinanceAvailable
+          ? 'A integração Open Finance da Efí ainda não está configurada pela plataforma.'
+          : !beneficiaryPixKey
+            ? 'Informe a chave Pix que receberá os pagamentos Open Finance deste restaurante.'
             : !settings?.openFinancePixEnabled
-              ? 'Ative Open Finance para oferecer o Checkout Pro como segunda opção de pagamento.'
-              : 'Checkout Pro conectado. O Mercado Pago exibirá Open Finance quando disponível para o comprador.',
+              ? 'Ative o Open Finance para permitir que o cliente escolha o banco e autorize o Pix.'
+              : 'Efí Open Finance pronta. O cliente escolhe o banco e autoriza o pagamento no ambiente da instituição.',
       },
     };
   }
