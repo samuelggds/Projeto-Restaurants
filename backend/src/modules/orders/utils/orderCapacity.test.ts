@@ -6,8 +6,8 @@ test('aceita pedidos abaixo do limite simultâneo', () => {
   assert.equal(assertOrderCapacity(2, 3), 3);
 });
 
-test('bloqueia pedidos ao atingir o limite simultâneo', () => {
-  assert.throws(() => assertOrderCapacity(3, 3), /limite de pedidos/i);
+test('sinaliza fila ao atingir o limite simultâneo sem rejeitar o pedido', () => {
+  assert.equal(assertOrderCapacity(3, 3), false);
 });
 
 test('normaliza limite inválido para o padrão seguro', () => {
