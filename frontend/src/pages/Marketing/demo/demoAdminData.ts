@@ -88,7 +88,10 @@ export function createDemoAdminData(): DemoAdminData {
       .map((account, index) => ({
         id: String(index + 3),
         name: account.name,
-        email: account.email,
+        username: String(account.email || '')
+          .split('@')[0]
+          .replace(/[^a-z0-9]/gu, '')
+          .toLowerCase() || `usuario${index + 3}`,
         role: ({ COZINHA: 'COOK', GARCOM: 'WAITER', ATENDENTE: 'ATTENDANT', MOTOQUEIRO: 'COURIER' }[
           account.role
         ] ?? 'ATTENDANT') as Employee['role'],
