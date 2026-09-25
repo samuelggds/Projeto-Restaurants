@@ -65,12 +65,11 @@ jobs:
       - name: Report official sandbox validation status without pretending credential presence is validation
         env:
           MERCADO_PAGO_SANDBOX_TOKEN: ${{ secrets.MERCADO_PAGO_SANDBOX_TOKEN }}
-          PAGBANK_SANDBOX_TOKEN: ${{ secrets.PAGBANK_SANDBOX_TOKEN }}
           ASAAS_SANDBOX_TOKEN: ${{ secrets.ASAAS_SANDBOX_TOKEN }}
         shell: bash
         run: |
           set -euo pipefail
-          for variable in MERCADO_PAGO_SANDBOX_TOKEN PAGBANK_SANDBOX_TOKEN ASAAS_SANDBOX_TOKEN; do
+          for variable in MERCADO_PAGO_SANDBOX_TOKEN ASAAS_SANDBOX_TOKEN; do
             if [ -z "${!variable}" ]; then
               echo "- ${variable}: NÃO EXECUTADO / PENDENTE — credencial de sandbox ausente." >> "$GITHUB_STEP_SUMMARY"
             else
