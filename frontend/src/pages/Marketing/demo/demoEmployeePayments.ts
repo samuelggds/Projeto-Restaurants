@@ -27,7 +27,7 @@ export function demoEmployeePayments(
       return {
         id: Number(value),
         name: person.name,
-        email: person.email,
+        email: `${person.username}@demo.gastronexa.local`,
         active: person.active,
         subRole:
           person.role === 'COOK' ? 'COZINHA' : person.role === 'WAITER' ? 'GARCOM' : 'ATENDENTE',

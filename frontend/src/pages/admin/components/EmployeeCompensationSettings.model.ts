@@ -174,7 +174,7 @@ export function useEmployeeCompensationModel({
   const visibleStaff = staff.filter((employee) => {
     if (!showInactive && !employee.active) return false;
     if (!deferredSearch) return true;
-    return `${employee.name} ${employee.email} ${roleLabel(employee.role)}`
+    return `${employee.name} ${employee.username} ${roleLabel(employee.role)}`
       .toLocaleLowerCase('pt-BR')
       .includes(deferredSearch);
   });
@@ -203,7 +203,7 @@ export function useEmployeeCompensationModel({
     if (!employee.active && !showInactive && !settlement) return false;
     if (
       deferredSearch &&
-      !`${employee.name} ${employee.email} ${roleLabel(employee.role)}`
+      !`${employee.name} ${employee.username} ${roleLabel(employee.role)}`
         .toLocaleLowerCase('pt-BR')
         .includes(deferredSearch)
     ) {

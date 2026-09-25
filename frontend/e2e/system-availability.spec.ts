@@ -73,7 +73,7 @@ test('manutenção global cobre o negócio e mantém todos os logins válidos ac
 
   await page.goto(`/${RESTAURANT_SLUG}/team`);
   await expect(page.getByRole('heading', { name: 'Acesso da equipe' })).toBeVisible();
-  await expect(page.getByLabel('E-mail')).toBeVisible();
+  await expect(page.getByLabel('Usuário')).toBeVisible();
 
   await page.goto('/super_admin');
   await expect(page).toHaveURL(/\/super_admin\/login$/);

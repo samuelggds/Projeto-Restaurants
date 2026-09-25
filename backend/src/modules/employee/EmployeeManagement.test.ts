@@ -15,7 +15,7 @@ const originalUserFindMany = prisma.user.findMany;
 const originalTransaction = prisma.$transaction;
 const originalRepositoryMethods = {
   findById: employeeRepository.findById,
-  findByEmail: employeeRepository.findByEmail,
+  findByUsername: employeeRepository.findByUsername,
   create: employeeRepository.create,
   update: employeeRepository.update,
   deactivate: employeeRepository.deactivate,
@@ -30,7 +30,7 @@ afterEach(() => {
 test('valida e normaliza os dados obrigatórios na criação do funcionário', () => {
   const parsed = EmployeeUserSchema.parse({
     name: '  Ana Souza  ',
-    email: '  ANA@EXEMPLO.COM  ',
+    username: '  anasouza  ',
     phone: '(85) 99999-9999',
     password: 'Segura123!',
     confirmPassword: 'Segura123!',
@@ -39,7 +39,7 @@ test('valida e normaliza os dados obrigatórios na criação do funcionário', (
   });
 
   assert.equal(parsed.name, 'Ana Souza');
-  assert.equal(parsed.email, 'ana@exemplo.com');
+  assert.equal(parsed.username, 'anasouza');
   assert.equal(parsed.phone, '(85) 99999-9999');
 });
 
@@ -48,7 +48,7 @@ test('rejeita criação sem telefone e senhas divergentes', () => {
     () =>
       EmployeeUserSchema.parse({
         name: 'Ana Souza',
-        email: 'ana@exemplo.com',
+        username: 'anasouza',
         password: 'Segura123!',
         confirmPassword: 'Outra123!',
         role: 'FUNCIONARIO',
@@ -59,7 +59,7 @@ test('rejeita criação sem telefone e senhas divergentes', () => {
 
 test('canonicaliza funcionário legado sem subcargo como atendente', async () => {
   let capturedData;
-  employeeRepository.findByEmail = async () => null;
+  employeeRepository.findByUsername = async () => null;
   employeeRepository.create = async (data) => {
     capturedData = data;
     return { id: 91, ...data };
@@ -67,7 +67,7 @@ test('canonicaliza funcionário legado sem subcargo como atendente', async () =>
 
   await createEmployeeService.execute({
     name: 'Ana Atendimento',
-    email: 'ana.atendimento@example.com',
+    username: 'anaatendimento',
     password: 'Segura123!',
     phone: '(85) 99999-9999',
     restaurantId: 17,
@@ -78,9 +78,12 @@ test('canonicaliza funcionário legado sem subcargo como atendente', async () =>
   assert.equal(capturedData.subRole, 'ATENDENTE');
 });
 
-test('valida atualização parcial e rejeita e-mail inválido', () => {
+test('valida atualização parcial e rejeita usuário inválido', () => {
   assert.deepEqual(UpdateEmployeeSchema.parse({ name: '  Ana Lima  ' }), { name: 'Ana Lima' });
-  assert.throws(() => UpdateEmployeeSchema.parse({ email: 'email-inválido' }), /Email inválido/);
+  assert.throws(
+    () => UpdateEmployeeSchema.parse({ username: 'Ana Santos' }),
+    /somente letras minúsculas/i,
+  );
   assert.throws(() => UpdateEmployeeSchema.parse({}), /Informe ao menos um dado/);
 });
 
@@ -116,7 +119,7 @@ test('impede atualização de funcionário pertencente a outro restaurante', asy
         id: 9,
         restaurantId: 22,
         name: 'Outro restaurante',
-        email: 'outro@exemplo.com',
+        username: 'outrofuncionario',
         actor: adminActor,
       }),
     /Funcionário não encontrado/,

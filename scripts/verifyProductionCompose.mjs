@@ -86,7 +86,7 @@ verifyRuntime(configured.services);
 assert.ok(/pizza_owner/u.test(configured.services.migrate.environment.DATABASE_URL));
 assert.equal(configured.services.backend.depends_on.bootstrap.condition, 'service_completed_successfully');
 assert.equal(configured.services.bootstrap.depends_on.migrate.condition, 'service_completed_successfully');
-assert.equal(configured.services.backend.environment.ROUTING_PROVIDER, 'geoapify');
+assert.equal(configured.services.backend.environment.ROUTING_PROVIDER, 'google');
 assert.ok(!configured.services.osrm && !configured.services.nominatim);
 
 const withOptionalSettings = run('', markers);

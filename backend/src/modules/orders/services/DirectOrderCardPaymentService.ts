@@ -63,6 +63,7 @@ export type CardPaymentProviderDiagnostic = {
   status: string | null;
   statusDetail: string | null;
   providerRequestId: string | null;
+  providerOrderId: string | null;
 };
 
 export class CardPaymentDeclinedError extends Error {
@@ -218,6 +219,11 @@ function mercadoPagoDiagnostic(
   const providerRequestId = String(response.headers.get('x-request-id') || '')
     .trim()
     .slice(0, 160);
+  const data =
+    body.data && typeof body.data === 'object'
+      ? (body.data as Record<string, unknown>)
+      : body;
+  const providerOrderId = String(data.id || body.id || '').trim().slice(0, 160);
 
   return {
     provider: 'MERCADO_PAGO',
@@ -226,6 +232,7 @@ function mercadoPagoDiagnostic(
     status: decline.transactionStatus,
     statusDetail: decline.transactionStatusDetail,
     providerRequestId: providerRequestId || null,
+    providerOrderId: providerOrderId || null,
   };
 }
 
@@ -262,7 +269,12 @@ async function savedMethod(payload: BasePayload, order: CardOrder, provider: Car
   );
 }
 
-async function mercadoPagoPayment(payload: BasePayload, order: CardOrder, successUrlBase: string) {
+async function mercadoPagoPayment(
+  payload: BasePayload,
+  order: CardOrder,
+  successUrlBase: string,
+  idempotencyKey: string,
+) {
   const token = String(payload.cardToken || '').trim();
   if (!token) throw new CardPaymentDeclinedError('Informe os dados do cartão para continuar.');
 
@@ -333,7 +345,7 @@ async function mercadoPagoPayment(payload: BasePayload, order: CardOrder, succes
         Authorization: `Bearer ${accessToken}`,
         Accept: 'application/json',
         'Content-Type': 'application/json',
-        'X-Idempotency-Key': `order-card-${order.restaurantId}-${order.id}`,
+        'X-Idempotency-Key': idempotencyKey,
         ...(String(payload.mercadoPagoDeviceId || '').trim()
           ? { 'X-meli-session-id': String(payload.mercadoPagoDeviceId).trim().slice(0, 256) }
           : {}),
@@ -680,9 +692,14 @@ class DirectOrderCardPaymentService {
     payload: BasePayload;
     order: CardOrder;
     successUrlBase: string;
+    idempotencyKey?: string;
   }) {
     if (input.provider === CARD_PROVIDERS.MERCADO_PAGO) {
-      return mercadoPagoPayment(input.payload, input.order, input.successUrlBase);
+      const idempotencyKey = String(input.idempotencyKey || '').trim();
+      if (!idempotencyKey) {
+        throw new Error('Tentativa de pagamento sem chave de idempotência.');
+      }
+      return mercadoPagoPayment(input.payload, input.order, input.successUrlBase, idempotencyKey);
     }
     if (input.provider === CARD_PROVIDERS.PAGARME) {
       assertFuturePaymentProviderEnabled('PAGARME');

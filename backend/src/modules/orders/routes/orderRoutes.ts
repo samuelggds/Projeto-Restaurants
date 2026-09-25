@@ -26,6 +26,7 @@ import GetOrderCardPaymentStatusController from '../controllers/GetOrderCardPaym
 import GetOrderPixPaymentStatusController from '../controllers/GetOrderPixPaymentStatusController.js';
 import ConfirmOrderPixPaymentController from '../controllers/ConfirmOrderPixPaymentController.js';
 import OrderPixPaymentRecoveryController from '../controllers/OrderPixPaymentRecoveryController.js';
+import OrderPaymentRecoveryController from '../controllers/OrderPaymentRecoveryController.js';
 import ReportOrderIssueController from '../controllers/ReportOrderIssueController.js';
 import ReplyOrderIssueController from '../controllers/ReplyOrderIssueController.js';
 import GetOrderIssueThreadController from '../controllers/GetOrderIssueThreadController.js';
@@ -153,6 +154,20 @@ router.post(
   billingMiddleware,
   (req, res) => {
     ConfirmOrderPixPaymentController.handle(req, res);
+  },
+);
+
+router.get('/payment/:publicId', orderPaymentAccessMiddleware, (req, res) => {
+  OrderPaymentRecoveryController.get(req, res);
+});
+
+router.post(
+  '/payment/:publicId/card/retry',
+  orderPaymentAccessMiddleware,
+  onlineCheckoutRateLimitMiddleware,
+  billingMiddleware,
+  (req, res) => {
+    OrderPaymentRecoveryController.retryCard(req, res);
   },
 );
 

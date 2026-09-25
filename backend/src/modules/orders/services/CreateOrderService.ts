@@ -27,7 +27,10 @@ import { notifyCustomerPaymentConfirmed } from '../../../services/customerNotifi
 import { z } from 'zod';
 import restaurantSettingsRepository from '../../restaurantSettings/repositories/RestaurantSettingsRepository.js';
 import { assertRestaurantIsOpenForOrders } from '../utils/restaurantAvailability.js';
-import { assertOrderCapacity } from '../utils/orderCapacity.js';
+import {
+  isOrderCapacityQueued,
+  shouldQueueOperationalOrder,
+} from '../utils/orderCapacity.js';
 import { resolveOrderRestaurantId } from '../utils/orderTenant.js';
 import orderPricingService from './OrderPricingService.js';
 import resolveDeliveryDistanceService from './ResolveDeliveryDistanceService.js';
@@ -392,7 +395,7 @@ class CreateOrderService {
         normalizedPaymentMethod === PaymentMethod.CARTAO);
     const shouldDeferRealtimeUntilPaid =
       deferRealtimeUntilPaid === true || isUnpaidDelivery || isUnpaidDigitalPayment;
-    const initialStatus = restaurantSettings?.autoAcceptOrders
+    const configuredInitialStatus = restaurantSettings?.autoAcceptOrders
       ? OrderStatus.PREPARANDO
       : OrderStatus.PENDENTE;
 
@@ -536,11 +539,14 @@ class CreateOrderService {
                 );
             }
 
-            const activeOrders = await orderRepository.countActiveOperationalOrders(
-              resolvedRestaurantId,
+            const queueForCapacity = await shouldQueueOperationalOrder(
               tx,
+              resolvedRestaurantId,
+              restaurantSettings?.maxConcurrentOrders,
             );
-            assertOrderCapacity(activeOrders, restaurantSettings?.maxConcurrentOrders);
+            const initialStatus = queueForCapacity
+              ? OrderStatus.PENDENTE
+              : configuredInitialStatus;
             const resolvedUserId =
               type === OrderType.MESA
                 ? (tableParticipant?.userId ?? null)
@@ -698,6 +704,8 @@ class CreateOrderService {
                 status: initialStatus,
                 preparationStartedAt:
                   initialStatus === OrderStatus.PREPARANDO ? new Date() : null,
+                capacityQueuedAt: queueForCapacity ? new Date() : null,
+                capacityAdmittedAt: null,
               },
               tx,
             );
@@ -849,7 +857,7 @@ class CreateOrderService {
                 );
             }
 
-            if (!shouldDeferRealtimeUntilPaid)
+            if (!shouldDeferRealtimeUntilPaid && !queueForCapacity)
               await kitchenPrintingService.enqueueAutomatic({
                 restaurantId: resolvedRestaurantId,
                 orderId: order.id,
@@ -877,11 +885,16 @@ class CreateOrderService {
       return createdOrder;
     }
 
-    if (!shouldDeferRealtimeUntilPaid) {
+    const queuedForCapacity = isOrderCapacityQueued(createdOrder);
+    if (!shouldDeferRealtimeUntilPaid && !queuedForCapacity) {
       io.to(`restaurant:${createdOrder.restaurantId}`).emit('new-order', createdOrder);
       if (createdOrder.userId) io.to(`user:${createdOrder.userId}`).emit('new-order', createdOrder);
       emitWaiterTableOrderEvent(io, 'new-order', createdOrder);
       emitTableSessionOrderEvent(io, 'new-order', createdOrder);
+    }
+
+    if (queuedForCapacity) {
+      io.to(`restaurant:${createdOrder.restaurantId}`).emit('order:capacity-queued', createdOrder);
     }
 
     if (shouldMarkAsPaid) {

@@ -2,10 +2,11 @@ import { FuncionarioSubRole, UserRole } from '@prisma/client';
 import employeeRepository from '../repositories/EmployeeRepository.js';
 import bcrypt from 'bcrypt';
 import { validatePassword } from '../../auth/security/passwordPolicy.js';
+import { randomUUID } from 'node:crypto';
 
 type CreateEmployeePayload = {
   name: string;
-  email: string;
+  username: string;
   password: string;
   phone?: string | null;
   restaurantId: number;
@@ -17,7 +18,7 @@ type CreateEmployeePayload = {
 class CreateEmployeeService {
   async execute({
     name,
-    email,
+    username,
     password,
     phone,
     restaurantId,
@@ -27,18 +28,20 @@ class CreateEmployeeService {
   }: CreateEmployeePayload) {
     validatePassword(password);
 
-    const exists = await employeeRepository.findByEmail(email);
+    const exists = await employeeRepository.findByUsername(username, restaurantId);
 
     if (exists) {
-      throw new Error('Email já está em uso!');
+      throw new Error('Este usuário já está em uso neste restaurante.');
     }
 
     const passwordHash = await bcrypt.hash(password, 10);
     const normalizedRole = role || UserRole.FUNCIONARIO;
+    const internalEmail = `staff-${randomUUID()}@accounts.gastronexa.local`;
 
     const employee = await employeeRepository.create({
       name,
-      email,
+      username,
+      email: internalEmail,
       password: passwordHash,
       phone,
       cpf: cpf ? String(cpf).replace(/\D/g, '') : undefined,

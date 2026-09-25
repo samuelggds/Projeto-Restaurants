@@ -28,11 +28,17 @@ class CreateTableService {
 
     const token = crypto.randomBytes(16).toString('hex');
 
-    return tableRepository.create({
+    const created = await tableRepository.create({
       number: normalizedNumber,
       restaurantId: normalizedRestaurantId,
       token,
     });
+    const { restaurant, ...table } = created;
+
+    return {
+      ...table,
+      restaurantSlug: restaurant.slug,
+    };
   }
 }
 

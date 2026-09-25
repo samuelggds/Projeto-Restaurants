@@ -5,11 +5,13 @@ import repository from '../repositories/OrderRepository.js';
 import verification from './AsaasPaymentVerificationService.js';
 import finalizer from './FinalizeOrderCardPaymentService.js';
 import service from './GetOrderCardPaymentStatusService.js';
+import attemptRepository from '../repositories/OrderPaymentAttemptRepository.js';
 
 const originals = {
   find: repository.findCardPaymentStatusByPublicId,
   verify: verification.execute,
   finalize: finalizer.execute,
+  latestAttempt: attemptRepository.latestForOrder,
 };
 const orderPublicId = '123e4567-e89b-42d3-a456-426614174001';
 let verifyCalls;
@@ -19,6 +21,7 @@ beforeEach(() => {
   verifyCalls = 0;
   finalizations = 0;
   approved = true;
+  attemptRepository.latestForOrder = async () => null;
   repository.findCardPaymentStatusByPublicId = async () => ({
     id: 91,
     restaurantId: 7,
@@ -57,6 +60,7 @@ afterEach(() => {
   repository.findCardPaymentStatusByPublicId = originals.find;
   verification.execute = originals.verify;
   finalizer.execute = originals.finalize;
+  attemptRepository.latestForOrder = originals.latestAttempt;
 });
 
 test('retorno do checkout recupera aprovação Asaas confirmada no servidor', async () => {

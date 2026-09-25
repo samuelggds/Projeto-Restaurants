@@ -6,7 +6,19 @@ class TablesService {
     return response.data;
   }
 
-  async resolvePublicTable({ tableNumber, tableToken, tableId, restaurantId, slug }) {
+  async resolvePublicTable({
+    tableNumber,
+    tableToken,
+    tableId,
+    restaurantId,
+    slug,
+  }: {
+    tableNumber?: string | number;
+    tableToken?: string;
+    tableId?: string | number;
+    restaurantId?: string | number;
+    slug?: string;
+  }) {
     const response = await api.get('/tables/public/resolve', {
       params: {
         tableNumber,

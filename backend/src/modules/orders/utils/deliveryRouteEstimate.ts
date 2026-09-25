@@ -6,7 +6,7 @@ export type DeliveryCoordinates = {
 export type DeliveryRouteEstimate = {
   durationSeconds: number;
   distanceMeters: number | null;
-  provider: 'OSRM' | 'GEOAPIFY';
+  provider: 'OSRM' | 'GEOAPIFY' | 'GOOGLE_ROUTES';
   routeCoordinates?: DeliveryCoordinates[];
   destination?: DeliveryCoordinates & { label: string };
 };

@@ -2,6 +2,7 @@ import { UserRole } from '@prisma/client';
 import prisma from '../../../config/prisma.js';
 import getOsrmDeliveryRouteService from './GetOsrmDeliveryRouteService.js';
 import geoapifyDeliveryRoutingProvider from './GeoapifyDeliveryRoutingProvider.js';
+import googleRoutesDeliveryRoutingProvider from './GoogleRoutesDeliveryRoutingProvider.js';
 import { getConfiguredDeliveryRoutingProviderId } from './GetDeliveryRoutingProvider.js';
 import courierAccessService from './CourierAccessService.js';
 import { generateDeliveryConfirmationCode } from '../utils/deliveryConfirmationCode.js';
@@ -46,6 +47,7 @@ class GetDeliveryTrackingService {
         state: true,
         deliveryStartedAt: true,
         deliveredAt: true,
+        deliveryConfirmedAt: true,
         assignedCourier: { select: { id: true, name: true, phone: true, avatar: true } },
       },
     });
@@ -145,20 +147,27 @@ class GetDeliveryTrackingService {
     const latestLocation = navigationLocation || databaseLatestLocation;
 
     const configuredRoutingProvider = getConfiguredDeliveryRoutingProviderId();
-    const configuredRouteEstimate =
-      order.status === 'SAIU_PARA_ENTREGA' && latestLocation
-        ? configuredRoutingProvider === 'geoapify'
-          ? await geoapifyDeliveryRoutingProvider.calculateRouteEstimate({
-              latitude: Number(latestLocation.latitude),
-              longitude: Number(latestLocation.longitude),
-              destination: order,
-            })
-          : await getOsrmDeliveryRouteService.execute({
-              latitude: Number(latestLocation.latitude),
-              longitude: Number(latestLocation.longitude),
-              destination: order,
-            })
-        : null;
+    let configuredRouteEstimate = null;
+    if (order.status === 'SAIU_PARA_ENTREGA' && latestLocation) {
+      const routeInput = {
+        latitude: Number(latestLocation.latitude),
+        longitude: Number(latestLocation.longitude),
+        destination: order,
+      };
+
+      if (configuredRoutingProvider === 'google') {
+        configuredRouteEstimate =
+          (await googleRoutesDeliveryRoutingProvider.calculateRouteEstimate(routeInput)) ||
+          (await geoapifyDeliveryRoutingProvider.calculateRouteEstimate(routeInput)) ||
+          (await getOsrmDeliveryRouteService.execute(routeInput));
+      } else if (configuredRoutingProvider === 'geoapify') {
+        configuredRouteEstimate =
+          (await geoapifyDeliveryRoutingProvider.calculateRouteEstimate(routeInput)) ||
+          (await getOsrmDeliveryRouteService.execute(routeInput));
+      } else {
+        configuredRouteEstimate = await getOsrmDeliveryRouteService.execute(routeInput);
+      }
+    }
 
     const hasNavigationEstimate =
       navigationTelemetry &&
@@ -210,6 +219,8 @@ class GetDeliveryTrackingService {
         routeEstimate,
         navigationState: navigationTelemetry?.state || null,
         deliveryConfirmationCode,
+        canConfirmDeliveryReceipt:
+          isCustomer && order.status === 'ENTREGUE' && !order.deliveryConfirmedAt,
       },
       locations: normalizedLocations,
       latestLocation: latestLocation

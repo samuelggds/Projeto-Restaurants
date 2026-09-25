@@ -9,6 +9,7 @@ import {
   Eye,
   EyeOff,
   Mail,
+  UserRound,
   LockKeyhole,
   ArrowRight,
   ShieldCheck,
@@ -432,7 +433,11 @@ export default function Login() {
     setShowResendVerification(false);
     setIsLoading(true);
     try {
-      const firstStep = await authService.login({ email, password });
+      const firstStep = await authService.login(
+        isStaffAccess
+          ? { username: email.trim().toLowerCase(), restaurantSlug: portalSlug, password }
+          : { email, password },
+      );
       const withMfa = await completeLoginWithMfaIfNeeded(firstStep);
       const response = await validatePortalAccess(withMfa);
 
@@ -454,7 +459,9 @@ export default function Login() {
           ? 'Sem conexão com o servidor. Verifique se backend/frontend estão na mesma rede e tente novamente.'
           : error instanceof Error
             ? error.message
-            : 'E-mail ou senha incorretos.');
+            : isStaffAccess
+              ? 'Usuário ou senha incorretos.'
+              : 'E-mail ou senha incorretos.');
       setFeedback({ type: 'error', message });
       setShowResendVerification(/confirme seu e-mail|link de confirmação/iu.test(message));
     } finally {
@@ -636,19 +643,28 @@ export default function Login() {
 
             <S.Form onSubmit={handleSubmit} autoComplete="off">
               <S.InputGroup>
-                <S.Label htmlFor="email">E-mail</S.Label>
+                <S.Label htmlFor="email">{isStaffAccess ? 'Usuário' : 'E-mail'}</S.Label>
                 <S.LoginInputField>
                   <S.LoginInputIcon aria-hidden="true">
-                    <Mail />
+                    {isStaffAccess ? <UserRound /> : <Mail />}
                   </S.LoginInputIcon>
                   <S.Input
                     id="email"
                     name="username"
-                    type="email"
-                    placeholder="exemplo@email.com"
+                    type={isStaffAccess ? 'text' : 'email'}
+                    inputMode={isStaffAccess ? 'text' : 'email'}
+                    autoCapitalize={isStaffAccess ? 'none' : undefined}
+                    autoCorrect={isStaffAccess ? 'off' : undefined}
+                    spellCheck={isStaffAccess ? false : undefined}
+                    minLength={isStaffAccess ? 3 : undefined}
+                    maxLength={isStaffAccess ? 32 : undefined}
+                    pattern={isStaffAccess ? '[a-z0-9]+' : undefined}
+                    placeholder={isStaffAccess ? 'joaosantos' : 'exemplo@email.com'}
                     autoComplete="off"
                     value={email}
-                    onChange={(e) => setEmail(e.target.value)}
+                    onChange={(e) =>
+                      setEmail(isStaffAccess ? e.target.value.toLowerCase() : e.target.value)
+                    }
                     required
                   />
                 </S.LoginInputField>
@@ -690,7 +706,7 @@ export default function Login() {
                   />
                   Lembrar de mim
                 </S.CheckboxLabel>
-                {!isTechnicalAccess ? (
+                {!isTechnicalAccess && !isStaffAccess ? (
                   <S.LoginForgotLink type="button" onClick={() => navigate(recoverPasswordPath)}>
                     Esqueceu a senha?
                   </S.LoginForgotLink>
@@ -708,8 +724,8 @@ export default function Login() {
             <S.LoginSecurityNote>
               <ShieldCheck aria-hidden="true" />
               <span>
-                Ao marcar “Lembrar de mim”, somente o e-mail deste acesso é lembrado. A senha nunca
-                é salva pelo sistema e sempre será exigida.
+                Ao marcar “Lembrar de mim”, somente o {isStaffAccess ? 'usuário' : 'e-mail'} deste
+                acesso é lembrado. A senha nunca é salva pelo sistema e sempre será exigida.
               </span>
             </S.LoginSecurityNote>
 

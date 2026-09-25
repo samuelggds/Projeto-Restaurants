@@ -79,6 +79,8 @@ export type AdminOrder = {
   payOnDelivery?: boolean;
   payOnDeliveryMethod?: string;
   createdAt?: string;
+  capacityQueuedAt?: string;
+  capacityAdmittedAt?: string;
   refundStatus?: 'NOT_REQUESTED' | 'PROCESSING' | 'SUCCEEDED' | 'FAILED';
   refundRequestedAt?: string;
   refundedAt?: string;
@@ -313,7 +315,7 @@ export type AdminSettings = {
 export type Employee = {
   id: string;
   name: string;
-  email: string;
+  username: string;
   phone?: string;
   role: EmployeeRole;
   active: boolean;

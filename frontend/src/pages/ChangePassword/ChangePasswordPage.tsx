@@ -16,8 +16,17 @@ import { buildAuthEntryUrl } from '../../shared/navigation/authNavigation';
 export default function ChangePasswordPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const loginPath = buildAuthEntryUrl('/login', searchParams);
   const { user, logout } = useAuth();
+  const role = String(user?.role || '').trim().toUpperCase();
+  const tenantLoginPath = buildAuthEntryUrl('/login', searchParams);
+  const loginPath =
+    role === 'SUPER_ADMIN'
+      ? '/super_admin/login'
+      : role === 'ADMIN'
+        ? tenantLoginPath.replace(/\/login(?=\?|$)/u, '/admin')
+        : role === 'MOTOQUEIRO' || role === 'FUNCIONARIO'
+          ? tenantLoginPath.replace(/\/login(?=\?|$)/u, '/team')
+          : tenantLoginPath;
   const forcedChange = user?.mustChangePassword !== false;
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');

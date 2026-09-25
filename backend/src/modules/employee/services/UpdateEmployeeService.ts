@@ -9,7 +9,7 @@ type UpdateEmployeePayload = {
   restaurantId: number;
   name?: string;
   phone?: string | null;
-  email?: string;
+  username?: string;
   role?: UserRole;
   subRole?: FuncionarioSubRole | null;
   actor: CompensationActor;
@@ -21,7 +21,7 @@ class UpdateEmployeeService {
     restaurantId,
     name,
     phone,
-    email,
+    username,
     role,
     subRole,
     actor,
@@ -32,16 +32,18 @@ class UpdateEmployeeService {
       throw new Error('Funcionário não encontrado!');
     }
 
-    const emailExists = email ? await employeeRepository.findByEmail(email) : null;
+    const usernameExists = username
+      ? await employeeRepository.findByUsername(username, restaurantId)
+      : null;
 
-    if (emailExists && emailExists.id !== employee.id) {
-      throw new Error('Email já está em uso!');
+    if (usernameExists && usernameExists.id !== employee.id) {
+      throw new Error('Este usuário já está em uso neste restaurante.');
     }
 
     const updateData = {
       ...(name !== undefined ? { name } : {}),
       ...(phone !== undefined ? { phone: phone || null } : {}),
-      ...(email !== undefined ? { email } : {}),
+      ...(username !== undefined ? { username } : {}),
       ...(role !== undefined ? { role } : {}),
       ...(role === UserRole.MOTOQUEIRO
         ? { subRole: null }

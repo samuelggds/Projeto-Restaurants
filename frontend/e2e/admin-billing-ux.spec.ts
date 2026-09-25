@@ -150,14 +150,14 @@ async function mockAdminApi(page: Page, state: BillingTestState) {
             plan: 'BASICO',
             name: 'Básico',
             monthlyFee: 149.9,
-            trialDays: 30,
+            trialDays: 7,
             features: ['Sistema de delivery', 'Suporte padrão'],
           },
           {
             plan: 'PREMIUM',
             name: 'Premium',
             monthlyFee: 249.9,
-            trialDays: 30,
+            trialDays: 15,
             features: [
               'Sistema de delivery',
               'Cardápio digital com QR Code de mesa',

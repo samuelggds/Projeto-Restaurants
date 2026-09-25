@@ -117,8 +117,8 @@ class AdminAiGuideController {
 
   async quote(req: Request, res: Response) {
     return respond(res, () => {
-      const actor = actorFromRequest(req);
-      return aiCreditTopUpService.quote(req.query.amountUsd, actor.restaurantId);
+      actorFromRequest(req);
+      return aiCreditTopUpService.quote(req.query.amountUsd);
     });
   }
 
@@ -128,17 +128,6 @@ class AdminAiGuideController {
       () => {
         const actor = actorFromRequest(req);
         return aiCreditTopUpService.createPix(actor, req.body?.amountUsd);
-      },
-      201,
-    );
-  }
-
-  async cardTopUp(req: Request, res: Response) {
-    return respond(
-      res,
-      () => {
-        const actor = actorFromRequest(req);
-        return aiCreditTopUpService.createCard(actor, req.body?.amountUsd);
       },
       201,
     );

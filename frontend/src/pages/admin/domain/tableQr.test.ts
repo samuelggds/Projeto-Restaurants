@@ -9,6 +9,7 @@ describe('tableQr', () => {
           id: 7,
           number: 12,
           restaurantId: 4,
+          restaurantSlug: 'restaurante-teste',
           token: 'token/&=',
           active: true,
           operational: { status: 'OCCUPIED' },
@@ -20,6 +21,7 @@ describe('tableQr', () => {
         id: '7',
         number: 12,
         restaurantId: 4,
+        restaurantSlug: 'restaurante-teste',
         token: 'token/&=',
         active: true,
         status: 'OCCUPIED',
@@ -30,10 +32,18 @@ describe('tableQr', () => {
   it('gera URL tenant-safe com restaurante e token codificado', () => {
     expect(
       buildAdminTableQrUrl(
-        { id: '7', number: 12, restaurantId: 4, token: 'token/&=' },
+        {
+          id: '7',
+          number: 12,
+          restaurantId: 4,
+          restaurantSlug: 'restaurante-teste',
+          token: 'token/&=',
+        },
         'https://cardapio.example',
       ),
-    ).toBe('https://cardapio.example/mesa/12?tk=token%2F%26%3D&rid=4');
+    ).toBe(
+      'https://cardapio.example/restaurante-teste/mesa/12?tk=token%2F%26%3D&rid=4',
+    );
     expect(tableDisplayName(1)).toBe('Mesa 01');
   });
 });

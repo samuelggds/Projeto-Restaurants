@@ -86,7 +86,7 @@ export function EmployeeList({
     return employees.filter((employee) => {
       const matchesSearch =
         !query ||
-        normalize(`${employee.name} ${employee.email} ${employee.phone ?? ''}`).includes(query);
+        normalize(`${employee.name} ${employee.username} ${employee.phone ?? ''}`).includes(query);
       const matchesStatus =
         statusFilter === 'ALL' || (statusFilter === 'ACTIVE' ? employee.active : !employee.active);
       const matchesRole = roleFilter === 'ALL' || employee.role === roleFilter;
@@ -202,7 +202,7 @@ export function EmployeeList({
             <span className="control">
               <Search aria-hidden="true" />
               <input
-                aria-label="Buscar funcionário por nome, e-mail ou telefone"
+                aria-label="Buscar funcionário por nome, usuário ou telefone"
                 value={search}
                 onChange={(event) => {
                   setSearch(event.target.value);
@@ -260,7 +260,7 @@ export function EmployeeList({
                 </span>
                 <span className="identity">
                   <b>{employee.name}</b>
-                  <span>{employee.email}</span>
+                  <span>@{employee.username}</span>
                 </span>
                 <span className="role">
                   <b>{roleLabel[employee.role]}</b>

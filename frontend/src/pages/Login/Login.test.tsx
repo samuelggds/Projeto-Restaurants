@@ -338,7 +338,7 @@ describe('Login contextual do cliente', () => {
       },
     });
 
-    setInputValue(container.querySelector('#email') as HTMLInputElement, 'atendente@teste.com');
+    setInputValue(container.querySelector('#email') as HTMLInputElement, 'anaatendente');
     setInputValue(container.querySelector('#password') as HTMLInputElement, 'Senha@123');
     await act(async () => {
       (container.querySelector('form') as HTMLFormElement).requestSubmit();

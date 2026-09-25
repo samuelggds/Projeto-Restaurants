@@ -226,7 +226,7 @@ describe('operações fictícias persistidas', () => {
       ...data.employees[0],
       id: '120',
       name: 'Cozinheira Teste',
-      email: 'cozinheira@example.test',
+      username: 'cozinheirateste',
       role: 'COOK' as const,
     };
     const employees = [...data.employees, added];
@@ -235,7 +235,11 @@ describe('operações fictícias persistidas', () => {
         '120': 'senha-ficticia',
       }),
     );
-    const logged = authenticateDemoAccount(state, added.email, 'senha-ficticia');
+    const logged = authenticateDemoAccount(
+      state,
+      `${added.username}@demo.gastronexa.local`,
+      'senha-ficticia',
+    );
     expect(getDemoAccountByRole(logged.state, 'COZINHA')?.name).toBe(added.name);
     const disabled = sanitizeDemoState(
       syncDemoEmployees(
@@ -245,7 +249,13 @@ describe('operações fictícias persistidas', () => {
       ),
     );
     expect(disabled.sessionAccountId).toBeNull();
-    expect(() => authenticateDemoAccount(disabled, added.email, 'senha-ficticia')).toThrow();
+    expect(() =>
+      authenticateDemoAccount(
+        disabled,
+        `${added.username}@demo.gastronexa.local`,
+        'senha-ficticia',
+      ),
+    ).toThrow();
   });
   it('descarta relatos corrompidos sem quebrar os demais dados do cenário', () => {
     const state = sanitizeDemoState({

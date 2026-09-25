@@ -15,7 +15,7 @@ class ListTableService {
     const tables = await tableRepository.findAllByRestaurant(normalizedRestaurantId);
 
     return tables.map((table) => {
-      const { orders, token, ...safeTableData } = table;
+      const { orders, token, restaurant, ...safeTableData } = table;
       const openSession = table.tableSessions[0] || null;
       const activeTotal = orders.reduce((total, order) => total + Number(order.total || 0), 0);
       const guests = new Set(orders.map((order) => order.userId)).size;
@@ -23,6 +23,7 @@ class ListTableService {
 
       return {
         ...safeTableData,
+        restaurantSlug: restaurant.slug,
         ...(includeQrToken ? { token } : {}),
         status: operationalStatus,
         sessionId: openSession?.id ?? null,

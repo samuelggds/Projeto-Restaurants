@@ -112,7 +112,7 @@ describe('diretórios administrativos de pessoas', () => {
       {
         id: '1',
         name: 'Ana Cozinha',
-        email: 'ana@teste.com',
+        username: 'anacozinha',
         role: 'COOK',
         active: true,
         permissions: { viewOrders: true, updateOrderStatus: true, manageQrTables: false },
@@ -120,7 +120,7 @@ describe('diretórios administrativos de pessoas', () => {
       {
         id: '2',
         name: 'Bruno Entrega',
-        email: 'bruno@teste.com',
+        username: 'brunoentrega',
         role: 'COURIER',
         active: false,
         permissions: { viewOrders: true, updateOrderStatus: true, manageQrTables: false },

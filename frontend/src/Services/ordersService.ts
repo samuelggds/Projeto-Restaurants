@@ -381,6 +381,15 @@ class OrdersService {
         return { data: response.data };
       } catch (error: unknown) {
         const data = asRecord(asRecord(asRecord(error)?.response)?.data);
+        if (
+          ['CARD_PAYMENT_FAILED', 'CARD_DECLINED', 'CARD_PROVIDER_ERROR'].includes(
+            String(data?.code || ''),
+          ) &&
+          data?.paymentPending === true
+        ) {
+          rememberGuestOrderAccess(data);
+          throw error;
+        }
         if (data?.code !== 'PAYMENT_CREATION_UNCERTAIN' || data.reconciliationRequired !== true)
           throw error;
         // A known order is an accepted attempt. Keep unknown network failures for retry.
@@ -412,6 +421,25 @@ class OrdersService {
 
   async getPixPaymentStatus(payload: PixPaymentStatusPayload) {
     const response = await api.post('/orders/pix/payment/status', payload);
+    return response.data;
+  }
+
+  async recoverPayment(orderPublicId: string) {
+    const guestToken = getGuestOrderOwnershipTokenByPublicId(orderPublicId);
+    const response = await api.get(
+      `/orders/payment/${encodeURIComponent(orderPublicId)}`,
+      guestToken ? { headers: { 'x-guest-order-ownership': guestToken } } : undefined,
+    );
+    return response.data;
+  }
+
+  async retryCardPayment(orderPublicId: string, payload: Record<string, unknown>) {
+    const guestToken = getGuestOrderOwnershipTokenByPublicId(orderPublicId);
+    const response = await api.post(
+      `/orders/payment/${encodeURIComponent(orderPublicId)}/card/retry`,
+      payload,
+      guestToken ? { headers: { 'x-guest-order-ownership': guestToken } } : undefined,
+    );
     return response.data;
   }
 

@@ -180,6 +180,7 @@ export default function CustomerDeliveryMap({
           disableDefaultUI: true,
           clickableIcons: false,
           gestureHandling: 'greedy',
+          colorScheme: 'LIGHT',
           styles: MAP_STYLES,
           backgroundColor: '#eef2f3',
         });

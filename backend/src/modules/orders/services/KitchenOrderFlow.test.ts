@@ -107,7 +107,7 @@ test('consulta operacional inclui conta da mesa e oculta somente PIX/cartão onl
 
   assert.equal(query.where.id, 81);
   assert.equal(query.where.restaurantId, 7);
-  const paymentVisibility = query.where.AND[0].OR;
+  const paymentVisibility = query.where.AND[0].AND[0].OR;
   assert.deepEqual(paymentVisibility, [
     { settlementMode: TableOrderSettlementMode.TABLE_ACCOUNT },
     { paymentMethod: null },

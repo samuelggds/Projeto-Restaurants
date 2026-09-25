@@ -71,6 +71,26 @@ test('aceita configuracao completa com roteamento interno', () => {
   assert.doesNotThrow(() => validateCriticalEnv());
 });
 
+test('aceita Google Routes em producao com chave de servidor', () => {
+  process.env.ROUTING_PROVIDER = 'google';
+  process.env.GOOGLE_ROUTES_API_KEY = 'google-routes-production-key';
+  process.env.GOOGLE_ROUTES_BASE_URL = 'https://routes.googleapis.com';
+  delete process.env.OSRM_BASE_URL;
+  delete process.env.GEOCODER_BASE_URL;
+  delete process.env.ROUTING_USER_AGENT;
+
+  assert.doesNotThrow(() => validateCriticalEnv());
+});
+
+test('Google Routes exige chave quando o roteamento e obrigatorio', () => {
+  process.env.ROUTING_PROVIDER = 'google';
+  delete process.env.GOOGLE_ROUTES_API_KEY;
+  delete process.env.OSRM_BASE_URL;
+  delete process.env.GEOCODER_BASE_URL;
+
+  assert.throws(() => validateCriticalEnv(), /GOOGLE_ROUTES_API_KEY e obrigatoria/i);
+});
+
 test('aceita geoapify em producao sem exigir osrm ou nominatim', () => {
   process.env.ROUTING_PROVIDER = 'geoapify';
   process.env.GEOAPIFY_API_KEY = 'geoapify-production-key';
@@ -94,7 +114,7 @@ test('geoapify exige chave quando o roteamento e obrigatorio', () => {
 test('rejeita provider de roteamento desconhecido em producao', () => {
   process.env.ROUTING_PROVIDER = 'outro';
 
-  assert.throws(() => validateCriticalEnv(), /ROUTING_PROVIDER deve ser osrm ou geoapify/i);
+  assert.throws(() => validateCriticalEnv(), /ROUTING_PROVIDER deve ser google, osrm ou geoapify/i);
 });
 
 test('bloqueia servicos publicos de demonstracao quando osrm e obrigatorio', () => {
@@ -152,6 +172,7 @@ test('permite desativar explicitamente o calculo de rota', () => {
   delete process.env.GEOCODER_BASE_URL;
   delete process.env.ROUTING_USER_AGENT;
   delete process.env.GEOAPIFY_API_KEY;
+  delete process.env.GOOGLE_ROUTES_API_KEY;
 
   assert.doesNotThrow(() => validateCriticalEnv());
 });

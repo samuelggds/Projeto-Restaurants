@@ -23,6 +23,28 @@ class UserRepository {
     });
   }
 
+  async findStaffByUsername(
+    username: string,
+    restaurantSlug: string,
+    db: PrismaClientLike = prisma,
+  ) {
+    const normalizedUsername = String(username || '')
+      .trim()
+      .normalize('NFC')
+      .toLocaleLowerCase('pt-BR');
+    const normalizedSlug = String(restaurantSlug || '').trim().toLowerCase();
+
+    if (!normalizedUsername || !normalizedSlug) return null;
+
+    return db.user.findFirst({
+      where: {
+        username: normalizedUsername,
+        role: { in: ['FUNCIONARIO', 'MOTOQUEIRO'] },
+        restaurant: { is: { slug: normalizedSlug } },
+      },
+    });
+  }
+
   async findByPhone(phone: string, db: PrismaClientLike = prisma) {
     const normalizedPhone = String(phone || '').replace(/\D/g, '');
 

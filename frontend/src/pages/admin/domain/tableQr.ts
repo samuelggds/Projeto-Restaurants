@@ -2,6 +2,7 @@ export type AdminTableQrRecord = {
   id: string;
   number: number;
   restaurantId: number;
+  restaurantSlug: string;
   token: string;
   active: boolean;
   status: 'FREE' | 'OCCUPIED';
@@ -21,6 +22,10 @@ export function mapAdminTableQr(value: unknown): AdminTableQrRecord | null {
   const id = String(table.id || '').trim();
   const number = Number(table.number);
   const restaurantId = Number(table.restaurantId);
+  const restaurant = asRecord(table.restaurant);
+  const restaurantSlug = String(table.restaurantSlug || restaurant.slug || '')
+    .trim()
+    .toLowerCase();
   const token = String(table.token || '').trim();
   const status =
     operational.status === 'OCCUPIED' || table.status === 'OCCUPIED' ? 'OCCUPIED' : 'FREE';
@@ -30,7 +35,8 @@ export function mapAdminTableQr(value: unknown): AdminTableQrRecord | null {
     !Number.isInteger(number) ||
     number <= 0 ||
     !Number.isInteger(restaurantId) ||
-    restaurantId <= 0
+    restaurantId <= 0 ||
+    !/^[a-z0-9]+(?:-[a-z0-9]+)*$/u.test(restaurantSlug)
   ) {
     return null;
   }
@@ -39,6 +45,7 @@ export function mapAdminTableQr(value: unknown): AdminTableQrRecord | null {
     id,
     number,
     restaurantId,
+    restaurantSlug,
     token,
     active: table.active !== false,
     status,
@@ -54,7 +61,10 @@ export function mapAdminTableQrs(values: unknown): AdminTableQrRecord[] {
 }
 
 export function buildAdminTableQrUrl(
-  table: Pick<AdminTableQrRecord, 'id' | 'number' | 'restaurantId' | 'token'>,
+  table: Pick<
+    AdminTableQrRecord,
+    'id' | 'number' | 'restaurantId' | 'restaurantSlug' | 'token'
+  >,
   origin?: string,
 ) {
   const configuredBase = String(import.meta.env.VITE_QR_BASE_URL || '')
@@ -69,7 +79,7 @@ export function buildAdminTableQrUrl(
     tk: table.token,
     rid: String(table.restaurantId),
   });
-  return `${baseUrl}/mesa/${table.number}?${params.toString()}`;
+  return `${baseUrl}/${encodeURIComponent(table.restaurantSlug)}/mesa/${table.number}?${params.toString()}`;
 }
 
 export function tableDisplayName(number: number) {

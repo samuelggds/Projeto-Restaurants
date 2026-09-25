@@ -10,7 +10,7 @@ import {
   Phone,
   RefreshCw,
 } from 'lucide-react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import ordersService, { getGuestOrderTrackingToken } from '../../Services/ordersService';
 import { acquireSocket } from '../../Services/socketService';
 import { getAccessToken } from '../../modules/auth/session/authSession';
@@ -36,6 +36,7 @@ export default function DeliveryTrackingPage() {
 
 function DeliveryTrackingContent({ id }: { id?: string }) {
   const navigate = useNavigate();
+  const location = useLocation();
   const orderId = Number(id || 0);
   const hasInvalidOrderId = !Number.isInteger(orderId) || orderId <= 0;
   const [data, setData] = useState<DeliveryTrackingData | null>(null);
@@ -43,12 +44,15 @@ function DeliveryTrackingContent({ id }: { id?: string }) {
   const [warning, setWarning] = useState('');
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [confirmingReceipt, setConfirmingReceipt] = useState(false);
+  const [receiptError, setReceiptError] = useState('');
   const [socketConnected, setSocketConnected] = useState(false);
   const [retryKey, setRetryKey] = useState(0);
   const [lastUpdatedAt, setLastUpdatedAt] = useState<Date | null>(null);
   const lastRouteRefreshAt = useRef(0);
   const dataRef = useRef<DeliveryTrackingData | null>(null);
   const isGuestTracking = Boolean(orderId && getGuestOrderTrackingToken(orderId));
+  const confirmationLink = new URLSearchParams(location.search).get('confirm') === '1';
 
   useEffect(() => {
     if (hasInvalidOrderId) return;
@@ -193,6 +197,9 @@ function DeliveryTrackingContent({ id }: { id?: string }) {
     : null;
   const isDelivered = data?.order.status === 'ENTREGUE';
   const isCancelled = data?.order.status === 'CANCELADO';
+  const receiptConfirmed = Boolean(data?.order.deliveryConfirmedAt);
+  const canConfirmReceipt =
+    isDelivered && data?.order.canConfirmDeliveryReceipt === true && !receiptConfirmed;
   const isTerminal = isDelivered || isCancelled;
   const isInDeliveryWithoutLocation =
     data?.order.status === 'SAIU_PARA_ENTREGA' && data.locations.length === 0;
@@ -209,6 +216,40 @@ function DeliveryTrackingContent({ id }: { id?: string }) {
           ? 'Cancelado'
           : data.order.status
     : '';
+
+  const confirmReceipt = async () => {
+    if (!canConfirmReceipt || confirmingReceipt) return;
+    setReceiptError('');
+    setConfirmingReceipt(true);
+    try {
+      const confirmedOrder = (await ordersService.confirmDeliveryReceived(orderId)) as {
+        deliveryConfirmedAt?: string | null;
+      };
+      const confirmedAt =
+        String(confirmedOrder?.deliveryConfirmedAt || '').trim() || new Date().toISOString();
+      if (dataRef.current) {
+        const updated = {
+          ...dataRef.current,
+          order: {
+            ...dataRef.current.order,
+            deliveryConfirmedAt: confirmedAt,
+            canConfirmDeliveryReceipt: false,
+          },
+        };
+        dataRef.current = updated;
+        setData(updated);
+      }
+    } catch (err) {
+      const message =
+        (err as { response?: { data?: { error?: string } }; message?: string })?.response?.data
+          ?.error ||
+        (err as Error)?.message ||
+        'Não foi possível confirmar o recebimento. Tente novamente.';
+      setReceiptError(message);
+    } finally {
+      setConfirmingReceipt(false);
+    }
+  };
 
   return (
     <S.Page>
@@ -318,13 +359,54 @@ function DeliveryTrackingContent({ id }: { id?: string }) {
               />
             ) : null}
             {isDelivered ? (
-              <S.CompletionNotice role="status">
-                <CheckCircle2 aria-hidden="true" />
-                <span>
-                  <strong>Entrega concluída</strong>
-                  <small>A última posição foi preservada e o rastreamento foi encerrado.</small>
-                </span>
-              </S.CompletionNotice>
+              <>
+                <S.CompletionNotice role="status">
+                  <CheckCircle2 aria-hidden="true" />
+                  <span>
+                    <strong>Entrega concluída</strong>
+                    <small>
+                      {receiptConfirmed
+                        ? 'O cliente confirmou o recebimento deste pedido.'
+                        : 'A última posição foi preservada e o rastreamento foi encerrado.'}
+                    </small>
+                  </span>
+                </S.CompletionNotice>
+                {canConfirmReceipt ? (
+                  <S.ReceiptConfirmation
+                    $highlight={confirmationLink}
+                    aria-labelledby="receipt-confirmation-title"
+                  >
+                    <span className="receipt-icon" aria-hidden="true">
+                      <CheckCircle2 />
+                    </span>
+                    <div>
+                      <small>{confirmationLink ? 'Confirmação solicitada pelo WhatsApp' : 'Última etapa'}</small>
+                      <strong id="receipt-confirmation-title">Você recebeu seu pedido?</strong>
+                      <p>
+                        Confirme somente quando o pedido estiver com você. O restaurante será avisado
+                        imediatamente.
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => void confirmReceipt()}
+                        disabled={confirmingReceipt}
+                      >
+                        <CheckCircle2 aria-hidden="true" />
+                        {confirmingReceipt ? 'Confirmando recebimento...' : 'Confirmar recebimento'}
+                      </button>
+                      {receiptError ? <em role="alert">{receiptError}</em> : null}
+                    </div>
+                  </S.ReceiptConfirmation>
+                ) : receiptConfirmed ? (
+                  <S.ReceiptConfirmed role="status">
+                    <CheckCircle2 aria-hidden="true" />
+                    <span>
+                      <strong>Recebimento confirmado</strong>
+                      <small>Obrigado! O restaurante já recebeu sua confirmação.</small>
+                    </span>
+                  </S.ReceiptConfirmed>
+                ) : null}
+              </>
             ) : null}
             {isCancelled ? (
               <S.CancelledNotice role="status">
@@ -337,6 +419,13 @@ function DeliveryTrackingContent({ id }: { id?: string }) {
             ) : null}
             <S.Workspace>
               <S.MapArea aria-label="Mapa da entrega">
+                {data.order.routeEstimate?.provider === 'GOOGLE_ROUTES' ? (
+                  <S.RouteNotice>
+                    Rota de motocicleta calculada com dados viários e trânsito. Condições locais,
+                    interdições e sinalização podem mudar; o entregador deve sempre obedecer à via.
+                    <small>Powered by Google, © {new Date().getFullYear()} Google</small>
+                  </S.RouteNotice>
+                ) : null}
                 {data.locations.length ? (
                   <Suspense
                     fallback={

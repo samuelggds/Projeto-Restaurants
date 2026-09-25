@@ -7,6 +7,7 @@ import restaurantSettingsRepository from '../../restaurantSettings/repositories/
 import { BUSINESS_DAY_IDS } from '../../restaurantSettings/utils/businessHours.js';
 import prisma from '../../../config/prisma.js';
 import orderRepository from '../repositories/OrderRepository.js';
+import orderPaymentAttemptRepository from '../repositories/OrderPaymentAttemptRepository.js';
 import { PaymentCreationUncertainError } from './PaymentCreationUncertainError.js';
 
 const originalHttpCreateServer = http.createServer;
@@ -37,6 +38,8 @@ const originalCreateOrderExecute = createOrderService.execute;
 const originalFinalizeOrderCardPaymentExecute = finalizeOrderCardPaymentService.execute;
 const originalSetCardCheckoutSessionId = orderRepository.setCardCheckoutSessionId;
 const originalDeleteById = orderRepository.deleteById;
+const originalCreatePaymentAttempt = orderPaymentAttemptRepository.createCardAttempt;
+const originalUpdatePaymentAttempt = orderPaymentAttemptRepository.update;
 const originalFindCustomerPaymentMethod = prisma.customerPaymentMethod.findFirst;
 const originalTransaction = prisma.$transaction;
 const originalQueryRaw = prisma.$queryRaw;
@@ -90,6 +93,18 @@ test('timeout após cobrança de cartão preserva pedido confirmado, estoque e c
 
 beforeEach(() => {
   process.env.ENABLE_FUTURE_PAYMENT_PROVIDERS = 'true';
+  let attemptId = 0;
+  orderPaymentAttemptRepository.createCardAttempt = async () => {
+    attemptId += 1;
+    return {
+      id: attemptId,
+      publicId: `attempt-public-${attemptId}`,
+      idempotencyKey: `11111111-1111-4111-8111-${String(attemptId).padStart(12, '0')}`,
+      status: 'PENDING',
+    } as never;
+  };
+  orderPaymentAttemptRepository.update = async (_id, _restaurantId, status, diagnostic) =>
+    ({ id: _id, status, ...(diagnostic || {}) }) as never;
   prisma.$transaction = async (callback) => callback(prisma);
   prisma.$queryRaw = async () => [{ set_config: '9' }];
 });
@@ -100,6 +115,8 @@ afterEach(() => {
   finalizeOrderCardPaymentService.execute = originalFinalizeOrderCardPaymentExecute;
   orderRepository.setCardCheckoutSessionId = originalSetCardCheckoutSessionId;
   orderRepository.deleteById = originalDeleteById;
+  orderPaymentAttemptRepository.createCardAttempt = originalCreatePaymentAttempt;
+  orderPaymentAttemptRepository.update = originalUpdatePaymentAttempt;
   prisma.customerPaymentMethod.findFirst = originalFindCustomerPaymentMethod;
   prisma.$transaction = originalTransaction;
   prisma.$queryRaw = originalQueryRaw;

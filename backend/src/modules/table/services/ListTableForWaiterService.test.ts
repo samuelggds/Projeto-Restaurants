@@ -20,6 +20,7 @@ test('retorna estado operacional, sessão, clientes e total para a aba de mesas'
         token: 'a'.repeat(32),
         active: true,
         restaurantId: 7,
+        restaurant: { slug: 'restaurante-teste' },
         tableSessions: [
           {
             id: 55,
@@ -42,6 +43,7 @@ test('retorna estado operacional, sessão, clientes e total para a aba de mesas'
         token: 'b'.repeat(32),
         active: true,
         restaurantId: 7,
+        restaurant: { slug: 'restaurante-teste' },
         tableSessions: [],
         orders: [],
         _count: { orders: 0, tableSessions: 0 },
@@ -52,6 +54,7 @@ test('retorna estado operacional, sessão, clientes e total para a aba de mesas'
         token: 'c'.repeat(32),
         active: true,
         restaurantId: 7,
+        restaurant: { slug: 'restaurante-teste' },
         tableSessions: [
           {
             id: 56,
@@ -69,6 +72,7 @@ test('retorna estado operacional, sessão, clientes e total para a aba de mesas'
   const result = await listTableService.execute({ restaurantId: 7 });
 
   assert.equal(result[0].status, 'OCCUPIED');
+  assert.equal(result[0].restaurantSlug, 'restaurante-teste');
   assert.equal(result[0].sessionId, 55);
   assert.equal(result[0].operational.openSession.publicId, 'session-public-55');
   assert.equal(result[0].guests, 2);

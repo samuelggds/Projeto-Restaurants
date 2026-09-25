@@ -8,6 +8,9 @@ describe('EmployeeDrawer', () => {
       <EmployeeDrawer employee={null} close={vi.fn()} save={vi.fn()} />,
     );
 
+    expect(markup).toContain('Usuário de conta');
+    expect(markup).toContain('joaosantos');
+    expect(markup).not.toContain('E-mail de acesso');
     expect(markup).toContain('Telefone com DDD');
     expect(markup).toContain('Confirmar senha');
     expect(markup.match(/minLength="8"/g)).toHaveLength(2);

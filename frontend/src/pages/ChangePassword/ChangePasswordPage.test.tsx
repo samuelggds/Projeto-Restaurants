@@ -6,11 +6,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 const mocks = vi.hoisted(() => ({
   apiPut: vi.fn(),
   logout: vi.fn(),
+  user: { role: 'CLIENTE', mustChangePassword: true } as { role: string; mustChangePassword: boolean },
 }));
 
 vi.mock('../../Services/api', () => ({ default: { put: mocks.apiPut } }));
 vi.mock('../../contexts/authContext', () => ({
-  useAuth: () => ({ logout: mocks.logout }),
+  useAuth: () => ({ user: mocks.user, logout: mocks.logout }),
 }));
 
 import ChangePasswordPage from './ChangePasswordPage';
@@ -41,6 +42,7 @@ describe('ChangePasswordPage', () => {
     vi.clearAllMocks();
     window.sessionStorage.clear();
     window.sessionStorage.setItem('gastronexa:tenant-slug', 'restaurante-teste');
+    mocks.user = { role: 'CLIENTE', mustChangePassword: true };
     container = document.createElement('div');
     document.body.appendChild(container);
     root = createRoot(container);
@@ -52,6 +54,7 @@ describe('ChangePasswordPage', () => {
           <Routes>
             <Route path="/change-password" element={<ChangePasswordPage />} />
             <Route path="/:restaurantSlug/login" element={<LocationProbe />} />
+            <Route path="/:restaurantSlug/admin" element={<LocationProbe />} />
           </Routes>
         </MemoryRouter>,
       );
@@ -74,6 +77,25 @@ describe('ChangePasswordPage', () => {
     );
     expect(inputs.every((input) => input.getAttribute('aria-invalid') === 'true')).toBe(true);
     expect(inputs[0].getAttribute('aria-describedby')).toBe('change-password-error');
+  });
+
+  it('redireciona ADMIN para o login administrativo do próprio restaurante após trocar a senha', async () => {
+    mocks.user = { role: 'ADMIN', mustChangePassword: true };
+    mocks.apiPut.mockResolvedValue({});
+    const inputs = [...container.querySelectorAll('input')];
+    setInputValue(inputs[0], 'Temporaria@123');
+    setInputValue(inputs[1], 'NovaSenha@123');
+    setInputValue(inputs[2], 'NovaSenha@123');
+
+    await act(async () => {
+      (container.querySelector('form') as HTMLFormElement).requestSubmit();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(mocks.logout).toHaveBeenCalledOnce();
+    expect(container.textContent).toContain('/restaurante-teste/admin');
+    expect(container.textContent).not.toContain('/restaurante-teste/login');
   });
 
   it('preserva o destino contextual ao concluir a troca obrigatória', async () => {

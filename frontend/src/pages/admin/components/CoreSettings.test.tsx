@@ -2,6 +2,7 @@ import { act } from 'react';
 import { createRef } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { lookupCep } from '../../../Services/cepService';
 import { adminMockSettings } from '../data';
 import { AddressSettings } from './AddressSettings';
 import { BrandSettings } from './BrandSettings';
@@ -10,6 +11,10 @@ import { OrderFlowSettings } from './OrderFlowSettings';
 
 (globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT =
   true;
+
+vi.mock('../../../Services/cepService', () => ({
+  lookupCep: vi.fn(),
+}));
 
 function changeValue(element: HTMLInputElement | HTMLTextAreaElement, value: string) {
   const prototype =
@@ -99,6 +104,33 @@ describe('configurações principais do administrador', () => {
     expect(update).toHaveBeenCalledWith('businessState', 'CE');
   });
 
+  it('consulta o CEP completo e preenche rua, bairro, cidade e UF automaticamente', async () => {
+    vi.mocked(lookupCep).mockResolvedValueOnce({
+      cep: '60170-001',
+      address: 'Avenida Beira Mar',
+      district: 'Meireles',
+      city: 'Fortaleza',
+      state: 'CE',
+      complement: '',
+    });
+    const update = vi.fn();
+    act(() => root.render(<AddressSettings settings={adminMockSettings} update={update} />));
+
+    const cep = container.querySelector('[aria-label="CEP"]') as HTMLInputElement;
+    await act(async () => {
+      changeValue(cep, '60170001');
+      await Promise.resolve();
+    });
+
+    expect(lookupCep).toHaveBeenCalledWith('60170001');
+    expect(update).toHaveBeenCalledWith('businessZipCode', '60170-001');
+    expect(update).toHaveBeenCalledWith('businessAddress', 'Avenida Beira Mar');
+    expect(update).toHaveBeenCalledWith('businessAddressDistrict', 'Meireles');
+    expect(update).toHaveBeenCalledWith('businessCity', 'Fortaleza');
+    expect(update).toHaveBeenCalledWith('businessState', 'CE');
+    expect(container.textContent).toContain('Endereço preenchido automaticamente.');
+  });
+
   it('limita prazos e capacidade dos pedidos às faixas aceitas pelo backend', () => {
     const update = vi.fn();
     act(() => root.render(<OrderFlowSettings settings={adminMockSettings} update={update} />));
@@ -110,8 +142,12 @@ describe('configurações principais do administrador', () => {
       '[aria-label="Limite de pedidos simultâneos"]',
     ) as HTMLInputElement;
     act(() => {
+      preparation.focus();
       changeValue(preparation, '999');
+      preparation.blur();
+      capacity.focus();
       changeValue(capacity, '900');
+      capacity.blur();
     });
     expect(update).toHaveBeenCalledWith('deliveryTime', 240);
     expect(update).toHaveBeenCalledWith('maxConcurrentOrders', 500);

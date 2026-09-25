@@ -135,6 +135,7 @@ function tableFor(persona: Persona | null, state: FlowState) {
     ...(persona === 'admin' ? { token: TABLE_TOKEN } : {}),
     active: true,
     restaurantId: RESTAURANT_ID,
+    restaurantSlug: RESTAURANT_SLUG,
     operational: {
       status: state.tableOpen ? 'OCCUPIED' : 'FREE',
       openSession: state.tableOpen

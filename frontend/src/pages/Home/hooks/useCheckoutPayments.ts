@@ -472,6 +472,35 @@ export function useCheckoutPayments(options: Options) {
         }
       }
 
+      const preservedOrderPublicId = String(data?.orderPublicId || '').trim();
+      if (
+        ['CARD_PAYMENT_FAILED', 'CARD_DECLINED', 'CARD_PROVIDER_ERROR'].includes(
+          String(data?.code || ''),
+        ) &&
+        Number.isSafeInteger(preservedOrderId) &&
+        preservedOrderId > 0 &&
+        preservedOrderPublicId
+      ) {
+        onPurchased();
+        onClearCart();
+        onCloseCart();
+        notify(
+          'error',
+          data?.code === 'CARD_PROVIDER_ERROR'
+            ? 'Não foi possível processar o cartão'
+            : 'Pagamento não aprovado',
+          getCheckoutErrorMessage(error) ||
+            'O pedido foi preservado. Você pode tentar outro cartão sem criar um novo pedido.',
+          7000,
+        );
+        onActivePaymentExists?.({
+          orderId: preservedOrderId,
+          orderPublicId: preservedOrderPublicId,
+          paymentMethod: 'CARTAO',
+        });
+        return true;
+      }
+
       if (
         data?.code === 'PAYMENT_CREATION_UNCERTAIN' &&
         data.reconciliationRequired === true &&

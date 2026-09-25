@@ -11,6 +11,10 @@ import {
   emitTableSessionOrderEvent,
   emitWaiterTableOrderEvent,
 } from '../utils/waiterOrderRealtime.js';
+import {
+  isOrderCapacityQueued,
+  queueDigitalOrderBeforePaymentConfirmation,
+} from '../utils/orderCapacity.js';
 
 type FinalizeOrderPixPaymentPayload = {
   orderId?: number | string | null;
@@ -125,6 +129,11 @@ class FinalizeOrderPixPaymentService {
           normalizedPaymentId,
           tx,
         );
+        await queueDigitalOrderBeforePaymentConfirmation(
+          tx,
+          order.id,
+          order.restaurantId,
+        );
         const confirmedOrder = await orderRepository.confirmPayment(
           order.id,
           order.restaurantId,
@@ -167,13 +176,19 @@ class FinalizeOrderPixPaymentService {
       });
     }
 
-    io.to(`restaurant:${updatedOrder.restaurantId}`).emit('new-order', updatedOrder);
+    const queuedForCapacity = isOrderCapacityQueued(updatedOrder);
+    if (!queuedForCapacity)
+      io.to(`restaurant:${updatedOrder.restaurantId}`).emit('new-order', updatedOrder);
+    else
+      io.to(`restaurant:${updatedOrder.restaurantId}`).emit('order:capacity-queued', updatedOrder);
     io.to(`restaurant:${updatedOrder.restaurantId}`).emit('order:status-changed', updatedOrder);
     if (updatedOrder.userId) {
       io.to(`user:${updatedOrder.userId}`).emit('order:status-changed', updatedOrder);
     }
-    emitWaiterTableOrderEvent(io, 'new-order', updatedOrder);
-    emitTableSessionOrderEvent(io, 'new-order', updatedOrder);
+    if (!queuedForCapacity) {
+      emitWaiterTableOrderEvent(io, 'new-order', updatedOrder);
+      emitTableSessionOrderEvent(io, 'new-order', updatedOrder);
+    }
     emitTableSessionOrderEvent(io, 'order:status-changed', updatedOrder);
 
     notifyCustomerPaymentConfirmed({

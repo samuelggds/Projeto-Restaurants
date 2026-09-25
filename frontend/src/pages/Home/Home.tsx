@@ -504,7 +504,7 @@ export default function Home() {
       navigate(`/${restaurantSlug}/pedido/${orderPublicId}/pagamento`);
     },
     onActivePaymentExists: ({ orderPublicId, paymentMethod }) => {
-      if (paymentMethod !== 'PIX' || !restaurantSlug || mesaMode) return;
+      if (!['PIX', 'CARTAO'].includes(paymentMethod) || !restaurantSlug || mesaMode) return;
       navigate(`/${restaurantSlug}/pedido/${orderPublicId}/pagamento`);
     },
     onClearCart: () => setCart([]),

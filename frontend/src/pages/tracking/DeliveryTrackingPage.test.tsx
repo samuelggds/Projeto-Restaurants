@@ -7,7 +7,9 @@ const mocks = vi.hoisted(() => ({
   id: '601',
   navigate: vi.fn(),
   getTracking: vi.fn(),
+  confirmDeliveryReceived: vi.fn(),
   getGuestTrackingToken: vi.fn(() => ''),
+  locationSearch: '',
   listeners: new Map<string, (...args: unknown[]) => void>(),
   mapProps: null as null | {
     points: RoutePoint[];
@@ -25,6 +27,7 @@ const mocks = vi.hoisted(() => ({
 vi.mock('react-router-dom', () => ({
   useParams: () => ({ id: mocks.id }),
   useNavigate: () => mocks.navigate,
+  useLocation: () => ({ pathname: `/orders/${mocks.id}/tracking`, search: mocks.locationSearch, hash: '' }),
 }));
 vi.mock('../../contexts/authContext', () => ({
   useAuth: () => ({
@@ -32,7 +35,10 @@ vi.mock('../../contexts/authContext', () => ({
   }),
 }));
 vi.mock('../../Services/ordersService', () => ({
-  default: { getDeliveryTracking: mocks.getTracking },
+  default: {
+    getDeliveryTracking: mocks.getTracking,
+    confirmDeliveryReceived: mocks.confirmDeliveryReceived,
+  },
   getGuestOrderTrackingToken: mocks.getGuestTrackingToken,
 }));
 vi.mock('../../Services/socketService', () => ({
@@ -104,7 +110,13 @@ describe('DeliveryTrackingPage integration', () => {
     persistAuthSession({ id: 12, role: 'CLIENTE' }, 'customer-token');
     mocks.id = '601';
     mocks.mapProps = null;
+    mocks.locationSearch = '';
     mocks.getGuestTrackingToken.mockReturnValue('');
+    mocks.confirmDeliveryReceived.mockResolvedValue({
+      id: 601,
+      status: 'ENTREGUE',
+      deliveryConfirmedAt: '2026-08-24T14:22:00Z',
+    });
     mocks.listeners.clear();
     mocks.socket.on.mockImplementation((event: string, listener: (...args: unknown[]) => void) => {
       mocks.listeners.set(event, listener);
@@ -183,6 +195,35 @@ describe('DeliveryTrackingPage integration', () => {
     );
     expect(mocks.mapProps?.points).toHaveLength(finalPointCount);
     expect(container.textContent).toContain('Acompanhamento concluído');
+  });
+
+  it('mostra e conclui a confirmação de recebimento aberta pelo link do WhatsApp', async () => {
+    mocks.locationSearch = '?confirm=1';
+    mocks.getGuestTrackingToken.mockReturnValue('guest-token');
+    mocks.getTracking.mockResolvedValue({
+      ...trackingResult(),
+      order: {
+        ...trackingResult().order,
+        status: 'ENTREGUE',
+        deliveryConfirmedAt: null,
+        canConfirmDeliveryReceipt: true,
+      },
+    });
+
+    await act(async () => root.render(<DeliveryTrackingPage />));
+    await flushUntil(() => container.textContent?.includes('Você recebeu seu pedido?') === true);
+
+    expect(container.textContent).toContain('Confirmação solicitada pelo WhatsApp');
+    const confirmButton = Array.from(container.querySelectorAll('button')).find((button) =>
+      button.textContent?.includes('Confirmar recebimento'),
+    );
+    expect(confirmButton).toBeTruthy();
+
+    await act(async () => confirmButton?.click());
+    await flushUntil(() => container.textContent?.includes('Recebimento confirmado') === true);
+
+    expect(mocks.confirmDeliveryReceived).toHaveBeenCalledWith(601);
+    expect(container.textContent).toContain('O restaurante já recebeu sua confirmação.');
   });
 
   it('encerra o acompanhamento ao cancelar e ignora posições posteriores', async () => {

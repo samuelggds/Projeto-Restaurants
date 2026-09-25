@@ -312,7 +312,7 @@ export function EmployeeCompensationSettings(props: EmployeeCompensationSettings
                       <span>
                         <b>{employee.name}</b>
                         <small>
-                          {roleLabel(employee.role)} · {employee.email}
+                          {roleLabel(employee.role)} · {employee.username}
                         </small>
                       </span>
                     </div>

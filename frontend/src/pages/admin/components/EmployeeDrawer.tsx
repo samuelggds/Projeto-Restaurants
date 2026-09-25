@@ -17,7 +17,7 @@ type EmployeeDrawerProps = {
 
 export function EmployeeDrawer({ employee, close, save }: EmployeeDrawerProps) {
   const [name, setName] = useState(employee?.name ?? '');
-  const [email, setEmail] = useState(employee?.email ?? '');
+  const [username, setUsername] = useState(employee?.username ?? '');
   const [phone, setPhone] = useState(String(employee?.phone ?? ''));
   const [role, setRole] = useState<EmployeeRole>(employee?.role ?? 'ATTENDANT');
   const [password, setPassword] = useState('');
@@ -32,15 +32,17 @@ export function EmployeeDrawer({ employee, close, save }: EmployeeDrawerProps) {
   const submit = async (event: FormEvent) => {
     event.preventDefault();
     const normalizedName = name.trim();
-    const normalizedEmail = email.trim().toLowerCase();
+    const normalizedUsername = username.trim().normalize('NFC').toLocaleLowerCase('pt-BR');
     const phoneDigits = phone.replace(/\D/g, '');
 
     if (normalizedName.length < 2) {
       setError('Informe o nome completo do funcionário.');
       return;
     }
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
-      setError('Informe um e-mail de acesso válido.');
+    if (!/^[a-z0-9]{3,32}$/u.test(normalizedUsername)) {
+      setError(
+        'O usuário deve ter de 3 a 32 caracteres, somente letras minúsculas de a a z e números, sem espaços ou símbolos.',
+      );
       return;
     }
     if (
@@ -61,7 +63,7 @@ export function EmployeeDrawer({ employee, close, save }: EmployeeDrawerProps) {
     try {
       const payload: EmployeeFormPayload = {
         name: normalizedName,
-        email: normalizedEmail,
+        username: normalizedUsername,
         ...(!employee || phoneDigits.length > 0 ? { phone } : {}),
         role,
         active: employee?.active ?? true,
@@ -97,8 +99,20 @@ export function EmployeeDrawer({ employee, close, save }: EmployeeDrawerProps) {
           <input value={name} onChange={(event) => setName(event.target.value)} />
         </S.Field>
         <S.Field>
-          E-mail de acesso
-          <input type="email" value={email} onChange={(event) => setEmail(event.target.value)} />
+          Usuário de conta
+          <input
+            type="text"
+            inputMode="text"
+            autoCapitalize="none"
+            autoCorrect="off"
+            spellCheck={false}
+            minLength={3}
+            maxLength={32}
+            value={username}
+            placeholder="ex.: joaosantos"
+            onChange={(event) => setUsername(event.target.value.toLocaleLowerCase('pt-BR'))}
+          />
+          <small>Somente letras minúsculas e números, tudo junto e sem espaços.</small>
         </S.Field>
         <S.Field>
           Telefone com DDD

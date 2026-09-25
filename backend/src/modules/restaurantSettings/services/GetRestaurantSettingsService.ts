@@ -84,6 +84,7 @@ type RestaurantSettingsFallback = {
   maxConcurrentOrders: number;
   restaurant: {
     name: string;
+    slug: string;
     logo: string | null;
     coverImage: string | null;
     description: string | null;
@@ -186,6 +187,7 @@ class GetRestaurantSettingsService {
         maxConcurrentOrders: 20,
         restaurant: {
           name: restaurant.name,
+          slug: restaurant.slug,
           logo: restaurant.logo,
           coverImage: restaurant.coverImage,
           description: restaurant.description,

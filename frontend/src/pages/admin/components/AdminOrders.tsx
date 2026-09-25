@@ -492,9 +492,13 @@ export function AdminOrders({
             {displayedOrders.map((order) => {
               const payment = getOrderPaymentPresentation(order);
               const progress = getOrderProgress(order.status);
-              const statusLabel =
-                statusLabels[order.status] ??
-                order.status.replaceAll('_', ' ').toLocaleLowerCase('pt-BR');
+              const waitingForCapacity = Boolean(
+                order.capacityQueuedAt && !order.capacityAdmittedAt,
+              );
+              const statusLabel = waitingForCapacity
+                ? 'Aguardando vaga'
+                : statusLabels[order.status] ??
+                  order.status.replaceAll('_', ' ').toLocaleLowerCase('pt-BR');
               const isCancelled = order.status === 'CANCELADO';
               const isFinished = isCancelled || order.status === 'ENTREGUE';
               const isRefundProcessing = order.refundStatus === 'PROCESSING';
@@ -556,6 +560,14 @@ export function AdminOrders({
                       <strong>{money(order.total)}</strong>
                     </div>
                   </div>
+
+                  {waitingForCapacity ? (
+                    <div className="operation-note processing-note" role="status">
+                      <Clock3 aria-hidden="true" />
+                      Limite simultâneo atingido. O pedido foi recebido e entrará automaticamente
+                      na operação assim que uma vaga for liberada.
+                    </div>
+                  ) : null}
 
                   <div className="order-progress">
                     <div className="progress-heading">

@@ -3,6 +3,7 @@ import prisma from '../../../config/prisma.js';
 import { withTenantDbContext } from '../../../database/tenantDbContext.js';
 import { OrderRequestError } from '../domain/OrderRequestError.js';
 import { operationalPaymentWhere, type OrderListQuery } from '../domain/orderListQuery.js';
+import { admittedCapacityWhere } from '../utils/orderCapacity.js';
 import { readOrderPage } from '../repositories/OrderListRepository.js';
 import courierAccessService from './CourierAccessService.js';
 import { calculateCourierCompensation } from '../../courierCompensation/domain/courierCompensation.js';
@@ -21,7 +22,10 @@ export function staffOrderScope(viewer: Viewer): Prisma.OrderWhereInput {
   // pedido digital não pago entre no fluxo de preparo antes da confirmação.
   if (role === 'ADMIN') return { restaurantId };
 
-  const base: Prisma.OrderWhereInput = { restaurantId, AND: [operationalPaymentWhere] };
+  const base: Prisma.OrderWhereInput = {
+    restaurantId,
+    AND: [operationalPaymentWhere, admittedCapacityWhere],
+  };
   if (role === 'MOTOQUEIRO')
     return {
       ...base,
@@ -53,7 +57,11 @@ export function staffOrderScope(viewer: Viewer): Prisma.OrderWhereInput {
 
 class PaginatedOrdersService {
   async staff(viewer: Viewer, query: OrderListQuery) {
-    const base = staffOrderScope(viewer);
+    const roleBase = staffOrderScope(viewer);
+    const base =
+      viewer.role === 'ADMIN' && ['ACTIVE', 'IN_PROGRESS'].includes(query.queue)
+        ? ({ AND: [roleBase, operationalPaymentWhere] } satisfies Prisma.OrderWhereInput)
+        : roleBase;
     if (viewer.role === 'MOTOQUEIRO') {
       await courierAccessService.assertActiveCourier(viewer.id, viewer.restaurantId);
     }
@@ -101,7 +109,6 @@ class PaginatedOrdersService {
     const base: Prisma.OrderWhereInput = {
       userId: viewer.id,
       ...(viewer.restaurantId > 0 ? { restaurantId: viewer.restaurantId } : {}),
-      NOT: [{ paymentMethod: 'CARTAO', paid: false, cardCheckoutSessionId: { not: null } }],
     };
     const read = (db: Prisma.TransactionClient) => readOrderPage(db, base, query);
     return viewer.restaurantId > 0

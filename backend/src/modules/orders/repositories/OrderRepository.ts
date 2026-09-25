@@ -12,6 +12,7 @@ import {
 import prisma from '../../../config/prisma.js';
 import { withTenantDbContext } from '../../../database/tenantDbContext.js';
 import kitchenPrintingService from '../../kitchenPrinting/services/KitchenPrintingService.js';
+import { admittedCapacityWhere } from '../utils/orderCapacity.js';
 
 type PrismaClientLike = Prisma.TransactionClient | typeof prisma;
 
@@ -66,12 +67,17 @@ function activeTableSessionWhere(restaurantId: number): Prisma.TableSessionWhere
 
 function operationalPaymentWhere(): Prisma.OrderWhereInput {
   return {
-    OR: [
-      { settlementMode: TableOrderSettlementMode.TABLE_ACCOUNT },
-      { paymentMethod: null },
-      { paid: true },
-      { payOnDelivery: true },
-      { paymentMethod: { notIn: [PaymentMethod.PIX, PaymentMethod.CARTAO] } },
+    AND: [
+      {
+        OR: [
+          { settlementMode: TableOrderSettlementMode.TABLE_ACCOUNT },
+          { paymentMethod: null },
+          { paid: true },
+          { payOnDelivery: true },
+          { paymentMethod: { notIn: [PaymentMethod.PIX, PaymentMethod.CARTAO] } },
+        ],
+      },
+      admittedCapacityWhere,
     ],
   };
 }
@@ -168,7 +174,7 @@ class OrderRepository {
       where: {
         restaurantId,
         status: { in: [OrderStatus.PENDENTE, OrderStatus.PREPARANDO, OrderStatus.PRONTO] },
-        AND: [operationalPaymentWhere()],
+        AND: [operationalPaymentWhere(), admittedCapacityWhere],
       },
     });
   }
@@ -415,12 +421,22 @@ class OrderRepository {
         where: { orderId: Number(id), restaurantId, canceledAt: null },
         data: { financialStatus: TableBillItemFinancialStatus.PAID, paidAt },
       });
-      await kitchenPrintingService.enqueueAutomatic({
-        restaurantId,
-        orderId: Number(id),
-        event: 'PAYMENT_CONFIRMED',
-        db,
+      const queued = await db.order.findFirst({
+        where: {
+          id: Number(id),
+          restaurantId,
+          capacityQueuedAt: { not: null },
+          capacityAdmittedAt: null,
+        },
+        select: { id: true },
       });
+      if (!queued)
+        await kitchenPrintingService.enqueueAutomatic({
+          restaurantId,
+          orderId: Number(id),
+          event: 'PAYMENT_CONFIRMED',
+          db,
+        });
     }
 
     const current = await this.findById(id, restaurantId, db);
@@ -484,12 +500,22 @@ class OrderRepository {
         where: { orderId: Number(id), restaurantId, canceledAt: null },
         data: { financialStatus: TableBillItemFinancialStatus.PAID, paidAt },
       });
-      await kitchenPrintingService.enqueueAutomatic({
-        restaurantId,
-        orderId: Number(id),
-        event: 'PAYMENT_CONFIRMED',
-        db,
+      const queued = await db.order.findFirst({
+        where: {
+          id: Number(id),
+          restaurantId,
+          capacityQueuedAt: { not: null },
+          capacityAdmittedAt: null,
+        },
+        select: { id: true },
       });
+      if (!queued)
+        await kitchenPrintingService.enqueueAutomatic({
+          restaurantId,
+          orderId: Number(id),
+          event: 'PAYMENT_CONFIRMED',
+          db,
+        });
     }
 
     const current = await this.findById(id, restaurantId, db);
@@ -630,6 +656,7 @@ class OrderRepository {
         payOnDelivery: true,
         pixPaymentId: true,
         pixExpiresAt: true,
+        createdAt: true,
         restaurant: {
           select: {
             id: true,
@@ -1004,25 +1031,7 @@ class OrderRepository {
     }
 
     return db.order.findMany({
-      where: {
-        ...where,
-        NOT: [
-          {
-            paymentMethod: PaymentMethod.PIX,
-            paid: false,
-            pixPaymentId: {
-              not: null,
-            },
-          },
-          {
-            paymentMethod: PaymentMethod.CARTAO,
-            paid: false,
-            cardCheckoutSessionId: {
-              not: null,
-            },
-          },
-        ],
-      },
+      where,
       include: {
         items: {
           include: {

@@ -22,8 +22,9 @@ import directOrderCardPaymentService, {
   hasDirectCardPaymentPayload,
   type DirectCardPaymentPayload,
 } from './DirectOrderCardPaymentService.js';
-import failPendingOrderPaymentService from './FailPendingOrderPaymentService.js';
 import { OrderRequestError } from '../domain/OrderRequestError.js';
+import { OrderPaymentAttemptStatus } from '@prisma/client';
+import orderPaymentAttemptRepository from '../repositories/OrderPaymentAttemptRepository.js';
 
 type CardCheckoutPayload = CreateOrderCardCheckoutPayload &
   DirectCardPaymentPayload & {
@@ -106,6 +107,12 @@ class CreateOrderCardCheckoutService {
       systemFee: createdOrder.systemFee,
       restaurant: createdOrder.restaurant,
     };
+    const paymentAttempt = await orderPaymentAttemptRepository.createCardAttempt({
+      orderId: createdOrder.id,
+      restaurantId: createdOrder.restaurantId,
+      provider: resolvedCardProvider,
+      amount: Number(createdOrder.total),
+    });
 
     let checkout: CardCheckoutResult;
     try {
@@ -115,6 +122,7 @@ class CreateOrderCardCheckoutService {
           payload,
           order: orderForPayment,
           successUrlBase,
+          idempotencyKey: paymentAttempt.idempotencyKey,
         });
       } else {
         const providerHandler = getCardCheckoutProviderHandler(resolvedCardProvider);
@@ -127,26 +135,51 @@ class CreateOrderCardCheckoutService {
       }
     } catch (error) {
       if (error instanceof CardPaymentDeclinedError) {
-        await failPendingOrderPaymentService.execute({
-          orderId: createdOrder.id,
-          restaurantId: createdOrder.restaurantId,
-        });
+        await orderPaymentAttemptRepository.update(
+          paymentAttempt.id,
+          createdOrder.restaurantId,
+          OrderPaymentAttemptStatus.DECLINED,
+          {
+            providerOrderId: error.diagnostic?.providerOrderId || null,
+            providerStatus: error.diagnostic?.status || 'declined',
+            providerStatusDetail: error.diagnostic?.statusDetail || null,
+            providerRequestId: error.diagnostic?.providerRequestId || null,
+            failureCode: error.diagnostic?.providerCode || 'card_declined',
+            failureMessage: error.message,
+          },
+        );
         throw new OrderRequestError(
           error.message,
           402,
           error.diagnostic ? 'CARD_PAYMENT_FAILED' : 'CARD_DECLINED',
-          error.diagnostic ? { paymentError: error.diagnostic } : undefined,
+          {
+            orderId: createdOrder.id,
+            orderPublicId: createdOrder.publicId,
+            paymentPending: true,
+            paymentAttemptId: paymentAttempt.publicId,
+            ...(error.diagnostic ? { paymentError: error.diagnostic } : {}),
+          },
         );
       }
 
       if (error instanceof CardPaymentProviderRequestError) {
-        await failPendingOrderPaymentService.execute({
-          orderId: createdOrder.id,
-          restaurantId: createdOrder.restaurantId,
-        });
+        await orderPaymentAttemptRepository.update(
+          paymentAttempt.id,
+          createdOrder.restaurantId,
+          OrderPaymentAttemptStatus.FAILED,
+          {
+            providerOrderId: error.diagnostic?.providerOrderId || null,
+            providerStatus: error.diagnostic?.status || 'failed',
+            providerStatusDetail: error.diagnostic?.statusDetail || null,
+            providerRequestId: error.diagnostic?.providerRequestId || null,
+            failureCode: error.providerCode,
+            failureMessage: error.message,
+          },
+        );
         console.error('[CARD_PROVIDER_REQUEST_ERROR]', {
           orderId: createdOrder.id,
           restaurantId: createdOrder.restaurantId,
+          paymentAttemptId: paymentAttempt.publicId,
           providerStatus: error.providerStatus,
           providerCode: error.providerCode,
         });
@@ -154,19 +187,47 @@ class CreateOrderCardCheckoutService {
           'Não foi possível processar o cartão neste momento. Tente novamente em alguns minutos.',
           502,
           'CARD_PROVIDER_ERROR',
-          error.diagnostic ? { paymentError: error.diagnostic } : undefined,
+          {
+            orderId: createdOrder.id,
+            orderPublicId: createdOrder.publicId,
+            paymentPending: true,
+            paymentAttemptId: paymentAttempt.publicId,
+            ...(error.diagnostic ? { paymentError: error.diagnostic } : {}),
+          },
         );
       }
 
       // Even a missing/malformed response can follow a successful charge or webhook.
       // Preserve the order, stock reservation and coupon until reconciliation.
+      await orderPaymentAttemptRepository.update(
+        paymentAttempt.id,
+        createdOrder.restaurantId,
+        OrderPaymentAttemptStatus.PROCESSING,
+        {
+          failureCode: 'reconciliation_required',
+          failureMessage: error instanceof Error ? error.message : 'Resposta incerta do provedor.',
+        },
+      );
       console.error('[CARD_PAYMENT_CREATION_UNCERTAIN]', {
         orderId: createdOrder.id,
         restaurantId: createdOrder.restaurantId,
+        paymentAttemptId: paymentAttempt.publicId,
         errorType: error instanceof Error ? error.name : 'UnknownError',
       });
       throw new PaymentCreationUncertainError(createdOrder.id, createdOrder.publicId);
     }
+
+    await orderPaymentAttemptRepository.update(
+      paymentAttempt.id,
+      createdOrder.restaurantId,
+      checkout.paymentApproved
+        ? OrderPaymentAttemptStatus.APPROVED
+        : OrderPaymentAttemptStatus.PROCESSING,
+      {
+        providerOrderId: String(checkout.sessionId || '').trim() || null,
+        providerStatus: checkout.paymentApproved ? 'processed' : 'pending',
+      },
+    );
 
     try {
       await orderRepository.setCardCheckoutSessionId(
@@ -201,6 +262,7 @@ class CreateOrderCardCheckoutService {
       sessionId: checkout.sessionId,
       checkoutUrl: checkout.checkoutUrl,
       paid: paymentConfirmed,
+      paymentAttemptId: paymentAttempt.publicId,
     };
   }
 }

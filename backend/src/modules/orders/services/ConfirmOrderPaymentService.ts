@@ -3,6 +3,10 @@ import { realtimePublisher as io } from '../../../realtime/realtimePublisher.js'
 import prisma from '../../../config/prisma.js';
 import orderRepository from '../repositories/OrderRepository.js';
 import { markCouponRedemptionUsedForOrder } from './couponRedemptionLifecycle.js';
+import {
+  isOrderCapacityQueued,
+  queueDigitalOrderBeforePaymentConfirmation,
+} from '../utils/orderCapacity.js';
 
 class ConfirmOrderPaymentService {
   async execute(
@@ -42,6 +46,12 @@ class ConfirmOrderPaymentService {
     }
 
     const updatedOrder = await prisma.$transaction(async (tx) => {
+      if (isPendingDigitalPayment)
+        await queueDigitalOrderBeforePaymentConfirmation(
+          tx,
+          Number(normalizedOrderId),
+          restaurantId,
+        );
       const confirmedOrder = await orderRepository.confirmPayment(
         normalizedOrderId,
         restaurantId,
@@ -111,9 +121,14 @@ class ConfirmOrderPaymentService {
 
     // Depois da confirmação, o pedido pode entrar no fluxo operacional que estava
     // bloqueado enquanto o pagamento digital permanecia pendente.
-    io.to(`restaurant:${restaurantId}`).emit('new-order', updatedOrder);
-    if (updatedOrder.userId) {
-      io.to(`user:${updatedOrder.userId}`).emit('new-order', updatedOrder);
+    const queuedForCapacity = isOrderCapacityQueued(updatedOrder);
+    if (!queuedForCapacity) {
+      io.to(`restaurant:${restaurantId}`).emit('new-order', updatedOrder);
+      if (updatedOrder.userId) {
+        io.to(`user:${updatedOrder.userId}`).emit('new-order', updatedOrder);
+      }
+    } else {
+      io.to(`restaurant:${restaurantId}`).emit('order:capacity-queued', updatedOrder);
     }
 
     io.to(`restaurant:${restaurantId}`).emit('order:status-changed', updatedOrder);

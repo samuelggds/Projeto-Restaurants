@@ -11,12 +11,18 @@ const employeeNameSchema = z
   .min(2, 'Nome deve conter pelo menos 2 caracteres')
   .max(120, 'Nome deve conter no máximo 120 caracteres');
 
-const employeeEmailSchema = z
-  .string()
+export const employeeUsernameSchema = z
+  .string({
+    required_error: 'Usuário de conta obrigatório',
+    invalid_type_error: 'Usuário de conta inválido',
+  })
   .trim()
-  .toLowerCase()
-  .email('Email inválido')
-  .max(180, 'Email deve conter no máximo 180 caracteres');
+  .min(3, 'Usuário deve conter pelo menos 3 caracteres')
+  .max(32, 'Usuário deve conter no máximo 32 caracteres')
+  .transform((value) => value.normalize('NFC').toLocaleLowerCase('pt-BR'))
+  .refine((value) => /^[a-z0-9]+$/u.test(value), {
+    message: 'Usuário deve conter somente letras minúsculas de a a z e números, sem espaços ou símbolos',
+  });
 
 const employeePhoneSchema = z
   .string({
@@ -30,7 +36,7 @@ const employeePhoneSchema = z
 export const EmployeeUserSchema = z
   .object({
     name: employeeNameSchema,
-    email: employeeEmailSchema,
+    username: employeeUsernameSchema,
     password: passwordSchema,
     confirmPassword: z.string().min(1, 'Confirmação de senha obrigatória'),
     role: z
@@ -64,7 +70,7 @@ export const EmployeeUserSchema = z
 export const UpdateEmployeeSchema = z
   .object({
     name: employeeNameSchema.optional(),
-    email: employeeEmailSchema.optional(),
+    username: employeeUsernameSchema.optional(),
     phone: z.union([employeePhoneSchema, z.literal(''), z.null()]).optional(),
     role: z
       .nativeEnum(UserRole)

@@ -9,6 +9,7 @@ export const Shell = styled.div`
   border: 1px solid #d7dcd7;
   border-radius: 8px;
   background: #e8eef0;
+  color-scheme: light;
   isolation: isolate;
 
   @media (max-width: 560px) {
@@ -20,6 +21,9 @@ export const Shell = styled.div`
 export const Canvas = styled.div`
   position: absolute;
   inset: 0;
+  background: #eef2f3;
+  color-scheme: light;
+  filter: none;
 `;
 
 export const EtaCard = styled.div`

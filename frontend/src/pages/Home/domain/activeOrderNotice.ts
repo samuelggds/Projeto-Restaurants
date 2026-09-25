@@ -51,15 +51,18 @@ export function getActiveOrderNotice(orders: Record<string, unknown>[]): ActiveO
   if (!ACTIVE_STATUSES.has(status) && !awaitsReceiptConfirmation) return null;
 
   const code = String(latestOrder.deliveryConfirmationCode || '').trim();
+  const paymentMethod = String(latestOrder.paymentMethod || '').toUpperCase();
   const paymentPending =
-    String(latestOrder.paymentMethod || '').toUpperCase() === 'PIX' &&
     latestOrder.paid !== true &&
-    Boolean(String(latestOrder.pixPaymentId || '').trim());
+    (paymentMethod === 'CARTAO' ||
+      (paymentMethod === 'PIX' && Boolean(String(latestOrder.pixPaymentId || '').trim())));
   return {
     id: String(latestOrder.id),
     status,
     summary: orderSummary(latestOrder),
-    statusLabel: paymentPending ? 'Pagamento pendente' : STATUS_LABELS[status] || 'Pedido em andamento',
+    statusLabel: paymentPending
+      ? 'Pagamento pendente'
+      : STATUS_LABELS[status] || 'Pedido em andamento',
     deliveryConfirmationCode: /^\d{4}$/.test(code) ? code : null,
     deliveryStartedAt: latestOrder.deliveryStartedAt
       ? String(latestOrder.deliveryStartedAt)

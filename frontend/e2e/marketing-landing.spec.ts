@@ -29,7 +29,7 @@ const test = base.extend<{ apiIsolation: void }>({
                     name: 'Básico',
                     description: 'Para organizar seu delivery e começar uma nova fase.',
                     monthlyFee: 149.9,
-                    trialDays: 30,
+                    trialDays: 7,
                     features: [
                       'Sistema de delivery',
                       'Gestão dos pedidos de entrega',
@@ -42,7 +42,7 @@ const test = base.extend<{ apiIsolation: void }>({
                     name: 'Premium',
                     description: 'Para conectar o delivery e o atendimento das suas mesas.',
                     monthlyFee: 249.9,
-                    trialDays: 30,
+                    trialDays: 15,
                     features: [
                       'Tudo do plano Básico',
                       'Cardápio digital com QR Code de mesa',
@@ -167,7 +167,8 @@ test('planos preservam preços, teste e destino comercial; FAQ funciona por tecl
   await expect(plans.getByRole('heading', { name: 'Premium', exact: true })).toBeVisible();
   await expect(plans).toContainText('149,90');
   await expect(plans).toContainText('249,90');
-  await expect(plans).toContainText('30 dias de teste');
+  await expect(plans).toContainText('7 dias de teste');
+  await expect(plans).toContainText('15 dias de teste');
 
   const contactLink = page
     .locator('header')

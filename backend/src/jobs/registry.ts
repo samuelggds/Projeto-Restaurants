@@ -5,6 +5,7 @@ import reconcileRecurringCardBillingService from '../modules/billing/services/Re
 import loyaltyRedemptionExpirationJob from '../modules/coupon/jobs/LoyaltyRedemptionExpirationJob.js';
 import deliveryLocationCleanupJob from '../modules/orders/jobs/DeliveryLocationCleanupJob.js';
 import orderPixPaymentExpirationJob from '../modules/orders/jobs/OrderPixPaymentExpirationJob.js';
+import orderCapacityQueueJob from '../modules/orders/jobs/OrderCapacityQueueJob.js';
 import tablePaymentReservationExpirationJob from '../modules/tableAccount/jobs/TablePaymentReservationExpirationJob.js';
 import type { JobDefinition } from './JobDefinition.js';
 import { drainNotificationOutbox } from '../services/notificationOutbox.js';
@@ -149,6 +150,17 @@ export function createJobDefinitions(env: Environment = process.env): JobDefinit
       successCooldownMs: 20 * 60 * 60 * 1000,
       failureBackoffMs: 60 * 60 * 1000,
       execute: () => deliveryLocationCleanupJob.execute(),
+    },
+    {
+      key: 'orders.capacity-queue',
+      description: 'Liberação FIFO de pedidos aguardando vaga operacional',
+      runtime: 'worker',
+      schedule: { kind: 'interval', intervalMs: 10_000 },
+      leaseDurationMs: 30_000,
+      successCooldownMs: 5_000,
+      failureBackoffMs: 10_000,
+      runOnStart: true,
+      execute: () => orderCapacityQueueJob.execute(),
     },
     {
       key: 'orders.pix-payment-expiration',

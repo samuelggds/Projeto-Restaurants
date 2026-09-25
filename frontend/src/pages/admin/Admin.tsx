@@ -47,6 +47,15 @@ function asRecord(value: unknown): Record<string, unknown> {
   return value && typeof value === 'object' ? (value as Record<string, unknown>) : {};
 }
 
+export function restaurantSlugFromSettingsResponse(value: unknown) {
+  const raw = asRecord(value);
+  const restaurant = asRecord(raw.restaurant);
+  const slug = String(restaurant.slug ?? raw.restaurantSlug ?? '')
+    .trim()
+    .toLowerCase();
+  return /^[a-z0-9]+(?:-[a-z0-9]+)*$/u.test(slug) ? slug : '';
+}
+
 function mapOrder(value: unknown): AdminOrder {
   const raw = asRecord(value);
   const user = asRecord(raw.user ?? raw.customer);
@@ -536,7 +545,7 @@ function mapEmployee(raw: Record<string, unknown>): Employee {
   return {
     id: String(raw?.id ?? ''),
     name: String(raw?.name ?? ''),
-    email: String(raw?.email ?? ''),
+    username: String(raw?.username ?? ''),
     phone: String(raw?.phone ?? '') || undefined,
     role,
     active: raw?.active !== false,
@@ -568,6 +577,7 @@ export default function Admin() {
 
   const [settings, setSettings] = useState<AdminSettings>(adminMockSettings);
   const [settingsId, setSettingsId] = useState<number | null>(null);
+  const [restaurantSlug, setRestaurantSlug] = useState('');
   const [employees, setEmployees] = useState<Employee[]>(adminMockEmployees);
   const [orders, setOrders] = useState<AdminOrder[]>([]);
   const [products, setProducts] = useState<AdminProduct[]>([]);
@@ -696,10 +706,10 @@ export default function Admin() {
     ])
       .then(([data, banners, tableAccountSettings]) => {
         if (!mounted) return;
-        setSettingsId(Number((data as Record<string, unknown>)?.id ?? 0) || null);
-        setSettings(
-          mapSettingsFromApi(data as Record<string, unknown>, banners, tableAccountSettings),
-        );
+        const settingsRecord = data as Record<string, unknown>;
+        setSettingsId(Number(settingsRecord?.id ?? 0) || null);
+        setRestaurantSlug(restaurantSlugFromSettingsResponse(settingsRecord));
+        setSettings(mapSettingsFromApi(settingsRecord, banners, tableAccountSettings));
       })
       .catch((error) => {
         console.error('Não foi possível carregar as configurações.', safeErrorName(error));
@@ -773,6 +783,7 @@ export default function Admin() {
       ]);
       const refreshedRecord = refreshed as Record<string, unknown>;
       setSettingsId(Number(refreshedRecord?.id ?? 0) || null);
+      setRestaurantSlug(restaurantSlugFromSettingsResponse(refreshedRecord));
       setSettings(mapSettingsFromApi(refreshedRecord, refreshedBanners, refreshedTableAccount));
     } catch (error) {
       console.error('Não foi possível salvar as configurações.', safeErrorName(error));
@@ -785,7 +796,7 @@ export default function Admin() {
       const identity = mapEmployeeRoleToApi(employee.role);
       const created = await employeesService.createEmployee({
         name: employee.name,
-        email: employee.email,
+        username: employee.username,
         phone: employee.phone,
         password: employee.password,
         confirmPassword: employee.confirmPassword,
@@ -804,7 +815,7 @@ export default function Admin() {
       const identity = mapEmployeeRoleToApi(employee.role);
       await employeesService.updateEmployee(employee.id, {
         name: employee.name,
-        email: employee.email,
+        username: employee.username,
         ...(employee.phone ? { phone: employee.phone } : {}),
         ...identity,
       });
@@ -959,9 +970,11 @@ export default function Admin() {
           bannerService.list(),
           tableAccountService.getSettings(),
         ]);
+        const refreshedRecord = refreshed as Record<string, unknown>;
+        setRestaurantSlug(restaurantSlugFromSettingsResponse(refreshedRecord));
         setSettings(
           mapSettingsFromApi(
-            refreshed as Record<string, unknown>,
+            refreshedRecord,
             refreshedBanners,
             refreshedTableAccount,
           ),
@@ -975,9 +988,11 @@ export default function Admin() {
           bannerService.list(),
           tableAccountService.getSettings(),
         ]);
+        const refreshedRecord = refreshed as Record<string, unknown>;
+        setRestaurantSlug(restaurantSlugFromSettingsResponse(refreshedRecord));
         setSettings(
           mapSettingsFromApi(
-            refreshed as Record<string, unknown>,
+            refreshedRecord,
             refreshedBanners,
             refreshedTableAccount,
           ),
@@ -991,7 +1006,13 @@ export default function Admin() {
       onReactivateEmployee={async (id) => {
         await employeesService.reactivateEmployee(id);
       }}
-      onViewStore={() => navigate('/')}
+      onViewStore={() => {
+        if (!restaurantSlug) {
+          toast.error('Não foi possível identificar o endereço público deste restaurante.');
+          return;
+        }
+        navigate(`/${encodeURIComponent(restaurantSlug)}`);
+      }}
       onLogout={() => {
         logout();
         navigate('/login');

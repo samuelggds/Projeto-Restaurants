@@ -10,11 +10,11 @@ class CreateEmployeeController {
       const parsed = EmployeeUserSchema.parse({
         ...req.body,
       });
-      const { name, email, password, phone, role, cpf, subRole } = parsed;
+      const { name, username, password, phone, role, cpf, subRole } = parsed;
 
       const employee = await createEmployeeService.execute({
         name,
-        email,
+        username,
         password,
         phone,
         role,

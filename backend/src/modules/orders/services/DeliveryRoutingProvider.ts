@@ -11,7 +11,7 @@ export type DeliveryRoutingRequest = {
   destination: DeliveryRouteAddress;
 };
 
-export type DeliveryRoutingProviderId = 'osrm' | 'geoapify';
+export type DeliveryRoutingProviderId = 'osrm' | 'geoapify' | 'google';
 
 export interface DeliveryRoutingProvider {
   readonly id: DeliveryRoutingProviderId;

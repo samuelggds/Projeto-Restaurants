@@ -33,7 +33,7 @@ const employees: Employee[] = [
   {
     id: '21',
     name: 'Ana Cozinha',
-    email: 'ana@equipe.test',
+    username: 'anacozinha',
     role: 'COOK',
     active: true,
     permissions: { viewOrders: true, updateOrderStatus: true, manageQrTables: false },
@@ -41,7 +41,7 @@ const employees: Employee[] = [
   {
     id: '22',
     name: 'Carla Garçom',
-    email: 'carla@equipe.test',
+    username: 'carlagarcom',
     role: 'WAITER',
     active: true,
     permissions: { viewOrders: true, updateOrderStatus: true, manageQrTables: true },
@@ -49,7 +49,7 @@ const employees: Employee[] = [
   {
     id: '23',
     name: 'Caio Motoqueiro',
-    email: 'caio@equipe.test',
+    username: 'caiomotoqueiro',
     role: 'COURIER',
     active: true,
     permissions: { viewOrders: true, updateOrderStatus: true, manageQrTables: false },

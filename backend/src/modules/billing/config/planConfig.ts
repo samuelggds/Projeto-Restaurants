@@ -4,7 +4,7 @@ export const PLAN_CONFIG = {
   [PlanType.BASICO]: {
     name: 'Básico',
     monthlyFee: 149.9,
-    trialDays: 30,
+    trialDays: 7,
     availableForSale: true,
     features: ['Sistema de delivery', 'Suporte padrão'],
   },
@@ -12,7 +12,7 @@ export const PLAN_CONFIG = {
   [PlanType.PREMIUM]: {
     name: 'Premium',
     monthlyFee: 249.9,
-    trialDays: 30,
+    trialDays: 15,
     availableForSale: true,
     features: [
       'Sistema de delivery',

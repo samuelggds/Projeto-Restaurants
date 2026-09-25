@@ -9,10 +9,12 @@ import {
 class LoginController {
   async handle(req: Request, res: Response) {
     try {
-      const { email, password } = req.body;
+      const { email, username, restaurantSlug, password } = req.body;
 
       const result = await loginService.execute({
         email,
+        username,
+        restaurantSlug,
         password,
       });
 
