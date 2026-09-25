@@ -2,6 +2,7 @@
 import assert from 'node:assert/strict';
 import test, { afterEach } from 'node:test';
 import geoapifyDeliveryRoutingProvider from './GeoapifyDeliveryRoutingProvider.js';
+import googleRoutesDeliveryRoutingProvider from './GoogleRoutesDeliveryRoutingProvider.js';
 import {
   getConfiguredDeliveryRoutingProviderId,
   getDeliveryRoutingProvider,
@@ -25,6 +26,13 @@ test('usa osrm como provider padrao', () => {
   assert.equal(getDeliveryRoutingProvider().id, 'osrm');
 });
 
+test('seleciona google por variavel de ambiente', () => {
+  process.env.ROUTING_PROVIDER = 'google';
+
+  assert.equal(getConfiguredDeliveryRoutingProviderId(), 'google');
+  assert.equal(getDeliveryRoutingProvider().id, 'google');
+});
+
 test('seleciona geoapify por variavel de ambiente', () => {
   process.env.ROUTING_PROVIDER = 'geoapify';
 
@@ -35,7 +43,62 @@ test('seleciona geoapify por variavel de ambiente', () => {
 test('rejeita provider desconhecido', () => {
   process.env.ROUTING_PROVIDER = 'qualquer-outro';
 
-  assert.throws(() => getDeliveryRoutingProvider(), /osrm ou geoapify/);
+  assert.throws(() => getDeliveryRoutingProvider(), /google, osrm ou geoapify/);
+});
+
+
+test('google routes solicita rota TWO_WHEELER com trafego e geometria detalhada', async () => {
+  process.env.GOOGLE_ROUTES_API_KEY = 'test-google-key';
+  process.env.GOOGLE_ROUTES_BASE_URL = 'https://routes.googleapis.com';
+
+  let requestBody: Record<string, unknown> | null = null;
+  let requestHeaders: Headers | null = null;
+  globalThis.fetch = async (_input, init) => {
+    requestBody = JSON.parse(String(init?.body || '{}'));
+    requestHeaders = new Headers(init?.headers);
+    return new Response(
+      JSON.stringify({
+        routes: [
+          {
+            duration: '600s',
+            distanceMeters: 4200,
+            polyline: {
+              geoJsonLinestring: {
+                coordinates: [
+                  [-38.52, -3.73],
+                  [-38.53, -3.74],
+                  [-38.55, -3.75],
+                ],
+              },
+            },
+          },
+        ],
+      }),
+      { status: 200, headers: { 'Content-Type': 'application/json' } },
+    );
+  };
+
+  const route = await googleRoutesDeliveryRoutingProvider.calculateRouteEstimate({
+    latitude: -3.73,
+    longitude: -38.52,
+    destination: {
+      address: 'Rua Destino',
+      number: '20',
+      district: 'Aldeota',
+      city: 'Fortaleza',
+      state: 'CE',
+    },
+  });
+
+  assert.equal(requestBody?.travelMode, 'TWO_WHEELER');
+  assert.equal(requestBody?.routingPreference, 'TRAFFIC_AWARE');
+  assert.equal(requestBody?.polylineQuality, 'HIGH_QUALITY');
+  assert.equal(requestBody?.polylineEncoding, 'GEO_JSON_LINESTRING');
+  assert.equal(requestHeaders?.get('X-Goog-Api-Key'), 'test-google-key');
+  assert.equal(route?.provider, 'GOOGLE_ROUTES');
+  assert.equal(route?.routeCoordinates?.length, 3);
+  assert.equal(route?.distanceMeters, 4200);
+  assert.equal(route?.durationSeconds, 600);
 });
 
 test('geoapify converte enderecos em coordenadas e retorna a distancia da rota', async () => {
