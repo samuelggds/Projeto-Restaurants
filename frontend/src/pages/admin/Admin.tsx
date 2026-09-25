@@ -545,7 +545,7 @@ function mapEmployee(raw: Record<string, unknown>): Employee {
   return {
     id: String(raw?.id ?? ''),
     name: String(raw?.name ?? ''),
-    email: String(raw?.email ?? ''),
+    username: String(raw?.username ?? ''),
     phone: String(raw?.phone ?? '') || undefined,
     role,
     active: raw?.active !== false,
@@ -796,7 +796,7 @@ export default function Admin() {
       const identity = mapEmployeeRoleToApi(employee.role);
       const created = await employeesService.createEmployee({
         name: employee.name,
-        email: employee.email,
+        username: employee.username,
         phone: employee.phone,
         password: employee.password,
         confirmPassword: employee.confirmPassword,
@@ -815,7 +815,7 @@ export default function Admin() {
       const identity = mapEmployeeRoleToApi(employee.role);
       await employeesService.updateEmployee(employee.id, {
         name: employee.name,
-        email: employee.email,
+        username: employee.username,
         ...(employee.phone ? { phone: employee.phone } : {}),
         ...identity,
       });
