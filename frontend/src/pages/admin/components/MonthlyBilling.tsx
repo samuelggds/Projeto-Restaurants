@@ -47,14 +47,14 @@ const fallbackPlans: BillingPlan[] = [
     plan: 'BASICO',
     name: 'Básico',
     monthlyFee: 149.9,
-    trialDays: 30,
+    trialDays: 7,
     features: benefits.BASICO,
   },
   {
     plan: 'PREMIUM',
     name: 'Premium',
     monthlyFee: 249.9,
-    trialDays: 30,
+    trialDays: 15,
     features: benefits.PREMIUM,
   },
 ];
