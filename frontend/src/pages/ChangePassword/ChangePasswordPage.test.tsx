@@ -54,6 +54,7 @@ describe('ChangePasswordPage', () => {
           <Routes>
             <Route path="/change-password" element={<ChangePasswordPage />} />
             <Route path="/:restaurantSlug/login" element={<LocationProbe />} />
+            <Route path="/:restaurantSlug/admin" element={<LocationProbe />} />
           </Routes>
         </MemoryRouter>,
       );
