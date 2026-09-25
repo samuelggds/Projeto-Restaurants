@@ -39,7 +39,7 @@ class GetOrderPaymentRecoveryService {
     const paymentMethod = order.paymentMethod;
     if (
       !paymentMethod ||
-      ![PaymentMethod.PIX, PaymentMethod.CARTAO].includes(paymentMethod) ||
+      (paymentMethod !== PaymentMethod.PIX && paymentMethod !== PaymentMethod.CARTAO) ||
       order.payOnDelivery
     ) {
       throw new Error('Este pedido não possui pagamento online recuperável.');
