@@ -13,6 +13,13 @@ class TableRepository {
   async create(data: Prisma.TableUncheckedCreateInput, db: PrismaClientLike = prisma) {
     return db.table.create({
       data,
+      include: {
+        restaurant: {
+          select: {
+            slug: true,
+          },
+        },
+      },
     });
   }
 
@@ -95,6 +102,11 @@ class TableRepository {
         restaurantId,
       },
       include: {
+        restaurant: {
+          select: {
+            slug: true,
+          },
+        },
         tableSessions: {
           where: {
             status: {
