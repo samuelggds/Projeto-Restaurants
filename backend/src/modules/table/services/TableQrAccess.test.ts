@@ -34,7 +34,12 @@ test('admin cria a mesa já vinculada a um token criptográfico opaco', async ()
   };
   tableRepository.create = async (data) => {
     created.push(data);
-    return { id: created.length, active: true, ...data };
+    return {
+      id: created.length,
+      active: true,
+      ...data,
+      restaurant: { slug: 'restaurante-teste' },
+    };
   };
 
   const first = await createTableService.execute({ number: 1, restaurantId: 7 });
@@ -44,6 +49,7 @@ test('admin cria a mesa já vinculada a um token criptográfico opaco', async ()
   assert.match(second.token, /^[a-f0-9]{32}$/);
   assert.notEqual(first.token, second.token);
   assert.equal(first.restaurantId, 7);
+  assert.equal(first.restaurantSlug, 'restaurante-teste');
   assert.equal(first.number, 1);
 });
 
