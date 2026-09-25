@@ -229,9 +229,7 @@ const POLICY_LABELS: Record<string, string> = {
   rateLimit: 'Limite de requisições',
   sentry: 'Monitoramento de erros',
   mercadoPago: 'Mercado Pago',
-  pagBank: 'PagBank',
   asaas: 'Asaas',
-  stripe: 'Stripe',
   whatsapp: 'WhatsApp',
 };
 function humanize(key: string) {
