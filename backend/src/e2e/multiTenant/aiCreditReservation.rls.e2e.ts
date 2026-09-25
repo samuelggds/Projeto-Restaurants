@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { PlanType } from '@prisma/client';
 import { withTenantDbContext } from '../../database/tenantDbContext.js';
 import aiCreditService from '../../modules/aiSupport/services/AiCreditService.js';
 import { reconcileAiCreditReservation } from '../../../scripts/_shared/reconcileAiCreditReservation.js';
@@ -15,6 +16,25 @@ test('AI reservations serialize replicas, settle once and enforce tenant RLS', a
   try {
     const fixture = await seedTenantE2EFixture();
     const actor = { userId: fixture.users.adminA.id, restaurantId: fixture.restaurants.a.id };
+
+    await prisma.subscription.update({
+      where: { restaurantId: actor.restaurantId },
+      data: { plan: PlanType.BASICO },
+    });
+    const initialBalance = await aiCreditService.getBalance(actor);
+    assert.equal(initialBalance.balanceUsd, 2);
+    assert.equal(initialBalance.freeGrantClaimed, true);
+    assert.equal((await aiCreditService.getBalance(actor)).balanceUsd, 2);
+    const [freeGrant] = await withTenantDbContext(
+      actor.restaurantId,
+      (db) =>
+        db.$queryRaw<Array<{ count: bigint }>>`
+          SELECT COUNT(*) FROM "AiCreditLedgerEntry"
+          WHERE "restaurantId" = ${actor.restaurantId} AND "kind" = 'FREE_GRANT'
+        `,
+    );
+    assert.equal(Number(freeGrant.count), 1, 'O crédito inicial deve existir uma única vez por restaurante.');
+
     await withTenantDbContext(actor.restaurantId, async (db) => {
       const [row] = await db.$queryRaw<
         Array<{ zone: string }>
