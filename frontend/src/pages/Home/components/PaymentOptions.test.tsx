@@ -36,7 +36,7 @@ describe('PaymentOptions', () => {
     expect(markup).toContain('Serviço indisponível');
   });
 
-  it('oferece Open Finance Mercado Pago sem seletor de banco local', () => {
+  it('oferece Open Finance Efí com seletor de banco', () => {
     const markup = renderToStaticMarkup(
       <PaymentOptions
         paymentMethod="open_finance_pix"
@@ -49,9 +49,9 @@ describe('PaymentOptions', () => {
     );
 
     expect(markup).toContain('Open Finance');
-    expect(markup).toContain('Checkout Mercado Pago');
-    expect(markup).not.toContain('Escolha seu banco');
-    expect(markup).not.toContain('<select');
+    expect(markup).toContain('Escolha seu banco');
+    expect(markup).toContain('Banco para autorizar o pagamento');
+    expect(markup).toContain('<select');
   });
 
   it('oferece Pix cartão e dinheiro na retirada', () => {
