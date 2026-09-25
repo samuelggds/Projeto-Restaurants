@@ -3,6 +3,7 @@ import prisma from '../../../config/prisma.js';
 import { setTenantDbContext, withTenantDbContext } from '../../../database/tenantDbContext.js';
 import { realtimePublisher as io } from '../../../realtime/realtimePublisher.js';
 import kitchenPrintingService from '../../kitchenPrinting/services/KitchenPrintingService.js';
+import orderRepository from '../repositories/OrderRepository.js';
 import {
   countActiveOrderCapacity,
   isOrderCapacityQueued,
@@ -11,8 +12,10 @@ import {
   operationalPaymentWhere,
 } from '../utils/orderCapacity.js';
 
+type AdmittedOrder = NonNullable<Awaited<ReturnType<typeof orderRepository.findById>>>;
+
 type AdmissionResult = {
-  admitted: Array<NonNullable<Awaited<ReturnType<typeof prisma.order.findFirst>>>>;
+  admitted: AdmittedOrder[];
 };
 
 async function admitWithinTransaction(
@@ -71,16 +74,7 @@ async function admitWithinTransaction(
       event: 'OPERATIONAL_NEW_ORDER',
       db: tx,
     });
-    const current = await tx.order.findFirst({
-      where: { id: candidate.id, restaurantId },
-      include: {
-        user: { select: { id: true, name: true, email: true, phone: true } },
-        restaurant: { select: { id: true, name: true, whatsapp: true } },
-        table: { select: { id: true, number: true, active: true, restaurantId: true } },
-        participant: { select: { id: true, publicId: true, displayName: true } },
-        items: { include: { product: true } },
-      },
-    });
+    const current = await orderRepository.findById(candidate.id, restaurantId, tx);
     if (current) admitted.push(current);
   }
 
