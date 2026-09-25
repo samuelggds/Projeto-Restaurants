@@ -67,7 +67,7 @@ test('lista somente pagamentos presenciais ativos e mantém consultas no restaur
             publicId: 'pix-online',
             method: 'PIX',
             status: 'PROCESSING',
-            provider: 'PAGBANK',
+            provider: 'MERCADO_PAGO',
             providerExternalId: 'charge-1',
           }),
           payment({ publicId: 'cash-paid', method: 'CASH', status: 'PAID' }),
