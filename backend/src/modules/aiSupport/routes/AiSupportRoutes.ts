@@ -29,9 +29,6 @@ router.get('/credits/topup/quote', authMiddleware, adminMiddleware, (req, res) =
 router.post('/credits/topup/pix', authMiddleware, adminMiddleware, (req, res) => {
   AdminAiGuideController.pixTopUp(req, res);
 });
-router.post('/credits/topup/card', authMiddleware, adminMiddleware, (req, res) => {
-  AdminAiGuideController.cardTopUp(req, res);
-});
 router.post('/guide', authMiddleware, adminMiddleware, (req, res) => {
   AdminAiGuideController.guide(req, res);
 });
