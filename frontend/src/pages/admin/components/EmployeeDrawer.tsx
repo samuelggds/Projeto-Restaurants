@@ -39,9 +39,9 @@ export function EmployeeDrawer({ employee, close, save }: EmployeeDrawerProps) {
       setError('Informe o nome completo do funcionário.');
       return;
     }
-    if (!/^[\p{Ll}\p{N}]{3,32}$/u.test(normalizedUsername)) {
+    if (!/^[a-z0-9]{3,32}$/u.test(normalizedUsername)) {
       setError(
-        'O usuário deve ter de 3 a 32 caracteres, somente letras minúsculas e números, sem espaços ou símbolos.',
+        'O usuário deve ter de 3 a 32 caracteres, somente letras minúsculas de a a z e números, sem espaços ou símbolos.',
       );
       return;
     }
