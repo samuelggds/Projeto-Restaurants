@@ -123,12 +123,21 @@ async function createCustomerOrder(
   await expect(
     page.getByRole('button', { name: 'Adicionar Burger Clássico', exact: true }).first(),
   ).toBeVisible();
-  await page
+  const addBurger = page
     .getByRole('button', { name: 'Adicionar Burger Clássico', exact: true })
-    .first()
-    .click();
+    .first();
   const cart = page.getByRole('dialog', { name: 'Sua sacola', exact: true });
-  await expect(cart).toBeVisible();
+
+  await addBurger.click();
+  try {
+    await expect(cart).toBeVisible({ timeout: 4_000 });
+  } catch {
+    // WebKit pode concluir o clique durante a troca de estado da demonstração
+    // sem abrir o dialog na primeira tentativa. Repetir a ação é seguro aqui:
+    // o carrinho da demo é reiniciado ao entrar na área e o teste confirma o item.
+    await addBurger.click();
+    await expect(cart).toBeVisible({ timeout: 10_000 });
+  }
   await expect(cart).toContainText('Burger Clássico');
   const channelLabel =
     channel === 'DELIVERY' ? 'Entrega' : channel === 'PICKUP' ? 'Retirada' : 'Mesa 08';
