@@ -3,6 +3,7 @@ import prisma from '../../../config/prisma.js';
 import { withTenantDbContext } from '../../../database/tenantDbContext.js';
 import { OrderRequestError } from '../domain/OrderRequestError.js';
 import { operationalPaymentWhere, type OrderListQuery } from '../domain/orderListQuery.js';
+import { admittedCapacityWhere } from '../utils/orderCapacity.js';
 import { readOrderPage } from '../repositories/OrderListRepository.js';
 import courierAccessService from './CourierAccessService.js';
 import { calculateCourierCompensation } from '../../courierCompensation/domain/courierCompensation.js';
@@ -21,7 +22,10 @@ export function staffOrderScope(viewer: Viewer): Prisma.OrderWhereInput {
   // pedido digital não pago entre no fluxo de preparo antes da confirmação.
   if (role === 'ADMIN') return { restaurantId };
 
-  const base: Prisma.OrderWhereInput = { restaurantId, AND: [operationalPaymentWhere] };
+  const base: Prisma.OrderWhereInput = {
+    restaurantId,
+    AND: [operationalPaymentWhere, admittedCapacityWhere],
+  };
   if (role === 'MOTOQUEIRO')
     return {
       ...base,
