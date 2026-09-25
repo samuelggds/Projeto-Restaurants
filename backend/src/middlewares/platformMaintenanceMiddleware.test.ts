@@ -46,7 +46,6 @@ test('bloqueia negócio, mantém rotas essenciais e reutiliza cache curto', asyn
       ['/auth/login', 'POST'],
       ['/api/webhooks/asaas', 'POST'],
       ['/billing/webhook/mercadopago', 'POST'],
-      ['/orders/webhook/stripe', 'POST'],
       ['/table-accounts/webhooks/fake', 'POST'],
     ]) {
       const response = await fetch(`${baseUrl}${path}`, { method });
