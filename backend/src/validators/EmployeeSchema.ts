@@ -20,8 +20,8 @@ export const employeeUsernameSchema = z
   .min(3, 'Usuário deve conter pelo menos 3 caracteres')
   .max(32, 'Usuário deve conter no máximo 32 caracteres')
   .transform((value) => value.normalize('NFC').toLocaleLowerCase('pt-BR'))
-  .refine((value) => /^[\p{Ll}\p{N}]+$/u.test(value), {
-    message: 'Usuário deve conter somente letras minúsculas e números, sem espaços ou símbolos',
+  .refine((value) => /^[a-z0-9]+$/u.test(value), {
+    message: 'Usuário deve conter somente letras minúsculas de a a z e números, sem espaços ou símbolos',
   });
 
 const employeePhoneSchema = z
