@@ -1,5 +1,6 @@
 import type { Request, Response } from 'express';
 import orderRepository from '../repositories/OrderRepository.js';
+import prisma from '../../../config/prisma.js';
 
 function frontendBase() {
   const value = String(process.env.FRONTEND_URL || '').trim().replace(/\/+$/, '');
@@ -19,9 +20,12 @@ class EfiOpenFinanceReturnController {
       const order = await orderRepository.findByPixPaymentId(paymentId);
       if (!order) return res.status(404).send('Pedido do pagamento não encontrado.');
 
-      const restaurant = await orderRepository.findById(order.id, order.restaurantId);
-      const slug = String((restaurant as { restaurant?: { slug?: string } })?.restaurant?.slug || '').trim();
-      const resolvedSlug = slug || String(order.restaurantId);
+      const restaurant = await prisma.restaurant.findFirst({
+        where: { id: order.restaurantId, active: true },
+        select: { slug: true },
+      });
+      const resolvedSlug = String(restaurant?.slug || '').trim();
+      if (!resolvedSlug) return res.status(404).send('Restaurante não encontrado.');
       const status = req.query.erro ? 'cancel' : 'pending';
       const target = new URL(
         `/${encodeURIComponent(resolvedSlug)}/pedido/${encodeURIComponent(String(order.publicId))}/pagamento`,
