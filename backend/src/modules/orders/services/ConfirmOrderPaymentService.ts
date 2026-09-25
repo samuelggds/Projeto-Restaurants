@@ -129,8 +129,6 @@ class ConfirmOrderPaymentService {
       }
     } else {
       io.to(`restaurant:${restaurantId}`).emit('order:capacity-queued', updatedOrder);
-      if (updatedOrder.userId)
-        io.to(`user:${updatedOrder.userId}`).emit('order:capacity-queued', updatedOrder);
     }
 
     io.to(`restaurant:${restaurantId}`).emit('order:status-changed', updatedOrder);
