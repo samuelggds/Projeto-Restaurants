@@ -5,6 +5,7 @@ import orderRepository from '../repositories/OrderRepository.js';
 import { markCouponRedemptionUsedForOrder } from './couponRedemptionLifecycle.js';
 import { verifyPaymentConfirmationPin } from '../utils/paymentConfirmationPin.js';
 import courierAccessService from './CourierAccessService.js';
+import { isOrderCapacityQueued } from '../utils/orderCapacity.js';
 
 class ConfirmOrderPaymentWithPinService {
   async execute(
@@ -109,9 +110,12 @@ class ConfirmOrderPaymentWithPinService {
       });
     }
 
-    io.to(`restaurant:${restaurantId}`).emit('new-order', updatedOrder);
-    if (updatedOrder.userId) {
-      io.to(`user:${updatedOrder.userId}`).emit('new-order', updatedOrder);
+    const queuedForCapacity = isOrderCapacityQueued(updatedOrder);
+    if (!queuedForCapacity) {
+      io.to(`restaurant:${restaurantId}`).emit('new-order', updatedOrder);
+      if (updatedOrder.userId) {
+        io.to(`user:${updatedOrder.userId}`).emit('new-order', updatedOrder);
+      }
     }
 
     io.to(`restaurant:${restaurantId}`).emit('order:status-changed', updatedOrder);
