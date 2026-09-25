@@ -1,8 +1,23 @@
 import { describe, expect, it } from 'vitest';
 import { adminMockSettings } from './data';
-import { mapSettingsFromApi, mapSettingsToApi, mapTableAccountSettingsFromApi } from './Admin';
+import {
+  mapSettingsFromApi,
+  mapSettingsToApi,
+  mapTableAccountSettingsFromApi,
+  restaurantSlugFromSettingsResponse,
+} from './Admin';
 
 describe('mapeamento das configurações administrativas', () => {
+  it('resolve o slug da loja pública a partir do restaurante autenticado', () => {
+    expect(
+      restaurantSlugFromSettingsResponse({
+        restaurant: { id: 9, name: 'North Pizza', slug: 'north-pizza' },
+      }),
+    ).toBe('north-pizza');
+    expect(restaurantSlugFromSettingsResponse({ restaurant: { slug: '../admin' } })).toBe('');
+    expect(restaurantSlugFromSettingsResponse({ restaurant: {} })).toBe('');
+  });
+
   it('mapeia todos os banners promocionais pela posição e mantém ids estáveis', () => {
     const settings = mapSettingsFromApi({ restaurant: { name: 'Casa Teste' } }, [
       {
