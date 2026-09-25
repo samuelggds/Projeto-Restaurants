@@ -330,6 +330,18 @@ export function validateCriticalEnv() {
     }
   }
 
+  const salesContactRecipient = String(
+    process.env.SALES_CONTACT_NOTIFICATION_EMAIL ||
+      process.env.ALERT_EMAIL_TO ||
+      process.env.SMTP_USER ||
+      '',
+  ).trim();
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/u.test(salesContactRecipient)) {
+    errors.push(
+      'Configure SALES_CONTACT_NOTIFICATION_EMAIL, ALERT_EMAIL_TO ou SMTP_USER com um e-mail valido para receber os contatos comerciais.',
+    );
+  }
+
   const emailVerificationTtl = Number(process.env.EMAIL_VERIFICATION_TTL_MINUTES || '1440');
   if (
     !Number.isInteger(emailVerificationTtl) ||
