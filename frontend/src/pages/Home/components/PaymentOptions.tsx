@@ -264,8 +264,11 @@ export function PaymentOptions({
   useEffect(() => {
     if (paymentMethod !== 'open_finance_pix' || !restaurantId) return;
     let active = true;
-    setOpenFinanceInstitutionsLoading(true);
-    setOpenFinanceInstitutionsError('');
+    Promise.resolve().then(() => {
+      if (!active) return;
+      setOpenFinanceInstitutionsLoading(true);
+      setOpenFinanceInstitutionsError('');
+    });
     ordersService
       .listOpenFinanceInstitutions()
       .then((institutions) => {
