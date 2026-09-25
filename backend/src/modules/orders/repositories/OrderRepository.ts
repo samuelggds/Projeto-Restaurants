@@ -656,6 +656,7 @@ class OrderRepository {
         payOnDelivery: true,
         pixPaymentId: true,
         pixExpiresAt: true,
+        createdAt: true,
         restaurant: {
           select: {
             id: true,
