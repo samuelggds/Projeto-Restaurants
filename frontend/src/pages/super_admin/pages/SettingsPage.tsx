@@ -30,7 +30,7 @@ const categories: {
   {
     id: 'integrations',
     label: 'Integrações',
-    keywords: 'pagamento mercado pago pagbank asaas stripe sentry',
+    keywords: 'pagamento mercado pago open finance efi asaas pagarme sentry',
   },
   { id: 'security', label: 'Segurança', keywords: 'senha token mfa bloqueio rate limit' },
   {
@@ -421,7 +421,7 @@ function SettingsEditor({
             title="Provedores de cobrança"
             description="Somente o estado da integração é exibido. Credenciais permanecem no gerenciador de segredos."
             items={data.systemPolicies.integrations.filter((item) =>
-              ['mercadoPago', 'pagBank', 'asaas', 'stripe'].includes(item.key),
+              ['mercadoPago', 'asaas'].includes(item.key),
             )}
           />
         </S.FormGrid>
