@@ -5,7 +5,9 @@ import {
   Navigate,
   Outlet,
   useLocation,
+  useNavigate,
   useParams,
+  useSearchParams,
 } from 'react-router-dom';
 import { lazy, Suspense, useEffect, useRef, useState, type ReactNode } from 'react';
 
@@ -40,6 +42,7 @@ const EmployeeOnboardingBoundary = lazy(
 const GastroNexaLanding = lazy(() => import('../pages/Marketing/GastroNexaLanding'));
 const GastroNexaDemo = lazy(() => import('../pages/Marketing/GastroNexaDemo'));
 import api from '../Services/api';
+import tablesService from '../Services/tablesService';
 import { useAuth } from '../contexts/authContext';
 import { getAccessToken } from '../modules/auth/session/authSession';
 import {
@@ -125,6 +128,58 @@ function TenantRequiredPage() {
 function LegacyLoginRedirect() {
   const location = useLocation();
   return <Navigate to={consumeSignedOutEntryUrl(location)} replace />;
+}
+
+function LegacyTableQrRedirect() {
+  const navigate = useNavigate();
+  const { tableNumber } = useParams();
+  const [searchParams] = useSearchParams();
+  const [failed, setFailed] = useState(false);
+  const search = searchParams.toString();
+
+  useEffect(() => {
+    let active = true;
+    const currentParams = new URLSearchParams(search);
+    const restaurantId = currentParams.get('rid') || currentParams.get('restaurantId') || '';
+    const tableToken = currentParams.get('tk') || currentParams.get('token') || '';
+
+    tablesService
+      .resolvePublicTable({
+        tableNumber,
+        tableToken,
+        restaurantId,
+      })
+      .then((table) => {
+        if (!active) return;
+
+        const slug = String(table?.restaurantSlug || '')
+          .trim()
+          .toLowerCase();
+        const number = Number(table?.number || tableNumber);
+
+        if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/u.test(slug) || !Number.isInteger(number) || number <= 0) {
+          setFailed(true);
+          return;
+        }
+
+        currentParams.set('rid', String(table.restaurantId || restaurantId));
+        currentParams.set('tk', String(tableToken));
+        currentParams.delete('restaurantId');
+        currentParams.delete('token');
+
+        navigate(`/${slug}/mesa/${number}?${currentParams.toString()}`, { replace: true });
+      })
+      .catch(() => {
+        if (active) setFailed(true);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [navigate, search, tableNumber]);
+
+  if (failed) return <Navigate to={TENANT_REQUIRED_PATH} replace />;
+  return <RouteLoading />;
 }
 
 function RestaurantMenuGate() {
@@ -321,10 +376,7 @@ export default function AppRoutes() {
 
                 <Route path="/login" element={<LegacyLoginRedirect />} />
                 <Route path="/register" element={<Navigate to={TENANT_REQUIRED_PATH} replace />} />
-                <Route
-                  path="/mesa/:tableNumber"
-                  element={<Navigate to={TENANT_REQUIRED_PATH} replace />}
-                />
+                <Route path="/mesa/:tableNumber" element={<LegacyTableQrRedirect />} />
                 <Route path="*" element={<Navigate to={TENANT_REQUIRED_PATH} replace />} />
               </Route>
             </Routes>
