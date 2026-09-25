@@ -102,16 +102,16 @@ test('state opaco rejeita alteração, expiração e comprimento incompatível',
   installStateStore();
   setUser({ id: 7, restaurantId: 2 });
   const state = await createSingleUseOAuthState({
-    provider: 'PAGBANK',
+    provider: 'MERCADO_PAGO',
     restaurantId: 2,
     userId: 7,
   });
-  await assert.rejects(() => consumeSingleUseOAuthState('x'.repeat(129), 'PAGBANK'), /inválido/);
+  await assert.rejects(() => consumeSingleUseOAuthState('x'.repeat(129), 'MERCADO_PAGO'), /inválido/);
   const modified = `${state[0] === 'a' ? 'b' : 'a'}${state.slice(1)}`;
-  await assert.rejects(() => consumeSingleUseOAuthState(modified, 'PAGBANK'), /substituído/);
-  states.get('PAGBANK:7').expiresAt = new Date(0);
-  await assert.rejects(() => consumeSingleUseOAuthState(state, 'PAGBANK'), /expirado/);
-  assert.equal(states.get('PAGBANK:7').consumedAt, null);
+  await assert.rejects(() => consumeSingleUseOAuthState(modified, 'MERCADO_PAGO'), /substituído/);
+  states.get('MERCADO_PAGO:7').expiresAt = new Date(0);
+  await assert.rejects(() => consumeSingleUseOAuthState(state, 'MERCADO_PAGO'), /expirado/);
+  assert.equal(states.get('MERCADO_PAGO:7').consumedAt, null);
 });
 
 test('callbacks concorrentes não consomem o mesmo state duas vezes', async () => {
@@ -133,18 +133,18 @@ test('novo início OAuth invalida state anterior do mesmo usuário/provedor', as
   installStateStore();
   setUser({ id: 8, restaurantId: 4 });
   const first = await createSingleUseOAuthState({
-    provider: 'PAGBANK',
+    provider: 'MERCADO_PAGO',
     restaurantId: 4,
     userId: 8,
   });
   const second = await createSingleUseOAuthState({
-    provider: 'PAGBANK',
+    provider: 'MERCADO_PAGO',
     restaurantId: 4,
     userId: 8,
   });
 
-  await assert.rejects(() => consumeSingleUseOAuthState(first, 'PAGBANK'), /substituído/);
-  assert.deepEqual(await consumeSingleUseOAuthState(second, 'PAGBANK'), {
+  await assert.rejects(() => consumeSingleUseOAuthState(first, 'MERCADO_PAGO'), /substituído/);
+  assert.deepEqual(await consumeSingleUseOAuthState(second, 'MERCADO_PAGO'), {
     restaurantId: 4,
     userId: 8,
   });
@@ -159,7 +159,7 @@ test('state de um provedor não pode ser usado no callback de outro', async () =
     userId: 3,
   });
 
-  await assert.rejects(() => consumeSingleUseOAuthState(state, 'PAGBANK'), /Estado OAuth inválido/);
+  await assert.rejects(() => consumeSingleUseOAuthState(state, 'MERCADO_PAGO'), /Estado OAuth inválido/);
 });
 
 test('incremento de authVersion revoga state OAuth ainda não consumido', async () => {
@@ -198,7 +198,7 @@ for (const scenario of [
     installStateStore();
     setUser({ id: 21, restaurantId: 17, authVersion: 4 });
     const state = await createSingleUseOAuthState({
-      provider: 'PAGBANK',
+      provider: 'MERCADO_PAGO',
       restaurantId: 17,
       userId: 21,
     });
@@ -211,10 +211,10 @@ for (const scenario of [
     });
 
     await assert.rejects(
-      () => consumeSingleUseOAuthState(state, 'PAGBANK'),
+      () => consumeSingleUseOAuthState(state, 'MERCADO_PAGO'),
       /expirado|reutilizado|substituído/,
     );
-    assert.equal(states.get('PAGBANK:21').consumedAt, null);
+    assert.equal(states.get('MERCADO_PAGO:21').consumedAt, null);
   });
 }
 
