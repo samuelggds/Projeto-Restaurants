@@ -14,10 +14,10 @@ import refundOrderPaymentService, {
 } from './RefundOrderPaymentService.js';
 import { restoreOrderItemsStock } from './restoreOrderItemsStock.js';
 import {
-  getMercadoPagoOrderApi,
-  mercadoPagoCheckoutIdempotencyKey,
-} from '../../payments/providers/mercadoPagoClient.js';
-import { parseMercadoPagoOpenFinancePaymentId } from '../domain/mercadoPagoOpenFinanceReference.js';
+  efiOpenFinanceOrderReference,
+  findEfiOpenFinancePayment,
+  parseEfiOpenFinancePaymentId,
+} from '../../payments/providers/efiOpenFinance.js';
 
 type CancellationOrder = NonNullable<Awaited<ReturnType<typeof orderRepository.findById>>>;
 
@@ -68,42 +68,31 @@ class CancelOrderWorkflowService {
     return `order-refund-${order.restaurantId}-${order.id}`;
   }
 
-  private async cancelPendingOpenFinanceOrder(order: CancellationOrder) {
+  private async ensureOpenFinanceCanCancel(order: CancellationOrder) {
     if (order.paid === true || String(order.paymentMethod || '').toUpperCase() !== PaymentMethod.PIX) {
       return;
     }
 
-    const providerOrderId = parseMercadoPagoOpenFinancePaymentId(order.pixPaymentId);
-    if (!providerOrderId) return;
+    const identifier = parseEfiOpenFinancePaymentId(order.pixPaymentId);
+    if (!identifier) return;
 
     try {
-      const orderApi = await getMercadoPagoOrderApi(order.restaurantId);
-      const remote = await orderApi.get(providerOrderId);
-      const status = String(remote.status || '').trim().toLowerCase();
+      const remote = await findEfiOpenFinancePayment({
+        identifier,
+        reference: efiOpenFinanceOrderReference(order.restaurantId, order.id),
+        createdAt: order.createdAt,
+      });
+      const status = String(remote?.status || 'pendente').trim().toLowerCase();
 
-      if (['cancelled', 'expired', 'failed', 'refunded'].includes(status)) return;
-      if (status === 'processed') {
+      if (status === 'aceito') {
         throw new OrderCancellationError(
-          'O Mercado Pago já processou este pagamento. Aguarde a conciliação antes de cancelar o pedido.',
-        );
-      }
-
-      const cancelled = await orderApi.cancel(
-        providerOrderId,
-        mercadoPagoCheckoutIdempotencyKey(
-          `open-finance-cancel:${order.restaurantId}:${order.id}`,
-        ),
-      );
-      const cancelledStatus = String(cancelled.status || '').trim().toLowerCase();
-      if (!['cancelled', 'expired', 'failed'].includes(cancelledStatus)) {
-        throw new OrderCancellationError(
-          'O Mercado Pago ainda não confirmou o cancelamento do checkout. Tente novamente em instantes.',
+          'A Efí já confirmou este pagamento. Aguarde a conciliação antes de cancelar o pedido.',
         );
       }
     } catch (error) {
       if (error instanceof OrderCancellationError) throw error;
       throw new OrderCancellationError(
-        'Não foi possível confirmar o cancelamento do checkout no Mercado Pago. O pedido foi preservado para evitar cobrança após o cancelamento.',
+        'Não foi possível confirmar o estado do Open Finance na Efí. O pedido foi preservado para evitar cobrança após o cancelamento.',
       );
     }
   }
@@ -113,7 +102,7 @@ class CancelOrderWorkflowService {
       return { order, refunded: false };
     }
 
-    await this.cancelPendingOpenFinanceOrder(order);
+    await this.ensureOpenFinanceCanCancel(order);
 
     try {
       const cancelledOrder = await prisma.$transaction(async (tx) => {
