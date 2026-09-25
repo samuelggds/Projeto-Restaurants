@@ -44,10 +44,6 @@ export type RestaurantSettings = {
   pixProvider: string;
   pixKey: string;
   cardGateway: string;
-  stripeSecretKey: string;
-  stripeSecretKeyConfigured: boolean;
-  stripeWebhookSecret: string;
-  stripeWebhookSecretConfigured: boolean;
   mercadoPagoAccessToken: string;
   mercadoPagoAccessTokenConfigured: boolean;
   pagarmeSecretKey: string;
