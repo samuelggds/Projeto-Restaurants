@@ -72,11 +72,16 @@ test('checkout transparente Mercado Pago segue o contrato atual sem capture_mode
       restaurant: { name: 'North Pizza' },
     },
     successUrlBase: 'https://www.gastronexa.com.br/north-pizza',
+    idempotencyKey: '11111111-1111-4111-8111-111111111901',
   });
 
   assert.ok(requestBody);
   assert.ok(requestHeaders);
   assert.equal(requestHeaders.get('x-meli-session-id'), 'device-session-901');
+  assert.equal(
+    requestHeaders.get('x-idempotency-key'),
+    '11111111-1111-4111-8111-111111111901',
+  );
   assert.equal(requestBody.type, 'online');
   assert.equal(requestBody.processing_mode, 'automatic');
   assert.equal(Object.hasOwn(requestBody, 'capture_mode'), false);
@@ -167,6 +172,7 @@ test('cartão salvo Mercado Pago envia payer.customer_id na Orders API', async (
         restaurant: { name: 'North Pizza' },
       },
       successUrlBase: 'https://www.gastronexa.com.br/north-pizza',
+      idempotencyKey: '11111111-1111-4111-8111-111111111903',
     });
 
     assert.ok(requestBody);
@@ -211,6 +217,7 @@ test('property_value do Mercado Pago não é tratado como cartão recusado', asy
           restaurant: { name: 'North Pizza' },
         },
         successUrlBase: 'https://www.gastronexa.com.br/north-pizza',
+      idempotencyKey: '11111111-1111-4111-8111-000000000003',
       }),
     (error) =>
       error instanceof CardPaymentProviderRequestError &&
@@ -290,6 +297,7 @@ test('preserva diagnóstico seguro do Mercado Pago em processing_error', async (
           restaurant: { name: 'North Pizza' },
         },
         successUrlBase: 'https://www.gastronexa.com.br/north-pizza',
+      idempotencyKey: '11111111-1111-4111-8111-000000000004',
       }),
     (error) => {
       assert.ok(error instanceof CardPaymentDeclinedError);
@@ -300,6 +308,7 @@ test('preserva diagnóstico seguro do Mercado Pago em processing_error', async (
         status: 'failed',
         statusDetail: 'processing_error',
         providerRequestId: 'mp-request-processing-123',
+        providerOrderId: null,
       });
       assert.equal(JSON.stringify(error.diagnostic).includes('card-token'), false);
       return true;
@@ -344,6 +353,7 @@ test('preserva invalid_card_token sem expor o token recebido', async () => {
           restaurant: { name: 'North Pizza' },
         },
         successUrlBase: 'https://www.gastronexa.com.br/north-pizza',
+      idempotencyKey: '11111111-1111-4111-8111-000000000005',
       }),
     (error) => {
       assert.ok(error instanceof CardPaymentDeclinedError);
