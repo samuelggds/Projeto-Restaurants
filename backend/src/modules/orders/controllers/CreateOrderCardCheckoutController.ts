@@ -204,10 +204,34 @@ class CreateOrderCardCheckoutController {
         });
       }
       if (error instanceof OrderRequestError) {
+        const details = error.details || {};
+        const preservedOrderId = Number(details.orderId || 0);
+        const preservedPublicId = String(details.orderPublicId || '').trim();
+        const guestRecovery =
+          req.user?.isGuest === true &&
+          Number.isSafeInteger(preservedOrderId) &&
+          preservedOrderId > 0 &&
+          preservedPublicId
+            ? {
+                guestOwnershipToken: issueGuestOrderOwnershipToken({
+                  orderId: preservedOrderId,
+                  publicId: preservedPublicId,
+                }),
+                ...(String(req.body?.type || '').toUpperCase() === 'DELIVERY'
+                  ? {
+                      guestTrackingToken: issueGuestOrderTrackingToken({
+                        orderId: preservedOrderId,
+                        publicId: preservedPublicId,
+                      }),
+                    }
+                  : {}),
+              }
+            : {};
         return res.status(error.statusCode).json({
           error: error.message,
           code: error.code,
-          ...(error.details || {}),
+          ...details,
+          ...guestRecovery,
           requestId: req.requestId,
         });
       }
