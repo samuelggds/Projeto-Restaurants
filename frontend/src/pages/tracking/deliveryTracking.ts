@@ -20,6 +20,8 @@ export type DeliveryTrackingData = {
     restaurantId?: number;
     status: string;
     deliveryStartedAt?: string | null;
+    deliveryConfirmedAt?: string | null;
+    canConfirmDeliveryReceipt?: boolean;
     estimatedArrival?: string | null;
     deliveryConfirmationCode?: string | null;
     routeEstimate?: DeliveryRouteEstimate | null;
