@@ -31,6 +31,7 @@ function setValidProductionEnv() {
     SMTP_AUTH_TYPE: 'basic',
     SMTP_USER: 'mailer@example.com',
     SMTP_PASS: 'smtp-app-password',
+    SALES_CONTACT_NOTIFICATION_EMAIL: 'sales@example.com',
     ALLOW_LEGACY_ACCESS_TOKENS: 'false',
     ALLOW_LOCAL_AUTH_CODE_LOGGING: 'false',
     ALLOW_UNTRUSTED_OAUTH_ENDPOINTS: 'false',
@@ -220,6 +221,22 @@ test('exige um transporte SMTP utilizável para entregar o MFA em produção', (
     () => validateCriticalEnv(),
     /SMTP_CLIENT_ID e obrigatoria.*SMTP_CLIENT_SECRET e obrigatoria.*SMTP_REFRESH_TOKEN e obrigatoria/i,
   );
+});
+
+test('exige destinatário válido para os contatos comerciais em produção', () => {
+  delete process.env.SALES_CONTACT_NOTIFICATION_EMAIL;
+  delete process.env.ALERT_EMAIL_TO;
+  delete process.env.SMTP_USER;
+
+  assert.throws(
+    () => validateCriticalEnv(),
+    /Configure SALES_CONTACT_NOTIFICATION_EMAIL, ALERT_EMAIL_TO ou SMTP_USER com um e-mail valido/i,
+  );
+
+  setValidProductionEnv();
+  delete process.env.SALES_CONTACT_NOTIFICATION_EMAIL;
+  process.env.ALERT_EMAIL_TO = 'alerts@example.com';
+  assert.doesNotThrow(() => validateCriticalEnv());
 });
 
 test('mantem SMS de recuperacao desativado sem exigir credenciais Google', () => {

@@ -26,7 +26,7 @@ SALES_CONTACT_NOTIFICATION_EMAIL=comercial@seudominio.com
 SALES_CONTACT_EMAIL_FROM=GastroNexa <mailer@seudominio.com>
 ```
 
-O destinatário escolhido pelo proprietário está nos arquivos locais de ambiente, não no código nem nos exemplos públicos. O remetente deve ser autorizado pelo provedor SMTP. Sem `SALES_CONTACT_EMAIL_FROM`, usa-se `ALERT_EMAIL_FROM` ou `SMTP_USER`.
+O destinatário escolhido pelo proprietário está nos arquivos locais de ambiente, não no código nem nos exemplos públicos. Em produção, `SALES_CONTACT_NOTIFICATION_EMAIL` é preferido; se estiver vazio, o backend usa `ALERT_EMAIL_TO` e, por último, `SMTP_USER` como caixa de destino. O remetente deve ser autorizado pelo provedor SMTP. Sem `SALES_CONTACT_EMAIL_FROM`, usa-se `ALERT_EMAIL_FROM` ou `SMTP_USER`. A validação de produção impede iniciar a aplicação sem nenhum destinatário de contato válido.
 
 O envio reutiliza as configurações SMTP existentes: host, porta, usuário, senha ou OAuth2. TLS permanece obrigatório. A API salva o contato mesmo quando SMTP está indisponível; o painel informa essa condição.
 

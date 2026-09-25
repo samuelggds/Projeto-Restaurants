@@ -2,10 +2,12 @@ import { z } from 'zod';
 import { createSmtpTransporter } from '../../../services/smtpTransport.js';
 
 export function salesLeadEmailConfiguration(env: NodeJS.ProcessEnv = process.env) {
+  const explicitRecipient = String(env.SALES_CONTACT_NOTIFICATION_EMAIL || '').trim();
+  const fallbackRecipient = String(env.ALERT_EMAIL_TO || env.SMTP_USER || '').trim();
   const recipient = z
     .string()
     .email()
-    .safeParse(String(env.SALES_CONTACT_NOTIFICATION_EMAIL || '').trim());
+    .safeParse(explicitRecipient || fallbackRecipient);
   const from = String(
     env.SALES_CONTACT_EMAIL_FROM || env.ALERT_EMAIL_FROM || env.SMTP_USER || '',
   ).trim();
