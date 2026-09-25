@@ -67,12 +67,17 @@ function activeTableSessionWhere(restaurantId: number): Prisma.TableSessionWhere
 
 function operationalPaymentWhere(): Prisma.OrderWhereInput {
   return {
-    OR: [
-      { settlementMode: TableOrderSettlementMode.TABLE_ACCOUNT },
-      { paymentMethod: null },
-      { paid: true },
-      { payOnDelivery: true },
-      { paymentMethod: { notIn: [PaymentMethod.PIX, PaymentMethod.CARTAO] } },
+    AND: [
+      {
+        OR: [
+          { settlementMode: TableOrderSettlementMode.TABLE_ACCOUNT },
+          { paymentMethod: null },
+          { paid: true },
+          { payOnDelivery: true },
+          { paymentMethod: { notIn: [PaymentMethod.PIX, PaymentMethod.CARTAO] } },
+        ],
+      },
+      admittedCapacityWhere,
     ],
   };
 }
