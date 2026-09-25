@@ -207,7 +207,9 @@ export function PaymentOptions({
   const [openFinanceInstitutionsLoading, setOpenFinanceInstitutionsLoading] = useState(false);
   const [openFinanceInstitutionsError, setOpenFinanceInstitutionsError] = useState('');
   const [openFinanceParticipantId, setOpenFinanceParticipantId] = useState(() =>
-    restaurantId ? localStorage.getItem(`openFinanceParticipantId:${restaurantId}`) || '' : '',
+    typeof window !== 'undefined' && restaurantId
+      ? window.window.localStorage.getItem(`openFinanceParticipantId:${restaurantId}`) || ''
+      : '',
   );
   const openMode = getPaymentMode(paymentMethod);
   const registerCardPreparer = useCallback(
@@ -269,12 +271,12 @@ export function PaymentOptions({
       .then((institutions) => {
         if (!active) return;
         setOpenFinanceInstitutions(institutions);
-        const stored = localStorage.getItem(`openFinanceParticipantId:${restaurantId}`) || '';
+        const stored = window.localStorage.getItem(`openFinanceParticipantId:${restaurantId}`) || '';
         if (stored && institutions.some((institution) => institution.id === stored)) {
           setOpenFinanceParticipantId(stored);
         } else {
           setOpenFinanceParticipantId('');
-          localStorage.removeItem(`openFinanceParticipantId:${restaurantId}`);
+          window.localStorage.removeItem(`openFinanceParticipantId:${restaurantId}`);
         }
       })
       .catch(() => {
@@ -460,9 +462,9 @@ export function PaymentOptions({
                 const value = event.target.value;
                 setOpenFinanceParticipantId(value);
                 if (value) {
-                  localStorage.setItem(`openFinanceParticipantId:${restaurantId}`, value);
+                  window.localStorage.setItem(`openFinanceParticipantId:${restaurantId}`, value);
                 } else {
-                  localStorage.removeItem(`openFinanceParticipantId:${restaurantId}`);
+                  window.localStorage.removeItem(`openFinanceParticipantId:${restaurantId}`);
                 }
               }}
               aria-label="Escolha o banco para pagar via Open Finance"
