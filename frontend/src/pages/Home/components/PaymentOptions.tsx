@@ -16,6 +16,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import customerPaymentMethodService, {
   type CustomerPaymentMethod,
 } from '../../../Services/customerPaymentMethodService';
+import ordersService from '../../../Services/ordersService';
 import { type CheckoutPaymentMethod } from '../domain/checkout';
 import { shouldShowSavedCardAccountNotice } from '../domain/paymentAccountNotice';
 import { getAvailablePaymentMethods } from '../domain/publicSettings';
@@ -200,6 +201,14 @@ export function PaymentOptions({
   const [savedCardsLoading, setSavedCardsLoading] = useState(false);
   const [selectedCardId, setSelectedCardId] = useState('');
   const [showCardAccountNotice, setShowCardAccountNotice] = useState(false);
+  const [openFinanceInstitutions, setOpenFinanceInstitutions] = useState<
+    Array<{ id: string; name: string; logo: string | null }>
+  >([]);
+  const [openFinanceInstitutionsLoading, setOpenFinanceInstitutionsLoading] = useState(false);
+  const [openFinanceInstitutionsError, setOpenFinanceInstitutionsError] = useState('');
+  const [openFinanceParticipantId, setOpenFinanceParticipantId] = useState(() =>
+    restaurantId ? localStorage.getItem(`openFinanceParticipantId:${restaurantId}`) || '' : '',
+  );
   const openMode = getPaymentMode(paymentMethod);
   const registerCardPreparer = useCallback(
     (preparer: CardPaymentPreparer | null) => {
@@ -250,6 +259,41 @@ export function PaymentOptions({
     return () => registerCardPreparer(null);
   }, [paymentMethod, registerCardPreparer]);
 
+  useEffect(() => {
+    if (paymentMethod !== 'open_finance_pix' || !restaurantId) return;
+    let active = true;
+    setOpenFinanceInstitutionsLoading(true);
+    setOpenFinanceInstitutionsError('');
+    ordersService
+      .listOpenFinanceInstitutions()
+      .then((institutions) => {
+        if (!active) return;
+        setOpenFinanceInstitutions(institutions);
+        const stored = localStorage.getItem(`openFinanceParticipantId:${restaurantId}`) || '';
+        if (stored && institutions.some((institution) => institution.id === stored)) {
+          setOpenFinanceParticipantId(stored);
+        } else {
+          setOpenFinanceParticipantId('');
+          localStorage.removeItem(`openFinanceParticipantId:${restaurantId}`);
+        }
+      })
+      .catch(() => {
+        if (active) {
+          setOpenFinanceInstitutions([]);
+          setOpenFinanceParticipantId('');
+          setOpenFinanceInstitutionsError(
+            'Não foi possível carregar os bancos agora. Tente novamente em instantes.',
+          );
+        }
+      })
+      .finally(() => {
+        if (active) setOpenFinanceInstitutionsLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [paymentMethod, restaurantId]);
+
 
   const selectedSavedCard = useMemo(
     () => savedCards.find((card) => card.publicId === selectedCardId) || savedCards[0] || null,
@@ -261,7 +305,7 @@ export function PaymentOptions({
     onlineOptions.splice(Math.min(1, onlineOptions.length), 0, {
       method: 'open_finance_pix',
       name: 'Open Finance',
-      description: 'Pague pelo seu banco no Checkout Mercado Pago',
+      description: 'Escolha seu banco e autorize o Pix',
       color: '#245f79',
       icon: 'bank',
     });
@@ -405,6 +449,42 @@ export function PaymentOptions({
           onChange={handlePaymentChange}
         />
 
+
+        {openMode === 'now' && paymentMethod === 'open_finance_pix' && restaurantId && (
+          <P.OpenFinanceBankPicker>
+            <span>Banco para autorizar o pagamento</span>
+            <select
+              value={openFinanceParticipantId}
+              disabled={openFinanceInstitutionsLoading}
+              onChange={(event) => {
+                const value = event.target.value;
+                setOpenFinanceParticipantId(value);
+                if (value) {
+                  localStorage.setItem(`openFinanceParticipantId:${restaurantId}`, value);
+                } else {
+                  localStorage.removeItem(`openFinanceParticipantId:${restaurantId}`);
+                }
+              }}
+              aria-label="Escolha o banco para pagar via Open Finance"
+            >
+              <option value="">
+                {openFinanceInstitutionsLoading ? 'Carregando bancos...' : 'Escolha seu banco'}
+              </option>
+              {openFinanceInstitutions.map((institution) => (
+                <option key={institution.id} value={institution.id}>
+                  {institution.name}
+                </option>
+              ))}
+            </select>
+            <small>
+              Você será redirecionado para o ambiente seguro do banco escolhido para autorizar o
+              pagamento. O GastroNexa não recebe sua senha bancária.
+            </small>
+            {openFinanceInstitutionsError && (
+              <P.OpenFinanceNotice role="alert">{openFinanceInstitutionsError}</P.OpenFinanceNotice>
+            )}
+          </P.OpenFinanceBankPicker>
+        )}
 
         {openMode === 'now' && showCardAccountNotice && (
           <S.CardAccountNotice role="status" aria-live="polite">
