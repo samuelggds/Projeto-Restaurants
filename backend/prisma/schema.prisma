@@ -1167,6 +1167,10 @@ model RestaurantSettings {
   pixKey                String?
   pixProvider           String    @default("MERCADO_PAGO")
   openFinancePixEnabled Boolean   @default(false)
+  openFinanceIspb       String?
+  openFinanceAccountType String?
+  openFinanceBranch     String?
+  openFinanceAccount    String?
   cardGateway           String?
   gatewayMerchantId   String?
   stripeSecretKey     String?
