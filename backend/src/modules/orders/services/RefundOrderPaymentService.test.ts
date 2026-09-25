@@ -216,47 +216,6 @@ test('usa PaymentRefund oficial do Mercado Pago para PIX e cartao com chave idem
   );
 });
 
-test('estorna Open Finance Mercado Pago pela Orders API', async () => {
-  restaurantSettingsRepository.findByRestaurantId = async (restaurantId) => {
-    assert.equal(restaurantId, 12);
-    return {
-      mercadoPagoAccessToken: 'mp-open-finance-token-12',
-      mercadoPagoRefreshToken: 'refresh-12',
-      mercadoPagoTokenExpiresAt: new Date(Date.now() + 3_600_000),
-    };
-  };
-
-  let request = null;
-  globalThis.fetch = async (input, init = {}) => {
-    request = { url: String(input), init };
-    return Response.json({ id: 'ORD_OPEN_123', status: 'refunded' });
-  };
-
-  const receipt = await refundOrderPaymentService.execute(
-    {
-      id: 98,
-      restaurantId: 12,
-      total: 49.9,
-      paid: true,
-      paymentMethod: 'PIX',
-      pixPaymentId: 'mp_open_finance_order:ORD_OPEN_123',
-    },
-    { idempotencyKey: 'order-refund-12-98' },
-  );
-
-  assert.deepEqual(receipt, {
-    provider: 'MERCADO_PAGO',
-    externalId: 'ORD_OPEN_123',
-  });
-  assert.equal(request.url, 'https://api.mercadopago.com/v1/orders/ORD_OPEN_123/refund');
-  assert.equal(request.init.method, 'POST');
-  assert.equal(
-    new Headers(request.init.headers).get('authorization'),
-    'Bearer mp-open-finance-token-12',
-  );
-  assert.equal(new Headers(request.init.headers).get('x-idempotency-key'), 'order-refund-12-98');
-});
-
 test('estorna cartão Mercado Pago criado pela Orders API sem cair no Stripe', async () => {
   restaurantSettingsRepository.findByRestaurantId = async (restaurantId) => {
     assert.equal(restaurantId, 12);

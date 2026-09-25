@@ -443,7 +443,7 @@ O realtime não substitui a persistência. Ao reconectar ou receber um evento im
 
 ## Pagamentos
 
-A camada de providers evita acoplar todo o produto a um único gateway. **Mercado Pago** é o gateway ativo para Pix e cartão; **Open Finance** usa o Checkout Pro do Mercado Pago como uma segunda jornada, separada do Pix QR Code. **Asaas e Pagar.me** permanecem estruturados para ativação futura após cadastro empresarial/CNPJ.
+A camada de providers evita acoplar todo o produto a um único gateway. **Mercado Pago** é o gateway ativo para Pix QR Code e cartão; **Open Finance** usa a Efí para iniciação de pagamento real, com escolha do banco e autorização no ambiente da instituição. **Asaas e Pagar.me** permanecem estruturados para ativação futura após cadastro empresarial/CNPJ.
 
 - webhooks validados;
 - idempotência de cobrança e processamento;

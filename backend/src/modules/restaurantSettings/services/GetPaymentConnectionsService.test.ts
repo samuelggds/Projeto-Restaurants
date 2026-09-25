@@ -18,7 +18,7 @@ const original = {
 
 beforeEach(() => {
   for (const name of Object.keys(process.env)) {
-    if (/^(MP_|MERCADO_PAGO_|PAGBANK_|ASAAS_)/.test(name)) delete process.env[name];
+    if (/^(MP_|MERCADO_PAGO_|PAGBANK_|ASAAS_|EFI_OPEN_FINANCE_)/.test(name)) delete process.env[name];
   }
   Object.assign(process.env, {
     CREDENTIAL_ENCRYPTION_KEY: Buffer.alloc(32, 4).toString('base64'),
@@ -30,6 +30,12 @@ beforeEach(() => {
     MP_WEBHOOK_SECRET: 'test-webhook',
     ASAAS_API_KEY: 'test-asaas-platform',
     ASAAS_WEBHOOK_TOKEN: 'test-webhook-token-with-32-characters',
+    EFI_OPEN_FINANCE_ENABLED: 'true',
+    EFI_OPEN_FINANCE_ENV: 'homologation',
+    EFI_OPEN_FINANCE_CLIENT_ID: 'efi-client',
+    EFI_OPEN_FINANCE_CLIENT_SECRET: 'efi-client-secret',
+    EFI_OPEN_FINANCE_P12_BASE64: Buffer.from('test-p12').toString('base64'),
+    EFI_OPEN_FINANCE_WEBHOOK_HMAC: 'efi-test-hmac-with-at-least-24-chars',
   });
   asaasStatus.execute = async () => ({ credentialsConfigured: false, recoveryRequired: false });
 });

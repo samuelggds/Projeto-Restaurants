@@ -34,11 +34,12 @@
     "tmpVerifyAsaasSetup.ts"
   ],
   "guardedWrite": [
-    "reconcileAiCreditReservation.ts",
+    "configureEfiOpenFinance.ts",
     "createSuperAdmin.ts",
     "encryptGatewayCredentials.ts",
     "loadTestOrders.ts",
     "promoteUserToSuperAdmin.ts",
+    "reconcileAiCreditReservation.ts",
     "setUserRole.ts"
   ],
   "disabledLegacy": [

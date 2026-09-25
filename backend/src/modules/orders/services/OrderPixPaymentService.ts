@@ -19,14 +19,14 @@ import { withTenantDbContext } from '../../../database/tenantDbContext.js';
 import orderRepository from '../repositories/OrderRepository.js';
 import { getMercadoPagoAccessToken } from '../../restaurantSettings/services/RestaurantPaymentCredentialsService.js';
 import {
-  getMercadoPagoOrderApi,
-  mercadoPagoCheckoutIdempotencyKey,
-} from '../../payments/providers/mercadoPagoClient.js';
-import { mercadoPagoOpenFinanceExternalReference } from '../domain/mercadoPagoOpenFinanceReference.js';
+  efiOpenFinanceOrderReference,
+  findEfiOpenFinancePayment,
+} from '../../payments/providers/efiOpenFinance.js';
 import { assertFuturePaymentProviderEnabled } from '../../payments/providers/futurePaymentProviders.js';
 
 const APPROVED_PAYMENT_STATUSES = new Set(['approved', 'accredited', 'paid']);
 const APPROVED_ASAAS_PAYMENT_STATUSES = new Set(['received', 'confirmed', 'received_in_cash']);
+const EFI_TERMINAL = new Set(['aceito', 'rejeitado', 'cancelado', 'expirado', 'erro']);
 
 type OrderItemInput = {
   productId: number;
@@ -872,39 +872,41 @@ class OrderPixPaymentService {
       throw new Error('Restaurante inválido para recuperar pagamento PIX.');
     }
 
-    if (parsedPaymentId.provider === PIX_PROVIDERS.MERCADO_PAGO_OPEN_FINANCE) {
-      const order = await orderRepository.findByPixPaymentId(normalizedPaymentId);
-      if (!order || order.restaurantId !== normalizedRestaurantId) {
-        throw new Error('Pagamento Open Finance não corresponde a este restaurante.');
-      }
-      const remoteOrder = await (await getMercadoPagoOrderApi(normalizedRestaurantId)).get(
-        parsedPaymentId.rawPaymentId,
-      );
-      const status = String(remoteOrder.status || '').trim().toLowerCase();
-      const amount = Number(remoteOrder.total_paid_amount ?? remoteOrder.total_amount);
-      const expectedReference = mercadoPagoOpenFinanceExternalReference(
-        order.id,
+    if (parsedPaymentId.provider === PIX_PROVIDERS.EFI_OPEN_FINANCE) {
+      const order = await orderRepository.findByPixPaymentId(
+        normalizedPaymentId,
         normalizedRestaurantId,
       );
+      if (!order) {
+        throw new Error('Pagamento Open Finance não corresponde a este restaurante.');
+      }
+      const expectedReference = efiOpenFinanceOrderReference(normalizedRestaurantId, order.id);
+      const remotePayment = await findEfiOpenFinancePayment({
+        identifier: parsedPaymentId.rawPaymentId,
+        reference: expectedReference,
+        createdAt: order.createdAt,
+      });
+      if (!remotePayment) {
+        throw new Error('Pagamento Open Finance ainda não foi localizado na Efí.');
+      }
+      const status = String(remotePayment.status || '').trim().toLowerCase();
+      const amount = Number(remotePayment.valor);
       if (
-        String(remoteOrder.external_reference || '').trim() !== expectedReference ||
+        String(remotePayment.idProprio || '').trim() !== expectedReference ||
         !Number.isFinite(amount) ||
-        Math.round(amount * 100) !== Math.round(Number(order.total) * 100) ||
-        String(remoteOrder.currency || 'BRL').trim().toUpperCase() !== 'BRL'
+        Math.round(amount * 100) !== Math.round(Number(order.total) * 100)
       ) {
-        throw new Error('A Order Open Finance do Mercado Pago não corresponde ao pedido.');
+        throw new Error('O pagamento Open Finance da Efí não corresponde ao pedido.');
       }
       return {
         paymentId: normalizedPaymentId,
         status,
-        provider: PIX_PROVIDERS.MERCADO_PAGO_OPEN_FINANCE,
-        isApproved: status === 'processed',
+        provider: PIX_PROVIDERS.EFI_OPEN_FINANCE,
+        isApproved: status === 'aceito',
         totalAmount: amount,
         qrCode: '',
         qrCodeBase64: null,
-        requiresStatusCheck: !['processed', 'cancelled', 'expired', 'failed', 'refunded'].includes(
-          status,
-        ),
+        requiresStatusCheck: !EFI_TERMINAL.has(status),
         externalReference: expectedReference,
       };
     }
@@ -1014,27 +1016,27 @@ class OrderPixPaymentService {
 
     const parsed = parseProviderPaymentId(normalizedPaymentId);
 
-    if (parsed.provider === PIX_PROVIDERS.MERCADO_PAGO_OPEN_FINANCE) {
-      const orderApi = await getMercadoPagoOrderApi(normalizedRestaurantId);
-      const current = await orderApi.get(parsed.rawPaymentId);
-      const status = String(current.status || '').trim().toLowerCase();
-      if (['cancelled', 'expired', 'failed', 'refunded'].includes(status)) {
-        return { provider: parsed.provider, canceledAtProvider: true };
-      }
-      if (status === 'processed') {
-        throw new Error('O pagamento Open Finance foi processado durante a expiração.');
-      }
-      const cancelled = await orderApi.cancel(
-        parsed.rawPaymentId,
-        mercadoPagoCheckoutIdempotencyKey(
-          `open-finance-expire:${normalizedRestaurantId}:${parsed.rawPaymentId}`,
-        ),
+    if (parsed.provider === PIX_PROVIDERS.EFI_OPEN_FINANCE) {
+      const order = await orderRepository.findByPixPaymentId(
+        normalizedPaymentId,
+        normalizedRestaurantId,
       );
-      const cancelledStatus = String(cancelled.status || '').trim().toLowerCase();
-      if (!['cancelled', 'expired', 'failed'].includes(cancelledStatus)) {
-        throw new Error('O Mercado Pago ainda não confirmou a expiração do checkout.');
+      if (!order) {
+        throw new Error('Pedido Open Finance não encontrado para expiração.');
       }
-      return { provider: parsed.provider, canceledAtProvider: true };
+      const remotePayment = await findEfiOpenFinancePayment({
+        identifier: parsed.rawPaymentId,
+        reference: efiOpenFinanceOrderReference(normalizedRestaurantId, order.id),
+        createdAt: order.createdAt,
+      });
+      const status = String(remotePayment?.status || 'pendente').trim().toLowerCase();
+      if (status === 'aceito') {
+        throw new Error('O pagamento Open Finance foi aceito durante a expiração.');
+      }
+      return {
+        provider: parsed.provider,
+        canceledAtProvider: ['cancelado', 'expirado', 'rejeitado', 'erro'].includes(status),
+      };
     }
 
     if (parsed.provider !== PIX_PROVIDERS.ASAAS) {
@@ -1073,9 +1075,9 @@ class OrderPixPaymentService {
     const parsedPaymentId = parseProviderPaymentId(normalizedPaymentId);
     const normalizedRestaurantIdNumber = Number(restaurantId || 0);
 
-    if (parsedPaymentId.provider === PIX_PROVIDERS.MERCADO_PAGO_OPEN_FINANCE) {
+    if (parsedPaymentId.provider === PIX_PROVIDERS.EFI_OPEN_FINANCE) {
       if (!normalizedRestaurantIdNumber) {
-        throw new Error('Restaurante inválido para consultar Open Finance Mercado Pago.');
+        throw new Error('Restaurante inválido para consultar Open Finance Efí.');
       }
       const localOrder = await orderRepository.findByPixPaymentId(
         normalizedPaymentId,
@@ -1084,28 +1086,40 @@ class OrderPixPaymentService {
       if (!localOrder) {
         throw new Error('Pedido do pagamento Open Finance não encontrado.');
       }
-      const remoteOrder = await (await getMercadoPagoOrderApi(normalizedRestaurantIdNumber)).get(
-        parsedPaymentId.rawPaymentId,
-      );
-      const status = String(remoteOrder.status || '').trim().toLowerCase();
-      const amount = Number(remoteOrder.total_paid_amount ?? remoteOrder.total_amount);
-      const expectedReference = mercadoPagoOpenFinanceExternalReference(
-        localOrder.id,
+      const expectedReference = efiOpenFinanceOrderReference(
         normalizedRestaurantIdNumber,
+        localOrder.id,
       );
+      const remotePayment = await findEfiOpenFinancePayment({
+        identifier: parsedPaymentId.rawPaymentId,
+        reference: expectedReference,
+        createdAt: localOrder.createdAt,
+      });
+      if (!remotePayment) {
+        return {
+          paymentId: normalizedPaymentId,
+          status: 'pendente',
+          provider: PIX_PROVIDERS.EFI_OPEN_FINANCE,
+          isApproved: false,
+          sameRestaurant: true,
+          externalReference: expectedReference,
+          amount: null,
+          currency: 'BRL',
+          requiresStatusCheck: true,
+        };
+      }
+      const status = String(remotePayment.status || '').trim().toLowerCase();
+      const amount = Number(remotePayment.valor);
       return {
         paymentId: normalizedPaymentId,
         status,
-        provider: PIX_PROVIDERS.MERCADO_PAGO_OPEN_FINANCE,
-        isApproved: status === 'processed',
-        sameRestaurant:
-          String(remoteOrder.external_reference || '').trim() === expectedReference,
-        externalReference: String(remoteOrder.external_reference || '').trim(),
+        provider: PIX_PROVIDERS.EFI_OPEN_FINANCE,
+        isApproved: status === 'aceito',
+        sameRestaurant: String(remotePayment.idProprio || '').trim() === expectedReference,
+        externalReference: String(remotePayment.idProprio || '').trim(),
         amount: Number.isFinite(amount) ? amount : null,
-        currency: String(remoteOrder.currency || 'BRL').trim().toUpperCase(),
-        requiresStatusCheck: !['processed', 'cancelled', 'expired', 'failed', 'refunded'].includes(
-          status,
-        ),
+        currency: 'BRL',
+        requiresStatusCheck: !EFI_TERMINAL.has(status),
       };
     }
 
@@ -1271,8 +1285,8 @@ class OrderPixPaymentService {
     }
 
     const expectedReference =
-      statusResult.provider === PIX_PROVIDERS.MERCADO_PAGO_OPEN_FINANCE
-        ? mercadoPagoOpenFinanceExternalReference(normalizedOrderId, normalizedRestaurantId)
+      statusResult.provider === PIX_PROVIDERS.EFI_OPEN_FINANCE
+        ? efiOpenFinanceOrderReference(normalizedRestaurantId, normalizedOrderId)
         : `orderpix:${normalizedRestaurantId}:${normalizedOrderId}`;
     if (statusResult.externalReference !== expectedReference) {
       throw new Error('Pagamento PIX não corresponde ao pedido informado.');

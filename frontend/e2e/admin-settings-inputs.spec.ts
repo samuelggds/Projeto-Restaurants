@@ -76,12 +76,12 @@ for (const demo of [false, true]) {
     const copies = admin.getByRole('textbox', { name: 'Número de cópias', exact: true });
     for (const value of ['2', '3', '4', '5', '1', '4']) {
       await copies.tap();
-      await page.keyboard.press('Backspace');
+      await copies.press('Backspace');
       await expect(copies).toHaveValue('');
       await expect(
         admin.getByRole('button', { name: 'Salvar configuração', exact: true }),
       ).toBeDisabled();
-      await page.keyboard.press(value);
+      await copies.press(value);
       await expect(copies).toHaveValue(value);
     }
     await admin.getByRole('button', { name: 'Salvar configuração', exact: true }).click();

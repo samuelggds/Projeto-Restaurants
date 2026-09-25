@@ -2,6 +2,7 @@ import prisma from '../../../config/prisma.js';
 import restaurantSettingsRepository from '../repositories/RestaurantSettingsRepository.js';
 import restaurantRepository from '../../restaurants/repositories/RestaurantRepository.js';
 import { createPublicMediaReference } from '../../publicMedia/utils/publicMediaReference.js';
+import { efiOpenFinanceConfigured } from '../../payments/providers/efiOpenFinance.js';
 
 type RestaurantIdPayload = {
   restaurantId?: number | string;
@@ -260,8 +261,8 @@ class GetPublicRestaurantSettingsService {
       await restaurantSettingsRepository.findByRestaurantId(normalizedRestaurantId);
     const openFinanceReady = Boolean(
       settings.openFinancePixEnabled &&
-        privateSettings?.mercadoPagoAccessToken &&
-        privateSettings?.mercadoPagoRefreshToken,
+        efiOpenFinanceConfigured() &&
+        String(privateSettings?.pixKey || '').trim(),
     );
 
     const rawRestaurant = settings.restaurant as unknown as Omit<

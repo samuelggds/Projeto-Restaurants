@@ -18,6 +18,9 @@ import GenerateOrderPaymentConfirmationPinController from '../controllers/Genera
 import RequestOrderPaymentConfirmationPinController from '../controllers/RequestOrderPaymentConfirmationPinController.js';
 import CreateOrderPixPaymentController from '../controllers/CreateOrderPixPaymentController.js';
 import CreateOrderOpenFinancePaymentController from '../controllers/CreateOrderOpenFinancePaymentController.js';
+import OpenFinanceInstitutionsController from '../controllers/OpenFinanceInstitutionsController.js';
+import EfiOpenFinanceReturnController from '../controllers/EfiOpenFinanceReturnController.js';
+import EfiOpenFinanceWebhookController from '../controllers/EfiOpenFinanceWebhookController.js';
 import CreateOrderCardCheckoutController from '../controllers/CreateOrderCardCheckoutController.js';
 import GetOrderCardPaymentStatusController from '../controllers/GetOrderCardPaymentStatusController.js';
 import GetOrderPixPaymentStatusController from '../controllers/GetOrderPixPaymentStatusController.js';
@@ -61,6 +64,8 @@ import {
 const router = Router();
 
 router.post('/webhook/mercadopago', MercadoPagoOrderWebhookController.handle);
+router.post('/webhook/efi-open-finance', (req, res) => EfiOpenFinanceWebhookController.handle(req, res));
+router.get('/open-finance/efi/return', (req, res) => EfiOpenFinanceReturnController.handle(req, res));
 router.post('/webhook/mercadopago-point', MercadoPagoPointWebhookController.handle);
 router.post('/webhook/stripe', StripeOrderWebhookController.handle);
 router.post('/webhook/pagarme', (req, res) => PagarmeOrderWebhookController.handle(req, res));
@@ -96,6 +101,10 @@ router.post(
   },
 );
 
+
+router.get('/open-finance/institutions', onlineCheckoutRateLimitMiddleware, (req, res) => {
+  OpenFinanceInstitutionsController.handle(req, res);
+});
 
 router.post(
   '/open-finance/payment',
