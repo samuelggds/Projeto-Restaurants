@@ -429,7 +429,7 @@ export function PaymentSettings({
             <div>
               <span>PIX VIA OPEN FINANCE</span>
               <h3>Pix pelo app do banco</h3>
-              <p>O cliente abre o Checkout Pro e escolhe pagar pelo banco via Open Finance.</p>
+              <p>O cliente escolhe o banco e autoriza o Pix no ambiente seguro da instituição.</p>
             </div>
             <PS.SwitchLabel>
               <span>{settings.openFinancePixEnabled ? 'Ativado' : 'Desativado'}</span>
@@ -460,10 +460,23 @@ export function PaymentSettings({
                   </small>
                 </div>
               </PS.OpenFinanceStatus>
+              <PS.Field>
+                <span>Chave Pix de recebimento</span>
+                <input
+                  value={settings.pixKey}
+                  disabled={!settings.openFinancePixEnabled || busyProvider !== null}
+                  onChange={(event) => update('pixKey', event.target.value)}
+                  placeholder="CPF, CNPJ, e-mail, telefone ou chave aleatória"
+                  autoComplete="off"
+                />
+                <small>
+                  O Open Finance da Efí enviará o valor diretamente para esta chave Pix. Ela é
+                  independente do Pix QR Code processado pelo Mercado Pago.
+                </small>
+              </PS.Field>
               <small>
-                A autorização acontece no ambiente do Mercado Pago e no banco escolhido. O
-                GastroNexa nunca recebe senha ou acesso bancário. A disponibilidade do Open Finance
-                para cada comprador é definida pelo próprio Mercado Pago.
+                A Efí inicia o pagamento e redireciona o cliente para o banco escolhido. O
+                GastroNexa nunca recebe senha ou credencial bancária do comprador.
               </small>
             </PS.Field>
           </PS.ControlGrid>
