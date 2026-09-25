@@ -9,6 +9,15 @@ type CreateCardAttemptInput = {
   amount: number;
 };
 
+const TERMINAL_ATTEMPT_STATUSES = new Set<OrderPaymentAttemptStatus>([
+  OrderPaymentAttemptStatus.APPROVED,
+  OrderPaymentAttemptStatus.DECLINED,
+  OrderPaymentAttemptStatus.FAILED,
+  OrderPaymentAttemptStatus.CANCELED,
+  OrderPaymentAttemptStatus.EXPIRED,
+  OrderPaymentAttemptStatus.REFUNDED,
+]);
+
 type AttemptDiagnostic = {
   providerOrderId?: string | null;
   providerPaymentId?: string | null;
@@ -80,14 +89,7 @@ class OrderPaymentAttemptRepository {
           ...(diagnostic.failureMessage !== undefined
             ? { failureMessage: diagnostic.failureMessage }
             : {}),
-          ...([
-            OrderPaymentAttemptStatus.APPROVED,
-            OrderPaymentAttemptStatus.DECLINED,
-            OrderPaymentAttemptStatus.FAILED,
-            OrderPaymentAttemptStatus.CANCELED,
-            OrderPaymentAttemptStatus.EXPIRED,
-            OrderPaymentAttemptStatus.REFUNDED,
-          ].includes(status)
+          ...(TERMINAL_ATTEMPT_STATUSES.has(status)
             ? { finalizedAt: new Date() }
             : {}),
         },
