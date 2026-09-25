@@ -194,6 +194,12 @@ export function efiOpenFinanceIdempotencyKey(restaurantId: number, orderId: numb
   return `${digest.slice(0, 8)}-${digest.slice(8, 12)}-${digest.slice(12, 16)}-${digest.slice(16, 20)}-${digest.slice(20, 32)}`;
 }
 
+export function efiOpenFinanceWebhookHmac() {
+  const value = env('EFI_OPEN_FINANCE_WEBHOOK_HMAC');
+  if (!value) throw new Error('EFI_OPEN_FINANCE_WEBHOOK_HMAC não configurado.');
+  return value;
+}
+
 export function validEfiWebhookHmac(candidate: unknown) {
   const expected = env('EFI_OPEN_FINANCE_WEBHOOK_HMAC');
   const received = String(candidate || '').trim();
