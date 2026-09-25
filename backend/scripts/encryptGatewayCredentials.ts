@@ -84,8 +84,6 @@ async function main() {
     select: {
       id: true,
       restaurantId: true,
-      stripeSecretKey: true,
-      stripeWebhookSecret: true,
       mercadoPagoAccessToken: true,
       picpayToken: true,
       asaasAccessToken: true,
