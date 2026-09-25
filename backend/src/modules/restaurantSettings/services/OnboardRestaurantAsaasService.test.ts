@@ -61,7 +61,7 @@ beforeEach(() => {
     ownerPhone: '5511999998888',
     monthlyRevenue: null,
     pixProvider: 'MERCADO_PAGO',
-    cardGateway: 'PAGBANK',
+    cardGateway: 'PAGARME',
     asaasAccessToken: null,
     asaasAccountId: null,
     asaasOnboardingState: null,
@@ -140,7 +140,7 @@ test('cria subconta com webhook, preserva meios e só declara vínculo enquanto 
   assert.equal(settings.gatewayMerchantId, 'wallet-7');
   assert.equal(settings.asaasOnboardingState, 'CREATED');
   assert.equal(settings.pixProvider, 'MERCADO_PAGO');
-  assert.equal(settings.cardGateway, 'PAGBANK');
+  assert.equal(settings.cardGateway, 'PAGARME');
   assert.equal(result.credentialsConfigured, true);
   assert.equal(result.readyForPayments, false);
   assert.equal(result.approvalStatus, 'PENDING');
