@@ -895,8 +895,6 @@ class CreateOrderService {
 
     if (queuedForCapacity) {
       io.to(`restaurant:${createdOrder.restaurantId}`).emit('order:capacity-queued', createdOrder);
-      if (createdOrder.userId)
-        io.to(`user:${createdOrder.userId}`).emit('order:capacity-queued', createdOrder);
     }
 
     if (shouldMarkAsPaid) {
