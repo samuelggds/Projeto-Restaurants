@@ -1169,9 +1169,6 @@ model RestaurantSettings {
   openFinancePixEnabled Boolean   @default(false)
   cardGateway           String?
   gatewayMerchantId   String?
-  stripeSecretKey     String?
-  stripeWebhookSecret String?
-
   pagarmeSecretKey    String?
   pagarmePublicKey    String?
   pagarmeEnvironment  String?
