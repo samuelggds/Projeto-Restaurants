@@ -21,7 +21,8 @@
     "audit": "npm --prefix backend audit --audit-level=high && npm --prefix frontend audit --audit-level=high && npm --prefix print-agent audit --audit-level=high",
     "check:bundle": "node scripts/checkBundleBudget.mjs",
     "smoke": "node scripts/smoke.mjs",
-    "ci": "npm run check:architecture && npm run check:scripts && npm run check:prisma && npm run lint && npm run typecheck && npm run test && npm run audit && npm run build && npm run check:bundle",
-    "ci:clean": "npm --prefix backend ci && npm --prefix backend run db:generate && npm --prefix frontend ci && npm --prefix print-agent ci && npm run ci"
+    "ci": "npm run check:architecture && npm run check:legacy-payments && npm run check:scripts && npm run check:prisma && npm run lint && npm run typecheck && npm run test && npm run audit && npm run build && npm run check:bundle",
+    "ci:clean": "npm --prefix backend ci && npm --prefix backend run db:generate && npm --prefix frontend ci && npm --prefix print-agent ci && npm run ci",
+    "check:legacy-payments": "node scripts/checkLegacyPaymentResidues.mjs"
   }
 }
