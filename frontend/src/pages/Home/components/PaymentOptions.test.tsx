@@ -44,6 +44,7 @@ describe('PaymentOptions', () => {
         allowPix
         allowOpenFinancePix
         allowCard
+        restaurantId={1}
         onChange={() => undefined}
       />,
     );
