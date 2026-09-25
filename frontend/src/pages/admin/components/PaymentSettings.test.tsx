@@ -62,7 +62,7 @@ describe('PaymentSettings', () => {
             acceptsCard: true,
             pixProvider: 'MERCADO_PAGO',
             cardGateway: 'MERCADO_PAGO',
-            pixKey: '',
+            pixKey: 'financeiro@restaurante.test',
             mercadoPagoAccessTokenConfigured: false,
           }}
           update={() => undefined}
@@ -132,7 +132,7 @@ describe('PaymentSettings', () => {
     ).toBeNull();
   });
 
-  it('habilita Open Finance pela mesma conexão Mercado Pago sem exigir chave Pix manual', async () => {
+  it('habilita Open Finance Efí com chave Pix própria do restaurante', async () => {
     const load = vi.fn().mockResolvedValue({
       connections: [
         {
@@ -149,7 +149,7 @@ describe('PaymentSettings', () => {
         available: true,
         enabled: true,
         ready: true,
-        message: 'Checkout Pro conectado.',
+        message: 'Efí Open Finance pronta.',
       },
     } satisfies PaymentConnectionOverview);
     const update = vi.fn();
@@ -180,12 +180,12 @@ describe('PaymentSettings', () => {
     ) as HTMLInputElement;
     expect(toggle.checked).toBe(true);
     expect(toggle.disabled).toBe(false);
-    expect(container.textContent).toContain('Checkout Pro conectado');
-    expect(
-      container.querySelector(
-        'input[placeholder="CPF, CNPJ, e-mail, telefone ou chave aleatória"]',
-      ),
-    ).toBeNull();
+    expect(container.textContent).toContain('Efí Open Finance pronta');
+    const beneficiaryKey = container.querySelector(
+      'input[placeholder="CPF, CNPJ, e-mail, telefone ou chave aleatória"]',
+    ) as HTMLInputElement;
+    expect(beneficiaryKey).toBeTruthy();
+    expect(beneficiaryKey.value).toBe('financeiro@restaurante.test');
   });
 
   it('mantém cadastro Asaas pendente até a aprovação e permite conferir a atualização', async () => {
