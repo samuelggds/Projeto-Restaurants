@@ -870,6 +870,8 @@ model Order {
   deliveryConfirmedAt             DateTime?
   preparationStartedAt            DateTime?
   readyAt                         DateTime?
+  capacityQueuedAt                DateTime?
+  capacityAdmittedAt              DateTime?
   courierEarning                  Decimal                    @default(0) @db.Decimal(10, 2)
   courierEarningCalculatedAt      DateTime?
   courierCompensationModel        CourierCompensationModel?
@@ -906,6 +908,7 @@ model Order {
   @@index([restaurantId, userId, status, paid, deliveredAt])
   @@index([status, paid, pixExpiresAt])
   @@index([restaurantId, tableSessionId, participantId, createdAt])
+  @@index([restaurantId, capacityQueuedAt, capacityAdmittedAt, createdAt])
 }
 
 model OrderIssueThread {
