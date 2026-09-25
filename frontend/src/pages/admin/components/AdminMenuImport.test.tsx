@@ -135,11 +135,11 @@ describe('importação de cardápio', () => {
     expect(aiGuideService.createImageBatch).not.toHaveBeenCalled();
     expect(onImported).toHaveBeenCalledTimes(1);
     expect(container.textContent).toContain('Importação concluída');
-    expect(container.textContent).toContain('Confirmar geração em lote');
+    expect(container.textContent).toContain('Confirmar geração');
     expect(container.textContent).toContain('2 produto(s)');
 
     const confirm = Array.from(container.querySelectorAll('button')).find((button) =>
-      button.textContent?.includes('Confirmar geração em segundo plano'),
+      button.textContent?.includes('Confirmar geração'),
     );
     expect(confirm).toBeTruthy();
     await click(confirm as HTMLButtonElement);
