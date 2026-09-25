@@ -105,6 +105,9 @@ test('persiste opções agrupadas e observação sem vazar metadados de criaçã
   t.after(registerRealtimeTransport({ ...emitter, to: () => emitter }));
   const tx = {
     $queryRaw: async () => [],
+    order: {
+      count: async () => 0,
+    },
     restaurantPrinterSettings: {
       findFirst: async ({ where }) => {
         assert.deepEqual(where, { restaurantId: 7, enabled: true });
@@ -430,6 +433,9 @@ test('pedido de mesa convidado vincula participante e cria uma unidade financeir
   };
   const tx = {
     $queryRaw: async () => [],
+    order: {
+      count: async () => 0,
+    },
     restaurantPrinterSettings: {
       findFirst: async ({ where }) => {
         assert.deepEqual(where, { restaurantId: 7, enabled: true });
@@ -687,6 +693,7 @@ test('pagamento imediato mantém cartão no pedido e reserva as unidades como PR
   const tx = {
     $queryRaw: async () => [],
     order: {
+      count: async () => 0,
       findFirst: async () => null,
     },
     restaurantSettings: {
