@@ -57,7 +57,11 @@ export function staffOrderScope(viewer: Viewer): Prisma.OrderWhereInput {
 
 class PaginatedOrdersService {
   async staff(viewer: Viewer, query: OrderListQuery) {
-    const base = staffOrderScope(viewer);
+    const roleBase = staffOrderScope(viewer);
+    const base =
+      viewer.role === 'ADMIN' && ['ACTIVE', 'IN_PROGRESS'].includes(query.queue)
+        ? ({ AND: [roleBase, operationalPaymentWhere] } satisfies Prisma.OrderWhereInput)
+        : roleBase;
     if (viewer.role === 'MOTOQUEIRO') {
       await courierAccessService.assertActiveCourier(viewer.id, viewer.restaurantId);
     }
