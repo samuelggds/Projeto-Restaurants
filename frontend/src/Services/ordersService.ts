@@ -381,6 +381,15 @@ class OrdersService {
         return { data: response.data };
       } catch (error: unknown) {
         const data = asRecord(asRecord(asRecord(error)?.response)?.data);
+        if (
+          ['CARD_PAYMENT_FAILED', 'CARD_DECLINED', 'CARD_PROVIDER_ERROR'].includes(
+            String(data?.code || ''),
+          ) &&
+          data?.paymentPending === true
+        ) {
+          rememberGuestOrderAccess(data);
+          throw error;
+        }
         if (data?.code !== 'PAYMENT_CREATION_UNCERTAIN' || data.reconciliationRequired !== true)
           throw error;
         // A known order is an accepted attempt. Keep unknown network failures for retry.
