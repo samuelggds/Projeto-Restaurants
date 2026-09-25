@@ -73,12 +73,12 @@ const settingsSteps: Record<SettingsSection, string[]> = {
     'Selecione as entregas para um acerto, confira valor e forma de pagamento e acompanhe a confirmação do motoqueiro.',
   ],
   payments: [
-    'Ative Pix, cartão ou os dois. Escolha a empresa que receberá cada pagamento; você pode usar empresas diferentes.',
-    'Clique em Conectar Mercado Pago ou Conectar PagBank e autorize a conta do restaurante no site da empresa. Suas escolhas são salvas antes de abrir a autorização.',
-    'Para Asaas, informe CPF ou CNPJ e faturamento; para CPF, informe também o nascimento do titular. O sistema usa os dados do negócio e endereço para criar a subconta e configurar as confirmações automáticas.',
-    'Confira o status em Contas de recebimento. Se houver documentos ou aprovação pendentes, conclua no Asaas e use Verificar conexões. Reconectar atualiza uma conta já vinculada.',
-    'O QR Code Pix é gerado na conta conectada. A chave digitada é opcional e não cadastra uma chave no banco. Teste a conexão antes de oferecer o pagamento aos clientes.',
-    'Na demonstração, Pix e cartão são fictícios. Não informe chaves, credenciais ou dados de cartão reais.',
+    'Ative Pix, cartão e, quando estiver disponível na plataforma, Pix via Open Finance.',
+    'Para Pix QR Code e cartão, conecte a conta Mercado Pago do restaurante e conclua a autorização no ambiente seguro do Mercado Pago.',
+    'O QR Code Pix e o código copia e cola são gerados automaticamente pela conta Mercado Pago conectada; não é necessário cadastrar uma chave Pix manual para esse fluxo.',
+    'O Open Finance usa uma integração separada com a Efí e só pode ser ativado quando a plataforma estiver configurada e o restaurante informar a chave Pix beneficiária.',
+    'Asaas e Pagar.me aparecem como integrações futuras e permanecem temporariamente indisponíveis até a homologação da plataforma.',
+    'Use Verificar conexões antes de publicar meios de pagamento aos clientes. Na demonstração, pagamentos são fictícios e não devem receber credenciais ou dados reais.',
   ],
   social: [
     'Informe os links completos dos perfis oficiais do restaurante.',
