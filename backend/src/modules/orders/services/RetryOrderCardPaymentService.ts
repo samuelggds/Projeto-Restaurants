@@ -22,6 +22,7 @@ type Actor = {
 };
 
 type RetryPayload = DirectCardPaymentPayload & {
+  paymentMethodId?: string | null;
   customerName?: string | null;
   customerPhone?: string | null;
   customerIp?: string | null;
