@@ -222,7 +222,9 @@ function DeliveryTrackingContent({ id }: { id?: string }) {
     setReceiptError('');
     setConfirmingReceipt(true);
     try {
-      const confirmedOrder = await ordersService.confirmDeliveryReceived(orderId);
+      const confirmedOrder = (await ordersService.confirmDeliveryReceived(orderId)) as {
+        deliveryConfirmedAt?: string | null;
+      };
       const confirmedAt =
         String(confirmedOrder?.deliveryConfirmedAt || '').trim() || new Date().toISOString();
       if (dataRef.current) {
