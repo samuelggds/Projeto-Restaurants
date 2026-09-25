@@ -8,9 +8,18 @@ const originalFindPublic = restaurantSettingsRepository.findPublicByRestaurantId
 const originalFindSettings = restaurantSettingsRepository.findByRestaurantId;
 const originalFindRestaurant = restaurantSettingsRepository.findRestaurantById;
 const originalFindDefault = restaurantSettingsRepository.findDefaultActiveRestaurant;
+const originalEnv = { ...process.env };
 
 beforeEach(() => {
   restaurantSettingsRepository.findByRestaurantId = async () => null as never;
+  Object.assign(process.env, {
+    EFI_OPEN_FINANCE_ENABLED: 'true',
+    EFI_OPEN_FINANCE_ENV: 'homologation',
+    EFI_OPEN_FINANCE_CLIENT_ID: 'efi-client',
+    EFI_OPEN_FINANCE_CLIENT_SECRET: 'efi-client-secret',
+    EFI_OPEN_FINANCE_P12_BASE64: Buffer.from('test-p12').toString('base64'),
+    EFI_OPEN_FINANCE_WEBHOOK_HMAC: 'efi-test-hmac-with-at-least-24-chars',
+  });
 });
 
 afterEach(() => {
@@ -18,6 +27,8 @@ afterEach(() => {
   restaurantSettingsRepository.findByRestaurantId = originalFindSettings;
   restaurantSettingsRepository.findRestaurantById = originalFindRestaurant;
   restaurantSettingsRepository.findDefaultActiveRestaurant = originalFindDefault;
+  for (const name of Object.keys(process.env)) if (!(name in originalEnv)) delete process.env[name];
+  Object.assign(process.env, originalEnv);
 });
 
 test('mantém a cor personalizada na configuração pública', async () => {
@@ -39,7 +50,7 @@ test('mantém a cor personalizada na configuração pública', async () => {
   });
 });
 
-test('expõe Open Finance somente com Mercado Pago OAuth renovável conectado', async () => {
+test('expõe Open Finance somente quando Efí está configurada e há chave Pix beneficiária', async () => {
   restaurantSettingsRepository.findPublicByRestaurantId = async () =>
     ({
       restaurantId: 7,
@@ -49,17 +60,16 @@ test('expõe Open Finance somente com Mercado Pago OAuth renovável conectado', 
   restaurantSettingsRepository.findByRestaurantId = async () =>
     ({
       restaurantId: 7,
-      mercadoPagoAccessToken: 'access',
-      mercadoPagoRefreshToken: 'refresh',
+      pixKey: 'financeiro@restaurante.test',
     }) as never;
 
   const settings = await GetPublicRestaurantSettingsService.execute({ restaurantId: 7 });
   assert.equal(settings.openFinancePixEnabled, true);
 
   restaurantSettingsRepository.findByRestaurantId = async () =>
-    ({ restaurantId: 7, mercadoPagoAccessToken: 'access', mercadoPagoRefreshToken: null }) as never;
-  const disconnected = await GetPublicRestaurantSettingsService.execute({ restaurantId: 7 });
-  assert.equal(disconnected.openFinancePixEnabled, false);
+    ({ restaurantId: 7, pixKey: null }) as never;
+  const missingBeneficiary = await GetPublicRestaurantSettingsService.execute({ restaurantId: 7 });
+  assert.equal(missingBeneficiary.openFinancePixEnabled, false);
 });
 
 test('expõe somente os campos públicos necessários para a Home respeitar a configuração', async () => {
