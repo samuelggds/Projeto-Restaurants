@@ -60,8 +60,8 @@ export function AiCreditCard({ balance }: { balance: AiCreditBalance | null }) {
           Recarregar créditos
         </button>
         <p>
-          O Premium concede US$ 2 uma única vez por ADMIN. Depois disso, o saldo só aumenta por
-          recargas pagas.
+          Cada restaurante recebe US$ 2 uma única vez para começar a usar a IA. Quando esse saldo
+          terminar, novas recargas são feitas por Pix.
         </p>
       </Card>
       {open ? (
