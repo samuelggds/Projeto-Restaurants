@@ -7,7 +7,7 @@ type PrismaClientLike = Prisma.TransactionClient | typeof prisma;
 const employeePublicSelect = {
   id: true,
   name: true,
-  email: true,
+  username: true,
   phone: true,
   restaurantId: true,
   role: true,
@@ -18,9 +18,17 @@ const employeePublicSelect = {
 } satisfies Prisma.UserSelect;
 
 class EmployeeRepository {
-  async findByEmail(email: string, db: PrismaClientLike = prisma) {
+  async findByUsername(
+    username: string,
+    restaurantId: number,
+    db: PrismaClientLike = prisma,
+  ) {
     return db.user.findFirst({
-      where: { email },
+      where: {
+        username,
+        restaurantId,
+        role: { in: [UserRole.FUNCIONARIO, UserRole.MOTOQUEIRO] },
+      },
       select: employeePublicSelect,
     });
   }
