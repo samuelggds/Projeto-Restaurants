@@ -410,7 +410,7 @@ test('isolamento multi-tenant real por HTTP e webhooks', { timeout: 120_000 }, a
             method: 'POST',
             json: {
               name: 'Criado pelo Admin A',
-              email: 'created-by-a@tenant-e2e.test',
+              username: 'criadopeloadmina',
               password: 'StrongPassword!123',
               confirmPassword: 'StrongPassword!123',
               phone: '11999998888',
@@ -421,8 +421,11 @@ test('isolamento multi-tenant real por HTTP e webhooks', { timeout: 120_000 }, a
           },
         );
         assert.equal(createdWithTamperedBody.response.status, 201);
-        const created = await prisma.user.findUniqueOrThrow({
-          where: { email: 'created-by-a@tenant-e2e.test' },
+        const created = await prisma.user.findFirstOrThrow({
+          where: {
+            restaurantId: fixture.restaurants.a.id,
+            username: 'criadopeloadmina',
+          },
         });
         assert.equal(created.restaurantId, fixture.restaurants.a.id);
 
