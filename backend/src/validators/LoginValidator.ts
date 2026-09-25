@@ -6,7 +6,7 @@ const staffUsernameSchema = z
   .min(3, 'Usuário obrigatório')
   .max(32, 'Usuário inválido')
   .transform((value) => value.normalize('NFC').toLocaleLowerCase('pt-BR'))
-  .refine((value) => /^[\\p{Ll}\\p{N}]+$/u.test(value), {
+  .refine((value) => /^[a-z0-9]+$/u.test(value), {
     message: 'Usuário inválido',
   });
 
