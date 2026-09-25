@@ -2,6 +2,7 @@ import { BellRing, Gauge, ShoppingBag, TimerReset } from 'lucide-react';
 import { adminMockSettings } from '../data';
 import * as S from '../Admin.styles';
 import { validateOrderFlowSettings } from '../domain/orderFlowSettingsValidation';
+import { NumericDraftInput } from './NumericDraftInput';
 
 type Settings = typeof adminMockSettings;
 type Props = {
@@ -91,40 +92,30 @@ export function OrderFlowSettings({ settings, update }: Props) {
         <S.FormGrid>
           <S.Field>
             Tempo médio em minutos
-            <input
+            <NumericDraftInput
               aria-label="Tempo médio em minutos"
               aria-invalid={Boolean(errors.deliveryTime)}
               min="1"
               max="240"
               step="1"
-              type="number"
+              integer
               value={settings.deliveryTime}
-              onChange={(event) =>
-                update(
-                  'deliveryTime',
-                  Math.min(240, Math.max(1, Math.round(Number(event.target.value) || 1))),
-                )
-              }
+              onCommit={(value) => update('deliveryTime', value)}
             />
             <small>Tempo usado como referência para informar o cliente.</small>
             {errors.deliveryTime && <small>{errors.deliveryTime}</small>}
           </S.Field>
           <S.Field>
             Limite de pedidos simultâneos
-            <input
+            <NumericDraftInput
               aria-label="Limite de pedidos simultâneos"
               aria-invalid={Boolean(errors.maxConcurrentOrders)}
               min="1"
               max="500"
               step="1"
-              type="number"
+              integer
               value={settings.maxConcurrentOrders}
-              onChange={(event) =>
-                update(
-                  'maxConcurrentOrders',
-                  Math.min(500, Math.max(1, Math.round(Number(event.target.value) || 1))),
-                )
-              }
+              onCommit={(value) => update('maxConcurrentOrders', value)}
             />
             <small>Protege a operação quando houver muitos pedidos ao mesmo tempo.</small>
             {errors.maxConcurrentOrders && <small>{errors.maxConcurrentOrders}</small>}
