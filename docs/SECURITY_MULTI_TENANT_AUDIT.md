@@ -32,7 +32,7 @@ Foram considerados os seguintes atores:
 - rotas e controllers de pedidos, produtos, categorias, banners, cupons, funcionários, mesas, configurações, assinaturas e cobrança;
 - conta e pagamentos de mesa, alocações e projeção do ledger;
 - chats de problema do pedido e suporte interno;
-- webhooks Mercado Pago, PagBank, Stripe, Asaas e saque Asaas;
+- webhooks Mercado Pago e Efí Open Finance, além dos caminhos futuros de Asaas/Pagar.me protegidos por feature flag;
 - autenticação, ingresso em rooms, revalidação e publicação Socket.IO;
 - consultas Prisma, SQL parametrizado, jobs de cobrança e retenção;
 - caminhos públicos intencionais de cardápio, mídia, disponibilidade e configuração pública.
