@@ -2,7 +2,7 @@ import { Prisma } from '@prisma/client';
 import prisma from '../../../config/prisma.js';
 import { setTenantDbContext } from '../../../database/tenantDbContext.js';
 
-const FREE_PREMIUM_GRANT_MICROS = 2_000_000n;
+const FREE_RESTAURANT_GRANT_MICROS = 2_000_000n;
 
 type ProviderIdentity = { providerPaymentId: string; providerOrderId?: string | null };
 type TopUpReversalRow = {
@@ -111,19 +111,6 @@ async function assertActiveAdmin(
   if (!user) throw new Error('Conta ADMIN não encontrada para este restaurante.');
 }
 
-async function isPremiumRestaurant(
-  db: Prisma.TransactionClient | typeof prisma,
-  restaurantId: number,
-) {
-  const subscription = await db.subscription.findUnique({
-    where: { restaurantId },
-    select: { plan: true, status: true },
-  });
-  if (!subscription) return false;
-  if (subscription.status === 'CANCELADA') return false;
-  return subscription.plan === 'PREMIUM';
-}
-
 async function readWallet(db: Prisma.TransactionClient, userId: number): Promise<WalletRow | null> {
   const rows = await db.$queryRaw<WalletRow[]>(Prisma.sql`
     SELECT
@@ -159,18 +146,18 @@ async function ensureWallet(db: Prisma.TransactionClient, userId: number, restau
     throw new Error('Carteira de créditos de IA inconsistente para esta conta.');
   }
 
-  if (!wallet.freeGrantClaimedAt && (await isPremiumRestaurant(db, restaurantId))) {
-    const idempotencyKey = `ai-free-grant:admin:${userId}`;
+  if (!wallet.freeGrantClaimedAt) {
+    const idempotencyKey = `ai-free-grant:restaurant:${restaurantId}`;
     const inserted = await db.$executeRaw(Prisma.sql`
       INSERT INTO "AiCreditLedgerEntry" (
         "restaurantId", "adminUserId", "actorUserId", "kind", "amountMicros",
         "balanceAfterMicros", "idempotencyKey", "referenceType", "referenceId", "metadata"
       )
       SELECT
-        ${restaurantId}, ${userId}, ${userId}, 'FREE_GRANT', ${FREE_PREMIUM_GRANT_MICROS},
-        "balanceMicros" + ${FREE_PREMIUM_GRANT_MICROS}, ${idempotencyKey},
-        'PREMIUM_INITIAL_GRANT', ${String(userId)},
-        ${JSON.stringify({ amountUsd: 2, oneTime: true })}::jsonb
+        ${restaurantId}, ${userId}, ${userId}, 'FREE_GRANT', ${FREE_RESTAURANT_GRANT_MICROS},
+        "balanceMicros" + ${FREE_RESTAURANT_GRANT_MICROS}, ${idempotencyKey},
+        'RESTAURANT_INITIAL_GRANT', ${String(restaurantId)},
+        ${JSON.stringify({ amountUsd: 2, oneTime: true, scope: 'RESTAURANT' })}::jsonb
       FROM "AiCreditWallet"
       WHERE "adminUserId" = ${userId}
         AND "freeGrantClaimedAt" IS NULL
@@ -181,7 +168,7 @@ async function ensureWallet(db: Prisma.TransactionClient, userId: number, restau
       await db.$executeRaw(Prisma.sql`
         UPDATE "AiCreditWallet"
         SET
-          "balanceMicros" = "balanceMicros" + ${FREE_PREMIUM_GRANT_MICROS},
+          "balanceMicros" = "balanceMicros" + ${FREE_RESTAURANT_GRANT_MICROS},
           "freeGrantClaimedAt" = CURRENT_TIMESTAMP,
           "updatedAt" = CURRENT_TIMESTAMP
         WHERE "adminUserId" = ${userId}
