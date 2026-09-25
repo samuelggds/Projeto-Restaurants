@@ -229,6 +229,8 @@ const POLICY_LABELS: Record<string, string> = {
   rateLimit: 'Limite de requisições',
   sentry: 'Monitoramento de erros',
   mercadoPago: 'Mercado Pago',
+  openFinance: 'Open Finance (Efí)',
+  pagarme: 'Pagar.me',
   asaas: 'Asaas',
   whatsapp: 'WhatsApp',
 };
