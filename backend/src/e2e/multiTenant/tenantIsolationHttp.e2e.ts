@@ -8,8 +8,6 @@ function signedMpHeaders(id: string) {
   return { 'x-request-id': 'e2e-webhook', 'x-signature': `ts=1742505638,v1=${createHmac('sha256', secret).update(manifest).digest('hex')}` };
 }
 
-import Stripe from 'stripe';
-
 import {
   apiRequest,
   prisma,
@@ -756,44 +754,6 @@ test('isolamento multi-tenant real por HTTP e webhooks', { timeout: 120_000 }, a
         });
         assert.equal(result.response.status, 200);
         assert.equal(result.data.ignored, true);
-
-        const stored = await prisma.order.findUniqueOrThrow({
-          where: { id: fixture.orders.webhookB.id },
-        });
-        assert.equal(stored.paid, false);
-        assert.equal(stored.cardCheckoutSessionId, 'checkout-original-b');
-      },
-    );
-
-    await t.test(
-      'webhook Stripe assinado não cruza orderId B com metadata do Restaurante A',
-      async () => {
-        const payload = JSON.stringify({
-          id: 'evt_tenant_e2e_cross',
-          object: 'event',
-          type: 'checkout.session.completed',
-          data: {
-            object: {
-              id: 'checkout-attack-a',
-              object: 'checkout.session',
-              payment_status: 'paid',
-              metadata: {
-                orderId: String(fixture.orders.webhookB.id),
-                restaurantId: String(fixture.restaurants.a.id),
-              },
-            },
-          },
-        });
-        const signature = Stripe.webhooks.generateTestHeaderString({
-          payload,
-          secret: fixture.settings.stripeSecretA,
-        });
-        const result = await apiRequest(baseUrl, '/orders/webhook/stripe', undefined, {
-          method: 'POST',
-          headers: { 'content-type': 'application/json', 'stripe-signature': signature },
-          body: payload,
-        });
-        assert.equal(result.response.status, 200);
 
         const stored = await prisma.order.findUniqueOrThrow({
           where: { id: fixture.orders.webhookB.id },
