@@ -322,12 +322,21 @@ export function useCheckoutPayments(options: Options) {
 
       if (paymentMethod === 'open_finance_pix') {
         if (!restaurantId) throw new Error('Restaurante inválido para Open Finance.');
-        const result = await ordersService.createOpenFinancePayment(payload);
+        const participantId = localStorage.getItem(
+          `openFinanceParticipantId:${restaurantId}`,
+        ) || '';
+        if (!participantId) {
+          throw new Error('Escolha o banco para pagar via Open Finance.');
+        }
+        const result = await ordersService.createOpenFinancePayment({
+          ...payload,
+          openFinanceParticipantId: participantId,
+        });
         if (!isCurrentCheckout()) return false;
 
         const redirectUrl = String(result.redirectUrl || '').trim();
         if (!/^https:\/\//iu.test(redirectUrl)) {
-          throw new Error('O Mercado Pago não retornou um checkout seguro.');
+          throw new Error('A Efí não retornou um redirecionamento bancário seguro.');
         }
 
         onPurchased();
