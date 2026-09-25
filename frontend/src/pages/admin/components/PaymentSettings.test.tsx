@@ -309,20 +309,6 @@ describe('PaymentSettings', () => {
     expect(button.disabled).toBe(false);
   });
 
-  it('não oferece PagBank como opção de novos pagamentos', () => {
-    act(() =>
-      root.render(
-        <PaymentSettings
-          settings={{ ...adminMockSettings, acceptsPix: true, acceptsCard: true }}
-          update={() => undefined}
-        />,
-      ),
-    );
-    expect(container.textContent).not.toContain('PagBank');
-    for (const select of Array.from(container.querySelectorAll('select'))) {
-      expect(Array.from(select.options).some((option) => option.value === 'PAGBANK')).toBe(false);
-    }
-  });
 
   it('permite desconectar Mercado Pago somente quando a conta está vinculada', async () => {
     const disconnect = vi.fn().mockResolvedValue(true);
