@@ -70,7 +70,7 @@ Classificação feita sobre todos os 44 modelos atuais. “Direto” significa `
 SELECT set_config('app.restaurant_id', $1, true)
 ```
 
-O terceiro argumento mantém o contexto apenas na transação. Não há `SET` de sessão, `PrismaClient` por request, estado tenant global ou transação envolvendo Stripe, Mercado Pago, PagBank, Asaas, e-mail ou trabalho demorado. Contextos A e B concorrentes recebem transaction clients separados.
+O terceiro argumento mantém o contexto apenas na transação. Não há `SET` de sessão, `PrismaClient` por request, estado tenant global ou transação envolvendo provedores externos de pagamento, e-mail ou trabalho demorado. Contextos A e B concorrentes recebem transaction clients separados.
 
 ## Roles de banco
 
