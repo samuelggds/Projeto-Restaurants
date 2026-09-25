@@ -117,13 +117,10 @@ export async function seedTenantE2EFixture() {
     })),
   });
 
-  const stripeSecretA = 'whsec_tenant_e2e_a';
-  const stripeSecretB = 'whsec_tenant_e2e_b';
   const settingsA = await prisma.restaurantSettings.create({
     data: {
       restaurantId: restaurantA.id,
       primaryColor: '#aa1100',
-      stripeWebhookSecret: stripeSecretA,
       mercadoPagoAccessToken: 'TEST-tenant-e2e-mercado-pago-a',
       soundNotifications: false,
     },
@@ -132,7 +129,6 @@ export async function seedTenantE2EFixture() {
     data: {
       restaurantId: restaurantB.id,
       primaryColor: '#bb2200',
-      stripeWebhookSecret: stripeSecretB,
       soundNotifications: false,
     },
   });
@@ -469,7 +465,7 @@ export async function seedTenantE2EFixture() {
 
   return {
     restaurants: { a: restaurantA, b: restaurantB },
-    settings: { a: settingsA, b: settingsB, stripeSecretA, stripeSecretB },
+    settings: { a: settingsA, b: settingsB },
     users: { adminA, adminB, customerA, customerB, employeeB, courierA, courierB },
     categories: { a: categoryA, b: categoryB },
     products: { a: productA, b: productB },
