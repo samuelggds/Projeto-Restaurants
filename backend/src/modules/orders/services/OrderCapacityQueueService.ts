@@ -44,7 +44,7 @@ async function admitWithinTransaction(
     },
     orderBy: [{ capacityQueuedAt: 'asc' }, { createdAt: 'asc' }, { id: 'asc' }],
     take: available,
-    select: { id: true },
+    select: { id: true, paid: true },
   });
   if (!candidates.length) return { admitted: [] };
 
@@ -74,6 +74,14 @@ async function admitWithinTransaction(
       event: 'OPERATIONAL_NEW_ORDER',
       db: tx,
     });
+    if (candidate.paid) {
+      await kitchenPrintingService.enqueueAutomatic({
+        restaurantId,
+        orderId: candidate.id,
+        event: 'PAYMENT_CONFIRMED',
+        db: tx,
+      });
+    }
     const current = await orderRepository.findById(candidate.id, restaurantId, tx);
     if (current) admitted.push(current);
   }
