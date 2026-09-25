@@ -47,9 +47,6 @@ export function getActiveOrderNotice(orders: Record<string, unknown>[]): ActiveO
   if (!latestOrder || latestOrder.id == null) return null;
 
   const status = String(latestOrder.status || '').toUpperCase();
-  const waitingForCapacity = Boolean(
-    latestOrder.capacityQueuedAt && !latestOrder.capacityAdmittedAt,
-  );
   const awaitsReceiptConfirmation = status === 'ENTREGUE' && !latestOrder.deliveryConfirmedAt;
   if (!ACTIVE_STATUSES.has(status) && !awaitsReceiptConfirmation) return null;
 
@@ -64,9 +61,7 @@ export function getActiveOrderNotice(orders: Record<string, unknown>[]): ActiveO
     summary: orderSummary(latestOrder),
     statusLabel: paymentPending
       ? 'Pagamento pendente'
-      : waitingForCapacity
-        ? 'Aguardando vaga na operação'
-        : STATUS_LABELS[status] || 'Pedido em andamento',
+      : STATUS_LABELS[status] || 'Pedido em andamento',
     deliveryConfirmationCode: /^\d{4}$/.test(code) ? code : null,
     deliveryStartedAt: latestOrder.deliveryStartedAt
       ? String(latestOrder.deliveryStartedAt)
