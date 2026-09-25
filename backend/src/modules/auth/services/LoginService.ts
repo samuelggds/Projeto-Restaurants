@@ -12,48 +12,67 @@ type PlatformAccess = Pick<typeof platformMaintenanceAccessService, 'assertRoleA
 export class LoginService {
   constructor(private readonly platformAccess: PlatformAccess = platformMaintenanceAccessService) {}
 
-  async execute({ email, password }: { email: string; password: string }) {
-    const normalizedEmail = String(email || '')
+  async execute({
+    email,
+    username,
+    restaurantSlug,
+    password,
+  }: {
+    email?: string;
+    username?: string;
+    restaurantSlug?: string;
+    password: string;
+  }) {
+    const normalizedEmail = String(email || '').trim().toLowerCase();
+    const normalizedUsername = String(username || '')
       .trim()
-      .toLowerCase();
-    const lockStatus = await loginLockoutService.check(normalizedEmail);
+      .normalize('NFC')
+      .toLocaleLowerCase('pt-BR');
+    const normalizedRestaurantSlug = String(restaurantSlug || '').trim().toLowerCase();
+    const staffLogin = Boolean(normalizedUsername);
+    const loginKey = staffLogin
+      ? `staff:${normalizedRestaurantSlug}:${normalizedUsername}`
+      : normalizedEmail;
+    const lockStatus = await loginLockoutService.check(loginKey);
     if (lockStatus.locked) {
       throw new Error(`Muitas tentativas de login. Tente novamente em ${lockStatus.waitSeconds}s.`);
     }
 
     try {
-      loginSchema.parse({ email, password });
+      loginSchema.parse({ email, username, restaurantSlug, password });
     } catch (_err: unknown) {
       throw new Error('Dados inválidos');
     }
 
-    const user = await userRepository.findByEmail(normalizedEmail);
+    const user = staffLogin
+      ? await userRepository.findStaffByUsername(normalizedUsername, normalizedRestaurantSlug)
+      : await userRepository.findByEmail(normalizedEmail);
 
     if (!user) {
-      await loginLockoutService.registerFailure(normalizedEmail);
-      throw new Error('Email ou senha inválidos!');
+      await loginLockoutService.registerFailure(loginKey);
+      throw new Error(staffLogin ? 'Usuário ou senha inválidos!' : 'Email ou senha inválidos!');
     }
     const passwordMatch = await bcrypt.compare(password, user.password);
 
     if (!passwordMatch) {
-      const failure = await loginLockoutService.registerFailure(normalizedEmail);
+      const failure = await loginLockoutService.registerFailure(loginKey);
       if (failure.locked) {
         throw new Error(`Muitas tentativas de login. Tente novamente em ${failure.waitSeconds}s.`);
       }
 
-      throw new Error('Email ou senha inválidos!');
+      throw new Error(staffLogin ? 'Usuário ou senha inválidos!' : 'Email ou senha inválidos!');
     }
     if (!user.active) {
-      await loginLockoutService.registerFailure(normalizedEmail);
+      await loginLockoutService.registerFailure(loginKey);
       throw new Error('Email ou senha inválidos!');
     }
 
     if (user.emailVerificationRequired && !user.emailVerifiedAt) {
-      await loginLockoutService.registerSuccess(normalizedEmail);
+      await loginLockoutService.registerSuccess(loginKey);
       throw new Error('Confirme seu e-mail antes de entrar. Reenvie a confirmação se necessário.');
     }
 
-    await loginLockoutService.registerSuccess(normalizedEmail);
+    await loginLockoutService.registerSuccess(loginKey);
     await this.platformAccess.assertRoleAllowed(user.role);
 
     const mfaChallenge = await loginMfaService.beginIfRequired(user as any);
@@ -77,6 +96,7 @@ export class LoginService {
         id: user.id,
         name: user.name,
         email: user.email,
+        username: user.username,
         role: user.role,
         subRole: user.subRole ?? null,
         active: user.active,
