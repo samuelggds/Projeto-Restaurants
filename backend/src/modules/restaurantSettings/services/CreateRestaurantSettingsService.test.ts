@@ -98,7 +98,7 @@ test('rejeita provedor antigo em novas configurações de pagamento', async () =
         restaurantId: 7,
         deliveryFee: 0,
         minimumOrder: 0,
-        pixProvider: 'PAGBANK',
+        pixProvider: 'NUBANK',
       }),
     /apenas Mercado Pago está disponível/i,
   );
