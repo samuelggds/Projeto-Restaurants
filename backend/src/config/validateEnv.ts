@@ -183,6 +183,44 @@ export function validateCriticalEnv() {
     errors.push('MP_WEBHOOK_SECRETS deve ser uma lista JSON de até 20 segredos não vazios.');
   }
 
+  const efiOpenFinanceEnabled =
+    String(process.env.EFI_OPEN_FINANCE_ENABLED || 'false').trim().toLowerCase() === 'true';
+  if (efiOpenFinanceEnabled) {
+    requireValue('EFI_OPEN_FINANCE_CLIENT_ID', errors);
+    requireValue('EFI_OPEN_FINANCE_CLIENT_SECRET', errors);
+    const efiWebhookHmac = requireValue('EFI_OPEN_FINANCE_WEBHOOK_HMAC', errors);
+    if (efiWebhookHmac && efiWebhookHmac.length < 24) {
+      errors.push('EFI_OPEN_FINANCE_WEBHOOK_HMAC deve ter pelo menos 24 caracteres.');
+    }
+    const efiP12 = String(process.env.EFI_OPEN_FINANCE_P12_BASE64 || '').trim();
+    const efiCert = String(process.env.EFI_OPEN_FINANCE_CERT_BASE64 || '').trim();
+    const efiKey = String(process.env.EFI_OPEN_FINANCE_KEY_BASE64 || '').trim();
+    if (!efiP12 && !(efiCert && efiKey)) {
+      errors.push(
+        'Efí Open Finance exige EFI_OPEN_FINANCE_P12_BASE64 ou o par EFI_OPEN_FINANCE_CERT_BASE64/EFI_OPEN_FINANCE_KEY_BASE64.',
+      );
+    }
+    const efiEnvironment = String(process.env.EFI_OPEN_FINANCE_ENV || 'homologation')
+      .trim()
+      .toLowerCase();
+    if (!['homologation', 'production'].includes(efiEnvironment)) {
+      errors.push('EFI_OPEN_FINANCE_ENV deve ser homologation ou production.');
+    }
+    const efiBaseOverride = String(process.env.EFI_OPEN_FINANCE_BASE_URL || '').trim();
+    if (efiBaseOverride) {
+      const efiUrl = parsePublicUrl('EFI_OPEN_FINANCE_BASE_URL', efiBaseOverride, errors);
+      const expectedHost =
+        efiEnvironment === 'production'
+          ? 'openfinance.api.efipay.com.br'
+          : 'openfinance-h.api.efipay.com.br';
+      if (efiUrl && efiUrl.hostname !== expectedHost) {
+        errors.push(
+          `EFI_OPEN_FINANCE_BASE_URL deve usar ${expectedHost} para o ambiente selecionado.`,
+        );
+      }
+    }
+  }
+
   const authRateLimitMax = asNumber(String(process.env.AUTH_RATE_LIMIT_MAX_REQUESTS || '50'), 50);
   if (authRateLimitMax <= 0) {
     errors.push('AUTH_RATE_LIMIT_MAX_REQUESTS deve ser maior que zero.');
