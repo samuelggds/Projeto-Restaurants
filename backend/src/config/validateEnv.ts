@@ -433,7 +433,13 @@ export function validateCriticalEnv() {
       .trim()
       .toLowerCase();
 
-    if (routingProvider === 'geoapify') {
+    if (routingProvider === 'google') {
+      requireValue('GOOGLE_ROUTES_API_KEY', errors);
+      const googleRoutesBaseUrl = String(
+        process.env.GOOGLE_ROUTES_BASE_URL || 'https://routes.googleapis.com',
+      ).trim();
+      if (googleRoutesBaseUrl) parsePublicUrl('GOOGLE_ROUTES_BASE_URL', googleRoutesBaseUrl, errors);
+    } else if (routingProvider === 'geoapify') {
       requireValue('GEOAPIFY_API_KEY', errors);
       const geoapifyBaseUrl = String(
         process.env.GEOAPIFY_BASE_URL || 'https://api.geoapify.com',
@@ -462,7 +468,7 @@ export function validateCriticalEnv() {
 
       validatePositiveInteger('GEOCODER_REQUEST_TIMEOUT_MS', 4000, errors);
     } else {
-      errors.push('ROUTING_PROVIDER deve ser osrm ou geoapify em producao.');
+      errors.push('ROUTING_PROVIDER deve ser google, osrm ou geoapify em producao.');
     }
 
     validatePositiveInteger('ROUTING_REQUEST_TIMEOUT_MS', 4000, errors);
