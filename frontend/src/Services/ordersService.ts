@@ -415,6 +415,25 @@ class OrdersService {
     return response.data;
   }
 
+  async recoverPayment(orderPublicId: string) {
+    const guestToken = getGuestOrderOwnershipTokenByPublicId(orderPublicId);
+    const response = await api.get(
+      `/orders/payment/${encodeURIComponent(orderPublicId)}`,
+      guestToken ? { headers: { 'x-guest-order-ownership': guestToken } } : undefined,
+    );
+    return response.data;
+  }
+
+  async retryCardPayment(orderPublicId: string, payload: Record<string, unknown>) {
+    const guestToken = getGuestOrderOwnershipTokenByPublicId(orderPublicId);
+    const response = await api.post(
+      `/orders/payment/${encodeURIComponent(orderPublicId)}/card/retry`,
+      payload,
+      guestToken ? { headers: { 'x-guest-order-ownership': guestToken } } : undefined,
+    );
+    return response.data;
+  }
+
   async recoverPixPayment(orderPublicId: string) {
     const guestToken = getGuestOrderOwnershipTokenByPublicId(orderPublicId);
     const response = await api.get(
