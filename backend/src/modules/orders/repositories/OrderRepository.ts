@@ -12,6 +12,7 @@ import {
 import prisma from '../../../config/prisma.js';
 import { withTenantDbContext } from '../../../database/tenantDbContext.js';
 import kitchenPrintingService from '../../kitchenPrinting/services/KitchenPrintingService.js';
+import { admittedCapacityWhere } from '../utils/orderCapacity.js';
 
 type PrismaClientLike = Prisma.TransactionClient | typeof prisma;
 
@@ -168,7 +169,7 @@ class OrderRepository {
       where: {
         restaurantId,
         status: { in: [OrderStatus.PENDENTE, OrderStatus.PREPARANDO, OrderStatus.PRONTO] },
-        AND: [operationalPaymentWhere()],
+        AND: [operationalPaymentWhere(), admittedCapacityWhere],
       },
     });
   }
@@ -415,12 +416,22 @@ class OrderRepository {
         where: { orderId: Number(id), restaurantId, canceledAt: null },
         data: { financialStatus: TableBillItemFinancialStatus.PAID, paidAt },
       });
-      await kitchenPrintingService.enqueueAutomatic({
-        restaurantId,
-        orderId: Number(id),
-        event: 'PAYMENT_CONFIRMED',
-        db,
+      const queued = await db.order.findFirst({
+        where: {
+          id: Number(id),
+          restaurantId,
+          capacityQueuedAt: { not: null },
+          capacityAdmittedAt: null,
+        },
+        select: { id: true },
       });
+      if (!queued)
+        await kitchenPrintingService.enqueueAutomatic({
+          restaurantId,
+          orderId: Number(id),
+          event: 'PAYMENT_CONFIRMED',
+          db,
+        });
     }
 
     const current = await this.findById(id, restaurantId, db);
@@ -484,12 +495,22 @@ class OrderRepository {
         where: { orderId: Number(id), restaurantId, canceledAt: null },
         data: { financialStatus: TableBillItemFinancialStatus.PAID, paidAt },
       });
-      await kitchenPrintingService.enqueueAutomatic({
-        restaurantId,
-        orderId: Number(id),
-        event: 'PAYMENT_CONFIRMED',
-        db,
+      const queued = await db.order.findFirst({
+        where: {
+          id: Number(id),
+          restaurantId,
+          capacityQueuedAt: { not: null },
+          capacityAdmittedAt: null,
+        },
+        select: { id: true },
       });
+      if (!queued)
+        await kitchenPrintingService.enqueueAutomatic({
+          restaurantId,
+          orderId: Number(id),
+          event: 'PAYMENT_CONFIRMED',
+          db,
+        });
     }
 
     const current = await this.findById(id, restaurantId, db);
