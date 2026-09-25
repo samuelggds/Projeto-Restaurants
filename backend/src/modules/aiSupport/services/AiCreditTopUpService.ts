@@ -468,11 +468,10 @@ function aiTopUpPublicIdFromOrder(order: Record<string, unknown>) {
 }
 
 export class AiCreditTopUpService {
-  async quote(amountUsdInput: unknown, restaurantId: number) {
+  async quote(amountUsdInput: unknown) {
     const amountUsd = normalizeUsd(amountUsdInput);
     const quote = await usdBrlExchangeRateService.getCurrentQuote();
     const amounts = billedAmounts(amountUsd, quote.rateBrlPerUsd);
-    const card = await getSavedRecurringCard(restaurantId);
     return {
       creditUsd: amountUsd,
       exchangeRateBrlPerUsd: quote.rateBrlPerUsd,
@@ -481,16 +480,6 @@ export class AiCreditTopUpService {
       baseAmountBrl: amounts.baseAmountBrl,
       markupPercent: amounts.markupPercent,
       amountBrl: amounts.amountBrl,
-      card: card
-        ? {
-            available: true,
-            brand: card.brand,
-            brandLabel: card.brandLabel,
-            last4: card.last4,
-            expMonth: card.expMonth,
-            expYear: card.expYear,
-          }
-        : { available: false },
     };
   }
 
