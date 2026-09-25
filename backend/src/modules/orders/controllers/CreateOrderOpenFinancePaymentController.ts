@@ -1,6 +1,6 @@
 import type { Request, Response } from 'express';
 import createOrderService from '../services/CreateOrderService.js';
-import openFinanceMercadoPagoPaymentService from '../services/OpenFinanceMercadoPagoPaymentService.js';
+import openFinanceEfiPaymentService from '../services/OpenFinanceEfiPaymentService.js';
 import { resolveOrderRestaurantId } from '../utils/orderTenant.js';
 import { issueGuestOrderTrackingToken } from '../utils/guestOrderTrackingToken.js';
 import { issueGuestOrderOwnershipToken } from '../utils/guestOrderOwnershipToken.js';
@@ -16,6 +16,7 @@ class CreateOrderOpenFinancePaymentController {
     try {
       const {
         restaurantId,
+        openFinanceParticipantId,
         type,
         paymentMethod,
         observation,
@@ -48,7 +49,7 @@ class CreateOrderOpenFinancePaymentController {
       });
 
       const order = await createOrderService.execute({
-        creationRequest: orderCreationContext(req, 'open-finance-mercado-pago'),
+        creationRequest: orderCreationContext(req, 'open-finance-efi'),
         userId,
         restaurantId: resolvedRestaurantId,
         userRestaurantId,
@@ -96,9 +97,11 @@ class CreateOrderOpenFinancePaymentController {
 
       let result;
       try {
-        result = await openFinanceMercadoPagoPaymentService.start({
+        result = await openFinanceEfiPaymentService.start({
           orderId: order.id,
           restaurantId: resolvedRestaurantId,
+          participantId: String(openFinanceParticipantId || ''),
+          customerCpf: String(customerCpf || ''),
         });
       } catch (error) {
         console.error('[OPEN_FINANCE_PAYMENT_CREATION_UNCERTAIN]', {
@@ -108,7 +111,7 @@ class CreateOrderOpenFinancePaymentController {
         });
         if (
           error instanceof Error &&
-          /desativado|Conecte a conta Mercado Pago|inválido|indisponível|já possui outra tentativa/i.test(
+          /desativado|configurado pela plataforma|chave Pix|CPF válido|Escolha o banco|inválido|indisponível|já possui outra tentativa/i.test(
             error.message,
           )
         ) {
@@ -184,7 +187,7 @@ class CreateOrderOpenFinancePaymentController {
         error:
           error instanceof Error
             ? error.message
-            : 'Não foi possível iniciar o Open Finance Mercado Pago.',
+            : 'Não foi possível iniciar o Open Finance Efí.',
       });
     }
   }
