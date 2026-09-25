@@ -1,6 +1,7 @@
 import styled from 'styled-components';
 import { adminMockSettings } from '../data';
 import * as S from '../Admin.styles';
+import { NumericDraftInput } from './NumericDraftInput';
 
 type Settings = typeof adminMockSettings;
 type DeliveryFeeRange = Settings['deliveryFeeRanges'][number];
@@ -266,11 +267,6 @@ const DeliveryAreaSummary = styled.div`
   }
 `;
 
-function getNumericValue(value: string) {
-  const parsed = Number(value);
-  return Number.isFinite(parsed) ? Math.max(0, parsed) : 0;
-}
-
 export function DeliverySettings({ settings, update }: Props) {
   const deliveryEnabled = settings.acceptsDelivery;
   const distanceMode = settings.deliveryFeeMode === 'DISTANCE';
@@ -342,14 +338,13 @@ export function DeliverySettings({ settings, update }: Props) {
           {BASE_DELIVERY_RULES.map(([key, label, description]) => (
             <S.Field key={key}>
               {label}
-              <input
-                type="number"
+              <NumericDraftInput
                 min="0"
                 step="0.01"
                 aria-label={label}
                 value={settings[key]}
                 disabled={!deliveryEnabled}
-                onChange={(event) => update(key, getNumericValue(event.target.value))}
+                onCommit={(value) => update(key, value)}
               />
               <small>{description}</small>
             </S.Field>
@@ -392,14 +387,13 @@ export function DeliverySettings({ settings, update }: Props) {
           <S.FormGrid>
             <S.Field>
               Taxa padrão (R$)
-              <input
-                type="number"
+              <NumericDraftInput
                 min="0"
                 step="0.01"
                 aria-label="Taxa padrão (R$)"
                 value={settings.deliveryFee}
                 disabled={!deliveryEnabled}
-                onChange={(event) => update('deliveryFee', getNumericValue(event.target.value))}
+                onCommit={(value) => update('deliveryFee', value)}
               />
               <small>Valor acrescentado aos pedidos de delivery.</small>
             </S.Field>
@@ -419,16 +413,15 @@ export function DeliverySettings({ settings, update }: Props) {
                   <RangeRow key={range.id ?? `new-delivery-range-${index}`}>
                     <label className="range-field">
                       <span>Até (km)</span>
-                      <input
-                        type="number"
+                      <NumericDraftInput
                         min="0.01"
                         step="0.01"
                         aria-label={`Distância máxima da faixa ${index + 1}`}
                         value={range.maxDistanceKm}
                         disabled={!deliveryEnabled}
-                        onChange={(event) =>
+                        onCommit={(value) =>
                           updateRange(index, {
-                            maxDistanceKm: getNumericValue(event.target.value),
+                            maxDistanceKm: value,
                           })
                         }
                       />
@@ -436,16 +429,15 @@ export function DeliverySettings({ settings, update }: Props) {
 
                     <label className="range-field">
                       <span>Taxa (R$)</span>
-                      <input
-                        type="number"
+                      <NumericDraftInput
                         min="0"
                         step="0.01"
                         aria-label={`Taxa da faixa ${index + 1}`}
                         value={range.fee}
                         disabled={!deliveryEnabled}
-                        onChange={(event) =>
+                        onCommit={(value) =>
                           updateRange(index, {
-                            fee: getNumericValue(event.target.value),
+                            fee: value,
                           })
                         }
                       />
