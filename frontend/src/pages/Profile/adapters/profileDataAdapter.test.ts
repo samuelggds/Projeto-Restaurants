@@ -64,6 +64,35 @@ describe('profileDataAdapter', () => {
     });
   });
 
+  it('mantém cartão pendente recuperável em Meus pedidos', () => {
+    const data = buildProfileData({
+      user: { name: 'Samuel', email: 'cliente@demo.com' },
+      settings: null,
+      favorites: [],
+      addresses: [],
+      avatarUrl: '',
+      orders: [
+        {
+          id: 92,
+          publicId: 'order-public-92',
+          status: 'PENDENTE',
+          type: 'DELIVERY',
+          paymentMethod: 'CARTAO',
+          paid: false,
+          total: 79.9,
+          items: [{ product: { name: 'Combo' } }],
+        },
+      ],
+    });
+
+    expect(data.activeOrder).toMatchObject({
+      id: '#0092',
+      publicId: 'order-public-92',
+      paymentPending: true,
+      total: 79.9,
+    });
+  });
+
   it('não inventa endereço do restaurante nem do cliente quando os dados estão ausentes', () => {
     const data = buildProfileData({
       user: { name: 'Samuel', email: 'cliente@demo.com' },
