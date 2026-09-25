@@ -1,4 +1,5 @@
 import { OrderStatus, PaymentMethod } from '@prisma/client';
+import { onlinePaymentExpiresAt } from '../../payments/domain/onlinePaymentPolicy.js';
 import orderRepository from '../repositories/OrderRepository.js';
 import orderPaymentAttemptRepository from '../repositories/OrderPaymentAttemptRepository.js';
 
@@ -48,6 +49,9 @@ class GetOrderPaymentRecoveryService {
       paymentMethod === PaymentMethod.CARTAO
         ? await orderPaymentAttemptRepository.latestForOrder(order.id, order.restaurantId)
         : null;
+    const cardExpiresAt =
+      paymentMethod === PaymentMethod.CARTAO ? onlinePaymentExpiresAt(order.createdAt) : null;
+    const cardRetryWindowOpen = !cardExpiresAt || cardExpiresAt.getTime() > Date.now();
 
     return {
       orderId: order.id,
@@ -62,7 +66,10 @@ class GetOrderPaymentRecoveryService {
       canRetry:
         order.paid !== true &&
         order.status !== OrderStatus.CANCELADO &&
-        paymentMethod === PaymentMethod.CARTAO,
+        paymentMethod === PaymentMethod.CARTAO &&
+        cardRetryWindowOpen,
+      expiresAt:
+        paymentMethod === PaymentMethod.CARTAO ? cardExpiresAt : order.pixExpiresAt,
       paymentAttempt: latestCardAttempt
         ? {
             publicId: latestCardAttempt.publicId,
