@@ -12,6 +12,7 @@ import { GastroNexaTourBrand } from '../../../components/GastroNexaTourBrand';
 import { AiCreditCard } from './AiCreditCard';
 import { AiGuideAssistant } from './AiGuideAssistant';
 import { AiGuidedTour } from './AiGuidedTour';
+import { hasPremiumAiAccess } from '../domain/aiPlanAccess';
 import { AdminOverviewAiSummaryPortal } from './AdminOverviewAiSummaryPortal';
 
 const AREA_LABELS: Record<string, string> = {
@@ -111,10 +112,7 @@ export default function AdminAiLayer({ children }: { children: React.ReactNode }
       .getSubscription()
       .then((subscription) => {
         if (!active) return;
-        const enabled =
-          subscription.plan === 'PREMIUM' &&
-          (subscription.status === 'ATIVA' || subscription.status === 'TESTE');
-        setAiEnabled(enabled);
+        setAiEnabled(hasPremiumAiAccess(subscription));
       })
       .catch(() => {
         if (active) setAiEnabled(false);
