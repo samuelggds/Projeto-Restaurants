@@ -482,14 +482,14 @@ export function createDemoAdminApi(
           plan: 'BASICO',
           name: 'Básico',
           monthlyFee: 149.9,
-          trialDays: 30,
+          trialDays: 7,
           features: ['Delivery', 'Cardápio digital'],
         },
         {
           plan: 'PREMIUM',
           name: 'Premium',
           monthlyFee: 249.9,
-          trialDays: 30,
+          trialDays: 15,
           features: ['Delivery', 'Salão', 'Gestão completa'],
         },
       ]);
@@ -498,7 +498,7 @@ export function createDemoAdminApi(
         id: 1,
         plan: body.plan ?? 'PREMIUM',
         status: 'TESTE',
-        trialEndsAt: new Date(Date.now() + 30 * 86400000).toISOString(),
+        trialEndsAt: new Date(Date.now() + 15 * 86400000).toISOString(),
         planChangeEligibility: { allowed: true, invoiceId: null, reason: '' },
         message: 'Plano alterado somente na demonstração.',
       });
