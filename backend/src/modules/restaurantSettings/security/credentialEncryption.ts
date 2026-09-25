@@ -5,8 +5,6 @@ const IV_BYTES = 12;
 const KEY_BYTES = 32;
 
 export const RESTAURANT_CREDENTIAL_FIELDS = [
-  'stripeSecretKey',
-  'stripeWebhookSecret',
   'pagarmeSecretKey',
   'mercadoPagoAccessToken',
   'mercadoPagoRefreshToken',
