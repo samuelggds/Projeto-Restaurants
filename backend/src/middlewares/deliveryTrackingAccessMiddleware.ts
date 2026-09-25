@@ -7,26 +7,32 @@ export async function deliveryTrackingAccessMiddleware(
   res: Response,
   next: NextFunction,
 ) {
-  if (req.headers.authorization) {
-    return authMiddleware(req, res, next);
-  }
-
   const rawOrderId = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
   const orderId = Number(rawOrderId || 0);
   const tokenHeader = req.headers['x-guest-order-token'];
   const token = Array.isArray(tokenHeader) ? tokenHeader[0] : String(tokenHeader || '');
 
-  try {
-    const guestAccess = verifyGuestOrderTrackingToken(token, orderId);
-    req.guestOrderTracking = guestAccess;
-    req.user = {
-      id: null,
-      restaurantId: null,
-      role: 'CLIENTE',
-      isGuest: true,
-    };
-    return next();
-  } catch {
-    return res.status(401).json({ error: 'Acesso de visitante inválido ou expirado.' });
+  if (token) {
+    try {
+      const guestAccess = verifyGuestOrderTrackingToken(token, orderId);
+      req.guestOrderTracking = guestAccess;
+      req.user = {
+        id: null,
+        restaurantId: null,
+        role: 'CLIENTE',
+        isGuest: true,
+      };
+      return next();
+    } catch {
+      if (!req.headers.authorization) {
+        return res.status(401).json({ error: 'Acesso de visitante inválido ou expirado.' });
+      }
+    }
   }
+
+  if (req.headers.authorization) {
+    return authMiddleware(req, res, next);
+  }
+
+  return res.status(401).json({ error: 'Acesso de visitante inválido ou expirado.' });
 }
