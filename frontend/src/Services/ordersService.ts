@@ -353,7 +353,20 @@ class OrdersService {
     return this.createOnlinePayment('/orders/pix/payment', payload);
   }
 
-  async createOpenFinancePayment(payload: PixPaymentPayload) {
+  async listOpenFinanceInstitutions() {
+    const response = await api.get<{
+      institutions?: Array<{ id?: string; name?: string; logo?: string | null }>;
+    }>('/orders/open-finance/institutions');
+    return (Array.isArray(response.data?.institutions) ? response.data.institutions : [])
+      .map((institution) => ({
+        id: String(institution.id || '').trim(),
+        name: String(institution.name || '').trim(),
+        logo: institution.logo ? String(institution.logo) : null,
+      }))
+      .filter((institution) => institution.id && institution.name);
+  }
+
+  async createOpenFinancePayment(payload: PixPaymentPayload & { openFinanceParticipantId?: string }) {
     return this.createOnlinePayment('/orders/open-finance/payment', payload);
   }
 
