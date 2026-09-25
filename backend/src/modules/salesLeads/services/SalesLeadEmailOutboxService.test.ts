@@ -57,6 +57,28 @@ test('sem SMTP válido a fila permanece intocada e registra configuração ausen
     null,
   );
   assert.ok(salesLeadEmailConfiguration(smtp));
+  assert.deepEqual(
+    salesLeadEmailConfiguration({
+      ...smtp,
+      SALES_CONTACT_NOTIFICATION_EMAIL: '',
+      ALERT_EMAIL_TO: 'alerts@example.test',
+    }),
+    {
+      recipient: 'alerts@example.test',
+      from: smtp.SALES_CONTACT_EMAIL_FROM,
+    },
+  );
+  assert.deepEqual(
+    salesLeadEmailConfiguration({
+      ...smtp,
+      SALES_CONTACT_NOTIFICATION_EMAIL: '',
+      ALERT_EMAIL_TO: '',
+    }),
+    {
+      recipient: smtp.SMTP_USER,
+      from: smtp.SALES_CONTACT_EMAIL_FROM,
+    },
+  );
   const { events, logger } = createLogger();
   assert.deepEqual(await deliverSalesLeadEmails({} as Database, null, logger), {
     processed: 0,
