@@ -8,6 +8,7 @@ import {
   FolderOpen,
   ImagePlus,
   Link2,
+  PencilLine,
   LockKeyhole,
   PackageOpen,
   ScanLine,
@@ -203,34 +204,46 @@ export function AdminMenuImport({ onClose, onImported }: AdminMenuImportProps) {
   };
 
   const imageGenerationOption = (
-    <I.ImportNotice role="note">
-      <CircleAlert />
-      <span>
-        <b>Imagens automáticas com IA</b>
-        <small>
-          Depois da publicação, mostramos a estimativa de créditos antes da confirmação. O processamento
-          continua em segundo plano mesmo se você sair desta tela. Produtos com marcas conhecidas continuam
-          exigindo foto oficial/manual.
-        </small>
-        <label style={{ display: 'inline-flex', alignItems: 'center', gap: 7, marginTop: 5, fontSize: 10, fontWeight: 800, cursor: 'pointer' }}>
-          <input checked={generateProductImages} disabled={busy} type="checkbox" onChange={(event) => setGenerateProductImages(event.target.checked)} />
-          Preparar geração de imagens para produtos sem foto
-        </label>
+    <I.AiImageOption role="note">
+      <span className="ai-option-icon"><Sparkles /></span>
+      <span className="ai-option-copy">
+        <small>OPCIONAL · DEPOIS DA PUBLICAÇÃO</small>
+        <b>Completar produtos sem foto com IA</b>
+        <p>
+          Antes de gerar qualquer imagem, você verá a estimativa de créditos e confirmará o lote.
+          Produtos com marcas conhecidas continuam exigindo uma foto oficial ou manual.
+        </p>
       </span>
-    </I.ImportNotice>
+      <label className="ai-switch">
+        <input
+          checked={generateProductImages}
+          disabled={busy}
+          type="checkbox"
+          onChange={(event) => setGenerateProductImages(event.target.checked)}
+        />
+        <span aria-hidden="true" />
+        <em>{generateProductImages ? 'Ativado' : 'Desativado'}</em>
+      </label>
+    </I.AiImageOption>
   );
 
   const imageBatchPanel = (
     <>
       {imageEstimate && (
-        <I.ImportNotice role="status">
-          <ChatGptLogo />
-          <span>
-            <b>Confirmar geração em lote</b>
-            <small>{imageEstimate.productIds.length} produto(s) · estimativa máxima US$ {imageEstimate.estimatedCreditUsd.toFixed(4)}. {imageEstimate.note}</small>
-            <button type="button" disabled={busy} onClick={() => void confirmImageBatch()} style={{ marginTop: 8 }}>Confirmar geração em segundo plano</button>
+        <I.ImageBatchCard role="status">
+          <span className="batch-icon"><ChatGptLogo /></span>
+          <span className="batch-copy">
+            <small>IMAGENS COM IA</small>
+            <b>Confirme antes de consumir créditos</b>
+            <p>
+              {imageEstimate.productIds.length} produto(s) · estimativa máxima US$ {imageEstimate.estimatedCreditUsd.toFixed(4)}.
+              {' '}{imageEstimate.note}
+            </p>
           </span>
-        </I.ImportNotice>
+          <button type="button" disabled={busy} onClick={() => void confirmImageBatch()}>
+            <Sparkles /> Confirmar geração
+          </button>
+        </I.ImageBatchCard>
       )}
       {imageBatch && (
         <I.ImportNotice $tone="success" role="status">
@@ -255,43 +268,235 @@ export function AdminMenuImport({ onClose, onImported }: AdminMenuImportProps) {
   );
 
   const draftPanel = draft && (
-    <div style={{ display: 'grid', gap: 10 }}>
-      <I.StatGrid>
-        <article><span><PackageOpen /></span><div><strong>{draft.summary.total}</strong><b>Itens encontrados</b><small>{draft.summary.selected} selecionado(s)</small></div></article>
-        <article><span><CircleAlert /></span><div><strong>{draft.summary.uncertain + draft.summary.duplicates}</strong><b>Precisam de atenção</b><small>{draft.summary.duplicates} possível(is) duplicação(ões)</small></div></article>
-      </I.StatGrid>
-      <I.ImportNotice role="note"><Sparkles /><span><b>Prévia editável — nada foi publicado ainda</b><small>Revise os dados extraídos, escolha criar/atualizar/pular e só depois publique os itens selecionados. Campos marcados como incertos vieram da leitura da imagem.</small></span></I.ImportNotice>
-      <div style={{ display: 'grid', gap: 8 }}>
-        {draft.items.map((item) => (
-          <article key={item.publicId} style={{ border: itemNeedsReview(item) ? '1px solid #f0b98f' : '1px solid #e5dfdb', borderRadius: 12, padding: 10, background: '#fff' }}>
-            <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr auto', gap: 8, alignItems: 'start' }}>
-              <input aria-label={`Selecionar ${item.name}`} type="checkbox" checked={item.selected} disabled={draft.status !== 'REVIEW'} onChange={(event) => void updateDraftItem(item, { selected: event.target.checked })} />
-              <div style={{ display: 'grid', gap: 6 }}>
-                <input aria-label="Nome do produto" defaultValue={item.name} disabled={draft.status !== 'REVIEW'} onBlur={(event) => event.target.value !== item.name && void updateDraftItem(item, { name: event.target.value })} />
-                <input aria-label="Descrição do produto" defaultValue={item.description || ''} disabled={draft.status !== 'REVIEW'} placeholder="Descrição não informada" onBlur={(event) => event.target.value !== (item.description || '') && void updateDraftItem(item, { description: event.target.value || null })} />
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 120px', gap: 6 }}>
-                  <input aria-label="Categoria do produto" defaultValue={item.category} disabled={draft.status !== 'REVIEW'} onBlur={(event) => event.target.value !== item.category && void updateDraftItem(item, { category: event.target.value })} />
-                  <input aria-label="Preço do produto" type="number" min="0.01" step="0.01" defaultValue={item.price} disabled={draft.status !== 'REVIEW'} onBlur={(event) => Number(event.target.value) !== item.price && void updateDraftItem(item, { price: Number(event.target.value) })} />
-                </div>
-                {item.uncertainFields.length > 0 && <small style={{ color: '#9a5b24' }}>Confira: {item.uncertainFields.join(', ')}</small>}
-                {!item.description && <small>Descrição ausente — a IA não inventou composição ou ingredientes.</small>}
-              </div>
-              <select aria-label={`Ação para ${item.name}`} value={item.action} disabled={draft.status !== 'REVIEW'} onChange={(event) => void updateDraftItem(item, { action: event.target.value as MenuImportDraftItem['action'] })}>
-                {!item.duplicateProductId && <option value="CREATE">Criar</option>}
-                {item.duplicateProductId && <option value="UPDATE">Atualizar existente</option>}
-                <option value="SKIP">Pular</option>
-              </select>
+    <I.ReviewWorkspace>
+      <I.ReviewSummary>
+        <div className="review-title">
+          <span className="review-kicker"><PencilLine /> REVISÃO ANTES DE PUBLICAR</span>
+          <h3>Confira os itens encontrados</h3>
+          <p>
+            Ajuste nomes, descrições, categorias e preços. Nada é publicado até você confirmar no final.
+          </p>
+        </div>
+        <I.StatGrid>
+          <article>
+            <span><PackageOpen /></span>
+            <div>
+              <strong>{draft.summary.total}</strong>
+              <b>Itens encontrados</b>
+              <small>{draft.summary.selected} selecionado(s)</small>
             </div>
-            {item.duplicateProductId && <small style={{ display: 'block', marginTop: 6, color: '#8a4f23' }}>Possível duplicação: produto #{item.duplicateProductId}. Nenhum produto existente será sobrescrito sem selecionar “Atualizar existente”.</small>}
           </article>
-        ))}
-      </div>
+          <article>
+            <span><CircleAlert /></span>
+            <div>
+              <strong>{draft.summary.uncertain + draft.summary.duplicates}</strong>
+              <b>Precisam de atenção</b>
+              <small>{draft.summary.duplicates} possível(is) duplicação(ões)</small>
+            </div>
+          </article>
+        </I.StatGrid>
+      </I.ReviewSummary>
+
+      <I.ReviewGuidance role="note">
+        <Sparkles />
+        <span>
+          <b>A IA preparou um rascunho editável</b>
+          <small>
+            Itens com alerta merecem conferência. Produtos existentes nunca são sobrescritos sem sua escolha explícita.
+          </small>
+        </span>
+      </I.ReviewGuidance>
+
+      <I.ReviewList>
+        {draft.items.map((item, index) => {
+          const requiresReview = itemNeedsReview(item);
+          const isSkipped = item.action === 'SKIP' || !item.selected;
+          return (
+            <I.ReviewItem
+              key={item.publicId}
+              $attention={requiresReview}
+              $muted={isSkipped}
+            >
+              <I.ReviewItemHeader>
+                <label className="item-select">
+                  <input
+                    aria-label={`Selecionar ${item.name}`}
+                    type="checkbox"
+                    checked={item.selected}
+                    disabled={draft.status !== 'REVIEW'}
+                    onChange={(event) =>
+                      void updateDraftItem(item, { selected: event.target.checked })
+                    }
+                  />
+                  <span aria-hidden="true"><Check /></span>
+                </label>
+
+                <div className="item-identity">
+                  <div className="item-thumb">
+                    {item.image ? (
+                      <img src={item.image} alt="" aria-hidden="true" />
+                    ) : (
+                      <ImagePlus aria-hidden="true" />
+                    )}
+                  </div>
+                  <div>
+                    <small>ITEM {String(index + 1).padStart(2, '0')}</small>
+                    <strong>{item.name || 'Produto sem nome'}</strong>
+                    <span>
+                      {item.duplicateProductId
+                        ? 'Possível produto já cadastrado'
+                        : requiresReview
+                          ? 'Revise os campos destacados'
+                          : 'Dados prontos para publicação'}
+                    </span>
+                  </div>
+                </div>
+
+                <label className="action-field">
+                  <span>Ação</span>
+                  <select
+                    aria-label={`Ação para ${item.name}`}
+                    value={item.action}
+                    disabled={draft.status !== 'REVIEW'}
+                    onChange={(event) =>
+                      void updateDraftItem(item, {
+                        action: event.target.value as MenuImportDraftItem['action'],
+                      })
+                    }
+                  >
+                    {!item.duplicateProductId && <option value="CREATE">Criar produto</option>}
+                    {item.duplicateProductId && (
+                      <option value="UPDATE">Atualizar existente</option>
+                    )}
+                    <option value="SKIP">Pular item</option>
+                  </select>
+                </label>
+              </I.ReviewItemHeader>
+
+              <I.ReviewForm>
+                <I.ReviewField $attention={item.uncertainFields.includes('name')}>
+                  <span>Nome do produto</span>
+                  <input
+                    aria-label="Nome do produto"
+                    defaultValue={item.name}
+                    disabled={draft.status !== 'REVIEW'}
+                    onBlur={(event) =>
+                      event.target.value !== item.name &&
+                      void updateDraftItem(item, { name: event.target.value })
+                    }
+                  />
+                  {item.uncertainFields.includes('name') ? <small>Confirme este nome</small> : null}
+                </I.ReviewField>
+
+                <I.ReviewField
+                  className="description"
+                  $attention={item.uncertainFields.includes('description') || !item.description}
+                >
+                  <span>Descrição</span>
+                  <textarea
+                    aria-label="Descrição do produto"
+                    defaultValue={item.description || ''}
+                    disabled={draft.status !== 'REVIEW'}
+                    placeholder="Descrição não identificada na imagem"
+                    rows={2}
+                    onBlur={(event) =>
+                      event.target.value !== (item.description || '') &&
+                      void updateDraftItem(item, { description: event.target.value || null })
+                    }
+                  />
+                  {!item.description ? (
+                    <small>A IA não inventou ingredientes ou composição que não estavam visíveis.</small>
+                  ) : item.uncertainFields.includes('description') ? (
+                    <small>Confira esta descrição antes de publicar</small>
+                  ) : null}
+                </I.ReviewField>
+
+                <I.ReviewField $attention={item.uncertainFields.includes('category')}>
+                  <span>Categoria</span>
+                  <input
+                    aria-label="Categoria do produto"
+                    defaultValue={item.category}
+                    disabled={draft.status !== 'REVIEW'}
+                    onBlur={(event) =>
+                      event.target.value !== item.category &&
+                      void updateDraftItem(item, { category: event.target.value })
+                    }
+                  />
+                  {item.uncertainFields.includes('category') ? (
+                    <small>Categoria identificada com baixa confiança</small>
+                  ) : null}
+                </I.ReviewField>
+
+                <I.ReviewField $attention={item.uncertainFields.includes('price')}>
+                  <span>Preço</span>
+                  <div className="price-input">
+                    <b>R$</b>
+                    <input
+                      aria-label="Preço do produto"
+                      type="number"
+                      min="0.01"
+                      step="0.01"
+                      defaultValue={item.price}
+                      disabled={draft.status !== 'REVIEW'}
+                      onBlur={(event) =>
+                        Number(event.target.value) !== item.price &&
+                        void updateDraftItem(item, { price: Number(event.target.value) })
+                      }
+                    />
+                  </div>
+                  {item.uncertainFields.includes('price') ? (
+                    <small>Confira o valor lido da imagem</small>
+                  ) : null}
+                </I.ReviewField>
+              </I.ReviewForm>
+
+              {item.duplicateProductId ? (
+                <I.DuplicateWarning role="note">
+                  <CircleAlert />
+                  <span>
+                    <b>Encontramos um produto parecido no catálogo</b>
+                    <small>
+                      Produto #{item.duplicateProductId}. Escolha “Atualizar existente” para substituir
+                      os dados desse produto ou “Pular item” para manter o catálogo como está.
+                    </small>
+                  </span>
+                </I.DuplicateWarning>
+              ) : null}
+            </I.ReviewItem>
+          );
+        })}
+      </I.ReviewList>
+
       {draft.status === 'REVIEW' ? (
-        <button className="analyze-photo" type="button" disabled={busy || draft.summary.selected === 0} onClick={() => void publishPhotoDraft()}><Check /> {busy ? 'Publicando itens selecionados...' : `Publicar ${draft.summary.selected} item(ns) revisado(s)`}</button>
-      ) : <I.ImportNotice $tone="success"><CheckCircle2 /><span><b>Prévia publicada</b><small>Os itens concluídos foram enviados ao catálogo. Alterações futuras continuam disponíveis no cadastro normal.</small></span></I.ImportNotice>}
+        <I.PublishBar>
+          <span>
+            <small>PRONTO PARA PUBLICAR</small>
+            <b>{draft.summary.selected} item(ns) selecionado(s)</b>
+            <p>Você ainda poderá editar os produtos normalmente depois da importação.</p>
+          </span>
+          <button
+            type="button"
+            disabled={busy || draft.summary.selected === 0}
+            onClick={() => void publishPhotoDraft()}
+          >
+            <Check /> {busy ? 'Publicando...' : 'Publicar itens revisados'}
+          </button>
+        </I.PublishBar>
+      ) : (
+        <I.ImportNotice $tone="success">
+          <CheckCircle2 />
+          <span>
+            <b>Prévia publicada</b>
+            <small>
+              Os itens concluídos foram enviados ao catálogo. Alterações futuras continuam disponíveis no cadastro normal.
+            </small>
+          </span>
+        </I.ImportNotice>
+      )}
+
       {imageGenerationOption}
       {imageBatchPanel}
-    </div>
+    </I.ReviewWorkspace>
   );
 
   return (
