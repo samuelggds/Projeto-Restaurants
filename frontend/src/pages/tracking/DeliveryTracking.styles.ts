@@ -396,6 +396,17 @@ export const Workspace = styled.div`
   }
 `;
 
+export const RouteNotice = styled.p`
+  margin: 0 0 10px;
+  padding: 10px 12px;
+  border: 1px solid #d8e1dc;
+  border-radius: 8px;
+  color: #54635c;
+  background: #f8faf8;
+  font-size: 10px;
+  line-height: 1.45;
+`;
+
 export const MapArea = styled.section`
   min-width: 0;
 
