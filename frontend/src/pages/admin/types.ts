@@ -315,7 +315,7 @@ export type AdminSettings = {
 export type Employee = {
   id: string;
   name: string;
-  email: string;
+  username: string;
   phone?: string;
   role: EmployeeRole;
   active: boolean;
