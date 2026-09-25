@@ -48,24 +48,16 @@ type RestaurantSettingsFallback = {
   bankHolderDocument: string | null;
   cardGateway: string | null;
   gatewayMerchantId: string | null;
-  stripeSecretKey: string | null;
-  stripeWebhookSecret: string | null;
   mercadoPagoAccessToken: string | null;
   pagarmeSecretKey: string | null;
   pagarmePublicKey: string | null;
   pagarmeEnvironment: string | null;
   picpayToken: string | null;
   asaasAccessToken: string | null;
-  pagbankEmail: string | null;
-  pagbankToken: string | null;
-  pagbankEnvironment: string | null;
-  stripeSecretKeyConfigured: boolean;
-  stripeWebhookSecretConfigured: boolean;
   mercadoPagoAccessTokenConfigured: boolean;
   pagarmeSecretKeyConfigured: boolean;
   picpayTokenConfigured: boolean;
   asaasAccessTokenConfigured: boolean;
-  pagbankTokenConfigured: boolean;
   ownerDocumentFileUrl: string | null;
   bankProofFileUrl: string | null;
   companyContractFileUrl: string | null;
@@ -158,24 +150,16 @@ class GetRestaurantSettingsService {
         bankHolderDocument: null,
         cardGateway: null,
         gatewayMerchantId: null,
-        stripeSecretKey: null,
-        stripeWebhookSecret: null,
         mercadoPagoAccessToken: null,
         pagarmeSecretKey: null,
         pagarmePublicKey: null,
         pagarmeEnvironment: 'production',
         picpayToken: null,
         asaasAccessToken: null,
-        pagbankEmail: null,
-        pagbankToken: null,
-        pagbankEnvironment: null,
-        stripeSecretKeyConfigured: false,
-        stripeWebhookSecretConfigured: false,
         mercadoPagoAccessTokenConfigured: false,
         pagarmeSecretKeyConfigured: false,
         picpayTokenConfigured: false,
         asaasAccessTokenConfigured: false,
-        pagbankTokenConfigured: false,
         ownerDocumentFileUrl: null,
         bankProofFileUrl: null,
         companyContractFileUrl: null,
@@ -230,16 +214,12 @@ class GetRestaurantSettingsService {
         fee: Number(range.fee),
         active: range.active,
       })),
-      stripeSecretKey: null,
-      stripeWebhookSecret: null,
       mercadoPagoAccessToken: null,
       mercadoPagoRefreshToken: null,
       pagarmeSecretKey: null,
       picpayToken: null,
       asaasAccessToken: null,
       asaasWebhookTokenHash: null,
-      stripeSecretKeyConfigured: Boolean(String(settings?.stripeSecretKey || '').trim()),
-      stripeWebhookSecretConfigured: Boolean(String(settings?.stripeWebhookSecret || '').trim()),
       mercadoPagoAccessTokenConfigured: Boolean(
         String(settings?.mercadoPagoAccessToken || '').trim(),
       ),
