@@ -14,17 +14,6 @@ export type AiCreditBalance = {
   exhausted: boolean;
 };
 
-export type AiCreditCardOption =
-  | { available: false }
-  | {
-      available: true;
-      brand: string;
-      brandLabel: string;
-      last4: string;
-      expMonth: number;
-      expYear: number;
-    };
-
 export type AiCreditTopUpQuote = {
   creditUsd: number;
   exchangeRateBrlPerUsd: number;
@@ -33,7 +22,6 @@ export type AiCreditTopUpQuote = {
   baseAmountBrl: number;
   markupPercent: number;
   amountBrl: number;
-  card: AiCreditCardOption;
 };
 
 export type AiCreditTopUp = {
@@ -231,11 +219,6 @@ const aiGuideService = {
 
   async createPixTopUp(amountUsd: number) {
     const response = await api.post('/ai-support/credits/topup/pix', { amountUsd });
-    return response.data as AiCreditTopUp;
-  },
-
-  async createCardTopUp(amountUsd: number) {
-    const response = await api.post('/ai-support/credits/topup/card', { amountUsd });
     return response.data as AiCreditTopUp;
   },
 
