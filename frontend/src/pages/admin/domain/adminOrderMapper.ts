@@ -23,6 +23,8 @@ export function mapAdminOrder(value: unknown): AdminOrder {
     payOnDelivery: Boolean(raw.payOnDelivery),
     payOnDeliveryMethod: String(raw.payOnDeliveryMethod ?? '') || undefined,
     createdAt: String(raw.createdAt ?? '') || undefined,
+    capacityQueuedAt: String(raw.capacityQueuedAt ?? '') || undefined,
+    capacityAdmittedAt: String(raw.capacityAdmittedAt ?? '') || undefined,
     refundStatus: ['NOT_REQUESTED', 'PROCESSING', 'SUCCEEDED', 'FAILED'].includes(refundStatus)
       ? (refundStatus as AdminOrder['refundStatus'])
       : undefined,
