@@ -5,12 +5,19 @@ import orderRepository from '../repositories/OrderRepository.js';
 import getOrderCardPaymentStatusService from './GetOrderCardPaymentStatusService.js';
 import { issueGuestOrderOwnershipToken } from '../utils/guestOrderOwnershipToken.js';
 import createOrderService from './CreateOrderService.js';
+import orderPaymentAttemptRepository from '../repositories/OrderPaymentAttemptRepository.js';
 
 const originalFindCardPaymentStatusByPublicId = orderRepository.findCardPaymentStatusByPublicId;
+const originalLatestAttempt = orderPaymentAttemptRepository.latestForOrder;
+const originalUpdateAttempt = orderPaymentAttemptRepository.update;
 const originalSecret = process.env.GUEST_ORDER_OWNERSHIP_SECRET;
+
+orderPaymentAttemptRepository.latestForOrder = async () => null;
 
 afterEach(() => {
   orderRepository.findCardPaymentStatusByPublicId = originalFindCardPaymentStatusByPublicId;
+  orderPaymentAttemptRepository.latestForOrder = async () => null;
+  orderPaymentAttemptRepository.update = originalUpdateAttempt;
   if (originalSecret === undefined) delete process.env.GUEST_ORDER_OWNERSHIP_SECRET;
   else process.env.GUEST_ORDER_OWNERSHIP_SECRET = originalSecret;
 });
@@ -45,6 +52,7 @@ test('retorna pendente somente para o participante dono do pedido de mesa', asyn
     orderPublicId,
     status: 'PENDING',
     paid: false,
+    paymentAttempt: null,
   });
 });
 
