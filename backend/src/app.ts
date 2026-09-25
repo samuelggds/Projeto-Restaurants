@@ -94,7 +94,6 @@ app.use((_req, res, next) => {
 
 app.use(platformMaintenanceMiddleware);
 
-app.use('/orders/webhook/stripe', express.raw({ type: 'application/json' }));
 
 app.use(express.json({ limit: process.env.MAX_JSON_BODY_SIZE || '1mb' }));
 app.use(express.urlencoded({ extended: true }));
