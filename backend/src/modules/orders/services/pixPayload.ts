@@ -9,10 +9,10 @@ export function parseProviderPaymentId(paymentId: string): ParsedProviderPayment
   const normalizedPaymentId = String(paymentId || '').trim();
 
 
-  if (normalizedPaymentId.toLowerCase().startsWith('mp_open_finance_order:')) {
+  if (normalizedPaymentId.toLowerCase().startsWith('efi_open_finance:')) {
     return {
-      provider: PIX_PROVIDERS.MERCADO_PAGO_OPEN_FINANCE,
-      rawPaymentId: normalizedPaymentId.slice('mp_open_finance_order:'.length).trim(),
+      provider: PIX_PROVIDERS.EFI_OPEN_FINANCE,
+      rawPaymentId: normalizedPaymentId.slice('efi_open_finance:'.length).trim(),
     };
   }
 
