@@ -268,6 +268,123 @@ export const CancelledNotice = styled(CompletionNotice)`
   }
 `;
 
+export const ReceiptConfirmation = styled.section<{ $highlight: boolean }>`
+  margin-bottom: 16px;
+  padding: 16px;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 14px;
+  border: 1px solid ${({ $highlight }) => ($highlight ? '#62b47d' : '#bfd3c5')};
+  border-radius: 10px;
+  background: ${({ $highlight }) => ($highlight ? '#f0fbf3' : '#f7faf7')};
+  box-shadow: ${({ $highlight }) =>
+    $highlight ? '0 10px 30px rgba(47, 156, 91, 0.12)' : 'none'};
+
+  .receipt-icon {
+    width: 42px;
+    height: 42px;
+    display: grid;
+    place-items: center;
+    border-radius: 50%;
+    color: #fff;
+    background: #2f8a50;
+  }
+
+  .receipt-icon svg {
+    width: 22px;
+    height: 22px;
+  }
+
+  > div {
+    min-width: 0;
+    display: grid;
+    gap: 7px;
+  }
+
+  small {
+    color: #3f7252;
+    font-size: 10px;
+    font-weight: 900;
+    text-transform: uppercase;
+  }
+
+  strong {
+    color: #1d3d2b;
+    font-size: 17px;
+  }
+
+  p {
+    margin: 0;
+    color: #4d6656;
+    font-size: 12px;
+    line-height: 1.5;
+  }
+
+  button {
+    width: fit-content;
+    min-height: 44px;
+    margin-top: 2px;
+    padding: 0 16px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    border: 0;
+    border-radius: 8px;
+    color: #fff;
+    background: #2f8a50;
+    font: inherit;
+    font-size: 13px;
+    font-weight: 900;
+    cursor: pointer;
+  }
+
+  button:hover:not(:disabled) {
+    background: #277544;
+  }
+
+  button:disabled {
+    cursor: wait;
+    opacity: 0.68;
+  }
+
+  button:focus-visible {
+    outline: 3px solid rgba(47, 138, 80, 0.25);
+    outline-offset: 2px;
+  }
+
+  button svg {
+    width: 17px;
+    height: 17px;
+  }
+
+  em {
+    color: #a2372a;
+    font-size: 11px;
+    font-style: normal;
+    line-height: 1.45;
+  }
+
+  @media (max-width: 520px) {
+    grid-template-columns: 1fr;
+
+    .receipt-icon {
+      width: 38px;
+      height: 38px;
+    }
+
+    button {
+      width: 100%;
+    }
+  }
+`;
+
+export const ReceiptConfirmed = styled(CompletionNotice)`
+  border-color: #b9ddc4;
+  color: #285e3b;
+  background: #f3fbf5;
+`;
+
 export const Workspace = styled.div`
   display: grid;
   grid-template-columns: minmax(0, 1.65fr) minmax(280px, 0.75fr);
