@@ -64,7 +64,6 @@ export function getPublicSystemPolicies(
   const mercadoPagoConfigured =
     configuredValue(env, 'PLATFORM_MP_ACCESS_TOKEN', 'MP_ACCESS_TOKEN') ||
     allConfigured(env, ['MP_OAUTH_CLIENT_ID', 'MP_OAUTH_CLIENT_SECRET']);
-  const stripeConfigured = allConfigured(env, ['STRIPE_SECRET_KEY', 'STRIPE_WEBHOOK_SECRET']);
   const whatsappConfigured = allConfigured(env, ['WHATSAPP_WEBHOOK_URL', 'WHATSAPP_WEBHOOK_TOKEN']);
 
   return {
@@ -135,13 +134,7 @@ export function getPublicSystemPolicies(
         'Integração da plataforma para onboarding, pagamentos e saques.',
         configuredValue(env, 'ASAAS_API_KEY'),
       ),
-      policy(
-        'stripe',
-        'Stripe',
-        stripeConfigured ? 'Configurado' : 'Não configurado',
-        'Checkout e validação de webhook da plataforma.',
-        stripeConfigured,
-      ),
+
       policy(
         'sentry',
         'Sentry',
