@@ -4,6 +4,7 @@ import { getMercadoPagoPaymentRefundApi } from '../../payments/providers/mercado
 import restaurantSettingsRepository from '../../restaurantSettings/repositories/RestaurantSettingsRepository.js';
 import { getMercadoPagoAccessToken } from '../../restaurantSettings/services/RestaurantPaymentCredentialsService.js';
 import { mercadoPagoCardExternalReferenceCandidates } from '../domain/mercadoPagoCardReference.js';
+import { efiOpenFinanceRequest } from '../../payments/providers/efiOpenFinance.js';
 
 export type RefundableOrder = {
   id: number | string;
@@ -16,7 +17,7 @@ export type RefundableOrder = {
 };
 
 export type RefundProviderReceipt = {
-  provider: 'ASAAS' | 'MERCADO_PAGO' | 'STRIPE';
+  provider: 'ASAAS' | 'MERCADO_PAGO' | 'STRIPE' | 'EFI';
   externalId: string | null;
 };
 
@@ -268,9 +269,9 @@ class RefundOrderPaymentService {
     }
 
 
-    if (normalizedPaymentId.startsWith('mp_open_finance_order:')) {
-      const providerOrderId = paymentId.slice('mp_open_finance_order:'.length).trim();
-      return this.refundMercadoPagoOrder(providerOrderId, order, options);
+    if (normalizedPaymentId.startsWith('efi_open_finance:')) {
+      const identifier = paymentId.slice('efi_open_finance:'.length).trim();
+      return this.refundEfiOpenFinance(identifier, order);
     }
 
     if (normalizedPaymentId.startsWith('asaas:')) {
@@ -280,6 +281,37 @@ class RefundOrderPaymentService {
 
 
     return this.executeMercadoPagoRefund(paymentId, order.restaurantId, options.idempotencyKey);
+  }
+
+  private async refundEfiOpenFinance(identifier: string, order: RefundableOrder) {
+    const normalizedIdentifier = String(identifier || '').trim();
+    const amount = this.parseAmount(order.total);
+    if (!normalizedIdentifier || !amount) {
+      throw new AutomaticRefundError(
+        'Este pagamento Efí não possui dados suficientes para o estorno automático. O pedido não foi cancelado.',
+        'MISSING_REFERENCE',
+      );
+    }
+
+    const result = await efiOpenFinanceRequest<Record<string, unknown>>(
+      'POST',
+      `/v1/pagamentos/pix/${encodeURIComponent(normalizedIdentifier)}/devolver`,
+      { data: { valor: amount.toFixed(2) }, timeoutMs: 20_000 },
+    );
+
+    if (result.status < 200 || result.status >= 300) {
+      throw new AutomaticRefundError(
+        'A Efí não confirmou a devolução Open Finance. O pedido não foi cancelado e pode ser tentado novamente.',
+        'PROVIDER_FAILURE',
+      );
+    }
+
+    return {
+      provider: 'EFI',
+      externalId:
+        String(result.data?.endToEndId || result.data?.identificadorDevolucao || '').trim() ||
+        normalizedIdentifier,
+    } satisfies RefundProviderReceipt;
   }
 
   private async refundMercadoPagoOrder(
