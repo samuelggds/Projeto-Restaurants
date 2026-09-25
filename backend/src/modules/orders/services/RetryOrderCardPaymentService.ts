@@ -8,6 +8,7 @@ import directOrderCardPaymentService, {
 } from './DirectOrderCardPaymentService.js';
 import getOrderPaymentRecoveryService from './GetOrderPaymentRecoveryService.js';
 import getOrderCardPaymentStatusService from './GetOrderCardPaymentStatusService.js';
+import finalizeOrderCardPaymentService from './FinalizeOrderCardPaymentService.js';
 import orderRepository from '../repositories/OrderRepository.js';
 import orderPaymentAttemptRepository from '../repositories/OrderPaymentAttemptRepository.js';
 import { OrderRequestError } from '../domain/OrderRequestError.js';
@@ -134,9 +135,7 @@ class RetryOrderCardPaymentService {
       );
 
       if (checkout.paymentApproved) {
-        const finalized = await (
-          await import('./FinalizeOrderCardPaymentService.js')
-        ).default.execute({
+        const finalized = await finalizeOrderCardPaymentService.execute({
           orderId: recovery.orderId,
           restaurantId: recovery.restaurantId,
           checkoutSessionId,
