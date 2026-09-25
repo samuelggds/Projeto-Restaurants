@@ -191,7 +191,7 @@ function TopUpDialog({
               setQuote(null);
             }}
             placeholder="10.00"
-            disabled={paying}
+            disabled={paying || Boolean(topUp)}
           />
         </label>
 
@@ -256,7 +256,6 @@ function TopUpDialog({
         {error ? <p className="error" role="alert">{error}</p> : null}
 
         <footer>
-          <button type="button" onClick={onClose} disabled={paying}>Fechar</button>
           {quote && !topUp?.pixQrCode ? (
             <button
               type="button"
