@@ -5,6 +5,7 @@ import {
   TableOrderSettlementMode,
 } from '@prisma/client';
 import { withTenantDbContext } from '../../../database/tenantDbContext.js';
+import { admittedCapacityWhere } from '../utils/orderCapacity.js';
 
 const operationalPaymentWhere = {
   OR: [
@@ -23,7 +24,7 @@ class KitchenOrderRepository {
         where: {
           restaurantId,
           ...(status ? { status } : {}),
-          AND: [operationalPaymentWhere],
+          AND: [operationalPaymentWhere, admittedCapacityWhere],
         },
         include: {
           user: {
