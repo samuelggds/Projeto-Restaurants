@@ -62,7 +62,7 @@ describe('PaymentSettings', () => {
             acceptsCard: true,
             pixProvider: 'MERCADO_PAGO',
             cardGateway: 'MERCADO_PAGO',
-            pixKey: 'financeiro@restaurante.test',
+            pixKey: '',
             mercadoPagoAccessTokenConfigured: false,
           }}
           update={() => undefined}
@@ -164,7 +164,7 @@ describe('PaymentSettings', () => {
             acceptsCard: true,
             pixProvider: 'MERCADO_PAGO',
             cardGateway: 'MERCADO_PAGO',
-            pixKey: '',
+            pixKey: 'financeiro@restaurante.test',
             mercadoPagoAccessTokenConfigured: true,
           }}
           update={update}
