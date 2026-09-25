@@ -142,8 +142,12 @@ describe('configurações principais do administrador', () => {
       '[aria-label="Limite de pedidos simultâneos"]',
     ) as HTMLInputElement;
     act(() => {
+      preparation.focus();
       changeValue(preparation, '999');
+      preparation.blur();
+      capacity.focus();
       changeValue(capacity, '900');
+      capacity.blur();
     });
     expect(update).toHaveBeenCalledWith('deliveryTime', 240);
     expect(update).toHaveBeenCalledWith('maxConcurrentOrders', 500);
