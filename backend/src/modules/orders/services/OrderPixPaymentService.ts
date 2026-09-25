@@ -26,6 +26,7 @@ import { assertFuturePaymentProviderEnabled } from '../../payments/providers/fut
 
 const APPROVED_PAYMENT_STATUSES = new Set(['approved', 'accredited', 'paid']);
 const APPROVED_ASAAS_PAYMENT_STATUSES = new Set(['received', 'confirmed', 'received_in_cash']);
+const EFI_TERMINAL = new Set(['aceito', 'rejeitado', 'cancelado', 'expirado', 'erro']);
 
 type OrderItemInput = {
   productId: number;
@@ -879,10 +880,7 @@ class OrderPixPaymentService {
       if (!order) {
         throw new Error('Pagamento Open Finance não corresponde a este restaurante.');
       }
-      const expectedReference = efiOpenFinanceOrderReference(
-        normalizedRestaurantId,
-        order.id,
-      );
+      const expectedReference = efiOpenFinanceOrderReference(normalizedRestaurantId, order.id);
       const remotePayment = await findEfiOpenFinancePayment({
         identifier: parsedPaymentId.rawPaymentId,
         reference: expectedReference,
@@ -908,9 +906,7 @@ class OrderPixPaymentService {
         totalAmount: amount,
         qrCode: '',
         qrCodeBase64: null,
-        requiresStatusCheck: !['aceito', 'rejeitado', 'cancelado', 'expirado', 'erro'].includes(
-          status,
-        ),
+        requiresStatusCheck: !EFI_TERMINAL.has(status),
         externalReference: expectedReference,
       };
     }
@@ -1123,9 +1119,7 @@ class OrderPixPaymentService {
         externalReference: String(remotePayment.idProprio || '').trim(),
         amount: Number.isFinite(amount) ? amount : null,
         currency: 'BRL',
-        requiresStatusCheck: !['aceito', 'rejeitado', 'cancelado', 'expirado', 'erro'].includes(
-          status,
-        ),
+        requiresStatusCheck: !EFI_TERMINAL.has(status),
       };
     }
 
