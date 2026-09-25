@@ -10,6 +10,8 @@ import {
 } from '../../payments/providers/mercadoPagoClient.js';
 import orderRepository from '../repositories/OrderRepository.js';
 import failPendingOrderPaymentService from '../services/FailPendingOrderPaymentService.js';
+import orderPaymentAttemptRepository from '../repositories/OrderPaymentAttemptRepository.js';
+import { OrderPaymentAttemptStatus } from '@prisma/client';
 import { matchesOrderPaymentEvidence } from '../utils/paymentEvidence.js';
 import { parseMercadoPagoCardExternalReference } from '../domain/mercadoPagoCardReference.js';
 
@@ -92,10 +94,32 @@ async function handleOrdersApiWebhook(providerOrderId: string, res: Response) {
   }
 
   if (TERMINAL_ORDER_STATUSES.has(status)) {
-    await failPendingOrderPaymentService.execute({
-      orderId: localOrder.id,
-      restaurantId: localOrder.restaurantId,
-    });
+    const attempt = await orderPaymentAttemptRepository.latestForOrder(
+      localOrder.id,
+      localOrder.restaurantId,
+    );
+    if (attempt) {
+      const nextStatus =
+        status === 'expired'
+          ? OrderPaymentAttemptStatus.EXPIRED
+          : status === 'refunded'
+            ? OrderPaymentAttemptStatus.REFUNDED
+            : status === 'cancelled'
+              ? OrderPaymentAttemptStatus.CANCELED
+              : OrderPaymentAttemptStatus.DECLINED;
+      await orderPaymentAttemptRepository.update(
+        attempt.id,
+        localOrder.restaurantId,
+        nextStatus,
+        {
+          providerOrderId,
+          providerStatus: status,
+          providerStatusDetail: String(remoteOrder.status_detail || '').trim() || null,
+          failureCode: String(remoteOrder.status_detail || status),
+          failureMessage: 'Pagamento com cartão não concluído no Mercado Pago.',
+        },
+      );
+    }
     return res.sendStatus(200);
   }
 
@@ -198,7 +222,31 @@ class MercadoPagoOrderWebhookController {
       }
 
       if (TERMINAL_UNPAID_STATUSES.has(status)) {
-        if (parsedReference) {
+        if (parsedReference?.type === 'card') {
+          const attempt = await orderPaymentAttemptRepository.latestForOrder(
+            referenceOrderId,
+            referenceRestaurantId,
+          );
+          if (attempt) {
+            const nextStatus =
+              status === 'refunded' || status === 'charged_back'
+                ? OrderPaymentAttemptStatus.REFUNDED
+                : status === 'cancelled'
+                  ? OrderPaymentAttemptStatus.CANCELED
+                  : OrderPaymentAttemptStatus.DECLINED;
+            await orderPaymentAttemptRepository.update(
+              attempt.id,
+              referenceRestaurantId,
+              nextStatus,
+              {
+                providerPaymentId: String(paymentId || '').trim() || null,
+                providerStatus: status,
+                failureCode: status,
+                failureMessage: 'Pagamento com cartão não concluído no Mercado Pago.',
+              },
+            );
+          }
+        } else if (parsedReference) {
           await failPendingOrderPaymentService.execute({
             orderId: referenceOrderId,
             restaurantId: referenceRestaurantId,
@@ -273,6 +321,22 @@ class MercadoPagoOrderWebhookController {
           restaurantId: referenceRestaurantId,
           allowMissingOrder: true,
         });
+
+        const attempt = await orderPaymentAttemptRepository.latestForOrder(
+          orderId,
+          referenceRestaurantId,
+        );
+        if (attempt) {
+          await orderPaymentAttemptRepository.update(
+            attempt.id,
+            referenceRestaurantId,
+            OrderPaymentAttemptStatus.APPROVED,
+            {
+              providerPaymentId,
+              providerStatus: status,
+            },
+          );
+        }
 
         return res.sendStatus(200);
       }
