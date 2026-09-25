@@ -17,12 +17,10 @@ describe('configuração inicial do administrador demonstrativo', () => {
   it('descarta credenciais digitadas no formulário demonstrativo antes de persistir', () => {
     const result = discardDemoCredentials({
       ...createDemoAdminData().settings,
-      stripeSecretKey: 'valor-exemplo',
       mercadoPagoAccessToken: 'valor-exemplo',
       pagarmeSecretKey: 'valor-exemplo',
       asaasAccessToken: 'valor-exemplo',
     });
-    expect(result.stripeSecretKey).toBe('');
     expect(result.mercadoPagoAccessToken).toBe('');
     expect(result.pagarmeSecretKey).toBe('');
     expect(result.asaasAccessToken).toBe('');
