@@ -79,8 +79,6 @@ jobs:
             TENANT_E2E_RUNTIME_DATABASE_URL="$RUNTIME_URL" \
             NODE_ENV=test \
             ALLOW_GLOBAL_PAYMENT_FALLBACK=false \
-            ALLOW_INSECURE_STRIPE_WEBHOOK=false \
-            STRIPE_SECRET_KEY=sk_test_upgrade_only \
             ASAAS_WEBHOOK_TOKEN=upgrade-e2e-asaas-webhook-token \
             MP_WEBHOOK_SECRET=upgrade-e2e-mp-webhook-secret \
             node "$runner" -e 'import("./src/e2e/multiTenant/tenantE2EHarness.ts").then(async (h) => { try { h.assertDisposableTenantDatabase(); await h.resetTenantE2EDatabase(); await h.seedTenantE2EFixture(); } finally { await h.prisma.$disconnect(); await h.runtimePrisma.$disconnect(); } }).catch(() => { process.exitCode = 1; })'
