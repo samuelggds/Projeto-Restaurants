@@ -418,10 +418,6 @@ export function mapSettingsFromApi(
     pixProvider: String(raw?.pixProvider ?? 'MERCADO_PAGO'),
     pixKey: String(raw?.pixKey ?? ''),
     cardGateway: String(raw?.cardGateway ?? ''),
-    stripeSecretKey: '',
-    stripeSecretKeyConfigured: Boolean(raw?.stripeSecretKeyConfigured),
-    stripeWebhookSecret: '',
-    stripeWebhookSecretConfigured: Boolean(raw?.stripeWebhookSecretConfigured),
     mercadoPagoAccessToken: '',
     mercadoPagoAccessTokenConfigured: Boolean(raw?.mercadoPagoAccessTokenConfigured),
     pagarmeSecretKey: '',
@@ -521,8 +517,6 @@ export function mapSettingsToApi(settings: AdminSettings): Record<string, unknow
     pixProvider: settings.pixProvider,
     pixKey: settings.pixKey,
     cardGateway: settings.cardGateway,
-    ...(settings.stripeSecretKey ? { stripeSecretKey: settings.stripeSecretKey } : {}),
-    ...(settings.stripeWebhookSecret ? { stripeWebhookSecret: settings.stripeWebhookSecret } : {}),
     ...(settings.mercadoPagoAccessToken
       ? { mercadoPagoAccessToken: settings.mercadoPagoAccessToken }
       : {}),
