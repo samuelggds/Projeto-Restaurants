@@ -341,7 +341,7 @@ export default function AdminAiLayer({ children }: { children: React.ReactNode }
           />
         </AssistantPanel>
       )}
-      <AiGuidedTour key={guide ? `${guide.title}:${guide.summary}` : 'no-guide'} guide={guide} onClose={() => setGuide(null)} onNavigate={navigateForTour} />
+      {aiEnabled ? <AiGuidedTour key={guide ? `${guide.title}:${guide.summary}` : 'no-guide'} guide={guide} onClose={() => setGuide(null)} onNavigate={navigateForTour} /> : null}
     </>
   );
 }
