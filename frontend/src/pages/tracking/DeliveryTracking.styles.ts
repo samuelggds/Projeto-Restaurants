@@ -405,6 +405,13 @@ export const RouteNotice = styled.p`
   background: #f8faf8;
   font-size: 10px;
   line-height: 1.45;
+
+  small {
+    display: block;
+    margin-top: 4px;
+    color: #728078;
+    font-size: 9px;
+  }
 `;
 
 export const MapArea = styled.section`
