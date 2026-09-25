@@ -211,6 +211,7 @@ model Restaurant {
   coupons                       Coupon[]
   invoices                      Invoice[]
   orders                        Order[]
+  orderPaymentAttempts          OrderPaymentAttempt[]
   products                      Product[]
   productDiscounts              ProductDiscount[]
   productComboGroups             ProductComboGroup[]
@@ -900,6 +901,7 @@ model Order {
   billItems                       TableBillItem[]
   kitchenPrintJobs                KitchenPrintJob[]
   courierSettlementItems          CourierSettlementItem[]
+  paymentAttempts                 OrderPaymentAttempt[]
 
   @@unique([id, restaurantId])
   @@unique([id, restaurantId, tableSessionId, participantId])
@@ -911,6 +913,37 @@ model Order {
   @@index([status, paid, pixExpiresAt])
   @@index([restaurantId, tableSessionId, participantId, createdAt])
   @@index([restaurantId, capacityQueuedAt, capacityAdmittedAt, createdAt])
+}
+
+model OrderPaymentAttempt {
+  id                   Int                       @id @default(autoincrement())
+  publicId             String                    @unique @default(uuid())
+  orderId              Int
+  restaurantId         Int
+  method               PaymentMethod
+  provider             String
+  status               OrderPaymentAttemptStatus @default(PENDING)
+  amount               Decimal                   @db.Decimal(10, 2)
+  providerOrderId      String?
+  providerPaymentId    String?
+  providerStatus       String?
+  providerStatusDetail String?
+  providerRequestId    String?
+  failureCode          String?
+  failureMessage       String?
+  idempotencyKey       String                    @unique
+  expiresAt            DateTime?
+  finalizedAt          DateTime?
+  createdAt            DateTime                  @default(now())
+  updatedAt            DateTime                  @updatedAt
+  order                Order                     @relation(fields: [orderId, restaurantId], references: [id, restaurantId], onDelete: Cascade)
+  restaurant           Restaurant                @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+
+  @@unique([id, restaurantId])
+  @@index([restaurantId, orderId, createdAt])
+  @@index([restaurantId, status, createdAt])
+  @@index([provider, providerOrderId])
+  @@index([provider, providerPaymentId])
 }
 
 model OrderIssueThread {
@@ -1844,6 +1877,17 @@ enum PaymentMethod {
   PIX
   CARTAO
   DINHEIRO
+}
+
+enum OrderPaymentAttemptStatus {
+  PENDING
+  PROCESSING
+  APPROVED
+  DECLINED
+  FAILED
+  CANCELED
+  EXPIRED
+  REFUNDED
 }
 
 enum CourierCompensationModel {
