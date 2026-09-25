@@ -460,20 +460,22 @@ export function PaymentSettings({
                   </small>
                 </div>
               </PS.OpenFinanceStatus>
-              <PS.Field>
-                <span>Chave Pix de recebimento</span>
-                <input
-                  value={settings.pixKey}
-                  disabled={!settings.openFinancePixEnabled || busyProvider !== null}
-                  onChange={(event) => update('pixKey', event.target.value)}
-                  placeholder="CPF, CNPJ, e-mail, telefone ou chave aleatória"
-                  autoComplete="off"
-                />
-                <small>
-                  O Open Finance da Efí enviará o valor diretamente para esta chave Pix. Ela é
-                  independente do Pix QR Code processado pelo Mercado Pago.
-                </small>
-              </PS.Field>
+              {settings.openFinancePixEnabled && (
+                <PS.Field>
+                  <span>Chave Pix de recebimento</span>
+                  <input
+                    value={settings.pixKey}
+                    disabled={busyProvider !== null}
+                    onChange={(event) => update('pixKey', event.target.value)}
+                    placeholder="CPF, CNPJ, e-mail, telefone ou chave aleatória"
+                    autoComplete="off"
+                  />
+                  <small>
+                    O Open Finance da Efí enviará o valor diretamente para esta chave Pix. Ela é
+                    independente do Pix QR Code processado pelo Mercado Pago.
+                  </small>
+                </PS.Field>
+              )}
               <small>
                 A Efí inicia o pagamento e redireciona o cliente para o banco escolhido. O
                 GastroNexa nunca recebe senha ou credencial bancária do comprador.
