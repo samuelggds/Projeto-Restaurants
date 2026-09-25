@@ -9,7 +9,7 @@ export type DeliveryDestination = CourierRoutePoint & { label?: string };
 export type DeliveryRouteEstimate = {
   durationSeconds: number;
   distanceMeters: number | null;
-  provider: 'OSRM' | 'GEOAPIFY' | 'NAVIGATION_CONNECT';
+  provider: 'OSRM' | 'GEOAPIFY' | 'GOOGLE_ROUTES' | 'NAVIGATION_CONNECT';
   routeCoordinates?: CourierRoutePoint[];
   destination?: DeliveryDestination;
 };
