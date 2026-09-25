@@ -23,7 +23,7 @@ describe('adminErrorMessage', () => {
   });
 
   it('translates payment setup errors into an actionable admin message', () => {
-    expect(adminErrorMessage(new Error('PAGBANK_TOKEN não configurado.'))).toContain(
+    expect(adminErrorMessage(new Error('MERCADO_PAGO_ACCESS_TOKEN não configurado.'))).toContain(
       'conta de recebimento ainda não está vinculada',
     );
   });

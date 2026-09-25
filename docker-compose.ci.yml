@@ -53,7 +53,6 @@ services:
       API_REPLICA_COUNT: '1'
       OPENAI_API_KEY: ''
       MP_ACCESS_TOKEN: ''
-      PAGBANK_TOKEN: ''
       ASAAS_API_KEY: ''
       SMTP_HOST: ''
       SENTRY_DSN: ''

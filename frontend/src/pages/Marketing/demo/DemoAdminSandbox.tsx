@@ -229,7 +229,6 @@ function Sandbox() {
         })
       }
       onConnectMercadoPago={simulated}
-      onConnectPagBank={simulated}
       onOnboardAsaas={simulated}
       onReportSupport={async (payload) => {
         changeScenario(addDemoSupportMessage(scenario, payload));

@@ -38,13 +38,13 @@ test('repository persiste segredo cifrado e devolve valor somente em memória', 
     deliveryFee: 0,
     minimumOrder: 0,
     asaasAccessToken: 'asaas-secret',
-    stripeSecretKey: 'stripe-secret',
+    pagarmeSecretKey: 'pagarme-secret',
   });
 
   assert.equal(isEncryptedCredential(stored.asaasAccessToken), true);
-  assert.equal(isEncryptedCredential(stored.stripeSecretKey), true);
+  assert.equal(isEncryptedCredential(stored.pagarmeSecretKey), true);
   assert.equal(result.asaasAccessToken, 'asaas-secret');
-  assert.equal(result.stripeSecretKey, 'stripe-secret');
+  assert.equal(result.pagarmeSecretKey, 'pagarme-secret');
 });
 
 test('repository descriptografa credenciais ao buscar configuração privada', async () => {

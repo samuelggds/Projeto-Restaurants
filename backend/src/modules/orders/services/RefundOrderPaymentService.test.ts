@@ -8,13 +8,11 @@ import refundOrderPaymentService from './RefundOrderPaymentService.js';
 const originalFindByRestaurantId = restaurantSettingsRepository.findByRestaurantId;
 const originalFetch = globalThis.fetch;
 const originalConsoleError = console.error;
-const originalCreateStripeClient = refundOrderPaymentService.createStripeClient;
 const originalEnv = {
   ALLOW_GLOBAL_PAYMENT_FALLBACK: process.env.ALLOW_GLOBAL_PAYMENT_FALLBACK,
   ASAAS_API_BASE_URL: process.env.ASAAS_API_BASE_URL,
   ASAAS_API_KEY: process.env.ASAAS_API_KEY,
   MP_ACCESS_TOKEN: process.env.MP_ACCESS_TOKEN,
-  STRIPE_SECRET_KEY: process.env.STRIPE_SECRET_KEY,
 };
 
 function restoreEnv(name: keyof typeof originalEnv) {
@@ -30,12 +28,10 @@ afterEach(() => {
   restaurantSettingsRepository.findByRestaurantId = originalFindByRestaurantId;
   globalThis.fetch = originalFetch;
   console.error = originalConsoleError;
-  refundOrderPaymentService.createStripeClient = originalCreateStripeClient;
   restoreEnv('ALLOW_GLOBAL_PAYMENT_FALLBACK');
   restoreEnv('ASAAS_API_BASE_URL');
   restoreEnv('ASAAS_API_KEY');
   restoreEnv('MP_ACCESS_TOKEN');
-  restoreEnv('STRIPE_SECRET_KEY');
 });
 
 
@@ -216,7 +212,7 @@ test('usa PaymentRefund oficial do Mercado Pago para PIX e cartao com chave idem
   );
 });
 
-test('estorna cartão Mercado Pago criado pela Orders API sem cair no Stripe', async () => {
+test('estorna cartão Mercado Pago criado pela Orders API pelo provedor correto', async () => {
   restaurantSettingsRepository.findByRestaurantId = async (restaurantId) => {
     assert.equal(restaurantId, 12);
     return {
@@ -226,9 +222,6 @@ test('estorna cartão Mercado Pago criado pela Orders API sem cair no Stripe', a
     };
   };
 
-  refundOrderPaymentService.createStripeClient = () => {
-    throw new Error('Não deveria usar Stripe para mp_order');
-  };
 
   let request = null;
   globalThis.fetch = async (input, init = {}) => {
@@ -262,49 +255,6 @@ test('estorna cartão Mercado Pago criado pela Orders API sem cair no Stripe', a
   assert.equal(request.init.method, 'POST');
   assert.equal(new Headers(request.init.headers).get('authorization'), 'Bearer mp-order-token-12');
   assert.equal(new Headers(request.init.headers).get('x-idempotency-key'), 'order-refund-12-99');
-});
-
-test('estorna cartao Stripe com a mesma chave idempotente do pedido', async () => {
-  restaurantSettingsRepository.findByRestaurantId = async () => ({
-    stripeSecretKey: 'sk_test_tenant',
-  });
-
-  const calls = { retrieve: [], refund: [] };
-  refundOrderPaymentService.createStripeClient = () => ({
-    checkout: {
-      sessions: {
-        retrieve: async (...args) => {
-          calls.retrieve.push(args);
-          return { payment_intent: { id: 'pi_123' } };
-        },
-      },
-    },
-    refunds: {
-      create: async (...args) => {
-        calls.refund.push(args);
-        return { id: 're_123', status: 'succeeded' };
-      },
-    },
-  });
-
-  const receipt = await refundOrderPaymentService.execute(
-    {
-      id: 98,
-      restaurantId: 13,
-      total: 125,
-      paid: true,
-      paymentMethod: 'CARTAO',
-      cardCheckoutSessionId: 'cs_test_123',
-    },
-    { idempotencyKey: 'order-refund-13-98' },
-  );
-
-  assert.deepEqual(receipt, { provider: 'STRIPE', externalId: 're_123' });
-  assert.deepEqual(calls.retrieve[0], ['cs_test_123', { expand: ['payment_intent'] }]);
-  assert.deepEqual(calls.refund[0], [
-    { payment_intent: 'pi_123' },
-    { idempotencyKey: 'order-refund-13-98' },
-  ]);
 });
 
 for (const scenario of ['PENDING', 'CANCELLED', 'PARTIAL', 'WRONG_REFERENCE', 'TIMEOUT', 'DONE']) {

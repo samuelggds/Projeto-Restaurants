@@ -7,22 +7,20 @@ test('update parcial preserva credenciais de gateway que não foram enviadas', (
   const result = encryptCredentialData(
     {
       primaryColor: '#123456',
-      stripeSecretKey: undefined,
-      stripeWebhookSecret: undefined,
+      pagarmeSecretKey: undefined,
       mercadoPagoAccessToken: undefined,
-      pagbankToken: { set: undefined },
+      asaasAccessToken: { set: undefined },
     },
     7,
   );
 
   assert.equal(result.primaryColor, '#123456');
-  assert.equal(result.stripeSecretKey, undefined);
-  assert.equal(result.stripeWebhookSecret, undefined);
+  assert.equal(result.pagarmeSecretKey, undefined);
   assert.equal(result.mercadoPagoAccessToken, undefined);
-  assert.deepEqual(result.pagbankToken, { set: undefined });
+  assert.deepEqual(result.asaasAccessToken, { set: undefined });
 });
 
 test('null explícito continua removendo a credencial solicitada', () => {
-  const result = encryptCredentialData({ stripeWebhookSecret: null }, 7);
-  assert.equal(result.stripeWebhookSecret, null);
+  const result = encryptCredentialData({ pagarmeSecretKey: null }, 7);
+  assert.equal(result.pagarmeSecretKey, null);
 });

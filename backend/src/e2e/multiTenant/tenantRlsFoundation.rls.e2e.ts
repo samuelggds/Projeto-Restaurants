@@ -47,7 +47,7 @@ test(
       data: {
         userId: fixture.users.customerA.id,
         restaurantId: fixture.restaurants.a.id,
-        provider: 'PAGBANK',
+        provider: 'MERCADO_PAGO',
         providerPaymentMethodId: 'rls-card-a',
         brand: 'visa',
         last4: '1001',
@@ -59,7 +59,7 @@ test(
       data: {
         userId: fixture.users.customerB.id,
         restaurantId: fixture.restaurants.b.id,
-        provider: 'PAGBANK',
+        provider: 'MERCADO_PAGO',
         providerPaymentMethodId: 'rls-card-b',
         brand: 'mastercard',
         last4: '2002',
@@ -1001,7 +1001,7 @@ test(
                 data: {
                   userId: fixture.users.customerB.id,
                   restaurantId: fixture.restaurants.b.id,
-                  provider: 'PAGBANK',
+                  provider: 'MERCADO_PAGO',
                   providerPaymentMethodId: 'rls-card-insert-attack',
                   brand: 'visa',
                   last4: '9999',

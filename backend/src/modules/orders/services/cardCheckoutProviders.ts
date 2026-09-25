@@ -1,4 +1,3 @@
-import Stripe from 'stripe';
 import type { OrderCreationContext } from './orderCreationRequest.js';
 import type { OrderType, PaymentMethod } from '@prisma/client';
 import type { CardProvider } from '../../payments/providers/providerCatalog.js';
@@ -96,22 +95,6 @@ function withQueryParam(baseUrl: string, params: Record<string, string>) {
   }
 }
 
-async function getStripeClient(restaurantId: number) {
-  const allowGlobalFallback = process.env.ALLOW_GLOBAL_PAYMENT_FALLBACK === 'true';
-  const settings = await restaurantSettingsRepository.findByRestaurantId(restaurantId);
-  const settingsSecretKey = String(settings?.stripeSecretKey || '').trim();
-  const globalSecretKey = String(process.env.STRIPE_SECRET_KEY || '').trim();
-  const secretKey = settingsSecretKey || (allowGlobalFallback ? globalSecretKey : '');
-
-  if (!secretKey) {
-    throw new Error(
-      'Pagamento com cartao indisponivel. Configure chave secreta Stripe nas configuracoes do restaurante.',
-    );
-  }
-
-  return new Stripe(secretKey);
-}
-
 
 type AsaasErrorItem = {
   code?: string;
@@ -195,48 +178,6 @@ async function fetchAsaasJson<T>(
   };
 }
 
-
-const stripeCardCheckoutProvider: CardCheckoutProviderHandler = {
-  async createCheckout({ order, successUrlBase, cancelUrlBase }) {
-    const stripe = await getStripeClient(order.restaurantId);
-
-    const session = await stripe.checkout.sessions.create({
-      mode: 'payment',
-      payment_method_types: ['card'],
-      line_items: [
-        {
-          quantity: 1,
-          price_data: {
-            currency: 'brl',
-            unit_amount: Math.round(Number(order.total || 0) * 100),
-            product_data: {
-              name: `Pedido #${order.id}`,
-              description: order.restaurant?.name || 'Pedido online',
-            },
-          },
-        },
-      ],
-      metadata: {
-        orderId: String(order.id),
-        restaurantId: String(order.restaurantId),
-      },
-      success_url: withQueryParam(successUrlBase, {
-        cardCheckoutStatus: 'success',
-        orderPublicId: order.publicId,
-      }),
-      cancel_url: withQueryParam(cancelUrlBase, {
-        cardCheckoutStatus: 'cancel',
-        orderPublicId: order.publicId,
-      }),
-    });
-
-    return {
-      provider: CARD_PROVIDERS.STRIPE,
-      sessionId: String(session.id),
-      checkoutUrl: String(session.url || ''),
-    };
-  },
-};
 
 const mercadoPagoCardCheckoutProvider: CardCheckoutProviderHandler = {
   async createCheckout({ payload, order, successUrlBase, cancelUrlBase }) {
@@ -494,7 +435,6 @@ const asaasCardCheckoutProvider: CardCheckoutProviderHandler = {
 
 const CARD_CHECKOUT_PROVIDER_HANDLERS: Partial<Record<CardProvider, CardCheckoutProviderHandler>> =
   {
-    [CARD_PROVIDERS.STRIPE]: stripeCardCheckoutProvider,
     [CARD_PROVIDERS.MERCADO_PAGO]: mercadoPagoCardCheckoutProvider,
     [CARD_PROVIDERS.ASAAS]: asaasCardCheckoutProvider,
   };
@@ -506,7 +446,7 @@ export function getCardCheckoutProviderHandler(provider: CardProvider) {
 
   if (!handler) {
     throw new Error(
-      `Gateway de cartao ${provider} ainda nao integrado. Configure STRIPE, MERCADO_PAGO ou ASAAS para processar checkout com cartao no momento.`,
+      `Gateway de cartao ${provider} ainda nao integrado. Configure MERCADO_PAGO, PAGARME ou ASAAS para processar checkout com cartao no momento.`,
     );
   }
 

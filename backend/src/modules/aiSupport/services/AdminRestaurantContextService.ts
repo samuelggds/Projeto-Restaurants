@@ -67,7 +67,6 @@ type PaymentConfigurationRow = {
   cardGateway: string | null;
   hasMercadoPagoCredential: boolean;
   hasAsaasCredential: boolean;
-  hasPagBankCredential: boolean;
 };
 
 const DEFAULT_SETTINGS: AssistantSettings = {
@@ -714,8 +713,8 @@ async function loadPaymentConfiguration(db: Prisma.TransactionClient, restaurant
       "pixProvider",
       "cardGateway",
       (NULLIF(TRIM(COALESCE("mercadoPagoAccessToken", '')), '') IS NOT NULL) AS "hasMercadoPagoCredential",
-      (NULLIF(TRIM(COALESCE("asaasAccessToken", '')), '') IS NOT NULL) AS "hasAsaasCredential",
-      (NULLIF(TRIM(COALESCE("pagbankToken", '')), '') IS NOT NULL) AS "hasPagBankCredential"
+      (NULLIF(TRIM(COALESCE("asaasAccessToken", '')), '') IS NOT NULL) AS "hasAsaasCredential"
+
     FROM "RestaurantSettings"
     WHERE "restaurantId" = ${restaurantId}
     LIMIT 1
@@ -728,7 +727,6 @@ async function loadPaymentConfiguration(db: Prisma.TransactionClient, restaurant
         providerConfigured: {
           MERCADO_PAGO: row.hasMercadoPagoCredential,
           ASAAS: row.hasAsaasCredential,
-          PAGBANK: row.hasPagBankCredential,
         },
         note: 'Somente presença/estado operacional é exposto. Credenciais nunca entram no contexto da IA.',
       }

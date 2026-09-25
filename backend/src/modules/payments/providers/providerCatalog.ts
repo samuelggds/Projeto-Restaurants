@@ -10,7 +10,6 @@ export const PIX_PROVIDERS = {
 export type PixProvider = (typeof PIX_PROVIDERS)[keyof typeof PIX_PROVIDERS];
 
 export const CARD_PROVIDERS = {
-  STRIPE: 'STRIPE',
   MERCADO_PAGO: 'MERCADO_PAGO',
   ASAAS: 'ASAAS',
   PAGARME: 'PAGARME',

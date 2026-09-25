@@ -37,6 +37,8 @@ jobs:
       - run: npm --prefix print-agent ci
       - name: Check architecture constraints
         run: npm run check:architecture
+      - name: Check removed payment provider residues
+        run: npm run check:legacy-payments
       - name: Check resolved production deployment isolation
         run: node scripts/verifyProductionCompose.mjs
 
@@ -260,6 +262,50 @@ jobs:
       - name: Apply migrations and run PostgreSQL RLS suite
         run: npm run test:e2e:rls
 
+
+  scale-120-restaurants:
+    name: Scale 120 restaurants
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: tenant_e2e_owner
+          POSTGRES_PASSWORD: tenant-e2e-owner-password
+          POSTGRES_DB: tenant_e2e
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U tenant_e2e_owner -d tenant_e2e"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      TENANT_E2E_OWNER_DATABASE_URL: postgresql://tenant_e2e_owner:tenant-e2e-owner-password@127.0.0.1:5432/tenant_e2e?schema=public
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - name: Setup Node.js 22
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+      - name: Install backend dependencies
+        run: npm --prefix backend ci
+      - name: Run 120-restaurant scale benchmark
+        run: npm --prefix backend run test:scale
+      - name: Upload scale evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: scale-120-restaurants-${{ github.sha }}
+          path: artifacts/runtime-scale-120-restaurants.json
+          if-no-files-found: error
+          retention-days: 14
+
   e2e-critical:
     name: Critical E2E journeys
     runs-on: ubuntu-latest
@@ -354,6 +400,7 @@ jobs:
         test,
         multitenant-security-e2e,
         rls-security-e2e,
+        scale-120-restaurants,
         e2e-critical,
         audit,
       ]
@@ -394,6 +441,7 @@ jobs:
       - test
       - multitenant-security-e2e
       - rls-security-e2e
+      - scale-120-restaurants
       - e2e-critical
       - audit
       - dependency-review

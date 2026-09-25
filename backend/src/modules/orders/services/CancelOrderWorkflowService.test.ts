@@ -172,7 +172,7 @@ test('falha operacional após gateway preserva SUCCEEDED e retry não duplica es
   let gatewayCalls = 0;
   refundOrderPaymentService.execute = async () => {
     gatewayCalls += 1;
-    return { provider: 'STRIPE', externalId: 're_501' };
+    return { provider: 'MERCADO_PAGO', externalId: 'refund_501' };
   };
   prisma.$transaction = async () => {
     throw new Error('falha temporária no commit operacional');

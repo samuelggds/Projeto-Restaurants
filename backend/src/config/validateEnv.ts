@@ -360,11 +360,6 @@ export function validateCriticalEnv() {
     }
   }
 
-  const allowInsecureStripe =
-    String(process.env.ALLOW_INSECURE_STRIPE_WEBHOOK || 'false').trim() === 'true';
-  if (allowInsecureStripe) {
-    errors.push('ALLOW_INSECURE_STRIPE_WEBHOOK nao pode ser true em producao.');
-  }
 
   const allowGlobalFallback =
     String(process.env.ALLOW_GLOBAL_PAYMENT_FALLBACK || 'false').trim() === 'true';

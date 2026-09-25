@@ -24,7 +24,7 @@ test('remove somente credenciais Mercado Pago e desativa métodos que dependem d
     mercadoPagoRefreshToken: 'refresh-secret',
     mercadoPagoTokenExpiresAt: new Date('2099-01-01T00:00:00Z'),
     mercadoPagoPublicKey: 'seller-public',
-    pagbankToken: 'preserve-pagbank',
+    pagarmeSecretKey: 'preserve-pagarme',
     asaasAccessToken: 'preserve-asaas',
   });
   restaurantSettingsRepository.update = async (_id, payload) => {
@@ -46,7 +46,7 @@ test('remove somente credenciais Mercado Pago e desativa métodos que dependem d
     acceptsPix: false,
     acceptsCard: false,
   });
-  assert.equal('pagbankToken' in updatePayload, false);
+  assert.equal('pagarmeSecretKey' in updatePayload, false);
   assert.equal('asaasAccessToken' in updatePayload, false);
 });
 
@@ -57,7 +57,7 @@ test('preserva meios ativos quando usam outros provedores', async () => {
     acceptsPix: true,
     acceptsCard: true,
     pixProvider: 'ASAAS',
-    cardGateway: 'PAGBANK',
+    cardGateway: 'PAGARME',
     mercadoPagoAccessToken: 'access-secret',
     mercadoPagoRefreshToken: 'refresh-secret',
     mercadoPagoPublicKey: 'seller-public',

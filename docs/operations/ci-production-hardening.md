@@ -63,7 +63,7 @@ O Trivy atual continua configurado para ignorar vulnerabilidades sem correção 
 
 ## Pagamentos
 
-Os testes locais de contrato continuam cobrindo os fluxos de refund/billing e não fazem cobranças reais. A homologação contra Mercado Pago, PagBank e Asaas é separada; uma credencial presente não equivale a integração homologada. Quando os segredos de sandbox não estiverem configurados, o status deve permanecer `NÃO EXECUTADO / PENDENTE`.
+Os testes locais de contrato continuam cobrindo os fluxos de refund/billing e não fazem cobranças reais. A validação externa de Mercado Pago e, quando habilitado, Efí Open Finance é separada; uma credencial presente não equivale a integração homologada. Asaas e Pagar.me permanecem desabilitados até homologação futura. Quando os segredos de sandbox não estiverem configurados, o status deve permanecer `NÃO EXECUTADO / PENDENTE`.
 
 Nunca use credenciais de produção para esses ensaios.
 

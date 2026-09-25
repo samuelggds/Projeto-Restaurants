@@ -29,8 +29,6 @@ const mediaUrl = (path: string) => new URL(path, window.location.origin).href;
 export function discardDemoCredentials(settings: AdminSettings): AdminSettings {
   return {
     ...settings,
-    stripeSecretKey: '',
-    stripeWebhookSecret: '',
     mercadoPagoAccessToken: '',
     pagarmeSecretKey: '',
     asaasAccessToken: '',

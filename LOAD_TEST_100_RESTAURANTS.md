@@ -20,9 +20,8 @@ Validar se a plataforma suporta operacao simultanea de mais de 100 restaurantes 
 
 2. Webhooks
 
-- POST /orders/webhook/stripe
 - POST /orders/webhook/mercadopago
-- POST /orders/webhook/pagbank
+- POST /orders/webhook/efi-open-finance (somente quando Open Finance estiver habilitado)
 
 3. Billing
 
@@ -143,7 +142,26 @@ npm --prefix backend run loadtest:orders -- --baseUrl http://127.0.0.1:3000 --du
 
 ## Resultado esperado para ir a producao com 100+
 
-- fases A, B e C aprovadas
-- sem regressao de faturamento
-- sem regressao de isolamento multi-tenant
+- benchmark automatizado com 120 restaurantes aprovado no CI
+- fases A, B e C aprovadas no ambiente alvo antes de expansão ampla
+- sem regressão de faturamento
+- sem regressão de isolamento multi-tenant
 - sem perda de eventos de pagamento
+
+## Benchmark automatizado obrigatório
+
+O CI executa `npm --prefix backend run test:scale` com PostgreSQL descartável e:
+
+- 120 restaurantes isolados
+- 2 processos de API
+- 120 conexões Socket.IO
+- 600 pedidos/min durante 60 segundos
+- 1.200 leituras/min durante 60 segundos
+- validação de isolamento, estoque e entrega dos eventos em tempo real
+- limite de p95 de criação <= 2 s
+- limite de p95 de leitura <= 1 s
+- zero erros aceitos no cenário
+
+A evidência é publicada como `artifacts/runtime-scale-120-restaurants.json`.
+
+Este benchmark é sintético e não substitui teste de capacidade no ambiente de produção nem homologação financeira real com Mercado Pago/Efí.

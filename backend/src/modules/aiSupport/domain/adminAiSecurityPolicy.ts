@@ -26,6 +26,7 @@ const SECRET_VALUE_PATTERNS: RegExp[] = [
   /-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----[\s\S]*?-----END (?:RSA |EC |OPENSSH )?PRIVATE KEY-----/giu,
 ];
 
+// Legacy provider variable names stay denylisted so stale secrets are redacted even though those providers are no longer supported.
 const OUTPUT_RESTRICTED_IDENTIFIERS = [
   'OPENAI_API_KEY',
   'DATABASE_URL',

@@ -8,7 +8,7 @@ import {
 const cards: CustomerPaymentMethod[] = [
   {
     publicId: 'first',
-    provider: 'PAGBANK',
+    provider: 'MERCADO_PAGO',
     brand: 'visa',
     last4: '1111',
     expMonth: 1,
@@ -17,7 +17,7 @@ const cards: CustomerPaymentMethod[] = [
   },
   {
     publicId: 'default',
-    provider: 'PAGBANK',
+    provider: 'MERCADO_PAGO',
     brand: 'mastercard',
     last4: '2222',
     expMonth: 2,
@@ -73,7 +73,7 @@ describe('getPaymentMethodErrorMessage', () => {
         {
           response: {
             data: {
-              error: 'As configurações do restaurante ainda não habilitaram o gateway do PagBank.',
+              error: 'As configurações do restaurante ainda não habilitaram o gateway do Mercado Pago.',
             },
           },
         },

@@ -57,8 +57,6 @@ type UpdateRestaurantSettingsPayload = {
   bankHolderDocument?: string | null;
   cardGateway?: string | null;
   gatewayMerchantId?: string | null;
-  stripeSecretKey?: string | null;
-  stripeWebhookSecret?: string | null;
   mercadoPagoAccessToken?: string | null;
   pagarmeSecretKey?: string | null;
   pagarmePublicKey?: string | null;
@@ -198,8 +196,6 @@ class UpdateRestaurantSettingsService {
     bankHolderDocument,
     cardGateway,
     gatewayMerchantId,
-    stripeSecretKey,
-    stripeWebhookSecret,
     mercadoPagoAccessToken,
     pagarmeSecretKey,
     pagarmePublicKey,
@@ -294,12 +290,6 @@ class UpdateRestaurantSettingsService {
       cardGateway === undefined ? undefined : String(cardGateway || '').trim() || null;
     const normalizedGatewayMerchantId =
       gatewayMerchantId === undefined ? undefined : String(gatewayMerchantId || '').trim() || null;
-    const normalizedStripeSecretKey =
-      stripeSecretKey === undefined ? undefined : String(stripeSecretKey || '').trim() || null;
-    const normalizedStripeWebhookSecret =
-      stripeWebhookSecret === undefined
-        ? undefined
-        : String(stripeWebhookSecret || '').trim() || null;
     // Empty secret inputs mean "keep the saved credential". A different
     // manual token must never retain the OAuth grant of the previous account.
     const normalizedMercadoPagoAccessToken =
@@ -598,8 +588,6 @@ class UpdateRestaurantSettingsService {
       bankHolderDocument: normalizedBankHolderDocument,
       cardGateway: normalizedCardGateway,
       gatewayMerchantId: resolvedGatewayMerchantId,
-      stripeSecretKey: normalizedStripeSecretKey,
-      stripeWebhookSecret: normalizedStripeWebhookSecret,
       mercadoPagoAccessToken: normalizedMercadoPagoAccessToken,
       pagarmeSecretKey: normalizedPagarmeSecretKey,
       pagarmePublicKey: normalizedPagarmePublicKey,
@@ -709,15 +697,11 @@ class UpdateRestaurantSettingsService {
 
     return {
       ...updated,
-      stripeSecretKey: null,
-      stripeWebhookSecret: null,
       mercadoPagoAccessToken: null,
       mercadoPagoRefreshToken: null,
       picpayToken: null,
       asaasAccessToken: null,
       asaasWebhookTokenHash: null,
-      stripeSecretKeyConfigured: Boolean(String(updated?.stripeSecretKey || '').trim()),
-      stripeWebhookSecretConfigured: Boolean(String(updated?.stripeWebhookSecret || '').trim()),
       mercadoPagoAccessTokenConfigured: Boolean(
         String(updated?.mercadoPagoAccessToken || '').trim(),
       ),

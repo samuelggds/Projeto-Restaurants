@@ -483,12 +483,7 @@ export function AdminPage({
       await onSaveSettings(settings);
       const persistedSettings = {
         ...settings,
-        stripeSecretKey: '',
-        stripeSecretKeyConfigured:
-          settings.stripeSecretKeyConfigured || Boolean(settings.stripeSecretKey),
-        stripeWebhookSecret: '',
-        stripeWebhookSecretConfigured:
-          settings.stripeWebhookSecretConfigured || Boolean(settings.stripeWebhookSecret),
+
         mercadoPagoAccessToken: '',
         mercadoPagoAccessTokenConfigured:
           settings.mercadoPagoAccessTokenConfigured || Boolean(settings.mercadoPagoAccessToken),

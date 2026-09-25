@@ -301,8 +301,6 @@ async function main() {
     CREDENTIAL_ENCRYPTION_KEY:
       process.env.CREDENTIAL_ENCRYPTION_KEY || 'BwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwc=',
     ALLOW_GLOBAL_PAYMENT_FALLBACK: 'false',
-    ALLOW_INSECURE_STRIPE_WEBHOOK: 'false',
-    STRIPE_SECRET_KEY: process.env.STRIPE_SECRET_KEY || 'sk_test_tenant_e2e_only',
     ASAAS_WEBHOOK_TOKEN: 'tenant-e2e-asaas-webhook-token',
     MP_WEBHOOK_SECRET: 'tenant-e2e-mp-webhook-secret',
     AUTH_RATE_LIMIT_MAX_REQUESTS: '1000',

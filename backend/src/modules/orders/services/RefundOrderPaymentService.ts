@@ -1,4 +1,3 @@
-import Stripe from 'stripe';
 import { PaymentMethod } from '@prisma/client';
 import { getMercadoPagoPaymentRefundApi } from '../../payments/providers/mercadoPagoClient.js';
 import restaurantSettingsRepository from '../../restaurantSettings/repositories/RestaurantSettingsRepository.js';
@@ -17,7 +16,7 @@ export type RefundableOrder = {
 };
 
 export type RefundProviderReceipt = {
-  provider: 'ASAAS' | 'MERCADO_PAGO' | 'STRIPE' | 'EFI';
+  provider: 'ASAAS' | 'MERCADO_PAGO' | 'EFI';
   externalId: string | null;
 };
 
@@ -56,11 +55,6 @@ type AsaasRefundResponse = {
 
 
 class RefundOrderPaymentService {
-  // Seam pequeno e substituível nos testes; em produção sempre cria o SDK oficial.
-  createStripeClient(secretKey: string) {
-    return new Stripe(secretKey);
-  }
-
   private resolveAsaasApiBaseUrl() {
     return String(process.env.ASAAS_API_BASE_URL || 'https://api.asaas.com')
       .trim()
@@ -376,62 +370,6 @@ class RefundOrderPaymentService {
     } satisfies RefundProviderReceipt;
   }
 
-  private async refundStripeCard(order: RefundableOrder, options: RefundOrderPaymentOptions) {
-    const rawSessionId = String(order.cardCheckoutSessionId || '').trim();
-    const stripeSessionId = rawSessionId;
-
-    if (!stripeSessionId || !stripeSessionId.startsWith('cs_')) {
-      throw new AutomaticRefundError(
-        'Este pagamento com cartão não possui uma sessão Stripe válida para estorno automático. O pedido não foi cancelado.',
-        'MISSING_REFERENCE',
-      );
-    }
-
-    const restaurantId = Number(order.restaurantId || 0) || undefined;
-    const settings = restaurantId
-      ? await restaurantSettingsRepository.findByRestaurantId(restaurantId)
-      : null;
-    const allowGlobalFallback = process.env.ALLOW_GLOBAL_PAYMENT_FALLBACK === 'true';
-    const secretKey = String(
-      settings?.stripeSecretKey || (allowGlobalFallback ? process.env.STRIPE_SECRET_KEY : '') || '',
-    ).trim();
-    if (!secretKey) {
-      throw new AutomaticRefundError(
-        'O estorno automático está indisponível porque a chave Stripe não está configurada para este restaurante. O pedido não foi cancelado.',
-        'MISSING_CREDENTIALS',
-      );
-    }
-
-    const stripe = this.createStripeClient(secretKey);
-    const session = await stripe.checkout.sessions.retrieve(stripeSessionId, {
-      expand: ['payment_intent'],
-    });
-
-    const paymentIntentId =
-      typeof session.payment_intent === 'string'
-        ? session.payment_intent
-        : session.payment_intent?.id;
-
-    if (!paymentIntentId) {
-      throw new AutomaticRefundError(
-        'A Stripe não retornou a referência financeira necessária para o estorno. O pedido não foi cancelado.',
-        'MISSING_REFERENCE',
-      );
-    }
-
-    const refund = await stripe.refunds.create(
-      {
-        payment_intent: paymentIntentId,
-      },
-      options.idempotencyKey ? { idempotencyKey: options.idempotencyKey } : undefined,
-    );
-
-    return {
-      provider: 'STRIPE',
-      externalId: String(refund.id || paymentIntentId).trim(),
-    } satisfies RefundProviderReceipt;
-  }
-
   private async refundCard(order: RefundableOrder, options: RefundOrderPaymentOptions) {
     const checkoutSessionId = String(order.cardCheckoutSessionId || '').trim();
     const normalizedCheckoutSessionId = checkoutSessionId.toLowerCase();
@@ -534,9 +472,10 @@ class RefundOrderPaymentService {
         options.idempotencyKey,
       );
     }
-
-
-    return this.refundStripeCard(order, options);
+    throw new AutomaticRefundError(
+      'Este pagamento com cartão usa uma referência de provedor legado não suportada. O pedido não foi cancelado.',
+      'NOT_SUPPORTED',
+    );
   }
 
   async execute(

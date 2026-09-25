@@ -21,8 +21,8 @@
 
 ## Webhooks e pagamentos
 
-- Stripe webhook com assinatura valida ativa em producao
-- Mercado Pago com restaurantId obrigatorio em ambiente multi-tenant; Open Finance deve manter vínculo inequívoco entre restaurante, pedido e Payment Intent
+- Mercado Pago com webhook assinado, referência/valor/tenant validados e reconciliação ativa em produção
+- Open Finance Efí, quando habilitado, usa mTLS/HMAC e vínculo inequívoco entre restaurante, pedido, valor e pagamento
 - fallback global de credenciais desativado em producao
 - logs de webhook com correlation id por evento
 - idempotencia para evitar dupla confirmacao
@@ -68,7 +68,7 @@
 
 ## Pronto para 100+ quando
 
-- load test aprovado nas fases A/B/C
+- benchmark automatizado de 120 restaurantes aprovado e load test aprovado nas fases A/B/C do ambiente alvo
 - alarmes testados e funcionando
 - backup + restore validados
 - monitoramento de billing sem inconsistencias por 7 dias consecutivos

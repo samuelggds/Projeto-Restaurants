@@ -18,7 +18,7 @@ const original = {
 
 beforeEach(() => {
   for (const name of Object.keys(process.env)) {
-    if (/^(MP_|MERCADO_PAGO_|PAGBANK_|ASAAS_|EFI_OPEN_FINANCE_)/.test(name)) delete process.env[name];
+    if (/^(MP_|MERCADO_PAGO_|ASAAS_|EFI_OPEN_FINANCE_)/.test(name)) delete process.env[name];
   }
   Object.assign(process.env, {
     CREDENTIAL_ENCRYPTION_KEY: Buffer.alloc(32, 4).toString('base64'),

@@ -62,7 +62,6 @@ type Props = {
   onConnectMercadoPago?: () => void | Promise<void>;
   onDisconnectMercadoPago?: () => Promise<boolean>;
   onLoadPaymentConnections?: () => Promise<PaymentConnectionOverview>;
-  onConnectPagBank?: () => void | Promise<void>;
   onOnboardAsaas?: (payload: {
     cpf?: string;
     cnpj?: string;
@@ -134,7 +133,6 @@ export function AdminSettingsContent(props: Props) {
           onConnectMercadoPago={props.onConnectMercadoPago}
           onDisconnectMercadoPago={props.onDisconnectMercadoPago}
           onLoadPaymentConnections={props.onLoadPaymentConnections}
-          onConnectPagBank={props.onConnectPagBank}
           onOnboardAsaas={props.onOnboardAsaas}
         />
       );
