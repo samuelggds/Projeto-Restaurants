@@ -24,6 +24,7 @@ import {
 import courierAccessService from './CourierAccessService.js';
 import { verifyDeliveryConfirmationCode } from '../utils/deliveryConfirmationCode.js';
 import { setTenantDbContext } from '../../../database/tenantDbContext.js';
+import orderCapacityQueueService from './OrderCapacityQueueService.js';
 
 class UpdateOrderStatusService {
   async execute(
@@ -343,6 +344,15 @@ class UpdateOrderStatusService {
       io.to(`user:${updatedOrder.userId}`).emit('order:status-changed', updatedOrder);
     emitWaiterTableOrderEvent(io, 'waiter:order-updated', updatedOrder);
     emitTableSessionOrderEvent(io, 'order:status-changed', updatedOrder);
+
+    if (status === OrderStatus.ENTREGUE || status === OrderStatus.CANCELADO) {
+      void orderCapacityQueueService.drainRestaurant(restaurantId).catch((error: unknown) => {
+        console.error(
+          '[ORDER_CAPACITY_QUEUE_DRAIN_ERROR]',
+          error instanceof Error ? error.message : String(error),
+        );
+      });
+    }
     return updatedOrder;
   }
 }
