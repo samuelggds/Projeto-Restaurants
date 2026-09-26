@@ -128,10 +128,12 @@ function emptyTableAccount() {
     contractVersion: 1,
     currentParticipantPublicId: null,
     capabilities: {
-      enabled: false,
-      allowCash: false,
-      allowCardMachine: false,
+      enabled: true,
+      allowCash: true,
+      allowCardMachine: true,
       allowOnlinePayment: true,
+      allowPix: true,
+      allowCard: false,
       allowSplit: false,
       serviceFeeMode: 'DISABLED',
       serviceFeeBasisPoints: 0,
@@ -328,6 +330,19 @@ async function mockContextApi(page: Page, state: ContextState) {
       });
     }
 
+    if (pathname === '/orders' && method === 'POST') {
+      const payload = request.postDataJSON() as Record<string, unknown>;
+      state.orderPayloads.push(payload);
+      return json(route, {
+        id: 900 + state.orderPayloads.length,
+        publicId: `context-order-${state.orderPayloads.length}`,
+        type: payload.type,
+        status: 'PENDENTE',
+        paid: false,
+        settlementMode: payload.settlementMode,
+      }, 201);
+    }
+
     if (pathname === '/orders/pix/payment' && method === 'POST') {
       const payload = request.postDataJSON() as Record<string, unknown>;
       state.orderPayloads.push(payload);
@@ -441,7 +456,7 @@ async function submitTableOrder(page: Page) {
   await page.getByRole('button', { name: 'Enviar pedido para a cozinha' }).click();
 }
 
-test('QR deslogado retorna à mesma Mesa 05 após login e cria pedido MESA', async ({ page }) => {
+test('QR da mesa permanece guest e envia pedido MESA sem login', async ({ page }) => {
   const state: ContextState = {
     authenticated: false,
     tableOpen: true,
@@ -452,25 +467,27 @@ test('QR deslogado retorna à mesma Mesa 05 após login e cria pedido MESA', asy
   };
   await mockContextApi(page, state);
   const tablePath =
-    `/${RESTAURANT_SLUG}/mesa/${TABLE_NUMBER}` + `?rid=${RESTAURANT_ID}&tk=${TABLE_TOKEN}#bebidas`;
+    `/${RESTAURANT_SLUG}/mesa/${TABLE_NUMBER}` +
+    `?rid=${RESTAURANT_ID}&tk=${TABLE_TOKEN}#bebidas`;
 
   await page.goto(tablePath);
   await expect(page.getByLabel(`Mesa ${TABLE_NUMBER}`, { exact: true })).toContainText('05');
-  await expectLoginPreserves(page, tablePath);
-  await loginWithPassword(page);
-
-  await expect.poll(() => currentPath(page)).toBe(tablePath);
-  await expect(page.getByLabel(`Mesa ${TABLE_NUMBER}`, { exact: true })).toContainText('05');
-  await expect.poll(() => state.sessionValidationCalls).toBeGreaterThan(0);
+  await expect(page.getByRole('button', { name: 'Minha conta', exact: true })).toHaveCount(0);
+  await expect(page).not.toHaveURL(/\/login/u);
 
   await addConfiguredProduct(page);
   await submitTableOrder(page);
+
   await expect.poll(() => state.orderPayloads.length).toBe(1);
   expect(state.orderPayloads[0]).toMatchObject({
     restaurantId: RESTAURANT_ID,
     type: 'MESA',
     tableId: TABLE_ID,
+    settlementMode: 'TABLE_ACCOUNT',
   });
+  expect(state.orderPayloads[0]).not.toHaveProperty('paymentMethod');
+  expect(state.loginCalls).toBe(0);
+  expect(state.googleLoginCalls).toBe(0);
 });
 
 test('Home preserva origem completa durante Cadastro e Login', async ({ page }) => {
@@ -530,148 +547,10 @@ test('Home preserva origem completa durante Recuperação e Login', async ({ pag
   await expect.poll(() => currentPath(page)).toBe(homePath);
 });
 
-test('QR preserva Mesa 05 durante Cadastro e Login', async ({ page }) => {
+test('mesa fechada bloqueia o visitante sem encaminhar para login', async ({ page }) => {
   const state: ContextState = {
     authenticated: false,
-    tableOpen: true,
-    loginCalls: 0,
-    googleLoginCalls: 0,
-    sessionValidationCalls: 0,
-    orderPayloads: [],
-    registerPayloads: [],
-  };
-  await mockContextApi(page, state);
-  const tablePath =
-    `/${RESTAURANT_SLUG}/mesa/${TABLE_NUMBER}` + `?rid=${RESTAURANT_ID}&tk=${TABLE_TOKEN}#conta`;
-
-  await page.goto(tablePath);
-  await expectLoginPreserves(page, tablePath);
-  await page.getByRole('link', { name: 'Cadastre-se aqui' }).click();
-  await expect(page.locator('[data-auth-context="TABLE"]')).toBeVisible();
-  expect(new URL(page.url()).searchParams.get('next')).toBe(tablePath);
-  await registerCustomer(page);
-
-  await expect(page).toHaveURL(/\/login\?next=/u);
-  expect(new URL(page.url()).searchParams.get('next')).toBe(tablePath);
-  expect(state.registerPayloads?.[0]).not.toHaveProperty('role');
-  await loginWithPassword(page);
-  await expect.poll(() => currentPath(page)).toBe(tablePath);
-  await expect(page.getByLabel(`Mesa ${TABLE_NUMBER}`, { exact: true })).toContainText('05');
-});
-
-test('QR preserva Mesa 05 durante Recuperação e Login', async ({ page }) => {
-  const state: ContextState = {
-    authenticated: false,
-    tableOpen: true,
-    loginCalls: 0,
-    googleLoginCalls: 0,
-    sessionValidationCalls: 0,
-    orderPayloads: [],
-    forgotPasswordPayloads: [],
-    resetPasswordPayloads: [],
-  };
-  await mockContextApi(page, state);
-  const tablePath =
-    `/${RESTAURANT_SLUG}/mesa/${TABLE_NUMBER}` + `?rid=${RESTAURANT_ID}&tk=${TABLE_TOKEN}#conta`;
-
-  await page.goto(tablePath);
-  await expectLoginPreserves(page, tablePath);
-  await page.getByRole('button', { name: 'Esqueceu a senha?' }).click();
-  await expect(page.locator('[data-auth-context="TABLE"]')).toBeVisible();
-  expect(new URL(page.url()).searchParams.get('next')).toBe(tablePath);
-  await recoverCustomerPassword(page);
-
-  await expect(page).toHaveURL(/\/login\?next=/u);
-  expect(new URL(page.url()).searchParams.get('next')).toBe(tablePath);
-  await loginWithPassword(page);
-  await expect.poll(() => currentPath(page)).toBe(tablePath);
-  await expect(page.getByLabel(`Mesa ${TABLE_NUMBER}`, { exact: true })).toContainText('05');
-});
-
-test('MFA preserva o next completo da Mesa 05', async ({ page }) => {
-  const state: ContextState = {
-    authenticated: false,
-    tableOpen: true,
-    loginCalls: 0,
-    googleLoginCalls: 0,
-    sessionValidationCalls: 0,
-    orderPayloads: [],
-    mfaRequired: true,
-    mfaVerificationCalls: 0,
-  };
-  await mockContextApi(page, state);
-  const tablePath =
-    `/${RESTAURANT_SLUG}/mesa/${TABLE_NUMBER}` + `?rid=${RESTAURANT_ID}&tk=${TABLE_TOKEN}#mfa`;
-
-  await page.goto(tablePath);
-  await expectLoginPreserves(page, tablePath);
-  await loginWithPassword(page);
-  const dialog = page.getByRole('dialog', { name: 'Verificação em duas etapas' });
-  await dialog.getByLabel('Código de verificação').fill('123456');
-  await dialog.getByRole('button', { name: 'Verificar' }).click();
-
-  await expect.poll(() => currentPath(page)).toBe(tablePath);
-  expect(state.mfaVerificationCalls).toBe(1);
-  await expect(page.getByLabel(`Mesa ${TABLE_NUMBER}`, { exact: true })).toContainText('05');
-});
-
-test('a mesma conta alterna Home, QR autenticado e Home sem modo permanente', async ({ page }) => {
-  const state: ContextState = {
-    authenticated: false,
-    tableOpen: true,
-    loginCalls: 0,
-    googleLoginCalls: 0,
-    sessionValidationCalls: 0,
-    orderPayloads: [],
-  };
-  await mockContextApi(page, state);
-  const homePath = `/${RESTAURANT_SLUG}`;
-  const tablePath =
-    `/${RESTAURANT_SLUG}/mesa/${TABLE_NUMBER}` + `?rid=${RESTAURANT_ID}&tk=${TABLE_TOKEN}`;
-
-  await page.goto(homePath);
-  await expectLoginPreserves(page, homePath);
-  await loginWithPassword(page);
-  await expect.poll(() => currentPath(page)).toBe(homePath);
-
-  await addConfiguredProduct(page);
-  await page.getByRole('button', { name: 'Retirada' }).click();
-  await page.getByRole('button', { name: /Gerar código Pix/u }).click();
-  await expect.poll(() => state.orderPayloads.length).toBe(1);
-  expect(state.orderPayloads[0]).toMatchObject({
-    restaurantId: RESTAURANT_ID,
-    type: 'RETIRADA',
-  });
-  expect(state.orderPayloads[0]).not.toHaveProperty('tableId');
-
-  await page.getByRole('button', { name: 'Continuar no cardápio' }).click();
-  await page.goto(tablePath);
-  await expect.poll(() => currentPath(page)).toBe(tablePath);
-  await expect(page.getByLabel(`Mesa ${TABLE_NUMBER}`, { exact: true })).toContainText('05');
-  expect(state.loginCalls).toBe(1);
-
-  await addConfiguredProduct(page);
-  await submitTableOrder(page);
-  await expect.poll(() => state.orderPayloads.length).toBe(2);
-  expect(state.orderPayloads[1]).toMatchObject({
-    restaurantId: RESTAURANT_ID,
-    type: 'MESA',
-    tableId: TABLE_ID,
-  });
-
-  await page.goto(homePath);
-  await expect.poll(() => currentPath(page)).toBe(homePath);
-  await expect(page.getByLabel(`Mesa ${TABLE_NUMBER}`, { exact: true })).toHaveCount(0);
-  await addConfiguredProduct(page);
-  await expect(page.getByRole('button', { name: 'Delivery' })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Retirada' })).toBeVisible();
-  expect(state.loginCalls).toBe(1);
-});
-
-test('mesa encerrada durante login retorna ao QR e mostra o estado canônico', async ({ page }) => {
-  const state: ContextState = {
-    authenticated: false,
-    tableOpen: true,
+    tableOpen: false,
     loginCalls: 0,
     googleLoginCalls: 0,
     sessionValidationCalls: 0,
@@ -679,40 +558,17 @@ test('mesa encerrada durante login retorna ao QR e mostra o estado canônico', a
   };
   await mockContextApi(page, state);
   const tablePath =
-    `/${RESTAURANT_SLUG}/mesa/${TABLE_NUMBER}` + `?rid=${RESTAURANT_ID}&tk=${TABLE_TOKEN}`;
+    `/${RESTAURANT_SLUG}/mesa/${TABLE_NUMBER}` +
+    `?rid=${RESTAURANT_ID}&tk=${TABLE_TOKEN}`;
 
   await page.goto(tablePath);
-  await expectLoginPreserves(page, tablePath);
-  state.tableOpen = false;
-  await loginWithPassword(page);
 
-  await expect.poll(() => currentPath(page)).toBe(tablePath);
   await expect(page.getByRole('heading', { name: 'Mesa aguardando abertura' })).toBeVisible();
   await expect(page.getByText(/ainda não foi aberta pelo garçom/u)).toBeVisible();
-});
-
-test('Google mockado preserva o next completo da Mesa 05', async ({ page }) => {
-  const state: ContextState = {
-    authenticated: false,
-    tableOpen: true,
-    loginCalls: 0,
-    googleLoginCalls: 0,
-    sessionValidationCalls: 0,
-    orderPayloads: [],
-  };
-  await installGoogleMock(page);
-  await mockContextApi(page, state);
-  const tablePath =
-    `/${RESTAURANT_SLUG}/mesa/${TABLE_NUMBER}` + `?rid=${RESTAURANT_ID}&tk=${TABLE_TOKEN}#menu`;
-
-  await page.goto(tablePath);
-  await expectLoginPreserves(page, tablePath);
-  await page.getByRole('button', { name: 'Entrar com Google E2E' }).click();
-
-  await expect.poll(() => currentPath(page)).toBe(tablePath);
-  await expect(page.getByLabel(`Mesa ${TABLE_NUMBER}`, { exact: true })).toContainText('05');
-  expect(state.googleLoginCalls).toBe(1);
+  await expect(page).not.toHaveURL(/\/login/u);
+  await expect(page.getByRole('button', { name: 'Minha conta', exact: true })).toHaveCount(0);
   expect(state.loginCalls).toBe(0);
+  expect(state.googleLoginCalls).toBe(0);
 });
 
 for (const viewport of [
@@ -721,7 +577,7 @@ for (const viewport of [
   { width: 390, height: 844 },
   { width: 430, height: 932 },
 ]) {
-  test(`Cadastro e Recuperação TABLE não criam overflow em ${viewport.width}px`, async ({
+  test(`rotas legadas de autenticação TABLE não criam overflow em ${viewport.width}px`, async ({
     page,
   }) => {
     const state: ContextState = {
