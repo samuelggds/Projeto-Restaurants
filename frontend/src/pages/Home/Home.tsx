@@ -412,7 +412,7 @@ export default function Home() {
     : (availablePaymentMethods[0] ?? paymentMethod);
   const paymentAvailable = availablePaymentMethods.length > 0;
   const tableAccountEnabled = tableAccount.snapshot?.capabilities.enabled === true;
-  const tableCheckoutPaymentMethod = selectedCheckoutPaymentMethod === 'card' ? 'card' : 'pix';
+  const tableCheckoutPaymentMethod: 'pix' = 'pix';
   const tableCheckoutUnavailable = Boolean(
     mesaMode && !tableAccount.loading && !tableAccountEnabled && !paymentAvailable,
   );
@@ -665,7 +665,7 @@ export default function Home() {
       notify(
         'success',
         `Pedido #${String(order?.id || '')} adicionado à mesa`,
-        'A cozinha recebeu o pedido. Você pode dividir e pagar pela conta da mesa depois.',
+        'A cozinha recebeu o pedido. O valor ficou pendente na sua comanda para pagar depois.',
         5000,
       );
     } catch (error: unknown) {
