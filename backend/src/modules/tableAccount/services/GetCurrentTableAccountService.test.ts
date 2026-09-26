@@ -175,7 +175,9 @@ test('monta a conta com centavos exatos, ignora cancelados e não expõe dados d
   assert.equal(result.items[2].financialStatus, 'REFUNDED');
   assert.equal(result.items[5].orderStatus, 'CANCELED');
   assert.equal(result.items[5].orderedByDisplayName, 'Cliente da mesa');
-  assert.equal(result.participants[1].leftAt, '2026-08-25T12:30:00.000Z');
+  assert.equal(result.participants.length, 1);
+  assert.equal(result.participants[0].publicId, currentParticipantPublicId);
+  assert.equal(result.participants[0].leftAt, null);
 
   const publicPayload = JSON.stringify(result);
   assert.doesNotMatch(publicPayload, /paymentMethod|customerCpf|privado@example\.com|85999999999/);
@@ -247,6 +249,7 @@ test('taxa de pagamento estornado permanece no histórico sem voltar ao saldo de
         expiresAt: paidAt,
         createdAt: paidAt,
         selectionMode: 'MY_ITEMS',
+        payerParticipantId: 80,
         payerParticipant: { publicId: currentParticipantPublicId },
       },
       {
@@ -257,6 +260,7 @@ test('taxa de pagamento estornado permanece no histórico sem voltar ao saldo de
         totalCents: 220n,
         expiresAt: paidAt,
         createdAt: paidAt,
+        payerParticipantId: 80,
         payerParticipant: { publicId: currentParticipantPublicId },
         selectionMode: 'SELECTED_ITEMS',
       },
@@ -323,11 +327,10 @@ test('não conta convidado expirado como acesso ativo e preserva o registro no h
     participantPublicId: currentParticipantPublicId,
   });
 
-  assert.equal(result.summary.participantsCount, 2);
+  assert.equal(result.summary.participantsCount, 1);
+  assert.equal(result.participants.length, 1);
   assert.equal(result.participants[0].status, 'ACTIVE');
-  assert.equal(result.participants[1].status, 'LEFT');
-  assert.equal(result.participants[1].displayName, 'Acesso expirado');
-  assert.equal(result.participants[2].status, 'ACTIVE');
+  assert.equal(result.participants[0].displayName, 'Convidado atual');
 });
 
 test('rejeita identificadores inválidos antes de consultar o repositório', async () => {
