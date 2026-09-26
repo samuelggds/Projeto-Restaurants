@@ -104,6 +104,7 @@ function getInvoiceTone(status?: string) {
 
 type MonthlyBillingProps = {
   restricted?: boolean;
+  initialView?: BillingView;
 };
 
 type BillingFeedback = {
@@ -111,8 +112,13 @@ type BillingFeedback = {
   message: string;
 };
 
-export function MonthlyBilling({ restricted = false }: MonthlyBillingProps = {}) {
-  const [view, setView] = useState<BillingView>(restricted ? 'charges' : 'payment');
+export function MonthlyBilling({
+  restricted = false,
+  initialView,
+}: MonthlyBillingProps = {}) {
+  const [view, setView] = useState<BillingView>(
+    restricted ? 'charges' : initialView || 'payment',
+  );
   const [plans, setPlans] = useState<BillingPlan[]>([]);
   const [subscription, setSubscription] = useState<Subscription | null>(null);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
