@@ -101,6 +101,7 @@ export class JoinTableParticipantService {
           const activeCustomer = await tx.user.findFirst({
             where: {
               id: authenticatedCustomerId,
+              restaurantId: session.restaurantId,
               role: UserRole.CLIENTE,
               active: true,
             },
