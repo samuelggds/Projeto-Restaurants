@@ -245,9 +245,17 @@ function TableAccountPanelContent(props: Props) {
                 </S.ReceiptRows>
 
                 <S.ReceiptTotals>
-                  <span className="remaining">
-                    <small>Seu consumo</small>
+                  <span>
+                    <small>Consumido</small>
                     <b>{formatTableMoney(snapshot.summary.consumedCents)}</b>
+                  </span>
+                  <span>
+                    <small>Pago</small>
+                    <b>{formatTableMoney(snapshot.summary.netPaidCents)}</b>
+                  </span>
+                  <span className="remaining">
+                    <small>Falta pagar</small>
+                    <b>{formatTableMoney(snapshot.summary.remainingCents)}</b>
                   </span>
                 </S.ReceiptTotals>
 
