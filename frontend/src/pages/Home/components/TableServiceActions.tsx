@@ -2,7 +2,7 @@ import { createPortal } from 'react-dom';
 import { useEffect, useRef, useState } from 'react';
 import { Bell, CheckCircle2, LoaderCircle, ReceiptText, X } from 'lucide-react';
 import styled from 'styled-components';
-import { useDraggableFloatingActions } from '../hooks/useDraggableFloatingActions';
+import { formatTableMoney } from '../domain/tableAccount';
 
 type Props = {
   embedded?: boolean;
@@ -10,72 +10,114 @@ type Props = {
   waiterEnabled: boolean;
   billEnabled: boolean;
   accountEnabled: boolean;
+  accountAmountCents?: number;
   loading: 'WAITER' | 'BILL' | null;
   onCallWaiter: () => void;
   onRequestBill: () => void;
   onOpenAccount: () => void;
 };
 
-const FloatingWaiter = styled.div`
+const FixedDock = styled.div`
   position: fixed;
   z-index: 68;
-  right: 24px;
-  bottom: 24px;
-  width: 60px;
-  height: 60px;
-
-  &[data-drag-positioned='true'] {
-    right: auto;
-    bottom: auto;
-  }
-
-  &[data-dragging='true'] {
-    transition: none;
-    will-change: transform;
-  }
+  left: 50%;
+  bottom: calc(14px + env(safe-area-inset-bottom, 0px));
+  width: min(560px, calc(100% - 28px));
+  transform: translateX(-50%);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  padding: 10px;
+  border: 1px solid rgba(224, 211, 201, 0.95);
+  border-radius: 18px;
+  background: rgba(255, 253, 249, 0.97);
+  box-shadow: 0 14px 38px rgba(45, 30, 21, 0.2);
+  backdrop-filter: blur(12px);
 
   @media (max-width: 700px) {
-    right: 16px;
-    bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+    bottom: calc(8px + env(safe-area-inset-bottom, 0px));
+    width: calc(100% - 16px);
+    border-radius: 16px;
+    padding: 8px;
   }
 `;
 
 const AccountButton = styled.button`
-  position: absolute;
-  right: 0;
-  bottom: 72px;
-  min-width: 132px;
-  height: 44px;
-  display: inline-flex;
+  min-width: 0;
+  min-height: 52px;
+  display: flex;
   align-items: center;
-  justify-content: center;
-  gap: 8px;
-  padding: 0 14px;
-  border: 1px solid color-mix(in srgb, var(--home-primary, #d64d08) 34%, #eadfd6);
-  border-radius: 999px;
-  background: #fff;
-  color: #3f342d;
-  box-shadow: 0 12px 28px rgba(65, 38, 20, 0.16);
+  gap: 11px;
+  padding: 8px 14px;
+  border: 0;
+  border-radius: 13px;
+  background: var(--home-primary, #d64d08);
+  color: #fff;
   cursor: pointer;
   font: inherit;
-  font-size: 12px;
-  font-weight: 850;
-  white-space: nowrap;
+  text-align: left;
 
-  svg {
-    width: 17px;
-    height: 17px;
-    color: var(--home-primary, #d64d08);
+  .icon {
+    width: 34px;
+    height: 34px;
+    flex: 0 0 34px;
+    display: grid;
+    place-items: center;
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.16);
   }
 
-  &:hover:not(:disabled) {
-    border-color: var(--home-primary, #d64d08);
-    transform: translateY(-1px);
+  .copy {
+    min-width: 0;
+    display: grid;
+    gap: 1px;
+  }
+
+  b {
+    overflow: hidden;
+    font-size: 13px;
+    font-weight: 900;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  small {
+    color: rgba(255, 255, 255, 0.82);
+    font-size: 10px;
+    font-weight: 700;
+  }
+
+  &:hover {
+    filter: brightness(0.97);
   }
 
   &:focus-visible {
-    outline: 4px solid rgba(214, 77, 8, 0.18);
-    outline-offset: 3px;
+    outline: 4px solid color-mix(in srgb, var(--home-primary, #d64d08) 22%, transparent);
+    outline-offset: 2px;
+  }
+`;
+
+const WaiterButton = styled.button`
+  min-width: 104px;
+  min-height: 52px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 0 13px;
+  border: 1px solid #e2d7ce;
+  border-radius: 13px;
+  background: #fff;
+  color: #493f38;
+  cursor: pointer;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 850;
+
+  svg {
+    width: 18px;
+    height: 18px;
+    color: var(--home-primary, #d64d08);
   }
 
   &:disabled {
@@ -83,36 +125,15 @@ const AccountButton = styled.button`
     opacity: 0.55;
   }
 
-  @media (max-width: 700px) {
-    bottom: 70px;
-    min-width: 126px;
-    height: 42px;
-    padding-inline: 12px;
+  @media (max-width: 430px) {
+    min-width: 52px;
+    width: 52px;
+    padding: 0;
+
+    span {
+      display: none;
+    }
   }
-`;
-
-const WaiterButton = styled.button`
-  width: 60px;
-  height: 60px;
-  padding: 0;
-  display: grid;
-  place-items: center;
-  border: 0;
-  border-radius: 50%;
-  background: var(--home-primary, #d64d08);
-  color: #fff;
-  box-shadow: 0 14px 30px rgba(65, 38, 20, 0.26);
-  cursor: grab;
-  touch-action: none;
-  user-select: none;
-  -webkit-user-select: none;
-  transition: transform 160ms ease, box-shadow 160ms ease, opacity 160ms ease;
-
-  svg { width: 25px; height: 25px; }
-  &:hover:not(:disabled) { transform: translateY(-2px) scale(1.04); }
-  &:active:not(:disabled) { cursor: grabbing; transform: scale(0.97); }
-  &:focus-visible { outline: 4px solid rgba(214, 77, 8, 0.2); outline-offset: 3px; }
-  &:disabled { cursor: not-allowed; opacity: 0.5; }
 `;
 
 const ModalBackdrop = styled.div`
@@ -165,7 +186,6 @@ const CloseButton = styled.button`
   background: #fff;
   color: #655b54;
   cursor: pointer;
-  svg { width: 17px; height: 17px; }
 `;
 
 const ModalBody = styled.div`
@@ -188,7 +208,7 @@ const ModalBody = styled.div`
     background: #fff1e9;
     color: var(--home-primary, #d64d08);
   }
-  .icon svg { width: 26px; height: 26px; }
+
   strong { color: #302923; font-size: 13px; }
   small { max-width: 305px; color: #81766e; font-size: 10px; line-height: 1.55; }
 `;
@@ -207,6 +227,7 @@ const ModalActions = styled.div`
     font-weight: 850;
     cursor: pointer;
   }
+
   .cancel { border: 1px solid #e6ddd5; background: #fff; color: #5f554e; }
   .confirm {
     border: 1px solid var(--home-primary, #d64d08);
@@ -217,15 +238,19 @@ const ModalActions = styled.div`
     justify-content: center;
     gap: 8px;
   }
-  .confirm svg { width: 17px; height: 17px; }
+
   button:disabled { cursor: not-allowed; opacity: 0.55; }
-  @media (max-width: 380px) { grid-template-columns: 1fr; }
+
+  @media (max-width: 380px) {
+    grid-template-columns: 1fr;
+  }
 `;
 
 export function TableServiceActions({
   tableNumber,
   waiterEnabled,
   accountEnabled,
+  accountAmountCents = 0,
   loading,
   onCallWaiter,
   onOpenAccount,
@@ -233,17 +258,6 @@ export function TableServiceActions({
   const [open, setOpen] = useState(false);
   const closeRef = useRef<HTMLButtonElement>(null);
   const tableLabel = String(tableNumber);
-  const {
-    elementRef,
-    style,
-    dragging,
-    positioned,
-    onPointerDown,
-    onPointerMove,
-    onPointerUp,
-    onPointerCancel,
-    onClickCapture,
-  } = useDraggableFloatingActions('@GastroNexa:waiterButtonPosition');
 
   useEffect(() => {
     if (!open) return undefined;
@@ -265,44 +279,41 @@ export function TableServiceActions({
 
   return createPortal(
     <>
-      <FloatingWaiter
-        ref={elementRef}
-        style={style}
-        data-dragging={dragging ? 'true' : 'false'}
-        data-drag-positioned={positioned ? 'true' : 'false'}
-        onPointerDown={onPointerDown}
-        onPointerMove={onPointerMove}
-        onPointerUp={onPointerUp}
-        onPointerCancel={onPointerCancel}
-        onClickCapture={onClickCapture}
-      >
+      <FixedDock data-testid="table-service-fixed-dock">
         {accountEnabled ? (
           <AccountButton
             type="button"
-            data-testid="table-account-floating-button"
+            data-testid="table-account-fixed-button"
             aria-label={'Abrir minha comanda da mesa ' + tableLabel}
-            title="Ver minha comanda"
             onClick={onOpenAccount}
           >
-            <ReceiptText aria-hidden="true" />
-            Minha comanda
+            <span className="icon" aria-hidden="true">
+              <ReceiptText />
+            </span>
+            <span className="copy">
+              <b>Minha comanda</b>
+              <small>
+                {accountAmountCents > 0
+                  ? `Falta pagar ${formatTableMoney(accountAmountCents)}`
+                  : 'Veja seu consumo e pague quando quiser'}
+              </small>
+            </span>
           </AccountButton>
-        ) : null}
+        ) : <span />}
 
         {waiterEnabled ? (
           <WaiterButton
             type="button"
-            data-floating-drag-handle="true"
             data-testid="table-waiter-floating-button"
             disabled={loading !== null}
             aria-label={'Chamar garçom da mesa ' + tableLabel}
-            title="Chamar garçom"
             onClick={() => setOpen(true)}
           >
             {loading === 'WAITER' ? <LoaderCircle aria-hidden="true" /> : <Bell aria-hidden="true" />}
+            <span>{loading === 'WAITER' ? 'Chamando...' : 'Garçom'}</span>
           </WaiterButton>
         ) : null}
-      </FloatingWaiter>
+      </FixedDock>
 
       {open && waiterEnabled ? (
         <ModalBackdrop
