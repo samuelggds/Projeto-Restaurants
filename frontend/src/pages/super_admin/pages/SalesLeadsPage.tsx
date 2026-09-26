@@ -11,6 +11,7 @@ import type {
 } from '../salesLeadTypes';
 import * as S from '../SuperAdmin.styles';
 import * as L from '../SalesLeads.styles';
+import { CommercialWhatsappPanel } from '../components/CommercialWhatsappPanel';
 
 const statusLabels = { NEW: 'Novo', CONTACTED: 'Contatado', ARCHIVED: 'Arquivado' } as const;
 const emailLabels = {
@@ -217,6 +218,7 @@ export function SalesLeadsPage({ refreshKey = 0 }: { refreshKey?: number }) {
 
   return (
     <L.Inbox>
+      <CommercialWhatsappPanel refreshKey={refreshKey} />
       <S.SectionHeading>
         <div>
           <h2>Caixa de entrada comercial</h2>
