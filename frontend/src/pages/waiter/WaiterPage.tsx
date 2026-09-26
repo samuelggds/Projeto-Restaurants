@@ -18,9 +18,10 @@ import {
   mapWaiterTables,
 } from './waiterAdapter';
 import {
-  playOrderNotificationSound,
-  prepareOrderNotificationSound,
-} from '../admin/domain/orderNotificationSound';
+  playWaiterCallAlarmPulse,
+  prepareWaiterCallAlarm,
+  stopWaiterCallAlarm,
+} from './domain/waiterCallAlarm';
 
 const POLL_MS = 30_000;
 
@@ -66,12 +67,13 @@ export default function WaiterPage() {
       window.clearInterval(callAlarmIntervalRef.current);
       callAlarmIntervalRef.current = null;
     }
+    stopWaiterCallAlarm();
   }, []);
 
   const startCallAlarm = useCallback(() => {
     if (callAlarmIntervalRef.current !== null) return;
-    playOrderNotificationSound();
-    callAlarmIntervalRef.current = window.setInterval(playOrderNotificationSound, 1500);
+    playWaiterCallAlarmPulse();
+    callAlarmIntervalRef.current = window.setInterval(playWaiterCallAlarmPulse, 2200);
   }, []);
 
   const loadWorkspace = useCallback(async (refreshing = false) => {
@@ -140,7 +142,7 @@ export default function WaiterPage() {
   }, [stopCallAlarm]);
 
   useEffect(() => {
-    const unlockSound = () => prepareOrderNotificationSound();
+    const unlockSound = () => prepareWaiterCallAlarm();
     window.addEventListener('pointerdown', unlockSound, { once: true });
     return () => window.removeEventListener('pointerdown', unlockSound);
   }, []);
@@ -169,6 +171,12 @@ export default function WaiterPage() {
     const interval = window.setInterval(() => void loadWorkspace(true), POLL_MS);
     return () => window.clearInterval(interval);
   }, [loadWorkspace, restaurantId]);
+
+  useEffect(() => {
+    const hasWaitingCall = data.calls.some((call) => call.status === 'WAITING');
+    if (hasWaitingCall) startCallAlarm();
+    else stopCallAlarm();
+  }, [data.calls, startCallAlarm, stopCallAlarm]);
 
   useEffect(() => {
     const token = getAccessToken();
