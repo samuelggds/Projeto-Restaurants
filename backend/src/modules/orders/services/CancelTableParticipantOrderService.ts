@@ -13,6 +13,7 @@ import cancelOrderWorkflowService, {
   requiresAutomaticOrderRefund,
 } from './CancelOrderWorkflowService.js';
 import tableAccountSettingsRepository from '../../tableAccount/repositories/TableAccountSettingsRepository.js';
+import { tableAccountEvents } from '../../tableAccount/realtime/tableAccountEvents.js';
 
 const publicOrderIdSchema = z.string().uuid();
 
@@ -98,6 +99,11 @@ class CancelTableParticipantOrderService {
     }
     emitWaiterTableOrderEvent(io, 'order:status-changed', updatedOrder);
     emitTableSessionOrderEvent(io, 'order:status-changed', updatedOrder);
+    await tableAccountEvents.updated({
+      sessionId: tableSessionId,
+      restaurantId,
+      reason: 'ORDER_CHANGED',
+    });
 
     return updatedOrder;
   }
