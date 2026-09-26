@@ -1,5 +1,5 @@
 import { LoaderCircle, MessageCircle, QrCode, RefreshCw, Send, Unplug, UserRoundCheck, Bot } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import salesLeadsService from '../../../Services/salesLeadsService';
 import { formatDate, requestErrorMessage } from '../domain/superAdminDomain';
 import type {
@@ -37,7 +37,7 @@ export function CommercialWhatsappPanel({ refreshKey = 0 }: { refreshKey?: numbe
     [conversations, selectedId],
   );
 
-  const load = async () => {
+  const load = useCallback(async () => {
     setLoading(true);
     setError('');
     try {
@@ -64,11 +64,11 @@ export function CommercialWhatsappPanel({ refreshKey = 0 }: { refreshKey?: numbe
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     void load();
-  }, [refreshKey]);
+  }, [load, refreshKey]);
 
   const setDay = (weekday: number, updater: (day: CommercialWhatsappDay) => CommercialWhatsappDay) => {
     setSettings((current) =>
@@ -232,15 +232,16 @@ export function CommercialWhatsappPanel({ refreshKey = 0 }: { refreshKey?: numbe
           ) : null}
 
           <S.ActionGroup>
-            <S.Button
-              type="button"
-              $variant="primary"
-              disabled={Boolean(busy)}
-              onClick={() => void connect()}
-            >
-              <QrCode size={16} aria-hidden="true" />
-              {connection.status === 'CONNECTED' ? 'Gerar novo QR Code' : 'Conectar WhatsApp Business'}
-            </S.Button>
+            {connection.status !== 'CONNECTED' ? (
+              <S.Button
+                type="button"
+                $variant="primary"
+                disabled={Boolean(busy)}
+                onClick={() => void connect()}
+              >
+                <QrCode size={16} aria-hidden="true" /> Conectar WhatsApp Business
+              </S.Button>
+            ) : null}
             {connection.configured ? (
               <S.Button type="button" disabled={Boolean(busy)} onClick={() => void disconnect()}>
                 <Unplug size={16} aria-hidden="true" /> Desconectar
