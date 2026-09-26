@@ -42,6 +42,7 @@ const snapshot: TableAccountSnapshot = {
     {
       publicId: 'participant-1',
       displayName: 'Samuel',
+      authenticated: true,
       status: 'ACTIVE',
       joinedAt: '',
       leftAt: null,
@@ -49,16 +50,10 @@ const snapshot: TableAccountSnapshot = {
     {
       publicId: 'participant-2',
       displayName: 'Convidado',
+      authenticated: false,
       status: 'ACTIVE',
       joinedAt: '',
       leftAt: null,
-    },
-    {
-      publicId: 'participant-old',
-      displayName: 'Acesso encerrado',
-      status: 'LEFT',
-      joinedAt: '',
-      leftAt: '',
     },
   ],
   activePayment: null,
@@ -82,239 +77,129 @@ const snapshot: TableAccountSnapshot = {
   payments: [],
 };
 
+const baseProps = {
+  open: true,
+  tableNumber: 4,
+  snapshot,
+  loading: false,
+  actionLoading: false,
+  error: '',
+  onRefresh: () => undefined,
+  onCancelPayment: async () => true,
+  onReconcilePayment: async () => null,
+  onClose: () => undefined,
+};
+
 describe('TableAccountPanel', () => {
-  it('abre somente a etapa de escolha do que pagar', () => {
+  it('abre como prévia de comanda em tempo real', () => {
     const markup = renderToStaticMarkup(
-      <TableAccountPanel
-        open
-        tableNumber={4}
-        snapshot={snapshot}
-        loading={false}
-        actionLoading={false}
-        error=""
-        onRefresh={() => undefined}
-        onCreatePayment={async () => null}
-        onCancelPayment={async () => true}
-        onReconcilePayment={async () => null}
-        onClose={() => undefined}
-      />,
+      <TableAccountPanel {...baseProps} onCreatePayment={async () => null} />,
     );
 
-    expect(markup).toContain('Conta da mesa 4');
+    expect(markup).toContain('Prévia da comanda');
+    expect(markup).toContain('GastroNexa • consumo em tempo real');
+    expect(markup).toContain('Pizza personalizada');
+    expect(markup).toContain('Samuel');
+    expect(markup).toContain('R$ 50,00');
+    expect(markup).toContain('R$ 20,00');
     expect(markup).toContain('R$ 30,00');
-    expect(markup).toContain('1 de 3');
-    expect(markup).toContain('O que você quer pagar?');
-    expect(markup).toContain('Meus itens');
+    expect(markup).toContain('Meu consumo');
     expect(markup).toContain('Escolher itens');
-    expect(markup).toContain('Dividir igualmente');
-    expect(markup).toContain('Conta completa');
-    expect(markup).not.toContain('Pagar com o garçom');
-    expect(markup).not.toContain('Como deseja pagar?');
-    expect(markup).not.toContain('Pix online');
+    expect(markup).toContain('Outro valor');
+    expect(markup).toContain('Pagar restante');
     expect(markup).not.toContain('Dinheiro');
-    expect(markup).not.toContain('Acessos identificados nesta mesa');
-    expect(markup).not.toContain('Itens lançados');
-    expect(markup).not.toContain('Acesso encerrado');
+    expect(markup).not.toContain('Maquininha');
+    expect(markup).not.toContain('Dividir igualmente');
   });
 
   it('avisa quando Pix e cartão online não estão configurados', () => {
     const markup = renderToStaticMarkup(
       <TableAccountPanel
-        open
-        tableNumber={4}
+        {...baseProps}
         snapshot={{
           ...snapshot,
-          capabilities: {
-            ...snapshot.capabilities,
-            allowOnlinePayment: false,
-          },
+          capabilities: { ...snapshot.capabilities, allowOnlinePayment: false },
         }}
-        loading={false}
-        actionLoading={false}
-        error=""
-        onRefresh={() => undefined}
         onCreatePayment={async () => null}
-        onCancelPayment={async () => true}
-        onReconcilePayment={async () => null}
-        onClose={() => undefined}
       />,
     );
 
     expect(markup).toContain('Pagamento online indisponível neste restaurante');
     expect(markup).toContain('Pix e cartão online ainda não estão habilitados');
-    expect(markup).toContain('formas presenciais disponíveis');
+    expect(markup).not.toContain('formas presenciais');
   });
 
-  it('limpa os itens escolhidos depois de criar uma reserva com sucesso', async () => {
+  it('permite pagar um valor parcial livre por Pix', async () => {
     const container = document.createElement('div');
     document.body.appendChild(container);
     const root = createRoot(container);
     const onCreatePayment = vi.fn(async () => ({
       idempotentReplay: false,
       payment: {
-        publicId: 'payment-1',
+        publicId: 'payment-custom',
         sessionPublicId: 'session-1',
         payerParticipantPublicId: 'participant-1',
-        selectionMode: 'SELECTED_ITEMS' as const,
+        selectionMode: 'CUSTOM_AMOUNT' as const,
         method: 'PIX' as const,
         status: 'PROCESSING' as const,
         billItemPublicIds: ['item-1'],
-        subtotalCents: 3_000,
+        subtotalCents: 1_250,
         serviceFeeCents: 0,
-        totalCents: 3_000,
-        provider: 'FAKE_TABLE',
-        externalId: 'fake-1',
+        totalCents: 1_250,
+        provider: 'MERCADO_PAGO',
+        externalId: 'mp-1',
         checkoutUrl: null,
-        paymentCode: '000201FAKE-PIX',
-        expiresAt: '2026-08-26T15:10:00.000Z',
-        createdAt: '2026-08-26T15:00:00.000Z',
-        updatedAt: '2026-08-26T15:00:00.000Z',
+        paymentCode: '000201CUSTOMPIX',
+        expiresAt: '2026-09-26T16:30:00.000Z',
+        createdAt: '2026-09-26T16:20:00.000Z',
+        updatedAt: '2026-09-26T16:20:00.000Z',
       },
     }));
 
     await act(async () => {
-      root.render(
-        <TableAccountPanel
-          open
-          tableNumber={4}
-          snapshot={snapshot}
-          loading={false}
-          actionLoading={false}
-          error=""
-          onRefresh={() => undefined}
-          onCreatePayment={onCreatePayment}
-          onCancelPayment={async () => true}
-          onReconcilePayment={async () => null}
-          onClose={() => undefined}
-        />,
-      );
-    });
-
-    const chooseItems = [...container.querySelectorAll('button')].find((button) =>
-      button.textContent?.includes('Escolher itens'),
-    );
-    await act(async () => chooseItems?.click());
-    const checkbox = container.querySelector(
-      'input[aria-label="Selecionar Pizza personalizada"]',
-    ) as HTMLInputElement;
-    await act(async () => checkbox.click());
-    expect(checkbox.checked).toBe(true);
-
-    const continueButton = [...container.querySelectorAll('button')].find(
-      (button) => button.textContent?.trim() === 'Continuar',
-    );
-    await act(async () => continueButton?.click());
-
-    const submit = [...container.querySelectorAll('button')].find((button) =>
-      button.textContent?.includes('Gerar pagamento Pix'),
-    );
-    await act(async () => {
-      submit?.click();
-      await Promise.resolve();
-    });
-
-    expect(onCreatePayment).toHaveBeenCalledWith(
-      expect.objectContaining({ billItemPublicIds: ['item-1'] }),
-    );
-
-    expect(container.textContent).toContain('3 de 3');
-    expect(container.textContent).toContain('Pague com Pix');
-    expect(container.textContent).not.toContain('Pagamento confirmado');
-
-    await act(async () => root.unmount());
-    container.remove();
-  });
-
-  it('solicita dinheiro para os itens escolhidos sem usar o modo legado de garçom', async () => {
-    const container = document.createElement('div');
-    document.body.appendChild(container);
-    const root = createRoot(container);
-    const onCreatePayment = vi.fn(async () => ({
-      idempotentReplay: false,
-      payment: {
-        publicId: 'payment-cash',
-        sessionPublicId: 'session-1',
-        payerParticipantPublicId: 'participant-1',
-        selectionMode: 'SELECTED_ITEMS' as const,
-        method: 'CASH' as const,
-        status: 'RESERVED' as const,
-        billItemPublicIds: ['item-1'],
-        subtotalCents: 3_000,
-        serviceFeeCents: 300,
-        totalCents: 3_300,
-        provider: null,
-        externalId: null,
-        checkoutUrl: null,
-        paymentCode: null,
-        expiresAt: '2026-08-26T15:10:00.000Z',
-        createdAt: '2026-08-26T15:00:00.000Z',
-        updatedAt: '2026-08-26T15:00:00.000Z',
-      },
-    }));
-
-    await act(async () => {
-      root.render(
-        <TableAccountPanel
-          open
-          tableNumber={4}
-          snapshot={snapshot}
-          loading={false}
-          actionLoading={false}
-          error=""
-          onRefresh={() => undefined}
-          onCreatePayment={onCreatePayment}
-          onCancelPayment={async () => true}
-          onReconcilePayment={async () => null}
-          onClose={() => undefined}
-        />,
-      );
+      root.render(<TableAccountPanel {...baseProps} onCreatePayment={onCreatePayment} />);
     });
 
     await act(async () => {
       [...container.querySelectorAll('button')]
-        .find((button) => button.textContent?.includes('Escolher itens'))
+        .find((button) => button.textContent?.includes('Outro valor'))
         ?.click();
     });
+
+    const amount = container.querySelector<HTMLInputElement>('#table-custom-payment');
     await act(async () => {
-      container
-        .querySelector<HTMLInputElement>('input[aria-label="Selecionar Pizza personalizada"]')
-        ?.click();
+      if (amount) {
+        amount.value = '12,50';
+        amount.dispatchEvent(new Event('input', { bubbles: true }));
+      }
     });
+
     await act(async () => {
       [...container.querySelectorAll('button')]
         .find((button) => button.textContent?.trim() === 'Continuar')
         ?.click();
     });
 
-    expect(container.textContent).toContain('Pix online');
-    expect(container.textContent).toContain('Dinheiro');
     await act(async () => {
       [...container.querySelectorAll('button')]
-        .find((button) => button.textContent?.includes('Dinheiro'))
-        ?.click();
-    });
-    await act(async () => {
-      [...container.querySelectorAll('button')]
-        .find((button) => button.textContent?.includes('Solicitar cobrança em dinheiro'))
+        .find((button) => button.textContent?.includes('Gerar Pix'))
         ?.click();
       await Promise.resolve();
     });
 
     expect(onCreatePayment).toHaveBeenCalledWith(
       expect.objectContaining({
-        selectionMode: 'SELECTED_ITEMS',
-        method: 'CASH',
-        billItemPublicIds: ['item-1'],
+        selectionMode: 'CUSTOM_AMOUNT',
+        method: 'PIX',
+        customAmountCents: 1_250,
       }),
     );
-    expect(container.textContent).toContain('Aguardando o garçom');
-    expect(container.textContent).not.toContain('Pagamento confirmado');
 
     await act(async () => root.unmount());
     container.remove();
   });
 
-  it('retoma um Pix em processamento sem tratá-lo como pago', () => {
+  it('retoma um Pix em processamento sem gerar outra cobrança', () => {
     const processingPayment = {
       publicId: 'payment-processing',
       sessionPublicId: 'session-1',
@@ -326,18 +211,17 @@ describe('TableAccountPanel', () => {
       subtotalCents: 3_000,
       serviceFeeCents: 300,
       totalCents: 3_300,
-      provider: 'FAKE_TABLE',
-      externalId: 'fake-1',
+      provider: 'MERCADO_PAGO',
+      externalId: 'mp-1',
       checkoutUrl: null,
       paymentCode: '000201FAKE-PIX',
-      expiresAt: '2026-08-26T15:10:00.000Z',
-      createdAt: '2026-08-26T15:00:00.000Z',
-      updatedAt: '2026-08-26T15:00:00.000Z',
+      expiresAt: '2026-09-26T16:30:00.000Z',
+      createdAt: '2026-09-26T16:20:00.000Z',
+      updatedAt: '2026-09-26T16:20:00.000Z',
     };
     const markup = renderToStaticMarkup(
       <TableAccountPanel
-        open
-        tableNumber={4}
+        {...baseProps}
         snapshot={{
           ...snapshot,
           activePayment: processingPayment,
@@ -352,21 +236,35 @@ describe('TableAccountPanel', () => {
             },
           ],
         }}
-        loading={false}
-        actionLoading={false}
-        error=""
-        onRefresh={() => undefined}
         onCreatePayment={async () => null}
-        onCancelPayment={async () => true}
         onReconcilePayment={async () => processingPayment}
-        onClose={() => undefined}
       />,
     );
 
     expect(markup).toContain('3 de 3');
     expect(markup).toContain('Pague com Pix');
-    expect(markup).toContain('Verificar pagamento');
     expect(markup).toContain('000201FAKE-PIX');
-    expect(markup).not.toContain('Pagamento confirmado');
+    expect(markup).not.toContain('O que você quer pagar?');
+  });
+
+  it('mostra comanda quitada quando o saldo chega a zero', () => {
+    const markup = renderToStaticMarkup(
+      <TableAccountPanel
+        {...baseProps}
+        snapshot={{
+          ...snapshot,
+          summary: {
+            ...snapshot.summary,
+            grossPaidCents: 5_000,
+            netPaidCents: 5_000,
+            remainingCents: 0,
+          },
+        }}
+        onCreatePayment={async () => null}
+      />,
+    );
+
+    expect(markup).toContain('Comanda quitada');
+    expect(markup).toContain('Todo o consumo registrado nesta mesa já foi pago');
   });
 });
