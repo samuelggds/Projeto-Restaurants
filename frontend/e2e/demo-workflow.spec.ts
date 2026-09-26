@@ -409,12 +409,12 @@ test('demo: entrada QR usa o cardápio da mesa, envia à cozinha e apresenta a c
   );
   await page.reload();
   await page.getByRole('button', { name: 'Ver e pagar a conta', exact: true }).click();
-  const account = page.getByRole('dialog', { name: 'Prévia da comanda • Mesa 08', exact: true });
-  await expect(account.getByLabel('Prévia da comanda em tempo real')).toBeVisible();
+  const account = page.getByRole('dialog', { name: 'Sua comanda • Mesa 08', exact: true });
+  await expect(account.getByLabel('Sua comanda em tempo real')).toBeVisible();
   await expect(account).toContainText('Burger Clássico');
   await expect(account).toContainText('92,80');
   await captureReadmeScreenshot(page, 'demo-qr-account.png');
-  await account.getByRole('button', { name: 'Fechar prévia da comanda', exact: true }).click();
+  await account.getByRole('button', { name: 'Fechar comanda', exact: true }).click();
   await page.getByRole('button', { name: 'Pedir a conta', exact: true }).click();
   await expect(account).toBeVisible();
   expect(
@@ -426,7 +426,7 @@ test('demo: entrada QR usa o cardápio da mesa, envia à cozinha e apresenta a c
       DEMO_STORAGE_KEY,
     ),
   ).toBe(true);
-  await account.getByRole('button', { name: 'Fechar prévia da comanda', exact: true }).click();
+  await account.getByRole('button', { name: 'Fechar comanda', exact: true }).click();
   await page.setViewportSize({ width: 390, height: 844 });
   await captureReadmeScreenshot(page, 'demo-qr-mobile.png');
   expect(
