@@ -287,6 +287,17 @@ function menuMessage() {
   ].join('\n');
 }
 
+function buildAwayMessage(message: string, hours: unknown) {
+  return [
+    message,
+    '',
+    'Horários configurados:',
+    formatCommercialWhatsappSchedule(hours) || 'consulte novamente mais tarde.',
+    '',
+    'Enquanto isso, posso registrar sua mensagem por aqui.',
+  ].join('\n');
+}
+
 async function enqueueAutoReply(
   conversationId: string,
   phone: string,
@@ -457,14 +468,10 @@ export async function processPlatformEvolutionInbound(
   );
   const bodyText = open
     ? menuMessage()
-    : [
+    : buildAwayMessage(
         settings.commercialWhatsappAwayMessage,
-        '',
-        'Horários configurados:',
-        formatCommercialWhatsappSchedule(settings.commercialWhatsappHours) || 'consulte novamente mais tarde.',
-        '',
-        'Enquanto isso, posso registrar sua mensagem por aqui.',
-      ].join('\n');
+        settings.commercialWhatsappHours,
+      );
 
   const queued = await enqueueAutoReply(
     conversation.id,
@@ -473,6 +480,11 @@ export async function processPlatformEvolutionInbound(
     bodyText,
     meta.providerMessageId,
   );
+
+  if (queued.queued) {
+    await deliverPlatformWhatsappOutbox();
+  }
+
   return { accepted: true, queued: queued.queued, reason: queued.queued ? 'queued' : queued.reason } as const;
 }
 
@@ -620,6 +632,7 @@ export async function enqueueManualCommercialWhatsappMessage(id: string, message
       body,
     },
   });
+  await deliverPlatformWhatsappOutbox();
   return { queued: true };
 }
 
@@ -652,6 +665,17 @@ export async function updateCommercialWhatsappSettings(input: {
       version: { increment: 1 },
     },
   });
+
+  await prisma.salesLeadWhatsappOutbox.updateMany({
+    where: { kind: 'AWAY', status: 'PENDING' },
+    data: {
+      body: buildAwayMessage(
+        updated.commercialWhatsappAwayMessage,
+        updated.commercialWhatsappHours,
+      ),
+    },
+  });
+
   return {
     enabled: updated.commercialWhatsappEnabled,
     hours: normalizeCommercialWhatsappHours(updated.commercialWhatsappHours),
