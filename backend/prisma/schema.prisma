@@ -1136,11 +1136,11 @@ model TablePaymentEvent {
 model TableAccountSettings {
   id                                                 Int                 @id @default(autoincrement())
   restaurantId                                       Int                 @unique
-  enabled                                            Boolean             @default(false)
+  enabled                                            Boolean             @default(true)
   requirePrepaymentAboveCents                        BigInt?
   prepaymentWindows                                  Json                @default("[]")
-  allowCash                                          Boolean             @default(false)
-  allowCardMachine                                   Boolean             @default(false)
+  allowCash                                          Boolean             @default(true)
+  allowCardMachine                                   Boolean             @default(true)
   allowOnlinePayment                                 Boolean             @default(true)
   allowSplit                                         Boolean             @default(true)
   serviceFeeMode                                     TableServiceFeeMode @default(DISABLED)
