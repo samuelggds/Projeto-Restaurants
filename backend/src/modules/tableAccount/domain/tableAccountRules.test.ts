@@ -294,7 +294,11 @@ test('separa divisão igual e permite pagamento presencial para a seleção esco
 test('aplica padrões seguros às configurações e não escolhe provedor', () => {
   const settings = tableAccountSettingsSchema.parse({});
 
-  assert.equal(settings.enabled, false);
+  assert.equal(settings.enabled, true);
+  assert.equal(settings.allowCash, true);
+  assert.equal(settings.allowCardMachine, true);
+  assert.equal(settings.allowOnlinePayment, true);
+  assert.equal(settings.allowSplit, true);
   assert.equal(settings.preventCloseWithOutstandingBalance, true);
   assert.equal(settings.blockNewOrdersOnClosingRequest, true);
   assert.equal(settings.timeZone, DEFAULT_TABLE_ACCOUNT_TIME_ZONE);
