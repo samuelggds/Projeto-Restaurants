@@ -482,6 +482,7 @@ async function mockWaiterAndTableApi(page: Page, state: WaiterE2EState) {
       return json(route, {
         sessionToken: 'session-token-table-7',
         sessionId: SESSION_ID,
+        sessionPublicId: ACCOUNT_SESSION_PUBLIC_ID,
         tableId: TABLE_ID,
         tableNumber: 7,
         restaurantId: RESTAURANT_ID,
@@ -498,10 +499,73 @@ async function mockWaiterAndTableApi(page: Page, state: WaiterE2EState) {
       return json(route, {
         id: SESSION_ID,
         sessionId: SESSION_ID,
+        sessionPublicId: ACCOUNT_SESSION_PUBLIC_ID,
         tableId: TABLE_ID,
         tableNumber: 7,
         restaurantId: RESTAURANT_ID,
         status: 'OPEN',
+      });
+    }
+
+    if (pathname === `/table-accounts/sessions/${ACCOUNT_SESSION_PUBLIC_ID}` && method === 'GET') {
+      const hasItem = Boolean(state.orderPayload);
+      return json(route, {
+        contractVersion: 1,
+        currentParticipantPublicId: 'participant-waiter-e2e',
+        capabilities: {
+          enabled: true,
+          allowCash: true,
+          allowCardMachine: true,
+          allowOnlinePayment: true,
+          allowPix: true,
+          allowCard: false,
+          allowSplit: false,
+          serviceFeeMode: 'DISABLED',
+          serviceFeeBasisPoints: 0,
+          reservationTimeoutMinutes: 10,
+        },
+        summary: {
+          sessionPublicId: ACCOUNT_SESSION_PUBLIC_ID,
+          tableNumber: 7,
+          status: 'OPEN',
+          consumedCents: hasItem ? 3200 : 0,
+          serviceFeeCents: 0,
+          grossPaidCents: 0,
+          refundedCents: 0,
+          netPaidCents: 0,
+          reservedCents: 0,
+          processingCents: 0,
+          remainingCents: hasItem ? 3200 : 0,
+          overpaidCents: 0,
+          participantsCount: 1,
+        },
+        participants: [
+          {
+            publicId: 'participant-waiter-e2e',
+            displayName: 'Cliente da mesa',
+            status: 'ACTIVE',
+            joinedAt: new Date().toISOString(),
+            leftAt: null,
+          },
+        ],
+        activePayment: null,
+        items: [],
+        payments: [],
+      });
+    }
+
+    if (pathname === '/orders' && method === 'POST') {
+      if (!state.tableOpen) {
+        return json(route, { error: 'Esta mesa não possui uma sessão aberta.' }, 400);
+      }
+      state.orderPayload = request.postDataJSON() as Record<string, unknown>;
+      state.outstandingOrder = true;
+      return json(route, {
+        id: 901,
+        publicId: 'table-order-public-901',
+        type: 'MESA',
+        status: 'PENDENTE',
+        paid: false,
       });
     }
 
@@ -728,18 +792,15 @@ test('QR sem PIN só libera pedidos com mesa aberta e fechamento respeita pendê
   await page.getByRole('button', { name: 'Adicionar à sacola' }).click();
   await page.getByRole('button', { name: /Sacola com [1-9]\d* itens/ }).click();
   await expect(page.getByRole('heading', { name: 'Minha sacola' })).toBeVisible();
-  await page.getByRole('button', { name: 'Revisar e continuar' }).click();
-  const continuationDialog = page.getByRole('dialog', { name: 'Como deseja finalizar?' });
-  await expect(continuationDialog).toBeVisible();
-  await continuationDialog.getByRole('button', { name: 'Pagar agora com Pix' }).click();
+  await page.getByRole('button', { name: 'Enviar pedido para a cozinha' }).click();
   await expect.poll(() => state.orderPayload).not.toBeNull();
   expect(state.orderPayload).toMatchObject({
     restaurantId: RESTAURANT_ID,
     type: 'MESA',
     tableId: TABLE_ID,
-    paymentMethod: 'PIX',
+    settlementMode: 'TABLE_ACCOUNT',
   });
-  await expect(page.getByText(/Pix/i).first()).toBeVisible();
+  expect(state.orderPayload).not.toHaveProperty('paymentMethod');
 
   await restoreWaiterSession(page);
   await page.goto('/waiter');

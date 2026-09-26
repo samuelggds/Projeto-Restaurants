@@ -104,8 +104,10 @@ describe('useTableSession após autenticação', () => {
     expect(localStorage.getItem('tableSessionToken')).toBe(storedSession.sessionToken);
   });
 
-  it('invalida a sessão encerrada sem redirecionar a rota para a Home', async () => {
+  it('invalida sessão e identidade do visitante quando a mesa é encerrada', async () => {
     mocks.getCurrentSession.mockRejectedValue({ response: { status: 404 } });
+    const identityInvalidated = vi.fn();
+    window.addEventListener('gastronexa:table-guest-session-ended', identityInvalidated);
 
     await act(async () => root.render(<TableSessionProbe />));
     await flushUntil(() => localStorage.getItem('tableSession') === null);
@@ -115,5 +117,8 @@ describe('useTableSession após autenticação', () => {
     expect(output?.dataset.sessionActive).toBe('false');
     expect(container.textContent).toContain('mesa já foi fechada ou a sessão expirou');
     expect(localStorage.getItem('tableSessionToken')).toBeNull();
+    expect(identityInvalidated).toHaveBeenCalledTimes(1);
+
+    window.removeEventListener('gastronexa:table-guest-session-ended', identityInvalidated);
   });
 });

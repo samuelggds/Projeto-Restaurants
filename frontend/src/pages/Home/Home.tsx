@@ -55,7 +55,6 @@ import {
   resolveAvailableFulfillmentMethod,
 } from './domain/publicSettings';
 import { TableServiceActions } from './components/TableServiceActions';
-import { TableOrderContinuationModal } from './components/TableOrderContinuationModal';
 import { TableAccountPanel } from './components/TableAccountPanel';
 import { CardPaymentReturnPanel } from './components/CardPaymentReturnPanel';
 import { PaymentResultView } from '../../components/payment/PaymentResultView';
@@ -130,7 +129,6 @@ export default function Home() {
   const [notifs, setNotifs] = useState<HomeNotification[]>([]);
   const [tableServiceLoading, setTableServiceLoading] = useState<'WAITER' | 'BILL' | null>(null);
   const [tableOrderLoading, setTableOrderLoading] = useState(false);
-  const [tableContinuationOpen, setTableContinuationOpen] = useState(false);
   const [tableAccountOpen, setTableAccountOpen] = useState(false);
 
   useEffect(() => {
@@ -262,7 +260,6 @@ export default function Home() {
     if (!tableClosingRequested || !tableSession?.sessionPublicId) return undefined;
     const frame = window.requestAnimationFrame(() => {
       setCartOpen(false);
-      setTableContinuationOpen(false);
       openTableAccount();
     });
     return () => window.cancelAnimationFrame(frame);
@@ -394,11 +391,9 @@ export default function Home() {
     ? paymentMethod
     : (availablePaymentMethods[0] ?? paymentMethod);
   const paymentAvailable = availablePaymentMethods.length > 0;
-  const tablePixAvailable = availablePaymentMethods.includes('pix');
   const tableAccountEnabled = tableAccount.snapshot?.capabilities.enabled === true;
-  const tableCheckoutPaymentMethod = 'pix' as const;
   const tableCheckoutUnavailable = Boolean(
-    mesaMode && !tableAccount.loading && !tableAccountEnabled && !tablePixAvailable,
+    mesaMode && !tableAccount.loading && !tableAccountEnabled,
   );
 
   const orderQuote = useOrderQuote({
@@ -598,7 +593,7 @@ export default function Home() {
     }
 
     if (mesaMode) {
-      setTableContinuationOpen(true);
+      await addOrderToTableAccount();
       return;
     }
 
@@ -642,21 +637,20 @@ export default function Home() {
       setSelectedRedemptionId(null);
       setCart([]);
       setCartOpen(false);
-      setTableContinuationOpen(false);
       void loyalty.refresh();
       await tableAccount.refresh({ silent: true });
       await refreshTableOrder();
       notify(
         'success',
-        `Pedido #${String(order?.id || '')} adicionado à mesa`,
-        'A cozinha recebeu o pedido. O valor ficou pendente na sua comanda para pagar depois.',
+        `Pedido #${String(order?.id || '')} enviado para a cozinha`,
+        'A cozinha recebeu seu pedido. O valor foi adicionado à sua comanda e você pode pagar quando quiser.',
         5000,
       );
     } catch (error: unknown) {
       notify(
         'error',
-        'Não foi possível adicionar à conta',
-        getCheckoutErrorMessage(error) || 'Escolha pagar agora ou tente novamente.',
+        'Não foi possível enviar o pedido',
+        getCheckoutErrorMessage(error) || 'Tente novamente em alguns instantes.',
       );
     } finally {
       setTableOrderLoading(false);
@@ -687,28 +681,6 @@ export default function Home() {
     }
   }
 
-  async function payTableOrderNow() {
-    if (!restaurantId || !cart.length || checkoutLoading || !paymentAvailable) return;
-    const customer = (user || {}) as Record<string, unknown>;
-    const { payload, payOnDelivery, resolvedPaymentMethod } = buildOrderPayload({
-      restaurantId,
-      type: 'MESA',
-      settlementMode: 'PAY_NOW',
-      paymentMethod: tableCheckoutPaymentMethod,
-      cart,
-      tableId: activeTableId,
-      customer,
-      deliveryAddress,
-      couponRedemptionId: appliedRedemptionId,
-    });
-    const succeeded = await executePayment(
-      payload,
-      tableCheckoutPaymentMethod,
-      payOnDelivery,
-      resolvedPaymentMethod,
-    );
-    if (succeeded) setTableContinuationOpen(false);
-  }
 
   const primary = homeData.brand.primaryColor || '#d64d08';
   const whatsappUrl = buildWhatsAppUrl(
@@ -719,7 +691,7 @@ export default function Home() {
     homeData.brand.whatsappDisplayName || homeData.brand.name || 'Atendimento do restaurante';
   const showLoginNudge = !user && !mesaMode && !nudgeDismissed && cart.length > 0 && !cartOpen;
   const loyaltyProgram =
-    user?.role && !isLoyaltyCustomer
+    mesaMode || (user?.role && !isLoyaltyCustomer)
       ? undefined
       : {
           primaryColor: primary,
@@ -916,7 +888,7 @@ export default function Home() {
         isTableMenu={mesaMode}
         orderingLocked={tableClosingRequested}
         tableLabel={mesaMode ? mesaLabel : undefined}
-        favoriteProductIds={user?.role === 'CLIENTE' ? favoriteProductIds : undefined}
+        favoriteProductIds={!mesaMode && user?.role === 'CLIENTE' ? favoriteProductIds : undefined}
         savedAddresses={savedAddresses}
         selectedAddressId={selectedAddressId}
         onSelectAddress={selectDeliveryAddress}
@@ -924,7 +896,7 @@ export default function Home() {
         onOpenCart={openHomeCart}
         onOpenMenu={openMenu}
         onOpenTableAccount={openTableAccount}
-        onOpenProfile={openProfile}
+        onOpenProfile={mesaMode ? undefined : openProfile}
         onOpenAdmin={openAdmin}
         onAddProduct={
           tableClosingRequested
@@ -933,7 +905,7 @@ export default function Home() {
               }
             : addToCart
         }
-        onToggleFavorite={toggleFavorite}
+        onToggleFavorite={mesaMode ? undefined : toggleFavorite}
         onLogout={handleLogout}
       />
 
@@ -1005,7 +977,7 @@ export default function Home() {
               />
             )}
 
-            {cart.length > 0 && (
+            {cart.length > 0 && !mesaMode && (
               <LoyaltyCouponPanel
                 loggedIn={isLoyaltyCustomer}
                 loading={loyalty.loading}
@@ -1046,7 +1018,7 @@ export default function Home() {
             loading={checkoutLoading || tableOrderLoading}
             paymentMethod={selectedCheckoutPaymentMethod}
             isRestaurantOpen={homeData.isOpen}
-            checkoutButtonLabel={mesaMode ? 'Revisar e continuar' : undefined}
+            checkoutButtonLabel={mesaMode ? 'Enviar pedido para a cozinha' : undefined}
             checkoutBlockedMessage={
               tableClosingRequested
                 ? 'Conta solicitada: novos pedidos bloqueados'
@@ -1062,23 +1034,6 @@ export default function Home() {
           />
         </S.CartFoot>
       </S.CartDrawer>
-
-      <TableOrderContinuationModal
-        open={tableContinuationOpen}
-        accountEnabled={tableAccountEnabled}
-        accountLoading={tableAccount.loading}
-        payNowAvailable={tablePixAvailable}
-        allowPix={tablePixAvailable}
-        allowCard={false}
-        paymentMethod={tableCheckoutPaymentMethod}
-        restaurantId={restaurantId}
-        payerEmail={user ? String((user as Record<string, unknown>).email || '') : undefined}
-        busy={checkoutLoading || tableOrderLoading}
-        onPaymentMethodChange={setPaymentMethod}
-        onChooseAccount={() => void addOrderToTableAccount()}
-        onChoosePayNow={() => void payTableOrderNow()}
-        onClose={() => setTableContinuationOpen(false)}
-      />
 
       <TableAccountPanel
         open={tableAccountOpen}
@@ -1121,6 +1076,7 @@ export default function Home() {
           waiterEnabled={tableSession.waiterCallEnabled !== false}
           billEnabled={false}
           accountEnabled={Boolean(tableSession.sessionPublicId)}
+          accountAmountCents={tableAccount.snapshot?.summary.remainingCents || 0}
           loading={tableServiceLoading}
           onCallWaiter={() => void requestTableService('WAITER')}
           onRequestBill={() => undefined}

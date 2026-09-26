@@ -292,35 +292,14 @@ export const HomeHeader = memo(function HomeHeader({
           <Search size={20} />
         </RoundButton>
 
-        {/* ── Profile button + dropdown */}
-        <ProfileWrap ref={profileRef}>
-          {userLoggedIn ? (
-            <AvatarButton
-              aria-label="Minha conta"
-              $open={profileOpen}
-              onClick={() => setProfileOpen((o) => !o)}
-            >
-              {showAvatar ? (
-                <AvatarPhoto
-                  src={userAvatar}
-                  alt=""
-                  decoding="async"
-                  onError={() => setAvatarFailed(true)}
-                />
-              ) : (
-                initials
-              )}
-            </AvatarButton>
-          ) : (
-            <RoundButton aria-label="Minha conta" onClick={onOpenProfile}>
-              <UserRound size={20} />
-            </RoundButton>
-          )}
-
-          <ProfileDropdown $open={profileOpen}>
-            <DropdownArrow />
-            <DropdownUser>
-              <DropdownAvatar>
+        {!isTableMenu ? (
+          <ProfileWrap ref={profileRef}>
+            {userLoggedIn ? (
+              <AvatarButton
+                aria-label="Minha conta"
+                $open={profileOpen}
+                onClick={() => setProfileOpen((o) => !o)}
+              >
                 {showAvatar ? (
                   <AvatarPhoto
                     src={userAvatar}
@@ -331,45 +310,68 @@ export const HomeHeader = memo(function HomeHeader({
                 ) : (
                   initials
                 )}
-              </DropdownAvatar>
-              <div>
-                <span className="name">{userName || 'Usuário'}</span>
-                {userEmail && <span className="email">{userEmail}</span>}
-              </div>
-            </DropdownUser>
-            <DropdownDivider />
-            {isAdmin && (
+              </AvatarButton>
+            ) : (
+              <RoundButton aria-label="Minha conta" onClick={onOpenProfile}>
+                <UserRound size={20} />
+              </RoundButton>
+            )}
+  
+            <ProfileDropdown $open={profileOpen}>
+              <DropdownArrow />
+              <DropdownUser>
+                <DropdownAvatar>
+                  {showAvatar ? (
+                    <AvatarPhoto
+                      src={userAvatar}
+                      alt=""
+                      decoding="async"
+                      onError={() => setAvatarFailed(true)}
+                    />
+                  ) : (
+                    initials
+                  )}
+                </DropdownAvatar>
+                <div>
+                  <span className="name">{userName || 'Usuário'}</span>
+                  {userEmail && <span className="email">{userEmail}</span>}
+                </div>
+              </DropdownUser>
+              <DropdownDivider />
+              {isAdmin && (
+                <DropdownItem
+                  onClick={() => {
+                    setProfileOpen(false);
+                    onOpenAdmin?.();
+                  }}
+                >
+                  <LayoutDashboard size={16} />
+                  Painel administrativo
+                </DropdownItem>
+              )}
               <DropdownItem
                 onClick={() => {
                   setProfileOpen(false);
-                  onOpenAdmin?.();
+                  onOpenProfile?.();
                 }}
               >
-                <LayoutDashboard size={16} />
-                Painel administrativo
+                <UserRound size={16} />
+                Meu Perfil
               </DropdownItem>
-            )}
-            <DropdownItem
-              onClick={() => {
-                setProfileOpen(false);
-                onOpenProfile?.();
-              }}
-            >
-              <UserRound size={16} />
-              Meu Perfil
-            </DropdownItem>
-            <DropdownItem
-              $danger
-              onClick={() => {
-                setProfileOpen(false);
-                onLogout?.();
-              }}
-            >
-              <LogOut size={16} />
-              Sair da conta
-            </DropdownItem>
-          </ProfileDropdown>
-        </ProfileWrap>
+              <DropdownItem
+                $danger
+                onClick={() => {
+                  setProfileOpen(false);
+                  onLogout?.();
+                }}
+              >
+                <LogOut size={16} />
+                Sair da conta
+              </DropdownItem>
+            </ProfileDropdown>
+          </ProfileWrap>
+  
+        ) : null}
 
         <CartButton aria-label={`Sacola com ${cartCount} itens`} onClick={onOpenCart}>
           <ShoppingBag size={19} />

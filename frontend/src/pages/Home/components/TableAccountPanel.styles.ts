@@ -274,6 +274,8 @@ export const ReceiptRows = styled.div`
 `;
 
 export const ReceiptTotals = styled.div`
+  display: grid;
+  gap: 8px;
   padding: 14px 18px 16px;
   border-top: 1px dashed #ddd3ca;
   background: #fffdfb;
@@ -285,15 +287,87 @@ export const ReceiptTotals = styled.div`
     gap: 14px;
   }
 
+  small {
+    color: #756b63;
+    font-size: 10px;
+    font-weight: 750;
+  }
+
+  b {
+    color: #3f3731;
+    font-size: 12px;
+  }
+
+  .remaining {
+    margin-top: 4px;
+    padding-top: 10px;
+    border-top: 1px solid #eee6df;
+  }
+
   .remaining small {
     color: #3f3731;
-    font-size: 11px;
-    font-weight: 800;
+    font-size: 12px;
+    font-weight: 900;
   }
 
   .remaining b {
     color: var(--home-primary);
-    font-size: 20px;
+    font-size: 21px;
+  }
+`;
+
+export const PaymentActions = styled.div`
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
+  display: grid;
+  gap: 8px;
+  margin-top: 14px;
+  padding: 12px;
+  border: 1px solid #ead9ce;
+  border-radius: 16px;
+  background: rgba(255, 253, 249, 0.96);
+  box-shadow: 0 -8px 24px rgba(54, 37, 26, 0.08);
+  backdrop-filter: blur(8px);
+
+  small {
+    color: #756a62;
+    font-size: 10px;
+    line-height: 1.45;
+    text-align: center;
+  }
+`;
+
+export const PayButton = styled.button`
+  width: 100%;
+  min-height: 50px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  border: 0;
+  border-radius: 14px;
+  background: var(--home-primary, #d64d08);
+  color: #fff;
+  cursor: pointer;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 900;
+  box-shadow: 0 10px 24px color-mix(in srgb, var(--home-primary, #d64d08) 26%, transparent);
+
+  &:hover:not(:disabled) {
+    filter: brightness(0.97);
+    transform: translateY(-1px);
+  }
+
+  &:focus-visible {
+    outline: 4px solid color-mix(in srgb, var(--home-primary, #d64d08) 22%, transparent);
+    outline-offset: 2px;
+  }
+
+  &:disabled {
+    cursor: wait;
+    opacity: 0.62;
   }
 `;
 

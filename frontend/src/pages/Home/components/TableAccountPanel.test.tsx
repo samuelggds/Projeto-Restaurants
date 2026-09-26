@@ -89,7 +89,10 @@ describe('TableAccountPanel', () => {
 
     expect(markup).toContain('Sua comanda');
     expect(markup).toContain('Pizza personalizada');
-    expect(markup).toContain('Seu consumo');
+    expect(markup).toContain('Consumido');
+    expect(markup).toContain('Pago');
+    expect(markup).toContain('Falta pagar');
+    expect(markup).toContain('Pagar R$ 50,00 com Pix');
     expect(markup).toContain('R$ 50,00');
     expect(markup).not.toContain('Escolher itens');
     expect(markup).not.toContain('Outro valor');

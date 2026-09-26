@@ -9,6 +9,7 @@ import closeTableSessionService from './CloseTableSessionService.js';
 import tableParticipantRepository from '../repositories/TableParticipantRepository.js';
 import tableAccountSettingsRepository from '../../tableAccount/repositories/TableAccountSettingsRepository.js';
 import waiterCompensationProjectionService from '../../employeeCompensation/services/WaiterCompensationProjectionService.js';
+import tableAccessRequestService from './TableAccessRequestService.js';
 
 const originals = {
   transaction: prisma.$transaction,
@@ -22,6 +23,7 @@ const originals = {
   findAccountSettings: tableAccountSettingsRepository.findByRestaurantId,
   findOperationalBlocking: tableSessionRepository.findOperationalBlockingOrdersForSession,
   projectCompensation: waiterCompensationProjectionService.project,
+  expireAccessRequests: tableAccessRequestService.expireForSession,
 };
 
 afterEach(() => {
@@ -37,6 +39,7 @@ afterEach(() => {
   tableSessionRepository.findOperationalBlockingOrdersForSession =
     originals.findOperationalBlocking;
   waiterCompensationProjectionService.project = originals.projectCompensation;
+  tableAccessRequestService.expireForSession = originals.expireAccessRequests;
 });
 
 function mockTransaction() {
@@ -55,6 +58,7 @@ function mockTransaction() {
     created: false,
     reason: 'NO_VARIABLE_POLICY',
   });
+  tableAccessRequestService.expireForSession = async () => undefined;
   return transaction;
 }
 

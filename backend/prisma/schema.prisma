@@ -75,6 +75,7 @@ model User {
   employeeSettlements           EmployeeSettlement[]         @relation("EmployeeSettlementEmployee")
   employeeSettlementPayments    EmployeeSettlementPayment[]  @relation("EmployeeSettlementPaymentEmployee")
   tableWaiterAssignments        TableWaiterAssignment[]      @relation("TableWaiterAssignmentWaiter")
+  tableAccessRequestsDecided    TableAccessRequest[]          @relation("TableAccessRequestDecidedBy")
 
   @@unique([id, restaurantId])
   @@unique([restaurantId, username])
@@ -304,6 +305,7 @@ model Restaurant {
   tableServiceCalls             TableServiceCall[]
   tableSessions                 TableSession[]
   tableParticipants             TableParticipant[]
+  tableAccessRequests           TableAccessRequest[]
   tableBillItems                TableBillItem[]
   tablePaymentIntents           TablePaymentIntent[]
   tablePaymentEvents            TablePaymentEvent[]
@@ -790,6 +792,7 @@ model Table {
   orders        Order[]
   restaurant    Restaurant         @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
   tableSessions TableSession[]
+  accessRequests       TableAccessRequest[]
   serviceCalls  TableServiceCall[]
 
   @@unique([restaurantId, number])
@@ -824,6 +827,7 @@ model TableSession {
   table                Table                    @relation(fields: [tableId, restaurantId], references: [id, restaurantId], onDelete: Cascade)
   serviceCalls         TableServiceCall[]
   participants         TableParticipant[]
+  accessRequests       TableAccessRequest[]
   orders               Order[]
   billItems            TableBillItem[]
   paymentIntents       TablePaymentIntent[]
@@ -834,6 +838,32 @@ model TableSession {
 
   @@unique([id, restaurantId])
   @@index([restaurantId, status, openedAt])
+  @@index([tableId, status])
+}
+
+model TableAccessRequest {
+  id               Int                      @id @default(autoincrement())
+  publicId         String                   @unique @default(uuid())
+  restaurantId     Int
+  tableId          Int
+  tableSessionId   Int
+  displayName      String                   @db.VarChar(100)
+  phone            String                   @db.VarChar(20)
+  requestTokenHash String                   @unique @db.VarChar(64)
+  status           TableAccessRequestStatus @default(WAITING)
+  expiresAt        DateTime
+  decidedAt        DateTime?
+  decidedById      Int?
+  consumedAt       DateTime?
+  createdAt        DateTime                 @default(now())
+  updatedAt        DateTime                 @updatedAt
+  restaurant       Restaurant               @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  table            Table                    @relation(fields: [tableId, restaurantId], references: [id, restaurantId], onDelete: Cascade)
+  tableSession     TableSession             @relation(fields: [tableSessionId, restaurantId], references: [id, restaurantId], onDelete: Cascade)
+  decidedBy        User?                    @relation("TableAccessRequestDecidedBy", fields: [decidedById], references: [id], onDelete: SetNull)
+
+  @@index([restaurantId, status, createdAt])
+  @@index([tableSessionId, status])
   @@index([tableId, status])
 }
 
@@ -2130,6 +2160,14 @@ enum TableSessionStatus {
   OPEN
   CLOSING_REQUESTED
   CLOSED
+}
+
+enum TableAccessRequestStatus {
+  WAITING
+  APPROVED
+  REJECTED
+  CONSUMED
+  EXPIRED
 }
 
 enum TableParticipantStatus {

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { ReceiptText, RefreshCw, X } from 'lucide-react';
+import { QrCode, ReceiptText, RefreshCw, X } from 'lucide-react';
 import {
   formatTableMoney,
   type CreateTablePaymentResult,
@@ -7,6 +7,7 @@ import {
   type TablePaymentDraft,
   type TablePaymentIntent,
 } from '../domain/tableAccount';
+import { TablePaymentStatusView } from './TablePaymentStatusView';
 import * as S from './TableAccountPanel.styles';
 
 type Props = {
@@ -32,6 +33,9 @@ function TableAccountPanelContent(props: Props) {
     actionLoading,
     error,
     onRefresh,
+    onCreatePayment,
+    onCancelPayment,
+    onReconcilePayment,
     onRemoveOrder,
     onClose,
   } = props;
@@ -41,11 +45,19 @@ function TableAccountPanelContent(props: Props) {
     orderPublicId: string;
     productName: string;
   } | null>(null);
+  const [payment, setPayment] = useState<TablePaymentIntent | null>(null);
 
   const items = useMemo(
     () => snapshot?.items.filter((item) => item.orderStatus !== 'CANCELED') || [],
     [snapshot],
   );
+
+  const ownActivePayment =
+    snapshot?.activePayment &&
+    snapshot.activePayment.payerParticipantPublicId === snapshot.currentParticipantPublicId
+      ? snapshot.activePayment
+      : null;
+  const visiblePayment = payment ?? ownActivePayment;
 
   const orderItemCounts = useMemo(() => {
     const counts = new Map<string, number>();
@@ -71,6 +83,30 @@ function TableAccountPanelContent(props: Props) {
       previousFocusRef.current?.focus?.();
     };
   }, [onClose]);
+
+  const startPixPayment = async () => {
+    if (!snapshot || actionLoading) return;
+    const result = await onCreatePayment({
+      selectionMode: 'MY_ITEMS',
+      method: 'PIX',
+      includeOptionalServiceFee: false,
+    });
+    if (result?.payment) setPayment(result.payment);
+  };
+
+  const verifyPayment = async () => {
+    if (!visiblePayment) return null;
+    const updated = await onReconcilePayment(visiblePayment.publicId);
+    if (updated) setPayment(updated);
+    return updated;
+  };
+
+  const cancelPayment = async () => {
+    if (!visiblePayment) return false;
+    const canceled = await onCancelPayment(visiblePayment.publicId);
+    if (canceled) setPayment(null);
+    return canceled;
+  };
 
   const confirmRemoval = async () => {
     if (!removeTarget || !onRemoveOrder) return;
@@ -207,9 +243,17 @@ function TableAccountPanelContent(props: Props) {
                 </S.ReceiptRows>
 
                 <S.ReceiptTotals>
-                  <span className="remaining">
-                    <small>Seu consumo</small>
+                  <span>
+                    <small>Consumido</small>
                     <b>{formatTableMoney(snapshot.summary.consumedCents)}</b>
+                  </span>
+                  <span>
+                    <small>Pago</small>
+                    <b>{formatTableMoney(snapshot.summary.netPaidCents)}</b>
+                  </span>
+                  <span className="remaining">
+                    <small>Falta pagar</small>
+                    <b>{formatTableMoney(snapshot.summary.remainingCents)}</b>
                   </span>
                 </S.ReceiptTotals>
 
@@ -218,6 +262,37 @@ function TableAccountPanelContent(props: Props) {
                   Atualiza automaticamente quando você faz ou cancela um pedido.
                 </footer>
               </S.ReceiptPreview>
+
+              {visiblePayment ? (
+                <TablePaymentStatusView
+                  payment={visiblePayment}
+                  status={visiblePayment.status}
+                  actionLoading={actionLoading}
+                  onVerify={verifyPayment}
+                  onCancel={cancelPayment}
+                  onStartOver={() => setPayment(null)}
+                  onClose={() => setPayment(null)}
+                />
+              ) : items.length > 0 &&
+                snapshot.summary.remainingCents > 0 &&
+                snapshot.capabilities.allowOnlinePayment &&
+                snapshot.capabilities.allowPix ? (
+                <S.PaymentActions aria-label="Pagamento da sua comanda">
+                  <S.PayButton
+                    type="button"
+                    disabled={actionLoading}
+                    onClick={() => void startPixPayment()}
+                  >
+                    <QrCode size={18} />
+                    {actionLoading
+                      ? 'Gerando Pix...'
+                      : `Pagar ${formatTableMoney(snapshot.summary.remainingCents)} com Pix`}
+                  </S.PayButton>
+                  <small>
+                    Prefere cartão? Chame o garçom e pague presencialmente na maquininha.
+                  </small>
+                </S.PaymentActions>
+              ) : null}
 
               <S.DetailsToggle type="button" onClick={onRefresh} disabled={loading}>
                 <RefreshCw size={15} />

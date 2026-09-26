@@ -678,27 +678,15 @@ test('admin controla o QR, garçom apenas opera a mesa e cozinha recebe Mesa 1',
   await page.getByRole('button', { name: 'Adicionar à sacola' }).click();
   await page.getByRole('button', { name: /Sacola com [1-9]\d* itens/ }).click();
   await expect(page.getByRole('heading', { name: 'Minha sacola' })).toBeVisible();
-  await page.getByRole('button', { name: /Revisar e continuar/ }).click();
-  const continuationDialog = page.getByRole('dialog', { name: 'Como deseja finalizar?' });
-  await expect(
-    continuationDialog.getByRole('heading', { name: 'Como deseja finalizar?' }),
-  ).toBeVisible();
-  await expect(continuationDialog.getByText('Quer pagar no cartão?')).toBeVisible();
-  await expect(continuationDialog.getByText(/pagamento presencialmente na maquininha/i)).toBeVisible();
-  await continuationDialog.getByRole('button', { name: 'Pagar agora com Pix' }).click();
+  await page.getByRole('button', { name: 'Enviar pedido para a cozinha' }).click();
   await expect.poll(() => state.orderPayload).not.toBeNull();
   expect(state.orderPayload).toMatchObject({
     restaurantId: RESTAURANT_ID,
     type: 'MESA',
     tableId: TABLE_ID,
-    paymentMethod: 'PIX',
+    settlementMode: 'TABLE_ACCOUNT',
   });
-
-  await expect(page.getByText('Aguardando pagamento', { exact: true })).toBeVisible();
-  await expect(
-    page.getByText(/Se você já fez o Pix, aguarde a confirmação antes de pagar novamente/i),
-  ).toBeVisible();
-  await page.getByRole('button', { name: 'Continuar no cardápio' }).click();
+  expect(state.orderPayload).not.toHaveProperty('paymentMethod');
   await expect(page.getByLabel(`Mesa ${TABLE_NUMBER}`, { exact: true })).toBeVisible();
   await expect(
     page.getByRole('button', { name: /Confirmar recebimento/i }),
@@ -740,21 +728,14 @@ test('cliente pode pagar depois na comanda sem oferecer cartão online', async (
     `/${RESTAURANT_SLUG}/mesa/${TABLE_NUMBER}?tid=${TABLE_ID}&rid=${RESTAURANT_ID}&tk=${TABLE_TOKEN}`,
   );
 
+  await expect(page.getByRole('button', { name: /Favoritar/i })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Minha conta', exact: true })).toHaveCount(0);
+
   await page.getByRole('button', { name: `Ver detalhes de ${product.name}` }).click();
   await page.getByText('Arroz', { exact: true }).click();
   await page.getByRole('button', { name: 'Adicionar à sacola' }).click();
   await page.getByRole('button', { name: /Sacola com [1-9]\d* itens/ }).click();
-  await page.getByRole('button', { name: /Revisar e continuar/ }).click();
-
-  const continuationDialog = page.getByRole('dialog', { name: 'Como deseja finalizar?' });
-  await expect(continuationDialog.getByRole('button', { name: 'Pagar agora com Pix' })).toBeVisible();
-  await expect(continuationDialog.getByText('Quer pagar no cartão?')).toBeVisible();
-  await expect(continuationDialog.getByText(/pagamento presencialmente na maquininha/i)).toBeVisible();
-  await expect(
-    continuationDialog.getByRole('button', { name: /cartão/i }),
-  ).toHaveCount(0);
-
-  await continuationDialog.getByRole('button', { name: 'Adicionar à minha comanda' }).click();
+  await page.getByRole('button', { name: 'Enviar pedido para a cozinha' }).click();
   await expect.poll(() => state.orderPayload).not.toBeNull();
   expect(state.orderPayload).toMatchObject({
     restaurantId: RESTAURANT_ID,
@@ -764,6 +745,25 @@ test('cliente pode pagar depois na comanda sem oferecer cartão online', async (
   });
   expect(state.orderPayload).not.toHaveProperty('paymentMethod');
   expect(state.tablePaymentPayload).toBeNull();
+
+  const accountButton = page.getByRole('button', { name: 'Abrir minha comanda da mesa 1' });
+  await expect(accountButton).toBeVisible();
+  await accountButton.click();
+
+  const accountDialog = page.getByRole('dialog', { name: 'Sua comanda • Mesa 1' });
+  await expect(accountDialog).toBeVisible();
+  await expect(accountDialog.getByText(product.name)).toBeVisible();
+  const payButton = accountDialog.getByRole('button', { name: 'Pagar R$ 28,00 com Pix' });
+  await expect(payButton).toBeVisible();
+  await payButton.click();
+
+  await expect.poll(() => state.tablePaymentPayload).not.toBeNull();
+  expect(state.tablePaymentPayload).toMatchObject({
+    selectionMode: 'MY_ITEMS',
+    method: 'PIX',
+  });
+  await expect(accountDialog.getByLabel('QR Code Pix')).toBeVisible();
+  await expect(page).not.toHaveURL(/\/login/u);
 });
 
 test('retorno success do cartão permanece pendente até o backend confirmar', async ({ page }) => {
