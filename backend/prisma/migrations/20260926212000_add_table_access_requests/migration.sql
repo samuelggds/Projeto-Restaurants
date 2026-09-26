@@ -41,3 +41,24 @@ ALTER TABLE "TableAccessRequest"
 ALTER TABLE "TableAccessRequest"
   ADD CONSTRAINT "TableAccessRequest_decidedById_fkey"
   FOREIGN KEY ("decidedById") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+
+ALTER TABLE "TableAccessRequest" ENABLE ROW LEVEL SECURITY;
+ALTER TABLE "TableAccessRequest" FORCE ROW LEVEL SECURITY;
+
+CREATE POLICY "TableAccessRequest_tenant_isolation"
+ON "TableAccessRequest" AS PERMISSIVE FOR ALL TO PUBLIC
+USING (
+  "restaurantId" = CASE
+    WHEN current_setting('app.restaurant_id', true) ~ '^[1-9][0-9]*$'
+      THEN current_setting('app.restaurant_id', true)::integer
+    ELSE NULL
+  END
+)
+WITH CHECK (
+  "restaurantId" = CASE
+    WHEN current_setting('app.restaurant_id', true) ~ '^[1-9][0-9]*$'
+      THEN current_setting('app.restaurant_id', true)::integer
+    ELSE NULL
+  END
+);
