@@ -1,5 +1,7 @@
 import api from './api';
 
+export const DEFAULT_COURIER_TIME_ZONE = 'America/Sao_Paulo';
+
 export type CompensationModel = 'FIXED_PER_DELIVERY' | 'DISTANCE_RANGES' | 'BASE_PLUS_DISTANCE';
 
 export type CompensationPolicy = {
@@ -58,10 +60,10 @@ class CourierCompensationService {
     return response.data;
   }
 
-  async updateDefault(policy: CompensationPolicy, timezone: string) {
+  async updateDefault(policy: CompensationPolicy) {
     const response = await api.put('/courier-compensation/admin/configuration', {
       ...policy,
-      timezone,
+      timezone: DEFAULT_COURIER_TIME_ZONE,
     });
     return response.data;
   }
