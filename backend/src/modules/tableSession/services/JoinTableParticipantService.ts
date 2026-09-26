@@ -4,9 +4,7 @@ import prisma from '../../../config/prisma.js';
 import { setTenantDbContext } from '../../../database/tenantDbContext.js';
 import { tableParticipantIdentityInputSchema } from '../../tableAccount/domain/tableAccountSchemas.js';
 import tableParticipantRepository from '../repositories/TableParticipantRepository.js';
-import tableParticipantStateService, {
-  normalizeParticipantPhone,
-} from './TableParticipantStateService.js';
+import tableParticipantStateService from './TableParticipantStateService.js';
 import {
   createParticipantToken,
   getParticipantCookieName,
@@ -43,10 +41,6 @@ export class TableParticipantIdentityRequiredError extends Error {
     super(message);
     this.name = 'TableParticipantIdentityRequiredError';
   }
-}
-
-function isUniqueConflict(error: unknown) {
-  return Boolean(error && typeof error === 'object' && 'code' in error && error.code === 'P2002');
 }
 
 function toPublicParticipant(
