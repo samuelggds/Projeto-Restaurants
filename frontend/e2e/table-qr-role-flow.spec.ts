@@ -294,7 +294,7 @@ function tableAccountSnapshot(state: FlowState) {
 
 async function captureResponsiveAccount(page: Page, testInfo: TestInfo, width: number) {
   await page.setViewportSize({ width, height: 844 });
-  const accountDialog = page.getByRole('dialog', { name: `Conta da mesa ${TABLE_NUMBER}` });
+  const accountDialog = page.getByRole('dialog', { name: `Prévia da comanda • Mesa ${TABLE_NUMBER}` });
   await expect(accountDialog).toBeVisible();
   await expect
     .poll(() => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth))
@@ -830,7 +830,7 @@ for (const onlineMethod of ['PIX', 'CARD'] as const) {
     const accountDialog = page.getByRole('dialog', { name: `Conta da mesa ${TABLE_NUMBER}` });
     await expect(accountDialog.getByText('1 de 3')).toBeVisible();
     await expect(accountDialog.getByText('O que você quer pagar?')).toBeVisible();
-    await expect(accountDialog.getByText('Pix online')).toHaveCount(0);
+    await expect(accountDialog.getByText('Pix', { exact: true })).toHaveCount(0);
     await expect(accountDialog.getByText('Dinheiro', { exact: true })).toHaveCount(0);
 
     for (const width of [360, 390, 430]) {
@@ -842,17 +842,17 @@ for (const onlineMethod of ['PIX', 'CARD'] as const) {
     await accountDialog.getByRole('button', { name: 'Continuar', exact: true }).click();
     await expect(accountDialog.getByText('2 de 3')).toBeVisible();
     await expect(accountDialog.getByText('Como deseja pagar?')).toBeVisible();
-    await expect(accountDialog.getByRole('button', { name: /Pix online/ })).toBeVisible();
-    await expect(accountDialog.getByRole('button', { name: /Dinheiro/ })).toBeVisible();
+    await expect(accountDialog.getByRole('button', { name: /^Pix/ })).toBeVisible();
+    await expect(accountDialog.getByRole('button', { name: /^Cartão/ })).toBeVisible();
     await expect(accountDialog.getByText(/30,80/).last()).toBeVisible();
 
     await page.clock.pauseAt(new Date(clockStart.getTime() + 60_000));
     await accountDialog
-      .getByRole('button', { name: onlineMethod === 'PIX' ? /Pix online/ : /Cartão online/ })
+      .getByRole('button', { name: onlineMethod === 'PIX' ? /^Pix/ : /^Cartão/ })
       .click();
     await accountDialog
       .getByRole('button', {
-        name: onlineMethod === 'PIX' ? 'Gerar pagamento Pix' : 'Ir para pagamento com cartão',
+        name: onlineMethod === 'PIX' ? 'Gerar Pix' : 'Pagar com cartão',
       })
       .click();
     await expect.poll(() => state.tablePaymentPayload).not.toBeNull();
