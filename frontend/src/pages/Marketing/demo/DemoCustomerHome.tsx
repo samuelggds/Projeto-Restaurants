@@ -497,6 +497,7 @@ export function DemoCustomerHome({
         allowPix={data.acceptsPix}
         allowCard={data.acceptsCard}
         paymentMethod={tablePayment === 'CARD' ? 'card' : 'pix'}
+        restaurantId={null}
         busy={false}
         onPaymentMethodChange={(method) => setPayment(method === 'card' ? 'CARD' : 'PIX')}
         onChooseAccount={() => submit('CASH')}
