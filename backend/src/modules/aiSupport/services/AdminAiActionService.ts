@@ -545,6 +545,52 @@ async function buildPreview(
     };
   }
 
+  if (proposal.actionType === 'DELETE_PRODUCT') {
+    const product = await db.product.findFirst({
+      where: { id: proposal.productId, restaurantId },
+      select: { id: true, name: true, price: true, active: true, category: { select: { name: true } } },
+    });
+    if (!product) throw new Error('Produto não encontrado neste restaurante.');
+    return {
+      actionType: proposal.actionType,
+      affectedRecords: 1,
+      productId: product.id,
+      productName: product.name,
+      categoryName: product.category.name,
+      price: Number(product.price),
+      active: product.active,
+    };
+  }
+
+  if (proposal.actionType === 'CANCEL_ORDER') {
+    const order = await db.order.findFirst({
+      where: { id: proposal.orderId, restaurantId },
+      select: {
+        id: true,
+        publicId: true,
+        status: true,
+        type: true,
+        paid: true,
+        paymentMethod: true,
+        refundStatus: true,
+        total: true,
+      },
+    });
+    if (!order) throw new Error('Pedido não encontrado neste restaurante.');
+    return {
+      actionType: proposal.actionType,
+      affectedRecords: 1,
+      orderId: order.id,
+      publicId: order.publicId,
+      orderType: order.type,
+      status: order.status,
+      paid: order.paid,
+      paymentMethod: order.paymentMethod,
+      refundStatus: order.refundStatus,
+      total: Number(order.total),
+    };
+  }
+
   if (proposal.actionType === 'UPSERT_PRODUCT_DISCOUNT') {
     const product = await db.product.findFirst({
       where: { id: proposal.productId, restaurantId },
