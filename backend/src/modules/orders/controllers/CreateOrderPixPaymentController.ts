@@ -11,6 +11,9 @@ import { recordWhatsappOrderNotificationOptIn } from '../../../services/whatsapp
 import { safeErrorName } from '../../../services/telemetrySanitizer.js';
 import { onlinePaymentExpiresAt } from '../../payments/domain/onlinePaymentPolicy.js';
 import { ActiveOnlinePaymentError } from '../domain/ActiveOnlinePaymentError.js';
+import tableParticipantStateService from '../../tableSession/services/TableParticipantStateService.js';
+import { withTenantDbContext } from '../../../database/tenantDbContext.js';
+import { tableParticipantStateEvents } from '../../tableSession/realtime/tableParticipantStateEvents.js';
 
 class CreateOrderPixPaymentController {
   async handle(req: Request, res: Response) {
@@ -44,8 +47,9 @@ class CreateOrderPixPaymentController {
         requestedRestaurantId: restaurantId,
         contextRestaurantId: userRestaurantId,
       });
+      const creationRequest = orderCreationContext(req, 'pix');
       const order = await createOrderService.execute({
-        creationRequest: orderCreationContext(req, 'pix'),
+        creationRequest,
         userId,
         restaurantId: resolvedRestaurantId,
         userRestaurantId,
@@ -91,6 +95,27 @@ class CreateOrderPixPaymentController {
         }
       }
 
+      if (
+        String(order.type || '').toUpperCase() === 'MESA' &&
+        req.tableParticipant?.id &&
+        req.tableSession?.id
+      ) {
+        await withTenantDbContext(resolvedRestaurantId, (db) =>
+          tableParticipantStateService.blockOrderingUntilPayment(db, {
+            participantId: req.tableParticipant!.id,
+            tableSessionId: req.tableSession!.id,
+            restaurantId: resolvedRestaurantId,
+          }),
+        );
+        await tableParticipantStateEvents.orderingUpdated({
+          restaurantId: resolvedRestaurantId,
+          tableId: Number(req.tableSession.tableId),
+          tableSessionId: Number(req.tableSession.id),
+          participantPublicId: String(req.tableParticipant.publicId || ''),
+          orderingBlocked: true,
+        });
+      }
+
       const pixExpiresAt = onlinePaymentExpiresAt();
       let result;
       try {
@@ -114,6 +139,7 @@ class CreateOrderPixPaymentController {
           orderSubtotal: Number(order.itemsSubtotal) - Number(order.couponDiscount),
           orderDeliveryFee: Number(order.deliveryFeeAmount),
           expiresAt: pixExpiresAt,
+          idempotencyKey: creationRequest?.key || `orderpix-${order.id}-${resolvedRestaurantId}`,
         });
       } catch (error) {
         console.error('[PIX_PAYMENT_CREATION_UNCERTAIN]', {
