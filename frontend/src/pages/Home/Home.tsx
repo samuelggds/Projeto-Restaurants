@@ -411,10 +411,11 @@ export default function Home() {
     ? paymentMethod
     : (availablePaymentMethods[0] ?? paymentMethod);
   const paymentAvailable = availablePaymentMethods.length > 0;
+  const tablePixAvailable = availablePaymentMethods.includes('pix');
   const tableAccountEnabled = tableAccount.snapshot?.capabilities.enabled === true;
   const tableCheckoutPaymentMethod: 'pix' = 'pix';
   const tableCheckoutUnavailable = Boolean(
-    mesaMode && !tableAccount.loading && !tableAccountEnabled && !paymentAvailable,
+    mesaMode && !tableAccount.loading && !tableAccountEnabled && !tablePixAvailable,
   );
 
   const orderQuote = useOrderQuote({
@@ -1059,9 +1060,9 @@ export default function Home() {
         open={tableContinuationOpen}
         accountEnabled={tableAccountEnabled}
         accountLoading={tableAccount.loading}
-        payNowAvailable={paymentAvailable}
-        allowPix={availablePaymentMethods.includes('pix')}
-        allowCard={availablePaymentMethods.includes('card')}
+        payNowAvailable={tablePixAvailable}
+        allowPix={tablePixAvailable}
+        allowCard={false}
         paymentMethod={tableCheckoutPaymentMethod}
         restaurantId={restaurantId}
         payerEmail={user ? String((user as Record<string, unknown>).email || '') : undefined}
