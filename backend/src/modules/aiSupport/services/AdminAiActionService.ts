@@ -6,6 +6,10 @@ import updateProductService from '../../products/services/UpdateProductService.j
 import createCategoryService from '../../categories/services/CreateCategoryService.js';
 import updateRestaurantSettingsService from '../../restaurantSettings/services/UpdateRestaurantSettingsService.js';
 import updateOrderStatusService from '../../orders/services/UpdateOrderStatusService.js';
+import updateEmployeeService from '../../employee/services/UpdateEmployeeService.js';
+import deactivateEmployeeService from '../../employee/services/DeactivateEmployeeService.js';
+import reactivateEmployeeService from '../../employee/services/ReactivateEmployeeService.js';
+import upsertProductDiscountService from '../../products/services/UpsertProductDiscountService.js';
 import { sanitizeAdminAiContext } from '../domain/adminAiSecurityPolicy.js';
 import {
   adminAiActionProposalSchema,
