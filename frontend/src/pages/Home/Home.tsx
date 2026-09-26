@@ -1063,6 +1063,8 @@ export default function Home() {
         allowPix={availablePaymentMethods.includes('pix')}
         allowCard={availablePaymentMethods.includes('card')}
         paymentMethod={tableCheckoutPaymentMethod}
+        restaurantId={restaurantId}
+        payerEmail={user ? String((user as Record<string, unknown>).email || '') : undefined}
         busy={checkoutLoading || tableOrderLoading}
         onPaymentMethodChange={setPaymentMethod}
         onChooseAccount={() => void addOrderToTableAccount()}
