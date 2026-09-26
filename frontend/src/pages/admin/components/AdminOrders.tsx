@@ -539,9 +539,14 @@ export function AdminOrders({
                       </span>
                       <div>
                         <span>Pagamento</span>
-                        <b>{isPickupPayAtStore ? 'Pagar no restaurante' : payment.title}</b>
+                        <b>{isPickupPayAtStore ? 'Pagamento no balcão' : payment.title}</b>
                         <small>
-                          {isPickupPayAtStore ? 'Cliente paga ao retirar' : payment.detail}
+                          {isPickupPayAtStore
+                            ? `Cliente escolheu ${String(order.payOnDeliveryMethod || 'pagamento presencial')
+                                .replace('PIX', 'Pix')
+                                .replace('CARTAO', 'cartão na maquininha')
+                                .replace('DINHEIRO', 'dinheiro')}`
+                            : payment.detail}
                         </small>
                       </div>
                     </div>
@@ -608,6 +613,7 @@ export function AdminOrders({
                         <PickupPaymentPanel
                           orderId={order.numericId}
                           total={order.total}
+                          preferredMethod={order.payOnDeliveryMethod}
                           onPaid={() => void page.refresh()}
                         />
                       </Suspense>
