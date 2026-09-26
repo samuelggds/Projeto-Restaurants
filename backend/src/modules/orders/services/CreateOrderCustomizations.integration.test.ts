@@ -410,7 +410,7 @@ test('não permite que o cliente marque cartão como pago no payload de criaçã
         restaurantId: 7,
         userRestaurantId: 7,
         type: OrderType.RETIRADA,
-        paymentMethod: PaymentMethod.CARTAO,
+        paymentMethod: PaymentMethod.PIX,
         paid: true,
         items: [{ productId: 10, quantity: 1 }],
       }),
@@ -677,7 +677,7 @@ test('interrompe sem gravar quando a mesa fecha entre a validação inicial e a 
   assert.equal(orderCreated, false);
 });
 
-test('pagamento imediato mantém cartão no pedido e reserva as unidades como PROCESSING', async () => {
+test('pagamento imediato mantém Pix no pedido e reserva as unidades como PROCESSING', async () => {
   const persistedOrderItems = [];
   let persistedOrder;
   let persistedBillItems;
@@ -734,7 +734,7 @@ test('pagamento imediato mantém cartão no pedido e reserva as unidades como PR
   };
   restaurantSettingsRepository.findByRestaurantId = async () => ({
     isOpenForOrders: true,
-    acceptsCard: true,
+    acceptsPix: true,
     autoAcceptOrders: false,
     maxConcurrentOrders: 20,
   });
@@ -788,7 +788,7 @@ test('pagamento imediato mantém cartão no pedido e reserva as unidades como PR
     participantId: 80,
     status: 'PENDENTE',
     paid: false,
-    paymentMethod: PaymentMethod.CARTAO,
+    paymentMethod: PaymentMethod.PIX,
     participant: { displayName: 'Convidado' },
     items: persistedOrderItems,
   });
@@ -801,7 +801,7 @@ test('pagamento imediato mantém cartão no pedido e reserva as unidades como PR
     participantId: 80,
     settlementMode: 'PAY_NOW',
     type: OrderType.MESA,
-    paymentMethod: PaymentMethod.CARTAO,
+    paymentMethod: PaymentMethod.PIX,
     tableId: 91,
     items: [
       {
@@ -814,7 +814,7 @@ test('pagamento imediato mantém cartão no pedido e reserva as unidades como PR
   });
 
   assert.equal(result.id, 401);
-  assert.equal(persistedOrder.paymentMethod, PaymentMethod.CARTAO);
+  assert.equal(persistedOrder.paymentMethod, PaymentMethod.PIX);
   assert.equal(persistedOrder.settlementMode, 'PAY_NOW');
   assert.equal(persistedOrder.tableFinancialStatus, 'PROCESSING');
   assert.equal(persistedOrder.paid, false);
