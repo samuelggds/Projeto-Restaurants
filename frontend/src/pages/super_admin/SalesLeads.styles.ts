@@ -389,69 +389,242 @@ export const QrBox = styled.div`
 
 export const ScheduleList = styled.div`
   display: grid;
-  gap: 10px;
+  gap: 12px;
 
   .schedule-day {
     display: grid;
-    grid-template-columns: minmax(130px, 0.55fr) minmax(0, 2fr);
-    align-items: start;
-    gap: 14px;
-    border-top: 1px solid #edf0e9;
-    padding-top: 12px;
+    grid-template-columns: minmax(170px, 0.55fr) minmax(0, 1.8fr);
+    gap: 18px;
+    min-width: 0;
+    padding: 16px;
+    border: 1px solid var(--border, #dfe5dd);
+    border-radius: 16px;
+    background: #fbfcf9;
+    transition:
+      border-color 160ms ease,
+      background 160ms ease,
+      box-shadow 160ms ease;
   }
 
-  .day-toggle,
-  .period label {
+  .schedule-day.is-enabled {
+    border-color: #cfdac9;
+    background: #fff;
+    box-shadow: 0 2px 10px #233f3205;
+  }
+
+  .schedule-day.is-disabled {
+    background: #f7f8f5;
+  }
+
+  .day-summary {
     display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 14px;
+    min-width: 0;
+    padding-right: 4px;
+  }
+
+  .day-summary > div,
+  .period-toggle > span {
+    display: grid;
+    gap: 3px;
+    min-width: 0;
+  }
+
+  .day-summary strong {
+    color: var(--ink, #1c3028);
+    font-size: 14px;
+    line-height: 1.4;
+  }
+
+  .day-summary small,
+  .period-toggle small {
+    color: var(--muted, #637169);
+    font-size: 10px;
+    line-height: 1.45;
+  }
+
+  .day-switch {
+    display: inline-flex;
     align-items: center;
     gap: 8px;
+    color: var(--muted, #637169);
+    font-size: 10px;
+    font-weight: 750;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+
+  .day-switch input,
+  .period-toggle input {
+    width: 18px;
+    height: 18px;
+    margin: 0;
+    accent-color: var(--brand, #233f32);
+    cursor: pointer;
   }
 
   .periods {
     display: grid;
-    gap: 8px;
+    gap: 10px;
+    min-width: 0;
   }
 
   .period {
     display: grid;
-    grid-template-columns: minmax(90px, auto) 120px auto 120px;
+    grid-template-columns: minmax(145px, 0.7fr) minmax(260px, 1.3fr);
     align-items: center;
-    gap: 8px;
+    gap: 18px;
+    min-width: 0;
+    padding: 12px 14px;
+    border: 1px solid #e8ece5;
+    border-radius: 13px;
+    background: #fff;
+  }
+
+  .period.is-disabled {
+    background: #f8f9f6;
+  }
+
+  .period-toggle {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+    color: var(--ink, #1c3028);
+    cursor: pointer;
+  }
+
+  .period-toggle strong {
+    font-size: 12px;
+    line-height: 1.4;
+  }
+
+  .period-toggle input:disabled,
+  .day-switch input:disabled {
+    cursor: not-allowed;
+  }
+
+  .time-range {
+    display: grid;
+    grid-template-columns: minmax(105px, 1fr) auto minmax(105px, 1fr);
+    align-items: end;
+    gap: 10px;
+    min-width: 0;
+  }
+
+  .time-range label {
+    display: grid;
+    gap: 5px;
+    min-width: 0;
+  }
+
+  .time-range label > span {
+    color: var(--muted, #637169);
+    font-size: 9px;
+    font-weight: 750;
+    line-height: 1.3;
+    text-transform: uppercase;
+    letter-spacing: 0.045em;
+  }
+
+  .range-separator {
+    padding-bottom: 11px;
+    color: #98a39a;
+    font-size: 14px;
   }
 
   input[type='time'] {
+    box-sizing: border-box;
     min-width: 0;
     width: 100%;
-    height: 40px;
+    height: 42px;
     border: 1px solid var(--border, #dfe5dd);
     border-radius: 10px;
-    padding: 0 9px;
+    padding: 0 10px;
     background: #fff;
     color: var(--ink, #1c3028);
+    font: inherit;
+    font-size: 12px;
+    font-variant-numeric: tabular-nums;
+  }
+
+  input[type='time']:focus-visible {
+    outline: 3px solid var(--focus, #63836b);
+    outline-offset: 2px;
+    border-color: var(--brand, #233f32);
   }
 
   input:disabled {
     opacity: 0.55;
-    background: #f3f5f1;
+    background: #f1f3ef;
   }
 
-  @media (max-width: 720px) {
+  @media (max-width: 1020px) {
+    .schedule-day {
+      grid-template-columns: minmax(150px, 0.5fr) minmax(0, 1.5fr);
+    }
+
+    .period {
+      grid-template-columns: minmax(130px, 0.6fr) minmax(220px, 1fr);
+      gap: 14px;
+    }
+  }
+
+  @media (max-width: 760px) {
     .schedule-day {
       grid-template-columns: minmax(0, 1fr);
+      gap: 14px;
+      padding: 14px;
+    }
+
+    .day-summary {
+      align-items: center;
+      padding-bottom: 12px;
+      border-bottom: 1px solid #edf0e9;
     }
 
     .period {
-      grid-template-columns: minmax(90px, 1fr) minmax(0, 1fr) auto minmax(0, 1fr);
+      grid-template-columns: minmax(0, 1fr);
+      gap: 12px;
     }
   }
 
-  @media (max-width: 480px) {
-    .period {
-      grid-template-columns: 1fr 1fr;
+  @media (max-width: 460px) {
+    gap: 10px;
+
+    .schedule-day {
+      padding: 12px;
+      border-radius: 14px;
     }
 
-    .period > span {
+    .day-summary {
+      align-items: flex-start;
+      flex-direction: column;
+    }
+
+    .day-switch {
+      width: 100%;
+      justify-content: space-between;
+      padding-top: 3px;
+    }
+
+    .period {
+      padding: 11px;
+    }
+
+    .time-range {
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+      gap: 8px;
+    }
+
+    .range-separator {
       display: none;
+    }
+
+    input[type='time'] {
+      font-size: 16px;
     }
   }
 `;
