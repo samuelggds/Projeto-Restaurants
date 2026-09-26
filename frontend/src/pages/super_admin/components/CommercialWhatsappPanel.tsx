@@ -1,6 +1,8 @@
 import { Bot, CheckCircle2, CircleAlert, LoaderCircle, MessageCircle, QrCode, RefreshCw, Send, Unplug, UserRoundCheck } from 'lucide-react';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import salesLeadsService from '../../../Services/salesLeadsService';
+import { acquireSocket } from '../../../Services/socketService';
+import { getAccessToken } from '../../../modules/auth/session/authSession';
 import { formatDate, requestErrorMessage } from '../domain/superAdminDomain';
 import type {
   CommercialWhatsappConnection,
@@ -31,11 +33,22 @@ export function CommercialWhatsappPanel({ refreshKey = 0 }: { refreshKey?: numbe
   const [busy, setBusy] = useState('');
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const messagesEndRef = useRef<HTMLDivElement | null>(null);
 
   const selected = useMemo(
     () => conversations.find((conversation) => conversation.id === selectedId) ?? null,
     [conversations, selectedId],
   );
+
+  const refreshConversations = useCallback(async () => {
+    const result = await salesLeadsService.listCommercialWhatsappConversations();
+    setConversations(result);
+    setSelectedId((current) =>
+      current && result.some((item) => item.id === current)
+        ? current
+        : result[0]?.id ?? '',
+    );
+  }, []);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -89,6 +102,24 @@ export function CommercialWhatsappPanel({ refreshKey = 0 }: { refreshKey?: numbe
     }, 10_000);
     return () => window.clearInterval(timer);
   }, [connection?.configured, connection?.status]);
+
+  useEffect(() => {
+    const token = getAccessToken();
+    if (!token) return undefined;
+    const { socket, release } = acquireSocket(token, 'super-admin-commercial-whatsapp');
+    const refresh = () => void refreshConversations().catch(() => undefined);
+    socket.on('sales-leads:whatsapp-chat-updated', refresh);
+    const fallback = window.setInterval(refresh, 10_000);
+    return () => {
+      window.clearInterval(fallback);
+      socket.off('sales-leads:whatsapp-chat-updated', refresh);
+      release();
+    };
+  }, [refreshConversations]);
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ block: 'end' });
+  }, [selectedId, selected?.messages.length]);
 
   const setDay = (weekday: number, updater: (day: CommercialWhatsappDay) => CommercialWhatsappDay) => {
     setSettings((current) =>
