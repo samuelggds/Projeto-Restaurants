@@ -52,14 +52,12 @@ function TableAccountPanelContent(props: Props) {
     [snapshot],
   );
 
-  useEffect(() => {
-    const ownActivePayment =
-      snapshot?.activePayment &&
-      snapshot.activePayment.payerParticipantPublicId === snapshot.currentParticipantPublicId
-        ? snapshot.activePayment
-        : null;
-    if (ownActivePayment) setPayment(ownActivePayment);
-  }, [snapshot]);
+  const ownActivePayment =
+    snapshot?.activePayment &&
+    snapshot.activePayment.payerParticipantPublicId === snapshot.currentParticipantPublicId
+      ? snapshot.activePayment
+      : null;
+  const visiblePayment = payment ?? ownActivePayment;
 
   const orderItemCounts = useMemo(() => {
     const counts = new Map<string, number>();
@@ -97,15 +95,15 @@ function TableAccountPanelContent(props: Props) {
   };
 
   const verifyPayment = async () => {
-    if (!payment) return null;
-    const updated = await onReconcilePayment(payment.publicId);
+    if (!visiblePayment) return null;
+    const updated = await onReconcilePayment(visiblePayment.publicId);
     if (updated) setPayment(updated);
     return updated;
   };
 
   const cancelPayment = async () => {
-    if (!payment) return false;
-    const canceled = await onCancelPayment(payment.publicId);
+    if (!visiblePayment) return false;
+    const canceled = await onCancelPayment(visiblePayment.publicId);
     if (canceled) setPayment(null);
     return canceled;
   };
@@ -265,10 +263,10 @@ function TableAccountPanelContent(props: Props) {
                 </footer>
               </S.ReceiptPreview>
 
-              {payment ? (
+              {visiblePayment ? (
                 <TablePaymentStatusView
-                  payment={payment}
-                  status={payment.status}
+                  payment={visiblePayment}
+                  status={visiblePayment.status}
                   actionLoading={actionLoading}
                   onVerify={verifyPayment}
                   onCancel={cancelPayment}
