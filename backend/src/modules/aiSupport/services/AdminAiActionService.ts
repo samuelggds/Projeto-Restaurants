@@ -1059,8 +1059,7 @@ export class AdminAiActionService {
           ...exact,
           actor: {
             userId: Number(actor.userId),
-            userName: actor.userName || undefined,
-            userRole: actor.userRole || undefined,
+            role: String(actor.userRole || ''),
           },
         });
       } else if (proposal.actionType === 'SET_EMPLOYEE_ACTIVE') {
@@ -1068,8 +1067,7 @@ export class AdminAiActionService {
           ? await reactivateEmployeeService.execute(proposal.employeeId, restaurantId)
           : await deactivateEmployeeService.execute(proposal.employeeId, restaurantId, {
               userId: Number(actor.userId),
-              userName: actor.userName || undefined,
-              userRole: actor.userRole || undefined,
+              role: String(actor.userRole || ''),
             });
       } else if (proposal.actionType === 'UPDATE_ORDER_STATUS') {
         result = await updateOrderStatusService.execute(
