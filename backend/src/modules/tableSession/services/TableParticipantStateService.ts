@@ -141,6 +141,35 @@ export class TableParticipantStateService {
     `);
   }
 
+  async blockOrderingUntilPayment(
+    db: Db,
+    input: { participantId: number; tableSessionId: number; restaurantId: number },
+  ) {
+    return this.blockOrderingForBill(db, input);
+  }
+
+  async releaseOrderingAfterPayment(
+    db: Db,
+    input: { participantId: number; tableSessionId: number; restaurantId: number; now?: Date },
+  ) {
+    const participantId = normalizePositiveInteger(input.participantId, 'Participante');
+    const tableSessionId = normalizePositiveInteger(input.tableSessionId, 'Sessão');
+    const restaurantId = normalizePositiveInteger(input.restaurantId, 'Restaurante');
+    const now = input.now || new Date();
+
+    await db.$executeRaw(Prisma.sql`
+      UPDATE "TableParticipantState"
+      SET
+        "orderingBlockedAt" = NULL,
+        "orderingUnblockedAt" = ${now},
+        "updatedAt" = ${now}
+      WHERE "participantId" = ${participantId}
+        AND "restaurantId" = ${restaurantId}
+        AND "tableSessionId" = ${tableSessionId}
+        AND "orderingBlockedAt" IS NOT NULL
+    `);
+  }
+
   async assertCanCreateOrder(
     db: Db,
     input: { participantId: number; tableSessionId: number; restaurantId: number },
@@ -148,7 +177,7 @@ export class TableParticipantStateService {
     const state = await this.getState(db, input);
     if (state?.orderingBlockedAt) {
       throw new Error(
-        'Você já pediu a conta. Novos pedidos ficam bloqueados até o pagamento ser confirmado.',
+        'Você possui um pagamento pendente. Novos pedidos ficam bloqueados até a confirmação do pagamento.',
       );
     }
   }
