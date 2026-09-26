@@ -98,3 +98,28 @@ test('seleção adulterada com item ausente falha por inteiro', () => {
       error instanceof TablePaymentPlanError && error.code === 'BILL_ITEM_UNAVAILABLE',
   );
 });
+
+
+test('pagamento por outro valor abate somente o valor informado do saldo disponível', () => {
+  const plan = buildTablePaymentPlan({
+    payment: payment({ selectionMode: 'CUSTOM_AMOUNT', customAmountCents: 60 }),
+    participantId: 10,
+    items: baseItems,
+  });
+
+  assert.equal(plan.subtotalCents, 60);
+  assert.equal(
+    plan.allocations.reduce((sum, allocation) => sum + allocation.amountCents, 0),
+    60,
+  );
+});
+
+test('outro valor nunca ultrapassa o saldo disponível da comanda', () => {
+  const plan = buildTablePaymentPlan({
+    payment: payment({ selectionMode: 'CUSTOM_AMOUNT', customAmountCents: 10_000 }),
+    participantId: 10,
+    items: baseItems,
+  });
+
+  assert.equal(plan.subtotalCents, 101);
+});
