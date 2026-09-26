@@ -437,11 +437,8 @@ async function addConfiguredProduct(page: Page) {
   await expect(page.getByRole('heading', { name: 'Minha sacola' })).toBeVisible();
 }
 
-async function submitTablePixOrder(page: Page) {
-  await page.getByRole('button', { name: /Revisar e continuar/u }).click();
-  const dialog = page.getByRole('dialog', { name: 'Como deseja finalizar?' });
-  await expect(dialog.getByRole('heading', { name: 'Como deseja finalizar?' })).toBeVisible();
-  await dialog.getByRole('button', { name: 'Pagar agora com Pix' }).click();
+async function submitTableOrder(page: Page) {
+  await page.getByRole('button', { name: 'Enviar pedido para a cozinha' }).click();
 }
 
 test('QR deslogado retorna à mesma Mesa 05 após login e cria pedido MESA', async ({ page }) => {
@@ -467,7 +464,7 @@ test('QR deslogado retorna à mesma Mesa 05 após login e cria pedido MESA', asy
   await expect.poll(() => state.sessionValidationCalls).toBeGreaterThan(0);
 
   await addConfiguredProduct(page);
-  await submitTablePixOrder(page);
+  await submitTableOrder(page);
   await expect.poll(() => state.orderPayloads.length).toBe(1);
   expect(state.orderPayloads[0]).toMatchObject({
     restaurantId: RESTAURANT_ID,
@@ -654,7 +651,7 @@ test('a mesma conta alterna Home, QR autenticado e Home sem modo permanente', as
   expect(state.loginCalls).toBe(1);
 
   await addConfiguredProduct(page);
-  await submitTablePixOrder(page);
+  await submitTableOrder(page);
   await expect.poll(() => state.orderPayloads.length).toBe(2);
   expect(state.orderPayloads[1]).toMatchObject({
     restaurantId: RESTAURANT_ID,
