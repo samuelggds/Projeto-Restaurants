@@ -26,6 +26,19 @@ function digitsOnly(value: unknown) {
   return String(value || '').replace(/\D/gu, '');
 }
 
+function normalizeBrazilWhatsappNumber(value: unknown) {
+  const digits = digitsOnly(value);
+  if (/^\d{10,11}$/u.test(digits)) return `55${digits}`;
+  return digits;
+}
+
+function localBrazilPhone(value: unknown) {
+  const digits = digitsOnly(value);
+  return digits.startsWith('55') && (digits.length === 12 || digits.length === 13)
+    ? digits.slice(2)
+    : digits;
+}
+
 function hashSecret(value: string) {
   return createHash('sha256').update(value).digest();
 }
@@ -232,8 +245,8 @@ export async function sendPlatformWhatsappText(destination: string, message: str
   if (!row || row.status !== 'CONNECTED') {
     throw new Error('WhatsApp comercial da GastroNexa não está conectado.');
   }
-  const number = digitsOnly(destination);
-  if (!/^\d{10,15}$/u.test(number)) throw new Error('Número de WhatsApp inválido.');
+  const number = normalizeBrazilWhatsappNumber(destination);
+  if (!/^\d{12,15}$/u.test(number)) throw new Error('Número de WhatsApp inválido.');
   const text = String(message || '').trim();
   if (!text || text.length > 4000) throw new Error('Mensagem comercial inválida.');
   await evolutionRequest(`/message/sendText/${encodeURIComponent(row.externalInstanceId)}`, {
@@ -284,6 +297,17 @@ function menuMessage() {
     '3. Ver uma demonstração',
     '4. Já sou cliente e preciso de suporte',
     '5. Falar com uma pessoa',
+  ].join('\n');
+}
+
+function buildAwayMessage(message: string, hours: unknown) {
+  return [
+    message,
+    '',
+    'Horários configurados:',
+    formatCommercialWhatsappSchedule(hours) || 'consulte novamente mais tarde.',
+    '',
+    'Enquanto isso, posso registrar sua mensagem por aqui.',
   ].join('\n');
 }
 
@@ -410,8 +434,9 @@ export async function processPlatformEvolutionInbound(
   const text = inboundText(body);
   if (!text) return { accepted: true, queued: false } as const;
 
+  const leadPhone = localBrazilPhone(phone);
   const lead = await prisma.salesLead.findFirst({
-    where: { phone },
+    where: { phone: { in: [phone, leadPhone] } },
     orderBy: { createdAt: 'desc' },
     select: { id: true },
   });
@@ -457,14 +482,10 @@ export async function processPlatformEvolutionInbound(
   );
   const bodyText = open
     ? menuMessage()
-    : [
+    : buildAwayMessage(
         settings.commercialWhatsappAwayMessage,
-        '',
-        'Horários configurados:',
-        formatCommercialWhatsappSchedule(settings.commercialWhatsappHours) || 'consulte novamente mais tarde.',
-        '',
-        'Enquanto isso, posso registrar sua mensagem por aqui.',
-      ].join('\n');
+        settings.commercialWhatsappHours,
+      );
 
   const queued = await enqueueAutoReply(
     conversation.id,
@@ -473,6 +494,11 @@ export async function processPlatformEvolutionInbound(
     bodyText,
     meta.providerMessageId,
   );
+
+  if (queued.queued) {
+    await deliverPlatformWhatsappOutbox();
+  }
+
   return { accepted: true, queued: queued.queued, reason: queued.queued ? 'queued' : queued.reason } as const;
 }
 
@@ -485,9 +511,10 @@ export async function enqueueLeadWhatsappGreeting(leadId: string) {
   const settings = await prisma.platformSettings.findUnique({ where: { id: 1 } });
   if (!settings?.commercialWhatsappEnabled) return { queued: false, reason: 'disabled' } as const;
 
+  const whatsappPhone = normalizeBrazilWhatsappNumber(lead.phone);
   const conversation = await prisma.salesLeadWhatsappConversation.upsert({
-    where: { phone: lead.phone },
-    create: { id: randomUUID(), phone: lead.phone },
+    where: { phone: whatsappPhone },
+    create: { id: randomUUID(), phone: whatsappPhone },
     update: {},
   });
   const key = createHash('sha256').update(`FORM_GREETING:${lead.id}`).digest('hex');
@@ -509,12 +536,27 @@ export async function enqueueLeadWhatsappGreeting(leadId: string) {
     },
     update: {},
   });
+  await deliverPlatformWhatsappOutbox();
   return { queued: true } as const;
 }
 
 export async function deliverPlatformWhatsappOutbox() {
-  const row = await connection();
-  if (!row || row.status !== 'CONNECTED') return { processed: 0, sent: 0, configured: false };
+  let row = await connection();
+  if (!row) return { processed: 0, sent: 0, configured: false };
+
+  if (row.status !== 'CONNECTED') {
+    try {
+      await refreshPlatformWhatsappConnection();
+      row = await connection();
+    } catch {
+      return { processed: 0, sent: 0, configured: true };
+    }
+  }
+
+  if (!row || row.status !== 'CONNECTED') {
+    return { processed: 0, sent: 0, configured: true };
+  }
+
   const lockToken = randomUUID();
   const rows = await prisma.$queryRaw<
     { id: string; conversationId: string; kind: string; body: string; attempts: number; phone: string }[]
@@ -592,7 +634,7 @@ export async function listCommercialWhatsappConversations() {
   return prisma.salesLeadWhatsappConversation.findMany({
     orderBy: { updatedAt: 'desc' },
     take: 100,
-    include: { messages: { orderBy: { createdAt: 'asc' }, take: 100 } },
+    include: { messages: { orderBy: { createdAt: 'asc' } } },
   });
 }
 
@@ -620,6 +662,7 @@ export async function enqueueManualCommercialWhatsappMessage(id: string, message
       body,
     },
   });
+  await deliverPlatformWhatsappOutbox();
   return { queued: true };
 }
 
@@ -652,6 +695,17 @@ export async function updateCommercialWhatsappSettings(input: {
       version: { increment: 1 },
     },
   });
+
+  await prisma.salesLeadWhatsappOutbox.updateMany({
+    where: { kind: 'AWAY', status: 'PENDING' },
+    data: {
+      body: buildAwayMessage(
+        updated.commercialWhatsappAwayMessage,
+        updated.commercialWhatsappHours,
+      ),
+    },
+  });
+
   return {
     enabled: updated.commercialWhatsappEnabled,
     hours: normalizeCommercialWhatsappHours(updated.commercialWhatsappHours),
