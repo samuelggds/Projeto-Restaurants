@@ -1,0 +1,1 @@
+-- Migration for platform commercial WhatsApp.
