@@ -728,18 +728,15 @@ test('QR sem PIN só libera pedidos com mesa aberta e fechamento respeita pendê
   await page.getByRole('button', { name: 'Adicionar à sacola' }).click();
   await page.getByRole('button', { name: /Sacola com [1-9]\d* itens/ }).click();
   await expect(page.getByRole('heading', { name: 'Minha sacola' })).toBeVisible();
-  await page.getByRole('button', { name: 'Revisar e continuar' }).click();
-  const continuationDialog = page.getByRole('dialog', { name: 'Como deseja finalizar?' });
-  await expect(continuationDialog).toBeVisible();
-  await continuationDialog.getByRole('button', { name: 'Pagar agora com Pix' }).click();
+  await page.getByRole('button', { name: 'Enviar pedido para a cozinha' }).click();
   await expect.poll(() => state.orderPayload).not.toBeNull();
   expect(state.orderPayload).toMatchObject({
     restaurantId: RESTAURANT_ID,
     type: 'MESA',
     tableId: TABLE_ID,
-    paymentMethod: 'PIX',
+    settlementMode: 'TABLE_ACCOUNT',
   });
-  await expect(page.getByText(/Pix/i).first()).toBeVisible();
+  expect(state.orderPayload).not.toHaveProperty('paymentMethod');
 
   await restoreWaiterSession(page);
   await page.goto('/waiter');
