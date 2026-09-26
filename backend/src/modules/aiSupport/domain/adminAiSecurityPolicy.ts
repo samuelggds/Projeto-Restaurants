@@ -1,5 +1,4 @@
 const RESTRICTED_REQUEST_PATTERNS: RegExp[] = [
-  /\bsuper[\s_-]*admin\b/iu,
   /\b(system\s*prompt|prompt\s*do\s*sistema|instru[cç][oõ]es\s*internas?\s*da\s*ia)\b.{0,80}\b(mostre|revele|exiba|leia|forne[cç]a|passe|retorne|copie|extraia)\b/iu,
   /\b(mostre|revele|exiba|leia|forne[cç]a|passe|retorne|copie|extraia)\b.{0,80}\b(system\s*prompt|prompt\s*do\s*sistema|instru[cç][oõ]es\s*internas?\s*da\s*ia)\b/iu,
   /\b(ignore|ignorar|desconsidere|esque[cç]a)\b.{0,45}\b(instru[cç][oõ]es|regras|restri[cç][oõ]es|prote[cç][oõ]es|prompt)\b/iu,
