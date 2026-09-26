@@ -150,6 +150,201 @@ export const BalanceHero = styled.section`
   }
 `;
 
+export const PaidBanner = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  margin-bottom: 13px;
+  padding: 14px 16px;
+  border: 1px solid #bfe0c6;
+  border-radius: 16px;
+  background: #f0faf2;
+  color: #2d6d3d;
+
+  svg {
+    flex: 0 0 auto;
+  }
+
+  span,
+  strong,
+  small {
+    display: block;
+  }
+
+  strong {
+    font-size: 13px;
+  }
+
+  small {
+    margin-top: 2px;
+    color: #5e7964;
+    font-size: 10px;
+    line-height: 1.4;
+  }
+`;
+
+export const ReceiptPreview = styled.section`
+  overflow: hidden;
+  margin-bottom: 14px;
+  border: 1px solid #dfd7ce;
+  border-radius: 20px;
+  background: #fff;
+  box-shadow: 0 16px 34px rgba(42, 31, 23, 0.08);
+
+  > header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 18px 18px 15px;
+    border-bottom: 1px dashed #ded4cb;
+    background:
+      linear-gradient(180deg, rgba(248, 244, 239, 0.78), rgba(255, 255, 255, 0.9));
+  }
+
+  header span,
+  header small,
+  header strong {
+    display: block;
+  }
+
+  header small {
+    color: #8b8178;
+    font-size: 9px;
+    font-weight: 800;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+
+  header strong {
+    margin-top: 4px;
+    color: #241f1b;
+    font-size: 17px;
+  }
+
+  header em {
+    flex: 0 0 auto;
+    padding: 6px 9px;
+    border-radius: 999px;
+    background: #f4eee8;
+    color: #6d6157;
+    font-size: 9px;
+    font-style: normal;
+    font-weight: 800;
+  }
+
+  > footer {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 10px 14px;
+    border-top: 1px dashed #e2d8cf;
+    background: #fcfaf7;
+    color: #867b72;
+    font-size: 9px;
+    line-height: 1.4;
+    text-align: center;
+  }
+
+  > footer svg {
+    flex: 0 0 auto;
+    color: var(--home-primary);
+  }
+`;
+
+export const ReceiptRows = styled.div`
+  display: grid;
+  padding: 7px 18px;
+
+  article {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 14px;
+    padding: 11px 0;
+    border-bottom: 1px solid #f0eae4;
+  }
+
+  article:last-child {
+    border-bottom: 0;
+  }
+
+  b,
+  small {
+    display: block;
+  }
+
+  b {
+    color: #332c27;
+    font-size: 11px;
+    line-height: 1.4;
+  }
+
+  small {
+    margin-top: 3px;
+    color: #8a8077;
+    font-size: 9px;
+    line-height: 1.4;
+  }
+
+  article > strong {
+    color: #342d28;
+    font-size: 11px;
+    white-space: nowrap;
+  }
+
+  > p {
+    margin: 0;
+    padding: 24px 0;
+    color: #8a8077;
+    font-size: 11px;
+    text-align: center;
+  }
+`;
+
+export const ReceiptTotals = styled.div`
+  display: grid;
+  gap: 7px;
+  padding: 14px 18px 16px;
+  border-top: 1px dashed #ddd3ca;
+  background: #fffdfb;
+
+  > span {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+  }
+
+  small {
+    color: #756b63;
+    font-size: 10px;
+  }
+
+  b {
+    color: #352e29;
+    font-size: 11px;
+  }
+
+  .remaining {
+    margin-top: 4px;
+    padding-top: 10px;
+    border-top: 1px solid #e8dfd7;
+  }
+
+  .remaining small {
+    color: #3f3731;
+    font-size: 11px;
+    font-weight: 800;
+  }
+
+  .remaining b {
+    color: var(--home-primary);
+    font-size: 18px;
+  }
+`;
+
 export const DetailsRegion = styled.div`
   margin-top: 14px;
 `;
@@ -581,6 +776,58 @@ export const FormGrid = styled.div`
 
   @media (max-width: 430px) {
     grid-template-columns: 1fr;
+  }
+`;
+
+
+export const CustomAmount = styled.div`
+  display: grid;
+  gap: 7px;
+  margin-top: 12px;
+  padding: 14px;
+  border: 1px solid color-mix(in srgb, var(--home-primary) 25%, #e4d9cf);
+  border-radius: 14px;
+  background: #fffaf7;
+
+  > label {
+    color: #453b34;
+    font-size: 11px;
+    font-weight: 850;
+  }
+
+  > div {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: center;
+    gap: 7px;
+    min-height: 48px;
+    padding: 0 12px;
+    border: 1px solid #dcd0c6;
+    border-radius: 12px;
+    background: #fff;
+  }
+
+  > div span {
+    color: #746860;
+    font-size: 12px;
+    font-weight: 800;
+  }
+
+  input {
+    width: 100%;
+    min-width: 0;
+    border: 0;
+    outline: 0;
+    background: transparent;
+    color: #2d2723;
+    font: inherit;
+    font-size: 20px;
+    font-weight: 850;
+  }
+
+  > small {
+    color: #83786f;
+    font-size: 9px;
   }
 `;
 
