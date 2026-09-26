@@ -300,7 +300,7 @@ async function captureResponsiveAccount(page: Page, testInfo: TestInfo, width: n
     .poll(() => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth))
     .toBe(true);
   const helpBox = await accountDialog
-    .getByText('Seleciona automaticamente os itens vinculados a este aparelho.')
+    .getByText('Seleciona automaticamente o saldo disponível dos itens pedidos por você.')
     .boundingBox();
   const continueBox = await accountDialog
     .getByRole('button', { name: 'Continuar', exact: true })
