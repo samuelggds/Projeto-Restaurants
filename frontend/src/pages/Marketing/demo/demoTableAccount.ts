@@ -184,7 +184,7 @@ export function createDemoTablePayment(
     (['PIX', 'CARD'].includes(draft.method) && !capabilities.allowOnlinePayment)
   )
     throw new Error('Essa forma de pagamento está desativada.');
-  if (!capabilities.allowSplit && !['FULL_ACCOUNT', 'WAITER'].includes(draft.selectionMode))
+  if (!capabilities.allowSplit && draft.selectionMode === 'EQUAL_SPLIT')
     throw new Error('A divisão da conta está desativada.');
   if (snapshot.summary.status === 'CLOSED') throw new Error('A mesa está fechada.');
   let items = snapshot.items.filter((item) => item.availableCents > 0);
@@ -197,6 +197,12 @@ export function createDemoTablePayment(
     if (!Number.isInteger(draft.splitCount) || draft.splitCount! < 2 || draft.splitCount! > 100)
       throw new Error('Informe uma divisão válida.');
     totalCents = Math.ceil(totalCents / draft.splitCount!);
+  }
+  if (draft.selectionMode === 'CUSTOM_AMOUNT') {
+    const requested = Number(draft.customAmountCents || 0);
+    if (!Number.isSafeInteger(requested) || requested <= 0)
+      throw new Error('Informe um valor válido para pagar.');
+    totalCents = Math.min(totalCents, requested);
   }
   if (totalCents <= 0) throw new Error('Não há saldo disponível nessa seleção.');
   const allocations: Record<string, number> = {};

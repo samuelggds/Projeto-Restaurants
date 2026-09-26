@@ -34,6 +34,7 @@ export function buildTablePaymentRequestFingerprint(
       method: input.method,
       billItemPublicIds: [...(input.billItemPublicIds || [])].sort(),
       splitCount: input.splitCount || null,
+      customAmountCents: input.customAmountCents || null,
       includeOptionalServiceFee: input.includeOptionalServiceFee,
     }),
   );

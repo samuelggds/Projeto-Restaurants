@@ -221,10 +221,12 @@ async function createPix(
     customerCpf: identity.cpf,
     customerPhone: identity.phone,
     userEmail: identity.email,
+    orderId: context.intentId,
     orderTotal: centsToMajor(input.amountCents),
     orderSubtotal: centsToMajor(input.amountCents),
     orderDeliveryFee: 0,
     expiresAt: input.expiresAt,
+    idempotencyKey: input.idempotencyKeyHash,
   });
 
   if (!String(result.paymentId || '').trim() || !String(result.qrCode || '').trim()) {

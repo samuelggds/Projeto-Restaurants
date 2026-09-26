@@ -160,9 +160,9 @@ export function WaiterPaymentsPage() {
     <>
       <S.PageIntro>
         <div>
-          <span>CONTA E RECEBIMENTO</span>
-          <h2>Feche o salão sem pendências financeiras</h2>
-          <p>Confirme apenas valores já recebidos em dinheiro ou na maquininha.</p>
+          <span>COMANDAS EM TEMPO REAL</span>
+          <h2>Acompanhe consumo e pagamentos das mesas</h2>
+          <p>Pedidos e pagamentos online atualizam automaticamente o saldo de cada comanda.</p>
         </div>
       </S.PageIntro>
 
@@ -179,7 +179,7 @@ export function WaiterPaymentsPage() {
         ]}
       />
 
-      <P.FilterBar aria-label="Filtros das contas de mesa">
+      <P.FilterBar aria-label="Filtros das comandas de mesa">
         <label>
           <Search aria-hidden="true" />
           <input
@@ -189,7 +189,7 @@ export function WaiterPaymentsPage() {
               setQuery(event.target.value);
               resetVisible();
             }}
-            placeholder="Buscar mesa ou responsável"
+            placeholder="Buscar comanda por mesa ou responsável"
           />
         </label>
         <select
@@ -200,9 +200,9 @@ export function WaiterPaymentsPage() {
             resetVisible();
           }}
         >
-          <option value="ALL">Todas as contas abertas</option>
+          <option value="ALL">Todas as comandas</option>
           <option value="PENDING">Aguardando confirmação</option>
-          <option value="CLOSING">Conta solicitada</option>
+          <option value="CLOSING">Encerramento solicitado</option>
           <option value="BALANCE">Com saldo em aberto</option>
         </select>
       </P.FilterBar>
@@ -262,8 +262,8 @@ export function WaiterPaymentsPage() {
         <P.Section aria-labelledby="open-accounts-title">
           <header>
             <div>
-              <h2 id="open-accounts-title">Contas abertas</h2>
-              <p>Saldo e andamento financeiro por mesa.</p>
+              <h2 id="open-accounts-title">Comandas das mesas</h2>
+              <p>Consumo, pagamentos confirmados e saldo restante em tempo real.</p>
             </div>
             <P.SectionCount>{filteredAccounts.length}</P.SectionCount>
           </header>
@@ -285,7 +285,11 @@ export function WaiterPaymentsPage() {
                       <p>Aberta em {formatDateTime(account.openedAt)}</p>
                     </div>
                     <span className={account.status === 'CLOSING_REQUESTED' ? 'closing' : ''}>
-                      {account.status === 'CLOSING_REQUESTED' ? 'Conta solicitada' : 'Em consumo'}
+                      {account.summary.remainingCents === 0 && account.summary.consumedCents > 0
+                        ? 'Quitada'
+                        : account.status === 'CLOSING_REQUESTED'
+                          ? 'Encerramento solicitado'
+                          : 'Em consumo'}
                     </span>
                   </header>
                   <div className="amounts">
@@ -294,15 +298,15 @@ export function WaiterPaymentsPage() {
                       <b>{brl(account.summary.consumedCents / 100)}</b>
                     </span>
                     <span className="paid">
-                      <small>Confirmado</small>
+                      <small>Pago online</small>
                       <b>{brl(account.summary.netPaidCents / 100)}</b>
                     </span>
                     <span className="remaining">
-                      <small>Em aberto</small>
+                      <small>Saldo restante</small>
                       <b>{brl(account.summary.remainingCents / 100)}</b>
                     </span>
                   </div>
-                  <div className="progress" aria-label={`${paidPercent}% da conta confirmada`}>
+                  <div className="progress" aria-label={`${paidPercent}% da comanda paga`}>
                     <i style={{ width: `${paidPercent}%` }} />
                   </div>
                   <div className="meta">
@@ -320,19 +324,19 @@ export function WaiterPaymentsPage() {
                     type="button"
                     onClick={() => setAccountTable(accountAsTable(account, tables))}
                   >
-                    <ReceiptText /> Ver conta completa
+                    <ReceiptText /> Ver comanda completa
                   </button>
                 </P.AccountCard>
               );
             })}
             {!filteredAccounts.length && (
-              <Empty>Nenhuma conta encontrada para estes filtros.</Empty>
+              <Empty>Nenhuma comanda encontrada para estes filtros.</Empty>
             )}
           </P.List>
           <WaiterListControls
             visibleCount={Math.min(visibleAccounts, filteredAccounts.length)}
             totalCount={filteredAccounts.length}
-            itemLabel="contas"
+            itemLabel="comandas"
             onShowMore={() => setVisibleAccounts((current) => current + WAITER_LIST_BATCH_SIZE)}
             onReset={() => setVisibleAccounts(WAITER_LIST_BATCH_SIZE)}
           />

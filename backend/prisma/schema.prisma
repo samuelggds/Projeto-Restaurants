@@ -2171,6 +2171,7 @@ enum TablePaymentIntentStatus {
 enum TablePaymentSelectionMode {
   MY_ITEMS
   SELECTED_ITEMS
+  CUSTOM_AMOUNT
   EQUAL_SPLIT
   FULL_ACCOUNT
   WAITER

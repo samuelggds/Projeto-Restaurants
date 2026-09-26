@@ -164,7 +164,12 @@ test('login associa o convidado ativo ao usuário sem criar outro participante',
     $queryRaw: async () => [],
     user: {
       findFirst: async ({ where }) => {
-        assert.deepEqual(where, { id: 12, role: 'CLIENTE', active: true });
+        assert.deepEqual(where, {
+          id: 12,
+          restaurantId: 7,
+          role: 'CLIENTE',
+          active: true,
+        });
         return { id: 12 };
       },
     },

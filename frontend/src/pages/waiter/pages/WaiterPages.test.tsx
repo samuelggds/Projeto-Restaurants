@@ -351,6 +351,26 @@ describe('waiter operational pages', () => {
         processingCents: 5800,
         remainingCents: 5800,
       },
+      participants: [
+        {
+          publicId: 'participant-1',
+          displayName: 'Cliente da mesa',
+          authenticated: true,
+          status: 'ACTIVE',
+        },
+      ],
+      items: [
+        {
+          publicId: 'item-1',
+          productName: 'Burger Clássico',
+          unitPriceCents: 5800,
+          paidCents: 0,
+          processingCents: 2900,
+          reservedCents: 2900,
+          financialStatus: 'PROCESSING',
+          orderedByDisplayName: 'Cliente da mesa',
+        },
+      ],
       paymentIntents: [
         {
           publicId: 'manual-payment',
@@ -381,7 +401,7 @@ describe('waiter operational pages', () => {
     await act(async () => openAccount?.click());
 
     expect(tableAccountService.getAdminSnapshot).toHaveBeenCalledWith('session-public-31');
-    expect(container.textContent).toContain('Pix e cartão online');
+    expect(container.textContent).toContain('Pix e cartão');
     expect(container.textContent).toContain('Aguardando confirmação automática do provedor');
     const confirmButtons = [...container.querySelectorAll('button')].filter(
       (button) => button.textContent?.trim() === 'Confirmar valor recebido',

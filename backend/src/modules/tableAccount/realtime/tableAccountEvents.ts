@@ -3,6 +3,7 @@ import { realtimePublisher as io } from '../../../realtime/realtimePublisher.js'
 import { attendantWorkspaceEvents } from '../../attendant/realtime/attendantWorkspaceEvents.js';
 
 type TableAccountUpdateReason =
+  | 'ORDER_CHANGED'
   | 'PAYMENT_CREATED'
   | 'PAYMENT_PROCESSING'
   | 'PAYMENT_STATUS_CHANGED'

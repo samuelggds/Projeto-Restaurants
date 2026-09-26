@@ -2,22 +2,18 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ArrowLeft,
   ArrowRight,
-  Banknote,
   CheckCircle2,
   Clock3,
   CreditCard,
   Info,
   ListChecks,
-  Minus,
-  Plus,
+  HandCoins,
   ReceiptText,
   RefreshCw,
   ShieldCheck,
   Smartphone,
-  Split,
   UserRound,
   Users,
-  WalletCards,
   X,
 } from 'lucide-react';
 import {
@@ -68,27 +64,27 @@ const modeLabels: Array<{
 }> = [
   {
     value: 'MY_ITEMS',
-    title: 'Meus itens',
-    description: 'Somente o que você pediu',
-    explanation: 'Seleciona automaticamente os itens vinculados a este aparelho.',
+    title: 'Meu consumo',
+    description: 'Pague o que está no seu nome',
+    explanation: 'Seleciona automaticamente o saldo disponível dos itens pedidos por você.',
   },
   {
     value: 'SELECTED_ITEMS',
     title: 'Escolher itens',
-    description: 'Marque itens desta conta',
-    explanation: 'Você escolhe exatamente quais itens disponíveis deseja quitar.',
+    description: 'Escolha produtos da comanda',
+    explanation: 'Marque exatamente quais itens disponíveis desta mesa você deseja pagar.',
   },
   {
-    value: 'EQUAL_SPLIT',
-    title: 'Dividir igualmente',
-    description: 'Uma parte do saldo total',
-    explanation: 'O sistema calcula uma parte igual do saldo ainda disponível.',
+    value: 'CUSTOM_AMOUNT',
+    title: 'Outro valor',
+    description: 'Digite quanto deseja pagar',
+    explanation: 'O valor pago é abatido do saldo disponível da comanda em tempo real.',
   },
   {
     value: 'FULL_ACCOUNT',
-    title: 'Conta completa',
+    title: 'Pagar restante',
     description: 'Quite todo o saldo disponível',
-    explanation: 'Inclui todo o valor que ainda não foi pago ou reservado.',
+    explanation: 'Paga todo o valor ainda disponível da comanda.',
   },
 ];
 
@@ -103,36 +99,26 @@ const statusDescriptions: Record<TablePaymentStatus, string> = {
 };
 
 function methodLabel(method: TablePaymentMethod) {
-  if (method === 'PIX') return 'Pix online';
-  if (method === 'CARD') return 'Cartão online';
-  if (method === 'CASH') return 'Dinheiro';
-  return 'Maquininha';
+  if (method === 'PIX') return 'Pix';
+  return 'Cartão';
 }
 
 function methodDescription(method: TablePaymentMethod) {
   if (method === 'PIX') {
-    return 'Gere o Pix e aguarde a confirmação automática do banco.';
+    return 'QR Code e copia e cola com confirmação automática.';
   }
-  if (method === 'CARD') {
-    return 'Pague no checkout seguro e aguarde a aprovação do cartão.';
-  }
-  if (method === 'CASH') {
-    return 'O garçom recebe o dinheiro e confirma manualmente no painel.';
-  }
-  return 'O garçom cobra na maquininha e confirma manualmente no painel.';
+  return 'Checkout online seguro com confirmação automática.';
 }
 
 function MethodIcon({ method }: { method: TablePaymentMethod }) {
   if (method === 'PIX') return <Smartphone size={18} />;
-  if (method === 'CARD') return <CreditCard size={18} />;
-  if (method === 'CASH') return <Banknote size={18} />;
-  return <WalletCards size={18} />;
+  return <CreditCard size={18} />;
 }
 
 function SelectionModeIcon({ mode }: { mode: TablePaymentSelectionMode }) {
   if (mode === 'MY_ITEMS') return <UserRound size={20} />;
   if (mode === 'SELECTED_ITEMS') return <ListChecks size={20} />;
-  if (mode === 'EQUAL_SPLIT') return <Split size={20} />;
+  if (mode === 'CUSTOM_AMOUNT') return <HandCoins size={20} />;
   return <ReceiptText size={20} />;
 }
 
@@ -183,7 +169,7 @@ function TableAccountPanelContent({
   const [step, setStep] = useState<PaymentStep>(snapshot?.activePayment ? 'STATUS' : 'SELECTION');
   const [selectionMode, setSelectionMode] = useState<TablePaymentSelectionMode>('MY_ITEMS');
   const [selectedItemIds, setSelectedItemIds] = useState<string[]>([]);
-  const [splitCount, setSplitCount] = useState(2);
+  const [customAmount, setCustomAmount] = useState('');
   const [method, setMethod] = useState<TablePaymentMethod>('PIX');
   const [includeOptionalServiceFee, setIncludeOptionalServiceFee] = useState(true);
   const [showDetails, setShowDetails] = useState(false);
@@ -220,18 +206,10 @@ function TableAccountPanelContent({
         ...(capabilities.allowCard ? (['CARD'] as const) : []),
       ]
     : [];
-  const waiterMethods: TablePaymentMethod[] = [
-    ...(capabilities?.allowCash ? (['CASH'] as const) : []),
-    ...(capabilities?.allowCardMachine ? (['CARD_MACHINE'] as const) : []),
-  ];
-  const availableMethods: TablePaymentMethod[] = [...onlineMethods, ...waiterMethods];
+  const availableMethods: TablePaymentMethod[] = onlineMethods;
   const resolvedMethod = availableMethods.includes(method) ? method : availableMethods[0];
-  const manualMethod = resolvedMethod === 'CASH' || resolvedMethod === 'CARD_MACHINE';
   const selectedMode =
     modeLabels.find((candidate) => candidate.value === selectionMode) || modeLabels[0];
-  const tableHasPaymentInProgress = Boolean(
-    snapshot && (snapshot.summary.reservedCents > 0 || snapshot.summary.processingCents > 0),
-  );
   const myItemsHavePaymentInProgress = myPayableItems.some(
     (item) => item.reservedCents > 0 || item.processingCents > 0,
   );
@@ -246,8 +224,11 @@ function TableAccountPanelContent({
         ? selectableItems
             .filter((item) => selectedPayableIds.includes(item.publicId))
             .reduce((total, item) => total + item.availableCents, 0)
-        : selectionMode === 'EQUAL_SPLIT'
-          ? Math.ceil(availableSubtotalCents / splitCount)
+        : selectionMode === 'CUSTOM_AMOUNT'
+          ? Math.min(
+              Math.max(0, Math.round(Number(customAmount.replace(',', '.')) * 100) || 0),
+              availableSubtotalCents,
+            )
           : availableSubtotalCents;
   const includeEstimatedFee = Boolean(
     capabilities &&
@@ -266,9 +247,9 @@ function TableAccountPanelContent({
       ? myPayableItems.length > 0 && !myItemsHavePaymentInProgress
       : selectionMode === 'SELECTED_ITEMS'
         ? selectedPayableIds.length > 0
-        : selectionMode === 'EQUAL_SPLIT'
-          ? availableSubtotalCents >= splitCount && !tableHasPaymentInProgress
-          : availableSubtotalCents > 0 && !tableHasPaymentInProgress;
+        : selectionMode === 'CUSTOM_AMOUNT'
+          ? estimatedSubtotalCents > 0 && estimatedSubtotalCents <= availableSubtotalCents
+          : availableSubtotalCents > 0;
   const canSubmit = Boolean(
     snapshot &&
     capabilities?.enabled &&
@@ -285,13 +266,7 @@ function TableAccountPanelContent({
     !actionLoading,
   );
   const submitLabel =
-    resolvedMethod === 'CASH'
-      ? 'Solicitar cobrança em dinheiro'
-      : resolvedMethod === 'CARD_MACHINE'
-        ? 'Solicitar maquininha'
-        : resolvedMethod === 'PIX'
-          ? 'Gerar pagamento Pix'
-          : 'Ir para pagamento com cartão';
+    resolvedMethod === 'PIX' ? 'Gerar Pix' : 'Pagar com cartão';
   const canonicalPaymentStatus = activePayment
     ? snapshot?.payments.find((payment) => payment.publicId === activePayment.publicId)?.status ||
       activePayment.status
@@ -340,7 +315,9 @@ function TableAccountPanelContent({
       selectionMode,
       method: resolvedMethod,
       ...(selectionMode === 'SELECTED_ITEMS' ? { billItemPublicIds: selectedPayableIds } : {}),
-      ...(selectionMode === 'EQUAL_SPLIT' ? { splitCount } : {}),
+      ...(selectionMode === 'CUSTOM_AMOUNT'
+        ? { customAmountCents: estimatedSubtotalCents }
+        : {}),
       includeOptionalServiceFee,
     });
     if (!result) return;
@@ -386,13 +363,13 @@ function TableAccountPanelContent({
             <ReceiptText size={24} />
           </span>
           <div>
-            <h2 id="table-account-title">Conta da mesa {String(tableNumber)}</h2>
-            <p>Escolha o que pagar, a forma de pagamento e acompanhe a confirmação.</p>
+            <h2 id="table-account-title">Prévia da comanda • Mesa {String(tableNumber)}</h2>
+            <p>Seu consumo atualizado em tempo real. Pague quando quiser por Pix ou cartão.</p>
           </div>
           <button
             ref={closeButtonRef}
             type="button"
-            aria-label="Fechar conta da mesa"
+            aria-label="Fechar prévia da comanda"
             onClick={onClose}
           >
             <X size={19} />
@@ -402,7 +379,7 @@ function TableAccountPanelContent({
         <S.Scroll>
           {loading && !snapshot ? (
             <S.Loading role="status" aria-live="polite">
-              Atualizando a conta da mesa...
+              Atualizando a comanda da mesa...
             </S.Loading>
           ) : !snapshot ? (
             <S.Alert $error>
@@ -433,11 +410,64 @@ function TableAccountPanelContent({
               </S.StepHeader>
 
               {step !== 'STATUS' && (
-                <S.BalanceHero aria-label="Valor que falta pagar">
-                  <small>Mesa {String(tableNumber)}</small>
-                  <span>Falta pagar</span>
-                  <strong>{formatTableMoney(snapshot.summary.remainingCents)}</strong>
-                </S.BalanceHero>
+                <>
+                  {snapshot.summary.remainingCents === 0 && snapshot.summary.consumedCents > 0 ? (
+                    <S.PaidBanner>
+                      <CheckCircle2 size={22} />
+                      <span>
+                        <strong>Comanda quitada</strong>
+                        <small>Todo o consumo registrado nesta mesa já foi pago.</small>
+                      </span>
+                    </S.PaidBanner>
+                  ) : null}
+                  <S.ReceiptPreview aria-label="Prévia da comanda em tempo real">
+                    <header>
+                      <span>
+                        <small>GastroNexa • consumo em tempo real</small>
+                        <strong>Mesa {String(tableNumber).padStart(2, '0')}</strong>
+                      </span>
+                      <em>{items.length} {items.length === 1 ? 'item' : 'itens'}</em>
+                    </header>
+                    <S.ReceiptRows>
+                      {items.length ? (
+                        items.map((item) => (
+                          <article key={item.publicId}>
+                            <span>
+                              <b>1x {item.productName}</b>
+                              <small>
+                                {item.orderedByDisplayName} • {
+                                  item.financialStatus === 'PAID'
+                                    ? 'pago'
+                                    : item.processingCents > 0 || item.reservedCents > 0
+                                      ? 'em pagamento'
+                                      : 'pendente'
+                                }
+                              </small>
+                            </span>
+                            <strong>{formatTableMoney(item.unitPriceCents)}</strong>
+                          </article>
+                        ))
+                      ) : (
+                        <p>Nenhum consumo lançado nesta mesa ainda.</p>
+                      )}
+                    </S.ReceiptRows>
+                    <S.ReceiptTotals>
+                      <span><small>Consumo</small><b>{formatTableMoney(snapshot.summary.consumedCents)}</b></span>
+                      <span><small>Já pago</small><b>{formatTableMoney(snapshot.summary.netPaidCents)}</b></span>
+                      {snapshot.summary.processingCents > 0 ? (
+                        <span><small>Em confirmação</small><b>{formatTableMoney(snapshot.summary.processingCents)}</b></span>
+                      ) : null}
+                      <span className="remaining">
+                        <small>Saldo restante</small>
+                        <b>{formatTableMoney(snapshot.summary.remainingCents)}</b>
+                      </span>
+                    </S.ReceiptTotals>
+                    <footer>
+                      <RefreshCw size={13} />
+                      Atualiza automaticamente quando alguém pede ou paga.
+                    </footer>
+                  </S.ReceiptPreview>
+                </>
               )}
 
               {step === 'SELECTION' && showDetails && (
@@ -466,10 +496,9 @@ function TableAccountPanelContent({
                   <S.Card>
                     <header>
                       <div>
-                        <h3>Acessos identificados nesta mesa</h3>
+                        <h3>Pessoas nesta comanda</h3>
                         <p>
-                          Cada celular ou navegador recebe uma identificação segura. Reabrir em
-                          outro aparelho pode criar um novo acesso, mesmo sendo a mesma pessoa.
+                          Clientes logados e visitantes aparecem separados para identificar corretamente quem pediu.
                         </p>
                       </div>
                       <span>{snapshot.summary.participantsCount} acessos</span>
@@ -487,6 +516,8 @@ function TableAccountPanelContent({
                           className={participant.publicId === currentParticipantId ? 'current' : ''}
                         >
                           {participant.displayName || 'Cliente da mesa'}
+                          {' • '}
+                          {participant.authenticated ? 'Cliente cadastrado' : 'Visitante'}
                           {participant.publicId === currentParticipantId ? ' • você' : ''}
                         </span>
                       ))}
@@ -539,7 +570,7 @@ function TableAccountPanelContent({
                   onClick={() => setShowDetails((current) => !current)}
                 >
                   <Info size={16} />
-                  {showDetails ? 'Ocultar detalhes da conta' : 'Ver detalhes da conta'}
+                  {showDetails ? 'Ocultar detalhes da comanda' : 'Ver detalhes da comanda'}
                 </S.DetailsToggle>
               )}
 
@@ -559,10 +590,7 @@ function TableAccountPanelContent({
                         <span>
                           <b>Pagamento online indisponível neste restaurante</b>
                           <small>
-                            Pix e cartão online ainda não estão habilitados.{' '}
-                            {waiterMethods.length
-                              ? 'Você ainda pode continuar pelas formas presenciais disponíveis abaixo.'
-                              : 'Peça ajuda à equipe do restaurante para concluir o pagamento.'}
+                            Pix e cartão online ainda não estão habilitados. Peça ajuda à equipe do restaurante.
                           </small>
                         </span>
                       </S.ConfirmationInfo>
@@ -572,10 +600,8 @@ function TableAccountPanelContent({
                       {modeLabels.map((mode) => {
                         const unavailable =
                           actionLoading ||
-                          (mode.value === 'EQUAL_SPLIT' && !capabilities.allowSplit) ||
                           availableMethods.length === 0 ||
-                          ((mode.value === 'EQUAL_SPLIT' || mode.value === 'FULL_ACCOUNT') &&
-                            tableHasPaymentInProgress);
+                          snapshot.summary.remainingCents <= 0;
                         return (
                           <button
                             key={mode.value}
@@ -659,35 +685,26 @@ function TableAccountPanelContent({
                       </S.SelectionBox>
                     )}
 
-                    {selectionMode === 'EQUAL_SPLIT' && (
-                      <S.SplitControl>
-                        <span>
-                          <b>Dividir entre</b>
-                          <small>Cada pessoa paga uma parte igual do saldo disponível.</small>
-                        </span>
+                    {selectionMode === 'CUSTOM_AMOUNT' && (
+                      <S.CustomAmount>
+                        <label htmlFor="table-custom-payment">Quanto deseja pagar?</label>
                         <div>
-                          <button
-                            type="button"
-                            aria-label="Diminuir número de pessoas"
-                            disabled={actionLoading || splitCount <= 2}
-                            onClick={() => setSplitCount((current) => Math.max(2, current - 1))}
-                          >
-                            <Minus size={16} />
-                          </button>
-                          <output aria-live="polite">{splitCount} pessoas</output>
-                          <button
-                            type="button"
-                            aria-label="Aumentar número de pessoas"
-                            disabled={
-                              actionLoading ||
-                              splitCount >= Math.min(100, Math.max(2, availableSubtotalCents))
+                          <span>R$</span>
+                          <input
+                            id="table-custom-payment"
+                            inputMode="decimal"
+                            placeholder="0,00"
+                            value={customAmount}
+                            disabled={actionLoading}
+                            onChange={(event) =>
+                              setCustomAmount(event.target.value.replace(/[^0-9,.]/g, '').slice(0, 12))
                             }
-                            onClick={() => setSplitCount((current) => Math.min(100, current + 1))}
-                          >
-                            <Plus size={16} />
-                          </button>
+                          />
                         </div>
-                      </S.SplitControl>
+                        <small>
+                          Disponível para pagamento: {formatTableMoney(availableSubtotalCents)}
+                        </small>
+                      </S.CustomAmount>
                     )}
 
                     {!canPaySelection && (
@@ -720,7 +737,7 @@ function TableAccountPanelContent({
                           <small>Sua escolha</small>
                           <b>{selectedMode.title}</b>
                         </span>
-                        {selectionMode === 'EQUAL_SPLIT' && <em>{splitCount} pessoas</em>}
+                        {selectionMode === 'CUSTOM_AMOUNT' && <em>Pagamento parcial</em>}
                       </header>
                       <div>
                         <span>
@@ -736,15 +753,7 @@ function TableAccountPanelContent({
                           <b>{formatTableMoney(estimatedTotalCents)}</b>
                         </span>
                       </div>
-                      {selectionMode === 'FULL_ACCOUNT' && (
-                        <S.ContextNote>
-                          <Clock3 size={16} />
-                          <span>
-                            A conta completa fica reservada até a confirmação. Outros pagamentos
-                            devem aguardar a conclusão desta tentativa.
-                          </span>
-                        </S.ContextNote>
-                      )}
+
                     </S.ReviewSummary>
                     <S.MethodHeading>
                       <div>
@@ -779,18 +788,12 @@ function TableAccountPanelContent({
                       <S.Empty>Nenhuma forma de pagamento está habilitada para esta opção.</S.Empty>
                     )}
 
-                    <S.ConfirmationInfo $manual={manualMethod}>
-                      {manualMethod ? <Users size={18} /> : <Clock3 size={18} />}
+                    <S.ConfirmationInfo>
+                      <Clock3 size={18} />
                       <span>
-                        <b>
-                          {manualMethod
-                            ? 'Confirmação feita pela equipe'
-                            : 'Confirmação automática em tempo real'}
-                        </b>
+                        <b>Confirmação automática em tempo real</b>
                         <small>
-                          {manualMethod
-                            ? 'Dinheiro e maquininha só aparecem como pagos depois que o garçom recebe e confirma no painel. Isso evita baixas incorretas.'
-                            : 'Depois de concluir o Pix ou o cartão, o status fica Processando até o provedor confirmar. Em seguida a conta muda para Pago automaticamente.'}
+                          Assim que o Mercado Pago confirmar, o valor é abatido da comanda e todos os participantes recebem o novo saldo.
                         </small>
                       </span>
                     </S.ConfirmationInfo>

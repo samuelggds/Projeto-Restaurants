@@ -2,7 +2,7 @@ export type TableAccountStatus = 'OPEN' | 'CLOSING_REQUESTED' | 'CLOSED';
 export type TablePaymentStatus =
   'RESERVED' | 'PROCESSING' | 'PAID' | 'FAILED' | 'EXPIRED' | 'CANCELED' | 'REFUNDED';
 export type TablePaymentSelectionMode =
-  'MY_ITEMS' | 'SELECTED_ITEMS' | 'EQUAL_SPLIT' | 'FULL_ACCOUNT' | 'WAITER';
+  'MY_ITEMS' | 'SELECTED_ITEMS' | 'CUSTOM_AMOUNT' | 'EQUAL_SPLIT' | 'FULL_ACCOUNT' | 'WAITER';
 export type TablePaymentMethod = 'PIX' | 'CARD' | 'CASH' | 'CARD_MACHINE';
 export type TableServiceFeeMode = 'DISABLED' | 'OPTIONAL' | 'MANDATORY';
 
@@ -39,6 +39,7 @@ export type TableAccountSnapshot = {
   participants: Array<{
     publicId: string;
     displayName: string | null;
+    authenticated?: boolean;
     status: 'ACTIVE' | 'LEFT';
     joinedAt: string;
     leftAt: string | null;
@@ -74,6 +75,7 @@ export type TablePaymentDraft = {
   method: TablePaymentMethod;
   billItemPublicIds?: string[];
   splitCount?: number;
+  customAmountCents?: number;
   includeOptionalServiceFee?: boolean;
 };
 
@@ -123,6 +125,9 @@ export function buildTablePaymentPayload(draft: TablePaymentDraft) {
       ? { billItemPublicIds: [...(draft.billItemPublicIds || [])] }
       : {}),
     ...(draft.selectionMode === 'EQUAL_SPLIT' ? { splitCount: draft.splitCount } : {}),
+    ...(draft.selectionMode === 'CUSTOM_AMOUNT'
+      ? { customAmountCents: draft.customAmountCents }
+      : {}),
     includeOptionalServiceFee: Boolean(draft.includeOptionalServiceFee),
   };
 }

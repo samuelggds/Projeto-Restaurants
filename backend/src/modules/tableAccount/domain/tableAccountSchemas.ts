@@ -87,6 +87,7 @@ export const createTablePaymentIntentInputSchema = z
     method: z.enum(TABLE_PAYMENT_METHODS),
     billItemPublicIds: z.array(publicIdSchema).min(1).max(100).optional(),
     splitCount: z.number().int().min(2).max(100).optional(),
+    customAmountCents: moneyCentsSchema.refine((value) => value > 0, 'Informe um valor maior que zero.').optional(),
     includeOptionalServiceFee: z.boolean().optional().default(false),
     idempotencyKey: idempotencyKeySchema,
   })
@@ -132,6 +133,22 @@ export const createTablePaymentIntentInputSchema = z
         code: z.ZodIssueCode.custom,
         path: ['splitCount'],
         message: 'A quantidade de pessoas só pode ser enviada na divisão igual.',
+      });
+    }
+
+    if (input.selectionMode === 'CUSTOM_AMOUNT' && !input.customAmountCents) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['customAmountCents'],
+        message: 'Informe quanto deseja pagar.',
+      });
+    }
+
+    if (input.selectionMode !== 'CUSTOM_AMOUNT' && input.customAmountCents) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['customAmountCents'],
+        message: 'O valor livre só pode ser enviado na opção Outro valor.',
       });
     }
 
