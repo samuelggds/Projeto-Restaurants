@@ -89,6 +89,12 @@ export default function Login() {
   const recoverPasswordPath = buildAuthEntryUrl('/recover-password', contextualSearchParams);
   const changePasswordPath = buildAuthEntryUrl('/change-password', contextualSearchParams);
   const isTableContext = !isTechnicalAccess && authExperience.context === 'TABLE';
+
+  useEffect(() => {
+    if (!isTableContext) return;
+    navigate(safeNextPath || '/', { replace: true });
+  }, [isTableContext, navigate, safeNextPath]);
+
   const showCustomerSelfService =
     !isTechnicalAccess && !isAdminAccess && !isStaffAccess && (isCustomerAccess || portal === 'GENERIC');
   const { login } = useAuth();
@@ -540,6 +546,8 @@ export default function Login() {
           : isCustomerAccess
             ? `Acesse sua conta para continuar no ${branding.name}.`
             : `Acesse sua conta para continuar no ${branding.name}.`;
+
+  if (isTableContext) return null;
 
   return (
     <ThemeProvider
