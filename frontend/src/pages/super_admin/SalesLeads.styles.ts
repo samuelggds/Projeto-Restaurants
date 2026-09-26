@@ -288,3 +288,305 @@ export const StatusForm = styled.form`
     }
   }
 `;
+
+
+export const WhatsappPanel = styled.section`
+  display: grid;
+  gap: 18px;
+  min-width: 0;
+
+  textarea {
+    box-sizing: border-box;
+    width: 100%;
+    min-width: 0;
+    resize: vertical;
+    border: 1px solid var(--border, #dfe5dd);
+    border-radius: 12px;
+    padding: 12px 13px;
+    background: #fff;
+    color: var(--ink, #1c3028);
+    font: inherit;
+    line-height: 1.55;
+  }
+
+  textarea:focus-visible {
+    outline: 3px solid var(--focus, #63836b);
+    outline-offset: 3px;
+    border-color: var(--brand, #233f32);
+  }
+`;
+
+export const WhatsappGrid = styled.div`
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+  min-width: 0;
+
+  @media (max-width: 850px) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+`;
+
+export const ConnectionState = styled.div<{ $connected: boolean }>`
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  border: 1px solid ({ $connected }) => ($connected ? '#bcd8c1' : '#dfe5dd');
+  border-radius: 14px;
+  padding: 14px;
+  background: ({ $connected }) => ($connected ? '#f0f8f1' : '#f8faf7');
+
+  > svg {
+    width: 22px;
+    height: 22px;
+    color: ({ $connected }) => ($connected ? '#2f6a3f' : '#738075');
+  }
+
+  > span {
+    display: grid;
+    gap: 2px;
+  }
+
+  small,
+  em {
+    color: var(--muted, #637169);
+    font-size: 11px;
+    font-style: normal;
+  }
+
+  strong {
+    color: var(--ink, #1c3028);
+    font-size: 14px;
+  }
+`;
+
+export const QrBox = styled.div`
+  display: grid;
+  justify-items: center;
+  gap: 10px;
+  border: 1px dashed #cfd8ca;
+  border-radius: 14px;
+  padding: 16px;
+  background: #fbfcf9;
+  text-align: center;
+
+  img {
+    width: min(260px, 100%);
+    height: auto;
+    aspect-ratio: 1;
+    object-fit: contain;
+    background: #fff;
+    border-radius: 10px;
+  }
+
+  p {
+    margin: 0;
+    color: var(--muted, #637169);
+    font-size: 12px;
+    line-height: 1.6;
+  }
+`;
+
+export const ScheduleList = styled.div`
+  display: grid;
+  gap: 10px;
+
+  .schedule-day {
+    display: grid;
+    grid-template-columns: minmax(130px, 0.55fr) minmax(0, 2fr);
+    align-items: start;
+    gap: 14px;
+    border-top: 1px solid #edf0e9;
+    padding-top: 12px;
+  }
+
+  .day-toggle,
+  .period label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .periods {
+    display: grid;
+    gap: 8px;
+  }
+
+  .period {
+    display: grid;
+    grid-template-columns: minmax(90px, auto) 120px auto 120px;
+    align-items: center;
+    gap: 8px;
+  }
+
+  input[type='time'] {
+    min-width: 0;
+    width: 100%;
+    height: 40px;
+    border: 1px solid var(--border, #dfe5dd);
+    border-radius: 10px;
+    padding: 0 9px;
+    background: #fff;
+    color: var(--ink, #1c3028);
+  }
+
+  input:disabled {
+    opacity: 0.55;
+    background: #f3f5f1;
+  }
+
+  @media (max-width: 720px) {
+    .schedule-day {
+      grid-template-columns: minmax(0, 1fr);
+    }
+
+    .period {
+      grid-template-columns: minmax(90px, 1fr) minmax(0, 1fr) auto minmax(0, 1fr);
+    }
+  }
+
+  @media (max-width: 480px) {
+    .period {
+      grid-template-columns: 1fr 1fr;
+    }
+
+    .period > span {
+      display: none;
+    }
+  }
+`;
+
+export const ConversationLayout = styled.div`
+  display: grid;
+  grid-template-columns: minmax(210px, 0.7fr) minmax(0, 2fr);
+  gap: 16px;
+  min-width: 0;
+
+  > nav {
+    display: grid;
+    align-content: start;
+    gap: 8px;
+    max-height: 560px;
+    overflow: auto;
+  }
+
+  > nav > button {
+    display: grid;
+    gap: 3px;
+    min-width: 0;
+    border: 1px solid var(--border, #dfe5dd);
+    border-radius: 12px;
+    padding: 11px 12px;
+    background: #fbfcf9;
+    color: var(--ink, #1c3028);
+    text-align: left;
+    cursor: pointer;
+  }
+
+  > nav > button.active {
+    border-color: #9eb499;
+    background: #edf4e8;
+  }
+
+  > nav small,
+  > nav time {
+    color: var(--muted, #637169);
+    font-size: 10px;
+    line-height: 1.5;
+  }
+
+  > section {
+    min-width: 0;
+    border: 1px solid var(--border, #dfe5dd);
+    border-radius: 14px;
+    overflow: hidden;
+    background: #fff;
+  }
+
+  @media (max-width: 800px) {
+    grid-template-columns: minmax(0, 1fr);
+
+    > nav {
+      max-height: 220px;
+    }
+  }
+`;
+
+export const ConversationToolbar = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px;
+  border-bottom: 1px solid var(--border, #dfe5dd);
+  background: #f8faf7;
+
+  > span {
+    display: grid;
+    gap: 3px;
+  }
+
+  small {
+    color: var(--muted, #637169);
+    font-size: 11px;
+  }
+
+  @media (max-width: 560px) {
+    align-items: stretch;
+    flex-direction: column;
+  }
+`;
+
+export const MessageList = styled.div`
+  display: grid;
+  gap: 10px;
+  min-height: 180px;
+  max-height: 420px;
+  overflow: auto;
+  padding: 16px;
+  background: #f5f7f2;
+
+  > div {
+    width: fit-content;
+    max-width: min(82%, 640px);
+    border: 1px solid #dfe5dd;
+    border-radius: 14px;
+    padding: 10px 12px;
+    background: #fff;
+  }
+
+  > div.outbound {
+    justify-self: end;
+    border-color: #bed0b7;
+    background: #eaf3e5;
+  }
+
+  small {
+    display: block;
+    margin-bottom: 5px;
+    color: var(--muted, #637169);
+    font-size: 10px;
+  }
+
+  p {
+    margin: 0;
+    color: var(--ink, #1c3028);
+    font-size: 12px;
+    line-height: 1.6;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+  }
+`;
+
+export const ReplyBox = styled.div`
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 10px;
+  padding: 14px;
+  border-top: 1px solid var(--border, #dfe5dd);
+
+  @media (max-width: 520px) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+`;

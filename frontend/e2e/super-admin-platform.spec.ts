@@ -28,7 +28,7 @@ test('contatos comerciais têm filtros, paginação e atualização de status no
     updatedAt: '2026-09-10T12:00:00.000Z',
   };
   const queries: string[] = [];
-  await page.route('**/super-admin/sales-leads**', async (route) => {
+  await page.route(/\/super-admin\/sales-leads(?:\/[^/?]+\/status)?(?:\?.*)?$/, async (route) => {
     const url = new URL(route.request().url());
     if (route.request().method() === 'PATCH') {
       expect(route.request().postDataJSON()).toEqual({ status: 'CONTACTED' });
@@ -366,6 +366,47 @@ async function mockSuperAdminApi(
         status: 201,
         contentType: 'application/json',
         body: JSON.stringify(supportMessages.at(-1)),
+      });
+      return;
+    }
+
+    if (pathname === '/super-admin/sales-leads/commercial-whatsapp/settings' && method === 'GET') {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          enabled: true,
+          hours: [],
+          awayMessage: 'Recebemos sua mensagem e responderemos no próximo horário de atendimento.',
+          timezone: 'America/Sao_Paulo',
+        }),
+      });
+      return;
+    }
+    if (pathname === '/super-admin/sales-leads/commercial-whatsapp/connection' && method === 'GET') {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          configured: false,
+          provider: 'EVOLUTION',
+          status: 'DISCONNECTED',
+          phone: null,
+          connectedAt: null,
+          disconnectedAt: null,
+          lastWebhookAt: null,
+        }),
+      });
+      return;
+    }
+    if (
+      pathname === '/super-admin/sales-leads/commercial-whatsapp/conversations' &&
+      method === 'GET'
+    ) {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: '[]',
       });
       return;
     }
@@ -803,7 +844,7 @@ for (const width of [320, 900, 1440]) {
     const writes: Array<{ path: string; body: Record<string, unknown> }> = [];
     await page.setViewportSize({ width, height: 1000 });
     await mockSuperAdminApi(page, state, writes);
-    await page.route('**/super-admin/sales-leads**', (route) =>
+    await page.route(/\/super-admin\/sales-leads(?:\?.*)?$/, (route) =>
       route.fulfill({
         json: { items: [], total: 0, page: 1, pageSize: 20, emailConfigured: true },
       }),
