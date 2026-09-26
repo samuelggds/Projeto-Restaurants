@@ -10,6 +10,8 @@ import {
   X,
 } from 'lucide-react';
 import type { CheckoutPaymentMethod } from '../domain/checkout';
+import { OnlineCardPaymentForm } from './OnlineCardPaymentForm';
+import { setCardPaymentPreparer } from '../domain/cardPaymentPreparation';
 import * as S from './TableOrderContinuationModal.styles';
 
 type Props = {
@@ -20,6 +22,8 @@ type Props = {
   allowPix: boolean;
   allowCard: boolean;
   paymentMethod: Extract<CheckoutPaymentMethod, 'pix' | 'card'>;
+  restaurantId: number | null;
+  payerEmail?: string;
   busy: boolean;
   onPaymentMethodChange: (method: Extract<CheckoutPaymentMethod, 'pix' | 'card'>) => void;
   onChooseAccount: () => void;
@@ -36,6 +40,8 @@ function OpenTableOrderContinuationModal({
   allowPix,
   allowCard,
   paymentMethod,
+  restaurantId,
+  payerEmail,
   busy,
   onPaymentMethodChange,
   onChooseAccount,
@@ -108,6 +114,13 @@ function OpenTableOrderContinuationModal({
                     </button>
                   )}
                 </S.PaymentMethods>
+                {paymentMethod === 'card' && allowCard && restaurantId ? (
+                  <OnlineCardPaymentForm
+                    restaurantId={restaurantId}
+                    payerEmail={payerEmail}
+                    onPreparerChange={setCardPaymentPreparer}
+                  />
+                ) : null}
                 <S.PaymentNotice>
                   <Clock3 size={17} />
                   <span>
