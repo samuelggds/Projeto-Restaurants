@@ -61,7 +61,7 @@ test('retry repete somente conflito de serialização/índice da tentativa e tem
     ),
     { statusCode: 409 },
   );
-  assert.equal(calls, 4);
+  assert.equal(calls, 7);
   const unrelated = { code: 'P2002', meta: { target: ['pixPaymentId'] } };
   await assert.rejects(
     retryOrderTransaction(async () => {
