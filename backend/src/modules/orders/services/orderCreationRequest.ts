@@ -94,13 +94,13 @@ export async function retryOrderTransaction<T>(
         candidate?.code === 'P2002' &&
         JSON.stringify(candidate.meta?.target || '').includes('creationRequestKey');
       if (candidate?.code !== 'P2034' && !requestCollision) throw error;
-      if (attempt >= 3)
+      if (attempt >= 6)
         throw new OrderRequestError(
           'O pedido encontrou uma atualização simultânea. Tente novamente.',
           409,
           'ORDER_TRANSACTION_CONFLICT',
         );
-      await pause(25 * 2 ** attempt + Math.floor(Math.random() * 25));
+      await pause(Math.min(400, 25 * 2 ** attempt) + Math.floor(Math.random() * 40));
     }
   }
 }
