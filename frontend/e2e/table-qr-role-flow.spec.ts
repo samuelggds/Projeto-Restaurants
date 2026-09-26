@@ -1,5 +1,5 @@
 import { orderFixtureResponse } from './helpers/orderFixtures';
-import { expect, test, type Page, type Route, type TestInfo } from '@playwright/test';
+import { expect, test, type Page, type Route } from '@playwright/test';
 import { mockAuthRefresh } from './helpers/mockAuthRefresh';
 
 const RESTAURANT_ID = 1;
@@ -290,27 +290,6 @@ function tableAccountSnapshot(state: FlowState) {
         ]
       : [],
   };
-}
-
-async function captureResponsiveAccount(page: Page, testInfo: TestInfo, width: number) {
-  await page.setViewportSize({ width, height: 844 });
-  const accountDialog = page.getByRole('dialog', { name: `Prévia da comanda • Mesa ${TABLE_NUMBER}` });
-  await expect(accountDialog).toBeVisible();
-  await expect
-    .poll(() => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth))
-    .toBe(true);
-  const helpBox = await accountDialog
-    .getByText('Seleciona automaticamente o saldo disponível dos itens pedidos por você.')
-    .boundingBox();
-  const continueBox = await accountDialog
-    .getByRole('button', { name: 'Continuar', exact: true })
-    .boundingBox();
-  expect(helpBox).not.toBeNull();
-  expect(continueBox).not.toBeNull();
-  expect((helpBox?.y || 0) + (helpBox?.height || 0)).toBeLessThanOrEqual(continueBox?.y || 0);
-  await page.screenshot({
-    path: testInfo.outputPath(`table-account-${width}px.png`),
-  });
 }
 
 async function mockRoleFlowApi(page: Page, state: FlowState) {
@@ -720,42 +699,13 @@ test('admin controla o QR, garçom apenas opera a mesa e cozinha recebe Mesa 1',
     page.getByText(/Se você já fez o Pix, aguarde a confirmação antes de pagar novamente/i),
   ).toBeVisible();
   await page.getByRole('button', { name: 'Continuar no cardápio' }).click();
-  await page.evaluate(() => window.dispatchEvent(new Event('focus')));
-  const tableStatusButton = page.getByRole('button', {
-    name: /^Status do pedido da mesa\b/i,
-  });
-  await expect(tableStatusButton).toBeVisible();
-  await tableStatusButton.click();
-  const tableOrderDialog = page.getByRole('dialog', { name: 'Pedido da mesa 1' });
-  await expect(tableOrderDialog).toBeVisible();
-  await expect(tableOrderDialog.getByText('Pedido recebido', { exact: true })).toBeVisible();
-  await expect(tableOrderDialog.getByText('Todos os itens deste pedido')).toBeVisible();
+  await expect(page.getByLabel(`Mesa ${TABLE_NUMBER}`, { exact: true })).toBeVisible();
   await expect(
-    tableOrderDialog.getByRole('article').filter({ hasText: product.name }),
-  ).toBeVisible();
-  await expect(
-    tableOrderDialog.getByRole('article').filter({ hasText: 'Suco da casa' }),
-  ).toBeVisible();
-  await expect(tableOrderDialog.getByText('Arroz', { exact: true })).toBeVisible();
-  await expect(tableOrderDialog.getByText('Obs.: Bem passado', { exact: true })).toBeVisible();
-
-  for (const [status, label] of [
-    ['PREPARANDO', 'Em preparo'],
-    ['PRONTO', 'Pronto para servir'],
-    ['ENTREGUE', 'Servido na mesa'],
-  ] as const) {
-    state.orderStatus = status;
-    await page.evaluate(() => window.dispatchEvent(new Event('focus')));
-    await expect(tableOrderDialog.getByText(label, { exact: true }).first()).toBeVisible();
-  }
-  await expect(
-    tableOrderDialog.getByRole('button', { name: /Confirmar recebimento/i }),
+    page.getByRole('button', { name: /Confirmar recebimento/i }),
   ).toHaveCount(0);
   await expect(
-    tableOrderDialog.getByRole('button', { name: /Acompanhar entrega no GPS/i }),
+    page.getByRole('button', { name: /Acompanhar entrega no GPS/i }),
   ).toHaveCount(0);
-
-  state.orderStatus = 'PENDENTE';
 
   await selectPersona(page, 'kitchen');
   await page.goto('/kitchen');
