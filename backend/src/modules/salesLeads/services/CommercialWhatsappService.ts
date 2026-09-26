@@ -26,6 +26,19 @@ function digitsOnly(value: unknown) {
   return String(value || '').replace(/\D/gu, '');
 }
 
+function normalizeBrazilWhatsappNumber(value: unknown) {
+  const digits = digitsOnly(value);
+  if (/^\d{10,11}$/u.test(digits)) return `55${digits}`;
+  return digits;
+}
+
+function localBrazilPhone(value: unknown) {
+  const digits = digitsOnly(value);
+  return digits.startsWith('55') && (digits.length === 12 || digits.length === 13)
+    ? digits.slice(2)
+    : digits;
+}
+
 function hashSecret(value: string) {
   return createHash('sha256').update(value).digest();
 }
@@ -232,8 +245,8 @@ export async function sendPlatformWhatsappText(destination: string, message: str
   if (!row || row.status !== 'CONNECTED') {
     throw new Error('WhatsApp comercial da GastroNexa não está conectado.');
   }
-  const number = digitsOnly(destination);
-  if (!/^\d{10,15}$/u.test(number)) throw new Error('Número de WhatsApp inválido.');
+  const number = normalizeBrazilWhatsappNumber(destination);
+  if (!/^\d{12,15}$/u.test(number)) throw new Error('Número de WhatsApp inválido.');
   const text = String(message || '').trim();
   if (!text || text.length > 4000) throw new Error('Mensagem comercial inválida.');
   await evolutionRequest(`/message/sendText/${encodeURIComponent(row.externalInstanceId)}`, {
@@ -421,8 +434,9 @@ export async function processPlatformEvolutionInbound(
   const text = inboundText(body);
   if (!text) return { accepted: true, queued: false } as const;
 
+  const leadPhone = localBrazilPhone(phone);
   const lead = await prisma.salesLead.findFirst({
-    where: { phone },
+    where: { phone: { in: [phone, leadPhone] } },
     orderBy: { createdAt: 'desc' },
     select: { id: true },
   });
@@ -497,9 +511,10 @@ export async function enqueueLeadWhatsappGreeting(leadId: string) {
   const settings = await prisma.platformSettings.findUnique({ where: { id: 1 } });
   if (!settings?.commercialWhatsappEnabled) return { queued: false, reason: 'disabled' } as const;
 
+  const whatsappPhone = normalizeBrazilWhatsappNumber(lead.phone);
   const conversation = await prisma.salesLeadWhatsappConversation.upsert({
-    where: { phone: lead.phone },
-    create: { id: randomUUID(), phone: lead.phone },
+    where: { phone: whatsappPhone },
+    create: { id: randomUUID(), phone: whatsappPhone },
     update: {},
   });
   const key = createHash('sha256').update(`FORM_GREETING:${lead.id}`).digest('hex');
@@ -521,6 +536,7 @@ export async function enqueueLeadWhatsappGreeting(leadId: string) {
     },
     update: {},
   });
+  await deliverPlatformWhatsappOutbox();
   return { queued: true } as const;
 }
 
