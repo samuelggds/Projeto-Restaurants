@@ -215,7 +215,10 @@ function TableAccountPanelContent({
   );
   const capabilities = snapshot?.capabilities;
   const onlineMethods: TablePaymentMethod[] = capabilities?.allowOnlinePayment
-    ? ['PIX', 'CARD']
+    ? [
+        ...(capabilities.allowPix ? (['PIX'] as const) : []),
+        ...(capabilities.allowCard ? (['CARD'] as const) : []),
+      ]
     : [];
   const waiterMethods: TablePaymentMethod[] = [
     ...(capabilities?.allowCash ? (['CASH'] as const) : []),
