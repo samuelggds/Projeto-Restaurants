@@ -54,6 +54,7 @@ model User {
   closingRequestedTableSessions TableSession[]               @relation("ClosingRequestedTableSessions")
   forceClosedTableSessions      TableSession[]               @relation("ForceClosedTableSessions")
   tableParticipants             TableParticipant[]
+  tableAccessRequests           TableAccessRequest[]
   restaurant                    Restaurant?                  @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
   supportChatMessages           SupportChatMessage[]
   productFavorites              ProductFavorite[]
@@ -78,6 +79,7 @@ model User {
 
   @@unique([id, restaurantId])
   @@unique([restaurantId, username])
+  tableAccessRequestsDecided TableAccessRequest[] @relation("TableAccessRequestDecidedBy")
 }
 
 /// Configuracao publica e operacional da plataforma. Segredos e politicas que
@@ -790,6 +792,7 @@ model Table {
   orders        Order[]
   restaurant    Restaurant         @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
   tableSessions TableSession[]
+  accessRequests       TableAccessRequest[]
   serviceCalls  TableServiceCall[]
 
   @@unique([restaurantId, number])
@@ -824,6 +827,7 @@ model TableSession {
   table                Table                    @relation(fields: [tableId, restaurantId], references: [id, restaurantId], onDelete: Cascade)
   serviceCalls         TableServiceCall[]
   participants         TableParticipant[]
+  accessRequests       TableAccessRequest[]
   orders               Order[]
   billItems            TableBillItem[]
   paymentIntents       TablePaymentIntent[]
@@ -853,6 +857,10 @@ model TableAccessRequest {
   consumedAt       DateTime?
   createdAt        DateTime                 @default(now())
   updatedAt        DateTime                 @updatedAt
+  restaurant       Restaurant               @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  table            Table                    @relation(fields: [tableId, restaurantId], references: [id, restaurantId], onDelete: Cascade)
+  tableSession     TableSession             @relation(fields: [tableSessionId, restaurantId], references: [id, restaurantId], onDelete: Cascade)
+  decidedBy        User?                    @relation("TableAccessRequestDecidedBy", fields: [decidedById], references: [id], onDelete: SetNull)
 
   @@index([restaurantId, status, createdAt])
   @@index([tableSessionId, status])
