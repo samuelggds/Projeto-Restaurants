@@ -541,8 +541,22 @@ export async function enqueueLeadWhatsappGreeting(leadId: string) {
 }
 
 export async function deliverPlatformWhatsappOutbox() {
-  const row = await connection();
-  if (!row || row.status !== 'CONNECTED') return { processed: 0, sent: 0, configured: false };
+  let row = await connection();
+  if (!row) return { processed: 0, sent: 0, configured: false };
+
+  if (row.status !== 'CONNECTED') {
+    try {
+      await refreshPlatformWhatsappConnection();
+      row = await connection();
+    } catch {
+      return { processed: 0, sent: 0, configured: true };
+    }
+  }
+
+  if (!row || row.status !== 'CONNECTED') {
+    return { processed: 0, sent: 0, configured: true };
+  }
+
   const lockToken = randomUUID();
   const rows = await prisma.$queryRaw<
     { id: string; conversationId: string; kind: string; body: string; attempts: number; phone: string }[]
