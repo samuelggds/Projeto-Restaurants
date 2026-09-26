@@ -35,8 +35,10 @@ function digitsOnly(value: unknown) {
 }
 
 function evolutionBaseUrl() {
-  const configured = env('EVOLUTION_API_URL');
-  if (!configured) throw new Error('EVOLUTION_API_URL não configurada.');
+  const configured = env('EVOLUTION_TENANT_API_URL') || env('EVOLUTION_API_URL');
+  if (!configured) {
+    throw new Error('EVOLUTION_TENANT_API_URL não configurada para os WhatsApps dos restaurantes.');
+  }
   const url = new URL(configured);
   if (!['http:', 'https:'].includes(url.protocol) || url.username || url.password) {
     throw new Error('EVOLUTION_API_URL inválida.');
@@ -45,8 +47,10 @@ function evolutionBaseUrl() {
 }
 
 function globalApiKey() {
-  const value = env('EVOLUTION_API_KEY');
-  if (!value) throw new Error('EVOLUTION_API_KEY não configurada.');
+  const value = env('EVOLUTION_TENANT_API_KEY') || env('EVOLUTION_API_KEY');
+  if (!value) {
+    throw new Error('EVOLUTION_TENANT_API_KEY não configurada para os WhatsApps dos restaurantes.');
+  }
   return value;
 }
 
@@ -363,6 +367,9 @@ export async function processTenantEvolutionInbound(
 ) {
   const instanceName = String(instanceNameInput || '').trim();
   const webhookToken = String(webhookTokenInput || '').trim();
+  if (!/^gastronexa-\d+$/u.test(instanceName)) {
+    return { accepted: false, status: 404, reason: 'wrong_tenant_instance' } as const;
+  }
   const body = bodyInput && typeof bodyInput === 'object' && !Array.isArray(bodyInput)
     ? (bodyInput as JsonRecord)
     : {};
