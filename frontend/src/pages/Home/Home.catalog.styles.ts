@@ -46,8 +46,10 @@ export const HomeExperience = styled.div<{
   ${({ $tableMenu }) =>
     $tableMenu &&
     `
+      padding-bottom: 94px;
+
       @media (max-width: 700px) {
-        padding-bottom: 58px;
+        padding-bottom: calc(92px + env(safe-area-inset-bottom, 0px));
       }
     `}
 `;
