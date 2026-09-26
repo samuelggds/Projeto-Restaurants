@@ -25,6 +25,7 @@ import AsaasWithdrawValidationWebhookController from '../modules/restaurantSetti
 import GupshupInboundWebhookController from '../modules/restaurantSettings/controllers/GupshupInboundWebhookController.js';
 import ZapiInboundWebhookController from '../modules/restaurantSettings/controllers/ZapiInboundWebhookController.js';
 import EvolutionInboundWebhookController from '../modules/restaurantSettings/controllers/EvolutionInboundWebhookController.js';
+import PlatformEvolutionInboundWebhookController from '../modules/salesLeads/controllers/PlatformEvolutionInboundWebhookController.js';
 import ingredientRoutes from '../modules/ingredients/routes/ingredientRoutes.js';
 import tableServiceCallRoutes from '../modules/waiterCalls/routes/TableServiceCallRoutes.js';
 import tableAccountRoutes from '../modules/tableAccount/routes/TableAccountRoutes.js';
@@ -65,6 +66,10 @@ router.post('/api/webhooks/zapi/inbound/:instanceId', (req, res) => {
 
 router.post('/api/webhooks/evolution/inbound/:instanceName', (req, res) => {
   EvolutionInboundWebhookController.handle(req, res);
+});
+
+router.post('/api/webhooks/evolution/platform/:instanceName', (req, res) => {
+  PlatformEvolutionInboundWebhookController.handle(req, res);
 });
 
 router.use('/auth', authRoutes);
