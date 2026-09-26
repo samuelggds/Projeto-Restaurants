@@ -1,6 +1,6 @@
 import { addDemoSupportMessage } from './demoSupport';
 import { reprintDemoOrder } from './demoPrinting';
-import { confirmDemoTablePayment } from './demoTableAccount';
+import { confirmDemoTablePayment, demoTableAccount } from './demoTableAccount';
 import { KitchenModule } from '../../kitchen/KitchenModule';
 import { WaiterModule } from '../../waiter/WaiterModule';
 import { useState } from 'react';
@@ -148,8 +148,25 @@ export function DemoWaiter({ state, onState, onLogout, initialWaiterView }: Prop
         getAdminSnapshot: async (id) => {
           const account = accounts.find((item) => item.sessionPublicId === id);
           if (!account) throw new Error('Mesa fictícia não encontrada.');
+          const snapshot = demoTableAccount(state, account.tableNumber, tableAccount);
           return {
             summary: account.summary,
+            participants: snapshot.participants.map((participant) => ({
+              publicId: participant.publicId,
+              displayName: participant.displayName,
+              authenticated: participant.authenticated === true,
+              status: participant.status,
+            })),
+            items: snapshot.items.map((item) => ({
+              publicId: item.publicId,
+              productName: item.productName,
+              unitPriceCents: item.unitPriceCents,
+              paidCents: item.paidCents,
+              processingCents: item.processingCents,
+              reservedCents: item.reservedCents,
+              financialStatus: item.financialStatus,
+              orderedByDisplayName: item.orderedByDisplayName,
+            })),
             paymentIntents: account.pendingManualPayments.map((payment) => ({
               ...payment,
               manualConfirmedAt: null,
