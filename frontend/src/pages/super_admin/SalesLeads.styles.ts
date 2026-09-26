@@ -950,3 +950,16 @@ export const ReplyBox = styled.div`
     }
   }
 `;
+
+
+export const SaveFeedback = styled.p`
+  margin: 0;
+  padding: 10px 12px;
+  border: 1px solid #cfe0cb;
+  border-radius: 10px;
+  background: #f3f8f0;
+  color: #45604b;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1.5;
+`;
