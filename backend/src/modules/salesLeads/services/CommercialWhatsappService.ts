@@ -296,22 +296,44 @@ async function enqueueAutoReply(
 ) {
   const now = new Date();
   const since = new Date(now.getTime() - AUTO_REPLY_COOLDOWN_MS);
-  const recent = await prisma.salesLeadWhatsappMessage.findFirst({
-    where: {
-      conversationId,
-      direction: 'OUTBOUND',
-      automated: true,
-      kind,
-      createdAt: { gte: since },
-    },
-    select: { id: true },
-  });
-  if (recent) return { queued: false, reason: 'cooldown' } as const;
+  const [recentMessage, recentQueued] = await Promise.all([
+    prisma.salesLeadWhatsappMessage.findFirst({
+      where: {
+        conversationId,
+        direction: 'OUTBOUND',
+        automated: true,
+        kind,
+        createdAt: { gte: since },
+      },
+      select: { id: true },
+    }),
+    prisma.salesLeadWhatsappOutbox.findFirst({
+      where: {
+        conversationId,
+        kind,
+        status: { in: ['PENDING', 'SENT'] },
+        createdAt: { gte: since },
+      },
+      select: { id: true },
+    }),
+  ]);
+  if (recentMessage || recentQueued) return { queued: false, reason: 'cooldown' } as const;
 
   const dayStart = new Date(now.getTime() - 24 * 60 * 60 * 1000);
-  const automatedCount = await prisma.salesLeadWhatsappMessage.count({
-    where: { conversationId, direction: 'OUTBOUND', automated: true, createdAt: { gte: dayStart } },
-  });
+  const [automatedSentCount, automatedQueuedCount] = await Promise.all([
+    prisma.salesLeadWhatsappMessage.count({
+      where: { conversationId, direction: 'OUTBOUND', automated: true, createdAt: { gte: dayStart } },
+    }),
+    prisma.salesLeadWhatsappOutbox.count({
+      where: {
+        conversationId,
+        kind: { in: ['GREETING', 'AWAY', 'FORM_GREETING'] },
+        status: { in: ['PENDING', 'SENT'] },
+        createdAt: { gte: dayStart },
+      },
+    }),
+  ]);
+  const automatedCount = automatedSentCount + automatedQueuedCount;
   if (automatedCount >= MAX_AUTOMATED_OUTBOUND_PER_DAY) {
     return { queued: false, reason: 'daily_limit' } as const;
   }
