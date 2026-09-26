@@ -837,6 +837,28 @@ model TableSession {
   @@index([tableId, status])
 }
 
+model TableAccessRequest {
+  id               Int                      @id @default(autoincrement())
+  publicId         String                   @unique @default(uuid())
+  restaurantId     Int
+  tableId          Int
+  tableSessionId   Int
+  displayName      String                   @db.VarChar(100)
+  phone            String                   @db.VarChar(20)
+  requestTokenHash String                   @unique @db.VarChar(64)
+  status           TableAccessRequestStatus @default(WAITING)
+  expiresAt        DateTime
+  decidedAt        DateTime?
+  decidedById      Int?
+  consumedAt       DateTime?
+  createdAt        DateTime                 @default(now())
+  updatedAt        DateTime                 @updatedAt
+
+  @@index([restaurantId, status, createdAt])
+  @@index([tableSessionId, status])
+  @@index([tableId, status])
+}
+
 model TableParticipant {
   id             Int                    @id @default(autoincrement())
   publicId       String                 @unique @default(uuid())
@@ -2130,6 +2152,14 @@ enum TableSessionStatus {
   OPEN
   CLOSING_REQUESTED
   CLOSED
+}
+
+enum TableAccessRequestStatus {
+  WAITING
+  APPROVED
+  REJECTED
+  CONSUMED
+  EXPIRED
 }
 
 enum TableParticipantStatus {
