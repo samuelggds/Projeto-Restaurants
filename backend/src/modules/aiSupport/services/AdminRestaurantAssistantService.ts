@@ -13,7 +13,7 @@ import {
   sanitizeAdminAiContext,
 } from '../domain/adminAiSecurityPolicy.js';
 import {
-  adminAiCapabilitiesForArea,
+  adminAiCapabilitiesForAdmin,
   assertAdminAiCapabilityAllowed,
   normalizeAdminAiArea,
 } from '../domain/adminAiCapabilities.js';
