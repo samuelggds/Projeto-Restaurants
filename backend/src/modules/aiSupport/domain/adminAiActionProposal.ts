@@ -106,12 +106,12 @@ export const updateEmployeeProposalSchema = requirePatch(
     actionType: z.literal('UPDATE_EMPLOYEE'),
     employeeId: z.number().int().positive(),
     name: z.string().trim().min(2).max(120).optional(),
-    email: z.string().trim().toLowerCase().email().max(180).optional(),
+    username: z.string().trim().toLowerCase().min(3).max(32).regex(/^[a-z0-9]+$/u).optional(),
     phone: z.string().trim().max(30).nullable().optional(),
     role: z.enum([UserRole.FUNCIONARIO, UserRole.MOTOQUEIRO]).optional(),
     subRole: z.nativeEnum(FuncionarioSubRole).nullable().optional(),
   }),
-  ['name', 'email', 'phone', 'role', 'subRole'],
+  ['name', 'username', 'phone', 'role', 'subRole'],
 );
 
 export const setEmployeeActiveProposalSchema = strictObject({
