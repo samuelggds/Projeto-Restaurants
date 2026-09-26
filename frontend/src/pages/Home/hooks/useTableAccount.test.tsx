@@ -30,6 +30,8 @@ function snapshotFor(sessionPublicId: string): TableAccountSnapshot {
       allowCash: false,
       allowCardMachine: false,
       allowOnlinePayment: true,
+      allowPix: true,
+      allowCard: true,
       allowSplit: true,
       serviceFeeMode: 'DISABLED',
       serviceFeeBasisPoints: 0,
