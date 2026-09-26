@@ -233,7 +233,7 @@ export default function Home() {
     routeTableId || (mesaSessionIsActive ? Number(tableSession?.tableId || 0) : 0) || null;
 
   const { activeOrder, refreshActiveOrder } = useActiveOrderNotice(mesaMode ? null : customerId);
-  const { tableOrder, refreshTableOrder } = useTableOrderNotice({
+  const { refreshTableOrder } = useTableOrderNotice({
     enabled: mesaMode && mesaSessionIsActive,
     sessionKey: tableSession?.sessionPublicId || tableSession?.sessionId || activeTableId,
     sessionToken: tableSession?.sessionToken,
@@ -396,7 +396,7 @@ export default function Home() {
   const paymentAvailable = availablePaymentMethods.length > 0;
   const tablePixAvailable = availablePaymentMethods.includes('pix');
   const tableAccountEnabled = tableAccount.snapshot?.capabilities.enabled === true;
-  const tableCheckoutPaymentMethod: 'pix' = 'pix';
+  const tableCheckoutPaymentMethod = 'pix' as const;
   const tableCheckoutUnavailable = Boolean(
     mesaMode && !tableAccount.loading && !tableAccountEnabled && !tablePixAvailable,
   );
