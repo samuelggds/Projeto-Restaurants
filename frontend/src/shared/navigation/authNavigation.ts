@@ -36,6 +36,7 @@ const BLOCKED_AUTH_PATHS = new Set([
 const ROLE_ONLY_RETURN_ROOTS = [
   '/admin',
   '/attendant',
+  '/billing',
   '/courier',
   '/kitchen',
   '/super_admin',
