@@ -331,15 +331,15 @@ export const ConnectionState = styled.div<{ $connected: boolean }>`
   display: flex;
   align-items: center;
   gap: 12px;
-  border: 1px solid ({ $connected }) => ($connected ? '#bcd8c1' : '#dfe5dd');
+  border: 1px solid ${({ $connected }) => ($connected ? '#a9d5b3' : '#e0d7cf')};
   border-radius: 14px;
   padding: 14px;
-  background: ({ $connected }) => ($connected ? '#f0f8f1' : '#f8faf7');
+  background: ${({ $connected }) => ($connected ? '#eef8f0' : '#fbf7f3')};
 
   > svg {
     width: 22px;
     height: 22px;
-    color: ({ $connected }) => ($connected ? '#2f6a3f' : '#738075');
+    color: ${({ $connected }) => ($connected ? '#2f6a3f' : '#8a6650')};
   }
 
   > span {
@@ -357,6 +357,41 @@ export const ConnectionState = styled.div<{ $connected: boolean }>`
   strong {
     color: var(--ink, #1c3028);
     font-size: 14px;
+  }
+`;
+
+export const ConnectionNotice = styled.div<{ $connected: boolean }>`
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  border: 1px solid ${({ $connected }) => ($connected ? '#b8dbc0' : '#ead5c7')};
+  border-radius: 14px;
+  padding: 14px 16px;
+  background: ${({ $connected }) => ($connected ? '#f2faf3' : '#fff8f3')};
+
+  > svg {
+    flex: 0 0 auto;
+    width: 20px;
+    height: 20px;
+    margin-top: 1px;
+    color: ${({ $connected }) => ($connected ? '#2f6a3f' : '#a24f20')};
+  }
+
+  > div {
+    display: grid;
+    gap: 3px;
+  }
+
+  strong {
+    color: var(--ink, #1c3028);
+    font-size: 12px;
+    line-height: 1.5;
+  }
+
+  span {
+    color: var(--muted, #637169);
+    font-size: 11px;
+    line-height: 1.55;
   }
 `;
 
@@ -629,9 +664,67 @@ export const ScheduleList = styled.div`
   }
 `;
 
+export const ConversationSectionHeader = styled.div`
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+  margin-bottom: 18px;
+
+  > div {
+    display: grid;
+    gap: 5px;
+  }
+
+  h2,
+  p {
+    margin: 0;
+  }
+
+  h2 {
+    color: var(--ink, #1c3028);
+    font-size: 18px;
+    line-height: 1.35;
+  }
+
+  p {
+    max-width: 760px;
+    color: var(--muted, #637169);
+    font-size: 12px;
+    line-height: 1.6;
+  }
+
+  .eyebrow {
+    color: #a24f20;
+    font-size: 10px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+
+  .conversation-count {
+    flex: 0 0 auto;
+    border: 1px solid #d8e2d5;
+    border-radius: 999px;
+    padding: 7px 10px;
+    background: #f5f8f3;
+    color: #52645a;
+    font-size: 10px;
+    font-weight: 750;
+  }
+
+  @media (max-width: 620px) {
+    flex-direction: column;
+
+    .conversation-count {
+      align-self: flex-start;
+    }
+  }
+`;
+
 export const ConversationLayout = styled.div`
   display: grid;
-  grid-template-columns: minmax(210px, 0.7fr) minmax(0, 2fr);
+  grid-template-columns: minmax(245px, 0.72fr) minmax(0, 2fr);
   gap: 16px;
   min-width: 0;
 
@@ -639,48 +732,86 @@ export const ConversationLayout = styled.div`
     display: grid;
     align-content: start;
     gap: 8px;
-    max-height: 560px;
+    max-height: 620px;
     overflow: auto;
+    padding-right: 4px;
   }
 
   > nav > button {
     display: grid;
-    gap: 3px;
+    grid-template-columns: 38px minmax(0, 1fr);
+    align-items: center;
+    gap: 10px;
     min-width: 0;
     border: 1px solid var(--border, #dfe5dd);
-    border-radius: 12px;
-    padding: 11px 12px;
+    border-radius: 14px;
+    padding: 11px;
     background: #fbfcf9;
     color: var(--ink, #1c3028);
     text-align: left;
     cursor: pointer;
+    transition:
+      border-color 150ms ease,
+      background 150ms ease,
+      transform 150ms ease;
+  }
+
+  > nav > button:hover {
+    border-color: #b8c9b2;
+    background: #f7faf4;
   }
 
   > nav > button.active {
     border-color: #9eb499;
     background: #edf4e8;
+    box-shadow: inset 3px 0 0 #6f8d68;
+  }
+
+  .conversation-avatar {
+    display: grid;
+    place-items: center;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: #e8efe4;
+    color: #466047;
+  }
+
+  .conversation-copy {
+    display: grid;
+    gap: 2px;
+    min-width: 0;
+  }
+
+  .conversation-copy strong {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 12px;
   }
 
   > nav small,
   > nav time {
     color: var(--muted, #637169);
     font-size: 10px;
-    line-height: 1.5;
+    line-height: 1.45;
   }
 
   > section {
     min-width: 0;
     border: 1px solid var(--border, #dfe5dd);
-    border-radius: 14px;
+    border-radius: 16px;
     overflow: hidden;
     background: #fff;
+    box-shadow: 0 5px 18px #233f3208;
   }
 
-  @media (max-width: 800px) {
+  @media (max-width: 840px) {
     grid-template-columns: minmax(0, 1fr);
 
     > nav {
-      max-height: 220px;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      max-height: 250px;
     }
   }
 `;
@@ -690,9 +821,9 @@ export const ConversationToolbar = styled.div`
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  padding: 14px;
+  padding: 15px 16px;
   border-bottom: 1px solid var(--border, #dfe5dd);
-  background: #f8faf7;
+  background: #fafbf8;
 
   > span {
     display: grid;
@@ -701,7 +832,31 @@ export const ConversationToolbar = styled.div`
 
   small {
     color: var(--muted, #637169);
-    font-size: 11px;
+    font-size: 10px;
+  }
+
+  strong {
+    color: var(--ink, #1c3028);
+    font-size: 13px;
+  }
+
+  em {
+    width: fit-content;
+    border-radius: 999px;
+    padding: 4px 8px;
+    font-size: 9px;
+    font-style: normal;
+    font-weight: 800;
+  }
+
+  .mode-bot {
+    background: #edf5ea;
+    color: #3e6546;
+  }
+
+  .mode-human {
+    background: #fff0e6;
+    color: #a24f20;
   }
 
   @media (max-width: 560px) {
@@ -712,25 +867,30 @@ export const ConversationToolbar = styled.div`
 
 export const MessageList = styled.div`
   display: grid;
+  align-content: start;
   gap: 10px;
-  min-height: 180px;
-  max-height: 420px;
+  min-height: 250px;
+  max-height: 470px;
   overflow: auto;
-  padding: 16px;
-  background: #f5f7f2;
+  padding: 18px;
+  background:
+    radial-gradient(circle at 20% 20%, #ffffff70 0 2px, transparent 3px) 0 0 / 28px 28px,
+    #f4f7f1;
 
   > div {
     width: fit-content;
     max-width: min(82%, 640px);
     border: 1px solid #dfe5dd;
-    border-radius: 14px;
+    border-radius: 14px 14px 14px 5px;
     padding: 10px 12px;
     background: #fff;
+    box-shadow: 0 2px 8px #233f3208;
   }
 
   > div.outbound {
     justify-self: end;
     border-color: #bed0b7;
+    border-radius: 14px 14px 5px 14px;
     background: #eaf3e5;
   }
 
@@ -738,7 +898,7 @@ export const MessageList = styled.div`
     display: block;
     margin-bottom: 5px;
     color: var(--muted, #637169);
-    font-size: 10px;
+    font-size: 9px;
   }
 
   p {
@@ -756,10 +916,37 @@ export const ReplyBox = styled.div`
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: end;
   gap: 10px;
-  padding: 14px;
+  padding: 14px 16px 16px;
   border-top: 1px solid var(--border, #dfe5dd);
+  background: #fff;
+
+  .reply-copy {
+    grid-column: 1 / -1;
+    display: grid;
+    gap: 2px;
+  }
+
+  .reply-copy strong {
+    color: var(--ink, #1c3028);
+    font-size: 11px;
+  }
+
+  .reply-copy small {
+    color: var(--muted, #637169);
+    font-size: 9px;
+    line-height: 1.45;
+  }
+
+  textarea {
+    min-height: 82px;
+    background: #fbfcf9;
+  }
 
   @media (max-width: 520px) {
     grid-template-columns: minmax(0, 1fr);
+
+    button {
+      width: 100%;
+    }
   }
 `;
