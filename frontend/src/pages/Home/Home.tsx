@@ -663,6 +663,30 @@ export default function Home() {
     }
   }
 
+  async function removeOwnTableOrder(publicOrderId: string) {
+    try {
+      await ordersService.cancelTableOrder(publicOrderId);
+      await tableAccount.refresh({ silent: true });
+      await refreshTableOrder();
+      notify(
+        'success',
+        'Item removido da comanda',
+        'A comanda foi atualizada em tempo real.',
+        3500,
+      );
+      return true;
+    } catch (error: unknown) {
+      notify(
+        'error',
+        'Não foi possível remover este item',
+        getCheckoutErrorMessage(error) ||
+          'O pedido pode já estar em preparo. Nesse caso, chame o garçom.',
+        5000,
+      );
+      return false;
+    }
+  }
+
   async function payTableOrderNow() {
     if (!restaurantId || !cart.length || checkoutLoading || !paymentAvailable) return;
     const customer = (user || {}) as Record<string, unknown>;
@@ -1067,6 +1091,7 @@ export default function Home() {
         onCreatePayment={tableAccount.createPayment}
         onCancelPayment={tableAccount.cancelPayment}
         onReconcilePayment={tableAccount.reconcilePayment}
+        onRemoveOrder={removeOwnTableOrder}
         onClose={() => setTableAccountOpen(false)}
       />
 
