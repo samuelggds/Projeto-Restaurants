@@ -123,10 +123,7 @@ export default function AdminAiLayer({ children }: { children: React.ReactNode }
   }, []);
 
   useEffect(() => {
-    if (!aiEnabled) {
-      setCredits(null);
-      return undefined;
-    }
+    if (!aiEnabled) return undefined;
     let active = true;
     aiGuideService.getCredits().then((balance) => {
       if (active) setCredits(balance);
