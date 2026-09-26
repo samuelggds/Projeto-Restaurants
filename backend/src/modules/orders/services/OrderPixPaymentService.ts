@@ -735,12 +735,7 @@ class OrderPixPaymentService {
             billingType: 'PIX',
             value: totalAmount,
             dueDate: new Date().toISOString().slice(0, 10),
-            description:
-        normalizedType === 'MESA'
-          ? `Pedido da mesa - restaurante ${normalizedRestaurantId}`
-          : normalizedType === 'RETIRADA'
-            ? `Pedido para retirada - restaurante ${normalizedRestaurantId}`
-            : `Pedido delivery - restaurante ${normalizedRestaurantId}`,
+            description: `Pedido ${normalizedType.toLowerCase()} - restaurante ${normalizedRestaurantId}`,
             externalReference: sourceOrderId
               ? `orderpix:${normalizedRestaurantId}:${sourceOrderId}`
               : `orderpix:${normalizedRestaurantId}:${Date.now()}`,
