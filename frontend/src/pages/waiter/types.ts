@@ -53,6 +53,22 @@ export interface WaiterTableAccountSnapshot {
     processingCents: number;
     remainingCents: number;
   };
+  participants: Array<{
+    publicId: string;
+    displayName: string | null;
+    authenticated: boolean;
+    status: 'ACTIVE' | 'LEFT';
+  }>;
+  items: Array<{
+    publicId: string;
+    productName: string;
+    unitPriceCents: number;
+    paidCents: number;
+    processingCents: number;
+    reservedCents: number;
+    financialStatus: 'UNPAID' | 'RESERVED' | 'PROCESSING' | 'PAID' | 'REFUNDED';
+    orderedByDisplayName: string;
+  }>;
   paymentIntents: Array<{
     publicId: string;
     method: 'PIX' | 'CARD' | 'CASH' | 'CARD_MACHINE';
