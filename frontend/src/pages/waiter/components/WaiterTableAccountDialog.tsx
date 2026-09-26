@@ -140,13 +140,13 @@ export function WaiterTableAccountDialog({
             <ReceiptText />
           </span>
           <span>
-            <small>CONFERÊNCIA DO ATENDIMENTO</small>
+            <small>COMANDA EM TEMPO REAL</small>
             <h2 id="waiter-table-account-title">
-              Conta da mesa {String(table.number).padStart(2, '0')}
+              Comanda • Mesa {String(table.number).padStart(2, '0')}
             </h2>
-            <p>Confira o que já foi pago e o que ainda depende de recebimento presencial.</p>
+            <p>Acompanhe consumo, pagamentos online e saldo restante em tempo real.</p>
           </span>
-          <button type="button" aria-label="Fechar conta da mesa" onClick={onClose}>
+          <button type="button" aria-label="Fechar comanda da mesa" onClick={onClose}>
             <X />
           </button>
         </S.PaymentHeader>
@@ -155,35 +155,80 @@ export function WaiterTableAccountDialog({
           <S.AccountGuidance role="note">
             <Info />
             <div>
-              <b>Como a confirmação funciona</b>
+              <b>Prévia da comanda</b>
               <p>
-                <strong>Pix e cartão online</strong> são confirmados automaticamente pelo provedor.
-                Em <strong>dinheiro ou maquininha</strong>, confirme abaixo somente depois de
-                receber o valor do cliente.
+                Pedidos e pagamentos online aparecem automaticamente. Pix e cartão só entram como pagos depois da confirmação do provedor.
               </p>
             </div>
           </S.AccountGuidance>
 
           {loading && !snapshot ? (
             <S.AccountLoading role="status">
-              <RefreshCw /> Carregando conta da mesa...
+              <RefreshCw /> Carregando comanda...
             </S.AccountLoading>
           ) : snapshot ? (
             <>
               <S.AccountSummary aria-label="Resumo financeiro da mesa">
                 <span>
-                  <small>Total consumido</small>
+                  <small>Consumido</small>
                   <b>{brl(snapshot.summary.consumedCents / 100)}</b>
                 </span>
                 <span className="paid">
-                  <small>Já confirmado</small>
+                  <small>Pago online</small>
                   <b>{brl(snapshot.summary.netPaidCents / 100)}</b>
                 </span>
                 <span className="remaining">
-                  <small>Ainda falta pagar</small>
+                  <small>Saldo restante</small>
                   <b>{brl(snapshot.summary.remainingCents / 100)}</b>
                 </span>
               </S.AccountSummary>
+              {snapshot.summary.remainingCents === 0 && snapshot.summary.consumedCents > 0 && (
+                <S.ProcessingNotice>
+                  <CheckCircle2 />
+                  Comanda quitada. Todo o consumo registrado nesta mesa já foi pago.
+                </S.ProcessingNotice>
+              )}
+
+              <S.AccountPayments>
+                <header>
+                  <div>
+                    <h3>Consumo da mesa</h3>
+                    <p>Itens lançados na comanda e quem realizou cada pedido.</p>
+                  </div>
+                </header>
+                {snapshot.items.map((item) => (
+                  <S.PaymentRow key={item.publicId} $status={item.financialStatus === 'PAID' ? 'PAID' : item.processingCents > 0 || item.reservedCents > 0 ? 'PROCESSING' : 'RESERVED'}>
+                    <span className="method-icon" aria-hidden="true"><ReceiptText /></span>
+                    <span className="payment-info">
+                      <b>{item.productName}</b>
+                      <small>{item.orderedByDisplayName}</small>
+                    </span>
+                    <span className="payment-value">
+                      <b>{brl(item.unitPriceCents / 100)}</b>
+                      <em>{item.financialStatus === 'PAID' ? 'Pago' : item.processingCents > 0 || item.reservedCents > 0 ? 'Em pagamento' : 'Pendente'}</em>
+                    </span>
+                  </S.PaymentRow>
+                ))}
+                {!snapshot.items.length && <S.AccountEmpty>Nenhum item lançado nesta mesa.</S.AccountEmpty>}
+              </S.AccountPayments>
+
+              <S.AccountPayments>
+                <header>
+                  <div>
+                    <h3>Participantes</h3>
+                    <p>Identificação de clientes cadastrados e visitantes.</p>
+                  </div>
+                </header>
+                {snapshot.participants.filter((participant) => participant.status === 'ACTIVE').map((participant) => (
+                  <S.PaymentRow key={participant.publicId} $status="PAID">
+                    <span className="method-icon" aria-hidden="true"><CheckCircle2 /></span>
+                    <span className="payment-info">
+                      <b>{participant.displayName || 'Cliente da mesa'}</b>
+                      <small>{participant.authenticated ? 'Cliente cadastrado' : 'Visitante'}</small>
+                    </span>
+                  </S.PaymentRow>
+                ))}
+              </S.AccountPayments>
               {snapshot.summary.processingCents > 0 && (
                 <S.ProcessingNotice>
                   <Clock3 />
@@ -195,12 +240,12 @@ export function WaiterTableAccountDialog({
               <S.AccountPayments>
                 <header>
                   <div>
-                    <h3>Pagamentos desta mesa</h3>
-                    <p>Os pagamentos mais recentes aparecem primeiro.</p>
+                    <h3>Pagamentos online</h3>
+                    <p>Confirmações do Pix e cartão aparecem automaticamente.</p>
                   </div>
                   <button
                     type="button"
-                    aria-label="Atualizar conta da mesa"
+                    aria-label="Atualizar comanda da mesa"
                     onClick={() => void loadSnapshot()}
                     disabled={loading}
                   >
