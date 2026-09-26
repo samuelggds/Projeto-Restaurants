@@ -873,6 +873,49 @@ export class AdminAiActionService {
           },
           restaurantId,
         );
+      } else if (proposal.actionType === 'UPSERT_PRODUCT_DISCOUNT') {
+        result = await upsertProductDiscountService.execute({
+          productId: proposal.productId,
+          restaurantId,
+          input: {
+            kind: proposal.kind,
+            value: proposal.value,
+            label: proposal.label,
+            active: proposal.active,
+            startsAt: proposal.startsAt,
+            endsAt: proposal.endsAt,
+          },
+        });
+      } else if (proposal.actionType === 'UPDATE_EMPLOYEE') {
+        const preview = action.approvalSnapshot as {
+          exactAction?: {
+            name?: string;
+            username?: string;
+            phone?: string | null;
+            role?: 'FUNCIONARIO' | 'MOTOQUEIRO';
+            subRole?: 'COZINHA' | 'GARCOM' | 'ATENDENTE' | null;
+          };
+        };
+        const exact = preview.exactAction;
+        if (!exact) throw new Error('Prévia do funcionário indisponível.');
+        result = await updateEmployeeService.execute({
+          id: proposal.employeeId,
+          restaurantId,
+          ...exact,
+          actor: {
+            userId: Number(actor.userId),
+            userName: actor.userName || undefined,
+            userRole: actor.userRole || undefined,
+          },
+        });
+      } else if (proposal.actionType === 'SET_EMPLOYEE_ACTIVE') {
+        result = proposal.active
+          ? await reactivateEmployeeService.execute(proposal.employeeId, restaurantId)
+          : await deactivateEmployeeService.execute(proposal.employeeId, restaurantId, {
+              userId: Number(actor.userId),
+              userName: actor.userName || undefined,
+              userRole: actor.userRole || undefined,
+            });
       } else if (proposal.actionType === 'UPDATE_ORDER_STATUS') {
         result = await updateOrderStatusService.execute(
           proposal.orderId,
