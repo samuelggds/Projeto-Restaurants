@@ -45,18 +45,20 @@ export const HomeProductCard = memo(function HomeProductCard({
             <Tag size={14} /> {product.promotion.badgeLabel || 'Oferta'}
           </Promotion.Badge>
         )}
-        <button
-          type="button"
-          className={favorite ? 'favorite' : undefined}
-          aria-label={`Favoritar ${product.name}`}
-          aria-pressed={favorite}
-          onClick={(event) => {
-            event.stopPropagation();
-            onToggleFavorite?.(product.id);
-          }}
-        >
-          <Heart size={21} fill={favorite ? 'currentColor' : 'none'} />
-        </button>
+        {onToggleFavorite ? (
+          <button
+            type="button"
+            className={favorite ? 'favorite' : undefined}
+            aria-label={`Favoritar ${product.name}`}
+            aria-pressed={favorite}
+            onClick={(event) => {
+              event.stopPropagation();
+              onToggleFavorite(product.id);
+            }}
+          >
+            <Heart size={21} fill={favorite ? 'currentColor' : 'none'} />
+          </button>
+        ) : null}
       </S.ImageWrap>
       <div>
         {product.promotion?.active && featured && (
