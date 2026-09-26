@@ -8,6 +8,7 @@ import tableParticipantRepository from '../repositories/TableParticipantReposito
 import tableAccountSettingsRepository from '../../tableAccount/repositories/TableAccountSettingsRepository.js';
 import { lockTablePaymentSession } from '../../tableAccount/services/tablePaymentLedger.js';
 import waiterCompensationProjectionService from '../../employeeCompensation/services/WaiterCompensationProjectionService.js';
+import tableAccessRequestService from './TableAccessRequestService.js';
 
 type CloseTableSessionPayload = {
   sessionId: number | string;
@@ -138,6 +139,11 @@ class CloseTableSessionService {
         }
       }
     }
+
+    await tableAccessRequestService.expireForSession({
+      tableSessionId: result.session.id,
+      restaurantId: normalizedRestaurantId,
+    });
 
     tableSessionEvents
       .closed({
