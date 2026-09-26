@@ -389,17 +389,22 @@ export function useCheckoutPayments(options: Options) {
       const tablePayment = String(payload.type || '').toUpperCase() === 'MESA';
       let cardPayload: Record<string, unknown> = {};
       if (tablePayment) {
-        const savedMethods = restaurantId
-          ? await customerPaymentMethodService.list(restaurantId).catch(() => [])
-          : [];
-        const storedMethodId = restaurantId
-          ? readStorage(`selectedCustomerPaymentMethodId:${restaurantId}`)
-          : '';
-        const selectedSavedMethod =
-          savedMethods.find((method) => method.publicId === storedMethodId) ||
-          savedMethods.find((method) => method.isDefault) ||
-          savedMethods[0];
-        cardPayload = selectedSavedMethod ? { paymentMethodId: selectedSavedMethod.publicId } : {};
+        try {
+          cardPayload = await prepareCardPayment();
+        } catch (preparationError) {
+          const savedMethods = restaurantId
+            ? await customerPaymentMethodService.list(restaurantId).catch(() => [])
+            : [];
+          const storedMethodId = restaurantId
+            ? readStorage(`selectedCustomerPaymentMethodId:${restaurantId}`)
+            : '';
+          const selectedSavedMethod =
+            savedMethods.find((method) => method.publicId === storedMethodId) ||
+            savedMethods.find((method) => method.isDefault) ||
+            savedMethods[0];
+          if (!selectedSavedMethod) throw preparationError;
+          cardPayload = { paymentMethodId: selectedSavedMethod.publicId };
+        }
       } else {
         cardPayload = await prepareCardPayment();
       }
