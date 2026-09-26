@@ -511,6 +511,97 @@ async function buildPreview(
     };
   }
 
+  if (proposal.actionType === 'UPSERT_PRODUCT_DISCOUNT') {
+    const product = await db.product.findFirst({
+      where: { id: proposal.productId, restaurantId },
+      select: { id: true, name: true, price: true },
+    });
+    if (!product) throw new Error('Produto não encontrado neste restaurante.');
+    const current = await db.productDiscount.findFirst({
+      where: { productId: proposal.productId, restaurantId },
+      select: { kind: true, value: true, label: true, active: true, startsAt: true, endsAt: true },
+    });
+    return {
+      actionType: proposal.actionType,
+      affectedRecords: 1,
+      productId: product.id,
+      productName: product.name,
+      productPrice: Number(product.price),
+      before: current
+        ? {
+            kind: current.kind,
+            value: Number(current.value),
+            label: current.label,
+            active: current.active,
+            startsAt: current.startsAt?.toISOString() ?? null,
+            endsAt: current.endsAt?.toISOString() ?? null,
+          }
+        : null,
+      after: {
+        kind: proposal.kind,
+        value: proposal.value,
+        label: proposal.label ?? null,
+        active: proposal.active,
+        startsAt: proposal.startsAt ?? null,
+        endsAt: proposal.endsAt ?? null,
+      },
+    };
+  }
+
+  if (proposal.actionType === 'UPDATE_EMPLOYEE' || proposal.actionType === 'SET_EMPLOYEE_ACTIVE') {
+    const employee = await db.user.findFirst({
+      where: {
+        id: proposal.employeeId,
+        restaurantId,
+        role: { in: ['FUNCIONARIO', 'MOTOQUEIRO'] },
+      },
+      select: {
+        id: true,
+        name: true,
+        username: true,
+        phone: true,
+        role: true,
+        subRole: true,
+        active: true,
+      },
+    });
+    if (!employee) throw new Error('Funcionário não encontrado neste restaurante.');
+    if (proposal.actionType === 'SET_EMPLOYEE_ACTIVE') {
+      return {
+        actionType: proposal.actionType,
+        affectedRecords: 1,
+        employeeId: employee.id,
+        employeeName: employee.name,
+        before: employee.active,
+        after: proposal.active,
+      };
+    }
+    const after = {
+      name: proposal.name ?? employee.name,
+      username: proposal.username ?? employee.username,
+      phone: proposal.phone !== undefined ? proposal.phone : employee.phone,
+      role: proposal.role ?? employee.role,
+      subRole: proposal.subRole !== undefined ? proposal.subRole : employee.subRole,
+    };
+    return {
+      actionType: proposal.actionType,
+      affectedRecords: 1,
+      employeeId: employee.id,
+      employeeName: employee.name,
+      changes: changedFields(
+        {
+          name: employee.name,
+          username: employee.username,
+          phone: employee.phone,
+          role: employee.role,
+          subRole: employee.subRole,
+        },
+        after,
+      ),
+      exactAction: after,
+    };
+  }
+
   if (proposal.actionType === 'UPDATE_ORDER_STATUS') {
     const order = await db.order.findFirst({
       where: { id: proposal.orderId, restaurantId },
