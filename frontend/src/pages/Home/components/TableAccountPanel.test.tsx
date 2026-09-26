@@ -169,10 +169,15 @@ describe('TableAccountPanel', () => {
     const amount = container.querySelector<HTMLInputElement>('#table-custom-payment');
     await act(async () => {
       if (amount) {
-        amount.value = '12,50';
+        const setter = Object.getOwnPropertyDescriptor(
+          HTMLInputElement.prototype,
+          'value',
+        )?.set;
+        setter?.call(amount, '12,50');
         amount.dispatchEvent(new Event('input', { bubbles: true }));
       }
     });
+    expect(amount?.value).toBe('12,50');
 
     await act(async () => {
       [...container.querySelectorAll('button')]
