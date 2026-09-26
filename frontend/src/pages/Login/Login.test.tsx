@@ -71,6 +71,17 @@ function ContextSwitcher() {
       </button>
       <button
         type="button"
+        data-testid="change-to-table-context"
+        onClick={() =>
+          navigate(
+            `/restaurante-teste/login?next=${encodeURIComponent(TABLE_RETURN_PATH)}`,
+          )
+        }
+      >
+        Acesso da mesa
+      </button>
+      <button
+        type="button"
         data-testid="change-to-team-context"
         onClick={() => navigate('/restaurante-teste/team')}
       >
@@ -193,18 +204,7 @@ describe('Login contextual do cliente', () => {
 
   it('não renderiza formulário de login quando o destino é uma mesa', async () => {
     act(() => {
-      root.render(
-        <MemoryRouter
-          initialEntries={[
-            `/restaurante-teste/login?next=${encodeURIComponent(TABLE_RETURN_PATH)}`,
-          ]}
-        >
-          <Routes>
-            <Route path="/:restaurantSlug/login" element={<LoginHarness />} />
-            <Route path="*" element={<LocationProbe />} />
-          </Routes>
-        </MemoryRouter>,
-      );
+      (container.querySelector('[data-testid="change-to-table-context"]') as HTMLButtonElement).click();
     });
 
     await act(async () => {
