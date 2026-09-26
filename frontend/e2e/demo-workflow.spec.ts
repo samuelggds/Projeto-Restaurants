@@ -397,7 +397,18 @@ test('demo: entrada QR usa o cardápio da mesa, envia à cozinha e apresenta a c
     .getByRole('button', { name: 'Entregue à mesa', exact: true })
     .click();
   await switchRole(page, 'CLIENTE_QR');
-  await page.getByRole('button', { name: 'Ver conta', exact: true }).click();
+  await page.evaluate(
+    (key) => {
+      const state = JSON.parse(localStorage.getItem(key)!);
+      const table = state.tables.find((entry: { number: number }) => entry.number === 8);
+      table.closingRequested = true;
+      localStorage.setItem(key, JSON.stringify(state));
+      window.dispatchEvent(new StorageEvent('storage', { key }));
+    },
+    DEMO_STORAGE_KEY,
+  );
+  await page.reload();
+  await page.getByRole('button', { name: 'Ver e pagar a conta', exact: true }).click();
   const account = page.getByRole('dialog', { name: 'Prévia da comanda • Mesa 08', exact: true });
   await expect(account.getByLabel('Prévia da comanda em tempo real')).toBeVisible();
   await expect(account).toContainText('Burger Clássico');
