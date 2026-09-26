@@ -15,6 +15,9 @@ import {
   isOrderCapacityQueued,
   queueDigitalOrderBeforePaymentConfirmation,
 } from '../utils/orderCapacity.js';
+import tableParticipantStateService from '../../tableSession/services/TableParticipantStateService.js';
+import { tableParticipantStateEvents } from '../../tableSession/realtime/tableParticipantStateEvents.js';
+import { tableAccountEvents } from '../../tableAccount/realtime/tableAccountEvents.js';
 
 type FinalizeOrderPixPaymentPayload = {
   orderId?: number | string | null;
@@ -158,6 +161,39 @@ class FinalizeOrderPixPaymentService {
     }
 
     await this.syncDeliveryPayment(updatedOrder);
+
+    if (
+      updatedOrder.type === 'MESA' &&
+      updatedOrder.tableSessionId &&
+      updatedOrder.participantId
+    ) {
+      const now = new Date();
+      await prisma.$transaction(async (tx) => {
+        await tableParticipantStateService.releaseOrderingAfterPayment(tx, {
+          participantId: Number(updatedOrder.participantId),
+          tableSessionId: Number(updatedOrder.tableSessionId),
+          restaurantId: Number(updatedOrder.restaurantId),
+          now,
+        });
+      });
+      if (updatedOrder.table?.id && updatedOrder.participant?.publicId) {
+        await tableParticipantStateEvents.orderingUpdated({
+          restaurantId: Number(updatedOrder.restaurantId),
+          tableId: Number(updatedOrder.table.id),
+          tableSessionId: Number(updatedOrder.tableSessionId),
+          participantPublicId: String(updatedOrder.participant.publicId),
+          orderingBlocked: false,
+          reason: 'PAYMENT_SETTLED',
+          occurredAt: now,
+        });
+      }
+      await tableAccountEvents.updated({
+        sessionId: Number(updatedOrder.tableSessionId),
+        restaurantId: Number(updatedOrder.restaurantId),
+        reason: 'PAYMENT_STATUS_CHANGED',
+      });
+    }
+
     if (!paymentChanged) return updatedOrder;
 
     io.to(`restaurant:${updatedOrder.restaurantId}`).emit('order:payment-confirmed', {
