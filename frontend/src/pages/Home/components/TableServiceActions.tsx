@@ -1,6 +1,6 @@
 import { createPortal } from 'react-dom';
 import { useEffect, useRef, useState } from 'react';
-import { Bell, CheckCircle2, LoaderCircle, X } from 'lucide-react';
+import { Bell, CheckCircle2, LoaderCircle, ReceiptText, X } from 'lucide-react';
 import styled from 'styled-components';
 import { useDraggableFloatingActions } from '../hooks/useDraggableFloatingActions';
 
@@ -37,6 +37,57 @@ const FloatingWaiter = styled.div`
   @media (max-width: 700px) {
     right: 16px;
     bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+  }
+`;
+
+const AccountButton = styled.button`
+  position: absolute;
+  right: 0;
+  bottom: 72px;
+  min-width: 132px;
+  height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 0 14px;
+  border: 1px solid color-mix(in srgb, var(--home-primary, #d64d08) 34%, #eadfd6);
+  border-radius: 999px;
+  background: #fff;
+  color: #3f342d;
+  box-shadow: 0 12px 28px rgba(65, 38, 20, 0.16);
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 850;
+  white-space: nowrap;
+
+  svg {
+    width: 17px;
+    height: 17px;
+    color: var(--home-primary, #d64d08);
+  }
+
+  &:hover:not(:disabled) {
+    border-color: var(--home-primary, #d64d08);
+    transform: translateY(-1px);
+  }
+
+  &:focus-visible {
+    outline: 4px solid rgba(214, 77, 8, 0.18);
+    outline-offset: 3px;
+  }
+
+  &:disabled {
+    cursor: not-allowed;
+    opacity: 0.55;
+  }
+
+  @media (max-width: 700px) {
+    bottom: 70px;
+    min-width: 126px;
+    height: 42px;
+    padding-inline: 12px;
   }
 `;
 
@@ -174,8 +225,10 @@ const ModalActions = styled.div`
 export function TableServiceActions({
   tableNumber,
   waiterEnabled,
+  accountEnabled,
   loading,
   onCallWaiter,
+  onOpenAccount,
 }: Props) {
   const [open, setOpen] = useState(false);
   const closeRef = useRef<HTMLButtonElement>(null);
@@ -208,7 +261,7 @@ export function TableServiceActions({
     };
   }, [loading, open]);
 
-  if (!waiterEnabled || typeof document === 'undefined') return null;
+  if ((!waiterEnabled && !accountEnabled) || typeof document === 'undefined') return null;
 
   return createPortal(
     <>
@@ -223,20 +276,35 @@ export function TableServiceActions({
         onPointerCancel={onPointerCancel}
         onClickCapture={onClickCapture}
       >
-        <WaiterButton
-          type="button"
-          data-floating-drag-handle="true"
-          data-testid="table-waiter-floating-button"
-          disabled={loading !== null}
-          aria-label={'Chamar garçom da mesa ' + tableLabel}
-          title="Chamar garçom"
-          onClick={() => setOpen(true)}
-        >
-          {loading === 'WAITER' ? <LoaderCircle aria-hidden="true" /> : <Bell aria-hidden="true" />}
-        </WaiterButton>
+        {accountEnabled ? (
+          <AccountButton
+            type="button"
+            data-testid="table-account-floating-button"
+            aria-label={'Abrir minha comanda da mesa ' + tableLabel}
+            title="Ver minha comanda"
+            onClick={onOpenAccount}
+          >
+            <ReceiptText aria-hidden="true" />
+            Minha comanda
+          </AccountButton>
+        ) : null}
+
+        {waiterEnabled ? (
+          <WaiterButton
+            type="button"
+            data-floating-drag-handle="true"
+            data-testid="table-waiter-floating-button"
+            disabled={loading !== null}
+            aria-label={'Chamar garçom da mesa ' + tableLabel}
+            title="Chamar garçom"
+            onClick={() => setOpen(true)}
+          >
+            {loading === 'WAITER' ? <LoaderCircle aria-hidden="true" /> : <Bell aria-hidden="true" />}
+          </WaiterButton>
+        ) : null}
       </FloatingWaiter>
 
-      {open ? (
+      {open && waiterEnabled ? (
         <ModalBackdrop
           role="presentation"
           onMouseDown={(event) => {
