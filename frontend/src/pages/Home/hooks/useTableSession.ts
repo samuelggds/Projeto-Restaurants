@@ -21,9 +21,14 @@ type Options = {
   notify: Notify;
 };
 
-function clearStoredSession() {
+const TABLE_GUEST_SESSION_ENDED_EVENT = 'gastronexa:table-guest-session-ended';
+
+function clearStoredSession(invalidateGuestIdentity = false) {
   localStorage.removeItem('tableSession');
   localStorage.removeItem('tableSessionToken');
+  if (invalidateGuestIdentity) {
+    window.dispatchEvent(new CustomEvent(TABLE_GUEST_SESSION_ENDED_EVENT));
+  }
 }
 
 export function useTableSession(options: Options) {
@@ -63,7 +68,7 @@ export function useTableSession(options: Options) {
 
   const endSession = useCallback(
     (message: string, showNotification = true) => {
-      clearStoredSession();
+      clearStoredSession(true);
       setTableSession(null);
       setSessionEndedMessage(message);
       if (showNotification) {
@@ -95,7 +100,7 @@ export function useTableSession(options: Options) {
   useEffect(() => {
     if (!route.mesaMode || !tableSession?.sessionToken) return;
     if (sessionRouteMismatch) {
-      clearStoredSession();
+      clearStoredSession(true);
     }
   }, [route.mesaMode, sessionRouteMismatch, tableSession]);
 
