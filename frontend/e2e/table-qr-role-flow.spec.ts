@@ -827,7 +827,7 @@ for (const onlineMethod of ['PIX', 'CARD'] as const) {
     await tableActionsToggle.click();
     await expect(tableActionsToggle).toHaveAttribute('aria-expanded', 'true');
     await tableActions.getByRole('button', { name: 'Ver conta', exact: true }).click();
-    const accountDialog = page.getByRole('dialog', { name: `Conta da mesa ${TABLE_NUMBER}` });
+    const accountDialog = page.getByRole('dialog', { name: `Prévia da comanda • Mesa ${TABLE_NUMBER}` });
     await expect(accountDialog.getByText('1 de 3')).toBeVisible();
     await expect(accountDialog.getByText('O que você quer pagar?')).toBeVisible();
     await expect(accountDialog.getByText('Pix', { exact: true })).toHaveCount(0);
