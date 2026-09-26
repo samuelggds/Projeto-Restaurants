@@ -274,6 +274,8 @@ export const ReceiptRows = styled.div`
 `;
 
 export const ReceiptTotals = styled.div`
+  display: grid;
+  gap: 8px;
   padding: 14px 18px 16px;
   border-top: 1px dashed #ddd3ca;
   background: #fffdfb;
@@ -285,15 +287,32 @@ export const ReceiptTotals = styled.div`
     gap: 14px;
   }
 
+  small {
+    color: #756b63;
+    font-size: 10px;
+    font-weight: 750;
+  }
+
+  b {
+    color: #3f3731;
+    font-size: 12px;
+  }
+
+  .remaining {
+    margin-top: 4px;
+    padding-top: 10px;
+    border-top: 1px solid #eee6df;
+  }
+
   .remaining small {
     color: #3f3731;
-    font-size: 11px;
-    font-weight: 800;
+    font-size: 12px;
+    font-weight: 900;
   }
 
   .remaining b {
     color: var(--home-primary);
-    font-size: 20px;
+    font-size: 21px;
   }
 `;
 
