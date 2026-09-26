@@ -803,8 +803,24 @@ export class AdminAiActionService {
       let result: unknown;
 
       if (proposal.actionType === 'CREATE_PRODUCT') {
-        const preview = action.approvalSnapshot as { exactAction?: { categoryId?: number } };
-        const categoryId = Number(preview?.exactAction?.categoryId || 0);
+        const preview = action.approvalSnapshot as {
+          exactAction?: {
+            categoryId?: number | null;
+            categoryName?: string;
+            createCategory?: boolean;
+          };
+        };
+        let categoryId = Number(preview?.exactAction?.categoryId || 0);
+        if (!categoryId && preview?.exactAction?.createCategory && preview.exactAction.categoryName) {
+          const createdCategory = await createCategoryService.execute(
+            {
+              name: preview.exactAction.categoryName,
+              active: true,
+            },
+            restaurantId,
+          );
+          categoryId = Number(createdCategory.category.id);
+        }
         if (!categoryId) throw new Error('Categoria da ação não está mais disponível.');
         result = await createProductService.execute(
           {
