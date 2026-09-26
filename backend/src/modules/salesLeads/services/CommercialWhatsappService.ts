@@ -620,7 +620,7 @@ export async function listCommercialWhatsappConversations() {
   return prisma.salesLeadWhatsappConversation.findMany({
     orderBy: { updatedAt: 'desc' },
     take: 100,
-    include: { messages: { orderBy: { createdAt: 'asc' }, take: 100 } },
+    include: { messages: { orderBy: { createdAt: 'asc' } } },
   });
 }
 
