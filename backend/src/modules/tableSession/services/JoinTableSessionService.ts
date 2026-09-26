@@ -1,6 +1,9 @@
 import tableSessionRepository from '../repositories/TableSessionRepository.js';
 import resolvePublicTableService from '../../table/services/ResolvePublicTableService.js';
-import joinTableParticipantService from './JoinTableParticipantService.js';
+import joinTableParticipantService, {
+  TableParticipantIdentityRequiredError,
+} from './JoinTableParticipantService.js';
+import tableAccessRequestService from './TableAccessRequestService.js';
 import { TableSessionStatus } from '@prisma/client';
 
 type Input = {
@@ -71,18 +74,32 @@ class JoinTableSessionService {
       throw new Error('A sessão aberta não pertence ao restaurante informado pelo QR Code.');
     }
 
-    const participantResult = await joinTableParticipantService.execute({
-      session: {
-        id: session.id,
-        publicId: session.publicId || `legacy-session-${session.id}`,
-        restaurantId: sessionRestaurantId,
-        expiresAt: session.expiresAt,
-      },
-      authenticatedUser,
-      cookies,
-      displayName,
-      phone,
-    });
+    const participantSession = {
+      id: session.id,
+      publicId: session.publicId || `legacy-session-${session.id}`,
+      restaurantId: sessionRestaurantId,
+      tableId: session.tableId,
+      expiresAt: session.expiresAt,
+      table: session.table,
+    };
+
+    let participantResult;
+    try {
+      participantResult = await joinTableParticipantService.execute({
+        session: participantSession,
+        authenticatedUser,
+        cookies,
+      });
+    } catch (error) {
+      if (!(error instanceof TableParticipantIdentityRequiredError)) throw error;
+      if (displayName === undefined || phone === undefined) throw error;
+
+      return tableAccessRequestService.create({
+        session: participantSession,
+        displayName,
+        phone,
+      });
+    }
 
     return {
       sessionToken: session.sessionToken,
