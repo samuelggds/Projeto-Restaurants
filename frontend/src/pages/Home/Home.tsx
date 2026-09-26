@@ -719,7 +719,7 @@ export default function Home() {
     homeData.brand.whatsappDisplayName || homeData.brand.name || 'Atendimento do restaurante';
   const showLoginNudge = !user && !mesaMode && !nudgeDismissed && cart.length > 0 && !cartOpen;
   const loyaltyProgram =
-    user?.role && !isLoyaltyCustomer
+    mesaMode || (user?.role && !isLoyaltyCustomer)
       ? undefined
       : {
           primaryColor: primary,
@@ -916,7 +916,7 @@ export default function Home() {
         isTableMenu={mesaMode}
         orderingLocked={tableClosingRequested}
         tableLabel={mesaMode ? mesaLabel : undefined}
-        favoriteProductIds={user?.role === 'CLIENTE' ? favoriteProductIds : undefined}
+        favoriteProductIds={!mesaMode && user?.role === 'CLIENTE' ? favoriteProductIds : undefined}
         savedAddresses={savedAddresses}
         selectedAddressId={selectedAddressId}
         onSelectAddress={selectDeliveryAddress}
@@ -924,7 +924,7 @@ export default function Home() {
         onOpenCart={openHomeCart}
         onOpenMenu={openMenu}
         onOpenTableAccount={openTableAccount}
-        onOpenProfile={openProfile}
+        onOpenProfile={mesaMode ? undefined : openProfile}
         onOpenAdmin={openAdmin}
         onAddProduct={
           tableClosingRequested
@@ -933,7 +933,7 @@ export default function Home() {
               }
             : addToCart
         }
-        onToggleFavorite={toggleFavorite}
+        onToggleFavorite={mesaMode ? undefined : toggleFavorite}
         onLogout={handleLogout}
       />
 
@@ -1005,7 +1005,7 @@ export default function Home() {
               />
             )}
 
-            {cart.length > 0 && (
+            {cart.length > 0 && !mesaMode && (
               <LoyaltyCouponPanel
                 loggedIn={isLoyaltyCustomer}
                 loading={loyalty.loading}
