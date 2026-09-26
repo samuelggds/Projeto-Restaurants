@@ -309,25 +309,40 @@ export function CommercialWhatsappPanel({ refreshKey = 0 }: { refreshKey?: numbe
         </header>
         <L.ScheduleList>
           {settings.hours.map((day) => (
-            <div className="schedule-day" key={day.weekday}>
-              <label className="day-toggle">
-                <input
-                  type="checkbox"
-                  checked={day.enabled}
-                  onChange={(event) =>
-                    setDay(day.weekday, (current) => ({ ...current, enabled: event.target.checked }))
-                  }
-                />
-                <strong>{weekdayLabels[day.weekday]}</strong>
-              </label>
+            <div
+              className={`schedule-day ${day.enabled ? 'is-enabled' : 'is-disabled'}`}
+              key={day.weekday}
+            >
+              <div className="day-summary">
+                <div>
+                  <strong>{weekdayLabels[day.weekday]}</strong>
+                  <small>{day.enabled ? 'Atendimento ativo' : 'Sem atendimento'}</small>
+                </div>
+                <label className="day-switch">
+                  <span>{day.enabled ? 'Aberto' : 'Fechado'}</span>
+                  <input
+                    type="checkbox"
+                    checked={day.enabled}
+                    aria-label={`Ativar atendimento na ${weekdayLabels[day.weekday]}`}
+                    onChange={(event) =>
+                      setDay(day.weekday, (current) => ({
+                        ...current,
+                        enabled: event.target.checked,
+                      }))
+                    }
+                  />
+                </label>
+              </div>
+
               <div className="periods">
                 {day.periods.map((period, index) => (
-                  <div className="period" key={index}>
-                    <label>
+                  <div className={`period ${period.enabled ? 'is-enabled' : 'is-disabled'}`} key={index}>
+                    <label className="period-toggle">
                       <input
                         type="checkbox"
                         checked={period.enabled}
                         disabled={!day.enabled}
+                        aria-label={`Ativar período ${index + 1} de ${weekdayLabels[day.weekday]}`}
                         onChange={(event) =>
                           setDay(day.weekday, (current) => ({
                             ...current,
@@ -337,35 +352,47 @@ export function CommercialWhatsappPanel({ refreshKey = 0 }: { refreshKey?: numbe
                           }))
                         }
                       />
-                      Período {index + 1}
+                      <span>
+                        <strong>Período {index + 1}</strong>
+                        <small>{index === 0 ? 'Primeiro horário' : 'Segundo horário'}</small>
+                      </span>
                     </label>
-                    <input
-                      type="time"
-                      value={period.start}
-                      disabled={!day.enabled || !period.enabled}
-                      onChange={(event) =>
-                        setDay(day.weekday, (current) => ({
-                          ...current,
-                          periods: current.periods.map((item, itemIndex) =>
-                            itemIndex === index ? { ...item, start: event.target.value } : item,
-                          ) as CommercialWhatsappDay['periods'],
-                        }))
-                      }
-                    />
-                    <span>até</span>
-                    <input
-                      type="time"
-                      value={period.end}
-                      disabled={!day.enabled || !period.enabled}
-                      onChange={(event) =>
-                        setDay(day.weekday, (current) => ({
-                          ...current,
-                          periods: current.periods.map((item, itemIndex) =>
-                            itemIndex === index ? { ...item, end: event.target.value } : item,
-                          ) as CommercialWhatsappDay['periods'],
-                        }))
-                      }
-                    />
+
+                    <div className="time-range">
+                      <label>
+                        <span>Início</span>
+                        <input
+                          type="time"
+                          value={period.start}
+                          disabled={!day.enabled || !period.enabled}
+                          onChange={(event) =>
+                            setDay(day.weekday, (current) => ({
+                              ...current,
+                              periods: current.periods.map((item, itemIndex) =>
+                                itemIndex === index ? { ...item, start: event.target.value } : item,
+                              ) as CommercialWhatsappDay['periods'],
+                            }))
+                          }
+                        />
+                      </label>
+                      <span className="range-separator" aria-hidden="true">—</span>
+                      <label>
+                        <span>Fim</span>
+                        <input
+                          type="time"
+                          value={period.end}
+                          disabled={!day.enabled || !period.enabled}
+                          onChange={(event) =>
+                            setDay(day.weekday, (current) => ({
+                              ...current,
+                              periods: current.periods.map((item, itemIndex) =>
+                                itemIndex === index ? { ...item, end: event.target.value } : item,
+                              ) as CommercialWhatsappDay['periods'],
+                            }))
+                          }
+                        />
+                      </label>
+                    </div>
                   </div>
                 ))}
               </div>
