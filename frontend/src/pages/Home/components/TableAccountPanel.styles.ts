@@ -297,6 +297,61 @@ export const ReceiptTotals = styled.div`
   }
 `;
 
+export const PaymentActions = styled.div`
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
+  display: grid;
+  gap: 8px;
+  margin-top: 14px;
+  padding: 12px;
+  border: 1px solid #ead9ce;
+  border-radius: 16px;
+  background: rgba(255, 253, 249, 0.96);
+  box-shadow: 0 -8px 24px rgba(54, 37, 26, 0.08);
+  backdrop-filter: blur(8px);
+
+  small {
+    color: #756a62;
+    font-size: 10px;
+    line-height: 1.45;
+    text-align: center;
+  }
+`;
+
+export const PayButton = styled.button`
+  width: 100%;
+  min-height: 50px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  border: 0;
+  border-radius: 14px;
+  background: var(--home-primary, #d64d08);
+  color: #fff;
+  cursor: pointer;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 900;
+  box-shadow: 0 10px 24px color-mix(in srgb, var(--home-primary, #d64d08) 26%, transparent);
+
+  &:hover:not(:disabled) {
+    filter: brightness(0.97);
+    transform: translateY(-1px);
+  }
+
+  &:focus-visible {
+    outline: 4px solid color-mix(in srgb, var(--home-primary, #d64d08) 22%, transparent);
+    outline-offset: 2px;
+  }
+
+  &:disabled {
+    cursor: wait;
+    opacity: 0.62;
+  }
+`;
+
 export const DetailsToggle = styled.button`
   width: 100%;
   min-height: 44px;
