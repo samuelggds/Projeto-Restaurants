@@ -376,8 +376,8 @@ test('demo: entrada QR usa o cardápio da mesa, envia à cozinha e apresenta a c
   await expect(cart.getByRole('button', { name: 'Entrega', exact: true })).toHaveCount(0);
   await cart.getByRole('button', { name: 'Revisar e continuar', exact: true }).click();
   await page
-    .getByRole('dialog', { name: 'Como deseja continuar?', exact: true })
-    .getByRole('button', { name: 'Adicionar à conta', exact: true })
+    .getByRole('dialog', { name: 'Como deseja finalizar?', exact: true })
+    .getByRole('button', { name: 'Adicionar à minha comanda', exact: true })
     .click();
   const id = await page.evaluate(
     (key) => JSON.parse(localStorage.getItem(key)!).orders[0].id as number,
