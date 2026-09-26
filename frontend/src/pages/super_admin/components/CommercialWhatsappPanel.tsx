@@ -201,7 +201,7 @@ export function CommercialWhatsappPanel({ refreshKey = 0 }: { refreshKey?: numbe
     setError('');
     try {
       await salesLeadsService.setCommercialWhatsappMode(selected.id, mode);
-      await load();
+      await refreshConversations();
     } catch (requestError) {
       setError(requestErrorMessage(requestError, 'Não foi possível alterar o modo de atendimento.'));
     } finally {
@@ -217,7 +217,7 @@ export function CommercialWhatsappPanel({ refreshKey = 0 }: { refreshKey?: numbe
       await salesLeadsService.sendCommercialWhatsappMessage(selected.id, draft.trim());
       setDraft('');
       setSuccess('Mensagem enviada para o cliente.');
-      window.setTimeout(() => void load(), 800);
+      await refreshConversations();
     } catch (requestError) {
       setError(requestErrorMessage(requestError, 'Não foi possível enviar a mensagem.'));
     } finally {
@@ -544,6 +544,7 @@ export function CommercialWhatsappPanel({ refreshKey = 0 }: { refreshKey?: numbe
                     <p>{message.body}</p>
                   </div>
                 )) : <p>Nenhuma mensagem registrada.</p>}
+                <div ref={messagesEndRef} className="message-end" aria-hidden="true" />
               </L.MessageList>
               <L.ReplyBox>
                 <div className="reply-copy">
@@ -553,14 +554,15 @@ export function CommercialWhatsappPanel({ refreshKey = 0 }: { refreshKey?: numbe
                 <textarea
                   rows={3}
                   maxLength={4000}
-                  placeholder="Escreva a resposta da GastroNexa…"
+                  placeholder={selected.automationMode === 'HUMAN' ? 'Escreva a resposta da GastroNexa…' : 'Assuma o atendimento para responder manualmente'}
                   value={draft}
+                  disabled={selected.automationMode !== 'HUMAN' || busy === 'send'}
                   onChange={(event) => setDraft(event.target.value)}
                 />
                 <S.Button
                   type="button"
                   $variant="primary"
-                  disabled={busy === 'send' || !draft.trim()}
+                  disabled={selected.automationMode !== 'HUMAN' || busy === 'send' || !draft.trim()}
                   onClick={() => void sendMessage()}
                 >
                   <Send size={15} aria-hidden="true" /> Enviar
