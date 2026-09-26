@@ -29,7 +29,6 @@ const DeliveryCustomerAlertLayer = lazy(
   () => import('../pages/tracking/DeliveryCustomerAlertLayer'),
 );
 const SuperAdminPage = lazy(() => import('../pages/super_admin/SuperAdminPage'));
-const BillingPage = lazy(() => import('../pages/Billing/BillingPage'));
 const SystemBlockedPage = lazy(() => import('../pages/SystemBlocked/SystemBlocked'));
 const Home = lazy(() => import('../pages/Home/Home'));
 const DigitalMenu = lazy(() => import('../pages/digital-menu/DigitalMenuIdentityEntryPage'));
@@ -344,7 +343,6 @@ export default function AppRoutes() {
                     <Route path="/system-blocked" element={<SystemBlockedPage />} />
 
                     <Route element={<BillingGate />}>
-                      <Route path="/billing" element={<BillingPage />} />
                       <Route path="/profile" element={<UserProfile />} />
                       <Route path="/admin/profile" element={<AdminProfile />} />
                       <Route
