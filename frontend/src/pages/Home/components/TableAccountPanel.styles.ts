@@ -294,6 +294,52 @@ export const ReceiptRows = styled.div`
     white-space: nowrap;
   }
 
+  .receipt-item-actions {
+    display: inline-flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 9px;
+  }
+
+  .receipt-item-actions > strong {
+    color: #342d28;
+    font-size: 11px;
+    white-space: nowrap;
+  }
+
+  .remove-item {
+    width: 30px;
+    height: 30px;
+    display: grid;
+    place-items: center;
+    padding: 0;
+    border: 0;
+    border-radius: 50%;
+    background: transparent;
+    color: #c94f38;
+    cursor: pointer;
+    transition:
+      transform 140ms ease,
+      color 140ms ease,
+      background 140ms ease;
+  }
+
+  .remove-item:hover:not(:disabled) {
+    transform: scale(1.06);
+    background: #fff0ec;
+    color: #a83624;
+  }
+
+  .remove-item:focus-visible {
+    outline: 3px solid rgba(201, 79, 56, 0.2);
+    outline-offset: 2px;
+  }
+
+  .remove-item:disabled {
+    cursor: not-allowed;
+    opacity: 0.42;
+  }
+
   > p {
     margin: 0;
     padding: 24px 0;
