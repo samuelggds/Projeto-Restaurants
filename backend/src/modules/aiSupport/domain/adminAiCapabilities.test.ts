@@ -4,6 +4,7 @@ import {
   ADMIN_AI_AREAS,
   ADMIN_AI_CAPABILITIES,
   ADMIN_AI_STRUCTURAL_DENYLIST,
+  adminAiCapabilitiesForAdmin,
   adminAiCapabilitiesForArea,
   assertAdminAiCapabilityAllowed,
   normalizeAdminAiArea,
@@ -30,23 +31,23 @@ test('catálogo não cria capacidades de SUPER_ADMIN, segredo, SQL ou troca de t
   assert.equal(serialized.includes('read_secrets'), false);
 });
 
-test('área limita as capacidades expostas ao assistente e falha fechada sem contexto', () => {
+test('área é contexto visual, enquanto o ADMIN pode delegar capacidades válidas de qualquer área', () => {
   const catalog = adminAiCapabilitiesForArea('catalog');
   assert.ok(catalog.some((item) => item.id === 'CREATE_PRODUCT'));
   assert.ok(catalog.some((item) => item.id === 'ADJUST_PRODUCT_PRICES'));
   assert.equal(catalog.some((item) => item.id === 'UPDATE_BUSINESS_HOURS'), false);
 
+  const allAdminCapabilities = adminAiCapabilitiesForAdmin();
+  assert.ok(allAdminCapabilities.some((item) => item.id === 'CREATE_PRODUCT'));
+  assert.ok(allAdminCapabilities.some((item) => item.id === 'UPDATE_BUSINESS_HOURS'));
+
   assert.deepEqual(adminAiCapabilitiesForArea(null), []);
   assert.deepEqual(adminAiCapabilitiesForArea('super_admin'), []);
   assert.equal(normalizeAdminAiArea('settings:hours'), 'settings:hours');
   assert.equal(normalizeAdminAiArea('super_admin'), null);
-  assert.throws(
-    () => assertAdminAiCapabilityAllowed('CREATE_PRODUCT', 'orders'),
-    /não disponível/u,
-  );
-  assert.throws(
-    () => assertAdminAiCapabilityAllowed('CREATE_PRODUCT', null),
-    /não disponível/u,
-  );
-  assert.equal(assertAdminAiCapabilityAllowed('CREATE_PRODUCT', 'catalog').id, 'CREATE_PRODUCT');
+
+  assert.equal(assertAdminAiCapabilityAllowed('CREATE_PRODUCT').id, 'CREATE_PRODUCT');
+  assert.equal(assertAdminAiCapabilityAllowed('UPDATE_BUSINESS_HOURS').id, 'UPDATE_BUSINESS_HOURS');
+  assert.throws(() => assertAdminAiCapabilityAllowed('SUPER_ADMIN'), /não disponível/u);
+  assert.throws(() => assertAdminAiCapabilityAllowed('EXECUTE_SQL'), /não disponível/u);
 });
