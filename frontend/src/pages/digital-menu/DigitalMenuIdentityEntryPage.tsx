@@ -1,4 +1,4 @@
-import { FormEvent, useCallback, useState } from 'react';
+import { FormEvent, useCallback, useEffect, useState } from 'react';
 import { Phone, UserRound } from 'lucide-react';
 import { useLocation } from 'react-router-dom';
 import styled from 'styled-components';
@@ -140,6 +140,20 @@ export default function DigitalMenuIdentityEntryPage() {
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [error, setError] = useState('');
+
+  useEffect(() => {
+    const resetClosedTableGuest = () => {
+      setParticipantIdentity(null);
+      setIdentityRequirement(null);
+      setName('');
+      setPhone('');
+      setError('');
+      setEntryAttempt((attempt) => attempt + 1);
+    };
+    window.addEventListener('gastronexa:table-guest-session-ended', resetClosedTableGuest);
+    return () =>
+      window.removeEventListener('gastronexa:table-guest-session-ended', resetClosedTableGuest);
+  }, []);
 
   const requireParticipantIdentity = useCallback(
     (requirement: TableParticipantIdentityRequirement) => {
