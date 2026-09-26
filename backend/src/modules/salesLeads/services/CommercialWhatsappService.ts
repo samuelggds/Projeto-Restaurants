@@ -1,5 +1,6 @@
 import { createHash, randomBytes, randomUUID, timingSafeEqual } from 'node:crypto';
 import prisma from '../../../config/prisma.js';
+import { realtimePublisher } from '../../../realtime/realtimePublisher.js';
 import {
   decryptCredential,
   encryptCredential,
@@ -15,8 +16,6 @@ type JsonRecord = Record<string, unknown>;
 const PLATFORM_CONNECTION_ID = 1;
 const PLATFORM_INSTANCE_NAME = 'gastronexa-platform';
 const TOKEN_CONTEXT = 'platform-whatsapp-connection:evolution';
-const AUTO_REPLY_COOLDOWN_MS = 12 * 60 * 60 * 1000;
-const MAX_AUTOMATED_OUTBOUND_PER_DAY = 3;
 
 function env(name: string) {
   return String(process.env[name] || '').trim();
@@ -300,6 +299,97 @@ function menuMessage() {
   ].join('\n');
 }
 
+function publishCommercialWhatsappUpdate(conversationId: string, reason: string) {
+  realtimePublisher.to('super_admin').emit('sales-leads:whatsapp-chat-updated', {
+    conversationId,
+    reason,
+    updatedAt: new Date().toISOString(),
+  });
+}
+
+function normalizeBotChoice(value: string) {
+  return value
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/gu, '')
+    .trim()
+    .toLowerCase();
+}
+
+function botReplyForMessage(message: string) {
+  const choice = normalizeBotChoice(message);
+
+  if (choice === '1' || choice.includes('conhecer a plataforma')) {
+    return {
+      handoff: false,
+      body: [
+        'Claro! 😊 A GastroNexa ajuda o restaurante a centralizar pedidos, cardápio digital, mesas, delivery, pagamentos e operação da equipe em um só sistema.',
+        '',
+        'Se quiser, responda *3* para ver uma demonstração ou *2* para falar sobre planos e valores.',
+      ].join('\n'),
+    };
+  }
+
+  if (choice === '2' || choice.includes('planos') || choice.includes('valores')) {
+    return {
+      handoff: false,
+      body: [
+        'Posso te ajudar com os planos e valores. 💳',
+        '',
+        'Para indicarmos a melhor opção, me diga quantas unidades/restaurantes você pretende usar e quais recursos são mais importantes para você.',
+        '',
+        'Se preferir falar com uma pessoa, responda *5*.',
+      ].join('\n'),
+    };
+  }
+
+  if (choice === '3' || choice.includes('demonstracao') || choice.includes('demo')) {
+    return {
+      handoff: false,
+      body: [
+        'Perfeito! 👌 Podemos te apresentar uma demonstração da GastroNexa.',
+        '',
+        'Me diga o melhor período para você: manhã, tarde ou noite. Nossa equipe comercial acompanha a conversa por aqui.',
+        '',
+        'Se quiser atendimento humano agora, responda *5*.',
+      ].join('\n'),
+    };
+  }
+
+  if (
+    choice === '4' ||
+    choice.includes('sou cliente') ||
+    choice.includes('suporte') ||
+    choice.includes('problema')
+  ) {
+    return {
+      handoff: false,
+      body: [
+        'Entendi. Se você já é cliente GastroNexa, descreva resumidamente o que está acontecendo e informe o nome do restaurante.',
+        '',
+        'Se precisar falar diretamente com uma pessoa, responda *5*.',
+      ].join('\n'),
+    };
+  }
+
+  if (
+    choice === '5' ||
+    choice.includes('falar com uma pessoa') ||
+    choice.includes('atendente') ||
+    choice.includes('humano')
+  ) {
+    return {
+      handoff: true,
+      body: [
+        'Certo! 🙋 Vou encaminhar esta conversa para atendimento humano.',
+        '',
+        'Sua mensagem ficou registrada e a equipe pode continuar por aqui.',
+      ].join('\n'),
+    };
+  }
+
+  return { handoff: false, body: menuMessage() };
+}
+
 function buildAwayMessage(message: string, hours: unknown) {
   return [
     message,
@@ -316,65 +406,28 @@ async function enqueueAutoReply(
   phone: string,
   kind: 'GREETING' | 'AWAY',
   body: string,
-  providerMessageId: string | null,
+  sourceMessageKey: string,
 ) {
-  const now = new Date();
-  const since = new Date(now.getTime() - AUTO_REPLY_COOLDOWN_MS);
-  const [recentMessage, recentQueued] = await Promise.all([
-    prisma.salesLeadWhatsappMessage.findFirst({
-      where: {
-        conversationId,
-        direction: 'OUTBOUND',
-        automated: true,
-        kind,
-        createdAt: { gte: since },
-      },
-      select: { id: true },
-    }),
-    prisma.salesLeadWhatsappOutbox.findFirst({
-      where: {
-        conversationId,
-        kind,
-        status: { in: ['PENDING', 'SENT'] },
-        createdAt: { gte: since },
-      },
-      select: { id: true },
-    }),
-  ]);
-  if (recentMessage || recentQueued) return { queued: false, reason: 'cooldown' } as const;
+  const key = createHash('sha256')
+    .update(JSON.stringify(['AUTO_REPLY', conversationId, phone, kind, sourceMessageKey]))
+    .digest('hex');
 
-  const dayStart = new Date(now.getTime() - 24 * 60 * 60 * 1000);
-  const [automatedSentCount, automatedQueuedCount] = await Promise.all([
-    prisma.salesLeadWhatsappMessage.count({
-      where: { conversationId, direction: 'OUTBOUND', automated: true, createdAt: { gte: dayStart } },
-    }),
-    prisma.salesLeadWhatsappOutbox.count({
-      where: {
-        conversationId,
-        kind: { in: ['GREETING', 'AWAY', 'FORM_GREETING'] },
-        status: { in: ['PENDING', 'SENT'] },
-        createdAt: { gte: dayStart },
-      },
-    }),
-  ]);
-  const automatedCount = automatedSentCount + automatedQueuedCount;
-  if (automatedCount >= MAX_AUTOMATED_OUTBOUND_PER_DAY) {
-    return { queued: false, reason: 'daily_limit' } as const;
+  const existing = await prisma.salesLeadWhatsappOutbox.findUnique({
+    where: { deduplicationKey: key },
+    select: { id: true, status: true },
+  });
+  if (existing) {
+    return { queued: false, reason: 'duplicate_inbound' } as const;
   }
 
-  const key = createHash('sha256')
-    .update(JSON.stringify([kind, phone, providerMessageId || Math.floor(now.getTime() / AUTO_REPLY_COOLDOWN_MS)]))
-    .digest('hex');
-  await prisma.salesLeadWhatsappOutbox.upsert({
-    where: { deduplicationKey: key },
-    create: {
+  await prisma.salesLeadWhatsappOutbox.create({
+    data: {
       id: randomUUID(),
       conversationId,
       deduplicationKey: key,
       kind,
       body,
     },
-    update: {},
   });
   return { queued: true } as const;
 }
@@ -454,9 +507,10 @@ export async function processPlatformEvolutionInbound(
     if (duplicate) return { accepted: true, queued: false } as const;
   }
 
+  const inboundMessageId = randomUUID();
   await prisma.salesLeadWhatsappMessage.create({
     data: {
-      id: randomUUID(),
+      id: inboundMessageId,
       conversationId: conversation.id,
       leadId: lead?.id || null,
       direction: 'INBOUND',
@@ -466,6 +520,7 @@ export async function processPlatformEvolutionInbound(
       automated: false,
     },
   });
+  publishCommercialWhatsappUpdate(conversation.id, 'inbound_message');
 
   if (conversation.automationMode === 'HUMAN') {
     return { accepted: true, queued: false, reason: 'human_mode' } as const;
@@ -480,8 +535,9 @@ export async function processPlatformEvolutionInbound(
     settings.commercialWhatsappHours,
     settings.timezone,
   );
+  const botReply = open ? botReplyForMessage(text) : null;
   const bodyText = open
-    ? menuMessage()
+    ? botReply!.body
     : buildAwayMessage(
         settings.commercialWhatsappAwayMessage,
         settings.commercialWhatsappHours,
@@ -492,14 +548,28 @@ export async function processPlatformEvolutionInbound(
     phone,
     open ? 'GREETING' : 'AWAY',
     bodyText,
-    meta.providerMessageId,
+    meta.providerMessageId || inboundMessageId,
   );
 
+  let delivered = { processed: 0, sent: 0, configured: true };
   if (queued.queued) {
-    await deliverPlatformWhatsappOutbox();
+    delivered = await deliverPlatformWhatsappOutbox();
   }
 
-  return { accepted: true, queued: queued.queued, reason: queued.queued ? 'queued' : queued.reason } as const;
+  if (open && botReply?.handoff && delivered.sent > 0) {
+    await prisma.salesLeadWhatsappConversation.update({
+      where: { id: conversation.id },
+      data: { automationMode: 'HUMAN' },
+    });
+    publishCommercialWhatsappUpdate(conversation.id, 'human_handoff');
+  }
+
+  return {
+    accepted: true,
+    queued: queued.queued,
+    sent: delivered.sent,
+    reason: queued.queued ? (delivered.sent > 0 ? 'sent' : 'queued_for_retry') : queued.reason,
+  } as const;
 }
 
 export async function enqueueLeadWhatsappGreeting(leadId: string) {
@@ -612,6 +682,7 @@ export async function deliverPlatformWhatsappOutbox() {
           data: { lastOutboundAt: new Date() },
         }),
       ]);
+      publishCommercialWhatsappUpdate(item.conversationId, 'outbound_message');
       sent++;
     } catch {
       const exhausted = item.attempts >= 8;
@@ -639,10 +710,12 @@ export async function listCommercialWhatsappConversations() {
 }
 
 export async function setCommercialWhatsappConversationMode(id: string, mode: 'BOT' | 'HUMAN') {
-  return prisma.salesLeadWhatsappConversation.update({
+  const updated = await prisma.salesLeadWhatsappConversation.update({
     where: { id },
     data: { automationMode: mode },
   });
+  publishCommercialWhatsappUpdate(id, 'mode_changed');
+  return updated;
 }
 
 export async function enqueueManualCommercialWhatsappMessage(id: string, message: string) {
@@ -662,8 +735,8 @@ export async function enqueueManualCommercialWhatsappMessage(id: string, message
       body,
     },
   });
-  await deliverPlatformWhatsappOutbox();
-  return { queued: true };
+  const delivered = await deliverPlatformWhatsappOutbox();
+  return { queued: true, sent: delivered.sent > 0 };
 }
 
 export async function getCommercialWhatsappSettings() {
