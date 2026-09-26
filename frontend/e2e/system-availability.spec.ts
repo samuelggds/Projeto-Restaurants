@@ -311,6 +311,7 @@ test('faturamento mantém estados completos e sem overflow em 320px', async ({ p
   await page.goto('/admin?area=subscriptions');
 
   await expect(page.getByRole('heading', { name: 'Cobranças e assinaturas' })).toBeVisible();
+  await page.getByRole('tab', { name: /Cobranças/ }).click();
   await expect(page.getByRole('heading', { name: 'Mensalidades e pagamentos' })).toBeVisible();
   await expect(page.getByText('Nenhuma mensalidade gerada')).toBeVisible();
   await expect
