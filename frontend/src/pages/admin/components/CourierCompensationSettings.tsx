@@ -291,7 +291,6 @@ export function CourierCompensationSettings() {
   const [tab, setTab] = useState<'rules' | 'settlements'>('rules');
   const [configuration, setConfiguration] = useState<CourierConfiguration | null>(null);
   const [policy, setPolicy] = useState<CompensationPolicy>(emptyPolicy);
-  const [timezone, setTimezone] = useState('America/Sao_Paulo');
   const [courierId, setCourierId] = useState(0);
   const [override, setOverride] = useState<CompensationPolicy>(emptyPolicy);
   const [pending, setPending] = useState<PendingCourierOrder[]>([]);
@@ -316,7 +315,6 @@ export function CourierCompensationSettings() {
       ]);
       setConfiguration(config);
       setPolicy(config.defaultPolicy);
-      setTimezone(config.timezone);
       setPending(orders);
       setSettlements(history);
       setCourierId((currentCourierId) => {
@@ -361,7 +359,7 @@ export function CourierCompensationSettings() {
     setBusy(true);
     setFeedback(null);
     try {
-      await courierCompensationService.updateDefault(policy, timezone);
+      await courierCompensationService.updateDefault(policy);
       setFeedback({ tone: 'success', text: 'Regra padrão salva com segurança.' });
       await load();
     } catch (error) {
@@ -523,17 +521,6 @@ export function CourierCompensationSettings() {
               </div>
               <span className="rule-badge">Padrão</span>
             </header>
-            <div className="timezone-field field">
-              <label htmlFor="courier-report-timezone">Fuso horário dos relatórios</label>
-              <div>
-                <Clock3 aria-hidden="true" />
-                <input
-                  id="courier-report-timezone"
-                  value={timezone}
-                  onChange={(event) => setTimezone(event.target.value)}
-                />
-              </div>
-            </div>
             <PolicyEditor idPrefix="default-policy" policy={policy} onChange={setPolicy} />
             <footer className="panel-actions">
               <span>Alterações afetam novas entregas.</span>
