@@ -764,6 +764,17 @@ test('cliente pode pagar depois na comanda sem oferecer cartão online', async (
   });
   expect(state.orderPayload).not.toHaveProperty('paymentMethod');
   expect(state.tablePaymentPayload).toBeNull();
+
+  const accountButton = page.getByRole('button', { name: 'Abrir minha comanda da mesa 1' });
+  await expect(accountButton).toBeVisible();
+  await accountButton.click();
+
+  const accountDialog = page.getByRole('dialog', { name: 'Sua comanda • Mesa 1' });
+  await expect(accountDialog).toBeVisible();
+  await expect(accountDialog.getByLabel('Sua comanda em tempo real')).toBeVisible();
+  await expect(accountDialog).toContainText(product.name);
+  await expect(accountDialog).toContainText('28,00');
+  await expect(accountDialog.getByText('Seu consumo')).toBeVisible();
 });
 
 test('retorno success do cartão permanece pendente até o backend confirmar', async ({ page }) => {
