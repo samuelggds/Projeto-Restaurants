@@ -123,6 +123,8 @@ export interface TableAccountSettingsDto {
   allowCash: boolean;
   allowCardMachine: boolean;
   allowOnlinePayment: boolean;
+  allowPix: boolean;
+  allowCard: boolean;
   allowSplit: boolean;
   serviceFeeMode: TableServiceFeeMode;
   serviceFeeBasisPoints: number;
