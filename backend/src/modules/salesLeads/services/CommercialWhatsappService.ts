@@ -219,12 +219,12 @@ export async function disconnectPlatformWhatsappConnection() {
       apiKey: connectionToken(row),
     });
   } finally {
-    const updated = await prisma.platformWhatsappConnection.update({
+    await prisma.platformWhatsappConnection.update({
       where: { id: PLATFORM_CONNECTION_ID },
       data: { status: 'DISCONNECTED', phone: null, disconnectedAt: new Date() },
     });
-    return publicConnection(updated);
   }
+  return publicConnection(await connection());
 }
 
 export async function sendPlatformWhatsappText(destination: string, message: string) {
