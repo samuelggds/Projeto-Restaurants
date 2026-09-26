@@ -678,27 +678,15 @@ test('admin controla o QR, garçom apenas opera a mesa e cozinha recebe Mesa 1',
   await page.getByRole('button', { name: 'Adicionar à sacola' }).click();
   await page.getByRole('button', { name: /Sacola com [1-9]\d* itens/ }).click();
   await expect(page.getByRole('heading', { name: 'Minha sacola' })).toBeVisible();
-  await page.getByRole('button', { name: /Revisar e continuar/ }).click();
-  const continuationDialog = page.getByRole('dialog', { name: 'Como deseja finalizar?' });
-  await expect(
-    continuationDialog.getByRole('heading', { name: 'Como deseja finalizar?' }),
-  ).toBeVisible();
-  await expect(continuationDialog.getByText('Quer pagar no cartão?')).toBeVisible();
-  await expect(continuationDialog.getByText(/pagamento presencialmente na maquininha/i)).toBeVisible();
-  await continuationDialog.getByRole('button', { name: 'Pagar agora com Pix' }).click();
+  await page.getByRole('button', { name: 'Enviar pedido para a cozinha' }).click();
   await expect.poll(() => state.orderPayload).not.toBeNull();
   expect(state.orderPayload).toMatchObject({
     restaurantId: RESTAURANT_ID,
     type: 'MESA',
     tableId: TABLE_ID,
-    paymentMethod: 'PIX',
+    settlementMode: 'TABLE_ACCOUNT',
   });
-
-  await expect(page.getByText('Aguardando pagamento', { exact: true })).toBeVisible();
-  await expect(
-    page.getByText(/Se você já fez o Pix, aguarde a confirmação antes de pagar novamente/i),
-  ).toBeVisible();
-  await page.getByRole('button', { name: 'Continuar no cardápio' }).click();
+  expect(state.orderPayload).not.toHaveProperty('paymentMethod');
   await expect(page.getByLabel(`Mesa ${TABLE_NUMBER}`, { exact: true })).toBeVisible();
   await expect(
     page.getByRole('button', { name: /Confirmar recebimento/i }),
@@ -747,17 +735,7 @@ test('cliente pode pagar depois na comanda sem oferecer cartão online', async (
   await page.getByText('Arroz', { exact: true }).click();
   await page.getByRole('button', { name: 'Adicionar à sacola' }).click();
   await page.getByRole('button', { name: /Sacola com [1-9]\d* itens/ }).click();
-  await page.getByRole('button', { name: /Revisar e continuar/ }).click();
-
-  const continuationDialog = page.getByRole('dialog', { name: 'Como deseja finalizar?' });
-  await expect(continuationDialog.getByRole('button', { name: 'Pagar agora com Pix' })).toBeVisible();
-  await expect(continuationDialog.getByText('Quer pagar no cartão?')).toBeVisible();
-  await expect(continuationDialog.getByText(/pagamento presencialmente na maquininha/i)).toBeVisible();
-  await expect(
-    continuationDialog.getByRole('button', { name: /cartão/i }),
-  ).toHaveCount(0);
-
-  await continuationDialog.getByRole('button', { name: 'Adicionar à minha comanda' }).click();
+  await page.getByRole('button', { name: 'Enviar pedido para a cozinha' }).click();
   await expect.poll(() => state.orderPayload).not.toBeNull();
   expect(state.orderPayload).toMatchObject({
     restaurantId: RESTAURANT_ID,
