@@ -1,17 +1,4 @@
-import { useState } from 'react';
-import {
-  ArrowLeft,
-  ArrowRight,
-  Clock3,
-  CreditCard,
-  ReceiptText,
-  ShieldCheck,
-  Smartphone,
-  X,
-} from 'lucide-react';
-import type { CheckoutPaymentMethod } from '../domain/checkout';
-import { OnlineCardPaymentForm } from './OnlineCardPaymentForm';
-import { setCardPaymentPreparer } from '../domain/cardPaymentPreparation';
+import { Clock3, QrCode, ReceiptText, ShieldCheck, X } from 'lucide-react';
 import * as S from './TableOrderContinuationModal.styles';
 
 type Props = {
@@ -21,40 +8,35 @@ type Props = {
   payNowAvailable: boolean;
   allowPix: boolean;
   allowCard: boolean;
-  paymentMethod: Extract<CheckoutPaymentMethod, 'pix' | 'card'>;
+  paymentMethod: 'pix' | 'card';
   restaurantId: number | null;
   payerEmail?: string;
   busy: boolean;
-  onPaymentMethodChange: (method: Extract<CheckoutPaymentMethod, 'pix' | 'card'>) => void;
+  onPaymentMethodChange: (method: 'pix' | 'card') => void;
   onChooseAccount: () => void;
   onChoosePayNow: () => void;
   onClose: () => void;
 };
 
-type OpenModalProps = Omit<Props, 'open'>;
-
-function OpenTableOrderContinuationModal({
+export function TableOrderContinuationModal({
+  open,
   accountEnabled,
   accountLoading,
   payNowAvailable,
   allowPix,
-  allowCard,
-  paymentMethod,
-  restaurantId,
-  payerEmail,
   busy,
-  onPaymentMethodChange,
   onChooseAccount,
   onChoosePayNow,
   onClose,
-}: OpenModalProps) {
-  const [step, setStep] = useState<'DECISION' | 'METHOD'>('DECISION');
-  const choosingMethod = step === 'METHOD';
+}: Props) {
+  if (!open) return null;
+
+  const pixAvailable = payNowAvailable && allowPix;
 
   return (
     <S.Backdrop
       role="presentation"
-      onMouseDown={(event) => event.target === event.currentTarget && onClose()}
+      onMouseDown={(event) => event.target === event.currentTarget && !busy && onClose()}
     >
       <S.Dialog role="dialog" aria-modal="true" aria-labelledby="table-order-continuation-title">
         <S.Header>
@@ -62,14 +44,8 @@ function OpenTableOrderContinuationModal({
             <ShieldCheck size={23} />
           </span>
           <div>
-            <h2 id="table-order-continuation-title">
-              {choosingMethod ? 'Como deseja pagar este pedido?' : 'Como deseja continuar?'}
-            </h2>
-            <p>
-              {choosingMethod
-                ? 'Escolha uma forma online para pagar somente este pedido.'
-                : 'Seu pedido está pronto. Escolha quando prefere fazer o pagamento.'}
-            </p>
+            <h2 id="table-order-continuation-title">Como deseja finalizar?</h2>
+            <p>Escolha pagar este pedido agora via Pix ou deixar o valor na sua comanda.</p>
           </div>
           <button type="button" aria-label="Fechar" disabled={busy} onClick={onClose}>
             <X size={18} />
@@ -77,121 +53,50 @@ function OpenTableOrderContinuationModal({
         </S.Header>
 
         <S.Body>
-          {choosingMethod ? (
-            <>
-              <S.BackButton type="button" disabled={busy} onClick={() => setStep('DECISION')}>
-                <ArrowLeft size={16} />
-                Voltar
-              </S.BackButton>
-              <S.MethodPanel>
-                <S.PaymentMethods aria-label="Forma de pagamento deste pedido">
-                  {allowPix && (
-                    <button
-                      type="button"
-                      aria-pressed={paymentMethod === 'pix'}
-                      disabled={busy}
-                      onClick={() => onPaymentMethodChange('pix')}
-                    >
-                      <span>
-                        <Smartphone size={18} />
-                      </span>
-                      <b>Pix</b>
-                      <small>Use o QR Code ou copie o código.</small>
-                    </button>
-                  )}
-                  {allowCard && (
-                    <button
-                      type="button"
-                      aria-pressed={paymentMethod === 'card'}
-                      disabled={busy}
-                      onClick={() => onPaymentMethodChange('card')}
-                    >
-                      <span>
-                        <CreditCard size={18} />
-                      </span>
-                      <b>Cartão</b>
-                      <small>Conclua no ambiente seguro do provedor.</small>
-                    </button>
-                  )}
-                </S.PaymentMethods>
-                {paymentMethod === 'card' && allowCard && restaurantId ? (
-                  <OnlineCardPaymentForm
-                    restaurantId={restaurantId}
-                    payerEmail={payerEmail}
-                    onPreparerChange={setCardPaymentPreparer}
-                  />
-                ) : null}
-                <S.PaymentNotice>
-                  <Clock3 size={17} />
-                  <span>
-                    <b>Clicar em pagar não significa pagamento confirmado.</b>
-                    <small>O pedido só será considerado pago após a confirmação do provedor.</small>
-                  </span>
-                </S.PaymentNotice>
-                <S.Action $primary type="button" disabled={busy} onClick={onChoosePayNow}>
-                  {busy ? 'Iniciando com segurança...' : 'Continuar para pagar'}
-                  <ArrowRight size={16} />
-                </S.Action>
-              </S.MethodPanel>
-            </>
-          ) : (
-            <>
-              <S.Choice $featured $disabled={!accountEnabled}>
-                <span className="choice-icon">
-                  <ReceiptText size={21} />
-                </span>
-                <div>
-                  <h3>Adicionar à conta da mesa</h3>
-                  <p>
-                    O pedido vai direto para a cozinha e você decide como dividir e pagar depois.
-                  </p>
-                  {accountEnabled && (
-                    <span className="badge">Mais prático para pedir em grupo</span>
-                  )}
-                </div>
-                <S.Action
-                  $primary
-                  type="button"
-                  disabled={!accountEnabled || accountLoading || busy}
-                  onClick={onChooseAccount}
-                >
-                  {accountLoading ? 'Consultando conta...' : 'Adicionar à conta'}
-                  <ArrowRight size={16} />
-                </S.Action>
-              </S.Choice>
+          <S.Choice $featured $disabled={!pixAvailable}>
+            <span className="choice-icon">
+              <QrCode size={21} />
+            </span>
+            <div>
+              <h3>Pagar agora</h3>
+              <p>Gere um Pix com QR Code e copia e cola para pagar este pedido.</p>
+              <span className="badge">Confirmação automática</span>
+            </div>
+            {pixAvailable ? (
+              <S.Action $primary type="button" disabled={busy} onClick={onChoosePayNow}>
+                {busy ? 'Gerando Pix...' : 'Pagar agora com Pix'}
+              </S.Action>
+            ) : (
+              <S.Empty>Pix ainda não está disponível neste restaurante.</S.Empty>
+            )}
+          </S.Choice>
 
-              <S.Choice $disabled={!payNowAvailable}>
-                <span className="choice-icon">
-                  <CreditCard size={21} />
-                </span>
-                <div>
-                  <h3>Pagar este pedido agora</h3>
-                  <p>Finalize somente este pedido com uma das formas online configuradas.</p>
-                </div>
-                {payNowAvailable ? (
-                  <S.Action type="button" disabled={busy} onClick={() => setStep('METHOD')}>
-                    Escolher forma de pagamento
-                    <ArrowRight size={16} />
-                  </S.Action>
-                ) : (
-                  <S.Empty>O restaurante ainda não disponibilizou Pix ou cartão online.</S.Empty>
-                )}
-              </S.Choice>
+          <S.Choice $disabled={!accountEnabled}>
+            <span className="choice-icon">
+              <ReceiptText size={21} />
+            </span>
+            <div>
+              <h3>Pagar depois</h3>
+              <p>O pedido entra na cozinha normalmente e fica pendente na sua comanda.</p>
+            </div>
+            <S.Action
+              type="button"
+              disabled={!accountEnabled || accountLoading || busy}
+              onClick={onChooseAccount}
+            >
+              {accountLoading ? 'Enviando pedido...' : 'Adicionar à minha comanda'}
+            </S.Action>
+          </S.Choice>
 
-              {!accountEnabled && !accountLoading && !payNowAvailable && (
-                <S.Empty>
-                  Nenhuma opção está disponível no momento. Chame o garçom para receber ajuda.
-                </S.Empty>
-              )}
-            </>
-          )}
+          <S.PaymentNotice>
+            <Clock3 size={17} />
+            <span>
+              <b>Quer pagar no cartão?</b>
+              <small>Chame o garçom e faça o pagamento presencialmente na maquininha.</small>
+            </span>
+          </S.PaymentNotice>
         </S.Body>
       </S.Dialog>
     </S.Backdrop>
   );
-}
-
-export function TableOrderContinuationModal({ open, ...props }: Props) {
-  if (!open) return null;
-  return <OpenTableOrderContinuationModal {...props} />;
 }
