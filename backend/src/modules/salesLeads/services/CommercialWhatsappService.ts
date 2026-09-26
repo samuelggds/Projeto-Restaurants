@@ -49,8 +49,10 @@ function secretMatches(value: string, storedHex: string) {
 }
 
 function evolutionBaseUrl() {
-  const configured = env('EVOLUTION_API_URL');
-  if (!configured) throw new Error('EVOLUTION_API_URL não configurada.');
+  const configured = env('EVOLUTION_PLATFORM_API_URL') || env('EVOLUTION_API_URL');
+  if (!configured) {
+    throw new Error('EVOLUTION_PLATFORM_API_URL não configurada para o WhatsApp comercial.');
+  }
   const url = new URL(configured);
   if (!['http:', 'https:'].includes(url.protocol) || url.username || url.password) {
     throw new Error('EVOLUTION_API_URL inválida.');
@@ -59,8 +61,10 @@ function evolutionBaseUrl() {
 }
 
 function globalApiKey() {
-  const value = env('EVOLUTION_API_KEY');
-  if (!value) throw new Error('EVOLUTION_API_KEY não configurada.');
+  const value = env('EVOLUTION_PLATFORM_API_KEY') || env('EVOLUTION_API_KEY');
+  if (!value) {
+    throw new Error('EVOLUTION_PLATFORM_API_KEY não configurada para o WhatsApp comercial.');
+  }
   return value;
 }
 
@@ -440,6 +444,9 @@ export async function processPlatformEvolutionInbound(
   const row = await connection();
   const instanceName = String(instanceNameInput || '').trim();
   const token = String(webhookTokenInput || '').trim();
+  if (instanceName !== PLATFORM_INSTANCE_NAME) {
+    return { accepted: false, status: 404, reason: 'wrong_commercial_instance' } as const;
+  }
   const body =
     bodyInput && typeof bodyInput === 'object' && !Array.isArray(bodyInput)
       ? (bodyInput as JsonRecord)
