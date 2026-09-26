@@ -6,7 +6,7 @@ export type ParticipantOrderingEvent = {
   tableSessionId: number;
   participantPublicId: string;
   orderingBlocked: boolean;
-  reason: 'BILL_REQUESTED' | 'PAYMENT_SETTLED';
+  reason: 'BILL_REQUESTED' | 'PAYMENT_PENDING' | 'PAYMENT_SETTLED';
   occurredAt: Date;
 };
 
