@@ -10,6 +10,7 @@ import {
   updateSalesLeadSchema,
 } from '../domain/salesLeadSchemas.js';
 import { salesLeadEmailConfiguration } from './salesLeadEmailTransport.js';
+import { enqueueLeadWhatsappGreeting } from './CommercialWhatsappService.js';
 
 type Database = Pick<typeof prisma, 'salesLead' | '$transaction'>;
 const publicFields = {
@@ -84,6 +85,11 @@ export class SalesLeadService {
         data: { ...data, idempotencyKey, payloadHash, emailOutbox: { create: {} } },
         select: { id: true },
       });
+
+      if (this.db === prisma) {
+        await enqueueLeadWhatsappGreeting(lead.id).catch(() => undefined);
+      }
+
       return { created: true, response: { id: lead.id, received: true, emailStatus: 'PENDING' } };
     } catch (error) {
       if (error && typeof error === 'object' && 'code' in error && error.code === 'P2002') {
