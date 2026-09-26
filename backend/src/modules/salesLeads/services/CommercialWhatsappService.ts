@@ -8,6 +8,7 @@ import {
   formatCommercialWhatsappSchedule,
   isCommercialWhatsappHumanServiceOpen,
   normalizeCommercialWhatsappHours,
+  validateCommercialWhatsappHours,
 } from '../domain/commercialWhatsappHours.js';
 
 type JsonRecord = Record<string, unknown>;
@@ -616,6 +617,8 @@ export async function updateCommercialWhatsappSettings(input: {
   awayMessage: string;
 }) {
   const hours = normalizeCommercialWhatsappHours(input.hours);
+  const hoursError = validateCommercialWhatsappHours(hours);
+  if (hoursError) throw new Error(hoursError);
   const awayMessage = String(input.awayMessage || '').trim();
   if (awayMessage.length < 10 || awayMessage.length > 1000) throw new Error('Mensagem fora do horário inválida.');
   const updated = await prisma.platformSettings.update({
