@@ -16,7 +16,7 @@ type Props = {
   onOpenAccount: () => void;
 };
 
-const FloatingWaiter = styled.div\`
+const FloatingWaiter = styled.div`
   position: fixed;
   z-index: 68;
   right: 24px;
@@ -38,9 +38,9 @@ const FloatingWaiter = styled.div\`
     right: 16px;
     bottom: calc(16px + env(safe-area-inset-bottom, 0px));
   }
-\`;
+`;
 
-const WaiterButton = styled.button\`
+const WaiterButton = styled.button`
   width: 60px;
   height: 60px;
   padding: 0;
@@ -62,9 +62,9 @@ const WaiterButton = styled.button\`
   &:active:not(:disabled) { cursor: grabbing; transform: scale(0.97); }
   &:focus-visible { outline: 4px solid rgba(214, 77, 8, 0.2); outline-offset: 3px; }
   &:disabled { cursor: not-allowed; opacity: 0.5; }
-\`;
+`;
 
-const ModalBackdrop = styled.div\`
+const ModalBackdrop = styled.div`
   position: fixed;
   inset: 0;
   z-index: 150;
@@ -73,9 +73,9 @@ const ModalBackdrop = styled.div\`
   place-items: center;
   background: rgba(18, 14, 11, 0.5);
   backdrop-filter: blur(6px);
-\`;
+`;
 
-const Modal = styled.section\`
+const Modal = styled.section`
   width: min(430px, 100%);
   overflow: hidden;
   border: 1px solid #eadfd6;
@@ -101,9 +101,9 @@ const Modal = styled.section\`
   }
   h2 { margin: 0; color: #241f1b; font-size: 21px; line-height: 1.2; }
   header p { margin: 0; color: #7d726a; font-size: 11px; line-height: 1.5; }
-\`;
+`;
 
-const CloseButton = styled.button\`
+const CloseButton = styled.button`
   width: 36px;
   height: 36px;
   flex: 0 0 36px;
@@ -115,9 +115,9 @@ const CloseButton = styled.button\`
   color: #655b54;
   cursor: pointer;
   svg { width: 17px; height: 17px; }
-\`;
+`;
 
-const ModalBody = styled.div\`
+const ModalBody = styled.div`
   margin: 2px 20px 0;
   padding: 24px 18px;
   display: grid;
@@ -140,9 +140,9 @@ const ModalBody = styled.div\`
   .icon svg { width: 26px; height: 26px; }
   strong { color: #302923; font-size: 13px; }
   small { max-width: 305px; color: #81766e; font-size: 10px; line-height: 1.55; }
-\`;
+`;
 
-const ModalActions = styled.div\`
+const ModalActions = styled.div`
   padding: 16px 20px 20px;
   display: grid;
   grid-template-columns: minmax(0, 0.65fr) minmax(0, 1.35fr);
@@ -169,7 +169,7 @@ const ModalActions = styled.div\`
   .confirm svg { width: 17px; height: 17px; }
   button:disabled { cursor: not-allowed; opacity: 0.55; }
   @media (max-width: 380px) { grid-template-columns: 1fr; }
-\`;
+`;
 
 export function TableServiceActions({
   tableNumber,
