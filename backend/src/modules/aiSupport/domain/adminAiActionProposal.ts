@@ -252,14 +252,93 @@ export const updateAppearanceSettingsProposalSchema = requirePatch(
   ['primaryColor', 'fontFamily', 'seoTitle', 'seoDescription'],
 );
 
+export const deleteProductProposalSchema = strictObject({
+  actionType: z.literal('DELETE_PRODUCT'),
+  productId: z.number().int().positive(),
+});
+
+export const cancelOrderProposalSchema = strictObject({
+  actionType: z.literal('CANCEL_ORDER'),
+  orderId: z.number().int().positive(),
+});
+
+export const createCouponProposalSchema = strictObject({
+  actionType: z.literal('CREATE_COUPON'),
+  code: z.string().trim().min(2).max(40),
+  title: optionalText(120),
+  description: optionalText(500),
+  discountType: z.enum(['FIXED', 'PERCENTAGE']).default('FIXED'),
+  discount: z.number().positive().max(999999),
+  minimumSubtotal: z.number().min(0).max(999999).optional(),
+  maxDiscount: z.number().positive().max(999999).nullable().optional(),
+  loyaltyPurchasesRequired: z.number().int().min(0).max(1000).optional(),
+  perCustomerLimit: z.number().int().min(1).max(1000).optional(),
+  redemptionValidityDays: z.number().int().min(1).max(3650).optional(),
+  active: z.boolean().optional().default(true),
+  expiration: z.string().datetime({ offset: true }).nullable().optional(),
+}).superRefine((data, ctx) => {
+  if (data.discountType === 'PERCENTAGE' && data.discount >= 100) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['discount'], message: 'O desconto percentual deve ser menor que 100%.' });
+  }
+});
+
+export const updateCouponProposalSchema = requirePatch(
+  strictObject({
+    actionType: z.literal('UPDATE_COUPON'),
+    couponId: z.number().int().positive(),
+    code: z.string().trim().min(2).max(40).optional(),
+    title: optionalText(120),
+    description: optionalText(500),
+    discountType: z.enum(['FIXED', 'PERCENTAGE']).optional(),
+    discount: z.number().positive().max(999999).optional(),
+    minimumSubtotal: z.number().min(0).max(999999).optional(),
+    maxDiscount: z.number().positive().max(999999).nullable().optional(),
+    loyaltyPurchasesRequired: z.number().int().min(0).max(1000).optional(),
+    perCustomerLimit: z.number().int().min(1).max(1000).optional(),
+    redemptionValidityDays: z.number().int().min(1).max(3650).optional(),
+    active: z.boolean().optional(),
+    expiration: z.string().datetime({ offset: true }).nullable().optional(),
+  }),
+  [
+    'code',
+    'title',
+    'description',
+    'discountType',
+    'discount',
+    'minimumSubtotal',
+    'maxDiscount',
+    'loyaltyPurchasesRequired',
+    'perCustomerLimit',
+    'redemptionValidityDays',
+    'active',
+    'expiration',
+  ],
+);
+
+export const deleteCouponProposalSchema = strictObject({
+  actionType: z.literal('DELETE_COUPON'),
+  couponId: z.number().int().positive(),
+});
+
+export const requestPlanChangeProposalSchema = strictObject({
+  actionType: z.literal('REQUEST_PLAN_CHANGE'),
+  plan: z.enum(['BASICO', 'PREMIUM']),
+});
+
 export const adminAiActionProposalSchema = z.union([
   createProductProposalSchema,
   updateProductProposalSchema,
+  deleteProductProposalSchema,
   adjustPricesProposalSchema,
   toggleProductAvailabilityProposalSchema,
   createCategoryProposalSchema,
   upsertProductDiscountProposalSchema,
   updateOrderStatusProposalSchema,
+  cancelOrderProposalSchema,
+  createCouponProposalSchema,
+  updateCouponProposalSchema,
+  deleteCouponProposalSchema,
+  requestPlanChangeProposalSchema,
   updateEmployeeProposalSchema,
   setEmployeeActiveProposalSchema,
   updateBusinessSettingsProposalSchema,
@@ -279,11 +358,17 @@ export type AdminAiActionProposal = z.infer<typeof adminAiActionProposalSchema>;
 export const IMPLEMENTED_ADMIN_AI_ACTION_TYPES = Object.freeze([
   'CREATE_PRODUCT',
   'UPDATE_PRODUCT',
+  'DELETE_PRODUCT',
   'ADJUST_PRODUCT_PRICES',
   'TOGGLE_PRODUCT_AVAILABILITY',
   'CREATE_CATEGORY',
   'UPSERT_PRODUCT_DISCOUNT',
   'UPDATE_ORDER_STATUS',
+  'CANCEL_ORDER',
+  'CREATE_COUPON',
+  'UPDATE_COUPON',
+  'DELETE_COUPON',
+  'REQUEST_PLAN_CHANGE',
   'UPDATE_EMPLOYEE',
   'SET_EMPLOYEE_ACTIVE',
   'UPDATE_BUSINESS_SETTINGS',
