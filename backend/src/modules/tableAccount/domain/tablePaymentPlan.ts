@@ -62,7 +62,10 @@ export function buildTablePaymentPlan(input: {
     }
     selected = eligibleItems.filter((item) => item.participantId === input.participantId);
   } else {
-    if (activeBlockers.length > 0) {
+    if (
+      input.payment.selectionMode !== 'CUSTOM_AMOUNT' &&
+      activeBlockers.length > 0
+    ) {
       throw new TablePaymentPlanError(
         'Já existe outro pagamento em andamento nesta mesa. Aguarde ou atualize a conta.',
         'TABLE_BALANCE_RESERVED',
@@ -82,7 +85,16 @@ export function buildTablePaymentPlan(input: {
   const subtotalCents =
     input.payment.selectionMode === 'EQUAL_SPLIT'
       ? splitCentsEqually(selectedAvailableCents, Number(input.payment.splitCount))[0]
-      : selectedAvailableCents;
+      : input.payment.selectionMode === 'CUSTOM_AMOUNT'
+        ? Math.min(Number(input.payment.customAmountCents || 0), selectedAvailableCents)
+        : selectedAvailableCents;
+
+  if (input.payment.selectionMode === 'CUSTOM_AMOUNT' && subtotalCents <= 0) {
+    throw new TablePaymentPlanError(
+      'Informe um valor válido para pagar.',
+      'INVALID_CUSTOM_AMOUNT',
+    );
+  }
 
   return {
     subtotalCents,
