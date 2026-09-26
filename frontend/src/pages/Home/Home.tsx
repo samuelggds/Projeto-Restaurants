@@ -637,7 +637,6 @@ export default function Home() {
       setSelectedRedemptionId(null);
       setCart([]);
       setCartOpen(false);
-      setTableContinuationOpen(false);
       void loyalty.refresh();
       await tableAccount.refresh({ silent: true });
       await refreshTableOrder();
