@@ -70,7 +70,7 @@ describe('PaymentOptions', () => {
     expect(markup).toContain('Pix no balcão');
     expect(markup).toContain('Cartão / maquininha');
     expect(markup).toContain('Dinheiro');
-    expect(markup).toContain('entra na fila da cozinha como não pago');
+    expect(markup).toContain('entra para preparo com pagamento pendente no balcão');
   });
 
   it('mantém dinheiro na retirada mesmo quando pagamentos online estão desativados', () => {
