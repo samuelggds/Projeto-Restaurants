@@ -99,12 +99,15 @@ export function adminAiCapabilitiesForArea(areaInput: unknown) {
   return area ? byArea.get(area) ?? [] : [];
 }
 
-export function assertAdminAiCapabilityAllowed(capabilityId: unknown, areaInput?: unknown) {
+export function adminAiCapabilitiesForAdmin() {
+  return ADMIN_AI_CAPABILITIES;
+}
+
+export function assertAdminAiCapabilityAllowed(capabilityId: unknown) {
   const id = String(capabilityId || '').trim();
-  const area = normalizeAdminAiArea(areaInput);
   const capability = ADMIN_AI_CAPABILITIES.find((item) => item.id === id);
-  if (!area || !capability || capability.area !== area) {
-    throw new Error('Ação não disponível para esta área do ADMIN.');
+  if (!capability) {
+    throw new Error('Ação não disponível para o ADMIN.');
   }
   return capability;
 }
