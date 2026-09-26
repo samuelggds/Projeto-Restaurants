@@ -113,6 +113,8 @@ class CreateOrderPixPaymentController {
           tableSessionId: Number(req.tableSession.id),
           participantPublicId: String(req.tableParticipant.publicId || ''),
           orderingBlocked: true,
+          reason: 'PAYMENT_PENDING',
+          occurredAt: new Date(),
         });
       }
 
