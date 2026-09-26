@@ -634,3 +634,25 @@ export async function updateCommercialWhatsappSettings(input: {
     timezone: updated.timezone,
   };
 }
+
+
+export async function enqueuePendingLeadWhatsappGreetings() {
+  const leads = await prisma.salesLead.findMany({
+    where: { consent: true, whatsappOutbox: null },
+    orderBy: { createdAt: 'asc' },
+    take: 20,
+    select: { id: true },
+  });
+  let queued = 0;
+  for (const lead of leads) {
+    const result = await enqueueLeadWhatsappGreeting(lead.id);
+    if (result.queued) queued++;
+  }
+  return { processed: leads.length, queued };
+}
+
+export async function drainCommercialWhatsapp() {
+  const queued = await enqueuePendingLeadWhatsappGreetings();
+  const delivered = await deliverPlatformWhatsappOutbox();
+  return { queued, delivered };
+}
