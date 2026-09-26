@@ -377,30 +377,6 @@ async function mockContextApi(page: Page, state: ContextState) {
   });
 }
 
-async function installGoogleMock(page: Page) {
-  await page.addInitScript(() => {
-    let callback: ((response: { credential: string }) => void) | null = null;
-    window.google = {
-      accounts: {
-        id: {
-          initialize(configuration: { callback: (response: { credential: string }) => void }) {
-            callback = configuration.callback;
-          },
-          renderButton(container: HTMLElement) {
-            const button = document.createElement('button');
-            button.type = 'button';
-            button.textContent = 'Entrar com Google E2E';
-            button.addEventListener('click', () =>
-              callback?.({ credential: 'mock-google-id-token' }),
-            );
-            container.replaceChildren(button);
-          },
-        },
-      },
-    };
-  });
-}
-
 function currentPath(page: Page) {
   const url = new URL(page.url());
   return `${url.pathname}${url.search}${url.hash}`;
