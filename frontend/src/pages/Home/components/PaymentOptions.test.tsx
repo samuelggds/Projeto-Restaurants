@@ -17,7 +17,7 @@ describe('PaymentOptions', () => {
     );
 
     expect(markup).toContain('Cartão');
-    expect(markup).toContain('Cartão / maquininha');
+    expect(markup).toContain('Cartão na maquininha');
     expect(markup).not.toContain('Pix');
   });
 
@@ -66,8 +66,8 @@ describe('PaymentOptions', () => {
       />,
     );
 
-    expect(markup).toContain('Pagar na retirada');
-    expect(markup).toContain('Pix na retirada');
+    expect(markup).toContain('Pagar no balcão');
+    expect(markup).toContain('Pix no balcão');
     expect(markup).toContain('Cartão / maquininha');
     expect(markup).toContain('Dinheiro');
     expect(markup).toContain('entra na fila da cozinha como não pago');
