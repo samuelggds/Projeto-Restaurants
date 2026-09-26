@@ -11,6 +11,9 @@ import ListOpenSessionsController from '../controllers/ListOpenSessionsControlle
 import RequestPinAssistanceController from '../controllers/RequestPinAssistanceController.js';
 import GetCurrentSessionController from '../controllers/GetCurrentSessionController.js';
 import JoinTableSessionController from '../controllers/JoinTableSessionController.js';
+import GetTableAccessRequestStatusController from '../controllers/GetTableAccessRequestStatusController.js';
+import ListTableAccessRequestsController from '../controllers/ListTableAccessRequestsController.js';
+import DecideTableAccessRequestController from '../controllers/DecideTableAccessRequestController.js';
 import {
   tablePinAssistanceRateLimitMiddleware,
   tablePinRateLimitMiddleware,
@@ -29,6 +32,23 @@ const router = Router();
 // já exige assinatura Premium ativa/teste para esse fluxo público.
 router.post('/join', tableJoinRateLimitMiddleware, optionalAuthMiddleware, (req, res) =>
   JoinTableSessionController.handle(req, res),
+);
+router.post('/access-requests/status', tableJoinRateLimitMiddleware, (req, res) =>
+  GetTableAccessRequestStatusController.handle(req, res),
+);
+router.get(
+  '/access-requests',
+  authMiddleware,
+  waiterMiddleware,
+  premiumTablePlanMiddleware,
+  (req, res) => ListTableAccessRequestsController.handle(req, res),
+);
+router.patch(
+  '/access-requests/:id',
+  authMiddleware,
+  waiterMiddleware,
+  premiumTablePlanMiddleware,
+  (req, res) => DecideTableAccessRequestController.handle(req, res),
 );
 
 router.post('/validate', tablePinRateLimitMiddleware, (req, res) =>
