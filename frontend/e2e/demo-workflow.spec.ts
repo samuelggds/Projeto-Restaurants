@@ -376,8 +376,8 @@ test('demo: entrada QR usa o cardápio da mesa, envia à cozinha e apresenta a c
   await expect(cart.getByRole('button', { name: 'Entrega', exact: true })).toHaveCount(0);
   await cart.getByRole('button', { name: 'Revisar e continuar', exact: true }).click();
   await page
-    .getByRole('dialog', { name: 'Como deseja continuar?', exact: true })
-    .getByRole('button', { name: 'Adicionar à conta', exact: true })
+    .getByRole('dialog', { name: 'Como deseja finalizar?', exact: true })
+    .getByRole('button', { name: 'Adicionar à minha comanda', exact: true })
     .click();
   const id = await page.evaluate(
     (key) => JSON.parse(localStorage.getItem(key)!).orders[0].id as number,
@@ -397,15 +397,24 @@ test('demo: entrada QR usa o cardápio da mesa, envia à cozinha e apresenta a c
     .getByRole('button', { name: 'Entregue à mesa', exact: true })
     .click();
   await switchRole(page, 'CLIENTE_QR');
-  await page.getByRole('button', { name: 'Ver conta', exact: true }).click();
-  const account = page.getByRole('dialog', { name: 'Prévia da comanda • Mesa 08', exact: true });
-  await expect(account.getByLabel('Prévia da comanda em tempo real')).toBeVisible();
+  await page.evaluate(
+    (key) => {
+      const state = JSON.parse(localStorage.getItem(key)!);
+      const table = state.tables.find((entry: { number: number }) => entry.number === 8);
+      table.closingRequested = true;
+      localStorage.setItem(key, JSON.stringify(state));
+      window.dispatchEvent(new StorageEvent('storage', { key }));
+    },
+    DEMO_STORAGE_KEY,
+  );
+  await page.reload();
+  await page.getByRole('button', { name: 'Ver e pagar a conta', exact: true }).click();
+  const account = page.getByRole('dialog', { name: 'Sua comanda • Mesa 08', exact: true });
+  await expect(account.getByLabel('Sua comanda em tempo real')).toBeVisible();
   await expect(account).toContainText('Burger Clássico');
   await expect(account).toContainText('92,80');
   await captureReadmeScreenshot(page, 'demo-qr-account.png');
-  await account.getByRole('button', { name: 'Fechar prévia da comanda', exact: true }).click();
-  await page.getByRole('button', { name: 'Pedir a conta', exact: true }).click();
-  await expect(account).toBeVisible();
+  await account.getByRole('button', { name: 'Fechar comanda', exact: true }).click();
   expect(
     await page.evaluate(
       (key) =>
@@ -415,7 +424,7 @@ test('demo: entrada QR usa o cardápio da mesa, envia à cozinha e apresenta a c
       DEMO_STORAGE_KEY,
     ),
   ).toBe(true);
-  await account.getByRole('button', { name: 'Fechar prévia da comanda', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Ver e pagar a conta', exact: true })).toBeVisible();
   await page.setViewportSize({ width: 390, height: 844 });
   await captureReadmeScreenshot(page, 'demo-qr-mobile.png');
   expect(

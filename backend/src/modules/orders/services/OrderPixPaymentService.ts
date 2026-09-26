@@ -371,7 +371,7 @@ class OrderPixPaymentService {
       return trimmed;
     }
 
-    return `guest.pix.${restaurantId}.${Date.now()}@gastronexa.local`;
+    return `pagamentos+${restaurantId}-${Date.now()}@gastronexa.com.br`;
   }
 
   normalizePaymentStatus(status: unknown) {
@@ -557,7 +557,7 @@ class OrderPixPaymentService {
     const payerEmail = this.normalizeEmail(
       userEmail ||
         (sourceOrderId
-          ? `guest.pix.${normalizedRestaurantId}.${sourceOrderId}@gastronexa.local`
+          ? `pagamentos+mesa-${normalizedRestaurantId}-${sourceOrderId}@gastronexa.com.br`
           : null),
       normalizedRestaurantId,
     );
@@ -735,7 +735,7 @@ class OrderPixPaymentService {
             billingType: 'PIX',
             value: totalAmount,
             dueDate: new Date().toISOString().slice(0, 10),
-            description: `Pedido delivery restaurante ${normalizedRestaurantId}`,
+            description: `Pedido ${normalizedType.toLowerCase()} - restaurante ${normalizedRestaurantId}`,
             externalReference: sourceOrderId
               ? `orderpix:${normalizedRestaurantId}:${sourceOrderId}`
               : `orderpix:${normalizedRestaurantId}:${Date.now()}`,

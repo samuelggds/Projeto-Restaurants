@@ -1,11 +1,8 @@
 import { FormEvent, useCallback, useState } from 'react';
-import { LogIn, Phone, UserRound } from 'lucide-react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { Phone, UserRound } from 'lucide-react';
+import { useLocation } from 'react-router-dom';
 import styled from 'styled-components';
-import {
-  buildLoginUrl,
-  getCurrentReturnPath,
-} from '../../shared/navigation/authNavigation';
+import { getCurrentReturnPath } from '../../shared/navigation/authNavigation';
 import DigitalMenuEntryPage, {
   type TableParticipantIdentity,
   type TableParticipantIdentityRequirement,
@@ -108,16 +105,6 @@ const Card = styled.section`
     color: #fff;
   }
 
-  .secondary {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
-    border: 1px solid #e4dad1;
-    background: #fff;
-    color: #433b35;
-  }
-
   button:disabled {
     cursor: wait;
     opacity: 0.65;
@@ -142,7 +129,6 @@ const Card = styled.section`
 `;
 
 export default function DigitalMenuIdentityEntryPage() {
-  const navigate = useNavigate();
   const location = useLocation();
   const currentEntryPath = getCurrentReturnPath(location);
   const [identityRequirement, setIdentityRequirement] = useState<
@@ -200,8 +186,8 @@ export default function DigitalMenuIdentityEntryPage() {
         <span className="eyebrow">{tableLabel}</span>
         <h1 id="participant-identity-title">Como podemos identificar você?</h1>
         <p>
-          Use seu nome e telefone para a equipe saber quem pediu, quem solicitou a conta e qual
-          pagamento pertence a você.
+          Informe seu nome e telefone. Cada pessoa que entrar por este QR Code terá sua própria
+          comanda e verá somente o próprio consumo.
         </p>
 
         <form onSubmit={submit}>
@@ -245,16 +231,9 @@ export default function DigitalMenuIdentityEntryPage() {
           <button className="primary" type="submit">
             {`Continuar na ${tableLabel}`}
           </button>
-          <button
-            className="secondary"
-            type="button"
-            onClick={() => navigate(buildLoginUrl(location))}
-          >
-            <LogIn size={17} /> Já tenho uma conta
-          </button>
           <p className="privacy">
-            O telefone identifica você durante este atendimento. CPF não é exigido para entrar no
-            cardápio; ele só deve ser solicitado por uma funcionalidade que realmente precise dele.
+            Seu nome e telefone identificam somente sua participação nesta mesa e mantêm seus
+            pedidos separados dos demais participantes.
           </p>
         </form>
       </Card>

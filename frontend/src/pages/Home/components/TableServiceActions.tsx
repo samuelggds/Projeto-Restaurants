@@ -1,6 +1,8 @@
-import { useState } from 'react';
-import { Bell, ChevronDown, ChevronUp, CreditCard, ReceiptText } from 'lucide-react';
+import { createPortal } from 'react-dom';
+import { useEffect, useRef, useState } from 'react';
+import { Bell, CheckCircle2, LoaderCircle, X } from 'lucide-react';
 import styled from 'styled-components';
+import { useDraggableFloatingActions } from '../hooks/useDraggableFloatingActions';
 
 type Props = {
   embedded?: boolean;
@@ -14,324 +16,284 @@ type Props = {
   onOpenAccount: () => void;
 };
 
-const Group = styled.section`
-  width: min(340px, calc(100vw - 24px));
-  display: grid;
-  justify-items: end;
-  gap: 5px;
+const FloatingWaiter = styled.div`
+  position: fixed;
+  z-index: 68;
+  right: 24px;
+  bottom: 24px;
+  width: 60px;
+  height: 60px;
 
-  &[data-collapsed='true'] {
-    width: 46px;
+  &[data-drag-positioned='true'] {
+    right: auto;
+    bottom: auto;
+  }
+
+  &[data-dragging='true'] {
+    transition: none;
+    will-change: transform;
   }
 
   @media (max-width: 700px) {
-    width: min(300px, 100%);
-
-    &[data-collapsed='true'] {
-      width: 46px;
-    }
+    right: 16px;
+    bottom: calc(16px + env(safe-area-inset-bottom, 0px));
   }
 `;
 
-const GroupControl = styled.button`
-  width: 100%;
-  min-height: 42px;
-  padding: 5px 6px;
-  border: 1px solid #e4ded7;
-  border-radius: 8px;
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  color: #302923;
-  background: rgba(255, 255, 255, 0.97);
-  box-shadow: 0 6px 18px rgba(55, 38, 26, 0.12);
-  font: inherit;
-  text-align: left;
-  cursor: pointer;
+const WaiterButton = styled.button`
+  width: 60px;
+  height: 60px;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 50%;
+  background: var(--home-primary, #d64d08);
+  color: #fff;
+  box-shadow: 0 14px 30px rgba(65, 38, 20, 0.26);
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  transition: transform 160ms ease, box-shadow 160ms ease, opacity 160ms ease;
 
-  .control-icon {
-    width: 30px;
-    height: 30px;
-    flex: 0 0 30px;
-    display: grid;
-    place-items: center;
-    border-radius: 7px;
-    color: var(--home-primary, #d64d08);
-    background: color-mix(in srgb, var(--home-primary, #d64d08) 10%, #fff);
-  }
-
-  .control-icon svg {
-    width: 16px;
-    height: 16px;
-  }
-
-  .control-copy {
-    min-width: 0;
-    flex: 1;
-    display: grid;
-    gap: 1px;
-  }
-
-  strong,
-  small {
-    display: block;
-  }
-
-  strong {
-    color: #26211d;
-    font-size: 11px;
-    line-height: 1.2;
-    font-weight: 800;
-  }
-
-  small {
-    color: #776d65;
-    font-size: 9px;
-    line-height: 1.3;
-    font-weight: 600;
-  }
-
-  .action {
-    flex: 0 0 auto;
-    width: 30px;
-    height: 30px;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    border-radius: 7px;
-    color: color-mix(in srgb, var(--home-primary, #d64d08) 88%, #2b211b);
-    background: color-mix(in srgb, var(--home-primary, #d64d08) 10%, #fff);
-  }
-
-  .action svg {
-    width: 15px;
-    height: 15px;
-  }
-
-  &:hover {
-    border-color: color-mix(in srgb, var(--home-primary, #d64d08) 52%, #eadfd3);
-  }
-
-  &:focus-visible {
-    outline: 3px solid color-mix(in srgb, var(--home-primary, #d64d08) 24%, transparent);
-    outline-offset: 2px;
-  }
-
-  &[data-collapsed='true'] {
-    width: 46px;
-    height: 46px;
-    min-height: 46px;
-    padding: 5px;
-    border-radius: 50%;
-
-    .control-icon {
-      width: 34px;
-      height: 34px;
-      flex-basis: 34px;
-      border-radius: 50%;
-      background: var(--home-primary, #d64d08);
-      color: #fff;
-    }
-
-    .control-copy,
-    .action {
-      display: none;
-    }
-  }
+  svg { width: 25px; height: 25px; }
+  &:hover:not(:disabled) { transform: translateY(-2px) scale(1.04); }
+  &:active:not(:disabled) { cursor: grabbing; transform: scale(0.97); }
+  &:focus-visible { outline: 4px solid rgba(214, 77, 8, 0.2); outline-offset: 3px; }
+  &:disabled { cursor: not-allowed; opacity: 0.5; }
 `;
 
-const Card = styled.div`
-  width: 100%;
-  padding: 12px;
-  border: 1px solid color-mix(in srgb, var(--home-primary) 30%, #eadfd3);
-  border-radius: 14px;
-  background: rgba(255, 253, 249, 0.97);
-  box-shadow: 0 10px 28px rgba(52, 35, 23, 0.14);
-  backdrop-filter: blur(14px);
+const ModalBackdrop = styled.div`
+  position: fixed;
+  inset: 0;
+  z-index: 150;
+  padding: 20px;
+  display: grid;
+  place-items: center;
+  background: rgba(18, 14, 11, 0.5);
+  backdrop-filter: blur(6px);
+`;
+
+const Modal = styled.section`
+  width: min(430px, 100%);
+  overflow: hidden;
+  border: 1px solid #eadfd6;
+  border-radius: 24px;
+  background: #fff;
+  box-shadow: 0 28px 72px rgba(31, 22, 17, 0.26);
 
   header {
+    padding: 20px 20px 14px;
     display: flex;
     align-items: flex-start;
     justify-content: space-between;
-    gap: 12px;
-    margin-bottom: 10px;
+    gap: 16px;
   }
 
-  b,
-  small {
-    display: block;
-  }
-
-  header b {
-    color: #201a16;
-    font-size: 12px;
+  header > div { display: grid; gap: 4px; }
+  .eyebrow {
+    color: var(--home-primary, #d64d08);
+    font-size: 10px;
     font-weight: 900;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
   }
+  h2 { margin: 0; color: #241f1b; font-size: 21px; line-height: 1.2; }
+  header p { margin: 0; color: #7d726a; font-size: 11px; line-height: 1.5; }
+`;
 
-  header small {
-    margin-top: 3px;
-    color: #746b64;
-    font-size: 10px;
-    line-height: 1.35;
-  }
+const CloseButton = styled.button`
+  width: 36px;
+  height: 36px;
+  flex: 0 0 36px;
+  display: grid;
+  place-items: center;
+  border: 1px solid #eadfd6;
+  border-radius: 12px;
+  background: #fff;
+  color: #655b54;
+  cursor: pointer;
+  svg { width: 17px; height: 17px; }
+`;
 
-  header span {
-    flex: 0 0 auto;
-    padding: 6px 9px;
-    border-radius: 999px;
-    background: color-mix(in srgb, var(--home-primary) 11%, white);
-    color: var(--home-primary);
-    font-size: 10px;
-    font-weight: 850;
-  }
+const ModalBody = styled.div`
+  margin: 2px 20px 0;
+  padding: 24px 18px;
+  display: grid;
+  place-items: center;
+  gap: 10px;
+  border: 1px solid #eadfd6;
+  border-radius: 18px;
+  background: #fffaf6;
+  text-align: center;
 
-  .actions {
+  .icon {
+    width: 60px;
+    height: 60px;
     display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 8px;
+    place-items: center;
+    border-radius: 50%;
+    background: #fff1e9;
+    color: var(--home-primary, #d64d08);
   }
+  .icon svg { width: 26px; height: 26px; }
+  strong { color: #302923; font-size: 13px; }
+  small { max-width: 305px; color: #81766e; font-size: 10px; line-height: 1.55; }
+`;
+
+const ModalActions = styled.div`
+  padding: 16px 20px 20px;
+  display: grid;
+  grid-template-columns: minmax(0, 0.65fr) minmax(0, 1.35fr);
+  gap: 10px;
 
   button {
-    min-width: 0;
-    min-height: 42px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 7px;
-    padding: 8px 10px;
-    border: 1px solid #eadfd3;
-    border-radius: 12px;
-    background: #fff;
-    color: #342d28;
-    cursor: pointer;
+    min-height: 46px;
+    border-radius: 14px;
     font: inherit;
     font-size: 11px;
-    font-weight: 800;
+    font-weight: 850;
+    cursor: pointer;
   }
-
-  button:first-child {
-    border-color: color-mix(in srgb, var(--home-primary) 44%, #eadfd3);
-  }
-
-  button:last-child {
-    border-color: var(--home-primary);
-    background: var(--home-primary);
+  .cancel { border: 1px solid #e6ddd5; background: #fff; color: #5f554e; }
+  .confirm {
+    border: 1px solid var(--home-primary, #d64d08);
+    background: var(--home-primary, #d64d08);
     color: #fff;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
   }
-
-  button:disabled {
-    cursor: not-allowed;
-    filter: grayscale(0.2);
-    opacity: 0.55;
-  }
-
-  button svg {
-    width: 16px;
-    height: 16px;
-    flex: 0 0 auto;
-  }
-
-  @media (max-width: 420px) {
-    padding: 10px;
-
-    header small {
-      max-width: 210px;
-    }
-
-    button {
-      padding-inline: 6px;
-      font-size: 10px;
-    }
-  }
+  .confirm svg { width: 17px; height: 17px; }
+  button:disabled { cursor: not-allowed; opacity: 0.55; }
+  @media (max-width: 380px) { grid-template-columns: 1fr; }
 `;
 
 export function TableServiceActions({
-  embedded = false,
   tableNumber,
   waiterEnabled,
-  billEnabled,
-  accountEnabled,
   loading,
   onCallWaiter,
-  onRequestBill,
-  onOpenAccount,
 }: Props) {
-  const [collapsed, setCollapsed] = useState(
-    () => typeof window !== 'undefined' && window.innerWidth <= 700,
-  );
-
-  if (!waiterEnabled && !billEnabled && !accountEnabled) return null;
-
+  const [open, setOpen] = useState(false);
+  const closeRef = useRef<HTMLButtonElement>(null);
   const tableLabel = String(tableNumber);
-  const isCollapsed = !embedded && collapsed;
+  const {
+    elementRef,
+    style,
+    dragging,
+    positioned,
+    onPointerDown,
+    onPointerMove,
+    onPointerUp,
+    onPointerCancel,
+    onClickCapture,
+  } = useDraggableFloatingActions('@GastroNexa:waiterButtonPosition');
 
-  return (
-    <Group
-      aria-label={`Mesa e atendimento da mesa ${tableLabel}`}
-      data-collapsed={isCollapsed ? 'true' : 'false'}
-    >
-      {!embedded && (
-        <GroupControl
+  useEffect(() => {
+    if (!open) return undefined;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    const frame = window.requestAnimationFrame(() => closeRef.current?.focus());
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && loading === null) setOpen(false);
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => {
+      window.cancelAnimationFrame(frame);
+      window.removeEventListener('keydown', onKeyDown);
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [loading, open]);
+
+  if (!waiterEnabled || typeof document === 'undefined') return null;
+
+  return createPortal(
+    <>
+      <FloatingWaiter
+        ref={elementRef}
+        style={style}
+        data-dragging={dragging ? 'true' : 'false'}
+        data-drag-positioned={positioned ? 'true' : 'false'}
+        onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
+        onPointerUp={onPointerUp}
+        onPointerCancel={onPointerCancel}
+        onClickCapture={onClickCapture}
+      >
+        <WaiterButton
           type="button"
-          data-collapsed={collapsed ? 'true' : 'false'}
           data-floating-drag-handle="true"
-          data-testid="table-service-actions-toggle"
-          aria-expanded={!collapsed}
-          aria-label={
-            collapsed
-              ? `Abrir atendimento da mesa ${tableLabel}`
-              : `Minimizar atendimento da mesa ${tableLabel}`
-          }
-          title={collapsed ? 'Abrir atendimento da mesa' : 'Minimizar atendimento da mesa'}
-          onClick={() => setCollapsed((current) => !current)}
+          data-testid="table-waiter-floating-button"
+          disabled={loading !== null}
+          aria-label={'Chamar garçom da mesa ' + tableLabel}
+          title="Chamar garçom"
+          onClick={() => setOpen(true)}
         >
-          <span className="control-icon" aria-hidden="true">
-            <Bell />
-          </span>
-          <span className="control-copy">
-            <strong>Atendimento da mesa</strong>
-            <small>Garçom, conta e pagamento · Mesa {tableLabel}</small>
-          </span>
-          <span className="action" aria-hidden="true">
-            {collapsed ? <ChevronUp /> : <ChevronDown />}
-          </span>
-        </GroupControl>
-      )}
+          {loading === 'WAITER' ? <LoaderCircle aria-hidden="true" /> : <Bell aria-hidden="true" />}
+        </WaiterButton>
+      </FloatingWaiter>
 
-      {!isCollapsed && (
-        <Card>
-          <header>
-            <div>
-              <b>O que você precisa?</b>
-              <small>Envie o pedido diretamente para o painel do salão.</small>
-            </div>
-            <span>Mesa {tableLabel}</span>
-          </header>
+      {open ? (
+        <ModalBackdrop
+          role="presentation"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget && loading === null) setOpen(false);
+          }}
+        >
+          <Modal role="dialog" aria-modal="true" aria-labelledby="waiter-call-title">
+            <header>
+              <div>
+                <span className="eyebrow">Mesa {tableLabel}</span>
+                <h2 id="waiter-call-title">Chamar o garçom?</h2>
+                <p>Envie uma solicitação diretamente para a equipe do salão.</p>
+              </div>
+              <CloseButton
+                ref={closeRef}
+                type="button"
+                aria-label="Fechar chamada do garçom"
+                disabled={loading !== null}
+                onClick={() => setOpen(false)}
+              >
+                <X aria-hidden="true" />
+              </CloseButton>
+            </header>
 
-          <div className="actions">
-            <button
-              type="button"
-              disabled={!waiterEnabled || loading !== null}
-              onClick={onCallWaiter}
-            >
-              <Bell />
-              {loading === 'WAITER' ? 'Enviando...' : 'Chamar garçom'}
-            </button>
-            <button
-              type="button"
-              disabled={!billEnabled || loading !== null}
-              onClick={onRequestBill}
-            >
-              <ReceiptText />
-              {loading === 'BILL' ? 'Enviando...' : 'Pedir a conta'}
-            </button>
-            <button type="button" disabled={!accountEnabled} onClick={onOpenAccount}>
-              <CreditCard />
-              Ver conta
-            </button>
-          </div>
-        </Card>
-      )}
-    </Group>
+            <ModalBody>
+              <span className="icon" aria-hidden="true"><Bell /></span>
+              <strong>O garçom receberá o chamado da Mesa {tableLabel}</strong>
+              <small>
+                Use quando precisar falar com a equipe. Você continua no cardápio enquanto o chamado
+                é enviado ao salão.
+              </small>
+            </ModalBody>
+
+            <ModalActions>
+              <button className="cancel" type="button" disabled={loading !== null} onClick={() => setOpen(false)}>
+                Agora não
+              </button>
+              <button
+                className="confirm"
+                type="button"
+                disabled={loading !== null}
+                onClick={() => {
+                  onCallWaiter();
+                  setOpen(false);
+                }}
+              >
+                {loading === 'WAITER' ? (
+                  <><LoaderCircle aria-hidden="true" /> Chamando...</>
+                ) : (
+                  <><CheckCircle2 aria-hidden="true" /> Chamar garçom</>
+                )}
+              </button>
+            </ModalActions>
+          </Modal>
+        </ModalBackdrop>
+      ) : null}
+    </>,
+    document.body,
   );
 }

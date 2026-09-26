@@ -554,6 +554,13 @@ class OrdersService {
     return response.data;
   }
 
+  async cancelTableOrder(publicOrderId: string) {
+    const response = await api.patch(
+      `/orders/table/${encodeURIComponent(publicOrderId)}/cancel`,
+    );
+    return response.data;
+  }
+
   async cancelOrder(orderId: string | number) {
     const response = await api.patch(`/orders/${orderId}/cancel`);
     return response.data;

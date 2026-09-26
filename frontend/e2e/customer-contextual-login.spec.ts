@@ -439,11 +439,9 @@ async function addConfiguredProduct(page: Page) {
 
 async function submitTablePixOrder(page: Page) {
   await page.getByRole('button', { name: /Revisar e continuar/u }).click();
-  let dialog = page.getByRole('dialog', { name: 'Como deseja continuar?' });
-  await dialog.getByRole('button', { name: 'Escolher forma de pagamento' }).click();
-  dialog = page.getByRole('dialog', { name: 'Como deseja pagar este pedido?' });
-  await dialog.getByRole('button', { name: 'Pix' }).click();
-  await dialog.getByRole('button', { name: 'Continuar para pagar' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Como deseja finalizar?' });
+  await expect(dialog.getByRole('heading', { name: 'Como deseja finalizar?' })).toBeVisible();
+  await dialog.getByRole('button', { name: 'Pagar agora com Pix' }).click();
 }
 
 test('QR deslogado retorna à mesma Mesa 05 após login e cria pedido MESA', async ({ page }) => {

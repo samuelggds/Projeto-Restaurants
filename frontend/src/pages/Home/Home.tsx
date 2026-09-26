@@ -1,7 +1,6 @@
 import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { ShoppingBag, X } from 'lucide-react';
-import { FloatingActionsControl } from './components/FloatingActionsControl';
 import { CustomerActionHub } from './components/CustomerActionHub';
 import { FloatingWhatsAppPortal } from './Home.whatsapp';
 import { PublicGuestOrderHelp } from '../../features/order-support/PublicGuestOrderHelp';
@@ -40,14 +39,12 @@ import {
   type CheckoutPaymentMethod,
 } from './domain/checkout';
 import { ActiveOrderNotice } from './components/ActiveOrderNotice';
-import { TableOrderStatusNotice } from './components/TableOrderStatusNotice';
 import { LoyaltyProgramCard } from './components/LoyaltyProgramCard';
 import { WhatsAppIcon } from './components/SocialBrandIcons';
 import ordersService from '../../Services/ordersService';
 import waiterCallsService from '../../Services/waiterCallsService';
 import { useLoyaltyRewards } from './hooks/useLoyaltyRewards';
 import { useOrderQuote } from './hooks/useOrderQuote';
-import { useDraggableFloatingActions } from './hooks/useDraggableFloatingActions';
 import { isUsableLoyaltyRedemption, loyaltyRedemptionEntries } from './domain/loyaltyRedemption';
 import { useLoyaltyExpirationClock } from './hooks/useLoyaltyExpirationClock';
 import { getRestaurantAvailability } from '../admin/domain/businessHours';
@@ -135,9 +132,6 @@ export default function Home() {
   const [tableOrderLoading, setTableOrderLoading] = useState(false);
   const [tableContinuationOpen, setTableContinuationOpen] = useState(false);
   const [tableAccountOpen, setTableAccountOpen] = useState(false);
-  const [floatingActionsCollapsed, setFloatingActionsCollapsed] = useState(
-    () => window.matchMedia?.('(max-width: 700px)').matches ?? false,
-  );
 
   useEffect(() => {
     if (!cartOpen) return undefined;
@@ -157,17 +151,6 @@ export default function Home() {
       cartReturnFocusRef.current?.focus();
     };
   }, [cartOpen]);
-  const {
-    elementRef: floatingActionsRef,
-    style: floatingActionsStyle,
-    dragging: floatingActionsDragging,
-    positioned: floatingActionsPositioned,
-    onPointerDown: handleFloatingPointerDown,
-    onPointerMove: handleFloatingPointerMove,
-    onPointerUp: handleFloatingPointerUp,
-    onPointerCancel: handleFloatingPointerCancel,
-    onClickCapture: handleFloatingClickCapture,
-  } = useDraggableFloatingActions();
   const [nudgeDismissed, setNudgeDismissed] = useState(false);
   const customerId = user?.role === 'CLIENTE' ? (user as { id?: number | string }).id : null;
 
@@ -250,7 +233,7 @@ export default function Home() {
     routeTableId || (mesaSessionIsActive ? Number(tableSession?.tableId || 0) : 0) || null;
 
   const { activeOrder, refreshActiveOrder } = useActiveOrderNotice(mesaMode ? null : customerId);
-  const { tableOrder, refreshTableOrder } = useTableOrderNotice({
+  const { refreshTableOrder } = useTableOrderNotice({
     enabled: mesaMode && mesaSessionIsActive,
     sessionKey: tableSession?.sessionPublicId || tableSession?.sessionId || activeTableId,
     sessionToken: tableSession?.sessionToken,
@@ -411,10 +394,11 @@ export default function Home() {
     ? paymentMethod
     : (availablePaymentMethods[0] ?? paymentMethod);
   const paymentAvailable = availablePaymentMethods.length > 0;
+  const tablePixAvailable = availablePaymentMethods.includes('pix');
   const tableAccountEnabled = tableAccount.snapshot?.capabilities.enabled === true;
-  const tableCheckoutPaymentMethod = selectedCheckoutPaymentMethod === 'card' ? 'card' : 'pix';
+  const tableCheckoutPaymentMethod = 'pix' as const;
   const tableCheckoutUnavailable = Boolean(
-    mesaMode && !tableAccount.loading && !tableAccountEnabled && !paymentAvailable,
+    mesaMode && !tableAccount.loading && !tableAccountEnabled && !tablePixAvailable,
   );
 
   const orderQuote = useOrderQuote({
@@ -665,7 +649,7 @@ export default function Home() {
       notify(
         'success',
         `Pedido #${String(order?.id || '')} adicionado à mesa`,
-        'A cozinha recebeu o pedido. Você pode dividir e pagar pela conta da mesa depois.',
+        'A cozinha recebeu o pedido. O valor ficou pendente na sua comanda para pagar depois.',
         5000,
       );
     } catch (error: unknown) {
@@ -676,6 +660,30 @@ export default function Home() {
       );
     } finally {
       setTableOrderLoading(false);
+    }
+  }
+
+  async function removeOwnTableOrder(publicOrderId: string) {
+    try {
+      await ordersService.cancelTableOrder(publicOrderId);
+      await tableAccount.refresh({ silent: true });
+      await refreshTableOrder();
+      notify(
+        'success',
+        'Item removido da comanda',
+        'A comanda foi atualizada em tempo real.',
+        3500,
+      );
+      return true;
+    } catch (error: unknown) {
+      notify(
+        'error',
+        'Não foi possível remover este item',
+        getCheckoutErrorMessage(error) ||
+          'O pedido pode já estar em preparo. Nesse caso, chame o garçom.',
+        5000,
+      );
+      return false;
     }
   }
 
@@ -1059,9 +1067,9 @@ export default function Home() {
         open={tableContinuationOpen}
         accountEnabled={tableAccountEnabled}
         accountLoading={tableAccount.loading}
-        payNowAvailable={paymentAvailable}
-        allowPix={availablePaymentMethods.includes('pix')}
-        allowCard={availablePaymentMethods.includes('card')}
+        payNowAvailable={tablePixAvailable}
+        allowPix={tablePixAvailable}
+        allowCard={false}
         paymentMethod={tableCheckoutPaymentMethod}
         restaurantId={restaurantId}
         payerEmail={user ? String((user as Record<string, unknown>).email || '') : undefined}
@@ -1083,6 +1091,7 @@ export default function Home() {
         onCreatePayment={tableAccount.createPayment}
         onCancelPayment={tableAccount.cancelPayment}
         onReconcilePayment={tableAccount.reconcilePayment}
+        onRemoveOrder={removeOwnTableOrder}
         onClose={() => setTableAccountOpen(false)}
       />
 
@@ -1106,52 +1115,19 @@ export default function Home() {
           <WhatsAppIcon size={25} />
         </FloatingWhatsAppPortal>
       )}
-      {mesaMode ? (
-        <S.FloatingActions
-          ref={floatingActionsRef}
-          data-testid="floating-actions-layer"
-          style={floatingActionsStyle}
-          data-dragging={floatingActionsDragging ? 'true' : 'false'}
-          data-drag-positioned={floatingActionsPositioned ? 'true' : 'false'}
-          $aboveNudge={showLoginNudge}
-          $primary={primary}
-          $hasWhatsapp={Boolean(whatsappUrl)}
-          onPointerDown={handleFloatingPointerDown}
-          onPointerMove={handleFloatingPointerMove}
-          onPointerUp={handleFloatingPointerUp}
-          onPointerCancel={handleFloatingPointerCancel}
-          onClickCapture={handleFloatingClickCapture}
-        >
-          <FloatingActionsControl
-            mode="table"
-            collapsed={floatingActionsCollapsed}
-            onToggle={() => setFloatingActionsCollapsed((collapsed) => !collapsed)}
-          />
-          {!floatingActionsCollapsed && (
-            <>
-              {mesaMode && tableSession && (
-                <TableServiceActions
-                  embedded
-                  tableNumber={mesaLabel}
-                  waiterEnabled={tableSession.waiterCallEnabled !== false}
-                  billEnabled={tableSession.billRequestEnabled !== false && !tableClosingRequested}
-                  accountEnabled={Boolean(tableSession.sessionPublicId)}
-                  loading={tableServiceLoading}
-                  onCallWaiter={() => void requestTableService('WAITER')}
-                  onRequestBill={() => void requestTableService('BILL')}
-                  onOpenAccount={openTableAccount}
-                />
-              )}
-              {loyaltyProgram && <LoyaltyProgramCard loyalty={loyaltyProgram} />}
-              <TableOrderStatusNotice
-                primaryColor={primary}
-                tableLabel={mesaLabel}
-                order={tableOrder}
-              />
-            </>
-          )}
-        </S.FloatingActions>
-      ) : loyaltyProgram || activeOrder || !user ? (
+      {mesaMode && tableSession ? (
+        <TableServiceActions
+          tableNumber={mesaLabel}
+          waiterEnabled={tableSession.waiterCallEnabled !== false}
+          billEnabled={false}
+          accountEnabled={Boolean(tableSession.sessionPublicId)}
+          loading={tableServiceLoading}
+          onCallWaiter={() => void requestTableService('WAITER')}
+          onRequestBill={() => undefined}
+          onOpenAccount={openTableAccount}
+        />
+      ) : null}
+      {!mesaMode && (loyaltyProgram || activeOrder || !user) ? (
         <CustomerActionHub
           primary={primary}
           activeOrder={Boolean(activeOrder)}

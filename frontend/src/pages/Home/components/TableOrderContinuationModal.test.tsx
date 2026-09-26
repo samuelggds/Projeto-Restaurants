@@ -13,7 +13,7 @@ const baseProps = {
   accountLoading: false,
   payNowAvailable: true,
   allowPix: true,
-  allowCard: true,
+  allowCard: false,
   paymentMethod: 'pix' as const,
   restaurantId: null,
   busy: false,
@@ -24,26 +24,30 @@ const baseProps = {
 };
 
 describe('TableOrderContinuationModal', () => {
-  it('mostra somente a decisão entre conta e pagamento imediato', () => {
+  it('mostra somente pagar agora com Pix ou pagar depois', () => {
     const markup = renderToStaticMarkup(<TableOrderContinuationModal {...baseProps} />);
 
-    expect(markup).toContain('Como deseja continuar?');
-    expect(markup).toContain('Adicionar à conta da mesa');
-    expect(markup).toContain('Pagar este pedido agora');
-    expect(markup).not.toContain('Pix');
-    expect(markup).not.toContain('Cartão');
+    expect(markup).toContain('Como deseja finalizar?');
+    expect(markup).toContain('Pagar agora');
+    expect(markup).toContain('Pagar agora com Pix');
+    expect(markup).toContain('Pagar depois');
+    expect(markup).toContain('Adicionar à minha comanda');
+    expect(markup).toContain('pagar no cartão');
+    expect(markup).toContain('maquininha');
+    expect(markup).not.toContain('Escolher forma de pagamento');
+    expect(markup).not.toContain('Conclua no ambiente seguro');
   });
 
-  it('bloqueia a conta quando o recurso não está habilitado', () => {
+  it('bloqueia pagar depois quando a comanda não está habilitada', () => {
     const markup = renderToStaticMarkup(
       <TableOrderContinuationModal {...baseProps} accountEnabled={false} />,
     );
 
     expect(markup).toContain('disabled=""');
-    expect(markup).toContain('Adicionar à conta');
+    expect(markup).toContain('Adicionar à minha comanda');
   });
 
-  it('abre os métodos em uma segunda etapa e volta sem iniciar pagamento', async () => {
+  it('inicia Pix diretamente sem segunda etapa de métodos', async () => {
     const container = document.createElement('div');
     document.body.appendChild(container);
     const root = createRoot(container);
@@ -52,24 +56,15 @@ describe('TableOrderContinuationModal', () => {
     await act(async () => {
       root.render(<TableOrderContinuationModal {...baseProps} onChoosePayNow={onChoosePayNow} />);
     });
-    await act(async () => {
-      [...container.querySelectorAll('button')]
-        .find((button) => button.textContent?.includes('Escolher forma de pagamento'))
-        ?.click();
-    });
-
-    expect(container.textContent).toContain('Como deseja pagar este pedido?');
-    expect(container.textContent).toContain('Pix');
-    expect(container.textContent).toContain('Cartão');
-    expect(onChoosePayNow).not.toHaveBeenCalled();
 
     await act(async () => {
       [...container.querySelectorAll('button')]
-        .find((button) => button.textContent?.trim() === 'Voltar')
+        .find((button) => button.textContent?.includes('Pagar agora com Pix'))
         ?.click();
     });
-    expect(container.textContent).toContain('Como deseja continuar?');
-    expect(onChoosePayNow).not.toHaveBeenCalled();
+
+    expect(onChoosePayNow).toHaveBeenCalledTimes(1);
+    expect(container.textContent).not.toContain('Como deseja pagar este pedido?');
 
     await act(async () => root.unmount());
     container.remove();

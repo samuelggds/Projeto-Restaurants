@@ -53,7 +53,7 @@ export const tableParticipantIdentityInputSchema = z
 export const tableOrderContinuationInputSchema = z
   .object({
     settlementMode: z.enum(TABLE_ORDER_SETTLEMENT_MODES),
-    paymentMethod: z.enum(['PIX', 'CARD']).optional(),
+    paymentMethod: z.literal('PIX').optional(),
   })
   .strict()
   .superRefine((input, context) => {
@@ -61,7 +61,7 @@ export const tableOrderContinuationInputSchema = z
       context.addIssue({
         code: z.ZodIssueCode.custom,
         path: ['paymentMethod'],
-        message: 'Escolha PIX ou cartão para pagar este pedido agora.',
+        message: 'O pagamento imediato da mesa é feito por PIX.',
       });
     }
 

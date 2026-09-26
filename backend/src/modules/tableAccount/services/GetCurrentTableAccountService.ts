@@ -222,7 +222,19 @@ export class GetCurrentTableAccountService {
       throw new TableAccountAccessError();
     }
     const now = new Date();
-    const paymentIntents = data.paymentIntents || [];
+    const participantData: TableAccountSnapshotRecord = {
+      ...data,
+      participants: data.participants.filter(
+        (participant) => participant.publicId === input.participantPublicId,
+      ),
+      billItems: data.billItems.filter(
+        (item) => item.participant.publicId === input.participantPublicId,
+      ),
+      paymentIntents: (data.paymentIntents || []).filter(
+        (payment) => payment.payerParticipantId === participantId,
+      ),
+    };
+    const paymentIntents = participantData.paymentIntents || [];
     const activePayment = paymentIntents.find(
       (payment) =>
         payment.payerParticipantId === participantId &&
@@ -232,7 +244,7 @@ export class GetCurrentTableAccountService {
     const onlinePaymentProviderAvailable = onlineReadiness.allowPix || onlineReadiness.allowCard;
 
     return {
-      ...buildTableAccountBaseSnapshot(data, now),
+      ...buildTableAccountBaseSnapshot(participantData, now),
       currentParticipantPublicId: input.participantPublicId,
       capabilities: {
         enabled: settings.enabled,
@@ -247,7 +259,7 @@ export class GetCurrentTableAccountService {
         reservationTimeoutMinutes: settings.reservationTimeoutMinutes,
       },
       activePayment: activePayment
-        ? serializeTablePaymentIntent(activePayment, data.publicId)
+        ? serializeTablePaymentIntent(activePayment, participantData.publicId)
         : null,
       payments: paymentIntents.map((payment) => ({
         publicId: payment.publicId,

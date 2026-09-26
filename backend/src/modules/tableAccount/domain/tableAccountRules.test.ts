@@ -212,6 +212,13 @@ test('valida a decisão entre conta da mesa e pagamento imediato', () => {
   );
   assert.equal(
     tableOrderContinuationInputSchema.safeParse({
+      settlementMode: 'PAY_NOW',
+      paymentMethod: 'CARD',
+    }).success,
+    false,
+  );
+  assert.equal(
+    tableOrderContinuationInputSchema.safeParse({
       settlementMode: 'TABLE_ACCOUNT',
       paymentMethod: 'CARD',
     }).success,

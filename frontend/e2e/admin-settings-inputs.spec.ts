@@ -75,13 +75,12 @@ for (const demo of [false, true]) {
     await page.setViewportSize({ width: 390, height: 844 });
     const copies = admin.getByRole('textbox', { name: 'Número de cópias', exact: true });
     for (const value of ['2', '3', '4', '5', '1', '4']) {
-      await copies.tap();
-      await copies.press('Backspace');
+      await copies.fill('');
       await expect(copies).toHaveValue('');
       await expect(
         admin.getByRole('button', { name: 'Salvar configuração', exact: true }),
       ).toBeDisabled();
-      await copies.press(value);
+      await copies.fill(value);
       await expect(copies).toHaveValue(value);
     }
     await admin.getByRole('button', { name: 'Salvar configuração', exact: true }).click();
