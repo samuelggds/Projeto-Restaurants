@@ -92,22 +92,22 @@ const DELIVERY_OPTIONS: Option[] = [
 const PICKUP_OPTIONS: Option[] = [
   {
     method: 'pickup_pix',
-    name: 'Pix na retirada',
-    description: 'Pague com Pix ao buscar',
+    name: 'Pix no balcão',
+    description: 'Pague quando chegar para retirar',
     color: '#32BCAD',
     icon: 'pix',
   },
   {
     method: 'pickup_card',
-    name: 'Cartão / maquininha',
-    description: 'Pague no cartão ao retirar',
+    name: 'Cartão na maquininha',
+    description: 'Pague na maquininha do balcão',
     color: '#3b6cf6',
     icon: 'card',
   },
   {
     method: 'pickup_cash',
     name: 'Dinheiro',
-    description: 'Pagamento no restaurante',
+    description: 'Pague em dinheiro no balcão',
     color: '#8b5e3c',
     icon: 'cash',
   },
@@ -325,9 +325,9 @@ export function PaymentOptions({
     allowCard,
   });
   const laterOptions = allowPayAtPickup ? pickupOptions : deliveryOptions;
-  const laterTitle = allowPayAtPickup ? 'Pagar na retirada' : 'Pagar na entrega';
+  const laterTitle = allowPayAtPickup ? 'Pagar no balcão' : 'Pagar na entrega';
   const laterDescription = allowPayAtPickup
-    ? 'Acerte o pagamento quando buscar o pedido.'
+    ? 'Faça o pedido agora e pague presencialmente quando chegar para retirar.'
     : allowPix && allowCard
       ? 'Pix ou cartão / maquininha quando receber.'
       : allowPix
@@ -443,7 +443,7 @@ export function PaymentOptions({
             {openMode === 'now'
               ? 'Pagamento online protegido e confirmação automática quando disponível.'
               : allowPayAtPickup
-                ? 'O pedido é enviado agora e o pagamento acontece na retirada.'
+                ? 'O pedido é enviado para preparo agora. O pagamento acontece presencialmente no balcão antes da retirada.'
                 : 'O pedido é enviado agora e o pagamento acontece na entrega.'}
           </small>
         </P.PaymentMethodHeading>
@@ -641,9 +641,9 @@ export function PaymentOptions({
 
         {openMode === 'later' && allowPayAtPickup && paymentMethod.startsWith('pickup_') && (
           <P.PaymentModeHint>
-            O pedido entra na fila da cozinha como não pago. A equipe verá a forma escolhida;
-            pagamentos integrados podem ser confirmados automaticamente e dinheiro é confirmado
-            pelo funcionário.
+            O pedido entra para preparo com pagamento pendente no balcão. A equipe verá a forma
+            escolhida; Pix e maquininha são confirmados pelo provedor e dinheiro é confirmado pelo
+            funcionário após o recebimento.
           </P.PaymentModeHint>
         )}
       </S.PaymentMethodPanel>

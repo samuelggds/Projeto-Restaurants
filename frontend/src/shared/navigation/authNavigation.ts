@@ -22,7 +22,7 @@ const MAX_DECODE_PASSES = 8;
 const AUTH_RETURN_STORAGE_PREFIX = 'gastronexa:auth-return:';
 const TENANT_SLUG_STORAGE_KEY = 'gastronexa:tenant-slug';
 const TEAM_SESSION_ROOTS = ['/attendant', '/courier', '/kitchen', '/waiter'] as const;
-const ADMIN_SESSION_ROOTS = ['/admin', '/billing'] as const;
+const ADMIN_SESSION_ROOTS = ['/admin'] as const;
 const BLOCKED_AUTH_PATHS = new Set([
   '/login',
   '/register',

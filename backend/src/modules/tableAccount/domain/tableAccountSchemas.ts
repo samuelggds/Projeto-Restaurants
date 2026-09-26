@@ -205,12 +205,12 @@ const tableAccountSettingsFields = {
 
 export const tableAccountSettingsSchema = z
   .object({
-    enabled: tableAccountSettingsFields.enabled.default(false),
+    enabled: tableAccountSettingsFields.enabled.default(true),
     requirePrepaymentAboveCents:
       tableAccountSettingsFields.requirePrepaymentAboveCents.default(null),
     prepaymentWindows: tableAccountSettingsFields.prepaymentWindows.default([]),
-    allowCash: tableAccountSettingsFields.allowCash.default(false),
-    allowCardMachine: tableAccountSettingsFields.allowCardMachine.default(false),
+    allowCash: tableAccountSettingsFields.allowCash.default(true),
+    allowCardMachine: tableAccountSettingsFields.allowCardMachine.default(true),
     allowOnlinePayment: tableAccountSettingsFields.allowOnlinePayment.default(true),
     allowSplit: tableAccountSettingsFields.allowSplit.default(true),
     serviceFeeMode: tableAccountSettingsFields.serviceFeeMode.default('DISABLED'),

@@ -15,6 +15,7 @@ const baseProps = {
   allowPix: true,
   allowCard: true,
   paymentMethod: 'pix' as const,
+  restaurantId: null,
   busy: false,
   onPaymentMethodChange: () => undefined,
   onChooseAccount: () => undefined,

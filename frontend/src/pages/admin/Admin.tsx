@@ -279,14 +279,14 @@ export function mapTableAccountSettingsFromApi(value: unknown): TableAccountAdmi
     );
   const feeMode = String(raw.serviceFeeMode ?? defaults.serviceFeeMode).toUpperCase();
   return {
-    enabled: raw.enabled === true,
+    enabled: raw.enabled !== false,
     requirePrepaymentAboveCents:
       raw.requirePrepaymentAboveCents === null || raw.requirePrepaymentAboveCents === undefined
         ? null
         : Math.max(0, Number(raw.requirePrepaymentAboveCents)),
     prepaymentWindows: windows,
-    allowCash: raw.allowCash === true,
-    allowCardMachine: raw.allowCardMachine === true,
+    allowCash: raw.allowCash !== false,
+    allowCardMachine: raw.allowCardMachine !== false,
     allowOnlinePayment: raw.allowOnlinePayment !== false,
     allowSplit: raw.allowSplit !== false,
     serviceFeeMode: ['OPTIONAL', 'MANDATORY'].includes(feeMode)

@@ -13,6 +13,7 @@ type Method = 'PIX' | 'CARTAO' | 'DINHEIRO';
 type Props = {
   orderId: number;
   total: number;
+  preferredMethod?: string | null;
   onPaid: () => void | Promise<void>;
 };
 
@@ -20,8 +21,15 @@ function messageFrom(error: unknown) {
   return adminErrorMessage(error, 'Não foi possível concluir a cobrança.');
 }
 
-export default function PickupPaymentPanel({ orderId, total, onPaid }: Props) {
-  const [method, setMethod] = useState<Method>('PIX');
+function resolvePreferredMethod(value: string | null | undefined): Method {
+  const normalized = String(value || '').trim().toUpperCase();
+  if (normalized === 'CARTAO' || normalized === 'CARD') return 'CARTAO';
+  if (normalized === 'DINHEIRO' || normalized === 'CASH') return 'DINHEIRO';
+  return 'PIX';
+}
+
+export default function PickupPaymentPanel({ orderId, total, preferredMethod, onPaid }: Props) {
+  const [method, setMethod] = useState<Method>(() => resolvePreferredMethod(preferredMethod));
   const [payment, setPayment] = useState<PickupPayment | null>(null);
   const [terminals, setTerminals] = useState<PaymentTerminal[]>([]);
   const [terminalPublicId, setTerminalPublicId] = useState('');
@@ -124,10 +132,13 @@ export default function PickupPaymentPanel({ orderId, total, onPaid }: Props) {
     <S.Panel aria-label={`Pagamento da retirada do pedido ${orderId}`}>
       <div className="head">
         <div>
-          <strong>Cobrança na retirada</strong>
+          <strong>Pagamento no balcão</strong>
           <small>
-            Pix e cartão são aprovados pela empresa de pagamento. Dinheiro exige confirmação do
-            funcionário.
+            Forma escolhida pelo cliente: {resolvePreferredMethod(preferredMethod) === 'PIX'
+              ? 'Pix'
+              : resolvePreferredMethod(preferredMethod) === 'CARTAO'
+                ? 'Cartão na maquininha'
+                : 'Dinheiro'}. O pedido só pode ser entregue após a confirmação do pagamento.
           </small>
         </div>
         <b>{Number(total).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</b>
@@ -144,8 +155,8 @@ export default function PickupPaymentPanel({ orderId, total, onPaid }: Props) {
           }}
         >
           <QrCode />
-          <strong>Pix</strong>
-          <small>Confirmação automática</small>
+          <strong>Pix no balcão</strong>
+          <small>Gere o QR Code para o cliente</small>
         </button>
         <button
           type="button"
@@ -157,8 +168,8 @@ export default function PickupPaymentPanel({ orderId, total, onPaid }: Props) {
           }}
         >
           <CreditCard />
-          <strong>Cartão</strong>
-          <small>Point integrada</small>
+          <strong>Cartão na maquininha</strong>
+          <small>Envie a cobrança para a Point</small>
         </button>
         <button
           type="button"
@@ -171,7 +182,7 @@ export default function PickupPaymentPanel({ orderId, total, onPaid }: Props) {
         >
           <Banknote />
           <strong>Dinheiro</strong>
-          <small>Confirmação manual</small>
+          <small>Confirme somente após receber</small>
         </button>
       </S.Methods>
 
@@ -250,7 +261,7 @@ export default function PickupPaymentPanel({ orderId, total, onPaid }: Props) {
               {busy
                 ? 'Iniciando...'
                 : method === 'PIX'
-                  ? 'Criar cobrança Pix'
+                  ? 'Gerar Pix no balcão'
                   : 'Enviar para maquininha'}
             </button>
           ) : (

@@ -2,8 +2,13 @@ import { Router } from 'express';
 import rateLimit, { ipKeyGenerator } from 'express-rate-limit';
 import { distributedRateLimitOptions } from '../../../middlewares/security/PostgresRateLimitStore.js';
 import salesLeadService from '../services/SalesLeadService.js';
+import PlatformEvolutionInboundWebhookController from '../controllers/PlatformEvolutionInboundWebhookController.js';
 
 const router = Router();
+
+router.post('/evolution/platform/:instanceName', (req, res) => {
+  PlatformEvolutionInboundWebhookController.handle(req, res);
+});
 export const salesLeadRateLimit = rateLimit({
   ...distributedRateLimitOptions('sales-leads'),
   windowMs: 60 * 60 * 1000,

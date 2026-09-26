@@ -204,11 +204,15 @@ export function AdminPage({
   const mercadoPagoOAuthStatus = oauthParams.get('mp_oauth');
   const paymentOAuthStatus = mercadoPagoOAuthStatus;
   const requestedSettingsSection = oauthParams.get('settings');
+  const requestedArea = oauthParams.get('area');
+  const requestedBillingView = oauthParams.get('billing');
   const initialSettingsSection = settingItems.some(([id]) => id === requestedSettingsSection)
     ? (requestedSettingsSection as SettingsSection)
     : 'brand';
+  const requestedAdminArea: AdminSection =
+    requestedArea === 'subscriptions' ? 'subscriptions' : initialArea;
   const [area, setArea] = useState<AdminSection>(
-    paymentOAuthStatus || requestedSettingsSection ? 'settings' : initialArea,
+    paymentOAuthStatus || requestedSettingsSection ? 'settings' : requestedAdminArea,
   );
   const [section, setSection] = useState<SettingsSection>(
     paymentOAuthStatus ? 'payments' : initialSettingsSection,
@@ -896,7 +900,7 @@ export function AdminPage({
                 />
               </Suspense>
             ) : area === 'subscriptions' ? (
-              <MonthlyBilling />
+              <MonthlyBilling initialView={requestedBillingView === 'plans' ? 'plans' : undefined} />
             ) : area === 'settings' ? (
               section === 'brand' ? (
                 <BrandSettings

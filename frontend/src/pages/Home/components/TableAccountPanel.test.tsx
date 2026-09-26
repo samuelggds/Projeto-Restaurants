@@ -16,6 +16,8 @@ const snapshot: TableAccountSnapshot = {
     allowCash: true,
     allowCardMachine: true,
     allowOnlinePayment: true,
+    allowPix: true,
+    allowCard: true,
     allowSplit: true,
     serviceFeeMode: 'OPTIONAL',
     serviceFeeBasisPoints: 1_000,

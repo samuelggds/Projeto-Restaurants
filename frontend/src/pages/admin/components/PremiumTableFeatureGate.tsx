@@ -267,7 +267,7 @@ export function PremiumTableFeatureGate({ children }: { children: ReactNode }) {
         </ul>
         <div className="actions">
           <span>O delivery permanece disponível normalmente no plano Básico.</span>
-          <a href="/billing">Conhecer o plano Premium</a>
+          <a href="/admin?area=subscriptions&billing=plans">Conhecer o plano Premium</a>
         </div>
       </Body>
     </Shell>

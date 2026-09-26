@@ -97,8 +97,11 @@ model PlatformSettings {
   defaultTrialDays      Int      @default(30)
   auditRetentionDays    Int      @default(180)
   maintenanceMode       Boolean  @default(false)
-  maintenanceMessage    String   @default("Plataforma temporariamente em manutencao.")
-  version               Int      @default(1)
+  maintenanceMessage              String   @default("Plataforma temporariamente em manutencao.")
+  commercialWhatsappEnabled        Boolean  @default(false)
+  commercialWhatsappHours          Json?
+  commercialWhatsappAwayMessage    String   @default("Olá! 👋 Obrigado por entrar em contato com a GastroNexa. No momento estamos fora do horário de atendimento humano. Sua mensagem ficou registrada e será retomada no próximo horário de atendimento.")
+  version                           Int      @default(1)
   updatedByUserId       Int?
   createdAt             DateTime @default(now())
   updatedAt             DateTime @updatedAt
@@ -141,7 +144,8 @@ model SalesLead {
   status         String                @default("NEW") @db.VarChar(16)
   createdAt      DateTime              @default(now()) @db.Timestamptz(3)
   updatedAt      DateTime              @updatedAt @db.Timestamptz(3)
-  emailOutbox    SalesLeadEmailOutbox?
+  emailOutbox       SalesLeadEmailOutbox?
+  whatsappOutbox    SalesLeadWhatsappOutbox?
 
   @@index([status, createdAt, id])
   @@index([createdAt, id])
@@ -161,6 +165,73 @@ model SalesLeadEmailOutbox {
   lead        SalesLead @relation(fields: [leadId], references: [id], onDelete: Cascade)
 
   @@index([status, availableAt])
+}
+
+model PlatformWhatsappConnection {
+  id                      Int       @id @default(1)
+  provider                String    @default("EVOLUTION") @db.VarChar(24)
+  externalInstanceId      String    @unique @db.VarChar(191)
+  instanceTokenCiphertext String
+  webhookSecretHash       String    @db.VarChar(64)
+  phone                   String?   @db.VarChar(15)
+  status                  String    @default("PENDING") @db.VarChar(24)
+  connectedAt             DateTime? @db.Timestamptz(3)
+  disconnectedAt          DateTime? @db.Timestamptz(3)
+  lastWebhookAt           DateTime? @db.Timestamptz(3)
+  createdAt               DateTime  @default(now()) @db.Timestamptz(3)
+  updatedAt               DateTime  @updatedAt @db.Timestamptz(3)
+}
+
+model SalesLeadWhatsappConversation {
+  id             String                     @id @default(uuid()) @db.Uuid
+  phone          String                     @unique @db.VarChar(15)
+  automationMode String                     @default("BOT") @db.VarChar(24)
+  lastInboundAt  DateTime?                  @db.Timestamptz(3)
+  lastOutboundAt DateTime?                  @db.Timestamptz(3)
+  createdAt      DateTime                   @default(now()) @db.Timestamptz(3)
+  updatedAt      DateTime                   @updatedAt @db.Timestamptz(3)
+  messages       SalesLeadWhatsappMessage[]
+  outbox         SalesLeadWhatsappOutbox[]
+
+  @@index([automationMode, updatedAt])
+}
+
+model SalesLeadWhatsappMessage {
+  id                String                        @id @default(uuid()) @db.Uuid
+  conversationId    String                        @db.Uuid
+  leadId            String?                       @db.Uuid
+  direction         String                        @db.VarChar(8)
+  kind              String                        @db.VarChar(32)
+  body              String                        @db.VarChar(4000)
+  providerMessageId String?                       @unique @db.VarChar(191)
+  automated         Boolean                       @default(true)
+  createdAt         DateTime                      @default(now()) @db.Timestamptz(3)
+  conversation      SalesLeadWhatsappConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId, createdAt])
+  @@index([leadId, createdAt])
+}
+
+model SalesLeadWhatsappOutbox {
+  id               String                        @id @default(uuid()) @db.Uuid
+  conversationId   String                        @db.Uuid
+  leadId           String?                       @unique @db.Uuid
+  deduplicationKey String                        @unique @db.VarChar(64)
+  kind             String                        @db.VarChar(32)
+  body             String                        @db.VarChar(4000)
+  status           String                        @default("PENDING") @db.VarChar(16)
+  attempts         Int                           @default(0)
+  availableAt      DateTime                      @default(now()) @db.Timestamptz(3)
+  lockedUntil      DateTime?                     @db.Timestamptz(3)
+  lockToken        String?                       @db.Uuid
+  sentAt           DateTime?                     @db.Timestamptz(3)
+  suppressedReason String?                       @db.VarChar(64)
+  createdAt        DateTime                      @default(now()) @db.Timestamptz(3)
+  conversation     SalesLeadWhatsappConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  lead             SalesLead?                    @relation(fields: [leadId], references: [id], onDelete: SetNull)
+
+  @@index([status, availableAt])
+  @@index([conversationId, sentAt])
 }
 
 model UserAddress {
@@ -1136,11 +1207,11 @@ model TablePaymentEvent {
 model TableAccountSettings {
   id                                                 Int                 @id @default(autoincrement())
   restaurantId                                       Int                 @unique
-  enabled                                            Boolean             @default(false)
+  enabled                                            Boolean             @default(true)
   requirePrepaymentAboveCents                        BigInt?
   prepaymentWindows                                  Json                @default("[]")
-  allowCash                                          Boolean             @default(false)
-  allowCardMachine                                   Boolean             @default(false)
+  allowCash                                          Boolean             @default(true)
+  allowCardMachine                                   Boolean             @default(true)
   allowOnlinePayment                                 Boolean             @default(true)
   allowSplit                                         Boolean             @default(true)
   serviceFeeMode                                     TableServiceFeeMode @default(DISABLED)

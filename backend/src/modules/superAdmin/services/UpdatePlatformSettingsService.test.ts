@@ -20,6 +20,10 @@ const settings = {
   auditRetentionDays: 180,
   maintenanceMode: false,
   maintenanceMessage: 'Plataforma em manutenção programada.',
+  commercialWhatsappEnabled: false,
+  commercialWhatsappHours: null,
+  commercialWhatsappAwayMessage:
+    'Olá! Obrigado por entrar em contato. Retornaremos no próximo horário de atendimento.',
   version: 2,
   updatedByUserId: 1,
   createdAt: new Date('2026-01-01T00:00:00.000Z'),

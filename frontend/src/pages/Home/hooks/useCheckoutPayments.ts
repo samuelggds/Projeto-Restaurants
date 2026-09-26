@@ -300,7 +300,7 @@ export function useCheckoutPayments(options: Options) {
         notify(
           'success',
           `Pedido #${String(order?.id || '')} recebido`,
-          `Seu pedido será preparado. O pagamento em ${methodLabel} será feito no restaurante quando você retirar.`,
+          `Seu pedido será preparado normalmente. Você escolheu pagar no balcão com ${methodLabel}. Faça o pagamento antes de retirar o pedido.`,
           6000,
         );
         return true;
@@ -389,17 +389,22 @@ export function useCheckoutPayments(options: Options) {
       const tablePayment = String(payload.type || '').toUpperCase() === 'MESA';
       let cardPayload: Record<string, unknown> = {};
       if (tablePayment) {
-        const savedMethods = restaurantId
-          ? await customerPaymentMethodService.list(restaurantId).catch(() => [])
-          : [];
-        const storedMethodId = restaurantId
-          ? readStorage(`selectedCustomerPaymentMethodId:${restaurantId}`)
-          : '';
-        const selectedSavedMethod =
-          savedMethods.find((method) => method.publicId === storedMethodId) ||
-          savedMethods.find((method) => method.isDefault) ||
-          savedMethods[0];
-        cardPayload = selectedSavedMethod ? { paymentMethodId: selectedSavedMethod.publicId } : {};
+        try {
+          cardPayload = await prepareCardPayment();
+        } catch (preparationError) {
+          const savedMethods = restaurantId
+            ? await customerPaymentMethodService.list(restaurantId).catch(() => [])
+            : [];
+          const storedMethodId = restaurantId
+            ? readStorage(`selectedCustomerPaymentMethodId:${restaurantId}`)
+            : '';
+          const selectedSavedMethod =
+            savedMethods.find((method) => method.publicId === storedMethodId) ||
+            savedMethods.find((method) => method.isDefault) ||
+            savedMethods[0];
+          if (!selectedSavedMethod) throw preparationError;
+          cardPayload = { paymentMethodId: selectedSavedMethod.publicId };
+        }
       } else {
         cardPayload = await prepareCardPayment();
       }

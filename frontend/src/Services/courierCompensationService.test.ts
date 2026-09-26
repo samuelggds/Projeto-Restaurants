@@ -33,7 +33,6 @@ describe('courierCompensationService', () => {
         extraPerKmAmount: 0,
         ranges: [],
       },
-      'America/Sao_Paulo',
     );
     expect(api.put).toHaveBeenCalledWith('/courier-compensation/admin/configuration', {
       model: 'FIXED_PER_DELIVERY',

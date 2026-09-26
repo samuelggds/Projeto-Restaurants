@@ -248,7 +248,6 @@ test('admin configura ganhos e fecha acerto com cálculo conferido', async ({ pa
   await defaultRule.getByLabel('Valor base').fill('5');
   await defaultRule.getByLabel('Distância incluída').fill('3000');
   await defaultRule.getByLabel('Adicional por km').fill('1.75');
-  await page.getByLabel('Fuso horário dos relatórios').fill('America/Fortaleza');
   await page.getByRole('button', { name: 'Salvar regra padrão' }).click();
 
   await expect
@@ -258,7 +257,7 @@ test('admin configura ganhos e fecha acerto com cálculo conferido', async ({ pa
       baseAmount: 5,
       includedDistanceMeters: 3000,
       extraPerKmAmount: 1.75,
-      timezone: 'America/Fortaleza',
+      timezone: 'America/Sao_Paulo',
     });
 
   const overrideRule = page.locator('.override-panel');

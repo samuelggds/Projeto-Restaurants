@@ -238,6 +238,8 @@ export class GetCurrentTableAccountService {
         allowCash: settings.allowCash,
         allowCardMachine: settings.allowCardMachine,
         allowOnlinePayment: settings.allowOnlinePayment && onlinePaymentProviderAvailable,
+        allowPix: settings.allowOnlinePayment && onlineReadiness.allowPix,
+        allowCard: settings.allowOnlinePayment && onlineReadiness.allowCard,
         allowSplit: settings.allowSplit,
         serviceFeeMode: settings.serviceFeeMode,
         serviceFeeBasisPoints: settings.serviceFeeBasisPoints,
