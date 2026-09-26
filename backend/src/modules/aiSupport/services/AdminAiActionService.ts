@@ -591,6 +591,65 @@ async function buildPreview(
     };
   }
 
+  if (proposal.actionType === 'CREATE_COUPON') {
+    const existing = await db.coupon.findFirst({
+      where: { restaurantId, code: { equals: proposal.code, mode: 'insensitive' } },
+      select: { id: true, code: true },
+    });
+    if (existing) throw new Error('Já existe um cupom com este código neste restaurante.');
+    return {
+      actionType: proposal.actionType,
+      affectedRecords: 1,
+      code: proposal.code,
+      discountType: proposal.discountType,
+      discount: proposal.discount,
+      active: proposal.active,
+      expiration: proposal.expiration ?? null,
+    };
+  }
+
+  if (proposal.actionType === 'UPDATE_COUPON' || proposal.actionType === 'DELETE_COUPON') {
+    const coupon = await db.coupon.findFirst({
+      where: { id: proposal.couponId, restaurantId },
+    });
+    if (!coupon) throw new Error('Cupom não encontrado neste restaurante.');
+    if (proposal.actionType === 'DELETE_COUPON') {
+      const redemption = await db.couponRedemption.findFirst({
+        where: { couponId: coupon.id, restaurantId },
+        select: { id: true },
+      });
+      return {
+        actionType: proposal.actionType,
+        affectedRecords: 1,
+        couponId: coupon.id,
+        code: coupon.code,
+        hasRedemptions: Boolean(redemption),
+      };
+    }
+    return {
+      actionType: proposal.actionType,
+      affectedRecords: 1,
+      couponId: coupon.id,
+      code: coupon.code,
+    };
+  }
+
+  if (proposal.actionType === 'REQUEST_PLAN_CHANGE') {
+    const subscription = await db.subscription.findUnique({
+      where: { restaurantId },
+      select: { plan: true, status: true, scheduledPlan: true },
+    });
+    if (!subscription) throw new Error('Assinatura não encontrada.');
+    return {
+      actionType: proposal.actionType,
+      affectedRecords: 1,
+      before: subscription.plan,
+      after: proposal.plan,
+      subscriptionStatus: subscription.status,
+      alreadyScheduled: subscription.scheduledPlan,
+    };
+  }
+
   if (proposal.actionType === 'UPSERT_PRODUCT_DISCOUNT') {
     const product = await db.product.findFirst({
       where: { id: proposal.productId, restaurantId },
