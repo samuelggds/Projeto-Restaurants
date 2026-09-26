@@ -57,6 +57,7 @@ import {
   loadTablePaymentLedgerItems,
   lockTablePaymentSession,
 } from '../../tableAccount/services/tablePaymentLedger.js';
+import { tableAccountEvents } from '../../tableAccount/realtime/tableAccountEvents.js';
 import bcrypt from 'bcrypt';
 import { generateStrongRandomPassword } from '../../auth/security/passwordPolicy.js';
 import kitchenPrintingService from '../../kitchenPrinting/services/KitchenPrintingService.js';
@@ -895,6 +896,14 @@ class CreateOrderService {
 
     if (queuedForCapacity) {
       io.to(`restaurant:${createdOrder.restaurantId}`).emit('order:capacity-queued', createdOrder);
+    }
+
+    if (createdOrder.type === OrderType.MESA && createdOrder.tableSessionId) {
+      await tableAccountEvents.updated({
+        sessionId: Number(createdOrder.tableSessionId),
+        restaurantId: createdOrder.restaurantId,
+        reason: 'ORDER_CHANGED',
+      });
     }
 
     if (shouldMarkAsPaid) {
