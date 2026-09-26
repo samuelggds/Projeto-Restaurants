@@ -10,6 +10,12 @@ import updateEmployeeService from '../../employee/services/UpdateEmployeeService
 import deactivateEmployeeService from '../../employee/services/DeactivateEmployeeService.js';
 import reactivateEmployeeService from '../../employee/services/ReactivateEmployeeService.js';
 import upsertProductDiscountService from '../../products/services/UpsertProductDiscountService.js';
+import deleteProductService from '../../products/services/DeleteProductService.js';
+import refundOrderByAdminService from '../../orders/services/RefundOrderByAdminService.js';
+import createCouponService from '../../coupon/services/CreateCouponService.js';
+import updateCouponService from '../../coupon/services/UpdateCouponService.js';
+import deleteCouponService from '../../coupon/services/DeleteCouponService.js';
+import requestPlanChangeService from '../../subscription/services/RequestPlanChangeService.js';
 import { sanitizeAdminAiContext } from '../domain/adminAiSecurityPolicy.js';
 import {
   adminAiActionProposalSchema,
