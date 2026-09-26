@@ -292,7 +292,7 @@ class AdminRestaurantAssistantService {
     assertAdminAiQuestionAllowed(question);
 
     const area = normalizeAdminAiArea(areaInput);
-    const allowedCapabilities = adminAiCapabilitiesForArea(area).map((capability) => ({
+    const allowedCapabilities = adminAiCapabilitiesForAdmin().map((capability) => ({
       id: capability.id,
       risk: capability.risk,
       approvalRequired: capability.approvalRequired,
@@ -335,7 +335,7 @@ class AdminRestaurantAssistantService {
       if (!implementedActionTypes.includes(response.proposal.actionType as never)) {
         throw new Error('Ação ainda não automatizada nesta área do ADMIN.');
       }
-      assertAdminAiCapabilityAllowed(response.proposal.actionType, area);
+      assertAdminAiCapabilityAllowed(response.proposal.actionType);
       action = await adminAiActionService.propose(response.proposal, actor);
     }
 
