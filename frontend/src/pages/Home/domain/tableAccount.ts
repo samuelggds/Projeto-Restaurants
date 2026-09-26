@@ -39,7 +39,7 @@ export type TableAccountSnapshot = {
   participants: Array<{
     publicId: string;
     displayName: string | null;
-    authenticated: boolean;
+    authenticated?: boolean;
     status: 'ACTIVE' | 'LEFT';
     joinedAt: string;
     leftAt: string | null;
