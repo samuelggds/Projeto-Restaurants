@@ -1,4 +1,4 @@
-import { LoaderCircle, MessageCircle, QrCode, RefreshCw, Send, Unplug, UserRoundCheck, Bot } from 'lucide-react';
+import { Bot, CheckCircle2, CircleAlert, LoaderCircle, MessageCircle, QrCode, RefreshCw, Send, Unplug, UserRoundCheck } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import salesLeadsService from '../../../Services/salesLeadsService';
 import { formatDate, requestErrorMessage } from '../domain/superAdminDomain';
@@ -47,7 +47,15 @@ export function CommercialWhatsappPanel({ refreshKey = 0 }: { refreshKey?: numbe
         salesLeadsService.listCommercialWhatsappConversations(),
       ]);
       setSettings(settingsResult);
-      setConnection(connectionResult);
+      let resolvedConnection = connectionResult;
+      if (connectionResult.configured) {
+        try {
+          resolvedConnection = await salesLeadsService.refreshCommercialWhatsapp();
+        } catch {
+          // Mantém o último estado conhecido caso a Evolution esteja temporariamente indisponível.
+        }
+      }
+      setConnection(resolvedConnection);
       setConversations(conversationsResult);
       setSelectedId((current) =>
         current && conversationsResult.some((item) => item.id === current)
@@ -70,6 +78,17 @@ export function CommercialWhatsappPanel({ refreshKey = 0 }: { refreshKey?: numbe
     const timer = window.setTimeout(() => void load(), 0);
     return () => window.clearTimeout(timer);
   }, [load, refreshKey]);
+
+  useEffect(() => {
+    if (!connection?.configured || connection.status === 'CONNECTED') return;
+    const timer = window.setInterval(() => {
+      void salesLeadsService
+        .refreshCommercialWhatsapp()
+        .then((result) => setConnection(result))
+        .catch(() => undefined);
+    }, 10_000);
+    return () => window.clearInterval(timer);
+  }, [connection?.configured, connection?.status]);
 
   const setDay = (weekday: number, updater: (day: CommercialWhatsappDay) => CommercialWhatsappDay) => {
     setSettings((current) =>
@@ -166,7 +185,7 @@ export function CommercialWhatsappPanel({ refreshKey = 0 }: { refreshKey?: numbe
     try {
       await salesLeadsService.sendCommercialWhatsappMessage(selected.id, draft.trim());
       setDraft('');
-      setSuccess('Mensagem adicionada à fila de envio.');
+      setSuccess('Mensagem enviada para o cliente.');
       window.setTimeout(() => void load(), 800);
     } catch (requestError) {
       setError(requestErrorMessage(requestError, 'Não foi possível enviar a mensagem.'));
@@ -219,11 +238,31 @@ export function CommercialWhatsappPanel({ refreshKey = 0 }: { refreshKey?: numbe
           <L.ConnectionState $connected={connection.status === 'CONNECTED'}>
             <MessageCircle aria-hidden="true" />
             <span>
-              <small>Status</small>
+              <small>Status da conexão</small>
               <strong>{connectionLabel(connection.status)}</strong>
               {connection.phone ? <em>{connection.phone}</em> : null}
             </span>
           </L.ConnectionState>
+
+          <L.ConnectionNotice $connected={connection.status === 'CONNECTED'} role="status">
+            {connection.status === 'CONNECTED' ? (
+              <CheckCircle2 aria-hidden="true" />
+            ) : (
+              <CircleAlert aria-hidden="true" />
+            )}
+            <div>
+              <strong>
+                {connection.status === 'CONNECTED'
+                  ? 'WhatsApp conectado e pronto para atender'
+                  : 'WhatsApp não está conectado'}
+              </strong>
+              <span>
+                {connection.status === 'CONNECTED'
+                  ? 'As mensagens automáticas e as respostas manuais podem ser enviadas normalmente.'
+                  : 'Conecte ou atualize o status para liberar o atendimento e os envios automáticos.'}
+              </span>
+            </div>
+          </L.ConnectionNotice>
 
           {connection.qrCode ? (
             <L.QrBox>
@@ -410,12 +449,16 @@ export function CommercialWhatsappPanel({ refreshKey = 0 }: { refreshKey?: numbe
       </S.FormCard>
 
       <S.FormCard>
-        <header>
+        <L.ConversationSectionHeader>
           <div>
+            <span className="eyebrow">Atendimento comercial</span>
             <h2>Conversas do WhatsApp</h2>
-            <p>Quando você assume uma conversa, as respostas automáticas param imediatamente.</p>
+            <p>Selecione um cliente, acompanhe o histórico e assuma a conversa quando precisar responder pessoalmente.</p>
           </div>
-        </header>
+          <span className="conversation-count">
+            {conversations.length} {conversations.length === 1 ? 'conversa' : 'conversas'}
+          </span>
+        </L.ConversationSectionHeader>
         <L.ConversationLayout>
           <nav aria-label="Conversas comerciais">
             {conversations.length ? (
@@ -426,9 +469,16 @@ export function CommercialWhatsappPanel({ refreshKey = 0 }: { refreshKey?: numbe
                   className={selectedId === conversation.id ? 'active' : ''}
                   onClick={() => setSelectedId(conversation.id)}
                 >
-                  <strong>{conversation.phone}</strong>
-                  <small>{conversation.automationMode === 'HUMAN' ? 'Atendimento humano' : 'Automático'}</small>
-                  <time>{formatDate(conversation.lastInboundAt || conversation.lastOutboundAt, true)}</time>
+                  <span className="conversation-avatar" aria-hidden="true">
+                    <MessageCircle size={16} />
+                  </span>
+                  <span className="conversation-copy">
+                    <strong>{conversation.phone}</strong>
+                    <small>
+                      {conversation.automationMode === 'HUMAN' ? 'Atendimento humano' : 'Automático'}
+                    </small>
+                    <time>{formatDate(conversation.lastInboundAt || conversation.lastOutboundAt, true)}</time>
+                  </span>
                 </button>
               ))
             ) : (
@@ -440,8 +490,11 @@ export function CommercialWhatsappPanel({ refreshKey = 0 }: { refreshKey?: numbe
             <section>
               <L.ConversationToolbar>
                 <span>
+                  <small>Cliente</small>
                   <strong>{selected.phone}</strong>
-                  <small>{selected.automationMode === 'HUMAN' ? 'Você assumiu esta conversa' : 'Bot ativo'}</small>
+                  <em className={selected.automationMode === 'HUMAN' ? 'mode-human' : 'mode-bot'}>
+                    {selected.automationMode === 'HUMAN' ? 'Atendimento humano ativo' : 'Automação ativa'}
+                  </em>
                 </span>
                 {selected.automationMode === 'HUMAN' ? (
                   <S.Button type="button" disabled={Boolean(busy)} onClick={() => void changeMode('BOT')}>
@@ -462,6 +515,10 @@ export function CommercialWhatsappPanel({ refreshKey = 0 }: { refreshKey?: numbe
                 )) : <p>Nenhuma mensagem registrada.</p>}
               </L.MessageList>
               <L.ReplyBox>
+                <div className="reply-copy">
+                  <strong>Responder cliente</strong>
+                  <small>A mensagem será enviada pelo WhatsApp comercial conectado.</small>
+                </div>
                 <textarea
                   rows={3}
                   maxLength={4000}
