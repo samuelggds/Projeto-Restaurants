@@ -74,13 +74,12 @@ describe('continuação do pedido da mesa na demonstração', () => {
   it('mostra a recusa da conta e permite pagar o mesmo pedido logo depois', async () => {
     vi.mocked(useDemoHomeData).mockReturnValue({ ...demoHomeData, tableAccount: settings() });
     const onState = await render();
-    await click('Adicionar à conta');
+    await click('Adicionar à minha comanda');
     expect(onState).not.toHaveBeenCalled();
     expect(toast.error).toHaveBeenCalledWith(expect.stringContaining('pagar este pedido agora'));
-    expect(container.textContent).toContain('Como deseja continuar?');
+    expect(container.textContent).toContain('Como deseja finalizar?');
 
-    await click('Escolher forma de pagamento');
-    await click('Continuar para pagar');
+    await click('Pagar agora com Pix');
     expect(onState).toHaveBeenCalledTimes(1);
     expect(onState.mock.calls[0][0].orders[0]).toMatchObject({
       channel: 'TABLE',
@@ -90,7 +89,7 @@ describe('continuação do pedido da mesa na demonstração', () => {
     expect(onState.mock.calls[0][0].cart).toEqual([]);
   });
 
-  it('usa cartão quando é a única forma online disponível', async () => {
+  it('não oferece cartão online na mesa quando Pix está indisponível', async () => {
     vi.mocked(useDemoHomeData).mockReturnValue({
       ...demoHomeData,
       acceptsPix: false,
@@ -98,9 +97,15 @@ describe('continuação do pedido da mesa na demonstração', () => {
       tableAccount: settings(),
     });
     const onState = await render();
-    await click('Escolher forma de pagamento');
-    await click('Continuar para pagar');
-    expect(onState.mock.calls[0][0].orders[0]).toMatchObject({ paymentMethod: 'CARD', paid: true });
+    expect(container.textContent).toContain('Pix ainda não está disponível neste restaurante.');
+    expect(container.textContent).toContain('Quer pagar no cartão?');
+    expect(container.textContent).toContain('pagamento presencialmente na maquininha');
+    expect(
+      [...container.querySelectorAll('button')].some(
+        (button) => button.textContent?.trim() === 'Pagar agora com Pix',
+      ),
+    ).toBe(false);
+    expect(onState).not.toHaveBeenCalled();
   });
 
   it('retira a opção online desativada e ainda permite adicionar à conta sem limite', async () => {
@@ -113,8 +118,8 @@ describe('continuação do pedido da mesa na demonstração', () => {
       },
     });
     const onState = await render();
-    expect(container.textContent).not.toContain('Escolher forma de pagamento');
-    await click('Adicionar à conta');
+    expect(container.textContent).not.toContain('Pagar agora com Pix');
+    await click('Adicionar à minha comanda');
     expect(onState.mock.calls[0][0].orders[0]).toMatchObject({ channel: 'TABLE', paid: false });
     expect(toast.error).not.toHaveBeenCalled();
   });
