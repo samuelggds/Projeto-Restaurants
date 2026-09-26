@@ -300,7 +300,7 @@ export function useCheckoutPayments(options: Options) {
         notify(
           'success',
           `Pedido #${String(order?.id || '')} recebido`,
-          `Seu pedido será preparado. O pagamento em ${methodLabel} será feito no restaurante quando você retirar.`,
+          `Seu pedido será preparado normalmente. Você escolheu pagar no balcão com ${methodLabel}. Faça o pagamento antes de retirar o pedido.`,
           6000,
         );
         return true;
