@@ -308,13 +308,11 @@ test('faturamento mantém estados completos e sem overflow em 320px', async ({ p
   }, admin);
   await page.setViewportSize({ width: 320, height: 844 });
 
-  await page.goto('/billing');
+  await page.goto('/admin?area=subscriptions');
 
-  await expect(page.getByRole('heading', { name: 'Gerenciamento de Faturas' })).toBeVisible();
-  await expect(page.getByText('Valor indisponível')).toHaveCount(2);
-  await expect(page.getByRole('status', { name: '' })).toContainText('Nenhuma fatura encontrada');
-  const themeToggle = page.getByRole('button', { name: 'Ativar tema claro' });
-  await expect(themeToggle).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.getByRole('heading', { name: 'Cobranças e assinaturas' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Mensalidades e pagamentos' })).toBeVisible();
+  await expect(page.getByText('Nenhuma mensalidade gerada')).toBeVisible();
   await expect
     .poll(() => page.evaluate(() => document.documentElement.scrollWidth))
     .toBeLessThanOrEqual(321);
