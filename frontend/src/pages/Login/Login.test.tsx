@@ -45,8 +45,9 @@ import Login from './Login';
 (globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT =
   true;
 
+const CUSTOMER_RETURN_PATH = '/restaurante-teste?canal=retirada#bebidas';
+const SECOND_CUSTOMER_RETURN_PATH = '/outro-restaurante?canal=delivery#promocoes';
 const TABLE_RETURN_PATH = '/restaurante-teste/mesa/5?rid=1&tk=abc123#bebidas';
-const SECOND_TABLE_RETURN_PATH = '/outro-restaurante/mesa/9?rid=2&tk=def456#conta';
 
 function LocationProbe() {
   const location = useLocation();
@@ -62,7 +63,7 @@ function ContextSwitcher() {
         data-testid="change-auth-context"
         onClick={() =>
           navigate(
-            `/outro-restaurante/login?next=${encodeURIComponent(SECOND_TABLE_RETURN_PATH)}`,
+            `/outro-restaurante/login?next=${encodeURIComponent(SECOND_CUSTOMER_RETURN_PATH)}`,
           )
         }
       >
@@ -153,7 +154,7 @@ describe('Login contextual do cliente', () => {
       root.render(
         <MemoryRouter
           initialEntries={[
-            `/restaurante-teste/login?next=${encodeURIComponent(TABLE_RETURN_PATH)}`,
+            `/restaurante-teste/login?next=${encodeURIComponent(CUSTOMER_RETURN_PATH)}`,
           ]}
         >
           <Routes>
@@ -177,7 +178,7 @@ describe('Login contextual do cliente', () => {
     vi.useRealTimers();
   });
 
-  it('aplica a identidade da categoria sem perder o contexto da mesa', () => {
+  it('aplica a identidade da categoria no login do cliente', () => {
     expect(
       container
         .querySelector('[data-testid="login-layout"]')
@@ -187,10 +188,34 @@ describe('Login contextual do cliente', () => {
       container.querySelector('[data-testid="login-hero-content"]')?.getAttribute('data-category'),
     ).toBe('PIZZARIA');
     expect(container.textContent).toContain('A experiência digital da sua pizzaria começa aqui.');
-    expect(container.textContent).toContain('Mesa 5 • acesso seguro');
+    expect(container.textContent).toContain('Restaurante Teste');
   });
 
-  it('preserva a mesa durante email, senha e MFA até o redirect final', async () => {
+  it('não renderiza formulário de login quando o destino é uma mesa', async () => {
+    act(() => {
+      root.render(
+        <MemoryRouter
+          initialEntries={[
+            `/restaurante-teste/login?next=${encodeURIComponent(TABLE_RETURN_PATH)}`,
+          ]}
+        >
+          <Routes>
+            <Route path="/:restaurantSlug/login" element={<LoginHarness />} />
+            <Route path="*" element={<LocationProbe />} />
+          </Routes>
+        </MemoryRouter>,
+      );
+    });
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0);
+    });
+
+    expect(container.querySelector('form')).toBeNull();
+    expect(container.textContent).toContain(TABLE_RETURN_PATH);
+  });
+
+  it('preserva o destino do cliente durante email, senha e MFA até o redirect final', async () => {
     mocks.loginRequest.mockResolvedValue({
       mfaRequired: true,
       mfaToken: 'mfa-token',
@@ -247,7 +272,7 @@ describe('Login contextual do cliente', () => {
       { id: 21, name: 'Cliente Teste', role: 'CLIENTE' },
       'customer-token',
     );
-    expect(container.textContent).toContain(TABLE_RETURN_PATH);
+    expect(container.textContent).toContain(CUSTOMER_RETURN_PATH);
   });
 
   it('usa o mesmo next seguro após o callback do Google', async () => {
@@ -269,7 +294,7 @@ describe('Login contextual do cliente', () => {
       { id: 21, name: 'Cliente Google', role: 'CLIENTE' },
       'google-customer-token',
     );
-    expect(container.textContent).toContain(TABLE_RETURN_PATH);
+    expect(container.textContent).toContain(CUSTOMER_RETURN_PATH);
   });
 
   it('usa o next mais recente no callback Google já inicializado', async () => {
@@ -291,7 +316,7 @@ describe('Login contextual do cliente', () => {
       await vi.advanceTimersByTimeAsync(700);
     });
 
-    expect(container.textContent).toContain(SECOND_TABLE_RETURN_PATH);
+    expect(container.textContent).toContain(SECOND_CUSTOMER_RETURN_PATH);
     expect(container.textContent).not.toContain(TABLE_RETURN_PATH);
   });
 
@@ -317,7 +342,7 @@ describe('Login contextual do cliente', () => {
 
     const location = container.textContent || '';
     expect(location).toMatch(/^\/change-password\?next=/u);
-    expect(new URLSearchParams(location.split('?')[1]).get('next')).toBe(TABLE_RETURN_PATH);
+    expect(new URLSearchParams(location.split('?')[1]).get('next')).toBe(CUSTOMER_RETURN_PATH);
   });
 
   it('envia funcionário ATENDENTE à área exclusiva sem reutilizar o next do cliente', async () => {
