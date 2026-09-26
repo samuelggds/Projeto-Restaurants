@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { authMiddleware } from '../../../middlewares/authMiddleware.js';
 import { adminMiddleware } from '../../../middlewares/adminMiddleware.js';
 import { superAdminMiddleware } from '../../../middlewares/superAdminMiddleware.js';
+import { premiumAiPlanMiddleware } from '../../../middlewares/premiumAiPlanMiddleware.js';
 import ListSupportChatMessagesController from '../controllers/ListSupportChatMessagesController.js';
 import GetAllSupportTicketsController from '../controllers/GetAllSupportTicketsController.js';
 import UpdateSupportIssueController from '../controllers/UpdateSupportIssueController.js';
@@ -17,70 +18,72 @@ router.get('/messages', authMiddleware, (req, res) => {
 router.get('/my-issue-updates', authMiddleware, (req, res) => {
   ListMySupportIssueUpdatesController.handle(req, res);
 });
-router.get('/credits', authMiddleware, adminMiddleware, (req, res) => {
+router.get('/credits', authMiddleware, adminMiddleware, premiumAiPlanMiddleware, (req, res) => {
   AdminAiGuideController.balance(req, res);
 });
-router.get('/credits/topups', authMiddleware, adminMiddleware, (req, res) => {
+router.get('/credits/topups', authMiddleware, adminMiddleware, premiumAiPlanMiddleware, (req, res) => {
   AdminAiGuideController.topUps(req, res);
 });
-router.get('/credits/topup/quote', authMiddleware, adminMiddleware, (req, res) => {
+router.get('/credits/topup/quote', authMiddleware, adminMiddleware, premiumAiPlanMiddleware, (req, res) => {
   AdminAiGuideController.quote(req, res);
 });
-router.post('/credits/topup/pix', authMiddleware, adminMiddleware, (req, res) => {
+router.post('/credits/topup/pix', authMiddleware, adminMiddleware, premiumAiPlanMiddleware, (req, res) => {
   AdminAiGuideController.pixTopUp(req, res);
 });
-router.post('/guide', authMiddleware, adminMiddleware, (req, res) => {
+router.post('/guide', authMiddleware, adminMiddleware, premiumAiPlanMiddleware, (req, res) => {
   AdminAiGuideController.guide(req, res);
 });
 
 // Assistente gerencial: sempre deriva o restaurante da sessão ADMIN autenticada.
-router.get('/restaurant/capabilities', authMiddleware, adminMiddleware, (req, res) => {
+router.get('/restaurant/capabilities', authMiddleware, adminMiddleware, premiumAiPlanMiddleware, (req, res) => {
   AdminAiGuideController.capabilities(req, res);
 });
-router.get('/restaurant/summary', authMiddleware, adminMiddleware, (req, res) => {
+router.get('/restaurant/summary', authMiddleware, adminMiddleware, premiumAiPlanMiddleware, (req, res) => {
   AdminAiGuideController.managementSummary(req, res);
 });
-router.post('/restaurant/ask', authMiddleware, adminMiddleware, (req, res) => {
+router.post('/restaurant/ask', authMiddleware, adminMiddleware, premiumAiPlanMiddleware, (req, res) => {
   AdminAiGuideController.assistant(req, res);
 });
-router.get('/restaurant/actions', authMiddleware, adminMiddleware, (req, res) => {
+router.get('/restaurant/actions', authMiddleware, adminMiddleware, premiumAiPlanMiddleware, (req, res) => {
   AdminAiGuideController.actions(req, res);
 });
-router.post('/restaurant/actions/:publicId/approve', authMiddleware, adminMiddleware, (req, res) => {
+router.post('/restaurant/actions/:publicId/approve', authMiddleware, adminMiddleware, premiumAiPlanMiddleware, (req, res) => {
   AdminAiGuideController.approveAction(req, res);
 });
-router.post('/restaurant/actions/:publicId/cancel', authMiddleware, adminMiddleware, (req, res) => {
+router.post('/restaurant/actions/:publicId/cancel', authMiddleware, adminMiddleware, premiumAiPlanMiddleware, (req, res) => {
   AdminAiGuideController.cancelAction(req, res);
 });
-router.get('/restaurant/settings', authMiddleware, adminMiddleware, (req, res) => {
+router.get('/restaurant/settings', authMiddleware, adminMiddleware, premiumAiPlanMiddleware, (req, res) => {
   AdminAiGuideController.assistantSettings(req, res);
 });
-router.put('/restaurant/settings', authMiddleware, adminMiddleware, (req, res) => {
+router.put('/restaurant/settings', authMiddleware, adminMiddleware, premiumAiPlanMiddleware, (req, res) => {
   AdminAiGuideController.updateAssistantSettings(req, res);
 });
-router.post('/restaurant/orders/:orderId/support-draft', authMiddleware, adminMiddleware, (req, res) => {
+router.post('/restaurant/orders/:orderId/support-draft', authMiddleware, adminMiddleware, premiumAiPlanMiddleware, (req, res) => {
   AdminAiGuideController.supportDraft(req, res);
 });
 
-router.post('/restaurant/image-batches/estimate', authMiddleware, adminMiddleware, (req, res) => {
+router.post('/restaurant/image-batches/estimate', authMiddleware, adminMiddleware, premiumAiPlanMiddleware, (req, res) => {
   AdminAiGuideController.estimateImageBatch(req, res);
 });
-router.post('/restaurant/image-batches', authMiddleware, adminMiddleware, (req, res) => {
+router.post('/restaurant/image-batches', authMiddleware, adminMiddleware, premiumAiPlanMiddleware, (req, res) => {
   AdminAiGuideController.createImageBatch(req, res);
 });
-router.get('/restaurant/image-batches', authMiddleware, adminMiddleware, (req, res) => {
+router.get('/restaurant/image-batches', authMiddleware, adminMiddleware, premiumAiPlanMiddleware, (req, res) => {
   AdminAiGuideController.imageBatches(req, res);
 });
 router.post(
   '/restaurant/image-batches/:jobPublicId/items/:itemPublicId/cancel',
   authMiddleware,
   adminMiddleware,
+  premiumAiPlanMiddleware,
   (req, res) => AdminAiGuideController.cancelImageBatchItem(req, res),
 );
 router.post(
   '/restaurant/image-batches/:jobPublicId/retry-failures',
   authMiddleware,
   adminMiddleware,
+  premiumAiPlanMiddleware,
   (req, res) => AdminAiGuideController.retryImageBatchFailures(req, res),
 );
 

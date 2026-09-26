@@ -39,7 +39,12 @@ import { getBillingPixExpiry } from './useBillingPixExpiry';
 const HISTORY_BATCH_SIZE = 10;
 const benefits: Record<PlanCode, string[]> = {
   BASICO: ['Sistema de delivery', 'Suporte padrão'],
-  PREMIUM: ['Sistema de delivery', 'Cardápio digital com QR Code de mesa', 'Suporte prioritário'],
+  PREMIUM: [
+    'Sistema de delivery',
+    'Cardápio digital com QR Code de mesa',
+    'Suporte prioritário',
+    'GastroNexa IA com US$ 2,00 de créditos iniciais',
+  ],
 };
 
 const fallbackPlans: BillingPlan[] = [

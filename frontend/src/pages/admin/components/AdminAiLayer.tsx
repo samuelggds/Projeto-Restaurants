@@ -5,12 +5,14 @@ import styled from 'styled-components';
 import { ChevronDown, LoaderCircle, Map, X } from 'lucide-react';
 import aiGuideService, { type AiCreditBalance, type AiTourGuide } from '../../../Services/aiGuideService';
 import restaurantSettingsService from '../../../Services/restaurantSettingsService';
+import monthlyBillingService from '../../../Services/monthlyBillingService';
 import { useAuth } from '../../../contexts/authContext';
 import { createRestaurantMonogram } from '../../../utils/restaurantMonogram';
 import { GastroNexaTourBrand } from '../../../components/GastroNexaTourBrand';
 import { AiCreditCard } from './AiCreditCard';
 import { AiGuideAssistant } from './AiGuideAssistant';
 import { AiGuidedTour } from './AiGuidedTour';
+import { hasPremiumAiAccess } from '../domain/aiPlanAccess';
 import { AdminOverviewAiSummaryPortal } from './AdminOverviewAiSummaryPortal';
 
 const AREA_LABELS: Record<string, string> = {
@@ -85,6 +87,7 @@ export default function AdminAiLayer({ children }: { children: React.ReactNode }
   const userInitials = useMemo(() => createRestaurantMonogram(userName), [userName]);
   const [fallbackRestaurantSlug, setFallbackRestaurantSlug] = useState('');
   const resolvedRestaurantSlug = userSlug || fallbackRestaurantSlug;
+  const [aiEnabled, setAiEnabled] = useState(false);
   const [credits, setCredits] = useState<AiCreditBalance | null>(null);
   const [assistantOpen, setAssistantOpen] = useState(false);
   const [guide, setGuide] = useState<AiTourGuide | null>(null);
@@ -105,11 +108,28 @@ export default function AdminAiLayer({ children }: { children: React.ReactNode }
 
   useEffect(() => {
     let active = true;
+    monthlyBillingService
+      .getSubscription()
+      .then((subscription) => {
+        if (!active) return;
+        setAiEnabled(hasPremiumAiAccess(subscription));
+      })
+      .catch(() => {
+        if (active) setAiEnabled(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!aiEnabled) return undefined;
+    let active = true;
     aiGuideService.getCredits().then((balance) => {
       if (active) setCredits(balance);
     }).catch(() => { if (active) setCredits(null); });
     return () => { active = false; };
-  }, []);
+  }, [aiEnabled]);
 
   const closeAssistant = useCallback(() => {
     setAssistantOpen(false);
@@ -154,7 +174,7 @@ export default function AdminAiLayer({ children }: { children: React.ReactNode }
 
       const helpButton = findButtonByLabel('Central de ajuda');
       const footer = helpButton?.parentElement;
-      if (footer && !creditsPortalNode) {
+      if (aiEnabled && footer && !creditsPortalNode) {
         creditsPortalNode = document.createElement('div');
         creditsPortalNode.dataset.aiCreditsPortal = 'true';
         footer.insertBefore(creditsPortalNode, helpButton || footer.firstChild);
@@ -162,7 +182,7 @@ export default function AdminAiLayer({ children }: { children: React.ReactNode }
       }
       const settingsButton = findButtonByLabel('Configurações');
       const navigation = settingsButton?.parentElement;
-      if (navigation && settingsButton && !launcherPortalNode) {
+      if (aiEnabled && navigation && settingsButton && !launcherPortalNode) {
         launcherPortalNode = document.createElement('div');
         launcherPortalNode.dataset.aiGuideLauncherPortal = 'true';
         launcherPortalNode.style.display = 'contents';
@@ -198,7 +218,7 @@ export default function AdminAiLayer({ children }: { children: React.ReactNode }
       creditsPortalNode?.remove();
       launcherPortalNode?.remove();
     };
-  }, [navigate, resolvedRestaurantSlug, userInitials, userName]);
+  }, [aiEnabled, navigate, resolvedRestaurantSlug, userInitials, userName]);
 
   const navigateForTour = useCallback((destination?: string | null) => {
     if (!destination) { tagTourTargets(); return; }
@@ -255,13 +275,13 @@ export default function AdminAiLayer({ children }: { children: React.ReactNode }
   return (
     <>
       {children}
-      <AdminOverviewAiSummaryPortal onNavigate={(target) => navigateForTour(target)} />
-      {sidebarPortal && createPortal(<AiCreditCard balance={credits} />, sidebarPortal)}
-      {assistantLauncherPortal && createPortal(launcher, assistantLauncherPortal)}
-      <MobileAssistantLauncher type="button" aria-label="Abrir GastroNexa IA" aria-expanded={assistantOpen} onClick={toggleAssistant}>
+      {aiEnabled ? <AdminOverviewAiSummaryPortal onNavigate={(target) => navigateForTour(target)} /> : null}
+      {aiEnabled && sidebarPortal ? createPortal(<AiCreditCard balance={credits} />, sidebarPortal) : null}
+      {aiEnabled && assistantLauncherPortal ? createPortal(launcher, assistantLauncherPortal) : null}
+      {aiEnabled ? <MobileAssistantLauncher type="button" aria-label="Abrir GastroNexa IA" aria-expanded={assistantOpen} onClick={toggleAssistant}>
         <img src="/gastronexa-logo.svg" alt="" aria-hidden="true" />
-      </MobileAssistantLauncher>
-      {assistantOpen && (
+      </MobileAssistantLauncher> : null}
+      {aiEnabled && assistantOpen && (
         <AssistantPanel role="dialog" aria-label="GastroNexa IA">
           <PanelToolbar>
             <TourPicker>
@@ -316,7 +336,7 @@ export default function AdminAiLayer({ children }: { children: React.ReactNode }
           />
         </AssistantPanel>
       )}
-      <AiGuidedTour key={guide ? `${guide.title}:${guide.summary}` : 'no-guide'} guide={guide} onClose={() => setGuide(null)} onNavigate={navigateForTour} />
+      {aiEnabled ? <AiGuidedTour key={guide ? `${guide.title}:${guide.summary}` : 'no-guide'} guide={guide} onClose={() => setGuide(null)} onNavigate={navigateForTour} /> : null}
     </>
   );
 }

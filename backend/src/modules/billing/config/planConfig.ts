@@ -18,6 +18,7 @@ export const PLAN_CONFIG = {
       'Sistema de delivery',
       'Cardápio digital com QR Code de mesa',
       'Suporte prioritário',
+      'GastroNexa IA com US$ 2,00 de créditos iniciais',
     ],
   },
 };

@@ -6,6 +6,16 @@ import updateProductService from '../../products/services/UpdateProductService.j
 import createCategoryService from '../../categories/services/CreateCategoryService.js';
 import updateRestaurantSettingsService from '../../restaurantSettings/services/UpdateRestaurantSettingsService.js';
 import updateOrderStatusService from '../../orders/services/UpdateOrderStatusService.js';
+import updateEmployeeService from '../../employee/services/UpdateEmployeeService.js';
+import deactivateEmployeeService from '../../employee/services/DeactivateEmployeeService.js';
+import reactivateEmployeeService from '../../employee/services/ReactivateEmployeeService.js';
+import upsertProductDiscountService from '../../products/services/UpsertProductDiscountService.js';
+import deleteProductService from '../../products/services/DeleteProductService.js';
+import refundOrderByAdminService from '../../orders/services/RefundOrderByAdminService.js';
+import createCouponService from '../../coupon/services/CreateCouponService.js';
+import updateCouponService from '../../coupon/services/UpdateCouponService.js';
+import deleteCouponService from '../../coupon/services/DeleteCouponService.js';
+import requestPlanChangeService from '../../subscription/services/RequestPlanChangeService.js';
 import { sanitizeAdminAiContext } from '../domain/adminAiSecurityPolicy.js';
 import {
   adminAiActionProposalSchema,
@@ -356,7 +366,34 @@ async function buildPreview(
   proposal: AdminAiActionProposal,
 ) {
   if (proposal.actionType === 'CREATE_PRODUCT') {
-    const category = await resolveCategory(db, restaurantId, proposal);
+    let category: { id: number | null; name: string; create: boolean };
+    if (proposal.categoryId) {
+      const existingCategory = await resolveCategory(db, restaurantId, proposal);
+      category = { id: existingCategory.id, name: existingCategory.name, create: false };
+    } else if (proposal.categoryName) {
+      const existingCategory = await db.category.findFirst({
+        where: {
+          restaurantId,
+          name: { equals: proposal.categoryName, mode: 'insensitive' },
+        },
+        select: { id: true, name: true },
+      });
+      category = existingCategory
+        ? { id: existingCategory.id, name: existingCategory.name, create: false }
+        : { id: null, name: proposal.categoryName, create: true };
+    } else {
+      const categories = await db.category.findMany({
+        where: { restaurantId, active: true },
+        select: { id: true, name: true },
+        orderBy: { name: 'asc' },
+        take: 2,
+      });
+      if (categories.length !== 1) {
+        throw new Error('Há mais de uma categoria possível. Informe apenas o nome da categoria desejada.');
+      }
+      category = { id: categories[0].id, name: categories[0].name, create: false };
+    }
+
     const existing = await db.product.findFirst({
       where: { restaurantId, name: { equals: proposal.name, mode: 'insensitive' } },
       select: { id: true, name: true, price: true },
@@ -372,9 +409,10 @@ async function buildPreview(
         price: Number(proposal.price.toFixed(2)),
         categoryId: category.id,
         categoryName: category.name,
+        createCategory: category.create,
         active: proposal.active,
       },
-      affectedRecords: 1,
+      affectedRecords: category.create ? 2 : 1,
     };
   }
 
@@ -504,6 +542,202 @@ async function buildPreview(
         description: proposal.description ?? null,
         active: proposal.active,
       },
+    };
+  }
+
+  if (proposal.actionType === 'DELETE_PRODUCT') {
+    const product = await db.product.findFirst({
+      where: { id: proposal.productId, restaurantId },
+      select: { id: true, name: true, price: true, active: true, category: { select: { name: true } } },
+    });
+    if (!product) throw new Error('Produto não encontrado neste restaurante.');
+    return {
+      actionType: proposal.actionType,
+      affectedRecords: 1,
+      productId: product.id,
+      productName: product.name,
+      categoryName: product.category.name,
+      price: Number(product.price),
+      active: product.active,
+    };
+  }
+
+  if (proposal.actionType === 'CANCEL_ORDER') {
+    const order = await db.order.findFirst({
+      where: { id: proposal.orderId, restaurantId },
+      select: {
+        id: true,
+        publicId: true,
+        status: true,
+        type: true,
+        paid: true,
+        paymentMethod: true,
+        refundStatus: true,
+        total: true,
+      },
+    });
+    if (!order) throw new Error('Pedido não encontrado neste restaurante.');
+    return {
+      actionType: proposal.actionType,
+      affectedRecords: 1,
+      orderId: order.id,
+      publicId: order.publicId,
+      orderType: order.type,
+      status: order.status,
+      paid: order.paid,
+      paymentMethod: order.paymentMethod,
+      refundStatus: order.refundStatus,
+      total: Number(order.total),
+    };
+  }
+
+  if (proposal.actionType === 'CREATE_COUPON') {
+    const existing = await db.coupon.findFirst({
+      where: { restaurantId, code: { equals: proposal.code, mode: 'insensitive' } },
+      select: { id: true, code: true },
+    });
+    if (existing) throw new Error('Já existe um cupom com este código neste restaurante.');
+    return {
+      actionType: proposal.actionType,
+      affectedRecords: 1,
+      code: proposal.code,
+      discountType: proposal.discountType,
+      discount: proposal.discount,
+      active: proposal.active,
+      expiration: proposal.expiration ?? null,
+    };
+  }
+
+  if (proposal.actionType === 'UPDATE_COUPON' || proposal.actionType === 'DELETE_COUPON') {
+    const coupon = await db.coupon.findFirst({
+      where: { id: proposal.couponId, restaurantId },
+    });
+    if (!coupon) throw new Error('Cupom não encontrado neste restaurante.');
+    if (proposal.actionType === 'DELETE_COUPON') {
+      const redemption = await db.couponRedemption.findFirst({
+        where: { couponId: coupon.id, restaurantId },
+        select: { id: true },
+      });
+      return {
+        actionType: proposal.actionType,
+        affectedRecords: 1,
+        couponId: coupon.id,
+        code: coupon.code,
+        hasRedemptions: Boolean(redemption),
+      };
+    }
+    return {
+      actionType: proposal.actionType,
+      affectedRecords: 1,
+      couponId: coupon.id,
+      code: coupon.code,
+    };
+  }
+
+  if (proposal.actionType === 'REQUEST_PLAN_CHANGE') {
+    const subscription = await db.subscription.findUnique({
+      where: { restaurantId },
+      select: { plan: true, status: true, scheduledPlan: true },
+    });
+    if (!subscription) throw new Error('Assinatura não encontrada.');
+    return {
+      actionType: proposal.actionType,
+      affectedRecords: 1,
+      before: subscription.plan,
+      after: proposal.plan,
+      subscriptionStatus: subscription.status,
+      alreadyScheduled: subscription.scheduledPlan,
+    };
+  }
+
+  if (proposal.actionType === 'UPSERT_PRODUCT_DISCOUNT') {
+    const product = await db.product.findFirst({
+      where: { id: proposal.productId, restaurantId },
+      select: { id: true, name: true, price: true },
+    });
+    if (!product) throw new Error('Produto não encontrado neste restaurante.');
+    const current = await db.productDiscount.findFirst({
+      where: { productId: proposal.productId, restaurantId },
+      select: { kind: true, value: true, label: true, active: true, startsAt: true, endsAt: true },
+    });
+    return {
+      actionType: proposal.actionType,
+      affectedRecords: 1,
+      productId: product.id,
+      productName: product.name,
+      productPrice: Number(product.price),
+      before: current
+        ? {
+            kind: current.kind,
+            value: Number(current.value),
+            label: current.label,
+            active: current.active,
+            startsAt: current.startsAt?.toISOString() ?? null,
+            endsAt: current.endsAt?.toISOString() ?? null,
+          }
+        : null,
+      after: {
+        kind: proposal.kind,
+        value: proposal.value,
+        label: proposal.label ?? null,
+        active: proposal.active,
+        startsAt: proposal.startsAt ?? null,
+        endsAt: proposal.endsAt ?? null,
+      },
+    };
+  }
+
+  if (proposal.actionType === 'UPDATE_EMPLOYEE' || proposal.actionType === 'SET_EMPLOYEE_ACTIVE') {
+    const employee = await db.user.findFirst({
+      where: {
+        id: proposal.employeeId,
+        restaurantId,
+        role: { in: ['FUNCIONARIO', 'MOTOQUEIRO'] },
+      },
+      select: {
+        id: true,
+        name: true,
+        username: true,
+        phone: true,
+        role: true,
+        subRole: true,
+        active: true,
+      },
+    });
+    if (!employee) throw new Error('Funcionário não encontrado neste restaurante.');
+    if (proposal.actionType === 'SET_EMPLOYEE_ACTIVE') {
+      return {
+        actionType: proposal.actionType,
+        affectedRecords: 1,
+        employeeId: employee.id,
+        employeeName: employee.name,
+        before: employee.active,
+        after: proposal.active,
+      };
+    }
+    const after = {
+      name: proposal.name ?? employee.name,
+      username: proposal.username ?? employee.username,
+      phone: proposal.phone !== undefined ? proposal.phone : employee.phone,
+      role: proposal.role ?? employee.role,
+      subRole: proposal.subRole !== undefined ? proposal.subRole : employee.subRole,
+    };
+    return {
+      actionType: proposal.actionType,
+      affectedRecords: 1,
+      employeeId: employee.id,
+      employeeName: employee.name,
+      changes: changedFields(
+        {
+          name: employee.name,
+          username: employee.username,
+          phone: employee.phone,
+          role: employee.role,
+          subRole: employee.subRole,
+        },
+        after,
+      ),
+      exactAction: after,
     };
   }
 
@@ -680,8 +914,24 @@ export class AdminAiActionService {
       let result: unknown;
 
       if (proposal.actionType === 'CREATE_PRODUCT') {
-        const preview = action.approvalSnapshot as { exactAction?: { categoryId?: number } };
-        const categoryId = Number(preview?.exactAction?.categoryId || 0);
+        const preview = action.approvalSnapshot as {
+          exactAction?: {
+            categoryId?: number | null;
+            categoryName?: string;
+            createCategory?: boolean;
+          };
+        };
+        let categoryId = Number(preview?.exactAction?.categoryId || 0);
+        if (!categoryId && preview?.exactAction?.createCategory && preview.exactAction.categoryName) {
+          const createdCategory = await createCategoryService.execute(
+            {
+              name: preview.exactAction.categoryName,
+              active: true,
+            },
+            restaurantId,
+          );
+          categoryId = Number(createdCategory.category.id);
+        }
         if (!categoryId) throw new Error('Categoria da ação não está mais disponível.');
         result = await createProductService.execute(
           {
@@ -778,6 +1028,47 @@ export class AdminAiActionService {
           },
           restaurantId,
         );
+      } else if (proposal.actionType === 'UPSERT_PRODUCT_DISCOUNT') {
+        result = await upsertProductDiscountService.execute({
+          productId: proposal.productId,
+          restaurantId,
+          input: {
+            kind: proposal.kind,
+            value: proposal.value,
+            label: proposal.label,
+            active: proposal.active,
+            startsAt: proposal.startsAt,
+            endsAt: proposal.endsAt,
+          },
+        });
+      } else if (proposal.actionType === 'UPDATE_EMPLOYEE') {
+        const preview = action.approvalSnapshot as {
+          exactAction?: {
+            name?: string;
+            username?: string;
+            phone?: string | null;
+            role?: 'FUNCIONARIO' | 'MOTOQUEIRO';
+            subRole?: 'COZINHA' | 'GARCOM' | 'ATENDENTE' | null;
+          };
+        };
+        const exact = preview.exactAction;
+        if (!exact) throw new Error('Prévia do funcionário indisponível.');
+        result = await updateEmployeeService.execute({
+          id: proposal.employeeId,
+          restaurantId,
+          ...exact,
+          actor: {
+            userId: Number(actor.userId),
+            role: String(actor.userRole || ''),
+          },
+        });
+      } else if (proposal.actionType === 'SET_EMPLOYEE_ACTIVE') {
+        result = proposal.active
+          ? await reactivateEmployeeService.execute(proposal.employeeId, restaurantId)
+          : await deactivateEmployeeService.execute(proposal.employeeId, restaurantId, {
+              userId: Number(actor.userId),
+              role: String(actor.userRole || ''),
+            });
       } else if (proposal.actionType === 'UPDATE_ORDER_STATUS') {
         result = await updateOrderStatusService.execute(
           proposal.orderId,

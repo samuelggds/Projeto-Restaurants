@@ -21,6 +21,27 @@ test('AI reservations serialize replicas, settle once and enforce tenant RLS', a
       where: { restaurantId: actor.restaurantId },
       data: { plan: PlanType.BASICO },
     });
+    await assert.rejects(
+      () => aiCreditService.getBalance(actor),
+      (error: unknown) =>
+        error instanceof Error &&
+        'code' in error &&
+        (error as Error & { code?: string }).code === 'PREMIUM_AI_PLAN_REQUIRED',
+    );
+    const [basicGrant] = await withTenantDbContext(
+      actor.restaurantId,
+      (db) =>
+        db.$queryRaw<Array<{ count: bigint }>>`
+          SELECT COUNT(*) FROM "AiCreditLedgerEntry"
+          WHERE "restaurantId" = ${actor.restaurantId} AND "kind" = 'FREE_GRANT'
+        `,
+    );
+    assert.equal(Number(basicGrant.count), 0, 'Plano Básico não pode receber créditos gratuitos de IA.');
+
+    await prisma.subscription.update({
+      where: { restaurantId: actor.restaurantId },
+      data: { plan: PlanType.PREMIUM },
+    });
     const initialBalance = await aiCreditService.getBalance(actor);
     assert.equal(initialBalance.balanceUsd, 2);
     assert.equal(initialBalance.freeGrantClaimed, true);

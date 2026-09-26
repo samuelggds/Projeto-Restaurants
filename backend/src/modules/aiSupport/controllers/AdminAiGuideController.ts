@@ -7,7 +7,7 @@ import adminRestaurantAssistantService from '../services/AdminRestaurantAssistan
 import adminAiActionService from '../services/AdminAiActionService.js';
 import adminAiSettingsService from '../services/AdminAiSettingsService.js';
 import aiImageBatchJobService from '../services/AiImageBatchJobService.js';
-import aiCreditService, { AiCreditsExhaustedError } from '../services/AiCreditService.js';
+import aiCreditService, { AiCreditsExhaustedError, PremiumAiPlanRequiredError } from '../services/AiCreditService.js';
 import aiCreditTopUpService from '../services/AiCreditTopUpService.js';
 import { AdminAiRestrictedRequestError } from '../domain/adminAiSecurityPolicy.js';
 import { adminAiCapabilitiesForArea, normalizeAdminAiArea } from '../domain/adminAiCapabilities.js';
@@ -38,6 +38,9 @@ const SAFE_USER_MESSAGES = new Set([
 
 function mapError(error: unknown) {
   if (error instanceof AdminAiRestrictedRequestError) {
+    return { status: 403, body: { error: error.message, code: error.code } };
+  }
+  if (error instanceof PremiumAiPlanRequiredError) {
     return { status: 403, body: { error: error.message, code: error.code } };
   }
   if (error instanceof AiCreditsExhaustedError) {

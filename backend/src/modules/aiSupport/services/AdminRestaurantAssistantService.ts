@@ -13,7 +13,7 @@ import {
   sanitizeAdminAiContext,
 } from '../domain/adminAiSecurityPolicy.js';
 import {
-  adminAiCapabilitiesForArea,
+  adminAiCapabilitiesForAdmin,
   assertAdminAiCapabilityAllowed,
   normalizeAdminAiArea,
 } from '../domain/adminAiCapabilities.js';
@@ -169,20 +169,20 @@ EXPERIÊNCIA DO ADMIN:
 
 ESCOPO OPERACIONAL:
 - O restaurantId é definido exclusivamente pela sessão autenticada do backend. Nunca peça, aceite ou invente outro tenant.
-- Respeite allowedCapabilities para ações e alterações no sistema. A ausência de uma capacidade impede a ação, mas NÃO impede responder perguntas gerais ou fornecer orientação segura.
+- allowedCapabilities representa as ações que o ADMIN autenticado pode delegar em todo o painel, independentemente da aba atual.
 - Respeite implementedActionTypes. Só produza ACTION_PROPOSAL quando o actionType estiver nessa lista.
-- Se adminArea for null, não proponha alterações; ainda assim responda normalmente perguntas gerais e análises permitidas.
-- A área atual serve para contextualizar a intenção do ADMIN; nunca amplia permissões.
+- adminArea é apenas contexto visual; nunca exija que o ADMIN navegue até uma aba específica para delegar uma ação.
+- Resolva nomes e referências usando os dados do próprio restaurante sempre que houver correspondência segura. Só peça informação adicional quando existir ambiguidade real ou faltar um dado indispensável.
 
 AÇÕES:
 - Você nunca altera dados diretamente. Para escrita, prepare UMA proposta estruturada permitida.
 - O backend valida a capacidade, cria uma prévia concreta, revalida o estado atual e o ADMIN decide se aprova.
-- Produto/categoria: você pode criar/editar produto, reajustar preços, ativar/desativar produtos e criar categoria quando essas ações aparecerem em implementedActionTypes.
+- Produto/categoria: use nomes humanos e resolva IDs internamente sempre que possível. Não peça productId ou categoryId ao ADMIN quando o nome e os dados do restaurante forem suficientes.
 - Pedidos: UPDATE_ORDER_STATUS é apenas para avanço operacional permitido pelo backend; nunca use para confirmar pagamento, cancelar ou estornar.
-- Configurações: altere somente campos presentes no schema da ação da área atual. Nunca use campos de credencial, token, chave, conta bancária ou segredo.
+- Configurações: altere somente campos presentes no schema da ação. A aba atual não limita a ação; as permissões reais do ADMIN e a validação do backend são a autoridade.
 - UPDATE_WHATSAPP_SETTINGS trata apenas número comercial e preferências operacionais; nunca credenciais do provedor.
 - Se faltar informação obrigatória para uma ação, use mode=NEEDS_INPUT em vez de inventar.
-- Para capacidades ainda não automatizadas, explique o fluxo de forma simples e, se houver target válido, forneça um link seguro para a tela correspondente.
+- Para uma ação do painel que ainda não tenha executor automatizado, explique de forma simples que aquela ação ainda não está delegável e forneça o atalho seguro para a tela; nunca invente execução.
 - Nunca proponha confirmar pagamento, transferir dinheiro, editar credenciais, executar SQL/shell, acessar infraestrutura, cancelar/estornar pedido ou alterar permissões de plataforma.
 
 FORMATO:
@@ -292,7 +292,7 @@ class AdminRestaurantAssistantService {
     assertAdminAiQuestionAllowed(question);
 
     const area = normalizeAdminAiArea(areaInput);
-    const allowedCapabilities = adminAiCapabilitiesForArea(area).map((capability) => ({
+    const allowedCapabilities = adminAiCapabilitiesForAdmin().map((capability) => ({
       id: capability.id,
       risk: capability.risk,
       approvalRequired: capability.approvalRequired,
@@ -335,7 +335,7 @@ class AdminRestaurantAssistantService {
       if (!implementedActionTypes.includes(response.proposal.actionType as never)) {
         throw new Error('Ação ainda não automatizada nesta área do ADMIN.');
       }
-      assertAdminAiCapabilityAllowed(response.proposal.actionType, area);
+      assertAdminAiCapabilityAllowed(response.proposal.actionType);
       action = await adminAiActionService.propose(response.proposal, actor);
     }
 

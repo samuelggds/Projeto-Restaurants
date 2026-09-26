@@ -99,6 +99,39 @@ function toJson(value: unknown): Prisma.InputJsonValue {
   }
 }
 
+export class PremiumAiPlanRequiredError extends Error {
+  code = 'PREMIUM_AI_PLAN_REQUIRED';
+
+  constructor() {
+    super('Os recursos de IA estão disponíveis somente no plano Premium.');
+    this.name = 'PremiumAiPlanRequiredError';
+  }
+}
+
+async function assertPremiumAiPlan(
+  db: Prisma.TransactionClient | typeof prisma,
+  restaurantId: number,
+) {
+  const subscription = await db.subscription.findUnique({
+    where: { restaurantId },
+    select: { plan: true, status: true },
+  });
+  const isActive = subscription?.status === 'ATIVA' || subscription?.status === 'TESTE';
+  if (!isActive || subscription?.plan !== 'PREMIUM') throw new PremiumAiPlanRequiredError();
+}
+
+async function hasPremiumAiPlan(
+  db: Prisma.TransactionClient | typeof prisma,
+  restaurantId: number,
+) {
+  const subscription = await db.subscription.findUnique({
+    where: { restaurantId },
+    select: { plan: true, status: true },
+  });
+  const isActive = subscription?.status === 'ATIVA' || subscription?.status === 'TESTE';
+  return Boolean(isActive && subscription?.plan === 'PREMIUM');
+}
+
 async function assertActiveAdmin(
   db: Prisma.TransactionClient | typeof prisma,
   userId: number,
@@ -133,7 +166,12 @@ async function readWallet(db: Prisma.TransactionClient, userId: number): Promise
   return rows[0] ?? null;
 }
 
-async function ensureWallet(db: Prisma.TransactionClient, userId: number, restaurantId: number) {
+async function ensureWallet(
+  db: Prisma.TransactionClient,
+  userId: number,
+  restaurantId: number,
+  grantFreeCredit: boolean,
+) {
   await db.$executeRaw(Prisma.sql`
     INSERT INTO "AiCreditWallet" (
       "adminUserId", "restaurantId", "balanceMicros", "createdAt", "updatedAt"
@@ -146,7 +184,7 @@ async function ensureWallet(db: Prisma.TransactionClient, userId: number, restau
     throw new Error('Carteira de créditos de IA inconsistente para esta conta.');
   }
 
-  if (!wallet.freeGrantClaimedAt) {
+  if (grantFreeCredit && !wallet.freeGrantClaimedAt) {
     const idempotencyKey = `ai-free-grant:restaurant:${restaurantId}`;
     const inserted = await db.$executeRaw(Prisma.sql`
       INSERT INTO "AiCreditLedgerEntry" (
@@ -208,7 +246,8 @@ export class AiCreditService {
       await setTenantDbContext(db, restaurantId);
       await db.$executeRaw(Prisma.sql`SELECT pg_advisory_xact_lock(${userId})`);
       await assertActiveAdmin(db, userId, restaurantId);
-      const wallet = await ensureWallet(db, userId, restaurantId);
+      await assertPremiumAiPlan(db, restaurantId);
+      const wallet = await ensureWallet(db, userId, restaurantId, true);
       return balancePayload(wallet);
     });
   }
@@ -237,7 +276,8 @@ export class AiCreditService {
       await setTenantDbContext(db, restaurantId);
       await db.$executeRaw(Prisma.sql`SELECT pg_advisory_xact_lock(${userId})`);
       await assertActiveAdmin(db, userId, restaurantId);
-      const wallet = await ensureWallet(db, userId, restaurantId);
+      await assertPremiumAiPlan(db, restaurantId);
+      const wallet = await ensureWallet(db, userId, restaurantId, true);
       if (wallet.pendingReversal)
         throw new AiCreditsExhaustedError(
           'Recarga em conciliação com o provedor. Aguarde a confirmação ou contate o suporte.',
@@ -359,7 +399,12 @@ export class AiCreditService {
       await setTenantDbContext(db, restaurantId);
       await db.$executeRaw(Prisma.sql`SELECT pg_advisory_xact_lock(${userId})`);
       await assertActiveAdmin(db, userId, restaurantId);
-      const wallet = await ensureWallet(db, userId, restaurantId);
+      const wallet = await ensureWallet(
+        db,
+        userId,
+        restaurantId,
+        await hasPremiumAiPlan(db, restaurantId),
+      );
       const topUps = await db.$queryRaw<TopUpReversalRow[]>(Prisma.sql`
         SELECT "status", "reversedUsdMicros", "creditUsdMicros", "reversalPending", "reversalSnapshotAt", "providerPaymentId", "providerOrderId" FROM "AiCreditTopUp"
         WHERE "publicId" = ${input.topUpPublicId} AND "adminUserId" = ${userId} AND "restaurantId" = ${restaurantId}
@@ -473,7 +518,7 @@ export class AiCreditService {
         input.cumulativeUsdMicros < topUp.creditUsdMicros;
       if ((purchase && delta > 0n) || establishPurchase) {
         const wallet = establishPurchase
-          ? await ensureWallet(db, userId, restaurantId)
+          ? await ensureWallet(db, userId, restaurantId, false)
           : await readWallet(db, userId);
         if (!wallet || wallet.restaurantId !== restaurantId)
           throw new Error('Carteira de estorno inválida.');
