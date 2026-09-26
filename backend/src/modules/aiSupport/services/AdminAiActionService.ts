@@ -360,7 +360,34 @@ async function buildPreview(
   proposal: AdminAiActionProposal,
 ) {
   if (proposal.actionType === 'CREATE_PRODUCT') {
-    const category = await resolveCategory(db, restaurantId, proposal);
+    let category: { id: number | null; name: string; create: boolean };
+    if (proposal.categoryId) {
+      const existingCategory = await resolveCategory(db, restaurantId, proposal);
+      category = { id: existingCategory.id, name: existingCategory.name, create: false };
+    } else if (proposal.categoryName) {
+      const existingCategory = await db.category.findFirst({
+        where: {
+          restaurantId,
+          name: { equals: proposal.categoryName, mode: 'insensitive' },
+        },
+        select: { id: true, name: true },
+      });
+      category = existingCategory
+        ? { id: existingCategory.id, name: existingCategory.name, create: false }
+        : { id: null, name: proposal.categoryName, create: true };
+    } else {
+      const categories = await db.category.findMany({
+        where: { restaurantId, active: true },
+        select: { id: true, name: true },
+        orderBy: { name: 'asc' },
+        take: 2,
+      });
+      if (categories.length !== 1) {
+        throw new Error('Há mais de uma categoria possível. Informe apenas o nome da categoria desejada.');
+      }
+      category = { id: categories[0].id, name: categories[0].name, create: false };
+    }
+
     const existing = await db.product.findFirst({
       where: { restaurantId, name: { equals: proposal.name, mode: 'insensitive' } },
       select: { id: true, name: true, price: true },
@@ -376,9 +403,10 @@ async function buildPreview(
         price: Number(proposal.price.toFixed(2)),
         categoryId: category.id,
         categoryName: category.name,
+        createCategory: category.create,
         active: proposal.active,
       },
-      affectedRecords: 1,
+      affectedRecords: category.create ? 2 : 1,
     };
   }
 
