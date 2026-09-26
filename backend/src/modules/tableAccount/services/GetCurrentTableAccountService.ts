@@ -224,8 +224,12 @@ export class GetCurrentTableAccountService {
     const now = new Date();
     const participantData: TableAccountSnapshotRecord = {
       ...data,
-      participants: data.participants.filter((participant) => participant.id === participantId),
-      billItems: data.billItems.filter((item) => item.participantId === participantId),
+      participants: data.participants.filter(
+        (participant) => participant.publicId === input.participantPublicId,
+      ),
+      billItems: data.billItems.filter(
+        (item) => item.participant.publicId === input.participantPublicId,
+      ),
       paymentIntents: (data.paymentIntents || []).filter(
         (payment) => payment.payerParticipantId === participantId,
       ),
