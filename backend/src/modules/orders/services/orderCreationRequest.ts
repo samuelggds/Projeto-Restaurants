@@ -5,6 +5,8 @@ import { OrderRequestError } from '../domain/OrderRequestError.js';
 import orderRepository from '../repositories/OrderRepository.js';
 
 export type OrderCreationContext = { key: string; actor: string; fingerprint: string };
+const ORDER_TRANSACTION_MAX_RETRIES = 9;
+const ORDER_TRANSACTION_MAX_BACKOFF_MS = 800;
 const hash = (value: string) => createHash('sha256').update(value).digest('hex');
 
 function canonical(value: unknown): unknown {
@@ -94,13 +96,16 @@ export async function retryOrderTransaction<T>(
         candidate?.code === 'P2002' &&
         JSON.stringify(candidate.meta?.target || '').includes('creationRequestKey');
       if (candidate?.code !== 'P2034' && !requestCollision) throw error;
-      if (attempt >= 6)
+      if (attempt >= ORDER_TRANSACTION_MAX_RETRIES)
         throw new OrderRequestError(
           'O pedido encontrou uma atualização simultânea. Tente novamente.',
           409,
           'ORDER_TRANSACTION_CONFLICT',
         );
-      await pause(Math.min(400, 25 * 2 ** attempt) + Math.floor(Math.random() * 40));
+      await pause(
+        Math.min(ORDER_TRANSACTION_MAX_BACKOFF_MS, 25 * 2 ** attempt) +
+          Math.floor(Math.random() * 40),
+      );
     }
   }
 }
