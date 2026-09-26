@@ -262,7 +262,7 @@ function inboundData(body: JsonRecord) {
     : {};
 }
 
-function inboundText(body: JsonRecord) {
+export function inboundText(body: JsonRecord) {
   const data = inboundData(body);
   const message =
     data.message && typeof data.message === 'object' ? (data.message as JsonRecord) : {};
@@ -276,7 +276,7 @@ function inboundText(body: JsonRecord) {
     .slice(0, 4000);
 }
 
-function inboundMeta(body: JsonRecord) {
+export function inboundMeta(body: JsonRecord) {
   const data = inboundData(body);
   const key = data.key && typeof data.key === 'object' ? (data.key as JsonRecord) : {};
   return {
