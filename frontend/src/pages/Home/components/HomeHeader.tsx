@@ -293,7 +293,6 @@ export const HomeHeader = memo(function HomeHeader({
         </RoundButton>
 
         {!isTableMenu ? (
-          {/* ── Profile button + dropdown */}
           <ProfileWrap ref={profileRef}>
             {userLoggedIn ? (
               <AvatarButton
