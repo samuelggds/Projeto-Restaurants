@@ -6,6 +6,14 @@ import { TablePaymentError } from '../services/tablePaymentSupport.js';
 class CreateTablePaymentIntentController {
   async handle(req: Request, res: Response) {
     try {
+      const requestedMethod = String(req.body?.method || '').trim().toUpperCase();
+      if (requestedMethod !== 'PIX' && requestedMethod !== 'CARD') {
+        return res.status(400).json({
+          error: 'A comanda do cliente aceita somente Pix ou cartão online.',
+          code: 'ONLINE_TABLE_PAYMENT_ONLY',
+        });
+      }
+
       const result = await createTablePaymentIntentService.execute(
         {
           tableSessionId: Number(req.tableSession?.id),
