@@ -31,6 +31,7 @@ type JoinParticipantInput = {
   cookies?: Record<string, string>;
   displayName?: unknown;
   phone?: unknown;
+  issuedGuestToken?: string;
 };
 
 export class TableParticipantIdentityRequiredError extends Error {
@@ -73,6 +74,7 @@ export class JoinTableParticipantService {
     cookies = {},
     displayName,
     phone,
+    issuedGuestToken,
   }: JoinParticipantInput) {
     const identity = tableParticipantIdentityInputSchema.parse(
       displayName === undefined && phone === undefined ? {} : { displayName, phone },
@@ -129,7 +131,10 @@ export class JoinTableParticipantService {
           throw new TableParticipantIdentityRequiredError();
         }
 
-        const participantToken = createParticipantToken();
+        const participantToken =
+          issuedGuestToken && isParticipantTokenShape(issuedGuestToken)
+            ? issuedGuestToken
+            : createParticipantToken();
         const participantCookieExpiresAt = resolveParticipantTokenExpiration(session.expiresAt);
         const participant = await tableParticipantRepository.createGuest(
           {
