@@ -54,7 +54,6 @@ model User {
   closingRequestedTableSessions TableSession[]               @relation("ClosingRequestedTableSessions")
   forceClosedTableSessions      TableSession[]               @relation("ForceClosedTableSessions")
   tableParticipants             TableParticipant[]
-  tableAccessRequests           TableAccessRequest[]
   restaurant                    Restaurant?                  @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
   supportChatMessages           SupportChatMessage[]
   productFavorites              ProductFavorite[]
@@ -76,10 +75,10 @@ model User {
   employeeSettlements           EmployeeSettlement[]         @relation("EmployeeSettlementEmployee")
   employeeSettlementPayments    EmployeeSettlementPayment[]  @relation("EmployeeSettlementPaymentEmployee")
   tableWaiterAssignments        TableWaiterAssignment[]      @relation("TableWaiterAssignmentWaiter")
+  tableAccessRequestsDecided    TableAccessRequest[]          @relation("TableAccessRequestDecidedBy")
 
   @@unique([id, restaurantId])
   @@unique([restaurantId, username])
-  tableAccessRequestsDecided TableAccessRequest[] @relation("TableAccessRequestDecidedBy")
 }
 
 /// Configuracao publica e operacional da plataforma. Segredos e politicas que
@@ -306,6 +305,7 @@ model Restaurant {
   tableServiceCalls             TableServiceCall[]
   tableSessions                 TableSession[]
   tableParticipants             TableParticipant[]
+  tableAccessRequests           TableAccessRequest[]
   tableBillItems                TableBillItem[]
   tablePaymentIntents           TablePaymentIntent[]
   tablePaymentEvents            TablePaymentEvent[]
