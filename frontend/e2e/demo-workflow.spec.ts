@@ -415,8 +415,6 @@ test('demo: entrada QR usa o cardápio da mesa, envia à cozinha e apresenta a c
   await expect(account).toContainText('92,80');
   await captureReadmeScreenshot(page, 'demo-qr-account.png');
   await account.getByRole('button', { name: 'Fechar comanda', exact: true }).click();
-  await page.getByRole('button', { name: 'Pedir a conta', exact: true }).click();
-  await expect(account).toBeVisible();
   expect(
     await page.evaluate(
       (key) =>
@@ -426,7 +424,7 @@ test('demo: entrada QR usa o cardápio da mesa, envia à cozinha e apresenta a c
       DEMO_STORAGE_KEY,
     ),
   ).toBe(true);
-  await account.getByRole('button', { name: 'Fechar comanda', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Ver e pagar a conta', exact: true })).toBeVisible();
   await page.setViewportSize({ width: 390, height: 844 });
   await captureReadmeScreenshot(page, 'demo-qr-mobile.png');
   expect(
