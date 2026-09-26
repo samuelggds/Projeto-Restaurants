@@ -178,6 +178,7 @@ export function buildTableAccountBaseSnapshot(
     participants: data.participants.map((participant) => ({
       publicId: participant.publicId,
       displayName: participant.displayName,
+      authenticated: participant.userId !== null,
       status: participantIsActive(participant) ? ('ACTIVE' as const) : ('LEFT' as const),
       joinedAt: participant.joinedAt.toISOString(),
       leftAt: participant.leftAt?.toISOString() || null,
