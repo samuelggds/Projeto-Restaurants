@@ -33,6 +33,8 @@ export function CommercialWhatsappPanel({ refreshKey = 0 }: { refreshKey?: numbe
   const [busy, setBusy] = useState('');
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [settingsFeedback, setSettingsFeedback] = useState('');
+  const [hoursFeedback, setHoursFeedback] = useState('');
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
 
   const selected = useMemo(
@@ -133,21 +135,40 @@ export function CommercialWhatsappPanel({ refreshKey = 0 }: { refreshKey?: numbe
     setSuccess('');
   };
 
-  const saveSettings = async () => {
+  const saveSettings = async (scope: 'automation' | 'hours') => {
     if (!settings) return;
-    setBusy('settings');
+    const snapshot = {
+      enabled: settings.enabled,
+      hours: settings.hours,
+      awayMessage: settings.awayMessage,
+    };
+    setBusy(scope === 'hours' ? 'hours-settings' : 'automation-settings');
     setError('');
     setSuccess('');
+    if (scope === 'hours') setHoursFeedback('');
+    else setSettingsFeedback('');
     try {
-      const updated = await salesLeadsService.updateCommercialWhatsappSettings({
-        enabled: settings.enabled,
-        hours: settings.hours,
-        awayMessage: settings.awayMessage,
-      });
-      setSettings(updated);
-      setSuccess('Horários e automação salvos.');
+      await salesLeadsService.updateCommercialWhatsappSettings(snapshot);
+      const persisted = await salesLeadsService.getCommercialWhatsappSettings();
+      setSettings(persisted);
+      if (scope === 'hours') {
+        if (JSON.stringify(snapshot.hours) !== JSON.stringify(persisted.hours)) {
+          throw new Error('Os horários retornados pelo servidor são diferentes dos horários enviados.');
+        }
+        setHoursFeedback('Horários salvos e confirmados no servidor.');
+      } else {
+        setSettingsFeedback('Automação e mensagem salvas e confirmadas no servidor.');
+      }
     } catch (requestError) {
-      setError(requestErrorMessage(requestError, 'Não foi possível salvar a configuração.'));
+      const message = requestErrorMessage(
+        requestError,
+        scope === 'hours'
+          ? 'Não foi possível salvar os horários de atendimento.'
+          : 'Não foi possível salvar a configuração da automação.',
+      );
+      if (scope === 'hours') setHoursFeedback(message);
+      else setSettingsFeedback(message);
+      setError(message);
     } finally {
       setBusy('');
     }
@@ -362,11 +383,12 @@ export function CommercialWhatsappPanel({ refreshKey = 0 }: { refreshKey?: numbe
           <S.Button
             type="button"
             $variant="primary"
-            disabled={busy === 'settings'}
-            onClick={() => void saveSettings()}
+            disabled={busy === 'automation-settings'}
+            onClick={() => void saveSettings('automation')}
           >
             Salvar automação
           </S.Button>
+          {settingsFeedback ? <L.SaveFeedback>{settingsFeedback}</L.SaveFeedback> : null}
         </S.FormCard>
       </L.WhatsappGrid>
 
@@ -472,11 +494,12 @@ export function CommercialWhatsappPanel({ refreshKey = 0 }: { refreshKey?: numbe
         <S.Button
           type="button"
           $variant="primary"
-          disabled={busy === 'settings'}
-          onClick={() => void saveSettings()}
+          disabled={busy === 'hours-settings'}
+          onClick={() => void saveSettings('hours')}
         >
           Salvar horários
         </S.Button>
+        {hoursFeedback ? <L.SaveFeedback>{hoursFeedback}</L.SaveFeedback> : null}
       </S.FormCard>
 
       <S.FormCard>
