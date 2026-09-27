@@ -898,7 +898,6 @@ export default function Home() {
         data={homeData}
         tableLabel={mesaLabel}
         cart={cart}
-        cartCount={cartCount}
         cartTotal={cartTotal}
         orderingLocked={tableClosingRequested}
         tableOrder={tableOrder}
@@ -916,6 +915,9 @@ export default function Home() {
         onCreatePixPayment={createPixPaymentForOrder}
         onReconcilePayment={tableAccount.reconcilePayment}
         onCancelPayment={tableAccount.cancelPayment}
+        couponCode={orderQuote.quote?.couponCode || null}
+        couponDiscount={orderQuote.quote?.couponDiscount || 0}
+        onApplyCouponCode={applyTableCouponCode}
         reviewCartOpen={tableMenuReviewCartOpen}
         onReviewCartClose={() => setTableMenuReviewCartOpen(false)}
       />
