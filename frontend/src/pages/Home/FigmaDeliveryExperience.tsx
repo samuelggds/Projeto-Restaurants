@@ -76,12 +76,20 @@ export function FigmaDeliveryExperience({
     () => availableProducts.filter((product) => product.kind === 'COMBO'),
     [availableProducts],
   );
-  const highlights = useMemo(
-    () => [...promoted, ...combos, ...availableProducts].filter(
-      (product, index, values) => values.findIndex((candidate) => candidate.id === product.id) === index,
-    ).slice(0, 4),
-    [availableProducts, combos, promoted],
+  const highlightedProducts = useMemo(
+    () =>
+      [...promoted, ...combos]
+        .filter(
+          (product, index, values) =>
+            values.findIndex((candidate) => candidate.id === product.id) === index,
+        )
+        .slice(0, 4),
+    [combos, promoted],
   );
+  const homePreviewProducts = highlightedProducts.length
+    ? highlightedProducts
+    : availableProducts.slice(0, 4);
+  const homePreviewTitle = highlightedProducts.length ? 'Destaques do Cardápio' : 'Cardápio';
   const menuProducts = useMemo(
     () =>
       categoryId === 'todos'
@@ -198,17 +206,21 @@ export function FigmaDeliveryExperience({
               </S.Section>
             ) : null}
 
-            {highlights.length ? (
+            {homePreviewProducts.length ? (
               <S.Section>
                 <S.SectionHead>
                   <div>
-                    <h2>Destaques do Cardápio</h2>
-                    <p>Produtos disponíveis e promoções configuradas pelo restaurante.</p>
+                    <h2>{homePreviewTitle}</h2>
+                    <p>
+                      {highlightedProducts.length
+                        ? 'Promoções e combos disponíveis configurados pelo restaurante.'
+                        : 'Uma prévia dos itens disponíveis no cardápio.'}
+                    </p>
                   </div>
                   <button type="button" onClick={() => setView('menu')}>Ver todos</button>
                 </S.SectionHead>
                 <S.ProductGrid>
-                  {highlights.map((product) => (
+                  {homePreviewProducts.map((product) => (
                     <S.ProductCard key={product.id}>
                       {product.promotion?.active ? <span className="badge">{product.promotion.badgeLabel}</span> : null}
                       <button className="open" type="button" aria-label={`Ver ${product.name}`} onClick={() => openProduct(product)} />
@@ -297,14 +309,14 @@ export function FigmaDeliveryExperience({
       <S.Footer>
         <div className="inner">
           <div>
-            <div className="brand">GastroNexa</div>
-            <p>{data.about || `Peça online diretamente no ${data.brand.name}.`}</p>
+            <div className="brand">{data.brand.name}</div>
+            {data.about ? <p>{data.about}</p> : null}
           </div>
           <div><h3>Nossos Links</h3><p><button type="button" onClick={() => setView('menu')}>Cardápio</button></p></div>
           <div><h3>Suporte</h3><p>{data.brand.phone || data.brand.email || 'Atendimento pelo restaurante'}</p></div>
           <div><h3>Sua Loja Segura</h3><p>Cada restaurante é operado diretamente por seu administrador autorizado.</p></div>
         </div>
-        <div className="bottom"><span>© {new Date().getFullYear()} GastroNexa & {data.brand.name}.</span><span>Privacidade · Cookies</span></div>
+        <div className="bottom"><span>© {new Date().getFullYear()} {data.brand.name}.</span><span>Privacidade · Cookies</span></div>
       </S.Footer>
 
       <S.MobileSearch type="button" aria-label="Buscar no cardápio" onClick={() => setSearchOpen(true)}>
