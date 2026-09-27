@@ -75,7 +75,6 @@ export default function TableMenuExperience({
   data,
   tableLabel,
   cart,
-  cartCount,
   cartTotal,
   orderingLocked = false,
   tableOrder,
