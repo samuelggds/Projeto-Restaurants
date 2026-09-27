@@ -3,14 +3,16 @@ import {
   Bell,
   Check,
   ChevronRight,
+  CookingPot,
+  Eye,
   ShoppingBag,
   Clock3,
   Minus,
   Plus,
+  QrCode,
   ReceiptText,
   Search,
   Utensils,
-  WalletCards,
 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import QRCode from 'react-qr-code';
@@ -335,22 +337,30 @@ export default function TableMenuExperience({
                 <h1>Pagamento Confirmado!</h1>
                 <p>Recebemos seu pagamento via PIX com sucesso.</p>
                 <S.PaidReceipt>
-                  <div className="copy">
-                    {confirmation?.orderId ? <small>Pedido #{confirmation.orderId}</small> : null}
-                    <strong>{centsToBrl(currentPayment.totalCents)}</strong>
-                    <small>Forma de Pagamento · PIX</small>
+                  <div className="receipt-head">
+                    {confirmation?.orderId ? <small>Pedido #{confirmation.orderId}</small> : <small>Pedido</small>}
+                    <span className="status">PAGO</span>
                   </div>
-                  <span className="status">PAGO</span>
+                  <strong>{centsToBrl(currentPayment.totalCents)}</strong>
+                  <div className="receipt-divider" />
+                  <div className="receipt-row">
+                    <small>Forma de Pagamento</small>
+                    <b>PIX</b>
+                  </div>
+                  <div className="receipt-row">
+                    <small>Status</small>
+                    <b className="confirmed">Confirmado agora</b>
+                  </div>
                 </S.PaidReceipt>
                 <div className="prep-banner">
-                  <Clock3 size={18} />
+                  <CookingPot size={18} />
                   <span>
                     <b>Pedido continua em preparo</b>
                     <small>Acompanhe o andamento na tela seguinte.</small>
                   </span>
                 </div>
                 <S.PrimaryAction type="button" onClick={() => setView('tracking')}>
-                  Acompanhar preparo
+                  <Eye size={16} /> Acompanhar preparo
                 </S.PrimaryAction>
                 <S.SecondaryAction type="button" onClick={goToMenu}>
                   Voltar ao cardápio
@@ -493,7 +503,7 @@ export default function TableMenuExperience({
             <S.PaymentOptionsGrid>
             {allowPix ? (
               <S.PaymentChoiceCard>
-                <span className="icon"><WalletCards size={28} /></span>
+                <span className="icon"><QrCode size={20} /></span>
                 <span className="recommended desktop-only">RECOMENDADO</span>
                 <span className="pix-badge mobile-only">PIX</span>
                 <h2>Pagar agora (PIX)</h2>
@@ -510,7 +520,7 @@ export default function TableMenuExperience({
             ) : null}
 
             <S.PaymentChoiceCard>
-              <span className="icon"><ReceiptText size={26} /></span>
+              <span className="icon"><Clock3 size={20} /></span>
               <h2>Deixar na conta</h2>
               <p>
                 Os itens permanecem vinculados à Mesa {tableNumber(tableLabel)}. Pague ao sair com o garçom.
