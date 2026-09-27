@@ -481,48 +481,60 @@ export default function TableMenuExperience({
   if (effectiveView === 'confirmation' && confirmation) {
     return (
       <S.Shell $primary={primary}>
-        <Header
-          data={data}
-          tableLabel={tableLabel}
-          cartCount={cartCount}
-          query={query}
-          setQuery={setQuery}
-          onCart={() => setView('cart')}
-          onOpenTableAccount={onOpenTableAccount}
-          onCallWaiter={onCallWaiter}
-        />
-        <S.Page>
-          <S.ConfirmationHero>
-            <S.StatusIcon $success>
-              <Check />
-            </S.StatusIcon>
-            <div>
-              <small>PEDIDO CONFIRMADO</small>
-              <h1>Pedido #{confirmation.orderId}</h1>
-              <p>
-                Seu pedido foi recebido pelo restaurante e já foi enviado para a cozinha da mesa{' '}
-                {tableLabel}.
-              </p>
-            </div>
-            <S.PaymentPending>
-              <Clock3 />
-              <div>
-                <b>Pagamento pendente</b>
-                <span>Você ainda pode pagar agora ou depois.</span>
-              </div>
-            </S.PaymentPending>
-          </S.ConfirmationHero>
-          <S.ConfirmationGrid>
-            <S.OrderSummary>
-              <header>
-                <h2>Resumo do pedido</h2>
-                <button type="button" onClick={() => setView('tracking')}>
-                  Ver detalhes <ChevronRight size={16} />
-                </button>
-              </header>
+        <S.ConfirmationReferenceHeader>
+          <S.CartReferenceBrand>
+            {data.brand.logoUrl ? (
+              <img src={data.brand.logoUrl} alt={data.brand.name} />
+            ) : (
+              <S.BrandMark />
+            )}
+            <b>{data.brand.name}</b>
+          </S.CartReferenceBrand>
+
+          <div className="actions">
+            <button type="button" aria-label="Buscar no cardápio" onClick={() => setView('menu')}>
+              <Search size={18} />
+            </button>
+            <button type="button" aria-label="Meu pedido" onClick={() => setView('cart')}>
+              <ShoppingCart size={19} />
+            </button>
+          </div>
+        </S.ConfirmationReferenceHeader>
+
+        <S.ConfirmationReferencePage>
+          <S.ConfirmationReferenceHero>
+            <S.ConfirmationCheck>
+              <Check size={28} />
+            </S.ConfirmationCheck>
+
+            <h1>Pedido confirmado</h1>
+            <strong>Pedido #{confirmation.orderId}</strong>
+            <p>
+              Seu pedido foi recebido pelo restaurante e enviado para a cozinha da Mesa {tableLabel}.
+            </p>
+
+            <S.ConfirmationPending>
+              <Clock3 size={15} />
+              <span>Pagamento pendente</span>
+            </S.ConfirmationPending>
+          </S.ConfirmationReferenceHero>
+
+          <S.ConfirmationReferenceSummary>
+            <header>
+              <h2>Resumo do pedido</h2>
+              <button type="button" onClick={() => setView('tracking')}>
+                Ver detalhes <ChevronRight size={14} />
+              </button>
+            </header>
+
+            <div className="items">
               {confirmation.items.map((item) => (
                 <article key={item.cartId}>
-                  {item.image ? <img src={item.image} alt={item.name} /> : <S.ImagePlaceholder />}
+                  {item.image ? (
+                    <img src={item.image} alt={item.name} />
+                  ) : (
+                    <S.ImagePlaceholder />
+                  )}
                   <div>
                     <b>{item.name}</b>
                     <small>{item.quantity}x</small>
@@ -530,30 +542,46 @@ export default function TableMenuExperience({
                   <strong>{brl(item.price * item.quantity)}</strong>
                 </article>
               ))}
-              <footer>
-                <span>Total do pedido</span>
-                <strong>{brl(confirmation.total)}</strong>
-              </footer>
-            </S.OrderSummary>
-            <S.PayChoice>
-              <WalletCards />
-              <h2>Como deseja pagar?</h2>
-              <p>O pagamento online é opcional. Você pode pagar agora com PIX ou deixar para depois.</p>
-              {accountSnapshot?.capabilities.allowPix ? (
-                <S.PrimaryButton type="button" disabled={paymentLoading} onClick={() => void startPix()}>
-                  Pagar com PIX agora <ChevronRight size={20} />
-                </S.PrimaryButton>
-              ) : null}
-              <S.SecondaryButton type="button" onClick={() => setView('tracking')}>
-                Pagar depois <ChevronRight size={20} />
-              </S.SecondaryButton>
-              <div className="or">ou</div>
-              <S.SecondaryButton type="button" onClick={() => setView('tracking')}>
-                Acompanhar pedido <ChevronRight size={20} />
-              </S.SecondaryButton>
-            </S.PayChoice>
-          </S.ConfirmationGrid>
-        </S.Page>
+            </div>
+
+            <footer>
+              <span>Total do pedido</span>
+              <strong>{brl(confirmation.total)}</strong>
+            </footer>
+          </S.ConfirmationReferenceSummary>
+
+          <S.ConfirmationReferencePay>
+            <div className="title">
+              <WalletCards size={18} />
+              <span>
+                <b>Como deseja pagar?</b>
+                <small>
+                  O pagamento online é opcional. Você pode pagar agora com PIX ou deixar para depois.
+                </small>
+              </span>
+            </div>
+
+            {accountSnapshot?.capabilities.allowPix ? (
+              <S.ConfirmationPixButton
+                type="button"
+                disabled={paymentLoading}
+                onClick={() => void startPix()}
+              >
+                Pagar com PIX agora <ChevronRight size={18} />
+              </S.ConfirmationPixButton>
+            ) : null}
+
+            <S.ConfirmationLaterButton type="button" onClick={() => setView('tracking')}>
+              Pagar depois <ChevronRight size={18} />
+            </S.ConfirmationLaterButton>
+
+            <div className="or">ou</div>
+
+            <S.ConfirmationTrackButton type="button" onClick={() => setView('tracking')}>
+              Acompanhar pedido <ChevronRight size={18} />
+            </S.ConfirmationTrackButton>
+          </S.ConfirmationReferencePay>
+        </S.ConfirmationReferencePage>
       </S.Shell>
     );
   }
