@@ -172,7 +172,7 @@ function optionalBannerText(value: unknown) {
   return normalized || undefined;
 }
 
-export function mapHomeBanners(values: unknown[]): HomeBanner[] {
+export function mapHomeBanners(values: unknown[], useLegacyCopy = true): HomeBanner[] {
   return values
     .map<HomeBanner | null>((value, index) => {
       const banner = asRecord(value);
@@ -195,7 +195,7 @@ export function mapHomeBanners(values: unknown[]): HomeBanner[] {
       const highlight = optionalBannerText(banner.highlight);
       const description = optionalBannerText(banner.description);
       const buttonLabel = optionalBannerText(banner.buttonLabel);
-      const isLegacyMainBanner = storedTitle === 'Banner principal' && !highlight && !description;
+      const isLegacyMainBanner =\n        useLegacyCopy && storedTitle === 'Banner principal' && !highlight && !description;
 
       return {
         id,
@@ -263,7 +263,7 @@ export function buildHomeData(
   const persistedBanners = Array.isArray(restaurant.banners)
     ? (restaurant.banners as Record<string, unknown>[])
     : [];
-  const banners = mapHomeBanners(persistedBanners);
+  const banners = mapHomeBanners(persistedBanners, useLegacyBannerCopy);
   const firstBanner = banners[0];
   const hero = firstBanner
     ? {
