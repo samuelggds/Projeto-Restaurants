@@ -68,12 +68,18 @@ export function CustomerLoginExperience({
   } as CSSProperties;
 
   return (
-    <S.CustomerAuthLayout style={style} data-testid="login-layout" data-auth-portal="customer">
-      <S.Hero>
+    <S.CustomerAuthLayout
+      style={style}
+      data-testid="login-layout"
+      data-auth-portal="customer"
+      data-restaurant-category={branding.category}
+    >
+      <S.Hero data-testid="login-cover">
         {heroImage ? (
           <>
             {!heroLoaded ? <S.HeroSkeleton aria-hidden="true" /> : null}
             <S.HeroImage
+              data-testid="login-cover-image"
               src={heroImage}
               alt=""
               aria-hidden="true"
@@ -90,7 +96,7 @@ export function CustomerLoginExperience({
           <S.HeroSkeleton aria-hidden="true" />
         )}
         <S.HeroOverlay />
-        <S.HeroBranding>
+        <S.HeroBranding data-testid="login-hero-content" data-category={branding.category}>
           <S.RestaurantMark aria-label={branding.name}>
             {markImage && !markLoaded ? <span className="logo-skeleton" aria-hidden="true" /> : null}
             {markImage ? (
