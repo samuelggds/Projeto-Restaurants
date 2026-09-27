@@ -44,6 +44,7 @@ type Props = {
   accountSnapshot: TableAccountSnapshot | null;
   activePayment: TablePaymentIntent | null;
   paymentLoading?: boolean;
+  waiterCallEnabled?: boolean;
   billRequestEnabled?: boolean;
   onAddProduct: (productId: string, configuration: ProductConfiguration) => void;
   onIncrease: (cartId: string) => void;
@@ -81,6 +82,7 @@ export default function TableMenuExperience({
   accountSnapshot,
   activePayment,
   paymentLoading = false,
+  waiterCallEnabled = true,
   billRequestEnabled = false,
   onAddProduct,
   onIncrease,
@@ -534,7 +536,6 @@ export default function TableMenuExperience({
               {tableOrder?.items.length ? (
                 tableOrder.items.map((item, index) => (
                   <S.OrderItemLine key={`${item.name}-${index}`}>
-                    <span className="image" aria-hidden="true" />
                     <div className="copy">
                       <b>{item.name}</b>
                       <small>{item.quantity} {item.quantity === 1 ? 'unidade' : 'unidades'}</small>
@@ -546,9 +547,11 @@ export default function TableMenuExperience({
                 <S.EmptyCatalog>Os itens aparecerão aqui assim que houver um pedido ativo.</S.EmptyCatalog>
               )}
 
-              <S.PrimaryAction type="button" onClick={onCallWaiter}>
-                <Bell size={17} /> Chamar garçom
-              </S.PrimaryAction>
+              {waiterCallEnabled ? (
+                <S.PrimaryAction type="button" onClick={onCallWaiter}>
+                  <Bell size={17} /> Chamar garçom
+                </S.PrimaryAction>
+              ) : null}
             </S.OrderItemsCard>
           </S.TrackingLayout>
         </S.FlowPage>
@@ -636,10 +639,12 @@ export default function TableMenuExperience({
               <S.CartLines>
                 {cart.length ? (
                   cart.map((item) => (
-                    <S.CartLine key={item.cartId || item.productId}>
-                      <span className="image">
-                        {item.image ? <img src={item.image} alt={item.name} /> : null}
-                      </span>
+                    <S.CartLine key={item.cartId || item.productId} $hasImage={Boolean(item.image)}>
+                      {item.image ? (
+                        <span className="image">
+                          <img src={item.image} alt={item.name} />
+                        </span>
+                      ) : null}
                       <div className="info">
                         <b>{item.name}</b>
                         {item.options?.length ? (
@@ -808,11 +813,13 @@ export default function TableMenuExperience({
               <ChevronRight size={17} />
             </S.TableActionCard>
 
-            <S.TableActionCard type="button" onClick={onCallWaiter}>
-              <span className="icon"><Bell size={20} /></span>
-              <span className="copy"><b>Garçom</b><small>Precisando de algo?</small></span>
-              <ChevronRight size={17} />
-            </S.TableActionCard>
+            {waiterCallEnabled ? (
+              <S.TableActionCard type="button" onClick={onCallWaiter}>
+                <span className="icon"><Bell size={20} /></span>
+                <span className="copy"><b>Garçom</b><small>Precisando de algo?</small></span>
+                <ChevronRight size={17} />
+              </S.TableActionCard>
+            ) : null}
 
             {billRequestEnabled && onRequestBill ? (
               <S.TableActionCard type="button" onClick={onRequestBill}>
@@ -1024,7 +1031,9 @@ function FigmaComboCard({
         aria-label={`Ver ${product.name}`}
         onClick={onOpen}
       />
-      <div className="media">{product.image ? <img src={product.image} alt={product.name} /> : null}</div>
+      {product.image ? (
+        <div className="media"><img src={product.image} alt={product.name} /></div>
+      ) : null}
       <div className="copy">
         <h3>{product.name}</h3>
         {product.description ? <p>{product.description}</p> : null}
