@@ -397,6 +397,7 @@ export default function TableMenuExperience({
             setView('cart');
           }}
           onOpenTableAccount={onOpenTableAccount}
+          onCallWaiter={onCallWaiter}
         />
         <S.Page>
           <S.BackButton
@@ -473,6 +474,7 @@ export default function TableMenuExperience({
           setQuery={setQuery}
           onCart={() => setView('cart')}
           onOpenTableAccount={onOpenTableAccount}
+          onCallWaiter={onCallWaiter}
         />
         <S.Page>
           <S.ConfirmationHero>
@@ -552,6 +554,7 @@ export default function TableMenuExperience({
           setQuery={setQuery}
           onCart={() => setView('cart')}
           onOpenTableAccount={onOpenTableAccount}
+          onCallWaiter={onCallWaiter}
         />
         <S.Page>
           <S.BackButton type="button" onClick={() => setView('menu')}>
@@ -633,6 +636,7 @@ export default function TableMenuExperience({
         setQuery={setQuery}
         onCart={() => setView('cart')}
         onOpenTableAccount={onOpenTableAccount}
+        onCallWaiter={onCallWaiter}
       />
       <S.Page>
         {data.banners[0] ? (
@@ -773,6 +777,7 @@ function Header({
   setQuery,
   onCart,
   onOpenTableAccount,
+  onCallWaiter,
 }: {
   data: HomeData;
   tableLabel: string | number;
@@ -781,6 +786,7 @@ function Header({
   setQuery: (value: string) => void;
   onCart: () => void;
   onOpenTableAccount: () => void;
+  onCallWaiter: () => void;
 }) {
   return (
     <S.Header>
@@ -791,14 +797,27 @@ function Header({
           <small>{data.about || data.brand.category || ''}</small>
         </span>
       </S.Brand>
-      <S.TableBadge
-        as="button"
-        type="button"
-        onClick={onOpenTableAccount}
-        aria-label={`Abrir minha comanda da mesa ${tableLabel}`}
-      >
-        <Utensils size={17} /> Mesa {tableLabel}
-      </S.TableBadge>
+      <S.TableActions>
+        <S.TableBadge
+          as="button"
+          type="button"
+          onClick={onOpenTableAccount}
+          aria-label={`Abrir minha comanda da mesa ${tableLabel}`}
+        >
+          <Utensils size={17} />
+          Mesa {tableLabel}
+          <span
+            className="table-accessible-number"
+            aria-label={`Mesa ${Number(tableLabel) || tableLabel}`}
+          >
+            {String(tableLabel).padStart(2, '0')}
+          </span>
+        </S.TableBadge>
+        <S.WaiterButton type="button" onClick={onCallWaiter}>
+          <BellRing size={17} />
+          <span>Chamar garçom</span>
+        </S.WaiterButton>
+      </S.TableActions>
       <S.SearchBox>
         <Search size={18} />
         <input
