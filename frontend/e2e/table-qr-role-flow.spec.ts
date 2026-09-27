@@ -718,7 +718,8 @@ test('admin controla o QR, garçom apenas opera a mesa e cozinha recebe Mesa 1',
     settlementMode: 'TABLE_ACCOUNT',
   });
   expect(state.orderPayload).not.toHaveProperty('paymentMethod');
-  await expect(page.getByLabel(`Mesa ${TABLE_NUMBER}`, { exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Pedido confirmado' })).toBeVisible();
+  await expect(page.getByText(`Mesa ${TABLE_NUMBER}`, { exact: false }).first()).toBeVisible();
   await expect(page.getByRole('button', { name: /Confirmar recebimento/i })).toHaveCount(0);
   await expect(page.getByRole('button', { name: /Acompanhar entrega no GPS/i })).toHaveCount(0);
 
@@ -734,7 +735,7 @@ test('admin controla o QR, garçom apenas opera a mesa e cozinha recebe Mesa 1',
   await expect(kitchenOrder.getByText(product.name)).toBeVisible();
 });
 
-test('cliente pode pagar depois na comanda sem oferecer cartão online', async ({ page }) => {
+test('cliente pode pagar agora com PIX ou acompanhar para pagar depois', async ({ page }) => {
   const state: FlowState = {
     tableCreated: true,
     tableOpen: true,
@@ -806,9 +807,8 @@ test('cliente pode pagar depois na comanda sem oferecer cartão online', async (
   expect(state.tablePaymentCreations).toBe(1);
 
   state.tablePaymentStatus = 'PAID';
-  await expect(page.getByRole('heading', { name: 'Pix confirmado!' }), {
-    timeout: 8_000,
-  }).toBeVisible();
+  await page.getByRole('button', { name: 'Verificar pagamento agora' }).click();
+  await expect(page.getByRole('heading', { name: 'Pix confirmado!' })).toBeVisible();
   await page.getByRole('button', { name: 'Concluir' }).click();
   await expect(page.getByRole('heading', { name: 'Pix confirmado!' })).toHaveCount(0);
   await expect(page).not.toHaveURL(/\/login/u);
