@@ -144,8 +144,13 @@ export function mapProductOptionGroupsFromApi(product: Record<string, unknown>) 
     .filter((group) => group.id && group.options.length > 0);
 }
 
-export function resolveProductImage(product: Record<string, unknown>, index: number): string {
+export function resolveProductImage(
+  product: Record<string, unknown>,
+  index: number,
+  allowFallback = true,
+): string {
   if (isPersistentImageSource(product.image)) return String(product.image).trim();
+  if (!allowFallback) return '';
   const terms = [product.name, product.description, (product.category as { name?: string })?.name]
     .filter(Boolean)
     .join(' ')
@@ -251,7 +256,9 @@ export function buildHomeData(
   productsFromApi: Record<string, unknown>[],
   settings: Record<string, unknown> | null,
   date = new Date(),
+  options: { allowImageFallbacks?: boolean } = {},
 ): HomeData {
+  const allowImageFallbacks = options.allowImageFallbacks !== false;
   const restaurant = (settings?.restaurant as Record<string, unknown>) ?? {};
   const persistedBanners = Array.isArray(restaurant.banners)
     ? (restaurant.banners as Record<string, unknown>[])
@@ -304,7 +311,7 @@ export function buildHomeData(
       price: pricing.effectiveBasePrice,
       originalPrice: pricing.originalBasePrice,
       promotion: pricing.promotion,
-      image: resolveProductImage(product, index),
+      image: resolveProductImage(product, index, allowImageFallbacks),
       rating: Number(product.averageRating || 0),
       stock: product.stock === null || product.stock === undefined ? null : Number(product.stock),
       available: !isProductUnavailable(product),
@@ -417,7 +424,7 @@ export function buildHomeData(
         const name = String((product.category as { name?: string })?.name || '');
         if (!name || seen.has(name)) return null;
         seen.add(name);
-        return { id: name, name, image: resolveProductImage(product, 0) };
+        return { id: name, name, image: resolveProductImage(product, 0, allowImageFallbacks) };
       })
       .filter(Boolean) as HomeCategory[]),
   ];
