@@ -5,7 +5,7 @@ import { CustomerActionHub } from './components/CustomerActionHub';
 import { FloatingWhatsAppPortal } from './Home.whatsapp';
 import { PublicGuestOrderHelp } from '../../features/order-support/PublicGuestOrderHelp';
 import { useAuth } from '../../contexts/authContext';
-import { HomePage } from './HomePage';
+import { FigmaDeliveryExperience } from './FigmaDeliveryExperience';
 import PixPaymentPanel from '../Cart/components/PixPaymentPanel';
 import * as S from './Home.styles';
 import {
@@ -926,7 +926,7 @@ export default function Home() {
 
   return (
     <S.HomeExperience $fontFamily={homeData.fontFamily} $primary={primary} $tableMenu={mesaMode}>
-      <HomePage
+      <FigmaDeliveryExperience
         data={homeData}
         cartCount={tableClosingRequested ? 0 : cartCount}
         initialSearchOpen={Boolean(navigationState?.openSearch)}
