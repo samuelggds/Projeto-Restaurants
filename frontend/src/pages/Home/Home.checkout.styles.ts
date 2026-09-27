@@ -22,9 +22,9 @@ export const CartDrawer = styled.aside<{ $open: boolean }>`
   right: 0;
   top: 0;
   z-index: 70;
-  width: min(520px, 100%);
+  width: min(500px, 100%);
   height: 100dvh;
-  background: #f4f6f3;
+  background: #f7f7f7;
   display: grid;
   grid-template-rows: auto minmax(0, 1fr) auto;
   overflow-x: hidden;
@@ -48,8 +48,8 @@ export const CartHead = styled.div`
   grid-template-columns: minmax(0, 1fr) auto auto;
   align-items: center;
   gap: 10px;
-  padding: 18px 20px;
-  border-bottom: 1px solid var(--home-border);
+  padding: 16px 18px;
+  border-bottom: 1px solid #eeeeee;
   background: #fff;
   color: var(--home-text);
 
@@ -66,7 +66,7 @@ export const CartHead = styled.div`
     flex: 0 0 auto;
     display: grid;
     place-items: center;
-    border-radius: 7px;
+    border-radius: 12px;
     color: #fff;
     background: var(--home-primary);
 
@@ -84,9 +84,9 @@ export const CartHead = styled.div`
 
   h2 {
     margin: 0;
-    font-family: Georgia, 'Times New Roman', serif;
-    font-size: 22px;
-    font-weight: 700;
+    font-family: inherit;
+    font-size: 20px;
+    font-weight: 900;
     letter-spacing: 0;
     color: var(--home-text);
   }
@@ -100,7 +100,7 @@ export const CartHead = styled.div`
 
   .cart-count {
     padding: 6px 9px;
-    border-radius: 6px;
+    border-radius: 11px;
     color: #53605a;
     background: #eef2ee;
     font-size: 11px;
@@ -151,7 +151,7 @@ export const CartBody = styled.div`
 
 export const CartItems = styled.div`
   width: 100%;
-  padding: 18px 20px 10px;
+  padding: 14px 16px 8px;
   display: flex;
   flex-direction: column;
   gap: 8px;
@@ -172,7 +172,7 @@ export const CartItemRow = styled.div`
   padding: 10px;
   background: #fff;
   border: 1px solid var(--home-border);
-  border-radius: 8px;
+  border-radius: 14px;
   transition: box-shadow 0.2s;
 
   &:hover {
@@ -201,7 +201,7 @@ export const CartItemInfo = styled.div`
   }
 
   .item-price {
-    color: #d64d08;
+    color: var(--home-text);
     font-weight: 800;
     font-size: 15px;
   }
