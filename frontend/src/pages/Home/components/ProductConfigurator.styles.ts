@@ -995,3 +995,41 @@ export const ProductRating = styled.span`
   font-size: 11px;
   font-weight: 850;
 `;
+
+
+export const ProductBack = styled.button`
+  position: absolute;
+  z-index: 3;
+  top: 14px;
+  left: 14px;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(255,255,255,.94);
+  color: #1f1f22;
+  display: grid;
+  place-items: center;
+  box-shadow: 0 3px 12px rgba(0,0,0,.12);
+`;
+
+export const TableMenuProductPrice = styled.div`
+  display: flex;
+  align-items: baseline;
+  gap: 7px;
+  flex-wrap: wrap;
+  margin-top: 2px;
+
+  del {
+    color: #948c85;
+    font-size: 12px;
+    font-weight: 650;
+  }
+
+  strong {
+    color: #1c1c1f;
+    font-size: 22px;
+    line-height: 1;
+  }
+`;
