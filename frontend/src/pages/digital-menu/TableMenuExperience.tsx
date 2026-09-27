@@ -160,6 +160,18 @@ export default function TableMenuExperience({
     return () => window.clearInterval(interval);
   }, [pixPending, pixRemainingSeconds]);
 
+  useEffect(() => {
+    if (!pixPending || !currentPayment?.publicId) return undefined;
+    const paymentPublicId = currentPayment.publicId;
+    const interval = window.setInterval(() => {
+      if (document.hidden || paymentLoading) return;
+      void onReconcilePayment(paymentPublicId).then((payment) => {
+        if (payment) setPixPayment(payment);
+      });
+    }, 5_000);
+    return () => window.clearInterval(interval);
+  }, [currentPayment?.publicId, onReconcilePayment, paymentLoading, pixPending]);
+
   function openProduct(product: HomeProduct) {
     if (orderingLocked) return;
     setSelectedProduct(product);
@@ -193,6 +205,16 @@ export default function TableMenuExperience({
 
   async function startPix() {
     if (!confirmation?.orderPublicId || paymentLoading) return;
+    const pendingPayment = accountSnapshot?.activePayment;
+    if (
+      pendingPayment?.method === 'PIX' &&
+      ['RESERVED', 'PROCESSING'].includes(pendingPayment.status)
+    ) {
+      setPixPayment(pendingPayment);
+      setView('pix');
+      return;
+    }
+
     const payment = await onCreatePixPayment(confirmation.orderPublicId);
     if (!payment) return;
     setPixPayment(payment);
