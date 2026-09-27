@@ -719,7 +719,7 @@ test('admin controla o QR, garçom apenas opera a mesa e cozinha recebe Mesa 1',
   });
   expect(state.orderPayload).not.toHaveProperty('paymentMethod');
   await expect(page.getByRole('heading', { name: 'Pedido enviado!' })).toBeVisible();
-  await expect(page.getByText(`Mesa ${TABLE_NUMBER}`, { exact: false }).first()).toBeVisible();
+  await expect(page.getByText(`Mesa ${String(TABLE_NUMBER).padStart(2, '0')}`, { exact: false }).first()).toBeVisible();
   await expect(page.getByRole('button', { name: /Confirmar recebimento/i })).toHaveCount(0);
   await expect(page.getByRole('button', { name: /Acompanhar entrega no GPS/i })).toHaveCount(0);
 
