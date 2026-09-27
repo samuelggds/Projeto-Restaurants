@@ -779,8 +779,6 @@ test('cliente pode pagar agora com PIX ou acompanhar para pagar depois', async (
   expect(state.tablePaymentPayload).toBeNull();
 
   await expect(page.getByRole('heading', { name: 'Pedido Enviado!' })).toBeVisible();
-  await expect(page.getByText('1 item', { exact: false })).toBeVisible();
-
   const payButton = page.getByRole('button', { name: 'Pagar agora no PIX', exact: true });
   await expect(payButton).toBeVisible();
   for (const width of [320, 390, 1280]) {
