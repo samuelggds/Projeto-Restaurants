@@ -31,12 +31,12 @@ export const PaymentOptionsGrid = styled.div`
 `;
 
 export const PaymentChoiceCard = styled(FlowCard)`
-  min-height: 260px;
+  position: relative;
+  height: 260px;
   padding: 24px;
-  display: grid;
-  grid-template-columns: 40px minmax(0, 1fr);
-  grid-template-rows: auto auto 1fr auto;
-  column-gap: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
   border-width: 1px;
 
   &:first-child {
@@ -46,9 +46,9 @@ export const PaymentChoiceCard = styled(FlowCard)`
   }
 
   .icon {
-    grid-row: 1 / span 3;
     width: 40px;
     height: 40px;
+    flex: 0 0 40px;
     border-radius: 10px;
     background: #fff;
     color: var(--primary);
@@ -56,8 +56,26 @@ export const PaymentChoiceCard = styled(FlowCard)`
     place-items: center;
   }
 
+  &:not(:first-child) .icon {
+    background: var(--background);
+    color: var(--text);
+  }
+
+  .recommended {
+    position: absolute;
+    top: 33px;
+    right: 24px;
+    padding: 4px 10px;
+    border-radius: 999px;
+    background: var(--primary);
+    color: #fff;
+    font-size: 11px;
+    line-height: 14px;
+    font-weight: 700;
+  }
+
   h2 {
-    margin: 2px 0 0;
+    margin: 0;
     color: var(--text);
     font-size: 18px;
     line-height: 22px;
@@ -65,24 +83,18 @@ export const PaymentChoiceCard = styled(FlowCard)`
   }
 
   p {
-    margin: 8px 0 0;
+    margin: -10px 0 0;
     color: var(--muted);
     font-size: 13px;
-    line-height: 18px;
-  }
-
-  small {
-    margin-top: 10px;
-    color: var(--primary);
-    font-size: 11px;
-    font-weight: 700;
+    line-height: 1.4;
   }
 
   button {
-    grid-column: 1 / -1;
-    align-self: end;
+    align-self: stretch;
     width: 100%;
     min-height: 44px;
+    margin-top: auto;
+    padding: 0 16px;
     border-radius: 12px;
     font-size: 14px;
     font-weight: 700;
@@ -101,14 +113,22 @@ export const PaymentChoiceCard = styled(FlowCard)`
   }
 
   @media (max-width: 759px) {
-    min-height: 0;
+    height: auto;
+    min-height: 162px;
     padding: 20px;
     border-radius: 20px;
-    grid-template-columns: 32px minmax(0, 1fr);
+    display: grid;
+    grid-template-columns: 32px minmax(0, 1fr) auto;
+    grid-template-rows: 32px auto 36px;
+    column-gap: 8px;
+    row-gap: 12px;
 
     .icon {
+      grid-column: 1;
+      grid-row: 1;
       width: 32px;
       height: 32px;
+      flex-basis: 32px;
       border-radius: 8px;
     }
 
@@ -117,21 +137,45 @@ export const PaymentChoiceCard = styled(FlowCard)`
       height: 18px;
     }
 
+    .pix-badge {
+      grid-column: 3;
+      grid-row: 1;
+      align-self: center;
+      padding: 4px 10px;
+      border-radius: 999px;
+      background: var(--primary);
+      color: #fff;
+      font-size: 10px;
+      line-height: 13px;
+      font-weight: 700;
+    }
+
     h2 {
+      grid-column: 2;
+      grid-row: 1;
+      align-self: center;
       font-size: 16px;
+      line-height: 20px;
     }
 
     p {
+      grid-column: 1 / -1;
+      grid-row: 2;
+      margin: 0;
       font-size: 12px;
-    }
-
-    small {
-      font-size: 10px;
+      line-height: 16px;
     }
 
     button {
-      min-height: 40px;
-      margin-top: 12px;
+      grid-column: 1 / -1;
+      grid-row: 3;
+      justify-self: start;
+      align-self: end;
+      width: max-content;
+      min-height: 36px;
+      margin-top: 0;
+      padding: 0 16px;
+      border-radius: 10px;
       font-size: 13px;
     }
   }
