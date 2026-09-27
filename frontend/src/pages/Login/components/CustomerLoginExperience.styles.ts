@@ -547,8 +547,16 @@ export const GoogleSlot = styled.div`
   }
 
   .google-real-button > div,
+  .google-real-button > div > div,
   .google-real-button iframe {
+    width: 100% !important;
     max-width: 100% !important;
+  }
+
+  .google-fallback-overlay {
+    position: absolute;
+    z-index: 4;
+    inset: 0;
   }
 `;
 
