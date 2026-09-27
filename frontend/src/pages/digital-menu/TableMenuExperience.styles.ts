@@ -3462,3 +3462,28 @@ export const CompleteProductAdd = styled.button`
     font-size: 11px;
   }
 `;
+
+
+export const HomeTableBadge = styled.span`
+  min-height: 30px;
+  padding: 0 8px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--primary) 8%, #fff);
+  color: var(--primary);
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 9px;
+  font-weight: 900;
+
+  svg {
+    width: 14px;
+    height: 14px;
+  }
+
+  @media (min-width: 760px) {
+    min-height: 34px;
+    padding-inline: 10px;
+    font-size: 11px;
+  }
+`;
