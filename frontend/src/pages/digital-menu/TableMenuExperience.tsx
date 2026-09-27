@@ -1,17 +1,16 @@
 import {
   ArrowLeft,
-  BellRing,
+  Bell,
   Check,
   ChevronRight,
+  ClipboardList,
   Clock3,
   Copy,
-  Heart,
   Minus,
   Plus,
+  ReceiptText,
   Search,
   ShoppingCart,
-  Sparkles,
-  Star,
   Trash2,
   Utensils,
   WalletCards,
@@ -28,7 +27,6 @@ import type {
 import type { TableOrderNotice } from '../Home/domain/tableOrderNotice';
 import { ProductConfigurator } from '../Home/components/ProductConfigurator';
 import { TablePaymentStatusView } from '../Home/components/TablePaymentStatusView';
-import { getFeaturedProducts } from '../Home/domain/featuredProducts';
 import * as S from './TableMenuExperience.styles';
 
 type SubmitResult = {
@@ -48,11 +46,13 @@ type Props = {
   accountSnapshot: TableAccountSnapshot | null;
   activePayment: TablePaymentIntent | null;
   paymentLoading?: boolean;
+  billRequestEnabled?: boolean;
   onAddProduct: (productId: string, configuration: ProductConfiguration) => void;
   onIncrease: (cartId: string) => void;
   onDecrease: (cartId: string) => void;
   onSubmitOrder: () => Promise<SubmitResult | null | undefined>;
   onCallWaiter: () => void;
+  onRequestBill?: () => void;
   onCreatePixPayment: (orderPublicId: string) => Promise<TablePaymentIntent | null>;
   onReconcilePayment: (paymentPublicId: string) => Promise<TablePaymentIntent | null>;
   onCancelPayment: (paymentPublicId: string) => Promise<boolean>;
@@ -60,10 +60,17 @@ type Props = {
   onReviewCartClose?: () => void;
 };
 
-type View = 'menu' | 'cart' | 'confirmation' | 'tracking' | 'pix';
+type View = 'menu' | 'cart' | 'confirmation' | 'tracking' | 'payment' | 'pix';
 
 const brl = (value: number) =>
   value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+
+const centsToBrl = (value: number) => brl(Number(value || 0) / 100);
+
+function tableNumber(label: string | number) {
+  const numeric = Number(label);
+  return Number.isFinite(numeric) ? String(numeric).padStart(2, '0') : String(label);
+}
 
 export default function TableMenuExperience({
   data,
@@ -76,11 +83,13 @@ export default function TableMenuExperience({
   accountSnapshot,
   activePayment,
   paymentLoading = false,
+  billRequestEnabled = false,
   onAddProduct,
   onIncrease,
   onDecrease,
   onSubmitOrder,
   onCallWaiter,
+  onRequestBill,
   onCreatePixPayment,
   onReconcilePayment,
   onCancelPayment,
@@ -90,8 +99,9 @@ export default function TableMenuExperience({
   const [view, setView] = useState<View>('menu');
   const effectiveView: View = reviewCartOpen ? 'cart' : view;
   const [query, setQuery] = useState('');
-  const [homeSearchOpen, setHomeSearchOpen] = useState(false);
-  const [selectedCategory, setSelectedCategory] = useState('todos');
+  const [selectedCategory, setSelectedCategory] = useState(() => {
+    return data.categories.find((category) => category.id !== 'todos')?.id || 'todos';
+  });
   const [bannerIndex, setBannerIndex] = useState(0);
   const [selectedProduct, setSelectedProduct] = useState<HomeProduct | null>(null);
   const [completeProductQuantity, setCompleteProductQuantity] = useState(1);
@@ -108,37 +118,28 @@ export default function TableMenuExperience({
   const [copied, setCopied] = useState(false);
   const [now, setNow] = useState(() => Date.now());
 
-  const products = useMemo(
-    () =>
-      data.products.filter((product) => {
-        const categoryMatch =
-          selectedCategory === 'todos' || product.categoryId === selectedCategory;
-        const q = query.trim().toLocaleLowerCase('pt-BR');
-        const searchMatch =
-          !q ||
-          product.name.toLocaleLowerCase('pt-BR').includes(q) ||
-          product.description.toLocaleLowerCase('pt-BR').includes(q);
-        return product.available && categoryMatch && searchMatch;
-      }),
-    [data.products, query, selectedCategory],
-  );
-
-  const featured = useMemo(
-    () => getFeaturedProducts(data.products).slice(0, 4),
+  const primary = data.brand.primaryColor || '#d64d08';
+  const combos = useMemo(
+    () => data.products.filter((product) => product.available && product.kind === 'COMBO'),
     [data.products],
   );
-
-  const grouped = useMemo(
-    () =>
-      data.categories
-        .filter((category) => category.id !== 'todos')
-        .map((category) => ({
-          category,
-          products: products.filter((product) => product.categoryId === category.id),
-        }))
-        .filter((group) => group.products.length > 0),
-    [data.categories, products],
+  const realCategories = useMemo(
+    () => data.categories.filter((category) => category.id !== 'todos'),
+    [data.categories],
   );
+  const filteredProducts = useMemo(() => {
+    const normalizedQuery = query.trim().toLocaleLowerCase('pt-BR');
+    return data.products.filter((product) => {
+      if (!product.available || product.kind === 'COMBO') return false;
+      const categoryMatch =
+        selectedCategory === 'todos' || product.categoryId === selectedCategory;
+      const searchMatch =
+        !normalizedQuery ||
+        product.name.toLocaleLowerCase('pt-BR').includes(normalizedQuery) ||
+        product.description.toLocaleLowerCase('pt-BR').includes(normalizedQuery);
+      return categoryMatch && searchMatch;
+    });
+  }, [data.products, query, selectedCategory]);
 
   const paymentBase =
     activePayment?.publicId === pixPayment?.publicId ? activePayment : pixPayment;
@@ -148,7 +149,6 @@ export default function TableMenuExperience({
   const currentPayment = paymentBase
     ? { ...paymentBase, status: paymentSnapshot?.status || paymentBase.status }
     : null;
-  const primary = data.brand.primaryColor || '#e50914';
   const pixPending = Boolean(
     currentPayment && ['RESERVED', 'PROCESSING'].includes(currentPayment.status),
   );
@@ -158,7 +158,7 @@ export default function TableMenuExperience({
       : null;
 
   useEffect(() => {
-    if (data.banners.length <= 1) return undefined;
+    if (!data.banners.length || data.banners.length <= 1) return undefined;
     const interval = window.setInterval(() => {
       setBannerIndex((current) => (current + 1) % data.banners.length);
     }, 5_000);
@@ -185,7 +185,7 @@ export default function TableMenuExperience({
 
   function openProduct(product: HomeProduct) {
     if (orderingLocked) return;
-    if (product.saleMode === 'BUILDABLE') {
+    if (product.saleMode === 'BUILDABLE' || product.kind === 'COMBO') {
       setConfiguringProduct(product);
       return;
     }
@@ -201,11 +201,9 @@ export default function TableMenuExperience({
       observation: completeProductObservation.trim(),
       configurationVersion: product.configurationVersion,
     };
-
     for (let index = 0; index < completeProductQuantity; index += 1) {
       onAddProduct(product.id, configuration);
     }
-
     setSelectedProduct(null);
     setCompleteProductQuantity(1);
     setCompleteProductObservation('');
@@ -238,7 +236,6 @@ export default function TableMenuExperience({
       setView('pix');
       return;
     }
-
     const payment = await onCreatePixPayment(confirmation.orderPublicId);
     if (!payment) return;
     setPixPayment(payment);
@@ -253,24 +250,87 @@ export default function TableMenuExperience({
     window.setTimeout(() => setCopied(false), 1800);
   }
 
+  function goToMenu() {
+    onReviewCartClose?.();
+    setView('menu');
+  }
+
+  function scrollToCatalog() {
+    document.getElementById('table-catalog')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
   if (effectiveView === 'pix' && currentPayment) {
+    if (currentPayment.status === 'PAID') {
+      return (
+        <S.FigmaShell $primary={primary} $fontFamily={data.fontFamily}>
+          <FlowHeader
+            data={data}
+            tableLabel={tableLabel}
+            title="Pagamento"
+            onBack={() => setView('tracking')}
+            onHome={goToMenu}
+            onMenu={goToMenu}
+            onOrders={() => setView('tracking')}
+          />
+          <S.FlowPage>
+            <S.PaymentSuccessLayout>
+              <S.PaymentSuccessMain>
+                <div className="ring">
+                  <div className="check">
+                    <Check size={32} />
+                  </div>
+                </div>
+                <h1>Pagamento confirmado!</h1>
+                <p>O pagamento foi confirmado e seu pedido continua normalmente.</p>
+                <S.PaidReceipt>
+                  <div className="copy">
+                    {confirmation?.orderId ? <small>Pedido #{confirmation.orderId}</small> : null}
+                    <strong>{centsToBrl(currentPayment.totalCents)}</strong>
+                    <small>PIX · pagamento confirmado</small>
+                  </div>
+                  <span className="status">PAGO</span>
+                </S.PaidReceipt>
+                <S.PrimaryAction type="button" onClick={() => setView('tracking')}>
+                  Acompanhar pedido
+                </S.PrimaryAction>
+              </S.PaymentSuccessMain>
+
+              <S.PaymentSuccessSide>
+                <h2>Seu pedido continua em preparo</h2>
+                <p>O fluxo do pedido continua normalmente até ser servido na mesa.</p>
+                <S.Timeline>
+                  {trackingSteps(tableOrder).map((step, index) => (
+                    <S.TimelineStep key={step.label} $active={step.active} $current={step.current}>
+                      <span className="dot">{step.active ? <Check size={14} /> : index + 1}</span>
+                      <div className="copy">
+                        <b>{step.label}</b>
+                      </div>
+                    </S.TimelineStep>
+                  ))}
+                </S.Timeline>
+                <S.SecondaryAction type="button" onClick={goToMenu}>
+                  Voltar ao cardápio
+                </S.SecondaryAction>
+              </S.PaymentSuccessSide>
+            </S.PaymentSuccessLayout>
+          </S.FlowPage>
+        </S.FigmaShell>
+      );
+    }
+
     if (!pixPending) {
       return (
-        <S.Shell $primary={primary}>
-          <S.PaymentHeader>
-            <S.Brand>
-              {data.brand.logoUrl ? (
-                <img src={data.brand.logoUrl} alt={data.brand.name} />
-              ) : (
-                <S.BrandMark />
-              )}
-              <span>
-                <b>{data.brand.name}</b>
-                <small>{data.about || data.brand.category || ''}</small>
-              </span>
-            </S.Brand>
-          </S.PaymentHeader>
-          <S.CenteredPage>
+        <S.FigmaShell $primary={primary} $fontFamily={data.fontFamily}>
+          <FlowHeader
+            data={data}
+            tableLabel={tableLabel}
+            title="Pagamento"
+            onBack={() => setView('payment')}
+            onHome={goToMenu}
+            onMenu={goToMenu}
+            onOrders={() => setView('tracking')}
+          />
+          <S.FlowPage>
             <TablePaymentStatusView
               payment={currentPayment}
               status={currentPayment.status}
@@ -278,661 +338,528 @@ export default function TableMenuExperience({
               restaurantCategory={data.brand.category}
               onVerify={() => onReconcilePayment(currentPayment.publicId)}
               onCancel={() => onCancelPayment(currentPayment.publicId)}
-              onStartOver={() => setView('confirmation')}
+              onStartOver={() => setView('payment')}
               onClose={() => setView('tracking')}
             />
-          </S.CenteredPage>
-        </S.Shell>
+          </S.FlowPage>
+        </S.FigmaShell>
       );
     }
 
-    const minutes = pixRemainingSeconds === null ? 0 : Math.floor(pixRemainingSeconds / 60);
-    const seconds = pixRemainingSeconds === null ? 0 : pixRemainingSeconds % 60;
-
     return (
-      <S.Shell $primary={primary}>
-        <S.PixReferenceHeader>
-          <button
-            type="button"
-            aria-label="Voltar para o pedido"
-            onClick={() => setView('confirmation')}
-          >
-            <ArrowLeft size={18} />
-          </button>
-          <S.CartReferenceBrand>
-            {data.brand.logoUrl ? (
-              <img src={data.brand.logoUrl} alt={data.brand.name} />
-            ) : (
-              <S.BrandMark />
-            )}
-            <b>{data.brand.name}</b>
-          </S.CartReferenceBrand>
-          <span />
-        </S.PixReferenceHeader>
+      <S.FigmaShell $primary={primary} $fontFamily={data.fontFamily}>
+        <FlowHeader
+          data={data}
+          tableLabel={tableLabel}
+          title="Pagar com PIX"
+          onBack={() => setView('payment')}
+          onHome={goToMenu}
+          onMenu={goToMenu}
+          onOrders={() => setView('tracking')}
+        />
+        <S.FlowPage>
+          <S.PixLayout>
+            <S.PixQrCard>
+              <span className="amount">{centsToBrl(currentPayment.totalCents)}</span>
+              <span className="order">
+                {confirmation?.orderId ? `Pedido #${confirmation.orderId} · ` : ''}
+                Mesa {tableNumber(tableLabel)}
+              </span>
 
-        <S.PixReferencePage>
-          <S.PixReferenceMark aria-hidden="true">
-            <i />
-            <i />
-            <i />
-            <i />
-          </S.PixReferenceMark>
+              {currentPayment.paymentCode ? (
+                <>
+                  <div className="qr" aria-label="QR Code PIX">
+                    <QRCode value={currentPayment.paymentCode} size={302} level="M" />
+                  </div>
+                  <span className="pix-badge">PIX</span>
+                  <S.PixCopyBox>
+                    <code>{currentPayment.paymentCode}</code>
+                    <button type="button" onClick={() => void copyPix()}>
+                      {copied ? 'Copiado' : 'Copiar'}
+                    </button>
+                  </S.PixCopyBox>
+                </>
+              ) : null}
+            </S.PixQrCard>
 
-          <h1>Pagar com PIX</h1>
-          <p>Escaneie o QR Code pelo seu banco ou copie o código abaixo.</p>
-
-          {currentPayment.paymentCode ? (
-            <>
-              <S.PixReferenceQr aria-label="QR Code PIX">
-                <QRCode value={currentPayment.paymentCode} size={210} level="M" />
-              </S.PixReferenceQr>
-
-              <S.PixReferenceCopy>
-                <div>
-                  <small>Código PIX (copia e cola)</small>
-                  <code>{currentPayment.paymentCode}</code>
+            <S.PixSide>
+              <S.PixStatusCard>
+                <h2>Aguardando pagamento</h2>
+                <p>
+                  A confirmação acontece automaticamente assim que o PIX for aprovado.
+                </p>
+                <p>Você pode manter esta tela aberta.</p>
+                {pixRemainingSeconds !== null ? (
+                  <span className="timer">
+                    Expira em {String(Math.floor(pixRemainingSeconds / 60)).padStart(2, '0')}:
+                    {String(pixRemainingSeconds % 60).padStart(2, '0')}
+                  </span>
+                ) : null}
+                <div className="buttons">
+                  <S.PrimaryAction
+                    type="button"
+                    disabled={paymentLoading}
+                    onClick={() => void onReconcilePayment(currentPayment.publicId)}
+                  >
+                    Já paguei · verificar
+                  </S.PrimaryAction>
+                  <S.SecondaryAction
+                    type="button"
+                    disabled={paymentLoading}
+                    onClick={() => void onCancelPayment(currentPayment.publicId)}
+                  >
+                    Cancelar pagamento
+                  </S.SecondaryAction>
                 </div>
-                <button type="button" onClick={() => void copyPix()}>
-                  <Copy size={16} />
-                  {copied ? 'Copiado' : 'Copiar'}
+              </S.PixStatusCard>
+
+              <S.HowToPayCard>
+                <h2>Como pagar</h2>
+                <ol>
+                  <li><span>1</span>Abra o app do seu banco</li>
+                  <li><span>2</span>Escolha pagar com PIX</li>
+                  <li><span>3</span>Escaneie o QR ou cole o código</li>
+                  <li><span>4</span>Aguarde a confirmação automática</li>
+                </ol>
+              </S.HowToPayCard>
+            </S.PixSide>
+          </S.PixLayout>
+        </S.FlowPage>
+      </S.FigmaShell>
+    );
+  }
+
+  if (effectiveView === 'payment' && confirmation) {
+    const allowPix = accountSnapshot?.capabilities.allowPix === true;
+    return (
+      <S.FigmaShell $primary={primary} $fontFamily={data.fontFamily}>
+        <FlowHeader
+          data={data}
+          tableLabel={tableLabel}
+          title="Pagamento"
+          onBack={() => setView('confirmation')}
+          onHome={goToMenu}
+          onMenu={goToMenu}
+          onOrders={() => setView('tracking')}
+        />
+        <S.FlowPage>
+          <S.FlowTitle>
+            <h1>Como você prefere pagar?</h1>
+            <p>Escolha pagar agora pelo celular ou deixar o valor na conta da mesa.</p>
+          </S.FlowTitle>
+
+          <S.PaymentOptionsGrid>
+            {allowPix ? (
+              <S.PaymentChoiceCard>
+                <span className="icon"><WalletCards size={28} /></span>
+                <h2>Pagar agora</h2>
+                <p>Finalize pelo celular sem esperar o atendimento.</p>
+                <small>PIX · confirmação automática</small>
+                <button
+                  className="primary"
+                  type="button"
+                  disabled={paymentLoading}
+                  onClick={() => void startPix()}
+                >
+                  Continuar com PIX
                 </button>
-              </S.PixReferenceCopy>
-            </>
-          ) : null}
-
-          <S.PixReferenceWaiting role="status" aria-live="polite">
-            <Clock3 size={18} />
-            <div>
-              <b>Aguardando o pagamento...</b>
-              <span>O QR Code expira no horário indicado.</span>
-            </div>
-            {pixRemainingSeconds !== null ? (
-              <strong>
-                {String(minutes).padStart(2, '0')}:{String(seconds).padStart(2, '0')}
-              </strong>
+              </S.PaymentChoiceCard>
             ) : null}
-          </S.PixReferenceWaiting>
 
-          <S.PixReferenceBack type="button" onClick={() => setView('confirmation')}>
-            <ArrowLeft size={17} /> Voltar para o pedido
-          </S.PixReferenceBack>
-        </S.PixReferencePage>
-      </S.Shell>
+            <S.PaymentChoiceCard>
+              <span className="icon"><ReceiptText size={26} /></span>
+              <h2>Pagar depois</h2>
+              <p>O valor permanece na conta da mesa.</p>
+              <small>Continue utilizando o cardápio normalmente.</small>
+              <button className="secondary" type="button" onClick={() => setView('tracking')}>
+                Deixar na conta
+              </button>
+            </S.PaymentChoiceCard>
+          </S.PaymentOptionsGrid>
+
+          <S.PaymentSummary>
+            <div className="label">
+              <small>Resumo deste pedido</small>
+              {confirmation.orderId ? <strong>Pedido #{confirmation.orderId}</strong> : null}
+            </div>
+            <span className="amount">{brl(confirmation.total)}</span>
+          </S.PaymentSummary>
+        </S.FlowPage>
+      </S.FigmaShell>
     );
   }
 
   if (effectiveView === 'tracking') {
-    const progress = tableOrder?.progress || 0;
-    const progressSteps = ['Pedido recebido', 'Em preparação', 'Pronto', 'Entregue na mesa'];
-
     return (
-      <S.Shell $primary={primary}>
-        <S.TrackingReferenceHeader>
-          <button
-            type="button"
-            aria-label="Voltar ao cardápio"
-            onClick={() => {
-              onReviewCartClose?.();
-              setView('menu');
-            }}
-          >
-            <ArrowLeft size={18} />
-          </button>
+      <S.FigmaShell $primary={primary} $fontFamily={data.fontFamily}>
+        <FlowHeader
+          data={data}
+          tableLabel={tableLabel}
+          title="Acompanhar pedido"
+          onBack={goToMenu}
+          onHome={goToMenu}
+          onMenu={goToMenu}
+          onOrders={() => setView('tracking')}
+        />
 
-          <S.CartReferenceBrand>
-            {data.brand.logoUrl ? (
-              <img src={data.brand.logoUrl} alt={data.brand.name} />
-            ) : (
-              <S.BrandMark />
-            )}
-            <b>{data.brand.name}</b>
-          </S.CartReferenceBrand>
+        <S.FlowPage>
+          <S.TrackingLayout>
+            <div>
+              <S.StatusCard>
+                <span className="icon"><Clock3 size={28} /></span>
+                <div>
+                  <h2>{tableOrder?.statusLabel || 'Aguardando pedido'}</h2>
+                  <p>{tableOrder?.summary || 'O status será atualizado em tempo real.'}</p>
+                </div>
+              </S.StatusCard>
 
-          <div className="actions">
-            <button type="button" aria-label="Meu pedido" onClick={() => setView('cart')}>
-              <ShoppingCart size={19} />
-              {cartCount > 0 ? <i>{cartCount}</i> : null}
-            </button>
-          </div>
-        </S.TrackingReferenceHeader>
-
-        <S.TrackingReferencePage>
-          <S.TrackingReferenceTitle>
-            <h1>
-              {tableOrder ? `Pedido #${tableOrder.publicId}` : 'Acompanhe seu pedido'}
-            </h1>
-            <p>Acompanhe o status do seu pedido em tempo real.</p>
-          </S.TrackingReferenceTitle>
-
-          <S.TrackingReferenceProgress>
-            {progressSteps.map((label, index) => {
-              const stepNumber = index + 1;
-              const active = progress >= stepNumber;
-              const current = progress === stepNumber;
-              return (
-                <S.TrackingReferenceStep key={label} $active={active}>
-                  <span>{progress > index ? <Check size={14} /> : stepNumber}</span>
-                  <div>
-                    <b>{label}</b>
-                    {current && tableOrder?.summary ? <small>{tableOrder.summary}</small> : null}
-                  </div>
-                </S.TrackingReferenceStep>
-              );
-            })}
-          </S.TrackingReferenceProgress>
-
-          <S.TrackingTableCard>
-            <small>Mesa</small>
-            <strong>{String(tableLabel).padStart(2, '0')}</strong>
-          </S.TrackingTableCard>
-
-          <S.TrackingCurrentStatus>
-            <div className="status-icon" aria-hidden="true">
-              <Utensils size={34} />
+              <S.SectionHeading>
+                <div className="title"><h2>Andamento</h2></div>
+              </S.SectionHeading>
+              <S.TimelineCard>
+                <S.Timeline>
+                  {trackingSteps(tableOrder).map((step, index) => (
+                    <S.TimelineStep key={step.label} $active={step.active} $current={step.current}>
+                      <span className="dot">{step.active ? <Check size={14} /> : index + 1}</span>
+                      <div className="copy">
+                        <b>{step.label}</b>
+                        {step.description ? <p>{step.description}</p> : null}
+                      </div>
+                    </S.TimelineStep>
+                  ))}
+                </S.Timeline>
+              </S.TimelineCard>
             </div>
-            <h2>{tableOrder?.statusLabel || 'Aguardando atualização'}</h2>
-            <p>
-              {tableOrder?.summary ||
-                'O status será atualizado automaticamente assim que o restaurante avançar o pedido.'}
-            </p>
-          </S.TrackingCurrentStatus>
-        </S.TrackingReferencePage>
-      </S.Shell>
+
+            <S.OrderItemsCard>
+              <h2>Itens do pedido</h2>
+              {tableOrder?.items.length ? (
+                tableOrder.items.map((item, index) => (
+                  <S.OrderItemLine key={`${item.name}-${index}`}>
+                    <span className="image" aria-hidden="true" />
+                    <div className="copy">
+                      <b>{item.name}</b>
+                      <small>{item.quantity} {item.quantity === 1 ? 'unidade' : 'unidades'}</small>
+                      {item.observation ? <small>{item.observation}</small> : null}
+                    </div>
+                  </S.OrderItemLine>
+                ))
+              ) : (
+                <S.EmptyCatalog>Os itens aparecerão aqui assim que houver um pedido ativo.</S.EmptyCatalog>
+              )}
+
+              <S.PrimaryAction type="button" onClick={onCallWaiter}>
+                <Bell size={17} /> Chamar garçom
+              </S.PrimaryAction>
+            </S.OrderItemsCard>
+          </S.TrackingLayout>
+        </S.FlowPage>
+      </S.FigmaShell>
     );
   }
 
   if (effectiveView === 'confirmation' && confirmation) {
     return (
-      <S.Shell $primary={primary}>
-        <S.ConfirmationReferenceHeader>
-          <S.CartReferenceBrand>
-            {data.brand.logoUrl ? (
-              <img src={data.brand.logoUrl} alt={data.brand.name} />
-            ) : (
-              <S.BrandMark />
-            )}
-            <b>{data.brand.name}</b>
-          </S.CartReferenceBrand>
-
-          <div className="actions">
-            <button type="button" aria-label="Buscar no cardápio" onClick={() => setView('menu')}>
-              <Search size={18} />
-            </button>
-            <button type="button" aria-label="Meu pedido" onClick={() => setView('cart')}>
-              <ShoppingCart size={19} />
-            </button>
-          </div>
-        </S.ConfirmationReferenceHeader>
-
-        <S.ConfirmationReferencePage>
-          <S.ConfirmationReferenceHero>
-            <S.ConfirmationCheck>
-              <Check size={28} />
-            </S.ConfirmationCheck>
-
-            <h1>Pedido confirmado</h1>
-            <strong>Pedido #{confirmation.orderId}</strong>
-            <p>
-              Seu pedido foi recebido pelo restaurante e enviado para a cozinha da Mesa {tableLabel}.
-            </p>
-
-            <S.ConfirmationPending>
-              <Clock3 size={15} />
-              <span>Pagamento pendente</span>
-            </S.ConfirmationPending>
-          </S.ConfirmationReferenceHero>
-
-          <S.ConfirmationReferenceSummary>
-            <header>
-              <h2>Resumo do pedido</h2>
-              <button type="button" onClick={() => setView('tracking')}>
-                Ver detalhes <ChevronRight size={14} />
-              </button>
-            </header>
-
-            <div className="items">
-              {confirmation.items.map((item) => (
-                <article key={item.cartId}>
-                  {item.image ? (
-                    <img src={item.image} alt={item.name} />
-                  ) : (
-                    <S.ImagePlaceholder />
-                  )}
-                  <div>
-                    <b>{item.name}</b>
-                    <small>{item.quantity}x</small>
-                  </div>
-                  <strong>{brl(item.price * item.quantity)}</strong>
-                </article>
-              ))}
+      <S.FigmaShell $primary={primary} $fontFamily={data.fontFamily}>
+        <FlowHeader
+          data={data}
+          tableLabel={tableLabel}
+          title="Pedido confirmado"
+          onBack={goToMenu}
+          onHome={goToMenu}
+          onMenu={goToMenu}
+          onOrders={() => setView('tracking')}
+        />
+        <S.FlowPage>
+          <S.SuccessHero>
+            <div className="ring">
+              <div className="check"><Check size={27} /></div>
             </div>
+            <h1>Pedido enviado!</h1>
+            <p>Seu pedido foi enviado para a cozinha da Mesa {tableNumber(tableLabel)}.</p>
+          </S.SuccessHero>
 
-            <footer>
-              <span>Total do pedido</span>
-              <strong>{brl(confirmation.total)}</strong>
-            </footer>
-          </S.ConfirmationReferenceSummary>
-
-          <S.ConfirmationReferencePay>
-            <div className="title">
-              <WalletCards size={18} />
-              <span>
-                <b>Como deseja pagar?</b>
-                <small>
-                  O pagamento online é opcional. Você pode pagar agora com PIX ou deixar para depois.
-                </small>
-              </span>
+          <S.OrderSummaryBar>
+            <div className="label">
+              {confirmation.orderId ? <small>Pedido #{confirmation.orderId}</small> : null}
+              <strong>{confirmation.items.length} {confirmation.items.length === 1 ? 'item' : 'itens'}</strong>
             </div>
+            <span className="amount">{brl(confirmation.total)}</span>
+          </S.OrderSummaryBar>
 
+          <S.ConfirmationActions>
+            <S.PrimaryAction type="button" onClick={() => setView('tracking')}>
+              Acompanhar pedido
+            </S.PrimaryAction>
             {accountSnapshot?.capabilities.allowPix ? (
-              <S.ConfirmationPixButton
-                type="button"
-                disabled={paymentLoading}
-                onClick={() => void startPix()}
-              >
-                Pagar com PIX agora <ChevronRight size={18} />
-              </S.ConfirmationPixButton>
+              <S.SecondaryAction type="button" onClick={() => setView('payment')}>
+                Pagar agora
+              </S.SecondaryAction>
             ) : null}
-
-            <S.ConfirmationLaterButton type="button" onClick={() => setView('tracking')}>
-              Pagar depois <ChevronRight size={18} />
-            </S.ConfirmationLaterButton>
-
-            <div className="or">ou</div>
-
-            <S.ConfirmationTrackButton type="button" onClick={() => setView('tracking')}>
-              Acompanhar pedido <ChevronRight size={18} />
-            </S.ConfirmationTrackButton>
-          </S.ConfirmationReferencePay>
-        </S.ConfirmationReferencePage>
-      </S.Shell>
+            <S.HelperText>O pedido permanece vinculado à conta da mesa até o pagamento.</S.HelperText>
+          </S.ConfirmationActions>
+        </S.FlowPage>
+      </S.FigmaShell>
     );
   }
 
   if (effectiveView === 'cart') {
-    const serviceFeeCents = accountSnapshot?.capabilities.serviceFeeMode === 'MANDATORY'
-      ? Math.round(cartTotal * 100 * (accountSnapshot.capabilities.serviceFeeBasisPoints / 10_000))
-      : 0;
+    const serviceFeeCents =
+      accountSnapshot?.capabilities.serviceFeeMode === 'MANDATORY'
+        ? Math.round(
+            cartTotal *
+              100 *
+              (accountSnapshot.capabilities.serviceFeeBasisPoints / 10_000),
+          )
+        : 0;
     const serviceFee = serviceFeeCents / 100;
     const totalWithFee = cartTotal + serviceFee;
 
     return (
-      <S.Shell $primary={primary}>
-        <S.CartReferenceHeader>
-          <button
-            type="button"
-            aria-label="Voltar ao cardápio"
-            onClick={() => {
-              onReviewCartClose?.();
-              setView('menu');
-            }}
-          >
-            <ArrowLeft size={18} />
-          </button>
-          <S.CartReferenceBrand>
-            {data.brand.logoUrl ? (
-              <img src={data.brand.logoUrl} alt={data.brand.name} />
-            ) : (
-              <S.BrandMark />
-            )}
-            <b>{data.brand.name}</b>
-          </S.CartReferenceBrand>
-          <div className="actions">
-            <button type="button" aria-label="Buscar no cardápio" onClick={() => setView('menu')}>
-              <Search size={18} />
-            </button>
-            <button type="button" aria-label="Meu pedido">
-              <ShoppingCart size={19} />
-              {cartCount > 0 ? <i>{cartCount}</i> : null}
-            </button>
-          </div>
-        </S.CartReferenceHeader>
+      <S.FigmaShell $primary={primary} $fontFamily={data.fontFamily}>
+        <FlowHeader
+          data={data}
+          tableLabel={tableLabel}
+          title="Meu pedido"
+          onBack={goToMenu}
+          onHome={goToMenu}
+          onMenu={goToMenu}
+          onOrders={() => setView('tracking')}
+        />
 
-        <S.CartReferencePage>
-          <h1 aria-label="Minha sacola">Seu pedido</h1>
+        <S.FlowPage>
+          <S.FlowTitle>
+            <h1>Meu pedido</h1>
+            <p>Mesa {tableNumber(tableLabel)}</p>
+          </S.FlowTitle>
 
-          <S.CartReferenceList>
-            {cart.length === 0 ? (
-              <S.EmptyCart>Seu pedido ainda está vazio.</S.EmptyCart>
-            ) : (
-              cart.map((item) => (
-                <S.CartReferenceItem key={item.cartId}>
-                  {item.image ? (
-                    <img src={item.image} alt={item.name} />
-                  ) : (
-                    <S.ImagePlaceholder />
-                  )}
-
-                  <div className="info">
-                    <div className="title-row">
-                      <b>{item.name}</b>
-                      <button
-                        type="button"
-                        aria-label={`Remover ${item.name}`}
-                        onClick={() => {
-                          if (!item.cartId) return;
-                          for (let index = 0; index < item.quantity; index += 1) {
-                            onDecrease(item.cartId);
-                          }
-                        }}
-                      >
-                        <Trash2 size={14} />
-                      </button>
-                    </div>
-
-                    {item.options?.length ? (
-                      <small>{item.options.map((option) => option.name).join(' · ')}</small>
-                    ) : item.observation ? (
-                      <small>{item.observation}</small>
-                    ) : null}
-
-                    <div className="item-footer">
-                      <S.CartReferenceQuantity>
-                        <button
-                          type="button"
-                          aria-label={`Diminuir ${item.name}`}
-                          onClick={() => item.cartId && onDecrease(item.cartId)}
-                        >
-                          <Minus size={13} />
-                        </button>
-                        <span>{item.quantity}</span>
-                        <button
-                          type="button"
-                          aria-label={`Aumentar ${item.name}`}
-                          onClick={() => item.cartId && onIncrease(item.cartId)}
-                        >
-                          <Plus size={13} />
-                        </button>
-                      </S.CartReferenceQuantity>
-                      <strong>{brl(item.price * item.quantity)}</strong>
-                    </div>
-                  </div>
-                </S.CartReferenceItem>
-              ))
-            )}
-          </S.CartReferenceList>
-
-          <S.AddMoreItemsButton
-            type="button"
-            onClick={() => {
-              onReviewCartClose?.();
-              setView('menu');
-            }}
-          >
-            <Plus size={16} /> Adicionar mais itens
-          </S.AddMoreItemsButton>
-
-          <S.CartReferenceSummary>
+          <S.CartDesktopLayout>
             <div>
-              <span>Subtotal</span>
-              <b>{brl(cartTotal)}</b>
-            </div>
-            {serviceFee > 0 ? (
-              <div>
-                <span>Taxa de serviço</span>
-                <b>{brl(serviceFee)}</b>
-              </div>
-            ) : null}
-            <div className="total">
-              <strong>Total</strong>
-              <b>{brl(totalWithFee)}</b>
-            </div>
-          </S.CartReferenceSummary>
+              <S.CartLines>
+                {cart.length ? (
+                  cart.map((item) => (
+                    <S.CartLine key={item.cartId || item.productId}>
+                      <span className="image">
+                        {item.image ? <img src={item.image} alt={item.name} /> : null}
+                      </span>
+                      <div className="info">
+                        <b>{item.name}</b>
+                        {item.options?.length ? (
+                          <small>{item.options.map((option) => option.name).join(' · ')}</small>
+                        ) : item.observation ? (
+                          <small>{item.observation}</small>
+                        ) : null}
+                        <S.QuantityControl>
+                          <button
+                            type="button"
+                            aria-label={`Diminuir ${item.name}`}
+                            onClick={() => item.cartId && onDecrease(item.cartId)}
+                          >
+                            <Minus size={13} />
+                          </button>
+                          <span>{item.quantity}</span>
+                          <button
+                            type="button"
+                            aria-label={`Aumentar ${item.name}`}
+                            onClick={() => item.cartId && onIncrease(item.cartId)}
+                          >
+                            <Plus size={13} />
+                          </button>
+                        </S.QuantityControl>
+                      </div>
+                      <div className="side">
+                        <strong className="price">{brl(item.price * item.quantity)}</strong>
+                        <button
+                          className="remove"
+                          type="button"
+                          aria-label={`Remover ${item.name}`}
+                          onClick={() => {
+                            if (!item.cartId) return;
+                            for (let index = 0; index < item.quantity; index += 1) {
+                              onDecrease(item.cartId);
+                            }
+                          }}
+                        >
+                          <Trash2 size={15} />
+                        </button>
+                      </div>
+                    </S.CartLine>
+                  ))
+                ) : (
+                  <S.EmptyCatalog>Seu pedido ainda está vazio.</S.EmptyCatalog>
+                )}
+              </S.CartLines>
 
-          <S.CartReferenceSubmit
-            type="button"
-            aria-label="Enviar pedido para a cozinha"
-            disabled={!cart.length || submitting || orderingLocked}
-            onClick={() => void submitOrder()}
-          >
-            {submitting ? 'Enviando pedido...' : 'Finalizar pedido'}
-          </S.CartReferenceSubmit>
-        </S.CartReferencePage>
-      </S.Shell>
+              <S.AddMoreButton type="button" onClick={goToMenu}>
+                + Adicionar mais itens
+              </S.AddMoreButton>
+            </div>
+
+            <div>
+              <S.SummaryCard>
+                <div className="row"><span>Subtotal</span><strong>{brl(cartTotal)}</strong></div>
+                <div className="row"><span>Serviço</span><strong>{brl(serviceFee)}</strong></div>
+                <div className="divider" />
+                <div className="row total"><span>Total</span><strong>{brl(totalWithFee)}</strong></div>
+              </S.SummaryCard>
+
+              <S.PrimaryAction
+                type="button"
+                disabled={!cart.length || submitting || orderingLocked}
+                onClick={() => void submitOrder()}
+              >
+                {submitting ? 'Enviando pedido...' : 'Enviar pedido para a cozinha'}
+              </S.PrimaryAction>
+              <S.HelperText>Depois você pode escolher pagar agora ou deixar na conta da mesa.</S.HelperText>
+            </div>
+          </S.CartDesktopLayout>
+        </S.FlowPage>
+      </S.FigmaShell>
     );
   }
 
+  const activeBanner = data.banners[bannerIndex] || data.banners[0];
+
   return (
-    <S.Shell $primary={primary}>
-      <HomeHeader
+    <S.FigmaShell $primary={primary} $fontFamily={data.fontFamily}>
+      <FlowHeader
         data={data}
         tableLabel={tableLabel}
-        cartCount={cartCount}
-        searchOpen={homeSearchOpen}
-        query={query}
-        setQuery={setQuery}
-        onSearchToggle={() => setHomeSearchOpen((open) => !open)}
-        onCart={() => setView('cart')}
-        onCallWaiter={onCallWaiter}
+        onHome={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+        onMenu={scrollToCatalog}
+        onOrders={() => setView('tracking')}
       />
-      <S.HomePage>
-        {data.banners.length ? (() => {
-          const banner = data.banners[bannerIndex] || data.banners[0];
-          const previousBanner = () =>
-            setBannerIndex((current) =>
-              current === 0 ? data.banners.length - 1 : current - 1,
-            );
-          const nextBanner = () =>
-            setBannerIndex((current) => (current + 1) % data.banners.length);
 
-          return (
-            <S.Hero>
-              <img src={banner.image} alt="" />
-              <div>
-                <small>{banner.title}</small>
-                <h1>
-                  {banner.highlight
-                    ? `${banner.title} ${banner.highlight}`
-                    : banner.title}
-                </h1>
-                {banner.description ? <p>{banner.description}</p> : null}
-                <S.PrimaryButton
-                  type="button"
-                  onClick={() =>
-                    document
-                      .getElementById('table-catalog')
-                      ?.scrollIntoView({ behavior: 'smooth' })
-                  }
-                >
-                  {banner.buttonLabel || 'Ver o cardápio'} <ChevronRight size={18} />
-                </S.PrimaryButton>
+      <S.MenuPage>
+        {activeBanner ? (
+          <S.MenuHero>
+            <img src={activeBanner.image} alt="" />
+            <div className="copy">
+              <span className="eyebrow">BEM-VINDO À MESA {tableNumber(tableLabel)}</span>
+              <h1>{[activeBanner.title, activeBanner.highlight].filter(Boolean).join(' ')}</h1>
+              {activeBanner.description ? <p>{activeBanner.description}</p> : null}
+              <button className="cta" type="button" onClick={scrollToCatalog}>
+                {activeBanner.buttonLabel || 'Ver cardápio'} <ChevronRight size={20} />
+              </button>
+            </div>
+            {data.banners.length > 1 ? (
+              <div className="indicators" aria-label="Banners em destaque">
+                {data.banners.map((banner, index) => (
+                  <i key={banner.id} className={index === bannerIndex ? 'active' : ''} />
+                ))}
               </div>
+            ) : null}
+          </S.MenuHero>
+        ) : null}
 
-              {data.banners.length > 1 ? (
-                <>
-                  <S.HeroArrow
-                    type="button"
-                    $side="left"
-                    aria-label="Banner anterior"
-                    onClick={previousBanner}
-                  >
-                    <ChevronRight size={20} />
-                  </S.HeroArrow>
-                  <S.HeroArrow
-                    type="button"
-                    $side="right"
-                    aria-label="Próximo banner"
-                    onClick={nextBanner}
-                  >
-                    <ChevronRight size={20} />
-                  </S.HeroArrow>
-                  <S.HeroIndicators aria-label="Banners em destaque">
-                    {data.banners.map((item, index) => (
-                      <button
-                        key={item.id}
-                        type="button"
-                        aria-label={`Mostrar banner ${index + 1}`}
-                        aria-current={index === bannerIndex ? 'true' : undefined}
-                        onClick={() => setBannerIndex(index)}
-                      />
-                    ))}
-                  </S.HeroIndicators>
-                </>
-              ) : null}
-            </S.Hero>
-          );
-        })() : null}
+        {combos.length ? (
+          <>
+            <S.SectionHeading>
+              <div className="title"><h2>Combos em destaque</h2></div>
+              <button type="button" onClick={() => setSelectedCategory('todos')}>
+                Ver todos <ChevronRight size={14} />
+              </button>
+            </S.SectionHeading>
+            <S.ComboRail>
+              {combos.map((combo) => (
+                <FigmaComboCard
+                  key={combo.id}
+                  product={combo}
+                  disabled={orderingLocked}
+                  onOpen={() => openProduct(combo)}
+                />
+              ))}
+            </S.ComboRail>
+          </>
+        ) : null}
 
-        <S.HomeInfoRow>
-          <article>
-            <Utensils size={16} />
-            <span>
-              <b>Pedido na mesa</b>
-              <small>Mesa {tableLabel}</small>
-            </span>
-          </article>
-          <article>
-            <Clock3 size={16} />
-            <span>
-              <b>Acompanhe seu pedido</b>
-              <small>Status atualizado durante o preparo</small>
-            </span>
-          </article>
-        </S.HomeInfoRow>
+        <S.MenuSearch>
+          <Search size={21} />
+          <input
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder="Buscar no cardápio"
+            aria-label="Buscar no cardápio"
+          />
+        </S.MenuSearch>
 
-        <S.HomeSectionHeader>
-          <h2>Categorias</h2>
-          <button type="button" onClick={() => setSelectedCategory('todos')}>
-            Ver todas <ChevronRight size={14} />
-          </button>
-        </S.HomeSectionHeader>
+        {realCategories.length ? (
+          <S.CategoryRail aria-label="Categorias do cardápio">
+            {realCategories.map((category) => (
+              <S.CategoryPill
+                key={category.id}
+                type="button"
+                $active={selectedCategory === category.id}
+                onClick={() =>
+                  setSelectedCategory((current) => (current === category.id ? 'todos' : category.id))
+                }
+              >
+                {category.image ? <img src={category.image} alt="" /> : null}
+                <span>{category.name}</span>
+              </S.CategoryPill>
+            ))}
+          </S.CategoryRail>
+        ) : null}
 
-        <S.CategoryStrip aria-label="Categorias do cardápio">
-          {data.categories.map((category) => (
-            <button
-              type="button"
-              key={category.id}
-              className={selectedCategory === category.id ? 'active' : ''}
-              onClick={() => setSelectedCategory(category.id)}
-            >
-              <S.CategoryMedia aria-hidden="true">
-                {category.id === 'todos' ? (
-                  <Sparkles />
-                ) : category.image ? (
-                  <img src={category.image} alt="" />
-                ) : (
-                  <Utensils />
-                )}
-              </S.CategoryMedia>
-              <span>{category.name}</span>
-            </button>
-          ))}
-        </S.CategoryStrip>
+        <S.TableActionsSection>
+          <h2>Ações da mesa</h2>
+          <S.TableActionsGrid>
+            <S.TableActionCard type="button" onClick={() => setView('cart')}>
+              <span className="icon"><ClipboardList size={20} /></span>
+              <span className="copy"><b>Meu pedido</b><small>Veja e edite itens</small></span>
+              <ChevronRight size={17} />
+            </S.TableActionCard>
 
-        {selectedCategory === 'todos' && featured.length ? (
-          <S.HomeProductSection>
-            <S.HomeSectionHeader>
-              <h2>Categorias da casa</h2>
-            </S.HomeSectionHeader>
-            <S.HomeProductRail>
-              {featured.map((product) => (
-                <HomeProductTile
+            <S.TableActionCard type="button" onClick={onCallWaiter}>
+              <span className="icon"><Bell size={20} /></span>
+              <span className="copy"><b>Garçom</b><small>Precisando de algo?</small></span>
+              <ChevronRight size={17} />
+            </S.TableActionCard>
+
+            {billRequestEnabled && onRequestBill ? (
+              <S.TableActionCard type="button" onClick={onRequestBill}>
+                <span className="icon"><ReceiptText size={20} /></span>
+                <span className="copy"><b>Ver conta</b><small>Fechar a mesa</small></span>
+                <ChevronRight size={17} />
+              </S.TableActionCard>
+            ) : null}
+          </S.TableActionsGrid>
+        </S.TableActionsSection>
+
+        <S.CatalogSection id="table-catalog">
+          <S.SectionHeading>
+            <div className="title">
+              <h2>
+                {selectedCategory === 'todos'
+                  ? 'Cardápio'
+                  : realCategories.find((category) => category.id === selectedCategory)?.name ||
+                    'Cardápio'}
+              </h2>
+              {query ? <p>Resultados para “{query}”</p> : null}
+            </div>
+            {selectedCategory !== 'todos' ? (
+              <button type="button" onClick={() => setSelectedCategory('todos')}>
+                Ver todos <ChevronRight size={14} />
+              </button>
+            ) : null}
+          </S.SectionHeading>
+
+          {filteredProducts.length ? (
+            <S.CatalogGrid>
+              {filteredProducts.map((product) => (
+                <FigmaCatalogCard
                   key={product.id}
                   product={product}
+                  disabled={orderingLocked}
                   onOpen={() => openProduct(product)}
                 />
               ))}
-            </S.HomeProductRail>
-          </S.HomeProductSection>
-        ) : null}
-
-        <div id="table-catalog">
-          {selectedCategory === 'todos' ? (
-            grouped.map(({ category, products: categoryProducts }) => (
-              <S.Section key={category.id}>
-                <header>
-                  <h2>{category.name}</h2>
-                  <button type="button" onClick={() => setSelectedCategory(category.id)}>
-                    Ver todos
-                  </button>
-                </header>
-                <S.ProductGrid>
-                  {categoryProducts.slice(0, 8).map((product) => (
-                    <ProductCard key={product.id} product={product} onOpen={() => openProduct(product)} />
-                  ))}
-                </S.ProductGrid>
-              </S.Section>
-            ))
-          ) : (() => {
-            const activeCategory = data.categories.find(
-              (category) => category.id === selectedCategory,
-            );
-
-            return (
-              <S.CategoryListing>
-                <S.CategoryListingHeader>
-                  <button
-                    type="button"
-                    aria-label="Voltar para todas as categorias"
-                    onClick={() => setSelectedCategory('todos')}
-                  >
-                    <ArrowLeft size={18} />
-                  </button>
-
-                  <S.CategoryListingTitle>
-                    <S.CategoryListingMedia aria-hidden="true">
-                      {activeCategory?.image ? (
-                        <img src={activeCategory.image} alt="" />
-                      ) : (
-                        <Utensils />
-                      )}
-                    </S.CategoryListingMedia>
-                    <div>
-                      <h1>{activeCategory?.name || 'Produtos'}</h1>
-                      <p>
-                        {products.length}
-                        {' '}
-                        {products.length === 1 ? 'produto disponível' : 'produtos disponíveis'}
-                      </p>
-                    </div>
-                  </S.CategoryListingTitle>
-                </S.CategoryListingHeader>
-
-                <S.CategoryTabs aria-label="Navegar entre categorias">
-                  {data.categories
-                    .filter((category) => category.id !== 'todos')
-                    .map((category) => (
-                      <button
-                        key={category.id}
-                        type="button"
-                        className={selectedCategory === category.id ? 'active' : ''}
-                        onClick={() => setSelectedCategory(category.id)}
-                      >
-                        {category.name}
-                      </button>
-                    ))}
-                </S.CategoryTabs>
-
-                <S.CategoryProductList>
-                  {products.map((product) => (
-                    <CategoryProductRow
-                      key={product.id}
-                      product={product}
-                      onOpen={() => openProduct(product)}
-                    />
-                  ))}
-                </S.CategoryProductList>
-              </S.CategoryListing>
-            );
-          })()
-          }
-        </div>
-
-        {data.banners.length > 1 ? (
-          <S.HomeBottomBanner>
-            <img
-              src={data.banners[(bannerIndex + 1) % data.banners.length].image}
-              alt=""
-            />
-            <div>
-              <b>{data.banners[(bannerIndex + 1) % data.banners.length].title}</b>
-              {data.banners[(bannerIndex + 1) % data.banners.length].description ? (
-                <small>{data.banners[(bannerIndex + 1) % data.banners.length].description}</small>
-              ) : null}
-            </div>
-          </S.HomeBottomBanner>
-        ) : null}
-      </S.HomePage>
+            </S.CatalogGrid>
+          ) : (
+            <S.EmptyCatalog>Nenhum produto disponível para este filtro.</S.EmptyCatalog>
+          )}
+        </S.CatalogSection>
+      </S.MenuPage>
 
       {selectedProduct ? (
         <S.ProductOverlay role="dialog" aria-modal="true" aria-label={selectedProduct.name}>
@@ -945,7 +872,6 @@ export default function TableMenuExperience({
                   <Utensils />
                 </S.CompleteProductPlaceholder>
               )}
-
               <button
                 className="back"
                 type="button"
@@ -954,27 +880,10 @@ export default function TableMenuExperience({
               >
                 <ArrowLeft size={19} />
               </button>
-
-              <span className="favorite" aria-hidden="true">
-                <Heart size={18} />
-              </span>
-
-              {selectedProduct.promotion?.active ? (
-                <S.DiscountBadge>{selectedProduct.promotion.badgeLabel}</S.DiscountBadge>
-              ) : null}
             </div>
 
             <div className="content">
-              <div className="title-row">
-                <h1>{selectedProduct.name}</h1>
-                {selectedProduct.rating > 0 ? (
-                  <span className="rating">
-                    <Star size={13} fill="currentColor" />
-                    {selectedProduct.rating.toFixed(1)}
-                  </span>
-                ) : null}
-              </div>
-
+              <div className="title-row"><h1>{selectedProduct.name}</h1></div>
               <S.ProductPrice className="price">
                 {selectedProduct.promotion?.active &&
                 selectedProduct.originalPrice > selectedProduct.price ? (
@@ -982,7 +891,6 @@ export default function TableMenuExperience({
                 ) : null}
                 <strong>{brl(selectedProduct.price)}</strong>
               </S.ProductPrice>
-
               {selectedProduct.description ? (
                 <p className="description">{selectedProduct.description}</p>
               ) : null}
@@ -993,7 +901,7 @@ export default function TableMenuExperience({
                   maxLength={240}
                   value={completeProductObservation}
                   onChange={(event) => setCompleteProductObservation(event.target.value)}
-                  placeholder="Ex.: sem cebola, pouco sal..."
+                  placeholder="Adicione uma observação"
                 />
                 <small>{completeProductObservation.length}/240</small>
               </label>
@@ -1019,11 +927,7 @@ export default function TableMenuExperience({
                     <Plus size={15} />
                   </button>
                 </S.CompleteProductQuantity>
-
-                <S.CompleteProductAdd
-                  type="button"
-                  onClick={() => addComplete(selectedProduct)}
-                >
+                <S.CompleteProductAdd type="button" onClick={() => addComplete(selectedProduct)}>
                   <span>Adicionar</span>
                   <strong>{brl(selectedProduct.price * completeProductQuantity)}</strong>
                 </S.CompleteProductAdd>
@@ -1048,184 +952,154 @@ export default function TableMenuExperience({
           }}
         />
       ) : null}
-    </S.Shell>
+    </S.FigmaShell>
   );
 }
 
-function HomeHeader({
+function FlowHeader({
   data,
   tableLabel,
-  cartCount,
-  searchOpen,
-  query,
-  setQuery,
-  onSearchToggle,
-  onCart,
-  onCallWaiter,
+  title,
+  onBack,
+  onHome,
+  onMenu,
+  onOrders,
 }: {
   data: HomeData;
   tableLabel: string | number;
-  cartCount: number;
-  searchOpen: boolean;
-  query: string;
-  setQuery: (value: string) => void;
-  onSearchToggle: () => void;
-  onCart: () => void;
-  onCallWaiter: () => void;
+  title?: string;
+  onBack?: () => void;
+  onHome: () => void;
+  onMenu: () => void;
+  onOrders: () => void;
 }) {
   return (
-    <S.HomeHeader>
-      <S.Brand>
-        {data.brand.logoUrl ? <img src={data.brand.logoUrl} alt={data.brand.name} /> : <S.BrandMark />}
-        <span>
-          <b>{data.brand.name}</b>
-          <small>{data.brand.category || ''}</small>
-        </span>
-      </S.Brand>
-
-      <S.HomeHeaderActions>
-        <S.HomeTableBadge aria-label={`Mesa ${tableLabel}`}>
-          <Utensils size={15} />
-          <span>{String(tableLabel).padStart(2, '0')}</span>
-        </S.HomeTableBadge>
-        <button type="button" aria-label="Buscar no cardápio" onClick={onSearchToggle}>
-          <Search size={18} />
-        </button>
-        <button type="button" aria-label="Chamar garçom" onClick={onCallWaiter}>
-          <BellRing size={18} />
-        </button>
-        <button type="button" aria-label="Meu pedido" onClick={onCart}>
-          <ShoppingCart size={19} />
-          {cartCount > 0 ? <i>{cartCount}</i> : null}
-        </button>
-      </S.HomeHeaderActions>
-
-      {searchOpen ? (
-        <S.HomeSearch>
-          <Search size={17} />
-          <input
-            autoFocus
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            placeholder="Buscar no cardápio..."
-          />
-        </S.HomeSearch>
-      ) : null}
-    </S.HomeHeader>
-  );
-}
-
-function HomeProductTile({ product, onOpen }: { product: HomeProduct; onOpen: () => void }) {
-  return (
-    <S.HomeProductTile
-      type="button"
-      onClick={onOpen}
-      aria-label={`Ver detalhes de ${product.name}`}
-    >
-      <div className="image">
-        {product.image ? (
-          <img src={product.image} alt={product.name} />
-        ) : (
-          <S.ProductPlaceholder aria-hidden="true">
-            <Utensils />
-          </S.ProductPlaceholder>
-        )}
-        {product.promotion?.active ? (
-          <S.DiscountBadge>{product.promotion.badgeLabel}</S.DiscountBadge>
+    <S.FigmaHeader $hasTitle={Boolean(title)}>
+      <div className="left">
+        {title && onBack ? (
+          <button className="mobile-back" type="button" aria-label="Voltar" onClick={onBack}>
+            <ArrowLeft size={20} />
+          </button>
         ) : null}
+        <S.FigmaBrand>
+          {data.brand.logoUrl ? (
+            <img src={data.brand.logoUrl} alt={data.brand.name} />
+          ) : (
+            <span className="mark">{data.brand.monogram || data.brand.name.slice(0, 1)}</span>
+          )}
+          <span className="name"><b>{data.brand.name}</b></span>
+        </S.FigmaBrand>
+        {title ? <span className="context-title">{title}</span> : null}
       </div>
-      <b>{product.name}</b>
-      <S.ProductPrice>
-        {product.promotion?.active && product.originalPrice > product.price ? (
-          <del>{brl(product.originalPrice)}</del>
-        ) : null}
-        <strong>{brl(product.price)}</strong>
-      </S.ProductPrice>
-      <span className="add"><Plus size={14} /></span>
-    </S.HomeProductTile>
+
+      <nav aria-label="Navegação da mesa">
+        <button type="button" onClick={onHome}>Início</button>
+        <button type="button" onClick={onMenu}>Cardápio</button>
+        <button type="button" onClick={onOrders}>Pedidos</button>
+      </nav>
+
+      <div className="right">
+        <S.FigmaTablePill aria-label={`Mesa ${tableLabel}`}>
+          <Utensils size={21} />
+          <span>Mesa {tableNumber(tableLabel)}</span>
+        </S.FigmaTablePill>
+      </div>
+    </S.FigmaHeader>
   );
 }
 
-function CategoryProductRow({
+function FigmaComboCard({
   product,
+  disabled,
   onOpen,
 }: {
   product: HomeProduct;
+  disabled: boolean;
   onOpen: () => void;
 }) {
   return (
-    <S.CategoryProductRow>
+    <S.ComboCard $hasImage={Boolean(product.image)}>
       <button
-        type="button"
         className="main"
-        onClick={onOpen}
-        aria-label={`Ver detalhes de ${product.name}`}
-      >
-        <div className="image">
-          {product.image ? (
-            <img src={product.image} alt={product.name} />
-          ) : (
-            <S.ImagePlaceholder />
-          )}
-          {product.promotion?.active ? (
-            <S.DiscountBadge>{product.promotion.badgeLabel}</S.DiscountBadge>
-          ) : null}
-        </div>
-
-        <div className="content">
-          <b>{product.name}</b>
-          {product.description ? <p>{product.description}</p> : null}
-          <S.ProductPrice>
-            {product.promotion?.active && product.originalPrice > product.price ? (
-              <del>{brl(product.originalPrice)}</del>
-            ) : null}
-            <strong>{brl(product.price)}</strong>
-          </S.ProductPrice>
-        </div>
-      </button>
-
-      <button
         type="button"
+        disabled={disabled}
+        aria-label={`Ver ${product.name}`}
+        onClick={onOpen}
+      />
+      <div className="media">{product.image ? <img src={product.image} alt={product.name} /> : null}</div>
+      <div className="copy">
+        <h3>{product.name}</h3>
+        {product.description ? <p>{product.description}</p> : null}
+        <strong className="price">{brl(product.price)}</strong>
+      </div>
+      <button
         className="add"
+        type="button"
+        disabled={disabled}
+        aria-label={`Adicionar ${product.name}`}
+        onClick={onOpen}
+      >
+        <Plus size={20} />
+      </button>
+    </S.ComboCard>
+  );
+}
+
+function FigmaCatalogCard({
+  product,
+  disabled,
+  onOpen,
+}: {
+  product: HomeProduct;
+  disabled: boolean;
+  onOpen: () => void;
+}) {
+  return (
+    <S.CatalogCard $hasImage={Boolean(product.image)}>
+      <button
+        className="main"
+        type="button"
+        disabled={disabled}
+        aria-label={`Ver ${product.name}`}
+        onClick={onOpen}
+      />
+      <div className="media">{product.image ? <img src={product.image} alt={product.name} /> : null}</div>
+      <div className="copy">
+        <h3>{product.name}</h3>
+        {product.description ? <p>{product.description}</p> : null}
+        {product.promotion?.active && product.originalPrice > product.price ? (
+          <span className="original">{brl(product.originalPrice)}</span>
+        ) : null}
+        <strong className="price">{brl(product.price)}</strong>
+      </div>
+      <button
+        className="add"
+        type="button"
+        disabled={disabled}
         aria-label={`Adicionar ${product.name}`}
         onClick={onOpen}
       >
         <Plus size={17} />
       </button>
-    </S.CategoryProductRow>
+    </S.CatalogCard>
   );
 }
 
-function ProductCard({ product, onOpen }: { product: HomeProduct; onOpen: () => void }) {
-  return (
-    <S.ProductCard
-      type="button"
-      onClick={onOpen}
-      aria-label={`Ver detalhes de ${product.name}`}
-    >
-      <div className="image">
-        {product.image ? <img src={product.image} alt={product.name} /> : <S.ImagePlaceholder />}
-        {product.promotion?.active ? (
-          <S.DiscountBadge
-            aria-label={`Produto com desconto: ${product.promotion.badgeLabel}`}
-          >
-            {product.promotion.badgeLabel}
-          </S.DiscountBadge>
-        ) : null}
-      </div>
-      <div className="copy">
-        <b>{product.name}</b>
-        <p>{product.description}</p>
-        <S.ProductPrice>
-          {product.promotion?.active && product.originalPrice > product.price ? (
-            <del>{brl(product.originalPrice)}</del>
-          ) : null}
-          <strong>{brl(product.price)}</strong>
-        </S.ProductPrice>
-      </div>
-      <span className="add">
-        <Plus size={18} />
-      </span>
-    </S.ProductCard>
-  );
+function trackingSteps(tableOrder: TableOrderNotice | null) {
+  const progress = tableOrder?.progress || 0;
+  const descriptions = [
+    'Seu pedido chegou à cozinha.',
+    'A equipe está preparando tudo.',
+    'Avisaremos assim que estiver pronto.',
+    'Pedido entregue na sua mesa.',
+  ];
+  return ['Recebido', 'Em preparo', 'Pronto', 'Servido'].map((label, index) => {
+    const step = index + 1;
+    return {
+      label,
+      description: descriptions[index],
+      active: progress >= step,
+      current: progress === step,
+    };
+  });
 }
