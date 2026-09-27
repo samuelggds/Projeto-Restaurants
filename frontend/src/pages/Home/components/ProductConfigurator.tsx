@@ -142,7 +142,7 @@ export function ProductConfigurator({
       nextErrors.portions = 'Escolha uma opção para cada porção.';
     }
     setErrors(nextErrors);
-    if (!configurable || Object.keys(nextErrors).length) {
+    if ((!configurable && !enableProductQuantity) || Object.keys(nextErrors).length) {
       const firstInvalidGroup = Object.keys(nextErrors)[0];
       if (firstInvalidGroup) {
         document.getElementById(`product-group-${firstInvalidGroup}`)?.scrollIntoView({
@@ -279,7 +279,7 @@ export function ProductConfigurator({
             </S.Intro>
           )}
 
-          {!configurable && (
+          {!configurable && !enableProductQuantity ? (
             <S.Empty role="alert">
               <CircleAlert size={21} />
               <div>
@@ -287,7 +287,7 @@ export function ProductConfigurator({
                 <p>Este restaurante ainda não cadastrou as opções deste produto.</p>
               </div>
             </S.Empty>
-          )}
+          ) : null}
 
           {!!product.compositionItems?.length && (
             <S.Composition>
@@ -631,7 +631,7 @@ export function ProductConfigurator({
             )}
             <button
               type="submit"
-              disabled={!configurable || !priceReady}
+              disabled={(!configurable && !enableProductQuantity) || !priceReady}
               aria-label="Adicionar à sacola"
               aria-describedby={totalDescriptionId}
             >
