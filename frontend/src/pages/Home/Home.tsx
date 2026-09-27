@@ -886,6 +886,8 @@ export default function Home() {
         favoriteProductIds={!mesaMode && user?.role === 'CLIENTE' ? favoriteProductIds : undefined}
         savedAddresses={savedAddresses}
         selectedAddressId={selectedAddressId}
+        selectedOrderType={availableOrderType}
+        onOrderTypeChange={setOrderType}
         onSelectAddress={selectDeliveryAddress}
         onManageAddresses={manageDeliveryAddresses}
         onOpenCart={openHomeCart}
