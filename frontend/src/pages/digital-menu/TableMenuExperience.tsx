@@ -890,7 +890,7 @@ export default function TableMenuExperience({
 
           {realCategories.length ? (
             <S.CategoryRail aria-label="Categorias do cardápio">
-              {realCategories.slice(0, 4).map((category) => (
+              {realCategories.map((category) => (
                 <S.CategoryPill
                   key={category.id}
                   type="button"
@@ -908,7 +908,7 @@ export default function TableMenuExperience({
         </S.SearchCategoryRow>
 
         {combos.length ? (
-          <>
+          <S.ComboSection>
             <S.SectionHeading>
               <div className="title">
                 <h2>Combos em Destaque</h2>
@@ -930,7 +930,7 @@ export default function TableMenuExperience({
                 />
               ))}
             </S.ComboRail>
-          </>
+          </S.ComboSection>
         ) : null}
 
         <S.TableActionsSection>
@@ -1180,7 +1180,7 @@ function FlowHeader({
       <nav aria-label="Navegação da mesa">
         <button className={!title ? 'active' : ''} type="button" onClick={onHome}>Início</button>
         <button className={title === 'Meu Pedido' ? 'active' : ''} type="button" onClick={onMenu}>Cardápio</button>
-        <button className={title && title !== 'Meu pedido' ? 'active' : ''} type="button" onClick={onOrders}>Pedidos</button>
+        <button className={title && title !== 'Meu Pedido' ? 'active' : ''} type="button" onClick={onOrders}>Pedidos</button>
       </nav>
 
       <div className="right">
