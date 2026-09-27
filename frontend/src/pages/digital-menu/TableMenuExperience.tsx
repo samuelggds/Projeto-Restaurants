@@ -5,11 +5,13 @@ import {
   ChevronRight,
   Clock3,
   Copy,
+  Heart,
   Minus,
   Plus,
   Search,
   ShoppingCart,
   Sparkles,
+  Star,
   Trash2,
   Utensils,
   WalletCards,
@@ -90,6 +92,8 @@ export default function TableMenuExperience({
   const [selectedCategory, setSelectedCategory] = useState('todos');
   const [bannerIndex, setBannerIndex] = useState(0);
   const [selectedProduct, setSelectedProduct] = useState<HomeProduct | null>(null);
+  const [completeProductQuantity, setCompleteProductQuantity] = useState(1);
+  const [completeProductObservation, setCompleteProductObservation] = useState('');
   const [configuringProduct, setConfiguringProduct] = useState<HomeProduct | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [confirmation, setConfirmation] = useState<{
@@ -183,17 +187,26 @@ export default function TableMenuExperience({
       setConfiguringProduct(product);
       return;
     }
+    setCompleteProductQuantity(1);
+    setCompleteProductObservation('');
     setSelectedProduct(product);
   }
 
   function addComplete(product: HomeProduct) {
-    onAddProduct(product.id, {
+    const configuration = {
       selectedOptions: [],
       selectedOptionIds: [],
-      observation: '',
+      observation: completeProductObservation.trim(),
       configurationVersion: product.configurationVersion,
-    });
+    };
+
+    for (let index = 0; index < completeProductQuantity; index += 1) {
+      onAddProduct(product.id, configuration);
+    }
+
     setSelectedProduct(null);
+    setCompleteProductQuantity(1);
+    setCompleteProductObservation('');
   }
 
   async function submitOrder() {
@@ -948,39 +961,101 @@ export default function TableMenuExperience({
       </S.HomePage>
 
       {selectedProduct ? (
-        <S.ProductOverlay role="dialog" aria-modal="true">
-          <S.ProductDetail>
-            <button className="back" type="button" onClick={() => setSelectedProduct(null)}>
-              <ArrowLeft size={18} /> Voltar ao cardápio
-            </button>
-            <div className="visual">
+        <S.ProductOverlay role="dialog" aria-modal="true" aria-label={selectedProduct.name}>
+          <S.CompleteProductDetail>
+            <div className="media">
               {selectedProduct.image ? (
                 <img src={selectedProduct.image} alt={selectedProduct.name} />
               ) : (
-                <S.LargeImagePlaceholder />
+                <S.CompleteProductPlaceholder aria-hidden="true">
+                  <Utensils />
+                </S.CompleteProductPlaceholder>
               )}
+
+              <button
+                className="back"
+                type="button"
+                aria-label="Voltar ao cardápio"
+                onClick={() => setSelectedProduct(null)}
+              >
+                <ArrowLeft size={19} />
+              </button>
+
+              <span className="favorite" aria-hidden="true">
+                <Heart size={18} />
+              </span>
+
+              {selectedProduct.promotion?.active ? (
+                <S.DiscountBadge>{selectedProduct.promotion.badgeLabel}</S.DiscountBadge>
+              ) : null}
             </div>
-            <div className="info">
-              <h1>{selectedProduct.name}</h1>
-              <p>{selectedProduct.description}</p>
-              <strong>{brl(selectedProduct.price)}</strong>
-              {selectedProduct.saleMode === 'BUILDABLE' ? (
-                <S.PrimaryButton
+
+            <div className="content">
+              <div className="title-row">
+                <h1>{selectedProduct.name}</h1>
+                {selectedProduct.rating > 0 ? (
+                  <span className="rating">
+                    <Star size={13} fill="currentColor" />
+                    {selectedProduct.rating.toFixed(1)}
+                  </span>
+                ) : null}
+              </div>
+
+              <S.ProductPrice className="price">
+                {selectedProduct.promotion?.active &&
+                selectedProduct.originalPrice > selectedProduct.price ? (
+                  <del>{brl(selectedProduct.originalPrice)}</del>
+                ) : null}
+                <strong>{brl(selectedProduct.price)}</strong>
+              </S.ProductPrice>
+
+              {selectedProduct.description ? (
+                <p className="description">{selectedProduct.description}</p>
+              ) : null}
+
+              <label className="observation">
+                <span>Observações (opcional)</span>
+                <textarea
+                  maxLength={240}
+                  value={completeProductObservation}
+                  onChange={(event) => setCompleteProductObservation(event.target.value)}
+                  placeholder="Ex.: sem cebola, pouco sal..."
+                />
+                <small>{completeProductObservation.length}/240</small>
+              </label>
+
+              <div className="bottom-action">
+                <S.CompleteProductQuantity>
+                  <button
+                    type="button"
+                    aria-label="Diminuir quantidade"
+                    disabled={completeProductQuantity <= 1}
+                    onClick={() =>
+                      setCompleteProductQuantity((quantity) => Math.max(1, quantity - 1))
+                    }
+                  >
+                    <Minus size={15} />
+                  </button>
+                  <strong>{completeProductQuantity}</strong>
+                  <button
+                    type="button"
+                    aria-label="Aumentar quantidade"
+                    onClick={() => setCompleteProductQuantity((quantity) => quantity + 1)}
+                  >
+                    <Plus size={15} />
+                  </button>
+                </S.CompleteProductQuantity>
+
+                <S.CompleteProductAdd
                   type="button"
-                  onClick={() => {
-                    setConfiguringProduct(selectedProduct);
-                    setSelectedProduct(null);
-                  }}
+                  onClick={() => addComplete(selectedProduct)}
                 >
-                  Personalizar produto <ChevronRight size={20} />
-                </S.PrimaryButton>
-              ) : (
-                <S.PrimaryButton type="button" onClick={() => addComplete(selectedProduct)}>
-                  Adicionar ao pedido • {brl(selectedProduct.price)}
-                </S.PrimaryButton>
-              )}
+                  <span>Adicionar</span>
+                  <strong>{brl(selectedProduct.price * completeProductQuantity)}</strong>
+                </S.CompleteProductAdd>
+              </div>
             </div>
-          </S.ProductDetail>
+          </S.CompleteProductDetail>
         </S.ProductOverlay>
       ) : null}
 
@@ -989,8 +1064,11 @@ export default function TableMenuExperience({
           product={configuringProduct}
           primaryColor={primary}
           onClose={() => setConfiguringProduct(null)}
-          onConfirm={(configuration) => {
-            onAddProduct(configuringProduct.id, configuration);
+          enableProductQuantity
+          onConfirm={(configuration, quantity = 1) => {
+            for (let index = 0; index < quantity; index += 1) {
+              onAddProduct(configuringProduct.id, configuration);
+            }
             setConfiguringProduct(null);
           }}
         />
@@ -1066,7 +1144,13 @@ function HomeProductTile({ product, onOpen }: { product: HomeProduct; onOpen: ()
       aria-label={`Ver detalhes de ${product.name}`}
     >
       <div className="image">
-        {product.image ? <img src={product.image} alt={product.name} /> : <S.ImagePlaceholder />}
+        {product.image ? (
+          <img src={product.image} alt={product.name} />
+        ) : (
+          <S.ProductPlaceholder aria-hidden="true">
+            <Utensils />
+          </S.ProductPlaceholder>
+        )}
         {product.promotion?.active ? (
           <S.DiscountBadge>{product.promotion.badgeLabel}</S.DiscountBadge>
         ) : null}
