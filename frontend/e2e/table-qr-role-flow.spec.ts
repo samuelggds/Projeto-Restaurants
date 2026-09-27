@@ -637,6 +637,12 @@ async function identifyTableGuest(page: Page, waitForMenu = true) {
   await page.getByLabel('Telefone', { exact: true }).fill('11999999999');
   await page.getByRole('button', { name: 'Continuar na Mesa 1' }).click();
   if (waitForMenu) {
+    const desktopMenuButton = page.getByRole('button', { name: 'Cardápio', exact: true });
+    if (await desktopMenuButton.isVisible()) {
+      await desktopMenuButton.click();
+    } else {
+      await page.getByRole('button', { name: /Ver Cardápio(?: Completo)?/i }).click();
+    }
     await expect(
       page.getByRole('button', { name: `Ver detalhes de ${product.name}` }),
     ).toBeVisible();

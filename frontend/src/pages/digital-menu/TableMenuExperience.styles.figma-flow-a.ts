@@ -5,6 +5,10 @@ export const FlowPage = styled.section`
   margin: 0 auto;
   padding: 48px 80px 64px;
 
+  @media (max-width: 1100px) and (min-width: 760px) {
+    padding-inline: 40px;
+  }
+
   @media (max-width: 759px) {
     padding: 20px;
   }
@@ -44,18 +48,30 @@ export const FlowTitle = styled.header`
     p {
       font-size: 12px;
     }
+
+    &.cart-title p {
+      display: none;
+    }
   }
 `;
 
 export const CartDesktopLayout = styled.div`
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 440px;
+  grid-template-columns: minmax(0, 1fr) 420px;
   gap: 48px;
   align-items: start;
 
   > div:last-child {
     display: grid;
     gap: 14px;
+  }
+
+  .cart-summary-column > h2 {
+    margin: 0;
+    color: var(--text);
+    font-size: 24px;
+    line-height: 30px;
+    font-weight: 400;
   }
 
   @media (max-width: 980px) {
@@ -133,15 +149,9 @@ export const CartLine = styled.article<{ $hasImage?: boolean }>`
   .price {
     color: var(--text);
     font-size: 14px;
+    line-height: 18px;
     font-weight: 700;
     white-space: nowrap;
-  }
-
-  .remove {
-    padding: 0;
-    border: 0;
-    background: transparent;
-    color: #9b9baa;
   }
 
   @media (max-width: 759px) {
@@ -172,17 +182,17 @@ export const CartLine = styled.article<{ $hasImage?: boolean }>`
 
 export const QuantityControl = styled.div`
   width: max-content;
-  margin-top: 5px;
-  padding: 5px;
+  padding: 8px;
   border-radius: 999px;
   background: var(--background);
   display: inline-grid;
-  grid-template-columns: 20px 24px 20px;
+  grid-template-columns: 10px 12px 10px;
+  gap: 16px;
   align-items: center;
 
   button {
-    width: 20px;
-    height: 20px;
+    width: 10px;
+    height: 10px;
     padding: 0;
     border: 0;
     background: transparent;
@@ -198,6 +208,11 @@ export const QuantityControl = styled.div`
     font-size: 12px;
     font-weight: 700;
   }
+
+  @media (max-width: 759px) {
+    padding: 6px;
+    gap: 12px;
+  }
 `;
 
 export const AddMoreButton = styled.button`
@@ -210,6 +225,49 @@ export const AddMoreButton = styled.button`
   color: var(--primary);
   font-size: 13px;
   font-weight: 700;
+`;
+
+export const CouponRow = styled.div`
+  width: 100%;
+  min-height: 50px;
+  padding: 10px 12px 10px 14px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: #fff;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+
+  input {
+    min-width: 0;
+    border: 0;
+    outline: 0;
+    background: transparent;
+    color: var(--text);
+    font-size: 13px;
+  }
+
+  input::placeholder {
+    color: var(--muted);
+    opacity: 1;
+  }
+
+  button {
+    min-width: 68px;
+    min-height: 30px;
+    padding: 0 14px;
+    border: 0;
+    border-radius: 8px;
+    background: var(--text);
+    color: #fff;
+    font-size: 11px;
+    font-weight: 700;
+  }
+
+  button:disabled {
+    opacity: 0.45;
+  }
 `;
 
 export const SummaryCard = styled(FlowCard)`
@@ -248,6 +306,11 @@ export const SummaryCard = styled(FlowCard)`
     font-weight: 700;
   }
 
+  .discount,
+  .discount strong {
+    color: #10b981;
+  }
+
   @media (max-width: 759px) {
     padding: 16px;
     border-radius: 18px;
@@ -269,7 +332,7 @@ export const SummaryCard = styled(FlowCard)`
 export const PrimaryAction = styled.button`
   width: 100%;
   min-height: 52px;
-  padding: 0 18px;
+  padding: 10px 18px;
   border: 0;
   border-radius: 16px;
   background: var(--primary);
@@ -281,6 +344,24 @@ export const PrimaryAction = styled.button`
   box-shadow: 0 4px 6px color-mix(in srgb, var(--primary) 13%, transparent);
   font-size: 15px;
   font-weight: 700;
+
+  .action-copy {
+    display: grid;
+    justify-items: center;
+    gap: 2px;
+  }
+
+  .action-copy b {
+    font-size: 15px;
+    line-height: 19px;
+  }
+
+  .action-copy small {
+    color: rgba(255, 255, 255, 0.87);
+    font-size: 10px;
+    line-height: 13px;
+    font-weight: 400;
+  }
 
   &:disabled {
     opacity: 0.5;
@@ -329,13 +410,20 @@ export const ConfirmationCard = styled(FlowCard)`
   box-shadow: 0 12px 16px rgba(0, 0, 0, 0.04);
 
   @media (max-width: 759px) {
-    margin-top: 0;
-    padding: 24px 0;
+    width: calc(100% + 40px);
+    margin: -20px -20px 0;
+    padding: 24px;
     border: 0;
     border-radius: 0;
     background: transparent;
     box-shadow: none;
     gap: 20px;
+  }
+
+  @media (max-width: 359px) {
+    width: calc(100% + 28px);
+    margin-inline: -14px;
+    padding-inline: 14px;
   }
 `;
 
@@ -451,43 +539,60 @@ export const OrderSummaryBar = styled(FlowCard)`
 `;
 
 export const TimelineCard = styled(FlowCard)`
-  padding: 20px;
+  padding: 24px;
   border-radius: 18px;
+
+  &.confirmation-timeline {
+    padding: 20px;
+  }
+
+  @media (max-width: 759px) {
+    padding: 16px;
+
+    &.confirmation-timeline {
+      padding: 20px;
+    }
+  }
 `;
 
 export const Timeline = styled.div`
   display: grid;
-  gap: 16px;
+  gap: 24px;
+
+  .confirmation-timeline & {
+    gap: 20px;
+  }
+
+  @media (max-width: 759px) {
+    gap: 16px;
+
+    .confirmation-timeline & {
+      gap: 16px;
+    }
+  }
 `;
 
 export const TimelineStep = styled.div<{ $active: boolean; $current?: boolean }>`
-  position: relative;
   min-height: 28px;
   display: grid;
   grid-template-columns: 28px minmax(0, 1fr);
-  gap: 14px;
+  gap: 16px;
   align-items: start;
   opacity: ${({ $active, $current }) => ($active || $current ? 1 : 0.4)};
 
-  &:not(:last-child)::after {
-    content: '';
-    position: absolute;
-    left: 13px;
-    top: 28px;
-    width: 2px;
-    height: 18px;
-    background: ${({ $active }) => ($active ? 'var(--primary)' : 'var(--line)')};
-  }
-
   .dot {
-    position: relative;
-    z-index: 1;
     width: 28px;
     height: 28px;
+    border: 0;
     border-radius: 14px;
-    background: ${({ $current }) => ($current ? 'color-mix(in srgb, var(--primary) 10%, #fff)' : '#fff')};
-    border: 1px solid ${({ $active }) => ($active ? 'var(--primary)' : 'var(--line)')};
-    color: ${({ $current, $active }) => ($current || $active ? 'var(--primary)' : 'var(--muted)')};
+    background: ${({ $active, $current }) =>
+      $current
+        ? 'color-mix(in srgb, var(--primary) 10%, #fff)'
+        : $active
+          ? '#ecfdf5'
+          : 'var(--line)'};
+    color: ${({ $active, $current }) =>
+      $current ? 'var(--primary)' : $active ? '#10b981' : 'var(--muted)'};
     display: grid;
     place-items: center;
     font-size: 10px;
@@ -504,6 +609,7 @@ export const TimelineStep = styled.div<{ $active: boolean; $current?: boolean }>
     color: ${({ $current }) => ($current ? 'var(--primary)' : 'var(--text)')};
     font-size: 14px;
     line-height: 18px;
+    font-weight: ${({ $current }) => ($current ? 700 : 500)};
   }
 
   p {
@@ -516,23 +622,21 @@ export const TimelineStep = styled.div<{ $active: boolean; $current?: boolean }>
   @media (max-width: 759px) {
     grid-template-columns: 24px minmax(0, 1fr);
     gap: 12px;
+    min-height: 24px;
 
     .dot {
       width: 24px;
       height: 24px;
     }
 
-    &:not(:last-child)::after {
-      left: 11px;
-      top: 24px;
-    }
-
     b {
       font-size: 13px;
+      line-height: 16px;
     }
 
     p {
       font-size: 11px;
+      line-height: 14px;
     }
   }
 `;
@@ -545,18 +649,34 @@ export const ConfirmationActions = styled.div`
 
 export const TrackingLayout = styled.div`
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 440px;
+  grid-template-columns: minmax(0, 792px) 440px;
   gap: 48px;
   align-items: start;
 
-  > div:first-child {
+  .tracking-main {
     display: grid;
     gap: 24px;
   }
 
-  @media (max-width: 980px) {
+  .tracking-title {
+    margin: 0 0 8px;
+  }
+
+  @media (max-width: 1100px) {
     grid-template-columns: 1fr;
     gap: 24px;
+  }
+
+  @media (max-width: 759px) {
+    gap: 20px;
+
+    .tracking-main {
+      gap: 16px;
+    }
+
+    .tracking-title {
+      display: none;
+    }
   }
 `;
 
@@ -635,10 +755,15 @@ export const OrderItemsCard = styled(FlowCard)`
     padding: 0;
     border: 0;
     background: transparent;
+    gap: 8px;
 
     h2 {
       font-size: 20px;
       line-height: 25px;
+    }
+
+    .account-total {
+      display: none;
     }
   }
 `;

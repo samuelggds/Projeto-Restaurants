@@ -3,15 +3,16 @@ import {
   Bell,
   Check,
   ChevronRight,
-  ClipboardList,
+  CookingPot,
+  Eye,
+  ShoppingBag,
   Clock3,
   Minus,
   Plus,
+  QrCode,
   ReceiptText,
   Search,
-  Trash2,
   Utensils,
-  WalletCards,
 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import QRCode from 'react-qr-code';
@@ -26,6 +27,7 @@ import type { TableOrderNotice } from '../Home/domain/tableOrderNotice';
 import { ProductConfigurator } from '../Home/components/ProductConfigurator';
 import { ComboConfigurator } from '../Home/components/ComboConfigurator';
 import { TablePaymentStatusView } from '../Home/components/TablePaymentStatusView';
+import { FigmaCatalogCard, FigmaComboCard } from './TableMenuExperience.cards';
 import * as S from './TableMenuExperience.styles';
 
 type SubmitResult = {
@@ -38,7 +40,6 @@ type Props = {
   data: HomeData;
   tableLabel: string | number;
   cart: CartItem[];
-  cartCount: number;
   cartTotal: number;
   orderingLocked?: boolean;
   tableOrder: TableOrderNotice | null;
@@ -56,6 +57,9 @@ type Props = {
   onCreatePixPayment: (orderPublicId: string) => Promise<TablePaymentIntent | null>;
   onReconcilePayment: (paymentPublicId: string) => Promise<TablePaymentIntent | null>;
   onCancelPayment: (paymentPublicId: string) => Promise<boolean>;
+  couponCode?: string | null;
+  couponDiscount?: number;
+  onApplyCouponCode?: (code: string) => void;
   reviewCartOpen?: boolean;
   onReviewCartClose?: () => void;
 };
@@ -76,7 +80,6 @@ export default function TableMenuExperience({
   data,
   tableLabel,
   cart,
-  cartCount,
   cartTotal,
   orderingLocked = false,
   tableOrder,
@@ -94,6 +97,9 @@ export default function TableMenuExperience({
   onCreatePixPayment,
   onReconcilePayment,
   onCancelPayment,
+  couponCode = null,
+  couponDiscount = 0,
+  onApplyCouponCode,
   reviewCartOpen = false,
   onReviewCartClose,
 }: Props) {
@@ -103,6 +109,7 @@ export default function TableMenuExperience({
   const [selectedCategory, setSelectedCategory] = useState(() => {
     return data.categories.find((category) => category.id !== 'todos')?.id || 'todos';
   });
+  const [catalogVisible, setCatalogVisible] = useState(false);
   const [bannerIndex, setBannerIndex] = useState(0);
   const [selectedProduct, setSelectedProduct] = useState<HomeProduct | null>(null);
   const [completeProductQuantity, setCompleteProductQuantity] = useState(1);
@@ -117,6 +124,7 @@ export default function TableMenuExperience({
   } | null>(null);
   const [pixPayment, setPixPayment] = useState<TablePaymentIntent | null>(null);
   const [copied, setCopied] = useState(false);
+  const [couponInput, setCouponInput] = useState(couponCode || '');
   const [now, setNow] = useState(() => Date.now());
 
   const primary = data.brand.primaryColor || '#d64d08';
@@ -288,8 +296,15 @@ export default function TableMenuExperience({
     setView('menu');
   }
 
-  function scrollToCatalog() {
-    document.getElementById('table-catalog')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  function showCatalog(categoryId?: string) {
+    if (categoryId) setSelectedCategory(categoryId);
+    setCatalogVisible(true);
+    window.requestAnimationFrame(() => {
+      document.getElementById('table-catalog')?.scrollIntoView({
+        behavior: 'smooth',
+        block: 'start',
+      });
+    });
   }
 
   if (effectiveView === 'pix' && currentPayment) {
@@ -299,7 +314,7 @@ export default function TableMenuExperience({
           <FlowHeader
             data={data}
             tableLabel={tableLabel}
-            title="Pagamento"
+            title="Conta Confirmada"
             onBack={() => setView('tracking')}
             onHome={goToMenu}
             onMenu={goToMenu}
@@ -316,22 +331,30 @@ export default function TableMenuExperience({
                 <h1>Pagamento Confirmado!</h1>
                 <p>Recebemos seu pagamento via PIX com sucesso.</p>
                 <S.PaidReceipt>
-                  <div className="copy">
-                    {confirmation?.orderId ? <small>Pedido #{confirmation.orderId}</small> : null}
-                    <strong>{centsToBrl(currentPayment.totalCents)}</strong>
-                    <small>Forma de Pagamento · PIX</small>
+                  <div className="receipt-head">
+                    {confirmation?.orderId ? <small>Pedido #{confirmation.orderId}</small> : <small>Pedido</small>}
+                    <span className="status">PAGO</span>
                   </div>
-                  <span className="status">PAGO</span>
+                  <strong>{centsToBrl(currentPayment.totalCents)}</strong>
+                  <div className="receipt-divider" />
+                  <div className="receipt-row">
+                    <small>Forma de Pagamento</small>
+                    <b>PIX</b>
+                  </div>
+                  <div className="receipt-row">
+                    <small>Status</small>
+                    <b className="confirmed">Confirmado agora</b>
+                  </div>
                 </S.PaidReceipt>
                 <div className="prep-banner">
-                  <Clock3 size={18} />
+                  <CookingPot size={18} />
                   <span>
                     <b>Pedido continua em preparo</b>
                     <small>Acompanhe o andamento na tela seguinte.</small>
                   </span>
                 </div>
                 <S.PrimaryAction type="button" onClick={() => setView('tracking')}>
-                  Acompanhar preparo
+                  <Eye size={16} /> Acompanhar preparo
                 </S.PrimaryAction>
                 <S.SecondaryAction type="button" onClick={goToMenu}>
                   Voltar ao cardápio
@@ -376,7 +399,7 @@ export default function TableMenuExperience({
         <FlowHeader
           data={data}
           tableLabel={tableLabel}
-          title="Pagar com PIX"
+          title="Pagamento PIX"
           onBack={() => setView('payment')}
           onHome={goToMenu}
           onMenu={goToMenu}
@@ -385,7 +408,10 @@ export default function TableMenuExperience({
         <S.FlowPage>
           <S.PixLayout>
             <S.PixQrCard>
-              <span className="pix-label">PAGAMENTO PIX</span>
+              <span className="pix-label">
+                <span className="desktop-only">PAGAMENTO PIX</span>
+                <span className="mobile-only">VALOR TOTAL</span>
+              </span>
               <span className="amount">{centsToBrl(currentPayment.totalCents)}</span>
               <span className="order">
                 {confirmation?.orderId ? `Pedido #${confirmation.orderId} · ` : ''}
@@ -398,7 +424,12 @@ export default function TableMenuExperience({
                     <QRCode value={currentPayment.paymentCode} size={160} level="M" />
                   </div>
                   <p className="instructions">
-                    Aponte a câmera do seu banco para o QR code ou copie a chave PIX abaixo.
+                    <span className="desktop-only">
+                      Aponte a câmera do seu banco para o QR code ou copie a chave PIX abaixo.
+                    </span>
+                    <span className="mobile-only">
+                      Aponte a câmera do seu banco para o QR code ou copie a chave abaixo.
+                    </span>
                   </p>
                   <S.PixCopyBox>
                     <code>{currentPayment.paymentCode}</code>
@@ -443,7 +474,7 @@ export default function TableMenuExperience({
         <FlowHeader
           data={data}
           tableLabel={tableLabel}
-          title="Pagamento"
+          title="Finalizar Conta"
           onBack={() => setView('confirmation')}
           onHome={goToMenu}
           onMenu={goToMenu}
@@ -453,16 +484,24 @@ export default function TableMenuExperience({
           <S.PaymentCard>
             <S.FlowTitle>
               <h1>Como prefere pagar?</h1>
-              <p>Finalize agora pelo celular ou deixe para pagar depois com a equipe.</p>
+              <p>
+                <span className="desktop-only">
+                  Finalize agora pelo celular ou deixe para pagar depois com a equipe.
+                </span>
+                <span className="mobile-only">
+                  Finalize agora pelo celular ou deixe para pagar depois.
+                </span>
+              </p>
             </S.FlowTitle>
 
             <S.PaymentOptionsGrid>
             {allowPix ? (
               <S.PaymentChoiceCard>
-                <span className="icon"><WalletCards size={28} /></span>
+                <span className="icon"><QrCode size={20} /></span>
+                <span className="recommended desktop-only">RECOMENDADO</span>
+                <span className="pix-badge mobile-only">PIX</span>
                 <h2>Pagar agora (PIX)</h2>
                 <p>Finalize pelo celular com liberação automática na hora. Rápido e prático.</p>
-                <small>PIX</small>
                 <button
                   className="primary"
                   type="button"
@@ -475,9 +514,11 @@ export default function TableMenuExperience({
             ) : null}
 
             <S.PaymentChoiceCard>
-              <span className="icon"><ReceiptText size={26} /></span>
+              <span className="icon"><Clock3 size={20} /></span>
               <h2>Deixar na conta</h2>
-              <p>Os itens permanecem vinculados à mesa. Pague ao sair com o garçom.</p>
+              <p>
+                Os itens permanecem vinculados à Mesa {tableNumber(tableLabel)}. Pague ao sair com o garçom.
+              </p>
               <small>Continue pedindo normalmente.</small>
               <button className="secondary" type="button" onClick={() => setView('tracking')}>
                 Deixar aberto na Mesa
@@ -487,7 +528,10 @@ export default function TableMenuExperience({
 
             <S.PaymentSummary>
               <div className="label">
-                <small>Valor deste pedido:</small>
+                <small>
+                  <span className="desktop-only">Valor total deste pedido:</span>
+                  <span className="mobile-only">Valor deste pedido:</span>
+                </small>
                 {confirmation.orderId ? <strong>Pedido #{confirmation.orderId}</strong> : null}
               </div>
               <span className="amount">{brl(confirmation.total)}</span>
@@ -513,7 +557,11 @@ export default function TableMenuExperience({
 
         <S.FlowPage>
           <S.TrackingLayout>
-            <div>
+            <div className="tracking-main">
+              <S.FlowTitle className="tracking-title">
+                <h1>Painel da Mesa</h1>
+                <p>Veja o andamento de seus pratos e bebidas em tempo real</p>
+              </S.FlowTitle>
               <S.StatusCard>
                 <span className="icon"><Clock3 size={28} /></span>
                 <div>
@@ -525,7 +573,7 @@ export default function TableMenuExperience({
               <S.SectionHeading>
                 <div className="title"><h2>Status de Produção</h2></div>
               </S.SectionHeading>
-              <S.TimelineCard>
+              <S.TimelineCard className="tracking-timeline">
                 <S.Timeline>
                   {trackingSteps(tableOrder).map((step, index) => (
                     <S.TimelineStep key={step.label} $active={step.active} $current={step.current}>
@@ -541,7 +589,10 @@ export default function TableMenuExperience({
             </div>
 
             <S.OrderItemsCard>
-              <h2>Itens do Pedido</h2>
+              <h2>
+                <span className="desktop-only">Itens do Pedido</span>
+                <span className="mobile-only">Itens em Produção</span>
+              </h2>
               {tableOrder?.items.length ? (
                 tableOrder.items.map((item, index) => (
                   <S.OrderItemLine key={`${item.name}-${index}`}>
@@ -612,9 +663,9 @@ export default function TableMenuExperience({
             <span className="amount">{brl(confirmation.total)}</span>
           </S.OrderSummaryBar>
 
-          <S.TimelineCard>
+          <S.TimelineCard className="confirmation-timeline">
             <S.Timeline>
-              {trackingSteps(tableOrder).map((step, index) => (
+              {confirmationSteps(tableOrder).map((step, index) => (
                 <S.TimelineStep key={step.label} $active={step.active} $current={step.current}>
                   <span className="dot">{step.active ? <Check size={14} /> : index + 1}</span>
                   <div className="copy">
@@ -652,14 +703,14 @@ export default function TableMenuExperience({
           )
         : 0;
     const serviceFee = serviceFeeCents / 100;
-    const totalWithFee = cartTotal + serviceFee;
+    const totalWithFee = Math.max(0, cartTotal - couponDiscount + serviceFee);
 
     return (
       <S.FigmaShell $primary={primary} $fontFamily={data.fontFamily}>
         <FlowHeader
           data={data}
           tableLabel={tableLabel}
-          title="Meu pedido"
+          title="Meu Pedido"
           onBack={goToMenu}
           onHome={goToMenu}
           onMenu={goToMenu}
@@ -667,7 +718,7 @@ export default function TableMenuExperience({
         />
 
         <S.FlowPage>
-          <S.FlowTitle>
+          <S.FlowTitle className="cart-title">
             <h1 aria-label="Minha sacola">Revisar Pedido</h1>
             <p>Confirme os itens selecionados antes do preparo</p>
           </S.FlowTitle>
@@ -690,6 +741,9 @@ export default function TableMenuExperience({
                         ) : item.observation ? (
                           <small>{item.observation}</small>
                         ) : null}
+                        <strong className="price">{brl(item.price * item.quantity)}</strong>
+                      </div>
+                      <div className="side">
                         <S.QuantityControl>
                           <button
                             type="button"
@@ -708,22 +762,6 @@ export default function TableMenuExperience({
                           </button>
                         </S.QuantityControl>
                       </div>
-                      <div className="side">
-                        <strong className="price">{brl(item.price * item.quantity)}</strong>
-                        <button
-                          className="remove"
-                          type="button"
-                          aria-label={`Remover ${item.name}`}
-                          onClick={() => {
-                            if (!item.cartId) return;
-                            for (let index = 0; index < item.quantity; index += 1) {
-                              onDecrease(item.cartId);
-                            }
-                          }}
-                        >
-                          <Trash2 size={15} />
-                        </button>
-                      </div>
                     </S.CartLine>
                   ))
                 ) : (
@@ -732,14 +770,42 @@ export default function TableMenuExperience({
               </S.CartLines>
 
               <S.AddMoreButton type="button" onClick={goToMenu}>
-                + Adicionar mais itens
+                + Adicionar mais itens ao pedido
               </S.AddMoreButton>
             </div>
 
-            <div>
+            <div className="cart-summary-column">
+              <h2 className="desktop-only">Resumo</h2>
+              <S.CouponRow>
+                <input
+                  value={couponInput}
+                  onChange={(event) => setCouponInput(event.target.value)}
+                  placeholder="Cupom promocional"
+                  aria-label="Cupom promocional"
+                />
+                <button
+                  type="button"
+                  disabled={!couponInput.trim() || !onApplyCouponCode}
+                  onClick={() => onApplyCouponCode?.(couponInput.trim())}
+                >
+                  Aplicar
+                </button>
+              </S.CouponRow>
               <S.SummaryCard>
                 <div className="row"><span>Subtotal</span><strong>{brl(cartTotal)}</strong></div>
-                <div className="row"><span>Serviço</span><strong>{brl(serviceFee)}</strong></div>
+                {couponDiscount > 0 ? (
+                  <div className="row discount">
+                    <span>{couponCode ? `Cupom · ${couponCode}` : 'Cupom promocional'}</span>
+                    <strong>− {brl(couponDiscount)}</strong>
+                  </div>
+                ) : null}
+                <div className="row">
+                  <span>
+                    <span className="desktop-only">Taxa de Serviço (Opcional)</span>
+                    <span className="mobile-only">Serviço (Opcional)</span>
+                  </span>
+                  <strong>{brl(serviceFee)}</strong>
+                </div>
                 <div className="divider" />
                 <div className="row total"><span>Total</span><strong>{brl(totalWithFee)}</strong></div>
               </S.SummaryCard>
@@ -749,9 +815,14 @@ export default function TableMenuExperience({
                 disabled={!cart.length || submitting || orderingLocked}
                 onClick={() => void submitOrder()}
               >
-                {submitting ? 'Enviando pedido...' : 'Enviar pedido para a cozinha'}
+                <span className="action-copy">
+                  <b>{submitting ? 'Enviando pedido...' : 'Enviar pedido para a cozinha'}</b>
+                  {!submitting ? <small>Seu pedido iniciará o preparo imediatamente</small> : null}
+                </span>
               </S.PrimaryAction>
-              <S.HelperText>Depois você pode escolher pagar agora ou deixar na conta da mesa.</S.HelperText>
+              <S.HelperText>
+                Depois você escolhe pagar agora pelo celular ou no fim.
+              </S.HelperText>
             </div>
           </S.CartDesktopLayout>
         </S.FlowPage>
@@ -775,8 +846,11 @@ export default function TableMenuExperience({
       <FlowHeader
         data={data}
         tableLabel={tableLabel}
-        onHome={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
-        onMenu={scrollToCatalog}
+        onHome={() => {
+          setCatalogVisible(false);
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        }}
+        onMenu={() => showCatalog()}
         onOrders={() => setView('tracking')}
       />
 
@@ -785,12 +859,24 @@ export default function TableMenuExperience({
         <div className="hero-overlay" aria-hidden="true" />
         <div className="copy">
           <span className="eyebrow">
-            {data.brand.name.toUpperCase()} · MESA {tableNumber(tableLabel)}
+            <span className="eyebrow-desktop">
+              RESTAURANTE {data.brand.name.toUpperCase()} · MESA {tableNumber(tableLabel)}
+            </span>
+            <span className="eyebrow-mobile">
+              RESTAURANTE {data.brand.name.toUpperCase()}
+            </span>
           </span>
           <h1>{heroTitle}</h1>
           <p>{heroDescription}</p>
-          <button className="cta" type="button" onClick={scrollToCatalog}>
-            {activeBanner?.buttonLabel || 'Ver Cardápio'}
+          <button className="cta" type="button" onClick={() => showCatalog()}>
+            {activeBanner?.buttonLabel ? (
+              activeBanner.buttonLabel
+            ) : (
+              <>
+                <span className="cta-desktop">Ver Cardápio Completo</span>
+                <span className="cta-mobile">Ver Cardápio</span>
+              </>
+            )}
           </button>
         </div>
 
@@ -816,26 +902,29 @@ export default function TableMenuExperience({
             <Search size={21} />
             <input
               value={query}
-              onChange={(event) => setQuery(event.target.value)}
-              placeholder="Buscar pratos, bebidas, sobremesas..."
+              onChange={(event) => {
+                const nextQuery = event.target.value;
+                setQuery(nextQuery);
+                if (nextQuery.trim()) setCatalogVisible(true);
+              }}
+              placeholder="Buscar no cardápio (pizza, burguer, bebidas...)"
               aria-label="Buscar no cardápio"
             />
           </S.MenuSearch>
 
           {realCategories.length ? (
             <S.CategoryRail aria-label="Categorias do cardápio">
-              {realCategories.slice(0, 4).map((category) => (
+              {realCategories.map((category) => (
                 <S.CategoryPill
                   key={category.id}
                   type="button"
                   $active={selectedCategory === category.id}
-                  onClick={() =>
-                    setSelectedCategory((current) =>
-                      current === category.id ? 'todos' : category.id,
-                    )
-                  }
+                  onClick={() => showCatalog(category.id)}
                 >
-                  <span>{category.name}</span>
+                  <span className="category-image" aria-hidden="true">
+                    {category.image ? <img src={category.image} alt="" /> : null}
+                  </span>
+                  <span className="category-label">{category.name}</span>
                 </S.CategoryPill>
               ))}
             </S.CategoryRail>
@@ -843,11 +932,15 @@ export default function TableMenuExperience({
         </S.SearchCategoryRow>
 
         {combos.length ? (
-          <>
+          <S.ComboSection>
             <S.SectionHeading>
-              <div className="title"><h2>Combos em Destaque</h2><p>Os favoritos da casa para compartilhar</p></div>
-              <button type="button" onClick={() => setSelectedCategory('todos')}>
-                Ver todos <ChevronRight size={14} />
+              <div className="title">
+                <h2>Combos em Destaque</h2>
+                <p>Os favoritos da galera para compartilhar</p>
+              </div>
+              <button type="button" onClick={() => showCatalog('todos')}>
+                <span className="desktop-only">Ver todos os pratos</span>
+                <span className="mobile-only">Ver todos</span>
               </button>
             </S.SectionHeading>
             <S.ComboRail>
@@ -861,36 +954,64 @@ export default function TableMenuExperience({
                 />
               ))}
             </S.ComboRail>
-          </>
+          </S.ComboSection>
         ) : null}
 
         <S.TableActionsSection>
-          <h2>Ações Rápidas</h2>
+          <h2>
+            <span className="desktop-only">Ações Rápidas na Mesa</span>
+            <span className="mobile-only">Ações Rápidas</span>
+          </h2>
           <S.TableActionsGrid>
-            <S.TableActionCard type="button" onClick={() => setView('cart')}>
-              <span className="icon"><ClipboardList size={20} /></span>
+            <S.TableActionCard
+              $tone="order"
+              type="button"
+              aria-label="Meu pedido"
+              onClick={() => setView('cart')}
+            >
+              <span className="icon"><ShoppingBag /></span>
               <span className="copy">
-                <b>Meu pedido</b>
-                <small>{cartCount > 0 ? `${cartCount} ${cartCount === 1 ? 'item' : 'itens'} · Veja e edite itens` : 'Veja e edite itens'}</small>
+                <b>Meu Pedido</b>
+                <small>Visualize os itens em revisão no carrinho</small>
               </span>
             </S.TableActionCard>
 
             {waiterCallEnabled ? (
-              <S.TableActionCard type="button" aria-label="Chamar garçom" onClick={onCallWaiter}>
-                <span className="icon"><Bell size={20} /></span>
-                <span className="copy"><b>Chamar garçom</b><small>Solicite atendimento</small></span>
+              <S.TableActionCard
+                $tone="waiter"
+                type="button"
+                aria-label="Chamar garçom"
+                onClick={onCallWaiter}
+              >
+                <span className="icon"><Bell /></span>
+                <span className="copy">
+                  <b>
+                    <span className="desktop-only">Chamar Garçom</span>
+                    <span className="mobile-only">Garçom</span>
+                  </b>
+                  <small>Solicite assistência imediata à sua mesa</small>
+                </span>
               </S.TableActionCard>
             ) : null}
 
             {billRequestEnabled && onRequestBill ? (
-              <S.TableActionCard type="button" onClick={onRequestBill}>
-                <span className="icon"><ReceiptText size={20} /></span>
-                <span className="copy"><b>Ver conta</b><small>Pagar agora ou depois</small></span>
+              <S.TableActionCard
+                $tone="bill"
+                type="button"
+                aria-label="Ver conta"
+                onClick={onRequestBill}
+              >
+                <span className="icon"><ReceiptText /></span>
+                <span className="copy">
+                  <b>Ver Conta</b>
+                  <small>Acompanhe o consumo total da mesa</small>
+                </span>
               </S.TableActionCard>
             ) : null}
           </S.TableActionsGrid>
         </S.TableActionsSection>
 
+        {catalogVisible ? (
         <S.CatalogSection id="table-catalog">
           <S.SectionHeading>
             <div className="title">
@@ -925,6 +1046,7 @@ export default function TableMenuExperience({
             <S.EmptyCatalog>Nenhum produto disponível para este filtro.</S.EmptyCatalog>
           )}
         </S.CatalogSection>
+        ) : null}
       </S.MenuPage>
 
       {selectedProduct ? (
@@ -1067,7 +1189,8 @@ function FlowHeader({
           )}
           <span className="name">
             <b>{data.brand.name}</b>
-            <small>{data.brand.category || 'Mesa Inteligente'}</small>
+            <small className="brand-subtitle desktop-subtitle">Mesa Inteligente</small>
+            <small className="brand-subtitle mobile-subtitle">{data.brand.name}</small>
           </span>
         </S.FigmaBrand>
         {title ? (
@@ -1080,8 +1203,8 @@ function FlowHeader({
 
       <nav aria-label="Navegação da mesa">
         <button className={!title ? 'active' : ''} type="button" onClick={onHome}>Início</button>
-        <button className={title === 'Meu pedido' ? 'active' : ''} type="button" onClick={onMenu}>Cardápio</button>
-        <button className={title && title !== 'Meu pedido' ? 'active' : ''} type="button" onClick={onOrders}>Pedidos</button>
+        <button className={title === 'Meu Pedido' ? 'active' : ''} type="button" onClick={onMenu}>Cardápio</button>
+        <button className={title && title !== 'Meu Pedido' ? 'active' : ''} type="button" onClick={onOrders}>Pedidos</button>
       </nav>
 
       <div className="right">
@@ -1094,108 +1217,38 @@ function FlowHeader({
   );
 }
 
-function FigmaComboCard({
-  product,
-  disabled,
-  onOpen,
-  onAdd,
-}: {
-  product: HomeProduct;
-  disabled: boolean;
-  onOpen: () => void;
-  onAdd: () => void;
-}) {
-  return (
-    <S.ComboCard $hasImage={Boolean(product.image)}>
-      <button
-        className="main"
-        type="button"
-        disabled={disabled}
-        aria-label={`Ver detalhes de ${product.name}`}
-        onClick={onOpen}
-      />
-      {product.image ? (
-        <div className="media"><img src={product.image} alt={product.name} /></div>
-      ) : null}
-      <div className="copy">
-        <h3>{product.name}</h3>
-        {product.description ? <p>{product.description}</p> : null}
-        <strong className="price">{brl(product.price)}</strong>
-      </div>
-      <button
-        className="add"
-        type="button"
-        disabled={disabled}
-        aria-label={`Adicionar ${product.name}`}
-        onClick={onAdd}
-      >
-        <Plus size={20} />
-      </button>
-    </S.ComboCard>
-  );
+function stepState(progress: number, step: number) {
+  return {
+    active: progress >= step,
+    current: progress === step || (progress > 3 && step === 3),
+  };
 }
 
-function FigmaCatalogCard({
-  product,
-  disabled,
-  onOpen,
-  onAdd,
-}: {
-  product: HomeProduct;
-  disabled: boolean;
-  onOpen: () => void;
-  onAdd: () => void;
-}) {
-  return (
-    <S.CatalogCard $hasImage={Boolean(product.image)}>
-      <button
-        className="main"
-        type="button"
-        disabled={disabled}
-        aria-label={`Ver detalhes de ${product.name}`}
-        onClick={onOpen}
-      />
-      {product.image ? (
-        <div className="media">
-          <img src={product.image} alt={product.name} />
-        </div>
-      ) : null}
-      <div className="copy">
-        <h3>{product.name}</h3>
-        {product.description ? <p>{product.description}</p> : null}
-        {product.promotion?.active && product.originalPrice > product.price ? (
-          <span className="original">{brl(product.originalPrice)}</span>
-        ) : null}
-        <strong className="price">{brl(product.price)}</strong>
-      </div>
-      <button
-        className="add"
-        type="button"
-        disabled={disabled}
-        aria-label={`Adicionar ${product.name}`}
-        onClick={onAdd}
-      >
-        <Plus size={17} />
-      </button>
-    </S.CatalogCard>
-  );
+function confirmationSteps(tableOrder: TableOrderNotice | null) {
+  const progress = tableOrder?.progress || 0;
+  return ['Pedido recebido', 'Em preparo', 'Pronto para servir'].map((label, index) => {
+    const step = index + 1;
+    return {
+      label,
+      description: '',
+      ...stepState(progress, step),
+    };
+  });
 }
 
 function trackingSteps(tableOrder: TableOrderNotice | null) {
   const progress = tableOrder?.progress || 0;
   const descriptions = [
-    'Seu pedido chegou à cozinha.',
-    'A equipe está preparando tudo.',
-    'Avisaremos assim que estiver pronto.',
-    'Pedido entregue na sua mesa.',
+    'Enviado para a cozinha',
+    'Os chefs estão montando seus pratos',
+    'Aguardando retirada do garçom',
   ];
-  return ['Recebido', 'Em preparo', 'Pronto', 'Servido'].map((label, index) => {
+  return ['Pedido Confirmado', 'Em Preparo', 'Pronto para Servir'].map((label, index) => {
     const step = index + 1;
     return {
       label,
       description: descriptions[index],
-      active: progress >= step,
-      current: progress === step,
+      ...stepState(progress, step),
     };
   });
 }

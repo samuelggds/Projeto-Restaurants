@@ -830,6 +830,31 @@ export default function Home() {
   }
 
   if (mesaMode) {
+    const applyTableCouponCode = (rawCode: string) => {
+      const code = rawCode.trim().toLocaleUpperCase('pt-BR');
+      if (!code) return;
+
+      const match = loyaltyRedemptionEntries(loyalty.summary).find(
+        ({ coupon, redemption }) =>
+          coupon.code.trim().toLocaleUpperCase('pt-BR') === code &&
+          isUsableLoyaltyRedemption(redemption, loyaltyClock),
+      );
+
+      if (!match) {
+        notify(
+          'warning',
+          'Cupom indisponível',
+          isLoyaltyCustomer
+            ? 'Este cupom não está disponível na sua carteira ou já expirou.'
+            : 'Entre com sua conta de cliente para usar um cupom disponível na sua carteira.',
+        );
+        return;
+      }
+
+      setSelectedRedemptionId(match.redemption.id);
+      notify('success', 'Cupom aplicado', `O cupom ${match.coupon.code} foi aplicado ao pedido.`);
+    };
+
     const createPixPaymentForOrder = async (orderPublicId: string) => {
       const snapshot = await tableAccount.refresh({ silent: true });
       if (!snapshot?.capabilities.allowPix) {
@@ -873,7 +898,6 @@ export default function Home() {
         data={homeData}
         tableLabel={mesaLabel}
         cart={cart}
-        cartCount={cartCount}
         cartTotal={cartTotal}
         orderingLocked={tableClosingRequested}
         tableOrder={tableOrder}
@@ -891,6 +915,9 @@ export default function Home() {
         onCreatePixPayment={createPixPaymentForOrder}
         onReconcilePayment={tableAccount.reconcilePayment}
         onCancelPayment={tableAccount.cancelPayment}
+        couponCode={orderQuote.quote?.couponCode || null}
+        couponDiscount={orderQuote.quote?.couponDiscount || 0}
+        onApplyCouponCode={applyTableCouponCode}
         reviewCartOpen={tableMenuReviewCartOpen}
         onReviewCartClose={() => setTableMenuReviewCartOpen(false)}
       />
