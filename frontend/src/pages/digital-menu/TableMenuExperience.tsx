@@ -24,6 +24,7 @@ import type {
 } from '../Home/domain/tableAccount';
 import type { TableOrderNotice } from '../Home/domain/tableOrderNotice';
 import { ProductConfigurator } from '../Home/components/ProductConfigurator';
+import { ComboConfigurator } from '../Home/components/ComboConfigurator';
 import { TablePaymentStatusView } from '../Home/components/TablePaymentStatusView';
 import * as S from './TableMenuExperience.styles';
 
@@ -182,15 +183,47 @@ export default function TableMenuExperience({
     return () => window.clearInterval(interval);
   }, [currentPayment?.publicId, onReconcilePayment, paymentLoading, pixPending]);
 
+  function emptyConfiguration(product: HomeProduct): ProductConfiguration {
+    return {
+      selectedOptions: [],
+      selectedOptionIds: [],
+      observation: '',
+      configurationVersion: product.configurationVersion,
+    };
+  }
+
   function openProduct(product: HomeProduct) {
     if (orderingLocked) return;
-    if (product.saleMode === 'BUILDABLE' || product.kind === 'COMBO') {
+    if (product.kind === 'COMBO') {
+      if (product.comboGroups?.length) {
+        setConfiguringProduct(product);
+        return;
+      }
+      setCompleteProductQuantity(1);
+      setCompleteProductObservation('');
+      setSelectedProduct(product);
+      return;
+    }
+    if (product.saleMode === 'BUILDABLE') {
       setConfiguringProduct(product);
       return;
     }
     setCompleteProductQuantity(1);
     setCompleteProductObservation('');
     setSelectedProduct(product);
+  }
+
+  function quickAdd(product: HomeProduct) {
+    if (orderingLocked) return;
+    if (product.kind === 'COMBO' && product.comboGroups?.length) {
+      setConfiguringProduct(product);
+      return;
+    }
+    if (product.saleMode === 'BUILDABLE') {
+      setConfiguringProduct(product);
+      return;
+    }
+    onAddProduct(product.id, emptyConfiguration(product));
   }
 
   function addComplete(product: HomeProduct) {
@@ -784,6 +817,7 @@ export default function TableMenuExperience({
                   product={combo}
                   disabled={orderingLocked}
                   onOpen={() => openProduct(combo)}
+                  onAdd={() => quickAdd(combo)}
                 />
               ))}
             </S.ComboRail>
@@ -871,6 +905,7 @@ export default function TableMenuExperience({
                   product={product}
                   disabled={orderingLocked}
                   onOpen={() => openProduct(product)}
+                  onAdd={() => quickAdd(product)}
                 />
               ))}
             </S.CatalogGrid>
@@ -957,19 +992,31 @@ export default function TableMenuExperience({
       ) : null}
 
       {configuringProduct ? (
-        <ProductConfigurator
-          product={configuringProduct}
-          primaryColor={primary}
-          onClose={() => setConfiguringProduct(null)}
-          enableProductQuantity
-          tableMenuVariant
-          onConfirm={(configuration, quantity = 1) => {
-            for (let index = 0; index < quantity; index += 1) {
+        configuringProduct.kind === 'COMBO' ? (
+          <ComboConfigurator
+            product={configuringProduct}
+            primaryColor={primary}
+            onClose={() => setConfiguringProduct(null)}
+            onConfirm={(configuration) => {
               onAddProduct(configuringProduct.id, configuration);
-            }
-            setConfiguringProduct(null);
-          }}
-        />
+              setConfiguringProduct(null);
+            }}
+          />
+        ) : (
+          <ProductConfigurator
+            product={configuringProduct}
+            primaryColor={primary}
+            onClose={() => setConfiguringProduct(null)}
+            enableProductQuantity
+            tableMenuVariant
+            onConfirm={(configuration, quantity = 1) => {
+              for (let index = 0; index < quantity; index += 1) {
+                onAddProduct(configuringProduct.id, configuration);
+              }
+              setConfiguringProduct(null);
+            }}
+          />
+        )
       ) : null}
     </S.FigmaShell>
   );
@@ -1031,10 +1078,12 @@ function FigmaComboCard({
   product,
   disabled,
   onOpen,
+  onAdd,
 }: {
   product: HomeProduct;
   disabled: boolean;
   onOpen: () => void;
+  onAdd: () => void;
 }) {
   return (
     <S.ComboCard $hasImage={Boolean(product.image)}>
@@ -1058,7 +1107,7 @@ function FigmaComboCard({
         type="button"
         disabled={disabled}
         aria-label={`Adicionar ${product.name}`}
-        onClick={onOpen}
+        onClick={onAdd}
       >
         <Plus size={20} />
       </button>
@@ -1070,10 +1119,12 @@ function FigmaCatalogCard({
   product,
   disabled,
   onOpen,
+  onAdd,
 }: {
   product: HomeProduct;
   disabled: boolean;
   onOpen: () => void;
+  onAdd: () => void;
 }) {
   return (
     <S.CatalogCard $hasImage={Boolean(product.image)}>
@@ -1102,7 +1153,7 @@ function FigmaCatalogCard({
         type="button"
         disabled={disabled}
         aria-label={`Adicionar ${product.name}`}
-        onClick={onOpen}
+        onClick={onAdd}
       >
         <Plus size={17} />
       </button>
