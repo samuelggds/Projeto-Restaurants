@@ -162,7 +162,7 @@ export function CustomerLoginExperience({
             </S.ResendButton>
           ) : null}
 
-          <form onSubmit={onSubmit} autoComplete="off">
+          <S.AuthForm onSubmit={onSubmit} autoComplete="off">
             <S.Fields>
               <S.FieldGroup>
                 <span>E-mail</span>
@@ -227,7 +227,7 @@ export function CustomerLoginExperience({
               <span>{isLoading ? 'Entrando...' : 'Entrar como cliente'}</span>
               {!isLoading ? <ArrowRight aria-hidden="true" /> : null}
             </S.PrimaryButton>
-          </form>
+          </S.AuthForm>
 
           <S.Divider>ou</S.Divider>
 
