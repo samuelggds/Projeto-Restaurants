@@ -3,11 +3,11 @@ import styled from 'styled-components';
 export const PaymentIntro = styled.div`
   display: grid;
   gap: 4px;
-  margin: 4px 0 10px;
+  margin: 6px 0 10px;
 
   strong {
     color: var(--home-text);
-    font-size: 16px;
+    font-size: 15px;
     font-weight: 900;
   }
 
@@ -27,11 +27,11 @@ export const AccountShortcut = styled.a`
   align-items: center;
   gap: 11px;
   border: 1px solid #e2ddd8;
-  border-radius: 14px;
+  border-radius: 12px;
   background: #fff;
   color: var(--home-text);
   text-decoration: none;
-  box-shadow: 0 5px 18px rgba(33, 27, 22, 0.04);
+  box-shadow: 0 4px 14px rgba(20, 20, 20, 0.035);
   transition:
     transform 0.18s ease,
     border-color 0.18s ease,
@@ -48,7 +48,7 @@ export const AccountShortcut = styled.a`
     height: 40px;
     display: grid;
     place-items: center;
-    border-radius: 11px;
+    border-radius: 10px;
     background: color-mix(in srgb, var(--home-primary) 10%, #fff);
     color: var(--home-primary);
   }
@@ -112,8 +112,8 @@ export const SecurePaymentNote = styled.div`
   justify-content: center;
   gap: 8px;
   border: 1px solid #dce7ef;
-  border-radius: 12px;
-  background: #f3f8fc;
+  border-radius: 10px;
+  background: #f6fafc;
   color: #496172;
   font-size: 10px;
   line-height: 1.4;
