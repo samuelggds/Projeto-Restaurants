@@ -288,7 +288,7 @@ export default function Home() {
   const catalogHomeData = useMemo(
     () =>
       buildHomeData(backendProducts, settings, new Date(), {
-        allowImageFallbacks: !mesaMode,
+        allowImageFallbacks: false,
         useLegacyBannerCopy: !mesaMode,
       }),
     [backendProducts, mesaMode, settings],
