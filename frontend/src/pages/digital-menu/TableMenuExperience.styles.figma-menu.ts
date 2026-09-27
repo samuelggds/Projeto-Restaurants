@@ -225,6 +225,10 @@ export const FigmaBrand = styled.div.attrs({ className: 'brand' })`
     font-weight: 500;
   }
 
+  .mobile-subtitle {
+    display: none;
+  }
+
   @media (max-width: 759px) {
     gap: 10px;
 
@@ -254,6 +258,14 @@ export const FigmaBrand = styled.div.attrs({ className: 'brand' })`
       white-space: nowrap;
       font-size: 10px;
       line-height: 13px;
+    }
+
+    .desktop-subtitle {
+      display: none;
+    }
+
+    .mobile-subtitle {
+      display: block;
     }
   }
 `;
