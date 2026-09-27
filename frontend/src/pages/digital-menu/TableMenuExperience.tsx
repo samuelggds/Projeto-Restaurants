@@ -813,7 +813,7 @@ function Header({
             {String(tableLabel).padStart(2, '0')}
           </span>
         </S.TableBadge>
-        <S.WaiterButton type="button" onClick={onCallWaiter}>
+        <S.WaiterButton type="button" onClick={onCallWaiter} aria-label="Chamar garçom">
           <BellRing size={17} />
           <span>Chamar garçom</span>
         </S.WaiterButton>
