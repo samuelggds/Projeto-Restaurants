@@ -3,10 +3,10 @@ import styled from 'styled-components';
 export const FlowPage = styled.section`
   width: min(1440px, 100%);
   margin: 0 auto;
-  padding: 42px 52px 72px;
+  padding: 48px 80px 64px;
 
   @media (max-width: 759px) {
-    padding: 6px 20px 44px;
+    padding: 20px;
   }
 
   @media (max-width: 359px) {
@@ -19,39 +19,44 @@ export const FlowTitle = styled.header`
 
   h1 {
     margin: 0;
-    font-size: clamp(28px, 3.2vw, 44px);
-    line-height: 1.05;
-    letter-spacing: -0.03em;
-    font-weight: 900;
+    color: var(--text);
+    font-size: 32px;
+    line-height: 40px;
+    font-weight: 500;
+    letter-spacing: -0.4px;
   }
 
   p {
-    max-width: 720px;
-    margin: 8px 0 0;
+    margin: 4px 0 0;
     color: var(--muted);
     font-size: 14px;
-    line-height: 1.45;
+    line-height: 20px;
   }
 
   @media (max-width: 759px) {
-    margin: 4px 0 16px;
+    margin-bottom: 16px;
 
     h1 {
-      font-size: 22px;
+      font-size: 24px;
+      line-height: 30px;
     }
 
     p {
-      margin-top: 5px;
-      font-size: 10px;
+      font-size: 12px;
     }
   }
 `;
 
 export const CartDesktopLayout = styled.div`
   display: grid;
-  grid-template-columns: minmax(0, 820px) minmax(320px, 1fr);
-  gap: 42px;
+  grid-template-columns: minmax(0, 1fr) 440px;
+  gap: 48px;
   align-items: start;
+
+  > div:last-child {
+    display: grid;
+    gap: 14px;
+  }
 
   @media (max-width: 980px) {
     grid-template-columns: 1fr;
@@ -60,33 +65,34 @@ export const CartDesktopLayout = styled.div`
 `;
 
 export const FlowCard = styled.section`
-  border: 1px solid #e8e9ec;
-  border-radius: 18px;
+  border: 1px solid var(--line);
+  border-radius: 20px;
   background: #fff;
 `;
 
 export const CartLines = styled.div`
   display: grid;
-  gap: 8px;
+  gap: 16px;
 `;
 
 export const CartLine = styled.article<{ $hasImage?: boolean }>`
-  min-height: 86px;
-  padding: 10px 12px;
-  border: 1px solid #ececf0;
-  border-radius: 12px;
+  min-height: 96px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
   background: #fff;
   display: grid;
-  grid-template-columns: ${({ $hasImage }) => ($hasImage ? 'auto minmax(0, 1fr) auto' : 'minmax(0, 1fr) auto')};
-  gap: 12px;
+  grid-template-columns: ${({ $hasImage }) =>
+    $hasImage ? '64px minmax(0, 1fr) auto' : 'minmax(0, 1fr) auto'};
+  gap: 16px;
   align-items: center;
 
   .image {
-    width: 66px;
-    height: 66px;
+    width: 64px;
+    height: 64px;
     overflow: hidden;
-    border-radius: 10px;
-    background: var(--soft);
+    border-radius: 12px;
+    background: var(--background);
   }
 
   .image img {
@@ -98,17 +104,24 @@ export const CartLine = styled.article<{ $hasImage?: boolean }>`
   .info {
     min-width: 0;
     display: grid;
-    gap: 3px;
+    gap: 4px;
   }
 
   .info b {
-    font-size: 14px;
+    color: var(--text);
+    font-size: 15px;
+    line-height: 19px;
+    font-weight: 700;
   }
 
   .info small {
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
     color: var(--muted);
-    font-size: 10px;
-    line-height: 1.35;
+    font-size: 11px;
+    line-height: 15px;
   }
 
   .side {
@@ -118,8 +131,9 @@ export const CartLine = styled.article<{ $hasImage?: boolean }>`
   }
 
   .price {
-    font-size: 13px;
-    font-weight: 850;
+    color: var(--text);
+    font-size: 14px;
+    font-weight: 700;
     white-space: nowrap;
   }
 
@@ -127,50 +141,52 @@ export const CartLine = styled.article<{ $hasImage?: boolean }>`
     padding: 0;
     border: 0;
     background: transparent;
-    color: #97979e;
+    color: #9b9baa;
   }
 
   @media (max-width: 759px) {
-    min-height: 76px;
-    padding: 10px;
-    grid-template-columns: auto minmax(0, 1fr) auto;
-    gap: 10px;
+    min-height: 80px;
+    padding: 12px;
+    grid-template-columns: ${({ $hasImage }) =>
+      $hasImage ? '56px minmax(0, 1fr) auto' : 'minmax(0, 1fr) auto'};
+    gap: 12px;
 
     .image {
       width: 56px;
       height: 56px;
-      border-radius: 9px;
     }
 
     .info b {
-      font-size: 11px;
+      font-size: 14px;
     }
 
     .info small {
-      font-size: 8px;
+      font-size: 11px;
     }
 
     .price {
-      font-size: 10px;
+      font-size: 13px;
     }
   }
 `;
 
 export const QuantityControl = styled.div`
   width: max-content;
+  margin-top: 5px;
+  padding: 5px;
+  border-radius: 999px;
+  background: var(--background);
   display: inline-grid;
-  grid-template-columns: 26px 24px 26px;
-  border: 1px solid #e2e3e6;
-  border-radius: 8px;
-  overflow: hidden;
+  grid-template-columns: 20px 24px 20px;
+  align-items: center;
 
   button {
-    width: 26px;
-    height: 26px;
+    width: 20px;
+    height: 20px;
     padding: 0;
     border: 0;
-    background: #fff;
-    color: var(--primary);
+    background: transparent;
+    color: var(--text);
     display: grid;
     place-items: center;
   }
@@ -178,71 +194,74 @@ export const QuantityControl = styled.div`
   span {
     display: grid;
     place-items: center;
-    font-size: 9px;
-    font-weight: 850;
+    color: var(--text);
+    font-size: 12px;
+    font-weight: 700;
   }
 `;
 
 export const AddMoreButton = styled.button`
   width: 100%;
-  min-height: 46px;
-  margin-top: 18px;
-  border: 1px solid #e2e3e6;
-  border-radius: 11px;
-  background: #fff;
+  min-height: 48px;
+  margin-top: 16px;
+  border: 1px dashed var(--primary);
+  border-radius: 14px;
+  background: transparent;
   color: var(--primary);
-  font-size: 12px;
-  font-weight: 850;
+  font-size: 13px;
+  font-weight: 700;
 `;
 
 export const SummaryCard = styled(FlowCard)`
-  padding: 20px;
+  padding: 24px;
   display: grid;
-  gap: 12px;
+  gap: 16px;
 
   .row {
     display: flex;
     align-items: baseline;
     justify-content: space-between;
     gap: 16px;
-    color: #5f616a;
+    color: var(--muted);
     font-size: 13px;
   }
 
   .row strong {
-    color: #161616;
+    color: var(--text);
+    font-weight: 500;
   }
 
   .divider {
     height: 1px;
-    background: #ececf0;
+    background: var(--line);
   }
 
   .total {
-    color: #111;
-    font-size: 16px;
-    font-weight: 850;
+    color: var(--text);
+    font-size: 18px;
+    font-weight: 700;
   }
 
   .total strong {
     color: var(--primary);
-    font-size: 23px;
+    font-size: 24px;
+    font-weight: 700;
   }
 
   @media (max-width: 759px) {
     padding: 16px;
-    border-radius: 13px;
+    border-radius: 18px;
 
     .row {
-      font-size: 10px;
+      font-size: 13px;
     }
 
     .total {
-      font-size: 12px;
+      font-size: 16px;
     }
 
     .total strong {
-      font-size: 18px;
+      font-size: 21px;
     }
   }
 `;
@@ -252,121 +271,145 @@ export const PrimaryAction = styled.button`
   min-height: 52px;
   padding: 0 18px;
   border: 0;
-  border-radius: 12px;
+  border-radius: 16px;
   background: var(--primary);
   color: #fff;
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
-  font-size: 13px;
-  font-weight: 900;
+  box-shadow: 0 4px 6px color-mix(in srgb, var(--primary) 13%, transparent);
+  font-size: 15px;
+  font-weight: 700;
 
   &:disabled {
-    cursor: not-allowed;
-    opacity: 0.52;
+    opacity: 0.5;
   }
 
   @media (max-width: 759px) {
-    min-height: 54px;
-    font-size: 12px;
+    min-height: 48px;
+    font-size: 14px;
   }
 `;
 
 export const SecondaryAction = styled.button`
   width: 100%;
-  min-height: 52px;
+  min-height: 50px;
   padding: 0 18px;
-  border: 1px solid #dfe0e4;
-  border-radius: 12px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
   background: #fff;
-  color: #171717;
+  color: var(--text);
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
-  font-size: 13px;
-  font-weight: 850;
+  font-size: 14px;
+  font-weight: 700;
 
   &:disabled {
-    cursor: not-allowed;
-    opacity: 0.52;
+    opacity: 0.5;
   }
 `;
 
 export const HelperText = styled.p`
-  margin: 12px 0 0;
+  margin: 0;
   color: var(--muted);
   font-size: 11px;
-  line-height: 1.4;
+  line-height: 16px;
   text-align: center;
+`;
+
+export const ConfirmationCard = styled(FlowCard)`
+  width: min(640px, 100%);
+  margin: 16px auto 0;
+  padding: 48px;
+  display: grid;
+  gap: 24px;
+  box-shadow: 0 12px 16px rgba(0, 0, 0, 0.04);
+
+  @media (max-width: 759px) {
+    margin-top: 0;
+    padding: 24px 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+    gap: 20px;
+  }
 `;
 
 export const SuccessHero = styled.section`
   display: grid;
   justify-items: center;
   text-align: center;
-  gap: 10px;
-  padding: 10px 0 22px;
+  gap: 8px;
 
   .ring {
-    width: 112px;
-    height: 112px;
-    border-radius: 50%;
-    background: color-mix(in srgb, var(--primary) 7%, #fff);
+    width: 96px;
+    height: 96px;
+    border-radius: 48px;
+    background: #ecfdf5;
     display: grid;
     place-items: center;
   }
 
   .check {
-    width: 58px;
-    height: 58px;
-    border-radius: 50%;
-    background: #25ad53;
+    width: 56px;
+    height: 56px;
+    border-radius: 28px;
+    background: #10b981;
     color: #fff;
     display: grid;
     place-items: center;
   }
 
   h1 {
-    margin: 2px 0 0;
-    font-size: 28px;
-    font-weight: 900;
+    margin: 10px 0 0;
+    color: var(--text);
+    font-size: 36px;
+    line-height: 42px;
+    font-weight: 500;
   }
 
   p {
+    max-width: 520px;
     margin: 0;
     color: var(--muted);
-    font-size: 13px;
+    font-size: 15px;
+    line-height: 21px;
   }
 
   @media (max-width: 759px) {
-    padding-top: 12px;
-
     .ring {
-      width: 100px;
-      height: 100px;
+      width: 80px;
+      height: 80px;
     }
 
     .check {
-      width: 50px;
-      height: 50px;
+      width: 48px;
+      height: 48px;
     }
 
     h1 {
-      font-size: 22px;
+      margin-top: 6px;
+      font-size: 28px;
+      line-height: 34px;
     }
 
     p {
-      max-width: 310px;
-      font-size: 10px;
+      max-width: 300px;
+      font-size: 13px;
+      line-height: 18px;
     }
   }
 `;
 
 export const OrderSummaryBar = styled(FlowCard)`
-  min-height: 72px;
-  padding: 14px 18px;
+  min-height: 56px;
+  padding: 16px 18px;
+  border-radius: 14px;
+  background: var(--background);
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -374,303 +417,248 @@ export const OrderSummaryBar = styled(FlowCard)`
 
   .label {
     display: grid;
-    gap: 4px;
+    gap: 2px;
   }
 
   small {
     color: var(--muted);
-    font-size: 11px;
+    font-size: 12px;
+    font-weight: 700;
   }
 
   strong {
-    font-size: 21px;
+    color: var(--text);
+    font-size: 13px;
   }
 
   .amount {
-    color: var(--primary);
-    font-size: 22px;
-    font-weight: 900;
+    color: var(--text);
+    font-size: 16px;
+    font-weight: 500;
   }
 
   @media (max-width: 759px) {
-    min-height: 58px;
-    padding: 12px 16px;
-    border-radius: 12px;
-
-    small {
-      font-size: 9px;
-    }
+    background: #fff;
 
     strong {
-      font-size: 12px;
+      display: none;
     }
 
     .amount {
-      font-size: 16px;
+      font-size: 14px;
     }
   }
 `;
 
 export const TimelineCard = styled(FlowCard)`
   padding: 20px;
-
-  @media (max-width: 759px) {
-    padding: 16px;
-    border-radius: 13px;
-  }
+  border-radius: 18px;
 `;
 
 export const Timeline = styled.div`
   display: grid;
+  gap: 16px;
 `;
 
 export const TimelineStep = styled.div<{ $active: boolean; $current?: boolean }>`
   position: relative;
-  min-height: 64px;
+  min-height: 28px;
   display: grid;
-  grid-template-columns: 34px minmax(0, 1fr);
+  grid-template-columns: 28px minmax(0, 1fr);
   gap: 14px;
   align-items: start;
+  opacity: ${({ $active, $current }) => ($active || $current ? 1 : 0.4)};
 
   &:not(:last-child)::after {
     content: '';
     position: absolute;
-    left: 16px;
-    top: 34px;
+    left: 13px;
+    top: 28px;
     width: 2px;
-    height: 31px;
-    background: ${({ $active }) => ($active ? 'var(--primary)' : '#e2e3e6')};
+    height: 18px;
+    background: ${({ $active }) => ($active ? 'var(--primary)' : 'var(--line)')};
   }
 
   .dot {
     position: relative;
     z-index: 1;
-    width: 34px;
-    height: 34px;
-    border: 2px solid ${({ $active }) => ($active ? 'var(--primary)' : '#dfe0e4')};
-    border-radius: 50%;
-    background: ${({ $active }) => ($active ? 'var(--primary)' : '#fff')};
-    color: ${({ $active }) => ($active ? '#fff' : '#999ba3')};
+    width: 28px;
+    height: 28px;
+    border-radius: 14px;
+    background: ${({ $current }) => ($current ? 'color-mix(in srgb, var(--primary) 10%, #fff)' : '#fff')};
+    border: 1px solid ${({ $active }) => ($active ? 'var(--primary)' : 'var(--line)')};
+    color: ${({ $current, $active }) => ($current || $active ? 'var(--primary)' : 'var(--muted)')};
     display: grid;
     place-items: center;
-    font-size: 11px;
-    font-weight: 900;
+    font-size: 10px;
+    font-weight: 700;
   }
 
   .copy {
-    padding-top: 4px;
+    padding-top: 2px;
     display: grid;
-    gap: 4px;
+    gap: 2px;
   }
 
   b {
-    color: ${({ $active }) => ($active ? '#171717' : '#8d8f97')};
+    color: ${({ $current }) => ($current ? 'var(--primary)' : 'var(--text)')};
     font-size: 14px;
+    line-height: 18px;
   }
 
   p {
     margin: 0;
     color: var(--muted);
-    font-size: 11px;
-    line-height: 1.35;
+    font-size: 12px;
+    line-height: 16px;
   }
 
   @media (max-width: 759px) {
-    min-height: 44px;
     grid-template-columns: 24px minmax(0, 1fr);
     gap: 12px;
-
-    &:not(:last-child)::after {
-      left: 11px;
-      top: 24px;
-      height: 21px;
-    }
 
     .dot {
       width: 24px;
       height: 24px;
-      border-width: 1.5px;
-      font-size: 8px;
     }
 
-    .copy {
-      padding-top: 1px;
+    &:not(:last-child)::after {
+      left: 11px;
+      top: 24px;
     }
 
     b {
-      font-size: 10px;
+      font-size: 13px;
     }
 
     p {
-      font-size: 8px;
+      font-size: 11px;
     }
   }
 `;
 
 export const ConfirmationActions = styled.div`
-  width: min(620px, 100%);
-  margin: 28px auto 0;
+  width: 100%;
   display: grid;
-  gap: 12px;
-
-  @media (max-width: 759px) {
-    margin-top: 18px;
-  }
+  gap: 10px;
 `;
 
 export const TrackingLayout = styled.div`
   display: grid;
-  grid-template-columns: minmax(0, 680px) minmax(0, 604px);
-  gap: 52px;
+  grid-template-columns: minmax(0, 1fr) 440px;
+  gap: 48px;
   align-items: start;
 
-  @media (max-width: 1100px) {
+  > div:first-child {
+    display: grid;
+    gap: 24px;
+  }
+
+  @media (max-width: 980px) {
     grid-template-columns: 1fr;
-    gap: 20px;
+    gap: 24px;
   }
 `;
 
 export const StatusCard = styled(FlowCard)`
-  min-height: 152px;
-  padding: 24px;
+  padding: 20px;
+  border-color: var(--primary);
+  background: color-mix(in srgb, var(--primary) 8%, #fff);
   display: grid;
-  grid-template-columns: 64px minmax(0, 1fr);
-  gap: 18px;
-  align-items: center;
+  grid-template-columns: 12px minmax(0, 1fr);
+  gap: 10px;
+  align-items: start;
 
   .icon {
-    width: 64px;
-    height: 64px;
-    border-radius: 16px;
-    background: color-mix(in srgb, var(--primary) 8%, #fff);
-    color: var(--primary);
-    display: grid;
-    place-items: center;
+    width: 10px;
+    height: 10px;
+    margin-top: 5px;
+    border-radius: 5px;
+    background: var(--primary);
+    color: transparent;
   }
 
   h2 {
-    margin: 0 0 6px;
-    font-size: 24px;
+    margin: 0 0 8px;
+    color: var(--primary);
+    font-size: 16px;
+    line-height: 20px;
+    font-weight: 700;
   }
 
   p {
     margin: 0;
-    color: var(--muted);
-    font-size: 13px;
+    color: var(--text);
+    font-size: 14px;
+    line-height: 20px;
   }
 
-  @media (max-width: 759px) {
-    min-height: 114px;
-    padding: 18px;
-    grid-template-columns: 54px minmax(0, 1fr);
-    gap: 16px;
-    border-radius: 14px;
-
-    .icon {
-      width: 54px;
-      height: 54px;
-      border-radius: 14px;
-    }
-
-    h2 {
-      font-size: 18px;
-    }
-
-    p {
-      font-size: 10px;
-    }
+  .icon svg {
+    display: none;
   }
 `;
 
 export const OrderItemsCard = styled(FlowCard)`
-  padding: 28px;
+  padding: 24px;
+  display: grid;
+  gap: 16px;
 
   h2 {
-    margin: 0 0 20px;
-    font-size: 24px;
+    margin: 0 0 4px;
+    color: var(--text);
+    font-size: 32px;
+    line-height: 40px;
+    font-weight: 500;
   }
 
   @media (max-width: 759px) {
-    padding: 16px;
-    border-radius: 14px;
+    padding: 0;
+    border: 0;
+    background: transparent;
 
     h2 {
-      margin-bottom: 10px;
-      font-size: 18px;
+      font-size: 20px;
+      line-height: 25px;
     }
   }
 `;
 
 export const OrderItemLine = styled.article`
-  min-height: 86px;
+  min-height: 48px;
   padding: 12px;
-  border: 1px solid #ececf0;
+  border: 0;
   border-radius: 12px;
+  background: var(--background);
   display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  gap: 14px;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
   align-items: center;
-
-  & + & {
-    margin-top: 12px;
-  }
-
-  .image {
-    width: 62px;
-    height: 62px;
-    overflow: hidden;
-    border-radius: 10px;
-    background: var(--soft);
-  }
-
-  .image img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-  }
 
   .copy {
     min-width: 0;
-    display: grid;
-    gap: 3px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
   }
 
   b {
+    color: var(--text);
     font-size: 14px;
+    font-weight: 500;
   }
 
   small {
     color: var(--muted);
-    font-size: 10px;
-    line-height: 1.35;
+    font-size: 11px;
   }
 
   strong {
-    font-size: 13px;
+    color: var(--text);
+    font-size: 14px;
     white-space: nowrap;
   }
 
   @media (max-width: 759px) {
-    min-height: 76px;
-    padding: 10px;
-    gap: 10px;
-
-    .image {
-      width: 56px;
-      height: 56px;
-    }
-
-    b {
-      font-size: 11px;
-    }
-
-    small {
-      font-size: 8px;
-    }
-
-    strong {
-      font-size: 10px;
-    }
+    background: #fff;
   }
 `;
-
