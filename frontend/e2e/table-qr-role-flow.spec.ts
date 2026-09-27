@@ -718,7 +718,7 @@ test('admin controla o QR, garçom apenas opera a mesa e cozinha recebe Mesa 1',
     settlementMode: 'TABLE_ACCOUNT',
   });
   expect(state.orderPayload).not.toHaveProperty('paymentMethod');
-  await expect(page.getByRole('heading', { name: 'Pedido confirmado' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Pedido enviado!' })).toBeVisible();
   await expect(page.getByText(`Mesa ${TABLE_NUMBER}`, { exact: false }).first()).toBeVisible();
   await expect(page.getByRole('button', { name: /Confirmar recebimento/i })).toHaveCount(0);
   await expect(page.getByRole('button', { name: /Acompanhar entrega no GPS/i })).toHaveCount(0);
@@ -759,7 +759,7 @@ test('cliente pode pagar agora com PIX ou acompanhar para pagar depois', async (
 
   await expect(page.getByRole('button', { name: /Favoritar/i })).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Minha conta', exact: true })).toHaveCount(0);
-  await expect(page.getByRole('button', { name: 'Chamar garçom' })).toBeVisible();
+  await expect(page.getByRole('button', { name: /Garçom/u })).toBeVisible();
   await expect(page.getByRole('button', { name: /Ver e pagar a conta/u })).toHaveCount(0);
   await expect(page.getByText('Veja seu consumo e pague quando quiser')).toHaveCount(0);
 
@@ -778,10 +778,10 @@ test('cliente pode pagar agora com PIX ou acompanhar para pagar depois', async (
   expect(state.orderPayload).not.toHaveProperty('paymentMethod');
   expect(state.tablePaymentPayload).toBeNull();
 
-  await expect(page.getByRole('heading', { name: 'Pedido confirmado' })).toBeVisible();
-  await expect(page.getByText(product.name)).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Pedido enviado!' })).toBeVisible();
+  await expect(page.getByText('1 item', { exact: false })).toBeVisible();
 
-  const payButton = page.getByRole('button', { name: /Pagar com PIX agora/i });
+  const payButton = page.getByRole('button', { name: 'Pagar agora', exact: true });
   await expect(payButton).toBeVisible();
   for (const width of [320, 390, 1280]) {
     await page.setViewportSize({ width, height: 844 });
@@ -794,6 +794,8 @@ test('cliente pode pagar agora com PIX ou acompanhar para pagar depois', async (
   await page.setViewportSize({ width: 390, height: 844 });
   await page.screenshot({ path: '../artifacts/table-payment-choice-mobile.png', fullPage: true });
   await payButton.click();
+  await expect(page.getByRole('heading', { name: 'Como você prefere pagar?' })).toBeVisible();
+  await page.getByRole('button', { name: 'Continuar com PIX' }).click();
 
   await expect.poll(() => state.tablePaymentPayload).not.toBeNull();
   expect(state.tablePaymentPayload).toMatchObject({
@@ -802,16 +804,16 @@ test('cliente pode pagar agora com PIX ou acompanhar para pagar depois', async (
     includeOptionalServiceFee: false,
   });
   expect(state.tablePaymentIdempotencyKey).toBeTruthy();
-  await expect(page.getByRole('heading', { name: 'Pagar com PIX' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Aguardando pagamento' })).toBeVisible();
   await expect(page.getByLabel('QR Code PIX')).toBeVisible();
   expect(state.tablePaymentCreations).toBe(1);
 
   state.tablePaymentStatus = 'PAID';
-  await expect(page.getByRole('heading', { name: 'Pix confirmado!' })).toBeVisible({
+  await expect(page.getByRole('heading', { name: 'Pagamento confirmado!' })).toBeVisible({
     timeout: 12_000,
   });
-  await page.getByRole('button', { name: 'Concluir' }).click();
-  await expect(page.getByRole('heading', { name: 'Pix confirmado!' })).toHaveCount(0);
+  await page.getByRole('button', { name: 'Acompanhar pedido' }).click();
+  await expect(page.getByRole('heading', { name: 'Pagamento confirmado!' })).toHaveCount(0);
   await expect(page).not.toHaveURL(/\/login/u);
 });
 
