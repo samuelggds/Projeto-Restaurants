@@ -62,7 +62,7 @@ export const Page = styled.div<{ $embedded: boolean }>`
       display: grid;
       place-items: center;
       padding: clamp(20px, 5vw, 56px) 20px;
-      background: radial-gradient(ellipse at 50% 0%, #e7ede4 0, transparent 65%), #f5f3ee;
+      background: #f7f7f7;
 
       @media (max-width: 540px) {
         padding: 20px 12px calc(20px + env(safe-area-inset-bottom));
@@ -76,10 +76,10 @@ export const Panel = styled.section<{ $embedded: boolean }>`
   margin-inline: auto;
   overflow: hidden;
   border: 1px solid #e1e5de;
-  border-radius: 24px;
+  border-radius: 18px;
   background: #fffefa;
   box-shadow: ${({ $embedded }) =>
-    $embedded ? 'none' : '0 24px 70px -24px rgba(37, 52, 40, 0.24)'};
+    $embedded ? 'none' : '0 18px 54px -20px rgba(20, 20, 20, 0.18)'};
 `;
 
 export const Header = styled.header`
@@ -87,7 +87,7 @@ export const Header = styled.header`
   align-items: center;
   gap: 11px;
   padding: 20px clamp(20px, 5vw, 36px);
-  border-bottom: 1px solid #eceee7;
+  border-bottom: 1px solid #eeeeee;
 
   > span {
     display: grid;
