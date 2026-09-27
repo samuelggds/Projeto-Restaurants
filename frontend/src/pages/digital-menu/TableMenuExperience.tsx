@@ -351,72 +351,78 @@ export default function TableMenuExperience({
   }
 
   if (effectiveView === 'tracking') {
+    const progress = tableOrder?.progress || 0;
+    const progressSteps = ['Pedido recebido', 'Em preparo', 'Pronto', 'Entregue na mesa'];
+
     return (
       <S.Shell $primary={primary}>
-        <Header
-          data={data}
-          tableLabel={tableLabel}
-          cartCount={cartCount}
-          query={query}
-          setQuery={setQuery}
-          onCart={() => {
-            onReviewCartClose?.();
-            setView('cart');
-          }}
-          onOpenTableAccount={onOpenTableAccount}
-          onCallWaiter={onCallWaiter}
-        />
-        <S.Page>
-          <S.BackButton
+        <S.TrackingReferenceHeader>
+          <button
             type="button"
+            aria-label="Voltar ao cardápio"
             onClick={() => {
               onReviewCartClose?.();
               setView('menu');
             }}
           >
-            <ArrowLeft size={18} /> Voltar ao cardápio
-          </S.BackButton>
-          <S.TrackingHeading>
-            <div>
-              <small>ACOMPANHAMENTO DO PEDIDO</small>
-              <h1>Acompanhe seu pedido</h1>
-              <p>
-                {tableOrder ? `Pedido #${tableOrder.publicId} · Mesa ${tableLabel}` : `Mesa ${tableLabel}`}
-              </p>
-            </div>
-          </S.TrackingHeading>
-          <S.ProgressRow>
-            {['Pedido recebido', 'Em preparo', 'Pronto', 'Entregue na mesa'].map((label, index) => {
-              const progress = tableOrder?.progress || 0;
+            <ArrowLeft size={18} />
+          </button>
+
+          <S.CartReferenceBrand>
+            {data.brand.logoUrl ? (
+              <img src={data.brand.logoUrl} alt={data.brand.name} />
+            ) : (
+              <S.BrandMark />
+            )}
+            <b>{data.brand.name}</b>
+          </S.CartReferenceBrand>
+
+          <div className="actions">
+            <button type="button" aria-label="Meu pedido" onClick={() => setView('cart')}>
+              <ShoppingCart size={19} />
+              {cartCount > 0 ? <i>{cartCount}</i> : null}
+            </button>
+          </div>
+        </S.TrackingReferenceHeader>
+
+        <S.TrackingReferencePage>
+          <S.TrackingReferenceTitle>
+            <h1>Acompanhe seu pedido</h1>
+            <p>
+              {tableOrder
+                ? `Pedido #${tableOrder.publicId} · Mesa ${tableLabel}`
+                : `Mesa ${tableLabel}`}
+            </p>
+          </S.TrackingReferenceTitle>
+
+          <S.TrackingReferenceProgress>
+            {progressSteps.map((label, index) => {
+              const stepNumber = index + 1;
+              const active = progress >= stepNumber;
               return (
-                <S.ProgressStep key={label} $active={progress >= index + 1}>
-                  <span>{progress > index ? <Check size={18} /> : index + 1}</span>
+                <S.TrackingReferenceStep key={label} $active={active}>
+                  <span>{progress > index ? <Check size={14} /> : stepNumber}</span>
                   <b>{label}</b>
-                </S.ProgressStep>
+                </S.TrackingReferenceStep>
               );
             })}
-          </S.ProgressRow>
-          <S.TrackingGrid>
-            <S.StatusPanel>
-              <Utensils />
-              <div>
-                <h2>{tableOrder?.statusLabel || 'Aguardando atualização'}</h2>
-                <p>{tableOrder?.summary || 'Seu pedido aparecerá aqui assim que for confirmado.'}</p>
-              </div>
-            </S.StatusPanel>
-            <S.WaiterPanel>
-              <BellRing />
-              <div>
-                <h3>Precisa de algo?</h3>
-                <p>Chame o garçom da sua mesa sem precisar sair do cardápio.</p>
-                <S.PrimaryButton type="button" onClick={onCallWaiter}>
-                  Chamar garçom
-                </S.PrimaryButton>
-              </div>
-            </S.WaiterPanel>
-          </S.TrackingGrid>
+          </S.TrackingReferenceProgress>
+
+          <S.TrackingReferenceStatus>
+            <div className="icon">
+              <Utensils size={24} />
+            </div>
+            <div>
+              <h2>{tableOrder?.statusLabel || 'Aguardando atualização'}</h2>
+              <p>
+                {tableOrder?.summary ||
+                  'O status será atualizado automaticamente quando houver uma nova etapa.'}
+              </p>
+            </div>
+          </S.TrackingReferenceStatus>
+
           {tableOrder?.items?.length ? (
-            <S.OrderItems>
+            <S.TrackingReferenceItems>
               <h2>Itens do pedido</h2>
               {tableOrder.items.map((item, index) => (
                 <article key={`${item.name}-${index}`}>
@@ -427,9 +433,20 @@ export default function TableMenuExperience({
                   <strong>{item.quantity}x</strong>
                 </article>
               ))}
-            </S.OrderItems>
+            </S.TrackingReferenceItems>
           ) : null}
-        </S.Page>
+
+          <S.TrackingReferenceWaiter>
+            <BellRing size={21} />
+            <div>
+              <h3>Precisa de algo?</h3>
+              <p>Chame o garçom da sua mesa sem sair do cardápio.</p>
+              <button type="button" aria-label="Chamar garçom" onClick={onCallWaiter}>
+                Chamar garçom
+              </button>
+            </div>
+          </S.TrackingReferenceWaiter>
+        </S.TrackingReferencePage>
       </S.Shell>
     );
   }
