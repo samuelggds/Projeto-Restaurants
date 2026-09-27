@@ -35,6 +35,42 @@ function formatFooterAddress(restaurant: Record<string, unknown>) {
     .join(' • ');
 }
 
+const CATEGORY_IMAGES: Record<string, string> = {
+  pizza:
+    'https://images.unsplash.com/photo-1574071318508-1cdbab80d002?auto=format&fit=crop&w=800&q=80',
+  burger:
+    'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?auto=format&fit=crop&w=800&q=80',
+  hamburguer:
+    'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?auto=format&fit=crop&w=800&q=80',
+  lanche:
+    'https://images.unsplash.com/photo-1561626423-a51b45aef0a1?auto=format&fit=crop&w=800&q=80',
+  frango:
+    'https://images.unsplash.com/photo-1598515214211-89d3c73ae83b?auto=format&fit=crop&w=800&q=80',
+  carne:
+    'https://images.unsplash.com/photo-1558030006-450675393462?auto=format&fit=crop&w=800&q=80',
+  massa:
+    'https://images.unsplash.com/photo-1473093295043-cdd812d0e601?auto=format&fit=crop&w=800&q=80',
+  salada:
+    'https://images.unsplash.com/photo-1540420773420-3366772f4999?auto=format&fit=crop&w=800&q=80',
+  sobremesa:
+    'https://images.unsplash.com/photo-1563729784474-d77dbb933a9e?auto=format&fit=crop&w=800&q=80',
+  bebida:
+    'https://images.unsplash.com/photo-1544145945-f90425340c7e?auto=format&fit=crop&w=800&q=80',
+  cerveja:
+    'https://images.unsplash.com/photo-1608270586620-248524c67de9?auto=format&fit=crop&w=800&q=80',
+  combo:
+    'https://images.unsplash.com/photo-1571091718767-18b5b1457add?auto=format&fit=crop&w=800&q=80',
+  acompanhamento:
+    'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=800&q=80',
+};
+
+const PRODUCT_FALLBACKS = [
+  'https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&fit=crop&w=600&q=80',
+  'https://images.unsplash.com/photo-1565958011703-44f9829ba187?auto=format&fit=crop&w=600&q=80',
+  'https://images.unsplash.com/photo-1540189549336-e6e99c3679fe?auto=format&fit=crop&w=600&q=80',
+  'https://images.unsplash.com/photo-1555939594-58d7cb561ad1?auto=format&fit=crop&w=600&q=80',
+];
+
 export function mapProductOptionGroupsFromApi(product: Record<string, unknown>) {
   if (!Array.isArray(product.optionGroups)) return [];
   return product.optionGroups
@@ -108,8 +144,21 @@ export function mapProductOptionGroupsFromApi(product: Record<string, unknown>) 
     .filter((group) => group.id && group.options.length > 0);
 }
 
-export function resolveProductImage(product: Record<string, unknown>, _index: number): string {
-  return isPersistentImageSource(product.image) ? String(product.image).trim() : '';
+export function resolveProductImage(
+  product: Record<string, unknown>,
+  index: number,
+  allowFallback = true,
+): string {
+  if (isPersistentImageSource(product.image)) return String(product.image).trim();
+  if (!allowFallback) return '';
+  const terms = [product.name, product.description, (product.category as { name?: string })?.name]
+    .filter(Boolean)
+    .join(' ')
+    .toLowerCase();
+  for (const [keyword, url] of Object.entries(CATEGORY_IMAGES)) {
+    if (terms.includes(keyword)) return url;
+  }
+  return PRODUCT_FALLBACKS[index % PRODUCT_FALLBACKS.length];
 }
 
 function asRecord(value: unknown): Record<string, unknown> {
@@ -207,7 +256,9 @@ export function buildHomeData(
   productsFromApi: Record<string, unknown>[],
   settings: Record<string, unknown> | null,
   date = new Date(),
+  options: { allowImageFallbacks?: boolean } = {},
 ): HomeData {
+  const allowImageFallbacks = options.allowImageFallbacks !== false;
   const restaurant = (settings?.restaurant as Record<string, unknown>) ?? {};
   const persistedBanners = Array.isArray(restaurant.banners)
     ? (restaurant.banners as Record<string, unknown>[])
@@ -260,7 +311,7 @@ export function buildHomeData(
       price: pricing.effectiveBasePrice,
       originalPrice: pricing.originalBasePrice,
       promotion: pricing.promotion,
-      image: resolveProductImage(product, index),
+      image: resolveProductImage(product, index, allowImageFallbacks),
       rating: Number(product.averageRating || 0),
       stock: product.stock === null || product.stock === undefined ? null : Number(product.stock),
       available: !isProductUnavailable(product),
@@ -373,7 +424,7 @@ export function buildHomeData(
         const name = String((product.category as { name?: string })?.name || '');
         if (!name || seen.has(name)) return null;
         seen.add(name);
-        return { id: name, name, image: resolveProductImage(product, 0) };
+        return { id: name, name, image: resolveProductImage(product, 0, allowImageFallbacks) };
       })
       .filter(Boolean) as HomeCategory[]),
   ];
