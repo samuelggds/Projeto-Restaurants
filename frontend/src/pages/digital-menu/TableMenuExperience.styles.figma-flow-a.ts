@@ -48,18 +48,30 @@ export const FlowTitle = styled.header`
     p {
       font-size: 12px;
     }
+
+    &.cart-title p {
+      display: none;
+    }
   }
 `;
 
 export const CartDesktopLayout = styled.div`
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 440px;
+  grid-template-columns: minmax(0, 1fr) 420px;
   gap: 48px;
   align-items: start;
 
   > div:last-child {
     display: grid;
     gap: 14px;
+  }
+
+  .cart-summary-column > h2 {
+    margin: 0;
+    color: var(--text);
+    font-size: 24px;
+    line-height: 30px;
+    font-weight: 400;
   }
 
   @media (max-width: 980px) {
@@ -137,15 +149,9 @@ export const CartLine = styled.article<{ $hasImage?: boolean }>`
   .price {
     color: var(--text);
     font-size: 14px;
+    line-height: 18px;
     font-weight: 700;
     white-space: nowrap;
-  }
-
-  .remove {
-    padding: 0;
-    border: 0;
-    background: transparent;
-    color: #9b9baa;
   }
 
   @media (max-width: 759px) {
@@ -176,17 +182,17 @@ export const CartLine = styled.article<{ $hasImage?: boolean }>`
 
 export const QuantityControl = styled.div`
   width: max-content;
-  margin-top: 5px;
-  padding: 5px;
+  padding: 8px;
   border-radius: 999px;
   background: var(--background);
   display: inline-grid;
-  grid-template-columns: 20px 24px 20px;
+  grid-template-columns: 10px 12px 10px;
+  gap: 16px;
   align-items: center;
 
   button {
-    width: 20px;
-    height: 20px;
+    width: 10px;
+    height: 10px;
     padding: 0;
     border: 0;
     background: transparent;
@@ -202,6 +208,11 @@ export const QuantityControl = styled.div`
     font-size: 12px;
     font-weight: 700;
   }
+
+  @media (max-width: 759px) {
+    padding: 6px;
+    gap: 12px;
+  }
 `;
 
 export const AddMoreButton = styled.button`
@@ -214,6 +225,49 @@ export const AddMoreButton = styled.button`
   color: var(--primary);
   font-size: 13px;
   font-weight: 700;
+`;
+
+export const CouponRow = styled.div`
+  width: 100%;
+  min-height: 50px;
+  padding: 10px 12px 10px 14px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: #fff;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+
+  input {
+    min-width: 0;
+    border: 0;
+    outline: 0;
+    background: transparent;
+    color: var(--text);
+    font-size: 13px;
+  }
+
+  input::placeholder {
+    color: var(--muted);
+    opacity: 1;
+  }
+
+  button {
+    min-width: 68px;
+    min-height: 30px;
+    padding: 0 14px;
+    border: 0;
+    border-radius: 8px;
+    background: var(--text);
+    color: #fff;
+    font-size: 11px;
+    font-weight: 700;
+  }
+
+  button:disabled {
+    opacity: 0.45;
+  }
 `;
 
 export const SummaryCard = styled(FlowCard)`
@@ -250,6 +304,11 @@ export const SummaryCard = styled(FlowCard)`
     color: var(--primary);
     font-size: 24px;
     font-weight: 700;
+  }
+
+  .discount,
+  .discount strong {
+    color: #10b981;
   }
 
   @media (max-width: 759px) {
