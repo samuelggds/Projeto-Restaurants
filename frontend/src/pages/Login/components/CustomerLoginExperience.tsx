@@ -59,8 +59,10 @@ export function CustomerLoginExperience({
   onResendVerification,
 }: Props) {
   const [heroLoaded, setHeroLoaded] = useState(false);
+  const [heroFailed, setHeroFailed] = useState(false);
   const [markLoaded, setMarkLoaded] = useState(false);
-  const heroImage = branding.coverUrl || branding.logoUrl;
+  const [markFailed, setMarkFailed] = useState(false);
+  const heroImage = branding.coverUrl;
   const markImage = branding.markUrl;
   const initials = branding.name.trim().slice(0, 1).toUpperCase() || 'G';
   const style = {
@@ -75,7 +77,7 @@ export function CustomerLoginExperience({
       data-restaurant-category={branding.category}
     >
       <S.Hero data-testid="login-cover">
-        {heroImage ? (
+        {heroImage && !heroFailed ? (
           <>
             {!heroLoaded ? <S.HeroSkeleton aria-hidden="true" /> : null}
             <S.HeroImage
@@ -85,27 +87,33 @@ export function CustomerLoginExperience({
               aria-hidden="true"
               style={{ '--hero-image-opacity': heroLoaded ? 1 : 0 } as CSSProperties}
               onLoad={() => setHeroLoaded(true)}
-              onError={() => setHeroLoaded(false)}
+              onError={() => {
+                setHeroLoaded(false);
+                setHeroFailed(true);
+              }}
               loading="eager"
               fetchPriority="high"
               decoding="async"
               draggable="false"
             />
           </>
-        ) : (
-          <S.HeroSkeleton aria-hidden="true" />
-        )}
+        ) : null}
         <S.HeroOverlay />
         <S.HeroBranding data-testid="login-hero-content" data-category={branding.category}>
           <S.RestaurantMark aria-label={branding.name}>
-            {markImage && !markLoaded ? <span className="logo-skeleton" aria-hidden="true" /> : null}
-            {markImage ? (
+            {markImage && !markFailed && !markLoaded ? (
+              <span className="logo-skeleton" aria-hidden="true" />
+            ) : null}
+            {markImage && !markFailed ? (
               <img
                 src={markImage}
                 alt=""
                 aria-hidden="true"
                 onLoad={() => setMarkLoaded(true)}
-                onError={() => setMarkLoaded(false)}
+                onError={() => {
+                  setMarkLoaded(false);
+                  setMarkFailed(true);
+                }}
               />
             ) : (
               <span>{initials}</span>
@@ -124,8 +132,8 @@ export function CustomerLoginExperience({
         </S.HeroBranding>
       </S.Hero>
 
-      <S.FormPanel data-testid="login-form-section">
-        <S.FormCard data-testid="login-card">
+      <S.FormPanel data-testid="login-card" data-form-section="login-form-section">
+        <S.FormCard>
           <S.HeadingGroup>
             <h2>Bem-vindo de volta!</h2>
             <p>Acesse sua conta para continuar no {branding.name}.</p>
