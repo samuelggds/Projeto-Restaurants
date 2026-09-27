@@ -37,7 +37,6 @@ type SubmitResult = {
 
 type Props = {
   data: HomeData;
-  tableLabel: string | number;
   cart: CartItem[];
   cartCount: number;
   cartTotal: number;
@@ -54,7 +53,6 @@ type Props = {
   onCreatePixPayment: (orderPublicId: string) => Promise<TablePaymentIntent | null>;
   onReconcilePayment: (paymentPublicId: string) => Promise<TablePaymentIntent | null>;
   onCancelPayment: (paymentPublicId: string) => Promise<boolean>;
-  onOpenTableAccount: () => void;
   reviewCartOpen?: boolean;
   onReviewCartClose?: () => void;
 };
@@ -66,7 +64,6 @@ const brl = (value: number) =>
 
 export default function TableMenuExperience({
   data,
-  tableLabel,
   cart,
   cartCount,
   cartTotal,
@@ -83,7 +80,6 @@ export default function TableMenuExperience({
   onCreatePixPayment,
   onReconcilePayment,
   onCancelPayment,
-  onOpenTableAccount,
   reviewCartOpen = false,
   onReviewCartClose,
 }: Props) {
@@ -714,14 +710,12 @@ export default function TableMenuExperience({
     <S.Shell $primary={primary}>
       <HomeHeader
         data={data}
-        tableLabel={tableLabel}
         cartCount={cartCount}
         searchOpen={homeSearchOpen}
         query={query}
         setQuery={setQuery}
         onSearchToggle={() => setHomeSearchOpen((open) => !open)}
         onCart={() => setView('cart')}
-        onOpenTableAccount={onOpenTableAccount}
         onCallWaiter={onCallWaiter}
       />
       <S.HomePage>
@@ -1014,7 +1008,6 @@ function HomeHeader({
   setQuery,
   onSearchToggle,
   onCart,
-  onOpenTableAccount,
   onCallWaiter,
 }: {
   data: HomeData;
@@ -1025,7 +1018,6 @@ function HomeHeader({
   setQuery: (value: string) => void;
   onSearchToggle: () => void;
   onCart: () => void;
-  onOpenTableAccount: () => void;
   onCallWaiter: () => void;
 }) {
   return (
@@ -1041,13 +1033,6 @@ function HomeHeader({
       <S.HomeHeaderActions>
         <button type="button" aria-label="Buscar no cardápio" onClick={onSearchToggle}>
           <Search size={18} />
-        </button>
-        <button
-          type="button"
-          aria-label={`Abrir minha comanda da mesa ${tableLabel}`}
-          onClick={onOpenTableAccount}
-        >
-          <Utensils size={18} />
         </button>
         <button type="button" aria-label="Chamar garçom" onClick={onCallWaiter}>
           <BellRing size={18} />
@@ -1105,7 +1090,6 @@ function Header({
   query,
   setQuery,
   onCart,
-  onOpenTableAccount,
   onCallWaiter,
 }: {
   data: HomeData;
@@ -1114,7 +1098,6 @@ function Header({
   query: string;
   setQuery: (value: string) => void;
   onCart: () => void;
-  onOpenTableAccount: () => void;
   onCallWaiter: () => void;
 }) {
   return (
@@ -1127,18 +1110,10 @@ function Header({
         </span>
       </S.Brand>
       <S.TableActions>
-        <S.TableBadge
-          as="button"
-          type="button"
-          onClick={onOpenTableAccount}
-          aria-label={`Abrir minha comanda da mesa ${tableLabel}`}
-        >
+        <S.TableBadge aria-label={`Mesa ${Number(tableLabel) || tableLabel}`}>
           <Utensils size={17} />
           Mesa {tableLabel}
-          <span
-            className="table-accessible-number"
-            aria-label={`Mesa ${Number(tableLabel) || tableLabel}`}
-          >
+          <span className="table-accessible-number">
             {String(tableLabel).padStart(2, '0')}
           </span>
         </S.TableBadge>
