@@ -419,6 +419,7 @@ async function recoverCustomerPassword(page: Page) {
 }
 
 async function addConfiguredProduct(page: Page) {
+  await page.getByRole('button', { name: 'Cardápio', exact: true }).click();
   await expect(page.getByText(product.name).first()).toBeVisible();
   await page.getByRole('button', { name: `Ver detalhes de ${product.name}` }).click();
   const dialog = page.getByRole('dialog', { name: `Montar ${product.name}` });
