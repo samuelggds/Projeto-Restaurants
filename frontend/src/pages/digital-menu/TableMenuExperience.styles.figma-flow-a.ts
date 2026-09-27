@@ -70,14 +70,14 @@ export const CartLines = styled.div`
   gap: 8px;
 `;
 
-export const CartLine = styled.article`
+export const CartLine = styled.article<{ $hasImage?: boolean }>`
   min-height: 86px;
   padding: 10px 12px;
   border: 1px solid #ececf0;
   border-radius: 12px;
   background: #fff;
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-columns: ${({ $hasImage }) => ($hasImage ? 'auto minmax(0, 1fr) auto' : 'minmax(0, 1fr) auto')};
   gap: 12px;
   align-items: center;
 
@@ -607,7 +607,7 @@ export const OrderItemLine = styled.article`
   border: 1px solid #ececf0;
   border-radius: 12px;
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr);
   gap: 14px;
   align-items: center;
 
