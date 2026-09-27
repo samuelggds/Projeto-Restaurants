@@ -5,6 +5,10 @@ export const FlowPage = styled.section`
   margin: 0 auto;
   padding: 48px 80px 64px;
 
+  @media (max-width: 1100px) and (min-width: 760px) {
+    padding-inline: 40px;
+  }
+
   @media (max-width: 759px) {
     padding: 20px;
   }
@@ -269,7 +273,7 @@ export const SummaryCard = styled(FlowCard)`
 export const PrimaryAction = styled.button`
   width: 100%;
   min-height: 52px;
-  padding: 0 18px;
+  padding: 10px 18px;
   border: 0;
   border-radius: 16px;
   background: var(--primary);
@@ -281,6 +285,24 @@ export const PrimaryAction = styled.button`
   box-shadow: 0 4px 6px color-mix(in srgb, var(--primary) 13%, transparent);
   font-size: 15px;
   font-weight: 700;
+
+  .action-copy {
+    display: grid;
+    justify-items: center;
+    gap: 2px;
+  }
+
+  .action-copy b {
+    font-size: 15px;
+    line-height: 19px;
+  }
+
+  .action-copy small {
+    color: rgba(255, 255, 255, 0.87);
+    font-size: 10px;
+    line-height: 13px;
+    font-weight: 400;
+  }
 
   &:disabled {
     opacity: 0.5;
@@ -329,13 +351,20 @@ export const ConfirmationCard = styled(FlowCard)`
   box-shadow: 0 12px 16px rgba(0, 0, 0, 0.04);
 
   @media (max-width: 759px) {
-    margin-top: 0;
-    padding: 24px 0;
+    width: calc(100% + 40px);
+    margin: -20px -20px 0;
+    padding: 24px;
     border: 0;
     border-radius: 0;
     background: transparent;
     box-shadow: none;
     gap: 20px;
+  }
+
+  @media (max-width: 359px) {
+    width: calc(100% + 28px);
+    margin-inline: -14px;
+    padding-inline: 14px;
   }
 `;
 
@@ -545,18 +574,34 @@ export const ConfirmationActions = styled.div`
 
 export const TrackingLayout = styled.div`
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 440px;
+  grid-template-columns: minmax(0, 792px) 440px;
   gap: 48px;
   align-items: start;
 
-  > div:first-child {
+  .tracking-main {
     display: grid;
     gap: 24px;
   }
 
-  @media (max-width: 980px) {
+  .tracking-title {
+    margin: 0 0 8px;
+  }
+
+  @media (max-width: 1100px) {
     grid-template-columns: 1fr;
     gap: 24px;
+  }
+
+  @media (max-width: 759px) {
+    gap: 20px;
+
+    .tracking-main {
+      gap: 16px;
+    }
+
+    .tracking-title {
+      display: none;
+    }
   }
 `;
 
@@ -635,10 +680,15 @@ export const OrderItemsCard = styled(FlowCard)`
     padding: 0;
     border: 0;
     background: transparent;
+    gap: 8px;
 
     h2 {
       font-size: 20px;
       line-height: 25px;
+    }
+
+    .account-total {
+      display: none;
     }
   }
 `;
