@@ -20,6 +20,7 @@ import * as S from './styles';
 import { useRestaurantLoginBranding } from './hooks/useRestaurantLoginBranding';
 import { TenantBrandHero } from './components/TenantBrandHero';
 import { MfaVerificationModal } from './components/MfaVerificationModal';
+import { CustomerLoginExperience } from './components/CustomerLoginExperience';
 import { canUseTechnicalAccess, TECHNICAL_ACCESS_DENIED_MESSAGE } from './technicalAccess';
 import {
   buildAuthEntryUrl,
@@ -389,7 +390,7 @@ export default function Login() {
         theme: isDarkMode ? 'filled_black' : 'outline',
         text: 'continue_with',
         size: 'large',
-        width: 320,
+        width: 420,
       });
 
       setGoogleStatus('ready');
@@ -431,6 +432,32 @@ export default function Login() {
   const handleRememberMeChange = (checked: boolean) => {
     setRememberMe(checked);
     if (!checked) clearRememberedAccountEmail(rememberScope);
+  };
+
+  const handleResendVerification = async () => {
+    if (!email.trim()) {
+      setFeedback({ type: 'error', message: 'Informe seu e-mail para reenviar a confirmação.' });
+      return;
+    }
+
+    try {
+      setResendingVerification(true);
+      await authService.resendEmailVerification({
+        email: email.trim(),
+        restaurantSlug: portalSlug || undefined,
+      });
+      setFeedback({
+        type: 'success',
+        message: 'Se a conta estiver pendente, enviaremos uma nova confirmação.',
+      });
+    } catch {
+      setFeedback({
+        type: 'error',
+        message: 'Não foi possível reenviar a confirmação agora.',
+      });
+    } finally {
+      setResendingVerification(false);
+    }
   };
 
   const handleSubmit = async (e) => {
@@ -549,6 +576,47 @@ export default function Login() {
 
   if (isTableContext) return null;
 
+  if (isCustomerAccess) {
+    return (
+      <>
+        <CustomerLoginExperience
+          branding={branding}
+          email={email}
+          password={password}
+          rememberMe={rememberMe}
+          showPassword={showPassword}
+          isLoading={isLoading}
+          feedback={feedback}
+          registerPath={registerPath}
+          recoverPasswordPath={recoverPasswordPath}
+          googleButtonRef={googleButtonRef}
+          googleStatus={googleStatus}
+          googleMessage={googleMessage}
+          showResendVerification={showResendVerification}
+          resendingVerification={resendingVerification}
+          onEmailChange={setEmail}
+          onPasswordChange={setPassword}
+          onRememberChange={handleRememberMeChange}
+          onTogglePassword={() => setShowPassword((current) => !current)}
+          onSubmit={handleSubmit}
+          onNavigate={navigate}
+          onInitializeGoogle={initializeGoogleLogin}
+          onResendVerification={handleResendVerification}
+        />
+
+        <MfaVerificationModal
+          open={Boolean(mfaChallenge)}
+          destination={mfaChallenge?.destination}
+          resendAfterSeconds={Number(mfaChallenge?.resendAfterSeconds ?? 60)}
+          onVerify={handleMfaVerify}
+          onResend={handleMfaResend}
+          onSuccess={handleMfaSuccess}
+          onCancel={handleMfaCancel}
+        />
+      </>
+    );
+  }
+
   return (
     <ThemeProvider
       theme={{
@@ -620,30 +688,7 @@ export default function Login() {
               <S.GoogleFallbackButton
                 type="button"
                 disabled={resendingVerification || !email.trim()}
-                onClick={async () => {
-                  if (!email.trim()) {
-                    setFeedback({ type: 'error', message: 'Informe seu e-mail para reenviar a confirmação.' });
-                    return;
-                  }
-                  try {
-                    setResendingVerification(true);
-                    await authService.resendEmailVerification({
-                      email: email.trim(),
-                      restaurantSlug: portalSlug || undefined,
-                    });
-                    setFeedback({
-                      type: 'success',
-                      message: 'Se a conta estiver pendente, enviaremos uma nova confirmação.',
-                    });
-                  } catch {
-                    setFeedback({
-                      type: 'error',
-                      message: 'Não foi possível reenviar a confirmação agora.',
-                    });
-                  } finally {
-                    setResendingVerification(false);
-                  }
-                }}
+                onClick={handleResendVerification}
               >
                 {resendingVerification ? 'Reenviando confirmação...' : 'Reenviar e-mail de confirmação'}
               </S.GoogleFallbackButton>
