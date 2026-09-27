@@ -419,7 +419,12 @@ async function recoverCustomerPassword(page: Page) {
 }
 
 async function addConfiguredProduct(page: Page) {
-  await page.getByRole('button', { name: 'Cardápio', exact: true }).click();
+  const desktopMenuButton = page.getByRole('button', { name: 'Cardápio', exact: true });
+  if (await desktopMenuButton.isVisible()) {
+    await desktopMenuButton.click();
+  } else {
+    await page.getByRole('button', { name: /Ver Cardápio(?: Completo)?/i }).click();
+  }
   await expect(page.getByText(product.name).first()).toBeVisible();
   await page.getByRole('button', { name: `Ver detalhes de ${product.name}` }).click();
   const dialog = page.getByRole('dialog', { name: `Montar ${product.name}` });
