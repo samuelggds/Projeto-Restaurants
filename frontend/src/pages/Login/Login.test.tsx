@@ -36,6 +36,8 @@ vi.mock('./hooks/useRestaurantLoginBranding', () => ({
     description: 'Cardápio de teste',
     primaryColor: '#cf562f',
     logoUrl: '',
+    coverUrl: '',
+    markUrl: '',
     category: 'PIZZARIA',
   }),
 }));
@@ -198,7 +200,8 @@ describe('Login contextual do cliente', () => {
     expect(
       container.querySelector('[data-testid="login-hero-content"]')?.getAttribute('data-category'),
     ).toBe('PIZZARIA');
-    expect(container.textContent).toContain('A experiência digital da sua pizzaria começa aqui.');
+    expect(container.textContent).toContain('Acesso do Cliente');
+    expect(container.textContent).toContain('Bem-vindo de volta!');
     expect(container.textContent).toContain('Restaurante Teste');
   });
 
