@@ -7,6 +7,8 @@ export type TableOrderNoticeItem = {
   name: string;
   quantity: number;
   observation?: string;
+  image?: string;
+  unitPrice?: number;
   customizations: TableOrderNoticeCustomization[];
 };
 
@@ -79,12 +81,17 @@ function parseItems(order: Record<string, unknown>): TableOrderNoticeItem[] {
       String(product?.name || item.productName || item.name || '').trim() || 'Item do pedido';
     const quantity = Number(item.quantity);
     const observation = String(item.observation || '').trim();
+    const image = String(product?.image || item.image || '').trim();
+    const rawUnitPrice = item.price ?? item.unitPrice ?? product?.price;
+    const unitPrice = Number(rawUnitPrice);
 
     return [
       {
         name,
         quantity: Number.isSafeInteger(quantity) && quantity > 0 ? quantity : 1,
         ...(observation ? { observation } : {}),
+        ...(image ? { image } : {}),
+        ...(Number.isFinite(unitPrice) && unitPrice >= 0 ? { unitPrice } : {}),
         customizations: parseCustomizations(item),
       },
     ];
