@@ -26,6 +26,7 @@ import type { TableOrderNotice } from '../Home/domain/tableOrderNotice';
 import { ProductConfigurator } from '../Home/components/ProductConfigurator';
 import { ComboConfigurator } from '../Home/components/ComboConfigurator';
 import { TablePaymentStatusView } from '../Home/components/TablePaymentStatusView';
+import { FigmaCatalogCard, FigmaComboCard } from './TableMenuExperience.cards';
 import * as S from './TableMenuExperience.styles';
 
 type SubmitResult = {
@@ -1189,93 +1190,6 @@ function FlowHeader({
         </S.FigmaTablePill>
       </div>
     </S.FigmaHeader>
-  );
-}
-
-function FigmaComboCard({
-  product,
-  disabled,
-  onOpen,
-  onAdd,
-}: {
-  product: HomeProduct;
-  disabled: boolean;
-  onOpen: () => void;
-  onAdd: () => void;
-}) {
-  return (
-    <S.ComboCard $hasImage={Boolean(product.image)}>
-      <button
-        className="main"
-        type="button"
-        disabled={disabled}
-        aria-label={`Ver detalhes de ${product.name}`}
-        onClick={onOpen}
-      />
-      {product.image ? (
-        <div className="media"><img src={product.image} alt={product.name} /></div>
-      ) : null}
-      <div className="copy">
-        <h3>{product.name}</h3>
-        {product.description ? <p>{product.description}</p> : null}
-        <strong className="price">{brl(product.price)}</strong>
-      </div>
-      <button
-        className="add"
-        type="button"
-        disabled={disabled}
-        aria-label={`Adicionar ${product.name}`}
-        onClick={onAdd}
-      >
-        <Plus size={20} />
-      </button>
-    </S.ComboCard>
-  );
-}
-
-function FigmaCatalogCard({
-  product,
-  disabled,
-  onOpen,
-  onAdd,
-}: {
-  product: HomeProduct;
-  disabled: boolean;
-  onOpen: () => void;
-  onAdd: () => void;
-}) {
-  return (
-    <S.CatalogCard $hasImage={Boolean(product.image)}>
-      <button
-        className="main"
-        type="button"
-        disabled={disabled}
-        aria-label={`Ver detalhes de ${product.name}`}
-        onClick={onOpen}
-      />
-      {product.image ? (
-        <div className="media">
-          <img src={product.image} alt={product.name} />
-        </div>
-      ) : null}
-      <div className="copy">
-        <h3>{product.name}</h3>
-        {product.description ? <p>{product.description}</p> : null}
-        {product.promotion?.active && product.originalPrice > product.price ? (
-          <span className="original">{brl(product.originalPrice)}</span>
-        ) : null}
-        <strong className="price">{brl(product.price)}</strong>
-      </div>
-      <button
-        className="add"
-        type="button"
-        disabled={disabled}
-        aria-label={`Adicionar ${product.name}`}
-        onClick={onAdd}
-      >
-        <Plus size={17} />
-      </button>
-    </S.CatalogCard>
   );
 }
 
