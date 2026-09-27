@@ -152,15 +152,24 @@ export function ProductConfigurator({
       }
       return;
     }
-    onConfirm(
-      buildProductConfiguration(regularGroups, selections, observation, {
+    const configuration = buildProductConfiguration(
+      regularGroups,
+      selections,
+      observation,
+      {
         optionQuantities,
         removedCompositionItemIds,
         portions,
         configurationVersion: product.configurationVersion,
-      }),
-      enableProductQuantity ? productQuantity : 1,
+      },
     );
+
+    if (enableProductQuantity) {
+      onConfirm(configuration, productQuantity);
+      return;
+    }
+
+    onConfirm(configuration);
   };
 
   return createPortal(
