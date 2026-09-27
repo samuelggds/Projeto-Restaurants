@@ -598,7 +598,10 @@ export function ProductConfigurator({
             <small>{observation.length}/500 caracteres</small>
           </S.Observation>
 
-          <S.BottomBar data-testid="product-configurator-footer">
+          <S.BottomBar
+            data-testid="product-configurator-footer"
+            $stickyOnMobile={tableMenuVariant}
+          >
             {enableProductQuantity ? (
               <S.ProductQuantity aria-label="Quantidade do produto">
                 <button
