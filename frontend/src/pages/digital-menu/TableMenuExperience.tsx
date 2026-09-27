@@ -76,6 +76,7 @@ export default function TableMenuExperience({
   data,
   tableLabel,
   cart,
+  cartCount,
   cartTotal,
   orderingLocked = false,
   tableOrder,
@@ -790,60 +791,36 @@ export default function TableMenuExperience({
       />
 
       <S.MenuPage>
-        <S.MenuHero>
-          <div className="copy">
-            <span className="eyebrow">BEM-VINDO À MESA {tableNumber(tableLabel)}</span>
-            <h1>{heroTitle}</h1>
-            <p>{heroDescription}</p>
-            <button className="cta" type="button" onClick={scrollToCatalog}>
-              {activeBanner?.buttonLabel || 'Ver cardápio'}
-            </button>
+      <S.MenuHero>
+        {heroImage ? <img className="hero-bg" src={heroImage} alt="" /> : null}
+        <div className="hero-overlay" aria-hidden="true" />
+        <div className="copy">
+          <span className="eyebrow">
+            {data.brand.name.toUpperCase()} · MESA {tableNumber(tableLabel)}
+          </span>
+          <h1>{heroTitle}</h1>
+          <p>{heroDescription}</p>
+          <button className="cta" type="button" onClick={scrollToCatalog}>
+            {activeBanner?.buttonLabel || 'Ver Cardápio'}
+          </button>
+        </div>
+
+        {data.banners.length > 1 ? (
+          <div className="indicators" aria-label="Banners em destaque">
+            {data.banners.map((banner, index) => (
+              <button
+                key={banner.id}
+                type="button"
+                aria-label={`Mostrar banner ${index + 1}`}
+                className={index === bannerIndex ? 'active' : ''}
+                onClick={() => setBannerIndex(index)}
+              />
+            ))}
           </div>
-
-          {heroImage ? (
-            <div className="hero-media" aria-hidden="true">
-              <span className="halo halo-one" />
-              <span className="halo halo-two" />
-              <img src={heroImage} alt="" />
-            </div>
-          ) : null}
-
-          {data.banners.length > 1 ? (
-            <div className="indicators" aria-label="Banners em destaque">
-              {data.banners.map((banner, index) => (
-                <button
-                  key={banner.id}
-                  type="button"
-                  aria-label={`Mostrar banner ${index + 1}`}
-                  className={index === bannerIndex ? 'active' : ''}
-                  onClick={() => setBannerIndex(index)}
-                />
-              ))}
-            </div>
-          ) : null}
-        </S.MenuHero>
-
-        {combos.length ? (
-          <>
-            <S.SectionHeading>
-              <div className="title"><h2>Combos em destaque</h2></div>
-              <button type="button" onClick={() => setSelectedCategory('todos')}>
-                Ver todos <ChevronRight size={14} />
-              </button>
-            </S.SectionHeading>
-            <S.ComboRail>
-              {combos.map((combo) => (
-                <FigmaComboCard
-                  key={combo.id}
-                  product={combo}
-                  disabled={orderingLocked}
-                  onOpen={() => openProduct(combo)}
-                  onAdd={() => quickAdd(combo)}
-                />
-              ))}
-            </S.ComboRail>
-          </>
         ) : null}
+      </S.MenuHero>
+
+      <S.MenuPage>
 
         <S.SearchCategoryRow>
           <S.MenuSearch>
@@ -876,8 +853,30 @@ export default function TableMenuExperience({
           ) : null}
         </S.SearchCategoryRow>
 
+        {combos.length ? (
+          <>
+            <S.SectionHeading>
+              <div className="title"><h2>Combos em Destaque</h2><p>Os favoritos da casa para compartilhar</p></div>
+              <button type="button" onClick={() => setSelectedCategory('todos')}>
+                Ver todos <ChevronRight size={14} />
+              </button>
+            </S.SectionHeading>
+            <S.ComboRail>
+              {combos.map((combo) => (
+                <FigmaComboCard
+                  key={combo.id}
+                  product={combo}
+                  disabled={orderingLocked}
+                  onOpen={() => openProduct(combo)}
+                  onAdd={() => quickAdd(combo)}
+                />
+              ))}
+            </S.ComboRail>
+          </>
+        ) : null}
+
         <S.TableActionsSection>
-          <h2>Ações da mesa</h2>
+          <h2>Ações Rápidas</h2>
           <S.TableActionsGrid>
             <S.TableActionCard type="button" onClick={() => setView('cart')}>
               <span className="icon"><ClipboardList size={20} /></span>
