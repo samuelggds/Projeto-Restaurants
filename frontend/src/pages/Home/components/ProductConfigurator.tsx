@@ -35,6 +35,7 @@ type ProductConfiguratorProps = {
   primaryColor?: string;
   onClose: () => void;
   enableProductQuantity?: boolean;
+  tableMenuVariant?: boolean;
   onConfirm: (configuration: ProductConfiguration, quantity?: number) => void;
 };
 
@@ -55,6 +56,7 @@ export function ProductConfigurator({
   primaryColor = '#d64d08',
   onClose,
   enableProductQuantity = false,
+  tableMenuVariant = false,
   onConfirm,
 }: ProductConfiguratorProps) {
   const totalDescriptionId = useId();
@@ -167,19 +169,26 @@ export function ProductConfigurator({
       aria-modal="true"
       aria-label={`Montar ${product.name}`}
       data-testid="product-configurator"
+      data-table-menu={tableMenuVariant ? 'true' : undefined}
     >
       <S.Header>
         <S.HeaderInner>
           <button type="button" onClick={onClose}>
             <ArrowLeft size={19} /> Voltar ao cardápio
           </button>
-          <span>Monte do seu jeito e confira antes de adicionar</span>
+          {!tableMenuVariant && <span>Monte do seu jeito e confira antes de adicionar</span>}
         </S.HeaderInner>
       </S.Header>
 
       <S.Layout>
         <S.ProductSummary>
-          <img src={product.image} alt={product.name} decoding="async" />
+          {product.image ? (
+            <img src={product.image} alt={product.name} decoding="async" />
+          ) : (
+            <S.ProductImagePlaceholder aria-hidden="true">
+              <UtensilsCrossed />
+            </S.ProductImagePlaceholder>
+          )}
           <div>
             <small>Personalize seu pedido</small>
             <h1>{product.name}</h1>
@@ -210,23 +219,25 @@ export function ProductConfigurator({
         </S.ProductSummary>
 
         <S.Form onSubmit={submit} noValidate>
-          <S.Intro>
-            <div>
-              <h2>Monte seu produto</h2>
-              <p>Faça uma escolha em cada categoria e personalize os itens opcionais.</p>
-            </div>
-            <S.Progress
-              $value={progress}
-              aria-label={`${progress}% das escolhas obrigatórias concluídas`}
-            >
-              <div />
-              <small>
-                {requiredStepCount
-                  ? `${completedStepCount} de ${requiredStepCount} etapas concluídas`
-                  : 'Sem escolhas obrigatórias'}
-              </small>
-            </S.Progress>
-          </S.Intro>
+          {!tableMenuVariant && (
+            <S.Intro>
+              <div>
+                <h2>Monte seu produto</h2>
+                <p>Faça uma escolha em cada categoria e personalize os itens opcionais.</p>
+              </div>
+              <S.Progress
+                $value={progress}
+                aria-label={`${progress}% das escolhas obrigatórias concluídas`}
+              >
+                <div />
+                <small>
+                  {requiredStepCount
+                    ? `${completedStepCount} de ${requiredStepCount} etapas concluídas`
+                    : 'Sem escolhas obrigatórias'}
+                </small>
+              </S.Progress>
+            </S.Intro>
+          )}
 
           {!configurable && (
             <S.Empty role="alert">
