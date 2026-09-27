@@ -493,7 +493,11 @@ export default function Home() {
     providerReturnStatus: cardProviderReturnStatus,
     onPaymentConfirmed: async () => {
       await loyalty.refresh();
-      if (mesaMode) {
+      const tableAccountPanel = (
+      {tableAccountPanel}
+  );
+
+  if (mesaMode) {
         await tableAccount.refresh({ silent: true });
         await refreshTableOrder();
       } else {
@@ -912,6 +916,7 @@ export default function Home() {
     };
 
     return (
+      <>
       <TableMenuExperience
         data={homeData}
         tableLabel={mesaLabel}
@@ -931,7 +936,10 @@ export default function Home() {
         onCreatePixPayment={createPixPaymentForOrder}
         onReconcilePayment={tableAccount.reconcilePayment}
         onCancelPayment={tableAccount.cancelPayment}
+        onOpenTableAccount={openTableAccount}
       />
+      {tableAccountPanel}
+      </>
     );
   }
 
