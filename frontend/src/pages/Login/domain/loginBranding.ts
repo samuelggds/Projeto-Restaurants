@@ -9,6 +9,8 @@ export type LoginBranding = {
   name: string;
   description: string;
   logoUrl: string;
+  coverUrl: string;
+  markUrl: string;
   primaryColor: string;
   category: RestaurantCategory;
 };
@@ -18,7 +20,9 @@ export const DEFAULT_LOGIN_BRANDING: LoginBranding = {
   description:
     'Acesse a plataforma com segurança para continuar sua experiência no restaurante ou na operação.',
   logoUrl: '',
-  primaryColor: '#ef5b00',
+  coverUrl: '',
+  markUrl: '',
+  primaryColor: '#e85a2b',
   category: 'RESTAURANTE',
 };
 
@@ -164,11 +168,9 @@ export function resolveLoginRestaurant(searchParams: URLSearchParams) {
 export function mapLoginBranding(settings: Record<string, unknown> | null): LoginBranding {
   if (!settings) return DEFAULT_LOGIN_BRANDING;
   const restaurant = (settings.restaurant as Record<string, unknown>) || {};
-  const logo =
-    restaurant.coverImage ||
-    settings.restaurantCoverImage ||
-    restaurant.logo ||
-    settings.restaurantLogo;
+  const cover = restaurant.coverImage || settings.restaurantCoverImage;
+  const mark = restaurant.logo || settings.restaurantLogo;
+  const logo = cover || mark;
   const description = String(
     restaurant.description || settings.restaurantDescription || DEFAULT_LOGIN_BRANDING.description,
   ).trim();
@@ -177,6 +179,8 @@ export function mapLoginBranding(settings: Record<string, unknown> | null): Logi
     name: String(restaurant.name || settings.restaurantName || DEFAULT_LOGIN_BRANDING.name),
     description: description || DEFAULT_LOGIN_BRANDING.description,
     logoUrl: isPersistentImageSource(logo) ? String(logo) : '',
+    coverUrl: isPersistentImageSource(cover) ? String(cover) : '',
+    markUrl: isPersistentImageSource(mark) ? String(mark) : '',
     primaryColor: normalizeLoginBrandColor(settings.primaryColor),
     category: normalizeRestaurantCategory(
       restaurant.category || settings.restaurantCategory || settings.category,
