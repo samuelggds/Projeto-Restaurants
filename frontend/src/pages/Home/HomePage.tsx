@@ -47,6 +47,8 @@ export function HomePage({
   favoriteProductIds = EMPTY_FAVORITE_PRODUCT_IDS,
   savedAddresses = [],
   selectedAddressId,
+  selectedOrderType = 'delivery',
+  onOrderTypeChange,
   onSelectAddress,
   onManageAddresses,
   onOpenMenu,
@@ -204,6 +206,10 @@ export function HomePage({
         tableLabel={tableLabel}
         savedAddresses={savedAddresses}
         selectedAddressId={selectedAddressId}
+        allowDelivery={data.acceptsDelivery}
+        allowPickup={data.acceptsPickup}
+        selectedOrderType={selectedOrderType}
+        onOrderTypeChange={onOrderTypeChange}
         onSelectAddress={onSelectAddress}
         onManageAddresses={onManageAddresses}
         onOpenProfile={onOpenProfile}
