@@ -148,3 +148,25 @@ export function formatTableMoney(cents: number) {
     currency: 'BRL',
   });
 }
+
+/** Prévia de MY_ITEMS; o backend continua sendo a autoridade sobre a cobrança. */
+export function previewIndividualTablePayment(snapshot: TableAccountSnapshot) {
+  const items = snapshot.items.filter(
+    (item) =>
+      item.orderedByParticipantPublicId === snapshot.currentParticipantPublicId &&
+      item.orderStatus !== 'CANCELED',
+  );
+  const blocked = items.some((item) => item.reservedCents > 0 || item.processingCents > 0);
+  const subtotalCents = items
+    .filter((item) => item.financialStatus !== 'REFUNDED')
+    .reduce((total, item) => total + item.availableCents, 0);
+  // Mesmo arredondamento em centavos (half-up) usado pelo serviço de pagamentos.
+  const serviceFeeCents =
+    snapshot.capabilities.serviceFeeMode === 'MANDATORY'
+      ? Number(
+          (BigInt(subtotalCents) * BigInt(snapshot.capabilities.serviceFeeBasisPoints) + 5_000n) /
+            10_000n,
+        )
+      : 0;
+  return { subtotalCents, serviceFeeCents, totalCents: subtotalCents + serviceFeeCents, blocked };
+}

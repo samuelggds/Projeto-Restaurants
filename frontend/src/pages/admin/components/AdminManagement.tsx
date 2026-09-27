@@ -57,6 +57,7 @@ export function AdminManagement(props: Props) {
         restaurantName={props.restaurantName}
         money={money}
         onNavigate={props.onNavigate}
+        onCancelOrder={props.onCancelOrder}
       />
     );
   if (props.area === 'orders')

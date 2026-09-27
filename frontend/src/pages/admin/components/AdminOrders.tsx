@@ -33,11 +33,14 @@ import {
   type LoadAdminOrdersPage,
 } from '../hooks/useAdminOrdersPage';
 import { adminErrorMessage } from '../utils/adminErrorMessage';
+import { useAdminOrderCancellation } from '../hooks/useAdminOrderCancellation';
 import {
+  canCancelAdminOrder,
   getOrderPaymentPresentation,
   getOrderProgress,
   getOrderTypeLabel,
   getPaymentMethodLabel,
+  isOrderWaitingForCapacity,
   ORDER_STATUSES,
 } from '../domain/adminOrders';
 
@@ -118,7 +121,6 @@ export function AdminOrders({
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState('');
   const [queueView, setQueueView] = useState<QueueView>('ALL');
-  const [cancellingOrderId, setCancellingOrderId] = useState<number | null>(null);
   const [confirmingPaymentId, setConfirmingPaymentId] = useState<number | null>(null);
   const [checkingRefundId, setCheckingRefundId] = useState<number | null>(null);
   const page = useAdminOrdersPage({
@@ -129,6 +131,11 @@ export function AdminOrders({
     loadOrdersPage,
   });
   const { summary, orders: displayedOrders } = page;
+  const { cancelOrder, cancellingOrderId } = useAdminOrderCancellation({
+    money,
+    onCancelOrder,
+    onCancelled: page.refresh,
+  });
   const hasFilters = Boolean(search || status || queueView !== 'ALL');
   const priorityView: QueueView = summary.awaitingPayment
     ? 'PAYMENT'
@@ -203,48 +210,6 @@ export function AdminOrders({
       );
     } finally {
       setCheckingRefundId(null);
-    }
-  };
-
-  const cancelOrder = async (order: AdminOrder) => {
-    const hasOnlinePaymentToRefund = getOrderPaymentPresentation(order).automaticRefund;
-    const method = getPaymentMethodLabel(order.paymentMethod);
-    const description = hasOnlinePaymentToRefund
-      ? `O pedido ${order.id} de ${order.customerName} será cancelado e o estorno de ${money(order.total)} será solicitado automaticamente no ${method}. O prazo para o crédito depende da instituição financeira.`
-      : order.paid && order.payOnDelivery
-        ? `O pagamento de ${money(order.total)} foi recebido na entrega e não possui transação online. O pedido será cancelado, mas qualquer devolução ao cliente deve ser feita manualmente.`
-        : order.paid
-          ? `O pagamento de ${money(order.total)} não está identificado como Pix ou cartão online. O pedido será cancelado, mas a devolução ao cliente deve ser feita manualmente.`
-          : `O pedido ${order.id} de ${order.customerName} não possui pagamento confirmado. Ele será cancelado sem gerar cobrança ou estorno.`;
-    const confirmed = await confirmDialog({
-      title: hasOnlinePaymentToRefund ? 'Cancelar pedido e solicitar estorno?' : 'Cancelar pedido?',
-      description,
-      confirmLabel: hasOnlinePaymentToRefund ? 'Cancelar e estornar' : 'Cancelar pedido',
-      cancelLabel: 'Manter pedido',
-      tone: 'danger',
-    });
-    if (!confirmed) return;
-
-    setCancellingOrderId(order.numericId);
-    try {
-      await onCancelOrder(order.numericId);
-      await page.refresh();
-      toast.success(
-        hasOnlinePaymentToRefund
-          ? `Pedido ${order.id} cancelado e estorno solicitado.`
-          : `Pedido ${order.id} cancelado.`,
-      );
-    } catch (error) {
-      toast.error(
-        getActionErrorMessage(
-          error,
-          hasOnlinePaymentToRefund
-            ? 'Não foi possível cancelar e solicitar o estorno.'
-            : 'Não foi possível cancelar o pedido.',
-        ),
-      );
-    } finally {
-      setCancellingOrderId(null);
     }
   };
 
@@ -492,13 +457,11 @@ export function AdminOrders({
             {displayedOrders.map((order) => {
               const payment = getOrderPaymentPresentation(order);
               const progress = getOrderProgress(order.status);
-              const waitingForCapacity = Boolean(
-                order.capacityQueuedAt && !order.capacityAdmittedAt,
-              );
+              const waitingForCapacity = isOrderWaitingForCapacity(order);
               const statusLabel = waitingForCapacity
                 ? 'Aguardando vaga'
-                : statusLabels[order.status] ??
-                  order.status.replaceAll('_', ' ').toLocaleLowerCase('pt-BR');
+                : (statusLabels[order.status] ??
+                  order.status.replaceAll('_', ' ').toLocaleLowerCase('pt-BR'));
               const isCancelled = order.status === 'CANCELADO';
               const isFinished = isCancelled || order.status === 'ENTREGUE';
               const isRefundProcessing = order.refundStatus === 'PROCESSING';
@@ -542,7 +505,9 @@ export function AdminOrders({
                         <b>{isPickupPayAtStore ? 'Pagamento no balcão' : payment.title}</b>
                         <small>
                           {isPickupPayAtStore
-                            ? `Cliente escolheu ${String(order.payOnDeliveryMethod || 'pagamento presencial')
+                            ? `Cliente escolheu ${String(
+                                order.payOnDeliveryMethod || 'pagamento presencial',
+                              )
                                 .replace('PIX', 'Pix')
                                 .replace('CARTAO', 'cartão na maquininha')
                                 .replace('DINHEIRO', 'dinheiro')}`
@@ -569,8 +534,8 @@ export function AdminOrders({
                   {waitingForCapacity ? (
                     <div className="operation-note processing-note" role="status">
                       <Clock3 aria-hidden="true" />
-                      Limite simultâneo atingido. O pedido foi recebido e entrará automaticamente
-                      na operação assim que uma vaga for liberada.
+                      Limite simultâneo atingido. O pedido foi recebido e entrará automaticamente na
+                      operação assim que uma vaga for liberada.
                     </div>
                   ) : null}
 
@@ -629,7 +594,7 @@ export function AdminOrders({
                     ) : isRefundProcessing ? (
                       <span className="operation-note processing-note">
                         <LoaderCircle className="loading-icon" aria-hidden="true" />
-                        Estorno em processamento; aguarde a confirmação
+                        Cancelamento em conciliação. Consulte o estorno antes de tentar novamente.
                       </span>
                     ) : order.refundStatus === 'FAILED' ? (
                       <span className="operation-note failed-note">
@@ -679,14 +644,14 @@ export function AdminOrders({
                         </button>
                       </div>
                     )}
-                    {!isFinished && !isRefundProcessing && (
+                    {canCancelAdminOrder(order) && (
                       <div className="action-buttons">
                         {!order.paid && order.payOnDelivery && (
                           <button
                             className="confirm-payment"
                             type="button"
                             onClick={() => void confirmPayment(order)}
-                            disabled={isConfirmingPayment || isCancelling}
+                            disabled={confirmingPaymentId !== null || cancellingOrderId !== null}
                             aria-label={`Confirmar pagamento do pedido ${order.id}`}
                           >
                             {isConfirmingPayment ? (
@@ -701,7 +666,7 @@ export function AdminOrders({
                           className="cancel-order"
                           type="button"
                           onClick={() => void cancelOrder(order)}
-                          disabled={isCancelling || isConfirmingPayment}
+                          disabled={cancellingOrderId !== null || confirmingPaymentId !== null}
                           aria-label={`${payment.automaticRefund ? 'Cancelar e estornar' : 'Cancelar'} o pedido ${order.id}`}
                         >
                           {isCancelling ? (

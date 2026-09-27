@@ -23,7 +23,11 @@ const originals = {
 };
 
 beforeEach(() => {
-  prisma.$transaction = async (callback) => callback({ $queryRaw: async () => [] });
+  prisma.$transaction = async (callback) =>
+    callback({
+      $queryRaw: async () => [],
+      tableSession: { findFirst: async () => ({ status: 'OPEN' }) },
+    });
   tableParticipantStateService.getState = async (_db, input) => ({
     participantId: input.participantId,
     tableSessionId: input.tableSessionId,
@@ -198,4 +202,71 @@ test('repositório rejeita convidado expirado e sempre consulta sessão e tenant
   assert.equal(query.where.status, 'ACTIVE');
   assert.equal(query.where.revokedAt, null);
   assert.ok(query.where.tokenExpiresAt.gt instanceof Date);
+});
+
+test('entrada revalida a sessão e tenant sob o mesmo lock de fechamento antes de criar participante', async () => {
+  let locked = false;
+  prisma.$transaction = async (callback) =>
+    callback({
+      $queryRaw: async (sql) => {
+        if ((Array.isArray(sql) ? sql : sql.strings).join('').includes('pg_advisory_xact_lock'))
+          locked = true;
+        return [];
+      },
+      tableSession: {
+        findFirst: async ({ where }) => {
+          assert.equal(locked, true);
+          assert.equal(where.id, session.id);
+          assert.equal(where.publicId, session.publicId);
+          assert.equal(where.restaurantId, 7);
+          assert.deepEqual(where.status.in, ['OPEN', 'CLOSING_REQUESTED']);
+          assert.ok(where.OR[1].expiresAt.gt instanceof Date);
+          return null;
+        },
+      },
+    });
+  let created = false;
+  tableParticipantRepository.createGuest = async () => {
+    created = true;
+  };
+  await assert.rejects(
+    joinTableParticipantService.execute({ session, displayName: 'Ana', phone: '85999999999' }),
+    /sessão.*encerrada/i,
+  );
+  assert.equal(created, false);
+});
+
+test('cookie da sessão encerrada não autentica o cliente na próxima sessão da mesma mesa', async () => {
+  let lookup = false;
+  tableParticipantRepository.findGuestByTokenHash = async () => {
+    lookup = true;
+    return guestParticipant();
+  };
+  await assert.rejects(
+    joinTableParticipantService.execute({
+      session: { ...session, id: 56, publicId: '123e4567-e89b-42d3-a456-426614174099' },
+      cookies: { [`table_participant_${session.publicId}`]: 'a'.repeat(43) },
+    }),
+    /Informe seu nome e telefone/i,
+  );
+  assert.equal(lookup, false);
+});
+
+test('em fechamento somente participante existente pode retornar para pagar; nova identidade não entra', async () => {
+  prisma.$transaction = async (callback) =>
+    callback({
+      $queryRaw: async () => [],
+      tableSession: { findFirst: async () => ({ status: 'CLOSING_REQUESTED' }) },
+    });
+  const token = 'c'.repeat(43);
+  tableParticipantRepository.findGuestByTokenHash = async () => guestParticipant();
+  const result = await joinTableParticipantService.execute({
+    session,
+    cookies: { [`table_participant_${session.publicId}`]: token },
+  });
+  assert.equal(result.participantToken, token);
+  await assert.rejects(
+    joinTableParticipantService.execute({ session, displayName: 'Ana', phone: '85999999999' }),
+    /não permite novas entradas/i,
+  );
 });

@@ -374,6 +374,12 @@ test('demo: entrada QR usa o cardápio da mesa, envia à cozinha e apresenta a c
     .click();
   const cart = page.getByRole('dialog', { name: 'Sua sacola' });
   await expect(cart.getByRole('button', { name: 'Entrega', exact: true })).toHaveCount(0);
+  await cart.getByRole('button', { name: 'Fechar', exact: true }).click();
+  await page.getByRole('button', { name: 'Abrir minha comanda da mesa 08', exact: true }).click();
+  const draftAccount = page.getByRole('dialog', { name: 'Sua comanda • Mesa 08', exact: true });
+  await expect(draftAccount.getByText(/1 item para enviar/)).toBeVisible();
+  await draftAccount.getByRole('button', { name: 'Revisar e enviar', exact: true }).click();
+  await expect(cart).toBeVisible();
   await cart.getByRole('button', { name: 'Revisar e continuar', exact: true }).click();
   await page
     .getByRole('dialog', { name: 'Como deseja finalizar?', exact: true })
@@ -408,7 +414,7 @@ test('demo: entrada QR usa o cardápio da mesa, envia à cozinha e apresenta a c
     DEMO_STORAGE_KEY,
   );
   await page.reload();
-  await page.getByRole('button', { name: 'Ver e pagar a conta', exact: true }).click();
+  await page.getByRole('button', { name: 'Abrir minha comanda da mesa 08', exact: true }).click();
   const account = page.getByRole('dialog', { name: 'Sua comanda • Mesa 08', exact: true });
   await expect(account.getByLabel('Sua comanda em tempo real')).toBeVisible();
   await expect(account).toContainText('Burger Clássico');
@@ -424,7 +430,10 @@ test('demo: entrada QR usa o cardápio da mesa, envia à cozinha e apresenta a c
       DEMO_STORAGE_KEY,
     ),
   ).toBe(true);
-  await expect(page.getByRole('button', { name: 'Ver e pagar a conta', exact: true })).toBeVisible();
+  await expect(
+    page.getByRole('button', { name: 'Abrir minha comanda da mesa 08', exact: true }),
+  ).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Ver e pagar a conta', exact: true })).toHaveCount(0);
   await page.setViewportSize({ width: 390, height: 844 });
   await captureReadmeScreenshot(page, 'demo-qr-mobile.png');
   expect(

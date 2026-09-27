@@ -57,11 +57,9 @@ export function staffOrderScope(viewer: Viewer): Prisma.OrderWhereInput {
 
 class PaginatedOrdersService {
   async staff(viewer: Viewer, query: OrderListQuery) {
-    const roleBase = staffOrderScope(viewer);
-    const base =
-      viewer.role === 'ADMIN' && ['ACTIVE', 'IN_PROGRESS'].includes(query.queue)
-        ? ({ AND: [roleBase, operationalPaymentWhere] } satisfies Prisma.OrderWhereInput)
-        : roleBase;
+    // A fila administrativa também precisa permitir consultar e cancelar pedidos
+    // aguardando pagamento ou vaga. O escopo operacional continua nos demais perfis.
+    const base = staffOrderScope(viewer);
     if (viewer.role === 'MOTOQUEIRO') {
       await courierAccessService.assertActiveCourier(viewer.id, viewer.restaurantId);
     }

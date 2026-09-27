@@ -377,12 +377,7 @@ export default function Home() {
         allowOpenFinancePix: homeData.openFinancePixEnabled,
         allowCard: homeData.acceptsCard,
       }),
-    [
-      allowPayOnDelivery,
-      homeData.acceptsCard,
-      homeData.acceptsPix,
-      homeData.openFinancePixEnabled,
-    ],
+    [allowPayOnDelivery, homeData.acceptsCard, homeData.acceptsPix, homeData.openFinancePixEnabled],
   );
   const checkoutChannelAvailable =
     mesaMode ||
@@ -640,6 +635,7 @@ export default function Home() {
       void loyalty.refresh();
       await tableAccount.refresh({ silent: true });
       await refreshTableOrder();
+      setTableAccountOpen(true);
       notify(
         'success',
         `Pedido #${String(order?.id || '')} enviado para a cozinha`,
@@ -680,7 +676,6 @@ export default function Home() {
       return false;
     }
   }
-
 
   const primary = homeData.brand.primaryColor || '#d64d08';
   const whatsappUrl = buildWhatsAppUrl(
@@ -741,13 +736,13 @@ export default function Home() {
     [handleSavedAddressChange, notify],
   );
   const openHomeCart = useCallback(() => {
-    if (tableClosingRequested) {
+    if (mesaMode && mesaSessionIsActive) {
       openTableAccount();
       return;
     }
     cartReturnFocusRef.current = document.activeElement as HTMLElement | null;
     setCartOpen(true);
-  }, [openTableAccount, tableClosingRequested]);
+  }, [openTableAccount, mesaMode, mesaSessionIsActive]);
   const openProfile = useCallback(() => {
     if (user) {
       navigate('/profile');
@@ -1047,6 +1042,14 @@ export default function Home() {
         onCancelPayment={tableAccount.cancelPayment}
         onReconcilePayment={tableAccount.reconcilePayment}
         onRemoveOrder={removeOwnTableOrder}
+        draftCount={cartCount}
+        draftTotal={cartTotal}
+        orderingBlocked={tableClosingRequested}
+        onReviewDraft={() => {
+          setTableAccountOpen(false);
+          cartReturnFocusRef.current = document.activeElement as HTMLElement | null;
+          setCartOpen(true);
+        }}
         onClose={() => setTableAccountOpen(false)}
       />
 
@@ -1074,13 +1077,8 @@ export default function Home() {
         <TableServiceActions
           tableNumber={mesaLabel}
           waiterEnabled={tableSession.waiterCallEnabled !== false}
-          billEnabled={false}
-          accountEnabled={Boolean(tableSession.sessionPublicId)}
-          accountAmountCents={tableAccount.snapshot?.summary.remainingCents || 0}
           loading={tableServiceLoading}
           onCallWaiter={() => void requestTableService('WAITER')}
-          onRequestBill={() => undefined}
-          onOpenAccount={openTableAccount}
         />
       ) : null}
       {!mesaMode && (loyaltyProgram || activeOrder || !user) ? (

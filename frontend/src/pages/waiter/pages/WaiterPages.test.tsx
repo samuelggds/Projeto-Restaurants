@@ -280,7 +280,8 @@ describe('waiter operational pages', () => {
 
   it('permite somente abrir ou fechar a mesa sem expor ações administrativas do QR', () => {
     renderPage(<WaiterTablesPage />);
-    expect(container.textContent).toContain('QR Codes administrados pelo restaurante.');
+    expect(container.textContent).toContain('Abra a mesa para iniciar o atendimento.');
+    expect(container.textContent).toContain('Ao fechar a mesa, os acessos dos clientes são encerrados.');
     expect(container.textContent).toContain('ABERTA');
     expect(container.textContent).toContain('Fechar mesa');
     expect(container.textContent).not.toContain('Visualizar QR Code');

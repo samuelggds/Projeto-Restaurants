@@ -217,7 +217,7 @@ export function DemoCustomerHome({
           onOpenMenu={() =>
             document.getElementById('cardapio')?.scrollIntoView({ behavior: 'smooth' })
           }
-          onOpenCart={() => setPanel('cart')}
+          onOpenCart={() => setPanel(tableMenu ? 'account' : 'cart')}
           onOpenProfile={() => setPanel('orders')}
           onLogout={onLogout}
           favoriteProductIds={favorites}
@@ -483,6 +483,8 @@ export function DemoCustomerHome({
         open={panel === 'account'}
         state={state}
         onState={onState}
+        orderingBlocked={orderingLocked}
+        onReviewDraft={() => setPanel('cart')}
         onClose={() => setPanel(null)}
       />
       <TableOrderContinuationModal

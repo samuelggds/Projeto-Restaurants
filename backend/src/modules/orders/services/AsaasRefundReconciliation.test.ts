@@ -1,12 +1,15 @@
 // @ts-nocheck
 import assert from 'node:assert/strict';
-import test, { afterEach } from 'node:test';
+import test, { afterEach, beforeEach, mock } from 'node:test';
 import prisma from '../../../config/prisma.js';
 import restaurantSettingsRepository from '../../restaurantSettings/repositories/RestaurantSettingsRepository.js';
 import orderRepository from '../repositories/OrderRepository.js';
 import cancelOrderWorkflowService from './CancelOrderWorkflowService.js';
 import reconcileLateCancelledPaymentService from './ReconcileLateCancelledPaymentService.js';
 import webhook from '../controllers/AsaasOrderWebhookController.js';
+import orderCapacityQueueService from './OrderCapacityQueueService.js';
+
+beforeEach(() => mock.method(orderCapacityQueueService, 'drainAfterCapacityChange', async () => []));
 
 const originals = {
   fetch: globalThis.fetch,
@@ -19,6 +22,7 @@ const originals = {
 };
 
 afterEach(() => {
+  mock.restoreAll();
   globalThis.fetch = originals.fetch;
   orderRepository.findById = originals.findById;
   prisma.order.findFirst = originals.findFirst;

@@ -10,10 +10,7 @@ export function DemoTableActions({
   state,
   primary,
   waiterEnabled,
-  billEnabled,
-  accountEnabled,
   onRequest,
-  onAccount,
 }: {
   state: DemoState;
   primary: string;
@@ -49,12 +46,8 @@ export function DemoTableActions({
             embedded
             tableNumber="08"
             waiterEnabled={waiterEnabled}
-            billEnabled={billEnabled}
-            accountEnabled={accountEnabled}
             loading={null}
             onCallWaiter={() => onRequest('WAITER')}
-            onRequestBill={() => onRequest('BILL')}
-            onOpenAccount={onAccount}
           />
           <TableOrderStatusNotice primaryColor={primary} tableLabel="08" order={notice} />
         </>

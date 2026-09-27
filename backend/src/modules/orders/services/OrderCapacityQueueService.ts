@@ -9,8 +9,9 @@ import {
   isOrderCapacityQueued,
   lockOrderCapacity,
   normalizeOrderCapacityLimit,
-  operationalPaymentWhere,
+  waitingCapacityWhere,
 } from '../utils/orderCapacity.js';
+import { emitTableSessionOrderEvent, emitWaiterTableOrderEvent } from '../utils/waiterOrderRealtime.js';
 
 type AdmittedOrder = NonNullable<Awaited<ReturnType<typeof orderRepository.findById>>>;
 
@@ -37,10 +38,7 @@ async function admitWithinTransaction(
   const candidates = await tx.order.findMany({
     where: {
       restaurantId,
-      capacityQueuedAt: { not: null },
-      capacityAdmittedAt: null,
-      status: { notIn: [OrderStatus.ENTREGUE, OrderStatus.CANCELADO] },
-      AND: [operationalPaymentWhere],
+      ...waitingCapacityWhere,
     },
     orderBy: [{ capacityQueuedAt: 'asc' }, { createdAt: 'asc' }, { id: 'asc' }],
     take: available,
@@ -56,9 +54,7 @@ async function admitWithinTransaction(
       where: {
         id: candidate.id,
         restaurantId,
-        capacityQueuedAt: { not: null },
-        capacityAdmittedAt: null,
-        status: { notIn: [OrderStatus.ENTREGUE, OrderStatus.CANCELADO] },
+        ...waitingCapacityWhere,
       },
       data: {
         capacityAdmittedAt: now,
@@ -107,9 +103,26 @@ export class OrderCapacityQueueService {
         io.to(`user:${order.userId}`).emit('new-order', order);
         io.to(`user:${order.userId}`).emit('order:status-changed', order);
       }
+      emitWaiterTableOrderEvent(io, 'new-order', order);
+      emitTableSessionOrderEvent(io, 'order:status-changed', order);
     }
 
     return result.admitted;
+  }
+
+  // Called only after the originating transaction commits. A print/queue failure
+  // must not report an already committed cancellation or settings save as failed;
+  // the persistent worker retries admission with the same tenant lock and CAS.
+  async drainAfterCapacityChange(restaurantId: number) {
+    try {
+      return await this.drainRestaurant(restaurantId);
+    } catch (error) {
+      console.error('[ORDER_CAPACITY_QUEUE_DRAIN_ERROR]', {
+        restaurantId,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      return [];
+    }
   }
 
   async drainAll() {

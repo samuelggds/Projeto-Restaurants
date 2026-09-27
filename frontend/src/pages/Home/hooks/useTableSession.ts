@@ -111,14 +111,19 @@ export function useTableSession(options: Options) {
       activeSession.sessionToken,
       `menu-table-${activeSession.tableId || 'unknown'}`,
     );
+    let active = true;
+    let verification = 0;
 
     const verifySession = async (showSettlementNotification = false) => {
+      const request = ++verification;
       try {
         const current = await tableSessionService.getCurrentSession();
+        if (!active || request !== verification) return;
         if (
           Number(current?.id || current?.sessionId) !== Number(activeSession.sessionId) ||
           Number(current?.tableId) !== Number(activeSession.tableId)
         ) {
+          active = false;
           endSession('A sessão ativa não corresponde mais a esta mesa. Escaneie o QR novamente.');
           return;
         }
@@ -140,9 +145,7 @@ export function useTableSession(options: Options) {
           ...(shouldEnrichPublicId
             ? { sessionPublicId: String(current.sessionPublicId) }
             : undefined),
-          ...(shouldSyncStatus
-            ? { sessionStatus: 'CLOSING_REQUESTED' as const }
-            : undefined),
+          ...(shouldSyncStatus ? { sessionStatus: 'CLOSING_REQUESTED' as const } : undefined),
           tableOrderingEnabled: effectiveOrderingEnabled,
         };
         localStorage.setItem('tableSession', JSON.stringify(enrichedSession));
@@ -161,8 +164,10 @@ export function useTableSession(options: Options) {
           );
         }
       } catch (error: unknown) {
+        if (!active || request !== verification) return;
         const status = Number((error as { response?: { status?: number } })?.response?.status || 0);
-        if (status === 403 || status === 404) {
+        if (status === 401 || status === 403 || status === 404) {
+          active = false;
           endSession('Esta mesa já foi fechada ou a sessão expirou. Aguarde o garçom reabri-la.');
         }
       }
@@ -174,6 +179,7 @@ export function useTableSession(options: Options) {
       const sameTable =
         !payload?.tableId || Number(payload.tableId) === Number(activeSession.tableId);
       if (sameSession && sameTable) {
+        active = false;
         endSession(
           'Esta mesa foi fechada pelo garçom. Para pedir novamente, aguarde uma nova abertura.',
         );
@@ -210,13 +216,16 @@ export function useTableSession(options: Options) {
     socket?.on('table-participant:ordering-updated', handleParticipantOrderingUpdate);
 
     void verifySession();
-    const intervalId = window.setInterval(() => void verifySession(), 30_000);
+    const intervalId = window.setInterval(() => {
+      if (active && document.visibilityState === 'visible') void verifySession();
+    }, 30_000);
     const verifyWhenVisible = () => {
-      if (document.visibilityState === 'visible') void verifySession();
+      if (active && document.visibilityState === 'visible') void verifySession();
     };
     document.addEventListener('visibilitychange', verifyWhenVisible);
 
     return () => {
+      active = false;
       window.clearInterval(intervalId);
       document.removeEventListener('visibilitychange', verifyWhenVisible);
       socket?.off('table:session-closed', handleClosed);

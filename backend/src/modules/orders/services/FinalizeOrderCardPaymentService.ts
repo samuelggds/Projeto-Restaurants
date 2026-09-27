@@ -12,6 +12,7 @@ import {
   isOrderCapacityQueued,
   queueDigitalOrderBeforePaymentConfirmation,
 } from '../utils/orderCapacity.js';
+import orderCapacityQueueService from './OrderCapacityQueueService.js';
 
 type FinalizeOrderCardPaymentPayload = {
   orderId?: number | string | null;
@@ -150,6 +151,10 @@ class FinalizeOrderCardPaymentService {
       );
     });
 
+    if (queuedForCapacity) {
+      const admitted = await orderCapacityQueueService.drainAfterCapacityChange(updatedOrder.restaurantId);
+      return admitted.find((candidate) => candidate.id === updatedOrder.id) || updatedOrder;
+    }
     return updatedOrder;
   }
 }

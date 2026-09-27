@@ -790,7 +790,9 @@ test('QR sem PIN só libera pedidos com mesa aberta e fechamento respeita pendê
   await page.getByRole('button', { name: 'Ver detalhes de Prato da casa' }).click();
   await page.getByText('Arroz da casa').click();
   await page.getByRole('button', { name: 'Adicionar à sacola' }).click();
-  await page.getByRole('button', { name: /Sacola com [1-9]\d* itens/ }).click();
+  await page.getByRole('button', { name: /Abrir minha comanda da mesa 7/ }).click();
+  const tableAccount = page.getByRole('dialog', { name: 'Sua comanda • Mesa 7' });
+  await tableAccount.getByRole('button', { name: 'Revisar e enviar' }).click();
   await expect(page.getByRole('heading', { name: 'Minha sacola' })).toBeVisible();
   await page.getByRole('button', { name: 'Enviar pedido para a cozinha' }).click();
   await expect.poll(() => state.orderPayload).not.toBeNull();

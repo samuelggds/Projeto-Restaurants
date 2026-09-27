@@ -211,8 +211,9 @@ test('admin cancela Pix online com estorno único e distingue pagamento na entre
 
   const confirmation = page.getByRole('dialog');
   await expect(confirmation).toContainText('Cancelar pedido e solicitar estorno?');
-  await expect(confirmation).toContainText(
-    'o estorno de R$ 72,50 será solicitado automaticamente no Pix',
+  const confirmationText = ((await confirmation.textContent()) || '').replace(/\u00a0/g, ' ');
+  expect(confirmationText).toContain(
+    'O estorno de R$ 72,50 será solicitado automaticamente no Pix',
   );
   await confirmation.getByRole('button', { name: 'Cancelar e estornar', exact: true }).click();
 

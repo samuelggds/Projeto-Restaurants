@@ -14,11 +14,14 @@ import {
   Users,
   UtensilsCrossed,
   WalletCards,
+  Undo2,
 } from 'lucide-react';
 import * as S from './AdminOverview.styles';
 import type { AdminOrder, AdminProduct } from '../types';
 import ordersService, { type OrderOverview } from '../../../Services/ordersService';
 import { useAdminOrdersPage, type LoadAdminOrdersPage } from '../hooks/useAdminOrdersPage';
+import { useAdminOrderCancellation } from '../hooks/useAdminOrderCancellation';
+import { canCancelAdminOrder, isOrderWaitingForCapacity } from '../domain/adminOrders';
 
 type OverviewDestination = 'orders' | 'catalog' | 'customers';
 
@@ -28,6 +31,7 @@ type AdminOverviewProps = {
   restaurantName: string;
   money: (value: number) => string;
   onNavigate: (destination: OverviewDestination) => void;
+  onCancelOrder?: (id: number) => Promise<void>;
   loadOrdersPage?: LoadAdminOrdersPage;
   loadOverview?: () => Promise<OrderOverview>;
 };
@@ -85,6 +89,7 @@ export function AdminOverview({
   restaurantName,
   money,
   onNavigate,
+  onCancelOrder,
   loadOrdersPage,
   loadOverview = loadLiveOverview,
 }: AdminOverviewProps) {
@@ -122,6 +127,11 @@ export function AdminOverview({
     queue: 'ALL',
     refreshSignal: orders,
     loadOrdersPage,
+  });
+  const { cancelOrder, cancellingOrderId } = useAdminOrderCancellation({
+    money,
+    onCancelOrder,
+    onCancelled: orderPage.refresh,
   });
   const [productSearch, setProductSearch] = useState('');
   const [productStatus, setProductStatus] = useState('AVAILABLE');
@@ -306,7 +316,9 @@ export function AdminOverview({
           {orderPage.error && <p role="alert">{orderPage.error}</p>}
           <S.DataList aria-live="polite">
             {visibleOrders.map((order) => {
-              const status = formatStatus(order.status);
+              const status = isOrderWaitingForCapacity(order)
+                ? { label: 'Aguardando vaga', tone: 'warning' as const }
+                : formatStatus(order.status);
               return (
                 <div className="data-row order-row" key={order.numericId}>
                   <span className={`order-mark ${status.tone}`} aria-hidden="true">
@@ -325,6 +337,27 @@ export function AdminOverview({
                     <strong>{money(order.total)}</strong>
                     <S.StatusBadge $tone={status.tone}>{status.label}</S.StatusBadge>
                   </div>
+                  {onCancelOrder && canCancelAdminOrder(order) ? (
+                    <div className="row-actions">
+                      <button
+                        type="button"
+                        disabled={cancellingOrderId !== null}
+                        aria-label={`Cancelar o pedido ${order.id}`}
+                        onClick={() => void cancelOrder(order)}
+                      >
+                        <Undo2 aria-hidden="true" />
+                        {cancellingOrderId === order.numericId
+                          ? 'Processando...'
+                          : 'Cancelar pedido'}
+                      </button>
+                    </div>
+                  ) : order.refundStatus === 'PROCESSING' ? (
+                    <div className="row-actions">
+                      <button type="button" onClick={() => onNavigate('orders')}>
+                        Consultar estorno <ArrowRight aria-hidden="true" />
+                      </button>
+                    </div>
+                  ) : null}
                 </div>
               );
             })}

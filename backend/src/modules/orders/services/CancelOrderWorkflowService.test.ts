@@ -1,11 +1,14 @@
 // @ts-nocheck
 import assert from 'node:assert/strict';
-import test, { afterEach } from 'node:test';
+import test, { afterEach, beforeEach, mock } from 'node:test';
 import { OrderRefundStatus, OrderStatus } from '@prisma/client';
 import prisma from '../../../config/prisma.js';
 import orderRepository from '../repositories/OrderRepository.js';
 import cancelOrderWorkflowService from './CancelOrderWorkflowService.js';
 import refundOrderPaymentService, { AutomaticRefundError } from './RefundOrderPaymentService.js';
+import orderCapacityQueueService from './OrderCapacityQueueService.js';
+
+beforeEach(() => mock.method(orderCapacityQueueService, 'drainAfterCapacityChange', async () => []));
 
 const originalTransaction = prisma.$transaction;
 const originalOrderUpdateMany = prisma.order.updateMany;
@@ -13,6 +16,7 @@ const originalFindById = orderRepository.findById;
 const originalRefundExecute = refundOrderPaymentService.execute;
 
 afterEach(() => {
+  mock.restoreAll();
   prisma.$transaction = originalTransaction;
   prisma.order.updateMany = originalOrderUpdateMany;
   orderRepository.findById = originalFindById;

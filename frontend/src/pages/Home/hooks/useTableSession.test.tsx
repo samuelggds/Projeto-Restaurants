@@ -104,21 +104,66 @@ describe('useTableSession após autenticação', () => {
     expect(localStorage.getItem('tableSessionToken')).toBe(storedSession.sessionToken);
   });
 
-  it('invalida sessão e identidade do visitante quando a mesa é encerrada', async () => {
-    mocks.getCurrentSession.mockRejectedValue({ response: { status: 404 } });
-    const identityInvalidated = vi.fn();
-    window.addEventListener('gastronexa:table-guest-session-ended', identityInvalidated);
+  it.each([401, 403, 404])(
+    'invalida sessão e identidade quando o backend nega acesso com %s',
+    async (status) => {
+      mocks.getCurrentSession.mockRejectedValue({ response: { status } });
+      const identityInvalidated = vi.fn();
+      window.addEventListener('gastronexa:table-guest-session-ended', identityInvalidated);
 
+      await act(async () => root.render(<TableSessionProbe />));
+      await flushUntil(() => localStorage.getItem('tableSession') === null);
+
+      const output = container.querySelector('output');
+      expect(output?.dataset.mesaMode).toBe('true');
+      expect(output?.dataset.sessionActive).toBe('false');
+      expect(container.textContent).toContain('mesa já foi fechada ou a sessão expirou');
+      expect(localStorage.getItem('tableSessionToken')).toBeNull();
+      expect(identityInvalidated).toHaveBeenCalledTimes(1);
+
+      window.removeEventListener('gastronexa:table-guest-session-ended', identityInvalidated);
+    },
+  );
+
+  it('não restaura sessão com resposta atrasada após o garçom fechar a mesa', async () => {
+    let resolveSession!: (value: unknown) => void;
+    mocks.getCurrentSession.mockReturnValue(
+      new Promise((resolve) => {
+        resolveSession = resolve;
+      }),
+    );
     await act(async () => root.render(<TableSessionProbe />));
-    await flushUntil(() => localStorage.getItem('tableSession') === null);
-
-    const output = container.querySelector('output');
-    expect(output?.dataset.mesaMode).toBe('true');
-    expect(output?.dataset.sessionActive).toBe('false');
-    expect(container.textContent).toContain('mesa já foi fechada ou a sessão expirou');
+    const onClosed = mocks.socketOn.mock.calls.find(
+      ([event]) => event === 'table:session-closed',
+    )?.[1];
+    expect(onClosed).toBeTypeOf('function');
+    await act(async () => {
+      onClosed({ sessionId: 31, tableId: 91 });
+      resolveSession({
+        id: 31,
+        tableId: 91,
+        sessionStatus: 'OPEN',
+        participant: { orderingBlocked: true },
+      });
+    });
+    expect(container.querySelector('output')?.dataset.sessionActive).toBe('false');
+    expect(localStorage.getItem('tableSession')).toBeNull();
     expect(localStorage.getItem('tableSessionToken')).toBeNull();
-    expect(identityInvalidated).toHaveBeenCalledTimes(1);
+    expect(mocks.notify).toHaveBeenCalledTimes(1);
+  });
 
-    window.removeEventListener('gastronexa:table-guest-session-ended', identityInvalidated);
+  it('fechamento de outra sessão ou mesa não encerra o acesso atual', async () => {
+    mocks.getCurrentSession.mockResolvedValue({ id: 31, tableId: 91, sessionStatus: 'OPEN' });
+    await act(async () => root.render(<TableSessionProbe />));
+    const onClosed = mocks.socketOn.mock.calls.find(
+      ([event]) => event === 'table:session-closed',
+    )?.[1];
+    await act(async () => {
+      onClosed({ sessionId: 32, tableId: 91 });
+      onClosed({ sessionId: 31, tableId: 92 });
+    });
+    expect(container.querySelector('output')?.dataset.sessionActive).toBe('true');
+    expect(localStorage.getItem('tableSessionToken')).toBe(storedSession.sessionToken);
+    expect(mocks.notify).not.toHaveBeenCalled();
   });
 });

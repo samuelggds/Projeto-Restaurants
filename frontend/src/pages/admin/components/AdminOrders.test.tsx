@@ -151,7 +151,10 @@ describe('AdminOrders', () => {
     expect(onCancelOrder).not.toHaveBeenCalled();
     expect(onConfirmPayment).not.toHaveBeenCalled();
     expect(toast.success).toHaveBeenCalledWith('Estorno confirmado pelo provedor.');
-    expect(container.querySelector('button[aria-label="Cancelar pedido #301"]')).toBeNull();
+    expect(
+      container.querySelector('button[aria-label="Cancelar e estornar o pedido #301"]'),
+    ).toBeNull();
+    expect(container.textContent).toContain('Consulte o estorno antes de tentar novamente');
   });
 
   it('busca uma página por clique e retorna à primeira sem carregar o histórico inteiro', async () => {
@@ -265,5 +268,39 @@ describe('AdminOrders', () => {
     expect(toast.error).toHaveBeenCalledWith(
       'O serviço de pagamentos não respondeu agora. Confira se a conta está conectada em Configurações > Pagamentos e tente novamente em instantes.',
     );
+  });
+
+  it.each(['PENDENTE', 'PREPARANDO', 'PRONTO', 'SAIU_PARA_ENTREGA'])(
+    'mantém cancelamento acessível para pedido recebido em %s',
+    async (status) => {
+      const { onCancelOrder } = await renderOrders(undefined, [{ ...orders[2], status }]);
+      const button = buttonByLabel(container, 'Cancelar o pedido #303');
+      expect(button.disabled).toBe(false);
+      await act(async () => button.click());
+      expect(onCancelOrder).not.toHaveBeenCalled();
+      expect(container.textContent).toContain('cobrança em processamento');
+      const confirm = container.querySelector(
+        '[role="dialog"] button[type="submit"]',
+      ) as HTMLButtonElement;
+      await act(async () => confirm.click());
+      expect(onCancelOrder).toHaveBeenCalledExactlyOnceWith(303);
+    },
+  );
+
+  it('oferece cancelar a espera FIFO e não apresenta cancelado ou entregue como aguardando vaga', async () => {
+    const queued = { ...orders[2], capacityQueuedAt: '2026-09-26T12:00:00Z' };
+    await renderOrders(undefined, [
+      queued,
+      { ...queued, id: '#304', numericId: 304, status: 'CANCELADO' },
+      { ...queued, id: '#305', numericId: 305, status: 'ENTREGUE' },
+    ]);
+    const statuses = Array.from(container.querySelectorAll('.order-status')).map(
+      (element) => element.textContent,
+    );
+    expect(statuses).toEqual(['Aguardando vaga', 'Cancelado', 'Entregue']);
+    expect(buttonByLabel(container, 'Cancelar o pedido #304')).toBeNull();
+    expect(buttonByLabel(container, 'Cancelar o pedido #305')).toBeNull();
+    await act(async () => buttonByLabel(container, 'Cancelar o pedido #303').click());
+    expect(container.textContent).toContain('retirado da fila de espera, sem iniciar o preparo');
   });
 });

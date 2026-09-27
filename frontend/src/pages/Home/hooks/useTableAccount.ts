@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import tableAccountService from '../../../Services/tableAccountService';
 import { connectTableSessionSocket } from '../../../Services/socketService';
 import {
@@ -33,67 +33,157 @@ function isDefinitiveClientError(error: unknown) {
 
 export function useTableAccount({ enabled, sessionPublicId, sessionToken, notify }: Options) {
   const scopeKey = enabled && sessionPublicId ? sessionPublicId : '';
+  const scope = useMemo(() => ({ scopeKey, sessionToken }), [scopeKey, sessionToken]);
+  type Scope = typeof scope;
+  type Action = { scope: Scope; participantPublicId: string | undefined };
+  type ReadResult = TableAccountSnapshot | null;
   const [queryState, setQueryState] = useState<{
-    scopeKey: string;
+    scope: Scope | null;
     snapshot: TableAccountSnapshot | null;
     loading: boolean;
     error: string;
-  }>({ scopeKey: '', snapshot: null, loading: false, error: '' });
-  const [actionLoading, setActionLoading] = useState(false);
-  const activeRef = useRef(true);
-  const actionInFlightRef = useRef(false);
+  }>({ scope: null, snapshot: null, loading: false, error: '' });
+  const [actionState, setActionState] = useState<{ scope: Scope; loading: boolean } | null>(null);
+  const currentScopeRef = useRef<Scope | null>(scope);
+  const actionInFlightRef = useRef<Action | null>(null);
+  const snapshotRef = useRef<TableAccountSnapshot | null>(null);
+  const readInFlightRef = useRef<{ scope: Scope; promise: Promise<ReadResult> } | null>(null);
+  const backgroundReadRef = useRef<{
+    scope: Scope;
+    dirty: boolean;
+    promise: Promise<ReadResult>;
+  } | null>(null);
   const latestRequestRef = useRef(0);
   const pendingAttemptRef = useRef<{
-    scopeKey: string;
+    scope: Scope;
+    participantPublicId: string | undefined;
     fingerprint: string;
     key: string;
   } | null>(null);
   const notifiedPaidPaymentsRef = useRef(new Set<string>());
 
   const scopedQueryState =
-    queryState.scopeKey === scopeKey
+    queryState.scope === scope
       ? queryState
-      : { scopeKey, snapshot: null, loading: Boolean(scopeKey), error: '' };
+      : { scope, snapshot: null, loading: Boolean(scopeKey), error: '' };
 
-  useEffect(() => {
-    activeRef.current = true;
+  useLayoutEffect(() => {
+    currentScopeRef.current = scope;
+    snapshotRef.current = null;
+    pendingAttemptRef.current = null;
+    notifiedPaidPaymentsRef.current.clear();
     return () => {
-      activeRef.current = false;
+      currentScopeRef.current = null;
+      latestRequestRef.current += 1;
     };
-  }, []);
+  }, [scope]);
+
+  const isCurrentScope = useCallback(
+    () => Boolean(scopeKey) && currentScopeRef.current === scope,
+    [scope, scopeKey],
+  );
 
   const refresh = useCallback(
-    async (options?: { silent?: boolean }) => {
-      if (!scopeKey) return null;
+    (options?: { silent?: boolean }): Promise<ReadResult> => {
+      if (!isCurrentScope()) return Promise.resolve(null);
       const requestId = ++latestRequestRef.current;
       if (!options?.silent) {
         setQueryState((current) => ({
-          scopeKey,
-          snapshot: current.scopeKey === scopeKey ? current.snapshot : null,
+          scope,
+          snapshot: current.scope === scope ? current.snapshot : null,
           loading: true,
           error: '',
         }));
       }
-      try {
-        const result = await tableAccountService.getCurrent(scopeKey);
-        if (activeRef.current && latestRequestRef.current === requestId) {
-          setQueryState({ scopeKey, snapshot: result, loading: false, error: '' });
+      const promise = (async () => {
+        try {
+          const result = await tableAccountService.getCurrent(scopeKey);
+          if (!isCurrentScope() || latestRequestRef.current !== requestId) return null;
+          snapshotRef.current = result;
+          setQueryState({ scope, snapshot: result, loading: false, error: '' });
+          return result;
+        } catch (requestError: unknown) {
+          const message = errorMessage(requestError);
+          if (isCurrentScope() && latestRequestRef.current === requestId) {
+            setQueryState((current) => ({
+              scope,
+              snapshot: current.scope === scope ? current.snapshot : null,
+              loading: false,
+              error: message,
+            }));
+          }
+          return null;
         }
+      })();
+      const read = { scope, promise };
+      readInFlightRef.current = read;
+      void promise.finally(() => {
+        if (readInFlightRef.current === read) readInFlightRef.current = null;
+      });
+      return promise;
+    },
+    [isCurrentScope, scope, scopeKey],
+  );
+
+  const refreshInBackground = useCallback(
+    (fromEvent = false): Promise<ReadResult> => {
+      if (!isCurrentScope()) return Promise.resolve(null);
+      const running = backgroundReadRef.current;
+      if (running?.scope === scope) {
+        // Um evento ocorrido durante a leitura exige uma leitura posterior; um tick não.
+        if (fromEvent) running.dirty = true;
+        return running.promise;
+      }
+      const pending = readInFlightRef.current;
+      if (!fromEvent && pending?.scope === scope) return pending.promise;
+
+      const task = { scope, dirty: false, promise: Promise.resolve<ReadResult>(null) };
+      task.promise = (async () => {
+        let result: ReadResult;
+        do {
+          const read = readInFlightRef.current;
+          if (read?.scope === scope) await read.promise;
+          if (!isCurrentScope()) return null;
+          task.dirty = false;
+          result = await refresh({ silent: true });
+        } while (task.dirty && isCurrentScope());
         return result;
-      } catch (requestError: unknown) {
-        const message = errorMessage(requestError);
-        if (activeRef.current && latestRequestRef.current === requestId) {
-          setQueryState((current) => ({
-            scopeKey,
-            snapshot: current.scopeKey === scopeKey ? current.snapshot : null,
-            loading: false,
-            error: message,
-          }));
+      })().finally(() => {
+        if (backgroundReadRef.current === task) backgroundReadRef.current = null;
+      });
+      backgroundReadRef.current = task;
+      return task.promise;
+    },
+    [isCurrentScope, refresh, scope],
+  );
+
+  const beginAction = useCallback(() => {
+    if (!isCurrentScope() || actionInFlightRef.current?.scope === scope) return null;
+    const action = { scope, participantPublicId: snapshotRef.current?.currentParticipantPublicId };
+    actionInFlightRef.current = action;
+    setActionState({ scope, loading: true });
+    return action;
+  }, [isCurrentScope, scope]);
+
+  const isCurrentAction = useCallback(
+    (action: Action) =>
+      isCurrentScope() &&
+      actionInFlightRef.current === action &&
+      (!action.participantPublicId ||
+        snapshotRef.current?.currentParticipantPublicId === action.participantPublicId),
+    [isCurrentScope],
+  );
+
+  const finishAction = useCallback(
+    (action: Action) => {
+      if (actionInFlightRef.current === action) {
+        actionInFlightRef.current = null;
+        if (isCurrentScope()) {
+          setActionState({ scope, loading: false });
         }
-        return null;
       }
     },
-    [scopeKey],
+    [isCurrentScope, scope],
   );
 
   useEffect(() => {
@@ -103,9 +193,11 @@ export function useTableAccount({ enabled, sessionPublicId, sessionToken, notify
       return undefined;
     }
     const initialRefreshId = window.setTimeout(() => void refresh(), 0);
-    const intervalId = window.setInterval(() => void refresh({ silent: true }), 15_000);
+    const intervalId = window.setInterval(() => {
+      if (!document.hidden) void refreshInBackground();
+    }, 15_000);
     const refreshWhenVisible = () => {
-      if (document.visibilityState === 'visible') void refresh({ silent: true });
+      if (!document.hidden) void refreshInBackground(true);
     };
     document.addEventListener('visibilitychange', refreshWhenVisible);
     return () => {
@@ -115,7 +207,7 @@ export function useTableAccount({ enabled, sessionPublicId, sessionToken, notify
       window.clearInterval(intervalId);
       document.removeEventListener('visibilitychange', refreshWhenVisible);
     };
-  }, [refresh, scopeKey]);
+  }, [refresh, refreshInBackground, scopeKey]);
 
   useEffect(() => {
     if (!scopeKey || !sessionToken) return undefined;
@@ -124,7 +216,8 @@ export function useTableAccount({ enabled, sessionPublicId, sessionToken, notify
       paymentPublicId?: string;
       paymentStatus?: string;
     }) => {
-      const refreshed = await refresh({ silent: true });
+      const refreshed = await refreshInBackground(true);
+      if (!isCurrentScope()) return;
       const paymentPublicId = String(payload?.paymentPublicId || '');
       if (
         payload?.paymentStatus === 'PAID' &&
@@ -154,84 +247,91 @@ export function useTableAccount({ enabled, sessionPublicId, sessionToken, notify
     return () => {
       socket?.off('table-account:updated', handleAccountUpdated);
     };
-  }, [notify, refresh, scopeKey, sessionToken]);
+  }, [isCurrentScope, notify, refreshInBackground, scopeKey, sessionToken]);
 
   const createPayment = useCallback(
     async (draft: TablePaymentDraft): Promise<CreateTablePaymentResult | null> => {
-      if (!scopeKey || actionInFlightRef.current) return null;
+      const action = beginAction();
+      if (!action) return null;
       const fingerprint = tablePaymentFingerprint(draft);
       const attempt =
-        pendingAttemptRef.current?.scopeKey === scopeKey &&
+        pendingAttemptRef.current?.scope === scope &&
+        pendingAttemptRef.current.participantPublicId === action.participantPublicId &&
         pendingAttemptRef.current.fingerprint === fingerprint
           ? pendingAttemptRef.current
-          : { scopeKey, fingerprint, key: createTablePaymentIdempotencyKey() };
+          : {
+              scope,
+              participantPublicId: action.participantPublicId,
+              fingerprint,
+              key: createTablePaymentIdempotencyKey(),
+            };
       pendingAttemptRef.current = attempt;
-      actionInFlightRef.current = true;
-      setActionLoading(true);
       try {
         const result = await tableAccountService.createPayment(scopeKey, draft, attempt.key);
+        if (!isCurrentAction(action)) return null;
         pendingAttemptRef.current = null;
         await refresh({ silent: true });
-        return result;
+        return isCurrentAction(action) ? result : null;
       } catch (requestError: unknown) {
+        if (!isCurrentAction(action)) return null;
         // Erros de validação são definitivos. Falhas de rede, timeout, limite ou servidor
         // reutilizam a mesma chave porque a cobrança pode ter sido criada antes da resposta.
         if (isDefinitiveClientError(requestError)) pendingAttemptRef.current = null;
         notify('error', 'Pagamento não iniciado', errorMessage(requestError));
         return null;
       } finally {
-        actionInFlightRef.current = false;
-        if (activeRef.current) setActionLoading(false);
+        finishAction(action);
       }
     },
-    [notify, refresh, scopeKey],
+    [beginAction, finishAction, isCurrentAction, notify, refresh, scope, scopeKey],
   );
 
   const cancelPayment = useCallback(
     async (paymentPublicId: string) => {
-      if (!scopeKey || actionInFlightRef.current) return false;
-      actionInFlightRef.current = true;
-      setActionLoading(true);
+      const action = beginAction();
+      if (!action) return false;
       try {
         await tableAccountService.cancelPayment(scopeKey, paymentPublicId);
+        if (!isCurrentAction(action)) return false;
         await refresh({ silent: true });
+        if (!isCurrentAction(action)) return false;
         notify('success', 'Pagamento cancelado', 'Os itens reservados voltaram para a conta.');
         return true;
       } catch (requestError: unknown) {
+        if (!isCurrentAction(action)) return false;
         notify('error', 'Não foi possível cancelar', errorMessage(requestError));
         return false;
       } finally {
-        actionInFlightRef.current = false;
-        if (activeRef.current) setActionLoading(false);
+        finishAction(action);
       }
     },
-    [notify, refresh, scopeKey],
+    [beginAction, finishAction, isCurrentAction, notify, refresh, scopeKey],
   );
 
   const reconcilePayment = useCallback(
     async (paymentPublicId: string): Promise<TablePaymentIntent | null> => {
-      if (!scopeKey || actionInFlightRef.current) return null;
-      actionInFlightRef.current = true;
-      setActionLoading(true);
+      const action = beginAction();
+      if (!action) return null;
       try {
         const result = await tableAccountService.reconcilePayment(scopeKey, paymentPublicId);
+        if (!isCurrentAction(action)) return null;
         await refresh({ silent: true });
-        return result.payment;
+        return isCurrentAction(action) ? result.payment : null;
       } catch (requestError: unknown) {
+        if (!isCurrentAction(action)) return null;
         notify('error', 'Não foi possível verificar', errorMessage(requestError));
         return null;
       } finally {
-        actionInFlightRef.current = false;
-        if (activeRef.current) setActionLoading(false);
+        finishAction(action);
       }
     },
-    [notify, refresh, scopeKey],
+    [beginAction, finishAction, isCurrentAction, notify, refresh, scopeKey],
   );
 
   return {
     snapshot: scopedQueryState.snapshot,
     loading: scopedQueryState.loading,
-    actionLoading,
+    actionLoading: actionState?.scope === scope && actionState.loading,
     error: scopedQueryState.error,
     refresh,
     createPayment,

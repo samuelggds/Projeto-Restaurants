@@ -1,9 +1,6 @@
 import tableSessionRepository from '../repositories/TableSessionRepository.js';
 import resolvePublicTableService from '../../table/services/ResolvePublicTableService.js';
-import joinTableParticipantService, {
-  TableParticipantIdentityRequiredError,
-} from './JoinTableParticipantService.js';
-import tableAccessRequestService from './TableAccessRequestService.js';
+import joinTableParticipantService from './JoinTableParticipantService.js';
 import { TableSessionStatus } from '@prisma/client';
 
 type Input = {
@@ -83,23 +80,13 @@ class JoinTableSessionService {
       table: session.table,
     };
 
-    let participantResult;
-    try {
-      participantResult = await joinTableParticipantService.execute({
-        session: participantSession,
-        authenticatedUser,
-        cookies,
-      });
-    } catch (error) {
-      if (!(error instanceof TableParticipantIdentityRequiredError)) throw error;
-      if (displayName === undefined || phone === undefined) throw error;
-
-      return tableAccessRequestService.create({
-        session: participantSession,
-        displayName,
-        phone,
-      });
-    }
+    const participantResult = await joinTableParticipantService.execute({
+      session: participantSession,
+      authenticatedUser,
+      cookies,
+      displayName,
+      phone,
+    });
 
     return {
       sessionToken: session.sessionToken,

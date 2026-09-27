@@ -107,6 +107,11 @@ test('persiste opções agrupadas e observação sem vazar metadados de criaçã
     $queryRaw: async () => [],
     order: {
       count: async () => 0,
+      findFirst: async ({ where }) => {
+        assert.equal(where.restaurantId, 7);
+        assert.deepEqual(where.capacityQueuedAt, { not: null });
+        return null;
+      },
     },
     restaurantPrinterSettings: {
       findFirst: async ({ where }) => {
@@ -435,6 +440,11 @@ test('pedido de mesa convidado vincula participante e cria uma unidade financeir
     $queryRaw: async () => [],
     order: {
       count: async () => 0,
+      findFirst: async ({ where }) => {
+        assert.equal(where.restaurantId, 7);
+        assert.deepEqual(where.capacityQueuedAt, { not: null });
+        return null;
+      },
     },
     restaurantPrinterSettings: {
       findFirst: async ({ where }) => {

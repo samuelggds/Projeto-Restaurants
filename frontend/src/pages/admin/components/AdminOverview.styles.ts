@@ -738,6 +738,47 @@ export const DataList = styled.div`
     white-space: nowrap;
   }
 
+  .row-actions {
+    grid-column: 1 / -1;
+    display: flex;
+    justify-content: flex-end;
+  }
+
+  .row-actions button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    min-height: 40px;
+    padding: 6px 12px;
+    border: 1px solid #eed2cd;
+    border-radius: 8px;
+    background: #fffaf9;
+    color: #a73d35;
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  .row-actions button:hover:not(:disabled) {
+    background: #fff0ee;
+  }
+
+  .row-actions button:focus-visible {
+    outline: 2px solid #a73d35;
+    outline-offset: 3px;
+  }
+
+  .row-actions button:disabled {
+    opacity: 0.6;
+    cursor: wait;
+  }
+
+  .row-actions svg {
+    width: 14px;
+    height: 14px;
+  }
+
   @media (max-width: 480px) {
     .data-row {
       grid-template-columns: minmax(0, 1fr) auto;

@@ -1,6 +1,6 @@
 // @ts-nocheck
 import assert from 'node:assert/strict';
-import test, { afterEach } from 'node:test';
+import test, { afterEach, beforeEach, mock } from 'node:test';
 import { OrderStatus, OrderType, PaymentMethod, UserRole } from '@prisma/client';
 import prisma from '../../../config/prisma.js';
 import { realtimePublisher as io } from '../../../realtime/realtimePublisher.js';
@@ -10,18 +10,27 @@ import updateOrderStatusService from './UpdateOrderStatusService.js';
 import requestOrderPaymentConfirmationPinService from './RequestOrderPaymentConfirmationPinService.js';
 import confirmOrderPaymentWithPinService from './ConfirmOrderPaymentWithPinService.js';
 import { generateDeliveryConfirmationCode } from '../utils/deliveryConfirmationCode.js';
+import orderCapacityQueueService from './OrderCapacityQueueService.js';
+
+beforeEach(() => {
+  mock.method(orderCapacityQueueService, 'drainAfterCapacityChange', async () => []);
+  prisma.restaurantSettings.findUnique = async () => null;
+});
 
 const originals = {
   transaction: prisma.$transaction,
   userFindFirst: prisma.user.findFirst,
+  settingsFindUnique: prisma.restaurantSettings.findUnique,
   ioTo: io.to,
   findById: orderRepository.findById,
   assertActiveCourier: courierAccessService.assertActiveCourier,
 };
 
 afterEach(() => {
+  mock.restoreAll();
   prisma.$transaction = originals.transaction;
   prisma.user.findFirst = originals.userFindFirst;
+  prisma.restaurantSettings.findUnique = originals.settingsFindUnique;
   io.to = originals.ioTo;
   orderRepository.findById = originals.findById;
   courierAccessService.assertActiveCourier = originals.assertActiveCourier;

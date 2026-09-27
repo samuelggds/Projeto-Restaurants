@@ -4,6 +4,33 @@ import { homeMockData } from './data';
 import { HomePage } from './HomePage';
 
 describe('HomePage com configurações públicas', () => {
+  it('oculta favoritos sem ação no cardápio de mesa e mantém a ação da loja', () => {
+    const data = {
+      ...homeMockData,
+      categories: [{ id: 'pizzas', name: 'Pizzas', image: '/pizza.webp' }],
+      products: [
+        {
+          id: 'pizza-1',
+          categoryId: 'pizzas',
+          name: 'Pizza da casa',
+          description: 'Pizza',
+          price: 30,
+          originalPrice: 30,
+          image: '/pizza.webp',
+          rating: 0,
+          available: true,
+        },
+      ],
+    };
+    const tableMarkup = renderToStaticMarkup(<HomePage data={data} isTableMenu />);
+    expect(tableMarkup).toContain('Ver detalhes de Pizza da casa');
+    expect(tableMarkup).not.toContain('aria-label="Favoritar ');
+    const storeMarkup = renderToStaticMarkup(
+      <HomePage data={data} onToggleFavorite={() => undefined} />,
+    );
+    expect(storeMarkup).toContain('aria-label="Favoritar Pizza da casa"');
+  });
+
   it('exibe frete grátis e somente contatos realmente configurados', () => {
     const markup = renderToStaticMarkup(
       <HomePage

@@ -316,7 +316,7 @@ export const HomeHeader = memo(function HomeHeader({
                 <UserRound size={20} />
               </RoundButton>
             )}
-  
+
             <ProfileDropdown $open={profileOpen}>
               <DropdownArrow />
               <DropdownUser>
@@ -370,12 +370,18 @@ export const HomeHeader = memo(function HomeHeader({
               </DropdownItem>
             </ProfileDropdown>
           </ProfileWrap>
-  
         ) : null}
 
-        <CartButton aria-label={`Sacola com ${cartCount} itens`} onClick={onOpenCart}>
+        <CartButton
+          aria-label={
+            isTableMenu
+              ? `Abrir minha comanda da mesa ${tableLabel}`
+              : `Sacola com ${cartCount} itens`
+          }
+          onClick={onOpenCart}
+        >
           <ShoppingBag size={19} />
-          <span>Sacola</span>
+          <span>{isTableMenu ? 'Comanda' : 'Sacola'}</span>
           {cartCount > 0 && <i>{cartCount}</i>}
         </CartButton>
       </Actions>
