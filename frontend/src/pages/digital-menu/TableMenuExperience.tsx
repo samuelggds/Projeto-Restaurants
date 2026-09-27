@@ -1112,6 +1112,10 @@ function HomeHeader({
       </S.Brand>
 
       <S.HomeHeaderActions>
+        <S.HomeTableBadge aria-label={`Mesa ${tableLabel}`}>
+          <Utensils size={15} />
+          <span>{String(tableLabel).padStart(2, '0')}</span>
+        </S.HomeTableBadge>
         <button type="button" aria-label="Buscar no cardápio" onClick={onSearchToggle}>
           <Search size={18} />
         </button>
