@@ -56,6 +56,9 @@ type Props = {
   onCreatePixPayment: (orderPublicId: string) => Promise<TablePaymentIntent | null>;
   onReconcilePayment: (paymentPublicId: string) => Promise<TablePaymentIntent | null>;
   onCancelPayment: (paymentPublicId: string) => Promise<boolean>;
+  couponCode?: string | null;
+  couponDiscount?: number;
+  onApplyCouponCode?: (code: string) => void;
   reviewCartOpen?: boolean;
   onReviewCartClose?: () => void;
 };
@@ -94,6 +97,9 @@ export default function TableMenuExperience({
   onCreatePixPayment,
   onReconcilePayment,
   onCancelPayment,
+  couponCode = null,
+  couponDiscount = 0,
+  onApplyCouponCode,
   reviewCartOpen = false,
   onReviewCartClose,
 }: Props) {
@@ -118,6 +124,7 @@ export default function TableMenuExperience({
   } | null>(null);
   const [pixPayment, setPixPayment] = useState<TablePaymentIntent | null>(null);
   const [copied, setCopied] = useState(false);
+  const [couponInput, setCouponInput] = useState(couponCode || '');
   const [now, setNow] = useState(() => Date.now());
 
   const primary = data.brand.primaryColor || '#d64d08';
@@ -687,7 +694,7 @@ export default function TableMenuExperience({
           )
         : 0;
     const serviceFee = serviceFeeCents / 100;
-    const totalWithFee = cartTotal + serviceFee;
+    const totalWithFee = Math.max(0, cartTotal - couponDiscount + serviceFee);
 
     return (
       <S.FigmaShell $primary={primary} $fontFamily={data.fontFamily}>
@@ -758,9 +765,31 @@ export default function TableMenuExperience({
               </S.AddMoreButton>
             </div>
 
-            <div>
+            <div className="cart-summary-column">
+              <h2 className="desktop-only">Resumo</h2>
+              <S.CouponRow>
+                <input
+                  value={couponInput}
+                  onChange={(event) => setCouponInput(event.target.value)}
+                  placeholder="Cupom promocional"
+                  aria-label="Cupom promocional"
+                />
+                <button
+                  type="button"
+                  disabled={!couponInput.trim() || !onApplyCouponCode}
+                  onClick={() => onApplyCouponCode?.(couponInput.trim())}
+                >
+                  Aplicar
+                </button>
+              </S.CouponRow>
               <S.SummaryCard>
                 <div className="row"><span>Subtotal</span><strong>{brl(cartTotal)}</strong></div>
+                {couponDiscount > 0 ? (
+                  <div className="row discount">
+                    <span>{couponCode ? `Cupom · ${couponCode}` : 'Cupom promocional'}</span>
+                    <strong>− {brl(couponDiscount)}</strong>
+                  </div>
+                ) : null}
                 <div className="row">
                   <span>
                     <span className="desktop-only">Taxa de Serviço (Opcional)</span>
