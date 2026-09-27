@@ -541,11 +541,11 @@ export default function TableMenuExperience({
 
         <S.FlowPage>
           <S.TrackingLayout>
-            <S.FlowTitle className="tracking-title">
-              <h1>Painel da Mesa</h1>
-              <p>Veja o andamento de seus pratos e bebidas em tempo real</p>
-            </S.FlowTitle>
-            <div>
+            <div className="tracking-main">
+              <S.FlowTitle className="tracking-title">
+                <h1>Painel da Mesa</h1>
+                <p>Veja o andamento de seus pratos e bebidas em tempo real</p>
+              </S.FlowTitle>
               <S.StatusCard>
                 <span className="icon"><Clock3 size={28} /></span>
                 <div>
