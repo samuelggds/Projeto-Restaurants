@@ -1,5 +1,7 @@
 import styled from 'styled-components';
 
+type TableActionTone = 'order' | 'waiter' | 'bill';
+
 export const FigmaShell = styled.main<{ $primary: string; $fontFamily?: string }>`
   --primary: ${({ $primary }) => $primary};
   --text: #1a1a2e;
@@ -38,17 +40,32 @@ export const FigmaShell = styled.main<{ $primary: string; $fontFamily?: string }
     display: block;
     max-width: 100%;
   }
+
+  .mobile-only {
+    display: none;
+  }
+
+  @media (max-width: 759px) {
+    .desktop-only {
+      display: none !important;
+    }
+
+    .mobile-only {
+      display: inline;
+    }
+  }
 `;
 
 export const FigmaHeader = styled.header<{ $hasTitle?: boolean }>`
   width: 100%;
-  min-height: 68px;
+  min-height: 72px;
   padding: 18px 48px;
   border-bottom: 1px solid var(--line);
   background: #fff;
   display: grid;
-  grid-template-columns: minmax(430px, 1fr) auto minmax(190px, 1fr);
+  grid-template-columns: minmax(455px, 1fr) auto;
   align-items: center;
+  justify-content: space-between;
   gap: 24px;
 
   .left {
@@ -58,10 +75,7 @@ export const FigmaHeader = styled.header<{ $hasTitle?: boolean }>`
     gap: 48px;
   }
 
-  .mobile-back {
-    display: none;
-  }
-
+  .mobile-back,
   .context-title {
     display: none;
   }
@@ -69,17 +83,17 @@ export const FigmaHeader = styled.header<{ $hasTitle?: boolean }>`
   nav {
     display: inline-flex;
     align-items: center;
-    justify-content: center;
     gap: 32px;
   }
 
   nav button {
     position: relative;
-    padding: 5px 0;
+    padding: 0 0 6px;
     border: 0;
     background: transparent;
     color: var(--muted);
     font-size: 14px;
+    line-height: 18px;
     font-weight: 500;
   }
 
@@ -97,10 +111,10 @@ export const FigmaHeader = styled.header<{ $hasTitle?: boolean }>`
     content: '';
     position: absolute;
     left: 0;
-    bottom: -5px;
+    bottom: 0;
     width: 16px;
     height: 2px;
-    border-radius: 2px;
+    border-radius: 1px;
     background: var(--primary);
   }
 
@@ -109,7 +123,7 @@ export const FigmaHeader = styled.header<{ $hasTitle?: boolean }>`
   }
 
   @media (max-width: 759px) {
-    min-height: 68px;
+    min-height: 65px;
     padding: 16px 20px;
     grid-template-columns: minmax(0, 1fr) auto;
     gap: 12px;
@@ -118,6 +132,7 @@ export const FigmaHeader = styled.header<{ $hasTitle?: boolean }>`
       gap: 10px;
     }
 
+    nav,
     .mobile-back {
       display: none;
     }
@@ -147,10 +162,6 @@ export const FigmaHeader = styled.header<{ $hasTitle?: boolean }>`
       font-weight: 500;
     }
 
-    nav {
-      display: none;
-    }
-
     ${({ $hasTitle }) =>
       $hasTitle
         ? `
@@ -159,6 +170,10 @@ export const FigmaHeader = styled.header<{ $hasTitle?: boolean }>`
       }
     `
         : ''}
+  }
+
+  @media (max-width: 359px) {
+    padding-inline: 14px;
   }
 `;
 
@@ -182,8 +197,9 @@ export const FigmaBrand = styled.div.attrs({ className: 'brand' })`
     place-items: center;
     background: var(--primary);
     color: #fff;
-    font-size: 19px;
-    font-weight: 700;
+    font-size: 20px;
+    line-height: 25px;
+    font-weight: 400;
   }
 
   .name {
@@ -200,7 +216,7 @@ export const FigmaBrand = styled.div.attrs({ className: 'brand' })`
     color: var(--text);
     font-size: 16px;
     line-height: 20px;
-    font-weight: 500;
+    font-weight: 400;
   }
 
   .name small {
@@ -218,7 +234,11 @@ export const FigmaBrand = styled.div.attrs({ className: 'brand' })`
       width: 32px;
       height: 32px;
       flex-basis: 32px;
-      border-radius: 10px;
+    }
+
+    .mark {
+      font-size: 18px;
+      line-height: 23px;
     }
 
     .name b {
@@ -234,14 +254,15 @@ export const FigmaBrand = styled.div.attrs({ className: 'brand' })`
       text-overflow: ellipsis;
       white-space: nowrap;
       font-size: 10px;
+      line-height: 13px;
     }
   }
 `;
 
 export const FigmaTablePill = styled.div`
-  min-width: 108px;
-  min-height: 34px;
-  padding: 7px 16px;
+  min-width: 102px;
+  min-height: 32px;
+  padding: 8px 16px;
   border: 1px solid var(--primary);
   border-radius: 12px;
   background: color-mix(in srgb, var(--primary) 8%, #fff);
@@ -251,6 +272,7 @@ export const FigmaTablePill = styled.div`
   gap: 6px;
   color: var(--primary);
   font-size: 13px;
+  line-height: 16px;
   font-weight: 700;
 
   svg {
@@ -259,11 +281,12 @@ export const FigmaTablePill = styled.div`
   }
 
   @media (max-width: 759px) {
-    min-width: 91px;
-    min-height: 30px;
+    min-width: 84px;
+    min-height: 26px;
     padding: 6px 12px;
     gap: 4px;
     font-size: 11px;
+    line-height: 14px;
   }
 `;
 
@@ -285,15 +308,15 @@ export const MenuHero = styled.section`
   .hero-overlay {
     position: absolute;
     inset: 0;
-    background: linear-gradient(168deg, rgba(0, 0, 0, 0.2) 24%, rgba(0, 0, 0, 0.5) 78%);
+    background: linear-gradient(167deg, rgba(0, 0, 0, 0.2) 25%, rgba(0, 0, 0, 0.5) 75%);
   }
 
   .copy {
     position: relative;
     z-index: 2;
-    width: min(760px, calc(100% - 160px));
+    width: calc(100% - 160px);
     height: 100%;
-    margin-left: 80px;
+    margin: 0 80px;
     padding: 56px 0;
     display: flex;
     flex-direction: column;
@@ -306,10 +329,16 @@ export const MenuHero = styled.section`
     line-height: 18px;
     font-weight: 700;
     letter-spacing: 2px;
+    text-shadow: 0 2px 10px rgba(0, 0, 0, 0.65);
+  }
+
+  .eyebrow-mobile,
+  .cta-mobile {
+    display: none;
   }
 
   h1 {
-    width: min(760px, 100%);
+    width: 100%;
     margin: 12px 0 0;
     color: #fff;
     font-size: 48px;
@@ -320,23 +349,25 @@ export const MenuHero = styled.section`
   }
 
   p {
-    width: min(700px, 100%);
-    margin: 10px 0 0;
-    color: rgba(250, 250, 248, 0.78);
+    width: 100%;
+    margin: 12px 0 0;
+    color: rgba(250, 250, 248, 0.7);
     font-size: 16px;
-    line-height: 22px;
+    line-height: 20px;
     font-weight: 500;
+    text-shadow: 0 2px 10px rgba(0, 0, 0, 0.65);
   }
 
   .cta {
     min-height: 42px;
     margin-top: auto;
-    padding: 0 24px;
+    padding: 12px 24px;
     border: 0;
-    border-radius: 999px;
+    border-radius: 100px;
     background: var(--primary);
     color: #fff;
     font-size: 15px;
+    line-height: 19px;
     font-weight: 700;
   }
 
@@ -374,28 +405,40 @@ export const MenuHero = styled.section`
     }
 
     .eyebrow {
-      max-width: 320px;
       font-size: 10px;
-      line-height: 14px;
+      line-height: 13px;
       letter-spacing: 1.5px;
+      text-shadow: 0 2px 8px rgba(0, 0, 0, 0.7);
+    }
+
+    .eyebrow-desktop,
+    .cta-desktop {
+      display: none;
+    }
+
+    .eyebrow-mobile,
+    .cta-mobile {
+      display: inline;
     }
 
     h1 {
       width: 320px;
-      max-width: 92%;
+      max-width: 94%;
       margin-top: 4px;
       font-size: 26px;
       line-height: 1.2;
+      text-shadow: 0 2px 8px rgba(0, 0, 0, 0.7);
     }
 
     p {
-      max-width: 230px;
+      max-width: 225px;
       margin-top: auto;
       font-size: 13px;
       line-height: 17px;
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
+      text-shadow: 0 2px 8px rgba(0, 0, 0, 0.7);
     }
 
     .cta {
@@ -403,8 +446,9 @@ export const MenuHero = styled.section`
       right: 20px;
       bottom: 20px;
       min-height: 32px;
-      padding: 0 16px;
+      padding: 8px 16px;
       font-size: 12px;
+      line-height: 15px;
     }
 
     .indicators {
@@ -417,6 +461,7 @@ export const MenuHero = styled.section`
 
     .indicators button {
       height: 3px;
+      border-radius: 1.5px;
     }
   }
 `;
@@ -428,6 +473,10 @@ export const MenuPage = styled.section`
   display: flex;
   flex-direction: column;
   gap: 40px;
+
+  @media (max-width: 1100px) and (min-width: 760px) {
+    padding-inline: 40px;
+  }
 
   @media (max-width: 759px) {
     padding: 20px;
@@ -442,21 +491,26 @@ export const MenuPage = styled.section`
 export const SearchCategoryRow = styled.div`
   width: 100%;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 864px) minmax(0, 392px);
   gap: 24px;
   align-items: center;
+
+  @media (max-width: 1180px) and (min-width: 760px) {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
 
   @media (max-width: 759px) {
     display: flex;
     flex-direction: column;
     align-items: stretch;
-    gap: 12px;
+    gap: 20px;
   }
 `;
 
 export const MenuSearch = styled.label`
-  min-height: 48px;
-  padding: 0 16px;
+  width: 100%;
+  min-height: 46px;
+  padding: 14px 16px;
   border: 1px solid var(--line);
   border-radius: 14px;
   background: #fff;
@@ -479,6 +533,7 @@ export const MenuSearch = styled.label`
     background: transparent;
     color: var(--text);
     font-size: 14px;
+    line-height: 18px;
   }
 
   input::placeholder {
@@ -487,21 +542,22 @@ export const MenuSearch = styled.label`
   }
 
   @media (max-width: 759px) {
-    min-height: 42px;
-    padding: 0 14px;
-    border-radius: 14px;
+    min-height: 40px;
+    padding: 12px 14px;
+    gap: 10px;
 
     input {
       font-size: 13px;
+      line-height: 16px;
     }
   }
 `;
 
 export const CategoryRail = styled.div`
+  width: 392px;
   display: flex;
-  align-items: center;
-  gap: 8px;
-  max-width: 540px;
+  align-items: flex-start;
+  gap: 24px;
   overflow-x: auto;
   scrollbar-width: none;
 
@@ -509,36 +565,88 @@ export const CategoryRail = styled.div`
     display: none;
   }
 
+  @media (max-width: 1180px) and (min-width: 760px) {
+    width: auto;
+    max-width: 392px;
+  }
+
   @media (max-width: 759px) {
-    max-width: none;
-    width: calc(100% + 20px);
-    margin-right: -20px;
-    padding-right: 20px;
+    width: 100%;
+    gap: 16px;
+    overflow: visible;
   }
 `;
 
 export const CategoryPill = styled.button<{ $active?: boolean }>`
-  min-height: 36px;
-  padding: 0 20px;
-  flex: 0 0 auto;
-  border: 1px solid ${({ $active }) => ($active ? 'var(--primary)' : 'var(--line)')};
-  border-radius: 999px;
-  background: ${({ $active }) => ($active ? 'var(--primary)' : '#fff')};
-  color: ${({ $active }) => ($active ? '#fff' : 'var(--text)')};
-  font-size: 12px;
-  font-weight: ${({ $active }) => ($active ? 700 : 500)};
-  white-space: nowrap;
+  width: 80px;
+  min-width: 80px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: ${({ $active }) => ($active ? 'var(--primary)' : '#262626')};
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+
+  .category-image {
+    width: 72px;
+    height: 72px;
+    overflow: hidden;
+    border-radius: 50%;
+    background: #fff;
+  }
+
+  .category-image img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .category-label {
+    max-width: 80px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 13px;
+    line-height: 16px;
+    font-weight: ${({ $active }) => ($active ? 700 : 600)};
+  }
 
   @media (max-width: 759px) {
-    min-height: 32px;
-    padding: 0 14px;
+    flex: 1 1 0;
+    min-width: 0;
+    width: auto;
+    gap: 8px;
+
+    .category-image {
+      width: 60px;
+      height: 60px;
+    }
+
+    .category-label {
+      max-width: 76px;
+      font-size: 12px;
+      line-height: 15px;
+    }
+  }
+
+  @media (max-width: 359px) {
+    .category-image {
+      width: 54px;
+      height: 54px;
+    }
+
+    .category-label {
+      font-size: 11px;
+    }
   }
 `;
 
 export const SectionHeading = styled.header`
   width: 100%;
   display: flex;
-  align-items: end;
+  align-items: center;
   justify-content: space-between;
   gap: 16px;
 
@@ -552,9 +660,9 @@ export const SectionHeading = styled.header`
     margin: 0;
     color: var(--text);
     font-size: 32px;
-    line-height: 38px;
-    font-weight: 500;
-    letter-spacing: -0.5px;
+    line-height: 40px;
+    font-weight: 400;
+    letter-spacing: 0;
   }
 
   p {
@@ -562,6 +670,7 @@ export const SectionHeading = styled.header`
     color: var(--muted);
     font-size: 14px;
     line-height: 18px;
+    font-weight: 400;
   }
 
   button {
@@ -570,16 +679,12 @@ export const SectionHeading = styled.header`
     border: 0;
     background: transparent;
     color: var(--primary);
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
     font-size: 12px;
+    line-height: 15px;
     font-weight: 700;
   }
 
   @media (max-width: 759px) {
-    align-items: center;
-
     h2 {
       font-size: 22px;
       line-height: 28px;
@@ -601,17 +706,15 @@ export const ComboRail = styled.div`
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 24px;
 
-  @media (max-width: 1050px) and (min-width: 760px) {
+  @media (max-width: 1100px) and (min-width: 760px) {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   @media (max-width: 759px) {
-    width: calc(100% + 20px);
-    margin-right: -20px;
-    padding-right: 20px;
+    width: 100%;
     display: grid;
     grid-auto-flow: column;
-    grid-auto-columns: 165px;
+    grid-auto-columns: 169px;
     grid-template-columns: none;
     gap: 12px;
     overflow-x: auto;
@@ -627,6 +730,7 @@ export const ComboRail = styled.div`
 export const ComboCard = styled.article<{ $hasImage?: boolean }>`
   position: relative;
   min-width: 0;
+  height: 254px;
   overflow: hidden;
   border: 1px solid var(--line);
   border-radius: 16px;
@@ -646,9 +750,12 @@ export const ComboCard = styled.article<{ $hasImage?: boolean }>`
   }
 
   .copy {
-    padding: 16px 46px 16px 16px;
+    height: 114px;
+    padding: 16px;
     display: grid;
-    gap: 7px;
+    grid-template-rows: 19px 15px 32px;
+    gap: 8px;
+    align-content: start;
   }
 
   h3 {
@@ -658,26 +765,26 @@ export const ComboCard = styled.article<{ $hasImage?: boolean }>`
     white-space: nowrap;
     color: var(--text);
     font-size: 15px;
-    line-height: 18px;
+    line-height: 19px;
     font-weight: 700;
   }
 
   p {
     margin: 0;
-    color: var(--muted);
-    font-size: 12px;
-    line-height: 16px;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+    color: var(--muted);
+    font-size: 12px;
+    line-height: 15px;
   }
 
   .price {
-    margin-top: 4px;
+    align-self: center;
     color: var(--primary);
     font-size: 16px;
     line-height: 20px;
-    font-weight: 500;
+    font-weight: 400;
   }
 
   .main {
@@ -704,29 +811,39 @@ export const ComboCard = styled.article<{ $hasImage?: boolean }>`
     place-items: center;
   }
 
+  .add svg {
+    width: 14px;
+    height: 14px;
+  }
+
   @media (max-width: 759px) {
-    border-radius: 16px;
+    height: 185px;
+    box-shadow: none;
 
     .media {
       height: 96px;
     }
 
     .copy {
-      min-height: 92px;
-      padding: 12px 38px 12px 12px;
+      height: 89px;
+      padding: 12px;
+      grid-template-rows: 16px 13px 28px;
       gap: 4px;
     }
 
     h3 {
       font-size: 13px;
+      line-height: 16px;
     }
 
     p {
       font-size: 10px;
+      line-height: 13px;
     }
 
     .price {
       font-size: 14px;
+      line-height: 18px;
     }
 
     .add {
@@ -743,6 +860,18 @@ export const ComboCard = styled.article<{ $hasImage?: boolean }>`
   }
 `;
 
+const toneIconBackground = (tone: TableActionTone) => {
+  if (tone === 'order') return '#fff1f1';
+  if (tone === 'waiter') return '#fff7e6';
+  return '#ecfdf5';
+};
+
+const toneIconColor = (tone: TableActionTone) => {
+  if (tone === 'order') return 'var(--primary)';
+  if (tone === 'waiter') return '#f59e0b';
+  return '#10b981';
+};
+
 export const TableActionsSection = styled.section`
   width: 100%;
   display: grid;
@@ -751,9 +880,9 @@ export const TableActionsSection = styled.section`
   h2 {
     margin: 0;
     color: var(--text);
-    font-size: 22px;
-    line-height: 28px;
-    font-weight: 500;
+    font-size: 32px;
+    line-height: 40px;
+    font-weight: 400;
   }
 
   @media (max-width: 759px) {
@@ -761,7 +890,7 @@ export const TableActionsSection = styled.section`
 
     h2 {
       font-size: 20px;
-      line-height: 24px;
+      line-height: 25px;
     }
   }
 `;
@@ -769,7 +898,7 @@ export const TableActionsSection = styled.section`
 export const TableActionsGrid = styled.div`
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 16px;
+  gap: 24px;
 
   @media (max-width: 759px) {
     grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -777,30 +906,32 @@ export const TableActionsGrid = styled.div`
   }
 `;
 
-export const TableActionCard = styled.button`
-  min-height: 62px;
-  padding: 14px 16px;
+export const TableActionCard = styled.button<{ $tone: TableActionTone }>`
+  min-height: 80px;
+  padding: 20px;
   border: 1px solid var(--line);
-  border-radius: 14px;
+  border-radius: 16px;
   background: #fff;
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
   color: var(--text);
   text-align: left;
 
   .icon {
-    width: 20px;
-    height: 20px;
-    flex: 0 0 20px;
-    color: var(--text);
+    width: 40px;
+    height: 40px;
+    flex: 0 0 40px;
+    border-radius: 10px;
+    background: ${({ $tone }) => toneIconBackground($tone)};
+    color: ${({ $tone }) => toneIconColor($tone)};
     display: grid;
     place-items: center;
   }
 
   .icon svg {
-    width: 18px;
-    height: 18px;
+    width: 20px;
+    height: 20px;
   }
 
   .copy {
@@ -813,8 +944,8 @@ export const TableActionCard = styled.button`
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    font-size: 13px;
-    line-height: 16px;
+    font-size: 15px;
+    line-height: 19px;
     font-weight: 700;
   }
 
@@ -823,28 +954,38 @@ export const TableActionCard = styled.button`
     text-overflow: ellipsis;
     white-space: nowrap;
     color: var(--muted);
-    font-size: 10.5px;
+    font-size: 12px;
+    line-height: 15px;
+    font-weight: 400;
   }
 
   &:hover,
   &:focus-visible {
-    border-color: var(--primary);
+    border-color: color-mix(in srgb, var(--primary) 45%, var(--line));
   }
 
   @media (max-width: 759px) {
-    min-height: 44px;
+    min-height: 42px;
     padding: 12px;
-    justify-content: flex-start;
+    border-radius: 14px;
     gap: 8px;
 
     .icon {
       width: 18px;
       height: 18px;
       flex-basis: 18px;
+      border-radius: 5px;
+      background: transparent;
+    }
+
+    .icon svg {
+      width: 18px;
+      height: 18px;
     }
 
     b {
       font-size: 11px;
+      line-height: 14px;
     }
 
     small {
@@ -872,6 +1013,10 @@ export const CatalogGrid = styled.div`
   @media (max-width: 759px) {
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 10px;
+  }
+
+  @media (max-width: 359px) {
+    grid-template-columns: 1fr;
   }
 `;
 
