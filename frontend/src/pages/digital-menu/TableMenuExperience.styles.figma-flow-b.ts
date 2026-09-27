@@ -1,4 +1,5 @@
 import styled from 'styled-components';
+import { FlowCard, OrderSummaryBar } from './TableMenuExperience.styles.figma-flow-a';
 
 export const PaymentOptionsGrid = styled.div`
   display: grid;
