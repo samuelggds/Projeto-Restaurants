@@ -9,7 +9,6 @@ import {
   Plus,
   ReceiptText,
   Search,
-  Trash2,
   Utensils,
   WalletCards,
 } from 'lucide-react';
@@ -703,7 +702,7 @@ export default function TableMenuExperience({
         />
 
         <S.FlowPage>
-          <S.FlowTitle>
+          <S.FlowTitle className="cart-title">
             <h1 aria-label="Minha sacola">Revisar Pedido</h1>
             <p>Confirme os itens selecionados antes do preparo</p>
           </S.FlowTitle>
@@ -726,6 +725,9 @@ export default function TableMenuExperience({
                         ) : item.observation ? (
                           <small>{item.observation}</small>
                         ) : null}
+                        <strong className="price">{brl(item.price * item.quantity)}</strong>
+                      </div>
+                      <div className="side">
                         <S.QuantityControl>
                           <button
                             type="button"
@@ -743,22 +745,6 @@ export default function TableMenuExperience({
                             <Plus size={13} />
                           </button>
                         </S.QuantityControl>
-                      </div>
-                      <div className="side">
-                        <strong className="price">{brl(item.price * item.quantity)}</strong>
-                        <button
-                          className="remove"
-                          type="button"
-                          aria-label={`Remover ${item.name}`}
-                          onClick={() => {
-                            if (!item.cartId) return;
-                            for (let index = 0; index < item.quantity; index += 1) {
-                              onDecrease(item.cartId);
-                            }
-                          }}
-                        >
-                          <Trash2 size={15} />
-                        </button>
                       </div>
                     </S.CartLine>
                   ))
