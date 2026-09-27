@@ -34,7 +34,8 @@ type ProductConfiguratorProps = {
   product: ProductConfiguratorProduct;
   primaryColor?: string;
   onClose: () => void;
-  onConfirm: (configuration: ProductConfiguration) => void;
+  enableProductQuantity?: boolean;
+  onConfirm: (configuration: ProductConfiguration, quantity?: number) => void;
 };
 
 const brl = (value: number) =>
@@ -53,6 +54,7 @@ export function ProductConfigurator({
   product,
   primaryColor = '#d64d08',
   onClose,
+  enableProductQuantity = false,
   onConfirm,
 }: ProductConfiguratorProps) {
   const totalDescriptionId = useId();
@@ -82,6 +84,7 @@ export function ProductConfigurator({
     Array.from({ length: portionConfiguration?.minPortions ?? 0 }, () => ({ optionId: '' })),
   );
   const [observation, setObservation] = useState('');
+  const [productQuantity, setProductQuantity] = useState(1);
   const [errors, setErrors] = useState<SelectionErrors>({});
 
   useEffect(() => {
@@ -153,6 +156,7 @@ export function ProductConfigurator({
         portions,
         configurationVersion: product.configurationVersion,
       }),
+      enableProductQuantity ? productQuantity : 1,
     );
   };
 
@@ -544,19 +548,42 @@ export function ProductConfigurator({
           </S.Observation>
 
           <S.BottomBar data-testid="product-configurator-footer">
-            <div>
-              <small>Total deste item</small>
-              <strong id={totalDescriptionId} aria-live="polite">
-                {priceLabel}
-              </strong>
-            </div>
+            {enableProductQuantity ? (
+              <S.ProductQuantity aria-label="Quantidade do produto">
+                <button
+                  type="button"
+                  aria-label="Diminuir quantidade do produto"
+                  disabled={productQuantity <= 1}
+                  onClick={() => setProductQuantity((quantity) => Math.max(1, quantity - 1))}
+                >
+                  <Minus size={15} />
+                </button>
+                <strong>{productQuantity}</strong>
+                <button
+                  type="button"
+                  aria-label="Aumentar quantidade do produto"
+                  onClick={() => setProductQuantity((quantity) => quantity + 1)}
+                >
+                  <Plus size={15} />
+                </button>
+              </S.ProductQuantity>
+            ) : (
+              <div>
+                <small>Total deste item</small>
+                <strong id={totalDescriptionId} aria-live="polite">
+                  {priceLabel}
+                </strong>
+              </div>
+            )}
             <button
               type="submit"
               disabled={!configurable || !priceReady}
               aria-label="Adicionar à sacola"
               aria-describedby={totalDescriptionId}
             >
-              {priceReady ? `Adicionar — ${brl(total)}` : 'Escolha os sabores'}
+              {priceReady
+                ? `Adicionar — ${brl(total * (enableProductQuantity ? productQuantity : 1))}`
+                : 'Escolha os sabores'}
             </button>
           </S.BottomBar>
         </S.Form>
