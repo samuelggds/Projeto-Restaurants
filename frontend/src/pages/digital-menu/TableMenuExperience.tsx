@@ -91,6 +91,7 @@ export default function TableMenuExperience({
   const effectiveView: View = reviewCartOpen ? 'cart' : view;
   const [query, setQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('todos');
+  const [bannerIndex, setBannerIndex] = useState(0);
   const [selectedProduct, setSelectedProduct] = useState<HomeProduct | null>(null);
   const [configuringProduct, setConfiguringProduct] = useState<HomeProduct | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -152,6 +153,14 @@ export default function TableMenuExperience({
     pixPending && currentPayment?.expiresAt
       ? Math.max(0, Math.ceil((new Date(currentPayment.expiresAt).getTime() - now) / 1000))
       : null;
+
+  useEffect(() => {
+    if (data.banners.length <= 1) return undefined;
+    const interval = window.setInterval(() => {
+      setBannerIndex((current) => (current + 1) % data.banners.length);
+    }, 5_000);
+    return () => window.clearInterval(interval);
+  }, [data.banners.length]);
 
   useEffect(() => {
     if (!pixPending || pixRemainingSeconds === null) return undefined;
@@ -640,23 +649,72 @@ export default function TableMenuExperience({
         onCallWaiter={onCallWaiter}
       />
       <S.Page>
-        {data.banners[0] ? (
-          <S.Hero>
-            <img src={data.banners[0].image} alt="" />
-            <div>
-              <small>{data.banners[0].title}</small>
-              <h1>
-                {data.banners[0].highlight
-                  ? `${data.banners[0].title} ${data.banners[0].highlight}`
-                  : data.banners[0].title}
-              </h1>
-              {data.banners[0].description ? <p>{data.banners[0].description}</p> : null}
-              <S.PrimaryButton type="button" onClick={() => document.getElementById('table-catalog')?.scrollIntoView({ behavior: 'smooth' })}>
-                {data.banners[0].buttonLabel || 'Ver o cardápio'} <ChevronRight size={18} />
-              </S.PrimaryButton>
-            </div>
-          </S.Hero>
-        ) : null}
+        {data.banners.length ? (() => {
+          const banner = data.banners[bannerIndex] || data.banners[0];
+          const previousBanner = () =>
+            setBannerIndex((current) =>
+              current === 0 ? data.banners.length - 1 : current - 1,
+            );
+          const nextBanner = () =>
+            setBannerIndex((current) => (current + 1) % data.banners.length);
+
+          return (
+            <S.Hero>
+              <img src={banner.image} alt="" />
+              <div>
+                <small>{banner.title}</small>
+                <h1>
+                  {banner.highlight
+                    ? `${banner.title} ${banner.highlight}`
+                    : banner.title}
+                </h1>
+                {banner.description ? <p>{banner.description}</p> : null}
+                <S.PrimaryButton
+                  type="button"
+                  onClick={() =>
+                    document
+                      .getElementById('table-catalog')
+                      ?.scrollIntoView({ behavior: 'smooth' })
+                  }
+                >
+                  {banner.buttonLabel || 'Ver o cardápio'} <ChevronRight size={18} />
+                </S.PrimaryButton>
+              </div>
+
+              {data.banners.length > 1 ? (
+                <>
+                  <S.HeroArrow
+                    type="button"
+                    $side="left"
+                    aria-label="Banner anterior"
+                    onClick={previousBanner}
+                  >
+                    <ChevronRight size={20} />
+                  </S.HeroArrow>
+                  <S.HeroArrow
+                    type="button"
+                    $side="right"
+                    aria-label="Próximo banner"
+                    onClick={nextBanner}
+                  >
+                    <ChevronRight size={20} />
+                  </S.HeroArrow>
+                  <S.HeroIndicators aria-label="Banners em destaque">
+                    {data.banners.map((item, index) => (
+                      <button
+                        key={item.id}
+                        type="button"
+                        aria-label={`Mostrar banner ${index + 1}`}
+                        aria-current={index === bannerIndex ? 'true' : undefined}
+                        onClick={() => setBannerIndex(index)}
+                      />
+                    ))}
+                  </S.HeroIndicators>
+                </>
+              ) : null}
+            </S.Hero>
+          );
+        })() : null}
 
         <S.CategoryStrip aria-label="Categorias do cardápio">
           {data.categories.map((category) => (
