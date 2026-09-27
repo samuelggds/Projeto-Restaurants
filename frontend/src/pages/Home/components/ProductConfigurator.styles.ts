@@ -381,7 +381,16 @@ export const Badge = styled.span<{ $required: boolean }>`
 
 export const OptionList = styled.div`
   display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
   gap: 9px;
+
+  @media (max-width: 620px) {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  @media (max-width: 360px) {
+    grid-template-columns: 1fr;
+  }
 `;
 
 export const OptionIdentity = styled.div`
@@ -777,7 +786,7 @@ export const Observation = styled.label`
   }
 `;
 
-export const BottomBar = styled.div`
+export const BottomBar = styled.div<{ $stickyOnMobile?: boolean }>`
   position: static;
   z-index: 4;
   margin-top: 3px;
@@ -829,11 +838,13 @@ export const BottomBar = styled.div`
   }
 
   @media (max-width: 620px) {
+    position: ({ $stickyOnMobile }) => ($stickyOnMobile ? 'sticky' : 'static');
+    bottom: ({ $stickyOnMobile }) => ($stickyOnMobile ? '0' : 'auto');
     width: 100%;
     min-width: 0;
     margin: 3px 0 0;
     padding: 11px 14px calc(11px + env(safe-area-inset-bottom));
-    border-radius: 16px;
+    border-radius: 16px 16px 0 0;
     gap: 10px;
     background: #fffdfa;
     backdrop-filter: none;
@@ -866,5 +877,159 @@ export const BottomBar = styled.div`
   @media (max-height: 540px) and (orientation: landscape) {
     position: static;
     bottom: auto;
+  }
+`;
+
+export const ProductImagePlaceholder = styled.div`
+  width: 100%;
+  min-height: 250px;
+  display: grid;
+  place-items: center;
+  background: #f3f3f4;
+  color: #b6b6bc;
+
+  svg {
+    width: 52px;
+    height: 52px;
+    stroke-width: 1.5;
+  }
+
+  @media (max-width: 620px) {
+    min-height: 260px;
+  }
+`;
+
+export const ProductQuantity = styled.div`
+  display: grid;
+  grid-template-columns: 38px 30px 38px;
+  align-items: center;
+  border: 1px solid #ded5cc;
+  border-radius: 12px;
+  overflow: hidden;
+  background: #fff;
+
+  button {
+    width: 38px;
+    min-width: 38px;
+    height: 48px;
+    min-height: 48px;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: #fff;
+    color: var(--config-primary);
+    box-shadow: none;
+    display: grid;
+    place-items: center;
+  }
+
+  button:disabled {
+    color: #c9c0b8;
+    background: #faf9f8;
+  }
+
+  strong {
+    min-width: 30px;
+    text-align: center;
+    font-size: 14px;
+  }
+
+  @media (max-width: 620px) {
+    grid-template-columns: 36px 28px 36px;
+
+    button {
+      width: 36px;
+      min-width: 36px;
+      height: 46px;
+      min-height: 46px;
+    }
+  }
+`;
+
+
+
+/* Cardápio de mesa: estrutura compacta conforme a experiência móvel de referência. */
+
+
+
+
+
+
+export const TableMenuConfiguratorScope = styled.div`
+  display: contents;
+`;
+
+
+export const ProductFavorite = styled.span`
+  position: absolute;
+  z-index: 2;
+  top: 14px;
+  right: 14px;
+  width: 36px;
+  height: 36px;
+  border-radius: 999px;
+  background: rgba(255,255,255,.94);
+  color: #1f1f22;
+  display: grid;
+  place-items: center;
+  font-size: 22px;
+  line-height: 1;
+  box-shadow: 0 3px 12px rgba(0,0,0,.12);
+`;
+
+export const ProductTitleRow = styled.div`
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+
+  h1 {
+    min-width: 0;
+  }
+`;
+
+export const ProductRating = styled.span`
+  flex: 0 0 auto;
+  padding-top: 4px;
+  color: #d89c00;
+  font-size: 11px;
+  font-weight: 850;
+`;
+
+
+export const ProductBack = styled.button`
+  position: absolute;
+  z-index: 3;
+  top: 14px;
+  left: 14px;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(255,255,255,.94);
+  color: #1f1f22;
+  display: grid;
+  place-items: center;
+  box-shadow: 0 3px 12px rgba(0,0,0,.12);
+`;
+
+export const TableMenuProductPrice = styled.div`
+  display: flex;
+  align-items: baseline;
+  gap: 7px;
+  flex-wrap: wrap;
+  margin-top: 2px;
+
+  del {
+    color: #948c85;
+    font-size: 12px;
+    font-weight: 650;
+  }
+
+  strong {
+    color: #1c1c1f;
+    font-size: 22px;
+    line-height: 1;
   }
 `;

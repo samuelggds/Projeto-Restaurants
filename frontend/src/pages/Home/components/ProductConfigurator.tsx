@@ -28,13 +28,16 @@ type ProductConfiguratorProduct = ConfigurableProduct & {
     badgeLabel: string;
     endsAt?: string;
   };
+  rating?: number;
 };
 
 type ProductConfiguratorProps = {
   product: ProductConfiguratorProduct;
   primaryColor?: string;
   onClose: () => void;
-  onConfirm: (configuration: ProductConfiguration) => void;
+  enableProductQuantity?: boolean;
+  tableMenuVariant?: boolean;
+  onConfirm: (configuration: ProductConfiguration, quantity?: number) => void;
 };
 
 const brl = (value: number) =>
@@ -53,6 +56,8 @@ export function ProductConfigurator({
   product,
   primaryColor = '#d64d08',
   onClose,
+  enableProductQuantity = false,
+  tableMenuVariant = false,
   onConfirm,
 }: ProductConfiguratorProps) {
   const totalDescriptionId = useId();
@@ -82,6 +87,7 @@ export function ProductConfigurator({
     Array.from({ length: portionConfiguration?.minPortions ?? 0 }, () => ({ optionId: '' })),
   );
   const [observation, setObservation] = useState('');
+  const [productQuantity, setProductQuantity] = useState(1);
   const [errors, setErrors] = useState<SelectionErrors>({});
 
   useEffect(() => {
@@ -146,14 +152,24 @@ export function ProductConfigurator({
       }
       return;
     }
-    onConfirm(
-      buildProductConfiguration(regularGroups, selections, observation, {
+    const configuration = buildProductConfiguration(
+      regularGroups,
+      selections,
+      observation,
+      {
         optionQuantities,
         removedCompositionItemIds,
         portions,
         configurationVersion: product.configurationVersion,
-      }),
+      },
     );
+
+    if (enableProductQuantity) {
+      onConfirm(configuration, productQuantity);
+      return;
+    }
+
+    onConfirm(configuration);
   };
 
   return createPortal(
@@ -163,35 +179,72 @@ export function ProductConfigurator({
       aria-modal="true"
       aria-label={`Montar ${product.name}`}
       data-testid="product-configurator"
+      data-table-menu={tableMenuVariant ? 'true' : undefined}
     >
-      <S.Header>
-        <S.HeaderInner>
-          <button type="button" onClick={onClose}>
-            <ArrowLeft size={19} /> Voltar ao cardápio
-          </button>
-          <span>Monte do seu jeito e confira antes de adicionar</span>
-        </S.HeaderInner>
-      </S.Header>
+      {!tableMenuVariant ? (
+        <S.Header>
+          <S.HeaderInner>
+            <button type="button" onClick={onClose}>
+              <ArrowLeft size={19} /> Voltar ao cardápio
+            </button>
+            <span>Monte do seu jeito e confira antes de adicionar</span>
+          </S.HeaderInner>
+        </S.Header>
+      ) : null}
 
       <S.Layout>
-        <S.ProductSummary>
-          <img src={product.image} alt={product.name} decoding="async" />
+        <S.ProductSummary data-product-summary>
+          {tableMenuVariant ? (
+            <>
+              <S.ProductBack type="button" aria-label="Voltar ao cardápio" onClick={onClose}>
+                <ArrowLeft size={19} />
+              </S.ProductBack>
+              <S.ProductFavorite aria-hidden="true">♡</S.ProductFavorite>
+            </>
+          ) : null}
+          {product.image ? (
+            <img src={product.image} alt={product.name} decoding="async" />
+          ) : (
+            <S.ProductImagePlaceholder aria-hidden="true">
+              <UtensilsCrossed />
+            </S.ProductImagePlaceholder>
+          )}
           <div>
-            <small>Personalize seu pedido</small>
-            <h1>{product.name}</h1>
+            {!tableMenuVariant ? <small>Personalize seu pedido</small> : null}
+            <S.ProductTitleRow>
+              <h1>{product.name}</h1>
+              {Number(product.rating || 0) > 0 ? (
+                <S.ProductRating aria-label={`Avaliação ${Number(product.rating).toFixed(1)}`}>
+                  ★ {Number(product.rating).toFixed(1)}
+                </S.ProductRating>
+              ) : null}
+            </S.ProductTitleRow>
+            {tableMenuVariant ? (
+              <S.TableMenuProductPrice aria-live="polite">
+                {product.promotion?.active &&
+                Number(product.originalPrice || 0) > Number(product.price || 0) ? (
+                  <del>{brl(Number(product.originalPrice))}</del>
+                ) : null}
+                <strong>
+                  {dynamicPrice ? priceLabel : brl(product.price)}
+                </strong>
+              </S.TableMenuProductPrice>
+            ) : null}
             <p>
               {product.description || 'Escolha as opções disponíveis para montar este produto.'}
             </p>
             {product.promotion?.active &&
-              Number(product.originalPrice || 0) > Number(product.price || 0) && (
+              Number(product.originalPrice || 0) > Number(product.price || 0) && !tableMenuVariant && (
                 <S.PromotionPrice>
                   <span>{product.promotion.badgeLabel}</span>
                   <del>{brl(Number(product.originalPrice))}</del>
                 </S.PromotionPrice>
               )}
-            <strong aria-live="polite">
-              {dynamicPrice ? priceLabel : `A partir de ${brl(product.price)}`}
-            </strong>
+            {!tableMenuVariant ? (
+              <strong aria-live="polite">
+                {dynamicPrice ? priceLabel : `A partir de ${brl(product.price)}`}
+              </strong>
+            ) : null}
             {dynamicPrice && (
               <p>
                 Vale o maior preço entre os produtos escolhidos. Adicionais são cobrados à parte.
@@ -206,23 +259,25 @@ export function ProductConfigurator({
         </S.ProductSummary>
 
         <S.Form onSubmit={submit} noValidate>
-          <S.Intro>
-            <div>
-              <h2>Monte seu produto</h2>
-              <p>Faça uma escolha em cada categoria e personalize os itens opcionais.</p>
-            </div>
-            <S.Progress
-              $value={progress}
-              aria-label={`${progress}% das escolhas obrigatórias concluídas`}
-            >
-              <div />
-              <small>
-                {requiredStepCount
-                  ? `${completedStepCount} de ${requiredStepCount} etapas concluídas`
-                  : 'Sem escolhas obrigatórias'}
-              </small>
-            </S.Progress>
-          </S.Intro>
+          {!tableMenuVariant && (
+            <S.Intro>
+              <div>
+                <h2>Monte seu produto</h2>
+                <p>Faça uma escolha em cada categoria e personalize os itens opcionais.</p>
+              </div>
+              <S.Progress
+                $value={progress}
+                aria-label={`${progress}% das escolhas obrigatórias concluídas`}
+              >
+                <div />
+                <small>
+                  {requiredStepCount
+                    ? `${completedStepCount} de ${requiredStepCount} etapas concluídas`
+                    : 'Sem escolhas obrigatórias'}
+                </small>
+              </S.Progress>
+            </S.Intro>
+          )}
 
           {!configurable && (
             <S.Empty role="alert">
@@ -543,20 +598,46 @@ export function ProductConfigurator({
             <small>{observation.length}/500 caracteres</small>
           </S.Observation>
 
-          <S.BottomBar data-testid="product-configurator-footer">
-            <div>
-              <small>Total deste item</small>
-              <strong id={totalDescriptionId} aria-live="polite">
-                {priceLabel}
-              </strong>
-            </div>
+          <S.BottomBar
+            data-testid="product-configurator-footer"
+            $stickyOnMobile={tableMenuVariant}
+          >
+            {enableProductQuantity ? (
+              <S.ProductQuantity aria-label="Quantidade do produto">
+                <button
+                  type="button"
+                  aria-label="Diminuir quantidade do produto"
+                  disabled={productQuantity <= 1}
+                  onClick={() => setProductQuantity((quantity) => Math.max(1, quantity - 1))}
+                >
+                  <Minus size={15} />
+                </button>
+                <strong>{productQuantity}</strong>
+                <button
+                  type="button"
+                  aria-label="Aumentar quantidade do produto"
+                  onClick={() => setProductQuantity((quantity) => quantity + 1)}
+                >
+                  <Plus size={15} />
+                </button>
+              </S.ProductQuantity>
+            ) : (
+              <div>
+                <small>Total deste item</small>
+                <strong id={totalDescriptionId} aria-live="polite">
+                  {priceLabel}
+                </strong>
+              </div>
+            )}
             <button
               type="submit"
               disabled={!configurable || !priceReady}
               aria-label="Adicionar à sacola"
               aria-describedby={totalDescriptionId}
             >
-              {priceReady ? `Adicionar — ${brl(total)}` : 'Escolha os sabores'}
+              {priceReady
+                ? `Adicionar — ${brl(total * (enableProductQuantity ? productQuantity : 1))}`
+                : 'Escolha os sabores'}
             </button>
           </S.BottomBar>
         </S.Form>

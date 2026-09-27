@@ -1137,13 +1137,19 @@ test('todas as áreas do motoqueiro cabem no celular sem overflow horizontal', a
   }
 
   await openMobileCourierView(page, 'Rota');
+  await expect(page.getByRole('heading', { name: 'Minha rota', exact: true }).first()).toBeVisible();
+
   const activateLocation = page.getByRole('button', {
     name: /(?:Ativar|Testar) localização/,
   });
+  const deliveryMap = page.locator('.delivery-map-shell');
+
+  await expect(activateLocation.or(deliveryMap).first()).toBeVisible();
   if (await activateLocation.isVisible()) {
     await activateLocation.click();
   }
-  await expect(page.locator('.delivery-map-shell')).toBeVisible();
+
+  await expect(deliveryMap).toBeVisible({ timeout: 10_000 });
   await captureReadmeScreenshot(page, 'courier-location-header-mobile.png');
   const mapBounds = await page.locator('.delivery-map-shell').boundingBox();
   expect(mapBounds).not.toBeNull();

@@ -645,13 +645,7 @@ async function identifyTableGuest(page: Page, waitForMenu = true) {
 }
 
 async function reviewTableDraft(page: Page) {
-  await page.getByRole('button', { name: 'Abrir minha comanda da mesa 1' }).click();
-  const accountDialog = page.getByRole('dialog', { name: 'Sua comanda • Mesa 1' });
-  await expect(accountDialog).toBeVisible();
-  await expect(accountDialog.getByText('1 item para enviar · R$ 28,00')).toBeVisible();
-  await expect(accountDialog.getByText('Você ainda não possui itens nesta comanda.')).toBeVisible();
-  await expect(accountDialog.getByRole('button', { name: /Continuar com Pix/u })).toHaveCount(0);
-  await accountDialog.getByRole('button', { name: 'Revisar e enviar' }).click();
+  await page.getByRole('button', { name: 'Meu pedido' }).click();
   await expect(page.getByRole('heading', { name: 'Minha sacola' })).toBeVisible();
 }
 
@@ -724,7 +718,8 @@ test('admin controla o QR, garçom apenas opera a mesa e cozinha recebe Mesa 1',
     settlementMode: 'TABLE_ACCOUNT',
   });
   expect(state.orderPayload).not.toHaveProperty('paymentMethod');
-  await expect(page.getByLabel(`Mesa ${TABLE_NUMBER}`, { exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Pedido confirmado' })).toBeVisible();
+  await expect(page.getByText(`Mesa ${TABLE_NUMBER}`, { exact: false }).first()).toBeVisible();
   await expect(page.getByRole('button', { name: /Confirmar recebimento/i })).toHaveCount(0);
   await expect(page.getByRole('button', { name: /Acompanhar entrega no GPS/i })).toHaveCount(0);
 
@@ -740,7 +735,7 @@ test('admin controla o QR, garçom apenas opera a mesa e cozinha recebe Mesa 1',
   await expect(kitchenOrder.getByText(product.name)).toBeVisible();
 });
 
-test('cliente pode pagar depois na comanda sem oferecer cartão online', async ({ page }) => {
+test('cliente pode pagar agora com PIX ou acompanhar para pagar depois', async ({ page }) => {
   const state: FlowState = {
     tableCreated: true,
     tableOpen: true,
@@ -783,50 +778,40 @@ test('cliente pode pagar depois na comanda sem oferecer cartão online', async (
   expect(state.orderPayload).not.toHaveProperty('paymentMethod');
   expect(state.tablePaymentPayload).toBeNull();
 
-  const accountDialog = page.getByRole('dialog', { name: 'Sua comanda • Mesa 1' });
-  await expect(accountDialog).toBeVisible();
-  await expect(accountDialog.getByText(product.name)).toBeVisible();
-  await expect(accountDialog.getByRole('button', { name: 'Revisar e enviar' })).toHaveCount(0);
-  await expect(accountDialog.locator('[aria-current="step"]')).toHaveText('1 Conferir');
-  const payButton = accountDialog.getByRole('button', { name: 'Continuar com Pix · R$ 28,00' });
+  await expect(page.getByRole('heading', { name: 'Pedido confirmado' })).toBeVisible();
+  await expect(page.getByText(product.name)).toBeVisible();
+
+  const payButton = page.getByRole('button', { name: /Pagar com PIX agora/i });
   await expect(payButton).toBeVisible();
   for (const width of [320, 390, 1280]) {
     await page.setViewportSize({ width, height: 844 });
     await expect(payButton).toBeInViewport();
     expect(
-      await accountDialog.evaluate((element) => element.scrollWidth <= element.clientWidth),
-    ).toBe(true);
-    expect(
       await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
     ).toBe(true);
   }
+
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.screenshot({ path: '../artifacts/comanda-guided-mobile.png', fullPage: true });
+  await page.screenshot({ path: '../artifacts/table-payment-choice-mobile.png', fullPage: true });
   await payButton.click();
 
   await expect.poll(() => state.tablePaymentPayload).not.toBeNull();
   expect(state.tablePaymentPayload).toMatchObject({
-    selectionMode: 'MY_ITEMS',
+    selectionMode: 'SELECTED_ITEMS',
     method: 'PIX',
     includeOptionalServiceFee: false,
   });
   expect(state.tablePaymentIdempotencyKey).toBeTruthy();
-  await expect(accountDialog.getByLabel('QR Code Pix')).toBeVisible();
-  await expect(accountDialog.locator('[aria-current="step"]')).toHaveText('2 Pagar');
-  await expect(
-    accountDialog.getByRole('link', { name: 'Abrir checkout seguro do cartão' }),
-  ).toHaveCount(0);
-  await accountDialog.getByRole('button', { name: 'Rever meus pedidos' }).click();
-  await expect(accountDialog.getByText(product.name)).toBeVisible();
-  await accountDialog.getByRole('button', { name: 'Voltar ao pagamento' }).click();
-  await expect(accountDialog.getByLabel('QR Code Pix')).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Pagar com PIX' })).toBeVisible();
+  await expect(page.getByLabel('QR Code PIX')).toBeVisible();
   expect(state.tablePaymentCreations).toBe(1);
+
   state.tablePaymentStatus = 'PAID';
-  await accountDialog.getByRole('button', { name: 'Verificar pagamento agora' }).click();
-  await expect(accountDialog.getByRole('heading', { name: 'PIX confirmado' })).toBeVisible();
-  await expect(accountDialog.locator('[aria-current="step"]')).toHaveText('3 Confirmar');
-  await accountDialog.getByRole('button', { name: 'Concluir' }).click();
-  await expect(accountDialog).toHaveCount(0);
+  await expect(page.getByRole('heading', { name: 'Pix confirmado!' })).toBeVisible({
+    timeout: 12_000,
+  });
+  await page.getByRole('button', { name: 'Concluir' }).click();
+  await expect(page.getByRole('heading', { name: 'Pix confirmado!' })).toHaveCount(0);
   await expect(page).not.toHaveURL(/\/login/u);
 });
 
