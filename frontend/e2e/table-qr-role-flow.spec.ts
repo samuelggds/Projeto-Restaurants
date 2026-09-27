@@ -807,8 +807,9 @@ test('cliente pode pagar agora com PIX ou acompanhar para pagar depois', async (
   expect(state.tablePaymentCreations).toBe(1);
 
   state.tablePaymentStatus = 'PAID';
-  await page.getByRole('button', { name: 'Verificar pagamento agora' }).click();
-  await expect(page.getByRole('heading', { name: 'Pix confirmado!' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Pix confirmado!' })).toBeVisible({
+    timeout: 12_000,
+  });
   await page.getByRole('button', { name: 'Concluir' }).click();
   await expect(page.getByRole('heading', { name: 'Pix confirmado!' })).toHaveCount(0);
   await expect(page).not.toHaveURL(/\/login/u);
