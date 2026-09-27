@@ -381,7 +381,16 @@ export const Badge = styled.span<{ $required: boolean }>`
 
 export const OptionList = styled.div`
   display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
   gap: 9px;
+
+  @media (max-width: 620px) {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  @media (max-width: 360px) {
+    grid-template-columns: 1fr;
+  }
 `;
 
 export const OptionIdentity = styled.div`
@@ -829,11 +838,13 @@ export const BottomBar = styled.div`
   }
 
   @media (max-width: 620px) {
+    position: sticky;
+    bottom: 0;
     width: 100%;
     min-width: 0;
     margin: 3px 0 0;
     padding: 11px 14px calc(11px + env(safe-area-inset-bottom));
-    border-radius: 16px;
+    border-radius: 16px 16px 0 0;
     gap: 10px;
     background: #fffdfa;
     backdrop-filter: none;
@@ -946,4 +957,41 @@ export const ProductQuantity = styled.div`
 
 export const TableMenuConfiguratorScope = styled.div`
   display: contents;
+`;
+
+
+export const ProductFavorite = styled.span`
+  position: absolute;
+  z-index: 2;
+  top: 14px;
+  right: 14px;
+  width: 36px;
+  height: 36px;
+  border-radius: 999px;
+  background: rgba(255,255,255,.94);
+  color: #1f1f22;
+  display: grid;
+  place-items: center;
+  font-size: 22px;
+  line-height: 1;
+  box-shadow: 0 3px 12px rgba(0,0,0,.12);
+`;
+
+export const ProductTitleRow = styled.div`
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+
+  h1 {
+    min-width: 0;
+  }
+`;
+
+export const ProductRating = styled.span`
+  flex: 0 0 auto;
+  padding-top: 4px;
+  color: #d89c00;
+  font-size: 11px;
+  font-weight: 850;
 `;
