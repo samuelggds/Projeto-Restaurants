@@ -569,7 +569,7 @@ export default function TableMenuExperience({
               <S.SectionHeading>
                 <div className="title"><h2>Status de Produção</h2></div>
               </S.SectionHeading>
-              <S.TimelineCard>
+              <S.TimelineCard className="tracking-timeline">
                 <S.Timeline>
                   {trackingSteps(tableOrder).map((step, index) => (
                     <S.TimelineStep key={step.label} $active={step.active} $current={step.current}>
@@ -659,9 +659,9 @@ export default function TableMenuExperience({
             <span className="amount">{brl(confirmation.total)}</span>
           </S.OrderSummaryBar>
 
-          <S.TimelineCard>
+          <S.TimelineCard className="confirmation-timeline">
             <S.Timeline>
-              {trackingSteps(tableOrder).map((step, index) => (
+              {confirmationSteps(tableOrder).map((step, index) => (
                 <S.TimelineStep key={step.label} $active={step.active} $current={step.current}>
                   <span className="dot">{step.active ? <Check size={14} /> : index + 1}</span>
                   <div className="copy">
@@ -1213,21 +1213,38 @@ function FlowHeader({
   );
 }
 
+function stepState(progress: number, step: number) {
+  return {
+    active: progress >= step,
+    current: progress === step || (progress > 3 && step === 3),
+  };
+}
+
+function confirmationSteps(tableOrder: TableOrderNotice | null) {
+  const progress = tableOrder?.progress || 0;
+  return ['Pedido recebido', 'Em preparo', 'Pronto para servir'].map((label, index) => {
+    const step = index + 1;
+    return {
+      label,
+      description: '',
+      ...stepState(progress, step),
+    };
+  });
+}
+
 function trackingSteps(tableOrder: TableOrderNotice | null) {
   const progress = tableOrder?.progress || 0;
   const descriptions = [
-    'Seu pedido chegou à cozinha.',
-    'A equipe está preparando tudo.',
-    'Avisaremos assim que estiver pronto.',
-    'Pedido entregue na sua mesa.',
+    'Enviado para a cozinha',
+    'Os chefs estão montando seus pratos',
+    'Aguardando retirada do garçom',
   ];
-  return ['Recebido', 'Em preparo', 'Pronto', 'Servido'].map((label, index) => {
+  return ['Pedido Confirmado', 'Em Preparo', 'Pronto para Servir'].map((label, index) => {
     const step = index + 1;
     return {
       label,
       description: descriptions[index],
-      active: progress >= step,
-      current: progress === step,
+      ...stepState(progress, step),
     };
   });
 }
