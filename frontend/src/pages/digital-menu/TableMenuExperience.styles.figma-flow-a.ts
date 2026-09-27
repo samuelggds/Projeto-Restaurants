@@ -539,43 +539,60 @@ export const OrderSummaryBar = styled(FlowCard)`
 `;
 
 export const TimelineCard = styled(FlowCard)`
-  padding: 20px;
+  padding: 24px;
   border-radius: 18px;
+
+  &.confirmation-timeline {
+    padding: 20px;
+  }
+
+  @media (max-width: 759px) {
+    padding: 16px;
+
+    &.confirmation-timeline {
+      padding: 20px;
+    }
+  }
 `;
 
 export const Timeline = styled.div`
   display: grid;
-  gap: 16px;
+  gap: 24px;
+
+  .confirmation-timeline & {
+    gap: 20px;
+  }
+
+  @media (max-width: 759px) {
+    gap: 16px;
+
+    .confirmation-timeline & {
+      gap: 16px;
+    }
+  }
 `;
 
 export const TimelineStep = styled.div<{ $active: boolean; $current?: boolean }>`
-  position: relative;
   min-height: 28px;
   display: grid;
   grid-template-columns: 28px minmax(0, 1fr);
-  gap: 14px;
+  gap: 16px;
   align-items: start;
   opacity: ${({ $active, $current }) => ($active || $current ? 1 : 0.4)};
 
-  &:not(:last-child)::after {
-    content: '';
-    position: absolute;
-    left: 13px;
-    top: 28px;
-    width: 2px;
-    height: 18px;
-    background: ${({ $active }) => ($active ? 'var(--primary)' : 'var(--line)')};
-  }
-
   .dot {
-    position: relative;
-    z-index: 1;
     width: 28px;
     height: 28px;
+    border: 0;
     border-radius: 14px;
-    background: ${({ $current }) => ($current ? 'color-mix(in srgb, var(--primary) 10%, #fff)' : '#fff')};
-    border: 1px solid ${({ $active }) => ($active ? 'var(--primary)' : 'var(--line)')};
-    color: ${({ $current, $active }) => ($current || $active ? 'var(--primary)' : 'var(--muted)')};
+    background: ${({ $active, $current }) =>
+      $current
+        ? 'color-mix(in srgb, var(--primary) 10%, #fff)'
+        : $active
+          ? '#ecfdf5'
+          : 'var(--line)'};
+    color: ${({ $active, $current }) =>
+      $current ? 'var(--primary)' : $active ? '#10b981' : 'var(--muted)'};
     display: grid;
     place-items: center;
     font-size: 10px;
@@ -592,6 +609,7 @@ export const TimelineStep = styled.div<{ $active: boolean; $current?: boolean }>
     color: ${({ $current }) => ($current ? 'var(--primary)' : 'var(--text)')};
     font-size: 14px;
     line-height: 18px;
+    font-weight: ${({ $current }) => ($current ? 700 : 500)};
   }
 
   p {
@@ -604,23 +622,21 @@ export const TimelineStep = styled.div<{ $active: boolean; $current?: boolean }>
   @media (max-width: 759px) {
     grid-template-columns: 24px minmax(0, 1fr);
     gap: 12px;
+    min-height: 24px;
 
     .dot {
       width: 24px;
       height: 24px;
     }
 
-    &:not(:last-child)::after {
-      left: 11px;
-      top: 24px;
-    }
-
     b {
       font-size: 13px;
+      line-height: 16px;
     }
 
     p {
       font-size: 11px;
+      line-height: 14px;
     }
   }
 `;
