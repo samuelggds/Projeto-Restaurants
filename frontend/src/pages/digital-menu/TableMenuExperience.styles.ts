@@ -1467,3 +1467,40 @@ export const HeroIndicators = styled.div`
     }
   }
 `;
+
+
+export const TrackingHeading = styled.section`
+  padding: 8px 2px 2px;
+  display: grid;
+  gap: 4px;
+
+  small {
+    color: var(--primary);
+    font-size: 11px;
+    font-weight: 900;
+    letter-spacing: .18em;
+  }
+
+  h1 {
+    margin: 2px 0 0;
+    font-size: clamp(28px, 4vw, 42px);
+    line-height: 1.05;
+    font-weight: 950;
+  }
+
+  p {
+    margin: 4px 0 0;
+    color: var(--muted);
+    font-size: 13px;
+    line-height: 1.35;
+    overflow-wrap: anywhere;
+  }
+
+  @media (max-width: 560px) {
+    padding-inline: 2px;
+
+    h1 {
+      font-size: 28px;
+    }
+  }
+`;
