@@ -938,7 +938,12 @@ export default function TableMenuExperience({
             <span className="mobile-only">Ações Rápidas</span>
           </h2>
           <S.TableActionsGrid>
-            <S.TableActionCard $tone="order" type="button" onClick={() => setView('cart')}>
+            <S.TableActionCard
+              $tone="order"
+              type="button"
+              aria-label="Meu pedido"
+              onClick={() => setView('cart')}
+            >
               <span className="icon"><ShoppingBag /></span>
               <span className="copy">
                 <b>Meu Pedido</b>
@@ -965,7 +970,12 @@ export default function TableMenuExperience({
             ) : null}
 
             {billRequestEnabled && onRequestBill ? (
-              <S.TableActionCard $tone="bill" type="button" onClick={onRequestBill}>
+              <S.TableActionCard
+                $tone="bill"
+                type="button"
+                aria-label="Ver conta"
+                onClick={onRequestBill}
+              >
                 <span className="icon"><ReceiptText /></span>
                 <span className="copy">
                   <b>Ver Conta</b>
