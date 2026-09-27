@@ -1067,6 +1067,7 @@ export default function TableMenuExperience({
           primaryColor={primary}
           onClose={() => setConfiguringProduct(null)}
           enableProductQuantity
+          tableMenuVariant
           onConfirm={(configuration, quantity = 1) => {
             for (let index = 0; index < quantity; index += 1) {
               onAddProduct(configuringProduct.id, configuration);
