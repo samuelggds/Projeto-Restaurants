@@ -8,8 +8,8 @@ export const Page = styled.div`
   min-height: 100vh;
   min-height: 100dvh;
   color: var(--tracking-ink);
-  background-color: #f4f2ed;
-  background-image: linear-gradient(180deg, #e9efea 0, #f4f2ed 300px);
+  background-color: #f7f7f7;
+  background-image: none;
   font-family: Aptos, 'Segoe UI Variable', 'Segoe UI', sans-serif;
 
   *,
@@ -23,8 +23,8 @@ export const Header = styled.header`
   position: sticky;
   top: 0;
   z-index: 1100;
-  border-bottom: 1px solid rgba(24, 39, 34, 0.12);
-  background: rgba(255, 255, 255, 0.94);
+  border-bottom: 1px solid #eeeeee;
+  background: rgba(255, 255, 255, 0.98);
   backdrop-filter: blur(12px);
 `;
 
@@ -50,7 +50,7 @@ export const BackButton = styled.button`
   align-items: center;
   gap: 8px;
   border: 0;
-  border-radius: 7px;
+  border-radius: 12px;
   color: #34443d;
   background: transparent;
   font: inherit;
@@ -138,10 +138,8 @@ export const HeadingRow = styled.div`
 
   h1 {
     margin: 7px 0 7px;
-    font:
-      700 38px/1.12 Georgia,
-      serif;
-    letter-spacing: 0;
+    font: 900 34px/1.12 inherit;
+    letter-spacing: -0.03em;
   }
 
   p {

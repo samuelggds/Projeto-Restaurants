@@ -19,17 +19,17 @@ const fillStoryIndicator = keyframes`
 export const Carousel = styled.section`
   position: relative;
   width: 100%;
-  height: min(58svh, 540px);
-  min-height: 420px;
+  height: clamp(300px, 34vw, 430px);
+  min-height: 300px;
   margin: 0;
   overflow: hidden;
   touch-action: pan-y pinch-zoom;
   border: 1px solid rgba(47, 35, 25, 0.1);
-  border-radius: 8px;
+  border-radius: 18px;
   background: #18130f;
   box-shadow:
-    0 24px 54px rgba(28, 36, 31, 0.16),
-    0 2px 8px rgba(28, 36, 31, 0.08);
+    0 18px 42px rgba(28, 28, 28, 0.10),
+    0 2px 8px rgba(28, 28, 28, 0.05);
 
   &::after {
     content: '';
@@ -42,9 +42,9 @@ export const Carousel = styled.section`
   }
 
   @media (max-width: 800px) {
-    height: min(40svh, 300px);
-    min-height: 250px;
-    border-radius: 7px;
+    height: min(38svh, 300px);
+    min-height: 240px;
+    border-radius: 16px;
   }
 
   @media (max-width: 480px) {
@@ -103,7 +103,7 @@ export const Shade = styled.span`
 export const Copy = styled.div`
   position: absolute;
   top: 50%;
-  left: 72px;
+  left: clamp(28px, 5vw, 64px);
   width: min(560px, calc(100% - 150px));
   transform: translateY(-50%);
   display: flex;
@@ -117,9 +117,9 @@ export const Copy = styled.div`
     width: 100%;
     max-width: 500px;
     margin: 12px 0 0;
-    font-family: Georgia, 'Times New Roman', serif;
-    font-size: 54px;
-    font-weight: 700;
+    font-family: inherit;
+    font-size: clamp(36px, 4vw, 52px);
+    font-weight: 950;
     line-height: 1.03;
     letter-spacing: 0;
     overflow-wrap: anywhere;
@@ -156,7 +156,7 @@ export const Copy = styled.div`
   > button {
     min-height: 46px;
     border: 1px solid color-mix(in srgb, var(--home-primary) 72%, white);
-    border-radius: 6px;
+    border-radius: 14px;
     padding: 0 21px;
     display: inline-flex;
     align-items: center;

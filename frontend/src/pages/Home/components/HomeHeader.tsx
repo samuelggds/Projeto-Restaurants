@@ -391,7 +391,7 @@ export const HomeHeader = memo(function HomeHeader({
 
 const Header = styled.header<{ $primary: string }>`
   --home-primary: ${({ $primary }) => $primary};
-  --home-control-height: 44px;
+  --home-control-height: 46px;
   position: sticky;
   top: 0;
   z-index: 50;
@@ -399,13 +399,13 @@ const Header = styled.header<{ $primary: string }>`
   max-width: 100%;
   min-width: 0;
   box-sizing: border-box;
-  height: 76px;
-  padding: 0 clamp(18px, 3.4vw, 54px);
+  height: 70px;
+  padding: 0 clamp(18px, 3vw, 46px);
   display: flex;
   align-items: center;
-  gap: clamp(10px, 1.45vw, 28px);
-  border-bottom: 1px solid #dfe4df;
-  background: rgba(255, 255, 255, 0.96);
+  gap: clamp(9px, 1.1vw, 18px);
+  border-bottom: 1px solid #eeeeee;
+  background: rgba(255, 255, 255, 0.985);
   backdrop-filter: blur(16px);
   @media (max-width: 1380px) {
     padding-inline: 24px;
@@ -517,9 +517,9 @@ const Monogram = styled.span`
 `;
 const LocationWrap = styled.div`
   flex: 1 1 260px;
-  width: min(360px, 27vw);
+  width: min(390px, 30vw);
   min-width: 180px;
-  max-width: 360px;
+  max-width: 390px;
   margin-left: auto;
   position: relative;
   @media (max-width: 1040px) {
@@ -551,11 +551,11 @@ const Location = styled.button`
   align-items: center;
   gap: 8px;
   padding: 0 16px;
-  border: 1px solid #dfe4df;
-  border-radius: 7px;
-  font-size: 14px;
-  background: #f8faf8;
-  color: #17211d;
+  border: 1px solid #e9e9e9;
+  border-radius: 12px;
+  font-size: 13px;
+  background: #fafafa;
+  color: #1d1d1f;
   cursor: pointer;
   max-width: 100%;
 
@@ -858,7 +858,7 @@ const AddressAction = styled.button`
   gap: 7px;
   padding: 8px 12px;
   border: 0;
-  border-radius: 7px;
+  border-radius: 12px;
   background: var(--home-primary);
   color: #fff;
   font: inherit;
@@ -893,8 +893,8 @@ const BusinessStatus = styled.div<{ $open: boolean }>`
   min-width: 0;
   padding: 0 11px;
   border: 1px solid ${({ $open }) => ($open ? '#bfe4ca' : '#f1aaa4')};
-  border-radius: 7px;
-  background: ${({ $open }) => ($open ? '#f0faf1' : '#fff1f0')};
+  border-radius: 12px;
+  background: ${({ $open }) => ($open ? '#f1fbf4' : '#fff3f2')};
   color: ${({ $open }) => ($open ? '#23743b' : '#bf3029')};
   font-size: 12px;
   font-weight: 800;
@@ -1003,9 +1003,9 @@ const Actions = styled.div`
 const RoundButton = styled.button`
   width: var(--home-control-height);
   height: var(--home-control-height);
-  border-radius: 50%;
-  background: transparent;
-  border: 1px solid #dfe4df;
+  border-radius: 12px;
+  background: #fafafa;
+  border: 1px solid #e9e9e9;
   display: grid;
   place-items: center;
   color: #17211d;
@@ -1152,7 +1152,7 @@ const DropdownItem = styled.button<{ $danger?: boolean }>`
 const CartButton = styled.button`
   position: relative;
   height: var(--home-control-height);
-  padding: 0 18px;
+  padding: 0 16px;
   border: 0;
   border-radius: 7px;
   background: var(--home-primary);

@@ -21,7 +21,7 @@ export const Page = styled.div<{ $primary: string }>`
       color-mix(in srgb, var(--config-primary) 9%, transparent),
       transparent 27rem
     ),
-    #f8f6f3;
+    #f7f7f7;
   color: #211d19;
   font-family: inherit;
 
@@ -41,8 +41,8 @@ export const Header = styled.header`
   top: 0;
   z-index: 5;
   padding-top: env(safe-area-inset-top, 0px);
-  border-bottom: 1px solid #e8e0d8;
-  background: rgba(255, 253, 250, 0.94);
+  border-bottom: 1px solid #ededed;
+  background: rgba(255, 255, 255, 0.97);
   backdrop-filter: blur(18px);
 
   @media (max-width: 760px) {
@@ -52,7 +52,7 @@ export const Header = styled.header`
 `;
 
 export const HeaderInner = styled.div`
-  width: min(1180px, calc(100% - 40px));
+  width: min(1240px, calc(100% - 40px));
   min-height: 74px;
   margin: 0 auto;
   display: flex;
@@ -91,7 +91,7 @@ export const Layout = styled.main`
   margin: 0 auto;
   padding: 30px 0 48px;
   display: grid;
-  grid-template-columns: minmax(280px, 0.82fr) minmax(460px, 1.18fr);
+  grid-template-columns: minmax(320px, 0.9fr) minmax(460px, 1.1fr);
   gap: 34px;
   align-items: start;
 
@@ -113,9 +113,9 @@ export const ProductSummary = styled.aside`
   top: 104px;
   overflow: hidden;
   border: 1px solid #e7ddd4;
-  border-radius: 24px;
+  border-radius: 18px;
   background: #fff;
-  box-shadow: 0 18px 52px rgba(70, 45, 24, 0.09);
+  box-shadow: 0 14px 38px rgba(20, 20, 20, 0.08);
 
   img {
     width: 100%;
@@ -152,7 +152,7 @@ export const ProductSummary = styled.aside`
   }
 
   strong {
-    color: var(--config-primary);
+    color: #1d1d1f;
     font-size: 23px;
   }
 
