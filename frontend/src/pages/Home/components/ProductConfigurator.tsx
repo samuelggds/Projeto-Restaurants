@@ -28,6 +28,7 @@ type ProductConfiguratorProduct = ConfigurableProduct & {
     badgeLabel: string;
     endsAt?: string;
   };
+  rating?: number;
 };
 
 type ProductConfiguratorProps = {
@@ -181,7 +182,10 @@ export function ProductConfigurator({
       </S.Header>
 
       <S.Layout>
-        <S.ProductSummary>
+        <S.ProductSummary data-product-summary>
+          {tableMenuVariant ? (
+            <S.ProductFavorite aria-hidden="true">♡</S.ProductFavorite>
+          ) : null}
           {product.image ? (
             <img src={product.image} alt={product.name} decoding="async" />
           ) : (
@@ -191,7 +195,14 @@ export function ProductConfigurator({
           )}
           <div>
             <small>Personalize seu pedido</small>
-            <h1>{product.name}</h1>
+            <S.ProductTitleRow>
+              <h1>{product.name}</h1>
+              {Number(product.rating || 0) > 0 ? (
+                <S.ProductRating aria-label={`Avaliação ${Number(product.rating).toFixed(1)}`}>
+                  ★ {Number(product.rating).toFixed(1)}
+                </S.ProductRating>
+              ) : null}
+            </S.ProductTitleRow>
             <p>
               {product.description || 'Escolha as opções disponíveis para montar este produto.'}
             </p>
