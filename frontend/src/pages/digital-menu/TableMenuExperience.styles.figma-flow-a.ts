@@ -611,6 +611,26 @@ export const OrderItemsCard = styled(FlowCard)`
     font-weight: 500;
   }
 
+  .account-total {
+    padding-top: 16px;
+    border-top: 1px solid var(--line);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+  }
+
+  .account-total span {
+    color: var(--muted);
+    font-size: 15px;
+  }
+
+  .account-total strong {
+    color: var(--primary);
+    font-size: 18px;
+    font-weight: 500;
+  }
+
   @media (max-width: 759px) {
     padding: 0;
     border: 0;
