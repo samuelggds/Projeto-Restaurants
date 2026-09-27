@@ -167,6 +167,10 @@ export default function TableMenuExperience({
       : null;
 
   useEffect(() => {
+    if (couponCode) setCouponInput(couponCode);
+  }, [couponCode]);
+
+  useEffect(() => {
     if (!data.banners.length || data.banners.length <= 1) return undefined;
     const interval = window.setInterval(() => {
       setBannerIndex((current) => (current + 1) % data.banners.length);
