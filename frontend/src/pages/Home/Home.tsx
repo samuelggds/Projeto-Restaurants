@@ -929,6 +929,7 @@ export default function Home() {
         onCallWaiter={() => void requestTableService('WAITER')}
         onCreatePixPayment={createPixPaymentForOrder}
         onReconcilePayment={tableAccount.reconcilePayment}
+        onCancelPayment={tableAccount.cancelPayment}
       />
     );
   }
