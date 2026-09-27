@@ -902,12 +902,13 @@ export default function Home() {
         return null;
       }
 
-      return tableAccount.createPayment({
+      const result = await tableAccount.createPayment({
         selectionMode: 'SELECTED_ITEMS',
         method: 'PIX',
         billItemPublicIds,
         includeOptionalServiceFee: false,
       });
+      return result?.payment || null;
     };
 
     return (
