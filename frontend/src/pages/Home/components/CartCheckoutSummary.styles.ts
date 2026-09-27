@@ -7,9 +7,9 @@ export const DiscountRow = styled(CartSummaryRow)`
 `;
 
 export const Hint = styled.p`
-  margin: 7px 0 0;
+  margin: 6px 0 0;
   color: #80756d;
-  font-size: 10px;
+  font-size: 10.5px;
   line-height: 1.35;
 `;
 
