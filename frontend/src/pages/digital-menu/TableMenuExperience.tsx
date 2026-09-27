@@ -13,7 +13,7 @@ import {
   Utensils,
   WalletCards,
 } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import QRCode from 'react-qr-code';
 import type { HomeData, HomeProduct } from '../Home/types';
 import type { CartItem } from '../Home/hooks/useCart';
@@ -24,6 +24,8 @@ import type {
 } from '../Home/domain/tableAccount';
 import type { TableOrderNotice } from '../Home/domain/tableOrderNotice';
 import { ProductConfigurator } from '../Home/components/ProductConfigurator';
+import { TablePaymentStatusView } from '../Home/components/TablePaymentStatusView';
+import { getFeaturedProducts } from '../Home/domain/featuredProducts';
 import * as S from './TableMenuExperience.styles';
 
 type SubmitResult = {
@@ -50,6 +52,7 @@ type Props = {
   onCallWaiter: () => void;
   onCreatePixPayment: (orderPublicId: string) => Promise<TablePaymentIntent | null>;
   onReconcilePayment: (paymentPublicId: string) => Promise<TablePaymentIntent | null>;
+  onCancelPayment: (paymentPublicId: string) => Promise<boolean>;
 };
 
 type View = 'menu' | 'cart' | 'confirmation' | 'tracking' | 'pix';
@@ -84,6 +87,7 @@ export default function TableMenuExperience({
   onCallWaiter,
   onCreatePixPayment,
   onReconcilePayment,
+  onCancelPayment,
 }: Props) {
   const [view, setView] = useState<View>('menu');
   const [query, setQuery] = useState('');
@@ -99,6 +103,7 @@ export default function TableMenuExperience({
   } | null>(null);
   const [pixPayment, setPixPayment] = useState<TablePaymentIntent | null>(null);
   const [copied, setCopied] = useState(false);
+  const [now, setNow] = useState(() => Date.now());
 
   const products = useMemo(
     () =>
@@ -116,11 +121,7 @@ export default function TableMenuExperience({
   );
 
   const featured = useMemo(
-    () =>
-      data.products
-        .filter((product) => product.available)
-        .sort((a, b) => Number(b.rating || 0) - Number(a.rating || 0))
-        .slice(0, 4),
+    () => getFeaturedProducts(data.products).slice(0, 4),
     [data.products],
   );
 
@@ -145,6 +146,19 @@ export default function TableMenuExperience({
     ? { ...paymentBase, status: paymentSnapshot?.status || paymentBase.status }
     : null;
   const primary = data.brand.primaryColor || '#e50914';
+  const pixPending = Boolean(
+    currentPayment && ['RESERVED', 'PROCESSING'].includes(currentPayment.status),
+  );
+  const pixRemainingSeconds =
+    pixPending && currentPayment?.expiresAt
+      ? Math.max(0, Math.ceil((new Date(currentPayment.expiresAt).getTime() - now) / 1000))
+      : null;
+
+  useEffect(() => {
+    if (!pixPending || pixRemainingSeconds === null) return undefined;
+    const interval = window.setInterval(() => setNow(Date.now()), 1_000);
+    return () => window.clearInterval(interval);
+  }, [pixPending, pixRemainingSeconds]);
 
   function openProduct(product: HomeProduct) {
     if (orderingLocked) return;
@@ -194,56 +208,153 @@ export default function TableMenuExperience({
   }
 
   if (view === 'pix' && currentPayment) {
-    const paid = currentPayment.status === 'PAID';
+    if (!pixPending) {
+      return (
+        <S.Shell $primary={primary}>
+          <S.PaymentHeader>
+            <S.Brand>
+              {data.brand.logoUrl ? (
+                <img src={data.brand.logoUrl} alt={data.brand.name} />
+              ) : (
+                <S.BrandMark />
+              )}
+              <span>
+                <b>{data.brand.name}</b>
+                <small>{data.about || data.brand.category || ''}</small>
+              </span>
+            </S.Brand>
+          </S.PaymentHeader>
+          <S.CenteredPage>
+            <TablePaymentStatusView
+              payment={currentPayment}
+              status={currentPayment.status}
+              actionLoading={paymentLoading}
+              restaurantCategory={data.brand.category}
+              onVerify={() => onReconcilePayment(currentPayment.publicId)}
+              onCancel={() => onCancelPayment(currentPayment.publicId)}
+              onStartOver={() => setView('confirmation')}
+              onClose={() => setView('tracking')}
+            />
+          </S.CenteredPage>
+        </S.Shell>
+      );
+    }
+
+    const paymentItems = confirmation?.items || [];
+    const minutes = pixRemainingSeconds === null ? 0 : Math.floor(pixRemainingSeconds / 60);
+    const seconds = pixRemainingSeconds === null ? 0 : pixRemainingSeconds % 60;
+
     return (
       <S.Shell $primary={primary}>
-        <Header
-          data={data}
-          tableLabel={tableLabel}
-          cartCount={cartCount}
-          query={query}
-          setQuery={setQuery}
-          onCart={() => setView('cart')}
-        />
-        <S.CenteredPage>
-          <S.PixCard>
-            <S.StatusIcon $success={paid}>{paid ? <Check /> : <Clock3 />}</S.StatusIcon>
-            <small>{paid ? 'PAGAMENTO CONFIRMADO' : 'PAGAMENTO PIX'}</small>
-            <h1>{paid ? 'Pagamento recebido!' : 'Pague com PIX'}</h1>
-            <p>
-              {paid
-                ? 'O pagamento foi confirmado pelo sistema. Seu pedido continua normalmente.'
-                : 'Escaneie o QR Code ou copie o código PIX abaixo. A confirmação é automática.'}
-            </p>
-            <strong className="amount">{brl(currentPayment.totalCents / 100)}</strong>
-            {!paid && currentPayment.paymentCode && (
+        <S.PaymentHeader>
+          <S.Brand>
+            {data.brand.logoUrl ? (
+              <img src={data.brand.logoUrl} alt={data.brand.name} />
+            ) : (
+              <S.BrandMark />
+            )}
+            <span>
+              <b>{data.brand.name}</b>
+              <small>{data.about || data.brand.category || ''}</small>
+            </span>
+          </S.Brand>
+          <S.PaymentBack type="button" onClick={() => setView('confirmation')}>
+            <ArrowLeft size={18} /> Voltar para o pedido
+          </S.PaymentBack>
+        </S.PaymentHeader>
+
+        <S.PixPage>
+          <S.PixSummary>
+            <header>
+              <h2>Resumo do pedido</h2>
+              <span>Mesa {tableLabel}</span>
+            </header>
+            <div className="items">
+              {paymentItems.map((item) => (
+                <article key={item.cartId}>
+                  {item.image ? <img src={item.image} alt={item.name} /> : <S.ImagePlaceholder />}
+                  <div>
+                    <b>{item.name}</b>
+                    {item.options?.length ? (
+                      <small>{item.options.map((option) => option.name).join(' · ')}</small>
+                    ) : null}
+                  </div>
+                  <span>{item.quantity}x</span>
+                  <strong>{brl(item.price * item.quantity)}</strong>
+                </article>
+              ))}
+            </div>
+            <S.PixTotals>
+              <span>
+                <small>Subtotal</small>
+                <b>{brl(currentPayment.subtotalCents / 100)}</b>
+              </span>
+              {currentPayment.serviceFeeCents > 0 ? (
+                <span>
+                  <small>Taxa de serviço</small>
+                  <b>{brl(currentPayment.serviceFeeCents / 100)}</b>
+                </span>
+              ) : null}
+              <span className="total">
+                <strong>Total a pagar</strong>
+                <b>{brl(currentPayment.totalCents / 100)}</b>
+              </span>
+            </S.PixTotals>
+            <S.AfterPayment>
+              <Clock3 />
+              <div>
+                <b>Após o pagamento</b>
+                <p>A confirmação acontece automaticamente pelo sistema.</p>
+              </div>
+            </S.AfterPayment>
+          </S.PixSummary>
+
+          <S.PixPaymentCard>
+            <S.PixMark aria-hidden="true">
+              <i />
+              <i />
+              <i />
+              <i />
+            </S.PixMark>
+            <h1>Pagar com PIX</h1>
+            <p>Escaneie o QR Code pelo seu banco ou copie o código abaixo.</p>
+
+            {currentPayment.paymentCode ? (
               <>
                 <S.QrFrame aria-label="QR Code PIX">
-                  <QRCode value={currentPayment.paymentCode} size={210} level="M" />
+                  <QRCode value={currentPayment.paymentCode} size={220} level="M" />
                 </S.QrFrame>
-                <S.PixCode>{currentPayment.paymentCode}</S.PixCode>
-                <S.PrimaryButton type="button" onClick={() => void copyPix()}>
-                  <Copy size={18} /> {copied ? 'Código copiado' : 'Copiar código PIX'}
-                </S.PrimaryButton>
-                <S.SecondaryButton
-                  type="button"
-                  disabled={paymentLoading}
-                  onClick={() =>
-                    void onReconcilePayment(currentPayment.publicId).then((payment) => {
-                      if (payment) setPixPayment(payment);
-                    })
-                  }
-                >
-                  Verificar pagamento agora
-                </S.SecondaryButton>
+                <S.CopyArea>
+                  <div>
+                    <small>Código PIX (copia e cola)</small>
+                    <code>{currentPayment.paymentCode}</code>
+                  </div>
+                  <button type="button" onClick={() => void copyPix()}>
+                    <Copy size={18} />
+                    {copied ? 'Copiado' : 'Copiar'}
+                  </button>
+                </S.CopyArea>
               </>
-            )}
-            <S.PaymentState $success={paid}>{paymentStatusLabel(currentPayment)}</S.PaymentState>
-            <S.SecondaryButton type="button" onClick={() => setView('tracking')}>
-              Acompanhar pedido
-            </S.SecondaryButton>
-          </S.PixCard>
-        </S.CenteredPage>
+            ) : null}
+
+            <S.WaitingPayment role="status" aria-live="polite">
+              <Clock3 />
+              <div>
+                <b>Aguardando o pagamento...</b>
+                <span>O QR Code expira no horário indicado.</span>
+              </div>
+              {pixRemainingSeconds !== null ? (
+                <strong>
+                  {String(minutes).padStart(2, '0')}:{String(seconds).padStart(2, '0')}
+                </strong>
+              ) : null}
+            </S.WaitingPayment>
+
+            <S.PaymentBackWide type="button" onClick={() => setView('confirmation')}>
+              <ArrowLeft size={18} /> Voltar para o pedido
+            </S.PaymentBackWide>
+          </S.PixPaymentCard>
+        </S.PixPage>
       </S.Shell>
     );
   }
