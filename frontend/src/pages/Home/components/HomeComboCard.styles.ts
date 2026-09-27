@@ -2,12 +2,10 @@ import styled from 'styled-components';
 
 export const Section = styled.section`
   margin: 30px 0 10px;
-  padding: 24px;
-  border-radius: 24px;
-  background:
-    radial-gradient(circle at top right, color-mix(in srgb, var(--home-primary) 18%, transparent), transparent 36%),
-    linear-gradient(135deg, #fff8f3 0%, #ffffff 58%, #fff 100%);
-  border: 1px solid color-mix(in srgb, var(--home-primary) 18%, #ece7e2);
+  padding: 0;
+  border-radius: 0;
+  background: transparent;
+  border: 0;
 `;
 
 export const Header = styled.div`
@@ -50,10 +48,11 @@ export const Header = styled.div`
 
 export const Grid = styled.div`
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 14px;
 
-  @media (max-width: 1050px) { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  @media (max-width: 1180px) { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  @media (max-width: 900px) { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   @media (max-width: 620px) {
     display: flex;
     overflow-x: auto;
@@ -70,14 +69,14 @@ export const Card = styled.article`
   position: relative;
   overflow: hidden;
   min-width: 0;
-  border-radius: 20px;
+  border-radius: 16px;
   background: #fff;
   border: 1px solid #eee7e1;
-  box-shadow: 0 14px 36px rgba(65, 44, 28, .08);
+  box-shadow: 0 7px 22px rgba(18, 18, 18, .05);
 
   .image {
     position: relative;
-    aspect-ratio: 16 / 11;
+    aspect-ratio: 16 / 9;
     overflow: hidden;
     background: #f3eee9;
   }
@@ -101,12 +100,12 @@ export const Card = styled.article`
     font-size: .7rem;
     font-weight: 900;
   }
-  .content { padding: 15px; display: grid; gap: 9px; }
-  h3 { margin: 0; font-size: 1.05rem; }
+  .content { padding: 13px 14px 14px; display: grid; gap: 7px; }
+  h3 { margin: 0; font-size: .95rem; font-weight: 850; }
   p {
     margin: 0;
     color: #766d65;
-    font-size: .83rem;
+    font-size: .72rem;
     line-height: 1.42;
     display: -webkit-box;
     -webkit-box-orient: vertical;
@@ -136,10 +135,10 @@ export const Card = styled.article`
     margin-top: 2px;
   }
   .price small { display: block; color: #8a817a; font-size: .68rem; }
-  .price strong { color: var(--home-primary); font-size: 1.08rem; }
+  .price strong { color: #1d1d1f; font-size: 1rem; font-weight: 900; }
   button {
     border: 0;
-    border-radius: 11px;
+    border-radius: 12px;
     padding: 10px 12px;
     background: var(--home-primary);
     color: #fff;
