@@ -63,10 +63,7 @@ export const FigmaHeader = styled.header<{ $hasTitle?: boolean }>`
   }
 
   .context-title {
-    color: var(--text);
-    font-size: 16px;
-    font-weight: 700;
-    white-space: nowrap;
+    display: none;
   }
 
   nav {
@@ -122,20 +119,32 @@ export const FigmaHeader = styled.header<{ $hasTitle?: boolean }>`
     }
 
     .mobile-back {
-      width: 28px;
-      height: 28px;
-      padding: 0;
-      border: 0;
-      background: transparent;
-      color: var(--text);
-      display: grid;
-      place-items: center;
-      flex: 0 0 28px;
+      display: none;
     }
 
     .context-title {
+      min-width: 0;
+      display: grid;
+      gap: 2px;
+      white-space: nowrap;
+    }
+
+    .context-title b {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      color: var(--text);
       font-size: 14px;
+      line-height: 18px;
       font-weight: 700;
+    }
+
+    .context-title small {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      color: var(--muted);
+      font-size: 10px;
+      line-height: 13px;
+      font-weight: 500;
     }
 
     nav {
