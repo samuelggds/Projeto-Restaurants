@@ -8,8 +8,8 @@ const offerReveal = keyframes`
 export const Section = styled.section`
   position: relative;
   isolation: isolate;
-  width: min(1240px, 100%);
-  margin: 48px auto 0;
+  width: 100%;
+  margin: 28px auto 0;
   padding: 0;
   animation: ${offerReveal} 320ms ease both;
 
@@ -30,14 +30,15 @@ export const Header = styled.header`
   justify-content: space-between;
   gap: 20px;
   margin-bottom: 20px;
-  padding-bottom: 20px;
-  border-bottom: 1px solid var(--home-border);
+  padding-bottom: 10px;
+  border-bottom: 0;
 
   h2 {
     margin: 7px 0 5px;
     color: var(--home-text);
-    font-family: Georgia, 'Times New Roman', serif;
-    font-size: 32px;
+    font-family: inherit;
+    font-size: 24px;
+    font-weight: 900;
     line-height: 1.1;
     letter-spacing: 0;
   }
@@ -103,8 +104,8 @@ export const Grid = styled.div`
   position: relative;
   z-index: 1;
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 16px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
 
   > article:only-child {
     grid-column: 1 / -1;
@@ -112,11 +113,16 @@ export const Grid = styled.div`
     margin-inline: auto;
   }
 
-  @media (max-width: 1080px) {
-    grid-template-columns: minmax(0, 1fr);
+  @media (max-width: 1180px) {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  @media (max-width: 900px) {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   @media (max-width: 760px) {
-    gap: 13px;
+    grid-template-columns: 1fr;
+    gap: 12px;
   }
 `;
