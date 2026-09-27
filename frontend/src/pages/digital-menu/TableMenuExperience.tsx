@@ -53,6 +53,7 @@ type Props = {
   onCreatePixPayment: (orderPublicId: string) => Promise<TablePaymentIntent | null>;
   onReconcilePayment: (paymentPublicId: string) => Promise<TablePaymentIntent | null>;
   onCancelPayment: (paymentPublicId: string) => Promise<boolean>;
+  onOpenTableAccount: () => void;
 };
 
 type View = 'menu' | 'cart' | 'confirmation' | 'tracking' | 'pix';
@@ -88,6 +89,7 @@ export default function TableMenuExperience({
   onCreatePixPayment,
   onReconcilePayment,
   onCancelPayment,
+  onOpenTableAccount,
 }: Props) {
   const [view, setView] = useState<View>('menu');
   const [query, setQuery] = useState('');
@@ -391,6 +393,7 @@ export default function TableMenuExperience({
           query={query}
           setQuery={setQuery}
           onCart={() => setView('cart')}
+          onOpenTableAccount={onOpenTableAccount}
         />
         <S.Page>
           <S.BackButton type="button" onClick={() => setView('menu')}>
@@ -460,6 +463,7 @@ export default function TableMenuExperience({
           query={query}
           setQuery={setQuery}
           onCart={() => setView('cart')}
+          onOpenTableAccount={onOpenTableAccount}
         />
         <S.Page>
           <S.ConfirmationHero>
@@ -538,6 +542,7 @@ export default function TableMenuExperience({
           query={query}
           setQuery={setQuery}
           onCart={() => setView('cart')}
+          onOpenTableAccount={onOpenTableAccount}
         />
         <S.Page>
           <S.BackButton type="button" onClick={() => setView('menu')}>
@@ -617,6 +622,7 @@ export default function TableMenuExperience({
         query={query}
         setQuery={setQuery}
         onCart={() => setView('cart')}
+        onOpenTableAccount={onOpenTableAccount}
       />
       <S.Page>
         {data.banners[0] ? (
@@ -756,6 +762,7 @@ function Header({
   query,
   setQuery,
   onCart,
+  onOpenTableAccount,
 }: {
   data: HomeData;
   tableLabel: string | number;
@@ -763,6 +770,7 @@ function Header({
   query: string;
   setQuery: (value: string) => void;
   onCart: () => void;
+  onOpenTableAccount: () => void;
 }) {
   return (
     <S.Header>
@@ -773,7 +781,12 @@ function Header({
           <small>{data.about || data.brand.category || ''}</small>
         </span>
       </S.Brand>
-      <S.TableBadge>
+      <S.TableBadge
+        as="button"
+        type="button"
+        onClick={onOpenTableAccount}
+        aria-label={`Abrir minha comanda da mesa ${tableLabel}`}
+      >
         <Utensils size={17} /> Mesa {tableLabel}
       </S.TableBadge>
       <S.SearchBox>
@@ -795,7 +808,11 @@ function Header({
 
 function ProductCard({ product, onOpen }: { product: HomeProduct; onOpen: () => void }) {
   return (
-    <S.ProductCard type="button" onClick={onOpen}>
+    <S.ProductCard
+      type="button"
+      onClick={onOpen}
+      aria-label={`Ver detalhes de ${product.name}`}
+    >
       <div className="image">
         {product.image ? <img src={product.image} alt={product.name} /> : <S.ImagePlaceholder />}
       </div>
