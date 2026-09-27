@@ -1410,3 +1410,60 @@ export const ProductPrice = styled.div`
     font-size: 15px;
   }
 `;
+
+
+export const HeroArrow = styled.button<{ $side: 'left' | 'right' }>`
+  position: absolute;
+  z-index: 3;
+  top: 50%;
+  ({ $side }) => ($side === 'left' ? 'left: 12px;' : 'right: 12px;')
+  width: 42px;
+  height: 42px;
+  border-radius: 999px;
+  border: 1px solid rgba(255,255,255,.28);
+  background: rgba(15,15,18,.34);
+  color: #fff;
+  display: grid;
+  place-items: center;
+  transform: translateY(-50%)
+    ({ $side }) => ($side === 'left' ? 'rotate(180deg)' : 'none');
+  backdrop-filter: blur(8px);
+
+  @media (max-width: 700px) {
+    width: 34px;
+    height: 34px;
+    ({ $side }) => ($side === 'left' ? 'left: 7px;' : 'right: 7px;')
+  }
+`;
+
+export const HeroIndicators = styled.div`
+  position: absolute;
+  z-index: 3;
+  left: 50%;
+  bottom: 16px;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+
+  button {
+    width: 34px;
+    height: 3px;
+    padding: 0;
+    border: 0;
+    border-radius: 999px;
+    background: rgba(255,255,255,.45);
+  }
+
+  button[aria-current='true'] {
+    background: #fff;
+  }
+
+  @media (max-width: 700px) {
+    bottom: 10px;
+
+    button {
+      width: 22px;
+    }
+  }
+`;
