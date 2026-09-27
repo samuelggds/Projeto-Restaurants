@@ -1,22 +1,17 @@
 import styled from 'styled-components';
 
-function tableFontStack(fontFamily?: string) {
-  if (fontFamily === 'Manrope') return 'Manrope, ui-sans-serif, system-ui, sans-serif';
-  if (fontFamily === 'DM Sans') return "'DM Sans', ui-sans-serif, system-ui, sans-serif";
-  return 'Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
-}
-
 export const FigmaShell = styled.main<{ $primary: string; $fontFamily?: string }>`
   --primary: ${({ $primary }) => $primary};
-  --text: #111111;
-  --muted: #6b7280;
-  --line: #e5e7eb;
-  --soft: #f8f8f8;
+  --text: #1a1a2e;
+  --muted: #6d6d80;
+  --line: #eaeae6;
+  --surface: #ffffff;
+  --background: #fafaf8;
   min-height: 100vh;
   overflow-x: hidden;
-  background: #ffffff;
+  background: var(--background);
   color: var(--text);
-  font-family: ${({ $fontFamily }) => tableFontStack($fontFamily)};
+  font-family: 'Plus Jakarta Sans', ${({ $fontFamily }) => $fontFamily || 'sans-serif'}, sans-serif;
 
   *,
   *::before,
@@ -34,6 +29,11 @@ export const FigmaShell = styled.main<{ $primary: string; $fontFamily?: string }
     cursor: pointer;
   }
 
+  button:disabled {
+    cursor: not-allowed;
+    opacity: 0.5;
+  }
+
   img {
     display: block;
     max-width: 100%;
@@ -41,17 +41,13 @@ export const FigmaShell = styled.main<{ $primary: string; $fontFamily?: string }
 `;
 
 export const FigmaHeader = styled.header<{ $hasTitle?: boolean }>`
-  position: sticky;
-  top: 0;
-  z-index: 32;
   width: 100%;
-  min-height: 78px;
-  padding: 0 40px;
-  border-bottom: 1px solid #f0f0f1;
-  background: rgba(255, 255, 255, 0.97);
-  backdrop-filter: blur(18px);
+  min-height: 68px;
+  padding: 18px 48px;
+  border-bottom: 1px solid var(--line);
+  background: #fff;
   display: grid;
-  grid-template-columns: minmax(330px, 1fr) auto minmax(230px, 1fr);
+  grid-template-columns: minmax(430px, 1fr) auto minmax(190px, 1fr);
   align-items: center;
   gap: 24px;
 
@@ -59,7 +55,7 @@ export const FigmaHeader = styled.header<{ $hasTitle?: boolean }>`
     min-width: 0;
     display: flex;
     align-items: center;
-    gap: 40px;
+    gap: 48px;
   }
 
   .mobile-back {
@@ -67,31 +63,45 @@ export const FigmaHeader = styled.header<{ $hasTitle?: boolean }>`
   }
 
   .context-title {
-    min-width: 0;
-    color: #303036;
-    font-size: 16px;
-    font-weight: 800;
-    white-space: nowrap;
+    display: none;
   }
 
   nav {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    gap: 28px;
+    gap: 32px;
   }
 
   nav button {
-    padding: 8px 0;
+    position: relative;
+    padding: 5px 0;
     border: 0;
     background: transparent;
-    color: #66666e;
-    font-size: 13px;
-    font-weight: 750;
+    color: var(--muted);
+    font-size: 14px;
+    font-weight: 500;
+  }
+
+  nav button:hover,
+  nav button:focus-visible {
+    color: var(--primary);
   }
 
   nav button.active {
     color: var(--primary);
+    font-weight: 700;
+  }
+
+  nav button.active::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    bottom: -5px;
+    width: 16px;
+    height: 2px;
+    border-radius: 2px;
+    background: var(--primary);
   }
 
   .right {
@@ -99,34 +109,42 @@ export const FigmaHeader = styled.header<{ $hasTitle?: boolean }>`
   }
 
   @media (max-width: 759px) {
-    position: relative;
-    min-height: 76px;
-    padding: 0 18px;
+    min-height: 68px;
+    padding: 16px 20px;
     grid-template-columns: minmax(0, 1fr) auto;
     gap: 12px;
-    border-bottom-color: #f3f3f4;
-    backdrop-filter: none;
 
     .left {
-      gap: 12px;
+      gap: 10px;
     }
 
     .mobile-back {
-      width: 30px;
-      height: 30px;
-      padding: 0;
-      border: 0;
-      border-radius: 9px;
-      background: transparent;
-      color: #111;
-      display: grid;
-      place-items: center;
-      flex: 0 0 30px;
+      display: none;
     }
 
     .context-title {
-      font-size: 18px;
-      line-height: 1;
+      min-width: 0;
+      display: grid;
+      gap: 2px;
+      white-space: nowrap;
+    }
+
+    .context-title b {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      color: var(--text);
+      font-size: 14px;
+      line-height: 18px;
+      font-weight: 700;
+    }
+
+    .context-title small {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      color: var(--muted);
+      font-size: 10px;
+      line-height: 13px;
+      font-weight: 500;
     }
 
     nav {
@@ -134,12 +152,13 @@ export const FigmaHeader = styled.header<{ $hasTitle?: boolean }>`
     }
 
     ${({ $hasTitle }) =>
-      $hasTitle &&
-      `
-        .brand {
-          display: none;
-        }
-      `}
+      $hasTitle
+        ? `
+      .brand .name {
+        display: none;
+      }
+    `
+        : ''}
   }
 `;
 
@@ -151,10 +170,10 @@ export const FigmaBrand = styled.div.attrs({ className: 'brand' })`
 
   .mark,
   img {
-    width: 42px;
-    height: 42px;
-    flex: 0 0 42px;
-    border-radius: 50%;
+    width: 36px;
+    height: 32px;
+    flex: 0 0 36px;
+    border-radius: 10px;
     object-fit: cover;
   }
 
@@ -163,26 +182,32 @@ export const FigmaBrand = styled.div.attrs({ className: 'brand' })`
     place-items: center;
     background: var(--primary);
     color: #fff;
-    font-size: 15px;
-    font-weight: 950;
+    font-size: 19px;
+    font-weight: 700;
   }
 
   .name {
     min-width: 0;
-    display: flex;
-    align-items: baseline;
-    gap: 0;
-    overflow: hidden;
+    display: grid;
+    gap: 2px;
   }
 
   .name b {
-    max-width: 260px;
+    max-width: 240px;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    font-size: 22px;
-    line-height: 1;
-    font-weight: 900;
+    color: var(--text);
+    font-size: 16px;
+    line-height: 20px;
+    font-weight: 500;
+  }
+
+  .name small {
+    color: var(--muted);
+    font-size: 11px;
+    line-height: 14px;
+    font-weight: 500;
   }
 
   @media (max-width: 759px) {
@@ -190,81 +215,66 @@ export const FigmaBrand = styled.div.attrs({ className: 'brand' })`
 
     .mark,
     img {
-      width: 40px;
-      height: 40px;
-      flex-basis: 40px;
+      width: 32px;
+      height: 32px;
+      flex-basis: 32px;
+      border-radius: 10px;
     }
 
     .name b {
-      max-width: 170px;
-      font-size: 19px;
+      max-width: 150px;
+      font-size: 14px;
+      line-height: 18px;
+      font-weight: 700;
     }
-  }
 
-  @media (max-width: 360px) {
-    .name b {
-      max-width: 135px;
-      font-size: 17px;
+    .name small {
+      max-width: 150px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      font-size: 10px;
     }
   }
 `;
 
 export const FigmaTablePill = styled.div`
-  min-width: 170px;
-  min-height: 46px;
-  padding: 0 16px;
-  border: 1px solid color-mix(in srgb, var(--primary) 24%, #e8e8eb);
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--primary) 4%, #fff);
+  min-width: 108px;
+  min-height: 34px;
+  padding: 7px 16px;
+  border: 1px solid var(--primary);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--primary) 8%, #fff);
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 10px;
-  color: #151515;
-  font-size: 14px;
-  font-weight: 850;
+  gap: 6px;
+  color: var(--primary);
+  font-size: 13px;
+  font-weight: 700;
 
   svg {
-    color: var(--primary);
+    width: 14px;
+    height: 14px;
   }
 
   @media (max-width: 759px) {
-    min-width: 96px;
-    min-height: 42px;
-    padding: 0 12px;
-    gap: 6px;
-    font-size: 12px;
-
-    svg {
-      width: 18px;
-      height: 18px;
-    }
-  }
-`;
-
-export const MenuPage = styled.section`
-  width: min(1440px, 100%);
-  margin: 0 auto;
-  padding: 18px 38px 72px;
-
-  @media (max-width: 759px) {
-    padding: 0 20px calc(104px + env(safe-area-inset-bottom, 0px));
-  }
-
-  @media (max-width: 359px) {
-    padding-inline: 14px;
+    min-width: 91px;
+    min-height: 30px;
+    padding: 6px 12px;
+    gap: 4px;
+    font-size: 11px;
   }
 `;
 
 export const MenuHero = styled.section`
   position: relative;
-  min-height: 380px;
+  width: 100%;
+  height: 320px;
   overflow: hidden;
-  border-radius: 22px;
-  background: #16110f;
   color: #fff;
 
-  > img {
+  .hero-bg {
     position: absolute;
     inset: 0;
     width: 100%;
@@ -272,164 +282,286 @@ export const MenuHero = styled.section`
     object-fit: cover;
   }
 
-  &::after {
-    content: '';
+  .hero-overlay {
     position: absolute;
     inset: 0;
-    background:
-      linear-gradient(90deg, rgba(10, 8, 7, 0.94) 0%, rgba(10, 8, 7, 0.78) 34%, rgba(10, 8, 7, 0.23) 66%, rgba(10, 8, 7, 0.03) 100%);
+    background: linear-gradient(168deg, rgba(0, 0, 0, 0.2) 24%, rgba(0, 0, 0, 0.5) 78%);
   }
 
   .copy {
     position: relative;
     z-index: 2;
-    width: min(600px, 58%);
-    min-height: inherit;
-    padding: 38px 32px;
+    width: min(760px, calc(100% - 160px));
+    height: 100%;
+    margin-left: 80px;
+    padding: 56px 0;
     display: flex;
     flex-direction: column;
-    justify-content: center;
     align-items: flex-start;
   }
 
   .eyebrow {
-    margin-bottom: 10px;
-    color: color-mix(in srgb, var(--primary) 84%, #fff);
+    color: var(--primary);
     font-size: 13px;
-    line-height: 1.2;
-    font-weight: 850;
-    letter-spacing: 0.22em;
-    text-transform: uppercase;
+    line-height: 18px;
+    font-weight: 700;
+    letter-spacing: 2px;
   }
 
   h1 {
-    margin: 0;
-    max-width: 560px;
-    font-size: clamp(42px, 4.2vw, 62px);
-    line-height: 0.98;
-    letter-spacing: -0.035em;
-    font-weight: 900;
+    width: min(760px, 100%);
+    margin: 12px 0 0;
+    color: #fff;
+    font-size: 48px;
+    line-height: 1.1;
+    font-weight: 800;
+    letter-spacing: -0.5px;
+    text-shadow: 0 2px 10px rgba(0, 0, 0, 0.65);
   }
 
   p {
-    max-width: 500px;
-    margin: 16px 0 24px;
-    color: rgba(255, 255, 255, 0.9);
-    font-size: 18px;
-    line-height: 1.35;
+    width: min(700px, 100%);
+    margin: 10px 0 0;
+    color: rgba(250, 250, 248, 0.78);
+    font-size: 16px;
+    line-height: 22px;
+    font-weight: 500;
   }
 
   .cta {
-    min-width: 250px;
-    min-height: 54px;
+    min-height: 42px;
+    margin-top: auto;
     padding: 0 24px;
     border: 0;
     border-radius: 999px;
     background: var(--primary);
     color: #fff;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 12px;
-    font-size: 18px;
-    font-weight: 850;
+    font-size: 15px;
+    font-weight: 700;
   }
 
   .indicators {
     position: absolute;
     z-index: 3;
-    right: 18px;
-    bottom: 16px;
-    display: inline-flex;
-    gap: 5px;
+    top: 12px;
+    left: 40px;
+    right: 40px;
+    height: 4px;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(30px, 1fr));
+    gap: 6px;
   }
 
-  .indicators i {
-    width: 18px;
-    height: 3px;
-    border-radius: 999px;
-    background: rgba(255, 255, 255, 0.45);
+  .indicators button {
+    height: 4px;
+    padding: 0;
+    border: 0;
+    border-radius: 2px;
+    background: rgba(255, 255, 255, 0.35);
   }
 
-  .indicators i.active {
-    background: #fff;
+  .indicators button.active {
+    background: rgba(255, 255, 255, 0.95);
   }
 
   @media (max-width: 759px) {
-    min-height: 212px;
-    border-radius: 18px;
+    height: 210px;
 
     .copy {
-      width: 72%;
-      padding: 18px;
-      justify-content: flex-start;
+      width: 100%;
+      margin: 0;
+      padding: 20px;
     }
 
     .eyebrow {
-      margin-bottom: 4px;
-      font-size: 9px;
-      letter-spacing: 0.12em;
+      max-width: 320px;
+      font-size: 10px;
+      line-height: 14px;
+      letter-spacing: 1.5px;
     }
 
     h1 {
-      max-width: 230px;
-      font-size: clamp(24px, 7.6vw, 32px);
-      line-height: 1;
+      width: 320px;
+      max-width: 92%;
+      margin-top: 4px;
+      font-size: 26px;
+      line-height: 1.2;
     }
 
     p {
       max-width: 230px;
-      margin: 8px 0 12px;
-      font-size: 11px;
-      line-height: 1.35;
+      margin-top: auto;
+      font-size: 13px;
+      line-height: 17px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
 
     .cta {
-      min-width: 136px;
-      min-height: 36px;
-      padding: 0 14px;
-      gap: 7px;
-      font-size: 11px;
-    }
-
-    .cta svg {
-      width: 15px;
-      height: 15px;
+      position: absolute;
+      right: 20px;
+      bottom: 20px;
+      min-height: 32px;
+      padding: 0 16px;
+      font-size: 12px;
     }
 
     .indicators {
-      right: 10px;
-      bottom: 9px;
+      top: 8px;
+      left: 20px;
+      right: 20px;
+      height: 3px;
+      gap: 4px;
+    }
+
+    .indicators button {
+      height: 3px;
     }
   }
 `;
 
-export const SectionHeading = styled.header`
-  min-height: 38px;
-  margin: 18px 0 10px;
+export const MenuPage = styled.section`
+  width: min(1440px, 100%);
+  margin: 0 auto;
+  padding: 40px 80px 64px;
+  display: flex;
+  flex-direction: column;
+  gap: 40px;
+
+  @media (max-width: 759px) {
+    padding: 20px;
+    gap: 20px;
+  }
+
+  @media (max-width: 359px) {
+    padding-inline: 14px;
+  }
+`;
+
+export const SearchCategoryRow = styled.div`
+  width: 100%;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 24px;
+  align-items: center;
+
+  @media (max-width: 759px) {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+  }
+`;
+
+export const MenuSearch = styled.label`
+  min-height: 48px;
+  padding: 0 16px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: #fff;
+  display: grid;
+  grid-template-columns: 16px minmax(0, 1fr);
+  align-items: center;
+  gap: 12px;
+
+  svg {
+    width: 16px;
+    height: 16px;
+    color: var(--text);
+  }
+
+  input {
+    width: 100%;
+    min-width: 0;
+    border: 0;
+    outline: 0;
+    background: transparent;
+    color: var(--text);
+    font-size: 14px;
+  }
+
+  input::placeholder {
+    color: var(--muted);
+    opacity: 1;
+  }
+
+  @media (max-width: 759px) {
+    min-height: 42px;
+    padding: 0 14px;
+    border-radius: 14px;
+
+    input {
+      font-size: 13px;
+    }
+  }
+`;
+
+export const CategoryRail = styled.div`
   display: flex;
   align-items: center;
+  gap: 8px;
+  max-width: 540px;
+  overflow-x: auto;
+  scrollbar-width: none;
+
+  &::-webkit-scrollbar {
+    display: none;
+  }
+
+  @media (max-width: 759px) {
+    max-width: none;
+    width: calc(100% + 20px);
+    margin-right: -20px;
+    padding-right: 20px;
+  }
+`;
+
+export const CategoryPill = styled.button<{ $active?: boolean }>`
+  min-height: 36px;
+  padding: 0 20px;
+  flex: 0 0 auto;
+  border: 1px solid ${({ $active }) => ($active ? 'var(--primary)' : 'var(--line)')};
+  border-radius: 999px;
+  background: ${({ $active }) => ($active ? 'var(--primary)' : '#fff')};
+  color: ${({ $active }) => ($active ? '#fff' : 'var(--text)')};
+  font-size: 12px;
+  font-weight: ${({ $active }) => ($active ? 700 : 500)};
+  white-space: nowrap;
+
+  @media (max-width: 759px) {
+    min-height: 32px;
+    padding: 0 14px;
+  }
+`;
+
+export const SectionHeading = styled.header`
+  width: 100%;
+  display: flex;
+  align-items: end;
   justify-content: space-between;
-  gap: 14px;
+  gap: 16px;
 
   .title {
     min-width: 0;
     display: grid;
-    gap: 2px;
+    gap: 4px;
   }
 
   h2 {
     margin: 0;
-    font-size: clamp(21px, 2vw, 28px);
-    line-height: 1.05;
-    font-weight: 900;
-    letter-spacing: -0.025em;
+    color: var(--text);
+    font-size: 32px;
+    line-height: 38px;
+    font-weight: 500;
+    letter-spacing: -0.5px;
   }
 
   p {
     margin: 0;
     color: var(--muted);
-    font-size: 12px;
+    font-size: 14px;
+    line-height: 18px;
   }
 
   button {
@@ -441,77 +573,70 @@ export const SectionHeading = styled.header`
     display: inline-flex;
     align-items: center;
     gap: 4px;
-    font-size: 13px;
-    font-weight: 850;
+    font-size: 12px;
+    font-weight: 700;
   }
 
   @media (max-width: 759px) {
-    min-height: 25px;
-    margin: 20px 0 9px;
+    align-items: center;
 
     h2 {
-      font-size: 20px;
+      font-size: 22px;
+      line-height: 28px;
     }
 
     p {
-      font-size: 10px;
+      display: none;
     }
 
     button {
-      font-size: 11px;
+      font-size: 12px;
     }
   }
 `;
 
 export const ComboRail = styled.div`
+  width: 100%;
   display: grid;
-  grid-auto-flow: column;
-  grid-auto-columns: minmax(220px, 1fr);
-  gap: 14px;
-  overflow-x: auto;
-  padding: 1px 1px 7px;
-  scroll-snap-type: x proximity;
-  scrollbar-width: none;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 24px;
 
-  &::-webkit-scrollbar {
-    display: none;
-  }
-
-  @media (min-width: 1100px) {
-    grid-auto-flow: initial;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-    overflow: visible;
+  @media (max-width: 1050px) and (min-width: 760px) {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   @media (max-width: 759px) {
+    width: calc(100% + 20px);
     margin-right: -20px;
-    grid-auto-columns: 165px;
-    gap: 12px;
     padding-right: 20px;
-  }
+    display: grid;
+    grid-auto-flow: column;
+    grid-auto-columns: 165px;
+    grid-template-columns: none;
+    gap: 12px;
+    overflow-x: auto;
+    scrollbar-width: none;
+    scroll-snap-type: x proximity;
 
-  @media (max-width: 359px) {
-    margin-right: -14px;
-    padding-right: 14px;
-    grid-auto-columns: 155px;
+    &::-webkit-scrollbar {
+      display: none;
+    }
   }
 `;
 
 export const ComboCard = styled.article<{ $hasImage?: boolean }>`
   position: relative;
   min-width: 0;
-  min-height: ${({ $hasImage }) => ($hasImage ? '192px' : '132px')};
   overflow: hidden;
-  border: 1px solid #eeeeef;
-  border-radius: 15px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
   background: #fff;
-  box-shadow: 0 5px 18px rgba(25, 25, 30, 0.06);
-  scroll-snap-align: start;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.04);
 
   .media {
-    height: 130px;
+    height: 140px;
     overflow: hidden;
-    background: var(--soft);
+    background: var(--background);
   }
 
   .media img {
@@ -521,10 +646,9 @@ export const ComboCard = styled.article<{ $hasImage?: boolean }>`
   }
 
   .copy {
-    padding: ${({ $hasImage }) => ($hasImage ? '12px 48px 14px 14px' : '20px 48px 20px 14px')};
+    padding: 16px 46px 16px 16px;
     display: grid;
-    align-content: start;
-    gap: 4px;
+    gap: 7px;
   }
 
   h3 {
@@ -532,43 +656,28 @@ export const ComboCard = styled.article<{ $hasImage?: boolean }>`
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    font-size: 16px;
-    line-height: 1.15;
-    font-weight: 850;
+    color: var(--text);
+    font-size: 15px;
+    line-height: 18px;
+    font-weight: 700;
   }
 
   p {
     margin: 0;
     color: var(--muted);
     font-size: 12px;
-    line-height: 1.32;
-    display: -webkit-box;
-    -webkit-line-clamp: 2;
-    -webkit-box-orient: vertical;
+    line-height: 16px;
     overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   .price {
-    margin-top: 5px;
+    margin-top: 4px;
     color: var(--primary);
-    font-size: 19px;
-    line-height: 1;
-    font-weight: 900;
-  }
-
-  .add {
-    position: absolute;
-    right: 10px;
-    bottom: 10px;
-    width: 38px;
-    height: 38px;
-    padding: 0;
-    border: 0;
-    border-radius: 50%;
-    background: var(--primary);
-    color: #fff;
-    display: grid;
-    place-items: center;
+    font-size: 16px;
+    line-height: 20px;
+    font-weight: 500;
   }
 
   .main {
@@ -580,187 +689,118 @@ export const ComboCard = styled.article<{ $hasImage?: boolean }>`
   }
 
   .add {
+    position: absolute;
     z-index: 2;
+    right: 16px;
+    bottom: 16px;
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    border: 0;
+    border-radius: 8px;
+    background: var(--primary);
+    color: #fff;
+    display: grid;
+    place-items: center;
   }
 
   @media (max-width: 759px) {
-    min-height: ${({ $hasImage }) => ($hasImage ? '192px' : '116px')};
+    border-radius: 16px;
 
     .media {
       height: 96px;
     }
 
     .copy {
-      padding: ${({ $hasImage }) => ($hasImage ? '10px 42px 11px 12px' : '16px 42px 16px 12px')};
-      gap: 2px;
+      min-height: 92px;
+      padding: 12px 38px 12px 12px;
+      gap: 4px;
     }
 
     h3 {
-      font-size: 14px;
+      font-size: 13px;
     }
 
     p {
       font-size: 10px;
-      -webkit-line-clamp: 1;
     }
 
     .price {
-      margin-top: 4px;
-      font-size: 16px;
+      font-size: 14px;
     }
 
     .add {
-      width: 30px;
-      height: 30px;
       right: 12px;
       bottom: 12px;
+      width: 24px;
+      height: 24px;
     }
 
     .add svg {
-      width: 17px;
-      height: 17px;
-    }
-  }
-`;
-
-export const MenuSearch = styled.label`
-  min-height: 58px;
-  margin-top: 20px;
-  padding: 0 18px;
-  border-radius: 999px;
-  background: #f5f5f6;
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  align-items: center;
-  gap: 12px;
-  color: #111;
-
-  input {
-    min-width: 0;
-    width: 100%;
-    border: 0;
-    outline: 0;
-    background: transparent;
-    color: #111;
-    font-size: 15px;
-  }
-
-  input::placeholder {
-    color: #8b90a0;
-  }
-
-  @media (max-width: 759px) {
-    min-height: 50px;
-    margin-top: 16px;
-    padding: 0 14px;
-    gap: 10px;
-
-    input {
-      font-size: 12px;
-    }
-  }
-`;
-
-export const CategoryRail = styled.div`
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(132px, 1fr));
-  gap: 12px;
-  margin-top: 12px;
-
-  @media (max-width: 759px) {
-    display: flex;
-    gap: 12px;
-    margin-right: -20px;
-    padding-right: 20px;
-    overflow-x: auto;
-    scrollbar-width: none;
-
-    &::-webkit-scrollbar {
-      display: none;
-    }
-  }
-`;
-
-export const CategoryPill = styled.button<{ $active?: boolean }>`
-  min-height: 64px;
-  padding: 8px 14px;
-  border: 1px solid ${({ $active }) => ($active ? 'var(--primary)' : '#e6e7ea')};
-  border-radius: 13px;
-  background: ${({ $active }) =>
-    $active ? 'color-mix(in srgb, var(--primary) 5%, #fff)' : '#fff'};
-  color: ${({ $active }) => ($active ? 'var(--primary)' : '#151515')};
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 9px;
-  font-size: 14px;
-  font-weight: 800;
-  white-space: nowrap;
-
-  img {
-    width: 32px;
-    height: 32px;
-    border-radius: 9px;
-    object-fit: cover;
-  }
-
-  @media (max-width: 759px) {
-    min-width: 80px;
-    min-height: 46px;
-    flex: 0 0 auto;
-    padding: 7px 12px;
-    border-radius: 10px;
-    font-size: 11px;
-
-    img {
-      width: 24px;
-      height: 24px;
+      width: 12px;
+      height: 12px;
     }
   }
 `;
 
 export const TableActionsSection = styled.section`
-  margin-top: 24px;
+  width: 100%;
+  display: grid;
+  gap: 16px;
 
   h2 {
-    margin: 0 0 10px;
-    font-size: 20px;
-    line-height: 1;
-    font-weight: 900;
+    margin: 0;
+    color: var(--text);
+    font-size: 22px;
+    line-height: 28px;
+    font-weight: 500;
+  }
+
+  @media (max-width: 759px) {
+    gap: 12px;
+
+    h2 {
+      font-size: 20px;
+      line-height: 24px;
+    }
   }
 `;
 
 export const TableActionsGrid = styled.div`
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 14px;
+  gap: 16px;
 
   @media (max-width: 759px) {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 10px;
   }
 `;
 
 export const TableActionCard = styled.button`
-  min-height: 72px;
-  padding: 12px 16px;
-  border: 0;
-  border-radius: 15px;
-  background: color-mix(in srgb, var(--primary) 4%, #fafafa);
-  display: grid;
-  grid-template-columns: 44px minmax(0, 1fr) auto;
-  gap: 12px;
+  min-height: 62px;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: #fff;
+  display: flex;
   align-items: center;
-  color: #111;
+  gap: 10px;
+  color: var(--text);
   text-align: left;
 
   .icon {
-    width: 44px;
-    height: 44px;
-    border-radius: 12px;
-    background: color-mix(in srgb, var(--primary) 9%, #fff);
-    color: var(--primary);
+    width: 20px;
+    height: 20px;
+    flex: 0 0 20px;
+    color: var(--text);
     display: grid;
     place-items: center;
+  }
+
+  .icon svg {
+    width: 18px;
+    height: 18px;
   }
 
   .copy {
@@ -773,7 +813,9 @@ export const TableActionCard = styled.button`
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    font-size: 14px;
+    font-size: 13px;
+    line-height: 16px;
+    font-weight: 700;
   }
 
   small {
@@ -781,60 +823,47 @@ export const TableActionCard = styled.button`
     text-overflow: ellipsis;
     white-space: nowrap;
     color: var(--muted);
-    font-size: 11px;
+    font-size: 10.5px;
   }
 
-  > svg {
-    color: var(--primary);
-  }
-
-  &:disabled {
-    cursor: not-allowed;
-    opacity: 0.5;
+  &:hover,
+  &:focus-visible {
+    border-color: var(--primary);
   }
 
   @media (max-width: 759px) {
-    min-height: 50px;
-    padding: 8px 9px;
-    border-radius: 12px;
-    grid-template-columns: 24px minmax(0, 1fr);
-    gap: 7px;
+    min-height: 44px;
+    padding: 12px;
+    justify-content: flex-start;
+    gap: 8px;
 
     .icon {
-      width: 24px;
-      height: 24px;
-      border-radius: 7px;
-    }
-
-    .icon svg {
-      width: 16px;
-      height: 16px;
-    }
-
-    .copy {
-      gap: 0;
+      width: 18px;
+      height: 18px;
+      flex-basis: 18px;
     }
 
     b {
-      font-size: 10px;
+      font-size: 11px;
     }
 
-    small,
-    > svg {
+    small {
       display: none;
     }
   }
 `;
 
 export const CatalogSection = styled.section`
-  scroll-margin-top: 92px;
-  margin-top: 26px;
+  scroll-margin-top: 90px;
+  width: 100%;
+  display: grid;
+  gap: 20px;
 `;
 
 export const CatalogGrid = styled.div`
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 14px;
+  gap: 18px;
 
   @media (max-width: 1050px) {
     grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -844,25 +873,20 @@ export const CatalogGrid = styled.div`
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 10px;
   }
-
-  @media (max-width: 360px) {
-    grid-template-columns: 1fr;
-  }
 `;
 
 export const CatalogCard = styled.article<{ $hasImage?: boolean }>`
   position: relative;
   min-width: 0;
-  min-height: ${({ $hasImage }) => ($hasImage ? '0' : '128px')};
   overflow: hidden;
-  border: 1px solid #ededf0;
-  border-radius: 15px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
   background: #fff;
 
   .media {
-    height: 160px;
+    height: 150px;
     overflow: hidden;
-    background: var(--soft);
+    background: var(--background);
   }
 
   .media img {
@@ -872,24 +896,26 @@ export const CatalogCard = styled.article<{ $hasImage?: boolean }>`
   }
 
   .copy {
-    padding: ${({ $hasImage }) => ($hasImage ? '12px 48px 13px 13px' : '18px 48px 18px 13px')};
+    min-height: 108px;
+    padding: 14px 44px 14px 14px;
     display: grid;
-    gap: 5px;
+    align-content: start;
+    gap: 4px;
   }
 
   h3 {
     margin: 0;
-    font-size: 15px;
-    line-height: 1.18;
-    font-weight: 850;
+    color: var(--text);
+    font-size: 14px;
+    line-height: 18px;
+    font-weight: 700;
   }
 
   p {
     margin: 0;
-    min-height: 34px;
     color: var(--muted);
     font-size: 11px;
-    line-height: 1.35;
+    line-height: 15px;
     display: -webkit-box;
     -webkit-line-clamp: 2;
     -webkit-box-orient: vertical;
@@ -898,14 +924,13 @@ export const CatalogCard = styled.article<{ $hasImage?: boolean }>`
 
   .price {
     color: var(--primary);
-    font-size: 16px;
-    font-weight: 900;
+    font-size: 15px;
+    font-weight: 600;
   }
 
   .original {
-    color: #96969d;
+    color: #9292a3;
     font-size: 10px;
-    font-weight: 650;
     text-decoration: line-through;
   }
 
@@ -920,13 +945,13 @@ export const CatalogCard = styled.article<{ $hasImage?: boolean }>`
   .add {
     position: absolute;
     z-index: 2;
-    right: 11px;
-    bottom: 11px;
-    width: 32px;
-    height: 32px;
+    right: 12px;
+    bottom: 12px;
+    width: 28px;
+    height: 28px;
     padding: 0;
     border: 0;
-    border-radius: 50%;
+    border-radius: 8px;
     background: var(--primary);
     color: #fff;
     display: grid;
@@ -935,11 +960,12 @@ export const CatalogCard = styled.article<{ $hasImage?: boolean }>`
 
   @media (max-width: 759px) {
     .media {
-      height: 112px;
+      height: 100px;
     }
 
     .copy {
-      padding: ${({ $hasImage }) => ($hasImage ? '10px 40px 11px 10px' : '14px 40px 14px 10px')};
+      min-height: 94px;
+      padding: 11px 38px 11px 11px;
     }
 
     h3 {
@@ -947,27 +973,28 @@ export const CatalogCard = styled.article<{ $hasImage?: boolean }>`
     }
 
     p {
-      min-height: 28px;
-      font-size: 9px;
+      font-size: 9.5px;
+      -webkit-line-clamp: 1;
     }
 
     .price {
-      font-size: 14px;
+      font-size: 13px;
     }
 
     .add {
-      width: 28px;
-      height: 28px;
-      right: 9px;
-      bottom: 9px;
+      width: 24px;
+      height: 24px;
+      right: 10px;
+      bottom: 10px;
     }
   }
 `;
 
 export const EmptyCatalog = styled.div`
-  padding: 28px 18px;
-  border: 1px dashed #dfe0e4;
-  border-radius: 14px;
+  padding: 24px;
+  border: 1px dashed var(--line);
+  border-radius: 16px;
+  background: #fff;
   color: var(--muted);
   text-align: center;
   font-size: 13px;
@@ -975,56 +1002,4 @@ export const EmptyCatalog = styled.div`
 
 export const BottomNav = styled.nav`
   display: none;
-
-  @media (max-width: 759px) {
-    position: fixed;
-    z-index: 40;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    min-height: calc(72px + env(safe-area-inset-bottom, 0px));
-    padding: 7px 24px env(safe-area-inset-bottom, 0px);
-    border-top: 1px solid #ececf0;
-    background: rgba(255, 255, 255, 0.98);
-    grid-template-columns: repeat(3, 1fr);
-    align-items: center;
-    backdrop-filter: blur(16px);
-    display: grid;
-
-    button {
-      position: relative;
-      min-height: 56px;
-      padding: 4px 0;
-      border: 0;
-      background: transparent;
-      color: #7a8293;
-      display: grid;
-      justify-items: center;
-      align-content: center;
-      gap: 3px;
-      font-size: 10px;
-      font-weight: 750;
-    }
-
-    button.active {
-      color: var(--primary);
-    }
-
-    button.active::after {
-      content: '';
-      position: absolute;
-      left: 22%;
-      right: 22%;
-      bottom: 0;
-      height: 3px;
-      border-radius: 99px;
-      background: var(--primary);
-    }
-
-    svg {
-      width: 22px;
-      height: 22px;
-    }
-  }
 `;
-

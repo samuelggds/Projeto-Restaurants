@@ -24,6 +24,7 @@ import type {
 } from '../Home/domain/tableAccount';
 import type { TableOrderNotice } from '../Home/domain/tableOrderNotice';
 import { ProductConfigurator } from '../Home/components/ProductConfigurator';
+import { ComboConfigurator } from '../Home/components/ComboConfigurator';
 import { TablePaymentStatusView } from '../Home/components/TablePaymentStatusView';
 import * as S from './TableMenuExperience.styles';
 
@@ -75,6 +76,7 @@ export default function TableMenuExperience({
   data,
   tableLabel,
   cart,
+  cartCount,
   cartTotal,
   orderingLocked = false,
   tableOrder,
@@ -182,15 +184,47 @@ export default function TableMenuExperience({
     return () => window.clearInterval(interval);
   }, [currentPayment?.publicId, onReconcilePayment, paymentLoading, pixPending]);
 
+  function emptyConfiguration(product: HomeProduct): ProductConfiguration {
+    return {
+      selectedOptions: [],
+      selectedOptionIds: [],
+      observation: '',
+      configurationVersion: product.configurationVersion,
+    };
+  }
+
   function openProduct(product: HomeProduct) {
     if (orderingLocked) return;
-    if (product.saleMode === 'BUILDABLE' || product.kind === 'COMBO') {
+    if (product.kind === 'COMBO') {
+      if (product.comboGroups?.length) {
+        setConfiguringProduct(product);
+        return;
+      }
+      setCompleteProductQuantity(1);
+      setCompleteProductObservation('');
+      setSelectedProduct(product);
+      return;
+    }
+    if (product.saleMode === 'BUILDABLE') {
       setConfiguringProduct(product);
       return;
     }
     setCompleteProductQuantity(1);
     setCompleteProductObservation('');
     setSelectedProduct(product);
+  }
+
+  function quickAdd(product: HomeProduct) {
+    if (orderingLocked) return;
+    if (product.kind === 'COMBO' && product.comboGroups?.length) {
+      setConfiguringProduct(product);
+      return;
+    }
+    if (product.saleMode === 'BUILDABLE') {
+      setConfiguringProduct(product);
+      return;
+    }
+    onAddProduct(product.id, emptyConfiguration(product));
   }
 
   function addComplete(product: HomeProduct) {
@@ -276,41 +310,33 @@ export default function TableMenuExperience({
               <S.PaymentSuccessMain>
                 <div className="ring">
                   <div className="check">
-                    <Check size={32} />
+                    <Check size={28} />
                   </div>
                 </div>
-                <h1>Pagamento confirmado!</h1>
-                <p>O pagamento foi confirmado e seu pedido continua normalmente.</p>
+                <h1>Pagamento Confirmado!</h1>
+                <p>Recebemos seu pagamento via PIX com sucesso.</p>
                 <S.PaidReceipt>
                   <div className="copy">
                     {confirmation?.orderId ? <small>Pedido #{confirmation.orderId}</small> : null}
                     <strong>{centsToBrl(currentPayment.totalCents)}</strong>
-                    <small>PIX · pagamento confirmado</small>
+                    <small>Forma de Pagamento · PIX</small>
                   </div>
                   <span className="status">PAGO</span>
                 </S.PaidReceipt>
+                <div className="prep-banner">
+                  <Clock3 size={18} />
+                  <span>
+                    <b>Pedido continua em preparo</b>
+                    <small>Acompanhe o andamento na tela seguinte.</small>
+                  </span>
+                </div>
                 <S.PrimaryAction type="button" onClick={() => setView('tracking')}>
-                  Acompanhar pedido
+                  Acompanhar preparo
                 </S.PrimaryAction>
-              </S.PaymentSuccessMain>
-
-              <S.PaymentSuccessSide>
-                <h2>Seu pedido continua em preparo</h2>
-                <p>O fluxo do pedido continua normalmente até ser servido na mesa.</p>
-                <S.Timeline>
-                  {trackingSteps(tableOrder).map((step, index) => (
-                    <S.TimelineStep key={step.label} $active={step.active} $current={step.current}>
-                      <span className="dot">{step.active ? <Check size={14} /> : index + 1}</span>
-                      <div className="copy">
-                        <b>{step.label}</b>
-                      </div>
-                    </S.TimelineStep>
-                  ))}
-                </S.Timeline>
                 <S.SecondaryAction type="button" onClick={goToMenu}>
                   Voltar ao cardápio
                 </S.SecondaryAction>
-              </S.PaymentSuccessSide>
+              </S.PaymentSuccessMain>
             </S.PaymentSuccessLayout>
           </S.FlowPage>
         </S.FigmaShell>
@@ -359,6 +385,7 @@ export default function TableMenuExperience({
         <S.FlowPage>
           <S.PixLayout>
             <S.PixQrCard>
+              <span className="pix-label">PAGAMENTO PIX</span>
               <span className="amount">{centsToBrl(currentPayment.totalCents)}</span>
               <span className="order">
                 {confirmation?.orderId ? `Pedido #${confirmation.orderId} · ` : ''}
@@ -368,9 +395,11 @@ export default function TableMenuExperience({
               {currentPayment.paymentCode ? (
                 <>
                   <div className="qr" aria-label="QR Code PIX">
-                    <QRCode value={currentPayment.paymentCode} size={302} level="M" />
+                    <QRCode value={currentPayment.paymentCode} size={160} level="M" />
                   </div>
-                  <span className="pix-badge">PIX</span>
+                  <p className="instructions">
+                    Aponte a câmera do seu banco para o QR code ou copie a chave PIX abaixo.
+                  </p>
                   <S.PixCopyBox>
                     <code>{currentPayment.paymentCode}</code>
                     <button type="button" onClick={() => void copyPix()}>
@@ -379,49 +408,28 @@ export default function TableMenuExperience({
                   </S.PixCopyBox>
                 </>
               ) : null}
-            </S.PixQrCard>
 
-            <S.PixSide>
               <S.PixStatusCard>
-                <h2>Aguardando pagamento</h2>
-                <p>
-                  A confirmação acontece automaticamente assim que o PIX for aprovado.
-                </p>
-                <p>Você pode manter esta tela aberta.</p>
+                <div>
+                  <h2>Aguardando Pagamento</h2>
+                  <p>A confirmação do PIX é imediata e automática.</p>
+                </div>
                 {pixRemainingSeconds !== null ? (
                   <span className="timer">
-                    Expira em {String(Math.floor(pixRemainingSeconds / 60)).padStart(2, '0')}:
+                    {String(Math.floor(pixRemainingSeconds / 60)).padStart(2, '0')}:
                     {String(pixRemainingSeconds % 60).padStart(2, '0')}
                   </span>
                 ) : null}
-                <div className="buttons">
-                  <S.PrimaryAction
-                    type="button"
-                    disabled={paymentLoading}
-                    onClick={() => void onReconcilePayment(currentPayment.publicId)}
-                  >
-                    Já paguei · verificar
-                  </S.PrimaryAction>
-                  <S.SecondaryAction
-                    type="button"
-                    disabled={paymentLoading}
-                    onClick={() => void onCancelPayment(currentPayment.publicId)}
-                  >
-                    Cancelar pagamento
-                  </S.SecondaryAction>
-                </div>
               </S.PixStatusCard>
 
-              <S.HowToPayCard>
-                <h2>Como pagar</h2>
-                <ol>
-                  <li><span>1</span>Abra o app do seu banco</li>
-                  <li><span>2</span>Escolha pagar com PIX</li>
-                  <li><span>3</span>Escaneie o QR ou cole o código</li>
-                  <li><span>4</span>Aguarde a confirmação automática</li>
-                </ol>
-              </S.HowToPayCard>
-            </S.PixSide>
+              <S.PrimaryAction
+                type="button"
+                disabled={paymentLoading}
+                onClick={() => void onReconcilePayment(currentPayment.publicId)}
+              >
+                Já paguei · Verificar status
+              </S.PrimaryAction>
+            </S.PixQrCard>
           </S.PixLayout>
         </S.FlowPage>
       </S.FigmaShell>
@@ -442,47 +450,49 @@ export default function TableMenuExperience({
           onOrders={() => setView('tracking')}
         />
         <S.FlowPage>
-          <S.FlowTitle>
-            <h1>Como você prefere pagar?</h1>
-            <p>Escolha pagar agora pelo celular ou deixar o valor na conta da mesa.</p>
-          </S.FlowTitle>
+          <S.PaymentCard>
+            <S.FlowTitle>
+              <h1>Como prefere pagar?</h1>
+              <p>Finalize agora pelo celular ou deixe para pagar depois com a equipe.</p>
+            </S.FlowTitle>
 
-          <S.PaymentOptionsGrid>
+            <S.PaymentOptionsGrid>
             {allowPix ? (
               <S.PaymentChoiceCard>
                 <span className="icon"><WalletCards size={28} /></span>
-                <h2>Pagar agora</h2>
-                <p>Finalize pelo celular sem esperar o atendimento.</p>
-                <small>PIX · confirmação automática</small>
+                <h2>Pagar agora (PIX)</h2>
+                <p>Finalize pelo celular com liberação automática na hora. Rápido e prático.</p>
+                <small>PIX</small>
                 <button
                   className="primary"
                   type="button"
                   disabled={paymentLoading}
                   onClick={() => void startPix()}
                 >
-                  Continuar com PIX
+                  Escolher PIX
                 </button>
               </S.PaymentChoiceCard>
             ) : null}
 
             <S.PaymentChoiceCard>
               <span className="icon"><ReceiptText size={26} /></span>
-              <h2>Pagar depois</h2>
-              <p>O valor permanece na conta da mesa.</p>
-              <small>Continue utilizando o cardápio normalmente.</small>
+              <h2>Deixar na conta</h2>
+              <p>Os itens permanecem vinculados à mesa. Pague ao sair com o garçom.</p>
+              <small>Continue pedindo normalmente.</small>
               <button className="secondary" type="button" onClick={() => setView('tracking')}>
-                Deixar na conta
+                Deixar aberto na Mesa
               </button>
             </S.PaymentChoiceCard>
           </S.PaymentOptionsGrid>
 
-          <S.PaymentSummary>
-            <div className="label">
-              <small>Resumo deste pedido</small>
-              {confirmation.orderId ? <strong>Pedido #{confirmation.orderId}</strong> : null}
-            </div>
-            <span className="amount">{brl(confirmation.total)}</span>
-          </S.PaymentSummary>
+            <S.PaymentSummary>
+              <div className="label">
+                <small>Valor deste pedido:</small>
+                {confirmation.orderId ? <strong>Pedido #{confirmation.orderId}</strong> : null}
+              </div>
+              <span className="amount">{brl(confirmation.total)}</span>
+            </S.PaymentSummary>
+          </S.PaymentCard>
         </S.FlowPage>
       </S.FigmaShell>
     );
@@ -494,7 +504,7 @@ export default function TableMenuExperience({
         <FlowHeader
           data={data}
           tableLabel={tableLabel}
-          title="Acompanhar pedido"
+          title="Painel da Mesa"
           onBack={goToMenu}
           onHome={goToMenu}
           onMenu={goToMenu}
@@ -507,13 +517,13 @@ export default function TableMenuExperience({
               <S.StatusCard>
                 <span className="icon"><Clock3 size={28} /></span>
                 <div>
-                  <h2>{tableOrder?.statusLabel || 'Aguardando pedido'}</h2>
+                  <h2>{tableOrder?.statusLabel || 'Preparando seu pedido'}</h2>
                   <p>{tableOrder?.summary || 'O status será atualizado em tempo real.'}</p>
                 </div>
               </S.StatusCard>
 
               <S.SectionHeading>
-                <div className="title"><h2>Andamento</h2></div>
+                <div className="title"><h2>Status de Produção</h2></div>
               </S.SectionHeading>
               <S.TimelineCard>
                 <S.Timeline>
@@ -531,24 +541,36 @@ export default function TableMenuExperience({
             </div>
 
             <S.OrderItemsCard>
-              <h2>Itens do pedido</h2>
+              <h2>Itens do Pedido</h2>
               {tableOrder?.items.length ? (
                 tableOrder.items.map((item, index) => (
                   <S.OrderItemLine key={`${item.name}-${index}`}>
                     <div className="copy">
-                      <b>{item.name}</b>
-                      <small>{item.quantity} {item.quantity === 1 ? 'unidade' : 'unidades'}</small>
-                      {item.observation ? <small>{item.observation}</small> : null}
+                      <b>{item.quantity}x</b>
+                      <span>
+                        <b>{item.name}</b>
+                        {item.observation ? <small>{item.observation}</small> : null}
+                      </span>
                     </div>
+                    {typeof item.unitPrice === 'number' ? (
+                      <strong>{brl(item.unitPrice * item.quantity)}</strong>
+                    ) : null}
                   </S.OrderItemLine>
                 ))
               ) : (
                 <S.EmptyCatalog>Os itens aparecerão aqui assim que houver um pedido ativo.</S.EmptyCatalog>
               )}
 
+              {accountSnapshot ? (
+                <div className="account-total">
+                  <span>Consumo total</span>
+                  <strong>{centsToBrl(accountSnapshot.summary.consumedCents)}</strong>
+                </div>
+              ) : null}
+
               {waiterCallEnabled ? (
                 <S.PrimaryAction type="button" onClick={onCallWaiter}>
-                  <Bell size={17} /> Chamar garçom
+                  <Bell size={17} /> Chamar garçom para mesa
                 </S.PrimaryAction>
               ) : null}
             </S.OrderItemsCard>
@@ -564,19 +586,20 @@ export default function TableMenuExperience({
         <FlowHeader
           data={data}
           tableLabel={tableLabel}
-          title="Pedido confirmado"
+          title="Pedido Enviado"
           onBack={goToMenu}
           onHome={goToMenu}
           onMenu={goToMenu}
           onOrders={() => setView('tracking')}
         />
         <S.FlowPage>
-          <S.SuccessHero>
+          <S.ConfirmationCard>
+            <S.SuccessHero>
             <div className="ring">
               <div className="check"><Check size={27} /></div>
             </div>
-            <h1>Pedido enviado!</h1>
-            <p>Seu pedido foi enviado para a cozinha da Mesa {tableNumber(tableLabel)}.</p>
+            <h1>Pedido Enviado!</h1>
+            <p>A cozinha do restaurante recebeu seu pedido com sucesso da Mesa {tableNumber(tableLabel)}.</p>
           </S.SuccessHero>
 
           <S.OrderSummaryBar>
@@ -604,15 +627,16 @@ export default function TableMenuExperience({
 
           <S.ConfirmationActions>
             <S.PrimaryAction type="button" onClick={() => setView('tracking')}>
-              Acompanhar pedido
+              Acompanhar em tempo real
             </S.PrimaryAction>
             {accountSnapshot?.capabilities.allowPix ? (
               <S.SecondaryAction type="button" onClick={() => setView('payment')}>
-                Pagar agora
+                Pagar agora no PIX
               </S.SecondaryAction>
             ) : null}
-            <S.HelperText>O pedido permanece vinculado à conta da mesa até o pagamento.</S.HelperText>
+            <S.HelperText>Deseja continuar pedindo? A conta ficará aberta na mesa.</S.HelperText>
           </S.ConfirmationActions>
+          </S.ConfirmationCard>
         </S.FlowPage>
       </S.FigmaShell>
     );
@@ -644,8 +668,8 @@ export default function TableMenuExperience({
 
         <S.FlowPage>
           <S.FlowTitle>
-            <h1 aria-label="Minha sacola">Meu pedido</h1>
-            <p>Mesa {tableNumber(tableLabel)}</p>
+            <h1 aria-label="Minha sacola">Revisar Pedido</h1>
+            <p>Confirme os itens selecionados antes do preparo</p>
           </S.FlowTitle>
 
           <S.CartDesktopLayout>
@@ -736,6 +760,15 @@ export default function TableMenuExperience({
   }
 
   const activeBanner = data.banners[bannerIndex] || data.banners[0];
+  const heroTitle =
+    [activeBanner?.title, activeBanner?.highlight].filter(Boolean).join(' ') ||
+    [data.hero.title, data.hero.highlight].filter(Boolean).join(' ') ||
+    'Peça direto da mesa com praticidade';
+  const heroDescription =
+    activeBanner?.description ||
+    data.hero.description ||
+    'Seu pedido vai direto para a cozinha.';
+  const heroImage = activeBanner?.image || data.hero.image;
 
   return (
     <S.FigmaShell $primary={primary} $fontFamily={data.fontFamily}>
@@ -747,32 +780,72 @@ export default function TableMenuExperience({
         onOrders={() => setView('tracking')}
       />
 
-      <S.MenuPage>
-        {activeBanner ? (
-          <S.MenuHero>
-            <img src={activeBanner.image} alt="" />
-            <div className="copy">
-              <span className="eyebrow">BEM-VINDO À MESA {tableNumber(tableLabel)}</span>
-              <h1>{[activeBanner.title, activeBanner.highlight].filter(Boolean).join(' ')}</h1>
-              {activeBanner.description ? <p>{activeBanner.description}</p> : null}
-              <button className="cta" type="button" onClick={scrollToCatalog}>
-                {activeBanner.buttonLabel || 'Ver cardápio'} <ChevronRight size={20} />
-              </button>
-            </div>
-            {data.banners.length > 1 ? (
-              <div className="indicators" aria-label="Banners em destaque">
-                {data.banners.map((banner, index) => (
-                  <i key={banner.id} className={index === bannerIndex ? 'active' : ''} />
-                ))}
-              </div>
-            ) : null}
-          </S.MenuHero>
+      <S.MenuHero>
+        {heroImage ? <img className="hero-bg" src={heroImage} alt="" /> : null}
+        <div className="hero-overlay" aria-hidden="true" />
+        <div className="copy">
+          <span className="eyebrow">
+            {data.brand.name.toUpperCase()} · MESA {tableNumber(tableLabel)}
+          </span>
+          <h1>{heroTitle}</h1>
+          <p>{heroDescription}</p>
+          <button className="cta" type="button" onClick={scrollToCatalog}>
+            {activeBanner?.buttonLabel || 'Ver Cardápio'}
+          </button>
+        </div>
+
+        {data.banners.length > 1 ? (
+          <div className="indicators" aria-label="Banners em destaque">
+            {data.banners.map((banner, index) => (
+              <button
+                key={banner.id}
+                type="button"
+                aria-label={`Mostrar banner ${index + 1}`}
+                className={index === bannerIndex ? 'active' : ''}
+                onClick={() => setBannerIndex(index)}
+              />
+            ))}
+          </div>
         ) : null}
+      </S.MenuHero>
+
+      <S.MenuPage>
+
+        <S.SearchCategoryRow>
+          <S.MenuSearch>
+            <Search size={21} />
+            <input
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder="Buscar pratos, bebidas, sobremesas..."
+              aria-label="Buscar no cardápio"
+            />
+          </S.MenuSearch>
+
+          {realCategories.length ? (
+            <S.CategoryRail aria-label="Categorias do cardápio">
+              {realCategories.slice(0, 4).map((category) => (
+                <S.CategoryPill
+                  key={category.id}
+                  type="button"
+                  $active={selectedCategory === category.id}
+                  onClick={() =>
+                    setSelectedCategory((current) =>
+                      current === category.id ? 'todos' : category.id,
+                    )
+                  }
+                >
+                  <span>{category.name}</span>
+                </S.CategoryPill>
+              ))}
+            </S.CategoryRail>
+          ) : null}
+        </S.SearchCategoryRow>
 
         {combos.length ? (
           <>
             <S.SectionHeading>
-              <div className="title"><h2>Combos em destaque</h2></div>
+              <div className="title"><h2>Combos em Destaque</h2><p>Os favoritos da casa para compartilhar</p></div>
               <button type="button" onClick={() => setSelectedCategory('todos')}>
                 Ver todos <ChevronRight size={14} />
               </button>
@@ -784,62 +857,35 @@ export default function TableMenuExperience({
                   product={combo}
                   disabled={orderingLocked}
                   onOpen={() => openProduct(combo)}
+                  onAdd={() => quickAdd(combo)}
                 />
               ))}
             </S.ComboRail>
           </>
         ) : null}
 
-        <S.MenuSearch>
-          <Search size={21} />
-          <input
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            placeholder="Buscar no cardápio"
-            aria-label="Buscar no cardápio"
-          />
-        </S.MenuSearch>
-
-        {realCategories.length ? (
-          <S.CategoryRail aria-label="Categorias do cardápio">
-            {realCategories.map((category) => (
-              <S.CategoryPill
-                key={category.id}
-                type="button"
-                $active={selectedCategory === category.id}
-                onClick={() =>
-                  setSelectedCategory((current) => (current === category.id ? 'todos' : category.id))
-                }
-              >
-                {category.image ? <img src={category.image} alt="" /> : null}
-                <span>{category.name}</span>
-              </S.CategoryPill>
-            ))}
-          </S.CategoryRail>
-        ) : null}
-
         <S.TableActionsSection>
-          <h2>Ações da mesa</h2>
+          <h2>Ações Rápidas</h2>
           <S.TableActionsGrid>
             <S.TableActionCard type="button" onClick={() => setView('cart')}>
               <span className="icon"><ClipboardList size={20} /></span>
-              <span className="copy"><b>Meu pedido</b><small>Veja e edite itens</small></span>
-              <ChevronRight size={17} />
+              <span className="copy">
+                <b>Meu pedido</b>
+                <small>{cartCount > 0 ? `${cartCount} ${cartCount === 1 ? 'item' : 'itens'} · Veja e edite itens` : 'Veja e edite itens'}</small>
+              </span>
             </S.TableActionCard>
 
             {waiterCallEnabled ? (
-              <S.TableActionCard type="button" onClick={onCallWaiter}>
+              <S.TableActionCard type="button" aria-label="Chamar garçom" onClick={onCallWaiter}>
                 <span className="icon"><Bell size={20} /></span>
-                <span className="copy"><b>Garçom</b><small>Precisando de algo?</small></span>
-                <ChevronRight size={17} />
+                <span className="copy"><b>Chamar garçom</b><small>Solicite atendimento</small></span>
               </S.TableActionCard>
             ) : null}
 
             {billRequestEnabled && onRequestBill ? (
               <S.TableActionCard type="button" onClick={onRequestBill}>
                 <span className="icon"><ReceiptText size={20} /></span>
-                <span className="copy"><b>Ver conta</b><small>Fechar a mesa</small></span>
-                <ChevronRight size={17} />
+                <span className="copy"><b>Ver conta</b><small>Pagar agora ou depois</small></span>
               </S.TableActionCard>
             ) : null}
           </S.TableActionsGrid>
@@ -871,6 +917,7 @@ export default function TableMenuExperience({
                   product={product}
                   disabled={orderingLocked}
                   onOpen={() => openProduct(product)}
+                  onAdd={() => quickAdd(product)}
                 />
               ))}
             </S.CatalogGrid>
@@ -957,19 +1004,31 @@ export default function TableMenuExperience({
       ) : null}
 
       {configuringProduct ? (
-        <ProductConfigurator
-          product={configuringProduct}
-          primaryColor={primary}
-          onClose={() => setConfiguringProduct(null)}
-          enableProductQuantity
-          tableMenuVariant
-          onConfirm={(configuration, quantity = 1) => {
-            for (let index = 0; index < quantity; index += 1) {
+        configuringProduct.kind === 'COMBO' ? (
+          <ComboConfigurator
+            product={configuringProduct}
+            primaryColor={primary}
+            onClose={() => setConfiguringProduct(null)}
+            onConfirm={(configuration) => {
               onAddProduct(configuringProduct.id, configuration);
-            }
-            setConfiguringProduct(null);
-          }}
-        />
+              setConfiguringProduct(null);
+            }}
+          />
+        ) : (
+          <ProductConfigurator
+            product={configuringProduct}
+            primaryColor={primary}
+            onClose={() => setConfiguringProduct(null)}
+            enableProductQuantity
+            tableMenuVariant
+            onConfirm={(configuration, quantity = 1) => {
+              for (let index = 0; index < quantity; index += 1) {
+                onAddProduct(configuringProduct.id, configuration);
+              }
+              setConfiguringProduct(null);
+            }}
+          />
+        )
       ) : null}
     </S.FigmaShell>
   );
@@ -1006,15 +1065,23 @@ function FlowHeader({
           ) : (
             <span className="mark">{data.brand.monogram || data.brand.name.slice(0, 1)}</span>
           )}
-          <span className="name"><b>{data.brand.name}</b></span>
+          <span className="name">
+            <b>{data.brand.name}</b>
+            <small>{data.brand.category || 'Mesa Inteligente'}</small>
+          </span>
         </S.FigmaBrand>
-        {title ? <span className="context-title">{title}</span> : null}
+        {title ? (
+          <span className="context-title">
+            <b>{title}</b>
+            <small>{data.brand.name}</small>
+          </span>
+        ) : null}
       </div>
 
       <nav aria-label="Navegação da mesa">
-        <button type="button" onClick={onHome}>Início</button>
-        <button type="button" onClick={onMenu}>Cardápio</button>
-        <button type="button" onClick={onOrders}>Pedidos</button>
+        <button className={!title ? 'active' : ''} type="button" onClick={onHome}>Início</button>
+        <button className={title === 'Meu pedido' ? 'active' : ''} type="button" onClick={onMenu}>Cardápio</button>
+        <button className={title && title !== 'Meu pedido' ? 'active' : ''} type="button" onClick={onOrders}>Pedidos</button>
       </nav>
 
       <div className="right">
@@ -1031,10 +1098,12 @@ function FigmaComboCard({
   product,
   disabled,
   onOpen,
+  onAdd,
 }: {
   product: HomeProduct;
   disabled: boolean;
   onOpen: () => void;
+  onAdd: () => void;
 }) {
   return (
     <S.ComboCard $hasImage={Boolean(product.image)}>
@@ -1058,7 +1127,7 @@ function FigmaComboCard({
         type="button"
         disabled={disabled}
         aria-label={`Adicionar ${product.name}`}
-        onClick={onOpen}
+        onClick={onAdd}
       >
         <Plus size={20} />
       </button>
@@ -1070,10 +1139,12 @@ function FigmaCatalogCard({
   product,
   disabled,
   onOpen,
+  onAdd,
 }: {
   product: HomeProduct;
   disabled: boolean;
   onOpen: () => void;
+  onAdd: () => void;
 }) {
   return (
     <S.CatalogCard $hasImage={Boolean(product.image)}>
@@ -1102,7 +1173,7 @@ function FigmaCatalogCard({
         type="button"
         disabled={disabled}
         aria-label={`Adicionar ${product.name}`}
-        onClick={onOpen}
+        onClick={onAdd}
       >
         <Plus size={17} />
       </button>

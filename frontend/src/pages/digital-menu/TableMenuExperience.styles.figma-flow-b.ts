@@ -1,61 +1,91 @@
 import styled from 'styled-components';
 import { FlowCard, OrderSummaryBar } from './TableMenuExperience.styles.figma-flow-a';
 
+export const PaymentCard = styled(FlowCard)`
+  width: min(720px, 100%);
+  margin: 32px auto 0;
+  padding: 40px;
+  display: grid;
+  gap: 32px;
+  box-shadow: 0 10px 14px rgba(0, 0, 0, 0.04);
+
+  @media (max-width: 759px) {
+    margin-top: 0;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    box-shadow: none;
+    gap: 20px;
+  }
+`;
+
 export const PaymentOptionsGrid = styled.div`
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 620px));
-  gap: 44px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 24px;
 
-  @media (max-width: 900px) {
+  @media (max-width: 759px) {
     grid-template-columns: 1fr;
     gap: 16px;
   }
 `;
 
 export const PaymentChoiceCard = styled(FlowCard)`
-  min-height: 300px;
-  padding: 32px;
+  min-height: 260px;
+  padding: 24px;
   display: grid;
-  grid-template-columns: 64px minmax(0, 1fr);
+  grid-template-columns: 40px minmax(0, 1fr);
   grid-template-rows: auto auto 1fr auto;
-  column-gap: 26px;
+  column-gap: 14px;
+  border-width: 1px;
+
+  &:first-child {
+    border-width: 2px;
+    border-color: var(--primary);
+    background: color-mix(in srgb, var(--primary) 8%, #fff);
+  }
 
   .icon {
     grid-row: 1 / span 3;
-    width: 64px;
-    height: 64px;
-    border-radius: 17px;
-    background: color-mix(in srgb, var(--primary) 7%, #fff);
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
+    background: #fff;
     color: var(--primary);
     display: grid;
     place-items: center;
   }
 
   h2 {
-    margin: 0;
-    font-size: 26px;
+    margin: 2px 0 0;
+    color: var(--text);
+    font-size: 18px;
+    line-height: 22px;
+    font-weight: 700;
   }
 
   p {
     margin: 8px 0 0;
     color: var(--muted);
     font-size: 13px;
-    line-height: 1.45;
+    line-height: 18px;
   }
 
   small {
-    margin-top: 12px;
-    color: #777982;
+    margin-top: 10px;
+    color: var(--primary);
     font-size: 11px;
+    font-weight: 700;
   }
 
   button {
     grid-column: 1 / -1;
     align-self: end;
     width: 100%;
-    min-height: 52px;
-    border-radius: 11px;
-    font-weight: 850;
+    min-height: 44px;
+    border-radius: 12px;
+    font-size: 14px;
+    font-weight: 700;
   }
 
   .primary {
@@ -65,159 +95,170 @@ export const PaymentChoiceCard = styled(FlowCard)`
   }
 
   .secondary {
-    border: 1px solid #dfe0e4;
+    border: 1px solid var(--line);
     background: #fff;
-    color: #161616;
+    color: var(--text);
   }
 
   @media (max-width: 759px) {
-    min-height: 146px;
-    padding: 18px;
-    grid-template-columns: 48px minmax(0, 1fr);
-    column-gap: 16px;
-    border-radius: 14px;
+    min-height: 0;
+    padding: 20px;
+    border-radius: 20px;
+    grid-template-columns: 32px minmax(0, 1fr);
 
     .icon {
-      width: 48px;
-      height: 48px;
-      border-radius: 13px;
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+    }
+
+    .icon svg {
+      width: 18px;
+      height: 18px;
     }
 
     h2 {
-      font-size: 18px;
+      font-size: 16px;
     }
 
     p {
-      margin-top: 4px;
-      font-size: 10px;
+      font-size: 12px;
     }
 
     small {
-      margin-top: 5px;
-      font-size: 9px;
+      font-size: 10px;
     }
 
     button {
       min-height: 40px;
-      margin-top: 10px;
-      font-size: 10px;
+      margin-top: 12px;
+      font-size: 13px;
     }
   }
 `;
 
 export const PaymentSummary = styled(OrderSummaryBar)`
-  margin-top: 48px;
+  margin-top: 0;
+  background: #fff;
 
-  @media (max-width: 759px) {
-    margin-top: 18px;
+  .label {
+    display: grid;
+    gap: 2px;
+  }
+
+  .amount {
+    color: var(--text);
+    font-size: 18px;
   }
 `;
 
 export const PixLayout = styled.div`
-  display: grid;
-  grid-template-columns: 560px minmax(0, 728px);
-  gap: 48px;
-  align-items: start;
+  width: min(640px, 100%);
+  margin: 32px auto 0;
 
-  @media (max-width: 1050px) {
-    grid-template-columns: 1fr;
-    gap: 20px;
+  @media (max-width: 759px) {
+    margin-top: 0;
   }
 `;
 
 export const PixQrCard = styled(FlowCard)`
-  min-height: 760px;
-  padding: 28px 32px;
+  padding: 40px;
   display: grid;
   justify-items: center;
-  align-content: start;
-  gap: 12px;
+  gap: 20px;
   text-align: center;
+  box-shadow: 0 10px 14px rgba(0, 0, 0, 0.04);
+
+  .pix-label {
+    color: var(--muted);
+    font-size: 13px;
+    line-height: 16px;
+    font-weight: 700;
+  }
 
   .amount {
-    justify-self: start;
-    color: #111;
-    font-size: 38px;
-    font-weight: 900;
+    margin-top: -10px;
+    color: var(--primary);
+    font-size: 36px;
+    line-height: 44px;
+    font-weight: 500;
   }
 
   .order {
-    justify-self: start;
+    margin-top: -14px;
     color: var(--muted);
-    font-size: 11px;
+    font-size: 13px;
+    line-height: 16px;
   }
 
   .qr {
-    width: 350px;
-    height: 350px;
-    margin-top: 42px;
+    width: 208px;
+    height: 208px;
     padding: 24px;
-    border: 1px solid #e4e5e8;
-    border-radius: 18px;
+    border: 1px solid var(--line);
+    border-radius: 20px;
     background: #fff;
     display: grid;
     place-items: center;
   }
 
   .qr svg {
-    width: 100%;
-    height: 100%;
+    width: 160px;
+    height: 160px;
   }
 
-  .pix-badge {
-    min-width: 150px;
-    min-height: 42px;
-    margin-top: 14px;
-    border-radius: 999px;
-    background: #eefbfa;
-    color: #13a99b;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 10px;
-    font-size: 12px;
-    font-weight: 850;
+  .instructions {
+    max-width: 520px;
+    margin: 0;
+    color: var(--muted);
+    font-size: 13px;
+    line-height: 18px;
+  }
+
+  > button {
+    width: 100%;
   }
 
   @media (max-width: 759px) {
-    min-height: 0;
-    padding: 18px 16px;
+    padding: 20px 0;
     border: 0;
-    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+    gap: 16px;
+
+    .pix-label {
+      font-size: 14px;
+    }
 
     .amount {
-      font-size: 27px;
+      font-size: 32px;
+      line-height: 38px;
     }
 
     .order {
-      font-size: 9px;
+      font-size: 11px;
     }
 
     .qr {
-      width: min(290px, 100%);
-      height: auto;
-      aspect-ratio: 1;
-      margin-top: 14px;
-      padding: 18px;
+      width: 192px;
+      height: 192px;
+      padding: 16px;
     }
 
-    .pix-badge {
-      min-width: 120px;
-      min-height: 36px;
-      margin-top: 4px;
-      font-size: 10px;
+    .instructions {
+      max-width: 300px;
+      font-size: 12px;
     }
   }
 `;
 
 export const PixCopyBox = styled.div`
   width: 100%;
-  min-height: 74px;
-  margin-top: 22px;
-  padding: 12px 12px 12px 16px;
-  border: 1px solid #e2e3e6;
-  border-radius: 12px;
-  background: #fafafa;
+  min-height: 48px;
+  padding: 8px 8px 8px 12px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--background);
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   gap: 12px;
@@ -226,250 +267,183 @@ export const PixCopyBox = styled.div`
 
   code {
     min-width: 0;
-    max-height: 44px;
     overflow: hidden;
-    word-break: break-all;
-    color: #53555e;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--text);
     font-family: inherit;
-    font-size: 10px;
-    line-height: 1.35;
+    font-size: 12px;
   }
 
   button {
     min-width: 76px;
-    min-height: 44px;
+    min-height: 32px;
+    padding: 0 14px;
     border: 0;
-    border-radius: 9px;
-    background: var(--primary);
-    color: #fff;
-    font-size: 10px;
-    font-weight: 850;
+    border-radius: 8px;
+    background: color-mix(in srgb, var(--primary) 10%, #fff);
+    color: var(--primary);
+    font-size: 12px;
+    font-weight: 700;
   }
 
   @media (max-width: 759px) {
-    min-height: 64px;
-    margin-top: 8px;
+    background: #fff;
 
     code {
-      font-size: 8px;
-    }
-
-    button {
-      min-width: 66px;
-      min-height: 40px;
+      font-size: 11px;
     }
   }
 `;
 
 export const PixSide = styled.div`
-  display: grid;
-  gap: 40px;
-
-  @media (max-width: 759px) {
-    gap: 16px;
-  }
+  display: contents;
 `;
 
-export const PixStatusCard = styled(FlowCard)`
-  min-height: 300px;
-  padding: 30px;
-  display: grid;
-  align-content: start;
-  gap: 14px;
+export const PixStatusCard = styled.div`
+  width: 100%;
+  min-height: 64px;
+  padding: 14px 16px;
+  border-radius: 14px;
+  background: #fef3c7;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  text-align: left;
 
   h2 {
     margin: 0;
-    font-size: 30px;
+    color: var(--text);
+    font-size: 14px;
+    line-height: 18px;
+    font-weight: 700;
   }
 
   p {
-    margin: 0;
-    max-width: 620px;
+    margin: 2px 0 0;
     color: var(--muted);
-    font-size: 13px;
-    line-height: 1.5;
+    font-size: 11px;
+    line-height: 15px;
   }
 
   .timer {
-    width: max-content;
-    margin-top: 8px;
-    padding: 8px 11px;
-    border-radius: 10px;
-    background: color-mix(in srgb, var(--primary) 7%, #fff);
-    color: var(--primary);
-    font-size: 11px;
-    font-weight: 850;
-  }
-
-  .buttons {
-    margin-top: auto;
-    display: grid;
-    gap: 10px;
-  }
-
-  @media (max-width: 759px) {
-    min-height: 0;
-    padding: 18px;
-    border-radius: 14px;
-
-    h2 {
-      font-size: 21px;
-    }
-
-    p {
-      font-size: 10px;
-    }
+    flex: 0 0 auto;
+    color: var(--text);
+    font-size: 12px;
+    font-weight: 700;
   }
 `;
 
 export const HowToPayCard = styled(FlowCard)`
-  min-height: 420px;
-  padding: 28px 30px;
-
-  h2 {
-    margin: 0 0 28px;
-    font-size: 26px;
-  }
-
-  ol {
-    margin: 0;
-    padding: 0;
-    list-style: none;
-    display: grid;
-    gap: 28px;
-  }
-
-  li {
-    display: grid;
-    grid-template-columns: 34px minmax(0, 1fr);
-    gap: 20px;
-    align-items: center;
-    font-size: 13px;
-    font-weight: 750;
-  }
-
-  li span {
-    width: 34px;
-    height: 34px;
-    border-radius: 50%;
-    background: color-mix(in srgb, var(--primary) 8%, #fff);
-    color: var(--primary);
-    display: grid;
-    place-items: center;
-    font-weight: 900;
-  }
-
-  @media (max-width: 759px) {
-    min-height: 0;
-    padding: 18px;
-    border-radius: 14px;
-
-    h2 {
-      margin-bottom: 16px;
-      font-size: 19px;
-    }
-
-    ol {
-      gap: 14px;
-    }
-
-    li {
-      grid-template-columns: 28px minmax(0, 1fr);
-      gap: 12px;
-      font-size: 10px;
-    }
-
-    li span {
-      width: 28px;
-      height: 28px;
-    }
-  }
+  display: none;
 `;
 
 export const PaymentSuccessLayout = styled.div`
-  display: grid;
-  grid-template-columns: minmax(0, 780px) minmax(0, 514px);
-  gap: 42px;
-  align-items: start;
+  width: min(600px, 100%);
+  margin: 32px auto 0;
 
-  @media (max-width: 1050px) {
-    grid-template-columns: 1fr;
-    gap: 20px;
+  @media (max-width: 759px) {
+    margin-top: 0;
   }
 `;
 
 export const PaymentSuccessMain = styled(FlowCard)`
-  min-height: 716px;
-  padding: 54px 78px;
+  padding: 40px;
   display: grid;
-  justify-items: center;
-  align-content: start;
+  justify-items: stretch;
+  gap: 20px;
   text-align: center;
+  box-shadow: 0 10px 14px rgba(0, 0, 0, 0.04);
 
   .ring {
-    width: 180px;
-    height: 180px;
-    border-radius: 50%;
-    background: #eef9f1;
+    width: 80px;
+    height: 80px;
+    margin: 0 auto;
+    border-radius: 40px;
+    background: #ecfdf5;
     display: grid;
     place-items: center;
   }
 
   .check {
-    width: 80px;
-    height: 80px;
-    border-radius: 50%;
-    background: #28ad54;
+    width: 48px;
+    height: 48px;
+    border-radius: 24px;
+    background: #10b981;
     color: #fff;
     display: grid;
     place-items: center;
   }
 
   h1 {
-    margin: 36px 0 0;
-    font-size: 30px;
+    margin: 0;
+    color: var(--text);
+    font-size: 32px;
+    line-height: 38px;
+    font-weight: 500;
   }
 
   > p {
-    margin: 18px 0 34px;
+    margin: -10px 0 0;
     color: var(--muted);
-    font-size: 13px;
+    font-size: 14px;
+    line-height: 20px;
+  }
+
+  .prep-banner {
+    width: 100%;
+    padding: 16px;
+    border-radius: 14px;
+    background: color-mix(in srgb, var(--primary) 8%, #fff);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    color: var(--primary);
+    text-align: left;
+  }
+
+  .prep-banner span {
+    display: grid;
+    gap: 2px;
+  }
+
+  .prep-banner b {
+    color: var(--text);
+    font-size: 14px;
+  }
+
+  .prep-banner small {
+    color: var(--muted);
+    font-size: 11px;
   }
 
   @media (max-width: 759px) {
-    min-height: 0;
-    padding: 24px 18px;
+    padding: 24px 0;
     border: 0;
-
-    .ring {
-      width: 132px;
-      height: 132px;
-    }
-
-    .check {
-      width: 64px;
-      height: 64px;
-    }
+    background: transparent;
+    box-shadow: none;
 
     h1 {
-      margin-top: 24px;
-      font-size: 23px;
+      font-size: 28px;
+      line-height: 34px;
     }
 
     > p {
-      margin: 12px 0 20px;
-      font-size: 10px;
+      font-size: 13px;
     }
   }
 `;
 
 export const PaidReceipt = styled(FlowCard)`
   width: 100%;
-  min-height: 144px;
-  padding: 20px;
+  padding: 24px;
+  border-radius: 20px;
+  background: var(--background);
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
-  align-items: center;
+  align-items: start;
+  gap: 16px;
   text-align: left;
 
   .copy {
@@ -479,73 +453,34 @@ export const PaidReceipt = styled(FlowCard)`
 
   small {
     color: var(--muted);
-    font-size: 11px;
+    font-size: 13px;
   }
 
   strong {
+    color: var(--text);
     font-size: 28px;
+    font-weight: 500;
   }
 
   .status {
-    min-width: 98px;
-    min-height: 34px;
-    border-radius: 999px;
-    background: #eaf8ee;
-    color: #198844;
+    min-width: 58px;
+    min-height: 26px;
+    padding: 0 10px;
+    border-radius: 6px;
+    background: #ecfdf5;
+    color: #10b981;
     display: grid;
     place-items: center;
     font-size: 11px;
-    font-weight: 900;
+    font-weight: 700;
   }
 
   @media (max-width: 759px) {
-    min-height: 122px;
-    padding: 16px;
-
-    small {
-      font-size: 9px;
-    }
-
-    strong {
-      font-size: 22px;
-    }
-
-    .status {
-      min-width: 74px;
-      min-height: 30px;
-      font-size: 9px;
-    }
+    padding: 20px;
+    background: #fff;
   }
 `;
 
 export const PaymentSuccessSide = styled(FlowCard)`
-  min-height: 716px;
-  padding: 34px 32px;
-
-  h2 {
-    margin: 0 0 14px;
-    font-size: 24px;
-  }
-
-  > p {
-    margin: 0 0 30px;
-    color: var(--muted);
-    font-size: 13px;
-    line-height: 1.5;
-  }
-
-  @media (max-width: 759px) {
-    min-height: 0;
-    padding: 20px 18px;
-    border-radius: 14px;
-
-    h2 {
-      font-size: 19px;
-    }
-
-    > p {
-      margin-bottom: 18px;
-      font-size: 10px;
-    }
-  }
+  display: none;
 `;
