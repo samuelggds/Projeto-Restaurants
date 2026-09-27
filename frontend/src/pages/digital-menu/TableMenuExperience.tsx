@@ -803,18 +803,69 @@ export default function TableMenuExperience({
                 </S.ProductGrid>
               </S.Section>
             ))
-          ) : (
-            <S.Section>
-              <header>
-                <h2>{data.categories.find((category) => category.id === selectedCategory)?.name || 'Produtos'}</h2>
-              </header>
-              <S.ProductGrid>
-                {products.map((product) => (
-                  <ProductCard key={product.id} product={product} onOpen={() => openProduct(product)} />
-                ))}
-              </S.ProductGrid>
-            </S.Section>
-          )}
+          ) : (() => {
+            const activeCategory = data.categories.find(
+              (category) => category.id === selectedCategory,
+            );
+
+            return (
+              <S.CategoryListing>
+                <S.CategoryListingHeader>
+                  <button
+                    type="button"
+                    aria-label="Voltar para todas as categorias"
+                    onClick={() => setSelectedCategory('todos')}
+                  >
+                    <ArrowLeft size={18} />
+                  </button>
+
+                  <S.CategoryListingTitle>
+                    <S.CategoryListingMedia aria-hidden="true">
+                      {activeCategory?.image ? (
+                        <img src={activeCategory.image} alt="" />
+                      ) : (
+                        <Utensils />
+                      )}
+                    </S.CategoryListingMedia>
+                    <div>
+                      <h1>{activeCategory?.name || 'Produtos'}</h1>
+                      <p>
+                        {products.length}
+                        {' '}
+                        {products.length === 1 ? 'produto disponível' : 'produtos disponíveis'}
+                      </p>
+                    </div>
+                  </S.CategoryListingTitle>
+                </S.CategoryListingHeader>
+
+                <S.CategoryTabs aria-label="Navegar entre categorias">
+                  {data.categories
+                    .filter((category) => category.id !== 'todos')
+                    .map((category) => (
+                      <button
+                        key={category.id}
+                        type="button"
+                        className={selectedCategory === category.id ? 'active' : ''}
+                        onClick={() => setSelectedCategory(category.id)}
+                      >
+                        {category.name}
+                      </button>
+                    ))}
+                </S.CategoryTabs>
+
+                <S.CategoryProductList>
+                  {products.map((product) => (
+                    <CategoryProductRow
+                      key={product.id}
+                      product={product}
+                      onOpen={() => openProduct(product)}
+                    />
+                  ))}
+                </S.CategoryProductList>
+              </S.CategoryListing>
+            );
+          })()
+          }
         </div>
 
         {data.banners.length > 1 ? (
@@ -1041,6 +1092,56 @@ function Header({
         {cartCount > 0 ? <i>{cartCount}</i> : null}
       </S.CartButton>
     </S.Header>
+  );
+}
+
+function CategoryProductRow({
+  product,
+  onOpen,
+}: {
+  product: HomeProduct;
+  onOpen: () => void;
+}) {
+  return (
+    <S.CategoryProductRow>
+      <button
+        type="button"
+        className="main"
+        onClick={onOpen}
+        aria-label={`Ver detalhes de ${product.name}`}
+      >
+        <div className="image">
+          {product.image ? (
+            <img src={product.image} alt={product.name} />
+          ) : (
+            <S.ImagePlaceholder />
+          )}
+          {product.promotion?.active ? (
+            <S.DiscountBadge>{product.promotion.badgeLabel}</S.DiscountBadge>
+          ) : null}
+        </div>
+
+        <div className="content">
+          <b>{product.name}</b>
+          {product.description ? <p>{product.description}</p> : null}
+          <S.ProductPrice>
+            {product.promotion?.active && product.originalPrice > product.price ? (
+              <del>{brl(product.originalPrice)}</del>
+            ) : null}
+            <strong>{brl(product.price)}</strong>
+          </S.ProductPrice>
+        </div>
+      </button>
+
+      <button
+        type="button"
+        className="add"
+        aria-label={`Adicionar ${product.name}`}
+        onClick={onOpen}
+      >
+        <Plus size={17} />
+      </button>
+    </S.CategoryProductRow>
   );
 }
 
