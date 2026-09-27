@@ -1,4 +1,5 @@
 import {
+  ArrowRight,
   BadgePercent,
   LayoutGrid,
   Mail,
@@ -116,6 +117,13 @@ export function HomePage({
     () => data.products.filter((product) => product.available),
     [data.products],
   );
+  const fallbackHeroProduct = useMemo(
+    () =>
+      data.products.find((product) => product.available && product.kind !== 'COMBO') ??
+      data.products.find((product) => product.available) ??
+      null,
+    [data.products],
+  );
   const activeCategoryName =
     data.categories.find((category) => category.id === selectedCategory)?.name || 'Produtos';
   const favoriteIds = useMemo(() => new Set(favoriteProductIds), [favoriteProductIds]);
@@ -222,16 +230,48 @@ export function HomePage({
         availabilityDetail={availability.detail}
       />
       <S.Main>
-        {(promotionBanners.length > 0 || data.about) && (
+        {(promotionBanners.length > 0 || fallbackHeroProduct) && !isTableMenu && (
           <S.HeroStage aria-label={`Destaques de ${data.brand.name || 'restaurante'}`}>
-            <PromotionCarousel banners={promotionBanners} onOpenMenu={onOpenMenu} />
-            {data.about && (
-              <S.About id="sobre">
-                <small>{data.brand.name || 'Nossa casa'}</small>
-                <p>{data.about}</p>
-              </S.About>
-            )}
+            {promotionBanners.length > 0 ? (
+              <PromotionCarousel banners={promotionBanners} onOpenMenu={onOpenMenu} />
+            ) : fallbackHeroProduct ? (
+              <S.DeliveryFallbackHero>
+                <div className="delivery-hero-copy">
+                  <span className="delivery-hero-kicker">Peça direto do restaurante</span>
+                  <h1>
+                    Seu pedido favorito,
+                    <strong> do seu jeito.</strong>
+                  </h1>
+                  <p>
+                    Explore o cardápio de {data.brand.name || 'nosso restaurante'} e escolha seus
+                    produtos para entrega ou retirada.
+                  </p>
+                  <button type="button" onClick={onOpenMenu}>
+                    Ver cardápio <ArrowRight size={18} />
+                  </button>
+                </div>
+                <div className="delivery-hero-media">
+                  <img src={fallbackHeroProduct.image} alt={fallbackHeroProduct.name} />
+                  <div className="delivery-hero-product">
+                    <small>Destaque do cardápio</small>
+                    <b>{fallbackHeroProduct.name}</b>
+                    <span>
+                      {fallbackHeroProduct.pricingMode === 'HIGHEST_OPTION'
+                        ? 'Preço conforme as escolhas'
+                        : brl(fallbackHeroProduct.price)}
+                    </span>
+                  </div>
+                </div>
+              </S.DeliveryFallbackHero>
+            ) : null}
           </S.HeroStage>
+        )}
+
+        {data.about && (
+          <S.About id="sobre">
+            <small>{data.brand.name || 'Nossa casa'}</small>
+            <p>{data.about}</p>
+          </S.About>
         )}
 
         {(data.minimumOrder > 0 || (data.acceptsDelivery && data.freeDeliveryFrom > 0)) && (
