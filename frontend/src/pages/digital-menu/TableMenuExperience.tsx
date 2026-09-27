@@ -14,6 +14,7 @@ import {
   WalletCards,
 } from 'lucide-react';
 import { useMemo, useState } from 'react';
+import QRCode from 'react-qr-code';
 import type { HomeData, HomeProduct } from '../Home/types';
 import type { CartItem } from '../Home/hooks/useCart';
 import type { ProductConfiguration } from '../Home/domain/productCustomization';
@@ -45,7 +46,7 @@ type Props = {
   onAddProduct: (productId: string, configuration: ProductConfiguration) => void;
   onIncrease: (cartId: string) => void;
   onDecrease: (cartId: string) => void;
-  onSubmitOrder: () => Promise<SubmitResult | null>;
+  onSubmitOrder: () => Promise<SubmitResult | null | undefined>;
   onCallWaiter: () => void;
   onCreatePixPayment: (orderPublicId: string) => Promise<TablePaymentIntent | null>;
   onReconcilePayment: (paymentPublicId: string) => Promise<TablePaymentIntent | null>;
@@ -135,7 +136,14 @@ export default function TableMenuExperience({
     [data.categories, products],
   );
 
-  const currentPayment = activePayment?.publicId === pixPayment?.publicId ? activePayment : pixPayment;
+  const paymentBase =
+    activePayment?.publicId === pixPayment?.publicId ? activePayment : pixPayment;
+  const paymentSnapshot = paymentBase
+    ? accountSnapshot?.payments.find((payment) => payment.publicId === paymentBase.publicId)
+    : null;
+  const currentPayment = paymentBase
+    ? { ...paymentBase, status: paymentSnapshot?.status || paymentBase.status }
+    : null;
   const primary = data.brand.primaryColor || '#e50914';
 
   function openProduct(product: HomeProduct) {
@@ -210,10 +218,9 @@ export default function TableMenuExperience({
             <strong className="amount">{brl(currentPayment.totalCents / 100)}</strong>
             {!paid && currentPayment.paymentCode && (
               <>
-                <S.FakeQr aria-label="QR Code PIX">
-                  <span>PIX</span>
-                  <small>Use o código copia e cola abaixo</small>
-                </S.FakeQr>
+                <S.QrFrame aria-label="QR Code PIX">
+                  <QRCode value={currentPayment.paymentCode} size={210} level="M" />
+                </S.QrFrame>
                 <S.PixCode>{currentPayment.paymentCode}</S.PixCode>
                 <S.PrimaryButton type="button" onClick={() => void copyPix()}>
                   <Copy size={18} /> {copied ? 'Código copiado' : 'Copiar código PIX'}
@@ -221,7 +228,11 @@ export default function TableMenuExperience({
                 <S.SecondaryButton
                   type="button"
                   disabled={paymentLoading}
-                  onClick={() => void onReconcilePayment(currentPayment.publicId)}
+                  onClick={() =>
+                    void onReconcilePayment(currentPayment.publicId).then((payment) => {
+                      if (payment) setPixPayment(payment);
+                    })
+                  }
                 >
                   Verificar pagamento agora
                 </S.SecondaryButton>
