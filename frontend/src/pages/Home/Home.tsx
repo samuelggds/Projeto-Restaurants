@@ -286,7 +286,7 @@ export default function Home() {
   });
 
   const catalogHomeData = useMemo(
-    () => buildHomeData(backendProducts, settings, new Date(), { allowImageFallbacks: !mesaMode }),
+    () =>\n      buildHomeData(backendProducts, settings, new Date(), {\n        allowImageFallbacks: !mesaMode,\n        useLegacyBannerCopy: !mesaMode,\n      }),
     [backendProducts, mesaMode, settings],
   );
   const homeIsOpen = useMemo(
