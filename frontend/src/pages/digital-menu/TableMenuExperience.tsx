@@ -696,6 +696,7 @@ export default function TableMenuExperience({
     <S.Shell $primary={primary}>
       <HomeHeader
         data={data}
+        tableLabel={tableLabel}
         cartCount={cartCount}
         searchOpen={homeSearchOpen}
         query={query}
@@ -1142,62 +1143,6 @@ function HomeProductTile({ product, onOpen }: { product: HomeProduct; onOpen: ()
       </S.ProductPrice>
       <span className="add"><Plus size={14} /></span>
     </S.HomeProductTile>
-  );
-}
-
-function Header({
-  data,
-  tableLabel,
-  cartCount,
-  query,
-  setQuery,
-  onCart,
-  onCallWaiter,
-}: {
-  data: HomeData;
-  tableLabel: string | number;
-  cartCount: number;
-  query: string;
-  setQuery: (value: string) => void;
-  onCart: () => void;
-  onCallWaiter: () => void;
-}) {
-  return (
-    <S.Header>
-      <S.Brand>
-        {data.brand.logoUrl ? <img src={data.brand.logoUrl} alt={data.brand.name} /> : <S.BrandMark />}
-        <span>
-          <b>{data.brand.name}</b>
-          <small>{data.about || data.brand.category || ''}</small>
-        </span>
-      </S.Brand>
-      <S.TableActions>
-        <S.TableBadge aria-label={`Mesa ${Number(tableLabel) || tableLabel}`}>
-          <Utensils size={17} />
-          Mesa {tableLabel}
-          <span className="table-accessible-number">
-            {String(tableLabel).padStart(2, '0')}
-          </span>
-        </S.TableBadge>
-        <S.WaiterButton type="button" onClick={onCallWaiter} aria-label="Chamar garçom">
-          <BellRing size={17} />
-          <span>Chamar garçom</span>
-        </S.WaiterButton>
-      </S.TableActions>
-      <S.SearchBox>
-        <Search size={18} />
-        <input
-          value={query}
-          onChange={(event) => setQuery(event.target.value)}
-          placeholder="Buscar no cardápio..."
-        />
-      </S.SearchBox>
-      <S.CartButton type="button" onClick={onCart}>
-        <ShoppingCart size={22} />
-        <span>Meu pedido</span>
-        {cartCount > 0 ? <i>{cartCount}</i> : null}
-      </S.CartButton>
-    </S.Header>
   );
 }
 
