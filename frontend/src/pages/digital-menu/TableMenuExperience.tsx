@@ -559,84 +559,152 @@ export default function TableMenuExperience({
   }
 
   if (effectiveView === 'cart') {
+    const serviceFeeCents = accountSnapshot?.capabilities.serviceFeeMode === 'MANDATORY'
+      ? Math.round(cartTotal * 100 * (accountSnapshot.capabilities.serviceFeeBasisPoints / 10_000))
+      : 0;
+    const serviceFee = serviceFeeCents / 100;
+    const totalWithFee = cartTotal + serviceFee;
+
     return (
       <S.Shell $primary={primary}>
-        <Header
-          data={data}
-          tableLabel={tableLabel}
-          cartCount={cartCount}
-          query={query}
-          setQuery={setQuery}
-          onCart={() => setView('cart')}
-          onOpenTableAccount={onOpenTableAccount}
-          onCallWaiter={onCallWaiter}
-        />
-        <S.Page>
-          <S.BackButton type="button" onClick={() => setView('menu')}>
-            <ArrowLeft size={18} /> Voltar ao cardápio
-          </S.BackButton>
-          <S.CartTitle>
-            <h1 aria-label="Minha sacola">
-              Seu <span>pedido</span>
-            </h1>
-            <p>Confira os itens do seu pedido para a mesa {tableLabel}.</p>
-          </S.CartTitle>
-          <S.CartLayout>
-            <S.CartList>
-              {cart.length === 0 ? (
-                <S.EmptyCart>Seu pedido ainda está vazio.</S.EmptyCart>
-              ) : (
-                cart.map((item) => (
-                  <S.CartItem key={item.cartId}>
-                    {item.image ? <img src={item.image} alt={item.name} /> : <S.ImagePlaceholder />}
-                    <div className="content">
+        <S.CartReferenceHeader>
+          <button
+            type="button"
+            aria-label="Voltar ao cardápio"
+            onClick={() => {
+              onReviewCartClose?.();
+              setView('menu');
+            }}
+          >
+            <ArrowLeft size={18} />
+          </button>
+          <S.CartReferenceBrand>
+            {data.brand.logoUrl ? (
+              <img src={data.brand.logoUrl} alt={data.brand.name} />
+            ) : (
+              <S.BrandMark />
+            )}
+            <b>{data.brand.name}</b>
+          </S.CartReferenceBrand>
+          <div className="actions">
+            <button type="button" aria-label="Buscar no cardápio" onClick={() => setView('menu')}>
+              <Search size={18} />
+            </button>
+            <button type="button" aria-label="Meu pedido">
+              <ShoppingCart size={19} />
+              {cartCount > 0 ? <i>{cartCount}</i> : null}
+            </button>
+          </div>
+        </S.CartReferenceHeader>
+
+        <S.CartReferencePage>
+          <h1 aria-label="Minha sacola">Seu pedido</h1>
+
+          <S.CartReferenceList>
+            {cart.length === 0 ? (
+              <S.EmptyCart>Seu pedido ainda está vazio.</S.EmptyCart>
+            ) : (
+              cart.map((item) => (
+                <S.CartReferenceItem key={item.cartId}>
+                  {item.image ? (
+                    <img src={item.image} alt={item.name} />
+                  ) : (
+                    <S.ImagePlaceholder />
+                  )}
+
+                  <div className="info">
+                    <div className="title-row">
                       <b>{item.name}</b>
-                      {item.options?.length ? (
-                        <small>{item.options.map((option) => option.name).join(', ')}</small>
-                      ) : null}
-                      {item.observation ? <small>Obs.: {item.observation}</small> : null}
-                      <div className="quantity">
-                        <button type="button" onClick={() => item.cartId && onDecrease(item.cartId)}>
-                          {item.quantity === 1 ? <Trash2 size={16} /> : <Minus size={16} />}
+                      <button
+                        type="button"
+                        aria-label={`Remover ${item.name}`}
+                        onClick={() => item.cartId && onDecrease(item.cartId)}
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
+
+                    {item.options?.length ? (
+                      <small>{item.options.map((option) => option.name).join(' · ')}</small>
+                    ) : item.observation ? (
+                      <small>{item.observation}</small>
+                    ) : null}
+
+                    <div className="item-footer">
+                      <S.CartReferenceQuantity>
+                        <button
+                          type="button"
+                          aria-label={`Diminuir ${item.name}`}
+                          onClick={() => item.cartId && onDecrease(item.cartId)}
+                        >
+                          <Minus size={13} />
                         </button>
                         <span>{item.quantity}</span>
-                        <button type="button" onClick={() => item.cartId && onIncrease(item.cartId)}>
-                          <Plus size={16} />
+                        <button
+                          type="button"
+                          aria-label={`Aumentar ${item.name}`}
+                          onClick={() => item.cartId && onIncrease(item.cartId)}
+                        >
+                          <Plus size={13} />
                         </button>
-                      </div>
+                      </S.CartReferenceQuantity>
+                      <strong>{brl(item.price * item.quantity)}</strong>
+                      <button
+                        type="button"
+                        className="remove-secondary"
+                        aria-label={`Remover item ${item.name}`}
+                        onClick={() => {
+                          if (!item.cartId) return;
+                          for (let index = 0; index < item.quantity; index += 1) {
+                            onDecrease(item.cartId);
+                          }
+                        }}
+                      >
+                        <Trash2 size={14} />
+                      </button>
                     </div>
-                    <strong>{brl(item.price * item.quantity)}</strong>
-                  </S.CartItem>
-                ))
-              )}
-            </S.CartList>
-            <S.CheckoutCard>
+                  </div>
+                </S.CartReferenceItem>
+              ))
+            )}
+          </S.CartReferenceList>
+
+          <S.AddMoreItemsButton
+            type="button"
+            onClick={() => {
+              onReviewCartClose?.();
+              setView('menu');
+            }}
+          >
+            <Plus size={16} /> Adicionar mais itens
+          </S.AddMoreItemsButton>
+
+          <S.CartReferenceSummary>
+            <div>
+              <span>Subtotal</span>
+              <b>{brl(cartTotal)}</b>
+            </div>
+            {serviceFee > 0 ? (
               <div>
-                <Utensils />
-                <span>
-                  <b>Pedido para Mesa {tableLabel}</b>
-                  <small>Os itens serão enviados para a cozinha desta mesa.</small>
-                </span>
+                <span>Taxa de serviço</span>
+                <b>{brl(serviceFee)}</b>
               </div>
-              <S.SummaryLine>
-                <span>Subtotal ({cartCount} itens)</span>
-                <b>{brl(cartTotal)}</b>
-              </S.SummaryLine>
-              <S.SummaryTotal>
-                <span>Total do pedido</span>
-                <strong>{brl(cartTotal)}</strong>
-              </S.SummaryTotal>
-              <S.PrimaryButton
-                type="button"
-                aria-label="Enviar pedido para a cozinha"
-                disabled={!cart.length || submitting || orderingLocked}
-                onClick={() => void submitOrder()}
-              >
-                {submitting ? 'Enviando pedido...' : 'Finalizar pedido'} <ChevronRight size={20} />
-              </S.PrimaryButton>
-            </S.CheckoutCard>
-          </S.CartLayout>
-        </S.Page>
+            ) : null}
+            <div className="total">
+              <strong>Total</strong>
+              <b>{brl(totalWithFee)}</b>
+            </div>
+          </S.CartReferenceSummary>
+
+          <S.CartReferenceSubmit
+            type="button"
+            aria-label="Enviar pedido para a cozinha"
+            disabled={!cart.length || submitting || orderingLocked}
+            onClick={() => void submitOrder()}
+          >
+            {submitting ? 'Enviando pedido...' : 'Finalizar pedido'}
+          </S.CartReferenceSubmit>
+        </S.CartReferencePage>
       </S.Shell>
     );
   }
