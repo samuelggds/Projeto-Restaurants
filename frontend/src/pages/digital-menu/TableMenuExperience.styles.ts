@@ -887,24 +887,21 @@ export const PixCard = styled.section`
   .amount { font-size: 32px; }
 `;
 
-export const FakeQr = styled.div`
-  width: 230px;
-  height: 230px;
+export const QrFrame = styled.div`
+  width: 238px;
+  height: 238px;
   margin: 4px 0;
-  border: 12px solid #fff;
-  outline: 1px solid var(--line);
+  padding: 14px;
+  border: 1px solid var(--line);
   border-radius: 18px;
   display: grid;
   place-items: center;
-  align-content: center;
-  gap: 5px;
-  background:
-    repeating-linear-gradient(45deg, #111 0 5px, #fff 5px 10px);
-  color: #fff;
-  text-shadow: 0 1px 4px #000;
-  font-weight: 950;
+  background: #fff;
 
-  small { font-size: 9px; padding: 4px; background: rgba(0,0,0,.7); }
+  svg {
+    width: 210px;
+    height: 210px;
+  }
 `;
 
 export const PixCode = styled.code`
