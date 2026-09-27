@@ -174,6 +174,7 @@ export type HomeData = {
   products: HomeProduct[];
   deliveryTime: string;
   minimumOrder: number;
+  deliveryFee: number;
   freeDeliveryFrom: number;
   acceptsDelivery: boolean;
   acceptsPickup: boolean;
