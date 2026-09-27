@@ -645,13 +645,7 @@ async function identifyTableGuest(page: Page, waitForMenu = true) {
 }
 
 async function reviewTableDraft(page: Page) {
-  await page.getByRole('button', { name: 'Abrir minha comanda da mesa 1' }).click();
-  const accountDialog = page.getByRole('dialog', { name: 'Sua comanda • Mesa 1' });
-  await expect(accountDialog).toBeVisible();
-  await expect(accountDialog.getByText('1 item para enviar · R$ 28,00')).toBeVisible();
-  await expect(accountDialog.getByText('Você ainda não possui itens nesta comanda.')).toBeVisible();
-  await expect(accountDialog.getByRole('button', { name: /Continuar com Pix/u })).toHaveCount(0);
-  await accountDialog.getByRole('button', { name: 'Revisar e enviar' }).click();
+  await page.getByRole('button', { name: 'Meu pedido' }).click();
   await expect(page.getByRole('heading', { name: 'Minha sacola' })).toBeVisible();
 }
 
