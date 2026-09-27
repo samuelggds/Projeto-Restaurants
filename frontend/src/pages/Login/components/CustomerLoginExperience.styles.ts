@@ -51,7 +51,7 @@ export const Hero = styled.section`
   }
 `;
 
-export const HeroImage = styled.img<{ $loaded: boolean }>`
+export const HeroImage = styled.img`
   position: absolute;
   inset: 0;
   width: 100%;
@@ -329,6 +329,15 @@ export const Feedback = styled.div`
 
   @media (max-width: 900px) {
     margin-top: -8px;
+  }
+`;
+
+export const AuthForm = styled.form`
+  display: grid;
+  gap: 22px;
+
+  @media (max-width: 900px) {
+    gap: 20px;
   }
 `;
 
