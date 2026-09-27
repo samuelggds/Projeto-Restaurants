@@ -393,7 +393,10 @@ export default function TableMenuExperience({
         <S.FlowPage>
           <S.PixLayout>
             <S.PixQrCard>
-              <span className="pix-label">PAGAMENTO PIX</span>
+              <span className="pix-label">
+                <span className="desktop-only">PAGAMENTO PIX</span>
+                <span className="mobile-only">VALOR TOTAL</span>
+              </span>
               <span className="amount">{centsToBrl(currentPayment.totalCents)}</span>
               <span className="order">
                 {confirmation?.orderId ? `Pedido #${confirmation.orderId} · ` : ''}
@@ -406,7 +409,12 @@ export default function TableMenuExperience({
                     <QRCode value={currentPayment.paymentCode} size={160} level="M" />
                   </div>
                   <p className="instructions">
-                    Aponte a câmera do seu banco para o QR code ou copie a chave PIX abaixo.
+                    <span className="desktop-only">
+                      Aponte a câmera do seu banco para o QR code ou copie a chave PIX abaixo.
+                    </span>
+                    <span className="mobile-only">
+                      Aponte a câmera do seu banco para o QR code ou copie a chave abaixo.
+                    </span>
                   </p>
                   <S.PixCopyBox>
                     <code>{currentPayment.paymentCode}</code>
@@ -461,7 +469,14 @@ export default function TableMenuExperience({
           <S.PaymentCard>
             <S.FlowTitle>
               <h1>Como prefere pagar?</h1>
-              <p>Finalize agora pelo celular ou deixe para pagar depois com a equipe.</p>
+              <p>
+                <span className="desktop-only">
+                  Finalize agora pelo celular ou deixe para pagar depois com a equipe.
+                </span>
+                <span className="mobile-only">
+                  Finalize agora pelo celular ou deixe para pagar depois.
+                </span>
+              </p>
             </S.FlowTitle>
 
             <S.PaymentOptionsGrid>
@@ -485,7 +500,9 @@ export default function TableMenuExperience({
             <S.PaymentChoiceCard>
               <span className="icon"><ReceiptText size={26} /></span>
               <h2>Deixar na conta</h2>
-              <p>Os itens permanecem vinculados à mesa. Pague ao sair com o garçom.</p>
+              <p>
+                Os itens permanecem vinculados à Mesa {tableNumber(tableLabel)}. Pague ao sair com o garçom.
+              </p>
               <small>Continue pedindo normalmente.</small>
               <button className="secondary" type="button" onClick={() => setView('tracking')}>
                 Deixar aberto na Mesa
@@ -495,7 +512,10 @@ export default function TableMenuExperience({
 
             <S.PaymentSummary>
               <div className="label">
-                <small>Valor deste pedido:</small>
+                <small>
+                  <span className="desktop-only">Valor total deste pedido:</span>
+                  <span className="mobile-only">Valor deste pedido:</span>
+                </small>
                 {confirmation.orderId ? <strong>Pedido #{confirmation.orderId}</strong> : null}
               </div>
               <span className="amount">{brl(confirmation.total)}</span>
@@ -521,6 +541,10 @@ export default function TableMenuExperience({
 
         <S.FlowPage>
           <S.TrackingLayout>
+            <S.FlowTitle className="tracking-title">
+              <h1>Painel da Mesa</h1>
+              <p>Veja o andamento de seus pratos e bebidas em tempo real</p>
+            </S.FlowTitle>
             <div>
               <S.StatusCard>
                 <span className="icon"><Clock3 size={28} /></span>
@@ -549,7 +573,10 @@ export default function TableMenuExperience({
             </div>
 
             <S.OrderItemsCard>
-              <h2>Itens do Pedido</h2>
+              <h2>
+                <span className="desktop-only">Itens do Pedido</span>
+                <span className="mobile-only">Itens em Produção</span>
+              </h2>
               {tableOrder?.items.length ? (
                 tableOrder.items.map((item, index) => (
                   <S.OrderItemLine key={`${item.name}-${index}`}>
@@ -740,14 +767,20 @@ export default function TableMenuExperience({
               </S.CartLines>
 
               <S.AddMoreButton type="button" onClick={goToMenu}>
-                + Adicionar mais itens
+                + Adicionar mais itens ao pedido
               </S.AddMoreButton>
             </div>
 
             <div>
               <S.SummaryCard>
                 <div className="row"><span>Subtotal</span><strong>{brl(cartTotal)}</strong></div>
-                <div className="row"><span>Serviço</span><strong>{brl(serviceFee)}</strong></div>
+                <div className="row">
+                  <span>
+                    <span className="desktop-only">Taxa de Serviço (Opcional)</span>
+                    <span className="mobile-only">Serviço (Opcional)</span>
+                  </span>
+                  <strong>{brl(serviceFee)}</strong>
+                </div>
                 <div className="divider" />
                 <div className="row total"><span>Total</span><strong>{brl(totalWithFee)}</strong></div>
               </S.SummaryCard>
@@ -757,9 +790,14 @@ export default function TableMenuExperience({
                 disabled={!cart.length || submitting || orderingLocked}
                 onClick={() => void submitOrder()}
               >
-                {submitting ? 'Enviando pedido...' : 'Enviar pedido para a cozinha'}
+                <span className="action-copy">
+                  <b>{submitting ? 'Enviando pedido...' : 'Enviar pedido para a cozinha'}</b>
+                  {!submitting ? <small>Seu pedido iniciará o preparo imediatamente</small> : null}
+                </span>
               </S.PrimaryAction>
-              <S.HelperText>Depois você pode escolher pagar agora ou deixar na conta da mesa.</S.HelperText>
+              <S.HelperText>
+                Depois você escolhe pagar agora pelo celular ou no fim.
+              </S.HelperText>
             </div>
           </S.CartDesktopLayout>
         </S.FlowPage>
@@ -871,7 +909,10 @@ export default function TableMenuExperience({
         {combos.length ? (
           <>
             <S.SectionHeading>
-              <div className="title"><h2>Combos em Destaque</h2><p>Os favoritos da casa para compartilhar</p></div>
+              <div className="title">
+                <h2>Combos em Destaque</h2>
+                <p>Os favoritos da galera para compartilhar</p>
+              </div>
               <button type="button" onClick={() => showCatalog('todos')}>
                 <span className="desktop-only">Ver todos os pratos</span>
                 <span className="mobile-only">Ver todos</span>
@@ -1113,7 +1154,8 @@ function FlowHeader({
           )}
           <span className="name">
             <b>{data.brand.name}</b>
-            <small>{data.brand.category || 'Mesa Inteligente'}</small>
+            <small className="brand-subtitle desktop-subtitle">Mesa Inteligente</small>
+            <small className="brand-subtitle mobile-subtitle">{data.brand.name}</small>
           </span>
         </S.FigmaBrand>
         {title ? (
