@@ -1,22 +1,17 @@
 import styled from 'styled-components';
 
-function tableFontStack(fontFamily?: string) {
-  if (fontFamily === 'Manrope') return 'Manrope, ui-sans-serif, system-ui, sans-serif';
-  if (fontFamily === 'DM Sans') return "'DM Sans', ui-sans-serif, system-ui, sans-serif";
-  return 'Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
-}
-
 export const FigmaShell = styled.main<{ $primary: string; $fontFamily?: string }>`
   --primary: ${({ $primary }) => $primary};
-  --text: #0f1113;
-  --muted: #6b7380;
-  --line: #e5e8ed;
-  --soft: #f4f5f7;
+  --text: #1a1a2e;
+  --muted: #6d6d80;
+  --line: #eaeae6;
+  --surface: #ffffff;
+  --background: #fafaf8;
   min-height: 100vh;
   overflow-x: hidden;
-  background: #f9f9fb;
+  background: var(--background);
   color: var(--text);
-  font-family: ${({ $fontFamily }) => tableFontStack($fontFamily)};
+  font-family: 'Plus Jakarta Sans', ${({ $fontFamily }) => $fontFamily || 'sans-serif'}, sans-serif;
 
   *,
   *::before,
@@ -36,34 +31,31 @@ export const FigmaShell = styled.main<{ $primary: string; $fontFamily?: string }
 
   button:disabled {
     cursor: not-allowed;
+    opacity: 0.5;
   }
 
   img {
     display: block;
     max-width: 100%;
   }
-
-  @media (max-width: 759px) {
-    background: #fafafb;
-  }
 `;
 
 export const FigmaHeader = styled.header<{ $hasTitle?: boolean }>`
-  position: relative;
-  z-index: 30;
   width: 100%;
-  height: 78px;
-  padding: 0 40px;
+  min-height: 68px;
+  padding: 18px 48px;
+  border-bottom: 1px solid var(--line);
   background: #fff;
   display: grid;
-  grid-template-columns: minmax(360px, 1fr) auto minmax(250px, 1fr);
+  grid-template-columns: minmax(430px, 1fr) auto minmax(190px, 1fr);
   align-items: center;
+  gap: 24px;
 
   .left {
     min-width: 0;
     display: flex;
     align-items: center;
-    gap: 42px;
+    gap: 48px;
   }
 
   .mobile-back {
@@ -71,10 +63,9 @@ export const FigmaHeader = styled.header<{ $hasTitle?: boolean }>`
   }
 
   .context-title {
-    color: #0f1113;
+    color: var(--text);
     font-size: 16px;
-    line-height: 19px;
-    font-weight: 650;
+    font-weight: 700;
     white-space: nowrap;
   }
 
@@ -82,15 +73,16 @@ export const FigmaHeader = styled.header<{ $hasTitle?: boolean }>`
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    gap: 37px;
+    gap: 32px;
   }
 
   nav button {
-    padding: 4px 0;
+    position: relative;
+    padding: 5px 0;
     border: 0;
     background: transparent;
-    color: #6b7380;
-    font-size: 13px;
+    color: var(--muted);
+    font-size: 14px;
     font-weight: 500;
   }
 
@@ -99,37 +91,51 @@ export const FigmaHeader = styled.header<{ $hasTitle?: boolean }>`
     color: var(--primary);
   }
 
+  nav button.active {
+    color: var(--primary);
+    font-weight: 700;
+  }
+
+  nav button.active::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    bottom: -5px;
+    width: 16px;
+    height: 2px;
+    border-radius: 2px;
+    background: var(--primary);
+  }
+
   .right {
     justify-self: end;
   }
 
   @media (max-width: 759px) {
-    height: 69px;
-    padding: 0 18px;
-    background: #fafafb;
+    min-height: 68px;
+    padding: 16px 20px;
     grid-template-columns: minmax(0, 1fr) auto;
     gap: 12px;
 
     .left {
-      gap: 12px;
+      gap: 10px;
     }
 
     .mobile-back {
-      width: 24px;
-      height: 24px;
+      width: 28px;
+      height: 28px;
       padding: 0;
       border: 0;
       background: transparent;
-      color: #0f1113;
+      color: var(--text);
       display: grid;
       place-items: center;
-      flex: 0 0 24px;
+      flex: 0 0 28px;
     }
 
     .context-title {
-      font-size: 18px;
-      line-height: 24px;
-      font-weight: 750;
+      font-size: 14px;
+      font-weight: 700;
     }
 
     nav {
@@ -155,10 +161,10 @@ export const FigmaBrand = styled.div.attrs({ className: 'brand' })`
 
   .mark,
   img {
-    width: 42px;
-    height: 42px;
-    flex: 0 0 42px;
-    border-radius: 14px;
+    width: 36px;
+    height: 32px;
+    flex: 0 0 36px;
+    border-radius: 10px;
     object-fit: cover;
   }
 
@@ -168,24 +174,31 @@ export const FigmaBrand = styled.div.attrs({ className: 'brand' })`
     background: var(--primary);
     color: #fff;
     font-size: 19px;
-    font-weight: 800;
+    font-weight: 700;
   }
 
   .name {
     min-width: 0;
-    display: block;
+    display: grid;
+    gap: 2px;
   }
 
   .name b {
-    display: block;
-    max-width: 250px;
+    max-width: 240px;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    color: #0f1113;
-    font-size: 20px;
-    line-height: 24px;
-    font-weight: 800;
+    color: var(--text);
+    font-size: 16px;
+    line-height: 20px;
+    font-weight: 500;
+  }
+
+  .name small {
+    color: var(--muted);
+    font-size: 11px;
+    line-height: 14px;
+    font-weight: 500;
   }
 
   @media (max-width: 759px) {
@@ -193,56 +206,208 @@ export const FigmaBrand = styled.div.attrs({ className: 'brand' })`
 
     .mark,
     img {
-      width: 40px;
-      height: 40px;
-      flex-basis: 40px;
-      border-radius: 14px;
+      width: 32px;
+      height: 32px;
+      flex-basis: 32px;
+      border-radius: 10px;
     }
 
     .name b {
-      max-width: 170px;
-      font-size: 18px;
-      line-height: 22px;
+      max-width: 150px;
+      font-size: 14px;
+      line-height: 18px;
+      font-weight: 700;
     }
-  }
 
-  @media (max-width: 360px) {
-    .name b {
-      max-width: 136px;
+    .name small {
+      max-width: 150px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      font-size: 10px;
     }
   }
 `;
 
 export const FigmaTablePill = styled.div`
-  width: 170px;
-  height: 46px;
-  padding: 0 14px;
-  border: 1px solid #e5e8ed;
-  border-radius: 16px;
-  background: #fff;
+  min-width: 108px;
+  min-height: 34px;
+  padding: 7px 16px;
+  border: 1px solid var(--primary);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--primary) 8%, #fff);
   display: inline-flex;
   align-items: center;
-  gap: 12px;
-  color: #0f1113;
-  font-size: 14px;
-  font-weight: 650;
+  justify-content: center;
+  gap: 6px;
+  color: var(--primary);
+  font-size: 13px;
+  font-weight: 700;
 
   svg {
-    width: 24px;
-    height: 24px;
-    color: var(--primary);
+    width: 14px;
+    height: 14px;
   }
 
   @media (max-width: 759px) {
-    width: 96px;
-    height: 42px;
-    padding: 0 11px;
-    gap: 6px;
-    font-size: 13px;
+    min-width: 91px;
+    min-height: 30px;
+    padding: 6px 12px;
+    gap: 4px;
+    font-size: 11px;
+  }
+`;
 
-    svg {
-      width: 22px;
-      height: 22px;
+export const MenuHero = styled.section`
+  position: relative;
+  width: 100%;
+  height: 320px;
+  overflow: hidden;
+  color: #fff;
+
+  .hero-bg {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .hero-overlay {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(168deg, rgba(0, 0, 0, 0.2) 24%, rgba(0, 0, 0, 0.5) 78%);
+  }
+
+  .copy {
+    position: relative;
+    z-index: 2;
+    width: min(760px, calc(100% - 160px));
+    height: 100%;
+    margin-left: 80px;
+    padding: 56px 0;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .eyebrow {
+    color: var(--primary);
+    font-size: 13px;
+    line-height: 18px;
+    font-weight: 700;
+    letter-spacing: 2px;
+  }
+
+  h1 {
+    width: min(760px, 100%);
+    margin: 12px 0 0;
+    color: #fff;
+    font-size: 48px;
+    line-height: 1.1;
+    font-weight: 800;
+    letter-spacing: -0.5px;
+    text-shadow: 0 2px 10px rgba(0, 0, 0, 0.65);
+  }
+
+  p {
+    width: min(700px, 100%);
+    margin: 10px 0 0;
+    color: rgba(250, 250, 248, 0.78);
+    font-size: 16px;
+    line-height: 22px;
+    font-weight: 500;
+  }
+
+  .cta {
+    min-height: 42px;
+    margin-top: auto;
+    padding: 0 24px;
+    border: 0;
+    border-radius: 999px;
+    background: var(--primary);
+    color: #fff;
+    font-size: 15px;
+    font-weight: 700;
+  }
+
+  .indicators {
+    position: absolute;
+    z-index: 3;
+    top: 12px;
+    left: 40px;
+    right: 40px;
+    height: 4px;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(30px, 1fr));
+    gap: 6px;
+  }
+
+  .indicators button {
+    height: 4px;
+    padding: 0;
+    border: 0;
+    border-radius: 2px;
+    background: rgba(255, 255, 255, 0.35);
+  }
+
+  .indicators button.active {
+    background: rgba(255, 255, 255, 0.95);
+  }
+
+  @media (max-width: 759px) {
+    height: 210px;
+
+    .copy {
+      width: 100%;
+      margin: 0;
+      padding: 20px;
+    }
+
+    .eyebrow {
+      max-width: 320px;
+      font-size: 10px;
+      line-height: 14px;
+      letter-spacing: 1.5px;
+    }
+
+    h1 {
+      width: 320px;
+      max-width: 92%;
+      margin-top: 4px;
+      font-size: 26px;
+      line-height: 1.2;
+    }
+
+    p {
+      max-width: 230px;
+      margin-top: auto;
+      font-size: 13px;
+      line-height: 17px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .cta {
+      position: absolute;
+      right: 20px;
+      bottom: 20px;
+      min-height: 32px;
+      padding: 0 16px;
+      font-size: 12px;
+    }
+
+    .indicators {
+      top: 8px;
+      left: 20px;
+      right: 20px;
+      height: 3px;
+      gap: 4px;
+    }
+
+    .indicators button {
+      height: 3px;
     }
   }
 `;
@@ -250,10 +415,14 @@ export const FigmaTablePill = styled.div`
 export const MenuPage = styled.section`
   width: min(1440px, 100%);
   margin: 0 auto;
-  padding: 28px 40px 72px;
+  padding: 40px 80px 64px;
+  display: flex;
+  flex-direction: column;
+  gap: 40px;
 
   @media (max-width: 759px) {
-    padding: 0 20px 52px;
+    padding: 20px;
+    gap: 20px;
   }
 
   @media (max-width: 359px) {
@@ -261,449 +430,36 @@ export const MenuPage = styled.section`
   }
 `;
 
-export const MenuHero = styled.section`
-  position: relative;
+export const SearchCategoryRow = styled.div`
   width: 100%;
-  height: 310px;
-  overflow: hidden;
-  border-radius: 22px;
-  background:
-    linear-gradient(
-      116deg,
-      color-mix(in srgb, var(--primary) 24%, #140604) 0%,
-      color-mix(in srgb, var(--primary) 72%, #751305) 48%,
-      color-mix(in srgb, var(--primary) 64%, #ff570a) 100%
-    );
-  color: #fff;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 24px;
+  align-items: center;
 
-  .copy {
-    position: relative;
-    z-index: 4;
-    width: 610px;
-    height: 100%;
-    padding: 36px 34px 26px;
+  @media (max-width: 759px) {
     display: flex;
     flex-direction: column;
-    align-items: flex-start;
-  }
-
-  .eyebrow {
-    color: #ffc7c7;
-    font-size: 12px;
-    line-height: 24px;
-    font-weight: 800;
-    letter-spacing: 0.01em;
-  }
-
-  h1 {
-    width: 560px;
-    margin: 10px 0 0;
-    color: #fff;
-    font-size: 50px;
-    line-height: 1.02;
-    font-weight: 800;
-    letter-spacing: -0.035em;
-  }
-
-  p {
-    width: 500px;
-    margin: 22px 0 0;
-    color: #ffede8;
-    font-size: 16px;
-    line-height: 24px;
-  }
-
-  .cta {
-    width: 180px;
-    height: 46px;
-    margin-top: auto;
-    padding: 0 16px;
-    border: 0;
-    border-radius: 14px;
-    background: var(--primary);
-    color: #fff;
-    display: grid;
-    place-items: center;
-    font-size: 14px;
-    font-weight: 650;
-  }
-
-  .hero-media {
-    position: absolute;
-    z-index: 2;
-    right: 155px;
-    top: 43px;
-    width: 382px;
-    height: 382px;
-    display: grid;
-    place-items: center;
-  }
-
-  .hero-media .halo {
-    position: absolute;
-    border-radius: 50%;
-    border: 1px solid rgba(255, 255, 255, 0.16);
-    background: rgba(255, 255, 255, 0.05);
-  }
-
-  .hero-media .halo-one {
-    width: 381px;
-    height: 381px;
-  }
-
-  .hero-media .halo-two {
-    width: 272px;
-    height: 272px;
-    background: rgba(255, 255, 255, 0.08);
-  }
-
-  .hero-media img {
-    position: relative;
-    z-index: 2;
-    width: 272px;
-    height: 272px;
-    border-radius: 50%;
-    object-fit: cover;
-    box-shadow: 0 16px 36px rgba(0, 0, 0, 0.16);
-  }
-
-  .indicators {
-    position: absolute;
-    z-index: 6;
-    right: 18px;
-    bottom: 14px;
-    display: inline-flex;
-    gap: 5px;
-  }
-
-  .indicators button {
-    width: 18px;
-    height: 4px;
-    padding: 0;
-    border: 0;
-    border-radius: 999px;
-    background: rgba(255, 255, 255, 0.42);
-  }
-
-  .indicators button.active {
-    background: #fff;
-  }
-
-  @media (max-width: 759px) {
-    height: 212px;
-    border-radius: 18px;
-
-    .copy {
-      width: 250px;
-      padding: 18px;
-    }
-
-    .eyebrow {
-      font-size: 10.5px;
-      line-height: 24px;
-    }
-
-    h1 {
-      width: 230px;
-      margin-top: 4px;
-      font-size: 29px;
-      line-height: 1.05;
-    }
-
-    p {
-      width: 230px;
-      margin-top: 14px;
-      font-size: 11.5px;
-      line-height: 17px;
-      display: -webkit-box;
-      -webkit-line-clamp: 2;
-      -webkit-box-orient: vertical;
-      overflow: hidden;
-    }
-
-    .cta {
-      width: 136px;
-      height: 36px;
-      border-radius: 12px;
-      font-size: 12px;
-    }
-
-    .hero-media {
-      right: 28px;
-      top: 38px;
-      width: 140px;
-      height: 140px;
-    }
-
-    .hero-media .halo-one {
-      width: 140px;
-      height: 140px;
-    }
-
-    .hero-media .halo-two {
-      width: 112px;
-      height: 112px;
-    }
-
-    .hero-media img {
-      width: 84px;
-      height: 84px;
-    }
-
-    .indicators {
-      right: 10px;
-      bottom: 8px;
-    }
-  }
-`;
-
-export const SectionHeading = styled.header`
-  min-height: 34px;
-  margin: 30px 12px 18px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-
-  .title {
-    min-width: 0;
-    display: grid;
-    gap: 2px;
-  }
-
-  h2 {
-    margin: 0;
-    color: #0f1113;
-    font-size: 28px;
-    line-height: 34px;
-    font-weight: 800;
-    letter-spacing: -0.025em;
-  }
-
-  p {
-    margin: 0;
-    color: var(--muted);
-    font-size: 11px;
-  }
-
-  button {
-    flex: 0 0 auto;
-    padding: 0;
-    border: 0;
-    background: transparent;
-    color: var(--primary);
-    display: inline-flex;
-    align-items: center;
-    gap: 3px;
-    font-size: 13px;
-    font-weight: 650;
-  }
-
-  @media (max-width: 759px) {
-    min-height: 25px;
-    margin: 20px 0 9px;
-
-    h2 {
-      font-size: 21px;
-      line-height: 25px;
-    }
-
-    p {
-      font-size: 10px;
-    }
-
-    button {
-      font-size: 12px;
-    }
-  }
-`;
-
-export const ComboRail = styled.div`
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 310px));
-  gap: 20px;
-  padding: 0 12px;
-  overflow-x: auto;
-  scrollbar-width: none;
-  scroll-snap-type: x proximity;
-
-  &::-webkit-scrollbar {
-    display: none;
-  }
-
-  @media (max-width: 1120px) and (min-width: 760px) {
-    grid-auto-flow: column;
-    grid-template-columns: none;
-    grid-auto-columns: 310px;
-  }
-
-  @media (max-width: 759px) {
-    margin-right: -20px;
-    padding: 0 20px 0 0;
-    grid-auto-flow: column;
-    grid-template-columns: none;
-    grid-auto-columns: 165px;
+    align-items: stretch;
     gap: 12px;
   }
 `;
 
-export const ComboCard = styled.article<{ $hasImage?: boolean }>`
-  position: relative;
-  width: 100%;
-  height: 224px;
-  overflow: hidden;
-  border: 1px solid #e5e8ed;
-  border-radius: 18px;
-  background: #fff;
-  scroll-snap-align: start;
-
-  .media {
-    height: 118px;
-    overflow: hidden;
-    background: var(--soft);
-  }
-
-  .media img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-  }
-
-  .copy {
-    padding: ${({ $hasImage }) => ($hasImage ? '11px 48px 10px 15px' : '26px 48px 16px 15px')};
-    display: grid;
-    align-content: start;
-    gap: 3px;
-  }
-
-  h3 {
-    margin: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    color: #0f1113;
-    font-size: 16px;
-    line-height: 24px;
-    font-weight: 800;
-  }
-
-  p {
-    margin: -1px 0 0;
-    color: #6b7380;
-    font-size: 11px;
-    line-height: 18px;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-
-  .price {
-    margin-top: 6px;
-    color: var(--primary);
-    font-size: 18px;
-    line-height: 24px;
-    font-weight: 800;
-  }
-
-  .main {
-    position: absolute;
-    inset: 0;
-    z-index: 2;
-    border: 0;
-    background: transparent;
-  }
-
-  .add {
-    position: absolute;
-    z-index: 3;
-    right: 14px;
-    bottom: 13px;
-    width: 32px;
-    height: 32px;
-    padding: 0;
-    border: 0;
-    border-radius: 10px;
-    background: var(--primary);
-    color: #fff;
-    display: grid;
-    place-items: center;
-  }
-
-  .main:disabled,
-  .add:disabled {
-    opacity: 0.45;
-  }
-
-  @media (max-width: 759px) {
-    height: 192px;
-
-    .media {
-      height: 96px;
-    }
-
-    .copy {
-      padding: ${({ $hasImage }) => ($hasImage ? '9px 42px 9px 11px' : '20px 42px 14px 11px')};
-      gap: 0;
-    }
-
-    h3 {
-      font-size: 14px;
-      line-height: 22px;
-    }
-
-    p {
-      font-size: 10.5px;
-      line-height: 18px;
-    }
-
-    .price {
-      margin-top: 4px;
-      font-size: 16px;
-      line-height: 24px;
-    }
-
-    .add {
-      width: 30px;
-      height: 30px;
-      right: 12px;
-      bottom: 12px;
-    }
-
-    .add svg {
-      width: 20px;
-      height: 20px;
-    }
-  }
-`;
-
-export const SearchCategoryRow = styled.div`
-  margin: 28px 12px 0;
-  display: grid;
-  grid-template-columns: minmax(0, 1000px) auto;
-  gap: 28px;
-  align-items: center;
-
-  @media (max-width: 759px) {
-    margin: 16px 0 0;
-    display: block;
-  }
-`;
-
 export const MenuSearch = styled.label`
-  height: 54px;
+  min-height: 48px;
   padding: 0 16px;
-  border: 1px solid #e5e8ed;
-  border-radius: 16px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
   background: #fff;
   display: grid;
-  grid-template-columns: 24px minmax(0, 1fr);
+  grid-template-columns: 16px minmax(0, 1fr);
   align-items: center;
-  gap: 16px;
-  color: #0f1113;
+  gap: 12px;
 
   svg {
-    width: 24px;
-    height: 24px;
+    width: 16px;
+    height: 16px;
+    color: var(--text);
   }
 
   input {
@@ -712,25 +468,19 @@ export const MenuSearch = styled.label`
     border: 0;
     outline: 0;
     background: transparent;
-    color: #0f1113;
-    font-size: 13px;
+    color: var(--text);
+    font-size: 14px;
   }
 
   input::placeholder {
-    color: #6b7380;
+    color: var(--muted);
     opacity: 1;
   }
 
   @media (max-width: 759px) {
-    height: 50px;
+    min-height: 42px;
     padding: 0 14px;
-    grid-template-columns: 23px minmax(0, 1fr);
-    gap: 13px;
-
-    svg {
-      width: 23px;
-      height: 23px;
-    }
+    border-radius: 14px;
 
     input {
       font-size: 13px;
@@ -741,7 +491,8 @@ export const MenuSearch = styled.label`
 export const CategoryRail = styled.div`
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
+  max-width: 540px;
   overflow-x: auto;
   scrollbar-width: none;
 
@@ -750,100 +501,303 @@ export const CategoryRail = styled.div`
   }
 
   @media (max-width: 759px) {
-    gap: 12px;
-    margin-top: 14px;
+    max-width: none;
+    width: calc(100% + 20px);
     margin-right: -20px;
     padding-right: 20px;
   }
 `;
 
 export const CategoryPill = styled.button<{ $active?: boolean }>`
-  width: 84px;
-  height: 54px;
-  flex: 0 0 84px;
-  padding: 0 8px;
-  border: 1px solid ${({ $active }) => ($active ? 'var(--primary)' : '#e5e8ed')};
-  border-radius: 14px;
-  background: ${({ $active }) =>
-    $active ? 'color-mix(in srgb, var(--primary) 7%, #fff)' : '#fff'};
-  color: ${({ $active }) => ($active ? 'var(--primary)' : '#0f1113')};
-  display: grid;
-  place-items: center;
+  min-height: 36px;
+  padding: 0 20px;
+  flex: 0 0 auto;
+  border: 1px solid ${({ $active }) => ($active ? 'var(--primary)' : 'var(--line)')};
+  border-radius: 999px;
+  background: ${({ $active }) => ($active ? 'var(--primary)' : '#fff')};
+  color: ${({ $active }) => ($active ? '#fff' : 'var(--text)')};
   font-size: 12px;
-  font-weight: 650;
+  font-weight: ${({ $active }) => ($active ? 700 : 500)};
   white-space: nowrap;
 
   @media (max-width: 759px) {
-    width: 80px;
-    height: 46px;
-    flex-basis: 80px;
-    font-size: 11.5px;
+    min-height: 32px;
+    padding: 0 14px;
+  }
+`;
+
+export const SectionHeading = styled.header`
+  width: 100%;
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 16px;
+
+  .title {
+    min-width: 0;
+    display: grid;
+    gap: 4px;
+  }
+
+  h2 {
+    margin: 0;
+    color: var(--text);
+    font-size: 32px;
+    line-height: 38px;
+    font-weight: 500;
+    letter-spacing: -0.5px;
+  }
+
+  p {
+    margin: 0;
+    color: var(--muted);
+    font-size: 14px;
+    line-height: 18px;
+  }
+
+  button {
+    flex: 0 0 auto;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: var(--primary);
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 12px;
+    font-weight: 700;
+  }
+
+  @media (max-width: 759px) {
+    align-items: center;
+
+    h2 {
+      font-size: 22px;
+      line-height: 28px;
+    }
+
+    p {
+      display: none;
+    }
+
+    button {
+      font-size: 12px;
+    }
+  }
+`;
+
+export const ComboRail = styled.div`
+  width: 100%;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 24px;
+
+  @media (max-width: 1050px) and (min-width: 760px) {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  @media (max-width: 759px) {
+    width: calc(100% + 20px);
+    margin-right: -20px;
+    padding-right: 20px;
+    display: grid;
+    grid-auto-flow: column;
+    grid-auto-columns: 165px;
+    grid-template-columns: none;
+    gap: 12px;
+    overflow-x: auto;
+    scrollbar-width: none;
+    scroll-snap-type: x proximity;
+
+    &::-webkit-scrollbar {
+      display: none;
+    }
+  }
+`;
+
+export const ComboCard = styled.article<{ $hasImage?: boolean }>`
+  position: relative;
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: #fff;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.04);
+
+  .media {
+    height: 140px;
+    overflow: hidden;
+    background: var(--background);
+  }
+
+  .media img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .copy {
+    padding: 16px 46px 16px 16px;
+    display: grid;
+    gap: 7px;
+  }
+
+  h3 {
+    margin: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--text);
+    font-size: 15px;
+    line-height: 18px;
+    font-weight: 700;
+  }
+
+  p {
+    margin: 0;
+    color: var(--muted);
+    font-size: 12px;
+    line-height: 16px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .price {
+    margin-top: 4px;
+    color: var(--primary);
+    font-size: 16px;
+    line-height: 20px;
+    font-weight: 500;
+  }
+
+  .main {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    border: 0;
+    background: transparent;
+  }
+
+  .add {
+    position: absolute;
+    z-index: 2;
+    right: 16px;
+    bottom: 16px;
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    border: 0;
+    border-radius: 8px;
+    background: var(--primary);
+    color: #fff;
+    display: grid;
+    place-items: center;
+  }
+
+  @media (max-width: 759px) {
+    border-radius: 16px;
+
+    .media {
+      height: 96px;
+    }
+
+    .copy {
+      min-height: 92px;
+      padding: 12px 38px 12px 12px;
+      gap: 4px;
+    }
+
+    h3 {
+      font-size: 13px;
+    }
+
+    p {
+      font-size: 10px;
+    }
+
+    .price {
+      font-size: 14px;
+    }
+
+    .add {
+      right: 12px;
+      bottom: 12px;
+      width: 24px;
+      height: 24px;
+    }
+
+    .add svg {
+      width: 12px;
+      height: 12px;
+    }
   }
 `;
 
 export const TableActionsSection = styled.section`
-  margin: 32px 12px 0;
+  width: 100%;
+  display: grid;
+  gap: 16px;
 
   h2 {
-    margin: 0 0 13px;
-    color: #0f1113;
-    font-size: 24px;
-    line-height: 29px;
-    font-weight: 800;
+    margin: 0;
+    color: var(--text);
+    font-size: 22px;
+    line-height: 28px;
+    font-weight: 500;
   }
 
   @media (max-width: 759px) {
-    margin: 22px 0 0;
+    gap: 12px;
 
     h2 {
-      margin-bottom: 8px;
-      font-size: 19px;
-      line-height: 23px;
+      font-size: 20px;
+      line-height: 24px;
     }
   }
 `;
 
 export const TableActionsGrid = styled.div`
   display: grid;
-  grid-template-columns: repeat(3, 250px);
-  gap: 18px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
 
   @media (max-width: 759px) {
-    grid-template-columns: repeat(3, minmax(0, 110px));
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 10px;
   }
 `;
 
 export const TableActionCard = styled.button`
-  height: 74px;
-  padding: 0 17px;
-  border: 1px solid #e5e8ed;
-  border-radius: 16px;
+  min-height: 62px;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
   background: #fff;
-  display: grid;
-  grid-template-columns: 24px minmax(0, 1fr);
-  gap: 16px;
+  display: flex;
   align-items: center;
-  color: #0f1113;
+  gap: 10px;
+  color: var(--text);
   text-align: left;
 
   .icon {
-    width: 24px;
-    height: 24px;
-    color: var(--primary);
+    width: 20px;
+    height: 20px;
+    flex: 0 0 20px;
+    color: var(--text);
     display: grid;
     place-items: center;
   }
 
   .icon svg {
-    width: 24px;
-    height: 24px;
+    width: 18px;
+    height: 18px;
   }
 
   .copy {
     min-width: 0;
     display: grid;
-    gap: 5px;
+    gap: 2px;
   }
 
   b {
@@ -852,43 +806,36 @@ export const TableActionCard = styled.button`
     white-space: nowrap;
     font-size: 13px;
     line-height: 16px;
-    font-weight: 650;
+    font-weight: 700;
   }
 
   small {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    color: #6b7380;
+    color: var(--muted);
     font-size: 10.5px;
-    line-height: 13px;
   }
 
   &:hover,
   &:focus-visible {
-    border-color: color-mix(in srgb, var(--primary) 55%, #e5e8ed);
+    border-color: var(--primary);
   }
 
   @media (max-width: 759px) {
-    height: 50px;
-    padding: 0 9px;
-    border-radius: 14px;
-    grid-template-columns: 22px minmax(0, 1fr);
+    min-height: 44px;
+    padding: 12px;
+    justify-content: flex-start;
     gap: 8px;
 
-    .icon,
-    .icon svg {
-      width: 22px;
-      height: 22px;
-    }
-
-    .copy {
-      gap: 0;
+    .icon {
+      width: 18px;
+      height: 18px;
+      flex-basis: 18px;
     }
 
     b {
-      font-size: 10.5px;
-      line-height: 24px;
+      font-size: 11px;
     }
 
     small {
@@ -898,12 +845,10 @@ export const TableActionCard = styled.button`
 `;
 
 export const CatalogSection = styled.section`
-  scroll-margin-top: 92px;
-  margin: 48px 12px 0;
-
-  @media (max-width: 759px) {
-    margin: 42px 0 0;
-  }
+  scroll-margin-top: 90px;
+  width: 100%;
+  display: grid;
+  gap: 20px;
 `;
 
 export const CatalogGrid = styled.div`
@@ -919,25 +864,20 @@ export const CatalogGrid = styled.div`
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 10px;
   }
-
-  @media (max-width: 350px) {
-    grid-template-columns: 1fr;
-  }
 `;
 
 export const CatalogCard = styled.article<{ $hasImage?: boolean }>`
   position: relative;
   min-width: 0;
-  min-height: ${({ $hasImage }) => ($hasImage ? '0' : '132px')};
   overflow: hidden;
-  border: 1px solid #e5e8ed;
-  border-radius: 18px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
   background: #fff;
 
   .media {
-    height: 158px;
+    height: 150px;
     overflow: hidden;
-    background: var(--soft);
+    background: var(--background);
   }
 
   .media img {
@@ -947,23 +887,24 @@ export const CatalogCard = styled.article<{ $hasImage?: boolean }>`
   }
 
   .copy {
-    padding: ${({ $hasImage }) => ($hasImage ? '12px 48px 14px 14px' : '22px 48px 18px 14px')};
+    min-height: 108px;
+    padding: 14px 44px 14px 14px;
     display: grid;
-    gap: 5px;
+    align-content: start;
+    gap: 4px;
   }
 
   h3 {
     margin: 0;
-    color: #0f1113;
-    font-size: 15px;
-    line-height: 19px;
-    font-weight: 750;
+    color: var(--text);
+    font-size: 14px;
+    line-height: 18px;
+    font-weight: 700;
   }
 
   p {
     margin: 0;
-    min-height: 30px;
-    color: #6b7380;
+    color: var(--muted);
     font-size: 11px;
     line-height: 15px;
     display: -webkit-box;
@@ -974,13 +915,12 @@ export const CatalogCard = styled.article<{ $hasImage?: boolean }>`
 
   .price {
     color: var(--primary);
-    font-size: 16px;
-    line-height: 20px;
-    font-weight: 800;
+    font-size: 15px;
+    font-weight: 600;
   }
 
   .original {
-    color: #9298a3;
+    color: #9292a3;
     font-size: 10px;
     text-decoration: line-through;
   }
@@ -988,21 +928,21 @@ export const CatalogCard = styled.article<{ $hasImage?: boolean }>`
   .main {
     position: absolute;
     inset: 0;
-    z-index: 2;
+    z-index: 1;
     border: 0;
     background: transparent;
   }
 
   .add {
     position: absolute;
-    z-index: 3;
+    z-index: 2;
     right: 12px;
     bottom: 12px;
-    width: 32px;
-    height: 32px;
+    width: 28px;
+    height: 28px;
     padding: 0;
     border: 0;
-    border-radius: 10px;
+    border-radius: 8px;
     background: var(--primary);
     color: #fff;
     display: grid;
@@ -1010,47 +950,43 @@ export const CatalogCard = styled.article<{ $hasImage?: boolean }>`
   }
 
   @media (max-width: 759px) {
-    border-radius: 14px;
-
     .media {
-      height: 112px;
+      height: 100px;
     }
 
     .copy {
-      padding: ${({ $hasImage }) => ($hasImage ? '10px 40px 11px 10px' : '15px 40px 15px 10px')};
+      min-height: 94px;
+      padding: 11px 38px 11px 11px;
     }
 
     h3 {
       font-size: 12px;
-      line-height: 16px;
     }
 
     p {
-      min-height: 26px;
       font-size: 9.5px;
-      line-height: 13px;
+      -webkit-line-clamp: 1;
     }
 
     .price {
-      font-size: 14px;
-      line-height: 18px;
+      font-size: 13px;
     }
 
     .add {
-      width: 28px;
-      height: 28px;
-      right: 9px;
-      bottom: 9px;
+      width: 24px;
+      height: 24px;
+      right: 10px;
+      bottom: 10px;
     }
   }
 `;
 
 export const EmptyCatalog = styled.div`
-  padding: 26px 18px;
-  border: 1px dashed #d9dde3;
+  padding: 24px;
+  border: 1px dashed var(--line);
   border-radius: 16px;
   background: #fff;
-  color: #6b7380;
+  color: var(--muted);
   text-align: center;
   font-size: 13px;
 `;
