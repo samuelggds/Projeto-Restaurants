@@ -131,6 +131,7 @@ export default function Home() {
   const [tableServiceLoading, setTableServiceLoading] = useState<'WAITER' | 'BILL' | null>(null);
   const [tableOrderLoading, setTableOrderLoading] = useState(false);
   const [tableAccountOpen, setTableAccountOpen] = useState(false);
+  const [tableMenuReviewCartSignal, setTableMenuReviewCartSignal] = useState(0);
 
   useEffect(() => {
     if (!cartOpen) return undefined;
@@ -814,6 +815,10 @@ export default function Home() {
       orderingBlocked={tableClosingRequested}
       onReviewDraft={() => {
         setTableAccountOpen(false);
+        if (mesaMode) {
+          setTableMenuReviewCartSignal((value) => value + 1);
+          return;
+        }
         cartReturnFocusRef.current = document.activeElement as HTMLElement | null;
         setCartOpen(true);
       }}
@@ -958,6 +963,7 @@ export default function Home() {
         onReconcilePayment={tableAccount.reconcilePayment}
         onCancelPayment={tableAccount.cancelPayment}
         onOpenTableAccount={openTableAccount}
+        reviewCartSignal={tableMenuReviewCartSignal}
       />
       {tableAccountPanel}
       </>
