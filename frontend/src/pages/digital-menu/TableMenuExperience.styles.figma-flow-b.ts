@@ -3,7 +3,7 @@ import { FlowCard, OrderSummaryBar } from './TableMenuExperience.styles.figma-fl
 
 export const PaymentCard = styled(FlowCard)`
   width: min(720px, 100%);
-  margin: 32px auto 0;
+  margin: 155px auto 0;
   padding: 40px;
   display: grid;
   gap: 32px;
@@ -154,7 +154,7 @@ export const PaymentSummary = styled(OrderSummaryBar)`
 
 export const PixLayout = styled.div`
   width: min(640px, 100%);
-  margin: 32px auto 0;
+  margin: 85px auto 0;
 
   @media (max-width: 759px) {
     margin-top: 0;
@@ -220,7 +220,7 @@ export const PixQrCard = styled(FlowCard)`
   }
 
   @media (max-width: 759px) {
-    padding: 20px 0;
+    padding: 0;
     border: 0;
     background: transparent;
     box-shadow: none;
@@ -341,7 +341,7 @@ export const HowToPayCard = styled(FlowCard)`
 
 export const PaymentSuccessLayout = styled.div`
   width: min(600px, 100%);
-  margin: 32px auto 0;
+  margin: 70px auto 0;
 
   @media (max-width: 759px) {
     margin-top: 0;
@@ -419,7 +419,7 @@ export const PaymentSuccessMain = styled(FlowCard)`
   }
 
   @media (max-width: 759px) {
-    padding: 24px 0;
+    padding: 4px 0 0;
     border: 0;
     background: transparent;
     box-shadow: none;
