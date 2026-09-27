@@ -561,6 +561,13 @@ export default function TableMenuExperience({
                 <S.EmptyCatalog>Os itens aparecerão aqui assim que houver um pedido ativo.</S.EmptyCatalog>
               )}
 
+              {accountSnapshot ? (
+                <div className="account-total">
+                  <span>Consumo total</span>
+                  <strong>{centsToBrl(accountSnapshot.summary.consumedCents)}</strong>
+                </div>
+              ) : null}
+
               {waiterCallEnabled ? (
                 <S.PrimaryAction type="button" onClick={onCallWaiter}>
                   <Bell size={17} /> Chamar garçom para mesa
