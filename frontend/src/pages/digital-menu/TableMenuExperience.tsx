@@ -54,6 +54,7 @@ type Props = {
   onReconcilePayment: (paymentPublicId: string) => Promise<TablePaymentIntent | null>;
   onCancelPayment: (paymentPublicId: string) => Promise<boolean>;
   onOpenTableAccount: () => void;
+  reviewCartSignal?: number;
 };
 
 type View = 'menu' | 'cart' | 'confirmation' | 'tracking' | 'pix';
@@ -81,6 +82,7 @@ export default function TableMenuExperience({
   onReconcilePayment,
   onCancelPayment,
   onOpenTableAccount,
+  reviewCartSignal = 0,
 }: Props) {
   const [view, setView] = useState<View>('menu');
   const [query, setQuery] = useState('');
@@ -152,6 +154,10 @@ export default function TableMenuExperience({
     const interval = window.setInterval(() => setNow(Date.now()), 1_000);
     return () => window.clearInterval(interval);
   }, [pixPending, pixRemainingSeconds]);
+
+  useEffect(() => {
+    if (reviewCartSignal > 0) setView('cart');
+  }, [reviewCartSignal]);
 
   useEffect(() => {
     if (!pixPending || !currentPayment?.publicId) return undefined;
@@ -544,7 +550,7 @@ export default function TableMenuExperience({
             <ArrowLeft size={18} /> Voltar ao cardápio
           </S.BackButton>
           <S.CartTitle>
-            <h1>
+            <h1 aria-label="Minha sacola">
               Seu <span>pedido</span>
             </h1>
             <p>Confira os itens do seu pedido para a mesa {tableLabel}.</p>
@@ -596,6 +602,7 @@ export default function TableMenuExperience({
               </S.SummaryTotal>
               <S.PrimaryButton
                 type="button"
+                aria-label="Enviar pedido para a cozinha"
                 disabled={!cart.length || submitting || orderingLocked}
                 onClick={() => void submitOrder()}
               >
