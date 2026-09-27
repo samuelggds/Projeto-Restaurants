@@ -769,6 +769,15 @@ export default function TableMenuExperience({
   }
 
   const activeBanner = data.banners[bannerIndex] || data.banners[0];
+  const heroTitle =
+    [activeBanner?.title, activeBanner?.highlight].filter(Boolean).join(' ') ||
+    [data.hero.title, data.hero.highlight].filter(Boolean).join(' ') ||
+    'Peça direto da mesa com praticidade';
+  const heroDescription =
+    activeBanner?.description ||
+    data.hero.description ||
+    'Seu pedido vai direto para a cozinha.';
+  const heroImage = activeBanner?.image || data.hero.image;
 
   return (
     <S.FigmaShell $primary={primary} $fontFamily={data.fontFamily}>
@@ -781,26 +790,38 @@ export default function TableMenuExperience({
       />
 
       <S.MenuPage>
-        {activeBanner ? (
-          <S.MenuHero>
-            <img src={activeBanner.image} alt="" />
-            <div className="copy">
-              <span className="eyebrow">BEM-VINDO À MESA {tableNumber(tableLabel)}</span>
-              <h1>{[activeBanner.title, activeBanner.highlight].filter(Boolean).join(' ')}</h1>
-              {activeBanner.description ? <p>{activeBanner.description}</p> : null}
-              <button className="cta" type="button" onClick={scrollToCatalog}>
-                {activeBanner.buttonLabel || 'Ver cardápio'} <ChevronRight size={20} />
-              </button>
+        <S.MenuHero>
+          <div className="copy">
+            <span className="eyebrow">BEM-VINDO À MESA {tableNumber(tableLabel)}</span>
+            <h1>{heroTitle}</h1>
+            <p>{heroDescription}</p>
+            <button className="cta" type="button" onClick={scrollToCatalog}>
+              {activeBanner?.buttonLabel || 'Ver cardápio'}
+            </button>
+          </div>
+
+          {heroImage ? (
+            <div className="hero-media" aria-hidden="true">
+              <span className="halo halo-one" />
+              <span className="halo halo-two" />
+              <img src={heroImage} alt="" />
             </div>
-            {data.banners.length > 1 ? (
-              <div className="indicators" aria-label="Banners em destaque">
-                {data.banners.map((banner, index) => (
-                  <i key={banner.id} className={index === bannerIndex ? 'active' : ''} />
-                ))}
-              </div>
-            ) : null}
-          </S.MenuHero>
-        ) : null}
+          ) : null}
+
+          {data.banners.length > 1 ? (
+            <div className="indicators" aria-label="Banners em destaque">
+              {data.banners.map((banner, index) => (
+                <button
+                  key={banner.id}
+                  type="button"
+                  aria-label={`Mostrar banner ${index + 1}`}
+                  className={index === bannerIndex ? 'active' : ''}
+                  onClick={() => setBannerIndex(index)}
+                />
+              ))}
+            </div>
+          ) : null}
+        </S.MenuHero>
 
         {combos.length ? (
           <>
@@ -824,56 +845,59 @@ export default function TableMenuExperience({
           </>
         ) : null}
 
-        <S.MenuSearch>
-          <Search size={21} />
-          <input
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            placeholder="Buscar no cardápio"
-            aria-label="Buscar no cardápio"
-          />
-        </S.MenuSearch>
+        <S.SearchCategoryRow>
+          <S.MenuSearch>
+            <Search size={21} />
+            <input
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder="Buscar pratos, bebidas, sobremesas..."
+              aria-label="Buscar no cardápio"
+            />
+          </S.MenuSearch>
 
-        {realCategories.length ? (
-          <S.CategoryRail aria-label="Categorias do cardápio">
-            {realCategories.map((category) => (
-              <S.CategoryPill
-                key={category.id}
-                type="button"
-                $active={selectedCategory === category.id}
-                onClick={() =>
-                  setSelectedCategory((current) => (current === category.id ? 'todos' : category.id))
-                }
-              >
-                {category.image ? <img src={category.image} alt="" /> : null}
-                <span>{category.name}</span>
-              </S.CategoryPill>
-            ))}
-          </S.CategoryRail>
-        ) : null}
+          {realCategories.length ? (
+            <S.CategoryRail aria-label="Categorias do cardápio">
+              {realCategories.slice(0, 4).map((category) => (
+                <S.CategoryPill
+                  key={category.id}
+                  type="button"
+                  $active={selectedCategory === category.id}
+                  onClick={() =>
+                    setSelectedCategory((current) =>
+                      current === category.id ? 'todos' : category.id,
+                    )
+                  }
+                >
+                  <span>{category.name}</span>
+                </S.CategoryPill>
+              ))}
+            </S.CategoryRail>
+          ) : null}
+        </S.SearchCategoryRow>
 
         <S.TableActionsSection>
           <h2>Ações da mesa</h2>
           <S.TableActionsGrid>
             <S.TableActionCard type="button" onClick={() => setView('cart')}>
               <span className="icon"><ClipboardList size={20} /></span>
-              <span className="copy"><b>Meu pedido</b><small>Veja e edite itens</small></span>
-              <ChevronRight size={17} />
+              <span className="copy">
+                <b>Meu pedido</b>
+                <small>{cartCount > 0 ? `${cartCount} ${cartCount === 1 ? 'item' : 'itens'} · Veja e edite itens` : 'Veja e edite itens'}</small>
+              </span>
             </S.TableActionCard>
 
             {waiterCallEnabled ? (
-              <S.TableActionCard type="button" onClick={onCallWaiter}>
+              <S.TableActionCard type="button" aria-label="Chamar garçom" onClick={onCallWaiter}>
                 <span className="icon"><Bell size={20} /></span>
-                <span className="copy"><b>Garçom</b><small>Precisando de algo?</small></span>
-                <ChevronRight size={17} />
+                <span className="copy"><b>Chamar garçom</b><small>Solicite atendimento</small></span>
               </S.TableActionCard>
             ) : null}
 
             {billRequestEnabled && onRequestBill ? (
               <S.TableActionCard type="button" onClick={onRequestBill}>
                 <span className="icon"><ReceiptText size={20} /></span>
-                <span className="copy"><b>Ver conta</b><small>Fechar a mesa</small></span>
-                <ChevronRight size={17} />
+                <span className="copy"><b>Ver conta</b><small>Pagar agora ou depois</small></span>
               </S.TableActionCard>
             ) : null}
           </S.TableActionsGrid>
