@@ -286,7 +286,11 @@ export default function Home() {
   });
 
   const catalogHomeData = useMemo(
-    () => buildHomeData(backendProducts, settings, new Date(), { allowImageFallbacks: !mesaMode }),
+    () =>
+      buildHomeData(backendProducts, settings, new Date(), {
+        allowImageFallbacks: !mesaMode,
+        useLegacyBannerCopy: !mesaMode,
+      }),
     [backendProducts, mesaMode, settings],
   );
   const homeIsOpen = useMemo(
@@ -876,11 +880,14 @@ export default function Home() {
         accountSnapshot={tableAccount.snapshot}
         activePayment={tableAccount.snapshot?.activePayment || null}
         paymentLoading={tableAccount.actionLoading}
+        waiterCallEnabled={tableSession?.waiterCallEnabled !== false}
+        billRequestEnabled={tableSession?.billRequestEnabled !== false}
         onAddProduct={addToCart}
         onIncrease={increaseCart}
         onDecrease={decreaseCart}
         onSubmitOrder={addOrderToTableAccount}
         onCallWaiter={() => void requestTableService('WAITER')}
+        onRequestBill={() => void requestTableService('BILL')}
         onCreatePixPayment={createPixPaymentForOrder}
         onReconcilePayment={tableAccount.reconcilePayment}
         onCancelPayment={tableAccount.cancelPayment}

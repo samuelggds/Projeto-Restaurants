@@ -172,7 +172,7 @@ function optionalBannerText(value: unknown) {
   return normalized || undefined;
 }
 
-export function mapHomeBanners(values: unknown[]): HomeBanner[] {
+export function mapHomeBanners(values: unknown[], useLegacyCopy = true): HomeBanner[] {
   return values
     .map<HomeBanner | null>((value, index) => {
       const banner = asRecord(value);
@@ -195,7 +195,8 @@ export function mapHomeBanners(values: unknown[]): HomeBanner[] {
       const highlight = optionalBannerText(banner.highlight);
       const description = optionalBannerText(banner.description);
       const buttonLabel = optionalBannerText(banner.buttonLabel);
-      const isLegacyMainBanner = storedTitle === 'Banner principal' && !highlight && !description;
+      const isLegacyMainBanner =
+        useLegacyCopy && storedTitle === 'Banner principal' && !highlight && !description;
 
       return {
         id,
@@ -256,14 +257,15 @@ export function buildHomeData(
   productsFromApi: Record<string, unknown>[],
   settings: Record<string, unknown> | null,
   date = new Date(),
-  options: { allowImageFallbacks?: boolean } = {},
+  options: { allowImageFallbacks?: boolean; useLegacyBannerCopy?: boolean } = {},
 ): HomeData {
   const allowImageFallbacks = options.allowImageFallbacks !== false;
+  const useLegacyBannerCopy = options.useLegacyBannerCopy !== false;
   const restaurant = (settings?.restaurant as Record<string, unknown>) ?? {};
   const persistedBanners = Array.isArray(restaurant.banners)
     ? (restaurant.banners as Record<string, unknown>[])
     : [];
-  const banners = mapHomeBanners(persistedBanners);
+  const banners = mapHomeBanners(persistedBanners, useLegacyBannerCopy);
   const firstBanner = banners[0];
   const hero = firstBanner
     ? {
