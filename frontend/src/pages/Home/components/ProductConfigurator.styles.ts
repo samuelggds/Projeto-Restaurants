@@ -786,7 +786,7 @@ export const Observation = styled.label`
   }
 `;
 
-export const BottomBar = styled.div`
+export const BottomBar = styled.div<{ $stickyOnMobile?: boolean }>`
   position: static;
   z-index: 4;
   margin-top: 3px;
@@ -838,8 +838,8 @@ export const BottomBar = styled.div`
   }
 
   @media (max-width: 620px) {
-    position: sticky;
-    bottom: 0;
+    position: ({ $stickyOnMobile }) => ($stickyOnMobile ? 'sticky' : 'static');
+    bottom: ({ $stickyOnMobile }) => ($stickyOnMobile ? '0' : 'auto');
     width: 100%;
     min-width: 0;
     margin: 3px 0 0;
