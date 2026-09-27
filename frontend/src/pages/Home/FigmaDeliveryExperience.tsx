@@ -21,8 +21,6 @@ import * as S from './FigmaDeliveryExperience.styles';
 const money = (value: number) =>
   value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
-const EMPTY_FAVORITES: string[] = [];
-
 function productImage(product: HomeProduct) {
   return product.image ? <img src={product.image} alt={product.name} loading="lazy" decoding="async" /> : <UtensilsCrossed />;
 }
@@ -48,7 +46,6 @@ export function FigmaDeliveryExperience({
   cartCount = 0,
   userName,
   userLoggedIn = false,
-  favoriteProductIds = EMPTY_FAVORITES,
   onOpenProfile,
   onOpenCart,
   onAddProduct,
