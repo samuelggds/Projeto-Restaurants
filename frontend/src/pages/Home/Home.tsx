@@ -493,11 +493,7 @@ export default function Home() {
     providerReturnStatus: cardProviderReturnStatus,
     onPaymentConfirmed: async () => {
       await loyalty.refresh();
-      const tableAccountPanel = (
-      {tableAccountPanel}
-  );
-
-  if (mesaMode) {
+      if (mesaMode) {
         await tableAccount.refresh({ silent: true });
         await refreshTableOrder();
       } else {
@@ -799,6 +795,31 @@ export default function Home() {
       setTableServiceLoading(null);
     }
   }
+
+  const tableAccountPanel = (
+    <TableAccountPanel
+      open={tableAccountOpen}
+      tableNumber={mesaLabel}
+      snapshot={tableAccount.snapshot}
+      loading={tableAccount.loading}
+      actionLoading={tableAccount.actionLoading}
+      error={tableAccount.error}
+      onRefresh={() => void tableAccount.refresh()}
+      onCreatePayment={tableAccount.createPayment}
+      onCancelPayment={tableAccount.cancelPayment}
+      onReconcilePayment={tableAccount.reconcilePayment}
+      onRemoveOrder={removeOwnTableOrder}
+      draftCount={cartCount}
+      draftTotal={cartTotal}
+      orderingBlocked={tableClosingRequested}
+      onReviewDraft={() => {
+        setTableAccountOpen(false);
+        cartReturnFocusRef.current = document.activeElement as HTMLElement | null;
+        setCartOpen(true);
+      }}
+      onClose={() => setTableAccountOpen(false)}
+    />
+  );
 
   if (hasCardPaymentReturn) {
     return (
