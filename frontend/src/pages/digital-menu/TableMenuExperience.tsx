@@ -90,6 +90,7 @@ export default function TableMenuExperience({
   const [view, setView] = useState<View>('menu');
   const effectiveView: View = reviewCartOpen ? 'cart' : view;
   const [query, setQuery] = useState('');
+  const [homeSearchOpen, setHomeSearchOpen] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState('todos');
   const [bannerIndex, setBannerIndex] = useState(0);
   const [selectedProduct, setSelectedProduct] = useState<HomeProduct | null>(null);
@@ -642,17 +643,19 @@ export default function TableMenuExperience({
 
   return (
     <S.Shell $primary={primary}>
-      <Header
+      <HomeHeader
         data={data}
         tableLabel={tableLabel}
         cartCount={cartCount}
+        searchOpen={homeSearchOpen}
         query={query}
         setQuery={setQuery}
+        onSearchToggle={() => setHomeSearchOpen((open) => !open)}
         onCart={() => setView('cart')}
         onOpenTableAccount={onOpenTableAccount}
         onCallWaiter={onCallWaiter}
       />
-      <S.Page>
+      <S.HomePage>
         {data.banners.length ? (() => {
           const banner = data.banners[bannerIndex] || data.banners[0];
           const previousBanner = () =>
@@ -720,6 +723,30 @@ export default function TableMenuExperience({
           );
         })() : null}
 
+        <S.HomeInfoRow>
+          <article>
+            <Utensils size={16} />
+            <span>
+              <b>Pedido na mesa</b>
+              <small>Mesa {tableLabel}</small>
+            </span>
+          </article>
+          <article>
+            <Clock3 size={16} />
+            <span>
+              <b>Acompanhe seu pedido</b>
+              <small>Status atualizado durante o preparo</small>
+            </span>
+          </article>
+        </S.HomeInfoRow>
+
+        <S.HomeSectionHeader>
+          <h2>Categorias</h2>
+          <button type="button" onClick={() => setSelectedCategory('todos')}>
+            Ver todas <ChevronRight size={14} />
+          </button>
+        </S.HomeSectionHeader>
+
         <S.CategoryStrip aria-label="Categorias do cardápio">
           {data.categories.map((category) => (
             <button
@@ -743,17 +770,20 @@ export default function TableMenuExperience({
         </S.CategoryStrip>
 
         {selectedCategory === 'todos' && featured.length ? (
-          <S.Section>
-            <header>
-              <h2>Destaques da casa</h2>
-              <button type="button" onClick={() => setSelectedCategory('todos')}>Ver todos</button>
-            </header>
-            <S.ProductGrid>
+          <S.HomeProductSection>
+            <S.HomeSectionHeader>
+              <h2>Categorias da casa</h2>
+            </S.HomeSectionHeader>
+            <S.HomeProductRail>
               {featured.map((product) => (
-                <ProductCard key={product.id} product={product} onOpen={() => openProduct(product)} />
+                <HomeProductTile
+                  key={product.id}
+                  product={product}
+                  onOpen={() => openProduct(product)}
+                />
               ))}
-            </S.ProductGrid>
-          </S.Section>
+            </S.HomeProductRail>
+          </S.HomeProductSection>
         ) : null}
 
         <div id="table-catalog">
@@ -786,7 +816,22 @@ export default function TableMenuExperience({
             </S.Section>
           )}
         </div>
-      </S.Page>
+
+        {data.banners.length > 1 ? (
+          <S.HomeBottomBanner>
+            <img
+              src={data.banners[(bannerIndex + 1) % data.banners.length].image}
+              alt=""
+            />
+            <div>
+              <b>{data.banners[(bannerIndex + 1) % data.banners.length].title}</b>
+              {data.banners[(bannerIndex + 1) % data.banners.length].description ? (
+                <small>{data.banners[(bannerIndex + 1) % data.banners.length].description}</small>
+              ) : null}
+            </div>
+          </S.HomeBottomBanner>
+        ) : null}
+      </S.HomePage>
 
       {selectedProduct ? (
         <S.ProductOverlay role="dialog" aria-modal="true">
@@ -837,6 +882,99 @@ export default function TableMenuExperience({
         />
       ) : null}
     </S.Shell>
+  );
+}
+
+function HomeHeader({
+  data,
+  tableLabel,
+  cartCount,
+  searchOpen,
+  query,
+  setQuery,
+  onSearchToggle,
+  onCart,
+  onOpenTableAccount,
+  onCallWaiter,
+}: {
+  data: HomeData;
+  tableLabel: string | number;
+  cartCount: number;
+  searchOpen: boolean;
+  query: string;
+  setQuery: (value: string) => void;
+  onSearchToggle: () => void;
+  onCart: () => void;
+  onOpenTableAccount: () => void;
+  onCallWaiter: () => void;
+}) {
+  return (
+    <S.HomeHeader>
+      <S.Brand>
+        {data.brand.logoUrl ? <img src={data.brand.logoUrl} alt={data.brand.name} /> : <S.BrandMark />}
+        <span>
+          <b>{data.brand.name}</b>
+          <small>{data.brand.category || ''}</small>
+        </span>
+      </S.Brand>
+
+      <S.HomeHeaderActions>
+        <button type="button" aria-label="Buscar no cardápio" onClick={onSearchToggle}>
+          <Search size={18} />
+        </button>
+        <button
+          type="button"
+          aria-label={`Abrir minha comanda da mesa ${tableLabel}`}
+          onClick={onOpenTableAccount}
+        >
+          <Utensils size={18} />
+        </button>
+        <button type="button" aria-label="Chamar garçom" onClick={onCallWaiter}>
+          <BellRing size={18} />
+        </button>
+        <button type="button" aria-label="Meu pedido" onClick={onCart}>
+          <ShoppingCart size={19} />
+          {cartCount > 0 ? <i>{cartCount}</i> : null}
+        </button>
+      </S.HomeHeaderActions>
+
+      {searchOpen ? (
+        <S.HomeSearch>
+          <Search size={17} />
+          <input
+            autoFocus
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder="Buscar no cardápio..."
+          />
+        </S.HomeSearch>
+      ) : null}
+    </S.HomeHeader>
+  );
+}
+
+function HomeProductTile({ product, onOpen }: { product: HomeProduct; onOpen: () => void }) {
+  return (
+    <S.HomeProductTile
+      type="button"
+      onClick={onOpen}
+      aria-label={`Ver detalhes de ${product.name}`}
+    >
+      <div className="image">
+        {product.image ? <img src={product.image} alt={product.name} /> : <S.ImagePlaceholder />}
+        {product.promotion?.active ? (
+          <S.DiscountBadge>{product.promotion.badgeLabel}</S.DiscountBadge>
+        ) : null}
+      </div>
+      <b>{product.name}</b>
+      <S.ProductPrice>
+        {product.promotion?.active && product.originalPrice > product.price ? (
+          <del>{brl(product.originalPrice)}</del>
+        ) : null}
+        <strong>{brl(product.price)}</strong>
+      </S.ProductPrice>
+      <span className="add"><Plus size={14} /></span>
+    </S.HomeProductTile>
   );
 }
 
