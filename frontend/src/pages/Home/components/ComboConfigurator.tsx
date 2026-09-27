@@ -202,16 +202,16 @@ const Dialog = styled.div<{ $primary: string }>`
   overflow: hidden;
   display: flex;
   flex-direction: column;
-  border-radius: 24px;
+  border-radius: 18px;
   background: #fff;
-  box-shadow: 0 28px 90px rgba(0,0,0,.28);
+  box-shadow: 0 24px 70px rgba(0,0,0,.24);
 
   > header {
     display: flex;
     justify-content: space-between;
     gap: 18px;
     padding: 20px 22px 15px;
-    border-bottom: 1px solid #eee8e3;
+    border-bottom: 1px solid #eeeeee;
   }
   > header span {
     display: inline-flex;
@@ -238,8 +238,8 @@ const Dialog = styled.div<{ $primary: string }>`
     gap: 15px;
     align-items: center;
     padding: 12px;
-    border-radius: 16px;
-    background: #fbf7f3;
+    border-radius: 12px;
+    background: #f8f8f8;
   }
   .hero img { width: 118px; height: 92px; border-radius: 12px; object-fit: cover; }
   .hero small, > footer small { display: block; color: #867c74; font-size: .72rem; }
@@ -306,7 +306,7 @@ const Dialog = styled.div<{ $primary: string }>`
     align-items: center;
     gap: 14px;
     padding: 14px 22px;
-    border-top: 1px solid #eee8e3;
+    border-top: 1px solid #eeeeee;
     background: #fff;
   }
   > footer > button {
