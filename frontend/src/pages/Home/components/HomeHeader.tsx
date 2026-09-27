@@ -1,4 +1,5 @@
 import {
+  Bike,
   Check,
   ChevronDown,
   Clock3,
@@ -8,6 +9,7 @@ import {
   Plus,
   Search,
   ShoppingBag,
+  Store,
   UserRound,
   X,
 } from 'lucide-react';
@@ -28,6 +30,10 @@ type Props = {
   tableLabel?: string | number;
   savedAddresses?: CustomerAddress[];
   selectedAddressId?: string;
+  allowDelivery?: boolean;
+  allowPickup?: boolean;
+  selectedOrderType?: 'delivery' | 'pickup';
+  onOrderTypeChange?: (value: 'delivery' | 'pickup') => void;
   onSelectAddress?: (addressId: string) => void;
   onManageAddresses?: () => void;
   onOpenProfile?: () => void;
@@ -53,6 +59,10 @@ export const HomeHeader = memo(function HomeHeader({
   tableLabel,
   savedAddresses = [],
   selectedAddressId,
+  allowDelivery = true,
+  allowPickup = true,
+  selectedOrderType = 'delivery',
+  onOrderTypeChange,
   onSelectAddress,
   onManageAddresses,
   onOpenProfile,
@@ -138,6 +148,33 @@ export const HomeHeader = memo(function HomeHeader({
         <BrandName>{brand.name}</BrandName>
       </Brand>
 
+      {!isTableMenu && (allowDelivery || allowPickup) && (
+        <FulfillmentSwitch aria-label="Forma de atendimento">
+          {allowDelivery && (
+            <FulfillmentButton
+              type="button"
+              $active={selectedOrderType === 'delivery'}
+              aria-pressed={selectedOrderType === 'delivery'}
+              onClick={() => onOrderTypeChange?.('delivery')}
+            >
+              <Bike size={17} aria-hidden="true" />
+              <span>Entrega</span>
+            </FulfillmentButton>
+          )}
+          {allowPickup && (
+            <FulfillmentButton
+              type="button"
+              $active={selectedOrderType === 'pickup'}
+              aria-pressed={selectedOrderType === 'pickup'}
+              onClick={() => onOrderTypeChange?.('pickup')}
+            >
+              <Store size={17} aria-hidden="true" />
+              <span>Retirada</span>
+            </FulfillmentButton>
+          )}
+        </FulfillmentSwitch>
+      )}
+
       {isTableMenu && tableLabel && (
         <TableBadge aria-label={`Mesa ${String(tableLabel)}`}>
           <span>Mesa</span>
@@ -145,7 +182,7 @@ export const HomeHeader = memo(function HomeHeader({
         </TableBadge>
       )}
 
-      {!isTableMenu && (
+      {!isTableMenu && selectedOrderType === 'delivery' && (
         <LocationWrap
           ref={locationRef}
           onKeyDown={(event) => {
@@ -515,6 +552,50 @@ const Monogram = styled.span`
     font-size: 25px;
   }
 `;
+const FulfillmentSwitch = styled.div`
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px;
+  border: 1px solid #ececec;
+  border-radius: 14px;
+  background: #f8f8f8;
+
+  @media (max-width: 1040px) {
+    grid-area: footer;
+    justify-self: start;
+  }
+
+  @media (max-width: 760px) {
+    order: 3;
+  }
+`;
+
+const FulfillmentButton = styled.button<{ $active: boolean }>`
+  min-height: 38px;
+  padding: 0 14px;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  border: 0;
+  border-radius: 10px;
+  color: ({ $active }) => ($active ? '#fff' : '#3a3a3a');
+  background: ({ $active }) => ($active ? 'var(--home-primary)' : 'transparent');
+  font: inherit;
+  font-size: 12px;
+  font-weight: 850;
+  cursor: pointer;
+  box-shadow: ({ $active }) =>
+    $active ? '0 7px 16px color-mix(in srgb, var(--home-primary) 22%, transparent)' : 'none';
+
+  @media (max-width: 520px) {
+    min-height: 34px;
+    padding-inline: 10px;
+    font-size: 11px;
+  }
+`;
+
 const LocationWrap = styled.div`
   flex: 1 1 260px;
   width: min(390px, 30vw);
