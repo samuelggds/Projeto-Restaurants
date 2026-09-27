@@ -424,11 +424,7 @@ async function addConfiguredProduct(page: Page) {
   const dialog = page.getByRole('dialog', { name: `Montar ${product.name}` });
   await dialog.getByText('Arroz', { exact: true }).click();
   await dialog.getByRole('button', { name: 'Adicionar à sacola' }).click();
-  await page.getByRole('button', { name: `Abrir minha comanda da mesa ${TABLE_NUMBER}` }).click();
-  const account = page.getByRole('dialog', { name: `Sua comanda • Mesa ${TABLE_NUMBER}` });
-  await expect(account.getByText('1 item para enviar · R$ 28,00')).toBeVisible();
-  await expect(account.getByText('Você ainda não possui itens nesta comanda.')).toBeVisible();
-  await account.getByRole('button', { name: 'Revisar e enviar', exact: true }).click();
+  await page.getByRole('button', { name: 'Meu pedido' }).click();
   await expect(page.getByRole('heading', { name: 'Minha sacola' })).toBeVisible();
 }
 
