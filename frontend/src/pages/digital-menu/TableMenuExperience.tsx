@@ -630,7 +630,12 @@ export default function TableMenuExperience({
                       <button
                         type="button"
                         aria-label={`Remover ${item.name}`}
-                        onClick={() => item.cartId && onDecrease(item.cartId)}
+                        onClick={() => {
+                          if (!item.cartId) return;
+                          for (let index = 0; index < item.quantity; index += 1) {
+                            onDecrease(item.cartId);
+                          }
+                        }}
                       >
                         <Trash2 size={14} />
                       </button>
@@ -661,19 +666,6 @@ export default function TableMenuExperience({
                         </button>
                       </S.CartReferenceQuantity>
                       <strong>{brl(item.price * item.quantity)}</strong>
-                      <button
-                        type="button"
-                        className="remove-secondary"
-                        aria-label={`Remover item ${item.name}`}
-                        onClick={() => {
-                          if (!item.cartId) return;
-                          for (let index = 0; index < item.quantity; index += 1) {
-                            onDecrease(item.cartId);
-                          }
-                        }}
-                      >
-                        <Trash2 size={14} />
-                      </button>
                     </div>
                   </div>
                 </S.CartReferenceItem>
