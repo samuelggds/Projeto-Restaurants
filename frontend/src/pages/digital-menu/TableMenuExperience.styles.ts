@@ -305,34 +305,37 @@ export const SecondaryButton = styled.button`
 
 export const CategoryStrip = styled.div`
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
   gap: 10px;
   margin: 14px 0 22px;
 
   button {
-    min-height: 64px;
-    padding: 8px 10px;
+    min-height: 72px;
+    padding: 0;
+    overflow: hidden;
     border: 1px solid var(--line);
     border-radius: 16px;
     background: #fff;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 9px;
+    display: grid;
+    grid-template-columns: 30% 1fr;
+    align-items: stretch;
+    text-align: left;
     font-weight: 850;
   }
 
   button.active {
     border-color: var(--primary);
     color: var(--primary);
-    background: color-mix(in srgb, var(--primary) 6%, white);
+    background: color-mix(in srgb, var(--primary) 5%, white);
+    box-shadow: 0 0 0 1px color-mix(in srgb, var(--primary) 28%, transparent);
   }
 
-  img, > button > span:first-child {
-    width: 38px;
-    height: 38px;
-    border-radius: 999px;
-    object-fit: cover;
+  button > span:last-child {
+    min-width: 0;
+    padding: 0 14px;
+    display: flex;
+    align-items: center;
+    line-height: 1.2;
   }
 
   @media (max-width: 700px) {
@@ -340,20 +343,42 @@ export const CategoryStrip = styled.div`
     overflow-x: auto;
     padding-bottom: 3px;
     scrollbar-width: none;
+
     button {
-      flex: 0 0 auto;
-      min-width: 78px;
-      min-height: 74px;
-      flex-direction: column;
-      font-size: 11px;
+      flex: 0 0 168px;
+      min-height: 68px;
+      grid-template-columns: 32% 1fr;
+      font-size: 12px;
       border-radius: 14px;
+    }
+
+    button > span:last-child {
+      padding: 0 10px;
     }
   }
 `;
 
-export const CategoryIcon = styled.span`
-  display: inline-block;
-  background: #f2f2f3;
+export const CategoryMedia = styled.span`
+  width: 100%;
+  height: 100%;
+  min-height: inherit;
+  overflow: hidden;
+  display: grid;
+  place-items: center;
+  background: color-mix(in srgb, var(--primary) 7%, #f5f5f6);
+  color: var(--primary);
+
+  img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  svg {
+    width: 26px;
+    height: 26px;
+    stroke-width: 1.8;
+  }
 `;
 
 export const Section = styled.section`
@@ -420,6 +445,7 @@ export const ProductCard = styled.button`
   box-shadow: 0 8px 24px rgba(25,25,27,.04);
 
   .image {
+    position: relative;
     height: 150px;
     overflow: hidden;
     background: #f1f1f2;
@@ -1347,5 +1373,40 @@ export const WaiterButton = styled.button`
     border-radius: 12px;
 
     span { display: none; }
+  }
+`;
+
+
+export const DiscountBadge = styled.span`
+  position: absolute;
+  top: 9px;
+  left: 9px;
+  z-index: 2;
+  max-width: calc(100% - 18px);
+  padding: 6px 9px;
+  border-radius: 999px;
+  background: var(--primary);
+  color: #fff;
+  font-size: 10px;
+  line-height: 1;
+  font-weight: 950;
+  box-shadow: 0 4px 12px rgba(0,0,0,.14);
+`;
+
+export const ProductPrice = styled.div`
+  display: flex;
+  align-items: baseline;
+  gap: 7px;
+  flex-wrap: wrap;
+
+  del {
+    color: #8d8d94;
+    font-size: 11px;
+    font-weight: 650;
+  }
+
+  strong {
+    color: var(--text);
+    font-size: 15px;
   }
 `;
