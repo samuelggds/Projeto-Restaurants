@@ -172,19 +172,26 @@ export function ProductConfigurator({
       data-testid="product-configurator"
       data-table-menu={tableMenuVariant ? 'true' : undefined}
     >
-      <S.Header>
-        <S.HeaderInner>
-          <button type="button" onClick={onClose}>
-            <ArrowLeft size={19} /> Voltar ao cardápio
-          </button>
-          {!tableMenuVariant && <span>Monte do seu jeito e confira antes de adicionar</span>}
-        </S.HeaderInner>
-      </S.Header>
+      {!tableMenuVariant ? (
+        <S.Header>
+          <S.HeaderInner>
+            <button type="button" onClick={onClose}>
+              <ArrowLeft size={19} /> Voltar ao cardápio
+            </button>
+            <span>Monte do seu jeito e confira antes de adicionar</span>
+          </S.HeaderInner>
+        </S.Header>
+      ) : null}
 
       <S.Layout>
         <S.ProductSummary data-product-summary>
           {tableMenuVariant ? (
-            <S.ProductFavorite aria-hidden="true">♡</S.ProductFavorite>
+            <>
+              <S.ProductBack type="button" aria-label="Voltar ao cardápio" onClick={onClose}>
+                <ArrowLeft size={19} />
+              </S.ProductBack>
+              <S.ProductFavorite aria-hidden="true">♡</S.ProductFavorite>
+            </>
           ) : null}
           {product.image ? (
             <img src={product.image} alt={product.name} decoding="async" />
@@ -194,7 +201,7 @@ export function ProductConfigurator({
             </S.ProductImagePlaceholder>
           )}
           <div>
-            <small>Personalize seu pedido</small>
+            {!tableMenuVariant ? <small>Personalize seu pedido</small> : null}
             <S.ProductTitleRow>
               <h1>{product.name}</h1>
               {Number(product.rating || 0) > 0 ? (
@@ -203,19 +210,32 @@ export function ProductConfigurator({
                 </S.ProductRating>
               ) : null}
             </S.ProductTitleRow>
+            {tableMenuVariant ? (
+              <S.TableMenuProductPrice aria-live="polite">
+                {product.promotion?.active &&
+                Number(product.originalPrice || 0) > Number(product.price || 0) ? (
+                  <del>{brl(Number(product.originalPrice))}</del>
+                ) : null}
+                <strong>
+                  {dynamicPrice ? priceLabel : brl(product.price)}
+                </strong>
+              </S.TableMenuProductPrice>
+            ) : null}
             <p>
               {product.description || 'Escolha as opções disponíveis para montar este produto.'}
             </p>
             {product.promotion?.active &&
-              Number(product.originalPrice || 0) > Number(product.price || 0) && (
+              Number(product.originalPrice || 0) > Number(product.price || 0) && !tableMenuVariant && (
                 <S.PromotionPrice>
                   <span>{product.promotion.badgeLabel}</span>
                   <del>{brl(Number(product.originalPrice))}</del>
                 </S.PromotionPrice>
               )}
-            <strong aria-live="polite">
-              {dynamicPrice ? priceLabel : `A partir de ${brl(product.price)}`}
-            </strong>
+            {!tableMenuVariant ? (
+              <strong aria-live="polite">
+                {dynamicPrice ? priceLabel : `A partir de ${brl(product.price)}`}
+              </strong>
+            ) : null}
             {dynamicPrice && (
               <p>
                 Vale o maior preço entre os produtos escolhidos. Adicionais são cobrados à parte.
