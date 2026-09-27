@@ -1952,3 +1952,238 @@ export const HomeBottomBanner = styled.article`
     }
   }
 `;
+
+
+export const CategoryListing = styled.section`
+  width: min(520px, 100%);
+  margin: 0 auto;
+  padding: 4px 0 24px;
+
+  @media (min-width: 760px) {
+    width: min(760px, 100%);
+  }
+`;
+
+export const CategoryListingHeader = styled.header`
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+
+  > button {
+    width: 34px;
+    height: 34px;
+    padding: 0;
+    border: 0;
+    border-radius: 999px;
+    background: #fff;
+    color: #171717;
+    display: grid;
+    place-items: center;
+  }
+`;
+
+export const CategoryListingTitle = styled.div`
+  min-width: 0;
+  display: grid;
+  grid-template-columns: 54px minmax(0, 1fr);
+  gap: 10px;
+  align-items: center;
+
+  h1 {
+    margin: 0;
+    font-size: 18px;
+    line-height: 1.05;
+    font-weight: 950;
+  }
+
+  p {
+    margin: 3px 0 0;
+    color: var(--muted);
+    font-size: 9px;
+  }
+
+  @media (min-width: 760px) {
+    grid-template-columns: 64px minmax(0, 1fr);
+
+    h1 { font-size: 22px; }
+    p { font-size: 11px; }
+  }
+`;
+
+export const CategoryListingMedia = styled.div`
+  width: 54px;
+  height: 54px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #f4f4f5;
+  display: grid;
+  place-items: center;
+  color: var(--primary);
+
+  img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  svg {
+    width: 22px;
+    height: 22px;
+  }
+
+  @media (min-width: 760px) {
+    width: 64px;
+    height: 64px;
+  }
+`;
+
+export const CategoryTabs = styled.div`
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  padding: 2px 0 10px;
+  margin-bottom: 4px;
+  scrollbar-width: none;
+
+  button {
+    flex: 0 0 auto;
+    min-height: 30px;
+    padding: 0 11px;
+    border: 0;
+    border-radius: 8px;
+    background: #f4f4f5;
+    color: #4d4d53;
+    font-size: 9px;
+    font-weight: 800;
+  }
+
+  button.active {
+    background: var(--primary);
+    color: #fff;
+  }
+
+  @media (min-width: 760px) {
+    button {
+      min-height: 34px;
+      padding: 0 14px;
+      font-size: 11px;
+    }
+  }
+`;
+
+export const CategoryProductList = styled.div`
+  display: grid;
+  gap: 8px;
+`;
+
+export const CategoryProductRow = styled.article`
+  position: relative;
+  min-height: 92px;
+  padding: 0;
+  border: 1px solid #ececf0;
+  border-radius: 11px;
+  background: #fff;
+  overflow: hidden;
+
+  .main {
+    width: 100%;
+    min-height: 92px;
+    padding: 7px 44px 7px 7px;
+    border: 0;
+    background: transparent;
+    color: var(--text);
+    text-align: left;
+    display: grid;
+    grid-template-columns: 76px minmax(0, 1fr);
+    gap: 10px;
+    align-items: center;
+  }
+
+  .image {
+    position: relative;
+    width: 76px;
+    height: 76px;
+    overflow: hidden;
+    border-radius: 9px;
+    background: #f3f3f4;
+  }
+
+  .image img,
+  .image > span {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .content {
+    min-width: 0;
+    display: grid;
+    gap: 3px;
+  }
+
+  .content > b {
+    font-size: 11px;
+    line-height: 1.15;
+  }
+
+  .content > p {
+    margin: 0;
+    color: var(--muted);
+    font-size: 8px;
+    line-height: 1.3;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  .add {
+    position: absolute;
+    right: 8px;
+    bottom: 10px;
+    width: 26px;
+    height: 26px;
+    padding: 0;
+    border: 0;
+    border-radius: 8px;
+    background: var(--primary);
+    color: #fff;
+    display: grid;
+    place-items: center;
+  }
+
+  ${ProductPrice} {
+    gap: 5px;
+
+    del { font-size: 8px; }
+    strong { font-size: 10px; }
+  }
+
+  @media (min-width: 760px) {
+    min-height: 112px;
+
+    .main {
+      min-height: 112px;
+      grid-template-columns: 96px minmax(0, 1fr);
+      padding: 8px 52px 8px 8px;
+    }
+
+    .image {
+      width: 96px;
+      height: 96px;
+    }
+
+    .content > b { font-size: 14px; }
+    .content > p { font-size: 11px; }
+    ${ProductPrice} strong { font-size: 13px; }
+
+    .add {
+      width: 30px;
+      height: 30px;
+      right: 10px;
+      bottom: 12px;
+    }
+  }
+`;
