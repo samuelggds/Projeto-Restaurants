@@ -9,6 +9,7 @@ import {
   Plus,
   Search,
   ShoppingCart,
+  Sparkles,
   Trash2,
   Utensils,
   WalletCards,
@@ -665,7 +666,15 @@ export default function TableMenuExperience({
               className={selectedCategory === category.id ? 'active' : ''}
               onClick={() => setSelectedCategory(category.id)}
             >
-              {category.image ? <img src={category.image} alt="" /> : <S.CategoryIcon />}
+              <S.CategoryMedia aria-hidden="true">
+                {category.id === 'todos' ? (
+                  <Sparkles />
+                ) : category.image ? (
+                  <img src={category.image} alt="" />
+                ) : (
+                  <Utensils />
+                )}
+              </S.CategoryMedia>
               <span>{category.name}</span>
             </button>
           ))}
@@ -844,11 +853,23 @@ function ProductCard({ product, onOpen }: { product: HomeProduct; onOpen: () => 
     >
       <div className="image">
         {product.image ? <img src={product.image} alt={product.name} /> : <S.ImagePlaceholder />}
+        {product.promotion?.active ? (
+          <S.DiscountBadge
+            aria-label={`Produto com desconto: ${product.promotion.badgeLabel}`}
+          >
+            {product.promotion.badgeLabel}
+          </S.DiscountBadge>
+        ) : null}
       </div>
       <div className="copy">
         <b>{product.name}</b>
         <p>{product.description}</p>
-        <strong>{brl(product.price)}</strong>
+        <S.ProductPrice>
+          {product.promotion?.active && product.originalPrice > product.price ? (
+            <del>{brl(product.originalPrice)}</del>
+          ) : null}
+          <strong>{brl(product.price)}</strong>
+        </S.ProductPrice>
       </div>
       <span className="add">
         <Plus size={18} />
