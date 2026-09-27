@@ -790,7 +790,6 @@ export default function TableMenuExperience({
         onOrders={() => setView('tracking')}
       />
 
-      <S.MenuPage>
       <S.MenuHero>
         {heroImage ? <img className="hero-bg" src={heroImage} alt="" /> : null}
         <div className="hero-overlay" aria-hidden="true" />
@@ -1076,15 +1075,18 @@ function FlowHeader({
           ) : (
             <span className="mark">{data.brand.monogram || data.brand.name.slice(0, 1)}</span>
           )}
-          <span className="name"><b>{data.brand.name}</b></span>
+          <span className="name">
+            <b>{data.brand.name}</b>
+            <small>{data.brand.category || 'Mesa Inteligente'}</small>
+          </span>
         </S.FigmaBrand>
         {title ? <span className="context-title">{title}</span> : null}
       </div>
 
       <nav aria-label="Navegação da mesa">
-        <button type="button" onClick={onHome}>Início</button>
-        <button type="button" onClick={onMenu}>Cardápio</button>
-        <button type="button" onClick={onOrders}>Pedidos</button>
+        <button className={!title ? 'active' : ''} type="button" onClick={onHome}>Início</button>
+        <button className={title === 'Meu pedido' ? 'active' : ''} type="button" onClick={onMenu}>Cardápio</button>
+        <button className={title && title !== 'Meu pedido' ? 'active' : ''} type="button" onClick={onOrders}>Pedidos</button>
       </nav>
 
       <div className="right">
