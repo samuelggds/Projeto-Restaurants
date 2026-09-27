@@ -2187,3 +2187,312 @@ export const CategoryProductRow = styled.article`
     }
   }
 `;
+
+
+export const TrackingReferenceHeader = styled.header`
+  width: min(520px, 100%);
+  margin: 0 auto;
+  min-height: 58px;
+  padding: 9px 10px;
+  background: #fff;
+  border-bottom: 1px solid #ececf0;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+
+  > button,
+  .actions button {
+    position: relative;
+    width: 34px;
+    height: 34px;
+    padding: 0;
+    border: 0;
+    border-radius: 10px;
+    background: #fff;
+    display: grid;
+    place-items: center;
+    color: #171717;
+  }
+
+  .actions i {
+    position: absolute;
+    top: -2px;
+    right: -2px;
+    min-width: 16px;
+    height: 16px;
+    padding: 0 4px;
+    border-radius: 999px;
+    background: var(--primary);
+    color: #fff;
+    font-style: normal;
+    font-size: 8px;
+    display: grid;
+    place-items: center;
+  }
+
+  ${CartReferenceBrand} {
+    justify-self: start;
+
+    img,
+    > span:first-child {
+      width: 30px;
+      height: 30px;
+      border-radius: 999px;
+    }
+
+    b {
+      font-size: 12px;
+    }
+  }
+
+  @media (min-width: 760px) {
+    width: min(900px, calc(100% - 32px));
+  }
+`;
+
+export const TrackingReferencePage = styled.section`
+  width: min(520px, 100%);
+  margin: 0 auto;
+  padding: 18px 12px 36px;
+  background: #fff;
+  display: grid;
+  gap: 18px;
+
+  @media (min-width: 760px) {
+    width: min(900px, calc(100% - 32px));
+    padding: 26px 0 56px;
+  }
+`;
+
+export const TrackingReferenceTitle = styled.header`
+  display: grid;
+  gap: 4px;
+
+  h1 {
+    margin: 0;
+    font-size: 20px;
+    line-height: 1.05;
+    font-weight: 950;
+  }
+
+  p {
+    margin: 0;
+    color: var(--muted);
+    font-size: 10px;
+  }
+
+  @media (min-width: 760px) {
+    h1 { font-size: 30px; }
+    p { font-size: 13px; }
+  }
+`;
+
+export const TrackingReferenceProgress = styled.div`
+  display: grid;
+  gap: 0;
+`;
+
+export const TrackingReferenceStep = styled.div<{ $active: boolean }>`
+  position: relative;
+  min-height: 54px;
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr);
+  gap: 10px;
+  align-items: start;
+
+  &:not(:last-child)::after {
+    content: "";
+    position: absolute;
+    left: 13px;
+    top: 28px;
+    width: 2px;
+    height: 27px;
+    background: ({ $active }) => ($active ? 'var(--primary)' : '#e4e4e7');
+  }
+
+  > span {
+    position: relative;
+    z-index: 1;
+    width: 28px;
+    height: 28px;
+    border-radius: 999px;
+    display: grid;
+    place-items: center;
+    background: ({ $active }) => ($active ? 'var(--primary)' : '#fff');
+    border: 2px solid ({ $active }) => ($active ? 'var(--primary)' : '#dedee3');
+    color: ({ $active }) => ($active ? '#fff' : '#9a9aa1');
+    font-size: 10px;
+    font-weight: 900;
+  }
+
+  b {
+    padding-top: 6px;
+    font-size: 11px;
+    color: ({ $active }) => ($active ? '#171717' : '#8e8e95');
+  }
+
+  @media (min-width: 760px) {
+    grid-template-columns: 34px minmax(0, 1fr);
+    min-height: 62px;
+
+    > span {
+      width: 32px;
+      height: 32px;
+    }
+
+    &:not(:last-child)::after {
+      left: 15px;
+      top: 32px;
+      height: 31px;
+    }
+
+    b {
+      font-size: 13px;
+      padding-top: 7px;
+    }
+  }
+`;
+
+export const TrackingReferenceStatus = styled.section`
+  padding: 14px;
+  border: 1px solid #eeeeef;
+  border-radius: 14px;
+  background: #fff;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 12px;
+  align-items: center;
+
+  .icon {
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
+    background: #fff2ef;
+    color: var(--primary);
+    display: grid;
+    place-items: center;
+  }
+
+  h2 {
+    margin: 0 0 3px;
+    font-size: 15px;
+  }
+
+  p {
+    margin: 0;
+    color: var(--muted);
+    font-size: 9px;
+    line-height: 1.35;
+  }
+
+  @media (min-width: 760px) {
+    padding: 18px;
+
+    .icon {
+      width: 52px;
+      height: 52px;
+    }
+
+    h2 { font-size: 19px; }
+    p { font-size: 12px; }
+  }
+`;
+
+export const TrackingReferenceItems = styled.section`
+  padding: 14px;
+  border: 1px solid #eeeeef;
+  border-radius: 14px;
+  background: #fff;
+
+  h2 {
+    margin: 0 0 8px;
+    font-size: 13px;
+  }
+
+  article {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 9px 0;
+    border-top: 1px solid #f0f0f2;
+  }
+
+  article div {
+    min-width: 0;
+    display: grid;
+    gap: 2px;
+  }
+
+  article b {
+    font-size: 10px;
+  }
+
+  article small {
+    color: var(--muted);
+    font-size: 8px;
+  }
+
+  article strong {
+    font-size: 10px;
+  }
+
+  @media (min-width: 760px) {
+    h2 { font-size: 17px; }
+    article b, article strong { font-size: 13px; }
+    article small { font-size: 10px; }
+  }
+`;
+
+export const TrackingReferenceWaiter = styled.section`
+  padding: 14px;
+  border: 1px solid #eeeeef;
+  border-radius: 14px;
+  background: #fff;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 12px;
+  align-items: start;
+  color: var(--primary);
+
+  > div {
+    display: grid;
+    gap: 4px;
+  }
+
+  h3 {
+    margin: 0;
+    color: #171717;
+    font-size: 13px;
+  }
+
+  p {
+    margin: 0 0 6px;
+    color: var(--muted);
+    font-size: 9px;
+    line-height: 1.35;
+  }
+
+  button {
+    justify-self: start;
+    min-height: 34px;
+    padding: 0 13px;
+    border: 0;
+    border-radius: 9px;
+    background: var(--primary);
+    color: #fff;
+    font-size: 10px;
+    font-weight: 850;
+  }
+
+  @media (min-width: 760px) {
+    padding: 18px;
+
+    h3 { font-size: 17px; }
+    p { font-size: 12px; }
+    button {
+      min-height: 40px;
+      font-size: 12px;
+    }
+  }
+`;
