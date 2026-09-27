@@ -2326,10 +2326,22 @@ export const TrackingReferenceStep = styled.div<{ $active: boolean }>`
     font-weight: 900;
   }
 
+  > div {
+    padding-top: 4px;
+    display: grid;
+    gap: 3px;
+  }
+
   b {
-    padding-top: 6px;
     font-size: 11px;
     color: ${({ $active }) => ($active ? '#171717' : '#8e8e95')};
+  }
+
+  small {
+    max-width: 280px;
+    color: var(--muted);
+    font-size: 8px;
+    line-height: 1.35;
   }
 
   @media (min-width: 760px) {
@@ -3485,5 +3497,77 @@ export const HomeTableBadge = styled.span`
     min-height: 34px;
     padding-inline: 10px;
     font-size: 11px;
+  }
+`;
+
+
+export const TrackingTableCard = styled.section`
+  width: 100%;
+  padding: 12px 14px;
+  border: 1px solid #eeeeef;
+  border-radius: 12px;
+  background: #fff;
+  display: grid;
+  justify-items: start;
+  gap: 2px;
+
+  small {
+    color: var(--muted);
+    font-size: 8px;
+    font-weight: 700;
+  }
+
+  strong {
+    font-size: 17px;
+    line-height: 1;
+  }
+
+  @media (min-width: 760px) {
+    small { font-size: 10px; }
+    strong { font-size: 22px; }
+  }
+`;
+
+export const TrackingCurrentStatus = styled.section`
+  padding: 18px 14px 10px;
+  display: grid;
+  justify-items: center;
+  gap: 6px;
+  text-align: center;
+
+  .status-icon {
+    width: 76px;
+    height: 76px;
+    margin-bottom: 2px;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--primary) 8%, #fff);
+    color: var(--primary);
+    display: grid;
+    place-items: center;
+  }
+
+  h2 {
+    margin: 0;
+    font-size: 18px;
+    line-height: 1.05;
+    font-weight: 950;
+  }
+
+  p {
+    max-width: 360px;
+    margin: 0;
+    color: var(--muted);
+    font-size: 9px;
+    line-height: 1.45;
+  }
+
+  @media (min-width: 760px) {
+    .status-icon {
+      width: 92px;
+      height: 92px;
+    }
+
+    h2 { font-size: 24px; }
+    p { font-size: 12px; }
   }
 `;
