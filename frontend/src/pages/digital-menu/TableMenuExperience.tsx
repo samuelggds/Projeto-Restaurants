@@ -583,10 +583,25 @@ export default function TableMenuExperience({
           <S.OrderSummaryBar>
             <div className="label">
               {confirmation.orderId ? <small>Pedido #{confirmation.orderId}</small> : null}
-              <strong>{confirmation.items.length} {confirmation.items.length === 1 ? 'item' : 'itens'}</strong>
+              <strong>
+                {confirmation.items.length} {confirmation.items.length === 1 ? 'item' : 'itens'}
+              </strong>
             </div>
             <span className="amount">{brl(confirmation.total)}</span>
           </S.OrderSummaryBar>
+
+          <S.TimelineCard>
+            <S.Timeline>
+              {trackingSteps(tableOrder).map((step, index) => (
+                <S.TimelineStep key={step.label} $active={step.active} $current={step.current}>
+                  <span className="dot">{step.active ? <Check size={14} /> : index + 1}</span>
+                  <div className="copy">
+                    <b>{step.label}</b>
+                  </div>
+                </S.TimelineStep>
+              ))}
+            </S.Timeline>
+          </S.TimelineCard>
 
           <S.ConfirmationActions>
             <S.PrimaryAction type="button" onClick={() => setView('tracking')}>
@@ -1070,7 +1085,11 @@ function FigmaCatalogCard({
         aria-label={`Ver ${product.name}`}
         onClick={onOpen}
       />
-      <div className="media">{product.image ? <img src={product.image} alt={product.name} /> : null}</div>
+      {product.image ? (
+        <div className="media">
+          <img src={product.image} alt={product.name} />
+        </div>
+      ) : null}
       <div className="copy">
         <h3>{product.name}</h3>
         {product.description ? <p>{product.description}</p> : null}
