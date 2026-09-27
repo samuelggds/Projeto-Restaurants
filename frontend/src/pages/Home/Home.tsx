@@ -24,12 +24,10 @@ import { useActiveOrderNotice } from './hooks/useActiveOrderNotice';
 import { useTableOrderNotice } from './hooks/useTableOrderNotice';
 import { buildHomeData } from '../Home/adapters/homeDataAdapter';
 import { TableAccessGate } from './components/TableAccessGate';
-import { CartItemsList } from '../Home/components/CartItemsList';
 import { DeliveryAddressForm } from '../Home/components/DeliveryAddressForm';
 import { PaymentOptions } from '../Home/components/PaymentOptions';
 import { GuestCheckoutForm, type GuestCheckoutDetails } from '../Home/components/GuestCheckoutForm';
 import { DeliveryMethodSelector } from '../Home/components/DeliveryMethodSelector';
-import { CartCheckoutSummary } from '../Home/components/CartCheckoutSummary';
 import { LoyaltyCouponPanel } from '../Home/components/LoyaltyCouponPanel';
 import { HomeFeedback, type HomeNotification } from '../Home/components/HomeFeedback';
 import {
