@@ -145,7 +145,7 @@ export const FigmaHeader = styled.header<{ $hasTitle?: boolean }>`
     ${({ $hasTitle }) =>
       $hasTitle
         ? `
-      .brand {
+      .brand .name {
         display: none;
       }
     `
