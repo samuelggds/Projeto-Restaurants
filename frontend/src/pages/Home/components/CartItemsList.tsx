@@ -1,4 +1,4 @@
-import { ArrowLeft, Minus, Plus, ShoppingBag } from 'lucide-react';
+import { ArrowLeft, Minus, Plus, ShoppingBag, UtensilsCrossed } from 'lucide-react';
 import styled, { createGlobalStyle } from 'styled-components';
 import type { CartItem } from '../hooks/useCart';
 
@@ -9,9 +9,6 @@ type Props = {
   onContinueShopping?: () => void;
 };
 
-const FALLBACK_IMAGE =
-  'https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&fit=crop&w=160&q=80';
-
 export function CartItemsList({ items, onIncrease, onDecrease, onContinueShopping }: Props) {
   return (
     <Items>
@@ -19,12 +16,13 @@ export function CartItemsList({ items, onIncrease, onDecrease, onContinueShoppin
       {items.length ? (
         items.map((item) => (
           <ItemCard key={item.cartId || item.productId}>
-            <img
-              src={item.image || FALLBACK_IMAGE}
-              alt={item.name}
-              loading="lazy"
-              decoding="async"
-            />
+            {item.image ? (
+              <img src={item.image} alt={item.name} loading="lazy" decoding="async" />
+            ) : (
+              <div className="item-image-placeholder" aria-hidden="true">
+                <UtensilsCrossed />
+              </div>
+            )}
             <ItemInfo>
               <div className="item-heading">
                 <strong>{item.name}</strong>
@@ -233,17 +231,29 @@ const ItemCard = styled.article`
   background: #fff;
   box-shadow: 0 5px 18px rgba(34, 28, 23, 0.04);
 
-  > img {
+  > img,
+  > .item-image-placeholder {
     width: 92px;
     height: 92px;
     border-radius: 12px;
-    object-fit: cover;
   }
+
+  > img { object-fit: cover; }
+
+  > .item-image-placeholder {
+    background: #f3f1ec;
+    color: #aaa49b;
+    display: grid;
+    place-items: center;
+  }
+
+  > .item-image-placeholder svg { width: 24px; height: 24px; }
 
   @media (max-width: 390px) {
     grid-template-columns: 78px minmax(0, 1fr);
 
-    > img {
+    > img,
+    > .item-image-placeholder {
       width: 78px;
       height: 78px;
     }
