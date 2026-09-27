@@ -485,43 +485,73 @@ export const PaidReceipt = styled(FlowCard)`
   border-radius: 20px;
   background: var(--background);
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: start;
   gap: 16px;
   text-align: left;
 
-  .copy {
-    display: grid;
-    gap: 8px;
+  .receipt-head,
+  .receipt-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
   }
 
   small {
     color: var(--muted);
     font-size: 13px;
+    line-height: 16px;
   }
 
-  strong {
+  > strong {
     color: var(--text);
     font-size: 28px;
-    font-weight: 500;
+    line-height: 35px;
+    font-weight: 400;
+  }
+
+  .receipt-divider {
+    height: 1px;
+    background: var(--line);
+  }
+
+  .receipt-row b {
+    color: var(--text);
+    font-size: 13px;
+    line-height: 16px;
+  }
+
+  .receipt-row .confirmed {
+    color: #10b981;
   }
 
   .status {
     min-width: 58px;
     min-height: 26px;
-    padding: 0 10px;
+    padding: 4px 10px;
     border-radius: 6px;
     background: #ecfdf5;
     color: #10b981;
     display: grid;
     place-items: center;
     font-size: 11px;
+    line-height: 14px;
     font-weight: 700;
   }
 
   @media (max-width: 759px) {
     padding: 20px;
+    gap: 12px;
     background: #fff;
+
+    small,
+    .receipt-row b {
+      font-size: 12px;
+      line-height: 15px;
+    }
+
+    .status {
+      font-size: 10px;
+    }
   }
 `;
 
