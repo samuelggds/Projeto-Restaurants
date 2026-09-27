@@ -113,6 +113,18 @@ export const TableBadge = styled.div`
   font-weight: 800;
   background: #fff;
 
+  .table-accessible-number {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
+
   @media (max-width: 560px) {
     min-height: 38px;
     padding: 0 10px;
@@ -1301,4 +1313,39 @@ export const PaymentBackWide = styled.button`
   justify-content: center;
   gap: 9px;
   font-weight: 900;
+`;
+
+
+export const TableActions = styled.div`
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+
+  @media (max-width: 700px) {
+    gap: 4px;
+  }
+`;
+
+export const WaiterButton = styled.button`
+  min-height: 44px;
+  padding: 0 13px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: #fff;
+  color: var(--text);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  font-size: 12px;
+  font-weight: 850;
+
+  @media (max-width: 700px) {
+    min-height: 38px;
+    width: 38px;
+    padding: 0;
+    border-radius: 12px;
+
+    span { display: none; }
+  }
 `;
