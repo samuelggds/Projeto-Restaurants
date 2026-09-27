@@ -15,7 +15,10 @@ vi.mock('../../Home/HomePage', () => ({
     <button onClick={onOpenCart}>Abrir sacola</button>
   ),
 }));
-vi.mock('./DemoTableAccountPanel', () => ({ DemoTableAccountPanel: () => null }));
+vi.mock('./DemoTableAccountPanel', () => ({
+  DemoTableAccountPanel: ({ open, onReviewDraft }: { open: boolean; onReviewDraft: () => void }) =>
+    open ? <button onClick={onReviewDraft}>Revisar e enviar</button> : null,
+}));
 vi.mock('./DemoTableActions', () => ({ DemoTableActions: () => null }));
 
 (globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT =
@@ -67,6 +70,8 @@ describe('continuação do pedido da mesa na demonstração', () => {
       );
     });
     await click('Abrir sacola');
+    expect(container.textContent).not.toContain('Revisar e continuar');
+    await click('Revisar e enviar');
     await click('Revisar e continuar');
     return onState;
   }

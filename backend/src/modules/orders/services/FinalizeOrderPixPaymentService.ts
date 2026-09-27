@@ -15,6 +15,7 @@ import {
   isOrderCapacityQueued,
   queueDigitalOrderBeforePaymentConfirmation,
 } from '../utils/orderCapacity.js';
+import orderCapacityQueueService from './OrderCapacityQueueService.js';
 import tableParticipantStateService from '../../tableSession/services/TableParticipantStateService.js';
 import { tableParticipantStateEvents } from '../../tableSession/realtime/tableParticipantStateEvents.js';
 import { tableAccountEvents } from '../../tableAccount/realtime/tableAccountEvents.js';
@@ -243,6 +244,10 @@ class FinalizeOrderPixPaymentService {
       );
     });
 
+    if (queuedForCapacity) {
+      const admitted = await orderCapacityQueueService.drainAfterCapacityChange(updatedOrder.restaurantId);
+      return admitted.find((candidate) => candidate.id === updatedOrder.id) || updatedOrder;
+    }
     return updatedOrder;
   }
 }

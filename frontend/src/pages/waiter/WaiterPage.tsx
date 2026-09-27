@@ -168,8 +168,17 @@ export default function WaiterPage() {
   useEffect(() => {
     if (!restaurantId) return;
     void loadWorkspace();
-    const interval = window.setInterval(() => void loadWorkspace(true), POLL_MS);
-    return () => window.clearInterval(interval);
+    const interval = window.setInterval(() => {
+      if (!document.hidden) void loadWorkspace(true);
+    }, POLL_MS);
+    const onVisible = () => {
+      if (!document.hidden) void loadWorkspace(true);
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => {
+      window.clearInterval(interval);
+      document.removeEventListener('visibilitychange', onVisible);
+    };
   }, [loadWorkspace, restaurantId]);
 
   useEffect(() => {

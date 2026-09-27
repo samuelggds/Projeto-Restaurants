@@ -19,6 +19,27 @@ export type AdminOrdersSummary = {
 };
 
 const TERMINAL_ORDER_STATUSES = new Set(['ENTREGUE', 'CANCELADO']);
+const CANCELLABLE_ORDER_STATUSES = new Set([
+  'PENDENTE',
+  'PREPARANDO',
+  'PRONTO',
+  'SAIU_PARA_ENTREGA',
+]);
+
+export function canCancelAdminOrder(order: AdminOrder) {
+  return (
+    CANCELLABLE_ORDER_STATUSES.has(order.status.toUpperCase()) &&
+    order.refundStatus !== 'PROCESSING'
+  );
+}
+
+export function isOrderWaitingForCapacity(order: AdminOrder) {
+  return Boolean(
+    !TERMINAL_ORDER_STATUSES.has(order.status.toUpperCase()) &&
+    order.capacityQueuedAt &&
+    !order.capacityAdmittedAt,
+  );
+}
 
 const PAYMENT_METHOD_LABELS: Record<string, string> = {
   PIX: 'Pix',

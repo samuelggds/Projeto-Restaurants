@@ -20,7 +20,6 @@ import { ComboConfigurator } from './components/ComboConfigurator';
 import * as Combo from './components/HomeComboCard.styles';
 import { ProductConfigurator } from './components/ProductConfigurator';
 import { ProductSearchDialog } from './components/ProductSearchDialog';
-import { TableClosingNotice } from './components/TableClosingNotice';
 import { PromotionCarousel } from './components/PromotionCarousel';
 import * as S from './Home.styles';
 import type { HomePageProps, HomeProduct } from './types';
@@ -217,9 +216,6 @@ export function HomePage({
         availabilityDetail={availability.detail}
       />
       <S.Main>
-        {isTableMenu && orderingLocked && (
-          <TableClosingNotice tableNumber={tableLabel} onOpenAccount={onOpenTableAccount} />
-        )}
         {(promotionBanners.length > 0 || data.about) && (
           <S.HeroStage aria-label={`Destaques de ${data.brand.name || 'restaurante'}`}>
             <PromotionCarousel banners={promotionBanners} onOpenMenu={onOpenMenu} />
@@ -274,7 +270,7 @@ export function HomePage({
                   orderingLocked={orderingLocked}
                   favorite={favoriteIds.has(product.id)}
                   onOpen={openProductDetails}
-                  onToggleFavorite={handleToggleFavorite}
+                  onToggleFavorite={onToggleFavorite ? handleToggleFavorite : undefined}
                 />
               ))}
             </Offers.Grid>
@@ -364,7 +360,7 @@ export function HomePage({
                           orderingLocked={orderingLocked}
                           favorite={favoriteIds.has(product.id)}
                           onOpen={openProductDetails}
-                          onToggleFavorite={handleToggleFavorite}
+                          onToggleFavorite={onToggleFavorite ? handleToggleFavorite : undefined}
                         />
                       ))}
                   </S.ProductGrid>
@@ -390,7 +386,7 @@ export function HomePage({
                               orderingLocked={orderingLocked}
                               favorite={favoriteIds.has(product.id)}
                               onOpen={openProductDetails}
-                              onToggleFavorite={handleToggleFavorite}
+                              onToggleFavorite={onToggleFavorite ? handleToggleFavorite : undefined}
                             />
                           ))}
                         </S.ProductGrid>
@@ -409,7 +405,7 @@ export function HomePage({
                       orderingLocked={orderingLocked}
                       favorite={favoriteIds.has(product.id)}
                       onOpen={openProductDetails}
-                      onToggleFavorite={handleToggleFavorite}
+                      onToggleFavorite={onToggleFavorite ? handleToggleFavorite : undefined}
                     />
                   ))}
               </S.ProductGrid>

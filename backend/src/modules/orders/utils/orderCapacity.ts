@@ -1,5 +1,6 @@
 import {
   OrderStatus,
+  OrderRefundStatus,
   PaymentMethod,
   Prisma,
   TableOrderSettlementMode,
@@ -26,6 +27,14 @@ export const operationalPaymentWhere = {
 
 export const admittedCapacityWhere = {
   OR: [{ capacityQueuedAt: null }, { capacityAdmittedAt: { not: null } }],
+} satisfies Prisma.OrderWhereInput;
+
+export const waitingCapacityWhere = {
+  capacityQueuedAt: { not: null },
+  capacityAdmittedAt: null,
+  status: { notIn: [OrderStatus.ENTREGUE, OrderStatus.CANCELADO] },
+  refundStatus: { notIn: [OrderRefundStatus.PROCESSING, OrderRefundStatus.SUCCEEDED] },
+  AND: [operationalPaymentWhere],
 } satisfies Prisma.OrderWhereInput;
 
 export function normalizeOrderCapacityLimit(configuredLimit: unknown) {
@@ -63,7 +72,12 @@ export async function shouldQueueOperationalOrder(
 ) {
   await lockOrderCapacity(db, restaurantId);
   const activeOrders = await countActiveOrderCapacity(db, restaurantId);
-  return activeOrders >= normalizeOrderCapacityLimit(configuredLimit);
+  if (activeOrders >= normalizeOrderCapacityLimit(configuredLimit)) return true;
+  // A newly received order must not take a vacancy before older eligible orders.
+  return Boolean(await db.order.findFirst({
+    where: { restaurantId, ...waitingCapacityWhere },
+    select: { id: true },
+  }));
 }
 
 function isDeferredDigitalPayment(order: {
@@ -110,7 +124,11 @@ export async function queueDigitalOrderBeforePaymentConfirmation(
   const activeOrders = await countActiveOrderCapacity(db, restaurantId);
   const full = activeOrders >= normalizeOrderCapacityLimit(settings?.maxConcurrentOrders);
 
-  if (!full) return false;
+  const waiting = full ? true : await db.order.findFirst({
+    where: { restaurantId, ...waitingCapacityWhere },
+    select: { id: true },
+  });
+  if (!waiting) return isOrderCapacityQueued(order);
 
   const queuedAt = order.capacityQueuedAt || new Date();
   await db.order.updateMany({

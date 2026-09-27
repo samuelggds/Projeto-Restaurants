@@ -7,6 +7,7 @@ import {
   isOrderCapacityQueued,
   queueDigitalOrderBeforePaymentConfirmation,
 } from '../utils/orderCapacity.js';
+import orderCapacityQueueService from './OrderCapacityQueueService.js';
 
 class ConfirmOrderPaymentService {
   async execute(
@@ -136,6 +137,10 @@ class ConfirmOrderPaymentService {
       io.to(`user:${updatedOrder.userId}`).emit('order:status-changed', updatedOrder);
     }
 
+    if (queuedForCapacity) {
+      const admitted = await orderCapacityQueueService.drainAfterCapacityChange(restaurantId);
+      return admitted.find((candidate) => candidate.id === updatedOrder.id) || updatedOrder;
+    }
     return updatedOrder;
   }
 }

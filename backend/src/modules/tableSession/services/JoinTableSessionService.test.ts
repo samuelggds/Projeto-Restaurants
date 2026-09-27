@@ -4,7 +4,9 @@ import test, { afterEach } from 'node:test';
 import resolvePublicTableService from '../../table/services/ResolvePublicTableService.js';
 import tableSessionRepository from '../repositories/TableSessionRepository.js';
 import joinTableSessionService, { TableSessionJoinError } from './JoinTableSessionService.js';
-import joinTableParticipantService from './JoinTableParticipantService.js';
+import joinTableParticipantService, {
+  TableParticipantIdentityRequiredError,
+} from './JoinTableParticipantService.js';
 
 const originalResolve = resolvePublicTableService.execute;
 const originalFindOpen = tableSessionRepository.findOpenedByTable;
@@ -208,4 +210,59 @@ test('repositório de token mantém OPEN e CLOSING_REQUESTED acessíveis, mas ex
   assert.ok(query.where.OR[1].expiresAt.gt instanceof Date);
   assert.equal(query.include.table.select.restaurantId, true);
   assert.equal('token' in query.include.table.select, false);
+});
+
+test('QR de mesa aberta cria sessão individual identificada sem aprovação do garçom nem login', async () => {
+  resolvePublicTableService.execute = async () => resolvedTable;
+  tableSessionRepository.findActiveByTable = async () => ({
+    id: 55,
+    publicId: 'session-current',
+    restaurantId: 7,
+    tableId: 91,
+    status: 'OPEN',
+    sessionToken: 'new-session-token',
+    expiresAt: null,
+    table: { number: 12 },
+  });
+  joinTableParticipantService.execute = async (input) => {
+    assert.equal(input.displayName, 'Ana');
+    assert.equal(input.phone, '85999999999');
+    assert.equal(input.authenticatedUser, undefined);
+    assert.equal(input.session.publicId, 'session-current');
+    return participantJoinResult;
+  };
+  const result = await joinTableSessionService.execute({
+    tableNumber: 12,
+    tableToken: 'a'.repeat(32),
+    restaurantId: 7,
+    displayName: 'Ana',
+    phone: '85999999999',
+  });
+  assert.equal(result.sessionToken, 'new-session-token');
+  assert.equal(result.participant.publicId, participantJoinResult.participant.publicId);
+  assert.equal('approvalRequired' in result, false);
+});
+
+test('entrada sem cookie e sem identificação exige nome e telefone em vez de liberar acesso', async () => {
+  resolvePublicTableService.execute = async () => resolvedTable;
+  tableSessionRepository.findActiveByTable = async () => ({
+    id: 55,
+    publicId: 'session-current',
+    restaurantId: 7,
+    tableId: 91,
+    status: 'OPEN',
+    sessionToken: 'new-session-token',
+    expiresAt: null,
+  });
+  joinTableParticipantService.execute = async () => {
+    throw new TableParticipantIdentityRequiredError();
+  };
+  await assert.rejects(
+    joinTableSessionService.execute({
+      tableNumber: 12,
+      tableToken: 'a'.repeat(32),
+      restaurantId: 7,
+    }),
+    (error) => error.code === 'TABLE_PARTICIPANT_IDENTITY_REQUIRED',
+  );
 });

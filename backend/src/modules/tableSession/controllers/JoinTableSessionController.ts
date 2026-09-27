@@ -2,7 +2,10 @@ import type { Request, Response } from 'express';
 import joinTableSessionService, {
   TableSessionJoinError,
 } from '../services/JoinTableSessionService.js';
-import { TableParticipantIdentityRequiredError } from '../services/JoinTableParticipantService.js';
+import {
+  TableParticipantIdentityRequiredError,
+  TableParticipantSessionUnavailableError,
+} from '../services/JoinTableParticipantService.js';
 import { PublicTableResolutionError } from '../../table/services/ResolvePublicTableService.js';
 import { getParticipantCookieOptions, parseCookieHeader } from '../security/participantToken.js';
 
@@ -43,7 +46,8 @@ class JoinTableSessionController {
       const isTypedError =
         error instanceof PublicTableResolutionError ||
         error instanceof TableSessionJoinError ||
-        error instanceof TableParticipantIdentityRequiredError;
+        error instanceof TableParticipantIdentityRequiredError ||
+        error instanceof TableParticipantSessionUnavailableError;
       const statusCode = isTypedError ? error.statusCode : 400;
       return res.status(statusCode).json({
         error: error instanceof Error ? error.message : 'Não foi possível acessar a mesa.',

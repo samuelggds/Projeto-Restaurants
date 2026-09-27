@@ -6,18 +6,22 @@ import {
   createDemoTablePayment,
   demoTableAccount,
 } from './demoTableAccount';
-import type { DemoState } from './demoDomain';
+import { getDemoCartTotal, type DemoState } from './demoDomain';
 
 export function DemoTableAccountPanel({
   open,
   state,
   onState,
   onClose,
+  orderingBlocked = false,
+  onReviewDraft,
 }: {
   open: boolean;
   state: DemoState;
   onState: (next: DemoState) => void;
   onClose: () => void;
+  orderingBlocked?: boolean;
+  onReviewDraft?: () => void;
 }) {
   const [error, setError] = useState('');
   const { tableAccount } = readDemoAdminData().settings;
@@ -30,6 +34,10 @@ export function DemoTableAccountPanel({
       loading={false}
       actionLoading={false}
       error={error}
+      orderingBlocked={orderingBlocked}
+      draftCount={state.cart.reduce((total, line) => total + line.quantity, 0)}
+      draftTotal={getDemoCartTotal(state)}
+      onReviewDraft={onReviewDraft}
       onRefresh={() => setError('')}
       onCreatePayment={async (draft) => {
         try {

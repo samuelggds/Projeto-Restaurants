@@ -2,6 +2,7 @@ import { isBoundedEmail } from '../../../validators/boundedEmail.js';
 import type { Prisma } from '@prisma/client';
 import restaurantSettingsRepository from '../repositories/RestaurantSettingsRepository.js';
 import prisma from '../../../config/prisma.js';
+import orderCapacityQueueService from '../../orders/services/OrderCapacityQueueService.js';
 import { normalizeRestaurantImage } from '../utils/normalizeRestaurantImage.js';
 import {
   normalizeEstablishmentAddress,
@@ -693,6 +694,10 @@ class UpdateRestaurantSettingsService {
         },
         data: restaurantData,
       });
+    }
+
+    if (normalizedMaxConcurrentOrders !== undefined) {
+      await orderCapacityQueueService.drainAfterCapacityChange(Number(restaurantId));
     }
 
     return {

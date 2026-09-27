@@ -1,6 +1,6 @@
 // @ts-nocheck
 import assert from 'node:assert/strict';
-import test, { afterEach } from 'node:test';
+import test, { afterEach, beforeEach, mock } from 'node:test';
 import {
   FuncionarioSubRole,
   OrderStatus,
@@ -15,6 +15,9 @@ import { OrderPermissions } from '../permissions/orderPermissions.js';
 import getOrderByIdService from './GetOrderByIdService.js';
 import listOrdersService from './ListOrdersService.js';
 import updateOrderStatusService from './UpdateOrderStatusService.js';
+import orderCapacityQueueService from './OrderCapacityQueueService.js';
+
+beforeEach(() => mock.method(orderCapacityQueueService, 'drainAfterCapacityChange', async () => []));
 
 const originals = {
   findAll: orderRepository.findAll,
@@ -31,6 +34,7 @@ const originals = {
 };
 
 afterEach(() => {
+  mock.restoreAll();
   orderRepository.findAll = originals.findAll;
   orderRepository.findReadyTableOrders = originals.findReady;
   orderRepository.findReadyTableOrderById = originals.findReadyById;

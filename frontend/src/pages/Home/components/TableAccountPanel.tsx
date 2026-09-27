@@ -1,7 +1,16 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { QrCode, ReceiptText, RefreshCw, X } from 'lucide-react';
+import {
+  ArrowLeft,
+  ArrowRight,
+  CheckCircle2,
+  ReceiptText,
+  RefreshCw,
+  ShieldCheck,
+  X,
+} from 'lucide-react';
 import {
   formatTableMoney,
+  previewIndividualTablePayment,
   type CreateTablePaymentResult,
   type TableAccountSnapshot,
   type TablePaymentDraft,
@@ -22,6 +31,10 @@ type Props = {
   onCancelPayment: (paymentPublicId: string) => Promise<boolean>;
   onReconcilePayment: (paymentPublicId: string) => Promise<TablePaymentIntent | null>;
   onRemoveOrder?: (orderPublicId: string) => Promise<boolean>;
+  draftCount?: number;
+  draftTotal?: number;
+  onReviewDraft?: () => void;
+  orderingBlocked?: boolean;
   onClose: () => void;
 };
 
@@ -37,20 +50,59 @@ function TableAccountPanelContent(props: Props) {
     onCancelPayment,
     onReconcilePayment,
     onRemoveOrder,
+    draftCount = 0,
+    draftTotal = 0,
+    onReviewDraft,
+    orderingBlocked = false,
     onClose,
   } = props;
   const closeButtonRef = useRef<HTMLButtonElement>(null);
+  const panelRef = useRef<HTMLElement>(null);
+  const paymentStageRef = useRef<HTMLDivElement>(null);
+  const onCloseRef = useRef(onClose);
   const previousFocusRef = useRef<HTMLElement | null>(null);
+  const removalInFlightRef = useRef(false);
+  const [removing, setRemoving] = useState(false);
   const [removeTarget, setRemoveTarget] = useState<{
     orderPublicId: string;
     productName: string;
   } | null>(null);
   const [payment, setPayment] = useState<TablePaymentIntent | null>(null);
+  const [reviewingPayment, setReviewingPayment] = useState(false);
 
   const items = useMemo(
-    () => snapshot?.items.filter((item) => item.orderStatus !== 'CANCELED') || [],
+    () =>
+      snapshot?.items.filter(
+        (item) =>
+          item.orderStatus !== 'CANCELED' &&
+          item.orderedByParticipantPublicId === snapshot.currentParticipantPublicId,
+      ) || [],
     [snapshot],
   );
+  const preview = useMemo(
+    () => (snapshot ? previewIndividualTablePayment(snapshot) : null),
+    [snapshot],
+  );
+  const busy = actionLoading || removing;
+  const participant = snapshot?.participants.find(
+    (entry) => entry.publicId === snapshot.currentParticipantPublicId,
+  );
+  const canPay = Boolean(
+    snapshot?.capabilities.enabled &&
+    snapshot.summary.status !== 'CLOSED' &&
+    snapshot.capabilities.allowOnlinePayment &&
+    snapshot.capabilities.allowPix &&
+    preview &&
+    preview.totalCents > 0 &&
+    !preview.blocked,
+  );
+  const manualPaymentLabel = snapshot?.capabilities.allowCash
+    ? snapshot.capabilities.allowCardMachine
+      ? 'Prefere pagar à equipe? Dinheiro e cartão na maquininha estão disponíveis.'
+      : 'Prefere pagar à equipe? O pagamento em dinheiro está disponível.'
+    : snapshot?.capabilities.allowCardMachine
+      ? 'Prefere cartão? Chame o garçom e pague na maquininha.'
+      : '';
 
   const ownActivePayment =
     snapshot?.activePayment &&
@@ -58,6 +110,18 @@ function TableAccountPanelContent(props: Props) {
       ? snapshot.activePayment
       : null;
   const visiblePayment = payment ?? ownActivePayment;
+  const showPayment = Boolean(visiblePayment && !reviewingPayment);
+  const currentStep = !showPayment
+    ? 1
+    : ['RESERVED', 'PROCESSING'].includes(visiblePayment!.status)
+      ? 2
+      : 3;
+
+  useEffect(() => {
+    if (!visiblePayment?.publicId || !showPayment) return;
+    paymentStageRef.current?.scrollIntoView?.({ block: 'start' });
+    paymentStageRef.current?.focus({ preventScroll: true });
+  }, [visiblePayment?.publicId, showPayment]);
 
   const orderItemCounts = useMemo(() => {
     const counts = new Map<string, number>();
@@ -68,12 +132,37 @@ function TableAccountPanelContent(props: Props) {
   }, [items]);
 
   useEffect(() => {
+    onCloseRef.current = onClose;
+  }, [onClose]);
+
+  useEffect(() => {
     previousFocusRef.current = document.activeElement as HTMLElement | null;
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
     const frame = window.requestAnimationFrame(() => closeButtonRef.current?.focus());
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') onClose();
+      if (event.key === 'Escape') onCloseRef.current();
+      if (event.key !== 'Tab') return;
+      const controls = Array.from(
+        panelRef.current?.querySelectorAll<HTMLElement>(
+          'button:not(:disabled), a[href], input:not(:disabled), select:not(:disabled), textarea:not(:disabled)',
+        ) || [],
+      );
+      const first = controls[0];
+      const last = controls[controls.length - 1];
+      if (
+        event.shiftKey &&
+        (document.activeElement === first || !panelRef.current?.contains(document.activeElement))
+      ) {
+        event.preventDefault();
+        last?.focus();
+      } else if (
+        !event.shiftKey &&
+        (document.activeElement === last || !panelRef.current?.contains(document.activeElement))
+      ) {
+        event.preventDefault();
+        first?.focus();
+      }
     };
     document.addEventListener('keydown', handleKeyDown);
     return () => {
@@ -82,10 +171,10 @@ function TableAccountPanelContent(props: Props) {
       document.body.style.overflow = previousOverflow;
       previousFocusRef.current?.focus?.();
     };
-  }, [onClose]);
+  }, []);
 
   const startPixPayment = async () => {
-    if (!snapshot || actionLoading) return;
+    if (!snapshot || busy || !canPay) return;
     const result = await onCreatePayment({
       selectionMode: 'MY_ITEMS',
       method: 'PIX',
@@ -109,9 +198,16 @@ function TableAccountPanelContent(props: Props) {
   };
 
   const confirmRemoval = async () => {
-    if (!removeTarget || !onRemoveOrder) return;
-    const removed = await onRemoveOrder(removeTarget.orderPublicId);
-    if (removed) setRemoveTarget(null);
+    if (!removeTarget || !onRemoveOrder || removalInFlightRef.current || actionLoading) return;
+    removalInFlightRef.current = true;
+    setRemoving(true);
+    try {
+      const removed = await onRemoveOrder(removeTarget.orderPublicId);
+      if (removed) setRemoveTarget(null);
+    } finally {
+      removalInFlightRef.current = false;
+      setRemoving(false);
+    }
   };
 
   return (
@@ -119,30 +215,39 @@ function TableAccountPanelContent(props: Props) {
       role="presentation"
       onMouseDown={(event) => event.target === event.currentTarget && onClose()}
     >
-      <S.Panel role="dialog" aria-modal="true" aria-labelledby="table-account-title">
+      <S.Panel ref={panelRef} role="dialog" aria-modal="true" aria-labelledby="table-account-title">
         <S.Header>
           <span className="icon">
             <ReceiptText size={23} />
           </span>
           <div>
             <h2 id="table-account-title">Sua comanda • Mesa {String(tableNumber)}</h2>
-            <p>Seus pedidos aparecem aqui automaticamente em tempo real.</p>
+            <p>Seus pedidos e pagamentos, em um só lugar.</p>
           </div>
-          <button
-            ref={closeButtonRef}
-            type="button"
-            aria-label="Fechar comanda"
-            onClick={onClose}
-          >
+          <button ref={closeButtonRef} type="button" aria-label="Fechar comanda" onClick={onClose}>
             <X size={18} />
           </button>
         </S.Header>
+
+        <S.Steps aria-label="Etapas da sua comanda">
+          {['Conferir', 'Pagar', 'Confirmar'].map((label, index) => (
+            <li
+              key={label}
+              aria-current={currentStep === index + 1 ? 'step' : undefined}
+              data-complete={currentStep > index + 1}
+            >
+              <span>{index + 1}</span> {label}
+            </li>
+          ))}
+        </S.Steps>
 
         <S.Scroll>
           {error ? (
             <S.Alert $error>
               <span>{error}</span>
-              <button type="button" onClick={onRefresh}>Tentar novamente</button>
+              <button type="button" onClick={onRefresh}>
+                Tentar novamente
+              </button>
             </S.Alert>
           ) : null}
 
@@ -150,148 +255,212 @@ function TableAccountPanelContent(props: Props) {
             <S.Loading>Carregando sua comanda...</S.Loading>
           ) : snapshot ? (
             <>
-              {removeTarget ? (
-                <S.Alert $error>
-                  <span>
-                    Remover <b>{removeTarget.productName}</b> da sua comanda? Esta ação cancela
-                    este pedido antes do preparo.
-                  </span>
-                  <span>
-                    <button
-                      type="button"
-                      disabled={actionLoading}
-                      onClick={() => setRemoveTarget(null)}
-                    >
-                      Manter
-                    </button>
-                    <button
-                      type="button"
-                      disabled={actionLoading}
-                      onClick={() => void confirmRemoval()}
-                    >
-                      Remover
-                    </button>
-                  </span>
-                </S.Alert>
+              {!showPayment ? (
+                <>
+                  <S.Introduction>
+                    <small>
+                      COMANDA INDIVIDUAL
+                      {participant?.displayName ? ` · ${participant.displayName}` : ''}
+                    </small>
+                    <h3>
+                      {items.length ? 'Tudo certo com seus pedidos?' : 'Sua comanda começa aqui'}
+                    </h3>
+                    <p>
+                      {items.length
+                        ? 'Confira seu consumo antes de continuar para o pagamento.'
+                        : 'Escolha no cardápio. Os pedidos que você fizer aparecerão aqui automaticamente.'}
+                    </p>
+                  </S.Introduction>
+                  {orderingBlocked ? (
+                    <S.Alert $info role="status">
+                      Novos pedidos estão bloqueados para este atendimento. Você ainda pode conferir
+                      e pagar sua comanda. Fale com o garçom se precisar de ajuda.
+                    </S.Alert>
+                  ) : null}
+                  {draftCount > 0 && onReviewDraft ? (
+                    <S.Draft>
+                      <div>
+                        <strong>
+                          {draftCount} {draftCount === 1 ? 'item para enviar' : 'itens para enviar'}{' '}
+                          · {formatTableMoney(Math.round(draftTotal * 100))}
+                        </strong>
+                        <p>Ainda não enviados à cozinha. Este valor não está na comanda abaixo.</p>
+                      </div>
+                      <button type="button" onClick={onReviewDraft} disabled={orderingBlocked}>
+                        Revisar e enviar <ArrowRight size={16} aria-hidden="true" />
+                      </button>
+                    </S.Draft>
+                  ) : null}
+                  {removeTarget ? (
+                    <S.Alert $error>
+                      <span>
+                        Remover <b>{removeTarget.productName}</b> da sua comanda? Esta ação cancela
+                        este pedido antes do preparo.
+                      </span>
+                      <span>
+                        <button type="button" disabled={busy} onClick={() => setRemoveTarget(null)}>
+                          Manter
+                        </button>
+                        <button type="button" disabled={busy} onClick={() => void confirmRemoval()}>
+                          {removing ? 'Removendo...' : 'Remover'}
+                        </button>
+                      </span>
+                    </S.Alert>
+                  ) : null}
+
+                  <S.ReceiptPreview aria-label="Sua comanda em tempo real">
+                    <header>
+                      <span>
+                        <strong>Seus pedidos</strong>
+                      </span>
+                      <em>
+                        {items.length} {items.length === 1 ? 'item' : 'itens'}
+                      </em>
+                    </header>
+
+                    <S.ReceiptRows>
+                      {items.length ? (
+                        items.map((item) => {
+                          const singleItemOrder = orderItemCounts.get(item.orderPublicId) === 1;
+                          const removable =
+                            Boolean(onRemoveOrder) &&
+                            singleItemOrder &&
+                            item.orderStatus === 'PENDING' &&
+                            item.financialStatus === 'UNPAID' &&
+                            item.paidCents === 0 &&
+                            item.reservedCents === 0 &&
+                            item.processingCents === 0 &&
+                            item.availableCents === item.unitPriceCents;
+
+                          return (
+                            <article key={item.publicId}>
+                              <span>
+                                <b>1x {item.productName}</b>
+                                <small>
+                                  {item.financialStatus === 'PAID'
+                                    ? 'Pago'
+                                    : item.orderStatus === 'PENDING'
+                                      ? 'Pedido recebido'
+                                      : item.orderStatus === 'PREPARING'
+                                        ? 'Em preparo'
+                                        : item.orderStatus === 'READY'
+                                          ? 'Pronto'
+                                          : item.orderStatus === 'DELIVERED'
+                                            ? 'Entregue · Ainda não pago'
+                                            : 'Na sua comanda'}
+                                </small>
+                              </span>
+                              <span className="receipt-item-actions">
+                                <strong>{formatTableMoney(item.unitPriceCents)}</strong>
+                                {removable ? (
+                                  <button
+                                    type="button"
+                                    className="remove-item"
+                                    aria-label={`Remover ${item.productName} da comanda`}
+                                    title="Remover da comanda"
+                                    disabled={busy}
+                                    onClick={() =>
+                                      setRemoveTarget({
+                                        orderPublicId: item.orderPublicId,
+                                        productName: item.productName,
+                                      })
+                                    }
+                                  >
+                                    <X size={16} />
+                                  </button>
+                                ) : null}
+                              </span>
+                            </article>
+                          );
+                        })
+                      ) : (
+                        <p>Você ainda não possui itens nesta comanda.</p>
+                      )}
+                    </S.ReceiptRows>
+
+                    <S.ReceiptTotals>
+                      <span>
+                        <small>Consumido</small>
+                        <b>{formatTableMoney(snapshot.summary.consumedCents)}</b>
+                      </span>
+                      <span>
+                        <small>Pago</small>
+                        <b>{formatTableMoney(snapshot.summary.netPaidCents)}</b>
+                      </span>
+                      {!visiblePayment && canPay && preview && preview.serviceFeeCents > 0 ? (
+                        <span>
+                          <small>Taxa de serviço neste pagamento</small>
+                          <b>{formatTableMoney(preview.serviceFeeCents)}</b>
+                        </span>
+                      ) : null}
+                      <span className="remaining">
+                        <small>Falta pagar</small>
+                        <b>
+                          {formatTableMoney(
+                            !visiblePayment && canPay && preview
+                              ? preview.totalCents
+                              : snapshot.summary.remainingCents,
+                          )}
+                        </b>
+                      </span>
+                    </S.ReceiptTotals>
+
+                    <footer>
+                      <RefreshCw size={13} />
+                      Atualiza automaticamente quando você faz ou cancela um pedido.
+                    </footer>
+                  </S.ReceiptPreview>
+                  {canPay || visiblePayment ? (
+                    <S.Guide>
+                      <ShieldCheck size={22} aria-hidden="true" />
+                      <div>
+                        <b>Você paga somente o seu consumo</b>
+                        <p>O Pix é confirmado automaticamente. Não precisa enviar comprovante.</p>
+                      </div>
+                    </S.Guide>
+                  ) : null}
+                </>
               ) : null}
 
-              <S.ReceiptPreview aria-label="Sua comanda em tempo real">
-                <header>
-                  <span>
-                    <small>GastroNexa • sua comanda</small>
-                    <strong>Mesa {String(tableNumber).padStart(2, '0')}</strong>
-                  </span>
-                  <em>{items.length} {items.length === 1 ? 'item' : 'itens'}</em>
-                </header>
-
-                <S.ReceiptRows>
-                  {items.length ? (
-                    items.map((item) => {
-                      const singleItemOrder = orderItemCounts.get(item.orderPublicId) === 1;
-                      const removable =
-                        Boolean(onRemoveOrder) &&
-                        singleItemOrder &&
-                        item.orderStatus === 'PENDING' &&
-                        item.financialStatus === 'UNPAID' &&
-                        item.paidCents === 0 &&
-                        item.reservedCents === 0 &&
-                        item.processingCents === 0 &&
-                        item.availableCents === item.unitPriceCents;
-
-                      return (
-                        <article key={item.publicId}>
-                          <span>
-                            <b>1x {item.productName}</b>
-                            <small>
-                              {item.financialStatus === 'PAID'
-                                ? 'Pago'
-                                : item.orderStatus === 'PENDING'
-                                  ? 'Pedido recebido'
-                                  : item.orderStatus === 'PREPARING'
-                                    ? 'Em preparo'
-                                    : item.orderStatus === 'READY'
-                                      ? 'Pronto'
-                                      : 'Na sua comanda'}
-                            </small>
-                          </span>
-                          <span className="receipt-item-actions">
-                            <strong>{formatTableMoney(item.unitPriceCents)}</strong>
-                            {removable ? (
-                              <button
-                                type="button"
-                                className="remove-item"
-                                aria-label={`Remover ${item.productName} da comanda`}
-                                title="Remover da comanda"
-                                disabled={actionLoading}
-                                onClick={() =>
-                                  setRemoveTarget({
-                                    orderPublicId: item.orderPublicId,
-                                    productName: item.productName,
-                                  })
-                                }
-                              >
-                                <X size={16} />
-                              </button>
-                            ) : null}
-                          </span>
-                        </article>
-                      );
-                    })
+              {showPayment && visiblePayment ? (
+                <div
+                  ref={paymentStageRef}
+                  tabIndex={-1}
+                  role="region"
+                  aria-label="Pagamento da comanda"
+                >
+                  <S.DetailsToggle type="button" onClick={() => setReviewingPayment(true)}>
+                    <ArrowLeft size={16} aria-hidden="true" /> Rever meus pedidos
+                  </S.DetailsToggle>
+                  <TablePaymentStatusView
+                    payment={visiblePayment}
+                    status={visiblePayment.status}
+                    actionLoading={actionLoading}
+                    onVerify={verifyPayment}
+                    onCancel={cancelPayment}
+                    onStartOver={() => setPayment(null)}
+                    onClose={onClose}
+                  />
+                </div>
+              ) : !canPay && !visiblePayment && items.length > 0 ? (
+                <S.Alert $info={snapshot.summary.remainingCents > 0} role="status">
+                  {snapshot.summary.remainingCents === 0 ? (
+                    <span>
+                      <CheckCircle2 size={18} aria-hidden="true" /> Tudo pago! Nenhum valor pendente
+                      nesta comanda.
+                    </span>
+                  ) : preview?.blocked ? (
+                    <span>
+                      Há um pagamento em andamento para seus itens. Atualize a comanda para
+                      acompanhar, sem gerar outra cobrança.
+                    </span>
                   ) : (
-                    <p>Você ainda não possui itens nesta comanda.</p>
+                    <span>
+                      O Pix não está disponível para esta comanda agora.{' '}
+                      {manualPaymentLabel || 'Fale com a equipe para concluir o pagamento.'}
+                    </span>
                   )}
-                </S.ReceiptRows>
-
-                <S.ReceiptTotals>
-                  <span>
-                    <small>Consumido</small>
-                    <b>{formatTableMoney(snapshot.summary.consumedCents)}</b>
-                  </span>
-                  <span>
-                    <small>Pago</small>
-                    <b>{formatTableMoney(snapshot.summary.netPaidCents)}</b>
-                  </span>
-                  <span className="remaining">
-                    <small>Falta pagar</small>
-                    <b>{formatTableMoney(snapshot.summary.remainingCents)}</b>
-                  </span>
-                </S.ReceiptTotals>
-
-                <footer>
-                  <RefreshCw size={13} />
-                  Atualiza automaticamente quando você faz ou cancela um pedido.
-                </footer>
-              </S.ReceiptPreview>
-
-              {visiblePayment ? (
-                <TablePaymentStatusView
-                  payment={visiblePayment}
-                  status={visiblePayment.status}
-                  actionLoading={actionLoading}
-                  onVerify={verifyPayment}
-                  onCancel={cancelPayment}
-                  onStartOver={() => setPayment(null)}
-                  onClose={() => setPayment(null)}
-                />
-              ) : items.length > 0 &&
-                snapshot.summary.remainingCents > 0 &&
-                snapshot.capabilities.allowOnlinePayment &&
-                snapshot.capabilities.allowPix ? (
-                <S.PaymentActions aria-label="Pagamento da sua comanda">
-                  <S.PayButton
-                    type="button"
-                    disabled={actionLoading}
-                    onClick={() => void startPixPayment()}
-                  >
-                    <QrCode size={18} />
-                    {actionLoading
-                      ? 'Gerando Pix...'
-                      : `Pagar ${formatTableMoney(snapshot.summary.remainingCents)} com Pix`}
-                  </S.PayButton>
-                  <small>
-                    Prefere cartão? Chame o garçom e pague presencialmente na maquininha.
-                  </small>
-                </S.PaymentActions>
+                </S.Alert>
               ) : null}
 
               <S.DetailsToggle type="button" onClick={onRefresh} disabled={loading}>
@@ -303,6 +472,34 @@ function TableAccountPanelContent(props: Props) {
             <S.Empty>Não foi possível carregar sua comanda.</S.Empty>
           )}
         </S.Scroll>
+        {snapshot && !showPayment ? (
+          <S.PaymentActions aria-label="Pagamento da sua comanda">
+            {visiblePayment ? (
+              <S.PayButton type="button" onClick={() => setReviewingPayment(false)}>
+                Voltar ao pagamento <ArrowRight size={18} aria-hidden="true" />
+              </S.PayButton>
+            ) : canPay && preview ? (
+              <>
+                <S.PayButton
+                  type="button"
+                  disabled={busy || loading || Boolean(error)}
+                  onClick={() => void startPixPayment()}
+                >
+                  {actionLoading
+                    ? 'Gerando Pix...'
+                    : `Continuar com Pix · ${formatTableMoney(preview.totalCents)}`}
+                  <ArrowRight size={18} aria-hidden="true" />
+                </S.PayButton>
+                <small>A cobrança só é paga depois que você confirmar no seu banco.</small>
+                {manualPaymentLabel ? <small>{manualPaymentLabel}</small> : null}
+              </>
+            ) : (
+              <S.PayButton type="button" onClick={onClose}>
+                Voltar ao cardápio <ArrowRight size={18} aria-hidden="true" />
+              </S.PayButton>
+            )}
+          </S.PaymentActions>
+        ) : null}
       </S.Panel>
     </S.Backdrop>
   );
@@ -310,6 +507,6 @@ function TableAccountPanelContent(props: Props) {
 
 export function TableAccountPanel(props: Props) {
   if (!props.open) return null;
-  const sessionKey = props.snapshot?.summary.sessionPublicId || 'loading';
+  const sessionKey = `${props.snapshot?.summary.sessionPublicId || 'loading'}:${props.snapshot?.currentParticipantPublicId || ''}`;
   return <TableAccountPanelContent key={sessionKey} {...props} />;
 }

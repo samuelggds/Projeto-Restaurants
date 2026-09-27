@@ -7,6 +7,8 @@ import {
   getOrderProgress,
   getOrderTypeLabel,
   isAutomaticRefundEligible,
+  canCancelAdminOrder,
+  isOrderWaitingForCapacity,
 } from './adminOrders';
 import type { AdminOrder } from '../types';
 
@@ -16,6 +18,18 @@ const orders = [
 ] as AdminOrder[];
 
 describe('pedidos administrativos', () => {
+  it('cancelamento não depende de pagamento ou vaga e preserva bloqueio de estorno em processamento', () => {
+    const queued = { ...orders[0], paid: false, capacityQueuedAt: '2026-09-26T12:00:00Z' };
+    expect(canCancelAdminOrder(queued)).toBe(true);
+    expect(isOrderWaitingForCapacity(queued)).toBe(true);
+    expect(canCancelAdminOrder({ ...queued, refundStatus: 'PROCESSING' })).toBe(false);
+    expect(canCancelAdminOrder({ ...queued, status: 'CANCELADO' })).toBe(false);
+    expect(canCancelAdminOrder({ ...queued, status: 'ENTREGUE' })).toBe(false);
+    expect(isOrderWaitingForCapacity({ ...queued, status: 'CANCELADO' })).toBe(false);
+    expect(
+      isOrderWaitingForCapacity({ ...queued, capacityAdmittedAt: '2026-09-26T12:01:00Z' }),
+    ).toBe(false);
+  });
   it('busca por cliente ou número do pedido sem diferenciar maiúsculas', () => {
     expect(filterAdminOrders(orders, 'joão', '')).toEqual([orders[0]]);
     expect(filterAdminOrders(orders, '#101', '')).toEqual([orders[1]]);

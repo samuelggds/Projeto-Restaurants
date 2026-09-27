@@ -13,6 +13,7 @@ import refundOrderPaymentService, {
   type RefundProviderReceipt,
 } from './RefundOrderPaymentService.js';
 import { restoreOrderItemsStock } from './restoreOrderItemsStock.js';
+import orderCapacityQueueService from './OrderCapacityQueueService.js';
 import {
   efiOpenFinanceOrderReference,
   findEfiOpenFinancePayment,
@@ -389,11 +390,13 @@ class CancelOrderWorkflowService {
   }
 
   async execute(order: CancellationOrder): Promise<CancelOrderWorkflowResult> {
-    if (!requiresAutomaticOrderRefund(order)) {
-      return this.cancelWithoutRefund(order);
+    const result = !requiresAutomaticOrderRefund(order)
+      ? await this.cancelWithoutRefund(order)
+      : await this.refundAndCancel(order);
+    if (result.order.status === OrderStatus.CANCELADO) {
+      await orderCapacityQueueService.drainAfterCapacityChange(result.order.restaurantId);
     }
-
-    return this.refundAndCancel(order);
+    return result;
   }
 }
 

@@ -266,6 +266,47 @@ test('pedido entregue é rejeitado antes de gateway, cancelamento ou estoque', a
   assertIssueThreadQuery();
 });
 
+for (const state of [
+  {
+    status: OrderStatus.PENDENTE,
+    paid: false,
+    capacityQueuedAt: new Date(),
+    capacityAdmittedAt: null,
+  },
+  { status: OrderStatus.PENDENTE, paid: false },
+  { status: OrderStatus.PREPARANDO, paid: true },
+  { status: OrderStatus.PRONTO, paid: true },
+  { status: OrderStatus.SAIU_PARA_ENTREGA, paid: true },
+]) {
+  test(`admin pode solicitar cancelamento de ${state.status}${state.capacityQueuedAt ? ' na fila FIFO' : ''} pelo workflow financeiro seguro`, async () => {
+    const order = makeOrder(state);
+    const assertIssueThreadQuery = mockMissingIssueThread(701, 17, 2);
+    orderRepository.findById = async (orderId, restaurantId) => {
+      assert.equal(orderId, 701);
+      assert.equal(restaurantId, 17);
+      return order;
+    };
+    prisma.user.findFirst = async ({ where }) => {
+      assert.deepEqual(where, { id: 99, restaurantId: 17, role: UserRole.ADMIN, active: true });
+      return { name: 'Admin autorizado' };
+    };
+    let workflowCalls = 0;
+    cancelOrderWorkflowService.execute = async (receivedOrder) => {
+      assert.equal(receivedOrder, order);
+      workflowCalls += 1;
+      return { order: { ...order, status: OrderStatus.CANCELADO }, refunded: order.paid };
+    };
+    const result = await refundOrderByAdminService.execute({
+      orderId: 701,
+      restaurantId: 17,
+      adminUserId: 99,
+    });
+    assert.equal(workflowCalls, 1);
+    assert.equal(result.order.status, OrderStatus.CANCELADO);
+    assertIssueThreadQuery();
+  });
+}
+
 for (const refundStatus of ['NOT_REQUESTED', 'FAILED']) {
   test(`consulta de estorno ${refundStatus} não inicia devolução nem cancelamento`, async () => {
     const order = makeOrder({ refundStatus });

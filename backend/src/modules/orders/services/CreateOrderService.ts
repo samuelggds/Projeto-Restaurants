@@ -7,6 +7,7 @@ import {
   type OrderCreationContext,
 } from './orderCreationRequest.js';
 import orderRepository from '../repositories/OrderRepository.js';
+import orderCapacityQueueService from './OrderCapacityQueueService.js';
 import { realtimePublisher as io } from '../../../realtime/realtimePublisher.js';
 import { createOrderSchema } from '../../../validators/OrderValidator.js';
 import tableSessionRepository from '../../tableSession/repositories/TableSessionRepository.js';
@@ -936,6 +937,10 @@ class CreateOrderService {
           error instanceof Error ? error.message : String(error),
         );
       });
+    }
+    if (queuedForCapacity && !shouldDeferRealtimeUntilPaid) {
+      const admitted = await orderCapacityQueueService.drainAfterCapacityChange(createdOrder.restaurantId);
+      return admitted.find((order) => order.id === createdOrder.id) || createdOrder;
     }
     return createdOrder;
   }

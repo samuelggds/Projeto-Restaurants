@@ -346,12 +346,7 @@ class UpdateOrderStatusService {
     emitTableSessionOrderEvent(io, 'order:status-changed', updatedOrder);
 
     if (status === OrderStatus.ENTREGUE || status === OrderStatus.CANCELADO) {
-      void orderCapacityQueueService.drainRestaurant(restaurantId).catch((error: unknown) => {
-        console.error(
-          '[ORDER_CAPACITY_QUEUE_DRAIN_ERROR]',
-          error instanceof Error ? error.message : String(error),
-        );
-      });
+      await orderCapacityQueueService.drainAfterCapacityChange(restaurantId);
     }
     return updatedOrder;
   }

@@ -533,8 +533,9 @@ export function WaiterTablesPage() {
       <S.InlineNotice role="note">
         <Info />
         <span>
-          <b>QR Codes administrados pelo restaurante.</b> Aqui você apenas abre a mesa para liberar
-          pedidos e fecha quando o atendimento e o pagamento terminarem.
+          <b>Abra a mesa para iniciar o atendimento.</b> Use “Abrir mesa” abaixo para permitir a entrada
+          pelo QR Code. Ao fechar a mesa, os acessos dos clientes são encerrados. Uma nova abertura exige
+          uma nova entrada na sessão.
         </span>
       </S.InlineNotice>
       <S.Toolbar aria-label="Filtros das mesas">

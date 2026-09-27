@@ -5,6 +5,7 @@ import { setTenantDbContext } from '../../../database/tenantDbContext.js';
 import { tableParticipantIdentityInputSchema } from '../../tableAccount/domain/tableAccountSchemas.js';
 import tableParticipantRepository from '../repositories/TableParticipantRepository.js';
 import tableParticipantStateService from './TableParticipantStateService.js';
+import { lockTablePaymentSession } from '../../tableAccount/services/tablePaymentLedger.js';
 import {
   createParticipantToken,
   getParticipantCookieName,
@@ -41,6 +42,18 @@ export class TableParticipantIdentityRequiredError extends Error {
   constructor(message = 'Informe seu nome e telefone para continuar nesta mesa.') {
     super(message);
     this.name = 'TableParticipantIdentityRequiredError';
+  }
+}
+
+export class TableParticipantSessionUnavailableError extends Error {
+  readonly statusCode = 403;
+  readonly code = 'TABLE_SESSION_UNAVAILABLE';
+
+  constructor() {
+    super(
+      'Esta sessão da mesa foi encerrada ou não permite novas entradas. Escaneie o QR Code após uma nova abertura.',
+    );
+    this.name = 'TableParticipantSessionUnavailableError';
   }
 }
 
@@ -87,6 +100,20 @@ export class JoinTableParticipantService {
     const guestResult = await prisma.$transaction(
       async (tx) => {
         await setTenantDbContext(tx, session.restaurantId);
+        // Usa o mesmo lock do fechamento: ninguém entra com uma leitura antiga
+        // depois que o garçom encerrou e revogou os participantes da sessão.
+        await lockTablePaymentSession(tx, session.restaurantId, session.id);
+        const currentSession = await tx.tableSession.findFirst({
+          where: {
+            id: session.id,
+            publicId: session.publicId,
+            restaurantId: session.restaurantId,
+            status: { in: ['OPEN', 'CLOSING_REQUESTED'] },
+            OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }],
+          },
+          select: { status: true },
+        });
+        if (!currentSession) throw new TableParticipantSessionUnavailableError();
         const existingGuest = existingTokenHash
           ? await tableParticipantRepository.findGuestByTokenHash(
               existingTokenHash,
@@ -127,6 +154,9 @@ export class JoinTableParticipantService {
           return { participant, state, token: existingRawToken };
         }
 
+        if (currentSession.status !== 'OPEN') {
+          throw new TableParticipantSessionUnavailableError();
+        }
         if (!identity.displayName || !identity.phone) {
           throw new TableParticipantIdentityRequiredError();
         }
