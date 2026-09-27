@@ -96,6 +96,186 @@ export const HeroStage = styled.section`
   width: 100%;
   margin: 0 auto;
 `;
+export const DeliveryFallbackHero = styled.section`
+  position: relative;
+  min-height: 340px;
+  overflow: hidden;
+  display: grid;
+  grid-template-columns: minmax(0, 0.9fr) minmax(360px, 1.1fr);
+  align-items: stretch;
+  border: 1px solid #ececec;
+  border-radius: 20px;
+  background:
+    radial-gradient(circle at 16% 18%, color-mix(in srgb, var(--home-primary) 16%, transparent), transparent 38%),
+    linear-gradient(135deg, #17120f 0%, #2b1d17 52%, #15110f 100%);
+  box-shadow: 0 18px 44px rgba(20, 20, 20, 0.12);
+
+  .delivery-hero-copy {
+    position: relative;
+    z-index: 2;
+    padding: clamp(28px, 4vw, 54px);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: flex-start;
+    color: #fff;
+  }
+
+  .delivery-hero-kicker {
+    margin-bottom: 12px;
+    color: color-mix(in srgb, var(--home-primary) 48%, #ffd8c6);
+    font-size: 11px;
+    font-weight: 900;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  h1 {
+    max-width: 560px;
+    margin: 0;
+    font-size: clamp(34px, 4vw, 54px);
+    line-height: 1.02;
+    letter-spacing: -0.045em;
+    text-wrap: balance;
+  }
+
+  h1 strong {
+    display: block;
+    color: #fff;
+    font: inherit;
+  }
+
+  p {
+    max-width: 520px;
+    margin: 16px 0 22px;
+    color: rgba(255, 255, 255, 0.78);
+    font-size: 14px;
+    line-height: 1.55;
+  }
+
+  button {
+    min-height: 46px;
+    padding: 0 18px;
+    border: 0;
+    border-radius: 12px;
+    display: inline-flex;
+    align-items: center;
+    gap: 9px;
+    background: var(--home-primary);
+    color: #fff;
+    font: inherit;
+    font-size: 13px;
+    font-weight: 900;
+    cursor: pointer;
+    box-shadow: 0 10px 24px color-mix(in srgb, var(--home-primary) 28%, transparent);
+  }
+
+  .delivery-hero-media {
+    position: relative;
+    min-height: 340px;
+    overflow: hidden;
+  }
+
+  .delivery-hero-media::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(90deg, #201610 0%, transparent 34%);
+    pointer-events: none;
+  }
+
+  .delivery-hero-media > img {
+    width: 100%;
+    height: 100%;
+    min-height: 340px;
+    object-fit: cover;
+  }
+
+  .delivery-hero-product {
+    position: absolute;
+    z-index: 2;
+    right: 18px;
+    bottom: 18px;
+    max-width: min(300px, calc(100% - 36px));
+    padding: 13px 15px;
+    border: 1px solid rgba(255,255,255,.18);
+    border-radius: 14px;
+    background: rgba(18, 14, 12, 0.76);
+    color: #fff;
+    backdrop-filter: blur(12px);
+  }
+
+  .delivery-hero-product small,
+  .delivery-hero-product b,
+  .delivery-hero-product span {
+    display: block;
+  }
+
+  .delivery-hero-product small {
+    margin-bottom: 3px;
+    color: rgba(255,255,255,.68);
+    font-size: 10px;
+  }
+
+  .delivery-hero-product b {
+    font-size: 15px;
+  }
+
+  .delivery-hero-product span {
+    margin-top: 4px;
+    color: #fff;
+    font-size: 13px;
+    font-weight: 900;
+  }
+
+  @media (max-width: 900px) {
+    grid-template-columns: 1fr;
+    min-height: 0;
+
+    .delivery-hero-copy {
+      padding: 28px 24px 24px;
+    }
+
+    .delivery-hero-media,
+    .delivery-hero-media > img {
+      min-height: 240px;
+      height: 240px;
+    }
+
+    .delivery-hero-media::after {
+      background: linear-gradient(180deg, #201610 0%, transparent 28%);
+    }
+  }
+
+  @media (max-width: 520px) {
+    border-radius: 16px;
+
+    .delivery-hero-copy {
+      padding: 22px 18px 20px;
+    }
+
+    h1 {
+      font-size: 31px;
+    }
+
+    p {
+      margin: 12px 0 18px;
+      font-size: 12px;
+    }
+
+    .delivery-hero-media,
+    .delivery-hero-media > img {
+      min-height: 190px;
+      height: 190px;
+    }
+
+    .delivery-hero-product {
+      right: 12px;
+      bottom: 12px;
+    }
+  }
+`;
+
 export const InfoBar = styled.div`
   min-height: 48px;
   margin: 10px 0 14px;
