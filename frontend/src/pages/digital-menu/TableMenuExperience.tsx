@@ -644,7 +644,7 @@ export default function TableMenuExperience({
 
         <S.FlowPage>
           <S.FlowTitle>
-            <h1>Meu pedido</h1>
+            <h1 aria-label="Minha sacola">Meu pedido</h1>
             <p>Mesa {tableNumber(tableLabel)}</p>
           </S.FlowTitle>
 
@@ -1042,7 +1042,7 @@ function FigmaComboCard({
         className="main"
         type="button"
         disabled={disabled}
-        aria-label={`Ver ${product.name}`}
+        aria-label={`Ver detalhes de ${product.name}`}
         onClick={onOpen}
       />
       {product.image ? (
@@ -1081,7 +1081,7 @@ function FigmaCatalogCard({
         className="main"
         type="button"
         disabled={disabled}
-        aria-label={`Ver ${product.name}`}
+        aria-label={`Ver detalhes de ${product.name}`}
         onClick={onOpen}
       />
       {product.image ? (
