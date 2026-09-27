@@ -213,6 +213,8 @@ export type HomePageProps = {
   onOpenCart?: () => void;
   onOpenTableAccount?: () => void;
   onSearch?: () => void;
+  selectedOrderType?: 'delivery' | 'pickup';
+  onOrderTypeChange?: (value: 'delivery' | 'pickup') => void;
   onSelectCategory?: (categoryId: string) => void;
   onAddProduct?: (productId: string, configuration: ProductConfiguration) => void;
   onToggleFavorite?: (productId: string) => void;
