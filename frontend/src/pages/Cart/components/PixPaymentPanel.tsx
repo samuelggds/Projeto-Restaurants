@@ -90,11 +90,9 @@ const Wrap = styled.main<{ $primary: string }>`
   display: grid;
   place-items: center;
   padding: 20px;
-  background-color: #f2f4f0;
-  background-image:
-    linear-gradient(rgba(37, 57, 48, 0.035) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(37, 57, 48, 0.035) 1px, transparent 1px);
-  background-size: 24px 24px;
+  background: #fdfcf9;
+  color: #1f1e1a;
+  font-family: 'Inter', system-ui, sans-serif;
 
   @media (max-width: 560px) {
     place-items: stretch;
@@ -103,12 +101,12 @@ const Wrap = styled.main<{ $primary: string }>`
 `;
 
 const Card = styled.section`
-  width: min(560px, 100%);
+  width: min(600px, 100%);
   overflow: hidden;
-  border: 1px solid #dfe4dd;
-  border-radius: 8px;
+  border: 1px solid #efece6;
+  border-radius: 20px;
   background: #fff;
-  box-shadow: 0 24px 60px rgba(25, 38, 31, 0.12);
+  box-shadow: 0 18px 44px rgba(31, 30, 26, 0.08);
 
   @media (max-width: 560px) {
     width: 100%;
@@ -124,8 +122,8 @@ const Header = styled.header`
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: start;
   gap: 16px;
-  padding: 22px 24px 17px;
-  border-bottom: 1px solid #e6e9e4;
+  padding: 24px 28px 18px;
+  border-bottom: 1px solid #efece6;
 
   small,
   h1 {
@@ -133,7 +131,7 @@ const Header = styled.header`
   }
 
   small {
-    color: #788078;
+    color: #72706b;
     font-size: 10px;
     font-weight: 800;
     text-transform: uppercase;
@@ -141,7 +139,7 @@ const Header = styled.header`
 
   h1 {
     margin-top: 4px;
-    color: #202923;
+    color: #1f1e1a;
     font-size: 21px;
     line-height: 1.2;
   }
@@ -164,7 +162,7 @@ const Header = styled.header`
 const Content = styled.div`
   display: grid;
   gap: 15px;
-  padding: 20px 24px 24px;
+  padding: 24px 28px 28px;
 
   @media (max-width: 480px) {
     padding: 16px;
@@ -186,7 +184,7 @@ const Status = styled.div<{ $tone: StatusTone }>`
           : $tone === 'checking'
             ? '#bad3df'
             : '#ead6a8'};
-  border-radius: 8px;
+  border-radius: 16px;
   background: ${({ $tone }) =>
     $tone === 'success'
       ? '#eff9f1'
@@ -230,9 +228,9 @@ const Status = styled.div<{ $tone: StatusTone }>`
 
 const PaymentArea = styled.div`
   display: grid;
-  grid-template-columns: 196px minmax(0, 1fr);
-  gap: 16px;
-  align-items: center;
+  grid-template-columns: 1fr;
+  gap: 18px;
+  justify-items: center;
 
   @media (max-width: 520px) {
     grid-template-columns: 1fr;
@@ -240,14 +238,14 @@ const PaymentArea = styled.div`
 `;
 
 const QrWrap = styled.div`
-  width: 196px;
+  width: 220px;
   aspect-ratio: 1;
   display: grid;
   place-items: center;
   overflow: hidden;
   padding: 10px;
-  border: 1px solid #dfe4dd;
-  border-radius: 8px;
+  border: 1px solid #efece6;
+  border-radius: 12px;
   background: #fff;
 
   img,
@@ -264,6 +262,7 @@ const QrWrap = styled.div`
 `;
 
 const PixDetails = styled.div`
+  width: 100%;
   min-width: 0;
 
   > b,
@@ -272,13 +271,13 @@ const PixDetails = styled.div`
   }
 
   > b {
-    color: #28312b;
+    color: #1f1e1a;
     font-size: 12px;
   }
 
   > small {
     margin-top: 4px;
-    color: #768078;
+    color: #72706b;
     font-size: 10px;
     line-height: 1.4;
   }
@@ -290,10 +289,10 @@ const CodeBox = styled.code`
   overflow: auto;
   margin-top: 10px;
   padding: 10px;
-  border: 1px solid #e0e4df;
+  border: 1px solid #efece6;
   border-radius: 7px;
-  background: #f5f7f4;
-  color: #4c5850;
+  background: #f7f5f0;
+  color: #1f1e1a;
   font-size: 10px;
   line-height: 1.45;
   overflow-wrap: anywhere;
@@ -343,8 +342,8 @@ const SafetyNote = styled.p`
   margin: 0;
   padding: 10px 11px;
   border-radius: 8px;
-  background: #f5f7f4;
-  color: #626d65;
+  background: #fdf2ec;
+  color: #72706b;
   font-size: 10px;
   line-height: 1.45;
 
@@ -367,10 +366,10 @@ const Expiration = styled.div`
   justify-content: space-between;
   gap: 12px;
   padding: 10px 12px;
-  border: 1px solid #e1e5df;
+  border: 1px solid #efece6;
   border-radius: 8px;
-  background: #fafbf9;
-  color: #4f5d54;
+  background: #fff;
+  color: #72706b;
 
   span {
     display: inline-flex;
@@ -382,7 +381,7 @@ const Expiration = styled.div`
 
   strong {
     min-width: 54px;
-    color: #25322d;
+    color: #1f1e1a;
     font-variant-numeric: tabular-nums;
     text-align: right;
   }
@@ -469,11 +468,8 @@ export default function PixPaymentPanel({
       <Card>
         <Header>
           <div>
-            <small>{openFinance ? 'Open Finance Efí' : 'Pagamento via Pix'}</small>
-            <h1>
-              {confirmed
-                ? 'Tudo certo com seu pedido' : 'Conclua seu pagamento'}
-            </h1>
+            <small>{openFinance ? 'Open Finance Efí' : 'Pagamento'}</small>
+            <h1>{confirmed ? 'Pagamento confirmado' : 'Pagamento PIX'}</h1>
           </div>
           <strong>{formatCurrency(pixPaymentData.total)}</strong>
         </Header>
@@ -518,9 +514,9 @@ export default function PixPaymentPanel({
                   )}
                 </QrWrap>
                 <PixDetails>
-                  <b>Pix copia e cola</b>
+                  <b>Pix Copia e Cola</b>
                   <small>
-                    Abra o app do banco, escolha Pix e use o QR Code ou o código abaixo.
+                    Escaneie o QR Code no app do seu banco ou use o Pix Copia e Cola abaixo.
                   </small>
                   <CodeBox>{pixPaymentData.pixCode}</CodeBox>
                   <CopyButton type="button" onClick={() => void handleCopy()}>
