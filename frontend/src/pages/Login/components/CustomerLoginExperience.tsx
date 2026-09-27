@@ -245,26 +245,29 @@ export function CustomerLoginExperience({
 
           <S.Divider>ou</S.Divider>
 
-          {googleStatus === 'ready' ? (
-            <S.GoogleSlot>
-              <div className="google-real-button" ref={googleButtonRef} />
+          <S.GoogleSlot>
+            <div className="google-real-button" ref={googleButtonRef} />
+            {googleStatus === 'ready' ? (
               <S.GoogleVisual aria-hidden="true">
                 <span className="google-g">G</span>
                 <span>Continuar com o Google</span>
               </S.GoogleVisual>
-            </S.GoogleSlot>
-          ) : (
-            <S.GoogleFallback
-              type="button"
-              onClick={onInitializeGoogle}
-              disabled={googleStatus === 'loading'}
-            >
-              <span className="google-g">G</span>
-              <span>
-                {googleStatus === 'loading' ? 'Carregando login com Google...' : 'Continuar com o Google'}
-              </span>
-            </S.GoogleFallback>
-          )}
+            ) : (
+              <S.GoogleFallback
+                className="google-fallback-overlay"
+                type="button"
+                onClick={onInitializeGoogle}
+                disabled={googleStatus === 'loading'}
+              >
+                <span className="google-g">G</span>
+                <span>
+                  {googleStatus === 'loading'
+                    ? 'Carregando login com Google...'
+                    : 'Continuar com o Google'}
+                </span>
+              </S.GoogleFallback>
+            )}
+          </S.GoogleSlot>
 
           {googleMessage ? (
             <S.GoogleMessage role="alert" aria-live="polite">
