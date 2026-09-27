@@ -131,7 +131,7 @@ export default function Home() {
   const [tableServiceLoading, setTableServiceLoading] = useState<'WAITER' | 'BILL' | null>(null);
   const [tableOrderLoading, setTableOrderLoading] = useState(false);
   const [tableAccountOpen, setTableAccountOpen] = useState(false);
-  const [tableMenuReviewCartSignal, setTableMenuReviewCartSignal] = useState(0);
+  const [tableMenuReviewCartOpen, setTableMenuReviewCartOpen] = useState(false);
 
   useEffect(() => {
     if (!cartOpen) return undefined;
@@ -816,7 +816,7 @@ export default function Home() {
       onReviewDraft={() => {
         setTableAccountOpen(false);
         if (mesaMode) {
-          setTableMenuReviewCartSignal((value) => value + 1);
+          setTableMenuReviewCartOpen(true);
           return;
         }
         cartReturnFocusRef.current = document.activeElement as HTMLElement | null;
@@ -963,7 +963,8 @@ export default function Home() {
         onReconcilePayment={tableAccount.reconcilePayment}
         onCancelPayment={tableAccount.cancelPayment}
         onOpenTableAccount={openTableAccount}
-        reviewCartSignal={tableMenuReviewCartSignal}
+        reviewCartOpen={tableMenuReviewCartOpen}
+        onReviewCartClose={() => setTableMenuReviewCartOpen(false)}
       />
       {tableAccountPanel}
       </>
