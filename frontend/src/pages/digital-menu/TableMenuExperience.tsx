@@ -419,11 +419,15 @@ export default function TableMenuExperience({
           >
             <ArrowLeft size={18} /> Voltar ao cardápio
           </S.BackButton>
-          <S.TrackingHero>
-            <small>ACOMPANHAMENTO DO PEDIDO</small>
-            <h1>{tableOrder ? `Pedido #${tableOrder.publicId}` : 'Seu pedido'}</h1>
-            <p>Mesa {tableLabel}</p>
-          </S.TrackingHero>
+          <S.TrackingHeading>
+            <div>
+              <small>ACOMPANHAMENTO DO PEDIDO</small>
+              <h1>Acompanhe seu pedido</h1>
+              <p>
+                {tableOrder ? `Pedido #${tableOrder.publicId} · Mesa ${tableLabel}` : `Mesa ${tableLabel}`}
+              </p>
+            </div>
+          </S.TrackingHeading>
           <S.ProgressRow>
             {['Pedido recebido', 'Em preparo', 'Pronto', 'Entregue na mesa'].map((label, index) => {
               const progress = tableOrder?.progress || 0;
