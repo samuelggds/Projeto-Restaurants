@@ -275,121 +275,77 @@ export default function TableMenuExperience({
       );
     }
 
-    const paymentItems = confirmation?.items || [];
     const minutes = pixRemainingSeconds === null ? 0 : Math.floor(pixRemainingSeconds / 60);
     const seconds = pixRemainingSeconds === null ? 0 : pixRemainingSeconds % 60;
 
     return (
       <S.Shell $primary={primary}>
-        <S.PaymentHeader>
-          <S.Brand>
+        <S.PixReferenceHeader>
+          <button
+            type="button"
+            aria-label="Voltar para o pedido"
+            onClick={() => setView('confirmation')}
+          >
+            <ArrowLeft size={18} />
+          </button>
+          <S.CartReferenceBrand>
             {data.brand.logoUrl ? (
               <img src={data.brand.logoUrl} alt={data.brand.name} />
             ) : (
               <S.BrandMark />
             )}
-            <span>
-              <b>{data.brand.name}</b>
-              <small>{data.about || data.brand.category || ''}</small>
-            </span>
-          </S.Brand>
-          <S.PaymentBack type="button" onClick={() => setView('confirmation')}>
-            <ArrowLeft size={18} /> Voltar para o pedido
-          </S.PaymentBack>
-        </S.PaymentHeader>
+            <b>{data.brand.name}</b>
+          </S.CartReferenceBrand>
+          <span />
+        </S.PixReferenceHeader>
 
-        <S.PixPage>
-          <S.PixSummary>
-            <header>
-              <h2>Resumo do pedido</h2>
-              <span>Mesa {tableLabel}</span>
-            </header>
-            <div className="items">
-              {paymentItems.map((item) => (
-                <article key={item.cartId}>
-                  {item.image ? <img src={item.image} alt={item.name} /> : <S.ImagePlaceholder />}
-                  <div>
-                    <b>{item.name}</b>
-                    {item.options?.length ? (
-                      <small>{item.options.map((option) => option.name).join(' · ')}</small>
-                    ) : null}
-                  </div>
-                  <span>{item.quantity}x</span>
-                  <strong>{brl(item.price * item.quantity)}</strong>
-                </article>
-              ))}
+        <S.PixReferencePage>
+          <S.PixReferenceMark aria-hidden="true">
+            <i />
+            <i />
+            <i />
+            <i />
+          </S.PixReferenceMark>
+
+          <h1>Pagar com PIX</h1>
+          <p>Escaneie o QR Code pelo seu banco ou copie o código abaixo.</p>
+
+          {currentPayment.paymentCode ? (
+            <>
+              <S.PixReferenceQr aria-label="QR Code PIX">
+                <QRCode value={currentPayment.paymentCode} size={210} level="M" />
+              </S.PixReferenceQr>
+
+              <S.PixReferenceCopy>
+                <div>
+                  <small>Código PIX (copia e cola)</small>
+                  <code>{currentPayment.paymentCode}</code>
+                </div>
+                <button type="button" onClick={() => void copyPix()}>
+                  <Copy size={16} />
+                  {copied ? 'Copiado' : 'Copiar'}
+                </button>
+              </S.PixReferenceCopy>
+            </>
+          ) : null}
+
+          <S.PixReferenceWaiting role="status" aria-live="polite">
+            <Clock3 size={18} />
+            <div>
+              <b>Aguardando o pagamento...</b>
+              <span>O QR Code expira no horário indicado.</span>
             </div>
-            <S.PixTotals>
-              <span>
-                <small>Subtotal</small>
-                <b>{brl(currentPayment.subtotalCents / 100)}</b>
-              </span>
-              {currentPayment.serviceFeeCents > 0 ? (
-                <span>
-                  <small>Taxa de serviço</small>
-                  <b>{brl(currentPayment.serviceFeeCents / 100)}</b>
-                </span>
-              ) : null}
-              <span className="total">
-                <strong>Total a pagar</strong>
-                <b>{brl(currentPayment.totalCents / 100)}</b>
-              </span>
-            </S.PixTotals>
-            <S.AfterPayment>
-              <Clock3 />
-              <div>
-                <b>Após o pagamento</b>
-                <p>A confirmação acontece automaticamente pelo sistema.</p>
-              </div>
-            </S.AfterPayment>
-          </S.PixSummary>
-
-          <S.PixPaymentCard>
-            <S.PixMark aria-hidden="true">
-              <i />
-              <i />
-              <i />
-              <i />
-            </S.PixMark>
-            <h1>Pagar com PIX</h1>
-            <p>Escaneie o QR Code pelo seu banco ou copie o código abaixo.</p>
-
-            {currentPayment.paymentCode ? (
-              <>
-                <S.QrFrame aria-label="QR Code PIX">
-                  <QRCode value={currentPayment.paymentCode} size={220} level="M" />
-                </S.QrFrame>
-                <S.CopyArea>
-                  <div>
-                    <small>Código PIX (copia e cola)</small>
-                    <code>{currentPayment.paymentCode}</code>
-                  </div>
-                  <button type="button" onClick={() => void copyPix()}>
-                    <Copy size={18} />
-                    {copied ? 'Copiado' : 'Copiar'}
-                  </button>
-                </S.CopyArea>
-              </>
+            {pixRemainingSeconds !== null ? (
+              <strong>
+                {String(minutes).padStart(2, '0')}:{String(seconds).padStart(2, '0')}
+              </strong>
             ) : null}
+          </S.PixReferenceWaiting>
 
-            <S.WaitingPayment role="status" aria-live="polite">
-              <Clock3 />
-              <div>
-                <b>Aguardando o pagamento...</b>
-                <span>O QR Code expira no horário indicado.</span>
-              </div>
-              {pixRemainingSeconds !== null ? (
-                <strong>
-                  {String(minutes).padStart(2, '0')}:{String(seconds).padStart(2, '0')}
-                </strong>
-              ) : null}
-            </S.WaitingPayment>
-
-            <S.PaymentBackWide type="button" onClick={() => setView('confirmation')}>
-              <ArrowLeft size={18} /> Voltar para o pedido
-            </S.PaymentBackWide>
-          </S.PixPaymentCard>
-        </S.PixPage>
+          <S.PixReferenceBack type="button" onClick={() => setView('confirmation')}>
+            <ArrowLeft size={17} /> Voltar para o pedido
+          </S.PixReferenceBack>
+        </S.PixReferencePage>
       </S.Shell>
     );
   }
