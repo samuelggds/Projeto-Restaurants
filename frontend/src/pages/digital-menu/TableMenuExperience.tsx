@@ -54,7 +54,8 @@ type Props = {
   onReconcilePayment: (paymentPublicId: string) => Promise<TablePaymentIntent | null>;
   onCancelPayment: (paymentPublicId: string) => Promise<boolean>;
   onOpenTableAccount: () => void;
-  reviewCartSignal?: number;
+  reviewCartOpen?: boolean;
+  onReviewCartClose?: () => void;
 };
 
 type View = 'menu' | 'cart' | 'confirmation' | 'tracking' | 'pix';
@@ -82,9 +83,11 @@ export default function TableMenuExperience({
   onReconcilePayment,
   onCancelPayment,
   onOpenTableAccount,
-  reviewCartSignal = 0,
+  reviewCartOpen = false,
+  onReviewCartClose,
 }: Props) {
   const [view, setView] = useState<View>('menu');
+  const effectiveView: View = reviewCartOpen ? 'cart' : view;
   const [query, setQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('todos');
   const [selectedProduct, setSelectedProduct] = useState<HomeProduct | null>(null);
@@ -154,10 +157,6 @@ export default function TableMenuExperience({
     const interval = window.setInterval(() => setNow(Date.now()), 1_000);
     return () => window.clearInterval(interval);
   }, [pixPending, pixRemainingSeconds]);
-
-  useEffect(() => {
-    if (reviewCartSignal > 0) setView('cart');
-  }, [reviewCartSignal]);
 
   useEffect(() => {
     if (!pixPending || !currentPayment?.publicId) return undefined;
@@ -232,7 +231,7 @@ export default function TableMenuExperience({
     window.setTimeout(() => setCopied(false), 1800);
   }
 
-  if (view === 'pix' && currentPayment) {
+  if (effectiveView === 'pix' && currentPayment) {
     if (!pixPending) {
       return (
         <S.Shell $primary={primary}>
@@ -384,7 +383,7 @@ export default function TableMenuExperience({
     );
   }
 
-  if (view === 'tracking') {
+  if (effectiveView === 'tracking') {
     return (
       <S.Shell $primary={primary}>
         <Header
@@ -393,11 +392,20 @@ export default function TableMenuExperience({
           cartCount={cartCount}
           query={query}
           setQuery={setQuery}
-          onCart={() => setView('cart')}
+          onCart={() => {
+            onReviewCartClose?.();
+            setView('cart');
+          }}
           onOpenTableAccount={onOpenTableAccount}
         />
         <S.Page>
-          <S.BackButton type="button" onClick={() => setView('menu')}>
+          <S.BackButton
+            type="button"
+            onClick={() => {
+              onReviewCartClose?.();
+              setView('menu');
+            }}
+          >
             <ArrowLeft size={18} /> Voltar ao cardápio
           </S.BackButton>
           <S.TrackingHero>
@@ -454,7 +462,7 @@ export default function TableMenuExperience({
     );
   }
 
-  if (view === 'confirmation' && confirmation) {
+  if (effectiveView === 'confirmation' && confirmation) {
     return (
       <S.Shell $primary={primary}>
         <Header
@@ -533,7 +541,7 @@ export default function TableMenuExperience({
     );
   }
 
-  if (view === 'cart') {
+  if (effectiveView === 'cart') {
     return (
       <S.Shell $primary={primary}>
         <Header
