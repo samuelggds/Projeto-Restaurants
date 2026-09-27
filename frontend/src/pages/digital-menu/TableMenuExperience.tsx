@@ -1080,7 +1080,12 @@ function FlowHeader({
             <small>{data.brand.category || 'Mesa Inteligente'}</small>
           </span>
         </S.FigmaBrand>
-        {title ? <span className="context-title">{title}</span> : null}
+        {title ? (
+          <span className="context-title">
+            <b>{title}</b>
+            <small>{data.brand.name}</small>
+          </span>
+        ) : null}
       </div>
 
       <nav aria-label="Navegação da mesa">
