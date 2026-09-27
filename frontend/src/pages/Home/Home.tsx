@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
+import { useState, useCallback, useEffect, useMemo } from 'react';
 import { useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { CustomerActionHub } from './components/CustomerActionHub';
 import { FloatingWhatsAppPortal } from './Home.whatsapp';
@@ -957,8 +957,29 @@ export default function Home() {
           cartTotal={cartTotal}
           quote={orderQuote.quote}
           loading={checkoutLoading}
-          canContinue={checkoutChannelAvailable && paymentAvailable}
-          onStepChange={setCheckoutStep}
+          canContinue={
+            checkoutStep !== 'payment' || (checkoutChannelAvailable && paymentAvailable)
+          }
+          onStepChange={(nextStep) => {
+            if (nextStep === 'payment') {
+              const customer = (user || guestCheckoutDetails) as Record<string, unknown>;
+              const issue = validateCheckout({
+                type: checkoutOrderType,
+                customerPhone: customer.phone,
+                customerName: customer.name,
+                customerCpf: customer.cpf,
+                requireGuestIdentity: !user,
+                deliveryAddress,
+                cepStatus,
+                paymentMethod: selectedCheckoutPaymentMethod,
+              });
+              if (issue) {
+                notify('warning', issue.title, issue.message);
+                return;
+              }
+            }
+            setCheckoutStep(nextStep);
+          }}
           onIncrease={increaseCart}
           onDecrease={decreaseCart}
           onClear={() => setCart([])}
