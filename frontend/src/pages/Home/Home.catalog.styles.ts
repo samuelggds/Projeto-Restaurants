@@ -226,18 +226,19 @@ export const CategoryButton = styled.button<{ $active: boolean }>`
   }
 
   @media (max-width: 760px) {
-    min-width: 88px;
-    min-height: 82px;
-    padding: 8px 7px;
-    border-radius: 14px;
+    min-width: 78px;
+    min-height: 68px;
+    padding: 6px;
+    gap: 4px;
+    border-radius: 13px;
 
     img {
-      width: 44px;
-      height: 44px;
+      width: 36px;
+      height: 36px;
     }
 
     b {
-      font-size: 11px;
+      font-size: 10.5px;
     }
   }
 `;
