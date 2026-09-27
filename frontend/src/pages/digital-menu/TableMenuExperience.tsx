@@ -494,9 +494,10 @@ export default function TableMenuExperience({
             {allowPix ? (
               <S.PaymentChoiceCard>
                 <span className="icon"><WalletCards size={28} /></span>
+                <span className="recommended desktop-only">RECOMENDADO</span>
+                <span className="pix-badge mobile-only">PIX</span>
                 <h2>Pagar agora (PIX)</h2>
                 <p>Finalize pelo celular com liberação automática na hora. Rápido e prático.</p>
-                <small>PIX</small>
                 <button
                   className="primary"
                   type="button"
