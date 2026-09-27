@@ -60,6 +60,7 @@ import { CardPaymentReturnPanel } from './components/CardPaymentReturnPanel';
 import { PaymentResultView } from '../../components/payment/PaymentResultView';
 import { useCardPaymentReturn } from './hooks/useCardPaymentReturn';
 import { buildLoginUrl } from '../../shared/navigation/authNavigation';
+import TableMenuExperience from '../digital-menu/TableMenuExperience';
 
 type NotifType = 'success' | 'error' | 'info' | 'warning';
 type HomeNavigationState = {
@@ -231,7 +232,7 @@ export default function Home() {
     routeTableId || (mesaSessionIsActive ? Number(tableSession?.tableId || 0) : 0) || null;
 
   const { activeOrder, refreshActiveOrder } = useActiveOrderNotice(mesaMode ? null : customerId);
-  const { refreshTableOrder } = useTableOrderNotice({
+  const { tableOrder, refreshTableOrder } = useTableOrderNotice({
     enabled: mesaMode && mesaSessionIsActive,
     sessionKey: tableSession?.sessionPublicId || tableSession?.sessionId || activeTableId,
     sessionToken: tableSession?.sessionToken,
@@ -642,12 +643,14 @@ export default function Home() {
         'A cozinha recebeu seu pedido. O valor foi adicionado à sua comanda e você pode pagar quando quiser.',
         5000,
       );
+      return order;
     } catch (error: unknown) {
       notify(
         'error',
         'Não foi possível enviar o pedido',
         getCheckoutErrorMessage(error) || 'Tente novamente em alguns instantes.',
       );
+      return null;
     } finally {
       setTableOrderLoading(false);
     }
@@ -865,6 +868,67 @@ export default function Home() {
         }
         tableLabel={mesaLabel}
         onRetry={() => window.location.reload()}
+      />
+    );
+  }
+
+  if (mesaMode) {
+    const createPixPaymentForOrder = async (orderPublicId: string) => {
+      const snapshot = await tableAccount.refresh({ silent: true });
+      if (!snapshot?.capabilities.allowPix) {
+        notify(
+          'warning',
+          'PIX indisponível',
+          'Este restaurante não habilitou pagamento PIX online para a mesa.',
+        );
+        return null;
+      }
+
+      const billItemPublicIds = snapshot.items
+        .filter(
+          (item) =>
+            item.orderPublicId === orderPublicId &&
+            item.orderedByParticipantPublicId === snapshot.currentParticipantPublicId &&
+            item.availableCents > 0,
+        )
+        .map((item) => item.publicId);
+
+      if (!billItemPublicIds.length) {
+        notify(
+          'warning',
+          'Pagamento indisponível',
+          'Os itens deste pedido ainda não estão disponíveis para pagamento.',
+        );
+        return null;
+      }
+
+      return tableAccount.createPayment({
+        selectionMode: 'SELECTED_ITEMS',
+        method: 'PIX',
+        billItemPublicIds,
+        includeOptionalServiceFee: false,
+      });
+    };
+
+    return (
+      <TableMenuExperience
+        data={homeData}
+        tableLabel={mesaLabel}
+        cart={cart}
+        cartCount={cartCount}
+        cartTotal={cartTotal}
+        orderingLocked={tableClosingRequested}
+        tableOrder={tableOrder}
+        accountSnapshot={tableAccount.snapshot}
+        activePayment={tableAccount.snapshot?.activePayment || null}
+        paymentLoading={tableAccount.actionLoading}
+        onAddProduct={addToCart}
+        onIncrease={increaseCart}
+        onDecrease={decreaseCart}
+        onSubmitOrder={addOrderToTableAccount}
+        onCallWaiter={() => void requestTableService('WAITER')}
+        onCreatePixPayment={createPixPaymentForOrder}
+        onReconcilePayment={tableAccount.reconcilePayment}
       />
     );
   }
