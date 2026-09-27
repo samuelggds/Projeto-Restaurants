@@ -39,6 +39,7 @@ type SubmitResult = {
 
 type Props = {
   data: HomeData;
+  tableLabel: string | number;
   cart: CartItem[];
   cartCount: number;
   cartTotal: number;
@@ -66,6 +67,7 @@ const brl = (value: number) =>
 
 export default function TableMenuExperience({
   data,
+  tableLabel,
   cart,
   cartCount,
   cartTotal,
