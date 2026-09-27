@@ -363,7 +363,7 @@ export default function TableMenuExperience({
 
   if (effectiveView === 'tracking') {
     const progress = tableOrder?.progress || 0;
-    const progressSteps = ['Pedido recebido', 'Em preparo', 'Pronto', 'Entregue na mesa'];
+    const progressSteps = ['Pedido recebido', 'Em preparação', 'Pronto', 'Entregue na mesa'];
 
     return (
       <S.Shell $primary={primary}>
@@ -398,65 +398,44 @@ export default function TableMenuExperience({
 
         <S.TrackingReferencePage>
           <S.TrackingReferenceTitle>
-            <h1>Acompanhe seu pedido</h1>
-            <p>
-              {tableOrder
-                ? `Pedido #${tableOrder.publicId} · Mesa ${tableLabel}`
-                : `Mesa ${tableLabel}`}
-            </p>
+            <h1>
+              {tableOrder ? `Pedido #${tableOrder.publicId}` : 'Acompanhe seu pedido'}
+            </h1>
+            <p>Acompanhe o status do seu pedido em tempo real.</p>
           </S.TrackingReferenceTitle>
 
           <S.TrackingReferenceProgress>
             {progressSteps.map((label, index) => {
               const stepNumber = index + 1;
               const active = progress >= stepNumber;
+              const current = progress === stepNumber;
               return (
                 <S.TrackingReferenceStep key={label} $active={active}>
                   <span>{progress > index ? <Check size={14} /> : stepNumber}</span>
-                  <b>{label}</b>
+                  <div>
+                    <b>{label}</b>
+                    {current && tableOrder?.summary ? <small>{tableOrder.summary}</small> : null}
+                  </div>
                 </S.TrackingReferenceStep>
               );
             })}
           </S.TrackingReferenceProgress>
 
-          <S.TrackingReferenceStatus>
-            <div className="icon">
-              <Utensils size={24} />
-            </div>
-            <div>
-              <h2>{tableOrder?.statusLabel || 'Aguardando atualização'}</h2>
-              <p>
-                {tableOrder?.summary ||
-                  'O status será atualizado automaticamente quando houver uma nova etapa.'}
-              </p>
-            </div>
-          </S.TrackingReferenceStatus>
+          <S.TrackingTableCard>
+            <small>Mesa</small>
+            <strong>{String(tableLabel).padStart(2, '0')}</strong>
+          </S.TrackingTableCard>
 
-          {tableOrder?.items?.length ? (
-            <S.TrackingReferenceItems>
-              <h2>Itens do pedido</h2>
-              {tableOrder.items.map((item, index) => (
-                <article key={`${item.name}-${index}`}>
-                  <div>
-                    <b>{item.name}</b>
-                    {item.observation ? <small>Obs.: {item.observation}</small> : null}
-                  </div>
-                  <strong>{item.quantity}x</strong>
-                </article>
-              ))}
-            </S.TrackingReferenceItems>
-          ) : null}
-
-          <S.TrackingReferenceWaiter>
-            <BellRing size={21} />
-            <div>
-              <h3>Precisa de algo?</h3>
-              <p>Chame o garçom da sua mesa sem sair do cardápio.</p>
-              <button type="button" aria-label="Chamar garçom" onClick={onCallWaiter}>
-                Chamar garçom
-              </button>
+          <S.TrackingCurrentStatus>
+            <div className="status-icon" aria-hidden="true">
+              <Utensils size={34} />
             </div>
-          </S.TrackingReferenceWaiter>
+            <h2>{tableOrder?.statusLabel || 'Aguardando atualização'}</h2>
+            <p>
+              {tableOrder?.summary ||
+                'O status será atualizado automaticamente assim que o restaurante avançar o pedido.'}
+            </p>
+          </S.TrackingCurrentStatus>
         </S.TrackingReferencePage>
       </S.Shell>
     );
