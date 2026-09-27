@@ -500,7 +500,7 @@ export const ComboRail = styled.div`
 export const ComboCard = styled.article<{ $hasImage?: boolean }>`
   position: relative;
   min-width: 0;
-  min-height: 192px;
+  min-height: ${({ $hasImage }) => ($hasImage ? '192px' : '132px')};
   overflow: hidden;
   border: 1px solid #eeeeef;
   border-radius: 15px;
@@ -521,7 +521,7 @@ export const ComboCard = styled.article<{ $hasImage?: boolean }>`
   }
 
   .copy {
-    padding: 12px 48px 14px 14px;
+    padding: ${({ $hasImage }) => ($hasImage ? '12px 48px 14px 14px' : '20px 48px 20px 14px')};
     display: grid;
     align-content: start;
     gap: 4px;
@@ -584,14 +584,14 @@ export const ComboCard = styled.article<{ $hasImage?: boolean }>`
   }
 
   @media (max-width: 759px) {
-    min-height: 192px;
+    min-height: ${({ $hasImage }) => ($hasImage ? '192px' : '116px')};
 
     .media {
       height: 96px;
     }
 
     .copy {
-      padding: 10px 42px 11px 12px;
+      padding: ${({ $hasImage }) => ($hasImage ? '10px 42px 11px 12px' : '16px 42px 16px 12px')};
       gap: 2px;
     }
 
@@ -853,6 +853,7 @@ export const CatalogGrid = styled.div`
 export const CatalogCard = styled.article<{ $hasImage?: boolean }>`
   position: relative;
   min-width: 0;
+  min-height: ${({ $hasImage }) => ($hasImage ? '0' : '128px')};
   overflow: hidden;
   border: 1px solid #ededf0;
   border-radius: 15px;
@@ -871,7 +872,7 @@ export const CatalogCard = styled.article<{ $hasImage?: boolean }>`
   }
 
   .copy {
-    padding: 12px 48px 13px 13px;
+    padding: ${({ $hasImage }) => ($hasImage ? '12px 48px 13px 13px' : '18px 48px 18px 13px')};
     display: grid;
     gap: 5px;
   }
@@ -938,7 +939,7 @@ export const CatalogCard = styled.article<{ $hasImage?: boolean }>`
     }
 
     .copy {
-      padding: 10px 40px 11px 10px;
+      padding: ${({ $hasImage }) => ($hasImage ? '10px 40px 11px 10px' : '14px 40px 14px 10px')};
     }
 
     h3 {
