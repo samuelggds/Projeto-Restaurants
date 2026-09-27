@@ -55,7 +55,6 @@ import {
   resolveAvailableFulfillmentMethod,
 } from './domain/publicSettings';
 import { TableServiceActions } from './components/TableServiceActions';
-import { TableAccountPanel } from './components/TableAccountPanel';
 import { CardPaymentReturnPanel } from './components/CardPaymentReturnPanel';
 import { PaymentResultView } from '../../components/payment/PaymentResultView';
 import { useCardPaymentReturn } from './hooks/useCardPaymentReturn';
@@ -130,7 +129,6 @@ export default function Home() {
   const [notifs, setNotifs] = useState<HomeNotification[]>([]);
   const [tableServiceLoading, setTableServiceLoading] = useState<'WAITER' | 'BILL' | null>(null);
   const [tableOrderLoading, setTableOrderLoading] = useState(false);
-  const [tableAccountOpen, setTableAccountOpen] = useState(false);
   const [tableMenuReviewCartOpen, setTableMenuReviewCartOpen] = useState(false);
 
   useEffect(() => {
@@ -251,21 +249,6 @@ export default function Home() {
     sessionToken: tableSession?.sessionToken,
     notify,
   });
-  const { refresh: refreshTableAccount } = tableAccount;
-
-  const openTableAccount = useCallback(() => {
-    setTableAccountOpen(true);
-    void refreshTableAccount();
-  }, [refreshTableAccount]);
-
-  useEffect(() => {
-    if (!tableClosingRequested || !tableSession?.sessionPublicId) return undefined;
-    const frame = window.requestAnimationFrame(() => {
-      setCartOpen(false);
-      openTableAccount();
-    });
-    return () => window.cancelAnimationFrame(frame);
-  }, [openTableAccount, tableClosingRequested, tableSession?.sessionPublicId]);
 
   const requireFavoriteLogin = navigateToLogin;
   const { favoriteProductIds, toggleFavorite } = useFavorites({
@@ -524,7 +507,6 @@ export default function Home() {
         'Conta já solicitada',
         'Novos pedidos estão bloqueados. Confira e pague os itens que já estão na conta.',
       );
-      openTableAccount();
       return;
     }
     if (!restaurantId || !cart.length || checkoutLoading) return;
@@ -637,11 +619,10 @@ export default function Home() {
       void loyalty.refresh();
       await tableAccount.refresh({ silent: true });
       await refreshTableOrder();
-      setTableAccountOpen(true);
       notify(
         'success',
         `Pedido #${String(order?.id || '')} enviado para a cozinha`,
-        'A cozinha recebeu seu pedido. O valor foi adicionado à sua comanda e você pode pagar quando quiser.',
+        'A cozinha recebeu seu pedido. Você pode acompanhar o preparo e escolher quando pagar.',
         5000,
       );
       return order;
@@ -740,13 +721,9 @@ export default function Home() {
     [handleSavedAddressChange, notify],
   );
   const openHomeCart = useCallback(() => {
-    if (mesaMode && mesaSessionIsActive) {
-      openTableAccount();
-      return;
-    }
     cartReturnFocusRef.current = document.activeElement as HTMLElement | null;
     setCartOpen(true);
-  }, [openTableAccount, mesaMode, mesaSessionIsActive]);
+  }, []);
   const openProfile = useCallback(() => {
     if (user) {
       navigate('/profile');
@@ -783,7 +760,6 @@ export default function Home() {
       );
       if (type === 'BILL') {
         markClosingRequested();
-        openTableAccount();
       }
     } catch (error: unknown) {
       const typed = error as { response?: { data?: { error?: string } }; message?: string };
@@ -796,35 +772,6 @@ export default function Home() {
       setTableServiceLoading(null);
     }
   }
-
-  const tableAccountPanel = (
-    <TableAccountPanel
-      open={tableAccountOpen}
-      tableNumber={mesaLabel}
-      snapshot={tableAccount.snapshot}
-      loading={tableAccount.loading}
-      actionLoading={tableAccount.actionLoading}
-      error={tableAccount.error}
-      onRefresh={() => void tableAccount.refresh()}
-      onCreatePayment={tableAccount.createPayment}
-      onCancelPayment={tableAccount.cancelPayment}
-      onReconcilePayment={tableAccount.reconcilePayment}
-      onRemoveOrder={removeOwnTableOrder}
-      draftCount={cartCount}
-      draftTotal={cartTotal}
-      orderingBlocked={tableClosingRequested}
-      onReviewDraft={() => {
-        setTableAccountOpen(false);
-        if (mesaMode) {
-          setTableMenuReviewCartOpen(true);
-          return;
-        }
-        cartReturnFocusRef.current = document.activeElement as HTMLElement | null;
-        setCartOpen(true);
-      }}
-      onClose={() => setTableAccountOpen(false)}
-    />
-  );
 
   if (hasCardPaymentReturn) {
     return (
@@ -942,7 +889,6 @@ export default function Home() {
     };
 
     return (
-      <>
       <TableMenuExperience
         data={homeData}
         tableLabel={mesaLabel}
@@ -962,12 +908,9 @@ export default function Home() {
         onCreatePixPayment={createPixPaymentForOrder}
         onReconcilePayment={tableAccount.reconcilePayment}
         onCancelPayment={tableAccount.cancelPayment}
-        onOpenTableAccount={openTableAccount}
         reviewCartOpen={tableMenuReviewCartOpen}
         onReviewCartClose={() => setTableMenuReviewCartOpen(false)}
       />
-      {tableAccountPanel}
-      </>
     );
   }
 
@@ -992,16 +935,9 @@ export default function Home() {
         onManageAddresses={manageDeliveryAddresses}
         onOpenCart={openHomeCart}
         onOpenMenu={openMenu}
-        onOpenTableAccount={openTableAccount}
         onOpenProfile={mesaMode ? undefined : openProfile}
         onOpenAdmin={openAdmin}
-        onAddProduct={
-          tableClosingRequested
-            ? () => {
-                openTableAccount();
-              }
-            : addToCart
-        }
+        onAddProduct={tableClosingRequested ? () => undefined : addToCart}
         onToggleFavorite={mesaMode ? undefined : toggleFavorite}
         onLogout={handleLogout}
       />
@@ -1132,28 +1068,6 @@ export default function Home() {
         </S.CartFoot>
       </S.CartDrawer>
 
-      <TableAccountPanel
-        open={tableAccountOpen}
-        tableNumber={mesaLabel}
-        snapshot={tableAccount.snapshot}
-        loading={tableAccount.loading}
-        actionLoading={tableAccount.actionLoading}
-        error={tableAccount.error}
-        onRefresh={() => void tableAccount.refresh()}
-        onCreatePayment={tableAccount.createPayment}
-        onCancelPayment={tableAccount.cancelPayment}
-        onReconcilePayment={tableAccount.reconcilePayment}
-        onRemoveOrder={removeOwnTableOrder}
-        draftCount={cartCount}
-        draftTotal={cartTotal}
-        orderingBlocked={tableClosingRequested}
-        onReviewDraft={() => {
-          setTableAccountOpen(false);
-          cartReturnFocusRef.current = document.activeElement as HTMLElement | null;
-          setCartOpen(true);
-        }}
-        onClose={() => setTableAccountOpen(false)}
-      />
 
       <HomeFeedback
         showLoginNudge={showLoginNudge}
