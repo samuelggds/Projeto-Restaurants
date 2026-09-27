@@ -990,3 +990,315 @@ export const ProductDetail = styled.section`
     .info { align-content: start; }
   }
 `;
+
+
+export const PaymentHeader = styled.header`
+  width: min(1180px, calc(100% - 32px));
+  min-height: 82px;
+  margin: 0 auto;
+  padding: 14px 8px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  background: #fff;
+
+  @media (max-width: 700px) {
+    width: 100%;
+    min-height: 74px;
+    padding: 12px 16px;
+  }
+`;
+
+export const PaymentBack = styled.button`
+  min-height: 46px;
+  padding: 0 18px;
+  border: 1px solid #d4d4d8;
+  border-radius: 999px;
+  background: #fff;
+  color: #202024;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 850;
+
+  @media (max-width: 700px) {
+    width: 42px;
+    height: 42px;
+    min-height: 42px;
+    padding: 0;
+    justify-content: center;
+    border: 0;
+
+    svg { width: 22px; height: 22px; }
+    font-size: 0;
+  }
+`;
+
+export const PixPage = styled.section`
+  width: min(1180px, calc(100% - 32px));
+  margin: 0 auto;
+  padding: 26px 0 56px;
+  display: grid;
+  grid-template-columns: minmax(0, .95fr) minmax(400px, 1fr);
+  gap: 18px;
+  align-items: stretch;
+
+  @media (max-width: 860px) {
+    grid-template-columns: 1fr;
+    width: 100%;
+    padding: 0 12px 34px;
+  }
+`;
+
+export const PixSummary = styled.section`
+  min-height: 620px;
+  padding: 24px;
+  border: 1px solid var(--line);
+  border-radius: 22px;
+  background: #fff;
+  display: grid;
+  align-content: start;
+  gap: 18px;
+
+  > header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding-bottom: 14px;
+    border-bottom: 1px solid var(--line);
+  }
+
+  h2 { margin: 0; font-size: 24px; }
+  header > span {
+    padding: 9px 12px;
+    border-radius: 999px;
+    background: #fff0ef;
+    color: var(--primary);
+    font-weight: 850;
+  }
+
+  .items { display: grid; gap: 12px; }
+
+  article {
+    display: grid;
+    grid-template-columns: 72px minmax(0,1fr) auto auto;
+    align-items: center;
+    gap: 12px;
+    padding: 8px 0;
+  }
+
+  article img,
+  article > span:first-child {
+    width: 72px;
+    height: 62px;
+    border-radius: 12px;
+    object-fit: cover;
+  }
+
+  article div {
+    min-width: 0;
+    display: grid;
+    gap: 4px;
+  }
+
+  article small {
+    color: var(--muted);
+    line-height: 1.35;
+  }
+
+  article > span { color: #5d5d64; }
+  article > strong { white-space: nowrap; }
+
+  @media (max-width: 860px) {
+    display: none;
+  }
+`;
+
+export const PixTotals = styled.div`
+  margin-top: 6px;
+  padding-top: 18px;
+  border-top: 1px solid var(--line);
+  display: grid;
+  gap: 12px;
+
+  > span {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 14px;
+  }
+
+  small { color: var(--muted); font-size: 15px; }
+
+  .total {
+    padding-top: 6px;
+    font-size: 21px;
+  }
+
+  .total b {
+    color: var(--primary);
+    font-size: 29px;
+  }
+`;
+
+export const AfterPayment = styled.div`
+  margin-top: auto;
+  padding: 18px;
+  border-radius: 16px;
+  background: #fff2f1;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  color: var(--primary);
+
+  svg { flex: 0 0 auto; }
+  div { display: grid; gap: 5px; }
+  p {
+    margin: 0;
+    color: #65656c;
+    line-height: 1.45;
+  }
+`;
+
+export const PixPaymentCard = styled.section`
+  min-height: 620px;
+  padding: 28px;
+  border: 1px solid #f0e5e3;
+  border-radius: 22px;
+  background: linear-gradient(160deg, #fffafa 0%, #fff 65%);
+  display: grid;
+  align-content: start;
+  justify-items: center;
+  gap: 12px;
+  text-align: center;
+
+  h1 {
+    margin: 2px 0 0;
+    font-size: 30px;
+  }
+
+  > p {
+    margin: 0 0 4px;
+    max-width: 340px;
+    color: var(--muted);
+    line-height: 1.45;
+  }
+
+  @media (max-width: 860px) {
+    min-height: 0;
+    border-radius: 18px;
+    padding: 24px 16px;
+  }
+`;
+
+export const PixMark = styled.div`
+  width: 52px;
+  height: 52px;
+  position: relative;
+  transform: rotate(45deg);
+
+  i {
+    position: absolute;
+    width: 22px;
+    height: 22px;
+    border-radius: 7px;
+    background: #20c7b7;
+  }
+
+  i:nth-child(1) { left: 0; top: 15px; }
+  i:nth-child(2) { right: 0; top: 15px; }
+  i:nth-child(3) { left: 15px; top: 0; }
+  i:nth-child(4) { left: 15px; bottom: 0; }
+`;
+
+export const CopyArea = styled.div`
+  width: 100%;
+  padding: 14px 14px 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: #fafafa;
+  display: grid;
+  grid-template-columns: minmax(0,1fr) auto;
+  gap: 12px;
+  align-items: center;
+  text-align: left;
+
+  > div {
+    min-width: 0;
+    display: grid;
+    gap: 6px;
+  }
+
+  small { color: #62626a; }
+
+  code {
+    max-height: 76px;
+    overflow: auto;
+    color: #54545b;
+    font-family: inherit;
+    font-size: 12px;
+    line-height: 1.45;
+    word-break: break-all;
+  }
+
+  button {
+    min-width: 68px;
+    min-height: 44px;
+    border: 0;
+    background: transparent;
+    color: var(--primary);
+    display: grid;
+    justify-items: center;
+    align-content: center;
+    gap: 4px;
+    font-weight: 850;
+    font-size: 12px;
+  }
+`;
+
+export const WaitingPayment = styled.div`
+  width: 100%;
+  padding: 15px 16px;
+  border-radius: 14px;
+  background: #fff0ef;
+  display: grid;
+  grid-template-columns: auto minmax(0,1fr) auto;
+  gap: 12px;
+  align-items: center;
+  text-align: left;
+  color: var(--primary);
+
+  > div {
+    display: grid;
+    gap: 3px;
+  }
+
+  > div span {
+    color: #55555d;
+    font-size: 12px;
+  }
+
+  > strong {
+    padding: 7px 10px;
+    border-radius: 10px;
+    background: #ffdcd9;
+    font-size: 16px;
+  }
+`;
+
+export const PaymentBackWide = styled.button`
+  width: 100%;
+  min-height: 52px;
+  margin-top: 8px;
+  border: 1.5px solid var(--primary);
+  border-radius: 16px;
+  background: #fff;
+  color: var(--primary);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  font-weight: 900;
+`;
