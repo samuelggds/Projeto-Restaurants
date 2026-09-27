@@ -310,41 +310,33 @@ export default function TableMenuExperience({
               <S.PaymentSuccessMain>
                 <div className="ring">
                   <div className="check">
-                    <Check size={32} />
+                    <Check size={28} />
                   </div>
                 </div>
-                <h1>Pagamento confirmado!</h1>
-                <p>O pagamento foi confirmado e seu pedido continua normalmente.</p>
+                <h1>Pagamento Confirmado!</h1>
+                <p>Recebemos seu pagamento via PIX com sucesso.</p>
                 <S.PaidReceipt>
                   <div className="copy">
                     {confirmation?.orderId ? <small>Pedido #{confirmation.orderId}</small> : null}
                     <strong>{centsToBrl(currentPayment.totalCents)}</strong>
-                    <small>PIX · pagamento confirmado</small>
+                    <small>Forma de Pagamento · PIX</small>
                   </div>
                   <span className="status">PAGO</span>
                 </S.PaidReceipt>
+                <div className="prep-banner">
+                  <Clock3 size={18} />
+                  <span>
+                    <b>Pedido continua em preparo</b>
+                    <small>Acompanhe o andamento na tela seguinte.</small>
+                  </span>
+                </div>
                 <S.PrimaryAction type="button" onClick={() => setView('tracking')}>
-                  Acompanhar pedido
+                  Acompanhar preparo
                 </S.PrimaryAction>
-              </S.PaymentSuccessMain>
-
-              <S.PaymentSuccessSide>
-                <h2>Seu pedido continua em preparo</h2>
-                <p>O fluxo do pedido continua normalmente até ser servido na mesa.</p>
-                <S.Timeline>
-                  {trackingSteps(tableOrder).map((step, index) => (
-                    <S.TimelineStep key={step.label} $active={step.active} $current={step.current}>
-                      <span className="dot">{step.active ? <Check size={14} /> : index + 1}</span>
-                      <div className="copy">
-                        <b>{step.label}</b>
-                      </div>
-                    </S.TimelineStep>
-                  ))}
-                </S.Timeline>
                 <S.SecondaryAction type="button" onClick={goToMenu}>
                   Voltar ao cardápio
                 </S.SecondaryAction>
-              </S.PaymentSuccessSide>
+              </S.PaymentSuccessMain>
             </S.PaymentSuccessLayout>
           </S.FlowPage>
         </S.FigmaShell>
@@ -393,6 +385,7 @@ export default function TableMenuExperience({
         <S.FlowPage>
           <S.PixLayout>
             <S.PixQrCard>
+              <span className="pix-label">PAGAMENTO PIX</span>
               <span className="amount">{centsToBrl(currentPayment.totalCents)}</span>
               <span className="order">
                 {confirmation?.orderId ? `Pedido #${confirmation.orderId} · ` : ''}
@@ -402,9 +395,11 @@ export default function TableMenuExperience({
               {currentPayment.paymentCode ? (
                 <>
                   <div className="qr" aria-label="QR Code PIX">
-                    <QRCode value={currentPayment.paymentCode} size={302} level="M" />
+                    <QRCode value={currentPayment.paymentCode} size={160} level="M" />
                   </div>
-                  <span className="pix-badge">PIX</span>
+                  <p className="instructions">
+                    Aponte a câmera do seu banco para o QR code ou copie a chave PIX abaixo.
+                  </p>
                   <S.PixCopyBox>
                     <code>{currentPayment.paymentCode}</code>
                     <button type="button" onClick={() => void copyPix()}>
@@ -413,49 +408,28 @@ export default function TableMenuExperience({
                   </S.PixCopyBox>
                 </>
               ) : null}
-            </S.PixQrCard>
 
-            <S.PixSide>
               <S.PixStatusCard>
-                <h2>Aguardando pagamento</h2>
-                <p>
-                  A confirmação acontece automaticamente assim que o PIX for aprovado.
-                </p>
-                <p>Você pode manter esta tela aberta.</p>
+                <div>
+                  <h2>Aguardando Pagamento</h2>
+                  <p>A confirmação do PIX é imediata e automática.</p>
+                </div>
                 {pixRemainingSeconds !== null ? (
                   <span className="timer">
-                    Expira em {String(Math.floor(pixRemainingSeconds / 60)).padStart(2, '0')}:
+                    {String(Math.floor(pixRemainingSeconds / 60)).padStart(2, '0')}:
                     {String(pixRemainingSeconds % 60).padStart(2, '0')}
                   </span>
                 ) : null}
-                <div className="buttons">
-                  <S.PrimaryAction
-                    type="button"
-                    disabled={paymentLoading}
-                    onClick={() => void onReconcilePayment(currentPayment.publicId)}
-                  >
-                    Já paguei · verificar
-                  </S.PrimaryAction>
-                  <S.SecondaryAction
-                    type="button"
-                    disabled={paymentLoading}
-                    onClick={() => void onCancelPayment(currentPayment.publicId)}
-                  >
-                    Cancelar pagamento
-                  </S.SecondaryAction>
-                </div>
               </S.PixStatusCard>
 
-              <S.HowToPayCard>
-                <h2>Como pagar</h2>
-                <ol>
-                  <li><span>1</span>Abra o app do seu banco</li>
-                  <li><span>2</span>Escolha pagar com PIX</li>
-                  <li><span>3</span>Escaneie o QR ou cole o código</li>
-                  <li><span>4</span>Aguarde a confirmação automática</li>
-                </ol>
-              </S.HowToPayCard>
-            </S.PixSide>
+              <S.PrimaryAction
+                type="button"
+                disabled={paymentLoading}
+                onClick={() => void onReconcilePayment(currentPayment.publicId)}
+              >
+                Já paguei · Verificar status
+              </S.PrimaryAction>
+            </S.PixQrCard>
           </S.PixLayout>
         </S.FlowPage>
       </S.FigmaShell>
@@ -476,47 +450,49 @@ export default function TableMenuExperience({
           onOrders={() => setView('tracking')}
         />
         <S.FlowPage>
-          <S.FlowTitle>
-            <h1>Como você prefere pagar?</h1>
-            <p>Escolha pagar agora pelo celular ou deixar o valor na conta da mesa.</p>
-          </S.FlowTitle>
+          <S.PaymentCard>
+            <S.FlowTitle>
+              <h1>Como prefere pagar?</h1>
+              <p>Finalize agora pelo celular ou deixe para pagar depois com a equipe.</p>
+            </S.FlowTitle>
 
-          <S.PaymentOptionsGrid>
+            <S.PaymentOptionsGrid>
             {allowPix ? (
               <S.PaymentChoiceCard>
                 <span className="icon"><WalletCards size={28} /></span>
-                <h2>Pagar agora</h2>
-                <p>Finalize pelo celular sem esperar o atendimento.</p>
-                <small>PIX · confirmação automática</small>
+                <h2>Pagar agora (PIX)</h2>
+                <p>Finalize pelo celular com liberação automática na hora. Rápido e prático.</p>
+                <small>PIX</small>
                 <button
                   className="primary"
                   type="button"
                   disabled={paymentLoading}
                   onClick={() => void startPix()}
                 >
-                  Continuar com PIX
+                  Escolher PIX
                 </button>
               </S.PaymentChoiceCard>
             ) : null}
 
             <S.PaymentChoiceCard>
               <span className="icon"><ReceiptText size={26} /></span>
-              <h2>Pagar depois</h2>
-              <p>O valor permanece na conta da mesa.</p>
-              <small>Continue utilizando o cardápio normalmente.</small>
+              <h2>Deixar na conta</h2>
+              <p>Os itens permanecem vinculados à mesa. Pague ao sair com o garçom.</p>
+              <small>Continue pedindo normalmente.</small>
               <button className="secondary" type="button" onClick={() => setView('tracking')}>
-                Deixar na conta
+                Deixar aberto na Mesa
               </button>
             </S.PaymentChoiceCard>
           </S.PaymentOptionsGrid>
 
-          <S.PaymentSummary>
-            <div className="label">
-              <small>Resumo deste pedido</small>
-              {confirmation.orderId ? <strong>Pedido #{confirmation.orderId}</strong> : null}
-            </div>
-            <span className="amount">{brl(confirmation.total)}</span>
-          </S.PaymentSummary>
+            <S.PaymentSummary>
+              <div className="label">
+                <small>Valor deste pedido:</small>
+                {confirmation.orderId ? <strong>Pedido #{confirmation.orderId}</strong> : null}
+              </div>
+              <span className="amount">{brl(confirmation.total)}</span>
+            </S.PaymentSummary>
+          </S.PaymentCard>
         </S.FlowPage>
       </S.FigmaShell>
     );
@@ -528,7 +504,7 @@ export default function TableMenuExperience({
         <FlowHeader
           data={data}
           tableLabel={tableLabel}
-          title="Acompanhar pedido"
+          title="Painel da Mesa"
           onBack={goToMenu}
           onHome={goToMenu}
           onMenu={goToMenu}
@@ -541,13 +517,13 @@ export default function TableMenuExperience({
               <S.StatusCard>
                 <span className="icon"><Clock3 size={28} /></span>
                 <div>
-                  <h2>{tableOrder?.statusLabel || 'Aguardando pedido'}</h2>
+                  <h2>{tableOrder?.statusLabel || 'Preparando seu pedido'}</h2>
                   <p>{tableOrder?.summary || 'O status será atualizado em tempo real.'}</p>
                 </div>
               </S.StatusCard>
 
               <S.SectionHeading>
-                <div className="title"><h2>Andamento</h2></div>
+                <div className="title"><h2>Status de Produção</h2></div>
               </S.SectionHeading>
               <S.TimelineCard>
                 <S.Timeline>
@@ -565,15 +541,20 @@ export default function TableMenuExperience({
             </div>
 
             <S.OrderItemsCard>
-              <h2>Itens do pedido</h2>
+              <h2>Itens do Pedido</h2>
               {tableOrder?.items.length ? (
                 tableOrder.items.map((item, index) => (
                   <S.OrderItemLine key={`${item.name}-${index}`}>
                     <div className="copy">
-                      <b>{item.name}</b>
-                      <small>{item.quantity} {item.quantity === 1 ? 'unidade' : 'unidades'}</small>
-                      {item.observation ? <small>{item.observation}</small> : null}
+                      <b>{item.quantity}x</b>
+                      <span>
+                        <b>{item.name}</b>
+                        {item.observation ? <small>{item.observation}</small> : null}
+                      </span>
                     </div>
+                    {typeof item.unitPrice === 'number' ? (
+                      <strong>{brl(item.unitPrice * item.quantity)}</strong>
+                    ) : null}
                   </S.OrderItemLine>
                 ))
               ) : (
@@ -582,7 +563,7 @@ export default function TableMenuExperience({
 
               {waiterCallEnabled ? (
                 <S.PrimaryAction type="button" onClick={onCallWaiter}>
-                  <Bell size={17} /> Chamar garçom
+                  <Bell size={17} /> Chamar garçom para mesa
                 </S.PrimaryAction>
               ) : null}
             </S.OrderItemsCard>
@@ -598,19 +579,20 @@ export default function TableMenuExperience({
         <FlowHeader
           data={data}
           tableLabel={tableLabel}
-          title="Pedido confirmado"
+          title="Pedido Enviado"
           onBack={goToMenu}
           onHome={goToMenu}
           onMenu={goToMenu}
           onOrders={() => setView('tracking')}
         />
         <S.FlowPage>
-          <S.SuccessHero>
+          <S.ConfirmationCard>
+            <S.SuccessHero>
             <div className="ring">
               <div className="check"><Check size={27} /></div>
             </div>
-            <h1>Pedido enviado!</h1>
-            <p>Seu pedido foi enviado para a cozinha da Mesa {tableNumber(tableLabel)}.</p>
+            <h1>Pedido Enviado!</h1>
+            <p>A cozinha do restaurante recebeu seu pedido com sucesso da Mesa {tableNumber(tableLabel)}.</p>
           </S.SuccessHero>
 
           <S.OrderSummaryBar>
@@ -638,15 +620,16 @@ export default function TableMenuExperience({
 
           <S.ConfirmationActions>
             <S.PrimaryAction type="button" onClick={() => setView('tracking')}>
-              Acompanhar pedido
+              Acompanhar em tempo real
             </S.PrimaryAction>
             {accountSnapshot?.capabilities.allowPix ? (
               <S.SecondaryAction type="button" onClick={() => setView('payment')}>
-                Pagar agora
+                Pagar agora no PIX
               </S.SecondaryAction>
             ) : null}
-            <S.HelperText>O pedido permanece vinculado à conta da mesa até o pagamento.</S.HelperText>
+            <S.HelperText>Deseja continuar pedindo? A conta ficará aberta na mesa.</S.HelperText>
           </S.ConfirmationActions>
+          </S.ConfirmationCard>
         </S.FlowPage>
       </S.FigmaShell>
     );
@@ -678,8 +661,8 @@ export default function TableMenuExperience({
 
         <S.FlowPage>
           <S.FlowTitle>
-            <h1 aria-label="Minha sacola">Meu pedido</h1>
-            <p>Mesa {tableNumber(tableLabel)}</p>
+            <h1 aria-label="Minha sacola">Revisar Pedido</h1>
+            <p>Confirme os itens selecionados antes do preparo</p>
           </S.FlowTitle>
 
           <S.CartDesktopLayout>
