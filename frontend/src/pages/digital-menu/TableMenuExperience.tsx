@@ -61,15 +61,6 @@ type View = 'menu' | 'cart' | 'confirmation' | 'tracking' | 'pix';
 const brl = (value: number) =>
   value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
-function paymentStatusLabel(payment: TablePaymentIntent | null) {
-  if (!payment) return '';
-  if (payment.status === 'PAID') return 'Pagamento confirmado';
-  if (payment.status === 'FAILED') return 'Pagamento não aprovado';
-  if (payment.status === 'EXPIRED') return 'PIX expirado';
-  if (payment.status === 'CANCELED') return 'Pagamento cancelado';
-  return 'Aguardando pagamento';
-}
-
 export default function TableMenuExperience({
   data,
   tableLabel,
@@ -176,6 +167,10 @@ export default function TableMenuExperience({
 
   function openProduct(product: HomeProduct) {
     if (orderingLocked) return;
+    if (product.saleMode === 'BUILDABLE') {
+      setConfiguringProduct(product);
+      return;
+    }
     setSelectedProduct(product);
   }
 
