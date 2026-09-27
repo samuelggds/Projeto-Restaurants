@@ -1,7 +1,7 @@
 import styled from 'styled-components';
 
 export const Shell = styled.main<{ $primary: string }>`
-  --primary: ({ $primary }) => $primary;
+  --primary: ${({ $primary }) => $primary};
   --text: #151515;
   --muted: #6d6d74;
   --line: #ececf0;
@@ -648,8 +648,8 @@ export const StatusIcon = styled.div<{ $success?: boolean }>`
   border-radius: 999px;
   display: grid;
   place-items: center;
-  background: ({ $success }) => ($success ? '#1faa4b' : '#fff1ef');
-  color: ({ $success }) => ($success ? '#fff' : 'var(--primary)');
+  background: ${({ $success }) => ($success ? '#1faa4b' : '#fff1ef')};
+  color: ${({ $success }) => ($success ? '#fff' : 'var(--primary)')};
   box-shadow: inset 0 0 0 8px rgba(255,255,255,.55);
 
   svg { width: 36px; height: 36px; }
@@ -775,7 +775,7 @@ export const ProgressStep = styled.div<{ $active: boolean }>`
   justify-items: center;
   gap: 7px;
   text-align: center;
-  color: ({ $active }) => ($active ? 'var(--primary)' : '#a9a9ad');
+  color: ${({ $active }) => ($active ? 'var(--primary)' : '#a9a9ad')};
 
   &::after {
     content: "";
@@ -784,7 +784,7 @@ export const ProgressStep = styled.div<{ $active: boolean }>`
     left: calc(50% + 22px);
     width: calc(100% - 44px);
     height: 3px;
-    background: ({ $active }) => ($active ? 'var(--primary)' : '#dedee1');
+    background: ${({ $active }) => ($active ? 'var(--primary)' : '#dedee1')};
   }
 
   &:last-child::after { display: none; }
@@ -797,8 +797,8 @@ export const ProgressStep = styled.div<{ $active: boolean }>`
     border-radius: 999px;
     display: grid;
     place-items: center;
-    background: ({ $active }) => ($active ? 'var(--primary)' : '#ececee');
-    color: ({ $active }) => ($active ? '#fff' : '#888891');
+    background: ${({ $active }) => ($active ? 'var(--primary)' : '#ececee')};
+    color: ${({ $active }) => ($active ? '#fff' : '#888891')};
     font-weight: 900;
   }
 
@@ -921,8 +921,8 @@ export const PaymentState = styled.div<{ $success?: boolean }>`
   width: 100%;
   padding: 12px;
   border-radius: 12px;
-  background: ({ $success }) => ($success ? '#eaf9ee' : '#fff5e9');
-  color: ({ $success }) => ($success ? '#18733a' : '#9a5c10');
+  background: ${({ $success }) => ($success ? '#eaf9ee' : '#fff5e9')};
+  color: ${({ $success }) => ($success ? '#18733a' : '#9a5c10')};
   font-weight: 850;
 `;
 
