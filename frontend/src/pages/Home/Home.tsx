@@ -880,6 +880,7 @@ export default function Home() {
         accountSnapshot={tableAccount.snapshot}
         activePayment={tableAccount.snapshot?.activePayment || null}
         paymentLoading={tableAccount.actionLoading}
+        waiterCallEnabled={tableSession?.waiterCallEnabled !== false}
         billRequestEnabled={tableSession?.billRequestEnabled !== false}
         onAddProduct={addToCart}
         onIncrease={increaseCart}
