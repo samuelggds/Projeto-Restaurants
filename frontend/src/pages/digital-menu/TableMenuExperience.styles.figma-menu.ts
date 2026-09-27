@@ -63,16 +63,14 @@ export const FigmaHeader = styled.header<{ $hasTitle?: boolean }>`
   border-bottom: 1px solid var(--line);
   background: #fff;
   display: grid;
-  grid-template-columns: minmax(455px, 1fr) auto;
+  grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
-  justify-content: space-between;
-  gap: 24px;
+  column-gap: 48px;
 
   .left {
     min-width: 0;
     display: flex;
     align-items: center;
-    gap: 48px;
   }
 
   .mobile-back,
@@ -81,6 +79,7 @@ export const FigmaHeader = styled.header<{ $hasTitle?: boolean }>`
   }
 
   nav {
+    justify-self: start;
     display: inline-flex;
     align-items: center;
     gap: 32px;
@@ -126,7 +125,7 @@ export const FigmaHeader = styled.header<{ $hasTitle?: boolean }>`
     min-height: 65px;
     padding: 16px 20px;
     grid-template-columns: minmax(0, 1fr) auto;
-    gap: 12px;
+    column-gap: 12px;
 
     .left {
       gap: 10px;
@@ -573,7 +572,7 @@ export const CategoryRail = styled.div`
   @media (max-width: 759px) {
     width: 100%;
     gap: 16px;
-    overflow: visible;
+    overflow-x: auto;
   }
 `;
 
@@ -640,6 +639,16 @@ export const CategoryPill = styled.button<{ $active?: boolean }>`
     .category-label {
       font-size: 11px;
     }
+  }
+`;
+
+export const ComboSection = styled.section`
+  width: 100%;
+  display: grid;
+  gap: 24px;
+
+  @media (max-width: 759px) {
+    gap: 12px;
   }
 `;
 
