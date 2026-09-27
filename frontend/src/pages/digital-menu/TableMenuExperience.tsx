@@ -40,7 +40,6 @@ type Props = {
   data: HomeData;
   tableLabel: string | number;
   cart: CartItem[];
-  cartCount: number;
   cartTotal: number;
   orderingLocked?: boolean;
   tableOrder: TableOrderNotice | null;
@@ -81,7 +80,6 @@ export default function TableMenuExperience({
   data,
   tableLabel,
   cart,
-  cartCount,
   cartTotal,
   orderingLocked = false,
   tableOrder,
@@ -167,10 +165,6 @@ export default function TableMenuExperience({
     pixPending && currentPayment?.expiresAt
       ? Math.max(0, Math.ceil((new Date(currentPayment.expiresAt).getTime() - now) / 1000))
       : null;
-
-  useEffect(() => {
-    if (couponCode) setCouponInput(couponCode);
-  }, [couponCode]);
 
   useEffect(() => {
     if (!data.banners.length || data.banners.length <= 1) return undefined;
