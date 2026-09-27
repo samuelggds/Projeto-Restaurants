@@ -784,8 +784,9 @@ test('QR sem PIN só libera pedidos com mesa aberta e fechamento respeita pendê
   await page.goto(
     `/restaurante-teste/mesa/7?tid=${TABLE_ID}&rid=${RESTAURANT_ID}&tk=${TABLE_TOKEN}`,
   );
-  await expect(page.getByText('Prato da casa').first()).toBeVisible();
   await expect.poll(() => state.joinRequests).toBeGreaterThan(0);
+  await page.getByRole('button', { name: 'Cardápio', exact: true }).click();
+  await expect(page.getByText('Prato da casa').first()).toBeVisible();
 
   await page.getByRole('button', { name: 'Ver detalhes de Prato da casa' }).click();
   await page.getByText('Arroz da casa').click();
