@@ -226,19 +226,21 @@ export const CategoryButton = styled.button<{ $active: boolean }>`
   }
 
   @media (max-width: 760px) {
-    min-width: 78px;
-    min-height: 68px;
-    padding: 6px;
-    gap: 4px;
+    min-width: 74px;
+    min-height: 64px;
+    height: 64px;
+    padding: 5px 6px;
+    gap: 3px;
     border-radius: 13px;
 
     img {
-      width: 36px;
-      height: 36px;
+      width: 34px;
+      height: 34px;
     }
 
     b {
-      font-size: 10.5px;
+      font-size: 10px;
+      line-height: 1.1;
     }
   }
 `;
@@ -817,8 +819,14 @@ export const CategoryPlaceholder = styled.span`
     height: 34px;
   }
   @media (max-width: 760px) {
-    width: 44px;
-    height: 44px;
+    width: 34px;
+    height: 34px;
+
+    svg {
+      width: 28px;
+      height: 28px;
+      padding: 5px;
+    }
   }
 `;
 
