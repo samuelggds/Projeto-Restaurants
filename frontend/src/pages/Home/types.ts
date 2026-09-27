@@ -174,7 +174,7 @@ export type HomeData = {
   products: HomeProduct[];
   deliveryTime: string;
   minimumOrder: number;
-  deliveryFee: number;
+  deliveryFee?: number;
   freeDeliveryFrom: number;
   acceptsDelivery: boolean;
   acceptsPickup: boolean;
@@ -215,7 +215,7 @@ export type HomePageProps = {
   onOpenTableAccount?: () => void;
   onSearch?: () => void;
   onSelectCategory?: (categoryId: string) => void;
-  onAddProduct?: (productId: string, configuration: ProductConfiguration) => void;
+  onAddProduct?: (productId: string, configuration: ProductConfiguration, quantity?: number) => void;
   onToggleFavorite?: (productId: string) => void;
   onLogout?: () => void;
 };
