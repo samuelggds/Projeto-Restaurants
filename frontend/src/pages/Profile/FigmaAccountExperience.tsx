@@ -18,6 +18,7 @@ import {
   WalletCards,
 } from 'lucide-react';
 import { buildLoyaltyWalletEntries } from './domain/loyaltyWallet';
+import { FigmaCouponRedemption, FigmaLoyaltyProgram } from './FigmaLoyaltyViews';
 import { useLoyaltyExpirationClock } from '../Home/hooks/useLoyaltyExpirationClock';
 import { buildWhatsAppUrl } from '../Home/domain/publicSettings';
 import type {
@@ -33,6 +34,8 @@ type Stage3View =
   | 'addresses'
   | 'paymentMethods'
   | 'coupons'
+  | 'loyalty'
+  | 'redeemCoupons'
   | 'help'
   | 'settings';
 
@@ -404,6 +407,39 @@ export function FigmaAccountExperience(props: ProfilePageProps) {
       );
     }
 
+    if (view === 'loyalty') {
+      return (
+        <FigmaLoyaltyProgram
+          summary={props.loyaltySummary || null}
+          loading={props.loyaltyLoading}
+          error={props.loyaltyError}
+          recentOrders={data.recentOrders}
+          redeemingCouponId={props.loyaltyRedeemingCouponId}
+          onRetry={props.onRetryLoyalty}
+          onRedeem={async (couponId) => {
+            await props.onRedeemLoyaltyCoupon?.(couponId);
+          }}
+          onOpenCoupons={() => setView('redeemCoupons')}
+        />
+      );
+    }
+
+    if (view === 'redeemCoupons') {
+      return (
+        <FigmaCouponRedemption
+          summary={props.loyaltySummary || null}
+          loading={props.loyaltyLoading}
+          error={props.loyaltyError}
+          redeemingCouponId={props.loyaltyRedeemingCouponId}
+          onRetry={props.onRetryLoyalty}
+          onRedeem={async (couponId) => {
+            await props.onRedeemLoyaltyCoupon?.(couponId);
+          }}
+          onUseCoupon={onUseCoupon}
+        />
+      );
+    }
+
     if (view === 'help') return helpContent;
     if (view === 'settings') return settingsContent;
     return null;
@@ -436,7 +472,7 @@ export function FigmaAccountExperience(props: ProfilePageProps) {
         <button type="button" onClick={() => setView('coupons')}>
           <TicketPercent /><span>Meus Cupons</span><ChevronRight className="chev" />
         </button>
-        <button type="button" onClick={() => setView('coupons')}>
+        <button type="button" onClick={() => setView('loyalty')}>
           <Star /><span>Programa de Fidelidade</span><ChevronRight className="chev" />
         </button>
         <button type="button" onClick={() => setView('help')}>
@@ -462,7 +498,11 @@ export function FigmaAccountExperience(props: ProfilePageProps) {
             ? 'Métodos de Pagamento'
             : view === 'coupons'
               ? 'Meus Cupons'
-              : view === 'help'
+              : view === 'loyalty'
+                ? 'Programa de Fidelidade'
+                : view === 'redeemCoupons'
+                  ? 'Cupons de Resgate'
+                  : view === 'help'
                 ? 'Fale Conosco'
                 : 'Configurações';
 
@@ -509,7 +549,15 @@ export function FigmaAccountExperience(props: ProfilePageProps) {
       </S.Mobile>
 
       <S.Desktop>
-        <S.Center $wide={view === 'orders' || view === 'coupons' || view === 'help'}>
+        <S.Center
+          $wide={
+            view === 'orders' ||
+            view === 'coupons' ||
+            view === 'loyalty' ||
+            view === 'redeemCoupons' ||
+            view === 'help'
+          }
+        >
           <S.PageTitle>
             {view !== 'account' ? (
               <button className="back" type="button" onClick={goBack}><ArrowLeft /></button>
