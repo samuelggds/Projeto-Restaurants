@@ -3,8 +3,8 @@ import styled from 'styled-components';
 export const Page = styled.main`
   min-height: 100dvh;
   padding: 24px;
-  color: #18221d;
-  background: #f6f8f6;
+  color: #1f1e1a;
+  background: #fdfcf9;
 
   @media (max-width: 640px) {
     padding: 0;
@@ -12,16 +12,16 @@ export const Page = styled.main`
 `;
 
 export const Shell = styled.section`
-  width: min(860px, 100%);
+  width: min(760px, 100%);
   min-height: calc(100dvh - 48px);
   margin: 0 auto;
   display: grid;
   grid-template-rows: auto 1fr auto;
   overflow: hidden;
-  border: 1px solid rgba(15, 23, 42, 0.08);
-  border-radius: 18px;
+  border: 1px solid #efece6;
+  border-radius: 20px;
   background: #fff;
-  box-shadow: 0 18px 50px rgba(15, 23, 42, 0.08);
+  box-shadow: 0 18px 42px rgba(31, 30, 26, 0.08);
 
   @media (max-width: 640px) {
     min-height: 100dvh;
@@ -36,7 +36,7 @@ export const Header = styled.header`
   grid-template-columns: auto 1fr;
   align-items: center;
   gap: 14px;
-  border-bottom: 1px solid #edf0ed;
+  border-bottom: 1px solid #efece6;
   background: rgba(255, 255, 255, 0.96);
 
   button {
@@ -46,7 +46,7 @@ export const Header = styled.header`
     place-items: center;
     border: 1px solid #e5e9e6;
     border-radius: 12px;
-    color: #18221d;
+    color: #1f1e1a;
     background: #fff;
     cursor: pointer;
   }
@@ -65,7 +65,7 @@ export const Header = styled.header`
 
     span {
       overflow: hidden;
-      color: #68746e;
+      color: #72706b;
       font-size: 11px;
       text-overflow: ellipsis;
       white-space: nowrap;
@@ -78,17 +78,17 @@ export const Context = styled.div`
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
-  border-bottom: 1px solid #edf0ed;
-  background: #fbfcfb;
+  border-bottom: 1px solid #efece6;
+  background: #fdfcf9;
 
   span {
     padding: 7px 10px;
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    border: 1px solid #e8ece9;
+    border: 1px solid #efece6;
     border-radius: 999px;
-    color: #59655f;
+    color: #72706b;
     background: #fff;
     font-size: 10px;
     font-weight: 700;
@@ -102,9 +102,7 @@ export const Messages = styled.div`
   flex-direction: column;
   gap: 10px;
   overflow-y: auto;
-  background:
-    radial-gradient(circle at 10% 10%, rgba(219, 234, 254, 0.34), transparent 24%),
-    #f8faf8;
+  background: #fdfcf9;
 `;
 
 export const Message = styled.div<{ $mine: boolean }>`
@@ -113,14 +111,14 @@ export const Message = styled.div<{ $mine: boolean }>`
   align-self: ${({ $mine }) => ($mine ? 'flex-end' : 'flex-start')};
   border: 1px solid ${({ $mine }) => ($mine ? 'rgba(37, 99, 235, 0.14)' : '#e7ebe8')};
   border-radius: ${({ $mine }) => ($mine ? '14px 14px 4px 14px' : '14px 14px 14px 4px')};
-  color: #18221d;
-  background: ${({ $mine }) => ($mine ? '#eaf2ff' : '#fff')};
+  color: #1f1e1a;
+  background: ${({ $mine }) => ($mine ? 'color-mix(in srgb, #e85a2b 10%, #fff)' : '#fff')};
   box-shadow: 0 5px 16px rgba(15, 23, 42, 0.05);
 
   b {
     display: block;
     margin-bottom: 4px;
-    color: ${({ $mine }) => ($mine ? '#1d4ed8' : '#45524b')};
+    color: ${({ $mine }) => ($mine ? '#e85a2b' : '#45524b')};
     font-size: 10px;
   }
 
@@ -198,8 +196,8 @@ export const Composer = styled.form`
     font: inherit;
 
     &:focus {
-      border-color: #93b4fb;
-      box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+      border-color: #e85a2b;
+      box-shadow: 0 0 0 3px rgba(232, 90, 43, 0.1);
     }
   }
 
@@ -211,7 +209,7 @@ export const Composer = styled.form`
     border: 0;
     border-radius: 12px;
     color: #fff;
-    background: #2563eb;
+    background: #e85a2b;
     cursor: pointer;
 
     &:disabled {

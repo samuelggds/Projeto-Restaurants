@@ -426,7 +426,11 @@ export function buildHomeData(
         const name = String((product.category as { name?: string })?.name || '');
         if (!name || seen.has(name)) return null;
         seen.add(name);
-        return { id: name, name, image: resolveProductImage(product, 0, allowImageFallbacks) };
+        const category = (product.category as Record<string, unknown> | null) ?? {};
+        const categoryImage = isPersistentImageSource(category.image)
+          ? String(category.image).trim()
+          : '';
+        return { id: name, name, image: categoryImage };
       })
       .filter(Boolean) as HomeCategory[]),
   ];
@@ -449,6 +453,7 @@ export function buildHomeData(
     products,
     deliveryTime: String(settings?.averageDeliveryTime || ''),
     minimumOrder: Number(settings?.minimumOrder || 0),
+    deliveryFee: Number(settings?.deliveryFee || 0),
     freeDeliveryFrom: readOptionalPositiveMoney(settings?.freeShippingMinimum),
     acceptsDelivery: readPublicFeatureFlag(settings, 'acceptsDelivery'),
     acceptsPickup: readPublicFeatureFlag(settings, 'acceptsPickup'),

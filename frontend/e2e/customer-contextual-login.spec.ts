@@ -409,10 +409,13 @@ async function registerCustomer(page: Page) {
 }
 
 async function recoverCustomerPassword(page: Page) {
-  await page.getByRole('button', { name: 'E-mail' }).click();
-  await page.getByLabel('E-mail').fill(CUSTOMER_EMAIL);
+  await expect(page.getByRole('heading', { name: 'Esqueceu sua senha?' })).toBeVisible();
+  const recoveryEmail = page.locator('#identifier');
+  await expect(recoveryEmail).toBeVisible();
+  await recoveryEmail.fill(CUSTOMER_EMAIL);
+  await expect(recoveryEmail).toHaveValue(CUSTOMER_EMAIL);
   await page.getByRole('button', { name: 'Enviar código' }).click();
-  await page.getByLabel('Código').fill('123456');
+  await page.locator('#reset-code').fill('123456');
   await page.getByLabel('Nova senha', { exact: true }).fill('Senha@123');
   await page.getByLabel('Confirmar nova senha', { exact: true }).fill('Senha@123');
   await page.getByRole('button', { name: /Redefinir/u }).click();

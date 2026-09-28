@@ -383,15 +383,20 @@ export function useCart(products: HomeProduct[], notify: Notify, restaurantId?: 
     );
   }, [catalogSignature, products, restaurantId, storageRestaurantId]);
 
-  const addToCart = (productId: string, configuration: ProductConfiguration) => {
+  const addToCart = (
+    productId: string,
+    configuration: ProductConfiguration,
+    quantityToAdd = 1,
+  ) => {
     const product = products.find((item) => item.id === productId);
     if (!product) return;
+    const normalizedQuantity = Math.max(1, Math.floor(Number(quantityToAdd) || 1));
     const signature = productConfigurationSignature(configuration);
     const cartId = `${productId}::${signature}`;
     const currentQuantity = cart
       .filter((item) => item.productId === productId)
       .reduce((sum, item) => sum + item.quantity, 0);
-    if (product.stock != null && currentQuantity >= product.stock) {
+    if (product.stock != null && currentQuantity + normalizedQuantity > product.stock) {
       notify(
         'warning',
         'Limite de estoque',
@@ -403,7 +408,9 @@ export function useCart(products: HomeProduct[], notify: Notify, restaurantId?: 
       const existing = current.find((item) => item.cartId === cartId);
       if (existing)
         return current.map((item) =>
-          item.cartId === cartId ? { ...item, quantity: item.quantity + 1 } : item,
+          item.cartId === cartId
+            ? { ...item, quantity: item.quantity + normalizedQuantity }
+            : item,
         );
       const groups = normalizeProductOptionGroups(product);
       const selectedIds = new Set(configuration.selectedOptionIds);
@@ -483,7 +490,7 @@ export function useCart(products: HomeProduct[], notify: Notify, restaurantId?: 
           name: product.name,
           price: unitPrice,
           basePrice: product.price,
-          quantity: 1,
+          quantity: normalizedQuantity,
           image: product.image,
           stock: product.stock,
           selectedOptionIds: configuration.selectedOptionIds,

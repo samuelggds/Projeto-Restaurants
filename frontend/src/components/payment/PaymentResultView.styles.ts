@@ -17,8 +17,8 @@ const countDown = keyframes`
 `;
 
 export const Page = styled.div<{ $embedded: boolean }>`
-  --result-ink: #242c28;
-  --result-muted: #606961;
+  --result-ink: #1f1e1a;
+  --result-muted: #72706b;
   --result-accent: #52675d;
   --result-soft: #edf2ee;
   --result-ring: #dfe8e1;
@@ -26,7 +26,7 @@ export const Page = styled.div<{ $embedded: boolean }>`
   width: 100%;
   min-width: 0;
   color: var(--result-ink);
-  font-family: inherit;
+  font-family: 'Inter', system-ui, sans-serif;
 
   & *,
   & *::before,
@@ -62,7 +62,7 @@ export const Page = styled.div<{ $embedded: boolean }>`
       display: grid;
       place-items: center;
       padding: clamp(20px, 5vw, 56px) 20px;
-      background: #f7f7f7;
+      background: #fdfcf9;
 
       @media (max-width: 540px) {
         padding: 20px 12px calc(20px + env(safe-area-inset-bottom));
@@ -71,15 +71,15 @@ export const Page = styled.div<{ $embedded: boolean }>`
 `;
 
 export const Panel = styled.section<{ $embedded: boolean }>`
-  width: min(100%, 520px);
+  width: min(100%, 580px);
   min-width: 0;
   margin-inline: auto;
   overflow: hidden;
-  border: 1px solid #e1e5de;
-  border-radius: 18px;
-  background: #fffefa;
+  border: 1px solid #efece6;
+  border-radius: 24px;
+  background: #fff;
   box-shadow: ${({ $embedded }) =>
-    $embedded ? 'none' : '0 18px 54px -20px rgba(20, 20, 20, 0.18)'};
+    $embedded ? 'none' : '0 18px 46px rgba(31, 30, 26, 0.08)'};
 `;
 
 export const Header = styled.header`
@@ -127,7 +127,7 @@ export const Header = styled.header`
 `;
 
 export const Body = styled.div`
-  padding: 32px clamp(20px, 5vw, 36px) 28px;
+  padding: 42px clamp(24px, 5vw, 48px) 38px;
 `;
 
 export const Status = styled.div`
@@ -140,9 +140,9 @@ export const StatusSymbol = styled.div`
   position: relative;
   display: grid;
   place-items: center;
-  width: 112px;
-  height: 112px;
-  margin: 4px 0 22px;
+  width: 96px;
+  height: 96px;
+  margin: 4px 0 20px;
   border: 1px solid var(--result-ring);
   border-radius: 50%;
   background: var(--result-soft);
@@ -244,9 +244,9 @@ export const Receipt = styled.dl`
   gap: 13px;
   margin: 26px 0 0;
   padding: 20px;
-  border: 1px solid #e8e8df;
+  border: 1px solid #efece6;
   border-radius: 14px;
-  background: #f8f8f2;
+  background: #fdfcf9;
 
   > div {
     display: flex;

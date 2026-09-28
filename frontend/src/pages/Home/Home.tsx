@@ -1,11 +1,11 @@
-import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
+import { useState, useCallback, useEffect, useMemo } from 'react';
 import { useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { ShoppingBag, X } from 'lucide-react';
 import { CustomerActionHub } from './components/CustomerActionHub';
 import { FloatingWhatsAppPortal } from './Home.whatsapp';
 import { PublicGuestOrderHelp } from '../../features/order-support/PublicGuestOrderHelp';
 import { useAuth } from '../../contexts/authContext';
-import { HomePage } from './HomePage';
+import { FigmaDeliveryExperience } from './FigmaDeliveryExperience';
+import { FigmaCheckoutFlow, type FigmaCheckoutStep } from './FigmaCheckoutFlow';
 import PixPaymentPanel from '../Cart/components/PixPaymentPanel';
 import * as S from './Home.styles';
 import {
@@ -24,12 +24,10 @@ import { useActiveOrderNotice } from './hooks/useActiveOrderNotice';
 import { useTableOrderNotice } from './hooks/useTableOrderNotice';
 import { buildHomeData } from '../Home/adapters/homeDataAdapter';
 import { TableAccessGate } from './components/TableAccessGate';
-import { CartItemsList } from '../Home/components/CartItemsList';
 import { DeliveryAddressForm } from '../Home/components/DeliveryAddressForm';
 import { PaymentOptions } from '../Home/components/PaymentOptions';
 import { GuestCheckoutForm, type GuestCheckoutDetails } from '../Home/components/GuestCheckoutForm';
 import { DeliveryMethodSelector } from '../Home/components/DeliveryMethodSelector';
-import { CartCheckoutSummary } from '../Home/components/CartCheckoutSummary';
 import { LoyaltyCouponPanel } from '../Home/components/LoyaltyCouponPanel';
 import { HomeFeedback, type HomeNotification } from '../Home/components/HomeFeedback';
 import {
@@ -106,8 +104,7 @@ export default function Home() {
   const resolvedRestaurantId = useResolvedRestaurantId(normalizedSlug);
   const navigationState = (location.state as HomeNavigationState | null) || null;
   const [cartOpen, setCartOpen] = useState(() => Boolean(navigationState?.openCart));
-  const cartCloseButtonRef = useRef<HTMLButtonElement>(null);
-  const cartReturnFocusRef = useRef<HTMLElement | null>(null);
+  const [checkoutStep, setCheckoutStep] = useState<FigmaCheckoutStep>('cart');
   const [orderType, setOrderType] = useState<'delivery' | 'pickup'>('delivery');
   const [paymentMethod, setPaymentMethod] = useState<CheckoutPaymentMethod>('pix');
   const [guestCheckoutDetails, setGuestCheckoutDetails] = useState<GuestCheckoutDetails>({
@@ -134,7 +131,6 @@ export default function Home() {
   useEffect(() => {
     if (!cartOpen) return undefined;
     const previousOverflow = document.body.style.overflow;
-    const focusFrame = window.requestAnimationFrame(() => cartCloseButtonRef.current?.focus());
     const closeOnEscape = (event: KeyboardEvent) => {
       if (event.key !== 'Escape') return;
       event.preventDefault();
@@ -143,10 +139,8 @@ export default function Home() {
     document.body.style.overflow = 'hidden';
     window.addEventListener('keydown', closeOnEscape);
     return () => {
-      window.cancelAnimationFrame(focusFrame);
       window.removeEventListener('keydown', closeOnEscape);
       document.body.style.overflow = previousOverflow;
-      cartReturnFocusRef.current?.focus();
     };
   }, [cartOpen]);
   const [nudgeDismissed, setNudgeDismissed] = useState(false);
@@ -288,10 +282,10 @@ export default function Home() {
   const catalogHomeData = useMemo(
     () =>
       buildHomeData(backendProducts, settings, new Date(), {
-        allowImageFallbacks: !mesaMode,
-        useLegacyBannerCopy: !mesaMode,
+        allowImageFallbacks: false,
+        useLegacyBannerCopy: false,
       }),
-    [backendProducts, mesaMode, settings],
+    [backendProducts, settings],
   );
   const homeIsOpen = useMemo(
     () =>
@@ -376,10 +370,6 @@ export default function Home() {
     : (availablePaymentMethods[0] ?? paymentMethod);
   const paymentAvailable = availablePaymentMethods.length > 0;
   const tableAccountEnabled = tableAccount.snapshot?.capabilities.enabled === true;
-  const tableCheckoutUnavailable = Boolean(
-    mesaMode && !tableAccount.loading && !tableAccountEnabled,
-  );
-
   const orderQuote = useOrderQuote({
     restaurantId: checkoutChannelAvailable ? restaurantId : null,
     type: checkoutOrderType,
@@ -701,7 +691,7 @@ export default function Home() {
     [handleSavedAddressChange, notify],
   );
   const openHomeCart = useCallback(() => {
-    cartReturnFocusRef.current = document.activeElement as HTMLElement | null;
+    setCheckoutStep('cart');
     setCartOpen(true);
   }, []);
   const openProfile = useCallback(() => {
@@ -926,7 +916,7 @@ export default function Home() {
 
   return (
     <S.HomeExperience $fontFamily={homeData.fontFamily} $primary={primary} $tableMenu={mesaMode}>
-      <HomePage
+      <FigmaDeliveryExperience
         data={homeData}
         cartCount={tableClosingRequested ? 0 : cartCount}
         initialSearchOpen={Boolean(navigationState?.openSearch)}
@@ -952,132 +942,100 @@ export default function Home() {
         onLogout={handleLogout}
       />
 
-      <S.CartOverlay
-        $open={cartOpen}
-        onClick={() => setCartOpen(false)}
-        aria-label="Fechar sacola"
-      />
-      <S.CartDrawer
-        $open={cartOpen}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="home-cart-title"
-        aria-hidden={!cartOpen}
-      >
-        <S.CartHead>
-          <div className="cart-heading">
-            <span className="cart-mark" aria-hidden="true">
-              <ShoppingBag />
-            </span>
-            <div className="cart-title">
-              <small>Seu pedido</small>
-              <h2 id="home-cart-title">Minha sacola</h2>
-            </div>
-          </div>
-          <span className="cart-count">
-            {cartCount === 0 ? 'Vazia' : `${cartCount} ${cartCount === 1 ? 'item' : 'itens'}`}
-          </span>
-          <button
-            ref={cartCloseButtonRef}
-            type="button"
-            onClick={() => setCartOpen(false)}
-            aria-label="Fechar sacola"
-          >
-            <X aria-hidden="true" />
-          </button>
-        </S.CartHead>
-
-        <S.CartBody>
-          <CartItemsList
-            items={cart}
-            onIncrease={increaseCart}
-            onDecrease={decreaseCart}
-            onContinueShopping={() => setCartOpen(false)}
-          />
-
-          <S.CartOptions>
-            {cart.length > 0 && !mesaMode && (
+      {cartOpen ? (
+        <FigmaCheckoutFlow
+          primaryColor={primary}
+          brandName={homeData.brand.name}
+          logoUrl={homeData.brand.logoUrl}
+          step={checkoutStep}
+          cart={cart}
+          cartCount={cartCount}
+          cartTotal={cartTotal}
+          quote={orderQuote.quote}
+          loading={checkoutLoading}
+          canContinue={
+            checkoutStep !== 'payment' || (checkoutChannelAvailable && paymentAvailable)
+          }
+          onStepChange={(nextStep) => {
+            if (nextStep === 'payment') {
+              const customer = (user || guestCheckoutDetails) as Record<string, unknown>;
+              const issue = validateCheckout({
+                type: checkoutOrderType,
+                customerPhone: customer.phone,
+                customerName: customer.name,
+                customerCpf: customer.cpf,
+                requireGuestIdentity: !user,
+                deliveryAddress,
+                cepStatus,
+                paymentMethod: selectedCheckoutPaymentMethod,
+              });
+              if (issue) {
+                notify('warning', issue.title, issue.message);
+                return;
+              }
+            }
+            setCheckoutStep(nextStep);
+          }}
+          onIncrease={increaseCart}
+          onDecrease={decreaseCart}
+          onClear={() => setCart([])}
+          onClose={() => setCartOpen(false)}
+          onSubmit={() => void handleCheckout()}
+          couponContent={
+            <LoyaltyCouponPanel
+              loggedIn={isLoyaltyCustomer}
+              loading={loyalty.loading}
+              error={loyalty.error}
+              summary={loyalty.summary}
+              selectedRedemptionId={appliedRedemptionId}
+              redeemingCouponId={loyalty.redeemingCouponId}
+              onSelect={setSelectedRedemptionId}
+              onLogin={navigateToLogin}
+              onRetry={() => void loyalty.refresh()}
+              onRedeem={(couponId) => void loyalty.redeem(couponId)}
+            />
+          }
+          addressContent={
+            <>
               <DeliveryMethodSelector
                 value={availableOrderType}
                 allowDelivery={homeData.acceptsDelivery}
                 allowPickup={homeData.acceptsPickup}
                 onChange={setOrderType}
               />
-            )}
-
-            {cart.length > 0 && !mesaMode && !user && (
-              <GuestCheckoutForm value={guestCheckoutDetails} onChange={setGuestCheckoutDetails} />
-            )}
-
-            {cart.length > 0 && !mesaMode && availableOrderType === 'delivery' && (
-              <DeliveryAddressForm
-                address={deliveryAddress}
-                setAddress={setDeliveryAddress}
-                cepStatus={cepStatus}
-                cepMessage={cepMessage}
-                onCepChange={handleCepChange}
-                onCepLookup={handleCepLookup}
-              />
-            )}
-
-            {cart.length > 0 && !mesaMode && (
-              <LoyaltyCouponPanel
-                loggedIn={isLoyaltyCustomer}
-                loading={loyalty.loading}
-                error={loyalty.error}
-                summary={loyalty.summary}
-                selectedRedemptionId={appliedRedemptionId}
-                redeemingCouponId={loyalty.redeemingCouponId}
-                onSelect={setSelectedRedemptionId}
-                onLogin={navigateToLogin}
-                onRetry={() => void loyalty.refresh()}
-                onRedeem={(couponId) => void loyalty.redeem(couponId)}
-              />
-            )}
-
-            {cart.length > 0 && !mesaMode && (
-              <PaymentOptions
-                paymentMethod={selectedCheckoutPaymentMethod}
-                allowPayOnDelivery={allowPayOnDelivery}
-                allowPix={homeData.acceptsPix}
-                allowOpenFinancePix={homeData.openFinancePixEnabled}
-                allowCard={homeData.acceptsCard}
-                restaurantId={restaurantId}
-                loggedIn={Boolean(user)}
-                userEmail={user ? String((user as Record<string, unknown>).email || '') : undefined}
-                onChange={setPaymentMethod}
-              />
-            )}
-          </S.CartOptions>
-        </S.CartBody>
-
-        <S.CartFoot>
-          <CartCheckoutSummary
-            count={cartCount}
-            total={cartTotal}
-            quote={orderQuote.quote}
-            quoteLoading={orderQuote.loading}
-            quoteError={orderQuote.error}
-            loading={checkoutLoading || tableOrderLoading}
-            paymentMethod={selectedCheckoutPaymentMethod}
-            isRestaurantOpen={homeData.isOpen}
-            checkoutButtonLabel={mesaMode ? 'Enviar pedido para a cozinha' : undefined}
-            checkoutBlockedMessage={
-              tableClosingRequested
-                ? 'Conta solicitada: novos pedidos bloqueados'
-                : !checkoutChannelAvailable
-                  ? 'Canal indisponível'
-                  : tableCheckoutUnavailable
-                    ? 'Pagamento indisponível'
-                    : !mesaMode && !paymentAvailable
-                      ? 'Serviço indisponível'
-                      : undefined
-            }
-            onCheckout={() => void handleCheckout()}
-          />
-        </S.CartFoot>
-      </S.CartDrawer>
-
+              {!user ? (
+                <GuestCheckoutForm
+                  value={guestCheckoutDetails}
+                  onChange={setGuestCheckoutDetails}
+                />
+              ) : null}
+              {availableOrderType === 'delivery' ? (
+                <DeliveryAddressForm
+                  address={deliveryAddress}
+                  setAddress={setDeliveryAddress}
+                  cepStatus={cepStatus}
+                  cepMessage={cepMessage}
+                  onCepChange={handleCepChange}
+                  onCepLookup={handleCepLookup}
+                />
+              ) : null}
+            </>
+          }
+          paymentContent={
+            <PaymentOptions
+              paymentMethod={selectedCheckoutPaymentMethod}
+              allowPayOnDelivery={allowPayOnDelivery}
+              allowPix={homeData.acceptsPix}
+              allowOpenFinancePix={homeData.openFinancePixEnabled}
+              allowCard={homeData.acceptsCard}
+              restaurantId={restaurantId}
+              loggedIn={Boolean(user)}
+              userEmail={user ? String((user as Record<string, unknown>).email || '') : undefined}
+              onChange={setPaymentMethod}
+            />
+          }
+        />
+      ) : null}
 
       <HomeFeedback
         showLoginNudge={showLoginNudge}

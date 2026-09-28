@@ -346,7 +346,8 @@ test('cliente consulta cupons válidos, histórico e o novo ciclo no perfil', as
   await mockAuthRefresh(page, 22, 'e2e-customer-token');
 
   await page.goto('/profile');
-  const profileCartButton = page.getByRole('button', { name: 'Sacola com 1 itens' });
+  const visibleProfileContent = page.locator('main:visible');
+  const profileCartButton = page.getByRole('button', { name: 'Sacola com 1 item' });
   await expect(profileCartButton).toBeVisible();
 
   await page.getByRole('button', { name: 'Buscar' }).click();
@@ -358,171 +359,81 @@ test('cliente consulta cupons válidos, histórico e o novo ciclo no perfil', as
   await expect(productSearch.getByRole('button', { name: 'Ver Prato artesanal' })).toBeVisible();
 
   await page.goto('/profile');
-  await page.getByRole('button', { name: 'Sacola com 1 itens' }).click();
-  const homeCart = page.getByRole('dialog', { name: 'Minha sacola' });
-  await expect(homeCart).toBeVisible();
-  await expect(homeCart.getByText('Prato artesanal', { exact: true })).toBeVisible();
-  await expect(homeCart.getByLabel('Total do pedido: R$ 40,00')).toBeVisible();
+  await page.getByRole('button', { name: 'Sacola com 1 item' }).click();
+  const checkout = page.getByRole('dialog', { name: 'Finalizar pedido' });
+  await expect(checkout).toBeVisible();
+  await expect(checkout.getByText('Prato artesanal', { exact: true })).toBeVisible();
+  await expect(checkout.getByText('R$ 40,00', { exact: true }).last()).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(checkout).toBeHidden();
 
   await page.goto('/profile');
-  const orderProgress = page.getByRole('list', { name: 'Progresso do pedido' });
-  await expect(orderProgress).toBeVisible();
-  await expect(orderProgress.locator('[aria-current="step"]')).toHaveAttribute(
-    'aria-label',
-    'Em preparo: etapa atual',
-  );
+  await page.getByRole('button', { name: /^Meus pedidos/ }).click();
+  await expect(page.getByRole('heading', { name: 'Meus Pedidos', exact: true })).toBeVisible();
+  const visibleActiveOrderId = visibleProfileContent.locator('b', { hasText: /^Pedido #0312$/ });
+  await expect(visibleActiveOrderId).toHaveCount(1);
+  await expect(visibleActiveOrderId).toBeVisible();
+  await page.getByRole('button', { name: 'Voltar para minha conta' }).click();
 
-  for (const width of [901, 1024]) {
-    await page.setViewportSize({ width, height: 900 });
-    const progressLayout = await orderProgress.evaluate((element) => {
-      const bounds = element.getBoundingClientRect();
-      const labels = Array.from(element.querySelectorAll('li > span')).map((label) =>
-        label.getBoundingClientRect(),
-      );
-      return {
-        labelsFit: labels.every(
-          (label, index) =>
-            label.left >= bounds.left - 1 &&
-            label.right <= bounds.right + 1 &&
-            (index === 0 || label.left >= labels[index - 1].right - 1),
-        ),
-        scrollWidth: document.documentElement.scrollWidth,
-      };
-    });
-    expect(progressLayout.labelsFit).toBe(true);
-    expect(progressLayout.scrollWidth).toBeLessThanOrEqual(width + 1);
+  await page.getByRole('button', { name: 'Endereços salvos', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Endereços Salvos', exact: true })).toBeVisible();
+  await expect(visibleProfileContent.getByText(/Rua Francisco Calaça/)).toBeVisible();
+  await page.getByRole('button', { name: 'Voltar para minha conta' }).click();
 
-    const historyHeading = await page
-      .getByRole('heading', { level: 2, name: 'Últimos pedidos', exact: true })
-      .boundingBox();
-    const accountHeading = await page
-      .getByRole('heading', { level: 2, name: 'Minha conta', exact: true })
-      .boundingBox();
-    expect(historyHeading).not.toBeNull();
-    expect(accountHeading).not.toBeNull();
-    expect(Math.abs(historyHeading!.x - accountHeading!.x)).toBeLessThan(1);
-    expect(accountHeading!.y).toBeGreaterThan(historyHeading!.y + historyHeading!.height);
+  await page.getByRole('button', { name: 'Métodos de pagamento', exact: true }).click();
+  await expect(
+    page.getByRole('heading', { name: 'Métodos de Pagamento', exact: true }),
+  ).toBeVisible();
+  await expect(visibleProfileContent.getByText(/visa ···· 4242/i)).toBeVisible();
+  await page.getByRole('button', { name: 'Voltar para minha conta' }).click();
 
-    const accountNavigation = page.getByRole('complementary', { name: 'Navegação da conta' });
-    await accountNavigation.getByRole('button', { name: 'Endereços', exact: true }).click();
-    await expect(page.getByRole('heading', { name: 'Meus endereços' })).toBeVisible();
+  await page.getByRole('button', { name: 'Meus Cupons', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Meus Cupons', exact: true })).toBeVisible();
+  const cliente10Coupons = visibleProfileContent
+    .locator('article')
+    .filter({ hasText: 'CLIENTE10' });
+  await expect(cliente10Coupons).toHaveCount(2);
+  await expect(cliente10Coupons.filter({ hasText: 'Disponível' })).toHaveCount(1);
+  await expect(cliente10Coupons.filter({ hasText: 'Utilizado' })).toHaveCount(1);
+
+  const antigo5Coupons = visibleProfileContent
+    .locator('article')
+    .filter({ hasText: 'ANTIGO5' });
+  await expect(antigo5Coupons).toHaveCount(2);
+  await expect(antigo5Coupons.filter({ hasText: 'Disponível' })).toHaveCount(1);
+  await expect(antigo5Coupons.filter({ hasText: 'Expirado' })).toHaveCount(1);
+  expect(loyaltyRestaurantId).toBe('9');
+
+  for (const width of [1280, 390, 320]) {
+    await page.setViewportSize({ width, height: 844 });
     await expect
       .poll(() => page.evaluate(() => document.documentElement.scrollWidth))
       .toBeLessThanOrEqual(width + 1);
-    await accountNavigation.getByRole('button', { name: 'Visão geral', exact: true }).click();
-    await expect(orderProgress).toBeVisible();
-  }
-  await page.setViewportSize({ width: 1280, height: 900 });
-  await captureReadmeScreenshot(page, 'customer-profile-desktop.png', { fullPage: true });
-
-  await page.setViewportSize({ width: 390, height: 844 });
-  await captureReadmeScreenshot(page, 'customer-profile-mobile.png', { fullPage: true });
-  const mobileNavigationTrigger = page.getByRole('button', { name: /Seção atual/i });
-  await mobileNavigationTrigger.click();
-  await expect(page.getByRole('menu').getByRole('menuitem')).toHaveCount(8);
-  await captureReadmeScreenshot(page, 'customer-profile-mobile-menu.png');
-  await mobileNavigationTrigger.click();
-  await page.setViewportSize({ width: 320, height: 844 });
-  const overviewMetrics = await page
-    .locator('article')
-    .first()
-    .evaluate((element) => {
-      const rect = element.getBoundingClientRect();
-      return {
-        left: rect.left,
-        right: rect.right,
-        viewportWidth: window.innerWidth,
-        scrollWidth: document.documentElement.scrollWidth,
-      };
-    });
-  expect(overviewMetrics.left).toBeGreaterThanOrEqual(-1);
-  expect(overviewMetrics.right).toBeLessThanOrEqual(overviewMetrics.viewportWidth + 1);
-  expect(overviewMetrics.scrollWidth).toBeLessThanOrEqual(overviewMetrics.viewportWidth + 1);
-
-  const selectMobileView = async (tab: string) => {
-    await page.getByRole('button', { name: /Seção atual/i }).click();
-    const mobileMenu = page.getByRole('menu');
-    await expect(mobileMenu.getByRole('menuitem')).toHaveCount(8);
-    await mobileMenu.getByRole('menuitem', { name: tab, exact: true }).click();
-  };
-
-  for (const [tab, heading] of [
-    ['Meus pedidos', 'Meus pedidos'],
-    ['Endereços', 'Meus endereços'],
-    ['Meus cartões', 'Meus cartões'],
-    ['Favoritos', 'Favoritos'],
-    ['Dados pessoais', 'Dados pessoais'],
-    ['Segurança', 'Segurança'],
-  ] as const) {
-    await selectMobileView(tab);
-    await expect(page.getByRole('heading', { name: heading, exact: true })).toBeVisible();
-    await expect
-      .poll(() => page.evaluate(() => document.documentElement.scrollWidth))
-      .toBeLessThanOrEqual(321);
   }
 
-  await selectMobileView('Meus cupons');
-
-  const wallet = page.getByRole('region', { name: 'Carteira de cupons' });
-  await expect(wallet).toBeVisible();
-  await expect(page.getByRole('heading', { name: 'Seus cupons, sempre à mão' })).toBeVisible();
-  await expect(wallet.getByText('CLIENTE10')).toBeVisible();
-  await expect(wallet.getByText('Disponível', { exact: true }).first()).toBeVisible();
-  await expect(page.getByText('0/10')).toBeVisible();
-  await expect(page.getByText('Faltam 10 pedidos pagos e entregues.')).toBeVisible();
-  expect(loyaltyRestaurantId).toBe('9');
-
-  await wallet.getByRole('button', { name: 'Histórico (9)' }).click();
-  const historyList = wallet.getByRole('region', { name: 'Histórico de cupons' });
-  await expect(wallet.getByText('Utilizado', { exact: true })).toBeVisible();
-  await expect(wallet.getByText('Expirado', { exact: true }).first()).toBeVisible();
-  await expect(wallet.getByText('ANTIGO5')).toBeVisible();
-  await expect(historyList).toHaveAttribute('tabindex', '0');
-
   await page.setViewportSize({ width: 1280, height: 900 });
-  const couponListMetrics = await historyList.evaluate((element) => {
-    const cards = Array.from(element.querySelectorAll('article'));
-    return {
-      cardWidths: cards.map((card) => card.getBoundingClientRect().width),
-      clientHeight: element.clientHeight,
-      overflowY: getComputedStyle(element).overflowY,
-      scrollHeight: element.scrollHeight,
-    };
-  });
-  expect(couponListMetrics.cardWidths).toHaveLength(9);
-  expect(Math.max(...couponListMetrics.cardWidths)).toBeLessThanOrEqual(320);
-  expect(couponListMetrics.overflowY).toBe('auto');
-  expect(couponListMetrics.scrollHeight).toBeGreaterThan(couponListMetrics.clientHeight);
   await captureReadmeScreenshot(page, 'customer-profile-coupons.png', { fullPage: true });
 
-  for (const width of [390, 320]) {
-    await page.setViewportSize({ width, height: 844 });
-    const metrics = await wallet.evaluate((element) => {
-      const rect = element.getBoundingClientRect();
-      return {
-        left: rect.left,
-        right: rect.right,
-        viewportWidth: window.innerWidth,
-        scrollWidth: document.documentElement.scrollWidth,
-      };
-    });
-    expect(metrics.left).toBeGreaterThanOrEqual(-1);
-    expect(metrics.right).toBeLessThanOrEqual(metrics.viewportWidth + 1);
-    expect(metrics.scrollWidth).toBeLessThanOrEqual(metrics.viewportWidth + 1);
-  }
+  const previousCampaign = antigo5Coupons
+    .filter({ hasText: 'Disponível' })
+    .filter({ hasText: 'Campanha anterior' });
+  await expect(previousCampaign).toBeVisible();
+  await previousCampaign.getByRole('button', { name: 'Usar Cupom' }).click();
 
-  await wallet.getByRole('button', { name: 'Válidos (2)' }).click();
-  await wallet
-    .getByRole('button', {
-      name: 'Usar Campanha anterior, código ANTIGO5, no próximo pedido',
-    })
-    .click();
   await expect(page).toHaveURL(/\/restaurante-teste$/);
-  await expect(page.getByRole('heading', { name: 'Minha sacola' })).toBeVisible();
+  const couponCheckout = page.getByRole('dialog', { name: 'Finalizar pedido' });
+  await expect(couponCheckout).toBeVisible();
   await expect(
-    page.getByRole('button', { name: /Campanha anterior.*ANTIGO5.*Aplicado/i }),
+    couponCheckout.getByRole('button', { name: /Campanha anterior.*ANTIGO5.*Aplicado/i }),
   ).toHaveAttribute('aria-pressed', 'true');
   await expect
     .poll(() => quotePayloads.find((payload) => payload.couponRedemptionId === 74))
     .toMatchObject({ restaurantId: 9, couponRedemptionId: 74 });
+
+  for (const legacyView of ['favorites', 'personalData', 'security'] as const) {
+    await page.goto(`/profile?view=${legacyView}`);
+    await expect
+      .poll(() => page.evaluate(() => document.documentElement.scrollWidth))
+      .toBeLessThanOrEqual(1281);
+  }
 });

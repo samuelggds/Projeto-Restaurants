@@ -110,6 +110,11 @@ export type LoyaltyRedemption = {
   id: number;
   status: 'CLAIMED' | 'RESERVED' | 'USED' | 'EXPIRED';
   cycle: number;
+  orderId?: number | null;
+  claimedAt?: string | null;
+  reservedAt?: string | null;
+  usedAt?: string | null;
+  createdAt?: string | null;
   expiresAt?: string | null;
   expired?: boolean;
   coupon: LoyaltyCoupon;
@@ -174,6 +179,7 @@ export type HomeData = {
   products: HomeProduct[];
   deliveryTime: string;
   minimumOrder: number;
+  deliveryFee?: number;
   freeDeliveryFrom: number;
   acceptsDelivery: boolean;
   acceptsPickup: boolean;
@@ -214,7 +220,7 @@ export type HomePageProps = {
   onOpenTableAccount?: () => void;
   onSearch?: () => void;
   onSelectCategory?: (categoryId: string) => void;
-  onAddProduct?: (productId: string, configuration: ProductConfiguration) => void;
+  onAddProduct?: (productId: string, configuration: ProductConfiguration, quantity?: number) => void;
   onToggleFavorite?: (productId: string) => void;
   onLogout?: () => void;
 };

@@ -62,6 +62,8 @@ describe('identidade dinâmica do login', () => {
       name: 'North Pizza',
       description: 'A melhor experiência em cada pedido',
       logoUrl: 'https://cdn.test/logo.png',
+      coverUrl: '',
+      markUrl: 'https://cdn.test/logo.png',
       primaryColor: '#123456',
       category: 'PIZZARIA',
     });
@@ -78,12 +80,14 @@ describe('identidade dinâmica do login', () => {
       }).category,
     ).toBe('RESTAURANTE');
   });
-  it('prioriza a capa de alta resolução sobre o logotipo', () => {
-    expect(
-      mapLoginBranding({
-        restaurant: { logo: 'https://cdn.test/logo.png', coverImage: 'https://cdn.test/capa.webp' },
-      }).logoUrl,
-    ).toBe('https://cdn.test/capa.webp');
+  it('preserva capa e logotipo separadamente para experiências de autenticação', () => {
+    const branding = mapLoginBranding({
+      restaurant: { logo: 'https://cdn.test/logo.png', coverImage: 'https://cdn.test/capa.webp' },
+    });
+
+    expect(branding.logoUrl).toBe('https://cdn.test/capa.webp');
+    expect(branding.coverUrl).toBe('https://cdn.test/capa.webp');
+    expect(branding.markUrl).toBe('https://cdn.test/logo.png');
   });
 
   it('descarta uma cor inválida antes de aplicá-la ao tema público', () => {

@@ -5,6 +5,10 @@ export type ProfileBrand = {
   monogram?: string;
   logoUrl?: string;
   address: string;
+  phone?: string;
+  email?: string;
+  whatsapp?: string;
+  status?: string;
   primaryColor?: string;
 };
 
@@ -52,6 +56,7 @@ export type ProfileOrder = {
   channel?: ProfileOrderChannel;
   publicId?: string;
   paymentPending?: boolean;
+  loyaltyQualified?: boolean;
 };
 
 export type ProfileFavorite = {
@@ -158,4 +163,6 @@ export type ProfilePageProps = {
   loyaltyLoading?: boolean;
   loyaltyError?: string;
   onRetryLoyalty?: () => void;
+  loyaltyRedeemingCouponId?: number | null;
+  onRedeemLoyaltyCoupon?: (couponId: number) => Promise<void>;
 };

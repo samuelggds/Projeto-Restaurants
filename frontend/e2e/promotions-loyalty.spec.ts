@@ -361,21 +361,30 @@ test('cliente vê promoção, aplica benefício de fidelidade e envia o resgate 
   await featuredOffers.getByRole('button', { name: 'Ver detalhes de Prato artesanal' }).click();
   await page.getByText('Base tradicional').click();
   await page.getByRole('button', { name: 'Adicionar à sacola' }).click();
-  await page.getByRole('button', { name: /^Sacola com [1-9]\d* ite(?:m|ns)$/ }).click();
-  const cartDialog = page.getByRole('dialog', { name: 'Minha sacola' });
-  await expect(cartDialog).toBeVisible();
-  await cartDialog.getByRole('button', { name: 'Retirada', exact: true }).click();
-  const loyaltyPanel = cartDialog.getByRole('region', { name: 'Cupom de fidelidade' });
+  await page.getByRole('button', { name: /Meu Carrinho, [1-9]\d* (?:item|itens)/ }).click();
+
+  const checkout = page.getByRole('dialog', { name: 'Finalizar pedido' });
+  await expect(checkout).toBeVisible();
+  const loyaltyPanel = checkout.getByRole('region', { name: 'Cupom de fidelidade' });
   await loyaltyPanel.getByRole('button', { name: /Cliente fiel.*Aplicar/ }).click();
 
-  await expect(page.getByText('Cupom • FIEL10')).toBeVisible();
-  await expect(page.getByText('R$ 36,00')).toBeVisible();
+  await expect(checkout.getByText('Cupom · FIEL10')).toBeVisible();
+  await expect(checkout.getByText('R$ 36,00').last()).toBeVisible();
   await expect
     .poll(() => quotePayloads.some((payload) => payload.couponRedemptionId === 71))
     .toBe(true);
 
-  await page.getByRole('button', { name: /Gerar código Pix/ }).click();
-  await expect(page.getByText('Pagamento via Pix', { exact: true })).toBeVisible();
+  await checkout.getByRole('button', { name: 'Continuar', exact: true }).click();
+  await expect(checkout.getByRole('heading', { name: 'Endereço de entrega' })).toBeVisible();
+  await checkout.getByRole('button', { name: 'Retirada', exact: true }).click();
+  await checkout.getByRole('button', { name: 'Continuar', exact: true }).click();
+
+  await expect(checkout.getByRole('heading', { name: 'Pagamento', exact: true })).toBeVisible();
+  const pixOption = checkout.getByRole('button', { name: /Pix QR Code/i });
+  await expect(pixOption).toBeVisible();
+  await pixOption.click();
+  await checkout.getByRole('button', { name: 'Continuar', exact: true }).click();
+  await expect(page.getByText('Pagamento PIX', { exact: true })).toBeVisible();
   await expect(page.getByText('R$ 36,00')).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Pix confirmado!' })).toBeVisible();
   await expect(page.locator('main[data-status="PAID"]')).toBeVisible();

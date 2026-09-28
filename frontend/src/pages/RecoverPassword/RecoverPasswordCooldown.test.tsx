@@ -58,7 +58,6 @@ describe('recuperacao: intervalo de 30 segundos', () => {
   }
 
   function enterEmail() {
-    act(() => button('E-mail').click());
     setInput(container.querySelector('#identifier') as HTMLInputElement, 'cliente@example.test');
   }
 

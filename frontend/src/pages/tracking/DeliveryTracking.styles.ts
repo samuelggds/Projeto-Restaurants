@@ -1,16 +1,16 @@
 import styled from 'styled-components';
 
 export const Page = styled.div`
-  --courier-line: #d7dcd7;
-  --courier-primary: #e45118;
-  --tracking-ink: #182722;
-  --tracking-muted: #63706a;
+  --courier-line: #efece6;
+  --courier-primary: #e85a2b;
+  --tracking-ink: #1f1e1a;
+  --tracking-muted: #72706b;
   min-height: 100vh;
   min-height: 100dvh;
   color: var(--tracking-ink);
-  background-color: #f7f7f7;
+  background-color: #fdfcf9;
   background-image: none;
-  font-family: Aptos, 'Segoe UI Variable', 'Segoe UI', sans-serif;
+  font-family: 'Inter', system-ui, sans-serif;
 
   *,
   *::before,
@@ -29,8 +29,8 @@ export const Header = styled.header`
 `;
 
 export const HeaderInner = styled.div`
-  width: min(1180px, calc(100% - 40px));
-  min-height: 72px;
+  width: min(1120px, calc(100% - 48px));
+  min-height: 80px;
   margin: 0 auto;
   display: flex;
   align-items: center;
@@ -90,9 +90,9 @@ export const OrderIdentity = styled.div`
     display: grid;
     place-items: center;
     flex: 0 0 auto;
-    border-radius: 8px;
+    border-radius: 18px;
     color: #fff;
-    background: #173c42;
+    background: #1f1e1a;
   }
 
   > span:last-child {
@@ -119,9 +119,9 @@ export const OrderIdentity = styled.div`
 `;
 
 export const Main = styled.main`
-  width: min(1180px, calc(100% - 40px));
+  width: min(1120px, calc(100% - 48px));
   margin: 0 auto;
-  padding: 38px 0 56px;
+  padding: 34px 0 64px;
 
   @media (max-width: 520px) {
     width: calc(100% - 24px);
@@ -138,7 +138,7 @@ export const HeadingRow = styled.div`
 
   h1 {
     margin: 7px 0 7px;
-    font: 900 34px/1.12 inherit;
+    font: 800 34px/1.12 'Gabarito', 'Inter', sans-serif;
     letter-spacing: -0.03em;
   }
 
@@ -153,7 +153,7 @@ export const HeadingRow = styled.div`
   @media (max-width: 800px) {
     grid-template-columns: 1fr;
     align-items: stretch;
-    gap: 18px;
+    gap: 24px;
   }
 
   @media (max-width: 520px) {
@@ -179,7 +179,7 @@ export const TrackingBar = styled.div<{ $connected: boolean }>`
   justify-content: space-between;
   gap: 14px;
   border: 1px solid ${(props) => (props.$connected ? '#a8d7ba' : '#e7c970')};
-  border-radius: 8px;
+  border-radius: 18px;
   color: ${(props) => (props.$connected ? '#1f6340' : '#805b0f')};
   background: ${(props) => (props.$connected ? '#edf8f1' : '#fff8df')};
 
@@ -385,7 +385,7 @@ export const ReceiptConfirmed = styled(CompletionNotice)`
 
 export const Workspace = styled.div`
   display: grid;
-  grid-template-columns: minmax(0, 1.65fr) minmax(280px, 0.75fr);
+  grid-template-columns: minmax(0, 1.55fr) minmax(340px, 0.85fr);
   align-items: start;
   gap: 18px;
 
@@ -426,12 +426,12 @@ export const MapArea = styled.section`
   @media (max-width: 560px) {
     .delivery-map-shell {
       width: 100%;
-      height: min(64vh, 560px);
-      min-height: 430px;
+      height: 300px;
+      min-height: 300px;
       margin-inline: 0;
       border-right: 1px solid var(--courier-line);
       border-left: 1px solid var(--courier-line);
-      border-radius: 8px;
+      border-radius: 16px;
     }
   }
 `;
@@ -439,10 +439,10 @@ export const MapArea = styled.section`
 export const DetailsPanel = styled.aside`
   min-width: 0;
   overflow: hidden;
-  border: 1px solid #d8dcd7;
+  border: 1px solid #efece6;
   border-radius: 8px;
   background: #fff;
-  box-shadow: 0 14px 34px rgba(24, 39, 34, 0.07);
+  box-shadow: 0 12px 28px rgba(31, 30, 26, 0.06);
 `;
 
 export const PanelHeader = styled.header`
@@ -469,8 +469,7 @@ export const PanelHeader = styled.header`
 
   strong {
     font:
-      700 20px Georgia,
-      serif;
+      800 20px 'Gabarito', 'Inter', sans-serif;
   }
 `;
 

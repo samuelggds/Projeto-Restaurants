@@ -91,20 +91,17 @@ test('login desktop preserva identidade e hierarquia visual', async ({ page }) =
   await expect(page.getByTestId('login-cover')).toBeVisible();
   await expect(page.getByTestId('login-card')).toBeVisible();
   await expect(page.getByText('North Pizza', { exact: true })).toBeVisible();
-  await expect(page.getByText('Área do cliente', { exact: true })).toBeVisible();
+  await expect(page.getByText('Acesso do Cliente', { exact: true })).toBeVisible();
+  await expect(page.getByText('Bem-vindo de volta!', { exact: true })).toBeVisible();
   await expect(page.getByTestId('login-hero-content')).toHaveAttribute('data-category', 'PIZZARIA');
   await expect(page.getByRole('button', { name: 'Entrar como cliente' })).toBeVisible();
 
-  const heroStyle = await page.getByTestId('login-hero-content').evaluate((element) => {
-    const style = getComputedStyle(element);
-    return { backgroundColor: style.backgroundColor, borderWidth: style.borderWidth };
-  });
-  expect(heroStyle).toEqual({ backgroundColor: 'rgba(0, 0, 0, 0)', borderWidth: '0px' });
-
-  const categoryIconBackground = await page
-    .getByTestId('login-category-icon')
-    .evaluate((element) => getComputedStyle(element).backgroundColor);
-  expect(categoryIconBackground).toBe('rgba(0, 0, 0, 0)');
+  const [heroBox, formBox] = await Promise.all([
+    page.getByTestId('login-cover').boundingBox(),
+    page.getByTestId('login-card').boundingBox(),
+  ]);
+  expect(Math.abs((heroBox?.width || 0) - 680)).toBeLessThanOrEqual(1);
+  expect(Math.abs((formBox?.width || 0) - 760)).toBeLessThanOrEqual(1);
   await captureReadmeScreenshot(page, 'login-desktop.png', { fullPage: true });
 
   const layout = await page.evaluate(() => ({
@@ -130,8 +127,9 @@ for (const viewport of MOBILE_VIEWPORTS) {
     await expect(coverImage).toBeVisible();
     await expect(card).toBeVisible();
     await expect(page.getByText('North Pizza', { exact: true })).toBeVisible();
+    await expect(page.getByText('Acesso do Cliente', { exact: true })).toBeVisible();
     await expect(
-      page.getByText('Entre para continuar no cardápio e nos pedidos de North Pizza.'),
+      page.getByText('Acesse sua conta para continuar no North Pizza.'),
     ).toBeVisible();
 
     if (viewport.name === '390x844') {
@@ -148,8 +146,7 @@ for (const viewport of MOBILE_VIEWPORTS) {
     expect(imageBox).not.toBeNull();
     expect(cardBox).not.toBeNull();
 
-    const expectedCoverHeight = Math.min(330, Math.max(230, viewport.height * 0.34));
-    expect(Math.abs((coverBox?.height || 0) - expectedCoverHeight)).toBeLessThanOrEqual(4);
+    expect(Math.abs((coverBox?.height || 0) - 320)).toBeLessThanOrEqual(1);
     expect(Math.abs((imageBox?.height || 0) - (coverBox?.height || 0))).toBeLessThanOrEqual(1);
     expect(Math.abs((imageBox?.width || 0) - (coverBox?.width || 0))).toBeLessThanOrEqual(1);
 
@@ -162,8 +159,8 @@ for (const viewport of MOBILE_VIEWPORTS) {
     expect(cardBox!.x + cardBox!.width).toBeLessThanOrEqual(viewport.width + 1);
 
     const cardOffsetFromCover = cardBox!.y - (coverBox!.y + coverBox!.height);
-    // The mobile form overlaps the decorative cover by 32px in the current layout.
-    expect(Math.abs(cardOffsetFromCover + 32)).toBeLessThanOrEqual(4);
+    // O frame mobile do Figma inicia o card em y=280 enquanto o hero tem 320px.
+    expect(Math.abs(cardOffsetFromCover + 40)).toBeLessThanOrEqual(1);
 
     const documentMetrics = await page.evaluate(() => ({
       innerWidth: window.innerWidth,
@@ -182,13 +179,5 @@ for (const viewport of MOBILE_VIEWPORTS) {
     await page.getByRole('button', { name: 'Ocultar senha' }).click();
     await expect(password).toHaveAttribute('type', 'password');
 
-    const cardBackgroundBefore = await card.evaluate(
-      (element) => getComputedStyle(element).backgroundColor,
-    );
-    await page.getByRole('button', { name: 'Ativar modo escuro' }).click();
-    const cardBackgroundAfter = await card.evaluate(
-      (element) => getComputedStyle(element).backgroundColor,
-    );
-    expect(cardBackgroundAfter).not.toBe(cardBackgroundBefore);
   });
 }

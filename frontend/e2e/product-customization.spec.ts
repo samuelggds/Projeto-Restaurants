@@ -96,6 +96,7 @@ for (const width of [1440, 390]) {
     await page.route('**/products', (route) => route.fulfill({ json: { products: [halfHalf] } }));
     await page.setViewportSize({ width, height: 900 });
     await page.goto('/restaurante-teste');
+    await enterMenu(page);
     await page.getByRole('button', { name: 'Ver detalhes de Meio a meio dinâmico' }).click();
     const dialog = page.getByRole('dialog', { name: 'Montar Meio a meio dinâmico' });
     const footer = dialog.getByTestId('product-configurator-footer');
@@ -302,8 +303,16 @@ async function mockStorefront(page: Page) {
   await page.addInitScript(() => localStorage.clear());
 }
 
+async function enterMenu(page: Page) {
+  const menuButton = page
+    .getByRole('region', { name: 'Promoções do restaurante' })
+    .getByRole('button', { name: 'Ver cardápio' });
+  if (await menuButton.count()) await menuButton.click();
+}
+
 async function openConfigurator(page: Page, path = '/restaurante-teste') {
   await page.goto(path);
+  await enterMenu(page);
 
   await expect(page.getByText('Produto artesanal').first()).toBeVisible();
   await page.getByRole('button', { name: 'Ver detalhes de Produto artesanal' }).click();
@@ -311,14 +320,14 @@ async function openConfigurator(page: Page, path = '/restaurante-teste') {
 }
 
 async function openCartAfterAddition(page: Page) {
-  const cart = page.getByRole('dialog', { name: 'Minha sacola' });
-  await expect(cart).toBeHidden();
+  const checkout = page.getByRole('dialog', { name: 'Finalizar pedido' });
+  await expect(checkout).toBeHidden();
   await expect(
     page.getByLabel('Avisos recentes').getByRole('status').filter({ hasText: 'Item adicionado' }),
   ).toBeVisible();
-  await page.getByRole('button', { name: /Sacola com [1-9]\d* itens/ }).click();
-  await expect(cart).toBeVisible();
-  return cart;
+  await page.getByRole('button', { name: /Meu Carrinho, [1-9]\d* (?:item|itens)/ }).click();
+  await expect(checkout).toBeVisible();
+  return checkout;
 }
 
 test('cliente monta o produto antes de adicioná-lo à sacola', async ({ page }) => {
@@ -351,6 +360,7 @@ test('cliente monta o produto antes de adicioná-lo à sacola', async ({ page })
 test('produto COMPLETE é adicionado sem abrir etapas de montagem', async ({ page }) => {
   await mockStorefront(page);
   await page.goto('/restaurante-teste');
+  await enterMenu(page);
 
   await page.getByRole('button', { name: 'Ver detalhes de Refrigerante pronto' }).click();
 
@@ -362,6 +372,7 @@ test('produto COMPLETE é adicionado sem abrir etapas de montagem', async ({ pag
 test('aplica defaultSelected e impede remover opção locked', async ({ page }) => {
   await mockStorefront(page);
   await page.goto('/restaurante-teste');
+  await enterMenu(page);
   await page.getByRole('button', { name: 'Ver detalhes de Produto com escolhas iniciais' }).click();
 
   const dialog = page.getByRole('dialog', { name: 'Montar Produto com escolhas iniciais' });
@@ -479,6 +490,7 @@ test('configurador mantém observação e CTA no fluxo em telas menores', async 
 test('cliente define quantidade, retirada e opções por porção', async ({ page }) => {
   await mockStorefront(page);
   await page.goto('/restaurante-teste');
+  await enterMenu(page);
   await page.getByRole('button', { name: 'Ver detalhes de Pizza em porções' }).click();
 
   const dialog = page.getByRole('dialog', { name: 'Montar Pizza em porções' });

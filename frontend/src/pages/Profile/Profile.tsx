@@ -18,6 +18,7 @@ import customerAddressService, {
 import { useAuth } from '../../contexts/authContext';
 import { getAccessToken } from '../../modules/auth/session/authSession';
 import { ProfilePage } from './ProfilePage';
+import { FigmaAccountExperience } from './FigmaAccountExperience';
 import { buildOrderSummary, buildProfileData } from '../Profile/adapters/profileDataAdapter';
 import { AddressModal } from './components/AddressModal';
 import { buildReorderCart, findOrderByDisplayId } from '../Profile/domain/reorderCart';
@@ -90,6 +91,7 @@ export default function Profile() {
   const [loyaltySummary, setLoyaltySummary] = useState<LoyaltySummary | null>(null);
   const [loyaltyLoading, setLoyaltyLoading] = useState(false);
   const [loyaltyError, setLoyaltyError] = useState('');
+  const [loyaltyRedeemingCouponId, setLoyaltyRedeemingCouponId] = useState<number | null>(null);
   const loyaltyRequestSequence = useRef(0);
   const guestClaimAttemptedRef = useRef(false);
   const [localAvatar, setLocalAvatar] = useState('');
@@ -434,6 +436,28 @@ export default function Profile() {
     navigate('/');
   }, [logout, navigate]);
 
+  const handleRedeemLoyaltyCoupon = useCallback(
+    async (couponId: number) => {
+      if (!restaurantId || loyaltyRedeemingCouponId) return;
+      setLoyaltyRedeemingCouponId(couponId);
+      try {
+        await loyaltyService.redeem(couponId, restaurantId);
+        await loadLoyaltyWallet();
+        toast.success('Cupom resgatado e adicionado à sua carteira.');
+      } catch (error: unknown) {
+        const typed = error as { response?: { data?: { error?: unknown } } };
+        const message = String(
+          typed.response?.data?.error || 'Não foi possível resgatar este benefício agora.',
+        );
+        toast.error(message);
+        throw error;
+      } finally {
+        setLoyaltyRedeemingCouponId(null);
+      }
+    },
+    [loadLoyaltyWallet, loyaltyRedeemingCouponId, restaurantId],
+  );
+
   const saveAddress = useCallback(async (payload: CustomerAddressInput) => {
     const created = await customerAddressService.create(payload);
     setAddresses((current) =>
@@ -507,9 +531,16 @@ export default function Profile() {
     [navigate, restaurantHomePath],
   );
 
+  const resolvedProfileView = resolveProfileView(searchParams.get('view'));
+  const useLegacyProfileView =
+    resolvedProfileView === 'favorites' ||
+    resolvedProfileView === 'personalData' ||
+    resolvedProfileView === 'security';
+  const AccountExperience = useLegacyProfileView ? ProfilePage : FigmaAccountExperience;
+
   return (
     <>
-      <ProfilePage
+      <AccountExperience
         data={{
           ...data,
           user: {
@@ -517,7 +548,7 @@ export default function Profile() {
             paymentLastDigits: paymentMethods.find((method) => method.isDefault)?.last4,
           },
         }}
-        initialView={resolveProfileView(searchParams.get('view'))}
+        initialView={resolvedProfileView}
         cartCount={storedCartCount}
         onGoHome={() => navigate(restaurantHomePath)}
         onOpenMenu={() => navigate(restaurantMenuPath)}
@@ -574,7 +605,9 @@ export default function Profile() {
         loyaltySummary={loyaltySummary}
         loyaltyLoading={loyaltyLoading}
         loyaltyError={loyaltyError}
+        loyaltyRedeemingCouponId={loyaltyRedeemingCouponId}
         onRetryLoyalty={() => void loadLoyaltyWallet()}
+        onRedeemLoyaltyCoupon={handleRedeemLoyaltyCoupon}
         onUseCoupon={(redemptionId) =>
           navigate(restaurantHomePath, {
             state: { openCart: true, loyaltyRedemptionId: redemptionId },
