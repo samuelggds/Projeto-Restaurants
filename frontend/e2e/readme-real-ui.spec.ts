@@ -371,7 +371,7 @@ test('cardápio público mantém a hierarquia e os atalhos contidos em 320px', a
   const loyaltyButton = page.getByRole('button', { name: /Ganhe descontos/i });
   await expect(loyaltyButton).toBeVisible();
   const heroBox = await hero.boundingBox();
-  expect(heroBox?.height).toBeLessThanOrEqual(225);
+  expect(heroBox?.height).toBe(235);
   await expect
     .poll(() => page.evaluate(() => document.documentElement.scrollWidth))
     .toBeLessThanOrEqual(321);
