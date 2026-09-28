@@ -1,12 +1,12 @@
 import styled from 'styled-components';
 
-export const Root = styled.div<{ $primary: string }>`
+export const Root = styled.div<{ $primary: string; $dark?: boolean }>`
   --p: ${({ $primary }) => $primary || '#e85a2b'};
-  --bg: #fdfcf9;
-  --surface: #fff;
-  --text: #1f1e1a;
-  --muted: #72706b;
-  --line: #efece6;
+  --bg: ({ $dark }) => ($dark ? '#151515' : '#fdfcf9');
+  --surface: ({ $dark }) => ($dark ? '#202020' : '#fff');
+  --text: ({ $dark }) => ($dark ? '#f6f4ef' : '#1f1e1a');
+  --muted: ({ $dark }) => ($dark ? '#aaa69f' : '#72706b');
+  --line: ({ $dark }) => ($dark ? '#34322f' : '#efece6');
   min-height: 100vh;
   background: var(--bg);
   color: var(--text);
@@ -18,14 +18,14 @@ export const Root = styled.div<{ $primary: string }>`
 `;
 
 export const Header = styled.header`
-  height:80px;padding:0 120px;border-bottom:1px solid var(--line);background:#fff;
+  height:80px;padding:0 120px;border-bottom:1px solid var(--line);background:var(--surface);
   display:grid;grid-template-columns:minmax(260px,1fr) 380px minmax(260px,1fr);align-items:center;gap:28px;
   .brand{display:flex;align-items:center;gap:12px;min-width:0}
   .logo{width:40px;height:40px;border-radius:12px;overflow:hidden;background:var(--p);color:#fff;display:grid;place-items:center;font-family:'Gabarito','Inter',sans-serif;font-size:20px;font-weight:800}
   .logo img{width:100%;height:100%;object-fit:cover}
   .brand-copy{display:grid;gap:2px;min-width:0}.brand-copy b{font-family:'Gabarito','Inter',sans-serif;font-size:18px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .status{color:var(--muted);font-size:13px;display:flex;align-items:center;gap:6px}.status i{width:8px;height:8px;border-radius:50%;background:#32b667}
-  .search{height:40px;padding:0 16px;border:1px solid var(--line);border-radius:999px;background:#fafaf8;color:var(--muted);display:flex;align-items:center;gap:12px}
+  .search{height:40px;padding:0 16px;border:1px solid var(--line);border-radius:999px;background:color-mix(in srgb,var(--surface) 92%,var(--line));color:var(--muted);display:flex;align-items:center;gap:12px}
   .actions{justify-self:end;display:flex;align-items:center;gap:24px}
   .account{border:0;background:transparent;color:var(--text);display:flex;align-items:center;gap:8px;font-weight:650}
   .cart{min-height:40px;padding:0 16px;border:0;border-radius:999px;background:var(--p);color:#fff;display:flex;align-items:center;gap:10px;font-weight:700}
@@ -52,7 +52,7 @@ export const Center = styled.div<{ $wide?: boolean }>`
 export const PageTitle = styled.div`
   display:flex;align-items:center;gap:16px;
   h1{margin:0;font-family:'Gabarito','Inter',sans-serif;font-size:32px;line-height:1;font-weight:800}
-  .back{width:40px;height:40px;border:0;border-radius:20px;background:#f7f5f0;color:var(--text);display:grid;place-items:center}
+  .back{width:40px;height:40px;border:0;border-radius:20px;background:color-mix(in srgb,var(--surface) 86%,var(--line));color:var(--text);display:grid;place-items:center}
   @media(max-width:900px){
     gap:12px;margin-bottom:24px;
     h1{font-size:24px}
@@ -61,7 +61,7 @@ export const PageTitle = styled.div`
 `;
 
 export const ProfileCard = styled.section`
-  padding:16px;border:1px solid var(--line);border-radius:20px;background:#fff;display:flex;align-items:center;gap:16px;
+  padding:16px;border:1px solid var(--line);border-radius:20px;background:var(--surface);display:flex;align-items:center;gap:16px;
   .avatar{width:64px;height:64px;border-radius:32px;overflow:hidden;background:color-mix(in srgb,var(--p) 12%,#fff);color:var(--p);display:grid;place-items:center;font-family:'Gabarito','Inter',sans-serif;font-size:22px;font-weight:800}
   .avatar img{width:100%;height:100%;object-fit:cover}
   .copy{min-width:0;display:grid;gap:4px}.copy b{font-family:'Gabarito','Inter',sans-serif;font-size:18px}.copy span{color:var(--muted);font-size:13px}
@@ -69,7 +69,7 @@ export const ProfileCard = styled.section`
 `;
 
 export const MenuCard = styled.section`
-  padding:8px;border:1px solid var(--line);border-radius:20px;background:#fff;
+  padding:8px;border:1px solid var(--line);border-radius:20px;background:var(--surface);
   button{width:100%;min-height:52px;padding:16px;border:0;border-bottom:1px solid var(--line);background:transparent;color:var(--text);display:flex;align-items:center;gap:12px;text-align:left}
   button:last-child{border-bottom:0}
   button svg:first-child{width:20px;height:20px}
@@ -92,33 +92,33 @@ export const Tabs = styled.div`
 `;
 
 export const OrderCard = styled.article`
-  padding:18px;border:1px solid var(--line);border-radius:16px;background:#fff;display:grid;gap:12px;
+  padding:18px;border:1px solid var(--line);border-radius:16px;background:var(--surface);display:grid;gap:12px;
   .top,.bottom{display:flex;align-items:center;justify-content:space-between;gap:14px}
   .meta{display:grid;gap:3px}.meta b{font-size:14px}.meta span{color:var(--muted);font-size:12px}
   .status{padding:5px 9px;border-radius:8px;background:#fdf2ec;color:var(--p);font-size:11px;font-weight:800}
   p{margin:0;color:var(--muted);font-size:13px;line-height:1.45}
   strong{font-size:16px}
-  button{min-height:34px;padding:0 12px;border:1px solid var(--p);border-radius:9px;background:#fff;color:var(--p);font-size:12px;font-weight:700}
+  button{min-height:34px;padding:0 12px;border:1px solid var(--p);border-radius:9px;background:var(--surface);color:var(--p);font-size:12px;font-weight:700}
 `;
 
 export const ItemCard = styled.article`
-  min-height:84px;padding:16px 20px;border:1px solid var(--line);border-radius:16px;background:#fff;display:flex;align-items:center;gap:16px;
+  min-height:84px;padding:16px 20px;border:1px solid var(--line);border-radius:16px;background:var(--surface);display:flex;align-items:center;gap:16px;
   .icon{width:44px;height:44px;flex:0 0 44px;border-radius:12px;background:#fdf2ec;color:var(--p);display:grid;place-items:center}
   .copy{min-width:0;display:grid;gap:4px;flex:1}.copy b{font-size:15px}.copy span{color:var(--muted);font-size:13px;line-height:1.35}
   .default{color:var(--p);font-size:11px;font-weight:800}
   .actions{display:flex;gap:8px}
-  .actions button{min-height:34px;padding:0 10px;border:0;border-radius:9px;background:#f7f5f0;color:var(--text);font-size:11px;font-weight:700}
+  .actions button{min-height:34px;padding:0 10px;border:0;border-radius:9px;background:color-mix(in srgb,var(--surface) 86%,var(--line));color:var(--text);font-size:11px;font-weight:700}
   @media(max-width:900px){padding:14px;align-items:flex-start;.actions{margin-left:auto}}
 `;
 
 export const AddButton = styled.button`
-  width:100%;min-height:48px;border:1px dashed color-mix(in srgb,var(--p) 55%,var(--line));border-radius:14px;background:#fff;color:var(--p);font-weight:700;
+  width:100%;min-height:48px;border:1px dashed color-mix(in srgb,var(--p) 55%,var(--line));border-radius:14px;background:var(--surface);color:var(--p);font-weight:700;
 `;
 
 export const Coupon = styled.article<{ $muted?: boolean }>`
-  padding:20px;border:1px solid var(--line);border-radius:18px;background:#fff;display:grid;gap:12px;opacity:${({$muted})=>$muted?.65:1};
+  padding:20px;border:1px solid var(--line);border-radius:18px;background:var(--surface);display:grid;gap:12px;opacity:${({$muted})=>$muted?.65:1};
   .top{display:flex;align-items:center;justify-content:space-between;gap:12px}
-  code{padding:6px 9px;border-radius:8px;background:#f7f5f0;color:var(--text);font-weight:800}
+  code{padding:6px 9px;border-radius:8px;background:color-mix(in srgb,var(--surface) 86%,var(--line));color:var(--text);font-weight:800}
   .state{padding:5px 9px;border-radius:8px;background:#fdf2ec;color:var(--p);font-size:11px;font-weight:800}
   h3{margin:0;font-family:'Gabarito','Inter',sans-serif;font-size:20px}.discount{color:var(--p);font-size:20px;font-weight:800}
   p{margin:0;color:var(--muted);font-size:13px;line-height:1.45}
@@ -131,7 +131,7 @@ export const SectionLabel = styled.h2`
 `;
 
 export const SettingsCard = styled.section`
-  padding:8px;border:1px solid var(--line);border-radius:16px;background:#fff;
+  padding:8px;border:1px solid var(--line);border-radius:16px;background:var(--surface);
   .row{min-height:52px;padding:16px;display:flex;align-items:center;justify-content:space-between;gap:16px;border-bottom:1px solid var(--line)}
   .row:last-child{border-bottom:0}.row span{font-size:15px;font-weight:650}.row.danger{color:#df2c2c}
   button.link{border:0;background:transparent;color:inherit;display:flex;align-items:center;gap:8px}
@@ -139,25 +139,25 @@ export const SettingsCard = styled.section`
 
 export const Toggle = styled.button<{ $on: boolean }>`
   width:44px;height:24px;padding:2px;border:0;border-radius:12px;background:${({$on})=>$on?'var(--p)':'#d9d6d0'};display:flex;justify-content:${({$on})=>$on?'flex-end':'flex-start'};
-  &::after{content:'';width:20px;height:20px;border-radius:10px;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.18)}
+  &::after{content:'';width:20px;height:20px;border-radius:10px;background:var(--surface);box-shadow:0 1px 3px rgba(0,0,0,.18)}
 `;
 
 export const HelpGrid = styled.div`
   display:grid;grid-template-columns:1fr 1fr;gap:16px;
-  a,button{min-height:120px;padding:20px;border:1px solid var(--line);border-radius:16px;background:#fff;color:var(--text);text-decoration:none;text-align:left;display:grid;align-content:start;gap:8px}
+  a,button{min-height:120px;padding:20px;border:1px solid var(--line);border-radius:16px;background:var(--surface);color:var(--text);text-decoration:none;text-align:left;display:grid;align-content:start;gap:8px}
   svg{color:var(--p)}b{font-size:16px}span{color:var(--muted);font-size:12px}
   @media(max-width:600px){grid-template-columns:1fr;a,button{min-height:96px}}
 `;
 
 export const Faq = styled.div`
   display:grid;gap:10px;
-  details{padding:16px;border:1px solid var(--line);border-radius:14px;background:#fff}
+  details{padding:16px;border:1px solid var(--line);border-radius:14px;background:var(--surface)}
   summary{font-weight:650;cursor:pointer}
   p{margin:10px 0 0;color:var(--muted);font-size:13px;line-height:1.5}
 `;
 
 export const Empty = styled.div`
-  padding:34px;border:1px dashed var(--line);border-radius:16px;background:#fff;color:var(--muted);text-align:center;font-size:13px;
+  padding:34px;border:1px dashed var(--line);border-radius:16px;background:var(--surface);color:var(--muted);text-align:center;font-size:13px;
 `;
 
 export const Footer = styled.footer`
