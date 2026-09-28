@@ -1,5 +1,5 @@
 import styled from 'styled-components';
-import * as A from '../../Login/components/CustomerLoginExperience.styles';
+import * as A from '../Login/components/CustomerLoginExperience.styles';
 
 export const Layout = styled(A.CustomerAuthLayout)`
   @media (max-width: 900px) {
