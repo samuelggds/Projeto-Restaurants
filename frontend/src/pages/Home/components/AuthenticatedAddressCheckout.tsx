@@ -3,6 +3,7 @@ import type { Dispatch, SetStateAction } from 'react';
 import type { CustomerAddress } from '../../../Services/customerAddressService';
 import type { CartItem } from '../hooks/useCart';
 import type { DeliveryAddress } from '../hooks/useDeliveryAddress';
+import { AddressLocationMap } from './AddressLocationMap';
 import { DeliveryAddressForm } from './DeliveryAddressForm';
 import * as S from './AuthenticatedAddressCheckout.styles';
 
@@ -20,6 +21,7 @@ const addressLine = (address: CustomerAddress) =>
 
 type Props = {
   primaryColor: string;
+  restaurantId: number | null;
   brandName: string;
   logoUrl?: string;
   userName: string;
@@ -52,6 +54,7 @@ type Props = {
 
 export function AuthenticatedAddressCheckout({
   primaryColor,
+  restaurantId,
   brandName,
   logoUrl,
   userName,
@@ -212,11 +215,11 @@ export function AuthenticatedAddressCheckout({
 
               <S.MapCard>
                 <h2>Localização no Mapa</h2>
-                <S.MapVisual aria-label="Localização aproximada do endereço">
-                  <div className="grid" />
-                  <div className="route" />
-                  <span className="pin" />
-                </S.MapVisual>
+                <AddressLocationMap
+                  restaurantId={restaurantId}
+                  address={address}
+                  primaryColor={primaryColor}
+                />
                 <p>A disponibilidade e a taxa são validadas pelo sistema conforme o endereço selecionado.</p>
               </S.MapCard>
             </>
