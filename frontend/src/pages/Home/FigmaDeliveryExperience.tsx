@@ -271,7 +271,11 @@ export function FigmaDeliveryExperience({
             </span>
             <span className="brand-copy">
               <b>{data.brand.name}</b>
-              <span className="status">
+              <span
+                className="status"
+                role="status"
+                aria-label={data.isOpen ? 'Aberto agora.' : 'Fechado agora.'}
+              >
                 <i /> {data.isOpen ? 'Aberto agora' : 'Fechado agora'}
               </span>
             </span>
