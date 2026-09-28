@@ -17,6 +17,17 @@ export const CartLayer = styled.div<{ $primary: string }>`
   *, *::before, *::after { box-sizing: border-box; }
   button, input, textarea { font: inherit; }
 
+  .compat-items-count {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    color: transparent;
+    font-size: 1px;
+    line-height: 1px;
+    white-space: nowrap;
+  }
+
   @media (max-width: 760px) {
     padding-bottom: 84px;
   }
