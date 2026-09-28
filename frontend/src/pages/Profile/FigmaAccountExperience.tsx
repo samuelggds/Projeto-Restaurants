@@ -8,7 +8,6 @@ import {
   Headphones,
   Mail,
   MapPin,
-  MessageCircle,
   Search,
   Settings,
   ShoppingBag,
@@ -20,7 +19,7 @@ import {
 import { buildLoyaltyWalletEntries } from './domain/loyaltyWallet';
 import { FigmaCouponRedemption, FigmaLoyaltyProgram } from './FigmaLoyaltyViews';
 import { useLoyaltyExpirationClock } from '../Home/hooks/useLoyaltyExpirationClock';
-import { buildWhatsAppUrl } from '../Home/domain/publicSettings';
+import { CustomerDesktopFooter } from '../Home/components/CustomerDesktopFooter';
 import type {
   ActiveProfileOrder,
   ProfileData,
@@ -132,7 +131,6 @@ function FigmaAccountExperienceReady(props: ProfilePageProps & { data: ProfileDa
   const historyCoupons = coupons.filter((entry) => entry.status === 'used' || entry.status === 'expired');
   const activeOrders = data.activeOrder ? [data.activeOrder] : [];
   const orderHistory = data.recentOrders;
-  const whatsappUrl = buildWhatsAppUrl(data.brand.whatsapp || data.brand.phone);
   const primary = data.brand.primaryColor || '#e85a2b';
   const initials = data.user.fullName
     .split(' ')
@@ -257,13 +255,6 @@ function FigmaAccountExperienceReady(props: ProfilePageProps & { data: ProfileDa
     <S.Stack>
       <S.SectionLabel>Fale Conosco</S.SectionLabel>
       <S.HelpGrid>
-        {whatsappUrl ? (
-          <a href={whatsappUrl} target="_blank" rel="noreferrer">
-            <MessageCircle />
-            <b>WhatsApp</b>
-            <span>Fale diretamente com o restaurante.</span>
-          </a>
-        ) : null}
         {data.brand.email ? (
           <a href={`mailto:${data.brand.email}`}>
             <Mail />
@@ -575,18 +566,17 @@ function FigmaAccountExperienceReady(props: ProfilePageProps & { data: ProfileDa
         </S.Center>
       </S.Desktop>
 
-      <S.Footer>
-        <div className="inner">
-          <div>
-            <div className="brand">{data.brand.name}</div>
-            {data.brand.address ? <p>{data.brand.address}</p> : null}
-          </div>
-          <div><h3>Nossos Links</h3><p><button type="button" onClick={onOpenMenu}>Cardápio</button></p></div>
-          <div><h3>Suporte</h3><p><button type="button" onClick={() => setView('help')}>Central de Ajuda</button></p></div>
-          <div><h3>Sua Loja Segura</h3><p>Operação vinculada ao restaurante ativo desta conta.</p></div>
-        </div>
-        <div className="bottom"><span>© {new Date().getFullYear()} {data.brand.name}.</span><span>Privacidade · Cookies</span></div>
-      </S.Footer>
+      <CustomerDesktopFooter
+        restaurantName={data.brand.name}
+        description={data.brand.description}
+        primaryColor={primary}
+        phone={data.brand.phone}
+        email={data.brand.email}
+        onMenu={onOpenMenu}
+        onCoupons={() => setView('coupons')}
+        onHelp={() => setView('help')}
+        onSupport={onSupport}
+      />
     </S.Root>
   );
 }

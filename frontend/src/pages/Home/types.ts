@@ -1,4 +1,5 @@
 import type { CustomerAddress } from '../../Services/customerAddressService';
+import type { CartItem } from './hooks/useCart';
 import type { BusinessHour } from '../admin/types';
 import type { ProductConfiguration, ProductOptionGroup } from './domain/productCustomization';
 import type { HomeFontFamily } from './domain/publicSettings';
@@ -199,6 +200,8 @@ export type HomeData = {
 export type HomePageProps = {
   data: HomeData;
   cartCount?: number;
+  cart?: CartItem[];
+  cartTotal?: number;
   initialSearchOpen?: boolean;
   userName?: string;
   userEmail?: string;
@@ -215,6 +218,7 @@ export type HomePageProps = {
   onManageAddresses?: () => void;
   onOpenMenu?: () => void;
   onOpenProfile?: () => void;
+  onOpenOrders?: () => void;
   onOpenAdmin?: () => void;
   onOpenCart?: () => void;
   onOpenTableAccount?: () => void;
@@ -223,4 +227,6 @@ export type HomePageProps = {
   onAddProduct?: (productId: string, configuration: ProductConfiguration, quantity?: number) => void;
   onToggleFavorite?: (productId: string) => void;
   onLogout?: () => void;
+  whatsappUrl?: string;
+  whatsappLabel?: string;
 };

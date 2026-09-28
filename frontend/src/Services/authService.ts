@@ -44,6 +44,11 @@ class AuthService {
     return response.data;
   }
 
+  async updateMfaPreference(enabled: boolean, currentPassword: string) {
+    const response = await api.patch('/auth/mfa', { enabled, currentPassword });
+    return response.data;
+  }
+
   async register(data) {
     const response = await api.post('/auth/register', data);
 

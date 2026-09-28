@@ -351,12 +351,13 @@ test('cliente consulta cupons válidos, histórico e o novo ciclo no perfil', as
   await expect(profileCartButton).toBeVisible();
 
   await page.getByRole('button', { name: 'Buscar' }).click();
-  const productSearch = page.getByRole('dialog', { name: 'Buscar no cardápio' });
+  await expect(page).toHaveURL(/\/restaurante-teste/);
+  const productSearch = page.getByRole('searchbox', { name: 'Pesquisar produto pelo nome' });
   await expect(productSearch).toBeVisible();
-  await productSearch
-    .getByRole('searchbox', { name: 'Pesquisar produto pelo nome' })
-    .fill('artesanal');
-  await expect(productSearch.getByRole('button', { name: 'Ver Prato artesanal' })).toBeVisible();
+  await productSearch.fill('artesanal');
+  const searchResults = page.getByLabel('Produtos encontrados');
+  await expect(searchResults).toBeVisible();
+  await expect(searchResults.getByRole('button').filter({ hasText: 'Prato artesanal' })).toBeVisible();
 
   await page.goto('/profile');
   await page.getByRole('button', { name: 'Sacola com 1 item' }).click();

@@ -351,63 +351,33 @@ test('captura o cardápio público real para o README', async ({ page }) => {
   await captureReadmeScreenshot(page, 'customer-menu.png', { fullPage: true });
 });
 
-test('cardápio público mantém a hierarquia e os atalhos contidos em 320px', async ({ page }) => {
+test('cardápio público mantém a hierarquia e a navegação móvel contidas em 320px', async ({ page }) => {
   await page.setViewportSize({ width: 320, height: 844 });
   await mockPublicMenu(page);
   await page.goto('/north-pizza');
 
   const hero = page.getByRole('region', { name: 'Promoções do restaurante' });
   const menuButton = hero.getByRole('button', { name: 'Ver cardápio' });
-  const loginNudge = page.getByRole('region', { name: 'Acompanhe seus pedidos' });
-  const shortcutsButton = page.getByTestId('floating-actions-control-customer');
+  const bottomNav = page.getByRole('navigation', { name: 'Navegação principal' });
+  const cartFab = page.getByRole('button', { name: 'Meu Carrinho, 0 itens' });
 
   await expect(hero).toBeVisible();
   await expect(menuButton).toBeVisible();
-  await expect(loginNudge).toBeHidden();
-  await expect(shortcutsButton).toBeVisible();
-  await expect(shortcutsButton).toHaveAttribute('aria-expanded', 'false');
-  await shortcutsButton.click();
-  await expect(shortcutsButton).toHaveAttribute('aria-expanded', 'true');
-  const loyaltyButton = page.getByRole('button', { name: /Ganhe descontos/i });
-  await expect(loyaltyButton).toBeVisible();
+  await expect(bottomNav).toBeVisible();
+  await expect(bottomNav.getByRole('button', { name: 'Início' })).toBeVisible();
+  await expect(bottomNav.getByRole('button', { name: 'Pedidos' })).toBeVisible();
+  await expect(bottomNav.getByRole('button', { name: 'Conta' })).toBeVisible();
+  await expect(cartFab).toBeVisible();
   const heroBox = await hero.boundingBox();
   expect(heroBox?.height).toBe(235);
   await expect
     .poll(() => page.evaluate(() => document.documentElement.scrollWidth))
     .toBeLessThanOrEqual(321);
 
-  const [menuBox, shortcutsBox, loyaltyBox] = await Promise.all([
-    menuButton.boundingBox(),
-    shortcutsButton.boundingBox(),
-    loyaltyButton.boundingBox(),
-  ]);
-  const overlaps = (
-    first: { x: number; y: number; width: number; height: number },
-    second: { x: number; y: number; width: number; height: number },
-  ) =>
-    first.x < second.x + second.width &&
-    first.x + first.width > second.x &&
-    first.y < second.y + second.height &&
-    first.y + first.height > second.y;
-
-  expect(menuBox).not.toBeNull();
-  expect(shortcutsBox).not.toBeNull();
-  expect(loyaltyBox).not.toBeNull();
-  expect(overlaps(menuBox!, shortcutsBox!)).toBe(false);
-  expect(overlaps(shortcutsBox!, loyaltyBox!)).toBe(false);
-  const floatingBox = await page.getByTestId('floating-actions-layer').boundingBox();
-  expect(floatingBox).not.toBeNull();
-  expect(floatingBox!.x).toBeGreaterThanOrEqual(0);
-  expect(floatingBox!.x + floatingBox!.width).toBeLessThanOrEqual(320);
-  expect(floatingBox!.y + floatingBox!.height).toBeLessThanOrEqual(844);
-
-  await shortcutsButton.click();
-  await expect(shortcutsButton).toHaveAttribute('aria-expanded', 'false');
-  await expect(loyaltyButton).toBeHidden();
   await menuButton.click();
-  const allCategories = page.getByRole('button', { name: 'Todos', exact: true });
-  await allCategories.scrollIntoViewIfNeeded();
-  const categoryBox = await allCategories.boundingBox();
+  const featuredCategory = page.getByRole('button', { name: 'Destaques', exact: true }).first();
+  await featuredCategory.scrollIntoViewIfNeeded();
+  const categoryBox = await featuredCategory.boundingBox();
   expect(categoryBox?.height).toBeLessThanOrEqual(70);
   const lastProductImage = page.getByAltText('Pizza Portuguesa');
   await lastProductImage.scrollIntoViewIfNeeded();
@@ -415,44 +385,47 @@ test('cardápio público mantém a hierarquia e os atalhos contidos em 320px', a
     .poll(() => lastProductImage.evaluate((image) => (image as HTMLImageElement).naturalWidth))
     .toBeGreaterThan(0);
   await page.evaluate(() => window.scrollTo(0, 0));
+  await expect(
+    page.getByRole('button', { name: 'Voltar para a Home', exact: true }),
+  ).toBeVisible();
   await captureReadmeScreenshot(page, 'customer-menu-mobile.png', { fullPage: true });
 });
 
-test('busca móvel abre compacta com sugestões e devolve o foco ao fechar', async ({ page }) => {
+test('busca móvel usa o input do header, filtra sugestões e devolve o foco ao fechar', async ({ page }) => {
   await page.setViewportSize({ width: 320, height: 844 });
   await mockPublicMenu(page);
   await page.goto('/north-pizza');
 
-  const searchTrigger = page.getByRole('button', { name: 'Buscar' });
+  const searchTrigger = page.getByRole('button', { name: 'Buscar no cardápio' });
   await searchTrigger.click();
-  const searchDialog = page.getByRole('dialog', { name: 'Buscar no cardápio' });
-  await expect(searchDialog).toBeVisible();
-  await expect(searchDialog.getByText('Sugestões do cardápio')).toBeVisible();
-  await expect(searchDialog.getByRole('button', { name: 'Ver Pizza Margherita' })).toBeVisible();
+  const searchInput = page.getByRole('searchbox', { name: 'Pesquisar produto pelo nome' });
+  await expect(searchInput).toBeVisible();
+  await expect(searchInput).toBeFocused();
 
-  const dialogBox = await searchDialog.boundingBox();
-  expect(dialogBox?.width).toBeLessThanOrEqual(304);
-  expect(dialogBox?.height).toBeLessThanOrEqual(700);
+  await searchInput.fill('pizza');
+  const results = page.getByLabel('Produtos encontrados');
+  await expect(results).toBeVisible();
+  await expect(results.getByRole('button').filter({ hasText: 'Pizza Margherita' })).toBeVisible();
   await expect
     .poll(() => page.evaluate(() => document.documentElement.scrollWidth))
     .toBeLessThanOrEqual(321);
   await captureReadmeScreenshot(page, 'customer-search-mobile.png');
 
-  await page.getByRole('searchbox', { name: 'Pesquisar produto pelo nome' }).fill('calabresa');
+  await searchInput.fill('calabresa');
   await expect(
-    searchDialog.getByRole('button', { name: 'Ver Pizza Calabresa Especial' }),
+    results.getByRole('button').filter({ hasText: 'Pizza Calabresa Especial' }),
   ).toBeVisible();
-  await expect(searchDialog.getByRole('button', { name: 'Ver Pizza Margherita' })).toHaveCount(0);
+  await expect(results.getByRole('button').filter({ hasText: 'Pizza Margherita' })).toHaveCount(0);
+
   await page.keyboard.press('Escape');
-  await expect(searchDialog).toBeHidden();
+  await expect(searchInput).toBeHidden();
   await expect(searchTrigger).toBeFocused();
 
-  await page.setViewportSize({ width: 768, height: 600 });
-  await searchTrigger.click();
-  await expect(searchDialog).toBeVisible();
-  const desktopDialogBox = await searchDialog.boundingBox();
-  expect(desktopDialogBox?.width).toBeLessThanOrEqual(640);
-  expect(desktopDialogBox?.height).toBeLessThanOrEqual(560);
+  await page.setViewportSize({ width: 1440, height: 900 });
+  const desktopSearch = page.getByRole('searchbox', { name: 'Pesquisar produto pelo nome' });
+  await expect(desktopSearch).toBeVisible();
+  await desktopSearch.fill('pizza');
+  await expect(page.getByLabel('Produtos encontrados')).toBeVisible();
   await captureReadmeScreenshot(page, 'customer-search-desktop.png');
 });
 
@@ -460,9 +433,6 @@ test('adicionar mantém o cardápio aberto e o checkout reúne os itens em 320px
   await page.setViewportSize({ width: 320, height: 844 });
   await mockPublicMenu(page);
   await page.goto('/north-pizza');
-
-  const loginNudge = page.getByRole('region', { name: 'Acompanhe seus pedidos' });
-  await expect(loginNudge).toBeHidden();
 
   const cartTrigger = page.getByRole('button', { name: 'Meu Carrinho, 0 itens' });
   await cartTrigger.click();
@@ -480,10 +450,6 @@ test('adicionar mantém o cardápio aberto e o checkout reúne os itens em 320px
 
   await page.getByRole('button', { name: 'Adicionar Pizza Margherita' }).click();
   await expect(page.getByRole('button', { name: 'Meu Carrinho, 1 item' })).toBeVisible();
-  await expect(loginNudge).toBeVisible();
-
-  await page.getByRole('button', { name: 'Dispensar convite de login' }).click();
-  await expect(loginNudge).toBeHidden();
 
   await page.getByRole('button', { name: 'Adicionar Pizza Calabresa Especial' }).click();
 
@@ -523,143 +489,91 @@ test('checkout móvel preserva o endereço salvo selecionado', async ({ page }) 
   await captureReadmeScreenshot(page, 'customer-addresses-mobile.png');
 });
 
-test('central móvel mantém pedido, benefícios e busca acessíveis sem sobreposição', async ({
-  page,
-}) => {
+test('navegação móvel e busca inline permanecem acessíveis sem sobreposição', async ({ page }) => {
   await page.setViewportSize({ width: 320, height: 844 });
   await mockAuthenticatedPublicMenu(page);
   await page.goto('/north-pizza');
 
-  const shortcutsButton = page.getByTestId('floating-actions-control-customer');
-  await expect(shortcutsButton).toHaveAttribute('aria-expanded', 'false');
-  await shortcutsButton.click();
-  await expect(shortcutsButton).toHaveAttribute('aria-expanded', 'true');
-
-  const floatingLayer = page.getByTestId('floating-actions-layer');
-  const [floatingZIndex, headerZIndex] = await Promise.all([
-    floatingLayer.evaluate((element) => Number(getComputedStyle(element).zIndex)),
-    page.getByRole('banner').evaluate((element) => Number(getComputedStyle(element).zIndex)),
-  ]);
-  expect(floatingZIndex).toBeGreaterThan(headerZIndex);
-
-  const loyaltyAction = page.getByRole('button', {
-    name: /Faltam 3 pedidos\. R\$ 25,00 na próxima recompensa/,
-  });
-  const orderAction = page.getByRole('button', { name: /Pedido em andamento/i });
-  await expect(loyaltyAction).toBeVisible();
-  await expect(orderAction).toBeVisible();
-
-  await orderAction.click();
-  const orderDialog = page.getByRole('dialog', { name: 'Pedido #81' });
-  await expect(orderDialog).toBeVisible();
-  await page.keyboard.press('Escape');
-  await expect(orderDialog).toBeHidden();
-  await expect(orderAction).toBeFocused();
-
-  await loyaltyAction.click();
-  await expect(page.getByRole('dialog', { name: 'Seus pedidos viram descontos' })).toBeVisible();
-  await page.keyboard.press('Escape');
-  await expect(loyaltyAction).toBeFocused();
-
-  await shortcutsButton.click();
-  await expect(shortcutsButton).toHaveAttribute('aria-expanded', 'false');
+  const bottomNav = page.getByRole('navigation', { name: 'Navegação principal' });
+  await expect(bottomNav).toBeVisible();
+  await expect(bottomNav.getByRole('button', { name: 'Início' })).toBeVisible();
+  await expect(bottomNav.getByRole('button', { name: 'Pedidos' })).toBeVisible();
+  await expect(bottomNav.getByRole('button', { name: 'Conta' })).toBeVisible();
 
   const searchTrigger = page.getByRole('button', { name: 'Buscar no cardápio' });
-  await expect(searchTrigger).toBeVisible();
   await searchTrigger.click();
-  const searchDialog = page.getByRole('dialog', { name: 'Buscar no cardápio' });
-  await expect(searchDialog).toBeVisible();
+  const searchInput = page.getByRole('searchbox', { name: 'Pesquisar produto pelo nome' });
+  await expect(searchInput).toBeVisible();
+  await searchInput.fill('pizza');
+  await expect(page.getByLabel('Produtos encontrados')).toBeVisible();
   await page.keyboard.press('Escape');
-  await expect(searchDialog).toBeHidden();
+  await expect(searchInput).toBeHidden();
   await expect(searchTrigger).toBeFocused();
 
   await captureReadmeScreenshot(page, 'customer-status-hub-mobile.png');
 });
 
 for (const width of [320, 390, 1440]) {
-  test(`WhatsApp permanece fixo e independente da central do cliente em ${width}px`, async ({
-    page,
-  }) => {
+  test(`WhatsApp permanece fixo somente na Home oficial em ${width}px`, async ({ page }) => {
     await page.setViewportSize({ width, height: 900 });
     await mockAuthenticatedPublicMenu(page);
     await page.goto('/north-pizza');
+
     const whatsapp = page.getByTestId('floating-whatsapp-contact');
-    const trigger = page.getByTestId('floating-actions-control-customer');
     await expect(whatsapp).toBeVisible();
-    await expect(trigger).toHaveAttribute('aria-expanded', 'false');
     await expect(whatsapp).toHaveAttribute('href', /https:\/\/wa\.me\//);
     await expect(whatsapp).toHaveAttribute('target', '_blank');
     expect(await whatsapp.evaluate((element) => getComputedStyle(element).position)).toBe('fixed');
+
     const original = await whatsapp.boundingBox();
     expect(original).not.toBeNull();
     expect(width - (original!.x + original!.width)).toBeGreaterThanOrEqual(12);
     expect(width - (original!.x + original!.width)).toBeLessThanOrEqual(30);
-    expect(900 - (original!.y + original!.height)).toBeLessThanOrEqual(30);
+
+    if (width <= 700) {
+      const cart = page.getByRole('button', { name: 'Meu Carrinho, 0 itens' });
+      const nav = page.getByRole('navigation', { name: 'Navegação principal' });
+      const [cartBox, navBox] = await Promise.all([cart.boundingBox(), nav.boundingBox()]);
+      expect(cartBox).not.toBeNull();
+      expect(navBox).not.toBeNull();
+      expect(original!.y + original!.height).toBeLessThan(cartBox!.y);
+      expect(original!.y + original!.height).toBeLessThan(navBox!.y);
+    }
+
     await captureReadmeScreenshot(page, `customer-hub-closed-${width}.png`);
-    await trigger.click();
-    const hub = page.getByRole('region', { name: 'Seu pedido e benefícios' });
-    await expect(hub).toBeVisible();
-    await expect(hub).toBeFocused();
-    await expect(page.getByTestId('customer-coupon-status-toggle')).toHaveCount(0);
-    await expect(page.getByText('Pedido e atendimento', { exact: true })).toHaveCount(0);
-    const hubBox = await hub.boundingBox();
-    expect(hubBox!.x).toBeGreaterThanOrEqual(0);
-    expect(hubBox!.y).toBeGreaterThanOrEqual(0);
-    expect(hubBox!.x + hubBox!.width).toBeLessThanOrEqual(width);
-    expect(hubBox!.y + hubBox!.height).toBeLessThan(original!.y);
-    await captureReadmeScreenshot(page, `customer-hub-open-${width}.png`);
-    await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
-    const afterScroll = await whatsapp.boundingBox();
-    expect(afterScroll!.x).toBeCloseTo(original!.x, 0);
-    expect(afterScroll!.y).toBeCloseTo(original!.y, 0);
-    await page.keyboard.press('Escape');
-    await expect(hub).toBeHidden();
-    await expect(trigger).toBeFocused();
-    await expect(whatsapp).toBeVisible();
-    await trigger.click();
-    await page.getByRole('button', { name: 'Fechar central do cliente' }).click();
-    await expect(trigger).toHaveAttribute('aria-expanded', 'false');
-    await expect(whatsapp).toBeVisible();
-    await trigger.click();
-    await page.getByRole('banner').click({ position: { x: 5, y: 5 } });
-    await expect(hub).toBeHidden();
-    await expect(trigger).toHaveAttribute('aria-expanded', 'false');
-    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
-      true,
-    );
+    await page.getByRole('region', { name: 'Promoções do restaurante' })
+      .getByRole('button', { name: 'Ver cardápio' })
+      .click();
+    await expect(whatsapp).toHaveCount(0);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   });
 }
 
-test('central e convite de login continuam acessíveis em uma tela baixa', async ({ page }) => {
+test('tela baixa mantém carrinho, navegação e WhatsApp sem sobreposição', async ({ page }) => {
   await page.setViewportSize({ width: 320, height: 480 });
   await mockPublicMenu(page);
   await page.goto('/north-pizza');
 
-  await page.getByRole('button', { name: 'Adicionar Pizza Margherita' }).click();
-
-  const nudge = page.getByRole('region', { name: 'Acompanhe seus pedidos' });
   const whatsapp = page.getByTestId('floating-whatsapp-contact');
-  await expect(nudge).toBeVisible();
+  const cart = page.getByRole('button', { name: 'Meu Carrinho, 0 itens' });
+  const nav = page.getByRole('navigation', { name: 'Navegação principal' });
 
-  const [nudgeBox, whatsappBox] = await Promise.all([nudge.boundingBox(), whatsapp.boundingBox()]);
-  expect(nudgeBox!.y + nudgeBox!.height).toBeLessThan(whatsappBox!.y);
+  await expect(whatsapp).toBeVisible();
+  await expect(cart).toBeVisible();
+  await expect(nav).toBeVisible();
 
-  const trigger = page.getByTestId('floating-actions-control-customer');
-  await trigger.click();
-  const hub = page.getByRole('region', { name: 'Cupons e ajuda' });
-  await expect(hub).toBeVisible();
-
-  const hubBox = await hub.boundingBox();
-  expect(hubBox!.y).toBeGreaterThanOrEqual(0);
-  expect(hubBox!.y + hubBox!.height).toBeLessThan(nudgeBox!.y);
+  const [whatsappBox, cartBox, navBox] = await Promise.all([
+    whatsapp.boundingBox(),
+    cart.boundingBox(),
+    nav.boundingBox(),
+  ]);
+  expect(whatsappBox).not.toBeNull();
+  expect(cartBox).not.toBeNull();
+  expect(navBox).not.toBeNull();
+  expect(whatsappBox!.y + whatsappBox!.height).toBeLessThan(cartBox!.y);
+  expect(cartBox!.y + cartBox!.height).toBeLessThanOrEqual(navBox!.y);
 
   await captureReadmeScreenshot(page, 'customer-hub-short-screen.png');
-  await page.getByRole('button', { name: 'Fechar central do cliente' }).click();
-  await expect(hub).toBeHidden();
-
-  await page.getByRole('button', { name: 'Dispensar convite de login' }).click();
-  await expect(nudge).toBeHidden();
-  await expect(whatsapp).toBeVisible();
 });
 
 test('captura o tracking real para o README', async ({ page }) => {

@@ -1,8 +1,11 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
+  ChevronLeft,
   Clock3,
   MapPin,
   Phone,
+  Home,
+  List,
   Search,
   ShoppingBag,
   UserRound,
@@ -11,7 +14,9 @@ import {
 import { ComboConfigurator } from './components/ComboConfigurator';
 import { FacebookIcon, InstagramIcon } from './components/SocialBrandIcons';
 import { ProductConfigurator } from './components/ProductConfigurator';
-import { ProductSearchDialog } from './components/ProductSearchDialog';
+import { CustomerDesktopFooter } from './components/CustomerDesktopFooter';
+import { FloatingWhatsAppPortal } from './Home.whatsapp';
+import { WhatsAppIcon } from './components/SocialBrandIcons';
 import { getFeaturedProducts } from './domain/featuredProducts';
 import { buildSocialProfileUrl } from './domain/publicSettings';
 import type { HomePageProps, HomeProduct } from './types';
@@ -43,13 +48,18 @@ function formatHours(data: HomePageProps['data']) {
 export function FigmaDeliveryExperience({
   data,
   cartCount = 0,
+  cart = [],
+  cartTotal = 0,
   initialSearchOpen = false,
   userName,
   userLoggedIn = false,
   onOpenProfile,
+  onOpenOrders,
   onOpenCart,
   onAddProduct,
   onSelectCategory,
+  whatsappUrl,
+  whatsappLabel,
 }: HomePageProps) {
   const primary = data.brand.primaryColor || '#e85a2b';
   const [view, setView] = useState<'home' | 'menu'>('home');
@@ -58,7 +68,11 @@ export function FigmaDeliveryExperience({
   );
   const [selectedProduct, setSelectedProduct] = useState<HomeProduct | null>(null);
   const [selectedCombo, setSelectedCombo] = useState<HomeProduct | null>(null);
-  const [searchOpen, setSearchOpen] = useState(Boolean(initialSearchOpen));
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchFocused, setSearchFocused] = useState(Boolean(initialSearchOpen));
+  const [mobileSearchOpen, setMobileSearchOpen] = useState(Boolean(initialSearchOpen));
+  const searchInputRef = useRef<HTMLInputElement>(null);
+  const mobileSearchTriggerRef = useRef<HTMLButtonElement>(null);
 
   const availableProducts = useMemo(
     () => data.products.filter((product) => product.available),
@@ -93,9 +107,9 @@ export function FigmaDeliveryExperience({
   const menuProducts = useMemo(
     () =>
       categoryId === 'todos'
-        ? availableProducts
+        ? (highlightedProducts.length ? highlightedProducts : availableProducts)
         : availableProducts.filter((product) => product.categoryId === categoryId),
-    [availableProducts, categoryId],
+    [availableProducts, categoryId, highlightedProducts],
   );
   const currentCategory = data.categories.find((category) => category.id === categoryId);
   const activeBanner = data.banners.find((banner) => banner.active) || data.banners[0];
@@ -104,6 +118,31 @@ export function FigmaDeliveryExperience({
   const heroHighlight = activeBanner?.highlight || data.hero.highlight;
   const heroDescription = activeBanner?.description || data.hero.description;
   const hours = formatHours(data);
+  const normalizeSearchText = (value: string) =>
+    value
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLocaleLowerCase('pt-BR')
+      .trim();
+  const normalizedSearch = normalizeSearchText(searchQuery);
+  const searchResults = useMemo(
+    () =>
+      normalizedSearch
+        ? availableProducts
+            .filter((product) => normalizeSearchText(product.name).includes(normalizedSearch))
+            .slice(0, 6)
+        : [],
+    [availableProducts, normalizedSearch],
+  );
+
+  useEffect(() => {
+    if (!initialSearchOpen) return;
+    const frame = window.requestAnimationFrame(() => {
+      searchInputRef.current?.focus();
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [initialSearchOpen]);
+
 
   const openProduct = (product: HomeProduct) => {
     if (product.kind === 'COMBO') {
@@ -122,6 +161,15 @@ export function FigmaDeliveryExperience({
     setSelectedProduct(product);
   };
 
+  const goHome = () => {
+    setView('home');
+    setCategoryId('todos');
+    setSearchQuery('');
+    setSearchFocused(false);
+    setMobileSearchOpen(false);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
   const chooseCategory = (id: string) => {
     setCategoryId(id);
     setView('menu');
@@ -132,22 +180,110 @@ export function FigmaDeliveryExperience({
   return (
     <S.Page $primary={primary}>
       <S.Header>
-        <div className="brand">
-          <span className="logo">
-            {data.brand.logoUrl ? <img src={data.brand.logoUrl} alt="" /> : data.brand.monogram || data.brand.name.slice(0, 1)}
-          </span>
-          <span className="brand-copy">
-            <b>{data.brand.name}</b>
-            <span className="status">
-              <i /> {data.isOpen ? 'Aberto agora' : 'Fechado agora'}
-              {data.deliveryTime ? ` · ${data.deliveryTime}` : ''}
+        <div className="header-left">
+          {view === 'menu' ? (
+            <button className="mobile-back" type="button" aria-label="Voltar para a Home" onClick={goHome}>
+              <ChevronLeft aria-hidden="true" />
+            </button>
+          ) : null}
+
+          <button className="brand" type="button" aria-label={`Voltar para a Home de ${data.brand.name}`} onClick={goHome}>
+            <span className="logo">
+              {data.brand.logoUrl ? <img src={data.brand.logoUrl} alt="" /> : data.brand.monogram || data.brand.name.slice(0, 1)}
             </span>
-          </span>
+            <span className="brand-copy">
+              <b>{data.brand.name}</b>
+              <span className="status">
+                <i /> {data.isOpen ? 'Aberto agora' : 'Fechado agora'}
+                {data.deliveryTime ? ` · ${data.deliveryTime}` : ''}
+              </span>
+            </span>
+          </button>
         </div>
 
-        <button className="search" type="button" onClick={() => setSearchOpen(true)}>
+        <S.InlineSearch
+          className={mobileSearchOpen ? 'mobile-open' : ''}
+          onFocus={() => setSearchFocused(true)}
+          onBlur={(event) => {
+            if (event.currentTarget.contains(event.relatedTarget as Node | null)) return;
+            setSearchFocused(false);
+          }}
+        >
           <Search aria-hidden="true" />
-          <span>Buscar no cardápio de {data.brand.name}...</span>
+          <input
+            ref={searchInputRef}
+            type="search"
+            value={searchQuery}
+            autoComplete="off"
+            aria-label="Pesquisar produto pelo nome"
+            placeholder={`Buscar no cardápio de ${data.brand.name}...`}
+            onChange={(event) => setSearchQuery(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key !== 'Escape') return;
+              setSearchQuery('');
+              setSearchFocused(false);
+              searchInputRef.current?.blur();
+              if (mobileSearchOpen) {
+                setMobileSearchOpen(false);
+                window.requestAnimationFrame(() => mobileSearchTriggerRef.current?.focus());
+              }
+            }}
+          />
+          {searchQuery ? (
+            <button
+              className="clear"
+              type="button"
+              aria-label="Limpar busca"
+              onClick={() => {
+                setSearchQuery('');
+                searchInputRef.current?.focus();
+              }}
+            >
+              ×
+            </button>
+          ) : null}
+
+          {searchFocused && normalizedSearch ? (
+            <S.InlineSearchResults aria-label="Produtos encontrados">
+              {searchResults.length ? (
+                searchResults.map((product) => (
+                  <button
+                    key={product.id}
+                    type="button"
+                    onMouseDown={(event) => event.preventDefault()}
+                    onClick={() => {
+                      setSearchQuery('');
+                      setSearchFocused(false);
+                      setMobileSearchOpen(false);
+                      openProduct(product);
+                    }}
+                  >
+                    <span className="thumb">{productImage(product)}</span>
+                    <span className="copy">
+                      <b>{product.name}</b>
+                      {product.description ? <small>{product.description}</small> : null}
+                      <strong>{money(product.price)}</strong>
+                    </span>
+                  </button>
+                ))
+              ) : (
+                <span className="empty">Nenhum produto encontrado.</span>
+              )}
+            </S.InlineSearchResults>
+          ) : null}
+        </S.InlineSearch>
+
+        <button
+          ref={mobileSearchTriggerRef}
+          className="mobile-header-search"
+          type="button"
+          aria-label="Buscar no cardápio"
+          onClick={() => {
+            setMobileSearchOpen(true);
+            window.requestAnimationFrame(() => searchInputRef.current?.focus());
+          }}
+        >
+          <Search aria-hidden="true" />
         </button>
 
         <div className="actions">
@@ -167,6 +303,20 @@ export function FigmaDeliveryExperience({
           </button>
         </div>
       </S.Header>
+
+      {view === 'menu' ? (
+        <S.Breadcrumb aria-label="Navegação do cardápio">
+          <button type="button" onClick={goHome}>Início</button>
+          <span aria-hidden="true">›</span>
+          <span>Cardápio</span>
+          {categoryId !== 'todos' && currentCategory?.name ? (
+            <>
+              <span aria-hidden="true">›</span>
+              <span>{currentCategory.name}</span>
+            </>
+          ) : null}
+        </S.Breadcrumb>
+      ) : null}
 
       {view === 'home' ? (
         <>
@@ -306,19 +456,38 @@ export function FigmaDeliveryExperience({
           <S.MenuCategories>
             <h2>Categorias</h2>
             <button className={categoryId === 'todos' ? 'active' : ''} type="button" onClick={() => setCategoryId('todos')}>
-              <span className="thumb"><UtensilsCrossed size={15} /></span> Todos
+              Destaques
             </button>
             {categories.map((category) => (
               <button className={categoryId === category.id ? 'active' : ''} key={category.id} type="button" onClick={() => setCategoryId(category.id)}>
-                <span className="thumb">{categoryImage(category.image, category.name)}</span>
                 {category.name}
               </button>
             ))}
           </S.MenuCategories>
 
           <S.MenuProducts>
+            <S.MenuCategoryBar aria-label="Categorias do cardápio">
+              <button
+                className={categoryId === 'todos' ? 'active' : ''}
+                type="button"
+                onClick={() => setCategoryId('todos')}
+              >
+                Destaques
+              </button>
+              {categories.slice(0, 6).map((category) => (
+                <button
+                  className={categoryId === category.id ? 'active' : ''}
+                  key={category.id}
+                  type="button"
+                  onClick={() => setCategoryId(category.id)}
+                >
+                  {category.name}
+                </button>
+              ))}
+            </S.MenuCategoryBar>
+
             <header>
-              <h1>{currentCategory?.name || 'Cardápio'}</h1>
+              <h1>{categoryId === 'todos' ? 'Destaques' : currentCategory?.name || 'Cardápio'}</h1>
               <p>{menuProducts.length ? `${menuProducts.length} ${menuProducts.length === 1 ? 'item disponível' : 'itens disponíveis'}` : 'Nenhum item disponível nesta categoria.'}</p>
             </header>
             <div className="list">
@@ -340,42 +509,75 @@ export function FigmaDeliveryExperience({
           </S.MenuProducts>
 
           <S.MiniCart>
-            <h3>Seu Pedido</h3>
-            <p>{cartCount ? `${cartCount} ${cartCount === 1 ? 'item no carrinho' : 'itens no carrinho'}` : 'Seu carrinho está vazio.'}</p>
+            <h3>Seu Pedido {cartCount ? `(${cartCount} ${cartCount === 1 ? 'item' : 'itens'})` : ''}</h3>
+            {cart.length ? (
+              <>
+                <div className="items">
+                  {cart.map((item) => (
+                    <div className="item" key={item.cartId || item.productId}>
+                      <span>{item.quantity}x {item.name}</span>
+                      <strong>{money(item.price * item.quantity)}</strong>
+                    </div>
+                  ))}
+                </div>
+                <div className="subtotal">
+                  <span>Subtotal</span>
+                  <strong>{money(cartTotal)}</strong>
+                </div>
+              </>
+            ) : (
+              <p>Seu carrinho está vazio.</p>
+            )}
             <button type="button" disabled={!cartCount} onClick={onOpenCart}>Continuar</button>
           </S.MiniCart>
         </S.MenuLayout>
       )}
 
-      <S.Footer>
-        <div className="inner">
-          <div>
-            <div className="brand">{data.brand.name}</div>
-            {data.about ? <p>{data.about}</p> : null}
-          </div>
-          <div><h3>Nossos Links</h3><p><button type="button" onClick={() => setView('menu')}>Cardápio</button></p></div>
-          {data.brand.phone || data.brand.email ? (
-            <div><h3>Suporte</h3><p>{data.brand.phone || data.brand.email}</p></div>
-          ) : null}
-          <div><h3>Sua Loja Segura</h3><p>Cada restaurante é operado diretamente por seu administrador autorizado.</p></div>
-        </div>
-        <div className="bottom"><span>© {new Date().getFullYear()} {data.brand.name}.</span><span>Privacidade · Cookies</span></div>
-      </S.Footer>
+      <S.MobileCartFab
+        type="button"
+        aria-label={`Meu Carrinho, ${cartCount} ${cartCount === 1 ? 'item' : 'itens'}`}
+        onClick={onOpenCart}
+      >
+        <ShoppingBag aria-hidden="true" />
+        {cartCount > 0 ? <span>{cartCount}</span> : null}
+      </S.MobileCartFab>
 
-      <S.MobileSearch type="button" aria-label="Buscar no cardápio" onClick={() => setSearchOpen(true)}>
-        <Search />
-      </S.MobileSearch>
+      <S.MobileBottomNav aria-label="Navegação principal">
+        <button className="active" type="button" onClick={() => setView('home')}>
+          <Home aria-hidden="true" />
+          <span>Início</span>
+        </button>
+        <button type="button" onClick={onOpenOrders}>
+          <List aria-hidden="true" />
+          <span>Pedidos</span>
+        </button>
+        <button type="button" onClick={onOpenProfile}>
+          <UserRound aria-hidden="true" />
+          <span>Conta</span>
+        </button>
+      </S.MobileBottomNav>
 
-      <ProductSearchDialog
-        open={searchOpen}
-        products={availableProducts}
+      {view === 'home' && whatsappUrl ? (
+        <FloatingWhatsAppPortal
+          href={whatsappUrl}
+          target="_blank"
+          rel="noreferrer"
+          aria-label={`Falar com ${whatsappLabel || data.brand.name} no WhatsApp`}
+          title={`Falar com ${whatsappLabel || data.brand.name} no WhatsApp`}
+        >
+          <WhatsAppIcon size={25} />
+        </FloatingWhatsAppPortal>
+      ) : null}
+
+      <CustomerDesktopFooter
+        restaurantName={data.brand.name}
+        description={data.about}
         primaryColor={primary}
-        onClose={() => setSearchOpen(false)}
-        onSelect={(product) => {
-          setSearchOpen(false);
-          openProduct(product);
-        }}
+        phone={data.brand.phone}
+        email={data.brand.email}
+        onMenu={() => setView('menu')}
       />
+
 
       {selectedProduct ? (
         <ProductConfigurator

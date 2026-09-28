@@ -84,6 +84,9 @@ export function buildProfileData({
     phone: String(settings?.phone || ''),
     email: String(settings?.email || ''),
     whatsapp: String(settings?.whatsapp || ''),
+    description: String(
+      restaurant.description || settings?.restaurantDescription || settings?.description || '',
+    ),
   };
   const fullName = String(user?.name || '');
   const defaultAddress = rawAddresses.find((item) => Boolean(item.isDefault)) || rawAddresses[0];

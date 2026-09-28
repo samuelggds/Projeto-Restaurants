@@ -10,6 +10,7 @@ export type ProfileBrand = {
   whatsapp?: string;
   status?: string;
   primaryColor?: string;
+  description?: string;
 };
 
 export type ProfileUser = {

@@ -126,9 +126,8 @@ function installPrismaMocks() {
   };
 }
 
-test('deve exigir 2FA para role administrativa configurada', async () => {
+test('deve exigir 2FA para administrador somente quando a conta habilitou MFA', async () => {
   installPrismaMocks();
-  process.env.MFA_REQUIRED_ROLES = 'ADMIN,SUPER_ADMIN';
   process.env.JWT_SECRET = 'test_jwt_secret_with_minimum_32_chars_123456';
   process.env.JWT_MFA_SECRET = 'test_mfa_secret_with_minimum_32_chars_123456';
 
@@ -140,6 +139,7 @@ test('deve exigir 2FA para role administrativa configurada', async () => {
     name: 'Admin',
     active: true,
     mustChangePassword: false,
+    mfaEnabled: true,
   });
 
   assert.equal(result.mfaRequired, true);
@@ -159,17 +159,15 @@ test('deve ignorar 2FA para role nao configurada', async () => {
     name: 'Cliente',
     active: true,
     mustChangePassword: false,
+    mfaEnabled: false,
   });
 
   assert.equal(result, null);
 });
 
 for (const role of ['ADMIN', 'SUPER_ADMIN']) {
-  test(`política obrigatória exige MFA de ${role} mesmo com preferência falsa`, async () => {
+  test(`${role} não exige MFA quando a preferência está desativada`, async () => {
     installPrismaMocks();
-    process.env.MFA_REQUIRED_ROLES = role === 'SUPER_ADMIN' ? '' : 'ADMIN,SUPER_ADMIN';
-    process.env.JWT_SECRET = 'test_jwt_secret_with_minimum_32_chars_123456';
-    process.env.JWT_MFA_SECRET = 'test_mfa_secret_with_minimum_32_chars_123456';
     const result = await loginMfaService.beginIfRequired({
       id: 10,
       role,
@@ -180,8 +178,7 @@ for (const role of ['ADMIN', 'SUPER_ADMIN']) {
       mustChangePassword: false,
       mfaEnabled: false,
     });
-    assert.equal(result.mfaRequired, true);
-    assert.ok(result.mfaToken);
+    assert.equal(result, null);
   });
 }
 
@@ -253,6 +250,7 @@ test('deve validar codigo 2FA e emitir tokens', async () => {
     name: 'Admin',
     active: true,
     mustChangePassword: false,
+    mfaEnabled: true,
   });
 
   const challenge = challenges.get(77);
@@ -339,6 +337,7 @@ test('bloqueia e consome o desafio depois de cinco codigos invalidos', async () 
     name: 'Blocked',
     active: true,
     mustChangePassword: false,
+    mfaEnabled: true,
   });
   const challenge = challenges.get(90);
   challenge.codeHash = await bcrypt.hash('123456', 10);
@@ -378,6 +377,7 @@ test('novo envio de codigo não reinicia tentativas do desafio vigente', async (
     name: 'Retry',
     active: true,
     mustChangePassword: false,
+    mfaEnabled: true,
   });
 
   assert.equal(challenges.get(91).failedAttempts, 3);
@@ -409,6 +409,7 @@ test('codigo MFA válido só pode ser consumido uma vez em concorrência', async
     name: 'Once',
     active: true,
     mustChangePassword: false,
+    mfaEnabled: true,
   });
   const challenge = challenges.get(92);
   challenge.codeHash = await bcrypt.hash('654321', 10);

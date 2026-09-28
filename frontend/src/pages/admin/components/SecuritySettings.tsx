@@ -277,13 +277,13 @@ export function SecuritySettings({ openEmployees }: Props) {
             <span className="eyebrow">SEGURANÇA DO RESTAURANTE</span>
             <h2>Acesso administrativo protegido por padrão</h2>
             <p>
-              A equipe usa permissões separadas e administradores confirmam o acesso com uma etapa
-              adicional de segurança.
+              A equipe usa permissões separadas e cada conta pode ativar uma etapa adicional de
+              segurança quando desejar.
             </p>
           </div>
         </div>
         <span className="status-badge">
-          <ShieldCheck /> Proteção ativa
+          <ShieldCheck /> Proteção disponível
         </span>
       </section>
 
@@ -295,11 +295,11 @@ export function SecuritySettings({ openEmployees }: Props) {
             </span>
             <div>
               <h3>Proteção do acesso administrativo</h3>
-              <p>Administradores confirmam o login com um código enviado ao e-mail cadastrado.</p>
+              <p>O MFA é opcional e pode ser ativado individualmente no perfil de cada conta.</p>
             </div>
           </div>
           <div className="security-points">
-            <span>Verificação em duas etapas obrigatória para administradores</span>
+            <span>Verificação em duas etapas opcional por conta</span>
             <span>Senha e recuperação ficam concentradas em Meu perfil</span>
             <span>Configurações do restaurante permanecem separadas dos dados pessoais</span>
           </div>

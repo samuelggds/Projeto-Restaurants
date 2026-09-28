@@ -117,6 +117,7 @@ test('usa trial do plano, senha forte de oito caracteres e auditoria no mesmo co
 
   assert.equal(state.planDatabase, transaction);
   assert.equal(state.admin.mustChangePassword, true);
+  assert.equal(state.admin.mfaEnabled, false);
   assert.equal(await bcrypt.compare(validPayload().admin.password, state.admin.password), true);
   assert.equal(
     Math.round(

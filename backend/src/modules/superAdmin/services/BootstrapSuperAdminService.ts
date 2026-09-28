@@ -120,7 +120,7 @@ export class BootstrapSuperAdminService {
             active: true,
             restaurantId: null,
             subRole: null,
-            mfaEnabled: true,
+            mfaEnabled: false,
             mustChangePassword: true,
           },
           select: { id: true, name: true },

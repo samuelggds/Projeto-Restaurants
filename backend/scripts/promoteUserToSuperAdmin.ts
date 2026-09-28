@@ -154,7 +154,7 @@ async function main() {
     requested,
     revokeRefreshSession: Boolean(existing),
     revokeAccessTokens: Boolean(existing),
-    enableMfa: true,
+    preserveMfaPreference: Boolean(existing?.mfaEnabled),
     requirePasswordChange: after.mustChangePassword,
     clearLoginLockout: true,
     reason: reason || null,
@@ -252,7 +252,6 @@ async function main() {
           role: UserRole.SUPER_ADMIN,
           restaurantId: null,
           subRole: null,
-          mfaEnabled: true,
           authVersion: { increment: 1 },
           ...(activate ? { active: true } : {}),
           ...(passwordHash
@@ -290,7 +289,7 @@ async function main() {
           restaurantId: null,
           subRole: null,
           mustChangePassword: true,
-          mfaEnabled: true,
+          mfaEnabled: false,
         },
         select: {
           id: true,

@@ -1,12 +1,4 @@
-import {
-  AlertCircle,
-  BellRing,
-  CheckCircle2,
-  Info,
-  ShoppingBag,
-  TriangleAlert,
-  X,
-} from 'lucide-react';
+import { AlertCircle, CheckCircle2, Info, ShoppingBag, TriangleAlert, X } from 'lucide-react';
 import * as S from '../../Home/Home.styles';
 
 export type HomeNotification = {
@@ -33,11 +25,7 @@ function NotificationIcon({ type }: { type: HomeNotification['type'] }) {
 }
 
 type Props = {
-  showLoginNudge: boolean;
-  hasFloatingWhatsapp?: boolean;
   notifications: HomeNotification[];
-  onLogin: () => void;
-  onDismissNudge: () => void;
   onDismissNotification: (id: number) => void;
   onOpenCart?: () => void;
 };
@@ -50,30 +38,6 @@ export function HomeFeedback(props: Props) {
 
   return (
     <>
-      {props.showLoginNudge && (
-        <S.LoginNudge
-          role="region"
-          aria-label="Acompanhe seus pedidos"
-          $hasWhatsapp={props.hasFloatingWhatsapp}
-        >
-          <BellRing aria-hidden="true" />
-          <span>
-            <strong>Acompanhe seus pedidos</strong>
-            <small>Entre para receber atualizações em tempo real.</small>
-          </span>
-          <button className="nudge-login" type="button" onClick={props.onLogin}>
-            Entrar
-          </button>
-          <button
-            className="nudge-dismiss"
-            type="button"
-            aria-label="Dispensar convite de login"
-            onClick={props.onDismissNudge}
-          >
-            <X aria-hidden="true" />
-          </button>
-        </S.LoginNudge>
-      )}
       <S.NotifStack
         style={hasElevatedAlert ? { zIndex: 120 } : undefined}
         aria-label="Avisos recentes"

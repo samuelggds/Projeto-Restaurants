@@ -86,7 +86,7 @@ export function buildSuperAdminAfterState({ existing, activate, resetPassword })
     restaurantId: null,
     active: existing ? existing.active || activate : true,
     authVersion: existing ? existing.authVersion + 1 : 0,
-    mfaEnabled: true,
+    mfaEnabled: existing ? Boolean(existing.mfaEnabled) : false,
     mustChangePassword: existing ? existing.mustChangePassword || resetPassword : true,
   };
 }
