@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
+  ChevronLeft,
   Clock3,
   MapPin,
   Phone,
@@ -155,6 +156,15 @@ export function FigmaDeliveryExperience({
     setSelectedProduct(product);
   };
 
+  const goHome = () => {
+    setView('home');
+    setCategoryId('todos');
+    setSearchQuery('');
+    setSearchFocused(false);
+    setMobileSearchOpen(false);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
   const chooseCategory = (id: string) => {
     setCategoryId(id);
     setView('menu');
@@ -165,17 +175,25 @@ export function FigmaDeliveryExperience({
   return (
     <S.Page $primary={primary}>
       <S.Header>
-        <div className="brand">
-          <span className="logo">
-            {data.brand.logoUrl ? <img src={data.brand.logoUrl} alt="" /> : data.brand.monogram || data.brand.name.slice(0, 1)}
-          </span>
-          <span className="brand-copy">
-            <b>{data.brand.name}</b>
-            <span className="status">
-              <i /> {data.isOpen ? 'Aberto agora' : 'Fechado agora'}
-              {data.deliveryTime ? ` · ${data.deliveryTime}` : ''}
+        <div className="header-left">
+          {view === 'menu' ? (
+            <button className="mobile-back" type="button" aria-label="Voltar para a Home" onClick={goHome}>
+              <ChevronLeft aria-hidden="true" />
+            </button>
+          ) : null}
+
+          <button className="brand" type="button" aria-label={`Voltar para a Home de ${data.brand.name}`} onClick={goHome}>
+            <span className="logo">
+              {data.brand.logoUrl ? <img src={data.brand.logoUrl} alt="" /> : data.brand.monogram || data.brand.name.slice(0, 1)}
             </span>
-          </span>
+            <span className="brand-copy">
+              <b>{data.brand.name}</b>
+              <span className="status">
+                <i /> {data.isOpen ? 'Aberto agora' : 'Fechado agora'}
+                {data.deliveryTime ? ` · ${data.deliveryTime}` : ''}
+              </span>
+            </span>
+          </button>
         </div>
 
         <S.InlineSearch
@@ -269,6 +287,20 @@ export function FigmaDeliveryExperience({
           </button>
         </div>
       </S.Header>
+
+      {view === 'menu' ? (
+        <S.Breadcrumb aria-label="Navegação do cardápio">
+          <button type="button" onClick={goHome}>Início</button>
+          <span aria-hidden="true">›</span>
+          <span>Cardápio</span>
+          {categoryId !== 'todos' && currentCategory?.name ? (
+            <>
+              <span aria-hidden="true">›</span>
+              <span>{currentCategory.name}</span>
+            </>
+          ) : null}
+        </S.Breadcrumb>
+      ) : null}
 
       {view === 'home' ? (
         <>
