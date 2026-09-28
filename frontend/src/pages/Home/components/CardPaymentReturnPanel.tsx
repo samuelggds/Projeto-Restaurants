@@ -120,8 +120,24 @@ export function CardPaymentReturnPanel({
           <DesktopCardPlate className={failed ? 'failed' : ''}>
             <span className="mini-card">{failed ? '!' : 'CARD'}</span>
             <span>
-              <b>{failed ? 'Pagamento com cartão cancelado' : 'Cartão de crédito aprovado'}</b>
-              <small>{failed ? error || 'Transação não autorizada' : 'Transação autorizada com sucesso'}</small>
+              <b>
+                {failed
+                  ? 'Pagamento com cartão cancelado'
+                  : paid
+                    ? 'Cartão de crédito aprovado'
+                    : 'Pagamento com cartão'}
+              </b>
+              <small>
+                {failed
+                  ? error || 'Transação não autorizada'
+                  : paid
+                    ? 'Transação autorizada com sucesso'
+                    : checking
+                      ? 'Processando pagamento...'
+                      : status === 'ERROR'
+                        ? error || 'Não foi possível verificar o pagamento agora.'
+                        : 'Aguardando confirmação do pagamento.'}
+              </small>
             </span>
           </DesktopCardPlate>
 
