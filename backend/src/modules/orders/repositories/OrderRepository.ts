@@ -631,7 +631,27 @@ class OrderRepository {
         paymentMethod: true,
         payOnDelivery: true,
         paid: true,
+        paidAt: true,
         status: true,
+        restaurant: {
+          select: {
+            name: true,
+            logo: true,
+            settings: {
+              select: {
+                averageDeliveryTime: true,
+              },
+            },
+          },
+        },
+        kitchenPrintJobs: {
+          orderBy: { createdAt: 'desc' },
+          take: 1,
+          select: {
+            status: true,
+            createdAt: true,
+          },
+        },
       },
     });
   }
