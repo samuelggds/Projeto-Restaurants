@@ -8,7 +8,6 @@ import {
   Headphones,
   Mail,
   MapPin,
-  MessageCircle,
   Search,
   Settings,
   ShoppingBag,
@@ -20,7 +19,6 @@ import {
 import { buildLoyaltyWalletEntries } from './domain/loyaltyWallet';
 import { FigmaCouponRedemption, FigmaLoyaltyProgram } from './FigmaLoyaltyViews';
 import { useLoyaltyExpirationClock } from '../Home/hooks/useLoyaltyExpirationClock';
-import { buildWhatsAppUrl } from '../Home/domain/publicSettings';
 import { CustomerDesktopFooter } from '../Home/components/CustomerDesktopFooter';
 import type {
   ActiveProfileOrder,
@@ -133,7 +131,6 @@ function FigmaAccountExperienceReady(props: ProfilePageProps & { data: ProfileDa
   const historyCoupons = coupons.filter((entry) => entry.status === 'used' || entry.status === 'expired');
   const activeOrders = data.activeOrder ? [data.activeOrder] : [];
   const orderHistory = data.recentOrders;
-  const whatsappUrl = buildWhatsAppUrl(data.brand.whatsapp || data.brand.phone);
   const primary = data.brand.primaryColor || '#e85a2b';
   const initials = data.user.fullName
     .split(' ')
@@ -258,13 +255,6 @@ function FigmaAccountExperienceReady(props: ProfilePageProps & { data: ProfileDa
     <S.Stack>
       <S.SectionLabel>Fale Conosco</S.SectionLabel>
       <S.HelpGrid>
-        {whatsappUrl ? (
-          <a href={whatsappUrl} target="_blank" rel="noreferrer">
-            <MessageCircle />
-            <b>WhatsApp</b>
-            <span>Fale diretamente com o restaurante.</span>
-          </a>
-        ) : null}
         {data.brand.email ? (
           <a href={`mailto:${data.brand.email}`}>
             <Mail />
