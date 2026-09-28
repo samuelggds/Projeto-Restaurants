@@ -100,21 +100,36 @@ export const PageTitle = styled.div`
 
 export const ProfileCard = styled.section`
   padding:16px;border:1px solid var(--line);border-radius:20px;background:var(--surface);color:var(--text);display:flex;align-items:center;gap:16px;box-shadow:0 5px 18px rgba(25,22,18,.035);
-  .avatar{width:60px;height:64px;flex:0 0 60px;border-radius:30px;overflow:hidden;background:color-mix(in srgb,var(--p) 12%,#fff);color:var(--p);display:grid;place-items:center;font-family:'Gabarito','Inter',sans-serif;font-size:22px;font-weight:800}
+  .avatar{width:60px;height:60px;flex:0 0 60px;border-radius:50%;overflow:hidden;background:color-mix(in srgb,var(--p) 12%,#fff);color:var(--p);display:grid;place-items:center;font-family:'Gabarito','Inter',sans-serif;font-size:22px;font-weight:800}
+  .avatar-button{position:relative;padding:0;border:0;cursor:pointer}
+  .avatar-button:disabled{cursor:default}
   .avatar img{width:100%;height:100%;object-fit:cover}
+  .avatar-edit{position:absolute;right:1px;bottom:1px;width:21px;height:21px;border:2px solid var(--surface);border-radius:50%;background:var(--p);color:#fff;display:grid;place-items:center;opacity:0;transform:scale(.88);transition:opacity 160ms ease,transform 160ms ease}
+  .avatar-edit svg{width:11px;height:11px}
+  .avatar-button:hover .avatar-edit,.avatar-button:focus-visible .avatar-edit{opacity:1;transform:scale(1)}
+  .avatar-loading{position:absolute;inset:0;border-radius:50%;display:grid;place-items:center;background:rgba(31,30,26,.64);color:#fff;font-size:9px;font-family:'Inter',sans-serif;font-weight:700}
+  .avatar-input{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}
   .copy{min-width:0;display:grid;gap:4px}
   .copy b{font-family:'Gabarito','Inter',sans-serif;font-size:18px}
   .copy span{min-width:0;overflow:hidden;color:var(--muted);font-size:13px;text-overflow:ellipsis;white-space:nowrap}
   .desktop-contact{display:none}
+  @media(max-width:900px){
+    .avatar-edit{opacity:1;transform:none}
+  }
+
   @media(min-width:901px){
     padding:24px;
     gap:24px;
-    .avatar{width:72px;height:72px;flex-basis:72px;border-radius:36px}
+    .avatar{width:72px;height:72px;flex-basis:72px;border-radius:50%}
     .copy{gap:6px}
     .copy b{font-size:22px}
     .copy span{font-size:14px}
     .mobile-contact{display:none}
     .desktop-contact{display:block}
+  }
+
+  @media(prefers-reduced-motion:reduce){
+    .avatar-edit{transition:none}
   }
 `;
 
