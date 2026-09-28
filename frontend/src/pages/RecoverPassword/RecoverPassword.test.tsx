@@ -98,10 +98,6 @@ describe('RecoverPassword', () => {
   });
 
   it('permite trocar o contato antes de solicitar um novo código', async () => {
-    const emailMethod = [...container.querySelectorAll('button')].find(
-      (button) => button.textContent?.trim() === 'E-mail',
-    ) as HTMLButtonElement;
-    act(() => emailMethod.click());
     const identifier = container.querySelector('#identifier') as HTMLInputElement;
     setInputValue(identifier, 'cliente@example.test');
 
@@ -121,10 +117,6 @@ describe('RecoverPassword', () => {
 
   it('retorna ao Login tenant-scoped com o next completo após redefinir a senha', async () => {
     mocks.resetPassword.mockResolvedValue({ message: 'Senha redefinida.' });
-    const emailMethod = [...container.querySelectorAll('button')].find(
-      (button) => button.textContent?.trim() === 'E-mail',
-    ) as HTMLButtonElement;
-    act(() => emailMethod.click());
     setInputValue(
       container.querySelector('#identifier') as HTMLInputElement,
       'cliente@example.test',
