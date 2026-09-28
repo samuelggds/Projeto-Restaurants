@@ -268,7 +268,7 @@ export function PaymentOptions({
     return () => {
       active = false;
     };
-  }, [figmaCheckout, loggedIn, paymentMethod, restaurantId]);
+  }, [figmaCheckout, loggedIn, onChange, paymentMethod, restaurantId]);
 
   useEffect(() => {
     if (!figmaCheckout || loggedIn || !allowCard || paymentMethod !== 'pix') return;
