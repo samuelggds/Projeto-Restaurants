@@ -256,7 +256,7 @@ export const BannerCard = styled.article`
   .preview-copy .preview-button {
     display: inline-flex;
     margin-top: 12px;
-    border-radius: 999px;
+    border-radius: 10px;
     background: var(--a);
     padding: 8px 14px;
     font-size: 11px;
