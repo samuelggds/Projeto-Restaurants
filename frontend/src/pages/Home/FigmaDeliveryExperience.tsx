@@ -508,23 +508,66 @@ export function FigmaDeliveryExperience({
               </S.Section>
             ) : null}
 
-            {(data.brand.address || data.brand.phone || hours || data.brand.instagram || data.brand.facebook) ? (
-              <S.RestaurantInfo>
-                <div>
-                  <h2>Informações do restaurante</h2>
-                  <div className="rows">
-                    {data.brand.address ? <div className="row"><MapPin size={17} /> <span>{data.brand.address}</span></div> : null}
-                    {data.brand.phone ? <div className="row"><Phone size={17} /> <span>{data.brand.phone}</span></div> : null}
-                    {hours ? <div className="row"><Clock3 size={17} /> <span>{hours}</span></div> : null}
+            {(data.brand.address || data.brand.phone || hours || data.brand.instagram || data.brand.facebook || whatsappUrl) ? (
+              <S.RestaurantInfo aria-label="Informações do restaurante">
+                {data.brand.address ? (
+                  <div className="info-item address">
+                    <span className="info-icon"><MapPin aria-hidden="true" /></span>
+                    <span>{data.brand.address}</span>
                   </div>
-                </div>
-                <div>
-                  <h2>Redes sociais</h2>
-                  <div className="social">
-                    {data.brand.instagram ? <a href={buildSocialProfileUrl('instagram', data.brand.instagram)} target="_blank" rel="noreferrer" aria-label="Instagram"><InstagramIcon /></a> : null}
-                    {data.brand.facebook ? <a href={buildSocialProfileUrl('facebook', data.brand.facebook)} target="_blank" rel="noreferrer" aria-label="Facebook"><FacebookIcon /></a> : null}
+                ) : null}
+
+                {data.brand.phone ? (
+                  <div className="info-item phone">
+                    <span className="info-icon"><Phone aria-hidden="true" /></span>
+                    <span>{data.brand.phone}</span>
                   </div>
-                </div>
+                ) : null}
+
+                {hours ? (
+                  <div className="info-item hours">
+                    <span className="info-icon"><Clock3 aria-hidden="true" /></span>
+                    <span>{hours}</span>
+                  </div>
+                ) : null}
+
+                {(data.brand.instagram || data.brand.facebook || whatsappUrl) ? (
+                  <div className="social-row">
+                    <span className="social-label">Redes sociais</span>
+                    <div className="social">
+                      {data.brand.instagram ? (
+                        <a
+                          href={buildSocialProfileUrl('instagram', data.brand.instagram)}
+                          target="_blank"
+                          rel="noreferrer"
+                          aria-label="Instagram"
+                        >
+                          <InstagramIcon />
+                        </a>
+                      ) : null}
+                      {data.brand.facebook ? (
+                        <a
+                          href={buildSocialProfileUrl('facebook', data.brand.facebook)}
+                          target="_blank"
+                          rel="noreferrer"
+                          aria-label="Facebook"
+                        >
+                          <FacebookIcon />
+                        </a>
+                      ) : null}
+                      {whatsappUrl ? (
+                        <a
+                          href={whatsappUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          aria-label={`WhatsApp de ${whatsappLabel || data.brand.name}`}
+                        >
+                          <WhatsAppIcon />
+                        </a>
+                      ) : null}
+                    </div>
+                  </div>
+                ) : null}
               </S.RestaurantInfo>
             ) : null}
           </S.Main>
