@@ -546,7 +546,7 @@ function FigmaAccountExperienceReady(props: ProfilePageProps & { data: ProfileDa
         ) : (
           <S.Stack>
             <S.PageTitle>
-              <button className="back" type="button" onClick={goBack}><ArrowLeft /></button>
+              <button className="back" type="button" aria-label="Voltar para minha conta" onClick={goBack}><ArrowLeft /></button>
               <h1>{title}</h1>
             </S.PageTitle>
             {pageContent()}
@@ -567,7 +567,7 @@ function FigmaAccountExperienceReady(props: ProfilePageProps & { data: ProfileDa
         >
           <S.PageTitle>
             {view !== 'account' ? (
-              <button className="back" type="button" onClick={goBack}><ArrowLeft /></button>
+              <button className="back" type="button" aria-label="Voltar para minha conta" onClick={goBack}><ArrowLeft /></button>
             ) : null}
             <h1>{title}</h1>
           </S.PageTitle>
