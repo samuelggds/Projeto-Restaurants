@@ -173,33 +173,6 @@ export const CartDesktopHeader = styled.header`
     background: #36b37e;
   }
 
-  .search {
-    width: 380px;
-    min-width: 240px;
-    padding: 10px 16px;
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    border: 1px solid var(--checkout-line);
-    border-radius: 999px;
-    background: #fafaf8;
-    color: var(--checkout-muted);
-  }
-
-  .search svg {
-    width: 16px;
-    height: 16px;
-    flex: 0 0 16px;
-  }
-
-  .search span {
-    min-width: 0;
-    overflow: hidden;
-    font-size: 14px;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
   .actions {
     display: flex;
     align-items: center;
@@ -252,10 +225,6 @@ export const CartDesktopHeader = styled.header`
   }
 
   @media (max-width: 1080px) {
-    .search {
-      width: min(32vw, 380px);
-    }
-
     .brand {
       min-width: 0;
     }
