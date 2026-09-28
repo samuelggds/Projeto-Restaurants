@@ -385,10 +385,15 @@ test('cliente vê promoção, aplica benefício de fidelidade e envia o resgate 
   await checkout.getByRole('button', { name: 'Continuar', exact: true }).click();
   await expect(page.getByText('Pagamento PIX', { exact: true })).toBeVisible();
   await expect(page.getByText('R$ 36,00')).toBeVisible();
-  await expect(page.getByRole('heading', { name: 'Pix confirmado!' })).toBeVisible();
-  await expect(page.locator('main[data-status="PAID"]')).toBeVisible();
-  await expect(page.getByText('Recebemos a confirmação do seu pagamento.')).toBeVisible();
-  await page.getByRole('button', { name: 'Voltar ao cardápio' }).click();
+  const paidPix = page.locator('main[data-status="PAID"][data-payment-method="pix"]');
+  await expect(paidPix).toBeVisible();
+  await expect(
+    paidPix.getByRole('heading', { name: 'Pagamento PIX Confirmado!' }),
+  ).toBeVisible();
+  await expect(
+    paidPix.getByText('Seu pagamento via PIX foi recebido e seu pedido está sendo preparado'),
+  ).toBeVisible();
+  await page.goto('/restaurante-teste');
   await page
     .getByRole('navigation', { name: 'Navegação principal' })
     .getByRole('button', { name: 'Conta' })
