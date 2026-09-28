@@ -1,5 +1,5 @@
 import { ArrowLeft, CheckCircle2, CreditCard, Search, ShoppingBag, UserRound, XCircle } from 'lucide-react';
-import type { CSSProperties } from 'react';
+import { useEffect, useRef, type CSSProperties } from 'react';
 import styled from 'styled-components';
 import type {
   CardPaymentReturnDetails,
@@ -47,6 +47,13 @@ export function CardPaymentReturnPanel({
       ? details.totalAmount.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
       : ''
   );
+  const resultHeadingRef = useRef<HTMLHeadingElement>(null);
+
+  useEffect(() => {
+    if (!paid && !failed) return;
+    resultHeadingRef.current?.focus();
+  }, [failed, paid]);
+
   const printedAt = details?.kitchenPrintedAt
     ? new Date(details.kitchenPrintedAt).toLocaleTimeString('pt-BR', {
         hour: '2-digit',
@@ -90,7 +97,9 @@ export function CardPaymentReturnPanel({
               <span className={failed ? 'icon failed' : 'icon'} role="status">
                 {failed ? <XCircle aria-hidden="true" /> : <CheckCircle2 aria-hidden="true" />}
               </span>
-              <h1>{failed ? 'Pagamento cancelado' : 'Pagamento Aprovado!'}</h1>
+              <h1 ref={resultHeadingRef} tabIndex={-1}>
+                {failed ? 'Pagamento cancelado' : 'Pagamento Aprovado!'}
+              </h1>
               <p>
                 {failed
                   ? error || 'O pagamento com cartão não foi concluído.'
