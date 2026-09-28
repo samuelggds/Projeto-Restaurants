@@ -17,10 +17,23 @@ type Options = {
   onPaymentConfirmed: () => void | Promise<void>;
 };
 
+export type CardPaymentReturnDetails = {
+  orderId?: number | null;
+  orderPublicId?: string;
+  restaurantId?: number;
+  restaurantName?: string;
+  restaurantLogoUrl?: string | null;
+  deliveryTime?: string | null;
+  totalAmount?: number;
+  paidAt?: string | null;
+  kitchenPrintedAt?: string | null;
+};
+
 type StatusState = {
   requestKey: string;
   status: CardPaymentReturnStatus;
   error: string | null;
+  details: CardPaymentReturnDetails | null;
 };
 
 export function useCardPaymentReturn({
@@ -36,6 +49,7 @@ export function useCardPaymentReturn({
     requestKey: '',
     status: 'VERIFYING',
     error: null,
+    details: null,
   });
   const inFlightKeyRef = useRef('');
   const activeRequestKeyRef = useRef(requestKey);
@@ -66,7 +80,7 @@ export function useCardPaymentReturn({
       if (inFlightKeyRef.current === requestKey) return 'VERIFYING';
 
       inFlightKeyRef.current = requestKey;
-      if (!background) setState({ requestKey, status: 'VERIFYING', error: null });
+      if (!background) setState((current) => ({ requestKey, status: 'VERIFYING', error: null, details: current.details }));
       try {
         const response = await ordersService.getCardPaymentStatus({
           orderPublicId,
@@ -81,7 +95,22 @@ export function useCardPaymentReturn({
             ? 'PAID'
             : 'PENDING';
 
-        setState({ requestKey, status, error: null });
+        setState({
+          requestKey,
+          status,
+          error: null,
+          details: {
+            orderId: response?.orderId,
+            orderPublicId: response?.orderPublicId,
+            restaurantId: response?.restaurantId,
+            restaurantName: response?.restaurantName,
+            restaurantLogoUrl: response?.restaurantLogoUrl,
+            deliveryTime: response?.deliveryTime,
+            totalAmount: response?.totalAmount,
+            paidAt: response?.paidAt,
+            kitchenPrintedAt: response?.kitchenPrintedAt,
+          },
+        });
         if (status === 'PAID' || unsuccessful) {
           terminalStatusRef.current = { requestKey, status: unsuccessful || 'PAID' };
         }
@@ -102,6 +131,7 @@ export function useCardPaymentReturn({
           error:
             getCheckoutErrorMessage(error) ||
             'Não conseguimos consultar o pagamento agora. Se você já pagou, aguarde e consulte novamente antes de fazer outra tentativa.',
+          details: state.requestKey === requestKey ? state.details : null,
         });
         return 'ERROR';
       } finally {
@@ -130,6 +160,7 @@ export function useCardPaymentReturn({
     status,
     error: state.requestKey === requestKey ? state.error : null,
     providerReturnStatus,
+    details: state.requestKey === requestKey ? state.details : null,
     verify,
   };
 }
