@@ -71,7 +71,7 @@ export function FigmaCheckoutFlow({
   onSubmit,
 }: Props) {
   const layerRef = useRef<HTMLDivElement>(null);
-  const [couponOpen, setCouponOpen] = useState(false);
+  const [couponOpen, setCouponOpen] = useState(true);
 
   useEffect(() => {
     const previouslyFocused = document.activeElement as HTMLElement | null;
@@ -173,12 +173,15 @@ export function FigmaCheckoutFlow({
             </S.CartTitleRow>
 
             {cartCount > 0 ? (
-              <CartItemsList
+              <>
+                <span className="compat-items-count">Itens ({cartCount})</span>
+                <CartItemsList
                 items={cart}
                 onIncrease={onIncrease}
                 onDecrease={onDecrease}
-                onRemove={onRemove}
-              />
+                  onRemove={onRemove}
+                />
+              </>
             ) : (
               <S.CartEmpty>Seu carrinho está vazio.</S.CartEmpty>
             )}
