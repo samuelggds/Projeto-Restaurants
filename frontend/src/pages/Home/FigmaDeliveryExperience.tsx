@@ -313,7 +313,9 @@ export function FigmaDeliveryExperience({
             {data.about ? <p>{data.about}</p> : null}
           </div>
           <div><h3>Nossos Links</h3><p><button type="button" onClick={() => setView('menu')}>Cardápio</button></p></div>
-          <div><h3>Suporte</h3><p>{data.brand.phone || data.brand.email || 'Atendimento pelo restaurante'}</p></div>
+          {data.brand.phone || data.brand.email ? (
+            <div><h3>Suporte</h3><p>{data.brand.phone || data.brand.email}</p></div>
+          ) : null}
           <div><h3>Sua Loja Segura</h3><p>Cada restaurante é operado diretamente por seu administrador autorizado.</p></div>
         </div>
         <div className="bottom"><span>© {new Date().getFullYear()} {data.brand.name}.</span><span>Privacidade · Cookies</span></div>
