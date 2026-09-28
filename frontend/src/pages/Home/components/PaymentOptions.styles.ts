@@ -167,3 +167,90 @@ export const OpenFinanceNotice = styled.p`
   font-size: 10px;
   line-height: 1.45;
 `;
+export const FigmaPaymentMethods = styled.section`
+  display: grid;
+  gap: 12px;
+`;
+
+export const FigmaPaymentOption = styled.button<{ $active: boolean }>`
+  width: 100%;
+  min-height: 50px;
+  padding: 12px 14px;
+  display: grid;
+  grid-template-columns: 24px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  border: 1px solid ${({ $active }) => ($active ? 'var(--checkout-primary)' : '#efece6')};
+  border-radius: 14px;
+  background: #fff;
+  color: #1f1e1a;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  .method-icon { width: 24px; height: 24px; display: grid; place-items: center; border-radius: 8px; background: #f0f0ee; }
+  .method-icon.pix { background: #fdf2ec; color: var(--checkout-primary); }
+  .method-icon svg { width: 14px; height: 14px; }
+  .method-name { min-width: 0; font-size: 14px; font-weight: 600; }
+  .recommended { padding: 4px 8px; border-radius: 6px; background: #268c43; color: #fff; font-size: 10px; font-weight: 700; text-transform: uppercase; white-space: nowrap; }
+  .radio { width: 16px; height: 16px; display: grid; place-items: center; border: 2px solid ${({ $active }) => ($active ? 'var(--checkout-primary)' : '#efece6')}; border-radius: 50%; }
+  .radio i { width: 8px; height: 8px; border-radius: 50%; background: ${({ $active }) => ($active ? 'var(--checkout-primary)' : 'transparent')}; }
+`;
+
+export const FigmaCardSection = styled.section<{ $active: boolean }>`
+  padding: 14px;
+  display: grid;
+  gap: 12px;
+  border: ${({ $active }) => ($active ? '2px' : '1px')} solid ${({ $active }) => ($active ? 'var(--checkout-primary)' : '#efece6')};
+  border-radius: 14px;
+  background: #fff;
+  .card-heading { width: 100%; padding: 0; display: grid; grid-template-columns: 24px minmax(0, 1fr) 16px; align-items: center; gap: 10px; border: 0; background: transparent; color: #1f1e1a; font: inherit; text-align: left; cursor: pointer; }
+  .method-icon { width: 24px; height: 24px; display: grid; place-items: center; border-radius: 8px; background: #f0f0ee; }
+  .method-icon svg { width: 14px; height: 14px; }
+  .method-name { font-size: 14px; font-weight: 600; }
+  .radio { width: 16px; height: 16px; display: grid; place-items: center; border: 2px solid ${({ $active }) => ($active ? 'var(--checkout-primary)' : '#efece6')}; border-radius: 50%; }
+  .radio i { width: 8px; height: 8px; border-radius: 50%; background: ${({ $active }) => ($active ? 'var(--checkout-primary)' : 'transparent')}; }
+`;
+
+export const FigmaSavedCards = styled.div`
+  display: grid; gap: 8px;
+  > button { min-height: 58px; padding: 10px; display: grid; grid-template-columns: 22px minmax(0, 1fr) 16px; align-items: center; gap: 10px; border: 1px solid #efece6; border-radius: 10px; background: #fff; color: #1f1e1a; font: inherit; text-align: left; cursor: pointer; }
+  > button.selected { border-color: var(--checkout-primary); background: #fff7f2; }
+  > button > svg { width: 17px; color: #6f765f; }
+  > button > span:nth-child(2) { min-width: 0; display: grid; gap: 2px; }
+  b { font-size: 13px; text-transform: capitalize; }
+  small { color: #72706b; font-size: 11px; }
+  .radio { width: 16px; height: 16px; display: grid; place-items: center; border: 2px solid #efece6; border-radius: 50%; }
+  button.selected .radio { border-color: var(--checkout-primary); }
+  button.selected .radio i { width: 8px; height: 8px; border-radius: 50%; background: var(--checkout-primary); }
+  .add-card { width: max-content; display: inline-flex; align-items: center; gap: 6px; color: var(--checkout-primary); font-size: 12px; font-weight: 700; text-decoration: none; }
+  .add-card svg { width: 15px; }
+`;
+
+export const FigmaEmptyCards = styled.div`
+  padding: 8px 0 2px; display: grid; justify-items: center; gap: 8px; text-align: center;
+  b { font-size: 14px; }
+  span { color: #72706b; font-size: 12px; }
+  a { margin-top: 2px; padding: 8px 16px; border: 1.5px solid var(--checkout-primary); border-radius: 8px; color: var(--checkout-primary); font-size: 13px; font-weight: 600; text-decoration: none; }
+`;
+
+export const FigmaPaymentStatus = styled.div`
+  padding: 10px 12px; border-radius: 9px; background: #fafaf8; color: #72706b; font-size: 12px;
+`;
+
+export const FigmaGuestCardForm = styled.div`
+  > section { margin: 0; padding: 0; border: 0; border-radius: 0; background: transparent; }
+  > section > header, > section .security { display: none; }
+  > section label > span { color: #72706b; font-size: 11px; font-weight: 500; }
+  > section input, > section .secure-field { min-height: 44px; border-color: #efece6; border-radius: 8px; background: #f7f5f0; }
+`;
+
+export const FigmaSavedCardSecurity = styled.div`
+  > section { margin: 0; padding: 0; border: 0; background: transparent; }
+  > section > header, > section .security { display: none; }
+  > section label > span { font-size: 11px; }
+`;
+
+export const FigmaDebitForm = styled.div`
+  padding: 14px; border: 1px solid var(--checkout-primary); border-radius: 14px; background: #fff;
+  > section { margin: 0; }
+`;
