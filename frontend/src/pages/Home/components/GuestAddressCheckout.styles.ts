@@ -1,6 +1,7 @@
 import styled from 'styled-components';
 
-export const Page = styled.div`
+export const Page = styled.div<{ $primary: string }>`
+  --checkout-primary: ${({ $primary }) => $primary || '#e85a2b'};
   position: fixed;
   inset: 0;
   z-index: 1200;
