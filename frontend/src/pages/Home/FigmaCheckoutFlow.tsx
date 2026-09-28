@@ -33,6 +33,7 @@ type Props = {
   paymentContent: ReactNode;
   couponContent?: ReactNode;
   guestAddressScreen?: ReactNode;
+  authenticatedEmptyAddressScreen?: ReactNode;
   recommendations?: HomeProduct[];
   onAddRecommendation?: (product: HomeProduct) => void;
   onStepChange: (step: FigmaCheckoutStep) => void;
@@ -68,6 +69,7 @@ export function FigmaCheckoutFlow({
   paymentContent,
   couponContent,
   guestAddressScreen,
+  authenticatedEmptyAddressScreen,
   recommendations = [],
   onAddRecommendation,
   onStepChange,
@@ -132,6 +134,10 @@ export function FigmaCheckoutFlow({
 
   if (step === 'address' && guestAddressScreen) {
     return <>{guestAddressScreen}</>;
+  }
+
+  if (step === 'address' && authenticatedEmptyAddressScreen) {
+    return <>{authenticatedEmptyAddressScreen}</>;
   }
 
   if (step === 'cart') {
