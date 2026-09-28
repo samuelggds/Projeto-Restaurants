@@ -1,8 +1,6 @@
 import { useState, useCallback, useEffect, useMemo } from 'react';
 import { useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { CustomerActionHub } from './components/CustomerActionHub';
 import { FloatingWhatsAppPortal } from './Home.whatsapp';
-import { PublicGuestOrderHelp } from '../../features/order-support/PublicGuestOrderHelp';
 import { useAuth } from '../../contexts/authContext';
 import { FigmaDeliveryExperience } from './FigmaDeliveryExperience';
 import { FigmaCheckoutFlow, type FigmaCheckoutStep } from './FigmaCheckoutFlow';
@@ -20,7 +18,6 @@ import { getCheckoutErrorMessage, useCheckoutPayments } from './hooks/useCheckou
 import { UncertainPaymentResult } from './components/UncertainPaymentResult';
 import { useTableSession } from './hooks/useTableSession';
 import { useTableAccount } from './hooks/useTableAccount';
-import { useActiveOrderNotice } from './hooks/useActiveOrderNotice';
 import { useTableOrderNotice } from './hooks/useTableOrderNotice';
 import { buildHomeData } from '../Home/adapters/homeDataAdapter';
 import { TableAccessGate } from './components/TableAccessGate';
@@ -36,8 +33,6 @@ import {
   validateCheckout,
   type CheckoutPaymentMethod,
 } from './domain/checkout';
-import { ActiveOrderNotice } from './components/ActiveOrderNotice';
-import { LoyaltyProgramCard } from './components/LoyaltyProgramCard';
 import { WhatsAppIcon } from './components/SocialBrandIcons';
 import ordersService from '../../Services/ordersService';
 import waiterCallsService from '../../Services/waiterCallsService';
@@ -143,9 +138,6 @@ export default function Home() {
       document.body.style.overflow = previousOverflow;
     };
   }, [cartOpen]);
-  const [nudgeDismissed, setNudgeDismissed] = useState(false);
-  const customerId = user?.role === 'CLIENTE' ? (user as { id?: number | string }).id : null;
-
   const notify = useCallback(
     (
       type: NotifType,
@@ -224,7 +216,6 @@ export default function Home() {
   const activeTableId =
     routeTableId || (mesaSessionIsActive ? Number(tableSession?.tableId || 0) : 0) || null;
 
-  const { activeOrder, refreshActiveOrder } = useActiveOrderNotice(mesaMode ? null : customerId);
   const { tableOrder, refreshTableOrder } = useTableOrderNotice({
     enabled: mesaMode && mesaSessionIsActive,
     sessionKey: tableSession?.sessionPublicId || tableSession?.sessionId || activeTableId,
@@ -474,8 +465,6 @@ export default function Home() {
       if (mesaMode) {
         await tableAccount.refresh({ silent: true });
         await refreshTableOrder();
-      } else {
-        await refreshActiveOrder();
       }
     },
   });
@@ -639,21 +628,6 @@ export default function Home() {
   );
   const whatsappLabel =
     homeData.brand.whatsappDisplayName || homeData.brand.name || 'Atendimento do restaurante';
-  const showLoginNudge = !user && !mesaMode && !nudgeDismissed && cart.length > 0 && !cartOpen;
-  const loyaltyProgram =
-    mesaMode || (user?.role && !isLoyaltyCustomer)
-      ? undefined
-      : {
-          primaryColor: primary,
-          loading: loyalty.loading,
-          error: loyalty.error,
-          summary: loyalty.summary,
-          loggedIn: isLoyaltyCustomer,
-          redeemingCouponId: loyalty.redeemingCouponId,
-          onLogin: navigateToLogin,
-          onRetry: () => void loyalty.refresh(),
-          onRedeem: (couponId: number) => void loyalty.redeem(couponId),
-        };
   const openMenu = useCallback(() => {
     const menu = document.getElementById('cardapio');
     if (!menu) return;
@@ -1038,11 +1012,7 @@ export default function Home() {
       ) : null}
 
       <HomeFeedback
-        showLoginNudge={showLoginNudge}
-        hasFloatingWhatsapp={Boolean(whatsappUrl)}
         notifications={notifs}
-        onLogin={navigateToLogin}
-        onDismissNudge={() => setNudgeDismissed(true)}
         onDismissNotification={dismissNotif}
         onOpenCart={openHomeCart}
       />
@@ -1064,36 +1034,6 @@ export default function Home() {
           loading={tableServiceLoading}
           onCallWaiter={() => void requestTableService('WAITER')}
         />
-      ) : null}
-      {!mesaMode && (loyaltyProgram || activeOrder || !user) ? (
-        <CustomerActionHub
-          primary={primary}
-          activeOrder={Boolean(activeOrder)}
-          hasWhatsapp={Boolean(whatsappUrl)}
-          aboveNudge={showLoginNudge}
-        >
-          <ActiveOrderNotice
-            embedded
-            primaryColor={primary}
-            order={activeOrder}
-            onTrack={(orderId) => navigate(`/orders/${orderId}/tracking`)}
-            onContinuePayment={(orderPublicId) => {
-              if (!restaurantSlug) return;
-              navigate(`/${restaurantSlug}/pedido/${orderPublicId}/pagamento`);
-            }}
-            onConfirmDelivery={async (orderId) => {
-              await ordersService.confirmDeliveryReceived(orderId);
-              await refreshActiveOrder();
-              notify(
-                'success',
-                'Recebimento confirmado',
-                'A cozinha e o restaurante foram avisados.',
-              );
-            }}
-          />
-          {loyaltyProgram && <LoyaltyProgramCard embedded loyalty={loyaltyProgram} />}
-          {!user && <PublicGuestOrderHelp inline restaurantId={restaurantId} />}
-        </CustomerActionHub>
       ) : null}
     </S.HomeExperience>
   );
