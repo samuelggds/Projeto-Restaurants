@@ -253,7 +253,10 @@ export function PaymentOptions({
           cards.find((card) => card.isDefault) ||
           cards[0];
         setSelectedCardId(preferred?.publicId || '');
-        if (preferred) localStorage.setItem(key, preferred.publicId);
+        if (preferred) {
+          localStorage.setItem(key, preferred.publicId);
+          if (figmaCheckout && paymentMethod === 'pix') onChange('card');
+        }
       })
       .catch(() => {
         if (active) {
@@ -266,6 +269,11 @@ export function PaymentOptions({
       active = false;
     };
   }, [figmaCheckout, loggedIn, paymentMethod, restaurantId]);
+
+  useEffect(() => {
+    if (!figmaCheckout || loggedIn || !allowCard || paymentMethod !== 'pix') return;
+    onChange('card');
+  }, [allowCard, figmaCheckout, loggedIn, onChange, paymentMethod]);
 
   useEffect(() => {
     if (paymentMethod !== 'card') registerCardPreparer(null);
