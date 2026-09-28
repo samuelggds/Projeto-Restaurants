@@ -126,35 +126,22 @@ export function AddressLocationMap({
     'idle',
   );
   const [error, setError] = useState('');
+  const [resolvedAddressKey, setResolvedAddressKey] = useState('');
 
-  const normalized = useMemo(
-    () => normalizedAddress(address),
-    [
-      address.address,
-      address.city,
-      address.district,
-      address.number,
-      address.state,
-      address.zipCode,
-    ],
-  );
+  const normalized = useMemo(() => normalizedAddress(address), [address]);
   const addressKey = useMemo(() => JSON.stringify(normalized), [normalized]);
   const complete = isCompleteAddress(normalized);
+  const canLocate = Boolean(restaurantId && complete);
 
   useEffect(() => {
     const currentRequestId = ++requestIdRef.current;
 
-    if (!restaurantId || !complete) {
-      setLocation(null);
-      setStatus('idle');
-      setError('');
-      return undefined;
-    }
-
-    setStatus('locating');
-    setError('');
+    if (!restaurantId || !complete) return undefined;
 
     const timer = window.setTimeout(() => {
+      setStatus('locating');
+      setError('');
+
       void ordersService
         .getDeliveryAddressLocation({
           restaurantId,
@@ -170,11 +157,13 @@ export function AddressLocationMap({
           ) {
             throw new Error('ADDRESS_NOT_GEOCODED');
           }
+          setResolvedAddressKey(addressKey);
           setLocation(result);
           setStatus('loading-map');
         })
         .catch(() => {
           if (requestIdRef.current !== currentRequestId) return;
+          setResolvedAddressKey(addressKey);
           setLocation(null);
           setStatus('error');
           setError(
@@ -241,18 +230,26 @@ export function AddressLocationMap({
     };
   }, [location]);
 
-  const loading = status === 'locating' || status === 'loading-map';
+  const currentAddressResolved = resolvedAddressKey === addressKey;
+  const visibleLocation = canLocate && currentAddressResolved ? location : null;
+  const visibleStatus = !canLocate
+    ? 'idle'
+    : currentAddressResolved
+      ? status
+      : 'locating';
+  const visibleError = canLocate && currentAddressResolved ? error : '';
+  const loading = visibleStatus === 'locating' || visibleStatus === 'loading-map';
 
   return (
     <S.Root $primary={primaryColor}>
       <S.MapFrame aria-busy={loading}>
         <S.MapCanvas
           ref={containerRef}
-          $visible={Boolean(location)}
+          $visible={Boolean(visibleLocation)}
           aria-label="Mapa Google com a localização do endereço de entrega"
         />
 
-        {status === 'idle' ? (
+        {visibleStatus === 'idle' ? (
           <S.StateOverlay>
             <MapPin aria-hidden="true" />
             <strong>Localização do endereço</strong>
@@ -272,21 +269,23 @@ export function AddressLocationMap({
           </S.StateOverlay>
         ) : null}
 
-        {status === 'error' ? (
+        {visibleStatus === 'error' ? (
           <S.StateOverlay role="alert">
             <MapPinOff aria-hidden="true" />
             <strong>Mapa indisponível</strong>
-            <span>{error}</span>
+            <span>{visibleError}</span>
           </S.StateOverlay>
         ) : null}
       </S.MapFrame>
 
-      {status === 'ready' && location ? (
+      {visibleStatus === 'ready' && visibleLocation ? (
         <S.MapMeta>
           <MapPin aria-hidden="true" />
           <span>
-            <strong>{location.partialMatch ? 'Localização aproximada' : 'Localização encontrada'}</strong>
-            <small>{location.formattedAddress}</small>
+            <strong>
+              {visibleLocation.partialMatch ? 'Localização aproximada' : 'Localização encontrada'}
+            </strong>
+            <small>{visibleLocation.formattedAddress}</small>
           </span>
         </S.MapMeta>
       ) : null}
