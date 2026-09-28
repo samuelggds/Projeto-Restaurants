@@ -55,7 +55,6 @@ export function FigmaCheckoutFlow({
   brandName,
   logoUrl,
   isOpen = true,
-  deliveryTime,
   step,
   cart,
   cartCount,
