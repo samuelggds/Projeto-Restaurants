@@ -119,7 +119,7 @@ export function FigmaCheckoutFlow({
         $primary={primaryColor}
         role="dialog"
         aria-modal="true"
-        aria-label="Meu pedido"
+        aria-label="Finalizar pedido"
       >
         <S.MobileStatusBar aria-hidden="true">
           <strong>9:41</strong>
