@@ -71,7 +71,7 @@ export function CustomerDesktopFooter({
         </span>
         <span className="legal">
           <a href="/privacidade/">Privacidade</a>
-          <a href="/cookies/">Cookies</a>
+          <span>Cookies</span>
         </span>
       </div>
     </Footer>
