@@ -473,56 +473,91 @@ export const RestaurantInfo = styled.section`
 
   @media(max-width:760px){
     min-height:0;
-    padding:16px;
+    padding:18px 16px;
     grid-template-columns:1fr;
     grid-template-areas:
       'address'
-      'phone'
       'hours'
+      'phone'
       'social';
-    gap:12px;
-    border-radius:14px;
+    gap:0;
+    border-radius:16px;
+
+    .info-item,
+    .social-row{
+      min-height:48px;
+      padding:10px 0;
+      align-items:center;
+      gap:12px;
+    }
+
+    .info-item + .info-item,
+    .social-row{
+      border-top:1px solid color-mix(in srgb,var(--delivery-line) 82%,transparent);
+    }
 
     .info-item{
-      align-items:flex-start;
-      gap:8px;
-      font-size:12px;
-      line-height:17px;
+      font-size:13px;
+      line-height:19px;
+    }
+
+    .info-item > span:last-child{
+      min-width:0;
+      overflow-wrap:anywhere;
     }
 
     .info-icon{
-      width:16px;
-      height:16px;
-      flex-basis:16px;
-      margin-top:1px;
+      width:22px;
+      height:22px;
+      flex:0 0 22px;
+      margin-top:0;
     }
 
     .info-icon svg{
-      width:16px;
-      height:16px;
+      width:18px;
+      height:18px;
     }
 
     .social-row{
-      min-height:16px;
-      gap:8px;
+      justify-content:space-between;
     }
 
     .social-label{
-      display:none;
+      display:block;
+      color:var(--delivery-text);
+      font-size:13px;
+      font-weight:600;
+      line-height:19px;
     }
 
     .social{
-      gap:6px;
+      gap:12px;
     }
 
     .social a{
-      width:16px;
-      height:16px;
+      width:28px;
+      height:28px;
+      border-radius:8px;
+      transition:background 160ms ease,transform 160ms ease;
+    }
+
+    .social a:active{
+      transform:scale(.94);
     }
 
     .social a svg{
-      width:16px;
-      height:16px;
+      width:18px;
+      height:18px;
+    }
+
+    @media(prefers-reduced-motion:reduce){
+      .social a{
+        transition:none;
+      }
+
+      .social a:active{
+        transform:none;
+      }
     }
   }
 `;
