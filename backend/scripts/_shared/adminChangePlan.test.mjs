@@ -27,7 +27,7 @@ const promotionInput = {
     restaurantId: null,
     active: true,
     authVersion: 4,
-    mfaEnabled: true,
+    mfaEnabled: false,
     mustChangePassword: true,
   },
   requested: {
@@ -117,7 +117,7 @@ test('proteção impede demover ou desativar o último SUPER_ADMIN ativo', () =>
   );
 });
 
-test('promoção sempre habilita MFA e reset sempre exige troca de senha', () => {
+test('promoção preserva MFA opcional e reset continua exigindo troca de senha', () => {
   const existing = {
     active: false,
     authVersion: 9,
@@ -130,7 +130,7 @@ test('promoção sempre habilita MFA e reset sempre exige troca de senha', () =>
     restaurantId: null,
     active: false,
     authVersion: 10,
-    mfaEnabled: true,
+    mfaEnabled: false,
     mustChangePassword: false,
   });
   assert.equal(
