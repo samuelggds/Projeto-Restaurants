@@ -136,6 +136,10 @@ export function FigmaCheckoutFlow({
     return <>{guestAddressScreen}</>;
   }
 
+  if (step === 'address' && authenticatedAddressScreen) {
+    return <>{authenticatedAddressScreen}</>;
+  }
+
   if (step === 'address' && authenticatedEmptyAddressScreen) {
     return <>{authenticatedEmptyAddressScreen}</>;
   }
