@@ -194,7 +194,11 @@ export default function Register() {
               navigate(loginPath);
               return;
             }
-            login(authResponse.user, authResponse.token);
+            const completedAuth = authResponse as {
+              user: Parameters<typeof login>[0];
+              token: Parameters<typeof login>[1];
+            };
+            login(completedAuth.user, completedAuth.token);
             navigate(destinationAfterGoogle, { replace: true });
           } catch (error) {
             const typed = error as { response?: { data?: { error?: string } }; message?: string };
