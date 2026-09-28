@@ -285,7 +285,7 @@ export default function Home() {
         allowImageFallbacks: false,
         useLegacyBannerCopy: false,
       }),
-    [backendProducts, mesaMode, settings],
+    [backendProducts, settings],
   );
   const homeIsOpen = useMemo(
     () =>
@@ -370,10 +370,6 @@ export default function Home() {
     : (availablePaymentMethods[0] ?? paymentMethod);
   const paymentAvailable = availablePaymentMethods.length > 0;
   const tableAccountEnabled = tableAccount.snapshot?.capabilities.enabled === true;
-  const tableCheckoutUnavailable = Boolean(
-    mesaMode && !tableAccount.loading && !tableAccountEnabled,
-  );
-
   const orderQuote = useOrderQuote({
     restaurantId: checkoutChannelAvailable ? restaurantId : null,
     type: checkoutOrderType,
