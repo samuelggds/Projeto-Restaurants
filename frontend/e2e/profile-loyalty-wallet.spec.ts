@@ -369,7 +369,7 @@ test('cliente consulta cupons válidos, histórico e o novo ciclo no perfil', as
   await page.goto('/profile');
   await page.getByRole('button', { name: /^Meus pedidos/ }).click();
   await expect(page.getByRole('heading', { name: 'Meus Pedidos', exact: true })).toBeVisible();
-  await expect(page.getByText('Pedido 312', { exact: true })).toBeVisible();
+  await expect(page.getByText('Pedido #0312', { exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'Voltar para minha conta' }).click();
 
   await page.getByRole('button', { name: 'Endereços salvos', exact: true }).click();
