@@ -138,6 +138,19 @@ export const Page = styled.div<{
           background:transparent;
         }
 
+        @media(max-width:900px){
+          .product-layout{
+            width:min(720px,calc(100% - 32px));
+            grid-template-columns:minmax(0,1fr);
+            gap:24px;
+          }
+
+          .product-summary > img{
+            width:100%;
+            max-width:100%;
+          }
+        }
+
         @media(max-width:620px){
           .product-layout{
             width:100%;
