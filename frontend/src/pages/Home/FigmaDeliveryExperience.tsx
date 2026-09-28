@@ -12,6 +12,7 @@ import { ComboConfigurator } from './components/ComboConfigurator';
 import { FacebookIcon, InstagramIcon } from './components/SocialBrandIcons';
 import { ProductConfigurator } from './components/ProductConfigurator';
 import { ProductSearchDialog } from './components/ProductSearchDialog';
+import { CustomerDesktopFooter } from './components/CustomerDesktopFooter';
 import { getFeaturedProducts } from './domain/featuredProducts';
 import { buildSocialProfileUrl } from './domain/publicSettings';
 import type { HomePageProps, HomeProduct } from './types';
@@ -43,6 +44,8 @@ function formatHours(data: HomePageProps['data']) {
 export function FigmaDeliveryExperience({
   data,
   cartCount = 0,
+  cart = [],
+  cartTotal = 0,
   initialSearchOpen = false,
   userName,
   userLoggedIn = false,
@@ -317,6 +320,26 @@ export function FigmaDeliveryExperience({
           </S.MenuCategories>
 
           <S.MenuProducts>
+            <S.MenuCategoryBar aria-label="Categorias do cardápio">
+              <button
+                className={categoryId === 'todos' ? 'active' : ''}
+                type="button"
+                onClick={() => setCategoryId('todos')}
+              >
+                Destaques
+              </button>
+              {categories.slice(0, 6).map((category) => (
+                <button
+                  className={categoryId === category.id ? 'active' : ''}
+                  key={category.id}
+                  type="button"
+                  onClick={() => setCategoryId(category.id)}
+                >
+                  {category.name}
+                </button>
+              ))}
+            </S.MenuCategoryBar>
+
             <header>
               <h1>{currentCategory?.name || 'Cardápio'}</h1>
               <p>{menuProducts.length ? `${menuProducts.length} ${menuProducts.length === 1 ? 'item disponível' : 'itens disponíveis'}` : 'Nenhum item disponível nesta categoria.'}</p>
@@ -340,27 +363,38 @@ export function FigmaDeliveryExperience({
           </S.MenuProducts>
 
           <S.MiniCart>
-            <h3>Seu Pedido</h3>
-            <p>{cartCount ? `${cartCount} ${cartCount === 1 ? 'item no carrinho' : 'itens no carrinho'}` : 'Seu carrinho está vazio.'}</p>
+            <h3>Seu Pedido {cartCount ? `(${cartCount} ${cartCount === 1 ? 'item' : 'itens'})` : ''}</h3>
+            {cart.length ? (
+              <>
+                <div className="items">
+                  {cart.map((item) => (
+                    <div className="item" key={item.cartId || item.productId}>
+                      <span>{item.quantity}x {item.name}</span>
+                      <strong>{money(item.price * item.quantity)}</strong>
+                    </div>
+                  ))}
+                </div>
+                <div className="subtotal">
+                  <span>Subtotal</span>
+                  <strong>{money(cartTotal)}</strong>
+                </div>
+              </>
+            ) : (
+              <p>Seu carrinho está vazio.</p>
+            )}
             <button type="button" disabled={!cartCount} onClick={onOpenCart}>Continuar</button>
           </S.MiniCart>
         </S.MenuLayout>
       )}
 
-      <S.Footer>
-        <div className="inner">
-          <div>
-            <div className="brand">{data.brand.name}</div>
-            {data.about ? <p>{data.about}</p> : null}
-          </div>
-          <div><h3>Nossos Links</h3><p><button type="button" onClick={() => setView('menu')}>Cardápio</button></p></div>
-          {data.brand.phone || data.brand.email ? (
-            <div><h3>Suporte</h3><p>{data.brand.phone || data.brand.email}</p></div>
-          ) : null}
-          <div><h3>Sua Loja Segura</h3><p>Cada restaurante é operado diretamente por seu administrador autorizado.</p></div>
-        </div>
-        <div className="bottom"><span>© {new Date().getFullYear()} {data.brand.name}.</span><span>Privacidade · Cookies</span></div>
-      </S.Footer>
+      <CustomerDesktopFooter
+        restaurantName={data.brand.name}
+        description={data.about}
+        primaryColor={primary}
+        phone={data.brand.phone}
+        email={data.brand.email}
+        onMenu={() => setView('menu')}
+      />
 
       <S.MobileSearch type="button" aria-label="Buscar no cardápio" onClick={() => setSearchOpen(true)}>
         <Search />
