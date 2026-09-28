@@ -166,6 +166,8 @@ export function buildProfileData({
         channel,
         publicId: String(order.publicId || ''),
         paymentPending,
+        loyaltyQualified:
+          String(order.status || '').toUpperCase() === 'ENTREGUE' && order.paid === true,
       };
     });
   const addresses: ProfileAddress[] = rawAddresses.map((item) => ({
