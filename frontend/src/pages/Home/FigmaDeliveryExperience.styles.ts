@@ -447,6 +447,12 @@ export const MobileCartFab = styled.button`
     background:var(--delivery-primary);color:#fff;
     box-shadow:0 10px 24px color-mix(in srgb,var(--delivery-primary) 28%, transparent);
     display:grid;place-items:center;
+    touch-action:none;
+    user-select:none;
+    cursor:grab;
+  }
+  @media(max-width:760px){
+    &:active{cursor:grabbing}
   }
   svg{width:24px;height:24px}
   span{
