@@ -1,4 +1,5 @@
 import { ArrowLeft, CheckCircle2, CreditCard, Search, ShoppingBag, UserRound, XCircle } from 'lucide-react';
+import type { CSSProperties } from 'react';
 import styled from 'styled-components';
 import type {
   CardPaymentReturnDetails,
@@ -56,7 +57,7 @@ export function CardPaymentReturnPanel({
     : '';
 
   return (
-    <Page style={{ '--card-primary': primaryColor } as React.CSSProperties}>
+    <Page style={{ '--card-primary': primaryColor } as CSSProperties}>
       <DesktopHeader>
         <div className="brand">
           <span className="logo">
