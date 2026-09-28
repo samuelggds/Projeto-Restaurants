@@ -12,6 +12,7 @@ type Props = {
   onCepLookup: (value: string) => Promise<void>;
   expanded?: boolean;
   figmaGuest?: boolean;
+  figmaAuthenticatedEmpty?: boolean;
 };
 
 export function DeliveryAddressForm(props: Props) {
@@ -51,7 +52,14 @@ export function DeliveryAddressForm(props: Props) {
       </SummaryButton> : null}
 
       {editing || props.expanded ? (
-        <Editor className={props.figmaGuest ? 'figma-guest-address' : ''}>
+        <Editor
+          className={[
+            props.figmaGuest ? 'figma-guest-address' : '',
+            props.figmaAuthenticatedEmpty ? 'figma-auth-empty-address' : '',
+          ]
+            .filter(Boolean)
+            .join(' ')}
+        >
           <div className="editor-heading">
             <div>
               <b>{complete ? 'Alterar endereço' : 'Cadastrar endereço'}</b>
@@ -437,6 +445,61 @@ const Editor = styled.div`
       height: 42px;
       border-radius: 12px;
       background: #fff;
+    }
+  }
+
+  &.figma-auth-empty-address {
+    padding: 0;
+    border: 0;
+    background: transparent;
+  }
+
+  &.figma-auth-empty-address .editor-heading {
+    display: none;
+  }
+
+  &.figma-auth-empty-address ${AddressForm} {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 16px 12px;
+  }
+
+  &.figma-auth-empty-address ${AddressField} > span {
+    color: #1f1e1a;
+    font-size: 13px;
+    font-weight: 600;
+  }
+
+  &.figma-auth-empty-address ${AddressField} input {
+    height: 44px;
+    border-color: #efece6;
+    border-radius: 8px;
+    background: #fff;
+    color: #1f1e1a;
+    font-size: 14px;
+  }
+
+  &.figma-auth-empty-address ${AddressField}.cep-field {
+    grid-column: 1;
+  }
+
+  &.figma-auth-empty-address ${AddressField}.street,
+  &.figma-auth-empty-address ${AddressField}.full {
+    grid-column: 1 / -1;
+  }
+
+  @media (max-width: 760px) {
+    &.figma-auth-empty-address ${AddressForm} {
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+      gap: 12px;
+    }
+
+    &.figma-auth-empty-address ${AddressField}.cep-field {
+      grid-column: 1;
+    }
+
+    &.figma-auth-empty-address ${AddressField}.street,
+    &.figma-auth-empty-address ${AddressField}.full {
+      grid-column: 1 / -1;
     }
   }
 `;
