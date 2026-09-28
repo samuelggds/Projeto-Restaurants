@@ -414,11 +414,9 @@ test('cliente consulta cupons válidos, histórico e o novo ciclo no perfil', as
   await page.setViewportSize({ width: 1280, height: 900 });
   await captureReadmeScreenshot(page, 'customer-profile-coupons.png', { fullPage: true });
 
-  const previousCampaign = visibleProfileContent
-    .locator('article')
-    .filter({ has: visibleProfileContent.getByText('ANTIGO5', { exact: true }) })
-    .filter({ hasText: 'Campanha anterior' })
-    .first();
+  const previousCampaign = antigo5Coupons
+    .filter({ hasText: 'Disponível' })
+    .filter({ hasText: 'Campanha anterior' });
   await expect(previousCampaign).toBeVisible();
   await previousCampaign.getByRole('button', { name: 'Usar Cupom' }).click();
 
