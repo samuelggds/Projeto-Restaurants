@@ -384,13 +384,141 @@ export const ProductCard = styled.article`
 `;
 
 export const RestaurantInfo = styled.section`
- padding:24px;border:1px solid var(--delivery-line);border-radius:16px;background:#fff;display:grid;grid-template-columns:1.2fr .8fr;gap:28px;
- h2{margin:0 0 14px;font-family:'Gabarito','Inter',sans-serif;font-size:22px}
- .rows{display:grid;gap:10px;color:var(--delivery-muted);font-size:13px}
- .row{display:flex;align-items:flex-start;gap:9px}
- .social{display:flex;gap:9px;flex-wrap:wrap}
- .social a{width:38px;height:38px;border:1px solid var(--delivery-line);border-radius:19px;color:var(--delivery-text);display:grid;place-items:center}
- @media(max-width:760px){grid-template-columns:1fr;padding:18px}
+  min-height:120px;
+  padding:24px;
+  border:1px solid var(--delivery-line);
+  border-radius:16px;
+  background:#fff;
+  display:grid;
+  grid-template-columns:minmax(0,1fr) minmax(0,1fr);
+  grid-template-areas:
+    'address phone'
+    'hours social';
+  column-gap:24px;
+  row-gap:24px;
+  align-items:center;
+
+  .address{grid-area:address}
+  .phone{grid-area:phone}
+  .hours{grid-area:hours}
+  .social-row{grid-area:social}
+
+  .info-item{
+    min-width:0;
+    min-height:24px;
+    display:flex;
+    align-items:center;
+    gap:12px;
+    color:var(--delivery-text);
+    font-size:13px;
+    line-height:21px;
+  }
+
+  .info-icon{
+    width:24px;
+    height:24px;
+    flex:0 0 24px;
+    display:grid;
+    place-items:center;
+    color:var(--delivery-primary);
+  }
+
+  .info-icon svg{
+    width:16px;
+    height:16px;
+    stroke-width:2;
+  }
+
+  .social-row{
+    min-width:0;
+    min-height:24px;
+    display:flex;
+    align-items:center;
+    gap:12px;
+  }
+
+  .social-label{
+    color:var(--delivery-text);
+    font-size:13px;
+    line-height:17px;
+    white-space:nowrap;
+  }
+
+  .social{
+    display:flex;
+    align-items:center;
+    gap:8px;
+  }
+
+  .social a{
+    width:24px;
+    height:24px;
+    border:0;
+    border-radius:0;
+    color:var(--delivery-primary);
+    display:grid;
+    place-items:center;
+  }
+
+  .social a svg{
+    width:16px;
+    height:16px;
+  }
+
+  @media(max-width:760px){
+    min-height:0;
+    padding:16px;
+    grid-template-columns:1fr;
+    grid-template-areas:
+      'address'
+      'phone'
+      'hours'
+      'social';
+    gap:12px;
+    border-radius:14px;
+
+    .info-item{
+      align-items:flex-start;
+      gap:8px;
+      font-size:12px;
+      line-height:17px;
+    }
+
+    .info-icon{
+      width:16px;
+      height:16px;
+      flex-basis:16px;
+      margin-top:1px;
+    }
+
+    .info-icon svg{
+      width:16px;
+      height:16px;
+    }
+
+    .social-row{
+      min-height:16px;
+      gap:8px;
+    }
+
+    .social-label{
+      display:none;
+    }
+
+    .social{
+      gap:6px;
+    }
+
+    .social a{
+      width:16px;
+      height:16px;
+    }
+
+    .social a svg{
+      width:16px;
+      height:16px;
+    }
+  }
 `;
 
 export const Footer = styled.footer`
