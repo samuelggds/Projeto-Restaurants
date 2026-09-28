@@ -1,4 +1,5 @@
 import type { CustomerAddress } from '../../Services/customerAddressService';
+import type { CartItem } from './hooks/useCart';
 import type { BusinessHour } from '../admin/types';
 import type { ProductConfiguration, ProductOptionGroup } from './domain/productCustomization';
 import type { HomeFontFamily } from './domain/publicSettings';
@@ -199,6 +200,8 @@ export type HomeData = {
 export type HomePageProps = {
   data: HomeData;
   cartCount?: number;
+  cart?: CartItem[];
+  cartTotal?: number;
   initialSearchOpen?: boolean;
   userName?: string;
   userEmail?: string;
