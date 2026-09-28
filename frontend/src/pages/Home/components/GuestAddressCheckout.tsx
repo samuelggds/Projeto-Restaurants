@@ -14,6 +14,8 @@ type Props = {
   isOpen: boolean;
   deliveryTime?: string;
   cartCount: number;
+  guestName: string;
+  onGuestNameChange: (value: string) => void;
   total: number;
   deliveryFee: number;
   orderType: 'delivery' | 'pickup';
@@ -40,6 +42,8 @@ export function GuestAddressCheckout({
   isOpen,
   deliveryTime,
   cartCount,
+  guestName,
+  onGuestNameChange,
   total,
   deliveryFee,
   orderType,
@@ -133,6 +137,21 @@ export function GuestAddressCheckout({
               <button type="button" onClick={onLogin}>Entrar ou cadastrar-se</button>
             </span>
           </S.LoginCard>
+
+          <S.GuestIdentity>
+            <label htmlFor="guest-order-name">Nome para o pedido</label>
+            <input
+              id="guest-order-name"
+              autoComplete="name"
+              value={guestName}
+              maxLength={80}
+              minLength={2}
+              required
+              placeholder="Como podemos chamar você?"
+              onChange={(event) => onGuestNameChange(event.target.value)}
+            />
+            <small>Usaremos este nome apenas para identificar seu pedido.</small>
+          </S.GuestIdentity>
 
           {orderType === 'delivery' ? (
             <S.AddressCard>
