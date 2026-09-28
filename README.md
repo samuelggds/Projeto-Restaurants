@@ -1,564 +1,515 @@
 <div align="center">
 
-![GastroNexa](frontend/public/gastronexa-logo.svg)
+<img src="frontend/public/gastronexa-logo.svg" alt="GastroNexa" width="190" />
 
 # GastroNexa
 
-### Plataforma SaaS multi-restaurante para pedidos, mesas, cozinha e delivery em tempo real
+### Plataforma SaaS multi-restaurante para pedidos, mesas, cozinha, pagamentos e delivery em tempo real
 
-Do primeiro acesso ao cardápio até a entrega: uma operação integrada para **clientes, administradores, garçons, cozinha, motoqueiros e superadministradores**.
+**Documentação visual completa do fluxo da aplicação — Mobile + Desktop**
 
 [![CI](https://img.shields.io/github/actions/workflow/status/samuelggds/Projeto-Restaurants/ci.yml?branch=main&style=for-the-badge&label=CI&logo=githubactions&logoColor=white)](https://github.com/samuelggds/Projeto-Restaurants/actions/workflows/ci.yml)
-[![TypeScript](https://img.shields.io/badge/TypeScript-full--stack-3178C6?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
-[![React](https://img.shields.io/badge/React_19-Vite-61DAFB?style=for-the-badge&logo=react&logoColor=111827)](https://react.dev/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-Full--Stack-3178C6?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![React](https://img.shields.io/badge/React-Vite-61DAFB?style=for-the-badge&logo=react&logoColor=111827)](https://react.dev/)
 [![Node.js](https://img.shields.io/badge/Node.js-Express-339933?style=for-the-badge&logo=nodedotjs&logoColor=white)](https://nodejs.org/)
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-Prisma-4169E1?style=for-the-badge&logo=postgresql&logoColor=white)](https://www.postgresql.org/)
-[![Playwright](https://img.shields.io/badge/E2E-Playwright-2EAD33?style=for-the-badge&logo=playwright&logoColor=white)](https://playwright.dev/)
-
-<p>
-  <a href="#visão-do-produto">Produto</a> •
-  <a href="#experiência-por-painel">Painéis</a> •
-  <a href="#arquitetura">Arquitetura</a> •
-  <a href="#segurança">Segurança</a> •
-  <a href="#qualidade-e-testes">Testes</a> •
-  <a href="#executando-localmente">Executar</a>
-</p>
 
 </div>
 
 ---
 
-## Visão do produto
+## Sobre o GastroNexa
 
-O **GastroNexa** foi desenvolvido como um produto operacional completo, não apenas como um CRUD. Cada restaurante possui sua identidade, configurações, catálogo, equipe, pedidos e integrações isolados por tenant. A plataforma conecta o atendimento público às áreas internas e mantém todos os perfis trabalhando sobre a mesma fonte de verdade.
+O **GastroNexa** é uma plataforma SaaS multi-restaurante que conecta toda a jornada de compra e operação: descoberta do cardápio, personalização do produto, carrinho, endereço, pagamento, confirmação, rastreamento, conta do cliente, fidelidade e áreas operacionais do restaurante.
 
-| Pilar                      | O que está implementado                                                                  |
-| -------------------------- | ---------------------------------------------------------------------------------------- |
-| **Multi-restaurante**      | Contexto por `restaurantId`, slug público, branding e dados isolados por tenant          |
-| **Venda omnichannel**      | Pedidos de `DELIVERY`, `RETIRADA` e `MESA` com regras próprias                           |
-| **Operação em tempo real** | Socket.IO para pedidos, cozinha, salão, suporte e localização da entrega                 |
-| **Cardápio flexível**      | Categorias, estoque, imagens, grupos de opções, ingredientes e observações               |
-| **Pagamentos**             | Pix, cartão, pagamento na entrega, conta da mesa, webhooks e reconciliação               |
-| **Entrega inteligente**    | Cotação por distância, providers de rota, GPS e acompanhamento do cliente                |
-| **Fidelização**            | Promoções por produto, cupons, carteira e campanhas de compras recorrentes               |
-| **SaaS**                   | Planos, mensalidades, bloqueios financeiros e administração da plataforma                |
-| **Confiabilidade**         | Testes automatizados, auditoria, observabilidade, health checks e CI completo            |
-| **Impressão de cozinha**   | Fila PostgreSQL durável, Print Agent local, 58/80 mm, retry e isolamento por restaurante |
+Este README segue a **mesma ordem visual do arquivo oficial no Figma**. Cada etapa aparece em sequência, com **Mobile e Desktop lado a lado**, setas mostrando o sentido da jornada e uma explicação logo abaixo detalhando o objetivo e o comportamento daquela tela.
 
-### Como os perfis se conectam
-
-```mermaid
-flowchart LR
-    C[Cliente] -->|monta e paga| P[Pedido]
-    A[Administrador] -->|configura e acompanha| P
-    G[Garçom] -->|opera mesas e salão| P
-    P -->|entra na fila| K[Cozinha]
-    K -->|marca como pronto| M[Motoqueiro ou Garçom]
-    M -->|status e GPS| T[Tracking do cliente]
-    S[Superadministrador] -->|planos e governança| A
-```
-
-> As capturas deste README vêm do **frontend React real**, executado pelo Playwright com dados determinísticos. Elas não são mockups desenhados separadamente e podem ser regeneradas pelo workflow `README Screenshots`.
+> As imagens desta documentação foram exportadas diretamente dos frames do Figma do projeto.
 
 ---
 
-# Experiência por painel
+# 🔐 Etapa 1 — Autenticação
 
-## 1. Home e cardápio do cliente
+**Fluxo de login, cadastro e recuperação de senha do usuário**
 
-![Home e cardápio público](docs/assets/screenshots/customer-menu.png)
+<div align="center">
 
-A Home é a vitrine digital de cada restaurante. O slug identifica o tenant, aplica a identidade visual correta e carrega somente produtos e configurações públicas daquele estabelecimento.
+### 1.1 — Login → 1.2 — Cadastro → 1.3 — Recuperar Senha
 
-### O que o cliente encontra
+</div>
 
-- cabeçalho com restaurante, endereço de entrega, horário e sacola;
-- categorias com navegação visual;
-- cards de produtos com preço, disponibilidade e favoritos;
-- montagem de itens com grupos obrigatórios ou opcionais;
-- ingredientes, adicionais, observação e quantidade;
-- campanhas, cupons e fidelidade quando habilitados;
-- escolha entre delivery, retirada ou pedido por mesa;
-- checkout com recálculo de preços no servidor.
+## 1.1 — Login
 
-### O que acontece por trás da interface
+<img src="docs/assets/figma-flow/01-login.png" alt="Login GastroNexa — Mobile e Desktop" width="100%" />
 
-| Etapa             | Garantia do sistema                                                               |
-| ----------------- | --------------------------------------------------------------------------------- |
-| Resolução da loja | O restaurante é localizado pelo slug e o contexto acompanha toda a jornada        |
-| Catálogo          | Produtos, categorias e imagens são filtrados pelo tenant e disponibilidade        |
-| Montagem          | Regras de seleção são validadas novamente no backend                              |
-| Cotação           | Subtotal, descontos, cupom e entrega não dependem do valor enviado pelo navegador |
-| Pedido            | O canal escolhido determina endereço, mesa, pagamento e fluxo operacional         |
+### Detalhes da etapa
 
----
+| Item | Explicação |
+| --- | --- |
+| **Objetivo** | Permitir o acesso de clientes e demais perfis já cadastrados. |
+| **Identificação** | Entrada de e-mail e senha com hierarquia visual simples e direta. |
+| **Recuperação** | O usuário pode iniciar a recuperação de senha sem sair da jornada. |
+| **Cadastro** | Quem ainda não possui conta pode seguir diretamente para criação do perfil. |
+| **Mobile** | O formulário ocupa a área principal e prioriza leitura, toque e rapidez. |
+| **Desktop** | A composição usa o espaço extra para reforçar branding, contexto e organização. |
+| **Próximo passo** | Após autenticação válida, o usuário entra na experiência correspondente à sua conta. |
 
-## 2. Login responsivo — desktop e mobile
+<div align="center"><h2>↓</h2></div>
 
-<table>
-  <tr>
-    <td width="68%" valign="top">
-      <img src="docs/assets/screenshots/login-desktop.png" alt="Login desktop" width="100%" />
-    </td>
-    <td width="32%" valign="top">
-      <img src="docs/assets/screenshots/login-mobile.png" alt="Login mobile" width="100%" />
-    </td>
-  </tr>
-</table>
+## 1.2 — Cadastro
 
-A autenticação preserva a identidade do restaurante em qualquer tamanho de tela. O layout muda de composição no celular, mas mantém o mesmo formulário, feedback e acessibilidade.
+<img src="docs/assets/figma-flow/02-cadastro.png" alt="Cadastro GastroNexa — Mobile e Desktop" width="100%" />
 
-### Recursos da autenticação
+### Detalhes da etapa
 
-- branding dinâmico com nome, descrição, cor e imagem de capa;
-- layout responsivo testado de `320 px` a `1440 px`;
-- login tradicional e integração opcional com Google;
-- controle de visibilidade da senha e opção “lembrar de mim”;
-- recuperação e troca obrigatória de senha;
-- MFA para funções administrativas configuradas;
-- lockout progressivo contra tentativas abusivas;
-- redirecionamento seguro de acordo com o papel autenticado;
-- modo claro/escuro sem duplicar a regra de autenticação.
+| Item | Explicação |
+| --- | --- |
+| **Objetivo** | Criar a identidade do cliente dentro da plataforma. |
+| **Dados pessoais** | Reúne os campos necessários para identificação e relacionamento. |
+| **Credenciais** | Define os dados usados nos próximos acessos. |
+| **Conta** | Depois do cadastro, pedidos, endereços, cupons e fidelidade podem ser vinculados ao mesmo usuário. |
+| **Responsividade** | O conteúdo muda de composição entre telas, mas preserva a mesma ordem funcional. |
+| **Próximo passo** | Depois de concluir o cadastro, o usuário pode autenticar e seguir para a Home. |
 
-### Destino após o login
+<div align="center"><h2>↓</h2></div>
 
-| Papel                  | Área principal                                     |
-| ---------------------- | -------------------------------------------------- |
-| Cliente                | Home ou destino protegido solicitado anteriormente |
-| Administrador          | `/admin`                                           |
-| Funcionário da cozinha | `/kitchen`                                         |
-| Garçom                 | `/waiter`                                          |
-| Motoqueiro             | `/courier`                                         |
-| Superadministrador     | `/super_admin`                                     |
+## 1.3 — Recuperar Senha
+
+<img src="docs/assets/figma-flow/03-recuperar-senha.png" alt="Recuperar senha GastroNexa — Mobile e Desktop" width="100%" />
+
+### Detalhes da etapa
+
+| Item | Explicação |
+| --- | --- |
+| **Objetivo** | Recuperar o acesso à conta sem depender de atendimento manual. |
+| **Solicitação** | O usuário informa a conta associada ao acesso. |
+| **Orientação** | A tela explica o que acontecerá após a solicitação. |
+| **Retorno** | Existe caminho claro para voltar ao login. |
+| **Segurança** | As regras de recuperação e invalidação são aplicadas pelo backend. |
 
 ---
 
-## 3. Painel do administrador
+# 🛒 Etapa 2 — Fluxo de Pedido
 
-![Visão geral do painel administrativo](docs/assets/screenshots/admin-dashboard.png)
+**Navegação completa: da Home até o rastreamento da entrega**
 
-O painel administrativo reúne gestão e operação em uma única experiência. A visão geral apresenta vendas do dia, volume de pedidos, ticket médio, clientes ativos, pedidos recentes e produtos disponíveis.
+<div align="center">
 
-### Áreas do painel
+### 2.1 — Home → 2.2 — Cardápio → 2.3 — Produto
 
-| Área                        | Responsabilidade                                                    |
-| --------------------------- | ------------------------------------------------------------------- |
-| **Visão geral**             | Indicadores do dia, pedidos recentes e disponibilidade do catálogo  |
-| **Pedidos**                 | Busca, filtros, status, pagamento, cancelamento e reembolso         |
-| **Cardápio**                | Produtos, categorias, preços, estoque, imagens e opções de montagem |
-| **Clientes**                | Histórico de consumo, dados públicos e relacionamento               |
-| **Funcionários**            | Convites, funções, ativação e permissões da equipe                  |
-| **Cobranças e assinaturas** | Plano contratado, mensalidade, faturas e regularização              |
-| **Configurações**           | Marca, negócio, endereço, horários, operação e integrações          |
+<h3>↓ continua</h3>
 
-### Configurações disponíveis
+### 2.4 — Carrinho → 2.5 — Endereço → 2.6 — Pagamento
 
-- marca, logotipo, capa e cor principal;
-- razão social, documento e contatos comerciais;
-- endereço e horários de funcionamento;
-- aceite automático, tempo médio e limite de pedidos simultâneos;
-- delivery, retirada, taxa por distância e frete grátis;
-- mesas, QR Codes, chamadas e conta compartilhada;
-- WhatsApp e notificações de status;
-- provedores de Pix e cartão;
-- redes sociais, aparência e SEO;
-- equipe, permissões e segurança.
+<h3>↓ continua</h3>
 
-### Promoções e fidelidade
+### 2.7 — PIX → 2.8 — Confirmado → 2.9 — Rastreamento
 
-<details>
-  <summary><strong>Ver a área completa de descontos e fidelidade</strong></summary>
-  <br />
-  <img src="docs/assets/screenshots/admin-promotions-loyalty.png" alt="Administração de promoções e fidelidade" width="100%" />
-</details>
+</div>
 
-O administrador pode aplicar descontos percentuais ou fixos em produtos, agendar campanhas e criar benefícios liberados após uma quantidade configurável de pedidos pagos e entregues. O cliente acompanha o progresso e usa o benefício elegível no checkout.
+## 2.1 — Home
+
+<img src="docs/assets/figma-flow/04-home.png" alt="Home GastroNexa — Mobile e Desktop" width="100%" />
+
+### Detalhes da etapa
+
+| Item | Explicação |
+| --- | --- |
+| **Identidade do restaurante** | Nome, marca, status de funcionamento e informações principais aparecem no topo. |
+| **Banner** | Área de destaque para comunicação visual, campanhas e ofertas. |
+| **Categorias** | Atalhos visuais reduzem o tempo para encontrar grupos de produtos. |
+| **Mais pedidos** | Produtos populares recebem destaque para acelerar a decisão. |
+| **Carrinho** | O acesso permanece visível e acompanha os itens adicionados. |
+| **Mobile** | A navegação inferior concentra Início, Pedidos e Conta. |
+| **Desktop** | O conteúdo ganha mais área sem mudar a hierarquia do fluxo. |
+
+<div align="center"><h2>→</h2></div>
+
+## 2.2 — Cardápio
+
+<img src="docs/assets/figma-flow/05-cardapio.png" alt="Cardápio GastroNexa — Mobile e Desktop" width="100%" />
+
+### Detalhes da etapa
+
+| Item | Explicação |
+| --- | --- |
+| **Categorias** | Filtros visuais organizam destaques, combos, hambúrgueres, pizzas, bebidas e outros grupos. |
+| **Produtos** | Cada item apresenta imagem, nome, descrição resumida e preço. |
+| **Busca** | O usuário pode localizar um item específico pelo nome. |
+| **Disponibilidade** | Produtos podem refletir estado ativo, estoque e configuração do restaurante. |
+| **Próximo passo** | A seleção de um item abre a tela de produto e personalização. |
+
+<div align="center"><h2>→</h2></div>
+
+## 2.3 — Produto
+
+<img src="docs/assets/figma-flow/06-produto.png" alt="Produto GastroNexa — Mobile e Desktop" width="100%" />
+
+### Detalhes da etapa
+
+| Item | Explicação |
+| --- | --- |
+| **Apresentação** | Imagem, nome, descrição e preço contextualizam a escolha. |
+| **Personalização** | Grupos obrigatórios e opcionais podem receber adicionais e complementos. |
+| **Observações** | O cliente consegue enviar instruções específicas para o preparo. |
+| **Quantidade** | O total acompanha a quantidade selecionada. |
+| **Validação** | As regras de seleção também são conferidas pelo backend. |
+| **Próximo passo** | O item configurado é adicionado ao carrinho. |
+
+<div align="center"><h2>↓ continua</h2></div>
+
+## 2.4 — Carrinho
+
+<img src="docs/assets/figma-flow/07-carrinho.png" alt="Carrinho GastroNexa — Mobile e Desktop" width="100%" />
+
+### Detalhes da etapa
+
+| Item | Explicação |
+| --- | --- |
+| **Resumo** | Exibe os produtos adicionados, quantidades, personalizações e valores. |
+| **Revisão** | O usuário pode conferir o pedido antes de iniciar o checkout. |
+| **Totais** | Organiza subtotal e demais valores da compra. |
+| **Edição** | Permite revisar a composição antes de confirmar a próxima etapa. |
+| **Próximo passo** | O fluxo avança para endereço ou modalidade de entrega. |
+
+<div align="center"><h2>→</h2></div>
+
+## 2.5 — Endereço
+
+<img src="docs/assets/figma-flow/08-endereco.png" alt="Endereço GastroNexa — Mobile e Desktop" width="100%" />
+
+### Detalhes da etapa
+
+| Item | Explicação |
+| --- | --- |
+| **Destino** | Define o local onde o pedido será entregue. |
+| **Complemento** | Informações adicionais ajudam na localização correta. |
+| **Endereços salvos** | Usuários autenticados podem reutilizar locais cadastrados. |
+| **Cotação** | Distância e regras do restaurante podem afetar taxa e disponibilidade. |
+| **Próximo passo** | Com o endereço validado, o usuário segue para pagamento. |
+
+<div align="center"><h2>→</h2></div>
+
+## 2.6 — Pagamento
+
+<img src="docs/assets/figma-flow/09-pagamento.png" alt="Pagamento GastroNexa — Mobile e Desktop" width="100%" />
+
+### Detalhes da etapa
+
+| Item | Explicação |
+| --- | --- |
+| **Métodos** | Mostra os meios de pagamento habilitados para aquele restaurante. |
+| **Resumo financeiro** | Mantém o total visível antes da confirmação. |
+| **Backend** | A cobrança é criada e validada no servidor. |
+| **Segurança** | O valor final não depende apenas dos números enviados pelo navegador. |
+| **Próximo passo** | Pagamentos instantâneos, como PIX, seguem para uma tela própria. |
+
+<div align="center"><h2>↓ continua</h2></div>
+
+## 2.7 — PIX
+
+<img src="docs/assets/figma-flow/10-pix.png" alt="PIX GastroNexa — Mobile e Desktop" width="100%" />
+
+### Detalhes da etapa
+
+| Item | Explicação |
+| --- | --- |
+| **QR Code** | Permite pagar usando o aplicativo do banco. |
+| **Copia e cola** | Oferece alternativa ao escaneamento. |
+| **Status** | A interface aguarda confirmação do pagamento. |
+| **Reconciliação** | Webhook e consultas ao provedor mantêm o estado financeiro consistente. |
+| **Próximo passo** | Pagamento confirmado leva à tela de pedido confirmado. |
+
+<div align="center"><h2>→</h2></div>
+
+## 2.8 — Confirmado
+
+<img src="docs/assets/figma-flow/11-confirmado.png" alt="Pedido confirmado GastroNexa — Mobile e Desktop" width="100%" />
+
+### Detalhes da etapa
+
+| Item | Explicação |
+| --- | --- |
+| **Confirmação visual** | Deixa claro que o pedido foi criado com sucesso. |
+| **Identificação** | Exibe os dados principais para o cliente reconhecer a compra. |
+| **Status** | Informa que o restaurante recebeu a solicitação. |
+| **Continuidade** | Delivery pode seguir diretamente para a tela de acompanhamento. |
+
+<div align="center"><h2>→</h2></div>
+
+## 2.9 — Rastreamento
+
+<img src="docs/assets/figma-flow/12-rastreamento.png" alt="Rastreamento GastroNexa — Mobile e Desktop" width="100%" />
+
+### Detalhes da etapa
+
+| Item | Explicação |
+| --- | --- |
+| **Mapa** | Mostra a posição da entrega e o destino do cliente. |
+| **Progresso** | A timeline indica preparo, pronto, saída para entrega e conclusão. |
+| **GPS** | A localização autorizada do entregador pode ser transmitida enquanto a entrega estiver ativa. |
+| **Chat em tempo real** | A comunicação acontece dentro da plataforma, sem depender de WhatsApp no fluxo principal. |
+| **Persistência** | Eventos realtime atualizam a UI, mas o backend continua sendo a fonte de verdade. |
 
 ---
 
-## 4. Painel do garçom
+# 🏠 Variações da Home
 
-![Painel operacional do garçom](docs/assets/screenshots/waiter-dashboard.png)
+**Estados alternativos da tela inicial: sem banner, sem categorias e versão mínima**
 
-O painel do garçom prioriza o que precisa de atenção no salão. A interface separa a operação diária das configurações administrativas para que o funcionário execute somente ações compatíveis com sua função. No celular, as cinco áreas operacionais ficam na navegação inferior, sem menu lateral sobre o conteúdo.
+<div align="center">
 
-<details>
-  <summary><strong>Ver pagamentos e versão móvel</strong></summary>
-  <br />
-  <img src="docs/assets/screenshots/waiter-payments.png" alt="Fila de pagamentos presenciais do garçom" width="100%" />
-  <br /><br />
-  <img src="docs/assets/screenshots/waiter-mobile.png" alt="Painel do garçom em celular com navegação inferior" width="390" />
-</details>
+### Sem Banner → Sem Categorias → Mínima
 
-### Visão geral do salão
+</div>
 
-- pedidos prontos aguardando entrega à mesa;
-- chamados ainda não assumidos;
-- quantidade de mesas ocupadas;
-- observações importantes, como talheres ou atendimento especial;
-- mesas abertas, horário de abertura e valor atual da conta;
-- recebimentos presenciais aguardando conferência.
+## Home sem Banner
 
-### Fluxos disponíveis
+<img src="docs/assets/figma-flow/13-home-sem-banner.png" alt="Home sem banner — Mobile e Desktop" width="100%" />
 
-| Seção                | Ações principais                                                        |
-| -------------------- | ----------------------------------------------------------------------- |
-| **Para entregar**    | Filtrar pedidos prontos, conferir mesa e marcar entrega ao cliente      |
-| **Mesas e QR Codes** | Abrir/fechar sessão e consultar estado operacional; o QR fica no admin  |
-| **Chamados**         | Assumir, acompanhar e concluir solicitações de garçom ou conta          |
-| **Pagamentos**       | Conferir saldos e confirmar dinheiro ou maquininha já recebidos         |
-| **Conta da mesa**    | Consultar histórico, pagamentos automáticos e auditoria de recebimentos |
+Quando o restaurante não utiliza banner promocional, o bloco é removido sem deixar espaço vazio. As seções seguintes sobem naturalmente e preservam o ritmo visual.
 
-O QR Code só libera pedidos enquanto a sessão da mesa estiver válida. O fechamento respeita pedidos, pagamentos e saldo pendentes, reduzindo divergências entre o salão e o sistema.
+<div align="center"><h2>→</h2></div>
+
+## Home sem Categorias
+
+<img src="docs/assets/figma-flow/14-home-sem-categorias.png" alt="Home sem categorias — Mobile e Desktop" width="100%" />
+
+Quando não há categorias suficientes para justificar a navegação horizontal, a página simplifica o caminho e prioriza produtos e destaques.
+
+<div align="center"><h2>→</h2></div>
+
+## Home Mínima
+
+<img src="docs/assets/figma-flow/15-home-minima.png" alt="Home mínima — Mobile e Desktop" width="100%" />
+
+A versão mínima mantém apenas os elementos essenciais para restaurantes com configuração reduzida, evitando componentes vazios e preservando a consistência visual.
 
 ---
 
-## 5. Painel da cozinha
+# 👤 Etapa 3 — Conta & Configurações
 
-![Fila operacional da cozinha](docs/assets/screenshots/kitchen-dashboard.png)
+**Perfil do usuário, pedidos, endereços, pagamentos, cupons, ajuda, fidelidade e configurações**
 
-A cozinha recebe uma fila visual pensada para produção. Cada pedido preserva canal, mesa ou entrega, quantidades, montagem, adicionais e observações exatamente como foram confirmados.
+<div align="center">
 
-<details>
-  <summary><strong>Ver visão geral e operação móvel</strong></summary>
-  <br />
-  <img src="docs/assets/screenshots/kitchen-overview.png" alt="Visão geral do turno da cozinha" width="100%" />
-  <br /><br />
-  <img src="docs/assets/screenshots/kitchen-mobile.png" alt="Fila da cozinha em celular com navegação inferior" width="390" />
-</details>
+### 3.1 — Minha Conta → 3.2 — Meus Pedidos → 3.3 — Endereços Salvos
 
-### Organização da fila
+<h3>↓ continua</h3>
 
-- colunas simultâneas de **Pendente**, **Preparando** e **Pronto**;
-- filtros por mesa, retirada e delivery;
-- busca por pedido, produto, ingrediente ou mesa;
-- separação entre fila atual, pedidos prontos e histórico;
-- atualização manual, automática e por eventos em tempo real;
-- tempo de espera destacado para priorização operacional.
+### 3.4 — Métodos de Pagamento → 3.5 — Cupons & Promoções → 3.6 — Ajuda & Suporte
 
-### Ciclo do pedido na cozinha
+<h3>↓ continua</h3>
 
-```mermaid
-stateDiagram-v2
-    [*] --> Pendente
-    Pendente --> Preparando: Iniciar preparo
-    Preparando --> Pronto: Marcar como pronto
-    Pronto --> Entregue: Garçom ou motoqueiro
-    Pendente --> Cancelado
-    Preparando --> Cancelado: regra autorizada
-```
+### 3.7 — Configurações → 3.8 — Fidelidade → 3.9 — Cupons Resgate
 
-Preços de adicionais não são usados como distração na tela operacional: a cozinha recebe o que deve preparar, enquanto regras financeiras permanecem nas áreas apropriadas.
+</div>
+
+## 3.1 — Minha Conta
+
+<img src="docs/assets/figma-flow/16-minha-conta.png" alt="Minha conta GastroNexa — Mobile e Desktop" width="100%" />
+
+### Detalhes da etapa
+
+A área de conta funciona como o hub pessoal do cliente. Ela conecta histórico de pedidos, endereços, pagamentos, cupons, fidelidade, suporte e preferências em uma única experiência.
+
+<div align="center"><h2>→</h2></div>
+
+## 3.2 — Meus Pedidos
+
+<img src="docs/assets/figma-flow/17-meus-pedidos.png" alt="Meus pedidos GastroNexa — Mobile e Desktop" width="100%" />
+
+### Detalhes da etapa
+
+Pedidos ativos e histórico são apresentados com contexto suficiente para o cliente reconhecer restaurante, valor, momento da compra e estado atual. Pedidos elegíveis podem abrir detalhes ou rastreamento.
+
+<div align="center"><h2>→</h2></div>
+
+## 3.3 — Endereços Salvos
+
+<img src="docs/assets/figma-flow/18-enderecos-salvos.png" alt="Endereços salvos GastroNexa — Mobile e Desktop" width="100%" />
+
+### Detalhes da etapa
+
+Permite cadastrar, editar e reutilizar endereços, reduzindo digitação no checkout e mantendo o destino ligado à conta do usuário.
+
+<div align="center"><h2>↓ continua</h2></div>
+
+## 3.4 — Métodos de Pagamento
+
+<img src="docs/assets/figma-flow/19-metodos-pagamento.png" alt="Métodos de pagamento GastroNexa — Mobile e Desktop" width="100%" />
+
+### Detalhes da etapa
+
+Organiza as referências de pagamento disponíveis para a conta. Quando o provedor suporta tokenização, a plataforma trabalha com referências seguras em vez de armazenar dados sensíveis completos.
+
+<div align="center"><h2>→</h2></div>
+
+## 3.5 — Cupons & Promoções
+
+<img src="docs/assets/figma-flow/20-cupons-promocoes.png" alt="Cupons e promoções GastroNexa — Mobile e Desktop" width="100%" />
+
+### Detalhes da etapa
+
+Reúne benefícios disponíveis, condições de uso e histórico. A experiência diferencia claramente cupons ativos, utilizados e expirados.
+
+<div align="center"><h2>→</h2></div>
+
+## 3.6 — Ajuda & Suporte
+
+<img src="docs/assets/figma-flow/21-ajuda-suporte.png" alt="Ajuda e suporte GastroNexa — Mobile e Desktop" width="100%" />
+
+### Detalhes da etapa
+
+Concentra dúvidas frequentes e acesso ao suporte. Fluxos ligados ao pedido podem permanecer dentro da plataforma para preservar contexto e histórico.
+
+<div align="center"><h2>↓ continua</h2></div>
+
+## 3.7 — Configurações
+
+<img src="docs/assets/figma-flow/22-configuracoes.png" alt="Configurações GastroNexa — Mobile e Desktop" width="100%" />
+
+### Detalhes da etapa
+
+Reúne preferências de experiência, privacidade e segurança. Alterações sensíveis continuam sujeitas às validações do backend.
+
+<div align="center"><h2>→</h2></div>
+
+## 3.8 — Fidelidade
+
+<img src="docs/assets/figma-flow/23-fidelidade.png" alt="Fidelidade GastroNexa — Mobile e Desktop" width="100%" />
+
+### Detalhes da etapa
+
+Mostra o progresso do cliente em campanhas de recorrência, o benefício esperado e a situação atual até o próximo resgate.
+
+<div align="center"><h2>→</h2></div>
+
+## 3.9 — Cupons Resgate
+
+<img src="docs/assets/figma-flow/24-cupons-resgate.png" alt="Resgate de cupons GastroNexa — Mobile e Desktop" width="100%" />
+
+### Detalhes da etapa
+
+Transforma recompensas elegíveis em benefícios utilizáveis e diferencia cupons disponíveis, resgatados e já utilizados.
 
 ---
 
-## 6. Painel do motoqueiro
+# 🔑 MFA — Verificação em Duas Etapas
 
-![Painel operacional do motoqueiro](docs/assets/screenshots/courier-dashboard.png)
+**Tela de verificação por código para segurança adicional**
 
-O painel do motoqueiro acompanha todo o turno: retirada, entrega ativa, rota, histórico e perfil. Somente pedidos de delivery pertencentes ao restaurante correto podem aparecer na fila.
+## Verificação MFA
 
-### Recursos da entrega
+<img src="docs/assets/figma-flow/25-mfa.png" alt="MFA GastroNexa — Mobile e Desktop" width="100%" />
 
-- lista de pedidos prontos para retirada;
-- endereço, ponto de referência e contato do cliente;
-- itens, montagem e observações do pedido;
-- confirmação de retirada antes de iniciar a rota;
-- geolocalização autorizada somente durante a entrega;
-- mapa com posição atual, destino e trajeto estimado;
-- código de confirmação para concluir a entrega;
-- interrupção do compartilhamento de GPS após a finalização;
-- histórico e resumo financeiro do entregador.
+### Detalhes da etapa
 
-### Privacidade e isolamento
-
-O backend valida conta ativa, papel, entregador atribuído, tenant e estado do pedido antes de aceitar posições. Eventos de localização são enviados apenas às salas autorizadas do pedido, do cliente e da administração daquele restaurante.
+| Item | Explicação |
+| --- | --- |
+| **Uso** | O MFA é opcional por conta. |
+| **Código** | Quando habilitado, o login exige uma confirmação adicional. |
+| **Validade** | O desafio possui expiração e limite de tentativas. |
+| **Preferência** | Contas que não habilitaram MFA continuam usando o fluxo normal. |
+| **Alteração** | Ativação e desativação exigem validação da conta. |
 
 ---
 
-## 7. Acompanhamento da entrega pelo cliente
+# 📜 Termos de Serviço & Política de Privacidade
 
-![Rastreamento da entrega](docs/assets/screenshots/delivery-tracking.png)
+**Páginas legais obrigatórias: termos de uso e política de privacidade (LGPD)**
 
-O cliente acompanha o próprio pedido com status, nome do entregador, contato, última posição válida e estimativa de chegada. Socket.IO acelera a atualização da tela, enquanto o estado persistido no backend continua sendo a fonte confiável.
+## Termos de Serviço
+
+<img src="docs/assets/figma-flow/26-termos-servico.png" alt="Termos de serviço GastroNexa — Mobile e Desktop" width="100%" />
+
+### Detalhes da etapa
+
+A página organiza as regras de uso da plataforma em leitura contínua no mobile e em uma estrutura documental mais ampla no desktop, mantendo a identidade visual do produto.
+
+<div align="center"><h2>→</h2></div>
+
+## Política de Privacidade
+
+<img src="docs/assets/figma-flow/27-politica-privacidade.png" alt="Política de privacidade GastroNexa — Mobile e Desktop" width="100%" />
+
+### Detalhes da etapa
+
+Apresenta de forma organizada dados coletados, finalidade de uso, compartilhamento, armazenamento, cookies, direitos previstos na LGPD e contato do encarregado de proteção de dados.
 
 ---
 
-## 8. Superadministração da plataforma
+# Fluxo operacional do produto
 
-O superadministrador trabalha em uma experiência separada da operação dos restaurantes. Essa camada gerencia a própria plataforma SaaS e possui proteções adicionais.
+<div align="center">
 
-- cadastro e acompanhamento de restaurantes;
-- catálogo de planos e funcionalidades;
-- faturas e situação financeira dos tenants;
-- manutenção e disponibilidade global;
-- suporte de plataforma separado do suporte interno do restaurante;
-- promoção e administração de contas com MFA obrigatório;
-- auditoria de alterações sensíveis e proteção do último `SUPER_ADMIN` ativo.
+**Cliente → Pedido → Cozinha → Pronto → Entrega → Rastreamento**
 
----
+</div>
 
-# Jornadas principais
-
-## Delivery
-
-![Jornada do pedido](docs/assets/order-journey.svg)
-
-1. O cliente acessa o slug do restaurante.
-2. A API entrega identidade, catálogo e capacidades públicas do tenant.
-3. O cliente monta os itens e informa endereço ou retirada.
-4. O servidor recalcula produtos, adicionais, descontos, cupom e entrega.
-5. O pagamento segue o provider configurado ou a regra de pagamento na entrega.
-6. A cozinha recebe o pedido e atualiza seu estado.
-7. O motoqueiro confirma a retirada e compartilha localização autorizada.
-8. O cliente acompanha a rota até a confirmação da entrega.
-9. O pedido concluído alimenta histórico e progresso de fidelidade.
-
-## Mesa por QR Code
-
-1. O administrador cadastra a mesa e disponibiliza seu QR Code.
-2. O garçom abre uma sessão operacional.
-3. O cliente entra no contexto da mesa sem precisar criar uma conta para pedir.
-4. Os participantes adicionam itens usando o mesmo catálogo do restaurante.
-5. O pedido chega à cozinha identificado como `MESA`.
-6. Chamados de garçom e conta aparecem em tempo real no salão.
-7. A conta organiza itens e pagamentos por participante.
-8. O fechamento só ocorre quando as regras financeiras e operacionais permitem.
-
-## Pagamento e confirmação
-
-1. O frontend solicita uma cotação ao backend.
-2. O backend valida tenant, valores, método e provider.
-3. A cobrança é criada com idempotência.
-4. Webhook ou reconciliação confirma o estado externo.
-5. Pedido e pagamento avançam por transições explícitas.
-6. Cancelamentos elegíveis acionam o fluxo de reembolso.
+| Perfil | Responsabilidade |
+| --- | --- |
+| **Cliente** | Descoberta, compra, pagamento, conta, fidelidade e acompanhamento. |
+| **Administrador** | Cardápio, pedidos, clientes, equipe, operação, integrações e configurações. |
+| **Cozinha** | Fila operacional e avanço do preparo. |
+| **Garçom** | Mesas, chamados, entrega ao salão e recebimentos presenciais autorizados. |
+| **Motoqueiro** | Retirada, rota, localização e conclusão da entrega. |
+| **Superadministrador** | Restaurantes, planos, cobrança SaaS e governança da plataforma. |
 
 ---
 
 # Arquitetura
 
-```mermaid
-flowchart TB
-    subgraph Frontend[React + Vite]
-      Public[Home e perfil do cliente]
-      Ops[Painéis operacionais]
-      Admin[Painéis administrativos]
-    end
-
-    subgraph Backend[Express + TypeScript]
-      HTTP[API REST]
-      Realtime[Socket.IO]
-      Jobs[Worker e jobs duráveis]
-      Domain[Serviços e regras de domínio]
-    end
-
-    DB[(PostgreSQL + Prisma)]
-    Payments[Gateways de pagamento]
-    Routing[Geocoding e rotas]
-    Observability[Logs, Sentry e alertas]
-
-    Public --> HTTP
-    Ops --> HTTP
-    Admin --> HTTP
-    Public <--> Realtime
-    Ops <--> Realtime
-    Admin <--> Realtime
-    HTTP --> Domain
-    Realtime --> Domain
-    Jobs --> Domain
-    Domain --> DB
-    Domain --> Payments
-    Domain --> Routing
-    Backend --> Observability
-```
-
-## Organização do backend
-
-```text
-backend/src/modules/<feature>/
-├── controllers/        entrada HTTP e respostas
-├── services/           casos de uso e coordenação
-├── repositories/       persistência e consultas
-├── providers/          gateways e integrações externas
-├── domain/             regras puras, contratos e estados
-└── routes/             endpoints e middlewares
-```
-
-O backend concentra as regras que não podem depender do navegador: autorização, tenant, preços, pagamentos, transições de pedido, mesa, entrega e auditoria.
-
-## Organização do frontend
-
-```text
-frontend/src/pages/<feature>/
-├── components/         interface específica da área
-├── hooks/              estado, efeitos e sincronização
-├── domain/             regras puras testáveis
-├── adapters/           API → modelo de apresentação
-├── styles.ts           estilos isolados por experiência
-└── types.ts            contratos locais
-```
-
-Mais detalhes estão em [ARCHITECTURE.md](ARCHITECTURE.md).
+| Camada | Tecnologias e responsabilidades |
+| --- | --- |
+| **Frontend** | React, Vite, TypeScript, React Router, Styled Components, Axios e Lucide. |
+| **Backend** | Node.js, Express, TypeScript, Prisma e Socket.IO. |
+| **Banco** | PostgreSQL com migrations Prisma. |
+| **Tempo real** | Pedidos, cozinha, mesas, suporte, tracking e eventos operacionais. |
+| **Mapas** | Leaflet, Geolocation API e providers de roteamento. |
+| **Qualidade** | Vitest, Node Test Runner, Playwright, ESLint, Prettier e TypeScript. |
+| **Infraestrutura** | Docker Compose, proxy reverso e configuração por ambiente. |
 
 ## Multi-tenancy
 
-O isolamento não depende de esconder botões no frontend. Rotas privadas resolvem o tenant permitido a partir da sessão autenticada, e repositórios aplicam esse contexto nas consultas e alterações.
-
-O modelo de ameaça, as invariantes, as superfícies revisadas e a matriz de testes estão documentados em [SECURITY_MULTI_TENANT_AUDIT.md](docs/SECURITY_MULTI_TENANT_AUDIT.md).
-
-Os controles recentes, a ativação de backups externos, o exercício de recuperação e a conciliação protegida de créditos de IA estão em [Segurança operacional de produção](docs/production-security-hardening.md).
-
-```mermaid
-sequenceDiagram
-    participant U as Usuário
-    participant F as Frontend
-    participant A as API
-    participant D as PostgreSQL
-
-    U->>F: executa ação no restaurante A
-    F->>A: token + payload
-    A->>A: autentica papel e resolve restaurantId
-    A->>D: operação limitada ao tenant A
-    D-->>A: dados autorizados
-    A-->>F: resposta segura
-```
+Cada restaurante possui contexto próprio de dados e configuração. O isolamento é aplicado no backend usando o tenant autorizado para limitar leitura e escrita das operações privadas.
 
 ## Tempo real
 
-Eventos são usados onde atualização imediata agrega valor:
-
-- mudança de status de pedido;
-- fila da cozinha;
-- chamados e mesas do salão;
-- painel administrativo;
-- tracking da entrega;
-- suporte interno e de plataforma.
-
-O realtime não substitui a persistência. Ao reconectar ou receber um evento importante, a interface pode reconciliar o estado com a API.
-
----
-
-# Pagamentos, rotas e integrações
-
-## Pagamentos
-
-A camada de providers evita acoplar todo o produto a um único gateway. **Mercado Pago** é o gateway ativo para Pix QR Code e cartão; **Open Finance** usa a Efí para iniciação de pagamento real, com escolha do banco e autorização no ambiente da instituição. **Asaas e Pagar.me** permanecem estruturados para ativação futura após cadastro empresarial/CNPJ.
-
-- webhooks validados;
-- idempotência de cobrança e processamento;
-- reconciliação automática;
-- Pix e cartão online;
-- pagamento presencial em dinheiro ou maquininha;
-- conta e divisão de pagamento por mesa;
-- reembolso e estados de falha explícitos;
-- credenciais criptografadas e externas ao repositório;
-- cartões salvos somente por referência segura do provider, bandeira e últimos dígitos.
-
-## Distância, taxa e GPS
-
-- a cotação de delivery é calculada no servidor;
-- regras podem usar faixas de distância e frete grátis;
-- providers de roteamento são configuráveis;
-- o projeto suporta Geoapify e infraestrutura própria com OSRM/Nominatim;
-- posições são validadas e possuem retenção configurável;
-- o compartilhamento termina quando a entrega deixa de estar ativa.
-
-## Automação e IA
-
-O projeto possui áreas para importação de cardápio, suporte assistido e melhoria controlada de imagens. Recursos de IA permanecem opcionais, possuem limites de uso e não substituem regras determinísticas de segurança ou cobrança.
+Socket.IO é usado onde atualização imediata melhora a operação, incluindo mudanças de pedido, cozinha, mesas, chamados, suporte e localização de entrega.
 
 ---
 
 # Segurança
 
-A segurança é aplicada em camadas e coberta por testes de comportamento.
+O projeto aplica segurança em múltiplas camadas:
 
-| Camada          | Proteções principais                                                                |
-| --------------- | ----------------------------------------------------------------------------------- |
-| **Sessão**      | Access token curto, refresh rotativo, cookie `HttpOnly` e revogação por versão      |
-| **Credenciais** | Política forte, bcrypt, recuperação controlada e troca obrigatória                  |
-| **MFA**         | Obrigatório para papéis configurados, desafios com expiração e limite de tentativas |
-| **Autorização** | Papel, subpapel, conta ativa, tenant e recurso verificados no backend               |
-| **Abuso**       | Rate limiting, lockout progressivo e limites específicos por fluxo                  |
-| **HTTP**        | Helmet, CORS restrito, proteção cross-site e limites de payload                     |
-| **Pagamentos**  | Assinatura, idempotência, conferência de valor/moeda/provider e reconciliação       |
-| **Telemetria**  | Redação de tokens, PII, credenciais, query strings e stacks sensíveis               |
-| **Produção**    | Validação de ambiente, HTTPS, segredos independentes e fingerprint do banco         |
+- autenticação com access token e refresh controlado;
+- autorização por papel, conta, tenant e recurso;
+- MFA opcional por conta;
+- rate limiting e lockout de autenticação;
+- Helmet, CORS e validação de payload;
+- idempotência e validação de pagamentos;
+- proteção de segredos por variáveis de ambiente;
+- auditoria e testes para isolamento multi-tenant.
 
-Nunca versione `.env`, tokens, senhas, chaves privadas ou credenciais dos gateways. Utilize os arquivos `.example` apenas como contrato de configuração.
-
----
-
-# Stack técnica
-
-| Camada          | Tecnologias                                                                 |
-| --------------- | --------------------------------------------------------------------------- |
-| Frontend        | React 19, Vite, TypeScript, React Router, Styled Components, Axios e Lucide |
-| Backend         | Node.js, Express 5, TypeScript, Prisma e Socket.IO                          |
-| Banco           | PostgreSQL + migrations Prisma                                              |
-| Mapas           | Leaflet, Geolocation API e providers de routing                             |
-| Qualidade       | Vitest, Node Test Runner, Playwright, ESLint, Prettier e TypeScript         |
-| Observabilidade | Sentry, request IDs, logs estruturados, health/readiness e alertas          |
-| Infraestrutura  | Docker Compose, Caddy/Nginx e configurações por ambiente                    |
+> Nunca versione arquivos de ambiente, chaves privadas, tokens ou credenciais de gateways.
 
 ---
 
 # Qualidade e testes
 
-A estratégia é testar cada comportamento na menor camada capaz de detectar seu risco real.
+O monorepo possui validações automatizadas para backend, frontend e agentes operacionais.
 
-## Testes unitários
+**CI completo**
 
-Cobrem cálculos, normalizações, validações, regras de domínio, adapters, estados e componentes isolados.
+    npm run ci
 
-## Testes de integração
+Esse comando cobre validação arquitetural, Prisma, lint, typecheck, testes, auditoria, build e orçamento de bundle.
 
-Cobrem fronteiras entre autenticação, tenant, repositórios, pagamentos, pedidos, mesas, workers e middlewares.
+**Jornadas críticas E2E**
 
-## Testes E2E
-
-Cobrem jornadas completas por papel:
-
-- autenticação e responsividade;
-- autorização de rotas;
-- QR Code e sessão da mesa;
-- montagem de produtos;
-- cozinha e customizações;
-- salão e chamados do garçom;
-- operação e GPS do motoqueiro;
-- descontos e fidelidade;
-- administração da plataforma.
-
-```bash
-npm run test:e2e:critical
-```
-
-## CI local
-
-```bash
-npm run ci
-```
-
-Esse comando valida:
-
-1. limites arquiteturais;
-2. catálogo de scripts operacionais;
-3. schema Prisma;
-4. lint sem warnings;
-5. typecheck backend e frontend;
-6. testes backend e frontend;
-7. auditoria de vulnerabilidades;
-8. build de produção;
-9. orçamento de bundle.
-
-Em uma instalação limpa:
-
-```bash
-npm run ci:clean
-```
-
-Consulte também [TESTING.md](TESTING.md).
+    npm run test:e2e:critical
 
 ---
 
@@ -566,144 +517,80 @@ Consulte também [TESTING.md](TESTING.md).
 
 ## Pré-requisitos
 
-- Node.js 22 ou versão compatível com o projeto;
+- Node.js compatível com o projeto;
 - npm;
 - PostgreSQL;
-- Docker/Docker Compose para os serviços opcionais em containers.
+- Docker/Docker Compose quando necessário.
 
-## 1. Configure o ambiente
+## Instalação
 
-Use [backend/.env.example](backend/.env.example) e [frontend/.env.example](frontend/.env.example) como referência. Crie arquivos locais ignorados pelo Git e substitua somente as variáveis necessárias para desenvolvimento.
+    npm --prefix backend ci
+    npm --prefix backend run db:generate
+    npm --prefix frontend ci
 
-## 2. Instale as dependências
+## Banco de dados
 
-```bash
-npm --prefix backend ci
-npm --prefix backend run db:generate
-npm --prefix frontend ci
-```
+    npm --prefix backend run db:validate
+    npm --prefix backend run db:migrate:dev
+    npm --prefix backend run db:seed
 
-## 3. Prepare o banco
+## Desenvolvimento
 
-```bash
-npm --prefix backend run db:validate
-npm --prefix backend run db:migrate:dev
-npm --prefix backend run db:seed
-```
+Backend:
 
-> Antes de migrations ou scripts administrativos, confirme que `DATABASE_URL` aponta para o banco de desenvolvimento esperado.
+    npm --prefix backend run dev
 
-## 4. Inicie a aplicação
+Frontend:
 
-Em dois terminais:
+    npm --prefix frontend run dev
 
-```bash
-npm --prefix backend run dev
-```
-
-```bash
-npm --prefix frontend run dev
-```
-
-| Serviço    | URL padrão                     |
-| ---------- | ------------------------------ |
-| Frontend   | `http://localhost:5173`        |
-| Backend    | `http://localhost:3000`        |
-| Health     | `http://localhost:3000/health` |
-| Readiness  | `http://localhost:3000/ready`  |
-| PostgreSQL | `localhost:5432`               |
-
-> Não execute ao mesmo tempo dois backends publicando a porta `3000`. No Windows, um processo antigo nessa porta também pode manter o binário do Prisma bloqueado.
-
-## Comandos úteis
-
-| Comando                              | Finalidade                                     |
-| ------------------------------------ | ---------------------------------------------- |
-| `npm run ci`                         | Validação completa sem reinstalar dependências |
-| `npm run ci:clean`                   | Instalação limpa + validação completa          |
-| `npm run lint`                       | ESLint backend e frontend                      |
-| `npm run typecheck`                  | TypeScript backend e frontend                  |
-| `npm run test`                       | Todos os testes unitários e de integração      |
-| `npm run test:e2e:critical`          | Jornadas E2E críticas                          |
-| `npm run build`                      | Builds de produção + relatório de tamanho      |
-| `npm run check:bundle`               | Orçamento máximo dos chunks                    |
-| `npm --prefix backend run db:studio` | Abre o Prisma Studio                           |
-
----
-
-# Docker, deploy e operação
-
-O repositório separa ambientes locais, roteamento e produção. Antes de publicar, consulte:
-
-- [Arquitetura](ARCHITECTURE.md)
-- [Estratégia de testes](TESTING.md)
-- [Deploy e rollback](DEPLOY.md)
-- [Supabase + Prisma](SUPABASE_SETUP.md)
-- [Routing/GPS local](ROUTING_GPS_SETUP.md)
-- [Routing em produção](ROUTING_PRODUCTION.md)
-- [Checklist para 100 restaurantes](INFRA_CHECKLIST_100_RESTAURANTS.md)
-- [Teste de carga](LOAD_TEST_100_RESTAURANTS.md)
-- [Critérios de go-live](GO_LIVE_CRITERIA_100_RESTAURANTS.md)
-- [Impressão operacional da cozinha](docs/kitchen-printing.md)
-- [Motor genérico de configuração de produtos](docs/generic-product-builder.md)
+| Serviço | Endereço padrão |
+| --- | --- |
+| Frontend | http://localhost:5173 |
+| Backend | http://localhost:3000 |
+| Health | http://localhost:3000/health |
+| Readiness | http://localhost:3000/ready |
+| PostgreSQL | localhost:5432 |
 
 ---
 
 # Estrutura do repositório
 
-```text
-.
-├── backend/
-│   ├── prisma/                    schema e migrations
-│   ├── scripts/                   rotinas operacionais protegidas
-│   └── src/modules/               domínios e funcionalidades da API
-├── frontend/
-│   ├── e2e/                       jornadas Playwright e fixtures do README
-│   └── src/
-│       ├── pages/                 experiências por perfil
-│       ├── Services/              clientes HTTP
-│       ├── contexts/              autenticação e estado global
-│       ├── routes/                composição e autorização de rotas
-│       └── modules/features/      módulos compartilhados
-├── print-agent/                   agente local e transporte do spooler Windows
-├── docs/assets/                   diagramas e capturas reais
-├── scripts/                       gates de qualidade do monorepo
-├── deploy/                        proxy, HTTPS e arquivos operacionais
-├── .github/workflows/             CI e atualização das capturas
-├── ARCHITECTURE.md
-├── TESTING.md
-└── DEPLOY.md
-```
+    .
+    ├── backend/
+    │   ├── prisma/
+    │   ├── scripts/
+    │   └── src/modules/
+    ├── frontend/
+    │   ├── e2e/
+    │   └── src/
+    │       ├── pages/
+    │       ├── Services/
+    │       ├── contexts/
+    │       └── routes/
+    ├── print-agent/
+    ├── docs/
+    │   └── assets/
+    │       └── figma-flow/
+    ├── scripts/
+    ├── deploy/
+    ├── .github/workflows/
+    ├── ARCHITECTURE.md
+    ├── TESTING.md
+    └── DEPLOY.md
 
 ---
 
-# Capturas reproduzíveis do README
+# Documentação complementar
 
-As imagens dos painéis são geradas a partir dos E2E e ficam em `docs/assets/screenshots/`. Para regenerá-las localmente:
-
-```bash
-cd frontend
-```
-
-PowerShell:
-
-```powershell
-$env:CAPTURE_README_SCREENSHOTS='true'
-npx playwright test e2e/login-mobile-responsive.spec.ts e2e/admin-promotions.spec.ts e2e/waiter-operations.spec.ts e2e/kitchen-order-customizations.spec.ts e2e/courier-operations.spec.ts e2e/readme-real-ui.spec.ts
-```
-
-O workflow [README Screenshots](.github/workflows/readme-screenshots.yml) executa o mesmo processo em PRs para `main` e após o merge quando o código do frontend, E2E, fixtures, dependências, configuração do Playwright/Vite ou o próprio workflow mudam; também pode ser iniciado manualmente em Actions. Após uma execução bem-sucedida, as PNGs ficam no artefato `readme-screenshots-<commit>` por 30 dias, com link no resumo da execução. Para atualizar as imagens versionadas, extraia as PNGs em `docs/assets/screenshots/` numa branch, revise as capturas e abra um PR para `main`, aguardando `Full Root CI Validation`. A automação usa acesso de leitura ao repositório e preserva a proteção da `main`. Se a captura falhar, os traces e screenshots de diagnóstico disponíveis ficam em um artefato separado por 7 dias.
-
----
-
-# Roadmap técnico
-
-- [x] Eventos e rate limit compartilhados entre APIs por PostgreSQL, com WebSocket e teste local de 120 restaurantes; veja [evidências e limites de escala](docs/security-and-scale-implementation.md);
-- [ ] contrato OpenAPI versionado;
-- [ ] catálogo formal dos eventos realtime;
-- [ ] tracing distribuído e métricas operacionais avançadas;
-- [ ] ambientes efêmeros de preview por pull request;
-- [ ] aplicativo móvel dedicado para tracking em segundo plano.
+- [Arquitetura](ARCHITECTURE.md)
+- [Estratégia de testes](TESTING.md)
+- [Deploy e rollback](DEPLOY.md)
+- [Supabase + Prisma](SUPABASE_SETUP.md)
+- [Routing / GPS local](ROUTING_GPS_SETUP.md)
+- [Routing em produção](ROUTING_PRODUCTION.md)
+- [Segurança multi-tenant](docs/SECURITY_MULTI_TENANT_AUDIT.md)
+- [Impressão da cozinha](docs/kitchen-printing.md)
 
 ---
 
@@ -711,10 +598,8 @@ O workflow [README Screenshots](.github/workflows/readme-screenshots.yml) execut
 
 Desenvolvido por **Samuel Gomes**.
 
-[![GitHub](https://img.shields.io/badge/GitHub-samuelggds-181717?style=for-the-badge&logo=github)](https://github.com/samuelggds)
-
----
-
 <div align="center">
-  <strong>GastroNexa — tecnologia conectando cardápio, operação e entrega.</strong>
+
+**GastroNexa — tecnologia conectando cardápio, operação e entrega.**
+
 </div>
