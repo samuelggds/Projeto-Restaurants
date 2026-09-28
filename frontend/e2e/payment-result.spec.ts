@@ -276,7 +276,7 @@ test('retorno cancel do provedor respeita o pagamento aprovado pelo pedido', asy
   await expect(page.getByRole('heading', { name: 'Pagamento Aprovado!' })).toBeVisible();
   await expect(paymentResult(page, 'CANCELED')).toHaveCount(0);
   await page.getByRole('button', { name: /Acompanhar Entrega|Continuar para Rastreamento/ }).click();
-  await expect(page).toHaveURL(new RegExp(`/${RESTAURANT_SLUG}$`));
+  await expect(page).toHaveURL(/\/orders\/501\/tracking$/);
 });
 
 test('cartão cancelado mostra X vermelho sem atribuir uma recusa ao banco', async ({
@@ -297,7 +297,9 @@ test('cartão cancelado mostra X vermelho sem atribuir uma recusa ao banco', asy
   for (const width of [1280, 360, 320]) {
     await page.setViewportSize({ width, height: 844 });
     await expectNoHorizontalOverflow(page);
-    await expect(canceled.getByRole('button', { name: /Acompanhar Entrega|Continuar para Rastreamento/ })).toBeInViewport();
+    await expect(
+      canceled.getByRole('button', { name: /Voltar ao pagamento|Voltar ao Pagamento/ }),
+    ).toBeInViewport();
     if (width !== 320) {
       await page.screenshot({
         path: testInfo.outputPath(
@@ -325,11 +327,9 @@ test('falha de consulta do cartão permite verificar de novo sem anunciar recusa
   const state = await mockPaymentApi(page, { cardUnavailable: true });
   await openCardReturn(page);
   const unavailable = paymentResult(page, 'ERROR');
-  await expect(
-    unavailable.getByRole('heading', { name: 'Não foi possível verificar' }),
-  ).toBeVisible();
-  await expect(unavailable).toContainText('Isso não significa que ele foi recusado');
-  await expect(unavailable.getByRole('status').locator('svg.lucide-x')).toHaveCount(0);
+  await expect(unavailable).toContainText('Não conseguimos concluir o pagamento neste momento');
+  await expect(unavailable.getByRole('heading', { name: 'Pagamento cancelado' })).toHaveCount(0);
+  await expect(unavailable.getByRole('status')).toHaveCount(0);
   await expect(unavailable).not.toContainText('Internal provider trace');
 
   await pauseBeforePaymentResult(page);
@@ -350,6 +350,7 @@ test('Pix aguarda aprovação e pedido pago antes do sucesso, que remove QR Code
   const state = await mockPaymentApi(page);
   await page.setViewportSize({ width: 360, height: 844 });
   await startPixCheckout(page);
+  await page.clock.runFor(1_000);
   await expect.poll(() => state.pixReads).toBeGreaterThan(0);
   await pauseBeforePaymentResult(page);
   await expect(page.getByRole('button', { name: 'Copiar código Pix' })).toBeVisible();
