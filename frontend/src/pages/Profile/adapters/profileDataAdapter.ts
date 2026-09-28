@@ -75,6 +75,8 @@ export function buildProfileData({
 }: Input): ProfileData {
   const restaurant = (settings?.restaurant as Record<string, unknown>) ?? {};
   const restaurantName = String(restaurant.name || '');
+  const averageDeliveryTime = Math.max(0, Number(settings?.averageDeliveryTime || 0));
+  const restaurantOpen = settings?.isOpenForOrders !== false;
   const brand = {
     name: String(restaurantName || settings?.restaurantName || profileMockData.brand.name),
     monogram: createRestaurantMonogram(restaurantName || settings?.restaurantName),
@@ -87,6 +89,12 @@ export function buildProfileData({
     description: String(
       restaurant.description || settings?.restaurantDescription || settings?.description || '',
     ),
+    status: [
+      restaurantOpen ? 'Aberto agora' : 'Fechado agora',
+      averageDeliveryTime > 0 ? averageDeliveryTime + ' min' : '',
+    ]
+      .filter(Boolean)
+      .join(' · '),
   };
   const fullName = String(user?.name || '');
   const defaultAddress = rawAddresses.find((item) => Boolean(item.isDefault)) || rawAddresses[0];
@@ -118,9 +126,10 @@ export function buildProfileData({
     mainAddress,
     favoriteCount: favorites.length,
   };
-  const activeRaw = orders.find((order) =>
+  const activeRawOrders = orders.filter((order) =>
     ACTIVE_STATUSES.has(String(order.status || '').toUpperCase()),
   );
+  const activeRaw = activeRawOrders[0];
   const activeOrder = activeRaw
     ? (() => {
         const channel = getProfileOrderChannel(activeRaw);
@@ -198,6 +207,7 @@ export function buildProfileData({
     brand,
     user: profileUser,
     activeOrder,
+    activeOrderCount: activeRawOrders.length,
     recentOrders,
     addresses,
     favorites: profileFavorites,
