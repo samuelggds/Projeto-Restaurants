@@ -3,6 +3,8 @@ import {
   Clock3,
   MapPin,
   Phone,
+  Home,
+  List,
   Search,
   ShoppingBag,
   UserRound,
@@ -50,6 +52,7 @@ export function FigmaDeliveryExperience({
   userName,
   userLoggedIn = false,
   onOpenProfile,
+  onOpenOrders,
   onOpenCart,
   onAddProduct,
   onSelectCategory,
@@ -151,6 +154,10 @@ export function FigmaDeliveryExperience({
         <button className="search" type="button" onClick={() => setSearchOpen(true)}>
           <Search aria-hidden="true" />
           <span>Buscar no cardápio de {data.brand.name}...</span>
+        </button>
+
+        <button className="mobile-header-search" type="button" aria-label="Buscar no cardápio" onClick={() => setSearchOpen(true)}>
+          <Search aria-hidden="true" />
         </button>
 
         <div className="actions">
@@ -386,6 +393,30 @@ export function FigmaDeliveryExperience({
         </S.MenuLayout>
       )}
 
+      <S.MobileCartFab
+        type="button"
+        aria-label={`Meu Carrinho, ${cartCount} ${cartCount === 1 ? 'item' : 'itens'}`}
+        onClick={onOpenCart}
+      >
+        <ShoppingBag aria-hidden="true" />
+        {cartCount > 0 ? <span>{cartCount}</span> : null}
+      </S.MobileCartFab>
+
+      <S.MobileBottomNav aria-label="Navegação principal">
+        <button className="active" type="button" onClick={() => setView('home')}>
+          <Home aria-hidden="true" />
+          <span>Início</span>
+        </button>
+        <button type="button" onClick={onOpenOrders}>
+          <List aria-hidden="true" />
+          <span>Pedidos</span>
+        </button>
+        <button type="button" onClick={onOpenProfile}>
+          <UserRound aria-hidden="true" />
+          <span>Conta</span>
+        </button>
+      </S.MobileBottomNav>
+
       <CustomerDesktopFooter
         restaurantName={data.brand.name}
         description={data.about}
@@ -395,9 +426,6 @@ export function FigmaDeliveryExperience({
         onMenu={() => setView('menu')}
       />
 
-      <S.MobileSearch type="button" aria-label="Buscar no cardápio" onClick={() => setSearchOpen(true)}>
-        <Search />
-      </S.MobileSearch>
 
       <ProductSearchDialog
         open={searchOpen}
