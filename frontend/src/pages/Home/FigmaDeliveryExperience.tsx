@@ -256,7 +256,7 @@ export function FigmaDeliveryExperience({
   };
 
   return (
-    <S.Page $primary={primary}>
+    <S.Page $primary={primary} className={selectedProduct ? 'product-open' : undefined}>
       <S.Header>
         <div className="header-left">
           {selectedProduct ? (
