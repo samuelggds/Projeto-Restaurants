@@ -383,8 +383,10 @@ test('cliente vê promoção, aplica benefício de fidelidade e envia o resgate 
   await expect(pixOption).toBeVisible();
   await pixOption.click();
   await checkout.getByRole('button', { name: 'Confirmar Pagamento', exact: true }).click();
-  await expect(page.getByText('Pagamento PIX', { exact: true })).toBeVisible();
-  await expect(page.getByText('R$ 36,00')).toBeVisible();
+  const pixScreen = page.locator('main[data-payment-method="pix"]');
+  await expect(pixScreen).toBeVisible();
+  await expect(pixScreen).toContainText('Pagamento PIX');
+  await expect(pixScreen).toContainText('R$ 36,00');
   const paidPix = page.locator('main[data-status="PAID"][data-payment-method="pix"]');
   await expect(paidPix).toBeVisible();
   await expect(
