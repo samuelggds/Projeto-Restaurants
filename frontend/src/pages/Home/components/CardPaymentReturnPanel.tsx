@@ -16,7 +16,6 @@ type Props = {
   restaurantOpen?: boolean;
   deliveryTime?: string;
   details?: CardPaymentReturnDetails | null;
-  orderLabel?: string;
   amount?: string;
   onVerify: () => void | Promise<unknown>;
   onClose: () => void;
@@ -34,7 +33,6 @@ export function CardPaymentReturnPanel({
   restaurantOpen = true,
   deliveryTime,
   details,
-  orderLabel,
   amount,
   onVerify,
   onClose,
