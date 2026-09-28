@@ -1,16 +1,20 @@
 import styled from 'styled-components';
 
-export const Page = styled.div<{ $primary: string }>`
+export const Page = styled.div<{
+  $primary: string;
+  $embedded?: boolean;
+  $customerPageVariant?: boolean;
+}>`
   --config-primary: ${({ $primary }) => $primary || '#d64d08'};
-  position: fixed;
-  inset: 0;
-  z-index: 600;
+  position: ${({ $embedded }) => ($embedded ? 'relative' : 'fixed')};
+  inset: ${({ $embedded }) => ($embedded ? 'auto' : '0')};
+  z-index: ${({ $embedded }) => ($embedded ? '1' : '600')};
   width: 100%;
   min-width: 0;
-  height: 100dvh;
-  min-height: 100svh;
+  height: ${({ $embedded }) => ($embedded ? 'auto' : '100dvh')};
+  min-height: ${({ $embedded }) => ($embedded ? '0' : '100svh')};
   overflow-x: hidden;
-  overflow-y: auto;
+  overflow-y: ${({ $embedded }) => ($embedded ? 'visible' : 'auto')};
   -webkit-overflow-scrolling: touch;
   overscroll-behavior: contain;
   scroll-padding-top: calc(90px + env(safe-area-inset-top, 0px));
@@ -32,8 +36,217 @@ export const Page = styled.div<{ $primary: string }>`
   }
 
   @supports not (height: 100dvh) {
-    height: 100vh;
+    height: ${({ $embedded }) => ($embedded ? 'auto' : '100vh')};
   }
+
+  ${({ $customerPageVariant }) =>
+    $customerPageVariant
+      ? `
+        background:#fdfcf9;
+
+        ${Header}{display:none}
+
+        ${Layout}{
+          width:min(1120px,calc(100% - 48px));
+          margin:0 auto;
+          padding:40px 0 80px;
+          grid-template-columns:536px 536px;
+          gap:48px;
+          align-items:start;
+        }
+
+        ${ProductSummary}{
+          position:relative;
+          top:auto;
+          overflow:visible;
+          border:0;
+          border-radius:0;
+          background:transparent;
+          box-shadow:none;
+        }
+
+        ${ProductSummary} > img{
+          width:536px;
+          height:360px;
+          border-radius:16px;
+          object-fit:cover;
+        }
+
+        ${ProductSummary} > div{display:none}
+
+        ${ProductBack}{
+          display:none;
+        }
+
+        ${Form}{
+          padding:28px;
+          gap:24px;
+          border:1px solid #ece7e1;
+          border-radius:16px;
+          background:#fff;
+          box-shadow:0 6px 24px rgba(0,0,0,.04);
+        }
+
+        ${DesktopProductDetails}{
+          padding:0 0 24px;
+          border:0;
+          border-bottom:1px solid #ece7e1;
+          border-radius:0;
+          gap:12px;
+        }
+
+        ${Group}{
+          padding:0 0 24px;
+          border-width:0 0 1px;
+          border-radius:0;
+          box-shadow:none;
+        }
+
+        ${GroupHeader}{
+          margin-bottom:12px;
+        }
+
+        ${OptionList}{
+          grid-template-columns:1fr;
+          gap:8px;
+        }
+
+        ${Option}{
+          min-height:45px;
+          border-radius:8px;
+        }
+
+        ${Option} > label{
+          min-height:45px;
+          padding:10px 14px;
+        }
+
+        ${Observation}{
+          padding:0;
+          border:0;
+          border-radius:0;
+        }
+
+        ${Observation} textarea{
+          min-height:44px;
+          resize:none;
+        }
+
+        ${BottomBar}{
+          margin:0;
+          padding:0;
+          border:0;
+          border-radius:0;
+          box-shadow:none;
+          background:transparent;
+        }
+
+        @media(max-width:620px){
+          ${Layout}{
+            width:100%;
+            padding:0;
+            display:block;
+          }
+
+          ${ProductSummary}{
+            position:relative;
+          }
+
+          ${ProductSummary} > img{
+            width:100%;
+            height:220px;
+            border-radius:0;
+          }
+
+          ${ProductBack}{
+            display:grid;
+            top:14px;
+            left:16px;
+          }
+
+          ${Form}{
+            padding:0 0 82px;
+            gap:0;
+            border:0;
+            border-radius:0;
+            box-shadow:none;
+          }
+
+          ${DesktopProductDetails}{
+            padding:20px 20px 18px;
+            border-bottom:1px solid #eee7e1;
+          }
+
+          ${DesktopProductDetails} h1{
+            font-size:24px;
+          }
+
+          ${DesktopProductDetails} p{
+            font-size:14px;
+            line-height:1.45;
+          }
+
+          ${DesktopProductDetails} strong{
+            font-size:18px;
+          }
+
+          ${Group}{
+            padding:20px;
+          }
+
+          ${GroupHeader}{
+            margin-bottom:12px;
+          }
+
+          ${Badge}{
+            padding:4px 7px;
+            background:#f3f0ec;
+            color:#756d65;
+          }
+
+          ${OptionList}{
+            gap:8px;
+          }
+
+          ${Option}{
+            min-height:44px;
+          }
+
+          ${Option} > label{
+            min-height:44px;
+            padding:9px 12px;
+          }
+
+          ${Observation}{
+            padding:20px;
+            border-bottom:1px solid #eee7e1;
+          }
+
+          ${Observation} textarea{
+            min-height:44px;
+          }
+
+          ${BottomBar}{
+            position:sticky;
+            bottom:0;
+            z-index:5;
+            padding:12px 20px calc(12px + env(safe-area-inset-bottom));
+            border-top:1px solid #ece7e1;
+            background:#fff;
+            box-shadow:0 -8px 20px rgba(0,0,0,.06);
+          }
+
+          ${ProductQuantity}{
+            flex:0 0 auto;
+          }
+
+          ${BottomBar} > button{
+            min-height:46px;
+            border-radius:10px;
+          }
+        }
+      `
+      : ''}
 `;
 
 export const Header = styled.header`
