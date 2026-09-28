@@ -2,7 +2,6 @@ import { useEffect, useRef, useState, type ReactNode } from 'react';
 import {
   ArrowLeft,
   BatteryFull,
-  Search,
   ShoppingBag,
   Signal,
   Ticket,
@@ -44,6 +43,7 @@ type Props = {
   onRemove?: (cartId: string) => void;
   onClear: () => void;
   onClose: () => void;
+  onLogin: () => void;
   onSubmit: () => void;
 };
 
@@ -76,6 +76,7 @@ export function FigmaCheckoutFlow({
   onRemove,
   onClear,
   onClose,
+  onLogin,
   onSubmit,
 }: Props) {
   const layerRef = useRef<HTMLDivElement>(null);
@@ -174,13 +175,8 @@ export function FigmaCheckoutFlow({
             </span>
           </button>
 
-          <div className="search" aria-label="Buscar no cardápio">
-            <Search aria-hidden="true" />
-            <span>Buscar no cardápio do {brandName.split(' ')[0]}...</span>
-          </div>
-
           <div className="actions">
-            <button className="account" type="button">
+            <button className="account" type="button" onClick={onLogin}>
               <UserRound aria-hidden="true" />
               <span>Olá, Entrar</span>
             </button>
