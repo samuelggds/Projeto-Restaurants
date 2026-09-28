@@ -19,7 +19,6 @@ import { useTableOrderNotice } from './hooks/useTableOrderNotice';
 import { buildHomeData } from '../Home/adapters/homeDataAdapter';
 import { TableAccessGate } from './components/TableAccessGate';
 import { PaymentOptions } from '../Home/components/PaymentOptions';
-import type { GuestCheckoutDetails } from '../Home/components/GuestCheckoutForm';
 import { LoyaltyCouponPanel } from '../Home/components/LoyaltyCouponPanel';
 import { ProductConfigurator } from '../Home/components/ProductConfigurator';
 import { ComboConfigurator } from '../Home/components/ComboConfigurator';
@@ -53,6 +52,12 @@ import { useCardPaymentReturn } from './hooks/useCardPaymentReturn';
 import { buildLoginUrl } from '../../shared/navigation/authNavigation';
 import TableMenuExperience from '../digital-menu/TableMenuExperience';
 import type { HomeProduct } from './types';
+
+type GuestCheckoutDetails = {
+  name: string;
+  cpf?: string;
+  phone?: string;
+};
 
 type NotifType = 'success' | 'error' | 'info' | 'warning';
 type HomeNavigationState = {
