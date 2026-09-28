@@ -981,6 +981,7 @@ export default function Home() {
             !user ? (
               <GuestAddressCheckout
                 primaryColor={primary}
+                restaurantId={restaurantId}
                 brandName={homeData.brand.name}
                 logoUrl={homeData.brand.logoUrl}
                 isOpen={homeData.isOpen}
@@ -1017,6 +1018,7 @@ export default function Home() {
             savedAddresses.length === 0 ? (
               <AuthenticatedEmptyAddressCheckout
                 primaryColor={primary}
+                restaurantId={restaurantId}
                 brandName={homeData.brand.name}
                 logoUrl={homeData.brand.logoUrl}
                 userName={String((user as Record<string, unknown>).name || '')}
@@ -1073,6 +1075,7 @@ export default function Home() {
             savedAddresses.length > 0 ? (
               <AuthenticatedAddressCheckout
                 primaryColor={primary}
+                restaurantId={restaurantId}
                 brandName={homeData.brand.name}
                 logoUrl={homeData.brand.logoUrl}
                 userName={String((user as Record<string, unknown>).name || 'Cliente').split(' ')[0]}
