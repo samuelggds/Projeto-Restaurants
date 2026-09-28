@@ -1,30 +1,24 @@
-import { useEffect, useRef, useState } from 'react';
-import { PasswordVisibilityField } from '../../components/PasswordVisibilityField/PasswordVisibilityField';
+import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { toast } from 'react-toastify';
-import { ThemeProvider } from 'styled-components';
-import { ArrowRight, KeyRound, LockKeyhole, Mail, Moon, Phone, Sun } from 'lucide-react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
 import authService from '../../Services/authService';
 import {
   evaluatePassword,
-  PasswordRequirements,
   STANDARD_PASSWORD_POLICY,
 } from '../../features/password-policy';
-import * as S from './styles';
-import { useResendCooldown } from './hooks/useResendCooldown';
-import { ResendCodeButton } from './components/ResendCodeButton';
-import { useRestaurantLoginBranding } from '../Login/hooks/useRestaurantLoginBranding';
-import { TenantBrandHero } from '../Login/components/TenantBrandHero';
-import { buildAuthEntryUrl, resolveAuthExperience } from '../../shared/navigation/authNavigation';
 import {
-  getRestaurantCategoryLabel,
-  getRestaurantLoginVisual,
-} from '../../config/restaurantCategory';
-import { getAccessibleBrandColor, getReadableTextColor } from '../Login/domain/loginBranding';
+  buildAuthEntryUrl,
+  getRememberedAuthReturnPath,
+  getSafeAuthSearchParams,
+} from '../../shared/navigation/authNavigation';
 import {
   executePhoneCaptcha,
   IDENTITY_PLATFORM_PHONE_RECAPTCHA_ACTION,
 } from '../../modules/auth/phoneCaptcha';
+import { useRestaurantLoginBranding } from '../Login/hooks/useRestaurantLoginBranding';
+import { getRestaurantSlugFromAuthPath } from '../Login/domain/loginPortal';
+import { useResendCooldown } from './hooks/useResendCooldown';
+import { CustomerRecoveryExperience } from './CustomerRecoveryExperience';
 
 type ContactMethod = 'email' | 'phone';
 
@@ -35,16 +29,32 @@ const RESET_PASSWORD_ERROR_MESSAGE =
 
 export default function RecoverPassword() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [searchParams] = useSearchParams();
-  const branding = useRestaurantLoginBranding(searchParams);
-  const authExperience = resolveAuthExperience(searchParams);
-  const loginPath = buildAuthEntryUrl('/login', searchParams);
-  const registerPath = buildAuthEntryUrl('/register', searchParams);
-  const isTableContext = authExperience.context === 'TABLE';
-  const tableLabel = authExperience.tableNumber ? `Mesa ${authExperience.tableNumber}` : 'sua mesa';
-  const [isDarkMode, setIsDarkMode] = useState(false);
+  const pathSlug = getRestaurantSlugFromAuthPath(location.pathname);
+  const searchReference = searchParams.toString();
+
+  const contextualSearchParams = useMemo(() => {
+    const params = new URLSearchParams(searchReference);
+    if (pathSlug) {
+      if (!params.has('slug') && !params.has('restaurantSlug')) params.set('slug', pathSlug);
+      if (!params.has('next')) {
+        params.set('next', getRememberedAuthReturnPath(pathSlug) || `/${pathSlug}`);
+      }
+    }
+    return params;
+  }, [pathSlug, searchReference]);
+
+  const canonicalSearch = getSafeAuthSearchParams(contextualSearchParams).toString();
+  const branding = useRestaurantLoginBranding(contextualSearchParams);
+  const loginPath = pathSlug
+    ? `/${pathSlug}/login${canonicalSearch ? `?${canonicalSearch}` : ''}`
+    : buildAuthEntryUrl('/login', contextualSearchParams);
+
   const [step, setStep] = useState<'request' | 'reset'>('request');
-  const [contactMethod, setContactMethod] = useState<ContactMethod>('email');
+  const [contactMethod, setContactMethod] = useState<ContactMethod>(
+    () => (searchParams.get('method') === 'sms' ? 'phone' : 'email'),
+  );
   const [identifier, setIdentifier] = useState('');
   const [smsChallengeId, setSmsChallengeId] = useState('');
   const [phoneAuth, setPhoneAuth] = useState<{ enabled: boolean; siteKey: string | null }>({
@@ -56,26 +66,13 @@ export default function RecoverPassword() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const requestPending = useRef(false);
-  const { deadline, remainingSeconds, remainingMilliseconds, canRequest, startCooldown } =
-    useResendCooldown();
+  const { remainingSeconds, canRequest, startCooldown } = useResendCooldown();
+
   const passwordEvaluation = evaluatePassword(
     newPassword,
     confirmPassword,
     STANDARD_PASSWORD_POLICY,
   );
-  const passwordHasError =
-    newPassword.length > 0 &&
-    passwordEvaluation.requirements.some(
-      (requirement) => requirement.id !== 'confirmation' && !requirement.met,
-    );
-  const confirmationHasError =
-    confirmPassword.length > 0 &&
-    passwordEvaluation.requirements.some(
-      (requirement) => requirement.id === 'confirmation' && !requirement.met,
-    );
-  const categoryVisual = getRestaurantLoginVisual(branding.category);
-  const categoryLabel = getRestaurantCategoryLabel(categoryVisual.category);
-  const baseTheme = isDarkMode ? S.darkTheme : S.lightTheme;
 
   useEffect(() => {
     let active = true;
@@ -83,67 +80,51 @@ export default function RecoverPassword() {
       .getPhoneAuthConfig()
       .then((config) => {
         if (!active) return;
-        setPhoneAuth({
+        const next = {
           enabled: Boolean(config?.enabled),
           siteKey: typeof config?.siteKey === 'string' ? config.siteKey : null,
-        });
+        };
+        setPhoneAuth(next);
+        if (!next.enabled && contactMethod === 'phone') setContactMethod('email');
       })
       .catch(() => {
-        if (active) setPhoneAuth({ enabled: false, siteKey: null });
+        if (!active) return;
+        setPhoneAuth({ enabled: false, siteKey: null });
+        if (contactMethod === 'phone') setContactMethod('email');
       });
     return () => {
       active = false;
     };
-  }, []);
-
-  const selectContactMethod = (method: ContactMethod) => {
-    if (method === contactMethod) return;
-    if (method === 'phone' && !phoneAuth.enabled) {
-      toast.info('Recuperação por SMS ainda não está disponível.');
-      return;
-    }
-    setContactMethod(method);
-    setIdentifier('');
-    setSmsChallengeId('');
-  };
-
-  const changeContact = () => {
-    setStep('request');
-    setCode('');
-    setNewPassword('');
-    setConfirmPassword('');
-    setSmsChallengeId('');
-  };
+  }, [contactMethod]);
 
   const buildIdentifierPayload = () => {
-    const value = String(identifier || '').trim();
+    const value = identifier.trim();
     return contactMethod === 'phone' ? { phone: value } : { email: value };
   };
 
-  const handleRequestCode = async (event) => {
-    event.preventDefault();
+  const requestRecovery = async () => {
     if (requestPending.current || isLoading || !canRequest()) return;
-
-    if (!String(identifier || '').trim()) {
+    if (!identifier.trim()) {
       toast.error('Informe o e-mail ou telefone.');
       return;
     }
 
     requestPending.current = true;
-    // Start before the request: a timeout may hide a code already sent by the API.
     startCooldown();
+
     try {
       setIsLoading(true);
       const response =
         contactMethod === 'phone'
           ? await authService.forgotPasswordSms({
-              phone: String(identifier || '').trim(),
+              phone: identifier.trim(),
               captchaResponse: await executePhoneCaptcha(
                 phoneAuth.siteKey,
                 IDENTITY_PLATFORM_PHONE_RECAPTCHA_ACTION,
               ),
             })
           : await authService.forgotPassword(buildIdentifierPayload());
+
       startCooldown();
       setCode('');
       setSmsChallengeId(contactMethod === 'phone' ? String(response?.challengeId || '') : '');
@@ -151,7 +132,7 @@ export default function RecoverPassword() {
         response?.message ||
           (contactMethod === 'phone'
             ? 'Se o número estiver habilitado para recuperação, enviaremos um código por SMS.'
-            : 'Se os dados informados existirem, enviamos um código para redefinir a senha.'),
+            : 'Se o e-mail estiver cadastrado, enviaremos um código de recuperação.'),
       );
       setStep('reset');
     } catch {
@@ -162,8 +143,13 @@ export default function RecoverPassword() {
     }
   };
 
-  const handleResetPassword = async (event) => {
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+
+    if (step === 'request') {
+      await requestRecovery();
+      return;
+    }
 
     if (!passwordEvaluation.isValid) {
       toast.error(passwordEvaluation.errors[0]);
@@ -187,12 +173,7 @@ export default function RecoverPassword() {
               confirmPassword,
             });
 
-      toast.success(
-        response?.message ||
-          (isTableContext
-            ? `Senha redefinida. Entre para continuar na ${tableLabel}.`
-            : 'Senha redefinida com sucesso. Faça login para continuar.'),
-      );
+      toast.success(response?.message || 'Senha redefinida com sucesso. Faça login para continuar.');
       navigate(loginPath, { replace: true });
     } catch {
       toast.error(RESET_PASSWORD_ERROR_MESSAGE);
@@ -201,249 +182,35 @@ export default function RecoverPassword() {
     }
   };
 
+  const changeContact = () => {
+    setStep('request');
+    setCode('');
+    setNewPassword('');
+    setConfirmPassword('');
+    setSmsChallengeId('');
+  };
+
   return (
-    <ThemeProvider
-      theme={{
-        ...baseTheme,
-        primary: branding.primaryColor,
-        primaryHover: branding.primaryColor,
-        primaryText: getReadableTextColor(branding.primaryColor),
-        primaryReadable: getAccessibleBrandColor(branding.primaryColor, baseTheme.surface),
-        categoryAccent: categoryVisual.accent,
-        categoryAccentText: getReadableTextColor(categoryVisual.accent),
-        categoryDeep: categoryVisual.deep,
-      }}
-    >
-      <S.Container
-        data-auth-context={authExperience.context}
-        data-restaurant-category={categoryVisual.category}
-      >
-        <S.TopBar>
-          <S.ThemeToggleButton
-            type="button"
-            aria-label={isDarkMode ? 'Ativar tema claro' : 'Ativar tema escuro'}
-            aria-pressed={isDarkMode}
-            onClick={() => setIsDarkMode((prev) => !prev)}
-          >
-            {isDarkMode ? <Sun size={18} /> : <Moon size={18} />}
-          </S.ThemeToggleButton>
-        </S.TopBar>
-
-        <S.LoginBannerSection
-          $hasLogo={Boolean(branding.logoUrl)}
-          data-has-cover={branding.logoUrl ? 'true' : 'false'}
-        >
-          <TenantBrandHero
-            branding={branding}
-            mode="recover"
-            overrideText={
-              isTableContext
-                ? `Recupere seu acesso para voltar à ${tableLabel} sem perder o contexto do QR Code.`
-                : null
-            }
-          />
-        </S.LoginBannerSection>
-
-        <S.LoginFormSection>
-          <S.LoginFormWrapper>
-            <S.LoginAccessBadge>
-              <span>{categoryLabel}</span>
-            </S.LoginAccessBadge>
-            <S.WelcomeText>
-              {isTableContext ? `Recuperar acesso da ${tableLabel}` : 'Recuperar senha'}
-            </S.WelcomeText>
-            <S.FormSubtitle>
-              {step === 'request'
-                ? isTableContext
-                  ? `Escolha e-mail ou SMS. O SMS só funciona para um telefone previamente verificado na conta. Depois você voltará ao login da ${tableLabel}.`
-                  : 'Escolha e-mail ou SMS. A recuperação por SMS só funciona para um telefone previamente verificado na conta.'
-                : contactMethod === 'phone'
-                  ? 'Digite o código recebido por SMS e informe sua nova senha.'
-                  : 'Digite o código recebido no e-mail e informe sua nova senha.'}
-            </S.FormSubtitle>
-
-            <S.Form onSubmit={step === 'request' ? handleRequestCode : handleResetPassword}>
-              <S.SwitchRow role="group" aria-label="Método de recuperação">
-                <S.SwitchButton
-                  type="button"
-                  $active={contactMethod === 'email'}
-                  aria-pressed={contactMethod === 'email'}
-                  disabled={step === 'reset' || isLoading}
-                  onClick={() => selectContactMethod('email')}
-                >
-                  E-mail
-                </S.SwitchButton>
-                <S.SwitchButton
-                  type="button"
-                  $active={contactMethod === 'phone'}
-                  aria-pressed={contactMethod === 'phone'}
-                  disabled={step === 'reset' || isLoading || !phoneAuth.enabled}
-                  onClick={() => selectContactMethod('phone')}
-                  title={phoneAuth.enabled ? 'Receber código por SMS' : 'SMS ainda não configurado'}
-                >
-                  SMS
-                </S.SwitchButton>
-              </S.SwitchRow>
-
-              <S.InputGroup>
-                <S.Label htmlFor="identifier">
-                  {contactMethod === 'email' ? 'E-mail' : 'Telefone'}
-                </S.Label>
-                <S.LoginInputField>
-                  <S.LoginInputIcon aria-hidden="true">
-                    {contactMethod === 'email' ? <Mail /> : <Phone />}
-                  </S.LoginInputIcon>
-                  <S.Input
-                    id="identifier"
-                    type={contactMethod === 'email' ? 'email' : 'text'}
-                    inputMode={contactMethod === 'phone' ? 'tel' : undefined}
-                    placeholder={
-                      contactMethod === 'email' ? 'exemplo@email.com' : '(11) 99999-9999'
-                    }
-                    value={identifier}
-                    onChange={(event) => setIdentifier(event.target.value)}
-                    readOnly={step === 'reset' || isLoading}
-                    autoComplete={contactMethod === 'email' ? 'email' : 'tel'}
-                    required
-                  />
-                </S.LoginInputField>
-              </S.InputGroup>
-
-              {step === 'reset' && (
-                <>
-                  <S.AvailabilityNote role="status">
-                    {contactMethod === 'phone'
-                      ? `Se este telefone estiver habilitado, o SMS foi solicitado para ${identifier}.`
-                      : `Código solicitado para ${identifier}.`}
-                  </S.AvailabilityNote>
-                  <S.InputGroup>
-                    <S.Label htmlFor="reset-code">Código</S.Label>
-                    <S.LoginInputField>
-                      <S.LoginInputIcon aria-hidden="true">
-                        <KeyRound />
-                      </S.LoginInputIcon>
-                      <S.Input
-                        id="reset-code"
-                        type="text"
-                        inputMode="numeric"
-                        pattern="[0-9]*"
-                        autoComplete="one-time-code"
-                        placeholder="Código de 6 dígitos"
-                        value={code}
-                        onChange={(event) =>
-                          setCode(event.target.value.replace(/\D/g, '').slice(0, 6))
-                        }
-                        required
-                      />
-                    </S.LoginInputField>
-                  </S.InputGroup>
-
-                  <S.InputGroup>
-                    <S.Label htmlFor="new-password">Nova senha</S.Label>
-                    <S.LoginInputField>
-                      <S.LoginInputIcon aria-hidden="true">
-                        <LockKeyhole />
-                      </S.LoginInputIcon>
-                      <PasswordVisibilityField label="senha">
-                        <S.Input
-                        id="new-password"
-                        type="password"
-                        placeholder="Mínimo 8 caracteres"
-                        autoComplete="new-password"
-                        minLength={STANDARD_PASSWORD_POLICY.minLength}
-                        maxLength={STANDARD_PASSWORD_POLICY.maxLength}
-                        value={newPassword}
-                        onChange={(event) => setNewPassword(event.target.value)}
-                        aria-invalid={passwordHasError}
-                        aria-describedby="recover-password-requirements"
-                        required
-                        />
-                      </PasswordVisibilityField>
-                    </S.LoginInputField>
-                  </S.InputGroup>
-
-                  <S.InputGroup>
-                    <S.Label htmlFor="confirm-password">Confirmar nova senha</S.Label>
-                    <S.LoginInputField>
-                      <S.LoginInputIcon aria-hidden="true">
-                        <LockKeyhole />
-                      </S.LoginInputIcon>
-                      <PasswordVisibilityField label="senha">
-                        <S.Input
-                        id="confirm-password"
-                        type="password"
-                        placeholder="••••••••"
-                        autoComplete="new-password"
-                        minLength={STANDARD_PASSWORD_POLICY.minLength}
-                        maxLength={STANDARD_PASSWORD_POLICY.maxLength}
-                        value={confirmPassword}
-                        onChange={(event) => setConfirmPassword(event.target.value)}
-                        aria-invalid={confirmationHasError}
-                        aria-describedby="recover-password-requirements"
-                        required
-                        />
-                      </PasswordVisibilityField>
-                    </S.LoginInputField>
-                  </S.InputGroup>
-
-                  <PasswordRequirements
-                    id="recover-password-requirements"
-                    password={newPassword}
-                    confirmation={confirmPassword}
-                    policy={STANDARD_PASSWORD_POLICY}
-                  />
-                </>
-              )}
-
-              <S.Button
-                type="submit"
-                disabled={
-                  isLoading ||
-                  (step === 'request' && remainingSeconds > 0) ||
-                  (step === 'reset' && (code.length !== 6 || !passwordEvaluation.isValid))
-                }
-              >
-                {isLoading ? (
-                  'Processando...'
-                ) : (
-                  <>
-                    <span>
-                      {step === 'request'
-                        ? remainingSeconds > 0
-                          ? `Aguarde ${remainingSeconds}s`
-                          : 'Enviar código'
-                        : isTableContext
-                          ? `Redefinir e voltar ao login da ${tableLabel}`
-                          : 'Redefinir senha'}
-                    </span>
-                    <ArrowRight aria-hidden="true" />
-                  </>
-                )}
-              </S.Button>
-
-              {step === 'reset' && (
-                <S.ActionRow>
-                  <S.SecondaryButton type="button" onClick={changeContact} disabled={isLoading}>
-                    Alterar contato
-                  </S.SecondaryButton>
-                  <ResendCodeButton
-                    remainingMilliseconds={remainingMilliseconds}
-                    deadline={deadline}
-                    isLoading={isLoading}
-                    onClick={handleRequestCode}
-                  />
-                </S.ActionRow>
-              )}
-            </S.Form>
-
-            <S.FooterRow>
-              <S.BackLink to={loginPath}>Voltar para login</S.BackLink>
-              <span>|</span>
-              <S.BackLink to={registerPath}>Criar conta</S.BackLink>
-            </S.FooterRow>
-          </S.LoginFormWrapper>
-        </S.LoginFormSection>
-      </S.Container>
-    </ThemeProvider>
+    <CustomerRecoveryExperience
+      branding={branding}
+      step={step}
+      contactMethod={contactMethod}
+      identifier={identifier}
+      code={code}
+      newPassword={newPassword}
+      confirmPassword={confirmPassword}
+      evaluation={passwordEvaluation}
+      isLoading={isLoading}
+      remainingSeconds={remainingSeconds}
+      phoneRecoveryEnabled={phoneAuth.enabled}
+      onIdentifierChange={setIdentifier}
+      onCodeChange={setCode}
+      onNewPasswordChange={setNewPassword}
+      onConfirmPasswordChange={setConfirmPassword}
+      onSubmit={handleSubmit}
+      onBack={() => navigate(loginPath)}
+      onChangeContact={changeContact}
+      onResend={() => void requestRecovery()}
+    />
   );
 }
