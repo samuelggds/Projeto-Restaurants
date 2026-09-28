@@ -72,7 +72,19 @@ export function FigmaDeliveryExperience({
   const [searchFocused, setSearchFocused] = useState(Boolean(initialSearchOpen));
   const [mobileSearchOpen, setMobileSearchOpen] = useState(Boolean(initialSearchOpen));
   const searchInputRef = useRef<HTMLInputElement>(null);
+  const searchContainerRef = useRef<HTMLDivElement>(null);
   const mobileSearchTriggerRef = useRef<HTMLButtonElement>(null);
+  const cartFabRef = useRef<HTMLButtonElement>(null);
+  const cartFabDragRef = useRef<{
+    pointerId: number;
+    startX: number;
+    startY: number;
+    originX: number;
+    originY: number;
+    moved: boolean;
+  } | null>(null);
+  const cartFabDidDragRef = useRef(false);
+  const [cartFabPosition, setCartFabPosition] = useState<{ x: number; y: number } | null>(null);
 
   const availableProducts = useMemo(
     () => data.products.filter((product) => product.available),
@@ -143,6 +155,72 @@ export function FigmaDeliveryExperience({
     return () => window.cancelAnimationFrame(frame);
   }, [initialSearchOpen]);
 
+  useEffect(() => {
+    if (!mobileSearchOpen) return;
+
+    const closeSearchOnOutsidePointer = (event: PointerEvent) => {
+      if (searchContainerRef.current?.contains(event.target as Node)) return;
+      setMobileSearchOpen(false);
+      setSearchFocused(false);
+      setSearchQuery('');
+      searchInputRef.current?.blur();
+    };
+
+    document.addEventListener('pointerdown', closeSearchOnOutsidePointer);
+    return () => document.removeEventListener('pointerdown', closeSearchOnOutsidePointer);
+  }, [mobileSearchOpen]);
+
+  const clampCartFabPosition = (x: number, y: number) => {
+    const fab = cartFabRef.current;
+    const width = fab?.offsetWidth || 56;
+    const height = fab?.offsetHeight || 56;
+    const margin = 8;
+
+    return {
+      x: Math.min(Math.max(x, margin), Math.max(margin, window.innerWidth - width - margin)),
+      y: Math.min(Math.max(y, margin), Math.max(margin, window.innerHeight - height - margin)),
+    };
+  };
+
+  const startCartFabDrag = (event: React.PointerEvent<HTMLButtonElement>) => {
+    if (event.pointerType === 'mouse' && event.button !== 0) return;
+    const rect = event.currentTarget.getBoundingClientRect();
+    cartFabDidDragRef.current = false;
+    cartFabDragRef.current = {
+      pointerId: event.pointerId,
+      startX: event.clientX,
+      startY: event.clientY,
+      originX: rect.left,
+      originY: rect.top,
+      moved: false,
+    };
+    event.currentTarget.setPointerCapture(event.pointerId);
+  };
+
+  const moveCartFab = (event: React.PointerEvent<HTMLButtonElement>) => {
+    const drag = cartFabDragRef.current;
+    if (!drag || drag.pointerId !== event.pointerId) return;
+
+    const deltaX = event.clientX - drag.startX;
+    const deltaY = event.clientY - drag.startY;
+    if (!drag.moved && Math.hypot(deltaX, deltaY) > 4) {
+      drag.moved = true;
+      cartFabDidDragRef.current = true;
+    }
+    if (!drag.moved) return;
+
+    setCartFabPosition(clampCartFabPosition(drag.originX + deltaX, drag.originY + deltaY));
+  };
+
+  const finishCartFabDrag = (event: React.PointerEvent<HTMLButtonElement>) => {
+    const drag = cartFabDragRef.current;
+    if (!drag || drag.pointerId !== event.pointerId) return;
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+    cartFabDragRef.current = null;
+  };
+
 
   const openProduct = (product: HomeProduct) => {
     if (product.kind === 'COMBO') {
@@ -202,6 +280,7 @@ export function FigmaDeliveryExperience({
         </div>
 
         <S.InlineSearch
+          ref={searchContainerRef}
           className={mobileSearchOpen ? 'mobile-open' : ''}
           onFocus={() => setSearchFocused(true)}
           onBlur={(event) => {
@@ -534,9 +613,25 @@ export function FigmaDeliveryExperience({
       )}
 
       <S.MobileCartFab
+        ref={cartFabRef}
         type="button"
         aria-label={`Meu Carrinho, ${cartCount} ${cartCount === 1 ? 'item' : 'itens'}`}
-        onClick={onOpenCart}
+        style={
+          cartFabPosition
+            ? { left: cartFabPosition.x, top: cartFabPosition.y, right: 'auto', bottom: 'auto' }
+            : undefined
+        }
+        onPointerDown={startCartFabDrag}
+        onPointerMove={moveCartFab}
+        onPointerUp={finishCartFabDrag}
+        onPointerCancel={finishCartFabDrag}
+        onClick={() => {
+          if (cartFabDidDragRef.current) {
+            cartFabDidDragRef.current = false;
+            return;
+          }
+          onOpenCart?.();
+        }}
       >
         <ShoppingBag aria-hidden="true" />
         {cartCount > 0 ? <span>{cartCount}</span> : null}
