@@ -338,7 +338,10 @@ test('cliente vê promoção, aplica benefício de fidelidade e envia o resgate 
   }
 
   await page.setViewportSize({ width: 320, height: 844 });
-  await page.getByRole('button', { name: 'Minha conta' }).click();
+  await page
+    .getByRole('navigation', { name: 'Navegação principal' })
+    .getByRole('button', { name: 'Conta' })
+    .click();
   const mobileLoyalty = page.locator('main:visible');
   await mobileLoyalty.getByRole('button', { name: 'Programa de Fidelidade' }).click();
   await expect(
@@ -384,7 +387,10 @@ test('cliente vê promoção, aplica benefício de fidelidade e envia o resgate 
   await expect(page.locator('main[data-status="PAID"]')).toBeVisible();
   await expect(page.getByText('Recebemos a confirmação do seu pagamento.')).toBeVisible();
   await page.getByRole('button', { name: 'Voltar ao cardápio' }).click();
-  await page.getByRole('button', { name: 'Minha conta' }).click();
+  await page
+    .getByRole('navigation', { name: 'Navegação principal' })
+    .getByRole('button', { name: 'Conta' })
+    .click();
   const visibleProfileAfterPayment = page.locator('main:visible');
   await visibleProfileAfterPayment
     .getByRole('button', { name: 'Programa de Fidelidade' })
@@ -495,7 +501,9 @@ test('campanha criada com a Home aberta aparece ao entrar no programa de fidelid
   await expect(
     visibleProfile.getByRole('heading', { name: 'Programa de Fidelidade' }),
   ).toBeVisible();
-  await expect(visibleProfile.getByText('Cliente fiel', { exact: true })).toBeVisible();
+  await expect(
+    visibleProfile.getByRole('heading', { name: 'Cliente fiel', exact: true }),
+  ).toBeVisible();
   await expect(visibleProfile.getByText('10 / 10', { exact: true })).toBeVisible();
   await expect(
     visibleProfile.getByRole('button', { name: 'Resgatar', exact: true }),
