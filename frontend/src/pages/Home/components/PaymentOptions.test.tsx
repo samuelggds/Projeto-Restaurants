@@ -86,7 +86,7 @@ describe('PaymentOptions', () => {
   it('calcula os métodos válidos para cada canal', () => {
     expect(
       getAvailablePaymentMethods({ allowPayOnDelivery: true, allowPix: true, allowCard: false }),
-    ).toEqual(['pix', 'delivery_pix']);
+    ).toEqual(['pix', 'delivery_pix', 'delivery_cash']);
     expect(
       getAvailablePaymentMethods({ allowPayOnDelivery: false, allowPix: false, allowCard: true }),
     ).toEqual(['card', 'pickup_card', 'pickup_cash']);
