@@ -78,6 +78,8 @@ export default function AdminProfile() {
   const [notifications, setNotifications] = useState<NotificationPreferences>(() =>
     readNotificationPreferences(user?.id),
   );
+  const [mfaPassword, setMfaPassword] = useState('');
+  const [mfaSaving, setMfaSaving] = useState(false);
 
   const restaurantLabel = useMemo(() => {
     const restaurant = user?.restaurant as Record<string, unknown> | null | undefined;
@@ -158,6 +160,34 @@ export default function AdminProfile() {
     window.localStorage.setItem(notificationStorageKey(user?.id), JSON.stringify(notifications));
     toast.success('Preferências salvas neste dispositivo.');
   };
+  const toggleMfa = async () => {
+    if (!mfaPassword) {
+      toast.error('Digite sua senha atual para alterar a verificação em duas etapas.');
+      return;
+    }
+    setMfaSaving(true);
+    try {
+      const next = !Boolean(user?.mfaEnabled);
+      await authService.updateMfaPreference(next, mfaPassword);
+      toast.success(
+        next
+          ? 'Verificação em duas etapas ativada. Entre novamente.'
+          : 'Verificação em duas etapas desativada. Entre novamente.',
+      );
+      logout();
+      navigate('/login');
+    } catch (error: unknown) {
+      const requestError = error as { response?: { data?: { error?: string } }; message?: string };
+      toast.error(
+        requestError.response?.data?.error ||
+          requestError.message ||
+          'Não foi possível atualizar a verificação em duas etapas.',
+      );
+    } finally {
+      setMfaSaving(false);
+    }
+  };
+
 
   return (
     <S.Page>
@@ -222,8 +252,8 @@ export default function AdminProfile() {
           <div className="security-score">
             <CheckCircle2 aria-hidden="true" />
             <span>
-              <b>Conta protegida</b>
-              <small>2 etapas obrigatórias</small>
+              <b>{user?.mfaEnabled ? 'MFA ativado' : 'MFA opcional'}</b>
+              <small>{user?.mfaEnabled ? 'Verificação adicional no login' : 'Ative quando desejar'}</small>
             </span>
           </div>
         </S.ProfileHero>
@@ -362,11 +392,27 @@ export default function AdminProfile() {
                     <div>
                       <b>Verificação em duas etapas</b>
                       <span>
-                        Uma segunda confirmação é obrigatória em novos acessos administrativos.
+                        Opcional para esta conta. Quando ativada, uma segunda confirmação será exigida no login.
                       </span>
+                      <div className="input-wrap" style={{ marginTop: 10 }}>
+                        <KeyRound />
+                        <input
+                          type="password"
+                          autoComplete="current-password"
+                          value={mfaPassword}
+                          placeholder="Senha atual"
+                          onChange={(event) => setMfaPassword(event.target.value)}
+                        />
+                      </div>
                     </div>
                     <div className="mfa-control">
-                      <span className="status on">Obrigatória</span>
+                      <button type="button" disabled={mfaSaving} onClick={() => void toggleMfa()}>
+                        {mfaSaving
+                          ? 'Salvando...'
+                          : user?.mfaEnabled
+                            ? 'Desativar'
+                            : 'Ativar'}
+                      </button>
                     </div>
                   </S.SecurityItem>
                   <S.SecurityItem>
