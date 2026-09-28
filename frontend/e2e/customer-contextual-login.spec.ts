@@ -48,24 +48,25 @@ const product = {
   ],
 };
 
-test('visitante no celular controla as ações agrupadas e abre produto pelo teclado', async ({ page }) => {
+test('visitante no celular usa a navegação inferior e abre produto pelo teclado', async ({ page }) => {
   const state: ContextState = { authenticated: false, tableOpen: true, loginCalls: 0,
     googleLoginCalls: 0, sessionValidationCalls: 0, orderPayloads: [] };
   await mockContextApi(page, state);
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto(`/${RESTAURANT_SLUG}`);
-  const control = page.getByTestId('floating-actions-control-customer');
-  await expect(control).toBeVisible();
-  await expect(control).toHaveAttribute('aria-expanded', 'false');
-  await control.click();
-  await expect(control).toHaveAttribute('aria-expanded', 'true');
-  const bounds = await page.getByTestId('floating-actions-layer').boundingBox();
+
+  const navigation = page.getByRole('navigation', { name: 'Navegação principal' });
+  await expect(navigation).toBeVisible();
+  await expect(navigation.getByRole('button', { name: 'Início' })).toBeVisible();
+  await expect(navigation.getByRole('button', { name: 'Pedidos' })).toBeVisible();
+  await expect(navigation.getByRole('button', { name: 'Conta' })).toBeVisible();
+
+  const bounds = await navigation.boundingBox();
   expect(bounds).not.toBeNull();
   expect(bounds!.x).toBeGreaterThanOrEqual(0);
   expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(390);
   expect(bounds!.y + bounds!.height).toBeLessThanOrEqual(844);
-  await control.click();
-  await expect(control).toHaveAttribute('aria-expanded', 'false');
+
   const productButton = page.getByRole('button', { name: `Ver detalhes de ${product.name}`, exact: true });
   await productButton.focus();
   await productButton.press('Enter');
