@@ -1,5 +1,5 @@
 import { useMemo, useState, type CSSProperties } from 'react';
-import { Award, CheckCircle2, Gift, Info, ShoppingBag, Stamp } from 'lucide-react';
+import { Award, Gift, Info, ShoppingBag, Stamp } from 'lucide-react';
 import type { LoyaltyRewardProgress, LoyaltySummary } from '../Home/types';
 import type { ProfileOrder } from './types';
 import * as S from './FigmaLoyaltyViews.styles';
