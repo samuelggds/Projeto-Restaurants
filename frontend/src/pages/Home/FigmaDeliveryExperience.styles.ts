@@ -18,6 +18,12 @@ export const Page = styled.div<{ $primary: string }>`
 
   button, input { font: inherit; }
   button { cursor: pointer; }
+
+  @media(max-width:760px){
+    &.product-open > header{
+      display:none;
+    }
+  }
 `;
 
 export const Header = styled.header`
