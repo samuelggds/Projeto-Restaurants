@@ -7,7 +7,7 @@ describe('SecuritySettings', () => {
     const markup = renderToStaticMarkup(<SecuritySettings openEmployees={vi.fn()} />);
 
     expect(markup).toContain('Proteção do acesso administrativo');
-    expect(markup).toContain('obrigatória para administradores');
+    expect(markup).toContain('opcional por conta');
     expect(markup).toContain('Gerenciar funcionários');
     expect(markup).not.toContain('type="checkbox"');
     expect(markup).not.toContain('Chrome no Windows');
