@@ -1,5 +1,6 @@
 import { ArrowLeft, MapPin, Search, ShoppingBag, UserRound } from 'lucide-react';
 import type { Dispatch, SetStateAction } from 'react';
+import { AddressLocationMap } from './AddressLocationMap';
 import { DeliveryAddressForm } from './DeliveryAddressForm';
 import type { DeliveryAddress } from '../hooks/useDeliveryAddress';
 import type { CartItem } from '../hooks/useCart';
@@ -10,6 +11,7 @@ const money = (value: number) =>
 
 type Props = {
   primaryColor: string;
+  restaurantId: number | null;
   brandName: string;
   logoUrl?: string;
   userName?: string;
@@ -39,6 +41,7 @@ type Props = {
 
 export function AuthenticatedEmptyAddressCheckout({
   primaryColor,
+  restaurantId,
   brandName,
   logoUrl,
   userName,
@@ -65,9 +68,6 @@ export function AuthenticatedEmptyAddressCheckout({
   disabled = false,
   loading = false,
 }: Props) {
-  const locationLabel = [address.address, address.number, address.district, address.city, address.state]
-    .filter(Boolean)
-    .join(', ');
 
   return (
     <S.Page $primary={primaryColor} role="dialog" aria-modal="true" aria-label="Finalizar pedido">
@@ -169,16 +169,12 @@ export function AuthenticatedEmptyAddressCheckout({
 
               <S.MapCard>
                 <h2>Localização no Mapa</h2>
-                <S.MapVisual aria-label="Prévia da localização do endereço">
-                  <div className="grid" />
-                  <div className="route" />
-                  <span className="pin" />
-                </S.MapVisual>
-                <p>
-                  {locationLabel
-                    ? `Endereço informado: ${locationLabel}. A disponibilidade e a taxa são validadas pelo sistema.`
-                    : 'Preencha o endereço para o sistema validar disponibilidade, distância e taxa de entrega.'}
-                </p>
+                <AddressLocationMap
+                  restaurantId={restaurantId}
+                  address={address}
+                  primaryColor={primaryColor}
+                />
+                <p>A disponibilidade e a taxa continuam sendo validadas pelo sistema para o endereço informado.</p>
               </S.MapCard>
             </>
           ) : null}
