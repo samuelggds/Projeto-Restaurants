@@ -3,7 +3,6 @@ import { useLocation, useNavigate, useParams, useSearchParams } from 'react-rout
 import { useAuth } from '../../contexts/authContext';
 import { FigmaDeliveryExperience } from './FigmaDeliveryExperience';
 import { FigmaCheckoutFlow, type FigmaCheckoutStep } from './FigmaCheckoutFlow';
-import PixPaymentPanel from '../Cart/components/PixPaymentPanel';
 import * as S from './Home.styles';
 import {
   useDefaultRestaurantId,
@@ -14,7 +13,6 @@ import { useFavorites } from './hooks/useFavorites';
 import { useCart } from './hooks/useCart';
 import { useDeliveryAddress } from './hooks/useDeliveryAddress';
 import { getCheckoutErrorMessage, useCheckoutPayments } from './hooks/useCheckoutPayments';
-import { UncertainPaymentResult } from './components/UncertainPaymentResult';
 import { useTableSession } from './hooks/useTableSession';
 import { useTableAccount } from './hooks/useTableAccount';
 import { useTableOrderNotice } from './hooks/useTableOrderNotice';
@@ -31,6 +29,7 @@ import { GuestAddressCheckout } from '../Home/components/GuestAddressCheckout';
 import { AuthenticatedAddressCheckout } from '../Home/components/AuthenticatedAddressCheckout';
 import { AuthenticatedEmptyAddressCheckout } from '../Home/components/AuthenticatedEmptyAddressCheckout';
 import { FigmaPaymentCheckout } from '../Home/components/FigmaPaymentCheckout';
+import { HomePaymentOutcome } from './components/HomePaymentOutcome';
 import { HomeFeedback, type HomeNotification } from '../Home/components/HomeFeedback';
 import {
   buildOrderPayload,
@@ -52,8 +51,6 @@ import {
   resolveAvailableFulfillmentMethod,
 } from './domain/publicSettings';
 import { TableServiceActions } from './components/TableServiceActions';
-import { CardPaymentReturnPanel } from './components/CardPaymentReturnPanel';
-import { PaymentResultView } from '../../components/payment/PaymentResultView';
 import { useCardPaymentReturn } from './hooks/useCardPaymentReturn';
 import { buildLoginUrl } from '../../shared/navigation/authNavigation';
 import TableMenuExperience from '../digital-menu/TableMenuExperience';
@@ -762,106 +759,24 @@ export default function Home() {
     }
   }
 
-  if (hasCardPaymentReturn) {
+  if (hasCardPaymentReturn || paymentResult || pixPaymentData) {
     return (
-      <CardPaymentReturnPanel
-        status={cardPaymentReturn.status}
-        error={cardPaymentReturn.error}
-        providerReturnStatus={cardPaymentReturn.providerReturnStatus}
-        primaryColor={primary}
-        restaurantName={cardPaymentReturn.details?.restaurantName || homeData.brand.name}
-        restaurantLogoUrl={cardPaymentReturn.details?.restaurantLogoUrl || homeData.brand.logoUrl}
-        restaurantOpen={homeData.isOpen}
-        deliveryTime={cardPaymentReturn.details?.deliveryTime || homeData.deliveryTime}
-        details={cardPaymentReturn.details}
-        amount={
-          typeof cardPaymentReturn.details?.totalAmount === 'number'
-            ? cardPaymentReturn.details.totalAmount.toLocaleString('pt-BR', {
-                style: 'currency',
-                currency: 'BRL',
-              })
-            : undefined
-        }
-        onVerify={cardPaymentReturn.verify}
-        onClose={closeCardPaymentReturn}
-        onTrackOrder={() => {
-          const orderId = Number(cardPaymentReturn.details?.orderId || 0);
-          if (orderId > 0) navigate('/orders/' + orderId + '/tracking');
-          else closeCardPaymentReturn();
-        }}
-      />
-    );
-  }
-
-  if (paymentResult) {
-    if (paymentResult.reconciliationRequired)
-      return (
-        <UncertainPaymentResult
-          result={paymentResult}
-          restaurantName={homeData.brand.name}
-          restaurantCategory={homeData.brand.category ?? 'RESTAURANTE'}
-          visitor={!user}
-          onBack={clearPaymentResult}
-        />
-      );
-    if (paymentResult.method === 'Cartão') {
-      return (
-        <CardPaymentReturnPanel
-          status={paymentResult.status}
-          error={null}
-          providerReturnStatus=""
-          primaryColor={primary}
-          restaurantName={homeData.brand.name}
-          restaurantLogoUrl={homeData.brand.logoUrl}
-          restaurantOpen={homeData.isOpen}
-          deliveryTime={homeData.deliveryTime}
-          details={{
-            orderId: paymentResult.orderId,
-            restaurantId,
-            restaurantName: homeData.brand.name,
-            restaurantLogoUrl: homeData.brand.logoUrl,
-            deliveryTime: homeData.deliveryTime,
-            totalAmount: paymentResult.total,
-          }}
-          amount={paymentResult.total.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
-          onVerify={async () => paymentResult.status}
-          onClose={clearPaymentResult}
-          onTrackOrder={() => {
-            const orderId = Number(paymentResult.orderId || 0);
-            if (orderId > 0) navigate('/orders/' + orderId + '/tracking');
-            else clearPaymentResult();
-          }}
-        />
-      );
-    }
-    return (
-      <PaymentResultView
-        status={paymentResult.status}
-        method={paymentResult.method}
-        restaurantName={homeData.brand.name}
-        restaurantCategory={homeData.brand.category ?? 'RESTAURANTE'}
-        orderLabel={paymentResult.orderId ? `Pedido #${paymentResult.orderId}` : undefined}
-        amount={paymentResult.total.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
-        onAutoReturn={clearPaymentResult}
-        primaryAction={{ label: 'Voltar ao cardápio', onClick: clearPaymentResult }}
-      />
-    );
-  }
-
-  if (pixPaymentData) {
-    return (
-      <PixPaymentPanel
+      <HomePaymentOutcome
+        hasCardPaymentReturn={hasCardPaymentReturn}
+        cardPaymentReturn={cardPaymentReturn}
+        paymentResult={paymentResult}
         pixPaymentData={pixPaymentData}
-        paymentStatus={pixPaymentStatus}
-        paymentError={pixPaymentError}
+        pixPaymentStatus={pixPaymentStatus}
+        pixPaymentError={pixPaymentError}
         primaryColor={primary}
-        restaurantName={homeData.brand.name}
-        formatCurrency={(value) =>
-          value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
-        }
-        onCopyPixKey={() => navigator.clipboard.writeText(pixPaymentData.pixCode)}
-        onVerify={verifyPixPayment}
-        onBackToCart={clearPixPayment}
+        homeData={homeData}
+        restaurantId={restaurantId}
+        visitor={!user}
+        onCloseCardPaymentReturn={closeCardPaymentReturn}
+        onClearPaymentResult={clearPaymentResult}
+        onVerifyPixPayment={verifyPixPayment}
+        onClearPixPayment={clearPixPayment}
+        onTrackOrder={(orderId) => navigate('/orders/' + orderId + '/tracking')}
       />
     );
   }
