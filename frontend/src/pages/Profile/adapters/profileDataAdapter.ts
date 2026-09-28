@@ -163,10 +163,11 @@ export function buildProfileData({
   const activeOrders = activeRawOrders.map(mapActiveOrder);
   const activeRaw = activeRawOrders[0];
   const activeOrder = activeOrders[0];
+  const activeOrderIds = new Set(activeRawOrders.map((order) => String(order.id)));
   const recentOrders: ProfileOrder[] = orders
     .filter(
       (order) =>
-        String(order.id) !== String(activeRaw?.id || '') && Boolean(String(order.status || '')),
+        !activeOrderIds.has(String(order.id)) && Boolean(String(order.status || '')),
     )
     .map((order) => {
       const channel = getProfileOrderChannel(order);
