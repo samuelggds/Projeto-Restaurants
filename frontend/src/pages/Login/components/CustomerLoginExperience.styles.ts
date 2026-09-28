@@ -251,7 +251,7 @@ export const FormPanel = styled.section`
     position: relative;
     z-index: 3;
     min-height: 568px;
-    margin-top: 4px;
+    margin-top: -40px;
     padding: 28px 24px 40px;
     border-radius: 0;
     background: var(--auth-bg);
