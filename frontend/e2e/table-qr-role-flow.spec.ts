@@ -842,16 +842,18 @@ test('retorno success do cartão permanece pendente até o backend confirmar', a
   await identifyTableGuest(page, false);
 
   await expect.poll(() => Number(state.cardPaymentStatusReads || 0)).toBeGreaterThan(0);
-  await expect(page.getByRole('heading', { name: 'Aguardando confirmação' })).toBeVisible();
-  await expect(page.getByText('Pagamento confirmado')).toHaveCount(0);
-  await expect(page.getByText('Aguarde a confirmação antes de tentar de novo.')).toBeVisible();
+  const pendingCard = page.locator('main[data-status="PENDING"][data-payment-method="card"]');
+  await expect(pendingCard).toBeVisible();
+  await expect(pendingCard.getByText('Aguardando confirmação do pagamento.')).toBeVisible();
+  await expect(pendingCard.getByRole('heading', { name: 'Pagamento Aprovado!' })).toHaveCount(0);
 
   const pendingReads = Number(state.cardPaymentStatusReads || 0);
   state.cardPaymentStatus = 'PAID';
   await page.getByRole('button', { name: 'Verificar pagamento' }).click();
   await expect.poll(() => Number(state.cardPaymentStatusReads || 0)).toBeGreaterThan(pendingReads);
-  await expect(page.getByRole('heading', { name: 'Pagamento confirmado' })).toBeVisible();
-  await expect(page.getByText('Recebemos a confirmação do seu pagamento.')).toBeVisible();
+  const paidCard = page.locator('main[data-status="PAID"][data-payment-method="card"]');
+  await expect(paidCard.getByRole('heading', { name: 'Pagamento Aprovado!' })).toBeVisible();
+  await expect(paidCard.getByText('Seu pedido foi recebido e está sendo preparado')).toBeVisible();
 });
 
 test('impressão individual ocupa uma única folha A4 com QR Code grande', async ({ page }) => {
