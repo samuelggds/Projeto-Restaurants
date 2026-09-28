@@ -43,6 +43,7 @@ function formatHours(data: HomePageProps['data']) {
 export function FigmaDeliveryExperience({
   data,
   cartCount = 0,
+  initialSearchOpen = false,
   userName,
   userLoggedIn = false,
   onOpenProfile,
@@ -57,7 +58,7 @@ export function FigmaDeliveryExperience({
   );
   const [selectedProduct, setSelectedProduct] = useState<HomeProduct | null>(null);
   const [selectedCombo, setSelectedCombo] = useState<HomeProduct | null>(null);
-  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(Boolean(initialSearchOpen));
 
   const availableProducts = useMemo(
     () => data.products.filter((product) => product.available),
