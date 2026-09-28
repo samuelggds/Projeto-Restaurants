@@ -9,6 +9,7 @@ const money = (value: number) =>
   value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
 type Props = {
+  primaryColor: string;
   brandName: string;
   logoUrl?: string;
   userName?: string;
@@ -37,6 +38,7 @@ type Props = {
 };
 
 export function AuthenticatedEmptyAddressCheckout({
+  primaryColor,
   brandName,
   logoUrl,
   userName,
@@ -68,7 +70,7 @@ export function AuthenticatedEmptyAddressCheckout({
     .join(', ');
 
   return (
-    <S.Page>
+    <S.Page $primary={primaryColor}>
       <S.MobileStatus aria-hidden="true">
         <strong>9:41</strong>
         <span>•••</span>
