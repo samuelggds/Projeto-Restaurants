@@ -199,7 +199,7 @@ export const CartDesktopHeader = styled.header`
     display: inline-flex;
     align-items: center;
     gap: 10px;
-    border-radius: 999px;
+    border-radius: 10px;
     background: var(--checkout-primary);
     color: #fff;
     font-size: 14px;
