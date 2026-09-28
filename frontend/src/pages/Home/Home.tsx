@@ -1,6 +1,5 @@
 import { useState, useCallback, useEffect, useMemo } from 'react';
 import { useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { FloatingWhatsAppPortal } from './Home.whatsapp';
 import { useAuth } from '../../contexts/authContext';
 import { FigmaDeliveryExperience } from './FigmaDeliveryExperience';
 import { FigmaCheckoutFlow, type FigmaCheckoutStep } from './FigmaCheckoutFlow';
@@ -33,7 +32,6 @@ import {
   validateCheckout,
   type CheckoutPaymentMethod,
 } from './domain/checkout';
-import { WhatsAppIcon } from './components/SocialBrandIcons';
 import ordersService from '../../Services/ordersService';
 import waiterCallsService from '../../Services/waiterCallsService';
 import { useLoyaltyRewards } from './hooks/useLoyaltyRewards';
@@ -924,6 +922,8 @@ export default function Home() {
         onAddProduct={tableClosingRequested ? () => undefined : addToCart}
         onToggleFavorite={mesaMode ? undefined : toggleFavorite}
         onLogout={handleLogout}
+        whatsappUrl={whatsappUrl}
+        whatsappLabel={whatsappLabel}
       />
 
       {cartOpen ? (
@@ -1026,17 +1026,6 @@ export default function Home() {
         onDismissNotification={dismissNotif}
         onOpenCart={openHomeCart}
       />
-      {whatsappUrl && (
-        <FloatingWhatsAppPortal
-          href={whatsappUrl}
-          target="_blank"
-          rel="noreferrer"
-          aria-label={`Falar com ${whatsappLabel} no WhatsApp`}
-          title={`Falar com ${whatsappLabel} no WhatsApp`}
-        >
-          <WhatsAppIcon size={25} />
-        </FloatingWhatsAppPortal>
-      )}
       {mesaMode && tableSession ? (
         <TableServiceActions
           tableNumber={mesaLabel}
