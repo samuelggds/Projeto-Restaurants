@@ -1165,46 +1165,6 @@ export default function Home() {
             />
           }
         />
-              {!user ? (
-                <GuestCheckoutForm
-                  value={guestCheckoutDetails}
-                  onChange={setGuestCheckoutDetails}
-                />
-              ) : null}
-              {availableOrderType === 'delivery' ? (
-                <DeliveryAddressForm
-                  address={deliveryAddress}
-                  setAddress={setDeliveryAddress}
-                  cepStatus={cepStatus}
-                  cepMessage={cepMessage}
-                  onCepChange={handleCepChange}
-                  onCepLookup={handleCepLookup}
-                />
-              ) : null}
-            </>
-          }
-          paymentContent={
-            <>
-              {!user ? (
-                <GuestCheckoutForm
-                  value={guestCheckoutDetails}
-                  onChange={setGuestCheckoutDetails}
-                />
-              ) : null}
-              <PaymentOptions
-              paymentMethod={selectedCheckoutPaymentMethod}
-              allowPayOnDelivery={allowPayOnDelivery}
-              allowPix={homeData.acceptsPix}
-              allowOpenFinancePix={homeData.openFinancePixEnabled}
-              allowCard={homeData.acceptsCard}
-              restaurantId={restaurantId}
-              loggedIn={Boolean(user)}
-              userEmail={user ? String((user as Record<string, unknown>).email || '') : undefined}
-              onChange={setPaymentMethod}
-            />
-            </>
-          }
-        />
       ) : null}
 
       {crossSellProduct ? (
