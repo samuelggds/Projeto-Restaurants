@@ -44,9 +44,9 @@ export const Page = styled.div<{
       ? `
         background:#fdfcf9;
 
-        ${Header}{display:none}
+        > header{display:none}
 
-        ${Layout}{
+        .product-layout{
           width:min(1120px,calc(100% - 48px));
           margin:0 auto;
           padding:40px 0 80px;
@@ -55,7 +55,7 @@ export const Page = styled.div<{
           align-items:start;
         }
 
-        ${ProductSummary}{
+        .product-summary{
           position:relative;
           top:auto;
           overflow:visible;
@@ -65,20 +65,17 @@ export const Page = styled.div<{
           box-shadow:none;
         }
 
-        ${ProductSummary} > img{
+        .product-summary > img{
           width:536px;
           height:360px;
           border-radius:16px;
           object-fit:cover;
         }
 
-        ${ProductSummary} > div{display:none}
+        .product-summary > div{display:none}
+        .product-summary button[aria-label="Voltar ao cardápio"]{display:none}
 
-        ${ProductBack}{
-          display:none;
-        }
-
-        ${Form}{
+        .product-form{
           padding:28px;
           gap:24px;
           border:1px solid #ece7e1;
@@ -87,7 +84,7 @@ export const Page = styled.div<{
           box-shadow:0 6px 24px rgba(0,0,0,.04);
         }
 
-        ${DesktopProductDetails}{
+        .product-details{
           padding:0 0 24px;
           border:0;
           border-bottom:1px solid #ece7e1;
@@ -95,44 +92,30 @@ export const Page = styled.div<{
           gap:12px;
         }
 
-        ${Group}{
+        .product-group{
           padding:0 0 24px;
           border-width:0 0 1px;
           border-radius:0;
           box-shadow:none;
         }
 
-        ${GroupHeader}{
-          margin-bottom:12px;
-        }
+        .product-group-header{margin-bottom:12px}
+        .product-option-list{grid-template-columns:1fr;gap:8px}
+        .product-option{min-height:45px;border-radius:8px}
+        .product-option > label{min-height:45px;padding:10px 14px}
 
-        ${OptionList}{
-          grid-template-columns:1fr;
-          gap:8px;
-        }
-
-        ${Option}{
-          min-height:45px;
-          border-radius:8px;
-        }
-
-        ${Option} > label{
-          min-height:45px;
-          padding:10px 14px;
-        }
-
-        ${Observation}{
+        .product-observation{
           padding:0;
           border:0;
           border-radius:0;
         }
 
-        ${Observation} textarea{
+        .product-observation textarea{
           min-height:44px;
           resize:none;
         }
 
-        ${BottomBar}{
+        .product-bottom-bar{
           margin:0;
           padding:0;
           border:0;
@@ -142,29 +125,27 @@ export const Page = styled.div<{
         }
 
         @media(max-width:620px){
-          ${Layout}{
+          .product-layout{
             width:100%;
             padding:0;
             display:block;
           }
 
-          ${ProductSummary}{
-            position:relative;
-          }
+          .product-summary{position:relative}
 
-          ${ProductSummary} > img{
+          .product-summary > img{
             width:100%;
             height:220px;
             border-radius:0;
           }
 
-          ${ProductBack}{
+          .product-summary button[aria-label="Voltar ao cardápio"]{
             display:grid;
             top:14px;
             left:16px;
           }
 
-          ${Form}{
+          .product-form{
             padding:0 0 82px;
             gap:0;
             border:0;
@@ -172,61 +153,29 @@ export const Page = styled.div<{
             box-shadow:none;
           }
 
-          ${DesktopProductDetails}{
+          .product-details{
             padding:20px 20px 18px;
             border-bottom:1px solid #eee7e1;
           }
 
-          ${DesktopProductDetails} h1{
-            font-size:24px;
-          }
+          .product-details h1{font-size:24px}
+          .product-details p{font-size:14px;line-height:1.45}
+          .product-details strong{font-size:18px}
 
-          ${DesktopProductDetails} p{
-            font-size:14px;
-            line-height:1.45;
-          }
+          .product-group{padding:20px}
+          .product-group-header{margin-bottom:12px}
+          .product-option-list{gap:8px}
+          .product-option{min-height:44px}
+          .product-option > label{min-height:44px;padding:9px 12px}
 
-          ${DesktopProductDetails} strong{
-            font-size:18px;
-          }
-
-          ${Group}{
-            padding:20px;
-          }
-
-          ${GroupHeader}{
-            margin-bottom:12px;
-          }
-
-          ${Badge}{
-            padding:4px 7px;
-            background:#f3f0ec;
-            color:#756d65;
-          }
-
-          ${OptionList}{
-            gap:8px;
-          }
-
-          ${Option}{
-            min-height:44px;
-          }
-
-          ${Option} > label{
-            min-height:44px;
-            padding:9px 12px;
-          }
-
-          ${Observation}{
+          .product-observation{
             padding:20px;
             border-bottom:1px solid #eee7e1;
           }
 
-          ${Observation} textarea{
-            min-height:44px;
-          }
+          .product-observation textarea{min-height:44px}
 
-          ${BottomBar}{
+          .product-bottom-bar{
             position:sticky;
             bottom:0;
             z-index:5;
@@ -236,11 +185,9 @@ export const Page = styled.div<{
             box-shadow:0 -8px 20px rgba(0,0,0,.06);
           }
 
-          ${ProductQuantity}{
-            flex:0 0 auto;
-          }
+          .product-quantity{flex:0 0 auto}
 
-          ${BottomBar} > button{
+          .product-bottom-bar > button{
             min-height:46px;
             border-radius:10px;
           }
