@@ -451,8 +451,8 @@ export function FigmaDeliveryExperience({
             </S.InfoChips>
 
             {categories.length ? (
-              <S.Section>
-                <S.SectionHead>
+              <S.Section className="categories-section mobile-separated">
+                <S.SectionHead className="categories-head">
                   <div><h2>Categorias</h2><p>Escolha uma categoria para explorar o cardápio.</p></div>
                   <button type="button" onClick={() => chooseCategory('todos')}>Ver cardápio</button>
                 </S.SectionHead>
@@ -469,6 +469,7 @@ export function FigmaDeliveryExperience({
 
             {homePreviewProducts.length ? (
               <S.Section
+                className="products-section mobile-separated"
                 role={promoted.length ? 'region' : undefined}
                 aria-label={promoted.length ? 'Ofertas em destaque' : undefined}
               >
@@ -483,7 +484,7 @@ export function FigmaDeliveryExperience({
                           : 'Uma prévia dos itens disponíveis no cardápio.'}
                     </p>
                   </div>
-                  <button type="button" onClick={() => setView('menu')}>Ver todos</button>
+                  <button className="view-all" type="button" onClick={() => setView('menu')}>Ver todos</button>
                 </S.SectionHead>
                 <S.ProductGrid>
                   {homePreviewProducts.map((product) => (
