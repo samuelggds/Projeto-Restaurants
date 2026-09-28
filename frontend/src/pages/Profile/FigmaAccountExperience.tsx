@@ -90,7 +90,6 @@ export function FigmaAccountExperience(props: ProfilePageProps) {
     initialView = 'overview',
     cartCount = 0,
     paymentMethods = [],
-    onGoHome,
     onOpenMenu,
     onOpenCart,
     onOpenSearch,
@@ -238,7 +237,7 @@ export function FigmaAccountExperience(props: ProfilePageProps) {
               }
             }}
           >
-            Excluir minha conta <AlertTriangle size={17} />
+            Desativar minha conta <AlertTriangle size={17} />
           </button>
         </div>
       </S.SettingsCard>
@@ -474,7 +473,7 @@ export function FigmaAccountExperience(props: ProfilePageProps) {
           <span className="logo">{data.brand.logoUrl ? <img src={data.brand.logoUrl} alt="" /> : data.brand.monogram || data.brand.name.slice(0, 1)}</span>
           <div className="brand-copy">
             <b>{data.brand.name}</b>
-            <span className="status"><i /> Restaurante</span>
+            {data.brand.status ? <span className="status"><i /> {data.brand.status}</span> : null}
           </div>
         </div>
         <button className="search" type="button" onClick={onOpenSearch}>
