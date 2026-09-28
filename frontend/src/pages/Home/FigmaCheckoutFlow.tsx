@@ -31,8 +31,6 @@ type Props = {
   quote?: OrderQuote | null;
   loading?: boolean;
   canContinue?: boolean;
-  addressContent: ReactNode;
-  paymentContent: ReactNode;
   couponContent?: ReactNode;
   guestAddressScreen?: ReactNode;
   authenticatedAddressScreen?: ReactNode;
@@ -52,12 +50,6 @@ type Props = {
 const currency = (value: number) =>
   value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
-function stepIndex(step: FigmaCheckoutStep) {
-  if (step === 'cart') return 1;
-  if (step === 'address') return 2;
-  return 3;
-}
-
 export function FigmaCheckoutFlow({
   primaryColor,
   brandName,
@@ -71,8 +63,6 @@ export function FigmaCheckoutFlow({
   quote,
   loading = false,
   canContinue = true,
-  addressContent,
-  paymentContent,
   couponContent,
   guestAddressScreen,
   authenticatedAddressScreen,
@@ -111,7 +101,6 @@ export function FigmaCheckoutFlow({
     };
   }, []);
 
-  const currentStep = stepIndex(step);
   const subtotal = quote ? quote.itemsSubtotal + quote.productDiscountTotal : cartTotal;
   const deliveryFee = quote?.deliveryFeeAmount ?? 0;
   const total = quote?.total ?? cartTotal;
@@ -140,20 +129,15 @@ export function FigmaCheckoutFlow({
     onSubmit();
   };
 
-  if (step === 'address' && guestAddressScreen) {
-    return <>{guestAddressScreen}</>;
+  if (step === 'address') {
+    if (guestAddressScreen) return <>{guestAddressScreen}</>;
+    if (authenticatedEmptyAddressScreen) return <>{authenticatedEmptyAddressScreen}</>;
+    if (authenticatedAddressScreen) return <>{authenticatedAddressScreen}</>;
+    return null;
   }
 
-  if (step === 'address' && authenticatedAddressScreen) {
-    return <>{authenticatedAddressScreen}</>;
-  }
-
-  if (step === 'address' && authenticatedEmptyAddressScreen) {
-    return <>{authenticatedEmptyAddressScreen}</>;
-  }
-
-  if (step === 'payment' && paymentScreen) {
-    return <>{paymentScreen}</>;
+  if (step === 'payment') {
+    return paymentScreen ? <>{paymentScreen}</> : null;
   }
 
   if (step === 'cart') {
@@ -392,108 +376,5 @@ export function FigmaCheckoutFlow({
     );
   }
 
-  return (
-    <S.Layer
-      ref={layerRef}
-      tabIndex={-1}
-      $primary={primaryColor}
-      role="dialog"
-      aria-modal="true"
-      aria-label="Finalizar pedido"
-    >
-      <S.Top>
-        <div className="brand">
-          <span className="logo">
-            {logoUrl ? <img src={logoUrl} alt="" /> : brandName.slice(0, 1)}
-          </span>
-          <b>{brandName}</b>
-        </div>
-        <button className="back" type="button" onClick={back} aria-label="Voltar">
-          <ArrowLeft />
-        </button>
-      </S.Top>
-
-      <S.Shell>
-        <S.Progress aria-label={`Etapa ${currentStep} de 3`}>
-          <span className="active" />
-          <span className={currentStep >= 2 ? 'active' : ''} />
-          <span className={currentStep >= 3 ? 'active' : ''} />
-        </S.Progress>
-
-        <S.Heading>
-          <div>
-            <h1>{step === 'address' ? 'Endereço de entrega' : 'Pagamento'}</h1>
-            <p>
-              {step === 'address'
-                ? 'Confirme como deseja receber o pedido.'
-                : 'Escolha uma forma de pagamento disponível.'}
-            </p>
-          </div>
-        </S.Heading>
-
-        <S.TwoColumns>
-          <S.Panel>
-            {step === 'address' ? (
-              <S.StepCard>
-                <h2>Entrega</h2>
-                {addressContent}
-              </S.StepCard>
-            ) : null}
-
-            {step === 'payment' ? (
-              <S.StepCard>
-                <h2>Método de pagamento</h2>
-                {paymentContent}
-              </S.StepCard>
-            ) : null}
-          </S.Panel>
-
-          <S.Summary>
-            <h2>Resumo do Pedido</h2>
-            <div className="row">
-              <span>Itens ({cartCount})</span>
-              <strong>{currency(subtotal)}</strong>
-            </div>
-            {quote?.productDiscountTotal ? (
-              <div className="row discount">
-                <span>Descontos nos produtos</span>
-                <strong>− {currency(quote.productDiscountTotal)}</strong>
-              </div>
-            ) : null}
-            {quote?.couponDiscount ? (
-              <div className="row discount">
-                <span>Cupom{quote.couponCode ? ` · ${quote.couponCode}` : ''}</span>
-                <strong>− {currency(quote.couponDiscount)}</strong>
-              </div>
-            ) : null}
-            {quote ? (
-              <div className="row">
-                <span>Taxa de Entrega</span>
-                <strong>{quote.deliveryFeeAmount > 0 ? currency(quote.deliveryFeeAmount) : 'Grátis'}</strong>
-              </div>
-            ) : null}
-            <div className="line" />
-            <div className="row total">
-              <span>Total</span>
-              <strong>{currency(total)}</strong>
-            </div>
-          </S.Summary>
-        </S.TwoColumns>
-
-        <S.Actions>
-          <button className="secondary" type="button" onClick={back}>
-            Voltar
-          </button>
-          <button
-            className="primary"
-            type="button"
-            disabled={!cartCount || !canContinue || loading}
-            onClick={continueFlow}
-          >
-            {loading && step === 'payment' ? 'Processando...' : 'Continuar'}
-          </button>
-        </S.Actions>
-      </S.Shell>
-    </S.Layer>
-  );
+  return null;
 }
