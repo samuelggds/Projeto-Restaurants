@@ -74,8 +74,13 @@ export const Header = styled.header`
   .mobile-back{display:none}
 
   @media(max-width:760px){
-    position:static;height:64px;padding:12px 20px;gap:10px;
+    position:static;
+    min-height:64px;
+    height:auto;
+    padding:12px 20px;
+    gap:10px;
     grid-template-columns:minmax(0,1fr) 36px;
+    align-items:center;
     .actions{display:none}
     .header-left{min-width:0;gap:8px}
     .mobile-back{
@@ -100,7 +105,7 @@ export const InlineSearch = styled.div`
   min-height:42px;
   padding:0 14px;
   border:1px solid var(--delivery-line);
-  border-radius:999px;
+  border-radius:14px;
   background:#fafaf8;
   color:var(--delivery-muted);
   display:flex;
@@ -136,13 +141,21 @@ export const InlineSearch = styled.div`
   @media(max-width:760px){
     &.mobile-open{
       display:flex;
-      position:absolute;
-      inset:10px 20px auto 20px;
+      position:relative;
+      inset:auto;
+      grid-column:1 / -1;
+      grid-row:2;
       z-index:3;
-      width:auto;
-      min-height:44px;
+      width:100%;
+      min-height:40px;
+      margin-top:2px;
       background:#fff;
-      border-radius:22px;
+      border-radius:10px;
+    }
+
+    &.mobile-open input{
+      height:38px;
+      font-size:13px;
     }
   }
 `;
