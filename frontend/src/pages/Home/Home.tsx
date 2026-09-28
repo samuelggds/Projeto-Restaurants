@@ -18,10 +18,8 @@ import { useTableAccount } from './hooks/useTableAccount';
 import { useTableOrderNotice } from './hooks/useTableOrderNotice';
 import { buildHomeData } from '../Home/adapters/homeDataAdapter';
 import { TableAccessGate } from './components/TableAccessGate';
-import { DeliveryAddressForm } from '../Home/components/DeliveryAddressForm';
 import { PaymentOptions } from '../Home/components/PaymentOptions';
-import { GuestCheckoutForm, type GuestCheckoutDetails } from '../Home/components/GuestCheckoutForm';
-import { DeliveryMethodSelector } from '../Home/components/DeliveryMethodSelector';
+import type { GuestCheckoutDetails } from '../Home/components/GuestCheckoutForm';
 import { LoyaltyCouponPanel } from '../Home/components/LoyaltyCouponPanel';
 import { ProductConfigurator } from '../Home/components/ProductConfigurator';
 import { ComboConfigurator } from '../Home/components/ComboConfigurator';
@@ -1061,7 +1059,10 @@ export default function Home() {
             ) : undefined
           }
           authenticatedAddressScreen={
-            user && String(user.role || '').toUpperCase() === 'CLIENTE' ? (
+            user &&
+            String(user.role || '').toUpperCase() === 'CLIENTE' &&
+            !savedAddressesLoading &&
+            savedAddresses.length > 0 ? (
               <AuthenticatedAddressCheckout
                 primaryColor={primary}
                 brandName={homeData.brand.name}
@@ -1163,14 +1164,7 @@ export default function Home() {
               onRedeem={(couponId) => void loyalty.redeem(couponId)}
             />
           }
-          addressContent={
-            <>
-              <DeliveryMethodSelector
-                value={availableOrderType}
-                allowDelivery={homeData.acceptsDelivery}
-                allowPickup={homeData.acceptsPickup}
-                onChange={setOrderType}
-              />
+        />
               {!user ? (
                 <GuestCheckoutForm
                   value={guestCheckoutDetails}
