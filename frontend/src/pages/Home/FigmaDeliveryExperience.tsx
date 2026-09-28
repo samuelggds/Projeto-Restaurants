@@ -109,6 +109,15 @@ export function FigmaDeliveryExperience({
       setSelectedCombo(product);
       return;
     }
+    if (product.saleMode === 'COMPLETE') {
+      onAddProduct?.(product.id, {
+        selectedOptions: [],
+        selectedOptionIds: [],
+        observation: '',
+        configurationVersion: product.configurationVersion,
+      }, 1);
+      return;
+    }
     setSelectedProduct(product);
   };
 
@@ -141,7 +150,7 @@ export function FigmaDeliveryExperience({
         </button>
 
         <div className="actions">
-          <button className="account" type="button" onClick={onOpenProfile}>
+          <button className="account" type="button" aria-label="Minha conta" onClick={onOpenProfile}>
             <UserRound size={20} />
             <span>{userLoggedIn && userName ? `Olá, ${userName.split(' ')[0]}` : 'Olá, Entrar'}</span>
           </button>
@@ -211,14 +220,19 @@ export function FigmaDeliveryExperience({
             ) : null}
 
             {homePreviewProducts.length ? (
-              <S.Section>
+              <S.Section
+                role={promoted.length ? 'region' : undefined}
+                aria-label={promoted.length ? 'Ofertas em destaque' : undefined}
+              >
                 <S.SectionHead>
                   <div>
                     <h2>{homePreviewTitle}</h2>
                     <p>
-                      {highlightedProducts.length
-                        ? 'Promoções e combos disponíveis configurados pelo restaurante.'
-                        : 'Uma prévia dos itens disponíveis no cardápio.'}
+                      {promoted.length
+                        ? `${promoted.length} ${promoted.length === 1 ? 'oferta disponível' : 'ofertas disponíveis'}`
+                        : highlightedProducts.length
+                          ? 'Combos disponíveis configurados pelo restaurante.'
+                          : 'Uma prévia dos itens disponíveis no cardápio.'}
                     </p>
                   </div>
                   <button type="button" onClick={() => setView('menu')}>Ver todos</button>
@@ -226,14 +240,29 @@ export function FigmaDeliveryExperience({
                 <S.ProductGrid>
                   {homePreviewProducts.map((product) => (
                     <S.ProductCard key={product.id}>
-                      {product.promotion?.active ? <span className="badge">{product.promotion.badgeLabel}</span> : null}
-                      <button className="open" type="button" aria-label={`Ver ${product.name}`} onClick={() => openProduct(product)} />
+                      {product.promotion?.active ? (
+                        <span className="badge" data-offer-label="inline">
+                          {product.promotion.badgeLabel}
+                        </span>
+                      ) : null}
+                      <button
+                        className="open"
+                        type="button"
+                        aria-label={`Ver detalhes de ${product.name}`}
+                        onClick={() => openProduct(product)}
+                      />
                       <div className="image">{productImage(product)}</div>
                       <div className="copy">
                         <h3>{product.name}</h3>
                         <p>{product.description}</p>
                         <div className="foot">
-                          <strong>{money(product.price)}</strong>
+                          <span className="price">
+                            {product.promotion?.active &&
+                            Number(product.originalPrice) > Number(product.price) ? (
+                              <del>{money(product.originalPrice)}</del>
+                            ) : null}
+                            <strong>{money(product.price)}</strong>
+                          </span>
                           <button
                             className="add"
                             type="button"
