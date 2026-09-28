@@ -49,7 +49,10 @@ describe('PixPaymentPanel', () => {
       const markup = render(status);
 
       expect(markup).toContain('Pagamento PIX não efetuado');
-      expect(markup).toContain('class="failure"');
+      expect(markup).toMatch(/class="[^"]*\bfailure\b[^"]*"/u);
+      expect(markup).toContain('role="status"');
+      expect(markup).toContain('lucide-circle-x');
+      expect(markup).toContain(`data-status="${status}"`);
       expect(markup).not.toContain('Pagamento PIX Confirmado!');
     },
   );
