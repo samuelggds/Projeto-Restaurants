@@ -1,7 +1,6 @@
 import userRepository from '../repositories/UserRepository.js';
 import prisma from '../../../config/prisma.js';
 import bcrypt from 'bcrypt';
-import { isMfaDisableProtectedRole } from '../security/mfaPolicy.js';
 
 export class MfaPreferenceError extends Error {}
 
@@ -15,9 +14,6 @@ class UpdateMfaPreferenceService {
       const user = await userRepository.findByIdWithPassword(userId, transaction);
       if (!user?.active) {
         throw new MfaPreferenceError('Usuario nao encontrado');
-      }
-      if (!enabled && isMfaDisableProtectedRole(user.role)) {
-        throw new MfaPreferenceError('A verificação em duas etapas é obrigatória para esta conta.');
       }
       if (
         typeof currentPassword !== 'string' ||
