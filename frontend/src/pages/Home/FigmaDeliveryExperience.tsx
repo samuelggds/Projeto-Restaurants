@@ -15,6 +15,7 @@ import {
 import { ComboConfigurator } from './components/ComboConfigurator';
 import { FacebookIcon, InstagramIcon } from './components/SocialBrandIcons';
 import { ProductConfigurator } from './components/ProductConfigurator';
+import { PromotionCarousel } from './components/PromotionCarousel';
 import { CustomerDesktopFooter } from './components/CustomerDesktopFooter';
 import { FloatingWhatsAppPortal } from './Home.whatsapp';
 import { WhatsAppIcon } from './components/SocialBrandIcons';
@@ -203,11 +204,28 @@ export function FigmaDeliveryExperience({
         .filter((section) => section.products.length > 0),
     [availableProducts, categories],
   );
-  const activeBanner = data.banners.find((banner) => banner.active) || data.banners[0];
-  const heroImage = activeBanner?.image || data.hero.image;
-  const heroTitle = activeBanner?.title || data.hero.title;
-  const heroHighlight = activeBanner?.highlight || data.hero.highlight;
-  const heroDescription = activeBanner?.description || data.hero.description;
+  const promotionBanners = useMemo(() => {
+    const configured = data.banners
+      .filter((banner) => banner.active)
+      .sort((left, right) => Number(left.position || 0) - Number(right.position || 0));
+
+    if (configured.length) return configured;
+
+    return data.hero.image
+      ? [
+          {
+            id: -1,
+            title: data.hero.title,
+            highlight: data.hero.highlight,
+            description: data.hero.description,
+            buttonLabel: 'Ver cardápio',
+            image: data.hero.image,
+            active: true,
+            position: 0,
+          },
+        ]
+      : [];
+  }, [data.banners, data.hero]);
   const hours = formatHours(data);
   const normalizeSearchText = (value: string) =>
     value
@@ -496,22 +514,11 @@ export function FigmaDeliveryExperience({
         />
       ) : (
         <>
-          <S.Hero role="region" aria-label="Promoções do restaurante">
-            {heroImage ? <img src={heroImage} alt="" /> : null}
-            <div className="overlay" />
-            <div className="copy">
-              {heroTitle ? <small>{heroTitle}</small> : null}
-              {heroHighlight ? (
-                <h1>{heroHighlight}</h1>
-              ) : heroTitle ? (
-                <h1>{heroTitle}</h1>
-              ) : null}
-              {heroDescription ? <p>{heroDescription}</p> : null}
-              <button type="button" onClick={openFullMenu}>
-                {activeBanner?.buttonLabel || 'Ver cardápio'}
-              </button>
-            </div>
-          </S.Hero>
+          {promotionBanners.length ? (
+            <S.HeroCarousel>
+              <PromotionCarousel banners={promotionBanners} onOpenMenu={openFullMenu} />
+            </S.HeroCarousel>
+          ) : null}
 
           <S.Main>
             <S.InfoChips>
