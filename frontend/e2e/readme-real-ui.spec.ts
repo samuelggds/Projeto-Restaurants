@@ -357,7 +357,7 @@ test('cardápio público mantém a hierarquia e os atalhos contidos em 320px', a
   await page.goto('/north-pizza');
 
   const hero = page.getByRole('region', { name: 'Promoções do restaurante' });
-  const menuButton = page.getByRole('button', { name: 'Ver cardápio' });
+  const menuButton = hero.getByRole('button', { name: 'Ver cardápio' });
   const loginNudge = page.getByRole('region', { name: 'Acompanhe seus pedidos' });
   const shortcutsButton = page.getByTestId('floating-actions-control-customer');
 
