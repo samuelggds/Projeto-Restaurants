@@ -479,20 +479,13 @@ test('adicionar mantém o cardápio aberto e o checkout reúne os itens em 320px
   await expect.poll(() => page.evaluate(() => document.body.style.overflow)).toBe('');
 
   await page.getByRole('button', { name: 'Adicionar Pizza Margherita' }).click();
-  const margherita = page.getByRole('dialog', { name: 'Montar Pizza Margherita' });
-  await expect(margherita).toBeVisible();
-  await margherita.getByRole('button', { name: 'Adicionar à sacola' }).click();
-  await expect(margherita).toBeHidden();
+  await expect(page.getByRole('button', { name: 'Meu Carrinho, 1 item' })).toBeVisible();
   await expect(loginNudge).toBeVisible();
 
   await page.getByRole('button', { name: 'Dispensar convite de login' }).click();
   await expect(loginNudge).toBeHidden();
 
   await page.getByRole('button', { name: 'Adicionar Pizza Calabresa Especial' }).click();
-  const calabresa = page.getByRole('dialog', { name: 'Montar Pizza Calabresa Especial' });
-  await expect(calabresa).toBeVisible();
-  await calabresa.getByRole('button', { name: 'Adicionar à sacola' }).click();
-  await expect(calabresa).toBeHidden();
 
   const filledCartTrigger = page.getByRole('button', { name: 'Meu Carrinho, 2 itens' });
   await expect(filledCartTrigger).toBeVisible();
@@ -515,9 +508,6 @@ test('checkout móvel preserva o endereço salvo selecionado', async ({ page }) 
   await page.goto('/north-pizza');
 
   await page.getByRole('button', { name: 'Adicionar Pizza Margherita' }).click();
-  const configurator = page.getByRole('dialog', { name: 'Montar Pizza Margherita' });
-  await configurator.getByRole('button', { name: 'Adicionar à sacola' }).click();
-
   await page.getByRole('button', { name: 'Meu Carrinho, 1 item' }).click();
   const checkout = page.getByRole('dialog', { name: 'Finalizar pedido' });
   await expect(checkout).toBeVisible();
@@ -646,8 +636,6 @@ test('central e convite de login continuam acessíveis em uma tela baixa', async
   await page.goto('/north-pizza');
 
   await page.getByRole('button', { name: 'Adicionar Pizza Margherita' }).click();
-  const configurator = page.getByRole('dialog', { name: 'Montar Pizza Margherita' });
-  await configurator.getByRole('button', { name: 'Adicionar à sacola' }).click();
 
   const nudge = page.getByRole('region', { name: 'Acompanhe seus pedidos' });
   const whatsapp = page.getByTestId('floating-whatsapp-contact');
