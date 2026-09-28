@@ -55,7 +55,6 @@ export function useDeliveryAddress(user: unknown) {
     });
 
     if (!isCustomer) {
-      setSavedAddressesLoading(false);
       return () => {
         active = false;
       };
