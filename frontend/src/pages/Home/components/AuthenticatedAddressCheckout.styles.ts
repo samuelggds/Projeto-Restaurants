@@ -46,7 +46,7 @@ export const DesktopHeader = styled.header`
   .actions { display: flex; align-items: center; gap: 20px; }
   .account, .cart { display: inline-flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 600; white-space: nowrap; }
   .actions svg { width: 18px; }
-  .cart { padding: 10px 14px; border-radius: 999px; background: var(--checkout-primary); color: #fff; }
+  .cart { padding: 10px 14px; border-radius: 10px; background: var(--checkout-primary); color: #fff; }
   .cart i { min-width: 18px; height: 18px; padding: 0 5px; display: grid; place-items: center; border-radius: 9px; background: #1f1e1a; color: #fff; font-size: 10px; font-style: normal; }
 
   @media (max-width: 980px) {
