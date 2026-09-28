@@ -10,6 +10,7 @@ import {
   buildAuthEntryUrl,
   getRememberedAuthReturnPath,
   getSafeAuthSearchParams,
+  resolveAuthExperience,
 } from '../../shared/navigation/authNavigation';
 import {
   executePhoneCaptcha,
@@ -47,6 +48,7 @@ export default function RecoverPassword() {
 
   const canonicalSearch = getSafeAuthSearchParams(contextualSearchParams).toString();
   const branding = useRestaurantLoginBranding(contextualSearchParams);
+  const authExperience = resolveAuthExperience(contextualSearchParams);
   const loginPath = pathSlug
     ? `/${pathSlug}/login${canonicalSearch ? `?${canonicalSearch}` : ''}`
     : buildAuthEntryUrl('/login', contextualSearchParams);
@@ -211,6 +213,7 @@ export default function RecoverPassword() {
       onBack={() => navigate(loginPath)}
       onChangeContact={changeContact}
       onResend={() => void requestRecovery()}
+      authContext={authExperience.context}
     />
   );
 }
