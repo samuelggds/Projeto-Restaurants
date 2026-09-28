@@ -26,15 +26,15 @@ type GoogleMapsApi = {
   Marker: new (options: Record<string, unknown>) => GoogleMarkerInstance;
 };
 
-type GoogleWindow = typeof window & {
+type AddressGoogleWindow = typeof window & {
   google?: { maps?: GoogleMapsApi };
-  __gastronexaGoogleMapsPromise?: Promise<GoogleMapsApi>;
+  __gastronexaAddressGoogleMapsPromise?: Promise<GoogleMapsApi>;
 };
 
 const GOOGLE_MAPS_SCRIPT_ID = 'gastronexa-google-maps';
 
 function getLoadedGoogleMaps() {
-  return (window as GoogleWindow).google?.maps;
+  return (window as AddressGoogleWindow).google?.maps;
 }
 
 function loadGoogleMaps() {
@@ -47,11 +47,11 @@ function loadGoogleMaps() {
   if (loaded) return Promise.resolve(loaded);
 
   const googleWindow = window as GoogleWindow;
-  if (googleWindow.__gastronexaGoogleMapsPromise) {
-    return googleWindow.__gastronexaGoogleMapsPromise;
+  if (googleWindow.__gastronexaAddressGoogleMapsPromise) {
+    return googleWindow.__gastronexaAddressGoogleMapsPromise;
   }
 
-  googleWindow.__gastronexaGoogleMapsPromise = new Promise<GoogleMapsApi>((resolve, reject) => {
+  googleWindow.__gastronexaAddressGoogleMapsPromise = new Promise<GoogleMapsApi>((resolve, reject) => {
     const resolveMaps = () => {
       const maps = getLoadedGoogleMaps();
       if (maps) resolve(maps);
@@ -84,7 +84,7 @@ function loadGoogleMaps() {
     document.head.appendChild(script);
   });
 
-  return googleWindow.__gastronexaGoogleMapsPromise;
+  return googleWindow.__gastronexaAddressGoogleMapsPromise;
 }
 
 function normalizedAddress(address: DeliveryAddress) {
