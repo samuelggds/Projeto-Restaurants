@@ -207,6 +207,12 @@ export function FigmaCheckoutFlow({
                   <span>Subtotal</span>
                   <strong>{currency(subtotal)}</strong>
                 </div>
+                {quote?.couponDiscount ? (
+                  <div className="summary-row discount">
+                    <span>Cupom{quote.couponCode ? ` · ${quote.couponCode}` : ''}</span>
+                    <strong>− {currency(quote.couponDiscount)}</strong>
+                  </div>
+                ) : null}
                 <div className="summary-row">
                   <span>Taxa de entrega</span>
                   <strong>{deliveryFee > 0 ? currency(deliveryFee) : 'Grátis'}</strong>
@@ -246,6 +252,12 @@ export function FigmaCheckoutFlow({
                   <span>Subtotal</span>
                   <strong>{currency(subtotal)}</strong>
                 </div>
+                {quote?.couponDiscount ? (
+                  <div className="summary-row discount">
+                    <span>Cupom{quote.couponCode ? ` · ${quote.couponCode}` : ''}</span>
+                    <strong>− {currency(quote.couponDiscount)}</strong>
+                  </div>
+                ) : null}
                 <div className="summary-row">
                   <span>Taxa de Entrega</span>
                   <strong>{deliveryFee > 0 ? currency(deliveryFee) : 'Grátis'}</strong>
