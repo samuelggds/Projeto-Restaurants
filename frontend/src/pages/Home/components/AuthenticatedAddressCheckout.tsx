@@ -84,7 +84,7 @@ export function AuthenticatedAddressCheckout({
   const hasSavedAddresses = savedAddresses.length > 0;
 
   return (
-    <S.Page $primary={primaryColor}>
+    <S.Page $primary={primaryColor} role="dialog" aria-modal="true" aria-label="Finalizar pedido">
       <S.MobileHeader>
         <button type="button" onClick={onBack} aria-label="Voltar">
           <ArrowLeft aria-hidden="true" />
