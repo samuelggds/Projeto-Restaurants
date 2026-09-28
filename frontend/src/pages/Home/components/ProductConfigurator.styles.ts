@@ -1,16 +1,20 @@
 import styled from 'styled-components';
 
-export const Page = styled.div<{ $primary: string }>`
+export const Page = styled.div<{
+  $primary: string;
+  $embedded?: boolean;
+  $customerPageVariant?: boolean;
+}>`
   --config-primary: ${({ $primary }) => $primary || '#d64d08'};
-  position: fixed;
-  inset: 0;
-  z-index: 600;
+  position: ${({ $embedded }) => ($embedded ? 'relative' : 'fixed')};
+  inset: ${({ $embedded }) => ($embedded ? 'auto' : '0')};
+  z-index: ${({ $embedded }) => ($embedded ? '1' : '600')};
   width: 100%;
   min-width: 0;
-  height: 100dvh;
-  min-height: 100svh;
+  height: ${({ $embedded }) => ($embedded ? 'auto' : '100dvh')};
+  min-height: ${({ $embedded }) => ($embedded ? '0' : '100svh')};
   overflow-x: hidden;
-  overflow-y: auto;
+  overflow-y: ${({ $embedded }) => ($embedded ? 'visible' : 'auto')};
   -webkit-overflow-scrolling: touch;
   overscroll-behavior: contain;
   scroll-padding-top: calc(90px + env(safe-area-inset-top, 0px));
@@ -32,8 +36,256 @@ export const Page = styled.div<{ $primary: string }>`
   }
 
   @supports not (height: 100dvh) {
-    height: 100vh;
+    height: ${({ $embedded }) => ($embedded ? 'auto' : '100vh')};
   }
+
+  ${({ $customerPageVariant }) =>
+    $customerPageVariant
+      ? `
+        background:#fdfcf9;
+
+        > header{display:none}
+
+        .product-layout{
+          width:min(1120px,calc(100% - 48px));
+          margin:0 auto;
+          padding:40px 0 80px;
+          grid-template-columns:536px 536px;
+          gap:48px;
+          align-items:start;
+        }
+
+        .product-summary{
+          position:relative;
+          top:auto;
+          overflow:visible;
+          border:0;
+          border-radius:0;
+          background:transparent;
+          box-shadow:none;
+        }
+
+        .product-summary > img{
+          width:536px;
+          height:360px;
+          border-radius:16px;
+          object-fit:cover;
+        }
+
+        .product-summary > div{display:none}
+
+        .product-image-caption{
+          display:block;
+          margin-top:12px;
+          color:#8b837c;
+          text-align:center;
+          font-size:11px;
+          line-height:16px;
+        }
+
+        .product-summary button[aria-label="Voltar ao cardápio"]{
+          display:grid;
+          top:14px;
+          left:14px;
+        }
+
+        .product-form{
+          padding:28px;
+          gap:24px;
+          border:1px solid #ece7e1;
+          border-radius:16px;
+          background:#fff;
+          box-shadow:0 6px 24px rgba(0,0,0,.04);
+        }
+
+        .product-details{
+          padding:0 0 24px;
+          border:0;
+          border-bottom:1px solid #ece7e1;
+          border-radius:0;
+          gap:12px;
+        }
+
+        .product-group{
+          padding:0 0 24px;
+          border-width:0 0 1px;
+          border-radius:0;
+          box-shadow:none;
+        }
+
+        .product-group-header{margin-bottom:12px}
+        .product-option-list{grid-template-columns:1fr;gap:8px}
+        .product-option{min-height:45px;border-radius:8px}
+        .product-option > label{min-height:45px;padding:10px 14px}
+
+        .product-observation{
+          padding:0;
+          border:0;
+          border-radius:0;
+        }
+
+        .product-observation textarea{
+          min-height:44px;
+          resize:none;
+        }
+
+        .product-bottom-bar{
+          margin:0;
+          padding:0;
+          border:0;
+          border-radius:0;
+          box-shadow:none;
+          background:transparent;
+        }
+
+        @media(max-width:900px){
+          .product-layout{
+            width:min(720px,calc(100% - 32px));
+            grid-template-columns:minmax(0,1fr);
+            gap:24px;
+          }
+
+          .product-summary > img{
+            width:100%;
+            max-width:100%;
+          }
+        }
+
+        @media(max-height:540px) and (orientation:landscape){
+          height:100dvh;
+          min-height:100svh;
+          overflow-y:auto;
+          overscroll-behavior:contain;
+        }
+
+        @media(max-width:620px){
+          .product-layout{
+            width:100%;
+            padding:0;
+            display:block;
+          }
+
+          .product-summary{position:relative}
+
+          .product-summary > img{
+            width:100%;
+            height:220px;
+            border-radius:0;
+          }
+
+          .product-image-caption{display:none}
+
+          .product-summary button[aria-label="Voltar ao cardápio"]{
+            display:grid;
+            top:14px;
+            left:16px;
+          }
+
+          .product-form{
+            padding:0 0 82px;
+            gap:0;
+            border:0;
+            border-radius:0;
+            box-shadow:none;
+          }
+
+          .product-details{
+            padding:20px 20px 18px;
+            border-bottom:1px solid #eee7e1;
+          }
+
+          .product-details h1{font-size:24px}
+          .product-details p{font-size:14px;line-height:1.45}
+          .product-details strong{font-size:18px}
+
+          .product-group{padding:20px}
+          .product-group-header{margin-bottom:12px}
+          .product-option-list{gap:8px}
+
+          .product-option-list[data-selection='SINGLE']{
+            display:flex;
+            flex-wrap:wrap;
+            gap:8px;
+          }
+
+          .product-option-list[data-selection='SINGLE'] .product-option{
+            min-height:36px;
+            width:auto;
+            flex:0 0 auto;
+            border-radius:9px;
+          }
+
+          .product-option-list[data-selection='SINGLE'] .product-option > label{
+            min-height:36px;
+            padding:0 12px;
+            display:flex;
+            gap:0;
+          }
+
+          .product-option-list[data-selection='SINGLE'] .product-option i,
+          .product-option-list[data-selection='SINGLE'] .product-option strong{
+            display:none;
+          }
+
+          .product-option-list[data-selection='MULTIPLE']{
+            padding:8px 12px;
+            border:1px solid #ece7e1;
+            border-radius:12px;
+            background:#fff;
+          }
+
+          .product-option-list[data-selection='MULTIPLE'] .product-option{
+            min-height:32px;
+            border:0;
+            border-radius:0;
+            background:transparent;
+          }
+
+          .product-option-list[data-selection='MULTIPLE'] .product-option > label{
+            min-height:32px;
+            padding:4px 0;
+          }
+
+          .product-option-list[data-selection='MULTIPLE'] .product-option i{
+            width:20px;
+            height:20px;
+            border-radius:6px;
+          }
+
+          .product-option{min-height:44px}
+          .product-option > label{min-height:44px;padding:9px 12px}
+
+          .product-observation{
+            padding:20px;
+            border-bottom:1px solid #eee7e1;
+          }
+
+          .product-observation span,
+          .product-observation small{
+            display:none;
+          }
+
+          .product-observation textarea{min-height:44px}
+
+          .product-bottom-bar{
+            position:static;
+            bottom:auto;
+            z-index:5;
+            padding:12px 20px calc(12px + env(safe-area-inset-bottom));
+            border-top:1px solid #ece7e1;
+            background:#fff;
+            box-shadow:0 -8px 20px rgba(0,0,0,.06);
+          }
+
+          .product-quantity{flex:0 0 auto}
+
+          .product-bottom-bar > button{
+            min-height:46px;
+            border-radius:10px;
+          }
+        }
+      `
+      : ''}
 `;
 
 export const Header = styled.header`
@@ -172,14 +424,11 @@ export const ProductSummary = styled.aside`
     border-radius: 0;
     box-shadow: none;
     img {
-      height: 210px;
+      height: 220px;
       min-height: 0;
     }
     > div {
-      padding: 20px 18px 22px;
-    }
-    h1 {
-      font-size: 27px;
+      display:none;
     }
   }
 
@@ -210,6 +459,30 @@ export const ProductSummary = styled.aside`
     strong {
       font-size: 19px;
     }
+  }
+`;
+
+
+export const DesktopProductDetails = styled.section`
+  display:grid;
+  gap:12px;
+  padding:28px 28px 24px;
+  border:1px solid #ece7e1;
+  border-radius:16px;
+  background:#fff;
+
+  h1{margin:0;font-size:30px;line-height:1.15;font-weight:800}
+  p{margin:0;color:#6f665e;font-size:14px;line-height:1.55}
+  strong{color:var(--config-primary);font-size:22px}
+
+  @media(max-width:620px){
+    padding:20px 18px 18px;
+    border:0;
+    border-radius:0;
+    border-bottom:1px solid #eee7e1;
+    h1{font-size:26px}
+    p{font-size:14px;line-height:1.5}
+    strong{font-size:18px}
   }
 `;
 
@@ -253,8 +526,8 @@ export const Form = styled.form`
   gap: 16px;
 
   @media (max-width: 620px) {
-    padding: 18px 14px 0;
-    border-top: 1px solid #eee5dd;
+    padding: 0;
+    border-top: 0;
   }
 
   @media (max-width: 900px) and (max-height: 540px) and (orientation: landscape) {
@@ -336,8 +609,10 @@ export const Group = styled.fieldset<{ $error?: boolean }>`
   box-shadow: 0 8px 25px rgba(71, 46, 26, 0.045);
 
   @media (max-width: 620px) {
-    padding: 17px 14px;
-    border-radius: 16px;
+    padding:20px 18px;
+    border-width:0 0 1px;
+    border-radius:0;
+    box-shadow:none;
   }
 `;
 
@@ -385,7 +660,7 @@ export const OptionList = styled.div`
   gap: 9px;
 
   @media (max-width: 620px) {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns:1fr;
   }
 
   @media (max-width: 360px) {
@@ -781,8 +1056,9 @@ export const Observation = styled.label`
   }
 
   @media (max-width: 620px) {
-    padding: 17px 14px;
-    border-radius: 16px;
+    padding:20px 18px;
+    border-width:0 0 1px;
+    border-radius:0;
   }
 `;
 
@@ -852,25 +1128,29 @@ export const BottomBar = styled.div<{ $stickyOnMobile?: boolean }>`
   @media (max-width: 620px) {
     position: ({ $stickyOnMobile }) => ($stickyOnMobile ? 'sticky' : 'static');
     bottom: ({ $stickyOnMobile }) => ($stickyOnMobile ? '0' : 'auto');
-    width: 100%;
-    min-width: 0;
-    margin: 3px 0 0;
-    padding: 11px 14px calc(11px + env(safe-area-inset-bottom));
-    border-radius: 16px 16px 0 0;
-    gap: 10px;
-    background: #fffdfa;
-    backdrop-filter: none;
+    width:100%;
+    min-width:0;
+    margin:0;
+    padding:12px 18px calc(12px + env(safe-area-inset-bottom));
+    border-width:1px 0 0;
+    border-radius:0;
+    gap:10px;
+    background:#fff;
+    backdrop-filter:none;
+    box-shadow:0 -8px 24px rgba(0,0,0,.08);
+
+    .total-description{display:none}
 
     button {
-      min-width: 0;
-      flex: 1;
-      padding-inline: 12px;
-      font-size: 13px;
+      min-width:0;
+      flex:1;
+      min-height:46px;
+      padding-inline:12px;
+      font-size:14px;
+      border-radius:10px;
     }
 
-    strong {
-      font-size: 17px;
-    }
+    strong {font-size:17px}
   }
 
   @media (max-width: 340px) {

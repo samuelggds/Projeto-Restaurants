@@ -48,6 +48,7 @@ export const Hero = styled.section`
   @media (max-width: 900px) {
     min-height: 0;
     height: 320px;
+    flex: 0 0 320px;
   }
 `;
 
@@ -118,7 +119,7 @@ export const HeroBranding = styled.div`
   @media (max-width: 900px) {
     min-height: 0;
     height: 290px;
-    padding: 24px;
+    padding: 24px 24px 24px;
     justify-content: flex-end;
     gap: 12px;
   }
@@ -249,10 +250,11 @@ export const FormPanel = styled.section`
   @media (max-width: 900px) {
     position: relative;
     z-index: 3;
-    min-height: 0;
+    min-height: 568px;
     margin-top: -40px;
     padding: 28px 24px 40px;
-    border-radius: 28px 28px 0 0;
+    border-radius: 0;
+    background: var(--auth-bg);
     align-items: flex-start;
   }
 
@@ -300,11 +302,13 @@ export const HeadingGroup = styled.div`
     h2 {
       font-family: 'Inter', sans-serif;
       font-size: 22px;
-      line-height: 1.2;
+      line-height: 27px;
+      font-weight: 800;
     }
 
     p {
       font-size: 14px;
+      line-height: 20px;
     }
   }
 `;
@@ -481,10 +485,10 @@ export const ForgotButton = styled.button`
 
 export const PrimaryButton = styled.button`
   width: 100%;
-  min-height: 50px;
+  min-height: 46px;
   padding: 14px 24px;
   border: 0;
-  border-radius: 12px;
+  border-radius: 10px;
   background: linear-gradient(
     90deg,
     color-mix(in srgb, var(--auth-primary) 82%, #ff8b66),

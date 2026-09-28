@@ -37,6 +37,8 @@ type ProductConfiguratorProps = {
   onClose: () => void;
   enableProductQuantity?: boolean;
   tableMenuVariant?: boolean;
+  embedded?: boolean;
+  customerPageVariant?: boolean;
   onConfirm: (configuration: ProductConfiguration, quantity?: number) => void;
 };
 
@@ -58,6 +60,8 @@ export function ProductConfigurator({
   onClose,
   enableProductQuantity = false,
   tableMenuVariant = false,
+  embedded = false,
+  customerPageVariant = false,
   onConfirm,
 }: ProductConfiguratorProps) {
   const totalDescriptionId = useId();
@@ -95,13 +99,13 @@ export function ProductConfigurator({
     const handleEscape = (event: KeyboardEvent) => {
       if (event.key === 'Escape') onClose();
     };
-    document.body.style.overflow = 'hidden';
+    if (!embedded) document.body.style.overflow = 'hidden';
     document.addEventListener('keydown', handleEscape);
     return () => {
-      document.body.style.overflow = previousOverflow;
+      if (!embedded) document.body.style.overflow = previousOverflow;
       document.removeEventListener('keydown', handleEscape);
     };
-  }, [onClose]);
+  }, [embedded, onClose]);
 
   const requiredGroups = regularGroups.filter((group) => group.minSelections > 0);
   const completedRequiredGroups = requiredGroups.filter(
@@ -172,17 +176,19 @@ export function ProductConfigurator({
     onConfirm(configuration);
   };
 
-  return createPortal(
+  const configurator = (
     <S.Page
       $primary={primaryColor}
+      $embedded={embedded}
+      $customerPageVariant={customerPageVariant}
       role="dialog"
       aria-modal="true"
       aria-label={`Montar ${product.name}`}
       data-testid="product-configurator"
       data-table-menu={tableMenuVariant ? 'true' : undefined}
     >
-      {!tableMenuVariant ? (
-        <S.Header>
+      {!tableMenuVariant && !customerPageVariant ? (
+        <S.Header aria-hidden="true">
           <S.HeaderInner>
             <button type="button" onClick={onClose}>
               <ArrowLeft size={19} /> Voltar ao cardápio
@@ -192,16 +198,12 @@ export function ProductConfigurator({
         </S.Header>
       ) : null}
 
-      <S.Layout>
-        <S.ProductSummary data-product-summary>
-          {tableMenuVariant ? (
-            <>
-              <S.ProductBack type="button" aria-label="Voltar ao cardápio" onClick={onClose}>
-                <ArrowLeft size={19} />
-              </S.ProductBack>
-              <S.ProductFavorite aria-hidden="true">♡</S.ProductFavorite>
-            </>
-          ) : null}
+      <S.Layout className="product-layout">
+        <S.ProductSummary className="product-summary" data-product-summary>
+          <S.ProductBack type="button" aria-label="Voltar ao cardápio" onClick={onClose}>
+            <ArrowLeft size={19} />
+          </S.ProductBack>
+          {tableMenuVariant ? <S.ProductFavorite aria-hidden="true">♡</S.ProductFavorite> : null}
           {product.image ? (
             <img src={product.image} alt={product.name} decoding="async" />
           ) : (
@@ -209,6 +211,11 @@ export function ProductConfigurator({
               <UtensilsCrossed />
             </S.ProductImagePlaceholder>
           )}
+          {customerPageVariant ? (
+            <span className="product-image-caption">
+              *Imagem ilustrativa de sugestão de consumo.
+            </span>
+          ) : null}
           <div>
             {!tableMenuVariant ? <small>Personalize seu pedido</small> : null}
             <S.ProductTitleRow>
@@ -258,8 +265,18 @@ export function ProductConfigurator({
           </div>
         </S.ProductSummary>
 
-        <S.Form onSubmit={submit} noValidate>
-          {!tableMenuVariant && (
+        <S.Form className="product-form" onSubmit={submit} noValidate>
+          {!tableMenuVariant ? (
+            <S.DesktopProductDetails className="product-details">
+              <h1>{product.name}</h1>
+              {product.description ? <p>{product.description}</p> : null}
+              <strong aria-live="polite">
+                {dynamicPrice ? priceLabel : brl(product.price)}
+              </strong>
+            </S.DesktopProductDetails>
+          ) : null}
+
+          {!tableMenuVariant && !customerPageVariant && (
             <S.Intro>
               <div>
                 <h2>Monte seu produto</h2>
@@ -339,12 +356,13 @@ export function ProductConfigurator({
             const atLimit = group.maxSelections != null && selected.length >= group.maxSelections;
             return (
               <S.Group
+                className="product-group"
                 id={`product-group-${group.id}`}
                 key={group.id}
                 $error={Boolean(errors[group.id])}
                 aria-describedby={errors[group.id] ? `product-group-error-${group.id}` : undefined}
               >
-                <S.GroupHeader>
+                <S.GroupHeader className="product-group-header">
                   <div>
                     <h3>{group.name}</h3>
                     {group.description && <p>{group.description}</p>}
@@ -354,7 +372,10 @@ export function ProductConfigurator({
                   </S.Badge>
                 </S.GroupHeader>
 
-                <S.OptionList>
+                <S.OptionList
+                  className="product-option-list"
+                  data-selection={group.selectionType}
+                >
                   {group.options.map((option) => {
                     const isSelected = selected.includes(option.id);
                     const disabled = Boolean(
@@ -363,6 +384,7 @@ export function ProductConfigurator({
                     );
                     return (
                       <S.Option
+                        className="product-option"
                         key={option.id}
                         $selected={isSelected}
                         $disabled={disabled && !option.locked}
@@ -584,7 +606,7 @@ export function ProductConfigurator({
             </S.PortionBuilder>
           )}
 
-          <S.Observation data-testid="product-configurator-observation">
+          <S.Observation className="product-observation" data-testid="product-configurator-observation">
             <div>
               <b>Alguma observação?</b>
               <span>Opcional</span>
@@ -599,6 +621,7 @@ export function ProductConfigurator({
           </S.Observation>
 
           <S.BottomBar
+            className="product-bottom-bar"
             data-testid="product-configurator-footer"
             $stickyOnMobile={tableMenuVariant}
           >
@@ -608,7 +631,7 @@ export function ProductConfigurator({
                 : 'Escolha os sabores'}
             </span>
             {enableProductQuantity ? (
-              <S.ProductQuantity aria-label="Quantidade do produto">
+              <S.ProductQuantity className="product-quantity" aria-label="Quantidade do produto">
                 <button
                   type="button"
                   aria-label="Diminuir quantidade do produto"
@@ -641,13 +664,16 @@ export function ProductConfigurator({
               aria-describedby={totalDescriptionId}
             >
               {priceReady
-                ? `Adicionar — ${brl(total * (enableProductQuantity ? productQuantity : 1))}`
+                ? customerPageVariant
+                  ? 'Continuar'
+                  : `Adicionar — ${brl(total * (enableProductQuantity ? productQuantity : 1))}`
                 : 'Escolha os sabores'}
             </button>
           </S.BottomBar>
         </S.Form>
       </S.Layout>
-    </S.Page>,
-    document.body,
+    </S.Page>
   );
+
+  return embedded ? configurator : createPortal(configurator, document.body);
 }

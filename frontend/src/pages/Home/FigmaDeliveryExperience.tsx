@@ -72,7 +72,19 @@ export function FigmaDeliveryExperience({
   const [searchFocused, setSearchFocused] = useState(Boolean(initialSearchOpen));
   const [mobileSearchOpen, setMobileSearchOpen] = useState(Boolean(initialSearchOpen));
   const searchInputRef = useRef<HTMLInputElement>(null);
+  const searchContainerRef = useRef<HTMLDivElement>(null);
   const mobileSearchTriggerRef = useRef<HTMLButtonElement>(null);
+  const cartFabRef = useRef<HTMLButtonElement>(null);
+  const cartFabDragRef = useRef<{
+    pointerId: number;
+    startX: number;
+    startY: number;
+    originX: number;
+    originY: number;
+    moved: boolean;
+  } | null>(null);
+  const cartFabDidDragRef = useRef(false);
+  const [cartFabPosition, setCartFabPosition] = useState<{ x: number; y: number } | null>(null);
 
   const availableProducts = useMemo(
     () => data.products.filter((product) => product.available),
@@ -143,6 +155,72 @@ export function FigmaDeliveryExperience({
     return () => window.cancelAnimationFrame(frame);
   }, [initialSearchOpen]);
 
+  useEffect(() => {
+    if (!mobileSearchOpen) return;
+
+    const closeSearchOnOutsidePointer = (event: PointerEvent) => {
+      if (searchContainerRef.current?.contains(event.target as Node)) return;
+      setMobileSearchOpen(false);
+      setSearchFocused(false);
+      setSearchQuery('');
+      searchInputRef.current?.blur();
+    };
+
+    document.addEventListener('pointerdown', closeSearchOnOutsidePointer);
+    return () => document.removeEventListener('pointerdown', closeSearchOnOutsidePointer);
+  }, [mobileSearchOpen]);
+
+  const clampCartFabPosition = (x: number, y: number) => {
+    const fab = cartFabRef.current;
+    const width = fab?.offsetWidth || 56;
+    const height = fab?.offsetHeight || 56;
+    const margin = 8;
+
+    return {
+      x: Math.min(Math.max(x, margin), Math.max(margin, window.innerWidth - width - margin)),
+      y: Math.min(Math.max(y, margin), Math.max(margin, window.innerHeight - height - margin)),
+    };
+  };
+
+  const startCartFabDrag = (event: React.PointerEvent<HTMLButtonElement>) => {
+    if (event.pointerType === 'mouse' && event.button !== 0) return;
+    const rect = event.currentTarget.getBoundingClientRect();
+    cartFabDidDragRef.current = false;
+    cartFabDragRef.current = {
+      pointerId: event.pointerId,
+      startX: event.clientX,
+      startY: event.clientY,
+      originX: rect.left,
+      originY: rect.top,
+      moved: false,
+    };
+    event.currentTarget.setPointerCapture(event.pointerId);
+  };
+
+  const moveCartFab = (event: React.PointerEvent<HTMLButtonElement>) => {
+    const drag = cartFabDragRef.current;
+    if (!drag || drag.pointerId !== event.pointerId) return;
+
+    const deltaX = event.clientX - drag.startX;
+    const deltaY = event.clientY - drag.startY;
+    if (!drag.moved && Math.hypot(deltaX, deltaY) > 4) {
+      drag.moved = true;
+      cartFabDidDragRef.current = true;
+    }
+    if (!drag.moved) return;
+
+    setCartFabPosition(clampCartFabPosition(drag.originX + deltaX, drag.originY + deltaY));
+  };
+
+  const finishCartFabDrag = (event: React.PointerEvent<HTMLButtonElement>) => {
+    const drag = cartFabDragRef.current;
+    if (!drag || drag.pointerId !== event.pointerId) return;
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+    cartFabDragRef.current = null;
+  };
+
 
   const openProduct = (product: HomeProduct) => {
     if (product.kind === 'COMBO') {
@@ -178,7 +256,7 @@ export function FigmaDeliveryExperience({
   };
 
   return (
-    <S.Page $primary={primary}>
+    <S.Page $primary={primary} className={selectedProduct ? 'product-open' : undefined}>
       <S.Header>
         <div className="header-left">
           {view === 'menu' ? (
@@ -193,15 +271,19 @@ export function FigmaDeliveryExperience({
             </span>
             <span className="brand-copy">
               <b>{data.brand.name}</b>
-              <span className="status">
+              <span
+                className="status"
+                role="status"
+                aria-label={data.isOpen ? 'Aberto agora.' : 'Fechado agora.'}
+              >
                 <i /> {data.isOpen ? 'Aberto agora' : 'Fechado agora'}
-                {data.deliveryTime ? ` · ${data.deliveryTime}` : ''}
               </span>
             </span>
           </button>
         </div>
 
         <S.InlineSearch
+          ref={searchContainerRef}
           className={mobileSearchOpen ? 'mobile-open' : ''}
           onFocus={() => setSearchFocused(true)}
           onBlur={(event) => {
@@ -304,7 +386,22 @@ export function FigmaDeliveryExperience({
         </div>
       </S.Header>
 
-      {view === 'menu' ? (
+      {selectedProduct ? (
+        <ProductConfigurator
+          product={selectedProduct}
+          primaryColor={primary}
+          enableProductQuantity
+          embedded
+          customerPageVariant
+          onClose={() => setSelectedProduct(null)}
+          onConfirm={(configuration, quantity) => {
+            onAddProduct?.(selectedProduct.id, configuration, quantity || 1);
+            setSelectedProduct(null);
+          }}
+        />
+      ) : (
+        <>
+          {view === 'menu' ? (
         <S.Breadcrumb aria-label="Navegação do cardápio">
           <button type="button" onClick={goHome}>Início</button>
           <span aria-hidden="true">›</span>
@@ -430,23 +527,66 @@ export function FigmaDeliveryExperience({
               </S.Section>
             ) : null}
 
-            {(data.brand.address || data.brand.phone || hours || data.brand.instagram || data.brand.facebook) ? (
-              <S.RestaurantInfo>
-                <div>
-                  <h2>Informações do restaurante</h2>
-                  <div className="rows">
-                    {data.brand.address ? <div className="row"><MapPin size={17} /> <span>{data.brand.address}</span></div> : null}
-                    {data.brand.phone ? <div className="row"><Phone size={17} /> <span>{data.brand.phone}</span></div> : null}
-                    {hours ? <div className="row"><Clock3 size={17} /> <span>{hours}</span></div> : null}
+            {(data.brand.address || data.brand.phone || hours || data.brand.instagram || data.brand.facebook || whatsappUrl) ? (
+              <S.RestaurantInfo aria-label="Informações do restaurante">
+                {data.brand.address ? (
+                  <div className="info-item address">
+                    <span className="info-icon"><MapPin aria-hidden="true" /></span>
+                    <span>{data.brand.address}</span>
                   </div>
-                </div>
-                <div>
-                  <h2>Redes sociais</h2>
-                  <div className="social">
-                    {data.brand.instagram ? <a href={buildSocialProfileUrl('instagram', data.brand.instagram)} target="_blank" rel="noreferrer" aria-label="Instagram"><InstagramIcon /></a> : null}
-                    {data.brand.facebook ? <a href={buildSocialProfileUrl('facebook', data.brand.facebook)} target="_blank" rel="noreferrer" aria-label="Facebook"><FacebookIcon /></a> : null}
+                ) : null}
+
+                {data.brand.phone ? (
+                  <div className="info-item phone">
+                    <span className="info-icon"><Phone aria-hidden="true" /></span>
+                    <span>{data.brand.phone}</span>
                   </div>
-                </div>
+                ) : null}
+
+                {hours ? (
+                  <div className="info-item hours">
+                    <span className="info-icon"><Clock3 aria-hidden="true" /></span>
+                    <span>{hours}</span>
+                  </div>
+                ) : null}
+
+                {(data.brand.instagram || data.brand.facebook || whatsappUrl) ? (
+                  <div className="social-row">
+                    <span className="social-label">Redes sociais</span>
+                    <div className="social">
+                      {data.brand.instagram ? (
+                        <a
+                          href={buildSocialProfileUrl('instagram', data.brand.instagram)}
+                          target="_blank"
+                          rel="noreferrer"
+                          aria-label="Instagram"
+                        >
+                          <InstagramIcon />
+                        </a>
+                      ) : null}
+                      {data.brand.facebook ? (
+                        <a
+                          href={buildSocialProfileUrl('facebook', data.brand.facebook)}
+                          target="_blank"
+                          rel="noreferrer"
+                          aria-label="Facebook"
+                        >
+                          <FacebookIcon />
+                        </a>
+                      ) : null}
+                      {whatsappUrl ? (
+                        <a
+                          href={whatsappUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          aria-label={`WhatsApp de ${whatsappLabel || data.brand.name}`}
+                        >
+                          <WhatsAppIcon />
+                        </a>
+                      ) : null}
+                    </div>
+                  </div>
+                ) : null}
               </S.RestaurantInfo>
             ) : null}
           </S.Main>
@@ -534,9 +674,25 @@ export function FigmaDeliveryExperience({
       )}
 
       <S.MobileCartFab
+        ref={cartFabRef}
         type="button"
         aria-label={`Meu Carrinho, ${cartCount} ${cartCount === 1 ? 'item' : 'itens'}`}
-        onClick={onOpenCart}
+        style={
+          cartFabPosition
+            ? { left: cartFabPosition.x, top: cartFabPosition.y, right: 'auto', bottom: 'auto' }
+            : undefined
+        }
+        onPointerDown={startCartFabDrag}
+        onPointerMove={moveCartFab}
+        onPointerUp={finishCartFabDrag}
+        onPointerCancel={finishCartFabDrag}
+        onClick={() => {
+          if (cartFabDidDragRef.current) {
+            cartFabDidDragRef.current = false;
+            return;
+          }
+          onOpenCart?.();
+        }}
       >
         <ShoppingBag aria-hidden="true" />
         {cartCount > 0 ? <span>{cartCount}</span> : null}
@@ -569,6 +725,10 @@ export function FigmaDeliveryExperience({
         </FloatingWhatsAppPortal>
       ) : null}
 
+
+        </>
+      )}
+
       <CustomerDesktopFooter
         restaurantName={data.brand.name}
         description={data.about}
@@ -578,19 +738,6 @@ export function FigmaDeliveryExperience({
         onMenu={() => setView('menu')}
       />
 
-
-      {selectedProduct ? (
-        <ProductConfigurator
-          product={selectedProduct}
-          primaryColor={primary}
-          enableProductQuantity
-          onClose={() => setSelectedProduct(null)}
-          onConfirm={(configuration, quantity) => {
-            onAddProduct?.(selectedProduct.id, configuration, quantity || 1);
-            setSelectedProduct(null);
-          }}
-        />
-      ) : null}
 
       {selectedCombo ? (
         <ComboConfigurator

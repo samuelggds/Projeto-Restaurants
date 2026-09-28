@@ -1,5 +1,14 @@
-import { useEffect, useRef, type ReactNode } from 'react';
-import { ArrowLeft } from 'lucide-react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
+import {
+  ArrowLeft,
+  BatteryFull,
+  Search,
+  ShoppingBag,
+  Signal,
+  Ticket,
+  UserRound,
+  Wifi,
+} from 'lucide-react';
 import { CartItemsList } from './components/CartItemsList';
 import type { CartItem } from './hooks/useCart';
 import type { OrderQuote } from './hooks/useOrderQuote';
@@ -24,6 +33,7 @@ type Props = {
   onStepChange: (step: FigmaCheckoutStep) => void;
   onIncrease: (cartId: string) => void;
   onDecrease: (cartId: string) => void;
+  onRemove?: (cartId: string) => void;
   onClear: () => void;
   onClose: () => void;
   onSubmit: () => void;
@@ -55,11 +65,24 @@ export function FigmaCheckoutFlow({
   onStepChange,
   onIncrease,
   onDecrease,
+  onRemove,
   onClear,
   onClose,
   onSubmit,
 }: Props) {
   const layerRef = useRef<HTMLDivElement>(null);
+  const [couponOpen, setCouponOpen] = useState(true);
+  const [mobileCart, setMobileCart] = useState(() =>
+    window.matchMedia('(max-width: 760px)').matches,
+  );
+
+  useEffect(() => {
+    const media = window.matchMedia('(max-width: 760px)');
+    const syncMobileCart = () => setMobileCart(media.matches);
+    syncMobileCart();
+    media.addEventListener('change', syncMobileCart);
+    return () => media.removeEventListener('change', syncMobileCart);
+  }, []);
 
   useEffect(() => {
     const previouslyFocused = document.activeElement as HTMLElement | null;
@@ -72,6 +95,7 @@ export function FigmaCheckoutFlow({
 
   const currentStep = stepIndex(step);
   const subtotal = quote ? quote.itemsSubtotal + quote.productDiscountTotal : cartTotal;
+  const deliveryFee = quote?.deliveryFeeAmount ?? 0;
   const total = quote?.total ?? cartTotal;
 
   const back = () => {
@@ -97,6 +121,225 @@ export function FigmaCheckoutFlow({
     }
     onSubmit();
   };
+
+  if (step === 'cart') {
+    return (
+      <S.CartLayer
+        ref={layerRef}
+        tabIndex={-1}
+        $primary={primaryColor}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Finalizar pedido"
+      >
+        <S.MobileStatusBar aria-hidden="true">
+          <strong>9:41</strong>
+          <div>
+            <Signal />
+            <Wifi />
+            <BatteryFull />
+          </div>
+        </S.MobileStatusBar>
+
+        <S.CartDesktopHeader>
+          <button className="brand" type="button" onClick={onClose} aria-label={brandName}>
+            <span className="logo">
+              {logoUrl ? <img src={logoUrl} alt="" /> : brandName.slice(0, 1)}
+            </span>
+            <span className="brand-copy">
+              <b>{brandName}</b>
+              <small><i /> Aberto agora · 25-35 min</small>
+            </span>
+          </button>
+
+          <div className="search" aria-label="Buscar no cardápio">
+            <Search aria-hidden="true" />
+            <span>Buscar no cardápio do {brandName.split(' ')[0]}...</span>
+          </div>
+
+          <div className="actions">
+            <button className="account" type="button">
+              <UserRound aria-hidden="true" />
+              <span>Olá, Entrar</span>
+            </button>
+            <button className="cart" type="button">
+              <ShoppingBag aria-hidden="true" />
+              <span>Meu Carrinho</span>
+              {cartCount > 0 ? <i>{cartCount}</i> : null}
+            </button>
+          </div>
+        </S.CartDesktopHeader>
+
+        <S.CartContent>
+          <S.CartItemsColumn>
+            <S.CartTitleRow>
+              <h1 className="desktop-title">Seu Carrinho de Compras</h1>
+              <h1 className="mobile-title">Meu pedido</h1>
+              {cartCount > 0 ? (
+                <button type="button" onClick={onClear}>
+                  <span className="desktop-clear">Limpar Carrinho</span>
+                  <span className="mobile-clear">Limpar</span>
+                </button>
+              ) : null}
+            </S.CartTitleRow>
+
+            {cartCount > 0 ? (
+              <>
+                <span className="compat-items-count">Itens ({cartCount})</span>
+                <CartItemsList
+                items={cart}
+                onIncrease={onIncrease}
+                onDecrease={onDecrease}
+                  onRemove={onRemove}
+                />
+              </>
+            ) : (
+              <S.CartEmpty>Seu carrinho está vazio.</S.CartEmpty>
+            )}
+
+            {cartCount > 0 && mobileCart ? (
+              <S.MobileCartSummary>
+                <button
+                  className="coupon-trigger"
+                  type="button"
+                  onClick={() => setCouponOpen((value) => !value)}
+                  aria-expanded={couponOpen}
+                >
+                  <Ticket aria-hidden="true" />
+                  <span>{quote?.couponCode ? quote.couponCode : 'Cupom de desconto'}</span>
+                  <b>{quote?.couponCode ? 'Aplicado' : 'Aplicar'}</b>
+                </button>
+
+                {couponOpen && couponContent ? (
+                  <div className="coupon-details">{couponContent}</div>
+                ) : null}
+
+                <div className="summary-row">
+                  <span>Subtotal</span>
+                  <strong>{currency(subtotal)}</strong>
+                </div>
+                {quote?.couponDiscount ? (
+                  <div className="summary-row discount">
+                    <span>Cupom{quote.couponCode ? ` · ${quote.couponCode}` : ''}</span>
+                    <strong>− {currency(quote.couponDiscount)}</strong>
+                  </div>
+                ) : null}
+                <div className="summary-row">
+                  <span>Taxa de entrega</span>
+                  <strong>{deliveryFee > 0 ? currency(deliveryFee) : 'Grátis'}</strong>
+                </div>
+                <div className="summary-divider" />
+                <div className="summary-total">
+                  <span>Total</span>
+                  <strong>{currency(total)}</strong>
+                </div>
+              </S.MobileCartSummary>
+            ) : null}
+          </S.CartItemsColumn>
+
+          {cartCount > 0 && !mobileCart ? (
+            <S.CartSummarySidebar>
+              <h2>Resumo do Pedido</h2>
+
+              <button
+                className="coupon-trigger"
+                type="button"
+                onClick={() => setCouponOpen((value) => !value)}
+                aria-expanded={couponOpen}
+              >
+                <Ticket aria-hidden="true" />
+                <span>{quote?.couponCode ? quote.couponCode : 'Cupom de desconto...'}</span>
+                <b>{quote?.couponCode ? 'Aplicado' : 'Aplicar'}</b>
+              </button>
+
+              {couponOpen && couponContent ? (
+                <div className="coupon-details">{couponContent}</div>
+              ) : null}
+
+              <div className="summary-divider" />
+
+              <div className="summary-list">
+                <div className="summary-row">
+                  <span>Subtotal</span>
+                  <strong>{currency(subtotal)}</strong>
+                </div>
+                <div className="summary-row">
+                  <span>Taxa de Entrega</span>
+                  <strong>{deliveryFee > 0 ? currency(deliveryFee) : 'Grátis'}</strong>
+                </div>
+                <div className="summary-divider" />
+                <div className="summary-total">
+                  <span>Total Geral</span>
+                  <strong>{currency(total)}</strong>
+                </div>
+              </div>
+
+              <button
+                className="continue"
+                type="button"
+                disabled={!cartCount || !canContinue || loading}
+                onClick={continueFlow}
+              >
+                Continuar
+              </button>
+            </S.CartSummarySidebar>
+          ) : null}
+        </S.CartContent>
+
+        <S.CartDesktopFooter>
+          <div className="footer-main">
+            <section className="platform">
+              <div className="platform-brand">
+                <span>G</span>
+                <strong>GastroNexa</strong>
+              </div>
+              <p>
+                Sua experiência gourmet completa, direto do conforto de sua casa. O melhor do {brandName} entregue rápido.
+              </p>
+            </section>
+
+            <section>
+              <h3>Nossos Links</h3>
+              <p>Cardápio</p>
+              <p>Cupons Ativos</p>
+              <p>Perguntas Frequentes</p>
+            </section>
+
+            <section>
+              <h3>Suporte</h3>
+              <p>Falar no Chat</p>
+              <p>Central de Ajuda</p>
+              <p>Termos de Serviço</p>
+            </section>
+
+            <section>
+              <h3>Sua Loja Segura</h3>
+              <p>
+                GastroNexa é multi-tenant. Cada restaurante é operado diretamente por seu administrador autorizado.
+              </p>
+            </section>
+          </div>
+
+          <div className="footer-divider" />
+
+          <div className="footer-bottom">
+            <span>© {new Date().getFullYear()} GastroNexa & {brandName}. Todos os direitos reservados.</span>
+            <span className="legal"><span>Privacidade</span><span>Cookies</span></span>
+          </div>
+        </S.CartDesktopFooter>
+
+        <S.MobileCartAction>
+          <button
+            type="button"
+            disabled={!cartCount || !canContinue || loading}
+            onClick={continueFlow}
+          >
+            Continuar
+          </button>
+        </S.MobileCartAction>
+      </S.CartLayer>
+    );
+  }
 
   return (
     <S.Layer
@@ -128,41 +371,17 @@ export function FigmaCheckoutFlow({
 
         <S.Heading>
           <div>
-            <h1>
-              {step === 'cart'
-                ? 'Meu pedido'
-                : step === 'address'
-                  ? 'Endereço de entrega'
-                  : 'Pagamento'}
-            </h1>
+            <h1>{step === 'address' ? 'Endereço de entrega' : 'Pagamento'}</h1>
             <p>
-              {step === 'cart'
-                ? 'Revise os itens antes de continuar.'
-                : step === 'address'
-                  ? 'Confirme como deseja receber o pedido.'
-                  : 'Escolha uma forma de pagamento disponível.'}
+              {step === 'address'
+                ? 'Confirme como deseja receber o pedido.'
+                : 'Escolha uma forma de pagamento disponível.'}
             </p>
           </div>
-          {step === 'cart' && cartCount > 0 ? (
-            <button className="clear" type="button" onClick={onClear}>
-              Limpar
-            </button>
-          ) : null}
         </S.Heading>
 
         <S.TwoColumns>
           <S.Panel>
-            {step === 'cart' ? (
-              cartCount > 0 ? (
-                <>
-                  <CartItemsList items={cart} onIncrease={onIncrease} onDecrease={onDecrease} />
-                  {couponContent ? <S.StepCard>{couponContent}</S.StepCard> : null}
-                </>
-              ) : (
-                <S.Empty>Seu carrinho está vazio.</S.Empty>
-              )
-            ) : null}
-
             {step === 'address' ? (
               <S.StepCard>
                 <h2>Entrega</h2>
@@ -196,14 +415,12 @@ export function FigmaCheckoutFlow({
                 <strong>− {currency(quote.couponDiscount)}</strong>
               </div>
             ) : null}
-            {quote && (
+            {quote ? (
               <div className="row">
                 <span>Taxa de Entrega</span>
-                <strong>
-                  {quote.deliveryFeeAmount > 0 ? currency(quote.deliveryFeeAmount) : 'Grátis'}
-                </strong>
+                <strong>{quote.deliveryFeeAmount > 0 ? currency(quote.deliveryFeeAmount) : 'Grátis'}</strong>
               </div>
-            )}
+            ) : null}
             <div className="line" />
             <div className="row total">
               <span>Total</span>

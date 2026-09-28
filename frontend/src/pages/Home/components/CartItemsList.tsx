@@ -1,94 +1,128 @@
-import { ArrowLeft, Minus, Plus, ShoppingBag, UtensilsCrossed } from 'lucide-react';
-import styled, { createGlobalStyle } from 'styled-components';
+import { ArrowLeft, Minus, Plus, ShoppingBag, Trash2, UtensilsCrossed } from 'lucide-react';
+import styled from 'styled-components';
 import type { CartItem } from '../hooks/useCart';
 
 type Props = {
   items: CartItem[];
   onIncrease: (cartId: string) => void;
   onDecrease: (cartId: string) => void;
+  onRemove?: (cartId: string) => void;
   onContinueShopping?: () => void;
 };
 
-export function CartItemsList({ items, onIncrease, onDecrease, onContinueShopping }: Props) {
+const currency = (value: number) =>
+  value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+
+function itemDetails(item: CartItem) {
+  const details: string[] = [];
+
+  for (const option of item.options || []) {
+    const quantity = option.quantity && option.quantity > 1 ? `${option.quantity}x ` : '';
+    details.push(`${option.groupName}: ${quantity}${option.name}`);
+  }
+
+  for (const [index, portion] of (item.portions || []).entries()) {
+    const observation = portion.observation ? ` · ${portion.observation}` : '';
+    details.push(`Porção ${index + 1}: ${portion.name || 'Opção selecionada'}${observation}`);
+  }
+
+  if (item.removedCompositionItems?.length) {
+    details.push(`Retirar: ${item.removedCompositionItems.map((entry) => entry.name).join(', ')}`);
+  }
+
+  if (item.observation) details.push(`Obs.: ${item.observation}`);
+
+  return details.join(' · ');
+}
+
+export function CartItemsList({
+  items,
+  onIncrease,
+  onDecrease,
+  onRemove,
+  onContinueShopping,
+}: Props) {
   return (
     <Items>
-      <CartChrome />
       {items.length ? (
-        items.map((item) => (
-          <ItemCard key={item.cartId || item.productId}>
-            {item.image ? (
-              <img src={item.image} alt={item.name} loading="lazy" decoding="async" />
-            ) : (
-              <div className="item-image-placeholder" aria-hidden="true">
-                <UtensilsCrossed />
+        items.map((item) => {
+          const cartId = item.cartId || item.productId;
+          const details = itemDetails(item);
+
+          return (
+            <ItemCard key={cartId}>
+              <div className="item-main">
+                {item.image ? (
+                  <img src={item.image} alt={item.name} loading="lazy" decoding="async" />
+                ) : (
+                  <div className="item-image-placeholder" aria-hidden="true">
+                    <UtensilsCrossed />
+                  </div>
+                )}
+
+                <ItemInfo>
+                  <div className="item-heading">
+                    <strong>{item.name}</strong>
+                    <button
+                      className="remove"
+                      type="button"
+                      aria-label={`Remover ${item.name}`}
+                      onClick={() => onRemove?.(cartId)}
+                    >
+                      <Trash2 aria-hidden="true" />
+                    </button>
+                  </div>
+
+                  {details ? <p className="item-details">{details}</p> : null}
+
+                  <div className="desktop-price-row">
+                    <b className="item-price">{currency(item.price * item.quantity)}</b>
+                    <Qty aria-label={`Quantidade de ${item.name}`}>
+                      <button
+                        type="button"
+                        aria-label={`Diminuir ${item.name}`}
+                        onClick={() => onDecrease(cartId)}
+                      >
+                        <Minus aria-hidden="true" />
+                      </button>
+                      <b>{item.quantity}</b>
+                      <button
+                        className="increase"
+                        type="button"
+                        aria-label={`Aumentar ${item.name}`}
+                        onClick={() => onIncrease(cartId)}
+                      >
+                        <Plus aria-hidden="true" />
+                      </button>
+                    </Qty>
+                  </div>
+                </ItemInfo>
               </div>
-            )}
-            <ItemInfo>
-              <div className="item-heading">
-                <strong>{item.name}</strong>
-                <span className="item-price">
-                  {(item.price * item.quantity).toLocaleString('pt-BR', {
-                    style: 'currency',
-                    currency: 'BRL',
-                  })}
-                </span>
-              </div>
 
-              {!!item.options?.length && (
-                <div className="item-options">
-                  {item.options.map((option) => (
-                    <small key={`${option.groupId}-${option.id}`}>
-                      <b>{option.groupName}:</b>{' '}
-                      {option.quantity && option.quantity > 1 ? `${option.quantity}x ` : ''}
-                      {option.name}
-                    </small>
-                  ))}
-                </div>
-              )}
-
-              {!!item.portions?.length && (
-                <div className="item-options">
-                  {item.portions.map((portion, index) => (
-                    <small key={`portion-${index}-${portion.optionId}`}>
-                      <b>Porção {index + 1}:</b> {portion.name || 'Opção selecionada'}
-                      {portion.observation ? ` · ${portion.observation}` : ''}
-                    </small>
-                  ))}
-                </div>
-              )}
-
-              {!!item.removedCompositionItems?.length && (
-                <small className="item-observation">
-                  Retirar: {item.removedCompositionItems.map((entry) => entry.name).join(', ')}
-                </small>
-              )}
-
-              {item.observation && (
-                <small className="item-observation">Obs.: {item.observation}</small>
-              )}
-
-              <div className="item-controls">
+              <div className="mobile-quantity-row">
+                <span>Quantidade</span>
                 <Qty aria-label={`Quantidade de ${item.name}`}>
                   <button
                     type="button"
                     aria-label={`Diminuir ${item.name}`}
-                    onClick={() => onDecrease(item.cartId || item.productId)}
+                    onClick={() => onDecrease(cartId)}
                   >
                     <Minus aria-hidden="true" />
                   </button>
                   <b>{item.quantity}</b>
                   <button
+                    className="increase"
                     type="button"
                     aria-label={`Aumentar ${item.name}`}
-                    onClick={() => onIncrease(item.cartId || item.productId)}
+                    onClick={() => onIncrease(cartId)}
                   >
                     <Plus aria-hidden="true" />
                   </button>
                 </Qty>
               </div>
-            </ItemInfo>
-          </ItemCard>
-        ))
+            </ItemCard>
+          );
+        })
       ) : (
         <Empty>
           <div className="icon">
@@ -96,266 +130,252 @@ export function CartItemsList({ items, onIncrease, onDecrease, onContinueShoppin
           </div>
           <strong>Sacola vazia</strong>
           <p>Adicione itens do cardápio para começar seu pedido.</p>
-          {onContinueShopping && (
+          {onContinueShopping ? (
             <button type="button" onClick={onContinueShopping}>
               <ArrowLeft aria-hidden="true" />
               Ver cardápio
             </button>
-          )}
+          ) : null}
         </Empty>
       )}
     </Items>
   );
 }
 
-const CartChrome = createGlobalStyle`
-  [aria-labelledby='home-cart-title'] {
-    width: min(610px, 100%);
-    background: #fbfaf8;
-    box-shadow: -26px 0 80px rgba(22, 18, 15, 0.24);
-  }
-
-  [aria-labelledby='home-cart-title'] > :first-child {
-    padding: 19px 22px;
-    border-bottom-color: #ece7e2;
-    background: rgba(255, 255, 255, 0.98);
-  }
-
-  [aria-labelledby='home-cart-title'] .cart-heading {
-    gap: 13px;
-  }
-
-  [aria-labelledby='home-cart-title'] .cart-mark {
-    width: 46px;
-    height: 46px;
-    border-radius: 14px;
-    box-shadow: 0 8px 18px color-mix(in srgb, var(--home-primary) 20%, transparent);
-  }
-
-  [aria-labelledby='home-cart-title'] .cart-title h2 {
-    font-family: inherit;
-    font-size: 23px;
-    font-weight: 900;
-    letter-spacing: -0.02em;
-  }
-
-  [aria-labelledby='home-cart-title'] .cart-title small {
-    color: #7d756e;
-    font-size: 9px;
-    letter-spacing: 0.08em;
-  }
-
-  [aria-labelledby='home-cart-title'] .cart-count {
-    padding: 7px 11px;
-    border-radius: 999px;
-    background: #f2f0ed;
-    color: #4c4742;
-  }
-
-  [aria-labelledby='home-cart-title'] > :first-child > button {
-    width: 40px;
-    height: 40px;
-    border: 0;
-    background: #f4f2ef;
-  }
-
-  [aria-labelledby='home-cart-title'] > :nth-child(2) {
-    background: #fbfaf8;
-  }
-
-  [aria-labelledby='home-cart-title'] > :last-child {
-    padding: 15px 20px max(17px, env(safe-area-inset-bottom));
-    border-top-color: #ece7e2;
-    box-shadow: 0 -14px 34px rgba(32, 26, 21, 0.07);
-  }
-
-  [aria-labelledby='home-cart-title'] .checkout-summary-row {
-    color: #5f5954;
-    font-size: 12px;
-  }
-
-  [aria-labelledby='home-cart-title'] .checkout-total-highlight {
-    margin: 10px 0 13px;
-    padding: 13px 14px;
-    border: 0;
-    border-radius: 13px;
-    background: color-mix(in srgb, var(--home-primary) 7%, #fff);
-    font-size: 21px;
-  }
-
-  [aria-labelledby='home-cart-title'] .checkout-total-highlight span:last-child {
-    color: var(--home-primary);
-    font-size: 22px;
-  }
-
-  [aria-labelledby='home-cart-title'] .checkout-primary {
-    min-height: 58px;
-    height: auto;
-    border-radius: 14px;
-    box-shadow: 0 12px 24px color-mix(in srgb, var(--home-primary) 22%, transparent);
-  }
-
-  @media (max-width: 620px) {
-    [aria-labelledby='home-cart-title'] {
-      width: 100%;
-    }
-
-    [aria-labelledby='home-cart-title'] > :first-child {
-      padding: 14px 14px;
-    }
-
-    [aria-labelledby='home-cart-title'] > :last-child {
-      padding-inline: 14px;
-    }
-  }
-`;
-
 const Items = styled.div`
   width: 100%;
-  padding: 16px 20px 8px;
   display: grid;
-  gap: 10px;
-
-  @media (max-width: 620px) {
-    padding: 14px 14px 8px;
-  }
+  gap: 16px;
 `;
 
 const ItemCard = styled.article`
-  display: grid;
-  grid-template-columns: 92px minmax(0, 1fr);
-  gap: 13px;
-  padding: 11px;
-  border: 1px solid #e7e2dd;
-  border-radius: 15px;
+  width: 100%;
+  padding: 20px;
+  border: 1px solid #efece6;
+  border-radius: 16px;
   background: #fff;
-  box-shadow: 0 5px 18px rgba(34, 28, 23, 0.04);
 
-  > img,
-  > .item-image-placeholder {
-    width: 92px;
-    height: 92px;
+  .item-main {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    min-width: 0;
+  }
+
+  .item-main > img,
+  .item-image-placeholder {
+    width: 80px;
+    height: 80px;
+    flex: 0 0 80px;
     border-radius: 12px;
   }
 
-  > img { object-fit: cover; }
-
-  > .item-image-placeholder {
-    background: #f3f1ec;
-    color: #aaa49b;
-    display: grid;
-    place-items: center;
+  .item-main > img {
+    object-fit: cover;
   }
 
-  > .item-image-placeholder svg { width: 24px; height: 24px; }
+  .item-image-placeholder {
+    display: grid;
+    place-items: center;
+    background: #f7f5f0;
+    color: #aaa49b;
+  }
 
-  @media (max-width: 390px) {
-    grid-template-columns: 78px minmax(0, 1fr);
+  .item-image-placeholder svg {
+    width: 24px;
+    height: 24px;
+  }
 
-    > img,
-    > .item-image-placeholder {
-      width: 78px;
-      height: 78px;
+  .mobile-quantity-row {
+    display: none;
+  }
+
+  @media (max-width: 760px) {
+    padding: 16px;
+
+    .item-main {
+      gap: 12px;
+    }
+
+    .item-main > img,
+    .item-image-placeholder {
+      width: 64px;
+      height: 64px;
+      flex-basis: 64px;
+      border-radius: 10px;
+    }
+
+    .mobile-quantity-row {
+      margin-top: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      color: #72706b;
+      font-size: 13px;
     }
   }
 `;
 
 const ItemInfo = styled.div`
   min-width: 0;
+  flex: 1;
   display: flex;
   flex-direction: column;
+  gap: 4px;
 
   .item-heading {
+    width: 100%;
+    min-width: 0;
     display: flex;
     align-items: flex-start;
     justify-content: space-between;
-    gap: 10px;
+    gap: 12px;
   }
 
-  .item-heading strong {
+  .item-heading > strong {
     min-width: 0;
-    color: #211e1b;
-    font-size: 14px;
-    font-weight: 900;
-    line-height: 1.3;
-  }
-
-  .item-price {
-    flex: 0 0 auto;
-    color: var(--home-primary);
-    font-size: 14px;
-    font-weight: 900;
+    overflow: hidden;
+    color: #1f1e1a;
+    font-size: 16px;
+    font-weight: 700;
+    line-height: 1.25;
+    text-overflow: ellipsis;
     white-space: nowrap;
   }
 
-  .item-options {
-    display: grid;
-    gap: 2px;
-    margin-top: 5px;
+  .remove {
+    width: 16px;
+    height: 16px;
+    flex: 0 0 16px;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: #9b9892;
+    cursor: pointer;
   }
 
-  .item-options small,
-  .item-observation {
-    color: #777069;
-    font-size: 10px;
-    line-height: 1.4;
+  .remove svg {
+    width: 16px;
+    height: 16px;
   }
 
-  .item-options b {
-    color: #4d4741;
+  .item-details {
+    min-width: 0;
+    margin: 0;
+    overflow: hidden;
+    color: #72706b;
+    font-size: 13px;
+    line-height: 1.35;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
-  .item-observation {
-    margin-top: 5px;
-  }
-
-  .item-controls {
-    margin-top: auto;
-    padding-top: 9px;
+  .desktop-price-row {
+    width: 100%;
+    padding-top: 8px;
     display: flex;
     align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+  }
+
+  .item-price {
+    color: #1f1e1a;
+    font-size: 16px;
+    font-weight: 800;
+    line-height: 1.2;
+  }
+
+  @media (max-width: 760px) {
+    .item-heading > strong {
+      max-width: calc(100% - 28px);
+      font-size: 15px;
+    }
+
+    .item-details {
+      font-size: 12px;
+    }
+
+    .desktop-price-row {
+      padding-top: 0;
+    }
+
+    .desktop-price-row > div {
+      display: none;
+    }
+
+    .item-price {
+      font-size: 14px;
+    }
   }
 `;
 
 const Qty = styled.div`
-  min-height: 34px;
+  min-height: 31px;
+  padding: 6px 12px;
   display: inline-flex;
   align-items: center;
-  overflow: hidden;
-  border: 1px solid #e2dcd6;
-  border-radius: 10px;
-  background: #faf8f5;
+  gap: 12px;
+  border: 0;
+  border-radius: 8px;
+  background: #fafaf8;
 
   button {
-    width: 34px;
-    height: 34px;
+    width: 14px;
+    height: 18px;
+    padding: 0;
     display: grid;
     place-items: center;
     border: 0;
     background: transparent;
-    color: #25211e;
+    color: #72706b;
     cursor: pointer;
   }
 
-  button:hover {
-    background: #f1ece7;
+  button.increase {
+    color: var(--checkout-primary, #e85a2b);
   }
 
   button svg {
-    width: 15px;
-    height: 15px;
+    width: 14px;
+    height: 14px;
+    stroke-width: 2.2;
   }
 
-  b {
-    min-width: 30px;
-    color: #25211e;
+  > b {
+    min-width: 13px;
+    color: #1f1e1a;
     font-size: 13px;
+    font-weight: 700;
+    line-height: 1;
     text-align: center;
+  }
+
+  @media (max-width: 760px) {
+    min-height: 34px;
+    padding: 8px 12px;
+    gap: 16px;
+    border-radius: 12px;
+    background: #f7f5f0;
+
+    button {
+      width: 16px;
+    }
+
+    button svg {
+      width: 16px;
+      height: 16px;
+    }
+
+    > b {
+      font-size: 16px;
+    }
   }
 `;
 
 const Empty = styled.div`
-  min-height: min(430px, 58dvh);
+  min-height: 300px;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -370,8 +390,8 @@ const Empty = styled.div`
     display: grid;
     place-items: center;
     border-radius: 17px;
-    background: color-mix(in srgb, var(--home-primary) 9%, #fff);
-    color: var(--home-primary);
+    background: color-mix(in srgb, var(--checkout-primary, #e85a2b) 9%, #fff);
+    color: var(--checkout-primary, #e85a2b);
   }
 
   .icon svg {
@@ -391,7 +411,7 @@ const Empty = styled.div`
     line-height: 1.5;
   }
 
-  button {
+  > button {
     min-height: 42px;
     margin-top: 4px;
     padding: 0 15px;
@@ -404,12 +424,16 @@ const Empty = styled.div`
     color: #27231f;
     font: inherit;
     font-size: 12px;
-    font-weight: 850;
+    font-weight: 700;
     cursor: pointer;
   }
 
-  button svg {
+  > button svg {
     width: 16px;
     height: 16px;
+  }
+
+  @media (max-width: 760px) {
+    min-height: 230px;
   }
 `;
