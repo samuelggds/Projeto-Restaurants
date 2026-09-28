@@ -218,6 +218,7 @@ export type HomePageProps = {
   onManageAddresses?: () => void;
   onOpenMenu?: () => void;
   onOpenProfile?: () => void;
+  onOpenOrders?: () => void;
   onOpenAdmin?: () => void;
   onOpenCart?: () => void;
   onOpenTableAccount?: () => void;
