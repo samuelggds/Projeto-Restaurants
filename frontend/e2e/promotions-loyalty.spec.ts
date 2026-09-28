@@ -268,7 +268,9 @@ test('cliente vê promoção, aplica benefício de fidelidade e envia o resgate 
   await expect(
     visibleProfile.getByRole('heading', { name: 'Cupons de Resgate' }),
   ).toBeVisible();
-  await expect(visibleProfile.getByText('Cliente fiel', { exact: true })).toBeVisible();
+  await expect(
+    visibleProfile.getByRole('heading', { name: 'Cliente fiel', exact: true }),
+  ).toBeVisible();
   await expect(visibleProfile.getByText('Ativo', { exact: true })).toBeVisible();
   await expect(visibleProfile.getByText('Válido até 22/09/2099')).toBeVisible();
 
@@ -277,20 +279,6 @@ test('cliente vê promoção, aplica benefício de fidelidade e envia o resgate 
   for (const width of [430, 390, 320]) {
     await page.setViewportSize({ width, height: 844 });
     await expect(featuredOffers).toBeVisible();
-
-    const loyaltyMetrics = await availableLoyaltyNotice.evaluate((element) => {
-      const rect = element.getBoundingClientRect();
-      return {
-        left: rect.left,
-        right: rect.right,
-        bottom: rect.bottom,
-        viewportWidth: window.innerWidth,
-        viewportHeight: window.innerHeight,
-      };
-    });
-    expect(loyaltyMetrics.left).toBeGreaterThanOrEqual(-1);
-    expect(loyaltyMetrics.right).toBeLessThanOrEqual(loyaltyMetrics.viewportWidth + 1);
-    expect(loyaltyMetrics.bottom).toBeLessThanOrEqual(loyaltyMetrics.viewportHeight + 1);
 
     const badgeMetrics = await promotionBadge.evaluate((element) => {
       const badge = element.getBoundingClientRect();
@@ -349,6 +337,19 @@ test('cliente vê promoção, aplica benefício de fidelidade e envia o resgate 
     ).toBeLessThanOrEqual(sectionMetrics.viewportWidth + 1);
   }
 
+  await page.setViewportSize({ width: 320, height: 844 });
+  await page.getByRole('button', { name: 'Minha conta' }).click();
+  const mobileLoyalty = page.locator('main:visible');
+  await mobileLoyalty.getByRole('button', { name: 'Programa de Fidelidade' }).click();
+  await expect(
+    mobileLoyalty.getByRole('heading', { name: 'Cliente fiel', exact: true }),
+  ).toBeVisible();
+  await expect(mobileLoyalty.getByRole('button', { name: 'Ver cupom' })).toBeVisible();
+  await expect
+    .poll(() => page.evaluate(() => document.documentElement.scrollWidth))
+    .toBeLessThanOrEqual(321);
+
+  await page.goto('/restaurante-teste');
   await page.setViewportSize({ width: 390, height: 844 });
 
   await featuredOffers.getByRole('button', { name: 'Ver detalhes de Prato artesanal' }).click();
