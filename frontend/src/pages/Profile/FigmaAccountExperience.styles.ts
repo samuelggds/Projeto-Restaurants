@@ -45,12 +45,16 @@ export const Mobile = styled.main`
       padding-top:0;
     }
 
-    &.orders-view ${PageTitle}{
+    &.orders-view .orders-page-title{
       min-height:60px;
       margin:0 -20px;
       padding:12px 20px;
       border-bottom:1px solid var(--line);
       background:var(--surface);
+    }
+
+    &.orders-view > div{
+      gap:0;
     }
   }
 `;
