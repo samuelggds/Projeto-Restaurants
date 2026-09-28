@@ -265,6 +265,11 @@ export default function Register() {
       onResendVerification={() => void handleResendVerification()}
       onGoToLogin={() => navigate(loginPath)}
       authContext={authExperience.context}
+      submitAriaLabel={
+        authExperience.context === 'TABLE' && authExperience.tableNumber
+          ? `Criar conta e continuar na Mesa ${authExperience.tableNumber}`
+          : 'Criar conta'
+      }
     />
   );
 }
