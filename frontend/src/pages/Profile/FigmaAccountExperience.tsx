@@ -129,7 +129,7 @@ function FigmaAccountExperienceReady(props: ProfilePageProps & { data: ProfileDa
   );
   const activeCoupons = coupons.filter((entry) => entry.status === 'available' || entry.status === 'reserved');
   const historyCoupons = coupons.filter((entry) => entry.status === 'used' || entry.status === 'expired');
-  const activeOrders = data.activeOrder ? [data.activeOrder] : [];
+  const activeOrders = data.activeOrders || (data.activeOrder ? [data.activeOrder] : []);
   const activeOrderCount = Math.max(
     activeOrders.length,
     Number(data.activeOrderCount || 0),
@@ -155,24 +155,65 @@ function FigmaAccountExperienceReady(props: ProfilePageProps & { data: ProfileDa
 
   const renderOrders = (orders: AccountOrder[]) =>
     orders.length ? (
-      <S.Stack>
-        {orders.map((order) => (
-          <S.OrderCard key={order.id}>
-            <div className="top">
-              <div className="meta">
-                <b>Pedido {order.id}</b>
-                <span>{('date' in order ? order.date : '') || order.channel || 'Pedido'}</span>
+      <S.OrderList>
+        {orders.map((order) => {
+          const status = orderStatus(order);
+          const statusClass =
+            order.status === 'onTheWay'
+              ? 'on-the-way'
+              : order.status === 'delivered'
+                ? 'delivered'
+                : order.status === 'cancelled'
+                  ? 'cancelled'
+                  : order.paymentPending
+                    ? 'payment-pending'
+                    : 'preparing';
+          return (
+            <S.OrderCard
+              key={order.id}
+              role={order.status !== 'cancelled' ? 'button' : undefined}
+              tabIndex={order.status !== 'cancelled' ? 0 : undefined}
+              onClick={() => {
+                if (order.paymentPending && order.publicId) {
+                  props.onContinuePayment?.(order.publicId);
+                  return;
+                }
+                if (order.status !== 'cancelled') props.onViewOrder?.(order.id);
+              }}
+              onKeyDown={(event) => {
+                if (event.key !== 'Enter' && event.key !== ' ') return;
+                event.preventDefault();
+                if (order.paymentPending && order.publicId) {
+                  props.onContinuePayment?.(order.publicId);
+                  return;
+                }
+                if (order.status !== 'cancelled') props.onViewOrder?.(order.id);
+              }}
+            >
+              <div className="order-header">
+                <div className="restaurant">
+                  <span className="thumb">
+                    {order.image ? <img src={order.image} alt="" /> : data.brand.monogram || data.brand.name.slice(0, 1)}
+                  </span>
+                  <div className="restaurant-copy">
+                    <b>{data.brand.name}</b>
+                    <span>
+                      Pedido {order.id}
+                      {('date' in order && order.date) ? ' · ' + order.date : ''}
+                    </span>
+                  </div>
+                </div>
+                <span className={'status ' + statusClass}>{status}</span>
               </div>
-              <span className="status">{orderStatus(order)}</span>
-            </div>
-            <p>{order.summary}</p>
-            <div className="bottom">
-              <strong>{currency(order.total)}</strong>
-              {orderAction(order, props)}
-            </div>
-          </S.OrderCard>
-        ))}
-      </S.Stack>
+              <div className="divider" />
+              <div className="order-body">
+                <p>{order.summary}</p>
+                <strong>{currency(order.total)}</strong>
+              </div>
+            </S.OrderCard>
+          );
+        })}
+      </S.OrderList>
     ) : (
       <S.Empty>Nenhum pedido nesta seção.</S.Empty>
     );
@@ -294,17 +335,18 @@ function FigmaAccountExperienceReady(props: ProfilePageProps & { data: ProfileDa
   const pageContent = () => {
     if (view === 'orders') {
       return (
-        <S.Stack>
+        <S.OrdersView>
           <S.Tabs>
             <button className={ordersTab === 'active' ? 'active' : ''} type="button" onClick={() => setOrdersTab('active')}>
-              Ativos{activeOrders.length ? ` (${activeOrders.length})` : ''}
+              Ativos{activeOrderCount ? ` (${activeOrderCount})` : ''}
             </button>
             <button className={ordersTab === 'history' ? 'active' : ''} type="button" onClick={() => setOrdersTab('history')}>
-              Histórico
+              <span className="mobile-label">Histórico</span>
+              <span className="desktop-label">Histórico de Pedidos</span>
             </button>
           </S.Tabs>
           {ordersTab === 'active' ? renderOrders(activeOrders) : renderOrders(orderHistory)}
-        </S.Stack>
+        </S.OrdersView>
       );
     }
 
@@ -539,7 +581,7 @@ function FigmaAccountExperienceReady(props: ProfilePageProps & { data: ProfileDa
         </div>
       </S.Header>
 
-      <S.Mobile>
+      <S.Mobile className={view === 'orders' ? 'orders-view' : ''}>
         {view === 'account' ? (
           <S.Stack>
             <S.PageTitle><h1>{title}</h1></S.PageTitle>
@@ -559,6 +601,7 @@ function FigmaAccountExperienceReady(props: ProfilePageProps & { data: ProfileDa
 
       <S.Desktop>
         <S.Center
+          className={view === 'orders' ? 'orders-center' : ''}
           $wide={
             view === 'orders' ||
             view === 'coupons' ||
