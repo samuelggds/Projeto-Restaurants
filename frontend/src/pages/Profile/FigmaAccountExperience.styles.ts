@@ -36,12 +36,18 @@ export const Header = styled.header`
 
 export const Mobile = styled.main`
   display:none;
-  @media(max-width:900px){display:block;padding:20px 20px 28px}
+  @media(max-width:900px){
+    display:block;
+    min-height:calc(100dvh - 44px);
+    padding:20px 20px 28px;
+  }
 `;
 
 export const Desktop = styled.main`
   display:block;
+  min-height:896px;
   padding:64px 120px 80px;
+  @media(max-width:1100px){padding-inline:48px}
   @media(max-width:900px){display:none}
 `;
 
@@ -62,25 +68,45 @@ export const PageTitle = styled.div`
 
 export const ProfileCard = styled.section`
   padding:16px;border:1px solid var(--line);border-radius:20px;background:var(--surface);display:flex;align-items:center;gap:16px;
-  .avatar{width:64px;height:64px;border-radius:32px;overflow:hidden;background:color-mix(in srgb,var(--p) 12%,#fff);color:var(--p);display:grid;place-items:center;font-family:'Gabarito','Inter',sans-serif;font-size:22px;font-weight:800}
+  .avatar{width:60px;height:64px;flex:0 0 60px;border-radius:30px;overflow:hidden;background:color-mix(in srgb,var(--p) 12%,#fff);color:var(--p);display:grid;place-items:center;font-family:'Gabarito','Inter',sans-serif;font-size:22px;font-weight:800}
   .avatar img{width:100%;height:100%;object-fit:cover}
-  .copy{min-width:0;display:grid;gap:4px}.copy b{font-family:'Gabarito','Inter',sans-serif;font-size:18px}.copy span{color:var(--muted);font-size:13px}
-  @media(min-width:901px){padding:20px}
+  .copy{min-width:0;display:grid;gap:4px}
+  .copy b{font-family:'Gabarito','Inter',sans-serif;font-size:18px}
+  .copy span{min-width:0;overflow:hidden;color:var(--muted);font-size:13px;text-overflow:ellipsis;white-space:nowrap}
+  .desktop-contact{display:none}
+  @media(min-width:901px){
+    padding:24px;
+    gap:24px;
+    .avatar{width:72px;height:72px;flex-basis:72px;border-radius:36px}
+    .copy{gap:6px}
+    .copy b{font-size:22px}
+    .copy span{font-size:14px}
+    .mobile-contact{display:none}
+    .desktop-contact{display:block}
+  }
 `;
 
 export const MenuCard = styled.section`
   padding:8px;border:1px solid var(--line);border-radius:20px;background:var(--surface);
   button{width:100%;min-height:52px;padding:16px;border:0;border-bottom:1px solid var(--line);background:transparent;color:var(--text);display:flex;align-items:center;gap:12px;text-align:left}
   button:last-child{border-bottom:0}
-  button svg:first-child{width:20px;height:20px}
+  button svg:first-child{width:20px;height:20px;flex:0 0 20px}
   button span{font-size:15px;font-weight:650}
-  button .chev{margin-left:auto;color:#9b9892}
-  .badge{margin-left:auto;padding:4px 8px;border-radius:8px;background:#fdf2ec;color:var(--p);font-size:11px;font-weight:800}
+  button .chev{width:16px;height:16px;margin-left:auto;color:#8e8b86;flex:0 0 16px}
+  .badge{margin-left:auto;padding:4px 8px;border-radius:8px;background:#fdf2ec;color:var(--p);font-size:11px;font-weight:800;white-space:nowrap}
   .badge + .chev{margin-left:0}
+
+  @media(min-width:901px){
+    padding:12px;
+    button{min-height:60px;padding:20px;gap:16px}
+    button span{font-size:16px}
+    .badge{padding:4px 10px;font-size:12px}
+  }
 `;
 
 export const Logout = styled.button`
   width:100%;padding:16px;border:0;background:transparent;color:#df2c2c;font-size:15px;font-weight:700;
+  @media(min-width:901px){min-height:51px;font-size:16px}
 `;
 
 export const Stack = styled.div`display:grid;gap:16px;`;
