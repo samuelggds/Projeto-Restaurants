@@ -125,14 +125,14 @@ export function useCardPaymentReturn({
         return status;
       } catch (error: unknown) {
         if (activeRequestKeyRef.current !== requestKey) return 'ERROR';
-        setState({
+        setState((current) => ({
           requestKey,
           status: 'ERROR',
           error:
             getCheckoutErrorMessage(error) ||
             'Não conseguimos consultar o pagamento agora. Se você já pagou, aguarde e consulte novamente antes de fazer outra tentativa.',
-          details: state.requestKey === requestKey ? state.details : null,
-        });
+          details: current.requestKey === requestKey ? current.details : null,
+        }));
         return 'ERROR';
       } finally {
         if (inFlightKeyRef.current === requestKey) inFlightKeyRef.current = '';
