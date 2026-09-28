@@ -389,11 +389,19 @@ test('cliente consulta cupons válidos, histórico e o novo ciclo no perfil', as
 
   await page.getByRole('button', { name: 'Meus Cupons', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Meus Cupons', exact: true })).toBeVisible();
-  await expect(visibleProfileContent.getByText('CLIENTE10', { exact: true })).toBeVisible();
-  await expect(visibleProfileContent.getByText('ANTIGO5', { exact: true }).first()).toBeVisible();
-  await expect(visibleProfileContent.getByText('Disponível', { exact: true }).first()).toBeVisible();
-  await expect(visibleProfileContent.getByText('Utilizado', { exact: true }).first()).toBeVisible();
-  await expect(visibleProfileContent.getByText('Expirado', { exact: true }).first()).toBeVisible();
+  const cliente10Coupons = visibleProfileContent
+    .locator('article')
+    .filter({ hasText: 'CLIENTE10' });
+  await expect(cliente10Coupons).toHaveCount(2);
+  await expect(cliente10Coupons.filter({ hasText: 'Disponível' })).toHaveCount(1);
+  await expect(cliente10Coupons.filter({ hasText: 'Utilizado' })).toHaveCount(1);
+
+  const antigo5Coupons = visibleProfileContent
+    .locator('article')
+    .filter({ hasText: 'ANTIGO5' });
+  await expect(antigo5Coupons).toHaveCount(2);
+  await expect(antigo5Coupons.filter({ hasText: 'Disponível' })).toHaveCount(1);
+  await expect(antigo5Coupons.filter({ hasText: 'Expirado' })).toHaveCount(1);
   expect(loyaltyRestaurantId).toBe('9');
 
   for (const width of [1280, 390, 320]) {
