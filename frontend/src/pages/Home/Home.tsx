@@ -769,10 +769,26 @@ export default function Home() {
         error={cardPaymentReturn.error}
         providerReturnStatus={cardPaymentReturn.providerReturnStatus}
         primaryColor={primary}
-        restaurantName={homeData.brand.name}
-        restaurantCategory={homeData.brand.category ?? 'RESTAURANTE'}
+        restaurantName={cardPaymentReturn.details?.restaurantName || homeData.brand.name}
+        restaurantLogoUrl={cardPaymentReturn.details?.restaurantLogoUrl || homeData.brand.logoUrl}
+        restaurantOpen={homeData.isOpen}
+        deliveryTime={cardPaymentReturn.details?.deliveryTime || homeData.deliveryTime}
+        details={cardPaymentReturn.details}
+        amount={
+          typeof cardPaymentReturn.details?.totalAmount === 'number'
+            ? cardPaymentReturn.details.totalAmount.toLocaleString('pt-BR', {
+                style: 'currency',
+                currency: 'BRL',
+              })
+            : undefined
+        }
         onVerify={cardPaymentReturn.verify}
         onClose={closeCardPaymentReturn}
+        onTrackOrder={() => {
+          const orderId = Number(cardPaymentReturn.details?.orderId || 0);
+          if (orderId > 0) navigate('/orders/' + orderId + '/tracking');
+          else closeCardPaymentReturn();
+        }}
       />
     );
   }
@@ -788,6 +804,36 @@ export default function Home() {
           onBack={clearPaymentResult}
         />
       );
+    if (paymentResult.method === 'Cartão') {
+      return (
+        <CardPaymentReturnPanel
+          status={paymentResult.status}
+          error={null}
+          providerReturnStatus=""
+          primaryColor={primary}
+          restaurantName={homeData.brand.name}
+          restaurantLogoUrl={homeData.brand.logoUrl}
+          restaurantOpen={homeData.isOpen}
+          deliveryTime={homeData.deliveryTime}
+          details={{
+            orderId: paymentResult.orderId,
+            restaurantId,
+            restaurantName: homeData.brand.name,
+            restaurantLogoUrl: homeData.brand.logoUrl,
+            deliveryTime: homeData.deliveryTime,
+            totalAmount: paymentResult.total,
+          }}
+          amount={paymentResult.total.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+          onVerify={async () => paymentResult.status}
+          onClose={clearPaymentResult}
+          onTrackOrder={() => {
+            const orderId = Number(paymentResult.orderId || 0);
+            if (orderId > 0) navigate('/orders/' + orderId + '/tracking');
+            else clearPaymentResult();
+          }}
+        />
+      );
+    }
     return (
       <PaymentResultView
         status={paymentResult.status}
