@@ -37,6 +37,8 @@ type ProductConfiguratorProps = {
   onClose: () => void;
   enableProductQuantity?: boolean;
   tableMenuVariant?: boolean;
+  embedded?: boolean;
+  customerPageVariant?: boolean;
   onConfirm: (configuration: ProductConfiguration, quantity?: number) => void;
 };
 
@@ -58,6 +60,8 @@ export function ProductConfigurator({
   onClose,
   enableProductQuantity = false,
   tableMenuVariant = false,
+  embedded = false,
+  customerPageVariant = false,
   onConfirm,
 }: ProductConfiguratorProps) {
   const totalDescriptionId = useId();
@@ -95,13 +99,13 @@ export function ProductConfigurator({
     const handleEscape = (event: KeyboardEvent) => {
       if (event.key === 'Escape') onClose();
     };
-    document.body.style.overflow = 'hidden';
+    if (!embedded) document.body.style.overflow = 'hidden';
     document.addEventListener('keydown', handleEscape);
     return () => {
-      document.body.style.overflow = previousOverflow;
+      if (!embedded) document.body.style.overflow = previousOverflow;
       document.removeEventListener('keydown', handleEscape);
     };
-  }, [onClose]);
+  }, [embedded, onClose]);
 
   const requiredGroups = regularGroups.filter((group) => group.minSelections > 0);
   const completedRequiredGroups = requiredGroups.filter(
@@ -172,16 +176,18 @@ export function ProductConfigurator({
     onConfirm(configuration);
   };
 
-  return createPortal(
+  const configurator = (
     <S.Page
       $primary={primaryColor}
-      role="dialog"
-      aria-modal="true"
+      $embedded={embedded}
+      $customerPageVariant={customerPageVariant}
+      role={embedded ? 'region' : 'dialog'}
+      aria-modal={embedded ? undefined : 'true'}
       aria-label={`Montar ${product.name}`}
       data-testid="product-configurator"
       data-table-menu={tableMenuVariant ? 'true' : undefined}
     >
-      {!tableMenuVariant ? (
+      {!tableMenuVariant && !customerPageVariant ? (
         <S.Header aria-hidden="true">
           <S.HeaderInner>
             <button type="button" onClick={onClose}>
@@ -256,7 +262,7 @@ export function ProductConfigurator({
 
         <S.Form onSubmit={submit} noValidate>
           {!tableMenuVariant ? (
-            <S.DesktopProductDetails>
+            <S.DesktopProductDetails className={customerPageVariant ? 'customer-product-details' : undefined}>
               <h1>{product.name}</h1>
               {product.description ? <p>{product.description}</p> : null}
               <strong aria-live="polite">
@@ -265,7 +271,7 @@ export function ProductConfigurator({
             </S.DesktopProductDetails>
           ) : null}
 
-          {!tableMenuVariant && (
+          {!tableMenuVariant && !customerPageVariant && (
             <S.Intro>
               <div>
                 <h2>Monte seu produto</h2>
@@ -653,7 +659,8 @@ export function ProductConfigurator({
           </S.BottomBar>
         </S.Form>
       </S.Layout>
-    </S.Page>,
-    document.body,
+    </S.Page>
   );
+
+  return embedded ? configurator : createPortal(configurator, document.body);
 }
