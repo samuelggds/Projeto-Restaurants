@@ -1,4 +1,4 @@
-import { Check, Gift, LockKeyhole, TicketPercent } from 'lucide-react';
+import { Check, Gift, LockKeyhole } from 'lucide-react';
 import type { LoyaltySummary } from '../types';
 import { isUsableLoyaltyRedemption, loyaltyRedemptionEntries } from '../domain/loyaltyRedemption';
 import * as S from './LoyaltyCouponPanel.styles';
@@ -43,17 +43,7 @@ export function LoyaltyCouponPanel({
     .sort((left, right) => left.remaining - right.remaining)[0];
 
   return (
-    <S.Panel aria-label="Cupom de fidelidade">
-      <S.Heading>
-        <i>
-          <TicketPercent />
-        </i>
-        <div>
-          <strong>Cupom de fidelidade</strong>
-          <small>Use um benefício resgatado neste restaurante</small>
-        </div>
-      </S.Heading>
-
+    <S.Panel aria-label="Opções de cupom">
       {!loggedIn ? (
         <S.Empty>
           <LockKeyhole />
