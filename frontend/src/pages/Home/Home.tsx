@@ -974,6 +974,7 @@ export default function Home() {
           }
           onClear={() => setCart([])}
           onClose={() => setCartOpen(false)}
+          onLogin={navigateToLogin}
           onSubmit={() => void handleCheckout()}
           recommendations={checkoutRecommendations}
           onAddRecommendation={handleCrossSellAdd}
