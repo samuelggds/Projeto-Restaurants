@@ -9,7 +9,6 @@ import {
   List,
   Search,
   ShoppingBag,
-  Star,
   UserRound,
   UtensilsCrossed,
 } from 'lucide-react';
@@ -54,12 +53,14 @@ function ProductCarouselSection({
   products,
   onOpenProduct,
   className = '',
+  sectionId,
 }: {
   title: string;
   description: string;
   products: HomeProduct[];
   onOpenProduct: (product: HomeProduct) => void;
   className?: string;
+  sectionId?: string;
 }) {
   const trackRef = useRef<HTMLDivElement>(null);
 
@@ -73,7 +74,10 @@ function ProductCarouselSection({
   if (!products.length) return null;
 
   return (
-    <S.Section className={`products-section product-carousel-section mobile-separated ${className}`.trim()}>
+    <S.Section
+      id={sectionId}
+      className={`products-section product-carousel-section mobile-separated ${className}`.trim()}
+    >
       <S.SectionHead>
         <div>
           <h2>{title}</h2>
@@ -151,10 +155,6 @@ export function FigmaDeliveryExperience({
   whatsappLabel,
 }: HomePageProps) {
   const primary = data.brand.primaryColor || '#e85a2b';
-  const [view, setView] = useState<'home' | 'menu'>('home');
-  const [categoryId, setCategoryId] = useState(
-    data.categories.find((category) => category.id !== 'todos')?.id || 'todos',
-  );
   const [selectedProduct, setSelectedProduct] = useState<HomeProduct | null>(null);
   const [selectedCombo, setSelectedCombo] = useState<HomeProduct | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
@@ -203,14 +203,6 @@ export function FigmaDeliveryExperience({
         .filter((section) => section.products.length > 0),
     [availableProducts, categories],
   );
-  const menuProducts = useMemo(
-    () =>
-      categoryId === 'todos'
-        ? availableProducts
-        : availableProducts.filter((product) => product.categoryId === categoryId),
-    [availableProducts, categoryId],
-  );
-  const currentCategory = data.categories.find((category) => category.id === categoryId);
   const activeBanner = data.banners.find((banner) => banner.active) || data.banners[0];
   const heroImage = activeBanner?.image || data.hero.image;
   const heroTitle = activeBanner?.title || data.hero.title;
@@ -327,31 +319,39 @@ export function FigmaDeliveryExperience({
   };
 
   const goHome = () => {
-    setView('home');
-    setCategoryId('todos');
     setSearchQuery('');
     setSearchFocused(false);
     setMobileSearchOpen(false);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
+  const scrollToSection = (sectionId: string) => {
+    const target = document.getElementById(sectionId);
+    if (!target) return;
+    target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
+
   const chooseCategory = (id: string) => {
-    setCategoryId(id);
-    setView('menu');
     onSelectCategory?.(id);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    scrollToSection(id === 'Combos' ? 'home-combos' : `home-category-${encodeURIComponent(id)}`);
+  };
+
+  const openFullMenu = () => {
+    const firstSectionId =
+      promoted.length > 0
+        ? 'home-featured'
+        : combos.length > 0
+          ? 'home-combos'
+          : categoryCarousels[0]?.category.id
+            ? `home-category-${encodeURIComponent(categoryCarousels[0].category.id)}`
+            : 'home-categories';
+    scrollToSection(firstSectionId);
   };
 
   return (
     <S.Page $primary={primary} className={selectedProduct ? 'product-open' : undefined}>
       <S.Header>
         <div className="header-left">
-          {view === 'menu' ? (
-            <button className="mobile-back" type="button" aria-label="Voltar para a Home" onClick={goHome}>
-              <ChevronLeft aria-hidden="true" />
-            </button>
-          ) : null}
-
           <button className="brand" type="button" aria-label={`Voltar para a Home de ${data.brand.name}`} onClick={goHome}>
             <span className="logo">
               {data.brand.logoUrl ? <img src={data.brand.logoUrl} alt="" /> : data.brand.monogram || data.brand.name.slice(0, 1)}
@@ -488,22 +488,6 @@ export function FigmaDeliveryExperience({
         />
       ) : (
         <>
-          {view === 'menu' ? (
-        <S.Breadcrumb aria-label="Navegação do cardápio">
-          <button type="button" onClick={goHome}>Início</button>
-          <span aria-hidden="true">›</span>
-          <span>Cardápio</span>
-          {categoryId !== 'todos' && currentCategory?.name ? (
-            <>
-              <span aria-hidden="true">›</span>
-              <span>{currentCategory.name}</span>
-            </>
-          ) : null}
-        </S.Breadcrumb>
-      ) : null}
-
-      {view === 'home' ? (
-        <>
           <S.Hero role="region" aria-label="Promoções do restaurante">
             {heroImage ? <img src={heroImage} alt="" /> : null}
             <div className="overlay" />
@@ -515,7 +499,7 @@ export function FigmaDeliveryExperience({
                 <h1>{heroTitle}</h1>
               ) : null}
               {heroDescription ? <p>{heroDescription}</p> : null}
-              <button type="button" onClick={() => setView('menu')}>
+              <button type="button" onClick={openFullMenu}>
                 {activeBanner?.buttonLabel || 'Ver cardápio'}
               </button>
             </div>
@@ -538,7 +522,7 @@ export function FigmaDeliveryExperience({
             </S.InfoChips>
 
             {categories.length ? (
-              <S.Section className="categories-section mobile-separated">
+              <S.Section id="home-categories" className="categories-section mobile-separated">
                 <S.SectionHead className="categories-head">
                   <div><h2>Categorias</h2><p>Escolha uma categoria para explorar o cardápio.</p></div>
                 </S.SectionHead>
@@ -559,6 +543,7 @@ export function FigmaDeliveryExperience({
               products={promoted}
               onOpenProduct={openProduct}
               className="featured-carousel"
+              sectionId="home-featured"
             />
 
             <ProductCarouselSection
@@ -567,6 +552,7 @@ export function FigmaDeliveryExperience({
               products={combos}
               onOpenProduct={openProduct}
               className="combos-carousel"
+              sectionId="home-combos"
             />
 
             {categoryCarousels.map(({ category, products }) => (
@@ -577,6 +563,7 @@ export function FigmaDeliveryExperience({
                 products={products}
                 onOpenProduct={openProduct}
                 className="category-product-carousel"
+                sectionId={`home-category-${encodeURIComponent(category.id)}`}
               />
             ))}
 
@@ -643,92 +630,6 @@ export function FigmaDeliveryExperience({
               </S.RestaurantInfo>
             ) : null}
           </S.Main>
-        </>
-      ) : (
-        <S.MenuLayout>
-          <S.MenuCategories aria-label="Categorias do cardápio">
-            <h2>Categorias</h2>
-            <button className={categoryId === 'todos' ? 'active' : ''} type="button" onClick={() => setCategoryId('todos')}>
-              <span className="category-chip-image"><Star aria-hidden="true" /></span>
-              <span>Destaques</span>
-            </button>
-            {categories.map((category) => (
-              <button className={categoryId === category.id ? 'active' : ''} key={category.id} type="button" onClick={() => setCategoryId(category.id)}>
-                <span className="category-chip-image">{categoryImage(category.image, category.name)}</span>
-                <span>{category.name}</span>
-              </button>
-            ))}
-          </S.MenuCategories>
-
-          <S.MenuProducts key={categoryId}>
-            <S.MenuCategoryBar aria-label="Categorias do cardápio">
-              <button
-                className={categoryId === 'todos' ? 'active' : ''}
-                type="button"
-                onClick={() => setCategoryId('todos')}
-              >
-                <span className="category-chip-image"><Star aria-hidden="true" /></span>
-                <span>Destaques</span>
-              </button>
-              {categories.slice(0, 6).map((category) => (
-                <button
-                  className={categoryId === category.id ? 'active' : ''}
-                  key={category.id}
-                  type="button"
-                  onClick={() => setCategoryId(category.id)}
-                >
-                  <span className="category-chip-image">{categoryImage(category.image, category.name)}</span>
-                  <span>{category.name}</span>
-                </button>
-              ))}
-            </S.MenuCategoryBar>
-
-            <header>
-              <h1>{categoryId === 'todos' ? 'Destaques' : currentCategory?.name || 'Cardápio'}</h1>
-              <p>{menuProducts.length ? `${menuProducts.length} ${menuProducts.length === 1 ? 'item disponível' : 'itens disponíveis'}` : 'Nenhum item disponível nesta categoria.'}</p>
-            </header>
-            <div className="list">
-              {menuProducts.map((product) => (
-                <S.MenuProduct key={product.id}>
-                  <button className="open" type="button" aria-label={`Ver detalhes de ${product.name}`} onClick={() => openProduct(product)} />
-                  <div className="image">{productImage(product)}</div>
-                  <div className="copy">
-                    <h3>{product.name}</h3>
-                    <p>{product.description}</p>
-                    <div className="foot">
-                      <strong>{money(product.price)}</strong>
-                      <button className="add" type="button" aria-label={`Adicionar ${product.name}`} onClick={() => openProduct(product)}>+</button>
-                    </div>
-                  </div>
-                </S.MenuProduct>
-              ))}
-            </div>
-          </S.MenuProducts>
-
-          <S.MiniCart>
-            <h3>Seu Pedido {cartCount ? `(${cartCount} ${cartCount === 1 ? 'item' : 'itens'})` : ''}</h3>
-            {cart.length ? (
-              <>
-                <div className="items">
-                  {cart.map((item) => (
-                    <div className="item" key={item.cartId || item.productId}>
-                      <span>{item.quantity}x {item.name}</span>
-                      <strong>{money(item.price * item.quantity)}</strong>
-                    </div>
-                  ))}
-                </div>
-                <div className="subtotal">
-                  <span>Subtotal</span>
-                  <strong>{money(cartTotal)}</strong>
-                </div>
-              </>
-            ) : (
-              <p>Seu carrinho está vazio.</p>
-            )}
-            <button type="button" disabled={!cartCount} onClick={onOpenCart}>Continuar</button>
-          </S.MiniCart>
-        </S.MenuLayout>
-      )}
 
       <S.MobileCartFab
         ref={cartFabRef}
@@ -756,7 +657,7 @@ export function FigmaDeliveryExperience({
       </S.MobileCartFab>
 
       <S.MobileBottomNav aria-label="Navegação principal">
-        <button className="active" type="button" onClick={() => setView('home')}>
+        <button className="active" type="button" onClick={goHome}>
           <Home aria-hidden="true" />
           <span>Início</span>
         </button>
@@ -770,7 +671,7 @@ export function FigmaDeliveryExperience({
         </button>
       </S.MobileBottomNav>
 
-      {view === 'home' && whatsappUrl ? (
+      {whatsappUrl ? (
         <FloatingWhatsAppPortal
           href={whatsappUrl}
           target="_blank"
@@ -783,16 +684,13 @@ export function FigmaDeliveryExperience({
       ) : null}
 
 
-        </>
-      )}
-
       <CustomerDesktopFooter
         restaurantName={data.brand.name}
         description={data.about}
         primaryColor={primary}
         phone={data.brand.phone}
         email={data.brand.email}
-        onMenu={() => setView('menu')}
+        onMenu={openFullMenu}
       />
 
 
