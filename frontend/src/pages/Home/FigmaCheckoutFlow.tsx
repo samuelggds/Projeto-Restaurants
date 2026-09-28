@@ -22,6 +22,8 @@ type Props = {
   primaryColor: string;
   brandName: string;
   logoUrl?: string;
+  isOpen?: boolean;
+  deliveryTime?: string;
   step: FigmaCheckoutStep;
   cart: CartItem[];
   cartCount: number;
@@ -60,6 +62,8 @@ export function FigmaCheckoutFlow({
   primaryColor,
   brandName,
   logoUrl,
+  isOpen = true,
+  deliveryTime,
   step,
   cart,
   cartCount,
@@ -178,7 +182,11 @@ export function FigmaCheckoutFlow({
             </span>
             <span className="brand-copy">
               <b>{brandName}</b>
-              <small><i /> Aberto agora · 25-35 min</small>
+              <small>
+                <i className={isOpen ? 'open' : ''} />
+                {isOpen ? 'Aberto agora' : 'Fechado agora'}
+                {deliveryTime ? ` · ${deliveryTime}` : ''}
+              </small>
             </span>
           </button>
 
@@ -203,8 +211,13 @@ export function FigmaCheckoutFlow({
         <S.CartContent>
           <S.CartItemsColumn>
             <S.CartTitleRow>
-              <h1 className="desktop-title">Seu Carrinho de Compras</h1>
-              <h1 className="mobile-title">Meu pedido</h1>
+              <div className="title-group">
+                <button className="mobile-back" type="button" onClick={back} aria-label="Voltar">
+                  <ArrowLeft aria-hidden="true" />
+                </button>
+                <h1 className="desktop-title">Seu Carrinho de Compras</h1>
+                <h1 className="mobile-title">Meu pedido</h1>
+              </div>
               {cartCount > 0 ? (
                 <button type="button" onClick={onClear}>
                   <span className="desktop-clear">Limpar Carrinho</span>
