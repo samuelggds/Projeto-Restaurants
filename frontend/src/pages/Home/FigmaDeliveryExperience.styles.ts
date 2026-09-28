@@ -60,7 +60,7 @@ export const Header = styled.header`
   .actions { justify-self:end;display:flex;align-items:center;gap:18px; }
   .account { border:0;background:transparent;color:var(--delivery-text);display:flex;align-items:center;gap:8px;font-weight:600;font-size:14px; }
   .cart {
-    min-height:42px;padding:0 16px;border:0;border-radius:999px;background:var(--delivery-primary);
+    min-height:42px;padding:0 16px;border:0;border-radius: 10px;background:var(--delivery-primary);
     color:#fff;display:flex;align-items:center;gap:9px;font-weight:700;
   }
   .cart i {
@@ -390,7 +390,7 @@ export const ProductCard = styled.article`
  .price{min-width:0;display:flex;align-items:baseline;gap:6px;flex-wrap:wrap}
  .price del{color:var(--delivery-muted);font-size:11px}
  strong{color:var(--delivery-primary);font-size:15px}
- .add{min-height:30px;padding:0 10px;border:0;border-radius:999px;background:var(--delivery-primary);color:#fff;font-size:11px;font-weight:700}
+ .add{min-height:30px;padding:0 10px;border:0;border-radius: 10px;background:var(--delivery-primary);color:#fff;font-size:11px;font-weight:700}
  .open{position:absolute;inset:0;border:0;background:transparent}
  .add{position:relative;z-index:2}
  @media(max-width:760px){.image{height:104px}.copy{padding:10px}h3{font-size:13px}p{height:28px;font-size:10px}.add{width:28px;padding:0;font-size:0}.add::after{content:'+';font-size:18px}}
