@@ -125,10 +125,9 @@ export function CustomerLoginExperience({
             <S.AccessBadge>Acesso do Cliente</S.AccessBadge>
           </S.HeroNameGroup>
 
-          <S.HeroDescription>
-            {branding.description ||
-              'Sabores inesquecíveis e ingredientes selecionados com todo o carinho que você merece.'}
-          </S.HeroDescription>
+          {branding.description ? (
+            <S.HeroDescription>{branding.description}</S.HeroDescription>
+          ) : null}
         </S.HeroBranding>
       </S.Hero>
 
