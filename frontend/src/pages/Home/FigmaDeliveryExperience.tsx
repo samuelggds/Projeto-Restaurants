@@ -259,22 +259,7 @@ export function FigmaDeliveryExperience({
     <S.Page $primary={primary} className={selectedProduct ? 'product-open' : undefined}>
       <S.Header>
         <div className="header-left">
-          {selectedProduct ? (
-        <ProductConfigurator
-          product={selectedProduct}
-          primaryColor={primary}
-          enableProductQuantity
-          embedded
-          customerPageVariant
-          onClose={() => setSelectedProduct(null)}
-          onConfirm={(configuration, quantity) => {
-            onAddProduct?.(selectedProduct.id, configuration, quantity || 1);
-            setSelectedProduct(null);
-          }}
-        />
-      ) : (
-        <>
-      {view === 'menu' ? (
+          {view === 'menu' ? (
             <button className="mobile-back" type="button" aria-label="Voltar para a Home" onClick={goHome}>
               <ChevronLeft aria-hidden="true" />
             </button>
@@ -397,7 +382,22 @@ export function FigmaDeliveryExperience({
         </div>
       </S.Header>
 
-      {view === 'menu' ? (
+      {selectedProduct ? (
+        <ProductConfigurator
+          product={selectedProduct}
+          primaryColor={primary}
+          enableProductQuantity
+          embedded
+          customerPageVariant
+          onClose={() => setSelectedProduct(null)}
+          onConfirm={(configuration, quantity) => {
+            onAddProduct?.(selectedProduct.id, configuration, quantity || 1);
+            setSelectedProduct(null);
+          }}
+        />
+      ) : (
+        <>
+          {view === 'menu' ? (
         <S.Breadcrumb aria-label="Navegação do cardápio">
           <button type="button" onClick={goHome}>Início</button>
           <span aria-hidden="true">›</span>
