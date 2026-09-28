@@ -31,6 +31,7 @@ type Props = {
   onInitializeGoogle: () => void;
   onResendVerification: () => void;
   onGoToLogin: () => void;
+  authContext?: 'ONLINE' | 'TABLE';
 };
 
 export function CustomerRegisterExperience({
@@ -59,6 +60,7 @@ export function CustomerRegisterExperience({
   onInitializeGoogle,
   onResendVerification,
   onGoToLogin,
+  authContext = 'ONLINE',
 }: Props) {
   const [heroLoaded, setHeroLoaded] = useState(false);
   const [heroFailed, setHeroFailed] = useState(false);
@@ -80,7 +82,12 @@ export function CustomerRegisterExperience({
   );
 
   return (
-    <S.Layout style={style} data-testid="register-layout">
+    <S.Layout
+      style={style}
+      data-testid="register-layout"
+      data-auth-context={authContext}
+      data-restaurant-category={branding.category}
+    >
       <S.Hero>
         {heroImage && !heroFailed ? (
           <>
@@ -153,6 +160,8 @@ export function CustomerRegisterExperience({
                     <span>Nome completo</span>
                     <S.InputBox>
                       <input
+                        id="name"
+                        aria-label="Nome Completo"
                         value={name}
                         onChange={(event) => onNameChange(event.target.value)}
                         placeholder="Seu nome e sobrenome"
@@ -166,6 +175,8 @@ export function CustomerRegisterExperience({
                     <span>E-mail</span>
                     <S.InputBox>
                       <input
+                        id="email"
+                        aria-label="E-mail"
                         type="email"
                         value={email}
                         onChange={(event) => onEmailChange(event.target.value)}
@@ -180,6 +191,8 @@ export function CustomerRegisterExperience({
                     <span>Celular</span>
                     <S.InputBox>
                       <input
+                        id="phone"
+                        aria-label="Telefone"
                         type="tel"
                         inputMode="tel"
                         value={phone}
@@ -195,6 +208,8 @@ export function CustomerRegisterExperience({
                     <span>Senha</span>
                     <S.InputBox>
                       <input
+                        id="password"
+                        aria-label="Senha"
                         type={showPassword ? 'text' : 'password'}
                         value={password}
                         onChange={(event) => onPasswordChange(event.target.value)}
@@ -212,9 +227,14 @@ export function CustomerRegisterExperience({
                     </S.InputBox>
                   </S.Field>
 
-                  <S.Rules aria-label="Requisitos da senha">
+                  <S.Rules role="region" aria-label="Requisitos da senha">
                     {visibleRules.map((rule) => (
-                      <div className={`rule ${rule.met ? 'met' : ''}`} key={rule.id}>
+                      <div
+                        className={`rule ${rule.met ? 'met' : ''}`}
+                        key={rule.id}
+                        data-requirement={rule.id}
+                        data-met={rule.met ? 'true' : 'false'}
+                      >
                         <span className="check"><Check /></span>
                         <span>{rule.label}</span>
                       </div>
@@ -225,6 +245,8 @@ export function CustomerRegisterExperience({
                     <span>Confirmar senha</span>
                     <S.InputBox>
                       <input
+                        id="confirmPassword"
+                        aria-label="Confirmar Senha"
                         type={showConfirmation ? 'text' : 'password'}
                         value={confirmPassword}
                         onChange={(event) => onConfirmPasswordChange(event.target.value)}
