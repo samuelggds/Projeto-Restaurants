@@ -1,4 +1,4 @@
-import { ArrowLeft, LockKeyhole, ShoppingBag, UserRound } from 'lucide-react';
+import { ArrowLeft, ShoppingBag, UserRound } from 'lucide-react';
 import type { Dispatch, SetStateAction } from 'react';
 import { DeliveryAddressForm } from './DeliveryAddressForm';
 import type { DeliveryAddress } from '../hooks/useDeliveryAddress';
