@@ -172,14 +172,11 @@ export const ProductSummary = styled.aside`
     border-radius: 0;
     box-shadow: none;
     img {
-      height: 210px;
+      height: 220px;
       min-height: 0;
     }
     > div {
-      padding: 20px 18px 22px;
-    }
-    h1 {
-      font-size: 27px;
+      display:none;
     }
   }
 
@@ -210,6 +207,30 @@ export const ProductSummary = styled.aside`
     strong {
       font-size: 19px;
     }
+  }
+`;
+
+
+export const DesktopProductDetails = styled.section`
+  display:grid;
+  gap:12px;
+  padding:28px 28px 24px;
+  border:1px solid #ece7e1;
+  border-radius:16px;
+  background:#fff;
+
+  h1{margin:0;font-size:30px;line-height:1.15;font-weight:800}
+  p{margin:0;color:#6f665e;font-size:14px;line-height:1.55}
+  strong{color:var(--config-primary);font-size:22px}
+
+  @media(max-width:620px){
+    padding:20px 18px 18px;
+    border:0;
+    border-radius:0;
+    border-bottom:1px solid #eee7e1;
+    h1{font-size:26px}
+    p{font-size:14px;line-height:1.5}
+    strong{font-size:18px}
   }
 `;
 
@@ -253,8 +274,8 @@ export const Form = styled.form`
   gap: 16px;
 
   @media (max-width: 620px) {
-    padding: 18px 14px 0;
-    border-top: 1px solid #eee5dd;
+    padding: 0;
+    border-top: 0;
   }
 
   @media (max-width: 900px) and (max-height: 540px) and (orientation: landscape) {
@@ -336,8 +357,10 @@ export const Group = styled.fieldset<{ $error?: boolean }>`
   box-shadow: 0 8px 25px rgba(71, 46, 26, 0.045);
 
   @media (max-width: 620px) {
-    padding: 17px 14px;
-    border-radius: 16px;
+    padding:20px 18px;
+    border-width:0 0 1px;
+    border-radius:0;
+    box-shadow:none;
   }
 `;
 
@@ -385,7 +408,7 @@ export const OptionList = styled.div`
   gap: 9px;
 
   @media (max-width: 620px) {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns:1fr;
   }
 
   @media (max-width: 360px) {
@@ -781,8 +804,9 @@ export const Observation = styled.label`
   }
 
   @media (max-width: 620px) {
-    padding: 17px 14px;
-    border-radius: 16px;
+    padding:20px 18px;
+    border-width:0 0 1px;
+    border-radius:0;
   }
 `;
 
@@ -852,25 +876,29 @@ export const BottomBar = styled.div<{ $stickyOnMobile?: boolean }>`
   @media (max-width: 620px) {
     position: ({ $stickyOnMobile }) => ($stickyOnMobile ? 'sticky' : 'static');
     bottom: ({ $stickyOnMobile }) => ($stickyOnMobile ? '0' : 'auto');
-    width: 100%;
-    min-width: 0;
-    margin: 3px 0 0;
-    padding: 11px 14px calc(11px + env(safe-area-inset-bottom));
-    border-radius: 16px 16px 0 0;
-    gap: 10px;
-    background: #fffdfa;
-    backdrop-filter: none;
+    width:100%;
+    min-width:0;
+    margin:0;
+    padding:12px 18px calc(12px + env(safe-area-inset-bottom));
+    border-width:1px 0 0;
+    border-radius:0;
+    gap:10px;
+    background:#fff;
+    backdrop-filter:none;
+    box-shadow:0 -8px 24px rgba(0,0,0,.08);
+
+    .total-description{display:none}
 
     button {
-      min-width: 0;
-      flex: 1;
-      padding-inline: 12px;
-      font-size: 13px;
+      min-width:0;
+      flex:1;
+      min-height:46px;
+      padding-inline:12px;
+      font-size:14px;
+      border-radius:10px;
     }
 
-    strong {
-      font-size: 17px;
-    }
+    strong {font-size:17px}
   }
 
   @media (max-width: 340px) {
