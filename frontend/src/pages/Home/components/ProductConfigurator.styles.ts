@@ -83,7 +83,11 @@ export const Page = styled.div<{
           line-height:16px;
         }
 
-        .product-summary button[aria-label="Voltar ao cardápio"]{display:none}
+        .product-summary button[aria-label="Voltar ao cardápio"]{
+          display:grid;
+          top:14px;
+          left:14px;
+        }
 
         .product-form{
           padding:28px;
@@ -244,8 +248,8 @@ export const Page = styled.div<{
           .product-observation textarea{min-height:44px}
 
           .product-bottom-bar{
-            position:sticky;
-            bottom:0;
+            position:static;
+            bottom:auto;
             z-index:5;
             padding:12px 20px calc(12px + env(safe-area-inset-bottom));
             border-top:1px solid #ece7e1;
