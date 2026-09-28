@@ -33,7 +33,11 @@ export const Header = styled.header`
   top: 0;
   z-index: 30;
 
-  .brand { min-width: 0; display:flex; align-items:center; gap:12px; }
+  .header-left{min-width:0;display:flex;align-items:center;gap:8px}
+  .brand {
+    min-width:0;padding:0;border:0;background:transparent;color:inherit;
+    display:flex;align-items:center;gap:12px;text-align:left;
+  }
   .logo {
     width:40px;height:40px;border-radius:12px;overflow:hidden;flex:0 0 40px;
     display:grid;place-items:center;background:var(--delivery-primary);color:#fff;
@@ -67,11 +71,19 @@ export const Header = styled.header`
   }
 
   .mobile-header-search{display:none}
+  .mobile-back{display:none}
 
   @media(max-width:760px){
     position:static;height:64px;padding:12px 20px;gap:10px;
     grid-template-columns:minmax(0,1fr) 36px;
     .actions{display:none}
+    .header-left{min-width:0;gap:8px}
+    .mobile-back{
+      width:36px;height:36px;flex:0 0 36px;border:0;border-radius:18px;
+      background:#f7f5f0;color:var(--delivery-text);display:grid;place-items:center;
+    }
+    .mobile-back svg{width:18px;height:18px}
+    .brand{min-width:0}
     .mobile-header-search{
       width:36px;height:36px;border:0;border-radius:18px;background:#f7f5f0;color:var(--delivery-text);
       display:grid;place-items:center;
@@ -190,6 +202,26 @@ export const InlineSearchResults = styled.div`
   }
 `;
 
+
+export const Breadcrumb = styled.nav`
+  width:min(1120px,calc(100% - 48px));
+  height:24px;
+  margin:0 auto;
+  display:flex;
+  align-items:center;
+  gap:6px;
+  color:#8a8880;
+  font-size:14px;
+
+  button{
+    padding:0;border:0;background:transparent;
+    color:var(--delivery-primary);font-weight:600;
+  }
+
+  @media(max-width:760px){
+    display:none;
+  }
+`;
 
 export const Hero = styled.section`
   position:relative;width:100%;height:360px;overflow:hidden;background:#28221e;
