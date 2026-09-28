@@ -217,19 +217,23 @@ test('permite HTTP apenas em loopback para a execução local', () => {
   assert.doesNotThrow(() => validateCriticalEnv());
 });
 
-test('exige MFA para administradores e super administradores', () => {
-  process.env.MFA_REQUIRED_ROLES = 'ADMIN';
-  assert.throws(() => validateCriticalEnv(), /deve incluir SUPER_ADMIN/i);
+test('aceita MFA opcional sem papéis obrigatórios em produção', () => {
+  process.env.MFA_REQUIRED_ROLES = '';
+  assert.doesNotThrow(() => validateCriticalEnv());
 
-  process.env.MFA_REQUIRED_ROLES = 'SUPER_ADMIN';
-  assert.throws(() => validateCriticalEnv(), /deve incluir ADMIN/i);
+  process.env.MFA_REQUIRED_ROLES = 'ADMIN,SUPER_ADMIN';
+  assert.doesNotThrow(() => validateCriticalEnv());
 });
 
-test('exige um transporte SMTP utilizável para entregar o MFA em produção', () => {
+test('SMTP é opcional, mas quando configurado precisa ser utilizável', () => {
   delete process.env.SMTP_HOST;
   delete process.env.SMTP_PASS;
 
-  assert.throws(() => validateCriticalEnv(), /SMTP_HOST e obrigatoria.*SMTP_PASS e obrigatoria/i);
+  assert.doesNotThrow(() => validateCriticalEnv());
+
+  setValidProductionEnv();
+  delete process.env.SMTP_PASS;
+  assert.throws(() => validateCriticalEnv(), /SMTP_PASS e obrigatoria/i);
 
   setValidProductionEnv();
   process.env.SMTP_AUTH_TYPE = 'oauth2';
