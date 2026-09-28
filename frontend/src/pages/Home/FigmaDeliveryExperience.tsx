@@ -309,11 +309,10 @@ export function FigmaDeliveryExperience({
           <S.MenuCategories>
             <h2>Categorias</h2>
             <button className={categoryId === 'todos' ? 'active' : ''} type="button" onClick={() => setCategoryId('todos')}>
-              <span className="thumb"><UtensilsCrossed size={15} /></span> Todos
+              Todos
             </button>
             {categories.map((category) => (
               <button className={categoryId === category.id ? 'active' : ''} key={category.id} type="button" onClick={() => setCategoryId(category.id)}>
-                <span className="thumb">{categoryImage(category.image, category.name)}</span>
                 {category.name}
               </button>
             ))}
