@@ -16,18 +16,26 @@ function render(status: 'VERIFYING' | 'PENDING' | 'PAID' | 'CANCELED' | 'ERROR')
 
 describe('CardPaymentReturnPanel', () => {
   it.each([
-    ['VERIFYING', 'Verificando pagamento'],
+    ['VERIFYING', 'Processando pagamento'],
     ['PENDING', 'Aguardando confirmação'],
-    ['CANCELED', 'Pagamento não concluído'],
-    ['ERROR', 'Não foi possível verificar'],
-  ] as const)('não anuncia confirmação no estado %s', (status, label) => {
+    ['CANCELED', 'Pagamento cancelado'],
+    ['ERROR', 'Aguardando confirmação'],
+  ] as const)('não anuncia aprovação no estado %s', (status, label) => {
     const markup = render(status);
 
     expect(markup).toContain(label);
-    expect(markup).not.toContain('Pagamento confirmado');
+    expect(markup).not.toContain('Pagamento Aprovado!');
   });
 
-  it('mostra confirmação somente quando a leitura canônica retorna PAID', () => {
-    expect(render('PAID')).toContain('Pagamento confirmado');
+  it('mostra aprovação somente quando a leitura canônica retorna PAID', () => {
+    const markup = render('PAID');
+
+    expect(markup).toContain('Pagamento Aprovado!');
+    expect(markup).toContain('data-status="PAID"');
+  });
+
+  it('expõe cancelamento final sem transformar falha temporária em recusa', () => {
+    expect(render('CANCELED')).toContain('Pagamento cancelado');
+    expect(render('ERROR')).not.toContain('Pagamento cancelado');
   });
 });
