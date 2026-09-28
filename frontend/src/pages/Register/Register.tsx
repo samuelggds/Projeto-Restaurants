@@ -264,6 +264,7 @@ export default function Register() {
       onInitializeGoogle={() => void initializeGoogle()}
       onResendVerification={() => void handleResendVerification()}
       onGoToLogin={() => navigate(loginPath)}
+      authContext={authExperience.context}
     />
   );
 }
