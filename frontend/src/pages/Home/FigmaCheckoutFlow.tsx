@@ -63,23 +63,12 @@ export function FigmaCheckoutFlow({
 
   useEffect(() => {
     const previouslyFocused = document.activeElement as HTMLElement | null;
-    const previousOverflow = document.body.style.overflow;
-    const handleEscape = (event: KeyboardEvent) => {
-      if (event.key !== 'Escape') return;
-      event.preventDefault();
-      onClose();
-    };
-
-    document.body.style.overflow = 'hidden';
     layerRef.current?.focus();
-    document.addEventListener('keydown', handleEscape);
 
     return () => {
-      document.body.style.overflow = previousOverflow;
-      document.removeEventListener('keydown', handleEscape);
       previouslyFocused?.focus();
     };
-  }, [onClose]);
+  }, []);
 
   const currentStep = stepIndex(step);
   const subtotal = quote ? quote.itemsSubtotal + quote.productDiscountTotal : cartTotal;
