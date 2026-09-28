@@ -122,7 +122,7 @@ export class CreateRestaurantService {
           role: UserRole.ADMIN,
           active: true,
           mustChangePassword: true,
-          mfaEnabled: true,
+          mfaEnabled: false,
           restaurantId: createdRestaurant.id,
         },
         tx,
