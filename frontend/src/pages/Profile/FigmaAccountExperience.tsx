@@ -22,12 +22,15 @@ import { FigmaCouponRedemption, FigmaLoyaltyProgram } from './FigmaLoyaltyViews'
 import { useLoyaltyExpirationClock } from '../Home/hooks/useLoyaltyExpirationClock';
 import { buildWhatsAppUrl } from '../Home/domain/publicSettings';
 import type {
+  ActiveProfileOrder,
   ProfileData,
   ProfileOrder,
   ProfilePageProps,
   ProfileView,
 } from './types';
 import * as S from './FigmaAccountExperience.styles';
+
+type AccountOrder = ProfileOrder | ActiveProfileOrder;
 
 type Stage3View =
   | 'account'
@@ -51,7 +54,7 @@ function initialStage3View(view: ProfileView): Stage3View {
   return 'account';
 }
 
-function orderStatus(order: ProfileOrder) {
+function orderStatus(order: AccountOrder) {
   if (order.paymentPending) return 'Pagamento pendente';
   if (order.status === 'preparing') return 'Em preparo';
   if (order.status === 'onTheWay') return 'A caminho';
@@ -61,7 +64,7 @@ function orderStatus(order: ProfileOrder) {
 }
 
 function orderAction(
-  order: ProfileOrder,
+  order: AccountOrder,
   props: Pick<ProfilePageProps, 'onContinuePayment' | 'onViewOrder' | 'onReorder'>,
 ) {
   if (order.paymentPending && order.publicId) {
@@ -148,7 +151,7 @@ function FigmaAccountExperienceReady(props: ProfilePageProps & { data: ProfileDa
 
   const goBack = () => setView('account');
 
-  const renderOrders = (orders: ProfileOrder[]) =>
+  const renderOrders = (orders: AccountOrder[]) =>
     orders.length ? (
       <S.Stack>
         {orders.map((order) => (
@@ -156,7 +159,7 @@ function FigmaAccountExperienceReady(props: ProfilePageProps & { data: ProfileDa
             <div className="top">
               <div className="meta">
                 <b>Pedido {order.id}</b>
-                <span>{order.date || order.channel || 'Pedido'}</span>
+                <span>{('date' in order ? order.date : '') || order.channel || 'Pedido'}</span>
               </div>
               <span className="status">{orderStatus(order)}</span>
             </div>
@@ -305,7 +308,7 @@ function FigmaAccountExperienceReady(props: ProfilePageProps & { data: ProfileDa
               Histórico
             </button>
           </S.Tabs>
-          {ordersTab === 'active' ? renderOrders(activeOrders as ProfileOrder[]) : renderOrders(orderHistory)}
+          {ordersTab === 'active' ? renderOrders(activeOrders) : renderOrders(orderHistory)}
         </S.Stack>
       );
     }
