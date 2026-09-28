@@ -281,17 +281,8 @@ export function validateCriticalEnv() {
     errors.push('LOGIN_LOCKOUT_BASE_SECONDS deve ser >= 30 em producao.');
   }
 
-  const mfaRoles = String(process.env.MFA_REQUIRED_ROLES || 'ADMIN,SUPER_ADMIN')
-    .split(',')
-    .map((item) => item.trim().toUpperCase())
-    .filter(Boolean);
-  for (const requiredRole of ['ADMIN', 'SUPER_ADMIN']) {
-    if (!mfaRoles.includes(requiredRole)) {
-      errors.push(`MFA_REQUIRED_ROLES deve incluir ${requiredRole} em producao.`);
-    }
-  }
-  if (mfaRoles.length > 0) {
-    const jwtMfaSecret = String(process.env.JWT_MFA_SECRET || jwtSecret).trim();
+  const jwtMfaSecret = String(process.env.JWT_MFA_SECRET || jwtSecret).trim();
+  {
 
     if (jwtMfaSecret.length < 32) {
       errors.push('JWT_MFA_SECRET deve ter pelo menos 32 caracteres em producao.');
@@ -302,31 +293,33 @@ export function validateCriticalEnv() {
       errors.push('JWT_MFA_SECRET deve ser diferente dos demais segredos JWT em producao.');
     }
 
-    requireValue('SMTP_HOST', errors);
-    const smtpPort = requireValue('SMTP_PORT', errors);
-    if (smtpPort && (!Number.isInteger(Number(smtpPort)) || Number(smtpPort) <= 0)) {
-      errors.push('SMTP_PORT deve ser um numero inteiro maior que zero.');
-    }
-    requireValue('SMTP_USER', errors);
+    const smtpHost = String(process.env.SMTP_HOST || '').trim();
+    if (smtpHost) {
+      const smtpPort = String(process.env.SMTP_PORT || '').trim();
+      if (smtpPort && (!Number.isInteger(Number(smtpPort)) || Number(smtpPort) <= 0)) {
+        errors.push('SMTP_PORT deve ser um numero inteiro maior que zero.');
+      }
+      requireValue('SMTP_USER', errors);
 
-    const smtpSecure = String(process.env.SMTP_SECURE || 'false')
-      .trim()
-      .toLowerCase();
-    if (!['true', 'false'].includes(smtpSecure)) {
-      errors.push('SMTP_SECURE deve ser true ou false.');
-    }
+      const smtpSecure = String(process.env.SMTP_SECURE || 'false')
+        .trim()
+        .toLowerCase();
+      if (!['true', 'false'].includes(smtpSecure)) {
+        errors.push('SMTP_SECURE deve ser true ou false.');
+      }
 
-    const smtpAuthType = String(process.env.SMTP_AUTH_TYPE || 'basic')
-      .trim()
-      .toLowerCase();
-    if (!['basic', 'oauth2'].includes(smtpAuthType)) {
-      errors.push('SMTP_AUTH_TYPE deve ser basic ou oauth2.');
-    } else if (smtpAuthType === 'oauth2') {
-      requireValue('SMTP_CLIENT_ID', errors);
-      requireValue('SMTP_CLIENT_SECRET', errors);
-      requireValue('SMTP_REFRESH_TOKEN', errors);
-    } else {
-      requireValue('SMTP_PASS', errors);
+      const smtpAuthType = String(process.env.SMTP_AUTH_TYPE || 'basic')
+        .trim()
+        .toLowerCase();
+      if (!['basic', 'oauth2'].includes(smtpAuthType)) {
+        errors.push('SMTP_AUTH_TYPE deve ser basic ou oauth2.');
+      } else if (smtpAuthType === 'oauth2') {
+        requireValue('SMTP_CLIENT_ID', errors);
+        requireValue('SMTP_CLIENT_SECRET', errors);
+        requireValue('SMTP_REFRESH_TOKEN', errors);
+      } else {
+        requireValue('SMTP_PASS', errors);
+      }
     }
   }
 
