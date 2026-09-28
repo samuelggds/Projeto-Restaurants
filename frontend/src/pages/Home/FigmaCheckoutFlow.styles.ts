@@ -295,6 +295,10 @@ export const CartContent = styled.main`
     padding: 0 20px 20px;
     display: block;
   }
+
+  @media (prefers-reduced-motion: reduce) {
+    animation: none;
+  }
 `;
 
 export const CartItemsColumn = styled.section`
@@ -918,12 +922,3 @@ export const Empty = styled.div`
   min-height:300px;display:grid;place-items:center;text-align:center;color:var(--checkout-muted);
 `;
 
-
-@media (prefers-reduced-motion: reduce) {
-  ${CartContent},
-  ${CartTitleRow},
-  ${CartSummarySidebar},
-  ${MobileCartAction} {
-    animation: none;
-  }
-}
