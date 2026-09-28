@@ -1,8 +1,6 @@
 import { useMemo, useState } from 'react';
 import {
   Clock3,
-  Facebook,
-  Instagram,
   MapPin,
   Phone,
   Search,
@@ -11,6 +9,7 @@ import {
   UtensilsCrossed,
 } from 'lucide-react';
 import { ComboConfigurator } from './components/ComboConfigurator';
+import { FacebookIcon, InstagramIcon } from './components/SocialBrandIcons';
 import { ProductConfigurator } from './components/ProductConfigurator';
 import { ProductSearchDialog } from './components/ProductSearchDialog';
 import { getFeaturedProducts } from './domain/featuredProducts';
@@ -252,8 +251,8 @@ export function FigmaDeliveryExperience({
                 <div>
                   <h2>Redes sociais</h2>
                   <div className="social">
-                    {data.brand.instagram ? <a href={buildSocialProfileUrl('instagram', data.brand.instagram)} target="_blank" rel="noreferrer" aria-label="Instagram"><Instagram /></a> : null}
-                    {data.brand.facebook ? <a href={buildSocialProfileUrl('facebook', data.brand.facebook)} target="_blank" rel="noreferrer" aria-label="Facebook"><Facebook /></a> : null}
+                    {data.brand.instagram ? <a href={buildSocialProfileUrl('instagram', data.brand.instagram)} target="_blank" rel="noreferrer" aria-label="Instagram"><InstagramIcon /></a> : null}
+                    {data.brand.facebook ? <a href={buildSocialProfileUrl('facebook', data.brand.facebook)} target="_blank" rel="noreferrer" aria-label="Facebook"><FacebookIcon /></a> : null}
                   </div>
                 </div>
               </S.RestaurantInfo>
