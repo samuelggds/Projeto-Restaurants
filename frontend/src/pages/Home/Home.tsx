@@ -675,6 +675,13 @@ export default function Home() {
     }
     navigateToLogin();
   }, [navigate, navigateToLogin, user]);
+  const openOrders = useCallback(() => {
+    if (user) {
+      navigate('/profile?view=orders');
+      return;
+    }
+    navigateToLogin();
+  }, [navigate, navigateToLogin, user]);
   const openAdmin = useCallback(() => navigate('/admin'), [navigate]);
   const handleLogout = useCallback(() => logout(), [logout]);
 
@@ -912,6 +919,7 @@ export default function Home() {
         onOpenCart={openHomeCart}
         onOpenMenu={openMenu}
         onOpenProfile={mesaMode ? undefined : openProfile}
+        onOpenOrders={mesaMode ? undefined : openOrders}
         onOpenAdmin={openAdmin}
         onAddProduct={tableClosingRequested ? () => undefined : addToCart}
         onToggleFavorite={mesaMode ? undefined : toggleFavorite}
