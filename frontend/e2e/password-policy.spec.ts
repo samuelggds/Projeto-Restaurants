@@ -153,9 +153,9 @@ test('cadastro preserva o restaurante, anuncia o envio e apresenta o erro da API
   await expect.poll(() => Boolean(releaseRegistration)).toBe(true);
   releaseRegistration?.();
 
-  await expect(page.getByRole('main').getByRole('alert')).toHaveText(
-    'Este e-mail já está cadastrado.',
-  );
+  await expect(
+    page.getByRole('main').getByRole('alert').filter({ hasText: 'Este e-mail já está cadastrado.' }),
+  ).toHaveText('Este e-mail já está cadastrado.');
   await expect(
     page.getByRole('button', { name: 'Criar conta e continuar na Mesa 5' }),
   ).toBeEnabled();
