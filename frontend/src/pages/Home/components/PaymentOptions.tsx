@@ -45,6 +45,7 @@ type Props = {
   loggedIn?: boolean;
   userEmail?: string;
   onCardPreparerChange?: (preparer: CardPaymentPreparer | null) => void;
+  figmaCheckout?: boolean;
 };
 
 type Option = {
@@ -196,10 +197,12 @@ export function PaymentOptions({
   loggedIn = false,
   userEmail = '',
   onCardPreparerChange,
+  figmaCheckout = false,
 }: Props) {
   const [savedCards, setSavedCards] = useState<CustomerPaymentMethod[]>([]);
   const [savedCardsLoading, setSavedCardsLoading] = useState(false);
   const [selectedCardId, setSelectedCardId] = useState('');
+  const [figmaCardKind, setFigmaCardKind] = useState<'credit' | 'debit'>('credit');
   const [showCardAccountNotice, setShowCardAccountNotice] = useState(false);
   const [openFinanceInstitutions, setOpenFinanceInstitutions] = useState<
     Array<{ id: string; name: string; logo: string | null }>
@@ -226,7 +229,7 @@ export function PaymentOptions({
   };
 
   useEffect(() => {
-    if (!loggedIn || !restaurantId || paymentMethod !== 'card') return;
+    if (!loggedIn || !restaurantId || (!figmaCheckout && paymentMethod !== 'card')) return;
     let active = true;
     Promise.resolve().then(() => {
       if (active) setSavedCardsLoading(true);
@@ -254,7 +257,7 @@ export function PaymentOptions({
     return () => {
       active = false;
     };
-  }, [loggedIn, paymentMethod, restaurantId]);
+  }, [figmaCheckout, loggedIn, paymentMethod, restaurantId]);
 
   useEffect(() => {
     if (paymentMethod !== 'card') registerCardPreparer(null);
@@ -365,6 +368,201 @@ export function PaymentOptions({
           momento.
         </S.CheckoutUnavailable>
       </>
+    );
+  }
+
+  if (figmaCheckout) {
+    const chooseCard = (kind: 'credit' | 'debit') => {
+      setFigmaCardKind(kind);
+      handlePaymentChange('card');
+    };
+    const cashMethod: CheckoutPaymentMethod | null = allowPayAtPickup ? 'pickup_cash' : null;
+    const cardActive = paymentMethod === 'card';
+    const creditActive = cardActive && figmaCardKind === 'credit';
+    const debitActive = cardActive && figmaCardKind === 'debit';
+
+    return (
+      <P.FigmaPaymentMethods aria-label="Método de pagamento">
+        {allowPix ? (
+          <P.FigmaPaymentOption
+            type="button"
+            $active={paymentMethod === 'pix'}
+            onClick={() => handlePaymentChange('pix')}
+            aria-pressed={paymentMethod === 'pix'}
+          >
+            <span className="method-icon pix"><QrCode aria-hidden="true" /></span>
+            <span className="method-name">PIX</span>
+            <span className="recommended">Recomendado</span>
+          </P.FigmaPaymentOption>
+        ) : null}
+
+        {allowOpenFinancePix ? (
+          <P.FigmaPaymentOption
+            type="button"
+            $active={paymentMethod === 'open_finance_pix'}
+            onClick={() => handlePaymentChange('open_finance_pix')}
+            aria-pressed={paymentMethod === 'open_finance_pix'}
+          >
+            <span className="method-icon"><Landmark aria-hidden="true" /></span>
+            <span className="method-name">Open Finance</span>
+            <span className="radio"><i /></span>
+          </P.FigmaPaymentOption>
+        ) : null}
+
+        {allowCard ? (
+          <P.FigmaCardSection $active={creditActive}>
+            <button
+              type="button"
+              className="card-heading"
+              onClick={() => chooseCard('credit')}
+              aria-pressed={creditActive}
+            >
+              <span className="method-icon"><CreditCard aria-hidden="true" /></span>
+              <span className="method-name">Cartão de Crédito</span>
+              <span className="radio"><i /></span>
+            </button>
+
+            {loggedIn ? (
+              savedCardsLoading ? (
+                <P.FigmaPaymentStatus role="status">Carregando seus cartões salvos…</P.FigmaPaymentStatus>
+              ) : savedCards.length ? (
+                <P.FigmaSavedCards>
+                  {savedCards.map((card) => {
+                    const selected = selectedCardId === card.publicId;
+                    return (
+                      <button
+                        key={card.publicId}
+                        type="button"
+                        className={selected ? 'selected' : ''}
+                        onClick={() => {
+                          setFigmaCardKind('credit');
+                          handlePaymentChange('card');
+                          setSelectedCardId(card.publicId);
+                          localStorage.setItem(
+                            `selectedCustomerPaymentMethodId:${restaurantId}`,
+                            card.publicId,
+                          );
+                        }}
+                      >
+                        <CreditCard aria-hidden="true" />
+                        <span>
+                          <b>{card.brand || 'Cartão'}</b>
+                          <small>•••• •••• •••• {card.last4}</small>
+                        </span>
+                        <span className="radio"><i /></span>
+                      </button>
+                    );
+                  })}
+                  <a
+                    className="add-card"
+                    href={paymentMethodsHref}
+                    onClick={rememberPaymentRestaurant}
+                  >
+                    <Plus aria-hidden="true" /> Adicionar novo cartão
+                  </a>
+                </P.FigmaSavedCards>
+              ) : (
+                <P.FigmaEmptyCards>
+                  <b>Você não tem cartões salvos</b>
+                  <span>Cadastre um cartão para pagamentos mais rápidos</span>
+                  <a href={paymentMethodsHref} onClick={rememberPaymentRestaurant}>
+                    Cadastrar Cartão
+                  </a>
+                </P.FigmaEmptyCards>
+              )
+            ) : creditActive && restaurantId ? (
+              <P.FigmaGuestCardForm>
+                <OnlineCardPaymentForm
+                  restaurantId={restaurantId}
+                  payerEmail={userEmail}
+                  onPreparerChange={registerCardPreparer}
+                  figmaCheckout
+                />
+              </P.FigmaGuestCardForm>
+            ) : null}
+
+            {loggedIn && creditActive && selectedSavedCard ? (
+              <P.FigmaSavedCardSecurity>
+                <OnlineCardPaymentForm
+                  restaurantId={restaurantId!}
+                  savedCard={selectedSavedCard}
+                  onPreparerChange={registerCardPreparer}
+                  figmaCheckout
+                />
+              </P.FigmaSavedCardSecurity>
+            ) : null}
+          </P.FigmaCardSection>
+        ) : null}
+
+        {allowCard ? (
+          <P.FigmaPaymentOption
+            type="button"
+            $active={debitActive}
+            onClick={() => chooseCard('debit')}
+            aria-pressed={debitActive}
+          >
+            <span className="method-icon"><CreditCard aria-hidden="true" /></span>
+            <span className="method-name">Cartão de débito</span>
+            <span className="radio"><i /></span>
+          </P.FigmaPaymentOption>
+        ) : null}
+
+        {cashMethod ? (
+          <P.FigmaPaymentOption
+            type="button"
+            $active={paymentMethod === cashMethod}
+            onClick={() => handlePaymentChange(cashMethod)}
+            aria-pressed={paymentMethod === cashMethod}
+          >
+            <span className="method-icon"><Banknote aria-hidden="true" /></span>
+            <span className="method-name">Dinheiro</span>
+            <span className="radio"><i /></span>
+          </P.FigmaPaymentOption>
+        ) : null}
+
+        {debitActive && restaurantId ? (
+          <P.FigmaDebitForm>
+            <OnlineCardPaymentForm
+              restaurantId={restaurantId}
+              payerEmail={userEmail}
+              onPreparerChange={registerCardPreparer}
+              figmaCheckout
+            />
+          </P.FigmaDebitForm>
+        ) : null}
+
+        {paymentMethod === 'open_finance_pix' && restaurantId ? (
+          <P.OpenFinanceBankPicker>
+            <span>Banco para autorizar o pagamento</span>
+            <select
+              value={openFinanceParticipantId}
+              disabled={openFinanceInstitutionsLoading}
+              onChange={(event) => {
+                const value = event.target.value;
+                setOpenFinanceParticipantId(value);
+                if (value) {
+                  window.localStorage.setItem(`openFinanceParticipantId:${restaurantId}`, value);
+                } else {
+                  window.localStorage.removeItem(`openFinanceParticipantId:${restaurantId}`);
+                }
+              }}
+              aria-label="Escolha o banco para pagar via Open Finance"
+            >
+              <option value="">
+                {openFinanceInstitutionsLoading ? 'Carregando bancos...' : 'Escolha seu banco'}
+              </option>
+              {openFinanceInstitutions.map((institution) => (
+                <option key={institution.id} value={institution.id}>
+                  {institution.name}
+                </option>
+              ))}
+            </select>
+            {openFinanceInstitutionsError ? (
+              <P.OpenFinanceNotice role="alert">{openFinanceInstitutionsError}</P.OpenFinanceNotice>
+            ) : null}
+          </P.OpenFinanceBankPicker>
+        ) : null}
+      </P.FigmaPaymentMethods>
     );
   }
 
