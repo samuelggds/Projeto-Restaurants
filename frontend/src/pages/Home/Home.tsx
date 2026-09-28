@@ -28,6 +28,7 @@ import { LoyaltyCouponPanel } from '../Home/components/LoyaltyCouponPanel';
 import { ProductConfigurator } from '../Home/components/ProductConfigurator';
 import { ComboConfigurator } from '../Home/components/ComboConfigurator';
 import { GuestAddressCheckout } from '../Home/components/GuestAddressCheckout';
+import { AuthenticatedEmptyAddressCheckout } from '../Home/components/AuthenticatedEmptyAddressCheckout';
 import { HomeFeedback, type HomeNotification } from '../Home/components/HomeFeedback';
 import {
   buildOrderPayload,
@@ -117,6 +118,7 @@ export default function Home() {
     handleCepLookup,
     handleCepChange,
     savedAddresses,
+    savedAddressesLoading,
     selectedAddressId,
     handleSavedAddressChange,
   } = useDeliveryAddress(user);
@@ -1011,6 +1013,7 @@ export default function Home() {
           guestAddressScreen={
             !user ? (
               <GuestAddressCheckout
+                primaryColor={primary}
                 brandName={homeData.brand.name}
                 logoUrl={homeData.brand.logoUrl}
                 isOpen={homeData.isOpen}
@@ -1031,6 +1034,62 @@ export default function Home() {
                 onLogin={navigateToLogin}
                 onBack={() => setCheckoutStep('cart')}
                 onContinue={() => setCheckoutStep('payment')}
+                disabled={!checkoutChannelAvailable}
+                loading={orderQuote.loading}
+              />
+            ) : undefined
+          }
+          authenticatedEmptyAddressScreen={
+            user &&
+            String(user.role || '').toUpperCase() === 'CLIENTE' &&
+            !savedAddressesLoading &&
+            savedAddresses.length === 0 ? (
+              <AuthenticatedEmptyAddressCheckout
+                primaryColor={primary}
+                brandName={homeData.brand.name}
+                logoUrl={homeData.brand.logoUrl}
+                userName={String((user as Record<string, unknown>).name || '')}
+                isOpen={homeData.isOpen}
+                deliveryTime={homeData.deliveryTime}
+                cart={cart}
+                cartCount={cartCount}
+                subtotal={
+                  orderQuote.quote
+                    ? orderQuote.quote.itemsSubtotal + orderQuote.quote.productDiscountTotal
+                    : cartTotal
+                }
+                total={checkoutTotal}
+                deliveryFee={orderQuote.quote?.deliveryFeeAmount || 0}
+                orderType={availableOrderType}
+                allowDelivery={homeData.acceptsDelivery}
+                allowPickup={homeData.acceptsPickup}
+                address={deliveryAddress}
+                setAddress={setDeliveryAddress}
+                cepStatus={cepStatus}
+                cepMessage={cepMessage}
+                onCepChange={handleCepChange}
+                onCepLookup={handleCepLookup}
+                onOrderTypeChange={setOrderType}
+                onRegisterAddress={manageDeliveryAddresses}
+                onBack={() => setCheckoutStep('cart')}
+                onContinue={() => {
+                  const customer = user as Record<string, unknown>;
+                  const issue = validateCheckout({
+                    type: checkoutOrderType,
+                    customerPhone: customer.phone,
+                    customerName: customer.name,
+                    customerCpf: customer.cpf,
+                    requireGuestIdentity: false,
+                    deliveryAddress,
+                    cepStatus,
+                    paymentMethod: selectedCheckoutPaymentMethod,
+                  });
+                  if (issue) {
+                    notify('warning', issue.title, issue.message);
+                    return;
+                  }
+                  setCheckoutStep('payment');
+                }}
                 disabled={!checkoutChannelAvailable}
                 loading={orderQuote.loading}
               />
