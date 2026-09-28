@@ -15,6 +15,8 @@ import { ComboConfigurator } from './components/ComboConfigurator';
 import { FacebookIcon, InstagramIcon } from './components/SocialBrandIcons';
 import { ProductConfigurator } from './components/ProductConfigurator';
 import { CustomerDesktopFooter } from './components/CustomerDesktopFooter';
+import { FloatingWhatsAppPortal } from './Home.whatsapp';
+import { WhatsAppIcon } from './components/SocialBrandIcons';
 import { getFeaturedProducts } from './domain/featuredProducts';
 import { buildSocialProfileUrl } from './domain/publicSettings';
 import type { HomePageProps, HomeProduct } from './types';
@@ -56,6 +58,8 @@ export function FigmaDeliveryExperience({
   onOpenCart,
   onAddProduct,
   onSelectCategory,
+  whatsappUrl,
+  whatsappLabel,
 }: HomePageProps) {
   const primary = data.brand.primaryColor || '#e85a2b';
   const [view, setView] = useState<'home' | 'menu'>('home');
@@ -540,6 +544,18 @@ export function FigmaDeliveryExperience({
           <span>Conta</span>
         </button>
       </S.MobileBottomNav>
+
+      {view === 'home' && whatsappUrl ? (
+        <FloatingWhatsAppPortal
+          href={whatsappUrl}
+          target="_blank"
+          rel="noreferrer"
+          aria-label={`Falar com ${whatsappLabel || data.brand.name} no WhatsApp`}
+          title={`Falar com ${whatsappLabel || data.brand.name} no WhatsApp`}
+        >
+          <WhatsAppIcon size={25} />
+        </FloatingWhatsAppPortal>
+      ) : null}
 
       <CustomerDesktopFooter
         restaurantName={data.brand.name}
