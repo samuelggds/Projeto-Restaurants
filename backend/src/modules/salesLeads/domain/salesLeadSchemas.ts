@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { brazilPhoneSchema } from '../../../validators/PhoneValidator.js';
+import { normalizedBrazilPhoneSchema } from '../../../validators/PhoneValidator.js';
 
 const text = (minimum: number, maximum: number) => z.string().trim().min(minimum).max(maximum);
 export const salesLeadStatusSchema = z.enum(['NEW', 'CONTACTED', 'ARCHIVED']);
@@ -10,7 +10,7 @@ export const createSalesLeadSchema = z
     name: text(2, 120),
     restaurantName: text(2, 160),
     email: z.string().trim().toLowerCase().max(254).email('Informe um e-mail válido.'),
-    phone: brazilPhoneSchema,
+    phone: normalizedBrazilPhoneSchema,
     city: text(2, 100),
     state: z
       .string()
