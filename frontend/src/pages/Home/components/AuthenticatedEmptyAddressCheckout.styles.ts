@@ -73,7 +73,7 @@ export const DesktopHeader = styled.header`
   .actions { display: flex; align-items: center; gap: 20px; }
   .actions button { display: inline-flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 600; }
   .actions svg { width: 18px; height: 18px; }
-  .actions .cart { padding: 10px 14px; border-radius: 999px; background: var(--checkout-primary); color: #fff; }
+  .actions .cart { padding: 10px 14px; border-radius: 10px; background: var(--checkout-primary); color: #fff; }
   .actions .cart i { min-width: 20px; height: 20px; padding: 0 6px; display: grid; place-items: center; border-radius: 10px; background: #fff; color: var(--checkout-primary); font-size: 11px; font-style: normal; }
 
   @media (max-width: 760px) { display: none; }
