@@ -987,6 +987,10 @@ export default function Home() {
                 isOpen={homeData.isOpen}
                 deliveryTime={homeData.deliveryTime}
                 cartCount={cartCount}
+                guestName={guestCheckoutDetails.name}
+                onGuestNameChange={(name) =>
+                  setGuestCheckoutDetails((current) => ({ ...current, name }))
+                }
                 total={checkoutTotal}
                 deliveryFee={orderQuote.quote?.deliveryFeeAmount || 0}
                 orderType={availableOrderType}
