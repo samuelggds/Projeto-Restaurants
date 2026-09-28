@@ -72,6 +72,17 @@ export function FigmaCheckoutFlow({
 }: Props) {
   const layerRef = useRef<HTMLDivElement>(null);
   const [couponOpen, setCouponOpen] = useState(true);
+  const [mobileCart, setMobileCart] = useState(() =>
+    window.matchMedia('(max-width: 760px)').matches,
+  );
+
+  useEffect(() => {
+    const media = window.matchMedia('(max-width: 760px)');
+    const syncMobileCart = () => setMobileCart(media.matches);
+    syncMobileCart();
+    media.addEventListener('change', syncMobileCart);
+    return () => media.removeEventListener('change', syncMobileCart);
+  }, []);
 
   useEffect(() => {
     const previouslyFocused = document.activeElement as HTMLElement | null;
@@ -186,7 +197,7 @@ export function FigmaCheckoutFlow({
               <S.CartEmpty>Seu carrinho está vazio.</S.CartEmpty>
             )}
 
-            {cartCount > 0 ? (
+            {cartCount > 0 && mobileCart ? (
               <S.MobileCartSummary>
                 <button
                   className="coupon-trigger"
@@ -226,7 +237,7 @@ export function FigmaCheckoutFlow({
             ) : null}
           </S.CartItemsColumn>
 
-          {cartCount > 0 ? (
+          {cartCount > 0 && !mobileCart ? (
             <S.CartSummarySidebar>
               <h2>Resumo do Pedido</h2>
 
