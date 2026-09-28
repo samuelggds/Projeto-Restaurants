@@ -18,6 +18,7 @@ import customerAddressService, {
 import { useAuth } from '../../contexts/authContext';
 import { getAccessToken } from '../../modules/auth/session/authSession';
 import { ProfilePage } from './ProfilePage';
+import { FigmaAccountExperience } from './FigmaAccountExperience';
 import { buildOrderSummary, buildProfileData } from '../Profile/adapters/profileDataAdapter';
 import { AddressModal } from './components/AddressModal';
 import { buildReorderCart, findOrderByDisplayId } from '../Profile/domain/reorderCart';
@@ -507,9 +508,16 @@ export default function Profile() {
     [navigate, restaurantHomePath],
   );
 
+  const resolvedProfileView = resolveProfileView(searchParams.get('view'));
+  const useLegacyProfileView =
+    resolvedProfileView === 'favorites' ||
+    resolvedProfileView === 'personalData' ||
+    resolvedProfileView === 'security';
+  const AccountExperience = useLegacyProfileView ? ProfilePage : FigmaAccountExperience;
+
   return (
     <>
-      <ProfilePage
+      <AccountExperience
         data={{
           ...data,
           user: {
@@ -517,7 +525,7 @@ export default function Profile() {
             paymentLastDigits: paymentMethods.find((method) => method.isDefault)?.last4,
           },
         }}
-        initialView={resolveProfileView(searchParams.get('view'))}
+        initialView={resolvedProfileView}
         cartCount={storedCartCount}
         onGoHome={() => navigate(restaurantHomePath)}
         onOpenMenu={() => navigate(restaurantMenuPath)}
