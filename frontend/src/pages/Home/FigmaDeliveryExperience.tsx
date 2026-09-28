@@ -96,9 +96,9 @@ export function FigmaDeliveryExperience({
   const menuProducts = useMemo(
     () =>
       categoryId === 'todos'
-        ? availableProducts
+        ? (highlightedProducts.length ? highlightedProducts : availableProducts)
         : availableProducts.filter((product) => product.categoryId === categoryId),
-    [availableProducts, categoryId],
+    [availableProducts, categoryId, highlightedProducts],
   );
   const currentCategory = data.categories.find((category) => category.id === categoryId);
   const activeBanner = data.banners.find((banner) => banner.active) || data.banners[0];
@@ -309,7 +309,7 @@ export function FigmaDeliveryExperience({
           <S.MenuCategories>
             <h2>Categorias</h2>
             <button className={categoryId === 'todos' ? 'active' : ''} type="button" onClick={() => setCategoryId('todos')}>
-              Todos
+              Destaques
             </button>
             {categories.map((category) => (
               <button className={categoryId === category.id ? 'active' : ''} key={category.id} type="button" onClick={() => setCategoryId(category.id)}>
@@ -340,7 +340,7 @@ export function FigmaDeliveryExperience({
             </S.MenuCategoryBar>
 
             <header>
-              <h1>{currentCategory?.name || 'Cardápio'}</h1>
+              <h1>{categoryId === 'todos' ? 'Destaques' : currentCategory?.name || 'Cardápio'}</h1>
               <p>{menuProducts.length ? `${menuProducts.length} ${menuProducts.length === 1 ? 'item disponível' : 'itens disponíveis'}` : 'Nenhum item disponível nesta categoria.'}</p>
             </header>
             <div className="list">
