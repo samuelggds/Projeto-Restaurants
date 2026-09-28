@@ -119,6 +119,7 @@ export function GuestAddressCheckout({
                 type="button"
                 className={orderType === 'pickup' ? 'active' : ''}
                 onClick={() => onOrderTypeChange('pickup')}
+                aria-label="Retirada"
               >
                 🛍 Retirada no Balcão
               </button>
