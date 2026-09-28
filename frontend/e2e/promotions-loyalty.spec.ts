@@ -362,8 +362,10 @@ test('cliente vê promoção, aplica benefício de fidelidade e envia o resgate 
 
   const checkout = page.getByRole('dialog', { name: 'Finalizar pedido' });
   await expect(checkout).toBeVisible();
-  const loyaltyPanel = checkout.getByRole('region', { name: 'Cupom de fidelidade' });
-  await loyaltyPanel.getByRole('button', { name: /Cliente fiel.*Aplicar/ }).click();
+  await expect(checkout.getByRole('region', { name: 'Cupom de fidelidade' })).toHaveCount(0);
+  await checkout.getByRole('button', { name: /Cupom de desconto.*Aplicar/ }).click();
+  const couponOptions = checkout.getByRole('region', { name: 'Opções de cupom' });
+  await couponOptions.getByRole('button', { name: /Cliente fiel.*Aplicar/ }).click();
 
   await expect(checkout.getByText('Cupom · FIEL10')).toBeVisible();
   await expect(checkout.getByText('R$ 36,00').last()).toBeVisible();
