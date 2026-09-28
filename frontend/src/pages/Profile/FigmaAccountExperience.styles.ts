@@ -134,7 +134,7 @@ export const SettingsCard = styled.section`
   padding:8px;border:1px solid var(--line);border-radius:16px;background:var(--surface);
   .row{min-height:52px;padding:16px;display:flex;align-items:center;justify-content:space-between;gap:16px;border-bottom:1px solid var(--line)}
   .row:last-child{border-bottom:0}.row span{font-size:15px;font-weight:650}.row.danger{color:#df2c2c}
-  button.link{border:0;background:transparent;color:inherit;display:flex;align-items:center;gap:8px}
+  button.link,a.link{border:0;background:transparent;color:inherit;display:flex;align-items:center;gap:8px;text-decoration:none}
 `;
 
 export const Toggle = styled.button<{ $on: boolean }>`
