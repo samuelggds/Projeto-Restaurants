@@ -932,6 +932,8 @@ export default function Home() {
           primaryColor={primary}
           brandName={homeData.brand.name}
           logoUrl={homeData.brand.logoUrl}
+          isOpen={homeData.isOpen}
+          deliveryTime={homeData.deliveryTime}
           step={checkoutStep}
           cart={cart}
           cartCount={cartCount}
