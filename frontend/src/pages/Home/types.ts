@@ -110,6 +110,11 @@ export type LoyaltyRedemption = {
   id: number;
   status: 'CLAIMED' | 'RESERVED' | 'USED' | 'EXPIRED';
   cycle: number;
+  orderId?: number | null;
+  claimedAt?: string | null;
+  reservedAt?: string | null;
+  usedAt?: string | null;
+  createdAt?: string | null;
   expiresAt?: string | null;
   expired?: boolean;
   coupon: LoyaltyCoupon;
