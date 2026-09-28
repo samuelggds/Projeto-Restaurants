@@ -46,7 +46,6 @@ export function AuthenticatedEmptyAddressCheckout({
   logoUrl,
   userName,
   isOpen,
-  deliveryTime,
   cart,
   cartCount,
   subtotal,
@@ -93,7 +92,6 @@ export function AuthenticatedEmptyAddressCheckout({
             <small>
               <i className={isOpen ? 'open' : ''} />
               {isOpen ? 'Aberto agora' : 'Fechado agora'}
-              {deliveryTime ? ` · ${deliveryTime}` : ''}
             </small>
           </span>
         </button>
