@@ -5,6 +5,9 @@ export type ProfileBrand = {
   monogram?: string;
   logoUrl?: string;
   address: string;
+  phone?: string;
+  email?: string;
+  whatsapp?: string;
   primaryColor?: string;
 };
 
