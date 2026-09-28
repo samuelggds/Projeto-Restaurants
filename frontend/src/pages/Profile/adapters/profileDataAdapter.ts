@@ -10,8 +10,6 @@ import type {
 import { createRestaurantMonogram } from '../../../utils/restaurantMonogram';
 
 const ACTIVE_STATUSES = new Set(['PENDENTE', 'PREPARANDO', 'PRONTO', 'SAIU_PARA_ENTREGA']);
-const ORDER_IMAGE =
-  'https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&fit=crop&w=400&q=80';
 
 export function mapOrderStatus(status: unknown): ProfileOrderStatus {
   const normalized = String(status || '').toUpperCase();
@@ -53,7 +51,7 @@ type Input = {
 function firstProductImage(order: Record<string, unknown>): string {
   const items = Array.isArray(order.items) ? (order.items as Record<string, unknown>[]) : [];
   const product = items[0]?.product as Record<string, unknown> | undefined;
-  return String(product?.image || items[0]?.image || ORDER_IMAGE);
+  return String(product?.image || items[0]?.image || '');
 }
 
 function estimateArrival(order: Record<string, unknown>, settings: Record<string, unknown> | null) {
@@ -82,7 +80,10 @@ export function buildProfileData({
     monogram: createRestaurantMonogram(restaurantName || settings?.restaurantName),
     address: String(settings?.address || ''),
     primaryColor: String(settings?.primaryColor || profileMockData.brand.primaryColor),
-    logoUrl: String(restaurant.logo || ''),
+    logoUrl: String(restaurant.logo || settings?.restaurantLogo || ''),
+    phone: String(settings?.phone || ''),
+    email: String(settings?.email || ''),
+    whatsapp: String(settings?.whatsapp || ''),
   };
   const fullName = String(user?.name || '');
   const defaultAddress = rawAddresses.find((item) => Boolean(item.isDefault)) || rawAddresses[0];
