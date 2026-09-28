@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, type CSSProperties } from 'react';
 import { Award, CheckCircle2, Gift, Info, ShoppingBag, Stamp } from 'lucide-react';
 import type { LoyaltyRewardProgress, LoyaltySummary } from '../Home/types';
 import type { ProfileOrder } from './types';
@@ -35,7 +35,7 @@ function bestReward(summary: LoyaltySummary | null) {
 function progressStyle(percent: number) {
   return {
     '--progress': `${Math.max(0, Math.min(100, percent)) * 3.6}deg`,
-  } as React.CSSProperties;
+  } as CSSProperties;
 }
 
 type LoyaltyProgramProps = {
