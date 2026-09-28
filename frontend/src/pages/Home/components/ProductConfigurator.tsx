@@ -182,7 +182,7 @@ export function ProductConfigurator({
       data-table-menu={tableMenuVariant ? 'true' : undefined}
     >
       {!tableMenuVariant ? (
-        <S.Header>
+        <S.Header aria-hidden="true">
           <S.HeaderInner>
             <button type="button" onClick={onClose}>
               <ArrowLeft size={19} /> Voltar ao cardápio
@@ -194,14 +194,10 @@ export function ProductConfigurator({
 
       <S.Layout>
         <S.ProductSummary data-product-summary>
-          {tableMenuVariant ? (
-            <>
-              <S.ProductBack type="button" aria-label="Voltar ao cardápio" onClick={onClose}>
-                <ArrowLeft size={19} />
-              </S.ProductBack>
-              <S.ProductFavorite aria-hidden="true">♡</S.ProductFavorite>
-            </>
-          ) : null}
+          <S.ProductBack type="button" aria-label="Voltar ao cardápio" onClick={onClose}>
+            <ArrowLeft size={19} />
+          </S.ProductBack>
+          {tableMenuVariant ? <S.ProductFavorite aria-hidden="true">♡</S.ProductFavorite> : null}
           {product.image ? (
             <img src={product.image} alt={product.name} decoding="async" />
           ) : (
@@ -259,6 +255,16 @@ export function ProductConfigurator({
         </S.ProductSummary>
 
         <S.Form onSubmit={submit} noValidate>
+          {!tableMenuVariant ? (
+            <S.DesktopProductDetails>
+              <h1>{product.name}</h1>
+              {product.description ? <p>{product.description}</p> : null}
+              <strong aria-live="polite">
+                {dynamicPrice ? priceLabel : brl(product.price)}
+              </strong>
+            </S.DesktopProductDetails>
+          ) : null}
+
           {!tableMenuVariant && (
             <S.Intro>
               <div>
@@ -593,14 +599,14 @@ export function ProductConfigurator({
               value={observation}
               maxLength={500}
               onChange={(event) => setObservation(event.target.value)}
-              placeholder="Ex.: Adicione aqui uma observação do produto..."
+              placeholder="Ex: sem cebola, maionese à parte..."
             />
             <small>{observation.length}/500 caracteres</small>
           </S.Observation>
 
           <S.BottomBar
             data-testid="product-configurator-footer"
-            $stickyOnMobile={tableMenuVariant}
+            $stickyOnMobile={tableMenuVariant || enableProductQuantity}
           >
             <span className="total-description" id={totalDescriptionId}>
               {priceReady
@@ -641,7 +647,7 @@ export function ProductConfigurator({
               aria-describedby={totalDescriptionId}
             >
               {priceReady
-                ? `Adicionar — ${brl(total * (enableProductQuantity ? productQuantity : 1))}`
+                ? (tableMenuVariant ? `Adicionar — ${brl(total * (enableProductQuantity ? productQuantity : 1))}` : 'Continuar')
                 : 'Escolha os sabores'}
             </button>
           </S.BottomBar>
