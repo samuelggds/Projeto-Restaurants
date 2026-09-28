@@ -253,6 +253,17 @@ export function mapProductPricingFromApi(product: Record<string, unknown>) {
   };
 }
 
+function formatCommercialPhone(value: unknown) {
+  const digits = String(value ?? '').replace(/\D/gu, '');
+  if (digits.length === 11) {
+    return `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7)}`;
+  }
+  if (digits.length === 10) {
+    return `(${digits.slice(0, 2)}) ${digits.slice(2, 6)}-${digits.slice(6)}`;
+  }
+  return digits;
+}
+
 export function buildHomeData(
   productsFromApi: Record<string, unknown>[],
   settings: Record<string, unknown> | null,
@@ -300,7 +311,7 @@ export function buildHomeData(
     tiktok: String(settings?.tiktok || ''),
     youtube: String(settings?.youtube || ''),
     legalName: String(settings?.companyLegalName || ''),
-    phone: String(settings?.ownerPhone || ''),
+    phone: formatCommercialPhone(settings?.ownerPhone || restaurant.phone || ''),
     email: String(settings?.ownerEmail || ''),
   };
   const products: HomeProduct[] = productsFromApi.map((product, index) => {
