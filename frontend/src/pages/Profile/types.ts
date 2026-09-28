@@ -86,6 +86,7 @@ export type ProfileAddress = {
 export type ActiveProfileOrder = {
   id: string;
   status: ProfileOrderStatus;
+  date?: string;
   estimatedArrival: string;
   summary: string;
   image: string;
@@ -99,6 +100,7 @@ export type ProfileData = {
   brand: ProfileBrand;
   user: ProfileUser;
   activeOrder?: ActiveProfileOrder;
+  activeOrders?: ActiveProfileOrder[];
   activeOrderCount?: number;
   recentOrders: ProfileOrder[];
   favorites?: ProfileFavorite[];
