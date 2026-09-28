@@ -90,44 +90,51 @@ export const Shade = styled.span`
   position: absolute;
   inset: 0;
   z-index: -2;
-  background:
-    linear-gradient(90deg, rgba(13, 9, 7, 0.74) 0%, rgba(18, 12, 8, 0.42) 44%, transparent 78%),
-    linear-gradient(0deg, rgba(10, 7, 5, 0.48) 0%, transparent 48%),
-    linear-gradient(180deg, rgba(8, 6, 5, 0.16) 0%, transparent 35%);
+  background: linear-gradient(
+    90deg,
+    rgba(15, 12, 10, 0.86) 0%,
+    rgba(15, 12, 10, 0.52) 42%,
+    rgba(15, 12, 10, 0.26) 68%,
+    rgba(15, 12, 10, 0.10) 100%
+  );
   pointer-events: none;
 
   @media (max-width: 800px) {
-    background:
-      linear-gradient(90deg, rgba(13, 9, 7, 0.7) 0%, rgba(18, 11, 7, 0.42) 100%),
-      linear-gradient(0deg, rgba(10, 7, 5, 0.58) 0%, transparent 65%);
+    background: linear-gradient(
+      90deg,
+      rgba(15, 12, 10, 0.88) 0%,
+      rgba(15, 12, 10, 0.56) 58%,
+      rgba(15, 12, 10, 0.18) 100%
+    );
   }
 `;
 
 export const Copy = styled.div`
   position: absolute;
   top: 50%;
-  left: clamp(28px, 5vw, 64px);
-  width: min(560px, calc(100% - 150px));
+  left: clamp(20px, 4vw, 34px);
+  z-index: 2;
+  width: min(68%, 440px);
   transform: translateY(-50%);
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  justify-content: center;
-  padding: 0;
   color: #fff;
 
   h1 {
-    width: 100%;
-    max-width: 500px;
-    margin: 12px 0 0;
-    font-family: inherit;
-    font-size: clamp(36px, 4vw, 52px);
-    font-weight: 950;
-    line-height: 1.03;
-    letter-spacing: 0;
+    margin: 0;
+    max-width: 100%;
+    color: #fff;
+    font-family: 'Gabarito', 'Inter', system-ui, sans-serif;
+    font-size: clamp(22px, 2.35vw, 34px);
+    font-weight: 900;
+    line-height: 1.02;
+    letter-spacing: -0.02em;
     overflow-wrap: anywhere;
     text-wrap: balance;
-    text-shadow: 0 3px 24px rgba(0, 0, 0, 0.32);
+    text-shadow:
+      0 2px 8px rgba(0, 0, 0, 0.48),
+      0 6px 22px rgba(0, 0, 0, 0.24);
   }
 
   h1 > span {
@@ -136,39 +143,47 @@ export const Copy = styled.div`
 
   h1 em {
     display: block;
-    margin-top: 7px;
-    color: color-mix(in srgb, var(--home-primary) 72%, #ffc49d);
+    margin-top: 5px;
+    color: color-mix(in srgb, var(--home-primary) 86%, #ff9b65);
     font-style: normal;
-    font-size: 0.84em;
-    letter-spacing: 0;
+    font-size: 1.12em;
+    font-weight: 950;
+    line-height: 0.98;
+    text-shadow:
+      0 2px 8px rgba(0, 0, 0, 0.42),
+      0 7px 24px color-mix(in srgb, var(--home-primary) 18%, transparent);
   }
 
   p {
     display: -webkit-box;
-    max-width: 470px;
-    margin: 15px 0 22px;
+    max-width: 390px;
+    margin: 9px 0 0;
     overflow: hidden;
-    color: rgba(255, 255, 255, 0.86);
-    font-size: clamp(14px, 1.35vw, 17px);
-    line-height: 1.5;
-    text-shadow: 0 2px 14px rgba(0, 0, 0, 0.42);
+    color: rgba(255, 255, 255, 0.94);
+    font-size: clamp(11px, 1.05vw, 14px);
+    font-weight: 600;
+    line-height: 1.38;
+    text-shadow: 0 2px 8px rgba(0, 0, 0, 0.52);
     -webkit-box-orient: vertical;
     -webkit-line-clamp: 2;
   }
 
   > button {
-    min-height: 46px;
-    border: 1px solid color-mix(in srgb, var(--home-primary) 72%, white);
-    border-radius: 14px;
-    padding: 0 21px;
+    min-height: 38px;
+    margin-top: 14px;
+    border: 0;
+    border-radius: 999px;
+    padding: 0 18px;
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    gap: 9px;
+    gap: 8px;
     color: #fff;
     background: var(--home-primary);
-    box-shadow: 0 11px 26px color-mix(in srgb, var(--home-primary) 30%, transparent);
-    font-size: 14px;
+    box-shadow:
+      0 8px 22px color-mix(in srgb, var(--home-primary) 30%, transparent),
+      0 2px 6px rgba(0, 0, 0, 0.18);
+    font-size: 12px;
     font-weight: 850;
     cursor: pointer;
     transition:
@@ -178,9 +193,11 @@ export const Copy = styled.div`
   }
 
   > button:hover {
-    transform: translateY(-2px);
+    transform: translateY(-1px);
     filter: brightness(1.06);
-    box-shadow: 0 15px 32px color-mix(in srgb, var(--home-primary) 40%, transparent);
+    box-shadow:
+      0 10px 28px color-mix(in srgb, var(--home-primary) 38%, transparent),
+      0 3px 8px rgba(0, 0, 0, 0.20);
   }
 
   > button:focus-visible {
@@ -189,62 +206,53 @@ export const Copy = styled.div`
   }
 
   @media (max-width: 800px) {
-    top: 50%;
-    left: 48px;
-    width: calc(100% - 96px);
-    padding: 0;
-    transform: translateY(-50%);
+    left: 20px;
+    width: min(78%, 360px);
 
     h1 {
-      margin-top: 7px;
-      font-size: 30px;
-      line-height: 1.02;
+      font-size: clamp(20px, 7vw, 28px);
     }
 
     h1 em {
-      margin-top: 3px;
+      margin-top: 4px;
     }
 
     p {
-      display: none;
-    }
-
-    > button {
-      min-height: 36px;
-      max-width: 100%;
-      margin-top: 11px;
-      padding: 0 15px;
-      gap: 7px;
-      font-size: 12px;
-
-      svg {
-        width: 15px;
-        height: 15px;
-      }
-    }
-  }
-
-  @media (max-width: 480px) {
-    left: 42px;
-    width: calc(100% - 84px);
-
-    h1 {
-      margin-top: 0;
-      font-size: 26px;
-      line-height: 1;
+      max-width: 290px;
+      margin-top: 7px;
+      font-size: 11px;
+      line-height: 1.32;
     }
 
     > button {
       min-height: 34px;
-      margin-top: 8px;
+      margin-top: 11px;
+      padding: 0 15px;
+      font-size: 11px;
+    }
+
+    > button svg {
+      width: 14px;
+      height: 14px;
     }
   }
 
-  @media (min-width: 801px) and (max-width: 1100px) {
-    left: 64px;
+  @media (max-width: 480px) {
+    left: 18px;
+    width: 76%;
 
     h1 {
-      font-size: 44px;
+      font-size: clamp(19px, 7.2vw, 26px);
+    }
+
+    p {
+      max-width: 245px;
+    }
+
+    > button {
+      min-height: 32px;
+      margin-top: 9px;
+      padding-inline: 14px;
     }
   }
 
@@ -252,29 +260,10 @@ export const Copy = styled.div`
     > button {
       transition: none;
     }
-  }
-`;
 
-export const Eyebrow = styled.span`
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  color: rgba(255, 255, 255, 0.82);
-  font-size: 10px;
-  font-weight: 900;
-  letter-spacing: 0;
-  text-transform: uppercase;
-
-  > span {
-    width: 7px;
-    height: 7px;
-    border-radius: 50%;
-    background: var(--home-primary);
-    box-shadow: 0 0 0 5px color-mix(in srgb, var(--home-primary) 18%, transparent);
-  }
-
-  @media (max-width: 800px) {
-    display: none;
+    > button:hover {
+      transform: none;
+    }
   }
 `;
 
