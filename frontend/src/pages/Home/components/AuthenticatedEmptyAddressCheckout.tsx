@@ -70,7 +70,7 @@ export function AuthenticatedEmptyAddressCheckout({
     .join(', ');
 
   return (
-    <S.Page $primary={primaryColor}>
+    <S.Page $primary={primaryColor} role="dialog" aria-modal="true" aria-label="Finalizar pedido">
       <S.MobileStatus aria-hidden="true">
         <strong>9:41</strong>
         <span>•••</span>
