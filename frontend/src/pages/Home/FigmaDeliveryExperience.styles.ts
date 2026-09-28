@@ -2,6 +2,7 @@ import styled from 'styled-components';
 
 export const Page = styled.div<{ $primary: string }>`
   --delivery-primary: ${({ $primary }) => $primary || '#e85a2b'};
+  --home-primary: var(--delivery-primary);
   --delivery-bg: #fdfcf9;
   --delivery-surface: #fff;
   --delivery-text: #1f1e1a;
@@ -242,65 +243,26 @@ export const Breadcrumb = styled.nav`
   }
 `;
 
-export const Hero = styled.section`
-  position:relative;
+export const HeroCarousel = styled.div`
   width:min(1120px,calc(100% - 48px));
-  height:280px;
   margin:40px auto 0;
-  overflow:hidden;
-  border-radius:20px;
-  background:#28221e;
 
-  img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
-  .overlay{
-    position:absolute;
-    inset:0;
-    background:linear-gradient(90deg,rgba(20,14,10,.78) 0%,rgba(20,14,10,.48) 38%,rgba(20,14,10,.12) 72%,rgba(20,14,10,.04) 100%);
-  }
-  .copy{
-    position:relative;
-    z-index:1;
+  > section{
     width:100%;
-    height:100%;
-    padding:0 32px;
-    display:flex;
-    flex-direction:column;
-    justify-content:center;
-    align-items:flex-start;
-    color:#fff;
-  }
-  small{color:#fff;font-size:20px;line-height:1.2;font-weight:800}
-  h1{
-    margin:8px 0 0;
-    color:var(--delivery-primary);
-    font-family:'Gabarito','Inter',sans-serif;
-    font-size:36px;
-    line-height:1;
-    font-weight:800;
-  }
-  p{margin:14px 0 18px;color:#fff;font-size:14px}
-  button{
-    min-height:36px;
-    padding:0 18px;
-    border:0;
-    border-radius:999px;
-    background:var(--delivery-primary);
-    color:#fff;
-    font-size:12px;
-    font-weight:700;
+    height:280px;
+    min-height:280px;
+    border-radius:20px;
   }
 
   @media(max-width:760px){
     width:calc(100% - 24px);
-    height:235px;
     margin:10px 12px 0;
-    border-radius:16px;
 
-    .copy{padding:0 16px}
-    small{font-size:14px}
-    h1{margin-top:5px;font-size:28px}
-    p{margin:8px 0 12px;font-size:12px}
-    button{min-height:34px;padding:0 16px;font-size:11px}
+    > section{
+      height:235px;
+      min-height:235px;
+      border-radius:16px;
+    }
   }
 `;
 
