@@ -1,4 +1,14 @@
-import styled from 'styled-components';
+import styled, { keyframes } from 'styled-components';
+
+const softFadeUp = keyframes`
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+`;
+
+const softFade = keyframes`
+  from { opacity: 0; }
+  to { opacity: 1; }
+`;
 
 export const CartLayer = styled.div<{ $primary: string }>`
   --checkout-primary: ${({ $primary }) => $primary || '#e85a2b'};
@@ -8,6 +18,7 @@ export const CartLayer = styled.div<{ $primary: string }>`
   --checkout-line: #efece6;
   position: fixed;
   inset: 0;
+  animation: ${softFade} 220ms ease-out both;
   z-index: 500;
   overflow-y: auto;
   background: var(--checkout-bg);
@@ -30,6 +41,10 @@ export const CartLayer = styled.div<{ $primary: string }>`
 
   @media (max-width: 760px) {
     padding-bottom: 84px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    animation: none;
   }
 `;
 
@@ -151,6 +166,10 @@ export const CartDesktopHeader = styled.header`
     width: 8px;
     height: 8px;
     border-radius: 50%;
+    background: #a5a29d;
+  }
+
+  .brand-copy i.open {
     background: #36b37e;
   }
 
@@ -257,6 +276,7 @@ export const CartDesktopHeader = styled.header`
 
 export const CartContent = styled.main`
   width: min(1120px, calc(100% - 48px));
+  animation: ${softFadeUp} 300ms cubic-bezier(.22,1,.36,1) both;
   min-height: 552px;
   margin: 0 auto;
   padding: 40px 0 80px;
@@ -294,6 +314,17 @@ export const CartTitleRow = styled.div`
   justify-content: space-between;
   gap: 16px;
 
+  .title-group {
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .mobile-back {
+    display: none;
+  }
+
   h1 {
     margin: 0;
     color: var(--checkout-text);
@@ -322,6 +353,39 @@ export const CartTitleRow = styled.div`
     min-height: 64px;
     padding: 0;
     gap: 12px;
+
+    .title-group {
+      gap: 8px;
+    }
+
+    .mobile-back {
+      width: 36px;
+      height: 36px;
+      padding: 0;
+      display: grid;
+      place-items: center;
+      border: 0;
+      border-radius: 18px;
+      background: transparent;
+      color: var(--checkout-text);
+      cursor: pointer;
+      transition:
+        transform 160ms ease,
+        background 160ms ease;
+    }
+
+    .mobile-back:hover {
+      background: #f4f1ec;
+    }
+
+    .mobile-back:active {
+      transform: scale(.94);
+    }
+
+    .mobile-back svg {
+      width: 19px;
+      height: 19px;
+    }
 
     h1 {
       font-size: 22px;
@@ -450,6 +514,20 @@ export const CartSummarySidebar = styled.aside`
     font-size: 15px;
     font-weight: 600;
     cursor: pointer;
+    transition:
+      transform 170ms ease,
+      box-shadow 170ms ease,
+      filter 170ms ease;
+  }
+
+  .continue:hover:not(:disabled) {
+    transform: translateY(-1px);
+    box-shadow: 0 12px 18px rgba(16, 24, 39, 0.16);
+    filter: saturate(1.03);
+  }
+
+  .continue:active:not(:disabled) {
+    transform: translateY(0) scale(.985);
   }
 
   .continue:disabled {
@@ -675,6 +753,20 @@ export const MobileCartAction = styled.div`
       font-size: 15px;
       font-weight: 600;
       cursor: pointer;
+      transition:
+        transform 170ms ease,
+        box-shadow 170ms ease,
+        filter 170ms ease;
+    }
+
+    button:hover:not(:disabled) {
+      transform: translateY(-1px);
+      box-shadow: 0 12px 18px rgba(16, 24, 39, 0.16);
+      filter: saturate(1.03);
+    }
+
+    button:active:not(:disabled) {
+      transform: translateY(0) scale(.985);
     }
 
     button:disabled {
@@ -825,3 +917,13 @@ export const Actions = styled.div`
 export const Empty = styled.div`
   min-height:300px;display:grid;place-items:center;text-align:center;color:var(--checkout-muted);
 `;
+
+
+@media (prefers-reduced-motion: reduce) {
+  ${CartContent},
+  ${CartTitleRow},
+  ${CartSummarySidebar},
+  ${MobileCartAction} {
+    animation: none;
+  }
+}
