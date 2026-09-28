@@ -8,6 +8,7 @@ const money = (value: number) =>
   value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
 type Props = {
+  primaryColor: string;
   brandName: string;
   logoUrl?: string;
   isOpen: boolean;
@@ -33,6 +34,7 @@ type Props = {
 };
 
 export function GuestAddressCheckout({
+  primaryColor,
   brandName,
   logoUrl,
   isOpen,
@@ -61,7 +63,7 @@ export function GuestAddressCheckout({
     .join(', ');
 
   return (
-    <S.Page>
+    <S.Page $primary={primaryColor}>
       <S.MobileHeader>
         <button type="button" onClick={onBack} aria-label="Voltar">
           <ArrowLeft aria-hidden="true" />
