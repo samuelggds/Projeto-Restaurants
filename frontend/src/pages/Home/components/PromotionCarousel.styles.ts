@@ -80,6 +80,9 @@ export const BannerImage = styled.img`
   height: 100%;
   object-fit: cover;
   object-position: center;
+  image-rendering: auto;
+  backface-visibility: hidden;
+  transform: translateZ(0);
   user-select: none;
 `;
 
@@ -333,11 +336,11 @@ export const ArrowButton = styled.button<{ $side: 'left' | 'right' }>`
 
 export const Dots = styled.div<{ $paused: boolean; $durationMs: number }>`
   position: absolute;
-  bottom: 14px;
+  bottom: 10px;
   left: 50%;
   z-index: 5;
-  width: min(520px, calc(100% - 160px));
-  min-height: 30px;
+  width: calc(100% - 32px);
+  min-height: 22px;
   padding: 0;
   overflow-x: auto;
   display: flex;
@@ -354,8 +357,8 @@ export const Dots = styled.div<{ $paused: boolean; $durationMs: number }>`
   button {
     position: relative;
     width: auto;
-    min-width: 32px;
-    height: 30px;
+    min-width: 24px;
+    height: 22px;
     flex: 1 1 90px;
     border: 0;
     padding: 0;
@@ -370,19 +373,19 @@ export const Dots = styled.div<{ $paused: boolean; $durationMs: number }>`
     top: 50%;
     right: 0;
     left: 0;
-    height: 2px;
+    height: 3px;
     border-radius: 999px;
     transform: translateY(-50%);
   }
 
   button::before {
-    background: rgba(255, 255, 255, 0.38);
-    box-shadow: 0 1px 5px rgba(0, 0, 0, 0.32);
+    background: rgba(255, 255, 255, 0.34);
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35);
   }
 
   button::after {
-    background: #fff;
-    box-shadow: 0 1px 5px rgba(0, 0, 0, 0.38);
+    background: rgba(255, 255, 255, 0.98);
+    box-shadow: 0 1px 5px rgba(0, 0, 0, 0.42);
     transform: translateY(-50%) scaleX(0);
     transform-origin: left center;
   }
@@ -403,14 +406,19 @@ export const Dots = styled.div<{ $paused: boolean; $durationMs: number }>`
   }
 
   @media (max-width: 800px) {
-    bottom: 3px;
-    width: calc(100% - 104px);
-    min-height: 24px;
+    bottom: 8px;
+    width: calc(100% - 24px);
+    min-height: 20px;
     gap: 4px;
 
     button {
-      min-width: 24px;
-      height: 24px;
+      min-width: 18px;
+      height: 20px;
+    }
+
+    button::before,
+    button::after {
+      height: 3px;
     }
   }
 
