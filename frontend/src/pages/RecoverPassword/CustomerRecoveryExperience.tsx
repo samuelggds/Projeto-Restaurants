@@ -158,6 +158,8 @@ export function CustomerRecoveryExperience({
                     <span>Código de recuperação</span>
                     <S.InputBox>
                       <input
+                        id="reset-code"
+                        aria-label="Código"
                         inputMode="numeric"
                         autoComplete="one-time-code"
                         value={code}
@@ -174,6 +176,8 @@ export function CustomerRecoveryExperience({
                     <span>Nova senha</span>
                     <S.InputBox>
                       <input
+                        id="new-password"
+                        aria-label="Nova senha"
                         type={showPassword ? 'text' : 'password'}
                         value={newPassword}
                         onChange={(event) => onNewPasswordChange(event.target.value)}
@@ -204,6 +208,8 @@ export function CustomerRecoveryExperience({
                     <span>Confirmar nova senha</span>
                     <S.InputBox>
                       <input
+                        id="confirm-password"
+                        aria-label="Confirmar nova senha"
                         type={showConfirmation ? 'text' : 'password'}
                         value={confirmPassword}
                         onChange={(event) => onConfirmPasswordChange(event.target.value)}
@@ -234,6 +240,7 @@ export function CustomerRecoveryExperience({
 
               <S.Primary
                 type="submit"
+                aria-label={step === 'request' ? 'Enviar código' : 'Redefinir senha'}
                 disabled={
                   isLoading ||
                   (step === 'request' && remainingSeconds > 0) ||
