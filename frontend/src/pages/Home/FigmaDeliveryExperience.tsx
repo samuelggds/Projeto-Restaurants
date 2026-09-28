@@ -145,7 +145,12 @@ export function FigmaDeliveryExperience({
             <UserRound size={20} />
             <span>{userLoggedIn && userName ? `Olá, ${userName.split(' ')[0]}` : 'Olá, Entrar'}</span>
           </button>
-          <button className="cart" type="button" onClick={onOpenCart}>
+          <button
+            className="cart"
+            type="button"
+            aria-label={`Meu Carrinho, ${cartCount} ${cartCount === 1 ? 'item' : 'itens'}`}
+            onClick={onOpenCart}
+          >
             <ShoppingBag size={18} />
             <span>Meu Carrinho</span>
             {cartCount > 0 ? <i>{cartCount}</i> : null}
@@ -155,7 +160,7 @@ export function FigmaDeliveryExperience({
 
       {view === 'home' ? (
         <>
-          <S.Hero>
+          <S.Hero role="region" aria-label="Promoções do restaurante">
             {heroImage ? <img src={heroImage} alt="" /> : null}
             <div className="overlay" />
             <div className="copy">
@@ -229,7 +234,14 @@ export function FigmaDeliveryExperience({
                         <p>{product.description}</p>
                         <div className="foot">
                           <strong>{money(product.price)}</strong>
-                          <button className="add" type="button" onClick={() => openProduct(product)}>+ Adicionar</button>
+                          <button
+                            className="add"
+                            type="button"
+                            aria-label={`Adicionar ${product.name}`}
+                            onClick={() => openProduct(product)}
+                          >
+                            + Adicionar
+                          </button>
                         </div>
                       </div>
                     </S.ProductCard>
