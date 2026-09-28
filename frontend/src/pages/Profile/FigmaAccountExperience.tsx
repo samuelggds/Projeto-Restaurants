@@ -62,34 +62,6 @@ function orderStatus(order: AccountOrder) {
   return 'Confirmado';
 }
 
-function orderAction(
-  order: AccountOrder,
-  props: Pick<ProfilePageProps, 'onContinuePayment' | 'onViewOrder' | 'onReorder'>,
-) {
-  if (order.paymentPending && order.publicId) {
-    return (
-      <button type="button" onClick={() => props.onContinuePayment?.(order.publicId!)}>
-        Continuar pagamento
-      </button>
-    );
-  }
-  if (order.status === 'delivered') {
-    return (
-      <button type="button" onClick={() => props.onReorder?.(order.id)}>
-        Pedir novamente
-      </button>
-    );
-  }
-  if (order.status !== 'cancelled') {
-    return (
-      <button type="button" onClick={() => props.onViewOrder?.(order.id)}>
-        Acompanhar
-      </button>
-    );
-  }
-  return null;
-}
-
 function FigmaAccountExperienceReady(props: ProfilePageProps & { data: ProfileData }) {
   const {
     data,
@@ -589,7 +561,7 @@ function FigmaAccountExperienceReady(props: ProfilePageProps & { data: ProfileDa
           </S.Stack>
         ) : (
           <S.Stack>
-            <S.PageTitle>
+            <S.PageTitle className={view === 'orders' ? 'orders-page-title' : ''}>
               <button className="back" type="button" aria-label="Voltar para minha conta" onClick={goBack}><ArrowLeft /></button>
               <h1>{title}</h1>
             </S.PageTitle>
@@ -610,7 +582,7 @@ function FigmaAccountExperienceReady(props: ProfilePageProps & { data: ProfileDa
             view === 'help'
           }
         >
-          <S.PageTitle>
+          <S.PageTitle className={view === 'orders' ? 'orders-page-title' : ''}>
             {view !== 'account' ? (
               <button className="back" type="button" aria-label="Voltar para minha conta" onClick={goBack}><ArrowLeft /></button>
             ) : null}
