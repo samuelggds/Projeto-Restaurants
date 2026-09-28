@@ -273,7 +273,6 @@ export function FigmaDeliveryExperience({
               <b>{data.brand.name}</b>
               <span className="status">
                 <i /> {data.isOpen ? 'Aberto agora' : 'Fechado agora'}
-                {data.deliveryTime ? ` · ${data.deliveryTime}` : ''}
               </span>
             </span>
           </button>
