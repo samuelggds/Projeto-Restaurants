@@ -37,7 +37,7 @@ export const FloatingWhatsApp = styled.a`
 
   @media (max-width: 700px) {
     right: 14px;
-    bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+    bottom: calc(150px + env(safe-area-inset-bottom, 0px));
     width: 54px;
     height: 54px;
 
