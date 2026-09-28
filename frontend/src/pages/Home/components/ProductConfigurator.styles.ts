@@ -73,6 +73,16 @@ export const Page = styled.div<{
         }
 
         .product-summary > div{display:none}
+
+        .product-image-caption{
+          display:block;
+          margin-top:12px;
+          color:#8b837c;
+          text-align:center;
+          font-size:11px;
+          line-height:16px;
+        }
+
         .product-summary button[aria-label="Voltar ao cardápio"]{display:none}
 
         .product-form{
@@ -139,6 +149,8 @@ export const Page = styled.div<{
             border-radius:0;
           }
 
+          .product-image-caption{display:none}
+
           .product-summary button[aria-label="Voltar ao cardápio"]{
             display:grid;
             top:14px;
@@ -165,12 +177,68 @@ export const Page = styled.div<{
           .product-group{padding:20px}
           .product-group-header{margin-bottom:12px}
           .product-option-list{gap:8px}
+
+          .product-option-list[data-selection='SINGLE']{
+            display:flex;
+            flex-wrap:wrap;
+            gap:8px;
+          }
+
+          .product-option-list[data-selection='SINGLE'] .product-option{
+            min-height:36px;
+            width:auto;
+            flex:0 0 auto;
+            border-radius:9px;
+          }
+
+          .product-option-list[data-selection='SINGLE'] .product-option > label{
+            min-height:36px;
+            padding:0 12px;
+            display:flex;
+            gap:0;
+          }
+
+          .product-option-list[data-selection='SINGLE'] .product-option i,
+          .product-option-list[data-selection='SINGLE'] .product-option strong{
+            display:none;
+          }
+
+          .product-option-list[data-selection='MULTIPLE']{
+            padding:8px 12px;
+            border:1px solid #ece7e1;
+            border-radius:12px;
+            background:#fff;
+          }
+
+          .product-option-list[data-selection='MULTIPLE'] .product-option{
+            min-height:32px;
+            border:0;
+            border-radius:0;
+            background:transparent;
+          }
+
+          .product-option-list[data-selection='MULTIPLE'] .product-option > label{
+            min-height:32px;
+            padding:4px 0;
+          }
+
+          .product-option-list[data-selection='MULTIPLE'] .product-option i{
+            width:20px;
+            height:20px;
+            border-radius:6px;
+          }
+
           .product-option{min-height:44px}
           .product-option > label{min-height:44px;padding:9px 12px}
 
           .product-observation{
             padding:20px;
             border-bottom:1px solid #eee7e1;
+          }
+
+          .product-observation span,
+          .product-observation small{
+            display:none;
           }
 
           .product-observation textarea{min-height:44px}
