@@ -316,7 +316,8 @@ export const InfoChips = styled.div`
   @media(max-width:760px){display:flex;overflow-x:auto;gap:8px;scrollbar-width:none;margin-right:-20px;padding-right:20px;span{flex:0 0 auto;min-height:38px;font-size:11px}}
 `;
 
-export const Section = styled.section`display:grid;gap:18px;`;
+export const Section = styled.section`
+ scroll-margin-top:110px;display:grid;gap:18px;`;
 export const SectionHead = styled.div`
  display:flex;align-items:end;justify-content:space-between;gap:16px;
  h2{margin:0;font-family:'Gabarito','Inter',sans-serif;font-size:28px;line-height:1.15}
@@ -336,6 +337,46 @@ export const Categories = styled.div`
   @media(max-width:760px){display:flex;overflow-x:auto;margin-right:-20px;padding-right:20px;scrollbar-width:none;gap:16px;button{flex:0 0 72px}.image{width:64px;height:64px}b{font-size:11px}}
 `;
 
+export const CarouselControls = styled.div`
+  display:flex;
+  align-items:center;
+  gap:8px;
+
+  button{
+    width:36px;
+    height:36px;
+    padding:0;
+    border:1px solid var(--delivery-line);
+    border-radius:50%;
+    background:#fff;
+    color:var(--delivery-text);
+    display:grid;
+    place-items:center;
+    cursor:pointer;
+    transition:transform 180ms ease,border-color 180ms ease,background 180ms ease;
+  }
+
+  button:hover{
+    border-color:color-mix(in srgb,var(--delivery-primary) 38%,var(--delivery-line));
+    background:color-mix(in srgb,var(--delivery-primary) 6%,#fff);
+    transform:translateY(-1px);
+  }
+
+  button svg{
+    width:18px;
+    height:18px;
+  }
+
+  @media(max-width:760px){
+    display:none;
+  }
+
+  @media(prefers-reduced-motion:reduce){
+    button{transition:none}
+    button:hover{transform:none}
+  }
+`;
+
 export const ProductGrid = styled.div`
  display:flex;
  flex-wrap:nowrap;
@@ -347,6 +388,10 @@ export const ProductGrid = styled.div`
  scroll-behavior:smooth;
  scrollbar-width:none;
  -webkit-overflow-scrolling:touch;
+
+ @media(prefers-reduced-motion:reduce){
+   scroll-behavior:auto;
+ }
 
  &::-webkit-scrollbar{display:none}
 
