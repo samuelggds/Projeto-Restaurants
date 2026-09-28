@@ -259,7 +259,22 @@ export function FigmaDeliveryExperience({
     <S.Page $primary={primary}>
       <S.Header>
         <div className="header-left">
-          {view === 'menu' ? (
+          {selectedProduct ? (
+        <ProductConfigurator
+          product={selectedProduct}
+          primaryColor={primary}
+          enableProductQuantity
+          embedded
+          customerPageVariant
+          onClose={() => setSelectedProduct(null)}
+          onConfirm={(configuration, quantity) => {
+            onAddProduct?.(selectedProduct.id, configuration, quantity || 1);
+            setSelectedProduct(null);
+          }}
+        />
+      ) : (
+        <>
+      {view === 'menu' ? (
             <button className="mobile-back" type="button" aria-label="Voltar para a Home" onClick={goHome}>
               <ChevronLeft aria-hidden="true" />
             </button>
@@ -706,6 +721,10 @@ export function FigmaDeliveryExperience({
         </FloatingWhatsAppPortal>
       ) : null}
 
+
+        </>
+      )}
+
       <CustomerDesktopFooter
         restaurantName={data.brand.name}
         description={data.about}
@@ -715,19 +734,6 @@ export function FigmaDeliveryExperience({
         onMenu={() => setView('menu')}
       />
 
-
-      {selectedProduct ? (
-        <ProductConfigurator
-          product={selectedProduct}
-          primaryColor={primary}
-          enableProductQuantity
-          onClose={() => setSelectedProduct(null)}
-          onConfirm={(configuration, quantity) => {
-            onAddProduct?.(selectedProduct.id, configuration, quantity || 1);
-            setSelectedProduct(null);
-          }}
-        />
-      ) : null}
 
       {selectedCombo ? (
         <ComboConfigurator
