@@ -333,7 +333,15 @@ export function FigmaDeliveryExperience({
 
   const chooseCategory = (id: string) => {
     onSelectCategory?.(id);
-    scrollToSection(id === 'Combos' ? 'home-combos' : `home-category-${encodeURIComponent(id)}`);
+    const category = categories.find((item) => item.id === id);
+    const isComboCategory = String(category?.name || id)
+      .trim()
+      .toLocaleLowerCase('pt-BR')
+      .includes('combo');
+
+    scrollToSection(
+      isComboCategory ? 'home-combos' : `home-category-${encodeURIComponent(id)}`,
+    );
   };
 
   const openFullMenu = () => {
