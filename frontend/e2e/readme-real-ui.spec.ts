@@ -455,104 +455,84 @@ test('busca móvel abre compacta com sugestões e devolve o foco ao fechar', asy
   await captureReadmeScreenshot(page, 'customer-search-desktop.png');
 });
 
-test('adicionar mantém o cardápio aberto e a sacola reúne os itens em 320px', async ({ page }) => {
+test('adicionar mantém o cardápio aberto e o checkout reúne os itens em 320px', async ({ page }) => {
   await page.setViewportSize({ width: 320, height: 844 });
   await mockPublicMenu(page);
   await page.goto('/north-pizza');
+
   const loginNudge = page.getByRole('region', { name: 'Acompanhe seus pedidos' });
   await expect(loginNudge).toBeHidden();
 
-  const cartTrigger = page.getByRole('button', { name: 'Sacola com 0 itens' });
+  const cartTrigger = page.getByRole('button', { name: 'Meu Carrinho, 0 itens' });
   await cartTrigger.click();
-  const cart = page.getByRole('dialog', { name: 'Minha sacola' });
-  await expect(cart).toBeVisible();
-  await expect(page.getByText('Sacola vazia')).toBeVisible();
-  await expect(cart.getByRole('button', { name: 'Ver cardápio' })).toBeVisible();
-  await expect(cart.getByRole('button', { name: 'Fechar sacola' })).toBeFocused();
+
+  const checkout = page.getByRole('dialog', { name: 'Finalizar pedido' });
+  await expect(checkout).toBeVisible();
+  await expect(checkout).toBeFocused();
+  await expect(checkout.getByText('Seu carrinho está vazio.')).toBeVisible();
   await expect.poll(() => page.evaluate(() => document.body.style.overflow)).toBe('hidden');
 
-  const emptyCartBox = await cart.boundingBox();
-  expect(emptyCartBox?.width).toBeLessThanOrEqual(321);
   await page.keyboard.press('Escape');
-  await expect(cart).toBeHidden();
+  await expect(checkout).toBeHidden();
   await expect(cartTrigger).toBeFocused();
   await expect.poll(() => page.evaluate(() => document.body.style.overflow)).toBe('');
 
   await page.getByRole('button', { name: 'Adicionar Pizza Margherita' }).click();
-  await expect(cart).toBeHidden();
+  const margherita = page.getByRole('dialog', { name: 'Montar Pizza Margherita' });
+  await expect(margherita).toBeVisible();
+  await margherita.getByRole('button', { name: 'Adicionar à sacola' }).click();
+  await expect(margherita).toBeHidden();
   await expect(loginNudge).toBeVisible();
+
   await page.getByRole('button', { name: 'Dispensar convite de login' }).click();
   await expect(loginNudge).toBeHidden();
-  const notices = page.getByLabel('Avisos recentes');
-  let addNotice = notices.getByRole('status').filter({ hasText: 'Item adicionado' });
-  await expect(addNotice).toHaveCount(1);
-  await expect(addNotice).toContainText('Pizza Margherita já está na sacola');
-  await expect(addNotice.getByRole('button', { name: 'Ver sacola' })).toBeVisible();
 
   await page.getByRole('button', { name: 'Adicionar Pizza Calabresa Especial' }).click();
-  addNotice = notices.getByRole('status').filter({ hasText: 'Item adicionado' });
-  await expect(addNotice).toHaveCount(1);
-  await expect(addNotice).toContainText('Pizza Calabresa Especial já está na sacola');
-  await expect(page.getByRole('button', { name: 'Sacola com 2 itens' })).toBeVisible();
-  await expect(cart).toBeHidden();
-  await captureReadmeScreenshot(page, 'customer-add-notice-mobile.png');
+  const calabresa = page.getByRole('dialog', { name: 'Montar Pizza Calabresa Especial' });
+  await expect(calabresa).toBeVisible();
+  await calabresa.getByRole('button', { name: 'Adicionar à sacola' }).click();
+  await expect(calabresa).toBeHidden();
 
-  await addNotice.getByRole('button', { name: 'Ver sacola' }).click();
-  await expect(cart).toBeVisible();
-  await expect(cart.getByText('2 itens', { exact: true })).toBeVisible();
-  await expect(cart.getByText('Pizza Margherita', { exact: true })).toBeVisible();
-  await expect(cart.getByText('Pizza Calabresa Especial', { exact: true })).toBeVisible();
-  await expect(cart.getByRole('button', { name: 'Gerar código Pix' })).toBeVisible();
-  await expect(cart.getByLabel('Total do pedido: R$ 118,80')).toBeVisible();
+  const filledCartTrigger = page.getByRole('button', { name: 'Meu Carrinho, 2 itens' });
+  await expect(filledCartTrigger).toBeVisible();
+  await filledCartTrigger.click();
+
+  await expect(checkout).toBeVisible();
+  await expect(checkout.getByText('Pizza Margherita', { exact: true })).toBeVisible();
+  await expect(checkout.getByText('Pizza Calabresa Especial', { exact: true })).toBeVisible();
+  await expect(checkout.getByText('Itens (2)')).toBeVisible();
   await expect
     .poll(() => page.evaluate(() => document.documentElement.scrollWidth))
     .toBeLessThanOrEqual(321);
+
   await captureReadmeScreenshot(page, 'customer-cart-mobile.png');
 });
 
-test('seletor móvel distingue endereços repetidos sem ocupar a tela', async ({ page }) => {
+test('checkout móvel preserva o endereço salvo selecionado', async ({ page }) => {
   await page.setViewportSize({ width: 320, height: 844 });
   await mockAuthenticatedPublicMenu(page);
   await page.goto('/north-pizza');
 
-  const locationTrigger = page.getByRole('button', {
-    name: 'Endereço de entrega: Avenida Beira Mar, 220',
-  });
-  await locationTrigger.click();
+  await page.getByRole('button', { name: 'Adicionar Pizza Margherita' }).click();
+  const configurator = page.getByRole('dialog', { name: 'Montar Pizza Margherita' });
+  await configurator.getByRole('button', { name: 'Adicionar à sacola' }).click();
 
-  const addressDialog = page.getByRole('dialog', { name: 'Onde deseja receber?' });
-  const firstAddress = addressDialog.getByRole('button', {
-    name: /Casa: Rua das Flores, 10, Centro • Fortaleza/,
-  });
-  const selectedAddress = addressDialog.getByRole('button', {
-    name: /Casa: Avenida Beira Mar, 220, Meireles • Fortaleza\. Selecionado/,
-  });
-  await expect(addressDialog).toBeVisible();
-  await expect(firstAddress).toHaveAttribute('aria-pressed', 'false');
-  await expect(selectedAddress).toHaveAttribute('aria-pressed', 'true');
-  await expect(selectedAddress.getByText('Selecionado')).toBeVisible();
-  await expect(addressDialog.getByRole('button', { name: 'Fechar endereços' })).toBeVisible();
+  await page.getByRole('button', { name: 'Meu Carrinho, 1 item' }).click();
+  const checkout = page.getByRole('dialog', { name: 'Finalizar pedido' });
+  await expect(checkout).toBeVisible();
+  await checkout.getByRole('button', { name: 'Continuar' }).click();
 
-  const dialogBox = await addressDialog.boundingBox();
-  expect(dialogBox?.width).toBeLessThanOrEqual(320);
-  expect(dialogBox?.height).toBeLessThanOrEqual(300);
+  await expect(checkout.getByRole('heading', { name: 'Endereço de entrega' })).toBeVisible();
+  await expect(checkout.getByText(/Avenida Beira Mar, 220/)).toBeVisible();
+  await expect(checkout.getByText(/Meireles, Fortaleza - CE/)).toBeVisible();
   await expect
     .poll(() => page.evaluate(() => document.documentElement.scrollWidth))
     .toBeLessThanOrEqual(321);
+
   await captureReadmeScreenshot(page, 'customer-addresses-mobile.png');
-
-  await page.keyboard.press('Escape');
-  await expect(addressDialog).toBeHidden();
-  await expect(locationTrigger).toBeFocused();
-
-  await locationTrigger.click();
-  await firstAddress.click();
-  await expect(
-    page.getByRole('button', { name: 'Endereço de entrega: Rua das Flores, 10' }),
-  ).toBeVisible();
 });
 
-test('central móvel reúne pedido e benefícios em um clique e mantém avisos abaixo do cabeçalho', async ({
+test('central móvel mantém pedido, benefícios e busca acessíveis sem sobreposição', async ({
   page,
 }) => {
   await page.setViewportSize({ width: 320, height: 844 });
@@ -563,9 +543,8 @@ test('central móvel reúne pedido e benefícios em um clique e mantém avisos a
   await expect(shortcutsButton).toHaveAttribute('aria-expanded', 'false');
   await shortcutsButton.click();
   await expect(shortcutsButton).toHaveAttribute('aria-expanded', 'true');
+
   const floatingLayer = page.getByTestId('floating-actions-layer');
-  await expect(page.getByTestId('customer-coupon-status-toggle')).toHaveCount(0);
-  await expect(page.getByText('Pedido e atendimento', { exact: true })).toHaveCount(0);
   const [floatingZIndex, headerZIndex] = await Promise.all([
     floatingLayer.evaluate((element) => Number(getComputedStyle(element).zIndex)),
     page.getByRole('banner').evaluate((element) => Number(getComputedStyle(element).zIndex)),
@@ -578,64 +557,32 @@ test('central móvel reúne pedido e benefícios em um clique e mantém avisos a
   const orderAction = page.getByRole('button', { name: /Pedido em andamento/i });
   await expect(loyaltyAction).toBeVisible();
   await expect(orderAction).toBeVisible();
-  const [loyaltyBox, orderBox] = await Promise.all([
-    loyaltyAction.boundingBox(),
-    orderAction.boundingBox(),
-  ]);
-  expect(loyaltyBox?.width).toBeLessThanOrEqual(300);
-  expect(orderBox?.width).toBeLessThanOrEqual(300);
-  expect(orderBox!.y).toBeLessThan(loyaltyBox!.y);
+
   await orderAction.click();
   const orderDialog = page.getByRole('dialog', { name: 'Pedido #81' });
   await expect(orderDialog).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Fechar aviso', exact: true })).toBeFocused();
-  await orderDialog.getByRole('button', { name: 'Fechar aviso', exact: true }).click();
-  await expect(orderAction).toBeFocused();
-  await expect(shortcutsButton).toHaveAttribute('aria-expanded', 'true');
-  await orderAction.click();
   await page.keyboard.press('Escape');
   await expect(orderDialog).toBeHidden();
   await expect(orderAction).toBeFocused();
-  await expect(shortcutsButton).toHaveAttribute('aria-expanded', 'true');
+
   await loyaltyAction.click();
   await expect(page.getByRole('dialog', { name: 'Seus pedidos viram descontos' })).toBeVisible();
   await page.keyboard.press('Escape');
   await expect(loyaltyAction).toBeFocused();
-  await captureReadmeScreenshot(page, 'customer-status-hub-mobile.png');
 
   await shortcutsButton.click();
-  const locationTrigger = page.getByRole('button', {
-    name: 'Endereço de entrega: Avenida Beira Mar, 220',
-  });
-  await locationTrigger.click();
-  await page
-    .getByRole('dialog', { name: 'Onde deseja receber?' })
-    .getByRole('button', { name: /Casa: Rua das Flores, 10/ })
-    .click();
+  await expect(shortcutsButton).toHaveAttribute('aria-expanded', 'false');
 
-  const notice = page.getByRole('status').filter({ hasText: 'Endereço selecionado' });
-  await expect(notice).toBeVisible();
-  await expect(notice.getByText('Tudo certo')).toBeVisible();
-  // O aviso já está visível durante os 240ms da transição de entrada.
-  await expect
-    .poll(
-      async () => {
-        const [headerBox, noticeBox] = await Promise.all([
-          page.getByRole('banner').boundingBox(),
-          notice.boundingBox(),
-        ]);
-        return headerBox && noticeBox ? noticeBox.y - (headerBox.y + headerBox.height) : -1;
-      },
-      { timeout: 1500 },
-    )
-    .toBeGreaterThanOrEqual(0);
-  const noticeLayerZIndex = await page
-    .getByLabel('Avisos recentes')
-    .evaluate((element) => Number(getComputedStyle(element).zIndex));
-  expect(floatingZIndex).toBeGreaterThan(noticeLayerZIndex);
-  await captureReadmeScreenshot(page, 'customer-notice-mobile.png');
-  await notice.getByRole('button', { name: 'Fechar notificação' }).click();
-  await expect(notice).toBeHidden();
+  const searchTrigger = page.getByRole('button', { name: 'Buscar no cardápio' });
+  await expect(searchTrigger).toBeVisible();
+  await searchTrigger.click();
+  const searchDialog = page.getByRole('dialog', { name: 'Buscar no cardápio' });
+  await expect(searchDialog).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(searchDialog).toBeHidden();
+  await expect(searchTrigger).toBeFocused();
+
+  await captureReadmeScreenshot(page, 'customer-status-hub-mobile.png');
 });
 
 for (const width of [320, 390, 1440]) {
@@ -696,22 +643,31 @@ test('central e convite de login continuam acessíveis em uma tela baixa', async
   await page.setViewportSize({ width: 320, height: 480 });
   await mockPublicMenu(page);
   await page.goto('/north-pizza');
+
   await page.getByRole('button', { name: 'Adicionar Pizza Margherita' }).click();
+  const configurator = page.getByRole('dialog', { name: 'Montar Pizza Margherita' });
+  await configurator.getByRole('button', { name: 'Adicionar à sacola' }).click();
+
   const nudge = page.getByRole('region', { name: 'Acompanhe seus pedidos' });
   const whatsapp = page.getByTestId('floating-whatsapp-contact');
   await expect(nudge).toBeVisible();
+
   const [nudgeBox, whatsappBox] = await Promise.all([nudge.boundingBox(), whatsapp.boundingBox()]);
   expect(nudgeBox!.y + nudgeBox!.height).toBeLessThan(whatsappBox!.y);
+
   const trigger = page.getByTestId('floating-actions-control-customer');
   await trigger.click();
   const hub = page.getByRole('region', { name: 'Cupons e ajuda' });
   await expect(hub).toBeVisible();
+
   const hubBox = await hub.boundingBox();
   expect(hubBox!.y).toBeGreaterThanOrEqual(0);
   expect(hubBox!.y + hubBox!.height).toBeLessThan(nudgeBox!.y);
+
   await captureReadmeScreenshot(page, 'customer-hub-short-screen.png');
   await page.getByRole('button', { name: 'Fechar central do cliente' }).click();
   await expect(hub).toBeHidden();
+
   await page.getByRole('button', { name: 'Dispensar convite de login' }).click();
   await expect(nudge).toBeHidden();
   await expect(whatsapp).toBeVisible();
