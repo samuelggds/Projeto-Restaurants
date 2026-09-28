@@ -63,12 +63,18 @@ export const Header = styled.header`
     display:grid;place-items:center;font-size:11px;font-style:normal;
   }
 
-  @media(max-width:760px){
-    position:static;height:68px;padding:12px 20px;grid-template-columns:minmax(0,1fr) auto;gap:10px;
+  @media(max-width:900px){
+    padding:0 24px;
+    grid-template-columns:minmax(0,1fr) auto;
+    gap:12px;
     .search,.account{display:none}
     .actions{gap:8px}
-    .cart{width:36px;height:36px;min-height:36px;padding:0;justify-content:center;border-radius:18px}
     .cart span{display:none}
+  }
+
+  @media(max-width:760px){
+    position:static;height:68px;padding:12px 20px;gap:10px;
+    .cart{width:36px;height:36px;min-height:36px;padding:0;justify-content:center;border-radius:18px}
     .cart i{position:absolute;margin:0 0 30px 28px}
     .brand-copy b{font-size:17px}
     .status{font-size:11px}
