@@ -657,10 +657,35 @@ class OrderRepository {
         pixPaymentId: true,
         pixExpiresAt: true,
         createdAt: true,
+        address: true,
+        number: true,
+        complement: true,
+        district: true,
+        city: true,
+        state: true,
+        deliveryFeeAmount: true,
+        itemsSubtotal: true,
+        items: {
+          select: {
+            quantity: true,
+            price: true,
+            product: {
+              select: {
+                name: true,
+              },
+            },
+          },
+        },
         restaurant: {
           select: {
             id: true,
             name: true,
+            logo: true,
+            settings: {
+              select: {
+                averageDeliveryTime: true,
+              },
+            },
           },
         },
       },
