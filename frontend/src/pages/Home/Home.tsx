@@ -893,6 +893,8 @@ export default function Home() {
       <FigmaDeliveryExperience
         data={homeData}
         cartCount={tableClosingRequested ? 0 : cartCount}
+        cart={tableClosingRequested ? [] : cart}
+        cartTotal={tableClosingRequested ? 0 : cartTotal}
         initialSearchOpen={Boolean(navigationState?.openSearch)}
         userName={user ? String((user as Record<string, unknown>).name || '') : undefined}
         userEmail={user ? String((user as Record<string, unknown>).email || '') : undefined}
