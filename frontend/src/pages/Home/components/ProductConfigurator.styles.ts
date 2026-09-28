@@ -151,6 +151,13 @@ export const Page = styled.div<{
           }
         }
 
+        @media(max-height:540px) and (orientation:landscape){
+          height:100dvh;
+          min-height:100svh;
+          overflow-y:auto;
+          overscroll-behavior:contain;
+        }
+
         @media(max-width:620px){
           .product-layout{
             width:100%;
