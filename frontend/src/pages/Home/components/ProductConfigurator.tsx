@@ -181,8 +181,8 @@ export function ProductConfigurator({
       $primary={primaryColor}
       $embedded={embedded}
       $customerPageVariant={customerPageVariant}
-      role={embedded ? 'region' : 'dialog'}
-      aria-modal={embedded ? undefined : 'true'}
+      role="dialog"
+      aria-modal="true"
       aria-label={`Montar ${product.name}`}
       data-testid="product-configurator"
       data-table-menu={tableMenuVariant ? 'true' : undefined}
@@ -615,7 +615,7 @@ export function ProductConfigurator({
               value={observation}
               maxLength={500}
               onChange={(event) => setObservation(event.target.value)}
-              placeholder="Ex: sem cebola, maionese à parte..."
+              placeholder="Ex.: Adicione aqui uma observação do produto..."
             />
             <small>{observation.length}/500 caracteres</small>
           </S.Observation>
@@ -623,7 +623,7 @@ export function ProductConfigurator({
           <S.BottomBar
             className="product-bottom-bar"
             data-testid="product-configurator-footer"
-            $stickyOnMobile={tableMenuVariant || enableProductQuantity}
+            $stickyOnMobile={tableMenuVariant}
           >
             <span className="total-description" id={totalDescriptionId}>
               {priceReady
@@ -664,7 +664,9 @@ export function ProductConfigurator({
               aria-describedby={totalDescriptionId}
             >
               {priceReady
-                ? (tableMenuVariant ? `Adicionar — ${brl(total * (enableProductQuantity ? productQuantity : 1))}` : 'Continuar')
+                ? customerPageVariant
+                  ? 'Continuar'
+                  : `Adicionar — ${brl(total * (enableProductQuantity ? productQuantity : 1))}`
                 : 'Escolha os sabores'}
             </button>
           </S.BottomBar>
