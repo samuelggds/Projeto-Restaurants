@@ -43,7 +43,6 @@ export function GuestAddressCheckout({
   brandName,
   logoUrl,
   isOpen,
-  deliveryTime,
   cartCount,
   guestName,
   onGuestNameChange,
@@ -85,7 +84,6 @@ export function GuestAddressCheckout({
             <small>
               <i className={isOpen ? 'open' : ''} />
               {isOpen ? 'Aberto agora' : 'Fechado agora'}
-              {deliveryTime ? ` · ${deliveryTime}` : ''}
             </small>
           </span>
         </button>
