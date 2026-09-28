@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import { useEffect, useRef, type ReactNode } from 'react';
 import { ArrowLeft } from 'lucide-react';
 import { CartItemsList } from './components/CartItemsList';
 import type { CartItem } from './hooks/useCart';
@@ -59,6 +59,28 @@ export function FigmaCheckoutFlow({
   onClose,
   onSubmit,
 }: Props) {
+  const layerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const previouslyFocused = document.activeElement as HTMLElement | null;
+    const previousOverflow = document.body.style.overflow;
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return;
+      event.preventDefault();
+      onClose();
+    };
+
+    document.body.style.overflow = 'hidden';
+    layerRef.current?.focus();
+    document.addEventListener('keydown', handleEscape);
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      document.removeEventListener('keydown', handleEscape);
+      previouslyFocused?.focus();
+    };
+  }, [onClose]);
+
   const currentStep = stepIndex(step);
   const subtotal = quote ? quote.itemsSubtotal + quote.productDiscountTotal : cartTotal;
   const total = quote?.total ?? cartTotal;
@@ -88,7 +110,14 @@ export function FigmaCheckoutFlow({
   };
 
   return (
-    <S.Layer $primary={primaryColor} role="dialog" aria-modal="true" aria-label="Finalizar pedido">
+    <S.Layer
+      ref={layerRef}
+      tabIndex={-1}
+      $primary={primaryColor}
+      role="dialog"
+      aria-modal="true"
+      aria-label="Finalizar pedido"
+    >
       <S.Top>
         <div className="brand">
           <span className="logo">
