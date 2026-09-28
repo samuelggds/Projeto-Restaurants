@@ -194,9 +194,9 @@ class GetPublicRestaurantSettingsService {
         freeShippingMinimum: null,
         acceptsDelivery: true,
         acceptsPickup: true,
-        acceptsPix: true,
+        acceptsPix: false,
         openFinancePixEnabled: false,
-        acceptsCard: true,
+        acceptsCard: false,
         tableOrderingEnabled: true,
         waiterCallEnabled: true,
         billRequestEnabled: true,
@@ -259,11 +259,29 @@ class GetPublicRestaurantSettingsService {
 
     const privateSettings =
       await restaurantSettingsRepository.findByRestaurantId(normalizedRestaurantId);
-    const openFinanceReady = Boolean(
-      settings.openFinancePixEnabled &&
-        efiOpenFinanceConfigured() &&
-        String(privateSettings?.pixKey || '').trim(),
+
+    const pixProvider = String(privateSettings?.pixProvider || '').trim().toUpperCase();
+    const cardProvider = String(privateSettings?.cardGateway || '').trim().toUpperCase();
+    const mercadoPagoConnected = Boolean(
+      String(privateSettings?.mercadoPagoAccessToken || '').trim(),
     );
+    const mercadoPagoCardReady = Boolean(
+      mercadoPagoConnected && String(privateSettings?.mercadoPagoPublicKey || '').trim(),
+    );
+
+    // Current production capability: Mercado Pago is the only provider exposed
+    // to customers. Pagar.me, Asaas and Open Finance remain implemented behind
+    // their existing future-provider/configuration gates, but must not appear
+    // in checkout until they are explicitly production-ready.
+    const acceptsPix =
+      settings.acceptsPix === true &&
+      pixProvider === 'MERCADO_PAGO' &&
+      mercadoPagoConnected;
+    const acceptsCard =
+      settings.acceptsCard === true &&
+      cardProvider === 'MERCADO_PAGO' &&
+      mercadoPagoCardReady;
+    const openFinanceReady = false;
 
     const rawRestaurant = settings.restaurant as unknown as Omit<
       PublicSettingsFallback['restaurant'],
@@ -275,6 +293,8 @@ class GetPublicRestaurantSettingsService {
 
     return {
       ...settings,
+      acceptsPix,
+      acceptsCard,
       openFinancePixEnabled: openFinanceReady,
       ...(restaurant
         ? { restaurant: externalizePublicRestaurantImages(normalizedRestaurantId, restaurant) }
