@@ -125,7 +125,7 @@ export default function PixPaymentPanel({
   const cssVars = { '--pix-primary': primaryColor } as CSSProperties;
 
   return (
-    <Page style={cssVars}>
+    <Page style={cssVars} data-status={status} data-payment-method="pix">
       <DesktopHeader>
         <button className="brand" type="button" onClick={onBackToCart}>
           <span className="brand-logo">
@@ -178,7 +178,7 @@ export default function PixPaymentPanel({
                 <b>Pix Copia e Cola</b>
                 <div>
                   <code>{pixPaymentData.pixCode}</code>
-                  <button type="button" onClick={() => void copyPix()}>
+                  <button type="button" aria-label="Copiar código Pix" onClick={() => void copyPix()}>
                     {copied ? <Check aria-hidden="true" /> : <Copy aria-hidden="true" />}
                     {copied ? 'Copiado' : 'Copiar'}
                   </button>
@@ -199,7 +199,7 @@ export default function PixPaymentPanel({
                 <b>{status === 'VERIFYING' ? 'Verificando pagamento...' : 'Aguardando confirmação do pagamento...'}</b>
               </WaitingStatus>
 
-              <DesktopContinue type="button" disabled={status === 'VERIFYING'} onClick={() => void onVerify()}>
+              <DesktopContinue type="button" aria-label="Verificar pagamento" disabled={status === 'VERIFYING'} onClick={() => void onVerify()}>
                 {status === 'VERIFYING' ? 'Verificando...' : 'Continuar'}
               </DesktopContinue>
             </PixCard>
