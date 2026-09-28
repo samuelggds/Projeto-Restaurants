@@ -371,7 +371,7 @@ test('cliente consulta cupons válidos, histórico e o novo ciclo no perfil', as
   await page.goto('/profile');
   await page.getByRole('button', { name: /^Meus pedidos/ }).click();
   await expect(page.getByRole('heading', { name: 'Meus Pedidos', exact: true })).toBeVisible();
-  const visibleActiveOrderId = visibleProfileContent.locator('b', { hasText: /^Pedido #0312$/ });
+  const visibleActiveOrderId = visibleProfileContent.getByText(/Pedido #0312/);
   await expect(visibleActiveOrderId).toHaveCount(1);
   await expect(visibleActiveOrderId).toBeVisible();
   await page.getByRole('button', { name: 'Voltar para minha conta' }).click();
