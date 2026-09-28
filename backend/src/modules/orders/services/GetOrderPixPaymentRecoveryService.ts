@@ -45,6 +45,22 @@ class GetOrderPixPaymentRecoveryService {
       orderStatus: order.status,
       paymentMethod: order.paymentMethod,
       expiresAt: order.pixExpiresAt,
+      deliveryTime: order.restaurant?.settings?.averageDeliveryTime || null,
+      deliveryAddress: [
+        [order.address, order.number].filter(Boolean).join(', '),
+        order.complement,
+        order.district,
+        [order.city, order.state].filter(Boolean).join(' - '),
+      ]
+        .filter(Boolean)
+        .join(' - '),
+      deliveryFeeAmount: Number(order.deliveryFeeAmount || 0),
+      itemsSubtotal: Number(order.itemsSubtotal || 0),
+      items: order.items.map((item) => ({
+        name: item.product.name,
+        quantity: item.quantity,
+        total: Number(item.price) * item.quantity,
+      })),
     };
 
     if (String(order.status || '').toUpperCase() === 'CANCELADO' && !order.paid) {
