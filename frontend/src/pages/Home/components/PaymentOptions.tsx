@@ -89,6 +89,13 @@ const DELIVERY_OPTIONS: Option[] = [
     color: '#3b6cf6',
     icon: 'card',
   },
+  {
+    method: 'delivery_cash',
+    name: 'Dinheiro',
+    description: 'Pague em dinheiro ao receber',
+    color: '#8b5e3c',
+    icon: 'cash',
+  },
 ];
 
 const PICKUP_OPTIONS: Option[] = [
@@ -377,7 +384,11 @@ export function PaymentOptions({
       setFigmaCardKind(kind);
       handlePaymentChange('card');
     };
-    const cashMethod: CheckoutPaymentMethod | null = allowPayAtPickup ? 'pickup_cash' : null;
+    const cashMethod: CheckoutPaymentMethod | null = allowPayOnDelivery
+      ? 'delivery_cash'
+      : allowPayAtPickup
+        ? 'pickup_cash'
+        : null;
     const cardActive = paymentMethod === 'card';
     const creditActive = cardActive && figmaCardKind === 'credit';
     const debitActive = cardActive && figmaCardKind === 'debit';
