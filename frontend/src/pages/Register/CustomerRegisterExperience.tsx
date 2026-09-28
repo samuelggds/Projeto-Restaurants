@@ -268,7 +268,11 @@ export function CustomerRegisterExperience({
 
                   {confirmationRule ? (
                     <S.Rules>
-                      <div className={`rule ${confirmationRule.met ? 'met' : ''}`}>
+                      <div
+                        className={`rule ${confirmationRule.met ? 'met' : ''}`}
+                        data-requirement="confirmation"
+                        data-met={confirmationRule.met ? 'true' : 'false'}
+                      >
                         <span className="check"><Check /></span>
                         <span>As senhas devem ser iguais</span>
                       </div>
