@@ -571,7 +571,7 @@ function FigmaAccountExperienceReady(props: ProfilePageProps & { data: ProfileDa
         <div className="inner">
           <div>
             <div className="brand">{data.brand.name}</div>
-            <p>{data.brand.address || 'Pedidos e atendimento do restaurante.'}</p>
+            {data.brand.address ? <p>{data.brand.address}</p> : null}
           </div>
           <div><h3>Nossos Links</h3><p><button type="button" onClick={onOpenMenu}>Cardápio</button></p></div>
           <div><h3>Suporte</h3><p><button type="button" onClick={() => setView('help')}>Central de Ajuda</button></p></div>
