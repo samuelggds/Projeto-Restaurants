@@ -138,10 +138,12 @@ export const ProductCard = styled.article`
  .image{height:150px;background:#f3f1ec;display:grid;place-items:center;color:#aaa49b}
  .image img{width:100%;height:100%;object-fit:cover}
  .copy{padding:14px;display:grid;gap:5px}
- .badge{position:absolute;top:10px;left:10px;padding:5px 8px;border-radius:7px;background:var(--delivery-primary);color:#fff;font-size:10px;font-weight:800}
+ .badge{position:absolute;top:10px;left:10px;max-width:calc(100% - 20px);padding:5px 8px;border-radius:7px;background:var(--delivery-primary);color:#fff;font-size:10px;font-weight:800;white-space:normal;overflow-wrap:anywhere}
  h3{margin:0;font-size:15px}
  p{height:32px;margin:0;color:var(--delivery-muted);font-size:11px;line-height:16px;overflow:hidden}
  .foot{display:flex;align-items:center;justify-content:space-between;gap:8px}
+ .price{min-width:0;display:flex;align-items:baseline;gap:6px;flex-wrap:wrap}
+ .price del{color:var(--delivery-muted);font-size:11px}
  strong{color:var(--delivery-primary);font-size:15px}
  .add{min-height:30px;padding:0 10px;border:0;border-radius:999px;background:var(--delivery-primary);color:#fff;font-size:11px;font-weight:700}
  .open{position:absolute;inset:0;border:0;background:transparent}
