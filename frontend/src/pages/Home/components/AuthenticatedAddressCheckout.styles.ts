@@ -207,22 +207,6 @@ export const MapCard = styled.section`
   }
 `;
 
-export const MapVisual = styled.div`
-  position: relative;
-  height: 300px;
-  overflow: hidden;
-  border: 1px solid #e6e9ef;
-  border-radius: 12px;
-  background:
-    linear-gradient(25deg, transparent 45%, #dce4ed 46%, #dce4ed 48%, transparent 49%) 0 0/52px 52px,
-    linear-gradient(115deg, transparent 45%, #e3e8ee 46%, #e3e8ee 48%, transparent 49%) 0 0/62px 62px,
-    #f7f9fb;
-  .grid { position: absolute; inset: 0; background: linear-gradient(#dfe5eb 1px, transparent 1px), linear-gradient(90deg, #dfe5eb 1px, transparent 1px); background-size: 34px 34px; opacity: .55; }
-  .route { position: absolute; left: 38%; top: 20%; width: 26%; height: 58%; border-left: 5px solid #5b21b6; border-bottom: 5px solid #5b21b6; transform: skew(-12deg); }
-  .pin { position: absolute; left: 62%; top: 19%; width: 14px; height: 14px; border: 4px solid var(--checkout-primary); border-radius: 50% 50% 50% 0; background: #fff; transform: rotate(-45deg); }
-  @media (max-width: 760px) { height: 220px; border-radius: 16px; }
-`;
-
 export const Right = styled.aside`
   min-width: 0;
   @media (max-width: 760px) { display: none; }
