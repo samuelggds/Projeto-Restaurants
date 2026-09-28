@@ -385,7 +385,7 @@ test('cliente vê promoção, aplica benefício de fidelidade e envia o resgate 
   expect(paymentPayload).toMatchObject({ restaurantId: 9, couponRedemptionId: 71 });
 });
 
-test('campanha criada com a Home aberta aparece quando o cliente volta para a aba', async ({
+test('campanha criada com a Home aberta aparece ao entrar no programa de fidelidade', async ({
   page,
 }) => {
   let campaignPublished = false;
@@ -473,23 +473,13 @@ test('campanha criada com a Home aberta aparece quando o cliente volta para a ab
   await mockAuthRefresh(page, 22, 'e2e-customer-token');
   await page.goto('/restaurante-teste');
 
-  const customerHub = page.getByTestId('floating-actions-control-customer');
-  await expect(customerHub).toHaveAttribute('aria-expanded', 'false');
-  await customerHub.click();
-  await expect(customerHub).toHaveAttribute('aria-expanded', 'true');
-  await expect(
-    page.getByRole('button', {
-      name: /Clube de vantagens.*Toque para verificar novos cupons/i,
-    }),
-  ).toBeVisible();
-
   campaignPublished = true;
-  await page.evaluate(() => window.dispatchEvent(new Event('focus')));
+  await page.getByRole('button', { name: 'Minha conta' }).click();
+  await page.getByRole('button', { name: 'Programa de Fidelidade' }).click();
 
   await expect.poll(() => loyaltyRequests).toBeGreaterThan(1);
-  await expect(
-    page.getByRole('button', {
-      name: /Você ganhou um cupom.*10% de desconto/i,
-    }),
-  ).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Programa de Fidelidade' })).toBeVisible();
+  await expect(page.getByText('Cliente fiel', { exact: true }).first()).toBeVisible();
+  await expect(page.getByText('10% OFF', { exact: true }).first()).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Resgatar', exact: true })).toBeVisible();
 });
