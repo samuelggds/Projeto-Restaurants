@@ -25,6 +25,8 @@ import { PaymentOptions } from '../Home/components/PaymentOptions';
 import { GuestCheckoutForm, type GuestCheckoutDetails } from '../Home/components/GuestCheckoutForm';
 import { DeliveryMethodSelector } from '../Home/components/DeliveryMethodSelector';
 import { LoyaltyCouponPanel } from '../Home/components/LoyaltyCouponPanel';
+import { ProductConfigurator } from '../Home/components/ProductConfigurator';
+import { ComboConfigurator } from '../Home/components/ComboConfigurator';
 import { HomeFeedback, type HomeNotification } from '../Home/components/HomeFeedback';
 import {
   buildOrderPayload,
@@ -51,6 +53,7 @@ import { PaymentResultView } from '../../components/payment/PaymentResultView';
 import { useCardPaymentReturn } from './hooks/useCardPaymentReturn';
 import { buildLoginUrl } from '../../shared/navigation/authNavigation';
 import TableMenuExperience from '../digital-menu/TableMenuExperience';
+import type { HomeProduct } from './types';
 
 type NotifType = 'success' | 'error' | 'info' | 'warning';
 type HomeNavigationState = {
@@ -120,6 +123,8 @@ export default function Home() {
   const [tableServiceLoading, setTableServiceLoading] = useState<'WAITER' | 'BILL' | null>(null);
   const [tableOrderLoading, setTableOrderLoading] = useState(false);
   const [tableMenuReviewCartOpen, setTableMenuReviewCartOpen] = useState(false);
+  const [crossSellProduct, setCrossSellProduct] = useState<HomeProduct | null>(null);
+  const [crossSellCombo, setCrossSellCombo] = useState<HomeProduct | null>(null);
 
   useEffect(() => {
     if (!cartOpen) return undefined;
@@ -367,6 +372,36 @@ export default function Home() {
     couponRedemptionId: appliedRedemptionId,
   });
   const checkoutTotal = orderQuote.quote?.total ?? cartTotal;
+  const checkoutRecommendations = useMemo(() => {
+    const cartProductIds = new Set(cart.map((item) => String(item.productId)));
+    return homeData.products
+      .filter((product) => product.available && !cartProductIds.has(String(product.id)))
+      .slice(0, 3);
+  }, [cart, homeData.products]);
+
+  const handleCrossSellAdd = (product: HomeProduct) => {
+    if (product.kind === 'COMBO') {
+      setCrossSellCombo(product);
+      return;
+    }
+
+    if (product.saleMode === 'COMPLETE') {
+      addToCart(
+        product.id,
+        {
+          selectedOptions: [],
+          selectedOptionIds: [],
+          observation: '',
+          configurationVersion: product.configurationVersion,
+        },
+        1,
+      );
+      return;
+    }
+
+    setCrossSellProduct(product);
+  };
+
   function applyPurchasedStockToHome() {
     const purchased = new Map<string, number>();
 
@@ -970,6 +1005,8 @@ export default function Home() {
           onClear={() => setCart([])}
           onClose={() => setCartOpen(false)}
           onSubmit={() => void handleCheckout()}
+          recommendations={checkoutRecommendations}
+          onAddRecommendation={handleCrossSellAdd}
           couponContent={
             <LoyaltyCouponPanel
               loggedIn={isLoyaltyCustomer}
@@ -1023,6 +1060,31 @@ export default function Home() {
               onChange={setPaymentMethod}
             />
           }
+        />
+      ) : null}
+
+      {crossSellProduct ? (
+        <ProductConfigurator
+          product={crossSellProduct}
+          primaryColor={primary}
+          enableProductQuantity
+          onClose={() => setCrossSellProduct(null)}
+          onConfirm={(configuration, quantity) => {
+            addToCart(crossSellProduct.id, configuration, quantity || 1);
+            setCrossSellProduct(null);
+          }}
+        />
+      ) : null}
+
+      {crossSellCombo ? (
+        <ComboConfigurator
+          product={crossSellCombo}
+          primaryColor={primary}
+          onClose={() => setCrossSellCombo(null)}
+          onConfirm={(configuration) => {
+            addToCart(crossSellCombo.id, configuration, 1);
+            setCrossSellCombo(null);
+          }}
         />
       ) : null}
 
