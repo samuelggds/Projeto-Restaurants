@@ -10,7 +10,9 @@ import {
   Wifi,
 } from 'lucide-react';
 import { CartItemsList } from './components/CartItemsList';
+import { CartCrossSell } from './components/CartCrossSell';
 import type { CartItem } from './hooks/useCart';
+import type { HomeProduct } from './types';
 import type { OrderQuote } from './hooks/useOrderQuote';
 import * as S from './FigmaCheckoutFlow.styles';
 
@@ -30,6 +32,8 @@ type Props = {
   addressContent: ReactNode;
   paymentContent: ReactNode;
   couponContent?: ReactNode;
+  recommendations?: HomeProduct[];
+  onAddRecommendation?: (product: HomeProduct) => void;
   onStepChange: (step: FigmaCheckoutStep) => void;
   onIncrease: (cartId: string) => void;
   onDecrease: (cartId: string) => void;
@@ -62,6 +66,8 @@ export function FigmaCheckoutFlow({
   addressContent,
   paymentContent,
   couponContent,
+  recommendations = [],
+  onAddRecommendation,
   onStepChange,
   onIncrease,
   onDecrease,
@@ -197,6 +203,10 @@ export function FigmaCheckoutFlow({
               <S.CartEmpty>Seu carrinho está vazio.</S.CartEmpty>
             )}
 
+            {cartCount > 0 && !mobileCart && recommendations.length && onAddRecommendation ? (
+              <CartCrossSell products={recommendations} onAdd={onAddRecommendation} />
+            ) : null}
+
             {cartCount > 0 && mobileCart ? (
               <S.MobileCartSummary>
                 <button
@@ -212,6 +222,10 @@ export function FigmaCheckoutFlow({
 
                 {couponOpen && couponContent ? (
                   <div className="coupon-details">{couponContent}</div>
+                ) : null}
+
+                {recommendations.length && onAddRecommendation ? (
+                  <CartCrossSell products={recommendations} onAdd={onAddRecommendation} />
                 ) : null}
 
                 <div className="summary-row">
