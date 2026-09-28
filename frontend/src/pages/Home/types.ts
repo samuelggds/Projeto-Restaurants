@@ -227,4 +227,6 @@ export type HomePageProps = {
   onAddProduct?: (productId: string, configuration: ProductConfiguration, quantity?: number) => void;
   onToggleFavorite?: (productId: string) => void;
   onLogout?: () => void;
+  whatsappUrl?: string;
+  whatsappLabel?: string;
 };
