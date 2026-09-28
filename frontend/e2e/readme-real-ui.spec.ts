@@ -385,7 +385,9 @@ test('cardápio público mantém a hierarquia e a navegação móvel contidas em
     .poll(() => lastProductImage.evaluate((image) => (image as HTMLImageElement).naturalWidth))
     .toBeGreaterThan(0);
   await page.evaluate(() => window.scrollTo(0, 0));
-  await expect(page.getByRole('button', { name: 'Voltar para a Home' })).toBeVisible();
+  await expect(
+    page.getByRole('button', { name: 'Voltar para a Home', exact: true }),
+  ).toBeVisible();
   await captureReadmeScreenshot(page, 'customer-menu-mobile.png', { fullPage: true });
 });
 
