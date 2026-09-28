@@ -35,10 +35,10 @@ export const Header = styled.header`
   .logo img{width:100%;height:100%;object-fit:cover}
   .brand-copy{display:grid;gap:2px;min-width:0}.brand-copy b{font-family:'Gabarito','Inter',sans-serif;font-size:18px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .status{color:var(--muted);font-size:13px;display:flex;align-items:center;gap:6px}.status i{width:8px;height:8px;border-radius:50%;background:#32b667}
-  .search{height:40px;padding:0 16px;border:1px solid var(--line);border-radius:999px;background:color-mix(in srgb,var(--surface) 92%,var(--line));color:var(--muted);display:flex;align-items:center;gap:12px}
+  .search{height:40px;padding:0 16px;border:1px solid var(--line);border-radius: 10px;background:color-mix(in srgb,var(--surface) 92%,var(--line));color:var(--muted);display:flex;align-items:center;gap:12px}
   .actions{justify-self:end;display:flex;align-items:center;gap:24px}
   .account{border:0;background:transparent;color:var(--text);display:flex;align-items:center;gap:8px;font-weight:650}
-  .cart{min-height:40px;padding:0 16px;border:0;border-radius:999px;background:var(--p);color:#fff;display:flex;align-items:center;gap:10px;font-weight:700}
+  .cart{min-height:40px;padding:0 16px;border:0;border-radius: 10px;background:var(--p);color:#fff;display:flex;align-items:center;gap:10px;font-weight:700}
   .cart i{padding:2px 6px;border-radius:8px;background:#1f1e1a;font-size:11px;font-style:normal}
 
   @media(max-width:900px){display:none}
@@ -348,7 +348,7 @@ export const Coupon = styled.article<{ $muted?: boolean }>`
   h3{margin:0;font-family:'Gabarito','Inter',sans-serif;font-size:20px}.discount{color:var(--p);font-size:20px;font-weight:800}
   p{margin:0;color:var(--muted);font-size:13px;line-height:1.45}
   small{color:var(--muted);font-size:11px}
-  button{justify-self:start;min-height:36px;padding:0 14px;border:0;border-radius:999px;background:var(--p);color:#fff;font-size:12px;font-weight:700}
+  button{justify-self:start;min-height:36px;padding:0 14px;border:0;border-radius: 10px;background:var(--p);color:#fff;font-size:12px;font-weight:700}
 `;
 
 export const SectionLabel = styled.h2`
@@ -396,5 +396,5 @@ export const Footer = styled.footer`
 
 export const MobileHomeIndicator = styled.div`
   display:none;
-  @media(max-width:900px){display:flex;justify-content:center;padding:12px 0 0;&::after{content:'';width:120px;height:5px;border-radius:999px;background:#d1cece}}
+  @media(max-width:900px){display:flex;justify-content:center;padding:12px 0 0;&::after{content:'';width:120px;height:5px;border-radius: 10px;background:#d1cece}}
 `;
