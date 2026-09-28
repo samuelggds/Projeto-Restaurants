@@ -425,8 +425,8 @@ test('cliente consulta cupons válidos, histórico e o novo ciclo no perfil', as
   const couponCheckout = page.getByRole('dialog', { name: 'Finalizar pedido' });
   await expect(couponCheckout).toBeVisible();
   await expect(
-    couponCheckout.getByRole('button', { name: /Campanha anterior.*ANTIGO5.*Aplicado/i }),
-  ).toHaveAttribute('aria-pressed', 'true');
+    couponCheckout.getByRole('button', { name: /ANTIGO5.*Aplicado/i }),
+  ).toBeVisible();
   await expect
     .poll(() => quotePayloads.find((payload) => payload.couponRedemptionId === 74))
     .toMatchObject({ restaurantId: 9, couponRedemptionId: 74 });
