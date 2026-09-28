@@ -130,6 +130,10 @@ function FigmaAccountExperienceReady(props: ProfilePageProps & { data: ProfileDa
   const activeCoupons = coupons.filter((entry) => entry.status === 'available' || entry.status === 'reserved');
   const historyCoupons = coupons.filter((entry) => entry.status === 'used' || entry.status === 'expired');
   const activeOrders = data.activeOrder ? [data.activeOrder] : [];
+  const activeOrderCount = Math.max(
+    activeOrders.length,
+    Number(data.activeOrderCount || 0),
+  );
   const orderHistory = data.recentOrders;
   const primary = data.brand.primaryColor || '#e85a2b';
   const initials = data.user.fullName
@@ -446,14 +450,21 @@ function FigmaAccountExperienceReady(props: ProfilePageProps & { data: ProfileDa
         </span>
         <div className="copy">
           <b>{data.user.fullName}</b>
-          <span>{data.user.phone || data.user.email}</span>
+          <span className="mobile-contact">{data.user.phone || data.user.email}</span>
+          <span className="desktop-contact">
+            {[data.user.phone, data.user.email].filter(Boolean).join(' · ')}
+          </span>
         </div>
       </S.ProfileCard>
 
       <S.MenuCard>
         <button type="button" onClick={() => setView('orders')}>
           <ShoppingBag /><span>Meus pedidos</span>
-          {activeOrders.length ? <span className="badge">{activeOrders.length} ativos</span> : null}
+          {activeOrderCount ? (
+            <span className="badge">
+              {activeOrderCount} {activeOrderCount === 1 ? 'ativo' : 'ativos'}
+            </span>
+          ) : null}
           <ChevronRight className="chev" />
         </button>
         <button type="button" onClick={() => setView('addresses')}>
