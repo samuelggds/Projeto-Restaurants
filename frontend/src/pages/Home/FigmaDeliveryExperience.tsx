@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Clock3,
   MapPin,
@@ -13,7 +13,6 @@ import {
 import { ComboConfigurator } from './components/ComboConfigurator';
 import { FacebookIcon, InstagramIcon } from './components/SocialBrandIcons';
 import { ProductConfigurator } from './components/ProductConfigurator';
-import { ProductSearchDialog } from './components/ProductSearchDialog';
 import { CustomerDesktopFooter } from './components/CustomerDesktopFooter';
 import { getFeaturedProducts } from './domain/featuredProducts';
 import { buildSocialProfileUrl } from './domain/publicSettings';
@@ -64,7 +63,10 @@ export function FigmaDeliveryExperience({
   );
   const [selectedProduct, setSelectedProduct] = useState<HomeProduct | null>(null);
   const [selectedCombo, setSelectedCombo] = useState<HomeProduct | null>(null);
-  const [searchOpen, setSearchOpen] = useState(Boolean(initialSearchOpen));
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchFocused, setSearchFocused] = useState(Boolean(initialSearchOpen));
+  const [mobileSearchOpen, setMobileSearchOpen] = useState(Boolean(initialSearchOpen));
+  const searchInputRef = useRef<HTMLInputElement>(null);
 
   const availableProducts = useMemo(
     () => data.products.filter((product) => product.available),
@@ -110,6 +112,31 @@ export function FigmaDeliveryExperience({
   const heroHighlight = activeBanner?.highlight || data.hero.highlight;
   const heroDescription = activeBanner?.description || data.hero.description;
   const hours = formatHours(data);
+  const normalizeSearchText = (value: string) =>
+    value
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLocaleLowerCase('pt-BR')
+      .trim();
+  const normalizedSearch = normalizeSearchText(searchQuery);
+  const searchResults = useMemo(
+    () =>
+      normalizedSearch
+        ? availableProducts
+            .filter((product) => normalizeSearchText(product.name).includes(normalizedSearch))
+            .slice(0, 6)
+        : [],
+    [availableProducts, normalizedSearch],
+  );
+
+  useEffect(() => {
+    if (!initialSearchOpen) return;
+    const frame = window.requestAnimationFrame(() => {
+      searchInputRef.current?.focus();
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [initialSearchOpen]);
+
 
   const openProduct = (product: HomeProduct) => {
     if (product.kind === 'COMBO') {
@@ -151,12 +178,77 @@ export function FigmaDeliveryExperience({
           </span>
         </div>
 
-        <button className="search" type="button" onClick={() => setSearchOpen(true)}>
+        <S.InlineSearch
+          className={mobileSearchOpen ? 'mobile-open' : ''}
+          onFocus={() => setSearchFocused(true)}
+          onBlur={(event) => {
+            if (event.currentTarget.contains(event.relatedTarget as Node | null)) return;
+            setSearchFocused(false);
+          }}
+        >
           <Search aria-hidden="true" />
-          <span>Buscar no cardápio de {data.brand.name}...</span>
-        </button>
+          <input
+            ref={searchInputRef}
+            type="search"
+            value={searchQuery}
+            autoComplete="off"
+            aria-label="Pesquisar produto pelo nome"
+            placeholder={`Buscar no cardápio de ${data.brand.name}...`}
+            onChange={(event) => setSearchQuery(event.target.value)}
+          />
+          {searchQuery ? (
+            <button
+              className="clear"
+              type="button"
+              aria-label="Limpar busca"
+              onClick={() => {
+                setSearchQuery('');
+                searchInputRef.current?.focus();
+              }}
+            >
+              ×
+            </button>
+          ) : null}
 
-        <button className="mobile-header-search" type="button" aria-label="Buscar no cardápio" onClick={() => setSearchOpen(true)}>
+          {searchFocused && normalizedSearch ? (
+            <S.InlineSearchResults aria-label="Produtos encontrados">
+              {searchResults.length ? (
+                searchResults.map((product) => (
+                  <button
+                    key={product.id}
+                    type="button"
+                    onMouseDown={(event) => event.preventDefault()}
+                    onClick={() => {
+                      setSearchQuery('');
+                      setSearchFocused(false);
+                      setMobileSearchOpen(false);
+                      openProduct(product);
+                    }}
+                  >
+                    <span className="thumb">{productImage(product)}</span>
+                    <span className="copy">
+                      <b>{product.name}</b>
+                      {product.description ? <small>{product.description}</small> : null}
+                      <strong>{money(product.price)}</strong>
+                    </span>
+                  </button>
+                ))
+              ) : (
+                <span className="empty">Nenhum produto encontrado.</span>
+              )}
+            </S.InlineSearchResults>
+          ) : null}
+        </S.InlineSearch>
+
+        <button
+          className="mobile-header-search"
+          type="button"
+          aria-label="Buscar no cardápio"
+          onClick={() => {
+            setMobileSearchOpen(true);
+            window.requestAnimationFrame(() => searchInputRef.current?.focus());
+          }}
+        >
           <Search aria-hidden="true" />
         </button>
 
@@ -426,17 +518,6 @@ export function FigmaDeliveryExperience({
         onMenu={() => setView('menu')}
       />
 
-
-      <ProductSearchDialog
-        open={searchOpen}
-        products={availableProducts}
-        primaryColor={primary}
-        onClose={() => setSearchOpen(false)}
-        onSelect={(product) => {
-          setSearchOpen(false);
-          openProduct(product);
-        }}
-      />
 
       {selectedProduct ? (
         <ProductConfigurator
