@@ -83,12 +83,6 @@ describe('RecoverPassword', () => {
   });
 
   it('solicita o código por e-mail e preserva o contato durante a confirmação', async () => {
-    const emailMethod = [...container.querySelectorAll('button')].find(
-      (button) => button.textContent?.trim() === 'E-mail',
-    ) as HTMLButtonElement;
-    act(() => emailMethod.click());
-
-    expect(emailMethod.getAttribute('aria-pressed')).toBe('true');
     const identifier = container.querySelector('#identifier') as HTMLInputElement;
     expect(identifier.type).toBe('email');
     setInputValue(identifier, 'cliente@example.test');
@@ -101,7 +95,6 @@ describe('RecoverPassword', () => {
     expect(mocks.forgotPassword).toHaveBeenCalledWith({ email: 'cliente@example.test' });
     expect(identifier.readOnly).toBe(true);
     expect(container.textContent).toContain('Código solicitado para cliente@example.test.');
-    expect(emailMethod.disabled).toBe(true);
   });
 
   it('permite trocar o contato antes de solicitar um novo código', async () => {

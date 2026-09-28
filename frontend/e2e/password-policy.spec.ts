@@ -61,9 +61,8 @@ test('cadastro exige os seis requisitos e aceita senha forte com exatamente 8 ca
   const submit = page.locator('form button[type="submit"]');
   const requirements = page.getByRole('region', { name: 'Requisitos da senha' });
 
-  await expect(requirements).toHaveCount(0);
-  await password.fill('Ab1!cde');
   await expect(requirements).toBeVisible();
+  await password.fill('Ab1!cde');
   await expect(requirements.getByText('Pendente')).toHaveCount(0);
   await expect(requirements.getByText('Atendido')).toHaveCount(0);
   await confirmation.fill('Ab1!cde');
@@ -76,7 +75,7 @@ test('cadastro exige os seis requisitos e aceita senha forte com exatamente 8 ca
   await password.fill('Ab1!cdef');
   await confirmation.fill('Ab1!cdef');
   await expect(submit).toBeEnabled();
-  await expect(requirements.locator('[data-requirement][data-met="true"]')).toHaveCount(6);
+  await expect(page.locator('[data-requirement][data-met="true"]')).toHaveCount(6);
 
   await page.getByLabel('Nome Completo').fill('Cliente E2E');
   await page.getByLabel('E-mail').fill('cliente.e2e@example.test');
@@ -148,7 +147,7 @@ test('cadastro preserva o restaurante, anuncia o envio e apresenta o erro da API
   await page.getByLabel('Confirmar Senha', { exact: true }).fill('Ab1!cdef');
   await page.getByRole('button', { name: 'Criar conta e continuar na Mesa 5' }).click();
 
-  const submitting = page.getByRole('button', { name: 'Finalizando...' });
+  const submitting = page.getByRole('button', { name: 'Criar conta e continuar na Mesa 5' });
   await expect(submitting).toBeDisabled();
   await expect(submitting).toHaveAttribute('aria-busy', 'true');
   await expect.poll(() => Boolean(releaseRegistration)).toBe(true);

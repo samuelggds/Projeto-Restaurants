@@ -409,7 +409,6 @@ async function registerCustomer(page: Page) {
 }
 
 async function recoverCustomerPassword(page: Page) {
-  await page.getByRole('button', { name: 'E-mail' }).click();
   await page.getByLabel('E-mail').fill(CUSTOMER_EMAIL);
   await page.getByRole('button', { name: 'Enviar código' }).click();
   await page.getByLabel('Código').fill('123456');
