@@ -331,9 +331,38 @@ export const Categories = styled.div`
 `;
 
 export const ProductGrid = styled.div`
- display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:18px;
- @media(max-width:980px){grid-template-columns:repeat(3,minmax(0,1fr))}
- @media(max-width:760px){grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+ display:flex;
+ flex-wrap:nowrap;
+ gap:18px;
+ overflow-x:auto;
+ overflow-y:hidden;
+ padding:2px 2px 10px;
+ scroll-snap-type:x proximity;
+ scroll-behavior:smooth;
+ scrollbar-width:none;
+ -webkit-overflow-scrolling:touch;
+
+ &::-webkit-scrollbar{display:none}
+
+ > *{
+   flex:0 0 calc((100% - 54px) / 4);
+   min-width:0;
+   scroll-snap-align:start;
+ }
+
+ @media(max-width:980px){
+   > *{flex-basis:calc((100% - 36px) / 3)}
+ }
+
+ @media(max-width:760px){
+   gap:12px;
+   margin-right:-20px;
+   padding-right:20px;
+
+   > *{
+     flex:0 0 min(72vw,220px);
+   }
+ }
 `;
 
 export const ProductCard = styled.article`
