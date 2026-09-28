@@ -253,36 +253,25 @@ test('cliente vê promoção, aplica benefício de fidelidade e envia o resgate 
     'line-through',
   );
   await expect(featuredOffers.getByText('R$ 40,00')).toBeVisible();
-  const customerHub = page.getByTestId('floating-actions-control-customer');
-  await expect(customerHub).toHaveAttribute('aria-expanded', 'false');
-  await customerHub.click();
-  await expect(customerHub).toHaveAttribute('aria-expanded', 'true');
-  const loyaltyNotice = page.getByRole('button', {
-    name: /Você ganhou um cupom.*10% de desconto/i,
-  });
-  await expect(loyaltyNotice).toBeVisible();
-  await loyaltyNotice.click();
-
-  const loyaltyDialog = page.getByRole('dialog', { name: 'Seus pedidos viram descontos' });
-  await expect(loyaltyDialog).toBeVisible();
-  await expect(loyaltyDialog.getByText('5/5')).toBeVisible();
-  await loyaltyDialog.getByRole('button', { name: 'Resgatar cupom' }).click();
-  await expect(loyaltyDialog.getByText('Cupom disponível')).toBeVisible();
-  await expect(loyaltyDialog.getByText('Código FIEL10')).toBeVisible();
-  await expect(loyaltyDialog.getByText('Válido até 22/09/2099')).toBeVisible();
-  await expect(loyaltyDialog.getByText('0/5')).toBeVisible();
-  await expect(loyaltyDialog.getByText('Faltam 0 compras')).toHaveCount(0);
+  await page.getByRole('button', { name: 'Minha conta' }).click();
+  await expect(page).toHaveURL(/\/profile/);
+  await page.getByRole('button', { name: 'Programa de Fidelidade' }).click();
+  await expect(page.getByRole('heading', { name: 'Programa de Fidelidade' })).toBeVisible();
+  await expect(page.getByText('5 / 5')).toBeVisible();
+  await page.getByRole('button', { name: 'Resgatar', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Ver cupom' })).toBeVisible();
   expect(redeemPayload).toMatchObject({ restaurantId: 9 });
-  await loyaltyDialog.getByRole('button', { name: 'Fechar fidelidade' }).click();
-  const availableLoyaltyNotice = page.getByRole('button', {
-    name: /Cupom disponível.*10% de desconto/i,
-  });
-  await expect(availableLoyaltyNotice).toBeVisible();
+  await page.getByRole('button', { name: 'Ver cupom' }).click();
+  await expect(page.getByRole('heading', { name: 'Cupons de Resgate' })).toBeVisible();
+  await expect(page.getByText('Cliente fiel', { exact: true }).first()).toBeVisible();
+  await expect(page.getByText('Ativo', { exact: true }).first()).toBeVisible();
+  await expect(page.getByText('Válido até 22/09/2099')).toBeVisible();
+
+  await page.goto('/restaurante-teste');
 
   for (const width of [430, 390, 320]) {
     await page.setViewportSize({ width, height: 844 });
     await expect(featuredOffers).toBeVisible();
-    await expect(availableLoyaltyNotice).toBeVisible();
 
     const loyaltyMetrics = await availableLoyaltyNotice.evaluate((element) => {
       const rect = element.getBoundingClientRect();
@@ -356,7 +345,6 @@ test('cliente vê promoção, aplica benefício de fidelidade e envia o resgate 
   }
 
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.getByRole('button', { name: 'Fechar central do cliente' }).click();
 
   await featuredOffers.getByRole('button', { name: 'Ver detalhes de Prato artesanal' }).click();
   await page.getByText('Base tradicional').click();
@@ -390,13 +378,10 @@ test('cliente vê promoção, aplica benefício de fidelidade e envia o resgate 
   await expect(page.locator('main[data-status="PAID"]')).toBeVisible();
   await expect(page.getByText('Recebemos a confirmação do seu pagamento.')).toBeVisible();
   await page.getByRole('button', { name: 'Voltar ao cardápio' }).click();
-  await expect(customerHub).toHaveAttribute('aria-expanded', 'false');
-  await customerHub.click();
-  await expect(customerHub).toHaveAttribute('aria-expanded', 'true');
-  await expect(
-    page.getByRole('button', { name: /Faltam 5 pedidos.*próxima recompensa/i }),
-  ).toBeVisible();
-  await expect(page.getByRole('button', { name: /Cupom disponível/i })).toHaveCount(0);
+  await page.getByRole('button', { name: 'Minha conta' }).click();
+  await page.getByRole('button', { name: 'Programa de Fidelidade' }).click();
+  await expect(page.getByText(/Faltam apenas 5 pedidos/)).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Ver cupom' })).toHaveCount(0);
   expect(paymentPayload).toMatchObject({ restaurantId: 9, couponRedemptionId: 71 });
 });
 
