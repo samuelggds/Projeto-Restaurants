@@ -40,7 +40,7 @@ function installTransaction() {
 }
 
 for (const role of ['ADMIN', 'SUPER_ADMIN']) {
-  test(`${role} não pode desabilitar MFA nem com senha válida`, async () => {
+  test(`${role} pode desabilitar MFA com senha válida`, async () => {
     const updates: boolean[] = [];
     const revoked = installTransaction();
     userRepository.findByIdWithPassword = async () => ({
@@ -48,18 +48,19 @@ for (const role of ['ADMIN', 'SUPER_ADMIN']) {
       role,
       active: true,
       mfaEnabled: true,
+      password: 'hash',
+      authVersion: 4,
     });
+    bcrypt.compare = async () => true;
     userRepository.updateMfaEnabled = async (_id, enabled) => {
       updates.push(enabled);
       return { id: 1, role, mfaEnabled: enabled };
     };
 
-    await assert.rejects(
-      () => updateMfaPreferenceService.execute(1, false, 'valid-password'),
-      /obrigatória/,
-    );
-    assert.deepEqual(updates, []);
-    assert.deepEqual(revoked, { refresh: 0, challenge: 0 });
+    const result = await updateMfaPreferenceService.execute(1, false, 'valid-password');
+    assert.equal(result.mfaEnabled, false);
+    assert.deepEqual(updates, [false]);
+    assert.deepEqual(revoked, { refresh: 1, challenge: 1 });
   });
 }
 
