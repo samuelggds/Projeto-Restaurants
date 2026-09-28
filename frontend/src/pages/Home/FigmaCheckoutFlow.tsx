@@ -71,7 +71,7 @@ export function FigmaCheckoutFlow({
   onSubmit,
 }: Props) {
   const layerRef = useRef<HTMLDivElement>(null);
-  const [couponOpen, setCouponOpen] = useState(true);
+  const [couponOpen, setCouponOpen] = useState(false);
   const [mobileCart, setMobileCart] = useState(() =>
     window.matchMedia('(max-width: 760px)').matches,
   );
