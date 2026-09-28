@@ -30,6 +30,7 @@ import { ComboConfigurator } from '../Home/components/ComboConfigurator';
 import { GuestAddressCheckout } from '../Home/components/GuestAddressCheckout';
 import { AuthenticatedAddressCheckout } from '../Home/components/AuthenticatedAddressCheckout';
 import { AuthenticatedEmptyAddressCheckout } from '../Home/components/AuthenticatedEmptyAddressCheckout';
+import { FigmaPaymentCheckout } from '../Home/components/FigmaPaymentCheckout';
 import { HomeFeedback, type HomeNotification } from '../Home/components/HomeFeedback';
 import {
   buildOrderPayload,
@@ -1150,6 +1151,40 @@ export default function Home() {
                 loading={orderQuote.loading}
               />
             ) : undefined
+          }
+          paymentScreen={
+            <FigmaPaymentCheckout
+              primaryColor={primary}
+              loggedIn={Boolean(user)}
+              brandName={homeData.brand.name}
+              cart={cart}
+              cartCount={cartCount}
+              subtotal={
+                orderQuote.quote
+                  ? orderQuote.quote.itemsSubtotal + orderQuote.quote.productDiscountTotal
+                  : cartTotal
+              }
+              deliveryFee={orderQuote.quote?.deliveryFeeAmount || 0}
+              total={checkoutTotal}
+              paymentMethods={
+                <PaymentOptions
+                  paymentMethod={selectedCheckoutPaymentMethod}
+                  allowPayOnDelivery={allowPayOnDelivery}
+                  allowPix={homeData.acceptsPix}
+                  allowOpenFinancePix={homeData.openFinancePixEnabled}
+                  allowCard={homeData.acceptsCard}
+                  restaurantId={restaurantId}
+                  loggedIn={Boolean(user)}
+                  userEmail={user ? String((user as Record<string, unknown>).email || '') : undefined}
+                  onChange={setPaymentMethod}
+                  figmaCheckout
+                />
+              }
+              onBack={() => setCheckoutStep('address')}
+              onContinue={() => void handleCheckout()}
+              disabled={!checkoutChannelAvailable || !paymentAvailable}
+              loading={checkoutLoading}
+            />
           }
           couponContent={
             <LoyaltyCouponPanel
