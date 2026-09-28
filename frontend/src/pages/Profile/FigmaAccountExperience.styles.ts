@@ -2,19 +2,29 @@ import styled from 'styled-components';
 
 export const Root = styled.div<{ $primary: string; $dark?: boolean }>`
   --p: ${({ $primary }) => $primary || '#e85a2b'};
-  --bg: ({ $dark }) => ($dark ? '#151515' : '#fdfcf9');
-  --surface: ({ $dark }) => ($dark ? '#202020' : '#fff');
-  --text: ({ $dark }) => ($dark ? '#f6f4ef' : '#1f1e1a');
-  --muted: ({ $dark }) => ($dark ? '#aaa69f' : '#72706b');
-  --line: ({ $dark }) => ($dark ? '#34322f' : '#efece6');
+  --bg: ${({ $dark }) => ($dark ? '#151515' : '#f7f5f1')};
+  --surface: ${({ $dark }) => ($dark ? '#202020' : '#ffffff')};
+  --text: ${({ $dark }) => ($dark ? '#f6f4ef' : '#1f1e1a')};
+  --muted: ${({ $dark }) => ($dark ? '#aaa69f' : '#6f6a64')};
+  --line: ${({ $dark }) => ($dark ? '#34322f' : '#dfdbd5')};
   min-height: 100vh;
   background: var(--bg);
   color: var(--text);
   font-family: 'Inter', system-ui, sans-serif;
 
   *, *::before, *::after { box-sizing: border-box; }
-  button, input { font: inherit; }
+  button, input, select, textarea { font: inherit; }
+  button, input, select, textarea { color: var(--text); }
   button { cursor: pointer; }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      scroll-behavior: auto !important;
+      transition-duration: 0.01ms !important;
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+    }
+  }
 `;
 
 export const Header = styled.header`
@@ -40,6 +50,8 @@ export const Mobile = styled.main`
     display:block;
     min-height:calc(100dvh - 44px);
     padding:20px 20px 28px;
+    background:var(--bg);
+    color:var(--text);
 
     &.orders-view{
       padding-top:0;
@@ -63,6 +75,8 @@ export const Desktop = styled.main`
   display:block;
   min-height:896px;
   padding:64px 120px 80px;
+  background:var(--bg);
+  color:var(--text);
   @media(max-width:1100px){padding-inline:48px}
   @media(max-width:900px){display:none}
 `;
@@ -85,7 +99,7 @@ export const PageTitle = styled.div`
 `;
 
 export const ProfileCard = styled.section`
-  padding:16px;border:1px solid var(--line);border-radius:20px;background:var(--surface);display:flex;align-items:center;gap:16px;
+  padding:16px;border:1px solid var(--line);border-radius:20px;background:var(--surface);color:var(--text);display:flex;align-items:center;gap:16px;box-shadow:0 5px 18px rgba(25,22,18,.035);
   .avatar{width:60px;height:64px;flex:0 0 60px;border-radius:30px;overflow:hidden;background:color-mix(in srgb,var(--p) 12%,#fff);color:var(--p);display:grid;place-items:center;font-family:'Gabarito','Inter',sans-serif;font-size:22px;font-weight:800}
   .avatar img{width:100%;height:100%;object-fit:cover}
   .copy{min-width:0;display:grid;gap:4px}
@@ -105,7 +119,7 @@ export const ProfileCard = styled.section`
 `;
 
 export const MenuCard = styled.section`
-  padding:8px;border:1px solid var(--line);border-radius:20px;background:var(--surface);
+  padding:8px;border:1px solid var(--line);border-radius:20px;background:var(--surface);color:var(--text);box-shadow:0 5px 18px rgba(25,22,18,.035);
   button{width:100%;min-height:52px;padding:16px;border:0;border-bottom:1px solid var(--line);background:transparent;color:var(--text);display:flex;align-items:center;gap:12px;text-align:left}
   button:last-child{border-bottom:0}
   button svg:first-child{width:20px;height:20px;flex:0 0 20px}
@@ -190,6 +204,8 @@ export const OrderCard = styled.article`
   border:1px solid var(--line);
   border-radius:16px;
   background:var(--surface);
+  color:var(--text);
+  box-shadow:0 4px 14px rgba(25,22,18,.03);
   display:grid;
   gap:16px;
   outline:none;
@@ -296,7 +312,7 @@ export const OrderCard = styled.article`
 `;
 
 export const ItemCard = styled.article`
-  min-height:84px;padding:16px 20px;border:1px solid var(--line);border-radius:16px;background:var(--surface);display:flex;align-items:center;gap:16px;
+  min-height:84px;padding:16px 20px;border:1px solid var(--line);border-radius:16px;background:var(--surface);color:var(--text);display:flex;align-items:center;gap:16px;box-shadow:0 4px 14px rgba(25,22,18,.03);
   .icon{width:44px;height:44px;flex:0 0 44px;border-radius:12px;background:#fdf2ec;color:var(--p);display:grid;place-items:center}
   .copy{min-width:0;display:grid;gap:4px;flex:1}.copy b{font-size:15px}.copy span{color:var(--muted);font-size:13px;line-height:1.35}
   .default{color:var(--p);font-size:11px;font-weight:800}
@@ -325,7 +341,7 @@ export const SectionLabel = styled.h2`
 `;
 
 export const SettingsCard = styled.section`
-  padding:8px;border:1px solid var(--line);border-radius:16px;background:var(--surface);
+  padding:8px;border:1px solid var(--line);border-radius:16px;background:var(--surface);color:var(--text);box-shadow:0 4px 14px rgba(25,22,18,.03);
   .row{min-height:52px;padding:16px;display:flex;align-items:center;justify-content:space-between;gap:16px;border-bottom:1px solid var(--line)}
   .row:last-child{border-bottom:0}.row span{font-size:15px;font-weight:650}.row.danger{color:#df2c2c}
   button.link,a.link{border:0;background:transparent;color:inherit;display:flex;align-items:center;gap:8px;text-decoration:none}
