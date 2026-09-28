@@ -38,7 +38,7 @@ export function FigmaPaymentCheckout({
   loading = false,
 }: Props) {
   return (
-    <S.Page $primary={primaryColor}>
+    <S.Page $primary={primaryColor} role="dialog" aria-modal="true" aria-label="Finalizar pedido">
       <S.MobileHeader>
         <button type="button" onClick={onBack} aria-label="Voltar">
           <ArrowLeft aria-hidden="true" />
