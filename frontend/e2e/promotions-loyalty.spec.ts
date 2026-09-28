@@ -382,7 +382,7 @@ test('cliente vê promoção, aplica benefício de fidelidade e envia o resgate 
   const pixOption = checkout.getByRole('button', { name: /Pix QR Code/i });
   await expect(pixOption).toBeVisible();
   await pixOption.click();
-  await checkout.getByRole('button', { name: 'Continuar', exact: true }).click();
+  await checkout.getByRole('button', { name: 'Confirmar Pagamento', exact: true }).click();
   await expect(page.getByText('Pagamento PIX', { exact: true })).toBeVisible();
   await expect(page.getByText('R$ 36,00')).toBeVisible();
   const paidPix = page.locator('main[data-status="PAID"][data-payment-method="pix"]');
