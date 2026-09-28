@@ -5,6 +5,7 @@ import {
   CreditCard,
   LogIn,
   Landmark,
+  Plus,
   QrCode,
   ShieldCheck,
   Store,
@@ -476,7 +477,6 @@ export function PaymentOptions({
                   restaurantId={restaurantId}
                   payerEmail={userEmail}
                   onPreparerChange={registerCardPreparer}
-                  figmaCheckout
                 />
               </P.FigmaGuestCardForm>
             ) : null}
@@ -487,7 +487,6 @@ export function PaymentOptions({
                   restaurantId={restaurantId!}
                   savedCard={selectedSavedCard}
                   onPreparerChange={registerCardPreparer}
-                  figmaCheckout
                 />
               </P.FigmaSavedCardSecurity>
             ) : null}
@@ -526,8 +525,7 @@ export function PaymentOptions({
               restaurantId={restaurantId}
               payerEmail={userEmail}
               onPreparerChange={registerCardPreparer}
-              figmaCheckout
-            />
+                />
           </P.FigmaDebitForm>
         ) : null}
 
