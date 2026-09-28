@@ -129,29 +129,40 @@ export function buildProfileData({
   const activeRawOrders = orders.filter((order) =>
     ACTIVE_STATUSES.has(String(order.status || '').toUpperCase()),
   );
+  const mapActiveOrder = (order: Record<string, unknown>) => {
+    const channel = getProfileOrderChannel(order);
+    const paymentMethod = String(order.paymentMethod || '').toUpperCase();
+    const paymentPending =
+      String(order.status || '').toUpperCase() !== 'CANCELADO' &&
+      order.paid !== true &&
+      (paymentMethod === 'CARTAO' ||
+        (paymentMethod === 'PIX' && Boolean(String(order.pixPaymentId || '').trim())));
+    const createdAt = order.createdAt ? new Date(String(order.createdAt)) : null;
+    const date =
+      createdAt && !Number.isNaN(createdAt.getTime())
+        ? createdAt.toLocaleString('pt-BR', {
+            day: '2-digit',
+            month: '2-digit',
+            hour: '2-digit',
+            minute: '2-digit',
+          })
+        : '';
+    return {
+      id: `#${String(order.id).padStart(4, '0')}`,
+      status: mapOrderStatus(order.status),
+      date,
+      estimatedArrival: estimateArrival(order, settings),
+      summary: buildOrderSummary(order),
+      image: firstProductImage(order),
+      total: Number(order.total || 0),
+      channel,
+      publicId: String(order.publicId || ''),
+      paymentPending,
+    };
+  };
+  const activeOrders = activeRawOrders.map(mapActiveOrder);
   const activeRaw = activeRawOrders[0];
-  const activeOrder = activeRaw
-    ? (() => {
-        const channel = getProfileOrderChannel(activeRaw);
-        const paymentMethod = String(activeRaw.paymentMethod || '').toUpperCase();
-        const paymentPending =
-          String(activeRaw.status || '').toUpperCase() !== 'CANCELADO' &&
-          activeRaw.paid !== true &&
-          (paymentMethod === 'CARTAO' ||
-            (paymentMethod === 'PIX' && Boolean(String(activeRaw.pixPaymentId || '').trim())));
-        return {
-          id: `#${String(activeRaw.id).padStart(4, '0')}`,
-          status: mapOrderStatus(activeRaw.status),
-          estimatedArrival: estimateArrival(activeRaw, settings),
-          summary: `${buildOrderSummary(activeRaw)} · ${channel}`,
-          image: firstProductImage(activeRaw),
-          total: Number(activeRaw.total || 0),
-          channel,
-          publicId: String(activeRaw.publicId || ''),
-          paymentPending,
-        };
-      })()
-    : undefined;
+  const activeOrder = activeOrders[0];
   const recentOrders: ProfileOrder[] = orders
     .filter(
       (order) =>
@@ -207,6 +218,7 @@ export function buildProfileData({
     brand,
     user: profileUser,
     activeOrder,
+    activeOrders,
     activeOrderCount: activeRawOrders.length,
     recentOrders,
     addresses,
