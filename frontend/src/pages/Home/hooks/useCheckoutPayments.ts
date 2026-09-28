@@ -92,6 +92,9 @@ export function getCheckoutErrorMessage(error: unknown): string {
   if (!message.startsWith('[')) {
     const normalized = message.toLowerCase();
     const hidesTechnicalConfig =
+      normalized.includes('internal provider trace') ||
+      normalized.includes('upstream timeout') ||
+      normalized.includes('internal server error') ||
       (normalized.includes('access token') ||
         normalized.includes('configur') ||
         normalized.includes('mercado pago') ||

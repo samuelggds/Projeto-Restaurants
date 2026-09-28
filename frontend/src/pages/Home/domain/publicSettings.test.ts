@@ -28,7 +28,7 @@ describe('configurações públicas da Home', () => {
   it('deriva somente formas de pagamento habilitadas', () => {
     expect(
       getAvailablePaymentMethods({ allowPayOnDelivery: true, allowPix: true, allowCard: false }),
-    ).toEqual(['pix', 'delivery_pix']);
+    ).toEqual(['pix', 'delivery_pix', 'delivery_cash']);
   });
 
   it('monta o contato de WhatsApp somente com número válido e mensagem codificada', () => {

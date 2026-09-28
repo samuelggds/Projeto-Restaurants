@@ -10,10 +10,13 @@ type Props = {
   cepMessage: string;
   onCepChange: (value: string) => void;
   onCepLookup: (value: string) => Promise<void>;
+  expanded?: boolean;
+  figmaGuest?: boolean;
+  figmaAuthenticatedEmpty?: boolean;
 };
 
 export function DeliveryAddressForm(props: Props) {
-  const [editing, setEditing] = useState(false);
+  const [editing, setEditing] = useState(Boolean(props.expanded));
   const update = (field: keyof DeliveryAddress, value: string) =>
     props.setAddress((current) => ({ ...current, [field]: value }));
 
@@ -34,7 +37,7 @@ export function DeliveryAddressForm(props: Props) {
 
   return (
     <Section aria-label="Endereço de entrega">
-      <SummaryButton type="button" onClick={() => setEditing(true)} $complete={complete}>
+      {!props.expanded ? <SummaryButton type="button" onClick={() => setEditing(true)} $complete={complete}>
         <span className="icon" aria-hidden="true">
           <MapPin size={19} />
         </span>
@@ -46,18 +49,27 @@ export function DeliveryAddressForm(props: Props) {
           {complete ? <CheckCircle2 size={16} /> : <span>Cadastrar</span>}
           <ChevronRight size={17} aria-hidden="true" />
         </span>
-      </SummaryButton>
+      </SummaryButton> : null}
 
-      {editing ? (
-        <Editor>
+      {editing || props.expanded ? (
+        <Editor
+          className={[
+            props.figmaGuest ? 'figma-guest-address' : '',
+            props.figmaAuthenticatedEmpty ? 'figma-auth-empty-address' : '',
+          ]
+            .filter(Boolean)
+            .join(' ')}
+        >
           <div className="editor-heading">
             <div>
               <b>{complete ? 'Alterar endereço' : 'Cadastrar endereço'}</b>
               <small>Informe o endereço que será usado somente para esta entrega.</small>
             </div>
-            <button type="button" className="close" onClick={() => setEditing(false)} aria-label="Fechar">
-              <X size={17} />
-            </button>
+            {!props.expanded ? (
+              <button type="button" className="close" onClick={() => setEditing(false)} aria-label="Fechar">
+                <X size={17} />
+              </button>
+            ) : null}
           </div>
 
           <AddressForm>
@@ -73,7 +85,7 @@ export function DeliveryAddressForm(props: Props) {
                   if (props.cepStatus === 'idle') void props.onCepLookup(event.target.value);
                 }}
                 onChange={(event) => props.onCepChange(event.target.value)}
-                autoFocus
+                autoFocus={!props.expanded}
               />
               {props.cepMessage && <small className={props.cepStatus}>{props.cepMessage}</small>}
             </AddressField>
@@ -153,9 +165,11 @@ export function DeliveryAddressForm(props: Props) {
             </AddressField>
           </AddressForm>
 
-          <button type="button" className="save" disabled={!complete} onClick={() => setEditing(false)}>
-            Usar este endereço
-          </button>
+          {!props.expanded ? (
+            <button type="button" className="save" disabled={!complete} onClick={() => setEditing(false)}>
+              Usar este endereço
+            </button>
+          ) : null}
         </Editor>
       ) : null}
     </Section>
@@ -372,5 +386,120 @@ const Editor = styled.div`
   .save:disabled {
     opacity: 0.45;
     cursor: not-allowed;
+  }
+
+  &.figma-guest-address {
+    padding: 0;
+    border: 0;
+    background: transparent;
+  }
+
+  &.figma-guest-address .editor-heading {
+    display: none;
+  }
+
+  &.figma-guest-address ${AddressForm} {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 12px;
+  }
+
+  &.figma-guest-address ${AddressField} > span {
+    color: #72706b;
+    font-size: 12px;
+    font-weight: 600;
+  }
+
+  &.figma-guest-address ${AddressField} input {
+    height: 42px;
+    border-color: #efece6;
+    border-radius: 8px;
+    background: #fafaf8;
+    font-size: 14px;
+  }
+
+  &.figma-guest-address ${AddressField}.cep-field {
+    grid-column: 1;
+  }
+
+  &.figma-guest-address ${AddressField}.street,
+  &.figma-guest-address ${AddressField}.full {
+    grid-column: 1 / -1;
+  }
+
+  @media (max-width: 760px) {
+    &.figma-guest-address ${AddressForm} {
+      grid-template-columns: minmax(0, 1fr) 120px;
+      gap: 12px 10px;
+    }
+
+    &.figma-guest-address ${AddressField}.cep-field {
+      grid-column: 1;
+    }
+
+    &.figma-guest-address ${AddressField}.street,
+    &.figma-guest-address ${AddressField}.full {
+      grid-column: 1 / -1;
+    }
+
+    &.figma-guest-address ${AddressField} input {
+      height: 42px;
+      border-radius: 12px;
+      background: #fff;
+    }
+  }
+
+  &.figma-auth-empty-address {
+    padding: 0;
+    border: 0;
+    background: transparent;
+  }
+
+  &.figma-auth-empty-address .editor-heading {
+    display: none;
+  }
+
+  &.figma-auth-empty-address ${AddressForm} {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 16px 12px;
+  }
+
+  &.figma-auth-empty-address ${AddressField} > span {
+    color: #1f1e1a;
+    font-size: 13px;
+    font-weight: 600;
+  }
+
+  &.figma-auth-empty-address ${AddressField} input {
+    height: 44px;
+    border-color: #efece6;
+    border-radius: 8px;
+    background: #fff;
+    color: #1f1e1a;
+    font-size: 14px;
+  }
+
+  &.figma-auth-empty-address ${AddressField}.cep-field {
+    grid-column: 1;
+  }
+
+  &.figma-auth-empty-address ${AddressField}.street,
+  &.figma-auth-empty-address ${AddressField}.full {
+    grid-column: 1 / -1;
+  }
+
+  @media (max-width: 760px) {
+    &.figma-auth-empty-address ${AddressForm} {
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+      gap: 12px;
+    }
+
+    &.figma-auth-empty-address ${AddressField}.cep-field {
+      grid-column: 1;
+    }
+
+    &.figma-auth-empty-address ${AddressField}.street,
+    &.figma-auth-empty-address ${AddressField}.full {
+      grid-column: 1 / -1;
+    }
   }
 `;

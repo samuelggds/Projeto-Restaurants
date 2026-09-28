@@ -3,7 +3,6 @@ import { useLocation, useNavigate, useParams, useSearchParams } from 'react-rout
 import { useAuth } from '../../contexts/authContext';
 import { FigmaDeliveryExperience } from './FigmaDeliveryExperience';
 import { FigmaCheckoutFlow, type FigmaCheckoutStep } from './FigmaCheckoutFlow';
-import PixPaymentPanel from '../Cart/components/PixPaymentPanel';
 import * as S from './Home.styles';
 import {
   useDefaultRestaurantId,
@@ -14,7 +13,6 @@ import { useFavorites } from './hooks/useFavorites';
 import { useCart } from './hooks/useCart';
 import { useDeliveryAddress } from './hooks/useDeliveryAddress';
 import { getCheckoutErrorMessage, useCheckoutPayments } from './hooks/useCheckoutPayments';
-import { UncertainPaymentResult } from './components/UncertainPaymentResult';
 import { useTableSession } from './hooks/useTableSession';
 import { useTableAccount } from './hooks/useTableAccount';
 import { useTableOrderNotice } from './hooks/useTableOrderNotice';
@@ -25,6 +23,13 @@ import { PaymentOptions } from '../Home/components/PaymentOptions';
 import { GuestCheckoutForm, type GuestCheckoutDetails } from '../Home/components/GuestCheckoutForm';
 import { DeliveryMethodSelector } from '../Home/components/DeliveryMethodSelector';
 import { LoyaltyCouponPanel } from '../Home/components/LoyaltyCouponPanel';
+import { ProductConfigurator } from '../Home/components/ProductConfigurator';
+import { ComboConfigurator } from '../Home/components/ComboConfigurator';
+import { GuestAddressCheckout } from '../Home/components/GuestAddressCheckout';
+import { AuthenticatedAddressCheckout } from '../Home/components/AuthenticatedAddressCheckout';
+import { AuthenticatedEmptyAddressCheckout } from '../Home/components/AuthenticatedEmptyAddressCheckout';
+import { FigmaPaymentCheckout } from '../Home/components/FigmaPaymentCheckout';
+import { HomePaymentOutcome } from './components/HomePaymentOutcome';
 import { HomeFeedback, type HomeNotification } from '../Home/components/HomeFeedback';
 import {
   buildOrderPayload,
@@ -46,11 +51,10 @@ import {
   resolveAvailableFulfillmentMethod,
 } from './domain/publicSettings';
 import { TableServiceActions } from './components/TableServiceActions';
-import { CardPaymentReturnPanel } from './components/CardPaymentReturnPanel';
-import { PaymentResultView } from '../../components/payment/PaymentResultView';
 import { useCardPaymentReturn } from './hooks/useCardPaymentReturn';
 import { buildLoginUrl } from '../../shared/navigation/authNavigation';
 import TableMenuExperience from '../digital-menu/TableMenuExperience';
+import type { HomeProduct } from './types';
 
 type NotifType = 'success' | 'error' | 'info' | 'warning';
 type HomeNavigationState = {
@@ -113,6 +117,7 @@ export default function Home() {
     handleCepLookup,
     handleCepChange,
     savedAddresses,
+    savedAddressesLoading,
     selectedAddressId,
     handleSavedAddressChange,
   } = useDeliveryAddress(user);
@@ -120,6 +125,8 @@ export default function Home() {
   const [tableServiceLoading, setTableServiceLoading] = useState<'WAITER' | 'BILL' | null>(null);
   const [tableOrderLoading, setTableOrderLoading] = useState(false);
   const [tableMenuReviewCartOpen, setTableMenuReviewCartOpen] = useState(false);
+  const [crossSellProduct, setCrossSellProduct] = useState<HomeProduct | null>(null);
+  const [crossSellCombo, setCrossSellCombo] = useState<HomeProduct | null>(null);
 
   useEffect(() => {
     if (!cartOpen) return undefined;
@@ -367,6 +374,36 @@ export default function Home() {
     couponRedemptionId: appliedRedemptionId,
   });
   const checkoutTotal = orderQuote.quote?.total ?? cartTotal;
+  const checkoutRecommendations = useMemo(() => {
+    const cartProductIds = new Set(cart.map((item) => String(item.productId)));
+    return homeData.products
+      .filter((product) => product.available && !cartProductIds.has(String(product.id)))
+      .slice(0, 3);
+  }, [cart, homeData.products]);
+
+  const handleCrossSellAdd = (product: HomeProduct) => {
+    if (product.kind === 'COMBO') {
+      setCrossSellCombo(product);
+      return;
+    }
+
+    if (product.saleMode === 'COMPLETE') {
+      addToCart(
+        product.id,
+        {
+          selectedOptions: [],
+          selectedOptionIds: [],
+          observation: '',
+          configurationVersion: product.configurationVersion,
+        },
+        1,
+      );
+      return;
+    }
+
+    setCrossSellProduct(product);
+  };
+
   function applyPurchasedStockToHome() {
     const purchased = new Map<string, number>();
 
@@ -722,60 +759,24 @@ export default function Home() {
     }
   }
 
-  if (hasCardPaymentReturn) {
+  if (hasCardPaymentReturn || paymentResult || pixPaymentData) {
     return (
-      <CardPaymentReturnPanel
-        status={cardPaymentReturn.status}
-        error={cardPaymentReturn.error}
-        providerReturnStatus={cardPaymentReturn.providerReturnStatus}
-        primaryColor={primary}
-        restaurantName={homeData.brand.name}
-        restaurantCategory={homeData.brand.category ?? 'RESTAURANTE'}
-        onVerify={cardPaymentReturn.verify}
-        onClose={closeCardPaymentReturn}
-      />
-    );
-  }
-
-  if (paymentResult) {
-    if (paymentResult.reconciliationRequired)
-      return (
-        <UncertainPaymentResult
-          result={paymentResult}
-          restaurantName={homeData.brand.name}
-          restaurantCategory={homeData.brand.category ?? 'RESTAURANTE'}
-          visitor={!user}
-          onBack={clearPaymentResult}
-        />
-      );
-    return (
-      <PaymentResultView
-        status={paymentResult.status}
-        method={paymentResult.method}
-        restaurantName={homeData.brand.name}
-        restaurantCategory={homeData.brand.category ?? 'RESTAURANTE'}
-        orderLabel={paymentResult.orderId ? `Pedido #${paymentResult.orderId}` : undefined}
-        amount={paymentResult.total.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
-        onAutoReturn={clearPaymentResult}
-        primaryAction={{ label: 'Voltar ao cardápio', onClick: clearPaymentResult }}
-      />
-    );
-  }
-
-  if (pixPaymentData) {
-    return (
-      <PixPaymentPanel
+      <HomePaymentOutcome
+        hasCardPaymentReturn={hasCardPaymentReturn}
+        cardPaymentReturn={cardPaymentReturn}
+        paymentResult={paymentResult}
         pixPaymentData={pixPaymentData}
-        paymentStatus={pixPaymentStatus}
-        paymentError={pixPaymentError}
+        pixPaymentStatus={pixPaymentStatus}
+        pixPaymentError={pixPaymentError}
         primaryColor={primary}
-        restaurantName={homeData.brand.name}
-        formatCurrency={(value) =>
-          value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
-        }
-        onCopyPixKey={() => navigator.clipboard.writeText(pixPaymentData.pixCode)}
-        onVerify={verifyPixPayment}
-        onBackToCart={clearPixPayment}
+        homeData={homeData}
+        restaurantId={restaurantId}
+        visitor={!user}
+        onCloseCardPaymentReturn={closeCardPaymentReturn}
+        onClearPaymentResult={clearPaymentResult}
+        onVerifyPixPayment={verifyPixPayment}
+        onClearPixPayment={clearPixPayment}
+        onTrackOrder={(orderId) => navigate('/orders/' + orderId + '/tracking')}
       />
     );
   }
@@ -948,7 +949,7 @@ export default function Home() {
                 customerPhone: customer.phone,
                 customerName: customer.name,
                 customerCpf: customer.cpf,
-                requireGuestIdentity: !user,
+                requireGuestIdentity: false,
                 deliveryAddress,
                 cepStatus,
                 paymentMethod: selectedCheckoutPaymentMethod,
@@ -970,6 +971,182 @@ export default function Home() {
           onClear={() => setCart([])}
           onClose={() => setCartOpen(false)}
           onSubmit={() => void handleCheckout()}
+          recommendations={checkoutRecommendations}
+          onAddRecommendation={handleCrossSellAdd}
+          guestAddressScreen={
+            !user ? (
+              <GuestAddressCheckout
+                primaryColor={primary}
+                brandName={homeData.brand.name}
+                logoUrl={homeData.brand.logoUrl}
+                isOpen={homeData.isOpen}
+                deliveryTime={homeData.deliveryTime}
+                cartCount={cartCount}
+                total={checkoutTotal}
+                deliveryFee={orderQuote.quote?.deliveryFeeAmount || 0}
+                orderType={availableOrderType}
+                allowDelivery={homeData.acceptsDelivery}
+                allowPickup={homeData.acceptsPickup}
+                address={deliveryAddress}
+                setAddress={setDeliveryAddress}
+                cepStatus={cepStatus}
+                cepMessage={cepMessage}
+                onCepChange={handleCepChange}
+                onCepLookup={handleCepLookup}
+                onOrderTypeChange={setOrderType}
+                onLogin={navigateToLogin}
+                onBack={() => setCheckoutStep('cart')}
+                onContinue={() => setCheckoutStep('payment')}
+                disabled={!checkoutChannelAvailable}
+                loading={orderQuote.loading}
+              />
+            ) : undefined
+          }
+          authenticatedEmptyAddressScreen={
+            user &&
+            String(user.role || '').toUpperCase() === 'CLIENTE' &&
+            !savedAddressesLoading &&
+            savedAddresses.length === 0 ? (
+              <AuthenticatedEmptyAddressCheckout
+                primaryColor={primary}
+                brandName={homeData.brand.name}
+                logoUrl={homeData.brand.logoUrl}
+                userName={String((user as Record<string, unknown>).name || '')}
+                isOpen={homeData.isOpen}
+                deliveryTime={homeData.deliveryTime}
+                cart={cart}
+                cartCount={cartCount}
+                subtotal={
+                  orderQuote.quote
+                    ? orderQuote.quote.itemsSubtotal + orderQuote.quote.productDiscountTotal
+                    : cartTotal
+                }
+                total={checkoutTotal}
+                deliveryFee={orderQuote.quote?.deliveryFeeAmount || 0}
+                orderType={availableOrderType}
+                allowDelivery={homeData.acceptsDelivery}
+                allowPickup={homeData.acceptsPickup}
+                address={deliveryAddress}
+                setAddress={setDeliveryAddress}
+                cepStatus={cepStatus}
+                cepMessage={cepMessage}
+                onCepChange={handleCepChange}
+                onCepLookup={handleCepLookup}
+                onOrderTypeChange={setOrderType}
+                onRegisterAddress={manageDeliveryAddresses}
+                onBack={() => setCheckoutStep('cart')}
+                onContinue={() => {
+                  const customer = user as Record<string, unknown>;
+                  const issue = validateCheckout({
+                    type: checkoutOrderType,
+                    customerPhone: customer.phone,
+                    customerName: customer.name,
+                    customerCpf: customer.cpf,
+                    requireGuestIdentity: false,
+                    deliveryAddress,
+                    cepStatus,
+                    paymentMethod: selectedCheckoutPaymentMethod,
+                  });
+                  if (issue) {
+                    notify('warning', issue.title, issue.message);
+                    return;
+                  }
+                  setCheckoutStep('payment');
+                }}
+                disabled={!checkoutChannelAvailable}
+                loading={orderQuote.loading}
+              />
+            ) : undefined
+          }
+          authenticatedAddressScreen={
+            user && String(user.role || '').toUpperCase() === 'CLIENTE' ? (
+              <AuthenticatedAddressCheckout
+                primaryColor={primary}
+                brandName={homeData.brand.name}
+                logoUrl={homeData.brand.logoUrl}
+                userName={String((user as Record<string, unknown>).name || 'Cliente').split(' ')[0]}
+                isOpen={homeData.isOpen}
+                deliveryTime={homeData.deliveryTime}
+                cart={cart}
+                cartCount={cartCount}
+                subtotal={
+                  orderQuote.quote
+                    ? orderQuote.quote.itemsSubtotal + orderQuote.quote.productDiscountTotal
+                    : cartTotal
+                }
+                total={checkoutTotal}
+                deliveryFee={orderQuote.quote?.deliveryFeeAmount || 0}
+                orderType={availableOrderType}
+                allowDelivery={homeData.acceptsDelivery}
+                allowPickup={homeData.acceptsPickup}
+                savedAddresses={savedAddresses}
+                selectedAddressId={selectedAddressId}
+                address={deliveryAddress}
+                setAddress={setDeliveryAddress}
+                cepStatus={cepStatus}
+                cepMessage={cepMessage}
+                onCepChange={handleCepChange}
+                onCepLookup={handleCepLookup}
+                onOrderTypeChange={setOrderType}
+                onSelectAddress={selectDeliveryAddress}
+                onManageAddresses={manageDeliveryAddresses}
+                onBack={() => setCheckoutStep('cart')}
+                onContinue={() => {
+                  const issue = validateCheckout({
+                    type: checkoutOrderType,
+                    customerPhone: user.phone,
+                    customerName: user.name,
+                    customerCpf: user.cpf,
+                    requireGuestIdentity: false,
+                    deliveryAddress,
+                    cepStatus,
+                    paymentMethod: selectedCheckoutPaymentMethod,
+                  });
+                  if (issue) {
+                    notify('warning', issue.title, issue.message);
+                    return;
+                  }
+                  setCheckoutStep('payment');
+                }}
+                disabled={!checkoutChannelAvailable}
+                loading={orderQuote.loading}
+              />
+            ) : undefined
+          }
+          paymentScreen={
+            <FigmaPaymentCheckout
+              primaryColor={primary}
+              loggedIn={Boolean(user)}
+              brandName={homeData.brand.name}
+              cart={cart}
+              cartCount={cartCount}
+              subtotal={
+                orderQuote.quote
+                  ? orderQuote.quote.itemsSubtotal + orderQuote.quote.productDiscountTotal
+                  : cartTotal
+              }
+              deliveryFee={orderQuote.quote?.deliveryFeeAmount || 0}
+              total={checkoutTotal}
+              paymentMethods={
+                <PaymentOptions
+                  paymentMethod={selectedCheckoutPaymentMethod}
+                  allowPayOnDelivery={allowPayOnDelivery}
+                  allowPix={homeData.acceptsPix}
+                  allowOpenFinancePix={homeData.openFinancePixEnabled}
+                  allowCard={homeData.acceptsCard}
+                  restaurantId={restaurantId}
+                  loggedIn={Boolean(user)}
+                  userEmail={user ? String((user as Record<string, unknown>).email || '') : undefined}
+                  onChange={setPaymentMethod}
+                  figmaCheckout
+                />
+              }
+              onBack={() => setCheckoutStep('address')}
+              onContinue={() => void handleCheckout()}
+              disabled={!checkoutChannelAvailable || !paymentAvailable}
+              loading={checkoutLoading}
+            />
+          }
           couponContent={
             <LoyaltyCouponPanel
               loggedIn={isLoyaltyCustomer}
@@ -1011,7 +1188,14 @@ export default function Home() {
             </>
           }
           paymentContent={
-            <PaymentOptions
+            <>
+              {!user ? (
+                <GuestCheckoutForm
+                  value={guestCheckoutDetails}
+                  onChange={setGuestCheckoutDetails}
+                />
+              ) : null}
+              <PaymentOptions
               paymentMethod={selectedCheckoutPaymentMethod}
               allowPayOnDelivery={allowPayOnDelivery}
               allowPix={homeData.acceptsPix}
@@ -1022,7 +1206,33 @@ export default function Home() {
               userEmail={user ? String((user as Record<string, unknown>).email || '') : undefined}
               onChange={setPaymentMethod}
             />
+            </>
           }
+        />
+      ) : null}
+
+      {crossSellProduct ? (
+        <ProductConfigurator
+          product={crossSellProduct}
+          primaryColor={primary}
+          enableProductQuantity
+          onClose={() => setCrossSellProduct(null)}
+          onConfirm={(configuration, quantity) => {
+            addToCart(crossSellProduct.id, configuration, quantity || 1);
+            setCrossSellProduct(null);
+          }}
+        />
+      ) : null}
+
+      {crossSellCombo ? (
+        <ComboConfigurator
+          product={crossSellCombo}
+          primaryColor={primary}
+          onClose={() => setCrossSellCombo(null)}
+          onConfirm={(configuration) => {
+            addToCart(crossSellCombo.id, configuration, 1);
+            setCrossSellCombo(null);
+          }}
         />
       ) : null}
 

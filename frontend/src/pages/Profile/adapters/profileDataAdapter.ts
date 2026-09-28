@@ -39,6 +39,34 @@ export function buildOrderSummary(order: Record<string, unknown>): string {
     : first;
 }
 
+function buildOrderItemsLabel(order: Record<string, unknown>): string {
+  const items = Array.isArray(order.items) ? (order.items as Record<string, unknown>[]) : [];
+  if (!items.length) return 'Pedido';
+  return items
+    .map((item) => {
+      const product = item.product as Record<string, unknown> | undefined;
+      const name = String(product?.name || item.name || 'Item');
+      const quantity = Math.max(1, Number(item.quantity || 1));
+      return `${quantity}x ${name}`;
+    })
+    .join(', ');
+}
+
+function formatOrderDate(value: unknown): string {
+  const date = new Date(String(value || ''));
+  if (Number.isNaN(date.getTime())) return '';
+
+  const today = new Date();
+  const startToday = new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime();
+  const startOrder = new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
+  const dayDiff = Math.round((startToday - startOrder) / 86400000);
+  const time = date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+
+  if (dayDiff === 0) return `Hoje às ${time}`;
+  if (dayDiff === 1) return `Ontem às ${time}`;
+  return date.toLocaleDateString('pt-BR') + ' às ' + time;
+}
+
 type Input = {
   user: Record<string, unknown> | null;
   settings: Record<string, unknown> | null;
@@ -75,6 +103,8 @@ export function buildProfileData({
 }: Input): ProfileData {
   const restaurant = (settings?.restaurant as Record<string, unknown>) ?? {};
   const restaurantName = String(restaurant.name || '');
+  const averageDeliveryTime = Math.max(0, Number(settings?.averageDeliveryTime || 0));
+  const restaurantOpen = settings?.isOpenForOrders !== false;
   const brand = {
     name: String(restaurantName || settings?.restaurantName || profileMockData.brand.name),
     monogram: createRestaurantMonogram(restaurantName || settings?.restaurantName),
@@ -87,6 +117,12 @@ export function buildProfileData({
     description: String(
       restaurant.description || settings?.restaurantDescription || settings?.description || '',
     ),
+    status: [
+      restaurantOpen ? 'Aberto agora' : 'Fechado agora',
+      averageDeliveryTime > 0 ? averageDeliveryTime + ' min' : '',
+    ]
+      .filter(Boolean)
+      .join(' · '),
   };
   const fullName = String(user?.name || '');
   const defaultAddress = rawAddresses.find((item) => Boolean(item.isDefault)) || rawAddresses[0];
@@ -118,41 +154,42 @@ export function buildProfileData({
     mainAddress,
     favoriteCount: favorites.length,
   };
-  const activeRaw = orders.find((order) =>
+  const activeRawOrders = orders.filter((order) =>
     ACTIVE_STATUSES.has(String(order.status || '').toUpperCase()),
   );
-  const activeOrder = activeRaw
-    ? (() => {
-        const channel = getProfileOrderChannel(activeRaw);
-        const paymentMethod = String(activeRaw.paymentMethod || '').toUpperCase();
-        const paymentPending =
-          String(activeRaw.status || '').toUpperCase() !== 'CANCELADO' &&
-          activeRaw.paid !== true &&
-          (paymentMethod === 'CARTAO' ||
-            (paymentMethod === 'PIX' && Boolean(String(activeRaw.pixPaymentId || '').trim())));
-        return {
-          id: `#${String(activeRaw.id).padStart(4, '0')}`,
-          status: mapOrderStatus(activeRaw.status),
-          estimatedArrival: estimateArrival(activeRaw, settings),
-          summary: `${buildOrderSummary(activeRaw)} · ${channel}`,
-          image: firstProductImage(activeRaw),
-          total: Number(activeRaw.total || 0),
-          channel,
-          publicId: String(activeRaw.publicId || ''),
-          paymentPending,
-        };
-      })()
-    : undefined;
+  const mapActiveOrder = (order: Record<string, unknown>) => {
+    const channel = getProfileOrderChannel(order);
+    const paymentMethod = String(order.paymentMethod || '').toUpperCase();
+    const paymentPending =
+      String(order.status || '').toUpperCase() !== 'CANCELADO' &&
+      order.paid !== true &&
+      (paymentMethod === 'CARTAO' ||
+        (paymentMethod === 'PIX' && Boolean(String(order.pixPaymentId || '').trim())));
+    const date = formatOrderDate(order.createdAt);
+    return {
+      id: `#${String(order.id).padStart(4, '0')}`,
+      status: mapOrderStatus(order.status),
+      date,
+      estimatedArrival: estimateArrival(order, settings),
+      summary: buildOrderItemsLabel(order),
+      image: firstProductImage(order),
+      total: Number(order.total || 0),
+      channel,
+      publicId: String(order.publicId || ''),
+      paymentPending,
+    };
+  };
+  const activeOrders = activeRawOrders.map(mapActiveOrder);
+  const activeOrder = activeOrders[0];
+  const activeOrderIds = new Set(activeRawOrders.map((order) => String(order.id)));
   const recentOrders: ProfileOrder[] = orders
     .filter(
       (order) =>
-        String(order.id) !== String(activeRaw?.id || '') && Boolean(String(order.status || '')),
+        !activeOrderIds.has(String(order.id)) && Boolean(String(order.status || '')),
     )
     .map((order) => {
       const channel = getProfileOrderChannel(order);
-      const date = order.createdAt
-        ? new Date(String(order.createdAt)).toLocaleDateString('pt-BR')
-        : '';
+      const date = formatOrderDate(order.createdAt);
       const paymentMethod = String(order.paymentMethod || '').toUpperCase();
       const paymentPending =
         String(order.status || '').toUpperCase() !== 'CANCELADO' &&
@@ -161,8 +198,8 @@ export function buildProfileData({
           (paymentMethod === 'PIX' && Boolean(String(order.pixPaymentId || '').trim())));
       return {
         id: `#${String(order.id).padStart(4, '0')}`,
-        summary: buildOrderSummary(order),
-        date: [date, channel].filter(Boolean).join(' · '),
+        summary: buildOrderItemsLabel(order),
+        date,
         total: Number(order.total || 0),
         image: firstProductImage(order),
         status: mapOrderStatus(order.status),
@@ -198,6 +235,8 @@ export function buildProfileData({
     brand,
     user: profileUser,
     activeOrder,
+    activeOrders,
+    activeOrderCount: activeRawOrders.length,
     recentOrders,
     addresses,
     favorites: profileFavorites,

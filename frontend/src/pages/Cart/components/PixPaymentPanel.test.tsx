@@ -1,6 +1,7 @@
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
 import PixPaymentPanel from './PixPaymentPanel';
+import type { PixPaymentStatus } from '../../Home/hooks/useCheckoutPayments';
 
 const payment = {
   orderId: 91,
@@ -12,7 +13,7 @@ const payment = {
   paid: false,
 };
 
-function render(status: 'WAITING' | 'VERIFYING' | 'PENDING' | 'PAID' | 'ERROR') {
+function render(status: PixPaymentStatus) {
   return renderToStaticMarkup(
     <PixPaymentPanel
       pixPaymentData={{ ...payment, paid: status === 'PAID' }}
@@ -26,22 +27,33 @@ function render(status: 'WAITING' | 'VERIFYING' | 'PENDING' | 'PAID' | 'ERROR') 
 }
 
 describe('PixPaymentPanel', () => {
-  it.each([
-    ['WAITING', 'Aguardando pagamento'],
-    ['VERIFYING', 'Verificando pagamento'],
-    ['PENDING', 'Pagamento ainda pendente'],
-    ['ERROR', 'Não foi possível verificar'],
-  ] as const)('não anuncia confirmação no estado %s', (status, label) => {
-    const markup = render(status);
-
-    expect(markup).toContain(label);
-    expect(markup).not.toContain('Pix confirmado');
-  });
+  it.each(['WAITING', 'VERIFYING', 'PENDING', 'ERROR'] as const)(
+    'não anuncia confirmação no estado %s',
+    (status) => {
+      const markup = render(status);
+      expect(markup).toContain('Pagamento PIX');
+      expect(markup).not.toContain('Pagamento PIX Confirmado!');
+    },
+  );
 
   it('mostra confirmação somente no estado canônico PAID', () => {
     const markup = render('PAID');
 
-    expect(markup).toContain('Pix confirmado');
+    expect(markup).toContain('Pagamento PIX Confirmado!');
     expect(markup).not.toContain('000201-pix-code');
   });
+
+  it.each(['FAILED', 'CANCELED', 'EXPIRED'] as const)(
+    'mostra falha final em vermelho no estado %s',
+    (status) => {
+      const markup = render(status);
+
+      expect(markup).toContain('Pagamento PIX não efetuado');
+      expect(markup).toMatch(/class="[^"]*\bfailure\b[^"]*"/u);
+      expect(markup).toContain('role="status"');
+      expect(markup).toContain('lucide-circle-x');
+      expect(markup).toContain(`data-status="${status}"`);
+      expect(markup).not.toContain('Pagamento PIX Confirmado!');
+    },
+  );
 });

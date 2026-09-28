@@ -10,7 +10,9 @@ import {
   Wifi,
 } from 'lucide-react';
 import { CartItemsList } from './components/CartItemsList';
+import { CartCrossSell } from './components/CartCrossSell';
 import type { CartItem } from './hooks/useCart';
+import type { HomeProduct } from './types';
 import type { OrderQuote } from './hooks/useOrderQuote';
 import * as S from './FigmaCheckoutFlow.styles';
 
@@ -30,6 +32,12 @@ type Props = {
   addressContent: ReactNode;
   paymentContent: ReactNode;
   couponContent?: ReactNode;
+  guestAddressScreen?: ReactNode;
+  authenticatedAddressScreen?: ReactNode;
+  authenticatedEmptyAddressScreen?: ReactNode;
+  paymentScreen?: ReactNode;
+  recommendations?: HomeProduct[];
+  onAddRecommendation?: (product: HomeProduct) => void;
   onStepChange: (step: FigmaCheckoutStep) => void;
   onIncrease: (cartId: string) => void;
   onDecrease: (cartId: string) => void;
@@ -62,6 +70,12 @@ export function FigmaCheckoutFlow({
   addressContent,
   paymentContent,
   couponContent,
+  guestAddressScreen,
+  authenticatedAddressScreen,
+  authenticatedEmptyAddressScreen,
+  paymentScreen,
+  recommendations = [],
+  onAddRecommendation,
   onStepChange,
   onIncrease,
   onDecrease,
@@ -71,7 +85,7 @@ export function FigmaCheckoutFlow({
   onSubmit,
 }: Props) {
   const layerRef = useRef<HTMLDivElement>(null);
-  const [couponOpen, setCouponOpen] = useState(true);
+  const [couponOpen, setCouponOpen] = useState(false);
   const [mobileCart, setMobileCart] = useState(() =>
     window.matchMedia('(max-width: 760px)').matches,
   );
@@ -121,6 +135,22 @@ export function FigmaCheckoutFlow({
     }
     onSubmit();
   };
+
+  if (step === 'address' && guestAddressScreen) {
+    return <>{guestAddressScreen}</>;
+  }
+
+  if (step === 'address' && authenticatedAddressScreen) {
+    return <>{authenticatedAddressScreen}</>;
+  }
+
+  if (step === 'address' && authenticatedEmptyAddressScreen) {
+    return <>{authenticatedEmptyAddressScreen}</>;
+  }
+
+  if (step === 'payment' && paymentScreen) {
+    return <>{paymentScreen}</>;
+  }
 
   if (step === 'cart') {
     return (
@@ -197,6 +227,10 @@ export function FigmaCheckoutFlow({
               <S.CartEmpty>Seu carrinho está vazio.</S.CartEmpty>
             )}
 
+            {cartCount > 0 && !mobileCart && recommendations.length && onAddRecommendation ? (
+              <CartCrossSell products={recommendations} onAdd={onAddRecommendation} />
+            ) : null}
+
             {cartCount > 0 && mobileCart ? (
               <S.MobileCartSummary>
                 <button
@@ -212,6 +246,10 @@ export function FigmaCheckoutFlow({
 
                 {couponOpen && couponContent ? (
                   <div className="coupon-details">{couponContent}</div>
+                ) : null}
+
+                {recommendations.length && onAddRecommendation ? (
+                  <CartCrossSell products={recommendations} onAdd={onAddRecommendation} />
                 ) : null}
 
                 <div className="summary-row">

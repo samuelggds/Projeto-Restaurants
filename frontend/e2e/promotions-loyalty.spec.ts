@@ -362,8 +362,10 @@ test('cliente vê promoção, aplica benefício de fidelidade e envia o resgate 
 
   const checkout = page.getByRole('dialog', { name: 'Finalizar pedido' });
   await expect(checkout).toBeVisible();
-  const loyaltyPanel = checkout.getByRole('region', { name: 'Cupom de fidelidade' });
-  await loyaltyPanel.getByRole('button', { name: /Cliente fiel.*Aplicar/ }).click();
+  await expect(checkout.getByRole('region', { name: 'Cupom de fidelidade' })).toHaveCount(0);
+  await checkout.getByRole('button', { name: /Cupom de desconto.*Aplicar/ }).click();
+  const couponOptions = checkout.getByRole('region', { name: 'Opções de cupom' });
+  await couponOptions.getByRole('button', { name: /Cliente fiel.*Aplicar/ }).click();
 
   await expect(checkout.getByText('Cupom · FIEL10')).toBeVisible();
   await expect(checkout.getByText('R$ 36,00').last()).toBeVisible();
@@ -380,13 +382,20 @@ test('cliente vê promoção, aplica benefício de fidelidade e envia o resgate 
   const pixOption = checkout.getByRole('button', { name: /Pix QR Code/i });
   await expect(pixOption).toBeVisible();
   await pixOption.click();
-  await checkout.getByRole('button', { name: 'Continuar', exact: true }).click();
-  await expect(page.getByText('Pagamento PIX', { exact: true })).toBeVisible();
-  await expect(page.getByText('R$ 36,00')).toBeVisible();
-  await expect(page.getByRole('heading', { name: 'Pix confirmado!' })).toBeVisible();
-  await expect(page.locator('main[data-status="PAID"]')).toBeVisible();
-  await expect(page.getByText('Recebemos a confirmação do seu pagamento.')).toBeVisible();
-  await page.getByRole('button', { name: 'Voltar ao cardápio' }).click();
+  await checkout.getByRole('button', { name: 'Confirmar Pagamento', exact: true }).click();
+  const pixScreen = page.locator('main[data-payment-method="pix"]');
+  await expect(pixScreen).toBeVisible();
+  await expect(pixScreen).toContainText('Pagamento PIX');
+  await expect(pixScreen).toContainText('R$ 36,00');
+  const paidPix = page.locator('main[data-status="PAID"][data-payment-method="pix"]');
+  await expect(paidPix).toBeVisible();
+  await expect(
+    paidPix.getByRole('heading', { name: 'Pagamento PIX Confirmado!' }),
+  ).toBeVisible();
+  await expect(
+    paidPix.getByText('Seu pagamento via PIX foi recebido e seu pedido está sendo preparado'),
+  ).toBeVisible();
+  await page.goto('/restaurante-teste');
   await page
     .getByRole('navigation', { name: 'Navegação principal' })
     .getByRole('button', { name: 'Conta' })

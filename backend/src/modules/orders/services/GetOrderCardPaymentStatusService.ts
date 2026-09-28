@@ -211,8 +211,21 @@ class GetOrderCardPaymentStatusService {
                   ? 'REFUNDED'
                   : 'PENDING';
 
+    const latestKitchenPrint = order.kitchenPrintJobs?.[0] || null;
+
     return {
+      orderId: order.id,
       orderPublicId: order.publicId,
+      restaurantId: order.restaurantId,
+      restaurantName: order.restaurant?.name || '',
+      restaurantLogoUrl: order.restaurant?.logo || null,
+      deliveryTime: order.restaurant?.settings?.averageDeliveryTime || null,
+      totalAmount: Number(order.total),
+      paidAt: order.paidAt,
+      kitchenPrintedAt:
+        latestKitchenPrint && String(latestKitchenPrint.status || '').toUpperCase() === 'PRINTED'
+          ? latestKitchenPrint.createdAt
+          : null,
       status,
       paid: status === 'PAID',
       paymentAttempt: latestAttempt

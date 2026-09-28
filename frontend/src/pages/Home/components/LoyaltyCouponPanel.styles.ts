@@ -2,16 +2,6 @@ import styled from 'styled-components';
 
 export const Panel = styled.section`
   min-width: 0;
-  padding: 15px;
-  border: 1px solid #e6dbd2;
-  border-radius: 16px;
-  background:
-    radial-gradient(
-      circle at 96% 0%,
-      color-mix(in srgb, var(--home-primary) 12%, transparent),
-      transparent 35%
-    ),
-    #fff;
 `;
 
 export const Heading = styled.header`
@@ -50,7 +40,7 @@ export const Heading = styled.header`
 
 export const Empty = styled.div`
   min-height: 45px;
-  margin-top: 11px;
+  margin-top: 0;
   padding: 10px 11px;
   display: flex;
   align-items: center;
@@ -84,7 +74,7 @@ export const Empty = styled.div`
 `;
 
 export const CouponList = styled.div`
-  margin-top: 11px;
+  margin-top: 0;
   display: grid;
   gap: 8px;
 

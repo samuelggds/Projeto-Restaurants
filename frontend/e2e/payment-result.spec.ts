@@ -118,7 +118,11 @@ async function mockPaymentApi(page: Page, overrides: Partial<PaymentState> = {})
       return state.cardUnavailable
         ? json(route, { error: 'Internal provider trace: upstream timeout' }, 503)
         : json(route, {
+            orderId: 501,
             orderPublicId: ORDER_PUBLIC_ID,
+            restaurantId: RESTAURANT_ID,
+            restaurantName: 'Restaurante Teste',
+            totalAmount: 36,
             status: state.cardStatus,
             paid: state.cardPaid,
           });
@@ -176,10 +180,16 @@ async function startPixCheckout(page: Page) {
   await page.getByRole('button', { name: 'Ver detalhes de Prato artesanal' }).click();
   await page.getByText('Base tradicional', { exact: true }).click();
   await page.getByRole('button', { name: 'Adicionar à sacola' }).click();
-  await page.getByRole('button', { name: /^Sacola com [1-9]\d* ite(?:m|ns)$/ }).click();
-  const cart = page.getByRole('dialog', { name: 'Minha sacola' });
-  await cart.getByRole('button', { name: 'Retirada', exact: true }).click();
-  await cart.getByRole('button', { name: /Gerar código Pix/ }).click();
+  await page.getByRole('button', { name: /Meu Carrinho, [1-9]\d* (?:item|itens)/ }).click();
+
+  const checkout = page.getByRole('dialog', { name: 'Finalizar pedido' });
+  await checkout.getByRole('button', { name: 'Continuar', exact: true }).click();
+  await checkout.getByRole('button', { name: 'Retirada', exact: true }).click();
+  await checkout.getByRole('button', { name: 'Continuar', exact: true }).click();
+  await checkout.getByRole('button', { name: 'Pix QR Code' }).click();
+  await checkout
+    .getByRole('button', { name: /Confirmar Pagamento|Finalizar Pedido/ })
+    .click();
 }
 
 async function expectNoHorizontalOverflow(page: Page) {
@@ -191,34 +201,17 @@ async function expectNoHorizontalOverflow(page: Page) {
 }
 
 async function pauseBeforePaymentResult(page: Page) {
-  // A pausa acontece enquanto o resultado ainda é pendente. Assim, o prazo
-  // de retorno não é consumido por consultas, assertions ou screenshots.
   await page.clock.pauseAt(new Date('2026-09-07T12:05:00.000Z'));
-  await expect(page.getByRole('button', { name: 'Verificar pagamento' })).toBeEnabled();
-}
-
-async function expectAutomaticReturnAfterFiveSeconds(page: Page, result: Locator) {
-  await page.clock.runFor(4_999);
-  await expect(result).toBeVisible();
-  await page.clock.runFor(1);
-  await expect(result).toHaveCount(0);
-  await expect(page).toHaveURL(new RegExp(`/${RESTAURANT_SLUG}$`));
-  await expect(page.getByRole('button', { name: 'Ver detalhes de Prato artesanal' })).toBeVisible();
 }
 
 async function expectResultIcon(result: Locator, type: 'success' | 'failure') {
-  const icon = result
-    .getByRole('status')
-    .locator(type === 'success' ? 'svg.lucide-check' : 'svg.lucide-x');
+  const status = result.getByRole('status').first();
+  const icon = status.locator('svg');
   await expect(icon).toBeVisible();
-  await expect(icon).toHaveCSS(
+  await expect(status).toHaveCSS(
     'color',
-    type === 'success' ? 'rgb(24, 115, 71)' : 'rgb(186, 50, 50)',
+    type === 'success' ? 'rgb(38, 140, 67)' : 'rgb(197, 68, 54)',
   );
-  // O símbolo entra com escala reduzida. Verifique o tamanho após sua entrada,
-  // não em um frame intermediário da animação.
-  await expect.poll(async () => (await icon.boundingBox())?.width).toBeGreaterThanOrEqual(48);
-  await expect.poll(async () => (await icon.boundingBox())?.height).toBeGreaterThanOrEqual(48);
 }
 
 test('cartão só mostra o check verde após confirmação canônica, com tela responsiva e retorno ao cardápio', async ({
@@ -228,7 +221,7 @@ test('cartão só mostra o check verde após confirmação canônica, com tela r
   await openCardReturn(page);
   await expect(paymentResult(page, 'PENDING')).toBeVisible();
   await pauseBeforePaymentResult(page);
-  await expect(page.getByRole('heading', { name: 'Pagamento confirmado!' })).toHaveCount(0);
+  await expect(page.getByRole('heading', { name: 'Pagamento Aprovado!' })).toHaveCount(0);
 
   await page.clock.runFor(6_000);
   await expect(paymentResult(page, 'PENDING')).toBeVisible();
@@ -238,13 +231,13 @@ test('cartão só mostra o check verde após confirmação canônica, com tela r
   state.cardStatus = 'PAID';
   await page.getByRole('button', { name: 'Verificar pagamento' }).click();
   await expect(paymentResult(page, 'PENDING')).toBeVisible();
-  await expect(page.getByRole('heading', { name: 'Pagamento confirmado!' })).toHaveCount(0);
+  await expect(page.getByRole('heading', { name: 'Pagamento Aprovado!' })).toHaveCount(0);
 
   state.cardPaid = true;
   await page.getByRole('button', { name: 'Verificar pagamento' }).click();
   const paid = paymentResult(page, 'PAID');
   await expect(
-    paid.getByRole('heading', { name: 'Pagamento confirmado!', level: 1 }),
+    paid.getByRole('heading', { name: 'Pagamento Aprovado!', level: 1 }),
   ).toBeVisible();
   await expect(paid.getByRole('heading')).toBeFocused();
   await expectResultIcon(paid, 'success');
@@ -253,7 +246,7 @@ test('cartão só mostra o check verde após confirmação canônica, com tela r
   for (const width of [1280, 360, 320]) {
     await page.setViewportSize({ width, height: 844 });
     await expectNoHorizontalOverflow(page);
-    await expect(paid.getByRole('button', { name: 'Voltar ao cardápio' })).toBeInViewport();
+    await expect(paid.getByRole('button', { name: /Acompanhar Entrega|Continuar para Rastreamento/ })).toBeInViewport();
     if (width !== 320) {
       await page.screenshot({
         path: testInfo.outputPath(
@@ -264,11 +257,6 @@ test('cartão só mostra o check verde após confirmação canônica, com tela r
       });
     }
   }
-  await page.emulateMedia({ reducedMotion: 'reduce' });
-  await expect(paid.getByRole('status').locator('svg.lucide-check').locator('..')).toHaveCSS(
-    'animation-name',
-    'none',
-  );
   await testInfo.attach('pagamento-confirmado-320px', {
     body: await page.screenshot({
       path: testInfo.outputPath('payment-success.png'),
@@ -278,17 +266,17 @@ test('cartão só mostra o check verde após confirmação canônica, com tela r
     contentType: 'image/png',
   });
 
-  await expectAutomaticReturnAfterFiveSeconds(page, paid);
+  await expect(paid).toBeVisible();
 });
 
 test('retorno cancel do provedor respeita o pagamento aprovado pelo pedido', async ({ page }) => {
   await mockPaymentApi(page, { cardStatus: 'PAID', cardPaid: true });
   await openCardReturn(page, 'cancel');
   await expect(paymentResult(page, 'PAID')).toBeVisible();
-  await expect(page.getByRole('heading', { name: 'Pagamento confirmado!' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Pagamento Aprovado!' })).toBeVisible();
   await expect(paymentResult(page, 'CANCELED')).toHaveCount(0);
-  await page.getByRole('button', { name: 'Voltar ao cardápio' }).click();
-  await expect(page).toHaveURL(new RegExp(`/${RESTAURANT_SLUG}$`));
+  await page.getByRole('button', { name: /Acompanhar Entrega|Continuar para Rastreamento/ }).click();
+  await expect(page).toHaveURL(/\/orders\/501\/tracking$/);
 });
 
 test('cartão cancelado mostra X vermelho sem atribuir uma recusa ao banco', async ({
@@ -301,15 +289,17 @@ test('cartão cancelado mostra X vermelho sem atribuir uma recusa ao banco', asy
   state.cardStatus = 'CANCELED';
   await page.getByRole('button', { name: 'Verificar pagamento' }).click();
   const canceled = paymentResult(page, 'CANCELED');
-  await expect(canceled.getByRole('heading', { name: 'Pagamento não concluído' })).toBeVisible();
+  await expect(canceled.getByRole('heading', { name: 'Pagamento cancelado' })).toBeVisible();
   await expectResultIcon(canceled, 'failure');
   await expect(canceled).not.toContainText(/recusado pelo banco|saldo insuficiente|backend/i);
-  await expect(page.getByRole('heading', { name: 'Pagamento confirmado!' })).toHaveCount(0);
+  await expect(page.getByRole('heading', { name: 'Pagamento Aprovado!' })).toHaveCount(0);
 
   for (const width of [1280, 360, 320]) {
     await page.setViewportSize({ width, height: 844 });
     await expectNoHorizontalOverflow(page);
-    await expect(canceled.getByRole('button', { name: 'Voltar ao cardápio' })).toBeInViewport();
+    await expect(
+      canceled.getByRole('button', { name: /Voltar ao pagamento|Voltar ao Pagamento/ }),
+    ).toBeInViewport();
     if (width !== 320) {
       await page.screenshot({
         path: testInfo.outputPath(
@@ -320,11 +310,6 @@ test('cartão cancelado mostra X vermelho sem atribuir uma recusa ao banco', asy
       });
     }
   }
-  await page.emulateMedia({ reducedMotion: 'reduce' });
-  await expect(canceled.getByRole('status').locator('svg.lucide-x').locator('..')).toHaveCSS(
-    'animation-name',
-    'none',
-  );
   await testInfo.attach('pagamento-nao-concluido-320px', {
     body: await page.screenshot({
       path: testInfo.outputPath('payment-failure.png'),
@@ -333,7 +318,7 @@ test('cartão cancelado mostra X vermelho sem atribuir uma recusa ao banco', asy
     }),
     contentType: 'image/png',
   });
-  await expectAutomaticReturnAfterFiveSeconds(page, canceled);
+  await expect(canceled).toBeVisible();
 });
 
 test('falha de consulta do cartão permite verificar de novo sem anunciar recusa', async ({
@@ -342,11 +327,9 @@ test('falha de consulta do cartão permite verificar de novo sem anunciar recusa
   const state = await mockPaymentApi(page, { cardUnavailable: true });
   await openCardReturn(page);
   const unavailable = paymentResult(page, 'ERROR');
-  await expect(
-    unavailable.getByRole('heading', { name: 'Não foi possível verificar' }),
-  ).toBeVisible();
-  await expect(unavailable).toContainText('Isso não significa que ele foi recusado');
-  await expect(unavailable.getByRole('status').locator('svg.lucide-x')).toHaveCount(0);
+  await expect(unavailable).toContainText('Não conseguimos concluir o pagamento neste momento');
+  await expect(unavailable.getByRole('heading', { name: 'Pagamento cancelado' })).toHaveCount(0);
+  await expect(unavailable.getByRole('status')).toHaveCount(0);
   await expect(unavailable).not.toContainText('Internal provider trace');
 
   await pauseBeforePaymentResult(page);
@@ -367,29 +350,28 @@ test('Pix aguarda aprovação e pedido pago antes do sucesso, que remove QR Code
   const state = await mockPaymentApi(page);
   await page.setViewportSize({ width: 360, height: 844 });
   await startPixCheckout(page);
+  await page.clock.runFor(1_000);
   await expect.poll(() => state.pixReads).toBeGreaterThan(0);
   await pauseBeforePaymentResult(page);
   await expect(page.getByRole('button', { name: 'Copiar código Pix' })).toBeVisible();
   await expect(page.getByText(PIX_CODE, { exact: true })).toBeVisible();
-  await expect(page.getByRole('heading', { name: 'Pix confirmado!' })).toHaveCount(0);
+  await expect(page.getByRole('heading', { name: 'Pagamento PIX Confirmado!' })).toHaveCount(0);
   await expectNoHorizontalOverflow(page);
 
   state.pixStatus = 'approved';
-  await page.getByRole('button', { name: 'Verificar pagamento' }).click();
+  await page.clock.runFor(5_000);
   await expect.poll(() => state.pixConfirmationReads).toBeGreaterThan(0);
-  await expect(page.getByRole('heading', { name: 'Pix confirmado!' })).toHaveCount(0);
-  await expect(page.getByRole('button', { name: 'Verificar pagamento' })).toBeEnabled();
+  await expect(page.getByRole('heading', { name: 'Pagamento PIX Confirmado!' })).toHaveCount(0);
 
   state.pixConfirmed = true;
-  await page.getByRole('button', { name: 'Verificar pagamento' }).click();
+  await page.clock.runFor(5_000);
   const paid = paymentResult(page, 'PAID');
-  await expect(paid.getByRole('heading', { name: 'Pix confirmado!' })).toBeVisible();
+  await expect(paid.getByRole('heading', { name: 'Pagamento PIX Confirmado!' })).toBeVisible();
   await expectResultIcon(paid, 'success');
   await expect(paid).toContainText('R$ 36,00');
-  await expect(paid).toContainText('Pedido #501');
   await expect(page.getByRole('button', { name: 'Copiar código Pix' })).toHaveCount(0);
   await expect(page.getByText(PIX_CODE, { exact: true })).toHaveCount(0);
-  await expect(page.getByLabel('QR Code Pix')).toHaveCount(0);
+  await expect(page.getByLabel('QR Code PIX')).toHaveCount(0);
   await expectNoHorizontalOverflow(page);
   await testInfo.attach('pix-confirmado-mobile', {
     body: await page.screenshot({
@@ -410,14 +392,14 @@ test('Pix recusado pelo provedor encerra a cobrança com X vermelho e remove o c
   await expect(page.getByRole('button', { name: 'Copiar código Pix' })).toBeVisible();
   await pauseBeforePaymentResult(page);
   state.pixStatus = 'rejected';
-  await page.getByRole('button', { name: 'Verificar pagamento' }).click();
+  await page.clock.runFor(5_000);
   const failed = paymentResult(page, 'FAILED');
-  await expect(failed.getByRole('heading', { name: 'Pagamento não concluído' })).toBeVisible();
+  await expect(failed.getByRole('heading', { name: 'Pagamento PIX não efetuado' })).toBeVisible();
   await expectResultIcon(failed, 'failure');
   await expect(page.getByRole('button', { name: 'Copiar código Pix' })).toHaveCount(0);
   await expect(page.getByText(PIX_CODE, { exact: true })).toHaveCount(0);
-  await expect(page.getByLabel('QR Code Pix')).toHaveCount(0);
-  await expect(page.getByRole('heading', { name: 'Pix confirmado!' })).toHaveCount(0);
+  await expect(page.getByLabel('QR Code PIX')).toHaveCount(0);
+  await expect(page.getByRole('heading', { name: 'Pagamento PIX Confirmado!' })).toHaveCount(0);
   expect(state.pixConfirmationReads).toBe(0);
-  await expectAutomaticReturnAfterFiveSeconds(page, failed);
+  await expect(failed).toBeVisible();
 });

@@ -53,6 +53,7 @@ export function getAvailablePaymentMethods({
   if (allowCard) methods.push('card');
   if (allowPayOnDelivery && allowPix) methods.push('delivery_pix');
   if (allowPayOnDelivery && allowCard) methods.push('delivery_card');
+  if (allowPayOnDelivery) methods.push('delivery_cash');
   if (allowPayAtPickup && allowPix) methods.push('pickup_pix');
   if (allowPayAtPickup && allowCard) methods.push('pickup_card');
   if (allowPayAtPickup) methods.push('pickup_cash');
