@@ -8,6 +8,7 @@ import {
   List,
   Search,
   ShoppingBag,
+  Star,
   UserRound,
   UtensilsCrossed,
 } from 'lucide-react';
@@ -594,26 +595,29 @@ export function FigmaDeliveryExperience({
         </>
       ) : (
         <S.MenuLayout>
-          <S.MenuCategories>
+          <S.MenuCategories aria-label="Categorias do cardápio">
             <h2>Categorias</h2>
             <button className={categoryId === 'todos' ? 'active' : ''} type="button" onClick={() => setCategoryId('todos')}>
-              Destaques
+              <span className="category-chip-image"><Star aria-hidden="true" /></span>
+              <span>Destaques</span>
             </button>
             {categories.map((category) => (
               <button className={categoryId === category.id ? 'active' : ''} key={category.id} type="button" onClick={() => setCategoryId(category.id)}>
-                {category.name}
+                <span className="category-chip-image">{categoryImage(category.image, category.name)}</span>
+                <span>{category.name}</span>
               </button>
             ))}
           </S.MenuCategories>
 
-          <S.MenuProducts>
+          <S.MenuProducts key={categoryId}>
             <S.MenuCategoryBar aria-label="Categorias do cardápio">
               <button
                 className={categoryId === 'todos' ? 'active' : ''}
                 type="button"
                 onClick={() => setCategoryId('todos')}
               >
-                Destaques
+                <span className="category-chip-image"><Star aria-hidden="true" /></span>
+                <span>Destaques</span>
               </button>
               {categories.slice(0, 6).map((category) => (
                 <button
@@ -622,7 +626,8 @@ export function FigmaDeliveryExperience({
                   type="button"
                   onClick={() => setCategoryId(category.id)}
                 >
-                  {category.name}
+                  <span className="category-chip-image">{categoryImage(category.image, category.name)}</span>
+                  <span>{category.name}</span>
                 </button>
               ))}
             </S.MenuCategoryBar>
