@@ -163,7 +163,8 @@ export const Empty = styled.div`
 export const Footer = styled.footer`
   padding:64px 120px;background:#1f1e1a;color:#fff;
   .inner{display:grid;grid-template-columns:1.4fr repeat(3,1fr);gap:40px}.brand{font-family:'Gabarito','Inter',sans-serif;font-size:20px;font-weight:800}
-  h3{font-size:14px}p,a{color:#72706b;font-size:13px;line-height:1.6;text-decoration:none}
+  h3{font-size:14px}p,a,button{color:#72706b;font-size:13px;line-height:1.6;text-decoration:none}
+  button{padding:0;border:0;background:transparent;text-align:left}
   .bottom{margin-top:48px;padding-top:20px;border-top:1px solid #343330;color:#72706b;font-size:12px;display:flex;justify-content:space-between}
   @media(max-width:900px){display:none}
 `;
