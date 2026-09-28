@@ -28,6 +28,7 @@ test('retorna pendente somente para o participante dono do pedido de mesa', asyn
   orderRepository.findCardPaymentStatusByPublicId = async (publicId, restaurantId) => {
     assert.deepEqual([publicId, restaurantId], [orderPublicId, 7]);
     return {
+      id: 41,
       publicId: orderPublicId,
       restaurantId: 7,
       userId: null,
@@ -37,7 +38,15 @@ test('retorna pendente somente para o participante dono do pedido de mesa', asyn
       paymentMethod: 'CARTAO',
       payOnDelivery: false,
       paid: false,
+      paidAt: null,
       status: 'PENDENTE',
+      total: 48.9,
+      restaurant: {
+        name: 'Restaurante Teste',
+        logo: null,
+        settings: { averageDeliveryTime: '25-35 min' },
+      },
+      kitchenPrintJobs: [],
     };
   };
 
@@ -49,7 +58,15 @@ test('retorna pendente somente para o participante dono do pedido de mesa', asyn
   });
 
   assert.deepEqual(result, {
+    orderId: 41,
     orderPublicId,
+    restaurantId: 7,
+    restaurantName: 'Restaurante Teste',
+    restaurantLogoUrl: null,
+    deliveryTime: '25-35 min',
+    totalAmount: 48.9,
+    paidAt: null,
+    kitchenPrintedAt: null,
     status: 'PENDING',
     paid: false,
     paymentAttempt: null,
