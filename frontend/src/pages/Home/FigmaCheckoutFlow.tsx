@@ -125,11 +125,7 @@ export function FigmaCheckoutFlow({
   };
 
   const continueFlow = () => {
-    if (step === 'payment' && paymentScreen) {
-    return <>{paymentScreen}</>;
-  }
-
-  if (step === 'cart') {
+    if (step === 'cart') {
       onStepChange('address');
       return;
     }
@@ -150,6 +146,10 @@ export function FigmaCheckoutFlow({
 
   if (step === 'address' && authenticatedEmptyAddressScreen) {
     return <>{authenticatedEmptyAddressScreen}</>;
+  }
+
+  if (step === 'payment' && paymentScreen) {
+    return <>{paymentScreen}</>;
   }
 
   if (step === 'cart') {
