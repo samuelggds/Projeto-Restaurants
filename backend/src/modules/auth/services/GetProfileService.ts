@@ -1,5 +1,4 @@
 import userRepository from '../repositories/UserRepository.js';
-import { isMfaRequiredForRole } from '../security/mfaPolicy.js';
 
 class GetProfileService {
   async execute(userId: number | string) {
@@ -7,8 +6,7 @@ class GetProfileService {
     return user
       ? {
           ...user,
-          mfaEnabled:
-            user.role === 'SUPER_ADMIN' || isMfaRequiredForRole(user.role) || user.mfaEnabled,
+          mfaEnabled: user.mfaEnabled === true,
         }
       : user;
   }
