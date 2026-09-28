@@ -72,6 +72,7 @@ export function FigmaDeliveryExperience({
   const [searchFocused, setSearchFocused] = useState(Boolean(initialSearchOpen));
   const [mobileSearchOpen, setMobileSearchOpen] = useState(Boolean(initialSearchOpen));
   const searchInputRef = useRef<HTMLInputElement>(null);
+  const mobileSearchTriggerRef = useRef<HTMLButtonElement>(null);
 
   const availableProducts = useMemo(
     () => data.products.filter((product) => product.available),
@@ -217,6 +218,16 @@ export function FigmaDeliveryExperience({
             aria-label="Pesquisar produto pelo nome"
             placeholder={`Buscar no cardápio de ${data.brand.name}...`}
             onChange={(event) => setSearchQuery(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key !== 'Escape') return;
+              setSearchQuery('');
+              setSearchFocused(false);
+              searchInputRef.current?.blur();
+              if (mobileSearchOpen) {
+                setMobileSearchOpen(false);
+                window.requestAnimationFrame(() => mobileSearchTriggerRef.current?.focus());
+              }
+            }}
           />
           {searchQuery ? (
             <button
@@ -263,6 +274,7 @@ export function FigmaDeliveryExperience({
         </S.InlineSearch>
 
         <button
+          ref={mobileSearchTriggerRef}
           className="mobile-header-search"
           type="button"
           aria-label="Buscar no cardápio"
