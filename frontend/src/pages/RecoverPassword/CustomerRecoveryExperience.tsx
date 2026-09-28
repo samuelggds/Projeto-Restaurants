@@ -26,6 +26,7 @@ type Props = {
   onBack: () => void;
   onChangeContact: () => void;
   onResend: () => void;
+  authContext?: 'ONLINE' | 'TABLE';
 };
 
 export function CustomerRecoveryExperience({
@@ -48,6 +49,7 @@ export function CustomerRecoveryExperience({
   onBack,
   onChangeContact,
   onResend,
+  authContext = 'ONLINE',
 }: Props) {
   const [heroLoaded, setHeroLoaded] = useState(false);
   const [heroFailed, setHeroFailed] = useState(false);
@@ -72,7 +74,11 @@ export function CustomerRecoveryExperience({
   );
 
   return (
-    <S.Layout style={style} data-testid="recover-password-layout">
+    <S.Layout
+      style={style}
+      data-testid="recover-password-layout"
+      data-auth-context={authContext}
+    >
       <S.Hero>
         {heroImage && !heroFailed ? (
           <>
