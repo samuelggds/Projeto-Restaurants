@@ -1,9 +1,7 @@
 import { FuncionarioSubRole, UserRole } from '@prisma/client';
 import { z } from 'zod';
 import { passwordSchema } from './PasswordValidator.js';
-
-const phoneRegex =
-  /^(?:\+?55\s?)?(?:\(?([1-9][0-9])\)?\s?)?(?:((?:9\d|[2-9])\d{3})\s?-?\s?(\d{4}))$/;
+import { brazilPhoneSchema, clearableBrazilPhoneSchema } from './PhoneValidator.js';
 
 const employeeNameSchema = z
   .string()
@@ -24,14 +22,7 @@ export const employeeUsernameSchema = z
     message: 'Usuário deve conter somente letras minúsculas de a a z e números, sem espaços ou símbolos',
   });
 
-const employeePhoneSchema = z
-  .string({
-    required_error: 'Telefone obrigatório',
-    invalid_type_error: 'Telefone inválido',
-  })
-  .trim()
-  .min(1, 'Telefone obrigatório')
-  .regex(phoneRegex, 'Número de telefone inválido!');
+const employeePhoneSchema = brazilPhoneSchema;
 
 export const EmployeeUserSchema = z
   .object({
@@ -71,7 +62,7 @@ export const UpdateEmployeeSchema = z
   .object({
     name: employeeNameSchema.optional(),
     username: employeeUsernameSchema.optional(),
-    phone: z.union([employeePhoneSchema, z.literal(''), z.null()]).optional(),
+    phone: clearableBrazilPhoneSchema,
     role: z
       .nativeEnum(UserRole)
       .optional()
