@@ -8,6 +8,7 @@ export type CheckoutPaymentMethod =
   | 'card'
   | 'delivery_pix'
   | 'delivery_card'
+  | 'delivery_cash'
   | 'pickup_pix'
   | 'pickup_card'
   | 'pickup_cash';
