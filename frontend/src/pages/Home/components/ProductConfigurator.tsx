@@ -198,8 +198,8 @@ export function ProductConfigurator({
         </S.Header>
       ) : null}
 
-      <S.Layout>
-        <S.ProductSummary data-product-summary>
+      <S.Layout className="product-layout">
+        <S.ProductSummary className="product-summary" data-product-summary>
           <S.ProductBack type="button" aria-label="Voltar ao cardápio" onClick={onClose}>
             <ArrowLeft size={19} />
           </S.ProductBack>
@@ -260,9 +260,9 @@ export function ProductConfigurator({
           </div>
         </S.ProductSummary>
 
-        <S.Form onSubmit={submit} noValidate>
+        <S.Form className="product-form" onSubmit={submit} noValidate>
           {!tableMenuVariant ? (
-            <S.DesktopProductDetails className={customerPageVariant ? 'customer-product-details' : undefined}>
+            <S.DesktopProductDetails className="product-details">
               <h1>{product.name}</h1>
               {product.description ? <p>{product.description}</p> : null}
               <strong aria-live="polite">
@@ -351,12 +351,13 @@ export function ProductConfigurator({
             const atLimit = group.maxSelections != null && selected.length >= group.maxSelections;
             return (
               <S.Group
+                className="product-group"
                 id={`product-group-${group.id}`}
                 key={group.id}
                 $error={Boolean(errors[group.id])}
                 aria-describedby={errors[group.id] ? `product-group-error-${group.id}` : undefined}
               >
-                <S.GroupHeader>
+                <S.GroupHeader className="product-group-header">
                   <div>
                     <h3>{group.name}</h3>
                     {group.description && <p>{group.description}</p>}
@@ -366,7 +367,7 @@ export function ProductConfigurator({
                   </S.Badge>
                 </S.GroupHeader>
 
-                <S.OptionList>
+                <S.OptionList className="product-option-list">
                   {group.options.map((option) => {
                     const isSelected = selected.includes(option.id);
                     const disabled = Boolean(
@@ -375,6 +376,7 @@ export function ProductConfigurator({
                     );
                     return (
                       <S.Option
+                        className="product-option"
                         key={option.id}
                         $selected={isSelected}
                         $disabled={disabled && !option.locked}
@@ -596,7 +598,7 @@ export function ProductConfigurator({
             </S.PortionBuilder>
           )}
 
-          <S.Observation data-testid="product-configurator-observation">
+          <S.Observation className="product-observation" data-testid="product-configurator-observation">
             <div>
               <b>Alguma observação?</b>
               <span>Opcional</span>
@@ -611,6 +613,7 @@ export function ProductConfigurator({
           </S.Observation>
 
           <S.BottomBar
+            className="product-bottom-bar"
             data-testid="product-configurator-footer"
             $stickyOnMobile={tableMenuVariant || enableProductQuantity}
           >
@@ -620,7 +623,7 @@ export function ProductConfigurator({
                 : 'Escolha os sabores'}
             </span>
             {enableProductQuantity ? (
-              <S.ProductQuantity aria-label="Quantidade do produto">
+              <S.ProductQuantity className="product-quantity" aria-label="Quantidade do produto">
                 <button
                   type="button"
                   aria-label="Diminuir quantidade do produto"
