@@ -962,6 +962,11 @@ export default function Home() {
           }}
           onIncrease={increaseCart}
           onDecrease={decreaseCart}
+          onRemove={(cartId) =>
+            setCart((current) =>
+              current.filter((item) => (item.cartId || item.productId) !== cartId),
+            )
+          }
           onClear={() => setCart([])}
           onClose={() => setCartOpen(false)}
           onSubmit={() => void handleCheckout()}
