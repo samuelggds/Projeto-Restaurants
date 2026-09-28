@@ -404,6 +404,7 @@ test('cardápio público mantém a hierarquia e os atalhos contidos em 320px', a
   await shortcutsButton.click();
   await expect(shortcutsButton).toHaveAttribute('aria-expanded', 'false');
   await expect(loyaltyButton).toBeHidden();
+  await menuButton.click();
   const allCategories = page.getByRole('button', { name: 'Todos', exact: true });
   await allCategories.scrollIntoViewIfNeeded();
   const categoryBox = await allCategories.boundingBox();
