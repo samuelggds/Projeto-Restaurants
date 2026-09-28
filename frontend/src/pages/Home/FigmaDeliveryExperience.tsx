@@ -142,8 +142,6 @@ function ProductCarouselSection({
 export function FigmaDeliveryExperience({
   data,
   cartCount = 0,
-  cart = [],
-  cartTotal = 0,
   initialSearchOpen = false,
   userName,
   userLoggedIn = false,
