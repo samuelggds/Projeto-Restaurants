@@ -19,6 +19,7 @@ export function useDeliveryAddress(user: unknown) {
   const [cepStatus, setCepStatus] = useState<CepStatus>('idle');
   const [cepMessage, setCepMessage] = useState('');
   const [savedAddresses, setSavedAddresses] = useState<CustomerAddress[]>([]);
+  const [savedAddressesLoading, setSavedAddressesLoading] = useState(false);
   const [selectedAddressId, setSelectedAddressId] = useState('');
 
   const selectSavedAddress = useCallback((address: CustomerAddress, persist = true) => {
@@ -46,6 +47,7 @@ export function useDeliveryAddress(user: unknown) {
     queueMicrotask(() => {
       if (!active) return;
       setSavedAddresses([]);
+      setSavedAddressesLoading(isCustomer);
       setSelectedAddressId('');
       setDeliveryAddress(accountAddress);
       setCepStatus('idle');
@@ -53,6 +55,7 @@ export function useDeliveryAddress(user: unknown) {
     });
 
     if (!isCustomer) {
+      setSavedAddressesLoading(false);
       return () => {
         active = false;
       };
@@ -63,6 +66,7 @@ export function useDeliveryAddress(user: unknown) {
       .then((items) => {
         if (!active) return;
         setSavedAddresses(items);
+        setSavedAddressesLoading(false);
         const storedId = localStorage.getItem('selectedCustomerAddressId');
         const selected =
           items.find((item) => String(item.id) === storedId) ||
@@ -79,6 +83,7 @@ export function useDeliveryAddress(user: unknown) {
       .catch(() => {
         if (!active) return;
         setSavedAddresses([]);
+        setSavedAddressesLoading(false);
         setSelectedAddressId('');
         setDeliveryAddress(accountAddress);
       });
@@ -156,6 +161,7 @@ export function useDeliveryAddress(user: unknown) {
     handleCepLookup,
     handleCepChange,
     savedAddresses,
+    savedAddressesLoading,
     selectedAddressId,
     handleSavedAddressChange,
   };
