@@ -172,7 +172,7 @@ export const Copy = styled.div`
     min-height: 38px;
     margin-top: 14px;
     border: 0;
-    border-radius: 999px;
+    border-radius: 10px;
     padding: 0 18px;
     display: inline-flex;
     align-items: center;
