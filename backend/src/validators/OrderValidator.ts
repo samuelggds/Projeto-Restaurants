@@ -1,8 +1,21 @@
 import { z } from 'zod';
 import { OrderType, PaymentMethod } from '@prisma/client';
-import { optionalBrazilPhoneSchema, isBrazilPhoneWithDddWithoutDdi } from './PhoneValidator.js';
+import { isBrazilPhoneWithDddWithoutDdi } from './PhoneValidator.js';
 
-const optionalCustomerPhoneSchema = optionalBrazilPhoneSchema;
+const optionalCustomerPhoneSchema = z.preprocess(
+  (value) =>
+    value === undefined || value === null || (typeof value === 'string' && value.trim() === '')
+      ? undefined
+      : value,
+  z
+    .string()
+    .trim()
+    .refine(
+      isBrazilPhoneWithDddWithoutDdi,
+      'Informe um celular/WhatsApp válido com DDD.',
+    )
+    .optional(),
+);
 
 export const createOrderSchema = z
   .object({
