@@ -99,6 +99,7 @@ export type ProfileData = {
   brand: ProfileBrand;
   user: ProfileUser;
   activeOrder?: ActiveProfileOrder;
+  activeOrderCount?: number;
   recentOrders: ProfileOrder[];
   favorites?: ProfileFavorite[];
   addresses?: ProfileAddress[];
