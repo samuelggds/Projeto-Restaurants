@@ -136,6 +136,8 @@ export function CustomerRecoveryExperience({
                 <span>{contactMethod === 'phone' ? 'Telefone verificado' : 'E-mail de cadastro'}</span>
                 <S.InputBox>
                   <input
+                    id="identifier"
+                    aria-label={contactMethod === 'phone' ? 'Telefone verificado' : 'E-mail'}
                     type={contactMethod === 'phone' ? 'tel' : 'email'}
                     inputMode={contactMethod === 'phone' ? 'tel' : 'email'}
                     value={identifier}
