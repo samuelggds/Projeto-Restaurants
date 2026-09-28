@@ -602,6 +602,11 @@ export function ProductConfigurator({
             data-testid="product-configurator-footer"
             $stickyOnMobile={tableMenuVariant}
           >
+            <span className="total-description" id={totalDescriptionId}>
+              {priceReady
+                ? brl(total * (enableProductQuantity ? productQuantity : 1))
+                : 'Escolha os sabores'}
+            </span>
             {enableProductQuantity ? (
               <S.ProductQuantity aria-label="Quantidade do produto">
                 <button
@@ -624,7 +629,7 @@ export function ProductConfigurator({
             ) : (
               <div>
                 <small>Total deste item</small>
-                <strong id={totalDescriptionId} aria-live="polite">
+                <strong aria-live="polite">
                   {priceLabel}
                 </strong>
               </div>
