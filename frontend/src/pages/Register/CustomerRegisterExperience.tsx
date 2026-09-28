@@ -32,6 +32,7 @@ type Props = {
   onResendVerification: () => void;
   onGoToLogin: () => void;
   authContext?: 'ONLINE' | 'TABLE';
+  submitAriaLabel?: string;
 };
 
 export function CustomerRegisterExperience({
@@ -61,6 +62,7 @@ export function CustomerRegisterExperience({
   onResendVerification,
   onGoToLogin,
   authContext = 'ONLINE',
+  submitAriaLabel = 'Criar conta',
 }: Props) {
   const [heroLoaded, setHeroLoaded] = useState(false);
   const [heroFailed, setHeroFailed] = useState(false);
@@ -275,7 +277,12 @@ export function CustomerRegisterExperience({
 
                   {errorMessage ? <S.Error role="alert">{errorMessage}</S.Error> : null}
 
-                  <S.Primary type="submit" disabled={!evaluation.isValid || isSubmitting}>
+                  <S.Primary
+                    type="submit"
+                    aria-label={submitAriaLabel}
+                    aria-busy={isSubmitting}
+                    disabled={!evaluation.isValid || isSubmitting}
+                  >
                     {isSubmitting ? 'Criando conta...' : 'Criar conta'}
                   </S.Primary>
                 </S.Form>
@@ -309,7 +316,7 @@ export function CustomerRegisterExperience({
                 {googleMessage ? <S.GoogleMessage role="alert">{googleMessage}</S.GoogleMessage> : null}
 
                 <S.Footer>
-                  <p>Já tem conta? <Link to={loginPath}>Entrar</Link></p>
+                  <p>Já tem conta? <Link to={loginPath} aria-label="Fazer Login">Entrar</Link></p>
                   <small>
                     Ao se cadastrar, você declara que concorda e aceita nossos termos e políticas vigentes.
                   </small>
