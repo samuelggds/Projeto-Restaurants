@@ -87,7 +87,7 @@ test('reinício apenas confirma o único SUPER_ADMIN esperado e não relê a sen
   assert.deepEqual(calls.userCreates, []);
 });
 
-test('primeira inicialização cria conta isolada, MFA e troca obrigatória de senha', async () => {
+test('primeira inicialização cria conta isolada com MFA opcional e troca obrigatória de senha', async () => {
   const { service, calls } = createHarness();
 
   assert.deepEqual(await service.execute(productionEnv()), {
@@ -104,7 +104,7 @@ test('primeira inicialização cria conta isolada, MFA e troca obrigatória de s
     active: true,
     restaurantId: null,
     subRole: null,
-    mfaEnabled: true,
+    mfaEnabled: false,
     mustChangePassword: true,
   });
   assert.deepEqual(calls.auditCreates[0], {
