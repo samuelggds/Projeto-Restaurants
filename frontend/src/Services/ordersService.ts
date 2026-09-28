@@ -349,6 +349,28 @@ class OrdersService {
     return response.data;
   }
 
+  async getDeliveryAddressLocation(payload: {
+    restaurantId: number;
+    type: 'DELIVERY';
+    address: string;
+    number: string;
+    district: string;
+    city: string;
+    state: string;
+    zipCode?: string;
+  }) {
+    const response = await api.post('/orders/address-location', payload);
+    return response.data?.location as
+      | {
+          latitude: number;
+          longitude: number;
+          formattedAddress: string;
+          locationType: string;
+          partialMatch: boolean;
+        }
+      | undefined;
+  }
+
   async createPixPayment(payload: PixPaymentPayload) {
     return this.createOnlinePayment('/orders/pix/payment', payload);
   }
