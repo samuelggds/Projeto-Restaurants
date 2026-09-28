@@ -159,6 +159,62 @@ export const LoginCard = styled.div`
   }
 `;
 
+export const GuestIdentity = styled.div`
+  padding: 16px;
+  display: grid;
+  gap: 7px;
+  border: 1px solid #efece6;
+  border-radius: 12px;
+  background: #fff;
+
+  label {
+    color: #1f1e1a;
+    font-size: 13px;
+    font-weight: 700;
+  }
+
+  input {
+    width: 100%;
+    height: 42px;
+    padding: 0 12px;
+    border: 1px solid #e3ded7;
+    border-radius: 10px;
+    background: #fafaf8;
+    color: #1f1e1a;
+    font: inherit;
+    font-size: 14px;
+    outline: none;
+    transition:
+      border-color 180ms ease,
+      box-shadow 180ms ease,
+      background 180ms ease;
+  }
+
+  input:focus {
+    border-color: var(--checkout-primary);
+    background: #fff;
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--checkout-primary) 12%, transparent);
+  }
+
+  small {
+    color: #72706b;
+    font-size: 11px;
+    line-height: 1.4;
+  }
+
+  @media (max-width: 760px) {
+    margin: 0 20px;
+    padding: 14px;
+    border-radius: 14px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    input {
+      transition: none;
+    }
+  }
+`;
+
 export const AddressCard = styled.section`
   padding: 20px;
   display: grid;
