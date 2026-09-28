@@ -161,6 +161,28 @@ describe('checkout', () => {
     },
   );
 
+  it('mantém dinheiro na entrega restrito ao delivery e pendente até o recebimento', () => {
+    const result = buildOrderPayload({
+      restaurantId: 7,
+      type: 'DELIVERY',
+      paymentMethod: 'delivery_cash',
+      cart: [{ productId: '12', name: 'Pizza', price: 39.9, quantity: 1, image: '' }],
+      customer: { name: 'Samuel' },
+      deliveryAddress: address,
+    });
+
+    expect(result).toMatchObject({
+      payOnDelivery: true,
+      resolvedPaymentMethod: 'DINHEIRO',
+      payload: {
+        type: 'DELIVERY',
+        paymentMethod: 'DINHEIRO',
+        payOnDelivery: true,
+        payOnDeliveryMethod: 'DINHEIRO',
+      },
+    });
+  });
+
   it('adiciona o pedido à conta da mesa sem forjar uma forma de pagamento', () => {
     const order = buildOrderPayload({
       restaurantId: 7,
