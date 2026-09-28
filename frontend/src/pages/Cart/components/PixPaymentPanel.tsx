@@ -214,7 +214,7 @@ export default function PixPaymentPanel({
       ) : (
         <ResultContent>
           <ResultCard className={failed ? 'failure' : ''}>
-            <ResultIcon className={failed ? 'failure' : ''}>
+            <ResultIcon className={failed ? 'failure' : ''} role="status">
               {failed ? <XCircle aria-hidden="true" /> : <CheckCircle2 aria-hidden="true" />}
             </ResultIcon>
 
