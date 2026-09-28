@@ -269,10 +269,9 @@ class GetPublicRestaurantSettingsService {
       mercadoPagoConnected && String(privateSettings?.mercadoPagoPublicKey || '').trim(),
     );
 
-    // Current production capability: Mercado Pago is the only provider exposed
-    // to customers. Pagar.me, Asaas and Open Finance remain implemented behind
-    // their existing future-provider/configuration gates, but must not appear
-    // in checkout until they are explicitly production-ready.
+    // Current production capability: Mercado Pago is the only card/PIX gateway
+    // exposed to customers. Open Finance is independent and remains available
+    // only when its existing Efí configuration and beneficiary Pix key are valid.
     const acceptsPix =
       settings.acceptsPix === true &&
       pixProvider === 'MERCADO_PAGO' &&
@@ -281,7 +280,11 @@ class GetPublicRestaurantSettingsService {
       settings.acceptsCard === true &&
       cardProvider === 'MERCADO_PAGO' &&
       mercadoPagoCardReady;
-    const openFinanceReady = false;
+    const openFinanceReady = Boolean(
+      settings.openFinancePixEnabled &&
+        efiOpenFinanceConfigured() &&
+        String(privateSettings?.pixKey || '').trim(),
+    );
 
     const rawRestaurant = settings.restaurant as unknown as Omit<
       PublicSettingsFallback['restaurant'],
@@ -293,8 +296,8 @@ class GetPublicRestaurantSettingsService {
 
     return {
       ...settings,
-      acceptsPix,
-      acceptsCard,
+      ...(typeof settings.acceptsPix === 'boolean' ? { acceptsPix } : {}),
+      ...(typeof settings.acceptsCard === 'boolean' ? { acceptsCard } : {}),
       openFinancePixEnabled: openFinanceReady,
       ...(restaurant
         ? { restaurant: externalizePublicRestaurantImages(normalizedRestaurantId, restaurant) }
