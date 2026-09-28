@@ -22,6 +22,7 @@ import { FigmaCouponRedemption, FigmaLoyaltyProgram } from './FigmaLoyaltyViews'
 import { useLoyaltyExpirationClock } from '../Home/hooks/useLoyaltyExpirationClock';
 import { buildWhatsAppUrl } from '../Home/domain/publicSettings';
 import type {
+  ProfileData,
   ProfileOrder,
   ProfilePageProps,
   ProfileView,
@@ -87,7 +88,7 @@ function orderAction(
   return null;
 }
 
-export function FigmaAccountExperience(props: ProfilePageProps) {
+function FigmaAccountExperienceReady(props: ProfilePageProps & { data: ProfileData }) {
   const {
     data,
     initialView = 'overview',
@@ -106,8 +107,6 @@ export function FigmaAccountExperience(props: ProfilePageProps) {
     onUseCoupon,
     onDeactivateAccount,
   } = props;
-
-  if (!data) return null;
 
   const [view, setView] = useState<Stage3View>(() => initialStage3View(initialView));
   const [ordersTab, setOrdersTab] = useState<'active' | 'history'>('active');
@@ -582,4 +581,10 @@ export function FigmaAccountExperience(props: ProfilePageProps) {
       </S.Footer>
     </S.Root>
   );
+}
+
+
+export function FigmaAccountExperience(props: ProfilePageProps) {
+  if (!props.data) return null;
+  return <FigmaAccountExperienceReady {...props} data={props.data} />;
 }
