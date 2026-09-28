@@ -408,6 +408,7 @@ export function PaymentOptions({
             type="button"
             $active={paymentMethod === 'pix'}
             onClick={() => handlePaymentChange('pix')}
+            aria-label="Pix QR Code"
             aria-pressed={paymentMethod === 'pix'}
           >
             <span className="method-icon pix"><QrCode aria-hidden="true" /></span>
