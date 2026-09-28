@@ -161,7 +161,6 @@ export function buildProfileData({
     };
   };
   const activeOrders = activeRawOrders.map(mapActiveOrder);
-  const activeRaw = activeRawOrders[0];
   const activeOrder = activeOrders[0];
   const activeOrderIds = new Set(activeRawOrders.map((order) => String(order.id)));
   const recentOrders: ProfileOrder[] = orders
