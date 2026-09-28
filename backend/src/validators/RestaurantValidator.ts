@@ -26,12 +26,6 @@ const COMMON_EMAIL_DOMAIN_TYPOS: Record<string, string> = {
   'outlok.com': 'outlook.com',
 };
 
-function normalizePhone(value: string) {
-  return String(value || '')
-    .replace(/\D/g, '')
-    .trim();
-}
-
 function validateEmailDomainTypos(value: string) {
   const domain = String(value || '')
     .split('@')[1]
