@@ -8,6 +8,7 @@ export type ProfileBrand = {
   phone?: string;
   email?: string;
   whatsapp?: string;
+  status?: string;
   primaryColor?: string;
 };
 
