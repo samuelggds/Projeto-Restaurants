@@ -283,7 +283,7 @@ export default function Home() {
     () =>
       buildHomeData(backendProducts, settings, new Date(), {
         allowImageFallbacks: false,
-        useLegacyBannerCopy: !mesaMode,
+        useLegacyBannerCopy: false,
       }),
     [backendProducts, mesaMode, settings],
   );
