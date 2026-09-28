@@ -346,6 +346,7 @@ test('cliente consulta cupons válidos, histórico e o novo ciclo no perfil', as
   await mockAuthRefresh(page, 22, 'e2e-customer-token');
 
   await page.goto('/profile');
+  const visibleProfileContent = page.locator('main:visible');
   const profileCartButton = page.getByRole('button', { name: 'Sacola com 1 item' });
   await expect(profileCartButton).toBeVisible();
 
@@ -369,30 +370,30 @@ test('cliente consulta cupons válidos, histórico e o novo ciclo no perfil', as
   await page.goto('/profile');
   await page.getByRole('button', { name: /^Meus pedidos/ }).click();
   await expect(page.getByRole('heading', { name: 'Meus Pedidos', exact: true })).toBeVisible();
-  const visibleActiveOrderId = page.locator('b:visible', { hasText: /^Pedido #0312$/ });
+  const visibleActiveOrderId = visibleProfileContent.locator('b', { hasText: /^Pedido #0312$/ });
   await expect(visibleActiveOrderId).toHaveCount(1);
   await expect(visibleActiveOrderId).toBeVisible();
   await page.getByRole('button', { name: 'Voltar para minha conta' }).click();
 
   await page.getByRole('button', { name: 'Endereços salvos', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Endereços Salvos', exact: true })).toBeVisible();
-  await expect(page.getByText(/Rua Francisco Calaça/)).toBeVisible();
+  await expect(visibleProfileContent.getByText(/Rua Francisco Calaça/)).toBeVisible();
   await page.getByRole('button', { name: 'Voltar para minha conta' }).click();
 
   await page.getByRole('button', { name: 'Métodos de pagamento', exact: true }).click();
   await expect(
     page.getByRole('heading', { name: 'Métodos de Pagamento', exact: true }),
   ).toBeVisible();
-  await expect(page.getByText(/visa ···· 4242/i)).toBeVisible();
+  await expect(visibleProfileContent.getByText(/visa ···· 4242/i)).toBeVisible();
   await page.getByRole('button', { name: 'Voltar para minha conta' }).click();
 
   await page.getByRole('button', { name: 'Meus Cupons', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Meus Cupons', exact: true })).toBeVisible();
-  await expect(page.getByText('CLIENTE10', { exact: true })).toBeVisible();
-  await expect(page.getByText('ANTIGO5', { exact: true }).first()).toBeVisible();
-  await expect(page.getByText('Disponível', { exact: true }).first()).toBeVisible();
-  await expect(page.getByText('Utilizado', { exact: true }).first()).toBeVisible();
-  await expect(page.getByText('Expirado', { exact: true }).first()).toBeVisible();
+  await expect(visibleProfileContent.getByText('CLIENTE10', { exact: true })).toBeVisible();
+  await expect(visibleProfileContent.getByText('ANTIGO5', { exact: true }).first()).toBeVisible();
+  await expect(visibleProfileContent.getByText('Disponível', { exact: true }).first()).toBeVisible();
+  await expect(visibleProfileContent.getByText('Utilizado', { exact: true }).first()).toBeVisible();
+  await expect(visibleProfileContent.getByText('Expirado', { exact: true }).first()).toBeVisible();
   expect(loyaltyRestaurantId).toBe('9');
 
   for (const width of [1280, 390, 320]) {
@@ -405,9 +406,9 @@ test('cliente consulta cupons válidos, histórico e o novo ciclo no perfil', as
   await page.setViewportSize({ width: 1280, height: 900 });
   await captureReadmeScreenshot(page, 'customer-profile-coupons.png', { fullPage: true });
 
-  const previousCampaign = page
+  const previousCampaign = visibleProfileContent
     .locator('article')
-    .filter({ has: page.getByText('ANTIGO5', { exact: true }) })
+    .filter({ has: visibleProfileContent.getByText('ANTIGO5', { exact: true }) })
     .filter({ hasText: 'Campanha anterior' })
     .first();
   await expect(previousCampaign).toBeVisible();
