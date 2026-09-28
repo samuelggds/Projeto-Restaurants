@@ -19,8 +19,9 @@ export const brazilPhoneSchema = z
   })
   .trim()
   .min(1, BRAZIL_PHONE_WITH_DDD_MESSAGE)
-  .transform(normalizeBrazilPhone)
   .refine(isBrazilPhoneWithDddWithoutDdi, BRAZIL_PHONE_WITH_DDD_MESSAGE);
+
+export const normalizedBrazilPhoneSchema = brazilPhoneSchema.transform(normalizeBrazilPhone);
 
 export const optionalBrazilPhoneSchema = z.preprocess(
   (value) =>
@@ -28,6 +29,14 @@ export const optionalBrazilPhoneSchema = z.preprocess(
       ? undefined
       : value,
   brazilPhoneSchema.optional(),
+);
+
+export const optionalNormalizedBrazilPhoneSchema = z.preprocess(
+  (value) =>
+    value === undefined || value === null || (typeof value === 'string' && value.trim() === '')
+      ? undefined
+      : value,
+  normalizedBrazilPhoneSchema.optional(),
 );
 
 export const clearableBrazilPhoneSchema = z.preprocess(
