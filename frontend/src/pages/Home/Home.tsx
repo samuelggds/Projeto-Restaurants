@@ -27,6 +27,7 @@ import { DeliveryMethodSelector } from '../Home/components/DeliveryMethodSelecto
 import { LoyaltyCouponPanel } from '../Home/components/LoyaltyCouponPanel';
 import { ProductConfigurator } from '../Home/components/ProductConfigurator';
 import { ComboConfigurator } from '../Home/components/ComboConfigurator';
+import { GuestAddressCheckout } from '../Home/components/GuestAddressCheckout';
 import { HomeFeedback, type HomeNotification } from '../Home/components/HomeFeedback';
 import {
   buildOrderPayload,
@@ -983,7 +984,7 @@ export default function Home() {
                 customerPhone: customer.phone,
                 customerName: customer.name,
                 customerCpf: customer.cpf,
-                requireGuestIdentity: !user,
+                requireGuestIdentity: false,
                 deliveryAddress,
                 cepStatus,
                 paymentMethod: selectedCheckoutPaymentMethod,
@@ -1007,6 +1008,34 @@ export default function Home() {
           onSubmit={() => void handleCheckout()}
           recommendations={checkoutRecommendations}
           onAddRecommendation={handleCrossSellAdd}
+          guestAddressScreen={
+            !user ? (
+              <GuestAddressCheckout
+                brandName={homeData.brand.name}
+                logoUrl={homeData.brand.logoUrl}
+                isOpen={homeData.isOpen}
+                deliveryTime={homeData.deliveryTime}
+                cartCount={cartCount}
+                total={checkoutTotal}
+                deliveryFee={orderQuote.quote?.deliveryFeeAmount || 0}
+                orderType={availableOrderType}
+                allowDelivery={homeData.acceptsDelivery}
+                allowPickup={homeData.acceptsPickup}
+                address={deliveryAddress}
+                setAddress={setDeliveryAddress}
+                cepStatus={cepStatus}
+                cepMessage={cepMessage}
+                onCepChange={handleCepChange}
+                onCepLookup={handleCepLookup}
+                onOrderTypeChange={setOrderType}
+                onLogin={navigateToLogin}
+                onBack={() => setCheckoutStep('cart')}
+                onContinue={() => setCheckoutStep('payment')}
+                disabled={!checkoutChannelAvailable}
+                loading={orderQuote.loading}
+              />
+            ) : undefined
+          }
           couponContent={
             <LoyaltyCouponPanel
               loggedIn={isLoyaltyCustomer}
@@ -1048,7 +1077,14 @@ export default function Home() {
             </>
           }
           paymentContent={
-            <PaymentOptions
+            <>
+              {!user ? (
+                <GuestCheckoutForm
+                  value={guestCheckoutDetails}
+                  onChange={setGuestCheckoutDetails}
+                />
+              ) : null}
+              <PaymentOptions
               paymentMethod={selectedCheckoutPaymentMethod}
               allowPayOnDelivery={allowPayOnDelivery}
               allowPix={homeData.acceptsPix}
@@ -1059,6 +1095,7 @@ export default function Home() {
               userEmail={user ? String((user as Record<string, unknown>).email || '') : undefined}
               onChange={setPaymentMethod}
             />
+            </>
           }
         />
       ) : null}
