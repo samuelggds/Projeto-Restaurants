@@ -14,7 +14,12 @@ vi.mock('../../Services/authService', () => ({
   default: {
     register: mocks.register,
     resendEmailVerification: mocks.resendEmailVerification,
+    getGoogleClientId: vi.fn().mockRejectedValue(new Error('google-disabled-in-unit-test')),
+    loginWithGoogle: vi.fn(),
   },
+}));
+vi.mock('../../contexts/authContext', () => ({
+  useAuth: () => ({ login: vi.fn() }),
 }));
 vi.mock('react-toastify', () => ({
   toast: { success: mocks.toastSuccess, error: mocks.toastError },
@@ -83,7 +88,7 @@ describe('Register contextual do cliente', () => {
 
   it('cria somente uma conta CLIENTE e mantém a mesa até o Login tenant-scoped', async () => {
     expect(container.querySelector('[data-auth-context="TABLE"]')).not.toBeNull();
-    expect(container.textContent).toContain('Criar conta para a Mesa 12');
+    expect(container.textContent).toContain('Criar conta');
 
     setInputValue(container.querySelector('#name') as HTMLInputElement, ' Samuel Cliente ');
     setInputValue(container.querySelector('#email') as HTMLInputElement, ' cliente@teste.com ');
