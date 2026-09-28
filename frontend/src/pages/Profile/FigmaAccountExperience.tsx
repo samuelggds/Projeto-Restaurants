@@ -518,14 +518,19 @@ function FigmaAccountExperienceReady(props: ProfilePageProps & { data: ProfileDa
             {data.brand.status ? <span className="status"><i /> {data.brand.status}</span> : null}
           </div>
         </div>
-        <button className="search" type="button" onClick={onOpenSearch}>
+        <button className="search" type="button" aria-label="Buscar" onClick={onOpenSearch}>
           <Search size={16} /> Buscar no cardápio...
         </button>
         <div className="actions">
           <button className="account" type="button" onClick={() => setView('account')}>
             <UserRound size={20} /> Olá, {data.user.firstName || data.user.fullName}
           </button>
-          <button className="cart" type="button" onClick={onOpenCart}>
+          <button
+            className="cart"
+            type="button"
+            aria-label={`Sacola com ${cartCount} ${cartCount === 1 ? 'item' : 'itens'}`}
+            onClick={onOpenCart}
+          >
             <ShoppingBag size={18} /> Meu Carrinho
             {cartCount > 0 ? <i>{cartCount}</i> : null}
           </button>
