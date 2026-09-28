@@ -300,8 +300,12 @@ export function FigmaCouponRedemption({
             placeholder="Digite o código do cupom"
             aria-label="Código do cupom"
           />
-          <button type="button" disabled={!code.trim()} onClick={() => void redeemByCode()}>
-            Resgatar
+          <button
+            type="button"
+            disabled={!code.trim() || redeemingCouponId !== null}
+            onClick={() => void redeemByCode()}
+          >
+            {redeemingCouponId !== null ? 'Resgatando...' : 'Resgatar'}
           </button>
         </div>
         {message ? <p className={`message ${messageError ? 'error' : ''}`}>{message}</p> : null}
