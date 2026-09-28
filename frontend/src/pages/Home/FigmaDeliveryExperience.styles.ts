@@ -226,5 +226,5 @@ export const MiniCart = styled.aside`
 
 export const MobileSearch = styled.button`
  display:none;
- @media(max-width:760px){display:grid;position:fixed;left:18px;bottom:82px;z-index:20;width:42px;height:42px;border:0;border-radius:21px;background:var(--delivery-text);color:#fff;place-items:center;box-shadow:0 8px 22px rgba(0,0,0,.18)}
+ @media(max-width:900px){display:grid;position:fixed;left:18px;bottom:82px;z-index:20;width:42px;height:42px;border:0;border-radius:21px;background:var(--delivery-text);color:#fff;place-items:center;box-shadow:0 8px 22px rgba(0,0,0,.18)}
 `;
