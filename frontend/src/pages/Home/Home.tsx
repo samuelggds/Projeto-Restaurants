@@ -28,6 +28,7 @@ import { LoyaltyCouponPanel } from '../Home/components/LoyaltyCouponPanel';
 import { ProductConfigurator } from '../Home/components/ProductConfigurator';
 import { ComboConfigurator } from '../Home/components/ComboConfigurator';
 import { GuestAddressCheckout } from '../Home/components/GuestAddressCheckout';
+import { AuthenticatedAddressCheckout } from '../Home/components/AuthenticatedAddressCheckout';
 import { AuthenticatedEmptyAddressCheckout } from '../Home/components/AuthenticatedEmptyAddressCheckout';
 import { HomeFeedback, type HomeNotification } from '../Home/components/HomeFeedback';
 import {
@@ -1079,6 +1080,61 @@ export default function Home() {
                     customerPhone: customer.phone,
                     customerName: customer.name,
                     customerCpf: customer.cpf,
+                    requireGuestIdentity: false,
+                    deliveryAddress,
+                    cepStatus,
+                    paymentMethod: selectedCheckoutPaymentMethod,
+                  });
+                  if (issue) {
+                    notify('warning', issue.title, issue.message);
+                    return;
+                  }
+                  setCheckoutStep('payment');
+                }}
+                disabled={!checkoutChannelAvailable}
+                loading={orderQuote.loading}
+              />
+            ) : undefined
+          }
+          authenticatedAddressScreen={
+            user && String(user.role || '').toUpperCase() === 'CLIENTE' ? (
+              <AuthenticatedAddressCheckout
+                primaryColor={primary}
+                brandName={homeData.brand.name}
+                logoUrl={homeData.brand.logoUrl}
+                userName={String((user as Record<string, unknown>).name || 'Cliente').split(' ')[0]}
+                isOpen={homeData.isOpen}
+                deliveryTime={homeData.deliveryTime}
+                cart={cart}
+                cartCount={cartCount}
+                subtotal={
+                  orderQuote.quote
+                    ? orderQuote.quote.itemsSubtotal + orderQuote.quote.productDiscountTotal
+                    : cartTotal
+                }
+                total={checkoutTotal}
+                deliveryFee={orderQuote.quote?.deliveryFeeAmount || 0}
+                orderType={availableOrderType}
+                allowDelivery={homeData.acceptsDelivery}
+                allowPickup={homeData.acceptsPickup}
+                savedAddresses={savedAddresses}
+                selectedAddressId={selectedAddressId}
+                address={deliveryAddress}
+                setAddress={setDeliveryAddress}
+                cepStatus={cepStatus}
+                cepMessage={cepMessage}
+                onCepChange={handleCepChange}
+                onCepLookup={handleCepLookup}
+                onOrderTypeChange={setOrderType}
+                onSelectAddress={selectDeliveryAddress}
+                onManageAddresses={manageDeliveryAddresses}
+                onBack={() => setCheckoutStep('cart')}
+                onContinue={() => {
+                  const issue = validateCheckout({
+                    type: checkoutOrderType,
+                    customerPhone: user.phone,
+                    customerName: user.name,
+                    customerCpf: user.cpf,
                     requireGuestIdentity: false,
                     deliveryAddress,
                     cepStatus,
