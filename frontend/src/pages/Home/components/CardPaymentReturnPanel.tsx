@@ -55,7 +55,11 @@ export function CardPaymentReturnPanel({
     : '';
 
   return (
-    <Page style={{ '--card-primary': primaryColor } as CSSProperties}>
+    <Page
+      style={{ '--card-primary': primaryColor } as CSSProperties}
+      data-status={status}
+      data-payment-method="card"
+    >
       <DesktopHeader>
         <div className="brand">
           <span className="logo">
@@ -83,7 +87,7 @@ export function CardPaymentReturnPanel({
         <Card className={failed ? 'failed' : ''}>
           {paid || failed ? (
             <DesktopStatus>
-              <span className={failed ? 'icon failed' : 'icon'}>
+              <span className={failed ? 'icon failed' : 'icon'} role="status">
                 {failed ? <XCircle aria-hidden="true" /> : <CheckCircle2 aria-hidden="true" />}
               </span>
               <h1>{failed ? 'Pagamento cancelado' : 'Pagamento Aprovado!'}</h1>
