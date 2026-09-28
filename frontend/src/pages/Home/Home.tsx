@@ -468,7 +468,6 @@ export default function Home() {
     executePayment,
   } = useCheckoutPayments({
     restaurantId,
-    pixProvider: settings?.pixProvider,
     cartTotal: checkoutTotal,
     notify,
     onPurchased: () => {
