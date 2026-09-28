@@ -169,7 +169,6 @@ export function FigmaCheckoutFlow({
               <small>
                 <i className={isOpen ? 'open' : ''} />
                 {isOpen ? 'Aberto agora' : 'Fechado agora'}
-                {deliveryTime ? ` · ${deliveryTime}` : ''}
               </small>
             </span>
           </button>
