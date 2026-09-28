@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { optionalBrazilPhoneSchema } from '../../../validators/PhoneValidator.js';
+import { optionalNormalizedBrazilPhoneSchema } from '../../../validators/PhoneValidator.js';
 import {
   DEFAULT_TABLE_ACCOUNT_TIME_ZONE,
   TABLE_ORDER_SETTLEMENT_MODES,
@@ -41,7 +41,7 @@ export const tableParticipantIdentityInputSchema = z
       .transform((value) => value.replace(/\s+/g, ' '))
       .nullable()
       .optional(),
-    phone: optionalBrazilPhoneSchema,
+    phone: optionalNormalizedBrazilPhoneSchema,
   })
   .strict();
 
