@@ -84,6 +84,10 @@ export const GlobalStyles = createGlobalStyle`
       filter var(--motion-base) var(--motion-ease-standard);
   }
 
+  button {
+    border-radius: 10px !important;
+  }
+
   button:not(:disabled),
   [role="button"],
   a[href],
