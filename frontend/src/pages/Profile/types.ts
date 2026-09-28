@@ -56,6 +56,7 @@ export type ProfileOrder = {
   channel?: ProfileOrderChannel;
   publicId?: string;
   paymentPending?: boolean;
+  loyaltyQualified?: boolean;
 };
 
 export type ProfileFavorite = {
@@ -162,4 +163,6 @@ export type ProfilePageProps = {
   loyaltyLoading?: boolean;
   loyaltyError?: string;
   onRetryLoyalty?: () => void;
+  loyaltyRedeemingCouponId?: number | null;
+  onRedeemLoyaltyCoupon?: (couponId: number) => Promise<void>;
 };
