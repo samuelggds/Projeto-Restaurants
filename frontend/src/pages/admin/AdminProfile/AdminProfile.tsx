@@ -167,7 +167,7 @@ export default function AdminProfile() {
     }
     setMfaSaving(true);
     try {
-      const next = !Boolean(user?.mfaEnabled);
+      const next = !user?.mfaEnabled;
       await authService.updateMfaPreference(next, mfaPassword);
       toast.success(
         next
