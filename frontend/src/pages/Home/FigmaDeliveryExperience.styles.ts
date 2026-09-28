@@ -292,7 +292,7 @@ export const Hero = styled.section`
 
   @media(max-width:760px){
     width:calc(100% - 24px);
-    height:180px;
+    height:235px;
     margin:10px 12px 0;
     border-radius:16px;
 
