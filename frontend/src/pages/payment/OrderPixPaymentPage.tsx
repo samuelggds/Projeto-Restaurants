@@ -26,6 +26,11 @@ type RecoveryPayload = {
   requiresStatusCheck?: boolean;
   expiresAt?: string | null;
   paymentMethod?: 'PIX' | 'CARTAO';
+  deliveryTime?: string | null;
+  deliveryAddress?: string | null;
+  deliveryFeeAmount?: number | null;
+  itemsSubtotal?: number | null;
+  items?: Array<{ name: string; quantity: number; total: number }>;
   canRetry?: boolean;
   paymentAttempt?: {
     status?: string;
@@ -446,12 +451,19 @@ export default function OrderPixPaymentPage() {
       paymentError={error || null}
       primaryColor={primaryColor}
       restaurantName={payment.restaurantName}
+      deliveryTime={payment.deliveryTime}
+      deliveryAddress={payment.deliveryAddress}
+      orderPublicId={payment.orderPublicId}
+      orderItems={payment.items || []}
+      orderSubtotal={payment.itemsSubtotal}
+      deliveryFee={payment.deliveryFeeAmount}
       formatCurrency={(value) =>
         value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
       }
       onCopyPixKey={() => navigator.clipboard.writeText(pixPaymentData.pixCode)}
       onVerify={() => loadPayment()}
       onBackToCart={() => navigate(homePath)}
+      onTrackOrder={() => navigate('/orders/' + payment.orderId + '/tracking')}
     />
   );
 }
