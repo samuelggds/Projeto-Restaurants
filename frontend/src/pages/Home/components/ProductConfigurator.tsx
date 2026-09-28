@@ -211,6 +211,11 @@ export function ProductConfigurator({
               <UtensilsCrossed />
             </S.ProductImagePlaceholder>
           )}
+          {customerPageVariant ? (
+            <span className="product-image-caption">
+              *Imagem ilustrativa de sugestão de consumo.
+            </span>
+          ) : null}
           <div>
             {!tableMenuVariant ? <small>Personalize seu pedido</small> : null}
             <S.ProductTitleRow>
@@ -367,7 +372,10 @@ export function ProductConfigurator({
                   </S.Badge>
                 </S.GroupHeader>
 
-                <S.OptionList className="product-option-list">
+                <S.OptionList
+                  className="product-option-list"
+                  data-selection={group.selectionType}
+                >
                   {group.options.map((option) => {
                     const isSelected = selected.includes(option.id);
                     const disabled = Boolean(
