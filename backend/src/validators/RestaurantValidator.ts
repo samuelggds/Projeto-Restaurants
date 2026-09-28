@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { temporaryStrongPasswordSchema } from './PasswordValidator.js';
+import { optionalBrazilPhoneSchema } from './PhoneValidator.js';
 
 const slugPattern = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const restaurantCategorySchema = z.enum([
@@ -86,11 +87,7 @@ export const createRestaurantSchema = z.object({
         }
       }),
     category: restaurantCategorySchema.default('RESTAURANTE'),
-    phone: z
-      .string()
-      .optional()
-      .transform((value) => normalizePhone(value || ''))
-      .refine((value) => !value || /^\d{10,11}$/.test(value), 'Telefone do restaurante inválido!'),
+    phone: optionalBrazilPhoneSchema,
     whatsapp: z.string().optional(),
     cnpj: z.string().optional(),
     logo: z.string().optional(),
