@@ -1,37 +1,30 @@
-import { type FormEvent, useLayoutEffect, useMemo, useState } from 'react';
-import { PasswordVisibilityField } from '../../components/PasswordVisibilityField/PasswordVisibilityField';
-import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { toast } from 'react-toastify';
-import { ThemeProvider } from 'styled-components';
-import { ArrowRight, CheckCircle2, LoaderCircle, LockKeyhole, Mail, Moon, Phone, Sun, User } from 'lucide-react';
 import authService from '../../Services/authService';
+import { useAuth } from '../../contexts/authContext';
 import {
   evaluatePassword,
-  PasswordRequirements,
   STANDARD_PASSWORD_POLICY,
 } from '../../features/password-policy';
-import * as S from './styles';
-import { useRestaurantLoginBranding } from '../Login/hooks/useRestaurantLoginBranding';
-import { TenantBrandHero } from '../Login/components/TenantBrandHero';
 import {
   buildAuthEntryUrl,
   getRememberedAuthReturnPath,
   getSafeAuthSearchParams,
   resolveAuthExperience,
 } from '../../shared/navigation/authNavigation';
-import {
-  getRestaurantCategoryLabel,
-  getRestaurantLoginVisual,
-} from '../../config/restaurantCategory';
-import { getAccessibleBrandColor, getReadableTextColor } from '../Login/domain/loginBranding';
+import { useRestaurantLoginBranding } from '../Login/hooks/useRestaurantLoginBranding';
 import { getRestaurantSlugFromAuthPath } from '../Login/domain/loginPortal';
+import { CustomerRegisterExperience } from './CustomerRegisterExperience';
 
 export default function Register() {
   const navigate = useNavigate();
   const location = useLocation();
+  const { login } = useAuth();
   const [searchParams] = useSearchParams();
   const pathSlug = getRestaurantSlugFromAuthPath(location.pathname);
   const searchReference = searchParams.toString();
+
   const contextualSearchParams = useMemo(() => {
     const params = new URLSearchParams(searchReference);
     if (pathSlug) {
@@ -42,6 +35,7 @@ export default function Register() {
     }
     return params;
   }, [pathSlug, searchReference]);
+
   const canonicalSearch = getSafeAuthSearchParams(contextualSearchParams).toString();
 
   useLayoutEffect(() => {
@@ -54,34 +48,31 @@ export default function Register() {
   const loginPath = pathSlug
     ? `/${pathSlug}/login${canonicalSearch ? `?${canonicalSearch}` : ''}`
     : buildAuthEntryUrl('/login', contextualSearchParams);
-  const isTableContext = authExperience.context === 'TABLE';
-  const tableLabel = authExperience.tableNumber ? `Mesa ${authExperience.tableNumber}` : 'sua mesa';
-  const [isDarkMode, setIsDarkMode] = useState(false);
+
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
-  const [verificationPending, setVerificationPending] = useState(false);
-  const [resendingVerification, setResendingVerification] = useState(false);
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [verificationPending, setVerificationPending] = useState(false);
+  const [resendingVerification, setResendingVerification] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
-  const passwordEvaluation = evaluatePassword(password, confirmPassword, STANDARD_PASSWORD_POLICY);
-  const passwordHasError =
-    password.length > 0 &&
-    passwordEvaluation.requirements.some(
-      (requirement) => requirement.id !== 'confirmation' && !requirement.met,
-    );
-  const confirmationHasError =
-    confirmPassword.length > 0 &&
-    passwordEvaluation.requirements.some(
-      (requirement) => requirement.id === 'confirmation' && !requirement.met,
-    );
-  const categoryVisual = getRestaurantLoginVisual(branding.category);
-  const categoryLabel = getRestaurantCategoryLabel(categoryVisual.category);
-  const baseTheme = isDarkMode ? S.darkTheme : S.lightTheme;
+  const [googleStatus, setGoogleStatus] = useState<'loading' | 'ready' | 'error'>('loading');
+  const [googleMessage, setGoogleMessage] = useState('');
+  const googleButtonRef = useRef<HTMLDivElement | null>(null);
+  const googleMountedRef = useRef(false);
+  const googleInitInFlightRef = useRef(false);
 
-  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
+  const passwordEvaluation = evaluatePassword(
+    password,
+    confirmPassword,
+    STANDARD_PASSWORD_POLICY,
+  );
+
+  const destinationAfterGoogle = authExperience.nextPath || (pathSlug ? `/${pathSlug}` : '/');
+
+  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (isSubmitting) return;
     setErrorMessage('');
@@ -103,7 +94,6 @@ export default function Register() {
         password,
         confirmPassword,
       });
-
       setVerificationPending(true);
       toast.success('Cadastro criado. Confira seu e-mail para confirmar a conta.');
     } catch (error) {
@@ -123,258 +113,157 @@ export default function Register() {
     }
   };
 
-  return (
-    <ThemeProvider
-      theme={{
-        ...baseTheme,
-        primary: branding.primaryColor,
-        primaryHover: branding.primaryColor,
-        primaryText: getReadableTextColor(branding.primaryColor),
-        primaryReadable: getAccessibleBrandColor(branding.primaryColor, baseTheme.surface),
-        categoryAccent: categoryVisual.accent,
-        categoryAccentText: getReadableTextColor(categoryVisual.accent),
-        categoryDeep: categoryVisual.deep,
-      }}
-    >
-      <S.Container
-        data-auth-context={authExperience.context}
-        data-restaurant-category={categoryVisual.category}
-      >
-        <S.TopBar>
-          <S.ThemeToggleButton
-            type="button"
-            aria-label={isDarkMode ? 'Ativar tema claro' : 'Ativar tema escuro'}
-            aria-pressed={isDarkMode}
-            onClick={() => setIsDarkMode(!isDarkMode)}
-          >
-            {isDarkMode ? <Sun size={18} /> : <Moon size={18} />}
-          </S.ThemeToggleButton>
-        </S.TopBar>
+  const handleResendVerification = async () => {
+    try {
+      setResendingVerification(true);
+      await authService.resendEmailVerification({
+        email: email.trim(),
+        restaurantSlug: pathSlug || undefined,
+      });
+      toast.success('Se a conta estiver pendente, enviaremos uma nova confirmação.');
+    } catch {
+      toast.error('Não foi possível reenviar agora. Tente novamente mais tarde.');
+    } finally {
+      setResendingVerification(false);
+    }
+  };
 
-        <S.LoginBannerSection
-          $hasLogo={Boolean(branding.logoUrl)}
-          data-has-cover={branding.logoUrl ? 'true' : 'false'}
-        >
-          <TenantBrandHero
-            branding={branding}
-            mode="register"
-            overrideText={
-              isTableContext
-                ? `Crie sua conta para continuar seu pedido na ${tableLabel}. A conta será a mesma usada no cardápio online.`
-                : pathSlug
-                  ? `Crie sua conta de cliente para pedir e acompanhar seus pedidos no ${branding.name}.`
-                  : null
+  const loadGoogleScript = useCallback(() => {
+    if (window.google?.accounts?.id) return Promise.resolve();
+
+    const existing = document.querySelector<HTMLScriptElement>(
+      'script[src="https://accounts.google.com/gsi/client"]',
+    );
+
+    if (existing) {
+      if (existing.dataset.loaded === 'true') return Promise.resolve();
+      return new Promise<void>((resolve, reject) => {
+        const loaded = () => {
+          existing.dataset.loaded = 'true';
+          existing.removeEventListener('load', loaded);
+          existing.removeEventListener('error', failed);
+          resolve();
+        };
+        const failed = () => {
+          existing.removeEventListener('load', loaded);
+          existing.removeEventListener('error', failed);
+          reject(new Error('google-script-error'));
+        };
+        existing.addEventListener('load', loaded);
+        existing.addEventListener('error', failed);
+      });
+    }
+
+    return new Promise<void>((resolve, reject) => {
+      const script = document.createElement('script');
+      script.src = 'https://accounts.google.com/gsi/client';
+      script.async = true;
+      script.defer = true;
+      script.onload = () => {
+        script.dataset.loaded = 'true';
+        resolve();
+      };
+      script.onerror = () => reject(new Error('google-script-error'));
+      document.head.appendChild(script);
+    });
+  }, []);
+
+  const initializeGoogle = useCallback(async () => {
+    if (googleInitInFlightRef.current) return;
+    googleInitInFlightRef.current = true;
+    setGoogleStatus('loading');
+    setGoogleMessage('');
+
+    try {
+      const clientId = String(
+        import.meta.env.VITE_GOOGLE_CLIENT_ID || (await authService.getGoogleClientId()) || '',
+      ).trim();
+      await loadGoogleScript();
+
+      if (!clientId || !window.google?.accounts?.id || !googleButtonRef.current) {
+        throw new Error('google-unavailable');
+      }
+
+      window.google.accounts.id.initialize({
+        client_id: clientId,
+        callback: async (response) => {
+          try {
+            const authResponse = await authService.loginWithGoogle(response.credential);
+            if (authResponse?.mfaRequired) {
+              toast.info('Sua conta usa verificação em duas etapas. Entre para concluir o acesso.');
+              navigate(loginPath);
+              return;
             }
-          />
-        </S.LoginBannerSection>
+            login(authResponse.user, authResponse.token);
+            navigate(destinationAfterGoogle, { replace: true });
+          } catch (error) {
+            const typed = error as { response?: { data?: { error?: string } }; message?: string };
+            const message =
+              typed.response?.data?.error ||
+              typed.message ||
+              'Não foi possível continuar com o Google.';
+            setGoogleMessage(message);
+            setGoogleStatus('error');
+          }
+        },
+      });
 
-        <S.LoginFormSection>
-          <S.LoginFormWrapper>
-            <S.LoginAccessBadge>
-              <span>{pathSlug ? `${branding.name} • cliente` : categoryLabel}</span>
-            </S.LoginAccessBadge>
-            <S.WelcomeText>
-              {isTableContext
-                ? `Criar conta para a ${tableLabel}`
-                : pathSlug
-                  ? 'Criar conta de cliente'
-                  : 'Criar Conta'}
-            </S.WelcomeText>
-            <S.FormSubtitle>
-              {isTableContext
-                ? 'Depois do cadastro, entre com esta mesma conta para voltar exatamente à sua mesa.'
-                : pathSlug
-                  ? `Seu cadastro continuará vinculado à experiência de ${branding.name}.`
-                  : 'Preencha os campos abaixo para começar.'}
-            </S.FormSubtitle>
+      googleButtonRef.current.innerHTML = '';
+      window.google.accounts.id.renderButton(googleButtonRef.current, {
+        type: 'standard',
+        shape: 'rectangular',
+        theme: 'outline',
+        text: 'continue_with',
+        size: 'large',
+        width: 420,
+      });
+      setGoogleStatus('ready');
+    } catch {
+      if (googleMountedRef.current) {
+        setGoogleStatus('error');
+        setGoogleMessage('Não foi possível carregar o cadastro com Google agora.');
+      }
+    } finally {
+      googleInitInFlightRef.current = false;
+    }
+  }, [destinationAfterGoogle, loadGoogleScript, login, loginPath, navigate]);
 
-            {verificationPending ? (
-              <S.VerificationNotice role="status" aria-live="polite">
-                <CheckCircle2 aria-hidden="true" />
-                <strong>Confira seu e-mail</strong>
-                <p>
-                  Enviamos um link de confirmação para <b>{email.trim()}</b>. Clique nele para
-                  validar o endereço e liberar o login.
-                </p>
-                <p>Não recebeu? Verifique também a caixa de spam.</p>
-                <button
-                  type="button"
-                  disabled={resendingVerification}
-                  onClick={async () => {
-                    try {
-                      setResendingVerification(true);
-                      await authService.resendEmailVerification({
-                        email: email.trim(),
-                        restaurantSlug: pathSlug || undefined,
-                      });
-                      toast.success('Se a conta estiver pendente, enviaremos uma nova confirmação.');
-                    } catch {
-                      toast.error('Não foi possível reenviar agora. Tente novamente mais tarde.');
-                    } finally {
-                      setResendingVerification(false);
-                    }
-                  }}
-                >
-                  {resendingVerification ? 'Reenviando...' : 'Reenviar e-mail de confirmação'}
-                </button>
-                <button type="button" onClick={() => navigate(loginPath)}>
-                  Ir para o login
-                </button>
-              </S.VerificationNotice>
-            ) : (
-            <S.Form onSubmit={handleSubmit} aria-busy={isSubmitting}>
-              <S.InputGroup>
-                <S.Label htmlFor="name">Nome Completo</S.Label>
-                <S.LoginInputField>
-                  <S.LoginInputIcon aria-hidden="true">
-                    <User />
-                  </S.LoginInputIcon>
-                  <S.Input
-                    id="name"
-                    type="text"
-                    placeholder="Seu nome completo"
-                    autoComplete="name"
-                    value={name}
-                    onChange={(event) => setName(event.target.value)}
-                    disabled={isSubmitting}
-                    required
-                  />
-                </S.LoginInputField>
-              </S.InputGroup>
+  useEffect(() => {
+    googleMountedRef.current = true;
+    const timeout = window.setTimeout(() => void initializeGoogle(), 0);
+    return () => {
+      window.clearTimeout(timeout);
+      googleMountedRef.current = false;
+    };
+  }, [initializeGoogle]);
 
-              <S.InputGroup>
-                <S.Label htmlFor="email">E-mail</S.Label>
-                <S.LoginInputField>
-                  <S.LoginInputIcon aria-hidden="true">
-                    <Mail />
-                  </S.LoginInputIcon>
-                  <S.Input
-                    id="email"
-                    type="email"
-                    placeholder="exemplo@email.com"
-                    autoComplete="email"
-                    value={email}
-                    onChange={(event) => setEmail(event.target.value)}
-                    disabled={isSubmitting}
-                    required
-                  />
-                </S.LoginInputField>
-              </S.InputGroup>
-
-              <S.InputGroup>
-                <S.Label htmlFor="phone">Telefone</S.Label>
-                <S.LoginInputField>
-                  <S.LoginInputIcon aria-hidden="true">
-                    <Phone />
-                  </S.LoginInputIcon>
-                  <S.Input
-                    id="phone"
-                    type="tel"
-                    inputMode="tel"
-                    placeholder="(85) 99999-9999"
-                    autoComplete="tel"
-                    value={phone}
-                    onChange={(event) => setPhone(event.target.value)}
-                    disabled={isSubmitting}
-                    required
-                  />
-                </S.LoginInputField>
-              </S.InputGroup>
-
-              <S.InputGroup>
-                <S.Label htmlFor="password">Senha</S.Label>
-                <S.LoginInputField>
-                  <S.LoginInputIcon aria-hidden="true">
-                    <LockKeyhole />
-                  </S.LoginInputIcon>
-                  <PasswordVisibilityField label="senha">
-                    <S.Input
-                    id="password"
-                    type="password"
-                    placeholder="Mínimo 8 caracteres"
-                    autoComplete="new-password"
-                    minLength={STANDARD_PASSWORD_POLICY.minLength}
-                    maxLength={STANDARD_PASSWORD_POLICY.maxLength}
-                    value={password}
-                    onChange={(event) => setPassword(event.target.value)}
-                    aria-invalid={passwordHasError}
-                    aria-describedby="register-password-requirements"
-                    disabled={isSubmitting}
-                    required
-                    />
-                  </PasswordVisibilityField>
-                </S.LoginInputField>
-              </S.InputGroup>
-
-              <S.InputGroup>
-                <S.Label htmlFor="confirmPassword">Confirmar Senha</S.Label>
-                <S.LoginInputField>
-                  <S.LoginInputIcon aria-hidden="true">
-                    <LockKeyhole />
-                  </S.LoginInputIcon>
-                  <PasswordVisibilityField label="senha">
-                    <S.Input
-                    id="confirmPassword"
-                    type="password"
-                    placeholder="Repita sua senha"
-                    autoComplete="new-password"
-                    minLength={STANDARD_PASSWORD_POLICY.minLength}
-                    maxLength={STANDARD_PASSWORD_POLICY.maxLength}
-                    value={confirmPassword}
-                    onChange={(event) => setConfirmPassword(event.target.value)}
-                    aria-invalid={confirmationHasError}
-                    aria-describedby="register-password-requirements"
-                    disabled={isSubmitting}
-                    required
-                    />
-                  </PasswordVisibilityField>
-                </S.LoginInputField>
-              </S.InputGroup>
-
-              <PasswordRequirements
-                id="register-password-requirements"
-                password={password}
-                confirmation={confirmPassword}
-                policy={STANDARD_PASSWORD_POLICY}
-              />
-
-              {errorMessage ? (
-                <S.FormError role="alert" aria-live="polite">
-                  {errorMessage}
-                </S.FormError>
-              ) : null}
-
-              <S.Button
-                type="submit"
-                disabled={!passwordEvaluation.isValid || isSubmitting}
-                aria-busy={isSubmitting}
-              >
-                {isSubmitting ? (
-                  <>
-                    <LoaderCircle className="loading-icon" aria-hidden="true" /> Finalizando...
-                  </>
-                ) : (
-                  <>
-                    <span>
-                      {isTableContext
-                        ? `Criar conta e continuar na ${tableLabel}`
-                        : pathSlug
-                          ? 'Criar conta de cliente'
-                          : 'Finalizar Cadastro'}
-                    </span>
-                    <ArrowRight aria-hidden="true" />
-                  </>
-                )}
-              </S.Button>
-            </S.Form>
-            )}
-
-            <S.LoginRegisterText>
-              Já possui uma conta? <Link to={loginPath}>Fazer Login</Link>
-            </S.LoginRegisterText>
-          </S.LoginFormWrapper>
-        </S.LoginFormSection>
-      </S.Container>
-    </ThemeProvider>
+  return (
+    <CustomerRegisterExperience
+      branding={branding}
+      name={name}
+      email={email}
+      phone={phone}
+      password={password}
+      confirmPassword={confirmPassword}
+      evaluation={passwordEvaluation}
+      isSubmitting={isSubmitting}
+      errorMessage={errorMessage}
+      verificationPending={verificationPending}
+      resendingVerification={resendingVerification}
+      loginPath={loginPath}
+      googleButtonRef={googleButtonRef}
+      googleStatus={googleStatus}
+      googleMessage={googleMessage}
+      onNameChange={setName}
+      onEmailChange={setEmail}
+      onPhoneChange={setPhone}
+      onPasswordChange={setPassword}
+      onConfirmPasswordChange={setConfirmPassword}
+      onSubmit={handleSubmit}
+      onBack={() => navigate(loginPath)}
+      onInitializeGoogle={() => void initializeGoogle()}
+      onResendVerification={() => void handleResendVerification()}
+      onGoToLogin={() => navigate(loginPath)}
+    />
   );
 }
