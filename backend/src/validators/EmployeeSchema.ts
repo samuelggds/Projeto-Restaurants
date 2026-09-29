@@ -1,9 +1,10 @@
 import { FuncionarioSubRole, UserRole } from '@prisma/client';
 import { z } from 'zod';
 import { passwordSchema } from './PasswordValidator.js';
-
-const phoneRegex =
-  /^(?:\+?55\s?)?(?:\(?([1-9][0-9])\)?\s?)?(?:((?:9\d|[2-9])\d{3})\s?-?\s?(\d{4}))$/;
+import {
+  clearableBrazilPhoneSchema,
+  isBrazilPhoneWithDddWithoutDdi,
+} from './PhoneValidator.js';
 
 const employeeNameSchema = z
   .string()
@@ -31,7 +32,7 @@ const employeePhoneSchema = z
   })
   .trim()
   .min(1, 'Telefone obrigatório')
-  .regex(phoneRegex, 'Número de telefone inválido!');
+  .refine(isBrazilPhoneWithDddWithoutDdi, 'Número de telefone inválido!');
 
 export const EmployeeUserSchema = z
   .object({
@@ -71,7 +72,7 @@ export const UpdateEmployeeSchema = z
   .object({
     name: employeeNameSchema.optional(),
     username: employeeUsernameSchema.optional(),
-    phone: z.union([employeePhoneSchema, z.literal(''), z.null()]).optional(),
+    phone: clearableBrazilPhoneSchema,
     role: z
       .nativeEnum(UserRole)
       .optional()

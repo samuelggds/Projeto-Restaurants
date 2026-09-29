@@ -130,10 +130,6 @@ export const PromotionCarousel = memo(function PromotionCarousel({
             />
             <S.Shade aria-hidden="true" />
             <S.Copy>
-              <S.Eyebrow>
-                <span aria-hidden="true" />
-                Oferta em destaque
-              </S.Eyebrow>
               <h1>
                 <span>{banner.title}</span>
                 {banner.highlight && <em>{banner.highlight}</em>}

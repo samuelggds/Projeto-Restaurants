@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { temporaryStrongPasswordSchema } from './PasswordValidator.js';
+import { optionalNormalizedBrazilPhoneSchema } from './PhoneValidator.js';
 
 const slugPattern = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const restaurantCategorySchema = z.enum([
@@ -24,12 +25,6 @@ const COMMON_EMAIL_DOMAIN_TYPOS: Record<string, string> = {
   'yahho.com': 'yahoo.com',
   'outlok.com': 'outlook.com',
 };
-
-function normalizePhone(value: string) {
-  return String(value || '')
-    .replace(/\D/g, '')
-    .trim();
-}
 
 function validateEmailDomainTypos(value: string) {
   const domain = String(value || '')
@@ -86,11 +81,7 @@ export const createRestaurantSchema = z.object({
         }
       }),
     category: restaurantCategorySchema.default('RESTAURANTE'),
-    phone: z
-      .string()
-      .optional()
-      .transform((value) => normalizePhone(value || ''))
-      .refine((value) => !value || /^\d{10,11}$/.test(value), 'Telefone do restaurante inválido!'),
+    phone: optionalNormalizedBrazilPhoneSchema,
     whatsapp: z.string().optional(),
     cnpj: z.string().optional(),
     logo: z.string().optional(),

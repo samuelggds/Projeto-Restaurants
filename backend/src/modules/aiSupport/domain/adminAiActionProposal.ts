@@ -1,5 +1,6 @@
 import { FuncionarioSubRole, UserRole } from '@prisma/client';
 import { z } from 'zod';
+import { clearableBrazilPhoneSchema } from '../../../validators/PhoneValidator.js';
 
 const optionalText = (max: number) => z.string().trim().max(max).nullable().optional();
 const strictObject = <T extends z.ZodRawShape>(shape: T) => z.object(shape).strict();
@@ -107,7 +108,7 @@ export const updateEmployeeProposalSchema = requirePatch(
     employeeId: z.number().int().positive(),
     name: z.string().trim().min(2).max(120).optional(),
     username: z.string().trim().toLowerCase().min(3).max(32).regex(/^[a-z0-9]+$/u).optional(),
-    phone: z.string().trim().max(30).nullable().optional(),
+    phone: clearableBrazilPhoneSchema,
     role: z.enum([UserRole.FUNCIONARIO, UserRole.MOTOQUEIRO]).optional(),
     subRole: z.nativeEnum(FuncionarioSubRole).nullable().optional(),
   }),

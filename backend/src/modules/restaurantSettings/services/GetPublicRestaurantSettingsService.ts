@@ -194,9 +194,9 @@ class GetPublicRestaurantSettingsService {
         freeShippingMinimum: null,
         acceptsDelivery: true,
         acceptsPickup: true,
-        acceptsPix: true,
+        acceptsPix: false,
         openFinancePixEnabled: false,
-        acceptsCard: true,
+        acceptsCard: false,
         tableOrderingEnabled: true,
         waiterCallEnabled: true,
         billRequestEnabled: true,
@@ -259,6 +259,27 @@ class GetPublicRestaurantSettingsService {
 
     const privateSettings =
       await restaurantSettingsRepository.findByRestaurantId(normalizedRestaurantId);
+
+    const pixProvider = String(privateSettings?.pixProvider || '').trim().toUpperCase();
+    const cardProvider = String(privateSettings?.cardGateway || '').trim().toUpperCase();
+    const mercadoPagoConnected = Boolean(
+      String(privateSettings?.mercadoPagoAccessToken || '').trim(),
+    );
+    const mercadoPagoCardReady = Boolean(
+      mercadoPagoConnected && String(privateSettings?.mercadoPagoPublicKey || '').trim(),
+    );
+
+    // Current production capability: Mercado Pago is the only card/PIX gateway
+    // exposed to customers. Open Finance is independent and remains available
+    // only when its existing Efí configuration and beneficiary Pix key are valid.
+    const acceptsPix =
+      settings.acceptsPix === true &&
+      pixProvider === 'MERCADO_PAGO' &&
+      mercadoPagoConnected;
+    const acceptsCard =
+      settings.acceptsCard === true &&
+      cardProvider === 'MERCADO_PAGO' &&
+      mercadoPagoCardReady;
     const openFinanceReady = Boolean(
       settings.openFinancePixEnabled &&
         efiOpenFinanceConfigured() &&
@@ -275,6 +296,8 @@ class GetPublicRestaurantSettingsService {
 
     return {
       ...settings,
+      ...(typeof settings.acceptsPix === 'boolean' ? { acceptsPix } : {}),
+      ...(typeof settings.acceptsCard === 'boolean' ? { acceptsCard } : {}),
       openFinancePixEnabled: openFinanceReady,
       ...(restaurant
         ? { restaurant: externalizePublicRestaurantImages(normalizedRestaurantId, restaurant) }

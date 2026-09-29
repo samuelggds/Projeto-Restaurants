@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { passwordSchema } from './PasswordValidator.js';
+import { brazilPhoneSchema } from './PhoneValidator.js';
 
 export const registerSchema = z
   .object({
@@ -7,15 +8,7 @@ export const registerSchema = z
 
     email: z.string().min(1, 'Email obrigatório').email('Email inválido'),
 
-    phone: z
-      .string()
-      .trim()
-      .min(10, 'Telefone inválido')
-      .max(20, 'Telefone inválido')
-      .refine((value) => {
-        const digits = value.replace(/\D/gu, '');
-        return /^(?:55)?\d{10,11}$/u.test(digits);
-      }, 'Telefone inválido'),
+    phone: brazilPhoneSchema,
 
     restaurantSlug: z
       .string()

@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import {
   AlertTriangle,
   ArrowLeft,
@@ -15,6 +15,7 @@ import {
   TicketPercent,
   UserRound,
   WalletCards,
+  Camera,
 } from 'lucide-react';
 import { buildLoyaltyWalletEntries } from './domain/loyaltyWallet';
 import { FigmaCouponRedemption, FigmaLoyaltyProgram } from './FigmaLoyaltyViews';
@@ -83,6 +84,8 @@ function FigmaAccountExperienceReady(props: ProfilePageProps & { data: ProfileDa
   } = props;
 
   const [view, setView] = useState<Stage3View>(() => initialStage3View(initialView));
+  const avatarInputRef = useRef<HTMLInputElement>(null);
+  const [avatarUploading, setAvatarUploading] = useState(false);
   const [ordersTab, setOrdersTab] = useState<'active' | 'history'>('active');
   const [pushEnabled, setPushEnabled] = useState(
     () => localStorage.getItem('customerPushNotifications') !== 'off',
@@ -459,9 +462,35 @@ function FigmaAccountExperienceReady(props: ProfilePageProps & { data: ProfileDa
   const menu = (
     <>
       <S.ProfileCard>
-        <span className="avatar">
+        <button
+          className="avatar avatar-button"
+          type="button"
+          aria-label="Alterar foto de perfil"
+          disabled={avatarUploading || !props.onUploadAvatar}
+          onClick={() => avatarInputRef.current?.click()}
+        >
           {data.user.avatarUrl ? <img src={data.user.avatarUrl} alt={data.user.fullName} /> : initials}
-        </span>
+          <span className="avatar-edit" aria-hidden="true">
+            <Camera />
+          </span>
+          {avatarUploading ? <span className="avatar-loading">Salvando...</span> : null}
+        </button>
+        <input
+          ref={avatarInputRef}
+          className="avatar-input"
+          type="file"
+          accept="image/*"
+          aria-label="Selecionar nova foto de perfil"
+          onChange={(event) => {
+            const file = event.target.files?.[0];
+            event.target.value = '';
+            if (!file || !props.onUploadAvatar) return;
+            setAvatarUploading(true);
+            void props
+              .onUploadAvatar(file)
+              .finally(() => setAvatarUploading(false));
+          }}
+        />
         <div className="copy">
           <b>{data.user.fullName}</b>
           <span className="mobile-contact">{data.user.phone || data.user.email}</span>

@@ -224,27 +224,39 @@ export const BannerCard = styled.article`
 
   .preview-copy h4 {
     margin: 0;
+    color:#fff;
+    font-family:'Gabarito','Inter',system-ui,sans-serif;
     font-size: clamp(19px, 2.2vw, 32px);
+    font-weight:900;
     line-height: 1.02;
+    letter-spacing:-0.02em;
+    text-shadow:0 2px 8px rgba(0,0,0,.48);
   }
 
   .preview-copy em {
     display: block;
-    color: #ff7a38;
+    margin-top:5px;
+    color: color-mix(in srgb,var(--a) 86%,#ff9b65);
     font-style: normal;
+    font-size:1.12em;
+    font-weight:950;
+    line-height:.98;
+    text-shadow:0 2px 8px rgba(0,0,0,.42);
   }
 
   .preview-copy p {
     margin: 8px 0 0;
-    color: rgba(255, 255, 255, 0.88);
+    color: rgba(255, 255, 255, 0.94);
     font-size: clamp(10px, 1.1vw, 14px);
+    font-weight:600;
     line-height: 1.35;
+    text-shadow:0 2px 8px rgba(0,0,0,.5);
   }
 
   .preview-copy .preview-button {
     display: inline-flex;
     margin-top: 12px;
-    border-radius: 999px;
+    border-radius: 10px;
     background: var(--a);
     padding: 8px 14px;
     font-size: 11px;

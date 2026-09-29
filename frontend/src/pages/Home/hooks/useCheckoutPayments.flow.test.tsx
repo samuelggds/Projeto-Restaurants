@@ -31,7 +31,6 @@ const onActivePaymentExists = vi.fn();
 function Probe({ paymentsRef }: { paymentsRef: CheckoutPaymentsRef }) {
   const checkoutPayments = useCheckoutPayments({
     restaurantId: 7,
-    pixProvider: 'MERCADO_PAGO',
     cartTotal: 49.9,
     notify: vi.fn(),
     onPurchased: vi.fn(),

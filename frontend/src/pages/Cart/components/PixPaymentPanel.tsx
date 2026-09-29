@@ -136,7 +136,6 @@ export default function PixPaymentPanel({
             <small>
               <i className={restaurantOpen ? 'open' : ''} />
               {restaurantOpen ? 'Aberto agora' : 'Fechado agora'}
-              {deliveryTime ? ' · ' + deliveryTime : ''}
             </small>
           </span>
         </button>

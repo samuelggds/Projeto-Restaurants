@@ -1,5 +1,6 @@
 import { ArrowLeft, ShoppingBag, UserRound } from 'lucide-react';
 import type { Dispatch, SetStateAction } from 'react';
+import { AddressLocationMap } from './AddressLocationMap';
 import { DeliveryAddressForm } from './DeliveryAddressForm';
 import type { DeliveryAddress } from '../hooks/useDeliveryAddress';
 import * as S from './GuestAddressCheckout.styles';
@@ -9,11 +10,14 @@ const money = (value: number) =>
 
 type Props = {
   primaryColor: string;
+  restaurantId: number | null;
   brandName: string;
   logoUrl?: string;
   isOpen: boolean;
   deliveryTime?: string;
   cartCount: number;
+  guestName: string;
+  onGuestNameChange: (value: string) => void;
   total: number;
   deliveryFee: number;
   orderType: 'delivery' | 'pickup';
@@ -35,11 +39,13 @@ type Props = {
 
 export function GuestAddressCheckout({
   primaryColor,
+  restaurantId,
   brandName,
   logoUrl,
   isOpen,
-  deliveryTime,
   cartCount,
+  guestName,
+  onGuestNameChange,
   total,
   deliveryFee,
   orderType,
@@ -58,9 +64,6 @@ export function GuestAddressCheckout({
   disabled = false,
   loading = false,
 }: Props) {
-  const locationLabel = [address.address, address.number, address.district, address.city, address.state]
-    .filter(Boolean)
-    .join(', ');
 
   return (
     <S.Page $primary={primaryColor} role="dialog" aria-modal="true" aria-label="Finalizar pedido">
@@ -81,7 +84,6 @@ export function GuestAddressCheckout({
             <small>
               <i className={isOpen ? 'open' : ''} />
               {isOpen ? 'Aberto agora' : 'Fechado agora'}
-              {deliveryTime ? ` · ${deliveryTime}` : ''}
             </small>
           </span>
         </button>
@@ -134,6 +136,21 @@ export function GuestAddressCheckout({
             </span>
           </S.LoginCard>
 
+          <S.GuestIdentity>
+            <label htmlFor="guest-order-name">Nome para o pedido</label>
+            <input
+              id="guest-order-name"
+              autoComplete="name"
+              value={guestName}
+              maxLength={80}
+              minLength={2}
+              required
+              placeholder="Como podemos chamar você?"
+              onChange={(event) => onGuestNameChange(event.target.value)}
+            />
+            <small>Usaremos este nome apenas para identificar seu pedido.</small>
+          </S.GuestIdentity>
+
           {orderType === 'delivery' ? (
             <S.AddressCard>
               <h2>Adicionar Novo Endereço</h2>
@@ -155,16 +172,12 @@ export function GuestAddressCheckout({
           {orderType === 'delivery' ? (
             <S.MapCard>
               <h2>Mapa de Entrega</h2>
-              <S.MapVisual aria-label="Prévia da região de entrega">
-                <div className="grid" />
-                <div className="route" />
-                <span className="pin" />
-              </S.MapVisual>
-              <p>
-                {locationLabel
-                  ? `Endereço informado: ${locationLabel}. A disponibilidade e a taxa são validadas pelo sistema.`
-                  : 'Preencha o endereço para o sistema validar disponibilidade, distância e taxa de entrega.'}
-              </p>
+              <AddressLocationMap
+                restaurantId={restaurantId}
+                address={address}
+                primaryColor={primaryColor}
+              />
+              <p>A disponibilidade e a taxa continuam sendo validadas pelo sistema para o endereço informado.</p>
             </S.MapCard>
           ) : null}
 

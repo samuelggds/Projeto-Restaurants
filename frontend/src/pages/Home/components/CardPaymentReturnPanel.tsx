@@ -31,7 +31,6 @@ export function CardPaymentReturnPanel({
   restaurantName = 'Restaurante',
   restaurantLogoUrl,
   restaurantOpen = true,
-  deliveryTime,
   details,
   amount,
   onVerify,
@@ -74,7 +73,7 @@ export function CardPaymentReturnPanel({
           </span>
           <span>
             <b>{restaurantName}</b>
-            <small><i className={restaurantOpen ? 'open' : ''} />{restaurantOpen ? 'Aberto agora' : 'Fechado agora'}{deliveryTime ? ' · ' + deliveryTime : ''}</small>
+            <small><i className={restaurantOpen ? 'open' : ''} />{restaurantOpen ? 'Aberto agora' : 'Fechado agora'}</small>
           </span>
         </div>
         <div className="search"><Search aria-hidden="true" /> Buscar no cardápio de {restaurantName}...</div>

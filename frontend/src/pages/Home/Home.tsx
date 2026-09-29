@@ -18,10 +18,7 @@ import { useTableAccount } from './hooks/useTableAccount';
 import { useTableOrderNotice } from './hooks/useTableOrderNotice';
 import { buildHomeData } from '../Home/adapters/homeDataAdapter';
 import { TableAccessGate } from './components/TableAccessGate';
-import { DeliveryAddressForm } from '../Home/components/DeliveryAddressForm';
 import { PaymentOptions } from '../Home/components/PaymentOptions';
-import { GuestCheckoutForm, type GuestCheckoutDetails } from '../Home/components/GuestCheckoutForm';
-import { DeliveryMethodSelector } from '../Home/components/DeliveryMethodSelector';
 import { LoyaltyCouponPanel } from '../Home/components/LoyaltyCouponPanel';
 import { ProductConfigurator } from '../Home/components/ProductConfigurator';
 import { ComboConfigurator } from '../Home/components/ComboConfigurator';
@@ -55,6 +52,12 @@ import { useCardPaymentReturn } from './hooks/useCardPaymentReturn';
 import { buildLoginUrl } from '../../shared/navigation/authNavigation';
 import TableMenuExperience from '../digital-menu/TableMenuExperience';
 import type { HomeProduct } from './types';
+
+type GuestCheckoutDetails = {
+  name: string;
+  cpf?: string;
+  phone?: string;
+};
 
 type NotifType = 'success' | 'error' | 'info' | 'warning';
 type HomeNavigationState = {
@@ -465,7 +468,6 @@ export default function Home() {
     executePayment,
   } = useCheckoutPayments({
     restaurantId,
-    pixProvider: settings?.pixProvider,
     cartTotal: checkoutTotal,
     notify,
     onPurchased: () => {
@@ -932,6 +934,8 @@ export default function Home() {
           primaryColor={primary}
           brandName={homeData.brand.name}
           logoUrl={homeData.brand.logoUrl}
+          isOpen={homeData.isOpen}
+          deliveryTime={homeData.deliveryTime}
           step={checkoutStep}
           cart={cart}
           cartCount={cartCount}
@@ -970,6 +974,7 @@ export default function Home() {
           }
           onClear={() => setCart([])}
           onClose={() => setCartOpen(false)}
+          onLogin={navigateToLogin}
           onSubmit={() => void handleCheckout()}
           recommendations={checkoutRecommendations}
           onAddRecommendation={handleCrossSellAdd}
@@ -977,11 +982,16 @@ export default function Home() {
             !user ? (
               <GuestAddressCheckout
                 primaryColor={primary}
+                restaurantId={restaurantId}
                 brandName={homeData.brand.name}
                 logoUrl={homeData.brand.logoUrl}
                 isOpen={homeData.isOpen}
                 deliveryTime={homeData.deliveryTime}
                 cartCount={cartCount}
+                guestName={guestCheckoutDetails.name}
+                onGuestNameChange={(name) =>
+                  setGuestCheckoutDetails((current) => ({ ...current, name }))
+                }
                 total={checkoutTotal}
                 deliveryFee={orderQuote.quote?.deliveryFeeAmount || 0}
                 orderType={availableOrderType}
@@ -1009,6 +1019,7 @@ export default function Home() {
             savedAddresses.length === 0 ? (
               <AuthenticatedEmptyAddressCheckout
                 primaryColor={primary}
+                restaurantId={restaurantId}
                 brandName={homeData.brand.name}
                 logoUrl={homeData.brand.logoUrl}
                 userName={String((user as Record<string, unknown>).name || '')}
@@ -1059,9 +1070,13 @@ export default function Home() {
             ) : undefined
           }
           authenticatedAddressScreen={
-            user && String(user.role || '').toUpperCase() === 'CLIENTE' ? (
+            user &&
+            String(user.role || '').toUpperCase() === 'CLIENTE' &&
+            !savedAddressesLoading &&
+            savedAddresses.length > 0 ? (
               <AuthenticatedAddressCheckout
                 primaryColor={primary}
+                restaurantId={restaurantId}
                 brandName={homeData.brand.name}
                 logoUrl={homeData.brand.logoUrl}
                 userName={String((user as Record<string, unknown>).name || 'Cliente').split(' ')[0]}
@@ -1160,53 +1175,6 @@ export default function Home() {
               onRetry={() => void loyalty.refresh()}
               onRedeem={(couponId) => void loyalty.redeem(couponId)}
             />
-          }
-          addressContent={
-            <>
-              <DeliveryMethodSelector
-                value={availableOrderType}
-                allowDelivery={homeData.acceptsDelivery}
-                allowPickup={homeData.acceptsPickup}
-                onChange={setOrderType}
-              />
-              {!user ? (
-                <GuestCheckoutForm
-                  value={guestCheckoutDetails}
-                  onChange={setGuestCheckoutDetails}
-                />
-              ) : null}
-              {availableOrderType === 'delivery' ? (
-                <DeliveryAddressForm
-                  address={deliveryAddress}
-                  setAddress={setDeliveryAddress}
-                  cepStatus={cepStatus}
-                  cepMessage={cepMessage}
-                  onCepChange={handleCepChange}
-                  onCepLookup={handleCepLookup}
-                />
-              ) : null}
-            </>
-          }
-          paymentContent={
-            <>
-              {!user ? (
-                <GuestCheckoutForm
-                  value={guestCheckoutDetails}
-                  onChange={setGuestCheckoutDetails}
-                />
-              ) : null}
-              <PaymentOptions
-              paymentMethod={selectedCheckoutPaymentMethod}
-              allowPayOnDelivery={allowPayOnDelivery}
-              allowPix={homeData.acceptsPix}
-              allowOpenFinancePix={homeData.openFinancePixEnabled}
-              allowCard={homeData.acceptsCard}
-              restaurantId={restaurantId}
-              loggedIn={Boolean(user)}
-              userEmail={user ? String((user as Record<string, unknown>).email || '') : undefined}
-              onChange={setPaymentMethod}
-            />
-            </>
           }
         />
       ) : null}

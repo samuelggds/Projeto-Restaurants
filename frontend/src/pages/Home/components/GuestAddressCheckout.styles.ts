@@ -77,7 +77,7 @@ export const DesktopHeader = styled.header`
   .actions { display: flex; align-items: center; gap: 20px; }
   .actions button { display: inline-flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 600; }
   .actions svg { width: 20px; }
-  .actions .cart { padding: 10px 14px; border-radius: 999px; background: var(--checkout-primary); color: #fff; }
+  .actions .cart { padding: 10px 14px; border-radius: 10px; background: var(--checkout-primary); color: #fff; }
   .actions .cart i { min-width: 20px; height: 20px; padding: 0 6px; display: grid; place-items: center; border-radius: 10px; background: #fff; color: var(--checkout-primary); font-size: 11px; font-style: normal; }
 
   @media (max-width: 760px) { display: none; }
@@ -159,6 +159,62 @@ export const LoginCard = styled.div`
   }
 `;
 
+export const GuestIdentity = styled.div`
+  padding: 16px;
+  display: grid;
+  gap: 7px;
+  border: 1px solid #efece6;
+  border-radius: 12px;
+  background: #fff;
+
+  label {
+    color: #1f1e1a;
+    font-size: 13px;
+    font-weight: 700;
+  }
+
+  input {
+    width: 100%;
+    height: 42px;
+    padding: 0 12px;
+    border: 1px solid #e3ded7;
+    border-radius: 10px;
+    background: #fafaf8;
+    color: #1f1e1a;
+    font: inherit;
+    font-size: 14px;
+    outline: none;
+    transition:
+      border-color 180ms ease,
+      box-shadow 180ms ease,
+      background 180ms ease;
+  }
+
+  input:focus {
+    border-color: var(--checkout-primary);
+    background: #fff;
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--checkout-primary) 12%, transparent);
+  }
+
+  small {
+    color: #72706b;
+    font-size: 11px;
+    line-height: 1.4;
+  }
+
+  @media (max-width: 760px) {
+    margin: 0 20px;
+    padding: 14px;
+    border-radius: 14px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    input {
+      transition: none;
+    }
+  }
+`;
+
 export const AddressCard = styled.section`
   padding: 20px;
   display: grid;
@@ -203,24 +259,6 @@ export const MapCard = styled.section`
     background: transparent;
     h2, p { display: none; }
   }
-`;
-
-export const MapVisual = styled.div`
-  position: relative;
-  height: 300px;
-  overflow: hidden;
-  border: 1px solid #e6e9ef;
-  border-radius: 12px;
-  background:
-    linear-gradient(25deg, transparent 45%, #dce4ed 46%, #dce4ed 48%, transparent 49%) 0 0/52px 52px,
-    linear-gradient(115deg, transparent 45%, #e3e8ee 46%, #e3e8ee 48%, transparent 49%) 0 0/62px 62px,
-    #f7f9fb;
-
-  .grid { position: absolute; inset: 0; background: linear-gradient(#dfe5eb 1px, transparent 1px), linear-gradient(90deg, #dfe5eb 1px, transparent 1px); background-size: 34px 34px; opacity: .55; }
-  .route { position: absolute; left: 36%; top: 20%; width: 30%; height: 58%; border-left: 5px solid #5b21b6; border-bottom: 5px solid #5b21b6; transform: skew(-12deg); }
-  .pin { position: absolute; left: 63%; top: 19%; width: 14px; height: 14px; border: 4px solid var(--checkout-primary); border-radius: 50% 50% 50% 0; background: #fff; transform: rotate(-45deg); }
-
-  @media (max-width: 760px) { height: 220px; border-radius: 16px; }
 `;
 
 export const TotalCard = styled.section`

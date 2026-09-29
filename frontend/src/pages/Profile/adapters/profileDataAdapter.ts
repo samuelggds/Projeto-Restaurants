@@ -103,7 +103,6 @@ export function buildProfileData({
 }: Input): ProfileData {
   const restaurant = (settings?.restaurant as Record<string, unknown>) ?? {};
   const restaurantName = String(restaurant.name || '');
-  const averageDeliveryTime = Math.max(0, Number(settings?.averageDeliveryTime || 0));
   const restaurantOpen = settings?.isOpenForOrders !== false;
   const brand = {
     name: String(restaurantName || settings?.restaurantName || profileMockData.brand.name),
@@ -117,12 +116,7 @@ export function buildProfileData({
     description: String(
       restaurant.description || settings?.restaurantDescription || settings?.description || '',
     ),
-    status: [
-      restaurantOpen ? 'Aberto agora' : 'Fechado agora',
-      averageDeliveryTime > 0 ? averageDeliveryTime + ' min' : '',
-    ]
-      .filter(Boolean)
-      .join(' · '),
+    status: restaurantOpen ? 'Aberto agora' : 'Fechado agora',
   };
   const fullName = String(user?.name || '');
   const defaultAddress = rawAddresses.find((item) => Boolean(item.isDefault)) || rawAddresses[0];

@@ -2,7 +2,6 @@ import { useEffect, useRef, useState, type ReactNode } from 'react';
 import {
   ArrowLeft,
   BatteryFull,
-  Search,
   ShoppingBag,
   Signal,
   Ticket,
@@ -22,6 +21,8 @@ type Props = {
   primaryColor: string;
   brandName: string;
   logoUrl?: string;
+  isOpen?: boolean;
+  deliveryTime?: string;
   step: FigmaCheckoutStep;
   cart: CartItem[];
   cartCount: number;
@@ -29,8 +30,6 @@ type Props = {
   quote?: OrderQuote | null;
   loading?: boolean;
   canContinue?: boolean;
-  addressContent: ReactNode;
-  paymentContent: ReactNode;
   couponContent?: ReactNode;
   guestAddressScreen?: ReactNode;
   authenticatedAddressScreen?: ReactNode;
@@ -44,22 +43,18 @@ type Props = {
   onRemove?: (cartId: string) => void;
   onClear: () => void;
   onClose: () => void;
+  onLogin: () => void;
   onSubmit: () => void;
 };
 
 const currency = (value: number) =>
   value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
-function stepIndex(step: FigmaCheckoutStep) {
-  if (step === 'cart') return 1;
-  if (step === 'address') return 2;
-  return 3;
-}
-
 export function FigmaCheckoutFlow({
   primaryColor,
   brandName,
   logoUrl,
+  isOpen = true,
   step,
   cart,
   cartCount,
@@ -67,8 +62,6 @@ export function FigmaCheckoutFlow({
   quote,
   loading = false,
   canContinue = true,
-  addressContent,
-  paymentContent,
   couponContent,
   guestAddressScreen,
   authenticatedAddressScreen,
@@ -82,6 +75,7 @@ export function FigmaCheckoutFlow({
   onRemove,
   onClear,
   onClose,
+  onLogin,
   onSubmit,
 }: Props) {
   const layerRef = useRef<HTMLDivElement>(null);
@@ -107,7 +101,6 @@ export function FigmaCheckoutFlow({
     };
   }, []);
 
-  const currentStep = stepIndex(step);
   const subtotal = quote ? quote.itemsSubtotal + quote.productDiscountTotal : cartTotal;
   const deliveryFee = quote?.deliveryFeeAmount ?? 0;
   const total = quote?.total ?? cartTotal;
@@ -136,20 +129,15 @@ export function FigmaCheckoutFlow({
     onSubmit();
   };
 
-  if (step === 'address' && guestAddressScreen) {
-    return <>{guestAddressScreen}</>;
+  if (step === 'address') {
+    if (guestAddressScreen) return <>{guestAddressScreen}</>;
+    if (authenticatedEmptyAddressScreen) return <>{authenticatedEmptyAddressScreen}</>;
+    if (authenticatedAddressScreen) return <>{authenticatedAddressScreen}</>;
+    return null;
   }
 
-  if (step === 'address' && authenticatedAddressScreen) {
-    return <>{authenticatedAddressScreen}</>;
-  }
-
-  if (step === 'address' && authenticatedEmptyAddressScreen) {
-    return <>{authenticatedEmptyAddressScreen}</>;
-  }
-
-  if (step === 'payment' && paymentScreen) {
-    return <>{paymentScreen}</>;
+  if (step === 'payment') {
+    return paymentScreen ? <>{paymentScreen}</> : null;
   }
 
   if (step === 'cart') {
@@ -178,17 +166,15 @@ export function FigmaCheckoutFlow({
             </span>
             <span className="brand-copy">
               <b>{brandName}</b>
-              <small><i /> Aberto agora · 25-35 min</small>
+              <small>
+                <i className={isOpen ? 'open' : ''} />
+                {isOpen ? 'Aberto agora' : 'Fechado agora'}
+              </small>
             </span>
           </button>
 
-          <div className="search" aria-label="Buscar no cardápio">
-            <Search aria-hidden="true" />
-            <span>Buscar no cardápio do {brandName.split(' ')[0]}...</span>
-          </div>
-
           <div className="actions">
-            <button className="account" type="button">
+            <button className="account" type="button" onClick={onLogin}>
               <UserRound aria-hidden="true" />
               <span>Olá, Entrar</span>
             </button>
@@ -203,8 +189,13 @@ export function FigmaCheckoutFlow({
         <S.CartContent>
           <S.CartItemsColumn>
             <S.CartTitleRow>
-              <h1 className="desktop-title">Seu Carrinho de Compras</h1>
-              <h1 className="mobile-title">Meu pedido</h1>
+              <div className="title-group">
+                <button className="mobile-back" type="button" onClick={back} aria-label="Voltar">
+                  <ArrowLeft aria-hidden="true" />
+                </button>
+                <h1 className="desktop-title">Seu Carrinho de Compras</h1>
+                <h1 className="mobile-title">Meu pedido</h1>
+              </div>
               {cartCount > 0 ? (
                 <button type="button" onClick={onClear}>
                   <span className="desktop-clear">Limpar Carrinho</span>
@@ -379,108 +370,5 @@ export function FigmaCheckoutFlow({
     );
   }
 
-  return (
-    <S.Layer
-      ref={layerRef}
-      tabIndex={-1}
-      $primary={primaryColor}
-      role="dialog"
-      aria-modal="true"
-      aria-label="Finalizar pedido"
-    >
-      <S.Top>
-        <div className="brand">
-          <span className="logo">
-            {logoUrl ? <img src={logoUrl} alt="" /> : brandName.slice(0, 1)}
-          </span>
-          <b>{brandName}</b>
-        </div>
-        <button className="back" type="button" onClick={back} aria-label="Voltar">
-          <ArrowLeft />
-        </button>
-      </S.Top>
-
-      <S.Shell>
-        <S.Progress aria-label={`Etapa ${currentStep} de 3`}>
-          <span className="active" />
-          <span className={currentStep >= 2 ? 'active' : ''} />
-          <span className={currentStep >= 3 ? 'active' : ''} />
-        </S.Progress>
-
-        <S.Heading>
-          <div>
-            <h1>{step === 'address' ? 'Endereço de entrega' : 'Pagamento'}</h1>
-            <p>
-              {step === 'address'
-                ? 'Confirme como deseja receber o pedido.'
-                : 'Escolha uma forma de pagamento disponível.'}
-            </p>
-          </div>
-        </S.Heading>
-
-        <S.TwoColumns>
-          <S.Panel>
-            {step === 'address' ? (
-              <S.StepCard>
-                <h2>Entrega</h2>
-                {addressContent}
-              </S.StepCard>
-            ) : null}
-
-            {step === 'payment' ? (
-              <S.StepCard>
-                <h2>Método de pagamento</h2>
-                {paymentContent}
-              </S.StepCard>
-            ) : null}
-          </S.Panel>
-
-          <S.Summary>
-            <h2>Resumo do Pedido</h2>
-            <div className="row">
-              <span>Itens ({cartCount})</span>
-              <strong>{currency(subtotal)}</strong>
-            </div>
-            {quote?.productDiscountTotal ? (
-              <div className="row discount">
-                <span>Descontos nos produtos</span>
-                <strong>− {currency(quote.productDiscountTotal)}</strong>
-              </div>
-            ) : null}
-            {quote?.couponDiscount ? (
-              <div className="row discount">
-                <span>Cupom{quote.couponCode ? ` · ${quote.couponCode}` : ''}</span>
-                <strong>− {currency(quote.couponDiscount)}</strong>
-              </div>
-            ) : null}
-            {quote ? (
-              <div className="row">
-                <span>Taxa de Entrega</span>
-                <strong>{quote.deliveryFeeAmount > 0 ? currency(quote.deliveryFeeAmount) : 'Grátis'}</strong>
-              </div>
-            ) : null}
-            <div className="line" />
-            <div className="row total">
-              <span>Total</span>
-              <strong>{currency(total)}</strong>
-            </div>
-          </S.Summary>
-        </S.TwoColumns>
-
-        <S.Actions>
-          <button className="secondary" type="button" onClick={back}>
-            Voltar
-          </button>
-          <button
-            className="primary"
-            type="button"
-            disabled={!cartCount || !canContinue || loading}
-            onClick={continueFlow}
-          >
-            {loading && step === 'payment' ? 'Processando...' : 'Continuar'}
-          </button>
-        </S.Actions>
-      </S.Shell>
-    </S.Layer>
-  );
+  return null;
 }

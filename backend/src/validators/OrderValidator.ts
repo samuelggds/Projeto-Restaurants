@@ -1,16 +1,19 @@
 import { z } from 'zod';
 import { OrderType, PaymentMethod } from '@prisma/client';
+import { isBrazilPhoneWithDddWithoutDdi } from './PhoneValidator.js';
 
 const optionalCustomerPhoneSchema = z.preprocess(
   (value) =>
-    value === null || (typeof value === 'string' && value.trim() === '') ? undefined : value,
+    value === undefined || value === null || (typeof value === 'string' && value.trim() === '')
+      ? undefined
+      : value,
   z
     .string()
     .trim()
-    .refine((value) => {
-      const digits = value.replace(/\D/g, '');
-      return digits.length >= 10 && digits.length <= 13;
-    }, 'Informe um celular/WhatsApp válido com DDD.')
+    .refine(
+      isBrazilPhoneWithDddWithoutDdi,
+      'Informe um celular/WhatsApp válido com DDD.',
+    )
     .optional(),
 );
 
@@ -132,9 +135,7 @@ export const createOrderSchema = z
       return;
     }
 
-    const phoneDigits = String(data.customerPhone || '').replace(/\D/g, '');
-
-    if (phoneDigits.length < 10 || phoneDigits.length > 13) {
+    if (!isBrazilPhoneWithDddWithoutDdi(data.customerPhone)) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         path: ['customerPhone'],

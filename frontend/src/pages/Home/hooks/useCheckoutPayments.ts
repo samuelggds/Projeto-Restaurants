@@ -55,7 +55,6 @@ type Notify = (
 
 type Options = {
   restaurantId: number | null;
-  pixProvider: unknown;
   cartTotal: number;
   notify: Notify;
   onPurchased: () => void;
@@ -127,7 +126,6 @@ export function getCheckoutErrorMessage(error: unknown): string {
 export function useCheckoutPayments(options: Options) {
   const {
     restaurantId,
-    pixProvider,
     cartTotal,
     notify,
     onPurchased,
@@ -349,10 +347,7 @@ export function useCheckoutPayments(options: Options) {
       }
 
       if (paymentMethod === 'pix') {
-        const result = await ordersService.createPixPayment({
-          ...payload,
-          pixProvider: String(pixProvider || ''),
-        });
+        const result = await ordersService.createPixPayment(payload);
         if (!isCurrentCheckout()) return false;
         setPixPaymentData({
           restaurantId: restaurantId || undefined,

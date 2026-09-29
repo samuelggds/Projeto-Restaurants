@@ -1,10 +1,11 @@
 import { z } from 'zod';
 import { passwordSchema } from './PasswordValidator.js';
+import { optionalBrazilPhoneSchema } from './PhoneValidator.js';
 
 export const forgotPasswordSchema = z
   .object({
     email: z.string().trim().email('Email invalido').optional(),
-    phone: z.string().trim().min(8, 'Telefone invalido').optional(),
+    phone: optionalBrazilPhoneSchema,
   })
   .refine((data) => Boolean(data.email || data.phone), {
     message: 'Informe e-mail ou telefone',

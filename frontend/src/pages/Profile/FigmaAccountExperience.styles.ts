@@ -2,19 +2,29 @@ import styled from 'styled-components';
 
 export const Root = styled.div<{ $primary: string; $dark?: boolean }>`
   --p: ${({ $primary }) => $primary || '#e85a2b'};
-  --bg: ({ $dark }) => ($dark ? '#151515' : '#fdfcf9');
-  --surface: ({ $dark }) => ($dark ? '#202020' : '#fff');
-  --text: ({ $dark }) => ($dark ? '#f6f4ef' : '#1f1e1a');
-  --muted: ({ $dark }) => ($dark ? '#aaa69f' : '#72706b');
-  --line: ({ $dark }) => ($dark ? '#34322f' : '#efece6');
+  --bg: ${({ $dark }) => ($dark ? '#151515' : '#f7f5f1')};
+  --surface: ${({ $dark }) => ($dark ? '#202020' : '#ffffff')};
+  --text: ${({ $dark }) => ($dark ? '#f6f4ef' : '#1f1e1a')};
+  --muted: ${({ $dark }) => ($dark ? '#aaa69f' : '#6f6a64')};
+  --line: ${({ $dark }) => ($dark ? '#34322f' : '#dfdbd5')};
   min-height: 100vh;
   background: var(--bg);
   color: var(--text);
   font-family: 'Inter', system-ui, sans-serif;
 
   *, *::before, *::after { box-sizing: border-box; }
-  button, input { font: inherit; }
+  button, input, select, textarea { font: inherit; }
+  button, input, select, textarea { color: var(--text); }
   button { cursor: pointer; }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      scroll-behavior: auto !important;
+      transition-duration: 0.01ms !important;
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+    }
+  }
 `;
 
 export const Header = styled.header`
@@ -25,10 +35,10 @@ export const Header = styled.header`
   .logo img{width:100%;height:100%;object-fit:cover}
   .brand-copy{display:grid;gap:2px;min-width:0}.brand-copy b{font-family:'Gabarito','Inter',sans-serif;font-size:18px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .status{color:var(--muted);font-size:13px;display:flex;align-items:center;gap:6px}.status i{width:8px;height:8px;border-radius:50%;background:#32b667}
-  .search{height:40px;padding:0 16px;border:1px solid var(--line);border-radius:999px;background:color-mix(in srgb,var(--surface) 92%,var(--line));color:var(--muted);display:flex;align-items:center;gap:12px}
+  .search{height:40px;padding:0 16px;border:1px solid var(--line);border-radius: 10px;background:color-mix(in srgb,var(--surface) 92%,var(--line));color:var(--muted);display:flex;align-items:center;gap:12px}
   .actions{justify-self:end;display:flex;align-items:center;gap:24px}
   .account{border:0;background:transparent;color:var(--text);display:flex;align-items:center;gap:8px;font-weight:650}
-  .cart{min-height:40px;padding:0 16px;border:0;border-radius:999px;background:var(--p);color:#fff;display:flex;align-items:center;gap:10px;font-weight:700}
+  .cart{min-height:40px;padding:0 16px;border:0;border-radius: 10px;background:var(--p);color:#fff;display:flex;align-items:center;gap:10px;font-weight:700}
   .cart i{padding:2px 6px;border-radius:8px;background:#1f1e1a;font-size:11px;font-style:normal}
 
   @media(max-width:900px){display:none}
@@ -40,6 +50,8 @@ export const Mobile = styled.main`
     display:block;
     min-height:calc(100dvh - 44px);
     padding:20px 20px 28px;
+    background:var(--bg);
+    color:var(--text);
 
     &.orders-view{
       padding-top:0;
@@ -63,6 +75,8 @@ export const Desktop = styled.main`
   display:block;
   min-height:896px;
   padding:64px 120px 80px;
+  background:var(--bg);
+  color:var(--text);
   @media(max-width:1100px){padding-inline:48px}
   @media(max-width:900px){display:none}
 `;
@@ -85,27 +99,42 @@ export const PageTitle = styled.div`
 `;
 
 export const ProfileCard = styled.section`
-  padding:16px;border:1px solid var(--line);border-radius:20px;background:var(--surface);display:flex;align-items:center;gap:16px;
-  .avatar{width:60px;height:64px;flex:0 0 60px;border-radius:30px;overflow:hidden;background:color-mix(in srgb,var(--p) 12%,#fff);color:var(--p);display:grid;place-items:center;font-family:'Gabarito','Inter',sans-serif;font-size:22px;font-weight:800}
+  padding:16px;border:1px solid var(--line);border-radius:20px;background:var(--surface);color:var(--text);display:flex;align-items:center;gap:16px;box-shadow:0 5px 18px rgba(25,22,18,.035);
+  .avatar{width:60px;height:60px;flex:0 0 60px;border-radius:50%;overflow:hidden;background:color-mix(in srgb,var(--p) 12%,#fff);color:var(--p);display:grid;place-items:center;font-family:'Gabarito','Inter',sans-serif;font-size:22px;font-weight:800}
+  .avatar-button{position:relative;padding:0;border:0;cursor:pointer}
+  .avatar-button:disabled{cursor:default}
   .avatar img{width:100%;height:100%;object-fit:cover}
+  .avatar-edit{position:absolute;right:1px;bottom:1px;width:21px;height:21px;border:2px solid var(--surface);border-radius:50%;background:var(--p);color:#fff;display:grid;place-items:center;opacity:0;transform:scale(.88);transition:opacity 160ms ease,transform 160ms ease}
+  .avatar-edit svg{width:11px;height:11px}
+  .avatar-button:hover .avatar-edit,.avatar-button:focus-visible .avatar-edit{opacity:1;transform:scale(1)}
+  .avatar-loading{position:absolute;inset:0;border-radius:50%;display:grid;place-items:center;background:rgba(31,30,26,.64);color:#fff;font-size:9px;font-family:'Inter',sans-serif;font-weight:700}
+  .avatar-input{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}
   .copy{min-width:0;display:grid;gap:4px}
   .copy b{font-family:'Gabarito','Inter',sans-serif;font-size:18px}
   .copy span{min-width:0;overflow:hidden;color:var(--muted);font-size:13px;text-overflow:ellipsis;white-space:nowrap}
   .desktop-contact{display:none}
+  @media(max-width:900px){
+    .avatar-edit{opacity:1;transform:none}
+  }
+
   @media(min-width:901px){
     padding:24px;
     gap:24px;
-    .avatar{width:72px;height:72px;flex-basis:72px;border-radius:36px}
+    .avatar{width:72px;height:72px;flex-basis:72px;border-radius:50%}
     .copy{gap:6px}
     .copy b{font-size:22px}
     .copy span{font-size:14px}
     .mobile-contact{display:none}
     .desktop-contact{display:block}
   }
+
+  @media(prefers-reduced-motion:reduce){
+    .avatar-edit{transition:none}
+  }
 `;
 
 export const MenuCard = styled.section`
-  padding:8px;border:1px solid var(--line);border-radius:20px;background:var(--surface);
+  padding:8px;border:1px solid var(--line);border-radius:20px;background:var(--surface);color:var(--text);box-shadow:0 5px 18px rgba(25,22,18,.035);
   button{width:100%;min-height:52px;padding:16px;border:0;border-bottom:1px solid var(--line);background:transparent;color:var(--text);display:flex;align-items:center;gap:12px;text-align:left}
   button:last-child{border-bottom:0}
   button svg:first-child{width:20px;height:20px;flex:0 0 20px}
@@ -190,6 +219,8 @@ export const OrderCard = styled.article`
   border:1px solid var(--line);
   border-radius:16px;
   background:var(--surface);
+  color:var(--text);
+  box-shadow:0 4px 14px rgba(25,22,18,.03);
   display:grid;
   gap:16px;
   outline:none;
@@ -296,7 +327,7 @@ export const OrderCard = styled.article`
 `;
 
 export const ItemCard = styled.article`
-  min-height:84px;padding:16px 20px;border:1px solid var(--line);border-radius:16px;background:var(--surface);display:flex;align-items:center;gap:16px;
+  min-height:84px;padding:16px 20px;border:1px solid var(--line);border-radius:16px;background:var(--surface);color:var(--text);display:flex;align-items:center;gap:16px;box-shadow:0 4px 14px rgba(25,22,18,.03);
   .icon{width:44px;height:44px;flex:0 0 44px;border-radius:12px;background:#fdf2ec;color:var(--p);display:grid;place-items:center}
   .copy{min-width:0;display:grid;gap:4px;flex:1}.copy b{font-size:15px}.copy span{color:var(--muted);font-size:13px;line-height:1.35}
   .default{color:var(--p);font-size:11px;font-weight:800}
@@ -317,7 +348,7 @@ export const Coupon = styled.article<{ $muted?: boolean }>`
   h3{margin:0;font-family:'Gabarito','Inter',sans-serif;font-size:20px}.discount{color:var(--p);font-size:20px;font-weight:800}
   p{margin:0;color:var(--muted);font-size:13px;line-height:1.45}
   small{color:var(--muted);font-size:11px}
-  button{justify-self:start;min-height:36px;padding:0 14px;border:0;border-radius:999px;background:var(--p);color:#fff;font-size:12px;font-weight:700}
+  button{justify-self:start;min-height:36px;padding:0 14px;border:0;border-radius: 10px;background:var(--p);color:#fff;font-size:12px;font-weight:700}
 `;
 
 export const SectionLabel = styled.h2`
@@ -325,7 +356,7 @@ export const SectionLabel = styled.h2`
 `;
 
 export const SettingsCard = styled.section`
-  padding:8px;border:1px solid var(--line);border-radius:16px;background:var(--surface);
+  padding:8px;border:1px solid var(--line);border-radius:16px;background:var(--surface);color:var(--text);box-shadow:0 4px 14px rgba(25,22,18,.03);
   .row{min-height:52px;padding:16px;display:flex;align-items:center;justify-content:space-between;gap:16px;border-bottom:1px solid var(--line)}
   .row:last-child{border-bottom:0}.row span{font-size:15px;font-weight:650}.row.danger{color:#df2c2c}
   button.link,a.link{border:0;background:transparent;color:inherit;display:flex;align-items:center;gap:8px;text-decoration:none}
@@ -365,5 +396,5 @@ export const Footer = styled.footer`
 
 export const MobileHomeIndicator = styled.div`
   display:none;
-  @media(max-width:900px){display:flex;justify-content:center;padding:12px 0 0;&::after{content:'';width:120px;height:5px;border-radius:999px;background:#d1cece}}
+  @media(max-width:900px){display:flex;justify-content:center;padding:12px 0 0;&::after{content:'';width:120px;height:5px;border-radius: 10px;background:#d1cece}}
 `;
