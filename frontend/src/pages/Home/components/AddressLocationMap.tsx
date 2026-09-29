@@ -263,6 +263,54 @@ export function AddressLocationMap({
           mapRef.current = new maps.Map(containerRef.current, {
             center: position,
             zoom: 17,
+            colorScheme: 'LIGHT',
+            styles: [
+              {
+                featureType: 'all',
+                elementType: 'geometry',
+                stylers: [{ color: '#f5f4f1' }],
+              },
+              {
+                featureType: 'road',
+                elementType: 'geometry',
+                stylers: [{ color: '#ffffff' }],
+              },
+              {
+                featureType: 'road',
+                elementType: 'geometry.stroke',
+                stylers: [{ color: '#e5e2dc' }],
+              },
+              {
+                featureType: 'road',
+                elementType: 'labels.text.fill',
+                stylers: [{ color: '#5c5a56' }],
+              },
+              {
+                featureType: 'poi',
+                elementType: 'geometry',
+                stylers: [{ color: '#eeeeea' }],
+              },
+              {
+                featureType: 'poi',
+                elementType: 'labels.text.fill',
+                stylers: [{ color: '#6c6963' }],
+              },
+              {
+                featureType: 'transit',
+                elementType: 'geometry',
+                stylers: [{ color: '#ecebe7' }],
+              },
+              {
+                featureType: 'water',
+                elementType: 'geometry',
+                stylers: [{ color: '#dcecf7' }],
+              },
+              {
+                featureType: 'water',
+                elementType: 'labels.text.fill',
+                stylers: [{ color: '#6d8797' }],
+              },
+            ],
             disableDefaultUI: true,
             zoomControl: true,
             clickableIcons: false,
