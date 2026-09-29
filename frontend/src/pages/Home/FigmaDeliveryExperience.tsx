@@ -9,6 +9,7 @@ import {
   List,
   Search,
   ShoppingBag,
+  Star,
   UserRound,
   UtensilsCrossed,
 } from 'lucide-react';
@@ -19,7 +20,6 @@ import { PromotionCarousel } from './components/PromotionCarousel';
 import { CustomerDesktopFooter } from './components/CustomerDesktopFooter';
 import { FloatingWhatsAppPortal } from './Home.whatsapp';
 import { WhatsAppIcon } from './components/SocialBrandIcons';
-import { getFeaturedProducts } from './domain/featuredProducts';
 import { buildSocialProfileUrl } from './domain/publicSettings';
 import type { HomePageProps, HomeProduct } from './types';
 import * as S from './FigmaDeliveryExperience.styles';
@@ -56,21 +56,54 @@ function ProductCarouselSection({
   className = '',
   sectionId,
   ariaLabel,
+  itemLabel,
 }: {
   title: string;
-  description: string;
+  description?: string;
   products: HomeProduct[];
   onOpenProduct: (product: HomeProduct) => void;
   className?: string;
   sectionId?: string;
   ariaLabel?: string;
+  itemLabel?: string | ((product: HomeProduct) => string);
 }) {
   const trackRef = useRef<HTMLDivElement>(null);
+  const [hasOverflow, setHasOverflow] = useState(false);
+  const [canScrollPrevious, setCanScrollPrevious] = useState(false);
+  const [canScrollNext, setCanScrollNext] = useState(false);
+
+  const syncScrollState = () => {
+    const track = trackRef.current;
+    if (!track) return;
+    const overflow = track.scrollWidth - track.clientWidth > 2;
+    const maxScrollLeft = Math.max(0, track.scrollWidth - track.clientWidth);
+    setHasOverflow(overflow);
+    setCanScrollPrevious(overflow && track.scrollLeft > 2);
+    setCanScrollNext(overflow && track.scrollLeft < maxScrollLeft - 2);
+  };
+
+  useEffect(() => {
+    const track = trackRef.current;
+    if (!track) return undefined;
+
+    syncScrollState();
+    const resizeObserver = new ResizeObserver(syncScrollState);
+    resizeObserver.observe(track);
+    Array.from(track.children).forEach((child) => resizeObserver.observe(child));
+    track.addEventListener('scroll', syncScrollState, { passive: true });
+
+    return () => {
+      resizeObserver.disconnect();
+      track.removeEventListener('scroll', syncScrollState);
+    };
+  }, [products]);
 
   const scroll = (direction: -1 | 1) => {
     const track = trackRef.current;
     if (!track) return;
-    const amount = Math.max(track.clientWidth * 0.82, 260);
+    const firstCard = track.querySelector<HTMLElement>('[data-product-carousel-card]');
+    const gap = Number.parseFloat(window.getComputedStyle(track).columnGap || '0') || 0;
+    const amount = firstCard ? firstCard.offsetWidth + gap : Math.max(track.clientWidth * 0.82, 260);
     track.scrollBy({ left: direction * amount, behavior: 'smooth' });
   };
 
@@ -86,14 +119,24 @@ function ProductCarouselSection({
       <S.SectionHead>
         <div>
           <h2>{title}</h2>
-          <p>{description}</p>
+          {description ? <p>{description}</p> : null}
         </div>
-        {products.length > 1 ? (
+        {hasOverflow ? (
           <S.CarouselControls aria-label={`Navegar em ${title}`}>
-            <button type="button" aria-label={`Ver itens anteriores de ${title}`} onClick={() => scroll(-1)}>
+            <button
+              type="button"
+              aria-label={`Ver itens anteriores de ${title}`}
+              onClick={() => scroll(-1)}
+              disabled={!canScrollPrevious}
+            >
               <ChevronLeft aria-hidden="true" />
             </button>
-            <button type="button" aria-label={`Ver próximos itens de ${title}`} onClick={() => scroll(1)}>
+            <button
+              type="button"
+              aria-label={`Ver próximos itens de ${title}`}
+              onClick={() => scroll(1)}
+              disabled={!canScrollNext}
+            >
               <ChevronRight aria-hidden="true" />
             </button>
           </S.CarouselControls>
@@ -101,43 +144,48 @@ function ProductCarouselSection({
       </S.SectionHead>
 
       <S.ProductGrid ref={trackRef}>
-        {products.map((product) => (
-          <S.ProductCard key={product.id}>
-            {product.promotion?.active ? (
-              <span className="badge" data-offer-label="inline">
-                {product.promotion.badgeLabel}
-              </span>
-            ) : null}
-            <button
-              className="open"
-              type="button"
-              aria-label={`Ver detalhes de ${product.name}`}
-              onClick={() => onOpenProduct(product)}
-            />
-            <div className="image">{productImage(product)}</div>
-            <div className="copy">
-              <h3>{product.name}</h3>
-              <p>{product.description}</p>
-              <div className="foot">
-                <span className="price">
-                  {product.promotion?.active &&
-                  Number(product.originalPrice) > Number(product.price) ? (
-                    <del>{money(product.originalPrice)}</del>
-                  ) : null}
-                  <strong>{money(product.price)}</strong>
-                </span>
-                <button
-                  className="add"
-                  type="button"
-                  aria-label={`Adicionar ${product.name}`}
-                  onClick={() => onOpenProduct(product)}
-                >
-                  + Adicionar
-                </button>
+        {products.map((product) => {
+          const label =
+            typeof itemLabel === 'function'
+              ? itemLabel(product)
+              : itemLabel || (product.kind === 'COMBO' ? 'Combo' : '');
+
+          return (
+            <S.ProductCard key={product.id} data-product-carousel-card>
+              <button
+                className="open"
+                type="button"
+                aria-label={`Ver detalhes de ${product.name}`}
+                onClick={() => onOpenProduct(product)}
+              />
+              <div className="image">{productImage(product)}</div>
+              <div className="copy">
+                <div className="product-copy">
+                  {label ? <span className="product-label">{label}</span> : null}
+                  <h3>{product.name}</h3>
+                  <p>{product.description}</p>
+                </div>
+                <div className="foot">
+                  <span className="price">
+                    {product.promotion?.active &&
+                    Number(product.originalPrice) > Number(product.price) ? (
+                      <del>{money(product.originalPrice)}</del>
+                    ) : null}
+                    <strong>{money(product.price)}</strong>
+                  </span>
+                  <button
+                    className="add"
+                    type="button"
+                    aria-label={`Adicionar ${product.name}`}
+                    onClick={() => onOpenProduct(product)}
+                  >
+                    + Adicionar
+                  </button>
+                </div>
               </div>
-            </div>
-          </S.ProductCard>
-        ))}
+            </S.ProductCard>
+          );
+        })}
       </S.ProductGrid>
     </S.Section>
   );
@@ -186,8 +234,11 @@ export function FigmaDeliveryExperience({
     () => data.categories.filter((category) => category.id !== 'todos'),
     [data.categories],
   );
-  const promoted = useMemo(
-    () => getFeaturedProducts(availableProducts),
+  const featured = useMemo(
+    () =>
+      availableProducts.filter(
+        (product) => product.kind !== 'COMBO' && product.featured === true,
+      ),
     [availableProducts],
   );
   const combos = useMemo(
@@ -205,6 +256,10 @@ export function FigmaDeliveryExperience({
         }))
         .filter((section) => section.products.length > 0),
     [availableProducts, categories],
+  );
+  const visibleCategories = useMemo(
+    () => categoryCarousels.map((section) => section.category),
+    [categoryCarousels],
   );
   const promotionBanners = useMemo(() => {
     const configured = data.banners
@@ -366,7 +421,7 @@ export function FigmaDeliveryExperience({
 
   const openFullMenu = () => {
     const firstSectionId =
-      promoted.length > 0
+      featured.length > 0
         ? 'home-featured'
         : combos.length > 0
           ? 'home-combos'
@@ -391,7 +446,8 @@ export function FigmaDeliveryExperience({
                 role="status"
                 aria-label={data.isOpen ? 'Aberto agora.' : 'Fechado agora.'}
               >
-                <i /> {data.isOpen ? 'Aberto agora' : 'Fechado agora'}
+                <i className={data.isOpen ? 'open' : ''} /> {data.isOpen ? 'Aberto agora' : 'Fechado agora'}
+                {data.deliveryTime ? ` · ${data.deliveryTime}` : ''}
               </span>
             </span>
           </button>
@@ -538,50 +594,59 @@ export function FigmaDeliveryExperience({
               ) : null}
             </S.InfoChips>
 
-            {categories.length ? (
-              <S.Section id="home-categories" className="categories-section mobile-separated">
-                <S.SectionHead className="categories-head">
-                  <div><h2>Categorias</h2><p>Escolha uma categoria para explorar o cardápio.</p></div>
-                </S.SectionHead>
-                <S.Categories>
-                  {categories.map((category) => (
-                    <button key={category.id} type="button" onClick={() => chooseCategory(category.id)}>
-                      <span className="image">{categoryImage(category.image, category.name)}</span>
-                      <b>{category.name}</b>
-                    </button>
-                  ))}
-                </S.Categories>
-              </S.Section>
+            {(featured.length > 0 || combos.length > 0 || visibleCategories.length > 0) ? (
+              <S.CatalogCategories id="home-categories" aria-label="Categorias do cardápio">
+                {featured.length > 0 ? (
+                  <button type="button" className="active" onClick={() => scrollToSection('home-featured')}>
+                    <span className="image featured-icon"><Star aria-hidden="true" /></span>
+                    <b>Destaques</b>
+                  </button>
+                ) : null}
+                {combos.length > 0 ? (
+                  <button type="button" onClick={() => scrollToSection('home-combos')}>
+                    <span className="image">
+                      {combos[0]?.image ? categoryImage(combos[0].image, 'Combos') : <UtensilsCrossed aria-hidden="true" />}
+                    </span>
+                    <b>Combos</b>
+                  </button>
+                ) : null}
+                {visibleCategories.map((category) => (
+                  <button key={category.id} type="button" onClick={() => chooseCategory(category.id)}>
+                    <span className="image">{categoryImage(category.image, category.name)}</span>
+                    <b>{category.name}</b>
+                  </button>
+                ))}
+              </S.CatalogCategories>
             ) : null}
 
             <ProductCarouselSection
-              title="Destaques do Cardápio"
-              description={`${promoted.length} ${promoted.length === 1 ? 'oferta disponível' : 'ofertas disponíveis'}`}
-              products={promoted}
+              title="Mais Pedidos em Destaque"
+              products={featured}
               onOpenProduct={openProduct}
               className="featured-carousel"
               sectionId="home-featured"
-              ariaLabel="Ofertas em destaque"
+              ariaLabel="Produtos em destaque"
+              itemLabel="Destaque"
             />
 
             <ProductCarouselSection
               title="Combos"
-              description={`${combos.length} ${combos.length === 1 ? 'combo disponível' : 'combos disponíveis'}`}
               products={combos}
               onOpenProduct={openProduct}
               className="combos-carousel"
               sectionId="home-combos"
+              itemLabel="Combo"
             />
 
             {categoryCarousels.map(({ category, products }) => (
               <ProductCarouselSection
                 key={category.id}
                 title={category.name}
-                description={`${products.length} ${products.length === 1 ? 'produto disponível' : 'produtos disponíveis'}`}
                 products={products}
                 onOpenProduct={openProduct}
                 className="category-product-carousel"
                 sectionId={`home-category-${encodeURIComponent(category.id)}`}
+                itemLabel={category.name}
               />
             ))}
 

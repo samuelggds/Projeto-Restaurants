@@ -112,7 +112,7 @@ describe('PromotionCarousel', () => {
     act(() => root.render(<PromotionCarousel banners={banners} onOpenMenu={onOpenMenu} />));
 
     act(() => {
-      (container.querySelector('[aria-label="Próxima promoção"]') as HTMLButtonElement).click();
+      (container.querySelector('[aria-label^="Mostrar promoção 2"]') as HTMLButtonElement).click();
     });
     const slides = container.querySelectorAll('[aria-roledescription="slide"]');
     expect((slides[0] as HTMLElement).hidden).toBe(true);
@@ -139,11 +139,11 @@ describe('PromotionCarousel', () => {
     expect((slides[1] as HTMLElement).hidden).toBe(false);
   });
 
-  it('mantém setas laterais e apenas o indicador ativo no fluxo do teclado', () => {
+  it('remove setas laterais e mantém a navegação completa pelos indicadores no teclado', () => {
     act(() => root.render(<PromotionCarousel banners={banners} />));
 
-    expect(container.querySelector('[aria-label="Promoção anterior"]')).not.toBeNull();
-    expect(container.querySelector('[aria-label="Próxima promoção"]')).not.toBeNull();
+    expect(container.querySelector('[aria-label="Promoção anterior"]')).toBeNull();
+    expect(container.querySelector('[aria-label="Próxima promoção"]')).toBeNull();
     expect(container.querySelector('[aria-label="Pausar rotação automática"]')).toBeNull();
 
     const dots = Array.from(
@@ -165,9 +165,11 @@ describe('PromotionCarousel', () => {
     expect(document.activeElement).toBe(dots[1]);
 
     act(() => {
-      (container.querySelector('[aria-label="Promoção anterior"]') as HTMLButtonElement).click();
+      dots[1].dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowLeft', bubbles: true }));
     });
     expect(dots[0].getAttribute('aria-current')).toBe('true');
+    expect(dots[0].tabIndex).toBe(0);
+    expect(document.activeElement).toBe(dots[0]);
   });
 
   it('não mostra navegação nem pausa quando existe somente um banner', () => {

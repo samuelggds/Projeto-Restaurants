@@ -16,14 +16,33 @@ type LatLng = { lat: number; lng: number };
 type GoogleMapInstance = {
   setCenter(position: LatLng): void;
   setZoom(zoom: number): void;
+  panTo(position: LatLng): void;
 };
 type GoogleMarkerInstance = {
   setPosition(position: LatLng): void;
   setTitle(title: string): void;
 };
+type GoogleGeocoderResult = {
+  formatted_address?: string;
+  partial_match?: boolean;
+  geometry?: {
+    location?: {
+      lat(): number;
+      lng(): number;
+    };
+    location_type?: string;
+  };
+};
+
 type GoogleMapsApi = {
   Map: new (element: HTMLElement, options: Record<string, unknown>) => GoogleMapInstance;
   Marker: new (options: Record<string, unknown>) => GoogleMarkerInstance;
+  Geocoder: new () => {
+    geocode(
+      request: { address: string; region?: string },
+      callback: (results: GoogleGeocoderResult[] | null, status: string) => void,
+    ): void;
+  };
 };
 
 type AddressGoogleWindow = typeof window & {
@@ -108,6 +127,50 @@ function isCompleteAddress(address: ReturnType<typeof normalizedAddress>) {
   );
 }
 
+function googleAddressText(address: ReturnType<typeof normalizedAddress>) {
+  return [
+    [address.address, address.number].filter(Boolean).join(', '),
+    address.district,
+    address.city,
+    address.state,
+    address.zipCode,
+    'Brasil',
+  ]
+    .filter(Boolean)
+    .join(', ');
+}
+
+function geocodeWithGoogleMaps(
+  maps: GoogleMapsApi,
+  address: ReturnType<typeof normalizedAddress>,
+): Promise<AddressLocation> {
+  return new Promise((resolve, reject) => {
+    const geocoder = new maps.Geocoder();
+    geocoder.geocode({ address: googleAddressText(address), region: 'br' }, (results, status) => {
+      const result = results?.[0];
+      const latitude = Number(result?.geometry?.location?.lat());
+      const longitude = Number(result?.geometry?.location?.lng());
+
+      if (
+        status !== 'OK' ||
+        !Number.isFinite(latitude) ||
+        !Number.isFinite(longitude)
+      ) {
+        reject(new Error(status || 'ADDRESS_NOT_GEOCODED'));
+        return;
+      }
+
+      resolve({
+        latitude,
+        longitude,
+        formattedAddress: String(result?.formatted_address || googleAddressText(address)),
+        locationType: String(result?.geometry?.location_type || 'GEOCODED'),
+        partialMatch: result?.partial_match === true,
+      });
+    });
+  });
+}
+
 export function AddressLocationMap({
   restaurantId,
   address,
@@ -142,21 +205,33 @@ export function AddressLocationMap({
       setStatus('locating');
       setError('');
 
-      void ordersService
-        .getDeliveryAddressLocation({
-          restaurantId,
-          type: 'DELIVERY',
-          ...normalized,
-        })
+      const resolveLocation = async () => {
+        try {
+          const result = await ordersService.getDeliveryAddressLocation({
+            restaurantId,
+            type: 'DELIVERY',
+            ...normalized,
+          });
+
+          if (
+            result &&
+            Number.isFinite(result.latitude) &&
+            Number.isFinite(result.longitude)
+          ) {
+            return result;
+          }
+        } catch {
+          // The checkout map must not disappear only because server-side geocoding
+          // is temporarily unavailable. Fall back to the browser Maps credential.
+        }
+
+        const maps = await loadGoogleMaps();
+        return geocodeWithGoogleMaps(maps, normalized);
+      };
+
+      void resolveLocation()
         .then((result) => {
           if (requestIdRef.current !== currentRequestId) return;
-          if (
-            !result ||
-            !Number.isFinite(result.latitude) ||
-            !Number.isFinite(result.longitude)
-          ) {
-            throw new Error('ADDRESS_NOT_GEOCODED');
-          }
           setResolvedAddressKey(addressKey);
           setLocation(result);
           setStatus('loading-map');
@@ -179,16 +254,70 @@ export function AddressLocationMap({
     if (!location || !containerRef.current) return undefined;
 
     let active = true;
+    const animationTimers: number[] = [];
     const position = { lat: location.latitude, lng: location.longitude };
+    const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
     void loadGoogleMaps()
       .then((maps) => {
         if (!active || !containerRef.current) return;
 
         if (!mapRef.current) {
+          const introPosition = prefersReducedMotion
+            ? position
+            : { lat: position.lat + 0.012, lng: position.lng };
+
           mapRef.current = new maps.Map(containerRef.current, {
-            center: position,
-            zoom: 17,
+            center: introPosition,
+            zoom: prefersReducedMotion ? 17 : 14,
+            colorScheme: 'LIGHT',
+            styles: [
+              {
+                featureType: 'all',
+                elementType: 'geometry',
+                stylers: [{ color: '#f5f4f1' }],
+              },
+              {
+                featureType: 'road',
+                elementType: 'geometry',
+                stylers: [{ color: '#ffffff' }],
+              },
+              {
+                featureType: 'road',
+                elementType: 'geometry.stroke',
+                stylers: [{ color: '#e5e2dc' }],
+              },
+              {
+                featureType: 'road',
+                elementType: 'labels.text.fill',
+                stylers: [{ color: '#5c5a56' }],
+              },
+              {
+                featureType: 'poi',
+                elementType: 'geometry',
+                stylers: [{ color: '#eeeeea' }],
+              },
+              {
+                featureType: 'poi',
+                elementType: 'labels.text.fill',
+                stylers: [{ color: '#6c6963' }],
+              },
+              {
+                featureType: 'transit',
+                elementType: 'geometry',
+                stylers: [{ color: '#ecebe7' }],
+              },
+              {
+                featureType: 'water',
+                elementType: 'geometry',
+                stylers: [{ color: '#dcecf7' }],
+              },
+              {
+                featureType: 'water',
+                elementType: 'labels.text.fill',
+                stylers: [{ color: '#6d8797' }],
+              },
+            ],
             disableDefaultUI: true,
             zoomControl: true,
             clickableIcons: false,
@@ -198,9 +327,50 @@ export function AddressLocationMap({
             fullscreenControl: false,
             backgroundColor: '#eef2f3',
           });
+
+          if (!prefersReducedMotion) {
+            const panTimer = window.setTimeout(() => {
+              if (!active || !mapRef.current) return;
+              mapRef.current.panTo(position);
+            }, 140);
+            const zoomTimerOne = window.setTimeout(() => {
+              if (!active || !mapRef.current) return;
+              mapRef.current.setZoom(15);
+            }, 360);
+            const zoomTimerTwo = window.setTimeout(() => {
+              if (!active || !mapRef.current) return;
+              mapRef.current.setZoom(16);
+            }, 620);
+            const zoomTimerThree = window.setTimeout(() => {
+              if (!active || !mapRef.current) return;
+              mapRef.current.setZoom(17);
+            }, 880);
+            animationTimers.push(panTimer, zoomTimerOne, zoomTimerTwo, zoomTimerThree);
+          }
         } else {
-          mapRef.current.setCenter(position);
-          mapRef.current.setZoom(17);
+          if (prefersReducedMotion) {
+            mapRef.current.setCenter(position);
+            mapRef.current.setZoom(17);
+          } else {
+            const currentMap = mapRef.current;
+            const introPosition = { lat: position.lat + 0.006, lng: position.lng };
+            currentMap.setCenter(introPosition);
+            currentMap.setZoom(15);
+
+            const panTimer = window.setTimeout(() => {
+              if (!active) return;
+              currentMap.panTo(position);
+            }, 120);
+            const zoomTimerOne = window.setTimeout(() => {
+              if (!active) return;
+              currentMap.setZoom(16);
+            }, 420);
+            const zoomTimerTwo = window.setTimeout(() => {
+              if (!active) return;
+              currentMap.setZoom(17);
+            }, 700);
+            animationTimers.push(panTimer, zoomTimerOne, zoomTimerTwo);
+          }
         }
 
         if (!markerRef.current) {
@@ -227,6 +397,7 @@ export function AddressLocationMap({
 
     return () => {
       active = false;
+      animationTimers.forEach((timer) => window.clearTimeout(timer));
     };
   }, [location]);
 

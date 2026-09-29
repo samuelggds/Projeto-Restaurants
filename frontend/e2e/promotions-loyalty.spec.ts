@@ -59,6 +59,7 @@ test('cliente vê promoção, aplica benefício de fidelidade e envia o resgate 
               description: 'Prepare do seu jeito.',
               price: 50,
               active: true,
+              featured: true,
               stock: null,
               category: { name: 'Principais' },
               pricing: {
@@ -237,16 +238,15 @@ test('cliente vê promoção, aplica benefício de fidelidade e envia o resgate 
   await mockAuthRefresh(page, 22, 'e2e-customer-token');
   await page.goto('/restaurante-teste');
 
-  const featuredOffers = page.getByRole('region', { name: 'Ofertas em destaque' });
+  const featuredOffers = page.getByRole('region', { name: 'Produtos em destaque' });
   await expect(featuredOffers).toBeVisible();
-  await expect(featuredOffers.getByText('1 oferta disponível')).toBeVisible();
+  await expect(featuredOffers.getByRole('heading', { name: 'Mais Pedidos em Destaque' })).toBeVisible();
   await expect(
     featuredOffers.getByRole('button', { name: 'Ver detalhes de Prato artesanal' }),
   ).toBeVisible();
 
-  const promotionBadge = featuredOffers.getByText('Oferta especial', { exact: true });
-  await expect(promotionBadge).toBeVisible();
-  await expect(promotionBadge).toHaveAttribute('data-offer-label', 'inline');
+  const featuredLabel = featuredOffers.getByText('Destaque', { exact: true });
+  await expect(featuredLabel).toBeVisible();
   await expect(featuredOffers.getByText('R$ 50,00')).toBeVisible();
   await expect(featuredOffers.locator('del').filter({ hasText: 'R$ 50,00' })).toHaveCSS(
     'text-decoration-line',
@@ -280,7 +280,7 @@ test('cliente vê promoção, aplica benefício de fidelidade e envia o resgate 
     await page.setViewportSize({ width, height: 844 });
     await expect(featuredOffers).toBeVisible();
 
-    const badgeMetrics = await promotionBadge.evaluate((element) => {
+    const badgeMetrics = await featuredLabel.evaluate((element) => {
       const badge = element.getBoundingClientRect();
       const card = element.closest('article')?.getBoundingClientRect();
       const style = window.getComputedStyle(element);
@@ -301,9 +301,9 @@ test('cliente vê promoção, aplica benefício de fidelidade e envia o resgate 
       };
     });
 
-    expect(badgeMetrics.text).toBe('Oferta especial');
+    expect(badgeMetrics.text).toBe('Destaque');
     expect(badgeMetrics.isInsideCard).toBe(true);
-    expect(badgeMetrics.whiteSpace).not.toBe('nowrap');
+    expect(badgeMetrics.whiteSpace).toBe('nowrap');
     expect(badgeMetrics.scrollWidth).toBeLessThanOrEqual(badgeMetrics.clientWidth + 1);
     expect(badgeMetrics.scrollHeight).toBeLessThanOrEqual(badgeMetrics.clientHeight + 1);
     const sectionMetrics = await featuredOffers.evaluate((section) => {

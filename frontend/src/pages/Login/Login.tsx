@@ -21,6 +21,7 @@ import { useRestaurantLoginBranding } from './hooks/useRestaurantLoginBranding';
 import { TenantBrandHero } from './components/TenantBrandHero';
 import { MfaVerificationModal } from './components/MfaVerificationModal';
 import { CustomerLoginExperience } from './components/CustomerLoginExperience';
+import { OperationalLoginExperience } from './components/OperationalLoginExperience';
 import { canUseTechnicalAccess, TECHNICAL_ACCESS_DENIED_MESSAGE } from './technicalAccess';
 import {
   buildAuthEntryUrl,
@@ -601,6 +602,44 @@ export default function Login() {
           onSubmit={handleSubmit}
           onNavigate={navigate}
           onInitializeGoogle={initializeGoogleLogin}
+          onResendVerification={handleResendVerification}
+        />
+
+        <MfaVerificationModal
+          open={Boolean(mfaChallenge)}
+          destination={mfaChallenge?.destination}
+          resendAfterSeconds={Number(mfaChallenge?.resendAfterSeconds ?? 60)}
+          onVerify={handleMfaVerify}
+          onResend={handleMfaResend}
+          onSuccess={handleMfaSuccess}
+          onCancel={handleMfaCancel}
+        />
+      </>
+    );
+  }
+
+
+  if (isAdminAccess || isStaffAccess) {
+    return (
+      <>
+        <OperationalLoginExperience
+          branding={branding}
+          mode={isStaffAccess ? 'team' : 'admin'}
+          email={email}
+          password={password}
+          rememberMe={rememberMe}
+          showPassword={showPassword}
+          isLoading={isLoading}
+          feedback={feedback}
+          recoverPasswordPath={recoverPasswordPath}
+          showResendVerification={showResendVerification}
+          resendingVerification={resendingVerification}
+          onEmailChange={setEmail}
+          onPasswordChange={setPassword}
+          onRememberChange={handleRememberMeChange}
+          onTogglePassword={() => setShowPassword((current) => !current)}
+          onSubmit={handleSubmit}
+          onNavigate={navigate}
           onResendVerification={handleResendVerification}
         />
 

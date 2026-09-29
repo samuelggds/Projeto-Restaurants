@@ -47,6 +47,7 @@ export type HomeProduct = {
   rating: number;
   stock?: number | null;
   available: boolean;
+  featured?: boolean;
   kind?: 'STANDARD' | 'COMBO';
   saleMode?: 'COMPLETE' | 'BUILDABLE';
   pricingMode?: 'BASE' | 'HIGHEST_OPTION';
