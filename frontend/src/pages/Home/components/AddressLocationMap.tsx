@@ -46,7 +46,7 @@ function loadGoogleMaps() {
   const loaded = getLoadedGoogleMaps();
   if (loaded) return Promise.resolve(loaded);
 
-  const googleWindow = window as GoogleWindow;
+  const googleWindow = window as AddressGoogleWindow;
   if (googleWindow.__gastronexaAddressGoogleMapsPromise) {
     return googleWindow.__gastronexaAddressGoogleMapsPromise;
   }
