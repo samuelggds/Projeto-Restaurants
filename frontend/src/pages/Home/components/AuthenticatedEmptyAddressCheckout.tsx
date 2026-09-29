@@ -133,6 +133,7 @@ export function AuthenticatedEmptyAddressCheckout({
                 type="button"
                 className={orderType === 'pickup' ? 'active' : ''}
                 onClick={() => onOrderTypeChange('pickup')}
+                aria-label="Retirada"
               >
                 🛍 Retirar no local
               </button>
