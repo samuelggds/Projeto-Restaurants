@@ -1,5 +1,5 @@
 import { memo, useEffect, useRef, useState, type KeyboardEvent, type TouchEvent } from 'react';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { ChevronRight } from 'lucide-react';
 import type { HomeBanner } from '../types';
 import {
   PROMOTION_CAROUSEL_INTERVAL_MS,
