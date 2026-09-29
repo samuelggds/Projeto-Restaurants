@@ -21,9 +21,27 @@ type GoogleMarkerInstance = {
   setPosition(position: LatLng): void;
   setTitle(title: string): void;
 };
+type GoogleGeocoderResult = {
+  formatted_address?: string;
+  partial_match?: boolean;
+  geometry?: {
+    location?: {
+      lat(): number;
+      lng(): number;
+    };
+    location_type?: string;
+  };
+};
+
 type GoogleMapsApi = {
   Map: new (element: HTMLElement, options: Record<string, unknown>) => GoogleMapInstance;
   Marker: new (options: Record<string, unknown>) => GoogleMarkerInstance;
+  Geocoder: new () => {
+    geocode(
+      request: { address: string; region?: string },
+      callback: (results: GoogleGeocoderResult[] | null, status: string) => void,
+    ): void;
+  };
 };
 
 type AddressGoogleWindow = typeof window & {
@@ -108,6 +126,50 @@ function isCompleteAddress(address: ReturnType<typeof normalizedAddress>) {
   );
 }
 
+function googleAddressText(address: ReturnType<typeof normalizedAddress>) {
+  return [
+    [address.address, address.number].filter(Boolean).join(', '),
+    address.district,
+    address.city,
+    address.state,
+    address.zipCode,
+    'Brasil',
+  ]
+    .filter(Boolean)
+    .join(', ');
+}
+
+function geocodeWithGoogleMaps(
+  maps: GoogleMapsApi,
+  address: ReturnType<typeof normalizedAddress>,
+): Promise<AddressLocation> {
+  return new Promise((resolve, reject) => {
+    const geocoder = new maps.Geocoder();
+    geocoder.geocode({ address: googleAddressText(address), region: 'br' }, (results, status) => {
+      const result = results?.[0];
+      const latitude = Number(result?.geometry?.location?.lat());
+      const longitude = Number(result?.geometry?.location?.lng());
+
+      if (
+        status !== 'OK' ||
+        !Number.isFinite(latitude) ||
+        !Number.isFinite(longitude)
+      ) {
+        reject(new Error(status || 'ADDRESS_NOT_GEOCODED'));
+        return;
+      }
+
+      resolve({
+        latitude,
+        longitude,
+        formattedAddress: String(result?.formatted_address || googleAddressText(address)),
+        locationType: String(result?.geometry?.location_type || 'GEOCODED'),
+        partialMatch: result?.partial_match === true,
+      });
+    });
+  });
+}
+
 export function AddressLocationMap({
   restaurantId,
   address,
@@ -142,21 +204,33 @@ export function AddressLocationMap({
       setStatus('locating');
       setError('');
 
-      void ordersService
-        .getDeliveryAddressLocation({
-          restaurantId,
-          type: 'DELIVERY',
-          ...normalized,
-        })
+      const resolveLocation = async () => {
+        try {
+          const result = await ordersService.getDeliveryAddressLocation({
+            restaurantId,
+            type: 'DELIVERY',
+            ...normalized,
+          });
+
+          if (
+            result &&
+            Number.isFinite(result.latitude) &&
+            Number.isFinite(result.longitude)
+          ) {
+            return result;
+          }
+        } catch {
+          // The checkout map must not disappear only because server-side geocoding
+          // is temporarily unavailable. Fall back to the browser Maps credential.
+        }
+
+        const maps = await loadGoogleMaps();
+        return geocodeWithGoogleMaps(maps, normalized);
+      };
+
+      void resolveLocation()
         .then((result) => {
           if (requestIdRef.current !== currentRequestId) return;
-          if (
-            !result ||
-            !Number.isFinite(result.latitude) ||
-            !Number.isFinite(result.longitude)
-          ) {
-            throw new Error('ADDRESS_NOT_GEOCODED');
-          }
           setResolvedAddressKey(addressKey);
           setLocation(result);
           setStatus('loading-map');
