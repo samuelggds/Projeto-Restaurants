@@ -146,22 +146,6 @@ export const PromotionCarousel = memo(function PromotionCarousel({
 
       {hasControls && (
         <>
-          <S.ArrowButton
-            $side="left"
-            type="button"
-            aria-label="Promoção anterior"
-            onClick={showPrevious}
-          >
-            <ChevronLeft aria-hidden="true" />
-          </S.ArrowButton>
-          <S.ArrowButton
-            $side="right"
-            type="button"
-            aria-label="Próxima promoção"
-            onClick={showNext}
-          >
-            <ChevronRight aria-hidden="true" />
-          </S.ArrowButton>
           <S.Dots
             $paused={autoplayPaused}
             $durationMs={PROMOTION_CAROUSEL_INTERVAL_MS}
