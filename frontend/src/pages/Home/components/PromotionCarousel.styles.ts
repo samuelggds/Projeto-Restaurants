@@ -328,7 +328,7 @@ export const Dots = styled.div<{ $paused: boolean; $durationMs: number }>`
   bottom: 10px;
   left: 50%;
   z-index: 5;
-  width: calc(100% - 32px);
+  width: min(180px, calc(100% - 32px));
   min-height: 22px;
   padding: 0;
   overflow-x: auto;
@@ -396,7 +396,7 @@ export const Dots = styled.div<{ $paused: boolean; $durationMs: number }>`
 
   @media (max-width: 800px) {
     bottom: 8px;
-    width: calc(100% - 24px);
+    width: min(130px, calc(100% - 24px));
     min-height: 20px;
     gap: 4px;
 
