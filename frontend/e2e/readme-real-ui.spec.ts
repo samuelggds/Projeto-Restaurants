@@ -374,20 +374,28 @@ test('cardápio público mantém a hierarquia e a navegação móvel contidas em
     .poll(() => page.evaluate(() => document.documentElement.scrollWidth))
     .toBeLessThanOrEqual(321);
 
+  const initialPath = new URL(page.url()).pathname;
   await menuButton.click();
-  const featuredCategory = page.getByRole('button', { name: 'Destaques', exact: true }).first();
-  await featuredCategory.scrollIntoViewIfNeeded();
-  const categoryBox = await featuredCategory.boundingBox();
-  expect(categoryBox?.height).toBeLessThanOrEqual(70);
+
+  const pizzasSection = page.getByRole('heading', { name: 'Pizzas', exact: true }).first();
+  await expect(pizzasSection).toBeVisible();
+  await expect
+    .poll(() => pizzasSection.evaluate((heading) => heading.getBoundingClientRect().top))
+    .toBeGreaterThanOrEqual(0);
+  expect(new URL(page.url()).pathname).toBe(initialPath);
+  await expect(
+    page.getByRole('button', { name: 'Voltar para a Home', exact: true }),
+  ).toHaveCount(0);
+
   const lastProductImage = page.getByAltText('Pizza Portuguesa');
   await lastProductImage.scrollIntoViewIfNeeded();
   await expect
     .poll(() => lastProductImage.evaluate((image) => (image as HTMLImageElement).naturalWidth))
     .toBeGreaterThan(0);
-  await page.evaluate(() => window.scrollTo(0, 0));
-  await expect(
-    page.getByRole('button', { name: 'Voltar para a Home', exact: true }),
-  ).toBeVisible();
+  await expect
+    .poll(() => page.evaluate(() => document.documentElement.scrollWidth))
+    .toBeLessThanOrEqual(321);
+  await expect(bottomNav).toBeVisible();
   await captureReadmeScreenshot(page, 'customer-menu-mobile.png', { fullPage: true });
 });
 
@@ -514,7 +522,7 @@ test('navegação móvel e busca inline permanecem acessíveis sem sobreposiçã
 });
 
 for (const width of [320, 390, 1440]) {
-  test(`WhatsApp permanece fixo somente na Home oficial em ${width}px`, async ({ page }) => {
+  test(`WhatsApp permanece fixo durante a navegação interna da Home em ${width}px`, async ({ page }) => {
     await page.setViewportSize({ width, height: 900 });
     await mockAuthenticatedPublicMenu(page);
     await page.goto('/north-pizza');
@@ -544,7 +552,13 @@ for (const width of [320, 390, 1440]) {
     await page.getByRole('region', { name: 'Promoções do restaurante' })
       .getByRole('button', { name: 'Ver cardápio' })
       .click();
-    await expect(whatsapp).toHaveCount(0);
+
+    await expect(whatsapp).toBeVisible();
+    expect(await whatsapp.evaluate((element) => getComputedStyle(element).position)).toBe('fixed');
+    const afterScroll = await whatsapp.boundingBox();
+    expect(afterScroll).not.toBeNull();
+    expect(width - (afterScroll!.x + afterScroll!.width)).toBeGreaterThanOrEqual(12);
+    expect(width - (afterScroll!.x + afterScroll!.width)).toBeLessThanOrEqual(30);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   });
 }
