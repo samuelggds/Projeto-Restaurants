@@ -54,7 +54,8 @@ export const Header = styled.header`
   .brand-copy { min-width:0; display:grid; gap:2px; }
   .brand-copy b { overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-family:'Gabarito','Inter',sans-serif;font-size:18px; }
   .status { display:flex;align-items:center;gap:6px;color:var(--delivery-muted);font-size:13px; }
-  .status i { width:8px;height:8px;border-radius:50%;background:#33b864; }
+  .status i { width:8px;height:8px;border-radius:50%;background:#e5484d; }
+  .status i.open { background:#33b864; }
 
 
   .actions { justify-self:end;display:flex;align-items:center;gap:18px; }
