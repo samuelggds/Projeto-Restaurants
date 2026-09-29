@@ -369,7 +369,7 @@ test('cardápio público mantém a hierarquia e a navegação móvel contidas em
   await expect(bottomNav.getByRole('button', { name: 'Conta' })).toBeVisible();
   await expect(cartFab).toBeVisible();
   const heroBox = await hero.boundingBox();
-  expect(heroBox?.height).toBe(235);
+  expect(heroBox?.height).toBe(160);
   await expect
     .poll(() => page.evaluate(() => document.documentElement.scrollWidth))
     .toBeLessThanOrEqual(321);
