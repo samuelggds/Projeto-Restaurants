@@ -139,6 +139,11 @@ export const Page = styled.div<{
         }
 
         @media(max-width:900px){
+          max-height:calc(100dvh - 80px);
+          min-height:0;
+          overflow-y:auto;
+          overscroll-behavior:contain;
+
           .product-layout{
             width:min(720px,calc(100% - 32px));
             grid-template-columns:minmax(0,1fr);
@@ -151,9 +156,14 @@ export const Page = styled.div<{
           }
         }
 
+        @media(max-width:760px){
+          max-height:calc(100dvh - 64px);
+        }
+
         @media(max-height:540px) and (orientation:landscape){
-          height:100dvh;
-          min-height:100svh;
+          height:auto;
+          min-height:0;
+          max-height:calc(100dvh - 80px);
           overflow-y:auto;
           overscroll-behavior:contain;
         }
