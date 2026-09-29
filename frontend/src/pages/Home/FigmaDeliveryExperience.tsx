@@ -446,7 +446,7 @@ export function FigmaDeliveryExperience({
                 role="status"
                 aria-label={data.isOpen ? 'Aberto agora.' : 'Fechado agora.'}
               >
-                <i /> {data.isOpen ? 'Aberto agora' : 'Fechado agora'}
+                <i className={data.isOpen ? 'open' : ''} /> {data.isOpen ? 'Aberto agora' : 'Fechado agora'}
                 {data.deliveryTime ? ` · ${data.deliveryTime}` : ''}
               </span>
             </span>
