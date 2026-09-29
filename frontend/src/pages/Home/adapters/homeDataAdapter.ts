@@ -328,6 +328,7 @@ export function buildHomeData(
       rating: Number(product.averageRating || 0),
       stock: product.stock === null || product.stock === undefined ? null : Number(product.stock),
       available: !isProductUnavailable(product),
+      featured: product.featured === true,
       kind: product.kind === 'COMBO' ? 'COMBO' : 'STANDARD',
       saleMode: product.saleMode === 'COMPLETE' ? 'COMPLETE' : 'BUILDABLE',
       pricingMode: product.pricingMode === 'HIGHEST_OPTION' ? 'HIGHEST_OPTION' : 'BASE',
