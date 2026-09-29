@@ -85,7 +85,7 @@ export const GlobalStyles = createGlobalStyle`
   }
 
   button {
-    border-radius: 10px !important;
+    border-radius: 10px;
   }
 
   button:not(:disabled),
