@@ -55,6 +55,7 @@ function ProductCarouselSection({
   onOpenProduct,
   className = '',
   sectionId,
+  ariaLabel,
 }: {
   title: string;
   description: string;
@@ -62,6 +63,7 @@ function ProductCarouselSection({
   onOpenProduct: (product: HomeProduct) => void;
   className?: string;
   sectionId?: string;
+  ariaLabel?: string;
 }) {
   const trackRef = useRef<HTMLDivElement>(null);
 
@@ -78,6 +80,8 @@ function ProductCarouselSection({
     <S.Section
       id={sectionId}
       className={`products-section product-carousel-section mobile-separated ${className}`.trim()}
+      role={ariaLabel ? 'region' : undefined}
+      aria-label={ariaLabel}
     >
       <S.SectionHead>
         <div>
@@ -552,11 +556,12 @@ export function FigmaDeliveryExperience({
 
             <ProductCarouselSection
               title="Destaques do Cardápio"
-              description={`${promoted.length} ${promoted.length === 1 ? 'oferta promocional disponível' : 'ofertas promocionais disponíveis'}`}
+              description={`${promoted.length} ${promoted.length === 1 ? 'oferta disponível' : 'ofertas disponíveis'}`}
               products={promoted}
               onOpenProduct={openProduct}
               className="featured-carousel"
               sectionId="home-featured"
+              ariaLabel="Ofertas em destaque"
             />
 
             <ProductCarouselSection
