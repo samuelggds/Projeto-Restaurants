@@ -16,6 +16,7 @@ type LatLng = { lat: number; lng: number };
 type GoogleMapInstance = {
   setCenter(position: LatLng): void;
   setZoom(zoom: number): void;
+  panTo(position: LatLng): void;
 };
 type GoogleMarkerInstance = {
   setPosition(position: LatLng): void;
@@ -253,16 +254,22 @@ export function AddressLocationMap({
     if (!location || !containerRef.current) return undefined;
 
     let active = true;
+    const animationTimers: number[] = [];
     const position = { lat: location.latitude, lng: location.longitude };
+    const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
     void loadGoogleMaps()
       .then((maps) => {
         if (!active || !containerRef.current) return;
 
         if (!mapRef.current) {
+          const introPosition = prefersReducedMotion
+            ? position
+            : { lat: position.lat + 0.012, lng: position.lng };
+
           mapRef.current = new maps.Map(containerRef.current, {
-            center: position,
-            zoom: 17,
+            center: introPosition,
+            zoom: prefersReducedMotion ? 17 : 14,
             colorScheme: 'LIGHT',
             styles: [
               {
@@ -320,9 +327,50 @@ export function AddressLocationMap({
             fullscreenControl: false,
             backgroundColor: '#eef2f3',
           });
+
+          if (!prefersReducedMotion) {
+            const panTimer = window.setTimeout(() => {
+              if (!active || !mapRef.current) return;
+              mapRef.current.panTo(position);
+            }, 140);
+            const zoomTimerOne = window.setTimeout(() => {
+              if (!active || !mapRef.current) return;
+              mapRef.current.setZoom(15);
+            }, 360);
+            const zoomTimerTwo = window.setTimeout(() => {
+              if (!active || !mapRef.current) return;
+              mapRef.current.setZoom(16);
+            }, 620);
+            const zoomTimerThree = window.setTimeout(() => {
+              if (!active || !mapRef.current) return;
+              mapRef.current.setZoom(17);
+            }, 880);
+            animationTimers.push(panTimer, zoomTimerOne, zoomTimerTwo, zoomTimerThree);
+          }
         } else {
-          mapRef.current.setCenter(position);
-          mapRef.current.setZoom(17);
+          if (prefersReducedMotion) {
+            mapRef.current.setCenter(position);
+            mapRef.current.setZoom(17);
+          } else {
+            const currentMap = mapRef.current;
+            const introPosition = { lat: position.lat + 0.006, lng: position.lng };
+            currentMap.setCenter(introPosition);
+            currentMap.setZoom(15);
+
+            const panTimer = window.setTimeout(() => {
+              if (!active) return;
+              currentMap.panTo(position);
+            }, 120);
+            const zoomTimerOne = window.setTimeout(() => {
+              if (!active) return;
+              currentMap.setZoom(16);
+            }, 420);
+            const zoomTimerTwo = window.setTimeout(() => {
+              if (!active) return;
+              currentMap.setZoom(17);
+            }, 700);
+            animationTimers.push(panTimer, zoomTimerOne, zoomTimerTwo);
+          }
         }
 
         if (!markerRef.current) {
@@ -349,6 +397,7 @@ export function AddressLocationMap({
 
     return () => {
       active = false;
+      animationTimers.forEach((timer) => window.clearTimeout(timer));
     };
   }, [location]);
 
