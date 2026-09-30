@@ -3,6 +3,10 @@ import restaurantSettingsRepository from '../repositories/RestaurantSettingsRepo
 import restaurantRepository from '../../restaurants/repositories/RestaurantRepository.js';
 import { createPublicMediaReference } from '../../publicMedia/utils/publicMediaReference.js';
 import { efiOpenFinanceConfigured } from '../../payments/providers/efiOpenFinance.js';
+import {
+  getMercadoPagoAccountReadiness,
+  paymentConnectionConfiguration,
+} from './RestaurantPaymentReadinessService.js';
 
 type RestaurantIdPayload = {
   restaurantId?: number | string;
@@ -264,25 +268,27 @@ class GetPublicRestaurantSettingsService {
 
     const pixProvider = String(privateSettings?.pixProvider || '').trim().toUpperCase();
     const cardProvider = String(privateSettings?.cardGateway || '').trim().toUpperCase();
-    const mercadoPagoConnected = Boolean(
-      String(privateSettings?.mercadoPagoAccessToken || '').trim(),
-    );
-    const mercadoPagoCardReady = Boolean(
-      mercadoPagoConnected && String(privateSettings?.mercadoPagoPublicKey || '').trim(),
-    );
+    const mercadoPagoPlatformReady = paymentConnectionConfiguration('MERCADO_PAGO');
+    const needsMercadoPagoReadiness =
+      mercadoPagoPlatformReady &&
+      ((settings.acceptsPix === true && pixProvider === 'MERCADO_PAGO') ||
+        (settings.acceptsCard === true && cardProvider === 'MERCADO_PAGO'));
+    const mercadoPagoReadiness = needsMercadoPagoReadiness
+      ? await getMercadoPagoAccountReadiness({
+          restaurantId: normalizedRestaurantId,
+          settings: privateSettings,
+        })
+      : null;
 
-    // Current production capability: Mercado Pago is the only card/PIX gateway
-    // exposed to customers. Open Finance is independent and remains available
-    // only when its existing Efí configuration and beneficiary Pix key are valid.
     const acceptsPix =
       settings.acceptsPix === true &&
       pixProvider === 'MERCADO_PAGO' &&
-      mercadoPagoConnected;
+      mercadoPagoReadiness?.readyForPix === true;
     const acceptsCard =
       settings.acceptsCard === true &&
       cardProvider === 'MERCADO_PAGO' &&
-      mercadoPagoCardReady;
-    const acceptsDebitCard = acceptsCard && cardProvider === 'MERCADO_PAGO';
+      mercadoPagoReadiness?.readyForCard === true;
+    const acceptsDebitCard = acceptsCard;
     const openFinanceReady = Boolean(
       settings.openFinancePixEnabled &&
         efiOpenFinanceConfigured() &&
