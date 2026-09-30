@@ -3,7 +3,6 @@ import test from 'node:test';
 import { randomUUID } from 'node:crypto';
 import {
   apiRequest,
-  assertTenantDenied,
   prisma,
   runtimePrisma,
   resetTenantE2EDatabase,
@@ -13,6 +12,14 @@ import {
 import pix from '../../modules/orders/services/OrderPixPaymentService.js';
 import { getCardCheckoutProviderHandler } from '../../modules/orders/services/cardCheckoutProviders.js';
 import directOrderCardPaymentService from '../../modules/orders/services/DirectOrderCardPaymentService.js';
+
+function assertTenantDenied(status: number, label: string) {
+  assert.notEqual(status, 500, `${label} gerou erro interno em vez de negar o acesso.`);
+  assert.ok(
+    [400, 401, 403, 404, 409].includes(status),
+    `${label} deveria ser negado, recebeu HTTP ${status}.`,
+  );
+}
 
 test(
   'checkout online: resposta perdida, concorrência e retry não repetem pedido ou gateway',
