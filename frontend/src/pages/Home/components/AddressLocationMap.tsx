@@ -51,6 +51,7 @@ type AddressGoogleWindow = typeof window & {
 };
 
 const GOOGLE_MAPS_SCRIPT_ID = 'gastronexa-google-maps';
+export const ADDRESS_LOCATION_DEBOUNCE_MS = 800;
 
 function getLoadedGoogleMaps() {
   return (window as AddressGoogleWindow).google?.maps;
@@ -230,7 +231,17 @@ export function AddressLocationMap({
   const [error, setError] = useState('');
   const [resolvedAddressKey, setResolvedAddressKey] = useState('');
 
-  const normalized = useMemo(() => normalizedAddress(address), [address]);
+  const normalized = useMemo(
+    () => normalizedAddress(address),
+    [
+      address.address,
+      address.number,
+      address.district,
+      address.city,
+      address.state,
+      address.zipCode,
+    ],
+  );
   const addressKey = useMemo(() => JSON.stringify(normalized), [normalized]);
   const complete = isCompleteAddress(normalized);
   const canLocate = Boolean(restaurantId && complete);
@@ -287,7 +298,7 @@ export function AddressLocationMap({
           setStatus('error');
           setError(addressLocationErrorMessage(requestError));
         });
-    }, 550);
+    }, ADDRESS_LOCATION_DEBOUNCE_MS);
 
     return () => window.clearTimeout(timer);
   }, [addressKey, complete, normalized, restaurantId]);
