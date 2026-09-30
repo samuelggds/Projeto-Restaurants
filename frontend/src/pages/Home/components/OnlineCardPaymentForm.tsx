@@ -39,6 +39,18 @@ type MercadoPagoInstance = {
   }>;
 };
 
+export function selectMercadoPagoPaymentMethod(
+  results: Array<{ id?: string; payment_type_id?: string }> | undefined,
+  paymentType: CardPaymentType,
+) {
+  const expectedType = paymentType === 'debit' ? 'debit_card' : 'credit_card';
+  const method = (results || []).find(
+    (candidate) =>
+      String(candidate.payment_type_id || '').trim().toLowerCase() === expectedType,
+  );
+  return String(method?.id || '').trim();
+}
+
 declare global {
   interface Window {
     MercadoPago?: new (publicKey: string) => MercadoPagoInstance;
@@ -164,12 +176,9 @@ export function OnlineCardPaymentForm({
               .getPaymentMethods({ bin: normalizedBin })
               .then((response) => {
                 if (!active) return;
-                const expectedType = paymentType === 'debit' ? 'debit_card' : 'credit_card';
-                const method = (response.results || []).find(
-                  (candidate) =>
-                    String(candidate.payment_type_id || '').trim().toLowerCase() === expectedType,
+                setMercadoPagoPaymentMethodId(
+                  selectMercadoPagoPaymentMethod(response.results, paymentType),
                 );
-                setMercadoPagoPaymentMethodId(String(method?.id || '').trim());
               })
               .catch(() => {
                 if (active) setMercadoPagoPaymentMethodId('');
