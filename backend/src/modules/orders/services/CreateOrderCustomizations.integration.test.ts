@@ -423,6 +423,126 @@ test('não permite que o cliente marque cartão como pago no payload de criaçã
   );
 });
 
+test('dinheiro na entrega é persistido como não pago e entra imediatamente na operação', async (t) => {
+  const events: Array<{ event: string; payload: any }> = [];
+  const emitter = {
+    emit: (event: string, payload: any) => {
+      events.push({ event, payload });
+    },
+  };
+  t.after(registerRealtimeTransport({ ...emitter, to: () => emitter }));
+
+  let persistedOrder: any;
+  const tx = {
+    $queryRaw: async () => [],
+    user: {
+      update: async ({ where, data }) => ({ id: where.id, ...data }),
+    },
+    courierCompensationPolicy: {
+      findFirst: async () => null,
+    },
+    order: {
+      count: async () => 0,
+      findFirst: async () => null,
+    },
+    restaurantSettings: {
+      findUnique: async () => ({ deliveryFee: 0, minimumOrder: 0 }),
+    },
+    restaurantPrinterSettings: {
+      findFirst: async () => null,
+    },
+    orderItem: {
+      create: async ({ data }) => ({
+        id: 701,
+        orderId: data.orderId,
+        productId: data.productId,
+        quantity: data.quantity,
+        price: data.price,
+      }),
+    },
+    product: {
+      updateMany: async () => {
+        throw new Error('Produto com estoque ilimitado não deve ser decrementado.');
+      },
+      findMany: async () => [],
+    },
+  };
+
+  prisma.$transaction = (async (callback: (database: typeof tx) => Promise<unknown>, options?: any) => {
+    if (options?.isolationLevel) {
+      assert.equal(options.isolationLevel, Prisma.TransactionIsolationLevel.Serializable);
+    }
+    return callback(tx);
+  }) as typeof prisma.$transaction;
+
+  restaurantSettingsRepository.findByRestaurantId = async () => ({
+    isOpenForOrders: true,
+    acceptsDelivery: true,
+    autoAcceptOrders: false,
+    maxConcurrentOrders: 20,
+    deliveryFeeMode: 'FIXED',
+  });
+  orderRepository.countActiveOperationalOrders = async () => 0;
+  productRepository.findById = async () => ({
+    id: 10,
+    restaurantId: 7,
+    name: 'Pedido em dinheiro',
+    saleMode: 'COMPLETE',
+    price: 25,
+    active: true,
+    stock: null,
+    ingredients: [],
+    optionGroups: [],
+  });
+  orderRepository.create = async (data, database) => {
+    assert.equal(database, tx);
+    persistedOrder = data;
+    return { id: 700, ...data };
+  };
+  orderRepository.findById = async () => ({
+    id: 700,
+    restaurantId: 7,
+    userId: 42,
+    status: 'PENDENTE',
+    paid: false,
+    paidAt: null,
+    paymentMethod: PaymentMethod.DINHEIRO,
+    payOnDelivery: true,
+    payOnDeliveryMethod: PaymentMethod.DINHEIRO,
+    items: [],
+  });
+
+  const order = await createOrderService.execute({
+    userId: 42,
+    restaurantId: 7,
+    userRestaurantId: 7,
+    type: OrderType.DELIVERY,
+    paymentMethod: PaymentMethod.DINHEIRO,
+    payOnDelivery: true,
+    payOnDeliveryMethod: PaymentMethod.DINHEIRO,
+    paid: false,
+    customerPhone: '11999990000',
+    address: 'Rua Teste',
+    number: '100',
+    district: 'Centro',
+    city: 'Sao Paulo',
+    state: 'SP',
+    zipCode: '01001000',
+    items: [{ productId: 10, quantity: 1 }],
+  });
+
+  assert.equal(persistedOrder.paid, false);
+  assert.equal(persistedOrder.paidAt, null);
+  assert.equal(persistedOrder.paymentMethod, PaymentMethod.DINHEIRO);
+  assert.equal(persistedOrder.payOnDelivery, true);
+  assert.equal(persistedOrder.payOnDeliveryMethod, PaymentMethod.DINHEIRO);
+  assert.equal(order.paid, false);
+  assert.ok(
+    events.some((entry) => entry.event === 'new-order' && entry.payload.id === 700),
+    'dinheiro na entrega deve liberar o pedido para a operação antes da confirmação financeira',
+  );
+});
+
 test('pedido de mesa convidado vincula participante e cria uma unidade financeira por quantidade', async () => {
   const persistedOrderItems = [];
   let persistedOrder;
