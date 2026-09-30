@@ -102,7 +102,7 @@ test('MFA do cliente usa somente e-mail no desktop', async ({ page }) => {
   await page.getByRole('button', { name: 'Reenviar código' }).click();
   await expect.poll(() => state.resendPayloads.length).toBe(1);
   expect(state.resendPayloads[0]).toMatchObject({ mfaToken: 'mfa-e2e-token' });
-  await expect(page.getByText(/Novo código enviado para/i)).toBeVisible();
+  await expect(page.getByText(/Reenviar em \d+:\d{2}/u)).toBeVisible();
 
   const codeInputs = page.locator('[aria-label^="Dígito "][aria-label$=" do código"]');
   await expect(codeInputs).toHaveCount(6);
