@@ -14,7 +14,10 @@ import { normalizeMercadoPagoPaymentMethodId } from '../../customerPaymentMethod
 import { mercadoPagoCardExternalReference } from '../domain/mercadoPagoCardReference.js';
 import { assertFuturePaymentProviderEnabled } from '../../payments/providers/futurePaymentProviders.js';
 
+export type CardPaymentType = 'credit' | 'debit';
+
 export type DirectCardPaymentPayload = {
+  cardPaymentType?: CardPaymentType | null;
   cardToken?: string | null;
   cardPaymentMethodId?: string | null;
   encryptedCard?: string | null;
@@ -86,6 +89,12 @@ export class CardPaymentProviderRequestError extends Error {
     super(message);
     this.name = 'CardPaymentProviderRequestError';
   }
+}
+
+export function normalizeCardPaymentType(value: unknown): CardPaymentType {
+  const normalized = String(value || 'credit').trim().toLowerCase();
+  if (normalized === 'credit' || normalized === 'debit') return normalized;
+  throw new CardPaymentDeclinedError('Tipo de cartão inválido.');
 }
 
 function digits(value: unknown) {
@@ -275,10 +284,16 @@ async function mercadoPagoPayment(
   successUrlBase: string,
   idempotencyKey: string,
 ) {
+  const cardPaymentType = normalizeCardPaymentType(payload.cardPaymentType);
   const token = String(payload.cardToken || '').trim();
   if (!token) throw new CardPaymentDeclinedError('Informe os dados do cartão para continuar.');
 
   const stored = await savedMethod(payload, order, CARD_PROVIDERS.MERCADO_PAGO);
+  if (cardPaymentType === 'debit' && stored) {
+    throw new CardPaymentDeclinedError(
+      'Cartão salvo não pode ser reutilizado como débito. Informe o cartão nesta compra.',
+    );
+  }
   if (payload.paymentMethodId && !stored) {
     throw new CardPaymentDeclinedError('O cartão salvo selecionado não foi encontrado.');
   }
@@ -327,7 +342,7 @@ async function mercadoPagoPayment(
           amount: total.toFixed(2),
           payment_method: {
             id: paymentMethodId,
-            type: 'credit_card',
+            type: cardPaymentType === 'debit' ? 'debit_card' : 'credit_card',
             token,
             installments: 1,
           },
@@ -694,6 +709,13 @@ class DirectOrderCardPaymentService {
     successUrlBase: string;
     idempotencyKey?: string;
   }) {
+    const cardPaymentType = normalizeCardPaymentType(input.payload.cardPaymentType);
+    if (cardPaymentType === 'debit' && input.provider !== CARD_PROVIDERS.MERCADO_PAGO) {
+      throw new CardPaymentDeclinedError(
+        'Débito online ainda não está disponível neste gateway.',
+      );
+    }
+
     if (input.provider === CARD_PROVIDERS.MERCADO_PAGO) {
       const idempotencyKey = String(input.idempotencyKey || '').trim();
       if (!idempotencyKey) {
