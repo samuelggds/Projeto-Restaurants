@@ -472,6 +472,7 @@ export function buildHomeData(
     acceptsPix: readPublicFeatureFlag(settings, 'acceptsPix'),
     openFinancePixEnabled: settings?.openFinancePixEnabled === true,
     acceptsCard: readPublicFeatureFlag(settings, 'acceptsCard'),
+    acceptsDebitCard: settings?.acceptsDebitCard === true,
     fontFamily: normalizeHomeFontFamily(settings?.fontFamily),
     seoTitle: String(settings?.seoTitle || '').trim(),
     seoDescription: String(settings?.seoDescription || '').trim(),
