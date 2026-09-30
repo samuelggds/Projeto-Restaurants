@@ -254,6 +254,71 @@ test('orquestra débito mantendo tipo explícito e tenant do restaurante', async
   assert.equal(result.paid, false);
 });
 
+test('recusa débito em gateway não homologado antes de criar o pedido', async () => {
+  let createOrderCalled = false;
+  restaurantSettingsRepository.findByRestaurantId = async () => ({
+    restaurantId: 9,
+    isOpenForOrders: true,
+    businessHours: [],
+    acceptsCard: true,
+    cardGateway: 'ASAAS',
+    asaasAccessToken: 'test-only-tenant-token',
+  });
+  createOrderService.execute = async () => {
+    createOrderCalled = true;
+    throw new Error('não deveria criar pedido');
+  };
+
+  await assert.rejects(
+    () =>
+      createOrderCardCheckoutService.execute({
+        restaurantId: 9,
+        userRestaurantId: 9,
+        type: 'RETIRADA',
+        paymentMethod: 'CARTAO',
+        cardPaymentType: 'debit',
+        cardToken: 'test-debit-token',
+        cardPaymentMethodId: 'visa',
+        items: [{ productId: 1, quantity: 1 }],
+      }),
+    /débito online ainda não está disponível/i,
+  );
+
+  assert.equal(createOrderCalled, false);
+});
+
+test('recusa tipo de cartão manipulado antes de criar o pedido', async () => {
+  let createOrderCalled = false;
+  restaurantSettingsRepository.findByRestaurantId = async () => ({
+    restaurantId: 9,
+    isOpenForOrders: true,
+    businessHours: [],
+    acceptsCard: true,
+    cardGateway: 'MERCADO_PAGO',
+  });
+  createOrderService.execute = async () => {
+    createOrderCalled = true;
+    throw new Error('não deveria criar pedido');
+  };
+
+  await assert.rejects(
+    () =>
+      createOrderCardCheckoutService.execute({
+        restaurantId: 9,
+        userRestaurantId: 9,
+        type: 'RETIRADA',
+        paymentMethod: 'CARTAO',
+        cardPaymentType: 'debit-manipulado',
+        cardToken: 'test-token',
+        cardPaymentMethodId: 'visa',
+        items: [{ productId: 1, quantity: 1 }],
+      } as never),
+    /tipo de cartão inválido/i,
+  );
+
+  assert.equal(createOrderCalled, false);
+});
+
 test('checkout Asaas usa somente a conta do restaurante e nunca envia split', async () => {
   let savedSessionId = null;
   let deletedOrderId = null;
