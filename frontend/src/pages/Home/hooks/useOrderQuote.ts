@@ -93,14 +93,7 @@ export function useOrderQuote({
             complement: '',
           }
         : undefined,
-    [
-      deliveryAddress,
-      deliveryAddress?.address,
-      deliveryAddress?.number,
-      deliveryAddress?.district,
-      deliveryAddress?.city,
-      deliveryAddress?.state,
-    ],
+    [deliveryAddress],
   );
   const quotePayload = useMemo(
     () =>

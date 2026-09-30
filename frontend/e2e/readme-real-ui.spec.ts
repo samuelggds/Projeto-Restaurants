@@ -595,10 +595,10 @@ test('captura o tracking real para o README', async ({ page }) => {
   await mockTracking(page);
   await page.goto('/orders/601/tracking');
 
+  await expect(page.getByText('Pedido #601', { exact: true })).toBeVisible();
   await expect(
-    page.getByLabel('Detalhes da rota').getByText('Pedido #601', { exact: true }),
+    page.getByLabel('Status da Entrega').getByText('Saiu para entrega', { exact: true }),
   ).toBeVisible();
-  await expect(page.getByText('Saiu para entrega', { exact: true })).toBeVisible();
   await expect(page.locator('.delivery-map-shell')).toBeVisible();
   await captureReadmeScreenshot(page, 'delivery-tracking.png', { fullPage: true });
 });

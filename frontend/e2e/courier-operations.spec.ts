@@ -977,7 +977,9 @@ test('cliente acompanha somente a própria entrega, rota e destino até a conclu
   await page.goto('/orders/601/tracking');
 
   await expect(page.getByRole('banner').getByText('Pedido #601', { exact: true })).toBeVisible();
-  await expect(page.getByText('Saiu para entrega', { exact: true })).toBeVisible();
+  await expect(
+    page.getByLabel('Status da Entrega').getByText('Saiu para entrega', { exact: true }),
+  ).toBeVisible();
   await expect(page.getByText(courierUser.name)).toBeVisible();
   await expect(page.getByRole('link', { name: 'Ligar para o motoqueiro' })).toHaveAttribute(
     'href',
@@ -1027,7 +1029,7 @@ test('cliente acompanha somente a própria entrega, rota e destino até a conclu
     restaurantId: RESTAURANT_ID,
     status: 'ENTREGUE',
   });
-  await expect(page.getByText('Entregue', { exact: true })).toBeVisible();
+  await expect(page.getByText('Chegou ao endereço', { exact: true })).toBeVisible();
   await expect(page.getByText('Entrega concluída', { exact: true })).toBeVisible();
   await expect(trackingMap).toHaveAttribute('data-tracking-terminal', 'true');
 

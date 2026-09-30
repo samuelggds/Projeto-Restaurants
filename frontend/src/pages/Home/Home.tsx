@@ -24,7 +24,7 @@ import { AuthenticatedAddressCheckout } from '../Home/components/AuthenticatedAd
 import { AuthenticatedEmptyAddressCheckout } from '../Home/components/AuthenticatedEmptyAddressCheckout';
 import { HomePaymentOutcome } from './components/HomePaymentOutcome';
 import { HomePaymentScreen } from './components/HomePaymentScreen';
-import { HomeFeedback } from '../Home/components/HomeFeedback';
+import { HomeAuxiliaryUi } from './components/HomeAuxiliaryUi';
 import { useHomeNotifications } from './hooks/useHomeNotifications';
 import {
   buildOrderPayload,
@@ -46,7 +46,6 @@ import {
   resolveAvailableFulfillmentMethod,
   resolveDefaultCheckoutPaymentMethod,
 } from './domain/publicSettings';
-import { TableServiceActions } from './components/TableServiceActions';
 import { useCardPaymentReturn } from './hooks/useCardPaymentReturn';
 import { buildLoginUrl } from '../../shared/navigation/authNavigation';
 import TableMenuExperience from '../digital-menu/TableMenuExperience';
@@ -57,18 +56,6 @@ import { validateDeliveryAddressLocationForCheckout } from './domain/deliveryAdd
 const FigmaCheckoutFlow = lazy(() =>
   import('./FigmaCheckoutFlow').then((module) => ({
     default: module.FigmaCheckoutFlow,
-  })),
-);
-
-const ProductConfigurator = lazy(() =>
-  import('../Home/components/ProductConfigurator').then((module) => ({
-    default: module.ProductConfigurator,
-  })),
-);
-
-const ComboConfigurator = lazy(() =>
-  import('../Home/components/ComboConfigurator').then((module) => ({
-    default: module.ComboConfigurator,
   })),
 );
 
@@ -702,11 +689,11 @@ export default function Home() {
             address: deliveryAddress,
             resolveLocation: (payload) => ordersService.getDeliveryAddressLocation(payload),
           });
-          if (!validation.ok) {
+          if (!validation.ok && 'title' in validation) {
             notify('warning', validation.title, validation.message);
             return;
           }
-          if (!validation.verified) {
+          if (validation.ok && !validation.verified && 'title' in validation) {
             const confirmed = await confirmDialog({
               title: validation.title,
               description: `${validation.message} Se os dados estiverem corretos, você pode continuar com o pedido.`,
@@ -1258,48 +1245,36 @@ export default function Home() {
         </Suspense>
       ) : null}
 
-      {crossSellProduct ? (
-        <Suspense fallback={null}>
-          <ProductConfigurator
-            product={crossSellProduct}
-            primaryColor={primary}
-            enableProductQuantity
-            onClose={() => setCrossSellProduct(null)}
-            onConfirm={(configuration, quantity) => {
-              addToCart(crossSellProduct.id, configuration, quantity || 1);
-              setCrossSellProduct(null);
-            }}
-          />
-        </Suspense>
-      ) : null}
-
-      {crossSellCombo ? (
-        <Suspense fallback={null}>
-          <ComboConfigurator
-            product={crossSellCombo}
-            primaryColor={primary}
-            onClose={() => setCrossSellCombo(null)}
-            onConfirm={(configuration) => {
-              addToCart(crossSellCombo.id, configuration, 1);
-              setCrossSellCombo(null);
-            }}
-          />
-        </Suspense>
-      ) : null}
-
-      <HomeFeedback
+      <HomeAuxiliaryUi
+        crossSellProduct={crossSellProduct}
+        crossSellCombo={crossSellCombo}
+        primaryColor={primary}
         notifications={notifs}
         onDismissNotification={dismissNotif}
         onOpenCart={openHomeCart}
+        onCloseProduct={() => setCrossSellProduct(null)}
+        onCloseCombo={() => setCrossSellCombo(null)}
+        onConfirmProduct={(configuration, quantity) => {
+          if (!crossSellProduct) return;
+          addToCart(crossSellProduct.id, configuration, quantity);
+          setCrossSellProduct(null);
+        }}
+        onConfirmCombo={(configuration) => {
+          if (!crossSellCombo) return;
+          addToCart(crossSellCombo.id, configuration, 1);
+          setCrossSellCombo(null);
+        }}
+        tableService={
+          mesaMode && tableSession
+            ? {
+                tableNumber: mesaLabel,
+                waiterEnabled: tableSession.waiterCallEnabled !== false,
+                loading: tableServiceLoading,
+                onCallWaiter: () => void requestTableService('WAITER'),
+              }
+            : undefined
+        }
       />
-      {mesaMode && tableSession ? (
-        <TableServiceActions
-          tableNumber={mesaLabel}
-          waiterEnabled={tableSession.waiterCallEnabled !== false}
-          loading={tableServiceLoading}
-          onCallWaiter={() => void requestTableService('WAITER')}
-        />
-      ) : null}
     </S.HomeExperience>
   );
 }
