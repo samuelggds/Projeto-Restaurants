@@ -150,7 +150,7 @@ test(
     let receivedRestaurantId = 0;
     let receivedPaymentType = '';
 
-    directOrderCardPaymentService.execute = async (input) => {
+    directOrderCardPaymentService.execute = (async (input) => {
       providerCalls += 1;
       receivedRestaurantId = input.order.restaurantId;
       receivedPaymentType = String(input.payload.cardPaymentType || '');
@@ -161,7 +161,7 @@ test(
         checkoutUrl: 'https://payments.example.test/debit',
         paymentApproved: false,
       };
-    };
+    }) as typeof directOrderCardPaymentService.execute;
 
     const successful = await apiRequest(
       app.baseUrl,
