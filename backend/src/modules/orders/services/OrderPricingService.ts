@@ -177,19 +177,44 @@ class OrderPricingService {
     }
 
     let configuredDeliveryFeeAmount = 0;
+    let deliveryFeeFallbackApplied = false;
     if (normalizedType === OrderType.DELIVERY) {
       if (settings?.deliveryFeeMode === 'DISTANCE') {
-        const normalizedDistanceMeters = Number(deliveryDistanceMeters);
-        if (!Number.isFinite(normalizedDistanceMeters) || normalizedDistanceMeters < 0) {
-          throw new OrderRequestError('Não foi possível calcular a distância para a taxa de entrega.');
-        }
+        const hasResolvedDistance =
+          deliveryDistanceMeters !== null &&
+          deliveryDistanceMeters !== undefined &&
+          Number.isFinite(Number(deliveryDistanceMeters)) &&
+          Number(deliveryDistanceMeters) >= 0;
 
-        const distanceFee = await deliveryFeeByDistanceService.calculate({
-          restaurantId: normalizedRestaurantId,
-          distanceMeters: normalizedDistanceMeters,
-          db,
-        });
-        configuredDeliveryFeeAmount = distanceFee.deliveryFeeAmount;
+        if (hasResolvedDistance) {
+          const distanceFee = await deliveryFeeByDistanceService.calculate({
+            restaurantId: normalizedRestaurantId,
+            distanceMeters: Number(deliveryDistanceMeters),
+            db,
+          });
+          configuredDeliveryFeeAmount = distanceFee.deliveryFeeAmount;
+        } else {
+          const highestActiveRange = await db.deliveryFeeRange.findFirst({
+            where: {
+              restaurantId: normalizedRestaurantId,
+              active: true,
+            },
+            select: {
+              fee: true,
+            },
+            orderBy: {
+              fee: 'desc',
+            },
+          });
+          configuredDeliveryFeeAmount = roundMoney(
+            Math.max(
+              Number(settings?.deliveryFee || 0),
+              Number(highestActiveRange?.fee || 0),
+              0,
+            ),
+          );
+          deliveryFeeFallbackApplied = true;
+        }
       } else {
         configuredDeliveryFeeAmount = roundMoney(Math.max(Number(settings?.deliveryFee || 0), 0));
       }
@@ -275,9 +300,14 @@ class OrderPricingService {
       couponDiscount,
       deliveryFeeAmount,
       deliveryDistanceMeters:
-        normalizedType === OrderType.DELIVERY && settings?.deliveryFeeMode === 'DISTANCE'
+        normalizedType === OrderType.DELIVERY &&
+        settings?.deliveryFeeMode === 'DISTANCE' &&
+        deliveryDistanceMeters !== null &&
+        deliveryDistanceMeters !== undefined &&
+        Number.isFinite(Number(deliveryDistanceMeters))
           ? Number(deliveryDistanceMeters)
           : null,
+      deliveryFeeFallbackApplied,
       total,
       couponCode,
       couponId,

@@ -68,7 +68,8 @@ type DeliveryAddressLocationResolver = (payload: {
 }) => Promise<DeliveryAddressLocation | undefined>;
 
 export type DeliveryAddressLocationValidation =
-  | { ok: true }
+  | { ok: true; verified: true }
+  | { ok: true; verified: false; title: string; message: string }
   | { ok: false; title: string; message: string };
 
 function addressValidationFeedback(error: unknown): DeliveryAddressLocationValidation {
@@ -85,18 +86,21 @@ function addressValidationFeedback(error: unknown): DeliveryAddressLocationValid
 
   if (code === 'ADDRESS_VALIDATION_UNAVAILABLE') {
     return {
-      ok: false,
-      title: 'Não foi possível validar o endereço',
-      message: 'Não foi possível validar o endereço no momento. Tente novamente em instantes.',
+      ok: true,
+      verified: false,
+      title: 'Endereço não confirmado no mapa',
+      message:
+        'O serviço de localização está indisponível agora. Confira o endereço antes de continuar.',
     };
   }
 
   if (code === 'ADDRESS_NOT_GEOCODED') {
     return {
-      ok: false,
-      title: 'Confira o endereço',
+      ok: true,
+      verified: false,
+      title: 'Endereço não confirmado no mapa',
       message:
-        'Não encontramos esse endereço no mapa. Confira rua, número, bairro, cidade e estado.',
+        'Não conseguimos confirmar este endereço no mapa. Confira rua, número, bairro, cidade e estado antes de continuar.',
     };
   }
 
@@ -109,9 +113,11 @@ function addressValidationFeedback(error: unknown): DeliveryAddressLocationValid
   }
 
   return {
-    ok: false,
-    title: 'Não foi possível validar o endereço',
-    message: 'Não foi possível validar o endereço agora. Tente novamente em instantes.',
+    ok: true,
+    verified: false,
+    title: 'Endereço não confirmado no mapa',
+    message:
+      'Não conseguimos confirmar este endereço agora. Confira os dados antes de continuar.',
   };
 }
 
@@ -146,13 +152,15 @@ export async function validateDeliveryAddressLocationForCheckout(input: {
       !Number.isFinite(location.longitude)
     ) {
       return {
-        ok: false,
-        title: 'Não foi possível validar o endereço',
-        message: 'Não foi possível validar o endereço agora. Tente novamente em instantes.',
+        ok: true,
+        verified: false,
+        title: 'Endereço não confirmado no mapa',
+        message:
+          'Não conseguimos confirmar este endereço agora. Confira os dados antes de continuar.',
       };
     }
 
-    return { ok: true };
+    return { ok: true, verified: true };
   } catch (error) {
     return addressValidationFeedback(error);
   }

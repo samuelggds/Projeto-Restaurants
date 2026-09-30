@@ -127,9 +127,9 @@ class GetDeliveryAddressLocationController {
       getOsrmDeliveryRouteService.isGeocodingConfigured();
 
     if (!hasConfiguredGeocoder) {
-      return res.status(503).json({
-        error: 'Não foi possível validar o endereço no momento. Tente novamente em instantes.',
-        code: 'ADDRESS_VALIDATION_UNAVAILABLE',
+      return res.status(200).json({
+        location: null,
+        verification: 'UNVERIFIED',
       });
     }
 
@@ -137,13 +137,21 @@ class GetDeliveryAddressLocationController {
     const location = googleLocation || (await firstAlternativeLocation(parsed.data));
 
     if (!location) {
-      return res.status(422).json({
-        error: 'Não foi possível localizar este endereço no mapa.',
-        code: 'ADDRESS_NOT_GEOCODED',
+      return res.status(200).json({
+        location: null,
+        verification: 'UNVERIFIED',
       });
     }
 
-    return res.status(200).json({ location });
+    return res.status(200).json({
+      location: {
+        latitude: location.latitude,
+        longitude: location.longitude,
+        formattedAddress: location.formattedAddress,
+        partialMatch: location.partialMatch,
+      },
+      verification: 'VERIFIED',
+    });
   }
 }
 

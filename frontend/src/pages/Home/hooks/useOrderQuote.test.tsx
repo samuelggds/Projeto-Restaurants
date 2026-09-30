@@ -70,6 +70,7 @@ describe('useOrderQuote', () => {
       couponDiscount: 0,
       deliveryFeeAmount: 0,
       deliveryDistanceMeters: null,
+      deliveryFeeFallbackApplied: false,
       total: 25,
       couponCode: null,
     });
@@ -92,6 +93,7 @@ describe('useOrderQuote', () => {
         couponDiscount: 7,
         deliveryFeeAmount: 5,
         deliveryDistanceMeters: 4200,
+        deliveryFeeFallbackApplied: true,
         total: '68',
         couponCode: 'FIEL7',
       }),
@@ -101,6 +103,7 @@ describe('useOrderQuote', () => {
       couponDiscount: 7,
       deliveryFeeAmount: 5,
       deliveryDistanceMeters: 4200,
+      deliveryFeeFallbackApplied: true,
       total: 68,
       couponCode: 'FIEL7',
     });

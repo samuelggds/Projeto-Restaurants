@@ -53,10 +53,14 @@ function createDb({
     },
     deliveryFeeRange: {
       findFirst: async ({ where }) => {
+        const activeRanges = ranges.filter((range) => range.active !== false);
+        if (!where.maxDistanceKm) {
+          return [...activeRanges].sort((first, second) => second.fee - first.fee)[0] ?? null;
+        }
         const minimumDistance = Number(where.maxDistanceKm.gte);
         return (
-          ranges
-            .filter((range) => range.active !== false && range.maxDistanceKm >= minimumDistance)
+          activeRanges
+            .filter((range) => range.maxDistanceKm >= minimumDistance)
             .sort((first, second) => first.maxDistanceKm - second.maxDistanceKm)[0] ?? null
         );
       },
@@ -80,6 +84,7 @@ test('usa a faixa correspondente à distância real da rota', async () => {
 
   assert.equal(quote.deliveryFeeAmount, 8);
   assert.equal(quote.deliveryDistanceMeters, 4200);
+  assert.equal(quote.deliveryFeeFallbackApplied, false);
   assert.equal(quote.total, 58);
 });
 
@@ -112,4 +117,48 @@ test('frete grátis não permite entrega fora da maior faixa ativa', async () =>
       }),
     /fora da área de entrega/,
   );
+});
+
+
+test('mantém o pedido vendável com taxa de contingência quando a rota está indisponível', async () => {
+  productRepository.findById = async () => product;
+
+  const quote = await orderPricingService.quote({
+    restaurantId: 7,
+    type: 'DELIVERY',
+    items: [{ productId: 10, quantity: 1 }],
+    deliveryDistanceMeters: null,
+    db: createDb(),
+  });
+
+  assert.equal(quote.deliveryFeeAmount, 99);
+  assert.equal(quote.deliveryDistanceMeters, null);
+  assert.equal(quote.deliveryFeeFallbackApplied, true);
+  assert.equal(quote.total, 149);
+});
+
+test('a contingência nunca fica abaixo da maior taxa ativa do restaurante', async () => {
+  productRepository.findById = async () => product;
+  const db = createDb();
+  db.restaurantSettings.findUnique = async () => ({
+    deliveryFeeMode: 'DISTANCE',
+    deliveryFee: 4,
+    minimumOrder: 0,
+    freeShippingMinimum: 0,
+    acceptsDelivery: true,
+    acceptsPickup: true,
+    tableOrderingEnabled: true,
+  });
+
+  const quote = await orderPricingService.quote({
+    restaurantId: 7,
+    type: 'DELIVERY',
+    items: [{ productId: 10, quantity: 1 }],
+    deliveryDistanceMeters: null,
+    db,
+  });
+
+  assert.equal(quote.deliveryFeeAmount, 12);
+  assert.equal(quote.deliveryFeeFallbackApplied, true);
+  assert.equal(quote.total, 62);
 });

@@ -407,6 +407,24 @@ export function DeliverySettings({ settings, update }: Props) {
               </div>
             </div>
 
+            <S.FormGrid>
+              <S.Field>
+                Taxa de contingência (R$)
+                <NumericDraftInput
+                  min="0"
+                  step="0.01"
+                  aria-label="Taxa de contingência (R$)"
+                  value={settings.deliveryFee}
+                  disabled={!deliveryEnabled}
+                  onCommit={(value) => update('deliveryFee', value)}
+                />
+                <small>
+                  Usada somente se a rota não puder ser calculada. Para proteger o restaurante, o
+                  backend nunca aplicará valor menor que a maior taxa ativa cadastrada.
+                </small>
+              </S.Field>
+            </S.FormGrid>
+
             {settings.deliveryFeeRanges.length > 0 ? (
               <RangeList>
                 {settings.deliveryFeeRanges.map((range, index) => (
@@ -491,7 +509,8 @@ export function DeliverySettings({ settings, update }: Props) {
 
             <p className="distance-help">
               Exemplo: se houver faixas até 2 km por R$ 5 e até 5 km por R$ 8, uma rota de 4 km
-              utilizará a taxa de R$ 8.
+              utilizará a taxa de R$ 8. Se o serviço de rota estiver temporariamente indisponível,
+              o pedido continua usando a taxa de contingência com a proteção da maior faixa ativa.
             </p>
           </DistancePanel>
         )}

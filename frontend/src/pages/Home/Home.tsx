@@ -699,6 +699,17 @@ export default function Home() {
             notify('warning', validation.title, validation.message);
             return;
           }
+          if (!validation.verified) {
+            const confirmed = window.confirm(
+              `${validation.title}\n\n${validation.message}\n\nSe os dados estão corretos, confirme para continuar com o pedido.`,
+            );
+            if (!confirmed) return;
+            notify(
+              'info',
+              'Pedido seguirá com o endereço informado',
+              'O restaurante receberá o endereço digitado por você mesmo sem a confirmação do mapa.',
+            );
+          }
         } finally {
           setAddressValidationLoading(false);
         }

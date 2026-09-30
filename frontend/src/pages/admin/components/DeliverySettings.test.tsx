@@ -121,6 +121,11 @@ describe('DeliverySettings', () => {
       (container.querySelector('[aria-label="Taxa da faixa 2"]') as HTMLInputElement).value,
     ).toBe('8');
     expect(container.textContent).toContain('Área máxima configurada: até 5 km.');
+    expect(
+      (container.querySelector('[aria-label="Taxa de contingência (R$)"]') as HTMLInputElement)
+        .value,
+    ).toBe(String(adminMockSettings.deliveryFee));
+    expect(container.textContent).toContain('serviço de rota estiver temporariamente indisponível');
 
     act(() =>
       (container.querySelector('[aria-label="Taxa da faixa 1"]') as HTMLInputElement).dispatchEvent(

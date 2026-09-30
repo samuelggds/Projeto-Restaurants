@@ -12,6 +12,7 @@ export type OrderQuote = {
   couponDiscount: number;
   deliveryFeeAmount: number;
   deliveryDistanceMeters: number | null;
+  deliveryFeeFallbackApplied: boolean;
   total: number;
   couponCode: string | null;
 };
@@ -53,6 +54,7 @@ export function normalizeOrderQuote(payload: unknown): OrderQuote {
     couponDiscount: money(quote.couponDiscount),
     deliveryFeeAmount: money(quote.deliveryFeeAmount),
     deliveryDistanceMeters: optionalNonNegativeNumber(quote.deliveryDistanceMeters),
+    deliveryFeeFallbackApplied: quote.deliveryFeeFallbackApplied === true,
     total: money(quote.total),
     couponCode: quote.couponCode ? String(quote.couponCode) : null,
   };

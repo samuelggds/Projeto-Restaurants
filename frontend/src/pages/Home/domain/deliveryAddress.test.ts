@@ -72,7 +72,7 @@ describe('validateDeliveryAddressLocationForCheckout', () => {
       },
     });
 
-    expect(result).toEqual({ ok: true });
+    expect(result).toEqual({ ok: true, verified: true });
     expect(calls).toEqual([
       expect.objectContaining({
         restaurantId: 77,
@@ -101,9 +101,11 @@ describe('validateDeliveryAddressLocationForCheckout', () => {
     });
 
     expect(result).toEqual({
-      ok: false,
-      title: 'Não foi possível validar o endereço',
-      message: 'Não foi possível validar o endereço no momento. Tente novamente em instantes.',
+      ok: true,
+      verified: false,
+      title: 'Endereço não confirmado no mapa',
+      message:
+        'O serviço de localização está indisponível agora. Confira o endereço antes de continuar.',
     });
     expect(JSON.stringify(result)).not.toContain('detalhe interno');
   });
@@ -125,10 +127,11 @@ describe('validateDeliveryAddressLocationForCheckout', () => {
     });
 
     expect(result).toEqual({
-      ok: false,
-      title: 'Confira o endereço',
+      ok: true,
+      verified: false,
+      title: 'Endereço não confirmado no mapa',
       message:
-        'Não encontramos esse endereço no mapa. Confira rua, número, bairro, cidade e estado.',
+        'Não conseguimos confirmar este endereço no mapa. Confira rua, número, bairro, cidade e estado antes de continuar.',
     });
     expect(JSON.stringify(result)).not.toContain('secret-provider');
   });

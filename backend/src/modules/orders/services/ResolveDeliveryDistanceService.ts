@@ -9,6 +9,7 @@ type ResolveDeliveryDistanceInput = {
   restaurantId: number | string;
   destination: DeliveryRouteAddress;
   db?: PrismaClientLike;
+  force?: boolean;
 };
 
 class ResolveDeliveryDistanceService {
@@ -16,6 +17,7 @@ class ResolveDeliveryDistanceService {
     restaurantId,
     destination,
     db = prisma,
+    force = false,
   }: ResolveDeliveryDistanceInput): Promise<number | null> {
     const normalizedRestaurantId = Number(restaurantId);
     if (!Number.isInteger(normalizedRestaurantId) || normalizedRestaurantId <= 0) {
@@ -27,7 +29,7 @@ class ResolveDeliveryDistanceService {
       select: { deliveryFeeMode: true },
     });
 
-    if (settings?.deliveryFeeMode !== 'DISTANCE') {
+    if (settings?.deliveryFeeMode !== 'DISTANCE' && !force) {
       return null;
     }
 
@@ -79,24 +81,28 @@ class ResolveDeliveryDistanceService {
       .filter(Boolean);
 
     if (requiredOriginFields.length < 5) {
-      throw new Error(
-        'O endereço do restaurante precisa estar completo para usar taxa por distância.',
-      );
+      return null;
     }
 
-    const provider = getDeliveryRoutingProvider();
-    const distanceMeters = Number(
-      await provider.calculateDistanceMeters({
+    try {
+      const provider = getDeliveryRoutingProvider();
+      const resolvedDistanceMeters = await provider.calculateDistanceMeters({
         origin: originAddress,
         destination,
-      }),
-    );
+      });
+      if (resolvedDistanceMeters === null || resolvedDistanceMeters === undefined) {
+        return null;
+      }
 
-    if (!Number.isFinite(distanceMeters) || distanceMeters < 0) {
-      throw new Error('Não foi possível calcular a rota até este endereço de entrega.');
+      const distanceMeters = Number(resolvedDistanceMeters);
+      if (!Number.isFinite(distanceMeters) || distanceMeters < 0) {
+        return null;
+      }
+
+      return Math.round(distanceMeters);
+    } catch {
+      return null;
     }
-
-    return distanceMeters;
   }
 }
 
