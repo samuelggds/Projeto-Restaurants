@@ -91,6 +91,8 @@ class GetOrderPaymentRecoveryService {
             publicId: latestCardAttempt.publicId,
             status: latestCardAttempt.status,
             provider: latestCardAttempt.provider,
+            cardPaymentType:
+              latestCardAttempt.cardPaymentType === 'debit' ? 'debit' : 'credit',
             providerStatus: latestCardAttempt.providerStatus,
             providerStatusDetail: latestCardAttempt.providerStatusDetail,
             failureCode: latestCardAttempt.failureCode,
