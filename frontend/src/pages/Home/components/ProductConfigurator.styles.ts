@@ -1160,7 +1160,7 @@ export const BottomBar = styled.div<{ $stickyOnMobile?: boolean }>`
     font-size: 21px;
   }
 
-  button {
+  > button {
     min-width: 260px;
     min-height: 51px;
     padding: 0 20px;
@@ -1173,7 +1173,7 @@ export const BottomBar = styled.div<{ $stickyOnMobile?: boolean }>`
     box-shadow: 0 8px 22px color-mix(in srgb, var(--config-primary) 25%, transparent);
   }
 
-  button:disabled {
+  > button:disabled {
     background: #b9b1aa;
     box-shadow: none;
     cursor: not-allowed;
@@ -1199,9 +1199,9 @@ export const BottomBar = styled.div<{ $stickyOnMobile?: boolean }>`
 
     .total-description{display:none}
 
-    button {
+    > button {
       min-width:0;
-      flex:1;
+      flex:1 1 auto;
       min-height:46px;
       padding-inline:12px;
       font-size:14px;
@@ -1218,7 +1218,7 @@ export const BottomBar = styled.div<{ $stickyOnMobile?: boolean }>`
       font-size: 9px;
     }
 
-    button {
+    > button {
       padding-inline: 9px;
       font-size: 12px;
     }
