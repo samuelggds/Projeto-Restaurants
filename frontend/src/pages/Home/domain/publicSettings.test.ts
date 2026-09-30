@@ -31,6 +31,28 @@ describe('configurações públicas da Home', () => {
     ).toEqual(['pix', 'delivery_pix', 'delivery_cash']);
   });
 
+  it('inclui débito online somente quando a capacidade pública está ativa', () => {
+    expect(
+      getAvailablePaymentMethods({
+        allowPayOnDelivery: false,
+        allowPayAtPickup: false,
+        allowPix: false,
+        allowCard: true,
+        allowDebitCard: true,
+      }),
+    ).toEqual(['card', 'debit_card']);
+
+    expect(
+      getAvailablePaymentMethods({
+        allowPayOnDelivery: false,
+        allowPayAtPickup: false,
+        allowPix: false,
+        allowCard: true,
+        allowDebitCard: false,
+      }),
+    ).toEqual(['card']);
+  });
+
   it('monta o contato de WhatsApp somente com número válido e mensagem codificada', () => {
     expect(buildWhatsAppUrl('(85) 99999-0000', 'Olá, quero ajuda!')).toBe(
       'https://wa.me/85999990000?text=Ol%C3%A1%2C%20quero%20ajuda!',
