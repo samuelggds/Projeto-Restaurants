@@ -1,6 +1,7 @@
 import styled from 'styled-components';
 import {
-  paymentContentReveal,
+  PAYMENT_CARD_OPEN_DURATION_MS,
+  paymentCardFormExpand,
   paymentReducedMotion,
 } from '../../../components/payment/paymentMotion';
 
@@ -433,18 +434,40 @@ export const FigmaPaymentStatus = styled.div`
 `;
 
 export const FigmaGuestCardForm = styled.div`
-  animation: ${paymentContentReveal} 260ms cubic-bezier(0.22, 0.8, 0.32, 1) both;
+  display: grid;
+  grid-template-rows: 1fr;
+  overflow: hidden;
+  transform-origin: top;
+  animation: ${paymentCardFormExpand} ${PAYMENT_CARD_OPEN_DURATION_MS}ms
+    cubic-bezier(0.22, 0.78, 0.24, 1) both;
 
   ${paymentReducedMotion}
 
-  > section { margin: 0; padding: 0; border: 0; border-radius: 0; background: transparent; }
+  > section {
+    min-height: 0;
+    overflow: hidden;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+  }
   > section > header, > section .security { display: none; }
   > section label > span { color: #72706b; font-size: 11px; font-weight: 500; }
   > section input, > section .secure-field { min-height: 44px; border-color: #efece6; border-radius: 8px; background: #f7f5f0; }
 `;
 
 export const FigmaSavedCardSecurity = styled.div`
-  > section { margin: 0; padding: 0; border: 0; background: transparent; }
+  display: grid;
+  grid-template-rows: 1fr;
+  overflow: hidden;
+  transform-origin: top;
+  animation: ${paymentCardFormExpand} ${PAYMENT_CARD_OPEN_DURATION_MS}ms
+    cubic-bezier(0.22, 0.78, 0.24, 1) both;
+
+  ${paymentReducedMotion}
+
+  > section { min-height: 0; overflow: hidden; margin: 0; padding: 0; border: 0; background: transparent; }
   > section > header, > section .security { display: none; }
   > section label > span { font-size: 11px; }
 `;

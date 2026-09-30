@@ -27,6 +27,24 @@ export const paymentContentReveal = keyframes`
   }
 `;
 
+export const PAYMENT_CARD_OPEN_DURATION_MS = 460;
+
+export const paymentCardFormExpand = keyframes`
+  0% {
+    opacity: 0;
+    grid-template-rows: 0fr;
+    transform: translateY(-5px);
+  }
+  35% {
+    opacity: 0.55;
+  }
+  100% {
+    opacity: 1;
+    grid-template-rows: 1fr;
+    transform: translateY(0);
+  }
+`;
+
 export const paymentStatusPop = keyframes`
   0% {
     opacity: 0;
