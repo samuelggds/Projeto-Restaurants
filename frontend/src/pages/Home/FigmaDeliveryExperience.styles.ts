@@ -204,6 +204,7 @@ export const InlineSearch = styled.div`
       margin-top:4px;
       padding-top:0;
       padding-bottom:0;
+      overflow:visible;
       border-color:var(--delivery-line);
       opacity:1;
       visibility:visible;
