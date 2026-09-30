@@ -1,6 +1,28 @@
 import { act } from 'react';
 import { createRoot } from 'react-dom/client';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+
+vi.mock('../tracking/DeliveryTrackingPage', () => ({
+  default: ({
+    visualTestMode,
+    visualTestData,
+  }: {
+    visualTestMode?: boolean;
+    visualTestData?: {
+      order?: {
+        assignedCourier?: { name?: string };
+        routeEstimate?: { destination?: { label?: string } };
+      };
+    };
+  }) => (
+    <section data-visual-test-mode={visualTestMode ? 'true' : undefined}>
+      <h1>Acompanhe o trajeto do pedido</h1>
+      <p>{visualTestData?.order?.assignedCourier?.name}</p>
+      <p>{visualTestData?.order?.routeEstimate?.destination?.label}</p>
+    </section>
+  ),
+}));
+
 import PaymentVisualLab from './PaymentVisualLab';
 
 (globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT =

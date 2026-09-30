@@ -12,6 +12,8 @@ import PixPaymentPanel from '../Cart/components/PixPaymentPanel';
 import { CardPaymentReturnPanel } from '../Home/components/CardPaymentReturnPanel';
 import type { CardPaymentReturnStatus } from '../Home/hooks/useCardPaymentReturn';
 import type { PixPaymentStatus } from '../Home/hooks/useCheckoutPayments';
+import DeliveryTrackingPage from '../tracking/DeliveryTrackingPage';
+import type { DeliveryTrackingData } from '../tracking/deliveryTracking';
 
 type VisualScenario =
   | 'checkout'
@@ -25,7 +27,8 @@ type VisualScenario =
   | 'card-failed'
   | 'card-canceled'
   | 'card-expired'
-  | 'card-refunded';
+  | 'card-refunded'
+  | 'tracking';
 
 const PRIMARY = '#d05632';
 const RESTAURANT_NAME = 'North Pizza — Teste visual';
@@ -37,6 +40,45 @@ const FAKE_PIX_CODE =
 const VISUAL_PAYMENT_METHODS: CheckoutPaymentMethod[] = ['pix', 'card', 'debit_card'];
 const DEFAULT_VISUAL_PAYMENT_METHOD =
   resolveDefaultCheckoutPaymentMethod(VISUAL_PAYMENT_METHODS) ?? 'pix';
+
+const VISUAL_TRACKING_DATA: DeliveryTrackingData = {
+  order: {
+    id: FAKE_ORDER_ID,
+    restaurantId: 999999,
+    status: 'SAIU_PARA_ENTREGA',
+    deliveryStartedAt: new Date(Date.now() - 8 * 60 * 1000).toISOString(),
+    estimatedArrival: new Date(Date.now() + 15 * 60 * 1000).toISOString(),
+    deliveryConfirmationCode: '4821',
+    assignedCourier: {
+      name: 'Motoqueiro Teste',
+    },
+    routeEstimate: {
+      durationSeconds: 15 * 60,
+      distanceMeters: 3500,
+      provider: 'OSRM',
+      destination: {
+        latitude: -3.75,
+        longitude: -38.55,
+        label: 'Rua Fictícia, 123 — Bairro Teste',
+      },
+      routeCoordinates: [
+        { latitude: -3.73, longitude: -38.53 },
+        { latitude: -3.735, longitude: -38.535 },
+        { latitude: -3.742, longitude: -38.542 },
+        { latitude: -3.75, longitude: -38.55 },
+      ],
+    },
+  },
+  locations: [
+    {
+      latitude: -3.738,
+      longitude: -38.538,
+      recordedAt: new Date().toISOString(),
+      heading: 135,
+      speed: 8,
+    },
+  ],
+};
 
 const cart = [
   {
@@ -130,6 +172,7 @@ export default function PaymentVisualLab() {
           <button className={scenario === 'card-canceled' ? 'active failure' : ''} onClick={() => selectScenario('card-canceled')}>Cartão cancelado</button>
           <button className={scenario === 'card-expired' ? 'active failure' : ''} onClick={() => selectScenario('card-expired')}>Cartão expirado</button>
           <button className={scenario === 'card-refunded' ? 'active failure' : ''} onClick={() => selectScenario('card-refunded')}>Cartão estornado</button>
+          <button className={scenario === 'tracking' ? 'active' : ''} onClick={() => selectScenario('tracking')}>Acompanhar pedido (GPS)</button>
         </nav>
         <label className="brand-picker">
           <span>Bandeira visual do cartão</span>
@@ -174,7 +217,13 @@ export default function PaymentVisualLab() {
       ) : null}
 
       <Preview data-testid="payment-visual-preview">
-        {showCheckout ? (
+        {scenario === 'tracking' ? (
+          <DeliveryTrackingPage
+            visualTestMode
+            visualTestData={VISUAL_TRACKING_DATA}
+            onVisualBack={() => setScenario('card-paid')}
+          />
+        ) : showCheckout ? (
           <FigmaPaymentCheckout
             primaryColor={PRIMARY}
             loggedIn={false}
@@ -235,7 +284,7 @@ export default function PaymentVisualLab() {
             onCopyPixKey={async () => undefined}
             onVerify={async () => pixStatus}
             onBackToCart={() => selectScenario('checkout')}
-            onTrackOrder={() => undefined}
+            onTrackOrder={() => setScenario('tracking')}
           />
         ) : (
           <CardPaymentReturnPanel
@@ -264,7 +313,7 @@ export default function PaymentVisualLab() {
             amount={money(FAKE_TOTAL)}
             onVerify={async () => cardStatus}
             onClose={() => selectScenario('checkout')}
-            onTrackOrder={() => undefined}
+            onTrackOrder={() => setScenario('tracking')}
           />
         )}
       </Preview>

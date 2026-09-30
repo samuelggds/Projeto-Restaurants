@@ -11,6 +11,7 @@ const SCENARIOS = [
   ['Cartão cancelado', 'card-canceled'],
   ['Cartão expirado', 'card-expired'],
   ['Cartão estornado', 'card-refunded'],
+  ['Acompanhar pedido (GPS)', 'tracking'],
 ] as const;
 
 async function expectNoHorizontalOverflow(page: Page) {
@@ -72,4 +73,16 @@ test('estado recusado é diferente de cancelado no laboratório', async ({ page 
 
   await page.getByRole('button', { name: 'Cartão cancelado', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Pagamento cancelado' })).toBeVisible();
+});
+
+
+test('rastreamento visual local abre sem depender de GPS real', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/__dev/pagamentos');
+  await page.getByRole('button', { name: 'Acompanhar pedido (GPS)', exact: true }).click();
+
+  await expect(page.locator('[data-visual-test-mode="true"]')).toBeVisible();
+  await expect(page.getByText('Motoqueiro Teste')).toBeVisible();
+  await expect(page.getByText('Rua Fictícia, 123 — Bairro Teste')).toBeVisible();
+  await expectNoHorizontalOverflow(page);
 });
