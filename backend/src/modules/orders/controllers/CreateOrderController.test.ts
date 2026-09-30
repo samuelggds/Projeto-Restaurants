@@ -96,7 +96,7 @@ test('cliente pode escolher dinheiro na entrega sem confirmar o próprio pagamen
   assert.equal(result.body.paid, false);
   assert.equal(result.body.payOnDelivery, true);
   assert.equal(result.body.payOnDeliveryMethod, 'DINHEIRO');
-  assert.equal(received?.paid, false);
+  assert.equal(received?.paid, undefined);
   assert.equal(received?.payOnDelivery, true);
   assert.equal(received?.payOnDeliveryMethod, 'DINHEIRO');
 });
