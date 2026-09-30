@@ -83,7 +83,7 @@ test('rastreamento fictício mostra o mapa local e move o motoqueiro na rota', a
 
   const lab = page.locator('[data-testid="delivery-tracking-visual-lab"]');
   await expect(lab).toBeVisible();
-  await expect(lab).toHaveAttribute('data-map-source', 'local-isometric-cartoon');
+  await expect(lab).toHaveAttribute('data-map-source', 'google-maps');
   await expect(lab).toHaveAttribute('data-animation-duration-ms', '60000');
   await expect(page.getByText('Início', { exact: true })).toBeVisible();
   await expect(page.getByText('Acompanhar pedido', { exact: true })).toBeVisible();
@@ -92,57 +92,23 @@ test('rastreamento fictício mostra o mapa local e move o motoqueiro na rota', a
   await expect(page.getByText('Olá, Entrar', { exact: true })).toHaveCount(0);
   await expect(page.getByText('Meu Carrinho', { exact: true })).toHaveCount(0);
 
-  const map = page.locator('[data-testid="visual-fictitious-map"]');
-  const marker = page.locator('[data-testid="visual-courier-marker"]');
-  const restaurant = page.locator('[data-testid="visual-origin-restaurant-marker"]');
-  const house = page.locator('[data-testid="visual-destination-house-marker"]');
+  const map = page.locator('[data-testid="visual-google-map"]');
+  const googleMap = page.locator('[data-testid="customer-google-delivery-map"]');
 
   await expect(map).toBeVisible();
-  await expect(page.locator('[data-testid="visual-isometric-city"]')).toBeVisible();
-  await expect(marker).toBeVisible();
-  await expect(restaurant).toBeVisible();
-  await expect(house).toBeVisible();
-  await expect(page.getByText('Restaurante', { exact: true })).toBeVisible();
-  await expect(page.getByText('Sua casa', { exact: true })).toBeVisible();
-  await expect(map.locator('polyline[stroke="#3824d6"]')).toHaveCount(0);
-
-  const mapBox = await map.boundingBox();
-  expect(mapBox?.height).toBeGreaterThanOrEqual(279);
-  expect(mapBox?.height).toBeLessThanOrEqual(281);
-
-  await expect(marker.locator('[data-testid="visual-courier-sprite"]')).toBeVisible();
-  await expect(marker).toHaveAttribute('data-camera-anchor', '50,62');
-
-  const markerBox = await marker.boundingBox();
-  const mapViewport = await map.boundingBox();
-  expect(markerBox).not.toBeNull();
-  expect(mapViewport).not.toBeNull();
-
-  if (markerBox && mapViewport) {
-    const markerCenterX = markerBox.x + markerBox.width / 2;
-    const markerCenterY = markerBox.y + markerBox.height * 0.58;
-    expect(Math.abs(markerCenterX - (mapViewport.x + mapViewport.width * 0.5))).toBeLessThan(4);
-    expect(Math.abs(markerCenterY - (mapViewport.y + mapViewport.height * 0.62))).toBeLessThan(6);
-  }
-
-  const scene = page.locator('[data-testid="visual-map-scene"]');
-  await expect(scene).toBeVisible();
+  await expect(googleMap).toBeVisible();
 
   const initialProgress = await map.getAttribute('data-courier-progress');
-  const initialAngle = await marker.getAttribute('data-route-angle');
-  const initialCameraRotation = await map.getAttribute('data-camera-rotation');
-  const initialSpriteDirection = await marker.getAttribute('data-sprite-direction');
-  await page.waitForTimeout(1_200);
+  const initialAngle = await map.getAttribute('data-route-angle');
+  const initialSpriteDirection = await map.getAttribute('data-sprite-direction');
+  await page.waitForTimeout(1_400);
   const movedProgress = await map.getAttribute('data-courier-progress');
-  const movedAngle = await marker.getAttribute('data-route-angle');
-  const movedCameraRotation = await map.getAttribute('data-camera-rotation');
-  const movedSpriteDirection = await marker.getAttribute('data-sprite-direction');
+  const movedAngle = await map.getAttribute('data-route-angle');
+  const movedSpriteDirection = await map.getAttribute('data-sprite-direction');
 
   expect(movedProgress).not.toBe(initialProgress);
   expect(initialAngle).not.toBeNull();
   expect(movedAngle).not.toBeNull();
-  expect(initialCameraRotation).not.toBeNull();
-  expect(movedCameraRotation).not.toBeNull();
   expect(initialSpriteDirection).not.toBeNull();
   expect(movedSpriteDirection).not.toBeNull();
   await expectNoHorizontalOverflow(page);
