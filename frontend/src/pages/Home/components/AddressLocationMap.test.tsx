@@ -12,6 +12,7 @@ vi.mock('../../../Services/ordersService', () => ({
 
 describe('AddressLocationMap', () => {
   beforeEach(() => {
+    vi.clearAllMocks();
     vi.useFakeTimers();
     Object.defineProperty(window, 'matchMedia', {
       configurable: true,

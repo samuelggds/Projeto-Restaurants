@@ -630,7 +630,9 @@ test('captura o tracking real para o README', async ({ page }) => {
   await mockTracking(page);
   await page.goto('/orders/601/tracking');
 
-  await expect(page.getByText('Pedido #601', { exact: true })).toBeVisible();
+  await expect(
+    page.getByRole('banner').getByText('Pedido #601', { exact: true }),
+  ).toBeVisible();
   await expect(
     page.getByLabel('Status da Entrega').getByText('Saiu para entrega', { exact: true }),
   ).toBeVisible();

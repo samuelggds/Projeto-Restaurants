@@ -126,10 +126,19 @@ describe('useOrderQuote', () => {
   it('faz uma única cotação depois que a digitação estabiliza', async () => {
     await act(async () => {
       root.render(<HookProbe address={{ ...completeAddress, number: '1' }} />);
+      await Promise.resolve();
+    });
+    await act(async () => {
       await vi.advanceTimersByTimeAsync(250);
       root.render(<HookProbe address={{ ...completeAddress, number: '12' }} />);
+      await Promise.resolve();
+    });
+    await act(async () => {
       await vi.advanceTimersByTimeAsync(250);
       root.render(<HookProbe address={{ ...completeAddress, number: '123' }} />);
+      await Promise.resolve();
+    });
+    await act(async () => {
       await vi.advanceTimersByTimeAsync(ORDER_QUOTE_DEBOUNCE_MS - 1);
     });
 
@@ -146,6 +155,9 @@ describe('useOrderQuote', () => {
   it('não refaz quote ao digitar somente o complemento', async () => {
     await act(async () => {
       root.render(<HookProbe />);
+      await Promise.resolve();
+    });
+    await act(async () => {
       await vi.advanceTimersByTimeAsync(ORDER_QUOTE_DEBOUNCE_MS);
       await Promise.resolve();
     });
@@ -162,9 +174,17 @@ describe('useOrderQuote', () => {
   it('mantém a cotação isolada pelo restaurantId', async () => {
     await act(async () => {
       root.render(<HookProbe restaurantId={7} />);
+      await Promise.resolve();
+    });
+    await act(async () => {
       await vi.advanceTimersByTimeAsync(ORDER_QUOTE_DEBOUNCE_MS);
       await Promise.resolve();
+    });
+    await act(async () => {
       root.render(<HookProbe restaurantId={8} />);
+      await Promise.resolve();
+    });
+    await act(async () => {
       await vi.advanceTimersByTimeAsync(ORDER_QUOTE_DEBOUNCE_MS);
       await Promise.resolve();
     });

@@ -1032,7 +1032,9 @@ test('cliente acompanha somente a própria entrega, rota e destino até a conclu
     restaurantId: RESTAURANT_ID,
     status: 'ENTREGUE',
   });
-  await expect(page.getByText('Chegou ao endereço', { exact: true })).toBeVisible();
+  await expect(
+    page.getByLabel('Status da Entrega').getByText('Chegou ao endereço', { exact: true }),
+  ).toBeVisible();
   await expect(page.getByText('Entrega concluída', { exact: true })).toBeVisible();
   await expect(trackingMap).toHaveAttribute('data-tracking-terminal', 'true');
 
