@@ -48,6 +48,7 @@ type PublicSettingsFallback = {
   acceptsPix: boolean;
   openFinancePixEnabled: boolean;
   acceptsCard: boolean;
+  acceptsDebitCard: boolean;
   tableOrderingEnabled: boolean;
   waiterCallEnabled: boolean;
   billRequestEnabled: boolean;
@@ -197,6 +198,7 @@ class GetPublicRestaurantSettingsService {
         acceptsPix: false,
         openFinancePixEnabled: false,
         acceptsCard: false,
+        acceptsDebitCard: false,
         tableOrderingEnabled: true,
         waiterCallEnabled: true,
         billRequestEnabled: true,
@@ -280,6 +282,7 @@ class GetPublicRestaurantSettingsService {
       settings.acceptsCard === true &&
       cardProvider === 'MERCADO_PAGO' &&
       mercadoPagoCardReady;
+    const acceptsDebitCard = acceptsCard && cardProvider === 'MERCADO_PAGO';
     const openFinanceReady = Boolean(
       settings.openFinancePixEnabled &&
         efiOpenFinanceConfigured() &&
@@ -298,6 +301,7 @@ class GetPublicRestaurantSettingsService {
       ...settings,
       ...(typeof settings.acceptsPix === 'boolean' ? { acceptsPix } : {}),
       ...(typeof settings.acceptsCard === 'boolean' ? { acceptsCard } : {}),
+      acceptsDebitCard,
       openFinancePixEnabled: openFinanceReady,
       ...(restaurant
         ? { restaurant: externalizePublicRestaurantImages(normalizedRestaurantId, restaurant) }
