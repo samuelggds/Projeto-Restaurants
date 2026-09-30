@@ -706,9 +706,20 @@ export const GoogleFallbackButton = styled.button`
   color: ${(props) => props.theme.text};
   background: ${(props) => props.theme.surface};
   box-shadow: 0 5px 16px ${(props) => props.theme.shadow};
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
   font-size: 0.88rem;
   font-weight: 750;
   cursor: pointer;
+
+  .google-brand-icon {
+    width: 20px;
+    height: 20px;
+    flex: 0 0 20px;
+    display: block;
+  }
 
   &:hover:not(:disabled) {
     border-color: ${(props) => props.theme.primary};
