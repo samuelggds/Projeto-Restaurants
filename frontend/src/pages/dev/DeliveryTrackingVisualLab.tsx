@@ -4,6 +4,7 @@ import courierScooter3d from '../../assets/tracking/courier-scooter-gastronexa-3
 import type { CourierRoutePoint } from '../Courier/domain/courierLocation';
 
 export const VISUAL_TRACKING_ANIMATION_MS = 60_000;
+const COURIER_ASSET_HEADING_OFFSET_DEGREES = 180;
 
 export const VISUAL_TRACKING_ROUTE: CourierRoutePoint[] = [
   { latitude: -3.73525, longitude: -38.54162 },
@@ -51,7 +52,7 @@ function toVisualMapPosition(point: CourierRoutePoint) {
   };
 }
 
-const VISUAL_ROUTE_SVG_POINTS = VISUAL_TRACKING_ROUTE.map((point) => {
+const VISUAL_STREET_SVG_POINTS = VISUAL_TRACKING_ROUTE.map((point) => {
   const position = toVisualMapPosition(point);
   return `${position.x},${position.y}`;
 }).join(' ');
@@ -116,6 +117,38 @@ export function interpolateVisualRoute(
   return getVisualRouteFrame(route, rawProgress).point;
 }
 
+function MiniRestaurant3DMarker() {
+  return (
+    <span data-testid="visual-origin-restaurant-marker" style={styles.buildingMarker}>
+      <span style={styles.restaurantBuilding}>
+        <span style={styles.restaurantRoof} />
+        <span style={styles.restaurantSign}>NORTH</span>
+        <span style={styles.restaurantAwning}>
+          <i /><i /><i /><i />
+        </span>
+        <span style={styles.restaurantDoor} />
+        <span style={styles.restaurantWindow} />
+      </span>
+      <small style={styles.buildingLabel}>Restaurante</small>
+    </span>
+  );
+}
+
+function MiniHouse3DMarker() {
+  return (
+    <span data-testid="visual-destination-house-marker" style={styles.buildingMarker}>
+      <span style={styles.houseBuilding}>
+        <span style={styles.houseRoof} />
+        <span style={styles.houseChimney} />
+        <span style={styles.houseDoor} />
+        <span style={styles.houseWindowLeft} />
+        <span style={styles.houseWindowRight} />
+      </span>
+      <small style={styles.buildingLabel}>Sua casa</small>
+    </span>
+  );
+}
+
 export default function DeliveryTrackingVisualLab({ onBack }: { onBack?: () => void }) {
   const startedAtRef = useRef(0);
   const [progress, setProgress] = useState(0);
@@ -150,6 +183,10 @@ export default function DeliveryTrackingVisualLab({ onBack }: { onBack?: () => v
   );
   const currentPoint = currentFrame.point;
   const currentMapPosition = useMemo(() => toVisualMapPosition(currentPoint), [currentPoint]);
+  const originMapPosition = useMemo(
+    () => toVisualMapPosition(VISUAL_TRACKING_ROUTE[0]),
+    [],
+  );
   const destinationMapPosition = useMemo(
     () => toVisualMapPosition(VISUAL_TRACKING_ROUTE[VISUAL_TRACKING_ROUTE.length - 1]),
     [],
@@ -172,6 +209,13 @@ export default function DeliveryTrackingVisualLab({ onBack }: { onBack?: () => v
   return (
     <section data-testid="delivery-tracking-visual-lab" data-map-source="fictitious-google-style" data-animation-duration-ms={VISUAL_TRACKING_ANIMATION_MS} style={styles.page}>
       <style>{`
+        [data-testid="visual-origin-restaurant-marker"] > span:first-child > span:nth-child(3) i:nth-child(odd) {
+          background: #e85a2b;
+        }
+        [data-testid="visual-origin-restaurant-marker"] > span:first-child > span:nth-child(3) i:nth-child(even) {
+          background: #fff4ed;
+        }
+
         @media (max-width: 760px) {
           .tracking-main { width: 100% !important; padding: 0 0 28px !important; }
           .tracking-title { display: none !important; }
@@ -234,41 +278,76 @@ export default function DeliveryTrackingVisualLab({ onBack }: { onBack?: () => v
               data-courier-progress={progress.toFixed(4)}
               style={styles.fakeMap}
             >
-              <div style={{ ...styles.road, top: '8%', left: '-8%', width: '118%', transform: 'rotate(6deg)' }} />
-              <div style={{ ...styles.road, top: '26%', left: '-5%', width: '112%', transform: 'rotate(-5deg)' }} />
-              <div style={{ ...styles.road, top: '49%', left: '-6%', width: '116%', transform: 'rotate(8deg)' }} />
-              <div style={{ ...styles.road, top: '71%', left: '-4%', width: '110%', transform: 'rotate(-7deg)' }} />
-              <div style={{ ...styles.road, top: '3%', left: '18%', width: '94%', transform: 'rotate(84deg)' }} />
-              <div style={{ ...styles.road, top: '2%', left: '43%', width: '95%', transform: 'rotate(88deg)' }} />
-              <div style={{ ...styles.road, top: '4%', left: '70%', width: '91%', transform: 'rotate(95deg)' }} />
-              <div style={{ ...styles.majorRoad, top: '56%', left: '-10%', width: '125%', transform: 'rotate(-18deg)' }} />
-              <span style={{ ...styles.mapLabel, top: '14%', left: '8%' }}>Av. Exemplo</span>
-              <span style={{ ...styles.mapLabel, top: '33%', left: '61%' }}>Rua Modelo</span>
-              <span style={{ ...styles.mapLabel, top: '66%', left: '12%' }}>Praça Teste</span>
-              <span style={{ ...styles.mapLabelPoi, top: '45%', left: '48%' }}>Hospital Demo</span>
+              <div style={{ ...styles.cityBlock, top: '5%', left: '5%', width: '27%', height: '17%' }} />
+              <div style={{ ...styles.cityBlock, top: '7%', left: '58%', width: '30%', height: '18%' }} />
+              <div style={{ ...styles.cityBlock, top: '31%', left: '8%', width: '25%', height: '18%' }} />
+              <div style={{ ...styles.cityBlock, top: '31%', left: '62%', width: '28%', height: '17%' }} />
+              <div style={{ ...styles.cityBlock, top: '59%', left: '7%', width: '27%', height: '17%' }} />
+              <div style={{ ...styles.cityBlock, top: '62%', left: '64%', width: '25%', height: '17%' }} />
+
+              <div style={{ ...styles.road, top: '24%', left: '-5%', width: '112%', transform: 'rotate(-4deg)' }} />
+              <div style={{ ...styles.road, top: '51%', left: '-4%', width: '111%', transform: 'rotate(5deg)' }} />
+              <div style={{ ...styles.road, top: '78%', left: '-5%', width: '112%', transform: 'rotate(-3deg)' }} />
+              <div style={{ ...styles.road, top: '-2%', left: '22%', width: '104%', transform: 'rotate(88deg)' }} />
+              <div style={{ ...styles.road, top: '-1%', left: '52%', width: '103%', transform: 'rotate(91deg)' }} />
+              <div style={{ ...styles.road, top: '1%', left: '79%', width: '101%', transform: 'rotate(94deg)' }} />
+
+              <span style={{ ...styles.mapLabel, top: '19%', left: '8%' }}>Rua das Palmeiras</span>
+              <span style={{ ...styles.mapLabel, top: '45%', left: '66%' }}>Rua do Bosque</span>
+              <span style={{ ...styles.mapLabel, top: '73%', left: '9%' }}>Av. Principal</span>
+              <span style={{ ...styles.mapLabelPoi, top: '37%', left: '43%' }}>Praça Central</span>
+
               <svg
                 viewBox="0 0 100 100"
                 preserveAspectRatio="none"
                 aria-hidden="true"
-                style={styles.routeSvg}
+                style={styles.streetSvg}
               >
                 <polyline
-                  points={VISUAL_ROUTE_SVG_POINTS}
+                  points={VISUAL_STREET_SVG_POINTS}
                   fill="none"
-                  stroke="#ffffff"
-                  strokeWidth="3.4"
+                  stroke="#cfd7da"
+                  strokeWidth="5.8"
                   strokeLinecap="round"
                   strokeLinejoin="round"
                 />
                 <polyline
-                  points={VISUAL_ROUTE_SVG_POINTS}
+                  points={VISUAL_STREET_SVG_POINTS}
                   fill="none"
-                  stroke="#3824d6"
-                  strokeWidth="1.8"
+                  stroke="#ffffff"
+                  strokeWidth="4.6"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+                <polyline
+                  points={VISUAL_STREET_SVG_POINTS}
+                  fill="none"
+                  stroke="#e9edef"
+                  strokeWidth=".35"
+                  strokeDasharray="1.1 1.1"
                   strokeLinecap="round"
                   strokeLinejoin="round"
                 />
               </svg>
+
+              <div
+                style={{
+                  ...styles.originBuildingPosition,
+                  left: `${originMapPosition.x}%`,
+                  top: `${originMapPosition.y}%`,
+                }}
+              >
+                <MiniRestaurant3DMarker />
+              </div>
+              <div
+                style={{
+                  ...styles.destinationBuildingPosition,
+                  left: `${destinationMapPosition.x}%`,
+                  top: `${destinationMapPosition.y}%`,
+                }}
+              >
+                <MiniHouse3DMarker />
+              </div>
               <div
                 data-testid="visual-courier-marker"
                 data-route-segment={currentFrame.segmentIndex}
@@ -284,19 +363,9 @@ export default function DeliveryTrackingVisualLab({ onBack }: { onBack?: () => v
                   alt="Motoqueiro fictício"
                   style={{
                     ...styles.courierImage,
-                    transform: `rotate(${currentFrame.angleDegrees}deg)`,
+                    transform: `rotate(${currentFrame.angleDegrees + COURIER_ASSET_HEADING_OFFSET_DEGREES}deg)`,
                   }}
                 />
-              </div>
-              <div
-                aria-label="Endereço fictício de entrega"
-                style={{
-                  ...styles.destinationMarker,
-                  left: `${destinationMapPosition.x}%`,
-                  top: `${destinationMapPosition.y}%`,
-                }}
-              >
-                <span />
               </div>
               <div style={styles.etaBadge}>Chega em 15 min</div>
               <small style={styles.fakeMapNotice}>Mapa fictício para teste visual local</small>
@@ -366,15 +435,32 @@ const styles: Record<string, CSSProperties> = {
   title: { margin: '0 0 22px', fontSize: 'clamp(24px, 3vw, 32px)', lineHeight: 1.1 },
   layout: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 330px), 1fr))', gap: 30, alignItems: 'start' },
   mapCard: { position: 'relative', minWidth: 0 },
-  fakeMap: { position: 'relative', width: '100%', height: 'min(68vh, 650px)', minHeight: 520, overflow: 'hidden', border: '1px solid #dce3e6', borderRadius: 12, background: '#e9eef1', boxShadow: 'inset 0 0 0 1px rgba(255,255,255,.6)' },
-  road: { position: 'absolute', height: 12, border: '1px solid #d4dbde', background: '#fff', boxShadow: '0 0 0 2px rgba(225,231,233,.8)' },
-  majorRoad: { position: 'absolute', height: 18, border: '1px solid #c9d1d5', background: '#fdfdfd', boxShadow: '0 0 0 3px rgba(218,225,228,.9)' },
-  mapLabel: { position: 'absolute', zIndex: 2, color: '#6d777c', fontSize: 10, fontWeight: 600, transform: 'rotate(-5deg)' },
-  mapLabelPoi: { position: 'absolute', zIndex: 2, color: '#dc5961', fontSize: 9, fontWeight: 700 },
-  routeSvg: { position: 'absolute', zIndex: 3, inset: 0, width: '100%', height: '100%', pointerEvents: 'none' },
+  fakeMap: { position: 'relative', width: '100%', height: 'min(68vh, 650px)', minHeight: 520, overflow: 'hidden', border: '1px solid #d7dfe2', borderRadius: 12, background: 'linear-gradient(180deg,#eef3f1 0%,#e8eeec 100%)', boxShadow: 'inset 0 0 0 1px rgba(255,255,255,.65)' },
+  cityBlock: { position: 'absolute', zIndex: 0, border: '1px solid #dfe5e2', borderRadius: 9, background: 'linear-gradient(145deg,#e1e8df 0%,#d8e1d8 100%)', boxShadow: 'inset 0 0 0 3px rgba(255,255,255,.22)' },
+  road: { position: 'absolute', zIndex: 1, height: 13, border: '1px solid #d5dcdf', background: '#fff', boxShadow: '0 0 0 2px rgba(222,228,231,.9)' },
+  mapLabel: { position: 'absolute', zIndex: 2, color: '#6d777c', fontSize: 10, fontWeight: 600, transform: 'rotate(-4deg)' },
+  mapLabelPoi: { position: 'absolute', zIndex: 2, color: '#5d8b68', fontSize: 9, fontWeight: 800 },
+  streetSvg: { position: 'absolute', zIndex: 3, inset: 0, width: '100%', height: '100%', pointerEvents: 'none' },
   courierMarker: { position: 'absolute', zIndex: 6, width: 56, height: 56, transform: 'translate(-50%, -50%)', willChange: 'left, top', filter: 'drop-shadow(0 6px 8px rgba(25,34,40,.2))' },
   courierImage: { width: '100%', height: '100%', objectFit: 'contain', transformOrigin: 'center', willChange: 'transform', transition: 'transform 160ms ease-out' },
-  destinationMarker: { position: 'absolute', zIndex: 5, width: 28, height: 28, display: 'grid', placeItems: 'center', transform: 'translate(-50%, -50%) rotate(-45deg)', border: '4px solid #fff', borderRadius: '50% 50% 50% 0', background: '#ef4444', boxShadow: '0 4px 10px rgba(239,68,68,.3)' },
+  originBuildingPosition: { position: 'absolute', zIndex: 7, transform: 'translate(-50%, -76%)', pointerEvents: 'none' },
+  destinationBuildingPosition: { position: 'absolute', zIndex: 7, transform: 'translate(-50%, -76%)', pointerEvents: 'none' },
+  buildingMarker: { position: 'relative', width: 58, display: 'grid', justifyItems: 'center', gap: 2, filter: 'drop-shadow(0 8px 7px rgba(31,41,55,.18))' },
+  buildingLabel: { padding: '2px 5px', borderRadius: 999, color: '#454b48', background: 'rgba(255,255,255,.92)', boxShadow: '0 2px 5px rgba(31,41,55,.12)', fontSize: 7, fontWeight: 900, whiteSpace: 'nowrap' },
+
+  restaurantBuilding: { position: 'relative', width: 48, height: 42, display: 'block', transform: 'perspective(80px) rotateX(2deg) rotateY(-5deg)', transformOrigin: 'bottom center' },
+  restaurantRoof: { position: 'absolute', zIndex: 4, top: 0, left: 5, width: 39, height: 13, clipPath: 'polygon(12% 100%, 25% 16%, 79% 0, 100% 79%)', background: 'linear-gradient(145deg,#e7643b,#b83e24)', boxShadow: '0 3px 4px rgba(93,47,31,.18)' },
+  restaurantSign: { position: 'absolute', zIndex: 5, top: 12, left: 8, width: 33, height: 9, display: 'grid', placeItems: 'center', borderRadius: 2, color: '#fff', background: '#2f3438', fontSize: 5, fontWeight: 900, letterSpacing: '.08em' },
+  restaurantAwning: { position: 'absolute', zIndex: 5, top: 21, left: 7, width: 35, height: 7, display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', overflow: 'hidden', borderRadius: '2px 2px 4px 4px', background: '#fff' },
+  restaurantDoor: { position: 'absolute', zIndex: 4, left: 21, bottom: 1, width: 10, height: 15, borderRadius: '2px 2px 0 0', background: 'linear-gradient(90deg,#80513b,#a16a4b)' },
+  restaurantWindow: { position: 'absolute', zIndex: 4, right: 7, bottom: 7, width: 9, height: 9, border: '1px solid rgba(44,94,111,.25)', borderRadius: 2, background: 'linear-gradient(145deg,#d9f6ff,#85c8dc)' },
+
+  houseBuilding: { position: 'relative', width: 46, height: 42, display: 'block', transform: 'perspective(80px) rotateX(2deg) rotateY(6deg)', transformOrigin: 'bottom center' },
+  houseRoof: { position: 'absolute', zIndex: 4, top: 2, left: 2, width: 42, height: 18, clipPath: 'polygon(50% 0,100% 72%,91% 100%,50% 41%,9% 100%,0 72%)', background: 'linear-gradient(145deg,#d64d3f,#9c2f2a)', boxShadow: '0 3px 4px rgba(90,38,32,.2)' },
+  houseChimney: { position: 'absolute', zIndex: 3, top: 3, right: 8, width: 6, height: 12, borderRadius: '2px 2px 0 0', background: '#9c6651' },
+  houseDoor: { position: 'absolute', zIndex: 3, left: 18, bottom: 1, width: 10, height: 17, borderRadius: '3px 3px 0 0', background: 'linear-gradient(90deg,#875238,#a96c49)' },
+  houseWindowLeft: { position: 'absolute', zIndex: 3, left: 7, bottom: 10, width: 8, height: 8, border: '1px solid rgba(44,94,111,.2)', borderRadius: 2, background: 'linear-gradient(145deg,#e2f8ff,#8fc9df)' },
+  houseWindowRight: { position: 'absolute', zIndex: 3, right: 6, bottom: 10, width: 8, height: 8, border: '1px solid rgba(44,94,111,.2)', borderRadius: 2, background: 'linear-gradient(145deg,#e2f8ff,#8fc9df)' },
   etaBadge: { position: 'absolute', zIndex: 8, top: 20, left: 20, padding: '8px 16px', border: '1px solid #efece6', borderRadius: 999, color: '#e85a2b', background: '#fff', boxShadow: '0 4px 8px rgba(16,24,39,.08)', fontSize: 13, fontWeight: 800 },
   fakeMapNotice: { position: 'absolute', zIndex: 8, right: 10, bottom: 8, padding: '4px 7px', borderRadius: 6, color: '#667178', background: 'rgba(255,255,255,.88)', fontSize: 8 },
   animationBadge: { position: 'absolute', zIndex: 7, right: 14, bottom: 14, maxWidth: 'calc(100% - 28px)', padding: '9px 11px', display: 'flex', alignItems: 'center', gap: 9, border: '1px solid rgba(232,86,44,.18)', borderRadius: 10, background: 'rgba(255,255,255,.95)', boxShadow: '0 9px 24px rgba(31,30,26,.12)' },

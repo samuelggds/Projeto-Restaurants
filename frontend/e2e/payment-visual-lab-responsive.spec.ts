@@ -94,8 +94,16 @@ test('rastreamento fictício mostra o mapa local e move o motoqueiro na rota', a
 
   const map = page.locator('[data-testid="visual-fictitious-map"]');
   const marker = page.locator('[data-testid="visual-courier-marker"]');
+  const restaurant = page.locator('[data-testid="visual-origin-restaurant-marker"]');
+  const house = page.locator('[data-testid="visual-destination-house-marker"]');
+
   await expect(map).toBeVisible();
   await expect(marker).toBeVisible();
+  await expect(restaurant).toBeVisible();
+  await expect(house).toBeVisible();
+  await expect(page.getByText('Restaurante', { exact: true })).toBeVisible();
+  await expect(page.getByText('Sua casa', { exact: true })).toBeVisible();
+  await expect(map.locator('polyline[stroke="#3824d6"]')).toHaveCount(0);
 
   const mapBox = await map.boundingBox();
   expect(mapBox?.height).toBeGreaterThanOrEqual(279);

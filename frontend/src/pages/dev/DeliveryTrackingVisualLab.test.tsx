@@ -61,11 +61,22 @@ describe('DeliveryTrackingVisualLab', () => {
     const lab = container.querySelector('[data-testid="delivery-tracking-visual-lab"]');
     const map = container.querySelector('[data-testid="visual-fictitious-map"]');
     const marker = container.querySelector('[data-testid="visual-courier-marker"]');
+    const restaurant = container.querySelector(
+      '[data-testid="visual-origin-restaurant-marker"]',
+    );
+    const house = container.querySelector(
+      '[data-testid="visual-destination-house-marker"]',
+    );
 
     expect(lab?.getAttribute('data-map-source')).toBe('fictitious-google-style');
     expect(lab?.getAttribute('data-animation-duration-ms')).toBe('60000');
     expect(map).not.toBeNull();
     expect(marker).not.toBeNull();
+    expect(restaurant).not.toBeNull();
+    expect(house).not.toBeNull();
+    expect(container.textContent).toContain('Restaurante');
+    expect(container.textContent).toContain('Sua casa');
+    expect(container.querySelector('polyline[stroke="#3824d6"]')).toBeNull();
     expect(marker?.querySelector('img[alt="Motoqueiro fictício"]')).not.toBeNull();
     expect(marker?.getAttribute('data-route-angle')).not.toBeNull();
     expect(container.textContent).toContain('Acompanhar pedido');
