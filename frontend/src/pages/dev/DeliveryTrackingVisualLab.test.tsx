@@ -57,7 +57,7 @@ describe('DeliveryTrackingVisualLab', () => {
     expect(spriteIndex).toBeLessThan(8);
   });
 
-  it('renderiza maquete isométrica local, motoqueiro direcional e dados fictícios sem Google Maps/backend', async () => {
+  it('renderiza Google Maps compartilhado e dados fictícios do laboratório', async () => {
     vi.spyOn(window, 'requestAnimationFrame').mockImplementation(() => 1);
     vi.spyOn(window, 'cancelAnimationFrame').mockImplementation(() => undefined);
 
@@ -71,36 +71,10 @@ describe('DeliveryTrackingVisualLab', () => {
     });
 
     const lab = container.querySelector('[data-testid="delivery-tracking-visual-lab"]');
-    const map = container.querySelector('[data-testid="visual-fictitious-map"]');
-    const marker = container.querySelector('[data-testid="visual-courier-marker"]');
-    const restaurant = container.querySelector(
-      '[data-testid="visual-origin-restaurant-marker"]',
-    );
-    const house = container.querySelector(
-      '[data-testid="visual-destination-house-marker"]',
-    );
-
-    expect(lab?.getAttribute('data-map-source')).toBe('local-isometric-cartoon');
+    expect(lab?.getAttribute('data-map-source')).toBe('google-maps');
     expect(lab?.getAttribute('data-animation-duration-ms')).toBe('60000');
-    expect(map).not.toBeNull();
-    expect(container.querySelector('[data-testid="visual-isometric-city"]')).not.toBeNull();
-    expect(marker).not.toBeNull();
-    expect(restaurant).not.toBeNull();
-    expect(house).not.toBeNull();
-    expect(container.textContent).toContain('Restaurante');
-    expect(container.textContent).toContain('Sua casa');
-    expect(container.querySelector('polyline[stroke="#3824d6"]')).toBeNull();
-    expect(
-      marker?.querySelector('[data-testid="visual-courier-sprite"]'),
-    ).not.toBeNull();
-    expect(marker?.getAttribute('data-route-angle')).not.toBeNull();
-    expect(marker?.getAttribute('data-sprite-direction')).toBeTruthy();
-    expect(marker?.getAttribute('data-camera-anchor')).toBe('50,62');
-    expect(
-      container
-        .querySelector('[data-testid="visual-fictitious-map"]')
-        ?.getAttribute('data-camera-rotation'),
-    ).toBeTruthy();
+    expect(container.querySelector('[data-testid="visual-google-map"]')).not.toBeNull();
+    expect(container.querySelector('[data-testid="customer-google-delivery-map"]')).not.toBeNull();
     expect(container.textContent).toContain('Acompanhar pedido');
     expect(container.textContent).toContain('Início');
     expect(container.textContent).toContain('Eduardo Silva');
