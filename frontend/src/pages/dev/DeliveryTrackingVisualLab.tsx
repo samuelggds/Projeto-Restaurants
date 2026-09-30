@@ -1,12 +1,21 @@
-import { FormEvent, type CSSProperties, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  FormEvent,
+  type CSSProperties,
+  type PointerEvent as ReactPointerEvent,
+  type WheelEvent as ReactWheelEvent,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import { ArrowLeft, Bike, CheckCircle2, CircleDot, Minus, Phone, Plus, Send } from 'lucide-react';
 import courierDelivery8Dir from '../../assets/tracking/courier-delivery-8dir.jpg';
 import type { CourierRoutePoint } from '../Courier/domain/courierLocation';
 
 export const VISUAL_TRACKING_ANIMATION_MS = 60_000;
-export const VISUAL_MAP_MIN_ZOOM = 0.85;
-export const VISUAL_MAP_MAX_ZOOM = 1.6;
-export const VISUAL_MAP_ZOOM_STEP = 0.15;
+export const VISUAL_MAP_MIN_ZOOM = 0.55;
+export const VISUAL_MAP_MAX_ZOOM = 2.4;
+export const VISUAL_MAP_ZOOM_STEP = 0.1;
 
 const COURIER_DIRECTION_NAMES = [
   'up',
@@ -20,6 +29,20 @@ const COURIER_DIRECTION_NAMES = [
 ] as const;
 
 type CourierDirectionName = (typeof COURIER_DIRECTION_NAMES)[number];
+
+type VisualPointer = { x: number; y: number };
+
+function clampVisualMapZoom(value: number) {
+  return Math.max(VISUAL_MAP_MIN_ZOOM, Math.min(VISUAL_MAP_MAX_ZOOM, value));
+}
+
+function pointerDistance(a: VisualPointer, b: VisualPointer) {
+  return Math.hypot(b.x - a.x, b.y - a.y);
+}
+
+function pointerAngle(a: VisualPointer, b: VisualPointer) {
+  return (Math.atan2(b.y - a.y, b.x - a.x) * 180) / Math.PI;
+}
 
 export const VISUAL_TRACKING_ROUTE: CourierRoutePoint[] = [
   { latitude: -3.73525, longitude: -38.54162 },
@@ -381,6 +404,21 @@ export default function DeliveryTrackingVisualLab({ onBack }: { onBack?: () => v
   const [messages, setMessages] = useState<LocalMessage[]>(INITIAL_MESSAGES);
   const [draft, setDraft] = useState('');
   const [mapZoom, setMapZoom] = useState(1);
+  const [manualMapRotation, setManualMapRotation] = useState(0);
+  const [isMapDragging, setIsMapDragging] = useState(false);
+  const manualMapRotationRef = useRef(0);
+  const activePointersRef = useRef(new Map<number, VisualPointer>());
+  const dragGestureRef = useRef<{
+    pointerId: number;
+    startX: number;
+    startRotation: number;
+  } | null>(null);
+  const pinchGestureRef = useRef<{
+    startDistance: number;
+    startAngle: number;
+    startZoom: number;
+    startRotation: number;
+  } | null>(null);
 
   useEffect(() => {
     if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return undefined;
@@ -423,9 +461,12 @@ export default function DeliveryTrackingVisualLab({ onBack }: { onBack?: () => v
     [currentFrame.angleDegrees],
   );
   const visualCameraRotation = cameraRotation * 0.08;
+  const finalMapRotation = normalizeVisualAngle(
+    visualCameraRotation + manualMapRotation,
+  );
   const courierDirectionIndex = useMemo(
-    () => getCourierDirectionIndex(currentFrame.angleDegrees, visualCameraRotation),
-    [currentFrame.angleDegrees, visualCameraRotation],
+    () => getCourierDirectionIndex(currentFrame.angleDegrees, finalMapRotation),
+    [currentFrame.angleDegrees, finalMapRotation],
   );
   const courierDirection = COURIER_DIRECTION_NAMES[
     courierDirectionIndex
@@ -443,6 +484,109 @@ export default function DeliveryTrackingVisualLab({ onBack }: { onBack?: () => v
     [],
   );
   const remainingSeconds = Math.max(0, Math.ceil((VISUAL_TRACKING_ANIMATION_MS * (1 - progress)) / 1000));
+
+  const updateManualMapRotation = (nextRotation: number) => {
+    const normalized = normalizeVisualAngle(nextRotation);
+    manualMapRotationRef.current = normalized;
+    setManualMapRotation(normalized);
+  };
+
+  const handleMapWheel = (event: ReactWheelEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    const delta = event.deltaY < 0 ? VISUAL_MAP_ZOOM_STEP : -VISUAL_MAP_ZOOM_STEP;
+    setMapZoom((current) =>
+      Number(clampVisualMapZoom(current + delta).toFixed(2)),
+    );
+  };
+
+  const handleMapPointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    event.currentTarget.setPointerCapture?.(event.pointerId);
+
+    const point = { x: event.clientX, y: event.clientY };
+    activePointersRef.current.set(event.pointerId, point);
+    const pointers = Array.from(activePointersRef.current.entries());
+
+    if (pointers.length >= 2) {
+      const first = pointers[0][1];
+      const second = pointers[1][1];
+      pinchGestureRef.current = {
+        startDistance: Math.max(1, pointerDistance(first, second)),
+        startAngle: pointerAngle(first, second),
+        startZoom: mapZoom,
+        startRotation: manualMapRotationRef.current,
+      };
+      dragGestureRef.current = null;
+      setIsMapDragging(true);
+      return;
+    }
+
+    dragGestureRef.current = {
+      pointerId: event.pointerId,
+      startX: event.clientX,
+      startRotation: manualMapRotationRef.current,
+    };
+    setIsMapDragging(true);
+  };
+
+  const handleMapPointerMove = (event: ReactPointerEvent<HTMLDivElement>) => {
+    if (!activePointersRef.current.has(event.pointerId)) return;
+
+    activePointersRef.current.set(event.pointerId, {
+      x: event.clientX,
+      y: event.clientY,
+    });
+
+    const pointers = Array.from(activePointersRef.current.values());
+    if (pointers.length >= 2 && pinchGestureRef.current) {
+      const [first, second] = pointers;
+      const distanceNow = Math.max(1, pointerDistance(first, second));
+      const angleNow = pointerAngle(first, second);
+      const pinch = pinchGestureRef.current;
+
+      setMapZoom(
+        Number(
+          clampVisualMapZoom(
+            pinch.startZoom * (distanceNow / pinch.startDistance),
+          ).toFixed(2),
+        ),
+      );
+      updateManualMapRotation(
+        pinch.startRotation + normalizeVisualAngle(angleNow - pinch.startAngle),
+      );
+      return;
+    }
+
+    const drag = dragGestureRef.current;
+    if (!drag || drag.pointerId !== event.pointerId) return;
+
+    const horizontalDelta = event.clientX - drag.startX;
+    updateManualMapRotation(drag.startRotation + horizontalDelta * 0.42);
+  };
+
+  const finishMapPointer = (event: ReactPointerEvent<HTMLDivElement>) => {
+    activePointersRef.current.delete(event.pointerId);
+    if (event.currentTarget.hasPointerCapture?.(event.pointerId)) {
+      event.currentTarget.releasePointerCapture?.(event.pointerId);
+    }
+
+    const pointers = Array.from(activePointersRef.current.entries());
+    pinchGestureRef.current = null;
+
+    if (pointers.length === 1) {
+      const [pointerId, point] = pointers[0];
+      dragGestureRef.current = {
+        pointerId,
+        startX: point.x,
+        startRotation: manualMapRotationRef.current,
+      };
+      setIsMapDragging(true);
+      return;
+    }
+
+    dragGestureRef.current = null;
+    setIsMapDragging(false);
+  };
 
   const submit = (event: FormEvent) => {
     event.preventDefault();
@@ -555,16 +699,27 @@ export default function DeliveryTrackingVisualLab({ onBack }: { onBack?: () => v
               className="visual-fake-map"
               data-testid="visual-fictitious-map"
               data-courier-progress={progress.toFixed(4)}
-              data-camera-rotation={visualCameraRotation.toFixed(2)}
+              data-camera-rotation={finalMapRotation.toFixed(2)}
+              data-auto-camera-rotation={visualCameraRotation.toFixed(2)}
+              data-manual-rotation={manualMapRotation.toFixed(2)}
               data-map-zoom={mapZoom.toFixed(2)}
-              style={styles.fakeMap}
+              onWheel={handleMapWheel}
+              onPointerDown={handleMapPointerDown}
+              onPointerMove={handleMapPointerMove}
+              onPointerUp={finishMapPointer}
+              onPointerCancel={finishMapPointer}
+              onLostPointerCapture={finishMapPointer}
+              style={{
+                ...styles.fakeMap,
+                cursor: isMapDragging ? 'grabbing' : 'grab',
+              }}
             >
               <div
                 data-testid="visual-map-scene"
                 style={{
                   ...styles.mapScene,
                   transformOrigin: `${currentMapPosition.x}% ${currentMapPosition.y}%`,
-                  transform: `translate(${cameraTranslate.x}%, ${cameraTranslate.y}%) rotate(${visualCameraRotation}deg) scale(${mapZoom})`,
+                  transform: `translate(${cameraTranslate.x}%, ${cameraTranslate.y}%) rotate(${finalMapRotation}deg) scale(${mapZoom})`,
                 }}
               >
                 <IsometricCityScene />
@@ -613,16 +768,15 @@ export default function DeliveryTrackingVisualLab({ onBack }: { onBack?: () => v
                   }}
                 />
               </div>
-              <div style={styles.zoomControls} aria-label="Controles de zoom da maquete">
+              <div style={styles.zoomControls} aria-label="Controles de zoom da maquete" onPointerDown={(event) => event.stopPropagation()}>
                 <button
                   type="button"
                   aria-label="Reduzir mapa isométrico"
                   disabled={mapZoom <= VISUAL_MAP_MIN_ZOOM}
                   onClick={() =>
                     setMapZoom((current) =>
-                      Math.max(
-                        VISUAL_MAP_MIN_ZOOM,
-                        Number((current - VISUAL_MAP_ZOOM_STEP).toFixed(2)),
+                      Number(
+                        clampVisualMapZoom(current - VISUAL_MAP_ZOOM_STEP).toFixed(2),
                       ),
                     )
                   }
@@ -636,9 +790,8 @@ export default function DeliveryTrackingVisualLab({ onBack }: { onBack?: () => v
                   disabled={mapZoom >= VISUAL_MAP_MAX_ZOOM}
                   onClick={() =>
                     setMapZoom((current) =>
-                      Math.min(
-                        VISUAL_MAP_MAX_ZOOM,
-                        Number((current + VISUAL_MAP_ZOOM_STEP).toFixed(2)),
+                      Number(
+                        clampVisualMapZoom(current + VISUAL_MAP_ZOOM_STEP).toFixed(2),
                       ),
                     )
                   }
@@ -646,8 +799,19 @@ export default function DeliveryTrackingVisualLab({ onBack }: { onBack?: () => v
                   <Plus size={16} />
                 </button>
               </div>
+              <button
+                type="button"
+                aria-label="Redefinir orientação do mapa"
+                style={styles.resetRotationButton}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  updateManualMapRotation(0);
+                }}
+              >
+                Norte
+              </button>
               <div style={styles.etaBadge}>Chega em 15 min</div>
-              <small style={styles.fakeMapNotice}>Maquete isométrica local — sem Google Maps</small>
+              <small style={styles.fakeMapNotice}>Arraste para girar • roda/pinça para zoom</small>
             </div>
             <div className="tracking-animation-badge" aria-live="polite" style={styles.animationBadge}>
               <Bike size={14} />
@@ -714,8 +878,8 @@ const styles: Record<string, CSSProperties> = {
   title: { margin: '0 0 22px', fontSize: 'clamp(24px, 3vw, 32px)', lineHeight: 1.1 },
   layout: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 330px), 1fr))', gap: 30, alignItems: 'start' },
   mapCard: { position: 'relative', minWidth: 0 },
-  fakeMap: { position: 'relative', width: '100%', height: 'min(68vh, 650px)', minHeight: 520, overflow: 'hidden', isolation: 'isolate', border: '1px solid #d6cdbc', borderRadius: 12, background: 'linear-gradient(180deg,#efe8d9 0%,#e4dccd 100%)', boxShadow: 'inset 0 0 0 1px rgba(255,255,255,.58)' },
-  mapScene: { position: 'absolute', zIndex: 1, inset: '-10%', width: '120%', height: '120%', willChange: 'transform', transition: 'transform 360ms cubic-bezier(.22,1,.36,1)', filter: 'saturate(.95) contrast(.98)' },
+  fakeMap: { position: 'relative', width: '100%', height: 'min(68vh, 650px)', minHeight: 520, overflow: 'hidden', isolation: 'isolate', border: '1px solid #d6cdbc', borderRadius: 12, background: 'linear-gradient(180deg,#efe8d9 0%,#e4dccd 100%)', boxShadow: 'inset 0 0 0 1px rgba(255,255,255,.58)', touchAction: 'none', userSelect: 'none', WebkitUserSelect: 'none', overscrollBehavior: 'contain' },
+  mapScene: { position: 'absolute', zIndex: 1, inset: '-50%', width: '200%', height: '200%', willChange: 'transform', transition: 'transform 240ms cubic-bezier(.22,1,.36,1)', filter: 'saturate(.95) contrast(.98)' },
   isometricSvg: { position: 'absolute', inset: 0, width: '100%', height: '100%', display: 'block', filter: 'drop-shadow(0 10px 18px rgba(74,65,52,.08))' },
   cityBlock: { position: 'absolute', zIndex: 0, border: '1px solid #dfe5e2', borderRadius: 9, background: 'linear-gradient(145deg,#e1e8df 0%,#d8e1d8 100%)', boxShadow: 'inset 0 0 0 3px rgba(255,255,255,.22)' },
   road: { position: 'absolute', zIndex: 1, height: 13, border: '1px solid #d5dcdf', background: '#fff', boxShadow: '0 0 0 2px rgba(222,228,231,.9)' },
@@ -747,6 +911,7 @@ const styles: Record<string, CSSProperties> = {
   zoomControls: { position: 'absolute', zIndex: 50, top: 18, right: 18, minHeight: 36, display: 'grid', gridTemplateColumns: '36px 48px 36px', alignItems: 'center', overflow: 'hidden', border: '1px solid rgba(112,103,91,.2)', borderRadius: 11, background: 'rgba(255,255,255,.94)', boxShadow: '0 7px 20px rgba(63,55,45,.14)', backdropFilter: 'blur(8px)' },
   zoomButton: { width: 36, height: 36, display: 'grid', placeItems: 'center', border: 0, background: 'transparent', color: '#4d4a45', cursor: 'pointer' },
   etaBadge: { position: 'absolute', zIndex: 8, top: 20, left: 20, padding: '8px 16px', border: '1px solid #efece6', borderRadius: 999, color: '#e85a2b', background: '#fff', boxShadow: '0 4px 8px rgba(16,24,39,.08)', fontSize: 13, fontWeight: 800 },
+  resetRotationButton: { position: 'absolute', zIndex: 50, top: 62, right: 18, minWidth: 48, height: 30, padding: '0 9px', border: '1px solid rgba(112,103,91,.2)', borderRadius: 9, color: '#5f5a52', background: 'rgba(255,255,255,.94)', boxShadow: '0 5px 14px rgba(63,55,45,.1)', fontSize: 9, fontWeight: 800, cursor: 'pointer' },
   fakeMapNotice: { position: 'absolute', zIndex: 8, right: 10, bottom: 8, padding: '4px 7px', borderRadius: 6, color: '#667178', background: 'rgba(255,255,255,.88)', fontSize: 8 },
   animationBadge: { position: 'absolute', zIndex: 7, right: 14, bottom: 14, maxWidth: 'calc(100% - 28px)', padding: '9px 11px', display: 'flex', alignItems: 'center', gap: 9, border: '1px solid rgba(232,86,44,.18)', borderRadius: 10, background: 'rgba(255,255,255,.95)', boxShadow: '0 9px 24px rgba(31,30,26,.12)' },
   badgeCopy: { display: 'grid', gap: 2, fontSize: 10 },
