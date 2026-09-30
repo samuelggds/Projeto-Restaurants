@@ -409,7 +409,3 @@ export const FigmaSavedCardSecurity = styled.div`
   > section label > span { font-size: 11px; }
 `;
 
-export const FigmaDebitForm = styled.div`
-  padding: 14px; border: 1px solid var(--checkout-primary); border-radius: 14px; background: #fff;
-  > section { margin: 0; }
-`;
