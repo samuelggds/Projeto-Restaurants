@@ -4,6 +4,7 @@ import directOrderCardPaymentService, {
   CardPaymentDeclinedError,
   CardPaymentProviderRequestError,
   hasDirectCardPaymentPayload,
+  normalizeCardPaymentType,
   type DirectCardPaymentPayload,
 } from './DirectOrderCardPaymentService.js';
 import getOrderPaymentRecoveryService from './GetOrderPaymentRecoveryService.js';
@@ -91,11 +92,25 @@ class RetryOrderCardPaymentService {
     } as never);
     createOrderCardCheckoutService.ensureCardProviderSupported(provider);
 
+    const previousCardPaymentType =
+      recovery.paymentAttempt?.cardPaymentType === 'debit' ? 'debit' : 'credit';
+    const cardPaymentType = payload.cardPaymentType
+      ? normalizeCardPaymentType(payload.cardPaymentType)
+      : previousCardPaymentType;
+    if (cardPaymentType === 'debit' && provider !== 'MERCADO_PAGO') {
+      throw new OrderRequestError(
+        'Débito online ainda não está disponível neste gateway.',
+        400,
+        'DEBIT_CARD_PROVIDER_UNAVAILABLE',
+      );
+    }
+
     const attempt = await orderPaymentAttemptRepository.createCardAttempt({
       orderId: recovery.orderId,
       restaurantId: recovery.restaurantId,
       provider,
       amount: recovery.totalAmount,
+      cardPaymentType,
     });
 
     try {
@@ -103,6 +118,7 @@ class RetryOrderCardPaymentService {
         provider,
         payload: {
           ...payload,
+          cardPaymentType,
           userId: actor.userId,
         },
         order: {
