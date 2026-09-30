@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { getCardPaymentErrorTitle, selectMercadoPagoPaymentMethod } from './OnlineCardPaymentForm';
+import { getCardPaymentErrorTitle, selectMercadoPagoPaymentMethod } from '../domain/cardPayment';
 
 describe('selectMercadoPagoPaymentMethod', () => {
   const methods = [
