@@ -43,21 +43,6 @@ function getLoadedGoogleMaps() {
 
 const GOOGLE_MAPS_SCRIPT_ID = 'gastronexa-google-maps';
 const DEFAULT_CENTER = { lat: -3.7319, lng: -38.5267 };
-const MAP_STYLES = [
-  { elementType: 'geometry', stylers: [{ color: '#eef2f3' }] },
-  { elementType: 'labels.text.fill', stylers: [{ color: '#53656b' }] },
-  { elementType: 'labels.text.stroke', stylers: [{ color: '#ffffff' }] },
-  { featureType: 'administrative', elementType: 'geometry.stroke', stylers: [{ color: '#d7dfe1' }] },
-  { featureType: 'landscape.man_made', elementType: 'geometry', stylers: [{ color: '#f4f6f6' }] },
-  { featureType: 'poi', stylers: [{ visibility: 'off' }] },
-  { featureType: 'road', elementType: 'geometry', stylers: [{ color: '#ffffff' }] },
-  { featureType: 'road', elementType: 'geometry.stroke', stylers: [{ color: '#d9e0e2' }] },
-  { featureType: 'road.arterial', elementType: 'geometry', stylers: [{ color: '#fbfcfc' }] },
-  { featureType: 'road.highway', elementType: 'geometry', stylers: [{ color: '#e6ecee' }] },
-  { featureType: 'road.local', elementType: 'labels', stylers: [{ visibility: 'simplified' }] },
-  { featureType: 'transit', stylers: [{ visibility: 'off' }] },
-  { featureType: 'water', elementType: 'geometry', stylers: [{ color: '#b8dce8' }] },
-];
 
 function loadGoogleMaps() {
   const apiKey = String(import.meta.env.VITE_GOOGLE_MAPS_API_KEY || '').trim();
@@ -177,11 +162,16 @@ export default function CustomerDeliveryMap({
         mapRef.current = new maps.Map(containerRef.current, {
           center: initialCenterRef.current,
           zoom: 15,
-          disableDefaultUI: true,
-          clickableIcons: false,
+          disableDefaultUI: false,
+          mapTypeControl: false,
+          streetViewControl: false,
+          fullscreenControl: true,
+          zoomControl: true,
+          rotateControl: true,
+          scaleControl: true,
+          clickableIcons: true,
           gestureHandling: 'greedy',
           colorScheme: 'LIGHT',
-          styles: MAP_STYLES,
           backgroundColor: '#eef2f3',
         });
         routeLineRef.current = new maps.Polyline({
@@ -306,6 +296,8 @@ export default function CustomerDeliveryMap({
 
   return (
     <S.Shell
+      data-testid="customer-google-delivery-map"
+      data-map-provider="google-maps"
       className="customer-google-delivery-map delivery-map-shell"
       data-courier-latitude={latest?.latitude ?? ''}
       data-courier-longitude={latest?.longitude ?? ''}
