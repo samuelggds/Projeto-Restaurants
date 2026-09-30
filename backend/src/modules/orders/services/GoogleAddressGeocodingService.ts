@@ -101,6 +101,10 @@ function setCached(key: string, value: AddressLocation) {
 }
 
 class GoogleAddressGeocodingService {
+  isConfigured() {
+    return Boolean(apiKey());
+  }
+
   async execute(input: AddressInput): Promise<AddressLocation | null> {
     const key = apiKey();
     if (!key) return null;
