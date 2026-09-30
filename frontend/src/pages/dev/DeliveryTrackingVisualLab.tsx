@@ -245,123 +245,132 @@ function IsometricCityScene() {
       style={styles.isometricSvg}
     >
       <defs>
-        <linearGradient id="iso-ground" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0%" stopColor="#efe8d9" />
-          <stop offset="100%" stopColor="#e5ddcd" />
+        <linearGradient id="iso-lot" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stopColor="#eee5d7" />
+          <stop offset="100%" stopColor="#ddd2c1" />
         </linearGradient>
         <linearGradient id="iso-water" x1="0" y1="0" x2="1" y2="1">
           <stop offset="0%" stopColor="#5aa8b5" />
           <stop offset="100%" stopColor="#2f8495" />
         </linearGradient>
         <filter id="iso-shadow" x="-40%" y="-40%" width="180%" height="180%">
-          <feDropShadow dx="0" dy="1.2" stdDeviation="1.1" floodColor="#574f45" floodOpacity=".2" />
+          <feDropShadow
+            dx="0"
+            dy="1.2"
+            stdDeviation="1.1"
+            floodColor="#574f45"
+            floodOpacity=".2"
+          />
         </filter>
       </defs>
 
-      <rect width="100" height="100" fill="url(#iso-ground)" />
+      {/* A pista é o próprio fundo da maquete. Os lotes ficam por cima,
+          então nenhuma construção ocupa a rua. */}
+      <rect width="100" height="100" fill="#77736c" />
+
       <path
-        d="M83 100 C81 89 88 82 91 72 C94 62 92 54 100 46 L100 100 Z"
+        d="M84 100 C82 90 89 83 92 73 C95 63 93 54 100 47 L100 100 Z"
         fill="url(#iso-water)"
       />
       <path
-        d="M80 100 C79 89 86 80 88 72 C91 61 89 52 98 44"
+        d="M81 100 C80 90 87 82 89 73 C92 62 90 53 98 45"
         fill="none"
-        stroke="#d4c8b6"
-        strokeWidth="2.3"
+        stroke="#d6c9b8"
+        strokeWidth="2"
       />
 
-      <g opacity=".96">
-        <path d="M-7 22 L36 2 M5 37 L48 16 M17 52 L60 31 M31 68 L73 48 M44 83 L88 61 M57 98 L100 76" fill="none" stroke="#686663" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
-        <path d="M-7 22 L36 2 M5 37 L48 16 M17 52 L60 31 M31 68 L73 48 M44 83 L88 61 M57 98 L100 76" fill="none" stroke="#eee6d9" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-        <path d="M7 -3 L78 100 M27 -7 L94 91 M49 -5 L100 68 M-4 16 L57 100" fill="none" stroke="#686663" strokeWidth="2.35" strokeLinecap="round" strokeLinejoin="round" />
-        <path d="M7 -3 L78 100 M27 -7 L94 91 M49 -5 L100 68 M-4 16 L57 100" fill="none" stroke="#eee6d9" strokeWidth="1.68" strokeLinecap="round" strokeLinejoin="round" />
-        <polyline
-          points={VISUAL_STREET_SVG_POINTS}
-          fill="none"
-          stroke="#686663"
-          strokeWidth="2.5"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
-        <polyline
-          points={VISUAL_STREET_SVG_POINTS}
-          fill="none"
-          stroke="#eee6d9"
-          strokeWidth="1.8"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
-        <polyline
-          points={VISUAL_STREET_SVG_POINTS}
-          fill="none"
-          stroke="#cfc3b4"
-          strokeWidth=".22"
-          strokeDasharray=".7 .85"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
+      <g data-testid="visual-isometric-lots">
+        <polygon points="2,2 35,2 39,9 29,18 4,18" fill="url(#iso-lot)" stroke="#c8bcaa" strokeWidth=".45" />
+        <polygon points="76,2 98,2 98,21 88,24 78,15" fill="url(#iso-lot)" stroke="#c8bcaa" strokeWidth=".45" />
+        <polygon points="3,28 33,23 49,31 42,48 8,48" fill="url(#iso-lot)" stroke="#c8bcaa" strokeWidth=".45" />
+        <polygon points="54,30 72,24 86,33 82,45 66,48 55,42" fill="url(#iso-lot)" stroke="#c8bcaa" strokeWidth=".45" />
+        <polygon points="2,56 31,52 43,60 37,72 7,75" fill="url(#iso-lot)" stroke="#c8bcaa" strokeWidth=".45" />
+        <polygon points="76,51 98,47 98,72 84,74 74,64" fill="url(#iso-lot)" stroke="#c8bcaa" strokeWidth=".45" />
+        <polygon points="45,72 72,62 82,72 76,91 54,94 43,84" fill="url(#iso-lot)" stroke="#c8bcaa" strokeWidth=".45" />
+        <polygon points="2,93 26,83 36,91 33,100 2,100" fill="url(#iso-lot)" stroke="#c8bcaa" strokeWidth=".45" />
       </g>
 
-      <g opacity=".7">
-        <path d="M10 14 L33 5 L45 14 L22 24 Z" fill="#ded4c4" />
-        <path d="M53 8 L76 0 L89 9 L66 19 Z" fill="#ded4c4" />
-        <path d="M6 57 L26 49 L38 58 L18 67 Z" fill="#ded4c4" />
-        <path d="M56 58 L77 50 L89 59 L67 68 Z" fill="#ded4c4" />
-        <path d="M15 79 L34 72 L47 81 L27 89 Z" fill="#ded4c4" />
+      <g opacity=".28" data-testid="visual-isometric-curbs">
+        <polyline points="2,20 31,20 43,12" fill="none" stroke="#f8f2e9" strokeWidth=".55" />
+        <polyline points="74,22 87,27 99,24" fill="none" stroke="#f8f2e9" strokeWidth=".55" />
+        <polyline points="2,50 39,50 52,42" fill="none" stroke="#f8f2e9" strokeWidth=".55" />
+        <polyline points="2,77 36,74 44,66" fill="none" stroke="#f8f2e9" strokeWidth=".55" />
+        <polyline points="43,96 76,93 84,77" fill="none" stroke="#f8f2e9" strokeWidth=".55" />
       </g>
 
-      <g filter="url(#iso-shadow)">
-        <IsoBuilding x={7} y={10} scale={0.92} />
-        <IsoBuilding x={18} y={5} scale={0.75} variant="cool" />
-        <IsoBuilding x={31} y={10} scale={0.68} />
-        <IsoBuilding x={48} y={4} scale={0.9} />
-        <IsoBuilding x={62} y={10} scale={0.74} variant="warm" />
-        <IsoBuilding x={75} y={13} scale={0.62} />
-        <IsoBuilding x={2} y={32} scale={0.73} />
-        <IsoBuilding x={18} y={30} scale={0.88} variant="cool" />
-        <IsoBuilding x={36} y={33} scale={0.67} />
-        <IsoBuilding x={66} y={30} scale={0.9} />
-        <IsoBuilding x={81} y={31} scale={0.66} variant="cool" />
-        <IsoBuilding x={4} y={53} scale={0.86} />
-        <IsoBuilding x={24} y={52} scale={0.7} variant="warm" />
-        <IsoBuilding x={41} y={55} scale={0.93} />
-        <IsoBuilding x={70} y={52} scale={0.74} />
-        <IsoBuilding x={82} y={57} scale={0.58} variant="warm" />
-        <IsoBuilding x={7} y={73} scale={0.68} />
-        <IsoBuilding x={22} y={72} scale={0.88} variant="cool" />
-        <IsoBuilding x={39} y={76} scale={0.65} />
-        <IsoBuilding x={55} y={74} scale={0.84} />
-        <IsoBuilding x={71} y={76} scale={0.7} variant="warm" />
-        <IsoBuilding x={4} y={88} scale={0.58} />
-        <IsoBuilding x={31} y={88} scale={0.62} variant="cool" />
-        <IsoBuilding x={58} y={90} scale={0.6} />
+      {/* Rota apenas indica navegação; não cria outra rua por cima da maquete. */}
+      <polyline
+        data-testid="visual-navigation-route"
+        points={VISUAL_STREET_SVG_POINTS}
+        fill="none"
+        stroke="#d8cbb9"
+        strokeWidth=".42"
+        strokeDasharray=".7 .85"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+
+      {/* Todos os elementos urbanos abaixo ficam intencionalmente dentro dos lotes. */}
+      <g filter="url(#iso-shadow)" data-testid="visual-isometric-buildings">
+        <IsoBuilding x={7} y={6} scale={0.84} />
+        <IsoBuilding x={19} y={8} scale={0.64} variant="cool" />
+        <IsoBuilding x={27} y={5} scale={0.54} variant="warm" />
+
+        <IsoBuilding x={80} y={6} scale={0.62} variant="warm" />
+        <IsoBuilding x={89} y={9} scale={0.5} variant="cool" />
+
+        <IsoBuilding x={8} y={31} scale={0.64} />
+        <IsoBuilding x={19} y={29} scale={0.72} variant="cool" />
+        <IsoBuilding x={31} y={34} scale={0.58} variant="warm" />
+
+        <IsoBuilding x={59} y={32} scale={0.56} variant="warm" />
+        <IsoBuilding x={69} y={29} scale={0.7} variant="cool" />
+        <IsoBuilding x={75} y={36} scale={0.5} />
+
+        <IsoBuilding x={8} y={59} scale={0.6} variant="warm" />
+        <IsoBuilding x={19} y={57} scale={0.72} />
+        <IsoBuilding x={29} y={61} scale={0.52} variant="cool" />
+
+        <IsoBuilding x={80} y={54} scale={0.56} variant="cool" />
+        <IsoBuilding x={88} y={58} scale={0.62} />
+
+        <IsoBuilding x={50} y={75} scale={0.6} />
+        <IsoBuilding x={61} y={70} scale={0.7} variant="cool" />
+        <IsoBuilding x={69} y={78} scale={0.54} variant="warm" />
+
+        <IsoBuilding x={7} y={91} scale={0.52} variant="cool" />
+        <IsoBuilding x={18} y={87} scale={0.58} />
+        <IsoBuilding x={27} y={92} scale={0.46} variant="warm" />
       </g>
 
-      <g>
-        <IsoTree x={13} y={26} scale={0.65} />
-        <IsoTree x={20} y={22} scale={0.55} />
-        <IsoTree x={43} y={19} scale={0.7} />
-        <IsoTree x={56} y={23} scale={0.55} />
-        <IsoTree x={72} y={23} scale={0.62} />
-        <IsoTree x={86} y={20} scale={0.55} />
-        <IsoTree x={12} y={48} scale={0.62} />
-        <IsoTree x={31} y={45} scale={0.58} />
-        <IsoTree x={49} y={45} scale={0.7} />
-        <IsoTree x={61} y={46} scale={0.62} />
-        <IsoTree x={77} y={44} scale={0.64} />
-        <IsoTree x={18} y={68} scale={0.55} />
-        <IsoTree x={33} y={66} scale={0.7} />
-        <IsoTree x={52} y={67} scale={0.58} />
-        <IsoTree x={64} y={69} scale={0.68} />
-        <IsoTree x={80} y={70} scale={0.55} />
-        <IsoTree x={12} y={91} scale={0.62} />
-        <IsoTree x={31} y={90} scale={0.58} />
-        <IsoTree x={50} y={91} scale={0.68} />
-        <IsoTree x={72} y={90} scale={0.6} />
+      <g data-testid="visual-isometric-trees">
+        <IsoTree x={6} y={15} scale={0.56} />
+        <IsoTree x={31} y={14} scale={0.5} />
+        <IsoTree x={82} y={18} scale={0.5} />
+        <IsoTree x={95} y={13} scale={0.46} />
+
+        <IsoTree x={7} y={44} scale={0.52} />
+        <IsoTree x={38} y={43} scale={0.48} />
+        <IsoTree x={60} y={44} scale={0.48} />
+        <IsoTree x={79} y={41} scale={0.5} />
+
+        <IsoTree x={8} y={70} scale={0.52} />
+        <IsoTree x={33} y={68} scale={0.48} />
+        <IsoTree x={84} y={68} scale={0.48} />
+        <IsoTree x={94} y={65} scale={0.44} />
+
+        <IsoTree x={50} y={88} scale={0.5} />
+        <IsoTree x={72} y={86} scale={0.48} />
+        <IsoTree x={8} y={97} scale={0.44} />
       </g>
 
-      <path d="M78 82 L91 76 L94 80 L81 86 Z" fill="#d6d0c6" stroke="#8d8c88" strokeWidth=".5" />
-      <path d="M79 81.5 L92 75.5" stroke="#f6f2eb" strokeWidth="1.1" />
+      <path
+        d="M79 82 L91 76 L94 80 L81 86 Z"
+        fill="#d6d0c6"
+        stroke="#8d8c88"
+        strokeWidth=".5"
+      />
+      <path d="M80 81.5 L92 75.5" stroke="#f6f2eb" strokeWidth="1.1" />
     </svg>
   );
 }
