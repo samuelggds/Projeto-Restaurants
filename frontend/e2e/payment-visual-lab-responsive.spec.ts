@@ -83,7 +83,7 @@ test('rastreamento fictício mostra o mapa local e move o motoqueiro na rota', a
 
   const lab = page.locator('[data-testid="delivery-tracking-visual-lab"]');
   await expect(lab).toBeVisible();
-  await expect(lab).toHaveAttribute('data-map-source', 'google-maps');
+  await expect(lab).toHaveAttribute('data-map-source', 'fictitious-google-screenshot');
   await expect(lab).toHaveAttribute('data-animation-duration-ms', '60000');
   await expect(page.getByText('Início', { exact: true })).toBeVisible();
   await expect(page.getByText('Acompanhar pedido', { exact: true })).toBeVisible();
@@ -92,19 +92,22 @@ test('rastreamento fictício mostra o mapa local e move o motoqueiro na rota', a
   await expect(page.getByText('Olá, Entrar', { exact: true })).toHaveCount(0);
   await expect(page.getByText('Meu Carrinho', { exact: true })).toHaveCount(0);
 
-  const map = page.locator('[data-testid="visual-google-map"]');
-  const googleMap = page.locator('[data-testid="customer-google-delivery-map"]');
+  const map = page.locator('[data-testid="visual-fictitious-map"]');
+  const screenshotMap = page.locator('[data-testid="visual-google-map-screenshot"]');
+  const marker = page.locator('[data-testid="visual-courier-marker"]');
 
   await expect(map).toBeVisible();
-  await expect(googleMap).toBeVisible();
+  await expect(screenshotMap).toBeVisible();
+  await expect(marker).toBeVisible();
+  await expect(marker.locator('[data-testid="visual-courier-sprite"]')).toBeVisible();
 
   const initialProgress = await map.getAttribute('data-courier-progress');
   const initialAngle = await map.getAttribute('data-route-angle');
-  const initialSpriteDirection = await map.getAttribute('data-sprite-direction');
+  const initialSpriteDirection = await marker.getAttribute('data-sprite-direction');
   await page.waitForTimeout(1_400);
   const movedProgress = await map.getAttribute('data-courier-progress');
   const movedAngle = await map.getAttribute('data-route-angle');
-  const movedSpriteDirection = await map.getAttribute('data-sprite-direction');
+  const movedSpriteDirection = await marker.getAttribute('data-sprite-direction');
 
   expect(movedProgress).not.toBe(initialProgress);
   expect(initialAngle).not.toBeNull();
