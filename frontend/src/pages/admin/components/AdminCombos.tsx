@@ -437,8 +437,28 @@ export function AdminCombos({ products, money, onChanged }: Props) {
       if (!selectedOptions.length) {
         throw new Error('Escolha pelo menos um produto para o combo.');
       }
-      if (draft.groups.some((group) => group.minSelections > 20 || group.maxSelections > 20)) {
-        throw new Error('Cada grupo aceita a seleção de até 20 produtos diferentes.');
+      if (draft.groups.some((group) => group.name.trim().length < 2)) {
+        throw new Error('Dê um nome com pelo menos 2 caracteres para cada etapa do combo.');
+      }
+      if (new Set(draft.groups.map((group) => group.name.trim().toLocaleLowerCase('pt-BR'))).size !== draft.groups.length) {
+        throw new Error('Cada etapa do combo precisa ter um nome diferente.');
+      }
+      if (draft.groups.some((group) => group.options.length === 0)) {
+        throw new Error('Adicione pelo menos um produto em cada etapa do combo.');
+      }
+      if (
+        draft.groups.some(
+          (group) =>
+            group.minSelections > 20 ||
+            group.maxSelections > 20 ||
+            group.minSelections < 1 ||
+            group.maxSelections < 1,
+        )
+      ) {
+        throw new Error('Cada etapa deve exigir entre 1 e 20 escolhas.');
+      }
+      if (draft.groups.some((group) => group.options.filter((option) => option.active).length < group.minSelections)) {
+        throw new Error('Cada etapa precisa ter opções suficientes para a quantidade exigida.');
       }
       if (
         selectedOptions.some(
