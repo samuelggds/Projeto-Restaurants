@@ -6,6 +6,7 @@ export type CheckoutPaymentMethod =
   | 'pix'
   | 'open_finance_pix'
   | 'card'
+  | 'debit_card'
   | 'delivery_pix'
   | 'delivery_card'
   | 'delivery_cash'
