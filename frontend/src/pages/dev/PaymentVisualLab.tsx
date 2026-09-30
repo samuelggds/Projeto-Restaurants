@@ -1,5 +1,9 @@
 import { useMemo, useState } from 'react';
 import styled from 'styled-components';
+import {
+  paymentReducedMotion,
+  paymentSurfaceRise,
+} from '../../components/payment/paymentMotion';
 import type { CheckoutPaymentMethod } from '../Home/domain/checkout';
 import { FigmaPaymentCheckout } from '../Home/components/FigmaPaymentCheckout';
 import { PaymentOptions } from '../Home/components/PaymentOptions';
@@ -229,6 +233,9 @@ const Toolbar = styled.aside`
   background: rgba(255, 255, 255, 0.97);
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
   backdrop-filter: blur(12px);
+  animation: ${paymentSurfaceRise} 260ms cubic-bezier(0.22, 0.8, 0.32, 1) both;
+
+  ${paymentReducedMotion}
 
   > div {
     display: grid;
@@ -304,6 +311,9 @@ const SimulatorPanel = styled.section`
   border-radius: 12px;
   background: rgba(255, 255, 255, 0.98);
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+  animation: ${paymentSurfaceRise} 280ms cubic-bezier(0.22, 0.8, 0.32, 1) both;
+
+  ${paymentReducedMotion}
 
   > div:first-child {
     min-width: 0;

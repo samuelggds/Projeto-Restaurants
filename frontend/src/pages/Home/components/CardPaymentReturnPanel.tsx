@@ -1,6 +1,14 @@
 import { ArrowLeft, CheckCircle2, CreditCard, Search, ShoppingBag, UserRound, XCircle } from 'lucide-react';
 import { useEffect, useRef, type CSSProperties } from 'react';
 import styled from 'styled-components';
+import {
+  paymentContentReveal,
+  paymentPulse,
+  paymentReducedMotion,
+  paymentScreenFade,
+  paymentStatusPop,
+  paymentSurfaceRise,
+} from '../../../components/payment/paymentMotion';
 import type {
   CardPaymentReturnDetails,
   CardPaymentReturnStatus,
@@ -210,6 +218,9 @@ const Page = styled.main`
   min-height: 100dvh;
   background: #fdfcf9;
   color: #1f1e1a;
+  animation: ${paymentScreenFade} 220ms ease-out both;
+
+  ${paymentReducedMotion}
 `;
 
 const DesktopHeader = styled.header`
@@ -248,6 +259,9 @@ const Content = styled.section`
 
 const Card = styled.section`
   width: 520px; padding: 40px; display: grid; justify-items: center; gap: 24px; border: 1px solid #efece6; border-radius: 24px; background: #fff; box-shadow: 0 8px 12px rgba(16,24,39,.03);
+  animation: ${paymentSurfaceRise} 360ms cubic-bezier(0.22, 0.8, 0.32, 1) both;
+
+  ${paymentReducedMotion}
   &.failed { border-color: #efc6c1; }
   @media (max-width: 760px) { width: 100%; padding: 24px; gap: 16px; border-radius: 20px; box-shadow: none; }
 `;
@@ -257,6 +271,9 @@ const DesktopStatus = styled.div`
   .icon { width: 56px; height: 56px; display: grid; place-items: center; border-radius: 50%; background: #edf7ef; color: #268c43; }
   .icon.failed { background: #fff0ee; color: #c54436; }
   .icon svg { width: 28px; }
+  .icon { animation: ${paymentStatusPop} 480ms cubic-bezier(0.2, 0.8, 0.3, 1) both; }
+
+  ${paymentReducedMotion}
   h1 { margin: 0; font-size: 24px; }
   p { margin: 0; color: #72706b; font-size: 14px; }
   @media (max-width: 760px) { display: none; }
@@ -282,9 +299,11 @@ const MobileCardMock = styled.div`
 
 const Dots = styled.span`
   display: flex; gap: 4px;
-  i { width: 6px; height: 6px; border-radius: 50%; background: var(--card-primary); }
-  i:nth-child(2) { opacity: .65; }
-  i:nth-child(3) { opacity: .35; }
+  i { width: 6px; height: 6px; border-radius: 50%; background: var(--card-primary); animation: ${paymentPulse} 1s ease-in-out infinite; }
+  i:nth-child(2) { animation-delay: 120ms; }
+  i:nth-child(3) { animation-delay: 240ms; }
+
+  ${paymentReducedMotion}
 `;
 
 const MobileTransition = styled.div`
@@ -295,6 +314,9 @@ const MobileTransition = styled.div`
     .badge { padding: 8px 16px; display: flex; align-items: center; gap: 8px; border-radius: 999px; background: #edf7ef; color: #268c43; font-size: 14px; }
     .badge.failed { background: #fff0ee; color: #c54436; }
     .badge svg { width: 16px; }
+    .badge { animation: ${paymentContentReveal} 260ms ease-out both; }
+
+    ${paymentReducedMotion}
   }
 `;
 

@@ -11,6 +11,14 @@ import {
 } from 'lucide-react';
 import QRCode from 'react-qr-code';
 import styled from 'styled-components';
+import {
+  paymentContentReveal,
+  paymentPulse,
+  paymentReducedMotion,
+  paymentScreenFade,
+  paymentStatusPop,
+  paymentSurfaceRise,
+} from '../../../components/payment/paymentMotion';
 import type { PixPaymentData, PixPaymentStatus } from '../../Home/hooks/useCheckoutPayments';
 
 type OrderItemSummary = {
@@ -287,6 +295,9 @@ const Page = styled.main`
   min-height: 100dvh;
   background: #fdfcf9;
   color: #1f1e1a;
+  animation: ${paymentScreenFade} 220ms ease-out both;
+
+  ${paymentReducedMotion}
 `;
 
 const DesktopHeader = styled.header`
@@ -351,6 +362,9 @@ const PixCard = styled.section`
   border-radius: 24px;
   background: #fff;
   box-shadow: 0 8px 12px rgba(16,24,39,.03);
+  animation: ${paymentSurfaceRise} 360ms cubic-bezier(0.22, 0.8, 0.32, 1) both;
+
+  ${paymentReducedMotion}
 
   .desktop-title { display: grid; justify-items: center; gap: 8px; text-align: center; }
   .desktop-title h1 { margin: 0; font-size: 24px; }
@@ -416,10 +430,11 @@ const DesktopPaymentInfo = styled.div`
 
 const Dots = styled.span`
   display: flex; align-items: center; gap: 4px;
-  i { width: 6px; height: 6px; border-radius: 50%; background: var(--pix-primary); animation: pixPulse 1s infinite; }
-  i:nth-child(2) { animation-delay: .16s; }
-  i:nth-child(3) { animation-delay: .32s; }
-  @keyframes pixPulse { 0%, 100% { opacity: .3; } 50% { opacity: 1; } }
+  i { width: 6px; height: 6px; border-radius: 50%; background: var(--pix-primary); animation: ${paymentPulse} 1s ease-in-out infinite; }
+  i:nth-child(2) { animation-delay: 120ms; }
+  i:nth-child(3) { animation-delay: 240ms; }
+
+  ${paymentReducedMotion}
 `;
 
 const WaitingStatus = styled.div`
@@ -450,18 +465,27 @@ const ResultContent = styled.section`
 
 const ResultCard = styled.section`
   width: 580px; padding: 48px; display: grid; justify-items: center; gap: 28px; border: 1px solid #efece6; border-radius: 24px; background: #fff; box-shadow: 0 12px 16px rgba(16,24,39,.02);
+  animation: ${paymentSurfaceRise} 360ms cubic-bezier(0.22, 0.8, 0.32, 1) both;
+
+  ${paymentReducedMotion}
   &.failure { border-color: #efc6c1; }
   @media (max-width: 760px) { width: 100%; padding: 0; gap: 20px; border: 0; background: transparent; box-shadow: none; }
 `;
 
 const ResultIcon = styled.div`
   width: 64px; height: 64px; display: grid; place-items: center; border-radius: 50%; background: #eaf7ee; color: #268c43;
+  animation: ${paymentStatusPop} 480ms cubic-bezier(0.2, 0.8, 0.3, 1) both;
+
+  ${paymentReducedMotion}
   svg { width: 32px; height: 32px; }
   &.failure { background: #fff0ee; color: #c54436; }
 `;
 
 const ResultHeading = styled.div`
   display: grid; justify-items: center; gap: 8px; text-align: center;
+  animation: ${paymentContentReveal} 280ms ease-out 80ms both;
+
+  ${paymentReducedMotion}
   h1 { margin: 0; font-size: 28px; }
   p { margin: 0; max-width: 520px; color: #72706b; font-size: 15px; }
   @media (max-width: 760px) { h1 { font-size: 24px; } p { max-width: 300px; font-size: 14px; } }

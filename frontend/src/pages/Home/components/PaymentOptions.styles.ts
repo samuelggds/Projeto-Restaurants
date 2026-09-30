@@ -1,4 +1,8 @@
 import styled from 'styled-components';
+import {
+  paymentContentReveal,
+  paymentReducedMotion,
+} from '../../../components/payment/paymentMotion';
 
 export const PaymentIntro = styled.div`
   display: grid;
@@ -188,6 +192,19 @@ export const FigmaPaymentOption = styled.button<{ $active: boolean; $disabled: b
   text-align: left;
   cursor: ${({ $disabled }) => ($disabled ? 'not-allowed' : 'pointer')};
   opacity: ${({ $disabled }) => ($disabled ? 0.78 : 1)};
+  transition:
+    border-color 180ms ease,
+    box-shadow 180ms ease,
+    background-color 180ms ease;
+
+  ${paymentReducedMotion}
+  transition:
+    transform 180ms ease,
+    border-color 180ms ease,
+    box-shadow 180ms ease,
+    background-color 180ms ease;
+
+  ${paymentReducedMotion}
 
   .method-icon {
     width: 24px;
@@ -256,6 +273,15 @@ export const FigmaPaymentOption = styled.button<{ $active: boolean; $disabled: b
       $active ? 'var(--checkout-primary)' : 'transparent'};
   }
 
+  &:not(:disabled):hover {
+    transform: translateY(-1px);
+    box-shadow: 0 8px 20px rgba(31, 30, 26, 0.06);
+  }
+
+  &:not(:disabled):active {
+    transform: scale(0.992);
+  }
+
   &:disabled {
     pointer-events: none;
   }
@@ -299,6 +325,16 @@ export const FigmaCardSection = styled.section<{ $active: boolean; $disabled: bo
     font: inherit;
     text-align: left;
     cursor: ${({ $disabled }) => ($disabled ? 'not-allowed' : 'pointer')};
+  }
+
+  .card-heading {
+    transition: transform 160ms ease;
+
+    ${paymentReducedMotion}
+  }
+
+  .card-heading:not(:disabled):active {
+    transform: scale(0.994);
   }
 
   .card-heading:disabled {
@@ -397,6 +433,10 @@ export const FigmaPaymentStatus = styled.div`
 `;
 
 export const FigmaGuestCardForm = styled.div`
+  animation: ${paymentContentReveal} 260ms cubic-bezier(0.22, 0.8, 0.32, 1) both;
+
+  ${paymentReducedMotion}
+
   > section { margin: 0; padding: 0; border: 0; border-radius: 0; background: transparent; }
   > section > header, > section .security { display: none; }
   > section label > span { color: #72706b; font-size: 11px; font-weight: 500; }

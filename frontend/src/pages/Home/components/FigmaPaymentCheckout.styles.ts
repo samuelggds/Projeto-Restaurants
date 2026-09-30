@@ -1,4 +1,9 @@
 import styled from 'styled-components';
+import {
+  paymentReducedMotion,
+  paymentScreenFade,
+  paymentSurfaceRise,
+} from '../../../components/payment/paymentMotion';
 
 export const Page = styled.div<{ $primary: string }>`
   --checkout-primary: ${({ $primary }) => $primary};
@@ -8,6 +13,9 @@ export const Page = styled.div<{ $primary: string }>`
   overflow-y: auto;
   background: #fdfcf9;
   color: #1f1e1a;
+  animation: ${paymentScreenFade} 220ms ease-out both;
+
+  ${paymentReducedMotion}
 `;
 
 export const MobileHeader = styled.header`
@@ -111,6 +119,9 @@ export const MethodColumn = styled.section`
   min-width: 0;
   display: grid;
   gap: 12px;
+  animation: ${paymentSurfaceRise} 360ms cubic-bezier(0.22, 0.8, 0.32, 1) both;
+
+  ${paymentReducedMotion}
 
   > h1 {
     margin: 0 0 12px;
@@ -138,6 +149,9 @@ export const SummaryCard = styled.aside`
   border-radius: 20px;
   background: #fff;
   box-shadow: 0 4px 6px rgba(16, 24, 39, 0.02);
+  animation: ${paymentSurfaceRise} 380ms cubic-bezier(0.22, 0.8, 0.32, 1) 70ms both;
+
+  ${paymentReducedMotion}
 
   h2 { margin: 0; font-size: 18px; }
 
@@ -184,8 +198,21 @@ export const SummaryCard = styled.aside`
     font-size: 14px;
     font-weight: 700;
     cursor: pointer;
+    transition:
+      transform 160ms ease,
+      box-shadow 180ms ease,
+      filter 180ms ease;
+
+    ${paymentReducedMotion}
   }
 
+  button:not(:disabled):hover {
+    transform: translateY(-1px);
+    box-shadow: 0 10px 22px rgba(232, 90, 43, 0.16);
+    filter: saturate(1.04);
+  }
+
+  button:not(:disabled):active { transform: translateY(0) scale(0.985); }
   button:disabled { opacity: .5; cursor: not-allowed; }
 
   @media (max-width: 760px) { display: none; }
@@ -276,8 +303,16 @@ export const MobileAction = styled.div`
       font: inherit;
       font-size: 15px;
       font-weight: 700;
+      cursor: pointer;
+      transition:
+        transform 160ms ease,
+        box-shadow 180ms ease,
+        filter 180ms ease;
+
+      ${paymentReducedMotion}
     }
 
+    button:not(:disabled):active { transform: scale(0.985); }
     button:disabled { opacity: .5; }
   }
 `;
