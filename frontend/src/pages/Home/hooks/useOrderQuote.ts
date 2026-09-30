@@ -4,6 +4,8 @@ import { buildOrderQuotePayload, type OrderType } from '../domain/checkout';
 import type { DeliveryAddress } from './useDeliveryAddress';
 import type { CartItem } from './useCart';
 
+export const ORDER_QUOTE_DEBOUNCE_MS = 700;
+
 export type OrderQuote = {
   itemsSubtotal: number;
   productDiscountTotal: number;
@@ -23,6 +25,19 @@ function optionalNonNegativeNumber(value: unknown) {
   if (value === null || value === undefined || value === '') return null;
   const parsed = Number(value);
   return Number.isFinite(parsed) && parsed >= 0 ? parsed : null;
+}
+
+export function isDeliveryAddressReadyForQuote(address?: DeliveryAddress) {
+  if (!address) return false;
+  const zipCode = String(address.zipCode || '').replace(/\D/g, '');
+  return Boolean(
+    String(address.address || '').trim().length >= 3 &&
+      /^\d+[A-Za-z]?$/.test(String(address.number || '').trim()) &&
+      String(address.district || '').trim().length >= 2 &&
+      String(address.city || '').trim().length >= 2 &&
+      /^[A-Za-z]{2}$/.test(String(address.state || '').trim()) &&
+      zipCode.length === 8,
+  );
 }
 
 export function normalizeOrderQuote(payload: unknown): OrderQuote {
@@ -62,38 +77,41 @@ export function useOrderQuote({
   const [resolvedKey, setResolvedKey] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(false);
-  const requestKey = useMemo(
+
+  const quotePayload = useMemo(
     () =>
-      JSON.stringify({
-        restaurantId,
-        type,
-        couponRedemptionId,
-        deliveryAddress:
-          type === 'DELIVERY' && deliveryAddress
-            ? {
-                address: deliveryAddress.address.trim(),
-                number: deliveryAddress.number.trim(),
-                district: deliveryAddress.district.trim(),
-                city: deliveryAddress.city.trim(),
-                state: deliveryAddress.state.trim().toUpperCase(),
-              }
-            : null,
-        items: cart.map((item) => ({
-          productId: item.productId,
-          quantity: item.quantity,
-          selectedOptionIds: item.selectedOptionIds,
-          selectedOptions: item.selectedOptions,
-          optionQuantities: item.optionQuantities,
-          removedCompositionItemIds: item.removedCompositionItemIds,
-          portions: item.portions,
-          configurationVersion: item.configurationVersion,
-        })),
-      }),
-    [cart, couponRedemptionId, deliveryAddress, restaurantId, type],
+      restaurantId
+        ? buildOrderQuotePayload({
+            restaurantId,
+            type,
+            cart,
+            deliveryAddress,
+            couponRedemptionId,
+          })
+        : null,
+    [
+      cart,
+      couponRedemptionId,
+      deliveryAddress?.address,
+      deliveryAddress?.number,
+      deliveryAddress?.district,
+      deliveryAddress?.city,
+      deliveryAddress?.state,
+      restaurantId,
+      type,
+    ],
+  );
+  const requestKey = useMemo(() => JSON.stringify(quotePayload), [quotePayload]);
+  const enabled = Boolean(
+    restaurantId &&
+      cart.length > 0 &&
+      (type !== 'DELIVERY' || isDeliveryAddressReadyForQuote(deliveryAddress)),
   );
 
   useEffect(() => {
-    if (!restaurantId || cart.length === 0) {
+    if (!enabled || !quotePayload) {
+      setLoading(false);
+      setError(false);
       return;
     }
 
@@ -103,15 +121,7 @@ export function useOrderQuote({
       setLoading(true);
       setError(false);
       try {
-        const response = await ordersService.quoteOrder(
-          buildOrderQuotePayload({
-            restaurantId,
-            type,
-            cart,
-            deliveryAddress,
-            couponRedemptionId,
-          }),
-        );
+        const response = await ordersService.quoteOrder(quotePayload);
         if (active) {
           setQuote(normalizeOrderQuote(response));
           setResolvedKey(requestKey);
@@ -124,15 +134,14 @@ export function useOrderQuote({
       } finally {
         if (active) setLoading(false);
       }
-    }, 180);
+    }, ORDER_QUOTE_DEBOUNCE_MS);
 
     return () => {
       active = false;
       window.clearTimeout(timeout);
     };
-  }, [cart, couponRedemptionId, deliveryAddress, requestKey, restaurantId, type]);
+  }, [enabled, quotePayload, requestKey]);
 
-  const enabled = Boolean(restaurantId && cart.length);
   return {
     quote: enabled && resolvedKey === requestKey ? quote : null,
     loading: enabled ? loading : false,
