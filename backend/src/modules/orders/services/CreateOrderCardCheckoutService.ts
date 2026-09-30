@@ -122,6 +122,7 @@ class CreateOrderCardCheckoutService {
       restaurantId: createdOrder.restaurantId,
       provider: resolvedCardProvider,
       amount: Number(createdOrder.total),
+      cardPaymentType,
     });
 
     let checkout: CardCheckoutResult;
