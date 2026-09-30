@@ -26,6 +26,7 @@ import directOrderCardPaymentService, {
 import { OrderRequestError } from '../domain/OrderRequestError.js';
 import { OrderPaymentAttemptStatus } from '@prisma/client';
 import orderPaymentAttemptRepository from '../repositories/OrderPaymentAttemptRepository.js';
+import { getMercadoPagoAccountReadiness } from '../../restaurantSettings/services/RestaurantPaymentReadinessService.js';
 
 type CardCheckoutPayload = CreateOrderCardCheckoutPayload &
   DirectCardPaymentPayload & {
@@ -66,6 +67,20 @@ class CreateOrderCardCheckoutService {
       throw new Error(
         'No momento, apenas Mercado Pago está disponível para cartão. Asaas e Pagar.me serão liberados após o cadastro empresarial/CNPJ.',
       );
+    }
+
+    if (normalizedProvider === 'MERCADO_PAGO') {
+      const readiness = await getMercadoPagoAccountReadiness({
+        restaurantId: resolvedRestaurantId,
+        settings,
+      });
+      if (!readiness.readyForCard) {
+        throw new OrderRequestError(
+          'Pagamento com cartão indisponível. Reconecte o Mercado Pago nas configurações do restaurante.',
+          503,
+          'CARD_PAYMENT_UNAVAILABLE',
+        );
+      }
     }
 
     return normalizeCardProvider(normalizedProvider);
