@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { selectMercadoPagoPaymentMethod } from './OnlineCardPaymentForm';
+import { getCardPaymentErrorTitle, selectMercadoPagoPaymentMethod } from './OnlineCardPaymentForm';
 
 describe('selectMercadoPagoPaymentMethod', () => {
   const methods = [
@@ -23,5 +23,20 @@ describe('selectMercadoPagoPaymentMethod', () => {
         'debit',
       ),
     ).toBe('');
+  });
+});
+
+
+describe('getCardPaymentErrorTitle', () => {
+  it('usa título específico para erro no débito', () => {
+    expect(getCardPaymentErrorTitle('debit')).toBe(
+      'Não foi possível usar este cartão no débito',
+    );
+  });
+
+  it('mantém título neutro e claro para erro no crédito', () => {
+    expect(getCardPaymentErrorTitle('credit')).toBe(
+      'Não foi possível usar este cartão',
+    );
   });
 });
