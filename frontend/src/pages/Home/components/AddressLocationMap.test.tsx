@@ -28,6 +28,16 @@ describe('AddressLocationMap', () => {
     delete (window as typeof window & { google?: unknown }).google;
   });
 
+  const address = {
+    address: 'Rua das Flores',
+    number: '123',
+    district: 'Centro',
+    city: 'Fortaleza',
+    state: 'CE',
+    zipCode: '60000-000',
+    complement: '',
+  };
+
   it('inicializa o Google Maps sem colorScheme incompatível e mostra a localização validada', async () => {
     const mapOptions: Array<Record<string, unknown>> = [];
     class FakeMap {
@@ -72,15 +82,7 @@ describe('AddressLocationMap', () => {
         <AddressLocationMap
           restaurantId={9}
           primaryColor="#d05632"
-          address={{
-            address: 'Rua das Flores',
-            number: '123',
-            district: 'Centro',
-            city: 'Fortaleza',
-            state: 'CE',
-            zipCode: '60000-000',
-            complement: '',
-          }}
+          address={address}
         />,
       );
       await Promise.resolve();
@@ -113,6 +115,47 @@ describe('AddressLocationMap', () => {
     expect(mapOptions[0]).toHaveProperty('styles');
     expect(container.textContent).toContain('Localização encontrada');
     expect(container.textContent).toContain('Rua das Flores, 123 - Fortaleza - CE');
+
+    act(() => root.unmount());
+    container.remove();
+  });
+
+  it('preserva indisponibilidade da validação sem dizer que o endereço é inválido', async () => {
+    vi.mocked(ordersService.getDeliveryAddressLocation).mockRejectedValue({
+      response: {
+        data: {
+          code: 'ADDRESS_VALIDATION_UNAVAILABLE',
+          error: 'detalhe interno que não deve ser exibido',
+        },
+      },
+    });
+
+    const container = document.createElement('div');
+    document.body.appendChild(container);
+    const root = createRoot(container);
+
+    await act(async () => {
+      root.render(
+        <AddressLocationMap
+          restaurantId={9}
+          primaryColor="#d05632"
+          address={address}
+        />,
+      );
+      await Promise.resolve();
+    });
+
+    await act(async () => {
+      await vi.runAllTimersAsync();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(container.textContent).toContain(
+      'Não foi possível validar o endereço no momento. Tente novamente em instantes.',
+    );
+    expect(container.textContent).not.toContain('Não encontramos esse endereço no mapa');
+    expect(container.textContent).not.toContain('detalhe interno');
 
     act(() => root.unmount());
     container.remove();
