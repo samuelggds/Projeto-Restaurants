@@ -28,7 +28,9 @@ const PRIMARY = '#d05632';
 const RESTAURANT_NAME = 'North Pizza — Teste visual';
 const FAKE_ORDER_ID = 990001;
 const FAKE_TOTAL = 54.9;
-const FAKE_PIX_CODE = 'PIX-FICTICIO-APENAS-PARA-TESTE-VISUAL-SEM-VALOR';
+const FAKE_PIX_CODE =
+  'PIX-FICTICIO-APENAS-PARA-TESTE-VISUAL-SEM-VALOR-' +
+  '1234567890'.repeat(8);
 const VISUAL_PAYMENT_METHODS: CheckoutPaymentMethod[] = ['pix', 'card', 'debit_card'];
 const DEFAULT_VISUAL_PAYMENT_METHOD =
   resolveDefaultCheckoutPaymentMethod(VISUAL_PAYMENT_METHODS) ?? 'pix';
@@ -81,7 +83,7 @@ export default function PaymentVisualLab() {
   const waitingForCard = scenario === 'card-waiting';
 
   return (
-    <Lab>
+    <Lab data-visual-scenario={scenario}>
       <Toolbar aria-label="Controles do laboratório visual">
         <div>
           <strong>LABORATÓRIO LOCAL — PAGAMENTOS FICTÍCIOS</strong>
@@ -227,8 +229,17 @@ export default function PaymentVisualLab() {
 }
 
 const Lab = styled.main`
+  width: 100%;
+  min-width: 0;
   min-height: 100vh;
   background: #f5f5f3;
+  box-sizing: border-box;
+
+  & *,
+  & *::before,
+  & *::after {
+    box-sizing: border-box;
+  }
 `;
 
 const Toolbar = styled.aside`
@@ -301,6 +312,8 @@ const Toolbar = styled.aside`
 `;
 
 const Preview = styled.section`
+  width: 100%;
+  min-width: 0;
   min-height: calc(100vh - 100px);
 `;
 

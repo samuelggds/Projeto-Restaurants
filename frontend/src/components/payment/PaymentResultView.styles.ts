@@ -1,4 +1,10 @@
 import styled, { css, keyframes } from 'styled-components';
+import {
+  paymentContentReveal,
+  paymentReducedMotion,
+  paymentScreenFade,
+  paymentSurfaceRise,
+} from './paymentMotion';
 
 const arrive = keyframes`
   0% { opacity: 0; transform: translateY(8px) scale(0.82); }
@@ -27,6 +33,9 @@ export const Page = styled.div<{ $embedded: boolean }>`
   min-width: 0;
   color: var(--result-ink);
   font-family: 'Inter', system-ui, sans-serif;
+  animation: ${paymentScreenFade} 220ms ease-out both;
+
+  ${paymentReducedMotion}
 
   & *,
   & *::before,
@@ -80,6 +89,9 @@ export const Panel = styled.section<{ $embedded: boolean }>`
   background: #fff;
   box-shadow: ${({ $embedded }) =>
     $embedded ? 'none' : '0 18px 46px rgba(31, 30, 26, 0.08)'};
+  animation: ${paymentSurfaceRise} 380ms cubic-bezier(0.22, 0.8, 0.32, 1) both;
+
+  ${paymentReducedMotion}
 `;
 
 export const Header = styled.header`
@@ -88,6 +100,9 @@ export const Header = styled.header`
   gap: 11px;
   padding: 20px clamp(20px, 5vw, 36px);
   border-bottom: 1px solid #eeeeee;
+  animation: ${paymentContentReveal} 300ms ease-out 70ms both;
+
+  ${paymentReducedMotion}
 
   > span {
     display: grid;
@@ -127,7 +142,12 @@ export const Header = styled.header`
 `;
 
 export const Body = styled.div`
+  min-width: 0;
   padding: 42px clamp(24px, 5vw, 48px) 38px;
+
+  @media (max-width: 540px) {
+    padding: 32px 18px 28px;
+  }
 `;
 
 export const Status = styled.div`
@@ -247,6 +267,9 @@ export const Receipt = styled.dl`
   border: 1px solid #efece6;
   border-radius: 14px;
   background: #fdfcf9;
+  animation: ${paymentContentReveal} 340ms ease-out 220ms both;
+
+  ${paymentReducedMotion}
 
   > div {
     display: flex;
@@ -308,6 +331,9 @@ export const Actions = styled.div`
   display: grid;
   gap: 9px;
   margin-top: 24px;
+  animation: ${paymentContentReveal} 340ms ease-out 300ms both;
+
+  ${paymentReducedMotion}
 `;
 
 export const Action = styled.button<{ $primary?: boolean; $success?: boolean }>`
@@ -331,7 +357,9 @@ export const Action = styled.button<{ $primary?: boolean; $success?: boolean }>`
   overflow-wrap: anywhere;
   transition:
     background-color 160ms ease,
-    border-color 160ms ease;
+    border-color 160ms ease,
+    transform 160ms ease,
+    box-shadow 180ms ease;
 
   > svg {
     flex-shrink: 0;
@@ -340,6 +368,12 @@ export const Action = styled.button<{ $primary?: boolean; $success?: boolean }>`
   &:hover:not(:disabled) {
     background: ${({ $primary, $success }) =>
       $primary ? ($success ? '#105b37' : '#1b2c22') : '#f0f3eb'};
+    transform: translateY(-1px);
+    box-shadow: 0 9px 20px rgba(31, 30, 26, 0.09);
+  }
+
+  &:active:not(:disabled) {
+    transform: scale(0.985);
   }
 
   &:focus-visible {

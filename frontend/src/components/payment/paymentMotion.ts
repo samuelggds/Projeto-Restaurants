@@ -45,6 +45,32 @@ export const paymentCardFormExpand = keyframes`
   }
 `;
 
+export const paymentQrReveal = keyframes`
+  0% {
+    opacity: 0;
+    transform: translateY(10px) scale(0.94) rotate(-0.8deg);
+  }
+  68% {
+    opacity: 1;
+    transform: translateY(-2px) scale(1.018) rotate(0.2deg);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1) rotate(0);
+  }
+`;
+
+export const paymentBottomBarReveal = keyframes`
+  from {
+    opacity: 0;
+    transform: translateY(22px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+`;
+
 export const paymentStatusPop = keyframes`
   0% {
     opacity: 0;

@@ -2,6 +2,7 @@ import { ArrowLeft, CheckCircle2, CreditCard, Search, ShoppingBag, UserRound, XC
 import { useEffect, useRef, type CSSProperties } from 'react';
 import styled from 'styled-components';
 import {
+  paymentBottomBarReveal,
   paymentContentReveal,
   paymentPulse,
   paymentReducedMotion,
@@ -215,9 +216,19 @@ export function CardPaymentReturnPanel({
 }
 
 const Page = styled.main`
+  width: 100%;
+  min-width: 0;
   min-height: 100dvh;
+  overflow-x: hidden;
   background: #fdfcf9;
   color: #1f1e1a;
+  box-sizing: border-box;
+
+  & *,
+  & *::before,
+  & *::after {
+    box-sizing: border-box;
+  }
   animation: ${paymentScreenFade} 220ms ease-out both;
 
   ${paymentReducedMotion}
@@ -245,24 +256,25 @@ const DesktopHeader = styled.header`
 const MobileHeader = styled.header`
   display: none;
   @media (max-width: 760px) {
-    height: 48px; padding: 12px 20px; display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; border-bottom: 1px solid #efece6; background: #fff;
-    button { padding: 0; display: flex; align-items: center; gap: 7px; border: 0; background: transparent; color: #72706b; font: inherit; font-size: 14px; cursor: pointer; }
-    button svg { width: 20px; }
-    strong { font-size: 18px; }
+    height: 48px; padding: 12px 20px; display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: center; border-bottom: 1px solid #efece6; background: #fff;
+    button { min-width: 0; padding: 0; display: flex; align-items: center; gap: 7px; border: 0; background: transparent; color: #72706b; font: inherit; font-size: 14px; cursor: pointer; white-space: nowrap; }
+    button svg { width: 20px; flex: 0 0 auto; }
+    strong { min-width: 0; font-size: 18px; text-align: center; white-space: nowrap; }
   }
 `;
 
 const Content = styled.section`
-  min-height: 683px; padding: 60px 24px 100px; display: grid; place-items: start center;
+  width: 100%; min-width: 0; min-height: 683px; padding: 60px 24px 100px; display: grid; place-items: start center;
   @media (max-width: 760px) { min-height: 0; padding: 20px 20px 190px; display: block; }
 `;
 
 const Card = styled.section`
-  width: 520px; padding: 40px; display: grid; justify-items: center; gap: 24px; border: 1px solid #efece6; border-radius: 24px; background: #fff; box-shadow: 0 8px 12px rgba(16,24,39,.03);
+  width: min(520px, 100%); min-width: 0; max-width: 100%; padding: 40px; display: grid; justify-items: center; gap: 24px; border: 1px solid #efece6; border-radius: 24px; background: #fff; box-shadow: 0 8px 12px rgba(16,24,39,.03);
   animation: ${paymentSurfaceRise} 360ms cubic-bezier(0.22, 0.8, 0.32, 1) both;
 
   ${paymentReducedMotion}
   &.failed { border-color: #efc6c1; }
+  > * { min-width: 0; max-width: 100%; }
   @media (max-width: 760px) { width: 100%; padding: 24px; gap: 16px; border-radius: 20px; box-shadow: none; }
 `;
 
@@ -281,13 +293,26 @@ const DesktopStatus = styled.div`
 
 const MobileTitle = styled.h1`
   display: none;
-  @media (max-width: 760px) { display: block; margin: 0; font-size: 16px; }
+  @media (max-width: 760px) {
+    display: block;
+    max-width: 100%;
+    margin: 0;
+    font-size: 16px;
+    text-align: center;
+    overflow-wrap: anywhere;
+    animation: ${paymentContentReveal} 300ms ease-out 70ms both;
+
+    ${paymentReducedMotion}
+  }
 `;
 
 const MobileCardMock = styled.div`
   display: none;
   @media (max-width: 760px) {
-    width: 200px; height: 120px; padding: 16px; display: flex; flex-direction: column; justify-content: space-between; border-radius: 12px; background: var(--card-primary); color: #fff;
+    width: min(200px, 100%); max-width: 100%; height: 120px; padding: 16px; display: flex; flex-direction: column; justify-content: space-between; border-radius: 12px; background: var(--card-primary); color: #fff;
+    animation: ${paymentSurfaceRise} 460ms cubic-bezier(0.2, 0.82, 0.28, 1) 110ms both;
+
+    ${paymentReducedMotion}
     &.failed { background: #c54436; }
     div { display: flex; align-items: center; justify-content: space-between; }
     svg { width: 22px; }
@@ -309,9 +334,9 @@ const Dots = styled.span`
 const MobileTransition = styled.div`
   display: none;
   @media (max-width: 760px) {
-    display: grid; justify-items: center; gap: 12px;
-    .processing { display: flex; align-items: center; gap: 8px; color: #72706b; font-size: 13px; }
-    .badge { padding: 8px 16px; display: flex; align-items: center; gap: 8px; border-radius: 999px; background: #edf7ef; color: #268c43; font-size: 14px; }
+    width: 100%; min-width: 0; display: grid; justify-items: center; gap: 12px;
+    .processing { max-width: 100%; display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 8px; color: #72706b; font-size: 13px; text-align: center; overflow-wrap: anywhere; }
+    .badge { max-width: 100%; padding: 8px 16px; display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 8px; border-radius: 999px; background: #edf7ef; color: #268c43; font-size: 14px; text-align: center; overflow-wrap: anywhere; }
     .badge.failed { background: #fff0ee; color: #c54436; }
     .badge svg { width: 16px; }
     .badge { animation: ${paymentContentReveal} 260ms ease-out both; }
@@ -321,11 +346,14 @@ const MobileTransition = styled.div`
 `;
 
 const DesktopCardPlate = styled.div`
-  width: 100%; padding: 20px; display: flex; align-items: center; gap: 16px; border: 1px solid #efece6; border-radius: 16px; background: #fafaf8;
+  width: 100%; min-width: 0; padding: 20px; display: flex; align-items: center; gap: 16px; border: 1px solid #efece6; border-radius: 16px; background: #fafaf8;
+  animation: ${paymentContentReveal} 340ms ease-out 170ms both;
+
+  ${paymentReducedMotion}
   .mini-card { width: 48px; height: 32px; display: grid; place-items: center; border-radius: 6px; background: var(--card-primary); color: #fff; font-size: 9px; font-weight: 800; }
-  > span:last-child { display: grid; gap: 2px; }
+  > span:last-child { min-width: 0; display: grid; gap: 2px; }
   b { font-size: 14px; }
-  small { color: #72706b; font-size: 12px; }
+  small { color: #72706b; font-size: 12px; overflow-wrap: anywhere; }
   &.failed .mini-card { background: #c54436; }
   @media (max-width: 760px) { display: none; }
 `;
@@ -335,31 +363,46 @@ const Divider = styled.div`
 `;
 
 const DesktopInfo = styled.div`
-  width: 100%; display: flex; justify-content: space-between; gap: 20px;
+  width: 100%; min-width: 0; display: flex; justify-content: space-between; gap: 20px;
+  animation: ${paymentContentReveal} 340ms ease-out 230ms both;
+
+  ${paymentReducedMotion}
   div { display: grid; gap: 4px; }
   div:last-child { text-align: right; }
   span { color: #72706b; font-size: 13px; }
-  strong { font-size: 15px; }
+  strong { min-width: 0; font-size: 15px; overflow-wrap: anywhere; }
   div:first-child strong { font-size: 20px; }
   @media (max-width: 760px) { display: none; }
 `;
 
 const KitchenNote = styled.div`
-  width: 100%; padding: 12px 16px; border-radius: 8px; background: #edf7ef; color: #268c43; font-size: 14px; font-weight: 600; text-align: center;
+  width: 100%; min-width: 0; padding: 12px 16px; border-radius: 8px; background: #edf7ef; color: #268c43; font-size: 14px; font-weight: 600; text-align: center; overflow-wrap: anywhere;
+  animation: ${paymentContentReveal} 340ms ease-out 290ms both;
+
+  ${paymentReducedMotion}
   @media (max-width: 760px) { display: none; }
 `;
 
 const MobileInstructions = styled.div`
   display: none;
+  animation: ${paymentContentReveal} 360ms ease-out 260ms both;
+
+  ${paymentReducedMotion}
   @media (max-width: 760px) {
-    width: 100%; padding: 16px; display: block; border: 1px solid #efece6; border-radius: 16px; color: #72706b; font-size: 13px; line-height: 1.4;
+    width: 100%; min-width: 0; padding: 16px; display: block; border: 1px solid #efece6; border-radius: 16px; color: #72706b; font-size: 13px; line-height: 1.4; overflow-wrap: anywhere;
     &.failed { border-color: #efc6c1; color: #a23f34; background: #fff7f6; }
   }
 `;
 
 const DesktopActions = styled.div`
-  display: flex; gap: 10px;
-  button { min-height: 46px; padding: 0 24px; border: 0; border-radius: 12px; background: var(--card-primary); color: #fff; font: inherit; font-weight: 700; cursor: pointer; }
+  width: 100%; min-width: 0; display: flex; justify-content: center; gap: 10px;
+  animation: ${paymentContentReveal} 340ms ease-out 340ms both;
+
+  ${paymentReducedMotion}
+
+  button { max-width: 100%; min-height: 46px; padding: 0 24px; border: 0; border-radius: 12px; background: var(--card-primary); color: #fff; font: inherit; font-weight: 700; cursor: pointer; overflow-wrap: anywhere; transition: transform 160ms ease, box-shadow 180ms ease, filter 180ms ease; }
+  button:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 10px 22px rgba(31,30,26,.12); filter: saturate(1.04); }
+  button:active:not(:disabled) { transform: scale(.985); }
   button.secondary { border: 1px solid #efece6; background: #fff; color: #72706b; }
   button:disabled { opacity: .5; }
   @media (max-width: 760px) { display: none; }
@@ -368,12 +411,16 @@ const DesktopActions = styled.div`
 const MobileBottom = styled.section`
   display: none;
   @media (max-width: 760px) {
-    position: fixed; z-index: 3; left: 0; right: 0; bottom: 0; padding: 16px 24px 24px; display: grid; gap: 16px; border-top: 1px solid #efece6; background: #fff;
+    position: fixed; z-index: 3; left: 0; right: 0; bottom: 0; width: 100%; min-width: 0; padding: 16px 24px calc(24px + env(safe-area-inset-bottom)); display: grid; gap: 16px; border-top: 1px solid #efece6; background: rgba(255,255,255,.98); box-shadow: 0 -10px 30px rgba(31,30,26,.06); backdrop-filter: blur(12px);
+    animation: ${paymentBottomBarReveal} 420ms cubic-bezier(0.22, 0.8, 0.32, 1) 220ms both;
+
+    ${paymentReducedMotion}
     div { display: grid; gap: 2px; }
     span { color: #72706b; font-size: 13px; }
     strong { color: var(--card-primary); font-size: 22px; }
     p { margin: 0; color: #72706b; font-size: 12px; text-align: center; }
-    button { width: 100%; min-height: 46px; border: 0; border-radius: 12px; background: var(--card-primary); color: #fff; font: inherit; font-size: 15px; font-weight: 700; }
+    button { width: 100%; max-width: 100%; min-height: 46px; border: 0; border-radius: 12px; background: var(--card-primary); color: #fff; font: inherit; font-size: 15px; font-weight: 700; overflow-wrap: anywhere; transition: transform 160ms ease, filter 180ms ease; }
+    button:active { transform: scale(.985); }
   }
 `;
 

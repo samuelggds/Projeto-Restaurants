@@ -12,8 +12,10 @@ import {
 import QRCode from 'react-qr-code';
 import styled from 'styled-components';
 import {
+  paymentBottomBarReveal,
   paymentContentReveal,
   paymentPulse,
+  paymentQrReveal,
   paymentReducedMotion,
   paymentScreenFade,
   paymentStatusPop,
@@ -292,9 +294,19 @@ export default function PixPaymentPanel({
 }
 
 const Page = styled.main`
+  width: 100%;
+  min-width: 0;
   min-height: 100dvh;
+  overflow-x: hidden;
   background: #fdfcf9;
   color: #1f1e1a;
+  box-sizing: border-box;
+
+  & *,
+  & *::before,
+  & *::after {
+    box-sizing: border-box;
+  }
   animation: ${paymentScreenFade} 220ms ease-out both;
 
   ${paymentReducedMotion}
@@ -335,16 +347,18 @@ const MobilePixHeader = styled.header`
     height: 46px;
     padding: 12px 20px;
     display: grid;
-    grid-template-columns: 1fr auto 1fr;
+    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
     align-items: center;
     background: #fff;
-    button { padding: 0; display: flex; align-items: center; gap: 7px; border: 0; background: transparent; color: #72706b; font: inherit; font-size: 14px; cursor: pointer; }
-    button svg { width: 20px; }
-    strong { font-size: 18px; }
+    button { min-width: 0; padding: 0; display: flex; align-items: center; gap: 7px; border: 0; background: transparent; color: #72706b; font: inherit; font-size: 14px; cursor: pointer; white-space: nowrap; }
+    button svg { width: 20px; flex: 0 0 auto; }
+    strong { min-width: 0; font-size: 18px; text-align: center; white-space: nowrap; }
   }
 `;
 
 const WaitingContent = styled.section`
+  width: 100%;
+  min-width: 0;
   min-height: 894px;
   padding: 60px 24px 100px;
   display: grid;
@@ -353,7 +367,9 @@ const WaitingContent = styled.section`
 `;
 
 const PixCard = styled.section`
-  width: 520px;
+  width: min(520px, 100%);
+  min-width: 0;
+  max-width: 100%;
   padding: 40px;
   display: grid;
   justify-items: center;
@@ -371,6 +387,7 @@ const PixCard = styled.section`
   .desktop-title p { margin: 0; color: #72706b; font-size: 14px; }
   .pix-mark { width: 44px; height: 44px; display: grid; place-items: center; border: 2px solid var(--pix-primary); border-radius: 50%; color: var(--pix-primary); font-size: 26px; font-weight: 300; }
   .mobile-title { display: none; }
+  > * { min-width: 0; }
 
   @media (max-width: 760px) {
     width: 100%;
@@ -384,13 +401,19 @@ const PixCard = styled.section`
 `;
 
 const QrBox = styled.div`
-  width: 200px; height: 200px; padding: 20px; display: grid; place-items: center; border: 1px solid #efece6; border-radius: 16px; background: #fafaf8;
+  width: 200px; max-width: 100%; height: 200px; padding: 20px; display: grid; place-items: center; border: 1px solid #efece6; border-radius: 16px; background: #fafaf8;
+  animation: ${paymentQrReveal} 540ms cubic-bezier(0.2, 0.82, 0.28, 1) 80ms both;
+
+  ${paymentReducedMotion}
   img, svg { width: 100%; height: 100%; object-fit: contain; }
   @media (max-width: 760px) { width: 180px; height: 180px; padding: 10px; border-width: 2px; background: #fff; border-radius: 12px; }
 `;
 
 const MobileCountdown = styled.div`
   display: none;
+  animation: ${paymentContentReveal} 320ms ease-out 160ms both;
+
+  ${paymentReducedMotion}
   @media (max-width: 760px) {
     display: flex; align-items: center; gap: 8px; color: var(--pix-primary); font-size: 14px; font-weight: 600;
     i { width: 8px; height: 8px; border-radius: 50%; background: var(--pix-primary); }
@@ -398,23 +421,32 @@ const MobileCountdown = styled.div`
 `;
 
 const CopySection = styled.section`
-  width: 100%; display: grid; gap: 8px; text-align: center;
+  width: 100%; min-width: 0; display: grid; gap: 8px; text-align: center;
+  animation: ${paymentContentReveal} 360ms ease-out 190ms both;
+
+  ${paymentReducedMotion}
+
   > b { color: #72706b; font-size: 13px; text-transform: uppercase; }
-  > div { padding: 12px; display: flex; align-items: center; gap: 12px; border: 1px solid #efece6; border-radius: 8px; background: #fafaf8; }
-  code { flex: 1; overflow: hidden; color: #1f1e1a; font-family: inherit; font-size: 12px; text-align: left; text-overflow: ellipsis; white-space: nowrap; }
-  button { padding: 6px 10px; display: inline-flex; align-items: center; gap: 5px; border: 0; border-radius: 6px; background: #fdf2ec; color: var(--pix-primary); font: inherit; font-size: 12px; font-weight: 700; cursor: pointer; }
+  > div { width: 100%; min-width: 0; padding: 12px; display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 12px; border: 1px solid #efece6; border-radius: 8px; background: #fafaf8; }
+  code { min-width: 0; max-width: 100%; overflow: hidden; color: #1f1e1a; font-family: inherit; font-size: 12px; text-align: left; text-overflow: ellipsis; white-space: nowrap; }
+  button { min-width: max-content; padding: 6px 10px; display: inline-flex; align-items: center; gap: 5px; border: 0; border-radius: 6px; background: #fdf2ec; color: var(--pix-primary); font: inherit; font-size: 12px; font-weight: 700; cursor: pointer; }
   button svg { width: 14px; }
   @media (max-width: 760px) {
     text-align: left;
     > b { font-size: 14px; font-weight: 600; text-transform: none; }
-    > div { border-radius: 12px; background: #fff; }
+    > div { padding: 10px; gap: 8px; border-radius: 12px; background: #fff; }
+    code { font-size: 11px; }
+    button { padding-inline: 8px; }
   }
 `;
 
 const MobileInstructions = styled.p`
   display: none;
+  animation: ${paymentContentReveal} 360ms ease-out 250ms both;
+
+  ${paymentReducedMotion}
   @media (max-width: 760px) {
-    width: 100%; margin: 0; padding: 16px; display: block; border: 1px solid #efece6; border-radius: 16px; color: #72706b; font-size: 13px; line-height: 1.4;
+    width: 100%; min-width: 0; margin: 0; padding: 16px; display: block; border: 1px solid #efece6; border-radius: 16px; color: #72706b; font-size: 13px; line-height: 1.4; overflow-wrap: anywhere;
   }
 `;
 
@@ -438,8 +470,12 @@ const Dots = styled.span`
 `;
 
 const WaitingStatus = styled.div`
-  width: 100%; padding: 11px; display: flex; align-items: center; justify-content: center; gap: 10px; border-radius: 8px; background: #fdf2ec; color: var(--pix-primary);
-  b { font-size: 12px; }
+  width: 100%; min-width: 0; padding: 11px; display: flex; align-items: center; justify-content: center; gap: 10px; border-radius: 8px; background: #fdf2ec; color: var(--pix-primary);
+  animation: ${paymentContentReveal} 360ms ease-out 300ms both;
+
+  ${paymentReducedMotion}
+
+  b { min-width: 0; font-size: 12px; text-align: center; overflow-wrap: anywhere; }
   @media (max-width: 760px) { background: transparent; color: #1f1e1a; b { font-size: 14px; } }
 `;
 
@@ -451,7 +487,10 @@ const DesktopContinue = styled.button`
 const MobileTotal = styled.section`
   display: none;
   @media (max-width: 760px) {
-    position: fixed; z-index: 3; left: 0; right: 0; bottom: 0; padding: 14px 24px 24px; display: grid; gap: 2px; border-top: 1px solid #efece6; background: #fff;
+    position: fixed; z-index: 3; left: 0; right: 0; bottom: 0; width: 100%; min-width: 0; padding: 14px 24px calc(24px + env(safe-area-inset-bottom)); display: grid; gap: 2px; border-top: 1px solid #efece6; background: rgba(255,255,255,.98); box-shadow: 0 -10px 30px rgba(31,30,26,.06); backdrop-filter: blur(12px);
+    animation: ${paymentBottomBarReveal} 420ms cubic-bezier(0.22, 0.8, 0.32, 1) 220ms both;
+
+    ${paymentReducedMotion}
     span { color: #72706b; font-size: 13px; }
     strong { color: var(--pix-primary); font-size: 20px; }
     small { color: #72706b; font-size: 12px; text-align: center; }
@@ -459,16 +498,17 @@ const MobileTotal = styled.section`
 `;
 
 const ResultContent = styled.section`
-  min-height: 625px; padding: 60px 24px 100px; display: grid; place-items: start center;
+  width: 100%; min-width: 0; min-height: 625px; padding: 60px 24px 100px; display: grid; place-items: start center;
   @media (max-width: 760px) { min-height: 100dvh; padding: 62px 20px 32px; display: block; }
 `;
 
 const ResultCard = styled.section`
-  width: 580px; padding: 48px; display: grid; justify-items: center; gap: 28px; border: 1px solid #efece6; border-radius: 24px; background: #fff; box-shadow: 0 12px 16px rgba(16,24,39,.02);
+  width: min(580px, 100%); min-width: 0; max-width: 100%; padding: 48px; display: grid; justify-items: center; gap: 28px; border: 1px solid #efece6; border-radius: 24px; background: #fff; box-shadow: 0 12px 16px rgba(16,24,39,.02);
   animation: ${paymentSurfaceRise} 360ms cubic-bezier(0.22, 0.8, 0.32, 1) both;
 
   ${paymentReducedMotion}
   &.failure { border-color: #efc6c1; }
+  > * { min-width: 0; max-width: 100%; }
   @media (max-width: 760px) { width: 100%; padding: 0; gap: 20px; border: 0; background: transparent; box-shadow: none; }
 `;
 
@@ -486,8 +526,9 @@ const ResultHeading = styled.div`
   animation: ${paymentContentReveal} 280ms ease-out 80ms both;
 
   ${paymentReducedMotion}
-  h1 { margin: 0; font-size: 28px; }
-  p { margin: 0; max-width: 520px; color: #72706b; font-size: 15px; }
+  width: 100%;
+  h1 { max-width: 100%; margin: 0; font-size: 28px; overflow-wrap: anywhere; }
+  p { max-width: 520px; margin: 0; color: #72706b; font-size: 15px; line-height: 1.5; overflow-wrap: anywhere; }
   @media (max-width: 760px) { h1 { font-size: 24px; } p { max-width: 300px; font-size: 14px; } }
 `;
 
@@ -502,22 +543,31 @@ const DesktopSuccessDetails = styled.section`
 
 const MobileSuccessDetails = styled.section`
   display: none;
+  animation: ${paymentContentReveal} 360ms ease-out 180ms both;
+
+  ${paymentReducedMotion}
   @media (max-width: 760px) {
     width: 100%; display: grid; border: 1px solid #efece6; border-radius: 16px; background: #fff; overflow: hidden;
     > div { padding: 14px; }
-    .eta { display: flex; justify-content: space-between; gap: 12px; border-bottom: 1px solid #efece6; }
+    .eta { min-width: 0; display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px 12px; border-bottom: 1px solid #efece6; }
     .eta span { color: #72706b; font-size: 13px; }
     .eta strong { color: var(--pix-primary); font-size: 14px; }
-    .prep { display: flex; align-items: center; gap: 10px; font-size: 12px; }
+    .prep { min-width: 0; display: flex; align-items: center; gap: 10px; font-size: 12px; }
+    .prep b { min-width: 0; overflow-wrap: anywhere; }
   }
 `;
 
 const MobileOrderSummary = styled.section`
   display: none;
+  animation: ${paymentContentReveal} 380ms ease-out 260ms both;
+
+  ${paymentReducedMotion}
   @media (max-width: 760px) {
     width: 100%; padding: 16px; display: grid; gap: 10px; border: 1px solid #efece6; border-radius: 16px; background: #fff;
     h2 { margin: 0 0 4px; font-size: 14px; }
-    div { display: flex; justify-content: space-between; gap: 12px; font-size: 13px; }
+    div { min-width: 0; display: flex; justify-content: space-between; gap: 12px; font-size: 13px; }
+    div > span { min-width: 0; overflow-wrap: anywhere; }
+    div > strong { flex: 0 0 auto; }
     .muted { color: #72706b; }
     .summary-total { padding-top: 9px; border-top: 1px solid #efece6; font-weight: 700; }
     .summary-total strong { color: var(--pix-primary); font-size: 16px; }
@@ -525,8 +575,13 @@ const MobileOrderSummary = styled.section`
 `;
 
 const ResultActions = styled.div`
-  display: flex; gap: 10px;
-  button { min-height: 46px; padding: 0 24px; border: 0; border-radius: 12px; background: linear-gradient(90deg,#ff6a3d,#ff3d1f); color: #fff; font: inherit; font-weight: 700; cursor: pointer; }
+  width: 100%; min-width: 0; display: flex; gap: 10px;
+  animation: ${paymentContentReveal} 360ms ease-out 330ms both;
+
+  ${paymentReducedMotion}
+  button { max-width: 100%; min-height: 46px; padding: 0 24px; border: 0; border-radius: 12px; background: linear-gradient(90deg,#ff6a3d,#ff3d1f); color: #fff; font: inherit; font-weight: 700; cursor: pointer; overflow-wrap: anywhere; transition: transform 160ms ease, box-shadow 180ms ease, filter 180ms ease; }
+  button:hover { transform: translateY(-1px); box-shadow: 0 10px 22px rgba(232,90,43,.14); filter: saturate(1.04); }
+  button:active { transform: scale(.985); }
   button.secondary { border: 1px solid #efece6; background: #fff; color: #72706b; }
   .mobile-label { display: none; }
   @media (max-width: 760px) {
