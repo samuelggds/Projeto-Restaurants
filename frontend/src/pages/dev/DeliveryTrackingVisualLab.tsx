@@ -1,34 +1,27 @@
 import { FormEvent, type CSSProperties, useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowLeft, CheckCircle2, CircleDot, Phone, Send } from 'lucide-react';
-import courierDelivery8Dir from '../../assets/tracking/courier-delivery-8dir.jpg';
-import fictitiousGoogleMap from '../../assets/tracking/fictitious-google-map.webp';
-import type { CourierRoutePoint } from '../Courier/domain/courierLocation';
-
-export const VISUAL_TRACKING_ANIMATION_MS = 60_000;
-
-const COURIER_DIRECTION_NAMES = [
-  'up',
-  'up-right',
-  'right',
-  'down-right',
-  'down',
-  'down-left',
-  'left',
-  'up-left',
-] as const;
-
-type CourierDirectionName = (typeof COURIER_DIRECTION_NAMES)[number];
-
-export const VISUAL_TRACKING_ROUTE: CourierRoutePoint[] = [
-  { latitude: -3.73525, longitude: -38.54162 },
-  { latitude: -3.73624, longitude: -38.54041 },
-  { latitude: -3.73708, longitude: -38.53936 },
-  { latitude: -3.73842, longitude: -38.53882 },
-  { latitude: -3.73956, longitude: -38.54004 },
-  { latitude: -3.74088, longitude: -38.54131 },
-  { latitude: -3.74213, longitude: -38.54257 },
-  { latitude: -3.74331, longitude: -38.54389 },
-];
+import {
+  ArrowLeft,
+  CheckCircle2,
+  CircleDot,
+  Pause,
+  Phone,
+  Play,
+  RotateCcw,
+  Send,
+} from 'lucide-react';
+import courierViews from '../../assets/tracking/courier-lab-six-views.png';
+import fictitiousGoogleMap from '../../assets/tracking/delivery-lab-map.png';
+import {
+  COURIER_DIRECTION_NAMES,
+  VISUAL_MAP_HEIGHT,
+  VISUAL_MAP_WIDTH,
+  VISUAL_ROUTE_PATH,
+  VISUAL_TRACKING_ANIMATION_MS,
+  VISUAL_TRACKING_ROUTE,
+  getCourierDirectionIndex,
+  getCourierSpriteFrame,
+  getVisualRouteFrame,
+} from './deliveryVisualRoute';
 
 type LocalMessage = {
   id: string;
@@ -52,184 +45,60 @@ const INITIAL_MESSAGES: LocalMessage[] = [
   },
 ];
 
-function distance(a: CourierRoutePoint, b: CourierRoutePoint) {
-  return Math.hypot(a.latitude - b.latitude, a.longitude - b.longitude);
-}
-
-const VISUAL_MAP_BOUNDS = VISUAL_TRACKING_ROUTE.reduce(
-  (bounds, point) => ({
-    minLat: Math.min(bounds.minLat, point.latitude),
-    maxLat: Math.max(bounds.maxLat, point.latitude),
-    minLng: Math.min(bounds.minLng, point.longitude),
-    maxLng: Math.max(bounds.maxLng, point.longitude),
-  }),
-  {
-    minLat: Number.POSITIVE_INFINITY,
-    maxLat: Number.NEGATIVE_INFINITY,
-    minLng: Number.POSITIVE_INFINITY,
-    maxLng: Number.NEGATIVE_INFINITY,
-  },
-);
-
-function toVisualMapPosition(point: CourierRoutePoint) {
-  const latRange = Math.max(0.000001, VISUAL_MAP_BOUNDS.maxLat - VISUAL_MAP_BOUNDS.minLat);
-  const lngRange = Math.max(0.000001, VISUAL_MAP_BOUNDS.maxLng - VISUAL_MAP_BOUNDS.minLng);
-
-  return {
-    x: 15 + ((point.longitude - VISUAL_MAP_BOUNDS.minLng) / lngRange) * 70,
-    y: 84 - ((point.latitude - VISUAL_MAP_BOUNDS.minLat) / latRange) * 68,
-  };
-}
-
-function getCourierSpritePosition(directionIndex: number) {
-  const safeIndex = Math.max(0, Math.min(7, directionIndex));
-  const column = safeIndex % 4;
-  const row = safeIndex >= 4 ? 1 : 0;
-
-  return {
-    x: column === 0 ? 0 : (column / 3) * 100,
-    y: row * 100,
-  };
-}
-
-export function getVisualRouteFrame(route: CourierRoutePoint[], rawProgress: number) {
-  if (!route.length) {
-    return {
-      point: { latitude: 0, longitude: 0 } as CourierRoutePoint,
-      angleDegrees: 0,
-      segmentIndex: 0,
-    };
-  }
-
-  if (route.length === 1) {
-    return { point: route[0], angleDegrees: 0, segmentIndex: 0 };
-  }
-
-  const progress = Math.max(0, Math.min(1, rawProgress));
-  const lengths = route.slice(1).map((point, index) => distance(route[index], point));
-  const total = lengths.reduce((sum, value) => sum + value, 0);
-
-  if (total <= 0) {
-    return { point: route[0], angleDegrees: 0, segmentIndex: 0 };
-  }
-
-  const target = total * progress;
-  let traversed = 0;
-  let segmentIndex = lengths.length - 1;
-
-  for (let index = 0; index < lengths.length; index += 1) {
-    if (traversed + lengths[index] >= target) {
-      segmentIndex = index;
-      break;
-    }
-    traversed += lengths[index];
-  }
-
-  const segment = Math.max(0.000001, lengths[segmentIndex]);
-  const start = route[segmentIndex];
-  const end = route[segmentIndex + 1];
-  const local =
-    progress >= 1 ? 1 : Math.max(0, Math.min(1, (target - traversed) / segment));
-
-  const point: CourierRoutePoint = {
-    latitude: start.latitude + (end.latitude - start.latitude) * local,
-    longitude: start.longitude + (end.longitude - start.longitude) * local,
-    recordedAt: new Date().toISOString(),
-    heading: null,
-    speed: null,
-  };
-
-  const angleDegrees =
-    (Math.atan2(
-      -(end.latitude - start.latitude),
-      end.longitude - start.longitude,
-    ) *
-      180) /
-    Math.PI;
-
-  return { point, angleDegrees, segmentIndex };
-}
-
-export function interpolateVisualRoute(
-  route: CourierRoutePoint[],
-  rawProgress: number,
-): CourierRoutePoint {
-  return getVisualRouteFrame(route, rawProgress).point;
-}
-
-export function normalizeVisualAngle(angleDegrees: number) {
-  let normalized = angleDegrees % 360;
-  if (normalized > 180) normalized -= 360;
-  if (normalized <= -180) normalized += 360;
-  return normalized;
-}
-
-export function getVisualCameraRotation(angleDegrees: number) {
-  const headingUpRotation = normalizeVisualAngle(-90 - angleDegrees);
-  return headingUpRotation * 0.65;
-}
-
-export function getCourierDirectionIndex(
-  angleDegrees: number,
-  cameraRotationDegrees = 0,
-) {
-  const screenAngle = normalizeVisualAngle(angleDegrees + cameraRotationDegrees);
-  return ((Math.round((screenAngle + 90) / 45) % 8) + 8) % 8;
-}
-
 export default function DeliveryTrackingVisualLab({ onBack }: { onBack?: () => void }) {
-  const startedAtRef = useRef(0);
+  const elapsedRef = useRef(0);
   const [progress, setProgress] = useState(0);
+  const [running, setRunning] = useState(
+    () => !window.matchMedia?.('(prefers-reduced-motion: reduce)').matches,
+  );
+  const [playbackId, setPlaybackId] = useState(0);
+  const [mapReady, setMapReady] = useState(false);
+  const [courierReady, setCourierReady] = useState(false);
   const [messages, setMessages] = useState<LocalMessage[]>(INITIAL_MESSAGES);
   const [draft, setDraft] = useState('');
 
   useEffect(() => {
-    if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return undefined;
-
-    startedAtRef.current = performance.now();
+    if (!running || !mapReady || !courierReady) return undefined;
+    const startedAt = performance.now() - elapsedRef.current;
     let animationFrame = 0;
 
     const update = (now: number) => {
-      const nextProgress = Math.min(
-        1,
-        (now - startedAtRef.current) / VISUAL_TRACKING_ANIMATION_MS,
-      );
+      elapsedRef.current = Math.min(VISUAL_TRACKING_ANIMATION_MS, Math.max(0, now - startedAt));
+      const nextProgress = elapsedRef.current / VISUAL_TRACKING_ANIMATION_MS;
       setProgress(nextProgress);
 
       if (nextProgress < 1) {
         animationFrame = window.requestAnimationFrame(update);
+      } else {
+        setRunning(false);
       }
     };
 
     animationFrame = window.requestAnimationFrame(update);
     return () => window.cancelAnimationFrame(animationFrame);
-  }, []);
+  }, [running, playbackId, mapReady, courierReady]);
+
+  const restart = () => {
+    elapsedRef.current = 0;
+    setProgress(0);
+    setPlaybackId((current) => current + 1);
+    setRunning(true);
+  };
 
   const currentFrame = useMemo(
     () => getVisualRouteFrame(VISUAL_TRACKING_ROUTE, progress),
     [progress],
   );
-  const currentPoint = currentFrame.point;
-  const currentMapPosition = useMemo(
-    () => toVisualMapPosition(currentPoint),
-    [currentPoint],
-  );
-  const courierDirectionIndex = useMemo(
-    () => getCourierDirectionIndex(currentFrame.angleDegrees),
-    [currentFrame.angleDegrees],
-  );
-  const courierDirection = COURIER_DIRECTION_NAMES[
-    courierDirectionIndex
-  ] as CourierDirectionName;
-  const courierSpritePosition = useMemo(
-    () => getCourierSpritePosition(courierDirectionIndex),
-    [courierDirectionIndex],
-  );
-  const etaMinutes = Math.max(1, Math.ceil(15 * (1 - progress)));
+  const courierDirectionIndex = getCourierDirectionIndex(currentFrame.angleDegrees);
+  const courierDirection = COURIER_DIRECTION_NAMES[courierDirectionIndex];
+  const courierSprite = getCourierSpriteFrame(courierDirectionIndex);
+  const assetsReady = mapReady && courierReady;
+  const arrived = progress >= 1;
   const remainingSeconds = Math.max(
     0,
     Math.ceil((VISUAL_TRACKING_ANIMATION_MS * (1 - progress)) / 1000),
   );
+  const remainingLabel = `${Math.floor(remainingSeconds / 60)}:${String(remainingSeconds % 60).padStart(2, '0')}`;
 
   const submit = (event: FormEvent) => {
     event.preventDefault();
@@ -284,15 +153,25 @@ export default function DeliveryTrackingVisualLab({ onBack }: { onBack?: () => v
           }
 
           .tracking-map-surface {
-            height: 300px !important;
-            min-height: 300px !important;
             border: 0 !important;
             border-radius: 0 !important;
           }
 
           [data-testid="visual-courier-marker"] {
-            width: 72px !important;
-            height: 82px !important;
+            width: 48px !important;
+            height: 48px !important;
+          }
+
+          .tracking-map-controls {
+            border-radius: 0 !important;
+            padding: 14px !important;
+          }
+
+          .tracking-eta {
+            top: 8px !important;
+            left: 8px !important;
+            padding: 5px 9px !important;
+            font-size: 10px !important;
           }
 
           .tracking-side {
@@ -346,19 +225,89 @@ export default function DeliveryTrackingVisualLab({ onBack }: { onBack?: () => v
             <div
               className="tracking-map-surface"
               data-testid="visual-google-map-screenshot"
-              style={{
-                ...styles.mapSurface,
-                backgroundImage: `url(${fictitiousGoogleMap})`,
-              }}
+              style={styles.mapSurface}
             >
+              <img
+                data-testid="visual-map-image"
+                src={fictitiousGoogleMap}
+                alt="Mapa fictício da rota pelas ruas Rosinha, Paiol e Avenida Tenente Lisboa"
+                width={VISUAL_MAP_WIDTH}
+                height={VISUAL_MAP_HEIGHT}
+                onLoad={() => setMapReady(true)}
+                style={styles.mapImage}
+                draggable={false}
+              />
+              <img
+                data-testid="visual-courier-sheet"
+                src={courierViews}
+                alt=""
+                onLoad={() => setCourierReady(true)}
+                style={{ display: 'none' }}
+              />
+              <svg
+                viewBox={`0 0 ${VISUAL_MAP_WIDTH} ${VISUAL_MAP_HEIGHT}`}
+                style={styles.routeOverlay}
+                aria-hidden="true"
+              >
+                <path
+                  d={VISUAL_ROUTE_PATH}
+                  fill="none"
+                  stroke="white"
+                  strokeWidth="11"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+                <path
+                  data-testid="visual-route-line"
+                  d={VISUAL_ROUTE_PATH}
+                  fill="none"
+                  stroke="#e96725"
+                  strokeWidth="6"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+                <path
+                  d={VISUAL_ROUTE_PATH}
+                  pathLength="1"
+                  fill="none"
+                  stroke="#abb8bb"
+                  strokeWidth="6"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeDasharray={`${progress} 1`}
+                />
+                <circle
+                  cx={VISUAL_TRACKING_ROUTE[0].x}
+                  cy={VISUAL_TRACKING_ROUTE[0].y}
+                  r="9"
+                  fill="#fff"
+                  stroke="#e96725"
+                  strokeWidth="4"
+                />
+                <circle
+                  cx={VISUAL_TRACKING_ROUTE.at(-1)!.x}
+                  cy={VISUAL_TRACKING_ROUTE.at(-1)!.y}
+                  r="11"
+                  fill="#fff"
+                  stroke={arrived ? '#22a35a' : '#e96725'}
+                  strokeWidth="4"
+                />
+                <circle
+                  cx={VISUAL_TRACKING_ROUTE.at(-1)!.x}
+                  cy={VISUAL_TRACKING_ROUTE.at(-1)!.y}
+                  r="4"
+                  fill={arrived ? '#22a35a' : '#e96725'}
+                />
+              </svg>
               <div
                 data-testid="visual-courier-marker"
                 data-sprite-direction={courierDirection}
                 data-sprite-index={courierDirectionIndex}
                 style={{
                   ...styles.courierMapMarker,
-                  left: `${currentMapPosition.x}%`,
-                  top: `${currentMapPosition.y}%`,
+                  left: `${(currentFrame.point.x / VISUAL_MAP_WIDTH) * 100}%`,
+                  top: `${(currentFrame.point.y / VISUAL_MAP_HEIGHT) * 100}%`,
+                  visibility: courierReady ? 'visible' : 'hidden',
                 }}
               >
                 <span style={styles.courierMapShadow} aria-hidden="true" />
@@ -368,32 +317,86 @@ export default function DeliveryTrackingVisualLab({ onBack }: { onBack?: () => v
                   aria-label="Motoqueiro 3D fictício em movimento"
                   style={{
                     ...styles.courierMapSprite,
-                    backgroundImage: `url(${courierDelivery8Dir})`,
-                    backgroundPosition: `${courierSpritePosition.x}% ${courierSpritePosition.y}%`,
+                    backgroundImage: `url(${courierViews})`,
+                    backgroundPosition: `${courierSprite.column * 50}% ${courierSprite.row * 100}%`,
+                    transform: courierSprite.mirror ? 'scaleX(-1)' : undefined,
                   }}
                 />
               </div>
 
-              <div style={styles.etaBadge}>
-                Chega em {etaMinutes} min
+              <div className="tracking-eta" style={styles.etaBadge}>
+                {arrived ? 'Entregador chegou' : 'Percurso de 1 minuto'}
               </div>
 
-              <small style={styles.mapNotice}>
-                Mapa fictício local para teste visual
-              </small>
+              <small style={styles.mapNotice}>Mapa fictício local para teste visual</small>
             </div>
 
-            <div style={styles.labBadge} aria-live="polite">
-              <strong>
-                {progress >= 1
-                  ? 'Motoqueiro chegou ao endereço'
-                  : 'Simulação do GPS em tempo real'}
-              </strong>
-              <small>
-                {progress >= 1
-                  ? 'Animação concluída'
-                  : String(remainingSeconds) + 's restantes'}
-              </small>
+            <div className="tracking-map-controls" style={styles.mapControls}>
+              <div style={styles.playbackSummary}>
+                <div style={styles.playbackHeading}>
+                  <span
+                    style={{
+                      ...styles.liveDot,
+                      background: running && assetsReady ? '#22a35a' : '#9aa5a4',
+                    }}
+                  />
+                  <strong aria-live="polite">
+                    {!assetsReady
+                      ? 'Preparando o percurso'
+                      : arrived
+                        ? 'Motoqueiro chegou ao endereço'
+                        : running
+                          ? 'Simulação do GPS em tempo real'
+                          : 'Simulação pausada'}
+                  </strong>
+                </div>
+                <small style={styles.playbackDetail}>
+                  {arrived
+                    ? 'Animação concluída'
+                    : `${remainingSeconds}s restantes · ${Math.round(progress * 100)}% do percurso`}
+                </small>
+              </div>
+              <span style={styles.countdown} aria-hidden="true">
+                {remainingLabel}
+              </span>
+              <div style={styles.playbackButtons}>
+                <button
+                  type="button"
+                  style={styles.playbackButton}
+                  aria-label={
+                    running
+                      ? 'Pausar simulação'
+                      : progress === 0 || arrived
+                        ? 'Iniciar simulação'
+                        : 'Continuar simulação'
+                  }
+                  disabled={!assetsReady}
+                  onClick={() => (arrived ? restart() : setRunning((current) => !current))}
+                >
+                  {running ? <Pause size={16} /> : <Play size={16} />}
+                  {running ? 'Pausar' : 'Iniciar'}
+                </button>
+                <button
+                  type="button"
+                  onClick={restart}
+                  disabled={!assetsReady}
+                  aria-label="Reiniciar rota"
+                  style={styles.replayButton}
+                >
+                  <RotateCcw size={16} />
+                  Reiniciar
+                </button>
+              </div>
+              <div style={styles.progressTrack}>
+                <div
+                  role="progressbar"
+                  aria-label="Progresso da rota fictícia"
+                  aria-valuemin={0}
+                  aria-valuemax={100}
+                  aria-valuenow={Math.round(progress * 100)}
+                  style={{ ...styles.progressFill, width: `${progress * 100}%` }}
+                />
+              </div>
             </div>
           </section>
 
@@ -439,9 +442,7 @@ export default function DeliveryTrackingVisualLab({ onBack }: { onBack?: () => v
                     key={message.id}
                     style={{
                       ...styles.message,
-                      ...(message.side === 'customer'
-                        ? styles.messageMine
-                        : styles.messageCourier),
+                      ...(message.side === 'customer' ? styles.messageMine : styles.messageCourier),
                     }}
                   >
                     <p style={styles.messageText}>{message.text}</p>
@@ -520,7 +521,7 @@ const styles: Record<string, CSSProperties> = {
   },
   headerSpacer: { width: 50, justifySelf: 'end' },
   main: {
-    width: 'min(1160px, calc(100% - 32px))',
+    width: 'min(1320px, calc(100% - 40px))',
     margin: '0 auto',
     padding: '38px 0 48px',
   },
@@ -531,7 +532,7 @@ const styles: Record<string, CSSProperties> = {
   },
   layout: {
     display: 'grid',
-    gridTemplateColumns: 'minmax(0, 1.15fr) minmax(330px, .9fr)',
+    gridTemplateColumns: 'minmax(0, 1.6fr) minmax(300px, .9fr)',
     gap: 26,
     alignItems: 'start',
   },
@@ -539,37 +540,46 @@ const styles: Record<string, CSSProperties> = {
   mapSurface: {
     position: 'relative',
     width: '100%',
-    height: 'min(68vh, 650px)',
-    minHeight: 520,
+    aspectRatio: `${VISUAL_MAP_WIDTH} / ${VISUAL_MAP_HEIGHT}`,
     overflow: 'hidden',
     border: '1px solid #d7dcd7',
-    borderRadius: 12,
+    borderRadius: '12px 12px 0 0',
     backgroundColor: '#eef2f6',
-    backgroundRepeat: 'no-repeat',
-    backgroundPosition: 'center',
-    backgroundSize: 'cover',
-    boxShadow: 'inset 0 0 0 1px rgba(255,255,255,.45)',
+  },
+  mapImage: {
+    position: 'absolute',
+    inset: 0,
+    display: 'block',
+    width: '100%',
+    height: '100%',
+    userSelect: 'none',
+  },
+  routeOverlay: {
+    position: 'absolute',
+    inset: 0,
+    width: '100%',
+    height: '100%',
+    pointerEvents: 'none',
   },
   courierMapMarker: {
     position: 'absolute',
     zIndex: 12,
-    width: 86,
-    height: 98,
-    transform: 'translate(-50%, -64%)',
+    width: 70,
+    height: 70,
+    transform: 'translate(-50%, -88%)',
     pointerEvents: 'none',
-    filter: 'drop-shadow(0 7px 8px rgba(17,24,39,.28))',
-    transition: 'left 90ms linear, top 90ms linear',
+    willChange: 'left, top',
   },
   courierMapShadow: {
     position: 'absolute',
     zIndex: 0,
     left: '50%',
-    bottom: 3,
-    width: 42,
-    height: 11,
+    bottom: '8%',
+    width: '45%',
+    height: '9%',
     borderRadius: '50%',
-    background: 'rgba(17,24,39,.28)',
-    filter: 'blur(3px)',
+    background: 'rgba(17,24,39,.2)',
+    filter: 'blur(2px)',
     transform: 'translateX(-50%)',
   },
   courierMapSprite: {
@@ -578,10 +588,9 @@ const styles: Record<string, CSSProperties> = {
     inset: 0,
     display: 'block',
     backgroundRepeat: 'no-repeat',
-    backgroundSize: '400% 200%',
-    backgroundPositionRepeat: 'no-repeat',
+    backgroundSize: '300% 200%',
     backgroundColor: 'transparent',
-    filter: 'contrast(1.08) saturate(1.12) drop-shadow(0 2px 3px rgba(0,0,0,.18))',
+    filter: 'drop-shadow(0 2px 2px rgba(0,0,0,.14))',
   },
   etaBadge: {
     position: 'absolute',
@@ -609,21 +618,69 @@ const styles: Record<string, CSSProperties> = {
     fontSize: 8,
     fontWeight: 700,
   },
-  labBadge: {
-    position: 'absolute',
-    zIndex: 8,
-    right: 14,
-    bottom: 14,
-    maxWidth: 'calc(100% - 28px)',
-    padding: '9px 11px',
+  mapControls: {
+    padding: '18px 20px',
     display: 'grid',
-    gap: 2,
-    border: '1px solid rgba(232,86,44,.18)',
-    borderRadius: 10,
-    background: 'rgba(255,255,255,.95)',
-    boxShadow: '0 9px 24px rgba(31,30,26,.12)',
-    fontSize: 10,
-    pointerEvents: 'none',
+    gridTemplateColumns: 'minmax(0, 1fr) auto',
+    gap: '14px 12px',
+    alignItems: 'center',
+    border: '1px solid #e5e1dc',
+    borderTop: 0,
+    borderRadius: '0 0 12px 12px',
+    background: '#fff',
+  },
+  playbackSummary: { minWidth: 0, display: 'grid', gap: 5 },
+  playbackHeading: { display: 'flex', alignItems: 'center', gap: 7, fontSize: 12 },
+  playbackDetail: { color: '#7b8183', fontSize: 11 },
+  liveDot: { flexShrink: 0, width: 7, height: 7, borderRadius: '50%' },
+  countdown: {
+    fontSize: 24,
+    fontWeight: 750,
+    fontVariantNumeric: 'tabular-nums',
+    color: '#273637',
+  },
+  playbackButtons: { display: 'flex', flexWrap: 'wrap', gap: 8, gridColumn: '1 / -1' },
+  playbackButton: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 7,
+    minHeight: 38,
+    padding: '8px 14px',
+    border: '1px solid #e96725',
+    borderRadius: 8,
+    color: '#fff',
+    background: '#e96725',
+    fontSize: 12,
+    fontWeight: 650,
+    cursor: 'pointer',
+  },
+  replayButton: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 7,
+    minHeight: 38,
+    padding: '8px 14px',
+    border: '1px solid #e5e1dc',
+    borderRadius: 8,
+    color: '#4d5759',
+    background: '#fff',
+    fontSize: 12,
+    fontWeight: 650,
+    cursor: 'pointer',
+  },
+  progressTrack: {
+    gridColumn: '1 / -1',
+    height: 4,
+    background: '#f0efeb',
+    borderRadius: 4,
+    overflow: 'hidden',
+  },
+  progressFill: {
+    height: '100%',
+    background: '#e96725',
+    borderRadius: 4,
   },
   side: { display: 'grid', gap: 18, minWidth: 0 },
   panel: { ...card, padding: 22 },
