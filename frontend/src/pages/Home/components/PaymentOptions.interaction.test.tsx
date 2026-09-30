@@ -36,7 +36,6 @@ describe('PaymentOptions interaction', () => {
         publicId: 'card-public-1',
         provider: 'MERCADO_PAGO',
         providerCardId: 'provider-card-1',
-        providerCustomerId: 'customer-1',
         brand: 'visa',
         last4: '4242',
         expMonth: 12,
