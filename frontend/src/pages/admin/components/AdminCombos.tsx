@@ -355,34 +355,47 @@ export function AdminCombos({ products, money, onChanged }: Props) {
 
   const removeSelectedProduct = (groupIndex: number, optionIndex: number) => {
     if (busy) return;
-    setDraft((current) => ({
-      ...current,
-      groups: current.groups.map((group, index) => {
-        if (index !== groupIndex) return group;
-        const options = group.options.filter((_, index) => index !== optionIndex);
-        const nextRequired = Math.max(
-          1,
-          Math.min(group.minSelections, Math.max(options.length, 1)),
-        );
-        const simpleChoiceGroup = isSimpleChoiceGroup(group);
-        const autoSelectOnlyOption =
-          simpleChoiceGroup && nextRequired === 1 && options.length === 1;
+    setDraft((current) => {
+      const target = current.groups[groupIndex];
+      if (!target) return current;
+
+      const options = target.options.filter((_, index) => index !== optionIndex);
+      if (!options.length && target.active === false && current.groups.length > 1) {
         return {
-          ...group,
-          options: simpleChoiceGroup
-            ? options.map((option) => ({
-                ...option,
-                minQuantity: autoSelectOnlyOption ? 1 : 0,
-                maxQuantity: 1,
-                defaultQuantity: autoSelectOnlyOption ? 1 : 0,
-                locked: autoSelectOnlyOption,
-              }))
-            : options,
-          minSelections: nextRequired,
-          maxSelections: nextRequired,
+          ...current,
+          groups: current.groups.filter((_, index) => index !== groupIndex),
         };
-      }),
-    }));
+      }
+
+      const simpleChoiceGroup = isSimpleChoiceGroup(target);
+      const nextRequired = simpleChoiceGroup
+        ? Math.max(1, Math.min(target.minSelections, Math.max(options.length, 1)))
+        : target.minSelections;
+      const autoSelectOnlyOption =
+        simpleChoiceGroup && nextRequired === 1 && options.length === 1;
+
+      return {
+        ...current,
+        groups: current.groups.map((group, index) => {
+          if (index !== groupIndex) return group;
+          return {
+            ...group,
+            options: simpleChoiceGroup
+              ? options.map((option) => ({
+                  ...option,
+                  minQuantity: autoSelectOnlyOption ? 1 : 0,
+                  maxQuantity: 1,
+                  defaultQuantity: autoSelectOnlyOption ? 1 : 0,
+                  locked: autoSelectOnlyOption,
+                }))
+              : options,
+            minSelections: simpleChoiceGroup ? nextRequired : group.minSelections,
+            maxSelections: simpleChoiceGroup ? nextRequired : group.maxSelections,
+          };
+        }),
+      };
+    });
+    setSelectedProductByGroup({});
     setFeedback(null);
   };
 
@@ -484,8 +497,11 @@ export function AdminCombos({ products, money, onChanged }: Props) {
       if (draft.groups.some((group) => group.options.length === 0)) {
         throw new Error('Adicione pelo menos um produto em cada etapa do combo.');
       }
+      const simpleActiveStages = draft.groups.filter(
+        (group) => group.active && isSimpleChoiceGroup(group),
+      );
       if (
-        draft.groups.some(
+        simpleActiveStages.some(
           (group) =>
             group.minSelections > 20 ||
             group.maxSelections > 20 ||
@@ -493,9 +509,15 @@ export function AdminCombos({ products, money, onChanged }: Props) {
             group.maxSelections < 1,
         )
       ) {
-        throw new Error('Cada etapa deve exigir entre 1 e 20 escolhas.');
+        throw new Error('Cada etapa nova deve exigir entre 1 e 20 escolhas.');
       }
-      if (draft.groups.some((group) => group.options.filter((option) => option.active).length < group.minSelections)) {
+      if (
+        draft.groups.some(
+          (group) =>
+            group.active &&
+            group.options.filter((option) => option.active).length < group.minSelections,
+        )
+      ) {
         throw new Error('Cada etapa precisa ter opções suficientes para a quantidade exigida.');
       }
       if (
