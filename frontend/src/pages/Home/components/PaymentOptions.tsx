@@ -48,7 +48,6 @@ type Props = {
   userEmail?: string;
   onCardPreparerChange?: (preparer: CardPaymentPreparer | null) => void;
   figmaCheckout?: boolean;
-  visualTestMode?: boolean;
 };
 
 type Option = {
@@ -222,7 +221,6 @@ export function PaymentOptions({
   userEmail = '',
   onCardPreparerChange,
   figmaCheckout = false,
-  visualTestMode = false,
 }: Props) {
   const [savedCards, setSavedCards] = useState<CustomerPaymentMethod[]>([]);
   const [savedCardsLoading, setSavedCardsLoading] = useState(false);
@@ -519,7 +517,6 @@ export function PaymentOptions({
                 payerEmail={userEmail}
                 paymentType="credit"
                 onPreparerChange={registerCardPreparer}
-                visualTestMode={visualTestMode}
               />
             </P.FigmaGuestCardForm>
           ) : null}
@@ -531,7 +528,6 @@ export function PaymentOptions({
                 savedCard={selectedSavedCard}
                 paymentType="credit"
                 onPreparerChange={registerCardPreparer}
-                visualTestMode={visualTestMode}
               />
             </P.FigmaSavedCardSecurity>
           ) : null}
@@ -565,7 +561,6 @@ export function PaymentOptions({
                 payerEmail={userEmail}
                 paymentType="debit"
                 onPreparerChange={registerCardPreparer}
-                visualTestMode={visualTestMode}
               />
             </P.FigmaGuestCardForm>
           ) : null}
@@ -806,7 +801,6 @@ export function PaymentOptions({
             payerEmail={userEmail}
             paymentType="credit"
             onPreparerChange={registerCardPreparer}
-            visualTestMode={visualTestMode}
           />
         )}
 
@@ -816,7 +810,6 @@ export function PaymentOptions({
             payerEmail={userEmail}
             paymentType="debit"
             onPreparerChange={registerCardPreparer}
-            visualTestMode={visualTestMode}
           />
         )}
 
@@ -862,8 +855,7 @@ export function PaymentOptions({
                   payerEmail={userEmail}
                   paymentType="credit"
                   onPreparerChange={registerCardPreparer}
-                  visualTestMode={visualTestMode}
-                />
+                  />
               </>
             ) : (
               <S.SavedPaymentChooser>
@@ -919,7 +911,6 @@ export function PaymentOptions({
                 savedCard={selectedSavedCard}
                 paymentType="credit"
                 onPreparerChange={registerCardPreparer}
-                visualTestMode={visualTestMode}
               />
             )}
           </>

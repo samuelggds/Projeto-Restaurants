@@ -10,7 +10,6 @@ import type { CustomerPaymentMethod } from '../../../Services/customerPaymentMet
 import publicCardPaymentService, {
   type PublicCardPaymentConfig,
 } from '../../../Services/publicCardPaymentService';
-import { isLocalPaymentVisualLabRuntime } from '../../dev/paymentVisualLabAccess';
 import { detectCardBrand } from '../../Profile/domain/cardBrand';
 
 export type PreparedCardPayment = Record<string, unknown>;
@@ -101,29 +100,20 @@ export function OnlineCardPaymentForm({
   payerEmail: initialPayerEmail = '',
   paymentType = 'credit',
   onPreparerChange,
-  visualTestMode = false,
 }: {
   restaurantId: number;
   savedCard?: CustomerPaymentMethod | null;
   payerEmail?: string;
   paymentType?: CardPaymentType;
   onPreparerChange: (preparer: CardPaymentPreparer | null) => void;
-  visualTestMode?: boolean;
 }) {
-  const visualTestEnabled = isLocalPaymentVisualLabRuntime() && visualTestMode;
-  const [config, setConfig] = useState<PublicCardPaymentConfig | null>(
-    visualTestEnabled ? { provider: 'MERCADO_PAGO' } : null,
-  );
-  const [holder, setHolder] = useState(
-    savedCard?.holderName || (visualTestEnabled ? 'CLIENTE TESTE VISUAL' : ''),
-  );
-  const [number, setNumber] = useState(visualTestEnabled ? '0000 0000 0000 0000' : '');
-  const [expiry, setExpiry] = useState(visualTestEnabled ? '12/30' : '');
-  const [cvv, setCvv] = useState(visualTestEnabled ? '123' : '');
-  const [taxId, setTaxId] = useState(visualTestEnabled ? '00000000000' : '');
-  const [payerEmail, setPayerEmail] = useState(
-    initialPayerEmail || (visualTestEnabled ? 'teste.visual@example.invalid' : ''),
-  );
+  const [config, setConfig] = useState<PublicCardPaymentConfig | null>(null);
+  const [holder, setHolder] = useState(savedCard?.holderName || '');
+  const [number, setNumber] = useState('');
+  const [expiry, setExpiry] = useState('');
+  const [cvv, setCvv] = useState('');
+  const [taxId, setTaxId] = useState('');
+  const [payerEmail, setPayerEmail] = useState(initialPayerEmail);
   const [postalCode, setPostalCode] = useState('');
   const [addressNumber, setAddressNumber] = useState('');
   const [error, setError] = useState('');
@@ -133,7 +123,6 @@ export function OnlineCardPaymentForm({
   const isSavedMercadoPago = savedCard?.provider === 'MERCADO_PAGO';
 
   useEffect(() => {
-    if (visualTestEnabled) return undefined;
     let active = true;
     publicCardPaymentService
       .getConfig(restaurantId)
@@ -148,10 +137,9 @@ export function OnlineCardPaymentForm({
     return () => {
       active = false;
     };
-  }, [restaurantId, visualTestEnabled]);
+  }, [restaurantId]);
 
   useEffect(() => {
-    if (visualTestEnabled) return undefined;
     if (config?.provider !== 'MERCADO_PAGO' || !config.publicKey) return undefined;
     let active = true;
     const mounted: MercadoPagoField[] = [];
@@ -206,14 +194,10 @@ export function OnlineCardPaymentForm({
       mercadoPagoRef.current = null;
       setMercadoPagoPaymentMethodId('');
     };
-  }, [config, isSavedMercadoPago, paymentType, visualTestEnabled]);
+  }, [config, isSavedMercadoPago, paymentType]);
 
 
   useEffect(() => {
-    if (visualTestEnabled) {
-      onPreparerChange(null);
-      return () => onPreparerChange(null);
-    }
     if (!config) {
       onPreparerChange(null);
       return undefined;
@@ -407,7 +391,6 @@ export function OnlineCardPaymentForm({
     savedCard,
     taxId,
     paymentType,
-    visualTestEnabled,
   ]);
 
   if (isSaved && config?.provider !== 'MERCADO_PAGO') {
@@ -453,56 +436,7 @@ export function OnlineCardPaymentForm({
         </label>
       )}
 
-      {visualTestEnabled && !isSaved ? (
-        <>
-          <label className="full">
-            <span>Número do cartão</span>
-            <input
-              inputMode="numeric"
-              autoComplete="off"
-              value={number}
-              onChange={(event) =>
-                setNumber(
-                  digits(event.target.value)
-                    .slice(0, 19)
-                    .replace(/(.{4})/g, '$1 ')
-                    .trim(),
-                )
-              }
-              aria-label="Número do cartão fictício"
-            />
-          </label>
-          <div className="row">
-            <label>
-              <span>Validade</span>
-              <input
-                inputMode="numeric"
-                autoComplete="off"
-                value={expiry}
-                onChange={(event) =>
-                  setExpiry(
-                    digits(event.target.value)
-                      .slice(0, 4)
-                      .replace(/^(\d{2})(\d)/, '$1/$2'),
-                  )
-                }
-                aria-label="Validade fictícia"
-              />
-            </label>
-            <label>
-              <span>CVV</span>
-              <input
-                type="password"
-                inputMode="numeric"
-                autoComplete="off"
-                value={cvv}
-                onChange={(event) => setCvv(digits(event.target.value).slice(0, 4))}
-                aria-label="CVV fictício"
-              />
-            </label>
-          </div>
-        </>
-      ) : config?.provider === 'MERCADO_PAGO' ? (
+      {config?.provider === 'MERCADO_PAGO' ? (
         <>
           {!isSaved && (
             <label className="full">

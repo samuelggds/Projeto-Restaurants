@@ -40,11 +40,6 @@ const EmployeeOnboardingBoundary = lazy(
   () => import('../components/EmployeeOnboarding/EmployeeOnboardingBoundary'),
 );
 const GastroNexaLanding = lazy(() => import('../pages/Marketing/GastroNexaLanding'));
-import { isLocalPaymentVisualLabRuntime } from '../pages/dev/paymentVisualLabAccess';
-const localPaymentVisualLabEnabled = isLocalPaymentVisualLabRuntime();
-const PaymentVisualLab = localPaymentVisualLabEnabled
-  ? lazy(() => import('../pages/dev/PaymentVisualLab'))
-  : null;
 import api from '../Services/api';
 import tablesService from '../Services/tablesService';
 import restaurantSettingsService from '../Services/restaurantSettingsService';
@@ -379,9 +374,6 @@ export default function AppRoutes() {
                 <Route path="/privacidade/" element={<StaticLegalPageRedirect page="privacidade" />} />
                 <Route path="/cookies" element={<StaticLegalPageRedirect page="cookies" />} />
                 <Route path="/cookies/" element={<StaticLegalPageRedirect page="cookies" />} />
-                {localPaymentVisualLabEnabled && PaymentVisualLab ? (
-                  <Route path="/__dev/pagamentos" element={<PaymentVisualLab />} />
-                ) : null}
                 <Route path="/super_admin/login" element={<Login />} />
                 <Route path="/:restaurantSlug/admin/:accessKey" element={<AdminPortalEntry />} />
                 <Route element={<RouteAuthorizationGuard />}>
