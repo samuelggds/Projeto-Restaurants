@@ -37,7 +37,14 @@ test(
     const productId = fixture.products.a.id;
     await prisma.restaurantSettings.update({
       where: { restaurantId },
-      data: { cardGateway: 'MERCADO_PAGO', pixProvider: 'MERCADO_PAGO' },
+      data: {
+        cardGateway: 'MERCADO_PAGO',
+        pixProvider: 'MERCADO_PAGO',
+        mercadoPagoAccessToken: 'TEST-tenant-e2e-mercado-pago-a',
+        mercadoPagoRefreshToken: 'TEST-tenant-e2e-refresh-a',
+        mercadoPagoTokenExpiresAt: new Date(Date.now() + 3_600_000),
+        mercadoPagoPublicKey: 'TEST-public-key-a',
+      },
     });
     await prisma.product.update({ where: { id: productId }, data: { stock: 10 } });
     const card = getCardCheckoutProviderHandler('MERCADO_PAGO');
@@ -143,6 +150,10 @@ test(
       data: {
         acceptsCard: true,
         cardGateway: 'MERCADO_PAGO',
+        mercadoPagoAccessToken: 'TEST-tenant-e2e-mercado-pago-a',
+        mercadoPagoRefreshToken: 'TEST-tenant-e2e-refresh-a',
+        mercadoPagoTokenExpiresAt: new Date(Date.now() + 3_600_000),
+        mercadoPagoPublicKey: 'TEST-public-key-a',
       },
     });
 
