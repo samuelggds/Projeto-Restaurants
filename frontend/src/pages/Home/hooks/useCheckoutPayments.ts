@@ -396,6 +396,9 @@ export function useCheckoutPayments(options: Options) {
         try {
           cardPayload = await prepareCardPayment();
         } catch (preparationError) {
+          if (paymentMethod === 'debit_card') {
+            throw preparationError;
+          }
           const savedMethods = restaurantId
             ? await customerPaymentMethodService.list(restaurantId).catch(() => [])
             : [];
@@ -407,7 +410,10 @@ export function useCheckoutPayments(options: Options) {
             savedMethods.find((method) => method.isDefault) ||
             savedMethods[0];
           if (!selectedSavedMethod) throw preparationError;
-          cardPayload = { paymentMethodId: selectedSavedMethod.publicId };
+          cardPayload = {
+            paymentMethodId: selectedSavedMethod.publicId,
+            cardPaymentType: 'credit',
+          };
         }
       } else {
         cardPayload = await prepareCardPayment();
@@ -431,7 +437,7 @@ export function useCheckoutPayments(options: Options) {
         setPaymentResult({
           restaurantId,
           status: 'PAID',
-          method: 'Cartão',
+          method: paymentMethod === 'debit_card' ? 'Cartão de débito' : 'Cartão',
           orderId: Number(result.orderId) || null,
           total: Number(result.totalAmount ?? cartTotal),
         });
@@ -527,7 +533,9 @@ export function useCheckoutPayments(options: Options) {
           method:
             paymentMethod === 'pix' || paymentMethod === 'open_finance_pix'
               ? 'Pix'
-              : 'Cartão',
+              : paymentMethod === 'debit_card'
+                ? 'Cartão de débito'
+                : 'Cartão',
           status: 'PENDING',
           reconciliationRequired: true,
         });
