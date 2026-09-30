@@ -223,6 +223,7 @@ class OrderPricingService {
     const freeShippingMinimum = Math.max(Number(settings?.freeShippingMinimum || 0), 0);
     const hasFreeShipping =
       normalizedType === OrderType.DELIVERY &&
+      !deliveryFeeFallbackApplied &&
       freeShippingMinimum > 0 &&
       itemsSubtotal >= freeShippingMinimum;
     const deliveryFeeAmount = hasFreeShipping ? 0 : configuredDeliveryFeeAmount;

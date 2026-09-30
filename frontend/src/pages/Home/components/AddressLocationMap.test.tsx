@@ -69,7 +69,6 @@ describe('AddressLocationMap', () => {
       latitude: -3.7319,
       longitude: -38.5267,
       formattedAddress: 'Rua das Flores, 123 - Fortaleza - CE',
-      locationType: 'ROOFTOP',
       partialMatch: false,
     });
 
@@ -148,7 +147,6 @@ describe('AddressLocationMap', () => {
       latitude: -3.7319,
       longitude: -38.5267,
       formattedAddress: 'Rua das Flores, 123 - Fortaleza - CE',
-      locationType: 'ROOFTOP',
       partialMatch: false,
     });
 
@@ -223,7 +221,7 @@ describe('AddressLocationMap', () => {
     });
 
     expect(container.textContent).toContain(
-      'Não foi possível validar o endereço no momento. Tente novamente em instantes.',
+      'Não conseguimos confirmar o endereço no mapa agora. Confira os dados; se estiverem corretos, você ainda poderá continuar com o pedido.',
     );
     expect(container.textContent).not.toContain('Não encontramos esse endereço no mapa');
     expect(container.textContent).not.toContain('detalhe interno');

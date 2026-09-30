@@ -379,7 +379,6 @@ class OrdersService {
           latitude: number;
           longitude: number;
           formattedAddress: string;
-          locationType: string;
           partialMatch: boolean;
         }
       | undefined;

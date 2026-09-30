@@ -8,7 +8,6 @@ type AddressLocation = {
   latitude: number;
   longitude: number;
   formattedAddress: string;
-  locationType: string;
   partialMatch: boolean;
 };
 
@@ -30,7 +29,6 @@ type GoogleGeocoderResult = {
       lat(): number;
       lng(): number;
     };
-    location_type?: string;
   };
 };
 
@@ -177,7 +175,7 @@ function addressLocationErrorMessage(error: unknown) {
     return 'Não encontramos esse endereço no mapa. Confira rua, número, bairro, cidade e estado.';
   }
 
-  return 'Não foi possível validar o endereço no momento. Tente novamente em instantes.';
+  return 'Não conseguimos confirmar o endereço no mapa agora. Confira os dados; se estiverem corretos, você ainda poderá continuar com o pedido.';
 }
 
 function geocodeWithGoogleMaps(
@@ -204,7 +202,6 @@ function geocodeWithGoogleMaps(
         latitude,
         longitude,
         formattedAddress: String(result?.formatted_address || googleAddressText(address)),
-        locationType: String(result?.geometry?.location_type || 'GEOCODED'),
         partialMatch: result?.partial_match === true,
       });
     });
@@ -453,7 +450,7 @@ export function AddressLocationMap({
         if (!active) return;
         setStatus('error');
         setError(
-          'O endereço foi localizado, mas o Google Maps não pôde ser carregado agora.',
+          'O endereço foi localizado, mas o mapa não pôde ser carregado agora.',
         );
       });
 
@@ -479,7 +476,7 @@ export function AddressLocationMap({
         <S.MapCanvas
           ref={containerRef}
           $visible={Boolean(visibleLocation)}
-          aria-label="Mapa Google com a localização do endereço de entrega"
+          aria-label="Mapa com a localização do endereço de entrega"
         />
 
         {visibleStatus === 'idle' ? (

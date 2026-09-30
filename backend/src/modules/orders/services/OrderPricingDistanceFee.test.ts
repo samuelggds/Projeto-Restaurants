@@ -162,3 +162,20 @@ test('a contingência nunca fica abaixo da maior taxa ativa do restaurante', asy
   assert.equal(quote.deliveryFeeFallbackApplied, true);
   assert.equal(quote.total, 62);
 });
+
+
+test('não aplica frete grátis sem rota validada, preservando a contingência do restaurante', async () => {
+  productRepository.findById = async () => product;
+
+  const quote = await orderPricingService.quote({
+    restaurantId: 7,
+    type: 'DELIVERY',
+    items: [{ productId: 10, quantity: 2 }],
+    deliveryDistanceMeters: null,
+    db: createDb({ freeShippingMinimum: 80 }),
+  });
+
+  assert.equal(quote.deliveryFeeAmount, 99);
+  assert.equal(quote.deliveryFeeFallbackApplied, true);
+  assert.equal(quote.total, 199);
+});
