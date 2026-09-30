@@ -49,6 +49,15 @@ const originalQueryRaw = prisma.$queryRaw;
 const originalFetch = globalThis.fetch;
 const originalFutureProviders = process.env.ENABLE_FUTURE_PAYMENT_PROVIDERS;
 
+function readyMercadoPagoSettings() {
+  return {
+    mercadoPagoAccessToken: 'test-mp-access',
+    mercadoPagoRefreshToken: 'test-mp-refresh',
+    mercadoPagoTokenExpiresAt: new Date(Date.now() + 3_600_000),
+    mercadoPagoPublicKey: 'TEST-public-key',
+  };
+}
+
 test('timeout após cobrança de cartão preserva pedido confirmado, estoque e cupom', async () => {
   process.env.ENABLE_FUTURE_PAYMENT_PROVIDERS = 'true';
   restaurantSettingsRepository.findByRestaurantId = async () => ({
@@ -142,6 +151,7 @@ test('não cria checkout de cartão fora da agenda semanal', async () => {
       closingTime: '23:00',
     })),
     cardGateway: 'MERCADO_PAGO',
+    ...readyMercadoPagoSettings(),
   });
   createOrderService.execute = async () => {
     createOrderCalled = true;
@@ -170,6 +180,7 @@ test('não cria checkout quando o restaurante desativou pagamentos com cartão',
     businessHours: [],
     acceptsCard: false,
     cardGateway: 'MERCADO_PAGO',
+    ...readyMercadoPagoSettings(),
   });
   createOrderService.execute = async () => {
     createOrderCalled = true;
@@ -191,6 +202,42 @@ test('não cria checkout quando o restaurante desativou pagamentos com cartão',
   assert.equal(createOrderCalled, false);
 });
 
+
+test('não cria pedido quando o Mercado Pago conectado exige reconexão', async () => {
+  let createOrderCalled = false;
+  restaurantSettingsRepository.findByRestaurantId = async () => ({
+    restaurantId: 9,
+    isOpenForOrders: true,
+    businessHours: [],
+    acceptsCard: true,
+    cardGateway: 'MERCADO_PAGO',
+    mercadoPagoAccessToken: 'legacy-access',
+    mercadoPagoRefreshToken: null,
+    mercadoPagoPublicKey: 'TEST-public-key',
+  });
+  createOrderService.execute = async () => {
+    createOrderCalled = true;
+    throw new Error('não deveria criar pedido');
+  };
+
+  await assert.rejects(
+    () =>
+      createOrderCardCheckoutService.execute({
+        restaurantId: 9,
+        userRestaurantId: 9,
+        type: 'RETIRADA',
+        paymentMethod: 'CARTAO',
+        cardPaymentType: 'credit',
+        cardToken: 'test-token',
+        cardPaymentMethodId: 'visa',
+        items: [{ productId: 1, quantity: 1 }],
+      }),
+    /reconecte o Mercado Pago/i,
+  );
+
+  assert.equal(createOrderCalled, false);
+});
+
 test('orquestra débito mantendo tipo explícito e tenant do restaurante', async () => {
   restaurantSettingsRepository.findByRestaurantId = async (restaurantId) => {
     assert.equal(Number(restaurantId), 9);
@@ -200,6 +247,7 @@ test('orquestra débito mantendo tipo explícito e tenant do restaurante', async
       businessHours: [],
       acceptsCard: true,
       cardGateway: 'MERCADO_PAGO',
+    ...readyMercadoPagoSettings(),
     };
   };
 
@@ -313,6 +361,7 @@ test('recusa débito sem token antes de criar pedido ou abrir checkout de crédi
     businessHours: [],
     acceptsCard: true,
     cardGateway: 'MERCADO_PAGO',
+    ...readyMercadoPagoSettings(),
   });
   createOrderService.execute = async () => {
     createOrderCalled = true;
@@ -343,6 +392,7 @@ test('recusa tipo de cartão manipulado antes de criar o pedido', async () => {
     businessHours: [],
     acceptsCard: true,
     cardGateway: 'MERCADO_PAGO',
+    ...readyMercadoPagoSettings(),
   });
   createOrderService.execute = async () => {
     createOrderCalled = true;
