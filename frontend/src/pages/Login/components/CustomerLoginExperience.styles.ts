@@ -582,18 +582,11 @@ export const GoogleVisual = styled.div`
   line-height: 20px;
   font-weight: 600;
 
-  .google-g {
+  .google-brand-icon {
     width: 20px;
     height: 20px;
-    border: 0.5px solid #d9d9d9;
-    border-radius: 10px;
-    background: #fff;
-    color: #4285f4;
-    display: grid;
-    place-items: center;
-    font-size: 14px;
-    line-height: 1;
-    font-weight: 700;
+    flex: 0 0 20px;
+    display: block;
   }
 `;
 
