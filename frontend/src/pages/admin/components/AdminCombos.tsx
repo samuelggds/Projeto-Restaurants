@@ -83,6 +83,16 @@ function toInput(combo: ComboRecord): ComboInput {
   };
 }
 
+function isSimpleChoiceGroup(group: ComboGroupInput) {
+  return group.options.every(
+    (option) =>
+      Number(option.additionalPrice || 0) === 0 &&
+      option.minQuantity <= 1 &&
+      option.maxQuantity <= 1 &&
+      option.defaultQuantity <= 1,
+  );
+}
+
 export function AdminCombos({ products, money, onChanged }: Props) {
   const [combos, setCombos] = useState<ComboRecord[]>([]);
   const [loading, setLoading] = useState(true);
@@ -221,18 +231,22 @@ export function AdminCombos({ products, money, onChanged }: Props) {
       ...current,
       groups: current.groups.map((group, index) => {
         if (index !== groupIndex) return group;
-        const autoSelectOnlyOption = quantity === 1 && group.options.length === 1;
+        const simpleChoiceGroup = isSimpleChoiceGroup(group);
+        const autoSelectOnlyOption =
+          simpleChoiceGroup && quantity === 1 && group.options.length === 1;
         return {
           ...group,
           minSelections: quantity,
           maxSelections: quantity,
-          options: group.options.map((option) => ({
-            ...option,
-            minQuantity: autoSelectOnlyOption ? 1 : 0,
-            maxQuantity: 1,
-            defaultQuantity: autoSelectOnlyOption ? 1 : 0,
-            locked: autoSelectOnlyOption,
-          })),
+          options: simpleChoiceGroup
+            ? group.options.map((option) => ({
+                ...option,
+                minQuantity: autoSelectOnlyOption ? 1 : 0,
+                maxQuantity: 1,
+                defaultQuantity: autoSelectOnlyOption ? 1 : 0,
+                locked: autoSelectOnlyOption,
+              }))
+            : group.options,
         };
       }),
     }));
@@ -315,19 +329,23 @@ export function AdminCombos({ products, money, onChanged }: Props) {
             active: true,
           },
         ];
+        const simpleChoiceGroup = isSimpleChoiceGroup(currentGroup);
         const autoSelectOnlyOption =
+          simpleChoiceGroup &&
           currentGroup.minSelections === 1 &&
           currentGroup.maxSelections === 1 &&
           rawOptions.length === 1;
         return {
           ...currentGroup,
-          options: rawOptions.map((option) => ({
-            ...option,
-            minQuantity: autoSelectOnlyOption ? 1 : 0,
-            maxQuantity: 1,
-            defaultQuantity: autoSelectOnlyOption ? 1 : 0,
-            locked: autoSelectOnlyOption,
-          })),
+          options: simpleChoiceGroup
+            ? rawOptions.map((option) => ({
+                ...option,
+                minQuantity: autoSelectOnlyOption ? 1 : 0,
+                maxQuantity: 1,
+                defaultQuantity: autoSelectOnlyOption ? 1 : 0,
+                locked: autoSelectOnlyOption,
+              }))
+            : rawOptions,
         };
       }),
     }));
@@ -346,16 +364,20 @@ export function AdminCombos({ products, money, onChanged }: Props) {
           1,
           Math.min(group.minSelections, Math.max(options.length, 1)),
         );
-        const autoSelectOnlyOption = nextRequired === 1 && options.length === 1;
+        const simpleChoiceGroup = isSimpleChoiceGroup(group);
+        const autoSelectOnlyOption =
+          simpleChoiceGroup && nextRequired === 1 && options.length === 1;
         return {
           ...group,
-          options: options.map((option) => ({
-            ...option,
-            minQuantity: autoSelectOnlyOption ? 1 : 0,
-            maxQuantity: 1,
-            defaultQuantity: autoSelectOnlyOption ? 1 : 0,
-            locked: autoSelectOnlyOption,
-          })),
+          options: simpleChoiceGroup
+            ? options.map((option) => ({
+                ...option,
+                minQuantity: autoSelectOnlyOption ? 1 : 0,
+                maxQuantity: 1,
+                defaultQuantity: autoSelectOnlyOption ? 1 : 0,
+                locked: autoSelectOnlyOption,
+              }))
+            : options,
           minSelections: nextRequired,
           maxSelections: nextRequired,
         };
