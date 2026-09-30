@@ -191,6 +191,176 @@ function MiniHouse3DMarker() {
   );
 }
 
+
+type IsoBuildingProps = {
+  x: number;
+  y: number;
+  scale?: number;
+  variant?: 'light' | 'warm' | 'cool';
+};
+
+function IsoBuilding({ x, y, scale = 1, variant = 'light' }: IsoBuildingProps) {
+  const palette =
+    variant === 'warm'
+      ? { top: '#f4e1c8', left: '#d7b895', right: '#c7a27d' }
+      : variant === 'cool'
+        ? { top: '#e8edf0', left: '#c8d0d4', right: '#b6c0c6' }
+        : { top: '#f2eee7', left: '#d8d3ca', right: '#c7c1b8' };
+
+  return (
+    <g transform={`translate(${x} ${y}) scale(${scale})`}>
+      <polygon points="0,10 18,2 34,10 16,18" fill={palette.top} />
+      <polygon points="0,10 16,18 16,35 0,27" fill={palette.left} />
+      <polygon points="16,18 34,10 34,27 16,35" fill={palette.right} />
+      <polygon points="5,11 17,6 28,11 16,16" fill="rgba(255,255,255,.34)" />
+      <rect x="4" y="17" width="3" height="5" rx=".5" fill="rgba(91,101,105,.22)" />
+      <rect x="10" y="20" width="3" height="5" rx=".5" fill="rgba(91,101,105,.18)" />
+      <rect x="23" y="17" width="3" height="5" rx=".5" fill="rgba(91,101,105,.18)" />
+    </g>
+  );
+}
+
+function IsoTree({ x, y, scale = 1 }: { x: number; y: number; scale?: number }) {
+  return (
+    <g transform={`translate(${x} ${y}) scale(${scale})`}>
+      <ellipse cx="0" cy="5" rx="4.4" ry="2.2" fill="rgba(63,79,57,.18)" />
+      <rect x="-0.7" y="-1" width="1.4" height="6" rx=".6" fill="#8a6a4d" />
+      <circle cx="-1.5" cy="-2" r="3.2" fill="#789f55" />
+      <circle cx="2" cy="-1" r="3.4" fill="#6f9650" />
+      <circle cx=".3" cy="-4.2" r="3.5" fill="#88aa60" />
+    </g>
+  );
+}
+
+function IsometricCityScene() {
+  return (
+    <svg
+      data-testid="visual-isometric-city"
+      viewBox="0 0 100 100"
+      preserveAspectRatio="none"
+      aria-hidden="true"
+      style={styles.isometricSvg}
+    >
+      <defs>
+        <linearGradient id="iso-ground" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stopColor="#efe8d9" />
+          <stop offset="100%" stopColor="#e5ddcd" />
+        </linearGradient>
+        <linearGradient id="iso-water" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stopColor="#5aa8b5" />
+          <stop offset="100%" stopColor="#2f8495" />
+        </linearGradient>
+        <filter id="iso-shadow" x="-40%" y="-40%" width="180%" height="180%">
+          <feDropShadow dx="0" dy="1.2" stdDeviation="1.1" floodColor="#574f45" floodOpacity=".2" />
+        </filter>
+      </defs>
+
+      <rect width="100" height="100" fill="url(#iso-ground)" />
+      <path
+        d="M83 100 C81 89 88 82 91 72 C94 62 92 54 100 46 L100 100 Z"
+        fill="url(#iso-water)"
+      />
+      <path
+        d="M80 100 C79 89 86 80 88 72 C91 61 89 52 98 44"
+        fill="none"
+        stroke="#d4c8b6"
+        strokeWidth="2.3"
+      />
+
+      <g opacity=".92">
+        <path d="M-7 22 L36 2 M5 37 L48 16 M17 52 L60 31 M31 68 L73 48 M44 83 L88 61 M57 98 L100 76" stroke="#5f6060" strokeWidth="4.1" />
+        <path d="M-7 22 L36 2 M5 37 L48 16 M17 52 L60 31 M31 68 L73 48 M44 83 L88 61 M57 98 L100 76" stroke="#eee7db" strokeWidth="3.1" />
+        <path d="M7 -3 L78 100 M27 -7 L94 91 M49 -5 L100 68 M-4 16 L57 100" stroke="#5f6060" strokeWidth="3.7" />
+        <path d="M7 -3 L78 100 M27 -7 L94 91 M49 -5 L100 68 M-4 16 L57 100" stroke="#eee7db" strokeWidth="2.8" />
+      </g>
+
+      <g opacity=".7">
+        <path d="M10 14 L33 5 L45 14 L22 24 Z" fill="#ded4c4" />
+        <path d="M53 8 L76 0 L89 9 L66 19 Z" fill="#ded4c4" />
+        <path d="M6 57 L26 49 L38 58 L18 67 Z" fill="#ded4c4" />
+        <path d="M56 58 L77 50 L89 59 L67 68 Z" fill="#ded4c4" />
+        <path d="M15 79 L34 72 L47 81 L27 89 Z" fill="#ded4c4" />
+      </g>
+
+      <g filter="url(#iso-shadow)">
+        <IsoBuilding x={7} y={10} scale={0.92} />
+        <IsoBuilding x={18} y={5} scale={0.75} variant="cool" />
+        <IsoBuilding x={31} y={10} scale={0.68} />
+        <IsoBuilding x={48} y={4} scale={0.9} />
+        <IsoBuilding x={62} y={10} scale={0.74} variant="warm" />
+        <IsoBuilding x={75} y={13} scale={0.62} />
+        <IsoBuilding x={2} y={32} scale={0.73} />
+        <IsoBuilding x={18} y={30} scale={0.88} variant="cool" />
+        <IsoBuilding x={36} y={33} scale={0.67} />
+        <IsoBuilding x={66} y={30} scale={0.9} />
+        <IsoBuilding x={81} y={31} scale={0.66} variant="cool" />
+        <IsoBuilding x={4} y={53} scale={0.86} />
+        <IsoBuilding x={24} y={52} scale={0.7} variant="warm" />
+        <IsoBuilding x={41} y={55} scale={0.93} />
+        <IsoBuilding x={70} y={52} scale={0.74} />
+        <IsoBuilding x={82} y={57} scale={0.58} variant="warm" />
+        <IsoBuilding x={7} y={73} scale={0.68} />
+        <IsoBuilding x={22} y={72} scale={0.88} variant="cool" />
+        <IsoBuilding x={39} y={76} scale={0.65} />
+        <IsoBuilding x={55} y={74} scale={0.84} />
+        <IsoBuilding x={71} y={76} scale={0.7} variant="warm" />
+      </g>
+
+      <g>
+        <IsoTree x={13} y={26} scale={0.65} />
+        <IsoTree x={20} y={22} scale={0.55} />
+        <IsoTree x={43} y={19} scale={0.7} />
+        <IsoTree x={56} y={23} scale={0.55} />
+        <IsoTree x={72} y={23} scale={0.62} />
+        <IsoTree x={86} y={20} scale={0.55} />
+        <IsoTree x={12} y={48} scale={0.62} />
+        <IsoTree x={31} y={45} scale={0.58} />
+        <IsoTree x={49} y={45} scale={0.7} />
+        <IsoTree x={61} y={46} scale={0.62} />
+        <IsoTree x={77} y={44} scale={0.64} />
+        <IsoTree x={18} y={68} scale={0.55} />
+        <IsoTree x={33} y={66} scale={0.7} />
+        <IsoTree x={52} y={67} scale={0.58} />
+        <IsoTree x={64} y={69} scale={0.68} />
+        <IsoTree x={80} y={70} scale={0.55} />
+        <IsoTree x={12} y={91} scale={0.62} />
+        <IsoTree x={31} y={90} scale={0.58} />
+        <IsoTree x={50} y={91} scale={0.68} />
+        <IsoTree x={72} y={90} scale={0.6} />
+      </g>
+
+      <polyline
+        points={VISUAL_STREET_SVG_POINTS}
+        fill="none"
+        stroke="#626161"
+        strokeWidth="6"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <polyline
+        points={VISUAL_STREET_SVG_POINTS}
+        fill="none"
+        stroke="#f0e9dd"
+        strokeWidth="4.4"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <polyline
+        points={VISUAL_STREET_SVG_POINTS}
+        fill="none"
+        stroke="#d2c8b9"
+        strokeWidth=".45"
+        strokeDasharray="1.4 1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+
+      <path d="M78 82 L91 76 L94 80 L81 86 Z" fill="#d6d0c6" stroke="#8d8c88" strokeWidth=".5" />
+      <path d="M79 81.5 L92 75.5" stroke="#f6f2eb" strokeWidth="1.1" />
+    </svg>
+  );
+}
+
 export default function DeliveryTrackingVisualLab({ onBack }: { onBack?: () => void }) {
   const startedAtRef = useRef(0);
   const [progress, setProgress] = useState(0);
@@ -237,9 +407,10 @@ export default function DeliveryTrackingVisualLab({ onBack }: { onBack?: () => v
     () => getVisualCameraRotation(currentFrame.angleDegrees),
     [currentFrame.angleDegrees],
   );
+  const visualCameraRotation = cameraRotation * 0.08;
   const courierDirectionIndex = useMemo(
-    () => getCourierDirectionIndex(currentFrame.angleDegrees, cameraRotation),
-    [cameraRotation, currentFrame.angleDegrees],
+    () => getCourierDirectionIndex(currentFrame.angleDegrees, visualCameraRotation),
+    [currentFrame.angleDegrees, visualCameraRotation],
   );
   const courierDirection = COURIER_DIRECTION_NAMES[
     courierDirectionIndex
@@ -272,7 +443,7 @@ export default function DeliveryTrackingVisualLab({ onBack }: { onBack?: () => v
   };
 
   return (
-    <section data-testid="delivery-tracking-visual-lab" data-map-source="fictitious-google-style" data-animation-duration-ms={VISUAL_TRACKING_ANIMATION_MS} style={styles.page}>
+    <section data-testid="delivery-tracking-visual-lab" data-map-source="local-isometric-cartoon" data-animation-duration-ms={VISUAL_TRACKING_ANIMATION_MS} style={styles.page}>
       <style>{`
         [data-testid="visual-origin-restaurant-marker"] > span:first-child > span:nth-child(3) i:nth-child(odd) {
           background: #e85a2b;
@@ -345,7 +516,7 @@ export default function DeliveryTrackingVisualLab({ onBack }: { onBack?: () => v
               className="visual-fake-map"
               data-testid="visual-fictitious-map"
               data-courier-progress={progress.toFixed(4)}
-              data-camera-rotation={cameraRotation.toFixed(2)}
+              data-camera-rotation={visualCameraRotation.toFixed(2)}
               style={styles.fakeMap}
             >
               <div
@@ -353,79 +524,28 @@ export default function DeliveryTrackingVisualLab({ onBack }: { onBack?: () => v
                 style={{
                   ...styles.mapScene,
                   transformOrigin: `${currentMapPosition.x}% ${currentMapPosition.y}%`,
-                  transform: `translate(${cameraTranslate.x}%, ${cameraTranslate.y}%) rotate(${cameraRotation}deg) scale(1.18)`,
+                  transform: `translate(${cameraTranslate.x}%, ${cameraTranslate.y}%) rotate(${visualCameraRotation}deg) scale(1.22)`,
                 }}
               >
-              <div style={{ ...styles.cityBlock, top: '5%', left: '5%', width: '27%', height: '17%' }} />
-              <div style={{ ...styles.cityBlock, top: '7%', left: '58%', width: '30%', height: '18%' }} />
-              <div style={{ ...styles.cityBlock, top: '31%', left: '8%', width: '25%', height: '18%' }} />
-              <div style={{ ...styles.cityBlock, top: '31%', left: '62%', width: '28%', height: '17%' }} />
-              <div style={{ ...styles.cityBlock, top: '59%', left: '7%', width: '27%', height: '17%' }} />
-              <div style={{ ...styles.cityBlock, top: '62%', left: '64%', width: '25%', height: '17%' }} />
-
-              <div style={{ ...styles.road, top: '24%', left: '-5%', width: '112%', transform: 'rotate(-4deg)' }} />
-              <div style={{ ...styles.road, top: '51%', left: '-4%', width: '111%', transform: 'rotate(5deg)' }} />
-              <div style={{ ...styles.road, top: '78%', left: '-5%', width: '112%', transform: 'rotate(-3deg)' }} />
-              <div style={{ ...styles.road, top: '-2%', left: '22%', width: '104%', transform: 'rotate(88deg)' }} />
-              <div style={{ ...styles.road, top: '-1%', left: '52%', width: '103%', transform: 'rotate(91deg)' }} />
-              <div style={{ ...styles.road, top: '1%', left: '79%', width: '101%', transform: 'rotate(94deg)' }} />
-
-              <span style={{ ...styles.mapLabel, top: '19%', left: '8%' }}>Rua das Palmeiras</span>
-              <span style={{ ...styles.mapLabel, top: '45%', left: '66%' }}>Rua do Bosque</span>
-              <span style={{ ...styles.mapLabel, top: '73%', left: '9%' }}>Av. Principal</span>
-              <span style={{ ...styles.mapLabelPoi, top: '37%', left: '43%' }}>Praça Central</span>
-
-              <svg
-                viewBox="0 0 100 100"
-                preserveAspectRatio="none"
-                aria-hidden="true"
-                style={styles.streetSvg}
-              >
-                <polyline
-                  points={VISUAL_STREET_SVG_POINTS}
-                  fill="none"
-                  stroke="#cfd7da"
-                  strokeWidth="5.8"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-                <polyline
-                  points={VISUAL_STREET_SVG_POINTS}
-                  fill="none"
-                  stroke="#ffffff"
-                  strokeWidth="4.6"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-                <polyline
-                  points={VISUAL_STREET_SVG_POINTS}
-                  fill="none"
-                  stroke="#e9edef"
-                  strokeWidth=".35"
-                  strokeDasharray="1.1 1.1"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              </svg>
-
-              <div
-                style={{
-                  ...styles.originBuildingPosition,
-                  left: `${originMapPosition.x}%`,
-                  top: `${originMapPosition.y}%`,
-                }}
-              >
-                <MiniRestaurant3DMarker />
-              </div>
-              <div
-                style={{
-                  ...styles.destinationBuildingPosition,
-                  left: `${destinationMapPosition.x}%`,
-                  top: `${destinationMapPosition.y}%`,
-                }}
-              >
-                <MiniHouse3DMarker />
-              </div>
+                <IsometricCityScene />
+                <div
+                  style={{
+                    ...styles.originBuildingPosition,
+                    left: `${originMapPosition.x}%`,
+                    top: `${originMapPosition.y}%`,
+                  }}
+                >
+                  <MiniRestaurant3DMarker />
+                </div>
+                <div
+                  style={{
+                    ...styles.destinationBuildingPosition,
+                    left: `${destinationMapPosition.x}%`,
+                    top: `${destinationMapPosition.y}%`,
+                  }}
+                >
+                  <MiniHouse3DMarker />
+                </div>
               </div>
               <div
                 data-testid="visual-courier-marker"
@@ -453,7 +573,7 @@ export default function DeliveryTrackingVisualLab({ onBack }: { onBack?: () => v
                 />
               </div>
               <div style={styles.etaBadge}>Chega em 15 min</div>
-              <small style={styles.fakeMapNotice}>Mapa fictício para teste visual local</small>
+              <small style={styles.fakeMapNotice}>Maquete isométrica local — sem Google Maps</small>
             </div>
             <div className="tracking-animation-badge" aria-live="polite" style={styles.animationBadge}>
               <Bike size={14} />
@@ -520,8 +640,9 @@ const styles: Record<string, CSSProperties> = {
   title: { margin: '0 0 22px', fontSize: 'clamp(24px, 3vw, 32px)', lineHeight: 1.1 },
   layout: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 330px), 1fr))', gap: 30, alignItems: 'start' },
   mapCard: { position: 'relative', minWidth: 0 },
-  fakeMap: { position: 'relative', width: '100%', height: 'min(68vh, 650px)', minHeight: 520, overflow: 'hidden', isolation: 'isolate', border: '1px solid #d7dfe2', borderRadius: 12, background: 'linear-gradient(180deg,#eef3f1 0%,#e8eeec 100%)', boxShadow: 'inset 0 0 0 1px rgba(255,255,255,.65)' },
-  mapScene: { position: 'absolute', zIndex: 1, inset: 0, width: '100%', height: '100%', willChange: 'transform', transition: 'transform 720ms cubic-bezier(.22,1,.36,1)' },
+  fakeMap: { position: 'relative', width: '100%', height: 'min(68vh, 650px)', minHeight: 520, overflow: 'hidden', isolation: 'isolate', border: '1px solid #d6cdbc', borderRadius: 12, background: 'linear-gradient(180deg,#efe8d9 0%,#e4dccd 100%)', boxShadow: 'inset 0 0 0 1px rgba(255,255,255,.58)' },
+  mapScene: { position: 'absolute', zIndex: 1, inset: '-6%', width: '112%', height: '112%', willChange: 'transform', transition: 'transform 720ms cubic-bezier(.22,1,.36,1)', filter: 'saturate(.95) contrast(.98)' },
+  isometricSvg: { position: 'absolute', inset: 0, width: '100%', height: '100%', display: 'block', filter: 'drop-shadow(0 10px 18px rgba(74,65,52,.08))' },
   cityBlock: { position: 'absolute', zIndex: 0, border: '1px solid #dfe5e2', borderRadius: 9, background: 'linear-gradient(145deg,#e1e8df 0%,#d8e1d8 100%)', boxShadow: 'inset 0 0 0 3px rgba(255,255,255,.22)' },
   road: { position: 'absolute', zIndex: 1, height: 13, border: '1px solid #d5dcdf', background: '#fff', boxShadow: '0 0 0 2px rgba(222,228,231,.9)' },
   mapLabel: { position: 'absolute', zIndex: 2, color: '#6d777c', fontSize: 10, fontWeight: 600, transform: 'rotate(-4deg)' },
