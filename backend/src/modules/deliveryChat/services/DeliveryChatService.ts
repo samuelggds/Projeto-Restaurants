@@ -364,6 +364,7 @@ class DeliveryChatService {
       message: chatMessage,
     };
 
+    io.to(`guest-order:${order.id}`).emit('delivery:chat-message', event);
     if (order.userId) io.to(`user:${order.userId}`).emit('delivery:chat-message', event);
     io.to(`user:${order.assignedCourierId}`).emit('delivery:chat-message', event);
     io.to(`restaurant:${order.restaurantId}:admin`).emit('delivery:chat-message', event);

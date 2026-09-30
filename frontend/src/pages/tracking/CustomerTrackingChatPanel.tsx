@@ -1,0 +1,19 @@
+import { FormEvent, useEffect, useRef, useState } from 'react';
+import { Send } from 'lucide-react';
+import styled from 'styled-components';
+import deliveryChatService,{type DeliveryChatMessage,type DeliveryChatSnapshot} from '../../Services/deliveryChatService';
+
+function merge(list:DeliveryChatMessage[],m:DeliveryChatMessage){const next=list.some(x=>x.id===m.id)?list.map(x=>x.id===m.id?{...x,...m}:x):[...list,m];return next.sort((a,b)=>Date.parse(a.createdAt)-Date.parse(b.createdAt));}
+export function CustomerTrackingChatPanel({orderId,courierName}:{orderId:number;courierName:string}){
+ const [snapshot,setSnapshot]=useState<DeliveryChatSnapshot|null>(null),[draft,setDraft]=useState(''),[error,setError]=useState(''),[sending,setSending]=useState(false);const end=useRef<HTMLDivElement|null>(null);
+ useEffect(()=>{let active=true,busy=false;const refresh=async()=>{if(busy)return;busy=true;try{const next=await deliveryChatService.get(orderId);if(active)setSnapshot(cur=>cur?{...next,messages:next.messages.reduce((a,m)=>merge(a,m),cur.messages)}:next);if(active)setError('');}catch(e){if(active)setError((e as any)?.response?.data?.error||'Não foi possível abrir o chat desta entrega.');}finally{busy=false;}};void refresh();const id=setInterval(refresh,5000);return()=>{active=false;clearInterval(id);};},[orderId]);
+ useEffect(()=>end.current?.scrollIntoView({behavior:'smooth',block:'end'}),[snapshot?.messages.length]);
+ async function submit(e:FormEvent){e.preventDefault();const msg=draft.replace(/\s+/g,' ').trim();if(!msg||sending||snapshot?.thread.readOnly)return;setSending(true);setError('');try{const result=await deliveryChatService.send(orderId,msg);if(result?.message)setSnapshot(cur=>cur?{...cur,messages:merge(cur.messages,result.message)}:cur);setDraft('');}catch(err){setError((err as any)?.response?.data?.error||'Não foi possível enviar a mensagem.');}finally{setSending(false);}}
+ return <Card><h2>Mensagens com {courierName}</h2><Messages>{snapshot?.messages.map(m=>String(m.senderRole).toUpperCase()==='SYSTEM'?<System key={m.id}>{m.message}</System>:<Bubble key={m.id} $mine={String(m.senderRole).toUpperCase()==='CUSTOMER'}><p>{m.message}</p><time>{new Date(m.createdAt).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}</time></Bubble>)}<div ref={end}/></Messages>{error?<Err role="alert">{error}</Err>:null}<Form onSubmit={submit}><input value={draft} onChange={e=>setDraft(e.target.value.slice(0,500))} disabled={!snapshot||snapshot.thread.readOnly||sending} placeholder={snapshot?.thread.readOnly?'Conversa encerrada':'Enviar mensagem para o entregador...'}/><button disabled={!draft.trim()||!snapshot||snapshot.thread.readOnly||sending}><Send/></button></Form></Card>;
+}
+const Card=styled.section`padding:20px;border:1px solid #e5e1dc;border-radius:15px;background:#fff;box-shadow:0 8px 24px rgba(31,30,26,.035);h2{margin:0 0 14px;font-size:14px}`;
+const Messages=styled.div`min-height:180px;max-height:300px;display:flex;flex-direction:column;gap:10px;overflow-y:auto`;
+const Bubble=styled.div<{$mine:boolean}>`max-width:86%;padding:10px 11px;align-self:${p=>p.$mine?'flex-end':'flex-start'};border-radius:11px;background:${p=>p.$mine?'#fff0eb':'#f6f5f3'};color:${p=>p.$mine?'#a84425':'#333'};p{margin:0;font-size:10px;line-height:1.45}time{display:block;margin-top:4px;color:#98938d;font-size:8px;text-align:right}`;
+const System=styled.p`align-self:center;margin:0;padding:6px 10px;border-radius:999px;background:#f2f6f3;color:#69736e;font-size:9px`;
+const Err=styled.p`margin:8px 0 0;color:#a2372a;font-size:10px`;
+const Form=styled.form`margin-top:12px;padding:3px 4px 3px 10px;display:grid;grid-template-columns:1fr 36px;gap:5px;border:1px solid #e6e2dd;border-radius:10px;input{min-width:0;height:38px;border:0;outline:0;font-size:10px}button{width:34px;height:34px;display:grid;place-items:center;border:0;background:transparent;color:#e8562c}svg{width:17px}`;

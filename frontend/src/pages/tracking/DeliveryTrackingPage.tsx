@@ -4,6 +4,7 @@ import {
   Ban,
   Bike,
   CheckCircle2,
+  CircleDot,
   Clock3,
   LocateFixed,
   MapPin,
@@ -15,7 +16,7 @@ import ordersService, { getGuestOrderTrackingToken } from '../../Services/orders
 import { acquireSocket } from '../../Services/socketService';
 import { getAccessToken } from '../../modules/auth/session/authSession';
 import { mergeCourierRoutePoints } from '../Courier/domain/courierLocation';
-import { CustomerTrackingChatButton } from './CustomerTrackingChatButton';
+import { CustomerTrackingChatPanel } from './CustomerTrackingChatPanel';
 import DeliveryConfirmationCodePrompt from './DeliveryConfirmationCodePrompt';
 import {
   mergeTrackingLocation,
@@ -440,6 +441,8 @@ function DeliveryTrackingContent({ id }: { id?: string }) {
                       routePath={isTerminal ? [] : data.order.routeEstimate?.routeCoordinates || []}
                       destination={data.order.routeEstimate?.destination}
                       label={data.order.assignedCourier?.name || 'Motoqueiro'}
+                      etaMinutes={routeMinutes}
+                      distanceMeters={data.order.routeEstimate?.distanceMeters ?? null}
                       statusMessage={
                         isDelivered
                           ? 'Seu pedido foi entregue'
@@ -530,8 +533,23 @@ function DeliveryTrackingContent({ id }: { id?: string }) {
                     ) : null}
                   </S.Destination>
                 ) : null}
-                {data.order.status === 'SAIU_PARA_ENTREGA' && data.order.assignedCourier ? (
-                  <CustomerTrackingChatButton orderId={data.order.id} />
+                {!isCancelled ? (
+                  <S.DeliveryStatusCard>
+                    <h2>Status da Entrega</h2>
+                    <S.DeliveryStatusList>
+                      <S.DeliveryStatusItem $active={!isDelivered} $complete={isDelivered}>
+                        {isDelivered ? <CheckCircle2 /> : <CircleDot />}
+                        <span>Saiu para entrega</span>
+                      </S.DeliveryStatusItem>
+                      <S.DeliveryStatusItem $active={isDelivered} $complete={isDelivered}>
+                        {isDelivered ? <CheckCircle2 /> : <CircleDot />}
+                        <span>Entregue</span>
+                      </S.DeliveryStatusItem>
+                    </S.DeliveryStatusList>
+                  </S.DeliveryStatusCard>
+                ) : null}
+                {data.order.assignedCourier && !isCancelled ? (
+                  <CustomerTrackingChatPanel orderId={data.order.id} courierName={data.order.assignedCourier.name || 'Motoqueiro'} />
                 ) : null}
                 {data.order.assignedCourier?.phone ? (
                   <S.Contact href={`tel:${data.order.assignedCourier.phone}`}>

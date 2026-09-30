@@ -108,6 +108,8 @@ function CourierWazeLauncher({
   routePath,
   statusDetail,
   destinationQuery,
+  etaMinutes,
+  distanceMeters,
 }: {
   destination?: RoutePoint & { label?: string };
   routePath: RoutePoint[];
@@ -204,6 +206,8 @@ export default function DeliveryMap({
   statusMessage?: string;
   statusDetail?: string;
   tilesEnabled?: boolean;
+  etaMinutes?: number | null;
+  distanceMeters?: number | null;
 }) {
   const pathname = typeof window !== 'undefined' ? window.location.pathname : '';
   const customerTrackingRoute = /^\/orders\/\d+\/tracking\/?$/u.test(pathname);
@@ -216,6 +220,8 @@ export default function DeliveryMap({
         routePath={routePath}
         destination={destination}
         courierName={label}
+        etaMinutes={etaMinutes}
+        distanceMeters={distanceMeters}
         isTerminal={statusMessage === 'Seu pedido foi entregue' || statusMessage === 'Entrega cancelada'}
       />
     );
@@ -263,7 +269,7 @@ export default function DeliveryMap({
               positions={plannedRoute}
               className="delivery-planned-route"
               pathOptions={{
-                color: '#2563eb',
+                color: '#e96725',
                 weight: 5,
                 opacity: 0.96,
                 lineCap: 'round',
