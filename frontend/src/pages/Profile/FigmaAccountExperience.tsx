@@ -27,6 +27,7 @@ import { CustomerDesktopFooter } from '../Home/components/CustomerDesktopFooter'
 import { PaymentCardVisual } from './components/PaymentCardVisual';
 import { CardBrandLogo } from './components/CardBrandLogo';
 import { getCardBrandDetails } from './domain/cardBrand';
+import { useAppDialog } from '../../components/AppDialog/context';
 import type {
   ActiveProfileOrder,
   ProfileData,
@@ -85,6 +86,7 @@ function orderProgressIndex(order: AccountOrder) {
 }
 
 function FigmaAccountExperienceReady(props: ProfilePageProps & { data: ProfileData }) {
+  const { confirmDialog } = useAppDialog();
   const {
     data,
     initialView = 'overview',
@@ -174,6 +176,18 @@ function FigmaAccountExperienceReady(props: ProfilePageProps & { data: ProfileDa
     enabled: boolean,
   ) => {
     localStorage.setItem(key, enabled ? 'on' : 'off');
+  };
+
+  const confirmAccountDeactivation = async () => {
+    const confirmed = await confirmDialog({
+      title: 'Desativar sua conta?',
+      description:
+        'Você perderá o acesso à conta até que ela seja reativada pelos fluxos disponíveis. Seus pedidos e registros necessários para a operação não serão apagados por esta ação.',
+      confirmLabel: 'Desativar conta',
+      cancelLabel: 'Manter minha conta',
+      tone: 'danger',
+    });
+    if (confirmed) await onDeactivateAccount?.();
   };
 
   const goBack = () => {
@@ -462,11 +476,7 @@ function FigmaAccountExperienceReady(props: ProfilePageProps & { data: ProfileDa
           <button
             className="link"
             type="button"
-            onClick={() => {
-              if (window.confirm('Deseja realmente desativar sua conta?')) {
-                void onDeactivateAccount?.();
-              }
-            }}
+            onClick={() => void confirmAccountDeactivation()}
           >
             Desativar minha conta <AlertTriangle size={17} />
           </button>

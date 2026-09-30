@@ -18,6 +18,7 @@ import productComboService, {
 } from '../../../Services/productComboService';
 import imageEnhancementService from '../../../Services/imageEnhancementService';
 import { createPersistentImageDataUrl } from '../../../utils/persistentImage';
+import { useAppDialog } from '../../../components/AppDialog/context';
 import type { AdminProduct } from '../types';
 import * as C from '../styles/AdminCombos.styles';
 
@@ -94,6 +95,7 @@ function isSimpleChoiceGroup(group: ComboGroupInput) {
 }
 
 export function AdminCombos({ products, money, onChanged }: Props) {
+  const { confirmDialog } = useAppDialog();
   const [combos, setCombos] = useState<ComboRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [editingId, setEditingId] = useState<number | null | undefined>();
@@ -562,10 +564,19 @@ export function AdminCombos({ products, money, onChanged }: Props) {
 
   const remove = async (combo: ComboRecord) => {
     if (busy) return;
-    if (
-      !window.confirm(`Remover “${combo.name}”? Se já houver pedidos, ele será apenas desativado.`)
-    )
+    setBusy(`confirm-delete-${combo.id}`);
+    const confirmed = await confirmDialog({
+      title: `Remover “${combo.name}”?`,
+      description:
+        'Se o combo já estiver presente em pedidos existentes, o histórico será preservado e o combo será apenas desativado.',
+      confirmLabel: 'Remover combo',
+      cancelLabel: 'Manter combo',
+      tone: 'danger',
+    });
+    if (!confirmed) {
+      setBusy('');
       return;
+    }
     setBusy(`delete-${combo.id}`);
     setFeedback(null);
     try {

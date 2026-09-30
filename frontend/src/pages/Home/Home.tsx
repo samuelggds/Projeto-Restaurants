@@ -1,6 +1,7 @@
 import { lazy, Suspense, useState, useCallback, useEffect, useMemo } from 'react';
 import { useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../../contexts/authContext';
+import { useAppDialog } from '../../components/AppDialog/context';
 import { FigmaDeliveryExperience } from './FigmaDeliveryExperience';
 import type { FigmaCheckoutStep } from './FigmaCheckoutFlow';
 import * as S from './Home.styles';
@@ -85,6 +86,7 @@ export default function Home() {
   const { tableNumber: routeTableNumber, restaurantSlug } = useParams();
   const [searchParams] = useSearchParams();
   const { user, logout } = useAuth();
+  const { confirmDialog } = useAppDialog();
   const [availabilityClock, setAvailabilityClock] = useState(() => new Date());
   const navigateToLogin = useCallback(
     () =>
@@ -700,9 +702,12 @@ export default function Home() {
             return;
           }
           if (!validation.verified) {
-            const confirmed = window.confirm(
-              `${validation.title}\n\n${validation.message}\n\nSe os dados estão corretos, confirme para continuar com o pedido.`,
-            );
+            const confirmed = await confirmDialog({
+              title: validation.title,
+              description: `${validation.message} Se os dados estiverem corretos, você pode continuar com o pedido.`,
+              confirmLabel: 'Continuar com este endereço',
+              cancelLabel: 'Revisar endereço',
+            });
             if (!confirmed) return;
             notify(
               'info',
@@ -722,6 +727,7 @@ export default function Home() {
       availableOrderType,
       cepStatus,
       checkoutOrderType,
+      confirmDialog,
       deliveryAddress,
       notify,
       restaurantId,
