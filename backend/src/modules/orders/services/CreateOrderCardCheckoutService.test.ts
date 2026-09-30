@@ -218,6 +218,16 @@ test('orquestra débito mantendo tipo explícito e tenant do restaurante', async
   };
 
   let receivedPayload: Record<string, unknown> | null = null;
+  let attemptCardPaymentType = '';
+  orderPaymentAttemptRepository.createCardAttempt = async (input) => {
+    attemptCardPaymentType = String(input.cardPaymentType || '');
+    return {
+      id: 660,
+      publicId: 'attempt-public-debit-660',
+      idempotencyKey: '11111111-1111-4111-8111-000000000660',
+      status: 'PENDING',
+    } as never;
+  };
   directOrderCardPaymentService.execute = async (input) => {
     assert.equal(input.provider, 'MERCADO_PAGO');
     assert.equal(input.order.restaurantId, 9);
@@ -248,6 +258,7 @@ test('orquestra débito mantendo tipo explícito e tenant do restaurante', async
     items: [{ productId: 1, quantity: 1 }],
   });
 
+  assert.equal(attemptCardPaymentType, 'debit');
   assert.equal(receivedPayload?.cardPaymentType, 'debit');
   assert.equal(receivedPayload?.cardToken, 'test-debit-token');
   assert.equal(result.provider, 'MERCADO_PAGO');
