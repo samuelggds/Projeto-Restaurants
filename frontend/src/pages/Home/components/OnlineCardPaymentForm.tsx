@@ -6,6 +6,7 @@ import publicCardPaymentService, {
   type PublicCardPaymentConfig,
 } from '../../../Services/publicCardPaymentService';
 
+export type CardPaymentType = 'credit' | 'debit';
 export type PreparedCardPayment = Record<string, unknown>;
 export type CardPaymentPreparer = () => Promise<PreparedCardPayment>;
 
@@ -30,7 +31,11 @@ type MercadoPagoInstance = {
     createCardToken(input: Record<string, string>): Promise<MercadoPagoCardToken>;
   };
   getPaymentMethods(input: { bin: string }): Promise<{
-    results?: Array<{ id?: string; name?: string }>;
+    results?: Array<{
+      id?: string;
+      name?: string;
+      payment_type_id?: string;
+    }>;
   }>;
 };
 
@@ -88,11 +93,13 @@ export function OnlineCardPaymentForm({
   restaurantId,
   savedCard,
   payerEmail: initialPayerEmail = '',
+  paymentType = 'credit',
   onPreparerChange,
 }: {
   restaurantId: number;
   savedCard?: CustomerPaymentMethod | null;
   payerEmail?: string;
+  paymentType?: CardPaymentType;
   onPreparerChange: (preparer: CardPaymentPreparer | null) => void;
 }) {
   const [config, setConfig] = useState<PublicCardPaymentConfig | null>(null);
@@ -156,9 +163,13 @@ export function OnlineCardPaymentForm({
             void mp
               .getPaymentMethods({ bin: normalizedBin })
               .then((response) => {
-                if (active) {
-                  setMercadoPagoPaymentMethodId(String(response.results?.[0]?.id || '').trim());
-                }
+                if (!active) return;
+                const expectedType = paymentType === 'debit' ? 'debit_card' : 'credit_card';
+                const method = (response.results || []).find(
+                  (candidate) =>
+                    String(candidate.payment_type_id || '').trim().toLowerCase() === expectedType,
+                );
+                setMercadoPagoPaymentMethodId(String(method?.id || '').trim());
               })
               .catch(() => {
                 if (active) setMercadoPagoPaymentMethodId('');
@@ -181,7 +192,7 @@ export function OnlineCardPaymentForm({
       mercadoPagoRef.current = null;
       setMercadoPagoPaymentMethodId('');
     };
-  }, [config, isSavedMercadoPago]);
+  }, [config, isSavedMercadoPago, paymentType]);
 
 
   useEffect(() => {
@@ -194,6 +205,11 @@ export function OnlineCardPaymentForm({
       setError('');
       try {
         if (savedCard) {
+          if (paymentType === 'debit') {
+            throw new Error(
+              'Para pagar no débito, informe o cartão nesta compra. Cartões salvos continuam disponíveis no crédito.',
+            );
+          }
           if (savedCard.provider !== config.provider) {
             throw new Error('O cartão salvo não pertence ao provedor atual do restaurante.');
           }
@@ -210,10 +226,11 @@ export function OnlineCardPaymentForm({
               paymentMethodId: savedCard.publicId,
               cardToken: token.id,
               cardPaymentMethodId: String(token.payment_method_id || savedCard.brand).trim(),
+              cardPaymentType: 'credit',
               ...(mercadoPagoDeviceId ? { mercadoPagoDeviceId } : {}),
             };
           }
-          return { paymentMethodId: savedCard.publicId };
+          return { paymentMethodId: savedCard.publicId, cardPaymentType: 'credit' };
         }
 
         const holderName = holder.trim();
@@ -238,17 +255,28 @@ export function OnlineCardPaymentForm({
             token.payment_method_id || mercadoPagoPaymentMethodId || '',
           ).trim();
           if (!token.id || !paymentMethodId) {
-            throw new Error('Não foi possível identificar a bandeira do cartão. Revise os dados e tente novamente.');
+            throw new Error(
+              paymentType === 'debit'
+                ? 'Este cartão não está disponível para débito online. Tente outro cartão ou escolha crédito.'
+                : 'Não foi possível identificar a bandeira do cartão. Revise os dados e tente novamente.',
+            );
           }
           const mercadoPagoDeviceId = String(window.MP_DEVICE_SESSION_ID || '').trim();
           return {
             cardToken: token.id,
             cardPaymentMethodId: paymentMethodId,
+            cardPaymentType: paymentType,
             holderName,
             holderTaxId,
             payerEmail: normalizedPayerEmail,
             ...(mercadoPagoDeviceId ? { mercadoPagoDeviceId } : {}),
           };
+        }
+
+        if (paymentType === 'debit') {
+          throw new Error(
+            'Débito online está disponível somente no gateway Mercado Pago neste momento.',
+          );
         }
 
         const cleanNumber = digits(number);
@@ -343,6 +371,7 @@ export function OnlineCardPaymentForm({
     postalCode,
     savedCard,
     taxId,
+    paymentType,
   ]);
 
   if (isSaved && config?.provider !== 'MERCADO_PAGO') {
@@ -362,7 +391,13 @@ export function OnlineCardPaymentForm({
       <header>
         <CreditCard size={20} />
         <div>
-          <b>{isSaved ? 'Confirme seu cartão salvo' : 'Dados do cartão'}</b>
+          <b>
+            {isSaved
+              ? 'Confirme seu cartão salvo'
+              : paymentType === 'debit'
+                ? 'Dados do cartão de débito'
+                : 'Dados do cartão de crédito'}
+          </b>
           <span>
             {isSaved
               ? `Final ${savedCard?.last4}. Informe somente o código de segurança.`
