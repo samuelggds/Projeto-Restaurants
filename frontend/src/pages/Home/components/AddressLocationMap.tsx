@@ -154,6 +154,31 @@ function googleAddressText(address: ReturnType<typeof normalizedAddress>) {
     .join(', ');
 }
 
+function addressLocationErrorMessage(error: unknown) {
+  const responseCode = String(
+    (
+      error as {
+        response?: {
+          data?: {
+            code?: unknown;
+          };
+        };
+      }
+    )?.response?.data?.code || '',
+  ).trim();
+  const errorMessage = error instanceof Error ? error.message : '';
+
+  if (
+    responseCode === 'ADDRESS_NOT_GEOCODED' ||
+    errorMessage === 'ADDRESS_NOT_GEOCODED' ||
+    errorMessage === 'ZERO_RESULTS'
+  ) {
+    return 'Não encontramos esse endereço no mapa. Confira rua, número, bairro, cidade e estado.';
+  }
+
+  return 'Não foi possível validar o endereço no momento. Tente novamente em instantes.';
+}
+
 function geocodeWithGoogleMaps(
   maps: GoogleMapsApi,
   address: ReturnType<typeof normalizedAddress>,
@@ -220,6 +245,8 @@ export function AddressLocationMap({
       setError('');
 
       const resolveLocation = async () => {
+        let serverError: unknown = null;
+
         try {
           const result = await ordersService.getDeliveryAddressLocation({
             restaurantId,
@@ -234,13 +261,16 @@ export function AddressLocationMap({
           ) {
             return result;
           }
-        } catch {
-          // The checkout map must not disappear only because server-side geocoding
-          // is temporarily unavailable. Fall back to the browser Maps credential.
+        } catch (requestError) {
+          serverError = requestError;
         }
 
-        const maps = await loadGoogleMaps();
-        return geocodeWithGoogleMaps(maps, normalized);
+        try {
+          const maps = await loadGoogleMaps();
+          return await geocodeWithGoogleMaps(maps, normalized);
+        } catch (browserError) {
+          throw serverError || browserError;
+        }
       };
 
       void resolveLocation()
@@ -250,14 +280,12 @@ export function AddressLocationMap({
           setLocation(result);
           setStatus('loading-map');
         })
-        .catch(() => {
+        .catch((requestError) => {
           if (requestIdRef.current !== currentRequestId) return;
           setResolvedAddressKey(addressKey);
           setLocation(null);
           setStatus('error');
-          setError(
-            'Não encontramos esse endereço no mapa. Confira número, bairro, cidade e estado.',
-          );
+          setError(addressLocationErrorMessage(requestError));
         });
     }, 550);
 
