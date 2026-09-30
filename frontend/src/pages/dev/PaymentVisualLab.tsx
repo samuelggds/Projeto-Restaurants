@@ -55,13 +55,26 @@ export default function PaymentVisualLab() {
     if (next === 'debit-form') setPaymentMethod('debit_card');
   };
 
+  const continueFakeCheckout = () => {
+    if (paymentMethod === 'pix') {
+      setScenario('pix-waiting');
+      return;
+    }
+    if (paymentMethod === 'card' || paymentMethod === 'debit_card') {
+      setScenario('card-waiting');
+    }
+  };
+
+  const waitingForPix = scenario === 'pix-waiting';
+  const waitingForCard = scenario === 'card-waiting';
+
   return (
     <Lab>
       <Toolbar aria-label="Controles do laboratório visual">
         <div>
           <strong>LABORATÓRIO LOCAL — PAGAMENTOS FICTÍCIOS</strong>
           <span>
-            Somente DEV. Não cria pedido, não chama gateway, não movimenta dinheiro e não usa
+            Somente ambiente local. Não cria pedido, não chama gateway, não movimenta dinheiro e não usa
             credenciais reais.
           </span>
         </div>
@@ -76,6 +89,33 @@ export default function PaymentVisualLab() {
           <button className={scenario === 'card-failed' ? 'active failure' : ''} onClick={() => selectScenario('card-failed')}>Cartão recusado</button>
         </nav>
       </Toolbar>
+
+      {(waitingForPix || waitingForCard) ? (
+        <SimulatorPanel aria-label="Simulador local do resultado do pagamento">
+          <div>
+            <strong>Escolha o resultado fictício</strong>
+            <span>
+              Esta ação é apenas visual e local. Nenhum pagamento, pedido ou webhook será criado.
+            </span>
+          </div>
+          <div className="actions">
+            <button
+              type="button"
+              className="approve"
+              onClick={() => setScenario(waitingForPix ? 'pix-paid' : 'card-paid')}
+            >
+              Simular pagamento aprovado
+            </button>
+            <button
+              type="button"
+              className="reject"
+              onClick={() => setScenario(waitingForPix ? 'pix-failed' : 'card-failed')}
+            >
+              Simular pagamento recusado
+            </button>
+          </div>
+        </SimulatorPanel>
+      ) : null}
 
       <Preview data-testid="payment-visual-preview">
         {showCheckout ? (
@@ -105,7 +145,7 @@ export default function PaymentVisualLab() {
               />
             }
             onBack={() => undefined}
-            onContinue={() => undefined}
+            onContinue={continueFakeCheckout}
           />
         ) : scenario.startsWith('pix-') ? (
           <PixPaymentPanel
@@ -246,4 +286,82 @@ const Toolbar = styled.aside`
 
 const Preview = styled.section`
   min-height: calc(100vh - 100px);
+`;
+
+
+const SimulatorPanel = styled.section`
+  position: sticky;
+  z-index: 999;
+  top: 94px;
+  margin: 12px auto 0;
+  width: min(720px, calc(100% - 32px));
+  padding: 12px 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  border: 1px solid #d9d5cf;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.98);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+
+  > div:first-child {
+    min-width: 0;
+    display: grid;
+    gap: 3px;
+  }
+
+  strong {
+    color: #292521;
+    font-size: 12px;
+  }
+
+  span {
+    color: #716b65;
+    font-size: 10px;
+    line-height: 1.4;
+  }
+
+  .actions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 7px;
+  }
+
+  button {
+    min-height: 36px;
+    padding: 0 12px;
+    border-radius: 9px;
+    font: inherit;
+    font-size: 11px;
+    font-weight: 800;
+    cursor: pointer;
+  }
+
+  .approve {
+    border: 1px solid #7fbd90;
+    background: #edf8f0;
+    color: #236b37;
+  }
+
+  .reject {
+    border: 1px solid #dfa098;
+    background: #fff0ee;
+    color: #9b342b;
+  }
+
+  @media (max-width: 700px) {
+    top: 126px;
+    align-items: stretch;
+    flex-direction: column;
+
+    .actions {
+      justify-content: stretch;
+    }
+
+    button {
+      flex: 1 1 150px;
+    }
+  }
 `;
