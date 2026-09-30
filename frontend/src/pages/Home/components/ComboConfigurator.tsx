@@ -1,9 +1,10 @@
-import { Minus, Plus, Sparkles, X } from 'lucide-react';
+import { Sparkles, X } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import styled from 'styled-components';
 import type { ProductConfiguration } from '../domain/productCustomization';
 import type { HomeProduct } from '../types';
+import { QuantityStepper } from '../../../components/QuantityStepper/QuantityStepper';
 
 const brl = (value: number) =>
   value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
@@ -147,19 +148,18 @@ export function ComboConfigurator({
                         {option.locked && <span>Incluído no combo</span>}
                       </div>
                       <div className="stepper">
-                        <button
-                          type="button"
-                          aria-label={`Diminuir ${option.name}`}
-                          disabled={option.locked && quantity <= Math.max(1, option.minQuantity)}
-                          onClick={() => change(group.id, option.id, quantity - 1)}
-                        ><Minus size={15} /></button>
-                        <strong>{quantity}</strong>
-                        <button
-                          type="button"
-                          aria-label={`Aumentar ${option.name}`}
-                          disabled={!option.active || quantity >= option.maxQuantity}
-                          onClick={() => change(group.id, option.id, quantity + 1)}
-                        ><Plus size={15} /></button>
+                        <QuantityStepper
+                          value={quantity}
+                          ariaLabel={`Quantidade de ${option.name}`}
+                          decreaseLabel={`Diminuir ${option.name}`}
+                          increaseLabel={`Aumentar ${option.name}`}
+                          decreaseDisabled={
+                            option.locked && quantity <= Math.max(1, option.minQuantity)
+                          }
+                          increaseDisabled={!option.active || quantity >= option.maxQuantity}
+                          onDecrease={() => change(group.id, option.id, quantity - 1)}
+                          onIncrease={() => change(group.id, option.id, quantity + 1)}
+                        />
                       </div>
                     </article>
                   );
@@ -297,9 +297,7 @@ const Dialog = styled.div<{ $primary: string }>`
   .copy small { display: -webkit-box; overflow: hidden; -webkit-box-orient: vertical; -webkit-line-clamp: 1; color: #817870; font-size: .72rem; }
   .copy em { display: block; color: var(--combo-primary); font-style: normal; font-size: .72rem; font-weight: 800; margin-top: 3px; }
   .copy span { display: inline-block; margin-top: 4px; padding: 3px 6px; border-radius: 999px; background: #f3eee9; color: #655e58; font-size: .64rem; font-weight: 800; }
-  .stepper { display: grid; grid-template-columns: 32px 28px 32px; align-items: center; text-align: center; }
-  .stepper button { width: 32px; height: 32px; border: 1px solid #ded8d2; background: #fff; border-radius: 9px; display: grid; place-items: center; cursor: pointer; }
-  .stepper button:disabled { opacity: .38; cursor: not-allowed; }
+  .stepper { display: flex; align-items: center; justify-content: flex-end; }
   > footer {
     display: flex;
     justify-content: space-between;
