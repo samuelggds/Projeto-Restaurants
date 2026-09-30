@@ -207,6 +207,13 @@ test('orquestra débito mantendo tipo explícito e tenant do restaurante', async
     assert.equal(Number(payload.restaurantId), 9);
     assert.equal(payload.paymentMethod, 'CARTAO');
     assert.equal(payload.paid, false);
+    assert.equal('cardToken' in payload, false);
+    assert.equal('cardPaymentMethodId' in payload, false);
+    assert.equal('cardPaymentType' in payload, false);
+    assert.equal('cardData' in payload, false);
+    assert.equal('holderTaxId' in payload, false);
+    assert.equal('payerEmail' in payload, false);
+    assert.equal('mercadoPagoDeviceId' in payload, false);
     return {
       id: 660,
       publicId: '123e4567-e89b-42d3-a456-426614174660',
