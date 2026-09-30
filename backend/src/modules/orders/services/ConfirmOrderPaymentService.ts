@@ -76,42 +76,50 @@ class ConfirmOrderPaymentService {
       );
       await markCouponRedemptionUsedForOrder(normalizedOrderId, restaurantId, tx);
 
-      if (isPendingDigitalPayment) {
-        const actor = normalizedActorUserId
-          ? await tx.user.findFirst({
-              where: {
-                id: normalizedActorUserId,
-                restaurantId,
-                role: UserRole.ADMIN,
-                active: true,
-              },
-              select: { id: true, name: true },
-            })
-          : null;
-        if (!actor) {
-          throw new Error('Administrador não autorizado para este restaurante.');
-        }
-
-        await tx.auditLog.create({
-          data: {
-            userId: actor.id,
-            userName: actor.name,
-            userRole: UserRole.ADMIN,
-            restaurantId,
-            restaurantName: confirmedOrder.restaurant?.name || order.restaurant?.name || null,
-            action: 'ADMIN_PAYMENT_MANUAL_OVERRIDE',
-            resource: `Order:${Number(normalizedOrderId)}`,
-            result: 'SUCCESS',
-            metadata: {
-              paymentMethod,
-              previousPaid: false,
-              pixPaymentId: order.pixPaymentId || null,
-              cardCheckoutSessionId: order.cardCheckoutSessionId || null,
-              reason: 'Pagamento conferido externamente pelo administrador após falha ou ausência de confirmação automática.',
+      const actor = normalizedActorUserId
+        ? await tx.user.findFirst({
+            where: {
+              id: normalizedActorUserId,
+              restaurantId,
+              role: UserRole.ADMIN,
+              active: true,
             },
-          },
-        });
+            select: { id: true, name: true },
+          })
+        : null;
+      if (!actor) {
+        throw new Error('Administrador não autorizado para este restaurante.');
       }
+
+      await tx.auditLog.create({
+        data: {
+          userId: actor.id,
+          userName: actor.name,
+          userRole: UserRole.ADMIN,
+          restaurantId,
+          restaurantName: confirmedOrder.restaurant?.name || order.restaurant?.name || null,
+          action: isDeliveryCash
+            ? 'ADMIN_CASH_PAYMENT_CONFIRMED'
+            : 'ADMIN_PAYMENT_MANUAL_OVERRIDE',
+          resource: `Order:${Number(normalizedOrderId)}`,
+          result: 'SUCCESS',
+          metadata: isDeliveryCash
+            ? {
+                paymentMethod: PaymentMethod.DINHEIRO,
+                previousPaid: false,
+                payOnDelivery: true,
+                reason: 'Recebimento em dinheiro confirmado manualmente pelo administrador.',
+              }
+            : {
+                paymentMethod,
+                previousPaid: false,
+                pixPaymentId: order.pixPaymentId || null,
+                cardCheckoutSessionId: order.cardCheckoutSessionId || null,
+                reason:
+                  'Pagamento conferido externamente pelo administrador após falha ou ausência de confirmação automática.',
+              },
+        },
+      });
 
       return confirmedOrder;
     });
