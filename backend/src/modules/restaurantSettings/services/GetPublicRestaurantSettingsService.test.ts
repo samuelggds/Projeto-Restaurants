@@ -13,6 +13,12 @@ const originalEnv = { ...process.env };
 beforeEach(() => {
   restaurantSettingsRepository.findByRestaurantId = async () => null as never;
   Object.assign(process.env, {
+    CREDENTIAL_ENCRYPTION_KEY: Buffer.alloc(32, 4).toString('base64'),
+    BACKEND_URL: 'https://api.gastronexa.example',
+    FRONTEND_URL: 'https://gastronexa.example',
+    MP_OAUTH_CLIENT_ID: 'test-mp-id',
+    MP_OAUTH_CLIENT_SECRET: 'test-mp-secret',
+    MP_WEBHOOK_SECRET: 'test-webhook',
     EFI_OPEN_FINANCE_ENABLED: 'true',
     EFI_OPEN_FINANCE_ENV: 'homologation',
     EFI_OPEN_FINANCE_CLIENT_ID: 'efi-client',
@@ -219,6 +225,8 @@ test('expõe débito somente para o restaurante com Mercado Pago realmente pront
           cardGateway: 'MERCADO_PAGO',
           pixProvider: 'MERCADO_PAGO',
           mercadoPagoAccessToken: 'test-only-access-token',
+          mercadoPagoRefreshToken: 'test-only-refresh-token',
+          mercadoPagoTokenExpiresAt: new Date(Date.now() + 3_600_000),
           mercadoPagoPublicKey: 'TEST-public-key',
         } as never)
       : ({
@@ -232,9 +240,39 @@ test('expõe débito somente para o restaurante com Mercado Pago realmente pront
   const ready = await GetPublicRestaurantSettingsService.execute({ restaurantId: 7 });
   const notReady = await GetPublicRestaurantSettingsService.execute({ restaurantId: 8 });
 
+  assert.equal(ready.acceptsPix, true);
+  assert.equal(ready.acceptsCard, true);
   assert.equal(ready.acceptsDebitCard, true);
+  assert.equal(notReady.acceptsPix, false);
+  assert.equal(notReady.acceptsCard, false);
   assert.equal(notReady.acceptsDebitCard, false);
   assert.equal('mercadoPagoAccessToken' in ready, false);
   assert.equal('mercadoPagoPublicKey' in ready, false);
   assert.equal(JSON.stringify(ready).includes('test-only-access-token'), false);
+});
+
+
+test('não anuncia Pix ou cartão para grant legado sem renovação automática', async () => {
+  restaurantSettingsRepository.findPublicByRestaurantId = async () =>
+    ({
+      restaurantId: 7,
+      acceptsCard: true,
+      acceptsPix: true,
+      restaurant: { active: true, banners: [] },
+    }) as never;
+  restaurantSettingsRepository.findByRestaurantId = async () =>
+    ({
+      restaurantId: 7,
+      cardGateway: 'MERCADO_PAGO',
+      pixProvider: 'MERCADO_PAGO',
+      mercadoPagoAccessToken: 'legacy-access-token',
+      mercadoPagoRefreshToken: null,
+      mercadoPagoPublicKey: 'TEST-public-key',
+    }) as never;
+
+  const settings = await GetPublicRestaurantSettingsService.execute({ restaurantId: 7 });
+
+  assert.equal(settings.acceptsPix, false);
+  assert.equal(settings.acceptsCard, false);
+  assert.equal(settings.acceptsDebitCard, false);
 });
