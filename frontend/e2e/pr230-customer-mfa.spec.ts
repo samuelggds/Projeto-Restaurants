@@ -102,13 +102,15 @@ test('MFA do cliente usa somente e-mail no desktop', async ({ page }) => {
   await page.getByRole('button', { name: 'Reenviar código' }).click();
   await expect.poll(() => state.resendPayloads.length).toBe(1);
   expect(state.resendPayloads[0]).toMatchObject({ mfaToken: 'mfa-e2e-token' });
+  await expect(page.getByText(/Novo código enviado para/i)).toBeVisible();
 
   const codeInputs = page.locator('[aria-label^="Dígito "][aria-label$=" do código"]');
   await expect(codeInputs).toHaveCount(6);
-  for (const [index, digit] of [...'123456'].entries()) {
-    await codeInputs.nth(index).fill(digit);
-  }
-  await page.getByRole('button', { name: /Verificar e Continuar/u }).click();
+  await codeInputs.first().fill('123456');
+
+  const verifyButton = page.getByRole('button', { name: /Verificar e Continuar/u });
+  await expect(verifyButton).toBeEnabled();
+  await verifyButton.click();
   await expect.poll(() => state.verifyPayloads.length).toBe(1);
   expect(state.verifyPayloads[0]).toEqual({ mfaToken: 'mfa-e2e-token', code: '123456' });
 });
