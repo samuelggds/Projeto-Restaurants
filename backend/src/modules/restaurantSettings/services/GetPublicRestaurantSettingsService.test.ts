@@ -201,3 +201,39 @@ test('carrega a identidade do restaurante ativo ao abrir o login diretamente', a
   assert.equal(settings.restaurant.name, 'North Pizza');
   assert.equal(settings.restaurant.coverImage, 'capa-salva');
 });
+
+test('expõe débito somente para o restaurante com Mercado Pago realmente pronto sem vazar credenciais', async () => {
+  restaurantSettingsRepository.findPublicByRestaurantId = async (restaurantId) =>
+    ({
+      restaurantId: Number(restaurantId),
+      acceptsCard: true,
+      acceptsPix: true,
+      restaurant: { active: true, banners: [] },
+    }) as never;
+
+  restaurantSettingsRepository.findByRestaurantId = async (restaurantId) =>
+    Number(restaurantId) === 7
+      ? ({
+          restaurantId: 7,
+          cardGateway: 'MERCADO_PAGO',
+          pixProvider: 'MERCADO_PAGO',
+          mercadoPagoAccessToken: 'test-only-access-token',
+          mercadoPagoPublicKey: 'TEST-public-key',
+        } as never)
+      : ({
+          restaurantId: 8,
+          cardGateway: 'MERCADO_PAGO',
+          pixProvider: 'MERCADO_PAGO',
+          mercadoPagoAccessToken: null,
+          mercadoPagoPublicKey: null,
+        } as never);
+
+  const ready = await GetPublicRestaurantSettingsService.execute({ restaurantId: 7 });
+  const notReady = await GetPublicRestaurantSettingsService.execute({ restaurantId: 8 });
+
+  assert.equal(ready.acceptsDebitCard, true);
+  assert.equal(notReady.acceptsDebitCard, false);
+  assert.equal('mercadoPagoAccessToken' in ready, false);
+  assert.equal('mercadoPagoPublicKey' in ready, false);
+  assert.equal(JSON.stringify(ready).includes('test-only-access-token'), false);
+});
