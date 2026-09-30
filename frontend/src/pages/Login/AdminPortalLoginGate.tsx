@@ -131,8 +131,8 @@ export default function AdminPortalLoginGate() {
         <AccessWindowNotice role="status" aria-live="polite" data-testid="admin-access-window-notice">
           <span className="notice-icon" aria-hidden="true"><AlertTriangle /></span>
           <span className="notice-copy">
-            <strong>Acesso temporário liberado por 1 hora</strong>
-            <span>Este link libera 1 hora de acesso administrativo. Quando expirar, abra o mesmo link novamente para renovar por mais 1 hora.</span>
+            <strong>Acesso temporário liberado por 1 semana</strong>
+            <span>Este link libera 1 semana de acesso administrativo. Quando expirar, abra o mesmo link novamente para renovar por mais 1 semana.</span>
           </span>
           <button className="close" type="button" aria-label="Fechar aviso" onClick={() => setHiddenAccessNoticeSlug(slug)}><X /></button>
         </AccessWindowNotice>
