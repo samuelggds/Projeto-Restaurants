@@ -56,51 +56,99 @@ const VISUAL_ROUTE_SVG_POINTS = VISUAL_TRACKING_ROUTE.map((point) => {
   return `${position.x},${position.y}`;
 }).join(' ');
 
-export function interpolateVisualRoute(route: CourierRoutePoint[], rawProgress: number): CourierRoutePoint {
-  if (!route.length) return { latitude: 0, longitude: 0 };
-  if (route.length === 1) return route[0];
+export function getVisualRouteFrame(route: CourierRoutePoint[], rawProgress: number) {
+  if (!route.length) {
+    return {
+      point: { latitude: 0, longitude: 0 } as CourierRoutePoint,
+      angleDegrees: 0,
+      segmentIndex: 0,
+    };
+  }
+
+  if (route.length === 1) {
+    return { point: route[0], angleDegrees: 0, segmentIndex: 0 };
+  }
+
   const progress = Math.max(0, Math.min(1, rawProgress));
-  if (progress === 1) return route[route.length - 1];
   const lengths = route.slice(1).map((point, index) => distance(route[index], point));
   const total = lengths.reduce((sum, value) => sum + value, 0);
-  if (total <= 0) return route[0];
+
+  if (total <= 0) {
+    return { point: route[0], angleDegrees: 0, segmentIndex: 0 };
+  }
+
   const target = total * progress;
   let traversed = 0;
+  let segmentIndex = lengths.length - 1;
+
   for (let index = 0; index < lengths.length; index += 1) {
-    const segment = lengths[index];
-    if (traversed + segment >= target) {
-      const local = segment <= 0 ? 0 : (target - traversed) / segment;
-      const start = route[index];
-      const end = route[index + 1];
-      return {
-        latitude: start.latitude + (end.latitude - start.latitude) * local,
-        longitude: start.longitude + (end.longitude - start.longitude) * local,
-        recordedAt: new Date().toISOString(),
-        heading: null,
-        speed: null,
-      };
+    if (traversed + lengths[index] >= target) {
+      segmentIndex = index;
+      break;
     }
-    traversed += segment;
+    traversed += lengths[index];
   }
-  return route[route.length - 1];
+
+  const segment = Math.max(0.000001, lengths[segmentIndex]);
+  const start = route[segmentIndex];
+  const end = route[segmentIndex + 1];
+  const local = progress >= 1 ? 1 : Math.max(0, Math.min(1, (target - traversed) / segment));
+  const point: CourierRoutePoint = {
+    latitude: start.latitude + (end.latitude - start.latitude) * local,
+    longitude: start.longitude + (end.longitude - start.longitude) * local,
+    recordedAt: new Date().toISOString(),
+    heading: null,
+    speed: null,
+  };
+
+  const screenStart = toVisualMapPosition(start);
+  const screenEnd = toVisualMapPosition(end);
+  const angleDegrees =
+    (Math.atan2(screenEnd.y - screenStart.y, screenEnd.x - screenStart.x) * 180) / Math.PI;
+
+  return { point, angleDegrees, segmentIndex };
+}
+
+export function interpolateVisualRoute(
+  route: CourierRoutePoint[],
+  rawProgress: number,
+): CourierRoutePoint {
+  return getVisualRouteFrame(route, rawProgress).point;
 }
 
 export default function DeliveryTrackingVisualLab({ onBack }: { onBack?: () => void }) {
-  const startedAtRef = useRef(Date.now());
+  const startedAtRef = useRef(0);
   const [progress, setProgress] = useState(0);
   const [messages, setMessages] = useState<LocalMessage[]>(INITIAL_MESSAGES);
   const [draft, setDraft] = useState('');
 
   useEffect(() => {
     if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return undefined;
-    startedAtRef.current = Date.now();
-    const update = () => setProgress(Math.min(1, (Date.now() - startedAtRef.current) / VISUAL_TRACKING_ANIMATION_MS));
-    update();
-    const timer = window.setInterval(update, 250);
-    return () => window.clearInterval(timer);
+
+    startedAtRef.current = performance.now();
+    let animationFrame = 0;
+
+    const update = (now: number) => {
+      const nextProgress = Math.min(
+        1,
+        (now - startedAtRef.current) / VISUAL_TRACKING_ANIMATION_MS,
+      );
+      setProgress(nextProgress);
+
+      if (nextProgress < 1) {
+        animationFrame = window.requestAnimationFrame(update);
+      }
+    };
+
+    animationFrame = window.requestAnimationFrame(update);
+    return () => window.cancelAnimationFrame(animationFrame);
   }, []);
 
-  const currentPoint = useMemo(() => interpolateVisualRoute(VISUAL_TRACKING_ROUTE, progress), [progress]);
+  const currentFrame = useMemo(
+    () => getVisualRouteFrame(VISUAL_TRACKING_ROUTE, progress),
+    [progress],
+  );
+  const currentPoint = currentFrame.point;
   const currentMapPosition = useMemo(() => toVisualMapPosition(currentPoint), [currentPoint]);
   const destinationMapPosition = useMemo(
     () => toVisualMapPosition(VISUAL_TRACKING_ROUTE[VISUAL_TRACKING_ROUTE.length - 1]),
@@ -127,13 +175,42 @@ export default function DeliveryTrackingVisualLab({ onBack }: { onBack?: () => v
         @media (max-width: 760px) {
           .tracking-main { width: 100% !important; padding: 0 0 28px !important; }
           .tracking-title { display: none !important; }
-          .tracking-layout { display: flex !important; flex-direction: column !important; gap: 0 !important; }
-          .tracking-map-card { order: 1; }
-          .tracking-side { order: 2; gap: 0 !important; }
+          .tracking-layout {
+            display: flex !important;
+            flex-direction: column !important;
+            align-items: stretch !important;
+            width: 100% !important;
+            gap: 0 !important;
+          }
+          .tracking-map-card {
+            order: 1;
+            width: 100% !important;
+            min-width: 0 !important;
+            flex: 0 0 280px !important;
+            overflow: hidden !important;
+          }
+          .tracking-side {
+            order: 2;
+            width: 100% !important;
+            min-width: 0 !important;
+            gap: 0 !important;
+          }
           .tracking-courier { order: 1; border-radius: 0 !important; border-left: 0 !important; border-right: 0 !important; box-shadow: none !important; }
           .tracking-status { order: 2; border-radius: 0 !important; border-left: 0 !important; border-right: 0 !important; box-shadow: none !important; }
           .tracking-chat { order: 3; border-radius: 0 !important; border-left: 0 !important; border-right: 0 !important; box-shadow: none !important; }
-          .visual-fake-map { height: 280px !important; min-height: 280px !important; border-radius: 0 !important; }
+          .visual-fake-map {
+            display: block !important;
+            position: relative !important;
+            width: 100% !important;
+            min-width: 100% !important;
+            height: 280px !important;
+            min-height: 280px !important;
+            max-height: 280px !important;
+            border-radius: 0 !important;
+            overflow: hidden !important;
+            background: #e9eef1 !important;
+          }
+          .tracking-animation-badge { display: none !important; }
         }
       `}</style>
       <header style={styles.header}>
@@ -194,13 +271,22 @@ export default function DeliveryTrackingVisualLab({ onBack }: { onBack?: () => v
               </svg>
               <div
                 data-testid="visual-courier-marker"
+                data-route-segment={currentFrame.segmentIndex}
+                data-route-angle={currentFrame.angleDegrees.toFixed(2)}
                 style={{
                   ...styles.courierMarker,
                   left: `${currentMapPosition.x}%`,
                   top: `${currentMapPosition.y}%`,
                 }}
               >
-                <img src={courierScooter3d} alt="Motoqueiro fictício" style={styles.courierImage} />
+                <img
+                  src={courierScooter3d}
+                  alt="Motoqueiro fictício"
+                  style={{
+                    ...styles.courierImage,
+                    transform: `rotate(${currentFrame.angleDegrees}deg)`,
+                  }}
+                />
               </div>
               <div
                 aria-label="Endereço fictício de entrega"
@@ -215,7 +301,7 @@ export default function DeliveryTrackingVisualLab({ onBack }: { onBack?: () => v
               <div style={styles.etaBadge}>Chega em 15 min</div>
               <small style={styles.fakeMapNotice}>Mapa fictício para teste visual local</small>
             </div>
-            <div aria-live="polite" style={styles.animationBadge}>
+            <div className="tracking-animation-badge" aria-live="polite" style={styles.animationBadge}>
               <Bike size={14} />
               <span style={styles.badgeCopy}>
                 <strong>{progress >= 1 ? 'Motoqueiro chegou ao endereço' : 'Percurso fictício em tempo real'}</strong>
@@ -286,8 +372,8 @@ const styles: Record<string, CSSProperties> = {
   mapLabel: { position: 'absolute', zIndex: 2, color: '#6d777c', fontSize: 10, fontWeight: 600, transform: 'rotate(-5deg)' },
   mapLabelPoi: { position: 'absolute', zIndex: 2, color: '#dc5961', fontSize: 9, fontWeight: 700 },
   routeSvg: { position: 'absolute', zIndex: 3, inset: 0, width: '100%', height: '100%', pointerEvents: 'none' },
-  courierMarker: { position: 'absolute', zIndex: 6, width: 56, height: 56, transform: 'translate(-50%, -50%)', transition: 'left 260ms linear, top 260ms linear', filter: 'drop-shadow(0 6px 8px rgba(25,34,40,.2))' },
-  courierImage: { width: '100%', height: '100%', objectFit: 'contain' },
+  courierMarker: { position: 'absolute', zIndex: 6, width: 56, height: 56, transform: 'translate(-50%, -50%)', willChange: 'left, top', filter: 'drop-shadow(0 6px 8px rgba(25,34,40,.2))' },
+  courierImage: { width: '100%', height: '100%', objectFit: 'contain', transformOrigin: 'center', willChange: 'transform', transition: 'transform 160ms ease-out' },
   destinationMarker: { position: 'absolute', zIndex: 5, width: 28, height: 28, display: 'grid', placeItems: 'center', transform: 'translate(-50%, -50%) rotate(-45deg)', border: '4px solid #fff', borderRadius: '50% 50% 50% 0', background: '#ef4444', boxShadow: '0 4px 10px rgba(239,68,68,.3)' },
   etaBadge: { position: 'absolute', zIndex: 8, top: 20, left: 20, padding: '8px 16px', border: '1px solid #efece6', borderRadius: 999, color: '#e85a2b', background: '#fff', boxShadow: '0 4px 8px rgba(16,24,39,.08)', fontSize: 13, fontWeight: 800 },
   fakeMapNotice: { position: 'absolute', zIndex: 8, right: 10, bottom: 8, padding: '4px 7px', borderRadius: 6, color: '#667178', background: 'rgba(255,255,255,.88)', fontSize: 8 },

@@ -97,10 +97,20 @@ test('rastreamento fictício mostra o mapa local e move o motoqueiro na rota', a
   await expect(map).toBeVisible();
   await expect(marker).toBeVisible();
 
+  const mapBox = await map.boundingBox();
+  expect(mapBox?.height).toBeGreaterThanOrEqual(279);
+  expect(mapBox?.height).toBeLessThanOrEqual(281);
+
+  await expect(marker.locator('img[alt="Motoqueiro fictício"]')).toBeVisible();
+
   const initialProgress = await map.getAttribute('data-courier-progress');
+  const initialAngle = await marker.getAttribute('data-route-angle');
   await page.waitForTimeout(1_200);
   const movedProgress = await map.getAttribute('data-courier-progress');
+  const movedAngle = await marker.getAttribute('data-route-angle');
 
   expect(movedProgress).not.toBe(initialProgress);
+  expect(initialAngle).not.toBeNull();
+  expect(movedAngle).not.toBeNull();
   await expectNoHorizontalOverflow(page);
 });
