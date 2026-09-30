@@ -83,7 +83,7 @@ test('rastreamento fictício mostra o mapa local e move o motoqueiro na rota', a
 
   const lab = page.locator('[data-testid="delivery-tracking-visual-lab"]');
   await expect(lab).toBeVisible();
-  await expect(lab).toHaveAttribute('data-map-source', 'fictitious-google-style');
+  await expect(lab).toHaveAttribute('data-map-source', 'local-isometric-cartoon');
   await expect(lab).toHaveAttribute('data-animation-duration-ms', '60000');
   await expect(page.getByText('Início', { exact: true })).toBeVisible();
   await expect(page.getByText('Acompanhar pedido', { exact: true })).toBeVisible();
@@ -98,6 +98,7 @@ test('rastreamento fictício mostra o mapa local e move o motoqueiro na rota', a
   const house = page.locator('[data-testid="visual-destination-house-marker"]');
 
   await expect(map).toBeVisible();
+  await expect(page.locator('[data-testid="visual-isometric-city"]')).toBeVisible();
   await expect(marker).toBeVisible();
   await expect(restaurant).toBeVisible();
   await expect(house).toBeVisible();
