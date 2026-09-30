@@ -115,6 +115,73 @@ test('checkout transparente Mercado Pago segue o contrato atual sem capture_mode
   assert.equal(result.paymentApproved, true);
 });
 
+test('débito Mercado Pago envia debit_card e nunca é convertido silenciosamente em crédito', async () => {
+  let requestBody: Record<string, unknown> | null = null;
+
+  globalThis.fetch = async (_input, init: RequestInit = {}) => {
+    requestBody = JSON.parse(String(init.body || '{}')) as Record<string, unknown>;
+    return new Response(
+      JSON.stringify({ id: 'ORD_DEBIT_001', status: 'processed' }),
+      { status: 201, headers: { 'Content-Type': 'application/json' } },
+    );
+  };
+
+  const result = await directOrderCardPaymentService.execute({
+    provider: CARD_PROVIDERS.MERCADO_PAGO,
+    payload: {
+      cardPaymentType: 'debit',
+      cardToken: 'test-debit-token',
+      cardPaymentMethodId: 'visa',
+      payerEmail: 'cliente@example.com',
+    },
+    order: {
+      id: 902,
+      publicId: 'order-public-debit-902',
+      restaurantId: 7,
+      total: 42.5,
+      restaurant: { name: 'North Pizza' },
+    },
+    successUrlBase: 'https://www.gastronexa.com.br/north-pizza',
+    idempotencyKey: '11111111-1111-4111-8111-111111111902',
+  });
+
+  const transactions = requestBody?.transactions as {
+    payments?: Array<{ payment_method?: Record<string, unknown> }>;
+  };
+  assert.deepEqual(transactions.payments?.[0]?.payment_method, {
+    id: 'visa',
+    type: 'debit_card',
+    token: 'test-debit-token',
+    installments: 1,
+  });
+  assert.equal(result.paymentApproved, true);
+});
+
+test('recusa débito em gateway ainda não homologado sem expor dados do cartão', async () => {
+  await assert.rejects(
+    () =>
+      directOrderCardPaymentService.execute({
+        provider: CARD_PROVIDERS.ASAAS,
+        payload: {
+          cardPaymentType: 'debit',
+          cardData: { number: '4111111111111111', securityCode: '123' },
+        },
+        order: {
+          id: 906,
+          publicId: 'order-public-906',
+          restaurantId: 7,
+          total: 20,
+        },
+        successUrlBase: 'https://www.gastronexa.com.br/north-pizza',
+        idempotencyKey: '11111111-1111-4111-8111-111111111906',
+      }),
+    (error) =>
+      error instanceof CardPaymentDeclinedError &&
+      /débito online ainda não está disponível/i.test(error.message) &&
+      !error.message.includes('4111111111111111'),
+  );
+});
+
 test('cartão salvo Mercado Pago envia payer.customer_id na Orders API', async () => {
   let requestBody: Record<string, unknown> | null = null;
 
