@@ -2,7 +2,7 @@ import { act } from 'react';
 import { createRoot } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import ordersService from '../../../Services/ordersService';
-import { AddressLocationMap } from './AddressLocationMap';
+import { ADDRESS_LOCATION_DEBOUNCE_MS, AddressLocationMap } from './AddressLocationMap';
 
 vi.mock('../../../Services/ordersService', () => ({
   default: {
@@ -115,6 +115,77 @@ describe('AddressLocationMap', () => {
     expect(mapOptions[0]).toHaveProperty('styles');
     expect(container.textContent).toContain('Localização encontrada');
     expect(container.textContent).toContain('Rua das Flores, 123 - Fortaleza - CE');
+
+    act(() => root.unmount());
+    container.remove();
+  });
+
+  it('não refaz geocodificação ao digitar somente o complemento', async () => {
+    class FakeMap {
+      constructor(_element: HTMLElement, _options: Record<string, unknown>) {}
+      setCenter() {}
+      setZoom() {}
+      panTo() {}
+    }
+    class FakeMarker {
+      constructor(_options: Record<string, unknown>) {}
+      setPosition() {}
+      setTitle() {}
+    }
+    class FakeGeocoder {
+      geocode() {}
+    }
+
+    (window as typeof window & { google?: unknown }).google = {
+      maps: {
+        Map: FakeMap,
+        Marker: FakeMarker,
+        Geocoder: FakeGeocoder,
+      },
+    };
+
+    vi.mocked(ordersService.getDeliveryAddressLocation).mockResolvedValue({
+      latitude: -3.7319,
+      longitude: -38.5267,
+      formattedAddress: 'Rua das Flores, 123 - Fortaleza - CE',
+      locationType: 'ROOFTOP',
+      partialMatch: false,
+    });
+
+    const container = document.createElement('div');
+    document.body.appendChild(container);
+    const root = createRoot(container);
+    const address = {
+      address: 'Rua das Flores',
+      number: '123',
+      district: 'Centro',
+      city: 'Fortaleza',
+      state: 'CE',
+      zipCode: '60000-000',
+      complement: '',
+    };
+
+    await act(async () => {
+      root.render(<AddressLocationMap restaurantId={9} primaryColor="#d05632" address={address} />);
+      await vi.advanceTimersByTimeAsync(ADDRESS_LOCATION_DEBOUNCE_MS);
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(ordersService.getDeliveryAddressLocation).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      root.render(
+        <AddressLocationMap
+          restaurantId={9}
+          primaryColor="#d05632"
+          address={{ ...address, complement: 'Apto 10' }}
+        />,
+      );
+      await vi.advanceTimersByTimeAsync(ADDRESS_LOCATION_DEBOUNCE_MS * 2);
+    });
+
+    expect(ordersService.getDeliveryAddressLocation).toHaveBeenCalledTimes(1);
 
     act(() => root.unmount());
     container.remove();
