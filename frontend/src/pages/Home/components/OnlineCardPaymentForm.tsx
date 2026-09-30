@@ -1,12 +1,16 @@
 import { CircleAlert, CreditCard, LockKeyhole } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import styled from 'styled-components';
+import {
+  getCardPaymentErrorTitle,
+  selectMercadoPagoPaymentMethod,
+  type CardPaymentType,
+} from '../domain/cardPayment';
 import type { CustomerPaymentMethod } from '../../../Services/customerPaymentMethodService';
 import publicCardPaymentService, {
   type PublicCardPaymentConfig,
 } from '../../../Services/publicCardPaymentService';
 
-export type CardPaymentType = 'credit' | 'debit';
 export type PreparedCardPayment = Record<string, unknown>;
 export type CardPaymentPreparer = () => Promise<PreparedCardPayment>;
 
@@ -38,24 +42,6 @@ type MercadoPagoInstance = {
     }>;
   }>;
 };
-
-export function selectMercadoPagoPaymentMethod(
-  results: Array<{ id?: string; payment_type_id?: string }> | undefined,
-  paymentType: CardPaymentType,
-) {
-  const expectedType = paymentType === 'debit' ? 'debit_card' : 'credit_card';
-  const method = (results || []).find(
-    (candidate) =>
-      String(candidate.payment_type_id || '').trim().toLowerCase() === expectedType,
-  );
-  return String(method?.id || '').trim();
-}
-
-export function getCardPaymentErrorTitle(paymentType: CardPaymentType) {
-  return paymentType === 'debit'
-    ? 'Não foi possível usar este cartão no débito'
-    : 'Não foi possível usar este cartão';
-}
 
 declare global {
   interface Window {
