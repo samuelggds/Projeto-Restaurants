@@ -344,7 +344,7 @@ async function mercadoPagoPayment(
             id: paymentMethodId,
             type: cardPaymentType === 'debit' ? 'debit_card' : 'credit_card',
             token,
-            installments: 1,
+            ...(cardPaymentType === 'credit' ? { installments: 1 } : {}),
           },
         },
       ],
