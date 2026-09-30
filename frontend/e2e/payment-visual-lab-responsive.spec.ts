@@ -76,24 +76,31 @@ test('estado recusado é diferente de cancelado no laboratório', async ({ page 
 });
 
 
-test('rastreamento fictício usa o mapa de produção e move o motoqueiro na rota', async ({ page }) => {
+test('rastreamento fictício mostra o mapa local e move o motoqueiro na rota', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto('/__dev/pagamentos');
   await page.getByRole('button', { name: 'Acompanhar pedido (GPS)', exact: true }).click();
 
   const lab = page.locator('[data-testid="delivery-tracking-visual-lab"]');
   await expect(lab).toBeVisible();
-  await expect(lab).toHaveAttribute('data-google-map-source', 'production');
+  await expect(lab).toHaveAttribute('data-map-source', 'fictitious-google-style');
   await expect(lab).toHaveAttribute('data-animation-duration-ms', '60000');
+  await expect(page.getByText('Início', { exact: true })).toBeVisible();
+  await expect(page.getByText('Acompanhar pedido', { exact: true })).toBeVisible();
   await expect(page.getByText('Eduardo Silva', { exact: true })).toBeVisible();
-  await expect(page.getByText('Mensagens com Eduardo')).toBeVisible();
+  await expect(page.getByText('(00) 00000-0000', { exact: true })).toBeVisible();
+  await expect(page.getByText('Olá, Entrar', { exact: true })).toHaveCount(0);
+  await expect(page.getByText('Meu Carrinho', { exact: true })).toHaveCount(0);
 
-  const map = page.locator('.customer-google-delivery-map');
+  const map = page.locator('[data-testid="visual-fictitious-map"]');
+  const marker = page.locator('[data-testid="visual-courier-marker"]');
   await expect(map).toBeVisible();
-  const initialLatitude = await map.getAttribute('data-courier-latitude');
-  await page.waitForTimeout(2_200);
-  const movedLatitude = await map.getAttribute('data-courier-latitude');
+  await expect(marker).toBeVisible();
 
-  expect(movedLatitude).not.toBe(initialLatitude);
+  const initialProgress = await map.getAttribute('data-courier-progress');
+  await page.waitForTimeout(1_200);
+  const movedProgress = await map.getAttribute('data-courier-progress');
+
+  expect(movedProgress).not.toBe(initialProgress);
   await expectNoHorizontalOverflow(page);
 });

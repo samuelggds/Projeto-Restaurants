@@ -6,7 +6,7 @@ vi.mock('./DeliveryTrackingVisualLab', () => ({
   default: () => (
     <section
       data-testid="delivery-tracking-visual-lab"
-      data-google-map-source="production"
+      data-map-source="fictitious-google-style"
       data-animation-duration-ms="60000"
     >
       <h1>Acompanhe seu Pedido</h1>
@@ -155,7 +155,7 @@ describe('PaymentVisualLab', () => {
     act(() => root.unmount());
   });
 
-  it('abre o laboratório de acompanhamento com Google Maps de produção e animação de 1 minuto', async () => {
+  it('abre o laboratório de acompanhamento com mapa fictício e animação de 1 minuto', async () => {
     const container = document.createElement('div');
     document.body.appendChild(container);
     const root = createRoot(container);
@@ -176,7 +176,7 @@ describe('PaymentVisualLab', () => {
 
     const tracking = container.querySelector('[data-testid="delivery-tracking-visual-lab"]');
     expect(tracking).not.toBeNull();
-    expect(tracking?.getAttribute('data-google-map-source')).toBe('production');
+    expect(tracking?.getAttribute('data-map-source')).toBe('fictitious-google-style');
     expect(tracking?.getAttribute('data-animation-duration-ms')).toBe('60000');
     expect(container.textContent).toContain('Acompanhe seu Pedido');
 

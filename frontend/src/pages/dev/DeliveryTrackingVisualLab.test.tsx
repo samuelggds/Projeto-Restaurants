@@ -1,23 +1,6 @@
 import { act } from 'react';
 import { createRoot } from 'react-dom/client';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-
-const mapProps = vi.hoisted(() => ({
-  latest: null as null | {
-    points: Array<{ latitude: number; longitude: number }>;
-    routePath: Array<{ latitude: number; longitude: number }>;
-    destination?: { latitude: number; longitude: number; label?: string };
-    courierName?: string;
-  },
-}));
-
-vi.mock('../tracking/CustomerDeliveryMap', () => ({
-  default: (props: typeof mapProps.latest) => {
-    mapProps.latest = props;
-    return <div data-testid="production-google-map" />;
-  },
-}));
-
 import DeliveryTrackingVisualLab, {
   VISUAL_TRACKING_ANIMATION_MS,
   VISUAL_TRACKING_ROUTE,
@@ -31,7 +14,6 @@ describe('DeliveryTrackingVisualLab', () => {
   afterEach(() => {
     vi.useRealTimers();
     document.body.innerHTML = '';
-    mapProps.latest = null;
   });
 
   it('mantém a simulação em um minuto e interpola do início ao destino', () => {
@@ -49,7 +31,7 @@ describe('DeliveryTrackingVisualLab', () => {
     expect(middle).not.toMatchObject(VISUAL_TRACKING_ROUTE[0]);
   });
 
-  it('usa o mapa Google compartilhado de produção com dados somente fictícios', async () => {
+  it('renderiza mapa fictício local sem depender de Google Maps ou backend', async () => {
     const container = document.createElement('div');
     document.body.appendChild(container);
     const root = createRoot(container);
@@ -60,19 +42,23 @@ describe('DeliveryTrackingVisualLab', () => {
     });
 
     const lab = container.querySelector('[data-testid="delivery-tracking-visual-lab"]');
-    expect(lab?.getAttribute('data-google-map-source')).toBe('production');
+    expect(lab?.getAttribute('data-map-source')).toBe('fictitious-google-style');
     expect(lab?.getAttribute('data-animation-duration-ms')).toBe('60000');
-    expect(container.querySelector('[data-testid="production-google-map"]')).not.toBeNull();
-    expect(mapProps.latest?.routePath).toHaveLength(VISUAL_TRACKING_ROUTE.length);
-    expect(mapProps.latest?.courierName).toBe('Eduardo Silva');
+    expect(container.querySelector('[data-testid="visual-fictitious-map"]')).not.toBeNull();
+    expect(container.querySelector('[data-testid="visual-courier-marker"]')).not.toBeNull();
+    expect(container.textContent).toContain('Acompanhar pedido');
+    expect(container.textContent).toContain('Início');
+    expect(container.textContent).toContain('Eduardo Silva');
+    expect(container.textContent).toContain('(00) 00000-0000');
     expect(container.textContent).toContain('Status da Entrega');
     expect(container.textContent).toContain('Mensagens com Eduardo');
-    expect(container.textContent).toContain('Saiu para entrega (Rota)');
+    expect(container.textContent).not.toContain('Olá, Entrar');
+    expect(container.textContent).not.toContain('Meu Carrinho');
 
     act(() => root.unmount());
   });
 
-  it('move a posição fictícia ao longo do tempo sem chamar backend', async () => {
+  it('move o marcador fictício durante os 60 segundos', async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2026-09-30T18:00:00Z'));
 
@@ -85,26 +71,32 @@ describe('DeliveryTrackingVisualLab', () => {
       await Promise.resolve();
     });
 
-    const start = mapProps.latest?.points[0];
-    expect(start).toMatchObject(VISUAL_TRACKING_ROUTE[0]);
+    const map = container.querySelector('[data-testid="visual-fictitious-map"]');
+    expect(map?.getAttribute('data-courier-progress')).toBe('0.0000');
 
     await act(async () => {
       vi.advanceTimersByTime(30_000);
       await Promise.resolve();
     });
 
-    const halfway = mapProps.latest?.points[0];
-    expect(halfway?.latitude).not.toBe(start?.latitude);
-    expect(halfway?.longitude).not.toBe(start?.longitude);
-
-    await act(async () => {
-      vi.advanceTimersByTime(30_000);
-      await Promise.resolve();
-    });
-
-    expect(mapProps.latest?.points[0]).toMatchObject(
-      VISUAL_TRACKING_ROUTE[VISUAL_TRACKING_ROUTE.length - 1],
+    const halfway = Number(
+      container
+        .querySelector('[data-testid="visual-fictitious-map"]')
+        ?.getAttribute('data-courier-progress'),
     );
+    expect(halfway).toBeGreaterThan(0.45);
+    expect(halfway).toBeLessThan(0.55);
+
+    await act(async () => {
+      vi.advanceTimersByTime(30_000);
+      await Promise.resolve();
+    });
+
+    expect(
+      container
+        .querySelector('[data-testid="visual-fictitious-map"]')
+        ?.getAttribute('data-courier-progress'),
+    ).toBe('1.0000');
 
     act(() => root.unmount());
   });
