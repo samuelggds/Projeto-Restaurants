@@ -17,7 +17,7 @@ describe('PaymentVisualLab', () => {
     document.body.innerHTML = '';
   });
 
-  it('avança do cartão para aguardando e permite simular aprovação', async () => {
+  it('abre o checkout com PIX selecionado por padrão', async () => {
     const container = document.createElement('div');
     document.body.appendChild(container);
     const root = createRoot(container);
@@ -25,6 +25,32 @@ describe('PaymentVisualLab', () => {
     await act(async () => {
       root.render(<PaymentVisualLab />);
       await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    const pixButton = findButton(container, 'PIX');
+    expect(pixButton).toBeTruthy();
+    expect(pixButton?.getAttribute('aria-pressed')).toBe('true');
+
+    act(() => root.unmount());
+  });
+
+  it('permite escolher cartão manualmente e avançar para aguardando', async () => {
+    const container = document.createElement('div');
+    document.body.appendChild(container);
+    const root = createRoot(container);
+
+    await act(async () => {
+      root.render(<PaymentVisualLab />);
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    const cardButton = findButton(container, 'Cartão de Crédito');
+    expect(cardButton).toBeTruthy();
+
+    await act(async () => {
+      cardButton?.click();
       await Promise.resolve();
     });
 
@@ -65,11 +91,7 @@ describe('PaymentVisualLab', () => {
 
     const pixButton = findButton(container, 'PIX');
     expect(pixButton).toBeTruthy();
-
-    await act(async () => {
-      pixButton?.click();
-      await Promise.resolve();
-    });
+    expect(pixButton?.getAttribute('aria-pressed')).toBe('true');
 
     const continueButton = findButton(container, 'Continuar');
     await act(async () => {

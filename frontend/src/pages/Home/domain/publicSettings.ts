@@ -34,6 +34,13 @@ export function resolveAvailableFulfillmentMethod(
   return preferred;
 }
 
+export function resolveDefaultCheckoutPaymentMethod(
+  availableMethods: CheckoutPaymentMethod[],
+): CheckoutPaymentMethod | null {
+  if (availableMethods.includes('pix')) return 'pix';
+  return availableMethods[0] ?? null;
+}
+
 export function getAvailablePaymentMethods({
   allowPayOnDelivery,
   allowPayAtPickup = !allowPayOnDelivery,

@@ -7,6 +7,7 @@ import {
   normalizeHomeFontFamily,
   readPublicFeatureFlag,
   resolveAvailableFulfillmentMethod,
+  resolveDefaultCheckoutPaymentMethod,
 } from './publicSettings';
 
 describe('configurações públicas da Home', () => {
@@ -29,6 +30,12 @@ describe('configurações públicas da Home', () => {
     expect(
       getAvailablePaymentMethods({ allowPayOnDelivery: true, allowPix: true, allowCard: false }),
     ).toEqual(['pix', 'delivery_pix', 'delivery_cash']);
+  });
+
+  it('prioriza PIX como método padrão sempre que ele está disponível', () => {
+    expect(resolveDefaultCheckoutPaymentMethod(['card', 'debit_card', 'pix'])).toBe('pix');
+    expect(resolveDefaultCheckoutPaymentMethod(['card', 'debit_card'])).toBe('card');
+    expect(resolveDefaultCheckoutPaymentMethod([])).toBeNull();
   });
 
   it('inclui débito online somente quando a capacidade pública está ativa', () => {

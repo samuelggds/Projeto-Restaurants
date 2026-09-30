@@ -45,6 +45,7 @@ import {
   buildWhatsAppUrl,
   getAvailablePaymentMethods,
   resolveAvailableFulfillmentMethod,
+  resolveDefaultCheckoutPaymentMethod,
 } from './domain/publicSettings';
 import { TableServiceActions } from './components/TableServiceActions';
 import { useCardPaymentReturn } from './hooks/useCardPaymentReturn';
@@ -375,9 +376,11 @@ export default function Home() {
   const checkoutChannelAvailable =
     mesaMode ||
     (availableOrderType === 'delivery' ? homeData.acceptsDelivery : homeData.acceptsPickup);
+  const defaultCheckoutPaymentMethod =
+    resolveDefaultCheckoutPaymentMethod(availablePaymentMethods) ?? paymentMethod;
   const selectedCheckoutPaymentMethod = availablePaymentMethods.includes(paymentMethod)
     ? paymentMethod
-    : (availablePaymentMethods[0] ?? paymentMethod);
+    : defaultCheckoutPaymentMethod;
   const paymentAvailable = availablePaymentMethods.length > 0;
   const tableAccountEnabled = tableAccount.snapshot?.capabilities.enabled === true;
   const orderQuote = useOrderQuote({
@@ -720,6 +723,7 @@ export default function Home() {
         }
       }
 
+      setPaymentMethod(defaultCheckoutPaymentMethod);
       setCheckoutStep('payment');
     },
     [
@@ -728,6 +732,7 @@ export default function Home() {
       cepStatus,
       checkoutOrderType,
       confirmDialog,
+      defaultCheckoutPaymentMethod,
       deliveryAddress,
       notify,
       restaurantId,

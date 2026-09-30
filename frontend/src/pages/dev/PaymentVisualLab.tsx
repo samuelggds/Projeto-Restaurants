@@ -5,6 +5,7 @@ import {
   paymentSurfaceRise,
 } from '../../components/payment/paymentMotion';
 import type { CheckoutPaymentMethod } from '../Home/domain/checkout';
+import { resolveDefaultCheckoutPaymentMethod } from '../Home/domain/publicSettings';
 import { FigmaPaymentCheckout } from '../Home/components/FigmaPaymentCheckout';
 import { PaymentOptions } from '../Home/components/PaymentOptions';
 import PixPaymentPanel from '../Cart/components/PixPaymentPanel';
@@ -13,6 +14,7 @@ import type { CardPaymentReturnStatus } from '../Home/hooks/useCardPaymentReturn
 import type { PixPaymentStatus } from '../Home/hooks/useCheckoutPayments';
 
 type VisualScenario =
+  | 'checkout'
   | 'card-form'
   | 'debit-form'
   | 'pix-waiting'
@@ -27,6 +29,9 @@ const RESTAURANT_NAME = 'North Pizza — Teste visual';
 const FAKE_ORDER_ID = 990001;
 const FAKE_TOTAL = 54.9;
 const FAKE_PIX_CODE = 'PIX-FICTICIO-APENAS-PARA-TESTE-VISUAL-SEM-VALOR';
+const VISUAL_PAYMENT_METHODS: CheckoutPaymentMethod[] = ['pix', 'card', 'debit_card'];
+const DEFAULT_VISUAL_PAYMENT_METHOD =
+  resolveDefaultCheckoutPaymentMethod(VISUAL_PAYMENT_METHODS) ?? 'pix';
 
 const cart = [
   {
@@ -43,11 +48,13 @@ const money = (value: number) =>
   value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
 export default function PaymentVisualLab() {
-  const [scenario, setScenario] = useState<VisualScenario>('card-form');
-  const [paymentMethod, setPaymentMethod] = useState<CheckoutPaymentMethod>('card');
+  const [scenario, setScenario] = useState<VisualScenario>('checkout');
+  const [paymentMethod, setPaymentMethod] =
+    useState<CheckoutPaymentMethod>(DEFAULT_VISUAL_PAYMENT_METHOD);
   const pixExpiresAt = useMemo(() => new Date(Date.now() + 15 * 60 * 1000).toISOString(), []);
 
-  const showCheckout = scenario === 'card-form' || scenario === 'debit-form';
+  const showCheckout =
+    scenario === 'checkout' || scenario === 'card-form' || scenario === 'debit-form';
   const pixStatus: PixPaymentStatus =
     scenario === 'pix-paid' ? 'PAID' : scenario === 'pix-failed' ? 'FAILED' : 'PENDING';
   const cardStatus: CardPaymentReturnStatus =
@@ -55,6 +62,7 @@ export default function PaymentVisualLab() {
 
   const selectScenario = (next: VisualScenario) => {
     setScenario(next);
+    if (next === 'checkout') setPaymentMethod(DEFAULT_VISUAL_PAYMENT_METHOD);
     if (next === 'card-form') setPaymentMethod('card');
     if (next === 'debit-form') setPaymentMethod('debit_card');
   };
@@ -83,6 +91,7 @@ export default function PaymentVisualLab() {
           </span>
         </div>
         <nav>
+          <button className={scenario === 'checkout' ? 'active' : ''} onClick={() => selectScenario('checkout')}>Checkout (PIX padrão)</button>
           <button className={scenario === 'card-form' ? 'active' : ''} onClick={() => selectScenario('card-form')}>Dados cartão</button>
           <button className={scenario === 'debit-form' ? 'active' : ''} onClick={() => selectScenario('debit-form')}>Dados débito</button>
           <button className={scenario === 'pix-waiting' ? 'active' : ''} onClick={() => selectScenario('pix-waiting')}>PIX aguardando</button>
@@ -182,7 +191,7 @@ export default function PaymentVisualLab() {
             formatCurrency={money}
             onCopyPixKey={async () => undefined}
             onVerify={async () => pixStatus}
-            onBackToCart={() => setScenario('card-form')}
+            onBackToCart={() => selectScenario('checkout')}
             onTrackOrder={() => undefined}
           />
         ) : (
@@ -208,7 +217,7 @@ export default function PaymentVisualLab() {
             }}
             amount={money(FAKE_TOTAL)}
             onVerify={async () => cardStatus}
-            onClose={() => setScenario('card-form')}
+            onClose={() => selectScenario('checkout')}
             onTrackOrder={() => undefined}
           />
         )}
