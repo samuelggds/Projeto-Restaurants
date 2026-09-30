@@ -1,9 +1,12 @@
 import { FormEvent, type CSSProperties, useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowLeft, Bike, CheckCircle2, CircleDot, Phone, Send } from 'lucide-react';
+import { ArrowLeft, Bike, CheckCircle2, CircleDot, Minus, Phone, Plus, Send } from 'lucide-react';
 import courierDelivery8Dir from '../../assets/tracking/courier-delivery-8dir.jpg';
 import type { CourierRoutePoint } from '../Courier/domain/courierLocation';
 
 export const VISUAL_TRACKING_ANIMATION_MS = 60_000;
+export const VISUAL_MAP_MIN_ZOOM = 0.85;
+export const VISUAL_MAP_MAX_ZOOM = 1.6;
+export const VISUAL_MAP_ZOOM_STEP = 0.15;
 
 const COURIER_DIRECTION_NAMES = [
   'up',
@@ -208,7 +211,7 @@ function IsoBuilding({ x, y, scale = 1, variant = 'light' }: IsoBuildingProps) {
         : { top: '#f2eee7', left: '#d8d3ca', right: '#c7c1b8' };
 
   return (
-    <g transform={`translate(${x} ${y}) scale(${scale})`}>
+    <g transform={`translate(${x} ${y}) scale(${scale * 0.56})`}>
       <polygon points="0,10 18,2 34,10 16,18" fill={palette.top} />
       <polygon points="0,10 16,18 16,35 0,27" fill={palette.left} />
       <polygon points="16,18 34,10 34,27 16,35" fill={palette.right} />
@@ -222,7 +225,7 @@ function IsoBuilding({ x, y, scale = 1, variant = 'light' }: IsoBuildingProps) {
 
 function IsoTree({ x, y, scale = 1 }: { x: number; y: number; scale?: number }) {
   return (
-    <g transform={`translate(${x} ${y}) scale(${scale})`}>
+    <g transform={`translate(${x} ${y}) scale(${scale * 0.72})`}>
       <ellipse cx="0" cy="5" rx="4.4" ry="2.2" fill="rgba(63,79,57,.18)" />
       <rect x="-0.7" y="-1" width="1.4" height="6" rx=".6" fill="#8a6a4d" />
       <circle cx="-1.5" cy="-2" r="3.2" fill="#789f55" />
@@ -267,11 +270,36 @@ function IsometricCityScene() {
         strokeWidth="2.3"
       />
 
-      <g opacity=".92">
-        <path d="M-7 22 L36 2 M5 37 L48 16 M17 52 L60 31 M31 68 L73 48 M44 83 L88 61 M57 98 L100 76" stroke="#5f6060" strokeWidth="4.1" />
-        <path d="M-7 22 L36 2 M5 37 L48 16 M17 52 L60 31 M31 68 L73 48 M44 83 L88 61 M57 98 L100 76" stroke="#eee7db" strokeWidth="3.1" />
-        <path d="M7 -3 L78 100 M27 -7 L94 91 M49 -5 L100 68 M-4 16 L57 100" stroke="#5f6060" strokeWidth="3.7" />
-        <path d="M7 -3 L78 100 M27 -7 L94 91 M49 -5 L100 68 M-4 16 L57 100" stroke="#eee7db" strokeWidth="2.8" />
+      <g opacity=".96">
+        <path d="M-7 22 L36 2 M5 37 L48 16 M17 52 L60 31 M31 68 L73 48 M44 83 L88 61 M57 98 L100 76" fill="none" stroke="#686663" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+        <path d="M-7 22 L36 2 M5 37 L48 16 M17 52 L60 31 M31 68 L73 48 M44 83 L88 61 M57 98 L100 76" fill="none" stroke="#eee6d9" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+        <path d="M7 -3 L78 100 M27 -7 L94 91 M49 -5 L100 68 M-4 16 L57 100" fill="none" stroke="#686663" strokeWidth="2.35" strokeLinecap="round" strokeLinejoin="round" />
+        <path d="M7 -3 L78 100 M27 -7 L94 91 M49 -5 L100 68 M-4 16 L57 100" fill="none" stroke="#eee6d9" strokeWidth="1.68" strokeLinecap="round" strokeLinejoin="round" />
+        <polyline
+          points={VISUAL_STREET_SVG_POINTS}
+          fill="none"
+          stroke="#686663"
+          strokeWidth="2.5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+        <polyline
+          points={VISUAL_STREET_SVG_POINTS}
+          fill="none"
+          stroke="#eee6d9"
+          strokeWidth="1.8"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+        <polyline
+          points={VISUAL_STREET_SVG_POINTS}
+          fill="none"
+          stroke="#cfc3b4"
+          strokeWidth=".22"
+          strokeDasharray=".7 .85"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
       </g>
 
       <g opacity=".7">
@@ -304,6 +332,9 @@ function IsometricCityScene() {
         <IsoBuilding x={39} y={76} scale={0.65} />
         <IsoBuilding x={55} y={74} scale={0.84} />
         <IsoBuilding x={71} y={76} scale={0.7} variant="warm" />
+        <IsoBuilding x={4} y={88} scale={0.58} />
+        <IsoBuilding x={31} y={88} scale={0.62} variant="cool" />
+        <IsoBuilding x={58} y={90} scale={0.6} />
       </g>
 
       <g>
@@ -329,32 +360,6 @@ function IsometricCityScene() {
         <IsoTree x={72} y={90} scale={0.6} />
       </g>
 
-      <polyline
-        points={VISUAL_STREET_SVG_POINTS}
-        fill="none"
-        stroke="#626161"
-        strokeWidth="6"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <polyline
-        points={VISUAL_STREET_SVG_POINTS}
-        fill="none"
-        stroke="#f0e9dd"
-        strokeWidth="4.4"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <polyline
-        points={VISUAL_STREET_SVG_POINTS}
-        fill="none"
-        stroke="#d2c8b9"
-        strokeWidth=".45"
-        strokeDasharray="1.4 1.5"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-
       <path d="M78 82 L91 76 L94 80 L81 86 Z" fill="#d6d0c6" stroke="#8d8c88" strokeWidth=".5" />
       <path d="M79 81.5 L92 75.5" stroke="#f6f2eb" strokeWidth="1.1" />
     </svg>
@@ -366,6 +371,7 @@ export default function DeliveryTrackingVisualLab({ onBack }: { onBack?: () => v
   const [progress, setProgress] = useState(0);
   const [messages, setMessages] = useState<LocalMessage[]>(INITIAL_MESSAGES);
   const [draft, setDraft] = useState('');
+  const [mapZoom, setMapZoom] = useState(1);
 
   useEffect(() => {
     if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return undefined;
@@ -451,6 +457,30 @@ export default function DeliveryTrackingVisualLab({ onBack }: { onBack?: () => v
         [data-testid="visual-origin-restaurant-marker"] > span:first-child > span:nth-child(3) i:nth-child(even) {
           background: #fff4ed;
         }
+        [aria-label="Controles de zoom da maquete"] button {
+          width: 36px;
+          height: 36px;
+          padding: 0;
+          display: grid;
+          place-items: center;
+          border: 0;
+          background: transparent;
+          color: #4d4a45;
+          cursor: pointer;
+        }
+        [aria-label="Controles de zoom da maquete"] button:hover:not(:disabled) {
+          background: #f3eee5;
+        }
+        [aria-label="Controles de zoom da maquete"] button:disabled {
+          opacity: .35;
+          cursor: not-allowed;
+        }
+        [aria-label="Controles de zoom da maquete"] > span {
+          color: #5f5a52;
+          font-size: 10px;
+          font-weight: 800;
+          text-align: center;
+        }
 
         @media (max-width: 760px) {
           .tracking-main { width: 100% !important; padding: 0 0 28px !important; }
@@ -488,12 +518,12 @@ export default function DeliveryTrackingVisualLab({ onBack }: { onBack?: () => v
             max-height: 280px !important;
             border-radius: 0 !important;
             overflow: hidden !important;
-            background: #e9eef1 !important;
+            background: #e9e1d4 !important;
           }
           .tracking-animation-badge { display: none !important; }
           [data-testid="visual-courier-marker"] {
-            width: 82px !important;
-            height: 94px !important;
+            width: 68px !important;
+            height: 78px !important;
           }
         }
       `}</style>
@@ -517,6 +547,7 @@ export default function DeliveryTrackingVisualLab({ onBack }: { onBack?: () => v
               data-testid="visual-fictitious-map"
               data-courier-progress={progress.toFixed(4)}
               data-camera-rotation={visualCameraRotation.toFixed(2)}
+              data-map-zoom={mapZoom.toFixed(2)}
               style={styles.fakeMap}
             >
               <div
@@ -524,7 +555,7 @@ export default function DeliveryTrackingVisualLab({ onBack }: { onBack?: () => v
                 style={{
                   ...styles.mapScene,
                   transformOrigin: `${currentMapPosition.x}% ${currentMapPosition.y}%`,
-                  transform: `translate(${cameraTranslate.x}%, ${cameraTranslate.y}%) rotate(${visualCameraRotation}deg) scale(1.22)`,
+                  transform: `translate(${cameraTranslate.x}%, ${cameraTranslate.y}%) rotate(${visualCameraRotation}deg) scale(${mapZoom})`,
                 }}
               >
                 <IsometricCityScene />
@@ -561,6 +592,7 @@ export default function DeliveryTrackingVisualLab({ onBack }: { onBack?: () => v
                 }}
               >
                 <span style={styles.courierRoadShadow} aria-hidden="true" />
+                <span data-testid="visual-courier-halo" style={styles.courierHalo} aria-hidden="true" />
                 <span
                   data-testid="visual-courier-sprite"
                   role="img"
@@ -571,6 +603,39 @@ export default function DeliveryTrackingVisualLab({ onBack }: { onBack?: () => v
                     backgroundPosition: `${courierSpritePosition.x}% ${courierSpritePosition.y}%`,
                   }}
                 />
+              </div>
+              <div style={styles.zoomControls} aria-label="Controles de zoom da maquete">
+                <button
+                  type="button"
+                  aria-label="Reduzir mapa isométrico"
+                  disabled={mapZoom <= VISUAL_MAP_MIN_ZOOM}
+                  onClick={() =>
+                    setMapZoom((current) =>
+                      Math.max(
+                        VISUAL_MAP_MIN_ZOOM,
+                        Number((current - VISUAL_MAP_ZOOM_STEP).toFixed(2)),
+                      ),
+                    )
+                  }
+                >
+                  <Minus size={16} />
+                </button>
+                <span aria-live="polite">{Math.round(mapZoom * 100)}%</span>
+                <button
+                  type="button"
+                  aria-label="Ampliar mapa isométrico"
+                  disabled={mapZoom >= VISUAL_MAP_MAX_ZOOM}
+                  onClick={() =>
+                    setMapZoom((current) =>
+                      Math.min(
+                        VISUAL_MAP_MAX_ZOOM,
+                        Number((current + VISUAL_MAP_ZOOM_STEP).toFixed(2)),
+                      ),
+                    )
+                  }
+                >
+                  <Plus size={16} />
+                </button>
               </div>
               <div style={styles.etaBadge}>Chega em 15 min</div>
               <small style={styles.fakeMapNotice}>Maquete isométrica local — sem Google Maps</small>
@@ -641,18 +706,19 @@ const styles: Record<string, CSSProperties> = {
   layout: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 330px), 1fr))', gap: 30, alignItems: 'start' },
   mapCard: { position: 'relative', minWidth: 0 },
   fakeMap: { position: 'relative', width: '100%', height: 'min(68vh, 650px)', minHeight: 520, overflow: 'hidden', isolation: 'isolate', border: '1px solid #d6cdbc', borderRadius: 12, background: 'linear-gradient(180deg,#efe8d9 0%,#e4dccd 100%)', boxShadow: 'inset 0 0 0 1px rgba(255,255,255,.58)' },
-  mapScene: { position: 'absolute', zIndex: 1, inset: '-6%', width: '112%', height: '112%', willChange: 'transform', transition: 'transform 720ms cubic-bezier(.22,1,.36,1)', filter: 'saturate(.95) contrast(.98)' },
+  mapScene: { position: 'absolute', zIndex: 1, inset: '-10%', width: '120%', height: '120%', willChange: 'transform', transition: 'transform 360ms cubic-bezier(.22,1,.36,1)', filter: 'saturate(.95) contrast(.98)' },
   isometricSvg: { position: 'absolute', inset: 0, width: '100%', height: '100%', display: 'block', filter: 'drop-shadow(0 10px 18px rgba(74,65,52,.08))' },
   cityBlock: { position: 'absolute', zIndex: 0, border: '1px solid #dfe5e2', borderRadius: 9, background: 'linear-gradient(145deg,#e1e8df 0%,#d8e1d8 100%)', boxShadow: 'inset 0 0 0 3px rgba(255,255,255,.22)' },
   road: { position: 'absolute', zIndex: 1, height: 13, border: '1px solid #d5dcdf', background: '#fff', boxShadow: '0 0 0 2px rgba(222,228,231,.9)' },
   mapLabel: { position: 'absolute', zIndex: 2, color: '#6d777c', fontSize: 10, fontWeight: 600, transform: 'rotate(-4deg)' },
   mapLabelPoi: { position: 'absolute', zIndex: 2, color: '#5d8b68', fontSize: 9, fontWeight: 800 },
   streetSvg: { position: 'absolute', zIndex: 3, inset: 0, width: '100%', height: '100%', pointerEvents: 'none' },
-  courierMarker: { position: 'absolute', zIndex: 9, width: 96, height: 108, transform: 'translate(-50%, -58%)', pointerEvents: 'none', filter: 'drop-shadow(0 10px 9px rgba(21,31,39,.22))' },
-  courierRoadShadow: { position: 'absolute', zIndex: 0, left: '50%', bottom: 4, width: 46, height: 13, borderRadius: '50%', background: 'rgba(22,31,38,.24)', filter: 'blur(4px)', transform: 'translateX(-50%) scaleX(1.22)' },
-  courierSprite: { position: 'absolute', zIndex: 1, inset: 0, display: 'block', overflow: 'hidden', borderRadius: 18, backgroundRepeat: 'no-repeat', backgroundSize: '400% 200%', backgroundColor: 'transparent', mixBlendMode: 'multiply', filter: 'contrast(1.04) saturate(1.08)', transform: 'perspective(240px) rotateX(5deg) translateZ(0)', transformOrigin: '50% 82%', willChange: 'background-position' },
-  originBuildingPosition: { position: 'absolute', zIndex: 7, transform: 'translate(-50%, -76%)', pointerEvents: 'none' },
-  destinationBuildingPosition: { position: 'absolute', zIndex: 7, transform: 'translate(-50%, -76%)', pointerEvents: 'none' },
+  courierMarker: { position: 'absolute', zIndex: 40, width: 78, height: 88, transform: 'translate(-50%, -58%)', pointerEvents: 'none', filter: 'drop-shadow(0 8px 7px rgba(21,31,39,.28))' },
+  courierRoadShadow: { position: 'absolute', zIndex: 0, left: '50%', bottom: 5, width: 38, height: 11, borderRadius: '50%', background: 'rgba(22,31,38,.28)', filter: 'blur(3px)', transform: 'translateX(-50%) scaleX(1.18)' },
+  courierHalo: { position: 'absolute', zIndex: 1, left: '50%', top: '52%', width: 48, height: 48, border: '3px solid rgba(232,86,44,.92)', borderRadius: '50%', background: 'rgba(255,255,255,.9)', boxShadow: '0 4px 16px rgba(232,86,44,.28)', transform: 'translate(-50%, -50%)' },
+  courierSprite: { position: 'absolute', zIndex: 2, inset: 0, display: 'block', overflow: 'hidden', borderRadius: 16, backgroundRepeat: 'no-repeat', backgroundSize: '400% 200%', backgroundColor: 'transparent', filter: 'contrast(1.08) saturate(1.12) drop-shadow(0 2px 2px rgba(255,255,255,.72))', transform: 'perspective(240px) rotateX(5deg) translateZ(0)', transformOrigin: '50% 82%', willChange: 'background-position' },
+  originBuildingPosition: { position: 'absolute', zIndex: 7, transform: 'translate(-50%, -76%) scale(.72)', transformOrigin: '50% 100%', pointerEvents: 'none' },
+  destinationBuildingPosition: { position: 'absolute', zIndex: 7, transform: 'translate(-50%, -76%) scale(.68)', transformOrigin: '50% 100%', pointerEvents: 'none' },
   buildingMarker: { position: 'relative', width: 58, display: 'grid', justifyItems: 'center', gap: 2, filter: 'drop-shadow(0 8px 7px rgba(31,41,55,.18))' },
   buildingLabel: { padding: '2px 5px', borderRadius: 999, color: '#454b48', background: 'rgba(255,255,255,.92)', boxShadow: '0 2px 5px rgba(31,41,55,.12)', fontSize: 7, fontWeight: 900, whiteSpace: 'nowrap' },
 
@@ -669,6 +735,8 @@ const styles: Record<string, CSSProperties> = {
   houseDoor: { position: 'absolute', zIndex: 3, left: 18, bottom: 1, width: 10, height: 17, borderRadius: '3px 3px 0 0', background: 'linear-gradient(90deg,#875238,#a96c49)' },
   houseWindowLeft: { position: 'absolute', zIndex: 3, left: 7, bottom: 10, width: 8, height: 8, border: '1px solid rgba(44,94,111,.2)', borderRadius: 2, background: 'linear-gradient(145deg,#e2f8ff,#8fc9df)' },
   houseWindowRight: { position: 'absolute', zIndex: 3, right: 6, bottom: 10, width: 8, height: 8, border: '1px solid rgba(44,94,111,.2)', borderRadius: 2, background: 'linear-gradient(145deg,#e2f8ff,#8fc9df)' },
+  zoomControls: { position: 'absolute', zIndex: 50, top: 18, right: 18, minHeight: 36, display: 'grid', gridTemplateColumns: '36px 48px 36px', alignItems: 'center', overflow: 'hidden', border: '1px solid rgba(112,103,91,.2)', borderRadius: 11, background: 'rgba(255,255,255,.94)', boxShadow: '0 7px 20px rgba(63,55,45,.14)', backdropFilter: 'blur(8px)' },
+  zoomButton: { width: 36, height: 36, display: 'grid', placeItems: 'center', border: 0, background: 'transparent', color: '#4d4a45', cursor: 'pointer' },
   etaBadge: { position: 'absolute', zIndex: 8, top: 20, left: 20, padding: '8px 16px', border: '1px solid #efece6', borderRadius: 999, color: '#e85a2b', background: '#fff', boxShadow: '0 4px 8px rgba(16,24,39,.08)', fontSize: 13, fontWeight: 800 },
   fakeMapNotice: { position: 'absolute', zIndex: 8, right: 10, bottom: 8, padding: '4px 7px', borderRadius: 6, color: '#667178', background: 'rgba(255,255,255,.88)', fontSize: 8 },
   animationBadge: { position: 'absolute', zIndex: 7, right: 14, bottom: 14, maxWidth: 'calc(100% - 28px)', padding: '9px 11px', display: 'flex', alignItems: 'center', gap: 9, border: '1px solid rgba(232,86,44,.18)', borderRadius: 10, background: 'rgba(255,255,255,.95)', boxShadow: '0 9px 24px rgba(31,30,26,.12)' },
