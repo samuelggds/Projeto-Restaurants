@@ -1,6 +1,7 @@
 import { FormEvent, type CSSProperties, useEffect, useMemo, useRef, useState } from 'react';
 import { ArrowLeft, CheckCircle2, CircleDot, Phone, Send } from 'lucide-react';
-import CustomerDeliveryMap from '../tracking/CustomerDeliveryMap';
+import courierDelivery8Dir from '../../assets/tracking/courier-delivery-8dir.jpg';
+import fictitiousGoogleMap from '../../assets/tracking/fictitious-google-map';
 import type { CourierRoutePoint } from '../Courier/domain/courierLocation';
 
 export const VISUAL_TRACKING_ANIMATION_MS = 60_000;
@@ -53,6 +54,42 @@ const INITIAL_MESSAGES: LocalMessage[] = [
 
 function distance(a: CourierRoutePoint, b: CourierRoutePoint) {
   return Math.hypot(a.latitude - b.latitude, a.longitude - b.longitude);
+}
+
+const VISUAL_MAP_BOUNDS = VISUAL_TRACKING_ROUTE.reduce(
+  (bounds, point) => ({
+    minLat: Math.min(bounds.minLat, point.latitude),
+    maxLat: Math.max(bounds.maxLat, point.latitude),
+    minLng: Math.min(bounds.minLng, point.longitude),
+    maxLng: Math.max(bounds.maxLng, point.longitude),
+  }),
+  {
+    minLat: Number.POSITIVE_INFINITY,
+    maxLat: Number.NEGATIVE_INFINITY,
+    minLng: Number.POSITIVE_INFINITY,
+    maxLng: Number.NEGATIVE_INFINITY,
+  },
+);
+
+function toVisualMapPosition(point: CourierRoutePoint) {
+  const latRange = Math.max(0.000001, VISUAL_MAP_BOUNDS.maxLat - VISUAL_MAP_BOUNDS.minLat);
+  const lngRange = Math.max(0.000001, VISUAL_MAP_BOUNDS.maxLng - VISUAL_MAP_BOUNDS.minLng);
+
+  return {
+    x: 15 + ((point.longitude - VISUAL_MAP_BOUNDS.minLng) / lngRange) * 70,
+    y: 84 - ((point.latitude - VISUAL_MAP_BOUNDS.minLat) / latRange) * 68,
+  };
+}
+
+function getCourierSpritePosition(directionIndex: number) {
+  const safeIndex = Math.max(0, Math.min(7, directionIndex));
+  const column = safeIndex % 4;
+  const row = safeIndex >= 4 ? 1 : 0;
+
+  return {
+    x: column === 0 ? 0 : (column / 3) * 100,
+    y: row * 100,
+  };
 }
 
 export function getVisualRouteFrame(route: CourierRoutePoint[], rawProgress: number) {
@@ -151,20 +188,13 @@ export default function DeliveryTrackingVisualLab({ onBack }: { onBack?: () => v
 
     startedAtRef.current = performance.now();
     let animationFrame = 0;
-    let lastPaint = 0;
 
     const update = (now: number) => {
       const nextProgress = Math.min(
         1,
         (now - startedAtRef.current) / VISUAL_TRACKING_ANIMATION_MS,
       );
-
-      // O Google Marker já interpola cada atualização. Limitar os targets evita
-      // reiniciar a animação do marcador a cada frame.
-      if (now - lastPaint >= 650 || nextProgress >= 1) {
-        lastPaint = now;
-        setProgress(nextProgress);
-      }
+      setProgress(nextProgress);
 
       if (nextProgress < 1) {
         animationFrame = window.requestAnimationFrame(update);
@@ -180,12 +210,20 @@ export default function DeliveryTrackingVisualLab({ onBack }: { onBack?: () => v
     [progress],
   );
   const currentPoint = currentFrame.point;
-  const destination = useMemo(
-    () => ({
-      ...VISUAL_TRACKING_ROUTE[VISUAL_TRACKING_ROUTE.length - 1],
-      label: 'Sua casa',
-    }),
-    [],
+  const currentMapPosition = useMemo(
+    () => toVisualMapPosition(currentPoint),
+    [currentPoint],
+  );
+  const courierDirectionIndex = useMemo(
+    () => getCourierDirectionIndex(currentFrame.angleDegrees),
+    [currentFrame.angleDegrees],
+  );
+  const courierDirection = COURIER_DIRECTION_NAMES[
+    courierDirectionIndex
+  ] as CourierDirectionName;
+  const courierSpritePosition = useMemo(
+    () => getCourierSpritePosition(courierDirectionIndex),
+    [courierDirectionIndex],
   );
   const etaMinutes = Math.max(1, Math.ceil(15 * (1 - progress)));
   const remainingSeconds = Math.max(
@@ -215,7 +253,7 @@ export default function DeliveryTrackingVisualLab({ onBack }: { onBack?: () => v
   return (
     <section
       data-testid="delivery-tracking-visual-lab"
-      data-map-source="google-maps"
+      data-map-source="fictitious-google-screenshot"
       data-animation-duration-ms={VISUAL_TRACKING_ANIMATION_MS}
       style={styles.page}
     >
@@ -245,11 +283,16 @@ export default function DeliveryTrackingVisualLab({ onBack }: { onBack?: () => v
             overflow: hidden !important;
           }
 
-          .tracking-map-card .customer-google-delivery-map {
+          .tracking-map-surface {
             height: 300px !important;
             min-height: 300px !important;
             border: 0 !important;
             border-radius: 0 !important;
+          }
+
+          [data-testid="visual-courier-marker"] {
+            width: 72px !important;
+            height: 82px !important;
           }
 
           .tracking-side {
@@ -294,23 +337,52 @@ export default function DeliveryTrackingVisualLab({ onBack }: { onBack?: () => v
         <div className="tracking-layout" style={styles.layout}>
           <section
             className="tracking-map-card"
-            data-testid="visual-google-map"
+            data-testid="visual-fictitious-map"
             data-courier-progress={progress.toFixed(4)}
             data-route-angle={currentFrame.angleDegrees.toFixed(2)}
-            data-sprite-direction={
-              COURIER_DIRECTION_NAMES[
-                getCourierDirectionIndex(currentFrame.angleDegrees)
-              ] as CourierDirectionName
-            }
+            data-sprite-direction={courierDirection}
             style={styles.mapCard}
           >
-            <CustomerDeliveryMap
-              points={[currentPoint]}
-              routePath={VISUAL_TRACKING_ROUTE}
-              destination={destination}
-              etaMinutes={etaMinutes}
-              courierName="Eduardo Silva"
-            />
+            <div
+              className="tracking-map-surface"
+              data-testid="visual-google-map-screenshot"
+              style={{
+                ...styles.mapSurface,
+                backgroundImage: `url(${fictitiousGoogleMap})`,
+              }}
+            >
+              <div
+                data-testid="visual-courier-marker"
+                data-sprite-direction={courierDirection}
+                data-sprite-index={courierDirectionIndex}
+                style={{
+                  ...styles.courierMapMarker,
+                  left: `${currentMapPosition.x}%`,
+                  top: `${currentMapPosition.y}%`,
+                }}
+              >
+                <span style={styles.courierMapShadow} aria-hidden="true" />
+                <span
+                  data-testid="visual-courier-sprite"
+                  role="img"
+                  aria-label="Motoqueiro 3D fictício em movimento"
+                  style={{
+                    ...styles.courierMapSprite,
+                    backgroundImage: `url(${courierDelivery8Dir})`,
+                    backgroundPosition: `${courierSpritePosition.x}% ${courierSpritePosition.y}%`,
+                  }}
+                />
+              </div>
+
+              <div style={styles.etaBadge}>
+                Chega em {etaMinutes} min
+              </div>
+
+              <small style={styles.mapNotice}>
+                Mapa fictício local para teste visual
+              </small>
+            </div>
+
             <div style={styles.labBadge} aria-live="polite">
               <strong>
                 {progress >= 1
@@ -464,6 +536,78 @@ const styles: Record<string, CSSProperties> = {
     alignItems: 'start',
   },
   mapCard: { position: 'relative', minWidth: 0 },
+  mapSurface: {
+    position: 'relative',
+    width: '100%',
+    height: 'min(68vh, 650px)',
+    minHeight: 520,
+    overflow: 'hidden',
+    border: '1px solid #d7dcd7',
+    borderRadius: 12,
+    backgroundColor: '#eef2f6',
+    backgroundRepeat: 'no-repeat',
+    backgroundPosition: 'center',
+    backgroundSize: 'cover',
+    boxShadow: 'inset 0 0 0 1px rgba(255,255,255,.45)',
+  },
+  courierMapMarker: {
+    position: 'absolute',
+    zIndex: 12,
+    width: 86,
+    height: 98,
+    transform: 'translate(-50%, -64%)',
+    pointerEvents: 'none',
+    filter: 'drop-shadow(0 7px 8px rgba(17,24,39,.28))',
+    transition: 'left 90ms linear, top 90ms linear',
+  },
+  courierMapShadow: {
+    position: 'absolute',
+    zIndex: 0,
+    left: '50%',
+    bottom: 3,
+    width: 42,
+    height: 11,
+    borderRadius: '50%',
+    background: 'rgba(17,24,39,.28)',
+    filter: 'blur(3px)',
+    transform: 'translateX(-50%)',
+  },
+  courierMapSprite: {
+    position: 'absolute',
+    zIndex: 1,
+    inset: 0,
+    display: 'block',
+    backgroundRepeat: 'no-repeat',
+    backgroundSize: '400% 200%',
+    backgroundColor: 'transparent',
+    filter: 'contrast(1.04) saturate(1.08)',
+  },
+  etaBadge: {
+    position: 'absolute',
+    zIndex: 10,
+    top: 16,
+    left: 16,
+    padding: '9px 15px',
+    border: '1px solid rgba(31,41,55,.08)',
+    borderRadius: 999,
+    color: '#e45118',
+    background: 'rgba(255,255,255,.96)',
+    boxShadow: '0 8px 22px rgba(31,41,55,.14)',
+    fontSize: 12,
+    fontWeight: 850,
+  },
+  mapNotice: {
+    position: 'absolute',
+    zIndex: 10,
+    left: 12,
+    bottom: 10,
+    padding: '4px 7px',
+    borderRadius: 6,
+    color: '#5e6c71',
+    background: 'rgba(255,255,255,.92)',
+    fontSize: 8,
+    fontWeight: 700,
+  },
   labBadge: {
     position: 'absolute',
     zIndex: 8,
