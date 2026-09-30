@@ -179,6 +179,7 @@ describe('PaymentOptions', () => {
         allowPayOnDelivery
         allowPix
         allowCard
+        allowDebitCard
         onChange={() => undefined}
         figmaCheckout
       />,
@@ -190,7 +191,8 @@ describe('PaymentOptions', () => {
     expect(markup).toContain('Dinheiro');
     expect(markup).not.toContain('Pix QR Code temporariamente indisponível');
     expect(markup).not.toContain('Cartão de Crédito temporariamente indisponível');
-    expect(markup).toContain('Cartão de débito temporariamente indisponível');
+    expect(markup).not.toContain('Cartão de débito temporariamente indisponível');
+    expect(markup).toContain('aria-label="Cartão de débito"');
   });
 
 });
