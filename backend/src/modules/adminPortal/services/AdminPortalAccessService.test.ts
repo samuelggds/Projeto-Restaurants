@@ -56,3 +56,29 @@ test('emite grant administrativo do tenant por exatamente uma semana', async () 
   assert.equal(decoded?.slug, 'north-pizza');
   assert.equal(Number(decoded?.exp) - Number(decoded?.iat), ADMIN_PORTAL_GRANT_TTL_SECONDS);
 });
+
+
+test('verify devolve a expiração validada do grant do mesmo tenant', async () => {
+  const key = 'b'.repeat(43);
+  const keyHash = crypto.createHash('sha256').update(key).digest('hex');
+
+  prisma.restaurant.findUnique = async ({ where }) => ({
+    id: where.slug ? 8 : where.id,
+    slug: 'sushi-house',
+    active: true,
+  });
+  prisma.auditLog.findFirst = async () => ({
+    id: 101,
+    action: 'ADMIN_PORTAL_KEY_ROTATED',
+    metadata: { keyHash },
+    createdAt: new Date(),
+  });
+
+  const exchanged = await service.exchange('sushi-house', key);
+  const decoded = jwt.decode(exchanged.grant);
+  const verified = await service.verifyGrant('sushi-house', exchanged.grant);
+
+  assert.equal(verified.restaurantId, 8);
+  assert.equal(verified.slug, 'sushi-house');
+  assert.equal(verified.expiresAt, new Date(Number(decoded?.exp) * 1000).toISOString());
+});

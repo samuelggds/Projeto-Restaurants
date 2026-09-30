@@ -198,13 +198,16 @@ export class AdminPortalAccessService {
 
     const restaurantId = Number(decoded.restaurantId || 0);
     const rotationAuditLogId = Number(decoded.rotationAuditLogId || 0);
+    const expiresAtSeconds = Number(decoded.exp || 0);
     if (
       decoded.type !== 'admin_portal_grant' ||
       decoded.slug !== slug ||
       !Number.isInteger(restaurantId) ||
       restaurantId <= 0 ||
       !Number.isInteger(rotationAuditLogId) ||
-      rotationAuditLogId <= 0
+      rotationAuditLogId <= 0 ||
+      !Number.isSafeInteger(expiresAtSeconds) ||
+      expiresAtSeconds <= 0
     ) {
       throw new AdminPortalAccessError('Página não encontrada.');
     }
@@ -218,7 +221,12 @@ export class AdminPortalAccessService {
       throw new AdminPortalAccessError('Página não encontrada.');
     }
 
-    return { valid: true, restaurantId: restaurant.id, slug: restaurant.slug };
+    return {
+      valid: true,
+      restaurantId: restaurant.id,
+      slug: restaurant.slug,
+      expiresAt: new Date(expiresAtSeconds * 1000).toISOString(),
+    };
   }
 }
 

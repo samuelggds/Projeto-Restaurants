@@ -3,12 +3,30 @@ import { AlertTriangle, X } from 'lucide-react';
 import { useParams } from 'react-router-dom';
 import styled from 'styled-components';
 import Login from './Login';
-import { verifyAdminPortalGrant } from './domain/adminPortalSession';
+import {
+  clearAdminPortalGrant,
+  verifyAdminPortalGrant,
+} from './domain/adminPortalSession';
 
 type GateState = {
   slug: string;
   status: 'checking' | 'allowed' | 'denied';
+  expiresAt?: string;
 };
+
+export function formatAdminAccessRemaining(expiresAt: string, now = Date.now()) {
+  const remainingMs = Math.max(0, Date.parse(expiresAt) - now);
+  const totalSeconds = Math.floor(remainingMs / 1000);
+  const days = Math.floor(totalSeconds / 86400);
+  const hours = Math.floor((totalSeconds % 86400) / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+
+  if (days > 0) return `${days}d ${hours}h ${minutes}m ${seconds}s`;
+  if (hours > 0) return `${hours}h ${minutes}m ${seconds}s`;
+  if (minutes > 0) return `${minutes}m ${seconds}s`;
+  return `${seconds}s`;
+}
 
 const AccessWindowNotice = styled.aside`
   position: fixed;
@@ -94,13 +112,33 @@ export default function AdminPortalLoginGate() {
   const slug = String(restaurantSlug || '').trim().toLowerCase();
   const [gateState, setGateState] = useState<GateState>({ slug: '', status: 'checking' });
   const [hiddenAccessNoticeSlug, setHiddenAccessNoticeSlug] = useState('');
+  const [now, setNow] = useState(() => Date.now());
   const showAccessNotice = Boolean(slug) && hiddenAccessNoticeSlug !== slug;
 
   useEffect(() => {
-    if (!slug) return undefined;
-    const timer = window.setTimeout(() => setHiddenAccessNoticeSlug(slug), 10_000);
-    return () => window.clearTimeout(timer);
-  }, [slug]);
+    if (gateState.status !== 'allowed' || gateState.slug !== slug || !gateState.expiresAt) {
+      return undefined;
+    }
+
+    const sync = () => {
+      const current = Date.now();
+      setNow(current);
+      if (Date.parse(gateState.expiresAt || '') <= current) {
+        clearAdminPortalGrant(slug);
+        setGateState({ slug, status: 'denied' });
+      }
+    };
+
+    sync();
+    const timer = window.setInterval(sync, 1000);
+    window.addEventListener('focus', sync);
+    document.addEventListener('visibilitychange', sync);
+    return () => {
+      window.clearInterval(timer);
+      window.removeEventListener('focus', sync);
+      document.removeEventListener('visibilitychange', sync);
+    };
+  }, [gateState.expiresAt, gateState.slug, gateState.status, slug]);
 
   useEffect(() => {
     if (!slug) return;
@@ -108,7 +146,11 @@ export default function AdminPortalLoginGate() {
     void verifyAdminPortalGrant(slug)
       .then((result) => {
         if (!active) return;
-        setGateState({ slug, status: result.valid && result.slug === slug ? 'allowed' : 'denied' });
+        setGateState(
+          result.valid && result.slug === slug
+            ? { slug, status: 'allowed', expiresAt: result.expiresAt }
+            : { slug, status: 'denied' },
+        );
       })
       .catch(() => {
         if (active) setGateState({ slug, status: 'denied' });
@@ -117,6 +159,10 @@ export default function AdminPortalLoginGate() {
   }, [slug]);
 
   const state = !slug ? 'denied' : gateState.slug === slug ? gateState.status : 'checking';
+  const remainingAccess =
+    state === 'allowed' && gateState.expiresAt
+      ? formatAdminAccessRemaining(gateState.expiresAt, now)
+      : '';
 
   if (state === 'checking') {
     return <main style={{ minHeight: '100vh', display: 'grid', placeItems: 'center', padding: 24 }}><span role="status">Validando acesso administrativo…</span></main>;
@@ -131,8 +177,11 @@ export default function AdminPortalLoginGate() {
         <AccessWindowNotice role="status" aria-live="polite" data-testid="admin-access-window-notice">
           <span className="notice-icon" aria-hidden="true"><AlertTriangle /></span>
           <span className="notice-copy">
-            <strong>Acesso temporário liberado por 1 semana</strong>
-            <span>Este link libera 1 semana de acesso administrativo. Quando expirar, abra o mesmo link novamente para renovar por mais 1 semana.</span>
+            <strong>Acesso temporário — restam {remainingAccess}</strong>
+            <span>
+              Este acesso administrativo é válido por 1 semana. O tempo restante é atualizado em
+              tempo real. Quando expirar, abra o mesmo link novamente para renovar por mais 1 semana.
+            </span>
           </span>
           <button className="close" type="button" aria-label="Fechar aviso" onClick={() => setHiddenAccessNoticeSlug(slug)}><X /></button>
         </AccessWindowNotice>

@@ -6,6 +6,7 @@ export type AdminPortalGrantContext = {
   valid: boolean;
   restaurantId: number;
   slug: string;
+  expiresAt: string;
 };
 
 let pendingExchange:
@@ -58,11 +59,18 @@ export function verifyAdminPortalGrant(slug: string): Promise<AdminPortalGrantCo
 
   const request = api
     .post(`/admin-portal/${encodeURIComponent(slug)}/verify`, { grant })
-    .then((response) => ({
-      valid: response.data?.valid === true,
-      restaurantId: Number(response.data?.restaurantId || 0),
-      slug: String(response.data?.slug || ''),
-    }))
+    .then((response) => {
+      const expiresAt = String(response.data?.expiresAt || '');
+      if (!expiresAt || !Number.isFinite(Date.parse(expiresAt))) {
+        throw new Error('Página não encontrada.');
+      }
+      return {
+        valid: response.data?.valid === true,
+        restaurantId: Number(response.data?.restaurantId || 0),
+        slug: String(response.data?.slug || ''),
+        expiresAt,
+      };
+    })
     .catch((error) => {
       clearAdminPortalGrant(slug);
       throw error;
