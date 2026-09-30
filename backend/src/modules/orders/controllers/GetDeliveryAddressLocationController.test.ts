@@ -42,6 +42,9 @@ function makeResponse() {
 }
 
 test('usa o Google quando o endereço é localizado pela fonte principal', async () => {
+  mock.method(googleAddressGeocodingService, 'isConfigured', () => true);
+  mock.method(geoapifyDeliveryRoutingProvider, 'isGeocodingConfigured', () => false);
+  mock.method(getOsrmDeliveryRouteService, 'isGeocodingConfigured', () => false);
   const google = {
     latitude: -3.7319,
     longitude: -38.5267,
@@ -69,6 +72,9 @@ test('usa o Google quando o endereço é localizado pela fonte principal', async
 });
 
 test('usa Geoapify como fallback e normaliza endereço quando o Google não localiza', async () => {
+  mock.method(googleAddressGeocodingService, 'isConfigured', () => false);
+  mock.method(geoapifyDeliveryRoutingProvider, 'isGeocodingConfigured', () => true);
+  mock.method(getOsrmDeliveryRouteService, 'isGeocodingConfigured', () => false);
   mock.method(googleAddressGeocodingService, 'execute', async () => null);
   mock.method(geoapifyDeliveryRoutingProvider, 'geocodeAddress', async () => ({
     latitude: -3.732,
@@ -90,6 +96,9 @@ test('usa Geoapify como fallback e normaliza endereço quando o Google não loca
 });
 
 test('usa Nominatim/OSRM quando o fallback Geoapify falha', async () => {
+  mock.method(googleAddressGeocodingService, 'isConfigured', () => false);
+  mock.method(geoapifyDeliveryRoutingProvider, 'isGeocodingConfigured', () => true);
+  mock.method(getOsrmDeliveryRouteService, 'isGeocodingConfigured', () => true);
   mock.method(googleAddressGeocodingService, 'execute', async () => null);
   mock.method(geoapifyDeliveryRoutingProvider, 'geocodeAddress', async () => {
     throw new Error('geoapify indisponível');
@@ -107,7 +116,10 @@ test('usa Nominatim/OSRM quando o fallback Geoapify falha', async () => {
   assert.equal(res.state.body.location.partialMatch, true);
 });
 
-test('responde 422 quando nenhuma fonte consegue geocodificar', async () => {
+test('responde 422 quando há provedor configurado, mas o endereço não é localizado', async () => {
+  mock.method(googleAddressGeocodingService, 'isConfigured', () => true);
+  mock.method(geoapifyDeliveryRoutingProvider, 'isGeocodingConfigured', () => true);
+  mock.method(getOsrmDeliveryRouteService, 'isGeocodingConfigured', () => true);
   mock.method(googleAddressGeocodingService, 'execute', async () => null);
   mock.method(geoapifyDeliveryRoutingProvider, 'geocodeAddress', async () => null);
   mock.method(getOsrmDeliveryRouteService, 'geocodeAddress', async () => null);
@@ -120,6 +132,27 @@ test('responde 422 quando nenhuma fonte consegue geocodificar', async () => {
     error: 'Não foi possível localizar este endereço no mapa.',
     code: 'ADDRESS_NOT_GEOCODED',
   });
+});
+
+test('responde indisponibilidade sem expor provedor quando nenhum geocoder está configurado', async () => {
+  let calls = 0;
+  mock.method(googleAddressGeocodingService, 'isConfigured', () => false);
+  mock.method(geoapifyDeliveryRoutingProvider, 'isGeocodingConfigured', () => false);
+  mock.method(getOsrmDeliveryRouteService, 'isGeocodingConfigured', () => false);
+  mock.method(googleAddressGeocodingService, 'execute', async () => {
+    calls += 1;
+    return null;
+  });
+
+  const res = makeResponse();
+  await controller.handle(makeRequest(), res);
+
+  assert.equal(res.state.status, 503);
+  assert.deepEqual(res.state.body, {
+    error: 'Não foi possível validar o endereço no momento. Tente novamente em instantes.',
+    code: 'ADDRESS_VALIDATION_UNAVAILABLE',
+  });
+  assert.equal(calls, 0);
 });
 
 test('rejeita endereço incompleto antes de consultar os provedores', async () => {
