@@ -1249,7 +1249,7 @@ export const ProductImagePlaceholder = styled.div`
   }
 `;
 
-export { ProductQuantity, TableMenuConfiguratorScope } from './ProductConfigurator.quantity.styles';
+export { ProductQuantity } from './ProductConfigurator.quantity.styles';
 
 export const ProductTitleRow = styled.div`
   display: flex;
