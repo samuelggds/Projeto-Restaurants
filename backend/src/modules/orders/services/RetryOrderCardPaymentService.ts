@@ -37,6 +37,16 @@ type RetryPayload = DirectCardPaymentPayload & {
   successUrl?: string | null;
 };
 
+export function resolveRetryCardPaymentType(
+  requested: unknown,
+  previous: unknown,
+) {
+  if (requested !== undefined && requested !== null && String(requested).trim()) {
+    return normalizeCardPaymentType(requested);
+  }
+  return previous === 'debit' ? 'debit' : 'credit';
+}
+
 class RetryOrderCardPaymentService {
   async execute(publicId: unknown, actor: Actor, payload: RetryPayload) {
     const recovery = await getOrderPaymentRecoveryService.execute(publicId, actor);
@@ -92,11 +102,10 @@ class RetryOrderCardPaymentService {
     } as never);
     createOrderCardCheckoutService.ensureCardProviderSupported(provider);
 
-    const previousCardPaymentType =
-      recovery.paymentAttempt?.cardPaymentType === 'debit' ? 'debit' : 'credit';
-    const cardPaymentType = payload.cardPaymentType
-      ? normalizeCardPaymentType(payload.cardPaymentType)
-      : previousCardPaymentType;
+    const cardPaymentType = resolveRetryCardPaymentType(
+      payload.cardPaymentType,
+      recovery.paymentAttempt?.cardPaymentType,
+    );
     if (cardPaymentType === 'debit' && provider !== 'MERCADO_PAGO') {
       throw new OrderRequestError(
         'Débito online ainda não está disponível neste gateway.',
