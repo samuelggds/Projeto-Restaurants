@@ -14,6 +14,8 @@ type GateState = {
   expiresAt?: string;
 };
 
+export const ADMIN_ACCESS_NOTICE_VISIBLE_MS = 15_000;
+
 export function formatAdminAccessRemaining(expiresAt: string, now = Date.now()) {
   const remainingMs = Math.max(0, Date.parse(expiresAt) - now);
   const totalSeconds = Math.floor(remainingMs / 1000);
@@ -94,7 +96,7 @@ const AccessWindowNotice = styled.aside`
     border-radius: 999px;
     background: #d97706;
     transform-origin: left center;
-    animation: access-countdown 10s linear forwards;
+    animation: access-countdown ${ADMIN_ACCESS_NOTICE_VISIBLE_MS}ms linear forwards;
     opacity: 0.7;
   }
   @keyframes access-countdown { from { transform: scaleX(1); } to { transform: scaleX(0); } }
@@ -114,6 +116,23 @@ export default function AdminPortalLoginGate() {
   const [hiddenAccessNoticeSlug, setHiddenAccessNoticeSlug] = useState('');
   const [now, setNow] = useState(() => Date.now());
   const showAccessNotice = Boolean(slug) && hiddenAccessNoticeSlug !== slug;
+
+  useEffect(() => {
+    if (
+      !slug ||
+      gateState.status !== 'allowed' ||
+      gateState.slug !== slug ||
+      hiddenAccessNoticeSlug === slug
+    ) {
+      return undefined;
+    }
+
+    const timer = window.setTimeout(
+      () => setHiddenAccessNoticeSlug(slug),
+      ADMIN_ACCESS_NOTICE_VISIBLE_MS,
+    );
+    return () => window.clearTimeout(timer);
+  }, [gateState.slug, gateState.status, hiddenAccessNoticeSlug, slug]);
 
   useEffect(() => {
     if (gateState.status !== 'allowed' || gateState.slug !== slug || !gateState.expiresAt) {

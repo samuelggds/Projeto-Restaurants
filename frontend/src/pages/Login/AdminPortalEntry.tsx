@@ -2,7 +2,11 @@ import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '../../contexts/authContext';
 import { persistTenantSlug } from '../../shared/navigation/tenantRouteContext';
-import { exchangeAdminPortalKey } from './domain/adminPortalSession';
+import {
+  exchangeAdminPortalKey,
+  getAdminPortalGrant,
+  verifyAdminPortalGrant,
+} from './domain/adminPortalSession';
 
 type EntryStatus = 'checking' | 'denied' | 'rate-limited' | 'unavailable';
 type EntryState = {
@@ -66,15 +70,31 @@ export default function AdminPortalEntry() {
 
     persistTenantSlug(slug);
     let active = true;
-    void exchangeAdminPortalKey(slug, key)
-      .then(() => {
-        if (active) navigate(`/${slug}/admin`, { replace: true });
-      })
-      .catch((error) => {
-        if (!active) return;
-        const failure = resolveEntryFailure(error);
-        setEntryState({ requestKey, ...failure });
-      });
+
+    const enterPortal = async () => {
+      const existingGrant = getAdminPortalGrant(slug);
+      if (existingGrant) {
+        try {
+          const existing = await verifyAdminPortalGrant(slug);
+          if (existing.valid && existing.slug === slug) {
+            if (active) navigate(`/${slug}/admin`, { replace: true });
+            return;
+          }
+        } catch {
+          // Grant ausente, expirado, revogado ou inválido: o backend já recusou e
+          // o fluxo segue para uma nova troca usando o link privado apresentado.
+        }
+      }
+
+      await exchangeAdminPortalKey(slug, key);
+      if (active) navigate(`/${slug}/admin`, { replace: true });
+    };
+
+    void enterPortal().catch((error) => {
+      if (!active) return;
+      const failure = resolveEntryFailure(error);
+      setEntryState({ requestKey, ...failure });
+    });
 
     return () => {
       active = false;
