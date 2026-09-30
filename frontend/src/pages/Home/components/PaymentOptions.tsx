@@ -251,13 +251,7 @@ export function PaymentOptions({
   };
 
   useEffect(() => {
-    if (
-      !loggedIn ||
-      !restaurantId ||
-      !allowCard ||
-      (!figmaCheckout && paymentMethod !== 'card')
-    )
-      return;
+    if (!loggedIn || !restaurantId || !allowCard || paymentMethod !== 'card') return;
     let active = true;
     Promise.resolve().then(() => {
       if (active) setSavedCardsLoading(true);
@@ -287,7 +281,7 @@ export function PaymentOptions({
     return () => {
       active = false;
     };
-  }, [allowCard, figmaCheckout, loggedIn, paymentMethod, restaurantId]);
+  }, [allowCard, loggedIn, paymentMethod, restaurantId]);
 
   useEffect(() => {
     if (paymentMethod !== 'card' && paymentMethod !== 'debit_card') {
