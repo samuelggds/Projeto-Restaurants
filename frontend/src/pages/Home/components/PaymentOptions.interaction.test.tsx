@@ -30,20 +30,7 @@ describe('PaymentOptions interaction', () => {
     container.remove();
   });
 
-  it('não troca Pix por cartão automaticamente ao encontrar cartão salvo', async () => {
-    vi.mocked(customerPaymentMethodService.list).mockResolvedValue([
-      {
-        publicId: 'card-public-1',
-        provider: 'MERCADO_PAGO',
-        providerCardId: 'provider-card-1',
-        brand: 'visa',
-        last4: '4242',
-        expMonth: 12,
-        expYear: 2030,
-        holderName: 'Cliente Teste',
-        isDefault: true,
-      },
-    ] as Awaited<ReturnType<typeof customerPaymentMethodService.list>>);
+  it('não consulta cartões salvos nem troca o método quando Pix está selecionado', async () => {
     const onChange = vi.fn();
 
     await act(async () => {
@@ -60,10 +47,9 @@ describe('PaymentOptions interaction', () => {
         />,
       );
       await Promise.resolve();
-      await Promise.resolve();
     });
 
-    expect(customerPaymentMethodService.list).toHaveBeenCalledWith(1);
+    expect(customerPaymentMethodService.list).not.toHaveBeenCalled();
     expect(onChange).not.toHaveBeenCalled();
   });
 
