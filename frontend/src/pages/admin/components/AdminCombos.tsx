@@ -83,23 +83,6 @@ function toInput(combo: ComboRecord): ComboInput {
   };
 }
 
-function isFixedGroup(group: ComboGroupInput) {
-  return (
-    group.active &&
-    group.options.every(
-      (option) =>
-        option.active &&
-        option.locked &&
-        option.additionalPrice === 0 &&
-        option.minQuantity === option.defaultQuantity &&
-        option.maxQuantity === option.defaultQuantity,
-    ) &&
-    (group.options.length === 0 ||
-      (group.minSelections === group.options.length &&
-        group.maxSelections === group.options.length))
-  );
-}
-
 export function AdminCombos({ products, money, onChanged }: Props) {
   const [combos, setCombos] = useState<ComboRecord[]>([]);
   const [loading, setLoading] = useState(true);
@@ -234,10 +217,26 @@ export function AdminCombos({ products, money, onChanged }: Props) {
 
   const updateGroupRequiredSelections = (groupIndex: number, rawValue: number) => {
     const quantity = Math.max(1, Math.min(20, Math.trunc(rawValue || 1)));
-    updateGroup(groupIndex, {
-      minSelections: quantity,
-      maxSelections: quantity,
-    });
+    setDraft((current) => ({
+      ...current,
+      groups: current.groups.map((group, index) => {
+        if (index !== groupIndex) return group;
+        const autoSelectOnlyOption = quantity === 1 && group.options.length === 1;
+        return {
+          ...group,
+          minSelections: quantity,
+          maxSelections: quantity,
+          options: group.options.map((option) => ({
+            ...option,
+            minQuantity: autoSelectOnlyOption ? 1 : 0,
+            maxQuantity: 1,
+            defaultQuantity: autoSelectOnlyOption ? 1 : 0,
+            locked: autoSelectOnlyOption,
+          })),
+        };
+      }),
+    }));
+    setFeedback(null);
   };
 
   const addChoiceGroup = () => {
@@ -302,25 +301,35 @@ export function AdminCombos({ products, money, onChanged }: Props) {
 
     setDraft((current) => ({
       ...current,
-      groups: current.groups.map((currentGroup, index) =>
-        index === groupIndex
-          ? {
-              ...currentGroup,
-              options: [
-                ...currentGroup.options,
-                {
-                  componentProductId: productId,
-                  additionalPrice: 0,
-                  minQuantity: 0,
-                  maxQuantity: 1,
-                  defaultQuantity: 0,
-                  locked: false,
-                  active: true,
-                },
-              ],
-            }
-          : currentGroup,
-      ),
+      groups: current.groups.map((currentGroup, index) => {
+        if (index !== groupIndex) return currentGroup;
+        const rawOptions = [
+          ...currentGroup.options,
+          {
+            componentProductId: productId,
+            additionalPrice: 0,
+            minQuantity: 0,
+            maxQuantity: 1,
+            defaultQuantity: 0,
+            locked: false,
+            active: true,
+          },
+        ];
+        const autoSelectOnlyOption =
+          currentGroup.minSelections === 1 &&
+          currentGroup.maxSelections === 1 &&
+          rawOptions.length === 1;
+        return {
+          ...currentGroup,
+          options: rawOptions.map((option) => ({
+            ...option,
+            minQuantity: autoSelectOnlyOption ? 1 : 0,
+            maxQuantity: 1,
+            defaultQuantity: autoSelectOnlyOption ? 1 : 0,
+            locked: autoSelectOnlyOption,
+          })),
+        };
+      }),
     }));
     setSelectedProductByGroup((current) => ({ ...current, [String(groupIndex)]: '' }));
     setFeedback(null);
@@ -337,9 +346,16 @@ export function AdminCombos({ products, money, onChanged }: Props) {
           1,
           Math.min(group.minSelections, Math.max(options.length, 1)),
         );
+        const autoSelectOnlyOption = nextRequired === 1 && options.length === 1;
         return {
           ...group,
-          options,
+          options: options.map((option) => ({
+            ...option,
+            minQuantity: autoSelectOnlyOption ? 1 : 0,
+            maxQuantity: 1,
+            defaultQuantity: autoSelectOnlyOption ? 1 : 0,
+            locked: autoSelectOnlyOption,
+          })),
           minSelections: nextRequired,
           maxSelections: nextRequired,
         };
