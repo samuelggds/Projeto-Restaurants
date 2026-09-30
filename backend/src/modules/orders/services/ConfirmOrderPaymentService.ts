@@ -9,6 +9,24 @@ import {
 } from '../utils/orderCapacity.js';
 import orderCapacityQueueService from './OrderCapacityQueueService.js';
 
+export function resolveManualPaymentConfirmationKind(order: {
+  payOnDelivery: boolean;
+  paymentMethod?: PaymentMethod | null;
+  payOnDeliveryMethod?: PaymentMethod | null;
+}) {
+  const paymentMethod = order.payOnDeliveryMethod || order.paymentMethod || null;
+  if (order.payOnDelivery === true && paymentMethod === PaymentMethod.DINHEIRO) {
+    return 'DELIVERY_CASH' as const;
+  }
+  if (
+    order.payOnDelivery !== true &&
+    (paymentMethod === PaymentMethod.PIX || paymentMethod === PaymentMethod.CARTAO)
+  ) {
+    return 'PENDING_DIGITAL' as const;
+  }
+  return null;
+}
+
 class ConfirmOrderPaymentService {
   async execute(
     orderId: number | string | string[],
@@ -33,14 +51,12 @@ class ConfirmOrderPaymentService {
       return order;
     }
 
-    const paymentMethod = order.paymentMethod;
-    const isDeliveryCash =
-      order.payOnDelivery === true && paymentMethod === PaymentMethod.DINHEIRO;
-    const isPendingDigitalPayment =
-      order.payOnDelivery !== true &&
-      (paymentMethod === PaymentMethod.PIX || paymentMethod === PaymentMethod.CARTAO);
+    const paymentMethod = order.payOnDeliveryMethod || order.paymentMethod;
+    const confirmationKind = resolveManualPaymentConfirmationKind(order);
+    const isDeliveryCash = confirmationKind === 'DELIVERY_CASH';
+    const isPendingDigitalPayment = confirmationKind === 'PENDING_DIGITAL';
 
-    if (!isDeliveryCash && !isPendingDigitalPayment) {
+    if (!confirmationKind) {
       throw new Error(
         'Este pagamento deve ser concluído pelo fluxo específico de cobrança do pedido.',
       );
@@ -120,16 +136,23 @@ class ConfirmOrderPaymentService {
       });
     }
 
-    // Depois da confirmação, o pedido pode entrar no fluxo operacional que estava
-    // bloqueado enquanto o pagamento digital permanecia pendente.
-    const queuedForCapacity = isOrderCapacityQueued(updatedOrder);
-    if (!queuedForCapacity) {
-      io.to(`restaurant:${restaurantId}`).emit('new-order', updatedOrder);
-      if (updatedOrder.userId) {
-        io.to(`user:${updatedOrder.userId}`).emit('new-order', updatedOrder);
+    // Dinheiro na entrega já entra no fluxo operacional quando o pedido é criado.
+    // Somente pagamentos digitais pendentes precisam entrar na operação após a confirmação.
+    if (isPendingDigitalPayment) {
+      const queuedForCapacity = isOrderCapacityQueued(updatedOrder);
+      if (!queuedForCapacity) {
+        io.to(`restaurant:${restaurantId}`).emit('new-order', updatedOrder);
+        if (updatedOrder.userId) {
+          io.to(`user:${updatedOrder.userId}`).emit('new-order', updatedOrder);
+        }
+      } else {
+        io.to(`restaurant:${restaurantId}`).emit('order:capacity-queued', updatedOrder);
       }
-    } else {
-      io.to(`restaurant:${restaurantId}`).emit('order:capacity-queued', updatedOrder);
+
+      if (queuedForCapacity) {
+        const admitted = await orderCapacityQueueService.drainAfterCapacityChange(restaurantId);
+        return admitted.find((candidate) => candidate.id === updatedOrder.id) || updatedOrder;
+      }
     }
 
     io.to(`restaurant:${restaurantId}`).emit('order:status-changed', updatedOrder);
@@ -137,10 +160,6 @@ class ConfirmOrderPaymentService {
       io.to(`user:${updatedOrder.userId}`).emit('order:status-changed', updatedOrder);
     }
 
-    if (queuedForCapacity) {
-      const admitted = await orderCapacityQueueService.drainAfterCapacityChange(restaurantId);
-      return admitted.find((candidate) => candidate.id === updatedOrder.id) || updatedOrder;
-    }
     return updatedOrder;
   }
 }
