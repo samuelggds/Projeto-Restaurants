@@ -210,7 +210,6 @@ export function PaymentOptions({
   const [savedCards, setSavedCards] = useState<CustomerPaymentMethod[]>([]);
   const [savedCardsLoading, setSavedCardsLoading] = useState(false);
   const [selectedCardId, setSelectedCardId] = useState('');
-  const [figmaCardKind, setFigmaCardKind] = useState<'credit' | 'debit'>('credit');
   const [showCardAccountNotice, setShowCardAccountNotice] = useState(false);
   const [openFinanceInstitutions, setOpenFinanceInstitutions] = useState<
     Array<{ id: string; name: string; logo: string | null }>
@@ -375,9 +374,8 @@ export function PaymentOptions({
   };
 
   if (figmaCheckout) {
-    const chooseCard = (kind: 'credit' | 'debit') => {
+    const chooseCreditCard = () => {
       if (!allowCard) return;
-      setFigmaCardKind(kind);
       handlePaymentChange('card');
     };
     const cashMethod: CheckoutPaymentMethod | null = allowPayOnDelivery
@@ -386,9 +384,8 @@ export function PaymentOptions({
         ? 'pickup_cash'
         : null;
     const cashAvailable = Boolean(cashMethod);
-    const cardActive = allowCard && paymentMethod === 'card';
-    const creditActive = cardActive && figmaCardKind === 'credit';
-    const debitActive = cardActive && figmaCardKind === 'debit';
+    const creditActive = allowCard && paymentMethod === 'card';
+    const debitAvailable = false;
 
     const unavailableLabel = (
       <span className="unavailable">Temporariamente indisponível</span>
@@ -434,7 +431,7 @@ export function PaymentOptions({
             type="button"
             className="card-heading"
             disabled={!allowCard}
-            onClick={() => chooseCard('credit')}
+            onClick={chooseCreditCard}
             aria-label={
               allowCard
                 ? 'Cartão de Crédito'
@@ -463,7 +460,6 @@ export function PaymentOptions({
                       type="button"
                       className={selected ? 'selected' : ''}
                       onClick={() => {
-                        setFigmaCardKind('credit');
                         handlePaymentChange('card');
                         setSelectedCardId(card.publicId);
                         localStorage.setItem(
@@ -521,21 +517,16 @@ export function PaymentOptions({
 
         <P.FigmaPaymentOption
           type="button"
-          $active={debitActive}
-          $disabled={!allowCard}
-          disabled={!allowCard}
-          onClick={() => chooseCard('debit')}
-          aria-label={
-            allowCard
-              ? 'Cartão de débito'
-              : 'Cartão de débito temporariamente indisponível'
-          }
-          aria-pressed={debitActive}
+          $active={false}
+          $disabled={!debitAvailable}
+          disabled={!debitAvailable}
+          aria-label="Cartão de débito temporariamente indisponível"
+          aria-pressed={false}
         >
           <span className="method-icon"><CreditCard aria-hidden="true" /></span>
           <span className="method-copy">
             <span className="method-name">Cartão de débito</span>
-            {!allowCard ? unavailableLabel : null}
+            {unavailableLabel}
           </span>
           <span className="radio"><i /></span>
         </P.FigmaPaymentOption>
@@ -558,16 +549,6 @@ export function PaymentOptions({
           </span>
           <span className="radio"><i /></span>
         </P.FigmaPaymentOption>
-
-        {allowCard && debitActive && restaurantId ? (
-          <P.FigmaDebitForm>
-            <OnlineCardPaymentForm
-              restaurantId={restaurantId}
-              payerEmail={userEmail}
-              onPreparerChange={registerCardPreparer}
-            />
-          </P.FigmaDebitForm>
-        ) : null}
 
         {paymentMethod === 'open_finance_pix' && restaurantId ? (
           <P.OpenFinanceBankPicker>
