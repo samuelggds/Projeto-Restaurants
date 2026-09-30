@@ -22,10 +22,12 @@ const [
   { default: createOrderService },
   { default: createOrderCardCheckoutService },
   { default: finalizeOrderCardPaymentService },
+  { default: directOrderCardPaymentService },
 ] = await Promise.all([
   import('./CreateOrderService.js'),
   import('./CreateOrderCardCheckoutService.js'),
   import('./FinalizeOrderCardPaymentService.js'),
+  import('./DirectOrderCardPaymentService.js'),
 ]);
 
 http.createServer = originalHttpCreateServer;
@@ -36,6 +38,7 @@ const originalRepositoryMethods = {
 
 const originalCreateOrderExecute = createOrderService.execute;
 const originalFinalizeOrderCardPaymentExecute = finalizeOrderCardPaymentService.execute;
+const originalDirectOrderCardPaymentExecute = directOrderCardPaymentService.execute;
 const originalSetCardCheckoutSessionId = orderRepository.setCardCheckoutSessionId;
 const originalDeleteById = orderRepository.deleteById;
 const originalCreatePaymentAttempt = orderPaymentAttemptRepository.createCardAttempt;
@@ -113,6 +116,7 @@ afterEach(() => {
   restaurantSettingsRepository.findByRestaurantId = originalRepositoryMethods.findByRestaurantId;
   createOrderService.execute = originalCreateOrderExecute;
   finalizeOrderCardPaymentService.execute = originalFinalizeOrderCardPaymentExecute;
+  directOrderCardPaymentService.execute = originalDirectOrderCardPaymentExecute;
   orderRepository.setCardCheckoutSessionId = originalSetCardCheckoutSessionId;
   orderRepository.deleteById = originalDeleteById;
   orderPaymentAttemptRepository.createCardAttempt = originalCreatePaymentAttempt;
@@ -185,6 +189,69 @@ test('não cria checkout quando o restaurante desativou pagamentos com cartão',
     /não está aceitando pagamentos com cartão/i,
   );
   assert.equal(createOrderCalled, false);
+});
+
+test('orquestra débito mantendo tipo explícito e tenant do restaurante', async () => {
+  restaurantSettingsRepository.findByRestaurantId = async (restaurantId) => {
+    assert.equal(Number(restaurantId), 9);
+    return {
+      restaurantId: 9,
+      isOpenForOrders: true,
+      businessHours: [],
+      acceptsCard: true,
+      cardGateway: 'MERCADO_PAGO',
+    };
+  };
+
+  createOrderService.execute = async (payload) => {
+    assert.equal(Number(payload.restaurantId), 9);
+    assert.equal(payload.paymentMethod, 'CARTAO');
+    assert.equal(payload.paid, false);
+    return {
+      id: 660,
+      publicId: '123e4567-e89b-42d3-a456-426614174660',
+      restaurantId: 9,
+      total: 55,
+      systemFee: 0,
+      restaurant: { name: 'Restaurante 9' },
+    };
+  };
+
+  let receivedPayload: Record<string, unknown> | null = null;
+  directOrderCardPaymentService.execute = async (input) => {
+    assert.equal(input.provider, 'MERCADO_PAGO');
+    assert.equal(input.order.restaurantId, 9);
+    receivedPayload = input.payload as Record<string, unknown>;
+    return {
+      provider: 'MERCADO_PAGO',
+      sessionId: 'debit-order-660',
+      persistenceSessionId: 'mp_order:debit-order-660',
+      checkoutUrl: 'https://payments.example.test/debit/660',
+      paymentApproved: false,
+    };
+  };
+
+  orderRepository.setCardCheckoutSessionId = async (orderId, restaurantId, sessionId) => {
+    assert.equal(orderId, 660);
+    assert.equal(restaurantId, 9);
+    assert.equal(sessionId, 'mp_order:debit-order-660');
+  };
+
+  const result = await createOrderCardCheckoutService.execute({
+    restaurantId: 9,
+    userRestaurantId: 9,
+    type: 'RETIRADA',
+    paymentMethod: 'CARTAO',
+    cardPaymentType: 'debit',
+    cardToken: 'test-debit-token',
+    cardPaymentMethodId: 'visa',
+    items: [{ productId: 1, quantity: 1 }],
+  });
+
+  assert.equal(receivedPayload?.cardPaymentType, 'debit');
+  assert.equal(receivedPayload?.cardToken, 'test-debit-token');
+  assert.equal(result.provider, 'MERCADO_PAGO');
+  assert.equal(result.paid, false);
 });
 
 test('checkout Asaas usa somente a conta do restaurante e nunca envia split', async () => {
