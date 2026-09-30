@@ -20,6 +20,7 @@ import directOrderCardPaymentService, {
   CardPaymentDeclinedError,
   CardPaymentProviderRequestError,
   hasDirectCardPaymentPayload,
+  normalizeCardPaymentType,
   type DirectCardPaymentPayload,
 } from './DirectOrderCardPaymentService.js';
 import { OrderRequestError } from '../domain/OrderRequestError.js';
@@ -87,9 +88,18 @@ class CreateOrderCardCheckoutService {
     }
     const resolvedCardProvider = await this.resolveCardProvider(payload);
     this.ensureCardProviderSupported(resolvedCardProvider);
+    const cardPaymentType = normalizeCardPaymentType(payload.cardPaymentType);
+    if (cardPaymentType === 'debit' && resolvedCardProvider !== 'MERCADO_PAGO') {
+      throw new OrderRequestError(
+        'Débito online ainda não está disponível neste gateway.',
+        400,
+        'DEBIT_CARD_PROVIDER_UNAVAILABLE',
+      );
+    }
+    const normalizedPayload = { ...payload, cardPaymentType };
 
     const createdOrder = await createOrderService.execute({
-      ...payload,
+      ...normalizedPayload,
       deferRealtimeUntilPaid: true,
       paid: false,
     });
@@ -116,10 +126,10 @@ class CreateOrderCardCheckoutService {
 
     let checkout: CardCheckoutResult;
     try {
-      if (hasDirectCardPaymentPayload(payload)) {
+      if (hasDirectCardPaymentPayload(normalizedPayload)) {
         checkout = await directOrderCardPaymentService.execute({
           provider: resolvedCardProvider,
-          payload,
+          payload: normalizedPayload,
           order: orderForPayment,
           successUrlBase,
           idempotencyKey: paymentAttempt.idempotencyKey,
@@ -127,7 +137,7 @@ class CreateOrderCardCheckoutService {
       } else {
         const providerHandler = getCardCheckoutProviderHandler(resolvedCardProvider);
         checkout = await providerHandler.createCheckout({
-          payload,
+          payload: normalizedPayload,
           order: orderForPayment,
           successUrlBase,
           cancelUrlBase,
