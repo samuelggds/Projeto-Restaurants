@@ -14,6 +14,8 @@ import { ActiveOnlinePaymentError } from '../domain/ActiveOnlinePaymentError.js'
 import tableParticipantStateService from '../../tableSession/services/TableParticipantStateService.js';
 import { withTenantDbContext } from '../../../database/tenantDbContext.js';
 import { tableParticipantStateEvents } from '../../tableSession/realtime/tableParticipantStateEvents.js';
+import restaurantSettingsRepository from '../../restaurantSettings/repositories/RestaurantSettingsRepository.js';
+import { getMercadoPagoAccountReadiness } from '../../restaurantSettings/services/RestaurantPaymentReadinessService.js';
 
 class CreateOrderPixPaymentController {
   async handle(req: Request, res: Response) {
@@ -47,6 +49,33 @@ class CreateOrderPixPaymentController {
         requestedRestaurantId: restaurantId,
         contextRestaurantId: userRestaurantId,
       });
+
+      const paymentSettings =
+        await restaurantSettingsRepository.findByRestaurantId(resolvedRestaurantId);
+      if (paymentSettings?.acceptsPix === false) {
+        throw new OrderRequestError(
+          'O restaurante não está aceitando pagamentos por PIX no momento.',
+          400,
+          'PIX_PAYMENT_DISABLED',
+        );
+      }
+      const configuredPixProvider = String(
+        paymentSettings?.pixProvider || 'MERCADO_PAGO',
+      ).trim().toUpperCase();
+      if (configuredPixProvider === 'MERCADO_PAGO') {
+        const readiness = await getMercadoPagoAccountReadiness({
+          restaurantId: resolvedRestaurantId,
+          settings: paymentSettings,
+        });
+        if (!readiness.readyForPix) {
+          throw new OrderRequestError(
+            'Pagamento PIX indisponível. Reconecte o Mercado Pago nas configurações do restaurante.',
+            503,
+            'PIX_PAYMENT_UNAVAILABLE',
+          );
+        }
+      }
+
       const creationRequest = orderCreationContext(req, 'pix');
       const order = await createOrderService.execute({
         creationRequest,
