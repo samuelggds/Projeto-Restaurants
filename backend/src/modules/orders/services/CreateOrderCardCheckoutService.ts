@@ -124,6 +124,8 @@ class CreateOrderCardCheckoutService {
       cardPaymentType: _cardPaymentType,
       cardToken: _cardToken,
       cardPaymentMethodId: _cardPaymentMethodId,
+      cardBrand: _cardBrand,
+      cardLast4: _cardLast4,
       encryptedCard: _encryptedCard,
       cardData: _cardData,
       holderName: _holderName,
@@ -167,6 +169,8 @@ class CreateOrderCardCheckoutService {
       provider: resolvedCardProvider,
       amount: Number(createdOrder.total),
       cardPaymentType,
+      cardBrand: normalizedPayload.cardPaymentMethodId || normalizedPayload.cardBrand,
+      cardLast4: normalizedPayload.cardLast4,
     });
 
     let checkout: CardCheckoutResult;

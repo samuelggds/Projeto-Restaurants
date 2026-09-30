@@ -20,6 +20,8 @@ export type DirectCardPaymentPayload = {
   cardPaymentType?: CardPaymentType | null;
   cardToken?: string | null;
   cardPaymentMethodId?: string | null;
+  cardBrand?: string | null;
+  cardLast4?: string | null;
   encryptedCard?: string | null;
   cardData?: {
     number?: string | null;

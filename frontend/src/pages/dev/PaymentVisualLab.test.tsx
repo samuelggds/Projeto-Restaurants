@@ -78,6 +78,38 @@ describe('PaymentVisualLab', () => {
     act(() => root.unmount());
   });
 
+  it('mantém débito como débito depois de continuar para a confirmação', async () => {
+    const container = document.createElement('div');
+    document.body.appendChild(container);
+    const root = createRoot(container);
+
+    await act(async () => {
+      root.render(<PaymentVisualLab />);
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    const debitButton = findButton(container, 'Cartão de débito');
+    expect(debitButton).toBeTruthy();
+
+    await act(async () => {
+      debitButton?.click();
+      await Promise.resolve();
+    });
+
+    const continueButton = findButton(container, 'Continuar');
+    await act(async () => {
+      continueButton?.click();
+      await Promise.resolve();
+    });
+
+    expect(container.querySelector('[data-card-payment-type="debit"]')).not.toBeNull();
+    expect(container.textContent).toContain('Cartão de Débito');
+    expect(container.textContent).not.toContain('Cartão de Crédito');
+
+    act(() => root.unmount());
+  });
+
   it('avança do PIX para a tela de confirmação fictícia', async () => {
     const container = document.createElement('div');
     document.body.appendChild(container);

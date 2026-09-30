@@ -1007,6 +1007,8 @@ model OrderPaymentAttempt {
   restaurantId         Int
   method               PaymentMethod
   cardPaymentType      String                    @default("credit") @db.VarChar(10)
+  cardBrand            String?                   @db.VarChar(32)
+  cardLast4            String?                   @db.VarChar(4)
   provider             String
   status               OrderPaymentAttemptStatus @default(PENDING)
   amount               Decimal                   @db.Decimal(10, 2)

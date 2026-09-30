@@ -100,7 +100,7 @@ export function HomePaymentOutcome({
       );
     }
 
-    if (paymentResult.method === 'Cartão') {
+    if (paymentResult.method === 'Cartão' || paymentResult.method === 'Cartão de débito') {
       return (
         <CardPaymentReturnPanel
           status={paymentResult.status}
@@ -118,6 +118,11 @@ export function HomePaymentOutcome({
             restaurantLogoUrl: homeData.brand.logoUrl,
             deliveryTime: homeData.deliveryTime,
             totalAmount: paymentResult.total,
+            cardPaymentType:
+              paymentResult.cardDisplay?.cardPaymentType ||
+              (paymentResult.method === 'Cartão de débito' ? 'debit' : 'credit'),
+            cardBrand: paymentResult.cardDisplay?.cardBrand || 'card',
+            cardLast4: paymentResult.cardDisplay?.cardLast4 || null,
           }}
           amount={currency(paymentResult.total)}
           onVerify={async () => paymentResult.status}

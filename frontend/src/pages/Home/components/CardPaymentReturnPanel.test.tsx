@@ -38,4 +38,49 @@ describe('CardPaymentReturnPanel', () => {
     expect(render('CANCELED')).toContain('Pagamento cancelado');
     expect(render('ERROR')).not.toContain('Pagamento cancelado');
   });
+
+  it('usa o cartão preto compartilhado com ondas, contactless e bandeira dinâmica', () => {
+    const markup = renderToStaticMarkup(
+      <CardPaymentReturnPanel
+        status="PENDING"
+        error={null}
+        providerReturnStatus=""
+        details={{
+          cardPaymentType: 'credit',
+          cardBrand: 'visa',
+          cardLast4: '4242',
+        }}
+        onVerify={vi.fn()}
+        onClose={vi.fn()}
+      />,
+    );
+
+    expect(markup).toContain('class="card-waves"');
+    expect(markup).toContain('class="contactless-icon"');
+    expect(markup).toContain('alt="Visa"');
+    expect(markup).toContain('•••• •••• •••• 4242');
+    expect(markup).toContain('Cartão de Crédito');
+  });
+
+  it('preserva débito como débito em toda a tela de retorno', () => {
+    const markup = renderToStaticMarkup(
+      <CardPaymentReturnPanel
+        status="PAID"
+        error={null}
+        providerReturnStatus=""
+        details={{
+          cardPaymentType: 'debit',
+          cardBrand: 'mastercard',
+          cardLast4: '4444',
+        }}
+        onVerify={vi.fn()}
+        onClose={vi.fn()}
+      />,
+    );
+
+    expect(markup).toContain('data-card-payment-type="debit"');
+    expect(markup).toContain('Cartão de Débito');
+    expect(markup).toContain('alt="Mastercard"');
+    expect(markup).not.toContain('Cartão de Crédito');
+  });
 });

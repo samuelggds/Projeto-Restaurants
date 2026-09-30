@@ -73,6 +73,62 @@ test('retorna pendente somente para o participante dono do pedido de mesa', asyn
   });
 });
 
+test('expõe somente metadados seguros de exibição da tentativa do mesmo tenant', async () => {
+  orderRepository.findCardPaymentStatusByPublicId = async () => ({
+    id: 42,
+    publicId: orderPublicId,
+    restaurantId: 7,
+    userId: 33,
+    type: 'DELIVERY',
+    tableSessionId: null,
+    participantId: null,
+    paymentMethod: 'CARTAO',
+    payOnDelivery: false,
+    paid: false,
+    paidAt: null,
+    status: 'PENDENTE',
+    total: 54.9,
+    cardCheckoutSessionId: null,
+    restaurant: {
+      name: 'Restaurante Teste',
+      logo: null,
+      settings: { averageDeliveryTime: '30-40 min' },
+    },
+    kitchenPrintJobs: [],
+  });
+  orderPaymentAttemptRepository.latestForOrder = async (orderId, restaurantId) => {
+    assert.deepEqual([orderId, restaurantId], [42, 7]);
+    return {
+      publicId: 'attempt-safe',
+      status: 'PROCESSING',
+      cardPaymentType: 'debit',
+      cardBrand: 'mastercard',
+      cardLast4: '4444',
+      providerStatus: 'pending',
+      providerStatusDetail: null,
+    };
+  };
+
+  const result = await getOrderCardPaymentStatusService.execute({
+    orderPublicId,
+    restaurantId: 7,
+    userId: 33,
+  });
+
+  assert.equal(result.status, 'PENDING');
+  assert.deepEqual(result.paymentAttempt, {
+    publicId: 'attempt-safe',
+    status: 'PROCESSING',
+    cardPaymentType: 'debit',
+    cardBrand: 'mastercard',
+    cardLast4: '4444',
+    providerStatus: 'pending',
+    providerStatusDetail: null,
+  });
+  assert.equal(JSON.stringify(result).includes('cardToken'), false);
+  assert.equal(JSON.stringify(result).includes('securityCode'), false);
+});
+
 test('não revela pedido de mesa para outro participante', async () => {
   orderRepository.findCardPaymentStatusByPublicId = async () => ({
     publicId: orderPublicId,

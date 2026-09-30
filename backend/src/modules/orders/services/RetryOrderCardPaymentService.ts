@@ -120,6 +120,8 @@ class RetryOrderCardPaymentService {
       provider,
       amount: recovery.totalAmount,
       cardPaymentType,
+      cardBrand: payload.cardPaymentMethodId || payload.cardBrand,
+      cardLast4: payload.cardLast4,
     });
 
     try {

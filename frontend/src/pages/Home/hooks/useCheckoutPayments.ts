@@ -28,8 +28,13 @@ export type PixPaymentStatus =
 
 type CheckoutPaymentResultBase = {
   restaurantId: number;
-  method: 'Cartão' | 'Pix';
+  method: 'Cartão' | 'Cartão de débito' | 'Pix';
   total: number;
+  cardDisplay?: {
+    cardPaymentType: 'credit' | 'debit';
+    cardBrand: string;
+    cardLast4: string | null;
+  };
 };
 
 export type UncertainCheckoutPaymentResult = CheckoutPaymentResultBase & {
@@ -440,6 +445,11 @@ export function useCheckoutPayments(options: Options) {
           method: paymentMethod === 'debit_card' ? 'Cartão de débito' : 'Cartão',
           orderId: Number(result.orderId) || null,
           total: Number(result.totalAmount ?? cartTotal),
+          cardDisplay: {
+            cardPaymentType: paymentMethod === 'debit_card' ? 'debit' : 'credit',
+            cardBrand: String(cardPayload.cardBrand || cardPayload.cardPaymentMethodId || 'card'),
+            cardLast4: String(cardPayload.cardLast4 || '').replace(/\D/g, '').slice(-4) || null,
+          },
         });
         try {
           await onPaymentConfirmedRef.current();

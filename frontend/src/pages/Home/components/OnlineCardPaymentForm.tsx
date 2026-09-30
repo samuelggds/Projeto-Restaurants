@@ -11,6 +11,7 @@ import publicCardPaymentService, {
   type PublicCardPaymentConfig,
 } from '../../../Services/publicCardPaymentService';
 import { isLocalPaymentVisualLabRuntime } from '../../dev/paymentVisualLabAccess';
+import { detectCardBrand } from '../../Profile/domain/cardBrand';
 
 export type PreparedCardPayment = Record<string, unknown>;
 export type CardPaymentPreparer = () => Promise<PreparedCardPayment>;
@@ -244,10 +245,17 @@ export function OnlineCardPaymentForm({
               cardToken: token.id,
               cardPaymentMethodId: String(token.payment_method_id || savedCard.brand).trim(),
               cardPaymentType: 'credit',
+              cardBrand: savedCard.brand,
+              cardLast4: savedCard.last4,
               ...(mercadoPagoDeviceId ? { mercadoPagoDeviceId } : {}),
             };
           }
-          return { paymentMethodId: savedCard.publicId, cardPaymentType: 'credit' };
+          return {
+            paymentMethodId: savedCard.publicId,
+            cardPaymentType: 'credit',
+            cardBrand: savedCard.brand,
+            cardLast4: savedCard.last4,
+          };
         }
 
         const holderName = holder.trim();
@@ -285,6 +293,8 @@ export function OnlineCardPaymentForm({
             cardToken: token.id,
             cardPaymentMethodId: paymentMethodId,
             cardPaymentType: paymentType,
+            cardBrand: paymentMethodId,
+            cardLast4: String(token.last_four_digits || '').replace(/\D/g, '').slice(-4),
             holderName,
             holderTaxId,
             payerEmail: normalizedPayerEmail,
@@ -346,6 +356,9 @@ export function OnlineCardPaymentForm({
           }
           return {
             cardToken: tokenBody.id,
+            cardPaymentType: 'credit',
+            cardBrand: detectCardBrand(cleanNumber).id,
+            cardLast4: cleanNumber.slice(-4),
             holderName,
             holderTaxId,
             payerEmail: normalizedPayerEmail,
@@ -360,6 +373,9 @@ export function OnlineCardPaymentForm({
         }
         return {
           cardData: { number: cleanNumber, securityCode: cleanCvv },
+          cardPaymentType: 'credit',
+          cardBrand: detectCardBrand(cleanNumber).id,
+          cardLast4: cleanNumber.slice(-4),
           holderName,
           holderTaxId,
           expMonth: month,

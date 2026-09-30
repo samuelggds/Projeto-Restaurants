@@ -1,4 +1,5 @@
-import { ArrowLeft, CheckCircle2, CreditCard, Search, ShoppingBag, UserRound, XCircle } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, Search, ShoppingBag, UserRound, XCircle } from 'lucide-react';
+import { PaymentCardVisual } from '../../Profile/components/PaymentCardVisual';
 import { useEffect, useRef, type CSSProperties } from 'react';
 import styled from 'styled-components';
 import {
@@ -50,6 +51,14 @@ export function CardPaymentReturnPanel({
   const failed = terminalFailures.includes(status);
   const checking = status === 'VERIFYING';
   const pending = status === 'PENDING' || status === 'ERROR';
+  const cardPaymentType = details?.cardPaymentType === 'debit' ? 'debit' : 'credit';
+  const cardTypeLabel =
+    cardPaymentType === 'debit' ? 'Cartão de Débito' : 'Cartão de Crédito';
+  const cardBrand = details?.cardBrand || 'card';
+  const cardLast4 = String(details?.cardLast4 || '').replace(/\D/g, '').slice(-4);
+  const maskedCardNumber = cardLast4
+    ? `•••• •••• •••• ${cardLast4}`
+    : '•••• •••• •••• ••••';
   const total = amount || (
     typeof details?.totalAmount === 'number'
       ? details.totalAmount.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
@@ -74,6 +83,8 @@ export function CardPaymentReturnPanel({
       style={{ '--card-primary': primaryColor } as CSSProperties}
       data-status={status}
       data-payment-method="card"
+      data-card-payment-type={cardPaymentType}
+      data-card-brand={cardBrand}
     >
       <DesktopHeader>
         <div className="brand">
@@ -116,13 +127,18 @@ export function CardPaymentReturnPanel({
             </DesktopStatus>
           ) : null}
 
-          <MobileTitle>Pagamento com Cartão</MobileTitle>
+          <MobileTitle>Pagamento com {cardTypeLabel}</MobileTitle>
 
-          <MobileCardMock className={failed ? 'failed' : ''}>
-            <div><CreditCard aria-hidden="true" /><b>CARTÃO</b></div>
-            <strong>•••• •••• ••••</strong>
-            <small>Cartão de Crédito</small>
-          </MobileCardMock>
+          <CardVisualWrap>
+            <PaymentCardVisual
+              compact
+              brand={cardBrand}
+              numberLabel={maskedCardNumber}
+              holderName=""
+              expiryLabel="••/••"
+            />
+            <span>{cardTypeLabel}</span>
+          </CardVisualWrap>
 
           <MobileTransition>
             <div className="processing"><Dots><i /><i /><i /></Dots><span>{checking ? 'Processando pagamento...' : pending ? 'Aguardando confirmação...' : paid ? 'Processando pagamento...' : 'Pagamento finalizado'}</span></div>
@@ -141,8 +157,8 @@ export function CardPaymentReturnPanel({
                 {failed
                   ? 'Pagamento com cartão cancelado'
                   : paid
-                    ? 'Cartão de crédito aprovado'
-                    : 'Pagamento com cartão'}
+                    ? `${cardTypeLabel} aprovado`
+                    : `Pagamento com ${cardTypeLabel.toLowerCase()}`}
               </b>
               <small>
                 {failed
@@ -163,7 +179,7 @@ export function CardPaymentReturnPanel({
           {(paid || failed) ? (
             <DesktopInfo>
               <div><span>Valor Total</span><strong>{total || '—'}</strong></div>
-              <div><span>Método de Pagamento</span><strong>Cartão de Crédito</strong></div>
+              <div><span>Método de Pagamento</span><strong>{cardTypeLabel}</strong></div>
             </DesktopInfo>
           ) : null}
 
@@ -306,19 +322,31 @@ const MobileTitle = styled.h1`
   }
 `;
 
-const MobileCardMock = styled.div`
+const CardVisualWrap = styled.div`
   display: none;
+
   @media (max-width: 760px) {
-    width: min(200px, 100%); max-width: 100%; height: 120px; padding: 16px; display: flex; flex-direction: column; justify-content: space-between; border-radius: 12px; background: var(--card-primary); color: #fff;
+    width: min(320px, 100%);
+    min-width: 0;
+    display: grid;
+    justify-items: center;
+    gap: 9px;
     animation: ${paymentSurfaceRise} 460ms cubic-bezier(0.2, 0.82, 0.28, 1) 110ms both;
 
     ${paymentReducedMotion}
-    &.failed { background: #c54436; }
-    div { display: flex; align-items: center; justify-content: space-between; }
-    svg { width: 22px; }
-    b { font-size: 13px; }
-    strong { font-size: 14px; }
-    small { color: rgba(255,255,255,.7); font-size: 9px; text-transform: uppercase; }
+
+    > div {
+      width: 100%;
+      max-width: 320px;
+      margin: 0;
+    }
+
+    > span {
+      color: #72706b;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: .02em;
+    }
   }
 `;
 

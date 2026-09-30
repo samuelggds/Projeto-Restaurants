@@ -24,6 +24,23 @@ function Probe({ restaurantId = 7 }: { restaurantId?: number }) {
   return <output>{payment.status}</output>;
 }
 
+function DetailsProbe() {
+  const payment = useCardPaymentReturn({
+    restaurantId: 7,
+    orderPublicId: '123e4567-e89b-42d3-a456-426614174001',
+    orderType: 'DELIVERY',
+    providerReturnStatus: 'success',
+    onPaymentConfirmed,
+  });
+  return (
+    <output>
+      {payment.details
+        ? `${payment.details.cardPaymentType}:${payment.details.cardBrand}:${payment.details.cardLast4}`
+        : 'sem-detalhes'}
+    </output>
+  );
+}
+
 describe('useCardPaymentReturn', () => {
   let container: HTMLDivElement;
   let root: Root;
@@ -55,6 +72,23 @@ describe('useCardPaymentReturn', () => {
     expect(container.textContent).toBe('PENDING');
     expect(onPaymentConfirmed).not.toHaveBeenCalled();
     expect(ordersService.getCardPaymentStatus).toHaveBeenCalledTimes(1);
+  });
+
+  it('propaga tipo, bandeira e últimos quatro vindos da tentativa canônica', async () => {
+    vi.mocked(ordersService.getCardPaymentStatus).mockResolvedValue({
+      status: 'PENDING',
+      paid: false,
+      paymentAttempt: {
+        cardPaymentType: 'debit',
+        cardBrand: 'mastercard',
+        cardLast4: '4444',
+      },
+    });
+
+    await act(async () => root.render(<DetailsProbe />));
+    await act(async () => new Promise((resolve) => window.setTimeout(resolve, 5)));
+
+    expect(container.textContent).toBe('debit:mastercard:4444');
   });
 
   it('confirma somente quando o backend devolve paid verdadeiro', async () => {

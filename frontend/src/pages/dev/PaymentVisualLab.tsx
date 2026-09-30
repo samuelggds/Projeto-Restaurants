@@ -53,6 +53,8 @@ export default function PaymentVisualLab() {
   const [scenario, setScenario] = useState<VisualScenario>('checkout');
   const [paymentMethod, setPaymentMethod] =
     useState<CheckoutPaymentMethod>(DEFAULT_VISUAL_PAYMENT_METHOD);
+  const [activeCardPaymentType, setActiveCardPaymentType] = useState<'credit' | 'debit'>('credit');
+  const [visualCardBrand, setVisualCardBrand] = useState('visa');
   const pixExpiresAt = useMemo(() => new Date(Date.now() + 15 * 60 * 1000).toISOString(), []);
 
   const showCheckout =
@@ -65,8 +67,17 @@ export default function PaymentVisualLab() {
   const selectScenario = (next: VisualScenario) => {
     setScenario(next);
     if (next === 'checkout') setPaymentMethod(DEFAULT_VISUAL_PAYMENT_METHOD);
-    if (next === 'card-form') setPaymentMethod('card');
-    if (next === 'debit-form') setPaymentMethod('debit_card');
+    if (next === 'card-form') {
+      setPaymentMethod('card');
+      setActiveCardPaymentType('credit');
+    }
+    if (next === 'debit-form') {
+      setPaymentMethod('debit_card');
+      setActiveCardPaymentType('debit');
+    }
+    if (next.startsWith('card-') && next !== 'card-form') {
+      setActiveCardPaymentType('credit');
+    }
   };
 
   const continueFakeCheckout = () => {
@@ -75,6 +86,7 @@ export default function PaymentVisualLab() {
       return;
     }
     if (paymentMethod === 'card' || paymentMethod === 'debit_card') {
+      setActiveCardPaymentType(paymentMethod === 'debit_card' ? 'debit' : 'credit');
       setScenario('card-waiting');
     }
   };
@@ -103,6 +115,19 @@ export default function PaymentVisualLab() {
           <button className={scenario === 'card-paid' ? 'active success' : ''} onClick={() => selectScenario('card-paid')}>Cartão aprovado</button>
           <button className={scenario === 'card-failed' ? 'active failure' : ''} onClick={() => selectScenario('card-failed')}>Cartão recusado</button>
         </nav>
+        <label className="brand-picker">
+          <span>Bandeira visual do cartão</span>
+          <select value={visualCardBrand} onChange={(event) => setVisualCardBrand(event.target.value)}>
+            <option value="visa">Visa</option>
+            <option value="mastercard">Mastercard</option>
+            <option value="elo">Elo</option>
+            <option value="amex">American Express</option>
+            <option value="hipercard">Hipercard</option>
+            <option value="diners">Diners Club</option>
+            <option value="discover">Discover</option>
+            <option value="jcb">JCB</option>
+          </select>
+        </label>
       </Toolbar>
 
       {(waitingForPix || waitingForCard) ? (
@@ -216,6 +241,9 @@ export default function PaymentVisualLab() {
               restaurantName: RESTAURANT_NAME,
               deliveryTime: '35–50 min',
               totalAmount: FAKE_TOTAL,
+              cardPaymentType: activeCardPaymentType,
+              cardBrand: visualCardBrand,
+              cardLast4: activeCardPaymentType === 'debit' ? '4444' : '4242',
             }}
             amount={money(FAKE_TOTAL)}
             onVerify={async () => cardStatus}
@@ -277,6 +305,28 @@ const Toolbar = styled.aside`
     display: flex;
     flex-wrap: wrap;
     gap: 7px;
+  }
+
+  .brand-picker {
+    width: fit-content;
+    display: grid;
+    gap: 4px;
+  }
+
+  .brand-picker span {
+    font-size: 10px;
+    font-weight: 700;
+  }
+
+  .brand-picker select {
+    min-height: 32px;
+    padding: 0 30px 0 9px;
+    border: 1px solid #dedbd6;
+    border-radius: 8px;
+    background: #fff;
+    color: #403d39;
+    font: inherit;
+    font-size: 11px;
   }
 
   button {

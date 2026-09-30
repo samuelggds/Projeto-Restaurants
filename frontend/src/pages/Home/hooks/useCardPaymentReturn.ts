@@ -27,6 +27,9 @@ export type CardPaymentReturnDetails = {
   totalAmount?: number;
   paidAt?: string | null;
   kitchenPrintedAt?: string | null;
+  cardPaymentType?: 'credit' | 'debit';
+  cardBrand?: string | null;
+  cardLast4?: string | null;
 };
 
 type StatusState = {
@@ -109,6 +112,10 @@ export function useCardPaymentReturn({
             totalAmount: response?.totalAmount,
             paidAt: response?.paidAt,
             kitchenPrintedAt: response?.kitchenPrintedAt,
+            cardPaymentType:
+              response?.paymentAttempt?.cardPaymentType === 'debit' ? 'debit' : 'credit',
+            cardBrand: response?.paymentAttempt?.cardBrand || 'card',
+            cardLast4: response?.paymentAttempt?.cardLast4 || null,
           },
         });
         if (status === 'PAID' || unsuccessful) {

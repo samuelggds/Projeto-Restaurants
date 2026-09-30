@@ -258,6 +258,8 @@ test('orquestra débito mantendo tipo explícito e tenant do restaurante', async
     assert.equal('cardToken' in payload, false);
     assert.equal('cardPaymentMethodId' in payload, false);
     assert.equal('cardPaymentType' in payload, false);
+    assert.equal('cardBrand' in payload, false);
+    assert.equal('cardLast4' in payload, false);
     assert.equal('cardData' in payload, false);
     assert.equal('holderTaxId' in payload, false);
     assert.equal('payerEmail' in payload, false);
@@ -274,8 +276,12 @@ test('orquestra débito mantendo tipo explícito e tenant do restaurante', async
 
   let receivedPayload: Record<string, unknown> | null = null;
   let attemptCardPaymentType = '';
+  let attemptCardBrand = '';
+  let attemptCardLast4 = '';
   orderPaymentAttemptRepository.createCardAttempt = async (input) => {
     attemptCardPaymentType = String(input.cardPaymentType || '');
+    attemptCardBrand = String(input.cardBrand || '');
+    attemptCardLast4 = String(input.cardLast4 || '');
     return {
       id: 660,
       publicId: 'attempt-public-debit-660',
@@ -310,10 +316,14 @@ test('orquestra débito mantendo tipo explícito e tenant do restaurante', async
     cardPaymentType: 'debit',
     cardToken: 'test-debit-token',
     cardPaymentMethodId: 'visa',
+    cardBrand: 'visa',
+    cardLast4: '4242',
     items: [{ productId: 1, quantity: 1 }],
   });
 
   assert.equal(attemptCardPaymentType, 'debit');
+  assert.equal(attemptCardBrand, 'visa');
+  assert.equal(attemptCardLast4, '4242');
   assert.equal(receivedPayload?.cardPaymentType, 'debit');
   assert.equal(receivedPayload?.cardToken, 'test-debit-token');
   assert.equal(result.provider, 'MERCADO_PAGO');
