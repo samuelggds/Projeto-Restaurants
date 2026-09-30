@@ -152,7 +152,6 @@ test('débito Mercado Pago envia debit_card e nunca é convertido silenciosament
     id: 'visa',
     type: 'debit_card',
     token: 'test-debit-token',
-    installments: 1,
   });
   assert.equal(result.paymentApproved, true);
 });
