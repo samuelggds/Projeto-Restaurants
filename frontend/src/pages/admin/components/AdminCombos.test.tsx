@@ -299,6 +299,7 @@ describe('editor administrativo de combos', () => {
 
     expect(productComboService.update).toHaveBeenCalledOnce();
     const payload = vi.mocked(productComboService.update).mock.calls[0][1];
+    expect(payload.groups).toHaveLength(1);
     expect(payload.groups.flatMap((group) => group.options)).toEqual([
       {
         componentProductId: 11,
