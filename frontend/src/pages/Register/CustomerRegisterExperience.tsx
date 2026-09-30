@@ -2,6 +2,7 @@ import { useState, type CSSProperties, type FormEvent, type RefObject } from 're
 import { ArrowLeft, Check, CheckCircle2, Eye, EyeOff } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import type { PasswordEvaluation } from '../../features/password-policy';
+import { GoogleBrandIcon } from '../../components/GoogleBrandIcon/GoogleBrandIcon';
 import type { LoginBranding } from '../Login/domain/loginBranding';
 import * as S from './CustomerRegisterExperience.styles';
 
@@ -296,7 +297,7 @@ export function CustomerRegisterExperience({
                   <div className="google-real-button" ref={googleButtonRef} />
                   {googleStatus === 'ready' ? (
                     <S.GoogleVisual aria-hidden="true">
-                      <span className="google-g">G</span>
+                      <GoogleBrandIcon />
                       <span>Continuar com o Google</span>
                     </S.GoogleVisual>
                   ) : (
@@ -306,7 +307,7 @@ export function CustomerRegisterExperience({
                       disabled={googleStatus === 'loading'}
                       onClick={onInitializeGoogle}
                     >
-                      <span className="google-g">G</span>
+                      <GoogleBrandIcon />
                       <span>
                         {googleStatus === 'loading'
                           ? 'Carregando Google...'
