@@ -47,6 +47,94 @@ test('isolamento multi-tenant real por HTTP e webhooks', { timeout: 120_000 }, a
       assert.equal(await prisma.order.count({ where: { restaurantId: fixture.restaurants.a.id, creationRequestKey: { not: null } } }), 1);
     });
     await t.test(
+      'cliente cria dinheiro na entrega como não pago e somente o admin confirma o recebimento',
+      async () => {
+        const creation = await apiRequest(
+          baseUrl,
+          '/orders',
+          fixture.tokens.customerA,
+          {
+            method: 'POST',
+            headers: { 'Idempotency-Key': 'e2e-cash-delivery-customer-001' },
+            json: {
+              restaurantId: fixture.restaurants.a.id,
+              type: 'DELIVERY',
+              paymentMethod: 'DINHEIRO',
+              payOnDelivery: true,
+              payOnDeliveryMethod: 'DINHEIRO',
+              customerPhone: '11999990000',
+              address: 'Rua Teste',
+              number: '100',
+              district: 'Centro',
+              city: 'Sao Paulo',
+              state: 'SP',
+              zipCode: '01001000',
+              items: [{ productId: fixture.products.a.id, quantity: 1 }],
+            },
+          },
+        );
+
+        assert.equal(creation.response.status, 201, JSON.stringify(creation.data));
+        assert.equal(creation.data.paid, false);
+        assert.equal(creation.data.paymentMethod, 'DINHEIRO');
+        assert.equal(creation.data.payOnDelivery, true);
+        assert.equal(creation.data.payOnDeliveryMethod, 'DINHEIRO');
+
+        const orderId = Number(creation.data.id);
+        const storedBeforeConfirmation = await prisma.order.findUniqueOrThrow({
+          where: { id: orderId },
+        });
+        assert.equal(storedBeforeConfirmation.restaurantId, fixture.restaurants.a.id);
+        assert.equal(storedBeforeConfirmation.paid, false);
+        assert.equal(storedBeforeConfirmation.paidAt, null);
+        assert.equal(storedBeforeConfirmation.payOnDelivery, true);
+
+        const customerAttempt = await apiRequest(
+          baseUrl,
+          `/orders/${orderId}/confirm-payment`,
+          fixture.tokens.customerA,
+          { method: 'PATCH' },
+        );
+        assertTenantDenied(
+          customerAttempt.response.status,
+          'cliente confirmando o próprio pagamento em dinheiro',
+        );
+
+        const afterCustomerAttempt = await prisma.order.findUniqueOrThrow({
+          where: { id: orderId },
+        });
+        assert.equal(afterCustomerAttempt.paid, false);
+        assert.equal(afterCustomerAttempt.paidAt, null);
+
+        const adminConfirmation = await apiRequest(
+          baseUrl,
+          `/orders/${orderId}/confirm-payment`,
+          fixture.tokens.adminA,
+          { method: 'PATCH' },
+        );
+        assert.equal(adminConfirmation.response.status, 200, JSON.stringify(adminConfirmation.data));
+        assert.equal(adminConfirmation.data.paid, true);
+
+        const storedAfterConfirmation = await prisma.order.findUniqueOrThrow({
+          where: { id: orderId },
+        });
+        assert.equal(storedAfterConfirmation.paid, true);
+        assert.ok(storedAfterConfirmation.paidAt instanceof Date);
+
+        const audit = await prisma.auditLog.findFirst({
+          where: {
+            restaurantId: fixture.restaurants.a.id,
+            userId: fixture.users.adminA.id,
+            resource: `Order:${orderId}`,
+            action: 'ADMIN_CASH_PAYMENT_CONFIRMED',
+            result: 'SUCCESS',
+          },
+        });
+        assert.ok(audit, 'confirmação manual em dinheiro deve gerar trilha de auditoria');
+      },
+    );
+
+    await t.test(
       'autenticação real recarrega a identidade persistida e ignora tenant externo',
       async () => {
         const { response, data } = await apiRequest(
