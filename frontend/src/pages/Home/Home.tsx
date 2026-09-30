@@ -2,7 +2,7 @@ import { lazy, Suspense, useState, useCallback, useEffect, useMemo } from 'react
 import { useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../../contexts/authContext';
 import { FigmaDeliveryExperience } from './FigmaDeliveryExperience';
-import { FigmaCheckoutFlow, type FigmaCheckoutStep } from './FigmaCheckoutFlow';
+import type { FigmaCheckoutStep } from './FigmaCheckoutFlow';
 import * as S from './Home.styles';
 import {
   useDefaultRestaurantId,
@@ -51,6 +51,12 @@ import { buildLoginUrl } from '../../shared/navigation/authNavigation';
 import TableMenuExperience from '../digital-menu/TableMenuExperience';
 import type { HomeProduct } from './types';
 import { createReadyProductConfiguration, resolveProductEntryKind } from './domain/productEntryFlow';
+
+const FigmaCheckoutFlow = lazy(() =>
+  import('./FigmaCheckoutFlow').then((module) => ({
+    default: module.FigmaCheckoutFlow,
+  })),
+);
 
 const ProductConfigurator = lazy(() =>
   import('../Home/components/ProductConfigurator').then((module) => ({
@@ -920,7 +926,8 @@ export default function Home() {
       />
 
       {cartOpen ? (
-        <FigmaCheckoutFlow
+        <Suspense fallback={null}>
+          <FigmaCheckoutFlow
           primaryColor={primary}
           brandName={homeData.brand.name}
           logoUrl={homeData.brand.logoUrl}
@@ -1202,7 +1209,8 @@ export default function Home() {
               onRedeem={(couponId) => void loyalty.redeem(couponId)}
             />
           }
-        />
+          />
+        </Suspense>
       ) : null}
 
       {crossSellProduct ? (
