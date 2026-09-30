@@ -130,8 +130,11 @@ const Root = styled.div<{ $accent?: string }>`
   }
 
   @media (max-width: 620px) {
+    width: 95px;
     height: 38px;
-    padding: 8px 12px;
+    flex-basis: 95px;
+    padding: 0 12px;
+    gap: 7px;
     background: #f7f5f0;
 
     && button > span {
