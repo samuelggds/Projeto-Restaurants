@@ -27,10 +27,10 @@ type Props = {
   onChanged: () => void | Promise<void>;
 };
 
-const emptyGroup = (): ComboGroupInput => ({
-  name: 'Produtos do combo',
-  description: 'Produtos incluídos neste combo.',
-  minSelections: 0,
+const emptyGroup = (index = 1): ComboGroupInput => ({
+  name: `Etapa ${index}`,
+  description: '',
+  minSelections: 1,
   maxSelections: 1,
   active: true,
   options: [],
@@ -43,7 +43,7 @@ const emptyCombo = (): ComboInput => ({
   price: 0,
   active: true,
   featured: true,
-  groups: [emptyGroup()],
+  groups: [emptyGroup(1)],
 });
 
 function errorMessage(error: unknown, fallback: string) {
@@ -106,7 +106,7 @@ export function AdminCombos({ products, money, onChanged }: Props) {
   const [editingId, setEditingId] = useState<number | null | undefined>();
   const [draft, setDraft] = useState<ComboInput>(emptyCombo());
   const [busy, setBusy] = useState('');
-  const [selectedProductId, setSelectedProductId] = useState('');
+  const [selectedProductByGroup, setSelectedProductByGroup] = useState<Record<string, string>>({});
   const [feedback, setFeedback] = useState<{ tone: 'error' | 'success'; message: string } | null>(
     null,
   );
@@ -138,13 +138,14 @@ export function AdminCombos({ products, money, onChanged }: Props) {
     }),
   );
   const selectedOptions = selectedRows.map((row) => row.option);
-  const selectedProductIds = new Set(
-    selectedOptions.map((option) => String(option.componentProductId)),
-  );
   const canGenerateImage = draft.name.trim().length >= 2 && selectedRows.some((row) => row.product);
-  const selectableProducts = availableProducts.filter(
-    (product) => !selectedProductIds.has(String(product.id)),
-  );
+
+  const selectableProductsForGroup = (groupIndex: number) => {
+    const selectedIds = new Set(
+      (draft.groups[groupIndex]?.options || []).map((option) => String(option.componentProductId)),
+    );
+    return availableProducts.filter((product) => !selectedIds.has(String(product.id)));
+  };
 
   const load = async () => {
     setCombos(await productComboService.list());
@@ -198,7 +199,7 @@ export function AdminCombos({ products, money, onChanged }: Props) {
       getComputedStyle(workspaceRef.current!).getPropertyValue('--brand').trim() || '#d64d08',
     );
     setDraft(emptyCombo());
-    setSelectedProductId('');
+    setSelectedProductByGroup({});
     setEditingId(null);
     setFeedback(null);
   };
@@ -209,7 +210,7 @@ export function AdminCombos({ products, money, onChanged }: Props) {
       getComputedStyle(workspaceRef.current!).getPropertyValue('--brand').trim() || '#d64d08',
     );
     setDraft(toInput(combo));
-    setSelectedProductId('');
+    setSelectedProductByGroup({});
     setEditingId(combo.id);
     setFeedback(null);
   };
@@ -220,111 +221,131 @@ export function AdminCombos({ products, money, onChanged }: Props) {
     setFeedback(null);
   };
 
-  const addSelectedProduct = () => {
+  const updateGroup = (groupIndex: number, updates: Partial<ComboGroupInput>) => {
     if (busy) return;
-    const productId = Number(selectedProductId);
+    setDraft((current) => ({
+      ...current,
+      groups: current.groups.map((group, index) =>
+        index === groupIndex ? { ...group, ...updates } : group,
+      ),
+    }));
+    setFeedback(null);
+  };
+
+  const updateGroupRequiredSelections = (groupIndex: number, rawValue: number) => {
+    const quantity = Math.max(1, Math.min(20, Math.trunc(rawValue || 1)));
+    updateGroup(groupIndex, {
+      minSelections: quantity,
+      maxSelections: quantity,
+    });
+  };
+
+  const addChoiceGroup = () => {
+    if (busy) return;
+    if (draft.groups.length >= 12) {
+      setFeedback({
+        tone: 'error',
+        message: 'Cada combo pode ter no máximo 12 etapas de escolha.',
+      });
+      return;
+    }
+    setDraft((current) => ({
+      ...current,
+      groups: [...current.groups, emptyGroup(current.groups.length + 1)],
+    }));
+    setFeedback(null);
+  };
+
+  const removeChoiceGroup = (groupIndex: number) => {
+    if (busy) return;
+    if (draft.groups.length <= 1) {
+      setFeedback({
+        tone: 'error',
+        message: 'O combo precisa ter pelo menos uma etapa de escolha.',
+      });
+      return;
+    }
+    setDraft((current) => ({
+      ...current,
+      groups: current.groups.filter((_, index) => index !== groupIndex),
+    }));
+    setSelectedProductByGroup({});
+    setFeedback(null);
+  };
+
+  const addSelectedProduct = (groupIndex: number) => {
+    if (busy) return;
+    const selectedValue = selectedProductByGroup[String(groupIndex)] || '';
+    const productId = Number(selectedValue);
     if (!Number.isSafeInteger(productId) || productId <= 0) {
       setFeedback({
         tone: 'error',
-        message: 'Escolha um produto da lista para adicionar ao combo.',
+        message: 'Escolha um produto da lista para adicionar à etapa.',
       });
       return;
     }
 
-    if (selectedProductIds.has(String(productId))) {
-      setFeedback({ tone: 'error', message: 'Este produto já faz parte do combo.' });
+    const group = draft.groups[groupIndex];
+    if (!group) return;
+    if (group.options.some((option) => option.componentProductId === productId)) {
+      setFeedback({ tone: 'error', message: 'Este produto já está disponível nesta etapa.' });
       return;
     }
     if (!availableProducts.some((product) => Number(product.id) === productId)) return;
-    const fixedGroupIndex = draft.groups.findIndex(isFixedGroup);
-    if (
-      (fixedGroupIndex >= 0 && draft.groups[fixedGroupIndex].options.length >= 20) ||
-      (fixedGroupIndex < 0 && draft.groups.length >= 12)
-    ) {
+    if (group.options.length >= 20) {
       setFeedback({
         tone: 'error',
-        message: 'O grupo de produtos incluídos aceita até 20 produtos diferentes.',
+        message: 'Cada etapa aceita até 20 produtos diferentes para escolha.',
       });
       return;
     }
-    setDraft((current) => {
-      const groups = [...current.groups];
-      const groupIndex = groups.findIndex(isFixedGroup);
-      const group =
-        groupIndex >= 0
-          ? groups[groupIndex]
-          : { ...emptyGroup(), name: `Produtos incluídos ${groups.length + 1}` };
-      const options = [
-        ...group.options,
-        {
-          componentProductId: productId,
-          additionalPrice: 0,
-          minQuantity: 1,
-          maxQuantity: 1,
-          defaultQuantity: 1,
-          locked: true,
-          active: true,
-        },
-      ];
-      const updated = {
-        ...group,
-        options,
-        minSelections: options.length,
-        maxSelections: options.length,
-      };
-      if (groupIndex >= 0) groups[groupIndex] = updated;
-      else groups.push(updated);
-      return { ...current, groups };
-    });
-    setSelectedProductId('');
+
+    setDraft((current) => ({
+      ...current,
+      groups: current.groups.map((currentGroup, index) =>
+        index === groupIndex
+          ? {
+              ...currentGroup,
+              options: [
+                ...currentGroup.options,
+                {
+                  componentProductId: productId,
+                  additionalPrice: 0,
+                  minQuantity: 0,
+                  maxQuantity: 1,
+                  defaultQuantity: 0,
+                  locked: false,
+                  active: true,
+                },
+              ],
+            }
+          : currentGroup,
+      ),
+    }));
+    setSelectedProductByGroup((current) => ({ ...current, [String(groupIndex)]: '' }));
     setFeedback(null);
   };
 
   const removeSelectedProduct = (groupIndex: number, optionIndex: number) => {
     if (busy) return;
-    setDraft((current) => {
-      const groups = current.groups
-        .map((group, index) => {
-          if (index !== groupIndex) return group;
-          const options = group.options.filter((_, index) => index !== optionIndex);
-          return {
-            ...group,
-            options,
-            minSelections: isFixedGroup(group)
-              ? options.length
-              : Math.min(group.minSelections, options.length),
-            maxSelections: isFixedGroup(group)
-              ? Math.max(1, options.length)
-              : Math.max(1, Math.min(group.maxSelections, options.length)),
-          };
-        })
-        .filter((group) => group.options.length);
-      return { ...current, groups: groups.length ? groups : [emptyGroup()] };
-    });
-    setFeedback(null);
-  };
-
-  const updateQuantity = (groupIndex: number, optionIndex: number, quantity: number) => {
     setDraft((current) => ({
       ...current,
-      groups: current.groups.map((group, index) =>
-        index === groupIndex
-          ? {
-              ...group,
-              options: group.options.map((option, index) =>
-                index === optionIndex
-                  ? {
-                      ...option,
-                      minQuantity: quantity,
-                      maxQuantity: quantity,
-                      defaultQuantity: quantity,
-                    }
-                  : option,
-              ),
-            }
-          : group,
-      ),
+      groups: current.groups.map((group, index) => {
+        if (index !== groupIndex) return group;
+        const options = group.options.filter((_, index) => index !== optionIndex);
+        const nextRequired = Math.max(
+          1,
+          Math.min(group.minSelections, Math.max(options.length, 1)),
+        );
+        return {
+          ...group,
+          options,
+          minSelections: nextRequired,
+          maxSelections: nextRequired,
+        };
+      }),
     }));
+    setFeedback(null);
   };
 
   const uploadPhoto = async (file?: File) => {
