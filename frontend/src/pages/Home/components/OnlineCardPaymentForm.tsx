@@ -1,4 +1,4 @@
-import { CreditCard, LockKeyhole } from 'lucide-react';
+import { CircleAlert, CreditCard, LockKeyhole } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import styled from 'styled-components';
 import type { CustomerPaymentMethod } from '../../../Services/customerPaymentMethodService';
@@ -49,6 +49,12 @@ export function selectMercadoPagoPaymentMethod(
       String(candidate.payment_type_id || '').trim().toLowerCase() === expectedType,
   );
   return String(method?.id || '').trim();
+}
+
+export function getCardPaymentErrorTitle(paymentType: CardPaymentType) {
+  return paymentType === 'debit'
+    ? 'Não foi possível usar este cartão no débito'
+    : 'Não foi possível usar este cartão';
 }
 
 declare global {
@@ -550,9 +556,15 @@ export function OnlineCardPaymentForm({
         <LockKeyhole size={15} /> O número completo e o CVV nunca são salvos no GastroNexa.
       </p>
       {error && (
-        <p className="error" role="alert">
-          {error}
-        </p>
+        <div className="error-alert" role="alert" aria-live="assertive">
+          <span className="error-icon" aria-hidden="true">
+            <CircleAlert size={18} />
+          </span>
+          <span className="error-copy">
+            <strong>{getCardPaymentErrorTitle(paymentType)}</strong>
+            <small>{error}</small>
+          </span>
+        </div>
       )}
     </CardForm>
   );
@@ -630,11 +642,41 @@ const CardForm = styled.section`
     color: #68706b;
     font-size: 10px;
   }
-  .error {
-    margin: 0;
-    color: #a12d25;
+  .error-alert {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    margin: 1px 0 0;
+    padding: 11px 12px;
+    border: 1px solid #ecc9c4;
+    border-radius: 11px;
+    background: #fff7f6;
+    color: #8f342c;
+  }
+  .error-icon {
+    width: 28px;
+    height: 28px;
+    flex: 0 0 28px;
+    display: grid;
+    place-items: center;
+    border-radius: 9px;
+    background: #fde7e3;
+    color: #a33b31;
+  }
+  .error-copy {
+    min-width: 0;
+    display: grid;
+    gap: 3px;
+  }
+  .error-copy strong {
+    color: #7d2d27;
     font-size: 11px;
-    font-weight: 700;
+    line-height: 1.35;
+  }
+  .error-copy small {
+    color: #8d4a44;
+    font-size: 10px;
+    line-height: 1.45;
   }
   @media (max-width: 390px) {
     .row {
