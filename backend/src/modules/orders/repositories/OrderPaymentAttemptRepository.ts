@@ -7,6 +7,7 @@ type CreateCardAttemptInput = {
   restaurantId: number;
   provider: string;
   amount: number;
+  cardPaymentType?: 'credit' | 'debit';
 };
 
 const TERMINAL_ATTEMPT_STATUSES = new Set<OrderPaymentAttemptStatus>([
@@ -39,6 +40,7 @@ class OrderPaymentAttemptRepository {
           orderId: input.orderId,
           restaurantId: input.restaurantId,
           method: PaymentMethod.CARTAO,
+          cardPaymentType: input.cardPaymentType === 'debit' ? 'debit' : 'credit',
           provider: input.provider,
           status: OrderPaymentAttemptStatus.PENDING,
           amount: input.amount,
