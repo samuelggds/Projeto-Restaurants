@@ -374,21 +374,9 @@ export function PaymentOptions({
     }
   };
 
-  if (availableMethods.length === 0) {
-    return (
-      <>
-        <WhatsAppOrderNotifications restaurantId={restaurantId} />
-        <S.CartSectionLabel>Forma de pagamento</S.CartSectionLabel>
-        <S.CheckoutUnavailable role="status">
-          Serviço indisponível. Este restaurante ainda não aceita esta forma de pagamento no
-          momento.
-        </S.CheckoutUnavailable>
-      </>
-    );
-  }
-
   if (figmaCheckout) {
     const chooseCard = (kind: 'credit' | 'debit') => {
+      if (!allowCard) return;
       setFigmaCardKind(kind);
       handlePaymentChange('card');
     };
@@ -397,155 +385,187 @@ export function PaymentOptions({
       : allowPayAtPickup
         ? 'pickup_cash'
         : null;
-    const cardActive = paymentMethod === 'card';
+    const cashAvailable = Boolean(cashMethod);
+    const cardActive = allowCard && paymentMethod === 'card';
     const creditActive = cardActive && figmaCardKind === 'credit';
     const debitActive = cardActive && figmaCardKind === 'debit';
 
+    const unavailableLabel = (
+      <span className="unavailable">Temporariamente indisponível</span>
+    );
+
     return (
       <P.FigmaPaymentMethods aria-label="Método de pagamento">
-        {allowPix ? (
-          <P.FigmaPaymentOption
-            type="button"
-            $active={paymentMethod === 'pix'}
-            onClick={() => handlePaymentChange('pix')}
-            aria-label="Pix QR Code"
-            aria-pressed={paymentMethod === 'pix'}
-          >
-            <span className="method-icon pix"><QrCode aria-hidden="true" /></span>
+        <P.FigmaPaymentOption
+          type="button"
+          $active={allowPix && paymentMethod === 'pix'}
+          $disabled={!allowPix}
+          disabled={!allowPix}
+          onClick={() => allowPix && handlePaymentChange('pix')}
+          aria-label={allowPix ? 'Pix QR Code' : 'Pix QR Code temporariamente indisponível'}
+          aria-pressed={allowPix && paymentMethod === 'pix'}
+        >
+          <span className="method-icon pix"><QrCode aria-hidden="true" /></span>
+          <span className="method-copy">
             <span className="method-name">PIX</span>
-            <span className="recommended">Recomendado</span>
-          </P.FigmaPaymentOption>
-        ) : null}
+            {!allowPix ? unavailableLabel : null}
+          </span>
+          {allowPix ? <span className="recommended">Recomendado</span> : <span className="radio"><i /></span>}
+        </P.FigmaPaymentOption>
 
         {allowOpenFinancePix ? (
           <P.FigmaPaymentOption
             type="button"
             $active={paymentMethod === 'open_finance_pix'}
+            $disabled={false}
             onClick={() => handlePaymentChange('open_finance_pix')}
             aria-pressed={paymentMethod === 'open_finance_pix'}
           >
             <span className="method-icon"><Landmark aria-hidden="true" /></span>
-            <span className="method-name">Open Finance</span>
+            <span className="method-copy">
+              <span className="method-name">Open Finance</span>
+            </span>
             <span className="radio"><i /></span>
           </P.FigmaPaymentOption>
         ) : null}
 
-        {allowCard ? (
-          <P.FigmaCardSection $active={creditActive}>
-            <button
-              type="button"
-              className="card-heading"
-              onClick={() => chooseCard('credit')}
-              aria-pressed={creditActive}
-            >
-              <span className="method-icon"><CreditCard aria-hidden="true" /></span>
-              <span className="method-name">Cartão de Crédito</span>
-              <span className="radio"><i /></span>
-            </button>
-
-            {loggedIn ? (
-              savedCardsLoading ? (
-                <P.FigmaPaymentStatus role="status">Carregando seus cartões salvos…</P.FigmaPaymentStatus>
-              ) : savedCards.length ? (
-                <P.FigmaSavedCards>
-                  {savedCards.map((card) => {
-                    const selected = selectedCardId === card.publicId;
-                    return (
-                      <button
-                        key={card.publicId}
-                        type="button"
-                        className={selected ? 'selected' : ''}
-                        onClick={() => {
-                          setFigmaCardKind('credit');
-                          handlePaymentChange('card');
-                          setSelectedCardId(card.publicId);
-                          localStorage.setItem(
-                            `selectedCustomerPaymentMethodId:${restaurantId}`,
-                            card.publicId,
-                          );
-                        }}
-                      >
-                        <CreditCard aria-hidden="true" />
-                        <span>
-                          <b>{card.brand || 'Cartão'}</b>
-                          <small>•••• •••• •••• {card.last4}</small>
-                        </span>
-                        <span className="radio"><i /></span>
-                      </button>
-                    );
-                  })}
-                  <a
-                    className="add-card"
-                    href={paymentMethodsHref}
-                    onClick={rememberPaymentRestaurant}
-                  >
-                    <Plus aria-hidden="true" /> Adicionar novo cartão
-                  </a>
-                </P.FigmaSavedCards>
-              ) : (
-                <P.FigmaEmptyCards>
-                  <b>Você não tem cartões salvos</b>
-                  <span>Cadastre um cartão para pagamentos mais rápidos</span>
-                  <a href={paymentMethodsHref} onClick={rememberPaymentRestaurant}>
-                    Cadastrar Cartão
-                  </a>
-                </P.FigmaEmptyCards>
-              )
-            ) : creditActive && restaurantId ? (
-              <P.FigmaGuestCardForm>
-                <OnlineCardPaymentForm
-                  restaurantId={restaurantId}
-                  payerEmail={userEmail}
-                  onPreparerChange={registerCardPreparer}
-                />
-              </P.FigmaGuestCardForm>
-            ) : null}
-
-            {loggedIn && creditActive && selectedSavedCard ? (
-              <P.FigmaSavedCardSecurity>
-                <OnlineCardPaymentForm
-                  restaurantId={restaurantId!}
-                  savedCard={selectedSavedCard}
-                  onPreparerChange={registerCardPreparer}
-                />
-              </P.FigmaSavedCardSecurity>
-            ) : null}
-          </P.FigmaCardSection>
-        ) : null}
-
-        {allowCard ? (
-          <P.FigmaPaymentOption
+        <P.FigmaCardSection $active={creditActive} $disabled={!allowCard}>
+          <button
             type="button"
-            $active={debitActive}
-            onClick={() => chooseCard('debit')}
-            aria-pressed={debitActive}
+            className="card-heading"
+            disabled={!allowCard}
+            onClick={() => chooseCard('credit')}
+            aria-label={
+              allowCard
+                ? 'Cartão de Crédito'
+                : 'Cartão de Crédito temporariamente indisponível'
+            }
+            aria-pressed={creditActive}
           >
             <span className="method-icon"><CreditCard aria-hidden="true" /></span>
+            <span className="method-copy">
+              <span className="method-name">Cartão de Crédito</span>
+              {!allowCard ? unavailableLabel : null}
+            </span>
+            <span className="radio"><i /></span>
+          </button>
+
+          {allowCard && loggedIn ? (
+            savedCardsLoading ? (
+              <P.FigmaPaymentStatus role="status">Carregando seus cartões salvos…</P.FigmaPaymentStatus>
+            ) : savedCards.length ? (
+              <P.FigmaSavedCards>
+                {savedCards.map((card) => {
+                  const selected = selectedCardId === card.publicId;
+                  return (
+                    <button
+                      key={card.publicId}
+                      type="button"
+                      className={selected ? 'selected' : ''}
+                      onClick={() => {
+                        setFigmaCardKind('credit');
+                        handlePaymentChange('card');
+                        setSelectedCardId(card.publicId);
+                        localStorage.setItem(
+                          `selectedCustomerPaymentMethodId:${restaurantId}`,
+                          card.publicId,
+                        );
+                      }}
+                    >
+                      <CreditCard aria-hidden="true" />
+                      <span>
+                        <b>{card.brand || 'Cartão'}</b>
+                        <small>•••• •••• •••• {card.last4}</small>
+                      </span>
+                      <span className="radio"><i /></span>
+                    </button>
+                  );
+                })}
+                <a
+                  className="add-card"
+                  href={paymentMethodsHref}
+                  onClick={rememberPaymentRestaurant}
+                >
+                  <Plus aria-hidden="true" /> Adicionar novo cartão
+                </a>
+              </P.FigmaSavedCards>
+            ) : (
+              <P.FigmaEmptyCards>
+                <b>Você não tem cartões salvos</b>
+                <span>Cadastre um cartão para pagamentos mais rápidos</span>
+                <a href={paymentMethodsHref} onClick={rememberPaymentRestaurant}>
+                  Cadastrar Cartão
+                </a>
+              </P.FigmaEmptyCards>
+            )
+          ) : allowCard && creditActive && restaurantId ? (
+            <P.FigmaGuestCardForm>
+              <OnlineCardPaymentForm
+                restaurantId={restaurantId}
+                payerEmail={userEmail}
+                onPreparerChange={registerCardPreparer}
+              />
+            </P.FigmaGuestCardForm>
+          ) : null}
+
+          {allowCard && loggedIn && creditActive && selectedSavedCard ? (
+            <P.FigmaSavedCardSecurity>
+              <OnlineCardPaymentForm
+                restaurantId={restaurantId!}
+                savedCard={selectedSavedCard}
+                onPreparerChange={registerCardPreparer}
+              />
+            </P.FigmaSavedCardSecurity>
+          ) : null}
+        </P.FigmaCardSection>
+
+        <P.FigmaPaymentOption
+          type="button"
+          $active={debitActive}
+          $disabled={!allowCard}
+          disabled={!allowCard}
+          onClick={() => chooseCard('debit')}
+          aria-label={
+            allowCard
+              ? 'Cartão de débito'
+              : 'Cartão de débito temporariamente indisponível'
+          }
+          aria-pressed={debitActive}
+        >
+          <span className="method-icon"><CreditCard aria-hidden="true" /></span>
+          <span className="method-copy">
             <span className="method-name">Cartão de débito</span>
-            <span className="radio"><i /></span>
-          </P.FigmaPaymentOption>
-        ) : null}
+            {!allowCard ? unavailableLabel : null}
+          </span>
+          <span className="radio"><i /></span>
+        </P.FigmaPaymentOption>
 
-        {cashMethod ? (
-          <P.FigmaPaymentOption
-            type="button"
-            $active={paymentMethod === cashMethod}
-            onClick={() => handlePaymentChange(cashMethod)}
-            aria-pressed={paymentMethod === cashMethod}
-          >
-            <span className="method-icon"><Banknote aria-hidden="true" /></span>
+        <P.FigmaPaymentOption
+          type="button"
+          $active={cashAvailable && paymentMethod === cashMethod}
+          $disabled={!cashAvailable}
+          disabled={!cashAvailable}
+          onClick={() => cashMethod && handlePaymentChange(cashMethod)}
+          aria-label={
+            cashAvailable ? 'Dinheiro' : 'Dinheiro temporariamente indisponível'
+          }
+          aria-pressed={cashAvailable && paymentMethod === cashMethod}
+        >
+          <span className="method-icon"><Banknote aria-hidden="true" /></span>
+          <span className="method-copy">
             <span className="method-name">Dinheiro</span>
-            <span className="radio"><i /></span>
-          </P.FigmaPaymentOption>
-        ) : null}
+            {!cashAvailable ? unavailableLabel : null}
+          </span>
+          <span className="radio"><i /></span>
+        </P.FigmaPaymentOption>
 
-        {debitActive && restaurantId ? (
+        {allowCard && debitActive && restaurantId ? (
           <P.FigmaDebitForm>
             <OnlineCardPaymentForm
               restaurantId={restaurantId}
               payerEmail={userEmail}
               onPreparerChange={registerCardPreparer}
-                />
+            />
           </P.FigmaDebitForm>
         ) : null}
 
@@ -581,6 +601,19 @@ export function PaymentOptions({
           </P.OpenFinanceBankPicker>
         ) : null}
       </P.FigmaPaymentMethods>
+    );
+  }
+
+  if (availableMethods.length === 0) {
+    return (
+      <>
+        <WhatsAppOrderNotifications restaurantId={restaurantId} />
+        <S.CartSectionLabel>Forma de pagamento</S.CartSectionLabel>
+        <S.CheckoutUnavailable role="status">
+          Serviço indisponível. Este restaurante ainda não aceita esta forma de pagamento no
+          momento.
+        </S.CheckoutUnavailable>
+      </>
     );
   }
 
