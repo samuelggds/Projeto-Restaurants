@@ -94,6 +94,7 @@ describe('DeliveryTrackingVisualLab', () => {
     ).not.toBeNull();
     expect(marker?.getAttribute('data-route-angle')).not.toBeNull();
     expect(marker?.getAttribute('data-sprite-direction')).toBeTruthy();
+    expect(marker?.getAttribute('data-camera-anchor')).toBe('50,62');
     expect(
       container
         .querySelector('[data-testid="visual-fictitious-map"]')

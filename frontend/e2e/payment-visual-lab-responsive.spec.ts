@@ -110,6 +110,19 @@ test('rastreamento fictício mostra o mapa local e move o motoqueiro na rota', a
   expect(mapBox?.height).toBeLessThanOrEqual(281);
 
   await expect(marker.locator('[data-testid="visual-courier-sprite"]')).toBeVisible();
+  await expect(marker).toHaveAttribute('data-camera-anchor', '50,62');
+
+  const markerBox = await marker.boundingBox();
+  const mapViewport = await map.boundingBox();
+  expect(markerBox).not.toBeNull();
+  expect(mapViewport).not.toBeNull();
+
+  if (markerBox && mapViewport) {
+    const markerCenterX = markerBox.x + markerBox.width / 2;
+    const markerCenterY = markerBox.y + markerBox.height * 0.58;
+    expect(Math.abs(markerCenterX - (mapViewport.x + mapViewport.width * 0.5))).toBeLessThan(4);
+    expect(Math.abs(markerCenterY - (mapViewport.y + mapViewport.height * 0.62))).toBeLessThan(6);
+  }
 
   const scene = page.locator('[data-testid="visual-map-scene"]');
   await expect(scene).toBeVisible();

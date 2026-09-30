@@ -1,6 +1,6 @@
 import { FormEvent, type CSSProperties, useEffect, useMemo, useRef, useState } from 'react';
 import { ArrowLeft, Bike, CheckCircle2, CircleDot, Phone, Send } from 'lucide-react';
-import courierDelivery8Dir from '../../assets/tracking/courier-delivery-8dir.webp';
+import courierDelivery8Dir from '../../assets/tracking/courier-delivery-8dir.jpg';
 import type { CourierRoutePoint } from '../Courier/domain/courierLocation';
 
 export const VISUAL_TRACKING_ANIMATION_MS = 60_000;
@@ -225,6 +225,14 @@ export default function DeliveryTrackingVisualLab({ onBack }: { onBack?: () => v
   );
   const currentPoint = currentFrame.point;
   const currentMapPosition = useMemo(() => toVisualMapPosition(currentPoint), [currentPoint]);
+  const cameraAnchor = useMemo(() => ({ x: 50, y: 62 }), []);
+  const cameraTranslate = useMemo(
+    () => ({
+      x: cameraAnchor.x - currentMapPosition.x,
+      y: cameraAnchor.y - currentMapPosition.y,
+    }),
+    [cameraAnchor, currentMapPosition],
+  );
   const cameraRotation = useMemo(
     () => getVisualCameraRotation(currentFrame.angleDegrees),
     [currentFrame.angleDegrees],
@@ -312,6 +320,10 @@ export default function DeliveryTrackingVisualLab({ onBack }: { onBack?: () => v
             background: #e9eef1 !important;
           }
           .tracking-animation-badge { display: none !important; }
+          [data-testid="visual-courier-marker"] {
+            width: 82px !important;
+            height: 94px !important;
+          }
         }
       `}</style>
       <header style={styles.header}>
@@ -341,7 +353,7 @@ export default function DeliveryTrackingVisualLab({ onBack }: { onBack?: () => v
                 style={{
                   ...styles.mapScene,
                   transformOrigin: `${currentMapPosition.x}% ${currentMapPosition.y}%`,
-                  transform: `rotate(${cameraRotation}deg) scale(1.055)`,
+                  transform: `translate(${cameraTranslate.x}%, ${cameraTranslate.y}%) rotate(${cameraRotation}deg) scale(1.18)`,
                 }}
               >
               <div style={{ ...styles.cityBlock, top: '5%', left: '5%', width: '27%', height: '17%' }} />
@@ -421,10 +433,11 @@ export default function DeliveryTrackingVisualLab({ onBack }: { onBack?: () => v
                 data-route-angle={currentFrame.angleDegrees.toFixed(2)}
                 data-sprite-direction={courierDirection}
                 data-sprite-index={courierDirectionIndex}
+                data-camera-anchor="50,62"
                 style={{
                   ...styles.courierMarker,
-                  left: `${currentMapPosition.x}%`,
-                  top: `${currentMapPosition.y}%`,
+                  left: `${cameraAnchor.x}%`,
+                  top: `${cameraAnchor.y}%`,
                 }}
               >
                 <span style={styles.courierRoadShadow} aria-hidden="true" />
@@ -514,9 +527,9 @@ const styles: Record<string, CSSProperties> = {
   mapLabel: { position: 'absolute', zIndex: 2, color: '#6d777c', fontSize: 10, fontWeight: 600, transform: 'rotate(-4deg)' },
   mapLabelPoi: { position: 'absolute', zIndex: 2, color: '#5d8b68', fontSize: 9, fontWeight: 800 },
   streetSvg: { position: 'absolute', zIndex: 3, inset: 0, width: '100%', height: '100%', pointerEvents: 'none' },
-  courierMarker: { position: 'absolute', zIndex: 9, width: 64, height: 72, transform: 'translate(-50%, -56%)', willChange: 'left, top', transition: 'left 80ms linear, top 80ms linear' },
-  courierRoadShadow: { position: 'absolute', zIndex: 0, left: '50%', bottom: 3, width: 34, height: 11, borderRadius: '50%', background: 'rgba(22,31,38,.22)', filter: 'blur(3px)', transform: 'translateX(-50%) scaleX(1.15)' },
-  courierSprite: { position: 'absolute', zIndex: 1, inset: 0, display: 'block', backgroundRepeat: 'no-repeat', backgroundSize: '400% 200%', filter: 'drop-shadow(0 7px 7px rgba(21,31,39,.24))', transform: 'perspective(220px) rotateX(5deg) translateZ(0)', transformOrigin: '50% 82%', willChange: 'background-position' },
+  courierMarker: { position: 'absolute', zIndex: 9, width: 96, height: 108, transform: 'translate(-50%, -58%)', pointerEvents: 'none', filter: 'drop-shadow(0 10px 9px rgba(21,31,39,.22))' },
+  courierRoadShadow: { position: 'absolute', zIndex: 0, left: '50%', bottom: 4, width: 46, height: 13, borderRadius: '50%', background: 'rgba(22,31,38,.24)', filter: 'blur(4px)', transform: 'translateX(-50%) scaleX(1.22)' },
+  courierSprite: { position: 'absolute', zIndex: 1, inset: 0, display: 'block', overflow: 'hidden', borderRadius: 18, backgroundRepeat: 'no-repeat', backgroundSize: '400% 200%', backgroundColor: 'transparent', mixBlendMode: 'multiply', filter: 'contrast(1.04) saturate(1.08)', transform: 'perspective(240px) rotateX(5deg) translateZ(0)', transformOrigin: '50% 82%', willChange: 'background-position' },
   originBuildingPosition: { position: 'absolute', zIndex: 7, transform: 'translate(-50%, -76%)', pointerEvents: 'none' },
   destinationBuildingPosition: { position: 'absolute', zIndex: 7, transform: 'translate(-50%, -76%)', pointerEvents: 'none' },
   buildingMarker: { position: 'relative', width: 58, display: 'grid', justifyItems: 'center', gap: 2, filter: 'drop-shadow(0 8px 7px rgba(31,41,55,.18))' },
