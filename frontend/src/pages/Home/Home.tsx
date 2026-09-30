@@ -358,8 +358,15 @@ export default function Home() {
         allowPix: homeData.acceptsPix,
         allowOpenFinancePix: homeData.openFinancePixEnabled,
         allowCard: homeData.acceptsCard,
+        allowDebitCard: homeData.acceptsDebitCard,
       }),
-    [allowPayOnDelivery, homeData.acceptsCard, homeData.acceptsPix, homeData.openFinancePixEnabled],
+    [
+      allowPayOnDelivery,
+      homeData.acceptsCard,
+      homeData.acceptsDebitCard,
+      homeData.acceptsPix,
+      homeData.openFinancePixEnabled,
+    ],
   );
   const checkoutChannelAvailable =
     mesaMode ||
