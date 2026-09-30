@@ -172,7 +172,7 @@ export const FigmaPaymentMethods = styled.section`
   gap: 12px;
 `;
 
-export const FigmaPaymentOption = styled.button<{ $active: boolean }>`
+export const FigmaPaymentOption = styled.button<{ $active: boolean; $disabled: boolean }>`
   width: 100%;
   min-height: 50px;
   padding: 12px 14px;
@@ -182,31 +182,38 @@ export const FigmaPaymentOption = styled.button<{ $active: boolean }>`
   gap: 10px;
   border: 1px solid ${({ $active }) => ($active ? 'var(--checkout-primary)' : '#efece6')};
   border-radius: 14px;
-  background: #fff;
-  color: #1f1e1a;
+  background: ({ $disabled }) => ($disabled ? '#fbfaf8' : '#fff');
+  color: ({ $disabled }) => ($disabled ? '#8e8a84' : '#1f1e1a');
   font: inherit;
   text-align: left;
-  cursor: pointer;
+  cursor: ({ $disabled }) => ($disabled ? 'not-allowed' : 'pointer');
+  opacity: ({ $disabled }) => ($disabled ? 0.78 : 1);
   .method-icon { width: 24px; height: 24px; display: grid; place-items: center; border-radius: 8px; background: #f0f0ee; }
   .method-icon.pix { background: #fdf2ec; color: var(--checkout-primary); }
   .method-icon svg { width: 14px; height: 14px; }
+  .method-copy { min-width: 0; display: grid; gap: 2px; }
   .method-name { min-width: 0; font-size: 14px; font-weight: 600; }
+  .unavailable { color: #9a958f; font-size: 10px; line-height: 13px; font-weight: 500; }
   .recommended { padding: 4px 8px; border-radius: 6px; background: #268c43; color: #fff; font-size: 10px; font-weight: 700; text-transform: uppercase; white-space: nowrap; }
   .radio { width: 16px; height: 16px; display: grid; place-items: center; border: 2px solid ${({ $active }) => ($active ? 'var(--checkout-primary)' : '#efece6')}; border-radius: 50%; }
   .radio i { width: 8px; height: 8px; border-radius: 50%; background: ${({ $active }) => ($active ? 'var(--checkout-primary)' : 'transparent')}; }
 `;
 
-export const FigmaCardSection = styled.section<{ $active: boolean }>`
+export const FigmaCardSection = styled.section<{ $active: boolean; $disabled: boolean }>`
   padding: 14px;
   display: grid;
   gap: 12px;
   border: ${({ $active }) => ($active ? '2px' : '1px')} solid ${({ $active }) => ($active ? 'var(--checkout-primary)' : '#efece6')};
   border-radius: 14px;
-  background: #fff;
-  .card-heading { width: 100%; padding: 0; display: grid; grid-template-columns: 24px minmax(0, 1fr) 16px; align-items: center; gap: 10px; border: 0; background: transparent; color: #1f1e1a; font: inherit; text-align: left; cursor: pointer; }
+  background: ({ $disabled }) => ($disabled ? '#fbfaf8' : '#fff');
+  opacity: ({ $disabled }) => ($disabled ? 0.78 : 1);
+  .card-heading { width: 100%; padding: 0; display: grid; grid-template-columns: 24px minmax(0, 1fr) 16px; align-items: center; gap: 10px; border: 0; background: transparent; color: ({ $disabled }) => ($disabled ? '#8e8a84' : '#1f1e1a'); font: inherit; text-align: left; cursor: ({ $disabled }) => ($disabled ? 'not-allowed' : 'pointer'); }
+  .card-heading:disabled { pointer-events: none; }
   .method-icon { width: 24px; height: 24px; display: grid; place-items: center; border-radius: 8px; background: #f0f0ee; }
   .method-icon svg { width: 14px; height: 14px; }
+  .method-copy { min-width: 0; display: grid; gap: 2px; }
   .method-name { font-size: 14px; font-weight: 600; }
+  .unavailable { color: #9a958f; font-size: 10px; line-height: 13px; font-weight: 500; }
   .radio { width: 16px; height: 16px; display: grid; place-items: center; border: 2px solid ${({ $active }) => ($active ? 'var(--checkout-primary)' : '#efece6')}; border-radius: 50%; }
   .radio i { width: 8px; height: 8px; border-radius: 50%; background: ${({ $active }) => ($active ? 'var(--checkout-primary)' : 'transparent')}; }
 `;
@@ -254,3 +261,27 @@ export const FigmaDebitForm = styled.div`
   padding: 14px; border: 1px solid var(--checkout-primary); border-radius: 14px; background: #fff;
   > section { margin: 0; }
 `;
+
+@media (max-width: 760px) {
+  ${FigmaPaymentOption} {
+    min-height: 50px;
+    padding: 10px 12px;
+    border-radius: 12px;
+  }
+
+  ${FigmaPaymentOption} .method-name,
+  ${FigmaCardSection} .method-name {
+    font-size: 13px;
+  }
+
+  ${FigmaPaymentOption} .unavailable,
+  ${FigmaCardSection} .unavailable {
+    font-size: 9px;
+    line-height: 12px;
+  }
+
+  ${FigmaCardSection} {
+    padding: 12px;
+    border-radius: 12px;
+  }
+}
