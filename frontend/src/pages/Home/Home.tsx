@@ -51,6 +51,7 @@ import { buildLoginUrl } from '../../shared/navigation/authNavigation';
 import TableMenuExperience from '../digital-menu/TableMenuExperience';
 import type { HomeProduct } from './types';
 import { createReadyProductConfiguration, resolveProductEntryKind } from './domain/productEntryFlow';
+import { validateDeliveryAddressLocationForCheckout } from './domain/deliveryAddress';
 
 const FigmaCheckoutFlow = lazy(() =>
   import('./FigmaCheckoutFlow').then((module) => ({
@@ -149,6 +150,7 @@ export default function Home() {
   const [tableMenuReviewCartOpen, setTableMenuReviewCartOpen] = useState(false);
   const [crossSellProduct, setCrossSellProduct] = useState<HomeProduct | null>(null);
   const [crossSellCombo, setCrossSellCombo] = useState<HomeProduct | null>(null);
+  const [addressValidationLoading, setAddressValidationLoading] = useState(false);
 
   useEffect(() => {
     if (!cartOpen) return undefined;
@@ -661,6 +663,61 @@ export default function Home() {
     }
   }
 
+  const continueToPayment = useCallback(
+    async (customer: {
+      phone?: unknown;
+      name?: unknown;
+      cpf?: unknown;
+      requireGuestIdentity: boolean;
+    }) => {
+      if (addressValidationLoading) return;
+
+      const issue = validateCheckout({
+        type: checkoutOrderType,
+        customerPhone: customer.phone,
+        customerName: customer.name,
+        customerCpf: customer.cpf,
+        requireGuestIdentity: customer.requireGuestIdentity,
+        deliveryAddress,
+        cepStatus,
+        paymentMethod: selectedCheckoutPaymentMethod,
+      });
+      if (issue) {
+        notify('warning', issue.title, issue.message);
+        return;
+      }
+
+      if (availableOrderType === 'delivery') {
+        setAddressValidationLoading(true);
+        try {
+          const validation = await validateDeliveryAddressLocationForCheckout({
+            restaurantId,
+            address: deliveryAddress,
+            resolveLocation: (payload) => ordersService.getDeliveryAddressLocation(payload),
+          });
+          if (!validation.ok) {
+            notify('warning', validation.title, validation.message);
+            return;
+          }
+        } finally {
+          setAddressValidationLoading(false);
+        }
+      }
+
+      setCheckoutStep('payment');
+    },
+    [
+      addressValidationLoading,
+      availableOrderType,
+      cepStatus,
+      checkoutOrderType,
+      deliveryAddress,
+      notify,
+      restaurantId,
+      selectedCheckoutPaymentMethod,
+    ],
+  );
+
   const resolvedCheckoutCustomerPhone = checkoutCustomerPhone;
 
   const primary = homeData.brand.primaryColor || '#d64d08';
@@ -962,20 +1019,13 @@ export default function Home() {
             }
             if (nextStep === 'payment') {
               const customer = (user || guestCheckoutDetails) as Record<string, unknown>;
-              const issue = validateCheckout({
-                type: checkoutOrderType,
-                customerPhone: customer.phone,
-                customerName: customer.name,
-                customerCpf: customer.cpf,
-                requireGuestIdentity: false,
-                deliveryAddress,
-                cepStatus,
-                paymentMethod: selectedCheckoutPaymentMethod,
+              void continueToPayment({
+                phone: customer.phone,
+                name: customer.name,
+                cpf: customer.cpf,
+                requireGuestIdentity: !user,
               });
-              if (issue) {
-                notify('warning', issue.title, issue.message);
-                return;
-              }
+              return;
             }
             setCheckoutStep(nextStep);
           }}
@@ -1024,25 +1074,16 @@ export default function Home() {
                 onOrderTypeChange={setOrderType}
                 onLogin={navigateToLogin}
                 onBack={() => setCheckoutStep('cart')}
-                onContinue={() => {
-                  const issue = validateCheckout({
-                    type: checkoutOrderType,
-                    customerPhone: guestCheckoutDetails.phone,
-                    customerName: guestCheckoutDetails.name,
-                    customerCpf: guestCheckoutDetails.cpf,
+                onContinue={() =>
+                  void continueToPayment({
+                    phone: guestCheckoutDetails.phone,
+                    name: guestCheckoutDetails.name,
+                    cpf: guestCheckoutDetails.cpf,
                     requireGuestIdentity: true,
-                    deliveryAddress,
-                    cepStatus,
-                    paymentMethod: selectedCheckoutPaymentMethod,
-                  });
-                  if (issue) {
-                    notify('warning', issue.title, issue.message);
-                    return;
-                  }
-                  setCheckoutStep('payment');
-                }}
+                  })
+                }
                 disabled={!homeData.isOpen || !checkoutChannelAvailable}
-                loading={orderQuote.loading}
+                loading={orderQuote.loading || addressValidationLoading}
               />
             ) : undefined
           }
@@ -1084,24 +1125,15 @@ export default function Home() {
                 onBack={() => setCheckoutStep('cart')}
                 onContinue={() => {
                   const customer = user as Record<string, unknown>;
-                  const issue = validateCheckout({
-                    type: checkoutOrderType,
-                    customerPhone: resolvedCheckoutCustomerPhone,
-                    customerName: customer.name,
-                    customerCpf: customer.cpf,
+                  void continueToPayment({
+                    phone: resolvedCheckoutCustomerPhone,
+                    name: customer.name,
+                    cpf: customer.cpf,
                     requireGuestIdentity: false,
-                    deliveryAddress,
-                    cepStatus,
-                    paymentMethod: selectedCheckoutPaymentMethod,
                   });
-                  if (issue) {
-                    notify('warning', issue.title, issue.message);
-                    return;
-                  }
-                  setCheckoutStep('payment');
                 }}
                 disabled={!homeData.isOpen || !checkoutChannelAvailable}
-                loading={orderQuote.loading}
+                loading={orderQuote.loading || addressValidationLoading}
               />
             ) : undefined
           }
@@ -1144,25 +1176,16 @@ export default function Home() {
                 onSelectAddress={selectDeliveryAddress}
                 onManageAddresses={manageDeliveryAddresses}
                 onBack={() => setCheckoutStep('cart')}
-                onContinue={() => {
-                  const issue = validateCheckout({
-                    type: checkoutOrderType,
-                    customerPhone: resolvedCheckoutCustomerPhone,
-                    customerName: user.name,
-                    customerCpf: user.cpf,
+                onContinue={() =>
+                  void continueToPayment({
+                    phone: resolvedCheckoutCustomerPhone,
+                    name: user.name,
+                    cpf: user.cpf,
                     requireGuestIdentity: false,
-                    deliveryAddress,
-                    cepStatus,
-                    paymentMethod: selectedCheckoutPaymentMethod,
-                  });
-                  if (issue) {
-                    notify('warning', issue.title, issue.message);
-                    return;
-                  }
-                  setCheckoutStep('payment');
-                }}
+                  })
+                }
                 disabled={!homeData.isOpen || !checkoutChannelAvailable}
-                loading={orderQuote.loading}
+                loading={orderQuote.loading || addressValidationLoading}
               />
             ) : undefined
           }
