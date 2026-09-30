@@ -272,6 +272,20 @@ class OrdersService {
     );
   }
 
+  async listGuestOrders(input: { restaurantId?: number | null; search?: string } = {}) {
+    const proofs = getGuestOwnedOrderProofs();
+    if (!proofs.length) return { orders: [], total: 0 };
+    const response = await api.post('/orders/guest-orders', {
+      proofs,
+      restaurantId: input.restaurantId || undefined,
+      search: String(input.search || '').trim(),
+    });
+    return {
+      orders: normalizeOrdersPayload(response.data),
+      total: Number(response.data?.total || 0),
+    };
+  }
+
   async listOpenOrderIssues() {
     return this.listActivePages((cursor) =>
       this.listRestaurantOrdersPage({

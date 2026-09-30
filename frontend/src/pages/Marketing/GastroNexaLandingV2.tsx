@@ -9,15 +9,12 @@ import {
   ChefHat,
   ClipboardList,
   Coffee,
-  HeartHandshake,
   Menu,
   MessageSquareText,
   Pizza,
-  Play,
   QrCode,
   ShoppingBag,
   Sparkles,
-  Truck,
   UtensilsCrossed,
   X,
 } from 'lucide-react';
@@ -55,20 +52,12 @@ const features = [
 
 const questions = [
   [
-    'Posso conhecer o sistema antes de contratar?',
-    'Sim. A demonstração é aberta e já vem com contas e produtos fictícios. Você pode fazer um pedido, acompanhar o preparo e conhecer o trabalho de cada função antes de conversar com a nossa equipe.',
-  ],
-  [
     'A GastroNexa funciona no salão e no delivery?',
     'Sim. O sistema organiza delivery, retirada no balcão e pedidos de mesa. Os recursos de cada plano são exibidos na seção de planos com a configuração vigente da plataforma.',
   ],
   [
     'Cada funcionário tem seu próprio acesso?',
     'Sim. Administrador, atendente, cozinha, garçom e motoqueiro têm áreas próprias. A cozinha acompanha o preparo, o garçom cuida dos pedidos de mesa e o motoqueiro das entregas de delivery.',
-  ],
-  [
-    'A demonstração faz pedidos ou cobranças reais?',
-    'Não. Os pedidos, produtos, contas e pagamentos da demonstração são fictícios. Você pode explorar a experiência sem enviar pedidos a um restaurante real.',
   ],
   [
     'Como funciona o período de teste?',
@@ -135,7 +124,6 @@ export default function GastroNexaLandingV2() {
             <a href="#recursos" onClick={closeMenu}>Recursos</a>
             <a href="#como-funciona" onClick={closeMenu}>Como funciona</a>
             <a href="#planos" onClick={closeMenu}>Planos</a>
-            <Link to="/demonstracao" onClick={closeMenu}>Demonstração</Link>
             <a href="#contato" onClick={closeMenu}>Contato</a>
           </S.Nav>
           <S.HeaderActions>
@@ -172,11 +160,10 @@ export default function GastroNexaLandingV2() {
                 equipe para a operação acontecer com mais clareza.
               </p>
               <S.HeroActions>
-                <S.Button as={Link} to="/demonstracao">
-                  Experimentar demonstração <ArrowUpRight size={18} />
+                <S.Button href="#contato">
+                  Falar com a equipe <ArrowUpRight size={18} />
                 </S.Button>
                 <S.TextLink href="#como-funciona">
-                  <span className="play-icon"><Play size={12} fill="currentColor" /></span>
                   Conhecer o sistema
                 </S.TextLink>
               </S.HeroActions>
@@ -269,46 +256,6 @@ export default function GastroNexaLandingV2() {
           <S.Container><LandingPreview /></S.Container>
         </S.Section>
 
-        <S.DemoSection>
-          <S.Container>
-            <S.DemoBand>
-              <div>
-                <S.Eyebrow>CONHEÇA NA PRÁTICA</S.Eyebrow>
-                <h2>Antes de decidir,<br /><em>experimente.</em></h2>
-                <p>
-                  Faça um pedido como cliente. Veja chegar na cozinha. Acompanhe o salão e a
-                  entrega. Conheça a GastroNexa por dentro, no seu tempo.
-                </p>
-                <S.Button as={Link} to="/demonstracao" $lime>
-                  Abrir demonstração <ArrowUpRight size={18} />
-                </S.Button>
-                <small className="demo-note">Contas prontas e dados fictícios. É só entrar e explorar.</small>
-              </div>
-              <div className="demo-journey">
-                <span className="journey-label">UM PEDIDO, UMA EQUIPE CONECTADA</span>
-                <div className="journey-step">
-                  <span><ShoppingBag size={23} /></span>
-                  <div><small>01 · CLIENTE</small><b>Escolhe. Pede. Acompanha.</b></div>
-                  <CheckCircle2 size={18} />
-                </div>
-                <div className="journey-line" />
-                <div className="journey-step">
-                  <span><ChefHat size={23} /></span>
-                  <div><small>02 · COZINHA</small><b>Recebe. Prepara. Libera.</b></div>
-                  <CheckCircle2 size={18} />
-                </div>
-                <div className="journey-line" />
-                <div className="journey-step">
-                  <span><Truck size={23} /></span>
-                  <div><small>03 · SALÃO E DELIVERY</small><b>Cada pedido no seu destino.</b></div>
-                  <ArrowRight size={18} />
-                </div>
-                <p><HeartHandshake size={16} /> Experimente como cliente, equipe ou admin.</p>
-              </div>
-            </S.DemoBand>
-          </S.Container>
-        </S.DemoSection>
-
         <S.Section id="planos">
           <S.Container>
             <S.CenterHeading>
@@ -373,9 +320,6 @@ export default function GastroNexaLandingV2() {
                   <li><Check size={16} /> Sem precisar de CNPJ neste primeiro contato</li>
                   <li><Check size={16} /> Seus dados usados para responder à solicitação</li>
                 </ul>
-                <a className="contact-demo" href="/demonstracao">
-                  Prefere explorar primeiro? Abra a demonstração <ArrowUpRight size={15} />
-                </a>
               </div>
               <SalesContactForm initialPlan={initialPlan} onPlanChange={setInitialPlan} />
             </S.ContactLayout>
@@ -393,7 +337,6 @@ export default function GastroNexaLandingV2() {
             <div className="footer-links">
               <a href="#recursos">Recursos</a>
               <a href="#planos">Planos</a>
-              <Link to="/demonstracao">Demonstração</Link>
               <a href="#contato">Contato</a>
             </div>
             <a className="back-top" href="#conteudo" aria-label="Voltar ao início">

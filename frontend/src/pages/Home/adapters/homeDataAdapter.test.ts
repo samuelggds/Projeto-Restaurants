@@ -163,6 +163,91 @@ describe('homeDataAdapter', () => {
     expect(data.brand.whatsapp).toBe('');
   });
 
+  it('mapeia configuração da API para pizza meio a meio com duas partes obrigatórias', () => {
+    const data = buildHomeData(
+      [
+        {
+          id: 77,
+          name: 'Pizza Meio a Meio',
+          description: 'Escolha dois sabores.',
+          price: 39.9,
+          pricingMode: 'HIGHEST_OPTION',
+          saleMode: 'BUILDABLE',
+          category: { name: 'Pizzas' },
+          optionGroups: [
+            {
+              id: 300,
+              name: 'Sabores',
+              required: true,
+              selectionType: 'MULTIPLE',
+              minSelections: 1,
+              maxSelections: 2,
+              options: [
+                {
+                  id: 1,
+                  active: true,
+                  pricingMode: 'ABSOLUTE',
+                  absolutePrice: 39.9,
+                  referenceProductId: 101,
+                  referenceProduct: {
+                    id: 101,
+                    name: 'Calabresa',
+                    image: '/calabresa.webp',
+                    price: 39.9,
+                    active: true,
+                    kind: 'STANDARD',
+                  },
+                },
+                {
+                  id: 2,
+                  active: true,
+                  pricingMode: 'ABSOLUTE',
+                  absolutePrice: 44,
+                  referenceProductId: 102,
+                  referenceProduct: {
+                    id: 102,
+                    name: 'Frango com Catupiry',
+                    image: '/frango.webp',
+                    price: 44,
+                    active: true,
+                    kind: 'STANDARD',
+                  },
+                },
+              ],
+            },
+          ],
+          portionConfiguration: {
+            enabled: true,
+            optionGroupId: 300,
+            minPortions: 2,
+            maxPortions: 2,
+            pricingStrategy: 'HIGHEST',
+            allowPortionObservations: false,
+          },
+        },
+      ],
+      null,
+    );
+
+    expect(data.products[0]).toMatchObject({
+      id: '77',
+      pricingMode: 'HIGHEST_OPTION',
+      saleMode: 'BUILDABLE',
+      portionConfiguration: {
+        enabled: true,
+        optionGroupId: '300',
+        minPortions: 2,
+        maxPortions: 2,
+        pricingStrategy: 'HIGHEST',
+        allowPortionObservations: false,
+      },
+    });
+    expect(data.products[0].optionGroups?.[0].options.map((option) => option.name)).toEqual([
+      'Calabresa',
+      'Frango com Catupiry',
+    ]);
+  });
+
   it('mantém padrões seguros para respostas de servidores antigos', () => {
     const data = buildHomeData([], { whatsapp: '5585999990000' });
     expect(data).toMatchObject({

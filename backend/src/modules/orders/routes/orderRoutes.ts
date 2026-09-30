@@ -5,6 +5,7 @@ import UpdateOrderStatusController from '../controllers/UpdateOrderStatusControl
 import ClaimOrderForDeliveryController from '../controllers/ClaimOrderForDeliveryController.js';
 import StartCourierRouteController from '../controllers/StartCourierRouteController.js';
 import ClaimGuestOrdersController from '../controllers/ClaimGuestOrdersController.js';
+import ListGuestOrdersController from '../controllers/ListGuestOrdersController.js';
 import GetCourierFinanceController from '../controllers/GetCourierFinanceController.js';
 import GetDeliveryTrackingController from '../controllers/GetDeliveryTrackingController.js';
 import ListOrdersController from '../controllers/ListOrdersController.js';
@@ -182,6 +183,10 @@ router.get('/payment/:publicId/pix', orderPaymentAccessMiddleware, (req, res) =>
 
 router.post('/payment/:publicId/pix/confirm', orderPaymentAccessMiddleware, (req, res) => {
   OrderPixPaymentRecoveryController.confirm(req, res);
+});
+
+router.post('/guest-orders', (req, res) => {
+  ListGuestOrdersController.handle(req, res);
 });
 
 router.post('/claim-guest-orders', authMiddleware, (req, res) => {

@@ -325,17 +325,17 @@ export const ArrowButton = styled.button<{ $side: 'left' | 'right' }>`
 
 export const Dots = styled.div<{ $paused: boolean; $durationMs: number }>`
   position: absolute;
-  bottom: 10px;
+  bottom: 7px;
   left: 50%;
   z-index: 5;
-  width: min(180px, calc(100% - 32px));
-  min-height: 22px;
+  width: min(240px, calc(100% - 40px));
+  min-height: 18px;
   padding: 0;
   overflow-x: auto;
   display: flex;
-  align-items: center;
+  align-items: flex-end;
   justify-content: center;
-  gap: 5px;
+  gap: 6px;
   transform: translateX(-50%);
   scrollbar-width: none;
 
@@ -346,9 +346,9 @@ export const Dots = styled.div<{ $paused: boolean; $durationMs: number }>`
   button {
     position: relative;
     width: auto;
-    min-width: 24px;
-    height: 22px;
-    flex: 1 1 90px;
+    min-width: 30px;
+    height: 18px;
+    flex: 1 1 120px;
     border: 0;
     padding: 0;
     background: transparent;
@@ -362,7 +362,7 @@ export const Dots = styled.div<{ $paused: boolean; $durationMs: number }>`
     top: 50%;
     right: 0;
     left: 0;
-    height: 3px;
+    height: 2px;
     border-radius: 999px;
     transform: translateY(-50%);
   }
@@ -395,19 +395,19 @@ export const Dots = styled.div<{ $paused: boolean; $durationMs: number }>`
   }
 
   @media (max-width: 800px) {
-    bottom: 8px;
-    width: min(130px, calc(100% - 24px));
-    min-height: 20px;
-    gap: 4px;
+    bottom: 5px;
+    width: min(208px, calc(100% - 28px));
+    min-height: 18px;
+    gap: 5px;
 
     button {
-      min-width: 18px;
-      height: 20px;
+      min-width: 26px;
+      height: 18px;
     }
 
     button::before,
     button::after {
-      height: 3px;
+      height: 2px;
     }
   }
 

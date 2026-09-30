@@ -6,9 +6,6 @@ const profileViews = new Set<ProfileView>([
   'coupons',
   'addresses',
   'paymentMethods',
-  'favorites',
-  'personalData',
-  'security',
 ]);
 
 export function resolveProfileView(value: string | null): ProfileView {

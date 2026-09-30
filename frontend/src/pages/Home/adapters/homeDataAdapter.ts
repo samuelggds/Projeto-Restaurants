@@ -311,7 +311,7 @@ export function buildHomeData(
     tiktok: String(settings?.tiktok || ''),
     youtube: String(settings?.youtube || ''),
     legalName: String(settings?.companyLegalName || ''),
-    phone: formatCommercialPhone(settings?.ownerPhone || restaurant.phone || ''),
+    phone: formatCommercialPhone(rawWhatsapp || restaurant.phone || restaurant.whatsapp || ''),
     email: String(settings?.ownerEmail || ''),
   };
   const products: HomeProduct[] = productsFromApi.map((product, index) => {

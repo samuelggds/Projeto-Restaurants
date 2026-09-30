@@ -56,7 +56,6 @@ model User {
   tableParticipants             TableParticipant[]
   restaurant                    Restaurant?                  @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
   supportChatMessages           SupportChatMessage[]
-  productFavorites              ProductFavorite[]
   addresses                     UserAddress[]
   couponRedemptions             CouponRedemption[]
   assignedTableServiceCalls     TableServiceCall[]           @relation("AssignedTableServiceCalls")
@@ -480,7 +479,6 @@ model Product {
   category             Category                     @relation(fields: [categoryId], references: [id], onDelete: Cascade)
   restaurant           Restaurant                   @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
   ratings              ProductRating[]
-  favorites            ProductFavorite[]
   saleMode             ProductSaleMode              @default(BUILDABLE)
   pricingMode          ProductPricingMode           @default(BASE)
   ingredients          ProductIngredient[]
@@ -750,20 +748,6 @@ model ProductComboOption {
   @@index([restaurantId, active])
   @@index([groupId, active, position])
   @@index([componentProductId])
-}
-
-model ProductFavorite {
-  id           Int      @id @default(autoincrement())
-  userId       Int
-  productId    Int
-  restaurantId Int
-  createdAt    DateTime @default(now())
-  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  product      Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
-
-  @@unique([userId, productId])
-  @@index([userId, restaurantId])
-  @@index([productId])
 }
 
 model ProductRating {

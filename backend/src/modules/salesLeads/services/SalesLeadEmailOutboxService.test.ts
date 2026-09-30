@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import nodemailer from 'nodemailer';
+import nodemailer, { type SendMailOptions } from 'nodemailer';
 import { deliverSalesLeadEmails } from './SalesLeadEmailOutboxService.js';
 import {
   createSalesLeadEmailSender,
@@ -97,10 +97,10 @@ test('aviso usa destinatário fixo, corpo textual e Message-ID estável; rejeiç
       else process.env[key] = previous;
     });
   }
-  const messages: nodemailer.SendMailOptions[] = [];
+  const messages: SendMailOptions[] = [];
   let reject = false;
   t.mock.method(nodemailer, 'createTransport', (() => ({
-    sendMail: async (options: nodemailer.SendMailOptions) => {
+    sendMail: async (options: SendMailOptions) => {
       messages.push(options);
       return {
         accepted: reject ? [] : ['sales@example.test'],

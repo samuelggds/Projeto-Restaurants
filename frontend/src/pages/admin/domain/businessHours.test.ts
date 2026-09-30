@@ -56,30 +56,33 @@ describe('businessHours', () => {
   it('aceita expediente que atravessa a meia-noite e rejeita horários iguais', () => {
     expect(
       validateBusinessHours([
-        { ...defaultBusinessHours[0], openingTime: '18:00', closingTime: '02:00' },
+        { ...defaultBusinessHours[0], enabled: true, openingTime: '18:00', closingTime: '02:00' },
       ]),
     ).toEqual({});
     expect(
       validateBusinessHours([
-        { ...defaultBusinessHours[0], openingTime: '18:00', closingTime: '18:00' },
+        { ...defaultBusinessHours[0], enabled: true, openingTime: '18:00', closingTime: '18:00' },
       ]),
     ).toHaveProperty('monday');
   });
 
-  it('gera o horário de hoje', () =>
-    expect(getTodayBusinessHours(defaultBusinessHours, atSaoPaulo('2026-08-10', '12:00'))).toBe(
+  it('gera o horário de hoje', () => {
+    const schedule = weeklySchedule({
+      monday: day('monday', 'Segunda-feira', '11:00', '23:00'),
+    });
+    expect(getTodayBusinessHours(schedule, atSaoPaulo('2026-08-10', '12:00'))).toBe(
       'Hoje: 11:00 às 23:00',
-    ));
+    );
+  });
 
   it('calcula abertura normal com início inclusivo e fechamento exclusivo', () => {
-    expect(isRestaurantOpenNow(defaultBusinessHours, atSaoPaulo('2026-08-10', '11:00'))).toBe(true);
-    expect(isRestaurantOpenNow(defaultBusinessHours, atSaoPaulo('2026-08-10', '22:59'))).toBe(true);
-    expect(isRestaurantOpenNow(defaultBusinessHours, atSaoPaulo('2026-08-10', '23:00'))).toBe(
-      false,
-    );
-    expect(isRestaurantOpenNow(defaultBusinessHours, atSaoPaulo('2026-08-09', '12:00'))).toBe(
-      false,
-    );
+    const schedule = weeklySchedule({
+      monday: day('monday', 'Segunda-feira', '11:00', '23:00'),
+    });
+    expect(isRestaurantOpenNow(schedule, atSaoPaulo('2026-08-10', '11:00'))).toBe(true);
+    expect(isRestaurantOpenNow(schedule, atSaoPaulo('2026-08-10', '22:59'))).toBe(true);
+    expect(isRestaurantOpenNow(schedule, atSaoPaulo('2026-08-10', '23:00'))).toBe(false);
+    expect(isRestaurantOpenNow(schedule, atSaoPaulo('2026-08-09', '12:00'))).toBe(false);
   });
 
   it('mantém aberto depois da meia-noite pelo expediente do dia anterior', () => {

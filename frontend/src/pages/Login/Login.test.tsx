@@ -241,7 +241,7 @@ describe('Login contextual do cliente', () => {
       await vi.advanceTimersByTimeAsync(0);
     });
 
-    expect(container.textContent).toContain('Autenticação de dois fatores');
+    expect(container.textContent).toContain('Verificação em duas etapas');
     expect(container.textContent).toContain('cli****@teste.com');
     expect(container.textContent).toContain('1:00');
 
@@ -251,8 +251,8 @@ describe('Login contextual do cliente', () => {
     expect(otpInputs).toHaveLength(6);
     '123456'.split('').forEach((digit, index) => setInputValue(otpInputs[index], digit));
 
-    const verifyButton = Array.from(container.querySelectorAll<HTMLButtonElement>('button')).find(
-      (button) => button.textContent?.includes('Verificar código'),
+    const verifyButton = container.querySelector<HTMLButtonElement>(
+      '[role="dialog"] button[type="submit"]',
     );
     await act(async () => {
       verifyButton?.click();

@@ -302,8 +302,11 @@ export async function sendTenantZapiTextMessage(input: {
 }) {
   const row = await readConnectionByRestaurant(input.restaurantId);
   if (!row || row.provider !== 'ZAPI') throw new Error('WhatsApp Z-API não conectado para este restaurante.');
-  const phone = String(input.destination || '').replace(/\D/g, '');
-  if (!/^\d{10,15}$/u.test(phone)) throw new Error('Número de destino inválido para o WhatsApp.');
+  const nationalPhone = String(input.destination || '').replace(/\D/g, '');
+  if (!/^[1-9]\d{9,10}$/u.test(nationalPhone)) {
+    throw new Error('Número de destino inválido para o WhatsApp.');
+  }
+  const phone = `55${nationalPhone}`;
   await zapiInstanceRequest(row, '/send-text', {
     method: 'POST',
     body: JSON.stringify({ phone, message: String(input.message || '') }),
@@ -347,9 +350,12 @@ export async function processTenantZapiInbound(
     return { accepted: true, queued: false, reason: 'event_ignored' } as const;
   }
 
-  const customerPhone = String(body.phone || '').replace(/\D/g, '');
+  const providerCustomerPhone = String(body.phone || '').replace(/\D/g, '');
+  const customerPhone = /^55\d{10,11}$/u.test(providerCustomerPhone)
+    ? providerCustomerPhone.slice(2)
+    : providerCustomerPhone;
   const connectedPhone = String(body.connectedPhone || '').replace(/\D/g, '');
-  if (!/^\d{10,15}$/u.test(customerPhone)) {
+  if (!/^[1-9]\d{9,10}$/u.test(customerPhone)) {
     return { accepted: true, queued: false, reason: 'invalid_customer_phone' } as const;
   }
 

@@ -6,13 +6,11 @@ O cartão recebe destaque, mas a cobrança recorrente só é solicitada depois d
 
 O cadastro é carregado sob demanda, tem recuperação de falhas, limite de espera do SDK e gerenciamento de foco. Erros técnicos do provedor e do banco não são exibidos ao usuário. Isso não substitui a configuração de credenciais e a aplicação das migrações já existentes no ambiente de implantação.
 
-Na demonstração, a mesma interface utiliza somente o cartão fictício 4242, sem carregar o Mercado Pago ou pedir dados financeiros. A escolha permanece no cenário local e pode ser reiniciada com a demonstração.
 
 A apresentação de acesso da GastroNexa usa SVG com contornos vetoriais suavizados da marca original, Nexa em laranja e composição responsiva. O GX e as linhas são traçados uma vez por carregamento do documento. Os textos são digitados caractere por caractere; Gastro segue da esquerda para a direita e Nexa segue da direita para a esquerda. Navegar pela aplicação não repete a introdução. A preferência por movimento reduzido mantém o conteúdo completo e estático.
 
 ## Verificação
 
-A mesma composição é compartilhada pelos acessos de cliente, equipe e administrador da demonstração, preservando suas contas e seus dados fictícios.
 
 - Testes de digitação verificam as duas direções, conclusão sem letras ocultas e movimento reduzido.
 - O teste de navegador de cobrança cobre consentimento, Pix explícito, falhas amigáveis, teclado, planos, faturas e persistência fictícia.

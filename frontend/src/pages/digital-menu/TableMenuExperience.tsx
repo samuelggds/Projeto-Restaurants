@@ -14,7 +14,7 @@ import {
   Search,
   Utensils,
 } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import { lazy, Suspense, useEffect, useMemo, useState } from 'react';
 import QRCode from 'react-qr-code';
 import type { HomeData, HomeProduct } from '../Home/types';
 import type { CartItem } from '../Home/hooks/useCart';
@@ -24,11 +24,21 @@ import type {
   TablePaymentIntent,
 } from '../Home/domain/tableAccount';
 import type { TableOrderNotice } from '../Home/domain/tableOrderNotice';
-import { ProductConfigurator } from '../Home/components/ProductConfigurator';
-import { ComboConfigurator } from '../Home/components/ComboConfigurator';
 import { TablePaymentStatusView } from '../Home/components/TablePaymentStatusView';
 import { FigmaCatalogCard, FigmaComboCard } from './TableMenuExperience.cards';
 import * as S from './TableMenuExperience.styles';
+
+const ProductConfigurator = lazy(() =>
+  import('../Home/components/ProductConfigurator').then((module) => ({
+    default: module.ProductConfigurator,
+  })),
+);
+
+const ComboConfigurator = lazy(() =>
+  import('../Home/components/ComboConfigurator').then((module) => ({
+    default: module.ComboConfigurator,
+  })),
+);
 
 type SubmitResult = {
   id?: number | string;
@@ -1126,31 +1136,33 @@ export default function TableMenuExperience({
       ) : null}
 
       {configuringProduct ? (
-        configuringProduct.kind === 'COMBO' ? (
-          <ComboConfigurator
-            product={configuringProduct}
-            primaryColor={primary}
-            onClose={() => setConfiguringProduct(null)}
-            onConfirm={(configuration) => {
-              onAddProduct(configuringProduct.id, configuration);
-              setConfiguringProduct(null);
-            }}
-          />
-        ) : (
-          <ProductConfigurator
-            product={configuringProduct}
-            primaryColor={primary}
-            onClose={() => setConfiguringProduct(null)}
-            enableProductQuantity
-            tableMenuVariant
-            onConfirm={(configuration, quantity = 1) => {
-              for (let index = 0; index < quantity; index += 1) {
+        <Suspense fallback={null}>
+          {configuringProduct.kind === 'COMBO' ? (
+            <ComboConfigurator
+              product={configuringProduct}
+              primaryColor={primary}
+              onClose={() => setConfiguringProduct(null)}
+              onConfirm={(configuration) => {
                 onAddProduct(configuringProduct.id, configuration);
-              }
-              setConfiguringProduct(null);
-            }}
-          />
-        )
+                setConfiguringProduct(null);
+              }}
+            />
+          ) : (
+            <ProductConfigurator
+              product={configuringProduct}
+              primaryColor={primary}
+              onClose={() => setConfiguringProduct(null)}
+              enableProductQuantity
+              tableMenuVariant
+              onConfirm={(configuration, quantity = 1) => {
+                for (let index = 0; index < quantity; index += 1) {
+                  onAddProduct(configuringProduct.id, configuration);
+                }
+                setConfiguringProduct(null);
+              }}
+            />
+          )}
+        </Suspense>
       ) : null}
     </S.FigmaShell>
   );

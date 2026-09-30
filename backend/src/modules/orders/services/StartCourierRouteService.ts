@@ -180,6 +180,12 @@ class StartCourierRouteService {
     });
 
     io.to(`restaurant:${restaurantId}`).emit('order:status-changed', order);
+    io.to(`guest-order:${order.id}`).emit('order:status-changed', {
+      id: order.id,
+      status: order.status,
+      type: order.type,
+      updatedAt: new Date().toISOString(),
+    });
     if (order.userId) io.to(`user:${order.userId}`).emit('order:status-changed', order);
 
     if (location && savedLocation) {
@@ -195,6 +201,7 @@ class StartCourierRouteService {
         recordedAt: savedLocation.recordedAt.toISOString(),
         updatedAt: new Date().toISOString(),
       };
+      io.to(`guest-order:${order.id}`).emit('order:delivery-location', payload);
       if (order.userId) io.to(`user:${order.userId}`).emit('order:delivery-location', payload);
       io.to(`restaurant:${restaurantId}:admin`).emit('order:delivery-location', payload);
     }

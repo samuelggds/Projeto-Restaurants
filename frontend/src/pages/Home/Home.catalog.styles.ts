@@ -832,6 +832,8 @@ export const CategoryPlaceholder = styled.span`
 
 export const Footer = styled.footer`
   position: relative;
+  min-height: 356px;
+  box-sizing: border-box;
   z-index: 25;
   margin-top: 28px;
   border-top: 4px solid var(--home-primary);

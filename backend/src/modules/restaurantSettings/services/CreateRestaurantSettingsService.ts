@@ -7,7 +7,10 @@ import {
   normalizeEstablishmentAddress,
   validateEstablishmentAddress,
 } from '../utils/establishmentAddress.js';
-import { normalizeBusinessHours } from '../utils/businessHours.js';
+import {
+  createDisabledBusinessHours,
+  normalizeBusinessHours,
+} from '../utils/businessHours.js';
 import {
   isValidCnpj,
   isValidCpf,
@@ -229,7 +232,9 @@ class CreateRestaurantSettingsService {
     const normalizedBankHolderDocument = String(bankHolderDocument || '').replace(/\D/g, '');
     const normalizedOwnerCpf = String(ownerCpf || '').replace(/\D/g, '');
     const normalizedOwnerPhone = String(ownerPhone || '').replace(/\D/g, '');
-    const normalizedBusinessHours = normalizeBusinessHours(businessHours);
+    const normalizedBusinessHours = normalizeBusinessHours(
+      businessHours === undefined ? createDisabledBusinessHours() : businessHours,
+    );
     const normalizedWhatsappEnabled = normalizeStrictBoolean(
       whatsappEnabled,
       'Integração com WhatsApp',

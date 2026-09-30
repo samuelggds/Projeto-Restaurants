@@ -607,6 +607,7 @@ export default function Login() {
 
         <MfaVerificationModal
           open={Boolean(mfaChallenge)}
+          emailOnly
           destination={mfaChallenge?.destination}
           resendAfterSeconds={Number(mfaChallenge?.resendAfterSeconds ?? 60)}
           onVerify={handleMfaVerify}

@@ -282,7 +282,7 @@ const guides: Record<EmployeeHelpRole, EmployeeHelpGuide[]> = {
         'Acesse Em entrega e confira cliente, endereço, referência, contato, pagamento e observações antes de seguir.',
         'Mantenha a localização ativada e use Minha rota para acompanhar o deslocamento sem manusear o celular enquanto dirige.',
         'Ao chegar, confirme o destinatário e, quando aplicável, receba ou valide o pagamento antes de finalizar.',
-        'Após a entrega física e o recebimento, informe o código solicitado na tela, confirme a entrega e confira o Histórico. Na demonstração, o código fictício é 1234.',
+        'Após a entrega física e o recebimento, informe o código apresentado pelo cliente quando solicitado, confirme a entrega e confira o Histórico.',
         'Acione o administrador se não localizar o endereço ou cliente, houver problema de pagamento, recusa, acidente ou impossibilidade de concluir o status.',
       ],
     },

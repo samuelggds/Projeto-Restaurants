@@ -117,7 +117,7 @@ for (const viewport of [
   });
 }
 
-test('menu mobile abre, fecha e navega pelas seções e demonstração', async ({ page }) => {
+test('menu mobile abre, fecha e navega pelas seções', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto('/');
   const navigation = page.getByRole('navigation', { name: 'Navegação principal' });
@@ -150,11 +150,6 @@ test('menu mobile abre, fecha e navega pelas seções e demonstração', async (
     await expect(page.locator(anchor)).toBeInViewport();
   }
 
-  await openMenu.click();
-  const demoLink = navigation.getByRole('link', { name: 'Demonstração', exact: true });
-  await expect(demoLink).toHaveAttribute('href', '/demonstracao');
-  await demoLink.click();
-  await expect(page).toHaveURL(/\/demonstracao$/);
 });
 
 test('planos preservam preços, teste e destino comercial; FAQ funciona por teclado', async ({
@@ -268,39 +263,10 @@ test('formulário preserva dados após falha, repete a chave e confirma recebime
   });
 });
 
-for (const width of [320, 390, 900, 1440]) {
-  test(`entrada da demonstração acompanha a marca e mantém acessos em ${width}px`, async ({
-    page,
-  }) => {
-    await page.setViewportSize({ width, height: 900 });
-    await page.goto('/demonstracao');
-    await expect(page.getByRole('heading', { level: 1 })).toContainText('Um restaurante inteiro.');
-    await expect(page.getByRole('button', { name: 'Entrar nesta área', exact: true })).toHaveCount(
-      3,
-    );
-    await expect(
-      page.getByRole('button', { name: 'Cardápio da mesa (QR Code)', exact: true }),
-    ).toBeVisible();
-    await expect(
-      page.getByRole('button', { name: 'Reiniciar cenário', exact: true }),
-    ).toHaveAccessibleName('Reiniciar cenário');
-    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
-      true,
-    );
-    await page.evaluate(() => document.fonts.ready);
-    if (width === 390 || width === 1440)
-      await captureReadmeScreenshot(page, `demo-entry-${width}.png`, { fullPage: true });
-    await page.getByRole('button', { name: 'Cardápio da mesa (QR Code)', exact: true }).click();
-    await expect(page.getByRole('heading', { name: 'Bem-vindo de volta!' })).toBeVisible();
-  });
-}
-
-test('logo GX preserva transparência real no login demonstrativo e no favicon', async ({
+test('logo GX preserva transparência real na landing e no favicon', async ({
   page,
 }) => {
-  await page.goto('/demonstracao');
-  await page.getByRole('button', { name: 'Cardápio da mesa (QR Code)', exact: true }).click();
-  await expect(page.getByRole('heading', { name: 'Bem-vindo de volta!' })).toBeVisible();
+  await page.goto('/');
   await expect(page.locator('header img[src="/gastronexa-logo.svg"]')).toBeVisible();
   await expect(page.locator('link[rel="icon"]')).toHaveAttribute('href', '/gastronexa-logo.svg');
   const pixels = await page.evaluate(async () => {

@@ -24,7 +24,6 @@ Classificação feita sobre todos os 44 modelos atuais. “Direto” significa `
 | `Ingredient`              | tenant direto + público                       | Composição e personalização do cardápio.                                               |
 | `ProductOptionGroup`      | tenant direto + público                       | Opções do cardápio público.                                                            |
 | `ProductOption`           | tenant indireto                               | Tenant herdado do grupo/produto e ingrediente.                                         |
-| `ProductFavorite`         | tenant direto + cliente global                | O perfil agrega favoritos de vários restaurantes.                                      |
 | `ProductRating`           | tenant direto + público                       | Leitura/escrita ligada à experiência pública.                                          |
 | `Table`                   | tenant direto + público autenticado por token | Entrada do cardápio de mesa.                                                           |
 | `TableSession`            | tenant direto                                 | Sessão também acessada por token/participante.                                         |

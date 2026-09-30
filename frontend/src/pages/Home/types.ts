@@ -198,7 +198,7 @@ export type HomeData = {
   businessHours?: BusinessHour[];
 };
 
-export type HomePageProps = {
+export type HomeExperienceProps = {
   data: HomeData;
   cartCount?: number;
   cart?: CartItem[];
@@ -212,7 +212,6 @@ export type HomePageProps = {
   isTableMenu?: boolean;
   orderingLocked?: boolean;
   tableLabel?: string | number;
-  favoriteProductIds?: string[];
   savedAddresses?: CustomerAddress[];
   selectedAddressId?: string;
   onSelectAddress?: (addressId: string) => void;
@@ -226,7 +225,6 @@ export type HomePageProps = {
   onSearch?: () => void;
   onSelectCategory?: (categoryId: string) => void;
   onAddProduct?: (productId: string, configuration: ProductConfiguration, quantity?: number) => void;
-  onToggleFavorite?: (productId: string) => void;
   onLogout?: () => void;
   whatsappUrl?: string;
   whatsappLabel?: string;

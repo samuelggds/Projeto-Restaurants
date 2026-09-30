@@ -19,7 +19,7 @@ const settingsSteps: Record<SettingsSection, string[]> = {
   ],
   business: [
     'Preencha os dados do negócio e os contatos comerciais que serão exibidos ao cliente.',
-    'Revise documento, telefone e e-mail antes de salvar. Na demonstração, use apenas dados fictícios.',
+    'Revise documento, telefone e e-mail antes de salvar.',
   ],
   address: [
     'Preencha CEP, rua, número, bairro, cidade e estado do restaurante.',
@@ -55,12 +55,12 @@ const settingsSteps: Record<SettingsSection, string[]> = {
   whatsapp: [
     'Configure o número, identidade, mensagem inicial e atualizações que deseja oferecer ao cliente.',
     'O painel Exemplo de mensagens usa links gastronexa.com.br e não envia mensagens. O botão de contato da loja fica fixo no canto inferior direito.',
-    'Na operação real, o envio automático depende da conexão configurada. Na demonstração, não há conexão nem envio real.',
+    'O envio automático depende da conexão configurada e autorizada pelo restaurante.',
   ],
   printing: [
     'Configure impressão automática, momento de impressão, largura do papel e de 1 a 5 cópias por pedido. Você pode apagar o número e digitar outro antes de salvar.',
     'Confira dispositivo, conexão e fila de trabalhos. Faça a impressão de teste antes do atendimento real.',
-    'Na demonstração, os trabalhos são simulados e não acionam impressoras físicas.',
+    'Faça a impressão de teste apenas em uma impressora configurada e autorizada.',
   ],
   'employee-payments': [
     'Escolha o funcionário e configure a regra de remuneração correspondente.',
@@ -78,7 +78,7 @@ const settingsSteps: Record<SettingsSection, string[]> = {
     'O QR Code Pix e o código copia e cola são gerados automaticamente pela conta Mercado Pago conectada; não é necessário cadastrar uma chave Pix manual para esse fluxo.',
     'O Open Finance usa uma integração separada com a Efí e só pode ser ativado quando a plataforma estiver configurada e o restaurante informar a chave Pix beneficiária.',
     'Asaas e Pagar.me aparecem como integrações futuras e permanecem temporariamente indisponíveis até a homologação da plataforma.',
-    'Use Verificar conexões antes de publicar meios de pagamento aos clientes. Na demonstração, pagamentos são fictícios e não devem receber credenciais ou dados reais.',
+    'Use Verificar conexões antes de publicar meios de pagamento aos clientes. Credenciais devem ser cadastradas somente nas integrações seguras e autorizadas.',
   ],
   social: [
     'Informe os links completos dos perfis oficiais do restaurante.',
@@ -174,7 +174,7 @@ export const adminHelpGuides: GuideSection[] = [
     steps: [
       'Abra Cobranças e assinaturas. A aba Pagamento aparece primeiro: cadastre o cartão e autorize a renovação automática, ou abra Prefere pagar por Pix? para escolher o pagamento manual.',
       'Use Planos para comparar benefícios e Cobranças para consultar vencimentos, gerar o Pix disponível e acompanhar o histórico. Mudar para Pix desativa a renovação automática após sua confirmação.',
-      'Acompanhe a confirmação da fatura. Na demonstração, a assinatura é fictícia e não gera cobrança real.',
+      'Acompanhe a confirmação da fatura e o status da assinatura antes de concluir alterações de cobrança.',
     ],
   },
   ...settingItems.map(([key, label, icon]): GuideSection => ({

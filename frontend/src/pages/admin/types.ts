@@ -166,7 +166,12 @@ export type CouponPayload = Omit<AdminCoupon, 'id'> & {
   expiration?: string | null;
 };
 
-export type AdminCategory = { id: number; name: string; active?: boolean };
+export type AdminCategory = {
+  id: number;
+  name: string;
+  active?: boolean;
+  image?: string | null;
+};
 
 export type AdminIngredient = {
   id: number;
@@ -348,7 +353,10 @@ export type AdminPageProps = {
   onSaveProduct?: (product: AdminProduct) => void | Promise<void>;
   onDeleteProduct?: (id: string) => void | Promise<void>;
   onCreateCategory?: (name: string) => void | Promise<void>;
-  onUpdateCategory?: (id: number, name: string) => void | Promise<void>;
+  onUpdateCategory?: (
+    id: number,
+    updates: { name?: string; image?: string | null },
+  ) => void | Promise<void>;
   onDeleteCategory?: (id: number) => void | Promise<void>;
   onCreateIngredient?: (
     ingredient: Omit<AdminIngredient, 'id'>,

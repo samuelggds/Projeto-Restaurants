@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test, { type TestContext } from 'node:test';
-import nodemailer from 'nodemailer';
+import nodemailer, { type SendMailOptions } from 'nodemailer';
 import bcrypt from 'bcrypt';
 import userRepository from '../repositories/UserRepository.js';
 import passwordResetCodeRepository from '../repositories/PasswordResetCodeRepository.js';
@@ -48,9 +48,9 @@ function setup(t: TestContext, changes: Partial<ResetUser> = {}) {
   const phoneLookup = t.mock.method(userRepository, 'findByPhone', async () => user);
   const claim = t.mock.method(passwordResetCodeRepository, 'claim', async () => true);
   t.mock.method(bcrypt, 'hash', (async () => 'new-test-code-hash') as typeof bcrypt.hash);
-  const messages: nodemailer.SendMailOptions[] = [];
+  const messages: SendMailOptions[] = [];
   t.mock.method(nodemailer, 'createTransport', (() => ({
-    sendMail: async (options: nodemailer.SendMailOptions) => {
+    sendMail: async (options: SendMailOptions) => {
       messages.push(options);
       return {};
     },

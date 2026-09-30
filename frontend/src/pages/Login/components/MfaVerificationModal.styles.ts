@@ -17,18 +17,23 @@ export const Backdrop = styled.div`
   inset: 0;
   z-index: 10000;
   display: grid;
-  place-items: center;
-  padding: 20px;
-  background: rgba(24, 16, 11, 0.62);
-  backdrop-filter: blur(9px);
+  grid-template-rows: 72px 1fr 58px;
+  background: #fbfaf7;
+  color: #1f1d1b;
+
+  @media (max-width: 767px) {
+    grid-template-rows: 64px 1fr;
+    background: #fff;
+  }
 `;
 
 export const Dialog = styled.div<{ $state: 'idle' | 'error' | 'success'; $shake: boolean }>`
-  width: min(100%, 500px);
-  border-radius: 24px;
-  padding: 26px;
-  background: ${(props) => props.theme.surface};
-  color: ${(props) => props.theme.text};
+  width: min(100%, 430px);
+  border-radius: 22px;
+  padding: 36px 34px 30px;
+  background: #fff;
+  color: #1f1d1b;
+  text-align: center;
   border: 1px solid
     ${({ $state, theme }) =>
       $state === 'error' ? '#dc2626' : $state === 'success' ? '#16a34a' : theme.border};
@@ -49,9 +54,12 @@ export const Dialog = styled.div<{ $state: 'idle' | 'error' | 'success'; $shake:
       animation: ${shake} 420ms ease;
     `}
 
-  @media (max-width: 520px) {
-    padding: 22px 18px;
-    border-radius: 20px;
+  @media (max-width: 767px) {
+    width: min(100%, 360px);
+    padding: 10px 10px 28px;
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
   }
 `;
 
@@ -84,21 +92,25 @@ export const HeaderText = styled.div`
   }
 
   h2 {
-    margin: 0 0 8px;
-    font-size: 1.32rem;
+    margin: 0;
+    font-size: 22px;
     line-height: 1.18;
-    letter-spacing: -0.025em;
+    letter-spacing: -0.03em;
   }
 
   p {
-    margin: 0;
-    color: ${(props) => props.theme.textMuted};
-    font-size: 0.9rem;
+    max-width: 330px;
+    margin: 8px auto 0;
+    color: #8a837c;
+    font-size: 12px;
     line-height: 1.55;
   }
 
-  strong {
-    color: ${(props) => props.theme.text};
+  strong { color: #1f1d1b; }
+
+  @media (max-width: 767px) {
+    h2 { font-size: 21px; }
+    p { max-width: 285px; }
   }
 `;
 
@@ -136,8 +148,8 @@ export const ChannelChoice = styled.div`
 
 export const ChannelButton = styled.button`
   width: 100%;
-  min-height: 62px;
-  border-radius: 14px;
+  min-height: 48px;
+  border-radius: 9px;
   border: 1px solid ${(props) => props.theme.border};
   background: ${(props) => props.theme.background};
   color: ${(props) => props.theme.text};
@@ -192,6 +204,7 @@ export const CodeLabel = styled.label`
 `;
 
 export const CodeGrid = styled.div`
+  margin-top: 22px;
   display: grid;
   grid-template-columns: repeat(6, minmax(0, 1fr));
   gap: 9px;
@@ -207,8 +220,8 @@ export const CodeCell = styled.input<{
 }>`
   min-width: 0;
   width: 100%;
-  height: 62px;
-  border-radius: 14px;
+  height: 48px;
+  border-radius: 9px;
   border: 1px solid
     ${({ $state, $filled, theme }) =>
       $state === 'error'
@@ -221,7 +234,7 @@ export const CodeCell = styled.input<{
   background: ${(props) => props.theme.background};
   color: ${(props) => props.theme.text};
   text-align: center;
-  font-size: 1.55rem;
+  font-size: 19px;
   font-weight: 850;
   caret-color: ${(props) => props.theme.primaryReadable};
   outline: none;
@@ -237,10 +250,10 @@ export const CodeCell = styled.input<{
     opacity: 0.75;
   }
 
-  @media (max-width: 390px) {
-    height: 54px;
-    border-radius: 12px;
-    font-size: 1.35rem;
+  @media (max-width: 767px) {
+    height: 46px;
+    border-radius: 8px;
+    font-size: 18px;
   }
 `;
 
@@ -288,11 +301,11 @@ export const VerifyButton = styled.button`
   align-items: center;
   justify-content: center;
   gap: 8px;
-  color: ${(props) => props.theme.primaryText};
-  background: ${(props) => props.theme.primary};
+  color: #fff;
+  background: #ff5a2c;
   font-weight: 850;
   cursor: pointer;
-  box-shadow: 0 12px 24px color-mix(in srgb, ${(props) => props.theme.primary} 24%, transparent);
+  box-shadow: 0 8px 18px rgba(255,90,44,.18);
 
   &:disabled {
     cursor: not-allowed;
@@ -305,8 +318,12 @@ export const VerifyButton = styled.button`
     height: 18px;
   }
 
-  .spinner {
-    animation: ${spin} 0.8s linear infinite;
+  .spinner { animation: ${spin} 0.8s linear infinite; }
+  .mobile-label { display: none; }
+
+  @media (max-width: 767px) {
+    .desktop-label { display: none; }
+    .mobile-label { display: inline; }
   }
 `;
 
@@ -342,4 +359,46 @@ export const Countdown = styled.strong`
   min-width: 34px;
   color: ${(props) => props.theme.text};
   font-variant-numeric: tabular-nums;
+`;
+
+
+export const ScreenHeader = styled.header`
+  min-height:72px;padding:0 clamp(28px,5vw,72px);border-bottom:1px solid #ece8e3;
+  display:flex;align-items:center;justify-content:space-between;background:#fff;
+  >button{border:0;background:transparent;color:#6f6963;font-size:12px;font-weight:700;cursor:pointer}
+  @media(max-width:767px){display:none}
+`;
+
+export const Brand = styled.a`
+  display:inline-flex;align-items:center;gap:10px;color:inherit;text-decoration:none;
+  font-size:18px;font-weight:850;letter-spacing:-.035em;
+  img{width:34px;height:34px;display:block;object-fit:contain}
+  b{color:#171513} strong{color:#f05a2a}
+`;
+
+export const MobileTopbar = styled.header`
+  display:none;
+  @media(max-width:767px){
+    display:grid;grid-template-columns:40px 1fr 40px;align-items:center;padding:0 14px;background:#fff;
+    button{width:36px;height:36px;border:1px solid #ece8e3;border-radius:50%;display:grid;place-items:center;background:#fff;color:#1f1d1b}
+    button svg{width:18px;height:18px} strong{text-align:center;font-size:15px}
+  }
+`;
+
+export const ScreenMain = styled.main`
+  min-height:0;display:grid;place-items:center;padding:40px 20px;
+  @media(max-width:767px){align-items:start;padding:46px 18px 28px;background:#fff}
+`;
+
+export const SecurityIcon = styled.div`
+  width:58px;height:58px;margin:0 auto 18px;border-radius:50%;display:grid;place-items:center;
+  background:#fff0e9;color:#ff5a2c;
+  svg{width:27px;height:27px;stroke-width:1.7}
+`;
+
+export const ScreenFooter = styled.footer`
+  min-height:58px;padding:0 clamp(28px,5vw,72px);border-top:1px solid #ece8e3;background:#fff;color:#8a837c;
+  display:flex;align-items:center;justify-content:space-between;gap:24px;font-size:11px;
+  nav{display:flex;align-items:center;gap:26px} a{color:inherit;text-decoration:none}
+  @media(max-width:767px){display:none}
 `;

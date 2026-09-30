@@ -272,12 +272,12 @@ export default function PixPaymentPanel({
 
       <DesktopFooter>
         <div className="footer-main">
-          <section><div className="footer-brand"><span>G</span><b>GastroNexa</b></div><p>Sua experiência gourmet completa, direto do conforto de sua casa. O melhor do {restaurantName} entregue rápido.</p></section>
+          <section><div className="footer-brand"><span>{restaurantLogoUrl ? <img src={restaurantLogoUrl} alt="" /> : restaurantName.slice(0, 1).toUpperCase()}</span><b>{restaurantName}</b></div><p>Sua experiência gourmet completa, direto do conforto de sua casa. O melhor do {restaurantName} entregue rápido.</p></section>
           <section><b>Nossos Links</b><span>Cardápio</span><span>Cupons Ativos</span><span>Perguntas Frequentes</span></section>
-          <section><b>Suporte</b><span>Falar no Chat</span><span>Central de Ajuda</span><span>Termos de Serviço</span></section>
+          <section><b>Suporte</b><span>Falar no Chat</span><span>Central de Ajuda</span><a href="/termos/">Termos de Serviço</a></section>
           <section><b>Sua Loja Segura</b><p>GastroNexa é multi-tenant. Cada restaurante é operado diretamente por seu administrador autorizado.</p></section>
         </div>
-        <div className="footer-bottom"><span>© {new Date().getFullYear()} GastroNexa & {restaurantName}. Todos os direitos reservados.</span><span>Privacidade · Cookies</span></div>
+        <div className="footer-bottom"><span>© {new Date().getFullYear()} {restaurantName}. Todos os direitos reservados.</span><span className="legal-links"><a href="/privacidade/">Privacidade</a><span aria-hidden="true">·</span><a href="/cookies/">Cookies</a></span></div>
       </DesktopFooter>
     </Page>
   );
@@ -305,8 +305,8 @@ const DesktopHeader = styled.header`
   .brand-copy { display: grid; gap: 2px; }
   .brand-copy b { font-size: 18px; }
   .brand-copy small { display: flex; align-items: center; gap: 6px; color: #72706b; font-size: 12px; }
-  .brand-copy i { width: 8px; height: 8px; border-radius: 50%; background: #b4b0ab; }
-  .brand-copy i.open { background: #41a267; }
+  .brand-copy i { width: 8px; height: 8px; border-radius: 50%; background: #e5484d; }
+  .brand-copy i.open { background: #33b864; }
   .search { width: min(380px, 34vw); padding: 10px 16px; display: flex; align-items: center; gap: 10px; overflow: hidden; border: 1px solid #efece6; border-radius: 999px; background: #fafaf8; color: #72706b; font-size: 13px; white-space: nowrap; text-overflow: ellipsis; }
   .search svg { width: 16px; flex: 0 0 auto; }
   .desktop-actions { display: flex; align-items: center; gap: 20px; font-size: 13px; font-weight: 600; }
@@ -514,13 +514,34 @@ const ResultActions = styled.div`
 `;
 
 const DesktopFooter = styled.footer`
+  min-height: 356px;
+  box-sizing: border-box;
   padding: 64px max(40px, calc((100vw - 1120px) / 2)); display: grid; gap: 48px; background: #1f1e1a; color: #72706b;
   .footer-main { display: grid; grid-template-columns: 320px 1fr 1fr 280px; gap: 48px; }
   section { display: grid; align-content: start; gap: 16px; font-size: 14px; }
+  section a,
+  .legal-links a {
+    color: inherit;
+    text-decoration: none;
+  }
+  section a:hover,
+  section a:focus-visible,
+  .legal-links a:hover,
+  .legal-links a:focus-visible {
+    color: #fff;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+  .legal-links {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+  }
   section p { margin: 0; line-height: 22px; }
   section b { color: #fff; }
   .footer-brand { display: flex; align-items: center; gap: 12px; color: #fff; font-size: 20px; }
-  .footer-brand span { width: 32px; height: 32px; display: grid; place-items: center; border-radius: 10px; background: var(--pix-primary); color: #fff; font-weight: 800; }
+  .footer-brand span { width: 32px; height: 32px; min-width: 32px; max-width: 32px; min-height: 32px; max-height: 32px; flex: 0 0 32px; display: grid; place-items: center; overflow: hidden; border-radius: 10px; background: var(--pix-primary); color: #fff; font-weight: 800; }
+  .footer-brand img { width: 32px; height: 32px; max-width: 32px; max-height: 32px; display: block; object-fit: cover; }
   .footer-bottom { padding-top: 24px; display: flex; justify-content: space-between; border-top: 1px solid #35332f; font-size: 13px; }
   @media (max-width: 980px) { padding-inline: 40px; .footer-main { grid-template-columns: 1.2fr 1fr 1fr; } .footer-main section:last-child { display: none; } }
   @media (max-width: 760px) { display: none; }

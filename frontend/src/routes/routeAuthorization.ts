@@ -30,6 +30,9 @@ const RESERVED_ROOTS = new Set([
   'system-blocked',
   'system-maintenance',
   'team',
+  'termos',
+  'privacidade',
+  'cookies',
   'waiter',
 ]);
 const normalizePath = (pathname: string) => pathname.split(/[?#]/, 1)[0].replace(/\/+$/, '') || '/';
@@ -56,6 +59,8 @@ export function isPublicRoute(pathname: string) {
   const deliveryTracking = /^\/orders\/\d+\/tracking$/u.test(path);
   const deliveryChat = /^\/orders\/\d+\/chat$/u.test(path);
   const orderPixPayment = /^\/[^/]+\/pedido\/[^/]+\/pagamento$/u.test(path);
+  const guestOrders = /^\/([^/]+)\/pedidos$/u.exec(path)?.[1];
+  const tenantLegal = /^\/([^/]+)\/(?:termos|privacidade|cookies)$/u.exec(path)?.[1];
   return (
     path === '/system-maintenance' ||
     path === '/recover-password' ||
@@ -63,6 +68,8 @@ export function isPublicRoute(pathname: string) {
     deliveryTracking ||
     deliveryChat ||
     orderPixPayment ||
+    isAllowedTenantRoot(guestOrders) ||
+    isAllowedTenantRoot(tenantLegal) ||
     isAllowedTenantRoot(singleSegment) ||
     isAllowedTenantRoot(restaurantTable)
   );

@@ -44,13 +44,13 @@ export const HeaderInner = styled.div`
 `;
 
 export const BackButton = styled.button`
-  min-height: 42px;
-  padding: 0 10px 0 6px;
+  min-height: 36px;
+  padding: 0 8px 0 0;
   display: inline-flex;
   align-items: center;
   gap: 8px;
   border: 0;
-  border-radius: 12px;
+  border-radius: 8px;
   color: #34443d;
   background: transparent;
   font: inherit;
@@ -59,7 +59,8 @@ export const BackButton = styled.button`
   cursor: pointer;
 
   svg {
-    width: 18px;
+    width: 24px;
+    height: 24px;
   }
 
   &:hover {
@@ -71,7 +72,12 @@ export const BackButton = styled.button`
     outline-offset: 2px;
   }
 
-  @media (max-width: 380px) {
+  @media (max-width: 520px) {
+    width: 36px;
+    height: 36px;
+    padding: 0;
+    justify-content: center;
+
     span {
       display: none;
     }

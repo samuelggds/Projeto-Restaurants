@@ -39,7 +39,7 @@ test('registra consentimento transacional com o WhatsApp exato informado no chec
   assert.equal(created.resource, 'Order:44');
   assert.equal(created.metadata.channel, 'whatsapp');
   assert.equal(created.metadata.scope, 'ORDER_TRANSACTIONAL_UPDATES');
-  assert.equal(created.metadata.destinationPhone, '+5585999999999');
+  assert.equal(created.metadata.destinationPhone, '85999999999');
   assert.equal(JSON.stringify(created).includes('token'), false);
 });
 
@@ -67,7 +67,7 @@ test('não duplica a evidência quando o mesmo pedido repete o mesmo número', a
   let createCalls = 0;
   prisma.auditLog.findFirst = async () => ({
     id: 99,
-    metadata: { destinationPhone: '+5585999999999' },
+    metadata: { destinationPhone: '85999999999' },
   });
   prisma.auditLog.create = async () => {
     createCalls += 1;
@@ -90,7 +90,7 @@ test('registra uma nova evidência quando o WhatsApp do mesmo pedido muda', asyn
   let created = null;
   prisma.auditLog.findFirst = async () => ({
     id: 99,
-    metadata: { destinationPhone: '+5511988887777' },
+    metadata: { destinationPhone: '11988887777' },
   });
   prisma.auditLog.create = async ({ data }) => {
     created = data;
@@ -106,7 +106,7 @@ test('registra uma nova evidência quando o WhatsApp do mesmo pedido muda', asyn
     }),
     true,
   );
-  assert.equal(created.metadata.destinationPhone, '+5585999999999');
+  assert.equal(created.metadata.destinationPhone, '85999999999');
 });
 
 test('consulta o destino mais recente sempre pelo restaurante e pedido exatos', async () => {
@@ -115,11 +115,11 @@ test('consulta o destino mais recente sempre pelo restaurante e pedido exatos', 
     receivedArgs = args;
     return {
       id: 8,
-      metadata: { destinationPhone: '+5585999999999' },
+      metadata: { destinationPhone: '85999999999' },
     };
   };
 
-  assert.equal(await getWhatsappOrderNotificationDestination(21, 345), '+5585999999999');
+  assert.equal(await getWhatsappOrderNotificationDestination(21, 345), '85999999999');
   assert.equal(await hasWhatsappOrderNotificationOptIn(21, 345), true);
   assert.deepEqual(receivedArgs.where, {
     restaurantId: 21,
@@ -133,7 +133,7 @@ test('falha fechado para ids ausentes ou inválidos sem consultar banco', async 
   let called = false;
   prisma.auditLog.findFirst = async () => {
     called = true;
-    return { id: 1, metadata: { destinationPhone: '+5585999999999' } };
+    return { id: 1, metadata: { destinationPhone: '85999999999' } };
   };
 
   assert.equal(await hasWhatsappOrderNotificationOptIn(null, 1), false);

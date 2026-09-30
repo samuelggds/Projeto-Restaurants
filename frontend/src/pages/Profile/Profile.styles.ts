@@ -5,6 +5,12 @@ export {
   PaymentProtection,
   PaymentCardPreview,
   PaymentModalCard,
+  PaymentScreen,
+  PaymentDesktopHeader,
+  PaymentMobileHeader,
+  PaymentScreenMain,
+  PaymentHeading,
+  SavedCardDetails,
 } from './Profile.payment.styles';
 
 const progressLineReveal = keyframes`

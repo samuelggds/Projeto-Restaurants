@@ -1,6 +1,10 @@
 import type { Request, Response } from 'express';
 import { z } from 'zod';
-import googleAddressGeocodingService from '../services/GoogleAddressGeocodingService.js';
+import googleAddressGeocodingService, {
+  type AddressLocation,
+} from '../services/GoogleAddressGeocodingService.js';
+import geoapifyDeliveryRoutingProvider from '../services/GeoapifyDeliveryRoutingProvider.js';
+import getOsrmDeliveryRouteService from '../services/GetOsrmDeliveryRouteService.js';
 import { resolveOrderRestaurantId } from '../utils/orderTenant.js';
 
 const schema = z.object({
@@ -19,6 +23,89 @@ const schema = z.object({
     .transform((value) => String(value || '').replace(/\D/g, '')),
 });
 
+type Coordinates = {
+  latitude: number;
+  longitude: number;
+};
+
+function fallbackFormattedAddress(input: z.infer<typeof schema>) {
+  return [
+    [input.address, input.number].filter(Boolean).join(', '),
+    input.district,
+    input.city,
+    input.state,
+    input.zipCode,
+    'Brasil',
+  ]
+    .map((value) => String(value || '').trim())
+    .filter(Boolean)
+    .join(', ');
+}
+
+function fallbackLocation(
+  coordinates: Coordinates | null,
+  input: z.infer<typeof schema>,
+  source: 'GEOAPIFY' | 'NOMINATIM',
+): AddressLocation | null {
+  if (
+    !coordinates ||
+    !Number.isFinite(coordinates.latitude) ||
+    !Number.isFinite(coordinates.longitude)
+  ) {
+    return null;
+  }
+
+  return {
+    latitude: coordinates.latitude,
+    longitude: coordinates.longitude,
+    formattedAddress: fallbackFormattedAddress(input),
+    locationType: `${source}_FALLBACK`,
+    partialMatch: true,
+  };
+}
+
+async function firstAlternativeLocation(
+  input: z.infer<typeof schema>,
+): Promise<AddressLocation | null> {
+  const providers = [
+    geoapifyDeliveryRoutingProvider
+      .geocodeAddress(input)
+      .then((coordinates) => fallbackLocation(coordinates, input, 'GEOAPIFY')),
+    getOsrmDeliveryRouteService
+      .geocodeAddress(input)
+      .then((coordinates) => fallbackLocation(coordinates, input, 'NOMINATIM')),
+  ];
+
+  return new Promise((resolve) => {
+    let pending = providers.length;
+    let settled = false;
+
+    const finishWithoutLocation = () => {
+      pending -= 1;
+      if (!settled && pending === 0) {
+        settled = true;
+        resolve(null);
+      }
+    };
+
+    providers.forEach((provider) => {
+      void provider
+        .then((location) => {
+          if (settled) return;
+          if (location) {
+            settled = true;
+            resolve(location);
+            return;
+          }
+          finishWithoutLocation();
+        })
+        .catch(() => {
+          if (!settled) finishWithoutLocation();
+        });
+    });
+  });
+}
+
 class GetDeliveryAddressLocationController {
   async handle(req: Request, res: Response) {
     const parsed = schema.safeParse(req.body);
@@ -34,7 +121,9 @@ class GetDeliveryAddressLocationController {
       contextRestaurantId: req.user?.restaurantId ?? req.tableSession?.restaurantId ?? null,
     });
 
-    const location = await googleAddressGeocodingService.execute(parsed.data);
+    const googleLocation = await googleAddressGeocodingService.execute(parsed.data);
+    const location = googleLocation || (await firstAlternativeLocation(parsed.data));
+
     if (!location) {
       return res.status(422).json({
         error: 'Não foi possível localizar este endereço no mapa.',

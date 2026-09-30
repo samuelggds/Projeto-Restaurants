@@ -21,7 +21,10 @@ describe('OpeningHoursSettings', () => {
   afterEach(() => vi.useRealTimers());
 
   it('explica o status efetivo e apresenta a agenda semanal completa', () => {
-    const markup = renderHours({ businessHoursConfigured: true });
+    const hours = defaultBusinessHours.map((day) =>
+      day.id === 'monday' ? { ...day, enabled: true } : day,
+    );
+    const markup = renderHours({ businessHours: hours, businessHoursConfigured: true });
 
     expect(markup).toContain('ABERTO AGORA');
     expect(markup).toContain('Fecha às 23:00');
@@ -42,7 +45,9 @@ describe('OpeningHoursSettings', () => {
 
   it('mostra a validação junto ao dia que precisa de correção', () => {
     const hours = defaultBusinessHours.map((day) =>
-      day.id === 'monday' ? { ...day, openingTime: '11:00', closingTime: '11:00' } : day,
+      day.id === 'monday'
+        ? { ...day, enabled: true, openingTime: '11:00', closingTime: '11:00' }
+        : day,
     );
     const markup = renderHours({ businessHours: hours, businessHoursConfigured: true });
 

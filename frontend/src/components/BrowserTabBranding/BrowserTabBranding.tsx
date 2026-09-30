@@ -125,11 +125,8 @@ function restaurantReferenceFromLocation(pathname: string, search: string) {
   return { slug: '', id: explicitId };
 }
 
-function applyMarketingBrowserBranding(pathname: string) {
-  document.title =
-    pathname === '/demonstracao'
-      ? 'Demonstração | GastroNexa'
-      : 'GastroNexa | Gestão completa para restaurantes';
+function applyMarketingBrowserBranding(_pathname: string) {
+  document.title = 'GastroNexa | Gestão completa para restaurantes';
 
   const favicon = document.querySelector<HTMLLinkElement>('link[rel~="icon"]');
   if (favicon) {

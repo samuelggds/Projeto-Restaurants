@@ -9,7 +9,7 @@ export const OperationalAuthLayout = styled.main`
   width: 100%;
   min-height: 100dvh;
   display: grid;
-  grid-template-columns: 680px minmax(0, 1fr);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   overflow-x: clip;
   background: var(--bg);
   color: var(--text);
@@ -25,6 +25,8 @@ export const OperationalAuthLayout = styled.main`
 
 export const Hero = styled.section`
   position: relative;
+  width: 100%;
+  min-width: 0;
   min-height: 100dvh;
   overflow: hidden;
   background: #17120f;
@@ -164,8 +166,10 @@ export const MobileSpacer = styled.div`
 `;
 
 export const FormPanel = styled.section`
+  width: 100%;
+  min-width: 0;
   min-height: 100dvh;
-  padding: 80px;
+  padding: clamp(40px, 6vw, 80px);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -178,7 +182,8 @@ export const FormPanel = styled.section`
 `;
 
 export const FormCard = styled.div`
-  width: min(420px,100%);
+  width: min(440px, 100%);
+  margin-inline: auto;
   display: flex;
   flex-direction: column;
   gap: 32px;
@@ -340,14 +345,48 @@ export const PrimaryButton = styled.button`
   padding: 14px 24px;
   border: 0;
   border-radius: 12px;
-  background: transparent;
+  background: var(--operational-primary);
   color: #fff;
-  box-shadow: 0 10px 14px rgba(16,24,39,.14);
+  box-shadow:
+    0 10px 18px rgba(16,24,39,.14),
+    0 4px 10px color-mix(in srgb, var(--operational-primary) 22%, transparent);
   font: inherit;
   font-size: 15px;
-  font-weight: 600;
+  font-weight: 700;
   cursor: pointer;
-  &:disabled { opacity: .55; cursor: progress; }
+  transition:
+    transform 170ms ease,
+    filter 170ms ease,
+    box-shadow 170ms ease,
+    opacity 170ms ease;
+
+  &:hover:not(:disabled) {
+    transform: translateY(-1px);
+    filter: brightness(1.04) saturate(1.04);
+    box-shadow:
+      0 12px 22px rgba(16,24,39,.16),
+      0 5px 12px color-mix(in srgb, var(--operational-primary) 28%, transparent);
+  }
+
+  &:active:not(:disabled) {
+    transform: translateY(0) scale(.985);
+  }
+
+  &:focus-visible {
+    outline: 3px solid color-mix(in srgb, var(--operational-primary) 25%, transparent);
+    outline-offset: 3px;
+  }
+
+  &:disabled {
+    opacity: .55;
+    cursor: progress;
+    transform: none;
+    filter: none;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    transition: none;
+  }
 `;
 
 export const HomeIndicator = styled.div`

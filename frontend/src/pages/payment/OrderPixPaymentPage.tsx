@@ -218,6 +218,10 @@ export default function OrderPixPaymentPage() {
   const [status, setStatus] = useState<PixPaymentStatus>('WAITING');
   const [error, setError] = useState('');
   const [primaryColor, setPrimaryColor] = useState('#bd4b1d');
+  const [restaurantBrand, setRestaurantBrand] = useState<{ name: string; logoUrl: string }>({
+    name: '',
+    logoUrl: '',
+  });
   const [cardSubmitting, setCardSubmitting] = useState(false);
   const [cardFailed, setCardFailed] = useState(false);
   const cardPreparerRef = useRef<CardPaymentPreparer | null>(null);
@@ -294,12 +298,19 @@ export default function OrderPixPaymentPage() {
         if (!active) return;
         const nextColor = String(settings?.primaryColor || '').trim();
         if (nextColor) setPrimaryColor(nextColor);
+        const restaurant = settings?.restaurant && typeof settings.restaurant === 'object'
+          ? settings.restaurant
+          : {};
+        setRestaurantBrand({
+          name: String(restaurant?.name || payment.restaurantName || '').trim(),
+          logoUrl: String(restaurant?.logo || '').trim(),
+        });
       })
       .catch(() => undefined);
     return () => {
       active = false;
     };
-  }, [payment?.restaurantId]);
+  }, [payment?.restaurantId, payment?.restaurantName]);
 
   useEffect(() => {
     if (!payment) return undefined;
@@ -450,7 +461,8 @@ export default function OrderPixPaymentPage() {
       paymentStatus={status}
       paymentError={error || null}
       primaryColor={primaryColor}
-      restaurantName={payment.restaurantName}
+      restaurantName={restaurantBrand.name || payment.restaurantName}
+      restaurantLogoUrl={restaurantBrand.logoUrl}
       deliveryTime={payment.deliveryTime}
       deliveryAddress={payment.deliveryAddress}
       orderPublicId={payment.orderPublicId}

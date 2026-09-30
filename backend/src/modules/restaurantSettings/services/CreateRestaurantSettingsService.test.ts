@@ -129,6 +129,27 @@ test('deve rejeitar cadastro quando o documento do titular da conta nao bater co
   );
 });
 
+test('cria os sete dias fechados quando businessHours não é informado', async () => {
+  let capturedCreateData = null;
+  restaurantSettingsRepository.findByRestaurantId = async () => null;
+  restaurantSettingsRepository.create = async (data) => {
+    capturedCreateData = data;
+    return { id: 1, ...data };
+  };
+
+  await createRestaurantSettingsService.execute({
+    restaurantId: 7,
+    deliveryFee: 0,
+    minimumOrder: 0,
+  });
+
+  assert.equal(capturedCreateData.businessHours.length, 7);
+  assert.deepEqual(
+    capturedCreateData.businessHours.map((day) => [day.id, day.enabled, day.openingTime, day.closingTime]),
+    BUSINESS_DAY_IDS.map((id) => [id, false, '11:00', '23:00']),
+  );
+});
+
 test('normaliza e persiste uma agenda semanal válida ao criar configurações', async () => {
   let capturedCreateData = null;
   restaurantSettingsRepository.findByRestaurantId = async () => null;

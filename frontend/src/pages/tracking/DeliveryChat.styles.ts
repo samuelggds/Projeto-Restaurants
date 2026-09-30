@@ -40,15 +40,35 @@ export const Header = styled.header`
   background: rgba(255, 255, 255, 0.96);
 
   button {
-    width: 40px;
-    height: 40px;
+    width: 36px;
+    height: 36px;
+    padding: 0;
     display: grid;
     place-items: center;
-    border: 1px solid #e5e9e6;
-    border-radius: 12px;
+    border: 0;
+    border-radius: 8px;
     color: #1f1e1a;
-    background: #fff;
+    background: transparent;
     cursor: pointer;
+    transition: background-color 160ms ease, transform 160ms ease;
+  }
+
+  button:hover {
+    background: #f4f1ec;
+  }
+
+  button:active {
+    transform: scale(.94);
+  }
+
+  button:focus-visible {
+    outline: 2px solid rgba(228, 81, 24, .28);
+    outline-offset: 2px;
+  }
+
+  button svg {
+    width: 24px;
+    height: 24px;
   }
 
   .identity {

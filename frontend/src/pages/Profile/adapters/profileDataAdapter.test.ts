@@ -17,7 +17,6 @@ describe('profileDataAdapter', () => {
     const data = buildProfileData({
       user: { name: 'Samuel', email: 'cliente@demo.com' },
       settings: null,
-      favorites: [],
       addresses: [],
       avatarUrl: '',
       orders: [
@@ -38,7 +37,6 @@ describe('profileDataAdapter', () => {
     const data = buildProfileData({
       user: { name: 'Samuel', email: 'cliente@demo.com' },
       settings: null,
-      favorites: [],
       addresses: [],
       avatarUrl: '',
       orders: [
@@ -68,7 +66,6 @@ describe('profileDataAdapter', () => {
     const data = buildProfileData({
       user: { name: 'Samuel', email: 'cliente@demo.com' },
       settings: null,
-      favorites: [],
       addresses: [],
       avatarUrl: '',
       orders: [
@@ -97,7 +94,6 @@ describe('profileDataAdapter', () => {
     const data = buildProfileData({
       user: { name: 'Samuel', email: 'cliente@demo.com' },
       settings: null,
-      favorites: [],
       addresses: [],
       avatarUrl: '',
       orders: [],

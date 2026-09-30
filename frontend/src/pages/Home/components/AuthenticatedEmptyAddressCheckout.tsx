@@ -4,6 +4,7 @@ import { AddressLocationMap } from './AddressLocationMap';
 import { DeliveryAddressForm } from './DeliveryAddressForm';
 import type { DeliveryAddress } from '../hooks/useDeliveryAddress';
 import type { CartItem } from '../hooks/useCart';
+import { BRAZIL_PHONE_CHECKOUT_MESSAGE, formatBrazilPhoneInput, isValidWhatsappOrderPhone } from '../domain/checkout';
 import * as S from './AuthenticatedEmptyAddressCheckout.styles';
 
 const money = (value: number) =>
@@ -15,6 +16,8 @@ type Props = {
   brandName: string;
   logoUrl?: string;
   userName?: string;
+  customerPhone: string;
+  onCustomerPhoneChange: (value: string) => void;
   isOpen: boolean;
   deliveryTime?: string;
   cart: CartItem[];
@@ -45,6 +48,8 @@ export function AuthenticatedEmptyAddressCheckout({
   brandName,
   logoUrl,
   userName,
+  customerPhone,
+  onCustomerPhoneChange,
   isOpen,
   cart,
   cartCount,
@@ -140,6 +145,29 @@ export function AuthenticatedEmptyAddressCheckout({
             ) : null}
           </S.Methods>
 
+          <S.ContactCard>
+            <label htmlFor="authenticated-empty-order-phone">Telefone / WhatsApp</label>
+            <input
+              id="authenticated-empty-order-phone"
+              type="tel"
+              inputMode="tel"
+              autoComplete="tel"
+              value={formatBrazilPhoneInput(customerPhone)}
+              maxLength={24}
+              required
+              placeholder="(85) 99999-9999"
+              aria-invalid={Boolean(customerPhone) && !isValidWhatsappOrderPhone(customerPhone)}
+              onChange={(event) => onCustomerPhoneChange(formatBrazilPhoneInput(event.target.value))}
+            />
+            <small>Obrigatório para finalizar o pedido.</small>
+            {!isValidWhatsappOrderPhone(customerPhone) ? (
+              <div className="phone-warning" role="alert">
+                <strong>Confira o telefone</strong>
+                <span>{BRAZIL_PHONE_CHECKOUT_MESSAGE}</span>
+              </div>
+            ) : null}
+          </S.ContactCard>
+
           {orderType === 'delivery' ? (
             <>
               <S.SectionTitle>Seus endereços</S.SectionTitle>
@@ -205,14 +233,14 @@ export function AuthenticatedEmptyAddressCheckout({
       <S.DesktopFooter>
         <div className="top">
           <section>
-            <div className="footer-brand"><span>G</span><b>GastroNexa</b></div>
+            <div className="footer-brand"><span>{logoUrl ? <img src={logoUrl} alt="" /> : brandName.slice(0, 1).toUpperCase()}</span><b>{brandName}</b></div>
             <p>Sua experiência gourmet completa, direto do conforto de sua casa. O melhor do {brandName} entregue rápido.</p>
           </section>
           <section><b>Nossos Links</b><span>Cardápio</span><span>Cupons Ativos</span><span>Perguntas Frequentes</span></section>
-          <section><b>Suporte</b><span>Falar no Chat</span><span>Central de Ajuda</span><span>Termos de Serviço</span></section>
+          <section><b>Suporte</b><span>Falar no Chat</span><span>Central de Ajuda</span><a href="/termos/">Termos de Serviço</a></section>
           <section><b>Sua Loja Segura</b><p>GastroNexa é multi-tenant. Cada restaurante é operado diretamente por seu administrador autorizado.</p></section>
         </div>
-        <div className="bottom"><span>© {new Date().getFullYear()} GastroNexa & {brandName}. Todos os direitos reservados.</span><span>Privacidade · Cookies</span></div>
+        <div className="bottom"><span>© {new Date().getFullYear()} {brandName}. Todos os direitos reservados.</span><span className="legal-links"><a href="/privacidade/">Privacidade</a><span aria-hidden="true">·</span><a href="/cookies/">Cookies</a></span></div>
       </S.DesktopFooter>
 
       <S.MobileAction>

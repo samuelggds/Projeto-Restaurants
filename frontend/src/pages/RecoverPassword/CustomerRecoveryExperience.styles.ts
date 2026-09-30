@@ -44,12 +44,18 @@ export const MobileHeader = styled.header`
       height: 36px;
       padding: 0;
       border: 0;
-      border-radius: 18px;
-      background: #f7f5f0;
+      border-radius: 8px;
+      background: transparent;
       color: var(--auth-text);
       display: grid;
       place-items: center;
+      transition: background-color 160ms ease, transform 160ms ease;
     }
+
+    button:hover { background: #f4f1ec; }
+    button:active { transform: scale(.94); }
+    button:focus-visible { outline: 2px solid color-mix(in srgb, var(--auth-primary) 28%, transparent); outline-offset: 2px; }
+    button svg { width: 24px; height: 24px; }
 
     h1 {
       margin: 0;

@@ -57,24 +57,27 @@ function getLoadedGoogleMaps() {
 }
 
 function loadGoogleMaps() {
+  const loaded = getLoadedGoogleMaps();
+  if (loaded) return Promise.resolve(loaded);
+
   const apiKey = String(import.meta.env.VITE_GOOGLE_MAPS_API_KEY || '').trim();
   if (!apiKey) {
     return Promise.reject(new Error('Google Maps não está configurado neste ambiente.'));
   }
-
-  const loaded = getLoadedGoogleMaps();
-  if (loaded) return Promise.resolve(loaded);
 
   const googleWindow = window as AddressGoogleWindow;
   if (googleWindow.__gastronexaAddressGoogleMapsPromise) {
     return googleWindow.__gastronexaAddressGoogleMapsPromise;
   }
 
-  googleWindow.__gastronexaAddressGoogleMapsPromise = new Promise<GoogleMapsApi>((resolve, reject) => {
+  const loadingPromise = new Promise<GoogleMapsApi>((resolve, reject) => {
     const resolveMaps = () => {
       const maps = getLoadedGoogleMaps();
-      if (maps) resolve(maps);
-      else reject(new Error('Google Maps não ficou disponível após o carregamento.'));
+      if (maps) {
+        resolve(maps);
+        return;
+      }
+      reject(new Error('Google Maps não ficou disponível após o carregamento.'));
     };
 
     const existing = document.getElementById(GOOGLE_MAPS_SCRIPT_ID) as HTMLScriptElement | null;
@@ -82,7 +85,10 @@ function loadGoogleMaps() {
       existing.addEventListener('load', resolveMaps, { once: true });
       existing.addEventListener(
         'error',
-        () => reject(new Error('Falha ao carregar Google Maps.')),
+        () => {
+          existing.remove();
+          reject(new Error('Falha ao carregar Google Maps.'));
+        },
         { once: true },
       );
       return;
@@ -97,10 +103,18 @@ function loadGoogleMaps() {
     script.addEventListener('load', resolveMaps, { once: true });
     script.addEventListener(
       'error',
-      () => reject(new Error('Falha ao carregar Google Maps.')),
+      () => {
+        script.remove();
+        reject(new Error('Falha ao carregar Google Maps.'));
+      },
       { once: true },
     );
     document.head.appendChild(script);
+  });
+
+  googleWindow.__gastronexaAddressGoogleMapsPromise = loadingPromise.catch((error) => {
+    googleWindow.__gastronexaAddressGoogleMapsPromise = undefined;
+    throw error;
   });
 
   return googleWindow.__gastronexaAddressGoogleMapsPromise;
@@ -270,7 +284,6 @@ export function AddressLocationMap({
           mapRef.current = new maps.Map(containerRef.current, {
             center: introPosition,
             zoom: prefersReducedMotion ? 17 : 14,
-            colorScheme: 'LIGHT',
             styles: [
               {
                 featureType: 'all',

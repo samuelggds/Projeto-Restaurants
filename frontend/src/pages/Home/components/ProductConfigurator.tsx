@@ -8,6 +8,7 @@ import {
   productConfigurationTotal,
   toggleProductOption,
   validateProductSelections,
+  validatePortionSelections,
   type ConfigurableProduct,
   type ProductConfiguration,
   type OptionQuantityState,
@@ -112,6 +113,27 @@ export function ProductConfigurator({
     (group) => (selections[group.id] || []).length >= group.minSelections,
   ).length;
   const portionsReady = !portionConfiguration || portions.every((portion) => portion.optionId);
+  const halfHalfVariant = Boolean(
+    customerPageVariant &&
+      product.pricingMode === 'HIGHEST_OPTION' &&
+      portionConfiguration &&
+      portionGroup &&
+      portionConfiguration.minPortions === 2 &&
+      portionConfiguration.maxPortions === 2,
+  );
+  const regularHalfHalfGroups = regularGroups.filter(
+    (group) =>
+      group.minSelections > 0 &&
+      group.maxSelections === 1 &&
+      group.options.some((option) => option.referenceProductId),
+  );
+  const regularHalfHalfVariant = Boolean(
+    customerPageVariant &&
+      !portionConfiguration &&
+      product.pricingMode === 'HIGHEST_OPTION' &&
+      regularHalfHalfGroups.length === 2,
+  );
+  const regularHalfHalfIds = new Set(regularHalfHalfGroups.map((group) => group.id));
   const requiredStepCount = requiredGroups.length + (portionConfiguration ? 1 : 0);
   const completedStepCount =
     completedRequiredGroups + (portionConfiguration && portionsReady ? 1 : 0);
@@ -127,11 +149,13 @@ export function ProductConfigurator({
   const dynamicPrice = product.pricingMode === 'HIGHEST_OPTION';
   const priceReady =
     !dynamicPrice ||
-    regularGroups.some((group) =>
-      group.options.some(
-        (option) => option.referenceProductId && selections[group.id]?.includes(option.id),
-      ),
-    );
+    (portionConfiguration && portionGroup
+      ? portionsReady
+      : regularGroups.some((group) =>
+          group.options.some(
+            (option) => option.referenceProductId && selections[group.id]?.includes(option.id),
+          ),
+        ));
   const priceLabel = priceReady ? brl(total) : 'Escolha os sabores';
   const configurable = Boolean(
     regularGroups.length ||
@@ -142,8 +166,9 @@ export function ProductConfigurator({
   const submit = (event: React.FormEvent) => {
     event.preventDefault();
     const nextErrors = validateProductSelections(regularGroups, selections);
-    if (portionConfiguration && (!portionGroup || !portionsReady)) {
-      nextErrors.portions = 'Escolha uma opção para cada porção.';
+    const portionError = validatePortionSelections(portionConfiguration, portions);
+    if (portionConfiguration && (!portionGroup || portionError)) {
+      nextErrors.portions = portionError || 'Escolha uma opção para cada porção.';
     }
     setErrors(nextErrors);
     if ((!configurable && !enableProductQuantity) || Object.keys(nextErrors).length) {
@@ -203,7 +228,6 @@ export function ProductConfigurator({
           <S.ProductBack type="button" aria-label="Voltar ao cardápio" onClick={onClose}>
             <ArrowLeft size={19} />
           </S.ProductBack>
-          {tableMenuVariant ? <S.ProductFavorite aria-hidden="true">♡</S.ProductFavorite> : null}
           {product.image ? (
             <img src={product.image} alt={product.name} decoding="async" />
           ) : (
@@ -351,12 +375,192 @@ export function ProductConfigurator({
             </S.Composition>
           )}
 
+          {portionConfiguration && portionGroup && (
+            halfHalfVariant ? (
+              <S.HalfHalfBuilder
+                $error={Boolean(errors.portions)}
+                aria-label="Escolha das duas metades"
+              >
+                {portions.map((portion, index) => {
+                  const selectedOption = portionGroup.options.find(
+                    (option) => option.id === portion.optionId,
+                  );
+                  return (
+                    <section className="half-section" key={`half-${index}`}>
+                      <header>
+                        <h3>{index + 1}ª Metade</h3>
+                        <S.PortionStatus $selected={Boolean(selectedOption)}>
+                          {selectedOption ? '✓ Selecionado' : 'Obrigatório'}
+                        </S.PortionStatus>
+                      </header>
+
+                      <div className="half-options">
+                        {portionGroup.options.map((option) => {
+                          const selected = portion.optionId === option.id;
+                          return (
+                            <label className={selected ? 'selected' : ''} key={option.id}>
+                              <input
+                                type="radio"
+                                name={`half-${index}`}
+                                value={option.id}
+                                checked={selected}
+                                onChange={() => {
+                                  setPortions((current) =>
+                                    current.map((entry, entryIndex) =>
+                                      entryIndex === index
+                                        ? { ...entry, optionId: option.id }
+                                        : entry,
+                                    ),
+                                  );
+                                  setErrors((current) => {
+                                    if (!current.portions) return current;
+                                    const next = { ...current };
+                                    delete next.portions;
+                                    return next;
+                                  });
+                                }}
+                              />
+                              <i>{selected ? <span /> : null}</i>
+                              <S.OptionIdentity>
+                                {option.image ? (
+                                  <S.OptionImage src={option.image} alt="" loading="lazy" />
+                                ) : null}
+                                <span><b>{option.name}</b></span>
+                              </S.OptionIdentity>
+                              <strong>
+                                {brl(Number(option.absolutePrice ?? option.price ?? 0))}
+                              </strong>
+                            </label>
+                          );
+                        })}
+                      </div>
+                    </section>
+                  );
+                })}
+
+                {!portionsReady || errors.portions ? (
+                  <S.HalfHalfNotice role={errors.portions ? 'alert' : 'status'}>
+                    <CircleAlert />
+                    {errors.portions || 'Selecione as duas metades obrigatórias para continuar.'}
+                  </S.HalfHalfNotice>
+                ) : null}
+              </S.HalfHalfBuilder>
+            ) : (
+              <S.PortionBuilder $error={Boolean(errors.portions)}>
+                <S.GroupHeader>
+                  <div>
+                    <h3>Divida em porções</h3>
+                    <p>Escolha quantas porções deseja e defina uma opção para cada parte.</p>
+                  </div>
+                  <S.Badge $required>Obrigatório</S.Badge>
+                </S.GroupHeader>
+                <div className="portion-count" role="group" aria-label="Quantidade de porções">
+                  {Array.from(
+                    {
+                      length: portionConfiguration.maxPortions - portionConfiguration.minPortions + 1,
+                    },
+                    (_, index) => portionConfiguration.minPortions + index,
+                  ).map((count) => (
+                    <button
+                      className={portions.length === count ? 'active' : ''}
+                      key={count}
+                      type="button"
+                      onClick={() => {
+                        setPortions((current) =>
+                          Array.from({ length: count }, (_, index) =>
+                            current[index] ? current[index] : { optionId: '' },
+                          ),
+                        );
+                        setErrors((current) => {
+                          const next = { ...current };
+                          delete next.portions;
+                          return next;
+                        });
+                      }}
+                    >
+                      {count} {count === 1 ? 'porção' : 'porções'}
+                    </button>
+                  ))}
+                </div>
+                <div className="portion-list">
+                  {portions.map((portion, index) => (
+                    <div className="portion-row" key={`portion-${index}`}>
+                      <span className="portion-number">
+                        <UtensilsCrossed />
+                        <b>Porção {index + 1}</b>
+                        <small>1/{portions.length}</small>
+                      </span>
+                      <label>
+                        Opção
+                        <select
+                          value={portion.optionId}
+                          onChange={(event) => {
+                            setPortions((current) =>
+                              current.map((entry, entryIndex) =>
+                                entryIndex === index
+                                  ? { ...entry, optionId: event.target.value }
+                                  : entry,
+                              ),
+                            );
+                            setErrors((current) => {
+                              const next = { ...current };
+                              delete next.portions;
+                              return next;
+                            });
+                          }}
+                        >
+                          <option value="">Escolha uma opção</option>
+                          {portionGroup.options.map((option) => (
+                            <option key={option.id} value={option.id}>
+                              {option.name}
+                              {option.pricingMode === 'ABSOLUTE'
+                                ? ` · ${brl(Number(option.absolutePrice ?? option.price))}`
+                                : option.price > 0
+                                  ? ` · + ${brl(option.price)}`
+                                  : ''}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                      {portionConfiguration.allowPortionObservations && (
+                        <label>
+                          Observação da porção
+                          <input
+                            maxLength={300}
+                            value={portion.observation ?? ''}
+                            onChange={(event) =>
+                              setPortions((current) =>
+                                current.map((entry, entryIndex) =>
+                                  entryIndex === index
+                                    ? { ...entry, observation: event.target.value }
+                                    : entry,
+                                ),
+                              )
+                            }
+                            placeholder="Opcional"
+                          />
+                        </label>
+                      )}
+                    </div>
+                  ))}
+                </div>
+                {errors.portions && (
+                  <S.GroupFooter>
+                    <span className="error" role="alert">
+                      <CircleAlert size={13} /> {errors.portions}
+                    </span>
+                  </S.GroupFooter>
+                )}
+              </S.PortionBuilder>
+            )
+          )}
+
           {regularGroups.map((group) => {
             const selected = selections[group.id] || [];
             const atLimit = group.maxSelections != null && selected.length >= group.maxSelections;
             return (
               <S.Group
-                className="product-group"
+                className={`product-group${regularHalfHalfVariant && regularHalfHalfIds.has(group.id) ? ' product-half-group' : ''}`}
                 id={`product-group-${group.id}`}
                 key={group.id}
                 $error={Boolean(errors[group.id])}
@@ -367,9 +571,15 @@ export function ProductConfigurator({
                     <h3>{group.name}</h3>
                     {group.description && <p>{group.description}</p>}
                   </div>
-                  <S.Badge $required={group.minSelections > 0}>
-                    {group.minSelections > 0 ? 'Obrigatório' : 'Opcional'}
-                  </S.Badge>
+                  {regularHalfHalfVariant && regularHalfHalfIds.has(group.id) ? (
+                    <S.PortionStatus $selected={selected.length > 0}>
+                      {selected.length > 0 ? '✓ Selecionado' : 'Obrigatório'}
+                    </S.PortionStatus>
+                  ) : (
+                    <S.Badge $required={group.minSelections > 0}>
+                      {group.minSelections > 0 ? 'Obrigatório' : 'Opcional'}
+                    </S.Badge>
+                  )}
                 </S.GroupHeader>
 
                 <S.OptionList
@@ -485,8 +695,10 @@ export function ProductConfigurator({
                   })}
                 </S.OptionList>
 
-                <S.GroupFooter>
-                  <span>{selectionHint(group.minSelections, group.maxSelections)}</span>
+                <S.GroupFooter className={regularHalfHalfVariant && regularHalfHalfIds.has(group.id) ? 'half-group-footer' : undefined}>
+                  {!(regularHalfHalfVariant && regularHalfHalfIds.has(group.id)) ? (
+                    <span>{selectionHint(group.minSelections, group.maxSelections)}</span>
+                  ) : null}
                   {errors[group.id] && (
                     <span className="error" id={`product-group-error-${group.id}`} role="alert">
                       <CircleAlert size={13} /> {errors[group.id]}
@@ -497,115 +709,6 @@ export function ProductConfigurator({
             );
           })}
 
-          {portionConfiguration && portionGroup && (
-            <S.PortionBuilder $error={Boolean(errors.portions)}>
-              <S.GroupHeader>
-                <div>
-                  <h3>Divida em porções</h3>
-                  <p>Escolha quantas porções deseja e defina uma opção para cada parte.</p>
-                </div>
-                <S.Badge $required>Obrigatório</S.Badge>
-              </S.GroupHeader>
-              <div className="portion-count" role="group" aria-label="Quantidade de porções">
-                {Array.from(
-                  {
-                    length: portionConfiguration.maxPortions - portionConfiguration.minPortions + 1,
-                  },
-                  (_, index) => portionConfiguration.minPortions + index,
-                ).map((count) => (
-                  <button
-                    className={portions.length === count ? 'active' : ''}
-                    key={count}
-                    type="button"
-                    onClick={() => {
-                      setPortions((current) =>
-                        Array.from({ length: count }, (_, index) =>
-                          current[index] ? current[index] : { optionId: '' },
-                        ),
-                      );
-                      setErrors((current) => {
-                        const next = { ...current };
-                        delete next.portions;
-                        return next;
-                      });
-                    }}
-                  >
-                    {count} {count === 1 ? 'porção' : 'porções'}
-                  </button>
-                ))}
-              </div>
-              <div className="portion-list">
-                {portions.map((portion, index) => (
-                  <div className="portion-row" key={`portion-${index}`}>
-                    <span className="portion-number">
-                      <UtensilsCrossed />
-                      <b>Porção {index + 1}</b>
-                      <small>1/{portions.length}</small>
-                    </span>
-                    <label>
-                      Opção
-                      <select
-                        value={portion.optionId}
-                        onChange={(event) => {
-                          setPortions((current) =>
-                            current.map((entry, entryIndex) =>
-                              entryIndex === index
-                                ? { ...entry, optionId: event.target.value }
-                                : entry,
-                            ),
-                          );
-                          setErrors((current) => {
-                            const next = { ...current };
-                            delete next.portions;
-                            return next;
-                          });
-                        }}
-                      >
-                        <option value="">Escolha uma opção</option>
-                        {portionGroup.options.map((option) => (
-                          <option key={option.id} value={option.id}>
-                            {option.name}
-                            {option.pricingMode === 'ABSOLUTE'
-                              ? ` · ${brl(Number(option.absolutePrice ?? option.price))}`
-                              : option.price > 0
-                                ? ` · + ${brl(option.price)}`
-                                : ''}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                    {portionConfiguration.allowPortionObservations && (
-                      <label>
-                        Observação da porção
-                        <input
-                          maxLength={300}
-                          value={portion.observation ?? ''}
-                          onChange={(event) =>
-                            setPortions((current) =>
-                              current.map((entry, entryIndex) =>
-                                entryIndex === index
-                                  ? { ...entry, observation: event.target.value }
-                                  : entry,
-                              ),
-                            )
-                          }
-                          placeholder="Opcional"
-                        />
-                      </label>
-                    )}
-                  </div>
-                ))}
-              </div>
-              {errors.portions && (
-                <S.GroupFooter>
-                  <span className="error" role="alert">
-                    <CircleAlert size={13} /> {errors.portions}
-                  </span>
-                </S.GroupFooter>
-              )}
-            </S.PortionBuilder>
-          )}
-
           <S.Observation className="product-observation" data-testid="product-configurator-observation">
             <div>
               <b>Alguma observação?</b>
@@ -615,7 +718,7 @@ export function ProductConfigurator({
               value={observation}
               maxLength={500}
               onChange={(event) => setObservation(event.target.value)}
-              placeholder="Ex.: Adicione aqui uma observação do produto..."
+              placeholder={customerPageVariant ? 'Ex: sem cebola, maionese à parte...' : 'Ex.: Adicione aqui uma observação do produto...'}
             />
             <small>{observation.length}/500 caracteres</small>
           </S.Observation>
@@ -664,9 +767,11 @@ export function ProductConfigurator({
               aria-describedby={totalDescriptionId}
             >
               {priceReady
-                ? customerPageVariant
-                  ? 'Continuar'
-                  : `Adicionar — ${brl(total * (enableProductQuantity ? productQuantity : 1))}`
+                ? halfHalfVariant
+                  ? `Adicionar · ${brl(total * (enableProductQuantity ? productQuantity : 1))}`
+                  : customerPageVariant
+                    ? 'Continuar'
+                    : `Adicionar — ${brl(total * (enableProductQuantity ? productQuantity : 1))}`
                 : 'Escolha os sabores'}
             </button>
           </S.BottomBar>

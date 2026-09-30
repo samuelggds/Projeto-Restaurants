@@ -18,15 +18,28 @@ export type CheckoutIssue = { title: string; message: string };
 export type ResolvedCheckoutPaymentMethod = 'PIX' | 'CARTAO' | 'DINHEIRO';
 
 function optionalCustomerPhone(value: unknown) {
-  const phone = String(value || '').trim();
-  const digits = phone.replace(/\D/g, '');
-
-  return digits.length >= 10 && digits.length <= 13 ? phone : undefined;
+  const digits = String(value || '').replace(/\D/g, '');
+  return /^[1-9]\d{9,10}$/u.test(digits) ? digits : undefined;
 }
 
 export function isValidWhatsappOrderPhone(value: unknown) {
   return Boolean(optionalCustomerPhone(value));
 }
+
+export function formatBrazilPhoneInput(value: unknown) {
+  const raw = String(value || '');
+  const digits = raw.replace(/\D/g, '');
+  if (digits.length > 11) return digits.slice(0, 13);
+  if (digits.length <= 2) return digits;
+  if (digits.length <= 6) return `(${digits.slice(0, 2)}) ${digits.slice(2)}`;
+  if (digits.length <= 10) {
+    return `(${digits.slice(0, 2)}) ${digits.slice(2, 6)}-${digits.slice(6)}`;
+  }
+  return `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7)}`;
+}
+
+export const BRAZIL_PHONE_CHECKOUT_MESSAGE =
+  'Use somente DDD + número, sem +55. Exemplo: (85) 99999-9999.';
 
 export function whatsappOrderOptInStorageKey(restaurantId: number | null | undefined) {
   const normalizedRestaurantId = Number(restaurantId || 0);
@@ -82,7 +95,7 @@ export function writeWhatsappOrderPhone(
   const key = whatsappOrderPhoneStorageKey(restaurantId);
   if (!key || typeof window === 'undefined') return;
   try {
-    window.localStorage.setItem(key, String(phone || '').trim());
+    window.localStorage.setItem(key, optionalCustomerPhone(phone) || '');
   } catch {
     // O checkout continua funcional mesmo se o navegador bloquear storage.
   }
@@ -105,8 +118,15 @@ export function resolveOrderType(mesaMode: boolean, orderType: 'delivery' | 'pic
 }
 
 export function validateCheckout(input: ValidationInput): CheckoutIssue | null {
-  const { type, customerName, requireGuestIdentity, deliveryAddress, cepStatus, paymentMethod } =
-    input;
+  const {
+    type,
+    customerPhone,
+    customerName,
+    requireGuestIdentity,
+    deliveryAddress,
+    cepStatus,
+    paymentMethod,
+  } = input;
 
   if (
     requireGuestIdentity &&
@@ -114,6 +134,13 @@ export function validateCheckout(input: ValidationInput): CheckoutIssue | null {
     String(customerName || '').trim().length < 2
   ) {
     return { title: 'Informe seu nome', message: 'Digite seu nome para identificar o pedido.' };
+  }
+
+  if (type !== 'MESA' && !isValidWhatsappOrderPhone(customerPhone)) {
+    return {
+      title: 'Informe seu telefone',
+      message: BRAZIL_PHONE_CHECKOUT_MESSAGE,
+    };
   }
 
   if (type === 'DELIVERY') {
@@ -275,7 +302,9 @@ export function buildOrderPayload(input: PayloadInput) {
     : safePaymentMethod.includes('pix')
       ? 'PIX'
       : 'CARTAO';
-  const customerPhone = optionalCustomerPhone(readWhatsappOrderPhone(restaurantId));
+  const customerPhone =
+    optionalCustomerPhone(customer.phone) ||
+    optionalCustomerPhone(readWhatsappOrderPhone(restaurantId));
   return {
     payload: {
       restaurantId,

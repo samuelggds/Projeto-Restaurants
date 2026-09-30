@@ -20,7 +20,6 @@ export const profileMockData: ProfileData = {
       'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=300&q=85',
     mainAddress: 'Rua das Flores, 123',
     paymentLastDigits: '4821',
-    favoriteCount: 8,
   },
   activeOrder: {
     id: '#SC-2048',
@@ -46,24 +45,6 @@ export const profileMockData: ProfileData = {
       total: 54.9,
       image: burger,
       status: 'delivered',
-    },
-  ],
-  favorites: [
-    {
-      id: '1',
-      name: 'Pizza Margherita',
-      description: 'Muçarela de búfala, tomate e manjericão.',
-      price: 54.9,
-      image: pizza,
-      rating: 4.8,
-    },
-    {
-      id: '2',
-      name: 'Burger da Casa',
-      description: 'Blend Angus, cheddar, bacon e molho especial.',
-      price: 42.9,
-      image: burger,
-      rating: 4.7,
     },
   ],
   addresses: [

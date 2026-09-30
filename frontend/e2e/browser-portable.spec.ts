@@ -9,11 +9,8 @@ test.describe('critical portable browser behavior', () => {
     page,
     request,
   }) => {
-    await page.goto('/demonstracao');
-    await page.getByRole('button', { name: 'Cardápio da mesa (QR Code)', exact: true }).click();
-    await expect(page.getByRole('heading', { name: 'Bem-vindo de volta!' })).toBeVisible();
-
-    const logo = page.locator('header img[src="/gastronexa-logo.svg"]');
+    await page.goto('/');
+    const logo = page.locator('img[src="/gastronexa-logo.svg"]').first();
     await expect(logo).toBeVisible();
     await expect
       .poll(() =>
@@ -32,56 +29,20 @@ test.describe('critical portable browser behavior', () => {
     expect(svg).toContain('<image');
   });
 
-  test('demo controls remain reachable after opening a modal', async ({ page }) => {
-    test.setTimeout(60_000);
-    await page.setViewportSize({ width: 390, height: 844 });
-    await page.goto('/demonstracao');
-    await page.getByRole('button', { name: 'Entrar nesta área', exact: true }).first().click();
-
-    await expect(page.getByRole('heading', { name: 'Bem-vindo de volta!' })).toBeVisible({
-      timeout: 15_000,
-    });
-    const enterDemo = page.getByRole('button', { name: 'Entrar na demonstração', exact: true });
-    await expect(enterDemo).toBeVisible();
-    await enterDemo.click();
-
-    const controls = page.getByTestId('demo-controls');
-    await expect(controls).toBeVisible();
-
-    await page
-      .getByRole('button', { name: 'Adicionar Burger Clássico', exact: true })
-      .first()
-      .click();
-    await expect(page.getByRole('dialog', { name: 'Sua sacola', exact: true })).toBeVisible();
-    await expect(controls).toBeVisible();
-  });
-
   test('mobile preview remains scrollable and navigation stays usable', async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto('/help-preview.html?area=courier-overview');
     await expect(page.getByRole('heading').first()).toBeVisible();
     await expect(page.locator('#root')).toHaveAttribute('data-help-preview-readonly', 'true');
 
-    const hasScroller = await page.evaluate(() => {
-      const scroller = Array.from(document.querySelectorAll<HTMLElement>('#root *'))
-        .filter(
-          (element) =>
-            /auto|scroll/.test(getComputedStyle(element).overflowY) &&
-            element.scrollHeight > element.clientHeight + 80 &&
-            element.clientWidth > 250 &&
-            element.clientHeight > 150,
-        )
-        .sort((a, b) => b.clientWidth * b.clientHeight - a.clientWidth * a.clientHeight)[0];
-      scroller?.setAttribute('data-portable-scroll-probe', '');
-      return Boolean(scroller);
-    });
-    expect(hasScroller).toBe(true);
+    const before = await page.evaluate(
+      () => document.documentElement.scrollTop || document.body.scrollTop,
+    );
 
-    const scroller = page.locator('[data-portable-scroll-probe]');
-    const box = await scroller.boundingBox();
-    expect(box).not.toBeNull();
-    await page.mouse.move(box!.x + box!.width / 2, box!.y + Math.min(120, box!.height / 2));
     await page.mouse.wheel(0, 500);
-    await expect.poll(() => scroller.evaluate((element) => element.scrollTop)).toBeGreaterThan(40);
+
+    await expect
+      .poll(() => page.evaluate(() => document.documentElement.scrollTop || document.body.scrollTop))
+      .toBeGreaterThan(before + 40);
   });
 });

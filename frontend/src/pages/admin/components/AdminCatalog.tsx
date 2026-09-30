@@ -43,7 +43,10 @@ type AdminCatalogProps = {
   onDeleteProduct: (id: string) => Promise<void>;
   onNewProduct: () => void;
   onCreateCategory: (name: string) => Promise<void>;
-  onUpdateCategory: (id: number, name: string) => Promise<void>;
+  onUpdateCategory: (
+    id: number,
+    updates: { name?: string; image?: string | null },
+  ) => Promise<void>;
   onDeleteCategory: (id: number) => Promise<void>;
   onCreateIngredient: (ingredient: Omit<AdminIngredient, 'id'>) => Promise<AdminIngredient | void>;
   onUpdateIngredient: (ingredient: AdminIngredient, imageUpdate?: string | null) => Promise<void>;
@@ -263,10 +266,50 @@ export function AdminCatalog(props: AdminCatalogProps) {
     setCategoryBusy(true);
     setCategoryFeedback('');
     try {
-      await props.onUpdateCategory(category.id, name);
+      await props.onUpdateCategory(category.id, { name });
       setCategoryFeedback('Categoria renomeada com sucesso.');
     } catch (error) {
       setCategoryFeedback(errorMessage(error, 'Não foi possível renomear a categoria.'));
+    } finally {
+      setCategoryBusy(false);
+    }
+  };
+
+  const updateCategoryImage = async (category: AdminCategory, file?: File) => {
+    if (!file) return;
+    setCategoryBusy(true);
+    setCategoryFeedback('');
+
+    try {
+      const image = await createPersistentImageDataUrl(file, 720, {
+        targetWidth: 720,
+        targetHeight: 720,
+      });
+      await props.onUpdateCategory(category.id, { image });
+      setCategoryFeedback('Categoria atualizada com sucesso.');
+    } catch (error) {
+      setCategoryFeedback(errorMessage(error, 'Não foi possível atualizar a foto da categoria.'));
+    } finally {
+      setCategoryBusy(false);
+    }
+  };
+
+  const removeCategoryImage = async (category: AdminCategory) => {
+    const confirmed = await confirmDialog({
+      title: 'Remover foto da categoria?',
+      description: `A categoria “${category.name}” voltará a usar o ícone padrão na Home.`,
+      confirmLabel: 'Remover foto',
+      tone: 'danger',
+    });
+    if (!confirmed) return;
+
+    setCategoryBusy(true);
+    setCategoryFeedback('');
+    try {
+      await props.onUpdateCategory(category.id, { image: null });
+      setCategoryFeedback('Categoria atualizada com sucesso.');
+    } catch (error) {
+      setCategoryFeedback(errorMessage(error, 'Não foi possível remover a foto da categoria.'));
     } finally {
       setCategoryBusy(false);
     }
@@ -710,16 +753,31 @@ export function AdminCatalog(props: AdminCatalogProps) {
                   <C.CategoryCard key={category.id} data-category-card>
                     <C.CategoryMedia
                       $color={categoryVisual.color}
-                      $imageCount={categoryImages.length}
+                      $imageCount={category.image ? 1 : categoryImages.length}
                     >
-                      {categoryImages.map((image, index) => (
-                        <img key={image} src={image} alt="" loading={index ? 'lazy' : 'eager'} />
-                      ))}
-                      {!categoryImages.length && (
-                        <div className="category-media-empty">
-                          <CategoryIcon aria-hidden="true" />
-                          <span>Sem produtos</span>
-                        </div>
+                      {category.image ? (
+                        <img
+                          className="category-cover-image"
+                          src={category.image}
+                          alt={`Foto da categoria ${category.name}`}
+                        />
+                      ) : (
+                        <>
+                          {categoryImages.map((image, index) => (
+                            <img
+                              key={image}
+                              src={image}
+                              alt=""
+                              loading={index ? 'lazy' : 'eager'}
+                            />
+                          ))}
+                          {!categoryImages.length && (
+                            <div className="category-media-empty">
+                              <CategoryIcon aria-hidden="true" />
+                              <span>Sem foto</span>
+                            </div>
+                          )}
+                        </>
                       )}
                       <span className="category-product-count">
                         <Package aria-hidden="true" /> {productCount}
@@ -740,6 +798,34 @@ export function AdminCatalog(props: AdminCatalogProps) {
                           <p>{productCount === 1 ? '1 produto' : `${productCount} produtos`}</p>
                         </div>
                       </div>
+                      <div className="category-image-actions">
+                        <label className="category-image-upload">
+                          <UploadCloud aria-hidden="true" />
+                          <span>{category.image ? 'Trocar foto' : 'Adicionar foto'}</span>
+                          <input
+                            type="file"
+                            accept="image/png,image/jpeg,image/webp"
+                            disabled={categoryBusy}
+                            onChange={(event) => {
+                              const file = event.target.files?.[0];
+                              event.currentTarget.value = '';
+                              void updateCategoryImage(category, file);
+                            }}
+                          />
+                        </label>
+                        {category.image ? (
+                          <button
+                            className="category-image-remove"
+                            type="button"
+                            disabled={categoryBusy}
+                            onClick={() => void removeCategoryImage(category)}
+                          >
+                            <ImageOff aria-hidden="true" />
+                            <span>Remover foto</span>
+                          </button>
+                        ) : null}
+                      </div>
+
                       <div className="category-card-actions">
                         <button
                           className="category-rename"

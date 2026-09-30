@@ -59,6 +59,8 @@ const product = {
   stock: null,
   image: 'https://example.test/prato.jpg',
   category: { id: 5, name: 'Principais' },
+  saleMode: 'BUILDABLE',
+  configurationVersion: 1,
   optionGroups: [
     {
       id: 10,

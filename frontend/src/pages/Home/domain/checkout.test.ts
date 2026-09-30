@@ -2,6 +2,8 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import {
   buildOrderPayload,
   buildOrderQuotePayload,
+  formatBrazilPhoneInput,
+  isValidWhatsappOrderPhone,
   readWhatsappOrderOptIn,
   readWhatsappOrderPhone,
   resolveOrderType,
@@ -35,7 +37,7 @@ describe('checkout', () => {
     expect(
       validateCheckout({
         type: 'DELIVERY',
-        customerPhone: '',
+        customerPhone: '(85) 99999-9999',
         deliveryAddress: { ...address, city: '' },
         cepStatus: 'success',
         paymentMethod: 'pix',
@@ -47,7 +49,7 @@ describe('checkout', () => {
     expect(
       validateCheckout({
         type: 'RETIRADA',
-        customerPhone: '',
+        customerPhone: '(85) 99999-9999',
         deliveryAddress: address,
         cepStatus: 'idle',
         paymentMethod: 'delivery_card',
@@ -59,7 +61,7 @@ describe('checkout', () => {
     expect(
       validateCheckout({
         type: 'DELIVERY',
-        customerPhone: '',
+        customerPhone: '(85) 99999-9999',
         deliveryAddress: address,
         cepStatus: 'success',
         paymentMethod: 'pickup_pix',
@@ -69,7 +71,7 @@ describe('checkout', () => {
     expect(
       validateCheckout({
         type: 'RETIRADA',
-        customerPhone: '',
+        customerPhone: '(85) 99999-9999',
         deliveryAddress: address,
         cepStatus: 'idle',
         paymentMethod: 'pickup_cash',
@@ -77,10 +79,10 @@ describe('checkout', () => {
     ).toBeNull();
   });
 
-  it('visitante precisa apenas informar o nome no frontend, sem CPF', () => {
+  it('visitante informa nome e telefone no frontend, sem exigir CPF', () => {
     const base = {
       type: 'RETIRADA' as const,
-      customerPhone: '',
+      customerPhone: '(85) 99999-9999',
       customerName: 'Samuel Gomes',
       customerCpf: '',
       requireGuestIdentity: true,
@@ -123,7 +125,7 @@ describe('checkout', () => {
       resolvedPaymentMethod: 'PIX',
       payload: {
         state: 'CE',
-        customerPhone: '(85) 99999-9999',
+        customerPhone: '85999999999',
         items: [{ productId: 12, quantity: 2 }],
       },
     });
@@ -134,7 +136,7 @@ describe('checkout', () => {
     ['pickup_card', 'CARTAO'],
     ['pickup_cash', 'DINHEIRO'],
   ] as const)(
-    'cria retirada %s como não paga e usa o WhatsApp do carrinho',
+    'cria retirada %s como não paga e usa o telefone informado no checkout',
     (paymentMethod, expectedMethod) => {
       writeWhatsappOrderPhone(7, '(85) 99999-9999');
       const result = buildOrderPayload({
@@ -154,7 +156,7 @@ describe('checkout', () => {
           type: 'RETIRADA',
           payOnDelivery: false,
           payOnDeliveryMethod: expectedMethod,
-          customerPhone: '(85) 99999-9999',
+          customerPhone: '11988887777',
         },
       });
       expect(result.payload).not.toHaveProperty('paymentMethod');
@@ -243,8 +245,27 @@ describe('checkout', () => {
       deliveryAddress: address,
     });
 
-    expect(readWhatsappOrderPhone(7)).toBe('(85) 99999-9999');
-    expect(order.payload.customerPhone).toBe('(85) 99999-9999');
+    expect(readWhatsappOrderPhone(7)).toBe('85999999999');
+    expect(order.payload.customerPhone).toBe('11988887777');
+  });
+
+  it('formata DDD + número e permite o campo ser apagado completamente', () => {
+    expect(formatBrazilPhoneInput('85999999999')).toBe('(85) 99999-9999');
+    expect(formatBrazilPhoneInput('')).toBe('');
+    expect(isValidWhatsappOrderPhone('(85) 99999-9999')).toBe(true);
+    expect(isValidWhatsappOrderPhone('+55 (85) 99999-9999')).toBe(false);
+  });
+
+  it('rejeita DDI no telefone do checkout', () => {
+    expect(
+      validateCheckout({
+        type: 'RETIRADA',
+        customerPhone: '+55 (85) 99999-9999',
+        deliveryAddress: address,
+        cepStatus: 'idle',
+        paymentMethod: 'pix',
+      })?.title,
+    ).toBe('Informe seu telefone');
   });
 
   it('mantém opt-in e telefone de WhatsApp isolados por restaurante', () => {
@@ -253,8 +274,8 @@ describe('checkout', () => {
     writeWhatsappOrderOptIn(7, true);
     writeWhatsappOrderOptIn(8, false);
 
-    expect(readWhatsappOrderPhone(7)).toBe('(85) 99999-9999');
-    expect(readWhatsappOrderPhone(8)).toBe('(11) 98888-7777');
+    expect(readWhatsappOrderPhone(7)).toBe('85999999999');
+    expect(readWhatsappOrderPhone(8)).toBe('11988887777');
     expect(readWhatsappOrderOptIn(7)).toBe(true);
     expect(readWhatsappOrderOptIn(8)).toBe(false);
 
@@ -268,7 +289,7 @@ describe('checkout', () => {
     });
 
     expect(order.payload.whatsappOptIn).toBe(true);
-    expect(order.payload.customerPhone).toBe('(85) 99999-9999');
+    expect(order.payload.customerPhone).toBe('85999999999');
   });
 
   it('leva o resgate escolhido para a cotação e para o pedido sem enviar preço do navegador', () => {

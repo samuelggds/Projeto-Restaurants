@@ -1,15 +1,14 @@
-import { useState, useCallback, useEffect, useMemo } from 'react';
+import { lazy, Suspense, useState, useCallback, useEffect, useMemo } from 'react';
 import { useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../../contexts/authContext';
 import { FigmaDeliveryExperience } from './FigmaDeliveryExperience';
-import { FigmaCheckoutFlow, type FigmaCheckoutStep } from './FigmaCheckoutFlow';
+import type { FigmaCheckoutStep } from './FigmaCheckoutFlow';
 import * as S from './Home.styles';
 import {
   useDefaultRestaurantId,
   useResolvedRestaurantId,
   useRestaurantCatalog,
 } from './hooks/useRestaurantCatalog';
-import { useFavorites } from './hooks/useFavorites';
 import { useCart } from './hooks/useCart';
 import { useDeliveryAddress } from './hooks/useDeliveryAddress';
 import { getCheckoutErrorMessage, useCheckoutPayments } from './hooks/useCheckoutPayments';
@@ -20,14 +19,13 @@ import { buildHomeData } from '../Home/adapters/homeDataAdapter';
 import { TableAccessGate } from './components/TableAccessGate';
 import { PaymentOptions } from '../Home/components/PaymentOptions';
 import { LoyaltyCouponPanel } from '../Home/components/LoyaltyCouponPanel';
-import { ProductConfigurator } from '../Home/components/ProductConfigurator';
-import { ComboConfigurator } from '../Home/components/ComboConfigurator';
 import { GuestAddressCheckout } from '../Home/components/GuestAddressCheckout';
 import { AuthenticatedAddressCheckout } from '../Home/components/AuthenticatedAddressCheckout';
 import { AuthenticatedEmptyAddressCheckout } from '../Home/components/AuthenticatedEmptyAddressCheckout';
 import { FigmaPaymentCheckout } from '../Home/components/FigmaPaymentCheckout';
 import { HomePaymentOutcome } from './components/HomePaymentOutcome';
-import { HomeFeedback, type HomeNotification } from '../Home/components/HomeFeedback';
+import { HomeFeedback } from '../Home/components/HomeFeedback';
+import { useHomeNotifications } from './hooks/useHomeNotifications';
 import {
   buildOrderPayload,
   resolveOrderType,
@@ -52,14 +50,28 @@ import { useCardPaymentReturn } from './hooks/useCardPaymentReturn';
 import { buildLoginUrl } from '../../shared/navigation/authNavigation';
 import TableMenuExperience from '../digital-menu/TableMenuExperience';
 import type { HomeProduct } from './types';
+import { createReadyProductConfiguration, resolveProductEntryKind } from './domain/productEntryFlow';
 
-type GuestCheckoutDetails = {
-  name: string;
-  cpf?: string;
-  phone?: string;
-};
+const FigmaCheckoutFlow = lazy(() =>
+  import('./FigmaCheckoutFlow').then((module) => ({
+    default: module.FigmaCheckoutFlow,
+  })),
+);
 
-type NotifType = 'success' | 'error' | 'info' | 'warning';
+const ProductConfigurator = lazy(() =>
+  import('../Home/components/ProductConfigurator').then((module) => ({
+    default: module.ProductConfigurator,
+  })),
+);
+
+const ComboConfigurator = lazy(() =>
+  import('../Home/components/ComboConfigurator').then((module) => ({
+    default: module.ComboConfigurator,
+  })),
+);
+
+type GuestCheckoutDetails = { name: string; cpf?: string; phone?: string };
+
 type HomeNavigationState = {
   openCart?: boolean;
   openSearch?: boolean;
@@ -112,6 +124,9 @@ export default function Home() {
     cpf: '',
     phone: '',
   });
+  const [checkoutCustomerPhone, setCheckoutCustomerPhone] = useState(() =>
+    String((user as Record<string, unknown> | null)?.phone || ''),
+  );
   const {
     deliveryAddress,
     setDeliveryAddress,
@@ -124,7 +139,11 @@ export default function Home() {
     selectedAddressId,
     handleSavedAddressChange,
   } = useDeliveryAddress(user);
-  const [notifs, setNotifs] = useState<HomeNotification[]>([]);
+  const {
+    notifications: notifs,
+    notify,
+    dismissNotification: dismissNotif,
+  } = useHomeNotifications();
   const [tableServiceLoading, setTableServiceLoading] = useState<'WAITER' | 'BILL' | null>(null);
   const [tableOrderLoading, setTableOrderLoading] = useState(false);
   const [tableMenuReviewCartOpen, setTableMenuReviewCartOpen] = useState(false);
@@ -146,42 +165,7 @@ export default function Home() {
       document.body.style.overflow = previousOverflow;
     };
   }, [cartOpen]);
-  const notify = useCallback(
-    (
-      type: NotifType,
-      title: string,
-      msg?: string,
-      duration = 3500,
-      action?: HomeNotification['action'],
-    ) => {
-      const id = Date.now();
-      setNotifs((prev) => {
-        const current =
-          action === 'open-cart' ? prev.filter((item) => item.action !== action) : prev;
-        const duplicate = current.some(
-          (notification) =>
-            notification.title === title &&
-            notification.msg === msg &&
-            notification.action === action,
-        );
-        if (duplicate) return current;
-        return [...current.slice(-2), { id, type, title, msg, visible: false, action }];
-      });
-      requestAnimationFrame(() =>
-        setNotifs((prev) => prev.map((n) => (n.id === id ? { ...n, visible: true } : n))),
-      );
-      setTimeout(() => {
-        setNotifs((prev) => prev.map((n) => (n.id === id ? { ...n, visible: false } : n)));
-        setTimeout(() => setNotifs((prev) => prev.filter((n) => n.id !== id)), 400);
-      }, duration);
-    },
-    [],
-  );
 
-  function dismissNotif(id: number) {
-    setNotifs((prev) => prev.map((n) => (n.id === id ? { ...n, visible: false } : n)));
-    setTimeout(() => setNotifs((prev) => prev.filter((n) => n.id !== id)), 400);
-  }
 
   const {
     routeRestaurantId,
@@ -243,25 +227,6 @@ export default function Home() {
     notify,
   });
 
-  const requireFavoriteLogin = navigateToLogin;
-  const { favoriteProductIds, toggleFavorite } = useFavorites({
-    user,
-    restaurantId,
-    onRequireLogin: requireFavoriteLogin,
-    onAdded: () =>
-      notify(
-        'success',
-        'Adicionado aos favoritos',
-        'Você pode encontrar este produto em Favoritos no seu perfil.',
-      ),
-    onRemoved: () => notify('info', 'Removido dos favoritos'),
-    onError: () =>
-      notify(
-        'error',
-        'Não foi possível atualizar os favoritos',
-        'Tente novamente em alguns instantes.',
-      ),
-  });
   const handleCatalogError = useCallback(
     (message?: string) => {
       notify('error', 'Erro ao carregar cardápio', message);
@@ -343,6 +308,41 @@ export default function Home() {
     selectedRedemptionId && availableRedemptionIds.has(selectedRedemptionId)
       ? selectedRedemptionId
       : null;
+
+  const applyCheckoutCouponCode = useCallback(
+    (value: string) => {
+      const code = String(value || '').trim().toUpperCase();
+      if (!code) return;
+
+      if (!isLoyaltyCustomer) {
+        notify(
+          'info',
+          'Entre para usar seu cupom',
+          'Faça login para consultar e aplicar os cupons disponíveis na sua conta.',
+        );
+        return;
+      }
+
+      const match = loyaltyRedemptionEntries(loyalty.summary).find(
+        ({ coupon, redemption }) =>
+          isUsableLoyaltyRedemption(redemption, loyaltyClock) &&
+          String(coupon.code || '').trim().toUpperCase() === code,
+      );
+
+      if (!match) {
+        notify(
+          'warning',
+          'Cupom não disponível',
+          'Confira o código ou escolha um dos cupons disponíveis na sua conta.',
+        );
+        return;
+      }
+
+      setSelectedRedemptionId(match.redemption.id);
+    },
+    [isLoyaltyCustomer, loyalty.summary, loyaltyClock, notify],
+  );
+
   const checkoutOrderType = resolveOrderType(mesaMode, availableOrderType);
   const rawCardReturnStatus = String(searchParams.get('cardCheckoutStatus') || '').toLowerCase();
   const cardProviderReturnStatus = ['success', 'pending', 'cancel'].includes(rawCardReturnStatus)
@@ -385,22 +385,15 @@ export default function Home() {
   }, [cart, homeData.products]);
 
   const handleCrossSellAdd = (product: HomeProduct) => {
-    if (product.kind === 'COMBO') {
+    const entryKind = resolveProductEntryKind(product);
+
+    if (entryKind === 'COMBO') {
       setCrossSellCombo(product);
       return;
     }
 
-    if (product.saleMode === 'COMPLETE') {
-      addToCart(
-        product.id,
-        {
-          selectedOptions: [],
-          selectedOptionIds: [],
-          observation: '',
-          configurationVersion: product.configurationVersion,
-        },
-        1,
-      );
+    if (entryKind === 'READY') {
+      addToCart(product.id, createReadyProductConfiguration(product.configurationVersion), 1);
       return;
     }
 
@@ -573,7 +566,10 @@ export default function Home() {
       return;
     }
 
-    const customer = (user || guestCheckoutDetails) as Record<string, unknown>;
+    const customer = {
+      ...((user || guestCheckoutDetails) as Record<string, unknown>),
+      phone: user ? resolvedCheckoutCustomerPhone : guestCheckoutDetails.phone,
+    } as Record<string, unknown>;
     const type = checkoutOrderType;
 
     const issue = validateCheckout({
@@ -658,6 +654,8 @@ export default function Home() {
     }
   }
 
+  const resolvedCheckoutCustomerPhone = checkoutCustomerPhone;
+
   const primary = homeData.brand.primaryColor || '#d64d08';
   const whatsappUrl = buildWhatsAppUrl(
     homeData.brand.whatsapp,
@@ -717,8 +715,8 @@ export default function Home() {
       navigate('/profile?view=orders');
       return;
     }
-    navigateToLogin();
-  }, [navigate, navigateToLogin, user]);
+    navigate(`/${restaurantSlug}/pedidos`);
+  }, [navigate, restaurantSlug, user]);
   const openAdmin = useCallback(() => navigate('/admin'), [navigate]);
   const handleLogout = useCallback(() => logout(), [logout]);
 
@@ -912,7 +910,6 @@ export default function Home() {
         isTableMenu={mesaMode}
         orderingLocked={tableClosingRequested}
         tableLabel={mesaMode ? mesaLabel : undefined}
-        favoriteProductIds={!mesaMode && user?.role === 'CLIENTE' ? favoriteProductIds : undefined}
         savedAddresses={savedAddresses}
         selectedAddressId={selectedAddressId}
         onSelectAddress={selectDeliveryAddress}
@@ -923,19 +920,20 @@ export default function Home() {
         onOpenOrders={mesaMode ? undefined : openOrders}
         onOpenAdmin={openAdmin}
         onAddProduct={tableClosingRequested ? () => undefined : addToCart}
-        onToggleFavorite={mesaMode ? undefined : toggleFavorite}
         onLogout={handleLogout}
         whatsappUrl={whatsappUrl}
         whatsappLabel={whatsappLabel}
       />
 
       {cartOpen ? (
-        <FigmaCheckoutFlow
+        <Suspense fallback={null}>
+          <FigmaCheckoutFlow
           primaryColor={primary}
           brandName={homeData.brand.name}
           logoUrl={homeData.brand.logoUrl}
           isOpen={homeData.isOpen}
           deliveryTime={homeData.deliveryTime}
+          userName={user ? String((user as Record<string, unknown>).name || '') : undefined}
           step={checkoutStep}
           cart={cart}
           cartCount={cartCount}
@@ -943,9 +941,18 @@ export default function Home() {
           quote={orderQuote.quote}
           loading={checkoutLoading}
           canContinue={
-            checkoutStep !== 'payment' || (checkoutChannelAvailable && paymentAvailable)
+            homeData.isOpen &&
+            (checkoutStep !== 'payment' || (checkoutChannelAvailable && paymentAvailable))
           }
           onStepChange={(nextStep) => {
+            if (nextStep !== 'cart' && !homeData.isOpen) {
+              notify(
+                'warning',
+                'Restaurante fechado',
+                'O restaurante não está recebendo pedidos no momento.',
+              );
+              return;
+            }
             if (nextStep === 'payment') {
               const customer = (user || guestCheckoutDetails) as Record<string, unknown>;
               const issue = validateCheckout({
@@ -974,7 +981,7 @@ export default function Home() {
           }
           onClear={() => setCart([])}
           onClose={() => setCartOpen(false)}
-          onLogin={navigateToLogin}
+          onLogin={user ? openProfile : navigateToLogin}
           onSubmit={() => void handleCheckout()}
           recommendations={checkoutRecommendations}
           onAddRecommendation={handleCrossSellAdd}
@@ -992,6 +999,10 @@ export default function Home() {
                 onGuestNameChange={(name) =>
                   setGuestCheckoutDetails((current) => ({ ...current, name }))
                 }
+                guestPhone={guestCheckoutDetails.phone || ''}
+                onGuestPhoneChange={(phone) =>
+                  setGuestCheckoutDetails((current) => ({ ...current, phone }))
+                }
                 total={checkoutTotal}
                 deliveryFee={orderQuote.quote?.deliveryFeeAmount || 0}
                 orderType={availableOrderType}
@@ -1006,8 +1017,24 @@ export default function Home() {
                 onOrderTypeChange={setOrderType}
                 onLogin={navigateToLogin}
                 onBack={() => setCheckoutStep('cart')}
-                onContinue={() => setCheckoutStep('payment')}
-                disabled={!checkoutChannelAvailable}
+                onContinue={() => {
+                  const issue = validateCheckout({
+                    type: checkoutOrderType,
+                    customerPhone: guestCheckoutDetails.phone,
+                    customerName: guestCheckoutDetails.name,
+                    customerCpf: guestCheckoutDetails.cpf,
+                    requireGuestIdentity: true,
+                    deliveryAddress,
+                    cepStatus,
+                    paymentMethod: selectedCheckoutPaymentMethod,
+                  });
+                  if (issue) {
+                    notify('warning', issue.title, issue.message);
+                    return;
+                  }
+                  setCheckoutStep('payment');
+                }}
+                disabled={!homeData.isOpen || !checkoutChannelAvailable}
                 loading={orderQuote.loading}
               />
             ) : undefined
@@ -1023,6 +1050,8 @@ export default function Home() {
                 brandName={homeData.brand.name}
                 logoUrl={homeData.brand.logoUrl}
                 userName={String((user as Record<string, unknown>).name || '')}
+                customerPhone={resolvedCheckoutCustomerPhone}
+                onCustomerPhoneChange={setCheckoutCustomerPhone}
                 isOpen={homeData.isOpen}
                 deliveryTime={homeData.deliveryTime}
                 cart={cart}
@@ -1050,7 +1079,7 @@ export default function Home() {
                   const customer = user as Record<string, unknown>;
                   const issue = validateCheckout({
                     type: checkoutOrderType,
-                    customerPhone: customer.phone,
+                    customerPhone: resolvedCheckoutCustomerPhone,
                     customerName: customer.name,
                     customerCpf: customer.cpf,
                     requireGuestIdentity: false,
@@ -1064,7 +1093,7 @@ export default function Home() {
                   }
                   setCheckoutStep('payment');
                 }}
-                disabled={!checkoutChannelAvailable}
+                disabled={!homeData.isOpen || !checkoutChannelAvailable}
                 loading={orderQuote.loading}
               />
             ) : undefined
@@ -1080,6 +1109,8 @@ export default function Home() {
                 brandName={homeData.brand.name}
                 logoUrl={homeData.brand.logoUrl}
                 userName={String((user as Record<string, unknown>).name || 'Cliente').split(' ')[0]}
+                customerPhone={resolvedCheckoutCustomerPhone}
+                onCustomerPhoneChange={setCheckoutCustomerPhone}
                 isOpen={homeData.isOpen}
                 deliveryTime={homeData.deliveryTime}
                 cart={cart}
@@ -1109,7 +1140,7 @@ export default function Home() {
                 onContinue={() => {
                   const issue = validateCheckout({
                     type: checkoutOrderType,
-                    customerPhone: user.phone,
+                    customerPhone: resolvedCheckoutCustomerPhone,
                     customerName: user.name,
                     customerCpf: user.cpf,
                     requireGuestIdentity: false,
@@ -1123,7 +1154,7 @@ export default function Home() {
                   }
                   setCheckoutStep('payment');
                 }}
-                disabled={!checkoutChannelAvailable}
+                disabled={!homeData.isOpen || !checkoutChannelAvailable}
                 loading={orderQuote.loading}
               />
             ) : undefined
@@ -1133,6 +1164,7 @@ export default function Home() {
               primaryColor={primary}
               loggedIn={Boolean(user)}
               brandName={homeData.brand.name}
+              logoUrl={homeData.brand.logoUrl}
               cart={cart}
               cartCount={cartCount}
               subtotal={
@@ -1162,6 +1194,7 @@ export default function Home() {
               loading={checkoutLoading}
             />
           }
+          onApplyCouponCode={applyCheckoutCouponCode}
           couponContent={
             <LoyaltyCouponPanel
               loggedIn={isLoyaltyCustomer}
@@ -1170,38 +1203,43 @@ export default function Home() {
               summary={loyalty.summary}
               selectedRedemptionId={appliedRedemptionId}
               redeemingCouponId={loyalty.redeemingCouponId}
-              onSelect={setSelectedRedemptionId}
+              onSelect={(redemptionId) => setSelectedRedemptionId(redemptionId)}
               onLogin={navigateToLogin}
               onRetry={() => void loyalty.refresh()}
               onRedeem={(couponId) => void loyalty.redeem(couponId)}
             />
           }
-        />
+          />
+        </Suspense>
       ) : null}
 
       {crossSellProduct ? (
-        <ProductConfigurator
-          product={crossSellProduct}
-          primaryColor={primary}
-          enableProductQuantity
-          onClose={() => setCrossSellProduct(null)}
-          onConfirm={(configuration, quantity) => {
-            addToCart(crossSellProduct.id, configuration, quantity || 1);
-            setCrossSellProduct(null);
-          }}
-        />
+        <Suspense fallback={null}>
+          <ProductConfigurator
+            product={crossSellProduct}
+            primaryColor={primary}
+            enableProductQuantity
+            onClose={() => setCrossSellProduct(null)}
+            onConfirm={(configuration, quantity) => {
+              addToCart(crossSellProduct.id, configuration, quantity || 1);
+              setCrossSellProduct(null);
+            }}
+          />
+        </Suspense>
       ) : null}
 
       {crossSellCombo ? (
-        <ComboConfigurator
-          product={crossSellCombo}
-          primaryColor={primary}
-          onClose={() => setCrossSellCombo(null)}
-          onConfirm={(configuration) => {
-            addToCart(crossSellCombo.id, configuration, 1);
-            setCrossSellCombo(null);
-          }}
-        />
+        <Suspense fallback={null}>
+          <ComboConfigurator
+            product={crossSellCombo}
+            primaryColor={primary}
+            onClose={() => setCrossSellCombo(null)}
+            onConfirm={(configuration) => {
+              addToCart(crossSellCombo.id, configuration, 1);
+              setCrossSellCombo(null);
+            }}
+          />
+        </Suspense>
       ) : null}
 
       <HomeFeedback

@@ -8,10 +8,10 @@ export const defaultBusinessHours = [
   ['friday', 'Sexta-feira'],
   ['saturday', 'Sábado'],
   ['sunday', 'Domingo'],
-].map(([id, label], index) => ({
+].map(([id, label]) => ({
   id,
   label,
-  enabled: index !== 6,
+  enabled: false,
   openingTime: '11:00',
   closingTime: '23:00',
 }));

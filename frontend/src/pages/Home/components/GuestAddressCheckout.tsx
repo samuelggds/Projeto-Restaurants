@@ -3,6 +3,7 @@ import type { Dispatch, SetStateAction } from 'react';
 import { AddressLocationMap } from './AddressLocationMap';
 import { DeliveryAddressForm } from './DeliveryAddressForm';
 import type { DeliveryAddress } from '../hooks/useDeliveryAddress';
+import { BRAZIL_PHONE_CHECKOUT_MESSAGE, formatBrazilPhoneInput, isValidWhatsappOrderPhone } from '../domain/checkout';
 import * as S from './GuestAddressCheckout.styles';
 
 const money = (value: number) =>
@@ -18,6 +19,8 @@ type Props = {
   cartCount: number;
   guestName: string;
   onGuestNameChange: (value: string) => void;
+  guestPhone: string;
+  onGuestPhoneChange: (value: string) => void;
   total: number;
   deliveryFee: number;
   orderType: 'delivery' | 'pickup';
@@ -46,6 +49,8 @@ export function GuestAddressCheckout({
   cartCount,
   guestName,
   onGuestNameChange,
+  guestPhone,
+  onGuestPhoneChange,
   total,
   deliveryFee,
   orderType,
@@ -148,7 +153,31 @@ export function GuestAddressCheckout({
               placeholder="Como podemos chamar você?"
               onChange={(event) => onGuestNameChange(event.target.value)}
             />
-            <small>Usaremos este nome apenas para identificar seu pedido.</small>
+
+            <label htmlFor="guest-order-phone">Telefone / WhatsApp</label>
+            <input
+              id="guest-order-phone"
+              type="tel"
+              inputMode="tel"
+              autoComplete="tel"
+              value={formatBrazilPhoneInput(guestPhone)}
+              maxLength={24}
+              required
+              placeholder="(85) 99999-9999"
+              aria-invalid={Boolean(guestPhone) && !isValidWhatsappOrderPhone(guestPhone)}
+              onChange={(event) => onGuestPhoneChange(formatBrazilPhoneInput(event.target.value))}
+            />
+
+            <small>
+              Telefone obrigatório para finalizar o pedido. Notificações por WhatsApp continuam
+              dependendo da sua autorização.
+            </small>
+            {!isValidWhatsappOrderPhone(guestPhone) ? (
+              <div className="phone-warning" role="alert">
+                <strong>Confira o telefone</strong>
+                <span>{BRAZIL_PHONE_CHECKOUT_MESSAGE}</span>
+              </div>
+            ) : null}
           </S.GuestIdentity>
 
           {orderType === 'delivery' ? (
@@ -199,14 +228,14 @@ export function GuestAddressCheckout({
       <S.DesktopFooter>
         <div className="top">
           <section>
-            <div className="footer-brand"><span>G</span><b>GastroNexa</b></div>
+            <div className="footer-brand"><span>{logoUrl ? <img src={logoUrl} alt="" /> : brandName.slice(0, 1).toUpperCase()}</span><b>{brandName}</b></div>
             <p>Sua experiência gourmet completa, direto do conforto de sua casa. O melhor do {brandName} entregue rápido.</p>
           </section>
           <section><b>Nossos Links</b><span>Cardápio</span><span>Cupons Ativos</span><span>Perguntas Frequentes</span></section>
-          <section><b>Suporte</b><span>Falar no Chat</span><span>Central de Ajuda</span><span>Termos de Serviço</span></section>
+          <section><b>Suporte</b><span>Falar no Chat</span><span>Central de Ajuda</span><a href="/termos/">Termos de Serviço</a></section>
           <section><b>Sua Loja Segura</b><p>GastroNexa é multi-tenant. Cada restaurante é operado diretamente por seu administrador autorizado.</p></section>
         </div>
-        <div className="bottom"><span>© {new Date().getFullYear()} GastroNexa & {brandName}. Todos os direitos reservados.</span><span>Privacidade · Cookies</span></div>
+        <div className="bottom"><span>© {new Date().getFullYear()} {brandName}. Todos os direitos reservados.</span><span className="legal-links"><a href="/privacidade/">Privacidade</a><span aria-hidden="true">·</span><a href="/cookies/">Cookies</a></span></div>
       </S.DesktopFooter>
 
       <S.MobileAction>

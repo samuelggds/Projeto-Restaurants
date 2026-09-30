@@ -37,13 +37,13 @@ export const FloatingWhatsApp = styled.a`
 
   @media (max-width: 700px) {
     right: 14px;
-    bottom: calc(150px + env(safe-area-inset-bottom, 0px));
-    width: 54px;
-    height: 54px;
+    bottom: calc(144px + env(safe-area-inset-bottom, 0px));
+    width: 52px;
+    height: 52px;
 
     svg {
-      width: 25px;
-      height: 25px;
+      width: 24px;
+      height: 24px;
     }
   }
   @media (prefers-reduced-motion: reduce) {

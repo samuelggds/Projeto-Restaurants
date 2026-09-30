@@ -363,7 +363,7 @@ test('cliente vê promoção, aplica benefício de fidelidade e envia o resgate 
   const checkout = page.getByRole('dialog', { name: 'Finalizar pedido' });
   await expect(checkout).toBeVisible();
   await expect(checkout.getByRole('region', { name: 'Cupom de fidelidade' })).toHaveCount(0);
-  await checkout.getByRole('button', { name: /Cupom de desconto.*Aplicar/ }).click();
+  await checkout.getByRole('textbox', { name: 'Código do cupom' }).focus();
   const couponOptions = checkout.getByRole('region', { name: 'Opções de cupom' });
   await couponOptions.getByRole('button', { name: /Cliente fiel.*Aplicar/ }).click();
 
@@ -375,6 +375,21 @@ test('cliente vê promoção, aplica benefício de fidelidade e envia o resgate 
 
   await checkout.getByRole('button', { name: 'Continuar', exact: true }).click();
   await expect(checkout.getByRole('heading', { name: 'Endereço de entrega' })).toBeVisible();
+
+  const orderPhone = checkout.getByLabel('Telefone / WhatsApp');
+  await expect(orderPhone).toHaveValue(/\(85\).*99999-9999|85999999999/);
+  await orderPhone.fill('');
+  await expect(orderPhone).toHaveValue('');
+  await expect(checkout.getByRole('alert')).toContainText('Use somente DDD + número, sem +55');
+
+  await orderPhone.fill('+55 (85) 99999-9999');
+  await expect(checkout.getByRole('alert')).toContainText('Use somente DDD + número, sem +55');
+
+  await orderPhone.fill('85999999999');
+  await expect(orderPhone).toHaveValue('(85) 99999-9999');
+  await expect(checkout.getByText('Confira o telefone')).toHaveCount(0);
+
+  // telefone do checkout pode ser apagado sem restaurar automaticamente o valor do perfil
   await checkout.getByRole('button', { name: 'Retirada', exact: true }).click();
   await checkout.getByRole('button', { name: 'Continuar', exact: true }).click();
 

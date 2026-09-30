@@ -9,7 +9,6 @@ import categoryRoutes from '../modules/categories/routes/CategoryRoutes.js';
 import employeeRoutes from '../modules/employee/routes/EmployeeRoutes.js';
 import tableSessionRoutes from '../modules/tableSession/routes/SessionsTablesRoutes.js';
 import tableRoutes from '../modules/table/routes/TablesRoutes.js';
-import { authMiddleware } from '../middlewares/authMiddleware.js';
 import restaurantSettingsRoutes from '../modules/restaurantSettings/routes/RestaurantSettingsRoutes.js';
 import bannerRoutes from '../modules/banner/routes/BannerRoutes.js';
 import couponRoutes from '../modules/coupon/routes/CouponRoutes.js';
@@ -17,7 +16,6 @@ import subscriptionRoutes from '../modules/subscription/routes/SubscriptionRoute
 import aiSupportRoutes from '../modules/aiSupport/routes/AiSupportRoutes.js';
 import menuImportRoutes from '../modules/menuImport/routes/MenuImportRoutes.js';
 import auditRoutes from '../modules/audit/routes/AuditRoutes.js';
-import favoriteRoutes from '../modules/favorites/routes/FavoriteRoutes.js';
 import imageEnhancementRoutes from '../modules/imageEnhancement/routes/ImageEnhancementRoutes.js';
 import customerAddressRoutes from '../modules/customerAddresses/routes/CustomerAddressRoutes.js';
 import AsaasOrderWebhookController from '../modules/orders/controllers/AsaasOrderWebhookController.js';
@@ -92,7 +90,6 @@ router.use('/subscription', subscriptionRoutes);
 router.use('/ai-support', aiSupportRoutes);
 router.use('/menu-import', menuImportRoutes);
 router.use('/audit-logs', auditRoutes);
-router.use('/favorites', favoriteRoutes);
 router.use('/image-enhancement', imageEnhancementRoutes);
 router.use('/customer-addresses', customerAddressRoutes);
 router.use('/customer-payment-methods', customerPaymentMethodRoutes);
@@ -110,11 +107,5 @@ router.use('/super-admin', superAdminRoutes);
 router.use('/admin-portal', adminPortalRoutes);
 router.use('/public-media', publicMediaRoutes);
 
-router.get('/profile', authMiddleware, (req, res) => {
-  return res.json({
-    message: 'Rota protegida!',
-    user: req.user,
-  });
-});
 
 export default router;

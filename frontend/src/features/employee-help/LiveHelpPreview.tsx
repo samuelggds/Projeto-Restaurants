@@ -116,7 +116,7 @@ export function LiveHelpPreview({ area, title }: { area: string; title: string }
       </div>
       <figcaption>
         Role dentro da prévia para consultar toda a tela. Os dados são fictícios e os controles são
-        apenas ilustrativos. Para usar as ações, abra seu painel ou experimente a demonstração.
+        apenas ilustrativos. Para usar as ações, abra seu painel autenticado.
       </figcaption>
     </Figure>
   );

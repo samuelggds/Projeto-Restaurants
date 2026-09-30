@@ -158,3 +158,331 @@ section a { color: #2f6547; font-weight: 750; text-underline-offset: 3px; }
   .site-footer { flex-direction: column; }
   .back-link { font-size: 11px; }
 }
+
+
+/* GastroNexa Terms v2 */
+.terms-page {
+  --terms-orange: #f35d35;
+  --terms-text: #24201d;
+  --terms-muted: #817b75;
+  --terms-line: #eee8e2;
+  background: #fffdfb;
+  color: var(--terms-text);
+}
+
+.terms-page .terms-topbar {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  min-height: 64px;
+  border-bottom: 1px solid var(--terms-line);
+  background: rgba(255,255,255,.96);
+  backdrop-filter: blur(14px);
+}
+
+.terms-topbar-inner {
+  width: min(1320px, calc(100% - 48px));
+  min-height: 64px;
+  margin: 0 auto;
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.terms-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  color: #201d1a;
+  font-size: 22px;
+  font-weight: 850;
+  text-decoration: none;
+}
+
+.terms-brand img {
+  width: 32px;
+  height: 32px;
+  display: block;
+  object-fit: contain;
+}
+
+.terms-brand-name {
+  display: inline-flex;
+  align-items: baseline;
+  letter-spacing: -.035em;
+  font-weight: 850;
+  line-height: 1;
+}
+
+.terms-brand-gastro { color: #171513; }
+.terms-brand-nexa { color: var(--terms-orange); }
+
+.terms-desktop-title {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  color: #201d1a;
+  font-size: 20px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.terms-mobile-back,
+.terms-mobile-title { display: none; }
+
+.terms-layout {
+  width: min(1220px, calc(100% - 56px));
+  margin: 0 auto;
+  padding: 48px 0 80px;
+  display: grid;
+  grid-template-columns: 220px minmax(0, 1fr);
+  align-items: start;
+  gap: 34px;
+}
+
+.terms-index {
+  position: sticky;
+  top: 94px;
+  padding: 22px;
+  border: 1px solid var(--terms-line);
+  border-radius: 12px;
+  background: #fff;
+  display: grid;
+  gap: 10px;
+}
+
+.terms-index > span {
+  margin-bottom: 5px;
+  color: #aaa29a;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: .08em;
+}
+
+.terms-index a {
+  color: #5f5954;
+  font-size: 15px;
+  text-decoration: none;
+}
+
+.terms-index a::first-letter { color: var(--terms-orange); }
+
+.terms-index small {
+  margin-top: 12px;
+  color: #8f8780;
+  font-size: 13px;
+  line-height: 1.65;
+}
+
+.terms-index small b { color: #4a4541; }
+
+.terms-document {
+  overflow: hidden;
+  border: 1px solid var(--terms-line);
+  border-radius: 14px;
+  background: #fff;
+}
+
+.terms-hero {
+  padding: 34px 38px 28px;
+  border-bottom: 1px solid var(--terms-line);
+}
+
+.terms-eyebrow {
+  color: var(--terms-orange);
+  font-size: 10px;
+  font-weight: 850;
+  letter-spacing: .05em;
+}
+
+.terms-hero h1 {
+  margin: 10px 0 8px;
+  color: #211e1b;
+  font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+  font-size: 42px;
+  font-weight: 850;
+  letter-spacing: -.035em;
+  line-height: 1.1;
+}
+
+.terms-hero p {
+  max-width: 820px;
+  color: #817a74;
+  font-size: 17px;
+  line-height: 1.75;
+}
+
+.terms-mobile-update { display: none; }
+
+.terms-document section {
+  padding: 26px 38px;
+  border-top: 0;
+  border-bottom: 1px solid var(--terms-line);
+}
+
+.terms-document section:last-child { border-bottom: 0; }
+
+.terms-document h2 {
+  margin: 0 0 11px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #27231f;
+  font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+  font-size: 20px;
+  font-weight: 800;
+  letter-spacing: 0;
+}
+
+.terms-document h2 span {
+  width: 20px;
+  height: 20px;
+  border-radius: 5px;
+  display: grid;
+  place-items: center;
+  background: #fff2ed;
+  color: var(--terms-orange);
+  font-size: 12px;
+}
+
+.terms-document section p {
+  margin: 0;
+  color: #817a74;
+  font-size: 16px;
+  line-height: 1.85;
+}
+
+.terms-footer {
+  padding: 48px max(32px, calc((100vw - 1220px)/2));
+  background: #1e1c19;
+  color: #fff;
+  display: grid;
+  grid-template-columns: 1.4fr repeat(3, .8fr);
+  gap: 42px;
+}
+
+.terms-footer > div { display: grid; align-content: start; gap: 10px; }
+
+.terms-footer strong { font-size: 15px; }
+
+.terms-footer p,
+.terms-footer a {
+  margin: 0;
+  color: #8e8983;
+  font-size: 13px;
+  line-height: 1.75;
+  text-decoration: none;
+}
+
+.terms-footer small {
+  grid-column: 1/-1;
+  padding-top: 28px;
+  border-top: 1px solid #35322e;
+  color: #77716b;
+  font-size: 12px;
+}
+
+@media (max-width: 720px) {
+  .terms-page .terms-topbar { min-height: 52px; }
+  .terms-topbar-inner {
+    width: 100%;
+    min-height: 52px;
+    padding: 0 14px;
+    display: grid;
+    grid-template-columns: 28px 1fr 28px;
+    gap: 8px;
+  }
+
+  .terms-brand,
+  .terms-desktop-title { display: none; }
+
+  .terms-mobile-back {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--terms-orange);
+    font-size: 18px;
+    text-decoration: none;
+  }
+
+  .terms-mobile-title {
+    display: block;
+    text-align: center;
+    font-size: 15px;
+  }
+
+  .terms-layout {
+    width: 100%;
+    padding: 0 14px 38px;
+    display: block;
+  }
+
+  .terms-index,
+  .terms-hero .terms-eyebrow,
+  .terms-hero p { display: none; }
+
+  .terms-document {
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+  }
+
+  .terms-hero {
+    padding: 18px 0 8px;
+    border-bottom: 0;
+  }
+
+  .terms-hero h1 { display: none; }
+
+  .terms-mobile-update {
+    margin: 0 0 8px;
+    padding: 15px 14px;
+    border: 1px solid #f0ebe6;
+    border-radius: 10px;
+    background: #fff;
+    display: grid;
+    gap: 5px;
+  }
+
+  .terms-mobile-update span {
+    color: #9f9790;
+    font-size: 10px;
+    font-weight: 800;
+  }
+
+  .terms-mobile-update strong {
+    color: var(--terms-orange);
+    font-size: 13px;
+  }
+
+  .terms-mobile-update p {
+    margin: 0;
+    color: #8a827c;
+    font-size: 12px;
+    line-height: 1.7;
+  }
+
+  .terms-document section {
+    padding: 17px 0;
+    border-bottom: 1px solid #f0ebe6;
+  }
+
+  .terms-document h2 {
+    margin-bottom: 8px;
+    font-size: 15px;
+  }
+
+  .terms-document h2 span {
+    width: 17px;
+    height: 17px;
+    font-size: 10px;
+  }
+
+  .terms-document section p {
+    font-size: 12px;
+    line-height: 1.8;
+  }
+
+  .terms-footer { display: none; }
+}

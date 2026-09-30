@@ -607,7 +607,12 @@ export default function Admin() {
     setCategories(
       categoryData.map((value: unknown) => {
         const raw = asRecord(value);
-        return { id: Number(raw.id), name: String(raw.name), active: raw.active !== false };
+        return {
+          id: Number(raw.id),
+          name: String(raw.name),
+          active: raw.active !== false,
+          image: raw.image ? String(raw.image) : null,
+        };
       }),
     );
   }, []);
@@ -900,8 +905,8 @@ export default function Admin() {
         await categoriesService.createCategory({ name, active: true });
         await loadCategories();
       }}
-      onUpdateCategory={async (id, name) => {
-        await categoriesService.updateCategory(id, { name });
+      onUpdateCategory={async (id, updates) => {
+        await categoriesService.updateCategory(id, updates);
         await loadCategories();
       }}
       onDeleteCategory={async (id) => {

@@ -2,7 +2,6 @@ import { orderFixtureResponse } from './helpers/orderFixtures';
 import { expect, test, type Locator, type Page } from '@playwright/test';
 
 import { mockAuthRefresh } from './helpers/mockAuthRefresh';
-import { createInitialDemoState, DEMO_STORAGE_KEY } from '../src/pages/Marketing/demo/demoDomain';
 
 type BillingTestState = {
   requestedPlan: string | null;
@@ -629,55 +628,6 @@ test('abas permitem navegação pelo teclado sem alterar o pagamento', async ({ 
   expect(state.cardPayload).toBeNull();
 });
 
-test('demonstração cadastra cartão fictício e mantém a escolha sem acessar pagamentos reais', async ({
-  page,
-}) => {
-  const forbidden: string[] = [];
-  await page.route('**/*', async (route) => {
-    const url = new URL(route.request().url());
-    if (url.hostname.includes('mercadopago')) {
-      forbidden.push(url.href);
-      return route.abort();
-    }
-    if (url.port === '3000' || url.pathname.startsWith('/api/')) {
-      if (url.pathname.endsWith('/auth/refresh')) return route.fulfill({ status: 401, json: {} });
-      if (url.pathname.endsWith('/platform/status'))
-        return route.fulfill({ json: { available: true } });
-      forbidden.push(url.pathname);
-      return route.abort();
-    }
-    return route.continue();
-  });
-  await page.addInitScript(
-    ({ key, state }) => {
-      if (!localStorage.getItem(key)) localStorage.setItem(key, JSON.stringify(state));
-      sessionStorage.setItem('gastronexa:demo:account', 'demo-admin');
-    },
-    { key: DEMO_STORAGE_KEY, state: createInitialDemoState() },
-  );
-  await page.goto('/demonstracao');
-  const admin = page.frameLocator('iframe[title="Painel administrativo demonstrativo"]');
-  await admin.getByRole('button', { name: 'Cobranças e assinaturas' }).click();
-  await admin.getByRole('button', { name: 'Cadastrar cartão automático' }).click();
-  const dialog = admin.getByRole('dialog');
-  await expect(dialog.getByText('Cartão fictício •••• 4242')).toBeVisible();
-  await expect(dialog.locator('input:not([type="checkbox"])')).toHaveCount(0);
-  await expect(dialog.getByRole('button', { name: 'Simular ativação' })).toBeDisabled();
-  await dialog.getByRole('checkbox').check();
-  await dialog.getByRole('button', { name: 'Simular ativação' }).click();
-  await expect(admin.getByText('Renovação automática ativa', { exact: true })).toBeVisible();
-  await page.reload();
-  await admin.getByRole('button', { name: 'Cobranças e assinaturas' }).click();
-  await expect(admin.getByText('Renovação automática ativa', { exact: true })).toBeVisible();
-  await admin.getByRole('button', { name: /Prefere pagar por Pix/ }).click();
-  await admin.getByRole('button', { name: 'Desativar renovação e usar Pix' }).click();
-  await expect(admin.getByText('Você está usando Pix manual.')).toBeVisible();
-  await page.setViewportSize({ width: 320, height: 740 });
-  const frame = page.frames().find((item) => item.url().includes('demo-admin.html'))!;
-  expect(await frame.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-  expect(forbidden).toEqual([]);
-});
-
 test('acesso GastroNexa adapta a composição vetorial ao desktop e celular', async ({ page }) => {
   await page.clock.install();
   await page.route(API, (route) => {
@@ -763,70 +713,6 @@ test('acesso GastroNexa adapta a composição vetorial ao desktop e celular', as
   await expect(artwork).toHaveAttribute('data-animate', 'false');
   await page.reload();
   await expect(artwork).toHaveAttribute('data-animate', 'true');
-});
-
-test('acessos da demonstração usam a marca vetorial e preservam as contas fictícias', async ({
-  page,
-}) => {
-  await page.emulateMedia({ reducedMotion: 'reduce' });
-  const unexpected: string[] = [];
-  await page.route(API, (route) => {
-    const path = new URL(route.request().url()).pathname;
-    if (path.endsWith('/auth/refresh')) return route.fulfill({ status: 401, json: {} });
-    if (path.endsWith('/platform/status')) return route.fulfill({ json: { available: true } });
-    unexpected.push(path);
-    return route.abort();
-  });
-  await page.goto('/demonstracao');
-  const art = page.getByTestId('gastronexa-access-artwork');
-  for (const portal of [0, 1, 2]) {
-    await page.getByRole('button', { name: 'Entrar nesta área', exact: true }).nth(portal).click();
-    await expect(art).toBeVisible();
-    await expect(art.locator('img, image')).toHaveCount(0);
-    await expect(art.locator('.word-nexa')).toHaveText('Nexa');
-    await expect(page.locator('#demo-email')).toHaveValue(/@demo\.gastronexa\.com\.br$/);
-    await expect(page.locator('#demo-password')).toHaveValue('demo1234');
-    await expect(art).toHaveAttribute('data-animate', portal === 0 ? 'true' : 'false');
-    await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
-    await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(0);
-    if (portal === 0) {
-      await page.screenshot({
-        path: '../test-results/pr-49/demo-access-desktop.png',
-        fullPage: true,
-      });
-      for (const width of [320, 390, 768]) {
-        await page.setViewportSize({ width, height: 844 });
-        await page.evaluate(() => window.scrollTo(0, 0));
-        await expectNoHorizontalOverflow(page);
-        const layout = page.getByTestId('demo-login-layout');
-        await expect
-          .poll(async () => (await layout.locator('main > div').boundingBox())!.width)
-          .toBeGreaterThanOrEqual(Math.min(width - 36, 560));
-        const header = await page.getByRole('banner').boundingBox();
-        const mark = await art.boundingBox();
-        expect(mark!.y).toBeGreaterThanOrEqual(header!.y + header!.height);
-        const notice = layout.getByText('Ambiente demonstrativo', { exact: false });
-        const accounts = layout.locator('aside');
-        expect((await notice.boundingBox())!.y).toBeGreaterThanOrEqual(
-          (await accounts.boundingBox())!.y + (await accounts.boundingBox())!.height,
-        );
-      }
-      await page.setViewportSize({ width: 390, height: 844 });
-      await page.evaluate(() => window.scrollTo(0, 0));
-      await page.screenshot({
-        path: '../test-results/pr-49/demo-access-mobile.png',
-        fullPage: true,
-      });
-      await page.setViewportSize({ width: 1440, height: 1000 });
-    }
-    await page.getByRole('button', { name: 'Voltar', exact: true }).click();
-  }
-  await page.getByRole('button', { name: 'Entrar nesta área', exact: true }).first().click();
-  await page.getByRole('button', { name: 'Entrar na demonstração', exact: true }).click();
-  await expect(
-    page.getByRole('button', { name: 'Adicionar Burger Clássico', exact: true }).first(),
-  ).toBeVisible();
-  expect(unexpected).toEqual([]);
 });
 
 test('Pix oculta os códigos ao zerar e renova somente por clique na mesma fatura', async ({

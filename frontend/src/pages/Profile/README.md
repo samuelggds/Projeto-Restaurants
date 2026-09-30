@@ -1,26 +1,7 @@
-# Profile isolado
+# Perfil do cliente
 
-Pasta independente da tela de perfil em React + TypeScript + styled-components.
+A experiência oficial do perfil é `FigmaAccountExperience`, orquestrada por `Profile.tsx`.
 
-## Dependências
+Pedidos, endereços, cartões, cupons/fidelidade, suporte e configurações são mantidos nessa experiência única.
 
-```bash
-npm install styled-components lucide-react
-```
-
-## Uso
-
-Copie `profile` para `src/modules/profile`:
-
-```tsx
-import { ProfilePage } from './modules/profile';
-
-<ProfilePage
-  onGoHome={() => navigate('/home')}
-  onOpenMenu={() => navigate('/menu')}
-  onTrackOrder={(id) => navigate(`/orders/${id}/tracking`)}
-  onLogout={logout}
-/>;
-```
-
-Passe `data` com as informações retornadas pelo backend. Sem essa propriedade, a página usa `profileMockData` para demonstração. O componente não depende de `react-router-dom`, `ThemeProvider` ou estilos globais.
+A antiga `ProfilePage` e seus fallbacks foram removidos e não devem ser reintroduzidos.

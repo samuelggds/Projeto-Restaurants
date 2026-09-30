@@ -13,7 +13,7 @@ export const createCategorySchema = z.object({
     .max(255, 'Descrição deve ter no máximo 255 caracteres.')
     .optional(),
 
-  image: z.string().trim().optional(),
+  image: z.string().trim().nullable().optional(),
 
   active: z.boolean().optional(),
 });
