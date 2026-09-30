@@ -41,6 +41,7 @@ type Props = {
   allowPix?: boolean;
   allowOpenFinancePix?: boolean;
   allowCard?: boolean;
+  allowDebitCard?: boolean;
   onChange: (method: CheckoutPaymentMethod) => void;
   restaurantId?: number | null;
   loggedIn?: boolean;
@@ -67,8 +68,15 @@ const ONLINE_OPTIONS: Option[] = [
   },
   {
     method: 'card',
-    name: 'Cartão',
-    description: 'Crédito ou débito online',
+    name: 'Cartão de crédito',
+    description: 'Pagamento online no crédito',
+    color: '#3b6cf6',
+    icon: 'card',
+  },
+  {
+    method: 'debit_card',
+    name: 'Cartão de débito',
+    description: 'Pagamento online no débito',
     color: '#3b6cf6',
     icon: 'card',
   },
@@ -122,9 +130,15 @@ const PICKUP_OPTIONS: Option[] = [
   },
 ];
 
-function filterOptions(options: Option[], allowPix: boolean, allowCard: boolean) {
+function filterOptions(
+  options: Option[],
+  allowPix: boolean,
+  allowCard: boolean,
+  allowDebitCard: boolean,
+) {
   return options.filter((option) => {
     if (option.icon === 'pix') return allowPix;
+    if (option.method === 'debit_card') return allowDebitCard;
     if (option.icon === 'card') return allowCard;
     return true;
   });
@@ -200,6 +214,7 @@ export function PaymentOptions({
   allowPix = true,
   allowOpenFinancePix = false,
   allowCard = true,
+  allowDebitCard = false,
   onChange,
   restaurantId,
   loggedIn = false,
@@ -275,7 +290,9 @@ export function PaymentOptions({
   }, [allowCard, figmaCheckout, loggedIn, paymentMethod, restaurantId]);
 
   useEffect(() => {
-    if (paymentMethod !== 'card') registerCardPreparer(null);
+    if (paymentMethod !== 'card' && paymentMethod !== 'debit_card') {
+      registerCardPreparer(null);
+    }
     return () => registerCardPreparer(null);
   }, [paymentMethod, registerCardPreparer]);
 
@@ -323,7 +340,7 @@ export function PaymentOptions({
     [savedCards, selectedCardId],
   );
 
-  const onlineOptions = filterOptions(ONLINE_OPTIONS, allowPix, allowCard);
+  const onlineOptions = filterOptions(ONLINE_OPTIONS, allowPix, allowCard, allowDebitCard);
   if (allowOpenFinancePix) {
     onlineOptions.splice(Math.min(1, onlineOptions.length), 0, {
       method: 'open_finance_pix',
@@ -333,14 +350,15 @@ export function PaymentOptions({
       icon: 'bank',
     });
   }
-  const deliveryOptions = filterOptions(DELIVERY_OPTIONS, allowPix, allowCard);
-  const pickupOptions = filterOptions(PICKUP_OPTIONS, allowPix, allowCard);
+  const deliveryOptions = filterOptions(DELIVERY_OPTIONS, allowPix, allowCard, false);
+  const pickupOptions = filterOptions(PICKUP_OPTIONS, allowPix, allowCard, false);
   const availableMethods = getAvailablePaymentMethods({
     allowPayOnDelivery,
     allowPayAtPickup,
     allowPix,
     allowOpenFinancePix,
     allowCard,
+    allowDebitCard,
   });
   const laterOptions = allowPayAtPickup ? pickupOptions : deliveryOptions;
   const laterTitle = allowPayAtPickup ? 'Pagar no balcão' : 'Pagar na entrega';
@@ -378,6 +396,10 @@ export function PaymentOptions({
       if (!allowCard) return;
       handlePaymentChange('card');
     };
+    const chooseDebitCard = () => {
+      if (!allowDebitCard) return;
+      handlePaymentChange('debit_card');
+    };
     const cashMethod: CheckoutPaymentMethod | null = allowPayOnDelivery
       ? 'delivery_cash'
       : allowPayAtPickup
@@ -385,7 +407,7 @@ export function PaymentOptions({
         : null;
     const cashAvailable = Boolean(cashMethod);
     const creditActive = allowCard && paymentMethod === 'card';
-    const debitAvailable = false;
+    const debitActive = allowDebitCard && paymentMethod === 'debit_card';
 
     const unavailableLabel = (
       <span className="unavailable">Temporariamente indisponível</span>
@@ -499,6 +521,7 @@ export function PaymentOptions({
               <OnlineCardPaymentForm
                 restaurantId={restaurantId}
                 payerEmail={userEmail}
+                paymentType="credit"
                 onPreparerChange={registerCardPreparer}
               />
             </P.FigmaGuestCardForm>
@@ -509,27 +532,45 @@ export function PaymentOptions({
               <OnlineCardPaymentForm
                 restaurantId={restaurantId!}
                 savedCard={selectedSavedCard}
+                paymentType="credit"
                 onPreparerChange={registerCardPreparer}
               />
             </P.FigmaSavedCardSecurity>
           ) : null}
         </P.FigmaCardSection>
 
-        <P.FigmaPaymentOption
-          type="button"
-          $active={false}
-          $disabled={!debitAvailable}
-          disabled={!debitAvailable}
-          aria-label="Cartão de débito temporariamente indisponível"
-          aria-pressed={false}
-        >
-          <span className="method-icon"><CreditCard aria-hidden="true" /></span>
-          <span className="method-copy">
-            <span className="method-name">Cartão de débito</span>
-            {unavailableLabel}
-          </span>
-          <span className="radio"><i /></span>
-        </P.FigmaPaymentOption>
+        <P.FigmaCardSection $active={debitActive} $disabled={!allowDebitCard}>
+          <button
+            type="button"
+            className="card-heading"
+            disabled={!allowDebitCard}
+            onClick={chooseDebitCard}
+            aria-label={
+              allowDebitCard
+                ? 'Cartão de débito'
+                : 'Cartão de débito temporariamente indisponível'
+            }
+            aria-pressed={debitActive}
+          >
+            <span className="method-icon"><CreditCard aria-hidden="true" /></span>
+            <span className="method-copy">
+              <span className="method-name">Cartão de débito</span>
+              {!allowDebitCard ? unavailableLabel : null}
+            </span>
+            <span className="radio"><i /></span>
+          </button>
+
+          {allowDebitCard && debitActive && restaurantId ? (
+            <P.FigmaGuestCardForm>
+              <OnlineCardPaymentForm
+                restaurantId={restaurantId}
+                payerEmail={userEmail}
+                paymentType="debit"
+                onPreparerChange={registerCardPreparer}
+              />
+            </P.FigmaGuestCardForm>
+          ) : null}
+        </P.FigmaCardSection>
 
         <P.FigmaPaymentOption
           type="button"
@@ -764,6 +805,16 @@ export function PaymentOptions({
           <OnlineCardPaymentForm
             restaurantId={restaurantId}
             payerEmail={userEmail}
+            paymentType="credit"
+            onPreparerChange={registerCardPreparer}
+          />
+        )}
+
+        {openMode === 'now' && paymentMethod === 'debit_card' && restaurantId && (
+          <OnlineCardPaymentForm
+            restaurantId={restaurantId}
+            payerEmail={userEmail}
+            paymentType="debit"
             onPreparerChange={registerCardPreparer}
           />
         )}
@@ -808,6 +859,7 @@ export function PaymentOptions({
                 <OnlineCardPaymentForm
                   restaurantId={restaurantId}
                   payerEmail={userEmail}
+                  paymentType="credit"
                   onPreparerChange={registerCardPreparer}
                 />
               </>
@@ -863,6 +915,7 @@ export function PaymentOptions({
               <OnlineCardPaymentForm
                 restaurantId={restaurantId}
                 savedCard={selectedSavedCard}
+                paymentType="credit"
                 onPreparerChange={registerCardPreparer}
               />
             )}
