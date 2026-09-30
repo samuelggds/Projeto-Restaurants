@@ -12,6 +12,7 @@ export const TENANT_LOGIN_REDIRECT = '__TENANT_LOGIN__';
 const SERVICE_PATHS = ['/system-blocked', '/system-maintenance'];
 const RESERVED_ROOTS = new Set([
   TENANT_LOGIN_REDIRECT.toLowerCase(),
+  '__dev',
   'admin',
   'attendant',
   'billing',

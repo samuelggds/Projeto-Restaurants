@@ -10,6 +10,7 @@ import type { CustomerPaymentMethod } from '../../../Services/customerPaymentMet
 import publicCardPaymentService, {
   type PublicCardPaymentConfig,
 } from '../../../Services/publicCardPaymentService';
+import { isLocalPaymentVisualLabRuntime } from '../../dev/paymentVisualLabAccess';
 
 export type PreparedCardPayment = Record<string, unknown>;
 export type CardPaymentPreparer = () => Promise<PreparedCardPayment>;
@@ -108,7 +109,7 @@ export function OnlineCardPaymentForm({
   onPreparerChange: (preparer: CardPaymentPreparer | null) => void;
   visualTestMode?: boolean;
 }) {
-  const visualTestEnabled = import.meta.env.DEV && visualTestMode;
+  const visualTestEnabled = isLocalPaymentVisualLabRuntime() && visualTestMode;
   const [config, setConfig] = useState<PublicCardPaymentConfig | null>(
     visualTestEnabled ? { provider: 'MERCADO_PAGO' } : null,
   );

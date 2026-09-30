@@ -40,7 +40,9 @@ const EmployeeOnboardingBoundary = lazy(
   () => import('../components/EmployeeOnboarding/EmployeeOnboardingBoundary'),
 );
 const GastroNexaLanding = lazy(() => import('../pages/Marketing/GastroNexaLanding'));
-const PaymentVisualLab = import.meta.env.DEV
+import { isLocalPaymentVisualLabRuntime } from '../pages/dev/paymentVisualLabAccess';
+const localPaymentVisualLabEnabled = isLocalPaymentVisualLabRuntime();
+const PaymentVisualLab = localPaymentVisualLabEnabled
   ? lazy(() => import('../pages/dev/PaymentVisualLab'))
   : null;
 import api from '../Services/api';
@@ -377,7 +379,7 @@ export default function AppRoutes() {
                 <Route path="/privacidade/" element={<StaticLegalPageRedirect page="privacidade" />} />
                 <Route path="/cookies" element={<StaticLegalPageRedirect page="cookies" />} />
                 <Route path="/cookies/" element={<StaticLegalPageRedirect page="cookies" />} />
-                {import.meta.env.DEV && PaymentVisualLab ? (
+                {localPaymentVisualLabEnabled && PaymentVisualLab ? (
                   <Route path="/__dev/pagamentos" element={<PaymentVisualLab />} />
                 ) : null}
                 <Route path="/super_admin/login" element={<Login />} />
