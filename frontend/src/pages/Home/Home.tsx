@@ -1,9 +1,10 @@
-import { lazy, Suspense, useState, useCallback, useEffect, useMemo } from 'react';
+import { Suspense, useState, useCallback, useEffect, useMemo } from 'react';
 import { useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../../contexts/authContext';
 import { useAppDialog } from '../../components/AppDialog/context';
 import { FigmaDeliveryExperience } from './FigmaDeliveryExperience';
 import type { FigmaCheckoutStep } from './FigmaCheckoutFlow';
+import { LazyFigmaCheckoutFlow as FigmaCheckoutFlow } from './components/LazyFigmaCheckoutFlow';
 import * as S from './Home.styles';
 import {
   useDefaultRestaurantId,
@@ -52,12 +53,6 @@ import TableMenuExperience from '../digital-menu/TableMenuExperience';
 import type { HomeProduct } from './types';
 import { createReadyProductConfiguration, resolveProductEntryKind } from './domain/productEntryFlow';
 import { validateDeliveryAddressLocationForCheckout } from './domain/deliveryAddress';
-
-const FigmaCheckoutFlow = lazy(() =>
-  import('./FigmaCheckoutFlow').then((module) => ({
-    default: module.FigmaCheckoutFlow,
-  })),
-);
 
 type GuestCheckoutDetails = { name: string; cpf?: string; phone?: string };
 
