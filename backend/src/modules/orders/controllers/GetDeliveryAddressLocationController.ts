@@ -121,6 +121,18 @@ class GetDeliveryAddressLocationController {
       contextRestaurantId: req.user?.restaurantId ?? req.tableSession?.restaurantId ?? null,
     });
 
+    const hasConfiguredGeocoder =
+      googleAddressGeocodingService.isConfigured() ||
+      geoapifyDeliveryRoutingProvider.isGeocodingConfigured() ||
+      getOsrmDeliveryRouteService.isGeocodingConfigured();
+
+    if (!hasConfiguredGeocoder) {
+      return res.status(503).json({
+        error: 'Não foi possível validar o endereço no momento. Tente novamente em instantes.',
+        code: 'ADDRESS_VALIDATION_UNAVAILABLE',
+      });
+    }
+
     const googleLocation = await googleAddressGeocodingService.execute(parsed.data);
     const location = googleLocation || (await firstAlternativeLocation(parsed.data));
 
