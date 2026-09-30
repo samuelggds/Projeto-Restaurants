@@ -25,88 +25,36 @@ import {
   type DeliveryTrackingData,
 } from './deliveryTracking';
 import * as S from './DeliveryTracking.styles';
-import { isLocalPaymentVisualLabRuntime } from '../dev/paymentVisualLabAccess';
 
 const DeliveryMap = lazy(() => import('../Courier/components/DeliveryMap'));
 const TRACKING_POLL_INTERVAL_MS = 12_000;
 
-type DeliveryTrackingVisualTestProps = {
-  visualTestMode?: boolean;
-  visualTestData?: DeliveryTrackingData | null;
-  onVisualBack?: () => void;
-};
-
-export default function DeliveryTrackingPage({
-  visualTestMode = false,
-  visualTestData = null,
-  onVisualBack,
-}: DeliveryTrackingVisualTestProps = {}) {
+export default function DeliveryTrackingPage() {
   const { id } = useParams();
-  const localVisualTestEnabled =
-    visualTestMode && Boolean(visualTestData) && isLocalPaymentVisualLabRuntime();
-  const resolvedId = localVisualTestEnabled
-    ? String(visualTestData?.order.id || '')
-    : id;
-
-  return (
-    <DeliveryTrackingContent
-      key={localVisualTestEnabled ? `visual-${resolvedId}` : resolvedId || 'invalid'}
-      id={resolvedId}
-      visualTestMode={localVisualTestEnabled}
-      visualTestData={localVisualTestEnabled ? visualTestData : null}
-      onVisualBack={onVisualBack}
-    />
-  );
+  return <DeliveryTrackingContent key={id || 'invalid'} id={id} />;
 }
 
-function DeliveryTrackingContent({
-  id,
-  visualTestMode = false,
-  visualTestData = null,
-  onVisualBack,
-}: {
-  id?: string;
-  visualTestMode?: boolean;
-  visualTestData?: DeliveryTrackingData | null;
-  onVisualBack?: () => void;
-}) {
+function DeliveryTrackingContent({ id }: { id?: string }) {
   const navigate = useNavigate();
   const location = useLocation();
   const orderId = Number(id || 0);
   const hasInvalidOrderId = !Number.isInteger(orderId) || orderId <= 0;
-  const [data, setData] = useState<DeliveryTrackingData | null>(
-    visualTestMode ? visualTestData : null,
-  );
+  const [data, setData] = useState<DeliveryTrackingData | null>(null);
   const [error, setError] = useState('');
   const [warning, setWarning] = useState('');
-  const [loading, setLoading] = useState(!visualTestMode);
+  const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [confirmingReceipt, setConfirmingReceipt] = useState(false);
   const [receiptError, setReceiptError] = useState('');
-  const [socketConnected, setSocketConnected] = useState(visualTestMode);
+  const [socketConnected, setSocketConnected] = useState(false);
   const [retryKey, setRetryKey] = useState(0);
-  const [lastUpdatedAt, setLastUpdatedAt] = useState<Date | null>(
-    visualTestMode ? new Date() : null,
-  );
+  const [lastUpdatedAt, setLastUpdatedAt] = useState<Date | null>(null);
   const lastRouteRefreshAt = useRef(0);
   const dataRef = useRef<DeliveryTrackingData | null>(null);
-  const isGuestTracking =
-    visualTestMode || Boolean(orderId && getGuestOrderTrackingToken(orderId));
-  const confirmationLink =
-    !visualTestMode && new URLSearchParams(location.search).get('confirm') === '1';
+  const isGuestTracking = Boolean(orderId && getGuestOrderTrackingToken(orderId));
+  const confirmationLink = new URLSearchParams(location.search).get('confirm') === '1';
 
   useEffect(() => {
-    if (visualTestMode && visualTestData) {
-      dataRef.current = visualTestData;
-      setData(visualTestData);
-      setError('');
-      setWarning('');
-      setLoading(false);
-      setRefreshing(false);
-      setSocketConnected(true);
-      setLastUpdatedAt(new Date());
-      return;
-    }
     if (hasInvalidOrderId) return;
 
     let active = true;
@@ -237,7 +185,7 @@ function DeliveryTrackingContent({
       socket.off('order:status-changed', onStatus);
       release();
     };
-  }, [hasInvalidOrderId, orderId, retryKey, visualTestData, visualTestMode]);
+  }, [hasInvalidOrderId, orderId, retryKey]);
 
   const latest = data?.locations[data.locations.length - 1];
   const formatTime = (value?: string | null) =>
@@ -304,20 +252,13 @@ function DeliveryTrackingContent({
   };
 
   return (
-    <S.Page data-visual-test-mode={visualTestMode ? 'true' : undefined}>
+    <S.Page>
       <S.Header>
         <S.HeaderInner>
           <S.BackButton
             type="button"
             aria-label={isGuestTracking ? 'Voltar ao cardápio' : 'Voltar para meus pedidos'}
-            onClick={() => {
-              if (visualTestMode) {
-                onVisualBack?.();
-                return;
-              }
-              if (isGuestTracking) navigate(-1);
-              else navigate('/profile');
-            }}
+            onClick={() => (isGuestTracking ? navigate(-1) : navigate('/profile'))}
           >
             <ArrowLeft aria-hidden="true" />
             <span>{isGuestTracking ? 'Voltar' : 'Meus pedidos'}</span>
@@ -496,7 +437,6 @@ function DeliveryTrackingContent({
                   >
                     <DeliveryMap
                       points={data.locations}
-                      tilesEnabled={!visualTestMode}
                       routePath={isTerminal ? [] : data.order.routeEstimate?.routeCoordinates || []}
                       destination={data.order.routeEstimate?.destination}
                       label={data.order.assignedCourier?.name || 'Motoqueiro'}
@@ -590,9 +530,7 @@ function DeliveryTrackingContent({
                     ) : null}
                   </S.Destination>
                 ) : null}
-                {data.order.status === 'SAIU_PARA_ENTREGA' &&
-                data.order.assignedCourier &&
-                !visualTestMode ? (
+                {data.order.status === 'SAIU_PARA_ENTREGA' && data.order.assignedCourier ? (
                   <CustomerTrackingChatButton orderId={data.order.id} />
                 ) : null}
                 {data.order.assignedCourier?.phone ? (

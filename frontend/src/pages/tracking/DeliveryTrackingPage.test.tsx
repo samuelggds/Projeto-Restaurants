@@ -133,29 +133,6 @@ describe('DeliveryTrackingPage integration', () => {
     container.remove();
   });
 
-  it('renderiza o rastreamento fictício local sem consultar API ou socket', async () => {
-    const visualData = trackingResult();
-
-    await act(async () =>
-      root.render(
-        <DeliveryTrackingPage
-          visualTestMode
-          visualTestData={visualData}
-          onVisualBack={vi.fn()}
-        />,
-      ),
-    );
-    await flushUntil(() => mocks.mapProps !== null);
-
-    expect(mocks.getTracking).not.toHaveBeenCalled();
-    expect(container.querySelector('[data-visual-test-mode="true"]')).not.toBeNull();
-    expect(container.textContent).toContain('Trajeto em tempo real');
-    expect(container.textContent).toContain('Rita');
-    expect(container.textContent).toContain('Rua das Flores, 10, Fortaleza');
-    expect(mocks.mapProps?.points).toHaveLength(1);
-    expect(mocks.mapProps?.routePath).toHaveLength(2);
-  });
-
   it('mostra destino/rota e aceita realtime somente do pedido e restaurante corretos', async () => {
     mocks.getTracking.mockResolvedValue(trackingResult());
     await act(async () => root.render(<DeliveryTrackingPage />));

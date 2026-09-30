@@ -76,13 +76,24 @@ test('estado recusado é diferente de cancelado no laboratório', async ({ page 
 });
 
 
-test('rastreamento visual local abre sem depender de GPS real', async ({ page }) => {
+test('rastreamento fictício usa o mapa de produção e move o motoqueiro na rota', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto('/__dev/pagamentos');
   await page.getByRole('button', { name: 'Acompanhar pedido (GPS)', exact: true }).click();
 
-  await expect(page.locator('[data-visual-test-mode="true"]')).toBeVisible();
-  await expect(page.getByText('Motoqueiro Teste')).toBeVisible();
-  await expect(page.getByText('Rua Fictícia, 123 — Bairro Teste')).toBeVisible();
+  const lab = page.locator('[data-testid="delivery-tracking-visual-lab"]');
+  await expect(lab).toBeVisible();
+  await expect(lab).toHaveAttribute('data-google-map-source', 'production');
+  await expect(lab).toHaveAttribute('data-animation-duration-ms', '60000');
+  await expect(page.getByText('Eduardo Silva', { exact: true })).toBeVisible();
+  await expect(page.getByText('Mensagens com Eduardo')).toBeVisible();
+
+  const map = page.locator('.customer-google-delivery-map');
+  await expect(map).toBeVisible();
+  const initialLatitude = await map.getAttribute('data-courier-latitude');
+  await page.waitForTimeout(2_200);
+  const movedLatitude = await map.getAttribute('data-courier-latitude');
+
+  expect(movedLatitude).not.toBe(initialLatitude);
   await expectNoHorizontalOverflow(page);
 });

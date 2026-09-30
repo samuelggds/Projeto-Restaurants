@@ -2,26 +2,20 @@ import { act } from 'react';
 import { createRoot } from 'react-dom/client';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-vi.mock('../tracking/DeliveryTrackingPage', () => ({
-  default: ({
-    visualTestMode,
-    visualTestData,
-  }: {
-    visualTestMode?: boolean;
-    visualTestData?: {
-      order?: {
-        assignedCourier?: { name?: string };
-        routeEstimate?: { destination?: { label?: string } };
-      };
-    };
-  }) => (
-    <section data-visual-test-mode={visualTestMode ? 'true' : undefined}>
-      <h1>Acompanhe o trajeto do pedido</h1>
-      <p>{visualTestData?.order?.assignedCourier?.name}</p>
-      <p>{visualTestData?.order?.routeEstimate?.destination?.label}</p>
+vi.mock('./DeliveryTrackingVisualLab', () => ({
+  default: () => (
+    <section
+      data-testid="delivery-tracking-visual-lab"
+      data-google-map-source="production"
+      data-animation-duration-ms="60000"
+    >
+      <h1>Acompanhe seu Pedido</h1>
+      <p>Eduardo Silva</p>
+      <p>Rua Fictícia, 123 — Bairro Teste</p>
     </section>
   ),
 }));
+
 
 import PaymentVisualLab from './PaymentVisualLab';
 
@@ -157,6 +151,34 @@ describe('PaymentVisualLab', () => {
     });
 
     expect(container.textContent).toContain(expectedCopy);
+
+    act(() => root.unmount());
+  });
+
+  it('abre o laboratório de acompanhamento com Google Maps de produção e animação de 1 minuto', async () => {
+    const container = document.createElement('div');
+    document.body.appendChild(container);
+    const root = createRoot(container);
+
+    await act(async () => {
+      root.render(<PaymentVisualLab />);
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    const trackingButton = findButton(container, 'Acompanhar pedido (GPS)');
+    expect(trackingButton).toBeTruthy();
+
+    await act(async () => {
+      trackingButton?.click();
+      await Promise.resolve();
+    });
+
+    const tracking = container.querySelector('[data-testid="delivery-tracking-visual-lab"]');
+    expect(tracking).not.toBeNull();
+    expect(tracking?.getAttribute('data-google-map-source')).toBe('production');
+    expect(tracking?.getAttribute('data-animation-duration-ms')).toBe('60000');
+    expect(container.textContent).toContain('Acompanhe seu Pedido');
 
     act(() => root.unmount());
   });
