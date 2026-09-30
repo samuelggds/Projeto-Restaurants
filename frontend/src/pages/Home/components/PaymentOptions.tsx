@@ -469,7 +469,7 @@ export function PaymentOptions({
             <span className="radio"><i /></span>
           </button>
 
-          {allowCard && loggedIn ? (
+          {allowCard && loggedIn && creditActive ? (
             savedCardsLoading ? (
               <P.FigmaPaymentStatus role="status">Carregando seus cartões salvos…</P.FigmaPaymentStatus>
             ) : savedCards.length ? (
