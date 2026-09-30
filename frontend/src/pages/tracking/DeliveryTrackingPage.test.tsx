@@ -146,8 +146,11 @@ describe('DeliveryTrackingPage integration', () => {
     expect(container.textContent).toContain('Atualização em tempo real');
     expect(container.textContent).toContain('Rua das Flores, 10, Fortaleza');
     expect(container.textContent).toContain('Status da Entrega');
+    expect(container.textContent).toContain('Pedido recebido');
+    expect(container.textContent).toContain('Em preparação na cozinha');
     expect(container.textContent).toContain('Saiu para entrega');
-    expect(container.textContent).toContain('Entregue');
+    expect(container.textContent).toContain('Chegou ao endereço');
+    expect(container.textContent).not.toContain('Concluído');
     expect(container.textContent).toContain('Mensagens com Rita');
     expect(container.textContent).toContain('3,5 km');
     expect(mocks.mapProps?.routePath).toHaveLength(2);
@@ -233,6 +236,7 @@ describe('DeliveryTrackingPage integration', () => {
 
     expect(mocks.confirmDeliveryReceived).toHaveBeenCalledWith(601);
     expect(container.textContent).toContain('O restaurante já recebeu sua confirmação.');
+    expect(container.textContent).toContain('Concluído');
   });
 
   it('encerra o acompanhamento ao cancelar e ignora posições posteriores', async () => {

@@ -208,11 +208,30 @@ function DeliveryTrackingContent({ id }: { id?: string }) {
     data?.order.status === 'SAIU_PARA_ENTREGA' && /^\d{4}$/.test(data.order.deliveryConfirmationCode || '')
       ? data.order.deliveryConfirmationCode
       : null;
+  const deliveryStatusProgress = receiptConfirmed
+    ? 4
+    : data?.order.status === 'ENTREGUE'
+      ? 3
+      : data?.order.status === 'SAIU_PARA_ENTREGA'
+        ? 2
+        : data?.order.status === 'PREPARANDO' || data?.order.status === 'PRONTO'
+          ? 1
+          : data?.order.status === 'PENDENTE'
+            ? 0
+            : -1;
+  const deliveryStatusSteps = [
+    'Pedido recebido',
+    'Em preparação na cozinha',
+    'Saiu para entrega',
+    'Chegou ao endereço',
+  ] as const;
   const statusLabel = data
     ? data.order.status === 'SAIU_PARA_ENTREGA'
       ? 'Saiu para entrega'
       : isDelivered
-        ? 'Entregue'
+        ? receiptConfirmed
+          ? 'Concluído'
+          : 'Chegou ao endereço'
         : isCancelled
           ? 'Cancelado'
           : data.order.status
@@ -534,17 +553,27 @@ function DeliveryTrackingContent({ id }: { id?: string }) {
                   </S.Destination>
                 ) : null}
                 {!isCancelled ? (
-                  <S.DeliveryStatusCard>
-                    <h2>Status da Entrega</h2>
+                  <S.DeliveryStatusCard aria-label="Status da Entrega">
+                    <S.DeliveryStatusHeader>
+                      <h2>Status da Entrega</h2>
+                      {receiptConfirmed ? <strong>Concluído</strong> : null}
+                    </S.DeliveryStatusHeader>
                     <S.DeliveryStatusList>
-                      <S.DeliveryStatusItem $active={!isDelivered} $complete={isDelivered}>
-                        {isDelivered ? <CheckCircle2 /> : <CircleDot />}
-                        <span>Saiu para entrega</span>
-                      </S.DeliveryStatusItem>
-                      <S.DeliveryStatusItem $active={isDelivered} $complete={isDelivered}>
-                        {isDelivered ? <CheckCircle2 /> : <CircleDot />}
-                        <span>Entregue</span>
-                      </S.DeliveryStatusItem>
+                      {deliveryStatusSteps.map((label, index) => {
+                        const complete = deliveryStatusProgress > index;
+                        const active = deliveryStatusProgress === index;
+                        return (
+                          <S.DeliveryStatusItem
+                            key={label}
+                            $active={active}
+                            $complete={complete}
+                            aria-current={active ? 'step' : undefined}
+                          >
+                            {complete ? <CheckCircle2 aria-hidden="true" /> : <CircleDot aria-hidden="true" />}
+                            <span>{label}</span>
+                          </S.DeliveryStatusItem>
+                        );
+                      })}
                     </S.DeliveryStatusList>
                   </S.DeliveryStatusCard>
                 ) : null}

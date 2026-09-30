@@ -179,7 +179,7 @@ export function buildAutomaticOrderStatusMessage({
   }
   if (normalizedStatus === 'ENTREGUE') {
     return [
-      `Oi, ${name}! 📦 O pedido #${code} foi marcado como entregue.`,
+      `Oi, ${name}! 🛵 O motoqueiro chegou ao endereço com o pedido #${code}.`,
       confirmationUrl ? `Confirme o recebimento com segurança: ${confirmationUrl}` : null,
       `Obrigado por pedir no ${restaurant}!`,
     ]
