@@ -319,22 +319,12 @@ export const Editor = styled.form`
   button:focus-visible,
   input:focus-visible,
   select:focus-visible,
-  textarea:focus-visible,
-  .feedback:focus-visible {
+  textarea:focus-visible {
     outline: 3px solid color-mix(in srgb, var(--brand) 35%, transparent);
     outline-offset: 2px;
   }
   input[type='checkbox'] {
     accent-color: var(--brand);
-  }
-  .quantity-field {
-    width: 80px;
-    font-size: 10px;
-  }
-  .quantity-field input {
-    min-height: 44px;
-    padding: 8px;
-    text-align: center;
   }
   .product-warning {
     color: #a33;
@@ -367,8 +357,7 @@ export const Editor = styled.form`
     gap: 8px;
   }
   .photo-actions button,
-  .add-group,
-  .add-option {
+  .add-group {
     border: 1px solid #dfe2e7;
     border-radius: 10px;
     padding: 10px 12px;
@@ -392,40 +381,6 @@ export const Editor = styled.form`
     color: #6e7580;
     font-size: 12px;
     line-height: 1.45;
-  }
-  .group {
-    border: 1px solid #e8e9ed;
-    border-radius: 14px;
-    padding: 14px;
-    display: grid;
-    gap: 12px;
-    background: #fcfcfd;
-  }
-  .group-head {
-    display: grid;
-    grid-template-columns: 1fr 105px 105px auto;
-    gap: 8px;
-    align-items: end;
-  }
-  .option {
-    display: grid;
-    grid-template-columns: minmax(170px, 1fr) 90px 80px 80px 80px auto auto;
-    gap: 8px;
-    align-items: end;
-    padding: 10px;
-    border-radius: 12px;
-    background: #fff;
-    border: 1px solid #eceef1;
-  }
-  .option .fixed {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    padding-bottom: 10px;
-    white-space: nowrap;
-  }
-  .option .fixed input {
-    width: auto;
   }
   .icon-button {
     border: 0;
@@ -473,20 +428,6 @@ export const Editor = styled.form`
     border: 1px solid var(--brand, #d64d08);
     color: #fff;
   }
-  .feedback {
-    padding: 11px 13px;
-    border-radius: 11px;
-    font-size: 13px;
-  }
-  .feedback.error {
-    background: #fff1f0;
-    color: #a33;
-  }
-  .feedback.success {
-    background: #ecfdf3;
-    color: #067647;
-  }
-
   .combo-guide {
     display: flex;
     gap: 12px;
@@ -564,12 +505,6 @@ export const Editor = styled.form`
     line-height: 1.35;
   }
 
-  .product-picker {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
-    gap: 10px;
-    align-items: end;
-  }
   .add-selected-product {
     min-height: 44px;
     border: 0;
@@ -589,32 +524,6 @@ export const Editor = styled.form`
     cursor: not-allowed;
   }
 
-  .selected-products {
-    display: grid;
-    gap: 8px;
-    border: 1px solid #e7e9ed;
-    border-radius: 13px;
-    padding: 12px;
-    background: #fafbfc;
-  }
-  .selected-products-head {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    color: #16794b;
-    font-size: 12px;
-    margin-bottom: 2px;
-  }
-  .selected-product {
-    display: grid;
-    grid-template-columns: 48px minmax(0, 1fr) auto auto;
-    gap: 10px;
-    align-items: center;
-    padding: 9px;
-    border: 1px solid #eceef1;
-    border-radius: 11px;
-    background: #fff;
-  }
   .selected-product-image {
     width: 48px;
     height: 48px;
@@ -648,24 +557,6 @@ export const Editor = styled.form`
     color: #7d838c;
     font-size: 11px;
   }
-  .selected-product-price {
-    font-size: 12px;
-    font-weight: 900;
-    white-space: nowrap;
-  }
-  .selected-product > button {
-    min-width: 44px;
-    min-height: 44px;
-    display: grid;
-    place-items: center;
-    border: 1px solid #efd5cf;
-    border-radius: 8px;
-    background: #fff8f6;
-    color: #b42318;
-    cursor: pointer;
-    padding: 8px;
-  }
-
   .empty-products {
     display: flex;
     gap: 9px;
@@ -837,7 +728,6 @@ export const Editor = styled.form`
     .grid2,
     .photo,
     .toggle-grid,
-    .product-picker,
     .choice-group-settings,
     .group-product-picker {
       grid-template-columns: 1fr;
