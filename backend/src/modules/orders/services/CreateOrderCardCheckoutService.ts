@@ -105,8 +105,30 @@ class CreateOrderCardCheckoutService {
       );
     }
 
+    const {
+      cardPaymentType: _cardPaymentType,
+      cardToken: _cardToken,
+      cardPaymentMethodId: _cardPaymentMethodId,
+      encryptedCard: _encryptedCard,
+      cardData: _cardData,
+      holderName: _holderName,
+      holderTaxId: _holderTaxId,
+      payerEmail: _payerEmail,
+      mercadoPagoDeviceId: _mercadoPagoDeviceId,
+      expMonth: _expMonth,
+      expYear: _expYear,
+      billingPostalCode: _billingPostalCode,
+      billingAddressNumber: _billingAddressNumber,
+      paymentMethodId: _paymentMethodId,
+      successUrl: _successUrl,
+      cancelUrl: _cancelUrl,
+      cardProvider: _cardProvider,
+      customerIp: _customerIp,
+      ...orderPayload
+    } = normalizedPayload;
+
     const createdOrder = await createOrderService.execute({
-      ...normalizedPayload,
+      ...orderPayload,
       deferRealtimeUntilPaid: true,
       paid: false,
     });
