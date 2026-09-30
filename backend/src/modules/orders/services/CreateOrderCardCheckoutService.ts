@@ -97,6 +97,13 @@ class CreateOrderCardCheckoutService {
       );
     }
     const normalizedPayload = { ...payload, cardPaymentType };
+    if (cardPaymentType === 'debit' && !hasDirectCardPaymentPayload(normalizedPayload)) {
+      throw new OrderRequestError(
+        'Informe os dados do cartão de débito para continuar.',
+        400,
+        'DEBIT_CARD_TOKEN_REQUIRED',
+      );
+    }
 
     const createdOrder = await createOrderService.execute({
       ...normalizedPayload,
