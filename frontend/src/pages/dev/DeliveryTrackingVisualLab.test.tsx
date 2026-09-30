@@ -57,7 +57,7 @@ describe('DeliveryTrackingVisualLab', () => {
     expect(spriteIndex).toBeLessThan(8);
   });
 
-  it('renderiza Google Maps compartilhado e dados fictícios do laboratório', async () => {
+  it('renderiza mapa fictício local e motoqueiro direcional sem depender de Google Maps', async () => {
     vi.spyOn(window, 'requestAnimationFrame').mockImplementation(() => 1);
     vi.spyOn(window, 'cancelAnimationFrame').mockImplementation(() => undefined);
 
@@ -71,10 +71,12 @@ describe('DeliveryTrackingVisualLab', () => {
     });
 
     const lab = container.querySelector('[data-testid="delivery-tracking-visual-lab"]');
-    expect(lab?.getAttribute('data-map-source')).toBe('google-maps');
+    expect(lab?.getAttribute('data-map-source')).toBe('fictitious-google-screenshot');
     expect(lab?.getAttribute('data-animation-duration-ms')).toBe('60000');
-    expect(container.querySelector('[data-testid="visual-google-map"]')).not.toBeNull();
-    expect(container.querySelector('[data-testid="customer-google-delivery-map"]')).not.toBeNull();
+    expect(container.querySelector('[data-testid="visual-fictitious-map"]')).not.toBeNull();
+    expect(container.querySelector('[data-testid="visual-google-map-screenshot"]')).not.toBeNull();
+    expect(container.querySelector('[data-testid="visual-courier-marker"]')).not.toBeNull();
+    expect(container.querySelector('[data-testid="visual-courier-sprite"]')).not.toBeNull();
     expect(container.textContent).toContain('Acompanhar pedido');
     expect(container.textContent).toContain('Início');
     expect(container.textContent).toContain('Eduardo Silva');
