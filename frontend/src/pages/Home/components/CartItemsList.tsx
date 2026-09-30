@@ -94,23 +94,15 @@ export function CartItemsList({
 
               <div className="mobile-quantity-row">
                 <span>Quantidade</span>
-                <Qty aria-label={`Quantidade de ${item.name}`}>
-                  <button
-                    type="button"
-                    aria-label={`Diminuir ${item.name}`}
-                    onClick={() => onDecrease(cartId)}
-                  >
-                    <Minus aria-hidden="true" />
-                  </button>
-                  <b>{item.quantity}</b>
-                  <button
-                    className="increase"
-                    type="button"
-                    aria-label={`Aumentar ${item.name}`}
-                    onClick={() => onIncrease(cartId)}
-                  >
-                    <Plus aria-hidden="true" />
-                  </button>
+                <Qty>
+                  <QuantityStepper
+                    value={item.quantity}
+                    ariaLabel={`Quantidade de ${item.name}`}
+                    decreaseLabel={`Diminuir ${item.name}`}
+                    increaseLabel={`Aumentar ${item.name}`}
+                    onDecrease={() => onDecrease(cartId)}
+                    onIncrease={() => onIncrease(cartId)}
+                  />
                 </Qty>
               </div>
             </ItemCard>
