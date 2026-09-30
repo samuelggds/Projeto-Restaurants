@@ -298,6 +298,11 @@ export function buildHomeData(
     name: String(restaurantName || settings?.restaurantName || ''),
     monogram: createRestaurantMonogram(restaurantName || settings?.restaurantName),
     logoUrl: isPersistentImageSource(restaurant.logo) ? String(restaurant.logo) : '',
+    ratingAverage:
+      Number(settings?.restaurantRatingCount || 0) > 0
+        ? Number(settings?.restaurantRatingAverage || 0)
+        : null,
+    ratingCount: Number(settings?.restaurantRatingCount || 0),
     category: String(
       restaurant.category || settings?.restaurantCategory || settings?.category || 'RESTAURANTE',
     ),

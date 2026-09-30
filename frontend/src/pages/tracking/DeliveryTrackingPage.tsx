@@ -259,6 +259,7 @@ function DeliveryTrackingContent({ id }: { id?: string }) {
         dataRef.current = updated;
         setData(updated);
       }
+      navigate(`/orders/${orderId}/delivered`, { replace: true });
     } catch (err) {
       const message =
         (err as { response?: { data?: { error?: string } }; message?: string })?.response?.data

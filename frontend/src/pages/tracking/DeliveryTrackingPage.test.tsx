@@ -8,6 +8,7 @@ const mocks = vi.hoisted(() => ({
   navigate: vi.fn(),
   getTracking: vi.fn(),
   confirmDeliveryReceived: vi.fn(),
+  rateDeliveredOrder: vi.fn(),
   getGuestTrackingToken: vi.fn(() => ''),
   locationSearch: '',
   listeners: new Map<string, (...args: unknown[]) => void>(),
@@ -235,8 +236,7 @@ describe('DeliveryTrackingPage integration', () => {
     await flushUntil(() => container.textContent?.includes('Recebimento confirmado') === true);
 
     expect(mocks.confirmDeliveryReceived).toHaveBeenCalledWith(601);
-    expect(container.textContent).toContain('O restaurante já recebeu sua confirmação.');
-    expect(container.textContent).toContain('Concluído');
+    expect(mocks.navigate).toHaveBeenCalledWith('/orders/601/delivered', { replace: true });
   });
 
   it('encerra o acompanhamento ao cancelar e ignora posições posteriores', async () => {

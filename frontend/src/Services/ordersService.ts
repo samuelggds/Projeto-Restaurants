@@ -576,6 +576,16 @@ class OrdersService {
     return normalizeOrder(response.data);
   }
 
+  async rateDeliveredOrder(orderId: string | number, rating: number) {
+    const guestToken = getGuestOrderTrackingToken(orderId);
+    const response = await api.patch(
+      `/orders/${orderId}/delivery-rating`,
+      { rating },
+      guestToken ? { headers: { 'x-guest-order-token': guestToken } } : undefined,
+    );
+    return response.data;
+  }
+
   async getCourierFinance() {
     const response = await api.get('/orders/courier/finance');
     return response.data;

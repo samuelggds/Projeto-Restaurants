@@ -81,6 +81,8 @@ type PublicSettingsFallback = {
   trackingRequiresLogin: boolean;
   soundNotifications: boolean;
   maxConcurrentOrders: number;
+  restaurantRatingAverage: number | null;
+  restaurantRatingCount: number;
   restaurant: {
     updatedAt?: Date;
     name: string | null;
@@ -178,8 +180,24 @@ class GetPublicRestaurantSettingsService {
       throw new Error('Restaurante inválido.');
     }
 
-    const settings =
-      await restaurantSettingsRepository.findPublicByRestaurantId(normalizedRestaurantId);
+    const [settings, deliveryRatingSummary] = await Promise.all([
+      restaurantSettingsRepository.findPublicByRestaurantId(normalizedRestaurantId),
+      prisma.order.aggregate({
+        where: {
+          restaurantId: normalizedRestaurantId,
+          type: 'DELIVERY',
+          deliveryConfirmedAt: { not: null },
+          deliveryRating: { not: null },
+        },
+        _avg: { deliveryRating: true },
+        _count: { deliveryRating: true },
+      }),
+    ]);
+    const restaurantRatingAverage =
+      deliveryRatingSummary._count.deliveryRating > 0
+        ? Number(deliveryRatingSummary._avg.deliveryRating || 0)
+        : null;
+    const restaurantRatingCount = Number(deliveryRatingSummary._count.deliveryRating || 0);
 
     if (!settings) {
       const restaurant =
@@ -234,6 +252,8 @@ class GetPublicRestaurantSettingsService {
         trackingRequiresLogin: true,
         soundNotifications: true,
         maxConcurrentOrders: 20,
+        restaurantRatingAverage,
+        restaurantRatingCount,
         restaurant: {
           updatedAt: restaurant?.updatedAt,
           name: restaurant?.name || null,
@@ -305,6 +325,8 @@ class GetPublicRestaurantSettingsService {
 
     return {
       ...settings,
+      restaurantRatingAverage,
+      restaurantRatingCount,
       ...(typeof settings.acceptsPix === 'boolean' ? { acceptsPix } : {}),
       ...(typeof settings.acceptsCard === 'boolean' ? { acceptsCard } : {}),
       acceptsDebitCard,

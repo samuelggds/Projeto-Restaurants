@@ -21,6 +21,8 @@ export type HomeBrand = {
   legalName?: string;
   phone?: string;
   email?: string;
+  ratingAverage?: number | null;
+  ratingCount?: number;
 };
 
 export type HomeCategory = {

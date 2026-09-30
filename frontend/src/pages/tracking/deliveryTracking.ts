@@ -17,8 +17,32 @@ export type DeliveryRouteEstimate = {
 export type DeliveryTrackingData = {
   order: {
     id: number;
+    publicId?: string;
     restaurantId?: number;
     status: string;
+    total?: number | string;
+    itemsSubtotal?: number | string;
+    productDiscountTotal?: number | string;
+    couponDiscount?: number | string;
+    deliveryFeeAmount?: number | string;
+    paymentMethod?: string | null;
+    payOnDeliveryMethod?: string | null;
+    deliveryRating?: number | null;
+    deliveryRatedAt?: string | null;
+    restaurant?: { id?: number; name?: string; slug?: string; logo?: string | null } | null;
+    items?: Array<{
+      id: number;
+      quantity: number;
+      price: number | string;
+      product?: { id?: number; name?: string } | null;
+    }>;
+    paymentAttempts?: Array<{
+      method?: string | null;
+      provider?: string | null;
+      cardBrand?: string | null;
+      cardLast4?: string | null;
+      finalizedAt?: string | null;
+    }>;
     deliveryStartedAt?: string | null;
     deliveryConfirmedAt?: string | null;
     canConfirmDeliveryReceipt?: boolean;

@@ -956,6 +956,8 @@ model Order {
   deliveryStartedAt               DateTime?
   deliveredAt                     DateTime?
   deliveryConfirmedAt             DateTime?
+  deliveryRating                  Int?
+  deliveryRatedAt                 DateTime?
   preparationStartedAt            DateTime?
   readyAt                         DateTime?
   capacityQueuedAt                DateTime?

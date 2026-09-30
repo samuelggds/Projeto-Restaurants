@@ -636,12 +636,24 @@ export function FigmaDeliveryExperience({
             </span>
             <span className="brand-copy">
               <b>{data.brand.name}</b>
-              <span
-                className="status"
-                role="status"
-                aria-label={data.isOpen ? 'Aberto agora.' : 'Fechado agora.'}
-              >
-                <i className={data.isOpen ? 'open' : ''} /> {data.isOpen ? 'Aberto agora' : 'Fechado agora'}
+              <span className="brand-meta">
+                <span
+                  className="status"
+                  role="status"
+                  aria-label={data.isOpen ? 'Aberto agora.' : 'Fechado agora.'}
+                >
+                  <i className={data.isOpen ? 'open' : ''} /> {data.isOpen ? 'Aberto agora' : 'Fechado agora'}
+                </span>
+                {Number(data.brand.ratingCount || 0) > 0 && data.brand.ratingAverage ? (
+                  <span
+                    className="restaurant-rating"
+                    aria-label={`${data.brand.ratingAverage.toFixed(1)} de 5 em ${data.brand.ratingCount} avaliações`}
+                  >
+                    <Star aria-hidden="true" fill="currentColor" />
+                    <b>{data.brand.ratingAverage.toFixed(1)}</b>
+                    <small>({data.brand.ratingCount})</small>
+                  </span>
+                ) : null}
               </span>
             </span>
           </button>

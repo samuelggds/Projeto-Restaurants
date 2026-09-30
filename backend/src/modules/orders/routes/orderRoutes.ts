@@ -38,6 +38,7 @@ import MercadoPagoOrderWebhookController from '../controllers/MercadoPagoOrderWe
 import PagarmeOrderWebhookController from '../controllers/PagarmeOrderWebhookController.js';
 import GetCurrentTableOrderController from '../controllers/GetCurrentTableOrderController.js';
 import ConfirmOrderDeliveryReceivedController from '../controllers/ConfirmOrderDeliveryReceivedController.js';
+import RateDeliveredOrderController from '../controllers/RateDeliveredOrderController.js';
 import QuoteOrderController from '../controllers/QuoteOrderController.js';
 import GetDeliveryAddressLocationController from '../controllers/GetDeliveryAddressLocationController.js';
 import OrderReportsController from '../controllers/OrderReportsController.js';
@@ -229,6 +230,15 @@ router.patch(
   deliveryConfirmationAttemptRateLimitMiddleware,
   (req, res) => {
     ConfirmOrderDeliveryReceivedController.handle(req, res);
+  },
+);
+
+router.patch(
+  '/:id/delivery-rating',
+  deliveryTrackingAccessMiddleware,
+  deliveryConfirmationAttemptRateLimitMiddleware,
+  (req, res) => {
+    RateDeliveredOrderController.handle(req, res);
   },
 );
 
