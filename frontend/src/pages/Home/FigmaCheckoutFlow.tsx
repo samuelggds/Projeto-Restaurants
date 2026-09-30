@@ -1,13 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import {
-  ArrowLeft,
-  BatteryFull,
-  ShoppingBag,
-  Signal,
-  Ticket,
-  UserRound,
-  Wifi,
-} from 'lucide-react';
+import { ArrowLeft, ShoppingBag, Ticket, UserRound } from 'lucide-react';
 import { CartItemsList } from './components/CartItemsList';
 import { CartCrossSell } from './components/CartCrossSell';
 import type { CartItem } from './hooks/useCart';
@@ -23,6 +15,7 @@ type Props = {
   logoUrl?: string;
   isOpen?: boolean;
   deliveryTime?: string;
+  userName?: string;
   step: FigmaCheckoutStep;
   cart: CartItem[];
   cartCount: number;
@@ -31,6 +24,7 @@ type Props = {
   loading?: boolean;
   canContinue?: boolean;
   couponContent?: ReactNode;
+  onApplyCouponCode?: (code: string) => void;
   guestAddressScreen?: ReactNode;
   authenticatedAddressScreen?: ReactNode;
   authenticatedEmptyAddressScreen?: ReactNode;
@@ -50,11 +44,60 @@ type Props = {
 const currency = (value: number) =>
   value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
+type CouponEntryProps = {
+  appliedCode?: string | null;
+  placeholder: string;
+  onOpen: () => void;
+  onApply?: (code: string) => void;
+};
+
+function CouponEntry({
+  appliedCode,
+  placeholder,
+  onOpen,
+  onApply,
+}: CouponEntryProps) {
+  const [draft, setDraft] = useState(() => String(appliedCode || ''));
+  const normalizedDraft = draft.trim().toUpperCase();
+  const normalizedApplied = String(appliedCode || '').trim().toUpperCase();
+  const isApplied = Boolean(normalizedApplied && normalizedDraft === normalizedApplied);
+
+  const apply = () => {
+    onOpen();
+    if (!normalizedDraft || isApplied) return;
+    onApply?.(normalizedDraft);
+  };
+
+  return (
+    <div className="coupon-entry">
+      <Ticket aria-hidden="true" />
+      <input
+        type="text"
+        value={draft}
+        placeholder={placeholder}
+        aria-label="Código do cupom"
+        autoComplete="off"
+        onFocus={onOpen}
+        onChange={(event) => setDraft(event.target.value)}
+        onKeyDown={(event) => {
+          if (event.key !== 'Enter') return;
+          event.preventDefault();
+          apply();
+        }}
+      />
+      <button type="button" onClick={apply}>
+        {isApplied ? 'Aplicado' : 'Aplicar'}
+      </button>
+    </div>
+  );
+}
+
 export function FigmaCheckoutFlow({
   primaryColor,
   brandName,
   logoUrl,
   isOpen = true,
+  userName,
   step,
   cart,
   cartCount,
@@ -63,6 +106,7 @@ export function FigmaCheckoutFlow({
   loading = false,
   canContinue = true,
   couponContent,
+  onApplyCouponCode,
   guestAddressScreen,
   authenticatedAddressScreen,
   authenticatedEmptyAddressScreen,
@@ -101,6 +145,7 @@ export function FigmaCheckoutFlow({
     };
   }, []);
 
+  const firstName = String(userName || '').trim().split(/\s+/)[0];
   const subtotal = quote ? quote.itemsSubtotal + quote.productDiscountTotal : cartTotal;
   const deliveryFee = quote?.deliveryFeeAmount ?? 0;
   const total = quote?.total ?? cartTotal;
@@ -150,15 +195,6 @@ export function FigmaCheckoutFlow({
         aria-modal="true"
         aria-label="Finalizar pedido"
       >
-        <S.MobileStatusBar aria-hidden="true">
-          <strong>9:41</strong>
-          <div>
-            <Signal />
-            <Wifi />
-            <BatteryFull />
-          </div>
-        </S.MobileStatusBar>
-
         <S.CartDesktopHeader>
           <button className="brand" type="button" onClick={onClose} aria-label={brandName}>
             <span className="logo">
@@ -176,7 +212,7 @@ export function FigmaCheckoutFlow({
           <div className="actions">
             <button className="account" type="button" onClick={onLogin}>
               <UserRound aria-hidden="true" />
-              <span>Olá, Entrar</span>
+              <span>{firstName ? `Olá, ${firstName}` : 'Olá, Entrar'}</span>
             </button>
             <button className="cart" type="button">
               <ShoppingBag aria-hidden="true" />
@@ -224,16 +260,13 @@ export function FigmaCheckoutFlow({
 
             {cartCount > 0 && mobileCart ? (
               <S.MobileCartSummary>
-                <button
-                  className="coupon-trigger"
-                  type="button"
-                  onClick={() => setCouponOpen((value) => !value)}
-                  aria-expanded={couponOpen}
-                >
-                  <Ticket aria-hidden="true" />
-                  <span>{quote?.couponCode ? quote.couponCode : 'Cupom de desconto'}</span>
-                  <b>{quote?.couponCode ? 'Aplicado' : 'Aplicar'}</b>
-                </button>
+                <CouponEntry
+                  key={quote?.couponCode || 'mobile-coupon-empty'}
+                  appliedCode={quote?.couponCode}
+                  placeholder="Cupom de desconto"
+                  onOpen={() => setCouponOpen(true)}
+                  onApply={onApplyCouponCode}
+                />
 
                 {couponOpen && couponContent ? (
                   <div className="coupon-details">{couponContent}</div>
@@ -270,16 +303,13 @@ export function FigmaCheckoutFlow({
             <S.CartSummarySidebar>
               <h2>Resumo do Pedido</h2>
 
-              <button
-                className="coupon-trigger"
-                type="button"
-                onClick={() => setCouponOpen((value) => !value)}
-                aria-expanded={couponOpen}
-              >
-                <Ticket aria-hidden="true" />
-                <span>{quote?.couponCode ? quote.couponCode : 'Cupom de desconto...'}</span>
-                <b>{quote?.couponCode ? 'Aplicado' : 'Aplicar'}</b>
-              </button>
+              <CouponEntry
+                key={quote?.couponCode || 'desktop-coupon-empty'}
+                appliedCode={quote?.couponCode}
+                placeholder="Cupom de desconto..."
+                onOpen={() => setCouponOpen(true)}
+                onApply={onApplyCouponCode}
+              />
 
               {couponOpen && couponContent ? (
                 <div className="coupon-details">{couponContent}</div>
@@ -319,8 +349,8 @@ export function FigmaCheckoutFlow({
           <div className="footer-main">
             <section className="platform">
               <div className="platform-brand">
-                <span>G</span>
-                <strong>GastroNexa</strong>
+                <span>{logoUrl ? <img src={logoUrl} alt="" /> : brandName.slice(0, 1).toUpperCase()}</span>
+                <strong>{brandName}</strong>
               </div>
               <p>
                 Sua experiência gourmet completa, direto do conforto de sua casa. O melhor do {brandName} entregue rápido.
@@ -338,7 +368,7 @@ export function FigmaCheckoutFlow({
               <h3>Suporte</h3>
               <p>Falar no Chat</p>
               <p>Central de Ajuda</p>
-              <p>Termos de Serviço</p>
+              <a href="/termos/">Termos de Serviço</a>
             </section>
 
             <section>
@@ -352,8 +382,8 @@ export function FigmaCheckoutFlow({
           <div className="footer-divider" />
 
           <div className="footer-bottom">
-            <span>© {new Date().getFullYear()} GastroNexa & {brandName}. Todos os direitos reservados.</span>
-            <span className="legal"><span>Privacidade</span><span>Cookies</span></span>
+            <span>© {new Date().getFullYear()} {brandName}. Todos os direitos reservados.</span>
+            <span className="legal"><a href="/privacidade/">Privacidade</a><a href="/cookies/">Cookies</a></span>
           </div>
         </S.CartDesktopFooter>
 

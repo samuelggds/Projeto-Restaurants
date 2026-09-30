@@ -101,13 +101,13 @@ test('com opt-in válido usa o número vinculado ao pedido e segue para a resolu
   });
   prisma.auditLog.findFirst = async () => ({
     id: 77,
-    metadata: { destinationPhone: '+5585999999999' },
+    metadata: { destinationPhone: '85999999999' },
   });
 
   const result = await notifyCustomerPaymentConfirmed({
     restaurantId: 9,
     orderId: 502,
-    customerPhone: '+5511988887777',
+    customerPhone: '11988887777',
   });
 
   assert.notEqual(result.reason, 'customer_whatsapp_opt_in_missing');

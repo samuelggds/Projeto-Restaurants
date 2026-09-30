@@ -36,7 +36,10 @@ type Props = {
   onDeleteProduct: (id: string) => Promise<void>;
   onNewProduct: () => void;
   onCreateCategory: (name: string) => Promise<void>;
-  onUpdateCategory: (id: number, name: string) => Promise<void>;
+  onUpdateCategory: (
+    id: number,
+    updates: { name?: string; image?: string | null },
+  ) => Promise<void>;
   onDeleteCategory: (id: number) => Promise<void>;
   onCreateIngredient: (ingredient: Omit<AdminIngredient, 'id'>) => Promise<AdminIngredient | void>;
   onUpdateIngredient: (ingredient: AdminIngredient, imageUpdate?: string | null) => Promise<void>;

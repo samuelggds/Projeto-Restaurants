@@ -1,18 +1,21 @@
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   AlertTriangle,
   ArrowLeft,
+  CircleCheck,
   ChevronRight,
   CircleHelp,
   CreditCard,
   Headphones,
   Mail,
   MapPin,
-  Search,
+  Plus,
   Settings,
+  ShieldCheck,
   ShoppingBag,
   Star,
   TicketPercent,
+  Trash2,
   UserRound,
   WalletCards,
   Camera,
@@ -21,6 +24,9 @@ import { buildLoyaltyWalletEntries } from './domain/loyaltyWallet';
 import { FigmaCouponRedemption, FigmaLoyaltyProgram } from './FigmaLoyaltyViews';
 import { useLoyaltyExpirationClock } from '../Home/hooks/useLoyaltyExpirationClock';
 import { CustomerDesktopFooter } from '../Home/components/CustomerDesktopFooter';
+import { PaymentCardVisual } from './components/PaymentCardVisual';
+import { CardBrandLogo } from './components/CardBrandLogo';
+import { getCardBrandDetails } from './domain/cardBrand';
 import type {
   ActiveProfileOrder,
   ProfileData,
@@ -37,6 +43,7 @@ type Stage3View =
   | 'orders'
   | 'addresses'
   | 'paymentMethods'
+  | 'paymentMethodDetails'
   | 'coupons'
   | 'loyalty'
   | 'redeemCoupons'
@@ -63,12 +70,27 @@ function orderStatus(order: AccountOrder) {
   return 'Confirmado';
 }
 
+const ORDER_PROGRESS = [
+  { id: 'confirmed', label: 'Confirmado' },
+  { id: 'preparing', label: 'Em preparo' },
+  { id: 'onTheWay', label: 'A caminho' },
+  { id: 'delivered', label: 'Entregue' },
+] as const;
+
+function orderProgressIndex(order: AccountOrder) {
+  if (order.status === 'delivered') return 3;
+  if (order.status === 'onTheWay') return 2;
+  if (order.status === 'preparing') return 1;
+  return 0;
+}
+
 function FigmaAccountExperienceReady(props: ProfilePageProps & { data: ProfileData }) {
   const {
     data,
     initialView = 'overview',
     cartCount = 0,
     paymentMethods = [],
+    onGoHome,
     onOpenMenu,
     onOpenCart,
     onOpenSearch,
@@ -84,6 +106,7 @@ function FigmaAccountExperienceReady(props: ProfilePageProps & { data: ProfileDa
   } = props;
 
   const [view, setView] = useState<Stage3View>(() => initialStage3View(initialView));
+  const [selectedPaymentMethodId, setSelectedPaymentMethodId] = useState<string | null>(null);
   const avatarInputRef = useRef<HTMLInputElement>(null);
   const [avatarUploading, setAvatarUploading] = useState(false);
   const [ordersTab, setOrdersTab] = useState<'active' | 'history'>('active');
@@ -96,6 +119,30 @@ function FigmaAccountExperienceReady(props: ProfilePageProps & { data: ProfileDa
   const [darkMode, setDarkMode] = useState(
     () => localStorage.getItem('customerDarkMode') === 'on',
   );
+  const [mfaPasswordOpen, setMfaPasswordOpen] = useState(false);
+  const [mfaPassword, setMfaPassword] = useState('');
+  const [mfaSaving, setMfaSaving] = useState(false);
+  const [mfaError, setMfaError] = useState('');
+  const [mobileLayout, setMobileLayout] = useState(() =>
+    typeof window.matchMedia === 'function'
+      ? window.matchMedia('(max-width: 760px)').matches
+      : window.innerWidth <= 760,
+  );
+
+  useEffect(() => {
+    if (typeof window.matchMedia !== 'function') {
+      const syncLayout = () => setMobileLayout(window.innerWidth <= 760);
+      syncLayout();
+      window.addEventListener('resize', syncLayout);
+      return () => window.removeEventListener('resize', syncLayout);
+    }
+
+    const media = window.matchMedia('(max-width: 760px)');
+    const syncLayout = () => setMobileLayout(media.matches);
+    syncLayout();
+    media.addEventListener('change', syncLayout);
+    return () => media.removeEventListener('change', syncLayout);
+  }, []);
 
   const loyaltyClock = useLoyaltyExpirationClock(props.loyaltySummary || null);
   const coupons = useMemo(
@@ -109,6 +156,9 @@ function FigmaAccountExperienceReady(props: ProfilePageProps & { data: ProfileDa
     activeOrders.length,
     Number(data.activeOrderCount || 0),
   );
+  const savedAddressCount = (data.addresses || []).length;
+  const activePaymentMethodCount = paymentMethods.length;
+  const activeCouponCount = activeCoupons.length;
   const orderHistory = data.recentOrders;
   const primary = data.brand.primaryColor || '#e85a2b';
   const initials = data.user.fullName
@@ -126,13 +176,47 @@ function FigmaAccountExperienceReady(props: ProfilePageProps & { data: ProfileDa
     localStorage.setItem(key, enabled ? 'on' : 'off');
   };
 
-  const goBack = () => setView('account');
+  const goBack = () => {
+    if (view === 'paymentMethodDetails') {
+      setSelectedPaymentMethodId(null);
+      setView('paymentMethods');
+      return;
+    }
+    setView('account');
+  };
+
+  const toggleCustomerMfa = async () => {
+    if (!mfaPasswordOpen) {
+      setMfaPasswordOpen(true);
+      setMfaError('');
+      return;
+    }
+    if (!mfaPassword.trim()) {
+      setMfaError('Digite sua senha atual para confirmar esta alteração.');
+      return;
+    }
+    setMfaSaving(true);
+    setMfaError('');
+    try {
+      await props.onToggleTwoFactor?.(!props.twoFactorEnabled, mfaPassword);
+    } catch (error: unknown) {
+      const typed = error as { response?: { data?: { error?: unknown } } };
+      setMfaError(
+        String(
+          typed.response?.data?.error ||
+            'Não foi possível atualizar a verificação em duas etapas. Confira sua senha e tente novamente.',
+        ),
+      );
+      setMfaSaving(false);
+    }
+  };
 
   const renderOrders = (orders: AccountOrder[]) =>
     orders.length ? (
       <S.OrderList>
         {orders.map((order) => {
           const status = orderStatus(order);
+          const progressIndex = orderProgressIndex(order);
           const statusClass =
             order.status === 'onTheWay'
               ? 'on-the-way'
@@ -143,32 +227,22 @@ function FigmaAccountExperienceReady(props: ProfilePageProps & { data: ProfileDa
                   : order.paymentPending
                     ? 'payment-pending'
                     : 'preparing';
+          const canTrack =
+            !order.paymentPending &&
+            order.channel === 'Delivery' &&
+            order.status !== 'cancelled' &&
+            order.status !== 'delivered';
+
           return (
-            <S.OrderCard
-              key={order.id}
-              role={order.status !== 'cancelled' ? 'button' : undefined}
-              tabIndex={order.status !== 'cancelled' ? 0 : undefined}
-              onClick={() => {
-                if (order.paymentPending && order.publicId) {
-                  props.onContinuePayment?.(order.publicId);
-                  return;
-                }
-                if (order.status !== 'cancelled') props.onViewOrder?.(order.id);
-              }}
-              onKeyDown={(event) => {
-                if (event.key !== 'Enter' && event.key !== ' ') return;
-                event.preventDefault();
-                if (order.paymentPending && order.publicId) {
-                  props.onContinuePayment?.(order.publicId);
-                  return;
-                }
-                if (order.status !== 'cancelled') props.onViewOrder?.(order.id);
-              }}
-            >
+            <S.OrderCard key={order.id}>
               <div className="order-header">
                 <div className="restaurant">
                   <span className="thumb">
-                    {order.image ? <img src={order.image} alt="" /> : data.brand.monogram || data.brand.name.slice(0, 1)}
+                    {order.image ? (
+                      <img src={order.image} alt="" />
+                    ) : (
+                      data.brand.monogram || data.brand.name.slice(0, 1)
+                    )}
                   </span>
                   <div className="restaurant-copy">
                     <b>{data.brand.name}</b>
@@ -180,11 +254,67 @@ function FigmaAccountExperienceReady(props: ProfilePageProps & { data: ProfileDa
                 </div>
                 <span className={'status ' + statusClass}>{status}</span>
               </div>
+
               <div className="divider" />
+
               <div className="order-body">
                 <p>{order.summary}</p>
                 <strong>{currency(order.total)}</strong>
               </div>
+
+              {order.status !== 'cancelled' ? (
+                <div className="order-progress" aria-label={`Status do pedido: ${status}`}>
+                  <div className="progress-line" aria-hidden="true">
+                    {ORDER_PROGRESS.map((stage, index) => (
+                      <span className="progress-segment" key={stage.id}>
+                        <i className={index <= progressIndex ? 'done' : ''} />
+                        {index < ORDER_PROGRESS.length - 1 ? (
+                          <em className={index < progressIndex ? 'done' : ''} />
+                        ) : null}
+                      </span>
+                    ))}
+                  </div>
+                  <div className="progress-labels">
+                    {ORDER_PROGRESS.map((stage, index) => (
+                      <span
+                        key={stage.id}
+                        className={index === progressIndex ? 'current' : ''}
+                      >
+                        {stage.label}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
+
+              {order.paymentPending && order.publicId ? (
+                <button
+                  className="track-order"
+                  type="button"
+                  onClick={() => props.onContinuePayment?.(order.publicId!)}
+                >
+                  <CreditCard aria-hidden="true" />
+                  <span>Continuar pagamento</span>
+                </button>
+              ) : canTrack ? (
+                <button
+                  className="track-order"
+                  type="button"
+                  onClick={() => props.onTrackOrder?.(order.id)}
+                >
+                  <MapPin aria-hidden="true" />
+                  <span>Acompanhar em tempo real</span>
+                </button>
+              ) : null}
+
+              <button
+                className="support-order"
+                type="button"
+                onClick={() => props.onSupportOrder?.(order.id)}
+              >
+                <Headphones aria-hidden="true" />
+                <span>Precisa de ajuda?</span>
+              </button>
             </S.OrderCard>
           );
         })}
@@ -238,6 +368,81 @@ function FigmaAccountExperienceReady(props: ProfilePageProps & { data: ProfileDa
         </div>
       </S.SettingsCard>
 
+      <S.SectionLabel>Segurança</S.SectionLabel>
+      <S.SettingsCard>
+        <div className="row security-row">
+          <span className="security-copy">
+            <i className="security-icon"><ShieldCheck size={18} /></i>
+            <span>
+              <b>Verificação em duas etapas (MFA)</b>
+              <small>
+                {props.twoFactorEnabled
+                  ? 'Ativada. Um código adicional será solicitado ao entrar na conta.'
+                  : 'Proteja sua conta exigindo um código adicional durante o login.'}
+              </small>
+            </span>
+          </span>
+          <S.Toggle
+            $on={Boolean(props.twoFactorEnabled)}
+            type="button"
+            aria-label={props.twoFactorEnabled ? 'Desativar MFA' : 'Ativar MFA'}
+            aria-pressed={Boolean(props.twoFactorEnabled)}
+            disabled={mfaSaving}
+            onClick={() => void toggleCustomerMfa()}
+          />
+        </div>
+        {mfaPasswordOpen ? (
+          <form
+            className="mfa-confirm"
+            onSubmit={(event) => {
+              event.preventDefault();
+              void toggleCustomerMfa();
+            }}
+          >
+            <div className="mfa-copy">
+              <b>{props.twoFactorEnabled ? 'Desativar MFA' : 'Ativar MFA'}</b>
+              <span>
+                Por segurança, confirme sua senha atual. Depois da alteração será necessário entrar novamente.
+              </span>
+            </div>
+            <label>
+              Senha atual
+              <input
+                type="password"
+                autoComplete="current-password"
+                maxLength={128}
+                value={mfaPassword}
+                disabled={mfaSaving}
+                aria-invalid={Boolean(mfaError)}
+                onChange={(event) => {
+                  setMfaPassword(event.target.value);
+                  if (mfaError) setMfaError('');
+                }}
+                autoFocus
+              />
+            </label>
+            {mfaError ? <div className="mfa-error" role="alert">{mfaError}</div> : null}
+            <div className="mfa-actions">
+              <button
+                className="secondary"
+                type="button"
+                disabled={mfaSaving}
+                onClick={() => {
+                  setMfaPasswordOpen(false);
+                  setMfaPassword('');
+                  setMfaError('');
+                }}
+              >
+                Cancelar
+              </button>
+              <button className="primary" type="submit" disabled={mfaSaving}>
+                {mfaSaving ? 'Atualizando...' : props.twoFactorEnabled ? 'Confirmar desativação' : 'Confirmar ativação'}
+              </button>
+            </div>
+          </form>
+        ) : null}
+      </S.SettingsCard>
+
       <S.SectionLabel>Sobre</S.SectionLabel>
       <S.SettingsCard>
         <div className="row">
@@ -245,6 +450,9 @@ function FigmaAccountExperienceReady(props: ProfilePageProps & { data: ProfileDa
         </div>
         <div className="row">
           <a href="/privacidade/" className="link">Política de privacidade <ChevronRight size={16} /></a>
+        </div>
+        <div className="row">
+          <a href="/cookies/" className="link">Cookies <ChevronRight size={16} /></a>
         </div>
       </S.SettingsCard>
 
@@ -352,26 +560,134 @@ function FigmaAccountExperienceReady(props: ProfilePageProps & { data: ProfileDa
 
     if (view === 'paymentMethods') {
       return (
-        <S.Stack>
-          {paymentMethods.map((method) => (
-            <S.ItemCard key={method.publicId}>
-              <span className="icon"><CreditCard /></span>
-              <div className="copy">
-                <b>{method.brand} ···· {method.last4}</b>
-                <span>Crédito · Expira em {String(method.expMonth).padStart(2, '0')}/{String(method.expYear).slice(-2)}</span>
-                {method.isDefault ? <span className="default">Padrão</span> : null}
-              </div>
-              <div className="actions">
-                {!method.isDefault ? (
-                  <button type="button" onClick={() => void onSelectPaymentMethod?.(method.publicId)}>Usar</button>
-                ) : null}
-                <button type="button" onClick={() => void onRemovePaymentMethod?.(method.publicId)}>Remover</button>
-              </div>
-            </S.ItemCard>
-          ))}
-          {!paymentMethods.length ? <S.Empty>Nenhum método de pagamento salvo.</S.Empty> : null}
-          <S.AddButton type="button" onClick={onAddPaymentMethod}>+ Adicionar método de pagamento</S.AddButton>
-        </S.Stack>
+        <S.SavedPaymentsList aria-label="Cartões salvos">
+          <div className="saved-card-list">
+            {paymentMethods.map((method) => {
+              const brand = getCardBrandDetails(method.brand);
+              return (
+                <button
+                  key={method.publicId}
+                  type="button"
+                  className="saved-card-row"
+                  aria-label={`Ver detalhes do cartão final ${method.last4}`}
+                  onClick={() => {
+                    setSelectedPaymentMethodId(method.publicId);
+                    setView('paymentMethodDetails');
+                  }}
+                >
+                  <span className="brand-box" aria-hidden="true">
+                    <CardBrandLogo brand={brand.id} />
+                  </span>
+                  <span className="saved-card-copy">
+                    <span className="brand-line">
+                      <strong>{brand.label}</strong>
+                      {method.isDefault ? <em>Principal</em> : null}
+                    </span>
+                    <span className="masked-number">•••• •••• •••• {method.last4}</span>
+                  </span>
+                  <ChevronRight className="row-chevron" aria-hidden="true" />
+                </button>
+              );
+            })}
+            {!paymentMethods.length ? (
+              <S.Empty>Nenhum cartão salvo. Adicione um cartão para começar.</S.Empty>
+            ) : null}
+          </div>
+
+          <div className="saved-card-actions">
+            <p>Gerencie seus métodos de pagamento favoritos.</p>
+            <button type="button" className="add-saved-card" onClick={onAddPaymentMethod}>
+              <Plus />
+              Adicionar novo cartão
+            </button>
+          </div>
+        </S.SavedPaymentsList>
+      );
+    }
+
+    if (view === 'paymentMethodDetails') {
+      const method = paymentMethods.find((item) => item.publicId === selectedPaymentMethodId);
+      if (!method) {
+        return (
+          <S.Empty>
+            Este cartão não está mais disponível.
+          </S.Empty>
+        );
+      }
+
+      const brand = getCardBrandDetails(method.brand);
+      const holder = method.holderName || data.user.fullName || data.user.firstName || 'Titular do cartão';
+      const expiry = `${String(method.expMonth).padStart(2, '0')}/${String(method.expYear).slice(-2)}`;
+      const addedAt = method.createdAt
+        ? (() => {
+            const date = new Date(method.createdAt);
+            if (Number.isNaN(date.getTime())) return 'Data não informada';
+            const months = [
+              'jan', 'fev', 'mar', 'abr', 'mai', 'jun',
+              'jul', 'ago', 'set', 'out', 'nov', 'dez',
+            ];
+            return `${String(date.getUTCDate()).padStart(2, '0')} ${months[date.getUTCMonth()]} ${date.getUTCFullYear()}`;
+          })()
+        : 'Data não informada';
+
+      return (
+        <S.SavedPaymentDetails aria-label="Detalhes do cartão salvo">
+          <div className="details-grid">
+            <div className="visual-side">
+              <PaymentCardVisual
+                compact
+                brand={brand.id}
+                numberLabel={`•••• •••• •••• ${method.last4}`}
+                holderName={holder}
+                expiryLabel={expiry}
+              />
+              <p className="protected">
+                <ShieldCheck />
+                <span>Dados protegidos com criptografia</span>
+              </p>
+            </div>
+
+            <div className="info-side">
+              {method.isDefault ? (
+                <div className="primary-badge">
+                  <CircleCheck />
+                  <span>Método de pagamento principal</span>
+                </div>
+              ) : null}
+
+              <dl>
+                <div><dt>Bandeira</dt><dd>{brand.label}</dd></div>
+                <div><dt>Últimos dígitos</dt><dd>{method.last4}</dd></div>
+                <div><dt>Titular do Cartão</dt><dd>{holder}</dd></div>
+                <div><dt>Validade</dt><dd>{expiry}</dd></div>
+                <div><dt>Adicionado em</dt><dd>{addedAt}</dd></div>
+              </dl>
+            </div>
+          </div>
+
+          <div className="detail-actions">
+            <button
+              type="button"
+              className="remove"
+              onClick={async () => {
+                await onRemovePaymentMethod?.(method.publicId);
+                setSelectedPaymentMethodId(null);
+                setView('paymentMethods');
+              }}
+            >
+              <Trash2 />
+              Remover cartão
+            </button>
+            <button
+              type="button"
+              className="primary"
+              disabled={method.isDefault}
+              onClick={() => void onSelectPaymentMethod?.(method.publicId)}
+            >
+              Definir como principal
+            </button>
+          </div>
+        </S.SavedPaymentDetails>
       );
     }
 
@@ -503,21 +819,31 @@ function FigmaAccountExperienceReady(props: ProfilePageProps & { data: ProfileDa
       <S.MenuCard>
         <button type="button" onClick={() => setView('orders')}>
           <ShoppingBag /><span>Meus pedidos</span>
-          {activeOrderCount ? (
-            <span className="badge">
-              {activeOrderCount} {activeOrderCount === 1 ? 'ativo' : 'ativos'}
-            </span>
-          ) : null}
+          <span className="badge">
+            {activeOrderCount} {activeOrderCount === 1 ? 'ativo' : 'ativos'}
+          </span>
           <ChevronRight className="chev" />
         </button>
         <button type="button" onClick={() => setView('addresses')}>
-          <MapPin /><span>Endereços salvos</span><ChevronRight className="chev" />
+          <MapPin /><span>Endereços salvos</span>
+          <span className="badge">
+            {savedAddressCount} {savedAddressCount === 1 ? 'ativo' : 'ativos'}
+          </span>
+          <ChevronRight className="chev" />
         </button>
         <button type="button" onClick={() => setView('paymentMethods')}>
-          <WalletCards /><span>Métodos de pagamento</span><ChevronRight className="chev" />
+          <WalletCards /><span>Métodos de pagamento</span>
+          <span className="badge">
+            {activePaymentMethodCount} {activePaymentMethodCount === 1 ? 'ativo' : 'ativos'}
+          </span>
+          <ChevronRight className="chev" />
         </button>
         <button type="button" onClick={() => setView('coupons')}>
-          <TicketPercent /><span>Meus Cupons</span><ChevronRight className="chev" />
+          <TicketPercent /><span>Meus Cupons</span>
+          <span className="badge">
+            {activeCouponCount} {activeCouponCount === 1 ? 'ativo' : 'ativos'}
+          </span>
+          <ChevronRight className="chev" />
         </button>
         <button type="button" onClick={() => setView('loyalty')}>
           <Star /><span>Programa de Fidelidade</span><ChevronRight className="chev" />
@@ -542,7 +868,9 @@ function FigmaAccountExperienceReady(props: ProfilePageProps & { data: ProfileDa
         : view === 'addresses'
           ? 'Endereços Salvos'
           : view === 'paymentMethods'
-            ? 'Métodos de Pagamento'
+            ? 'Cartões Salvos'
+            : view === 'paymentMethodDetails'
+              ? 'Detalhes do Cartão'
             : view === 'coupons'
               ? 'Meus Cupons'
               : view === 'loyalty'
@@ -556,17 +884,32 @@ function FigmaAccountExperienceReady(props: ProfilePageProps & { data: ProfileDa
   return (
     <S.Root $primary={primary} $dark={darkMode}>
       <S.Header>
-        <div className="brand">
+        <button
+          className="brand"
+          type="button"
+          aria-label={`Ir para a página inicial de ${data.brand.name}`}
+          onClick={onGoHome}
+        >
           <span className="logo">{data.brand.logoUrl ? <img src={data.brand.logoUrl} alt="" /> : data.brand.monogram || data.brand.name.slice(0, 1)}</span>
-          <div className="brand-copy">
+          <span className="brand-copy">
             <b>{data.brand.name}</b>
-            {data.brand.status ? <span className="status"><i /> {data.brand.status}</span> : null}
-          </div>
-        </div>
-        <button className="search" type="button" aria-label="Buscar" onClick={onOpenSearch}>
-          <Search size={16} /> Buscar no cardápio...
+            {data.brand.status ? (
+              <span className="status">
+                <i className={/fechado/i.test(data.brand.status) ? 'closed' : 'open'} />
+                {data.brand.status}
+              </span>
+            ) : null}
+          </span>
         </button>
         <div className="actions">
+          <button
+            className="search"
+            type="button"
+            aria-label="Buscar"
+            onClick={onOpenSearch}
+          >
+            Buscar
+          </button>
           <button className="account" type="button" onClick={() => setView('account')}>
             <UserRound size={20} /> Olá, {data.user.firstName || data.user.fullName}
           </button>
@@ -582,10 +925,21 @@ function FigmaAccountExperienceReady(props: ProfilePageProps & { data: ProfileDa
         </div>
       </S.Header>
 
+      {mobileLayout ? (
       <S.Mobile className={view === 'orders' ? 'orders-view' : ''}>
         {view === 'account' ? (
           <S.Stack>
-            <S.PageTitle><h1>{title}</h1></S.PageTitle>
+            <S.PageTitle>
+              <button
+                className="back"
+                type="button"
+                aria-label="Voltar para o restaurante"
+                onClick={onGoHome}
+              >
+                <ArrowLeft />
+              </button>
+              <h1>{title}</h1>
+            </S.PageTitle>
             {menu}
           </S.Stack>
         ) : (
@@ -599,7 +953,7 @@ function FigmaAccountExperienceReady(props: ProfilePageProps & { data: ProfileDa
         )}
         <S.MobileHomeIndicator />
       </S.Mobile>
-
+      ) : (
       <S.Desktop>
         <S.Center
           className={view === 'orders' ? 'orders-center' : ''}
@@ -612,17 +966,24 @@ function FigmaAccountExperienceReady(props: ProfilePageProps & { data: ProfileDa
           }
         >
           <S.PageTitle className={view === 'orders' ? 'orders-page-title' : ''}>
-            {view !== 'account' ? (
-              <button className="back" type="button" aria-label="Voltar para minha conta" onClick={goBack}><ArrowLeft /></button>
-            ) : null}
+            <button
+              className="back"
+              type="button"
+              aria-label={view === 'account' ? 'Voltar para o restaurante' : 'Voltar para minha conta'}
+              onClick={view === 'account' ? onGoHome : goBack}
+            >
+              <ArrowLeft />
+            </button>
             <h1>{title}</h1>
           </S.PageTitle>
           {view === 'account' ? menu : pageContent()}
         </S.Center>
       </S.Desktop>
+      )}
 
       <CustomerDesktopFooter
         restaurantName={data.brand.name}
+        restaurantLogoUrl={data.brand.logoUrl}
         description={data.brand.description}
         primaryColor={primary}
         phone={data.brand.phone}

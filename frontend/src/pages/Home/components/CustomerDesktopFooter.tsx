@@ -2,6 +2,7 @@ import styled from 'styled-components';
 
 type Props = {
   restaurantName: string;
+  restaurantLogoUrl?: string;
   description?: string;
   primaryColor?: string;
   phone?: string;
@@ -14,6 +15,7 @@ type Props = {
 
 export function CustomerDesktopFooter({
   restaurantName,
+  restaurantLogoUrl,
   description,
   primaryColor = '#e85a2b',
   phone,
@@ -30,8 +32,14 @@ export function CustomerDesktopFooter({
       <div className="main">
         <section className="platform">
           <div className="platform-brand">
-            <span className="mark">G</span>
-            <strong>GastroNexa</strong>
+            <span className="mark" aria-hidden="true">
+              {restaurantLogoUrl ? (
+                <img src={restaurantLogoUrl} alt="" />
+              ) : (
+                restaurantName.trim().slice(0, 1).toUpperCase() || 'R'
+              )}
+            </span>
+            <strong>{restaurantName}</strong>
           </div>
           {description ? <p>{description}</p> : null}
         </section>
@@ -67,11 +75,11 @@ export function CustomerDesktopFooter({
 
       <div className="bottom">
         <span>
-          © {new Date().getFullYear()} GastroNexa{restaurantName ? ` & ${restaurantName}` : ''}. Todos os direitos reservados.
+          © {new Date().getFullYear()} {restaurantName}. Todos os direitos reservados.
         </span>
         <span className="legal">
           <a href="/privacidade/">Privacidade</a>
-          <span>Cookies</span>
+          <a href="/cookies/">Cookies</a>
         </span>
       </div>
     </Footer>
@@ -80,6 +88,7 @@ export function CustomerDesktopFooter({
 
 const Footer = styled.footer<{ $primary: string }>`
   min-height: 356px;
+  box-sizing: border-box;
   padding: 64px max(24px, calc((100vw - 1120px) / 2));
   background: #1f1e1a;
   color: #fff;
@@ -106,14 +115,29 @@ const Footer = styled.footer<{ $primary: string }>`
   .mark {
     width: 32px;
     height: 32px;
+    min-width: 32px;
+    max-width: 32px;
+    min-height: 32px;
+    max-height: 32px;
+    flex: 0 0 32px;
     border-radius: 9px;
     display: grid;
     place-items: center;
-    background: ({ $primary }) => $primary;
+    overflow: hidden;
+    background: ${({ $primary }) => $primary};
     color: #fff;
     font-family: 'Gabarito', 'Inter', sans-serif;
     font-size: 16px;
     font-weight: 800;
+  }
+
+  .mark img {
+    width: 32px;
+    height: 32px;
+    max-width: 32px;
+    max-height: 32px;
+    display: block;
+    object-fit: cover;
   }
 
   .platform-brand strong {

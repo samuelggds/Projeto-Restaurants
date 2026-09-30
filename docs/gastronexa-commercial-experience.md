@@ -2,9 +2,8 @@
 
 ## Experiência visual
 
-A landing usa verde escuro, tons claros e tipografia Manrope com títulos em DM Serif Display. A fotografia ilustrativa aproxima a apresentação da rotina de um restaurante. A prévia interativa permite conhecer gestão, cozinha, salão e delivery antes de entrar na demonstração.
+A landing usa verde escuro, tons claros e tipografia Manrope com títulos em DM Serif Display. A fotografia ilustrativa aproxima a apresentação da rotina de um restaurante. A prévia visual apresenta gestão, cozinha, salão e delivery diretamente na landing.
 
-A entrada `/demonstracao` acompanha essa identidade e mantém os acessos de cliente (home e QR Code da mesa), funcionários e administrador. O aviso de dados fictícios fica no conteúdo, sem cobrir os botões. As jornadas internas continuam usando os componentes do produto e os dados locais da demonstração.
 
 Botões comerciais levam ao formulário `/#contato`. A escolha de plano preenche o interesse sem apagar os demais campos. Os preços e períodos exibidos foram preservados; exemplos de pedidos não representam clientes ou resultados reais.
 
@@ -49,7 +48,6 @@ Nome, logo, favicon, carregamento e recuperação de falhas usam GastroNexa. A i
 
 A logo de interface usa `frontend/public/gastronexa-logo.svg`. Esse arquivo incorpora a arte GX original e converte o fundo branco em transparência durante a renderização; o desenho não foi redesenhado. O PNG original permanece como fonte, e referências antigas salvas nas preferências são normalizadas para o SVG. Um teste de navegador verifica o canal alfa, incluindo os cantos transparentes e a ausência de pixels brancos na marca.
 
-Na demonstração, o relatório de clientes segue o mesmo contrato tipado da tela administrativa real: busca, ordenação, paginação por offset e indicadores globais. Pedidos de mesa, pagos ou em dinheiro compõem a base, seguindo a visibilidade do relatório real. O adapter permanece restrito aos dados fictícios, sem acesso à API.
 
 Uma migração de storage transfere preferências para o novo namespace sem substituir valores já existentes. A migração SQL muda somente aliases internos de convidados, preservando IDs, pedidos e relações. Colisões de e-mail abortam a migração em vez de combinar contas.
 
@@ -61,7 +59,6 @@ As únicas referências textuais ao nome anterior ficam nas conversões e nos te
 - Suíte completa do backend: 1.018 testes aprovados.
 - Suíte completa do frontend: 966 testes aprovados, cobertura de 66,9% das linhas, acima dos limites existentes.
 - Agente de impressão: 15 testes aprovados.
-- 31 jornadas de navegador aprovadas: landing, contatos, administração e demonstração, incluindo pedidos de mesa, retirada e delivery. A revisão final do aviso da demonstração possui execução adicional em `artifacts/marketing-browser-final.log`.
 - A execução adicional aprovou 13 testes. A suíte crítica inclui agora a landing e o formulário comercial, incluindo a troca repetida de plano sem apagar os dados já preenchidos.
 - Typecheck e lint de backend/frontend, builds, validação Prisma, arquitetura e orçamento dos bundles aprovados.
 - Banco local `localhost:5432/pizza_ai` atualizado após backup custom do PostgreSQL, com leitura do catálogo do backup validada. A migração adicional `20260910140000_sales_lead_timestamp_timezone` preserva os instantes UTC e alinha as sete colunas de data dos contatos/fila ao `TIMESTAMPTZ(3)` do schema. Não foi executada restauração do backup local; os testes de migração usaram outro banco descartável.

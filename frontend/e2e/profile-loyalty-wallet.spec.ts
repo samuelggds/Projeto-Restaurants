@@ -7,6 +7,8 @@ import { captureReadmeScreenshot } from './helpers/readmeScreenshot';
 test('cliente consulta cupons válidos, histórico e o novo ciclo no perfil', async ({ page }) => {
   let loyaltyRestaurantId = '';
   const quotePayloads: Array<Record<string, unknown>> = [];
+  const paymentCreatePayloads: Array<Record<string, unknown>> = [];
+  const mfaPreferencePayloads: Array<Record<string, unknown>> = [];
 
   await page.route(/^http:\/\/(127\.0\.0\.1|localhost):3000\/.*$/, async (route) => {
     const url = new URL(route.request().url());
@@ -29,6 +31,15 @@ test('cliente consulta cupons válidos, histórico e o novo ciclo no perfil', as
       return;
     }
 
+    if (pathname === '/settings/public/9/card-payment-config') {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ provider: 'ASAAS' }),
+      });
+      return;
+    }
+
     if (
       pathname === '/settings/public/9' ||
       pathname === '/settings/public/slug/restaurante-teste'
@@ -41,7 +52,13 @@ test('cliente consulta cupons válidos, histórico e o novo ciclo no perfil', as
           restaurantName: 'North Pizza',
           primaryColor: '#d05632',
           averageDeliveryTime: 45,
-          restaurant: { id: 9, name: 'North Pizza', slug: 'restaurante-teste' },
+          restaurant: {
+            id: 9,
+            name: 'North Pizza',
+            slug: 'restaurante-teste',
+            logo: 'https://cdn.example.test/north-pizza-logo.png',
+            description: 'Pizzas artesanais e entrega rápida.',
+          },
         }),
       });
       return;
@@ -150,28 +167,29 @@ test('cliente consulta cupons válidos, histórico e o novo ciclo no perfil', as
       return;
     }
 
-    if (pathname === '/favorites') {
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({
-          favorites: [
-            {
-              id: 101,
-              name: 'Pizza Margherita',
-              description: 'Molho da casa, muçarela e manjericão.',
-              price: 49.9,
-              image:
-                'https://images.unsplash.com/photo-1579751626657-72bc17010498?auto=format&fit=crop&w=400&q=80',
-              averageRating: 4.9,
-            },
-          ],
-        }),
-      });
-      return;
-    }
-
     if (pathname === '/customer-payment-methods') {
+      if (route.request().method() === 'POST') {
+        const payload = route.request().postDataJSON() as Record<string, unknown>;
+        paymentCreatePayloads.push(payload);
+        await route.fulfill({
+          status: 201,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            paymentMethod: {
+              publicId: 'card-created',
+              provider: 'ASAAS',
+              brand: payload.brand || 'mastercard',
+              last4: payload.last4 || '4444',
+              expMonth: payload.expMonth || 12,
+              expYear: payload.expYear || 2030,
+              holderName: payload.holderName || 'Cliente Teste',
+              isDefault: false,
+            },
+          }),
+        });
+        return;
+      }
+
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
@@ -186,9 +204,20 @@ test('cliente consulta cupons válidos, histórico e o novo ciclo no perfil', as
               expYear: 2030,
               holderName: 'Cliente Teste',
               isDefault: true,
+              createdAt: '2026-09-15T12:00:00.000Z',
             },
           ],
         }),
+      });
+      return;
+    }
+
+    if (pathname === '/auth/mfa' && route.request().method() === 'PATCH') {
+      mfaPreferencePayloads.push(route.request().postDataJSON() as Record<string, unknown>);
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ enabled: true }),
       });
       return;
     }
@@ -374,21 +403,93 @@ test('cliente consulta cupons válidos, histórico e o novo ciclo no perfil', as
   const visibleActiveOrderId = visibleProfileContent.getByText(/Pedido #0312/);
   await expect(visibleActiveOrderId).toHaveCount(1);
   await expect(visibleActiveOrderId).toBeVisible();
-  await page.getByRole('button', { name: 'Voltar para minha conta' }).click();
+  await page.getByRole('main').getByRole('button', { name: 'Voltar para minha conta' }).click();
 
-  await page.getByRole('button', { name: 'Endereços salvos', exact: true }).click();
+  await page.getByRole('button', { name: /^Endereços salvos/ }).click();
   await expect(page.getByRole('heading', { name: 'Endereços Salvos', exact: true })).toBeVisible();
   await expect(visibleProfileContent.getByText(/Rua Francisco Calaça/)).toBeVisible();
-  await page.getByRole('button', { name: 'Voltar para minha conta' }).click();
+  await page.getByRole('main').getByRole('button', { name: 'Voltar para minha conta' }).click();
 
-  await page.getByRole('button', { name: 'Métodos de pagamento', exact: true }).click();
+  await page.getByRole('button', { name: /^Métodos de pagamento/ }).click();
   await expect(
-    page.getByRole('heading', { name: 'Métodos de Pagamento', exact: true }),
+    page.getByRole('heading', { name: 'Cartões Salvos', exact: true }),
   ).toBeVisible();
-  await expect(visibleProfileContent.getByText(/visa ···· 4242/i)).toBeVisible();
-  await page.getByRole('button', { name: 'Voltar para minha conta' }).click();
+  const savedCards = page.getByLabel('Cartões salvos');
+  const primaryVisa = savedCards.getByRole('button', {
+    name: 'Ver detalhes do cartão final 4242',
+  });
+  await expect(primaryVisa).toContainText('Visa');
+  await expect(primaryVisa).toContainText('4242');
+  await expect(primaryVisa).toContainText('Principal');
+  await expect(savedCards.getByRole('button', { name: 'Adicionar novo cartão' })).toBeVisible();
 
-  await page.getByRole('button', { name: 'Meus Cupons', exact: true }).click();
+  await primaryVisa.click();
+  await expect(page.getByRole('heading', { name: 'Detalhes do Cartão' })).toBeVisible();
+  const savedCardDetails = page.getByLabel('Detalhes do cartão salvo');
+  await expect(savedCardDetails).toContainText('Método de pagamento principal');
+  await expect(savedCardDetails).toContainText('Visa');
+  await expect(savedCardDetails).toContainText('4242');
+  await expect(savedCardDetails).toContainText('Cliente Teste');
+  await expect(savedCardDetails).toContainText('12/30');
+  await expect(savedCardDetails).toContainText('15 set 2026');
+  await expect(savedCardDetails.locator('.card-waves')).toBeVisible();
+  await expect(savedCardDetails.locator('.contactless-icon')).toBeVisible();
+  await expect(savedCardDetails.locator('img[alt="Visa"]')).toBeVisible();
+  await expect(savedCardDetails.getByRole('button', { name: 'Definir como principal' })).toBeDisabled();
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(savedCardDetails).toBeVisible();
+  await expect
+    .poll(() => page.evaluate(() => document.documentElement.scrollWidth))
+    .toBeLessThanOrEqual(391);
+  await page.getByRole('main').getByRole('button', { name: 'Voltar para minha conta' }).click();
+  await page.setViewportSize({ width: 1280, height: 900 });
+
+  await page.getByRole('button', { name: 'Adicionar novo cartão' }).click();
+  await expect(page.getByRole('heading', { name: 'Adicionar Novo Cartão' })).toBeVisible();
+
+  await expect(page.getByText('North Pizza', { exact: true }).first()).toBeVisible();
+  await expect(page.locator('footer').filter({ hasText: 'North Pizza' }).last()).toContainText(
+    'North Pizza',
+  );
+  await expect(
+    page.locator('footer img[src="https://cdn.example.test/north-pizza-logo.png"]').last(),
+  ).toBeVisible();
+
+  // rodapé da nova tela usa a identidade dinâmica vinda das configurações do restaurante
+  const paymentForm = page.getByRole('form', { name: 'Cadastrar cartão' });
+  await expect(paymentForm.locator('.card-waves')).toBeVisible();
+  await expect(paymentForm.locator('.contactless-icon')).toBeVisible();
+  await expect(paymentForm.locator('.payment-chip')).toBeVisible();
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(page.getByText('Novo Cartão', { exact: true })).toBeVisible();
+  await expect(page.getByRole('main').getByRole('button', { name: 'Voltar para minha conta' })).toBeVisible();
+  await expect
+    .poll(() => page.evaluate(() => document.documentElement.scrollWidth))
+    .toBeLessThanOrEqual(391);
+  await page.setViewportSize({ width: 1280, height: 900 });
+
+  await paymentForm.getByLabel('Nome impresso no cartão').fill('CLIENTE TESTE');
+  await paymentForm.getByLabel('Número do cartão').fill('5555555555554444');
+  await expect(paymentForm.locator('img[alt="Mastercard"]').first()).toBeVisible();
+  await paymentForm.getByLabel('Validade').fill('1230');
+  await paymentForm.getByLabel('CVV').fill('123');
+  await paymentForm.getByLabel('CPF do titular').fill('12345678909');
+  await paymentForm.getByRole('button', { name: 'Salvar Novo Cartão' }).click();
+
+  await expect.poll(() => paymentCreatePayloads.length).toBe(1);
+  expect(paymentCreatePayloads[0]).toMatchObject({
+    restaurantId: 9,
+    holderName: 'CLIENTE TESTE',
+    brand: 'mastercard',
+    last4: '4444',
+    expMonth: 12,
+    expYear: 2030,
+  });
+
+  await page.getByRole('main').getByRole('button', { name: 'Voltar para minha conta' }).click();
+  await page.getByRole('button', { name: /^Meus Cupons/ }).click();
   await expect(page.getByRole('heading', { name: 'Meus Cupons', exact: true })).toBeVisible();
   const cliente10Coupons = visibleProfileContent
     .locator('article')
@@ -424,17 +525,25 @@ test('cliente consulta cupons válidos, histórico e o novo ciclo no perfil', as
   await expect(page).toHaveURL(/\/restaurante-teste$/);
   const couponCheckout = page.getByRole('dialog', { name: 'Finalizar pedido' });
   await expect(couponCheckout).toBeVisible();
-  await expect(
-    couponCheckout.getByRole('button', { name: /ANTIGO5.*Aplicado/i }),
-  ).toBeVisible();
+  await expect(couponCheckout.getByRole('textbox', { name: 'Código do cupom' })).toHaveValue(
+    'ANTIGO5',
+  );
+  await expect(couponCheckout.getByRole('button', { name: 'Aplicado', exact: true })).toBeVisible();
   await expect
     .poll(() => quotePayloads.find((payload) => payload.couponRedemptionId === 74))
     .toMatchObject({ restaurantId: 9, couponRedemptionId: 74 });
 
-  for (const legacyView of ['favorites', 'personalData', 'security'] as const) {
-    await page.goto(`/profile?view=${legacyView}`);
-    await expect
-      .poll(() => page.evaluate(() => document.documentElement.scrollWidth))
-      .toBeLessThanOrEqual(1281);
-  }
+  await page.goto('/profile');
+  await page.getByRole('button', { name: 'Configurações', exact: true }).click();
+  await page.getByRole('button', { name: 'Ativar MFA' }).click();
+  await expect(page.getByText('Ativar MFA', { exact: true })).toBeVisible();
+  await page.getByLabel('Senha atual').fill('senha-atual-teste');
+  await page.getByRole('button', { name: 'Confirmar ativação' }).click();
+
+  await expect.poll(() => mfaPreferencePayloads.length).toBe(1);
+  expect(mfaPreferencePayloads[0]).toEqual({
+    enabled: true,
+    currentPassword: 'senha-atual-teste',
+  });
+  await expect(page).toHaveURL(/\/login/u);
 });

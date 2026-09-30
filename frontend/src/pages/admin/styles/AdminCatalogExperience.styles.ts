@@ -761,6 +761,60 @@ export const CategoryCardBody = styled.div`
     font-size: 10px;
   }
 
+  .category-image-actions {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  .category-image-upload,
+  .category-image-remove {
+    min-height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    border: 1px solid color-mix(in srgb, var(--a) 35%, #ded6cf);
+    border-radius: 7px;
+    color: var(--a);
+    background: color-mix(in srgb, var(--a) 5%, #fff);
+    font-size: 10px;
+    font-weight: 800;
+    cursor: pointer;
+    transition:
+      border-color 160ms ease,
+      background 160ms ease,
+      transform 160ms ease;
+  }
+
+  .category-image-upload:hover,
+  .category-image-remove:hover:not(:disabled) {
+    border-color: var(--a);
+    background: color-mix(in srgb, var(--a) 9%, #fff);
+    transform: translateY(-1px);
+  }
+
+  .category-image-upload input {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  .category-image-upload svg,
+  .category-image-remove svg {
+    width: 14px;
+    height: 14px;
+  }
+
+  .category-image-remove {
+    color: #a94a40;
+    border-color: #ead2ce;
+    background: #fff8f7;
+  }
+
   .category-card-actions {
     display: grid;
     grid-template-columns: minmax(0, 1fr) 38px;

@@ -1004,8 +1004,8 @@ export function AdminPage({
                 onCreateCategory={async (name) => {
                   await onCreateCategory?.(name);
                 }}
-                onUpdateCategory={async (id, name) => {
-                  await onUpdateCategory?.(id, name);
+                onUpdateCategory={async (id, updates) => {
+                  await onUpdateCategory?.(id, updates);
                 }}
                 onDeleteCategory={async (id) => {
                   await onDeleteCategory?.(id);

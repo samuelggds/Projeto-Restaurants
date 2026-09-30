@@ -364,7 +364,6 @@ async function mockContextApi(page: Page, state: ContextState) {
       return json(route, emptyTableAccount());
     }
     if (pathname === '/customer-addresses') return json(route, { addresses: [] });
-    if (pathname === '/favorites') return json(route, { favorites: [] });
     if (pathname === '/coupons/loyalty') return json(route, { rewards: [] });
     if (pathname === '/waiter-calls') return json(route, []);
 

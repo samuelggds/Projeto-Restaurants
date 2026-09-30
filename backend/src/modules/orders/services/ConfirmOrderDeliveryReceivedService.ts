@@ -76,6 +76,8 @@ class ConfirmOrderDeliveryReceivedService {
       const tenantRoom = `restaurant:${updatedOrder.restaurantId}`;
       io.to(tenantRoom).emit('order:delivery-confirmed', payload);
       io.to(tenantRoom).emit('order:status-changed', payload);
+      io.to(`guest-order:${updatedOrder.id}`).emit('order:delivery-confirmed', payload);
+      io.to(`guest-order:${updatedOrder.id}`).emit('order:status-changed', payload);
       if (updatedOrder.userId) {
         io.to(`user:${updatedOrder.userId}`).emit('order:delivery-confirmed', payload);
       }

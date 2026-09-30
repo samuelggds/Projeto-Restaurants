@@ -31,3 +31,12 @@ export function FacebookIcon({ size = 18 }: IconProps) {
     </svg>
   );
 }
+
+
+export function TikTokIcon({ size = 18 }: IconProps) {
+  return (
+    <svg {...iconProps(size)}>
+      <path d="M14.4 2h3.05c.23 1.72 1.2 3.18 2.55 4.05v3.08a8.3 8.3 0 0 1-2.51-.77v5.79a6.15 6.15 0 1 1-5.31-6.09v3.11a3.1 3.1 0 1 0 2.22 2.98V2Z" />
+    </svg>
+  );
+}

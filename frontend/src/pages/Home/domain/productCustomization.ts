@@ -81,6 +81,29 @@ export type SelectionErrors = Record<string, string>;
 export type OptionQuantityState = Record<string, number>;
 export type PortionSelection = { optionId: string; observation?: string };
 
+export function validatePortionSelections(
+  configuration: ConfigurableProduct['portionConfiguration'],
+  portions: PortionSelection[],
+) {
+  if (!configuration?.enabled) return null;
+
+  if (
+    portions.length < configuration.minPortions ||
+    portions.length > configuration.maxPortions
+  ) {
+    return `Escolha exatamente ${configuration.minPortions === configuration.maxPortions
+      ? configuration.minPortions
+      : `entre ${configuration.minPortions} e ${configuration.maxPortions}`} partes.`;
+  }
+
+  const missingIndex = portions.findIndex((portion) => !String(portion.optionId || '').trim());
+  if (missingIndex >= 0) {
+    return `Escolha o sabor da ${missingIndex + 1}ª parte.`;
+  }
+
+  return null;
+}
+
 type ConfigurationPriceDetails = {
   pricingMode?: 'BASE' | 'HIGHEST_OPTION';
   optionQuantities?: OptionQuantityState;

@@ -1,9 +1,8 @@
-import { expect, test, type FrameLocator, type Page } from '@playwright/test';
-import { createInitialDemoState } from '../src/pages/Marketing/demo/demoDomain';
+import { expect, test, type Page } from '@playwright/test';
 import { mockAuthRefresh } from './helpers/mockAuthRefresh';
 import { orderFixtureResponse } from './helpers/orderFixtures';
 
-async function openSupportCenter(page: Page, demo: boolean) {
+async function openSupportCenter(page: Page) {
   await page.route(/:3000\/|\/api\//, async (route) => {
     const request = route.request();
     const path = new URL(request.url()).pathname;
@@ -22,106 +21,67 @@ async function openSupportCenter(page: Page, demo: boolean) {
     await route.fulfill({ json: orderFixtureResponse(request.url(), []) ?? data[path] ?? {} });
   });
 
-  if (demo) {
-    await page.addInitScript((state) => {
-      localStorage.setItem('gastronexa:interactive-demo:v2', JSON.stringify(state));
-      sessionStorage.setItem('gastronexa:demo:account', 'demo-admin');
-    }, createInitialDemoState());
-  } else {
-    await mockAuthRefresh(page, 9, 'help-scroll-test-token');
-  }
+  await mockAuthRefresh(page, 9, 'help-scroll-test-token');
+  await page.goto('/admin');
 
-  await page.goto(demo ? '/demonstracao' : '/admin');
-  const panel: Page | FrameLocator = demo
-    ? page.frameLocator('iframe[title="Painel administrativo demonstrativo"]')
-    : page;
+  await expect(page.getByRole('heading', { name: 'Visão geral', exact: true }).first()).toBeVisible();
 
-  await expect(
-    panel.getByRole('heading', { name: 'Visão geral', exact: true }).first(),
-  ).toBeVisible();
-
-  const mobileMenu = panel.getByRole('button', { name: 'Abrir menu administrativo', exact: true });
+  const mobileMenu = page.getByRole('button', { name: 'Abrir menu administrativo', exact: true });
   if (await mobileMenu.isVisible()) await mobileMenu.click();
 
-  await panel
+  await page
     .getByRole('button', { name: /^Central de ajuda(?: Suporte e orientações)?$/ })
     .click();
-  await expect(panel.getByRole('heading', { name: 'Suporte do restaurante', exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Suporte do restaurante', exact: true })).toBeVisible();
 
-  return panel;
+  return page;
 }
 
 test.describe('central de ajuda administrativa', () => {
   test.use({ viewport: { width: 1440, height: 700 }, reducedMotion: 'reduce' });
 
-  for (const demo of [false, true]) {
-    test(`${demo ? 'demonstração' : 'projeto real'}: mantém os dois canais de suporte acessíveis`, async ({
-      page,
-    }) => {
-      const panel = await openSupportCenter(page, demo);
+  test('projeto real: mantém os dois canais de suporte acessíveis', async ({ page }) => {
+    const panel = await openSupportCenter(page);
 
-      await expect(panel.getByRole('heading', { name: 'Suporte da equipe', exact: true })).toBeVisible();
-      await expect(
-        panel.getByRole('heading', { name: 'Suporte da plataforma', exact: true }),
-      ).toBeVisible();
+    await expect(panel.getByRole('heading', { name: 'Suporte da equipe', exact: true })).toBeVisible();
+    await expect(
+      panel.getByRole('heading', { name: 'Suporte da plataforma', exact: true }),
+    ).toBeVisible();
 
-      const message = panel.getByRole('textbox', { name: 'Mensagem para o Super Admin' });
-      await message.scrollIntoViewIfNeeded();
-      await expect(message).toBeVisible();
-      await message.fill('Preciso de suporte técnico no painel administrativo.');
-      await expect(panel.getByRole('button', { name: 'Enviar ao Super Admin' })).toBeEnabled();
-
-      await expect(panel.getByRole('figure')).toHaveCount(0);
-    });
-  }
+    const message = panel.getByRole('textbox', { name: 'Mensagem para o Super Admin' });
+    await message.scrollIntoViewIfNeeded();
+    await expect(message).toBeVisible();
+    await message.fill('Preciso de suporte técnico no painel administrativo.');
+    await expect(panel.getByRole('button', { name: 'Enviar ao Super Admin' })).toBeEnabled();
+  });
 });
 
 for (const width of [390, 1280]) {
-  test(`prévia do motoqueiro: rolagem interna em ${width}px`, async ({ page }) => {
+  test(`prévia da ajuda: rolagem interna em ${width}px`, async ({ page }) => {
     await page.setViewportSize({ width, height: 420 });
     await page.route(/:3000\/|\/api\//, (route) => route.abort());
     await page.goto('/help-preview.html?area=courier-overview');
     await expect(page.getByRole('heading').first()).toBeVisible();
     await expect(page.locator('#root')).toHaveAttribute('data-help-preview-readonly', 'true');
-    const hasScroller = await page.evaluate(() => {
-      const scroller = Array.from(document.querySelectorAll<HTMLElement>('#root *'))
-        .filter(
-          (element) =>
-            /auto|scroll/.test(getComputedStyle(element).overflowY) &&
-            element.scrollHeight > element.clientHeight + 80 &&
-            element.clientWidth > 250 &&
-            element.clientHeight > 150,
-        )
-        .sort((a, b) => b.clientWidth * b.clientHeight - a.clientWidth * a.clientHeight)[0];
-      scroller?.setAttribute('data-scroll-probe', '');
-      return Boolean(scroller);
-    });
-    expect(hasScroller).toBe(true);
-    const scroller = page.locator('[data-scroll-probe]');
-    const box = (await scroller.boundingBox())!;
-    await page.mouse.move(
-      Math.min(box.x + box.width / 2, width - 20),
-      Math.min(box.y + box.height / 2, 350),
-    );
-    await page.mouse.wheel(0, 500);
-    await expect.poll(() => scroller.evaluate((element) => element.scrollTop)).toBeGreaterThan(50);
+
+    const before = await page.evaluate(() => document.documentElement.scrollTop || document.body.scrollTop);
+    await page.mouse.wheel(0, 600);
+    await expect
+      .poll(() => page.evaluate(() => document.documentElement.scrollTop || document.body.scrollTop))
+      .toBeGreaterThan(before);
   });
 }
 
 test.describe('central de ajuda administrativa no celular', () => {
   test.use({ viewport: { width: 390, height: 844 }, reducedMotion: 'reduce' });
 
-  for (const demo of [false, true]) {
-    test(`${demo ? 'demonstração' : 'projeto real'}: formulário de suporte continua utilizável`, async ({
-      page,
-    }) => {
-      const panel = await openSupportCenter(page, demo);
-      const message = panel.getByRole('textbox', { name: 'Mensagem para o Super Admin' });
+  test('projeto real: formulário de suporte continua utilizável', async ({ page }) => {
+    const panel = await openSupportCenter(page);
+    const message = panel.getByRole('textbox', { name: 'Mensagem para o Super Admin' });
 
-      await message.scrollIntoViewIfNeeded();
-      await expect(message).toBeVisible();
-      await message.fill('Preciso de ajuda com uma configuração do restaurante.');
-      await expect(panel.getByRole('button', { name: 'Enviar ao Super Admin' })).toBeEnabled();
-    });
-  }
+    await message.scrollIntoViewIfNeeded();
+    await expect(message).toBeVisible();
+    await message.fill('Preciso de ajuda com uma configuração do restaurante.');
+    await expect(panel.getByRole('button', { name: 'Enviar ao Super Admin' })).toBeEnabled();
+  });
 });

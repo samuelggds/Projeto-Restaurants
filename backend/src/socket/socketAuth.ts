@@ -6,6 +6,7 @@ import { TableSessionStatus, UserRole } from '@prisma/client';
 import prisma from '../config/prisma.js';
 import { resolveAccessToken } from '../modules/auth/security/accessToken.js';
 import { assertSocketAccess, SocketAccessDeniedError } from './socketAccessPolicy.js';
+import { verifyGuestOrderOwnershipToken } from '../modules/orders/utils/guestOrderOwnershipToken.js';
 
 type SocketAuthNext = (err?: Error) => void;
 type SocketAccessCheck = (
@@ -37,9 +38,10 @@ type SocketWaitingTable = {
 
 type AppSocket = Socket & {
   user?: SocketUser;
-  authType?: 'user' | 'table-session' | 'table-waiting';
+  authType?: 'user' | 'table-session' | 'table-waiting' | 'guest-orders';
   tableSession?: SocketTableSession;
   waitingTable?: SocketWaitingTable;
+  guestOrderIds?: number[];
 };
 
 export function createSocketAuth(checkAccess: SocketAccessCheck = assertSocketAccess) {
@@ -48,6 +50,9 @@ export function createSocketAuth(checkAccess: SocketAccessCheck = assertSocketAc
       const token = socket.handshake.auth?.token;
       const sessionToken = socket.handshake.auth?.sessionToken;
       const tableToken = socket.handshake.auth?.tableToken;
+      const guestOrderProofs = Array.isArray(socket.handshake.auth?.guestOrderProofs)
+        ? socket.handshake.auth.guestOrderProofs.slice(0, 20)
+        : [];
 
       if (token) {
         const resolved = await resolveAccessToken(String(token));
@@ -108,6 +113,33 @@ export function createSocketAuth(checkAccess: SocketAccessCheck = assertSocketAc
         socket.user = decoded;
         socket.authType = 'user';
 
+        return next();
+      }
+
+
+      if (guestOrderProofs.length) {
+        const verifiedOrderIds = guestOrderProofs.flatMap((proof: unknown) => {
+          if (!proof || typeof proof !== 'object') return [];
+          const record = proof as { orderId?: unknown; token?: unknown };
+          const orderId = Number(record.orderId || 0);
+          const guestToken = String(record.token || '').trim();
+          if (!Number.isInteger(orderId) || orderId <= 0 || !guestToken) return [];
+
+          try {
+            verifyGuestOrderOwnershipToken(guestToken, orderId);
+            return [orderId];
+          } catch {
+            return [];
+          }
+        });
+
+        const uniqueOrderIds = [...new Set(verifiedOrderIds)];
+        if (!uniqueOrderIds.length) {
+          return next(new Error('Pedidos de visitante inválidos'));
+        }
+
+        socket.authType = 'guest-orders';
+        socket.guestOrderIds = uniqueOrderIds;
         return next();
       }
 

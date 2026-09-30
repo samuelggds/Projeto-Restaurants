@@ -1,11 +1,13 @@
-import { useEffect, useRef, useState, type FormEvent } from 'react';
-import { CreditCard, LockKeyhole, X } from 'lucide-react';
+import { useEffect, useRef, useState, type CSSProperties, type FormEvent } from 'react';
+import { CreditCard, LockKeyhole, Search, ShoppingBag, UserRound } from 'lucide-react';
 import customerPaymentMethodService, {
   getPaymentMethodErrorMessage,
 } from '../../../Services/customerPaymentMethodService';
 import * as S from '../Profile.styles';
 import { getCardBrandDetails, maskedCardNumber } from '../domain/cardBrand';
 import { CardBrandLogo } from './CardBrandLogo';
+import { PaymentCardVisual } from './PaymentCardVisual';
+import { CustomerDesktopFooter } from '../../Home/components/CustomerDesktopFooter';
 
 type ProviderConfig = Awaited<ReturnType<typeof customerPaymentMethodService.getConfig>>;
 type MercadoPagoCardToken = {
@@ -58,12 +60,38 @@ function loadSdk(key: string, source: string, ready: () => boolean) {
 
 export function PaymentMethodModal({
   restaurantId,
+  restaurantName,
+  restaurantLogoUrl,
+  restaurantDescription,
+  userAvatarUrl,
+  userName,
+  primaryColor,
+  cartCount = 0,
   onClose,
   onSaved,
+  onGoHome,
+  onOpenSearch,
+  onOpenCart,
+  onCoupons,
+  onHelp,
+  onSupport,
 }: {
   restaurantId: number;
+  restaurantName: string;
+  restaurantLogoUrl?: string;
+  restaurantDescription?: string;
+  userAvatarUrl?: string;
+  userName?: string;
+  primaryColor?: string;
+  cartCount?: number;
   onClose: () => void;
   onSaved: () => void;
+  onGoHome: () => void;
+  onOpenSearch: () => void;
+  onOpenCart: () => void;
+  onCoupons?: () => void;
+  onHelp?: () => void;
+  onSupport?: () => void;
 }) {
   const [holder, setHolder] = useState('');
   const [number, setNumber] = useState('');
@@ -108,7 +136,7 @@ export function PaymentMethodModal({
         if (!active || !window.MercadoPago || !config.publicKey) return;
         const instance = new window.MercadoPago(config.publicKey);
         const cardNumberField = instance.fields.create('cardNumber', {
-          placeholder: 'Número do cartão',
+          placeholder: '0000 0000 0000 0000',
         });
         cardNumberField.on?.('binChange', ({ bin }) => {
           const normalizedBin = String(bin || '')
@@ -128,7 +156,7 @@ export function PaymentMethodModal({
         const fields = [
           cardNumberField,
           instance.fields.create('expirationDate', { placeholder: 'MM/AA' }),
-          instance.fields.create('securityCode', { placeholder: 'CVV' }),
+          instance.fields.create('securityCode', { placeholder: '3 dígitos' }),
         ];
         fields[0].mount('mercado-pago-card-number');
         fields[1].mount('mercado-pago-expiration');
@@ -224,181 +252,198 @@ export function PaymentMethodModal({
   }
 
   return (
-    <S.ModalOverlay
-      role="presentation"
-      onMouseDown={(event) => event.target === event.currentTarget && onClose()}
-    >
-      <S.PaymentModalCard onSubmit={submit} aria-label="Cadastrar cartão">
-        <header>
-          <div>
-            <CreditCard />
-            <span>
-              <b>Novo cartão</b>
-            </span>
-          </div>
-          <button type="button" onClick={onClose} aria-label="Fechar">
-            <X />
+    <S.PaymentScreen style={{ '--p': primaryColor || '#ff5a2c' } as CSSProperties}>
+      <S.PaymentDesktopHeader>
+        <button className="brand" type="button" onClick={onGoHome}>
+          <span className="brand-logo">
+            {restaurantLogoUrl ? <img src={restaurantLogoUrl} alt="" /> : restaurantName.slice(0, 1)}
+          </span>
+          <span className="brand-copy">
+            <b>{restaurantName}</b>
+            <small><i /> Aberto agora</small>
+          </span>
+        </button>
+        <button className="search" type="button" onClick={onOpenSearch}>
+          <Search aria-hidden="true" />
+          <span>Buscar no cardápio de {restaurantName}...</span>
+        </button>
+        <div className="actions">
+          <button className="account" type="button" onClick={onClose}>
+            <UserRound aria-hidden="true" /><span>Olá, Cliente</span>
           </button>
-        </header>
-        <S.PaymentCardPreview $brand={detectedBrand.id} aria-label="Prévia segura do cartão">
-          <header>
-            <span className="payment-chip" aria-hidden="true" />
-            <CardBrandLogo className="card-brand-logo" brand={detectedBrand.id} />
-          </header>
-          <strong>{number ? maskedCardNumber(number) : '•••• •••• •••• ••••'}</strong>
-          <footer>
-            <span>
-              <small>Titular</small>
-              <b>{holder.trim() || 'Nome no cartão'}</b>
-            </span>
-            <span>
-              <small>Validade</small>
-              <b>{expiry || 'MM/AA'}</b>
-            </span>
-          </footer>
-        </S.PaymentCardPreview>
-        <label>
-          Nome impresso no cartão
-          <input
-            autoComplete="cc-name"
-            value={holder}
-            onChange={(e) => setHolder(e.target.value)}
-            maxLength={60}
-            required
+          <button className="cart" type="button" onClick={onOpenCart}>
+            <ShoppingBag aria-hidden="true" /><span>Meu Carrinho</span>
+            {cartCount > 0 ? <b>{cartCount}</b> : null}
+          </button>
+        </div>
+      </S.PaymentDesktopHeader>
+
+      <S.PaymentMobileHeader>
+        <button className="customer-avatar" type="button" onClick={onClose} aria-label="Voltar para minha conta">
+          {userAvatarUrl ? (
+            <img src={userAvatarUrl} alt="" />
+          ) : (
+            <span>{String(userName || 'Cliente').trim().slice(0, 1).toUpperCase()}</span>
+          )}
+        </button>
+        <strong>Novo Cartão</strong>
+        <span />
+      </S.PaymentMobileHeader>
+
+      <S.PaymentScreenMain>
+        <S.PaymentHeading>
+          <span>Métodos de Pagamento</span>
+          <h1>Adicionar Novo Cartão</h1>
+        </S.PaymentHeading>
+
+        <S.PaymentModalCard onSubmit={submit} aria-label="Cadastrar cartão">
+          <PaymentCardVisual
+            brand={detectedBrand.id}
+            numberLabel={number ? maskedCardNumber(number) : '•••• •••• •••• ••••'}
+            holderName={holder.trim() || 'TITULAR DO CARTÃO'}
+            expiryLabel={expiry || 'MM/AA'}
           />
-        </label>
-        {config?.provider === 'MERCADO_PAGO' ? (
-          <>
+
+          <div className="payment-fields">
             <label>
-              Número do cartão
-              <div className="payment-number-field">
-                <div id="mercado-pago-card-number" className="mp-secure-field" />
-                {detectedBrand.id !== 'card' && (
-                  <span className="card-brand-pill" aria-live="polite">
-                    <CardBrandLogo brand={detectedBrand.id} />
-                  </span>
-                )}
-              </div>
+              Nome impresso no cartão
+              <input
+                autoComplete="cc-name"
+                placeholder="Como aparece gravado no cartão"
+                value={holder}
+                onChange={(event) => setHolder(event.target.value)}
+                maxLength={60}
+                required
+              />
             </label>
-            <div className="payment-row">
-              <label>
-                Validade
-                <div id="mercado-pago-expiration" className="mp-secure-field" />
-              </label>
-              <label>
-                CVV
-                <div id="mercado-pago-security-code" className="mp-secure-field" />
-              </label>
-            </div>
-          </>
-        ) : (
-          <>
+
+            {config?.provider === 'MERCADO_PAGO' ? (
+              <>
+                <label>
+                  Número do cartão
+                  <div className="payment-number-field">
+                    <div id="mercado-pago-card-number" className="mp-secure-field" />
+                    <span className="card-brand-pill">
+                      {detectedBrand.id === 'card'
+                        ? <CreditCard className="generic-number-icon" />
+                        : <CardBrandLogo brand={detectedBrand.id} />}
+                    </span>
+                  </div>
+                </label>
+                <div className="payment-row">
+                  <label>Validade<div id="mercado-pago-expiration" className="mp-secure-field" /></label>
+                  <label>CVV<div id="mercado-pago-security-code" className="mp-secure-field" /></label>
+                </div>
+              </>
+            ) : (
+              <>
+                <label>
+                  Número do cartão
+                  <div className="payment-number-field">
+                    <input
+                      inputMode="numeric"
+                      autoComplete="cc-number"
+                      placeholder="0000 0000 0000 0000"
+                      value={number}
+                      onChange={(event) =>
+                        setNumber(event.target.value.replace(/\D/g, '').slice(0, 19).replace(/(.{4})/g, '$1 ').trim())
+                      }
+                      minLength={15}
+                      required
+                    />
+                    <span className="card-brand-pill">
+                      {detectedBrand.id === 'card'
+                        ? <CreditCard className="generic-number-icon" />
+                        : <CardBrandLogo brand={detectedBrand.id} />}
+                    </span>
+                  </div>
+                </label>
+                <div className="payment-row">
+                  <label>
+                    Validade
+                    <input
+                      inputMode="numeric"
+                      autoComplete="cc-exp"
+                      placeholder="MM/AA"
+                      value={expiry}
+                      onChange={(event) =>
+                        setExpiry(event.target.value.replace(/\D/g, '').slice(0, 4).replace(/^(\d{2})(\d)/, '$1/$2'))
+                      }
+                      pattern="\d{2}/\d{2}"
+                      required
+                    />
+                  </label>
+                  <label>
+                    CVV
+                    <input
+                      type="password"
+                      inputMode="numeric"
+                      autoComplete="cc-csc"
+                      placeholder="3 dígitos"
+                      value={cvv}
+                      onChange={(event) => setCvv(event.target.value.replace(/\D/g, '').slice(0, 4))}
+                      minLength={3}
+                      required
+                    />
+                  </label>
+                </div>
+              </>
+            )}
+
             <label>
-              Número do cartão
-              <div className="payment-number-field">
-                <input
-                  inputMode="numeric"
-                  autoComplete="cc-number"
-                  value={number}
-                  onChange={(e) =>
-                    setNumber(
-                      e.target.value
-                        .replace(/\D/g, '')
-                        .slice(0, 19)
-                        .replace(/(.{4})/g, '$1 ')
-                        .trim(),
-                    )
-                  }
-                  minLength={15}
-                  required
-                />
-                {detectedBrand.id !== 'card' && (
-                  <span className="card-brand-pill" aria-live="polite">
-                    <CardBrandLogo brand={detectedBrand.id} />
-                  </span>
-                )}
-              </div>
+              CPF do titular
+              <input
+                inputMode="numeric"
+                autoComplete="off"
+                placeholder="000.000.000-00"
+                value={taxId}
+                onChange={(event) => {
+                  const digits = event.target.value.replace(/\D/g, '').slice(0, 11);
+                  setTaxId(
+                    digits
+                      .replace(/^(\d{3})(\d)/, '$1.$2')
+                      .replace(/^(\d{3})\.(\d{3})(\d)/, '$1.$2.$3')
+                      .replace(/\.(\d{3})(\d)/, '.$1-$2'),
+                  );
+                }}
+                minLength={14}
+                required
+              />
             </label>
-            <div className="payment-row">
-              <label>
-                Validade
-                <input
-                  inputMode="numeric"
-                  autoComplete="cc-exp"
-                  placeholder="MM/AA"
-                  value={expiry}
-                  onChange={(e) =>
-                    setExpiry(
-                      e.target.value
-                        .replace(/\D/g, '')
-                        .slice(0, 4)
-                        .replace(/^(\d{2})(\d)/, '$1/$2'),
-                    )
-                  }
-                  pattern="\d{2}/\d{2}"
-                  required
-                />
-              </label>
-              <label>
-                CVV
-                <input
-                  type="password"
-                  inputMode="numeric"
-                  autoComplete="cc-csc"
-                  value={cvv}
-                  onChange={(e) => setCvv(e.target.value.replace(/\D/g, '').slice(0, 4))}
-                  minLength={3}
-                  required
-                />
-              </label>
-            </div>
-          </>
-        )}
-          <label>
-            CPF do titular
-            <input
-              inputMode="numeric"
-              autoComplete="off"
-              value={taxId}
-              onChange={(e) => setTaxId(e.target.value.replace(/\D/g, '').slice(0, 11))}
-              minLength={11}
-              required
-            />
-          </label>
-        <p className="payment-security">
-          <LockKeyhole /> O número completo e o CVV nunca são salvos no banco de dados.
-        </p>
-        {config?.provider === 'ASAAS' && (
-          <p className="payment-provider-note">
-            No Asaas, os dados seguem por conexão HTTPS diretamente para tokenização e são
-            descartados após a resposta.
+          </div>
+
+          <p className="payment-security">
+            <LockKeyhole />
+            <span>
+              <strong>Seus dados são criptografados e protegidos</strong>
+              <small>Os dados sensíveis são tokenizados pelo provedor de pagamento.</small>
+            </span>
           </p>
-        )}
-        {config?.provider === 'MERCADO_PAGO' && (
-          <p className="payment-provider-note">
-            Por segurança, o Mercado Pago solicitará apenas o CVV quando este cartão for
-            reutilizado.
-          </p>
-        )}
-        {error && (
-          <p className="payment-error" role="alert">
-            {error}
-          </p>
-        )}
-        <footer>
-          <button type="button" className="secondary" onClick={onClose}>
-            Cancelar
-          </button>
-          <button
-            type="submit"
-            disabled={
-              saving || !config || (config.provider === 'MERCADO_PAGO' && !mercadoPagoReady)
-            }
-          >
-            {saving ? 'Protegendo cartão…' : 'Salvar cartão'}
-          </button>
-        </footer>
-      </S.PaymentModalCard>
-    </S.ModalOverlay>
+
+          {error ? <p className="payment-error" role="alert">{error}</p> : null}
+
+          <footer className="payment-actions">
+            <button type="button" className="secondary" onClick={onClose}>Cancelar</button>
+            <button
+              type="submit"
+              disabled={saving || !config || (config.provider === 'MERCADO_PAGO' && !mercadoPagoReady)}
+            >
+              {saving ? 'Salvando...' : 'Salvar Novo Cartão'}
+            </button>
+          </footer>
+        </S.PaymentModalCard>
+      </S.PaymentScreenMain>
+
+      <CustomerDesktopFooter
+        restaurantName={restaurantName}
+        restaurantLogoUrl={restaurantLogoUrl}
+        description={restaurantDescription || `Sua experiência gourmet completa, direto do conforto de sua casa. O melhor do ${restaurantName} entregue rápido.`}
+        primaryColor={primaryColor}
+        onMenu={onGoHome}
+        onCoupons={onCoupons}
+        onHelp={onHelp}
+        onSupport={onSupport}
+      />
+    </S.PaymentScreen>
   );
 }

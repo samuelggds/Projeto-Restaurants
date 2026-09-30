@@ -373,3 +373,33 @@ test('porções respeitam mínimo, máximo e opções do grupo configurado', () 
     /indisponível/i,
   );
 });
+
+test('pizza meio a meio exige exatamente duas porções e cobra o sabor de maior preço', () => {
+  const configured = portionProduct('HIGHEST', [39.9, 42, 44]);
+  configured.name = 'Pizza Meio a Meio';
+  configured.portionConfiguration = {
+    ...configured.portionConfiguration,
+    minPortions: 2,
+    maxPortions: 2,
+  };
+
+  assert.throws(
+    () =>
+      resolveOrderItemCustomizations(configured, {
+        portions: [{ optionId: 1 }],
+      }),
+    /entre 2 e 2 porções/i,
+  );
+
+  const resolved = resolveOrderItemCustomizations(configured, {
+    portions: [{ optionId: 1 }, { optionId: 3 }],
+  });
+
+  assert.equal(resolved.price, 44);
+  if (!('portions' in resolved) || !Array.isArray(resolved.portions)) {
+    assert.fail('A pizza meio a meio deveria retornar as duas porções resolvidas.');
+  }
+  assert.equal(resolved.portions.length, 2);
+  assert.equal(resolved.portions[0].fraction, '1/2');
+  assert.equal(resolved.portions[1].fraction, '1/2');
+});

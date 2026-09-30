@@ -108,16 +108,12 @@ try {
 
   const cases = [
     ['/', false],
-    ['/demonstracao', false],
     ['/admin', false],
     ['/kitchen', false],
     ['/assets/app.js', false],
-    ['/demo-admin.html', true],
-    ['/demo-admin.html?scenario=sample', true],
     ['/help-preview.html', true],
     ['/help-preview.html?area=settings-brand', true],
     ['/help-preview.html/extra', false],
-    ['/demo-admin.html.bak', false],
     ['/other/help-preview.html', false],
   ];
   for (const [path, embedded] of cases) {
@@ -138,11 +134,7 @@ try {
       assert.equal(directives.get('form-action'), "'none'", path);
       assert.equal(directives.get('base-uri'), "'none'", path);
       assert.equal(directives.get('script-src'), "'self'", path);
-      assert.equal(
-        directives.get('frame-src'),
-        path.startsWith('/help-preview.html') ? "'none'" : "'self'",
-        path,
-      );
+      assert.equal(directives.get('frame-src'), "'none'", path);
     } else {
       const scriptSrc = directives.get('script-src') || '';
       const frameSrc = directives.get('frame-src') || '';

@@ -340,6 +340,12 @@ class UpdateOrderStatusService {
     });
 
     io.to(`restaurant:${restaurantId}`).emit('order:status-changed', updatedOrder);
+    io.to(`guest-order:${updatedOrder.id}`).emit('order:status-changed', {
+      id: updatedOrder.id,
+      status: updatedOrder.status,
+      type: updatedOrder.type,
+      updatedAt: new Date().toISOString(),
+    });
     if (updatedOrder.userId)
       io.to(`user:${updatedOrder.userId}`).emit('order:status-changed', updatedOrder);
     emitWaiterTableOrderEvent(io, 'waiter:order-updated', updatedOrder);

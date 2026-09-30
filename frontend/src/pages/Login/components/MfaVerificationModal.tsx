@@ -10,13 +10,13 @@ import {
 } from 'react';
 import {
   AlertCircle,
+  ArrowLeft,
   CheckCircle2,
   LoaderCircle,
   Mail,
   MessageCircleMore,
   MessageSquareText,
   ShieldCheck,
-  X,
 } from 'lucide-react';
 import authService from '../../../Services/authService';
 import * as S from './MfaVerificationModal.styles';
@@ -50,6 +50,7 @@ type Props<T> = {
   onResend: (channel?: DeliveryChannel) => Promise<ResendResult>;
   onSuccess: (result: T) => void;
   onCancel: () => void;
+  emailOnly?: boolean;
 };
 
 function getErrorMessage(error: unknown) {
@@ -103,6 +104,7 @@ export function MfaVerificationModal<T>({
   onResend,
   onSuccess,
   onCancel,
+  emailOnly = false,
 }: Props<T>) {
   const pendingChallenge = authService.getPendingMfaChallenge();
   const initialOptions = useMemo<DeliveryOption[]>(
@@ -131,7 +133,7 @@ export function MfaVerificationModal<T>({
   const [mobileOtpCapable] = useState(() => isMobileOtpCapable());
   const inputRefs = useRef<Array<HTMLInputElement | null>>([]);
   const code = digits.join('');
-  const waitingForChannel = selectionRequired && !activeChannel;
+  const waitingForChannel = !emailOnly && selectionRequired && !activeChannel;
 
   useEffect(() => {
     if (!open) return undefined;
@@ -143,7 +145,7 @@ export function MfaVerificationModal<T>({
       setSubmitting(false);
       setResending(false);
       setSelectingChannel(null);
-      setActiveChannel(selectedChannel || current?.selectedChannel);
+      setActiveChannel(emailOnly ? 'EMAIL' : selectedChannel || current?.selectedChannel);
       setActiveDestination(destination || current?.destination || 'seu contato cadastrado');
       setOptions(deliveryOptions || current?.deliveryOptions || []);
       setSelectionRequired(
@@ -159,6 +161,7 @@ export function MfaVerificationModal<T>({
     open,
     resendAfterSeconds,
     selectedChannel,
+    emailOnly,
   ]);
 
   useEffect(() => {
@@ -321,9 +324,11 @@ export function MfaVerificationModal<T>({
     setState('idle');
     setMessage('');
     try {
-      const result = activeChannel
-        ? await authService.resendLogin2fa({ channel: activeChannel })
-        : await onResend(activeChannel);
+      const result = emailOnly
+        ? await onResend('EMAIL')
+        : activeChannel
+          ? await authService.resendLogin2fa({ channel: activeChannel })
+          : await onResend(activeChannel);
       setActiveChannel(result.selectedChannel || activeChannel);
       setActiveDestination(result.destination || activeDestination);
       setDigits(Array(6).fill(''));
@@ -346,171 +351,145 @@ export function MfaVerificationModal<T>({
 
   return (
     <S.Backdrop role="presentation">
-      <S.Dialog
-        key={state === 'error' ? `mfa-error-${shakeKey}` : 'mfa-dialog'}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="mfa-title mfa-legacy-title"
-        aria-describedby="mfa-description"
-        $state={state}
-        $shake={state === 'error'}
-      >
-        <span id="mfa-legacy-title" hidden>
-          Verificação em duas etapas
-        </span>
-        <S.Header>
-          <S.TitleMarker aria-hidden="true" />
+      <S.ScreenHeader>
+        <S.Brand href="/" aria-label="GastroNexa">
+          <img src="/gastronexa-logo.svg" alt="" />
+          <span><b>Gastro</b><strong>Nexa</strong></span>
+        </S.Brand>
+        <button
+          type="button"
+          onClick={onCancel}
+          disabled={submitting || resending || Boolean(selectingChannel) || state === 'success'}
+        >
+          Voltar ao login
+        </button>
+      </S.ScreenHeader>
+
+      <S.MobileTopbar>
+        <button
+          type="button"
+          aria-label="Voltar ao login"
+          onClick={onCancel}
+          disabled={submitting || resending || Boolean(selectingChannel) || state === 'success'}
+        >
+          <ArrowLeft />
+        </button>
+        <strong>Verificação</strong>
+        <span aria-hidden="true" />
+      </S.MobileTopbar>
+
+      <S.ScreenMain>
+        <S.Dialog
+          key={state === 'error' ? `mfa-error-${shakeKey}` : 'mfa-dialog'}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="mfa-title"
+          aria-describedby="mfa-description"
+          $state={state}
+          $shake={state === 'error'}
+        >
+          <S.SecurityIcon aria-hidden="true"><ShieldCheck /></S.SecurityIcon>
           <S.HeaderText>
-            <span className="eyebrow">Segurança da conta</span>
-            <h2 id="mfa-title">Autenticação de dois fatores</h2>
+            <h2 id="mfa-title">Verificação em duas etapas</h2>
             <p id="mfa-description">
-              {waitingForChannel ? (
-                'Escolha como deseja receber o código de verificação.'
-              ) : (
-                <>
-                  Enviamos um código de 6 números para <strong>{activeDestination}</strong>. Digite
-                  o código abaixo para concluir o acesso.
-                </>
-              )}
+              {waitingForChannel
+                ? 'Escolha onde deseja receber o código de verificação.'
+                : `Digite o código de 6 dígitos enviado para seu e-mail${activeDestination && activeDestination !== 'seu contato cadastrado' ? ` (${activeDestination})` : ''}.`}
             </p>
           </S.HeaderText>
-          <S.CloseButton
-            type="button"
-            onClick={onCancel}
-            aria-label="Cancelar autenticação de dois fatores"
-            disabled={submitting || resending || Boolean(selectingChannel) || state === 'success'}
-          >
-            <X />
-          </S.CloseButton>
-        </S.Header>
 
-        {waitingForChannel ? (
-          <>
-            <S.ChannelDescription>
-              Para contas ADMIN e SUPER_ADMIN você pode receber o código por e-mail, SMS ou
-              WhatsApp. E-mail e telefone são exibidos de forma mascarada.
-            </S.ChannelDescription>
-            <S.ChannelChoice>
-              {options.map((option) => (
-                <S.ChannelButton
-                  key={option.channel}
-                  type="button"
-                  onClick={() => void handleSelectChannel(option.channel)}
-                  disabled={Boolean(selectingChannel)}
-                >
-                  {selectingChannel === option.channel ? (
-                    <LoaderCircle className="spinner" />
-                  ) : (
-                    <ChannelIcon channel={option.channel} />
-                  )}
-                  <span>
-                    <strong>{getChannelActionLabel(option.channel)}</strong>
-                    <span>{option.destination}</span>
-                  </span>
-                </S.ChannelButton>
-              ))}
-            </S.ChannelChoice>
-            {message && (
-              <S.Feedback
-                role={state === 'error' ? 'alert' : 'status'}
-                aria-live={state === 'error' ? 'assertive' : 'polite'}
-                $state={state}
-              >
-                {state === 'error' ? <AlertCircle /> : <ShieldCheck />}
-                <span>{message}</span>
-              </S.Feedback>
-            )}
-          </>
-        ) : (
-          <form onSubmit={handleSubmit}>
-            <S.CodeLabel>O código recebido foi:</S.CodeLabel>
-            <span id="mfa-code-legacy-label" hidden>
-              Código de verificação, dígito 1 do código
-            </span>
-            <S.CodeGrid aria-label="Seis dígitos do código MFA">
-              {digits.map((digit, index) => (
-                <S.CodeCell
-                  key={index}
-                  ref={(element) => {
-                    inputRefs.current[index] = element;
-                  }}
-                  aria-label={`Dígito ${index + 1} do código`}
-                  aria-labelledby={index === 0 ? 'mfa-code-legacy-label' : undefined}
-                  aria-invalid={state === 'error'}
+          {waitingForChannel ? (
+            <>
+              <S.ChannelDescription>Selecione onde deseja receber o código de acesso.</S.ChannelDescription>
+              <S.ChannelChoice>
+                {options.map((option) => (
+                  <S.ChannelButton
+                    key={option.channel}
+                    type="button"
+                    onClick={() => void handleSelectChannel(option.channel)}
+                    disabled={Boolean(selectingChannel)}
+                  >
+                    {selectingChannel === option.channel ? <LoaderCircle className="spinner" /> : <ChannelIcon channel={option.channel} />}
+                    <span><strong>{getChannelActionLabel(option.channel)}</strong><span>{option.destination}</span></span>
+                  </S.ChannelButton>
+                ))}
+              </S.ChannelChoice>
+            </>
+          ) : (
+            <form onSubmit={handleSubmit}>
+              <S.CodeGrid aria-label="Seis dígitos do código MFA">
+                {digits.map((digit, index) => (
+                  <S.CodeCell
+                    key={index}
+                    ref={(element) => { inputRefs.current[index] = element; }}
+                    aria-label={`Dígito ${index + 1} do código`}
+                    aria-invalid={state === 'error'}
+                    $state={state}
+                    $filled={Boolean(digit)}
+                    type="text"
+                    inputMode="numeric"
+                    autoComplete={mobileOtpCapable && index === 0 ? 'one-time-code' : 'off'}
+                    pattern="[0-9]*"
+                    maxLength={index === 0 ? 6 : 1}
+                    value={digit}
+                    onChange={(event) => handleChange(index, event.target.value)}
+                    onKeyDown={(event) => handleKeyDown(index, event)}
+                    onPaste={(event) => handlePaste(index, event)}
+                    onFocus={(event) => event.currentTarget.select()}
+                    disabled={submitting || resending || state === 'success'}
+                  />
+                ))}
+              </S.CodeGrid>
+
+              {message ? (
+                <S.Feedback
+                  role={state === 'error' ? 'alert' : 'status'}
+                  aria-live={state === 'error' ? 'assertive' : 'polite'}
                   $state={state}
-                  $filled={Boolean(digit)}
-                  type="text"
-                  inputMode="numeric"
-                  autoComplete={mobileOtpCapable && index === 0 ? 'one-time-code' : 'off'}
-                  pattern="[0-9]*"
-                  maxLength={index === 0 ? 6 : 1}
-                  value={digit}
-                  onChange={(event) => handleChange(index, event.target.value)}
-                  onKeyDown={(event) => handleKeyDown(index, event)}
-                  onPaste={(event) => handlePaste(index, event)}
-                  onFocus={(event) => event.currentTarget.select()}
-                  disabled={submitting || state === 'success'}
-                />
-              ))}
-            </S.CodeGrid>
+                >
+                  {state === 'success' ? <CheckCircle2 /> : state === 'error' ? <AlertCircle /> : <ShieldCheck />}
+                  <span>{message}</span>
+                </S.Feedback>
+              ) : null}
 
-            {message ? (
-              <S.Feedback
-                id="mfa-feedback"
-                role={state === 'error' ? 'alert' : 'status'}
-                aria-live={state === 'error' ? 'assertive' : 'polite'}
-                $state={state}
+              <S.VerifyButton
+                type="submit"
+                disabled={submitting || resending || state === 'success' || code.length !== 6}
               >
-                {state === 'success' ? (
-                  <CheckCircle2 />
-                ) : state === 'error' ? (
-                  <AlertCircle />
+                {submitting ? (
+                  <><LoaderCircle className="spinner" /> Verificando...</>
+                ) : state === 'success' ? (
+                  <><CheckCircle2 /> Código correto</>
                 ) : (
-                  <ShieldCheck />
+                  <><span className="desktop-label">Verificar e Continuar →</span><span className="mobile-label">Verificar</span></>
                 )}
-                <span>{message}</span>
-              </S.Feedback>
-            ) : (
-              <S.Hint>
-                {mobileOtpCapable
-                  ? 'No celular, o código pode ser sugerido pelo sistema e será verificado quando os 6 dígitos forem preenchidos.'
-                  : 'No computador, digite os 6 números e clique em Verificar código.'}
-              </S.Hint>
-            )}
+              </S.VerifyButton>
 
-            <S.VerifyButton
-              type="submit"
-              disabled={submitting || resending || state === 'success' || code.length !== 6}
-            >
-              {submitting ? (
-                <>
-                  <LoaderCircle className="spinner" /> Verificando...
-                </>
-              ) : state === 'success' ? (
-                <>
-                  <CheckCircle2 /> Código correto
-                </>
-              ) : (
-                'Verificar código'
-              )}
-            </S.VerifyButton>
+              <S.ResendRow>
+                <S.ResendButton
+                  type="button"
+                  onClick={() => void handleResend()}
+                  disabled={secondsRemaining > 0 || resending || submitting || state === 'success'}
+                >
+                  {resending ? 'Reenviando...' : 'Reenviar código'}
+                </S.ResendButton>
+                {secondsRemaining > 0 ? (
+                  <S.Countdown aria-live="polite">Reenviar em {formatCountdown(secondsRemaining)}</S.Countdown>
+                ) : null}
+              </S.ResendRow>
+            </form>
+          )}
+        </S.Dialog>
+      </S.ScreenMain>
 
-            <S.ResendRow>
-              <span>Não recebeu o código?</span>
-              <S.ResendButton
-                type="button"
-                onClick={() => void handleResend()}
-                disabled={secondsRemaining > 0 || resending || submitting || state === 'success'}
-              >
-                {resending ? 'Reenviando...' : 'Reenviar código'}
-              </S.ResendButton>
-              {secondsRemaining > 0 && (
-                <S.Countdown aria-live="polite">{formatCountdown(secondsRemaining)}</S.Countdown>
-              )}
-            </S.ResendRow>
-          </form>
-        )}
-      </S.Dialog>
+      <S.ScreenFooter>
+        <span>© {new Date().getFullYear()} GastroNexa. Todos os direitos reservados.</span>
+        <nav>
+          <a href="/termos/">Termos de Uso</a>
+          <a href="/privacidade/">Política de Privacidade</a>
+          <a href="mailto:suporte@gastronexa.com.br">Suporte Técnico</a>
+        </nav>
+      </S.ScreenFooter>
     </S.Backdrop>
   );
 }

@@ -97,9 +97,42 @@ for (const width of [1440, 390]) {
     await page.setViewportSize({ width, height: 900 });
     await page.goto('/restaurante-teste');
     await enterMenu(page);
+
+    await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
     await page.getByRole('button', { name: 'Ver detalhes de Meio a meio dinâmico' }).click();
+
+    await expect.poll(() => page.evaluate(() => window.scrollY)).toBeLessThanOrEqual(2);
+
     const dialog = page.getByRole('dialog', { name: 'Montar Meio a meio dinâmico' });
     const footer = dialog.getByTestId('product-configurator-footer');
+
+    if (width === 390) {
+      const halfList = dialog.locator('.product-half-group .product-option-list').first();
+      const layout = await halfList.evaluate((element) => {
+        const style = getComputedStyle(element);
+        return {
+          display: style.display,
+          flexDirection: style.flexDirection,
+          width: element.getBoundingClientRect().width,
+          optionWidths: Array.from(element.children).map(
+            (child) => (child as HTMLElement).getBoundingClientRect().width,
+          ),
+        };
+      });
+      expect(layout.display).toBe('flex');
+      expect(layout.flexDirection).toBe('column');
+      expect(layout.optionWidths.every((optionWidth) => optionWidth >= layout.width - 2)).toBe(true);
+    } else {
+      const scrolling = await dialog.evaluate((element) => ({
+        scrollHeight: element.scrollHeight,
+        clientHeight: element.clientHeight,
+      }));
+      expect(scrolling.scrollHeight).toBeGreaterThan(scrolling.clientHeight);
+      await dialog.evaluate((element) => {
+        element.scrollTop = element.scrollHeight;
+      });
+      await expect.poll(() => dialog.evaluate((element) => element.scrollTop)).toBeGreaterThan(0);
+    }
     await expect(footer).toContainText('Escolha os sabores');
     await expect(footer).not.toContainText('R$ 0,00');
     await dialog
@@ -199,6 +232,87 @@ const advancedProduct = {
   },
 };
 
+const halfHalfProduct = {
+  id: 606,
+  name: 'Pizza Meio a Meio',
+  description: 'Escolha até 2 sabores para compor a sua pizza.',
+  price: 39.9,
+  active: true,
+  stock: null,
+  saleMode: 'BUILDABLE',
+  pricingMode: 'HIGHEST_OPTION',
+  configurationVersion: 3,
+  category: { name: 'Pizzas' },
+  optionGroups: [
+    {
+      id: 60,
+      name: 'Sabores',
+      required: true,
+      selectionType: 'MULTIPLE',
+      minSelections: 1,
+      maxSelections: 2,
+      options: [
+        {
+          id: 6001,
+          active: true,
+          referenceProductId: 701,
+          pricingMode: 'ABSOLUTE',
+          absolutePrice: 39.9,
+          referenceProduct: {
+            id: 701,
+            name: 'Calabresa',
+            image: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M/wHwAF/gL+3zS5WQAAAABJRU5ErkJggg==',
+            price: 39.9,
+            active: true,
+            kind: 'STANDARD',
+            pricingMode: 'BASE',
+          },
+        },
+        {
+          id: 6002,
+          active: true,
+          referenceProductId: 702,
+          pricingMode: 'ABSOLUTE',
+          absolutePrice: 42,
+          referenceProduct: {
+            id: 702,
+            name: 'Margherita',
+            image: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M/wHwAF/gL+3zS5WQAAAABJRU5ErkJggg==',
+            price: 42,
+            active: true,
+            kind: 'STANDARD',
+            pricingMode: 'BASE',
+          },
+        },
+        {
+          id: 6003,
+          active: true,
+          referenceProductId: 703,
+          pricingMode: 'ABSOLUTE',
+          absolutePrice: 44,
+          referenceProduct: {
+            id: 703,
+            name: 'Frango com Catupiry',
+            image: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M/wHwAF/gL+3zS5WQAAAABJRU5ErkJggg==',
+            price: 44,
+            active: true,
+            kind: 'STANDARD',
+            pricingMode: 'BASE',
+          },
+        },
+      ],
+    },
+  ],
+  portionConfiguration: {
+    enabled: true,
+    optionGroupId: 60,
+    minPortions: 2,
+    maxPortions: 2,
+    pricingStrategy: 'HIGHEST',
+    allowPortionObservations: false,
+  },
+};
+
 const completeProduct = {
   id: 303,
   name: 'Refrigerante pronto',
@@ -293,7 +407,7 @@ async function mockStorefront(page: Page) {
         status: 200,
         contentType: 'application/json',
         body: JSON.stringify({
-          products: [product, advancedProduct, completeProduct, defaultedProduct],
+          products: [product, advancedProduct, halfHalfProduct, completeProduct, defaultedProduct],
         }),
       });
       return;
@@ -330,6 +444,135 @@ async function openCartAfterAddition(page: Page) {
   return checkout;
 }
 
+test('wheel do mouse rola o configurador no desktop', async ({ page }) => {
+  await mockStorefront(page);
+  await page.setViewportSize({ width: 1440, height: 800 });
+  await page.goto('/restaurante-teste');
+  await enterMenu(page);
+
+  await page.getByRole('button', { name: 'Ver detalhes de Pizza Meio a Meio' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Montar Pizza Meio a Meio' });
+  await expect(dialog).toBeVisible();
+
+  const before = await dialog.evaluate((element) => ({
+    scrollTop: element.scrollTop,
+    scrollHeight: element.scrollHeight,
+    clientHeight: element.clientHeight,
+    overflowY: getComputedStyle(element).overflowY,
+  }));
+
+  expect(before.scrollHeight).toBeGreaterThan(before.clientHeight);
+  expect(before.overflowY).toBe('auto');
+
+  const box = await dialog.boundingBox();
+  expect(box).not.toBeNull();
+  await page.mouse.move((box?.x || 0) + (box?.width || 0) / 2, (box?.y || 0) + 300);
+  await page.mouse.wheel(0, 700);
+
+  await expect
+    .poll(() => dialog.evaluate((element) => element.scrollTop))
+    .toBeGreaterThan(0);
+});
+
+test('produto personalizado segue o novo layout em desktop e mobile', async ({ page }) => {
+  await mockStorefront(page);
+
+  for (const viewport of [
+    { width: 1440, height: 1000 },
+    { width: 390, height: 844 },
+  ]) {
+    await page.setViewportSize(viewport);
+    await page.goto('/restaurante-teste');
+    await enterMenu(page);
+
+    await page.getByRole('button', { name: 'Ver detalhes de Produto artesanal' }).click();
+    const dialog = page.getByRole('dialog', { name: 'Montar Produto artesanal' });
+
+    await expect(dialog).toBeVisible();
+    await expect(dialog.getByRole('heading', { name: 'Produto artesanal' })).toBeVisible();
+    await expect(dialog.getByText('Escolha a base', { exact: true })).toBeVisible();
+    await expect(dialog.getByText('Adicionais', { exact: true })).toBeVisible();
+    await expect(dialog.getByText('Alguma observação?', { exact: true })).toBeVisible();
+    await expect(
+      dialog.getByPlaceholder('Ex: sem cebola, maionese à parte...'),
+    ).toBeVisible();
+    await expect(dialog.getByRole('button', { name: 'Adicionar à sacola' })).toContainText(
+      'Continuar',
+    );
+
+    if (viewport.width <= 620) {
+      await expect(dialog.getByRole('button', { name: 'Voltar ao cardápio' })).toBeVisible();
+    }
+
+    const state = await dialog.evaluate((element) => ({
+      overflow: element.scrollWidth - element.clientWidth,
+      documentOverflow: document.documentElement.scrollWidth - window.innerWidth,
+    }));
+    expect(state.overflow).toBeLessThanOrEqual(1);
+    expect(state.documentOverflow).toBeLessThanOrEqual(1);
+
+    if (viewport.width <= 620) {
+      await dialog.getByRole('button', { name: 'Voltar ao cardápio' }).click();
+    } else {
+      await page.keyboard.press('Escape');
+    }
+    await expect(dialog).toBeHidden();
+  }
+});
+
+test('pizza meio a meio exige as duas metades no fluxo real em desktop e mobile', async ({ page }) => {
+  await mockStorefront(page);
+
+  for (const viewport of [
+    { width: 1440, height: 1000 },
+    { width: 390, height: 844 },
+  ]) {
+    await page.setViewportSize(viewport);
+    await page.goto('/restaurante-teste');
+    await enterMenu(page);
+
+    await page.getByRole('button', { name: 'Ver detalhes de Pizza Meio a Meio' }).click();
+    const dialog = page.getByRole('dialog', { name: 'Montar Pizza Meio a Meio' });
+    await expect(dialog).toBeVisible();
+
+    const halves = dialog.getByLabel('Escolha das duas metades');
+    await expect(halves.getByText('1ª Metade')).toBeVisible();
+    await expect(halves.getByText('2ª Metade')).toBeVisible();
+    await expect(halves.getByText('Obrigatório', { exact: true })).toHaveCount(2);
+
+    const submit = dialog.getByRole('button', { name: 'Adicionar à sacola' });
+    await expect(submit).toBeDisabled();
+    await expect(halves).toContainText('Selecione as duas metades obrigatórias');
+
+    await halves.locator('input[name="half-0"][value="6001"]').check({ force: true });
+    await expect(halves.getByText('✓ Selecionado', { exact: true })).toHaveCount(1);
+    await expect(halves.getByText('Obrigatório', { exact: true })).toHaveCount(1);
+    await expect(submit).toBeDisabled();
+
+    await halves.locator('input[name="half-1"][value="6003"]').check({ force: true });
+    await expect(halves.getByText('✓ Selecionado', { exact: true })).toHaveCount(2);
+    await expect(submit).toBeEnabled();
+    await expect(submit).toContainText('R$ 44,00');
+
+    const layoutState = await dialog.evaluate((element) => ({
+      horizontalOverflow: element.scrollWidth - element.clientWidth,
+      documentOverflow: document.documentElement.scrollWidth - window.innerWidth,
+    }));
+    expect(layoutState.horizontalOverflow).toBeLessThanOrEqual(1);
+    expect(layoutState.documentOverflow).toBeLessThanOrEqual(1);
+
+    await submit.click();
+    const cart = await openCartAfterAddition(page);
+    await expect(cart.getByText('Pizza Meio a Meio', { exact: true })).toBeVisible();
+    await expect(cart).toContainText('Calabresa');
+    await expect(cart).toContainText('Frango com Catupiry');
+    await expect(cart).toContainText('44,00');
+
+    await page.keyboard.press('Escape');
+    await expect(cart).toBeHidden();
+  }
+});
+
 test('cliente monta o produto antes de adicioná-lo à sacola', async ({ page }) => {
   await mockStorefront(page);
   await openConfigurator(page);
@@ -345,7 +588,7 @@ test('cliente monta o produto antes de adicioná-lo à sacola', async ({ page })
   await expect(page.getByText(/Escolha 1 opção/).last()).toBeVisible();
   await page.getByText('Base grossa').click();
   await page.getByText('Queijo especial').click();
-  await page.getByPlaceholder(/Adicione aqui uma observação/).fill('Embalagem separada');
+  await page.getByTestId('product-configurator-observation').locator('textarea').fill('Embalagem separada');
   await expect(page.getByText('R$ 38,00').last()).toBeVisible();
   const addButton = dialog.getByRole('button', { name: 'Adicionar à sacola' });
   await expect(addButton).toHaveAccessibleDescription('R$ 38,00');
@@ -396,19 +639,21 @@ test('trocar de produto limpa seleção, quantidade e observação anteriores', 
   await openConfigurator(page);
   let dialog = page.getByRole('dialog', { name: 'Montar Produto artesanal' });
   await dialog.getByText('Base grossa').click();
-  await dialog.getByPlaceholder(/Adicione aqui uma observação/).fill('Não reutilizar');
-  await dialog.getByRole('button', { name: 'Voltar ao cardápio' }).click();
+  await dialog.getByTestId('product-configurator-observation').locator('textarea').fill('Não reutilizar');
+  await page.keyboard.press('Escape');
+  await expect(dialog).toBeHidden();
 
   await page.getByRole('button', { name: 'Ver detalhes de Pizza em porções' }).click();
   dialog = page.getByRole('dialog', { name: 'Montar Pizza em porções' });
   await expect(dialog.getByRole('checkbox', { name: /Bacon/ })).not.toBeChecked();
-  await expect(dialog.getByPlaceholder(/Adicione aqui uma observação/)).toHaveValue('');
-  await dialog.getByRole('button', { name: 'Voltar ao cardápio' }).click();
+  await expect(dialog.getByTestId('product-configurator-observation').locator('textarea')).toHaveValue('');
+  await page.keyboard.press('Escape');
+  await expect(dialog).toBeHidden();
 
   await page.getByRole('button', { name: 'Ver detalhes de Produto artesanal' }).click();
   dialog = page.getByRole('dialog', { name: 'Montar Produto artesanal' });
   await expect(dialog.getByRole('radio', { name: /Base grossa/ })).not.toBeChecked();
-  await expect(dialog.getByPlaceholder(/Adicione aqui uma observação/)).toHaveValue('');
+  await expect(dialog.getByTestId('product-configurator-observation').locator('textarea')).toHaveValue('');
 });
 
 test('configurador mantém observação e CTA no fluxo em telas menores', async ({ page }) => {

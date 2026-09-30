@@ -10,6 +10,7 @@ export type CustomerPaymentMethod = {
   expYear: number;
   holderName?: string | null;
   isDefault: boolean;
+  createdAt?: string;
 };
 
 export function selectSavedPaymentMethod(

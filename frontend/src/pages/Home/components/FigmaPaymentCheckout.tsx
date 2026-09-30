@@ -10,6 +10,7 @@ type Props = {
   primaryColor: string;
   loggedIn: boolean;
   brandName: string;
+  logoUrl?: string;
   cart: CartItem[];
   cartCount: number;
   subtotal: number;
@@ -26,6 +27,7 @@ export function FigmaPaymentCheckout({
   primaryColor,
   loggedIn,
   brandName,
+  logoUrl,
   cart,
   cartCount,
   subtotal,
@@ -100,14 +102,14 @@ export function FigmaPaymentCheckout({
       <S.DesktopFooter>
         <div className="top">
           <section>
-            <div className="footer-brand"><span>G</span><b>GastroNexa</b></div>
+            <div className="footer-brand"><span>{logoUrl ? <img src={logoUrl} alt="" /> : brandName.slice(0, 1).toUpperCase()}</span><b>{brandName}</b></div>
             <p>Sua experiência gourmet completa, direto do conforto de sua casa. O melhor do {brandName} entregue rápido.</p>
           </section>
           <section><b>Nossos Links</b><span>Cardápio</span><span>Cupons Ativos</span><span>Perguntas Frequentes</span></section>
-          <section><b>Suporte</b><span>Falar no Chat</span><span>Central de Ajuda</span><span>Termos de Serviço</span></section>
+          <section><b>Suporte</b><span>Falar no Chat</span><span>Central de Ajuda</span><a href="/termos/">Termos de Serviço</a></section>
           <section><b>Sua Loja Segura</b><p>GastroNexa é multi-tenant. Cada restaurante é operado diretamente por seu administrador autorizado.</p></section>
         </div>
-        <div className="bottom"><span>© {new Date().getFullYear()} GastroNexa & {brandName}. Todos os direitos reservados.</span><span>Privacidade · Cookies</span></div>
+        <div className="bottom"><span>© {new Date().getFullYear()} {brandName}. Todos os direitos reservados.</span><span className="legal-links"><a href="/privacidade/">Privacidade</a><span aria-hidden="true">·</span><a href="/cookies/">Cookies</a></span></div>
       </S.DesktopFooter>
 
       <S.MobileAction>

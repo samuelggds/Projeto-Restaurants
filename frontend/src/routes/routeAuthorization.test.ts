@@ -22,6 +22,10 @@ describe('política de autorização de rotas', () => {
       '/pizzaria/admin',
       '/orders/42/tracking',
       '/orders/42/chat',
+      '/pizzaria/pedidos',
+      '/pizzaria/termos',
+      '/pizzaria/privacidade',
+      '/pizzaria/cookies',
       TENANT_REQUIRED_PATH,
     ])
       expect(allowed(path, null), path).toBe(true);
@@ -46,6 +50,14 @@ describe('política de autorização de rotas', () => {
         redirectTo: TENANT_LOGIN_REDIRECT,
       });
     }
+  });
+
+  it('não trata raízes legais reservadas como slug de restaurante', () => {
+    for (const path of ['/termos', '/privacidade', '/cookies']) {
+      expect(allowed(path, null), path).toBe(false);
+    }
+    expect(allowed('/north-pizza/termos', null)).toBe(true);
+    expect(allowed('/north-pizza/pedidos', null)).toBe(true);
   });
 
   it('limita CLIENTE ao tenant público, perfil, tracking e chat do pedido', () => {

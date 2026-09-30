@@ -48,43 +48,6 @@ export const CartLayer = styled.div<{ $primary: string }>`
   }
 `;
 
-export const MobileStatusBar = styled.div`
-  display: none;
-
-  @media (max-width: 760px) {
-    height: 44px;
-    padding: 0 24px;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    background: var(--checkout-bg);
-
-    strong {
-      color: var(--checkout-text);
-      font-size: 14px;
-      font-weight: 600;
-      line-height: 1;
-    }
-
-    > div {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-
-    svg {
-      width: 18px;
-      height: 18px;
-      color: var(--checkout-text);
-      stroke-width: 2;
-    }
-
-    svg:last-child {
-      width: 25px;
-    }
-  }
-`;
-
 export const CartDesktopHeader = styled.header`
   height: 80px;
   padding: 0 max(24px, calc((100vw - 1120px) / 2));
@@ -166,7 +129,7 @@ export const CartDesktopHeader = styled.header`
     width: 8px;
     height: 8px;
     border-radius: 50%;
-    background: #a5a29d;
+    background: #e5484d;
   }
 
   .brand-copy i.open {
@@ -338,7 +301,7 @@ export const CartTitleRow = styled.div`
       display: grid;
       place-items: center;
       border: 0;
-      border-radius: 18px;
+      border-radius: 8px;
       background: transparent;
       color: var(--checkout-text);
       cursor: pointer;
@@ -356,8 +319,8 @@ export const CartTitleRow = styled.div`
     }
 
     .mobile-back svg {
-      width: 19px;
-      height: 19px;
+      width: 24px;
+      height: 24px;
     }
 
     h1 {
@@ -395,9 +358,10 @@ export const CartSummarySidebar = styled.aside`
     line-height: 24px;
   }
 
-  .coupon-trigger {
+  .coupon-entry {
     width: 100%;
-    padding: 12px;
+    min-height: 44px;
+    padding: 0 12px;
     display: grid;
     grid-template-columns: 18px minmax(0, 1fr) auto;
     align-items: center;
@@ -406,31 +370,76 @@ export const CartSummarySidebar = styled.aside`
     border-radius: 12px;
     background: #fafaf8;
     color: var(--checkout-muted);
-    cursor: pointer;
-    text-align: left;
+    transition:
+      border-color 180ms ease,
+      box-shadow 180ms ease,
+      background-color 180ms ease;
   }
 
-  .coupon-trigger svg {
+  .coupon-entry:focus-within {
+    border-color: color-mix(in srgb, var(--checkout-primary) 45%, var(--checkout-line));
+    background: #fff;
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--checkout-primary) 8%, transparent);
+  }
+
+  .coupon-entry > svg {
     width: 18px;
     height: 18px;
   }
 
-  .coupon-trigger span {
+  .coupon-entry input {
     min-width: 0;
-    overflow: hidden;
-    font-size: 14px;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  .coupon-trigger b {
+    height: 42px;
+    padding: 0;
+    border: 0;
+    outline: 0;
+    background: transparent;
     color: var(--checkout-primary);
     font-size: 14px;
     font-weight: 700;
+    letter-spacing: .01em;
+    text-transform: uppercase;
+  }
+
+  .coupon-entry input::placeholder {
+    color: var(--checkout-muted);
+    text-transform: none;
+  }
+
+  .coupon-entry button {
+    min-height: 32px;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: var(--checkout-primary);
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
   }
 
   .coupon-details {
     min-width: 0;
+    animation: coupon-details-in 240ms cubic-bezier(.22,1,.36,1) both;
+    transform-origin: top center;
+  }
+
+  @keyframes coupon-details-in {
+    from {
+      opacity: 0;
+      transform: translateY(-8px) scale(.985);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .coupon-entry,
+    .coupon-details {
+      transition: none;
+      animation: none;
+    }
   }
 
   .summary-list {
@@ -521,10 +530,11 @@ export const MobileCartSummary = styled.section`
     gap: 10px;
     padding-top: 0;
 
-    .coupon-trigger {
+    .coupon-entry {
       width: 100%;
+      min-height: 44px;
       margin-bottom: 8px;
-      padding: 12px;
+      padding: 0 12px;
       display: grid;
       grid-template-columns: 18px minmax(0, 1fr) auto;
       align-items: center;
@@ -533,28 +543,80 @@ export const MobileCartSummary = styled.section`
       border-radius: 12px;
       background: #fff;
       color: var(--checkout-muted);
-      cursor: pointer;
-      text-align: left;
+      transition:
+        border-color 180ms ease,
+        box-shadow 180ms ease,
+        transform 180ms ease;
     }
 
-    .coupon-trigger svg {
+    .coupon-entry:focus-within {
+      border-color: color-mix(in srgb, var(--checkout-primary) 45%, var(--checkout-line));
+      box-shadow: 0 0 0 3px color-mix(in srgb, var(--checkout-primary) 8%, transparent);
+      transform: translateY(-1px);
+    }
+
+    .coupon-entry > svg {
       width: 18px;
       height: 18px;
     }
 
-    .coupon-trigger span {
+    .coupon-entry input {
       min-width: 0;
-      font-size: 14px;
-    }
-
-    .coupon-trigger b {
+      height: 42px;
+      padding: 0;
+      border: 0;
+      outline: 0;
+      background: transparent;
       color: var(--checkout-primary);
       font-size: 14px;
       font-weight: 700;
+      letter-spacing: .01em;
+      text-transform: uppercase;
+    }
+
+    .coupon-entry input::placeholder {
+      color: var(--checkout-muted);
+      text-transform: none;
+    }
+
+    .coupon-entry button {
+      min-height: 32px;
+      padding: 0;
+      border: 0;
+      background: transparent;
+      color: var(--checkout-primary);
+      font-size: 14px;
+      font-weight: 700;
+      cursor: pointer;
     }
 
     .coupon-details {
       margin-bottom: 8px;
+      animation: coupon-details-mobile-in 260ms cubic-bezier(.22,1,.36,1) both;
+      transform-origin: top center;
+    }
+
+    @keyframes coupon-details-mobile-in {
+      from {
+        opacity: 0;
+        transform: translateY(-10px) scale(.98);
+      }
+      70% {
+        opacity: 1;
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .coupon-entry,
+      .coupon-details {
+        transition: none;
+        animation: none;
+        transform: none;
+      }
     }
 
     .summary-row,
@@ -598,6 +660,7 @@ export const MobileCartSummary = styled.section`
 
 export const CartDesktopFooter = styled.footer`
   min-height: 356px;
+  box-sizing: border-box;
   padding: 64px max(24px, calc((100vw - 1120px) / 2));
   background: #1f1e1a;
   color: #fff;
@@ -620,6 +683,12 @@ export const CartDesktopFooter = styled.footer`
   .platform-brand > span {
     width: 32px;
     height: 32px;
+    min-width: 32px;
+    max-width: 32px;
+    min-height: 32px;
+    max-height: 32px;
+    flex: 0 0 32px;
+    overflow: hidden;
     border-radius: 10px;
     display: grid;
     place-items: center;
@@ -628,6 +697,15 @@ export const CartDesktopFooter = styled.footer`
     font-family: 'Gabarito', 'Inter', sans-serif;
     font-size: 16px;
     font-weight: 800;
+  }
+
+  .platform-brand img {
+    width: 32px;
+    height: 32px;
+    max-width: 32px;
+    max-height: 32px;
+    display: block;
+    object-fit: cover;
   }
 
   .platform-brand strong {
@@ -642,11 +720,20 @@ export const CartDesktopFooter = styled.footer`
     font-weight: 700;
   }
 
-  p {
+  p,
+  a {
     margin: 0;
     color: #72706b;
     font-size: 14px;
     line-height: 22px;
+    text-decoration: none;
+  }
+
+  a:hover,
+  a:focus-visible {
+    color: #fff;
+    text-decoration: underline;
+    text-underline-offset: 3px;
   }
 
   section:not(.platform) {
@@ -684,6 +771,11 @@ export const CartDesktopFooter = styled.footer`
   .legal {
     display: flex;
     gap: 16px;
+  }
+
+  .legal a {
+    color: inherit;
+    font-size: inherit;
   }
 
   @media (max-width: 1000px) {

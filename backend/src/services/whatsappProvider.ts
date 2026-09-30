@@ -123,8 +123,8 @@ function requireApiKey() {
 }
 
 function normalizedPhone(value: string, kind: 'source' | 'destination') {
-  const normalized = digitsOnly(value);
-  if (!/^\d{10,15}$/u.test(normalized)) {
+  const national = digitsOnly(value);
+  if (!/^[1-9]\d{9,10}$/u.test(national)) {
     throw new WhatsAppProviderConfigurationError(
       kind === 'source' ? 'invalid_gupshup_source' : 'invalid_gupshup_destination',
       kind === 'source'
@@ -132,7 +132,7 @@ function normalizedPhone(value: string, kind: 'source' | 'destination') {
         : 'Número de destino inválido para a Gupshup.',
     );
   }
-  return normalized;
+  return `55${national}`;
 }
 
 export function resolveWhatsAppDeliveryProvider(): string {

@@ -21,7 +21,6 @@ export type ProfileUser = {
   avatarUrl: string;
   mainAddress: string;
   paymentLastDigits?: string;
-  favoriteCount: number;
 };
 
 export type ProfileOrderStatus = 'confirmed' | 'preparing' | 'onTheWay' | 'delivered' | 'cancelled';
@@ -32,9 +31,7 @@ export type ProfileView =
   | 'coupons'
   | 'addresses'
   | 'paymentMethods'
-  | 'favorites'
-  | 'personalData'
-  | 'security';
+;
 
 export type ProfilePaymentMethod = {
   publicId: string;
@@ -45,6 +42,7 @@ export type ProfilePaymentMethod = {
   expYear: number;
   holderName?: string | null;
   isDefault: boolean;
+  createdAt?: string;
 };
 
 export type ProfileOrder = {
@@ -58,16 +56,6 @@ export type ProfileOrder = {
   publicId?: string;
   paymentPending?: boolean;
   loyaltyQualified?: boolean;
-};
-
-export type ProfileFavorite = {
-  id: string;
-  name: string;
-  description: string;
-  price: number;
-  image: string;
-  rating: number;
-  stock?: number | null;
 };
 
 export type ProfileAddress = {
@@ -103,7 +91,6 @@ export type ProfileData = {
   activeOrders?: ActiveProfileOrder[];
   activeOrderCount?: number;
   recentOrders: ProfileOrder[];
-  favorites?: ProfileFavorite[];
   addresses?: ProfileAddress[];
 };
 
@@ -136,31 +123,11 @@ export type ProfilePageProps = {
   onAddPaymentMethod?: () => void;
   onSelectPaymentMethod?: (publicId: string) => void | Promise<void>;
   onRemovePaymentMethod?: (publicId: string) => void | Promise<void>;
-  onOpenFavorites?: () => void;
-  onToggleFavorite?: (productId: string) => void | Promise<void>;
-  onAddFavoriteToCart?: (favorite: ProfileFavorite) => void;
-  onOpenPersonalData?: () => void;
-  onOpenSecurity?: () => void;
   onSupport?: () => void;
+  onSupportOrder?: (orderId: string) => void;
   onLogout?: () => void;
-  onSavePersonalData?: (data: {
-    name: string;
-    email: string;
-    phone: string;
-    currentPassword?: string;
-  }) => Promise<void>;
-  onChangePassword?: (data: { currentPassword: string; newPassword: string }) => Promise<void>;
   twoFactorEnabled?: boolean;
   onToggleTwoFactor?: (enabled: boolean, currentPassword: string) => Promise<void>;
-  smsRecoveryAvailable?: boolean;
-  smsRecoveryEnabled?: boolean;
-  smsRecoveryDestination?: string;
-  onRequestSmsRecoveryVerification?: (currentPassword: string) => Promise<{
-    challengeId: string;
-    destination?: string;
-    expiresInSeconds?: number;
-  }>;
-  onConfirmSmsRecoveryVerification?: (challengeId: string, code: string) => Promise<void>;
   onDeactivateAccount?: () => Promise<void>;
   onUploadAvatar?: (file: File) => Promise<void>;
   loyaltySummary?: LoyaltySummary | null;

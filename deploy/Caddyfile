@@ -5,11 +5,9 @@
 {$APP_DOMAIN} {
 	encode zstd gzip
 	reverse_proxy frontend:80
-	# Only these isolated documents may be embedded by the application itself.
-	@demoAdmin path /demo-admin.html
+	# Only the isolated read-only help document may be embedded by the application itself.
 	@helpPreview path /help-preview.html
-	@application not path /demo-admin.html /help-preview.html
-	header @demoAdmin Content-Security-Policy "default-src 'self'; base-uri 'none'; object-src 'none'; frame-ancestors 'self'; form-action 'none'; script-src 'self'; frame-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob:; connect-src 'none'; upgrade-insecure-requests"
+	@application not path /help-preview.html
 	header @helpPreview Content-Security-Policy "default-src 'self'; base-uri 'none'; object-src 'none'; frame-ancestors 'self'; form-action 'none'; script-src 'self'; frame-src 'none'; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob:; connect-src 'none'; upgrade-insecure-requests"
 	# The image enhancement response is a data URL. AdminPage converts it to a Blob
 	# with fetch(data:...), so data: must be allowed by connect-src for the app only.

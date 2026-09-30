@@ -46,7 +46,6 @@ jobs:
             --project='${{ matrix.browser }}' \
             e2e/browser-portable.spec.ts \
             e2e/marketing-landing.spec.ts \
-            e2e/demo-workflow.spec.ts \
             e2e/help-preview-scroll.spec.ts \
             e2e/admin-billing-ux.spec.ts \
             e2e/admin-settings-inputs.spec.ts \

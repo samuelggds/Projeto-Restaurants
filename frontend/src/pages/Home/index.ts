@@ -1,4 +1,4 @@
-export { HomePage } from './HomePage';
+export { FigmaDeliveryExperience } from './FigmaDeliveryExperience';
 export { homeMockData } from './data';
 export type {
   HomeBanner,
@@ -6,6 +6,6 @@ export type {
   HomeCategory,
   HomeData,
   HomeHero,
-  HomePageProps,
+  HomeExperienceProps,
   HomeProduct,
 } from './types';

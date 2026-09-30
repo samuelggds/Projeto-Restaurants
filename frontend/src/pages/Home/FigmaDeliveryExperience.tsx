@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ChevronLeft,
   ChevronRight,
@@ -13,19 +13,50 @@ import {
   UserRound,
   UtensilsCrossed,
 } from 'lucide-react';
-import { ComboConfigurator } from './components/ComboConfigurator';
-import { FacebookIcon, InstagramIcon } from './components/SocialBrandIcons';
-import { ProductConfigurator } from './components/ProductConfigurator';
+import {
+  FacebookIcon,
+  InstagramIcon,
+  TikTokIcon,
+} from './components/SocialBrandIcons';
 import { PromotionCarousel } from './components/PromotionCarousel';
 import { CustomerDesktopFooter } from './components/CustomerDesktopFooter';
 import { FloatingWhatsAppPortal } from './Home.whatsapp';
 import { WhatsAppIcon } from './components/SocialBrandIcons';
 import { buildSocialProfileUrl } from './domain/publicSettings';
-import type { HomePageProps, HomeProduct } from './types';
+import { createReadyProductConfiguration, resolveProductEntryKind } from './domain/productEntryFlow';
+import type { HomeExperienceProps, HomeProduct } from './types';
 import * as S from './FigmaDeliveryExperience.styles';
+
+const ProductConfigurator = lazy(() =>
+  import('./components/ProductConfigurator').then((module) => ({
+    default: module.ProductConfigurator,
+  })),
+);
+
+const ComboConfigurator = lazy(() =>
+  import('./components/ComboConfigurator').then((module) => ({
+    default: module.ComboConfigurator,
+  })),
+);
 
 const money = (value: number) =>
   value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+
+function formatDeliveryTime(value?: string) {
+  const raw = String(value || '').trim();
+  if (!raw) return '';
+
+  const normalized = raw.replace(/^entrega\s+em\s+/i, '').trim();
+  if (/\b(?:min|minuto|minutos|h|hora|horas)\b/i.test(normalized)) {
+    return normalized;
+  }
+
+  if (/^\d+(?:\s*(?:[-–—]|a)\s*\d+)?$/i.test(normalized)) {
+    return `${normalized.replace(/\s*[-–—]\s*/g, '-')} min`;
+  }
+
+  return normalized;
+}
 
 function productImage(product: HomeProduct) {
   return product.image ? <img src={product.image} alt={product.name} loading="lazy" decoding="async" /> : <UtensilsCrossed />;
@@ -35,16 +66,120 @@ function categoryImage(image: string, name: string) {
   return image ? <img src={image} alt="" loading="lazy" decoding="async" /> : <UtensilsCrossed aria-label={name} />;
 }
 
-function formatHours(data: HomePageProps['data']) {
-  const enabled = (data.businessHours || []).filter((entry) => entry.enabled);
-  if (!enabled.length) return '';
-  if (enabled.length === 1) {
-    return `${enabled[0].label}: ${enabled[0].openingTime} - ${enabled[0].closingTime}`;
+const BUSINESS_DAY_ORDER = [
+  'monday',
+  'tuesday',
+  'wednesday',
+  'thursday',
+  'friday',
+  'saturday',
+  'sunday',
+] as const;
+
+const BUSINESS_DAY_SHORT_LABELS: Record<string, string> = {
+  monday: 'Seg',
+  tuesday: 'Ter',
+  wednesday: 'Qua',
+  thursday: 'Qui',
+  friday: 'Sex',
+  saturday: 'Sáb',
+  sunday: 'Dom',
+};
+
+function formatDayIndexes(indexes: number[]) {
+  if (!indexes.length) return '';
+
+  const ranges: Array<{ start: number; end: number }> = [];
+  let start = indexes[0];
+  let end = indexes[0];
+
+  for (const index of indexes.slice(1)) {
+    if (index === end + 1) {
+      end = index;
+      continue;
+    }
+
+    ranges.push({ start, end });
+    start = index;
+    end = index;
   }
-  return enabled
-    .slice(0, 2)
-    .map((entry) => `${entry.label}: ${entry.openingTime} - ${entry.closingTime}`)
-    .join(' · ');
+
+  ranges.push({ start, end });
+
+  const labels = ranges.map(({ start: rangeStart, end: rangeEnd }) => {
+    const first = BUSINESS_DAY_SHORT_LABELS[BUSINESS_DAY_ORDER[rangeStart]];
+    const last = BUSINESS_DAY_SHORT_LABELS[BUSINESS_DAY_ORDER[rangeEnd]];
+    return rangeStart === rangeEnd ? first : `${first}–${last}`;
+  });
+
+  if (labels.length <= 1) return labels[0] || '';
+  if (labels.length === 2) return `${labels[0]} e ${labels[1]}`;
+  return `${labels.slice(0, -1).join(', ')} e ${labels[labels.length - 1]}`;
+}
+
+function formatHours(data: HomeExperienceProps['data']) {
+  const configured = new Map(
+    (data.businessHours || [])
+      .filter((entry) => entry.enabled)
+      .map((entry) => [String(entry.id), entry] as const),
+  );
+
+  const enabledIndexes = BUSINESS_DAY_ORDER
+    .map((id, index) => (configured.has(id) ? index : -1))
+    .filter((index) => index >= 0);
+
+  if (!enabledIndexes.length) return '';
+
+  const groups = new Map<
+    string,
+    {
+      openingTime: string;
+      closingTime: string;
+      indexes: number[];
+    }
+  >();
+
+  enabledIndexes.forEach((index) => {
+    const id = BUSINESS_DAY_ORDER[index];
+    const entry = configured.get(id);
+    if (!entry) return;
+
+    const openingTime = String(entry.openingTime || '').trim();
+    const closingTime = String(entry.closingTime || '').trim();
+    if (!openingTime || !closingTime) return;
+
+    const key = `${openingTime}|${closingTime}`;
+    const existing = groups.get(key);
+
+    if (existing) {
+      existing.indexes.push(index);
+      return;
+    }
+
+    groups.set(key, {
+      openingTime,
+      closingTime,
+      indexes: [index],
+    });
+  });
+
+  const scheduleGroups = Array.from(groups.values()).sort(
+    (left, right) => left.indexes[0] - right.indexes[0],
+  );
+
+  if (
+    scheduleGroups.length === 1 &&
+    scheduleGroups[0].indexes.length === BUSINESS_DAY_ORDER.length
+  ) {
+    return `Todos os dias: ${scheduleGroups[0].openingTime} - ${scheduleGroups[0].closingTime}`;
+  }
+
+  return scheduleGroups
+    .map(
+      (group) =>
+        `${formatDayIndexes(group.indexes)}: ${group.openingTime} - ${group.closingTime}`,
+    )
+    .join(' | ');
 }
 
 
@@ -204,8 +339,9 @@ export function FigmaDeliveryExperience({
   onSelectCategory,
   whatsappUrl,
   whatsappLabel,
-}: HomePageProps) {
+}: HomeExperienceProps) {
   const primary = data.brand.primaryColor || '#e85a2b';
+  const deliveryTimeLabel = formatDeliveryTime(data.deliveryTime);
   const [selectedProduct, setSelectedProduct] = useState<HomeProduct | null>(null);
   const [selectedCombo, setSelectedCombo] = useState<HomeProduct | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
@@ -261,6 +397,37 @@ export function FigmaDeliveryExperience({
     () => categoryCarousels.map((section) => section.category),
     [categoryCarousels],
   );
+  const [selectedCatalogCategory, setSelectedCatalogCategory] = useState(() =>
+    featured.length > 0
+      ? 'featured'
+      : combos.length > 0
+        ? 'combos'
+        : visibleCategories[0]?.id
+          ? `category:${visibleCategories[0].id}`
+          : '',
+  );
+  const defaultCatalogCategory =
+    featured.length > 0
+      ? 'featured'
+      : combos.length > 0
+        ? 'combos'
+        : visibleCategories[0]?.id
+          ? `category:${visibleCategories[0].id}`
+          : '';
+  const validCatalogCategory =
+    selectedCatalogCategory === 'featured'
+      ? featured.length > 0
+      : selectedCatalogCategory === 'combos'
+        ? combos.length > 0
+        : selectedCatalogCategory.startsWith('category:')
+          ? visibleCategories.some(
+              (category) => `category:${category.id}` === selectedCatalogCategory,
+            )
+          : false;
+  const activeCatalogCategory = validCatalogCategory
+    ? selectedCatalogCategory
+    : defaultCatalogCategory;
+
   const promotionBanners = useMemo(() => {
     const configured = data.banners
       .filter((banner) => banner.active)
@@ -310,10 +477,38 @@ export function FigmaDeliveryExperience({
   }, [initialSearchOpen]);
 
   useEffect(() => {
+    if (!selectedProduct && !selectedCombo) return undefined;
+
+    const previousBodyOverflow = document.body.style.overflow;
+    const previousBodyOverflowY = document.body.style.overflowY;
+    const previousHtmlOverflow = document.documentElement.style.overflow;
+    const previousHtmlOverflowY = document.documentElement.style.overflowY;
+
+    document.body.style.overflow = 'visible';
+    document.body.style.overflowY = 'auto';
+    document.documentElement.style.overflow = 'visible';
+    document.documentElement.style.overflowY = 'auto';
+
+    window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+    document.documentElement.scrollTop = 0;
+    document.body.scrollTop = 0;
+
+    return () => {
+      document.body.style.overflow = previousBodyOverflow;
+      document.body.style.overflowY = previousBodyOverflowY;
+      document.documentElement.style.overflow = previousHtmlOverflow;
+      document.documentElement.style.overflowY = previousHtmlOverflowY;
+    };
+  }, [selectedCombo, selectedProduct]);
+
+  useEffect(() => {
     if (!mobileSearchOpen) return;
 
     const closeSearchOnOutsidePointer = (event: PointerEvent) => {
-      if (searchContainerRef.current?.contains(event.target as Node)) return;
+      const target = event.target as Node;
+      if (searchContainerRef.current?.contains(target)) return;
+      if (mobileSearchTriggerRef.current?.contains(target)) return;
+
       setMobileSearchOpen(false);
       setSearchFocused(false);
       setSearchQuery('');
@@ -377,19 +572,18 @@ export function FigmaDeliveryExperience({
 
 
   const openProduct = (product: HomeProduct) => {
-    if (product.kind === 'COMBO') {
+    const entryKind = resolveProductEntryKind(product);
+
+    if (entryKind === 'COMBO') {
       setSelectedCombo(product);
       return;
     }
-    if (product.saleMode === 'COMPLETE') {
-      onAddProduct?.(product.id, {
-        selectedOptions: [],
-        selectedOptionIds: [],
-        observation: '',
-        configurationVersion: product.configurationVersion,
-      }, 1);
+
+    if (entryKind === 'READY') {
+      onAddProduct?.(product.id, createReadyProductConfiguration(product.configurationVersion), 1);
       return;
     }
+
     setSelectedProduct(product);
   };
 
@@ -407,6 +601,7 @@ export function FigmaDeliveryExperience({
   };
 
   const chooseCategory = (id: string) => {
+    setSelectedCatalogCategory(`category:${id}`);
     onSelectCategory?.(id);
     const category = categories.find((item) => item.id === id);
     const isComboCategory = String(category?.name || id)
@@ -447,7 +642,6 @@ export function FigmaDeliveryExperience({
                 aria-label={data.isOpen ? 'Aberto agora.' : 'Fechado agora.'}
               >
                 <i className={data.isOpen ? 'open' : ''} /> {data.isOpen ? 'Aberto agora' : 'Fechado agora'}
-                {data.deliveryTime ? ` · ${data.deliveryTime}` : ''}
               </span>
             </span>
           </button>
@@ -528,10 +722,19 @@ export function FigmaDeliveryExperience({
 
         <button
           ref={mobileSearchTriggerRef}
-          className="mobile-header-search"
+          className={`mobile-header-search${mobileSearchOpen ? ' active' : ''}`}
           type="button"
-          aria-label="Buscar no cardápio"
+          aria-label={mobileSearchOpen ? 'Fechar busca' : 'Buscar no cardápio'}
+          aria-expanded={mobileSearchOpen}
           onClick={() => {
+            if (mobileSearchOpen) {
+              setMobileSearchOpen(false);
+              setSearchFocused(false);
+              setSearchQuery('');
+              searchInputRef.current?.blur();
+              return;
+            }
+
             setMobileSearchOpen(true);
             window.requestAnimationFrame(() => searchInputRef.current?.focus());
           }}
@@ -558,18 +761,20 @@ export function FigmaDeliveryExperience({
       </S.Header>
 
       {selectedProduct ? (
-        <ProductConfigurator
-          product={selectedProduct}
-          primaryColor={primary}
-          enableProductQuantity
-          embedded
-          customerPageVariant
-          onClose={() => setSelectedProduct(null)}
-          onConfirm={(configuration, quantity) => {
-            onAddProduct?.(selectedProduct.id, configuration, quantity || 1);
-            setSelectedProduct(null);
-          }}
-        />
+        <Suspense fallback={null}>
+          <ProductConfigurator
+            product={selectedProduct}
+            primaryColor={primary}
+            enableProductQuantity
+            embedded
+            customerPageVariant
+            onClose={() => setSelectedProduct(null)}
+            onConfirm={(configuration, quantity) => {
+              onAddProduct?.(selectedProduct.id, configuration, quantity || 1);
+              setSelectedProduct(null);
+            }}
+          />
+        </Suspense>
       ) : (
         <>
           {promotionBanners.length ? (
@@ -580,7 +785,9 @@ export function FigmaDeliveryExperience({
 
           <S.Main>
             <S.InfoChips>
-              {data.deliveryTime ? <span><Clock3 size={16} /> Entrega em <b>{data.deliveryTime}</b></span> : null}
+              {data.isOpen && deliveryTimeLabel ? (
+                <span><Clock3 size={16} /> Entrega em <b>{deliveryTimeLabel}</b></span>
+              ) : null}
               {Number(data.deliveryFee || 0) > 0 ? (
                 <span>🛵 Taxa <b>{money(Number(data.deliveryFee))}</b></span>
               ) : data.acceptsDelivery ? (
@@ -597,13 +804,29 @@ export function FigmaDeliveryExperience({
             {(featured.length > 0 || combos.length > 0 || visibleCategories.length > 0) ? (
               <S.CatalogCategories id="home-categories" aria-label="Categorias do cardápio">
                 {featured.length > 0 ? (
-                  <button type="button" className="active" onClick={() => scrollToSection('home-featured')}>
+                  <button
+                    type="button"
+                    className={activeCatalogCategory === 'featured' ? 'active' : undefined}
+                    aria-pressed={activeCatalogCategory === 'featured'}
+                    onClick={() => {
+                      setSelectedCatalogCategory('featured');
+                      scrollToSection('home-featured');
+                    }}
+                  >
                     <span className="image featured-icon"><Star aria-hidden="true" /></span>
                     <b>Destaques</b>
                   </button>
                 ) : null}
                 {combos.length > 0 ? (
-                  <button type="button" onClick={() => scrollToSection('home-combos')}>
+                  <button
+                    type="button"
+                    className={activeCatalogCategory === 'combos' ? 'active' : undefined}
+                    aria-pressed={activeCatalogCategory === 'combos'}
+                    onClick={() => {
+                      setSelectedCatalogCategory('combos');
+                      scrollToSection('home-combos');
+                    }}
+                  >
                     <span className="image">
                       {combos[0]?.image ? categoryImage(combos[0].image, 'Combos') : <UtensilsCrossed aria-hidden="true" />}
                     </span>
@@ -611,7 +834,15 @@ export function FigmaDeliveryExperience({
                   </button>
                 ) : null}
                 {visibleCategories.map((category) => (
-                  <button key={category.id} type="button" onClick={() => chooseCategory(category.id)}>
+                  <button
+                    key={category.id}
+                    type="button"
+                    className={
+                      activeCatalogCategory === `category:${category.id}` ? 'active' : undefined
+                    }
+                    aria-pressed={activeCatalogCategory === `category:${category.id}`}
+                    onClick={() => chooseCategory(category.id)}
+                  >
                     <span className="image">{categoryImage(category.image, category.name)}</span>
                     <b>{category.name}</b>
                   </button>
@@ -650,7 +881,7 @@ export function FigmaDeliveryExperience({
               />
             ))}
 
-            {(data.brand.address || data.brand.phone || hours || data.brand.instagram || data.brand.facebook || whatsappUrl) ? (
+            {(data.brand.address || data.brand.phone || hours || data.brand.instagram || data.brand.facebook || data.brand.tiktok || whatsappUrl) ? (
               <S.RestaurantInfo aria-label="Informações do restaurante">
                 {data.brand.address ? (
                   <div className="info-item address">
@@ -673,7 +904,7 @@ export function FigmaDeliveryExperience({
                   </div>
                 ) : null}
 
-                {(data.brand.instagram || data.brand.facebook || whatsappUrl) ? (
+                {(data.brand.instagram || data.brand.facebook || data.brand.tiktok || whatsappUrl) ? (
                   <div className="social-row">
                     <span className="social-label">Redes sociais</span>
                     <div className="social">
@@ -695,6 +926,16 @@ export function FigmaDeliveryExperience({
                           aria-label="Facebook"
                         >
                           <FacebookIcon />
+                        </a>
+                      ) : null}
+                      {data.brand.tiktok ? (
+                        <a
+                          href={buildSocialProfileUrl('tiktok', data.brand.tiktok)}
+                          target="_blank"
+                          rel="noreferrer"
+                          aria-label="TikTok"
+                        >
+                          <TikTokIcon />
                         </a>
                       ) : null}
                       {whatsappUrl ? (
@@ -769,6 +1010,7 @@ export function FigmaDeliveryExperience({
 
       <CustomerDesktopFooter
         restaurantName={data.brand.name}
+        restaurantLogoUrl={data.brand.logoUrl}
         description={data.about}
         primaryColor={primary}
         phone={data.brand.phone}
@@ -778,15 +1020,17 @@ export function FigmaDeliveryExperience({
 
 
       {selectedCombo ? (
-        <ComboConfigurator
-          product={selectedCombo}
-          primaryColor={primary}
-          onClose={() => setSelectedCombo(null)}
-          onConfirm={(configuration) => {
-            onAddProduct?.(selectedCombo.id, configuration, 1);
-            setSelectedCombo(null);
-          }}
-        />
+        <Suspense fallback={null}>
+          <ComboConfigurator
+            product={selectedCombo}
+            primaryColor={primary}
+            onClose={() => setSelectedCombo(null)}
+            onConfirm={(configuration) => {
+              onAddProduct?.(selectedCombo.id, configuration, 1);
+              setSelectedCombo(null);
+            }}
+          />
+        </Suspense>
       ) : null}
         </>
       )}

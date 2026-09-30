@@ -321,8 +321,11 @@ export async function sendTenantEvolutionTextMessage(input: {
   if (!row || row.provider !== 'EVOLUTION' || row.status !== 'CONNECTED') {
     throw new Error('WhatsApp Evolution não conectado para este restaurante.');
   }
-  const number = digitsOnly(input.destination);
-  if (!/^\d{10,15}$/u.test(number)) throw new Error('Número de destino inválido para o WhatsApp.');
+  const nationalNumber = digitsOnly(input.destination);
+  if (!/^[1-9]\d{9,10}$/u.test(nationalNumber)) {
+    throw new Error('Número de destino inválido para o WhatsApp.');
+  }
+  const number = `55${nationalNumber}`;
   const text = String(input.message || '').trim();
   if (!text) throw new Error('Mensagem do WhatsApp vazia.');
 
@@ -418,8 +421,11 @@ export async function processTenantEvolutionInbound(
   if (!remoteJid || /@g\.us$/u.test(remoteJid) || /@newsletter$/u.test(remoteJid)) {
     return { accepted: true, queued: false, reason: 'non_customer_chat' } as const;
   }
-  const customerPhone = digitsOnly(remoteJid.split('@')[0]);
-  if (!/^\d{10,15}$/u.test(customerPhone)) {
+  const providerCustomerPhone = digitsOnly(remoteJid.split('@')[0]);
+  const customerPhone = /^55\d{10,11}$/u.test(providerCustomerPhone)
+    ? providerCustomerPhone.slice(2)
+    : providerCustomerPhone;
+  if (!/^[1-9]\d{9,10}$/u.test(customerPhone)) {
     return { accepted: true, queued: false, reason: 'invalid_customer_phone' } as const;
   }
 

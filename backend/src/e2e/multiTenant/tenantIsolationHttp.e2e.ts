@@ -51,14 +51,14 @@ test('isolamento multi-tenant real por HTTP e webhooks', { timeout: 120_000 }, a
       async () => {
         const { response, data } = await apiRequest(
           baseUrl,
-          '/profile?restaurantId=' + fixture.restaurants.b.id,
+          '/auth/me?restaurantId=' + fixture.restaurants.b.id,
           fixture.tokens.adminA,
           { headers: { 'x-restaurant-id': String(fixture.restaurants.b.id) } },
         );
 
         assert.equal(response.status, 200);
-        assert.equal(data.user.id, fixture.users.adminA.id);
-        assert.equal(data.user.restaurantId, fixture.restaurants.a.id);
+        assert.equal(data.id, fixture.users.adminA.id);
+        assert.equal(data.restaurantId, fixture.restaurants.a.id);
       },
     );
 

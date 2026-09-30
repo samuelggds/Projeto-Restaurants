@@ -24,6 +24,7 @@ const UserProfile = lazy(() => import('../pages/Profile/Profile'));
 const CourierDashboard = lazy(() => import('../pages/Courier/CourierWorkspace'));
 const DeliveryTrackingPage = lazy(() => import('../pages/tracking/DeliveryTrackingPage'));
 const DeliveryChatPage = lazy(() => import('../pages/tracking/DeliveryChatPage'));
+const GuestOrdersPage = lazy(() => import('../pages/orders/GuestOrdersPage'));
 const OrderPixPaymentPage = lazy(() => import('../pages/payment/OrderPixPaymentPage'));
 const DeliveryCustomerAlertLayer = lazy(
   () => import('../pages/tracking/DeliveryCustomerAlertLayer'),
@@ -39,9 +40,9 @@ const EmployeeOnboardingBoundary = lazy(
   () => import('../components/EmployeeOnboarding/EmployeeOnboardingBoundary'),
 );
 const GastroNexaLanding = lazy(() => import('../pages/Marketing/GastroNexaLanding'));
-const GastroNexaDemo = lazy(() => import('../pages/Marketing/GastroNexaDemo'));
 import api from '../Services/api';
 import tablesService from '../Services/tablesService';
+import restaurantSettingsService from '../Services/restaurantSettingsService';
 import { useAuth } from '../contexts/authContext';
 import { getAccessToken } from '../modules/auth/session/authSession';
 import {
@@ -127,6 +128,56 @@ function TenantRequiredPage() {
 function LegacyLoginRedirect() {
   const location = useLocation();
   return <Navigate to={consumeSignedOutEntryUrl(location)} replace />;
+}
+
+
+type LegalPage = 'termos' | 'privacidade' | 'cookies';
+
+function StaticLegalPageRedirect({ page }: { page: LegalPage }) {
+  useEffect(() => {
+    window.location.replace(`/${page}/index.html`);
+  }, [page]);
+
+  return <RouteLoading />;
+}
+
+function TenantLegalPageRedirect({ page }: { page: LegalPage }) {
+  const { restaurantSlug } = useParams();
+  const navigate = useNavigate();
+  const normalizedSlug = String(restaurantSlug || '').trim().toLowerCase();
+
+  useEffect(() => {
+    let active = true;
+
+    if (!normalizedSlug) {
+      navigate(TENANT_REQUIRED_PATH, { replace: true });
+      return () => {
+        active = false;
+      };
+    }
+
+    void restaurantSettingsService
+      .getPublicSettingsBySlug(normalizedSlug)
+      .then((settings) => {
+        if (!active) return;
+        const restaurantId = Number(settings?.restaurantId || settings?.restaurant?.id || 0);
+        if (!Number.isInteger(restaurantId) || restaurantId <= 0) {
+          navigate(TENANT_REQUIRED_PATH, { replace: true });
+          return;
+        }
+        rememberTenantSlug(normalizedSlug);
+        window.location.replace(`/${page}/index.html`);
+      })
+      .catch(() => {
+        if (active) navigate(TENANT_REQUIRED_PATH, { replace: true });
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [navigate, normalizedSlug, page]);
+
+  return <RouteLoading />;
 }
 
 function LegacyTableQrRedirect() {
@@ -317,7 +368,12 @@ export default function AppRoutes() {
             <Routes>
               <Route element={<PageTransition />}>
                 <Route path="/" element={<GastroNexaLanding />} />
-                <Route path="/demonstracao" element={<GastroNexaDemo />} />
+                <Route path="/termos" element={<StaticLegalPageRedirect page="termos" />} />
+                <Route path="/termos/" element={<StaticLegalPageRedirect page="termos" />} />
+                <Route path="/privacidade" element={<StaticLegalPageRedirect page="privacidade" />} />
+                <Route path="/privacidade/" element={<StaticLegalPageRedirect page="privacidade" />} />
+                <Route path="/cookies" element={<StaticLegalPageRedirect page="cookies" />} />
+                <Route path="/cookies/" element={<StaticLegalPageRedirect page="cookies" />} />
                 <Route path="/super_admin/login" element={<Login />} />
                 <Route path="/:restaurantSlug/admin/:accessKey" element={<AdminPortalEntry />} />
                 <Route element={<RouteAuthorizationGuard />}>
@@ -327,9 +383,16 @@ export default function AppRoutes() {
                   <Route path="/recover-password" element={<RecoverPassword />} />
                   <Route path="/:restaurantSlug/team" element={<Login />} />
                   <Route path="/:restaurantSlug/admin" element={<AdminPortalLoginGate />} />
+                  <Route path="/:restaurantSlug/termos" element={<TenantLegalPageRedirect page="termos" />} />
+                  <Route path="/:restaurantSlug/termos/" element={<TenantLegalPageRedirect page="termos" />} />
+                  <Route path="/:restaurantSlug/privacidade" element={<TenantLegalPageRedirect page="privacidade" />} />
+                  <Route path="/:restaurantSlug/privacidade/" element={<TenantLegalPageRedirect page="privacidade" />} />
+                  <Route path="/:restaurantSlug/cookies" element={<TenantLegalPageRedirect page="cookies" />} />
+                  <Route path="/:restaurantSlug/cookies/" element={<TenantLegalPageRedirect page="cookies" />} />
                   <Route path="/system-maintenance" element={<SystemMaintenancePage />} />
                   <Route path={TENANT_REQUIRED_PATH} element={<TenantRequiredPage />} />
                   <Route path="/:restaurantSlug" element={<RestaurantMenuGate />} />
+                  <Route path="/:restaurantSlug/pedidos" element={<GuestOrdersPage />} />
                   <Route
                     path="/:restaurantSlug/pedido/:orderPublicId/pagamento"
                     element={<OrderPixPaymentPage />}

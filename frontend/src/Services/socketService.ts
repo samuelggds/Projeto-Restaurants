@@ -632,3 +632,38 @@ export function disconnectTableWaitingSocket({ immediate = false } = {}) {
     }
   }, SOCKET_DISCONNECT_GRACE_MS);
 }
+
+
+export function connectGuestOrdersSocket(
+  proofs: Array<{ orderId: number; token: string }>,
+  contextName = 'guest-orders',
+) {
+  const validProofs = (Array.isArray(proofs) ? proofs : [])
+    .map((proof) => ({
+      orderId: Number(proof?.orderId || 0),
+      token: String(proof?.token || '').trim(),
+    }))
+    .filter((proof) => Number.isInteger(proof.orderId) && proof.orderId > 0 && proof.token)
+    .slice(0, 20);
+
+  if (!validProofs.length) return null;
+
+  const guestSocket = io(getSocketBaseUrl(), {
+    path: getSocketPath(),
+    transports: ['websocket', 'polling'],
+    auth: {
+      guestOrderProofs: validProofs,
+    },
+  });
+
+  if (SOCKET_DEBUG_ENABLED) {
+    guestSocket.on('connect', () =>
+      debugSocket(`connected guest orders socket (${contextName})`, {
+        socketId: guestSocket.id,
+        orderIds: validProofs.map((proof) => proof.orderId),
+      }),
+    );
+  }
+
+  return guestSocket;
+}

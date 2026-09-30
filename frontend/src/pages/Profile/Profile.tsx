@@ -3,30 +3,22 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import api from '../../Services/api';
-import authService from '../../Services/authService';
-import {
-  executePhoneCaptcha,
-  IDENTITY_PLATFORM_PHONE_RECAPTCHA_ACTION,
-} from '../../modules/auth/phoneCaptcha';
 import ordersService, { getGuestOwnedOrderProofs } from '../../Services/ordersService';
 import restaurantSettingsService from '../../Services/restaurantSettingsService';
-import favoritesService from '../../Services/favoritesService';
+import { acquireSocket } from '../../Services/socketService';
 import loyaltyService from '../../Services/loyaltyService';
 import customerAddressService, {
   type CustomerAddressInput,
 } from '../../Services/customerAddressService';
 import { useAuth } from '../../contexts/authContext';
 import { getAccessToken } from '../../modules/auth/session/authSession';
-import { ProfilePage } from './ProfilePage';
 import { FigmaAccountExperience } from './FigmaAccountExperience';
 import { buildOrderSummary, buildProfileData } from '../Profile/adapters/profileDataAdapter';
 import { AddressModal } from './components/AddressModal';
 import { buildReorderCart, findOrderByDisplayId } from '../Profile/domain/reorderCart';
-import { addFavoriteToCart } from '../Profile/domain/favoriteCart';
 import { readJsonStorage } from '../../shared/storage/jsonStorage';
 import type { CartItem } from '../Home/hooks/useCart';
 import type { LoyaltySummary } from '../Home/types';
-import type { ProfileFavorite } from './types';
 import customerPaymentMethodService, {
   type CustomerPaymentMethod,
 } from '../../Services/customerPaymentMethodService';
@@ -75,15 +67,16 @@ export default function Profile() {
   const [searchParams] = useSearchParams();
   const [activeOrders, setActiveOrders] = useState<Record<string, unknown>[]>([]);
   const history = useOrderHistory({ mine: true, refreshSignal: user?.id });
+  const refreshHistory = history.refresh;
   const orders = useMemo(
     () => [...activeOrders, ...(history.orders as Record<string, unknown>[])],
     [activeOrders, history.orders],
   );
-  const [favorites, setFavorites] = useState<Record<string, unknown>[]>([]);
   const [addresses, setAddresses] = useState<Record<string, unknown>[]>([]);
   const [paymentMethods, setPaymentMethods] = useState<CustomerPaymentMethod[]>([]);
   const [paymentModalOpen, setPaymentModalOpen] = useState(false);
   const [supportOpen, setSupportOpen] = useState(false);
+  const [supportOrderId, setSupportOrderId] = useState<number | null>(null);
   const [addressModalOpen, setAddressModalOpen] = useState(
     () => searchParams.get('newAddress') === '1',
   );
@@ -95,10 +88,6 @@ export default function Profile() {
   const loyaltyRequestSequence = useRef(0);
   const guestClaimAttemptedRef = useRef(false);
   const [localAvatar, setLocalAvatar] = useState('');
-  const [phoneAuthConfig, setPhoneAuthConfig] = useState<{ enabled: boolean; siteKey: string | null }>({
-    enabled: false,
-    siteKey: null,
-  });
   const avatarUrl = localAvatar || String((user as Record<string, unknown>)?.avatar || '');
   const restaurantId = useMemo(() => {
     const authUser = (user as Record<string, unknown> | null) || {};
@@ -113,26 +102,7 @@ export default function Profile() {
     return Number.isInteger(resolved) && resolved > 0 ? resolved : null;
   }, [user]);
 
-  useEffect(() => {
-    let active = true;
-    void authService
-      .getPhoneAuthConfig()
-      .then((config) => {
-        if (!active) return;
-        setPhoneAuthConfig({
-          enabled: Boolean(config?.enabled),
-          siteKey: typeof config?.siteKey === 'string' ? config.siteKey : null,
-        });
-      })
-      .catch(() => {
-        if (active) setPhoneAuthConfig({ enabled: false, siteKey: null });
-      });
-    return () => {
-      active = false;
-    };
-  }, []);
-
-    const loadLoyaltyWallet = useCallback(async () => {
+  const loadLoyaltyWallet = useCallback(async () => {
     const requestId = ++loyaltyRequestSequence.current;
     if (!restaurantId || String(user?.role || '').toUpperCase() !== 'CLIENTE') {
       setLoyaltySummary(null);
@@ -220,9 +190,19 @@ export default function Profile() {
     };
   }, [user]);
 
+  const refreshActiveOrders = useCallback(async () => {
+    const raw: unknown = await ordersService.listMyActiveOrders();
+    const list = Array.isArray(raw)
+      ? raw
+      : Array.isArray((raw as Record<string, unknown>)?.orders)
+        ? ((raw as Record<string, unknown>).orders as unknown[])
+        : [];
+    setActiveOrders(list as Record<string, unknown>[]);
+  }, []);
+
   useEffect(() => {
     let active = true;
-    ordersService
+    void ordersService
       .listMyActiveOrders()
       .then((raw: unknown) => {
         if (!active) return;
@@ -238,6 +218,32 @@ export default function Profile() {
       active = false;
     };
   }, []);
+
+  useEffect(() => {
+    const token = getAccessToken() || '';
+    if (!token || String(user?.role || '').toUpperCase() !== 'CLIENTE') return undefined;
+
+    const { socket, release } = acquireSocket(token, 'profile-orders-realtime');
+    let refreshQueued = false;
+
+    const refreshOrders = () => {
+      if (refreshQueued) return;
+      refreshQueued = true;
+      queueMicrotask(() => {
+        refreshQueued = false;
+        void Promise.allSettled([refreshActiveOrders(), refreshHistory()]);
+      });
+    };
+
+    socket.on('order:status-changed', refreshOrders);
+    socket.on('new-order', refreshOrders);
+
+    return () => {
+      socket.off('order:status-changed', refreshOrders);
+      socket.off('new-order', refreshOrders);
+      release();
+    };
+  }, [refreshHistory, refreshActiveOrders, user?.role]);
 
   const loadPaymentMethods = useCallback(async () => {
     if (!restaurantId) {
@@ -269,30 +275,16 @@ export default function Profile() {
     };
   }, []);
 
-  useEffect(() => {
-    let active = true;
-    favoritesService
-      .list()
-      .then((items) => {
-        if (active) setFavorites(items as Record<string, unknown>[]);
-      })
-      .catch(() => {});
-    return () => {
-      active = false;
-    };
-  }, []);
-
   const data = useMemo(
     () =>
       buildProfileData({
         user: (user as Record<string, unknown> | null) || null,
         settings,
         orders,
-        favorites,
         addresses,
         avatarUrl,
       }),
-    [user, settings, orders, favorites, addresses, avatarUrl],
+    [user, settings, orders, addresses, avatarUrl],
   );
   const supportOrders = useMemo<OrderSupportOrder[]>(
     () =>
@@ -353,38 +345,6 @@ export default function Profile() {
     [user, login],
   );
 
-  const handleSavePersonalData = useCallback(
-    async (payload: { name: string; email: string; phone: string; currentPassword?: string }) => {
-      const previousEmail = String(user?.email || '').trim().toLowerCase();
-      const nextEmail = String(payload.email || '').trim().toLowerCase();
-      const { data: updated } = await api.put('/auth/profile', payload);
-
-      if (nextEmail && nextEmail !== previousEmail) {
-        logout();
-        toast.success('E-mail atualizado. Confirme o novo endereço antes de entrar novamente.');
-        navigate('/login');
-        return;
-      }
-
-      const token = getAccessToken() || '';
-      if (token && updated) login({ ...(user ?? {}), ...updated }, token);
-    },
-    [user, login, logout, navigate],
-  );
-
-  const handleChangePassword = useCallback(
-    async (payload: { currentPassword: string; newPassword: string }) => {
-      await api.put('/auth/password', {
-        oldPassword: payload.currentPassword,
-        newPassword: payload.newPassword,
-      });
-      logout();
-      toast.success('Senha atualizada. Entre novamente para continuar.');
-      navigate('/login');
-    },
-    [logout, navigate],
-  );
-
   const handleToggleTwoFactor = useCallback(
     async (enabled: boolean, currentPassword: string) => {
       await api.patch('/auth/mfa', { enabled, currentPassword });
@@ -395,38 +355,6 @@ export default function Profile() {
       navigate('/login');
     },
     [logout, navigate],
-  );
-
-  const handleRequestSmsRecoveryVerification = useCallback(
-    async (currentPassword: string) => {
-      if (!phoneAuthConfig.enabled || !phoneAuthConfig.siteKey) {
-        throw new Error('Recuperação por SMS ainda não está configurada.');
-      }
-      const captchaResponse = await executePhoneCaptcha(
-        phoneAuthConfig.siteKey,
-        IDENTITY_PLATFORM_PHONE_RECAPTCHA_ACTION,
-      );
-      return authService.requestPhoneVerification({ currentPassword, captchaResponse });
-    },
-    [phoneAuthConfig],
-  );
-
-  const handleConfirmSmsRecoveryVerification = useCallback(
-    async (challengeId: string, code: string) => {
-      const result = await authService.confirmPhoneVerification({ challengeId, code });
-      const token = getAccessToken() || '';
-      if (token) {
-        login(
-          {
-            ...(user ?? {}),
-            phoneVerifiedAt: result?.phoneVerifiedAt || new Date().toISOString(),
-          },
-          token,
-        );
-      }
-      toast.success('Telefone verificado. Recuperação por SMS ativada.');
-    },
-    [login, user],
   );
 
   const handleDeactivateAccount = useCallback(async () => {
@@ -510,37 +438,11 @@ export default function Profile() {
     [navigate, orders, restaurantHomePath],
   );
 
-  const handleAddFavoriteToCart = useCallback(
-    (favorite: ProfileFavorite) => {
-      const result = addFavoriteToCart(readJsonStorage<CartItem[]>('cartItems', []), favorite);
-
-      if (result.error === 'unavailable') {
-        toast.warning('Este produto está indisponível no momento.');
-        return;
-      }
-
-      if (result.error === 'stockLimit') {
-        toast.warning('Você já adicionou a quantidade máxima disponível.');
-        return;
-      }
-
-      localStorage.setItem('cartItems', JSON.stringify(result.cart));
-      toast.success(`${favorite.name} adicionado à sacola.`);
-      navigate(restaurantHomePath, { state: { openCart: true } });
-    },
-    [navigate, restaurantHomePath],
-  );
-
   const resolvedProfileView = resolveProfileView(searchParams.get('view'));
-  const useLegacyProfileView =
-    resolvedProfileView === 'favorites' ||
-    resolvedProfileView === 'personalData' ||
-    resolvedProfileView === 'security';
-  const AccountExperience = useLegacyProfileView ? ProfilePage : FigmaAccountExperience;
 
   return (
     <>
-      <AccountExperience
+      <FigmaAccountExperience
         data={{
           ...data,
           user: {
@@ -562,18 +464,19 @@ export default function Profile() {
             state: { openCart: true },
           })
         }
-        onSupport={() => setSupportOpen(true)}
+        onSupport={() => {
+          setSupportOrderId(null);
+          setSupportOpen(true);
+        }}
+        onSupportOrder={(orderId) => {
+          const normalized = Number(String(orderId).replace(/^#/, ''));
+          setSupportOrderId(Number.isInteger(normalized) && normalized > 0 ? normalized : null);
+          setSupportOpen(true);
+        }}
         onLogout={handleLogout}
         onUploadAvatar={handleUploadAvatar}
-        onSavePersonalData={handleSavePersonalData}
-        onChangePassword={handleChangePassword}
         twoFactorEnabled={Boolean((user as Record<string, unknown>)?.mfaEnabled)}
         onToggleTwoFactor={handleToggleTwoFactor}
-        smsRecoveryAvailable={phoneAuthConfig.enabled}
-        smsRecoveryEnabled={Boolean((user as Record<string, unknown>)?.phoneVerifiedAt)}
-        smsRecoveryDestination={String((user as Record<string, unknown>)?.phone || '')}
-        onRequestSmsRecoveryVerification={handleRequestSmsRecoveryVerification}
-        onConfirmSmsRecoveryVerification={handleConfirmSmsRecoveryVerification}
         onDeactivateAccount={handleDeactivateAccount}
         onNewAddress={() => setAddressModalOpen(true)}
         onSelectAddress={selectAddress}
@@ -591,11 +494,6 @@ export default function Profile() {
           await customerPaymentMethodService.remove(publicId, restaurantId);
           await loadPaymentMethods();
           toast.success('Cartão removido.');
-        }}
-        onAddFavoriteToCart={handleAddFavoriteToCart}
-        onToggleFavorite={async (productId) => {
-          await favoritesService.remove(productId);
-          setFavorites((current) => current.filter((item) => String(item.id) !== productId));
         }}
         onTrackOrder={handleTrackOrder}
         onViewOrder={handleTrackOrder}
@@ -616,8 +514,12 @@ export default function Profile() {
       />
       <OrderSupportDialog
         open={supportOpen}
-        onClose={() => setSupportOpen(false)}
+        onClose={() => {
+          setSupportOpen(false);
+          setSupportOrderId(null);
+        }}
         orders={supportOrders}
+        initialOrderId={supportOrderId}
       />
       {addressModalOpen && (
         <AddressModal onClose={() => setAddressModalOpen(false)} onSave={saveAddress} />
@@ -625,6 +527,23 @@ export default function Profile() {
       {paymentModalOpen && restaurantId && (
         <PaymentMethodModal
           restaurantId={restaurantId}
+          restaurantName={data.brand.name}
+          restaurantLogoUrl={data.brand.logoUrl}
+          restaurantDescription={data.brand.description}
+          userAvatarUrl={data.user.avatarUrl}
+          userName={data.user.fullName || data.user.firstName}
+          primaryColor={data.brand.primaryColor}
+          cartCount={storedCartCount}
+          onGoHome={() => navigate(restaurantHomePath)}
+          onOpenSearch={() => navigate(restaurantHomePath, { state: { openSearch: true } })}
+          onOpenCart={() => navigate(restaurantHomePath, { state: { openCart: true } })}
+          onCoupons={() => navigate('/profile?view=coupons')}
+          onHelp={() => navigate('/profile?view=help')}
+          onSupport={() => {
+            setPaymentModalOpen(false);
+            setSupportOrderId(null);
+            setSupportOpen(true);
+          }}
           onClose={() => setPaymentModalOpen(false)}
           onSaved={() => {
             setPaymentModalOpen(false);

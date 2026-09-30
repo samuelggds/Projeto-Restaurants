@@ -30,6 +30,16 @@ const DAY_LABELS: Record<BusinessDayId, string> = {
 
 const TIME_PATTERN = /^(?:[01]\d|2[0-3]):[0-5]\d$/;
 
+export function createDisabledBusinessHours(): BusinessHour[] {
+  return BUSINESS_DAY_IDS.map((id) => ({
+    id,
+    label: DAY_LABELS[id],
+    enabled: false,
+    openingTime: '11:00',
+    closingTime: '23:00',
+  }));
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }

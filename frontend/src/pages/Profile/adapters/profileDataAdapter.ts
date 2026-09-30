@@ -2,7 +2,6 @@ import { profileMockData } from '../data';
 import type {
   ProfileAddress,
   ProfileData,
-  ProfileFavorite,
   ProfileOrder,
   ProfileOrderChannel,
   ProfileOrderStatus,
@@ -71,7 +70,6 @@ type Input = {
   user: Record<string, unknown> | null;
   settings: Record<string, unknown> | null;
   orders: Record<string, unknown>[];
-  favorites: Record<string, unknown>[];
   addresses: Record<string, unknown>[];
   avatarUrl: string;
 };
@@ -97,7 +95,6 @@ export function buildProfileData({
   user,
   settings,
   orders,
-  favorites,
   addresses: rawAddresses,
   avatarUrl,
 }: Input): ProfileData {
@@ -146,7 +143,6 @@ export function buildProfileData({
     phone: String(user?.phone || ''),
     avatarUrl,
     mainAddress,
-    favoriteCount: favorites.length,
   };
   const activeRawOrders = orders.filter((order) =>
     ACTIVE_STATUSES.has(String(order.status || '').toUpperCase()),
@@ -216,15 +212,6 @@ export function buildProfileData({
     complement: String(item.complement || ''),
     isDefault: Boolean(item.isDefault),
   }));
-  const profileFavorites: ProfileFavorite[] = favorites.map((item) => ({
-    id: String(item.id || ''),
-    name: String(item.name || ''),
-    description: String(item.description || ''),
-    price: Number(item.price || 0),
-    image: String(item.image || ''),
-    rating: Number(item.averageRating || 0),
-    stock: item.stock == null ? null : Number(item.stock),
-  }));
   return {
     brand,
     user: profileUser,
@@ -233,6 +220,5 @@ export function buildProfileData({
     activeOrderCount: activeRawOrders.length,
     recentOrders,
     addresses,
-    favorites: profileFavorites,
   };
 }

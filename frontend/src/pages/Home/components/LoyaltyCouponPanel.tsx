@@ -10,7 +10,7 @@ type Props = {
   summary: LoyaltySummary | null;
   selectedRedemptionId: number | null;
   redeemingCouponId: number | null;
-  onSelect: (redemptionId: number | null) => void;
+  onSelect: (redemptionId: number | null, couponCode?: string) => void;
   onLogin: () => void;
   onRetry: () => void;
   onRedeem: (couponId: number) => void;
@@ -73,7 +73,7 @@ export function LoyaltyCouponPanel({
                 key={redemption.id}
                 className={selected ? 'selected' : ''}
                 aria-pressed={selected}
-                onClick={() => onSelect(selected ? null : redemption.id)}
+                onClick={() => onSelect(selected ? null : redemption.id, coupon.code)}
               >
                 <span className="coupon-icon">{selected ? <Check /> : <Gift />}</span>
                 <span>

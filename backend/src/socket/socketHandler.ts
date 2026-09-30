@@ -38,9 +38,10 @@ type SocketWaitingTable = {
 
 type AppSocket = Socket & {
   user?: SocketUser;
-  authType?: 'user' | 'table-session' | 'table-waiting';
+  authType?: 'user' | 'table-session' | 'table-waiting' | 'guest-orders';
   tableSession?: SocketTableSession;
   waitingTable?: SocketWaitingTable;
+  guestOrderIds?: number[];
 };
 
 function resolveSocketRevalidationMs() {
@@ -71,6 +72,18 @@ function startTenantAccessRevalidation(
 
 export function socketHandler(socket: AppSocket) {
   console.log('🔌 conectado:', socket.id);
+
+  if (socket.authType === 'guest-orders' && socket.guestOrderIds?.length) {
+    for (const orderId of socket.guestOrderIds) {
+      socket.join(`guest-order:${orderId}`);
+    }
+
+    socket.on('disconnect', () => {
+      console.log('❌ visitante desconectado:', socket.id);
+    });
+
+    return;
+  }
 
   if (socket.authType === 'table-session' && socket.tableSession) {
     const { id, tableId, restaurantId } = socket.tableSession;

@@ -49,8 +49,8 @@ test('envia texto usando o contrato oficial da Gupshup', async () => {
   };
 
   const result = await sendGupshupTextMessage({
-    source: '+55 85 99999-9999',
-    destination: '+55 85 98888-7777',
+    source: '85999999999',
+    destination: '85988887777',
     message: 'Pedido #107 confirmado.',
     send: fakeFetch,
   });
@@ -69,6 +69,33 @@ test('envia texto usando o contrato oficial da Gupshup', async () => {
     type: 'text',
     text: 'Pedido #107 confirmado.',
   });
+});
+
+test('rejeita DDI no contrato interno e acrescenta 55 somente no envio externo', async () => {
+  process.env.GUPSHUP_API_KEY = 'test-key';
+  process.env.GUPSHUP_APP_NAME = 'NorthPizza';
+
+  await assert.rejects(
+    () =>
+      sendGupshupTextMessage({
+        source: '+55 85 99999-9999',
+        destination: '85988887777',
+        message: 'Teste',
+        send: async () => new Response(null, { status: 202 }),
+      }),
+    /origem inválido|origem inválida|Número de origem inválido/i,
+  );
+
+  await assert.rejects(
+    () =>
+      sendGupshupTextMessage({
+        source: '85999999999',
+        destination: '5585988887777',
+        message: 'Teste',
+        send: async () => new Response(null, { status: 202 }),
+      }),
+    /destino inválido/i,
+  );
 });
 
 test('resolve template por número e usa fallback global por evento', () => {
@@ -113,8 +140,8 @@ test('envia template aprovado pelo endpoint oficial da Gupshup', async () => {
   };
 
   const result = await sendGupshupTemplateMessage({
-    source: '+55 85 99999-9999',
-    destination: '+55 85 98888-7777',
+    source: '85999999999',
+    destination: '85988887777',
     templateId: 'approved-template-id',
     params: ['Cliente', '107', 'North Pizza', 'https://gastronexa.com.br/orders/107/tracking'],
     send: fakeFetch,

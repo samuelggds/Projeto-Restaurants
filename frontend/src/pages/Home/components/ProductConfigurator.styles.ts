@@ -84,9 +84,7 @@ export const Page = styled.div<{
         }
 
         .product-summary button[aria-label="Voltar ao cardápio"]{
-          display:grid;
-          top:14px;
-          left:14px;
+          display:none;
         }
 
         .product-form{
@@ -96,6 +94,12 @@ export const Page = styled.div<{
           border-radius:16px;
           background:#fff;
           box-shadow:0 6px 24px rgba(0,0,0,.04);
+          animation:customerConfiguratorEnter 260ms cubic-bezier(.2,.8,.2,1) both;
+        }
+
+        @keyframes customerConfiguratorEnter{
+          from{opacity:0;transform:translateY(8px)}
+          to{opacity:1;transform:translateY(0)}
         }
 
         .product-details{
@@ -117,6 +121,13 @@ export const Page = styled.div<{
         .product-option-list{grid-template-columns:1fr;gap:8px}
         .product-option{min-height:45px;border-radius:8px}
         .product-option > label{min-height:45px;padding:10px 14px}
+        .product-option,
+        .product-bottom-bar > button,
+        .product-quantity button{
+          transition:transform 160ms ease,border-color 160ms ease,background-color 160ms ease,box-shadow 160ms ease;
+        }
+        .product-bottom-bar > button:not(:disabled):hover{transform:translateY(-1px)}
+        .product-bottom-bar > button:not(:disabled):active{transform:translateY(0) scale(.99)}
 
         .product-observation{
           padding:0;
@@ -136,6 +147,17 @@ export const Page = styled.div<{
           border-radius:0;
           box-shadow:none;
           background:transparent;
+        }
+
+        @media(min-width:901px){
+          height:calc(100dvh - 80px);
+          max-height:calc(100dvh - 80px);
+          min-height:0;
+          overflow-x:hidden;
+          overflow-y:auto;
+          overscroll-behavior-y:contain;
+          scrollbar-gutter:stable;
+          touch-action:pan-y;
         }
 
         @media(max-width:900px){
@@ -166,6 +188,13 @@ export const Page = styled.div<{
           max-height:calc(100dvh - 80px);
           overflow-y:auto;
           overscroll-behavior:contain;
+        }
+
+        @media(prefers-reduced-motion:reduce){
+          .product-form{animation:none}
+          .product-option,
+          .product-bottom-bar > button,
+          .product-quantity button{transition:none}
         }
 
         @media(max-width:620px){
@@ -218,11 +247,27 @@ export const Page = styled.div<{
             gap:8px;
           }
 
+          .product-half-group .product-option-list[data-selection='SINGLE']{
+            display:flex;
+            flex-direction:column;
+            flex-wrap:nowrap;
+            gap:8px;
+            width:100%;
+          }
+
           .product-option-list[data-selection='SINGLE'] .product-option{
             min-height:36px;
             width:auto;
             flex:0 0 auto;
             border-radius:9px;
+          }
+
+          .product-half-group .product-option-list[data-selection='SINGLE'] .product-option{
+            width:100%;
+            min-height:46px;
+            border:1px solid #ece7e1;
+            border-radius:9px;
+            background:#fff;
           }
 
           .product-option-list[data-selection='SINGLE'] .product-option > label{
@@ -232,8 +277,40 @@ export const Page = styled.div<{
             gap:0;
           }
 
+          .product-half-group .product-option-list[data-selection='SINGLE'] .product-option > label{
+            min-height:46px;
+            padding:6px 8px;
+            display:grid;
+            grid-template-columns:auto minmax(0,1fr) auto;
+            gap:8px;
+          }
+
           .product-option-list[data-selection='SINGLE'] .product-option i,
           .product-option-list[data-selection='SINGLE'] .product-option strong{
+            display:none;
+          }
+
+          .product-half-group .product-option-list[data-selection='SINGLE'] .product-option i{
+            display:grid;
+          }
+
+          .product-half-group .product-option-list[data-selection='SINGLE'] .product-option strong{
+            display:block;
+            font-size:11px;
+          }
+
+          .product-half-group .product-option-list[data-selection='SINGLE'] .product-option label{
+            gap:8px;
+          }
+
+          .product-half-group .product-option-list[data-selection='SINGLE'] .product-option img{
+            width:34px;
+            height:34px;
+            flex:0 0 34px;
+            border-radius:7px;
+          }
+
+          .product-half-group .half-group-footer{
             display:none;
           }
 
@@ -471,7 +548,6 @@ export const ProductSummary = styled.aside`
     }
   }
 `;
-
 
 export const DesktopProductDetails = styled.section`
   display:grid;
@@ -1136,8 +1212,8 @@ export const BottomBar = styled.div<{ $stickyOnMobile?: boolean }>`
   }
 
   @media (max-width: 620px) {
-    position: ({ $stickyOnMobile }) => ($stickyOnMobile ? 'sticky' : 'static');
-    bottom: ({ $stickyOnMobile }) => ($stickyOnMobile ? '0' : 'auto');
+    position: ${ ({ $stickyOnMobile }) => ($stickyOnMobile ? 'sticky' : 'static') };
+    bottom: ${ ({ $stickyOnMobile }) => ($stickyOnMobile ? '0' : 'auto') };
     width:100%;
     min-width:0;
     margin:0;
@@ -1201,83 +1277,7 @@ export const ProductImagePlaceholder = styled.div`
   }
 `;
 
-export const ProductQuantity = styled.div`
-  display: grid;
-  grid-template-columns: 38px 30px 38px;
-  align-items: center;
-  border: 1px solid #ded5cc;
-  border-radius: 12px;
-  overflow: hidden;
-  background: #fff;
-
-  button {
-    width: 38px;
-    min-width: 38px;
-    height: 48px;
-    min-height: 48px;
-    padding: 0;
-    border: 0;
-    border-radius: 0;
-    background: #fff;
-    color: var(--config-primary);
-    box-shadow: none;
-    display: grid;
-    place-items: center;
-  }
-
-  button:disabled {
-    color: #c9c0b8;
-    background: #faf9f8;
-  }
-
-  strong {
-    min-width: 30px;
-    text-align: center;
-    font-size: 14px;
-  }
-
-  @media (max-width: 620px) {
-    grid-template-columns: 36px 28px 36px;
-
-    button {
-      width: 36px;
-      min-width: 36px;
-      height: 46px;
-      min-height: 46px;
-    }
-  }
-`;
-
-
-
-/* Cardápio de mesa: estrutura compacta conforme a experiência móvel de referência. */
-
-
-
-
-
-
-export const TableMenuConfiguratorScope = styled.div`
-  display: contents;
-`;
-
-
-export const ProductFavorite = styled.span`
-  position: absolute;
-  z-index: 2;
-  top: 14px;
-  right: 14px;
-  width: 36px;
-  height: 36px;
-  border-radius: 999px;
-  background: rgba(255,255,255,.94);
-  color: #1f1f22;
-  display: grid;
-  place-items: center;
-  font-size: 22px;
-  line-height: 1;
-  box-shadow: 0 3px 12px rgba(0,0,0,.12);
-`;
+export { ProductQuantity, TableMenuConfiguratorScope } from './ProductConfigurator.quantity.styles';
 
 export const ProductTitleRow = styled.div`
   display: flex;
@@ -1297,7 +1297,6 @@ export const ProductRating = styled.span`
   font-size: 11px;
   font-weight: 850;
 `;
-
 
 export const ProductBack = styled.button`
   position: absolute;
@@ -1335,3 +1334,5 @@ export const TableMenuProductPrice = styled.div`
     line-height: 1;
   }
 `;
+
+export { HalfHalfBuilder, PortionStatus, HalfHalfNotice } from './ProductConfigurator.halfHalf.styles';

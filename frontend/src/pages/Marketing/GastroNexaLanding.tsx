@@ -45,6 +45,7 @@ export default function GastroNexaLanding() {
       <LegalBar aria-label="Links legais da GastroNexa">
         <a href="/privacidade/">Política de Privacidade</a>
         <a href="/termos/">Termos de Serviço</a>
+        <a href="/cookies/">Cookies</a>
       </LegalBar>
     </>
   );
