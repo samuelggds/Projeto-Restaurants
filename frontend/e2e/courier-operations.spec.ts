@@ -980,7 +980,10 @@ test('cliente acompanha somente a própria entrega, rota e destino até a conclu
   await expect(
     page.getByLabel('Status da Entrega').getByText('Saiu para entrega', { exact: true }),
   ).toBeVisible();
-  await expect(page.getByText(courierUser.name)).toBeVisible();
+  await expect(
+    page.getByRole('complementary', { name: 'Detalhes da rota' })
+      .getByText(courierUser.name, { exact: true }),
+  ).toBeVisible();
   await expect(page.getByRole('link', { name: 'Ligar para o motoqueiro' })).toHaveAttribute(
     'href',
     `tel:${courierUser.phone}`,

@@ -53,14 +53,7 @@ import TableMenuExperience from '../digital-menu/TableMenuExperience';
 import type { HomeProduct } from './types';
 import { createReadyProductConfiguration, resolveProductEntryKind } from './domain/productEntryFlow';
 import { validateDeliveryAddressLocationForCheckout } from './domain/deliveryAddress';
-
-type GuestCheckoutDetails = { name: string; cpf?: string; phone?: string };
-
-type HomeNavigationState = {
-  openCart?: boolean;
-  openSearch?: boolean;
-  loyaltyRedemptionId?: number;
-};
+import type { GuestCheckoutDetails, HomeNavigationState } from './domain/homePageTypes';
 
 export default function Home() {
   const navigate = useNavigate();
