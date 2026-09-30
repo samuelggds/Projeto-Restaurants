@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   ArrowLeft,
   CheckCircle2,
@@ -38,21 +38,18 @@ export default function DeliveredOrderPage() {
   const { id } = useParams();
   const navigate = useNavigate();
   const orderId = Number(id || 0);
+  const hasInvalidOrderId = !Number.isInteger(orderId) || orderId <= 0;
   const [data, setData] = useState<DeliveryTrackingData | null>(null);
   const [error, setError] = useState('');
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(!hasInvalidOrderId);
   const [rating, setRating] = useState(0);
   const [previewRating, setPreviewRating] = useState(0);
   const [savingRating, setSavingRating] = useState(false);
   const [ratingMessage, setRatingMessage] = useState('');
 
   useEffect(() => {
+    if (hasInvalidOrderId) return undefined;
     let active = true;
-    if (!Number.isInteger(orderId) || orderId <= 0) {
-      setError('Pedido inválido.');
-      setLoading(false);
-      return () => { active = false; };
-    }
     ordersService
       .getDeliveryTracking(orderId)
       .then((raw) => {
@@ -77,20 +74,19 @@ export default function DeliveredOrderPage() {
         if (active) setLoading(false);
       });
     return () => { active = false; };
-  }, [orderId]);
+  }, [hasInvalidOrderId, orderId]);
 
   const order = data?.order;
   const restaurant = order?.restaurant;
   const isGuest = Boolean(orderId && getGuestOrderTrackingToken(orderId));
   const homePath = restaurant?.slug ? `/${restaurant.slug}` : '/';
   const ordersPath = restaurant?.slug ? `/${restaurant.slug}/pedidos` : isGuest ? '/' : '/profile';
-  const deliveredAt = useMemo(() => {
-    if (!order?.deliveryConfirmedAt) return '';
-    return new Date(order.deliveryConfirmedAt).toLocaleTimeString('pt-BR', {
-      hour: '2-digit',
-      minute: '2-digit',
-    });
-  }, [order?.deliveryConfirmedAt]);
+  const deliveredAt = order?.deliveryConfirmedAt
+    ? new Date(order.deliveryConfirmedAt).toLocaleTimeString('pt-BR', {
+        hour: '2-digit',
+        minute: '2-digit',
+      })
+    : '';
 
   const displayedRating = previewRating || rating;
 
@@ -112,6 +108,7 @@ export default function DeliveredOrderPage() {
     }
   }
 
+  if (hasInvalidOrderId) return <S.State role="alert">Pedido inválido.</S.State>;
   if (loading) return <S.State aria-busy="true">Carregando pedido entregue...</S.State>;
   if (error || !order) return <S.State role="alert">{error || 'Pedido não encontrado.'}</S.State>;
 

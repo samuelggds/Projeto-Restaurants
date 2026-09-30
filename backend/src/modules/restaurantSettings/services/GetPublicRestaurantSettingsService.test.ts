@@ -1,6 +1,7 @@
 // @ts-nocheck
 import test, { afterEach, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
+import prisma from '../../../config/prisma.js';
 import restaurantSettingsRepository from '../repositories/RestaurantSettingsRepository.js';
 import GetPublicRestaurantSettingsService from './GetPublicRestaurantSettingsService.js';
 
@@ -8,10 +9,13 @@ const originalFindPublic = restaurantSettingsRepository.findPublicByRestaurantId
 const originalFindSettings = restaurantSettingsRepository.findByRestaurantId;
 const originalFindRestaurant = restaurantSettingsRepository.findRestaurantById;
 const originalFindDefault = restaurantSettingsRepository.findDefaultActiveRestaurant;
+const originalAggregateRatings = prisma.order.aggregate;
 const originalEnv = { ...process.env };
 
 beforeEach(() => {
   restaurantSettingsRepository.findByRestaurantId = async () => null as never;
+  prisma.order.aggregate = async () =>
+    ({ _avg: { deliveryRating: null }, _count: { deliveryRating: 0 } }) as never;
   Object.assign(process.env, {
     CREDENTIAL_ENCRYPTION_KEY: Buffer.alloc(32, 4).toString('base64'),
     BACKEND_URL: 'https://api.gastronexa.example',
@@ -33,6 +37,7 @@ afterEach(() => {
   restaurantSettingsRepository.findByRestaurantId = originalFindSettings;
   restaurantSettingsRepository.findRestaurantById = originalFindRestaurant;
   restaurantSettingsRepository.findDefaultActiveRestaurant = originalFindDefault;
+  prisma.order.aggregate = originalAggregateRatings;
   for (const name of Object.keys(process.env)) if (!(name in originalEnv)) delete process.env[name];
   Object.assign(process.env, originalEnv);
 });

@@ -28,11 +28,11 @@ class RateDeliveredOrderService {
       throw new Error('Somente o cliente deste pedido pode enviar a avaliação.');
     }
 
-    const guestPublicId = String(guestPublicId || '').trim();
+    const normalizedGuestPublicId = String(guestPublicId || '').trim();
     const customer = Number(customerId || 0);
-    const order = guestPublicId
+    const order = normalizedGuestPublicId
       ? await prisma.order.findFirst({
-          where: { id: normalizedOrderId, publicId: guestPublicId },
+          where: { id: normalizedOrderId, publicId: normalizedGuestPublicId },
           select: {
             id: true,
             restaurantId: true,

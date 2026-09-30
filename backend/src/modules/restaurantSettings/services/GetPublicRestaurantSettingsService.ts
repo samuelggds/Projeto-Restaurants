@@ -81,8 +81,8 @@ type PublicSettingsFallback = {
   trackingRequiresLogin: boolean;
   soundNotifications: boolean;
   maxConcurrentOrders: number;
-  restaurantRatingAverage: number | null;
-  restaurantRatingCount: number;
+  restaurantRatingAverage?: number | null;
+  restaurantRatingCount?: number;
   restaurant: {
     updatedAt?: Date;
     name: string | null;
@@ -198,6 +198,10 @@ class GetPublicRestaurantSettingsService {
         ? Number(deliveryRatingSummary._avg.deliveryRating || 0)
         : null;
     const restaurantRatingCount = Number(deliveryRatingSummary._count.deliveryRating || 0);
+    const restaurantRatingFields =
+      restaurantRatingCount > 0
+        ? { restaurantRatingAverage, restaurantRatingCount }
+        : {};
 
     if (!settings) {
       const restaurant =
@@ -252,8 +256,7 @@ class GetPublicRestaurantSettingsService {
         trackingRequiresLogin: true,
         soundNotifications: true,
         maxConcurrentOrders: 20,
-        restaurantRatingAverage,
-        restaurantRatingCount,
+        ...restaurantRatingFields,
         restaurant: {
           updatedAt: restaurant?.updatedAt,
           name: restaurant?.name || null,
@@ -325,8 +328,7 @@ class GetPublicRestaurantSettingsService {
 
     return {
       ...settings,
-      restaurantRatingAverage,
-      restaurantRatingCount,
+      ...restaurantRatingFields,
       ...(typeof settings.acceptsPix === 'boolean' ? { acceptsPix } : {}),
       ...(typeof settings.acceptsCard === 'boolean' ? { acceptsCard } : {}),
       acceptsDebitCard,

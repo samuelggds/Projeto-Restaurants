@@ -108,8 +108,6 @@ function CourierWazeLauncher({
   routePath,
   statusDetail,
   destinationQuery,
-  etaMinutes,
-  distanceMeters,
 }: {
   destination?: RoutePoint & { label?: string };
   routePath: RoutePoint[];
@@ -197,6 +195,8 @@ export default function DeliveryMap({
   statusDetail = 'A posição é atualizada automaticamente.',
   tilesEnabled = true,
   destinationQuery,
+  etaMinutes,
+  distanceMeters,
 }: {
   points: RoutePoint[];
   routePath?: RoutePoint[];

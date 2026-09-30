@@ -94,6 +94,7 @@ export function useOrderQuote({
           }
         : undefined,
     [
+      deliveryAddress,
       deliveryAddress?.address,
       deliveryAddress?.number,
       deliveryAddress?.district,

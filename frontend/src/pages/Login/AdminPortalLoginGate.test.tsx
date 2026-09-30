@@ -17,10 +17,11 @@ vi.mock('./domain/adminPortalSession', () => ({
   clearAdminPortalGrant: mocks.clearAdminPortalGrant,
 }));
 
-import AdminPortalLoginGate, {
+import AdminPortalLoginGate from './AdminPortalLoginGate';
+import {
   ADMIN_ACCESS_NOTICE_VISIBLE_MS,
   formatAdminAccessRemaining,
-} from './AdminPortalLoginGate';
+} from './domain/adminPortalAccessNotice';
 
 (globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT =
   true;

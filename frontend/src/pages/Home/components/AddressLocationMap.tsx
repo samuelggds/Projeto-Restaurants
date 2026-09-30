@@ -247,7 +247,7 @@ export function AddressLocationMap({
         state,
         zipCode,
       }),
-    [street, number, district, city, state, zipCode],
+    [address, street, number, district, city, state, zipCode],
   );
   const addressKey = useMemo(() => JSON.stringify(normalized), [normalized]);
   const complete = isCompleteAddress(normalized);

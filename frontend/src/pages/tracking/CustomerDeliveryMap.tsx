@@ -33,10 +33,25 @@ function loadGoogleMaps(){
   if(window.__gastronexaGoogleMapsPromise) return window.__gastronexaGoogleMapsPromise;
   window.__gastronexaGoogleMapsPromise=new Promise((resolve,reject)=>{
     const existing=document.getElementById(GOOGLE_MAPS_SCRIPT_ID) as HTMLScriptElement|null;
-    if(existing){existing.addEventListener('load',()=>{const m=loadedMaps();m?resolve(m):reject(new Error('Google Maps não ficou disponível após o carregamento.'));});existing.addEventListener('error',()=>reject(new Error('Falha ao carregar Google Maps.')));return;}
+    if (existing) {
+      existing.addEventListener('load', () => {
+        const maps = loadedMaps();
+        if (maps) resolve(maps);
+        else reject(new Error('Google Maps não ficou disponível após o carregamento.'));
+      });
+      existing.addEventListener('error', () => reject(new Error('Falha ao carregar Google Maps.')));
+      return;
+    }
     const script=document.createElement('script'); script.id=GOOGLE_MAPS_SCRIPT_ID; script.async=true; script.defer=true;
     script.src=`https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(apiKey)}&v=weekly`;
-    script.referrerPolicy='strict-origin-when-cross-origin'; script.onload=()=>{const m=loadedMaps();m?resolve(m):reject(new Error('Google Maps não ficou disponível após o carregamento.'));}; script.onerror=()=>reject(new Error('Falha ao carregar Google Maps.')); document.head.appendChild(script);
+    script.referrerPolicy = 'strict-origin-when-cross-origin';
+    script.onload = () => {
+      const maps = loadedMaps();
+      if (maps) resolve(maps);
+      else reject(new Error('Google Maps não ficou disponível após o carregamento.'));
+    };
+    script.onerror = () => reject(new Error('Falha ao carregar Google Maps.'));
+    document.head.appendChild(script);
   });
   return window.__gastronexaGoogleMapsPromise;
 }

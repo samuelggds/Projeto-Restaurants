@@ -18,13 +18,12 @@ import { useTableAccount } from './hooks/useTableAccount';
 import { useTableOrderNotice } from './hooks/useTableOrderNotice';
 import { buildHomeData } from '../Home/adapters/homeDataAdapter';
 import { TableAccessGate } from './components/TableAccessGate';
-import { PaymentOptions } from '../Home/components/PaymentOptions';
 import { LoyaltyCouponPanel } from '../Home/components/LoyaltyCouponPanel';
 import { GuestAddressCheckout } from '../Home/components/GuestAddressCheckout';
 import { AuthenticatedAddressCheckout } from '../Home/components/AuthenticatedAddressCheckout';
 import { AuthenticatedEmptyAddressCheckout } from '../Home/components/AuthenticatedEmptyAddressCheckout';
-import { FigmaPaymentCheckout } from '../Home/components/FigmaPaymentCheckout';
 import { HomePaymentOutcome } from './components/HomePaymentOutcome';
+import { HomePaymentScreen } from './components/HomePaymentScreen';
 import { HomeFeedback } from '../Home/components/HomeFeedback';
 import { useHomeNotifications } from './hooks/useHomeNotifications';
 import {
@@ -390,6 +389,9 @@ export default function Home() {
     deliveryAddress,
     couponRedemptionId: appliedRedemptionId,
   });
+  const checkoutSubtotal = orderQuote.quote
+    ? orderQuote.quote.itemsSubtotal + orderQuote.quote.productDiscountTotal
+    : cartTotal;
   const checkoutTotal = orderQuote.quote?.total ?? cartTotal;
   const checkoutRecommendations = useMemo(() => {
     const cartProductIds = new Set(cart.map((item) => String(item.productId)));
@@ -1212,35 +1214,25 @@ export default function Home() {
             ) : undefined
           }
           paymentScreen={
-            <FigmaPaymentCheckout
+            <HomePaymentScreen
               primaryColor={primary}
               loggedIn={Boolean(user)}
               brandName={homeData.brand.name}
               logoUrl={homeData.brand.logoUrl}
               cart={cart}
               cartCount={cartCount}
-              subtotal={
-                orderQuote.quote
-                  ? orderQuote.quote.itemsSubtotal + orderQuote.quote.productDiscountTotal
-                  : cartTotal
-              }
+              subtotal={checkoutSubtotal}
               deliveryFee={orderQuote.quote?.deliveryFeeAmount || 0}
               total={checkoutTotal}
-              paymentMethods={
-                <PaymentOptions
-                  paymentMethod={selectedCheckoutPaymentMethod}
-                  allowPayOnDelivery={allowPayOnDelivery}
-                  allowPix={homeData.acceptsPix}
-                  allowOpenFinancePix={homeData.openFinancePixEnabled}
-                  allowCard={homeData.acceptsCard}
-                  allowDebitCard={homeData.acceptsDebitCard}
-                  restaurantId={restaurantId}
-                  loggedIn={Boolean(user)}
-                  userEmail={user ? String((user as Record<string, unknown>).email || '') : undefined}
-                  onChange={setPaymentMethod}
-                  figmaCheckout
-                />
-              }
+              paymentMethod={selectedCheckoutPaymentMethod}
+              allowPayOnDelivery={allowPayOnDelivery}
+              allowPix={homeData.acceptsPix}
+              allowOpenFinancePix={homeData.openFinancePixEnabled}
+              allowCard={homeData.acceptsCard}
+              allowDebitCard={homeData.acceptsDebitCard}
+              restaurantId={restaurantId}
+              userEmail={user ? String((user as Record<string, unknown>).email || '') : undefined}
+              onPaymentMethodChange={setPaymentMethod}
               onBack={() => setCheckoutStep('address')}
               onContinue={() => void handleCheckout()}
               disabled={!checkoutChannelAvailable || !paymentAvailable}
