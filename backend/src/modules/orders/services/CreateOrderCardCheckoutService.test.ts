@@ -298,6 +298,36 @@ test('recusa débito em gateway não homologado antes de criar o pedido', async 
   assert.equal(createOrderCalled, false);
 });
 
+test('recusa débito sem token antes de criar pedido ou abrir checkout de crédito', async () => {
+  let createOrderCalled = false;
+  restaurantSettingsRepository.findByRestaurantId = async () => ({
+    restaurantId: 9,
+    isOpenForOrders: true,
+    businessHours: [],
+    acceptsCard: true,
+    cardGateway: 'MERCADO_PAGO',
+  });
+  createOrderService.execute = async () => {
+    createOrderCalled = true;
+    throw new Error('não deveria criar pedido');
+  };
+
+  await assert.rejects(
+    () =>
+      createOrderCardCheckoutService.execute({
+        restaurantId: 9,
+        userRestaurantId: 9,
+        type: 'RETIRADA',
+        paymentMethod: 'CARTAO',
+        cardPaymentType: 'debit',
+        items: [{ productId: 1, quantity: 1 }],
+      }),
+    /dados do cartão de débito/i,
+  );
+
+  assert.equal(createOrderCalled, false);
+});
+
 test('recusa tipo de cartão manipulado antes de criar o pedido', async () => {
   let createOrderCalled = false;
   restaurantSettingsRepository.findByRestaurantId = async () => ({
