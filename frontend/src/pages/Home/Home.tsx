@@ -1188,6 +1188,7 @@ export default function Home() {
                   allowPix={homeData.acceptsPix}
                   allowOpenFinancePix={homeData.openFinancePixEnabled}
                   allowCard={homeData.acceptsCard}
+                  allowDebitCard={homeData.acceptsDebitCard}
                   restaurantId={restaurantId}
                   loggedIn={Boolean(user)}
                   userEmail={user ? String((user as Record<string, unknown>).email || '') : undefined}
