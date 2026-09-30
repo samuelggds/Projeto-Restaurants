@@ -18,9 +18,21 @@ function apiErrorMessage(error: unknown, fallback: string) {
     (error as { response?: { data?: { error?: string } } })?.response?.data?.error || fallback
   );
 }
+
+function validSnapshot(value: DeliveryChatSnapshot) {
+  if (
+    !value ||
+    !value.thread ||
+    !value.order ||
+    !Array.isArray(value.messages)
+  ) {
+    throw new Error('Resposta inválida do chat da entrega.');
+  }
+  return value;
+}
 export function CustomerTrackingChatPanel({orderId,courierName}:{orderId:number;courierName:string}){
  const [snapshot,setSnapshot]=useState<DeliveryChatSnapshot|null>(null),[draft,setDraft]=useState(''),[error,setError]=useState(''),[sending,setSending]=useState(false);const end=useRef<HTMLDivElement|null>(null);
- useEffect(()=>{let active=true,busy=false;const refresh=async()=>{if(busy)return;busy=true;try{const next=await deliveryChatService.get(orderId);if(active)setSnapshot(cur=>cur?{...next,messages:next.messages.reduce((a,m)=>merge(a,m),cur.messages)}:next);if(active)setError('');}catch(e){if(active)setError(apiErrorMessage(e, 'Não foi possível abrir o chat desta entrega.'));}finally{busy=false;}};void refresh();const id=setInterval(refresh,5000);return()=>{active=false;clearInterval(id);};},[orderId]);
+ useEffect(()=>{let active=true,busy=false;const refresh=async()=>{if(busy)return;busy=true;try{const next=validSnapshot(await deliveryChatService.get(orderId));if(active)setSnapshot(cur=>cur?{...next,messages:next.messages.reduce((a,m)=>merge(a,m),cur.messages)}:next);if(active)setError('');}catch(e){if(active)setError(apiErrorMessage(e, 'Não foi possível abrir o chat desta entrega.'));}finally{busy=false;}};void refresh();const id=setInterval(refresh,5000);return()=>{active=false;clearInterval(id);};},[orderId]);
 
  useEffect(()=>{
    const accessToken=getAccessToken();
@@ -39,7 +51,7 @@ export function CustomerTrackingChatPanel({orderId,courierName}:{orderId:number;
    const onStatus=(raw:unknown)=>{
      const payload=raw as {id?:unknown;order?:{id?:unknown}};
      if(Number(payload?.order?.id??payload?.id??0)!==orderId)return;
-     void deliveryChatService.get(orderId).then(next=>setSnapshot(next)).catch(()=>undefined);
+     void deliveryChatService.get(orderId).then(next=>setSnapshot(validSnapshot(next))).catch(()=>undefined);
    };
    socket.on('delivery:chat-message',onMessage);
    socket.on('order:status-changed',onStatus);
@@ -51,7 +63,9 @@ export function CustomerTrackingChatPanel({orderId,courierName}:{orderId:number;
    };
  },[orderId]);
 
- useEffect(()=>end.current?.scrollIntoView({behavior:'smooth',block:'end'}),[snapshot?.messages.length]);
+ useEffect(()=>{
+   end.current?.scrollIntoView({behavior:'smooth',block:'end'});
+ },[snapshot?.messages.length]);
  async function submit(e:FormEvent){e.preventDefault();const msg=draft.replace(/\s+/g,' ').trim();if(!msg||sending||snapshot?.thread.readOnly)return;setSending(true);setError('');try{const result=await deliveryChatService.send(orderId,msg);if(result?.message)setSnapshot(cur=>cur?{...cur,messages:merge(cur.messages,result.message)}:cur);setDraft('');}catch(err){setError(apiErrorMessage(err, 'Não foi possível enviar a mensagem.'));}finally{setSending(false);}}
  return <Card><h2>Mensagens com {courierName}</h2><Messages>{snapshot?.messages.map(m=>String(m.senderRole).toUpperCase()==='SYSTEM'?<System key={m.id}>{m.message}</System>:<Bubble key={m.id} $mine={String(m.senderRole).toUpperCase()==='CUSTOMER'}><p>{m.message}</p><time>{new Date(m.createdAt).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}</time></Bubble>)}<div ref={end}/></Messages>{error?<Err role="alert">{error}</Err>:null}<Form onSubmit={submit}><input value={draft} onChange={e=>setDraft(e.target.value.slice(0,500))} disabled={!snapshot||snapshot.thread.readOnly||sending} placeholder={snapshot?.thread.readOnly?'Conversa encerrada':'Enviar mensagem para o entregador...'}/><button disabled={!draft.trim()||!snapshot||snapshot.thread.readOnly||sending}><Send/></button></Form></Card>;
 }

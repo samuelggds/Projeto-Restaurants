@@ -239,15 +239,15 @@ export function AddressLocationMap({
   const normalized = useMemo(
     () =>
       normalizedAddress({
-        ...address,
         address: street,
         number,
         district,
         city,
         state,
         zipCode,
+        complement: '',
       }),
-    [address, street, number, district, city, state, zipCode],
+    [street, number, district, city, state, zipCode],
   );
   const addressKey = useMemo(() => JSON.stringify(normalized), [normalized]);
   const complete = isCompleteAddress(normalized);

@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import productComboService, { type ComboRecord } from '../../../Services/productComboService';
 import type { AdminProduct } from '../types';
+import { AppDialogProvider } from '../../../components/AppDialog/AppDialogProvider';
 import { AdminCombos } from './AdminCombos';
 
 vi.mock('../../../Services/productComboService', () => ({
@@ -146,7 +147,13 @@ describe('editor administrativo de combos', () => {
   const renderCombos = async (onChanged = vi.fn().mockResolvedValue(undefined)) => {
     await act(async () => {
       root.render(
-        <AdminCombos products={products} money={(value) => `R$ ${value}`} onChanged={onChanged} />,
+        <AppDialogProvider>
+          <AdminCombos
+            products={products}
+            money={(value) => `R$ ${value}`}
+            onChanged={onChanged}
+          />
+        </AppDialogProvider>,
       );
     });
   };

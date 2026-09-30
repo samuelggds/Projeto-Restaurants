@@ -72,7 +72,15 @@ export default function CustomerDeliveryMap({points,routePath=[],destination,eta
   useEffect(()=>{const m=mapsRef.current,mp=map.current;if(!ready||!m||!mp)return;if(destination){const p=ll(destination);if(!dest.current)dest.current=new m.Marker({map:mp,position:p,title:destination.label||'Endereço de entrega',zIndex:9,icon:{url:destinationSvg(),scaledSize:new m.Size(54,64),anchor:new m.Point(27,61)}});else dest.current.setPosition(p);}const path=remaining.map(ll);outline.current?.setPath(path);line.current?.setPath(path);if(!init.current&&latest){const b=new m.LatLngBounds();b.extend(ll(latest));if(destination)b.extend(ll(destination));remaining.forEach(p=>b.extend(ll(p)));mp.fitBounds(b,{top:90,right:52,bottom:72,left:52});init.current=true;}},[destination,latest,ready,remaining]);
   const recenter=()=>{const m=mapsRef.current,mp=map.current;if(!m||!mp||!latest)return;const b=new m.LatLngBounds();b.extend(ll(latest));if(destination)b.extend(ll(destination));remaining.forEach(p=>b.extend(ll(p)));mp.fitBounds(b,{top:90,right:52,bottom:72,left:52});};
   const distance=Number.isFinite(distanceMeters)?`${(Number(distanceMeters)/1000).toLocaleString('pt-BR',{maximumFractionDigits:1})} km restantes`:'Rota em acompanhamento';
-  return <S.Shell data-testid="customer-google-delivery-map" data-map-provider="google-maps" data-courier-direction={dirName} className="customer-google-delivery-map delivery-map-shell" data-tracking-terminal={isTerminal?'true':'false'}>
+  return <S.Shell
+    data-testid="customer-google-delivery-map"
+    data-map-provider="google-maps"
+    data-courier-latitude={latest?.latitude ?? ''}
+    data-courier-longitude={latest?.longitude ?? ''}
+    data-courier-direction={dirName}
+    className="customer-google-delivery-map delivery-map-shell"
+    data-tracking-terminal={isTerminal ? 'true' : 'false'}
+  >
     <S.Canvas ref={ref} aria-label="Mapa Google com a rota da entrega"/>
     {error?<S.ErrorState role="alert"><MapPinOff/><strong>Mapa indisponível</strong><p>{error} O rastreamento continua funcionando.</p></S.ErrorState>:null}
     {!error?<><S.EtaCard aria-live="polite"><small>{isTerminal?'Última rota':'Chegada estimada'}</small><strong>{etaMinutes?`${etaMinutes} min`:isTerminal?'Concluída':'Calculando'}</strong><span>{distance}</span></S.EtaCard><S.RecenterButton type="button" onClick={recenter} aria-label="Centralizar rota"><LocateFixed/></S.RecenterButton><S.LiveBadge><i/>{isTerminal?'Rastreamento encerrado':`${courierName} em tempo real`}</S.LiveBadge></>:null}

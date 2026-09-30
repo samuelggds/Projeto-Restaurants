@@ -80,20 +80,33 @@ export function useOrderQuote({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(false);
 
+  const hasDeliveryAddress = Boolean(deliveryAddress);
+  const deliveryStreet = deliveryAddress?.address;
+  const deliveryNumber = deliveryAddress?.number;
+  const deliveryDistrict = deliveryAddress?.district;
+  const deliveryCity = deliveryAddress?.city;
+  const deliveryState = deliveryAddress?.state;
   const quoteAddress = useMemo(
     () =>
-      deliveryAddress
+      hasDeliveryAddress
         ? {
-            address: deliveryAddress.address,
-            number: deliveryAddress.number,
-            district: deliveryAddress.district,
-            city: deliveryAddress.city,
-            state: deliveryAddress.state,
+            address: deliveryStreet || '',
+            number: deliveryNumber || '',
+            district: deliveryDistrict || '',
+            city: deliveryCity || '',
+            state: deliveryState || '',
             zipCode: '',
             complement: '',
           }
         : undefined,
-    [deliveryAddress],
+    [
+      hasDeliveryAddress,
+      deliveryStreet,
+      deliveryNumber,
+      deliveryDistrict,
+      deliveryCity,
+      deliveryState,
+    ],
   );
   const quotePayload = useMemo(
     () =>

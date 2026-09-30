@@ -108,6 +108,9 @@ describe('AdminPortalLoginGate', () => {
       renderGate(root);
       await Promise.resolve();
       await Promise.resolve();
+    });
+
+    await act(async () => {
       await vi.advanceTimersByTimeAsync(ADMIN_ACCESS_NOTICE_VISIBLE_MS);
     });
 
