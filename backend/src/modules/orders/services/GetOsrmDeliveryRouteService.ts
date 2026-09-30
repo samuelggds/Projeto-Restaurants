@@ -97,6 +97,10 @@ class GetOsrmDeliveryRouteService {
     return normalizedBaseUrl(String(process.env.GEOCODER_BASE_URL || '').trim());
   }
 
+  isGeocodingConfigured() {
+    return Boolean(this.geocoderBaseUrl);
+  }
+
   private get maximumCacheEntries() {
     return positiveInteger(process.env.ROUTING_CACHE_MAX_ENTRIES, 5000);
   }
