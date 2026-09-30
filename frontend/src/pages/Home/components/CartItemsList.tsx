@@ -1,6 +1,7 @@
-import { ArrowLeft, Minus, Plus, ShoppingBag, Trash2, UtensilsCrossed } from 'lucide-react';
+import { ArrowLeft, ShoppingBag, Trash2, UtensilsCrossed } from 'lucide-react';
 import styled from 'styled-components';
 import type { CartItem } from '../hooks/useCart';
+import { QuantityStepper } from '../../../components/QuantityStepper/QuantityStepper';
 
 type Props = {
   items: CartItem[];
@@ -77,23 +78,15 @@ export function CartItemsList({
 
                   <div className="desktop-price-row">
                     <b className="item-price">{currency(item.price * item.quantity)}</b>
-                    <Qty aria-label={`Quantidade de ${item.name}`}>
-                      <button
-                        type="button"
-                        aria-label={`Diminuir ${item.name}`}
-                        onClick={() => onDecrease(cartId)}
-                      >
-                        <Minus aria-hidden="true" />
-                      </button>
-                      <b>{item.quantity}</b>
-                      <button
-                        className="increase"
-                        type="button"
-                        aria-label={`Aumentar ${item.name}`}
-                        onClick={() => onIncrease(cartId)}
-                      >
-                        <Plus aria-hidden="true" />
-                      </button>
+                    <Qty>
+                      <QuantityStepper
+                        value={item.quantity}
+                        ariaLabel={`Quantidade de ${item.name}`}
+                        decreaseLabel={`Diminuir ${item.name}`}
+                        increaseLabel={`Aumentar ${item.name}`}
+                        onDecrease={() => onDecrease(cartId)}
+                        onIncrease={() => onIncrease(cartId)}
+                      />
                     </Qty>
                   </div>
                 </ItemInfo>
@@ -312,66 +305,8 @@ const ItemInfo = styled.div`
 `;
 
 const Qty = styled.div`
-  min-height: 31px;
-  padding: 6px 12px;
   display: inline-flex;
   align-items: center;
-  gap: 12px;
-  border: 0;
-  border-radius: 8px;
-  background: #fafaf8;
-
-  button {
-    width: 14px;
-    height: 18px;
-    padding: 0;
-    display: grid;
-    place-items: center;
-    border: 0;
-    background: transparent;
-    color: #72706b;
-    cursor: pointer;
-  }
-
-  button.increase {
-    color: var(--checkout-primary, #e85a2b);
-  }
-
-  button svg {
-    width: 14px;
-    height: 14px;
-    stroke-width: 2.2;
-  }
-
-  > b {
-    min-width: 13px;
-    color: #1f1e1a;
-    font-size: 13px;
-    font-weight: 700;
-    line-height: 1;
-    text-align: center;
-  }
-
-  @media (max-width: 760px) {
-    min-height: 34px;
-    padding: 8px 12px;
-    gap: 16px;
-    border-radius: 12px;
-    background: #f7f5f0;
-
-    button {
-      width: 16px;
-    }
-
-    button svg {
-      width: 16px;
-      height: 16px;
-    }
-
-    > b {
-      font-size: 16px;
-    }
-  }
 `;
 
 const Empty = styled.div`
