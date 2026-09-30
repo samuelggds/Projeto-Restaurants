@@ -312,10 +312,16 @@ export function useCheckoutPayments(options: Options) {
         onPurchased();
         onClearCart();
         onCloseCart();
+        const deliveryPaymentLabel =
+          resolvedPaymentMethod === 'PIX'
+            ? 'Pix'
+            : resolvedPaymentMethod === 'CARTAO'
+              ? 'cartão'
+              : 'dinheiro';
         notify(
           'success',
           `Pedido #${String(order?.id || '')} recebido`,
-          `Pagamento na entrega por ${resolvedPaymentMethod === 'PIX' ? 'Pix' : 'cartão'}.`,
+          `Pagamento na entrega por ${deliveryPaymentLabel}. O pedido permanece não pago até a equipe confirmar o recebimento.`,
           5000,
         );
         return true;
