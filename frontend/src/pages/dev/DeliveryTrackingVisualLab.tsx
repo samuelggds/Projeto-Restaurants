@@ -1,7 +1,7 @@
 import { FormEvent, type CSSProperties, useEffect, useMemo, useRef, useState } from 'react';
 import { ArrowLeft, CheckCircle2, CircleDot, Phone, Send } from 'lucide-react';
 import courierDelivery8Dir from '../../assets/tracking/courier-delivery-8dir.jpg';
-import fictitiousGoogleMap from '../../assets/tracking/fictitious-google-map';
+import fictitiousGoogleMap from '../../assets/tracking/fictitious-google-map.webp';
 import type { CourierRoutePoint } from '../Courier/domain/courierLocation';
 
 export const VISUAL_TRACKING_ANIMATION_MS = 60_000;
@@ -579,8 +579,9 @@ const styles: Record<string, CSSProperties> = {
     display: 'block',
     backgroundRepeat: 'no-repeat',
     backgroundSize: '400% 200%',
+    backgroundPositionRepeat: 'no-repeat',
     backgroundColor: 'transparent',
-    filter: 'contrast(1.04) saturate(1.08)',
+    filter: 'contrast(1.08) saturate(1.12) drop-shadow(0 2px 3px rgba(0,0,0,.18))',
   },
   etaBadge: {
     position: 'absolute',
