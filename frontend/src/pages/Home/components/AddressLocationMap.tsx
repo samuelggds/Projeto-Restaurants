@@ -231,16 +231,26 @@ export function AddressLocationMap({
   const [error, setError] = useState('');
   const [resolvedAddressKey, setResolvedAddressKey] = useState('');
 
+  const {
+    address: street,
+    number,
+    district,
+    city,
+    state,
+    zipCode,
+  } = address;
   const normalized = useMemo(
-    () => normalizedAddress(address),
-    [
-      address.address,
-      address.number,
-      address.district,
-      address.city,
-      address.state,
-      address.zipCode,
-    ],
+    () =>
+      normalizedAddress({
+        ...address,
+        address: street,
+        number,
+        district,
+        city,
+        state,
+        zipCode,
+      }),
+    [street, number, district, city, state, zipCode],
   );
   const addressKey = useMemo(() => JSON.stringify(normalized), [normalized]);
   const complete = isCompleteAddress(normalized);
