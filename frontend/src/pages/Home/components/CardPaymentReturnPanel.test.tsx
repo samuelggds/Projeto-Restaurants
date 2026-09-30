@@ -2,7 +2,17 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
 import { CardPaymentReturnPanel } from './CardPaymentReturnPanel';
 
-function render(status: 'VERIFYING' | 'PENDING' | 'PAID' | 'CANCELED' | 'ERROR') {
+function render(
+  status:
+    | 'VERIFYING'
+    | 'PENDING'
+    | 'PAID'
+    | 'FAILED'
+    | 'CANCELED'
+    | 'EXPIRED'
+    | 'REFUNDED'
+    | 'ERROR',
+) {
   return renderToStaticMarkup(
     <CardPaymentReturnPanel
       status={status}
@@ -34,9 +44,19 @@ describe('CardPaymentReturnPanel', () => {
     expect(markup).toContain('data-status="PAID"');
   });
 
-  it('expõe cancelamento final sem transformar falha temporária em recusa', () => {
-    expect(render('CANCELED')).toContain('Pagamento cancelado');
-    expect(render('ERROR')).not.toContain('Pagamento cancelado');
+  it.each([
+    ['FAILED', 'Pagamento recusado'],
+    ['CANCELED', 'Pagamento cancelado'],
+    ['EXPIRED', 'Pagamento expirado'],
+    ['REFUNDED', 'Pagamento estornado'],
+  ] as const)('distingue corretamente o estado terminal %s', (status, label) => {
+    expect(render(status)).toContain(label);
+  });
+
+  it('não transforma falha temporária de consulta em recusa ou cancelamento', () => {
+    const markup = render('ERROR');
+    expect(markup).not.toContain('Pagamento recusado');
+    expect(markup).not.toContain('Pagamento cancelado');
   });
 
   it('usa o cartão preto compartilhado com ondas, contactless e bandeira dinâmica', () => {
@@ -60,6 +80,7 @@ describe('CardPaymentReturnPanel', () => {
     expect(markup).toContain('alt="Visa"');
     expect(markup).toContain('•••• •••• •••• 4242');
     expect(markup).toContain('Cartão de Crédito');
+    expect(markup).not.toContain('mini-card');
   });
 
   it('preserva débito como débito em toda a tela de retorno', () => {

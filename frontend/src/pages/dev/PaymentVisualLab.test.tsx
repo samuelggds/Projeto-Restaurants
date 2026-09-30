@@ -110,6 +110,35 @@ describe('PaymentVisualLab', () => {
     act(() => root.unmount());
   });
 
+  it.each([
+    ['Cartão recusado', 'Pagamento recusado'],
+    ['Cartão cancelado', 'Pagamento cancelado'],
+    ['Cartão expirado', 'Pagamento expirado'],
+    ['Cartão estornado', 'Pagamento estornado'],
+  ])('mostra o estado terminal correto para %s', async (buttonLabel, expectedCopy) => {
+    const container = document.createElement('div');
+    document.body.appendChild(container);
+    const root = createRoot(container);
+
+    await act(async () => {
+      root.render(<PaymentVisualLab />);
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    const scenarioButton = findButton(container, buttonLabel);
+    expect(scenarioButton).toBeTruthy();
+
+    await act(async () => {
+      scenarioButton?.click();
+      await Promise.resolve();
+    });
+
+    expect(container.textContent).toContain(expectedCopy);
+
+    act(() => root.unmount());
+  });
+
   it('avança do PIX para a tela de confirmação fictícia', async () => {
     const container = document.createElement('div');
     document.body.appendChild(container);

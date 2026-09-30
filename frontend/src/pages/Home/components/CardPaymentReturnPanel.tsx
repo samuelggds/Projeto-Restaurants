@@ -34,6 +34,59 @@ type Props = {
 
 const terminalFailures: CardPaymentReturnStatus[] = ['FAILED', 'CANCELED', 'EXPIRED', 'REFUNDED'];
 
+function getTerminalPaymentCopy(
+  status: CardPaymentReturnStatus,
+  error: string | null,
+  cardTypeLabel: string,
+) {
+  if (status === 'FAILED') {
+    return {
+      title: 'Pagamento recusado',
+      badge: 'Pagamento recusado',
+      summary: `${cardTypeLabel} recusado`,
+      description:
+        error ||
+        'Não foi possível aprovar este pagamento. Verifique os dados do cartão ou tente outra forma de pagamento.',
+      bottom: 'O pagamento foi recusado e nenhuma cobrança foi confirmada.',
+    };
+  }
+
+  if (status === 'CANCELED') {
+    return {
+      title: 'Pagamento cancelado',
+      badge: 'Pagamento cancelado',
+      summary: 'Pagamento cancelado',
+      description: error || 'Este pagamento foi cancelado antes da confirmação.',
+      bottom: 'O pagamento foi cancelado.',
+    };
+  }
+
+  if (status === 'EXPIRED') {
+    return {
+      title: 'Pagamento expirado',
+      badge: 'Pagamento expirado',
+      summary: 'Pagamento expirado',
+      description:
+        error || 'O prazo desta tentativa de pagamento terminou. Inicie uma nova tentativa para continuar.',
+      bottom: 'O prazo do pagamento expirou.',
+    };
+  }
+
+  if (status === 'REFUNDED') {
+    return {
+      title: 'Pagamento estornado',
+      badge: 'Pagamento estornado',
+      summary: 'Pagamento estornado',
+      description:
+        error ||
+        'O estorno deste pagamento foi registrado. O prazo do crédito depende da instituição financeira.',
+      bottom: 'O pagamento foi estornado.',
+    };
+  }
+
+  return null;
+}
+
 export function CardPaymentReturnPanel({
   status,
   error,
@@ -54,6 +107,7 @@ export function CardPaymentReturnPanel({
   const cardPaymentType = details?.cardPaymentType === 'debit' ? 'debit' : 'credit';
   const cardTypeLabel =
     cardPaymentType === 'debit' ? 'Cartão de Débito' : 'Cartão de Crédito';
+  const terminalCopy = getTerminalPaymentCopy(status, error, cardTypeLabel);
   const cardBrand = details?.cardBrand || 'card';
   const cardLast4 = String(details?.cardLast4 || '').replace(/\D/g, '').slice(-4);
   const maskedCardNumber = cardLast4
@@ -117,11 +171,11 @@ export function CardPaymentReturnPanel({
                 {failed ? <XCircle aria-hidden="true" /> : <CheckCircle2 aria-hidden="true" />}
               </span>
               <h1 ref={resultHeadingRef} tabIndex={-1}>
-                {failed ? 'Pagamento cancelado' : 'Pagamento Aprovado!'}
+                {failed ? terminalCopy?.title : 'Pagamento Aprovado!'}
               </h1>
               <p>
                 {failed
-                  ? error || 'O pagamento com cartão não foi concluído.'
+                  ? terminalCopy?.description
                   : 'Seu pedido foi recebido e está sendo preparado'}
               </p>
             </DesktopStatus>
@@ -145,34 +199,31 @@ export function CardPaymentReturnPanel({
             {(paid || failed) ? (
               <div className={failed ? 'badge failed' : 'badge'}>
                 {failed ? <XCircle aria-hidden="true" /> : <CheckCircle2 aria-hidden="true" />}
-                <b>{failed ? 'Pagamento cancelado' : 'Pagamento aprovado!'}</b>
+                <b>{failed ? terminalCopy?.badge : 'Pagamento aprovado!'}</b>
               </div>
             ) : null}
           </MobileTransition>
 
-          <DesktopCardPlate className={failed ? 'failed' : ''}>
-            <span className="mini-card">{failed ? '!' : 'CARD'}</span>
-            <span>
-              <b>
-                {failed
-                  ? 'Pagamento com cartão cancelado'
-                  : paid
-                    ? `${cardTypeLabel} aprovado`
-                    : `Pagamento com ${cardTypeLabel.toLowerCase()}`}
-              </b>
-              <small>
-                {failed
-                  ? error || 'Transação não autorizada'
-                  : paid
-                    ? 'Transação autorizada com sucesso'
-                    : checking
-                      ? 'Processando pagamento...'
-                      : status === 'ERROR'
-                        ? error || 'Não foi possível verificar o pagamento agora.'
-                        : 'Aguardando confirmação do pagamento.'}
-              </small>
-            </span>
-          </DesktopCardPlate>
+          <DesktopPaymentState className={failed ? 'failed' : ''}>
+            <b>
+              {failed
+                ? terminalCopy?.summary
+                : paid
+                  ? `${cardTypeLabel} aprovado`
+                  : `Pagamento com ${cardTypeLabel.toLowerCase()}`}
+            </b>
+            <small>
+              {failed
+                ? terminalCopy?.description
+                : paid
+                  ? 'Transação autorizada com sucesso'
+                  : checking
+                    ? 'Processando pagamento...'
+                    : status === 'ERROR'
+                      ? error || 'Não foi possível verificar o pagamento agora.'
+                      : 'Aguardando confirmação do pagamento.'}
+            </small>
+          </DesktopPaymentState>
 
           {(paid || failed) ? <Divider /> : null}
 
@@ -187,7 +238,7 @@ export function CardPaymentReturnPanel({
 
           <MobileInstructions className={failed ? 'failed' : ''}>
             {failed
-              ? error || 'O pagamento não foi efetuado. Você pode voltar e tentar novamente.'
+              ? terminalCopy?.description
               : paid
                 ? 'Seu pagamento foi recebido com segurança. O restaurante já foi notificado e iniciará a preparação do seu pedido.'
                 : 'Estamos aguardando a confirmação segura do provedor de pagamento.'}
@@ -212,7 +263,7 @@ export function CardPaymentReturnPanel({
 
       <MobileBottom>
         <div><span>{paid ? 'Total pago' : 'Valor do pagamento'}</span><strong>{total || '—'}</strong></div>
-        <p>{paid ? 'Seu pedido será preparado assim que o pagamento for confirmado.' : failed ? 'O pagamento não foi efetuado.' : 'Aguarde a confirmação do pagamento.'}</p>
+        <p>{paid ? 'Seu pedido será preparado assim que o pagamento for confirmado.' : failed ? terminalCopy?.bottom : 'Aguarde a confirmação do pagamento.'}</p>
         <button type="button" onClick={paid ? (onTrackOrder || onClose) : failed ? onClose : () => void onVerify()}>
           {paid ? 'Continuar para Rastreamento' : failed ? 'Voltar ao Pagamento' : checking ? 'Verificando...' : 'Verificar Pagamento'}
         </button>
@@ -323,29 +374,35 @@ const MobileTitle = styled.h1`
 `;
 
 const CardVisualWrap = styled.div`
-  display: none;
+  width: min(320px, 100%);
+  min-width: 0;
+  display: grid;
+  justify-items: center;
+  gap: 9px;
+  animation: ${paymentSurfaceRise} 460ms cubic-bezier(0.2, 0.82, 0.28, 1) 110ms both;
 
-  @media (max-width: 760px) {
-    width: min(320px, 100%);
-    min-width: 0;
-    display: grid;
-    justify-items: center;
-    gap: 9px;
-    animation: ${paymentSurfaceRise} 460ms cubic-bezier(0.2, 0.82, 0.28, 1) 110ms both;
+  ${paymentReducedMotion}
 
-    ${paymentReducedMotion}
+  > div {
+    width: 100%;
+    max-width: 320px;
+    margin: 0;
+  }
 
+  > span {
+    color: #72706b;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: .02em;
+  }
+
+  @media (min-width: 761px) {
     > div {
-      width: 100%;
-      max-width: 320px;
-      margin: 0;
+      box-shadow: 0 16px 34px rgba(31, 30, 26, .18);
     }
 
     > span {
-      color: #72706b;
-      font-size: 11px;
-      font-weight: 700;
-      letter-spacing: .02em;
+      font-size: 12px;
     }
   }
 `;
@@ -373,17 +430,44 @@ const MobileTransition = styled.div`
   }
 `;
 
-const DesktopCardPlate = styled.div`
-  width: 100%; min-width: 0; padding: 20px; display: flex; align-items: center; gap: 16px; border: 1px solid #efece6; border-radius: 16px; background: #fafaf8;
+const DesktopPaymentState = styled.div`
+  width: 100%;
+  min-width: 0;
+  padding: 16px 18px;
+  display: grid;
+  justify-items: center;
+  gap: 4px;
+  border: 1px solid #efece6;
+  border-radius: 14px;
+  background: #fafaf8;
+  text-align: center;
   animation: ${paymentContentReveal} 340ms ease-out 170ms both;
 
   ${paymentReducedMotion}
-  .mini-card { width: 48px; height: 32px; display: grid; place-items: center; border-radius: 6px; background: var(--card-primary); color: #fff; font-size: 9px; font-weight: 800; }
-  > span:last-child { min-width: 0; display: grid; gap: 2px; }
+
   b { font-size: 14px; }
-  small { color: #72706b; font-size: 12px; overflow-wrap: anywhere; }
-  &.failed .mini-card { background: #c54436; }
-  @media (max-width: 760px) { display: none; }
+
+  small {
+    max-width: 100%;
+    color: #72706b;
+    font-size: 12px;
+    line-height: 1.45;
+    overflow-wrap: anywhere;
+  }
+
+  &.failed {
+    border-color: #efc6c1;
+    background: #fff8f7;
+  }
+
+  &.failed b,
+  &.failed small {
+    color: #a23f34;
+  }
+
+  @media (max-width: 760px) {
+    display: none;
+  }
 `;
 
 const Divider = styled.div`

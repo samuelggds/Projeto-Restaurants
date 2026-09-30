@@ -22,7 +22,10 @@ type VisualScenario =
   | 'pix-failed'
   | 'card-waiting'
   | 'card-paid'
-  | 'card-failed';
+  | 'card-failed'
+  | 'card-canceled'
+  | 'card-expired'
+  | 'card-refunded';
 
 const PRIMARY = '#d05632';
 const RESTAURANT_NAME = 'North Pizza — Teste visual';
@@ -62,7 +65,17 @@ export default function PaymentVisualLab() {
   const pixStatus: PixPaymentStatus =
     scenario === 'pix-paid' ? 'PAID' : scenario === 'pix-failed' ? 'FAILED' : 'PENDING';
   const cardStatus: CardPaymentReturnStatus =
-    scenario === 'card-paid' ? 'PAID' : scenario === 'card-failed' ? 'FAILED' : 'PENDING';
+    scenario === 'card-paid'
+      ? 'PAID'
+      : scenario === 'card-failed'
+        ? 'FAILED'
+        : scenario === 'card-canceled'
+          ? 'CANCELED'
+          : scenario === 'card-expired'
+            ? 'EXPIRED'
+            : scenario === 'card-refunded'
+              ? 'REFUNDED'
+              : 'PENDING';
 
   const selectScenario = (next: VisualScenario) => {
     setScenario(next);
@@ -114,6 +127,9 @@ export default function PaymentVisualLab() {
           <button className={scenario === 'card-waiting' ? 'active' : ''} onClick={() => selectScenario('card-waiting')}>Cartão aguardando</button>
           <button className={scenario === 'card-paid' ? 'active success' : ''} onClick={() => selectScenario('card-paid')}>Cartão aprovado</button>
           <button className={scenario === 'card-failed' ? 'active failure' : ''} onClick={() => selectScenario('card-failed')}>Cartão recusado</button>
+          <button className={scenario === 'card-canceled' ? 'active failure' : ''} onClick={() => selectScenario('card-canceled')}>Cartão cancelado</button>
+          <button className={scenario === 'card-expired' ? 'active failure' : ''} onClick={() => selectScenario('card-expired')}>Cartão expirado</button>
+          <button className={scenario === 'card-refunded' ? 'active failure' : ''} onClick={() => selectScenario('card-refunded')}>Cartão estornado</button>
         </nav>
         <label className="brand-picker">
           <span>Bandeira visual do cartão</span>
