@@ -109,16 +109,27 @@ test('rastreamento fictício mostra o mapa local e move o motoqueiro na rota', a
   expect(mapBox?.height).toBeGreaterThanOrEqual(279);
   expect(mapBox?.height).toBeLessThanOrEqual(281);
 
-  await expect(marker.locator('img[alt="Motoqueiro fictício"]')).toBeVisible();
+  await expect(marker.locator('[data-testid="visual-courier-sprite"]')).toBeVisible();
+
+  const scene = page.locator('[data-testid="visual-map-scene"]');
+  await expect(scene).toBeVisible();
 
   const initialProgress = await map.getAttribute('data-courier-progress');
   const initialAngle = await marker.getAttribute('data-route-angle');
+  const initialCameraRotation = await map.getAttribute('data-camera-rotation');
+  const initialSpriteDirection = await marker.getAttribute('data-sprite-direction');
   await page.waitForTimeout(1_200);
   const movedProgress = await map.getAttribute('data-courier-progress');
   const movedAngle = await marker.getAttribute('data-route-angle');
+  const movedCameraRotation = await map.getAttribute('data-camera-rotation');
+  const movedSpriteDirection = await marker.getAttribute('data-sprite-direction');
 
   expect(movedProgress).not.toBe(initialProgress);
   expect(initialAngle).not.toBeNull();
   expect(movedAngle).not.toBeNull();
+  expect(initialCameraRotation).not.toBeNull();
+  expect(movedCameraRotation).not.toBeNull();
+  expect(initialSpriteDirection).not.toBeNull();
+  expect(movedSpriteDirection).not.toBeNull();
   await expectNoHorizontalOverflow(page);
 });

@@ -1,10 +1,22 @@
 import { FormEvent, type CSSProperties, useEffect, useMemo, useRef, useState } from 'react';
 import { ArrowLeft, Bike, CheckCircle2, CircleDot, Phone, Send } from 'lucide-react';
-import courierScooter3d from '../../assets/tracking/courier-scooter-gastronexa-3d.webp';
+import courierDelivery8Dir from '../../assets/tracking/courier-delivery-8dir.webp';
 import type { CourierRoutePoint } from '../Courier/domain/courierLocation';
 
 export const VISUAL_TRACKING_ANIMATION_MS = 60_000;
-const COURIER_ASSET_HEADING_OFFSET_DEGREES = 180;
+
+const COURIER_DIRECTION_NAMES = [
+  'up',
+  'up-right',
+  'right',
+  'down-right',
+  'down',
+  'down-left',
+  'left',
+  'up-left',
+] as const;
+
+type CourierDirectionName = (typeof COURIER_DIRECTION_NAMES)[number];
 
 export const VISUAL_TRACKING_ROUTE: CourierRoutePoint[] = [
   { latitude: -3.73525, longitude: -38.54162 },
@@ -117,6 +129,36 @@ export function interpolateVisualRoute(
   return getVisualRouteFrame(route, rawProgress).point;
 }
 
+export function normalizeVisualAngle(angleDegrees: number) {
+  let normalized = angleDegrees % 360;
+  if (normalized > 180) normalized -= 360;
+  if (normalized <= -180) normalized += 360;
+  return normalized;
+}
+
+export function getVisualCameraRotation(angleDegrees: number) {
+  const headingUpRotation = normalizeVisualAngle(-90 - angleDegrees);
+  return headingUpRotation * 0.65;
+}
+
+export function getCourierDirectionIndex(
+  angleDegrees: number,
+  cameraRotationDegrees = 0,
+) {
+  const screenAngle = normalizeVisualAngle(angleDegrees + cameraRotationDegrees);
+  return ((Math.round((screenAngle + 90) / 45) % 8) + 8) % 8;
+}
+
+function getCourierSpritePosition(directionIndex: number) {
+  const safeIndex = Math.max(0, Math.min(7, directionIndex));
+  const column = safeIndex % 4;
+  const row = safeIndex >= 4 ? 1 : 0;
+  return {
+    x: column === 0 ? 0 : (column / 3) * 100,
+    y: row * 100,
+  };
+}
+
 function MiniRestaurant3DMarker() {
   return (
     <span data-testid="visual-origin-restaurant-marker" style={styles.buildingMarker}>
@@ -183,6 +225,21 @@ export default function DeliveryTrackingVisualLab({ onBack }: { onBack?: () => v
   );
   const currentPoint = currentFrame.point;
   const currentMapPosition = useMemo(() => toVisualMapPosition(currentPoint), [currentPoint]);
+  const cameraRotation = useMemo(
+    () => getVisualCameraRotation(currentFrame.angleDegrees),
+    [currentFrame.angleDegrees],
+  );
+  const courierDirectionIndex = useMemo(
+    () => getCourierDirectionIndex(currentFrame.angleDegrees, cameraRotation),
+    [cameraRotation, currentFrame.angleDegrees],
+  );
+  const courierDirection = COURIER_DIRECTION_NAMES[
+    courierDirectionIndex
+  ] as CourierDirectionName;
+  const courierSpritePosition = useMemo(
+    () => getCourierSpritePosition(courierDirectionIndex),
+    [courierDirectionIndex],
+  );
   const originMapPosition = useMemo(
     () => toVisualMapPosition(VISUAL_TRACKING_ROUTE[0]),
     [],
@@ -276,8 +333,17 @@ export default function DeliveryTrackingVisualLab({ onBack }: { onBack?: () => v
               className="visual-fake-map"
               data-testid="visual-fictitious-map"
               data-courier-progress={progress.toFixed(4)}
+              data-camera-rotation={cameraRotation.toFixed(2)}
               style={styles.fakeMap}
             >
+              <div
+                data-testid="visual-map-scene"
+                style={{
+                  ...styles.mapScene,
+                  transformOrigin: `${currentMapPosition.x}% ${currentMapPosition.y}%`,
+                  transform: `rotate(${cameraRotation}deg) scale(1.055)`,
+                }}
+              >
               <div style={{ ...styles.cityBlock, top: '5%', left: '5%', width: '27%', height: '17%' }} />
               <div style={{ ...styles.cityBlock, top: '7%', left: '58%', width: '30%', height: '18%' }} />
               <div style={{ ...styles.cityBlock, top: '31%', left: '8%', width: '25%', height: '18%' }} />
@@ -348,22 +414,28 @@ export default function DeliveryTrackingVisualLab({ onBack }: { onBack?: () => v
               >
                 <MiniHouse3DMarker />
               </div>
+              </div>
               <div
                 data-testid="visual-courier-marker"
                 data-route-segment={currentFrame.segmentIndex}
                 data-route-angle={currentFrame.angleDegrees.toFixed(2)}
+                data-sprite-direction={courierDirection}
+                data-sprite-index={courierDirectionIndex}
                 style={{
                   ...styles.courierMarker,
                   left: `${currentMapPosition.x}%`,
                   top: `${currentMapPosition.y}%`,
                 }}
               >
-                <img
-                  src={courierScooter3d}
-                  alt="Motoqueiro fictício"
+                <span style={styles.courierRoadShadow} aria-hidden="true" />
+                <span
+                  data-testid="visual-courier-sprite"
+                  role="img"
+                  aria-label="Motoqueiro de entrega fictício em navegação"
                   style={{
-                    ...styles.courierImage,
-                    transform: `rotate(${currentFrame.angleDegrees + COURIER_ASSET_HEADING_OFFSET_DEGREES}deg)`,
+                    ...styles.courierSprite,
+                    backgroundImage: `url(${courierDelivery8Dir})`,
+                    backgroundPosition: `${courierSpritePosition.x}% ${courierSpritePosition.y}%`,
                   }}
                 />
               </div>
@@ -435,14 +507,16 @@ const styles: Record<string, CSSProperties> = {
   title: { margin: '0 0 22px', fontSize: 'clamp(24px, 3vw, 32px)', lineHeight: 1.1 },
   layout: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 330px), 1fr))', gap: 30, alignItems: 'start' },
   mapCard: { position: 'relative', minWidth: 0 },
-  fakeMap: { position: 'relative', width: '100%', height: 'min(68vh, 650px)', minHeight: 520, overflow: 'hidden', border: '1px solid #d7dfe2', borderRadius: 12, background: 'linear-gradient(180deg,#eef3f1 0%,#e8eeec 100%)', boxShadow: 'inset 0 0 0 1px rgba(255,255,255,.65)' },
+  fakeMap: { position: 'relative', width: '100%', height: 'min(68vh, 650px)', minHeight: 520, overflow: 'hidden', isolation: 'isolate', border: '1px solid #d7dfe2', borderRadius: 12, background: 'linear-gradient(180deg,#eef3f1 0%,#e8eeec 100%)', boxShadow: 'inset 0 0 0 1px rgba(255,255,255,.65)' },
+  mapScene: { position: 'absolute', zIndex: 1, inset: 0, width: '100%', height: '100%', willChange: 'transform', transition: 'transform 720ms cubic-bezier(.22,1,.36,1)' },
   cityBlock: { position: 'absolute', zIndex: 0, border: '1px solid #dfe5e2', borderRadius: 9, background: 'linear-gradient(145deg,#e1e8df 0%,#d8e1d8 100%)', boxShadow: 'inset 0 0 0 3px rgba(255,255,255,.22)' },
   road: { position: 'absolute', zIndex: 1, height: 13, border: '1px solid #d5dcdf', background: '#fff', boxShadow: '0 0 0 2px rgba(222,228,231,.9)' },
   mapLabel: { position: 'absolute', zIndex: 2, color: '#6d777c', fontSize: 10, fontWeight: 600, transform: 'rotate(-4deg)' },
   mapLabelPoi: { position: 'absolute', zIndex: 2, color: '#5d8b68', fontSize: 9, fontWeight: 800 },
   streetSvg: { position: 'absolute', zIndex: 3, inset: 0, width: '100%', height: '100%', pointerEvents: 'none' },
-  courierMarker: { position: 'absolute', zIndex: 6, width: 56, height: 56, transform: 'translate(-50%, -50%)', willChange: 'left, top', filter: 'drop-shadow(0 6px 8px rgba(25,34,40,.2))' },
-  courierImage: { width: '100%', height: '100%', objectFit: 'contain', transformOrigin: 'center', willChange: 'transform', transition: 'transform 160ms ease-out' },
+  courierMarker: { position: 'absolute', zIndex: 9, width: 64, height: 72, transform: 'translate(-50%, -56%)', willChange: 'left, top', transition: 'left 80ms linear, top 80ms linear' },
+  courierRoadShadow: { position: 'absolute', zIndex: 0, left: '50%', bottom: 3, width: 34, height: 11, borderRadius: '50%', background: 'rgba(22,31,38,.22)', filter: 'blur(3px)', transform: 'translateX(-50%) scaleX(1.15)' },
+  courierSprite: { position: 'absolute', zIndex: 1, inset: 0, display: 'block', backgroundRepeat: 'no-repeat', backgroundSize: '400% 200%', filter: 'drop-shadow(0 7px 7px rgba(21,31,39,.24))', transform: 'perspective(220px) rotateX(5deg) translateZ(0)', transformOrigin: '50% 82%', willChange: 'background-position' },
   originBuildingPosition: { position: 'absolute', zIndex: 7, transform: 'translate(-50%, -76%)', pointerEvents: 'none' },
   destinationBuildingPosition: { position: 'absolute', zIndex: 7, transform: 'translate(-50%, -76%)', pointerEvents: 'none' },
   buildingMarker: { position: 'relative', width: 58, display: 'grid', justifyItems: 'center', gap: 2, filter: 'drop-shadow(0 8px 7px rgba(31,41,55,.18))' },
