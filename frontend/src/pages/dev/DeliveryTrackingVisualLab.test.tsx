@@ -57,7 +57,7 @@ describe('DeliveryTrackingVisualLab', () => {
     expect(spriteIndex).toBeLessThan(8);
   });
 
-  it('renderiza mapa local, motoqueiro direcional e dados fictícios sem Google Maps/backend', async () => {
+  it('renderiza maquete isométrica local, motoqueiro direcional e dados fictícios sem Google Maps/backend', async () => {
     vi.spyOn(window, 'requestAnimationFrame').mockImplementation(() => 1);
     vi.spyOn(window, 'cancelAnimationFrame').mockImplementation(() => undefined);
 
@@ -80,9 +80,10 @@ describe('DeliveryTrackingVisualLab', () => {
       '[data-testid="visual-destination-house-marker"]',
     );
 
-    expect(lab?.getAttribute('data-map-source')).toBe('fictitious-google-style');
+    expect(lab?.getAttribute('data-map-source')).toBe('local-isometric-cartoon');
     expect(lab?.getAttribute('data-animation-duration-ms')).toBe('60000');
     expect(map).not.toBeNull();
+    expect(container.querySelector('[data-testid="visual-isometric-city"]')).not.toBeNull();
     expect(marker).not.toBeNull();
     expect(restaurant).not.toBeNull();
     expect(house).not.toBeNull();
