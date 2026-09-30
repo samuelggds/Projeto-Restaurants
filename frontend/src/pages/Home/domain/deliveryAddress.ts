@@ -49,3 +49,111 @@ export function createDeliveryAddress(user: unknown): DeliveryAddressData {
     complement: String(customer.complement || ''),
   };
 }
+
+
+type DeliveryAddressLocation = {
+  latitude: number;
+  longitude: number;
+};
+
+type DeliveryAddressLocationResolver = (payload: {
+  restaurantId: number;
+  type: 'DELIVERY';
+  address: string;
+  number: string;
+  district: string;
+  city: string;
+  state: string;
+  zipCode?: string;
+}) => Promise<DeliveryAddressLocation | undefined>;
+
+export type DeliveryAddressLocationValidation =
+  | { ok: true }
+  | { ok: false; title: string; message: string };
+
+function addressValidationFeedback(error: unknown): DeliveryAddressLocationValidation {
+  const data = (
+    error as {
+      response?: {
+        data?: {
+          code?: unknown;
+        };
+      };
+    }
+  )?.response?.data;
+  const code = String(data?.code || '').trim();
+
+  if (code === 'ADDRESS_VALIDATION_UNAVAILABLE') {
+    return {
+      ok: false,
+      title: 'Não foi possível validar o endereço',
+      message: 'Não foi possível validar o endereço no momento. Tente novamente em instantes.',
+    };
+  }
+
+  if (code === 'ADDRESS_NOT_GEOCODED') {
+    return {
+      ok: false,
+      title: 'Confira o endereço',
+      message:
+        'Não encontramos esse endereço no mapa. Confira rua, número, bairro, cidade e estado.',
+    };
+  }
+
+  if (code === 'ADDRESS_INCOMPLETE') {
+    return {
+      ok: false,
+      title: 'Endereço incompleto',
+      message: 'Preencha o endereço completo antes de continuar.',
+    };
+  }
+
+  return {
+    ok: false,
+    title: 'Não foi possível validar o endereço',
+    message: 'Não foi possível validar o endereço agora. Tente novamente em instantes.',
+  };
+}
+
+export async function validateDeliveryAddressLocationForCheckout(input: {
+  restaurantId: number | null;
+  address: DeliveryAddressData;
+  resolveLocation: DeliveryAddressLocationResolver;
+}): Promise<DeliveryAddressLocationValidation> {
+  if (!input.restaurantId) {
+    return {
+      ok: false,
+      title: 'Não foi possível validar o endereço',
+      message: 'Não foi possível validar o endereço agora. Tente novamente em instantes.',
+    };
+  }
+
+  try {
+    const location = await input.resolveLocation({
+      restaurantId: input.restaurantId,
+      type: 'DELIVERY',
+      address: input.address.address.trim(),
+      number: input.address.number.trim(),
+      district: input.address.district.trim(),
+      city: input.address.city.trim(),
+      state: input.address.state.trim().toUpperCase(),
+      zipCode: input.address.zipCode.trim(),
+    });
+
+    if (
+      !location ||
+      !Number.isFinite(location.latitude) ||
+      !Number.isFinite(location.longitude)
+    ) {
+      return {
+        ok: false,
+        title: 'Não foi possível validar o endereço',
+        message: 'Não foi possível validar o endereço agora. Tente novamente em instantes.',
+      };
+    }
+
+    return { ok: true };
+  } catch (error) {
+    return addressValidationFeedback(error);
+  }
+}
