@@ -190,6 +190,7 @@ describe('PaymentOptions', () => {
     expect(markup).toContain('Dinheiro');
     expect(markup).not.toContain('Pix QR Code temporariamente indisponível');
     expect(markup).not.toContain('Cartão de Crédito temporariamente indisponível');
+    expect(markup).toContain('Cartão de débito temporariamente indisponível');
   });
 
 });
