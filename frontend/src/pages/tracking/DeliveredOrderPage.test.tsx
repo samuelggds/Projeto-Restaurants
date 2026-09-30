@@ -74,6 +74,15 @@ describe('DeliveredOrderPage', () => {
       'button[aria-label="Avaliar com 5 estrelas"]',
     ) as HTMLButtonElement;
     await act(async () => fiveStars.click());
+
+    expect(fiveStars.getAttribute('aria-pressed')).toBe('true');
+    expect(mocks.rate).not.toHaveBeenCalled();
+
+    const submit = Array.from(container.querySelectorAll('button')).find(
+      (button) => button.textContent?.includes('Avaliar pedido'),
+    ) as HTMLButtonElement;
+    await act(async () => submit.click());
+
     expect(mocks.rate).toHaveBeenCalledWith(601, 5);
   });
 

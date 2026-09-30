@@ -42,6 +42,7 @@ export default function DeliveredOrderPage() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
   const [rating, setRating] = useState(0);
+  const [previewRating, setPreviewRating] = useState(0);
   const [savingRating, setSavingRating] = useState(false);
   const [ratingMessage, setRatingMessage] = useState('');
 
@@ -90,6 +91,8 @@ export default function DeliveredOrderPage() {
       minute: '2-digit',
     });
   }, [order?.deliveryConfirmedAt]);
+
+  const displayedRating = previewRating || rating;
 
   async function saveRating(value: number) {
     if (!order || savingRating || value < 1 || value > 5) return;
@@ -198,25 +201,47 @@ export default function DeliveredOrderPage() {
               </S.CourierCard>
             ) : null}
 
-            <S.RatingCard>
+            <S.RatingCard className={ratingMessage.startsWith('Avaliação enviada') ? 'rating-saved' : undefined}>
               <h2>Como foi sua experiência?</h2>
               <p>Sua opinião ajuda o restaurante a continuar melhorando.</p>
-              <S.Stars aria-label="Avaliação do pedido">
-                {[1,2,3,4,5].map((value) => (
-                  <button
+              <S.Stars
+                aria-label="Avaliação do pedido"
+                onPointerLeave={() => setPreviewRating(0)}
+              >
+                {[1, 2, 3, 4, 5].map((value) => (
+                  <S.StarButton
                     key={value}
                     type="button"
                     disabled={savingRating}
                     aria-label={`Avaliar com ${value} estrela${value > 1 ? 's' : ''}`}
                     aria-pressed={rating === value}
-                    onClick={() => void saveRating(value)}
+                    $active={value <= displayedRating}
+                    $selected={value === rating}
+                    $delay={value * 22}
+                    onPointerEnter={() => setPreviewRating(value)}
+                    onFocus={() => setPreviewRating(value)}
+                    onBlur={() => setPreviewRating(0)}
+                    onClick={() => {
+                      setRating(value);
+                      setPreviewRating(0);
+                      setRatingMessage('');
+                    }}
                   >
-                    <Star aria-hidden="true" fill={value <= rating ? 'currentColor' : 'none'} />
-                  </button>
+                    <Star aria-hidden="true" fill={value <= displayedRating ? 'currentColor' : 'none'} />
+                  </S.StarButton>
                 ))}
               </S.Stars>
+              <S.RatingHint aria-live="polite">
+                {displayedRating
+                  ? `${displayedRating} de 5 estrelas`
+                  : 'Toque nas estrelas para escolher sua nota'}
+              </S.RatingHint>
               {ratingMessage ? <S.RatingMessage role="status">{ratingMessage}</S.RatingMessage> : null}
-              <S.Primary type="button" disabled={!rating || savingRating} onClick={() => rating && void saveRating(rating)}>
+              <S.Primary
+                type="button"
+                disabled={!rating || savingRating}
+                onClick={() => rating && void saveRating(rating)}
+              >
                 {savingRating ? 'Enviando...' : 'Avaliar pedido'} <ChevronRight aria-hidden="true" />
               </S.Primary>
               <S.Secondary type="button" onClick={() => navigate(homePath)}>Voltar ao início</S.Secondary>
