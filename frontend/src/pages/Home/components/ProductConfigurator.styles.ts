@@ -844,48 +844,20 @@ export const Option = styled.div<{ $selected: boolean; $disabled: boolean }>`
 
 export const QuantityStepper = styled.div`
   min-height: 48px;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto auto auto;
-  align-items: center;
-  gap: 8px;
   padding: 8px 12px;
   border-top: 1px solid #eadfd7;
   background: color-mix(in srgb, var(--config-primary) 3%, #fff);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
 
   > span {
     color: #6f665e;
     font-size: 11px;
     font-weight: 750;
   }
-
-  button {
-    width: 32px;
-    height: 32px;
-    display: grid;
-    place-items: center;
-    border: 1px solid #d8cec6;
-    border-radius: 9px;
-    color: var(--config-primary);
-    background: #fff;
-    cursor: pointer;
-  }
-
-  button:disabled {
-    opacity: 0.38;
-    cursor: not-allowed;
-  }
-
-  button svg {
-    width: 14px;
-  }
-
-  > b {
-    min-width: 24px;
-    text-align: center;
-    font-size: 13px;
-  }
 `;
-
 export const Composition = styled.section`
   padding: 20px;
   border: 1px solid #e6ddd5;
