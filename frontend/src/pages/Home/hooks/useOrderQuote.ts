@@ -78,6 +78,27 @@ export function useOrderQuote({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(false);
 
+  const quoteAddress = useMemo(
+    () =>
+      deliveryAddress
+        ? {
+            address: deliveryAddress.address,
+            number: deliveryAddress.number,
+            district: deliveryAddress.district,
+            city: deliveryAddress.city,
+            state: deliveryAddress.state,
+            zipCode: '',
+            complement: '',
+          }
+        : undefined,
+    [
+      deliveryAddress?.address,
+      deliveryAddress?.number,
+      deliveryAddress?.district,
+      deliveryAddress?.city,
+      deliveryAddress?.state,
+    ],
+  );
   const quotePayload = useMemo(
     () =>
       restaurantId
@@ -85,21 +106,11 @@ export function useOrderQuote({
             restaurantId,
             type,
             cart,
-            deliveryAddress,
+            deliveryAddress: quoteAddress,
             couponRedemptionId,
           })
         : null,
-    [
-      cart,
-      couponRedemptionId,
-      deliveryAddress?.address,
-      deliveryAddress?.number,
-      deliveryAddress?.district,
-      deliveryAddress?.city,
-      deliveryAddress?.state,
-      restaurantId,
-      type,
-    ],
+    [cart, couponRedemptionId, quoteAddress, restaurantId, type],
   );
   const requestKey = useMemo(() => JSON.stringify(quotePayload), [quotePayload]);
   const enabled = Boolean(
@@ -109,11 +120,7 @@ export function useOrderQuote({
   );
 
   useEffect(() => {
-    if (!enabled || !quotePayload) {
-      setLoading(false);
-      setError(false);
-      return;
-    }
+    if (!enabled || !quotePayload) return undefined;
 
     let active = true;
     const timeout = window.setTimeout(async () => {
