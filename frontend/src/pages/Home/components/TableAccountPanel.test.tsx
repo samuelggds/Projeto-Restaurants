@@ -31,16 +31,16 @@ const snapshot: TableAccountSnapshot = {
     sessionPublicId: 'session-1',
     tableNumber: 4,
     status: 'OPEN',
-    consumedCents: 5_000,
+    consumedCents: 8_000,
     serviceFeeCents: 0,
-    grossPaidCents: 0,
+    grossPaidCents: 3_000,
     refundedCents: 0,
-    netPaidCents: 0,
+    netPaidCents: 3_000,
     reservedCents: 0,
     processingCents: 0,
     remainingCents: 5_000,
     overpaidCents: 0,
-    participantsCount: 1,
+    participantsCount: 2,
   },
   participants: [
     {
@@ -50,6 +50,36 @@ const snapshot: TableAccountSnapshot = {
       status: 'ACTIVE',
       joinedAt: '',
       leftAt: null,
+    },
+    {
+      publicId: 'participant-2',
+      displayName: 'Matheus',
+      authenticated: false,
+      status: 'ACTIVE',
+      joinedAt: '',
+      leftAt: null,
+    },
+  ],
+  participantAccounts: [
+    {
+      publicId: 'participant-1',
+      displayName: 'Samuel',
+      status: 'ACTIVE',
+      consumedCents: 5_000,
+      paidCents: 0,
+      reservedCents: 0,
+      processingCents: 0,
+      remainingCents: 5_000,
+    },
+    {
+      publicId: 'participant-2',
+      displayName: 'Matheus',
+      status: 'ACTIVE',
+      consumedCents: 3_000,
+      paidCents: 3_000,
+      reservedCents: 0,
+      processingCents: 0,
+      remainingCents: 0,
     },
   ],
   activePayment: null,
@@ -88,21 +118,23 @@ const baseProps = {
 };
 
 describe('TableAccountPanel', () => {
-  it('mostra somente a comanda individual sem seletor antigo de pagamento', () => {
+  it('mostra conta geral da mesa e mantém o pagamento restrito à conta individual', () => {
     const markup = renderToStaticMarkup(<TableAccountPanel {...baseProps} />);
 
-    expect(markup).toContain('Sua comanda');
+    expect(markup).toContain('Conta da Mesa');
+    expect(markup).toContain('Conta geral');
+    expect(markup).toContain('Samuel');
+    expect(markup).toContain('Matheus');
+    expect(markup).toContain('Sua conta');
     expect(markup).toContain('Pizza personalizada');
-    expect(markup).toContain('Consumido');
-    expect(markup).toContain('Pago');
+    expect(markup).toContain('Total da mesa');
     expect(markup).toContain('Falta pagar');
-    expect(markup).toContain('Continuar com Pix · R$ 50,00');
+    expect(markup).toContain('Pagar minha conta com Pix');
+    expect(markup).toContain('Pagar minha conta em dinheiro');
     expect(markup).toContain('Etapas da sua comanda');
-    expect(markup).toContain('R$ 50,00');
     expect(markup).not.toContain('Escolher itens');
     expect(markup).not.toContain('Outro valor');
     expect(markup).not.toContain('Pagar restante');
-    expect(markup).not.toContain('Em confirmação');
   });
 
   it('permite remover um pedido pendente, não pago e de item único', async () => {
@@ -205,7 +237,7 @@ describe('comanda guiada e pagamento seguro', () => {
     };
     const markup = renderToStaticMarkup(<TableAccountPanel {...baseProps} snapshot={withFee} />);
     expect(markup).toContain('Taxa de serviço neste pagamento');
-    expect(markup).toContain('Continuar com Pix · R$ 55,00');
+    expect(markup).toContain('Pagar minha conta com Pix · R$ 55,00');
     expect(
       previewIndividualTablePayment({
         ...withFee,
@@ -246,11 +278,11 @@ describe('comanda guiada e pagamento seguro', () => {
     };
     const markup = renderToStaticMarkup(<TableAccountPanel {...baseProps} snapshot={current} />);
     expect(markup).toContain('Há um pagamento em andamento');
-    expect(markup).not.toContain('Continuar com Pix');
+    expect(markup).not.toContain('Pagar minha conta com Pix');
     expect(markup).not.toContain('maquininha');
   });
 
-  it('mostra orientação quando Pix está desativado em vez de desaparecer sem explicação', () => {
+  it('mantém dinheiro disponível quando Pix está desativado', () => {
     const markup = renderToStaticMarkup(
       <TableAccountPanel
         {...baseProps}
@@ -260,8 +292,8 @@ describe('comanda guiada e pagamento seguro', () => {
         }}
       />,
     );
-    expect(markup).toContain('O Pix não está disponível');
-    expect(markup).toContain('pagamento em dinheiro');
+    expect(markup).not.toContain('Pagar minha conta com Pix');
+    expect(markup).toContain('Pagar minha conta em dinheiro');
     expect(markup).not.toContain('maquininha');
   });
 
@@ -271,7 +303,21 @@ describe('comanda guiada e pagamento seguro', () => {
         {...baseProps}
         snapshot={{
           ...snapshot,
-          summary: { ...snapshot.summary, remainingCents: 0, netPaidCents: 5000 },
+          summary: {
+            ...snapshot.summary,
+            grossPaidCents: 8_000,
+            netPaidCents: 8_000,
+            remainingCents: 0,
+          },
+          participantAccounts: snapshot.participantAccounts?.map((participant) =>
+            participant.publicId === 'participant-1'
+              ? {
+                  ...participant,
+                  paidCents: 5_000,
+                  remainingCents: 0,
+                }
+              : participant,
+          ),
           items: [
             { ...snapshot.items[0], financialStatus: 'PAID', availableCents: 0, paidCents: 5000 },
           ],
@@ -279,7 +325,7 @@ describe('comanda guiada e pagamento seguro', () => {
       />,
     );
     expect(markup).toContain('Tudo pago!');
-    expect(markup).not.toContain('Continuar com Pix');
+    expect(markup).not.toContain('Pagar minha conta com Pix');
   });
 
   it('separa rascunhos da comanda sem iniciar cobrança ao revisá-los', async () => {
@@ -305,13 +351,13 @@ describe('comanda guiada e pagamento seguro', () => {
       orderingBlocked: true,
     });
     expect(button('Revisar e enviar').disabled).toBe(true);
-    expect(button('Continuar com Pix').disabled).toBe(false);
+    expect(button('Pagar minha conta com Pix').disabled).toBe(false);
   });
 
   it('avança para Pix e permite rever sem criar outra reserva', async () => {
     const onCreatePayment = vi.fn(async () => ({ payment, idempotentReplay: false }));
     const { container, button } = await mount({ onCreatePayment });
-    await act(async () => button('Continuar com Pix').click());
+    await act(async () => button('Pagar minha conta com Pix').click());
     expect(onCreatePayment).toHaveBeenCalledWith({
       selectionMode: 'MY_ITEMS',
       method: 'PIX',
@@ -323,6 +369,33 @@ describe('comanda guiada e pagamento seguro', () => {
     expect(container.querySelector('[aria-current="step"]')?.textContent).toContain('Conferir');
     await act(async () => button('Voltar ao pagamento').click());
     expect(onCreatePayment).toHaveBeenCalledOnce();
+  });
+
+  it('solicita dinheiro somente para MY_ITEMS e aguarda confirmação administrativa', async () => {
+    const cashPayment: TablePaymentIntent = {
+      ...payment,
+      publicId: 'payment-cash',
+      method: 'CASH',
+      status: 'RESERVED',
+      provider: null,
+      externalId: null,
+      paymentCode: null,
+    };
+    const onCreatePayment = vi.fn(async () => ({
+      payment: cashPayment,
+      idempotentReplay: false,
+    }));
+    const { container, button } = await mount({ onCreatePayment });
+
+    await act(async () => button('Pagar minha conta em dinheiro').click());
+
+    expect(onCreatePayment).toHaveBeenCalledWith({
+      selectionMode: 'MY_ITEMS',
+      method: 'CASH',
+      includeOptionalServiceFee: false,
+    });
+    expect(container.textContent).toContain('Aguardando confirmação do administrador');
+    expect(container.textContent).toContain('somente o administrador confirma');
   });
 
   it('concluir pagamento confirmado fecha a comanda e volta ao cardápio', async () => {
@@ -369,7 +442,7 @@ describe('comanda guiada e pagamento seguro', () => {
         }),
       );
     });
-    expect(document.activeElement).toBe(button('Continuar com Pix'));
+    expect(document.activeElement).toBe(button('Pagar minha conta em dinheiro'));
     await act(async () =>
       root.render(<TableAccountPanel {...baseProps} onClose={() => undefined} />),
     );
