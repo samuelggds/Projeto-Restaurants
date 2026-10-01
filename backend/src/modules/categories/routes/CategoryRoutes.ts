@@ -5,11 +5,16 @@ import CreateCategoryController from '../controllers/CreateCategoryController.js
 import DeleteCategoryController from '../controllers/DeleteCategoryController.js';
 import UpdateCategoryController from '../controllers/UpdateCategoryController.js';
 import ListCategoryController from '../controllers/ListCategoryController.js';
+import ReorderCategoryController from '../controllers/ReorderCategoryController.js';
 
 const router = Router();
 
 router.post('/', authMiddleware, adminMiddleware, (req, res) => {
   CreateCategoryController.handle(req, res);
+});
+
+router.put('/reorder', authMiddleware, adminMiddleware, (req, res) => {
+  ReorderCategoryController.handle(req, res);
 });
 
 router.delete('/:id', authMiddleware, adminMiddleware, (req, res) => {

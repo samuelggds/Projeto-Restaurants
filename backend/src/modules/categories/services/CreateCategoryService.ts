@@ -24,10 +24,12 @@ class CreateCategoryService {
       throw new Error('Já existe uma categoria com esse nome.');
     }
 
+    const sortOrder = await categoryRepository.nextSortOrder(normalizedRestaurantId);
     const category = await categoryRepository.create(
       {
         ...parsed,
         name: normalizedName,
+        sortOrder,
       },
       normalizedRestaurantId,
     );

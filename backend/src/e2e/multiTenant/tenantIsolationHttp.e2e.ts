@@ -256,6 +256,78 @@ test('isolamento multi-tenant real por HTTP e webhooks', { timeout: 120_000 }, a
       assert.equal(thread.messages.length, 1);
     });
 
+    await t.test(
+      'ordenação de categorias fica restrita ao restaurante autenticado',
+      async () => {
+        const tenantACategories = await prisma.category.findMany({
+          where: { restaurantId: fixture.restaurants.a.id },
+          orderBy: { id: 'asc' },
+        });
+        assert.ok(tenantACategories.length > 0);
+
+        const extraCategoryA = await prisma.category.create({
+          data: {
+            name: 'Bebidas A para ordenar',
+            restaurantId: fixture.restaurants.a.id,
+            sortOrder: tenantACategories.length,
+          },
+        });
+        await prisma.category.update({
+          where: { id: fixture.categories.b.id },
+          data: { sortOrder: 17 },
+        });
+
+        const denied = await apiRequest(
+          baseUrl,
+          '/categories/reorder',
+          fixture.tokens.adminA,
+          {
+            method: 'PUT',
+            json: {
+              categoryIds: [tenantACategories[0].id, fixture.categories.b.id],
+            },
+          },
+        );
+        assertTenantDenied(denied.response.status, 'ordenação com categoria estrangeira');
+
+        const categoryBAfterAttack = await prisma.category.findUniqueOrThrow({
+          where: { id: fixture.categories.b.id },
+        });
+        assert.equal(categoryBAfterAttack.restaurantId, fixture.restaurants.b.id);
+        assert.equal(categoryBAfterAttack.sortOrder, 17);
+
+        const validOrder = [
+          extraCategoryA.id,
+          ...tenantACategories.map((category) => category.id),
+        ];
+        const success = await apiRequest(
+          baseUrl,
+          '/categories/reorder',
+          fixture.tokens.adminA,
+          {
+            method: 'PUT',
+            json: { categoryIds: validOrder },
+          },
+        );
+
+        assert.equal(success.response.status, 200, JSON.stringify(success.data));
+        assert.deepEqual(
+          success.data.categories.map((category: { id: number }) => category.id),
+          validOrder,
+        );
+
+        const storedA = await prisma.category.findMany({
+          where: { restaurantId: fixture.restaurants.a.id },
+          orderBy: [{ sortOrder: 'asc' }, { id: 'asc' }],
+        });
+        assert.deepEqual(
+          storedA.map((category) => category.id),
+          validOrder,
+        );
+        assert.ok(storedA.every((category) => category.restaurantId === fixture.restaurants.a.id));
+      },
+    );
+
     await t.test('CRUD e promoção de produto exigem id + restaurantId na prática', async () => {
       const updateAttempt = await apiRequest(
         baseUrl,
