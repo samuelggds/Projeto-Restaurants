@@ -558,6 +558,19 @@ export const ConfirmationCard = styled(FlowCard)`
   display: grid;
   gap: 24px;
   box-shadow: 0 12px 16px rgba(0, 0, 0, 0.04);
+  transform-origin: 50% 18%;
+  animation: confirmation-card-enter 460ms cubic-bezier(.22, 1, .36, 1) both;
+
+  @keyframes confirmation-card-enter {
+    from {
+      opacity: 0;
+      transform: translate3d(0, 18px, 0) scale(.985);
+    }
+    to {
+      opacity: 1;
+      transform: translate3d(0, 0, 0) scale(1);
+    }
+  }
 
   @media (max-width: 759px) {
     width: calc(100% + 40px);
@@ -575,6 +588,10 @@ export const ConfirmationCard = styled(FlowCard)`
     margin-inline: -14px;
     padding-inline: 14px;
   }
+
+  @media (prefers-reduced-motion: reduce) {
+    animation: none;
+  }
 `;
 
 export const SuccessHero = styled.section`
@@ -583,6 +600,33 @@ export const SuccessHero = styled.section`
   text-align: center;
   gap: 8px;
 
+  > * {
+    animation: confirmation-rise 420ms cubic-bezier(.22, 1, .36, 1) both;
+  }
+
+  > .ring {
+    animation-delay: 90ms;
+  }
+
+  > h1 {
+    animation-delay: 170ms;
+  }
+
+  > p {
+    animation-delay: 230ms;
+  }
+
+  @keyframes confirmation-rise {
+    from {
+      opacity: 0;
+      transform: translate3d(0, 12px, 0);
+    }
+    to {
+      opacity: 1;
+      transform: translate3d(0, 0, 0);
+    }
+  }
+
   .ring {
     width: 96px;
     height: 96px;
@@ -590,6 +634,16 @@ export const SuccessHero = styled.section`
     background: #ecfdf5;
     display: grid;
     place-items: center;
+    position: relative;
+  }
+
+  .ring::after {
+    content: '';
+    position: absolute;
+    inset: 12px;
+    border-radius: 999px;
+    border: 2px solid rgba(16, 185, 129, .22);
+    animation: success-ring-pulse 1.35s ease-out 260ms 1 both;
   }
 
   .check {
@@ -600,6 +654,48 @@ export const SuccessHero = styled.section`
     color: #fff;
     display: grid;
     place-items: center;
+    animation: success-check-pop 520ms cubic-bezier(.34, 1.56, .64, 1) 160ms both;
+  }
+
+  .check svg {
+    animation: success-check-draw 420ms ease-out 310ms both;
+  }
+
+  @keyframes success-check-pop {
+    0% {
+      opacity: 0;
+      transform: scale(.55) rotate(-7deg);
+    }
+    70% {
+      opacity: 1;
+      transform: scale(1.08) rotate(2deg);
+    }
+    100% {
+      opacity: 1;
+      transform: scale(1) rotate(0deg);
+    }
+  }
+
+  @keyframes success-check-draw {
+    from {
+      opacity: 0;
+      transform: scale(.6);
+    }
+    to {
+      opacity: 1;
+      transform: scale(1);
+    }
+  }
+
+  @keyframes success-ring-pulse {
+    from {
+      opacity: .8;
+      transform: scale(.72);
+    }
+    to {
+      opacity: 0;
+      transform: scale(1.55);
+    }
   }
 
   h1 {
@@ -616,6 +712,15 @@ export const SuccessHero = styled.section`
     color: var(--muted);
     font-size: 15px;
     line-height: 21px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    > *,
+    .check,
+    .check svg,
+    .ring::after {
+      animation: none;
+    }
   }
 
   @media (max-width: 759px) {
@@ -652,6 +757,7 @@ export const OrderSummaryBar = styled(FlowCard)`
   align-items: center;
   justify-content: space-between;
   gap: 18px;
+  animation: confirmation-block-enter 400ms cubic-bezier(.22, 1, .36, 1) 280ms both;
 
   .label {
     display: grid;
@@ -694,6 +800,18 @@ export const TimelineCard = styled(FlowCard)`
 
   &.confirmation-timeline {
     padding: 20px;
+    animation: confirmation-block-enter 420ms cubic-bezier(.22, 1, .36, 1) 350ms both;
+  }
+
+  @keyframes confirmation-block-enter {
+    from {
+      opacity: 0;
+      transform: translate3d(0, 14px, 0);
+    }
+    to {
+      opacity: 1;
+      transform: translate3d(0, 0, 0);
+    }
   }
 
   @media (max-width: 759px) {
@@ -729,12 +847,39 @@ export const TimelineStep = styled.div<{ $active: boolean; $current?: boolean }>
   gap: 16px;
   align-items: start;
   opacity: ${({ $active, $current }) => ($active || $current ? 1 : 0.4)};
+  animation: timeline-step-enter 340ms cubic-bezier(.22, 1, .36, 1) both;
+
+  &:nth-child(1) {
+    animation-delay: 420ms;
+  }
+
+  &:nth-child(2) {
+    animation-delay: 500ms;
+  }
+
+  &:nth-child(3) {
+    animation-delay: 580ms;
+  }
+
+  @keyframes timeline-step-enter {
+    from {
+      opacity: 0;
+      transform: translate3d(-8px, 8px, 0);
+    }
+    to {
+      opacity: ${({ $active, $current }) => ($active || $current ? 1 : 0.4)};
+      transform: translate3d(0, 0, 0);
+    }
+  }
 
   .dot {
     width: 28px;
     height: 28px;
     border: 0;
     border-radius: 14px;
+    transition:
+      transform 220ms cubic-bezier(.22, 1, .36, 1),
+      box-shadow 220ms ease;
     background: ${({ $active, $current }) =>
       $current
         ? 'color-mix(in srgb, var(--primary) 10%, #fff)'
@@ -769,6 +914,10 @@ export const TimelineStep = styled.div<{ $active: boolean; $current?: boolean }>
     line-height: 16px;
   }
 
+  @media (prefers-reduced-motion: reduce) {
+    animation: none;
+  }
+
   @media (max-width: 759px) {
     grid-template-columns: 24px minmax(0, 1fr);
     gap: 12px;
@@ -795,6 +944,36 @@ export const ConfirmationActions = styled.div`
   width: 100%;
   display: grid;
   gap: 10px;
+  animation: confirmation-block-enter 420ms cubic-bezier(.22, 1, .36, 1) 640ms both;
+
+  button {
+    transition:
+      transform 180ms cubic-bezier(.22, 1, .36, 1),
+      box-shadow 180ms ease,
+      filter 180ms ease;
+  }
+
+  button:hover:not(:disabled) {
+    transform: translateY(-2px);
+    filter: brightness(1.02);
+  }
+
+  button:active:not(:disabled) {
+    transform: translateY(0) scale(.985);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    animation: none;
+
+    button {
+      transition: none;
+    }
+
+    button:hover:not(:disabled),
+    button:active:not(:disabled) {
+      transform: none;
+    }
+  }
 `;
 
 export const TrackingLayout = styled.div`
