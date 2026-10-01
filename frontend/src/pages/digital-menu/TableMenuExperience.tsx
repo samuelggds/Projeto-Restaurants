@@ -94,6 +94,16 @@ const brl = (value: number) =>
 
 const centsToBrl = (value: number) => brl(Number(value || 0) / 100);
 
+function paymentCreatedTime(createdAt?: string | null) {
+  if (!createdAt) return '';
+  const date = new Date(createdAt);
+  if (Number.isNaN(date.getTime())) return '';
+  return new Intl.DateTimeFormat('pt-BR', {
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(date);
+}
+
 function tableNumber(label: string | number) {
   const numeric = Number(label);
   return Number.isFinite(numeric) ? String(numeric).padStart(2, '0') : String(label);
@@ -297,37 +307,88 @@ export default function TableMenuExperience({
     currentPayment?.method === 'CASH' &&
     ['RESERVED', 'PROCESSING'].includes(currentPayment.status)
   ) {
+    const requestedAt = paymentCreatedTime(currentPayment.createdAt);
+
     return (
-      <S.FigmaShell $primary={primary} $fontFamily={data.fontFamily}>
+      <S.FigmaShell $primary="#ff4b4b" $fontFamily={data.fontFamily}>
         <FlowHeader
           data={data}
           tableLabel={tableLabel}
-          title="Pagamento em Dinheiro"
-          onBack={() => setView('payment')}
+          title="Pagamento em dinheiro"
           onHome={goToMenu}
           onMenu={goToMenu}
           onOrders={() => setView('tracking')}
         />
-        <S.FlowPage>
-          <S.PaymentCard>
-            <S.FlowTitle>
-              <h1>Pagamento em dinheiro solicitado</h1>
-              <p>Entregue o valor ao garçom ou atendente. O pagamento só será marcado como pago depois da confirmação do administrador.</p>
-            </S.FlowTitle>
-            <S.PaymentSummary>
-              <div className="label">
-                <small>Valor da sua conta</small>
-                <strong>Aguardando confirmação</strong>
-              </div>
-              <span className="amount">{centsToBrl(currentPayment.totalCents)}</span>
-            </S.PaymentSummary>
-            <S.PrimaryAction type="button" onClick={() => setView('tracking')}>
-              Acompanhar pedido
-            </S.PrimaryAction>
-            <S.SecondaryAction type="button" onClick={goToMenu}>
-              Voltar ao cardápio
-            </S.SecondaryAction>
-          </S.PaymentCard>
+        <S.FlowPage className="cash-payment-page">
+          <S.CashPendingLayout aria-live="polite">
+            <S.CashPendingHero>
+              <S.CashMoneyMark aria-label="Pagamento em dinheiro">
+                <span>R$</span>
+              </S.CashMoneyMark>
+
+              <h1>Aguardando pagamento em dinheiro</h1>
+              <p>
+                Sua solicitação foi registrada para a equipe. Aguarde o atendimento na Mesa{' '}
+                {tableNumber(tableLabel)}.
+              </p>
+
+              <S.CashRequestBadge>
+                <span aria-hidden="true" />
+                {requestedAt ? `Solicitação enviada · ${requestedAt}` : 'Solicitação enviada'}
+              </S.CashRequestBadge>
+            </S.CashPendingHero>
+
+            <S.CashAmountCard>
+              <span>
+                <small>Valor reservado</small>
+                <b>Pagamento presencial</b>
+              </span>
+              <strong>{centsToBrl(currentPayment.totalCents)}</strong>
+            </S.CashAmountCard>
+
+            <S.CashStatusCard>
+              <h2>Status do pagamento</h2>
+              <ol>
+                <li className="completed">
+                  <span className="status-dot"><Check size={15} /></span>
+                  <span>
+                    <b>Solicitação recebida</b>
+                    <small>A equipe do restaurante foi avisada</small>
+                  </span>
+                </li>
+                <li className="current">
+                  <span className="status-dot"><i /></span>
+                  <span>
+                    <b>Aguardando o dinheiro</b>
+                    <small>Entregue o valor a um funcionário</small>
+                  </span>
+                </li>
+                <li className="pending">
+                  <span className="status-dot"><i /></span>
+                  <span>
+                    <b>Confirmação do pagamento</b>
+                    <small>Liberada após o funcionário receber o dinheiro</small>
+                  </span>
+                </li>
+              </ol>
+            </S.CashStatusCard>
+
+            <S.CashConfirmationNotice>
+              <Clock3 size={19} aria-hidden="true" />
+              <span>O pagamento só será confirmado após o funcionário receber o dinheiro.</span>
+            </S.CashConfirmationNotice>
+
+            <S.CashActions>
+              <S.PrimaryAction type="button" onClick={onViewAccount}>
+                <ReceiptText size={18} aria-hidden="true" /> Acompanhar conta
+              </S.PrimaryAction>
+              {waiterCallEnabled ? (
+                <S.SecondaryAction type="button" onClick={onCallWaiter}>
+                  <Bell size={18} aria-hidden="true" /> Chamar o garçom
+                </S.SecondaryAction>
+              ) : null}
+            </S.CashActions>
+          </S.CashPendingLayout>
         </S.FlowPage>
       </S.FigmaShell>
     );
