@@ -61,6 +61,15 @@ export const PaymentChoiceCard = styled(FlowCard)`
     color: var(--text);
   }
 
+  .pix-icon {
+    color: #77b6a8;
+  }
+
+  .pix-icon svg {
+    width: 22px;
+    height: 22px;
+  }
+
   .recommended {
     position: absolute;
     top: 33px;
