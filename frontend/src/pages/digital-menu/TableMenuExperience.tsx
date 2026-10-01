@@ -927,15 +927,26 @@ export default function TableMenuExperience({
               Acompanhar em tempo real
             </S.PrimaryAction>
             {confirmation.total > 0 ? (
-              <S.SecondaryAction
-                className="pix-action"
-                type="button"
-                disabled={paymentLoading}
-                onClick={() => void startPayment('PIX')}
-              >
-                <PixMark />
-                Pagar agora no PIX
-              </S.SecondaryAction>
+              <>
+                <S.SecondaryAction
+                  className="pix-action"
+                  type="button"
+                  disabled={paymentLoading}
+                  onClick={() => void startPayment('PIX')}
+                >
+                  <PixMark />
+                  Pagar agora no PIX
+                </S.SecondaryAction>
+
+                <S.TrackingOtherPaymentAction
+                  type="button"
+                  disabled={paymentLoading}
+                  onClick={() => setView('payment')}
+                >
+                  <WalletCards size={18} aria-hidden="true" />
+                  Outras formas de pagamento
+                </S.TrackingOtherPaymentAction>
+              </>
             ) : null}
             <S.HelperText>Deseja continuar pedindo? A conta ficará aberta na mesa.</S.HelperText>
           </S.ConfirmationActions>
