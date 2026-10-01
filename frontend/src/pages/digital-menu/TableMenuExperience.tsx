@@ -14,6 +14,10 @@ import type { HomeData, HomeProduct } from '../Home/types';
 import type { CartItem } from '../Home/hooks/useCart';
 import type { ProductConfiguration } from '../Home/domain/productCustomization';
 import {
+  createReadyProductConfiguration,
+  resolveProductEntryKind,
+} from '../Home/domain/productEntryFlow';
+import {
   currentParticipantAccount,
   type TableAccountSnapshot,
   type TablePaymentIntent,
@@ -172,15 +176,6 @@ export default function TableMenuExperience({
     return () => window.clearInterval(interval);
   }, [currentPayment?.publicId, onReconcilePayment, paymentLoading, pixPending]);
 
-  function emptyConfiguration(product: HomeProduct): ProductConfiguration {
-    return {
-      selectedOptions: [],
-      selectedOptionIds: [],
-      observation: '',
-      configurationVersion: product.configurationVersion,
-    };
-  }
-
   function flyProduct(product: HomeProduct, origin?: CartFlyOrigin | null) {
     scheduleProductToCartAnimation({
       origin,
@@ -192,29 +187,30 @@ export default function TableMenuExperience({
   function openProduct(product: HomeProduct, sourceElement?: HTMLElement | null) {
     if (orderingLocked) return;
     pendingCartFlyOriginRef.current = captureCartFlyOrigin(sourceElement);
-    if (product.kind === 'COMBO') {
-      setConfiguringProduct(product);
+    const entryKind = resolveProductEntryKind(product);
+
+    if (entryKind === 'READY') {
+      setSelectedProduct(product);
       return;
     }
-    if (product.saleMode === 'BUILDABLE') {
-      setConfiguringProduct(product);
-      return;
-    }
-    setSelectedProduct(product);
+
+    setConfiguringProduct(product);
   }
 
   function quickAdd(product: HomeProduct, sourceElement?: HTMLElement | null) {
     if (orderingLocked) return;
     pendingCartFlyOriginRef.current = captureCartFlyOrigin(sourceElement);
-    if (product.kind === 'COMBO') {
+    const entryKind = resolveProductEntryKind(product);
+
+    if (entryKind !== 'READY') {
       setConfiguringProduct(product);
       return;
     }
-    if (product.saleMode === 'BUILDABLE') {
-      setConfiguringProduct(product);
-      return;
-    }
-    onAddProduct(product.id, emptyConfiguration(product));
+
+    onAddProduct(
+      product.id,
+      createReadyProductConfiguration(product.configurationVersion),
+    );
     flyProduct(product, pendingCartFlyOriginRef.current);
     pendingCartFlyOriginRef.current = null;
   }
