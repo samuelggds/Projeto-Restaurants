@@ -121,6 +121,31 @@ export const FigmaHeader = styled.header<{ $hasTitle?: boolean }>`
     justify-self: end;
   }
 
+  &.cart-header {
+    --primary: #ff4b4b;
+  }
+
+  &.cart-header .brand .mark,
+  &.cart-header .brand img {
+    border-radius: 6px;
+  }
+
+  &.cart-header .brand .name b {
+    color: #1a1a2e;
+    font-weight: 400;
+  }
+
+  &.cart-header .brand .name small {
+    color: #6d6d80;
+  }
+
+  &.cart-header .cart-table-pill {
+    border-color: #ff4b4b;
+    border-radius: 6px;
+    background: #fff1f1;
+    color: #ff4b4b;
+  }
+
   @media (max-width: 759px) {
     min-height: 65px;
     padding: 16px 20px;
@@ -131,9 +156,37 @@ export const FigmaHeader = styled.header<{ $hasTitle?: boolean }>`
       gap: 10px;
     }
 
-    nav,
+    nav {
+      display: none;
+    }
+
     .mobile-back {
       display: none;
+    }
+
+    &.cart-header .mobile-back {
+      width: 36px;
+      height: 36px;
+      padding: 0;
+      border: 0;
+      background: transparent;
+      color: #1a1a2e;
+      display: grid;
+      place-items: center;
+    }
+
+    &.cart-header .mobile-back svg {
+      width: 30px;
+      height: 30px;
+      stroke-width: 2.3;
+    }
+
+    &.cart-header .brand {
+      display: none;
+    }
+
+    &.cart-header .context-title {
+      display: grid;
     }
 
     .context-title {

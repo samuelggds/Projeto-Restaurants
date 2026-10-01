@@ -648,6 +648,10 @@ async function identifyTableGuest(page: Page, waitForMenu = true) {
 async function reviewTableDraft(page: Page) {
   await page.getByRole('button', { name: 'Meu pedido' }).click();
   await expect(page.getByRole('heading', { name: 'Minha sacola' })).toBeVisible();
+
+  if ((await page.viewportSize())?.width && (await page.viewportSize())!.width < 760) {
+    await expect(page.getByRole('button', { name: 'Voltar para o cardápio' })).toBeVisible();
+  }
 }
 
 test('admin controla o QR, garçom apenas opera a mesa e cozinha recebe Mesa 1', async ({

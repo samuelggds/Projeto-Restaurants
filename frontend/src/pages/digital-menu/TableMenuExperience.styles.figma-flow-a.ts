@@ -63,20 +63,20 @@ export const CartDesktopLayout = styled.div`
 
   > div:last-child {
     display: grid;
-    gap: 14px;
+    gap: 24px;
   }
 
   .cart-summary-column > h2 {
     margin: 0;
-    color: var(--text);
-    font-size: 24px;
-    line-height: 30px;
+    color: #1a1a2e;
+    font-size: 32px;
+    line-height: 40px;
     font-weight: 400;
   }
 
   @media (max-width: 980px) {
     grid-template-columns: 1fr;
-    gap: 20px;
+    gap: 16px;
   }
 `;
 
@@ -94,8 +94,8 @@ export const CartLines = styled.div`
 export const CartLine = styled.article<{ $hasImage?: boolean }>`
   min-height: 96px;
   padding: 16px;
-  border: 1px solid var(--line);
-  border-radius: 16px;
+  border: 1px solid #eaeae6;
+  border-radius: 6px;
   background: #fff;
   display: grid;
   grid-template-columns: ${({ $hasImage }) =>
@@ -107,8 +107,8 @@ export const CartLine = styled.article<{ $hasImage?: boolean }>`
     width: 64px;
     height: 64px;
     overflow: hidden;
-    border-radius: 12px;
-    background: var(--background);
+    border-radius: 6px;
+    background: #fafaf8;
   }
 
   .image img {
@@ -120,13 +120,13 @@ export const CartLine = styled.article<{ $hasImage?: boolean }>`
   .info {
     min-width: 0;
     display: grid;
-    gap: 4px;
+    gap: 2px;
   }
 
   .info b {
-    color: var(--text);
-    font-size: 15px;
-    line-height: 19px;
+    color: #1a1a2e;
+    font-size: 16px;
+    line-height: 20px;
     font-weight: 700;
   }
 
@@ -135,9 +135,9 @@ export const CartLine = styled.article<{ $hasImage?: boolean }>`
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    color: var(--muted);
-    font-size: 11px;
-    line-height: 15px;
+    color: #6d6d80;
+    font-size: 13px;
+    line-height: 16px;
   }
 
   .side {
@@ -147,7 +147,7 @@ export const CartLine = styled.article<{ $hasImage?: boolean }>`
   }
 
   .price {
-    color: var(--text);
+    color: #1a1a2e;
     font-size: 14px;
     line-height: 18px;
     font-weight: 700;
@@ -164,18 +164,22 @@ export const CartLine = styled.article<{ $hasImage?: boolean }>`
     .image {
       width: 56px;
       height: 56px;
+      border-radius: 6px;
     }
 
     .info b {
       font-size: 14px;
+      line-height: 18px;
     }
 
     .info small {
       font-size: 11px;
+      line-height: 14px;
     }
 
     .price {
       font-size: 13px;
+      line-height: 16px;
     }
   }
 `;
@@ -183,25 +187,115 @@ export const CartLine = styled.article<{ $hasImage?: boolean }>`
 export const QuantityControl = styled.div`
   display: inline-flex;
   align-items: center;
+
+  && [data-quantity-stepper] {
+    width: 73px;
+    height: 31px;
+    flex: 0 0 73px;
+    padding: 0 8px;
+    grid-template-columns: 10px minmax(5px, 1fr) 10px;
+    gap: 16px;
+    border-radius: 8px;
+    background: #fafaf8;
+    color: #1a1a2e;
+  }
+
+  && [data-quantity-stepper] button {
+    width: 10px;
+    max-width: 10px;
+    height: 15px;
+    color: #1a1a2e;
+  }
+
+  && [data-quantity-stepper] button > span {
+    font-size: 14px;
+    font-weight: 700;
+  }
+
+  && [data-quantity-stepper] > strong {
+    color: #1a1a2e;
+    font-size: 12px;
+    line-height: 15px;
+    font-weight: 700;
+  }
+
+  @media (max-width: 759px) {
+    && [data-quantity-stepper] {
+      width: 61px;
+      height: 27px;
+      flex-basis: 61px;
+      padding: 0 6px;
+      grid-template-columns: 10px 5px 10px;
+      gap: 12px;
+      background: #fafaf8;
+    }
+
+    && [data-quantity-stepper] button {
+      width: 10px;
+      max-width: 10px;
+      height: 15px;
+    }
+
+    && [data-quantity-stepper] button > span {
+      font-size: 13px;
+    }
+  }
 `;
 export const AddMoreButton = styled.button`
   width: 100%;
-  min-height: 48px;
-  margin-top: 16px;
-  border: 1px dashed var(--primary);
-  border-radius: 14px;
+  min-height: 50px;
+  margin-top: 24px;
+  padding: 16px;
+  border: 1px dashed #ff4b4b;
+  border-radius: 6px;
   background: transparent;
-  color: var(--primary);
-  font-size: 13px;
+  color: #ff4b4b;
+  font-size: 14px;
+  line-height: 18px;
   font-weight: 700;
+
+  @media (max-width: 759px) {
+    min-height: 44px;
+    margin-top: 16px;
+    padding: 14px;
+    font-size: 13px;
+    line-height: 16px;
+  }
+`;
+
+export const CartSummaryPanel = styled.section`
+  width: 100%;
+  padding: 24px;
+  border: 1px solid #eaeae6;
+  border-radius: 8px;
+  background: #fff;
+  display: grid;
+  gap: 20px;
+
+  .submit-block {
+    display: grid;
+    gap: 12px;
+  }
+
+  @media (max-width: 980px) {
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    gap: 16px;
+
+    .submit-block {
+      gap: 8px;
+    }
+  }
 `;
 
 export const CouponRow = styled.div`
   width: 100%;
-  min-height: 50px;
+  min-height: 51px;
   padding: 10px 12px 10px 14px;
-  border: 1px solid var(--line);
-  border-radius: 14px;
+  border: 1px solid #eaeae6;
+  border-radius: 6px;
   background: #fff;
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
@@ -213,66 +307,91 @@ export const CouponRow = styled.div`
     border: 0;
     outline: 0;
     background: transparent;
-    color: var(--text);
-    font-size: 13px;
+    color: #1a1a2e;
+    font-size: 14px;
+    line-height: 18px;
   }
 
   input::placeholder {
-    color: var(--muted);
+    color: #6d6d80;
     opacity: 1;
   }
 
   button {
-    min-width: 68px;
-    min-height: 30px;
-    padding: 0 14px;
+    min-width: 74px;
+    min-height: 31px;
+    padding: 0 16px;
     border: 0;
-    border-radius: 8px;
-    background: var(--text);
+    border-radius: 4px;
+    background: #1a1a2e;
     color: #fff;
-    font-size: 11px;
+    font-size: 12px;
+    line-height: 15px;
     font-weight: 700;
   }
 
   button:disabled {
     opacity: 0.45;
   }
+
+  @media (max-width: 759px) {
+    min-height: 46px;
+
+    input {
+      font-size: 13px;
+      line-height: 16px;
+    }
+
+    button {
+      min-width: 66px;
+      min-height: 26px;
+      padding: 0 14px;
+      font-size: 11px;
+      line-height: 14px;
+    }
+  }
 `;
 
 export const SummaryCard = styled(FlowCard)`
-  padding: 24px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
   display: grid;
-  gap: 16px;
+  gap: 12px;
 
   .row {
     display: flex;
     align-items: baseline;
     justify-content: space-between;
     gap: 16px;
-    color: var(--muted);
-    font-size: 13px;
+    color: #6d6d80;
+    font-size: 14px;
+    line-height: 18px;
   }
 
   .row strong {
-    color: var(--text);
-    font-weight: 500;
+    color: #1a1a2e;
+    font-weight: 400;
   }
 
   .divider {
     height: 1px;
-    background: var(--line);
+    background: #eaeae6;
   }
 
   .total {
-    color: var(--text);
+    color: #1a1a2e;
     font-size: 18px;
+    line-height: 23px;
     font-weight: 700;
   }
 
   .total strong {
-    color: var(--primary);
-    font-size: 24px;
-    font-weight: 700;
+    color: #ff4b4b;
+    font-size: 22px;
+    line-height: 28px;
+    font-weight: 400;
   }
 
   .discount,
@@ -282,18 +401,24 @@ export const SummaryCard = styled(FlowCard)`
 
   @media (max-width: 759px) {
     padding: 16px;
-    border-radius: 18px;
+    border: 1px solid #eaeae6;
+    border-radius: 6px;
+    background: #fff;
+    gap: 12px;
 
     .row {
       font-size: 13px;
+      line-height: 16px;
     }
 
     .total {
       font-size: 16px;
+      line-height: 20px;
     }
 
     .total strong {
-      font-size: 21px;
+      font-size: 20px;
+      line-height: 25px;
     }
   }
 `;
@@ -359,6 +484,61 @@ export const SecondaryAction = styled.button`
 
   &:disabled {
     opacity: 0.5;
+  }
+`;
+
+export const CartSubmitAction = styled(PrimaryAction)`
+  min-height: 64px;
+  padding: 16px 24px;
+  border-radius: 6px;
+  background: #ff4b4b;
+  box-shadow: 0 4px 6px rgba(255, 75, 75, 0.13);
+
+  .action-copy {
+    gap: 4px;
+  }
+
+  .action-copy b {
+    font-size: 16px;
+    line-height: 20px;
+  }
+
+  .action-copy small {
+    font-size: 11px;
+    line-height: 14px;
+  }
+
+  @media (max-width: 759px) {
+    min-height: 62px;
+    padding: 14px 16px;
+
+    .action-copy {
+      gap: 2px;
+    }
+
+    .action-copy b {
+      font-size: 15px;
+      line-height: 19px;
+    }
+
+    .action-copy small {
+      font-size: 10px;
+      line-height: 13px;
+    }
+  }
+`;
+
+export const CartHelperText = styled.p`
+  margin: 0;
+  color: #6d6d80;
+  font-size: 12px;
+  line-height: 15px;
+  font-weight: 400;
+  text-align: center;
+
+  @media (max-width: 759px) {
+    font-size: 11px;
+    line-height: 14px;
   }
 `;
 
