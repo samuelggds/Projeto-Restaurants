@@ -77,6 +77,11 @@ export interface WaiterTableAccountSnapshot {
     createdAt: string;
     manualConfirmedAt: string | null;
     manualConfirmedByName: string | null;
+    events?: Array<{
+      actorName: string | null;
+      stage?: string | null;
+      occurredAt: string;
+    }>;
   }>;
 }
 export interface WaiterManualPayment {
@@ -85,6 +90,9 @@ export interface WaiterManualPayment {
   status: 'RESERVED' | 'PROCESSING';
   totalCents: number;
   createdAt: string;
+  payerParticipantPublicId?: string;
+  payerDisplayName?: string;
+  staffReceiptRegistered?: boolean;
 }
 export interface WaiterAccountSession {
   tableSessionId: string;

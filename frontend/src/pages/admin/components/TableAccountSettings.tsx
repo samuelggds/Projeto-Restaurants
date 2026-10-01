@@ -47,6 +47,11 @@ type AccountDetail = {
     totalCents: number;
     serviceFeeCents: number;
     payerParticipantPublicId: string;
+    events?: Array<{
+      actorName: string | null;
+      stage?: string | null;
+      occurredAt: string;
+    }>;
   }>;
 };
 
@@ -189,11 +194,11 @@ export function TableAccountSettings({ settings, update }: Props) {
     payment: AccountDetail['paymentIntents'][number],
     session: AdminSession,
   ) => {
-    const method = payment.method === 'CASH' ? 'dinheiro' : 'maquininha';
+    const staffReceipt = payment.events?.find((event) => event.stage === 'STAFF_RECEIVED');
     const confirmed = await confirmDialog({
-      title: 'Confirmar pagamento recebido?',
-      description: `Mesa ${String(session.tableNumber).padStart(2, '0')} • ${money(payment.totalCents)} em ${method}. Confirme somente depois de conferir o recebimento no caixa.`,
-      confirmLabel: 'Confirmar recebimento',
+      title: 'Confirmar pagamento em dinheiro?',
+      description: `Mesa ${String(session.tableNumber).padStart(2, '0')} • ${money(payment.totalCents)}. ${staffReceipt?.actorName ? `Recebimento registrado por ${staffReceipt.actorName}. ` : ''}Ao confirmar como admin, este pagamento passa para PAGO.`,
+      confirmLabel: 'Confirmar como pago',
       cancelLabel: 'Voltar e conferir',
     });
     if (!confirmed) return;
@@ -204,7 +209,7 @@ export function TableAccountSettings({ settings, update }: Props) {
       const detail = await tableAccountService.getAdminSnapshot(session.sessionPublicId);
       setDetails((current) => ({ ...current, [session.sessionPublicId]: detail }));
       await refreshSessions();
-      toast.success('Pagamento presencial confirmado.');
+      toast.success('Pagamento em dinheiro confirmado como pago.');
     } catch {
       toast.error('Não foi possível confirmar este pagamento.');
     } finally {
@@ -550,14 +555,14 @@ export function TableAccountSettings({ settings, update }: Props) {
                             <div>{money(payment.totalCents)}</div>
                           </div>
                           <div className="payment-actions">
-                            {['CASH', 'CARD_MACHINE'].includes(payment.method) &&
+                            {payment.method === 'CASH' &&
                               ['RESERVED', 'PROCESSING'].includes(payment.status) && (
                                 <S.Button
                                   type="button"
                                   disabled={busyId === payment.publicId}
                                   onClick={() => void confirmManual(payment, session)}
                                 >
-                                  Confirmar recebimento
+                                  Confirmar como pago
                                 </S.Button>
                               )}
                             {payment.status === 'PAID' && (

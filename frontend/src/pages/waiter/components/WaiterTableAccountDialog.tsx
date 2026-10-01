@@ -2,7 +2,6 @@ import {
   Banknote,
   CheckCircle2,
   Clock3,
-  CreditCard,
   Info,
   ReceiptText,
   RefreshCw,
@@ -38,11 +37,19 @@ function getErrorMessage(error: unknown, fallback: string) {
 }
 
 function isManualPayment(payment: WaiterTableAccountSnapshot['paymentIntents'][number]) {
-  return payment.method === 'CASH' || payment.method === 'CARD_MACHINE';
+  return payment.method === 'CASH';
+}
+
+function staffReceiptRegistered(payment: WaiterTableAccountSnapshot['paymentIntents'][number]) {
+  return Boolean(payment.events?.some((event) => event.stage === 'STAFF_RECEIVED'));
 }
 
 function canConfirmManualPayment(payment: WaiterTableAccountSnapshot['paymentIntents'][number]) {
-  return isManualPayment(payment) && ['RESERVED', 'PROCESSING'].includes(payment.status);
+  return (
+    isManualPayment(payment) &&
+    ['RESERVED', 'PROCESSING'].includes(payment.status) &&
+    !staffReceiptRegistered(payment)
+  );
 }
 
 function formatConfirmation(value: string | null) {
@@ -103,11 +110,10 @@ export function WaiterTableAccountDialog({
   }, [loadSnapshot, tableAccountRefreshKey]);
 
   const confirmManual = async (payment: WaiterTableAccountSnapshot['paymentIntents'][number]) => {
-    const method = payment.method === 'CASH' ? 'dinheiro' : 'maquininha';
     const confirmed = await confirmDialog({
-      title: 'Confirmar pagamento recebido?',
-      description: `Mesa ${String(table.number).padStart(2, '0')} • ${brl(payment.totalCents / 100)} em ${method}. Confirme somente depois de receber o valor do cliente.`,
-      confirmLabel: 'Confirmar recebimento',
+      title: 'Registrar dinheiro recebido?',
+      description: `Mesa ${String(table.number).padStart(2, '0')} • ${brl(payment.totalCents / 100)}. Este registro informa ao admin que a equipe recebeu o dinheiro, mas não marca a conta como paga.`,
+      confirmLabel: 'Registrar recebimento',
       cancelLabel: 'Voltar e conferir',
     });
     if (!confirmed) return;
@@ -120,7 +126,7 @@ export function WaiterTableAccountDialog({
       await onRefresh?.();
     } catch (requestError) {
       setError(
-        getErrorMessage(requestError, 'Não foi possível confirmar o recebimento deste pagamento.'),
+        getErrorMessage(requestError, 'Não foi possível registrar o recebimento deste pagamento.'),
       );
     } finally {
       setBusyPaymentId('');
@@ -144,7 +150,7 @@ export function WaiterTableAccountDialog({
             <h2 id="waiter-table-account-title">
               Comanda • Mesa {String(table.number).padStart(2, '0')}
             </h2>
-            <p>Acompanhe consumo, pagamentos online e saldo restante em tempo real.</p>
+            <p>Acompanhe cada cliente, PIX e dinheiro pendente em tempo real.</p>
           </span>
           <button type="button" aria-label="Fechar comanda da mesa" onClick={onClose}>
             <X />
@@ -157,7 +163,7 @@ export function WaiterTableAccountDialog({
             <div>
               <b>Prévia da comanda</b>
               <p>
-                Pedidos e pagamentos online aparecem automaticamente. Pix e cartão só entram como pagos depois da confirmação do provedor.
+                PIX entra como pago automaticamente. Dinheiro só fica pago depois da confirmação do administrador.
               </p>
             </div>
           </S.AccountGuidance>
@@ -174,7 +180,7 @@ export function WaiterTableAccountDialog({
                   <b>{brl(snapshot.summary.consumedCents / 100)}</b>
                 </span>
                 <span className="paid">
-                  <small>Pago online</small>
+                  <small>Pago</small>
                   <b>{brl(snapshot.summary.netPaidCents / 100)}</b>
                 </span>
                 <span className="remaining">
@@ -240,8 +246,8 @@ export function WaiterTableAccountDialog({
               <S.AccountPayments>
                 <header>
                   <div>
-                    <h3>Pagamentos online</h3>
-                    <p>Confirmações do Pix e cartão aparecem automaticamente.</p>
+                    <h3>Pagamentos</h3>
+                    <p>PIX confirma automaticamente; dinheiro aguarda a confirmação do admin.</p>
                   </div>
                   <button
                     type="button"
@@ -258,7 +264,7 @@ export function WaiterTableAccountDialog({
                   return (
                     <S.PaymentRow key={payment.publicId} $status={payment.status}>
                       <span className="method-icon" aria-hidden="true">
-                        {manual ? <Banknote /> : <CreditCard />}
+                        {manual ? <Banknote /> : <CheckCircle2 />}
                       </span>
                       <span className="payment-info">
                         <b>{paymentMethodLabel[payment.method]}</b>
@@ -271,11 +277,13 @@ export function WaiterTableAccountDialog({
                                     : ''
                                 }`
                               : 'Confirmação automática recebida'
-                            : confirmable
-                              ? 'Confira o recebimento presencial antes de confirmar'
-                              : payment.status === 'PROCESSING'
-                                ? 'Aguardando confirmação automática do provedor'
-                                : paymentStatusLabel[payment.status]}
+                            : staffReceiptRegistered(payment)
+                              ? 'Dinheiro recebido pela equipe · aguardando admin'
+                              : confirmable
+                                ? 'Registre somente depois de receber o dinheiro'
+                                : payment.status === 'PROCESSING'
+                                  ? 'Aguardando confirmação automática do provedor'
+                                  : paymentStatusLabel[payment.status]}
                         </small>
                       </span>
                       <span className="payment-value">
@@ -291,7 +299,7 @@ export function WaiterTableAccountDialog({
                           <CheckCircle2 />
                           {busyPaymentId === payment.publicId
                             ? 'Confirmando...'
-                            : 'Confirmar valor recebido'}
+                            : 'Registrar dinheiro recebido'}
                         </S.ConfirmReceivedButton>
                       )}
                     </S.PaymentRow>
