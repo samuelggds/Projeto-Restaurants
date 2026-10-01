@@ -347,20 +347,14 @@ export const CartTitleRow = styled.div`
 `;
 
 export const CartSummarySidebar = styled.aside`
-  position: sticky;
-  top: 24px;
   width: 100%;
-  max-height: calc(100vh - 48px);
   padding: 28px;
   display: grid;
   align-content: start;
   gap: 20px;
-  overflow-y: auto;
-  overscroll-behavior: contain;
   border: 1px solid var(--checkout-line);
   border-radius: 20px;
   background: #fff;
-  box-shadow: 0 18px 42px rgba(31, 30, 26, 0.08);
 
   h2 {
     margin: 0;
