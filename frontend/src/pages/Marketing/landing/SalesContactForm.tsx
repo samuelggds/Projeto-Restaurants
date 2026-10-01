@@ -242,6 +242,7 @@ export function SalesContactForm({
                 <S.Field htmlFor={`${id}-city`}>
                   Cidade *
                   <input
+                    aria-label="Cidade"
                     id={`${id}-city`}
                     name="city"
                     autoComplete="address-level2"
@@ -254,6 +255,7 @@ export function SalesContactForm({
                 <S.Field htmlFor={`${id}-state`}>
                   Estado *
                   <select
+                    aria-label="Estado"
                     id={`${id}-state`}
                     name="state"
                     autoComplete="address-level1"
@@ -272,7 +274,13 @@ export function SalesContactForm({
                 </S.Field>
                 <S.Field htmlFor={`${id}-business`}>
                   Tipo de negócio *
-                  <select id={`${id}-business`} name="businessType" defaultValue="" required>
+                  <select
+                    aria-label="Tipo de negócio"
+                    id={`${id}-business`}
+                    name="businessType"
+                    defaultValue=""
+                    required
+                  >
                     <option value="" disabled>
                       Selecione
                     </option>
