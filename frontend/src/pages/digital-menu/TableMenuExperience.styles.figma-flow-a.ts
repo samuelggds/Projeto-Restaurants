@@ -993,6 +993,71 @@ export const TimelineStep = styled.div<{ $active: boolean; $current?: boolean }>
     font-weight: 600;
   }
 
+  &.tracking-step {
+    grid-template-columns: 24px minmax(0, 1fr);
+    gap: 12px;
+    align-items: start;
+    opacity: 1;
+  }
+
+  &.tracking-step .dot {
+    width: 24px;
+    height: 24px;
+    border-radius: 6px;
+    background: #f3f3f1;
+    color: #a9a9b4;
+  }
+
+  &.tracking-step .copy {
+    padding-top: 1px;
+    display: grid;
+    align-items: start;
+    gap: 2px;
+  }
+
+  &.tracking-step b {
+    color: #1a1a2e;
+    font-weight: 700;
+  }
+
+  &.tracking-step p {
+    color: #6d6d80;
+  }
+
+  &.tracking-step.completed .dot {
+    background: #ecfdf5;
+    color: #10b981;
+    box-shadow: none;
+  }
+
+  &.tracking-step.completed b {
+    color: #1a1a2e;
+  }
+
+  &.tracking-step.current .dot {
+    background: #fff1f1;
+    color: #ff4b4b;
+    box-shadow: none;
+  }
+
+  &.tracking-step.current b {
+    color: #ff4b4b;
+  }
+
+  &.tracking-step.pending {
+    opacity: .4;
+  }
+
+  &.tracking-step.pending .dot {
+    background: #eaeae6;
+    color: transparent;
+  }
+
+  &.tracking-step.pending b {
+    color: #1a1a2e;
+    font-weight: 400;
+  }
+
   p { margin: 0; color: var(--muted); font-size: 12px; line-height: 16px; }
 
   @media (prefers-reduced-motion: reduce) { animation: none; }
@@ -1264,7 +1329,7 @@ export const TrackingPixAction = styled.button`
   padding: 12px 20px;
   border: 0;
   border-radius: 6px;
-  background: #2ecc70;
+  background: #32bcad;
   color: #fff;
   display: flex;
   align-items: center;
@@ -1273,15 +1338,31 @@ export const TrackingPixAction = styled.button`
   font-size: 15px;
   line-height: 19px;
   font-weight: 700;
+  box-shadow: none;
 
   svg {
     width: 20px;
     height: 20px;
     flex: 0 0 20px;
+    color: currentColor;
+  }
+
+  &:hover:not(:disabled) {
+    background: #2aa89b;
+  }
+
+  &:active:not(:disabled) {
+    background: #23988d;
+  }
+
+  &:focus-visible {
+    outline: 3px solid rgba(50, 188, 173, .28);
+    outline-offset: 2px;
   }
 
   &:disabled {
     opacity: 0.55;
+    cursor: not-allowed;
   }
 
   @media (min-width: 760px) {
