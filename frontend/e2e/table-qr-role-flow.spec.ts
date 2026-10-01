@@ -762,6 +762,14 @@ test('admin controla o QR, garçom apenas opera a mesa e cozinha recebe Mesa 1',
   await expect(page.getByText('Pizza Calabresa', { exact: true })).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Chamar garçom para mesa' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Pagar agora com PIX' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Outras formas de pagamento' })).toBeVisible();
+
+  await page.getByRole('button', { name: 'Outras formas de pagamento' }).click();
+  await expect(page.getByRole('heading', { name: 'Como prefere pagar?' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Escolher PIX' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Deixar aberto na Mesa' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Pagar com dinheiro' })).toBeVisible();
+  await page.getByRole('button', { name: 'Voltar' }).click();
 
   await selectPersona(page, 'kitchen');
   await page.goto('/kitchen');
