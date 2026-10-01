@@ -6,6 +6,7 @@ import {
   Eye,
   Clock3,
   Banknote,
+  ReceiptText,
   Table2,
   Utensils,
   WalletCards,
