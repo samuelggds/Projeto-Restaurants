@@ -20,6 +20,7 @@ export type TableOrderNotice = {
   statusLabel: string;
   progress: number;
   cancelled: boolean;
+  createdAt?: string;
 };
 
 const TABLE_STATUS: Record<string, { label: string; progress: number }> = {
@@ -118,6 +119,7 @@ export function getTableOrderNotice(order: unknown): TableOrderNotice | null {
   const statusInfo = TABLE_STATUS[status];
   if (publicId == null || !statusInfo) return null;
   const items = parseItems(record);
+  const createdAt = String(record.createdAt || '').trim();
 
   return {
     publicId: String(publicId),
@@ -127,5 +129,6 @@ export function getTableOrderNotice(order: unknown): TableOrderNotice | null {
     statusLabel: statusInfo.label,
     progress: statusInfo.progress,
     cancelled: status === 'CANCELADO',
+    ...(createdAt ? { createdAt } : {}),
   };
 }
