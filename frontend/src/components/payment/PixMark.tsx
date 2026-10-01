@@ -1,16 +1,15 @@
 type PixMarkProps = {
   className?: string;
-  title?: string;
 };
 
-export function PixMark({ className, title = 'Pix' }: PixMarkProps) {
+export function PixMark({ className }: PixMarkProps) {
   return (
     <svg
       className={className}
       data-pix-mark
       viewBox="0 0 24 24"
-      role="img"
-      aria-label={title}
+      aria-hidden="true"
+      focusable="false"
       xmlns="http://www.w3.org/2000/svg"
     >
       <path
