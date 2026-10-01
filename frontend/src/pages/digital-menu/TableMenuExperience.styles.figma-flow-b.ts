@@ -41,8 +41,8 @@ export const PaymentChoiceCard = styled(FlowCard)`
 
   &:first-child {
     border-width: 2px;
-    border-color: var(--primary);
-    background: color-mix(in srgb, var(--primary) 8%, #fff);
+    border-color: #ff4b4b;
+    background: #fff1f1;
   }
 
   .icon {
@@ -51,7 +51,7 @@ export const PaymentChoiceCard = styled(FlowCard)`
     flex: 0 0 40px;
     border-radius: 10px;
     background: #fff;
-    color: var(--primary);
+    color: #ff4b4b;
     display: grid;
     place-items: center;
   }
@@ -62,7 +62,7 @@ export const PaymentChoiceCard = styled(FlowCard)`
   }
 
   .pix-icon {
-    color: #77b6a8;
+    color: #ff4b4b;
   }
 
   .pix-icon svg {
@@ -76,7 +76,7 @@ export const PaymentChoiceCard = styled(FlowCard)`
     right: 24px;
     padding: 4px 10px;
     border-radius: 999px;
-    background: var(--primary);
+    background: #ff4b4b;
     color: #fff;
     font-size: 11px;
     line-height: 14px;
@@ -121,6 +121,24 @@ export const PaymentChoiceCard = styled(FlowCard)`
     color: #ff4b4b;
   }
 
+  &.unavailable {
+    border-color: #e6e6e1;
+    background: #fafaf8;
+  }
+
+  &.unavailable .icon {
+    background: #f1f1ee;
+    color: #aaaab3;
+  }
+
+  &.unavailable button:disabled {
+    border-color: #deded9;
+    background: #efefec;
+    color: #aaaab3;
+    opacity: 1;
+    cursor: not-allowed;
+  }
+
   @media (max-width: 759px) {
     height: auto;
     min-height: 162px;
@@ -152,7 +170,7 @@ export const PaymentChoiceCard = styled(FlowCard)`
       align-self: center;
       padding: 4px 10px;
       border-radius: 999px;
-      background: var(--primary);
+      background: #ff4b4b;
       color: #fff;
       font-size: 10px;
       line-height: 13px;
