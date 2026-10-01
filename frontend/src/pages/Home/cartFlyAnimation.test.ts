@@ -22,7 +22,7 @@ describe('cartFlyAnimation', () => {
     expect(midpoint.y).toBeLessThan(104);
   });
 
-  it('aguarda o alvo do carrinho reaparecer depois que um configurador fecha', () => {
+  it('anima mesmo quando o carrinho ainda não está montado no DOM', () => {
     const frames: FrameRequestCallback[] = [];
     vi.stubGlobal('requestAnimationFrame', (callback: FrameRequestCallback) => {
       frames.push(callback);
@@ -47,28 +47,48 @@ describe('cartFlyAnimation', () => {
 
     expect(frames).toHaveLength(1);
     frames.shift()?.(0);
-    expect(frames).toHaveLength(1);
-    expect(document.querySelector('[data-cart-fly-preview]')).toBeNull();
+
+    expect(document.querySelector('[data-cart-fly-preview]')).not.toBeNull();
+    expect(animate).toHaveBeenCalled();
+  });
+
+  it('projeta um carrinho fora da viewport para um destino visual válido', () => {
+    const frames: FrameRequestCallback[] = [];
+    vi.stubGlobal('requestAnimationFrame', (callback: FrameRequestCallback) => {
+      frames.push(callback);
+      return frames.length;
+    });
+    vi.stubGlobal('matchMedia', vi.fn(() => ({ matches: false })));
+
+    const animate = vi.fn(() => ({
+      finished: Promise.resolve(),
+    }));
+    Object.defineProperty(Element.prototype, 'animate', {
+      configurable: true,
+      value: animate,
+    });
 
     const target = document.createElement('button');
     target.setAttribute('data-cart-fly-target', 'true');
     target.getBoundingClientRect = () =>
       ({
         left: 900,
-        top: 40,
+        top: -500,
         width: 48,
         height: 48,
         right: 948,
-        bottom: 88,
+        bottom: -452,
         x: 900,
-        y: 40,
+        y: -500,
         toJSON: () => ({}),
       }) as DOMRect;
     document.body.appendChild(target);
 
-    frames.shift()?.(16);
+    scheduleProductToCartAnimation({
+      origin: { left: 120, top: 500, width: 80, height: 80 },
+    });
+    frames.shift()?.(0);
 
     expect(document.querySelector('[data-cart-fly-preview]')).not.toBeNull();
     expect(animate).toHaveBeenCalled();
-  });
-});
+  });});
