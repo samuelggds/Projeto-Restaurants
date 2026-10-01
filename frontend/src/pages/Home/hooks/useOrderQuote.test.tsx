@@ -43,16 +43,18 @@ const completeAddress = {
 function HookProbe({
   restaurantId = 7,
   address = completeAddress,
+  couponRedemptionId = null,
 }: {
   restaurantId?: number | null;
   address?: typeof completeAddress;
+  couponRedemptionId?: number | null;
 }) {
   useOrderQuote({
     restaurantId,
     type: 'DELIVERY',
     cart,
     deliveryAddress: address,
-    couponRedemptionId: null,
+    couponRedemptionId,
   });
   return null;
 }
@@ -121,6 +123,28 @@ describe('useOrderQuote', () => {
       await vi.advanceTimersByTimeAsync(ORDER_QUOTE_DEBOUNCE_MS * 2);
     });
     expect(ordersService.quoteOrder).not.toHaveBeenCalled();
+  });
+
+  it('permite validar cupom selecionado antes de concluir o endereço de delivery', async () => {
+    await act(async () => {
+      root.render(
+        <HookProbe
+          address={{ ...completeAddress, number: '' }}
+          couponRedemptionId={71}
+        />,
+      );
+      await Promise.resolve();
+    });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(ORDER_QUOTE_DEBOUNCE_MS);
+      await Promise.resolve();
+    });
+
+    expect(ordersService.quoteOrder).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(ordersService.quoteOrder).mock.calls[0]?.[0]).toMatchObject({
+      restaurantId: 7,
+      couponRedemptionId: 71,
+    });
   });
 
   it('faz uma única cotação depois que a digitação estabiliza', async () => {
