@@ -176,4 +176,16 @@ describe('RouteAuthorizationGuard após login', () => {
     expect(container.textContent).toBe('/restaurant-required');
     expect(container.textContent).not.toContain('__TENANT_LOGIN__');
   });
+
+  it.each([
+    { role: 'FUNCIONARIO', subRole: 'GARCOM' },
+    { role: 'FUNCIONARIO', subRole: 'ATENDENTE' },
+    { role: 'FUNCIONARIO', subRole: 'COZINHA' },
+    { role: 'MOTOQUEIRO' },
+    { role: 'OUTRO' },
+  ])('mantém /north-pizza público mesmo com uma sessão $role salva', (user) => {
+    renderGuardedEntry(user, '/north-pizza');
+
+    expect(container.textContent).toBe('/north-pizza');
+  });
 });

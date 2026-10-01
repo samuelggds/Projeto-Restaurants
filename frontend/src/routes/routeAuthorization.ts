@@ -53,26 +53,35 @@ const isGuestEntry = (path: string) => {
   return isAllowedTenantRoot(privateAdminEntry);
 };
 
-export function isPublicRoute(pathname: string) {
+export function isPublicRestaurantRoute(pathname: string) {
   const path = normalizePath(pathname);
   const singleSegment = path.match(/^\/([^/]+)$/)?.[1];
   const restaurantTable = path.match(/^\/([^/]+)\/mesa\/[^/]+$/)?.[1];
-  const deliveryTracking = /^\/orders\/\d+\/tracking$/u.test(path);
-  const deliveryChat = /^\/orders\/\d+\/chat$/u.test(path);
-  const orderPixPayment = /^\/[^/]+\/pedido\/[^/]+\/pagamento$/u.test(path);
+  const orderPixPayment = /^\/([^/]+)\/pedido\/[^/]+\/pagamento$/u.exec(path)?.[1];
   const guestOrders = /^\/([^/]+)\/pedidos$/u.exec(path)?.[1];
   const tenantLegal = /^\/([^/]+)\/(?:termos|privacidade|cookies)$/u.exec(path)?.[1];
+
+  return Boolean(
+    isAllowedTenantRoot(singleSegment) ||
+      isAllowedTenantRoot(restaurantTable) ||
+      isAllowedTenantRoot(orderPixPayment) ||
+      isAllowedTenantRoot(guestOrders) ||
+      isAllowedTenantRoot(tenantLegal),
+  );
+}
+
+export function isPublicRoute(pathname: string) {
+  const path = normalizePath(pathname);
+  const deliveryTracking = /^\/orders\/\d+\/tracking$/u.test(path);
+  const deliveryChat = /^\/orders\/\d+\/chat$/u.test(path);
+
   return (
     path === '/system-maintenance' ||
     path === '/recover-password' ||
     path === TENANT_REQUIRED_PATH ||
     deliveryTracking ||
     deliveryChat ||
-    orderPixPayment ||
-    isAllowedTenantRoot(guestOrders) ||
-    isAllowedTenantRoot(tenantLegal) ||
-    isAllowedTenantRoot(singleSegment) ||
-    isAllowedTenantRoot(restaurantTable)
+    isPublicRestaurantRoute(path)
   );
 }
 
@@ -120,6 +129,11 @@ export function authorizeRoute(pathname: string, user: RouteUser): RouteDecision
       ? { allowed: true }
       : { allowed: false, redirectTo: '/change-password' };
   }
+
+  // O cardápio, a mesa por QR e as demais experiências públicas do restaurante
+  // continuam acessíveis mesmo quando o navegador possui uma sessão operacional.
+  // A sessão não concede acesso extra: os portais privados seguem as regras por papel abaixo.
+  if (isPublicRestaurantRoute(path)) return { allowed: true };
 
   // O namespace técnico é exclusivo do SUPER_ADMIN autenticado.
   if (isPath(path, '/super_admin')) {

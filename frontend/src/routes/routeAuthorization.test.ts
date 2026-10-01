@@ -162,7 +162,7 @@ describe('política de autorização de rotas', () => {
     });
   });
 
-  it('isola motoqueiro, cozinha, garçom e atendente', () => {
+  it('isola os portais operacionais sem bloquear o cardápio público do restaurante', () => {
     const cases = [
       [{ role: 'MOTOQUEIRO' }, '/courier', '/admin'],
       [{ role: 'FUNCIONARIO', subRole: 'COZINHA' }, '/kitchen', '/waiter'],
@@ -172,7 +172,9 @@ describe('política de autorização de rotas', () => {
     for (const [user, own, other] of cases) {
       expect(allowed(own, user)).toBe(true);
       expect(allowed(other, user)).toBe(false);
-      expect(allowed('/pizzaria', user)).toBe(false);
+      expect(allowed('/pizzaria', user)).toBe(true);
+      expect(allowed('/pizzaria/mesa/12', user)).toBe(true);
+      expect(allowed('/pizzaria/pedidos', user)).toBe(true);
     }
     expect(allowed('/orders/42/chat', { role: 'MOTOQUEIRO' })).toBe(true);
   });
@@ -191,14 +193,16 @@ describe('política de autorização de rotas', () => {
     }
   });
 
-  it('manda perfil desconhecido para resolução explícita de tenant sem expor marcador interno', () => {
+  it('mantém perfil desconhecido fora dos painéis, mas não bloqueia a experiência pública do tenant', () => {
     expect(authorizeRoute('/admin', { role: 'OUTRO' })).toEqual({
       allowed: false,
       redirectTo: TENANT_REQUIRED_PATH,
     });
+    expect(authorizeRoute('/north-pizza', { role: 'OUTRO' })).toEqual({ allowed: true });
+    expect(authorizeRoute('/north-pizza/mesa/12', { role: 'OUTRO' })).toEqual({ allowed: true });
   });
 
-  it('não cria login global para funcionário sem subcargo', () => {
+  it('não cria login global para funcionário sem subcargo, mas mantém o cardápio público acessível', () => {
     const legacyEmployee = { role: 'FUNCIONARIO', subRole: null };
 
     expect(authorizeRoute('/pizzaria/team', legacyEmployee)).toEqual({
@@ -209,5 +213,6 @@ describe('política de autorização de rotas', () => {
       allowed: false,
       redirectTo: TENANT_REQUIRED_PATH,
     });
+    expect(authorizeRoute('/pizzaria', legacyEmployee)).toEqual({ allowed: true });
   });
 });
