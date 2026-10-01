@@ -4,6 +4,7 @@ export const Page = styled.div<{
   $primary: string;
   $embedded?: boolean;
   $customerPageVariant?: boolean;
+  $tableMenuVariant?: boolean;
 }>`
   --config-primary: ${({ $primary }) => $primary || '#d64d08'};
   position: ${({ $embedded }) => ($embedded ? 'relative' : 'fixed')};
@@ -744,6 +745,10 @@ export const OptionList = styled.div`
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
   gap: 9px;
+
+  .product-half-group & {
+    grid-template-columns: 1fr;
+  }
 
   @media (max-width: 620px) {
     grid-template-columns:1fr;
