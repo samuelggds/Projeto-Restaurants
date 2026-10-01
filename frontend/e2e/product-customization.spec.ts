@@ -326,6 +326,52 @@ const completeProduct = {
   optionGroups: [],
 };
 
+const comboProduct = {
+  id: 505,
+  name: 'Combo Lanche',
+  description: 'Combo com escolha obrigatória.',
+  price: 39.9,
+  active: true,
+  stock: null,
+  image: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M/wHwAF/gL+3zS5WQAAAABJRU5ErkJggg==',
+  kind: 'COMBO',
+  saleMode: 'BUILDABLE',
+  configurationVersion: 1,
+  category: { name: 'Combos' },
+  optionGroups: [],
+  comboGroups: [
+    {
+      id: 100,
+      name: 'Lanche principal',
+      description: 'Escolha o item do combo.',
+      minSelections: 1,
+      maxSelections: 1,
+      active: true,
+      options: [
+        {
+          id: 1000,
+          componentProductId: 303,
+          additionalPrice: 0,
+          minQuantity: 1,
+          maxQuantity: 1,
+          defaultQuantity: 1,
+          locked: true,
+          active: true,
+          componentProduct: {
+            id: 303,
+            name: 'Refrigerante pronto',
+            description: 'Item incluído',
+            image: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M/wHwAF/gL+3zS5WQAAAABJRU5ErkJggg==',
+            price: 8,
+            stock: null,
+            active: true,
+          },
+        },
+      ],
+    },
+  ],
+};
+
 const defaultedProduct = {
   id: 404,
   name: 'Produto com escolhas iniciais',
@@ -407,7 +453,14 @@ async function mockStorefront(page: Page) {
         status: 200,
         contentType: 'application/json',
         body: JSON.stringify({
-          products: [product, advancedProduct, halfHalfProduct, completeProduct, defaultedProduct],
+          products: [
+            product,
+            advancedProduct,
+            halfHalfProduct,
+            completeProduct,
+            defaultedProduct,
+            comboProduct,
+          ],
         }),
       });
       return;
@@ -613,6 +666,23 @@ test('produto COMPLETE é adicionado sem abrir etapas de montagem', async ({ pag
   await expect(page.getByRole('dialog', { name: 'Montar Refrigerante pronto' })).toHaveCount(0);
   const cart = await openCartAfterAddition(page);
   await expect(cart.getByText('Refrigerante pronto', { exact: true })).toBeVisible();
+});
+
+test('combo confirmado sempre dispara fly to cart', async ({ page }) => {
+  await mockStorefront(page);
+  await page.goto('/restaurante-teste');
+  await enterMenu(page);
+
+  await page.getByRole('button', { name: 'Ver detalhes de Combo Lanche' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Montar Combo Lanche' });
+  await expect(dialog).toBeVisible();
+  await expect(dialog.getByText('Lanche principal', { exact: true })).toBeVisible();
+
+  await dialog.getByRole('button', { name: 'Adicionar combo à sacola' }).click();
+  await expect(page.locator('[data-cart-fly-preview]')).toBeVisible();
+
+  const cart = await openCartAfterAddition(page);
+  await expect(cart.getByText('Combo Lanche', { exact: true })).toBeVisible();
 });
 
 test('aplica defaultSelected e impede remover opção locked', async ({ page }) => {
