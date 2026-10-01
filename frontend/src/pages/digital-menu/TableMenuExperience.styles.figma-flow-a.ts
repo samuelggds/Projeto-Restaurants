@@ -592,11 +592,11 @@ export const HelperText = styled.p`
 `;
 
 export const ConfirmationCard = styled(FlowCard)`
-  width: min(640px, 100%);
-  margin: 16px auto 0;
-  padding: 48px;
+  width: min(560px, 100%);
+  margin: 8px auto 0;
+  padding: 36px;
   display: grid;
-  gap: 24px;
+  gap: 16px;
   box-shadow: 0 12px 16px rgba(0, 0, 0, 0.04);
   transform-origin: 50% 18%;
   animation: confirmation-card-enter 460ms cubic-bezier(.22, 1, .36, 1) both;
@@ -613,20 +613,20 @@ export const ConfirmationCard = styled(FlowCard)`
   }
 
   @media (max-width: 759px) {
-    width: calc(100% + 40px);
-    margin: -20px -20px 0;
-    padding: 24px;
+    width: 100%;
+    margin: 0;
+    padding: 12px 0 0;
     border: 0;
     border-radius: 0;
     background: transparent;
     box-shadow: none;
-    gap: 20px;
+    gap: 14px;
   }
 
   @media (max-width: 359px) {
-    width: calc(100% + 28px);
-    margin-inline: -14px;
-    padding-inline: 14px;
+    width: 100%;
+    margin-inline: 0;
+    padding-inline: 0;
   }
 
   @media (prefers-reduced-motion: reduce) {
@@ -668,8 +668,8 @@ export const SuccessHero = styled.section`
   }
 
   .ring {
-    width: 96px;
-    height: 96px;
+    width: 72px;
+    height: 72px;
     border-radius: 48px;
     background: #ecfdf5;
     display: grid;
@@ -680,16 +680,16 @@ export const SuccessHero = styled.section`
   .ring::after {
     content: '';
     position: absolute;
-    inset: 12px;
+    inset: 9px;
     border-radius: 999px;
     border: 2px solid rgba(16, 185, 129, .22);
     animation: success-ring-pulse 1.35s ease-out 260ms 1 both;
   }
 
   .check {
-    width: 56px;
-    height: 56px;
-    border-radius: 28px;
+    width: 44px;
+    height: 44px;
+    border-radius: 22px;
     background: #10b981;
     color: #fff;
     display: grid;
@@ -739,19 +739,19 @@ export const SuccessHero = styled.section`
   }
 
   h1 {
-    margin: 10px 0 0;
+    margin: 6px 0 0;
     color: var(--text);
-    font-size: 36px;
-    line-height: 42px;
+    font-size: 30px;
+    line-height: 36px;
     font-weight: 500;
   }
 
   p {
-    max-width: 520px;
+    max-width: 360px;
     margin: 0;
     color: var(--muted);
-    font-size: 15px;
-    line-height: 21px;
+    font-size: 13px;
+    line-height: 18px;
   }
 
   @media (prefers-reduced-motion: reduce) {
@@ -765,33 +765,33 @@ export const SuccessHero = styled.section`
 
   @media (max-width: 759px) {
     .ring {
-      width: 80px;
-      height: 80px;
+      width: 64px;
+      height: 64px;
     }
 
     .check {
-      width: 48px;
-      height: 48px;
+      width: 40px;
+      height: 40px;
     }
 
     h1 {
-      margin-top: 6px;
-      font-size: 28px;
-      line-height: 34px;
+      margin-top: 4px;
+      font-size: 25px;
+      line-height: 31px;
     }
 
     p {
-      max-width: 300px;
-      font-size: 13px;
-      line-height: 18px;
+      max-width: 290px;
+      font-size: 12px;
+      line-height: 17px;
     }
   }
 `;
 
 export const OrderSummaryBar = styled(FlowCard)`
-  min-height: 56px;
-  padding: 16px 18px;
-  border-radius: 14px;
+  min-height: 48px;
+  padding: 12px 14px;
+  border-radius: 10px;
   background: var(--background);
   display: flex;
   align-items: center;
@@ -839,7 +839,7 @@ export const TimelineCard = styled(FlowCard)`
   border-radius: 18px;
 
   &.confirmation-timeline {
-    padding: 20px;
+    padding: 14px;
     animation: confirmation-block-enter 420ms cubic-bezier(.22, 1, .36, 1) 350ms both;
   }
 
@@ -858,7 +858,7 @@ export const TimelineCard = styled(FlowCard)`
     padding: 16px;
 
     &.confirmation-timeline {
-      padding: 20px;
+      padding: 14px;
     }
   }
 `;
@@ -868,14 +868,14 @@ export const Timeline = styled.div`
   gap: 24px;
 
   .confirmation-timeline & {
-    gap: 20px;
+    gap: 12px;
   }
 
   @media (max-width: 759px) {
     gap: 16px;
 
     .confirmation-timeline & {
-      gap: 16px;
+      gap: 10px;
     }
   }
 `;
@@ -983,7 +983,18 @@ export const TimelineStep = styled.div<{ $active: boolean; $current?: boolean }>
 export const ConfirmationActions = styled.div`
   width: 100%;
   display: grid;
-  gap: 10px;
+  gap: 8px;
+
+  .pix-action {
+    color: var(--text);
+  }
+
+  .pix-action svg {
+    width: 18px;
+    height: 18px;
+    color: #77b6a8;
+    flex: 0 0 18px;
+  }
   animation: confirmation-block-enter 420ms cubic-bezier(.22, 1, .36, 1) 640ms both;
 
   button {
