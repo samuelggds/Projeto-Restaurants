@@ -111,14 +111,14 @@ export const PaymentChoiceCard = styled(FlowCard)`
 
   .primary {
     border: 0;
-    background: var(--primary);
+    background: #ff4b4b;
     color: #fff;
   }
 
   .secondary {
-    border: 1px solid var(--line);
+    border: 1px solid #ff4b4b;
     background: #fff;
-    color: var(--text);
+    color: #ff4b4b;
   }
 
   @media (max-width: 759px) {
@@ -334,8 +334,8 @@ export const PixCopyBox = styled.div`
     padding: 0 14px;
     border: 0;
     border-radius: 8px;
-    background: color-mix(in srgb, var(--primary) 10%, #fff);
-    color: var(--primary);
+    background: #fff1f1;
+    color: #ff4b4b;
     font-size: 12px;
     font-weight: 700;
   }
