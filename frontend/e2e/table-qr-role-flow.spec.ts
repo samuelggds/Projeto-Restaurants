@@ -648,11 +648,36 @@ async function identifyTableGuest(page: Page, waitForMenu = true) {
 async function reviewTableDraft(page: Page) {
   await page.getByRole('button', { name: 'Meu pedido' }).click();
   await expect(page.getByRole('heading', { name: 'Minha sacola' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Limpar carrinho' })).toBeVisible();
 
   if ((await page.viewportSize())?.width && (await page.viewportSize())!.width < 760) {
     await expect(page.getByRole('button', { name: 'Voltar para o cardápio' })).toBeVisible();
   }
 }
+
+test('barra inferior da home da mesa fica fixa somente no mobile', async ({ page }) => {
+  const state: FlowState = {
+    tableCreated: true,
+    tableOpen: true,
+    createTablePayload: null,
+    orderPayload: null,
+    orderStatus: 'PENDENTE',
+    adminTableReads: 0,
+    waiterTableReads: 0,
+  };
+  await mockRoleFlowApi(page, state);
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto(`/${RESTAURANT_SLUG}/mesa/${TABLE_NUMBER}?token=${TABLE_TOKEN}`);
+  await identifyTableGuest(page);
+
+  const dock = page.getByRole('navigation', { name: 'Ações da mesa' });
+  await expect(dock).toBeVisible();
+  await expect.poll(() => dock.evaluate((element) => getComputedStyle(element).position)).toBe('fixed');
+
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await expect.poll(() => dock.evaluate((element) => getComputedStyle(element).position)).not.toBe('fixed');
+});
 
 test('admin controla o QR, garçom apenas opera a mesa e cozinha recebe Mesa 1', async ({
   page,
