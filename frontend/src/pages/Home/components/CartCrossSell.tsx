@@ -8,7 +8,7 @@ const money = (value: number) =>
 
 type Props = {
   products: HomeProduct[];
-  onAdd: (product: HomeProduct) => void;
+  onAdd: (product: HomeProduct, sourceElement?: HTMLElement | null) => void;
 };
 
 export function CartCrossSell({ products, onAdd }: Props) {
@@ -72,7 +72,12 @@ export function CartCrossSell({ products, onAdd }: Props) {
             <S.AddButton
               type="button"
               aria-label={`Adicionar ${product.name}`}
-              onClick={() => onAdd(product)}
+              onClick={(event) =>
+                onAdd(
+                  product,
+                  event.currentTarget.closest<HTMLElement>('[data-cross-sell-card]'),
+                )
+              }
             >
               <Plus className="mobile-plus" aria-hidden="true" />
               <span className="desktop-label">+ Adicionar</span>
