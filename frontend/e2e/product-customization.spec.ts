@@ -668,7 +668,7 @@ test('produto COMPLETE é adicionado sem abrir etapas de montagem', async ({ pag
   await expect(cart.getByText('Refrigerante pronto', { exact: true })).toBeVisible();
 });
 
-test('resumo do carrinho acompanha a rolagem e permite limpar todos os itens', async ({ page }) => {
+test('resumo do carrinho não fica fixo e permite limpar todos os itens', async ({ page }) => {
   await mockStorefront(page);
   await page.setViewportSize({ width: 1440, height: 800 });
   await page.goto('/restaurante-teste');
@@ -679,24 +679,29 @@ test('resumo do carrinho acompanha a rolagem e permite limpar todos os itens', a
 
   const summary = cart.locator('aside').filter({ hasText: 'Resumo do Pedido' });
   await expect(summary).toBeVisible();
-
-  const stickyState = await summary.evaluate((element) => {
-    const style = getComputedStyle(element);
-    return {
-      position: style.position,
-      top: style.top,
-      overflowY: style.overflowY,
-    };
-  });
-
-  expect(stickyState.position).toBe('sticky');
-  expect(stickyState.top).toBe('24px');
-  expect(['auto', 'scroll']).toContain(stickyState.overflowY);
+  await expect
+    .poll(() => summary.evaluate((element) => getComputedStyle(element).position))
+    .not.toBe('sticky');
 
   await cart.getByRole('button', { name: 'Limpar todo o carrinho' }).click();
 
   await expect(cart.getByText('Seu carrinho está vazio.')).toBeVisible();
   await expect(page.getByRole('button', { name: /Meu Carrinho, [1-9]\d* (?:item|itens)/ })).toHaveCount(0);
+});
+
+test('barra inferior da home do delivery fica fixa somente no mobile', async ({ page }) => {
+  await mockStorefront(page);
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/restaurante-teste');
+  await enterMenu(page);
+
+  const mobileNav = page.getByRole('navigation', { name: 'Navegação principal' });
+  await expect(mobileNav).toBeVisible();
+  await expect.poll(() => mobileNav.evaluate((element) => getComputedStyle(element).position)).toBe('fixed');
+
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await expect(mobileNav).toBeHidden();
 });
 
 test('combo confirmado sempre dispara fly to cart', async ({ page }) => {
