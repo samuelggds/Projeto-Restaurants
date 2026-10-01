@@ -61,6 +61,7 @@ type Props = {
   onAddProduct: (productId: string, configuration: ProductConfiguration) => void;
   onIncrease: (cartId: string) => void;
   onDecrease: (cartId: string) => void;
+  onClearCart: () => void;
   onSubmitOrder: () => Promise<SubmitResult | null | undefined>;
   onCallWaiter: () => void;
   onViewAccount: () => void;
@@ -102,6 +103,7 @@ export default function TableMenuExperience({
   onAddProduct,
   onIncrease,
   onDecrease,
+  onClearCart,
   onSubmitOrder,
   onCallWaiter,
   onViewAccount,
@@ -292,6 +294,11 @@ export default function TableMenuExperience({
     setView('menu');
   }
 
+  function clearReviewCart() {
+    if (!cart.length) return;
+    onClearCart();
+    setCouponInput('');
+  }
 
   if (
     effectiveView === 'pix' &&
@@ -787,6 +794,7 @@ export default function TableMenuExperience({
           onHome={goToMenu}
           onMenu={goToMenu}
           onOrders={() => setView('tracking')}
+          onClear={cart.length ? clearReviewCart : undefined}
         />
 
         <S.FlowPage>
@@ -1055,6 +1063,7 @@ function FlowHeader({
   onHome,
   onMenu,
   onOrders,
+  onClear,
 }: {
   data: HomeData;
   tableLabel: string | number;
@@ -1063,6 +1072,7 @@ function FlowHeader({
   onHome: () => void;
   onMenu: () => void;
   onOrders: () => void;
+  onClear?: () => void;
 }) {
   const isCartHeader = title === 'Meu Pedido';
   const headerBrandName = isCartHeader ? 'GastroNexa' : data.brand.name;
@@ -1112,6 +1122,16 @@ function FlowHeader({
       </nav>
 
       <div className="right">
+        {isCartHeader && onClear ? (
+          <button
+            className="clear-cart-header"
+            type="button"
+            aria-label="Limpar carrinho"
+            onClick={onClear}
+          >
+            Limpar
+          </button>
+        ) : null}
         <S.FigmaTablePill
           className={isCartHeader ? 'cart-table-pill' : undefined}
           aria-label={`Mesa ${tableLabel}`}
