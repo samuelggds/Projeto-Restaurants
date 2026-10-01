@@ -150,35 +150,6 @@ export const FigmaHeader = styled.header<{ $hasTitle?: boolean }>`
     color: #ff4b4b;
   }
 
-  &.cart-header .right {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-  }
-
-  .clear-cart-header {
-    min-height: 34px;
-    padding: 0 10px;
-    border: 0;
-    border-radius: 8px;
-    background: transparent;
-    color: #ef4444;
-    font-size: 13px;
-    font-weight: 700;
-    cursor: pointer;
-    transition:
-      background-color 160ms ease,
-      transform 160ms ease;
-  }
-
-  .clear-cart-header:hover {
-    background: #fff1f1;
-  }
-
-  .clear-cart-header:active {
-    transform: scale(.96);
-  }
-
   @media (max-width: 759px) {
     min-height: 65px;
     padding: 16px 20px;
