@@ -248,7 +248,7 @@ export function TableAccountSettings({ settings, update }: Props) {
       await promptDialog({
         title: `Fechar a Mesa ${session.tableNumber}?`,
         description:
-          'Use esta ação somente quando o atendimento não puder ser encerrado pelo fluxo normal. O motivo ficará registrado na auditoria.',
+          'A conta geral precisa estar totalmente quitada. Use esta ação somente para corrigir uma exceção operacional da sessão; ela nunca ignora pagamentos pendentes.',
         inputLabel: 'Motivo do fechamento administrativo',
         placeholder: 'Ex.: atendimento cancelado diretamente no caixa',
         confirmLabel: 'Fechar mesa',
@@ -517,7 +517,14 @@ export function TableAccountSettings({ settings, update }: Props) {
                     <S.Button
                       $danger
                       type="button"
-                      disabled={busyId === session.sessionPublicId}
+                      disabled={
+                        busyId === session.sessionPublicId || session.summary.remainingCents > 0
+                      }
+                      title={
+                        session.summary.remainingCents > 0
+                          ? 'Quite toda a conta da mesa antes do fechamento administrativo.'
+                          : 'Fechamento para exceção operacional com conta quitada.'
+                      }
                       onClick={() => void forceClose(session)}
                     >
                       Fechamento administrativo
