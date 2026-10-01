@@ -881,151 +881,137 @@ export const Timeline = styled.div`
 `;
 
 export const TimelineStep = styled.div<{ $active: boolean; $current?: boolean }>`
-  min-height: 28px;
+  min-height: 20px;
   display: grid;
-  grid-template-columns: 28px minmax(0, 1fr);
-  gap: 16px;
-  align-items: start;
+  grid-template-columns: 20px minmax(0, 1fr);
+  gap: 12px;
+  align-items: center;
   opacity: ${({ $active, $current }) => ($active || $current ? 1 : 0.4)};
   animation: timeline-step-enter 340ms cubic-bezier(.22, 1, .36, 1) both;
 
-  &:nth-child(1) {
-    animation-delay: 420ms;
-  }
-
-  &:nth-child(2) {
-    animation-delay: 500ms;
-  }
-
-  &:nth-child(3) {
-    animation-delay: 580ms;
-  }
+  &:nth-child(1) { animation-delay: 420ms; }
+  &:nth-child(2) { animation-delay: 500ms; }
+  &:nth-child(3) { animation-delay: 580ms; }
 
   @keyframes timeline-step-enter {
-    from {
-      opacity: 0;
-      transform: translate3d(-8px, 8px, 0);
-    }
-    to {
-      opacity: ${({ $active, $current }) => ($active || $current ? 1 : 0.4)};
-      transform: translate3d(0, 0, 0);
-    }
+    from { opacity: 0; transform: translate3d(-8px, 8px, 0); }
+    to { opacity: ${({ $active, $current }) => ($active || $current ? 1 : 0.4)}; transform: translate3d(0, 0, 0); }
   }
 
   .dot {
-    width: 28px;
-    height: 28px;
+    width: 20px;
+    height: 20px;
     border: 0;
-    border-radius: 14px;
-    transition:
-      transform 220ms cubic-bezier(.22, 1, .36, 1),
-      box-shadow 220ms ease;
-    background: ${({ $active, $current }) =>
-      $current
-        ? 'color-mix(in srgb, var(--primary) 10%, #fff)'
-        : $active
-          ? '#ecfdf5'
-          : 'var(--line)'};
-    color: ${({ $active, $current }) =>
-      $current ? 'var(--primary)' : $active ? '#10b981' : 'var(--muted)'};
+    border-radius: 6px;
+    background: #eaeae6;
+    color: #6d6d80;
     display: grid;
     place-items: center;
-    font-size: 10px;
+    font-size: 9px;
     font-weight: 700;
   }
 
   .copy {
-    padding-top: 2px;
-    display: grid;
-    gap: 2px;
+    display: flex;
+    align-items: baseline;
+    flex-wrap: wrap;
+    gap: 4px 7px;
   }
 
   b {
-    color: ${({ $current }) => ($current ? 'var(--primary)' : 'var(--text)')};
-    font-size: 14px;
-    line-height: 18px;
-    font-weight: ${({ $current }) => ($current ? 700 : 500)};
+    color: #1a1a2e;
+    font-size: 13px;
+    line-height: 17px;
+    font-weight: 500;
   }
 
-  p {
-    margin: 0;
-    color: var(--muted);
-    font-size: 12px;
-    line-height: 16px;
+  .completed-label,
+  .current-label {
+    font-size: 11px;
+    line-height: 14px;
+    font-weight: 700;
   }
 
-  @media (prefers-reduced-motion: reduce) {
-    animation: none;
-  }
+  &.confirmation-step.completed { opacity: 1; }
+  &.confirmation-step.completed .dot { background: #10b981; color: #fff; }
+  &.confirmation-step.completed b,
+  &.confirmation-step.completed .completed-label { color: #10b981; }
+
+  &.confirmation-step.current { opacity: 1; }
+  &.confirmation-step.current .dot { background: #ff4b4b; color: #fff; }
+  &.confirmation-step.current .dot .pulse { width: 7px; height: 7px; border-radius: 999px; background: #fff; }
+  &.confirmation-step.current b,
+  &.confirmation-step.current .current-label { color: #ff4b4b; }
+
+  &.confirmation-step.pending { opacity: .4; }
+  &.confirmation-step.pending .dot { background: #eaeae6; color: #6d6d80; }
+
+  p { margin: 0; color: var(--muted); font-size: 12px; line-height: 16px; }
+
+  @media (prefers-reduced-motion: reduce) { animation: none; }
 
   @media (max-width: 759px) {
-    grid-template-columns: 24px minmax(0, 1fr);
-    gap: 12px;
-    min-height: 24px;
-
-    .dot {
-      width: 24px;
-      height: 24px;
-    }
-
-    b {
-      font-size: 13px;
-      line-height: 16px;
-    }
-
-    p {
-      font-size: 11px;
-      line-height: 14px;
-    }
+    min-height: 20px;
+    b { font-size: 13px; line-height: 16px; }
+    .completed-label, .current-label { font-size: 10px; line-height: 13px; }
+    p { font-size: 11px; line-height: 14px; }
   }
-`;
+`
 
 export const ConfirmationActions = styled.div`
   width: 100%;
+  padding-top: 6px;
   display: grid;
-  gap: 8px;
+  gap: 10px;
+  animation: confirmation-block-enter 420ms cubic-bezier(.22, 1, .36, 1) 640ms both;
+
+  > button:first-of-type {
+    min-height: 48px;
+    padding: 14px 16px;
+    border-radius: 6px;
+    background: #ff4b4b;
+    box-shadow: 0 4px 6px rgba(255, 75, 75, 0.13);
+    color: #fff;
+    font-size: 15px;
+    font-weight: 700;
+  }
 
   .pix-action {
-    color: var(--text);
+    min-height: 48px;
+    padding: 14px 16px;
+    border: 1px solid #eaeae6;
+    border-radius: 6px;
+    background: #fff;
+    color: #1a1a2e;
+    font-size: 14px;
+    font-weight: 700;
   }
 
   .pix-action svg {
-    width: 18px;
-    height: 18px;
+    width: 20px;
+    height: 20px;
     color: #77b6a8;
-    flex: 0 0 18px;
+    flex: 0 0 20px;
   }
-  animation: confirmation-block-enter 420ms cubic-bezier(.22, 1, .36, 1) 640ms both;
+
+  > p {
+    color: #6d6d80;
+    font-size: 11px;
+    line-height: 14px;
+  }
 
   button {
-    transition:
-      transform 180ms cubic-bezier(.22, 1, .36, 1),
-      box-shadow 180ms ease,
-      filter 180ms ease;
+    transition: transform 180ms cubic-bezier(.22, 1, .36, 1), box-shadow 180ms ease, filter 180ms ease;
   }
-
-  button:hover:not(:disabled) {
-    transform: translateY(-2px);
-    filter: brightness(1.02);
-  }
-
-  button:active:not(:disabled) {
-    transform: translateY(0) scale(.985);
-  }
+  button:hover:not(:disabled) { transform: translateY(-2px); filter: brightness(1.02); }
+  button:active:not(:disabled) { transform: translateY(0) scale(.985); }
 
   @media (prefers-reduced-motion: reduce) {
     animation: none;
-
-    button {
-      transition: none;
-    }
-
-    button:hover:not(:disabled),
-    button:active:not(:disabled) {
-      transform: none;
-    }
+    button { transition: none; }
+    button:hover:not(:disabled), button:active:not(:disabled) { transform: none; }
   }
-`;
+`
 
 export const TrackingLayout = styled.div`
   display: grid;
