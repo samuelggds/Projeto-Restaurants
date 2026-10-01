@@ -12,21 +12,41 @@ type AnimateProductToCartInput = {
   accentColor?: string;
 };
 
+function isVisibleElement(candidate: HTMLElement) {
+  const rect = candidate.getBoundingClientRect();
+  const style = window.getComputedStyle(candidate);
+  return (
+    style.display !== 'none' &&
+    style.visibility !== 'hidden' &&
+    rect.width > 0 &&
+    rect.height > 0 &&
+    rect.bottom > 0 &&
+    rect.top < window.innerHeight
+  );
+}
+
 function visibleCartTarget() {
   return Array.from(document.querySelectorAll<HTMLElement>('[data-cart-fly-target]')).find(
-    (candidate) => {
-      const rect = candidate.getBoundingClientRect();
-      const style = window.getComputedStyle(candidate);
-      return (
-        style.display !== 'none' &&
-        style.visibility !== 'hidden' &&
-        rect.width > 0 &&
-        rect.height > 0 &&
-        rect.bottom > 0 &&
-        rect.top < window.innerHeight
-      );
-    },
+    isVisibleElement,
   );
+}
+
+function visibleCartSource() {
+  return Array.from(document.querySelectorAll<HTMLElement>('[data-cart-fly-source]')).find(
+    isVisibleElement,
+  );
+}
+
+function fallbackCartFlyOrigin(): CartFlyOrigin {
+  const size = 56;
+  const maxLeft = Math.max(12, window.innerWidth - size - 12);
+  const maxTop = Math.max(12, window.innerHeight - size - 12);
+  return {
+    left: Math.min(maxLeft, Math.max(12, window.innerWidth / 2 - size / 2)),
+    top: Math.min(maxTop, Math.max(12, window.innerHeight * 0.56 - size / 2)),
+    width: size,
+    height: size,
+  };
 }
 
 export function captureCartFlyOrigin(element?: HTMLElement | null): CartFlyOrigin | null {
@@ -73,8 +93,13 @@ export function animateProductToCart({
   }
 
   const target = visibleCartTarget();
-  const source = origin || captureCartFlyOrigin(sourceElement);
-  if (!target || !source) return false;
+  if (!target) return false;
+
+  const source =
+    origin ||
+    captureCartFlyOrigin(sourceElement) ||
+    captureCartFlyOrigin(visibleCartSource()) ||
+    fallbackCartFlyOrigin();
 
   const targetRect = target.getBoundingClientRect();
   const targetBox: CartFlyOrigin = {
@@ -193,5 +218,38 @@ export function animateProductToCart({
       }
     });
 
+  return true;
+}
+
+
+export function scheduleProductToCartAnimation(
+  input: AnimateProductToCartInput,
+  maxAttempts = 8,
+) {
+  if (
+    typeof window === 'undefined' ||
+    typeof document === 'undefined' ||
+    window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches
+  ) {
+    return false;
+  }
+
+  const capturedOrigin =
+    input.origin ||
+    captureCartFlyOrigin(input.sourceElement) ||
+    captureCartFlyOrigin(visibleCartSource());
+
+  let attempts = 0;
+  const run = () => {
+    const animated = animateProductToCart({
+      ...input,
+      origin: capturedOrigin || input.origin,
+    });
+    if (animated || attempts >= maxAttempts) return;
+    attempts += 1;
+    window.requestAnimationFrame(run);
+  };
+
+  window.requestAnimationFrame(run);
   return true;
 }
