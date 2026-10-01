@@ -51,7 +51,7 @@ const salesLeadsService = {
     return (await api.get('/super-admin/sales-leads/commercial-whatsapp/conversations')).data;
   },
 
-  async setCommercialWhatsappMode(id: string, mode: 'BOT' | 'HUMAN') {
+  async setCommercialWhatsappMode(id: string, mode: 'BOT' | 'HUMAN' | 'CLOSED') {
     return (
       await api.patch(
         `/super-admin/sales-leads/commercial-whatsapp/conversations/${encodeURIComponent(id)}/mode`,

@@ -377,7 +377,6 @@ async function mockSuperAdminApi(
         body: JSON.stringify({
           enabled: true,
           hours: [],
-          awayMessage: 'Recebemos sua mensagem e responderemos no próximo horário de atendimento.',
           timezone: 'America/Sao_Paulo',
         }),
       });
