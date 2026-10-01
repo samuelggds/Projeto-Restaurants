@@ -67,7 +67,7 @@ export function animateProductToCart({
   if (
     typeof window === 'undefined' ||
     typeof document === 'undefined' ||
-    window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+    window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches
   ) {
     return false;
   }
@@ -130,6 +130,11 @@ export function animateProductToCart({
 
   document.body.appendChild(preview);
 
+  if (typeof preview.animate !== 'function') {
+    preview.remove();
+    return false;
+  }
+
   const middleX = midpoint.x - sourceCenterX;
   const middleY = midpoint.y - sourceCenterY;
   const endX = targetCenterX - sourceCenterX;
@@ -172,18 +177,20 @@ export function animateProductToCart({
     .finally(() => {
       preview.remove();
       const currentTarget = visibleCartTarget() || target;
-      currentTarget.animate(
-        [
-          { transform: 'scale(1)' },
-          { transform: 'scale(1.14)' },
-          { transform: 'scale(.96)' },
-          { transform: 'scale(1)' },
-        ],
-        {
-          duration: 360,
-          easing: 'cubic-bezier(.22,1,.36,1)',
-        },
-      );
+      if (typeof currentTarget.animate === 'function') {
+        currentTarget.animate(
+          [
+            { transform: 'scale(1)' },
+            { transform: 'scale(1.14)' },
+            { transform: 'scale(.96)' },
+            { transform: 'scale(1)' },
+          ],
+          {
+            duration: 360,
+            easing: 'cubic-bezier(.22,1,.36,1)',
+          },
+        );
+      }
     });
 
   return true;

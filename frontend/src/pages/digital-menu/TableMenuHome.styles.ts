@@ -413,6 +413,17 @@ export const Categories = styled.nav`
     color: var(--primary);
   }
 
+  @media (prefers-reduced-motion: reduce) {
+    button {
+      transition: none;
+    }
+
+    button:hover,
+    button:active {
+      transform: none;
+    }
+  }
+
   @media (max-width: 760px) {
     margin-right: -20px;
     padding-right: 20px;
@@ -574,6 +585,15 @@ export const ProductCard = styled.article`
     transform: translateY(-4px);
     border-color: color-mix(in srgb, var(--primary) 25%, var(--table-line));
     box-shadow: 0 14px 30px rgba(29, 27, 24, .09);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    transition: none;
+
+    &:hover {
+      transform: none;
+      box-shadow: none;
+    }
   }
 
   .open {
@@ -842,13 +862,3 @@ export const ActionDock = styled.nav`
   }
 `;
 
-
-@media (prefers-reduced-motion: reduce) {
-  ${Categories} button,
-  ${ProductCard},
-  ${HeaderActions} button,
-  ${ActionDock} button {
-    transition: none !important;
-    transform: none !important;
-  }
-}
