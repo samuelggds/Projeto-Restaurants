@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import {
   Bell,
   ChevronLeft,
@@ -267,8 +267,39 @@ export function TableMenuHome({
     return sections;
   }, [categorySections, combos, featured]);
 
+  const defaultCatalogCategory =
+    featured.length > 0
+      ? 'featured'
+      : combos.length > 0
+        ? 'combos'
+        : categorySections[0]?.category.id
+          ? `category:${categorySections[0].category.id}`
+          : '';
+  const [selectedCatalogCategory, setSelectedCatalogCategory] = useState(
+    defaultCatalogCategory,
+  );
+  const validCatalogCategory =
+    selectedCatalogCategory === 'featured'
+      ? featured.length > 0
+      : selectedCatalogCategory === 'combos'
+        ? combos.length > 0
+        : selectedCatalogCategory.startsWith('category:')
+          ? categorySections.some(
+              ({ category }) =>
+                `category:${category.id}` === selectedCatalogCategory,
+            )
+          : false;
+  const activeCatalogCategory = validCatalogCategory
+    ? selectedCatalogCategory
+    : defaultCatalogCategory;
+
   const scrollTo = (id: string) => {
     document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
+
+  const selectCatalogCategory = (categoryKey: string, sectionId: string) => {
+    setSelectedCatalogCategory(categoryKey);
+    scrollTo(sectionId);
   };
   const firstSectionId = productSections[0]?.id;
   const firstName = String(userName || '').trim().split(/\s+/u)[0] || '';
@@ -336,29 +367,45 @@ export function TableMenuHome({
 
         <H.Categories aria-label="Categorias do cardápio">
           {featured.length ? (
-            <button type="button" onClick={() => scrollTo('table-featured')}>
+            <button
+              type="button"
+              className={activeCatalogCategory === 'featured' ? 'active' : undefined}
+              aria-pressed={activeCatalogCategory === 'featured'}
+              onClick={() => selectCatalogCategory('featured', 'table-featured')}
+            >
               <span className="image special"><Star aria-hidden="true" /></span>
               <b>Destaques</b>
             </button>
           ) : null}
           {combos.length ? (
-            <button type="button" onClick={() => scrollTo('table-combos')}>
+            <button
+              type="button"
+              className={activeCatalogCategory === 'combos' ? 'active' : undefined}
+              aria-pressed={activeCatalogCategory === 'combos'}
+              onClick={() => selectCatalogCategory('combos', 'table-combos')}
+            >
               <span className="image">
                 {categoryImage(comboImage, 'Combos')}
               </span>
               <b>Combos</b>
             </button>
           ) : null}
-          {categorySections.map(({ category }) => (
-            <button
-              key={category.id}
-              type="button"
-              onClick={() => scrollTo(`table-category-${encodeURIComponent(category.id)}`)}
-            >
-              <span className="image">{categoryImage(category.image, category.name)}</span>
-              <b>{category.name}</b>
-            </button>
-          ))}
+          {categorySections.map(({ category }) => {
+            const categoryKey = `category:${category.id}`;
+            const sectionId = `table-category-${encodeURIComponent(category.id)}`;
+            return (
+              <button
+                key={category.id}
+                type="button"
+                className={activeCatalogCategory === categoryKey ? 'active' : undefined}
+                aria-pressed={activeCatalogCategory === categoryKey}
+                onClick={() => selectCatalogCategory(categoryKey, sectionId)}
+              >
+                <span className="image">{categoryImage(category.image, category.name)}</span>
+                <b>{category.name}</b>
+              </button>
+            );
+          })}
         </H.Categories>
 
         <H.Divider />
