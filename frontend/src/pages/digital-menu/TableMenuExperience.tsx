@@ -602,6 +602,14 @@ export default function TableMenuExperience({
         ['RESERVED', 'PROCESSING'].includes(accountSnapshot.activePayment.status),
     );
     const canPayOwnAccount = Boolean(ownAccount && ownAccount.remainingCents > 0);
+    const allowPix = accountSnapshot?.capabilities.allowPix === true;
+    const preparationMinutes = Number.parseInt(String(data.deliveryTime || ''), 10);
+    const confirmedAt = tableOrder?.createdAt
+      ? new Intl.DateTimeFormat('pt-BR', { hour: '2-digit', minute: '2-digit' }).format(
+          new Date(tableOrder.createdAt),
+        )
+      : '';
+    const trackingDescriptions = trackingSteps(tableOrder, confirmedAt);
 
     const openOwnPayment = () => {
       if (accountSnapshot?.activePayment) {
@@ -638,8 +646,12 @@ export default function TableMenuExperience({
               <S.StatusCard>
                 <span className="icon"><Clock3 size={28} /></span>
                 <div>
-                  <h2>{tableOrder?.statusLabel || 'Preparando seu pedido'}</h2>
-                  <p>{tableOrder?.summary || 'O status será atualizado em tempo real.'}</p>
+                  <h2>{trackingHeadline(tableOrder)}</h2>
+                  <p>
+                    {Number.isFinite(preparationMinutes) && preparationMinutes > 0
+                      ? `A cozinha estimou cerca de ${preparationMinutes} minutos para servir.`
+                      : 'O status será atualizado em tempo real pela cozinha.'}
+                  </p>
                 </div>
               </S.StatusCard>
 
@@ -648,9 +660,13 @@ export default function TableMenuExperience({
               </S.SectionHeading>
               <S.TimelineCard className="tracking-timeline">
                 <S.Timeline>
-                  {trackingSteps(tableOrder).map((step, index) => (
+                  {trackingDescriptions.map((step, index) => (
                     <S.TimelineStep key={step.label} $active={step.active} $current={step.current}>
-                      <span className="dot">{step.active ? <Check size={14} /> : index + 1}</span>
+                      <span className="dot">
+                        {step.active ? (
+                          index === 1 && step.current ? <CookingPot size={13} /> : <Check size={14} />
+                        ) : null}
+                      </span>
                       <div className="copy">
                         <b>{step.label}</b>
                         {step.description ? <p>{step.description}</p> : null}
@@ -692,16 +708,32 @@ export default function TableMenuExperience({
                 </div>
               ) : null}
 
-              {canPayOwnAccount ? (
-                <S.SecondaryAction type="button" onClick={openOwnPayment}>
-                  {ownPaymentPending ? 'Ver pagamento' : 'Pagar minha conta'}
+              {waiterCallEnabled ? (
+                <S.SecondaryAction type="button" onClick={onCallWaiter}>
+                  <Bell size={17} /> Chamar garçom para mesa
                 </S.SecondaryAction>
               ) : null}
 
-              {waiterCallEnabled ? (
-                <S.PrimaryAction type="button" onClick={onCallWaiter}>
-                  <Bell size={17} /> Chamar garçom para mesa
-                </S.PrimaryAction>
+              {canPayOwnAccount && ownPaymentPending ? (
+                <S.SecondaryAction type="button" onClick={openOwnPayment}>
+                  Ver pagamento
+                </S.SecondaryAction>
+              ) : null}
+
+              {canPayOwnAccount && !ownPaymentPending && allowPix ? (
+                <S.TrackingPixAction
+                  type="button"
+                  disabled={paymentLoading}
+                  onClick={() => void startPayment('PIX')}
+                >
+                  <PixMark /> Pagar agora com PIX
+                </S.TrackingPixAction>
+              ) : null}
+
+              {canPayOwnAccount && !ownPaymentPending && !allowPix ? (
+                <S.SecondaryAction type="button" onClick={openOwnPayment}>
+                  Pagar minha conta
+                </S.SecondaryAction>
               ) : null}
             </S.OrderItemsCard>
           </S.TrackingLayout>
@@ -1186,10 +1218,21 @@ function confirmationSteps(tableOrder: TableOrderNotice | null) {
   });
 }
 
-function trackingSteps(tableOrder: TableOrderNotice | null) {
+function trackingHeadline(tableOrder: TableOrderNotice | null) {
+  if (!tableOrder) return 'Aguardando atualização do pedido';
+  if (tableOrder.cancelled) return 'Pedido cancelado';
+  if (tableOrder.status === 'PRONTO' || tableOrder.status === 'SAIU_PARA_ENTREGA') {
+    return 'Seu pedido está pronto';
+  }
+  if (tableOrder.status === 'ENTREGUE') return 'Pedido servido';
+  if (tableOrder.status === 'PREPARANDO') return 'Preparando seu pedido';
+  return 'Pedido enviado à cozinha';
+}
+
+function trackingSteps(tableOrder: TableOrderNotice | null, confirmedAt = '') {
   const progress = tableOrder?.progress || 0;
   const descriptions = [
-    'Enviado para a cozinha',
+    confirmedAt ? `Enviado para a cozinha às ${confirmedAt}` : 'Enviado para a cozinha',
     'Os chefs estão montando seus pratos',
     'Aguardando retirada do garçom',
   ];
