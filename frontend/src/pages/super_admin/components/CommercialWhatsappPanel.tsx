@@ -215,7 +215,7 @@ export function CommercialWhatsappPanel({ refreshKey = 0 }: { refreshKey?: numbe
     }
   };
 
-  const changeMode = async (mode: 'BOT' | 'HUMAN') => {
+  const changeMode = async (mode: 'BOT' | 'HUMAN' | 'CLOSED') => {
     if (!selected) return;
     setBusy('mode');
     setError('');

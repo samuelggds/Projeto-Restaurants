@@ -47,6 +47,27 @@ test('mantém o bot silencioso fora do horário e durante atendimento humano', (
   );
 });
 
+test('saudação automática de lead também respeita horário e estado da conversa', () => {
+  assert.equal(
+    commercialWhatsappAutoReplySuppressionReason({
+      kind: 'FORM_GREETING',
+      mode: 'BOT',
+      automationEnabled: true,
+      open: false,
+    }),
+    'outside_hours',
+  );
+  assert.equal(
+    commercialWhatsappAutoReplySuppressionReason({
+      kind: 'FORM_GREETING',
+      mode: 'BOT',
+      automationEnabled: true,
+      open: true,
+    }),
+    null,
+  );
+});
+
 test('resposta manual nunca é bloqueada pela política automática', () => {
   assert.equal(
     commercialWhatsappAutoReplySuppressionReason({

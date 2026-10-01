@@ -22,7 +22,7 @@ type JsonRecord = Record<string, unknown>;
 const PLATFORM_CONNECTION_ID = 1;
 const PLATFORM_INSTANCE_NAME = 'gastronexa-platform';
 const TOKEN_CONTEXT = 'platform-whatsapp-connection:evolution';
-const AUTOMATIC_REPLY_KINDS = ['GREETING', 'HANDOFF', 'AWAY'];
+const AUTOMATIC_REPLY_KINDS = ['GREETING', 'HANDOFF', 'FORM_GREETING', 'AWAY'];
 
 function env(name: string) {
   return String(process.env[name] || '').trim();
@@ -658,8 +658,24 @@ export async function enqueueLeadWhatsappGreeting(leadId: string) {
     select: { id: true, name: true, restaurantName: true, phone: true, consent: true },
   });
   if (!lead?.consent) return { queued: false, reason: 'no_consent' } as const;
-  const settings = await prisma.platformSettings.findUnique({ where: { id: 1 } });
+
+  const settings = await prisma.platformSettings.findUnique({
+    where: { id: 1 },
+    select: {
+      commercialWhatsappEnabled: true,
+      commercialWhatsappHours: true,
+      timezone: true,
+    },
+  });
   if (!settings?.commercialWhatsappEnabled) return { queued: false, reason: 'disabled' } as const;
+  if (
+    !isCommercialWhatsappHumanServiceOpen(
+      settings.commercialWhatsappHours,
+      settings.timezone,
+    )
+  ) {
+    return { queued: false, reason: 'outside_hours' } as const;
+  }
 
   const whatsappPhone = normalizeBrazilWhatsappNumber(lead.phone);
   const conversation = await prisma.salesLeadWhatsappConversation.upsert({
@@ -667,6 +683,14 @@ export async function enqueueLeadWhatsappGreeting(leadId: string) {
     create: { id: randomUUID(), phone: whatsappPhone },
     update: {},
   });
+  if (conversation.automationMode !== 'BOT') {
+    return {
+      queued: false,
+      reason:
+        conversation.automationMode === 'CLOSED' ? 'conversation_closed' : 'human_mode',
+    } as const;
+  }
+
   const key = createHash('sha256').update(`FORM_GREETING:${lead.id}`).digest('hex');
   const body = [
     `Olá, ${lead.name}! 👋 Aqui é da GastroNexa.`,
@@ -683,10 +707,11 @@ export async function enqueueLeadWhatsappGreeting(leadId: string) {
       deduplicationKey: key,
       kind: 'FORM_GREETING',
       body,
+      availableAt: commercialWhatsappAutoReplyAvailableAt(),
     },
     update: {},
   });
-  await deliverPlatformWhatsappOutbox();
+  scheduleCommercialWhatsappDrain();
   return { queued: true } as const;
 }
 
