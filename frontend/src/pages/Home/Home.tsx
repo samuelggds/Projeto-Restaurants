@@ -1232,7 +1232,6 @@ export default function Home() {
         primaryColor={primary}
         notifications={notifs}
         onDismissNotification={dismissNotif}
-        onOpenCart={openHomeCart}
         onCloseProduct={() => setCrossSellProduct(null)}
         onCloseCombo={() => setCrossSellCombo(null)}
         onConfirmProduct={(configuration, quantity) => {
