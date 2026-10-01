@@ -66,7 +66,7 @@ export interface AttendantWorkspaceSnapshot {
   orders: AttendantOrder[];
   calls: AttendantCall[];
   tables: AttendantTable[];
-  cashPayments: AttendantCashPayment[];
+  cashPayments?: AttendantCashPayment[];
 }
 
 export interface AttendantWorkspaceState {

@@ -159,6 +159,7 @@ export function Tables({
 
   async function registerCash(paymentPublicId: string) {
     try {
+      if (!services.registerCashReceived) throw new Error('Registro de dinheiro indisponível.');
       await services.registerCashReceived(paymentPublicId);
       toast.success('Dinheiro registrado. Aguardando confirmação do administrador.');
       onChanged();
@@ -213,9 +214,9 @@ export function Tables({
         })}
       </TableGrid>
 
-      {snapshot.cashPayments.length ? (
+      {(snapshot.cashPayments || []).length ? (
         <List aria-label="Pagamentos em dinheiro das mesas">
-          {snapshot.cashPayments.map((payment) => (
+          {(snapshot.cashPayments || []).map((payment) => (
             <CallCard key={payment.publicId}>
               <span className="table">Mesa {String(payment.tableNumber).padStart(2, '0')}</span>
               <div>

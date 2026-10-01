@@ -12,7 +12,7 @@ export interface OperationServices {
   createOrder: (payload: Raw) => Promise<unknown>;
   listProducts: (restaurantId: number) => Promise<unknown[]>;
   updateCallStatus: (id: string, status: 'IN_PROGRESS' | 'RESOLVED') => Promise<unknown>;
-  registerCashReceived: (paymentPublicId: string) => Promise<unknown>;
+  registerCashReceived?: (paymentPublicId: string) => Promise<unknown>;
   listOpenOrderIssues: () => Promise<unknown[]>;
   getIssueThread: (id: number) => Promise<Raw>;
   replyIssue: (id: number, message: string) => Promise<Raw>;

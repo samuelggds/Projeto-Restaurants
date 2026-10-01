@@ -82,21 +82,6 @@ export function useTableSession(options: Options) {
     [notify, setSessionEndedMessage, setTableSession],
   );
 
-  // Mantemos este nome por compatibilidade com Home. Agora ele representa o
-  // bloqueio local do participante que pediu a própria conta; não transforma
-  // mais a TableSession inteira em CLOSING_REQUESTED.
-  const markClosingRequested = useCallback(() => {
-    setTableSession((current) => {
-      if (!current) return current;
-      const blockedSession: StoredTableSession = {
-        ...current,
-        tableOrderingEnabled: false,
-      };
-      localStorage.setItem('tableSession', JSON.stringify(blockedSession));
-      return blockedSession;
-    });
-  }, [setTableSession]);
-
   useEffect(() => {
     if (!route.mesaMode || !tableSession?.sessionToken) return;
     if (sessionRouteMismatch) {
@@ -245,6 +230,5 @@ export function useTableSession(options: Options) {
     hasValidQrContext,
     mesaSessionIsActive,
     storedSessionRestaurantId,
-    markClosingRequested,
   };
 }
