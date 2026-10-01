@@ -353,7 +353,7 @@ test('mantém taxa obrigatória sob autoridade do backend', () => {
   assert.equal(shouldIncludeServiceFee('MANDATORY', false), true);
 });
 
-test('limita confirmação manual ao admin e ao garçom do restaurante', () => {
+test('permite registrar dinheiro ao admin, garçom e atendente do restaurante', () => {
   const admin: TableAccountActor = {
     id: 1,
     role: 'ADMIN',
@@ -364,6 +364,12 @@ test('limita confirmação manual ao admin e ao garçom do restaurante', () => {
     id: 2,
     role: 'FUNCIONARIO',
     subRole: 'GARCOM',
+    restaurantId: 10,
+  };
+  const attendant: TableAccountActor = {
+    id: 5,
+    role: 'FUNCIONARIO',
+    subRole: 'ATENDENTE',
     restaurantId: 10,
   };
   const kitchen: TableAccountActor = {
@@ -381,7 +387,9 @@ test('limita confirmação manual ao admin e ao garçom do restaurante', () => {
 
   assert.equal(canConfirmManualTablePayment(admin, 10), true);
   assert.equal(canConfirmManualTablePayment(waiter, 10), true);
+  assert.equal(canConfirmManualTablePayment(attendant, 10), true);
   assert.equal(canConfirmManualTablePayment(waiter, 11), false);
+  assert.equal(canConfirmManualTablePayment(attendant, 11), false);
   assert.equal(canConfirmManualTablePayment(kitchen, 10), false);
   assert.equal(canConfirmManualTablePayment(superAdmin, 10), false);
   assert.equal(canAuthorizePreparedItemCancellation(kitchen, 10), true);
@@ -392,6 +400,7 @@ test('limita confirmação manual ao admin e ao garçom do restaurante', () => {
   assert.equal(canRefundTablePayment(admin, 10), true);
   assert.equal(canRefundTablePayment(superAdmin, 10), false);
   assert.equal(canViewTableAccountFinancialHistory(waiter, 10), true);
+  assert.equal(canViewTableAccountFinancialHistory(attendant, 10), false);
   assert.equal(canViewTableAccountFinancialHistory(kitchen, 10), false);
 });
 

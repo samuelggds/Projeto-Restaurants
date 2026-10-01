@@ -79,27 +79,18 @@ const accountFeatureToggles: ReadonlyArray<{
   {
     key: 'enabled',
     title: 'Ativar conta por mesa',
-    description: 'Pedidos podem ser acumulados e pagos em partes.',
+    description: 'Cada cliente acumula o próprio consumo dentro da conta geral da mesa.',
   },
   {
     key: 'allowOnlinePayment',
-    title: 'Pagamento online',
-    description: 'Permite iniciar PIX ou cartão pelo celular.',
-  },
-  {
-    key: 'allowSplit',
-    title: 'Dividir o saldo',
-    description: 'Libera a divisão exata, incluindo os centavos restantes.',
+    title: 'Pagamento por PIX',
+    description: 'Permite ao cliente pagar a própria conta pelo PIX no celular.',
   },
   {
     key: 'allowCash',
-    title: 'Dinheiro com o garçom',
-    description: 'O garçom confirma o recebimento presencial.',
-  },
-  {
-    key: 'allowCardMachine',
-    title: 'Maquininha',
-    description: 'O garçom confirma depois da aprovação na máquina.',
+    title: 'Pagamento em dinheiro',
+    description:
+      'Garçom ou atendente registra o recebimento; somente o administrador confirma como pago.',
   },
 ];
 
@@ -109,14 +100,9 @@ const accountProtectionToggles: ReadonlyArray<{
   description: string;
 }> = [
   {
-    key: 'preventCloseWithOutstandingBalance',
-    title: 'Impedir fechamento com saldo pendente',
-    description: 'O admin ainda poderá forçar o fechamento informando um motivo auditável.',
-  },
-  {
     key: 'blockNewOrdersOnClosingRequest',
-    title: 'Bloquear pedidos depois de pedir a conta',
-    description: 'Ao solicitar a conta, a sessão entra em fechamento e não aceita novos pedidos.',
+    title: 'Bloquear pedidos durante o encerramento',
+    description: 'Quando o encerramento da mesa for iniciado, novos pedidos deixam de ser aceitos.',
   },
   {
     key: 'requireEmployeeApprovalForPreparedItemCancellation',

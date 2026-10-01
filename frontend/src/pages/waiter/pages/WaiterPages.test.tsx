@@ -344,7 +344,7 @@ describe('waiter operational pages', () => {
     expect(container.textContent).toContain('Entregue à mesa');
   });
 
-  it('mostra a conta e permite confirmar somente dinheiro ou maquininha já recebidos', async () => {
+  it('mostra a conta por cliente e permite ao garçom apenas registrar dinheiro recebido', async () => {
     vi.mocked(tableAccountService.getAdminSnapshot).mockResolvedValue({
       summary: {
         consumedCents: 5800,
@@ -358,6 +358,18 @@ describe('waiter operational pages', () => {
           displayName: 'Cliente da mesa',
           authenticated: true,
           status: 'ACTIVE',
+        },
+      ],
+      participantAccounts: [
+        {
+          publicId: 'participant-1',
+          displayName: 'Cliente da mesa',
+          status: 'ACTIVE',
+          consumedCents: 5800,
+          paidCents: 0,
+          reservedCents: 2900,
+          processingCents: 2900,
+          remainingCents: 5800,
         },
       ],
       items: [
@@ -375,7 +387,7 @@ describe('waiter operational pages', () => {
       paymentIntents: [
         {
           publicId: 'manual-payment',
-          method: 'CARD_MACHINE',
+          method: 'CASH',
           status: 'RESERVED',
           totalCents: 2900,
           createdAt: '2026-08-26T18:00:00.000Z',
@@ -402,19 +414,19 @@ describe('waiter operational pages', () => {
     await act(async () => openAccount?.click());
 
     expect(tableAccountService.getAdminSnapshot).toHaveBeenCalledWith('session-public-31');
-    expect(container.textContent).toContain('Pix e cartão');
+    expect(container.textContent).toContain('Contas por cliente');
     expect(container.textContent).toContain('Aguardando confirmação automática do provedor');
     const confirmButtons = [...container.querySelectorAll('button')].filter(
-      (button) => button.textContent?.trim() === 'Confirmar valor recebido',
+      (button) => button.textContent?.trim() === 'Registrar dinheiro recebido',
     );
     expect(confirmButtons).toHaveLength(1);
 
     await act(async () => confirmButtons[0]?.click());
     expect(dialogMocks.confirmDialog).toHaveBeenCalledWith(
       expect.objectContaining({
-        title: 'Confirmar pagamento recebido?',
-        description: expect.stringMatching(/R\$\s*29,00 em maquininha/),
-        confirmLabel: 'Confirmar recebimento',
+        title: 'Registrar dinheiro recebido?',
+        description: expect.stringMatching(/R\$\s*29,00/),
+        confirmLabel: 'Registrar recebimento',
       }),
     );
     expect(tableAccountService.confirmManualPayment).toHaveBeenCalledWith('manual-payment');
@@ -422,7 +434,7 @@ describe('waiter operational pages', () => {
     expect(tableAccountService.getAdminSnapshot).toHaveBeenCalledTimes(2);
   });
 
-  it('organiza pagamentos presenciais em fila e confirma pelo ledger sem ações administrativas', async () => {
+  it('organiza dinheiro em fila e registra recebimento sem ação administrativa de PAID', async () => {
     const onRefresh = vi.fn(async () => undefined);
     vi.mocked(tableAccountService.confirmManualPayment).mockResolvedValue({});
     await act(async () =>
@@ -476,14 +488,15 @@ describe('waiter operational pages', () => {
     expect(container.textContent).not.toMatch(/estornar|fechamento forçado|criar cobrança/i);
 
     const confirm = container.querySelector(
-      'button[aria-label*="Confirmar Dinheiro"][aria-label*="Mesa 12"]',
+      'button[aria-label*="Registrar dinheiro"][aria-label*="Mesa 12"]',
     ) as HTMLButtonElement;
     await act(async () => confirm.click());
 
     expect(dialogMocks.confirmDialog).toHaveBeenCalledWith(
       expect.objectContaining({
-        title: 'Confirmar pagamento recebido?',
-        description: expect.stringMatching(/Mesa 12.*R\$\s*29,00.*dinheiro/),
+        title: 'Registrar dinheiro recebido?',
+        description: expect.stringMatching(/Mesa 12.*R\$\s*29,00/),
+        confirmLabel: 'Registrar recebimento',
       }),
     );
     expect(tableAccountService.confirmManualPayment).toHaveBeenCalledWith('cash-payment');
