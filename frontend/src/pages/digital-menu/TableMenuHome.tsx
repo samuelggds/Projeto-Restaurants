@@ -12,6 +12,7 @@ import {
   UtensilsCrossed,
 } from 'lucide-react';
 import { PromotionCarousel } from '../Home/components/PromotionCarousel';
+import { useHorizontalProductCarousel } from '../Home/hooks/useHorizontalProductCarousel';
 import { resolveComboCategoryImage } from '../Home/domain/comboCategoryImage';
 import type { HomeData, HomeProduct } from '../Home/types';
 import * as H from './TableMenuHome.styles';
@@ -73,43 +74,16 @@ function TableProductCarousel({
   onOpenProduct: (product: HomeProduct, sourceElement?: HTMLElement | null) => void;
   onQuickAdd: (product: HomeProduct, sourceElement?: HTMLElement | null) => void;
 }) {
-  const trackRef = useRef<HTMLDivElement>(null);
-  const [hasOverflow, setHasOverflow] = useState(false);
-  const [canPrevious, setCanPrevious] = useState(false);
-  const [canNext, setCanNext] = useState(false);
-
-  useEffect(() => {
-    const track = trackRef.current;
-    if (!track) return undefined;
-
-    const sync = () => {
-      const max = Math.max(0, track.scrollWidth - track.clientWidth);
-      const overflow = max > 2;
-      setHasOverflow(overflow);
-      setCanPrevious(overflow && track.scrollLeft > 2);
-      setCanNext(overflow && track.scrollLeft < max - 2);
-    };
-
-    sync();
-    const resizeObserver = new ResizeObserver(sync);
-    resizeObserver.observe(track);
-    Array.from(track.children).forEach((child) => resizeObserver.observe(child));
-    track.addEventListener('scroll', sync, { passive: true });
-
-    return () => {
-      resizeObserver.disconnect();
-      track.removeEventListener('scroll', sync);
-    };
-  }, [section.products]);
-
-  const scroll = (direction: -1 | 1) => {
-    const track = trackRef.current;
-    if (!track) return;
-    const firstCard = track.querySelector<HTMLElement>('[data-table-product-card]');
-    const gap = Number.parseFloat(window.getComputedStyle(track).columnGap || '0') || 0;
-    const amount = firstCard ? firstCard.offsetWidth + gap : Math.max(track.clientWidth * 0.82, 260);
-    track.scrollBy({ left: direction * amount, behavior: 'smooth' });
-  };
+  const {
+    trackRef,
+    hasOverflow,
+    canPrevious,
+    canNext,
+    scroll,
+  } = useHorizontalProductCarousel({
+    itemSelector: '[data-table-product-card]',
+    itemsKey: section.products.map((product) => product.id).join('|'),
+  });
 
   return (
     <H.ProductSection id={section.id} aria-label={section.title}>
