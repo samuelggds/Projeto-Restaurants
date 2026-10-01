@@ -1,18 +1,13 @@
 import {
   ArrowLeft,
-  Bell,
   Check,
-  ChevronRight,
   CookingPot,
   Eye,
-  ShoppingBag,
   Clock3,
   QrCode,
-  ReceiptText,
-  Search,
   Utensils,
 } from 'lucide-react';
-import { lazy, Suspense, useEffect, useMemo, useState } from 'react';
+import { lazy, Suspense, useEffect, useState } from 'react';
 import QRCode from 'react-qr-code';
 import type { HomeData, HomeProduct } from '../Home/types';
 import type { CartItem } from '../Home/hooks/useCart';
@@ -24,7 +19,7 @@ import type {
 import type { TableOrderNotice } from '../Home/domain/tableOrderNotice';
 import { TablePaymentStatusView } from '../Home/components/TablePaymentStatusView';
 import { QuantityStepper } from '../../components/QuantityStepper/QuantityStepper';
-import { FigmaCatalogCard, FigmaComboCard } from './TableMenuExperience.cards';
+import { TableMenuHome } from './TableMenuHome';
 import * as S from './TableMenuExperience.styles';
 
 const ProductConfigurator = lazy(() =>
@@ -71,6 +66,8 @@ type Props = {
   onApplyCouponCode?: (code: string) => void;
   reviewCartOpen?: boolean;
   onReviewCartClose?: () => void;
+  userName?: string;
+  userLoggedIn?: boolean;
 };
 
 type View = 'menu' | 'cart' | 'confirmation' | 'tracking' | 'payment' | 'pix';
@@ -111,15 +108,11 @@ export default function TableMenuExperience({
   onApplyCouponCode,
   reviewCartOpen = false,
   onReviewCartClose,
+  userName,
+  userLoggedIn = false,
 }: Props) {
   const [view, setView] = useState<View>('menu');
   const effectiveView: View = reviewCartOpen ? 'cart' : view;
-  const [query, setQuery] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState(() => {
-    return data.categories.find((category) => category.id !== 'todos')?.id || 'todos';
-  });
-  const [catalogVisible, setCatalogVisible] = useState(false);
-  const [bannerIndex, setBannerIndex] = useState(0);
   const [selectedProduct, setSelectedProduct] = useState<HomeProduct | null>(null);
   const [completeProductQuantity, setCompleteProductQuantity] = useState(1);
   const [completeProductObservation, setCompleteProductObservation] = useState('');
@@ -137,28 +130,6 @@ export default function TableMenuExperience({
   const [now, setNow] = useState(() => Date.now());
 
   const primary = data.brand.primaryColor || '#d64d08';
-  const combos = useMemo(
-    () => data.products.filter((product) => product.available && product.kind === 'COMBO'),
-    [data.products],
-  );
-  const realCategories = useMemo(
-    () => data.categories.filter((category) => category.id !== 'todos'),
-    [data.categories],
-  );
-  const filteredProducts = useMemo(() => {
-    const normalizedQuery = query.trim().toLocaleLowerCase('pt-BR');
-    return data.products.filter((product) => {
-      if (!product.available || product.kind === 'COMBO') return false;
-      const categoryMatch =
-        selectedCategory === 'todos' || product.categoryId === selectedCategory;
-      const searchMatch =
-        !normalizedQuery ||
-        product.name.toLocaleLowerCase('pt-BR').includes(normalizedQuery) ||
-        product.description.toLocaleLowerCase('pt-BR').includes(normalizedQuery);
-      return categoryMatch && searchMatch;
-    });
-  }, [data.products, query, selectedCategory]);
-
   const paymentBase =
     activePayment?.publicId === pixPayment?.publicId ? activePayment : pixPayment;
   const paymentSnapshot = paymentBase
@@ -174,14 +145,6 @@ export default function TableMenuExperience({
     pixPending && currentPayment?.expiresAt
       ? Math.max(0, Math.ceil((new Date(currentPayment.expiresAt).getTime() - now) / 1000))
       : null;
-
-  useEffect(() => {
-    if (!data.banners.length || data.banners.length <= 1) return undefined;
-    const interval = window.setInterval(() => {
-      setBannerIndex((current) => (current + 1) % data.banners.length);
-    }, 5_000);
-    return () => window.clearInterval(interval);
-  }, [data.banners.length]);
 
   useEffect(() => {
     if (!pixPending || pixRemainingSeconds === null) return undefined;
@@ -305,16 +268,6 @@ export default function TableMenuExperience({
     setView('menu');
   }
 
-  function showCatalog(categoryId?: string) {
-    if (categoryId) setSelectedCategory(categoryId);
-    setCatalogVisible(true);
-    window.requestAnimationFrame(() => {
-      document.getElementById('table-catalog')?.scrollIntoView({
-        behavior: 'smooth',
-        block: 'start',
-      });
-    });
-  }
 
   if (effectiveView === 'pix' && currentPayment) {
     if (currentPayment.status === 'PAID') {
@@ -832,224 +785,28 @@ export default function TableMenuExperience({
     );
   }
 
-  const activeBanner = data.banners[bannerIndex] || data.banners[0];
-  const heroTitle =
-    [activeBanner?.title, activeBanner?.highlight].filter(Boolean).join(' ') ||
-    [data.hero.title, data.hero.highlight].filter(Boolean).join(' ') ||
-    'Peça direto da mesa com praticidade';
-  const heroDescription =
-    activeBanner?.description ||
-    data.hero.description ||
-    'Seu pedido vai direto para a cozinha.';
-  const heroImage = activeBanner?.image || data.hero.image;
+  const tableCartCount = cart.reduce(
+    (total, item) => total + Math.max(1, Number(item.quantity || 1)),
+    0,
+  );
 
   return (
     <S.FigmaShell $primary={primary} $fontFamily={data.fontFamily}>
-      <FlowHeader
+      <TableMenuHome
         data={data}
         tableLabel={tableLabel}
-        onHome={() => {
-          setCatalogVisible(false);
-          window.scrollTo({ top: 0, behavior: 'smooth' });
-        }}
-        onMenu={() => showCatalog()}
-        onOrders={() => setView('tracking')}
+        cartCount={tableCartCount}
+        orderingLocked={orderingLocked}
+        waiterCallEnabled={waiterCallEnabled}
+        billRequestEnabled={billRequestEnabled}
+        userName={userName}
+        userLoggedIn={userLoggedIn}
+        onOpenProduct={openProduct}
+        onQuickAdd={quickAdd}
+        onOpenCart={() => setView('cart')}
+        onCallWaiter={onCallWaiter}
+        onRequestBill={onRequestBill}
       />
-
-      <S.MenuHero>
-        {heroImage ? <img className="hero-bg" src={heroImage} alt="" /> : null}
-        <div className="hero-overlay" aria-hidden="true" />
-        <div className="copy">
-          <span className="eyebrow">
-            <span className="eyebrow-desktop">
-              RESTAURANTE {data.brand.name.toUpperCase()} · MESA {tableNumber(tableLabel)}
-            </span>
-            <span className="eyebrow-mobile">
-              RESTAURANTE {data.brand.name.toUpperCase()}
-            </span>
-          </span>
-          <h1>{heroTitle}</h1>
-          <p>{heroDescription}</p>
-          <button className="cta" type="button" onClick={() => showCatalog()}>
-            {activeBanner?.buttonLabel ? (
-              activeBanner.buttonLabel
-            ) : (
-              <>
-                <span className="cta-desktop">Ver Cardápio Completo</span>
-                <span className="cta-mobile">Ver Cardápio</span>
-              </>
-            )}
-          </button>
-        </div>
-
-        {data.banners.length > 1 ? (
-          <div className="indicators" aria-label="Banners em destaque">
-            {data.banners.map((banner, index) => (
-              <button
-                key={banner.id}
-                type="button"
-                aria-label={`Mostrar banner ${index + 1}`}
-                className={index === bannerIndex ? 'active' : ''}
-                onClick={() => setBannerIndex(index)}
-              />
-            ))}
-          </div>
-        ) : null}
-      </S.MenuHero>
-
-      <S.MenuPage>
-
-        <S.SearchCategoryRow>
-          <S.MenuSearch>
-            <Search size={21} />
-            <input
-              value={query}
-              onChange={(event) => {
-                const nextQuery = event.target.value;
-                setQuery(nextQuery);
-                if (nextQuery.trim()) setCatalogVisible(true);
-              }}
-              placeholder="Buscar no cardápio (pizza, burguer, bebidas...)"
-              aria-label="Buscar no cardápio"
-            />
-          </S.MenuSearch>
-
-          {realCategories.length ? (
-            <S.CategoryRail aria-label="Categorias do cardápio">
-              {realCategories.map((category) => (
-                <S.CategoryPill
-                  key={category.id}
-                  type="button"
-                  $active={selectedCategory === category.id}
-                  onClick={() => showCatalog(category.id)}
-                >
-                  <span className="category-image" aria-hidden="true">
-                    {category.image ? <img src={category.image} alt="" /> : null}
-                  </span>
-                  <span className="category-label">{category.name}</span>
-                </S.CategoryPill>
-              ))}
-            </S.CategoryRail>
-          ) : null}
-        </S.SearchCategoryRow>
-
-        {combos.length ? (
-          <S.ComboSection>
-            <S.SectionHeading>
-              <div className="title">
-                <h2>Combos em Destaque</h2>
-                <p>Os favoritos da galera para compartilhar</p>
-              </div>
-              <button type="button" onClick={() => showCatalog('todos')}>
-                <span className="desktop-only">Ver todos os pratos</span>
-                <span className="mobile-only">Ver todos</span>
-              </button>
-            </S.SectionHeading>
-            <S.ComboRail>
-              {combos.map((combo) => (
-                <FigmaComboCard
-                  key={combo.id}
-                  product={combo}
-                  disabled={orderingLocked}
-                  onOpen={() => openProduct(combo)}
-                  onAdd={() => quickAdd(combo)}
-                />
-              ))}
-            </S.ComboRail>
-          </S.ComboSection>
-        ) : null}
-
-        <S.TableActionsSection>
-          <h2>
-            <span className="desktop-only">Ações Rápidas na Mesa</span>
-            <span className="mobile-only">Ações Rápidas</span>
-          </h2>
-          <S.TableActionsGrid>
-            <S.TableActionCard
-              $tone="order"
-              type="button"
-              aria-label="Meu pedido"
-              onClick={() => setView('cart')}
-            >
-              <span className="icon"><ShoppingBag /></span>
-              <span className="copy">
-                <b>Meu Pedido</b>
-                <small>Visualize os itens em revisão no carrinho</small>
-              </span>
-            </S.TableActionCard>
-
-            {waiterCallEnabled ? (
-              <S.TableActionCard
-                $tone="waiter"
-                type="button"
-                aria-label="Chamar garçom"
-                onClick={onCallWaiter}
-              >
-                <span className="icon"><Bell /></span>
-                <span className="copy">
-                  <b>
-                    <span className="desktop-only">Chamar Garçom</span>
-                    <span className="mobile-only">Garçom</span>
-                  </b>
-                  <small>Solicite assistência imediata à sua mesa</small>
-                </span>
-              </S.TableActionCard>
-            ) : null}
-
-            {billRequestEnabled && onRequestBill ? (
-              <S.TableActionCard
-                $tone="bill"
-                type="button"
-                aria-label="Ver conta"
-                onClick={onRequestBill}
-              >
-                <span className="icon"><ReceiptText /></span>
-                <span className="copy">
-                  <b>Ver Conta</b>
-                  <small>Acompanhe o consumo total da mesa</small>
-                </span>
-              </S.TableActionCard>
-            ) : null}
-          </S.TableActionsGrid>
-        </S.TableActionsSection>
-
-        {catalogVisible ? (
-        <S.CatalogSection id="table-catalog">
-          <S.SectionHeading>
-            <div className="title">
-              <h2>
-                {selectedCategory === 'todos'
-                  ? 'Cardápio'
-                  : realCategories.find((category) => category.id === selectedCategory)?.name ||
-                    'Cardápio'}
-              </h2>
-              {query ? <p>Resultados para “{query}”</p> : null}
-            </div>
-            {selectedCategory !== 'todos' ? (
-              <button type="button" onClick={() => setSelectedCategory('todos')}>
-                Ver todos <ChevronRight size={14} />
-              </button>
-            ) : null}
-          </S.SectionHeading>
-
-          {filteredProducts.length ? (
-            <S.CatalogGrid>
-              {filteredProducts.map((product) => (
-                <FigmaCatalogCard
-                  key={product.id}
-                  product={product}
-                  disabled={orderingLocked}
-                  onOpen={() => openProduct(product)}
-                  onAdd={() => quickAdd(product)}
-                />
-              ))}
-            </S.CatalogGrid>
-          ) : (
-            <S.EmptyCatalog>Nenhum produto disponível para este filtro.</S.EmptyCatalog>
-          )}
-        </S.CatalogSection>
-        ) : null}
-      </S.MenuPage>
 
       {selectedProduct ? (
         <S.ProductOverlay role="dialog" aria-modal="true" aria-label={selectedProduct.name}>

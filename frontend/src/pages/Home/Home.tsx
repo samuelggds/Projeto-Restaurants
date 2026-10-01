@@ -953,6 +953,8 @@ export default function Home() {
         onApplyCouponCode={applyTableCouponCode}
         reviewCartOpen={tableMenuReviewCartOpen}
         onReviewCartClose={() => setTableMenuReviewCartOpen(false)}
+        userName={user ? String((user as Record<string, unknown>).name || '') : undefined}
+        userLoggedIn={Boolean(user)}
       />
     );
   }
