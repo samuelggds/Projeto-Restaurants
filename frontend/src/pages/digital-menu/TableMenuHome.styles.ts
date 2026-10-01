@@ -371,17 +371,35 @@ export const Categories = styled.nav`
   .image {
     width: 80px;
     height: 80px;
+    border: 2px solid transparent;
     border-radius: 999px;
     overflow: hidden;
     background: #f3f1ec;
     display: grid;
     place-items: center;
-    color: var(--primary);
+    color: #9d9991;
+    transition:
+      border-color 180ms ease,
+      background-color 180ms ease,
+      color 180ms ease,
+      transform 220ms cubic-bezier(.22, 1, .36, 1),
+      box-shadow 180ms ease;
   }
 
   .image.special {
-    border: 2px solid var(--primary);
     background: #fff;
+  }
+
+  button.active {
+    color: var(--primary);
+  }
+
+  button.active .image {
+    border-color: var(--primary);
+    background: #fff;
+    color: var(--primary);
+    transform: scale(1.06);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 10%, transparent);
   }
 
   .image img {
@@ -414,12 +432,14 @@ export const Categories = styled.nav`
   }
 
   @media (prefers-reduced-motion: reduce) {
-    button {
+    button,
+    .image {
       transition: none;
     }
 
     button:hover,
-    button:active {
+    button:active,
+    button.active .image {
       transform: none;
     }
   }
