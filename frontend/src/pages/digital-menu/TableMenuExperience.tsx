@@ -598,12 +598,22 @@ export default function TableMenuExperience({
 
   if (effectiveView === 'tracking') {
     const ownAccount = currentParticipantAccount(accountSnapshot);
-    const ownPaymentPending = Boolean(
-      accountSnapshot?.activePayment &&
-        ['RESERVED', 'PROCESSING'].includes(accountSnapshot.activePayment.status),
+    const activeTablePayment = accountSnapshot?.activePayment || null;
+    const activePaymentPending = Boolean(
+      activeTablePayment && ['RESERVED', 'PROCESSING'].includes(activeTablePayment.status),
+    );
+    const activePixPending = Boolean(activePaymentPending && activeTablePayment?.method === 'PIX');
+    const pixBlockedByOtherPayment = Boolean(
+      activePaymentPending && activeTablePayment?.method !== 'PIX',
     );
     const canPayOwnAccount = Boolean(ownAccount && ownAccount.remainingCents > 0);
     const allowPix = accountSnapshot?.capabilities.allowPix === true;
+    const pixUnavailable = !allowPix || pixBlockedByOtherPayment;
+    const pixButtonLabel = !allowPix
+      ? 'PIX indisponível'
+      : pixBlockedByOtherPayment
+        ? 'PIX indisponível no momento'
+        : 'Pagar agora com PIX';
     const preparationMinutes = Number.parseInt(String(data.deliveryTime || ''), 10);
     const confirmedAt = tableOrder?.createdAt
       ? new Intl.DateTimeFormat('pt-BR', { hour: '2-digit', minute: '2-digit' }).format(
@@ -611,19 +621,6 @@ export default function TableMenuExperience({
         )
       : '';
     const trackingDescriptions = trackingSteps(tableOrder, confirmedAt);
-
-    const openOwnPayment = () => {
-      if (accountSnapshot?.activePayment) {
-        setPixPayment(accountSnapshot.activePayment);
-        setView('pix');
-        return;
-      }
-      if (confirmation) {
-        setView('payment');
-        return;
-      }
-      onViewAccount();
-    };
 
     return (
       <S.FigmaShell $primary={primary} $fontFamily={data.fontFamily}>
@@ -732,26 +729,29 @@ export default function TableMenuExperience({
                 </S.SecondaryAction>
               ) : null}
 
-              {canPayOwnAccount && ownPaymentPending ? (
-                <S.SecondaryAction type="button" onClick={openOwnPayment}>
-                  Ver pagamento
-                </S.SecondaryAction>
-              ) : null}
-
-              {canPayOwnAccount && !ownPaymentPending && allowPix ? (
+              {canPayOwnAccount ? (
                 <S.TrackingPixAction
                   type="button"
-                  disabled={paymentLoading}
-                  onClick={() => void startPayment('PIX')}
+                  disabled={paymentLoading || pixUnavailable}
+                  aria-label={pixButtonLabel}
+                  title={
+                    !allowPix
+                      ? 'O PIX será liberado quando o administrador configurar um provedor no restaurante.'
+                      : pixBlockedByOtherPayment
+                        ? 'Há outro pagamento em andamento para este consumo.'
+                        : undefined
+                  }
+                  onClick={() => {
+                    if (activePixPending && activeTablePayment) {
+                      setPixPayment(activeTablePayment);
+                      setView('pix');
+                      return;
+                    }
+                    void startPayment('PIX');
+                  }}
                 >
-                  <PixMark /> Pagar agora com PIX
+                  <PixMark /> {pixButtonLabel}
                 </S.TrackingPixAction>
-              ) : null}
-
-              {canPayOwnAccount && !ownPaymentPending && !allowPix ? (
-                <S.SecondaryAction type="button" onClick={openOwnPayment}>
-                  Pagar minha conta
-                </S.SecondaryAction>
               ) : null}
             </S.OrderItemsCard>
           </S.TrackingLayout>
