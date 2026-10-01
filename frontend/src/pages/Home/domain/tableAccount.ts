@@ -44,6 +44,16 @@ export type TableAccountSnapshot = {
     joinedAt: string;
     leftAt: string | null;
   }>;
+  participantAccounts?: Array<{
+    publicId: string;
+    displayName: string | null;
+    status: 'ACTIVE' | 'LEFT';
+    consumedCents: number;
+    paidCents: number;
+    reservedCents: number;
+    processingCents: number;
+    remainingCents: number;
+  }>;
   activePayment: TablePaymentIntent | null;
   items: Array<{
     publicId: string;
@@ -169,4 +179,14 @@ export function previewIndividualTablePayment(snapshot: TableAccountSnapshot) {
         )
       : 0;
   return { subtotalCents, serviceFeeCents, totalCents: subtotalCents + serviceFeeCents, blocked };
+}
+
+
+export function currentParticipantAccount(snapshot: TableAccountSnapshot | null) {
+  if (!snapshot) return null;
+  return (
+    snapshot.participantAccounts?.find(
+      (participant) => participant.publicId === snapshot.currentParticipantPublicId,
+    ) || null
+  );
 }

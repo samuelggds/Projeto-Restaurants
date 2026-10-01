@@ -57,14 +57,13 @@ type Props = {
   activePayment: TablePaymentIntent | null;
   paymentLoading?: boolean;
   waiterCallEnabled?: boolean;
-  billRequestEnabled?: boolean;
   onAddProduct: (productId: string, configuration: ProductConfiguration) => void;
   onIncrease: (cartId: string) => void;
   onDecrease: (cartId: string) => void;
   onSubmitOrder: () => Promise<SubmitResult | null | undefined>;
   onCallWaiter: () => void;
-  onRequestBill?: () => void;
-  onCreatePixPayment: (orderPublicId: string) => Promise<TablePaymentIntent | null>;
+  onViewAccount: () => void;
+  onCreateAccountPayment: (method: 'PIX' | 'CASH') => Promise<TablePaymentIntent | null>;
   onReconcilePayment: (paymentPublicId: string) => Promise<TablePaymentIntent | null>;
   onCancelPayment: (paymentPublicId: string) => Promise<boolean>;
   couponCode?: string | null;
@@ -99,14 +98,13 @@ export default function TableMenuExperience({
   activePayment,
   paymentLoading = false,
   waiterCallEnabled = true,
-  billRequestEnabled = false,
   onAddProduct,
   onIncrease,
   onDecrease,
   onSubmitOrder,
   onCallWaiter,
-  onRequestBill,
-  onCreatePixPayment,
+  onViewAccount,
+  onCreateAccountPayment,
   onReconcilePayment,
   onCancelPayment,
   couponCode = null,
@@ -160,7 +158,7 @@ export default function TableMenuExperience({
   }, [pixPending, pixRemainingSeconds]);
 
   useEffect(() => {
-    if (!pixPending || !currentPayment?.publicId) return undefined;
+    if (!pixPending || currentPayment?.method !== 'PIX' || !currentPayment.publicId) return undefined;
     const paymentPublicId = currentPayment.publicId;
     const interval = window.setInterval(() => {
       if (document.hidden || paymentLoading) return;
@@ -265,18 +263,18 @@ export default function TableMenuExperience({
     }
   }
 
-  async function startPix() {
-    if (!confirmation?.orderPublicId || paymentLoading) return;
+  async function startPayment(method: 'PIX' | 'CASH') {
+    if (paymentLoading) return;
     const pendingPayment = accountSnapshot?.activePayment;
     if (
-      pendingPayment?.method === 'PIX' &&
+      pendingPayment?.method === method &&
       ['RESERVED', 'PROCESSING'].includes(pendingPayment.status)
     ) {
       setPixPayment(pendingPayment);
       setView('pix');
       return;
     }
-    const payment = await onCreatePixPayment(confirmation.orderPublicId);
+    const payment = await onCreateAccountPayment(method);
     if (!payment) return;
     setPixPayment(payment);
     setView('pix');
@@ -295,6 +293,47 @@ export default function TableMenuExperience({
     setView('menu');
   }
 
+
+  if (
+    effectiveView === 'pix' &&
+    currentPayment?.method === 'CASH' &&
+    ['RESERVED', 'PROCESSING'].includes(currentPayment.status)
+  ) {
+    return (
+      <S.FigmaShell $primary={primary} $fontFamily={data.fontFamily}>
+        <FlowHeader
+          data={data}
+          tableLabel={tableLabel}
+          title="Pagamento em Dinheiro"
+          onBack={() => setView('payment')}
+          onHome={goToMenu}
+          onMenu={goToMenu}
+          onOrders={() => setView('tracking')}
+        />
+        <S.FlowPage>
+          <S.PaymentCard>
+            <S.FlowTitle>
+              <h1>Pagamento em dinheiro solicitado</h1>
+              <p>Entregue o valor ao garçom ou atendente. O pagamento só será marcado como pago depois da confirmação do administrador.</p>
+            </S.FlowTitle>
+            <S.PaymentSummary>
+              <div className="label">
+                <small>Valor da sua conta</small>
+                <strong>Aguardando confirmação</strong>
+              </div>
+              <span className="amount">{centsToBrl(currentPayment.totalCents)}</span>
+            </S.PaymentSummary>
+            <S.PrimaryAction type="button" onClick={() => setView('tracking')}>
+              Acompanhar pedido
+            </S.PrimaryAction>
+            <S.SecondaryAction type="button" onClick={goToMenu}>
+              Voltar ao cardápio
+            </S.SecondaryAction>
+          </S.PaymentCard>
+        </S.FlowPage>
+      </S.FigmaShell>
+    );
+  }
 
   if (effectiveView === 'pix' && currentPayment) {
     if (currentPayment.status === 'PAID') {
@@ -318,7 +357,7 @@ export default function TableMenuExperience({
                   </div>
                 </div>
                 <h1>Pagamento Confirmado!</h1>
-                <p>Recebemos seu pagamento via PIX com sucesso.</p>
+                <p>Recebemos seu pagamento com sucesso.</p>
                 <S.PaidReceipt>
                   <div className="receipt-head">
                     {confirmation?.orderId ? <small>Pedido #{confirmation.orderId}</small> : <small>Pedido</small>}
@@ -328,7 +367,7 @@ export default function TableMenuExperience({
                   <div className="receipt-divider" />
                   <div className="receipt-row">
                     <small>Forma de Pagamento</small>
-                    <b>PIX</b>
+                    <b>{currentPayment.method === 'CASH' ? 'Dinheiro' : 'PIX'}</b>
                   </div>
                   <div className="receipt-row">
                     <small>Status</small>
@@ -458,6 +497,11 @@ export default function TableMenuExperience({
 
   if (effectiveView === 'payment' && confirmation) {
     const allowPix = accountSnapshot?.capabilities.allowPix === true;
+    const allowCash = accountSnapshot?.capabilities.allowCash === true;
+    const ownAccount = accountSnapshot?.participantAccounts?.find(
+      (participant) => participant.publicId === accountSnapshot.currentParticipantPublicId,
+    );
+    const ownRemainingCents = ownAccount?.remainingCents || 0;
     return (
       <S.FigmaShell $primary={primary} $fontFamily={data.fontFamily}>
         <FlowHeader
@@ -495,9 +539,25 @@ export default function TableMenuExperience({
                   className="primary"
                   type="button"
                   disabled={paymentLoading}
-                  onClick={() => void startPix()}
+                  onClick={() => void startPayment('PIX')}
                 >
                   Escolher PIX
+                </button>
+              </S.PaymentChoiceCard>
+            ) : null}
+
+            {allowCash ? (
+              <S.PaymentChoiceCard>
+                <span className="icon"><Clock3 size={20} /></span>
+                <h2>Pagar em dinheiro</h2>
+                <p>Entregue o valor ao garçom ou atendente. O administrador confirma o pagamento no sistema.</p>
+                <button
+                  className="secondary"
+                  type="button"
+                  disabled={paymentLoading}
+                  onClick={() => void startPayment('CASH')}
+                >
+                  Escolher dinheiro
                 </button>
               </S.PaymentChoiceCard>
             ) : null}
@@ -518,12 +578,12 @@ export default function TableMenuExperience({
             <S.PaymentSummary>
               <div className="label">
                 <small>
-                  <span className="desktop-only">Valor total deste pedido:</span>
-                  <span className="mobile-only">Valor deste pedido:</span>
+                  <span className="desktop-only">Valor restante da sua conta:</span>
+                  <span className="mobile-only">Sua conta:</span>
                 </small>
-                {confirmation.orderId ? <strong>Pedido #{confirmation.orderId}</strong> : null}
+                <strong>Somente seu consumo</strong>
               </div>
-              <span className="amount">{brl(confirmation.total)}</span>
+              <span className="amount">{centsToBrl(ownRemainingCents)}</span>
             </S.PaymentSummary>
           </S.PaymentCard>
         </S.FlowPage>
@@ -669,9 +729,11 @@ export default function TableMenuExperience({
             <S.PrimaryAction type="button" onClick={() => setView('tracking')}>
               Acompanhar em tempo real
             </S.PrimaryAction>
-            {accountSnapshot?.capabilities.allowPix ? (
+            {accountSnapshot?.participantAccounts?.find(
+              (participant) => participant.publicId === accountSnapshot.currentParticipantPublicId,
+            )?.remainingCents ? (
               <S.SecondaryAction type="button" onClick={() => setView('payment')}>
-                Pagar agora no PIX
+                Pagar minha conta
               </S.SecondaryAction>
             ) : null}
             <S.HelperText>Deseja continuar pedindo? A conta ficará aberta na mesa.</S.HelperText>
@@ -830,14 +892,13 @@ export default function TableMenuExperience({
         cartCount={tableCartCount}
         orderingLocked={orderingLocked}
         waiterCallEnabled={waiterCallEnabled}
-        billRequestEnabled={billRequestEnabled}
         userName={userName}
         userLoggedIn={userLoggedIn}
         onOpenProduct={openProduct}
         onQuickAdd={quickAdd}
         onOpenCart={() => setView('cart')}
         onCallWaiter={onCallWaiter}
-        onRequestBill={onRequestBill}
+        onViewAccount={onViewAccount}
       />
 
       {selectedProduct ? (

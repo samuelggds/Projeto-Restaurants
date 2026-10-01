@@ -22,14 +22,13 @@ type Props = {
   cartCount: number;
   orderingLocked?: boolean;
   waiterCallEnabled: boolean;
-  billRequestEnabled: boolean;
   userName?: string;
   userLoggedIn?: boolean;
   onOpenProduct: (product: HomeProduct, sourceElement?: HTMLElement | null) => void;
   onQuickAdd: (product: HomeProduct, sourceElement?: HTMLElement | null) => void;
   onOpenCart: () => void;
   onCallWaiter: () => void;
-  onRequestBill?: () => void;
+  onViewAccount: () => void;
 };
 
 type ProductSection = {
@@ -200,14 +199,13 @@ export function TableMenuHome({
   cartCount,
   orderingLocked = false,
   waiterCallEnabled,
-  billRequestEnabled,
   userName,
   userLoggedIn = false,
   onOpenProduct,
   onQuickAdd,
   onOpenCart,
   onCallWaiter,
-  onRequestBill,
+  onViewAccount,
 }: Props) {
   const availableProducts = useMemo(
     () => data.products.filter((product) => product.available),
@@ -428,12 +426,10 @@ export function TableMenuHome({
             <span>Chamar Garçom</span>
           </button>
         ) : null}
-        {billRequestEnabled && onRequestBill ? (
-          <button type="button" onClick={onRequestBill}>
-            <span className="icon"><ReceiptText aria-hidden="true" /></span>
-            <span>Ver Conta</span>
-          </button>
-        ) : null}
+        <button type="button" onClick={onViewAccount}>
+          <span className="icon"><ReceiptText aria-hidden="true" /></span>
+          <span>Ver Conta</span>
+        </button>
       </H.ActionDock>
     </H.HomeRoot>
   );
