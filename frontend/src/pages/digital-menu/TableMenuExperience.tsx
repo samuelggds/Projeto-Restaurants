@@ -1,5 +1,6 @@
 import {
   ArrowLeft,
+  Bell,
   Check,
   CookingPot,
   Eye,
