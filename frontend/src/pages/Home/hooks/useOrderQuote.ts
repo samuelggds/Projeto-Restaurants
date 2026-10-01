@@ -125,7 +125,9 @@ export function useOrderQuote({
   const enabled = Boolean(
     restaurantId &&
       cart.length > 0 &&
-      (type !== 'DELIVERY' || isDeliveryAddressReadyForQuote(deliveryAddress)),
+      (type !== 'DELIVERY' ||
+        isDeliveryAddressReadyForQuote(deliveryAddress) ||
+        Boolean(couponRedemptionId)),
   );
 
   useEffect(() => {
