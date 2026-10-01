@@ -23,7 +23,10 @@ import { CustomerDesktopFooter } from './components/CustomerDesktopFooter';
 import { ReadyProductDetail } from './components/ReadyProductDetail';
 import { FloatingWhatsAppPortal } from './Home.whatsapp';
 import { WhatsAppIcon } from './components/SocialBrandIcons';
-import { buildSocialProfileUrl } from './domain/publicSettings';
+import {
+  buildSocialProfileUrl,
+  formatBusinessHoursSummary,
+} from './domain/publicSettings';
 import { resolveComboCategoryImage } from './domain/comboCategoryImage';
 import { createReadyProductConfiguration, resolveProductEntryKind } from './domain/productEntryFlow';
 import {
@@ -73,123 +76,6 @@ function productImage(product: HomeProduct) {
 function categoryImage(image: string, name: string) {
   return image ? <img src={image} alt="" loading="lazy" decoding="async" /> : <UtensilsCrossed aria-label={name} />;
 }
-
-const BUSINESS_DAY_ORDER = [
-  'monday',
-  'tuesday',
-  'wednesday',
-  'thursday',
-  'friday',
-  'saturday',
-  'sunday',
-] as const;
-
-const BUSINESS_DAY_SHORT_LABELS: Record<string, string> = {
-  monday: 'Seg',
-  tuesday: 'Ter',
-  wednesday: 'Qua',
-  thursday: 'Qui',
-  friday: 'Sex',
-  saturday: 'Sáb',
-  sunday: 'Dom',
-};
-
-function formatDayIndexes(indexes: number[]) {
-  if (!indexes.length) return '';
-
-  const ranges: Array<{ start: number; end: number }> = [];
-  let start = indexes[0];
-  let end = indexes[0];
-
-  for (const index of indexes.slice(1)) {
-    if (index === end + 1) {
-      end = index;
-      continue;
-    }
-
-    ranges.push({ start, end });
-    start = index;
-    end = index;
-  }
-
-  ranges.push({ start, end });
-
-  const labels = ranges.map(({ start: rangeStart, end: rangeEnd }) => {
-    const first = BUSINESS_DAY_SHORT_LABELS[BUSINESS_DAY_ORDER[rangeStart]];
-    const last = BUSINESS_DAY_SHORT_LABELS[BUSINESS_DAY_ORDER[rangeEnd]];
-    return rangeStart === rangeEnd ? first : `${first}–${last}`;
-  });
-
-  if (labels.length <= 1) return labels[0] || '';
-  if (labels.length === 2) return `${labels[0]} e ${labels[1]}`;
-  return `${labels.slice(0, -1).join(', ')} e ${labels[labels.length - 1]}`;
-}
-
-function formatHours(data: HomeExperienceProps['data']) {
-  const configured = new Map(
-    (data.businessHours || [])
-      .filter((entry) => entry.enabled)
-      .map((entry) => [String(entry.id), entry] as const),
-  );
-
-  const enabledIndexes = BUSINESS_DAY_ORDER
-    .map((id, index) => (configured.has(id) ? index : -1))
-    .filter((index) => index >= 0);
-
-  if (!enabledIndexes.length) return '';
-
-  const groups = new Map<
-    string,
-    {
-      openingTime: string;
-      closingTime: string;
-      indexes: number[];
-    }
-  >();
-
-  enabledIndexes.forEach((index) => {
-    const id = BUSINESS_DAY_ORDER[index];
-    const entry = configured.get(id);
-    if (!entry) return;
-
-    const openingTime = String(entry.openingTime || '').trim();
-    const closingTime = String(entry.closingTime || '').trim();
-    if (!openingTime || !closingTime) return;
-
-    const key = `${openingTime}|${closingTime}`;
-    const existing = groups.get(key);
-
-    if (existing) {
-      existing.indexes.push(index);
-      return;
-    }
-
-    groups.set(key, {
-      openingTime,
-      closingTime,
-      indexes: [index],
-    });
-  });
-
-  const scheduleGroups = Array.from(groups.values()).sort(
-    (left, right) => left.indexes[0] - right.indexes[0],
-  );
-
-  if (
-    scheduleGroups.length === 1 &&
-    scheduleGroups[0].indexes.length === BUSINESS_DAY_ORDER.length
-  ) {
-    return `Todos os dias: ${scheduleGroups[0].openingTime} - ${scheduleGroups[0].closingTime}`;
-  }
-
-  return scheduleGroups
-    .map(
-      (group) =>
-        `${formatDayIndexes(group.indexes)}: ${group.openingTime} - ${group.closingTime}`,
-    )
-    .join(' | ');
-}
-
 
 function ProductCarouselSection({
   title,
@@ -445,7 +331,7 @@ export function FigmaDeliveryExperience({
         ]
       : [];
   }, [data.banners, data.hero]);
-  const hours = formatHours(data);
+  const hours = formatBusinessHoursSummary(data.businessHours);
   const normalizeSearchText = (value: string) =>
     value
       .normalize('NFD')
