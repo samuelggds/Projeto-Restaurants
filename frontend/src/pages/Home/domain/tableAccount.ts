@@ -159,6 +159,38 @@ export function formatTableMoney(cents: number) {
   });
 }
 
+export function tablePaymentMethodLabel(method: TablePaymentMethod) {
+  switch (method) {
+    case 'PIX':
+      return 'PIX';
+    case 'CASH':
+      return 'Dinheiro';
+    case 'CARD':
+      return 'Cartão';
+    case 'CARD_MACHINE':
+      return 'Cartão na maquininha';
+  }
+}
+
+export function tablePaymentStatusLabel(status: TablePaymentStatus) {
+  switch (status) {
+    case 'RESERVED':
+      return 'Reservado';
+    case 'PROCESSING':
+      return 'Em confirmação';
+    case 'PAID':
+      return 'Confirmado';
+    case 'FAILED':
+      return 'Falhou';
+    case 'EXPIRED':
+      return 'Expirado';
+    case 'CANCELED':
+      return 'Cancelado';
+    case 'REFUNDED':
+      return 'Estornado';
+  }
+}
+
 /** Prévia de MY_ITEMS; o backend continua sendo a autoridade sobre a cobrança. */
 export function previewIndividualTablePayment(snapshot: TableAccountSnapshot) {
   const items = snapshot.items.filter(
