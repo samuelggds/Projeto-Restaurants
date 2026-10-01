@@ -214,9 +214,9 @@ test('formulário preserva dados após falha, repete a chave e confirma recebime
   await form.getByLabel('Nome do restaurante', { exact: true }).fill('Bistrô Teste');
   await form.getByLabel('E-mail', { exact: false }).fill('joana@example.test');
   await form.getByLabel('Telefone com DDD').fill('(11) 99999-8888');
-  await form.getByLabel('Cidade').fill('São Paulo');
-  await form.getByLabel('Estado').selectOption('SP');
-  await form.getByLabel('Tipo de negócio').selectOption('Restaurante');
+  await form.getByLabel('Cidade', { exact: true }).fill('São Paulo');
+  await form.getByLabel('Estado', { exact: true }).selectOption('SP');
+  await form.getByLabel('Tipo de negócio', { exact: true }).selectOption('Restaurante');
   await form.getByLabel('Delivery', { exact: true }).check();
   await form.getByLabel(/Concordo que a GastroNexa/).check();
 
