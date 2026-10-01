@@ -106,23 +106,26 @@ for (const width of [1440, 390]) {
     const dialog = page.getByRole('dialog', { name: 'Montar Meio a meio dinâmico' });
     const footer = dialog.getByTestId('product-configurator-footer');
 
+    const halfList = dialog.locator('.product-half-group .product-option-list').first();
+    const layout = await halfList.evaluate((element) => {
+      const style = getComputedStyle(element);
+      return {
+        display: style.display,
+        flexDirection: style.flexDirection,
+        gridTemplateColumns: style.gridTemplateColumns,
+        width: element.getBoundingClientRect().width,
+        optionWidths: Array.from(element.children).map(
+          (child) => (child as HTMLElement).getBoundingClientRect().width,
+        ),
+      };
+    });
+    expect(layout.optionWidths.every((optionWidth) => optionWidth >= layout.width - 2)).toBe(true);
+
     if (width === 390) {
-      const halfList = dialog.locator('.product-half-group .product-option-list').first();
-      const layout = await halfList.evaluate((element) => {
-        const style = getComputedStyle(element);
-        return {
-          display: style.display,
-          flexDirection: style.flexDirection,
-          width: element.getBoundingClientRect().width,
-          optionWidths: Array.from(element.children).map(
-            (child) => (child as HTMLElement).getBoundingClientRect().width,
-          ),
-        };
-      });
       expect(layout.display).toBe('flex');
       expect(layout.flexDirection).toBe('column');
-      expect(layout.optionWidths.every((optionWidth) => optionWidth >= layout.width - 2)).toBe(true);
     } else {
+      expect(layout.gridTemplateColumns.trim().split(/\s+/u)).toHaveLength(1);
       const scrolling = await dialog.evaluate((element) => ({
         scrollHeight: element.scrollHeight,
         clientHeight: element.clientHeight,
