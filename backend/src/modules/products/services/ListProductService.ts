@@ -62,7 +62,9 @@ class ListProductsService {
         `/public-media/restaurants/${normalizedRestaurantId}/products/${product.id}`,
         product.updatedAt,
       );
-      const publicCategory = presentCategoryImage(product.category, normalizedRestaurantId);
+      const publicCategory = product.category
+        ? presentCategoryImage(product.category, normalizedRestaurantId)
+        : product.category;
       const publicIngredients = product.ingredients.map((ingredient) =>
         presentIngredientImage(ingredient, normalizedRestaurantId),
       );

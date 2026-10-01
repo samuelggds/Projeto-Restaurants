@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { resolveComboCategoryImage } from './FigmaDeliveryExperience';
+import { resolveComboCategoryImage } from './domain/comboCategoryImage';
 import type { HomeCategory, HomeProduct } from './types';
 
 const combo = {

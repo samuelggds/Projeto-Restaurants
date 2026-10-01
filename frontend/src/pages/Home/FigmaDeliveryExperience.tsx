@@ -23,8 +23,9 @@ import { CustomerDesktopFooter } from './components/CustomerDesktopFooter';
 import { FloatingWhatsAppPortal } from './Home.whatsapp';
 import { WhatsAppIcon } from './components/SocialBrandIcons';
 import { buildSocialProfileUrl } from './domain/publicSettings';
+import { resolveComboCategoryImage } from './domain/comboCategoryImage';
 import { createReadyProductConfiguration, resolveProductEntryKind } from './domain/productEntryFlow';
-import type { HomeCategory, HomeExperienceProps, HomeProduct } from './types';
+import type { HomeExperienceProps, HomeProduct } from './types';
 import * as S from './FigmaDeliveryExperience.styles';
 
 const ProductConfigurator = lazy(() =>
@@ -60,16 +61,6 @@ function formatDeliveryTime(value?: string) {
 
 function productImage(product: HomeProduct) {
   return product.image ? <img src={product.image} alt={product.name} loading="lazy" decoding="async" /> : <UtensilsCrossed />;
-}
-
-export function resolveComboCategoryImage(
-  categories: HomeCategory[],
-  combos: HomeProduct[],
-) {
-  const comboCategory = categories.find(
-    (category) => category.name.trim().toLocaleLowerCase('pt-BR') === 'combos',
-  );
-  return comboCategory?.image || combos[0]?.image || '';
 }
 
 function categoryImage(image: string, name: string) {

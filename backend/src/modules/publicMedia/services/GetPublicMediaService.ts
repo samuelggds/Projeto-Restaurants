@@ -5,10 +5,10 @@ export type PublicMedia = {
   updatedAt: Date;
 };
 
-function positiveInteger(value: unknown, label: string) {
+function positiveInteger(value: unknown, label: string, invalidLabel = 'inválido') {
   const parsed = Number(value);
   if (!Number.isInteger(parsed) || parsed <= 0) {
-    throw new Error(`${label} inválido.`);
+    throw new Error(`${label} ${invalidLabel}.`);
   }
   return parsed;
 }
@@ -35,7 +35,7 @@ class GetPublicMediaService {
 
   async categoryImage(restaurantIdInput: unknown, categoryIdInput: unknown): Promise<PublicMedia> {
     const restaurantId = positiveInteger(restaurantIdInput, 'Restaurante');
-    const categoryId = positiveInteger(categoryIdInput, 'Categoria');
+    const categoryId = positiveInteger(categoryIdInput, 'Categoria', 'inválida');
     const category = await publicMediaRepository.findCategoryImage(restaurantId, categoryId);
     return requireSource(category?.image, category?.updatedAt);
   }
