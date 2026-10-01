@@ -20,8 +20,8 @@ import {
 } from '../Home/domain/tableAccount';
 import type { TableOrderNotice } from '../Home/domain/tableOrderNotice';
 import {
-  animateProductToCart,
   captureCartFlyOrigin,
+  scheduleProductToCartAnimation,
   type CartFlyOrigin,
 } from '../Home/cartFlyAnimation';
 import { TablePaymentStatusView } from '../Home/components/TablePaymentStatusView';
@@ -180,12 +180,10 @@ export default function TableMenuExperience({
   }
 
   function flyProduct(product: HomeProduct, origin?: CartFlyOrigin | null) {
-    window.requestAnimationFrame(() => {
-      animateProductToCart({
-        origin,
-        imageUrl: product.image,
-        accentColor: primary,
-      });
+    scheduleProductToCartAnimation({
+      origin,
+      imageUrl: product.image,
+      accentColor: primary,
     });
   }
 
