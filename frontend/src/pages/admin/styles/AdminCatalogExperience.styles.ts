@@ -626,22 +626,55 @@ export const CategoryCard = styled.article`
   border-radius: 8px;
   background: #fff;
   box-shadow: 0 7px 20px rgba(50, 37, 27, 0.045);
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
   transition:
     border-color 220ms ease,
     box-shadow 220ms ease,
-    transform 220ms ease;
-
-  &[data-dragging='true'] {
-    z-index: 5;
-    border-color: color-mix(in srgb, var(--a) 55%, #d1c5bb);
-    box-shadow: 0 22px 46px rgba(50, 37, 27, 0.18);
-    transform: scale(1.025) rotate(0.4deg);
-  }
+    opacity 180ms ease,
+    transform 220ms cubic-bezier(0.22, 1, 0.36, 1);
 
   &:hover {
     border-color: #d1c5bb;
     box-shadow: 0 11px 27px rgba(50, 37, 27, 0.075);
     transform: translateY(-2px);
+  }
+
+  &:focus-visible {
+    outline: 3px solid color-mix(in srgb, var(--a) 22%, transparent);
+    outline-offset: 3px;
+    border-color: color-mix(in srgb, var(--a) 65%, #d1c5bb);
+  }
+
+  &[data-drag-source='true'] {
+    z-index: 2;
+    opacity: 0.22;
+    border-style: dashed;
+    border-color: color-mix(in srgb, var(--a) 45%, #d1c5bb);
+    box-shadow: none;
+    cursor: grabbing;
+    transform: scale(0.985);
+  }
+
+  &[data-drag-source='true']:hover {
+    box-shadow: none;
+    transform: scale(0.985);
+  }
+
+  img {
+    -webkit-user-drag: none;
+    user-select: none;
+  }
+
+  button,
+  label,
+  input,
+  select,
+  textarea,
+  a {
+    cursor: pointer;
+    touch-action: manipulation;
   }
 
   @media (prefers-reduced-motion: reduce) {
@@ -724,41 +757,15 @@ export const CategoryMedia = styled.div<{ $color: string; $imageCount: number }>
 `;
 
 export const CategoryCardBody = styled.div`
+  position: relative;
   display: grid;
   gap: 15px;
   padding: 14px;
 
-  .category-sort-row {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 10px;
-  }
-
-  .category-drag-handle {
-    width: auto;
-    min-width: 92px;
-    height: 32px;
-    padding: 0 10px;
-    border: 1px dashed #d8cec5;
-    border-radius: 7px;
-    color: #766d66;
-    background: #fbf8f5;
-    cursor: grab;
-    touch-action: none;
-    user-select: none;
-  }
-
-  .category-drag-handle:active {
-    cursor: grabbing;
-  }
-
-  .category-drag-handle svg {
-    width: 15px;
-    height: 15px;
-  }
-
   .category-position {
+    position: absolute;
+    top: 14px;
+    right: 14px;
     min-width: 28px;
     height: 28px;
     display: grid;
@@ -766,13 +773,16 @@ export const CategoryCardBody = styled.div`
     border-radius: 999px;
     color: #746b65;
     background: #f5f0eb;
+    box-shadow: 0 1px 0 rgba(50, 37, 27, 0.04);
     font-size: 10px;
     font-weight: 850;
+    pointer-events: none;
   }
 
   .category-identity {
     min-width: 0;
     display: flex;
+    padding-right: 40px;
     align-items: center;
     gap: 10px;
   }

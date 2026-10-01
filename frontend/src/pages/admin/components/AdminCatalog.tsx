@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react';
+import { useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
 import {
   ArrowRight,
   Check,
@@ -7,7 +7,6 @@ import {
   LayoutGrid,
   List,
   MoreVertical,
-  GripVertical,
   Package,
   Pencil,
   Power,
@@ -77,6 +76,19 @@ export function AdminCatalog(props: AdminCatalogProps) {
   );
   const [draggingCategoryId, setDraggingCategoryId] = useState<number | null>(null);
   const categoryCardRefs = useRef(new Map<number, HTMLElement>());
+  const categoryOrderIdsRef = useRef<number[]>(categories.map((category) => category.id));
+  const categoryDragRef = useRef<{
+    categoryId: number;
+    pointerId: number;
+    startX: number;
+    startY: number;
+    active: boolean;
+    element: HTMLElement;
+    preview: HTMLElement | null;
+    startRect: DOMRect | null;
+    previousBodyUserSelect: string;
+    previousBodyCursor: string;
+  } | null>(null);
   const [openProductMenu, setOpenProductMenu] = useState<string | null>(null);
   const [catalogTab, setCatalogTab] = useState<
     'products' | 'combos' | 'ingredients' | 'categories'
@@ -102,19 +114,32 @@ export function AdminCatalog(props: AdminCatalogProps) {
     tone: 'success' | 'error';
     message: string;
   } | null>(null);
+  const effectiveCategoryOrderIds = useMemo(() => {
+    const availableIds = new Set(categories.map((category) => category.id));
+    const current = categoryOrderIds.filter((id) => availableIds.has(id));
+    const seen = new Set(current);
+    return [
+      ...current,
+      ...categories.map((category) => category.id).filter((id) => !seen.has(id)),
+    ];
+  }, [categories, categoryOrderIds]);
+  categoryOrderIdsRef.current = effectiveCategoryOrderIds;
+
   const orderedCategories = useMemo(() => {
     const byId = new Map(categories.map((category) => [category.id, category]));
-    const ordered = categoryOrderIds
+    return effectiveCategoryOrderIds
       .map((id) => byId.get(id))
       .filter((category): category is AdminCategory => Boolean(category));
-    const seen = new Set(ordered.map((category) => category.id));
-    return [...ordered, ...categories.filter((category) => !seen.has(category.id))];
-  }, [categories, categoryOrderIds]);
+  }, [categories, effectiveCategoryOrderIds]);
 
-  const animateCategoryLayout = (previousRects: Map<number, DOMRect>) => {
+  const animateCategoryLayout = (
+    previousRects: Map<number, DOMRect>,
+    draggedId?: number,
+  ) => {
     if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return;
     window.requestAnimationFrame(() => {
       categoryCardRefs.current.forEach((element, id) => {
+        if (id === draggedId) return;
         const before = previousRects.get(id);
         if (!before) return;
         const after = element.getBoundingClientRect();
@@ -123,11 +148,11 @@ export function AdminCatalog(props: AdminCatalogProps) {
         if (Math.abs(x) < 1 && Math.abs(y) < 1) return;
         element.animate(
           [
-            { transform: `translate(${x}px, ${y}px)` },
-            { transform: 'translate(0, 0)' },
+            { transform: `translate3d(${x}px, ${y}px, 0)` },
+            { transform: 'translate3d(0, 0, 0)' },
           ],
           {
-            duration: 220,
+            duration: 280,
             easing: 'cubic-bezier(0.22, 1, 0.36, 1)',
           },
         );
@@ -137,20 +162,22 @@ export function AdminCatalog(props: AdminCatalogProps) {
 
   const reorderLocally = (draggedId: number, targetId: number) => {
     if (draggedId === targetId) return;
+    const current = categoryOrderIdsRef.current;
+    const sourceIndex = current.indexOf(draggedId);
+    const targetIndex = current.indexOf(targetId);
+    if (sourceIndex < 0 || targetIndex < 0 || sourceIndex === targetIndex) return;
+
     const previousRects = new Map<number, DOMRect>();
     categoryCardRefs.current.forEach((element, id) => {
       previousRects.set(id, element.getBoundingClientRect());
     });
-    setCategoryOrderIds((current) => {
-      const sourceIndex = current.indexOf(draggedId);
-      const targetIndex = current.indexOf(targetId);
-      if (sourceIndex < 0 || targetIndex < 0 || sourceIndex === targetIndex) return current;
-      const next = [...current];
-      next.splice(sourceIndex, 1);
-      next.splice(targetIndex, 0, draggedId);
-      return next;
-    });
-    animateCategoryLayout(previousRects);
+
+    const next = [...current];
+    next.splice(sourceIndex, 1);
+    next.splice(targetIndex, 0, draggedId);
+    categoryOrderIdsRef.current = next;
+    setCategoryOrderIds(next);
+    animateCategoryLayout(previousRects, draggedId);
   };
 
   const persistCategoryOrder = async (nextOrder: number[]) => {
@@ -160,34 +187,219 @@ export function AdminCatalog(props: AdminCatalogProps) {
       await props.onReorderCategories(nextOrder);
       setCategoryFeedback('Categorias reorganizadas com sucesso.');
     } catch (error) {
-      setCategoryOrderIds(categories.map((category) => category.id));
+      const fallback = categories.map((category) => category.id);
+      categoryOrderIdsRef.current = fallback;
+      setCategoryOrderIds(fallback);
       setCategoryFeedback(errorMessage(error, 'Não foi possível salvar a ordem das categorias.'));
     } finally {
       setCategoryBusy(false);
     }
   };
 
-  const finishCategoryDrag = async () => {
-    if (draggingCategoryId === null) return;
+  const createCategoryDragPreview = (element: HTMLElement) => {
+    const rect = element.getBoundingClientRect();
+    const preview = element.cloneNode(true) as HTMLElement;
+    preview.removeAttribute('data-drag-source');
+    preview.setAttribute('data-category-drag-preview', 'true');
+    preview.setAttribute('aria-hidden', 'true');
+    preview.querySelectorAll('[id]').forEach((node) => node.removeAttribute('id'));
+    preview.querySelectorAll<HTMLElement>('button, input, label, a, select, textarea').forEach(
+      (node) => {
+        node.tabIndex = -1;
+      },
+    );
+    Object.assign(preview.style, {
+      position: 'fixed',
+      left: `${rect.left}px`,
+      top: `${rect.top}px`,
+      width: `${rect.width}px`,
+      height: `${rect.height}px`,
+      margin: '0',
+      zIndex: '10000',
+      pointerEvents: 'none',
+      transformOrigin: '50% 50%',
+      transform: 'translate3d(0, 0, 0) scale(1.025) rotate(0.35deg)',
+      boxShadow: '0 30px 70px rgba(47, 34, 25, 0.24)',
+      borderColor: 'color-mix(in srgb, var(--a) 65%, #d1c5bb)',
+      opacity: '0.98',
+      willChange: 'transform',
+    });
+    document.body.appendChild(preview);
+    return { preview, rect };
+  };
+
+  const beginCategoryDrag = (
+    event: ReactPointerEvent<HTMLElement>,
+    categoryId: number,
+  ) => {
+    if (categoryBusy || (event.pointerType === 'mouse' && event.button !== 0)) return;
+    const target = event.target instanceof Element ? event.target : null;
+    if (
+      target?.closest(
+        'button, a, input, select, textarea, label, [contenteditable="true"], [data-no-category-drag]',
+      )
+    ) {
+      return;
+    }
+
+    event.preventDefault();
+    event.currentTarget.setPointerCapture(event.pointerId);
+    categoryDragRef.current = {
+      categoryId,
+      pointerId: event.pointerId,
+      startX: event.clientX,
+      startY: event.clientY,
+      active: false,
+      element: event.currentTarget,
+      preview: null,
+      startRect: null,
+      previousBodyUserSelect: document.body.style.userSelect,
+      previousBodyCursor: document.body.style.cursor,
+    };
+  };
+
+  const moveCategoryDrag = (
+    event: ReactPointerEvent<HTMLElement>,
+    categoryId: number,
+  ) => {
+    const drag = categoryDragRef.current;
+    if (!drag || drag.categoryId !== categoryId || drag.pointerId !== event.pointerId) return;
+
+    const deltaX = event.clientX - drag.startX;
+    const deltaY = event.clientY - drag.startY;
+
+    if (!drag.active) {
+      if (Math.hypot(deltaX, deltaY) < 6) return;
+      const { preview, rect } = createCategoryDragPreview(drag.element);
+      drag.active = true;
+      drag.preview = preview;
+      drag.startRect = rect;
+      drag.element.dataset.dragSource = 'true';
+      document.body.style.userSelect = 'none';
+      document.body.style.cursor = 'grabbing';
+      setDraggingCategoryId(categoryId);
+    }
+
+    event.preventDefault();
+    const tilt = Math.max(-0.8, Math.min(0.8, deltaX * 0.008));
+    if (drag.preview) {
+      drag.preview.style.transform =
+        `translate3d(${deltaX}px, ${deltaY}px, 0) scale(1.025) rotate(${tilt}deg)`;
+    }
+
+    const edge = 72;
+    if (event.clientY < edge) window.scrollBy(0, -10);
+    else if (event.clientY > window.innerHeight - edge) window.scrollBy(0, 10);
+
+    const target = document
+      .elementFromPoint(event.clientX, event.clientY)
+      ?.closest<HTMLElement>('[data-category-card]');
+    const targetId = Number(target?.dataset.categoryId);
+    if (Number.isSafeInteger(targetId) && targetId > 0) {
+      reorderLocally(categoryId, targetId);
+    }
+  };
+
+  const settleCategoryDragPreview = (
+    drag: NonNullable<typeof categoryDragRef.current>,
+    cancelled: boolean,
+  ) => {
+    const preview = drag.preview;
+    const startRect = drag.startRect;
+    if (!preview || !startRect) return;
+
+    const targetRect = cancelled
+      ? startRect
+      : categoryCardRefs.current.get(drag.categoryId)?.getBoundingClientRect() || startRect;
+    const targetX = targetRect.left - startRect.left;
+    const targetY = targetRect.top - startRect.top;
+
+    if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) {
+      preview.remove();
+      return;
+    }
+
+    const animation = preview.animate(
+      [
+        { transform: preview.style.transform, opacity: 0.98 },
+        {
+          transform: `translate3d(${targetX}px, ${targetY}px, 0) scale(1) rotate(0deg)`,
+          opacity: 0.18,
+        },
+      ],
+      {
+        duration: 180,
+        easing: 'cubic-bezier(0.22, 1, 0.36, 1)',
+        fill: 'forwards',
+      },
+    );
+    void animation.finished
+      .catch(() => undefined)
+      .finally(() => preview.remove());
+  };
+
+  const releaseCategoryDrag = (drag: NonNullable<typeof categoryDragRef.current>) => {
+    drag.element.removeAttribute('data-drag-source');
+    document.body.style.userSelect = drag.previousBodyUserSelect;
+    document.body.style.cursor = drag.previousBodyCursor;
+  };
+
+  const finishCategoryDrag = async (
+    event: ReactPointerEvent<HTMLElement>,
+    categoryId: number,
+  ) => {
+    const drag = categoryDragRef.current;
+    if (!drag || drag.categoryId !== categoryId || drag.pointerId !== event.pointerId) return;
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+    categoryDragRef.current = null;
+
+    if (!drag.active) return;
+    releaseCategoryDrag(drag);
+    settleCategoryDragPreview(drag, false);
     setDraggingCategoryId(null);
+
+    const nextOrder = [...categoryOrderIdsRef.current];
     const currentOrder = categories.map((category) => category.id);
     const changed =
-      currentOrder.length === categoryOrderIds.length &&
-      currentOrder.some((id, index) => id !== categoryOrderIds[index]);
-    if (changed) await persistCategoryOrder(categoryOrderIds);
+      currentOrder.length === nextOrder.length &&
+      currentOrder.some((id, index) => id !== nextOrder[index]);
+    if (changed) await persistCategoryOrder(nextOrder);
+  };
+
+  const cancelCategoryDrag = (
+    event: ReactPointerEvent<HTMLElement>,
+    categoryId: number,
+  ) => {
+    const drag = categoryDragRef.current;
+    if (!drag || drag.categoryId !== categoryId || drag.pointerId !== event.pointerId) return;
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+    categoryDragRef.current = null;
+    releaseCategoryDrag(drag);
+    settleCategoryDragPreview(drag, true);
+    setDraggingCategoryId(null);
+
+    const fallback = categories.map((category) => category.id);
+    categoryOrderIdsRef.current = fallback;
+    setCategoryOrderIds(fallback);
   };
 
   const moveCategoryWithKeyboard = async (categoryId: number, direction: -1 | 1) => {
     if (categoryBusy) return;
-    const currentIndex = categoryOrderIds.indexOf(categoryId);
+    const current = categoryOrderIdsRef.current;
+    const currentIndex = current.indexOf(categoryId);
     const targetIndex = currentIndex + direction;
-    if (currentIndex < 0 || targetIndex < 0 || targetIndex >= categoryOrderIds.length) return;
-    const next = [...categoryOrderIds];
+    if (currentIndex < 0 || targetIndex < 0 || targetIndex >= current.length) return;
+    const next = [...current];
     [next[currentIndex], next[targetIndex]] = [next[targetIndex], next[currentIndex]];
     const previousRects = new Map<number, DOMRect>();
     categoryCardRefs.current.forEach((element, id) => {
       previousRects.set(id, element.getBoundingClientRect());
     });
+    categoryOrderIdsRef.current = next;
     setCategoryOrderIds(next);
     animateCategoryLayout(previousRects);
     await persistCategoryOrder(next);
@@ -852,7 +1064,26 @@ export function AdminCatalog(props: AdminCatalogProps) {
                     key={category.id}
                     data-category-card
                     data-category-id={category.id}
-                    data-dragging={draggingCategoryId === category.id ? 'true' : 'false'}
+                    data-drag-source={draggingCategoryId === category.id ? 'true' : undefined}
+                    tabIndex={0}
+                    aria-label={`Categoria ${category.name}. Pressione e arraste o card para reorganizar. Use as setas do teclado para mover.`}
+                    title="Pressione e arraste para reorganizar"
+                    onPointerDown={(event) => beginCategoryDrag(event, category.id)}
+                    onPointerMove={(event) => moveCategoryDrag(event, category.id)}
+                    onPointerUp={(event) => void finishCategoryDrag(event, category.id)}
+                    onPointerCancel={(event) => cancelCategoryDrag(event, category.id)}
+                    onKeyDown={(event) => {
+                      if (event.target !== event.currentTarget) return;
+                      if (event.key === 'ArrowUp' || event.key === 'ArrowLeft') {
+                        event.preventDefault();
+                        void moveCategoryWithKeyboard(category.id, -1);
+                      }
+                      if (event.key === 'ArrowDown' || event.key === 'ArrowRight') {
+                        event.preventDefault();
+                        void moveCategoryWithKeyboard(category.id, 1);
+                      }
+                    }}
+                    onDragStart={(event) => event.preventDefault()}
                     ref={(element) => {
                       if (element) categoryCardRefs.current.set(category.id, element);
                       else categoryCardRefs.current.delete(category.id);
@@ -892,56 +1123,9 @@ export function AdminCatalog(props: AdminCatalogProps) {
                     </C.CategoryMedia>
 
                     <C.CategoryCardBody>
-                      <div className="category-sort-row">
-                        <button
-                          className="category-drag-handle"
-                          type="button"
-                          disabled={categoryBusy}
-                          aria-label={`Reordenar categoria ${category.name}. Use arrastar ou as setas do teclado.`}
-                          title="Pressione e arraste para reorganizar"
-                          onPointerDown={(event) => {
-                            if (categoryBusy || event.button !== 0) return;
-                            event.currentTarget.setPointerCapture(event.pointerId);
-                            setDraggingCategoryId(category.id);
-                          }}
-                          onPointerMove={(event) => {
-                            if (draggingCategoryId !== category.id) return;
-                            const target = document
-                              .elementFromPoint(event.clientX, event.clientY)
-                              ?.closest<HTMLElement>('[data-category-card]');
-                            const targetId = Number(target?.dataset.categoryId);
-                            if (Number.isSafeInteger(targetId) && targetId > 0) {
-                              reorderLocally(category.id, targetId);
-                            }
-                          }}
-                          onPointerUp={(event) => {
-                            if (event.currentTarget.hasPointerCapture(event.pointerId)) {
-                              event.currentTarget.releasePointerCapture(event.pointerId);
-                            }
-                            void finishCategoryDrag();
-                          }}
-                          onPointerCancel={() => {
-                            setDraggingCategoryId(null);
-                            setCategoryOrderIds(categories.map((item) => item.id));
-                          }}
-                          onKeyDown={(event) => {
-                            if (event.key === 'ArrowUp' || event.key === 'ArrowLeft') {
-                              event.preventDefault();
-                              void moveCategoryWithKeyboard(category.id, -1);
-                            }
-                            if (event.key === 'ArrowDown' || event.key === 'ArrowRight') {
-                              event.preventDefault();
-                              void moveCategoryWithKeyboard(category.id, 1);
-                            }
-                          }}
-                        >
-                          <GripVertical aria-hidden="true" />
-                          <span>Arrastar</span>
-                        </button>
-                        <span className="category-position" aria-hidden="true">
-                          {categoryOrderIds.indexOf(category.id) + 1}
-                        </span>
-                      </div>
+                      <span className="category-position" aria-hidden="true">
+                        {effectiveCategoryOrderIds.indexOf(category.id) + 1}
+                      </span>
                       <div className="category-identity">
                         <span
                           className="category-icon"

@@ -448,7 +448,7 @@ test('Cardápio e importação seguem a composição visual de referência no de
   expect(documentWidth.scrollWidth).toBeLessThanOrEqual(documentWidth.clientWidth);
 });
 
-test('admin reorganiza categorias arrastando e salva a ordem', async ({ page }) => {
+test('admin reorganiza categorias pelo próprio card e salva a ordem', async ({ page }) => {
   await mockCatalog(page);
   await page.setViewportSize({ width: 1365, height: 768 });
   await page.goto('/admin');
@@ -458,6 +458,7 @@ test('admin reorganiza categorias arrastando e salva a ordem', async ({ page }) 
   const cards = page.locator('[data-category-card]');
   await expect(cards.first()).toContainText('Pizzas');
   await expect(cards.nth(3)).toContainText('Bebidas');
+  await expect(page.getByRole('button', { name: /Arrastar/i })).toHaveCount(0);
 
   const requestPromise = page.waitForRequest(
     (request) =>
@@ -465,16 +466,20 @@ test('admin reorganiza categorias arrastando e salva a ordem', async ({ page }) 
       new URL(request.url()).pathname === '/categories/reorder',
   );
 
-  const source = page.getByRole('button', { name: /Reordenar categoria Bebidas/ });
-  const target = page.getByRole('button', { name: /Reordenar categoria Pizzas/ });
+  const source = cards.filter({ hasText: 'Bebidas' }).first();
+  const target = cards.filter({ hasText: 'Pizzas' }).first();
   const sourceBox = await source.boundingBox();
   const targetBox = await target.boundingBox();
-  if (!sourceBox || !targetBox) throw new Error('Alças de ordenação não encontradas.');
+  if (!sourceBox || !targetBox) throw new Error('Cards de categorias não encontrados.');
 
-  await page.mouse.move(sourceBox.x + sourceBox.width / 2, sourceBox.y + sourceBox.height / 2);
+  await page.mouse.move(sourceBox.x + sourceBox.width / 2, sourceBox.y + 38);
   await page.mouse.down();
-  await page.mouse.move(targetBox.x + targetBox.width / 2, targetBox.y + targetBox.height / 2, {
-    steps: 8,
+  await page.mouse.move(sourceBox.x + sourceBox.width / 2 + 12, sourceBox.y + 46, {
+    steps: 3,
+  });
+  await expect(page.locator('[data-category-drag-preview="true"]')).toBeVisible();
+  await page.mouse.move(targetBox.x + targetBox.width / 2, targetBox.y + 38, {
+    steps: 10,
   });
   await page.mouse.up();
 
@@ -482,9 +487,12 @@ test('admin reorganiza categorias arrastando e salva a ordem', async ({ page }) 
   expect(request.postDataJSON()).toEqual({ categoryIds: [4, 1, 2, 3, 5, 6] });
   await expect(cards.first()).toContainText('Bebidas');
   await expect(page.getByRole('status')).toContainText('Categorias reorganizadas com sucesso.');
+  await expect(page.locator('[data-category-drag-preview="true"]')).toHaveCount(0, {
+    timeout: 1500,
+  });
 
-  const pizzasHandle = page.getByRole('button', { name: /Reordenar categoria Pizzas/ });
-  await pizzasHandle.focus();
+  const pizzasCard = page.getByRole('article', { name: /Categoria Pizzas/ });
+  await pizzasCard.focus();
   const keyboardRequest = page.waitForRequest(
     (request) =>
       request.method() === 'PUT' &&
