@@ -9,6 +9,7 @@ import type { TableAccountActor } from '../domain/tableAccountContracts.js';
 import {
   canConfirmManualTablePayment,
   isManualTablePaymentIntent,
+  tableCashConfirmationAuthority,
 } from '../domain/tableAccountRules.js';
 import tablePaymentRepository, {
   tablePaymentIntentDtoSelect,
@@ -28,9 +29,10 @@ export class ConfirmManualTablePaymentService {
 
   async execute(input: { publicId: string; actor: TableAccountActor }) {
     const restaurantId = Number(input.actor.restaurantId || 0);
-    if (!canConfirmManualTablePayment(input.actor, restaurantId)) {
+    const authority = tableCashConfirmationAuthority(input.actor, restaurantId);
+    if (!authority || !canConfirmManualTablePayment(input.actor, restaurantId)) {
       throw new TablePaymentError(
-        'Somente o administrador ou um garçom deste restaurante pode confirmar o pagamento.',
+        'Somente o administrador, garçom ou atendente deste restaurante pode registrar este pagamento.',
         403,
         'MANUAL_PAYMENT_FORBIDDEN',
       );
@@ -68,17 +70,24 @@ export class ConfirmManualTablePaymentService {
           );
         }
 
-        if (!isManualTablePaymentIntent(intent)) {
+        if (!isManualTablePaymentIntent(intent) || intent.method !== 'CASH') {
           throw new TablePaymentError(
-            'Somente solicitações presenciais em dinheiro ou maquininha podem ser confirmadas manualmente.',
+            'Somente pagamentos em dinheiro podem ser confirmados por este fluxo.',
             409,
-            'NOT_A_MANUAL_PAYMENT',
+            'NOT_A_CASH_PAYMENT',
           );
         }
 
         if (intent.status === TablePaymentIntentStatus.PAID && intent.manualConfirmedAt) {
-          return { payment: intent, released: [] as Awaited<ReturnType<typeof tableParticipantStateService.releaseSettledParticipants>> };
+          return {
+            payment: intent,
+            released: [] as Awaited<
+              ReturnType<typeof tableParticipantStateService.releaseSettledParticipants>
+            >,
+            stage: 'PAID' as const,
+          };
         }
+
         if (
           intent.status !== TablePaymentIntentStatus.RESERVED &&
           intent.status !== TablePaymentIntentStatus.PROCESSING
@@ -88,6 +97,48 @@ export class ConfirmManualTablePaymentService {
             409,
             'MANUAL_PAYMENT_NOT_PENDING',
           );
+        }
+
+        if (authority === 'STAFF') {
+          const deduplicationKey = `table-payment:${intent.publicId}:cash-received-by-staff`;
+          const existingReceipt = await tx.tablePaymentEvent.findUnique({
+            where: { deduplicationKey },
+            select: { id: true },
+          });
+
+          if (!existingReceipt) {
+            await tx.tablePaymentEvent.create({
+              data: {
+                restaurantId,
+                tableSessionId: intent.tableSessionId,
+                paymentIntentId: intent.id,
+                deduplicationKey,
+                type: TablePaymentEventType.MANUAL_CONFIRMED,
+                fromStatus: intent.status,
+                toStatus: intent.status,
+                amountCents: intent.totalCents,
+                actorUserId: input.actor.id,
+                metadata: {
+                  stage: 'STAFF_RECEIVED',
+                  staffSubRole: input.actor.subRole,
+                },
+                occurredAt: now,
+              },
+            });
+          }
+
+          const payment = await tx.tablePaymentIntent.findUniqueOrThrow({
+            where: { id: intent.id },
+            select: tablePaymentIntentDtoSelect,
+          });
+
+          return {
+            payment,
+            released: [] as Awaited<
+              ReturnType<typeof tableParticipantStateService.releaseSettledParticipants>
+            >,
+            stage: 'AWAITING_ADMIN' as const,
+          };
         }
 
         const changed = await tx.tablePaymentIntent.updateMany({
@@ -104,6 +155,7 @@ export class ConfirmManualTablePaymentService {
             manualConfirmedById: input.actor.id,
           },
         });
+
         if (changed.count !== 1) {
           throw new TablePaymentError(
             'O pagamento foi atualizado por outra operação. Atualize a conta.',
@@ -117,15 +169,17 @@ export class ConfirmManualTablePaymentService {
             restaurantId,
             tableSessionId: intent.tableSessionId,
             paymentIntentId: intent.id,
-            deduplicationKey: `table-payment:${intent.publicId}:manual-confirmed`,
+            deduplicationKey: `table-payment:${intent.publicId}:admin-confirmed`,
             type: TablePaymentEventType.MANUAL_CONFIRMED,
             fromStatus: intent.status,
             toStatus: TablePaymentIntentStatus.PAID,
             amountCents: intent.totalCents,
             actorUserId: input.actor.id,
+            metadata: { stage: 'ADMIN_CONFIRMED' },
             occurredAt: now,
           },
         });
+
         await projectTableSessionFinancialState(tx, restaurantId, intent.tableSessionId, now);
         const released = await tableParticipantStateService.releaseSettledParticipants(tx, {
           restaurantId,
@@ -137,7 +191,8 @@ export class ConfirmManualTablePaymentService {
           where: { id: intent.id },
           select: tablePaymentIntentDtoSelect,
         });
-        return { payment, released };
+
+        return { payment, released, stage: 'PAID' as const };
       },
       { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
     );
@@ -145,7 +200,10 @@ export class ConfirmManualTablePaymentService {
     await tableAccountEvents.updated({
       sessionId: outcome.payment.tableSessionId,
       restaurantId,
-      reason: 'PAYMENT_CONFIRMED_MANUALLY',
+      reason:
+        outcome.stage === 'AWAITING_ADMIN'
+          ? 'CASH_RECEIVED_BY_STAFF'
+          : 'PAYMENT_CONFIRMED_MANUALLY',
       paymentPublicId: outcome.payment.publicId,
       paymentStatus: outcome.payment.status,
       occurredAt: outcome.payment.paidAt || now,
@@ -165,6 +223,7 @@ export class ConfirmManualTablePaymentService {
 
     return {
       payment: serializeTablePaymentIntent(outcome.payment, initial.tableSession.publicId),
+      confirmationStage: outcome.stage,
     };
   }
 }

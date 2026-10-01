@@ -187,6 +187,37 @@ export function buildTableAccountBaseSnapshot(
   };
 }
 
+function buildParticipantAccountSummaries(
+  data: TableAccountSnapshotRecord,
+  now: Date,
+) {
+  const base = buildTableAccountBaseSnapshot(data, now);
+
+  return base.participants.map((participant) => {
+    const items = base.items.filter(
+      (item) =>
+        item.orderedByParticipantPublicId === participant.publicId &&
+        item.orderStatus !== 'CANCELED' &&
+        item.financialStatus !== 'REFUNDED',
+    );
+    const consumedCents = sumMoneyCents(items.map((item) => item.unitPriceCents));
+    const paidCents = sumMoneyCents(items.map((item) => item.paidCents));
+    const reservedCents = sumMoneyCents(items.map((item) => item.reservedCents));
+    const processingCents = sumMoneyCents(items.map((item) => item.processingCents));
+
+    return {
+      publicId: participant.publicId,
+      displayName: participant.displayName,
+      status: participant.status,
+      consumedCents,
+      paidCents,
+      reservedCents,
+      processingCents,
+      remainingCents: Math.max(0, consumedCents - paidCents),
+    };
+  });
+}
+
 export class GetCurrentTableAccountService {
   async execute(input: {
     tableSessionId: number;
@@ -222,6 +253,8 @@ export class GetCurrentTableAccountService {
       throw new TableAccountAccessError();
     }
     const now = new Date();
+    const globalAccount = buildTableAccountBaseSnapshot(data, now);
+    const participantAccounts = buildParticipantAccountSummaries(data, now);
     const participantData: TableAccountSnapshotRecord = {
       ...data,
       participants: data.participants.filter(
@@ -234,6 +267,7 @@ export class GetCurrentTableAccountService {
         (payment) => payment.payerParticipantId === participantId,
       ),
     };
+    const ownAccount = buildTableAccountBaseSnapshot(participantData, now);
     const paymentIntents = participantData.paymentIntents || [];
     const activePayment = paymentIntents.find(
       (payment) =>
@@ -241,19 +275,21 @@ export class GetCurrentTableAccountService {
         ['RESERVED', 'PROCESSING'].includes(payment.status) &&
         payment.expiresAt > now,
     );
-    const onlinePaymentProviderAvailable = onlineReadiness.allowPix || onlineReadiness.allowCard;
+    const onlinePaymentProviderAvailable = onlineReadiness.allowPix;
 
     return {
-      ...buildTableAccountBaseSnapshot(participantData, now),
+      ...globalAccount,
+      items: ownAccount.items,
       currentParticipantPublicId: input.participantPublicId,
+      participantAccounts,
       capabilities: {
         enabled: settings.enabled,
         allowCash: settings.allowCash,
-        allowCardMachine: settings.allowCardMachine,
+        allowCardMachine: false,
         allowOnlinePayment: settings.allowOnlinePayment && onlinePaymentProviderAvailable,
         allowPix: settings.allowOnlinePayment && onlineReadiness.allowPix,
-        allowCard: settings.allowOnlinePayment && onlineReadiness.allowCard,
-        allowSplit: settings.allowSplit,
+        allowCard: false,
+        allowSplit: false,
         serviceFeeMode: settings.serviceFeeMode,
         serviceFeeBasisPoints: settings.serviceFeeBasisPoints,
         reservationTimeoutMinutes: settings.reservationTimeoutMinutes,
