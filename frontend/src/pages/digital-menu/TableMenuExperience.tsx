@@ -5,6 +5,7 @@ import {
   Eye,
   Clock3,
   QrCode,
+  Table2,
   Utensils,
 } from 'lucide-react';
 import { lazy, Suspense, useEffect, useState } from 'react';
@@ -668,7 +669,7 @@ export default function TableMenuExperience({
     const totalWithFee = Math.max(0, cartTotal - couponDiscount + serviceFee);
 
     return (
-      <S.FigmaShell $primary={primary} $fontFamily={data.fontFamily}>
+      <S.FigmaShell $primary="#ff4b4b" $fontFamily={data.fontFamily}>
         <FlowHeader
           data={data}
           tableLabel={tableLabel}
@@ -731,53 +732,58 @@ export default function TableMenuExperience({
 
             <div className="cart-summary-column">
               <h2 className="desktop-only">Resumo</h2>
-              <S.CouponRow>
-                <input
-                  value={couponInput}
-                  onChange={(event) => setCouponInput(event.target.value)}
-                  placeholder="Cupom promocional"
-                  aria-label="Cupom promocional"
-                />
-                <button
-                  type="button"
-                  disabled={!couponInput.trim() || !onApplyCouponCode}
-                  onClick={() => onApplyCouponCode?.(couponInput.trim())}
-                >
-                  Aplicar
-                </button>
-              </S.CouponRow>
-              <S.SummaryCard>
-                <div className="row"><span>Subtotal</span><strong>{brl(cartTotal)}</strong></div>
-                {couponDiscount > 0 ? (
-                  <div className="row discount">
-                    <span>{couponCode ? `Cupom · ${couponCode}` : 'Cupom promocional'}</span>
-                    <strong>− {brl(couponDiscount)}</strong>
-                  </div>
-                ) : null}
-                <div className="row">
-                  <span>
-                    <span className="desktop-only">Taxa de Serviço (Opcional)</span>
-                    <span className="mobile-only">Serviço (Opcional)</span>
-                  </span>
-                  <strong>{brl(serviceFee)}</strong>
-                </div>
-                <div className="divider" />
-                <div className="row total"><span>Total</span><strong>{brl(totalWithFee)}</strong></div>
-              </S.SummaryCard>
+              <S.CartSummaryPanel>
+                <S.CouponRow>
+                  <input
+                    value={couponInput}
+                    onChange={(event) => setCouponInput(event.target.value)}
+                    placeholder="Cupom promocional"
+                    aria-label="Cupom promocional"
+                  />
+                  <button
+                    type="button"
+                    disabled={!couponInput.trim() || !onApplyCouponCode}
+                    onClick={() => onApplyCouponCode?.(couponInput.trim())}
+                  >
+                    Aplicar
+                  </button>
+                </S.CouponRow>
 
-              <S.PrimaryAction
-                type="button"
-                disabled={!cart.length || submitting || orderingLocked}
-                onClick={() => void submitOrder()}
-              >
-                <span className="action-copy">
-                  <b>{submitting ? 'Enviando pedido...' : 'Enviar pedido para a cozinha'}</b>
-                  {!submitting ? <small>Seu pedido iniciará o preparo imediatamente</small> : null}
-                </span>
-              </S.PrimaryAction>
-              <S.HelperText>
-                Depois você escolhe pagar agora pelo celular ou no fim.
-              </S.HelperText>
+                <S.SummaryCard>
+                  <div className="row"><span>Subtotal</span><strong>{brl(cartTotal)}</strong></div>
+                  {couponDiscount > 0 ? (
+                    <div className="row discount">
+                      <span>{couponCode ? `Cupom · ${couponCode}` : 'Cupom promocional'}</span>
+                      <strong>− {brl(couponDiscount)}</strong>
+                    </div>
+                  ) : null}
+                  <div className="row">
+                    <span>
+                      <span className="desktop-only">Taxa de Serviço (Opcional)</span>
+                      <span className="mobile-only">Serviço (Opcional)</span>
+                    </span>
+                    <strong>{brl(serviceFee)}</strong>
+                  </div>
+                  <div className="divider" />
+                  <div className="row total"><span>Total</span><strong>{brl(totalWithFee)}</strong></div>
+                </S.SummaryCard>
+
+                <div className="submit-block">
+                  <S.CartSubmitAction
+                    type="button"
+                    disabled={!cart.length || submitting || orderingLocked}
+                    onClick={() => void submitOrder()}
+                  >
+                    <span className="action-copy">
+                      <b>{submitting ? 'Enviando pedido...' : 'Enviar pedido para a cozinha'}</b>
+                      {!submitting ? <small>Seu pedido iniciará o preparo imediatamente</small> : null}
+                    </span>
+                  </S.CartSubmitAction>
+                  <S.CartHelperText>
+                    Depois você escolhe pagar agora pelo celular ou no fim.
+                  </S.CartHelperText>
+                </div>
+              </S.CartSummaryPanel>
             </div>
           </S.CartDesktopLayout>
         </S.FlowPage>
@@ -927,22 +933,35 @@ function FlowHeader({
   onMenu: () => void;
   onOrders: () => void;
 }) {
+  const isCartHeader = title === 'Meu Pedido';
+  const headerBrandName = isCartHeader ? 'GastroNexa' : data.brand.name;
+
   return (
-    <S.FigmaHeader $hasTitle={Boolean(title)}>
+    <S.FigmaHeader
+      $hasTitle={Boolean(title)}
+      className={isCartHeader ? 'cart-header' : undefined}
+    >
       <div className="left">
         {title && onBack ? (
-          <button className="mobile-back" type="button" aria-label="Voltar" onClick={onBack}>
-            <ArrowLeft size={20} />
+          <button
+            className="mobile-back"
+            type="button"
+            aria-label={isCartHeader ? 'Voltar para o cardápio' : 'Voltar'}
+            onClick={onBack}
+          >
+            <ArrowLeft size={30} />
           </button>
         ) : null}
         <S.FigmaBrand>
-          {data.brand.logoUrl ? (
+          {isCartHeader ? (
+            <span className="mark">G</span>
+          ) : data.brand.logoUrl ? (
             <img src={data.brand.logoUrl} alt={data.brand.name} />
           ) : (
             <span className="mark">{data.brand.monogram || data.brand.name.slice(0, 1)}</span>
           )}
           <span className="name">
-            <b>{data.brand.name}</b>
+            <b>{headerBrandName}</b>
             <small className="brand-subtitle desktop-subtitle">Mesa Inteligente</small>
             <small className="brand-subtitle mobile-subtitle">{data.brand.name}</small>
           </span>
@@ -950,7 +969,7 @@ function FlowHeader({
         {title ? (
           <span className="context-title">
             <b>{title}</b>
-            <small>{data.brand.name}</small>
+            <small>{isCartHeader ? 'GastroNexa' : data.brand.name}</small>
           </span>
         ) : null}
       </div>
@@ -962,8 +981,11 @@ function FlowHeader({
       </nav>
 
       <div className="right">
-        <S.FigmaTablePill aria-label={`Mesa ${tableLabel}`}>
-          <Utensils size={21} />
+        <S.FigmaTablePill
+          className={isCartHeader ? 'cart-table-pill' : undefined}
+          aria-label={`Mesa ${tableLabel}`}
+        >
+          {isCartHeader ? <Table2 size={14} /> : <Utensils size={21} />}
           <span>Mesa {tableNumber(tableLabel)}</span>
         </S.FigmaTablePill>
       </div>
