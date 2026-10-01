@@ -937,7 +937,10 @@ export default function TableMenuExperience({
                 className="back"
                 type="button"
                 aria-label="Voltar ao cardápio"
-                onClick={() => setSelectedProduct(null)}
+                onClick={() => {
+                  setSelectedProduct(null);
+                  pendingCartFlyOriginRef.current = null;
+                }}
               >
                 <ArrowLeft size={19} />
               </button>
@@ -997,7 +1000,10 @@ export default function TableMenuExperience({
             <ComboConfigurator
               product={configuringProduct}
               primaryColor={primary}
-              onClose={() => setConfiguringProduct(null)}
+              onClose={() => {
+                setConfiguringProduct(null);
+                pendingCartFlyOriginRef.current = null;
+              }}
               onConfirm={(configuration) => {
                 const product = configuringProduct;
                 const origin =
