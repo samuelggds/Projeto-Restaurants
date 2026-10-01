@@ -789,13 +789,14 @@ export const RestaurantInfo = styled.section`
   border: 1px solid var(--table-line);
   border-radius: 16px;
   background: #fff;
-  display: flex;
-  align-items: center;
-  gap: 36px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px 28px;
 
-  span {
+  .restaurant-info-item,
+  .restaurant-social-row {
     min-width: 0;
-    display: inline-flex;
+    display: flex;
     align-items: center;
     gap: 9px;
     color: var(--table-text);
@@ -803,15 +804,110 @@ export const RestaurantInfo = styled.section`
     line-height: 17px;
   }
 
+  .restaurant-info-item > span {
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+
   svg {
     width: 15px;
     height: 15px;
     flex: 0 0 15px;
-    color: var(--primary);
+    color: #FF4B4B;
+  }
+
+  .restaurant-social-row {
+    justify-content: space-between;
+    gap: 14px;
+  }
+
+  .restaurant-social-row > span {
+    flex: 0 0 auto;
+    font-weight: 650;
+  }
+
+  .social-links {
+    display: inline-flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  .social-links a {
+    width: 26px;
+    height: 26px;
+    border-radius: 8px;
+    color: #FF4B4B;
+    display: grid;
+    place-items: center;
+    transition: background-color 160ms ease, transform 160ms ease;
+  }
+
+  .social-links a:hover,
+  .social-links a:focus-visible {
+    background: #fff1f1;
+  }
+
+  .social-links a:active {
+    transform: scale(.94);
+  }
+
+  .youtube-mark {
+    color: currentColor;
+    font-size: 13px;
+    line-height: 1;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .social-links a {
+      transition: none;
+    }
+
+    .social-links a:active {
+      transform: none;
+    }
   }
 
   @media (max-width: 760px) {
-    display: none;
+    min-height: 0;
+    margin-top: 28px;
+    padding: 14px 16px;
+    border-radius: 14px;
+    grid-template-columns: 1fr;
+    gap: 0;
+
+    .restaurant-info-item,
+    .restaurant-social-row {
+      min-height: 44px;
+      padding: 9px 0;
+      gap: 10px;
+      font-size: 11px;
+      line-height: 16px;
+    }
+
+    .restaurant-info-item + .restaurant-info-item,
+    .restaurant-social-row {
+      border-top: 1px solid var(--table-line);
+    }
+
+    .restaurant-social-row {
+      justify-content: space-between;
+    }
+
+    .social-links {
+      gap: 10px;
+    }
+
+    .social-links a {
+      width: 28px;
+      height: 28px;
+    }
+
+    .social-links a svg {
+      width: 17px;
+      height: 17px;
+    }
   }
 `;
 
