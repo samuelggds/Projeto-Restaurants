@@ -12,6 +12,7 @@ export interface OperationServices {
   createOrder: (payload: Raw) => Promise<unknown>;
   listProducts: (restaurantId: number) => Promise<unknown[]>;
   updateCallStatus: (id: string, status: 'IN_PROGRESS' | 'RESOLVED') => Promise<unknown>;
+  registerCashReceived: (paymentPublicId: string) => Promise<unknown>;
   listOpenOrderIssues: () => Promise<unknown[]>;
   getIssueThread: (id: number) => Promise<Raw>;
   replyIssue: (id: number, message: string) => Promise<Raw>;
@@ -25,6 +26,7 @@ export const productionOperationServices: OperationServices = {
   createOrder: (payload) => attendantApi.createOrder(payload),
   listProducts: (restaurantId) => productsService.listProducts(restaurantId),
   updateCallStatus: (id, status) => attendantApi.updateCallStatus(id, status),
+  registerCashReceived: (paymentPublicId) => attendantApi.registerCashReceived(paymentPublicId),
   listOpenOrderIssues: () => ordersService.listOpenOrderIssues(),
   getIssueThread: (id) => ordersService.getIssueThread(id),
   replyIssue: (id, message) => ordersService.replyIssue(id, message),

@@ -2,6 +2,7 @@ import { toast } from 'react-toastify';
 import api from '../../Services/api';
 import type {
   AttendantCall,
+  AttendantCashPayment,
   AttendantCallStatus,
   AttendantCallType,
   AttendantOrder,
@@ -106,6 +107,36 @@ function normalizeTable(value: unknown): AttendantTable | null {
   };
 }
 
+function normalizeCashPayment(value: unknown): AttendantCashPayment | null {
+  const input = record(value);
+  const publicId = text(input?.publicId);
+  const sessionPublicId = text(input?.sessionPublicId);
+  const tableNumber = positiveInteger(input?.tableNumber);
+  const createdAt = isoDate(input?.createdAt);
+  const totalCents = count(input?.totalCents);
+  const status = text(input?.status).toUpperCase();
+  if (
+    !input ||
+    !publicId ||
+    !sessionPublicId ||
+    !tableNumber ||
+    !createdAt ||
+    !['RESERVED', 'PROCESSING'].includes(status)
+  ) {
+    return null;
+  }
+  return {
+    publicId,
+    sessionPublicId,
+    tableNumber,
+    customerName: text(input.customerName) || 'Cliente da mesa',
+    totalCents,
+    status: status as AttendantCashPayment['status'],
+    createdAt,
+    staffReceiptRegistered: input.staffReceiptRegistered === true,
+  };
+}
+
 export function normalizeAttendantWorkspace(value: unknown): AttendantWorkspaceSnapshot {
   const input = record(value);
   return {
@@ -120,6 +151,10 @@ export function normalizeAttendantWorkspace(value: unknown): AttendantWorkspaceS
     }),
     tables: (Array.isArray(input?.tables) ? input.tables : []).flatMap((table) => {
       const normalized = normalizeTable(table);
+      return normalized ? [normalized] : [];
+    }),
+    cashPayments: (Array.isArray(input?.cashPayments) ? input.cashPayments : []).flatMap((payment) => {
+      const normalized = normalizeCashPayment(payment);
       return normalized ? [normalized] : [];
     }),
   };
@@ -149,6 +184,12 @@ const attendantApi = {
   },
   async updateCallStatus(id: string | number, status: 'IN_PROGRESS' | 'RESOLVED') {
     const response = await api.patch(`/attendant/calls/${id}/status`, { status });
+    return response.data;
+  },
+  async registerCashReceived(paymentPublicId: string) {
+    const response = await api.post(
+      `/table-accounts/payments/${paymentPublicId}/confirm-manual`,
+    );
     return response.data;
   },
   async getOrder(orderId: number) {

@@ -202,6 +202,7 @@ export function AttendantOperationCenterV2({
                 key={`tables:${destination.day ?? 'ALL'}`}
                 initialDay={destination.day}
                 snapshot={snapshot}
+                onChanged={() => void onRefresh()}
               />
             ) : destination.view === 'calls' ? (
               <Calls
