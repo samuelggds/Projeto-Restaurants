@@ -620,6 +620,8 @@ export const CategoryGrid = styled.div`
 export const CategoryCard = styled.article`
   min-width: 0;
   overflow: hidden;
+  position: relative;
+  will-change: transform;
   border: 1px solid #e2dbd4;
   border-radius: 8px;
   background: #fff;
@@ -628,6 +630,13 @@ export const CategoryCard = styled.article`
     border-color 220ms ease,
     box-shadow 220ms ease,
     transform 220ms ease;
+
+  &[data-dragging='true'] {
+    z-index: 5;
+    border-color: color-mix(in srgb, var(--a) 55%, #d1c5bb);
+    box-shadow: 0 22px 46px rgba(50, 37, 27, 0.18);
+    transform: scale(1.025) rotate(0.4deg);
+  }
 
   &:hover {
     border-color: #d1c5bb;
@@ -718,6 +727,48 @@ export const CategoryCardBody = styled.div`
   display: grid;
   gap: 15px;
   padding: 14px;
+
+  .category-sort-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+  }
+
+  .category-drag-handle {
+    width: auto;
+    min-width: 92px;
+    height: 32px;
+    padding: 0 10px;
+    border: 1px dashed #d8cec5;
+    border-radius: 7px;
+    color: #766d66;
+    background: #fbf8f5;
+    cursor: grab;
+    touch-action: none;
+    user-select: none;
+  }
+
+  .category-drag-handle:active {
+    cursor: grabbing;
+  }
+
+  .category-drag-handle svg {
+    width: 15px;
+    height: 15px;
+  }
+
+  .category-position {
+    min-width: 28px;
+    height: 28px;
+    display: grid;
+    place-items: center;
+    border-radius: 999px;
+    color: #746b65;
+    background: #f5f0eb;
+    font-size: 10px;
+    font-weight: 850;
+  }
 
   .category-identity {
     min-width: 0;

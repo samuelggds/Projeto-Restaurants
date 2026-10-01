@@ -18,6 +18,42 @@ describe('homeDataAdapter', () => {
 
     expect(resolveProductImage({ image: persistedImage }, 0)).toBe(persistedImage);
   });
+  it('respeita a ordem persistida das categorias mesmo quando produtos chegam fora de ordem', () => {
+    const data = buildHomeData(
+      [
+        {
+          id: 10,
+          name: 'Refrigerante',
+          price: 7,
+          active: true,
+          category: { id: 30, name: 'Bebidas', sortOrder: 3 },
+        },
+        {
+          id: 11,
+          name: 'Pizza',
+          price: 45,
+          active: true,
+          category: { id: 20, name: 'Pizzas', sortOrder: 0 },
+        },
+        {
+          id: 12,
+          name: 'Batata',
+          price: 18,
+          active: true,
+          category: { id: 25, name: 'Porções', sortOrder: 2 },
+        },
+      ],
+      { restaurant: { name: 'Teste' } },
+    );
+
+    expect(data.categories.map((category) => category.name)).toEqual([
+      'Todos',
+      'Pizzas',
+      'Porções',
+      'Bebidas',
+    ]);
+  });
+
   it('mantém produtos sem estoque visíveis, mas indisponíveis, e cria categorias únicas', () => {
     const data = buildHomeData(
       [

@@ -135,6 +135,23 @@ async function mockCatalog(page: Page) {
       return;
     }
 
+    if (pathname === '/categories/reorder' && request.method() === 'PUT') {
+      const body = request.postDataJSON() as { categoryIds?: number[] };
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          categories: (body.categoryIds || []).map((id, index) => ({
+            id,
+            name: ['Pizzas', 'Massas', 'Sanduíches', 'Bebidas', 'Sobremesas', 'Entradas'][id - 1],
+            active: true,
+            sortOrder: index,
+          })),
+        }),
+      });
+      return;
+    }
+
     if (pathname === '/menu-import/ifood' && request.method() === 'POST') {
       await route.fulfill({
         status: 201,
@@ -167,7 +184,7 @@ async function mockCatalog(page: Page) {
       },
       '/categories': {
         categories: ['Pizzas', 'Massas', 'Sanduíches', 'Bebidas', 'Sobremesas', 'Entradas'].map(
-          (name, index) => ({ id: index + 1, name, active: true }),
+          (name, index) => ({ id: index + 1, name, active: true, sortOrder: index }),
         ),
       },
       '/orders': { orders: [] },
@@ -429,6 +446,52 @@ test('Cardápio e importação seguem a composição visual de referência no de
     scrollWidth: body.scrollWidth,
   }));
   expect(documentWidth.scrollWidth).toBeLessThanOrEqual(documentWidth.clientWidth);
+});
+
+test('admin reorganiza categorias arrastando e salva a ordem', async ({ page }) => {
+  await mockCatalog(page);
+  await page.setViewportSize({ width: 1365, height: 768 });
+  await page.goto('/admin');
+  await page.getByRole('button', { name: 'Cardápio' }).click();
+  await page.getByRole('button', { name: 'Categorias', exact: true }).click();
+
+  const cards = page.locator('[data-category-card]');
+  await expect(cards.first()).toContainText('Pizzas');
+  await expect(cards.nth(3)).toContainText('Bebidas');
+
+  const requestPromise = page.waitForRequest(
+    (request) =>
+      request.method() === 'PUT' &&
+      new URL(request.url()).pathname === '/categories/reorder',
+  );
+
+  const source = page.getByRole('button', { name: /Reordenar categoria Bebidas/ });
+  const target = page.getByRole('button', { name: /Reordenar categoria Pizzas/ });
+  const sourceBox = await source.boundingBox();
+  const targetBox = await target.boundingBox();
+  if (!sourceBox || !targetBox) throw new Error('Alças de ordenação não encontradas.');
+
+  await page.mouse.move(sourceBox.x + sourceBox.width / 2, sourceBox.y + sourceBox.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(targetBox.x + targetBox.width / 2, targetBox.y + targetBox.height / 2, {
+    steps: 8,
+  });
+  await page.mouse.up();
+
+  const request = await requestPromise;
+  expect(request.postDataJSON()).toEqual({ categoryIds: [4, 1, 2, 3, 5, 6] });
+  await expect(cards.first()).toContainText('Bebidas');
+  await expect(page.getByRole('status')).toContainText('Categorias reorganizadas com sucesso.');
+
+  const pizzasHandle = page.getByRole('button', { name: /Reordenar categoria Pizzas/ });
+  await pizzasHandle.focus();
+  const keyboardRequest = page.waitForRequest(
+    (request) =>
+      request.method() === 'PUT' &&
+      new URL(request.url()).pathname === '/categories/reorder',
+  );
+  await page.keyboard.press('ArrowUp');
+  expect((await keyboardRequest).postDataJSON()).toEqual({ categoryIds: [1, 4, 2, 3, 5, 6] });
 });
 
 test('trocar de aba com produto alterado exige salvar ou descartar', async ({ page }) => {

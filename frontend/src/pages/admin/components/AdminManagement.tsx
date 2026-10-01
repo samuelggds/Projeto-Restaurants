@@ -41,6 +41,7 @@ type Props = {
     updates: { name?: string; image?: string | null },
   ) => Promise<void>;
   onDeleteCategory: (id: number) => Promise<void>;
+  onReorderCategories: (categoryIds: number[]) => Promise<void>;
   onCreateIngredient: (ingredient: Omit<AdminIngredient, 'id'>) => Promise<AdminIngredient | void>;
   onUpdateIngredient: (ingredient: AdminIngredient, imageUpdate?: string | null) => Promise<void>;
   onDeleteIngredient: (id: number) => Promise<void>;
@@ -97,6 +98,7 @@ export function AdminManagement(props: Props) {
         onCreateCategory={props.onCreateCategory}
         onUpdateCategory={props.onUpdateCategory}
         onDeleteCategory={props.onDeleteCategory}
+        onReorderCategories={props.onReorderCategories}
         onCreateIngredient={props.onCreateIngredient}
         onUpdateIngredient={props.onUpdateIngredient}
         onDeleteIngredient={props.onDeleteIngredient}

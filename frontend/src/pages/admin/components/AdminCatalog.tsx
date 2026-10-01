@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ArrowRight,
   Check,
@@ -7,6 +7,7 @@ import {
   LayoutGrid,
   List,
   MoreVertical,
+  GripVertical,
   Package,
   Pencil,
   Power,
@@ -48,6 +49,7 @@ type AdminCatalogProps = {
     updates: { name?: string; image?: string | null },
   ) => Promise<void>;
   onDeleteCategory: (id: number) => Promise<void>;
+  onReorderCategories: (categoryIds: number[]) => Promise<void>;
   onCreateIngredient: (ingredient: Omit<AdminIngredient, 'id'>) => Promise<AdminIngredient | void>;
   onUpdateIngredient: (ingredient: AdminIngredient, imageUpdate?: string | null) => Promise<void>;
   onDeleteIngredient: (id: number) => Promise<void>;
@@ -70,6 +72,11 @@ export function AdminCatalog(props: AdminCatalogProps) {
   const [newCategory, setNewCategory] = useState('');
   const [categoryBusy, setCategoryBusy] = useState(false);
   const [categoryFeedback, setCategoryFeedback] = useState('');
+  const [categoryOrderIds, setCategoryOrderIds] = useState<number[]>(() =>
+    categories.map((category) => category.id),
+  );
+  const [draggingCategoryId, setDraggingCategoryId] = useState<number | null>(null);
+  const categoryCardRefs = useRef(new Map<number, HTMLElement>());
   const [openProductMenu, setOpenProductMenu] = useState<string | null>(null);
   const [catalogTab, setCatalogTab] = useState<
     'products' | 'combos' | 'ingredients' | 'categories'
@@ -95,6 +102,101 @@ export function AdminCatalog(props: AdminCatalogProps) {
     tone: 'success' | 'error';
     message: string;
   } | null>(null);
+  useEffect(() => {
+    setCategoryOrderIds(categories.map((category) => category.id));
+  }, [categories]);
+
+  const orderedCategories = useMemo(() => {
+    const byId = new Map(categories.map((category) => [category.id, category]));
+    const ordered = categoryOrderIds
+      .map((id) => byId.get(id))
+      .filter((category): category is AdminCategory => Boolean(category));
+    const seen = new Set(ordered.map((category) => category.id));
+    return [...ordered, ...categories.filter((category) => !seen.has(category.id))];
+  }, [categories, categoryOrderIds]);
+
+  const animateCategoryLayout = (previousRects: Map<number, DOMRect>) => {
+    if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return;
+    window.requestAnimationFrame(() => {
+      categoryCardRefs.current.forEach((element, id) => {
+        const before = previousRects.get(id);
+        if (!before) return;
+        const after = element.getBoundingClientRect();
+        const x = before.left - after.left;
+        const y = before.top - after.top;
+        if (Math.abs(x) < 1 && Math.abs(y) < 1) return;
+        element.animate(
+          [
+            { transform: `translate(${x}px, ${y}px)` },
+            { transform: 'translate(0, 0)' },
+          ],
+          {
+            duration: 220,
+            easing: 'cubic-bezier(0.22, 1, 0.36, 1)',
+          },
+        );
+      });
+    });
+  };
+
+  const reorderLocally = (draggedId: number, targetId: number) => {
+    if (draggedId === targetId) return;
+    const previousRects = new Map<number, DOMRect>();
+    categoryCardRefs.current.forEach((element, id) => {
+      previousRects.set(id, element.getBoundingClientRect());
+    });
+    setCategoryOrderIds((current) => {
+      const sourceIndex = current.indexOf(draggedId);
+      const targetIndex = current.indexOf(targetId);
+      if (sourceIndex < 0 || targetIndex < 0 || sourceIndex === targetIndex) return current;
+      const next = [...current];
+      next.splice(sourceIndex, 1);
+      next.splice(targetIndex, 0, draggedId);
+      return next;
+    });
+    animateCategoryLayout(previousRects);
+  };
+
+  const persistCategoryOrder = async (nextOrder: number[]) => {
+    setCategoryBusy(true);
+    setCategoryFeedback('');
+    try {
+      await props.onReorderCategories(nextOrder);
+      setCategoryFeedback('Categorias reorganizadas com sucesso.');
+    } catch (error) {
+      setCategoryOrderIds(categories.map((category) => category.id));
+      setCategoryFeedback(errorMessage(error, 'Não foi possível salvar a ordem das categorias.'));
+    } finally {
+      setCategoryBusy(false);
+    }
+  };
+
+  const finishCategoryDrag = async () => {
+    if (draggingCategoryId === null) return;
+    setDraggingCategoryId(null);
+    const currentOrder = categories.map((category) => category.id);
+    const changed =
+      currentOrder.length === categoryOrderIds.length &&
+      currentOrder.some((id, index) => id !== categoryOrderIds[index]);
+    if (changed) await persistCategoryOrder(categoryOrderIds);
+  };
+
+  const moveCategoryWithKeyboard = async (categoryId: number, direction: -1 | 1) => {
+    if (categoryBusy) return;
+    const currentIndex = categoryOrderIds.indexOf(categoryId);
+    const targetIndex = currentIndex + direction;
+    if (currentIndex < 0 || targetIndex < 0 || targetIndex >= categoryOrderIds.length) return;
+    const next = [...categoryOrderIds];
+    [next[currentIndex], next[targetIndex]] = [next[targetIndex], next[currentIndex]];
+    const previousRects = new Map<number, DOMRect>();
+    categoryCardRefs.current.forEach((element, id) => {
+      previousRects.set(id, element.getBoundingClientRect());
+    });
+    setCategoryOrderIds(next);
+    animateCategoryLayout(previousRects);
+    await persistCategoryOrder(next);
+  };
+
   const visibleProducts = useMemo(
     () => filterAdminProducts(products, search, categoryFilter),
     [products, search, categoryFilter],
@@ -738,7 +840,7 @@ export function AdminCatalog(props: AdminCatalogProps) {
 
           {categories.length > 0 ? (
             <C.CategoryGrid>
-              {categories.map((category) => {
+              {orderedCategories.map((category) => {
                 const categoryProducts = products.filter(
                   (product) => product.categoryId === category.id,
                 );
@@ -750,7 +852,16 @@ export function AdminCatalog(props: AdminCatalogProps) {
                 const productCount = countProductsInCategory(products, category.id);
 
                 return (
-                  <C.CategoryCard key={category.id} data-category-card>
+                  <C.CategoryCard
+                    key={category.id}
+                    data-category-card
+                    data-category-id={category.id}
+                    data-dragging={draggingCategoryId === category.id ? 'true' : 'false'}
+                    ref={(element) => {
+                      if (element) categoryCardRefs.current.set(category.id, element);
+                      else categoryCardRefs.current.delete(category.id);
+                    }}
+                  >
                     <C.CategoryMedia
                       $color={categoryVisual.color}
                       $imageCount={category.image ? 1 : categoryImages.length}
@@ -785,6 +896,56 @@ export function AdminCatalog(props: AdminCatalogProps) {
                     </C.CategoryMedia>
 
                     <C.CategoryCardBody>
+                      <div className="category-sort-row">
+                        <button
+                          className="category-drag-handle"
+                          type="button"
+                          disabled={categoryBusy}
+                          aria-label={`Reordenar categoria ${category.name}. Use arrastar ou as setas do teclado.`}
+                          title="Pressione e arraste para reorganizar"
+                          onPointerDown={(event) => {
+                            if (categoryBusy || event.button !== 0) return;
+                            event.currentTarget.setPointerCapture(event.pointerId);
+                            setDraggingCategoryId(category.id);
+                          }}
+                          onPointerMove={(event) => {
+                            if (draggingCategoryId !== category.id) return;
+                            const target = document
+                              .elementFromPoint(event.clientX, event.clientY)
+                              ?.closest<HTMLElement>('[data-category-card]');
+                            const targetId = Number(target?.dataset.categoryId);
+                            if (Number.isSafeInteger(targetId) && targetId > 0) {
+                              reorderLocally(category.id, targetId);
+                            }
+                          }}
+                          onPointerUp={(event) => {
+                            if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+                              event.currentTarget.releasePointerCapture(event.pointerId);
+                            }
+                            void finishCategoryDrag();
+                          }}
+                          onPointerCancel={() => {
+                            setDraggingCategoryId(null);
+                            setCategoryOrderIds(categories.map((item) => item.id));
+                          }}
+                          onKeyDown={(event) => {
+                            if (event.key === 'ArrowUp' || event.key === 'ArrowLeft') {
+                              event.preventDefault();
+                              void moveCategoryWithKeyboard(category.id, -1);
+                            }
+                            if (event.key === 'ArrowDown' || event.key === 'ArrowRight') {
+                              event.preventDefault();
+                              void moveCategoryWithKeyboard(category.id, 1);
+                            }
+                          }}
+                        >
+                          <GripVertical aria-hidden="true" />
+                          <span>Arrastar</span>
+                        </button>
+                        <span className="category-position" aria-hidden="true">
+                          {categoryOrderIds.indexOf(category.id) + 1}
+                        </span>
+                      </div>
                       <div className="category-identity">
                         <span
                           className="category-icon"

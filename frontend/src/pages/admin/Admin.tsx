@@ -612,6 +612,7 @@ export default function Admin() {
           name: String(raw.name),
           active: raw.active !== false,
           image: raw.image ? String(raw.image) : null,
+          sortOrder: Number.isInteger(Number(raw.sortOrder)) ? Number(raw.sortOrder) : 0,
         };
       }),
     );
@@ -911,6 +912,10 @@ export default function Admin() {
       }}
       onDeleteCategory={async (id) => {
         await categoriesService.deleteCategory(id);
+        await Promise.all([loadCategories(), loadProducts()]);
+      }}
+      onReorderCategories={async (categoryIds) => {
+        await categoriesService.reorderCategories(categoryIds);
         await Promise.all([loadCategories(), loadProducts()]);
       }}
       onCreateIngredient={async (ingredient) => {
