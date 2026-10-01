@@ -8,6 +8,7 @@ import service from './GetPublicMediaService.js';
 const originals = {
   findRestaurantImage: repository.findRestaurantImage,
   findBannerImage: repository.findBannerImage,
+  findCategoryImage: repository.findCategoryImage,
   findProductImage: repository.findProductImage,
   findIngredientImage: repository.findIngredientImage,
 };
@@ -15,6 +16,7 @@ const originals = {
 afterEach(() => {
   repository.findRestaurantImage = originals.findRestaurantImage;
   repository.findBannerImage = originals.findBannerImage;
+  repository.findCategoryImage = originals.findCategoryImage;
   repository.findProductImage = originals.findProductImage;
   repository.findIngredientImage = originals.findIngredientImage;
 });
@@ -42,6 +44,20 @@ test('isola o banner pelo restaurante e rejeita mídia ausente', async () => {
   await assert.rejects(() => service.bannerImage(3, 9), /não encontrada/i);
   assert.deepEqual(calls, [[3, 9]]);
   await assert.rejects(() => service.bannerImage(3, '9x'), /Banner inválido/);
+});
+
+test('busca a imagem da categoria dentro do restaurante informado', async () => {
+  const calls = [];
+  repository.findCategoryImage = async (...args) => {
+    calls.push(args);
+    return { image: 'data:image/webp;base64,UklGRg==', updatedAt: new Date() };
+  };
+
+  const media = await service.categoryImage(3, 8);
+
+  assert.equal(media.source, 'data:image/webp;base64,UklGRg==');
+  assert.deepEqual(calls, [[3, 8]]);
+  await assert.rejects(() => service.categoryImage(3, '8x'), /Categoria inválida/);
 });
 
 test('busca a imagem do produto dentro do restaurante informado', async () => {

@@ -20,6 +20,11 @@ describe('publicMediaSource', () => {
       {
         id: 1,
         image: '/public-media/restaurants/3/products/1?v=1',
+        category: {
+          id: 4,
+          name: 'Combos',
+          image: '/public-media/restaurants/3/categories/4?v=5',
+        },
         optionGroups: [
           {
             id: 20,
@@ -66,6 +71,9 @@ describe('publicMediaSource', () => {
     expect((resolved[0] as (typeof products)[0]).image).toBe(
       'https://api.example.com/public-media/restaurants/3/products/1?v=1',
     );
+    expect((resolved[0] as (typeof products)[0]).category.image).toBe(
+      'https://api.example.com/public-media/restaurants/3/categories/4?v=5',
+    );
     expect(
       (resolved[0] as (typeof products)[0]).optionGroups?.[0].options[0].ingredient.image,
     ).toBe('https://api.example.com/public-media/restaurants/3/ingredients/9?v=2');
@@ -82,6 +90,7 @@ describe('publicMediaSource', () => {
       'https://cdn.example.com/product.webp',
     );
     expect(products[0].image).toBe('/public-media/restaurants/3/products/1?v=1');
+    expect(products[0].category.image).toBe('/public-media/restaurants/3/categories/4?v=5');
     expect(products[0].optionGroups[0].options[0].ingredient.image).toBe(
       '/public-media/restaurants/3/ingredients/9?v=2',
     );

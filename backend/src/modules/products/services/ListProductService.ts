@@ -9,6 +9,19 @@ type ListProductsPayload = {
   slug?: string;
 };
 
+function presentCategoryImage<
+  T extends { id: number; image?: string | null; updatedAt?: Date | null },
+>(category: T, restaurantId: number) {
+  return {
+    ...category,
+    image: createPublicMediaReference(
+      category.image,
+      `/public-media/restaurants/${restaurantId}/categories/${category.id}`,
+      category.updatedAt,
+    ),
+  };
+}
+
 function presentIngredientImage<
   T extends { id: number; image?: string | null; updatedAt?: Date | null },
 >(ingredient: T, restaurantId: number) {
@@ -49,6 +62,9 @@ class ListProductsService {
         `/public-media/restaurants/${normalizedRestaurantId}/products/${product.id}`,
         product.updatedAt,
       );
+      const publicCategory = product.category
+        ? presentCategoryImage(product.category, normalizedRestaurantId)
+        : product.category;
       const publicIngredients = product.ingredients.map((ingredient) =>
         presentIngredientImage(ingredient, normalizedRestaurantId),
       );
@@ -94,6 +110,7 @@ class ListProductsService {
         return {
           ...product,
           image: publicImage,
+          category: publicCategory,
           ingredients: publicIngredients,
           compositionItems: publicCompositionItems,
           optionGroups: publicOptionGroups,
@@ -106,6 +123,7 @@ class ListProductsService {
       return {
         ...product,
         image: publicImage,
+        category: publicCategory,
         ingredients: publicIngredients,
         compositionItems: publicCompositionItems,
         optionGroups: publicOptionGroups,

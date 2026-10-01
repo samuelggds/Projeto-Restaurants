@@ -28,6 +28,21 @@ class PublicMediaRepository {
     });
   }
 
+  async findCategoryImage(restaurantId: number, categoryId: number) {
+    return prisma.category.findFirst({
+      where: {
+        id: categoryId,
+        restaurantId,
+        active: true,
+        restaurant: { active: true },
+      },
+      select: {
+        image: true,
+        updatedAt: true,
+      },
+    });
+  }
+
   async findProductImage(restaurantId: number, productId: number) {
     return prisma.product.findFirst({
       where: {

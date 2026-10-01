@@ -23,6 +23,7 @@ import { CustomerDesktopFooter } from './components/CustomerDesktopFooter';
 import { FloatingWhatsAppPortal } from './Home.whatsapp';
 import { WhatsAppIcon } from './components/SocialBrandIcons';
 import { buildSocialProfileUrl } from './domain/publicSettings';
+import { resolveComboCategoryImage } from './domain/comboCategoryImage';
 import { createReadyProductConfiguration, resolveProductEntryKind } from './domain/productEntryFlow';
 import type { HomeExperienceProps, HomeProduct } from './types';
 import * as S from './FigmaDeliveryExperience.styles';
@@ -380,6 +381,10 @@ export function FigmaDeliveryExperience({
   const combos = useMemo(
     () => availableProducts.filter((product) => product.kind === 'COMBO'),
     [availableProducts],
+  );
+  const comboCategoryImage = useMemo(
+    () => resolveComboCategoryImage(categories, combos),
+    [categories, combos],
   );
   const categoryCarousels = useMemo(
     () =>
@@ -840,7 +845,7 @@ export function FigmaDeliveryExperience({
                     }}
                   >
                     <span className="image">
-                      {combos[0]?.image ? categoryImage(combos[0].image, 'Combos') : <UtensilsCrossed aria-hidden="true" />}
+                      {comboCategoryImage ? categoryImage(comboCategoryImage, 'Combos') : <UtensilsCrossed aria-hidden="true" />}
                     </span>
                     <b>Combos</b>
                   </button>
