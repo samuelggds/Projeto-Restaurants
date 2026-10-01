@@ -7,10 +7,17 @@ class CreateTablePaymentIntentController {
   async handle(req: Request, res: Response) {
     try {
       const requestedMethod = String(req.body?.method || '').trim().toUpperCase();
-      if (requestedMethod !== 'PIX' && requestedMethod !== 'CARD') {
+      const requestedSelectionMode = String(req.body?.selectionMode || '').trim().toUpperCase();
+      if (requestedSelectionMode !== 'MY_ITEMS') {
         return res.status(400).json({
-          error: 'A comanda do cliente aceita somente Pix ou cartão online.',
-          code: 'ONLINE_TABLE_PAYMENT_ONLY',
+          error: 'Cada cliente pode pagar somente o próprio consumo.',
+          code: 'CLIENT_TABLE_PAYMENT_SCOPE_ONLY',
+        });
+      }
+      if (requestedMethod !== 'PIX' && requestedMethod !== 'CASH') {
+        return res.status(400).json({
+          error: 'A conta do cliente aceita somente Pix ou dinheiro.',
+          code: 'CLIENT_TABLE_PAYMENT_METHOD_ONLY',
         });
       }
 

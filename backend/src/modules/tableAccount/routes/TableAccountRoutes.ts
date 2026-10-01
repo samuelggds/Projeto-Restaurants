@@ -9,6 +9,7 @@ import { tablePaymentActionRateLimitMiddleware } from '../../../middlewares/secu
 import ConfirmManualTablePaymentController from '../controllers/ConfirmManualTablePaymentController.js';
 import { authMiddleware } from '../../../middlewares/authMiddleware.js';
 import { waiterMiddleware } from '../../../middlewares/waiterMiddleware.js';
+import { tableAccountOperatorMiddleware } from '../../../middlewares/tableAccountOperatorMiddleware.js';
 import FakeTablePaymentWebhookController from '../controllers/FakeTablePaymentWebhookController.js';
 import RefundTablePaymentController from '../controllers/RefundTablePaymentController.js';
 import { adminMiddleware } from '../../../middlewares/adminMiddleware.js';
@@ -92,7 +93,7 @@ router.post(
 router.post(
   '/payments/:publicId/confirm-manual',
   authMiddleware,
-  waiterMiddleware,
+  tableAccountOperatorMiddleware,
   premiumTablePlanMiddleware,
   (req, res) => ConfirmManualTablePaymentController.handle(req, res),
 );

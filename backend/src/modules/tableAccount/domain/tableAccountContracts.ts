@@ -60,7 +60,7 @@ export const TABLE_ACCOUNT_ROLES = [
   'SUPER_ADMIN',
 ] as const;
 
-export const TABLE_ACCOUNT_EMPLOYEE_SUB_ROLES = ['GARCOM', 'COZINHA'] as const;
+export const TABLE_ACCOUNT_EMPLOYEE_SUB_ROLES = ['GARCOM', 'COZINHA', 'ATENDENTE'] as const;
 
 export const DEFAULT_TABLE_ACCOUNT_TIME_ZONE = 'America/Sao_Paulo' as const;
 
@@ -229,6 +229,7 @@ export interface TablePaymentEventDto {
   amountCents: MoneyCents | null;
   actorName: string | null;
   reason: string | null;
+  stage?: string | null;
   occurredAt: IsoDateTimeString;
 }
 
@@ -245,8 +246,20 @@ export interface TableAccountBaseSnapshotDto {
   items: TableBillItemDto[];
 }
 
+export interface TableParticipantAccountSummaryDto {
+  publicId: string;
+  displayName: string | null;
+  status: TableParticipantStatus;
+  consumedCents: MoneyCents;
+  paidCents: MoneyCents;
+  reservedCents: MoneyCents;
+  processingCents: MoneyCents;
+  remainingCents: MoneyCents;
+}
+
 export interface TableAccountSnapshotDto extends TableAccountBaseSnapshotDto {
   currentParticipantPublicId: string;
+  participantAccounts?: TableParticipantAccountSummaryDto[];
   capabilities: TableAccountCapabilitiesDto;
   activePayment: TablePaymentIntentDto | null;
   payments: TablePaymentSummaryDto[];

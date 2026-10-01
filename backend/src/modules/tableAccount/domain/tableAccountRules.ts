@@ -233,11 +233,23 @@ export function isActorFromRestaurant(actor: TableAccountActor, restaurantId: nu
   );
 }
 
+export function tableCashConfirmationAuthority(
+  actor: TableAccountActor,
+  restaurantId: number,
+): 'ADMIN' | 'STAFF' | null {
+  if (!isActorFromRestaurant(actor, restaurantId)) return null;
+  if (actor.role === 'ADMIN') return 'ADMIN';
+  if (
+    actor.role === 'FUNCIONARIO' &&
+    (actor.subRole === 'GARCOM' || actor.subRole === 'ATENDENTE')
+  ) {
+    return 'STAFF';
+  }
+  return null;
+}
+
 export function canConfirmManualTablePayment(actor: TableAccountActor, restaurantId: number) {
-  return (
-    isActorFromRestaurant(actor, restaurantId) &&
-    (actor.role === 'ADMIN' || (actor.role === 'FUNCIONARIO' && actor.subRole === 'GARCOM'))
-  );
+  return tableCashConfirmationAuthority(actor, restaurantId) !== null;
 }
 
 export function isManualTablePaymentIntent(input: {
@@ -257,7 +269,10 @@ export function canViewTableAccountFinancialHistory(
   actor: TableAccountActor,
   restaurantId: number,
 ) {
-  return canConfirmManualTablePayment(actor, restaurantId);
+  return (
+    isActorFromRestaurant(actor, restaurantId) &&
+    (actor.role === 'ADMIN' || (actor.role === 'FUNCIONARIO' && actor.subRole === 'GARCOM'))
+  );
 }
 
 export function canAuthorizePreparedItemCancellation(
