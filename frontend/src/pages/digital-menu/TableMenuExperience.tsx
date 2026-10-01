@@ -324,6 +324,7 @@ export default function TableMenuExperience({
           data={data}
           tableLabel={tableLabel}
           title="Pagamento em dinheiro"
+          onBack={() => setView('payment')}
           onHome={goToMenu}
           onMenu={goToMenu}
           onOrders={() => setView('tracking')}
