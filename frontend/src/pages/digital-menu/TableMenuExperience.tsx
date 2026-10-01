@@ -661,19 +661,36 @@ export default function TableMenuExperience({
               </S.SectionHeading>
               <S.TimelineCard className="tracking-timeline">
                 <S.Timeline>
-                  {trackingDescriptions.map((step, index) => (
-                    <S.TimelineStep key={step.label} $active={step.active} $current={step.current}>
-                      <span className="dot">
-                        {step.active ? (
-                          index === 1 && step.current ? <CookingPot size={13} /> : <Check size={14} />
-                        ) : null}
-                      </span>
-                      <div className="copy">
-                        <b>{step.label}</b>
-                        {step.description ? <p>{step.description}</p> : null}
-                      </div>
-                    </S.TimelineStep>
-                  ))}
+                  {trackingDescriptions.map((step, index) => {
+                    const stateClass = step.current
+                      ? 'tracking-step current'
+                      : step.active
+                        ? 'tracking-step completed'
+                        : 'tracking-step pending';
+
+                    return (
+                      <S.TimelineStep
+                        key={step.label}
+                        className={stateClass}
+                        $active={step.active}
+                        $current={step.current}
+                      >
+                        <span className="dot">
+                          {step.active ? (
+                            index === 1 && step.current ? (
+                              <CookingPot size={13} />
+                            ) : (
+                              <Check size={14} />
+                            )
+                          ) : null}
+                        </span>
+                        <div className="copy">
+                          <b>{step.label}</b>
+                          {step.description ? <p>{step.description}</p> : null}
+                        </div>
+                      </S.TimelineStep>
+                    );
+                  })}
                 </S.Timeline>
               </S.TimelineCard>
             </div>
