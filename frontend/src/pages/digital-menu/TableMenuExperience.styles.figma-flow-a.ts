@@ -889,7 +889,7 @@ export const TimelineStep = styled.div<{ $active: boolean; $current?: boolean }>
   grid-template-columns: 20px minmax(0, 1fr);
   gap: 12px;
   align-items: center;
-  opacity: ${({ $active, $current }) => ($active || $current ? 1 : 0.4)};
+  opacity: ${({ $active, $current }) => ($active || $current ? 1 : 0.72)};
   animation: timeline-step-enter 340ms cubic-bezier(.22, 1, .36, 1) both;
 
   &:nth-child(1) { animation-delay: 420ms; }
@@ -898,7 +898,7 @@ export const TimelineStep = styled.div<{ $active: boolean; $current?: boolean }>
 
   @keyframes timeline-step-enter {
     from { opacity: 0; transform: translate3d(-8px, 8px, 0); }
-    to { opacity: ${({ $active, $current }) => ($active || $current ? 1 : 0.4)}; transform: translate3d(0, 0, 0); }
+    to { opacity: ${({ $active, $current }) => ($active || $current ? 1 : 0.72)}; transform: translate3d(0, 0, 0); }
   }
 
   .dot {
@@ -936,18 +936,62 @@ export const TimelineStep = styled.div<{ $active: boolean; $current?: boolean }>
   }
 
   &.confirmation-step.completed { opacity: 1; }
-  &.confirmation-step.completed .dot { background: #10b981; color: #fff; }
-  &.confirmation-step.completed b,
-  &.confirmation-step.completed .completed-label { color: #10b981; }
+  &.confirmation-step.completed .dot {
+    background: #10b981;
+    color: #fff;
+    box-shadow: 0 0 0 3px rgba(16, 185, 129, .11);
+  }
 
-  &.confirmation-step.current { opacity: 1; }
-  &.confirmation-step.current .dot { background: #ff4b4b; color: #fff; }
-  &.confirmation-step.current .dot .pulse { width: 7px; height: 7px; border-radius: 999px; background: #fff; }
-  &.confirmation-step.current b,
-  &.confirmation-step.current .current-label { color: #ff4b4b; }
+  &.confirmation-step.completed b {
+    color: #047857;
+    font-weight: 700;
+  }
 
-  &.confirmation-step.pending { opacity: .4; }
-  &.confirmation-step.pending .dot { background: #eaeae6; color: #6d6d80; }
+  &.confirmation-step.completed .completed-label {
+    color: #059669;
+    font-weight: 800;
+  }
+
+  &.confirmation-step.current {
+    opacity: 1;
+  }
+
+  &.confirmation-step.current .dot {
+    background: #ff4b4b;
+    color: #fff;
+    box-shadow: 0 0 0 3px rgba(255, 75, 75, .11);
+  }
+
+  &.confirmation-step.current .dot .pulse {
+    width: 7px;
+    height: 7px;
+    border-radius: 999px;
+    background: #fff;
+  }
+
+  &.confirmation-step.current b {
+    color: #d9362b;
+    font-weight: 800;
+  }
+
+  &.confirmation-step.current .current-label {
+    color: #e84229;
+    font-weight: 800;
+  }
+
+  &.confirmation-step.pending {
+    opacity: .72;
+  }
+
+  &.confirmation-step.pending .dot {
+    background: #e5e7eb;
+    color: #6d6d80;
+  }
+
+  &.confirmation-step.pending b {
+    color: #6d6d80;
+    font-weight: 600;
+  }
 
   p { margin: 0; color: var(--muted); font-size: 12px; line-height: 16px; }
 
