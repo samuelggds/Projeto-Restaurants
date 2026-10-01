@@ -368,7 +368,7 @@ export default function TableMenuExperience({
                 <S.PaidReceipt>
                   <div className="receipt-head">
                     {confirmation?.orderId ? <small>Pedido #{confirmation.orderId}</small> : <small>Pedido</small>}
-                    <span className="status">PAGO</span>
+                    <span className="status">{paymentStatusLabel.toUpperCase()}</span>
                   </div>
                   <strong>{centsToBrl(currentPayment.totalCents)}</strong>
                   <div className="receipt-divider" />
