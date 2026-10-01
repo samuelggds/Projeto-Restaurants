@@ -935,6 +935,7 @@ export default function Home() {
         onAddProduct={addToCart}
         onIncrease={increaseCart}
         onDecrease={decreaseCart}
+        onClearCart={() => setCart([])}
         onSubmitOrder={addOrderToTableAccount}
         onCallWaiter={() => void requestTableService()}
         onViewAccount={() => setTableAccountOpen(true)}
