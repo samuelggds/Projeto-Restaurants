@@ -116,6 +116,10 @@ describe('RouteAuthorizationGuard após login', () => {
               <Route path="/:restaurantSlug/mesa/:tableNumber" element={<LocationProbe />} />
               <Route path="/:restaurantSlug" element={<LocationProbe />} />
               <Route path="/admin" element={<LocationProbe />} />
+              <Route path="/waiter" element={<LocationProbe />} />
+              <Route path="/attendant" element={<LocationProbe />} />
+              <Route path="/kitchen" element={<LocationProbe />} />
+              <Route path="/courier" element={<LocationProbe />} />
               <Route path="/change-password" element={<LocationProbe />} />
               <Route path="/restaurant-required" element={<LocationProbe />} />
             </Route>
@@ -178,13 +182,20 @@ describe('RouteAuthorizationGuard após login', () => {
   });
 
   it.each([
-    { role: 'FUNCIONARIO', subRole: 'GARCOM' },
-    { role: 'FUNCIONARIO', subRole: 'ATENDENTE' },
-    { role: 'FUNCIONARIO', subRole: 'COZINHA' },
-    { role: 'MOTOQUEIRO' },
-    { role: 'OUTRO' },
-  ])('mantém /north-pizza público mesmo com uma sessão $role salva', (user) => {
+    [{ role: 'FUNCIONARIO', subRole: 'GARCOM' }, '/waiter'],
+    [{ role: 'FUNCIONARIO', subRole: 'ATENDENTE' }, '/attendant'],
+    [{ role: 'FUNCIONARIO', subRole: 'COZINHA' }, '/kitchen'],
+    [{ role: 'MOTOQUEIRO' }, '/courier'],
+    [{ role: 'ADMIN' }, '/admin'],
+    [{ role: 'OUTRO' }, '/restaurant-required'],
+  ])('mantém cada perfil no próprio portal ao abrir /north-pizza', (user, expectedPath) => {
     renderGuardedEntry(user, '/north-pizza');
+
+    expect(container.textContent).toBe(expectedPath);
+  });
+
+  it('mantém /north-pizza acessível para CLIENTE autenticado', () => {
+    renderGuardedEntry({ role: 'CLIENTE' }, '/north-pizza');
 
     expect(container.textContent).toBe('/north-pizza');
   });
