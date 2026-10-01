@@ -297,7 +297,7 @@ export default function GastroNexaLandingV2() {
             <S.PrimaryButton href="#contato">Conversar sobre minha rede <ArrowRight size={17} /></S.PrimaryButton>
           </div>
           <S.NetworkDashboard aria-label="Exemplo de painel multiunidade">
-            <header><Brand /><span>Hoje, 30 set. <i>SG</i></span></header>
+            <div className="dashboard-header"><Brand /><span>Hoje, 30 set. <i>SG</i></span></div>
             <div className="dash-body">
               <nav>
                 <span><BarChart3 />Visão geral</span>
