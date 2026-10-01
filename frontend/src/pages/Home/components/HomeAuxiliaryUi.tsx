@@ -18,7 +18,6 @@ export function HomeAuxiliaryUi({
   primaryColor,
   notifications,
   onDismissNotification,
-  onOpenCart,
   onCloseProduct,
   onCloseCombo,
   onConfirmProduct,
@@ -30,7 +29,6 @@ export function HomeAuxiliaryUi({
   primaryColor: string;
   notifications: HomeNotification[];
   onDismissNotification: (id: number) => void;
-  onOpenCart: () => void;
   onCloseProduct: () => void;
   onCloseCombo: () => void;
   onConfirmProduct: (configuration: ProductConfiguration, quantity: number) => void;
@@ -72,7 +70,6 @@ export function HomeAuxiliaryUi({
       <HomeFeedback
         notifications={notifications}
         onDismissNotification={onDismissNotification}
-        onOpenCart={onOpenCart}
       />
 
       {tableService ? (
