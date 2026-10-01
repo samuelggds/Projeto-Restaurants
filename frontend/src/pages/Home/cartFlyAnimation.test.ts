@@ -7,6 +7,7 @@ import {
 describe('cartFlyAnimation', () => {
   afterEach(() => {
     document.body.innerHTML = '';
+    delete (Element.prototype as { animate?: unknown }).animate;
     vi.restoreAllMocks();
     vi.unstubAllGlobals();
   });
