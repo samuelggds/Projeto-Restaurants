@@ -1361,8 +1361,15 @@ export const TrackingPixAction = styled.button`
   }
 
   &:disabled {
-    opacity: 0.55;
+    background: #e7e7e3;
+    color: #8b8b97;
+    opacity: 1;
     cursor: not-allowed;
+  }
+
+  &:disabled:hover,
+  &:disabled:active {
+    background: #e7e7e3;
   }
 
   @media (min-width: 760px) {
