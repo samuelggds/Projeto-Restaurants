@@ -41,6 +41,20 @@ export const MapCanvas = styled.div<{ $visible: boolean }>`
   opacity: ${({ $visible }) => ($visible ? 1 : 0)};
   transition: opacity 220ms ease;
 
+  .leaflet-container {
+    width: 100%;
+    height: 100%;
+    background: #eef2f3;
+  }
+
+  .leaflet-control-attribution {
+    max-width: calc(100% - 16px);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 9px;
+  }
+
   @media (prefers-reduced-motion: reduce) {
     transition: none;
   }
