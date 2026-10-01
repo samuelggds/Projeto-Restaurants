@@ -633,6 +633,32 @@ async function mockCustomerTrackingApi(page: Page, state: CourierE2EState) {
         ]),
       );
     }
+    if (pathname === '/delivery-chat/601' && method === 'GET') {
+      return json(route, {
+        order: {
+          id: 601,
+          publicId: 'customer-order-601',
+          status: trackingStatus,
+          restaurantId: RESTAURANT_ID,
+          restaurantName: 'Restaurante Rota 42',
+          customerName: customerUser.name,
+          courierId: COURIER_ID,
+          courierName: courierUser.name,
+        },
+        thread: {
+          id: 601,
+          status: trackingStatus === 'SAIU_PARA_ENTREGA' ? 'OPEN' : 'CLOSED',
+          readOnly: trackingStatus !== 'SAIU_PARA_ENTREGA',
+          createdAt: deliveryStartedAt,
+          updatedAt: new Date().toISOString(),
+          closedAt: trackingStatus === 'SAIU_PARA_ENTREGA' ? null : new Date().toISOString(),
+        },
+        messages: [],
+      });
+    }
+    if (pathname === '/delivery-chat/601/read' && method === 'POST') {
+      return json(route, { orderId: 601, readCount: 0 });
+    }
     if (pathname === '/orders/601/tracking' && method === 'GET') {
       state.trackingRequests.push(601);
       return json(route, {
