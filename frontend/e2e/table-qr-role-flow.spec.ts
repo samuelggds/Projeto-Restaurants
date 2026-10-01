@@ -811,8 +811,10 @@ test('cliente pode pagar agora com PIX ou acompanhar para pagar depois', async (
   expect(state.tablePaymentPayload).toBeNull();
 
   await expect(page.getByRole('heading', { name: 'Pedido Enviado!' })).toBeVisible();
-  const payButton = page.getByRole('button', { name: 'Pagar minha conta', exact: true });
+  const payButton = page.getByRole('button', { name: 'Pagar agora no PIX', exact: true });
   await expect(payButton).toBeVisible();
+  await expect(payButton.locator('[data-pix-mark]')).toBeVisible();
+
   for (const width of [320, 390, 1280]) {
     await page.setViewportSize({ width, height: 844 });
     await expect(payButton).toBeInViewport();
@@ -822,10 +824,8 @@ test('cliente pode pagar agora com PIX ou acompanhar para pagar depois', async (
   }
 
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.screenshot({ path: '../artifacts/table-payment-choice-mobile.png', fullPage: true });
+  await page.screenshot({ path: '../artifacts/table-order-confirmation-mobile.png', fullPage: true });
   await payButton.click();
-  await expect(page.getByRole('heading', { name: 'Como prefere pagar?' })).toBeVisible();
-  await page.getByRole('button', { name: 'Escolher PIX' }).click();
 
   await expect.poll(() => state.tablePaymentPayload).not.toBeNull();
   expect(state.tablePaymentPayload).toMatchObject({
@@ -834,6 +834,7 @@ test('cliente pode pagar agora com PIX ou acompanhar para pagar depois', async (
     includeOptionalServiceFee: false,
   });
   expect(state.tablePaymentIdempotencyKey).toBeTruthy();
+  await expect(page.getByRole('heading', { name: 'Como prefere pagar?' })).toHaveCount(0);
   await expect(page.getByRole('heading', { name: 'Aguardando Pagamento' })).toBeVisible();
   await expect(page.getByLabel('QR Code PIX')).toBeVisible();
   expect(state.tablePaymentCreations).toBe(1);
