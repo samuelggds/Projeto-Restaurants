@@ -3,7 +3,7 @@ import styled from 'styled-components';
 type TableActionTone = 'order' | 'waiter' | 'bill';
 
 export const FigmaShell = styled.main<{ $primary: string; $fontFamily?: string }>`
-  --primary: ${({ $primary }) => $primary};
+  --primary: #ff4b4b;
   --text: #1a1a2e;
   --muted: #6d6d80;
   --line: #eaeae6;
