@@ -539,6 +539,7 @@ async function mockRoleFlowApi(page: Page, state: FlowState) {
         restaurantId: RESTAURANT_ID,
         restaurantName: 'Restaurante Teste',
         primaryColor: '#cf562f',
+        averageDeliveryTime: '18',
         isOpenForOrders: true,
         tableOrderingEnabled: true,
         acceptsPix: true,
@@ -753,6 +754,14 @@ test('admin controla o QR, garçom apenas opera a mesa e cozinha recebe Mesa 1',
   await expect(page.getByText(`Mesa ${String(TABLE_NUMBER).padStart(2, '0')}`, { exact: false }).first()).toBeVisible();
   await expect(page.getByRole('button', { name: /Confirmar recebimento/i })).toHaveCount(0);
   await expect(page.getByRole('button', { name: /Acompanhar entrega no GPS/i })).toHaveCount(0);
+
+  await page.getByRole('button', { name: 'Acompanhar em tempo real' }).click();
+  await expect(page.getByText(product.name, { exact: true })).toBeVisible();
+  await expect(page.getByText('Suco da casa', { exact: true })).toBeVisible();
+  await expect(page.getByText('cerca de 18 minutos', { exact: false })).toBeVisible();
+  await expect(page.getByText('Pizza Calabresa', { exact: true })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Chamar garçom para mesa' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Pagar agora com PIX' })).toBeVisible();
 
   await selectPersona(page, 'kitchen');
   await page.goto('/kitchen');
