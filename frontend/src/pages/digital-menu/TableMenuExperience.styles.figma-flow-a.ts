@@ -1378,3 +1378,50 @@ export const TrackingPixAction = styled.button`
     margin-top: 4px;
   }
 `;
+
+export const TrackingOtherPaymentAction = styled.button`
+  width: 100%;
+  min-height: 48px;
+  padding: 12px 20px;
+  border: 1px solid #ff4b4b;
+  border-radius: 6px;
+  background: #fff;
+  color: #ff4b4b;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-size: 15px;
+  line-height: 19px;
+  font-weight: 700;
+  box-shadow: none;
+  transition: background-color 180ms ease, color 180ms ease, transform 180ms ease;
+
+  svg {
+    width: 18px;
+    height: 18px;
+    flex: 0 0 18px;
+  }
+
+  &:hover:not(:disabled) {
+    background: #fff1f1;
+    transform: translateY(-1px);
+  }
+
+  &:active:not(:disabled) {
+    transform: translateY(0) scale(.99);
+  }
+
+  &:focus-visible {
+    outline: 3px solid rgba(255, 75, 75, .22);
+    outline-offset: 2px;
+  }
+
+  &:disabled {
+    border-color: #deded9;
+    background: #f2f2ef;
+    color: #aaaab3;
+    cursor: not-allowed;
+  }
+`;
+
