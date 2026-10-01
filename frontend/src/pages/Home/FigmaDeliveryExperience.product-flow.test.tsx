@@ -91,6 +91,58 @@ describe('FigmaDeliveryExperience product flow', () => {
     container.remove();
   });
 
+  it('mantém combos fora da tela de produto pronto', async () => {
+    const container = document.createElement('div');
+    document.body.appendChild(container);
+    const root = createRoot(container);
+    const onAddProduct = vi.fn();
+
+    await act(async () => {
+      root.render(
+        <FigmaDeliveryExperience
+          data={{
+            ...homeMockData,
+            isOpen: true,
+            brand: { ...homeMockData.brand, name: 'Restaurante Demo' },
+            categories: [{ id: 'combos', name: 'Combos', image: '' }],
+            products: [
+              {
+                id: 'combo-1',
+                categoryId: 'combos',
+                name: 'Combo Família',
+                description: 'Combo configurável',
+                image: '',
+                price: 79.9,
+                originalPrice: 79.9,
+                rating: 0,
+                available: true,
+                kind: 'COMBO',
+                saleMode: 'COMPLETE',
+                comboGroups: [],
+              },
+            ],
+          }}
+          onAddProduct={onAddProduct}
+        />,
+      );
+    });
+
+    const add = container.querySelector(
+      'button[aria-label="Adicionar Combo Família"]',
+    ) as HTMLButtonElement;
+
+    await act(async () => add.click());
+
+    await vi.waitFor(() => {
+      expect(document.querySelector('[aria-label="Montar Combo Família"]')).toBeTruthy();
+    });
+    expect(document.querySelector('[data-ready-product-detail]')).toBeNull();
+    expect(onAddProduct).not.toHaveBeenCalled();
+
+    act(() => root.unmount());
+    container.remove();
+  });
+
   it('abre configurador para produto BUILDABLE e só adiciona após confirmar', async () => {
     const container = document.createElement('div');
     document.body.appendChild(container);
