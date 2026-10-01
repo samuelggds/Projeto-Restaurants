@@ -1020,7 +1020,10 @@ export default function TableMenuExperience({
             <ProductConfigurator
               product={configuringProduct}
               primaryColor={primary}
-              onClose={() => setConfiguringProduct(null)}
+              onClose={() => {
+                setConfiguringProduct(null);
+                pendingCartFlyOriginRef.current = null;
+              }}
               enableProductQuantity
               tableMenuVariant
               onConfirm={(configuration, quantity = 1) => {
