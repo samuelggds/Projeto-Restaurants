@@ -307,9 +307,10 @@ export const CouponRow = styled.div`
     border: 0;
     outline: 0;
     background: transparent;
-    color: #1a1a2e;
+    color: #e85a2b;
     font-size: 14px;
     line-height: 18px;
+    font-weight: 700;
   }
 
   input::placeholder {
