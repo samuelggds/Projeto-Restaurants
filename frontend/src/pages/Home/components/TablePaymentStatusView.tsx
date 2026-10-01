@@ -4,6 +4,8 @@ import QRCode from 'react-qr-code';
 import { PaymentResultView } from '../../../components/payment/PaymentResultView';
 import {
   formatTableMoney,
+  tablePaymentMethodLabel,
+  tablePaymentStatusLabel,
   type TablePaymentIntent,
   type TablePaymentStatus,
 } from '../domain/tableAccount';
@@ -110,22 +112,24 @@ export function TablePaymentStatusView({
   }, [manual, pending, remainingSeconds]);
 
   if (status !== 'RESERVED' && status !== 'PROCESSING') {
-    const methodLabels = {
-      PIX: 'Pix',
-      CARD: 'Cartão',
-      CASH: 'Dinheiro',
-      CARD_MACHINE: 'Cartão na maquininha',
-    };
+    const methodLabel = tablePaymentMethodLabel(payment.method);
+    const paidDescription =
+      payment.method === 'PIX'
+        ? 'Recebemos a confirmação do seu pagamento via PIX.'
+        : payment.method === 'CASH'
+          ? 'O pagamento em dinheiro foi confirmado pela equipe responsável.'
+          : `Recebemos a confirmação do pagamento por ${methodLabel}.`;
 
     return (
       <PaymentResultView
         embedded
         status={status}
-        method={methodLabels[payment.method]}
+        method={methodLabel}
+        statusLabel={tablePaymentStatusLabel(status)}
         restaurantCategory={restaurantCategory ?? 'RESTAURANTE'}
         orderLabel="Conta da mesa"
         amount={formatTableMoney(payment.totalCents)}
-        description={terminalDescriptions[status]}
+        description={status === 'PAID' ? paidDescription : terminalDescriptions[status]}
         onAutoReturn={manual ? undefined : onClose}
         primaryAction={
           status === 'PAID'
