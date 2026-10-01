@@ -474,6 +474,7 @@ class CreateOrderService {
         ? await resolveDeliveryDistanceService.execute({
             restaurantId: resolvedRestaurantId,
             destination: { address, number, district, city, state },
+            force: restaurantUsesDistanceCompensation,
           })
         : null;
     const guestPasswordHash =

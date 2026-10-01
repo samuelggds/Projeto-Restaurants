@@ -1,4 +1,4 @@
-import { UserRole } from '@prisma/client';
+import { OrderPaymentAttemptStatus, UserRole } from '@prisma/client';
 import prisma from '../../../config/prisma.js';
 import getOsrmDeliveryRouteService from './GetOsrmDeliveryRouteService.js';
 import geoapifyDeliveryRoutingProvider from './GeoapifyDeliveryRoutingProvider.js';
@@ -39,7 +39,15 @@ class GetDeliveryTrackingService {
         type: true,
         paid: true,
         paymentMethod: true,
+        payOnDeliveryMethod: true,
         pixPaymentId: true,
+        total: true,
+        itemsSubtotal: true,
+        productDiscountTotal: true,
+        couponDiscount: true,
+        deliveryFeeAmount: true,
+        deliveryRating: true,
+        deliveryRatedAt: true,
         address: true,
         number: true,
         district: true,
@@ -48,6 +56,30 @@ class GetDeliveryTrackingService {
         deliveryStartedAt: true,
         deliveredAt: true,
         deliveryConfirmedAt: true,
+        restaurant: {
+          select: { id: true, name: true, slug: true, logo: true },
+        },
+        items: {
+          select: {
+            id: true,
+            quantity: true,
+            price: true,
+            product: { select: { id: true, name: true } },
+          },
+          orderBy: { id: 'asc' },
+        },
+        paymentAttempts: {
+          where: { status: OrderPaymentAttemptStatus.APPROVED },
+          orderBy: { createdAt: 'desc' },
+          take: 1,
+          select: {
+            method: true,
+            provider: true,
+            cardBrand: true,
+            cardLast4: true,
+            finalizedAt: true,
+          },
+        },
         assignedCourier: { select: { id: true, name: true, phone: true, avatar: true } },
       },
     });

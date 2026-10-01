@@ -633,6 +633,32 @@ async function mockCustomerTrackingApi(page: Page, state: CourierE2EState) {
         ]),
       );
     }
+    if (pathname === '/delivery-chat/601' && method === 'GET') {
+      return json(route, {
+        order: {
+          id: 601,
+          publicId: 'customer-order-601',
+          status: trackingStatus,
+          restaurantId: RESTAURANT_ID,
+          restaurantName: 'Restaurante Rota 42',
+          customerName: customerUser.name,
+          courierId: COURIER_ID,
+          courierName: courierUser.name,
+        },
+        thread: {
+          id: 601,
+          status: trackingStatus === 'SAIU_PARA_ENTREGA' ? 'OPEN' : 'CLOSED',
+          readOnly: trackingStatus !== 'SAIU_PARA_ENTREGA',
+          createdAt: deliveryStartedAt,
+          updatedAt: new Date().toISOString(),
+          closedAt: trackingStatus === 'SAIU_PARA_ENTREGA' ? null : new Date().toISOString(),
+        },
+        messages: [],
+      });
+    }
+    if (pathname === '/delivery-chat/601/read' && method === 'POST') {
+      return json(route, { orderId: 601, readCount: 0 });
+    }
     if (pathname === '/orders/601/tracking' && method === 'GET') {
       state.trackingRequests.push(601);
       return json(route, {
@@ -977,8 +1003,13 @@ test('cliente acompanha somente a própria entrega, rota e destino até a conclu
   await page.goto('/orders/601/tracking');
 
   await expect(page.getByRole('banner').getByText('Pedido #601', { exact: true })).toBeVisible();
-  await expect(page.getByText('Saiu para entrega', { exact: true })).toBeVisible();
-  await expect(page.getByText(courierUser.name)).toBeVisible();
+  await expect(
+    page.getByLabel('Status da Entrega').getByText('Saiu para entrega', { exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole('complementary', { name: 'Detalhes da rota' })
+      .getByText(courierUser.name, { exact: true }),
+  ).toBeVisible();
   await expect(page.getByRole('link', { name: 'Ligar para o motoqueiro' })).toHaveAttribute(
     'href',
     `tel:${courierUser.phone}`,
@@ -1027,7 +1058,9 @@ test('cliente acompanha somente a própria entrega, rota e destino até a conclu
     restaurantId: RESTAURANT_ID,
     status: 'ENTREGUE',
   });
-  await expect(page.getByText('Entregue', { exact: true })).toBeVisible();
+  await expect(
+    page.getByLabel('Status da Entrega').getByText('Chegou ao endereço', { exact: true }),
+  ).toBeVisible();
   await expect(page.getByText('Entrega concluída', { exact: true })).toBeVisible();
   await expect(trackingMap).toHaveAttribute('data-tracking-terminal', 'true');
 

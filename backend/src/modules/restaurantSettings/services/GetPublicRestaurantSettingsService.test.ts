@@ -1,6 +1,7 @@
 // @ts-nocheck
 import test, { afterEach, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
+import prisma from '../../../config/prisma.js';
 import restaurantSettingsRepository from '../repositories/RestaurantSettingsRepository.js';
 import GetPublicRestaurantSettingsService from './GetPublicRestaurantSettingsService.js';
 
@@ -8,11 +9,20 @@ const originalFindPublic = restaurantSettingsRepository.findPublicByRestaurantId
 const originalFindSettings = restaurantSettingsRepository.findByRestaurantId;
 const originalFindRestaurant = restaurantSettingsRepository.findRestaurantById;
 const originalFindDefault = restaurantSettingsRepository.findDefaultActiveRestaurant;
+const originalAggregateRatings = prisma.order.aggregate;
 const originalEnv = { ...process.env };
 
 beforeEach(() => {
   restaurantSettingsRepository.findByRestaurantId = async () => null as never;
+  prisma.order.aggregate = async () =>
+    ({ _avg: { deliveryRating: null }, _count: { deliveryRating: 0 } }) as never;
   Object.assign(process.env, {
+    CREDENTIAL_ENCRYPTION_KEY: Buffer.alloc(32, 4).toString('base64'),
+    BACKEND_URL: 'https://api.gastronexa.example',
+    FRONTEND_URL: 'https://gastronexa.example',
+    MP_OAUTH_CLIENT_ID: 'test-mp-id',
+    MP_OAUTH_CLIENT_SECRET: 'test-mp-secret',
+    MP_WEBHOOK_SECRET: 'test-webhook',
     EFI_OPEN_FINANCE_ENABLED: 'true',
     EFI_OPEN_FINANCE_ENV: 'homologation',
     EFI_OPEN_FINANCE_CLIENT_ID: 'efi-client',
@@ -27,6 +37,7 @@ afterEach(() => {
   restaurantSettingsRepository.findByRestaurantId = originalFindSettings;
   restaurantSettingsRepository.findRestaurantById = originalFindRestaurant;
   restaurantSettingsRepository.findDefaultActiveRestaurant = originalFindDefault;
+  prisma.order.aggregate = originalAggregateRatings;
   for (const name of Object.keys(process.env)) if (!(name in originalEnv)) delete process.env[name];
   Object.assign(process.env, originalEnv);
 });
@@ -42,6 +53,7 @@ test('mantém a cor personalizada na configuração pública', async () => {
   assert.deepEqual(settings, {
     restaurantId: 7,
     primaryColor: '#123456',
+    acceptsDebitCard: false,
     openFinancePixEnabled: false,
     whatsapp: null,
     whatsappEnabled: false,
@@ -200,4 +212,72 @@ test('carrega a identidade do restaurante ativo ao abrir o login diretamente', a
   assert.equal(settings.restaurantId, 3);
   assert.equal(settings.restaurant.name, 'North Pizza');
   assert.equal(settings.restaurant.coverImage, 'capa-salva');
+});
+
+test('expõe débito somente para o restaurante com Mercado Pago realmente pronto sem vazar credenciais', async () => {
+  restaurantSettingsRepository.findPublicByRestaurantId = async (restaurantId) =>
+    ({
+      restaurantId: Number(restaurantId),
+      acceptsCard: true,
+      acceptsPix: true,
+      restaurant: { active: true, banners: [] },
+    }) as never;
+
+  restaurantSettingsRepository.findByRestaurantId = async (restaurantId) =>
+    Number(restaurantId) === 7
+      ? ({
+          restaurantId: 7,
+          cardGateway: 'MERCADO_PAGO',
+          pixProvider: 'MERCADO_PAGO',
+          mercadoPagoAccessToken: 'test-only-access-token',
+          mercadoPagoRefreshToken: 'test-only-refresh-token',
+          mercadoPagoTokenExpiresAt: new Date(Date.now() + 3_600_000),
+          mercadoPagoPublicKey: 'TEST-public-key',
+        } as never)
+      : ({
+          restaurantId: 8,
+          cardGateway: 'MERCADO_PAGO',
+          pixProvider: 'MERCADO_PAGO',
+          mercadoPagoAccessToken: null,
+          mercadoPagoPublicKey: null,
+        } as never);
+
+  const ready = await GetPublicRestaurantSettingsService.execute({ restaurantId: 7 });
+  const notReady = await GetPublicRestaurantSettingsService.execute({ restaurantId: 8 });
+
+  assert.equal(ready.acceptsPix, true);
+  assert.equal(ready.acceptsCard, true);
+  assert.equal(ready.acceptsDebitCard, true);
+  assert.equal(notReady.acceptsPix, false);
+  assert.equal(notReady.acceptsCard, false);
+  assert.equal(notReady.acceptsDebitCard, false);
+  assert.equal('mercadoPagoAccessToken' in ready, false);
+  assert.equal('mercadoPagoPublicKey' in ready, false);
+  assert.equal(JSON.stringify(ready).includes('test-only-access-token'), false);
+});
+
+
+test('não anuncia Pix ou cartão para grant legado sem renovação automática', async () => {
+  restaurantSettingsRepository.findPublicByRestaurantId = async () =>
+    ({
+      restaurantId: 7,
+      acceptsCard: true,
+      acceptsPix: true,
+      restaurant: { active: true, banners: [] },
+    }) as never;
+  restaurantSettingsRepository.findByRestaurantId = async () =>
+    ({
+      restaurantId: 7,
+      cardGateway: 'MERCADO_PAGO',
+      pixProvider: 'MERCADO_PAGO',
+      mercadoPagoAccessToken: 'legacy-access-token',
+      mercadoPagoRefreshToken: null,
+      mercadoPagoPublicKey: 'TEST-public-key',
+    }) as never;
+
+  const settings = await GetPublicRestaurantSettingsService.execute({ restaurantId: 7 });
+
+  assert.equal(settings.acceptsPix, false);
+  assert.equal(settings.acceptsCard, false);
+  assert.equal(settings.acceptsDebitCard, false);
 });

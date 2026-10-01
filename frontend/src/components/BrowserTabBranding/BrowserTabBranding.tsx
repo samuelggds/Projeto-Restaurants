@@ -13,6 +13,7 @@ import { isMarketingPath } from '../../pages/Marketing/marketingPaths';
 import { persistTenantSlug } from '../../shared/navigation/tenantRouteContext';
 
 const RESERVED_ROUTE_SEGMENTS = new Set([
+  '__dev',
   'admin',
   'attendant',
   'billing',

@@ -5,7 +5,8 @@ import { getJwtSecret } from '../../../config/auth.js';
 
 const ROTATED_ACTION = 'ADMIN_PORTAL_KEY_ROTATED';
 const REVOKED_ACTION = 'ADMIN_PORTAL_KEY_REVOKED';
-const GRANT_TTL: SignOptions['expiresIn'] = '1h';
+export const ADMIN_PORTAL_GRANT_TTL_SECONDS = 7 * 24 * 60 * 60;
+const GRANT_TTL: SignOptions['expiresIn'] = ADMIN_PORTAL_GRANT_TTL_SECONDS;
 
 export class AdminPortalAccessError extends Error {
   constructor(
@@ -173,7 +174,12 @@ export class AdminPortalAccessService {
       { expiresIn: GRANT_TTL },
     );
 
-    return { grant, restaurantId: restaurant.id, slug: restaurant.slug, expiresInSeconds: 3600 };
+    return {
+      grant,
+      restaurantId: restaurant.id,
+      slug: restaurant.slug,
+      expiresInSeconds: ADMIN_PORTAL_GRANT_TTL_SECONDS,
+    };
   }
 
   async verifyGrant(slugInput: unknown, grantInput: unknown) {
@@ -192,13 +198,16 @@ export class AdminPortalAccessService {
 
     const restaurantId = Number(decoded.restaurantId || 0);
     const rotationAuditLogId = Number(decoded.rotationAuditLogId || 0);
+    const expiresAtSeconds = Number(decoded.exp || 0);
     if (
       decoded.type !== 'admin_portal_grant' ||
       decoded.slug !== slug ||
       !Number.isInteger(restaurantId) ||
       restaurantId <= 0 ||
       !Number.isInteger(rotationAuditLogId) ||
-      rotationAuditLogId <= 0
+      rotationAuditLogId <= 0 ||
+      !Number.isSafeInteger(expiresAtSeconds) ||
+      expiresAtSeconds <= 0
     ) {
       throw new AdminPortalAccessError('Página não encontrada.');
     }
@@ -212,7 +221,12 @@ export class AdminPortalAccessService {
       throw new AdminPortalAccessError('Página não encontrada.');
     }
 
-    return { valid: true, restaurantId: restaurant.id, slug: restaurant.slug };
+    return {
+      valid: true,
+      restaurantId: restaurant.id,
+      slug: restaurant.slug,
+      expiresAt: new Date(expiresAtSeconds * 1000).toISOString(),
+    };
   }
 }
 

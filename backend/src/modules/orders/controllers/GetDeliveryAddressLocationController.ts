@@ -121,17 +121,37 @@ class GetDeliveryAddressLocationController {
       contextRestaurantId: req.user?.restaurantId ?? req.tableSession?.restaurantId ?? null,
     });
 
+    const hasConfiguredGeocoder =
+      googleAddressGeocodingService.isConfigured() ||
+      geoapifyDeliveryRoutingProvider.isGeocodingConfigured() ||
+      getOsrmDeliveryRouteService.isGeocodingConfigured();
+
+    if (!hasConfiguredGeocoder) {
+      return res.status(200).json({
+        location: null,
+        verification: 'UNVERIFIED',
+      });
+    }
+
     const googleLocation = await googleAddressGeocodingService.execute(parsed.data);
     const location = googleLocation || (await firstAlternativeLocation(parsed.data));
 
     if (!location) {
-      return res.status(422).json({
-        error: 'Não foi possível localizar este endereço no mapa.',
-        code: 'ADDRESS_NOT_GEOCODED',
+      return res.status(200).json({
+        location: null,
+        verification: 'UNVERIFIED',
       });
     }
 
-    return res.status(200).json({ location });
+    return res.status(200).json({
+      location: {
+        latitude: location.latitude,
+        longitude: location.longitude,
+        formattedAddress: location.formattedAddress,
+        partialMatch: location.partialMatch,
+      },
+      verification: 'VERIFIED',
+    });
   }
 }
 

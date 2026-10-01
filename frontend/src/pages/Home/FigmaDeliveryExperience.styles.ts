@@ -62,6 +62,11 @@ export const Header = styled.header`
   .status { display:flex;align-items:center;gap:6px;color:var(--delivery-muted);font-size:13px; }
   .status i { width:8px;height:8px;border-radius:50%;background:#e5484d; }
   .status i.open { background:#33b864; }
+  .brand-meta { display:flex;align-items:center;gap:9px;min-width:0; }
+  .restaurant-rating { display:flex;align-items:center;gap:3px;color:#e49319;font-size:12px;white-space:nowrap; }
+  .restaurant-rating svg { width:12px;height:12px; }
+  .restaurant-rating b { font:inherit;font-weight:850;color:#6b6259; }
+  .restaurant-rating small { color:#8b847c;font-size:11px; }
 
 
   .actions { justify-self:end;display:flex;align-items:center;gap:18px; }
@@ -204,6 +209,7 @@ export const InlineSearch = styled.div`
       margin-top:4px;
       padding-top:0;
       padding-bottom:0;
+      overflow:visible;
       border-color:var(--delivery-line);
       opacity:1;
       visibility:visible;

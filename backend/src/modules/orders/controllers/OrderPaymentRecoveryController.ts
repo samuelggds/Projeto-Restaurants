@@ -38,8 +38,11 @@ class OrderPaymentRecoveryController {
         actorFromRequest(req),
         {
           paymentMethodId: req.body?.paymentMethodId,
+          cardPaymentType: req.body?.cardPaymentType,
           cardToken: req.body?.cardToken,
           cardPaymentMethodId: req.body?.cardPaymentMethodId,
+          cardBrand: req.body?.cardBrand,
+          cardLast4: req.body?.cardLast4,
           encryptedCard: req.body?.encryptedCard,
           cardData: req.body?.cardData,
           holderName: req.body?.holderName,

@@ -1,4 +1,4 @@
-import { ArrowLeft, Check, CircleAlert, Minus, Plus, UtensilsCrossed } from 'lucide-react';
+import { ArrowLeft, Check, CircleAlert, UtensilsCrossed } from 'lucide-react';
 import { useEffect, useId, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import {
@@ -16,6 +16,7 @@ import {
   type SelectionErrors,
 } from '../domain/productCustomization';
 import * as S from './ProductConfigurator.styles';
+import { QuantityStepper } from '../../../components/QuantityStepper/QuantityStepper';
 
 type ProductConfiguratorProduct = ConfigurableProduct & {
   id: string;
@@ -649,14 +650,20 @@ export function ProductConfigurator({
                         {isSelected && option.allowQuantity && (
                           <S.QuantityStepper aria-label={`Quantidade de ${option.name}`}>
                             <span>Quantidade</span>
-                            <button
-                              type="button"
-                              aria-label={`Diminuir quantidade de ${option.name}`}
-                              disabled={
+                            <QuantityStepper
+                              value={optionQuantities[option.id] ?? option.defaultQuantity ?? 1}
+                              ariaLabel={`Quantidade de ${option.name}`}
+                              decreaseLabel={`Diminuir quantidade de ${option.name}`}
+                              increaseLabel={`Aumentar quantidade de ${option.name}`}
+                              decreaseDisabled={
                                 (optionQuantities[option.id] ?? option.defaultQuantity ?? 1) <=
                                 (option.minQuantity ?? 1)
                               }
-                              onClick={() =>
+                              increaseDisabled={
+                                (optionQuantities[option.id] ?? option.defaultQuantity ?? 1) >=
+                                (option.maxQuantity ?? 1)
+                              }
+                              onDecrease={() =>
                                 setOptionQuantities((current) => ({
                                   ...current,
                                   [option.id]: Math.max(
@@ -665,18 +672,7 @@ export function ProductConfigurator({
                                   ),
                                 }))
                               }
-                            >
-                              <Minus />
-                            </button>
-                            <b>{optionQuantities[option.id] ?? option.defaultQuantity ?? 1}</b>
-                            <button
-                              type="button"
-                              aria-label={`Aumentar quantidade de ${option.name}`}
-                              disabled={
-                                (optionQuantities[option.id] ?? option.defaultQuantity ?? 1) >=
-                                (option.maxQuantity ?? 1)
-                              }
-                              onClick={() =>
+                              onIncrease={() =>
                                 setOptionQuantities((current) => ({
                                   ...current,
                                   [option.id]: Math.min(
@@ -685,9 +681,7 @@ export function ProductConfigurator({
                                   ),
                                 }))
                               }
-                            >
-                              <Plus />
-                            </button>
+                            />
                           </S.QuantityStepper>
                         )}
                       </S.Option>
@@ -734,23 +728,16 @@ export function ProductConfigurator({
                 : 'Escolha os sabores'}
             </span>
             {enableProductQuantity ? (
-              <S.ProductQuantity className="product-quantity" aria-label="Quantidade do produto">
-                <button
-                  type="button"
-                  aria-label="Diminuir quantidade do produto"
-                  disabled={productQuantity <= 1}
-                  onClick={() => setProductQuantity((quantity) => Math.max(1, quantity - 1))}
-                >
-                  <Minus size={15} />
-                </button>
-                <strong>{productQuantity}</strong>
-                <button
-                  type="button"
-                  aria-label="Aumentar quantidade do produto"
-                  onClick={() => setProductQuantity((quantity) => quantity + 1)}
-                >
-                  <Plus size={15} />
-                </button>
+              <S.ProductQuantity className="product-quantity">
+                <QuantityStepper
+                  value={productQuantity}
+                  ariaLabel="Quantidade do produto"
+                  decreaseLabel="Diminuir quantidade do produto"
+                  increaseLabel="Aumentar quantidade do produto"
+                  decreaseDisabled={productQuantity <= 1}
+                  onDecrease={() => setProductQuantity((quantity) => Math.max(1, quantity - 1))}
+                  onIncrease={() => setProductQuantity((quantity) => quantity + 1)}
+                />
               </S.ProductQuantity>
             ) : (
               <div>

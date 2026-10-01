@@ -2,6 +2,7 @@ import { act } from 'react';
 import { createRoot } from 'react-dom/client';
 import { describe, expect, it, vi } from 'vitest';
 import { FigmaAccountExperience } from './FigmaAccountExperience';
+import { AppDialogProvider } from '../../components/AppDialog/AppDialogProvider';
 import { profileMockData } from './data';
 
 describe('lista de cartões salvos', () => {
@@ -12,7 +13,8 @@ describe('lista de cartões salvos', () => {
 
     await act(async () => {
       root.render(
-        <FigmaAccountExperience
+        <AppDialogProvider>
+          <FigmaAccountExperience
           data={profileMockData}
           initialView="paymentMethods"
           paymentMethods={[
@@ -40,7 +42,8 @@ describe('lista de cartões salvos', () => {
             },
           ]}
           onAddPaymentMethod={vi.fn()}
-        />,
+        />
+        </AppDialogProvider>,
       );
     });
 
@@ -72,12 +75,14 @@ describe('lista de cartões salvos', () => {
 
     await act(async () => {
       root.render(
-        <FigmaAccountExperience
+        <AppDialogProvider>
+          <FigmaAccountExperience
           data={profileMockData}
           initialView="paymentMethods"
           paymentMethods={[]}
           onAddPaymentMethod={onAddPaymentMethod}
-        />,
+        />
+        </AppDialogProvider>,
       );
     });
 

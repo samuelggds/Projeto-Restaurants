@@ -292,7 +292,7 @@ export const NotifStack = styled.div`
   position: fixed;
   top: 88px;
   left: 50%;
-  z-index: 45;
+  z-index: 1400;
   width: min(520px, calc(100vw - 32px));
   display: flex;
   flex-direction: column;

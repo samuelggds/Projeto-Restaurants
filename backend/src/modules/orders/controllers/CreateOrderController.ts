@@ -40,14 +40,6 @@ class CreateOrderController {
       const userId = req.user?.id ?? null;
       const userRestaurantId = req.user?.restaurantId ?? req.tableSession?.restaurantId ?? null;
 
-      if (
-        payOnDelivery === true &&
-        String(payOnDeliveryMethod || paymentMethod || '').toUpperCase() === 'DINHEIRO' &&
-        String(req.user?.role || '').toUpperCase() !== 'ADMIN'
-      ) {
-        throw new OrderRequestError('Pagamento em dinheiro é registrado somente pelo administrador.');
-      }
-
       const order = await createOrderService.execute({
         creationRequest: orderCreationContext(req),
         userId,

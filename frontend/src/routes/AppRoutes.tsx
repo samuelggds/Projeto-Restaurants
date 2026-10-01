@@ -23,6 +23,7 @@ const Register = lazy(() => import('../pages/Register/Register'));
 const UserProfile = lazy(() => import('../pages/Profile/Profile'));
 const CourierDashboard = lazy(() => import('../pages/Courier/CourierWorkspace'));
 const DeliveryTrackingPage = lazy(() => import('../pages/tracking/DeliveryTrackingPage'));
+const DeliveredOrderPage = lazy(() => import('../pages/tracking/DeliveredOrderPage'));
 const DeliveryChatPage = lazy(() => import('../pages/tracking/DeliveryChatPage'));
 const GuestOrdersPage = lazy(() => import('../pages/orders/GuestOrdersPage'));
 const OrderPixPaymentPage = lazy(() => import('../pages/payment/OrderPixPaymentPage'));
@@ -399,6 +400,7 @@ export default function AppRoutes() {
                   />
                   <Route path="/:restaurantSlug/mesa/:tableNumber" element={<DigitalMenu />} />
                   <Route path="/orders/:id/tracking" element={<DeliveryTrackingPage />} />
+                  <Route path="/orders/:id/delivered" element={<DeliveredOrderPage />} />
                   <Route path="/orders/:id/chat" element={<DeliveryChatPage />} />
 
                   <Route element={<RequireAuth />}>

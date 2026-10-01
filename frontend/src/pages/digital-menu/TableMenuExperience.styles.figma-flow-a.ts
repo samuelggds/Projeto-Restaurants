@@ -181,40 +181,9 @@ export const CartLine = styled.article<{ $hasImage?: boolean }>`
 `;
 
 export const QuantityControl = styled.div`
-  width: max-content;
-  padding: 8px;
-  border-radius: 999px;
-  background: var(--background);
-  display: inline-grid;
-  grid-template-columns: 10px 12px 10px;
-  gap: 16px;
+  display: inline-flex;
   align-items: center;
-
-  button {
-    width: 10px;
-    height: 10px;
-    padding: 0;
-    border: 0;
-    background: transparent;
-    color: var(--text);
-    display: grid;
-    place-items: center;
-  }
-
-  span {
-    display: grid;
-    place-items: center;
-    color: var(--text);
-    font-size: 12px;
-    font-weight: 700;
-  }
-
-  @media (max-width: 759px) {
-    padding: 6px;
-    gap: 12px;
-  }
 `;
-
 export const AddMoreButton = styled.button`
   width: 100%;
   min-height: 48px;

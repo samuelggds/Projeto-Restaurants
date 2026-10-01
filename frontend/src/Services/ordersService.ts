@@ -379,7 +379,6 @@ class OrdersService {
           latitude: number;
           longitude: number;
           formattedAddress: string;
-          locationType: string;
           partialMatch: boolean;
         }
       | undefined;
@@ -575,6 +574,16 @@ class OrdersService {
       guestToken ? { headers: { 'x-guest-order-token': guestToken } } : undefined,
     );
     return normalizeOrder(response.data);
+  }
+
+  async rateDeliveredOrder(orderId: string | number, rating: number) {
+    const guestToken = getGuestOrderTrackingToken(orderId);
+    const response = await api.patch(
+      `/orders/${orderId}/delivery-rating`,
+      { rating },
+      guestToken ? { headers: { 'x-guest-order-token': guestToken } } : undefined,
+    );
+    return response.data;
   }
 
   async getCourierFinance() {

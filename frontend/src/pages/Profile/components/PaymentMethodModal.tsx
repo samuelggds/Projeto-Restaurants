@@ -31,7 +31,11 @@ type MercadoPagoInstance = {
     createCardToken(input: Record<string, string>): Promise<MercadoPagoCardToken>;
   };
   getPaymentMethods(input: { bin: string }): Promise<{
-    results?: Array<{ id?: string; name?: string }>;
+    results?: Array<{
+      id?: string;
+      name?: string;
+      payment_type_id?: string;
+    }>;
   }>;
 };
 declare global {

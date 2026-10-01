@@ -123,6 +123,10 @@ class GeoapifyDeliveryRoutingProvider implements DeliveryRoutingProvider {
     return String(process.env.GEOAPIFY_API_KEY || '').trim();
   }
 
+  isGeocodingConfigured() {
+    return Boolean(this.apiKey);
+  }
+
   private get baseUrl() {
     return String(process.env.GEOAPIFY_BASE_URL || 'https://api.geoapify.com')
       .trim()

@@ -34,6 +34,7 @@ type RecoveryPayload = {
   canRetry?: boolean;
   paymentAttempt?: {
     status?: string;
+    cardPaymentType?: 'credit' | 'debit';
     failureCode?: string | null;
     failureMessage?: string | null;
   } | null;
@@ -418,6 +419,9 @@ export default function OrderPixPaymentPage() {
               </div>
               <OnlineCardPaymentForm
                 restaurantId={payment.restaurantId}
+                paymentType={
+                  payment.paymentAttempt?.cardPaymentType === 'debit' ? 'debit' : 'credit'
+                }
                 onPreparerChange={(preparer) => {
                   cardPreparerRef.current = preparer;
                 }}

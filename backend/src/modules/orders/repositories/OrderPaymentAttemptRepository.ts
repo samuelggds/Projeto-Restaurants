@@ -1,12 +1,16 @@
 import { randomUUID } from 'node:crypto';
 import { OrderPaymentAttemptStatus, PaymentMethod } from '@prisma/client';
 import { withTenantDbContext } from '../../../database/tenantDbContext.js';
+import { normalizeStoredCardBrand } from '../../customerPaymentMethods/domain/cardBrand.js';
 
 type CreateCardAttemptInput = {
   orderId: number;
   restaurantId: number;
   provider: string;
   amount: number;
+  cardPaymentType?: 'credit' | 'debit';
+  cardBrand?: string | null;
+  cardLast4?: string | null;
 };
 
 const TERMINAL_ATTEMPT_STATUSES = new Set<OrderPaymentAttemptStatus>([
@@ -32,6 +36,9 @@ class OrderPaymentAttemptRepository {
   async createCardAttempt(input: CreateCardAttemptInput) {
     const publicId = randomUUID();
     const idempotencyKey = randomUUID();
+    const cardBrand = normalizeStoredCardBrand(input.cardBrand);
+    const digits = String(input.cardLast4 || '').replace(/\D/g, '');
+    const cardLast4 = digits.length === 4 ? digits : null;
     return withTenantDbContext(input.restaurantId, (db) =>
       db.orderPaymentAttempt.create({
         data: {
@@ -39,6 +46,9 @@ class OrderPaymentAttemptRepository {
           orderId: input.orderId,
           restaurantId: input.restaurantId,
           method: PaymentMethod.CARTAO,
+          cardPaymentType: input.cardPaymentType === 'debit' ? 'debit' : 'credit',
+          cardBrand,
+          cardLast4,
           provider: input.provider,
           status: OrderPaymentAttemptStatus.PENDING,
           amount: input.amount,

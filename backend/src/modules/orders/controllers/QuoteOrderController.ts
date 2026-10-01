@@ -117,6 +117,7 @@ class QuoteOrderController {
         couponDiscount: quote.couponDiscount,
         deliveryFeeAmount: quote.deliveryFeeAmount,
         deliveryDistanceMeters: quote.deliveryDistanceMeters,
+        deliveryFeeFallbackApplied: quote.deliveryFeeFallbackApplied,
         total: quote.total,
         couponCode: quote.couponCode,
       });

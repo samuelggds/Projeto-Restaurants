@@ -3,6 +3,10 @@ import restaurantSettingsRepository from '../repositories/RestaurantSettingsRepo
 import restaurantRepository from '../../restaurants/repositories/RestaurantRepository.js';
 import { createPublicMediaReference } from '../../publicMedia/utils/publicMediaReference.js';
 import { efiOpenFinanceConfigured } from '../../payments/providers/efiOpenFinance.js';
+import {
+  getMercadoPagoAccountReadiness,
+  paymentConnectionConfiguration,
+} from './RestaurantPaymentReadinessService.js';
 
 type RestaurantIdPayload = {
   restaurantId?: number | string;
@@ -48,6 +52,7 @@ type PublicSettingsFallback = {
   acceptsPix: boolean;
   openFinancePixEnabled: boolean;
   acceptsCard: boolean;
+  acceptsDebitCard: boolean;
   tableOrderingEnabled: boolean;
   waiterCallEnabled: boolean;
   billRequestEnabled: boolean;
@@ -76,6 +81,8 @@ type PublicSettingsFallback = {
   trackingRequiresLogin: boolean;
   soundNotifications: boolean;
   maxConcurrentOrders: number;
+  restaurantRatingAverage?: number | null;
+  restaurantRatingCount?: number;
   restaurant: {
     updatedAt?: Date;
     name: string | null;
@@ -173,8 +180,28 @@ class GetPublicRestaurantSettingsService {
       throw new Error('Restaurante inválido.');
     }
 
-    const settings =
-      await restaurantSettingsRepository.findPublicByRestaurantId(normalizedRestaurantId);
+    const [settings, deliveryRatingSummary] = await Promise.all([
+      restaurantSettingsRepository.findPublicByRestaurantId(normalizedRestaurantId),
+      prisma.order.aggregate({
+        where: {
+          restaurantId: normalizedRestaurantId,
+          type: 'DELIVERY',
+          deliveryConfirmedAt: { not: null },
+          deliveryRating: { not: null },
+        },
+        _avg: { deliveryRating: true },
+        _count: { deliveryRating: true },
+      }),
+    ]);
+    const restaurantRatingAverage =
+      deliveryRatingSummary._count.deliveryRating > 0
+        ? Number(deliveryRatingSummary._avg.deliveryRating || 0)
+        : null;
+    const restaurantRatingCount = Number(deliveryRatingSummary._count.deliveryRating || 0);
+    const restaurantRatingFields =
+      restaurantRatingCount > 0
+        ? { restaurantRatingAverage, restaurantRatingCount }
+        : {};
 
     if (!settings) {
       const restaurant =
@@ -197,6 +224,7 @@ class GetPublicRestaurantSettingsService {
         acceptsPix: false,
         openFinancePixEnabled: false,
         acceptsCard: false,
+        acceptsDebitCard: false,
         tableOrderingEnabled: true,
         waiterCallEnabled: true,
         billRequestEnabled: true,
@@ -228,6 +256,7 @@ class GetPublicRestaurantSettingsService {
         trackingRequiresLogin: true,
         soundNotifications: true,
         maxConcurrentOrders: 20,
+        ...restaurantRatingFields,
         restaurant: {
           updatedAt: restaurant?.updatedAt,
           name: restaurant?.name || null,
@@ -262,24 +291,27 @@ class GetPublicRestaurantSettingsService {
 
     const pixProvider = String(privateSettings?.pixProvider || '').trim().toUpperCase();
     const cardProvider = String(privateSettings?.cardGateway || '').trim().toUpperCase();
-    const mercadoPagoConnected = Boolean(
-      String(privateSettings?.mercadoPagoAccessToken || '').trim(),
-    );
-    const mercadoPagoCardReady = Boolean(
-      mercadoPagoConnected && String(privateSettings?.mercadoPagoPublicKey || '').trim(),
-    );
+    const mercadoPagoPlatformReady = paymentConnectionConfiguration('MERCADO_PAGO');
+    const needsMercadoPagoReadiness =
+      mercadoPagoPlatformReady &&
+      ((settings.acceptsPix === true && pixProvider === 'MERCADO_PAGO') ||
+        (settings.acceptsCard === true && cardProvider === 'MERCADO_PAGO'));
+    const mercadoPagoReadiness = needsMercadoPagoReadiness
+      ? await getMercadoPagoAccountReadiness({
+          restaurantId: normalizedRestaurantId,
+          settings: privateSettings,
+        })
+      : null;
 
-    // Current production capability: Mercado Pago is the only card/PIX gateway
-    // exposed to customers. Open Finance is independent and remains available
-    // only when its existing Efí configuration and beneficiary Pix key are valid.
     const acceptsPix =
       settings.acceptsPix === true &&
       pixProvider === 'MERCADO_PAGO' &&
-      mercadoPagoConnected;
+      mercadoPagoReadiness?.readyForPix === true;
     const acceptsCard =
       settings.acceptsCard === true &&
       cardProvider === 'MERCADO_PAGO' &&
-      mercadoPagoCardReady;
+      mercadoPagoReadiness?.readyForCard === true;
+    const acceptsDebitCard = acceptsCard;
     const openFinanceReady = Boolean(
       settings.openFinancePixEnabled &&
         efiOpenFinanceConfigured() &&
@@ -296,8 +328,10 @@ class GetPublicRestaurantSettingsService {
 
     return {
       ...settings,
+      ...restaurantRatingFields,
       ...(typeof settings.acceptsPix === 'boolean' ? { acceptsPix } : {}),
       ...(typeof settings.acceptsCard === 'boolean' ? { acceptsCard } : {}),
+      acceptsDebitCard,
       openFinancePixEnabled: openFinanceReady,
       ...(restaurant
         ? { restaurant: externalizePublicRestaurantImages(normalizedRestaurantId, restaurant) }

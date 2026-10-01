@@ -124,6 +124,7 @@ describe('homeDataAdapter', () => {
       acceptsPickup: true,
       acceptsPix: false,
       acceptsCard: true,
+      acceptsDebitCard: true,
       freeShippingMinimum: 75,
       whatsapp: '+55 (85) 99999-0000',
       whatsappEnabled: true,
@@ -141,6 +142,7 @@ describe('homeDataAdapter', () => {
       acceptsPickup: true,
       acceptsPix: false,
       acceptsCard: true,
+      acceptsDebitCard: true,
       freeDeliveryFrom: 75,
       fontFamily: 'DM Sans',
       seoTitle: 'Casa Teste | Cardápio',
@@ -255,6 +257,7 @@ describe('homeDataAdapter', () => {
       acceptsPickup: true,
       acceptsPix: true,
       acceptsCard: true,
+      acceptsDebitCard: false,
       freeDeliveryFrom: 0,
       fontFamily: 'Inter',
     });

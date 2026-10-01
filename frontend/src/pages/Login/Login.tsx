@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { ThemeProvider } from 'styled-components';
+import { GoogleBrandIcon } from '../../components/GoogleBrandIcon/GoogleBrandIcon';
 import {
   CheckCircle2,
   AlertCircle,
@@ -833,9 +834,12 @@ export default function Login() {
                       onClick={initializeGoogleLogin}
                       disabled={googleStatus === 'loading'}
                     >
-                      {googleStatus === 'loading'
-                        ? 'Carregando login com Google...'
-                        : 'Tentar carregar login com Google'}
+                      <GoogleBrandIcon />
+                      <span>
+                        {googleStatus === 'loading'
+                          ? 'Carregando login com Google...'
+                          : 'Tentar carregar login com Google'}
+                      </span>
                     </S.GoogleFallbackButton>
                   )}
                 </S.GoogleButtonContainer>

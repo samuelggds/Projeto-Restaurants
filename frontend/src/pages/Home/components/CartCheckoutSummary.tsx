@@ -48,14 +48,16 @@ export function CartCheckoutSummary({
           : paymentMethod === 'pix'
             ? 'Gerar código Pix'
             : paymentMethod === 'card'
-              ? 'Ir para pagamento seguro'
+              ? 'Pagar com cartão de crédito'
+              : paymentMethod === 'debit_card'
+                ? 'Pagar com cartão de débito'
               : paymentMethod.startsWith('pickup_')
                 ? 'Finalizar pedido'
                 : 'Finalizar pedido';
   const CheckoutIcon =
     paymentMethod === 'pix' || paymentMethod === 'open_finance_pix'
       ? QrCode
-      : paymentMethod === 'card'
+      : paymentMethod === 'card' || paymentMethod === 'debit_card'
         ? CreditCard
         : ReceiptText;
   return (

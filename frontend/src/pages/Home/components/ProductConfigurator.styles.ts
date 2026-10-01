@@ -844,48 +844,20 @@ export const Option = styled.div<{ $selected: boolean; $disabled: boolean }>`
 
 export const QuantityStepper = styled.div`
   min-height: 48px;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto auto auto;
-  align-items: center;
-  gap: 8px;
   padding: 8px 12px;
   border-top: 1px solid #eadfd7;
   background: color-mix(in srgb, var(--config-primary) 3%, #fff);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
 
   > span {
     color: #6f665e;
     font-size: 11px;
     font-weight: 750;
   }
-
-  button {
-    width: 32px;
-    height: 32px;
-    display: grid;
-    place-items: center;
-    border: 1px solid #d8cec6;
-    border-radius: 9px;
-    color: var(--config-primary);
-    background: #fff;
-    cursor: pointer;
-  }
-
-  button:disabled {
-    opacity: 0.38;
-    cursor: not-allowed;
-  }
-
-  button svg {
-    width: 14px;
-  }
-
-  > b {
-    min-width: 24px;
-    text-align: center;
-    font-size: 13px;
-  }
 `;
-
 export const Composition = styled.section`
   padding: 20px;
   border: 1px solid #e6ddd5;
@@ -1188,7 +1160,7 @@ export const BottomBar = styled.div<{ $stickyOnMobile?: boolean }>`
     font-size: 21px;
   }
 
-  button {
+  > button {
     min-width: 260px;
     min-height: 51px;
     padding: 0 20px;
@@ -1201,7 +1173,7 @@ export const BottomBar = styled.div<{ $stickyOnMobile?: boolean }>`
     box-shadow: 0 8px 22px color-mix(in srgb, var(--config-primary) 25%, transparent);
   }
 
-  button:disabled {
+  > button:disabled {
     background: #b9b1aa;
     box-shadow: none;
     cursor: not-allowed;
@@ -1227,9 +1199,9 @@ export const BottomBar = styled.div<{ $stickyOnMobile?: boolean }>`
 
     .total-description{display:none}
 
-    button {
+    > button {
       min-width:0;
-      flex:1;
+      flex:1 1 auto;
       min-height:46px;
       padding-inline:12px;
       font-size:14px;
@@ -1246,7 +1218,7 @@ export const BottomBar = styled.div<{ $stickyOnMobile?: boolean }>`
       font-size: 9px;
     }
 
-    button {
+    > button {
       padding-inline: 9px;
       font-size: 12px;
     }
@@ -1277,7 +1249,7 @@ export const ProductImagePlaceholder = styled.div`
   }
 `;
 
-export { ProductQuantity, TableMenuConfiguratorScope } from './ProductConfigurator.quantity.styles';
+export { ProductQuantity } from './ProductConfigurator.quantity.styles';
 
 export const ProductTitleRow = styled.div`
   display: flex;

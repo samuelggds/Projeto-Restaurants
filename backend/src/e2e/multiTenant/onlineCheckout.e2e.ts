@@ -11,6 +11,15 @@ import {
 } from './tenantE2EHarness.js';
 import pix from '../../modules/orders/services/OrderPixPaymentService.js';
 import { getCardCheckoutProviderHandler } from '../../modules/orders/services/cardCheckoutProviders.js';
+import directOrderCardPaymentService from '../../modules/orders/services/DirectOrderCardPaymentService.js';
+
+function assertTenantDenied(status: number, label: string) {
+  assert.notEqual(status, 500, `${label} gerou erro interno em vez de negar o acesso.`);
+  assert.ok(
+    [400, 401, 403, 404, 409].includes(status),
+    `${label} deveria ser negado, recebeu HTTP ${status}.`,
+  );
+}
 
 test(
   'checkout online: resposta perdida, concorrência e retry não repetem pedido ou gateway',
@@ -28,7 +37,14 @@ test(
     const productId = fixture.products.a.id;
     await prisma.restaurantSettings.update({
       where: { restaurantId },
-      data: { cardGateway: 'MERCADO_PAGO', pixProvider: 'MERCADO_PAGO' },
+      data: {
+        cardGateway: 'MERCADO_PAGO',
+        pixProvider: 'MERCADO_PAGO',
+        mercadoPagoAccessToken: 'TEST-tenant-e2e-mercado-pago-a',
+        mercadoPagoRefreshToken: 'TEST-tenant-e2e-refresh-a',
+        mercadoPagoTokenExpiresAt: new Date(Date.now() + 3_600_000),
+        mercadoPagoPublicKey: 'TEST-public-key-a',
+      },
     });
     await prisma.product.update({ where: { id: productId }, data: { stock: 10 } });
     const card = getCardCheckoutProviderHandler('MERCADO_PAGO');
@@ -109,5 +125,112 @@ test(
       pix.createPixPayment = originalPix;
       card.createCheckout = originalCard;
     }
+  },
+);
+
+
+test(
+  'débito online preserva tenant, chega como débito ao provedor e bloqueia tenant cruzado',
+  { timeout: 90_000 },
+  async (t) => {
+    await resetTenantE2EDatabase();
+    const fixture = await seedTenantE2EFixture();
+    const app = await startTenantTestApplication();
+    const originalDirectExecute = directOrderCardPaymentService.execute;
+
+    t.after(async () => {
+      directOrderCardPaymentService.execute = originalDirectExecute;
+      await app.close();
+      await runtimePrisma.$disconnect();
+      await prisma.$disconnect();
+    });
+
+    await prisma.restaurantSettings.update({
+      where: { restaurantId: fixture.restaurants.a.id },
+      data: {
+        acceptsCard: true,
+        cardGateway: 'MERCADO_PAGO',
+        mercadoPagoAccessToken: 'TEST-tenant-e2e-mercado-pago-a',
+        mercadoPagoRefreshToken: 'TEST-tenant-e2e-refresh-a',
+        mercadoPagoTokenExpiresAt: new Date(Date.now() + 3_600_000),
+        mercadoPagoPublicKey: 'TEST-public-key-a',
+      },
+    });
+
+    let providerCalls = 0;
+    let receivedRestaurantId = 0;
+    let receivedPaymentType = '';
+
+    directOrderCardPaymentService.execute = (async (input) => {
+      providerCalls += 1;
+      receivedRestaurantId = input.order.restaurantId;
+      receivedPaymentType = String(input.payload.cardPaymentType || '');
+      return {
+        provider: 'MERCADO_PAGO',
+        sessionId: 'e2e-debit-session-a',
+        persistenceSessionId: 'mp_order:e2e-debit-session-a',
+        checkoutUrl: 'https://payments.example.test/debit',
+        paymentApproved: false,
+      };
+    }) as typeof directOrderCardPaymentService.execute;
+
+    const successful = await apiRequest(
+      app.baseUrl,
+      '/orders/card/checkout',
+      fixture.tokens.adminA,
+      {
+        method: 'POST',
+        headers: { 'Idempotency-Key': randomUUID() },
+        json: {
+          restaurantId: fixture.restaurants.a.id,
+          type: 'RETIRADA',
+          paymentMethod: 'CARTAO',
+          cardPaymentType: 'debit',
+          cardToken: 'e2e-test-debit-token',
+          cardPaymentMethodId: 'visa',
+          items: [{ productId: fixture.products.a.id, quantity: 1 }],
+        },
+      },
+    );
+
+    assert.equal(successful.response.status, 201, JSON.stringify(successful.data));
+    assert.equal(providerCalls, 1);
+    assert.equal(receivedRestaurantId, fixture.restaurants.a.id);
+    assert.equal(receivedPaymentType, 'debit');
+
+    const createdOrder = await prisma.order.findFirstOrThrow({
+      where: {
+        id: Number(successful.data.orderId),
+        restaurantId: fixture.restaurants.a.id,
+      },
+    });
+    assert.equal(createdOrder.restaurantId, fixture.restaurants.a.id);
+    assert.equal(createdOrder.paymentMethod, 'CARTAO');
+    assert.equal(createdOrder.paid, false);
+
+    const crossTenant = await apiRequest(
+      app.baseUrl,
+      '/orders/card/checkout',
+      fixture.tokens.adminA,
+      {
+        method: 'POST',
+        headers: { 'Idempotency-Key': randomUUID() },
+        json: {
+          restaurantId: fixture.restaurants.b.id,
+          type: 'RETIRADA',
+          paymentMethod: 'CARTAO',
+          cardPaymentType: 'debit',
+          cardToken: 'e2e-test-debit-token-cross-tenant',
+          cardPaymentMethodId: 'visa',
+          items: [{ productId: fixture.products.b.id, quantity: 1 }],
+        },
+      },
+    );
+
+    assertTenantDenied(
+      crossTenant.response.status,
+      'admin do restaurante A iniciando débito no restaurante B',
+    );
+    assert.equal(providerCalls, 1, 'tentativa cross-tenant não deve chegar ao provedor');
   },
 );

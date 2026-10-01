@@ -2,6 +2,7 @@ import { act } from 'react';
 import { createRoot } from 'react-dom/client';
 import { describe, expect, it, vi } from 'vitest';
 import { FigmaAccountExperience } from './FigmaAccountExperience';
+import { AppDialogProvider } from '../../components/AppDialog/AppDialogProvider';
 import { profileMockData } from './data';
 
 describe('detalhes de cartão salvo', () => {
@@ -14,7 +15,8 @@ describe('detalhes de cartão salvo', () => {
 
     await act(async () => {
       root.render(
-        <FigmaAccountExperience
+        <AppDialogProvider>
+          <FigmaAccountExperience
           data={profileMockData}
           initialView="paymentMethods"
           paymentMethods={[
@@ -32,7 +34,8 @@ describe('detalhes de cartão salvo', () => {
           ]}
           onSelectPaymentMethod={onSelectPaymentMethod}
           onRemovePaymentMethod={onRemovePaymentMethod}
-        />,
+        />
+        </AppDialogProvider>,
       );
     });
 
@@ -75,7 +78,8 @@ describe('detalhes de cartão salvo', () => {
 
     await act(async () => {
       root.render(
-        <FigmaAccountExperience
+        <AppDialogProvider>
+          <FigmaAccountExperience
           data={profileMockData}
           initialView="paymentMethods"
           paymentMethods={[
@@ -91,7 +95,8 @@ describe('detalhes de cartão salvo', () => {
               createdAt: '2026-09-15T12:00:00.000Z',
             },
           ]}
-        />,
+        />
+        </AppDialogProvider>,
       );
     });
 

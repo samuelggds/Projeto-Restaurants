@@ -21,6 +21,8 @@ export type HomeBrand = {
   legalName?: string;
   phone?: string;
   email?: string;
+  ratingAverage?: number | null;
+  ratingCount?: number;
 };
 
 export type HomeCategory = {
@@ -188,6 +190,7 @@ export type HomeData = {
   acceptsPix: boolean;
   openFinancePixEnabled: boolean;
   acceptsCard: boolean;
+  acceptsDebitCard?: boolean;
   fontFamily: HomeFontFamily;
   seoTitle: string;
   seoDescription: string;

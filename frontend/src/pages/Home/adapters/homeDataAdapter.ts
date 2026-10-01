@@ -298,6 +298,11 @@ export function buildHomeData(
     name: String(restaurantName || settings?.restaurantName || ''),
     monogram: createRestaurantMonogram(restaurantName || settings?.restaurantName),
     logoUrl: isPersistentImageSource(restaurant.logo) ? String(restaurant.logo) : '',
+    ratingAverage:
+      Number(settings?.restaurantRatingCount || 0) > 0
+        ? Number(settings?.restaurantRatingAverage || 0)
+        : null,
+    ratingCount: Number(settings?.restaurantRatingCount || 0),
     category: String(
       restaurant.category || settings?.restaurantCategory || settings?.category || 'RESTAURANTE',
     ),
@@ -472,6 +477,7 @@ export function buildHomeData(
     acceptsPix: readPublicFeatureFlag(settings, 'acceptsPix'),
     openFinancePixEnabled: settings?.openFinancePixEnabled === true,
     acceptsCard: readPublicFeatureFlag(settings, 'acceptsCard'),
+    acceptsDebitCard: settings?.acceptsDebitCard === true,
     fontFamily: normalizeHomeFontFamily(settings?.fontFamily),
     seoTitle: String(settings?.seoTitle || '').trim(),
     seoDescription: String(settings?.seoDescription || '').trim(),

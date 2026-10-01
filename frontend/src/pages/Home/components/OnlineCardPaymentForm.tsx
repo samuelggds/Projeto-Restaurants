@@ -1,10 +1,16 @@
-import { CreditCard, LockKeyhole } from 'lucide-react';
+import { CircleAlert, CreditCard, LockKeyhole } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import styled from 'styled-components';
+import {
+  getCardPaymentErrorTitle,
+  selectMercadoPagoPaymentMethod,
+  type CardPaymentType,
+} from '../domain/cardPayment';
 import type { CustomerPaymentMethod } from '../../../Services/customerPaymentMethodService';
 import publicCardPaymentService, {
   type PublicCardPaymentConfig,
 } from '../../../Services/publicCardPaymentService';
+import { detectCardBrand } from '../../Profile/domain/cardBrand';
 
 export type PreparedCardPayment = Record<string, unknown>;
 export type CardPaymentPreparer = () => Promise<PreparedCardPayment>;
@@ -30,7 +36,11 @@ type MercadoPagoInstance = {
     createCardToken(input: Record<string, string>): Promise<MercadoPagoCardToken>;
   };
   getPaymentMethods(input: { bin: string }): Promise<{
-    results?: Array<{ id?: string; name?: string }>;
+    results?: Array<{
+      id?: string;
+      name?: string;
+      payment_type_id?: string;
+    }>;
   }>;
 };
 
@@ -88,11 +98,13 @@ export function OnlineCardPaymentForm({
   restaurantId,
   savedCard,
   payerEmail: initialPayerEmail = '',
+  paymentType = 'credit',
   onPreparerChange,
 }: {
   restaurantId: number;
   savedCard?: CustomerPaymentMethod | null;
   payerEmail?: string;
+  paymentType?: CardPaymentType;
   onPreparerChange: (preparer: CardPaymentPreparer | null) => void;
 }) {
   const [config, setConfig] = useState<PublicCardPaymentConfig | null>(null);
@@ -156,9 +168,10 @@ export function OnlineCardPaymentForm({
             void mp
               .getPaymentMethods({ bin: normalizedBin })
               .then((response) => {
-                if (active) {
-                  setMercadoPagoPaymentMethodId(String(response.results?.[0]?.id || '').trim());
-                }
+                if (!active) return;
+                setMercadoPagoPaymentMethodId(
+                  selectMercadoPagoPaymentMethod(response.results, paymentType),
+                );
               })
               .catch(() => {
                 if (active) setMercadoPagoPaymentMethodId('');
@@ -181,7 +194,7 @@ export function OnlineCardPaymentForm({
       mercadoPagoRef.current = null;
       setMercadoPagoPaymentMethodId('');
     };
-  }, [config, isSavedMercadoPago]);
+  }, [config, isSavedMercadoPago, paymentType]);
 
 
   useEffect(() => {
@@ -194,6 +207,11 @@ export function OnlineCardPaymentForm({
       setError('');
       try {
         if (savedCard) {
+          if (paymentType === 'debit') {
+            throw new Error(
+              'Para pagar no débito, informe o cartão nesta compra. Cartões salvos continuam disponíveis no crédito.',
+            );
+          }
           if (savedCard.provider !== config.provider) {
             throw new Error('O cartão salvo não pertence ao provedor atual do restaurante.');
           }
@@ -210,10 +228,18 @@ export function OnlineCardPaymentForm({
               paymentMethodId: savedCard.publicId,
               cardToken: token.id,
               cardPaymentMethodId: String(token.payment_method_id || savedCard.brand).trim(),
+              cardPaymentType: 'credit',
+              cardBrand: savedCard.brand,
+              cardLast4: savedCard.last4,
               ...(mercadoPagoDeviceId ? { mercadoPagoDeviceId } : {}),
             };
           }
-          return { paymentMethodId: savedCard.publicId };
+          return {
+            paymentMethodId: savedCard.publicId,
+            cardPaymentType: 'credit',
+            cardBrand: savedCard.brand,
+            cardLast4: savedCard.last4,
+          };
         }
 
         const holderName = holder.trim();
@@ -235,20 +261,35 @@ export function OnlineCardPaymentForm({
             identificationNumber: holderTaxId,
           });
           const paymentMethodId = String(
-            token.payment_method_id || mercadoPagoPaymentMethodId || '',
+            paymentType === 'debit'
+              ? mercadoPagoPaymentMethodId
+              : token.payment_method_id || mercadoPagoPaymentMethodId || '',
           ).trim();
           if (!token.id || !paymentMethodId) {
-            throw new Error('Não foi possível identificar a bandeira do cartão. Revise os dados e tente novamente.');
+            throw new Error(
+              paymentType === 'debit'
+                ? 'Este cartão não está disponível para débito online. Tente outro cartão ou escolha crédito.'
+                : 'Não foi possível identificar a bandeira do cartão. Revise os dados e tente novamente.',
+            );
           }
           const mercadoPagoDeviceId = String(window.MP_DEVICE_SESSION_ID || '').trim();
           return {
             cardToken: token.id,
             cardPaymentMethodId: paymentMethodId,
+            cardPaymentType: paymentType,
+            cardBrand: paymentMethodId,
+            cardLast4: String(token.last_four_digits || '').replace(/\D/g, '').slice(-4),
             holderName,
             holderTaxId,
             payerEmail: normalizedPayerEmail,
             ...(mercadoPagoDeviceId ? { mercadoPagoDeviceId } : {}),
           };
+        }
+
+        if (paymentType === 'debit') {
+          throw new Error(
+            'Débito online está disponível somente no gateway Mercado Pago neste momento.',
+          );
         }
 
         const cleanNumber = digits(number);
@@ -299,6 +340,9 @@ export function OnlineCardPaymentForm({
           }
           return {
             cardToken: tokenBody.id,
+            cardPaymentType: 'credit',
+            cardBrand: detectCardBrand(cleanNumber).id,
+            cardLast4: cleanNumber.slice(-4),
             holderName,
             holderTaxId,
             payerEmail: normalizedPayerEmail,
@@ -313,6 +357,9 @@ export function OnlineCardPaymentForm({
         }
         return {
           cardData: { number: cleanNumber, securityCode: cleanCvv },
+          cardPaymentType: 'credit',
+          cardBrand: detectCardBrand(cleanNumber).id,
+          cardLast4: cleanNumber.slice(-4),
           holderName,
           holderTaxId,
           expMonth: month,
@@ -343,6 +390,7 @@ export function OnlineCardPaymentForm({
     postalCode,
     savedCard,
     taxId,
+    paymentType,
   ]);
 
   if (isSaved && config?.provider !== 'MERCADO_PAGO') {
@@ -362,7 +410,13 @@ export function OnlineCardPaymentForm({
       <header>
         <CreditCard size={20} />
         <div>
-          <b>{isSaved ? 'Confirme seu cartão salvo' : 'Dados do cartão'}</b>
+          <b>
+            {isSaved
+              ? 'Confirme seu cartão salvo'
+              : paymentType === 'debit'
+                ? 'Dados do cartão de débito'
+                : 'Dados do cartão de crédito'}
+          </b>
           <span>
             {isSaved
               ? `Final ${savedCard?.last4}. Informe somente o código de segurança.`
@@ -504,9 +558,15 @@ export function OnlineCardPaymentForm({
         <LockKeyhole size={15} /> O número completo e o CVV nunca são salvos no GastroNexa.
       </p>
       {error && (
-        <p className="error" role="alert">
-          {error}
-        </p>
+        <div className="error-alert" role="alert" aria-live="assertive">
+          <span className="error-icon" aria-hidden="true">
+            <CircleAlert size={18} />
+          </span>
+          <span className="error-copy">
+            <strong>{getCardPaymentErrorTitle(paymentType)}</strong>
+            <small>{error}</small>
+          </span>
+        </div>
       )}
     </CardForm>
   );
@@ -584,11 +644,41 @@ const CardForm = styled.section`
     color: #68706b;
     font-size: 10px;
   }
-  .error {
-    margin: 0;
-    color: #a12d25;
+  .error-alert {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    margin: 1px 0 0;
+    padding: 11px 12px;
+    border: 1px solid #ecc9c4;
+    border-radius: 11px;
+    background: #fff7f6;
+    color: #8f342c;
+  }
+  .error-icon {
+    width: 28px;
+    height: 28px;
+    flex: 0 0 28px;
+    display: grid;
+    place-items: center;
+    border-radius: 9px;
+    background: #fde7e3;
+    color: #a33b31;
+  }
+  .error-copy {
+    min-width: 0;
+    display: grid;
+    gap: 3px;
+  }
+  .error-copy strong {
+    color: #7d2d27;
     font-size: 11px;
-    font-weight: 700;
+    line-height: 1.35;
+  }
+  .error-copy small {
+    color: #8d4a44;
+    font-size: 10px;
+    line-height: 1.45;
   }
   @media (max-width: 390px) {
     .row {

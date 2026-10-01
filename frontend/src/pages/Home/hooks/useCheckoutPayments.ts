@@ -28,8 +28,13 @@ export type PixPaymentStatus =
 
 type CheckoutPaymentResultBase = {
   restaurantId: number;
-  method: 'Cartão' | 'Pix';
+  method: 'Cartão' | 'Cartão de débito' | 'Pix';
   total: number;
+  cardDisplay?: {
+    cardPaymentType: 'credit' | 'debit';
+    cardBrand: string;
+    cardLast4: string | null;
+  };
 };
 
 export type UncertainCheckoutPaymentResult = CheckoutPaymentResultBase & {
@@ -312,10 +317,16 @@ export function useCheckoutPayments(options: Options) {
         onPurchased();
         onClearCart();
         onCloseCart();
+        const deliveryPaymentLabel =
+          resolvedPaymentMethod === 'PIX'
+            ? 'Pix'
+            : resolvedPaymentMethod === 'CARTAO'
+              ? 'cartão'
+              : 'dinheiro';
         notify(
           'success',
           `Pedido #${String(order?.id || '')} recebido`,
-          `Pagamento na entrega por ${resolvedPaymentMethod === 'PIX' ? 'Pix' : 'cartão'}.`,
+          `Pagamento na entrega por ${deliveryPaymentLabel}. O pedido permanece não pago até a equipe confirmar o recebimento.`,
           5000,
         );
         return true;
@@ -390,6 +401,9 @@ export function useCheckoutPayments(options: Options) {
         try {
           cardPayload = await prepareCardPayment();
         } catch (preparationError) {
+          if (paymentMethod === 'debit_card') {
+            throw preparationError;
+          }
           const savedMethods = restaurantId
             ? await customerPaymentMethodService.list(restaurantId).catch(() => [])
             : [];
@@ -401,7 +415,10 @@ export function useCheckoutPayments(options: Options) {
             savedMethods.find((method) => method.isDefault) ||
             savedMethods[0];
           if (!selectedSavedMethod) throw preparationError;
-          cardPayload = { paymentMethodId: selectedSavedMethod.publicId };
+          cardPayload = {
+            paymentMethodId: selectedSavedMethod.publicId,
+            cardPaymentType: 'credit',
+          };
         }
       } else {
         cardPayload = await prepareCardPayment();
@@ -425,9 +442,14 @@ export function useCheckoutPayments(options: Options) {
         setPaymentResult({
           restaurantId,
           status: 'PAID',
-          method: 'Cartão',
+          method: paymentMethod === 'debit_card' ? 'Cartão de débito' : 'Cartão',
           orderId: Number(result.orderId) || null,
           total: Number(result.totalAmount ?? cartTotal),
+          cardDisplay: {
+            cardPaymentType: paymentMethod === 'debit_card' ? 'debit' : 'credit',
+            cardBrand: String(cardPayload.cardBrand || cardPayload.cardPaymentMethodId || 'card'),
+            cardLast4: String(cardPayload.cardLast4 || '').replace(/\D/g, '').slice(-4) || null,
+          },
         });
         try {
           await onPaymentConfirmedRef.current();
@@ -521,7 +543,9 @@ export function useCheckoutPayments(options: Options) {
           method:
             paymentMethod === 'pix' || paymentMethod === 'open_finance_pix'
               ? 'Pix'
-              : 'Cartão',
+              : paymentMethod === 'debit_card'
+                ? 'Cartão de débito'
+                : 'Cartão',
           status: 'PENDING',
           reconciliationRequired: true,
         });

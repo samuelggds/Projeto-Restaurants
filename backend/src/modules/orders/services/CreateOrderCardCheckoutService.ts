@@ -20,11 +20,13 @@ import directOrderCardPaymentService, {
   CardPaymentDeclinedError,
   CardPaymentProviderRequestError,
   hasDirectCardPaymentPayload,
+  normalizeCardPaymentType,
   type DirectCardPaymentPayload,
 } from './DirectOrderCardPaymentService.js';
 import { OrderRequestError } from '../domain/OrderRequestError.js';
 import { OrderPaymentAttemptStatus } from '@prisma/client';
 import orderPaymentAttemptRepository from '../repositories/OrderPaymentAttemptRepository.js';
+import { getMercadoPagoAccountReadiness } from '../../restaurantSettings/services/RestaurantPaymentReadinessService.js';
 
 type CardCheckoutPayload = CreateOrderCardCheckoutPayload &
   DirectCardPaymentPayload & {
@@ -67,6 +69,20 @@ class CreateOrderCardCheckoutService {
       );
     }
 
+    if (normalizedProvider === 'MERCADO_PAGO') {
+      const readiness = await getMercadoPagoAccountReadiness({
+        restaurantId: resolvedRestaurantId,
+        settings,
+      });
+      if (!readiness.readyForCard) {
+        throw new OrderRequestError(
+          'Pagamento com cartão indisponível. Reconecte o Mercado Pago nas configurações do restaurante.',
+          503,
+          'CARD_PAYMENT_UNAVAILABLE',
+        );
+      }
+    }
+
     return normalizeCardProvider(normalizedProvider);
   }
 
@@ -87,9 +103,49 @@ class CreateOrderCardCheckoutService {
     }
     const resolvedCardProvider = await this.resolveCardProvider(payload);
     this.ensureCardProviderSupported(resolvedCardProvider);
+    const cardPaymentType = normalizeCardPaymentType(payload.cardPaymentType);
+    if (cardPaymentType === 'debit' && resolvedCardProvider !== 'MERCADO_PAGO') {
+      throw new OrderRequestError(
+        'Débito online ainda não está disponível neste gateway.',
+        400,
+        'DEBIT_CARD_PROVIDER_UNAVAILABLE',
+      );
+    }
+    const normalizedPayload = { ...payload, cardPaymentType };
+    if (cardPaymentType === 'debit' && !hasDirectCardPaymentPayload(normalizedPayload)) {
+      throw new OrderRequestError(
+        'Informe os dados do cartão de débito para continuar.',
+        400,
+        'DEBIT_CARD_TOKEN_REQUIRED',
+      );
+    }
+
+    const {
+      cardPaymentType: _cardPaymentType,
+      cardToken: _cardToken,
+      cardPaymentMethodId: _cardPaymentMethodId,
+      cardBrand: _cardBrand,
+      cardLast4: _cardLast4,
+      encryptedCard: _encryptedCard,
+      cardData: _cardData,
+      holderName: _holderName,
+      holderTaxId: _holderTaxId,
+      payerEmail: _payerEmail,
+      mercadoPagoDeviceId: _mercadoPagoDeviceId,
+      expMonth: _expMonth,
+      expYear: _expYear,
+      billingPostalCode: _billingPostalCode,
+      billingAddressNumber: _billingAddressNumber,
+      paymentMethodId: _paymentMethodId,
+      successUrl: _successUrl,
+      cancelUrl: _cancelUrl,
+      cardProvider: _cardProvider,
+      customerIp: _customerIp,
+      ...orderPayload
+    } = normalizedPayload;
 
     const createdOrder = await createOrderService.execute({
-      ...payload,
+      ...orderPayload,
       deferRealtimeUntilPaid: true,
       paid: false,
     });
@@ -112,14 +168,17 @@ class CreateOrderCardCheckoutService {
       restaurantId: createdOrder.restaurantId,
       provider: resolvedCardProvider,
       amount: Number(createdOrder.total),
+      cardPaymentType,
+      cardBrand: normalizedPayload.cardPaymentMethodId || normalizedPayload.cardBrand,
+      cardLast4: normalizedPayload.cardLast4,
     });
 
     let checkout: CardCheckoutResult;
     try {
-      if (hasDirectCardPaymentPayload(payload)) {
+      if (hasDirectCardPaymentPayload(normalizedPayload)) {
         checkout = await directOrderCardPaymentService.execute({
           provider: resolvedCardProvider,
-          payload,
+          payload: normalizedPayload,
           order: orderForPayment,
           successUrlBase,
           idempotencyKey: paymentAttempt.idempotencyKey,
@@ -127,7 +186,7 @@ class CreateOrderCardCheckoutService {
       } else {
         const providerHandler = getCardCheckoutProviderHandler(resolvedCardProvider);
         checkout = await providerHandler.createCheckout({
-          payload,
+          payload: normalizedPayload,
           order: orderForPayment,
           successUrlBase,
           cancelUrlBase,

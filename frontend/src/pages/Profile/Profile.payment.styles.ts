@@ -17,6 +17,21 @@ const chipGlow = keyframes`
   84% { box-shadow: 0 0 14px rgba(225,198,148,.20); }
 `;
 
+const contactlessSignalInner = keyframes`
+  0%, 68%, 100% { opacity: .24; transform: translateX(0) scale(.96); }
+  73%, 89% { opacity: 1; transform: translateX(.15px) scale(1); }
+`;
+
+const contactlessSignalMiddle = keyframes`
+  0%, 72%, 100% { opacity: .18; transform: translateX(0) scale(.96); }
+  78%, 91% { opacity: 1; transform: translateX(.25px) scale(1); }
+`;
+
+const contactlessSignalOuter = keyframes`
+  0%, 76%, 100% { opacity: .12; transform: translateX(0) scale(.96); }
+  83%, 93% { opacity: 1; transform: translateX(.35px) scale(1); }
+`;
+
 const brandReveal = keyframes`
   0% { opacity: 0; transform: translateY(-2px) scale(.94); }
   100% { opacity: 1; transform: translateY(0) scale(1); }
@@ -231,12 +246,25 @@ export const PaymentCardPreview = styled.div<{ $brand?: string; $compact?: boole
     fill: none;
     stroke-width: 1.9;
     opacity: 1;
-    transition: opacity 220ms ease, transform 220ms ease;
+    overflow: visible;
   }
 
-  &:hover .contactless-icon {
-    opacity: 1;
-    transform: translateX(1px);
+  .contactless-icon path {
+    transform-box: fill-box;
+    transform-origin: center;
+    will-change: opacity, transform;
+  }
+
+  .contactless-icon path:nth-child(1) {
+    animation: ${contactlessSignalInner} 5s cubic-bezier(.4,0,.2,1) infinite;
+  }
+
+  .contactless-icon path:nth-child(2) {
+    animation: ${contactlessSignalMiddle} 5s cubic-bezier(.4,0,.2,1) infinite;
+  }
+
+  .contactless-icon path:nth-child(3) {
+    animation: ${contactlessSignalOuter} 5s cubic-bezier(.4,0,.2,1) infinite;
   }
 
   .card-generic-icon {
@@ -348,7 +376,8 @@ export const PaymentCardPreview = styled.div<{ $brand?: string; $compact?: boole
     &,
     .card-waves,
     .payment-chip,
-    .card-brand-logo {
+    .card-brand-logo,
+    .contactless-icon path {
       animation: none !important;
     }
     .contactless-icon,

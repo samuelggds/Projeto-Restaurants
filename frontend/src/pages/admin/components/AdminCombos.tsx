@@ -18,6 +18,7 @@ import productComboService, {
 } from '../../../Services/productComboService';
 import imageEnhancementService from '../../../Services/imageEnhancementService';
 import { createPersistentImageDataUrl } from '../../../utils/persistentImage';
+import { useAppDialog } from '../../../components/AppDialog/context';
 import type { AdminProduct } from '../types';
 import * as C from '../styles/AdminCombos.styles';
 
@@ -27,10 +28,10 @@ type Props = {
   onChanged: () => void | Promise<void>;
 };
 
-const emptyGroup = (): ComboGroupInput => ({
-  name: 'Produtos do combo',
-  description: 'Produtos incluídos neste combo.',
-  minSelections: 0,
+const emptyGroup = (index = 1): ComboGroupInput => ({
+  name: `Etapa ${index}`,
+  description: '',
+  minSelections: 1,
   maxSelections: 1,
   active: true,
   options: [],
@@ -43,7 +44,7 @@ const emptyCombo = (): ComboInput => ({
   price: 0,
   active: true,
   featured: true,
-  groups: [emptyGroup()],
+  groups: [emptyGroup(1)],
 });
 
 function errorMessage(error: unknown, fallback: string) {
@@ -83,30 +84,24 @@ function toInput(combo: ComboRecord): ComboInput {
   };
 }
 
-function isFixedGroup(group: ComboGroupInput) {
-  return (
-    group.active &&
-    group.options.every(
-      (option) =>
-        option.active &&
-        option.locked &&
-        option.additionalPrice === 0 &&
-        option.minQuantity === option.defaultQuantity &&
-        option.maxQuantity === option.defaultQuantity,
-    ) &&
-    (group.options.length === 0 ||
-      (group.minSelections === group.options.length &&
-        group.maxSelections === group.options.length))
+function isSimpleChoiceGroup(group: ComboGroupInput) {
+  return group.options.every(
+    (option) =>
+      Number(option.additionalPrice || 0) === 0 &&
+      option.minQuantity <= 1 &&
+      option.maxQuantity <= 1 &&
+      option.defaultQuantity <= 1,
   );
 }
 
 export function AdminCombos({ products, money, onChanged }: Props) {
+  const { confirmDialog } = useAppDialog();
   const [combos, setCombos] = useState<ComboRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [editingId, setEditingId] = useState<number | null | undefined>();
   const [draft, setDraft] = useState<ComboInput>(emptyCombo());
   const [busy, setBusy] = useState('');
-  const [selectedProductId, setSelectedProductId] = useState('');
+  const [selectedProductByGroup, setSelectedProductByGroup] = useState<Record<string, string>>({});
   const [feedback, setFeedback] = useState<{ tone: 'error' | 'success'; message: string } | null>(
     null,
   );
@@ -138,13 +133,14 @@ export function AdminCombos({ products, money, onChanged }: Props) {
     }),
   );
   const selectedOptions = selectedRows.map((row) => row.option);
-  const selectedProductIds = new Set(
-    selectedOptions.map((option) => String(option.componentProductId)),
-  );
   const canGenerateImage = draft.name.trim().length >= 2 && selectedRows.some((row) => row.product);
-  const selectableProducts = availableProducts.filter(
-    (product) => !selectedProductIds.has(String(product.id)),
-  );
+
+  const selectableProductsForGroup = (groupIndex: number) => {
+    const selectedIds = new Set(
+      (draft.groups[groupIndex]?.options || []).map((option) => String(option.componentProductId)),
+    );
+    return availableProducts.filter((product) => !selectedIds.has(String(product.id)));
+  };
 
   const load = async () => {
     setCombos(await productComboService.list());
@@ -198,7 +194,7 @@ export function AdminCombos({ products, money, onChanged }: Props) {
       getComputedStyle(workspaceRef.current!).getPropertyValue('--brand').trim() || '#d64d08',
     );
     setDraft(emptyCombo());
-    setSelectedProductId('');
+    setSelectedProductByGroup({});
     setEditingId(null);
     setFeedback(null);
   };
@@ -209,7 +205,7 @@ export function AdminCombos({ products, money, onChanged }: Props) {
       getComputedStyle(workspaceRef.current!).getPropertyValue('--brand').trim() || '#d64d08',
     );
     setDraft(toInput(combo));
-    setSelectedProductId('');
+    setSelectedProductByGroup({});
     setEditingId(combo.id);
     setFeedback(null);
   };
@@ -220,111 +216,189 @@ export function AdminCombos({ products, money, onChanged }: Props) {
     setFeedback(null);
   };
 
-  const addSelectedProduct = () => {
+  const updateGroup = (groupIndex: number, updates: Partial<ComboGroupInput>) => {
     if (busy) return;
-    const productId = Number(selectedProductId);
+    setDraft((current) => ({
+      ...current,
+      groups: current.groups.map((group, index) =>
+        index === groupIndex ? { ...group, ...updates } : group,
+      ),
+    }));
+    setFeedback(null);
+  };
+
+  const updateGroupRequiredSelections = (groupIndex: number, rawValue: number) => {
+    const quantity = Math.max(1, Math.min(20, Math.trunc(rawValue || 1)));
+    setDraft((current) => ({
+      ...current,
+      groups: current.groups.map((group, index) => {
+        if (index !== groupIndex) return group;
+        const simpleChoiceGroup = isSimpleChoiceGroup(group);
+        const autoSelectOnlyOption =
+          simpleChoiceGroup && quantity === 1 && group.options.length === 1;
+        return {
+          ...group,
+          minSelections: quantity,
+          maxSelections: quantity,
+          options: simpleChoiceGroup
+            ? group.options.map((option) => ({
+                ...option,
+                minQuantity: autoSelectOnlyOption ? 1 : 0,
+                maxQuantity: 1,
+                defaultQuantity: autoSelectOnlyOption ? 1 : 0,
+                locked: autoSelectOnlyOption,
+              }))
+            : group.options,
+        };
+      }),
+    }));
+    setFeedback(null);
+  };
+
+  const addChoiceGroup = () => {
+    if (busy) return;
+    if (draft.groups.length >= 12) {
+      setFeedback({
+        tone: 'error',
+        message: 'Cada combo pode ter no máximo 12 etapas de escolha.',
+      });
+      return;
+    }
+    setDraft((current) => ({
+      ...current,
+      groups: [...current.groups, emptyGroup(current.groups.length + 1)],
+    }));
+    setFeedback(null);
+  };
+
+  const removeChoiceGroup = (groupIndex: number) => {
+    if (busy) return;
+    if (draft.groups.length <= 1) {
+      setFeedback({
+        tone: 'error',
+        message: 'O combo precisa ter pelo menos uma etapa de escolha.',
+      });
+      return;
+    }
+    setDraft((current) => ({
+      ...current,
+      groups: current.groups.filter((_, index) => index !== groupIndex),
+    }));
+    setSelectedProductByGroup({});
+    setFeedback(null);
+  };
+
+  const addSelectedProduct = (groupIndex: number) => {
+    if (busy) return;
+    const selectedValue = selectedProductByGroup[String(groupIndex)] || '';
+    const productId = Number(selectedValue);
     if (!Number.isSafeInteger(productId) || productId <= 0) {
       setFeedback({
         tone: 'error',
-        message: 'Escolha um produto da lista para adicionar ao combo.',
+        message: 'Escolha um produto da lista para adicionar à etapa.',
       });
       return;
     }
 
-    if (selectedProductIds.has(String(productId))) {
-      setFeedback({ tone: 'error', message: 'Este produto já faz parte do combo.' });
+    const group = draft.groups[groupIndex];
+    if (!group) return;
+    if (group.options.some((option) => option.componentProductId === productId)) {
+      setFeedback({ tone: 'error', message: 'Este produto já está disponível nesta etapa.' });
       return;
     }
     if (!availableProducts.some((product) => Number(product.id) === productId)) return;
-    const fixedGroupIndex = draft.groups.findIndex(isFixedGroup);
-    if (
-      (fixedGroupIndex >= 0 && draft.groups[fixedGroupIndex].options.length >= 20) ||
-      (fixedGroupIndex < 0 && draft.groups.length >= 12)
-    ) {
+    if (group.options.length >= 20) {
       setFeedback({
         tone: 'error',
-        message: 'O grupo de produtos incluídos aceita até 20 produtos diferentes.',
+        message: 'Cada etapa aceita até 20 produtos diferentes para escolha.',
       });
       return;
     }
-    setDraft((current) => {
-      const groups = [...current.groups];
-      const groupIndex = groups.findIndex(isFixedGroup);
-      const group =
-        groupIndex >= 0
-          ? groups[groupIndex]
-          : { ...emptyGroup(), name: `Produtos incluídos ${groups.length + 1}` };
-      const options = [
-        ...group.options,
-        {
-          componentProductId: productId,
-          additionalPrice: 0,
-          minQuantity: 1,
-          maxQuantity: 1,
-          defaultQuantity: 1,
-          locked: true,
-          active: true,
-        },
-      ];
-      const updated = {
-        ...group,
-        options,
-        minSelections: options.length,
-        maxSelections: options.length,
-      };
-      if (groupIndex >= 0) groups[groupIndex] = updated;
-      else groups.push(updated);
-      return { ...current, groups };
-    });
-    setSelectedProductId('');
+
+    setDraft((current) => ({
+      ...current,
+      groups: current.groups.map((currentGroup, index) => {
+        if (index !== groupIndex) return currentGroup;
+        const rawOptions = [
+          ...currentGroup.options,
+          {
+            componentProductId: productId,
+            additionalPrice: 0,
+            minQuantity: 0,
+            maxQuantity: 1,
+            defaultQuantity: 0,
+            locked: false,
+            active: true,
+          },
+        ];
+        const simpleChoiceGroup = isSimpleChoiceGroup(currentGroup);
+        const autoSelectOnlyOption =
+          simpleChoiceGroup &&
+          currentGroup.minSelections === 1 &&
+          currentGroup.maxSelections === 1 &&
+          rawOptions.length === 1;
+        return {
+          ...currentGroup,
+          options: simpleChoiceGroup
+            ? rawOptions.map((option) => ({
+                ...option,
+                minQuantity: autoSelectOnlyOption ? 1 : 0,
+                maxQuantity: 1,
+                defaultQuantity: autoSelectOnlyOption ? 1 : 0,
+                locked: autoSelectOnlyOption,
+              }))
+            : rawOptions,
+        };
+      }),
+    }));
+    setSelectedProductByGroup((current) => ({ ...current, [String(groupIndex)]: '' }));
     setFeedback(null);
   };
 
   const removeSelectedProduct = (groupIndex: number, optionIndex: number) => {
     if (busy) return;
     setDraft((current) => {
-      const groups = current.groups
-        .map((group, index) => {
+      const target = current.groups[groupIndex];
+      if (!target) return current;
+
+      const options = target.options.filter((_, index) => index !== optionIndex);
+      if (!options.length && target.active === false && current.groups.length > 1) {
+        return {
+          ...current,
+          groups: current.groups.filter((_, index) => index !== groupIndex),
+        };
+      }
+
+      const simpleChoiceGroup = isSimpleChoiceGroup(target);
+      const nextRequired = simpleChoiceGroup
+        ? Math.max(1, Math.min(target.minSelections, Math.max(options.length, 1)))
+        : target.minSelections;
+      const autoSelectOnlyOption =
+        simpleChoiceGroup && nextRequired === 1 && options.length === 1;
+
+      return {
+        ...current,
+        groups: current.groups.map((group, index) => {
           if (index !== groupIndex) return group;
-          const options = group.options.filter((_, index) => index !== optionIndex);
           return {
             ...group,
-            options,
-            minSelections: isFixedGroup(group)
-              ? options.length
-              : Math.min(group.minSelections, options.length),
-            maxSelections: isFixedGroup(group)
-              ? Math.max(1, options.length)
-              : Math.max(1, Math.min(group.maxSelections, options.length)),
+            options: simpleChoiceGroup
+              ? options.map((option) => ({
+                  ...option,
+                  minQuantity: autoSelectOnlyOption ? 1 : 0,
+                  maxQuantity: 1,
+                  defaultQuantity: autoSelectOnlyOption ? 1 : 0,
+                  locked: autoSelectOnlyOption,
+                }))
+              : options,
+            minSelections: simpleChoiceGroup ? nextRequired : group.minSelections,
+            maxSelections: simpleChoiceGroup ? nextRequired : group.maxSelections,
           };
-        })
-        .filter((group) => group.options.length);
-      return { ...current, groups: groups.length ? groups : [emptyGroup()] };
+        }),
+      };
     });
+    setSelectedProductByGroup({});
     setFeedback(null);
-  };
-
-  const updateQuantity = (groupIndex: number, optionIndex: number, quantity: number) => {
-    setDraft((current) => ({
-      ...current,
-      groups: current.groups.map((group, index) =>
-        index === groupIndex
-          ? {
-              ...group,
-              options: group.options.map((option, index) =>
-                index === optionIndex
-                  ? {
-                      ...option,
-                      minQuantity: quantity,
-                      maxQuantity: quantity,
-                      defaultQuantity: quantity,
-                    }
-                  : option,
-              ),
-            }
-          : group,
-      ),
-    }));
   };
 
   const uploadPhoto = async (file?: File) => {
@@ -416,8 +490,37 @@ export function AdminCombos({ products, money, onChanged }: Props) {
       if (!selectedOptions.length) {
         throw new Error('Escolha pelo menos um produto para o combo.');
       }
-      if (draft.groups.some((group) => group.minSelections > 20 || group.maxSelections > 20)) {
-        throw new Error('Cada grupo aceita a seleção de até 20 produtos diferentes.');
+      if (draft.groups.some((group) => group.name.trim().length < 2)) {
+        throw new Error('Dê um nome com pelo menos 2 caracteres para cada etapa do combo.');
+      }
+      if (new Set(draft.groups.map((group) => group.name.trim().toLocaleLowerCase('pt-BR'))).size !== draft.groups.length) {
+        throw new Error('Cada etapa do combo precisa ter um nome diferente.');
+      }
+      if (draft.groups.some((group) => group.options.length === 0)) {
+        throw new Error('Adicione pelo menos um produto em cada etapa do combo.');
+      }
+      const simpleActiveStages = draft.groups.filter(
+        (group) => group.active && isSimpleChoiceGroup(group),
+      );
+      if (
+        simpleActiveStages.some(
+          (group) =>
+            group.minSelections > 20 ||
+            group.maxSelections > 20 ||
+            group.minSelections < 1 ||
+            group.maxSelections < 1,
+        )
+      ) {
+        throw new Error('Cada etapa nova deve exigir entre 1 e 20 escolhas.');
+      }
+      if (
+        draft.groups.some(
+          (group) =>
+            group.active &&
+            group.options.filter((option) => option.active).length < group.minSelections,
+        )
+      ) {
+        throw new Error('Cada etapa precisa ter opções suficientes para a quantidade exigida.');
       }
       if (
         selectedOptions.some(
@@ -461,10 +564,19 @@ export function AdminCombos({ products, money, onChanged }: Props) {
 
   const remove = async (combo: ComboRecord) => {
     if (busy) return;
-    if (
-      !window.confirm(`Remover “${combo.name}”? Se já houver pedidos, ele será apenas desativado.`)
-    )
+    setBusy(`confirm-delete-${combo.id}`);
+    const confirmed = await confirmDialog({
+      title: `Remover “${combo.name}”?`,
+      description:
+        'Se o combo já estiver presente em pedidos existentes, o histórico será preservado e o combo será apenas desativado.',
+      confirmLabel: 'Remover combo',
+      cancelLabel: 'Manter combo',
+      tone: 'danger',
+    });
+    if (!confirmed) {
+      setBusy('');
       return;
+    }
     setBusy(`delete-${combo.id}`);
     setFeedback(null);
     try {
@@ -498,8 +610,8 @@ export function AdminCombos({ products, money, onChanged }: Props) {
         <div>
           <h2>Combos</h2>
           <p>
-            Crie combos usando os produtos que já estão cadastrados. Escolha os itens, informe o
-            preço e escreva uma descrição simples para o cliente.
+            Crie combos por etapas de escolha. Defina quantos itens o cliente deverá escolher em
+            cada etapa e quais produtos do cardápio estarão disponíveis para a montagem.
           </p>
         </div>
         <button type="button" onClick={openNew} disabled={Boolean(busy)}>
@@ -563,7 +675,7 @@ export function AdminCombos({ products, money, onChanged }: Props) {
         <C.Empty>
           <Sparkles />
           <h3>Crie seu primeiro combo</h3>
-          <p>Junte produtos do cardápio, informe as quantidades e defina o preço da oferta.</p>
+          <p>Crie etapas de escolha, selecione os produtos disponíveis e defina o preço da oferta.</p>
         </C.Empty>
       )}
 
@@ -618,7 +730,8 @@ export function AdminCombos({ products, money, onChanged }: Props) {
                   <span className="head-kicker">CATÁLOGO · COMBOS</span>
                   <h2 id="combo-editor-title">{editingId ? 'Editar combo' : 'Criar novo combo'}</h2>
                   <p id="combo-editor-description">
-                    Escolha os produtos, defina as quantidades e o preço da oferta.
+                    Defina as etapas do combo, quantas escolhas cada etapa exige e quais produtos
+                    podem ser escolhidos.
                   </p>
                 </div>
                 <button
@@ -638,8 +751,9 @@ export function AdminCombos({ products, money, onChanged }: Props) {
                   <div>
                     <strong>Como criar um combo</strong>
                     <p>
-                      Escolha produtos que já estão cadastrados no cardápio, dê um nome para a
-                      oferta, escreva uma descrição simples e defina o preço final. A foto é
+                      Primeiro defina nome, preço e descrição. Depois crie as etapas do combo, como
+                      “Hambúrgueres”, “Batata” e “Bebida”. Em cada etapa, informe a quantidade
+                      exigida e selecione os produtos que o cliente poderá escolher. A foto é
                       opcional.
                     </p>
                   </div>
@@ -754,162 +868,228 @@ export function AdminCombos({ products, money, onChanged }: Props) {
                 </section>
 
                 <section className="section products-section">
-                  <header>
+                  <header className="combo-builder-header">
                     <div>
                       <span className="step">PASSO 2</span>
-                      <h3>Escolha os produtos do combo</h3>
+                      <h3>Monte as etapas de escolha do combo</h3>
                       <p>
-                        A lista abaixo mostra somente produtos já cadastrados e ativos neste
-                        restaurante.
+                        Separe o combo por tipo de item. Em cada etapa, informe quantos produtos o
+                        cliente deverá escolher e quais produtos estarão disponíveis.
                       </p>
                     </div>
+                    <button
+                      className="add-group"
+                      type="button"
+                      onClick={addChoiceGroup}
+                      disabled={draft.groups.length >= 12}
+                    >
+                      <Plus size={17} /> Adicionar etapa
+                    </button>
                   </header>
 
-                  <div className="product-picker">
-                    <label>
-                      Produto cadastrado
-                      <small>
-                        Abra o seletor, escolha um produto e clique em “Adicionar ao combo”.
-                      </small>
-                      <select
-                        value={selectedProductId}
-                        onChange={(event) => setSelectedProductId(event.target.value)}
-                      >
-                        <option value="">Selecione um produto...</option>
-                        {selectableProducts.map((product) => (
-                          <option key={product.id} value={product.id}>
-                            {product.name} — {money(Number(product.price))}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-
-                    <button
-                      className="add-selected-product"
-                      type="button"
-                      onClick={addSelectedProduct}
-                      disabled={!selectedProductId}
-                    >
-                      <Plus size={17} /> Adicionar ao combo
-                    </button>
+                  <div className="combo-example" role="note">
+                    <Info size={18} />
+                    <div>
+                      <strong>Exemplo: 2 hambúrgueres + 1 batata + 1 bebida</strong>
+                      <p>
+                        Crie uma etapa “Hambúrgueres” com quantidade 2, uma etapa “Batata” com
+                        quantidade 1 e uma etapa “Bebida” com quantidade 1. Depois escolha quais
+                        produtos do cardápio poderão ser selecionados em cada etapa.
+                      </p>
+                    </div>
                   </div>
 
-                  {!selectableProducts.length && (
-                    <p className="hint">
-                      {availableProducts.length
-                        ? 'Todos os produtos ativos já foram adicionados.'
-                        : 'Cadastre e ative um produto no cardápio para incluí-lo no combo.'}
-                    </p>
-                  )}
-                  {draft.groups.some((group) => !isFixedGroup(group)) && (
-                    <p className="hint">
-                      Este combo possui etapas com regras próprias. As quantidades, escolhas e
-                      acréscimos existentes são mantidos ao salvar.
-                    </p>
-                  )}
-
-                  {selectedRows.length ? (
-                    <div className="selected-products" aria-label="Produtos selecionados">
-                      <div className="selected-products-head">
-                        <CheckCircle2 size={18} />
-                        <strong>
-                          {selectedRows.length} produto
-                          {selectedRows.length === 1 ? '' : 's'} selecionado
-                          {selectedRows.length === 1 ? '' : 's'}
-                        </strong>
-                      </div>
-
-                      {selectedRows.map(({ product, group, option, groupIndex, optionIndex }) => (
-                        <div
-                          className="selected-product"
-                          key={`${groupIndex}-${option.componentProductId}`}
-                        >
-                          <div className="selected-product-image">
-                            {product?.image ? (
-                              <img
-                                src={product.image}
-                                alt=""
-                                loading="lazy"
-                                width={48}
-                                height={48}
-                              />
-                            ) : (
-                              <ImageIcon size={20} />
-                            )}
-                          </div>
-
-                          <div className="selected-product-copy">
-                            <b>{product?.name || 'Produto indisponível'}</b>
-                            <small>
-                              {product
-                                ? `Preço avulso: ${money(Number(product.price))}`
-                                : 'Remova este vínculo antes de salvar.'}
-                            </small>
-                            {(!product ||
-                              product.active === false ||
-                              !option.active ||
-                              !group.active) && (
-                              <span className="product-warning">
-                                {!product ? 'Produto não encontrado' : 'Item inativo'}
+                  <div className="choice-groups" aria-label="Etapas do combo">
+                    {draft.groups.map((group, groupIndex) => {
+                      const selectableProducts = selectableProductsForGroup(groupIndex);
+                      const selectedValue = selectedProductByGroup[String(groupIndex)] || '';
+                      const requiredSelections = Math.max(1, group.maxSelections);
+                      return (
+                        <article className="choice-group" key={`combo-group-${groupIndex}`}>
+                          <div className="choice-group-head">
+                            <div className="choice-group-number">{groupIndex + 1}</div>
+                            <div>
+                              <strong>Etapa {groupIndex + 1}</strong>
+                              <span>
+                                {group.options.length
+                                  ? `${group.options.length} opção(ões) disponível(is)`
+                                  : 'Nenhum produto adicionado'}
                               </span>
-                            )}
-                            {!isFixedGroup(group) && (
-                              <small>
-                                {group.name} · {option.locked ? 'Item fixo' : 'Escolha do cliente'}{' '}
-                                · {option.minQuantity}–{option.maxQuantity} un.
-                                {option.additionalPrice > 0
-                                  ? ` · Acréscimo ${money(option.additionalPrice)}`
-                                  : ''}
-                              </small>
-                            )}
+                            </div>
+                            {draft.groups.length > 1 ? (
+                              <button
+                                className="icon-button"
+                                type="button"
+                                aria-label={`Remover etapa ${groupIndex + 1}`}
+                                onClick={() => removeChoiceGroup(groupIndex)}
+                              >
+                                <Trash2 size={17} />
+                              </button>
+                            ) : null}
                           </div>
 
-                          {isFixedGroup(group) ? (
-                            <label className="quantity-field">
-                              <span>Quantidade</span>
+                          <div className="choice-group-settings">
+                            <label>
+                              Nome da etapa
+                              <small>Ex.: Hambúrgueres, Batata ou Bebida.</small>
+                              <input
+                                aria-label={`Nome da etapa ${groupIndex + 1}`}
+                                value={group.name}
+                                maxLength={80}
+                                onChange={(event) =>
+                                  updateGroup(groupIndex, { name: event.target.value })
+                                }
+                                placeholder="Ex.: Hambúrgueres"
+                              />
+                            </label>
+
+                            <label>
+                              Quantidade que o cliente escolhe
+                              <small>Quantos itens desta etapa fazem parte do combo.</small>
                               <input
                                 type="number"
-                                inputMode="numeric"
                                 min={1}
                                 max={20}
                                 step={1}
-                                aria-label={`Quantidade de ${product?.name || 'produto indisponível'}`}
-                                value={option.defaultQuantity || ''}
+                                inputMode="numeric"
+                                aria-label={`Quantidade da etapa ${groupIndex + 1}`}
+                                value={requiredSelections}
                                 onChange={(event) =>
-                                  updateQuantity(
+                                  updateGroupRequiredSelections(
                                     groupIndex,
-                                    optionIndex,
                                     Number(event.target.value),
                                   )
                                 }
                               />
                             </label>
+                          </div>
+
+                          <label>
+                            Explicação para a etapa
+                            <small>Opcional. Ajuda a deixar a montagem mais clara para o cliente.</small>
+                            <input
+                              aria-label={`Descrição da etapa ${groupIndex + 1}`}
+                              value={group.description || ''}
+                              maxLength={240}
+                              onChange={(event) =>
+                                updateGroup(groupIndex, { description: event.target.value })
+                              }
+                              placeholder="Ex.: Escolha 2 hambúrgueres para o combo."
+                            />
+                          </label>
+
+                          <div className="group-product-picker">
+                            <label>
+                              Produtos que entram nesta escolha
+                              <small>Somente produtos ativos do cardápio aparecem aqui.</small>
+                              <select
+                                aria-label={`Adicionar produto na etapa ${groupIndex + 1}`}
+                                value={selectedValue}
+                                onChange={(event) =>
+                                  setSelectedProductByGroup((current) => ({
+                                    ...current,
+                                    [String(groupIndex)]: event.target.value,
+                                  }))
+                                }
+                              >
+                                <option value="">Selecione um produto...</option>
+                                {selectableProducts.map((product) => (
+                                  <option key={product.id} value={product.id}>
+                                    {product.name} — {money(Number(product.price))}
+                                  </option>
+                                ))}
+                              </select>
+                            </label>
+                            <button
+                              className="add-selected-product"
+                              type="button"
+                              aria-label={`Adicionar produto à etapa ${groupIndex + 1}`}
+                              onClick={() => addSelectedProduct(groupIndex)}
+                              disabled={!selectedValue}
+                            >
+                              <Plus size={17} /> Adicionar produto
+                            </button>
+                          </div>
+
+                          {group.options.length ? (
+                            <div className="group-products">
+                              {group.options.map((option, optionIndex) => {
+                                const product =
+                                  products.find(
+                                    (item) => Number(item.id) === option.componentProductId,
+                                  ) ||
+                                  combos
+                                    .find((combo) => combo.id === editingId)
+                                    ?.comboGroups.flatMap((item) => item.options)
+                                    .find(
+                                      (item) =>
+                                        item.componentProductId === option.componentProductId,
+                                    )?.componentProduct;
+                                return (
+                                  <div
+                                    className="group-product"
+                                    key={`${groupIndex}-${option.componentProductId}`}
+                                  >
+                                    <div className="selected-product-image">
+                                      {product?.image ? (
+                                        <img
+                                          src={product.image}
+                                          alt=""
+                                          loading="lazy"
+                                          width={48}
+                                          height={48}
+                                        />
+                                      ) : (
+                                        <ImageIcon size={20} />
+                                      )}
+                                    </div>
+                                    <div className="selected-product-copy">
+                                      <b>{product?.name || 'Produto indisponível'}</b>
+                                      <small>
+                                        {product
+                                          ? `Preço avulso: ${money(Number(product.price))}`
+                                          : 'Produto não encontrado no catálogo atual.'}
+                                      </small>
+                                      {(!product || product.active === false || !option.active) && (
+                                        <span className="product-warning">Item inativo</span>
+                                      )}
+                                    </div>
+                                    <button
+                                      type="button"
+                                      aria-label={`Remover ${product?.name || 'produto indisponível'} da etapa ${groupIndex + 1}`}
+                                      onClick={() =>
+                                        removeSelectedProduct(groupIndex, optionIndex)
+                                      }
+                                    >
+                                      <Trash2 size={17} />
+                                      <span>Remover</span>
+                                    </button>
+                                  </div>
+                                );
+                              })}
+                            </div>
                           ) : (
-                            <span className="selected-product-price">
-                              Padrão: {option.defaultQuantity} un.
-                            </span>
+                            <div className="empty-products">
+                              <Info size={18} />
+                              <span>
+                                Adicione os produtos que o cliente poderá escolher nesta etapa.
+                              </span>
+                            </div>
                           )}
 
-                          <button
-                            type="button"
-                            aria-label={`Remover ${product?.name || 'produto indisponível'} do combo`}
-                            onClick={() => removeSelectedProduct(groupIndex, optionIndex)}
-                          >
-                            <Trash2 size={17} />
-                            <span>Remover</span>
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="empty-products">
-                      <Info size={18} />
-                      <span>
-                        Nenhum produto selecionado. Escolha pelo menos um produto para poder salvar
-                        o combo e gerar a foto com IA.
-                      </span>
-                    </div>
-                  )}
+                          <div className="choice-group-summary">
+                            <CheckCircle2 size={17} />
+                            <span>
+                              Cliente deverá escolher <b>{requiredSelections}</b>{' '}
+                              {requiredSelections === 1 ? 'item' : 'itens'} entre{' '}
+                              <b>{group.options.length}</b>{' '}
+                              {group.options.length === 1 ? 'opção' : 'opções'}.
+                            </span>
+                          </div>
+                        </article>
+                      );
+                    })}
+                  </div>
                 </section>
 
                 <section className="section">

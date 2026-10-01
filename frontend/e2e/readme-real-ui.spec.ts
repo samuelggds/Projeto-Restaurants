@@ -286,6 +286,41 @@ async function mockTracking(page: Page) {
     if (pathname === '/platform/status') return json(route, { available: true });
     if (pathname === '/auth/me') return json(route, { user: customer });
     if (pathname === '/billing/invoices') return json(route, { invoices: [] });
+    if (pathname === '/delivery-chat/601' && request.method() === 'GET') {
+      return json(route, {
+        order: {
+          id: 601,
+          publicId: 'readme-order-601',
+          status: 'SAIU_PARA_ENTREGA',
+          restaurantId: RESTAURANT_ID,
+          restaurantName: 'North Pizza',
+          customerName: customer.name,
+          courierId: 77,
+          courierName: 'Marcos Entregador',
+        },
+        thread: {
+          id: 901,
+          status: 'OPEN',
+          readOnly: false,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          closedAt: null,
+        },
+        messages: [
+          {
+            id: 'readme-chat-1',
+            senderRole: 'COURIER',
+            senderName: 'Marcos Entregador',
+            message: 'Estou a caminho com seu pedido.',
+            createdAt: new Date().toISOString(),
+            readAt: null,
+          },
+        ],
+      });
+    }
+    if (pathname === '/delivery-chat/601/read' && request.method() === 'POST') {
+      return json(route, { orderId: 601, readCount: 1 });
+    }
     if (pathname === '/orders/601/tracking') {
       return json(route, {
         order: {
@@ -596,9 +631,11 @@ test('captura o tracking real para o README', async ({ page }) => {
   await page.goto('/orders/601/tracking');
 
   await expect(
-    page.getByLabel('Detalhes da rota').getByText('Pedido #601', { exact: true }),
+    page.getByRole('banner').getByText('Pedido #601', { exact: true }),
   ).toBeVisible();
-  await expect(page.getByText('Saiu para entrega', { exact: true })).toBeVisible();
+  await expect(
+    page.getByLabel('Status da Entrega').getByText('Saiu para entrega', { exact: true }),
+  ).toBeVisible();
   await expect(page.locator('.delivery-map-shell')).toBeVisible();
   await captureReadmeScreenshot(page, 'delivery-tracking.png', { fullPage: true });
 });

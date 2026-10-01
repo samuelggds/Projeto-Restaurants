@@ -42,7 +42,28 @@ test('ENTREGUE inclui o link seguro para o cliente confirmar recebimento', () =>
     confirmationUrl: 'https://app.example.com/orders/107/tracking?confirm=1#guestToken=seguro',
   });
 
-  assert.match(message, /marcado como entregue/iu);
+  assert.match(message, /chegou ao endereço/iu);
   assert.match(message, /Confirme o recebimento com segurança/iu);
   assert.match(message, /confirm=1/u);
+});
+
+
+test('status operacionais do delivery têm mensagem automática para o cliente', () => {
+  const statuses = ['PREPARANDO', 'PRONTO', 'SAIU_PARA_ENTREGA', 'ENTREGUE'] as const;
+
+  for (const status of statuses) {
+    const message = buildAutomaticOrderStatusMessage({
+      customerName: 'Cliente',
+      restaurantName: 'North Pizza',
+      orderId: 107,
+      status,
+      orderType: 'DELIVERY',
+      trackingUrl: 'https://app.example.com/orders/107/tracking#guestToken=seguro',
+      confirmationUrl: 'https://app.example.com/orders/107/tracking?confirm=1#guestToken=seguro',
+      deliveryConfirmationCode: status === 'SAIU_PARA_ENTREGA' ? '4821' : undefined,
+    });
+
+    assert.match(message, /pedido #107/iu);
+    assert.ok(message.length > 20);
+  }
 });

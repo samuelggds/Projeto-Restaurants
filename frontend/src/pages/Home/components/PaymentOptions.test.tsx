@@ -149,4 +149,50 @@ describe('PaymentOptions', () => {
     expect(markup).toContain('href="/profile?view=paymentMethods&amp;restaurantId=1"');
     expect(markup).toContain('Cadastrar cartão para próximas compras');
   });
+  it('mantém Pix e cartões visíveis e desabilitados no checkout Figma quando o gateway não está pronto', () => {
+    const markup = renderToStaticMarkup(
+      <PaymentOptions
+        paymentMethod="delivery_cash"
+        allowPayOnDelivery
+        allowPix={false}
+        allowCard={false}
+        onChange={() => undefined}
+        figmaCheckout
+      />,
+    );
+
+    expect(markup).toContain('PIX');
+    expect(markup).toContain('Cartão de Crédito');
+    expect(markup).toContain('Cartão de débito');
+    expect(markup).toContain('Temporariamente indisponível');
+    expect(markup).toContain('Pix QR Code temporariamente indisponível');
+    expect(markup).toContain('Cartão de Crédito temporariamente indisponível');
+    expect(markup).toContain('Cartão de débito temporariamente indisponível');
+    expect(markup).toContain('disabled=""');
+    expect(markup).toContain('Dinheiro');
+  });
+
+  it('mantém os métodos online ativos no checkout Figma quando o gateway está pronto', () => {
+    const markup = renderToStaticMarkup(
+      <PaymentOptions
+        paymentMethod="pix"
+        allowPayOnDelivery
+        allowPix
+        allowCard
+        allowDebitCard
+        onChange={() => undefined}
+        figmaCheckout
+      />,
+    );
+
+    expect(markup).toContain('PIX');
+    expect(markup).toContain('Cartão de Crédito');
+    expect(markup).toContain('Cartão de débito');
+    expect(markup).toContain('Dinheiro');
+    expect(markup).not.toContain('Pix QR Code temporariamente indisponível');
+    expect(markup).not.toContain('Cartão de Crédito temporariamente indisponível');
+    expect(markup).not.toContain('Cartão de débito temporariamente indisponível');
+    expect(markup).toContain('aria-label="Cartão de débito"');
+  });
+
 });

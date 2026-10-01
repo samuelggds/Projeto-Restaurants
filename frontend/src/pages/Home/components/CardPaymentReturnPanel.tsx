@@ -1,6 +1,16 @@
-import { ArrowLeft, CheckCircle2, CreditCard, Search, ShoppingBag, UserRound, XCircle } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, Search, ShoppingBag, UserRound, XCircle } from 'lucide-react';
+import { PaymentCardVisual } from '../../Profile/components/PaymentCardVisual';
 import { useEffect, useRef, type CSSProperties } from 'react';
 import styled from 'styled-components';
+import {
+  paymentBottomBarReveal,
+  paymentContentReveal,
+  paymentPulse,
+  paymentReducedMotion,
+  paymentScreenFade,
+  paymentStatusPop,
+  paymentSurfaceRise,
+} from '../../../components/payment/paymentMotion';
 import type {
   CardPaymentReturnDetails,
   CardPaymentReturnStatus,
@@ -24,6 +34,59 @@ type Props = {
 
 const terminalFailures: CardPaymentReturnStatus[] = ['FAILED', 'CANCELED', 'EXPIRED', 'REFUNDED'];
 
+function getTerminalPaymentCopy(
+  status: CardPaymentReturnStatus,
+  error: string | null,
+  cardTypeLabel: string,
+) {
+  if (status === 'FAILED') {
+    return {
+      title: 'Pagamento recusado',
+      badge: 'Pagamento recusado',
+      summary: `${cardTypeLabel} recusado`,
+      description:
+        error ||
+        'Não foi possível aprovar este pagamento. Verifique os dados do cartão ou tente outra forma de pagamento.',
+      bottom: 'O pagamento foi recusado e nenhuma cobrança foi confirmada.',
+    };
+  }
+
+  if (status === 'CANCELED') {
+    return {
+      title: 'Pagamento cancelado',
+      badge: 'Pagamento cancelado',
+      summary: 'Pagamento cancelado',
+      description: error || 'Este pagamento foi cancelado antes da confirmação.',
+      bottom: 'O pagamento foi cancelado.',
+    };
+  }
+
+  if (status === 'EXPIRED') {
+    return {
+      title: 'Pagamento expirado',
+      badge: 'Pagamento expirado',
+      summary: 'Pagamento expirado',
+      description:
+        error || 'O prazo desta tentativa de pagamento terminou. Inicie uma nova tentativa para continuar.',
+      bottom: 'O prazo do pagamento expirou.',
+    };
+  }
+
+  if (status === 'REFUNDED') {
+    return {
+      title: 'Pagamento estornado',
+      badge: 'Pagamento estornado',
+      summary: 'Pagamento estornado',
+      description:
+        error ||
+        'O estorno deste pagamento foi registrado. O prazo do crédito depende da instituição financeira.',
+      bottom: 'O pagamento foi estornado.',
+    };
+  }
+
+  return null;
+}
+
 export function CardPaymentReturnPanel({
   status,
   error,
@@ -41,6 +104,15 @@ export function CardPaymentReturnPanel({
   const failed = terminalFailures.includes(status);
   const checking = status === 'VERIFYING';
   const pending = status === 'PENDING' || status === 'ERROR';
+  const cardPaymentType = details?.cardPaymentType === 'debit' ? 'debit' : 'credit';
+  const cardTypeLabel =
+    cardPaymentType === 'debit' ? 'Cartão de Débito' : 'Cartão de Crédito';
+  const terminalCopy = getTerminalPaymentCopy(status, error, cardTypeLabel);
+  const cardBrand = details?.cardBrand || 'card';
+  const cardLast4 = String(details?.cardLast4 || '').replace(/\D/g, '').slice(-4);
+  const maskedCardNumber = cardLast4
+    ? `•••• •••• •••• ${cardLast4}`
+    : '•••• •••• •••• ••••';
   const total = amount || (
     typeof details?.totalAmount === 'number'
       ? details.totalAmount.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
@@ -65,6 +137,8 @@ export function CardPaymentReturnPanel({
       style={{ '--card-primary': primaryColor } as CSSProperties}
       data-status={status}
       data-payment-method="card"
+      data-card-payment-type={cardPaymentType}
+      data-card-brand={cardBrand}
     >
       <DesktopHeader>
         <div className="brand">
@@ -97,64 +171,66 @@ export function CardPaymentReturnPanel({
                 {failed ? <XCircle aria-hidden="true" /> : <CheckCircle2 aria-hidden="true" />}
               </span>
               <h1 ref={resultHeadingRef} tabIndex={-1}>
-                {failed ? 'Pagamento cancelado' : 'Pagamento Aprovado!'}
+                {failed ? terminalCopy?.title : 'Pagamento Aprovado!'}
               </h1>
               <p>
                 {failed
-                  ? error || 'O pagamento com cartão não foi concluído.'
+                  ? terminalCopy?.description
                   : 'Seu pedido foi recebido e está sendo preparado'}
               </p>
             </DesktopStatus>
           ) : null}
 
-          <MobileTitle>Pagamento com Cartão</MobileTitle>
+          <MobileTitle>Pagamento com {cardTypeLabel}</MobileTitle>
 
-          <MobileCardMock className={failed ? 'failed' : ''}>
-            <div><CreditCard aria-hidden="true" /><b>CARTÃO</b></div>
-            <strong>•••• •••• ••••</strong>
-            <small>Cartão de Crédito</small>
-          </MobileCardMock>
+          <CardVisualWrap>
+            <PaymentCardVisual
+              compact
+              brand={cardBrand}
+              numberLabel={maskedCardNumber}
+              holderName=""
+              expiryLabel="••/••"
+            />
+            <span>{cardTypeLabel}</span>
+          </CardVisualWrap>
 
           <MobileTransition>
             <div className="processing"><Dots><i /><i /><i /></Dots><span>{checking ? 'Processando pagamento...' : pending ? 'Aguardando confirmação...' : paid ? 'Processando pagamento...' : 'Pagamento finalizado'}</span></div>
             {(paid || failed) ? (
               <div className={failed ? 'badge failed' : 'badge'}>
                 {failed ? <XCircle aria-hidden="true" /> : <CheckCircle2 aria-hidden="true" />}
-                <b>{failed ? 'Pagamento cancelado' : 'Pagamento aprovado!'}</b>
+                <b>{failed ? terminalCopy?.badge : 'Pagamento aprovado!'}</b>
               </div>
             ) : null}
           </MobileTransition>
 
-          <DesktopCardPlate className={failed ? 'failed' : ''}>
-            <span className="mini-card">{failed ? '!' : 'CARD'}</span>
-            <span>
-              <b>
-                {failed
-                  ? 'Pagamento com cartão cancelado'
-                  : paid
-                    ? 'Cartão de crédito aprovado'
-                    : 'Pagamento com cartão'}
-              </b>
-              <small>
-                {failed
-                  ? error || 'Transação não autorizada'
-                  : paid
-                    ? 'Transação autorizada com sucesso'
-                    : checking
-                      ? 'Processando pagamento...'
-                      : status === 'ERROR'
-                        ? error || 'Não foi possível verificar o pagamento agora.'
-                        : 'Aguardando confirmação do pagamento.'}
-              </small>
-            </span>
-          </DesktopCardPlate>
+          <DesktopPaymentState className={failed ? 'failed' : ''}>
+            <b>
+              {failed
+                ? terminalCopy?.summary
+                : paid
+                  ? `${cardTypeLabel} aprovado`
+                  : `Pagamento com ${cardTypeLabel.toLowerCase()}`}
+            </b>
+            <small>
+              {failed
+                ? terminalCopy?.description
+                : paid
+                  ? 'Transação autorizada com sucesso'
+                  : checking
+                    ? 'Processando pagamento...'
+                    : status === 'ERROR'
+                      ? error || 'Não foi possível verificar o pagamento agora.'
+                      : 'Aguardando confirmação do pagamento.'}
+            </small>
+          </DesktopPaymentState>
 
           {(paid || failed) ? <Divider /> : null}
 
           {(paid || failed) ? (
             <DesktopInfo>
               <div><span>Valor Total</span><strong>{total || '—'}</strong></div>
-              <div><span>Método de Pagamento</span><strong>Cartão de Crédito</strong></div>
+              <div><span>Método de Pagamento</span><strong>{cardTypeLabel}</strong></div>
             </DesktopInfo>
           ) : null}
 
@@ -162,7 +238,7 @@ export function CardPaymentReturnPanel({
 
           <MobileInstructions className={failed ? 'failed' : ''}>
             {failed
-              ? error || 'O pagamento não foi efetuado. Você pode voltar e tentar novamente.'
+              ? terminalCopy?.description
               : paid
                 ? 'Seu pagamento foi recebido com segurança. O restaurante já foi notificado e iniciará a preparação do seu pedido.'
                 : 'Estamos aguardando a confirmação segura do provedor de pagamento.'}
@@ -187,7 +263,7 @@ export function CardPaymentReturnPanel({
 
       <MobileBottom>
         <div><span>{paid ? 'Total pago' : 'Valor do pagamento'}</span><strong>{total || '—'}</strong></div>
-        <p>{paid ? 'Seu pedido será preparado assim que o pagamento for confirmado.' : failed ? 'O pagamento não foi efetuado.' : 'Aguarde a confirmação do pagamento.'}</p>
+        <p>{paid ? 'Seu pedido será preparado assim que o pagamento for confirmado.' : failed ? terminalCopy?.bottom : 'Aguarde a confirmação do pagamento.'}</p>
         <button type="button" onClick={paid ? (onTrackOrder || onClose) : failed ? onClose : () => void onVerify()}>
           {paid ? 'Continuar para Rastreamento' : failed ? 'Voltar ao Pagamento' : checking ? 'Verificando...' : 'Verificar Pagamento'}
         </button>
@@ -207,9 +283,22 @@ export function CardPaymentReturnPanel({
 }
 
 const Page = styled.main`
+  width: 100%;
+  min-width: 0;
   min-height: 100dvh;
+  overflow-x: hidden;
   background: #fdfcf9;
   color: #1f1e1a;
+  box-sizing: border-box;
+
+  & *,
+  & *::before,
+  & *::after {
+    box-sizing: border-box;
+  }
+  animation: ${paymentScreenFade} 220ms ease-out both;
+
+  ${paymentReducedMotion}
 `;
 
 const DesktopHeader = styled.header`
@@ -234,21 +323,25 @@ const DesktopHeader = styled.header`
 const MobileHeader = styled.header`
   display: none;
   @media (max-width: 760px) {
-    height: 48px; padding: 12px 20px; display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; border-bottom: 1px solid #efece6; background: #fff;
-    button { padding: 0; display: flex; align-items: center; gap: 7px; border: 0; background: transparent; color: #72706b; font: inherit; font-size: 14px; cursor: pointer; }
-    button svg { width: 20px; }
-    strong { font-size: 18px; }
+    height: 48px; padding: 12px 20px; display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: center; border-bottom: 1px solid #efece6; background: #fff;
+    button { min-width: 0; padding: 0; display: flex; align-items: center; gap: 7px; border: 0; background: transparent; color: #72706b; font: inherit; font-size: 14px; cursor: pointer; white-space: nowrap; }
+    button svg { width: 20px; flex: 0 0 auto; }
+    strong { min-width: 0; font-size: 18px; text-align: center; white-space: nowrap; }
   }
 `;
 
 const Content = styled.section`
-  min-height: 683px; padding: 60px 24px 100px; display: grid; place-items: start center;
+  width: 100%; min-width: 0; min-height: 683px; padding: 60px 24px 100px; display: grid; place-items: start center;
   @media (max-width: 760px) { min-height: 0; padding: 20px 20px 190px; display: block; }
 `;
 
 const Card = styled.section`
-  width: 520px; padding: 40px; display: grid; justify-items: center; gap: 24px; border: 1px solid #efece6; border-radius: 24px; background: #fff; box-shadow: 0 8px 12px rgba(16,24,39,.03);
+  width: min(520px, 100%); min-width: 0; max-width: 100%; padding: 40px; display: grid; justify-items: center; gap: 24px; border: 1px solid #efece6; border-radius: 24px; background: #fff; box-shadow: 0 8px 12px rgba(16,24,39,.03);
+  animation: ${paymentSurfaceRise} 360ms cubic-bezier(0.22, 0.8, 0.32, 1) both;
+
+  ${paymentReducedMotion}
   &.failed { border-color: #efc6c1; }
+  > * { min-width: 0; max-width: 100%; }
   @media (max-width: 760px) { width: 100%; padding: 24px; gap: 16px; border-radius: 20px; box-shadow: none; }
 `;
 
@@ -257,6 +350,9 @@ const DesktopStatus = styled.div`
   .icon { width: 56px; height: 56px; display: grid; place-items: center; border-radius: 50%; background: #edf7ef; color: #268c43; }
   .icon.failed { background: #fff0ee; color: #c54436; }
   .icon svg { width: 28px; }
+  .icon { animation: ${paymentStatusPop} 480ms cubic-bezier(0.2, 0.8, 0.3, 1) both; }
+
+  ${paymentReducedMotion}
   h1 { margin: 0; font-size: 24px; }
   p { margin: 0; color: #72706b; font-size: 14px; }
   @media (max-width: 760px) { display: none; }
@@ -264,48 +360,114 @@ const DesktopStatus = styled.div`
 
 const MobileTitle = styled.h1`
   display: none;
-  @media (max-width: 760px) { display: block; margin: 0; font-size: 16px; }
+  @media (max-width: 760px) {
+    display: block;
+    max-width: 100%;
+    margin: 0;
+    font-size: 16px;
+    text-align: center;
+    overflow-wrap: anywhere;
+    animation: ${paymentContentReveal} 300ms ease-out 70ms both;
+
+    ${paymentReducedMotion}
+  }
 `;
 
-const MobileCardMock = styled.div`
-  display: none;
-  @media (max-width: 760px) {
-    width: 200px; height: 120px; padding: 16px; display: flex; flex-direction: column; justify-content: space-between; border-radius: 12px; background: var(--card-primary); color: #fff;
-    &.failed { background: #c54436; }
-    div { display: flex; align-items: center; justify-content: space-between; }
-    svg { width: 22px; }
-    b { font-size: 13px; }
-    strong { font-size: 14px; }
-    small { color: rgba(255,255,255,.7); font-size: 9px; text-transform: uppercase; }
+const CardVisualWrap = styled.div`
+  width: min(320px, 100%);
+  min-width: 0;
+  display: grid;
+  justify-items: center;
+  gap: 9px;
+  animation: ${paymentSurfaceRise} 460ms cubic-bezier(0.2, 0.82, 0.28, 1) 110ms both;
+
+  ${paymentReducedMotion}
+
+  > div {
+    width: 100%;
+    max-width: 320px;
+    margin: 0;
+  }
+
+  > span {
+    color: #72706b;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: .02em;
+  }
+
+  @media (min-width: 761px) {
+    > div {
+      box-shadow: 0 16px 34px rgba(31, 30, 26, .18);
+    }
+
+    > span {
+      font-size: 12px;
+    }
   }
 `;
 
 const Dots = styled.span`
   display: flex; gap: 4px;
-  i { width: 6px; height: 6px; border-radius: 50%; background: var(--card-primary); }
-  i:nth-child(2) { opacity: .65; }
-  i:nth-child(3) { opacity: .35; }
+  i { width: 6px; height: 6px; border-radius: 50%; background: var(--card-primary); animation: ${paymentPulse} 1s ease-in-out infinite; }
+  i:nth-child(2) { animation-delay: 120ms; }
+  i:nth-child(3) { animation-delay: 240ms; }
+
+  ${paymentReducedMotion}
 `;
 
 const MobileTransition = styled.div`
   display: none;
   @media (max-width: 760px) {
-    display: grid; justify-items: center; gap: 12px;
-    .processing { display: flex; align-items: center; gap: 8px; color: #72706b; font-size: 13px; }
-    .badge { padding: 8px 16px; display: flex; align-items: center; gap: 8px; border-radius: 999px; background: #edf7ef; color: #268c43; font-size: 14px; }
+    width: 100%; min-width: 0; display: grid; justify-items: center; gap: 12px;
+    .processing { max-width: 100%; display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 8px; color: #72706b; font-size: 13px; text-align: center; overflow-wrap: anywhere; }
+    .badge { max-width: 100%; padding: 8px 16px; display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 8px; border-radius: 999px; background: #edf7ef; color: #268c43; font-size: 14px; text-align: center; overflow-wrap: anywhere; }
     .badge.failed { background: #fff0ee; color: #c54436; }
     .badge svg { width: 16px; }
+    .badge { animation: ${paymentContentReveal} 260ms ease-out both; }
+
+    ${paymentReducedMotion}
   }
 `;
 
-const DesktopCardPlate = styled.div`
-  width: 100%; padding: 20px; display: flex; align-items: center; gap: 16px; border: 1px solid #efece6; border-radius: 16px; background: #fafaf8;
-  .mini-card { width: 48px; height: 32px; display: grid; place-items: center; border-radius: 6px; background: var(--card-primary); color: #fff; font-size: 9px; font-weight: 800; }
-  > span:last-child { display: grid; gap: 2px; }
+const DesktopPaymentState = styled.div`
+  width: 100%;
+  min-width: 0;
+  padding: 16px 18px;
+  display: grid;
+  justify-items: center;
+  gap: 4px;
+  border: 1px solid #efece6;
+  border-radius: 14px;
+  background: #fafaf8;
+  text-align: center;
+  animation: ${paymentContentReveal} 340ms ease-out 170ms both;
+
+  ${paymentReducedMotion}
+
   b { font-size: 14px; }
-  small { color: #72706b; font-size: 12px; }
-  &.failed .mini-card { background: #c54436; }
-  @media (max-width: 760px) { display: none; }
+
+  small {
+    max-width: 100%;
+    color: #72706b;
+    font-size: 12px;
+    line-height: 1.45;
+    overflow-wrap: anywhere;
+  }
+
+  &.failed {
+    border-color: #efc6c1;
+    background: #fff8f7;
+  }
+
+  &.failed b,
+  &.failed small {
+    color: #a23f34;
+  }
+
+  @media (max-width: 760px) {
+    display: none;
+  }
 `;
 
 const Divider = styled.div`
@@ -313,31 +475,46 @@ const Divider = styled.div`
 `;
 
 const DesktopInfo = styled.div`
-  width: 100%; display: flex; justify-content: space-between; gap: 20px;
+  width: 100%; min-width: 0; display: flex; justify-content: space-between; gap: 20px;
+  animation: ${paymentContentReveal} 340ms ease-out 230ms both;
+
+  ${paymentReducedMotion}
   div { display: grid; gap: 4px; }
   div:last-child { text-align: right; }
   span { color: #72706b; font-size: 13px; }
-  strong { font-size: 15px; }
+  strong { min-width: 0; font-size: 15px; overflow-wrap: anywhere; }
   div:first-child strong { font-size: 20px; }
   @media (max-width: 760px) { display: none; }
 `;
 
 const KitchenNote = styled.div`
-  width: 100%; padding: 12px 16px; border-radius: 8px; background: #edf7ef; color: #268c43; font-size: 14px; font-weight: 600; text-align: center;
+  width: 100%; min-width: 0; padding: 12px 16px; border-radius: 8px; background: #edf7ef; color: #268c43; font-size: 14px; font-weight: 600; text-align: center; overflow-wrap: anywhere;
+  animation: ${paymentContentReveal} 340ms ease-out 290ms both;
+
+  ${paymentReducedMotion}
   @media (max-width: 760px) { display: none; }
 `;
 
 const MobileInstructions = styled.div`
   display: none;
+  animation: ${paymentContentReveal} 360ms ease-out 260ms both;
+
+  ${paymentReducedMotion}
   @media (max-width: 760px) {
-    width: 100%; padding: 16px; display: block; border: 1px solid #efece6; border-radius: 16px; color: #72706b; font-size: 13px; line-height: 1.4;
+    width: 100%; min-width: 0; padding: 16px; display: block; border: 1px solid #efece6; border-radius: 16px; color: #72706b; font-size: 13px; line-height: 1.4; overflow-wrap: anywhere;
     &.failed { border-color: #efc6c1; color: #a23f34; background: #fff7f6; }
   }
 `;
 
 const DesktopActions = styled.div`
-  display: flex; gap: 10px;
-  button { min-height: 46px; padding: 0 24px; border: 0; border-radius: 12px; background: var(--card-primary); color: #fff; font: inherit; font-weight: 700; cursor: pointer; }
+  width: 100%; min-width: 0; display: flex; justify-content: center; gap: 10px;
+  animation: ${paymentContentReveal} 340ms ease-out 340ms both;
+
+  ${paymentReducedMotion}
+
+  button { max-width: 100%; min-height: 46px; padding: 0 24px; border: 0; border-radius: 12px; background: var(--card-primary); color: #fff; font: inherit; font-weight: 700; cursor: pointer; overflow-wrap: anywhere; transition: transform 160ms ease, box-shadow 180ms ease, filter 180ms ease; }
+  button:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 10px 22px rgba(31,30,26,.12); filter: saturate(1.04); }
+  button:active:not(:disabled) { transform: scale(.985); }
   button.secondary { border: 1px solid #efece6; background: #fff; color: #72706b; }
   button:disabled { opacity: .5; }
   @media (max-width: 760px) { display: none; }
@@ -346,12 +523,16 @@ const DesktopActions = styled.div`
 const MobileBottom = styled.section`
   display: none;
   @media (max-width: 760px) {
-    position: fixed; z-index: 3; left: 0; right: 0; bottom: 0; padding: 16px 24px 24px; display: grid; gap: 16px; border-top: 1px solid #efece6; background: #fff;
+    position: fixed; z-index: 3; left: 0; right: 0; bottom: 0; width: 100%; min-width: 0; padding: 16px 24px calc(24px + env(safe-area-inset-bottom)); display: grid; gap: 16px; border-top: 1px solid #efece6; background: rgba(255,255,255,.98); box-shadow: 0 -10px 30px rgba(31,30,26,.06); backdrop-filter: blur(12px);
+    animation: ${paymentBottomBarReveal} 420ms cubic-bezier(0.22, 0.8, 0.32, 1) 220ms both;
+
+    ${paymentReducedMotion}
     div { display: grid; gap: 2px; }
     span { color: #72706b; font-size: 13px; }
     strong { color: var(--card-primary); font-size: 22px; }
     p { margin: 0; color: #72706b; font-size: 12px; text-align: center; }
-    button { width: 100%; min-height: 46px; border: 0; border-radius: 12px; background: var(--card-primary); color: #fff; font: inherit; font-size: 15px; font-weight: 700; }
+    button { width: 100%; max-width: 100%; min-height: 46px; border: 0; border-radius: 12px; background: var(--card-primary); color: #fff; font: inherit; font-size: 15px; font-weight: 700; overflow-wrap: anywhere; transition: transform 160ms ease, filter 180ms ease; }
+    button:active { transform: scale(.985); }
   }
 `;
 

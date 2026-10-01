@@ -7,8 +7,6 @@ import {
   Eye,
   ShoppingBag,
   Clock3,
-  Minus,
-  Plus,
   QrCode,
   ReceiptText,
   Search,
@@ -25,6 +23,7 @@ import type {
 } from '../Home/domain/tableAccount';
 import type { TableOrderNotice } from '../Home/domain/tableOrderNotice';
 import { TablePaymentStatusView } from '../Home/components/TablePaymentStatusView';
+import { QuantityStepper } from '../../components/QuantityStepper/QuantityStepper';
 import { FigmaCatalogCard, FigmaComboCard } from './TableMenuExperience.cards';
 import * as S from './TableMenuExperience.styles';
 
@@ -755,21 +754,14 @@ export default function TableMenuExperience({
                       </div>
                       <div className="side">
                         <S.QuantityControl>
-                          <button
-                            type="button"
-                            aria-label={`Diminuir ${item.name}`}
-                            onClick={() => item.cartId && onDecrease(item.cartId)}
-                          >
-                            <Minus size={13} />
-                          </button>
-                          <span>{item.quantity}</span>
-                          <button
-                            type="button"
-                            aria-label={`Aumentar ${item.name}`}
-                            onClick={() => item.cartId && onIncrease(item.cartId)}
-                          >
-                            <Plus size={13} />
-                          </button>
+                          <QuantityStepper
+                            value={item.quantity}
+                            ariaLabel={`Quantidade de ${item.name}`}
+                            decreaseLabel={`Diminuir ${item.name}`}
+                            increaseLabel={`Aumentar ${item.name}`}
+                            onDecrease={() => item.cartId && onDecrease(item.cartId)}
+                            onIncrease={() => item.cartId && onIncrease(item.cartId)}
+                          />
                         </S.QuantityControl>
                       </div>
                     </S.CartLine>
@@ -1106,24 +1098,17 @@ export default function TableMenuExperience({
 
               <div className="bottom-action">
                 <S.CompleteProductQuantity>
-                  <button
-                    type="button"
-                    aria-label="Diminuir quantidade"
-                    disabled={completeProductQuantity <= 1}
-                    onClick={() =>
+                  <QuantityStepper
+                    value={completeProductQuantity}
+                    ariaLabel="Quantidade do produto"
+                    decreaseLabel="Diminuir quantidade"
+                    increaseLabel="Aumentar quantidade"
+                    decreaseDisabled={completeProductQuantity <= 1}
+                    onDecrease={() =>
                       setCompleteProductQuantity((quantity) => Math.max(1, quantity - 1))
                     }
-                  >
-                    <Minus size={15} />
-                  </button>
-                  <strong>{completeProductQuantity}</strong>
-                  <button
-                    type="button"
-                    aria-label="Aumentar quantidade"
-                    onClick={() => setCompleteProductQuantity((quantity) => quantity + 1)}
-                  >
-                    <Plus size={15} />
-                  </button>
+                    onIncrease={() => setCompleteProductQuantity((quantity) => quantity + 1)}
+                  />
                 </S.CompleteProductQuantity>
                 <S.CompleteProductAdd type="button" onClick={() => addComplete(selectedProduct)}>
                   <span>Adicionar</span>

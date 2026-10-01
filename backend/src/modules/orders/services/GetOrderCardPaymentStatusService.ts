@@ -232,6 +232,10 @@ class GetOrderCardPaymentStatusService {
         ? {
             publicId: latestAttempt.publicId,
             status: latestAttempt.status,
+            cardPaymentType:
+              latestAttempt.cardPaymentType === 'debit' ? 'debit' : 'credit',
+            cardBrand: latestAttempt.cardBrand || 'card',
+            cardLast4: latestAttempt.cardLast4 || null,
             providerStatus: latestAttempt.providerStatus,
             providerStatusDetail: latestAttempt.providerStatusDetail,
           }

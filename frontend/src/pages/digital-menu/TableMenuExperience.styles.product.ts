@@ -206,34 +206,9 @@ export const CompleteProductDetail = styled.section`
 `;
 
 export const CompleteProductQuantity = styled.div`
-  display: grid;
-  grid-template-columns: 34px 28px 34px;
+  display: inline-flex;
   align-items: center;
-  border: 1px solid #dedee3;
-  border-radius: 10px;
-  overflow: hidden;
-  background: #fff;
-
-  button {
-    width: 34px;
-    height: 42px;
-    border: 0;
-    background: #fff;
-    color: var(--primary);
-    display: grid;
-    place-items: center;
-  }
-
-  button:disabled {
-    color: #c9c9ce;
-  }
-
-  strong {
-    text-align: center;
-    font-size: 11px;
-  }
 `;
-
 export const CompleteProductAdd = styled.button`
   min-height: 44px;
   border: 0;

@@ -932,7 +932,7 @@ export default function CourierWorkspace() {
                     destinationQuery={formatCourierDeliveryAddress(priorityDelivery)}
                     label={user?.name || 'Motoqueiro'}
                     statusMessage="Rastreamento ativo"
-                    statusDetail="Sua localização está sendo compartilhada somente com o cliente deste pedido."
+                    statusDetail="Use o Waze para navegar. Sua localização continua sendo compartilhada somente com o cliente deste pedido."
                   />
                 </Suspense>
               ) : effectiveRouteOrderId ? (

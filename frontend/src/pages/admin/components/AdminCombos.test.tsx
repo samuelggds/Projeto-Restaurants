@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import productComboService, { type ComboRecord } from '../../../Services/productComboService';
 import type { AdminProduct } from '../types';
+import { AppDialogProvider } from '../../../components/AppDialog/AppDialogProvider';
 import { AdminCombos } from './AdminCombos';
 
 vi.mock('../../../Services/productComboService', () => ({
@@ -146,7 +147,13 @@ describe('editor administrativo de combos', () => {
   const renderCombos = async (onChanged = vi.fn().mockResolvedValue(undefined)) => {
     await act(async () => {
       root.render(
-        <AdminCombos products={products} money={(value) => `R$ ${value}`} onChanged={onChanged} />,
+        <AppDialogProvider>
+          <AdminCombos
+            products={products}
+            money={(value) => `R$ ${value}`}
+            onChanged={onChanged}
+          />
+        </AppDialogProvider>,
       );
     });
   };
@@ -189,20 +196,23 @@ describe('editor administrativo de combos', () => {
     });
   };
 
-  const addProduct = async (id: string) => {
-    const selector = dialog().querySelector<HTMLSelectElement>('select')!;
+  const addProduct = async (id: string, groupIndex = 1) => {
+    const selector = dialog().querySelector<HTMLSelectElement>(
+      `select[aria-label="Adicionar produto na etapa ${groupIndex}"]`,
+    );
+    expect(selector).not.toBeNull();
     await act(async () => {
-      selector.value = id;
-      selector.dispatchEvent(new Event('change', { bubbles: true }));
+      selector!.value = id;
+      selector!.dispatchEvent(new Event('change', { bubbles: true }));
     });
-    await click('Adicionar ao combo', dialog());
+    await click(`Adicionar produto à etapa ${groupIndex}`, dialog());
   };
 
   const prepareNewCombo = async () => {
     await click('Novo combo', container);
     await fill('Nome do combo', 'Combo Casal');
     await fill('Preço final do combo', '59.90');
-    await addProduct('11');
+    await addProduct('11', 1);
   };
 
   it('abre fora do workspace, foca o nome e restaura foco e rolagem ao fechar com Escape', async () => {
@@ -286,16 +296,17 @@ describe('editor administrativo de combos', () => {
 
     expect(dialog().textContent).toContain('Batata indisponível');
     expect(dialog().textContent).toContain('Suco antigo');
-    await click('Remover Batata indisponível do combo', dialog());
-    await click('Remover Suco antigo do combo', dialog());
+    await click('Remover Batata indisponível da etapa 1', dialog());
+    await click('Remover Suco antigo da etapa 2', dialog());
     expect(
-      dialog().querySelector('[aria-label="Remover Batata indisponível do combo"]'),
+      dialog().querySelector('[aria-label="Remover Batata indisponível da etapa 1"]'),
     ).toBeNull();
-    expect(dialog().querySelector('[aria-label="Remover Suco antigo do combo"]')).toBeNull();
+    expect(dialog().querySelector('[aria-label="Remover Suco antigo da etapa 2"]')).toBeNull();
     await click('Salvar combo', dialog());
 
     expect(productComboService.update).toHaveBeenCalledOnce();
     const payload = vi.mocked(productComboService.update).mock.calls[0][1];
+    expect(payload.groups).toHaveLength(1);
     expect(payload.groups.flatMap((group) => group.options)).toEqual([
       {
         componentProductId: 11,
@@ -329,41 +340,84 @@ describe('editor administrativo de combos', () => {
     expect(dialog().querySelector('[role="status"], [role="alert"]')?.textContent).toBeTruthy();
   });
 
-  it('salva quantidade fixa por produto sem contar unidades como seleções distintas', async () => {
+  it('cria etapas de escolha com quantidade obrigatória e produtos disponíveis', async () => {
     await renderCombos();
     await prepareNewCombo();
-    await fill('Nome do combo', '  Combo Casal  ');
-    await fill('Preço final do combo', '1000000');
-    await addProduct('12');
-    await fill('Quantidade de Burger da casa', '2');
-    await fill('Quantidade de Refrigerante', '20');
+    await fill('Nome da etapa 1', 'Hambúrgueres');
+    await fill('Quantidade da etapa 1', '2');
+    await addProduct('12', 1);
     await click('Salvar combo', dialog());
 
     expect(productComboService.create).toHaveBeenCalledOnce();
     const payload = vi.mocked(productComboService.create).mock.calls[0][0];
-    expect(payload).toMatchObject({ name: 'Combo Casal', price: 1000000 });
     expect(payload.groups).toEqual([
       expect.objectContaining({
+        name: 'Hambúrgueres',
         minSelections: 2,
         maxSelections: 2,
         options: [
           expect.objectContaining({
             componentProductId: 11,
-            minQuantity: 2,
-            maxQuantity: 2,
-            defaultQuantity: 2,
-            locked: true,
+            defaultQuantity: 0,
+            locked: false,
           }),
           expect.objectContaining({
             componentProductId: 12,
-            minQuantity: 20,
-            maxQuantity: 20,
-            defaultQuantity: 20,
-            locked: true,
+            defaultQuantity: 0,
+            locked: false,
           }),
         ],
       }),
     ]);
+  });
+
+  it('pré-seleciona automaticamente a única opção de uma etapa obrigatória', async () => {
+    await renderCombos();
+    await prepareNewCombo();
+    await fill('Nome da etapa 1', 'Batata');
+    await click('Salvar combo', dialog());
+
+    expect(productComboService.create).toHaveBeenCalledOnce();
+    const payload = vi.mocked(productComboService.create).mock.calls[0][0];
+    expect(payload.groups[0]).toMatchObject({
+      name: 'Batata',
+      minSelections: 1,
+      maxSelections: 1,
+      options: [
+        expect.objectContaining({
+          componentProductId: 11,
+          minQuantity: 1,
+          maxQuantity: 1,
+          defaultQuantity: 1,
+          locked: true,
+        }),
+      ],
+    });
+  });
+
+  it('permite adicionar novas etapas independentes para bebida e acompanhamento', async () => {
+    await renderCombos();
+    await prepareNewCombo();
+    await fill('Nome da etapa 1', 'Hambúrguer');
+    await click('Adicionar etapa', dialog());
+    await fill('Nome da etapa 2', 'Bebida');
+    await addProduct('12', 2);
+    await click('Salvar combo', dialog());
+
+    const payload = vi.mocked(productComboService.create).mock.calls[0][0];
+    expect(payload.groups).toHaveLength(2);
+    expect(payload.groups[1]).toMatchObject({
+      name: 'Bebida',
+      minSelections: 1,
+      maxSelections: 1,
+      options: [
+        expect.objectContaining({
+          componentProductId: 12,
+          defaultQuantity: 1,
+          locked: true,
+        }),
+      ],
+    });
   });
 
   it('exige ao menos um produto antes de criar o combo', async () => {
@@ -379,13 +433,5 @@ describe('editor administrativo de combos', () => {
     );
   });
 
-  it.each(['0', '21', '1.5'])('recusa quantidade fixa inválida: %s', async (quantity) => {
-    await renderCombos();
-    await prepareNewCombo();
-    await fill('Quantidade de Burger da casa', quantity);
-    await click('Salvar combo', dialog());
 
-    expect(productComboService.create).not.toHaveBeenCalled();
-    expect(dialog().querySelector('[role="status"], [role="alert"]')?.textContent).toBeTruthy();
-  });
 });

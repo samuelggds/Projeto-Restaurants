@@ -442,6 +442,50 @@ export const MapArea = styled.section`
   }
 `;
 
+export const DeliveryStatusCard = styled.section`
+  margin: 16px 20px 0;
+  padding: 16px 0;
+  border-top: 1px solid #e7e9e6;
+  border-bottom: 1px solid #e7e9e6;
+`;
+
+export const DeliveryStatusHeader = styled.header`
+  margin-bottom: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+
+  h2 {
+    margin: 0;
+    font-size: 14px;
+  }
+
+  strong {
+    padding: 5px 9px;
+    border-radius: 999px;
+    color: #237b43;
+    background: #edf8f0;
+    font-size: 10px;
+    font-weight: 850;
+  }
+`;
+
+export const DeliveryStatusList = styled.div`
+  display: grid;
+  gap: 12px;
+`;
+
+export const DeliveryStatusItem = styled.div<{ $active: boolean; $complete: boolean }>`
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  color: ${p => p.$active ? '#e8562c' : p.$complete ? '#2f8a50' : '#85817b'};
+  font-size: 12px;
+  font-weight: ${p => p.$active ? 850 : 650};
+  svg { width: 17px; height: 17px; }
+`;
+
 export const DetailsPanel = styled.aside`
   min-width: 0;
   overflow: hidden;

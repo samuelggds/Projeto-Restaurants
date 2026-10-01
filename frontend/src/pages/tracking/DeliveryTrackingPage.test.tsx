@@ -8,6 +8,7 @@ const mocks = vi.hoisted(() => ({
   navigate: vi.fn(),
   getTracking: vi.fn(),
   confirmDeliveryReceived: vi.fn(),
+  rateDeliveredOrder: vi.fn(),
   getGuestTrackingToken: vi.fn(() => ''),
   locationSearch: '',
   listeners: new Map<string, (...args: unknown[]) => void>(),
@@ -43,6 +44,11 @@ vi.mock('../../Services/ordersService', () => ({
 }));
 vi.mock('../../Services/socketService', () => ({
   acquireSocket: () => ({ socket: mocks.socket, release: vi.fn() }),
+}));
+vi.mock('./CustomerTrackingChatPanel', () => ({
+  CustomerTrackingChatPanel: ({ courierName }: { courierName: string }) => (
+    <div data-testid="tracking-chat">Mensagens com {courierName}</div>
+  ),
 }));
 vi.mock('../Courier/components/DeliveryMap', () => ({
   default: (props: typeof mocks.mapProps) => {
@@ -140,6 +146,13 @@ describe('DeliveryTrackingPage integration', () => {
 
     expect(container.textContent).toContain('Atualização em tempo real');
     expect(container.textContent).toContain('Rua das Flores, 10, Fortaleza');
+    expect(container.textContent).toContain('Status da Entrega');
+    expect(container.textContent).toContain('Pedido recebido');
+    expect(container.textContent).toContain('Em preparação na cozinha');
+    expect(container.textContent).toContain('Saiu para entrega');
+    expect(container.textContent).toContain('Chegou ao endereço');
+    expect(container.textContent).not.toContain('Concluído');
+    expect(container.textContent).toContain('Mensagens com Rita');
     expect(container.textContent).toContain('3,5 km');
     expect(mocks.mapProps?.routePath).toHaveLength(2);
     expect(mocks.mapProps?.destination?.label).toContain('Rua das Flores');
@@ -223,7 +236,7 @@ describe('DeliveryTrackingPage integration', () => {
     await flushUntil(() => container.textContent?.includes('Recebimento confirmado') === true);
 
     expect(mocks.confirmDeliveryReceived).toHaveBeenCalledWith(601);
-    expect(container.textContent).toContain('O restaurante já recebeu sua confirmação.');
+    expect(mocks.navigate).toHaveBeenCalledWith('/orders/601/delivered', { replace: true });
   });
 
   it('encerra o acompanhamento ao cancelar e ignora posições posteriores', async () => {

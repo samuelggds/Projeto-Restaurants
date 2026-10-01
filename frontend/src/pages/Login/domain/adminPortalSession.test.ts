@@ -42,7 +42,7 @@ describe('adminPortalSession', () => {
   it('reutiliza a mesma verificação concorrente do grant', async () => {
     window.sessionStorage.setItem('gastronexa:admin-portal:north-pizza', 'grant-seguro');
     let resolveRequest!: (value: {
-      data: { valid: boolean; restaurantId: number; slug: string };
+      data: { valid: boolean; restaurantId: number; slug: string; expiresAt: string };
     }) => void;
     mocks.post.mockReturnValueOnce(
       new Promise((resolve) => {
@@ -54,9 +54,37 @@ describe('adminPortalSession', () => {
     const second = verifyAdminPortalGrant('north-pizza');
 
     expect(mocks.post).toHaveBeenCalledTimes(1);
-    resolveRequest({ data: { valid: true, restaurantId: 7, slug: 'north-pizza' } });
+    resolveRequest({
+      data: {
+        valid: true,
+        restaurantId: 7,
+        slug: 'north-pizza',
+        expiresAt: '2026-10-07T16:00:00.000Z',
+      },
+    });
 
-    await expect(first).resolves.toEqual({ valid: true, restaurantId: 7, slug: 'north-pizza' });
-    await expect(second).resolves.toEqual({ valid: true, restaurantId: 7, slug: 'north-pizza' });
+    await expect(first).resolves.toEqual({
+      valid: true,
+      restaurantId: 7,
+      slug: 'north-pizza',
+      expiresAt: '2026-10-07T16:00:00.000Z',
+    });
+    await expect(second).resolves.toEqual({
+      valid: true,
+      restaurantId: 7,
+      slug: 'north-pizza',
+      expiresAt: '2026-10-07T16:00:00.000Z',
+    });
   });
 });
+
+
+  it('rejeita verificação que não informe expiração válida', async () => {
+    window.sessionStorage.setItem('gastronexa:admin-portal:north-pizza', 'grant-seguro');
+    mocks.post.mockResolvedValueOnce({
+      data: { valid: true, restaurantId: 7, slug: 'north-pizza', expiresAt: '' },
+    });
+
+    await expect(verifyAdminPortalGrant('north-pizza')).rejects.toThrow('Página não encontrada.');
+    expect(getAdminPortalGrant('north-pizza')).toBe('');
+  });

@@ -1,5 +1,9 @@
 import restaurantSettingsRepository from '../repositories/RestaurantSettingsRepository.js';
 import { futurePaymentProvidersEnabled } from '../../payments/providers/futurePaymentProviders.js';
+import {
+  getMercadoPagoAccountReadiness,
+  paymentConnectionConfiguration,
+} from './RestaurantPaymentReadinessService.js';
 
 type SupportedCardProvider = 'MERCADO_PAGO' | 'PAGARME' | 'ASAAS';
 
@@ -41,8 +45,18 @@ class GetPublicCardPaymentConfigService {
       return { provider } as const;
     }
 
+    if (settings?.acceptsCard === false) {
+      throw new Error('Pagamento com cartão não está habilitado neste restaurante.');
+    }
+
+    const mercadoPagoReadiness = paymentConnectionConfiguration('MERCADO_PAGO')
+      ? await getMercadoPagoAccountReadiness({
+          restaurantId: normalizedRestaurantId,
+          settings,
+        })
+      : null;
     const publicKey = String(settings?.mercadoPagoPublicKey || '').trim();
-    if (!publicKey) {
+    if (!mercadoPagoReadiness?.readyForCard || !publicKey) {
       throw new Error(
         'A conexão Mercado Pago deste restaurante precisa ser atualizada antes de aceitar cartão.',
       );

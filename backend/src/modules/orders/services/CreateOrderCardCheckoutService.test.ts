@@ -22,10 +22,12 @@ const [
   { default: createOrderService },
   { default: createOrderCardCheckoutService },
   { default: finalizeOrderCardPaymentService },
+  { default: directOrderCardPaymentService },
 ] = await Promise.all([
   import('./CreateOrderService.js'),
   import('./CreateOrderCardCheckoutService.js'),
   import('./FinalizeOrderCardPaymentService.js'),
+  import('./DirectOrderCardPaymentService.js'),
 ]);
 
 http.createServer = originalHttpCreateServer;
@@ -36,6 +38,7 @@ const originalRepositoryMethods = {
 
 const originalCreateOrderExecute = createOrderService.execute;
 const originalFinalizeOrderCardPaymentExecute = finalizeOrderCardPaymentService.execute;
+const originalDirectOrderCardPaymentExecute = directOrderCardPaymentService.execute;
 const originalSetCardCheckoutSessionId = orderRepository.setCardCheckoutSessionId;
 const originalDeleteById = orderRepository.deleteById;
 const originalCreatePaymentAttempt = orderPaymentAttemptRepository.createCardAttempt;
@@ -45,6 +48,15 @@ const originalTransaction = prisma.$transaction;
 const originalQueryRaw = prisma.$queryRaw;
 const originalFetch = globalThis.fetch;
 const originalFutureProviders = process.env.ENABLE_FUTURE_PAYMENT_PROVIDERS;
+
+function readyMercadoPagoSettings() {
+  return {
+    mercadoPagoAccessToken: 'test-mp-access',
+    mercadoPagoRefreshToken: 'test-mp-refresh',
+    mercadoPagoTokenExpiresAt: new Date(Date.now() + 3_600_000),
+    mercadoPagoPublicKey: 'TEST-public-key',
+  };
+}
 
 test('timeout após cobrança de cartão preserva pedido confirmado, estoque e cupom', async () => {
   process.env.ENABLE_FUTURE_PAYMENT_PROVIDERS = 'true';
@@ -113,6 +125,7 @@ afterEach(() => {
   restaurantSettingsRepository.findByRestaurantId = originalRepositoryMethods.findByRestaurantId;
   createOrderService.execute = originalCreateOrderExecute;
   finalizeOrderCardPaymentService.execute = originalFinalizeOrderCardPaymentExecute;
+  directOrderCardPaymentService.execute = originalDirectOrderCardPaymentExecute;
   orderRepository.setCardCheckoutSessionId = originalSetCardCheckoutSessionId;
   orderRepository.deleteById = originalDeleteById;
   orderPaymentAttemptRepository.createCardAttempt = originalCreatePaymentAttempt;
@@ -138,6 +151,7 @@ test('não cria checkout de cartão fora da agenda semanal', async () => {
       closingTime: '23:00',
     })),
     cardGateway: 'MERCADO_PAGO',
+    ...readyMercadoPagoSettings(),
   });
   createOrderService.execute = async () => {
     createOrderCalled = true;
@@ -166,6 +180,7 @@ test('não cria checkout quando o restaurante desativou pagamentos com cartão',
     businessHours: [],
     acceptsCard: false,
     cardGateway: 'MERCADO_PAGO',
+    ...readyMercadoPagoSettings(),
   });
   createOrderService.execute = async () => {
     createOrderCalled = true;
@@ -184,6 +199,231 @@ test('não cria checkout quando o restaurante desativou pagamentos com cartão',
       }),
     /não está aceitando pagamentos com cartão/i,
   );
+  assert.equal(createOrderCalled, false);
+});
+
+
+test('não cria pedido quando o Mercado Pago conectado exige reconexão', async () => {
+  let createOrderCalled = false;
+  restaurantSettingsRepository.findByRestaurantId = async () => ({
+    restaurantId: 9,
+    isOpenForOrders: true,
+    businessHours: [],
+    acceptsCard: true,
+    cardGateway: 'MERCADO_PAGO',
+    mercadoPagoAccessToken: 'legacy-access',
+    mercadoPagoRefreshToken: null,
+    mercadoPagoPublicKey: 'TEST-public-key',
+  });
+  createOrderService.execute = async () => {
+    createOrderCalled = true;
+    throw new Error('não deveria criar pedido');
+  };
+
+  await assert.rejects(
+    () =>
+      createOrderCardCheckoutService.execute({
+        restaurantId: 9,
+        userRestaurantId: 9,
+        type: 'RETIRADA',
+        paymentMethod: 'CARTAO',
+        cardPaymentType: 'credit',
+        cardToken: 'test-token',
+        cardPaymentMethodId: 'visa',
+        items: [{ productId: 1, quantity: 1 }],
+      }),
+    /reconecte o Mercado Pago/i,
+  );
+
+  assert.equal(createOrderCalled, false);
+});
+
+test('orquestra débito mantendo tipo explícito e tenant do restaurante', async () => {
+  restaurantSettingsRepository.findByRestaurantId = async (restaurantId) => {
+    assert.equal(Number(restaurantId), 9);
+    return {
+      restaurantId: 9,
+      isOpenForOrders: true,
+      businessHours: [],
+      acceptsCard: true,
+      cardGateway: 'MERCADO_PAGO',
+    ...readyMercadoPagoSettings(),
+    };
+  };
+
+  createOrderService.execute = async (payload) => {
+    assert.equal(Number(payload.restaurantId), 9);
+    assert.equal(payload.paymentMethod, 'CARTAO');
+    assert.equal(payload.paid, false);
+    assert.equal('cardToken' in payload, false);
+    assert.equal('cardPaymentMethodId' in payload, false);
+    assert.equal('cardPaymentType' in payload, false);
+    assert.equal('cardBrand' in payload, false);
+    assert.equal('cardLast4' in payload, false);
+    assert.equal('cardData' in payload, false);
+    assert.equal('holderTaxId' in payload, false);
+    assert.equal('payerEmail' in payload, false);
+    assert.equal('mercadoPagoDeviceId' in payload, false);
+    return {
+      id: 660,
+      publicId: '123e4567-e89b-42d3-a456-426614174660',
+      restaurantId: 9,
+      total: 55,
+      systemFee: 0,
+      restaurant: { name: 'Restaurante 9' },
+    };
+  };
+
+  let receivedPayload: Record<string, unknown> | null = null;
+  let attemptCardPaymentType = '';
+  let attemptCardBrand = '';
+  let attemptCardLast4 = '';
+  orderPaymentAttemptRepository.createCardAttempt = async (input) => {
+    attemptCardPaymentType = String(input.cardPaymentType || '');
+    attemptCardBrand = String(input.cardBrand || '');
+    attemptCardLast4 = String(input.cardLast4 || '');
+    return {
+      id: 660,
+      publicId: 'attempt-public-debit-660',
+      idempotencyKey: '11111111-1111-4111-8111-000000000660',
+      status: 'PENDING',
+    } as never;
+  };
+  directOrderCardPaymentService.execute = async (input) => {
+    assert.equal(input.provider, 'MERCADO_PAGO');
+    assert.equal(input.order.restaurantId, 9);
+    receivedPayload = input.payload as Record<string, unknown>;
+    return {
+      provider: 'MERCADO_PAGO',
+      sessionId: 'debit-order-660',
+      persistenceSessionId: 'mp_order:debit-order-660',
+      checkoutUrl: 'https://payments.example.test/debit/660',
+      paymentApproved: false,
+    };
+  };
+
+  orderRepository.setCardCheckoutSessionId = async (orderId, restaurantId, sessionId) => {
+    assert.equal(orderId, 660);
+    assert.equal(restaurantId, 9);
+    assert.equal(sessionId, 'mp_order:debit-order-660');
+  };
+
+  const result = await createOrderCardCheckoutService.execute({
+    restaurantId: 9,
+    userRestaurantId: 9,
+    type: 'RETIRADA',
+    paymentMethod: 'CARTAO',
+    cardPaymentType: 'debit',
+    cardToken: 'test-debit-token',
+    cardPaymentMethodId: 'visa',
+    cardBrand: 'visa',
+    cardLast4: '4242',
+    items: [{ productId: 1, quantity: 1 }],
+  });
+
+  assert.equal(attemptCardPaymentType, 'debit');
+  assert.equal(attemptCardBrand, 'visa');
+  assert.equal(attemptCardLast4, '4242');
+  assert.equal(receivedPayload?.cardPaymentType, 'debit');
+  assert.equal(receivedPayload?.cardToken, 'test-debit-token');
+  assert.equal(result.provider, 'MERCADO_PAGO');
+  assert.equal(result.paid, false);
+});
+
+test('recusa débito em gateway não homologado antes de criar o pedido', async () => {
+  let createOrderCalled = false;
+  restaurantSettingsRepository.findByRestaurantId = async () => ({
+    restaurantId: 9,
+    isOpenForOrders: true,
+    businessHours: [],
+    acceptsCard: true,
+    cardGateway: 'ASAAS',
+    asaasAccessToken: 'test-only-tenant-token',
+  });
+  createOrderService.execute = async () => {
+    createOrderCalled = true;
+    throw new Error('não deveria criar pedido');
+  };
+
+  await assert.rejects(
+    () =>
+      createOrderCardCheckoutService.execute({
+        restaurantId: 9,
+        userRestaurantId: 9,
+        type: 'RETIRADA',
+        paymentMethod: 'CARTAO',
+        cardPaymentType: 'debit',
+        cardToken: 'test-debit-token',
+        cardPaymentMethodId: 'visa',
+        items: [{ productId: 1, quantity: 1 }],
+      }),
+    /débito online ainda não está disponível/i,
+  );
+
+  assert.equal(createOrderCalled, false);
+});
+
+test('recusa débito sem token antes de criar pedido ou abrir checkout de crédito', async () => {
+  let createOrderCalled = false;
+  restaurantSettingsRepository.findByRestaurantId = async () => ({
+    restaurantId: 9,
+    isOpenForOrders: true,
+    businessHours: [],
+    acceptsCard: true,
+    cardGateway: 'MERCADO_PAGO',
+    ...readyMercadoPagoSettings(),
+  });
+  createOrderService.execute = async () => {
+    createOrderCalled = true;
+    throw new Error('não deveria criar pedido');
+  };
+
+  await assert.rejects(
+    () =>
+      createOrderCardCheckoutService.execute({
+        restaurantId: 9,
+        userRestaurantId: 9,
+        type: 'RETIRADA',
+        paymentMethod: 'CARTAO',
+        cardPaymentType: 'debit',
+        items: [{ productId: 1, quantity: 1 }],
+      }),
+    /dados do cartão de débito/i,
+  );
+
+  assert.equal(createOrderCalled, false);
+});
+
+test('recusa tipo de cartão manipulado antes de criar o pedido', async () => {
+  let createOrderCalled = false;
+  restaurantSettingsRepository.findByRestaurantId = async () => ({
+    restaurantId: 9,
+    isOpenForOrders: true,
+    businessHours: [],
+    acceptsCard: true,
+    cardGateway: 'MERCADO_PAGO',
+    ...readyMercadoPagoSettings(),
+  });
+  createOrderService.execute = async () => {
+    createOrderCalled = true;
+    throw new Error('não deveria criar pedido');
+  };
+
+  await assert.rejects(
+    () =>
+      createOrderCardCheckoutService.execute({
+        restaurantId: 9,
+        userRestaurantId: 9,
+        type: 'RETIRADA',
+        paymentMethod: 'CARTAO',
+        cardPaymentType: 'debit-manipulado',
+        cardToken: 'test-token',
+        cardPaymentMethodId: 'visa',
+        items: [{ productId: 1, quantity: 1 }],
+      } as never),
+    /tipo de cartão inválido/i,
+  );
+
   assert.equal(createOrderCalled, false);
 });
 

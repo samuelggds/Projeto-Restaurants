@@ -34,23 +34,33 @@ export function resolveAvailableFulfillmentMethod(
   return preferred;
 }
 
+export function resolveDefaultCheckoutPaymentMethod(
+  availableMethods: CheckoutPaymentMethod[],
+): CheckoutPaymentMethod | null {
+  if (availableMethods.includes('pix')) return 'pix';
+  return availableMethods[0] ?? null;
+}
+
 export function getAvailablePaymentMethods({
   allowPayOnDelivery,
   allowPayAtPickup = !allowPayOnDelivery,
   allowPix = true,
   allowOpenFinancePix = false,
   allowCard = true,
+  allowDebitCard = false,
 }: {
   allowPayOnDelivery: boolean;
   allowPayAtPickup?: boolean;
   allowPix?: boolean;
   allowOpenFinancePix?: boolean;
   allowCard?: boolean;
+  allowDebitCard?: boolean;
 }): CheckoutPaymentMethod[] {
   const methods: CheckoutPaymentMethod[] = [];
   if (allowPix) methods.push('pix');
   if (allowOpenFinancePix) methods.push('open_finance_pix');
   if (allowCard) methods.push('card');
+  if (allowDebitCard) methods.push('debit_card');
   if (allowPayOnDelivery && allowPix) methods.push('delivery_pix');
   if (allowPayOnDelivery && allowCard) methods.push('delivery_card');
   if (allowPayOnDelivery) methods.push('delivery_cash');

@@ -9,10 +9,18 @@ import { OrderRequestError } from '../domain/OrderRequestError.js';
 const originalExecute = service.execute;
 afterEach(() => { service.execute = originalExecute; });
 
-async function invoke() {
+async function invoke(input: {
+  body?: Record<string, unknown>;
+  user?: Record<string, unknown>;
+} = {}) {
   let status = 0;
   let body: Record<string, unknown> = {};
-  const req = { body: {}, headers: {}, user: { id: 7, restaurantId: 3 }, requestId: 'request-test' } as unknown as Request;
+  const req = {
+    body: input.body || {},
+    headers: {},
+    user: { id: 7, restaurantId: 3, ...(input.user || {}) },
+    requestId: 'request-test',
+  } as unknown as Request;
   const res = {
     status(code: number) { status = code; return res; },
     json(value: Record<string, unknown>) { body = value; return res; },
@@ -47,4 +55,48 @@ test('conflitos e dados inválidos conservam respostas de domínio', async () =>
   assert.deepEqual(await invoke(), { status: 409, body: { error: 'Tentativa incompatível.', code: 'IDEMPOTENCY_CONFLICT', requestId: 'request-test' } });
   service.execute = async () => { z.object({ items: z.array(z.number()).min(1, 'Inclua um item.') }).parse({ items: [] }); throw new Error('unreachable'); };
   assert.deepEqual(await invoke(), { status: 400, body: { error: 'Inclua um item.', requestId: 'request-test' } });
+});
+
+
+test('cliente pode escolher dinheiro na entrega sem confirmar o próprio pagamento', async () => {
+  let received: Record<string, unknown> | null = null;
+  service.execute = async (payload) => {
+    received = payload as unknown as Record<string, unknown>;
+    return {
+      id: 92,
+      total: 35,
+      paid: false,
+      paymentMethod: 'DINHEIRO',
+      payOnDelivery: true,
+      payOnDeliveryMethod: 'DINHEIRO',
+      type: 'DELIVERY',
+    } as unknown as Awaited<ReturnType<typeof service.execute>>;
+  };
+
+  const result = await invoke({
+    body: {
+      restaurantId: 3,
+      type: 'DELIVERY',
+      paymentMethod: 'DINHEIRO',
+      payOnDelivery: true,
+      payOnDeliveryMethod: 'DINHEIRO',
+      paid: false,
+      items: [{ productId: 1, quantity: 1 }],
+      address: 'Rua A',
+      number: '10',
+      district: 'Centro',
+      city: 'Fortaleza',
+      state: 'CE',
+      zipCode: '60000000',
+    },
+    user: { role: 'CLIENTE' },
+  });
+
+  assert.equal(result.status, 201);
+  assert.equal(result.body.paid, false);
+  assert.equal(result.body.payOnDelivery, true);
+  assert.equal(result.body.payOnDeliveryMethod, 'DINHEIRO');
+  assert.equal(received?.paid, undefined);
+  assert.equal(received?.payOnDelivery, true);
+  assert.equal(received?.payOnDeliveryMethod, 'DINHEIRO');
 });

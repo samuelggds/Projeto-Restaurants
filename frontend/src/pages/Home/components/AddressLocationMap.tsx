@@ -8,7 +8,6 @@ type AddressLocation = {
   latitude: number;
   longitude: number;
   formattedAddress: string;
-  locationType: string;
   partialMatch: boolean;
 };
 
@@ -30,7 +29,6 @@ type GoogleGeocoderResult = {
       lat(): number;
       lng(): number;
     };
-    location_type?: string;
   };
 };
 
@@ -51,6 +49,7 @@ type AddressGoogleWindow = typeof window & {
 };
 
 const GOOGLE_MAPS_SCRIPT_ID = 'gastronexa-google-maps';
+export const ADDRESS_LOCATION_DEBOUNCE_MS = 800;
 
 function getLoadedGoogleMaps() {
   return (window as AddressGoogleWindow).google?.maps;
@@ -154,6 +153,31 @@ function googleAddressText(address: ReturnType<typeof normalizedAddress>) {
     .join(', ');
 }
 
+function addressLocationErrorMessage(error: unknown) {
+  const responseCode = String(
+    (
+      error as {
+        response?: {
+          data?: {
+            code?: unknown;
+          };
+        };
+      }
+    )?.response?.data?.code || '',
+  ).trim();
+  const errorMessage = error instanceof Error ? error.message : '';
+
+  if (
+    responseCode === 'ADDRESS_NOT_GEOCODED' ||
+    errorMessage === 'ADDRESS_NOT_GEOCODED' ||
+    errorMessage === 'ZERO_RESULTS'
+  ) {
+    return 'Não encontramos esse endereço no mapa. Confira rua, número, bairro, cidade e estado.';
+  }
+
+  return 'Não conseguimos confirmar o endereço no mapa agora. Confira os dados; se estiverem corretos, você ainda poderá continuar com o pedido.';
+}
+
 function geocodeWithGoogleMaps(
   maps: GoogleMapsApi,
   address: ReturnType<typeof normalizedAddress>,
@@ -178,7 +202,6 @@ function geocodeWithGoogleMaps(
         latitude,
         longitude,
         formattedAddress: String(result?.formatted_address || googleAddressText(address)),
-        locationType: String(result?.geometry?.location_type || 'GEOCODED'),
         partialMatch: result?.partial_match === true,
       });
     });
@@ -205,7 +228,27 @@ export function AddressLocationMap({
   const [error, setError] = useState('');
   const [resolvedAddressKey, setResolvedAddressKey] = useState('');
 
-  const normalized = useMemo(() => normalizedAddress(address), [address]);
+  const {
+    address: street,
+    number,
+    district,
+    city,
+    state,
+    zipCode,
+  } = address;
+  const normalized = useMemo(
+    () =>
+      normalizedAddress({
+        address: street,
+        number,
+        district,
+        city,
+        state,
+        zipCode,
+        complement: '',
+      }),
+    [street, number, district, city, state, zipCode],
+  );
   const addressKey = useMemo(() => JSON.stringify(normalized), [normalized]);
   const complete = isCompleteAddress(normalized);
   const canLocate = Boolean(restaurantId && complete);
@@ -220,6 +263,8 @@ export function AddressLocationMap({
       setError('');
 
       const resolveLocation = async () => {
+        let serverError: unknown = null;
+
         try {
           const result = await ordersService.getDeliveryAddressLocation({
             restaurantId,
@@ -234,13 +279,16 @@ export function AddressLocationMap({
           ) {
             return result;
           }
-        } catch {
-          // The checkout map must not disappear only because server-side geocoding
-          // is temporarily unavailable. Fall back to the browser Maps credential.
+        } catch (requestError) {
+          serverError = requestError;
         }
 
-        const maps = await loadGoogleMaps();
-        return geocodeWithGoogleMaps(maps, normalized);
+        try {
+          const maps = await loadGoogleMaps();
+          return await geocodeWithGoogleMaps(maps, normalized);
+        } catch (browserError) {
+          throw serverError || browserError;
+        }
       };
 
       void resolveLocation()
@@ -250,16 +298,14 @@ export function AddressLocationMap({
           setLocation(result);
           setStatus('loading-map');
         })
-        .catch(() => {
+        .catch((requestError) => {
           if (requestIdRef.current !== currentRequestId) return;
           setResolvedAddressKey(addressKey);
           setLocation(null);
           setStatus('error');
-          setError(
-            'Não encontramos esse endereço no mapa. Confira número, bairro, cidade e estado.',
-          );
+          setError(addressLocationErrorMessage(requestError));
         });
-    }, 550);
+    }, ADDRESS_LOCATION_DEBOUNCE_MS);
 
     return () => window.clearTimeout(timer);
   }, [addressKey, complete, normalized, restaurantId]);
@@ -404,7 +450,7 @@ export function AddressLocationMap({
         if (!active) return;
         setStatus('error');
         setError(
-          'O endereço foi localizado, mas o Google Maps não pôde ser carregado agora.',
+          'O endereço foi localizado, mas o mapa não pôde ser carregado agora.',
         );
       });
 
@@ -430,7 +476,7 @@ export function AddressLocationMap({
         <S.MapCanvas
           ref={containerRef}
           $visible={Boolean(visibleLocation)}
-          aria-label="Mapa Google com a localização do endereço de entrega"
+          aria-label="Mapa com a localização do endereço de entrega"
         />
 
         {visibleStatus === 'idle' ? (
