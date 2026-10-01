@@ -713,6 +713,7 @@ test('admin controla o QR, garçom apenas opera a mesa e cozinha recebe Mesa 1',
   await page.getByRole('button', { name: `Ver detalhes de ${product.name}` }).click();
   await page.getByText('Arroz', { exact: true }).click();
   await page.getByRole('button', { name: 'Adicionar à sacola' }).click();
+  await expect(page.locator('[data-cart-fly-preview]')).toBeVisible();
   await reviewTableDraft(page);
   await page.getByRole('button', { name: 'Enviar pedido para a cozinha' }).click();
   await expect.poll(() => state.orderPayload).not.toBeNull();
@@ -771,6 +772,7 @@ test('cliente pode pagar agora com PIX ou acompanhar para pagar depois', async (
   await page.getByRole('button', { name: `Ver detalhes de ${product.name}` }).click();
   await page.getByText('Arroz', { exact: true }).click();
   await page.getByRole('button', { name: 'Adicionar à sacola' }).click();
+  await expect(page.locator('[data-cart-fly-preview]')).toBeVisible();
   await reviewTableDraft(page);
   await page.getByRole('button', { name: 'Enviar pedido para a cozinha' }).click();
   await expect.poll(() => state.orderPayload).not.toBeNull();
