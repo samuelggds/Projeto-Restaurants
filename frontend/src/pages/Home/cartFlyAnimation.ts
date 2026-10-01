@@ -148,16 +148,16 @@ export function animateProductToCart({
         filter: 'brightness(1)',
       },
       {
-        offset: 0.46,
-        transform: `translate3d(${middleX}px, ${middleY}px, 0) scale(.82) rotate(7deg)`,
+        offset: 0.5,
+        transform: `translate3d(${middleX}px, ${middleY}px, 0) scale(.86) rotate(6deg)`,
         opacity: 1,
-        filter: 'brightness(1.05)',
+        filter: 'brightness(1.04)',
       },
       {
-        offset: 0.84,
-        transform: `translate3d(${endX * 0.93}px, ${endY * 0.93}px, 0) scale(.36) rotate(-5deg)`,
-        opacity: 0.92,
-        filter: 'brightness(1.08)',
+        offset: 0.86,
+        transform: `translate3d(${endX * 0.93}px, ${endY * 0.93}px, 0) scale(.38) rotate(-4deg)`,
+        opacity: 0.94,
+        filter: 'brightness(1.06)',
       },
       {
         transform: `translate3d(${endX}px, ${endY}px, 0) scale(.12) rotate(0deg)`,
@@ -166,8 +166,8 @@ export function animateProductToCart({
       },
     ],
     {
-      duration: 720,
-      easing: 'cubic-bezier(.2,.88,.25,1)',
+      duration: 1_150,
+      easing: 'cubic-bezier(.18,.76,.2,1)',
       fill: 'forwards',
     },
   );
@@ -186,7 +186,7 @@ export function animateProductToCart({
             { transform: 'scale(1)' },
           ],
           {
-            duration: 360,
+            duration: 420,
             easing: 'cubic-bezier(.22,1,.36,1)',
           },
         );
