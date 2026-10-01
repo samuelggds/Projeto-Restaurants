@@ -5,8 +5,10 @@ import {
   CookingPot,
   Eye,
   Clock3,
+  Banknote,
   Table2,
   Utensils,
+  WalletCards,
 } from 'lucide-react';
 import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import QRCode from 'react-qr-code';
@@ -489,18 +491,28 @@ export default function TableMenuExperience({
     );
   }
 
-  if (effectiveView === 'payment' && confirmation) {
-    const allowPix = accountSnapshot?.capabilities.allowPix === true;
-    const allowCash = accountSnapshot?.capabilities.allowCash === true;
+  if (effectiveView === 'payment' && accountSnapshot) {
+    const allowPix = accountSnapshot.capabilities.allowPix === true;
+    const allowCash = accountSnapshot.capabilities.allowCash === true;
     const ownAccount = currentParticipantAccount(accountSnapshot);
     const ownRemainingCents = ownAccount?.remainingCents || 0;
+    const pendingPayment = accountSnapshot.activePayment;
+    const pendingPaymentActive = Boolean(
+      pendingPayment && ['RESERVED', 'PROCESSING'].includes(pendingPayment.status),
+    );
+    const pixBlockedByOtherPayment = Boolean(
+      pendingPaymentActive && pendingPayment?.method !== 'PIX',
+    );
+    const cashBlockedByOtherPayment = Boolean(
+      pendingPaymentActive && pendingPayment?.method !== 'CASH',
+    );
     return (
-      <S.FigmaShell $primary={primary} $fontFamily={data.fontFamily}>
+      <S.FigmaShell $primary="#ff4b4b" $fontFamily={data.fontFamily}>
         <FlowHeader
           data={data}
           tableLabel={tableLabel}
           title="Finalizar Conta"
-          onBack={() => setView('confirmation')}
+          onBack={() => setView('tracking')}
           onHome={goToMenu}
           onMenu={goToMenu}
           onOrders={() => setView('tracking')}
@@ -520,52 +532,61 @@ export default function TableMenuExperience({
             </S.FlowTitle>
 
             <S.PaymentOptionsGrid>
-            {allowPix ? (
-              <S.PaymentChoiceCard>
+              <S.PaymentChoiceCard className={!allowPix || pixBlockedByOtherPayment ? 'unavailable' : undefined}>
                 <span className="icon pix-icon"><PixMark /></span>
                 <span className="recommended desktop-only">RECOMENDADO</span>
                 <span className="pix-badge mobile-only">PIX</span>
                 <h2>Pagar agora (PIX)</h2>
-                <p>Finalize pelo celular com liberação automática na hora. Rápido e prático.</p>
+                <p>
+                  {allowPix
+                    ? 'Finalize pelo celular com liberação automática na hora. Rápido e prático.'
+                    : 'O PIX será liberado quando o administrador configurar o pagamento deste restaurante.'}
+                </p>
                 <button
                   className="primary"
                   type="button"
-                  disabled={paymentLoading}
+                  disabled={paymentLoading || !allowPix || pixBlockedByOtherPayment}
                   onClick={() => void startPayment('PIX')}
                 >
-                  Escolher PIX
+                  {!allowPix
+                    ? 'PIX indisponível'
+                    : pixBlockedByOtherPayment
+                      ? 'PIX indisponível no momento'
+                      : 'Escolher PIX'}
                 </button>
               </S.PaymentChoiceCard>
-            ) : null}
 
-            {allowCash ? (
               <S.PaymentChoiceCard>
                 <span className="icon"><Clock3 size={20} /></span>
+                <h2>Deixar na conta</h2>
+                <p>
+                  Os itens permanecem vinculados à Mesa {tableNumber(tableLabel)}. Pague ao sair com o garçom.
+                </p>
+                <button className="secondary" type="button" onClick={() => setView('tracking')}>
+                  Deixar aberto na Mesa
+                </button>
+              </S.PaymentChoiceCard>
+
+              <S.PaymentChoiceCard className={!allowCash || cashBlockedByOtherPayment ? 'unavailable' : undefined}>
+                <span className="icon"><Banknote size={20} /></span>
                 <h2>Pagar em dinheiro</h2>
-                <p>Entregue o valor ao garçom ou atendente. O administrador confirma o pagamento no sistema.</p>
+                <p>
+                  Pague em espécie ao garçom na hora de encerrar a conta. A confirmação é feita no sistema.
+                </p>
                 <button
                   className="secondary"
                   type="button"
-                  disabled={paymentLoading}
+                  disabled={paymentLoading || !allowCash || cashBlockedByOtherPayment}
                   onClick={() => void startPayment('CASH')}
                 >
-                  Escolher dinheiro
+                  {!allowCash
+                    ? 'Dinheiro indisponível'
+                    : cashBlockedByOtherPayment
+                      ? 'Dinheiro indisponível no momento'
+                      : 'Pagar com dinheiro'}
                 </button>
               </S.PaymentChoiceCard>
-            ) : null}
-
-            <S.PaymentChoiceCard>
-              <span className="icon"><Clock3 size={20} /></span>
-              <h2>Deixar na conta</h2>
-              <p>
-                Os itens permanecem vinculados à Mesa {tableNumber(tableLabel)}. Pague ao sair com o garçom.
-              </p>
-              <small>Continue pedindo normalmente.</small>
-              <button className="secondary" type="button" onClick={() => setView('tracking')}>
-                Deixar aberto na Mesa
-              </button>
-            </S.PaymentChoiceCard>
-          </S.PaymentOptionsGrid>
+            </S.PaymentOptionsGrid>
 
             <S.PaymentSummary>
               <div className="label">
@@ -610,7 +631,7 @@ export default function TableMenuExperience({
     const trackingDescriptions = trackingSteps(tableOrder, confirmedAt);
 
     return (
-      <S.FigmaShell $primary={primary} $fontFamily={data.fontFamily}>
+      <S.FigmaShell $primary="#ff4b4b" $fontFamily={data.fontFamily}>
         <FlowHeader
           data={data}
           tableLabel={tableLabel}
@@ -717,28 +738,39 @@ export default function TableMenuExperience({
               ) : null}
 
               {canPayOwnAccount ? (
-                <S.TrackingPixAction
-                  type="button"
-                  disabled={paymentLoading || pixUnavailable}
-                  aria-label={pixButtonLabel}
-                  title={
-                    !allowPix
-                      ? 'O PIX será liberado quando o administrador configurar um provedor no restaurante.'
-                      : pixBlockedByOtherPayment
-                        ? 'Há outro pagamento em andamento para este consumo.'
-                        : undefined
-                  }
-                  onClick={() => {
-                    if (activePixPending && activeTablePayment) {
-                      setPixPayment(activeTablePayment);
-                      setView('pix');
-                      return;
+                <>
+                  <S.TrackingPixAction
+                    type="button"
+                    disabled={paymentLoading || pixUnavailable}
+                    aria-label={pixButtonLabel}
+                    title={
+                      !allowPix
+                        ? 'O PIX será liberado quando o administrador configurar um provedor no restaurante.'
+                        : pixBlockedByOtherPayment
+                          ? 'Há outro pagamento em andamento para este consumo.'
+                          : undefined
                     }
-                    void startPayment('PIX');
-                  }}
-                >
-                  <PixMark /> {pixButtonLabel}
-                </S.TrackingPixAction>
+                    onClick={() => {
+                      if (activePixPending && activeTablePayment) {
+                        setPixPayment(activeTablePayment);
+                        setView('pix');
+                        return;
+                      }
+                      void startPayment('PIX');
+                    }}
+                  >
+                    <PixMark /> {pixButtonLabel}
+                  </S.TrackingPixAction>
+
+                  <S.TrackingOtherPaymentAction
+                    type="button"
+                    disabled={paymentLoading}
+                    onClick={() => setView('payment')}
+                  >
+                    <WalletCards size={18} aria-hidden="true" />
+                    Outras formas de pagamento
+                  </S.TrackingOtherPaymentAction>
+                </>
               ) : null}
             </S.OrderItemsCard>
           </S.TrackingLayout>
