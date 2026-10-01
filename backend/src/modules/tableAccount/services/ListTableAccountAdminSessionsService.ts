@@ -31,6 +31,7 @@ export class ListTableAccountAdminSessionsService {
       const pendingManualPayments = data.paymentIntents
         .filter(
           (payment) =>
+            payment.method === 'CASH' &&
             ['RESERVED', 'PROCESSING'].includes(payment.status) &&
             payment.expiresAt > now &&
             isManualTablePaymentIntent(payment),
@@ -77,9 +78,7 @@ export class ListTableAccountAdminSessionsService {
           processing: data.paymentIntents.filter((payment) => payment.status === 'PROCESSING')
             .length,
           online: data.paymentIntents.filter((payment) => Boolean(payment.provider)).length,
-          inPerson: data.paymentIntents.filter((payment) =>
-            ['CASH', 'CARD_MACHINE'].includes(payment.method),
-          ).length,
+          inPerson: data.paymentIntents.filter((payment) => payment.method === 'CASH').length,
         },
       };
     });

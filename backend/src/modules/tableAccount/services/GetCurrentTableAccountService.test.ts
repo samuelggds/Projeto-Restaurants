@@ -74,7 +74,7 @@ function billItem({
   };
 }
 
-test('monta a conta com centavos exatos, ignora cancelados e não expõe dados de pagamento', async () => {
+test('monta a conta geral, mantém os itens próprios e não expõe dados sensíveis', async () => {
   tableAccountRepository.findSnapshotData = async (sessionId, restaurantId, participantId) => {
     assert.deepEqual([sessionId, restaurantId, participantId], [55, 7, 80]);
     return {
@@ -147,11 +147,11 @@ test('monta a conta com centavos exatos, ignora cancelados e não expõe dados d
   assert.deepEqual(result.capabilities, {
     enabled: true,
     allowCash: true,
-    allowCardMachine: true,
+    allowCardMachine: false,
     allowOnlinePayment: false,
     allowPix: false,
     allowCard: false,
-    allowSplit: true,
+    allowSplit: false,
     serviceFeeMode: 'OPTIONAL',
     serviceFeeBasisPoints: 1_000,
     reservationTimeoutMinutes: 10,
@@ -175,9 +175,22 @@ test('monta a conta com centavos exatos, ignora cancelados e não expõe dados d
   assert.equal(result.items[2].financialStatus, 'REFUNDED');
   assert.equal(result.items[5].orderStatus, 'CANCELED');
   assert.equal(result.items[5].orderedByDisplayName, 'Cliente da mesa');
-  assert.equal(result.participants.length, 1);
+  assert.equal(result.participants.length, 2);
   assert.equal(result.participants[0].publicId, currentParticipantPublicId);
   assert.equal(result.participants[0].leftAt, null);
+  assert.equal(result.participants[1].status, 'LEFT');
+  assert.equal(result.participantAccounts?.length, 2);
+  assert.deepEqual(result.participantAccounts?.[0], {
+    publicId: currentParticipantPublicId,
+    displayName: 'Samuel',
+    status: 'ACTIVE',
+    consumedCents: 1_750,
+    paidCents: 250,
+    reservedCents: 300,
+    processingCents: 200,
+    remainingCents: 1_500,
+  });
+  assert.equal(result.participantAccounts?.[1].remainingCents, 0);
 
   const publicPayload = JSON.stringify(result);
   assert.doesNotMatch(publicPayload, /paymentMethod|customerCpf|privado@example\.com|85999999999/);
@@ -327,10 +340,13 @@ test('não conta convidado expirado como acesso ativo e preserva o registro no h
     participantPublicId: currentParticipantPublicId,
   });
 
-  assert.equal(result.summary.participantsCount, 1);
-  assert.equal(result.participants.length, 1);
+  assert.equal(result.summary.participantsCount, 2);
+  assert.equal(result.participants.length, 3);
   assert.equal(result.participants[0].status, 'ACTIVE');
   assert.equal(result.participants[0].displayName, 'Convidado atual');
+  assert.equal(result.participants[1].status, 'LEFT');
+  assert.equal(result.participants[2].status, 'ACTIVE');
+  assert.equal(result.participantAccounts?.length, 3);
 });
 
 test('rejeita identificadores inválidos antes de consultar o repositório', async () => {
