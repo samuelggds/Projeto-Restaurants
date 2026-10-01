@@ -791,7 +791,10 @@ export function FigmaDeliveryExperience({
             enableProductQuantity
             embedded
             customerPageVariant
-            onClose={() => setSelectedProduct(null)}
+            onClose={() => {
+              setSelectedProduct(null);
+              pendingCartFlyOriginRef.current = null;
+            }}
             onConfirm={(configuration, quantity) => {
               const product = selectedProduct;
               const origin =
@@ -1055,7 +1058,10 @@ export function FigmaDeliveryExperience({
           <ComboConfigurator
             product={selectedCombo}
             primaryColor={primary}
-            onClose={() => setSelectedCombo(null)}
+            onClose={() => {
+              setSelectedCombo(null);
+              pendingCartFlyOriginRef.current = null;
+            }}
             onConfirm={(configuration) => {
               const product = selectedCombo;
               const origin =
