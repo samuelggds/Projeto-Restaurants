@@ -760,8 +760,7 @@ export default function TableMenuExperience({
               <Eye size={15} aria-hidden="true" />
               Acompanhar em tempo real
             </S.PrimaryAction>
-            {currentParticipantAccount(accountSnapshot)?.remainingCents &&
-            accountSnapshot?.capabilities.allowPix ? (
+            {confirmation.total > 0 ? (
               <S.SecondaryAction
                 className="pix-action"
                 type="button"
