@@ -436,6 +436,10 @@ async function openConfigurator(page: Page, path = '/restaurante-teste') {
 async function openCartAfterAddition(page: Page) {
   const checkout = page.getByRole('dialog', { name: 'Finalizar pedido' });
   await expect(checkout).toBeHidden();
+
+  const flyPreview = page.locator('[data-cart-fly-preview]');
+  await expect(flyPreview).toBeVisible();
+
   const cartButton = page.getByRole('button', { name: /Meu Carrinho, [1-9]\d* (?:item|itens)/ });
   await expect(cartButton).toBeVisible();
   await cartButton.click();
