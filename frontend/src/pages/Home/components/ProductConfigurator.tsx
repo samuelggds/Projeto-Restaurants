@@ -115,7 +115,7 @@ export function ProductConfigurator({
   ).length;
   const portionsReady = !portionConfiguration || portions.every((portion) => portion.optionId);
   const halfHalfVariant = Boolean(
-    customerPageVariant &&
+    (customerPageVariant || tableMenuVariant) &&
       product.pricingMode === 'HIGHEST_OPTION' &&
       portionConfiguration &&
       portionGroup &&
@@ -129,7 +129,7 @@ export function ProductConfigurator({
       group.options.some((option) => option.referenceProductId),
   );
   const regularHalfHalfVariant = Boolean(
-    customerPageVariant &&
+    (customerPageVariant || tableMenuVariant) &&
       !portionConfiguration &&
       product.pricingMode === 'HIGHEST_OPTION' &&
       regularHalfHalfGroups.length === 2,
@@ -204,9 +204,10 @@ export function ProductConfigurator({
 
   const configurator = (
     <S.Page
-      $primary={primaryColor}
+      $primary={tableMenuVariant ? '#FF4B4B' : primaryColor}
       $embedded={embedded}
       $customerPageVariant={customerPageVariant}
+      $tableMenuVariant={tableMenuVariant}
       role="dialog"
       aria-modal="true"
       aria-label={`Montar ${product.name}`}
@@ -391,7 +392,10 @@ export function ProductConfigurator({
                     <section className="half-section" key={`half-${index}`}>
                       <header>
                         <h3>{index + 1}ª Metade</h3>
-                        <S.PortionStatus $selected={Boolean(selectedOption)}>
+                        <S.PortionStatus
+                          className="half-status"
+                          $selected={Boolean(selectedOption)}
+                        >
                           {selectedOption ? '✓ Selecionado' : 'Obrigatório'}
                         </S.PortionStatus>
                       </header>
@@ -574,7 +578,10 @@ export function ProductConfigurator({
                     {group.description && <p>{group.description}</p>}
                   </div>
                   {regularHalfHalfVariant && regularHalfHalfIds.has(group.id) ? (
-                    <S.PortionStatus $selected={selected.length > 0}>
+                    <S.PortionStatus
+                      className="half-status"
+                      $selected={selected.length > 0}
+                    >
                       {selected.length > 0 ? '✓ Selecionado' : 'Obrigatório'}
                     </S.PortionStatus>
                   ) : (
