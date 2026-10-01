@@ -13,9 +13,10 @@ import QRCode from 'react-qr-code';
 import type { HomeData, HomeProduct } from '../Home/types';
 import type { CartItem } from '../Home/hooks/useCart';
 import type { ProductConfiguration } from '../Home/domain/productCustomization';
-import type {
-  TableAccountSnapshot,
-  TablePaymentIntent,
+import {
+  currentParticipantAccount,
+  type TableAccountSnapshot,
+  type TablePaymentIntent,
 } from '../Home/domain/tableAccount';
 import type { TableOrderNotice } from '../Home/domain/tableOrderNotice';
 import {
@@ -498,9 +499,7 @@ export default function TableMenuExperience({
   if (effectiveView === 'payment' && confirmation) {
     const allowPix = accountSnapshot?.capabilities.allowPix === true;
     const allowCash = accountSnapshot?.capabilities.allowCash === true;
-    const ownAccount = accountSnapshot?.participantAccounts?.find(
-      (participant) => participant.publicId === accountSnapshot.currentParticipantPublicId,
-    );
+    const ownAccount = currentParticipantAccount(accountSnapshot);
     const ownRemainingCents = ownAccount?.remainingCents || 0;
     return (
       <S.FigmaShell $primary={primary} $fontFamily={data.fontFamily}>
@@ -592,6 +591,26 @@ export default function TableMenuExperience({
   }
 
   if (effectiveView === 'tracking') {
+    const ownAccount = currentParticipantAccount(accountSnapshot);
+    const ownPaymentPending = Boolean(
+      accountSnapshot?.activePayment &&
+        ['RESERVED', 'PROCESSING'].includes(accountSnapshot.activePayment.status),
+    );
+    const canPayOwnAccount = Boolean(ownAccount && ownAccount.remainingCents > 0);
+
+    const openOwnPayment = () => {
+      if (accountSnapshot?.activePayment) {
+        setPixPayment(accountSnapshot.activePayment);
+        setView('pix');
+        return;
+      }
+      if (confirmation) {
+        setView('payment');
+        return;
+      }
+      onViewAccount();
+    };
+
     return (
       <S.FigmaShell $primary={primary} $fontFamily={data.fontFamily}>
         <FlowHeader
@@ -668,6 +687,12 @@ export default function TableMenuExperience({
                 </div>
               ) : null}
 
+              {canPayOwnAccount ? (
+                <S.SecondaryAction type="button" onClick={openOwnPayment}>
+                  {ownPaymentPending ? 'Ver pagamento' : 'Pagar minha conta'}
+                </S.SecondaryAction>
+              ) : null}
+
               {waiterCallEnabled ? (
                 <S.PrimaryAction type="button" onClick={onCallWaiter}>
                   <Bell size={17} /> Chamar garçom para mesa
@@ -729,9 +754,7 @@ export default function TableMenuExperience({
             <S.PrimaryAction type="button" onClick={() => setView('tracking')}>
               Acompanhar em tempo real
             </S.PrimaryAction>
-            {accountSnapshot?.participantAccounts?.find(
-              (participant) => participant.publicId === accountSnapshot.currentParticipantPublicId,
-            )?.remainingCents ? (
+            {currentParticipantAccount(accountSnapshot)?.remainingCents ? (
               <S.SecondaryAction type="button" onClick={() => setView('payment')}>
                 Pagar minha conta
               </S.SecondaryAction>

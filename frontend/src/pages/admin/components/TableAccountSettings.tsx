@@ -33,6 +33,16 @@ type AdminSession = {
 };
 
 type AccountDetail = {
+  participantAccounts?: Array<{
+    publicId: string;
+    displayName: string | null;
+    status: 'ACTIVE' | 'LEFT';
+    consumedCents: number;
+    paidCents: number;
+    reservedCents: number;
+    processingCents: number;
+    remainingCents: number;
+  }>;
   items: Array<{
     publicId: string;
     productName: string;
@@ -530,6 +540,31 @@ export function TableAccountSettings({ settings, update }: Props) {
                 </div>
                 {detail && (
                   <S.Detail>
+                    <div className="detail-section">
+                      <h5>Contas por cliente</h5>
+                      {(detail.participantAccounts || []).map((participant) => (
+                        <div className="item" key={participant.publicId}>
+                          <div>
+                            <b>{participant.displayName || 'Cliente da mesa'}</b>
+                            <span>
+                              {' '}· {participant.remainingCents === 0 && participant.consumedCents > 0
+                                ? 'PAGO'
+                                : participant.processingCents > 0 || participant.reservedCents > 0
+                                  ? 'EM PAGAMENTO'
+                                  : 'PENDENTE'}
+                            </span>
+                          </div>
+                          <div>
+                            Consumiu {money(participant.consumedCents)} · Pago{' '}
+                            {money(participant.paidCents)} · Falta{' '}
+                            {money(participant.remainingCents)}
+                          </div>
+                        </div>
+                      ))}
+                      {!detail.participantAccounts?.length && (
+                        <S.Empty>Nenhum participante com consumo registrado.</S.Empty>
+                      )}
+                    </div>
                     <div className="detail-section">
                       <h5>Itens da conta</h5>
                       {detail.items.map((item) => (

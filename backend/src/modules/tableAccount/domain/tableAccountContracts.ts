@@ -266,5 +266,6 @@ export interface TableAccountSnapshotDto extends TableAccountBaseSnapshotDto {
 }
 
 export interface TableAccountAdminSnapshotDto extends TableAccountBaseSnapshotDto {
+  participantAccounts: TableParticipantAccountSummaryDto[];
   paymentIntents: TablePaymentIntentAdminDto[];
 }

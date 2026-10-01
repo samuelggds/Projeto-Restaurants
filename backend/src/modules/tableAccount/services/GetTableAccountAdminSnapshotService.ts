@@ -8,7 +8,10 @@ import { canViewTableAccountFinancialHistory } from '../domain/tableAccountRules
 import tableAccountRepository from '../repositories/TableAccountRepository.js';
 import { serializeTablePaymentIntentForAdmin, TablePaymentError } from './tablePaymentSupport.js';
 import { expireTablePaymentReservations, lockTablePaymentSession } from './tablePaymentLedger.js';
-import { buildTableAccountBaseSnapshot } from './GetCurrentTableAccountService.js';
+import {
+  buildParticipantAccountSummaries,
+  buildTableAccountBaseSnapshot,
+} from './GetCurrentTableAccountService.js';
 import { tableAccountEvents } from '../realtime/tableAccountEvents.js';
 
 export class GetTableAccountAdminSnapshotService {
@@ -79,6 +82,7 @@ export class GetTableAccountAdminSnapshotService {
 
     return {
       ...buildTableAccountBaseSnapshot(data, now),
+      participantAccounts: buildParticipantAccountSummaries(data, now),
       paymentIntents: data.paymentIntents.map((payment) =>
         serializeTablePaymentIntentForAdmin(payment, data.publicId),
       ),

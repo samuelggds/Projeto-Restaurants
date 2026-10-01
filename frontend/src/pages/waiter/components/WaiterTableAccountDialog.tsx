@@ -221,19 +221,39 @@ export function WaiterTableAccountDialog({
               <S.AccountPayments>
                 <header>
                   <div>
-                    <h3>Participantes</h3>
-                    <p>Identificação de clientes cadastrados e visitantes.</p>
+                    <h3>Contas por cliente</h3>
+                    <p>Veja rapidamente quem já pagou e quem ainda possui saldo.</p>
                   </div>
                 </header>
-                {snapshot.participants.filter((participant) => participant.status === 'ACTIVE').map((participant) => (
-                  <S.PaymentRow key={participant.publicId} $status="PAID">
-                    <span className="method-icon" aria-hidden="true"><CheckCircle2 /></span>
-                    <span className="payment-info">
-                      <b>{participant.displayName || 'Cliente da mesa'}</b>
-                      <small>{participant.authenticated ? 'Cliente cadastrado' : 'Visitante'}</small>
-                    </span>
-                  </S.PaymentRow>
-                ))}
+                {(snapshot.participantAccounts || []).map((participant) => {
+                  const paid = participant.consumedCents > 0 && participant.remainingCents === 0;
+                  const processing =
+                    participant.processingCents > 0 || participant.reservedCents > 0;
+                  return (
+                    <S.PaymentRow
+                      key={participant.publicId}
+                      $status={paid ? 'PAID' : processing ? 'PROCESSING' : 'RESERVED'}
+                    >
+                      <span className="method-icon" aria-hidden="true">
+                        {paid ? <CheckCircle2 /> : <Clock3 />}
+                      </span>
+                      <span className="payment-info">
+                        <b>{participant.displayName || 'Cliente da mesa'}</b>
+                        <small>
+                          Consumiu {brl(participant.consumedCents / 100)} · Pago{' '}
+                          {brl(participant.paidCents / 100)}
+                        </small>
+                      </span>
+                      <span className="payment-value">
+                        <b>{brl(participant.remainingCents / 100)}</b>
+                        <em>{paid ? 'Pago' : processing ? 'Em pagamento' : 'Pendente'}</em>
+                      </span>
+                    </S.PaymentRow>
+                  );
+                })}
+                {!snapshot.participantAccounts?.length && (
+                  <S.AccountEmpty>Nenhum participante com consumo registrado.</S.AccountEmpty>
+                )}
               </S.AccountPayments>
               {snapshot.summary.processingCents > 0 && (
                 <S.ProcessingNotice>

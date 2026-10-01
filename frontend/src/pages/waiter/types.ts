@@ -59,6 +59,16 @@ export interface WaiterTableAccountSnapshot {
     authenticated: boolean;
     status: 'ACTIVE' | 'LEFT';
   }>;
+  participantAccounts?: Array<{
+    publicId: string;
+    displayName: string | null;
+    status: 'ACTIVE' | 'LEFT';
+    consumedCents: number;
+    paidCents: number;
+    reservedCents: number;
+    processingCents: number;
+    remainingCents: number;
+  }>;
   items: Array<{
     publicId: string;
     productName: string;

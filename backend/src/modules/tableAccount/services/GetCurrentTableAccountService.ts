@@ -187,7 +187,7 @@ export function buildTableAccountBaseSnapshot(
   };
 }
 
-function buildParticipantAccountSummaries(
+export function buildParticipantAccountSummaries(
   data: TableAccountSnapshotRecord,
   now: Date,
 ) {
