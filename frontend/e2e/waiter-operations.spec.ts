@@ -36,7 +36,8 @@ type WaiterE2EState = {
   joinRequests: number;
   deliveredOrders: number[];
   manualPaymentPending: boolean;
-  confirmedManualPayments: string[];
+  manualPaymentStaffRegistered: boolean;
+  registeredCashPayments: string[];
   callUpdates: Array<{ id: number; status: CallStatus }>;
   calls: WaiterCall[];
 };
@@ -97,7 +98,8 @@ function initialState(): WaiterE2EState {
     joinRequests: 0,
     deliveredOrders: [],
     manualPaymentPending: true,
-    confirmedManualPayments: [],
+    manualPaymentStaffRegistered: false,
+    registeredCashPayments: [],
     callUpdates: [],
     calls: [
       {
@@ -730,7 +732,7 @@ test('garçom consulta visão geral, filtra entregas e atende chamados persistid
   await expect(metric(page, 'Atendidos hoje').getByText('2', { exact: true })).toBeVisible();
 });
 
-test('garçom confere e confirma pagamento presencial pelo ledger', async ({ page }) => {
+test('garçom registra dinheiro recebido e mantém pagamento aguardando admin', async ({ page }) => {
   const state = initialState();
   await mockWaiterAndTableApi(page, state);
   await page.goto('/waiter');
@@ -744,14 +746,15 @@ test('garçom confere e confirma pagamento presencial pelo ledger', async ({ pag
   await expect(page.getByText('R$ 42,00').first()).toBeVisible();
   await captureReadmeScreenshot(page, 'waiter-payments.png', { fullPage: true });
 
-  await page.getByRole('button', { name: /Confirmar Dinheiro.*Mesa 12/ }).click();
-  const confirmation = page.getByRole('dialog', { name: 'Confirmar pagamento recebido?' });
+  await page.getByRole('button', { name: /Registrar dinheiro.*Mesa 12/ }).click();
+  const confirmation = page.getByRole('dialog', { name: 'Registrar dinheiro recebido?' });
   await expect(confirmation).toContainText('Mesa 12');
   await expect(confirmation).toContainText('R$ 42,00');
-  await confirmation.getByRole('button', { name: 'Confirmar recebimento' }).click();
+  await confirmation.getByRole('button', { name: 'Registrar recebimento' }).click();
 
-  await expect.poll(() => state.confirmedManualPayments).toEqual([MANUAL_PAYMENT_PUBLIC_ID]);
-  await expect(page.getByText('Nenhum pagamento presencial aguarda confirmação.')).toBeVisible();
+  await expect.poll(() => state.registeredCashPayments).toEqual([MANUAL_PAYMENT_PUBLIC_ID]);
+  await expect(page.getByText('Aguardando admin').first()).toBeVisible();
+  await expect(page.getByRole('button', { name: /Registrar dinheiro.*Mesa 12/ })).toHaveCount(0);
 });
 
 test('QR sem PIN só libera pedidos com mesa aberta e fechamento respeita pendências', async ({

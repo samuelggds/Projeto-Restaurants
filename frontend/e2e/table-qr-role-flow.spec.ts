@@ -226,11 +226,11 @@ function tableAccountSnapshot(state: FlowState) {
     capabilities: {
       enabled: true,
       allowCash: true,
-      allowCardMachine: true,
+      allowCardMachine: false,
       allowOnlinePayment: true,
       allowPix: true,
-      allowCard: true,
-      allowSplit: true,
+      allowCard: false,
+      allowSplit: false,
       serviceFeeMode: 'OPTIONAL',
       serviceFeeBasisPoints: 1_000,
       reservationTimeoutMinutes: 10,
@@ -246,7 +246,7 @@ function tableAccountSnapshot(state: FlowState) {
       netPaidCents: paid ? 2_800 : 0,
       reservedCents: 0,
       processingCents: processing ? 2_800 : 0,
-      remainingCents: hasItem && !processing && !paid ? 2_800 : 0,
+      remainingCents: hasItem && !paid ? 2_800 : 0,
       overpaidCents: 0,
       participantsCount: 1,
     },
@@ -784,7 +784,7 @@ test('cliente pode pagar agora com PIX ou acompanhar para pagar depois', async (
   expect(state.tablePaymentPayload).toBeNull();
 
   await expect(page.getByRole('heading', { name: 'Pedido Enviado!' })).toBeVisible();
-  const payButton = page.getByRole('button', { name: 'Pagar agora no PIX', exact: true });
+  const payButton = page.getByRole('button', { name: 'Pagar minha conta', exact: true });
   await expect(payButton).toBeVisible();
   for (const width of [320, 390, 1280]) {
     await page.setViewportSize({ width, height: 844 });
@@ -802,7 +802,7 @@ test('cliente pode pagar agora com PIX ou acompanhar para pagar depois', async (
 
   await expect.poll(() => state.tablePaymentPayload).not.toBeNull();
   expect(state.tablePaymentPayload).toMatchObject({
-    selectionMode: 'SELECTED_ITEMS',
+    selectionMode: 'MY_ITEMS',
     method: 'PIX',
     includeOptionalServiceFee: false,
   });
