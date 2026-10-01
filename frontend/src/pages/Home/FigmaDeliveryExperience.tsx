@@ -20,6 +20,7 @@ import {
 } from './components/SocialBrandIcons';
 import { PromotionCarousel } from './components/PromotionCarousel';
 import { CustomerDesktopFooter } from './components/CustomerDesktopFooter';
+import { ReadyProductDetail } from './components/ReadyProductDetail';
 import { FloatingWhatsAppPortal } from './Home.whatsapp';
 import { WhatsAppIcon } from './components/SocialBrandIcons';
 import { buildSocialProfileUrl } from './domain/publicSettings';
@@ -331,6 +332,7 @@ export function FigmaDeliveryExperience({
   const primary = data.brand.primaryColor || '#e85a2b';
   const deliveryTimeLabel = formatDeliveryTime(data.deliveryTime);
   const [selectedProduct, setSelectedProduct] = useState<HomeProduct | null>(null);
+  const [selectedReadyProduct, setSelectedReadyProduct] = useState<HomeProduct | null>(null);
   const [selectedCombo, setSelectedCombo] = useState<HomeProduct | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchFocused, setSearchFocused] = useState(Boolean(initialSearchOpen));
@@ -587,9 +589,7 @@ export function FigmaDeliveryExperience({
     }
 
     if (entryKind === 'READY') {
-      onAddProduct?.(product.id, createReadyProductConfiguration(product.configurationVersion), 1);
-      flyProduct(product, pendingCartFlyOriginRef.current, sourceElement);
-      pendingCartFlyOriginRef.current = null;
+      setSelectedReadyProduct(product);
       return;
     }
 
@@ -1052,6 +1052,48 @@ export function FigmaDeliveryExperience({
         onMenu={openFullMenu}
       />
 
+
+      {selectedReadyProduct ? (
+        <ReadyProductDetail
+          product={selectedReadyProduct}
+          restaurantName={data.brand.name}
+          restaurantCategory={data.brand.category}
+          categoryName={
+            categories.find((category) => category.id === selectedReadyProduct.categoryId)?.name
+          }
+          preparationTime={data.deliveryTime}
+          cartCount={cartCount}
+          onBack={() => {
+            setSelectedReadyProduct(null);
+            pendingCartFlyOriginRef.current = null;
+          }}
+          onOpenCart={
+            onOpenCart
+              ? () => {
+                  setSelectedReadyProduct(null);
+                  pendingCartFlyOriginRef.current = null;
+                  onOpenCart();
+                }
+              : undefined
+          }
+          onConfirm={({ quantity, observation, sourceElement }) => {
+            const product = selectedReadyProduct;
+            const origin =
+              captureCartFlyOrigin(sourceElement) || pendingCartFlyOriginRef.current;
+            onAddProduct?.(
+              product.id,
+              {
+                ...createReadyProductConfiguration(product.configurationVersion),
+                observation,
+              },
+              quantity,
+            );
+            setSelectedReadyProduct(null);
+            pendingCartFlyOriginRef.current = null;
+            flyProduct(product, origin);
+          }}
+        />
+      ) : null}
 
       {selectedCombo ? (
         <Suspense fallback={null}>
