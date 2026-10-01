@@ -811,6 +811,7 @@ test('cliente pode pagar agora com PIX ou acompanhar para pagar depois', async (
   expect(state.tablePaymentPayload).toBeNull();
 
   await expect(page.getByRole('heading', { name: 'Pedido Enviado!' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Voltar' })).toBeVisible();
 
   const completedStep = page.locator('.confirmation-step.completed').filter({ hasText: 'Pedido recebido' });
   const currentStep = page.locator('.confirmation-step.current').filter({ hasText: 'Em preparo' });
@@ -819,6 +820,9 @@ test('cliente pode pagar agora com PIX ou acompanhar para pagar depois', async (
   await expect(completedStep.getByText('Concluído', { exact: true })).toBeVisible();
   await expect(currentStep.getByText('Iniciado agora', { exact: true })).toBeVisible();
   await expect(pendingStep).toBeVisible();
+  await expect
+    .poll(() => pendingStep.evaluate((element) => getComputedStyle(element).opacity))
+    .toBe('0.72');
 
   await expect.poll(() => completedStep.locator('.dot').evaluate((element) => getComputedStyle(element).backgroundColor)).toBe('rgb(16, 185, 129)');
   await expect.poll(() => currentStep.locator('.dot').evaluate((element) => getComputedStyle(element).backgroundColor)).toBe('rgb(255, 75, 75)');
