@@ -70,6 +70,19 @@ class GetPublicMediaController {
     }
   }
 
+  async category(req: Request, res: Response) {
+    try {
+      return sendMedia(
+        res,
+        await getPublicMediaService.categoryImage(req.params.restaurantId, req.params.categoryId),
+      );
+    } catch (error: unknown) {
+      return res.status(errorStatus(error)).json({
+        error: error instanceof Error ? error.message : 'Imagem não encontrada.',
+      });
+    }
+  }
+
   async product(req: Request, res: Response) {
     try {
       return sendMedia(

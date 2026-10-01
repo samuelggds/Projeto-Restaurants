@@ -21,9 +21,19 @@ export function resolvePublicProductImages(products: unknown, baseUrl: unknown) 
   return products.map((product) => {
     if (!product || typeof product !== 'object') return product;
     const record = product as Record<string, unknown>;
+    const category =
+      record.category && typeof record.category === 'object'
+        ? (record.category as Record<string, unknown>)
+        : null;
     return {
       ...record,
       image: resolvePublicMediaSource(record.image, baseUrl),
+      category: category
+        ? {
+            ...category,
+            image: resolvePublicMediaSource(category.image, baseUrl),
+          }
+        : record.category,
       optionGroups: Array.isArray(record.optionGroups)
         ? record.optionGroups.map((group) => {
             if (!group || typeof group !== 'object') return group;

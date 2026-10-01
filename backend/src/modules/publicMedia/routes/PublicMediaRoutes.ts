@@ -17,6 +17,11 @@ router.get(
   (req, res) => GetPublicMediaController.banner(req, res),
 );
 router.get(
+  '/restaurants/:restaurantId/categories/:categoryId',
+  publicRestaurantBillingMiddleware,
+  (req, res) => GetPublicMediaController.category(req, res),
+);
+router.get(
   '/restaurants/:restaurantId/products/:productId',
   publicRestaurantBillingMiddleware,
   (req, res) => GetPublicMediaController.product(req, res),

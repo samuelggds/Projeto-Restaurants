@@ -24,7 +24,7 @@ import { FloatingWhatsAppPortal } from './Home.whatsapp';
 import { WhatsAppIcon } from './components/SocialBrandIcons';
 import { buildSocialProfileUrl } from './domain/publicSettings';
 import { createReadyProductConfiguration, resolveProductEntryKind } from './domain/productEntryFlow';
-import type { HomeExperienceProps, HomeProduct } from './types';
+import type { HomeCategory, HomeExperienceProps, HomeProduct } from './types';
 import * as S from './FigmaDeliveryExperience.styles';
 
 const ProductConfigurator = lazy(() =>
@@ -60,6 +60,16 @@ function formatDeliveryTime(value?: string) {
 
 function productImage(product: HomeProduct) {
   return product.image ? <img src={product.image} alt={product.name} loading="lazy" decoding="async" /> : <UtensilsCrossed />;
+}
+
+export function resolveComboCategoryImage(
+  categories: HomeCategory[],
+  combos: HomeProduct[],
+) {
+  const comboCategory = categories.find(
+    (category) => category.name.trim().toLocaleLowerCase('pt-BR') === 'combos',
+  );
+  return comboCategory?.image || combos[0]?.image || '';
 }
 
 function categoryImage(image: string, name: string) {
@@ -380,6 +390,10 @@ export function FigmaDeliveryExperience({
   const combos = useMemo(
     () => availableProducts.filter((product) => product.kind === 'COMBO'),
     [availableProducts],
+  );
+  const comboCategoryImage = useMemo(
+    () => resolveComboCategoryImage(categories, combos),
+    [categories, combos],
   );
   const categoryCarousels = useMemo(
     () =>
@@ -840,7 +854,7 @@ export function FigmaDeliveryExperience({
                     }}
                   >
                     <span className="image">
-                      {combos[0]?.image ? categoryImage(combos[0].image, 'Combos') : <UtensilsCrossed aria-hidden="true" />}
+                      {comboCategoryImage ? categoryImage(comboCategoryImage, 'Combos') : <UtensilsCrossed aria-hidden="true" />}
                     </span>
                     <b>Combos</b>
                   </button>

@@ -33,6 +33,13 @@ class GetPublicMediaService {
     return requireSource(banner?.image, banner?.updatedAt);
   }
 
+  async categoryImage(restaurantIdInput: unknown, categoryIdInput: unknown): Promise<PublicMedia> {
+    const restaurantId = positiveInteger(restaurantIdInput, 'Restaurante');
+    const categoryId = positiveInteger(categoryIdInput, 'Categoria');
+    const category = await publicMediaRepository.findCategoryImage(restaurantId, categoryId);
+    return requireSource(category?.image, category?.updatedAt);
+  }
+
   async productImage(restaurantIdInput: unknown, productIdInput: unknown): Promise<PublicMedia> {
     const restaurantId = positiveInteger(restaurantIdInput, 'Restaurante');
     const productId = positiveInteger(productIdInput, 'Produto');

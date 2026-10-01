@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import menuService from '../../../Services/menuService';
 import restaurantSettingsService from '../../../Services/restaurantSettingsService';
 import {
+  PUBLIC_CATALOG_REFRESH_INTERVAL_MS,
   PUBLIC_SETTINGS_REFRESH_INTERVAL_MS,
   useDefaultRestaurantId,
   useRestaurantCatalog,
@@ -33,6 +34,12 @@ function Probe() {
   const onError = useCallback(() => undefined, []);
   const { settings } = useRestaurantCatalog({ restaurantId: 7, slug: '', onError });
   return <output>{String(settings?.isOpenForOrders ?? 'carregando')}</output>;
+}
+
+function CatalogProbe() {
+  const onError = useCallback(() => undefined, []);
+  const { products } = useRestaurantCatalog({ restaurantId: 7, slug: '', onError });
+  return <output>{String(products[0]?.image ?? 'vazio')}</output>;
 }
 
 function DefaultRestaurantProbe({ enabled = true }: { enabled?: boolean }) {
@@ -112,6 +119,24 @@ describe('useRestaurantCatalog settings refresh', () => {
     });
     expect(restaurantSettingsService.getPublicSettings).toHaveBeenCalledTimes(2);
     expect(container.textContent).toBe('false');
+  });
+
+  it('atualiza produtos e fotos do catálogo enquanto a Home está aberta', async () => {
+    vi.spyOn(document, 'visibilityState', 'get').mockReturnValue('visible');
+    vi.mocked(menuService.listProducts)
+      .mockResolvedValueOnce([{ id: 1, image: 'imagem-antiga' }])
+      .mockResolvedValueOnce([{ id: 1, image: 'imagem-nova' }]);
+
+    await act(async () => root.render(<CatalogProbe />));
+    expect(container.textContent).toBe('imagem-antiga');
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(PUBLIC_CATALOG_REFRESH_INTERVAL_MS);
+    });
+
+    expect(container.textContent).toBe('imagem-nova');
+    expect(menuService.listProducts).toHaveBeenNthCalledWith(1, 7);
+    expect(menuService.listProducts).toHaveBeenNthCalledWith(2, 7);
   });
 
   it('resolve e memoriza o restaurante padrão para uma visita anônima à raiz', async () => {

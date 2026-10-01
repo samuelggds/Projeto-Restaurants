@@ -4,6 +4,7 @@ import restaurantSettingsService from '../../../Services/restaurantSettingsServi
 import { toPositiveInteger } from '../domain/productAvailability';
 
 export const PUBLIC_SETTINGS_REFRESH_INTERVAL_MS = 30_000;
+export const PUBLIC_CATALOG_REFRESH_INTERVAL_MS = 30_000;
 
 export function useDefaultRestaurantId(enabled: boolean) {
   const [restaurantId, setRestaurantId] = useState<number | null>(null);
@@ -128,17 +129,46 @@ export function useRestaurantCatalog({ restaurantId, slug, onError }: CatalogOpt
   useEffect(() => {
     if (!restaurantId) return;
     let active = true;
+    let loading = false;
+    let initialized = false;
     localStorage.setItem('menuRestaurantId', String(restaurantId));
-    const request = slug
-      ? menuService.listProductsBySlug(slug)
-      : menuService.listProducts(restaurantId);
-    request
-      .then((data) => {
-        if (active) setProducts(Array.isArray(data) ? (data as Record<string, unknown>[]) : []);
-      })
-      .catch((error) => onError(error?.response?.data?.error));
+
+    const refreshProducts = async (initial = false) => {
+      if (loading) return;
+      loading = true;
+      try {
+        const data = slug
+          ? await menuService.listProductsBySlug(slug)
+          : await menuService.listProducts(restaurantId);
+        if (!active) return;
+        setProducts(Array.isArray(data) ? (data as Record<string, unknown>[]) : []);
+        initialized = true;
+      } catch (error) {
+        if (initial && !initialized && active) {
+          onError(
+            (error as { response?: { data?: { error?: string } } })?.response?.data?.error,
+          );
+        }
+      } finally {
+        loading = false;
+      }
+    };
+
+    const refreshWhileVisible = () => {
+      if (document.visibilityState !== 'hidden') void refreshProducts();
+    };
+
+    void refreshProducts(true);
+    const intervalId = window.setInterval(
+      refreshWhileVisible,
+      PUBLIC_CATALOG_REFRESH_INTERVAL_MS,
+    );
+    document.addEventListener('visibilitychange', refreshWhileVisible);
+
     return () => {
       active = false;
+      window.clearInterval(intervalId);
+      document.removeEventListener('visibilitychange', refreshWhileVisible);
     };
   }, [restaurantId, slug, onError]);
 
