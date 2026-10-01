@@ -13,6 +13,10 @@ export const HomeRoot = styled.div`
   font-family: 'Inter', system-ui, sans-serif;
   animation: table-home-enter 360ms cubic-bezier(.22, 1, .36, 1) both;
 
+  button {
+    --primary: #ff4b4b;
+  }
+
   @keyframes table-home-enter {
     from {
       opacity: 0;
