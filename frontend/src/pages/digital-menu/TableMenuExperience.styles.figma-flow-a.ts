@@ -364,7 +364,7 @@ export const CouponRow = styled.div`
     padding: 0 16px;
     border: 0;
     border-radius: 4px;
-    background: #1a1a2e;
+    background: #ff4b4b;
     color: #fff;
     font-size: 12px;
     line-height: 15px;
@@ -512,10 +512,10 @@ export const SecondaryAction = styled.button`
   width: 100%;
   min-height: 50px;
   padding: 0 18px;
-  border: 1px solid var(--line);
+  border: 1px solid #ff4b4b;
   border-radius: 16px;
   background: #fff;
-  color: var(--text);
+  color: #ff4b4b;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1091,10 +1091,10 @@ export const ConfirmationActions = styled.div`
   .pix-action {
     min-height: 48px;
     padding: 14px 16px;
-    border: 1px solid #eaeae6;
+    border: 1px solid #ff4b4b;
     border-radius: 6px;
     background: #fff;
-    color: #1a1a2e;
+    color: #ff4b4b;
     font-size: 14px;
     font-weight: 700;
   }
@@ -1102,7 +1102,7 @@ export const ConfirmationActions = styled.div`
   .pix-action svg {
     width: 20px;
     height: 20px;
-    color: #77b6a8;
+    color: #ff4b4b;
     flex: 0 0 20px;
   }
 
@@ -1329,7 +1329,7 @@ export const TrackingPixAction = styled.button`
   padding: 12px 20px;
   border: 0;
   border-radius: 6px;
-  background: #32bcad;
+  background: #ff4b4b;
   color: #fff;
   display: flex;
   align-items: center;
@@ -1348,15 +1348,17 @@ export const TrackingPixAction = styled.button`
   }
 
   &:hover:not(:disabled) {
-    background: #2aa89b;
+    background: #ff4b4b;
+    filter: brightness(.96);
   }
 
   &:active:not(:disabled) {
-    background: #23988d;
+    background: #ff4b4b;
+    filter: brightness(.92);
   }
 
   &:focus-visible {
-    outline: 3px solid rgba(50, 188, 173, .28);
+    outline: 3px solid rgba(255, 75, 75, .28);
     outline-offset: 2px;
   }
 
