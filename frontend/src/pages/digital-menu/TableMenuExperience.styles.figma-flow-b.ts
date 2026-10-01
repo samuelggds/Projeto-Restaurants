@@ -585,3 +585,292 @@ export const PaidReceipt = styled(FlowCard)`
 export const PaymentSuccessSide = styled(FlowCard)`
   display: none;
 `;
+
+
+export const CashPendingLayout = styled.div`
+  width: min(560px, 100%);
+  margin: 24px auto 0;
+  display: grid;
+  gap: 16px;
+
+  @media (max-width: 759px) {
+    margin-top: 0;
+  }
+`;
+
+export const CashPendingHero = styled.section`
+  display: grid;
+  justify-items: center;
+  gap: 12px;
+  padding: 18px 8px 4px;
+  text-align: center;
+
+  h1 {
+    max-width: 460px;
+    margin: 0;
+    color: var(--text);
+    font-size: 30px;
+    line-height: 1.08;
+    font-weight: 500;
+  }
+
+  p {
+    max-width: 430px;
+    margin: 0;
+    color: var(--muted);
+    font-size: 13px;
+    line-height: 1.5;
+  }
+
+  @media (max-width: 759px) {
+    padding-top: 6px;
+
+    h1 {
+      max-width: 310px;
+      font-size: 25px;
+      line-height: 1.1;
+    }
+
+    p {
+      max-width: 320px;
+      font-size: 12px;
+    }
+  }
+`;
+
+export const CashMoneyMark = styled.span`
+  width: 76px;
+  height: 76px;
+  margin-bottom: 6px;
+  border-radius: 50%;
+  background: #fff1f1;
+  display: grid;
+  place-items: center;
+
+  > span {
+    position: relative;
+    width: 43px;
+    height: 28px;
+    border: 2px solid #fff;
+    border-radius: 6px;
+    background: #ff4b4b;
+    color: #fff;
+    display: grid;
+    place-items: center;
+    font-size: 13px;
+    line-height: 1;
+    font-weight: 800;
+  }
+
+  > span::before,
+  > span::after {
+    content: '';
+    position: absolute;
+    width: 7px;
+    height: 7px;
+    border: 1.5px solid #fff;
+    border-radius: 50%;
+  }
+
+  > span::before {
+    left: 4px;
+  }
+
+  > span::after {
+    right: 4px;
+  }
+`;
+
+export const CashRequestBadge = styled.span`
+  min-height: 28px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: #ecfdf5;
+  color: #10b981;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 11px;
+  line-height: 14px;
+  font-weight: 700;
+
+  > span {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: currentColor;
+  }
+`;
+
+export const CashAmountCard = styled(FlowCard)`
+  min-height: 84px;
+  padding: 16px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+
+  > span {
+    display: grid;
+    gap: 4px;
+  }
+
+  small {
+    color: var(--muted);
+    font-size: 12px;
+  }
+
+  b {
+    color: var(--muted);
+    font-size: 12px;
+    font-weight: 500;
+  }
+
+  > strong {
+    color: #ff4b4b;
+    font-size: 27px;
+    line-height: 1;
+    font-weight: 800;
+    white-space: nowrap;
+  }
+`;
+
+export const CashStatusCard = styled(FlowCard)`
+  padding: 18px;
+  border-radius: 12px;
+
+  h2 {
+    margin: 0 0 16px;
+    color: var(--text);
+    font-size: 16px;
+    line-height: 20px;
+  }
+
+  ol {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    gap: 14px;
+  }
+
+  li {
+    display: grid;
+    grid-template-columns: 22px minmax(0, 1fr);
+    gap: 10px;
+    align-items: start;
+  }
+
+  li > span:last-child {
+    display: grid;
+    gap: 2px;
+  }
+
+  li b {
+    font-size: 13px;
+    line-height: 16px;
+  }
+
+  li small {
+    color: var(--muted);
+    font-size: 11px;
+    line-height: 14px;
+  }
+
+  .status-dot {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    display: grid;
+    place-items: center;
+  }
+
+  .completed .status-dot {
+    background: #10b981;
+    color: #fff;
+  }
+
+  .completed b {
+    color: #10b981;
+  }
+
+  .current .status-dot {
+    background: #ff4b4b;
+    color: #fff;
+  }
+
+  .current .status-dot i {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: #fff;
+  }
+
+  .current b {
+    color: #ff4b4b;
+  }
+
+  .pending {
+    opacity: .55;
+  }
+
+  .pending .status-dot {
+    border: 1px solid #dddeda;
+    background: #f6f6f3;
+  }
+
+  .pending .status-dot i {
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: #c7c8c4;
+  }
+`;
+
+export const CashConfirmationNotice = styled.div`
+  min-height: 52px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: #fff7e6;
+  color: #1a1a2e;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 11px;
+  line-height: 15px;
+  font-weight: 600;
+
+  svg {
+    flex: 0 0 auto;
+    color: #f59e0b;
+  }
+`;
+
+export const CashActions = styled.div`
+  display: grid;
+  gap: 10px;
+
+  > button {
+    min-height: 48px;
+    border-radius: 8px;
+  }
+
+  > button:first-child {
+    background: #ff4b4b;
+    color: #fff;
+  }
+
+  > button:first-child:hover:not(:disabled) {
+    filter: brightness(.96);
+  }
+
+  > button:last-child {
+    border-color: #e7e7e3;
+    color: #1a1a2e;
+  }
+
+  > button:last-child svg {
+    color: #ff4b4b;
+  }
+`;
