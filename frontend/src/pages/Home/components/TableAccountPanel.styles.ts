@@ -19,7 +19,7 @@ export const Panel = styled.aside`
   color: #282d29;
   box-shadow: -12px 0 40px rgba(24, 29, 25, 0.14);
   button:focus-visible {
-    outline: 3px solid var(--home-primary, #bb5034);
+    outline: 3px solid #ff4b4b;
     outline-offset: 3px;
   }
 `;
@@ -350,10 +350,10 @@ export const Draft = styled.section`
     gap: 8px;
     min-height: 44px;
     padding: 10px;
-    border: 1px solid #d9dfd0;
+    border: 1px solid #ff4b4b;
     border-radius: 8px;
-    background: #f1f4ec;
-    color: #34492c;
+    background: #fff1f1;
+    color: #ff4b4b;
     font: inherit;
     font-size: 13px;
     font-weight: 650;
@@ -390,7 +390,7 @@ export const PayButton = styled.button`
   padding: 12px 16px;
   border: 0;
   border-radius: 12px;
-  background: var(--home-primary, #bb5034);
+  background: #ff4b4b;
   color: #fff;
   cursor: pointer;
   font: inherit;
