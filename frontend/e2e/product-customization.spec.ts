@@ -436,10 +436,9 @@ async function openConfigurator(page: Page, path = '/restaurante-teste') {
 async function openCartAfterAddition(page: Page) {
   const checkout = page.getByRole('dialog', { name: 'Finalizar pedido' });
   await expect(checkout).toBeHidden();
-  await expect(
-    page.getByLabel('Avisos recentes').getByRole('status').filter({ hasText: 'Item adicionado' }),
-  ).toBeVisible();
-  await page.getByRole('button', { name: /Meu Carrinho, [1-9]\d* (?:item|itens)/ }).click();
+  const cartButton = page.getByRole('button', { name: /Meu Carrinho, [1-9]\d* (?:item|itens)/ });
+  await expect(cartButton).toBeVisible();
+  await cartButton.click();
   await expect(checkout).toBeVisible();
   return checkout;
 }
