@@ -367,7 +367,8 @@ describe('comanda guiada e pagamento seguro', () => {
     expect(container.querySelector('[aria-label="QR Code Pix"]')).not.toBeNull();
     await act(async () => button('Rever meus pedidos').click());
     expect(container.querySelector('[aria-current="step"]')?.textContent).toContain('Conferir');
-    await act(async () => button('Voltar ao pagamento').click());
+    expect(button('Pagar com PIX')).toBeTruthy();
+    await act(async () => button('Pagar com PIX').click());
     expect(onCreatePayment).toHaveBeenCalledOnce();
   });
 
@@ -396,16 +397,46 @@ describe('comanda guiada e pagamento seguro', () => {
     });
     expect(container.textContent).toContain('Aguardando confirmação do administrador');
     expect(container.textContent).toContain('somente o administrador confirma');
+
+    await act(async () => button('Rever meus pedidos').click());
+    expect(button('Pagar com dinheiro')).toBeTruthy();
   });
 
-  it('concluir pagamento confirmado fecha a comanda e volta ao cardápio', async () => {
+  it('pagamento confirmado usa método e status devolvidos pela API', async () => {
     const onClose = vi.fn();
-    const { button } = await mount({
+    const { container, button } = await mount({
       onClose,
       snapshot: { ...snapshot, activePayment: { ...payment, status: 'PAID' } },
     });
+
+    expect(container.textContent).toContain('Forma de pagamento');
+    expect(container.textContent).toContain('PIX');
+    expect(container.textContent).toContain('Status');
+    expect(container.textContent).toContain('Confirmado');
+
     await act(async () => button('Concluir').click());
     expect(onClose).toHaveBeenCalledOnce();
+  });
+
+  it('confirmação em dinheiro mostra dinheiro como forma de pagamento', async () => {
+    const { container } = await mount({
+      snapshot: {
+        ...snapshot,
+        activePayment: {
+          ...payment,
+          publicId: 'cash-paid',
+          method: 'CASH',
+          status: 'PAID',
+          provider: null,
+          externalId: null,
+          paymentCode: null,
+        },
+      },
+    });
+
+    expect(container.textContent).toContain('Dinheiro');
+    expect(container.textContent).toContain('Confirmado');
+    expect(container.textContent).not.toContain('Pix confirmado!');
   });
 
   it('duplo clique na remoção não envia duas requisições', async () => {
