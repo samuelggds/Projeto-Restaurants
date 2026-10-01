@@ -379,7 +379,7 @@ test('cliente consulta cupons válidos, histórico e o novo ciclo no perfil', as
   const profileCartButton = page.getByRole('button', { name: 'Sacola com 1 item' });
   await expect(profileCartButton).toBeVisible();
 
-  await page.getByRole('button', { name: 'Ir para a página inicial de Restaurante Teste' }).click();
+  await page.getByRole('button', { name: 'Voltar para o restaurante' }).click();
   await expect(page).toHaveURL(/\/restaurante-teste/);
   const productSearch = page.getByRole('searchbox', { name: 'Pesquisar produto pelo nome' });
   await expect(productSearch).toBeVisible();
