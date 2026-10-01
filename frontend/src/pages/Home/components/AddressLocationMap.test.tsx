@@ -166,6 +166,9 @@ describe('AddressLocationMap', () => {
 
     await act(async () => {
       root.render(<AddressLocationMap restaurantId={9} primaryColor="#d05632" address={address} />);
+      await Promise.resolve();
+    });
+    await act(async () => {
       await vi.advanceTimersByTimeAsync(ADDRESS_LOCATION_DEBOUNCE_MS);
       await Promise.resolve();
       await Promise.resolve();
@@ -181,6 +184,9 @@ describe('AddressLocationMap', () => {
           address={{ ...address, complement: 'Apto 10' }}
         />,
       );
+      await Promise.resolve();
+    });
+    await act(async () => {
       await vi.advanceTimersByTimeAsync(ADDRESS_LOCATION_DEBOUNCE_MS * 2);
     });
 
