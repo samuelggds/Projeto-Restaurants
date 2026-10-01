@@ -615,12 +615,12 @@ export const ConfirmationCard = styled(FlowCard)`
   @media (max-width: 759px) {
     width: 100%;
     margin: 0;
-    padding: 12px 0 0;
+    padding: 24px 0 0;
     border: 0;
     border-radius: 0;
     background: transparent;
     box-shadow: none;
-    gap: 14px;
+    gap: 20px;
   }
 
   @media (max-width: 359px) {
@@ -765,33 +765,34 @@ export const SuccessHero = styled.section`
 
   @media (max-width: 759px) {
     .ring {
-      width: 64px;
-      height: 64px;
+      width: 80px;
+      height: 80px;
     }
 
     .check {
-      width: 40px;
-      height: 40px;
+      width: 48px;
+      height: 48px;
+      border-radius: 24px;
     }
 
     h1 {
-      margin-top: 4px;
-      font-size: 25px;
-      line-height: 31px;
+      margin-top: 6px;
+      font-size: 28px;
+      line-height: 34px;
     }
 
     p {
-      max-width: 290px;
-      font-size: 12px;
-      line-height: 17px;
+      max-width: 300px;
+      font-size: 13px;
+      line-height: 18px;
     }
   }
 `;
 
 export const OrderSummaryBar = styled(FlowCard)`
-  min-height: 48px;
-  padding: 12px 14px;
-  border-radius: 10px;
+  min-height: 52px;
+  padding: 16px;
+  border-radius: 6px;
   background: var(--background);
   display: flex;
   align-items: center;
@@ -839,7 +840,8 @@ export const TimelineCard = styled(FlowCard)`
   border-radius: 18px;
 
   &.confirmation-timeline {
-    padding: 14px;
+    padding: 20px;
+    border-radius: 6px;
     animation: confirmation-block-enter 420ms cubic-bezier(.22, 1, .36, 1) 350ms both;
   }
 
@@ -858,7 +860,8 @@ export const TimelineCard = styled(FlowCard)`
     padding: 16px;
 
     &.confirmation-timeline {
-      padding: 14px;
+      padding: 20px;
+      border-radius: 6px;
     }
   }
 `;
@@ -868,14 +871,14 @@ export const Timeline = styled.div`
   gap: 24px;
 
   .confirmation-timeline & {
-    gap: 12px;
+    gap: 16px;
   }
 
   @media (max-width: 759px) {
     gap: 16px;
 
     .confirmation-timeline & {
-      gap: 10px;
+      gap: 16px;
     }
   }
 `;
