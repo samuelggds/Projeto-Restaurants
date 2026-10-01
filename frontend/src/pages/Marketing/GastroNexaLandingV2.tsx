@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import {
   Activity,
@@ -10,7 +10,6 @@ import {
   Check,
   CheckCircle2,
   ChefHat,
-  CircleDollarSign,
   Clock3,
   Layers3,
   LineChart,
@@ -102,7 +101,7 @@ function ScrollLink({
   onClick,
 }: {
   href: string;
-  children: React.ReactNode;
+  children: ReactNode;
   className?: string;
   onClick?: () => void;
 }) {
