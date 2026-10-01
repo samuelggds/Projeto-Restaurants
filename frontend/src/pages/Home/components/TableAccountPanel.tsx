@@ -103,7 +103,13 @@ function TableAccountPanelContent(props: Props) {
     snapshot.activePayment.payerParticipantPublicId === snapshot.currentParticipantPublicId
       ? snapshot.activePayment
       : null;
-  const visiblePayment = payment ?? ownActivePayment;
+  const paymentBase = payment ?? ownActivePayment;
+  const canonicalPayment = paymentBase
+    ? snapshot?.payments.find((entry) => entry.publicId === paymentBase.publicId)
+    : null;
+  const visiblePayment = paymentBase
+    ? { ...paymentBase, status: canonicalPayment?.status || paymentBase.status }
+    : null;
   const showPayment = Boolean(visiblePayment && !reviewingPayment);
   const currentStep = !showPayment
     ? 1
@@ -423,7 +429,7 @@ function TableAccountPanelContent(props: Props) {
                       </span>
                       <span>
                         <small>Pago</small>
-                        <b>{formatTableMoney(snapshot.summary.netPaidCents)}</b>
+                        <b>{formatTableMoney(ownAccount?.paidCents || 0)}</b>
                       </span>
                       {!visiblePayment && canPay && preview && preview.serviceFeeCents > 0 ? (
                         <span>
