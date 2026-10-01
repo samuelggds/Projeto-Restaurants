@@ -10,6 +10,9 @@ export const Backdrop = styled.div`
 `;
 
 export const Panel = styled.aside`
+  --home-primary: #ff4b4b;
+  --result-action-accent: #ff4b4b;
+  --result-action-accent-hover: #f23f3f;
   width: min(560px, 100%);
   height: 100dvh;
   display: flex;
