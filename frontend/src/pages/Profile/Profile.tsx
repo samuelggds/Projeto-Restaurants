@@ -454,11 +454,6 @@ export default function Profile() {
         cartCount={storedCartCount}
         onGoHome={() => navigate(restaurantHomePath)}
         onOpenMenu={() => navigate(restaurantMenuPath)}
-        onOpenSearch={() =>
-          navigate(restaurantHomePath, {
-            state: { openSearch: true },
-          })
-        }
         onOpenCart={() =>
           navigate(restaurantHomePath, {
             state: { openCart: true },
