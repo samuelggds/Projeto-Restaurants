@@ -31,6 +31,7 @@ import {
   type CartFlyOrigin,
 } from './cartFlyAnimation';
 import type { HomeExperienceProps, HomeProduct } from './types';
+import { useHorizontalProductCarousel } from './hooks/useHorizontalProductCarousel';
 import * as S from './FigmaDeliveryExperience.styles';
 
 const ProductConfigurator = lazy(() =>
@@ -208,45 +209,16 @@ function ProductCarouselSection({
   ariaLabel?: string;
   itemLabel?: string | ((product: HomeProduct) => string);
 }) {
-  const trackRef = useRef<HTMLDivElement>(null);
-  const [hasOverflow, setHasOverflow] = useState(false);
-  const [canScrollPrevious, setCanScrollPrevious] = useState(false);
-  const [canScrollNext, setCanScrollNext] = useState(false);
-
-  const syncScrollState = () => {
-    const track = trackRef.current;
-    if (!track) return;
-    const overflow = track.scrollWidth - track.clientWidth > 2;
-    const maxScrollLeft = Math.max(0, track.scrollWidth - track.clientWidth);
-    setHasOverflow(overflow);
-    setCanScrollPrevious(overflow && track.scrollLeft > 2);
-    setCanScrollNext(overflow && track.scrollLeft < maxScrollLeft - 2);
-  };
-
-  useEffect(() => {
-    const track = trackRef.current;
-    if (!track) return undefined;
-
-    syncScrollState();
-    const resizeObserver = new ResizeObserver(syncScrollState);
-    resizeObserver.observe(track);
-    Array.from(track.children).forEach((child) => resizeObserver.observe(child));
-    track.addEventListener('scroll', syncScrollState, { passive: true });
-
-    return () => {
-      resizeObserver.disconnect();
-      track.removeEventListener('scroll', syncScrollState);
-    };
-  }, [products]);
-
-  const scroll = (direction: -1 | 1) => {
-    const track = trackRef.current;
-    if (!track) return;
-    const firstCard = track.querySelector<HTMLElement>('[data-product-carousel-card]');
-    const gap = Number.parseFloat(window.getComputedStyle(track).columnGap || '0') || 0;
-    const amount = firstCard ? firstCard.offsetWidth + gap : Math.max(track.clientWidth * 0.82, 260);
-    track.scrollBy({ left: direction * amount, behavior: 'smooth' });
-  };
+  const {
+    trackRef,
+    hasOverflow,
+    canPrevious: canScrollPrevious,
+    canNext: canScrollNext,
+    scroll,
+  } = useHorizontalProductCarousel({
+    itemSelector: '[data-product-carousel-card]',
+    itemsKey: products.map((product) => product.id).join('|'),
+  });
 
   if (!products.length) return null;
 
