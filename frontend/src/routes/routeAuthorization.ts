@@ -130,10 +130,12 @@ export function authorizeRoute(pathname: string, user: RouteUser): RouteDecision
       : { allowed: false, redirectTo: '/change-password' };
   }
 
-  // O cardápio, a mesa por QR e as demais experiências públicas do restaurante
-  // continuam acessíveis mesmo quando o navegador possui uma sessão operacional.
-  // A sessão não concede acesso extra: os portais privados seguem as regras por papel abaixo.
-  if (isPublicRestaurantRoute(path)) return { allowed: true };
+  // A experiência pública do restaurante pertence ao visitante/CLIENTE.
+  // Contas operacionais nunca entram no delivery/cardápio como consumidor:
+  // elas permanecem restritas ao próprio portal.
+  if (isPublicRestaurantRoute(path)) {
+    return role === 'CLIENTE' ? { allowed: true } : { allowed: false, redirectTo: home };
+  }
 
   // O namespace técnico é exclusivo do SUPER_ADMIN autenticado.
   if (isPath(path, '/super_admin')) {
