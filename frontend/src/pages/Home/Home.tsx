@@ -1,4 +1,4 @@
-import { Suspense, useState, useCallback, useEffect, useMemo } from 'react';
+import { Suspense, useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../../contexts/authContext';
 import { useAppDialog } from '../../components/AppDialog/context';
@@ -53,6 +53,11 @@ import { buildLoginUrl } from '../../shared/navigation/authNavigation';
 import TableMenuExperience from '../digital-menu/TableMenuExperience';
 import type { HomeProduct } from './types';
 import { createReadyProductConfiguration, resolveProductEntryKind } from './domain/productEntryFlow';
+import {
+  captureCartFlyOrigin,
+  scheduleProductToCartAnimation,
+  type CartFlyOrigin,
+} from './cartFlyAnimation';
 import { validateDeliveryAddressLocationForCheckout } from './domain/deliveryAddress';
 import type { GuestCheckoutDetails, HomeNavigationState } from './domain/homePageTypes';
 
@@ -129,6 +134,7 @@ export default function Home() {
   const [tableAccountOpen, setTableAccountOpen] = useState(false);
   const [crossSellProduct, setCrossSellProduct] = useState<HomeProduct | null>(null);
   const [crossSellCombo, setCrossSellCombo] = useState<HomeProduct | null>(null);
+  const crossSellCartFlyOriginRef = useRef<CartFlyOrigin | null>(null);
   const [addressValidationLoading, setAddressValidationLoading] = useState(false);
 
   useEffect(() => {
@@ -376,7 +382,11 @@ export default function Home() {
       .slice(0, 3);
   }, [cart, homeData.products]);
 
-  const handleCrossSellAdd = (product: HomeProduct) => {
+  const handleCrossSellAdd = (
+    product: HomeProduct,
+    sourceElement?: HTMLElement | null,
+  ) => {
+    crossSellCartFlyOriginRef.current = captureCartFlyOrigin(sourceElement);
     const entryKind = resolveProductEntryKind(product);
 
     if (entryKind === 'COMBO') {
@@ -386,6 +396,13 @@ export default function Home() {
 
     if (entryKind === 'READY') {
       addToCart(product.id, createReadyProductConfiguration(product.configurationVersion), 1);
+      scheduleProductToCartAnimation({
+        origin: crossSellCartFlyOriginRef.current,
+        sourceElement,
+        imageUrl: product.image,
+        accentColor: homeData.brand.primaryColor || '#d64d08',
+      });
+      crossSellCartFlyOriginRef.current = null;
       return;
     }
 
@@ -1232,17 +1249,37 @@ export default function Home() {
         primaryColor={primary}
         notifications={notifs}
         onDismissNotification={dismissNotif}
-        onCloseProduct={() => setCrossSellProduct(null)}
-        onCloseCombo={() => setCrossSellCombo(null)}
+        onCloseProduct={() => {
+          setCrossSellProduct(null);
+          crossSellCartFlyOriginRef.current = null;
+        }}
+        onCloseCombo={() => {
+          setCrossSellCombo(null);
+          crossSellCartFlyOriginRef.current = null;
+        }}
         onConfirmProduct={(configuration, quantity) => {
           if (!crossSellProduct) return;
-          addToCart(crossSellProduct.id, configuration, quantity);
+          const product = crossSellProduct;
+          addToCart(product.id, configuration, quantity);
           setCrossSellProduct(null);
+          scheduleProductToCartAnimation({
+            origin: crossSellCartFlyOriginRef.current,
+            imageUrl: product.image,
+            accentColor: primary,
+          });
+          crossSellCartFlyOriginRef.current = null;
         }}
         onConfirmCombo={(configuration) => {
           if (!crossSellCombo) return;
-          addToCart(crossSellCombo.id, configuration, 1);
+          const product = crossSellCombo;
+          addToCart(product.id, configuration, 1);
           setCrossSellCombo(null);
+          scheduleProductToCartAnimation({
+            origin: crossSellCartFlyOriginRef.current,
+            imageUrl: product.image,
+            accentColor: primary,
+          });
+          crossSellCartFlyOriginRef.current = null;
         }}
         tableService={
           mesaMode && tableSession
