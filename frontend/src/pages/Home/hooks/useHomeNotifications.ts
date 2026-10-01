@@ -12,22 +12,16 @@ export function useHomeNotifications() {
       title: string,
       msg?: string,
       duration = 3500,
-      action?: HomeNotification['action'],
     ) => {
       const id = Date.now();
       setNotifications((previous) => {
-        const current =
-          action === 'open-cart'
-            ? previous.filter((item) => item.action !== action)
-            : previous;
-        const duplicate = current.some(
+        const duplicate = previous.some(
           (notification) =>
             notification.title === title &&
-            notification.msg === msg &&
-            notification.action === action,
+            notification.msg === msg,
         );
-        if (duplicate) return current;
-        return [...current.slice(-2), { id, type, title, msg, visible: false, action }];
+        if (duplicate) return previous;
+        return [...previous.slice(-2), { id, type, title, msg, visible: false }];
       });
 
       requestAnimationFrame(() => {
