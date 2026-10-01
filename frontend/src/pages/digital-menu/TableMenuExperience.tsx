@@ -21,6 +21,8 @@ import {
 } from '../Home/domain/productEntryFlow';
 import {
   currentParticipantAccount,
+  tablePaymentMethodLabel,
+  tablePaymentStatusLabel,
   type TableAccountSnapshot,
   type TablePaymentIntent,
 } from '../Home/domain/tableAccount';
@@ -333,8 +335,17 @@ export default function TableMenuExperience({
 
   if (effectiveView === 'pix' && currentPayment) {
     if (currentPayment.status === 'PAID') {
+      const paymentMethodLabel = tablePaymentMethodLabel(currentPayment.method);
+      const paymentStatusLabel = tablePaymentStatusLabel(currentPayment.status);
+      const paymentDescription =
+        currentPayment.method === 'PIX'
+          ? 'Recebemos seu pagamento via PIX com sucesso.'
+          : currentPayment.method === 'CASH'
+            ? 'O pagamento em dinheiro foi confirmado com sucesso.'
+            : `Recebemos seu pagamento por ${paymentMethodLabel} com sucesso.`;
+
       return (
-        <S.FigmaShell $primary={primary} $fontFamily={data.fontFamily}>
+        <S.FigmaShell $primary="#ff4b4b" $fontFamily={data.fontFamily}>
           <FlowHeader
             data={data}
             tableLabel={tableLabel}
@@ -353,7 +364,7 @@ export default function TableMenuExperience({
                   </div>
                 </div>
                 <h1>Pagamento Confirmado!</h1>
-                <p>Recebemos seu pagamento com sucesso.</p>
+                <p>{paymentDescription}</p>
                 <S.PaidReceipt>
                   <div className="receipt-head">
                     {confirmation?.orderId ? <small>Pedido #{confirmation.orderId}</small> : <small>Pedido</small>}
@@ -363,11 +374,11 @@ export default function TableMenuExperience({
                   <div className="receipt-divider" />
                   <div className="receipt-row">
                     <small>Forma de Pagamento</small>
-                    <b>{currentPayment.method === 'CASH' ? 'Dinheiro' : 'PIX'}</b>
+                    <b>{paymentMethodLabel}</b>
                   </div>
                   <div className="receipt-row">
                     <small>Status</small>
-                    <b className="confirmed">Confirmado agora</b>
+                    <b className="confirmed">{paymentStatusLabel}</b>
                   </div>
                 </S.PaidReceipt>
                 <div className="prep-banner">
