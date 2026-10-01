@@ -712,7 +712,7 @@ export default function TableMenuExperience({
 
   if (effectiveView === 'confirmation' && confirmation) {
     return (
-      <S.FigmaShell $primary={primary} $fontFamily={data.fontFamily}>
+      <S.FigmaShell $primary="#ff4b4b" $fontFamily={data.fontFamily}>
         <FlowHeader
           data={data}
           tableLabel={tableLabel}
@@ -745,10 +745,25 @@ export default function TableMenuExperience({
           <S.TimelineCard className="confirmation-timeline">
             <S.Timeline>
               {confirmationSteps(tableOrder).map((step, index) => (
-                <S.TimelineStep key={step.label} $active={step.active} $current={step.current}>
-                  <span className="dot">{step.active ? <Check size={14} /> : index + 1}</span>
+                <S.TimelineStep
+                  key={step.label}
+                  className={
+                    step.completed
+                      ? 'confirmation-step completed'
+                      : step.current
+                        ? 'confirmation-step current'
+                        : 'confirmation-step pending'
+                  }
+                  $active={step.active}
+                  $current={step.current}
+                >
+                  <span className="dot">
+                    {step.completed ? <Check size={12} /> : step.current ? <span className="pulse" /> : index + 1}
+                  </span>
                   <div className="copy">
                     <b>{step.label}</b>
+                    {step.completed ? <small className="completed-label">Concluído</small> : null}
+                    {step.current ? <small className="current-label">Iniciado agora</small> : null}
                   </div>
                 </S.TimelineStep>
               ))}
@@ -1161,10 +1176,12 @@ function confirmationSteps(tableOrder: TableOrderNotice | null) {
   const progress = tableOrder?.progress || 0;
   return ['Pedido recebido', 'Em preparo', 'Pronto para servir'].map((label, index) => {
     const step = index + 1;
+    const state = stepState(progress, step);
     return {
       label,
       description: '',
-      ...stepState(progress, step),
+      completed: progress > step,
+      ...state,
     };
   });
 }
