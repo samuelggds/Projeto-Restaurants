@@ -14,6 +14,17 @@ import {
 import { PromotionCarousel } from '../Home/components/PromotionCarousel';
 import { useHorizontalProductCarousel } from '../Home/hooks/useHorizontalProductCarousel';
 import { resolveComboCategoryImage } from '../Home/domain/comboCategoryImage';
+import {
+  buildSocialProfileUrl,
+  buildWhatsAppUrl,
+  formatBusinessHoursSummary,
+} from '../Home/domain/publicSettings';
+import {
+  FacebookIcon,
+  InstagramIcon,
+  TikTokIcon,
+  WhatsAppIcon,
+} from '../Home/components/SocialBrandIcons';
 import type { HomeData, HomeProduct } from '../Home/types';
 import * as H from './TableMenuHome.styles';
 
@@ -305,6 +316,18 @@ export function TableMenuHome({
   const firstName = String(userName || '').trim().split(/\s+/u)[0] || '';
   const rating = Number(data.brand.ratingAverage || 0);
   const ratingText = rating > 0 ? rating.toFixed(1) : 'Novo';
+  const hours = formatBusinessHoursSummary(data.businessHours);
+  const whatsappUrl = buildWhatsAppUrl(
+    data.brand.whatsapp,
+    data.brand.whatsappDefaultMessage,
+  );
+  const hasSocials = Boolean(
+    data.brand.instagram ||
+      data.brand.facebook ||
+      data.brand.tiktok ||
+      data.brand.youtube ||
+      whatsappUrl,
+  );
 
   return (
     <H.HomeRoot>
@@ -422,15 +445,86 @@ export function TableMenuHome({
           ))}
         </H.Sections>
 
-        {data.brand.address || data.brand.phone ? (
-          <H.RestaurantInfo>
+        {data.brand.address || data.brand.phone || hours || hasSocials ? (
+          <H.RestaurantInfo aria-label="Informações do restaurante">
             {data.brand.address ? (
-              <span><MapPin aria-hidden="true" /> {data.brand.address}</span>
+              <div className="restaurant-info-item address">
+                <MapPin aria-hidden="true" />
+                <span>{data.brand.address}</span>
+              </div>
             ) : null}
+
             {data.brand.phone ? (
-              <span><Phone aria-hidden="true" /> {data.brand.phone}</span>
+              <div className="restaurant-info-item phone">
+                <Phone aria-hidden="true" />
+                <span>{data.brand.phone}</span>
+              </div>
             ) : null}
-            <span><Clock3 aria-hidden="true" /> Atendimento da mesa ativo</span>
+
+            {hours ? (
+              <div className="restaurant-info-item hours">
+                <Clock3 aria-hidden="true" />
+                <span>{hours}</span>
+              </div>
+            ) : null}
+
+            {hasSocials ? (
+              <div className="restaurant-social-row">
+                <span>Redes sociais</span>
+                <div className="social-links">
+                  {data.brand.instagram ? (
+                    <a
+                      href={buildSocialProfileUrl('instagram', data.brand.instagram)}
+                      target="_blank"
+                      rel="noreferrer"
+                      aria-label="Instagram"
+                    >
+                      <InstagramIcon />
+                    </a>
+                  ) : null}
+                  {data.brand.facebook ? (
+                    <a
+                      href={buildSocialProfileUrl('facebook', data.brand.facebook)}
+                      target="_blank"
+                      rel="noreferrer"
+                      aria-label="Facebook"
+                    >
+                      <FacebookIcon />
+                    </a>
+                  ) : null}
+                  {data.brand.tiktok ? (
+                    <a
+                      href={buildSocialProfileUrl('tiktok', data.brand.tiktok)}
+                      target="_blank"
+                      rel="noreferrer"
+                      aria-label="TikTok"
+                    >
+                      <TikTokIcon />
+                    </a>
+                  ) : null}
+                  {data.brand.youtube ? (
+                    <a
+                      href={buildSocialProfileUrl('youtube', data.brand.youtube)}
+                      target="_blank"
+                      rel="noreferrer"
+                      aria-label="YouTube"
+                    >
+                      <span className="youtube-mark">▶</span>
+                    </a>
+                  ) : null}
+                  {whatsappUrl ? (
+                    <a
+                      href={whatsappUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      aria-label={`WhatsApp de ${data.brand.whatsappDisplayName || data.brand.name}`}
+                    >
+                      <WhatsAppIcon />
+                    </a>
+                  ) : null}
+                </div>
+              </div>
+            ) : null}
           </H.RestaurantInfo>
         ) : null}
       </H.Content>
