@@ -54,6 +54,7 @@ describe('lista de cartões salvos', () => {
     expect(container.textContent).toContain('Mastercard');
     expect(container.textContent).toContain('7891');
     expect(container.textContent).toContain('Adicionar novo cartão');
+    expect(container.querySelector('[aria-label="Buscar"]')).toBeNull();
 
     const first = container.querySelector(
       '[aria-label="Ver detalhes do cartão final 4532"]',

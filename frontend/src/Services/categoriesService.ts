@@ -22,6 +22,11 @@ class CategoriesService {
     return response.data;
   }
 
+  async reorderCategories(categoryIds) {
+    const response = await api.put('/categories/reorder', { categoryIds });
+    return response.data;
+  }
+
   async deleteCategory(id) {
     const response = await api.delete(`/categories/${id}`);
     return response.data;

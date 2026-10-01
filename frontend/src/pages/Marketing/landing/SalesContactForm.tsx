@@ -170,8 +170,8 @@ export function SalesContactForm({
         </S.Success>
       ) : (
         <>
-          <h3>Conte um pouco sobre você.</h3>
-          <S.Intro>Campos com * são obrigatórios.</S.Intro>
+          <h3>Quero conhecer a GastroNexa</h3>
+          <S.Intro>Campos com * são necessários para retornarmos seu contato.</S.Intro>
           <S.Form
             aria-label="Contato comercial"
             aria-busy={status === 'submitting'}
@@ -187,8 +187,9 @@ export function SalesContactForm({
             <S.Fields disabled={status === 'submitting'}>
               <S.Grid>
                 <S.Field htmlFor={`${id}-name`}>
-                  Seu nome *
+                  Nome *
                   <input
+                    aria-label="Seu nome"
                     id={`${id}-name`}
                     name="name"
                     autoComplete="name"
@@ -199,12 +200,13 @@ export function SalesContactForm({
                   />
                 </S.Field>
                 <S.Field htmlFor={`${id}-restaurant`}>
-                  Nome do restaurante *
+                  Restaurante ou grupo *
                   <input
+                    aria-label="Nome do restaurante"
                     id={`${id}-restaurant`}
                     name="restaurantName"
                     autoComplete="organization"
-                    placeholder="Seu restaurante"
+                    placeholder="Nome da operação"
                     required
                     minLength={2}
                     maxLength={160}
@@ -223,13 +225,14 @@ export function SalesContactForm({
                   />
                 </S.Field>
                 <S.Field htmlFor={`${id}-phone`}>
-                  Telefone com DDD *
+                  WhatsApp *
                   <input
+                    aria-label="Telefone com DDD"
                     id={`${id}-phone`}
                     name="phone"
                     type="tel"
                     autoComplete="tel"
-                    placeholder="(11) 99999-9999"
+                    placeholder="(00) 00000-0000"
                     required
                     minLength={10}
                     maxLength={25}
@@ -239,6 +242,7 @@ export function SalesContactForm({
                 <S.Field htmlFor={`${id}-city`}>
                   Cidade *
                   <input
+                    aria-label="Cidade"
                     id={`${id}-city`}
                     name="city"
                     autoComplete="address-level2"
@@ -251,6 +255,7 @@ export function SalesContactForm({
                 <S.Field htmlFor={`${id}-state`}>
                   Estado *
                   <select
+                    aria-label="Estado"
                     id={`${id}-state`}
                     name="state"
                     autoComplete="address-level1"
@@ -269,7 +274,13 @@ export function SalesContactForm({
                 </S.Field>
                 <S.Field htmlFor={`${id}-business`}>
                   Tipo de negócio *
-                  <select id={`${id}-business`} name="businessType" defaultValue="" required>
+                  <select
+                    aria-label="Tipo de negócio"
+                    id={`${id}-business`}
+                    name="businessType"
+                    defaultValue=""
+                    required
+                  >
                     <option value="" disabled>
                       Selecione
                     </option>
@@ -323,7 +334,7 @@ export function SalesContactForm({
               </S.Channels>
               <S.OptionalMessage>
                 <summary>
-                  Quer contar mais? <span>(opcional)</span>
+                  Mensagem <span>(opcional)</span>
                 </summary>
                 <S.Field htmlFor={`${id}-message`}>
                   Sua mensagem
@@ -331,7 +342,7 @@ export function SalesContactForm({
                     id={`${id}-message`}
                     name="message"
                     maxLength={2000}
-                    placeholder="Conte o que você quer melhorar na sua operação."
+                    placeholder="Conte sobre seus canais, desafios ou o que deseja ver na demonstração."
                     rows={3}
                   />
                 </S.Field>
@@ -349,12 +360,12 @@ export function SalesContactForm({
               <S.Consent>
                 <input name="consent" type="checkbox" required />
                 <span>
-                  Concordo que a GastroNexa use estes dados para entrar em contato comigo sobre a
-                  plataforma. *
+                  Concordo que a GastroNexa use estes dados para entrar em contato comigo sobre esta
+                  solicitação e declaro ter lido a Política de Privacidade. *
                 </span>
               </S.Consent>
               <S.Submit type="submit" disabled={status === 'submitting'}>
-                {status === 'submitting' ? 'Enviando seu contato…' : 'Quero conhecer a GastroNexa'}
+                {status === 'submitting' ? 'Enviando sua solicitação…' : 'Solicitar minha demonstração'}
                 {status !== 'submitting' && <ArrowRight size={17} aria-hidden="true" />}
               </S.Submit>
             </S.Fields>

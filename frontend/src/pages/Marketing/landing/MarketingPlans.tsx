@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react';
-import { ArrowUpRight, Check, CheckCircle2, Sparkles, Store } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import { ArrowUpRight, Check, Clock3, Sparkles, Store } from 'lucide-react';
 import api from '../../../Services/api';
 import * as S from '../GastroNexaLandingV2.styles';
 
@@ -20,8 +20,8 @@ const fallbackPlans: PublicPlan[] = [
     name: 'Básico',
     monthlyFee: 149.9,
     trialDays: 7,
-    description: 'Para organizar seu delivery e começar uma nova fase.',
-    features: ['Sistema de delivery', 'Gestão dos pedidos de entrega', 'Suporte padrão'],
+    description: 'Operação de delivery para restaurantes que estão iniciando na plataforma.',
+    features: ['Sistema de delivery', 'Suporte padrão'],
     featured: false,
   },
   {
@@ -29,8 +29,13 @@ const fallbackPlans: PublicPlan[] = [
     name: 'Premium',
     monthlyFee: 249.9,
     trialDays: 15,
-    description: 'Para conectar o delivery e o atendimento das suas mesas.',
-    features: ['Tudo do plano Básico', 'Cardápio digital com QR Code de mesa', 'Suporte prioritário'],
+    description: 'Experiência completa com delivery e atendimento por QR Code de mesa.',
+    features: [
+      'Sistema de delivery',
+      'Cardápio digital com QR Code de mesa',
+      'Suporte prioritário',
+      'Agente de IA para automações do Sistema',
+    ],
     featured: true,
   },
 ];
@@ -86,35 +91,41 @@ export function MarketingPlans({ onSelectPlan }: { onSelectPlan: (plan: PlanInte
     };
   }, []);
 
+  const orderedPlans = useMemo(
+    () => [...plans].sort((a, b) => Number(b.featured) - Number(a.featured)),
+    [plans],
+  );
+
   return (
     <S.PlanGrid>
-      {plans.map((plan) => (
+      {orderedPlans.map((plan) => (
         <S.Plan key={plan.code} $featured={plan.featured}>
           <div className="plan-top">
             <span className="plan-icon">
               {plan.featured ? <Sparkles size={23} /> : <Store size={23} />}
             </span>
-            {plan.featured && <span className="plan-badge">OPERAÇÃO COMPLETA</span>}
+            {plan.featured ? <span className="plan-badge">OPERAÇÃO COMPLETA</span> : null}
           </div>
-          <h3>{plan.name}</h3>
-          <p className="description">{plan.description}</p>
+          <div>
+            <h3>{plan.name}</h3>
+            <p className="description">{plan.description}</p>
+          </div>
           <div className="price">
             <span>R$</span>
             <strong>{formatPrice(plan.monthlyFee)}</strong>
             <small>/mês</small>
           </div>
           <span className="trial">
-            <CheckCircle2 size={14} />
+            <Clock3 size={14} />
             {plan.trialDays > 0 ? `${plan.trialDays} dias de teste` : 'Sem período de teste'}
           </span>
-          <S.Button
+          <a
+            className="plan-cta"
             href="#contato"
-            $secondary={!plan.featured}
-            $lime={plan.featured}
             onClick={() => onSelectPlan(plan.code)}
           >
             Quero o {plan.name} <ArrowUpRight size={17} />
-          </S.Button>
+          </a>
           <ul>
             {plan.features.map((feature) => (
               <li key={feature}>

@@ -175,6 +175,7 @@ export function AdminPage({
   onCreateCategory,
   onUpdateCategory,
   onDeleteCategory,
+  onReorderCategories,
   onCreateIngredient,
   onUpdateIngredient,
   onDeleteIngredient,
@@ -1009,6 +1010,9 @@ export function AdminPage({
                 }}
                 onDeleteCategory={async (id) => {
                   await onDeleteCategory?.(id);
+                }}
+                onReorderCategories={async (categoryIds) => {
+                  await onReorderCategories?.(categoryIds);
                 }}
                 onCreateIngredient={async (ingredient) => {
                   return onCreateIngredient?.(ingredient);

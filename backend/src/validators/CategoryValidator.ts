@@ -17,3 +17,19 @@ export const createCategorySchema = z.object({
 
   active: z.boolean().optional(),
 });
+
+
+export const reorderCategoriesSchema = z.object({
+  categoryIds: z
+    .array(z.number().int().positive())
+    .min(1, 'Informe ao menos uma categoria.')
+    .max(500, 'Quantidade de categorias inválida.')
+    .superRefine((categoryIds, ctx) => {
+      if (new Set(categoryIds).size !== categoryIds.length) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'A lista de categorias contém itens repetidos.',
+        });
+      }
+    }),
+});

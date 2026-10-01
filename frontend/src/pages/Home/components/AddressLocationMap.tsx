@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { MapPin, MapPinOff } from 'lucide-react';
+import { CircleMarker, MapContainer, TileLayer, useMap } from 'react-leaflet';
+import 'leaflet/dist/leaflet.css';
 import ordersService from '../../../Services/ordersService';
 import type { DeliveryAddress } from '../hooks/useDeliveryAddress';
 import * as S from './AddressLocationMap.styles';
@@ -11,113 +13,14 @@ type AddressLocation = {
   partialMatch: boolean;
 };
 
-type LatLng = { lat: number; lng: number };
-type GoogleMapInstance = {
-  setCenter(position: LatLng): void;
-  setZoom(zoom: number): void;
-  panTo(position: LatLng): void;
-};
-type GoogleMarkerInstance = {
-  setPosition(position: LatLng): void;
-  setTitle(title: string): void;
-};
-type GoogleGeocoderResult = {
-  formatted_address?: string;
-  partial_match?: boolean;
-  geometry?: {
-    location?: {
-      lat(): number;
-      lng(): number;
-    };
-  };
-};
+const MAP_TILE_URL =
+  String(import.meta.env.VITE_MAP_TILE_URL || '').trim() ||
+  'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
+const MAP_TILE_ATTRIBUTION =
+  String(import.meta.env.VITE_MAP_TILE_ATTRIBUTION || '').trim() ||
+  '© OpenStreetMap contributors';
 
-type GoogleMapsApi = {
-  Map: new (element: HTMLElement, options: Record<string, unknown>) => GoogleMapInstance;
-  Marker: new (options: Record<string, unknown>) => GoogleMarkerInstance;
-  Geocoder: new () => {
-    geocode(
-      request: { address: string; region?: string },
-      callback: (results: GoogleGeocoderResult[] | null, status: string) => void,
-    ): void;
-  };
-};
-
-type AddressGoogleWindow = typeof window & {
-  google?: { maps?: GoogleMapsApi };
-  __gastronexaAddressGoogleMapsPromise?: Promise<GoogleMapsApi>;
-};
-
-const GOOGLE_MAPS_SCRIPT_ID = 'gastronexa-google-maps';
 export const ADDRESS_LOCATION_DEBOUNCE_MS = 800;
-
-function getLoadedGoogleMaps() {
-  return (window as AddressGoogleWindow).google?.maps;
-}
-
-function loadGoogleMaps() {
-  const loaded = getLoadedGoogleMaps();
-  if (loaded) return Promise.resolve(loaded);
-
-  const apiKey = String(import.meta.env.VITE_GOOGLE_MAPS_API_KEY || '').trim();
-  if (!apiKey) {
-    return Promise.reject(new Error('Google Maps não está configurado neste ambiente.'));
-  }
-
-  const googleWindow = window as AddressGoogleWindow;
-  if (googleWindow.__gastronexaAddressGoogleMapsPromise) {
-    return googleWindow.__gastronexaAddressGoogleMapsPromise;
-  }
-
-  const loadingPromise = new Promise<GoogleMapsApi>((resolve, reject) => {
-    const resolveMaps = () => {
-      const maps = getLoadedGoogleMaps();
-      if (maps) {
-        resolve(maps);
-        return;
-      }
-      reject(new Error('Google Maps não ficou disponível após o carregamento.'));
-    };
-
-    const existing = document.getElementById(GOOGLE_MAPS_SCRIPT_ID) as HTMLScriptElement | null;
-    if (existing) {
-      existing.addEventListener('load', resolveMaps, { once: true });
-      existing.addEventListener(
-        'error',
-        () => {
-          existing.remove();
-          reject(new Error('Falha ao carregar Google Maps.'));
-        },
-        { once: true },
-      );
-      return;
-    }
-
-    const script = document.createElement('script');
-    script.id = GOOGLE_MAPS_SCRIPT_ID;
-    script.async = true;
-    script.defer = true;
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(apiKey)}&v=weekly`;
-    script.referrerPolicy = 'strict-origin-when-cross-origin';
-    script.addEventListener('load', resolveMaps, { once: true });
-    script.addEventListener(
-      'error',
-      () => {
-        script.remove();
-        reject(new Error('Falha ao carregar Google Maps.'));
-      },
-      { once: true },
-    );
-    document.head.appendChild(script);
-  });
-
-  googleWindow.__gastronexaAddressGoogleMapsPromise = loadingPromise.catch((error) => {
-    googleWindow.__gastronexaAddressGoogleMapsPromise = undefined;
-    throw error;
-  });
-
-  return googleWindow.__gastronexaAddressGoogleMapsPromise;
-}
 
 function normalizedAddress(address: DeliveryAddress) {
   return {
@@ -138,19 +41,6 @@ function isCompleteAddress(address: ReturnType<typeof normalizedAddress>) {
       address.city.length >= 2 &&
       address.state.length === 2,
   );
-}
-
-function googleAddressText(address: ReturnType<typeof normalizedAddress>) {
-  return [
-    [address.address, address.number].filter(Boolean).join(', '),
-    address.district,
-    address.city,
-    address.state,
-    address.zipCode,
-    'Brasil',
-  ]
-    .filter(Boolean)
-    .join(', ');
 }
 
 function addressLocationErrorMessage(error: unknown) {
@@ -178,34 +68,19 @@ function addressLocationErrorMessage(error: unknown) {
   return 'Não conseguimos confirmar o endereço no mapa agora. Confira os dados; se estiverem corretos, você ainda poderá continuar com o pedido.';
 }
 
-function geocodeWithGoogleMaps(
-  maps: GoogleMapsApi,
-  address: ReturnType<typeof normalizedAddress>,
-): Promise<AddressLocation> {
-  return new Promise((resolve, reject) => {
-    const geocoder = new maps.Geocoder();
-    geocoder.geocode({ address: googleAddressText(address), region: 'br' }, (results, status) => {
-      const result = results?.[0];
-      const latitude = Number(result?.geometry?.location?.lat());
-      const longitude = Number(result?.geometry?.location?.lng());
+function AddressMapViewport({ location }: { location: AddressLocation }) {
+  const map = useMap();
 
-      if (
-        status !== 'OK' ||
-        !Number.isFinite(latitude) ||
-        !Number.isFinite(longitude)
-      ) {
-        reject(new Error(status || 'ADDRESS_NOT_GEOCODED'));
-        return;
-      }
+  useEffect(() => {
+    const prefersReducedMotion =
+      window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
 
-      resolve({
-        latitude,
-        longitude,
-        formattedAddress: String(result?.formatted_address || googleAddressText(address)),
-        partialMatch: result?.partial_match === true,
-      });
+    map.setView([location.latitude, location.longitude], 17, {
+      animate: !prefersReducedMotion,
     });
-  });
+  }, [location.latitude, location.longitude, map]);
+
+  return null;
 }
 
 export function AddressLocationMap({
@@ -217,14 +92,9 @@ export function AddressLocationMap({
   address: DeliveryAddress;
   primaryColor: string;
 }) {
-  const containerRef = useRef<HTMLDivElement | null>(null);
-  const mapRef = useRef<GoogleMapInstance | null>(null);
-  const markerRef = useRef<GoogleMarkerInstance | null>(null);
   const requestIdRef = useRef(0);
   const [location, setLocation] = useState<AddressLocation | null>(null);
-  const [status, setStatus] = useState<'idle' | 'locating' | 'loading-map' | 'ready' | 'error'>(
-    'idle',
-  );
+  const [status, setStatus] = useState<'idle' | 'locating' | 'ready' | 'error'>('idle');
   const [error, setError] = useState('');
   const [resolvedAddressKey, setResolvedAddressKey] = useState('');
 
@@ -262,41 +132,26 @@ export function AddressLocationMap({
       setStatus('locating');
       setError('');
 
-      const resolveLocation = async () => {
-        let serverError: unknown = null;
-
-        try {
-          const result = await ordersService.getDeliveryAddressLocation({
-            restaurantId,
-            type: 'DELIVERY',
-            ...normalized,
-          });
-
-          if (
-            result &&
-            Number.isFinite(result.latitude) &&
-            Number.isFinite(result.longitude)
-          ) {
-            return result;
-          }
-        } catch (requestError) {
-          serverError = requestError;
-        }
-
-        try {
-          const maps = await loadGoogleMaps();
-          return await geocodeWithGoogleMaps(maps, normalized);
-        } catch (browserError) {
-          throw serverError || browserError;
-        }
-      };
-
-      void resolveLocation()
+      void ordersService
+        .getDeliveryAddressLocation({
+          restaurantId,
+          type: 'DELIVERY',
+          ...normalized,
+        })
         .then((result) => {
           if (requestIdRef.current !== currentRequestId) return;
+
+          if (
+            !result ||
+            !Number.isFinite(result.latitude) ||
+            !Number.isFinite(result.longitude)
+          ) {
+            throw new Error('ADDRESS_VALIDATION_UNAVAILABLE');
+          }
+
           setResolvedAddressKey(addressKey);
           setLocation(result);
-          setStatus('loading-map');
+          setStatus('ready');
         })
         .catch((requestError) => {
           if (requestIdRef.current !== currentRequestId) return;
@@ -310,156 +165,6 @@ export function AddressLocationMap({
     return () => window.clearTimeout(timer);
   }, [addressKey, complete, normalized, restaurantId]);
 
-  useEffect(() => {
-    if (!location || !containerRef.current) return undefined;
-
-    let active = true;
-    const animationTimers: number[] = [];
-    const position = { lat: location.latitude, lng: location.longitude };
-    const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-
-    void loadGoogleMaps()
-      .then((maps) => {
-        if (!active || !containerRef.current) return;
-
-        if (!mapRef.current) {
-          const introPosition = prefersReducedMotion
-            ? position
-            : { lat: position.lat + 0.012, lng: position.lng };
-
-          mapRef.current = new maps.Map(containerRef.current, {
-            center: introPosition,
-            zoom: prefersReducedMotion ? 17 : 14,
-            styles: [
-              {
-                featureType: 'all',
-                elementType: 'geometry',
-                stylers: [{ color: '#f5f4f1' }],
-              },
-              {
-                featureType: 'road',
-                elementType: 'geometry',
-                stylers: [{ color: '#ffffff' }],
-              },
-              {
-                featureType: 'road',
-                elementType: 'geometry.stroke',
-                stylers: [{ color: '#e5e2dc' }],
-              },
-              {
-                featureType: 'road',
-                elementType: 'labels.text.fill',
-                stylers: [{ color: '#5c5a56' }],
-              },
-              {
-                featureType: 'poi',
-                elementType: 'geometry',
-                stylers: [{ color: '#eeeeea' }],
-              },
-              {
-                featureType: 'poi',
-                elementType: 'labels.text.fill',
-                stylers: [{ color: '#6c6963' }],
-              },
-              {
-                featureType: 'transit',
-                elementType: 'geometry',
-                stylers: [{ color: '#ecebe7' }],
-              },
-              {
-                featureType: 'water',
-                elementType: 'geometry',
-                stylers: [{ color: '#dcecf7' }],
-              },
-              {
-                featureType: 'water',
-                elementType: 'labels.text.fill',
-                stylers: [{ color: '#6d8797' }],
-              },
-            ],
-            disableDefaultUI: true,
-            zoomControl: true,
-            clickableIcons: false,
-            gestureHandling: 'cooperative',
-            mapTypeControl: false,
-            streetViewControl: false,
-            fullscreenControl: false,
-            backgroundColor: '#eef2f3',
-          });
-
-          if (!prefersReducedMotion) {
-            const panTimer = window.setTimeout(() => {
-              if (!active || !mapRef.current) return;
-              mapRef.current.panTo(position);
-            }, 140);
-            const zoomTimerOne = window.setTimeout(() => {
-              if (!active || !mapRef.current) return;
-              mapRef.current.setZoom(15);
-            }, 360);
-            const zoomTimerTwo = window.setTimeout(() => {
-              if (!active || !mapRef.current) return;
-              mapRef.current.setZoom(16);
-            }, 620);
-            const zoomTimerThree = window.setTimeout(() => {
-              if (!active || !mapRef.current) return;
-              mapRef.current.setZoom(17);
-            }, 880);
-            animationTimers.push(panTimer, zoomTimerOne, zoomTimerTwo, zoomTimerThree);
-          }
-        } else {
-          if (prefersReducedMotion) {
-            mapRef.current.setCenter(position);
-            mapRef.current.setZoom(17);
-          } else {
-            const currentMap = mapRef.current;
-            const introPosition = { lat: position.lat + 0.006, lng: position.lng };
-            currentMap.setCenter(introPosition);
-            currentMap.setZoom(15);
-
-            const panTimer = window.setTimeout(() => {
-              if (!active) return;
-              currentMap.panTo(position);
-            }, 120);
-            const zoomTimerOne = window.setTimeout(() => {
-              if (!active) return;
-              currentMap.setZoom(16);
-            }, 420);
-            const zoomTimerTwo = window.setTimeout(() => {
-              if (!active) return;
-              currentMap.setZoom(17);
-            }, 700);
-            animationTimers.push(panTimer, zoomTimerOne, zoomTimerTwo);
-          }
-        }
-
-        if (!markerRef.current) {
-          markerRef.current = new maps.Marker({
-            map: mapRef.current,
-            position,
-            title: location.formattedAddress,
-          });
-        } else {
-          markerRef.current.setPosition(position);
-          markerRef.current.setTitle(location.formattedAddress);
-        }
-
-        setError('');
-        setStatus('ready');
-      })
-      .catch(() => {
-        if (!active) return;
-        setStatus('error');
-        setError(
-          'O endereço foi localizado, mas o mapa não pôde ser carregado agora.',
-        );
-      });
-
-    return () => {
-      active = false;
-      animationTimers.forEach((timer) => window.clearTimeout(timer));
-    };
-  }, [location]);
-
   const currentAddressResolved = resolvedAddressKey === addressKey;
   const visibleLocation = canLocate && currentAddressResolved ? location : null;
   const visibleStatus = !canLocate
@@ -468,16 +173,39 @@ export function AddressLocationMap({
       ? status
       : 'locating';
   const visibleError = canLocate && currentAddressResolved ? error : '';
-  const loading = visibleStatus === 'locating' || visibleStatus === 'loading-map';
+  const loading = visibleStatus === 'locating';
+  const markerColor = primaryColor || '#e85a2b';
 
   return (
     <S.Root $primary={primaryColor}>
       <S.MapFrame aria-busy={loading}>
         <S.MapCanvas
-          ref={containerRef}
           $visible={Boolean(visibleLocation)}
           aria-label="Mapa com a localização do endereço de entrega"
-        />
+        >
+          {visibleLocation ? (
+            <MapContainer
+              center={[visibleLocation.latitude, visibleLocation.longitude]}
+              zoom={17}
+              scrollWheelZoom={false}
+              attributionControl
+              zoomControl
+            >
+              <TileLayer url={MAP_TILE_URL} attribution={MAP_TILE_ATTRIBUTION} />
+              <CircleMarker
+                center={[visibleLocation.latitude, visibleLocation.longitude]}
+                radius={9}
+                pathOptions={{
+                  color: '#ffffff',
+                  fillColor: markerColor,
+                  fillOpacity: 1,
+                  weight: 3,
+                }}
+              />
+              <AddressMapViewport location={visibleLocation} />
+            </MapContainer>
+          ) : null}
+        </S.MapCanvas>
 
         {visibleStatus === 'idle' ? (
           <S.StateOverlay>

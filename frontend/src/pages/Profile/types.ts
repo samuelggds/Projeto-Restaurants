@@ -108,7 +108,6 @@ export type ProfilePageProps = {
   onGoHome?: () => void;
   onOpenMenu?: () => void;
   onOpenCart?: () => void;
-  onOpenSearch?: () => void;
   onTrackOrder?: (orderId: string) => void;
   onViewOrder?: (orderId: string) => void;
   onContinuePayment?: (orderPublicId: string) => void;

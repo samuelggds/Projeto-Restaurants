@@ -95,7 +95,6 @@ function FigmaAccountExperienceReady(props: ProfilePageProps & { data: ProfileDa
     onGoHome,
     onOpenMenu,
     onOpenCart,
-    onOpenSearch,
     onLogout,
     onSupport,
     onNewAddress,
@@ -912,14 +911,6 @@ function FigmaAccountExperienceReady(props: ProfilePageProps & { data: ProfileDa
           </span>
         </button>
         <div className="actions">
-          <button
-            className="search"
-            type="button"
-            aria-label="Buscar"
-            onClick={onOpenSearch}
-          >
-            Buscar
-          </button>
           <button className="account" type="button" onClick={() => setView('account')}>
             <UserRound size={20} /> Olá, {data.user.firstName || data.user.fullName}
           </button>

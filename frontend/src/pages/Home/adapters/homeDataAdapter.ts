@@ -436,20 +436,42 @@ export function buildHomeData(
     };
   });
   const seen = new Set<string>();
+  const orderedMenuCategories = productsFromApi
+    .map((product, discoveryOrder) => {
+      const category = (product.category as Record<string, unknown> | null) ?? {};
+      const name = String(category.name || '');
+      if (!name || seen.has(name)) return null;
+      seen.add(name);
+      const categoryImage = isPersistentImageSource(category.image)
+        ? String(category.image).trim()
+        : '';
+      const rawOrder = Number(category.sortOrder);
+      return {
+        id: name,
+        name,
+        image: categoryImage,
+        sortOrder: Number.isInteger(rawOrder) && rawOrder >= 0 ? rawOrder : Number.MAX_SAFE_INTEGER,
+        discoveryOrder,
+      };
+    })
+    .filter((category): category is {
+      id: string;
+      name: string;
+      image: string;
+      sortOrder: number;
+      discoveryOrder: number;
+    } => Boolean(category))
+    .sort(
+      (first, second) =>
+        first.sortOrder - second.sortOrder ||
+        first.discoveryOrder - second.discoveryOrder ||
+        first.name.localeCompare(second.name, 'pt-BR'),
+    )
+    .map(({ id, name, image }) => ({ id, name, image }));
+
   const categories: HomeCategory[] = [
     { id: 'todos', name: 'Todos', image: '' },
-    ...(productsFromApi
-      .map((product) => {
-        const name = String((product.category as { name?: string })?.name || '');
-        if (!name || seen.has(name)) return null;
-        seen.add(name);
-        const category = (product.category as Record<string, unknown> | null) ?? {};
-        const categoryImage = isPersistentImageSource(category.image)
-          ? String(category.image).trim()
-          : '';
-        return { id: name, name, image: categoryImage };
-      })
-      .filter(Boolean) as HomeCategory[]),
+    ...orderedMenuCategories,
   ];
   const configuredBusinessHours = isBusinessHoursScheduleConfigured(settings?.businessHours)
     ? settings.businessHours

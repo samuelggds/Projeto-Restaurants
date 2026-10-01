@@ -22,9 +22,41 @@ class CategoryRepository {
       where: {
         restaurantId,
       },
-      orderBy: {
-        name: 'asc',
-      },
+      orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }, { id: 'asc' }],
+    });
+  }
+
+  async nextSortOrder(restaurantId: number, db: PrismaClientLike = prisma) {
+    const aggregate = await db.category.aggregate({
+      where: { restaurantId },
+      _max: { sortOrder: true },
+    });
+    return Number(aggregate._max.sortOrder ?? -1) + 1;
+  }
+
+  async reorder(categoryIds: number[], restaurantId: number) {
+    return prisma.$transaction(async (db) => {
+      const categories = await this.findAll(restaurantId, db);
+      const tenantIds = new Set(categories.map((category) => category.id));
+
+      if (
+        categories.length !== categoryIds.length ||
+        categoryIds.some((categoryId) => !tenantIds.has(categoryId))
+      ) {
+        throw new Error('A ordem informada contém categorias que não pertencem a este restaurante.');
+      }
+
+      for (const [sortOrder, categoryId] of categoryIds.entries()) {
+        const updated = await db.category.updateMany({
+          where: { id: categoryId, restaurantId },
+          data: { sortOrder },
+        });
+        if (updated.count !== 1) {
+          throw new Error('Não foi possível salvar a ordem das categorias.');
+        }
+      }
+
+      return this.findAll(restaurantId, db);
     });
   }
 
@@ -67,6 +99,7 @@ class CategoryRepository {
       data,
     });
   }
+
   async delete(id: number | string, restaurantId: number, db: PrismaClientLike = prisma) {
     const categoryId = Number(id);
 

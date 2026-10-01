@@ -1,8 +1,43 @@
-import { act } from 'react';
+import { act, type ReactNode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import ordersService from '../../../Services/ordersService';
 import { ADDRESS_LOCATION_DEBOUNCE_MS, AddressLocationMap } from './AddressLocationMap';
+
+const leafletMocks = vi.hoisted(() => ({
+  setView: vi.fn(),
+}));
+
+vi.mock('react-leaflet', () => ({
+  MapContainer: ({
+    children,
+    center,
+    zoom,
+  }: {
+    children?: ReactNode;
+    center?: [number, number];
+    zoom?: number;
+  }) => (
+    <div
+      data-testid="address-map-container"
+      data-center={center?.join(',')}
+      data-zoom={String(zoom ?? '')}
+    >
+      {children}
+    </div>
+  ),
+  TileLayer: ({ url, attribution }: { url: string; attribution?: string }) => (
+    <div data-testid="address-map-tiles" data-url={url} data-attribution={attribution} />
+  ),
+  CircleMarker: ({
+    center,
+  }: {
+    center: [number, number];
+  }) => <div data-testid="address-map-marker" data-center={center.join(',')} />,
+  useMap: () => ({
+    setView: leafletMocks.setView,
+  }),
+}));
 
 vi.mock('../../../Services/ordersService', () => ({
   default: {
@@ -26,7 +61,6 @@ describe('AddressLocationMap', () => {
 
   afterEach(() => {
     vi.useRealTimers();
-    delete (window as typeof window & { google?: unknown }).google;
   });
 
   const address = {
@@ -39,33 +73,7 @@ describe('AddressLocationMap', () => {
     complement: '',
   };
 
-  it('inicializa o Google Maps sem colorScheme incompatível e mostra a localização validada', async () => {
-    const mapOptions: Array<Record<string, unknown>> = [];
-    class FakeMap {
-      constructor(_element: HTMLElement, options: Record<string, unknown>) {
-        mapOptions.push(options);
-      }
-      setCenter() {}
-      setZoom() {}
-      panTo() {}
-    }
-    class FakeMarker {
-      constructor(_options: Record<string, unknown>) {}
-      setPosition() {}
-      setTitle() {}
-    }
-    class FakeGeocoder {
-      geocode() {}
-    }
-
-    (window as typeof window & { google?: unknown }).google = {
-      maps: {
-        Map: FakeMap,
-        Marker: FakeMarker,
-        Geocoder: FakeGeocoder,
-      },
-    };
-
+  it('renderiza o mapa por tiles usando somente a localização validada pelo backend', async () => {
     vi.mocked(ordersService.getDeliveryAddressLocation).mockResolvedValue({
       latitude: -3.7319,
       longitude: -38.5267,
@@ -94,11 +102,6 @@ describe('AddressLocationMap', () => {
       await Promise.resolve();
     });
 
-    await act(async () => {
-      await Promise.resolve();
-      await Promise.resolve();
-    });
-
     expect(ordersService.getDeliveryAddressLocation).toHaveBeenCalledWith(
       expect.objectContaining({
         restaurantId: 9,
@@ -108,11 +111,14 @@ describe('AddressLocationMap', () => {
         state: 'CE',
       }),
     );
-    await vi.waitFor(() => {
-      expect(mapOptions).toHaveLength(1);
+
+    expect(container.querySelector('[data-testid="address-map-container"]')).not.toBeNull();
+    expect(container.querySelector('[data-testid="address-map-marker"]')).not.toBeNull();
+    expect(container.querySelector('[data-testid="address-map-tiles"]')).not.toBeNull();
+    expect(container.querySelector('#gastronexa-google-maps')).toBeNull();
+    expect(leafletMocks.setView).toHaveBeenCalledWith([-3.7319, -38.5267], 17, {
+      animate: false,
     });
-    expect(mapOptions[0]).not.toHaveProperty('colorScheme');
-    expect(mapOptions[0]).toHaveProperty('styles');
     expect(container.textContent).toContain('Localização encontrada');
     expect(container.textContent).toContain('Rua das Flores, 123 - Fortaleza - CE');
 
@@ -121,29 +127,6 @@ describe('AddressLocationMap', () => {
   });
 
   it('não refaz geocodificação ao digitar somente o complemento', async () => {
-    class FakeMap {
-      constructor(_element: HTMLElement, _options: Record<string, unknown>) {}
-      setCenter() {}
-      setZoom() {}
-      panTo() {}
-    }
-    class FakeMarker {
-      constructor(_options: Record<string, unknown>) {}
-      setPosition() {}
-      setTitle() {}
-    }
-    class FakeGeocoder {
-      geocode() {}
-    }
-
-    (window as typeof window & { google?: unknown }).google = {
-      maps: {
-        Map: FakeMap,
-        Marker: FakeMarker,
-        Geocoder: FakeGeocoder,
-      },
-    };
-
     vi.mocked(ordersService.getDeliveryAddressLocation).mockResolvedValue({
       latitude: -3.7319,
       longitude: -38.5267,
@@ -154,15 +137,6 @@ describe('AddressLocationMap', () => {
     const container = document.createElement('div');
     document.body.appendChild(container);
     const root = createRoot(container);
-    const address = {
-      address: 'Rua das Flores',
-      number: '123',
-      district: 'Centro',
-      city: 'Fortaleza',
-      state: 'CE',
-      zipCode: '60000-000',
-      complement: '',
-    };
 
     await act(async () => {
       root.render(<AddressLocationMap restaurantId={9} primaryColor="#d05632" address={address} />);
@@ -232,6 +206,31 @@ describe('AddressLocationMap', () => {
     );
     expect(container.textContent).not.toContain('Não encontramos esse endereço no mapa');
     expect(container.textContent).not.toContain('detalhe interno');
+
+    act(() => root.unmount());
+    container.remove();
+  });
+
+  it('não solicita localização sem tenant identificado', async () => {
+    const container = document.createElement('div');
+    document.body.appendChild(container);
+    const root = createRoot(container);
+
+    await act(async () => {
+      root.render(
+        <AddressLocationMap
+          restaurantId={null}
+          primaryColor="#d05632"
+          address={address}
+        />,
+      );
+      await vi.runAllTimersAsync();
+    });
+
+    expect(ordersService.getDeliveryAddressLocation).not.toHaveBeenCalled();
+    expect(container.textContent).toContain(
+      'A localização ficará disponível assim que o restaurante for identificado.',
+    );
 
     act(() => root.unmount());
     container.remove();

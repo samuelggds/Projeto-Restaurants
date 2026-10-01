@@ -171,6 +171,7 @@ export type AdminCategory = {
   name: string;
   active?: boolean;
   image?: string | null;
+  sortOrder?: number;
 };
 
 export type AdminIngredient = {
@@ -358,6 +359,7 @@ export type AdminPageProps = {
     updates: { name?: string; image?: string | null },
   ) => void | Promise<void>;
   onDeleteCategory?: (id: number) => void | Promise<void>;
+  onReorderCategories?: (categoryIds: number[]) => void | Promise<void>;
   onCreateIngredient?: (
     ingredient: Omit<AdminIngredient, 'id'>,
   ) => AdminIngredient | void | Promise<AdminIngredient | void>;
