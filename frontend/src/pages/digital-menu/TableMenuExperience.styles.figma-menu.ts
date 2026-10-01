@@ -28,6 +28,7 @@ export const FigmaShell = styled.main<{ $primary: string; $fontFamily?: string }
   }
 
   button {
+    --primary: #ff4b4b;
     cursor: pointer;
   }
 
