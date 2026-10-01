@@ -12,6 +12,7 @@ import {
   currentParticipantAccount,
   formatTableMoney,
   previewIndividualTablePayment,
+  tablePaymentMethodLabel,
   type CreateTablePaymentResult,
   type TableAccountSnapshot,
   type TablePaymentDraft,
@@ -519,7 +520,12 @@ function TableAccountPanelContent(props: Props) {
           <S.PaymentActions aria-label="Pagamento da sua comanda">
             {visiblePayment ? (
               <S.PayButton type="button" onClick={() => setReviewingPayment(false)}>
-                Voltar ao pagamento <ArrowRight size={18} aria-hidden="true" />
+                {visiblePayment.method === 'PIX'
+                  ? 'Pagar com PIX'
+                  : visiblePayment.method === 'CASH'
+                    ? 'Pagar com dinheiro'
+                    : `Continuar com ${tablePaymentMethodLabel(visiblePayment.method)}`}
+                <ArrowRight size={18} aria-hidden="true" />
               </S.PayButton>
             ) : canPay && preview ? (
               <>
