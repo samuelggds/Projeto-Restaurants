@@ -478,6 +478,11 @@ test('admin reorganiza categorias pelo próprio card e salva a ordem', async ({ 
     steps: 3,
   });
   await expect(page.locator('[data-category-drag-preview="true"]')).toBeVisible();
+
+  // O drag deve continuar ativo mesmo depois que o ponteiro sai totalmente da área do card.
+  await page.mouse.move(520, 180, { steps: 6 });
+  await expect(page.locator('[data-category-drag-preview="true"]')).toBeVisible();
+
   await page.mouse.move(targetBox.x + targetBox.width / 2, targetBox.y + 38, {
     steps: 10,
   });

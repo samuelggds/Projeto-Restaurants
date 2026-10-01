@@ -243,7 +243,6 @@ export function AdminCatalog(props: AdminCatalogProps) {
     }
 
     event.preventDefault();
-    event.currentTarget.setPointerCapture(event.pointerId);
     categoryDragRef.current = {
       categoryId,
       pointerId: event.pointerId,
@@ -256,48 +255,104 @@ export function AdminCatalog(props: AdminCatalogProps) {
       previousBodyUserSelect: document.body.style.userSelect,
       previousBodyCursor: document.body.style.cursor,
     };
-  };
 
-  const moveCategoryDrag = (
-    event: ReactPointerEvent<HTMLElement>,
-    categoryId: number,
-  ) => {
-    const drag = categoryDragRef.current;
-    if (!drag || drag.categoryId !== categoryId || drag.pointerId !== event.pointerId) return;
+    const cleanupGlobalListeners = () => {
+      window.removeEventListener('pointermove', handleGlobalPointerMove);
+      window.removeEventListener('pointerup', handleGlobalPointerUp);
+      window.removeEventListener('pointercancel', handleGlobalPointerCancel);
+      window.removeEventListener('blur', handleWindowBlur);
+    };
 
-    const deltaX = event.clientX - drag.startX;
-    const deltaY = event.clientY - drag.startY;
+    const completeGlobalDrag = async (cancelled: boolean) => {
+      const drag = categoryDragRef.current;
+      if (!drag || drag.categoryId !== categoryId || drag.pointerId !== event.pointerId) {
+        cleanupGlobalListeners();
+        return;
+      }
 
-    if (!drag.active) {
-      if (Math.hypot(deltaX, deltaY) < 6) return;
-      const { preview, rect } = createCategoryDragPreview(drag.element);
-      drag.active = true;
-      drag.preview = preview;
-      drag.startRect = rect;
-      drag.element.dataset.dragSource = 'true';
-      document.body.style.userSelect = 'none';
-      document.body.style.cursor = 'grabbing';
-      setDraggingCategoryId(categoryId);
-    }
+      categoryDragRef.current = null;
+      cleanupGlobalListeners();
 
-    event.preventDefault();
-    const tilt = Math.max(-0.8, Math.min(0.8, deltaX * 0.008));
-    if (drag.preview) {
-      drag.preview.style.transform =
-        `translate3d(${deltaX}px, ${deltaY}px, 0) scale(1.025) rotate(${tilt}deg)`;
-    }
+      if (!drag.active) return;
 
-    const edge = 72;
-    if (event.clientY < edge) window.scrollBy(0, -10);
-    else if (event.clientY > window.innerHeight - edge) window.scrollBy(0, 10);
+      releaseCategoryDrag(drag);
+      settleCategoryDragPreview(drag, cancelled);
+      setDraggingCategoryId(null);
 
-    const target = document
-      .elementFromPoint(event.clientX, event.clientY)
-      ?.closest<HTMLElement>('[data-category-card]');
-    const targetId = Number(target?.dataset.categoryId);
-    if (Number.isSafeInteger(targetId) && targetId > 0) {
-      reorderLocally(categoryId, targetId);
-    }
+      if (cancelled) {
+        const fallback = categories.map((category) => category.id);
+        categoryOrderIdsRef.current = fallback;
+        setCategoryOrderIds(fallback);
+        return;
+      }
+
+      const nextOrder = [...categoryOrderIdsRef.current];
+      const currentOrder = categories.map((category) => category.id);
+      const changed =
+        currentOrder.length === nextOrder.length &&
+        currentOrder.some((id, index) => id !== nextOrder[index]);
+      if (changed) await persistCategoryOrder(nextOrder);
+    };
+
+    const handleGlobalPointerMove = (pointerEvent: PointerEvent) => {
+      const drag = categoryDragRef.current;
+      if (!drag || drag.categoryId !== categoryId || drag.pointerId !== pointerEvent.pointerId) {
+        return;
+      }
+
+      const deltaX = pointerEvent.clientX - drag.startX;
+      const deltaY = pointerEvent.clientY - drag.startY;
+
+      if (!drag.active) {
+        if (Math.hypot(deltaX, deltaY) < 6) return;
+        const { preview, rect } = createCategoryDragPreview(drag.element);
+        drag.active = true;
+        drag.preview = preview;
+        drag.startRect = rect;
+        drag.element.dataset.dragSource = 'true';
+        document.body.style.userSelect = 'none';
+        document.body.style.cursor = 'grabbing';
+        setDraggingCategoryId(categoryId);
+      }
+
+      pointerEvent.preventDefault();
+      const tilt = Math.max(-0.8, Math.min(0.8, deltaX * 0.008));
+      if (drag.preview) {
+        drag.preview.style.transform =
+          `translate3d(${deltaX}px, ${deltaY}px, 0) scale(1.025) rotate(${tilt}deg)`;
+      }
+
+      const edge = 72;
+      if (pointerEvent.clientY < edge) window.scrollBy(0, -10);
+      else if (pointerEvent.clientY > window.innerHeight - edge) window.scrollBy(0, 10);
+
+      const hoveredCard = document
+        .elementFromPoint(pointerEvent.clientX, pointerEvent.clientY)
+        ?.closest<HTMLElement>('[data-category-card]');
+      const targetId = Number(hoveredCard?.dataset.categoryId);
+      if (Number.isSafeInteger(targetId) && targetId > 0) {
+        reorderLocally(categoryId, targetId);
+      }
+    };
+
+    const handleGlobalPointerUp = (pointerEvent: PointerEvent) => {
+      if (pointerEvent.pointerId !== event.pointerId) return;
+      void completeGlobalDrag(false);
+    };
+
+    const handleGlobalPointerCancel = (pointerEvent: PointerEvent) => {
+      if (pointerEvent.pointerId !== event.pointerId) return;
+      void completeGlobalDrag(true);
+    };
+
+    const handleWindowBlur = () => {
+      void completeGlobalDrag(true);
+    };
+
+    window.addEventListener('pointermove', handleGlobalPointerMove, { passive: false });
+    window.addEventListener('pointerup', handleGlobalPointerUp);
+    window.addEventListener('pointercancel', handleGlobalPointerCancel);
+    window.addEventListener('blur', handleWindowBlur);
   };
 
   const settleCategoryDragPreview = (
@@ -342,49 +397,6 @@ export function AdminCatalog(props: AdminCatalogProps) {
     drag.element.removeAttribute('data-drag-source');
     document.body.style.userSelect = drag.previousBodyUserSelect;
     document.body.style.cursor = drag.previousBodyCursor;
-  };
-
-  const finishCategoryDrag = async (
-    event: ReactPointerEvent<HTMLElement>,
-    categoryId: number,
-  ) => {
-    const drag = categoryDragRef.current;
-    if (!drag || drag.categoryId !== categoryId || drag.pointerId !== event.pointerId) return;
-    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
-      event.currentTarget.releasePointerCapture(event.pointerId);
-    }
-    categoryDragRef.current = null;
-
-    if (!drag.active) return;
-    releaseCategoryDrag(drag);
-    settleCategoryDragPreview(drag, false);
-    setDraggingCategoryId(null);
-
-    const nextOrder = [...categoryOrderIdsRef.current];
-    const currentOrder = categories.map((category) => category.id);
-    const changed =
-      currentOrder.length === nextOrder.length &&
-      currentOrder.some((id, index) => id !== nextOrder[index]);
-    if (changed) await persistCategoryOrder(nextOrder);
-  };
-
-  const cancelCategoryDrag = (
-    event: ReactPointerEvent<HTMLElement>,
-    categoryId: number,
-  ) => {
-    const drag = categoryDragRef.current;
-    if (!drag || drag.categoryId !== categoryId || drag.pointerId !== event.pointerId) return;
-    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
-      event.currentTarget.releasePointerCapture(event.pointerId);
-    }
-    categoryDragRef.current = null;
-    releaseCategoryDrag(drag);
-    settleCategoryDragPreview(drag, true);
-    setDraggingCategoryId(null);
-
-    const fallback = categories.map((category) => category.id);
-    categoryOrderIdsRef.current = fallback;
-    setCategoryOrderIds(fallback);
   };
 
   const moveCategoryWithKeyboard = async (categoryId: number, direction: -1 | 1) => {
@@ -1069,9 +1081,6 @@ export function AdminCatalog(props: AdminCatalogProps) {
                     aria-label={`Categoria ${category.name}. Pressione e arraste o card para reorganizar. Use as setas do teclado para mover.`}
                     title="Pressione e arraste para reorganizar"
                     onPointerDown={(event) => beginCategoryDrag(event, category.id)}
-                    onPointerMove={(event) => moveCategoryDrag(event, category.id)}
-                    onPointerUp={(event) => void finishCategoryDrag(event, category.id)}
-                    onPointerCancel={(event) => cancelCategoryDrag(event, category.id)}
                     onKeyDown={(event) => {
                       if (event.target !== event.currentTarget) return;
                       if (event.key === 'ArrowUp' || event.key === 'ArrowLeft') {
