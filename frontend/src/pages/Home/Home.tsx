@@ -60,6 +60,7 @@ import {
 } from './cartFlyAnimation';
 import { validateDeliveryAddressLocationForCheckout } from './domain/deliveryAddress';
 import type { GuestCheckoutDetails, HomeNavigationState } from './domain/homePageTypes';
+import type { TablePaymentIntent } from './domain/tableAccount';
 
 export default function Home() {
   const navigate = useNavigate();
@@ -132,6 +133,7 @@ export default function Home() {
   const [tableOrderLoading, setTableOrderLoading] = useState(false);
   const [tableMenuReviewCartOpen, setTableMenuReviewCartOpen] = useState(false);
   const [tableAccountOpen, setTableAccountOpen] = useState(false);
+  const [tablePaymentToOpen, setTablePaymentToOpen] = useState<TablePaymentIntent | null>(null);
   const [crossSellProduct, setCrossSellProduct] = useState<HomeProduct | null>(null);
   const [crossSellCombo, setCrossSellCombo] = useState<HomeProduct | null>(null);
   const crossSellCartFlyOriginRef = useRef<CartFlyOrigin | null>(null);
@@ -930,6 +932,7 @@ export default function Home() {
         tableOrder={tableOrder}
         accountSnapshot={tableAccount.snapshot}
         activePayment={tableAccount.snapshot?.activePayment || null}
+        paymentToOpen={tablePaymentToOpen}
         paymentLoading={tableAccount.actionLoading}
         waiterCallEnabled={tableSession?.waiterCallEnabled !== false}
         onAddProduct={addToCart}
@@ -959,8 +962,10 @@ export default function Home() {
         error={tableAccount.error}
         onRefresh={() => void tableAccount.refresh()}
         onCreatePayment={tableAccount.createPayment}
-        onCancelPayment={tableAccount.cancelPayment}
-        onReconcilePayment={tableAccount.reconcilePayment}
+        onOpenPayment={(payment) => {
+          setTableAccountOpen(false);
+          setTablePaymentToOpen({ ...payment });
+        }}
         orderingBlocked={tableClosingRequested}
         onClose={() => setTableAccountOpen(false)}
       />
