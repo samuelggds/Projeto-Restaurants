@@ -165,24 +165,34 @@ export const FigmaHeader = styled.header<{ $hasTitle?: boolean }>`
     }
 
     .mobile-back {
-      display: none;
-    }
-
-    &.cart-header .mobile-back {
-      width: 36px;
-      height: 36px;
+      width: 40px;
+      height: 40px;
+      flex: 0 0 40px;
       padding: 0;
       border: 0;
+      border-radius: 8px;
       background: transparent;
       color: #1a1a2e;
       display: grid;
       place-items: center;
+      transition:
+        background-color 160ms ease,
+        transform 160ms ease;
     }
 
-    &.cart-header .mobile-back svg {
-      width: 30px;
-      height: 30px;
-      stroke-width: 2.3;
+    .mobile-back:hover,
+    .mobile-back:focus-visible {
+      background: #f4f4f1;
+    }
+
+    .mobile-back:active {
+      transform: scale(.96);
+    }
+
+    .mobile-back svg {
+      width: 24px;
+      height: 24px;
+      stroke-width: 2.4;
     }
 
     &.cart-header .brand {
@@ -221,7 +231,7 @@ export const FigmaHeader = styled.header<{ $hasTitle?: boolean }>`
     ${({ $hasTitle }) =>
       $hasTitle
         ? `
-      .brand .name {
+      .brand {
         display: none;
       }
     `
