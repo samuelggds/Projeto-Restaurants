@@ -9,7 +9,6 @@ import {
   ReceiptText,
   ShoppingBag,
   Star,
-  UserRound,
   UtensilsCrossed,
 } from 'lucide-react';
 import { PromotionCarousel } from '../Home/components/PromotionCarousel';
@@ -26,8 +25,8 @@ type Props = {
   billRequestEnabled: boolean;
   userName?: string;
   userLoggedIn?: boolean;
-  onOpenProduct: (product: HomeProduct) => void;
-  onQuickAdd: (product: HomeProduct) => void;
+  onOpenProduct: (product: HomeProduct, sourceElement?: HTMLElement | null) => void;
+  onQuickAdd: (product: HomeProduct, sourceElement?: HTMLElement | null) => void;
   onOpenCart: () => void;
   onCallWaiter: () => void;
   onRequestBill?: () => void;
@@ -72,8 +71,8 @@ function TableProductCarousel({
 }: {
   section: ProductSection;
   orderingLocked: boolean;
-  onOpenProduct: (product: HomeProduct) => void;
-  onQuickAdd: (product: HomeProduct) => void;
+  onOpenProduct: (product: HomeProduct, sourceElement?: HTMLElement | null) => void;
+  onQuickAdd: (product: HomeProduct, sourceElement?: HTMLElement | null) => void;
 }) {
   const trackRef = useRef<HTMLDivElement>(null);
   const [hasOverflow, setHasOverflow] = useState(false);
@@ -149,7 +148,12 @@ function TableProductCarousel({
                 className="open"
                 type="button"
                 aria-label={`Ver detalhes de ${product.name}`}
-                onClick={() => onOpenProduct(product)}
+                onClick={(event) =>
+                  onOpenProduct(
+                    product,
+                    event.currentTarget.closest<HTMLElement>('[data-table-product-card]'),
+                  )
+                }
               />
               <div className="image">{productImage(product)}</div>
               <div className="copy">
@@ -171,7 +175,12 @@ function TableProductCarousel({
                     type="button"
                     aria-label={`Adicionar ${product.name}`}
                     disabled={orderingLocked}
-                    onClick={() => onQuickAdd(product)}
+                    onClick={(event) =>
+                      onQuickAdd(
+                        product,
+                        event.currentTarget.closest<HTMLElement>('[data-table-product-card]'),
+                      )
+                    }
                   >
                     + Adicionar
                   </button>
@@ -316,7 +325,12 @@ export function TableMenuHome({
               <span>Olá, {firstName}</span>
             </span>
           ) : null}
-          <button className="cart desktop-cart" type="button" onClick={onOpenCart}>
+          <button
+            className="cart desktop-cart"
+            data-cart-fly-target
+            type="button"
+            onClick={onOpenCart}
+          >
             <ShoppingBag aria-hidden="true" />
             <span>Meu Carrinho</span>
             {cartCount > 0 ? <i>{cartCount}</i> : null}
@@ -403,7 +417,7 @@ export function TableMenuHome({
       </H.Content>
 
       <H.ActionDock aria-label="Ações da mesa">
-        <button type="button" onClick={onOpenCart}>
+        <button type="button" data-cart-fly-target onClick={onOpenCart}>
           <span className="icon"><ShoppingBag aria-hidden="true" /></span>
           <span>Meu Pedido</span>
           {cartCount > 0 ? <i>{cartCount}</i> : null}

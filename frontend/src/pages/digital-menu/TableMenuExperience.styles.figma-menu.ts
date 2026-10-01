@@ -45,6 +45,10 @@ export const FigmaShell = styled.main<{ $primary: string; $fontFamily?: string }
     display: none;
   }
 
+  @media (prefers-reduced-motion: reduce) {
+    animation: none;
+  }
+
   @media (max-width: 759px) {
     .desktop-only {
       display: none !important;

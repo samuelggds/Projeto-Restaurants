@@ -25,6 +25,11 @@ import { WhatsAppIcon } from './components/SocialBrandIcons';
 import { buildSocialProfileUrl } from './domain/publicSettings';
 import { resolveComboCategoryImage } from './domain/comboCategoryImage';
 import { createReadyProductConfiguration, resolveProductEntryKind } from './domain/productEntryFlow';
+import {
+  animateProductToCart,
+  captureCartFlyOrigin,
+  type CartFlyOrigin,
+} from './cartFlyAnimation';
 import type { HomeExperienceProps, HomeProduct } from './types';
 import * as S from './FigmaDeliveryExperience.styles';
 
@@ -197,7 +202,7 @@ function ProductCarouselSection({
   title: string;
   description?: string;
   products: HomeProduct[];
-  onOpenProduct: (product: HomeProduct) => void;
+  onOpenProduct: (product: HomeProduct, sourceElement?: HTMLElement | null) => void;
   className?: string;
   sectionId?: string;
   ariaLabel?: string;
@@ -292,7 +297,12 @@ function ProductCarouselSection({
                 className="open"
                 type="button"
                 aria-label={`Ver detalhes de ${product.name}`}
-                onClick={() => onOpenProduct(product)}
+                onClick={(event) =>
+                  onOpenProduct(
+                    product,
+                    event.currentTarget.closest<HTMLElement>('[data-product-carousel-card]'),
+                  )
+                }
               />
               <div className="image">{productImage(product)}</div>
               <div className="copy">
@@ -313,7 +323,12 @@ function ProductCarouselSection({
                     className="add"
                     type="button"
                     aria-label={`Adicionar ${product.name}`}
-                    onClick={() => onOpenProduct(product)}
+                    onClick={(event) =>
+                      onOpenProduct(
+                        product,
+                        event.currentTarget.closest<HTMLElement>('[data-product-carousel-card]'),
+                      )
+                    }
                   >
                     + Adicionar
                   </button>
@@ -352,6 +367,7 @@ export function FigmaDeliveryExperience({
   const searchContainerRef = useRef<HTMLDivElement>(null);
   const mobileSearchTriggerRef = useRef<HTMLButtonElement>(null);
   const cartFabRef = useRef<HTMLButtonElement>(null);
+  const pendingCartFlyOriginRef = useRef<CartFlyOrigin | null>(null);
   const cartFabDragRef = useRef<{
     pointerId: number;
     startX: number;
@@ -576,7 +592,23 @@ export function FigmaDeliveryExperience({
   };
 
 
-  const openProduct = (product: HomeProduct) => {
+  const flyProduct = (
+    product: HomeProduct,
+    origin?: CartFlyOrigin | null,
+    sourceElement?: HTMLElement | null,
+  ) => {
+    window.requestAnimationFrame(() => {
+      animateProductToCart({
+        origin,
+        sourceElement,
+        imageUrl: product.image,
+        accentColor: primary,
+      });
+    });
+  };
+
+  const openProduct = (product: HomeProduct, sourceElement?: HTMLElement | null) => {
+    pendingCartFlyOriginRef.current = captureCartFlyOrigin(sourceElement);
     const entryKind = resolveProductEntryKind(product);
 
     if (entryKind === 'COMBO') {
@@ -586,6 +618,8 @@ export function FigmaDeliveryExperience({
 
     if (entryKind === 'READY') {
       onAddProduct?.(product.id, createReadyProductConfiguration(product.configurationVersion), 1);
+      flyProduct(product, pendingCartFlyOriginRef.current, sourceElement);
+      pendingCartFlyOriginRef.current = null;
       return;
     }
 
@@ -766,6 +800,7 @@ export function FigmaDeliveryExperience({
           </button>
           <button
             className="cart"
+            data-cart-fly-target
             type="button"
             aria-label={`Meu Carrinho, ${cartCount} ${cartCount === 1 ? 'item' : 'itens'}`}
             onClick={onOpenCart}
@@ -787,8 +822,15 @@ export function FigmaDeliveryExperience({
             customerPageVariant
             onClose={() => setSelectedProduct(null)}
             onConfirm={(configuration, quantity) => {
-              onAddProduct?.(selectedProduct.id, configuration, quantity || 1);
+              const product = selectedProduct;
+              const origin =
+                captureCartFlyOrigin(
+                  document.querySelector<HTMLElement>('[data-cart-fly-source="dialog"]'),
+                ) || pendingCartFlyOriginRef.current;
+              onAddProduct?.(product.id, configuration, quantity || 1);
               setSelectedProduct(null);
+              pendingCartFlyOriginRef.current = null;
+              flyProduct(product, origin);
             }}
           />
         </Suspense>
@@ -974,6 +1016,7 @@ export function FigmaDeliveryExperience({
 
       <S.MobileCartFab
         ref={cartFabRef}
+        data-cart-fly-target
         type="button"
         aria-label={`Meu Carrinho, ${cartCount} ${cartCount === 1 ? 'item' : 'itens'}`}
         style={
@@ -1043,8 +1086,15 @@ export function FigmaDeliveryExperience({
             primaryColor={primary}
             onClose={() => setSelectedCombo(null)}
             onConfirm={(configuration) => {
-              onAddProduct?.(selectedCombo.id, configuration, 1);
+              const product = selectedCombo;
+              const origin =
+                captureCartFlyOrigin(
+                  document.querySelector<HTMLElement>('[data-cart-fly-source="dialog"]'),
+                ) || pendingCartFlyOriginRef.current;
+              onAddProduct?.(product.id, configuration, 1);
               setSelectedCombo(null);
+              pendingCartFlyOriginRef.current = null;
+              flyProduct(product, origin);
             }}
           />
         </Suspense>

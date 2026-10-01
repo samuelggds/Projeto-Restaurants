@@ -8,7 +8,7 @@ import {
   Table2,
   Utensils,
 } from 'lucide-react';
-import { lazy, Suspense, useEffect, useState } from 'react';
+import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import QRCode from 'react-qr-code';
 import type { HomeData, HomeProduct } from '../Home/types';
 import type { CartItem } from '../Home/hooks/useCart';
@@ -18,6 +18,11 @@ import type {
   TablePaymentIntent,
 } from '../Home/domain/tableAccount';
 import type { TableOrderNotice } from '../Home/domain/tableOrderNotice';
+import {
+  animateProductToCart,
+  captureCartFlyOrigin,
+  type CartFlyOrigin,
+} from '../Home/cartFlyAnimation';
 import { TablePaymentStatusView } from '../Home/components/TablePaymentStatusView';
 import { QuantityStepper } from '../../components/QuantityStepper/QuantityStepper';
 import { TableMenuHome } from './TableMenuHome';
@@ -128,6 +133,7 @@ export default function TableMenuExperience({
   const [pixPayment, setPixPayment] = useState<TablePaymentIntent | null>(null);
   const [copied, setCopied] = useState(false);
   const [couponInput, setCouponInput] = useState(couponCode || '');
+  const pendingCartFlyOriginRef = useRef<CartFlyOrigin | null>(null);
   const [now, setNow] = useState(() => Date.now());
 
   const primary = data.brand.primaryColor || '#d64d08';
@@ -174,8 +180,19 @@ export default function TableMenuExperience({
     };
   }
 
-  function openProduct(product: HomeProduct) {
+  function flyProduct(product: HomeProduct, origin?: CartFlyOrigin | null) {
+    window.requestAnimationFrame(() => {
+      animateProductToCart({
+        origin,
+        imageUrl: product.image,
+        accentColor: primary,
+      });
+    });
+  }
+
+  function openProduct(product: HomeProduct, sourceElement?: HTMLElement | null) {
     if (orderingLocked) return;
+    pendingCartFlyOriginRef.current = captureCartFlyOrigin(sourceElement);
     if (product.kind === 'COMBO') {
       if (product.comboGroups?.length) {
         setConfiguringProduct(product);
@@ -195,8 +212,9 @@ export default function TableMenuExperience({
     setSelectedProduct(product);
   }
 
-  function quickAdd(product: HomeProduct) {
+  function quickAdd(product: HomeProduct, sourceElement?: HTMLElement | null) {
     if (orderingLocked) return;
+    pendingCartFlyOriginRef.current = captureCartFlyOrigin(sourceElement);
     if (product.kind === 'COMBO' && product.comboGroups?.length) {
       setConfiguringProduct(product);
       return;
@@ -206,6 +224,8 @@ export default function TableMenuExperience({
       return;
     }
     onAddProduct(product.id, emptyConfiguration(product));
+    flyProduct(product, pendingCartFlyOriginRef.current);
+    pendingCartFlyOriginRef.current = null;
   }
 
   function addComplete(product: HomeProduct) {
@@ -215,10 +235,16 @@ export default function TableMenuExperience({
       observation: completeProductObservation.trim(),
       configurationVersion: product.configurationVersion,
     };
+    const origin =
+      captureCartFlyOrigin(
+        document.querySelector<HTMLElement>('[data-cart-fly-source="dialog"]'),
+      ) || pendingCartFlyOriginRef.current;
     for (let index = 0; index < completeProductQuantity; index += 1) {
       onAddProduct(product.id, configuration);
     }
     setSelectedProduct(null);
+    flyProduct(product, origin);
+    pendingCartFlyOriginRef.current = null;
     setCompleteProductQuantity(1);
     setCompleteProductObservation('');
   }
@@ -816,7 +842,7 @@ export default function TableMenuExperience({
 
       {selectedProduct ? (
         <S.ProductOverlay role="dialog" aria-modal="true" aria-label={selectedProduct.name}>
-          <S.CompleteProductDetail>
+          <S.CompleteProductDetail data-cart-fly-source="dialog">
             <div className="media">
               {selectedProduct.image ? (
                 <img src={selectedProduct.image} alt={selectedProduct.name} />
@@ -891,8 +917,15 @@ export default function TableMenuExperience({
               primaryColor={primary}
               onClose={() => setConfiguringProduct(null)}
               onConfirm={(configuration) => {
-                onAddProduct(configuringProduct.id, configuration);
+                const product = configuringProduct;
+                const origin =
+                  captureCartFlyOrigin(
+                    document.querySelector<HTMLElement>('[data-cart-fly-source="dialog"]'),
+                  ) || pendingCartFlyOriginRef.current;
+                onAddProduct(product.id, configuration);
                 setConfiguringProduct(null);
+                flyProduct(product, origin);
+                pendingCartFlyOriginRef.current = null;
               }}
             />
           ) : (
@@ -903,10 +936,17 @@ export default function TableMenuExperience({
               enableProductQuantity
               tableMenuVariant
               onConfirm={(configuration, quantity = 1) => {
+                const product = configuringProduct;
+                const origin =
+                  captureCartFlyOrigin(
+                    document.querySelector<HTMLElement>('[data-cart-fly-source="dialog"]'),
+                  ) || pendingCartFlyOriginRef.current;
                 for (let index = 0; index < quantity; index += 1) {
-                  onAddProduct(configuringProduct.id, configuration);
+                  onAddProduct(product.id, configuration);
                 }
                 setConfiguringProduct(null);
+                flyProduct(product, origin);
+                pendingCartFlyOriginRef.current = null;
               }}
             />
           )}

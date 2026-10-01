@@ -211,6 +211,7 @@ export function ProductConfigurator({
       aria-modal="true"
       aria-label={`Montar ${product.name}`}
       data-testid="product-configurator"
+      data-cart-fly-source="dialog"
       data-table-menu={tableMenuVariant ? 'true' : undefined}
     >
       {!tableMenuVariant && !customerPageVariant ? (

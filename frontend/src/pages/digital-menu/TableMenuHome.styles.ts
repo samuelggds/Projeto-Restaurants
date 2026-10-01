@@ -11,6 +11,22 @@ export const HomeRoot = styled.div`
   background: #fff;
   color: var(--table-text);
   font-family: 'Inter', system-ui, sans-serif;
+  animation: table-home-enter 360ms cubic-bezier(.22, 1, .36, 1) both;
+
+  @keyframes table-home-enter {
+    from {
+      opacity: 0;
+      transform: translate3d(0, 10px, 0);
+    }
+    to {
+      opacity: 1;
+      transform: translate3d(0, 0, 0);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    animation: none;
+  }
 
   @media (max-width: 760px) {
     padding-bottom: 72px;
@@ -339,6 +355,17 @@ export const Categories = styled.nav`
     display: grid;
     justify-items: center;
     gap: 8px;
+    transition:
+      transform 220ms cubic-bezier(.22, 1, .36, 1),
+      color 180ms ease;
+  }
+
+  button:hover {
+    transform: translateY(-3px);
+  }
+
+  button:active {
+    transform: translateY(-1px) scale(.97);
   }
 
   .image {
@@ -538,6 +565,16 @@ export const ProductCard = styled.article`
   background: #fff;
   display: flex;
   flex-direction: column;
+  transition:
+    transform 260ms cubic-bezier(.22, 1, .36, 1),
+    box-shadow 260ms ease,
+    border-color 220ms ease;
+
+  &:hover {
+    transform: translateY(-4px);
+    border-color: color-mix(in srgb, var(--primary) 25%, var(--table-line));
+    box-shadow: 0 14px 30px rgba(29, 27, 24, .09);
+  }
 
   .open {
     position: absolute;
@@ -804,3 +841,14 @@ export const ActionDock = styled.nav`
     }
   }
 `;
+
+
+@media (prefers-reduced-motion: reduce) {
+  ${Categories} button,
+  ${ProductCard},
+  ${HeaderActions} button,
+  ${ActionDock} button {
+    transition: none !important;
+    transform: none !important;
+  }
+}
