@@ -26,8 +26,8 @@ import { buildSocialProfileUrl } from './domain/publicSettings';
 import { resolveComboCategoryImage } from './domain/comboCategoryImage';
 import { createReadyProductConfiguration, resolveProductEntryKind } from './domain/productEntryFlow';
 import {
-  animateProductToCart,
   captureCartFlyOrigin,
+  scheduleProductToCartAnimation,
   type CartFlyOrigin,
 } from './cartFlyAnimation';
 import type { HomeExperienceProps, HomeProduct } from './types';
@@ -569,13 +569,11 @@ export function FigmaDeliveryExperience({
     origin?: CartFlyOrigin | null,
     sourceElement?: HTMLElement | null,
   ) => {
-    window.requestAnimationFrame(() => {
-      animateProductToCart({
-        origin,
-        sourceElement,
-        imageUrl: product.image,
-        accentColor: primary,
-      });
+    scheduleProductToCartAnimation({
+      origin,
+      sourceElement,
+      imageUrl: product.image,
+      accentColor: primary,
     });
   };
 
@@ -721,11 +719,12 @@ export function FigmaDeliveryExperience({
                     key={product.id}
                     type="button"
                     onMouseDown={(event) => event.preventDefault()}
-                    onClick={() => {
+                    onClick={(event) => {
+                      const sourceElement = event.currentTarget;
                       setSearchQuery('');
                       setSearchFocused(false);
                       setMobileSearchOpen(false);
-                      openProduct(product);
+                      openProduct(product, sourceElement);
                     }}
                   >
                     <span className="thumb">{productImage(product)}</span>
