@@ -1,4 +1,4 @@
-import { AlertCircle, CheckCircle2, Info, ShoppingBag, TriangleAlert, X } from 'lucide-react';
+import { AlertCircle, CheckCircle2, Info, TriangleAlert, X } from 'lucide-react';
 import * as S from '../../Home/Home.styles';
 
 export type HomeNotification = {
@@ -7,7 +7,6 @@ export type HomeNotification = {
   title: string;
   msg?: string;
   visible: boolean;
-  action?: 'open-cart';
 };
 
 const LABELS: Record<HomeNotification['type'], string> = {
@@ -27,7 +26,6 @@ function NotificationIcon({ type }: { type: HomeNotification['type'] }) {
 type Props = {
   notifications: HomeNotification[];
   onDismissNotification: (id: number) => void;
-  onOpenCart?: () => void;
 };
 
 export function HomeFeedback(props: Props) {
@@ -55,20 +53,6 @@ export function HomeFeedback(props: Props) {
               {notification.msg && <span className="notif-msg">{notification.msg}</span>}
             </div>
             <div className="notif-actions">
-              {notification.action === 'open-cart' && (
-                <button
-                  className="notif-action"
-                  type="button"
-                  aria-label="Ver sacola"
-                  onClick={() => {
-                    props.onDismissNotification(notification.id);
-                    props.onOpenCart?.();
-                  }}
-                >
-                  <ShoppingBag aria-hidden="true" />
-                  <span>Ver sacola</span>
-                </button>
-              )}
               <button
                 className="notif-close"
                 aria-label="Fechar notificação"
