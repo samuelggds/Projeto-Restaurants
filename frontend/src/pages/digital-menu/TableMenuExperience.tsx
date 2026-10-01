@@ -798,7 +798,19 @@ export default function TableMenuExperience({
 
         <S.FlowPage>
           <S.FlowTitle className="cart-title">
-            <h1 aria-label="Minha sacola">Revisar Pedido</h1>
+            <div className="cart-title-row">
+              <h1 aria-label="Minha sacola">Revisar Pedido</h1>
+              {cart.length ? (
+                <button
+                  className="clear-cart-inline"
+                  type="button"
+                  aria-label="Limpar carrinho"
+                  onClick={clearReviewCart}
+                >
+                  Limpar
+                </button>
+              ) : null}
+            </div>
             <p>Confirme os itens selecionados antes do preparo</p>
           </S.FlowTitle>
 
@@ -844,16 +856,6 @@ export default function TableMenuExperience({
               <S.AddMoreButton type="button" onClick={goToMenu}>
                 + Adicionar mais itens ao pedido
               </S.AddMoreButton>
-
-              {cart.length ? (
-                <S.ClearCartButton
-                  type="button"
-                  aria-label="Limpar carrinho"
-                  onClick={clearReviewCart}
-                >
-                  Limpar carrinho
-                </S.ClearCartButton>
-              ) : null}
             </div>
 
             <div className="cart-summary-column">
