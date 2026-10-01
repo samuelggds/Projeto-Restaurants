@@ -35,16 +35,31 @@ export class ListTableAccountAdminSessionsService {
             payment.expiresAt > now &&
             isManualTablePaymentIntent(payment),
         )
-        .map((payment) => ({
-          publicId: payment.publicId,
-          method: payment.method,
-          status: payment.status,
-          totalCents: toSafeMoneyCents(
-            payment.totalCents,
-            `pagamento presencial ${payment.publicId}`,
-          ),
-          createdAt: payment.createdAt.toISOString(),
-        }));
+        .map((payment) => {
+          const payer = account.participants.find(
+            (participant) => participant.publicId === payment.payerParticipant.publicId,
+          );
+          const staffReceiptRegistered = payment.events.some((event) => {
+            const metadata =
+              event.metadata && typeof event.metadata === 'object' && !Array.isArray(event.metadata)
+                ? (event.metadata as Record<string, unknown>)
+                : null;
+            return metadata?.stage === 'STAFF_RECEIVED';
+          });
+          return {
+            publicId: payment.publicId,
+            method: payment.method,
+            status: payment.status,
+            totalCents: toSafeMoneyCents(
+              payment.totalCents,
+              `pagamento presencial ${payment.publicId}`,
+            ),
+            createdAt: payment.createdAt.toISOString(),
+            payerParticipantPublicId: payment.payerParticipant.publicId,
+            payerDisplayName: payer?.displayName || 'Cliente da mesa',
+            staffReceiptRegistered,
+          };
+        });
       return {
         tableSessionId: data.id,
         sessionPublicId: data.publicId,

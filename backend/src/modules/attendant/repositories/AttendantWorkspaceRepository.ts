@@ -6,6 +6,8 @@ import {
   TableParticipantStatus,
   TableServiceCallStatus,
   TableSessionStatus,
+  TablePaymentIntentStatus,
+  TablePaymentMethod,
 } from '@prisma/client';
 import type { TenantDbClient } from '../../../database/tenantDbContext.js';
 
@@ -88,7 +90,7 @@ const attendantSessionSelect = {
 
 export class AttendantWorkspaceRepository {
   async load(restaurantId: number, resolvedSince: Date, db: TenantDbClient) {
-    const [orders, calls, sessions] = await Promise.all([
+    const [orders, calls, sessions, cashPayments] = await Promise.all([
       db.order.findMany({
         where: {
           restaurantId,
@@ -123,9 +125,38 @@ export class AttendantWorkspaceRepository {
         select: attendantSessionSelect,
         orderBy: { table: { number: 'asc' } },
       }),
+      db.tablePaymentIntent.findMany({
+        where: {
+          restaurantId,
+          method: TablePaymentMethod.CASH,
+          status: { in: [TablePaymentIntentStatus.RESERVED, TablePaymentIntentStatus.PROCESSING] },
+          tableSession: {
+            status: { in: [TableSessionStatus.OPEN, TableSessionStatus.CLOSING_REQUESTED] },
+          },
+        },
+        select: {
+          publicId: true,
+          totalCents: true,
+          status: true,
+          createdAt: true,
+          payerParticipant: { select: { displayName: true } },
+          tableSession: {
+            select: {
+              publicId: true,
+              table: { select: { number: true } },
+            },
+          },
+          events: {
+            select: { metadata: true },
+            orderBy: [{ occurredAt: 'asc' }, { id: 'asc' }],
+          },
+        },
+        orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+        take: 100,
+      }),
     ]);
 
-    return { orders, calls, sessions };
+    return { orders, calls, sessions, cashPayments };
   }
 }
 

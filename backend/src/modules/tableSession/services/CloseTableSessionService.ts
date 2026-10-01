@@ -1,12 +1,15 @@
 import tableSessionRepository from '../repositories/TableSessionRepository.js';
-import { OrderStatus, Prisma, TableSessionStatus } from '@prisma/client';
+import { Prisma, TableSessionStatus } from '@prisma/client';
 import prisma from '../../../config/prisma.js';
 import tableServiceCallRepository from '../../waiterCalls/repositories/TableServiceCallRepository.js';
 import { tableServiceCallEvents } from '../../waiterCalls/realtime/tableServiceCallEvents.js';
 import { tableSessionEvents } from '../realtime/tableSessionEvents.js';
 import tableParticipantRepository from '../repositories/TableParticipantRepository.js';
-import tableAccountSettingsRepository from '../../tableAccount/repositories/TableAccountSettingsRepository.js';
-import { lockTablePaymentSession } from '../../tableAccount/services/tablePaymentLedger.js';
+import {
+  expireTablePaymentReservations,
+  loadTablePaymentLedgerItems,
+  lockTablePaymentSession,
+} from '../../tableAccount/services/tablePaymentLedger.js';
 import waiterCompensationProjectionService from '../../employeeCompensation/services/WaiterCompensationProjectionService.js';
 import tableAccessRequestService from './TableAccessRequestService.js';
 
@@ -46,40 +49,45 @@ class CloseTableSessionService {
           throw new Error('Essa mesa já está fechada!');
         }
 
-        const settings = await tableAccountSettingsRepository.findByRestaurantId(
+        await expireTablePaymentReservations(
+          tx,
+          normalizedRestaurantId,
+          session.id,
+          new Date(),
+        );
+
+        const blockingOrders = await tableSessionRepository.findOperationalBlockingOrdersForSession(
+          session.id,
           normalizedRestaurantId,
           tx,
         );
-        const blockingOrders = settings.preventCloseWithOutstandingBalance
-          ? await tableSessionRepository.findBlockingOrdersForSession(
-              session.id,
-              normalizedRestaurantId,
-              tx,
-            )
-          : await tableSessionRepository.findOperationalBlockingOrdersForSession(
-              session.id,
-              normalizedRestaurantId,
-              tx,
-            );
         if (blockingOrders.length) {
           const orderReferences = blockingOrders
             .slice(0, 5)
             .map((order) => `#${order.id}`)
             .join(', ');
-          const hasOperationalPending = blockingOrders.some(
-            (order) => order.status !== OrderStatus.ENTREGUE,
-          );
-          const hasPaymentPending = blockingOrders.some((order) => order.paid !== true);
-          const pendingReason =
-            hasOperationalPending && hasPaymentPending
-              ? 'existem pedidos aguardando entrega e pagamentos pendentes'
-              : hasOperationalPending
-                ? 'existem pedidos aguardando entrega'
-                : 'existem pagamentos pendentes';
           throw new Error(
-            settings.preventCloseWithOutstandingBalance
-              ? `Não é possível fechar a mesa: ${pendingReason} (${orderReferences}).`
-              : `Não é possível fechar a mesa: existem pedidos aguardando entrega (${orderReferences}).`,
+            `Não é possível fechar a mesa: existem pedidos aguardando entrega (${orderReferences}).`,
+          );
+        }
+
+        const ledgerItems = await loadTablePaymentLedgerItems(
+          tx,
+          normalizedRestaurantId,
+          session.id,
+          new Date(),
+        );
+        const financialPending = ledgerItems.filter(
+          (item) =>
+            !item.canceled &&
+            (item.paidCents < item.unitPriceCents ||
+              item.reservedCents > 0 ||
+              item.processingCents > 0 ||
+              item.availableCents > 0),
+        );
+        if (financialPending.length) {
+          throw new Error(
+            'Não é possível fechar a mesa: a conta geral ainda possui pagamentos pendentes.',
           );
         }
 
