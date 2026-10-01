@@ -1081,7 +1081,7 @@ export const TrackingLayout = styled.div`
   }
 
   @media (max-width: 759px) {
-    gap: 20px;
+    gap: 16px;
 
     .tracking-main {
       gap: 16px;
@@ -1096,6 +1096,7 @@ export const TrackingLayout = styled.div`
 export const StatusCard = styled(FlowCard)`
   padding: 20px;
   border-color: var(--primary);
+  border-radius: 8px;
   background: color-mix(in srgb, var(--primary) 8%, #fff);
   display: grid;
   grid-template-columns: 12px minmax(0, 1fr);
@@ -1128,6 +1129,22 @@ export const StatusCard = styled(FlowCard)`
 
   .icon svg {
     display: none;
+  }
+
+  @media (max-width: 759px) {
+    padding: 16px;
+    gap: 8px;
+
+    h2 {
+      margin-bottom: 6px;
+      font-size: 15px;
+      line-height: 19px;
+    }
+
+    p {
+      font-size: 12px;
+      line-height: 17px;
+    }
   }
 `;
 
@@ -1171,12 +1188,20 @@ export const OrderItemsCard = styled(FlowCard)`
     gap: 8px;
 
     h2 {
+      margin: 0 0 2px;
       font-size: 20px;
       line-height: 25px;
     }
 
     .account-total {
       display: none;
+    }
+
+    > button {
+      margin-top: 12px;
+      min-height: 46px;
+      border-radius: 6px;
+      box-shadow: none;
     }
   }
 `;
@@ -1217,6 +1242,49 @@ export const OrderItemLine = styled.article`
   }
 
   @media (max-width: 759px) {
+    min-height: 48px;
+    padding: 12px;
+    border-radius: 6px;
     background: #fff;
+
+    .copy {
+      gap: 8px;
+    }
+
+    b,
+    strong {
+      font-size: 13px;
+    }
+  }
+`;
+
+export const TrackingPixAction = styled.button`
+  width: 100%;
+  min-height: 48px;
+  padding: 12px 20px;
+  border: 0;
+  border-radius: 6px;
+  background: #2ecc70;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-size: 15px;
+  line-height: 19px;
+  font-weight: 700;
+
+  svg {
+    width: 20px;
+    height: 20px;
+    flex: 0 0 20px;
+  }
+
+  &:disabled {
+    opacity: 0.55;
+  }
+
+  @media (min-width: 760px) {
+    margin-top: 4px;
   }
 `;
