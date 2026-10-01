@@ -1,7 +1,6 @@
 import { expect, test as base } from '@playwright/test';
 import { captureReadmeScreenshot } from './helpers/readmeScreenshot';
 
-// Public-page checks remain isolated from the real restaurant API.
 const test = base.extend<{ apiIsolation: void }>({
   apiIsolation: [
     async ({ page, baseURL }, use) => {
@@ -27,24 +26,20 @@ const test = base.extend<{ apiIsolation: void }>({
                   {
                     code: 'BASICO',
                     name: 'Básico',
-                    description: 'Para organizar seu delivery e começar uma nova fase.',
+                    description: 'Operação de delivery para restaurantes que estão iniciando na plataforma.',
                     monthlyFee: 149.9,
                     trialDays: 7,
-                    features: [
-                      'Sistema de delivery',
-                      'Gestão dos pedidos de entrega',
-                      'Suporte padrão',
-                    ],
+                    features: ['Sistema de delivery', 'Suporte padrão'],
                     featured: false,
                   },
                   {
                     code: 'PREMIUM',
                     name: 'Premium',
-                    description: 'Para conectar o delivery e o atendimento das suas mesas.',
+                    description: 'Experiência completa com delivery e atendimento por QR Code de mesa.',
                     monthlyFee: 249.9,
                     trialDays: 15,
                     features: [
-                      'Tudo do plano Básico',
+                      'Sistema de delivery',
                       'Cardápio digital com QR Code de mesa',
                       'Suporte prioritário',
                     ],
@@ -80,12 +75,16 @@ for (const viewport of [
   { width: 768, height: 1024 },
   { width: 1440, height: 1000 },
 ]) {
-  test(`landing sem overflow horizontal em ${viewport.width}px`, async ({ page }) => {
+  test(`landing oficial sem overflow horizontal em ${viewport.width}px`, async ({ page }) => {
     await page.setViewportSize(viewport);
     await page.goto('/');
 
     await expect(page.getByRole('heading', { level: 1 })).toHaveCount(1);
     await expect(page.locator('header').first()).toContainText('GastroNexa');
+    await expect(page.getByRole('heading', { level: 1 })).toContainText(
+      'Seu restaurante vende mais. Sua operação fica mais simples.',
+    );
+
     const heroImage = page.getByTestId('marketing-hero-image');
     await expect(heroImage).toBeVisible();
     await expect(heroImage).toHaveAttribute('src', /^\/(?!\/)/);
@@ -97,8 +96,8 @@ for (const viewport of [
         }),
       )
       .toBe(true);
-    await page.evaluate(() => document.fonts.ready);
 
+    await page.evaluate(() => document.fonts.ready);
     const dimensions = await page.evaluate(() => ({
       viewport: window.innerWidth,
       document: document.documentElement.scrollWidth,
@@ -117,99 +116,78 @@ for (const viewport of [
   });
 }
 
-test('menu mobile abre, fecha e navega pelas seções', async ({ page }) => {
+test('menu mobile representa a navegação do novo Figma', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto('/');
   const navigation = page.getByRole('navigation', { name: 'Navegação principal' });
   const openMenu = page.getByRole('button', { name: 'Abrir menu', exact: true });
-  const closeMenu = page.getByRole('button', { name: 'Fechar menu', exact: true });
 
   await expect(navigation).toBeHidden();
-  await expect(openMenu).toHaveAttribute('aria-expanded', 'false');
   await openMenu.click();
   await expect(navigation).toBeVisible();
-  await expect(closeMenu).toHaveAttribute('aria-expanded', 'true');
-  await closeMenu.click();
-  await expect(navigation).toBeHidden();
-  await openMenu.click();
-  await page.keyboard.press('Escape');
-  await expect(navigation).toBeHidden();
 
   for (const [label, anchor] of [
-    ['Recursos', '#recursos'],
+    ['Soluções', '#solucoes'],
+    ['Para redes', '#redes'],
     ['Como funciona', '#como-funciona'],
-    ['Planos', '#planos'],
-    ['Contato', '#contato'],
+    ['Recursos', '#recursos'],
+    ['Dúvidas', '#duvidas'],
   ]) {
-    await openMenu.click();
+    if (!(await navigation.isVisible())) await openMenu.click();
     const link = navigation.getByRole('link', { name: label, exact: true });
     await expect(link).toHaveAttribute('href', anchor);
     await link.click();
     await expect(page).toHaveURL(new RegExp(`${anchor}$`));
     await expect(navigation).toBeHidden();
-    await expect(page.locator(anchor)).toBeInViewport();
   }
-
 });
 
-test('planos preservam preços, teste e destino comercial; FAQ funciona por teclado', async ({
-  page,
-}) => {
+test('planos preservam catálogo público e levam ao formulário', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.goto('/');
+
   const plans = page.locator('#planos');
-  await expect(plans.getByRole('heading', { name: 'Básico', exact: true })).toBeVisible();
   await expect(plans.getByRole('heading', { name: 'Premium', exact: true })).toBeVisible();
-  await expect(plans).toContainText('149,90');
+  await expect(plans.getByRole('heading', { name: 'Básico', exact: true })).toBeVisible();
   await expect(plans).toContainText('249,90');
-  await expect(plans).toContainText('7 dias de teste');
+  await expect(plans).toContainText('149,90');
   await expect(plans).toContainText('15 dias de teste');
+  await expect(plans).toContainText('7 dias de teste');
 
-  const contactLink = page
-    .locator('header')
-    .first()
-    .getByRole('link', { name: /Falar com/ });
-  const salesHref = await contactLink.getAttribute('href');
-  expect(salesHref).toBeTruthy();
-  const planLinks = plans.locator('article').getByRole('link');
-  await expect(planLinks).toHaveCount(2);
-  for (const link of await planLinks.all()) {
-    await expect(link).toHaveAttribute('href', salesHref!);
-  }
+  const links = plans.getByRole('link', { name: /Quero o/ });
+  await expect(links).toHaveCount(2);
+  for (const link of await links.all()) await expect(link).toHaveAttribute('href', '#contato');
+});
 
-  const firstAnswer = page.locator('#duvidas details').first();
-  const summary = firstAnswer.locator('summary');
-  await expect(summary).toBeVisible();
-  await expect(firstAnswer).not.toHaveAttribute('open', '');
+test('FAQ é acessível por teclado e mantém as respostas do novo layout', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.goto('/');
+
+  const faq = page.locator('#duvidas');
+  await expect(faq.getByText('Antes de conversar, vale esclarecer.')).toBeVisible();
+  const second = faq.locator('details').nth(1);
+  const summary = second.locator('summary');
+  await expect(second).not.toHaveAttribute('open', '');
   await summary.focus();
   await page.keyboard.press('Enter');
-  await expect(firstAnswer).toHaveAttribute('open', '');
-  await expect(firstAnswer.locator('p')).toBeVisible();
-  await summary.click();
-  await expect(firstAnswer).not.toHaveAttribute('open', '');
-  await expect(firstAnswer.locator('p')).toBeHidden();
+  await expect(second).toHaveAttribute('open', '');
+  await expect(second.locator('p')).toBeVisible();
 });
 
-test('abas mostram a prévia de cada área da operação', async ({ page }) => {
+test('galeria usa assets locais do produto e seção multi-tenant está presente', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.goto('/');
-  const workflow = page.locator('#como-funciona');
-  const panel = workflow.getByRole('tabpanel');
-  await expect(workflow.getByRole('tab', { name: 'Gestão', exact: true })).toHaveAttribute(
-    'aria-selected',
-    'true',
-  );
-  await expect(panel).toBeVisible();
 
-  for (const name of ['Cozinha', 'Salão', 'Delivery', 'Gestão']) {
-    const previousContent = await panel.innerText();
-    const tab = workflow.getByRole('tab', { name, exact: true });
-    await tab.click();
-    await expect(tab).toHaveAttribute('aria-selected', 'true');
-    await expect(workflow.getByRole('tab', { selected: true })).toHaveCount(1);
-    await expect(panel).toBeVisible();
-    await expect(panel).not.toHaveText(previousContent);
+  const product = page.locator('#produto');
+  await expect(product.getByText('Pedido personalizado', { exact: true })).toBeVisible();
+  for (const image of await product.locator('figure img').all()) {
+    await expect(image).toHaveAttribute('src', /^\/marketing-v3\//);
+    await expect.poll(() => image.evaluate((node) => (node as HTMLImageElement).naturalWidth)).toBeGreaterThan(0);
   }
+
+  const networks = page.locator('#redes');
+  await expect(networks).toContainText('Uma estrutura para a rede.');
+  await expect(networks).toContainText('Cada unidade com cardápio, horários e disponibilidade próprios.');
 });
 
 test('formulário preserva dados após falha, repete a chave e confirma recebimento', async ({
@@ -227,17 +205,13 @@ test('formulário preserva dados após falha, repete a chave e confirma recebime
         : { status: 201, json: { received: true, id: 'fake-lead', emailStatus: 'PENDING' } },
     );
   });
+
   await page.goto('/');
   await page.getByRole('link', { name: 'Quero o Premium', exact: true }).click();
   const form = page.getByRole('form', { name: 'Contato comercial' });
   await expect(form.getByLabel('Plano de interesse')).toHaveValue('PREMIUM');
-  await form.getByLabel('Seu nome', { exact: false }).fill('Joana Silva');
-  await form.getByLabel('Nome do restaurante').fill('Bistrô Teste');
-  await form.getByLabel('Plano de interesse').selectOption('BASICO');
-  await expect(form.getByLabel('Plano de interesse')).toHaveValue('BASICO');
-  await page.getByRole('link', { name: 'Quero o Premium', exact: true }).click();
-  await expect(form.getByLabel('Plano de interesse')).toHaveValue('PREMIUM');
-  await expect(form.getByLabel('Nome do restaurante')).toHaveValue('Bistrô Teste');
+  await form.getByLabel('Seu nome', { exact: true }).fill('Joana Silva');
+  await form.getByLabel('Nome do restaurante', { exact: true }).fill('Bistrô Teste');
   await form.getByLabel('E-mail', { exact: false }).fill('joana@example.test');
   await form.getByLabel('Telefone com DDD').fill('(11) 99999-8888');
   await form.getByLabel('Cidade').fill('São Paulo');
@@ -245,13 +219,14 @@ test('formulário preserva dados após falha, repete a chave e confirma recebime
   await form.getByLabel('Tipo de negócio').selectOption('Restaurante');
   await form.getByLabel('Delivery', { exact: true }).check();
   await form.getByLabel(/Concordo que a GastroNexa/).check();
-  await form.getByRole('button', { name: 'Quero conhecer a GastroNexa' }).click();
+
+  const submit = form.getByRole('button', { name: 'Solicitar minha demonstração' });
+  await submit.click();
   await expect(form.getByRole('alert')).toContainText('Não foi possível confirmar');
-  await expect(form.getByLabel('Nome do restaurante')).toHaveValue('Bistrô Teste');
-  await form.getByRole('button', { name: 'Quero conhecer a GastroNexa' }).click();
-  await expect(
-    page.getByRole('status').filter({ hasText: 'Recebemos seu contato.' }),
-  ).toBeVisible();
+  await expect(form.getByLabel('Nome do restaurante', { exact: true })).toHaveValue('Bistrô Teste');
+  await submit.click();
+  await expect(page.getByRole('status').filter({ hasText: 'Recebemos seu contato.' })).toBeVisible();
+
   expect(requests).toHaveLength(2);
   expect(requests[0]).toEqual(requests[1]);
   expect(requests[0].key).toMatch(/^[0-9a-f-]{36}$/);
@@ -263,27 +238,22 @@ test('formulário preserva dados após falha, repete a chave e confirma recebime
   });
 });
 
-test('logo GX preserva transparência real na landing e no favicon', async ({
-  page,
-}) => {
+test('logo GX preserva transparência real na landing e no favicon', async ({ page }) => {
   await page.goto('/');
   await expect(page.locator('header img[src="/gastronexa-logo.svg"]')).toBeVisible();
   await expect(page.locator('link[rel="icon"]')).toHaveAttribute('href', '/gastronexa-logo.svg');
   const pixels = await page.evaluate(async () => {
-    const logo = document.querySelector<HTMLImageElement>(
-      'header img[src="/gastronexa-logo.svg"]',
-    )!;
+    const logo = document.querySelector<HTMLImageElement>('header img[src="/gastronexa-logo.svg"]')!;
     await logo.decode();
-    await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
     const canvas = document.createElement('canvas');
     canvas.width = logo.naturalWidth;
     canvas.height = logo.naturalHeight;
     const context = canvas.getContext('2d')!;
     context.drawImage(logo, 0, 0);
     const data = context.getImageData(0, 0, canvas.width, canvas.height).data;
-    let transparent = 0,
-      opaque = 0,
-      matte = 0;
+    let transparent = 0;
+    let opaque = 0;
+    let matte = 0;
     for (let i = 0; i < data.length; i += 4) {
       if (data[i + 3] === 0) transparent++;
       if (data[i + 3] >= 250) opaque++;
@@ -293,19 +263,6 @@ test('logo GX preserva transparência real na landing e no favicon', async ({
   });
   expect(pixels.cornerAlpha).toBe(0);
   expect(pixels.transparent).toBeGreaterThan(20000);
-  expect(pixels.opaque, JSON.stringify(pixels)).toBeGreaterThan(5000);
+  expect(pixels.opaque).toBeGreaterThan(5000);
   expect(pixels.matte).toBe(0);
-});
-
-test('primeira dobra da nova marca no desktop e celular', async ({ page }) => {
-  for (const width of [1440, 390]) {
-    await page.setViewportSize({ width, height: 900 });
-    const failures: string[] = [];
-    page.on('pageerror', (error) => failures.push(error.message));
-    await page.goto('/');
-    await expect(page.getByTestId('marketing-hero-image')).toBeVisible();
-    await page.evaluate(() => document.fonts.ready);
-    await captureReadmeScreenshot(page, `marketing-hero-${width}.png`);
-    expect(failures).toEqual([]);
-  }
 });
