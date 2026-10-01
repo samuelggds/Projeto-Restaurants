@@ -437,7 +437,7 @@ export function buildHomeData(
   });
   const seen = new Set<string>();
   const orderedMenuCategories = productsFromApi
-    .map((product) => {
+    .map((product, discoveryOrder) => {
       const category = (product.category as Record<string, unknown> | null) ?? {};
       const name = String(category.name || '');
       if (!name || seen.has(name)) return null;
@@ -451,7 +451,7 @@ export function buildHomeData(
         name,
         image: categoryImage,
         sortOrder: Number.isInteger(rawOrder) && rawOrder >= 0 ? rawOrder : Number.MAX_SAFE_INTEGER,
-        categoryId: Number(category.id ?? Number.MAX_SAFE_INTEGER),
+        discoveryOrder,
       };
     })
     .filter((category): category is {
@@ -459,12 +459,12 @@ export function buildHomeData(
       name: string;
       image: string;
       sortOrder: number;
-      categoryId: number;
+      discoveryOrder: number;
     } => Boolean(category))
     .sort(
       (first, second) =>
         first.sortOrder - second.sortOrder ||
-        first.categoryId - second.categoryId ||
+        first.discoveryOrder - second.discoveryOrder ||
         first.name.localeCompare(second.name, 'pt-BR'),
     )
     .map(({ id, name, image }) => ({ id, name, image }));

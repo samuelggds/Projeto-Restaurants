@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import {
   ArrowRight,
   Check,
@@ -102,10 +102,6 @@ export function AdminCatalog(props: AdminCatalogProps) {
     tone: 'success' | 'error';
     message: string;
   } | null>(null);
-  useEffect(() => {
-    setCategoryOrderIds(categories.map((category) => category.id));
-  }, [categories]);
-
   const orderedCategories = useMemo(() => {
     const byId = new Map(categories.map((category) => [category.id, category]));
     const ordered = categoryOrderIds

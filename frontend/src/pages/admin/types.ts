@@ -171,7 +171,7 @@ export type AdminCategory = {
   name: string;
   active?: boolean;
   image?: string | null;
-  sortOrder: number;
+  sortOrder?: number;
 };
 
 export type AdminIngredient = {
