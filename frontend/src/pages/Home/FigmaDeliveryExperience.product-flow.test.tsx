@@ -16,7 +16,7 @@ describe('FigmaDeliveryExperience product flow', () => {
     vi.stubGlobal('scrollTo', vi.fn());
   });
 
-  it('adiciona produto COMPLETE direto no carrinho', async () => {
+  it('abre detalhes para produto COMPLETE e adiciona somente após confirmação', async () => {
     const container = document.createElement('div');
     document.body.appendChild(container);
     const root = createRoot(container);
@@ -28,6 +28,7 @@ describe('FigmaDeliveryExperience product flow', () => {
           data={{
             ...homeMockData,
             isOpen: true,
+            deliveryTime: '25-35',
             brand: { ...homeMockData.brand, name: 'Restaurante Demo' },
             categories: [{ id: 'lanches', name: 'Lanches', image: '' }],
             products: [
@@ -59,17 +60,32 @@ describe('FigmaDeliveryExperience product flow', () => {
 
     await act(async () => add.click());
 
+    const detail = document.querySelector('[data-ready-product-detail]') as HTMLElement;
+    expect(detail).toBeTruthy();
+    expect(detail.textContent).toContain('Refrigerante');
+    expect(detail.textContent).toContain('25-35 min');
+    expect(onAddProduct).not.toHaveBeenCalled();
+    expect(document.querySelector('[aria-label="Montar Refrigerante"]')).toBeNull();
+
+    const observation = detail.querySelector('textarea') as HTMLTextAreaElement;
+    await act(async () => {
+      observation.value = 'Bem gelado';
+      observation.dispatchEvent(new Event('input', { bubbles: true }));
+      (
+        detail.querySelector('button[data-cart-fly-source="dialog"]') as HTMLButtonElement
+      ).click();
+    });
+
     expect(onAddProduct).toHaveBeenCalledWith(
       'ready-1',
       {
         selectedOptions: [],
         selectedOptionIds: [],
-        observation: '',
+        observation: 'Bem gelado',
         configurationVersion: 2,
       },
       1,
     );
-    expect(document.querySelector('[aria-label="Montar Refrigerante"]')).toBeNull();
 
     act(() => root.unmount());
     container.remove();
