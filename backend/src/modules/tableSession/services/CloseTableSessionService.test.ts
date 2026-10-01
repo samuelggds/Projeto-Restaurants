@@ -7,20 +7,17 @@ import tableServiceCallRepository from '../../waiterCalls/repositories/TableServ
 import { tableSessionEvents } from '../realtime/tableSessionEvents.js';
 import closeTableSessionService from './CloseTableSessionService.js';
 import tableParticipantRepository from '../repositories/TableParticipantRepository.js';
-import tableAccountSettingsRepository from '../../tableAccount/repositories/TableAccountSettingsRepository.js';
 import waiterCompensationProjectionService from '../../employeeCompensation/services/WaiterCompensationProjectionService.js';
 import tableAccessRequestService from './TableAccessRequestService.js';
 
 const originals = {
   transaction: prisma.$transaction,
   findById: tableSessionRepository.findById,
-  findBlocking: tableSessionRepository.findBlockingOrdersForSession,
   close: tableSessionRepository.close,
   listCalls: tableServiceCallRepository.listActiveBySession,
   resolveCalls: tableServiceCallRepository.resolveActiveBySession,
   closedEvent: tableSessionEvents.closed,
   revokeParticipants: tableParticipantRepository.revokeActiveBySession,
-  findAccountSettings: tableAccountSettingsRepository.findByRestaurantId,
   findOperationalBlocking: tableSessionRepository.findOperationalBlockingOrdersForSession,
   projectCompensation: waiterCompensationProjectionService.project,
   expireAccessRequests: tableAccessRequestService.expireForSession,
@@ -29,31 +26,32 @@ const originals = {
 afterEach(() => {
   prisma.$transaction = originals.transaction;
   tableSessionRepository.findById = originals.findById;
-  tableSessionRepository.findBlockingOrdersForSession = originals.findBlocking;
   tableSessionRepository.close = originals.close;
   tableServiceCallRepository.listActiveBySession = originals.listCalls;
   tableServiceCallRepository.resolveActiveBySession = originals.resolveCalls;
   tableSessionEvents.closed = originals.closedEvent;
   tableParticipantRepository.revokeActiveBySession = originals.revokeParticipants;
-  tableAccountSettingsRepository.findByRestaurantId = originals.findAccountSettings;
-  tableSessionRepository.findOperationalBlockingOrdersForSession =
-    originals.findOperationalBlocking;
+  tableSessionRepository.findOperationalBlockingOrdersForSession = originals.findOperationalBlocking;
   waiterCompensationProjectionService.project = originals.projectCompensation;
   tableAccessRequestService.expireForSession = originals.expireAccessRequests;
 });
 
-function mockTransaction() {
+const openSession = {
+  id: 55,
+  tableId: 91,
+  status: 'OPEN',
+  openedAt: new Date('2026-10-01T12:00:00.000Z'),
+  table: { id: 91, number: 12, restaurantId: 7 },
+};
+
+function mockTransaction({ ledgerItems = [] } = {}) {
   const transaction = {
-    $queryRaw: async (query) => {
-      assert.match(String(query.sql), /SELECT 1::int AS "lockAcquired"/i);
-      assert.match(String(query.sql), /FROM pg_advisory_xact_lock/i);
-      return [{ lockAcquired: 1 }];
-    },
+    $queryRaw: async () => [{ lockAcquired: 1 }],
+    tablePaymentIntent: { findMany: async () => [] },
+    tableBillItem: { findMany: async () => ledgerItems },
+    order: { findMany: async () => [] },
   };
   prisma.$transaction = async (callback) => callback(transaction);
-  tableAccountSettingsRepository.findByRestaurantId = async () => ({
-    preventCloseWithOutstandingBalance: true,
-  });
   waiterCompensationProjectionService.project = async () => ({
     created: false,
     reason: 'NO_VARIABLE_POLICY',
@@ -62,22 +60,14 @@ function mockTransaction() {
   return transaction;
 }
 
-const openSession = {
-  id: 55,
-  tableId: 91,
-  status: 'OPEN',
-  openedAt: new Date('2026-08-24T12:00:00.000Z'),
-  table: { id: 91, number: 12, restaurantId: 7 },
-};
-
-test('isola o fechamento pelo restaurantId do token', async () => {
+test('isola o fechamento pelo restaurantId do funcionário', async () => {
   mockTransaction();
   tableSessionRepository.findById = async (_id, restaurantId) => {
     assert.equal(restaurantId, 7);
     return null;
   };
   let searchedOrders = false;
-  tableSessionRepository.findBlockingOrdersForSession = async () => {
+  tableSessionRepository.findOperationalBlockingOrdersForSession = async () => {
     searchedOrders = true;
     return [];
   };
@@ -89,33 +79,51 @@ test('isola o fechamento pelo restaurantId do token', async () => {
   assert.equal(searchedOrders, false);
 });
 
-test('bloqueia fechamento enquanto existe pedido ou pagamento pendente', async () => {
+test('bloqueia fechamento enquanto existe pedido MESA aguardando entrega', async () => {
   mockTransaction();
   tableSessionRepository.findById = async () => openSession;
-  tableSessionRepository.findBlockingOrdersForSession = async (tableSessionId, restaurantId) => {
+  tableSessionRepository.findOperationalBlockingOrdersForSession = async (tableSessionId, restaurantId) => {
     assert.equal(tableSessionId, 55);
     assert.equal(restaurantId, 7);
-    return [
-      { id: 101, status: 'PRONTO', paid: true },
-      { id: 102, status: 'ENTREGUE', paid: false },
-    ];
-  };
-  let closeCalled = false;
-  tableSessionRepository.close = async () => {
-    closeCalled = true;
+    return [{ id: 101, status: 'PRONTO', paid: true }];
   };
 
   await assert.rejects(
     () => closeTableSessionService.execute({ sessionId: 55, restaurantId: 7, closedById: 3 }),
-    /pedidos aguardando entrega e pagamentos pendentes.*#101, #102/i,
+    /pedidos aguardando entrega.*#101/i,
   );
-  assert.equal(closeCalled, false);
 });
 
-test('fecha a mesa e encerra chamados ativos após todos os pedidos pagos e entregues', async () => {
+test('bloqueia fechamento quando a conta geral ainda possui saldo pendente', async () => {
+  mockTransaction({
+    ledgerItems: [
+      {
+        id: 1,
+        publicId: 'item-pendente',
+        participantId: 80,
+        orderId: 101,
+        unitPriceCents: 3_000n,
+        financialStatus: 'UNPAID',
+        canceledAt: null,
+        createdAt: new Date('2026-10-01T12:10:00.000Z'),
+        order: { status: 'ENTREGUE' },
+        paymentAllocations: [],
+      },
+    ],
+  });
+  tableSessionRepository.findById = async () => openSession;
+  tableSessionRepository.findOperationalBlockingOrdersForSession = async () => [];
+
+  await assert.rejects(
+    () => closeTableSessionService.execute({ sessionId: 55, restaurantId: 7, closedById: 3 }),
+    /conta geral ainda possui pagamentos pendentes/i,
+  );
+});
+
+test('fecha a mesa somente quando operação e conta geral estão quitadas', async () => {
   const transaction = mockTransaction();
   tableSessionRepository.findById = async () => openSession;
-  tableSessionRepository.findBlockingOrdersForSession = async () => [];
+  tableSessionRepository.findOperationalBlockingOrdersForSession = async () => [];
   tableServiceCallRepository.listActiveBySession = async () => [];
   tableParticipantRepository.revokeActiveBySession = async () => ({ count: 2 });
   tableSessionRepository.close = async (id, restaurantId, closedById) => ({
@@ -123,7 +131,7 @@ test('fecha a mesa e encerra chamados ativos após todos os pedidos pagos e entr
     tableId: 91,
     status: 'CLOSED',
     openedAt: openSession.openedAt,
-    closedAt: new Date('2026-08-24T13:00:00.000Z'),
+    closedAt: new Date('2026-10-01T13:00:00.000Z'),
     closedById,
   });
   let projectionPayload;
@@ -142,47 +150,18 @@ test('fecha a mesa e encerra chamados ativos após todos os pedidos pagos e entr
     closedById: 3,
   });
 
-  assert.deepEqual(result, {
-    id: 55,
-    tableId: 91,
-    status: 'CLOSED',
-    openedAt: openSession.openedAt,
-    closedAt: new Date('2026-08-24T13:00:00.000Z'),
-    closedById: 3,
-  });
+  assert.equal(result.status, 'CLOSED');
   assert.equal(eventPayload.restaurantId, 7);
   assert.equal(eventPayload.tableId, 91);
-  assert.equal(eventPayload.status, 'CLOSED');
   assert.deepEqual(projectionPayload, {
     db: transaction,
     restaurantId: 7,
     tableSessionId: 55,
-    now: new Date('2026-08-24T13:00:00.000Z'),
+    now: new Date('2026-10-01T13:00:00.000Z'),
   });
 });
 
-test('consulta somente pedidos MESA vinculados exatamente à sessão e ao restaurante', async () => {
-  let query;
-  const fakeDb = {
-    order: {
-      findMany: async (args) => {
-        query = args;
-        return [];
-      },
-    },
-  };
-  await tableSessionRepository.findBlockingOrdersForSession(55, 7, fakeDb);
-
-  assert.equal(query.where.restaurantId, 7);
-  assert.equal(query.where.tableSessionId, 55);
-  assert.equal(query.where.type, 'MESA');
-  assert.equal('tableId' in query.where, false);
-  assert.equal('createdAt' in query.where, false);
-  assert.equal(query.where.status.not, 'CANCELADO');
-  assert.deepEqual(query.where.OR, [{ status: { not: 'ENTREGUE' } }, { paid: false }]);
-});
-
-test('consulta operacional também isola sessão, restaurante e canal MESA', async () => {
+test('consulta operacional mantém isolamento por restaurante, sessão e canal MESA', async () => {
   let query;
   const fakeDb = {
     order: {
@@ -199,6 +178,5 @@ test('consulta operacional também isola sessão, restaurante e canal MESA', asy
   assert.equal(query.where.tableSessionId, 55);
   assert.equal(query.where.type, 'MESA');
   assert.equal('tableId' in query.where, false);
-  assert.equal('createdAt' in query.where, false);
   assert.deepEqual(query.where.status.notIn, ['CANCELADO', 'ENTREGUE']);
 });

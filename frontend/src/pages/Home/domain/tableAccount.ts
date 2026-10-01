@@ -184,9 +184,34 @@ export function previewIndividualTablePayment(snapshot: TableAccountSnapshot) {
 
 export function currentParticipantAccount(snapshot: TableAccountSnapshot | null) {
   if (!snapshot) return null;
-  return (
-    snapshot.participantAccounts?.find(
-      (participant) => participant.publicId === snapshot.currentParticipantPublicId,
-    ) || null
+
+  const canonical = snapshot.participantAccounts?.find(
+    (participant) => participant.publicId === snapshot.currentParticipantPublicId,
   );
+  if (canonical) return canonical;
+
+  const participant = snapshot.participants.find(
+    (entry) => entry.publicId === snapshot.currentParticipantPublicId,
+  );
+  const ownItems = snapshot.items.filter(
+    (item) =>
+      item.orderedByParticipantPublicId === snapshot.currentParticipantPublicId &&
+      item.orderStatus !== 'CANCELED' &&
+      item.financialStatus !== 'REFUNDED',
+  );
+  const consumedCents = ownItems.reduce((total, item) => total + item.unitPriceCents, 0);
+  const paidCents = ownItems.reduce((total, item) => total + item.paidCents, 0);
+  const reservedCents = ownItems.reduce((total, item) => total + item.reservedCents, 0);
+  const processingCents = ownItems.reduce((total, item) => total + item.processingCents, 0);
+
+  return {
+    publicId: snapshot.currentParticipantPublicId,
+    displayName: participant?.displayName || null,
+    status: participant?.status || 'ACTIVE',
+    consumedCents,
+    paidCents,
+    reservedCents,
+    processingCents,
+    remainingCents: Math.max(0, consumedCents - paidCents),
+  };
 }
