@@ -25,6 +25,7 @@ import {
   type CartFlyOrigin,
 } from '../Home/cartFlyAnimation';
 import { TablePaymentStatusView } from '../Home/components/TablePaymentStatusView';
+import { ReadyProductDetail } from '../Home/components/ReadyProductDetail';
 import { QuantityStepper } from '../../components/QuantityStepper/QuantityStepper';
 import { PixMark } from '../../components/payment/PixMark';
 import { TableMenuHome } from './TableMenuHome';
@@ -122,8 +123,6 @@ export default function TableMenuExperience({
   const [view, setView] = useState<View>('menu');
   const effectiveView: View = reviewCartOpen ? 'cart' : view;
   const [selectedProduct, setSelectedProduct] = useState<HomeProduct | null>(null);
-  const [completeProductQuantity, setCompleteProductQuantity] = useState(1);
-  const [completeProductObservation, setCompleteProductObservation] = useState('');
   const [configuringProduct, setConfiguringProduct] = useState<HomeProduct | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [confirmation, setConfirmation] = useState<{
@@ -194,28 +193,20 @@ export default function TableMenuExperience({
     if (orderingLocked) return;
     pendingCartFlyOriginRef.current = captureCartFlyOrigin(sourceElement);
     if (product.kind === 'COMBO') {
-      if (product.comboGroups?.length) {
-        setConfiguringProduct(product);
-        return;
-      }
-      setCompleteProductQuantity(1);
-      setCompleteProductObservation('');
-      setSelectedProduct(product);
+      setConfiguringProduct(product);
       return;
     }
     if (product.saleMode === 'BUILDABLE') {
       setConfiguringProduct(product);
       return;
     }
-    setCompleteProductQuantity(1);
-    setCompleteProductObservation('');
     setSelectedProduct(product);
   }
 
   function quickAdd(product: HomeProduct, sourceElement?: HTMLElement | null) {
     if (orderingLocked) return;
     pendingCartFlyOriginRef.current = captureCartFlyOrigin(sourceElement);
-    if (product.kind === 'COMBO' && product.comboGroups?.length) {
+    if (product.kind === 'COMBO') {
       setConfiguringProduct(product);
       return;
     }
@@ -228,25 +219,25 @@ export default function TableMenuExperience({
     pendingCartFlyOriginRef.current = null;
   }
 
-  function addComplete(product: HomeProduct) {
+  function addComplete(
+    product: HomeProduct,
+    quantity: number,
+    observation: string,
+    sourceElement: HTMLElement | null,
+  ) {
     const configuration = {
       selectedOptions: [],
       selectedOptionIds: [],
-      observation: completeProductObservation.trim(),
+      observation,
       configurationVersion: product.configurationVersion,
     };
-    const origin =
-      captureCartFlyOrigin(
-        document.querySelector<HTMLElement>('[data-cart-fly-source="dialog"]'),
-      ) || pendingCartFlyOriginRef.current;
-    for (let index = 0; index < completeProductQuantity; index += 1) {
+    const origin = captureCartFlyOrigin(sourceElement) || pendingCartFlyOriginRef.current;
+    for (let index = 0; index < quantity; index += 1) {
       onAddProduct(product.id, configuration);
     }
     setSelectedProduct(null);
     flyProduct(product, origin);
     pendingCartFlyOriginRef.current = null;
-    setCompleteProductQuantity(1);
-    setCompleteProductObservation('');
   }
 
   async function submitOrder() {
@@ -1014,75 +1005,26 @@ export default function TableMenuExperience({
       />
 
       {selectedProduct ? (
-        <S.ProductOverlay role="dialog" aria-modal="true" aria-label={selectedProduct.name}>
-          <S.CompleteProductDetail data-cart-fly-source="dialog">
-            <div className="media">
-              {selectedProduct.image ? (
-                <img src={selectedProduct.image} alt={selectedProduct.name} />
-              ) : (
-                <S.CompleteProductPlaceholder aria-hidden="true">
-                  <Utensils />
-                </S.CompleteProductPlaceholder>
-              )}
-              <button
-                className="back"
-                type="button"
-                aria-label="Voltar ao cardápio"
-                onClick={() => {
-                  setSelectedProduct(null);
-                  pendingCartFlyOriginRef.current = null;
-                }}
-              >
-                <ArrowLeft size={19} />
-              </button>
-            </div>
-
-            <div className="content">
-              <div className="title-row"><h1>{selectedProduct.name}</h1></div>
-              <S.ProductPrice className="price">
-                {selectedProduct.promotion?.active &&
-                selectedProduct.originalPrice > selectedProduct.price ? (
-                  <del>{brl(selectedProduct.originalPrice)}</del>
-                ) : null}
-                <strong>{brl(selectedProduct.price)}</strong>
-              </S.ProductPrice>
-              {selectedProduct.description ? (
-                <p className="description">{selectedProduct.description}</p>
-              ) : null}
-
-              <label className="observation">
-                <span>Observações (opcional)</span>
-                <textarea
-                  maxLength={240}
-                  value={completeProductObservation}
-                  onChange={(event) => setCompleteProductObservation(event.target.value)}
-                  placeholder="Adicione uma observação"
-                />
-                <small>{completeProductObservation.length}/240</small>
-              </label>
-
-              <div className="bottom-action">
-                <S.CompleteProductQuantity>
-                  <QuantityStepper
-                    value={completeProductQuantity}
-                    ariaLabel="Quantidade do produto"
-                    decreaseLabel="Diminuir quantidade"
-                    increaseLabel="Aumentar quantidade"
-                    decreaseDisabled={completeProductQuantity <= 1}
-                    onDecrease={() =>
-                      setCompleteProductQuantity((quantity) => Math.max(1, quantity - 1))
-                    }
-                    onIncrease={() => setCompleteProductQuantity((quantity) => quantity + 1)}
-                  />
-                </S.CompleteProductQuantity>
-                <S.CompleteProductAdd type="button" onClick={() => addComplete(selectedProduct)}>
-                  <span>Adicionar</span>
-                  <strong>{brl(selectedProduct.price * completeProductQuantity)}</strong>
-                </S.CompleteProductAdd>
-              </div>
-            </div>
-          </S.CompleteProductDetail>
-        </S.ProductOverlay>
+        <ReadyProductDetail
+          product={selectedProduct}
+          restaurantName={data.brand.name}
+          restaurantCategory={data.brand.category}
+          categoryName={data.categories.find((category) => category.id === selectedProduct.categoryId)?.name}
+          preparationTime={data.deliveryTime}
+          cartCount={tableCartCount}
+          onBack={() => {
+            setSelectedProduct(null);
+            pendingCartFlyOriginRef.current = null;
+          }}
+          onOpenCart={() => {
+            setSelectedProduct(null);
+            pendingCartFlyOriginRef.current = null;
+            setView('cart');
+          }}
+          onConfirm={({ quantity, observation, sourceElement }) =>
+            addComplete(selectedProduct, quantity, observation, sourceElement)
+          }
+        />
       ) : null}
 
       {configuringProduct ? (
