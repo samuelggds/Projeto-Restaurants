@@ -772,7 +772,7 @@ test('cliente pode pagar agora com PIX ou acompanhar para pagar depois', async (
     tableOpen: true,
     createTablePayload: null,
     orderPayload: null,
-    orderStatus: 'PENDENTE',
+    orderStatus: 'PREPARANDO',
     adminTableReads: 0,
     waiterTableReads: 0,
     tablePaymentPayload: null,
@@ -811,6 +811,18 @@ test('cliente pode pagar agora com PIX ou acompanhar para pagar depois', async (
   expect(state.tablePaymentPayload).toBeNull();
 
   await expect(page.getByRole('heading', { name: 'Pedido Enviado!' })).toBeVisible();
+
+  const completedStep = page.locator('.confirmation-step.completed').filter({ hasText: 'Pedido recebido' });
+  const currentStep = page.locator('.confirmation-step.current').filter({ hasText: 'Em preparo' });
+  const pendingStep = page.locator('.confirmation-step.pending').filter({ hasText: 'Pronto para servir' });
+
+  await expect(completedStep.getByText('Concluído', { exact: true })).toBeVisible();
+  await expect(currentStep.getByText('Iniciado agora', { exact: true })).toBeVisible();
+  await expect(pendingStep).toBeVisible();
+
+  await expect.poll(() => completedStep.locator('.dot').evaluate((element) => getComputedStyle(element).backgroundColor)).toBe('rgb(16, 185, 129)');
+  await expect.poll(() => currentStep.locator('.dot').evaluate((element) => getComputedStyle(element).backgroundColor)).toBe('rgb(255, 75, 75)');
+
   const payButton = page.getByRole('button', { name: 'Pagar agora no PIX', exact: true });
   await expect(payButton).toBeVisible();
   await expect(payButton.locator('[data-pix-mark]')).toBeVisible();
