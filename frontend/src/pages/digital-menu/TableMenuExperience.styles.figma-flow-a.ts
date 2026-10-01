@@ -263,6 +263,51 @@ export const AddMoreButton = styled.button`
   }
 `;
 
+export const ClearCartButton = styled.button`
+  width: 100%;
+  min-height: 46px;
+  margin-top: 10px;
+  padding: 0 18px;
+  border: 1px solid #ef4444;
+  border-radius: 6px;
+  background: #ef4444;
+  color: #fff;
+  font-size: 14px;
+  line-height: 18px;
+  font-weight: 800;
+  cursor: pointer;
+  transition:
+    background-color 160ms ease,
+    border-color 160ms ease,
+    transform 160ms ease,
+    box-shadow 160ms ease;
+
+  &:hover {
+    background: #dc2626;
+    border-color: #dc2626;
+    box-shadow: 0 8px 18px rgba(220, 38, 38, .18);
+  }
+
+  &:active {
+    transform: scale(.985);
+  }
+
+  @media (max-width: 759px) {
+    min-height: 44px;
+    margin-top: 10px;
+    font-size: 13px;
+    line-height: 16px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    transition: none;
+
+    &:active {
+      transform: none;
+    }
+  }
+`;
+
 export const CartSummaryPanel = styled.section`
   width: 100%;
   padding: 24px;
