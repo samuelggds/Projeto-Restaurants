@@ -794,7 +794,6 @@ export default function TableMenuExperience({
           onHome={goToMenu}
           onMenu={goToMenu}
           onOrders={() => setView('tracking')}
-          onClear={cart.length ? clearReviewCart : undefined}
         />
 
         <S.FlowPage>
@@ -845,6 +844,16 @@ export default function TableMenuExperience({
               <S.AddMoreButton type="button" onClick={goToMenu}>
                 + Adicionar mais itens ao pedido
               </S.AddMoreButton>
+
+              {cart.length ? (
+                <S.ClearCartButton
+                  type="button"
+                  aria-label="Limpar carrinho"
+                  onClick={clearReviewCart}
+                >
+                  Limpar carrinho
+                </S.ClearCartButton>
+              ) : null}
             </div>
 
             <div className="cart-summary-column">
@@ -1063,7 +1072,6 @@ function FlowHeader({
   onHome,
   onMenu,
   onOrders,
-  onClear,
 }: {
   data: HomeData;
   tableLabel: string | number;
@@ -1072,7 +1080,6 @@ function FlowHeader({
   onHome: () => void;
   onMenu: () => void;
   onOrders: () => void;
-  onClear?: () => void;
 }) {
   const isCartHeader = title === 'Meu Pedido';
   const headerBrandName = isCartHeader ? 'GastroNexa' : data.brand.name;
@@ -1122,16 +1129,6 @@ function FlowHeader({
       </nav>
 
       <div className="right">
-        {isCartHeader && onClear ? (
-          <button
-            className="clear-cart-header"
-            type="button"
-            aria-label="Limpar carrinho"
-            onClick={onClear}
-          >
-            Limpar
-          </button>
-        ) : null}
         <S.FigmaTablePill
           className={isCartHeader ? 'cart-table-pill' : undefined}
           aria-label={`Mesa ${tableLabel}`}
