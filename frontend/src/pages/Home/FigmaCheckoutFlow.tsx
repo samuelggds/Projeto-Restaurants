@@ -30,7 +30,7 @@ type Props = {
   authenticatedEmptyAddressScreen?: ReactNode;
   paymentScreen?: ReactNode;
   recommendations?: HomeProduct[];
-  onAddRecommendation?: (product: HomeProduct) => void;
+  onAddRecommendation?: (product: HomeProduct, sourceElement?: HTMLElement | null) => void;
   onStepChange: (step: FigmaCheckoutStep) => void;
   onIncrease: (cartId: string) => void;
   onDecrease: (cartId: string) => void;
@@ -214,7 +214,7 @@ export function FigmaCheckoutFlow({
               <UserRound aria-hidden="true" />
               <span>{firstName ? `Olá, ${firstName}` : 'Olá, Entrar'}</span>
             </button>
-            <button className="cart" type="button">
+            <button className="cart" type="button" data-cart-fly-target>
               <ShoppingBag aria-hidden="true" />
               <span>Meu Carrinho</span>
               {cartCount > 0 ? <i>{cartCount}</i> : null}
