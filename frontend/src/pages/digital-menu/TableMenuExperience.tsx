@@ -66,6 +66,7 @@ type Props = {
   tableOrder: TableOrderNotice | null;
   accountSnapshot: TableAccountSnapshot | null;
   activePayment: TablePaymentIntent | null;
+  paymentToOpen?: TablePaymentIntent | null;
   paymentLoading?: boolean;
   waiterCallEnabled?: boolean;
   onAddProduct: (productId: string, configuration: ProductConfiguration) => void;
@@ -118,6 +119,7 @@ export default function TableMenuExperience({
   tableOrder,
   accountSnapshot,
   activePayment,
+  paymentToOpen = null,
   paymentLoading = false,
   waiterCallEnabled = true,
   onAddProduct,
@@ -171,6 +173,12 @@ export default function TableMenuExperience({
     pixPending && currentPayment?.expiresAt
       ? Math.max(0, Math.ceil((new Date(currentPayment.expiresAt).getTime() - now) / 1000))
       : null;
+
+  useEffect(() => {
+    if (!paymentToOpen?.publicId) return;
+    setPixPayment(paymentToOpen);
+    setView('pix');
+  }, [paymentToOpen]);
 
   useEffect(() => {
     if (!pixPending || pixRemainingSeconds === null) return undefined;
