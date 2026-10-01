@@ -199,10 +199,10 @@ export const HeaderActions = styled.div`
 export const TableBadge = styled.div`
   min-height: 30px;
   padding: 0 12px;
-  border: 1px solid color-mix(in srgb, var(--primary) 40%, #fff);
+  border: 1px solid color-mix(in srgb, #FF4B4B 42%, #fff);
   border-radius: 9px;
-  background: color-mix(in srgb, var(--primary) 7%, #fff);
-  color: var(--primary);
+  background: color-mix(in srgb, #FF4B4B 7%, #fff);
+  color: #FF4B4B;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -282,10 +282,10 @@ export const InfoRow = styled.div`
     min-height: 36px;
     padding: 0 14px;
     flex: 0 0 auto;
-    border: 1px solid var(--table-line);
+    border: 1px solid color-mix(in srgb, #FF4B4B 26%, #fff);
     border-radius: 12px;
-    background: #fff;
-    color: #403e3a;
+    background: color-mix(in srgb, #FF4B4B 4%, #fff);
+    color: #FF4B4B;
     display: inline-flex;
     align-items: center;
     gap: 6px;
@@ -297,12 +297,13 @@ export const InfoRow = styled.div`
   svg {
     width: 14px;
     height: 14px;
-    color: var(--primary);
+    color: #FF4B4B;
   }
 
   .rating {
-    color: var(--primary);
-    background: color-mix(in srgb, var(--primary) 6%, #fff);
+    border-color: color-mix(in srgb, #FF4B4B 32%, #fff);
+    color: #FF4B4B;
+    background: color-mix(in srgb, #FF4B4B 7%, #fff);
   }
 
   @media (max-width: 760px) {
