@@ -233,8 +233,7 @@ export function FigmaCheckoutFlow({
                 <h1 className="mobile-title">Meu pedido</h1>
               </div>
               {cartCount > 0 ? (
-                <button type="button" onClick={onClear}>
-                  <span className="desktop-clear">Limpar Carrinho</span>
+                <button className="mobile-clear-action" type="button" onClick={onClear}>
                   <span className="mobile-clear">Limpar</span>
                 </button>
               ) : null}
@@ -340,6 +339,15 @@ export function FigmaCheckoutFlow({
                 onClick={continueFlow}
               >
                 Continuar
+              </button>
+
+              <button
+                className="clear-cart"
+                type="button"
+                aria-label="Limpar todo o carrinho"
+                onClick={onClear}
+              >
+                Limpar carrinho
               </button>
             </S.CartSummarySidebar>
           ) : null}
