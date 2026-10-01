@@ -4,7 +4,6 @@ import {
   CookingPot,
   Eye,
   Clock3,
-  QrCode,
   Table2,
   Utensils,
 } from 'lucide-react';
@@ -26,6 +25,7 @@ import {
 } from '../Home/cartFlyAnimation';
 import { TablePaymentStatusView } from '../Home/components/TablePaymentStatusView';
 import { QuantityStepper } from '../../components/QuantityStepper/QuantityStepper';
+import { PixMark } from '../../components/payment/PixMark';
 import { TableMenuHome } from './TableMenuHome';
 import * as S from './TableMenuExperience.styles';
 
@@ -534,7 +534,7 @@ export default function TableMenuExperience({
             <S.PaymentOptionsGrid>
             {allowPix ? (
               <S.PaymentChoiceCard>
-                <span className="icon"><QrCode size={20} /></span>
+                <span className="icon pix-icon"><PixMark /></span>
                 <span className="recommended desktop-only">RECOMENDADO</span>
                 <span className="pix-badge mobile-only">PIX</span>
                 <h2>Pagar agora (PIX)</h2>
@@ -757,11 +757,19 @@ export default function TableMenuExperience({
 
           <S.ConfirmationActions>
             <S.PrimaryAction type="button" onClick={() => setView('tracking')}>
+              <Eye size={15} aria-hidden="true" />
               Acompanhar em tempo real
             </S.PrimaryAction>
-            {currentParticipantAccount(accountSnapshot)?.remainingCents ? (
-              <S.SecondaryAction type="button" onClick={() => setView('payment')}>
-                Pagar minha conta
+            {currentParticipantAccount(accountSnapshot)?.remainingCents &&
+            accountSnapshot?.capabilities.allowPix ? (
+              <S.SecondaryAction
+                className="pix-action"
+                type="button"
+                disabled={paymentLoading}
+                onClick={() => void startPayment('PIX')}
+              >
+                <PixMark />
+                Pagar agora no PIX
               </S.SecondaryAction>
             ) : null}
             <S.HelperText>Deseja continuar pedindo? A conta ficará aberta na mesa.</S.HelperText>
