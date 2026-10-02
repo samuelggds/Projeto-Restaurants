@@ -178,10 +178,21 @@ export function validateCriticalEnv() {
   if (!Number.isSafeInteger(rateLimitMax) || rateLimitMax <= 0) {
     errors.push('RATE_LIMIT_MAX_REQUESTS deve ser um inteiro maior que zero.');
   }
+  let configuredMercadoPagoWebhookSecrets: string[] = [];
   try {
-    mercadoPagoWebhookSecrets();
+    configuredMercadoPagoWebhookSecrets = mercadoPagoWebhookSecrets();
   } catch {
     errors.push('MP_WEBHOOK_SECRETS deve ser uma lista JSON de até 20 segredos não vazios.');
+  }
+  if (configuredMercadoPagoWebhookSecrets.length === 0) {
+    errors.push('MP_WEBHOOK_SECRET ou MP_WEBHOOK_SECRETS e obrigatorio em producao.');
+  }
+
+  const platformMercadoPagoToken = String(process.env.PLATFORM_MP_ACCESS_TOKEN || '').trim();
+  if (!platformMercadoPagoToken) {
+    errors.push('PLATFORM_MP_ACCESS_TOKEN e obrigatorio em producao para cobrar mensalidades.');
+  } else if (isPlaceholder(platformMercadoPagoToken)) {
+    errors.push('PLATFORM_MP_ACCESS_TOKEN nao pode usar um valor placeholder em producao.');
   }
 
   const efiOpenFinanceEnabled =
