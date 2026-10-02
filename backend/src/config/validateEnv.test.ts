@@ -21,6 +21,8 @@ function setValidProductionEnv() {
     JWT_MFA_SECRET: 'mfa_secret_with_at_least_32_characters_123',
     PAYMENT_PIN_SECRET: 'pin_secret_with_at_least_32_characters_123',
     MFA_REQUIRED_ROLES: 'ADMIN,SUPER_ADMIN',
+    PLATFORM_MP_ACCESS_TOKEN: 'APP_USR_test_platform_token_2026',
+    MP_WEBHOOK_SECRET: 'test-webhook-secret-at-least-strong',
     IMAGE_ENHANCEMENT_RATE_LIMIT_WINDOW_MS: '900000',
     IMAGE_ENHANCEMENT_RATE_LIMIT_MAX_REQUESTS: '5',
     INGREDIENT_IMAGE_SEARCH_RATE_LIMIT_WINDOW_MS: '900000',
@@ -352,3 +354,24 @@ test('impõe limite seguro para busca e segredo forte quando configurado', () =>
   );
 });
 
+
+
+test('exige credencial da plataforma e segredo de webhook Mercado Pago em produção', () => {
+  delete process.env.PLATFORM_MP_ACCESS_TOKEN;
+  delete process.env.MP_WEBHOOK_SECRET;
+  process.env.MP_WEBHOOK_SECRETS = '[]';
+
+  assert.throws(
+    () => validateCriticalEnv(),
+    /MP_WEBHOOK_SECRET ou MP_WEBHOOK_SECRETS e obrigatorio.*PLATFORM_MP_ACCESS_TOKEN e obrigatorio/su,
+  );
+});
+
+test('rejeita placeholder no token Mercado Pago da plataforma', () => {
+  process.env.PLATFORM_MP_ACCESS_TOKEN = 'change_me_platform_token_1234567890';
+
+  assert.throws(
+    () => validateCriticalEnv(),
+    /PLATFORM_MP_ACCESS_TOKEN nao pode usar um valor placeholder/u,
+  );
+});
