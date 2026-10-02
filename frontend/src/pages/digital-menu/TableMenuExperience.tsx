@@ -311,7 +311,7 @@ export default function TableMenuExperience({
     method: 'PIX' | 'CARD' | 'CASH',
     cardPayment?: TableCardPaymentPayload,
   ) {
-    if (paymentLoading || cardSubmitting) return;
+    if (paymentLoading) return;
     const pendingPayment = accountSnapshot?.activePayment;
     if (
       pendingPayment?.method === method &&
@@ -366,6 +366,8 @@ export default function TableMenuExperience({
       };
 
       await startPayment('CARD', safeCardPayment);
+    } catch {
+      // O formulário seguro já apresenta a mensagem sanitizada ao cliente.
     } finally {
       setCardSubmitting(false);
     }
