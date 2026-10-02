@@ -115,6 +115,43 @@ export class AuthSessionIdentityChangedError extends Error {
   }
 }
 
+function requestPath(value: unknown) {
+  return String(value || '').split('?')[0];
+}
+
+function requestBody(value: unknown): Record<string, unknown> | null {
+  if (!value) return null;
+  if (typeof value === 'object' && !Array.isArray(value)) {
+    return value as Record<string, unknown>;
+  }
+  if (typeof value !== 'string') return null;
+  try {
+    const parsed = JSON.parse(value);
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed)
+      ? (parsed as Record<string, unknown>)
+      : null;
+  } catch {
+    return null;
+  }
+}
+
+export function shouldAttachStoredTableSession(config: { url?: unknown; data?: unknown }) {
+  const path = requestPath(config.url);
+  if (path === '/table-sessions/current' || path === '/table-sessions/participant') return true;
+  if (path === '/orders/table/current' || /^\/orders\/table\/[^/]+\/cancel$/u.test(path)) {
+    return true;
+  }
+  if (path.startsWith('/table-accounts/sessions/')) return true;
+
+  const body = requestBody(config.data);
+  return (
+    path.startsWith('/orders') &&
+    String(body?.type || '')
+      .trim()
+      .toUpperCase() === 'MESA'
+  );
+}
+
 function normalizeUserId(value: unknown) {
   const normalized = Number(value);
   return Number.isSafeInteger(normalized) && normalized > 0 ? normalized : null;
@@ -174,7 +211,8 @@ api.interceptors.request.use(
     if (token) config.headers.Authorization = `Bearer ${token}`;
 
     const tableSessionRaw = localStorage.getItem('tableSession');
-    if (tableSessionRaw) {
+    const explicitTableSessionToken = config.headers?.['x-session-token'];
+    if (!explicitTableSessionToken && tableSessionRaw && shouldAttachStoredTableSession(config)) {
       try {
         const tableSession = JSON.parse(tableSessionRaw);
         const sessionToken =
