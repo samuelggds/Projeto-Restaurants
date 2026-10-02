@@ -158,6 +158,33 @@ test('isolamento multi-tenant real por HTTP e webhooks', { timeout: 120_000 }, a
         /não pertencem a este restaurante/u,
       );
 
+      const ownUpdate = await apiRequest(
+        baseUrl,
+        `/product-combos/${comboId}`,
+        fixture.tokens.adminA,
+        {
+          method: 'PUT',
+          json: {
+            ...payload,
+            name: 'Combo real A atualizado',
+            price: 64.9,
+          },
+        },
+      );
+      assert.equal(ownUpdate.response.status, 200, JSON.stringify(ownUpdate.data));
+      assert.equal(ownUpdate.data.combo.name, 'Combo real A atualizado');
+      assert.equal(Number(ownUpdate.data.combo.price), 64.9);
+      assert.ok(Number(ownUpdate.data.combo.configurationVersion) >= 2);
+
+      const afterOwnUpdate = await prisma.product.findUniqueOrThrow({
+        where: { id: comboId },
+        include: { comboGroups: { include: { options: true } } },
+      });
+      assert.equal(afterOwnUpdate.name, 'Combo real A atualizado');
+      assert.equal(Number(afterOwnUpdate.price), 64.9);
+      assert.equal(afterOwnUpdate.comboGroups.length, 1);
+      assert.equal(afterOwnUpdate.comboGroups[0].options.length, 1);
+
       const beforeForeignUpdate = await prisma.product.findUniqueOrThrow({
         where: { id: comboId },
       });
@@ -173,6 +200,29 @@ test('isolamento multi-tenant real por HTTP e webhooks', { timeout: 120_000 }, a
       });
       assert.equal(afterForeignUpdate.name, beforeForeignUpdate.name);
       assert.equal(afterForeignUpdate.restaurantId, fixture.restaurants.a.id);
+
+      const foreignDelete = await apiRequest(
+        baseUrl,
+        `/product-combos/${comboId}`,
+        fixture.tokens.adminB,
+        { method: 'DELETE' },
+      );
+      assert.equal(foreignDelete.response.status, 400);
+
+      const ownDelete = await apiRequest(
+        baseUrl,
+        `/product-combos/${comboId}`,
+        fixture.tokens.adminA,
+        { method: 'DELETE' },
+      );
+      assert.equal(ownDelete.response.status, 200, JSON.stringify(ownDelete.data));
+      assert.equal(ownDelete.data.archived, false);
+      assert.equal(
+        await prisma.product.count({
+          where: { id: comboId, restaurantId: fixture.restaurants.a.id },
+        }),
+        0,
+      );
     });
 
     await t.test(
