@@ -7,17 +7,113 @@ import { info } from '../utils/billingLogger.js';
 
 type ProcessPaymentPayload = {
   invoiceId: number | string;
+  paymentAttemptId?: number | string | null;
 };
 
+export type InvoicePaymentSettlement =
+  | 'APPLIED'
+  | 'IDEMPOTENT'
+  | 'DUPLICATE'
+  | 'REFUNDED';
+
 class ProcessPaymentService {
-  async execute({ invoiceId }: ProcessPaymentPayload) {
+  async execute(payload: ProcessPaymentPayload) {
+    return (await this.executeTracked(payload)).invoice;
+  }
+
+  async executeTracked({ invoiceId, paymentAttemptId }: ProcessPaymentPayload) {
     const normalizedInvoiceId = Number(invoiceId);
+    const normalizedAttemptId =
+      paymentAttemptId === undefined || paymentAttemptId === null
+        ? null
+        : Number(paymentAttemptId);
 
     if (!Number.isInteger(normalizedInvoiceId) || normalizedInvoiceId <= 0) {
       throw new Error('Fatura inválida.');
     }
+    if (
+      normalizedAttemptId !== null &&
+      (!Number.isInteger(normalizedAttemptId) || normalizedAttemptId <= 0)
+    ) {
+      throw new Error('Tentativa de pagamento inválida.');
+    }
 
     const result = await prisma.$transaction(async (tx) => {
+      const now = new Date();
+      if (normalizedAttemptId !== null) {
+        await tx.$queryRaw(Prisma.sql`
+          SELECT "id"
+          FROM "Invoice"
+          WHERE "id" = ${normalizedInvoiceId}
+          FOR UPDATE
+        `);
+
+        const attempt = await tx.invoicePaymentAttempt.findFirst({
+          where: {
+            id: normalizedAttemptId,
+            invoiceId: normalizedInvoiceId,
+          },
+        });
+        if (!attempt) {
+          throw new Error('Tentativa de pagamento não pertence à fatura.');
+        }
+
+        const currentInvoice = await tx.invoice.findUnique({
+          where: { id: normalizedInvoiceId },
+        });
+        if (!currentInvoice) throw new Error('Fatura não encontrada.');
+
+        if (attempt.status === 'APPLIED') {
+          const openInvoices = await tx.invoice.findMany({
+            where: {
+              restaurantId: currentInvoice.restaurantId,
+              status: { in: ['PENDENTE', 'ATRASADO'] },
+            },
+          });
+          return {
+            invoice: currentInvoice,
+            remainsBlocked: hasBlockingInvoices(openInvoices, now),
+            settlement: 'IDEMPOTENT' as InvoicePaymentSettlement,
+          };
+        }
+
+        if (attempt.status === 'REFUNDED') {
+          return {
+            invoice: currentInvoice,
+            remainsBlocked: false,
+            settlement: 'REFUNDED' as InvoicePaymentSettlement,
+          };
+        }
+
+        if (attempt.status === 'DUPLICATE' || currentInvoice.status === 'PAGO' || currentInvoice.status === 'CANCELADO') {
+          if (attempt.status !== 'DUPLICATE') {
+            await tx.invoicePaymentAttempt.updateMany({
+              where: {
+                id: normalizedAttemptId,
+                invoiceId: normalizedInvoiceId,
+                restaurantId: currentInvoice.restaurantId,
+                status: { notIn: ['APPLIED', 'REFUNDED', 'DUPLICATE'] },
+              },
+              data: {
+                status: 'DUPLICATE',
+                providerStatus: 'approved',
+                settledAt: now,
+              },
+            });
+          }
+          return {
+            invoice: currentInvoice,
+            remainsBlocked: false,
+            settlement: 'DUPLICATE' as InvoicePaymentSettlement,
+          };
+        }
+      }
+
+      const payment = await billingRepository.markInvoicePaidIfOpen(
+        normalizedInvoiceId,
+        now,
+        tx,
+      );
       const payment = await billingRepository.markInvoicePaidIfOpen(
         normalizedInvoiceId,
         new Date(),
@@ -31,6 +127,26 @@ class ProcessPaymentService {
 
       if (invoice.status !== 'PAGO') {
         throw new Error('Fatura não está disponível para pagamento.');
+      }
+
+      if (normalizedAttemptId !== null) {
+        const attemptApplied = await tx.invoicePaymentAttempt.updateMany({
+          where: {
+            id: normalizedAttemptId,
+            invoiceId: normalizedInvoiceId,
+            restaurantId: invoice.restaurantId,
+            status: { notIn: ['APPLIED', 'REFUNDED', 'DUPLICATE'] },
+          },
+          data: {
+            status: 'APPLIED',
+            providerStatus: 'approved',
+            settledAt: now,
+            appliedAt: now,
+          },
+        });
+        if (attemptApplied.count !== 1) {
+          throw new Error('Tentativa de pagamento foi atualizada por outro processo.');
+        }
       }
 
       const subscription = await billingRepository.findSubscriptionByRestaurantId(
@@ -90,7 +206,15 @@ class ProcessPaymentService {
         await billingRepository.activateRestaurant(invoice.restaurantId, tx);
       }
 
-      return { invoice, remainsBlocked };
+      return {
+        invoice,
+        remainsBlocked,
+        settlement: (normalizedAttemptId !== null
+          ? payment.marked
+            ? 'APPLIED'
+            : 'IDEMPOTENT'
+          : 'APPLIED') as InvoicePaymentSettlement,
+      };
     });
 
     info(
@@ -103,7 +227,10 @@ class ProcessPaymentService {
       },
     );
 
-    return result.invoice;
+    return {
+      invoice: result.invoice,
+      settlement: result.settlement,
+    };
   }
 }
 
