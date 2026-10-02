@@ -321,7 +321,7 @@ class CreateRestaurantSettingsService {
       );
     }
 
-    const created = await restaurantSettingsRepository.create({
+    const settingsCreateData: Prisma.RestaurantSettingsUncheckedCreateInput = {
       restaurantId: Number(restaurantId),
       deliveryFee: normalizeNonNegativeMoney(deliveryFee, 'Taxa de entrega'),
       courierFeePerDelivery: normalizeNonNegativeMoney(
@@ -441,7 +441,7 @@ class CreateRestaurantSettingsService {
         500,
         20,
       ),
-    });
+    };
 
     const restaurantData: Prisma.RestaurantUpdateInput = {};
 
@@ -473,14 +473,18 @@ class CreateRestaurantSettingsService {
       restaurantData.zipCode = establishmentAddress.zipCode;
     }
 
-    if (Object.keys(restaurantData).length > 0) {
-      await prisma.restaurant.update({
-        where: {
-          id: Number(restaurantId),
-        },
-        data: restaurantData,
-      });
-    }
+    const created = await prisma.$transaction(async (tx) => {
+      const createdSettings = await restaurantSettingsRepository.create(settingsCreateData, tx);
+      if (Object.keys(restaurantData).length > 0) {
+        await tx.restaurant.update({
+          where: {
+            id: Number(restaurantId),
+          },
+          data: restaurantData,
+        });
+      }
+      return createdSettings;
+    });
 
     return {
       ...created,
