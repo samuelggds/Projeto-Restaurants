@@ -275,7 +275,8 @@ export class GetCurrentTableAccountService {
         ['RESERVED', 'PROCESSING'].includes(payment.status) &&
         payment.expiresAt > now,
     );
-    const onlinePaymentProviderAvailable = onlineReadiness.allowPix;
+    const onlinePaymentProviderAvailable =
+      onlineReadiness.allowPix || onlineReadiness.allowCard;
 
     return {
       ...globalAccount,
@@ -288,7 +289,7 @@ export class GetCurrentTableAccountService {
         allowCardMachine: false,
         allowOnlinePayment: settings.allowOnlinePayment && onlinePaymentProviderAvailable,
         allowPix: settings.allowOnlinePayment && onlineReadiness.allowPix,
-        allowCard: false,
+        allowCard: settings.allowOnlinePayment && onlineReadiness.allowCard,
         allowSplit: false,
         serviceFeeMode: settings.serviceFeeMode,
         serviceFeeBasisPoints: settings.serviceFeeBasisPoints,
