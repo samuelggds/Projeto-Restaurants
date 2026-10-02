@@ -3,6 +3,7 @@ import {
   Check,
   CookingPot,
   Eye,
+  Clock3,
   ReceiptText,
   WalletCards,
 } from 'lucide-react';
@@ -35,6 +36,7 @@ import { TablePaymentStatusView } from '../Home/components/TablePaymentStatusVie
 import type { CardPaymentPreparer } from '../Home/components/OnlineCardPaymentForm';
 import { ReadyProductDetail } from '../Home/components/ReadyProductDetail';
 import { QuantityStepper } from '../../components/QuantityStepper/QuantityStepper';
+import { PixMark } from '../../components/payment/PixMark';
 import { TableMenuHome } from './TableMenuHome';
 import {
   FlowHeader,
