@@ -871,3 +871,32 @@ export const MobileStatusItem = styled.div<{ $active: boolean; $complete: boolea
     box-shadow: inset 0 0 0 3px #fff;
   }
 `;
+
+export const DesktopRestaurantBrand = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-right: auto;
+  .brand-mark { width: 40px; height: 40px; display: grid; place-items: center; overflow: hidden; border-radius: 12px; color: #fff; background: #e85a2b; font: 800 20px 'Gabarito', 'Inter', sans-serif; }
+  .brand-mark img { width: 100%; height: 100%; object-fit: cover; }
+  > span:last-child { display: grid; gap: 2px; }
+  strong { color: #1f1e1a; font-size: 18px; font-weight: 800; }
+  small { display: flex; align-items: center; gap: 6px; color: #72706b; font-size: 13px; font-weight: 500; }
+  small i { width: 8px; height: 8px; border-radius: 50%; background: #268c43; }
+  @media (max-width: 900px) { display: none; }
+`;
+
+export const MobileHeaderTitle = styled.h1`
+  display: none;
+  margin: 0;
+  color: #1f1e1a;
+  font: 800 18px/1 'Gabarito', 'Inter', sans-serif;
+  @media (max-width: 900px) { display: block; position: absolute; left: 50%; transform: translateX(-50%); white-space: nowrap; }
+`;
+
+export const DesktopHeaderOrder = styled.div`
+  color: #1f1e1a;
+  font-size: 14px;
+  font-weight: 800;
+  @media (max-width: 900px) { width: 50px; color: transparent; user-select: none; }
+`;
