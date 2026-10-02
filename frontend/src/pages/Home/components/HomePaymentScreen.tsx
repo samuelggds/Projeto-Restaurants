@@ -11,6 +11,8 @@ type Props = {
   cart: CartItem[];
   cartCount: number;
   subtotal: number;
+  couponDiscount: number;
+  couponLabel?: string;
   deliveryFee: number;
   total: number;
   paymentMethod: CheckoutPaymentMethod;
@@ -36,6 +38,8 @@ export function HomePaymentScreen({
   cart,
   cartCount,
   subtotal,
+  couponDiscount,
+  couponLabel,
   deliveryFee,
   total,
   paymentMethod,
@@ -61,6 +65,8 @@ export function HomePaymentScreen({
       cart={cart}
       cartCount={cartCount}
       subtotal={subtotal}
+      couponDiscount={couponDiscount}
+      couponLabel={couponLabel}
       deliveryFee={deliveryFee}
       total={total}
       paymentMethods={
