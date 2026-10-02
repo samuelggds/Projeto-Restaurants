@@ -111,6 +111,8 @@ test('calcula promoção apenas no preço-base, cupom depois e taxa por último'
   assert.equal(quote.deliveryFeeAmount, 5);
   assert.equal(quote.total, 170);
   assert.equal(quote.couponCode, 'FIEL10');
+  assert.equal(quote.couponDiscountType, 'PERCENTAGE');
+  assert.equal(quote.couponDiscountValue, 10);
 });
 
 test('rejeita recompensa vencida antes de calcular o desconto', async () => {
