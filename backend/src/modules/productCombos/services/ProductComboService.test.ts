@@ -249,3 +249,31 @@ test('recusa editar combo inexistente no restaurante antes de alterar produtos o
   await assert.rejects(() => service.save(90, 3, input()), /Combo não encontrado/);
   assert.deepEqual(state.writes, []);
 });
+
+test('aceita combo sem imagem e persiste no tenant correto', async () => {
+  const state = mockDatabase({ existing: false });
+  const draft = input();
+  draft.image = '';
+
+  const saved = await service.save(null, 3, draft);
+
+  assert.equal(saved.image, null);
+  assert.equal(state.writes[0].data.restaurantId, 3);
+  assert.equal(state.writes[0].data.image, null);
+  assert.equal(state.groups[0].restaurantId, 3);
+  assert.ok(state.options.every((entry) => entry.restaurantId === 3));
+});
+
+test('recusa imagem maior que o orçamento seguro antes de abrir transação', async () => {
+  const draft = input();
+  draft.image = `data:image/png;base64,${'A'.repeat(700_100)}`;
+  prisma.$transaction = (() => {
+    assert.fail('payload inválido não deve abrir transação');
+  }) as typeof prisma.$transaction;
+
+  await assert.rejects(
+    () => service.save(null, 3, draft),
+    /imagem do combo está muito grande/i,
+  );
+});
+
