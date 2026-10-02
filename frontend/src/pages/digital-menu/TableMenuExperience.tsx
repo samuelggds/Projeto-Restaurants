@@ -19,7 +19,6 @@ import {
 import {
   currentParticipantAccount,
   shouldReuseActiveTablePayment,
-  previewIndividualTablePayment,
   tablePaymentMethodLabel,
   tablePaymentStatusLabel,
   type TableAccountSnapshot,
@@ -195,15 +194,21 @@ export default function TableMenuExperience({
       : null;
 
   useEffect(() => {
-    if (!paymentToOpen?.publicId) return;
-    setPixPayment(paymentToOpen);
-    setView('pix');
+    if (!paymentToOpen?.publicId) return undefined;
+    const timeoutId = window.setTimeout(() => {
+      setPixPayment(paymentToOpen);
+      setView('pix');
+    }, 0);
+    return () => window.clearTimeout(timeoutId);
   }, [paymentToOpen]);
 
   useEffect(() => {
-    if (!openCardPayment) return;
-    setView('card');
-    onCardPaymentOpened?.();
+    if (!openCardPayment) return undefined;
+    const timeoutId = window.setTimeout(() => {
+      setView('card');
+      onCardPaymentOpened?.();
+    }, 0);
+    return () => window.clearTimeout(timeoutId);
   }, [onCardPaymentOpened, openCardPayment]);
 
   const handleCardPreparerChange = useCallback((preparer: CardPaymentPreparer | null) => {
