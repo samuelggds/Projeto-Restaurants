@@ -1,11 +1,5 @@
-import { OrderType, PaymentMethod } from '@prisma/client';
 import prisma from '../../../config/prisma.js';
-import { withTenantDbContext } from '../../../database/tenantDbContext.js';
 import orderPixPaymentService from '../../orders/services/OrderPixPaymentService.js';
-import {
-  getCardCheckoutProviderHandler,
-  type CreateOrderCardCheckoutPayload,
-} from '../../orders/services/cardCheckoutProviders.js';
 import directOrderCardPaymentService from '../../orders/services/DirectOrderCardPaymentService.js';
 import {
   CARD_PROVIDERS,
@@ -195,25 +189,6 @@ async function readIdentity(
   };
 }
 
-async function defaultSavedCard(
-  context: ConfiguredTablePaymentProviderContext,
-  provider: CardProvider,
-) {
-  if (!context.participantUserId) return null;
-  return withTenantDbContext(context.restaurantId, (db) =>
-    db.customerPaymentMethod.findFirst({
-      where: {
-        userId: context.participantUserId || undefined,
-        restaurantId: context.restaurantId,
-        provider,
-        active: true,
-      },
-      orderBy: [{ isDefault: 'desc' }, { createdAt: 'desc' }],
-      select: { publicId: true },
-    }),
-  );
-}
-
 async function createPix(
   context: ConfiguredTablePaymentProviderContext,
   input: CreateProviderPaymentInput,
@@ -255,73 +230,30 @@ async function createCard(
   input: CreateProviderPaymentInput,
   provider: CardProvider,
 ): Promise<ProviderPayment> {
-  const identity = await readIdentity(context);
-  const savedCard = await defaultSavedCard(context, provider);
-  const frontendUrl = String(process.env.FRONTEND_URL || 'http://localhost:5173').trim();
-
-  if (input.cardPayment) {
-    const result = await directOrderCardPaymentService.execute({
-      provider,
-      payload: {
-        userId: context.participantUserId,
-        restaurantId: context.restaurantId,
-        customerName: identity.name,
-        customerPhone: identity.phone,
-        paymentMethodId: input.cardPayment.paymentMethodId || savedCard?.publicId || null,
-        cardPaymentType: input.cardPayment.cardPaymentType || 'credit',
-        cardToken: input.cardPayment.cardToken || null,
-        cardPaymentMethodId: input.cardPayment.cardPaymentMethodId || null,
-        cardBrand: input.cardPayment.cardBrand || null,
-        cardLast4: input.cardPayment.cardLast4 || null,
-        holderName: input.cardPayment.holderName || null,
-        holderTaxId: input.cardPayment.holderTaxId || null,
-        payerEmail: input.cardPayment.payerEmail || identity.email,
-        mercadoPagoDeviceId: input.cardPayment.mercadoPagoDeviceId || null,
-      },
-      order: {
-        id: context.intentId,
-        publicId: context.intentPublicId,
-        restaurantId: context.restaurantId,
-        total: centsToMajor(input.amountCents),
-        systemFee: 0,
-        restaurant: { name: 'Conta da mesa' },
-      },
-      successUrlBase: frontendUrl,
-      idempotencyKey: input.idempotencyKeyHash,
-    });
-
-    return {
-      externalId: String(result.persistenceSessionId || result.sessionId),
-      status: result.paymentApproved ? 'PAID' : 'PENDING',
-      amountCents: input.amountCents,
-      checkoutUrl: null,
-      paymentCode: null,
-      expiresAt: input.expiresAt,
-    };
+  if (!input.cardPayment) {
+    throw new Error('Os dados protegidos do cartão não foram informados.');
   }
 
-  const handler = getCardCheckoutProviderHandler(provider);
-  const payload: CreateOrderCardCheckoutPayload = {
-    userId: context.participantUserId,
-    restaurantId: context.restaurantId,
-    userRestaurantId: context.restaurantId,
-    tableSessionId: null,
-    tableSessionTableId: null,
-    participantId: context.participantId,
-    settlementMode: 'PAY_NOW',
-    type: OrderType.MESA,
-    paymentMethod: PaymentMethod.CARTAO,
-    customerName: identity.name,
-    customerCpf: identity.cpf,
-    customerPhone: identity.phone,
-    items: [],
-    paymentMethodId: savedCard?.publicId || null,
-    successUrl: frontendUrl,
-    cancelUrl: frontendUrl,
-  };
-  const checkout = await handler.createCheckout({
-    paymentScope: 'TABLE_ACCOUNT',
-    payload,
+  const identity = await readIdentity(context);
+  const frontendUrl = String(process.env.FRONTEND_URL || 'http://localhost:5173').trim();
+  const result = await directOrderCardPaymentService.execute({
+    provider,
+    payload: {
+      userId: context.participantUserId,
+      restaurantId: context.restaurantId,
+      customerName: identity.name,
+      customerPhone: identity.phone,
+      paymentMethodId: input.cardPayment.paymentMethodId || null,
+      cardPaymentType: input.cardPayment.cardPaymentType || 'credit',
+      cardToken: input.cardPayment.cardToken || null,
+      cardPaymentMethodId: input.cardPayment.cardPaymentMethodId || null,
+      cardBrand: input.cardPayment.cardBrand || null,
+      cardLast4: input.cardPayment.cardLast4 || null,
+      holderName: input.cardPayment.holderName || null,
+      holderTaxId: input.cardPayment.holderTaxId || null,
+      payerEmail: input.cardPayment.payerEmail || identity.email,
+      mercadoPagoDeviceId: input.cardPayment.mercadoPagoDeviceId || null,
+    },
     order: {
       id: context.intentId,
       publicId: context.intentPublicId,
@@ -331,20 +263,19 @@ async function createCard(
       restaurant: { name: 'Conta da mesa' },
     },
     successUrlBase: frontendUrl,
-    cancelUrlBase: frontendUrl,
+    idempotencyKey: input.idempotencyKeyHash,
   });
-  const externalId = String(checkout.persistenceSessionId || checkout.sessionId || '').trim();
-  if (!externalId) throw new Error('O gateway não retornou uma referência de pagamento válida.');
 
   return {
-    externalId,
-    status: checkout.paymentApproved ? 'PAID' : 'PENDING',
+    externalId: String(result.persistenceSessionId || result.sessionId),
+    status: result.paymentApproved ? 'PAID' : 'PENDING',
     amountCents: input.amountCents,
-    checkoutUrl: String(checkout.checkoutUrl || '').trim() || null,
+    checkoutUrl: null,
     paymentCode: null,
     expiresAt: input.expiresAt,
   };
 }
+
 
 async function fetchJson<T>(url: string, init: RequestInit) {
   const response = await fetch(url, init);
