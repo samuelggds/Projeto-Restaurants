@@ -2,6 +2,7 @@ import prisma from '../../../config/prisma.js';
 import { OrderRequestError } from '../domain/OrderRequestError.js';
 import { PaymentCreationUncertainError } from './PaymentCreationUncertainError.js';
 import {
+import { safeErrorSummary } from '../../../services/telemetrySanitizer.js';
   replayCreatedOrder,
   retryOrderTransaction,
   type OrderCreationContext,
@@ -933,10 +934,9 @@ class CreateOrderService {
         total: createdOrder?.total,
         paymentMethod: normalizedPaymentMethod,
       }).catch((error: unknown) => {
-        console.error(
-          '[CUSTOMER_NOTIFICATION_UNHANDLED]',
-          error instanceof Error ? error.message : String(error),
-        );
+        console.error('[CUSTOMER_NOTIFICATION_UNHANDLED]', {
+          error: safeErrorSummary(error),
+        });
       });
     }
     if (queuedForCapacity && !shouldDeferRealtimeUntilPaid) {
