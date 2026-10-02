@@ -41,6 +41,7 @@ type CardOrder = {
   id: number;
   publicId: string;
   restaurantId: number;
+  externalReference?: string | null;
   total: number | string | { toString(): string } | null;
   systemFee?: number | string | { toString(): string } | null;
   restaurant?: { name?: string | null } | null;
@@ -318,7 +319,9 @@ async function mercadoPagoPayment(
 
   const accessToken = await getMercadoPagoAccessToken(order.restaurantId);
   const total = amount(order.total);
-  const reference = mercadoPagoCardExternalReference(order.id, order.restaurantId);
+  const reference =
+    String(order.externalReference || '').trim() ||
+    mercadoPagoCardExternalReference(order.id, order.restaurantId);
   const storedCustomerId = String(stored?.providerCustomerId || '').trim();
 
   if (stored && !storedCustomerId) {
