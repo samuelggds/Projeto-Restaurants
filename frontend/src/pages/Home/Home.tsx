@@ -48,12 +48,7 @@ import {
   collectPurchasedProductQuantities,
   resolveHomeRestaurantId,
 } from './domain/homePageHelpers';
-import type {
-  CreateTablePaymentResult,
-  TableCardPaymentPayload,
-  TablePaymentDraft,
-  TablePaymentIntent,
-} from './domain/tableAccount';
+import type { CreateTablePaymentResult, TableCardPaymentPayload, TablePaymentDraft, TablePaymentIntent } from './domain/tableAccount';
 
 export default function Home() {
   const navigate = useNavigate();
