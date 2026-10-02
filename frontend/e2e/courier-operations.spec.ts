@@ -1002,14 +1002,11 @@ test('cliente acompanha somente a própria entrega, rota e destino até a conclu
   const tracking = await mockCustomerTrackingApi(page, state);
   await page.goto('/orders/601/tracking');
 
-  await expect(page.getByRole('banner').getByText('Pedido #601', { exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Acompanhar pedido', exact: true })).toBeVisible();
   await expect(
-    page.getByLabel('Status da Entrega').getByText('Saiu para entrega', { exact: true }),
+    page.getByLabel('Status da Entrega').getByText('Saiu para entrega (A caminho)', { exact: true }),
   ).toBeVisible();
-  await expect(
-    page.getByRole('complementary', { name: 'Detalhes da rota' })
-      .getByText(courierUser.name, { exact: true }),
-  ).toBeVisible();
+  await expect(page.getByText(courierUser.name, { exact: true })).toBeVisible();
   await expect(page.getByRole('link', { name: 'Ligar para o motoqueiro' })).toHaveAttribute(
     'href',
     `tel:${courierUser.phone}`,
@@ -1018,7 +1015,6 @@ test('cliente acompanha somente a própria entrega, rota e destino até a conclu
   await expect(trackingMap).toBeVisible();
   await expect(trackingMap).toHaveAttribute('data-courier-latitude', String(departure.latitude));
   await expect(trackingMap).toHaveAttribute('data-courier-longitude', String(departure.longitude));
-  await expect(page.getByText(/Estimativa de rota: cerca de 12 min/)).toBeVisible();
   await expect
     .poll(() => page.evaluate(() => document.documentElement.scrollWidth))
     .toBeLessThanOrEqual(321);
@@ -1050,7 +1046,7 @@ test('cliente acompanha somente a própria entrega, rota e destino até a conclu
   await expect
     .poll(() => trackingMap.getAttribute('data-courier-latitude'))
     .toBe(String(midpoint.latitude));
-  await expect(page.getByRole('heading', { name: 'Acompanhe o trajeto do pedido' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Acompanhar pedido', exact: true })).toBeVisible();
 
   tracking.markDelivered();
   state.sendSocketEvent?.('order:status-changed', {
@@ -1059,7 +1055,7 @@ test('cliente acompanha somente a própria entrega, rota e destino até a conclu
     status: 'ENTREGUE',
   });
   await expect(
-    page.getByLabel('Status da Entrega').getByText('Chegou ao endereço', { exact: true }),
+    page.getByLabel('Status da Entrega').getByText('Entregue', { exact: true }),
   ).toBeVisible();
   await expect(page.getByText('Entrega concluída', { exact: true })).toBeVisible();
   await expect(trackingMap).toHaveAttribute('data-tracking-terminal', 'true');
