@@ -1,3 +1,4 @@
+import type { Prisma } from '@prisma/client';
 import prisma from '../../../config/prisma.js';
 
 type DeliveryFeeModeInput = 'FIXED' | 'DISTANCE';
@@ -20,6 +21,11 @@ type NormalizedDeliveryFeeRange = {
   fee: number;
   active: boolean;
 };
+
+type DeliveryFeeDb = Pick<
+  Prisma.TransactionClient,
+  'restaurantSettings' | 'deliveryFeeRange'
+>;
 
 function roundToTwoDecimals(value: number) {
   return Math.round((value + Number.EPSILON) * 100) / 100;
@@ -79,11 +85,14 @@ function normalizeRanges(value: unknown): NormalizedDeliveryFeeRange[] | undefin
 }
 
 class UpdateDeliveryFeeSettingsService {
-  async execute({
-    restaurantId,
-    deliveryFeeMode,
-    deliveryFeeRanges,
-  }: UpdateDeliveryFeeSettingsPayload) {
+  async execute(
+    {
+      restaurantId,
+      deliveryFeeMode,
+      deliveryFeeRanges,
+    }: UpdateDeliveryFeeSettingsPayload,
+    db?: DeliveryFeeDb,
+  ) {
     const normalizedRestaurantId = Number(restaurantId);
 
     if (!Number.isInteger(normalizedRestaurantId) || normalizedRestaurantId <= 0) {
@@ -97,7 +106,7 @@ class UpdateDeliveryFeeSettingsService {
       return null;
     }
 
-    return prisma.$transaction(async (tx) => {
+    const apply = async (tx: DeliveryFeeDb) => {
       const settings = await tx.restaurantSettings.findUnique({
         where: {
           restaurantId: normalizedRestaurantId,
@@ -189,7 +198,9 @@ class UpdateDeliveryFeeSettingsService {
           active: range.active,
         })),
       };
-    });
+    };
+
+    return db ? apply(db) : prisma.$transaction((tx) => apply(tx));
   }
 }
 
