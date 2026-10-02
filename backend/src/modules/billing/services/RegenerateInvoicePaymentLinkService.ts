@@ -77,6 +77,13 @@ class RegenerateInvoicePaymentLinkService {
           pixQrCodeBase64: payment.qrCodeBase64,
           pixExpiresAt: payment.expiresAt ? new Date(payment.expiresAt) : null,
         },
+        {
+          method: 'PIX',
+          provider: 'MERCADO_PAGO',
+          providerPaymentId: payment.id,
+          amount: invoice.total,
+          providerStatus: 'pending',
+        },
       );
 
     return {
