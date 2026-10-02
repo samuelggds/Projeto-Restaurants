@@ -102,14 +102,15 @@ export const comboInputSchema = z
   .superRefine((input, ctx) => {
     const names = new Set<string>();
     input.groups.forEach((group, index) => {
-      if (names.has(group.name)) {
+      const normalizedName = group.name.trim().toLocaleLowerCase('pt-BR');
+      if (names.has(normalizedName)) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
           path: ['groups', index, 'name'],
           message: 'Cada grupo do combo precisa ter um nome diferente.',
         });
       }
-      names.add(group.name);
+      names.add(normalizedName);
     });
   });
 
@@ -266,13 +267,24 @@ class ProductComboService {
       ];
       const components = await db.product.findMany({
         where: { restaurantId: tenantId, id: { in: componentIds } },
-        select: { id: true, name: true, kind: true },
+        select: { id: true, name: true, kind: true, active: true },
       });
       if (components.length !== componentIds.length) {
         throw new Error('Um ou mais produtos escolhidos não pertencem a este restaurante.');
       }
       if (components.some((product) => product.kind === 'COMBO')) {
         throw new Error('Um combo não pode conter outro combo. Escolha produtos normais.');
+      }
+      const componentById = new Map(components.map((product) => [product.id, product]));
+      const activeOptionUsingInactiveProduct = input.groups.some((group) =>
+        group.options.some(
+          (option) => option.active && componentById.get(option.componentProductId)?.active === false,
+        ),
+      );
+      if (activeOptionUsingInactiveProduct) {
+        throw new Error(
+          'Produto inativo não pode ficar disponível como opção ativa do combo. Remova-o ou desative a opção.',
+        );
       }
 
       const categoryId = await ensureComboCategory(db, tenantId);
