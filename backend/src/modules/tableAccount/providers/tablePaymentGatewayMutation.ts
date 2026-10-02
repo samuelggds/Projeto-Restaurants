@@ -3,6 +3,7 @@ import { getMercadoPagoAccessToken } from '../../restaurantSettings/services/Res
 import { getMercadoPagoOrderApi } from '../../payments/providers/mercadoPagoClient.js';
 import { mercadoPagoCardExternalReferenceCandidates } from '../../orders/domain/mercadoPagoCardReference.js';
 import { tableCardExternalReferenceCandidates } from '../domain/tableCardExternalReference.js';
+import { tablePixExternalReference } from '../domain/tablePixExternalReference.js';
 import refundOrderPaymentService from '../../orders/services/RefundOrderPaymentService.js';
 import type { ProviderMutationInput, ProviderPayment } from './PaymentProvider.js';
 
@@ -72,10 +73,14 @@ export async function getDirectTablePayment(input: BoundPayment): Promise<Provid
   if (reference.kind === 'MP_ORDER') {
     const body = await (await getMercadoPagoOrderApi(input.restaurantId)).get(reference.id);
     const providerAmount = Number(body.total_paid_amount ?? body.total_amount);
-    const validReference = new Set([
-      ...tableCardExternalReferenceCandidates(input.intentId, input.restaurantId),
-      ...mercadoPagoCardExternalReferenceCandidates(input.intentId, input.restaurantId),
-    ]).has(String(body.external_reference || '').trim());
+    const validReferences =
+      input.method === 'PIX'
+        ? new Set([tablePixExternalReference(input.intentId, input.restaurantId)])
+        : new Set([
+            ...tableCardExternalReferenceCandidates(input.intentId, input.restaurantId),
+            ...mercadoPagoCardExternalReferenceCandidates(input.intentId, input.restaurantId),
+          ]);
+    const validReference = validReferences.has(String(body.external_reference || '').trim());
 
     if (
       !validReference ||
