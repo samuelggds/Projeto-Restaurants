@@ -271,6 +271,7 @@ function waiterAccounts(state: WaiterE2EState) {
                 status: 'RESERVED',
                 totalCents: 4200,
                 createdAt: isoMinutesAgo(3),
+                staffReceiptRegistered: state.manualPaymentStaffRegistered,
               },
             ]
           : [],
@@ -378,9 +379,12 @@ async function mockWaiterAndTableApi(page: Page, state: WaiterE2EState) {
       pathname === `/table-accounts/payments/${MANUAL_PAYMENT_PUBLIC_ID}/confirm-manual` &&
       method === 'POST'
     ) {
-      state.manualPaymentPending = false;
-      state.confirmedManualPayments.push(MANUAL_PAYMENT_PUBLIC_ID);
-      return json(route, { payment: { publicId: MANUAL_PAYMENT_PUBLIC_ID, status: 'PAID' } });
+      state.manualPaymentStaffRegistered = true;
+      state.registeredCashPayments.push(MANUAL_PAYMENT_PUBLIC_ID);
+      return json(route, {
+        payment: { publicId: MANUAL_PAYMENT_PUBLIC_ID, status: 'RESERVED' },
+        confirmationStage: 'AWAITING_ADMIN',
+      });
     }
 
     const callUpdate = pathname.match(/^\/waiter-calls\/(\d+)\/status$/);
