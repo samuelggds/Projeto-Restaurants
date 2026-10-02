@@ -5,7 +5,10 @@ import {
   TablePaymentMethod,
 } from '@prisma/client';
 import prisma from '../../../config/prisma.js';
-import { createTablePaymentIntentInputSchema } from '../domain/tableAccountSchemas.js';
+import {
+  createTablePaymentIntentInputSchema,
+  type CreateTablePaymentIntentInput,
+} from '../domain/tableAccountSchemas.js';
 import {
   calculateServiceFeeCents,
   shouldIncludeServiceFee,
@@ -261,7 +264,12 @@ export class CreateTablePaymentIntentService {
       };
     }
 
-    return this.createProviderPayment(context, reservation.intent, reservation.reused);
+    return this.createProviderPayment(
+      context,
+      reservation.intent,
+      reservation.reused,
+      input.cardPayment || null,
+    );
   }
 
   private async resolveProvider(
@@ -288,6 +296,7 @@ export class CreateTablePaymentIntentService {
     context: CreateTablePaymentIntentContext,
     intent: TablePaymentIntentRecord,
     reused: boolean,
+    cardPayment: CreateTablePaymentIntentInput['cardPayment'] | null,
   ) {
     let provider: PaymentProvider | null = null;
     try {
@@ -298,7 +307,7 @@ export class CreateTablePaymentIntentService {
         method: intent.method as 'PIX' | 'CARD',
         idempotencyKeyHash: intent.idempotencyKeyHash,
         expiresAt: intent.expiresAt,
-        cardPayment: input.cardPayment || null,
+        cardPayment,
       });
 
       const updated = await prisma.$transaction(
