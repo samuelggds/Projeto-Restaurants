@@ -1,17 +1,23 @@
-export function getRequiredMfaRoles(_env: NodeJS.ProcessEnv = process.env) {
-  return new Set<string>();
+export function getRequiredMfaRoles(env: NodeJS.ProcessEnv = process.env) {
+  return new Set(
+    String(env.MFA_REQUIRED_ROLES || '')
+      .split(',')
+      .map((role) => role.trim().toUpperCase())
+      .filter(Boolean),
+  );
 }
 
 export function isMfaRequiredForRole(
-  _role: unknown,
-  _env: NodeJS.ProcessEnv = process.env,
+  role: unknown,
+  env: NodeJS.ProcessEnv = process.env,
 ) {
-  return false;
+  const normalizedRole = String(role || '').trim().toUpperCase();
+  return Boolean(normalizedRole && getRequiredMfaRoles(env).has(normalizedRole));
 }
 
 export function isMfaDisableProtectedRole(
-  _role: unknown,
-  _env: NodeJS.ProcessEnv = process.env,
+  role: unknown,
+  env: NodeJS.ProcessEnv = process.env,
 ) {
-  return false;
+  return isMfaRequiredForRole(role, env);
 }
