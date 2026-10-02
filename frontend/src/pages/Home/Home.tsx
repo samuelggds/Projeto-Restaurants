@@ -335,10 +335,31 @@ export default function Home() {
     deliveryAddress,
     couponRedemptionId: appliedRedemptionId,
   });
-  const checkoutSubtotal = orderQuote.quote
-    ? orderQuote.quote.itemsSubtotal + orderQuote.quote.productDiscountTotal
-    : cartTotal;
+  const checkoutSubtotal = orderQuote.quote?.itemsSubtotal ?? cartTotal;
   const checkoutTotal = orderQuote.quote?.total ?? cartTotal;
+  const cartDeliveryFeePending =
+    checkoutOrderType === 'DELIVERY' && homeData.deliveryFeeMode === 'DISTANCE';
+  const cartDeliveryFeePreview =
+    checkoutOrderType !== 'DELIVERY'
+      ? 0
+      : cartDeliveryFeePending
+        ? null
+        : homeData.freeDeliveryFrom > 0 && checkoutSubtotal >= homeData.freeDeliveryFrom
+          ? 0
+          : Number(homeData.deliveryFee || 0);
+  const checkoutCouponLabel =
+    orderQuote.quote?.couponDiscountType === 'PERCENTAGE' &&
+    orderQuote.quote.couponDiscountValue !== null
+      ? `Cupom ${orderQuote.quote.couponDiscountValue}%`
+      : orderQuote.quote?.couponDiscountType === 'FIXED' &&
+          orderQuote.quote.couponDiscountValue !== null
+        ? `Cupom ${Number(orderQuote.quote.couponDiscountValue).toLocaleString('pt-BR', {
+            style: 'currency',
+            currency: 'BRL',
+          })}`
+        : orderQuote.quote?.couponCode
+          ? `Cupom · ${orderQuote.quote.couponCode}`
+          : undefined;
   const checkoutRecommendationItems = useMemo(
     () => checkoutRecommendations(homeData.products, cart),
     [cart, homeData.products],
@@ -1172,6 +1193,8 @@ export default function Home() {
               cart={cart}
               cartCount={cartCount}
               subtotal={checkoutSubtotal}
+              couponDiscount={orderQuote.quote?.couponDiscount || 0}
+              couponLabel={checkoutCouponLabel}
               deliveryFee={orderQuote.quote?.deliveryFeeAmount || 0}
               total={checkoutTotal}
               paymentMethod={selectedCheckoutPaymentMethod}
