@@ -489,6 +489,27 @@ async function openConfigurator(page: Page, path = '/restaurante-teste') {
   await expect(page.getByRole('dialog', { name: 'Montar Produto artesanal' })).toBeVisible();
 }
 
+async function openCartWithoutFlyAssertion(page: Page) {
+  const checkout = page.getByRole('dialog', { name: 'Finalizar pedido' });
+  await expect(checkout).toBeHidden();
+  const cartButton = page.getByRole('button', {
+    name: /Meu Carrinho, [1-9]\d* (?:item|itens)/,
+  });
+  await expect(cartButton).toBeVisible();
+  await cartButton.click();
+  await expect(checkout).toBeVisible();
+  return checkout;
+}
+
+async function confirmReadyProduct(page: Page, productName: string) {
+  await page.getByRole('button', { name: `Ver detalhes de ${productName}` }).click();
+  await expect(page.getByRole('dialog', { name: `Montar ${productName}` })).toHaveCount(0);
+  const detail = page.getByRole('dialog', { name: `Detalhes de ${productName}` });
+  await expect(detail).toBeVisible();
+  await detail.getByRole('button', { name: /Adicionar ao carrinho/ }).click();
+  await expect(detail).toBeHidden();
+}
+
 async function openCartAfterAddition(page: Page) {
   const checkout = page.getByRole('dialog', { name: 'Finalizar pedido' });
   await expect(checkout).toBeHidden();
@@ -659,15 +680,14 @@ test('cliente monta o produto antes de adicioná-lo à sacola', async ({ page })
   await expect(page.getByText('Embalagem separada')).toBeVisible();
 });
 
-test('produto COMPLETE é adicionado sem abrir etapas de montagem', async ({ page }) => {
+test('produto COMPLETE abre detalhes sem etapas de montagem e adiciona após confirmação', async ({ page }) => {
   await mockStorefront(page);
   await page.goto('/restaurante-teste');
   await enterMenu(page);
 
-  await page.getByRole('button', { name: 'Ver detalhes de Refrigerante pronto' }).click();
+  await confirmReadyProduct(page, 'Refrigerante pronto');
 
-  await expect(page.getByRole('dialog', { name: 'Montar Refrigerante pronto' })).toHaveCount(0);
-  const cart = await openCartAfterAddition(page);
+  const cart = await openCartWithoutFlyAssertion(page);
   await expect(cart.getByText('Refrigerante pronto', { exact: true })).toBeVisible();
 });
 
@@ -677,8 +697,8 @@ test('resumo do carrinho não fica fixo e permite limpar todos os itens', async 
   await page.goto('/restaurante-teste');
   await enterMenu(page);
 
-  await page.getByRole('button', { name: 'Ver detalhes de Refrigerante pronto' }).click();
-  const cart = await openCartAfterAddition(page);
+  await confirmReadyProduct(page, 'Refrigerante pronto');
+  const cart = await openCartWithoutFlyAssertion(page);
 
   const summary = cart.locator('aside').filter({ hasText: 'Resumo do Pedido' });
   await expect(summary).toBeVisible();
