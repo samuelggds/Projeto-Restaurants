@@ -291,14 +291,12 @@ class UpdateRestaurantSettingsService {
       cardGateway === undefined ? undefined : String(cardGateway || '').trim() || null;
     const normalizedGatewayMerchantId =
       gatewayMerchantId === undefined ? undefined : String(gatewayMerchantId || '').trim() || null;
-    // Empty secret inputs mean "keep the saved credential". A different
-    // manual token must never retain the OAuth grant of the previous account.
-    const normalizedMercadoPagoAccessToken =
-      String(mercadoPagoAccessToken || '').trim() || undefined;
-    const replacedMercadoPagoToken = Boolean(
-      normalizedMercadoPagoAccessToken &&
-      normalizedMercadoPagoAccessToken !== String(settings.mercadoPagoAccessToken || '').trim(),
-    );
+    const requestedMercadoPagoAccessToken = String(mercadoPagoAccessToken || '').trim();
+    if (requestedMercadoPagoAccessToken) {
+      throw new Error(
+        'Credenciais do Mercado Pago devem ser conectadas pelo fluxo OAuth em Configurações > Pagamentos.',
+      );
+    }
     const normalizedPagarmeSecretKey =
       pagarmeSecretKey === undefined ? undefined : String(pagarmeSecretKey || '').trim() || null;
     const normalizedPagarmePublicKey =
@@ -589,17 +587,9 @@ class UpdateRestaurantSettingsService {
       bankHolderDocument: normalizedBankHolderDocument,
       cardGateway: normalizedCardGateway,
       gatewayMerchantId: resolvedGatewayMerchantId,
-      mercadoPagoAccessToken: normalizedMercadoPagoAccessToken,
       pagarmeSecretKey: normalizedPagarmeSecretKey,
       pagarmePublicKey: normalizedPagarmePublicKey,
       pagarmeEnvironment: normalizedPagarmeEnvironment,
-      ...(replacedMercadoPagoToken
-        ? {
-            mercadoPagoRefreshToken: null,
-            mercadoPagoTokenExpiresAt: null,
-            mercadoPagoPublicKey: null,
-          }
-        : {}),
       picpayToken: normalizedPicPayToken,
       asaasAccessToken: normalizedAsaasAccessToken,
       ownerDocumentFileUrl:
