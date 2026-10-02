@@ -112,7 +112,6 @@ const baseProps = {
   error: '',
   onRefresh: () => undefined,
   onCreatePayment: async () => null,
-  onOpenCardPayment: () => undefined,
   onOpenPayment: () => undefined,
   onClose: () => undefined,
 };
@@ -130,7 +129,6 @@ describe('TableAccountPanel', () => {
     expect(markup).toContain('Total da mesa');
     expect(markup).toContain('Falta pagar');
     expect(markup).toContain('Pagar com PIX');
-    expect(markup).toContain('Cartão indisponível');
     expect(markup).toContain('Pagar com dinheiro');
     expect(markup).toContain('Etapas da sua comanda');
     expect(markup).not.toContain('Escolher itens');
@@ -285,15 +283,16 @@ describe('comanda guiada e pagamento seguro', () => {
     expect(markup).not.toContain('maquininha');
   });
 
-  it('renderiza os ícones de PIX, cartão e dinheiro nos métodos da conta', () => {
+  it('renderiza somente PIX e dinheiro nos métodos disponíveis ao cliente da mesa', () => {
     const markup = renderToStaticMarkup(<TableAccountPanel {...baseProps} />);
 
     expect(markup).toContain('data-payment-method-icon="pix"');
-    expect(markup).toContain('data-payment-method-icon="card"');
     expect(markup).toContain('data-payment-method-icon="cash"');
+    expect(markup).not.toContain('data-payment-method-icon="card"');
+    expect(markup).not.toContain('Pagar com cartão');
   });
 
-  it('mantém PIX e cartão visíveis como indisponíveis quando o backend não libera', () => {
+  it('mantém somente PIX indisponível e dinheiro disponível quando o backend não libera PIX', () => {
     const markup = renderToStaticMarkup(
       <TableAccountPanel
         {...baseProps}
@@ -309,7 +308,6 @@ describe('comanda guiada e pagamento seguro', () => {
       />,
     );
     expect(markup).toContain('PIX indisponível');
-    expect(markup).toContain('Cartão indisponível');
     expect(markup).toContain('Pagar com dinheiro');
     expect(markup).not.toContain('maquininha');
   });
@@ -390,43 +388,24 @@ describe('comanda guiada e pagamento seguro', () => {
     expect(container.querySelector('[aria-label="QR Code Pix"]')).toBeNull();
   });
 
-  it('não dispara PIX nem cartão enquanto o backend marcar os métodos como indisponíveis', async () => {
+  it('não dispara PIX enquanto o backend marcar o método como indisponível e nunca oferece cartão', async () => {
     const onCreatePayment = vi.fn(async () => null);
-    const onOpenCardPayment = vi.fn();
-    const { button } = await mount({
+    const { container, button } = await mount({
       onCreatePayment,
-      onOpenCardPayment,
       snapshot: {
         ...snapshot,
         capabilities: {
           ...snapshot.capabilities,
           allowPix: false,
-          allowCard: false,
-        },
-      },
-    });
-
-    expect(button('PIX indisponível').disabled).toBe(true);
-    expect(button('Cartão indisponível').disabled).toBe(true);
-    expect(onCreatePayment).not.toHaveBeenCalled();
-    expect(onOpenCardPayment).not.toHaveBeenCalled();
-  });
-
-  it('abre o formulário dedicado de cartão quando o backend libera cartão', async () => {
-    const onOpenCardPayment = vi.fn();
-    const { button } = await mount({
-      onOpenCardPayment,
-      snapshot: {
-        ...snapshot,
-        capabilities: {
-          ...snapshot.capabilities,
           allowCard: true,
         },
       },
     });
 
-    await act(async () => button('Pagar com cartão').click());
-    expect(onOpenCardPayment).toHaveBeenCalledOnce();
+    expect(button('PIX indisponível').disabled).toBe(true);
+    expect(container.textContent).not.toContain('Pagar com cartão');
+    expect(container.textContent).not.toContain('Cartão indisponível');
+    expect(onCreatePayment).not.toHaveBeenCalled();
   });
 
   it('entrega a solicitação em dinheiro para a tela dedicada de espera', async () => {
