@@ -3,6 +3,7 @@ import {
   buildTablePaymentPayload,
   createTablePaymentIdempotencyKey,
   isCancelableOwnTablePayment,
+  shouldReuseActiveTablePayment,
   tablePaymentFingerprint,
 } from './tableAccount';
 
@@ -86,6 +87,48 @@ describe('tableAccount do cliente', () => {
     });
 
     expect(retried).toBe(first);
+  });
+
+  it('reenvia tentativa online RESERVED sem referência do provedor e reutiliza somente cobrança realmente iniciada', () => {
+    const basePayment = {
+      publicId: 'payment-1',
+      sessionPublicId: 'session-1',
+      payerParticipantPublicId: 'participant-1',
+      selectionMode: 'MY_ITEMS' as const,
+      method: 'CARD' as const,
+      status: 'RESERVED' as const,
+      billItemPublicIds: ['item-1'],
+      subtotalCents: 2_000,
+      serviceFeeCents: 0,
+      totalCents: 2_000,
+      provider: null,
+      externalId: null,
+      checkoutUrl: null,
+      paymentCode: null,
+      expiresAt: '2026-10-01T23:30:00.000Z',
+      createdAt: '2026-10-01T23:00:00.000Z',
+      updatedAt: '2026-10-01T23:00:00.000Z',
+    };
+
+    expect(shouldReuseActiveTablePayment(basePayment, 'CARD')).toBe(false);
+    expect(
+      shouldReuseActiveTablePayment(
+        { ...basePayment, provider: 'MERCADO_PAGO', externalId: 'mp_order:123' },
+        'CARD',
+      ),
+    ).toBe(true);
+    expect(
+      shouldReuseActiveTablePayment(
+        { ...basePayment, method: 'PIX', externalId: 'mp:456' },
+        'PIX',
+      ),
+    ).toBe(true);
+    expect(
+      shouldReuseActiveTablePayment(
+        { ...basePayment, method: 'CASH', externalId: null },
+        'CASH',
+      ),
+    ).toBe(true);
   });
 
   it('só permite cancelar uma cobrança ativa criada pelo participante atual', () => {
