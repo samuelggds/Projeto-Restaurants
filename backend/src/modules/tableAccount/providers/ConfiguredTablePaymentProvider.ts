@@ -1,6 +1,7 @@
 import prisma from '../../../config/prisma.js';
 import orderPixPaymentService from '../../orders/services/OrderPixPaymentService.js';
 import directOrderCardPaymentService from '../../orders/services/DirectOrderCardPaymentService.js';
+import { mercadoPagoCardExternalReferenceCandidates } from '../../orders/domain/mercadoPagoCardReference.js';
 import {
   CARD_PROVIDERS,
   PIX_PROVIDERS,
@@ -108,10 +109,6 @@ function matchesAmount(value: unknown, expectedCents: number, minor = false) {
   return (
     (minor ? Math.round(amount) : Math.round((amount + Number.EPSILON) * 100)) === expectedCents
   );
-}
-
-function tableCardReference(context: ConfiguredTablePaymentProviderContext) {
-  return `ordercard:${context.intentId}:${context.restaurantId}`;
 }
 
 function asaasBaseUrl() {
@@ -289,26 +286,47 @@ async function getMercadoPagoCard(
   amountCents: number,
   expiresAt: Date,
 ) {
-  const settings = await settingsFor(context.restaurantId);
   const token = await getMercadoPagoAccessToken(context.restaurantId);
   if (!token) throw new Error('Mercado Pago não configurado para este restaurante.');
-  const reference = tableCardReference(context);
-  const url = new URL('https://api.mercadopago.com/v1/payments/search');
-  url.searchParams.set('external_reference', reference);
-  url.searchParams.set('sort', 'date_created');
-  url.searchParams.set('criteria', 'desc');
-  const { response, body } = await fetchJson<MercadoPagoSearchPayload>(url.toString(), {
-    headers: { Authorization: `Bearer ${token}`, Accept: 'application/json' },
-  });
-  if (!response.ok) throw new Error('Não foi possível consultar o pagamento no Mercado Pago.');
-  const payment = (body.results || []).find(
-    (candidate) =>
-      String(candidate.external_reference || '').trim() === reference &&
-      matchesAmount(candidate.transaction_amount, amountCents),
+
+  const references = mercadoPagoCardExternalReferenceCandidates(
+    context.intentId,
+    context.restaurantId,
   );
+
+  for (const reference of references) {
+    const url = new URL('https://api.mercadopago.com/v1/payments/search');
+    url.searchParams.set('external_reference', reference);
+    url.searchParams.set('sort', 'date_created');
+    url.searchParams.set('criteria', 'desc');
+    const { response, body } = await fetchJson<MercadoPagoSearchPayload>(url.toString(), {
+      headers: { Authorization: `Bearer ${token}`, Accept: 'application/json' },
+    });
+    if (!response.ok) {
+      throw new Error('Não foi possível consultar o pagamento no Mercado Pago.');
+    }
+
+    const payment = (body.results || []).find(
+      (candidate) =>
+        String(candidate.external_reference || '').trim() === reference &&
+        matchesAmount(candidate.transaction_amount, amountCents) &&
+        String(candidate.currency_id || 'BRL').toUpperCase() === 'BRL',
+    );
+    if (payment) {
+      return {
+        externalId,
+        status: providerStatus(payment.status),
+        amountCents,
+        checkoutUrl: null,
+        paymentCode: null,
+        expiresAt,
+      };
+    }
+  }
+
   return {
     externalId,
-    status: payment ? providerStatus(payment.status) : ('PENDING' as const),
+    status: 'PENDING' as const,
     amountCents,
     checkoutUrl: null,
     paymentCode: null,
