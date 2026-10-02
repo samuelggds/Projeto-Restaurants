@@ -20,21 +20,35 @@ function order(overrides: Partial<AdminOrder> = {}): AdminOrder {
 }
 
 describe('visão geral administrativa', () => {
-  it('calcula vendas e ticket somente com pedidos não cancelados do dia', () => {
+  it('separa pedidos criados hoje de pagamentos confirmados hoje', () => {
     const now = new Date('2026-08-10T18:00:00.000Z');
     const metrics = calculateOverviewMetrics(
       [
-        order({ total: 40 }),
-        order({ numericId: 2, id: '#2', total: 60 }),
-        order({ numericId: 3, id: '#3', total: 100, status: 'CANCELADO' }),
-        order({ numericId: 4, id: '#4', total: 200, createdAt: '2026-08-09T12:00:00.000Z' }),
+        order({ total: 40, paid: true, paidAt: '2026-08-10T13:00:00.000Z' }),
+        order({ numericId: 2, id: '#2', total: 60, paid: false }),
+        order({
+          numericId: 3,
+          id: '#3',
+          total: 100,
+          status: 'CANCELADO',
+          paid: true,
+          paidAt: '2026-08-10T14:00:00.000Z',
+        }),
+        order({
+          numericId: 4,
+          id: '#4',
+          total: 200,
+          createdAt: '2026-08-09T12:00:00.000Z',
+          paid: true,
+          paidAt: '2026-08-10T15:00:00.000Z',
+        }),
       ],
       now,
     );
 
-    expect(metrics.sales).toBe(100);
+    expect(metrics.sales).toBe(240);
     expect(metrics.todayOrders).toHaveLength(2);
-    expect(metrics.averageTicket).toBe(50);
+    expect(metrics.averageTicket).toBe(120);
   });
 
   it('agrupa pedidos do mesmo cliente', () => {
