@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ArrowRight,
+  Banknote,
   CheckCircle2,
+  CreditCard,
   ReceiptText,
   RefreshCw,
   ShieldCheck,
@@ -18,6 +20,19 @@ import {
   type TablePaymentIntent,
 } from '../domain/tableAccount';
 import * as S from './TableAccountPanel.styles';
+
+function PixIcon() {
+  return (
+    <span className="payment-method-icon pix" aria-hidden="true" data-payment-method-icon="pix">
+      <svg viewBox="0 0 24 24" focusable="false">
+        <path
+          fill="currentColor"
+          d="M5.283 18.36a3.505 3.505 0 0 0 2.493-1.032l3.6-3.6a.684.684 0 0 1 .946 0l3.613 3.613a3.504 3.504 0 0 0 2.493 1.032h.71l-4.56 4.56a3.647 3.647 0 0 1-5.156 0L4.85 18.36ZM18.428 5.627a3.505 3.505 0 0 0-2.493 1.032l-3.613 3.614a.67.67 0 0 1-.946 0l-3.6-3.6A3.505 3.505 0 0 0 5.283 5.64h-.434l4.573-4.572a3.646 3.646 0 0 1 5.156 0l4.559 4.559ZM1.068 9.422 3.79 6.699h1.492a2.483 2.483 0 0 1 1.744.722l3.6 3.6a1.73 1.73 0 0 0 2.443 0l3.614-3.613a2.482 2.482 0 0 1 1.744-.723h1.767l2.737 2.737a3.646 3.646 0 0 1 0 5.156l-2.736 2.736h-1.768a2.482 2.482 0 0 1-1.744-.722l-3.613-3.613a1.77 1.77 0 0 0-2.444 0l-3.6 3.6a2.483 2.483 0 0 1-1.744.722H3.791l-2.723-2.723a3.646 3.646 0 0 1 0-5.156"
+        />
+      </svg>
+    </span>
+  );
+}
 
 type Props = {
   open: boolean;
@@ -497,11 +512,14 @@ function TableAccountPanelContent(props: Props) {
                   }
                   onClick={() => void startPayment('PIX')}
                 >
-                  {snapshot.capabilities.allowPix
-                    ? actionLoading
-                      ? 'Gerando pagamento...'
-                      : 'Pagar com PIX'
-                    : 'PIX indisponível'}
+                  <PixIcon />
+                  <span className="payment-method-label">
+                    {snapshot.capabilities.allowPix
+                      ? actionLoading
+                        ? 'Gerando pagamento...'
+                        : 'Pagar com PIX'
+                      : 'PIX indisponível'}
+                  </span>
                   <ArrowRight size={18} aria-hidden="true" />
                 </S.PayButton>
                 <S.PayButton
@@ -515,7 +533,12 @@ function TableAccountPanelContent(props: Props) {
                   }
                   onClick={onOpenCardPayment}
                 >
-                  {snapshot.capabilities.allowCard ? 'Pagar com cartão' : 'Cartão indisponível'}
+                  <span className="payment-method-icon" aria-hidden="true" data-payment-method-icon="card">
+                    <CreditCard size={20} strokeWidth={2.1} />
+                  </span>
+                  <span className="payment-method-label">
+                    {snapshot.capabilities.allowCard ? 'Pagar com cartão' : 'Cartão indisponível'}
+                  </span>
                   <ArrowRight size={18} aria-hidden="true" />
                 </S.PayButton>
                 {snapshot.capabilities.allowCash ? (
@@ -524,7 +547,10 @@ function TableAccountPanelContent(props: Props) {
                     disabled={busy || loading || Boolean(error)}
                     onClick={() => void startPayment('CASH')}
                   >
-                    Pagar com dinheiro
+                    <span className="payment-method-icon" aria-hidden="true" data-payment-method-icon="cash">
+                      <Banknote size={20} strokeWidth={2.1} />
+                    </span>
+                    <span className="payment-method-label">Pagar com dinheiro</span>
                     <ArrowRight size={18} aria-hidden="true" />
                   </S.PayButton>
                 ) : null}
