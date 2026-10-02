@@ -2,11 +2,11 @@ import prisma from '../../../config/prisma.js';
 import { OrderRequestError } from '../domain/OrderRequestError.js';
 import { PaymentCreationUncertainError } from './PaymentCreationUncertainError.js';
 import {
-import { safeErrorSummary } from '../../../services/telemetrySanitizer.js';
   replayCreatedOrder,
   retryOrderTransaction,
   type OrderCreationContext,
 } from './orderCreationRequest.js';
+import { safeErrorSummary } from '../../../services/telemetrySanitizer.js';
 import orderRepository from '../repositories/OrderRepository.js';
 import orderCapacityQueueService from './OrderCapacityQueueService.js';
 import { realtimePublisher as io } from '../../../realtime/realtimePublisher.js';
