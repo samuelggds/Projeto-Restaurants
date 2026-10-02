@@ -2,8 +2,6 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
   DEFAULT_TABLE_ACCOUNT_TIME_ZONE,
-  TABLE_ACCOUNT_PAYMENT_PROVIDER,
-  TABLE_ACCOUNT_PRODUCT_DECISIONS,
   TABLE_PAYMENT_INTENT_STATUSES,
   type TableAccountActor,
   type TablePaymentIntentStatus,
@@ -336,7 +334,7 @@ test('separa divisão igual e permite pagamento presencial para a seleção esco
   );
 });
 
-test('aplica padrões seguros às configurações e não escolhe provedor', () => {
+test('aplica padrões seguros às configurações da conta', () => {
   const settings = tableAccountSettingsSchema.parse({});
 
   assert.equal(settings.enabled, true);
@@ -347,8 +345,6 @@ test('aplica padrões seguros às configurações e não escolhe provedor', () =
   assert.equal(settings.preventCloseWithOutstandingBalance, true);
   assert.equal(settings.blockNewOrdersOnClosingRequest, true);
   assert.equal(settings.timeZone, DEFAULT_TABLE_ACCOUNT_TIME_ZONE);
-  assert.equal(TABLE_ACCOUNT_PAYMENT_PROVIDER, null);
-  assert.equal(TABLE_ACCOUNT_PRODUCT_DECISIONS.selectedPaymentProvider, null);
   assert.equal(
     tableAccountSettingsSchema.safeParse({ timeZone: 'Fuso/Inexistente' }).success,
     false,
