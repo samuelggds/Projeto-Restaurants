@@ -60,7 +60,11 @@ import {
 } from './cartFlyAnimation';
 import { validateDeliveryAddressLocationForCheckout } from './domain/deliveryAddress';
 import type { GuestCheckoutDetails, HomeNavigationState } from './domain/homePageTypes';
-import type { TablePaymentIntent } from './domain/tableAccount';
+import type {
+  CreateTablePaymentResult,
+  TablePaymentDraft,
+  TablePaymentIntent,
+} from './domain/tableAccount';
 
 export default function Home() {
   const navigate = useNavigate();
@@ -902,6 +906,19 @@ export default function Home() {
       notify('success', 'Cupom aplicado', `O cupom ${match.coupon.code} foi aplicado ao pedido.`);
     };
 
+    const createTablePaymentWithWaiterAlert = async (
+      draft: TablePaymentDraft,
+    ): Promise<CreateTablePaymentResult | null> => {
+      const result = await tableAccount.createPayment(draft);
+      if (result?.payment && draft.method === 'CASH') {
+        // O pagamento já foi persistido no backend antes do aviso ao salão.
+        // A chamada ao garçom é complementar e idempotente; uma falha no aviso
+        // não desfaz nem duplica a reserva do pagamento em dinheiro.
+        void requestTableService();
+      }
+      return result;
+    };
+
     const createAccountPayment = async (method: 'PIX' | 'CASH') => {
       const snapshot = await tableAccount.refresh({ silent: true });
       if (method === 'PIX' && !snapshot?.capabilities.allowPix) {
@@ -913,7 +930,7 @@ export default function Home() {
         return null;
       }
 
-      const result = await tableAccount.createPayment({
+      const result = await createTablePaymentWithWaiterAlert({
         selectionMode: 'MY_ITEMS',
         method,
         includeOptionalServiceFee: false,
@@ -961,7 +978,7 @@ export default function Home() {
         actionLoading={tableAccount.actionLoading}
         error={tableAccount.error}
         onRefresh={() => void tableAccount.refresh()}
-        onCreatePayment={tableAccount.createPayment}
+        onCreatePayment={createTablePaymentWithWaiterAlert}
         onOpenPayment={(payment) => {
           setTableAccountOpen(false);
           setTablePaymentToOpen({ ...payment });
