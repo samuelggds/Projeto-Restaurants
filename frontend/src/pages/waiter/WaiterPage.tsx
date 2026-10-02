@@ -60,20 +60,10 @@ export default function WaiterPage() {
   const [tableAccountRefreshKey, setTableAccountRefreshKey] = useState(0);
   const inFlightRef = useRef(false);
   const mountedRef = useRef(true);
-  const callAlarmIntervalRef = useRef<number | null>(null);
+  const alertedCallIdsRef = useRef(new Set<string>());
 
   const stopCallAlarm = useCallback(() => {
-    if (callAlarmIntervalRef.current !== null) {
-      window.clearInterval(callAlarmIntervalRef.current);
-      callAlarmIntervalRef.current = null;
-    }
     stopWaiterCallAlarm();
-  }, []);
-
-  const startCallAlarm = useCallback(() => {
-    if (callAlarmIntervalRef.current !== null) return;
-    playWaiterCallAlarmPulse();
-    callAlarmIntervalRef.current = window.setInterval(playWaiterCallAlarmPulse, 2200);
   }, []);
 
   const loadWorkspace = useCallback(async (refreshing = false) => {
@@ -182,10 +172,21 @@ export default function WaiterPage() {
   }, [loadWorkspace, restaurantId]);
 
   useEffect(() => {
-    const hasWaitingCall = data.calls.some((call) => call.status === 'WAITING');
-    if (hasWaitingCall) startCallAlarm();
-    else stopCallAlarm();
-  }, [data.calls, startCallAlarm, stopCallAlarm]);
+    const waitingCalls = data.calls.filter((call) => call.status === 'WAITING');
+    const hasUnalertedCall = waitingCalls.some(
+      (call) => !alertedCallIdsRef.current.has(call.id),
+    );
+
+    waitingCalls.forEach((call) => alertedCallIdsRef.current.add(call.id));
+
+    if (hasUnalertedCall) {
+      playWaiterCallAlarmPulse();
+    }
+
+    if (!waitingCalls.length) {
+      stopCallAlarm();
+    }
+  }, [data.calls, stopCallAlarm]);
 
   useEffect(() => {
     const token = getAccessToken();
@@ -193,7 +194,6 @@ export default function WaiterPage() {
     const { socket, release } = acquireSocket(token, 'waiter-workspace');
     const refresh = () => void loadWorkspace(true);
     const handleNewCall = () => {
-      startCallAlarm();
       refresh();
     };
     const handleTableAccountUpdate = () => {
@@ -219,7 +219,7 @@ export default function WaiterPage() {
       socket.off('table-account:updated', handleTableAccountUpdate);
       release();
     };
-  }, [loadWorkspace, restaurantId, startCallAlarm]);
+  }, [loadWorkspace, restaurantId]);
 
   const account = user as GenericRecord;
   const employee = {
