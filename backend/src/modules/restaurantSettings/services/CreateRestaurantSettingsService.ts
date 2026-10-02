@@ -2,6 +2,7 @@ import { isBoundedEmail } from '../../../validators/boundedEmail.js';
 import type { Prisma } from '@prisma/client';
 import restaurantSettingsRepository from '../repositories/RestaurantSettingsRepository.js';
 import prisma from '../../../config/prisma.js';
+import updateDeliveryFeeSettingsService from './UpdateDeliveryFeeSettingsService.js';
 import { normalizeRestaurantImage } from '../utils/normalizeRestaurantImage.js';
 import {
   normalizeEstablishmentAddress,
@@ -28,6 +29,13 @@ import {
 type CreateRestaurantSettingsPayload = {
   restaurantId: number | string;
   deliveryFee: number;
+  deliveryFeeMode?: 'FIXED' | 'DISTANCE' | string;
+  deliveryFeeRanges?: Array<{
+    id?: number;
+    maxDistanceKm?: number;
+    fee?: number;
+    active?: boolean;
+  }>;
   courierFeePerDelivery?: number;
   minimumOrder: number;
   freeShippingMinimum?: number | null;
@@ -109,6 +117,8 @@ class CreateRestaurantSettingsService {
   async execute({
     restaurantId,
     deliveryFee,
+    deliveryFeeMode,
+    deliveryFeeRanges,
     courierFeePerDelivery,
     minimumOrder,
     freeShippingMinimum,
@@ -473,21 +483,32 @@ class CreateRestaurantSettingsService {
       restaurantData.zipCode = establishmentAddress.zipCode;
     }
 
-    const created = await prisma.$transaction(async (tx) => {
-      const createdSettings = await restaurantSettingsRepository.create(settingsCreateData, tx);
-      if (Object.keys(restaurantData).length > 0) {
-        await tx.restaurant.update({
-          where: {
-            id: Number(restaurantId),
+    const { createdSettings: created, deliverySettings } = await prisma.$transaction(
+      async (tx) => {
+        const createdSettings = await restaurantSettingsRepository.create(settingsCreateData, tx);
+        if (Object.keys(restaurantData).length > 0) {
+          await tx.restaurant.update({
+            where: {
+              id: Number(restaurantId),
+            },
+            data: restaurantData,
+          });
+        }
+        const deliverySettings = await updateDeliveryFeeSettingsService.execute(
+          {
+            restaurantId,
+            deliveryFeeMode,
+            deliveryFeeRanges,
           },
-          data: restaurantData,
-        });
-      }
-      return createdSettings;
-    });
+          tx,
+        );
+        return { createdSettings, deliverySettings };
+      },
+    );
 
     return {
       ...created,
+      ...(deliverySettings ?? {}),
       mercadoPagoAccessToken: null,
       mercadoPagoRefreshToken: null,
       picpayToken: null,
