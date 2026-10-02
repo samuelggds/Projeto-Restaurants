@@ -68,3 +68,20 @@ export function collectPurchasedProductQuantities(cart: CartItem[], products: Ho
 
   return purchased;
 }
+
+
+export function applyPurchasedStock<T extends { id: unknown; stock?: number | null; active?: boolean }>(
+  products: T[],
+  purchased: Map<string, number>,
+) {
+  return products.map((product) => {
+    const quantity = purchased.get(String(product.id));
+    if (!quantity || product.stock === null || product.stock === undefined) return product;
+    const nextStock = Math.max(Number(product.stock) - quantity, 0);
+    return {
+      ...product,
+      stock: nextStock,
+      active: nextStock > 0 ? product.active : false,
+    };
+  });
+}
