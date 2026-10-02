@@ -1,11 +1,7 @@
 import prisma from '../../../config/prisma.js';
 import orderPixPaymentService from '../../orders/services/OrderPixPaymentService.js';
-import directOrderCardPaymentService from '../../orders/services/DirectOrderCardPaymentService.js';
 import { mercadoPagoCardExternalReferenceCandidates } from '../../orders/domain/mercadoPagoCardReference.js';
-import {
-  tableCardExternalReference,
-  tableCardExternalReferenceCandidates,
-} from '../domain/tableCardExternalReference.js';
+import { tableCardExternalReferenceCandidates } from '../domain/tableCardExternalReference.js';
 import {
   CARD_PROVIDERS,
   PIX_PROVIDERS,
@@ -321,72 +317,6 @@ async function createPix(
   };
 }
 
-export function resolveTableCardFrontendUrl(
-  env: { NODE_ENV?: string; FRONTEND_URL?: string } = process.env,
-) {
-  const configured = String(env.FRONTEND_URL || '').trim();
-  const value = env.NODE_ENV === 'production' ? configured : configured || 'http://localhost:5173';
-
-  if (!value) {
-    throw new Error('FRONTEND_URL não configurada para o pagamento com cartão da mesa.');
-  }
-
-  return value;
-}
-
-async function createCard(
-  context: ConfiguredTablePaymentProviderContext,
-  input: CreateProviderPaymentInput,
-  provider: CardProvider,
-): Promise<ProviderPayment> {
-  if (!input.cardPayment) {
-    throw new Error('Os dados protegidos do cartão não foram informados.');
-  }
-
-  const identity = await readIdentity(context);
-  const frontendUrl = resolveTableCardFrontendUrl();
-
-  const result = await directOrderCardPaymentService.execute({
-    provider,
-    payload: {
-      userId: context.participantUserId,
-      customerName: identity.name,
-      customerPhone: identity.phone,
-      paymentMethodId: input.cardPayment.paymentMethodId || null,
-      cardPaymentType: input.cardPayment.cardPaymentType || 'credit',
-      cardToken: input.cardPayment.cardToken || null,
-      cardPaymentMethodId: input.cardPayment.cardPaymentMethodId || null,
-      cardBrand: input.cardPayment.cardBrand || null,
-      cardLast4: input.cardPayment.cardLast4 || null,
-      holderName: input.cardPayment.holderName || null,
-      holderTaxId: input.cardPayment.holderTaxId || null,
-      payerEmail: input.cardPayment.payerEmail || identity.email,
-      mercadoPagoDeviceId: input.cardPayment.mercadoPagoDeviceId || null,
-    },
-    order: {
-      id: context.intentId,
-      publicId: context.intentPublicId,
-      restaurantId: context.restaurantId,
-      externalReference: tableCardExternalReference(context.intentId, context.restaurantId),
-      total: centsToMajor(input.amountCents),
-      systemFee: 0,
-      restaurant: { name: 'Conta da mesa' },
-    },
-    successUrlBase: frontendUrl,
-    idempotencyKey: input.idempotencyKeyHash,
-  });
-
-  return {
-    externalId: String(result.persistenceSessionId || result.sessionId),
-    status: result.paymentApproved ? 'PAID' : 'PENDING',
-    amountCents: input.amountCents,
-    checkoutUrl: null,
-    paymentCode: null,
-    expiresAt: input.expiresAt,
-  };
-}
-
-
 async function fetchJson<T>(url: string, init: RequestInit) {
   const response = await fetch(url, init);
   const body = (await response.json().catch(() => ({}))) as T;
@@ -487,9 +417,10 @@ export class ConfiguredTablePaymentProvider implements PaymentProvider {
   }
 
   async createPayment(input: CreateProviderPaymentInput): Promise<ProviderPayment> {
-    return this.context.method === 'PIX'
-      ? createPix(this.context, input)
-      : createCard(this.context, input, this.provider as CardProvider);
+    if (this.context.method !== 'PIX') {
+      throw new Error('Novos pagamentos online de mesa aceitam somente Pix.');
+    }
+    return createPix(this.context, input);
   }
 
   async getPayment(externalId: string): Promise<ProviderPayment> {
