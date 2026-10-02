@@ -24,6 +24,7 @@ import {
 } from '../Home/domain/productEntryFlow';
 import {
   currentParticipantAccount,
+  shouldReuseActiveTablePayment,
   previewIndividualTablePayment,
   tablePaymentMethodLabel,
   tablePaymentStatusLabel,
@@ -325,10 +326,7 @@ export default function TableMenuExperience({
   ) {
     if (paymentLoading) return;
     const pendingPayment = accountSnapshot?.activePayment;
-    if (
-      pendingPayment?.method === method &&
-      ['RESERVED', 'PROCESSING'].includes(pendingPayment.status)
-    ) {
+    if (shouldReuseActiveTablePayment(pendingPayment, method)) {
       setPixPayment(pendingPayment);
       setView('pix');
       return;
