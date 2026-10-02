@@ -212,6 +212,19 @@ class CreateTableServiceCallService {
 
     if (!result.duplicate) {
       await emitCreated(result.call as unknown as Record<string, unknown>);
+    } else if (normalizedType === TableServiceCallType.WAITER) {
+      // Um segundo clique não cria outro chamado, mas força os painéis do salão
+      // a sincronizarem imediatamente o chamado ativo que já existe.
+      try {
+        await tableServiceCallEvents.updated(
+          result.call as Parameters<typeof tableServiceCallEvents.updated>[0],
+        );
+      } catch (error: unknown) {
+        console.error(
+          '[WAITER_CALL_REALTIME_ERROR]',
+          error instanceof Error ? error.message : String(error),
+        );
+      }
     }
     return result;
   }
