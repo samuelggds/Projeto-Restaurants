@@ -70,6 +70,8 @@ test('claim da reconciliação usa relógio do banco, SKIP LOCKED e backoff limi
   const rows = [
     {
       id: 7,
+      restaurantId: 5,
+      paymentAttemptId: 107,
       paymentLink: 'https://pay.example/7',
       paymentExternalId: 'payment-7',
       total: '99.90',
@@ -88,7 +90,9 @@ test('claim da reconciliação usa relógio do banco, SKIP LOCKED e backoff limi
   assert.equal(result, rows);
   assert.match(query.sql, /FOR UPDATE SKIP LOCKED/u);
   assert.match(query.sql, /"nextReconciliationAt" <= clock_timestamp\(\)/u);
-  assert.match(query.sql, /"paymentExternalId" IS NOT NULL/u);
+  assert.match(query.sql, /"InvoicePaymentAttempt"/u);
+  assert.match(query.sql, /"providerPaymentId"/u);
+  assert.match(query.sql, /'PENDING', 'DUPLICATE'/u);
   assert.match(query.sql, /LEAST\(/u);
   assert.deepEqual(query.values, [25]);
   await assert.rejects(
