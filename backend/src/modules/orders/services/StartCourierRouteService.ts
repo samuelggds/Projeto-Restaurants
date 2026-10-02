@@ -6,6 +6,7 @@ import { notifyCustomerOrderStatusChanged } from '../../../services/customerNoti
 import { validateDeliveryLocationPayload } from '../../../socket/deliveryLocationPayload.js';
 import orderRepository from '../repositories/OrderRepository.js';
 import courierAccessService from './CourierAccessService.js';
+import { safeErrorSummary } from '../../../services/telemetrySanitizer.js';
 
 type StartRouteInput = {
   orderId: number | string;
@@ -173,10 +174,9 @@ class StartCourierRouteService {
       status: order.status,
       deliveryStartedAt: order.deliveryStartedAt,
     }).catch((error: unknown) => {
-      console.error(
-        '[CUSTOMER_STATUS_NOTIFICATION_UNHANDLED]',
-        error instanceof Error ? error.message : String(error),
-      );
+      console.error('[CUSTOMER_STATUS_NOTIFICATION_UNHANDLED]', {
+        error: safeErrorSummary(error),
+      });
     });
 
     io.to(`restaurant:${restaurantId}`).emit('order:status-changed', order);
