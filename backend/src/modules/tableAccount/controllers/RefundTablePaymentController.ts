@@ -1,4 +1,5 @@
 import type { Request, Response } from 'express';
+import { safeErrorSummary } from '../../../services/telemetrySanitizer.js';
 import { ZodError } from 'zod';
 import refundTablePaymentService from '../services/RefundTablePaymentService.js';
 import { TablePaymentError } from '../services/tablePaymentSupport.js';
@@ -30,10 +31,7 @@ class RefundTablePaymentController {
       if (error instanceof TablePaymentError) {
         return res.status(error.statusCode).json({ error: error.message, code: error.code });
       }
-      console.error(
-        '[REFUND_TABLE_PAYMENT_ERROR]',
-        error instanceof Error ? error.message : String(error),
-      );
+      console.error('[REFUND_TABLE_PAYMENT_ERROR]', { error: safeErrorSummary(error) });
       return res.status(500).json({ error: 'Não foi possível estornar este pagamento.' });
     }
   }
