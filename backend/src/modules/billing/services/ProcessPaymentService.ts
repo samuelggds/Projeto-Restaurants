@@ -114,11 +114,6 @@ class ProcessPaymentService {
         now,
         tx,
       );
-      const payment = await billingRepository.markInvoicePaidIfOpen(
-        normalizedInvoiceId,
-        new Date(),
-        tx,
-      );
       const invoice = payment.invoice;
 
       if (!invoice) {
@@ -218,12 +213,17 @@ class ProcessPaymentService {
     });
 
     info(
-      result.remainsBlocked
-        ? 'payment processed but restaurant remains blocked'
-        : 'payment processed and restaurant activated',
+      result.settlement === 'DUPLICATE'
+        ? 'duplicate invoice payment detected; refund required'
+        : result.settlement === 'REFUNDED'
+          ? 'duplicate invoice payment already refunded'
+          : result.remainsBlocked
+            ? 'payment processed but restaurant remains blocked'
+            : 'payment processed and restaurant activated',
       {
         invoiceId: normalizedInvoiceId,
         restaurantId: result.invoice.restaurantId,
+        settlement: result.settlement,
       },
     );
 
