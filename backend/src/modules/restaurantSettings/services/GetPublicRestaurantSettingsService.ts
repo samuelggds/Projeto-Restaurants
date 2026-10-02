@@ -57,7 +57,6 @@ type PublicSettingsFallback = {
   waiterCallEnabled: boolean;
   billRequestEnabled: boolean;
   pixProvider: string;
-  pixKey: string | null;
   instagram: string | null;
   facebook: string | null;
   tiktok: string | null;
@@ -72,8 +71,6 @@ type PublicSettingsFallback = {
   receiveOrdersOnWhatsapp: boolean;
   receiveStatusNotifications: boolean;
   companyLegalName: string | null;
-  ownerEmail: string | null;
-  ownerPhone: string | null;
   businessHours: unknown;
   isOpenForOrders: boolean;
   averageDeliveryTime: string | null;
@@ -229,7 +226,6 @@ class GetPublicRestaurantSettingsService {
         waiterCallEnabled: true,
         billRequestEnabled: true,
         pixProvider: 'MERCADO_PAGO',
-        pixKey: null,
         instagram: null,
         facebook: null,
         tiktok: null,
@@ -247,8 +243,6 @@ class GetPublicRestaurantSettingsService {
         receiveOrdersOnWhatsapp: false,
         receiveStatusNotifications: false,
         companyLegalName: null,
-        ownerEmail: null,
-        ownerPhone: null,
         businessHours: null,
         isOpenForOrders: true,
         averageDeliveryTime: null,
@@ -339,9 +333,6 @@ class GetPublicRestaurantSettingsService {
       whatsapp: commercialNumber,
       whatsappEnabled: Boolean(commercialNumber),
       whatsappDisplayName: commercialNumber,
-      // ownerPhone é dado de cadastro/KYB e não deve ser exposto como segundo
-      // telefone público. A Home possui um único Número comercial.
-      ownerPhone: null,
     };
   }
 }
