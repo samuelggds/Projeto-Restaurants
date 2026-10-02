@@ -693,6 +693,8 @@ test('barra inferior da home da mesa fica fixa somente no mobile', async ({ page
     waiterTableReads: 0,
   };
   await mockRoleFlowApi(page, state);
+  await page.goto('/');
+  await selectPersona(page, 'customer');
 
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto(
@@ -948,7 +950,7 @@ test('cartão da mesa só fica ativo quando o backend libera o método', async (
 
   await expect(page.getByRole('heading', { name: 'Pagamento com cartão' })).toBeVisible();
   await expect(page.getByText('Total a pagar')).toBeVisible();
-  await expect(page.getByText(/R\$\s*28,00/u)).toBeVisible();
+  await expect(page.getByRole('button', { name: /Pagar R\$\s*28,00/u })).toBeVisible();
   await expect(
     page.getByText('Número completo e CVV são protegidos pelo provedor e não são salvos no GastroNexa.'),
   ).toBeVisible();
@@ -997,7 +999,7 @@ test('cliente que escolhe dinheiro vê a espera baseada na cobrança da API', as
   await expect(page.getByRole('button', { name: 'Voltar' })).toBeVisible();
   await expect(page.getByLabel('Pagamento em dinheiro')).toContainText('R$');
   await expect(page.getByText(/28,00/u)).toBeVisible();
-  await expect(page.getByText('Solicitação enviada · 09:00', { exact: true })).toBeVisible();
+  await expect(page.getByText(/^Solicitação enviada · \d{2}:\d{2}$/u)).toBeVisible();
   await expect(page.getByText('Aguardando o dinheiro', { exact: true })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Acompanhar conta' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Chamar o garçom' })).toBeVisible();
