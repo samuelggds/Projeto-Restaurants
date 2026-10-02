@@ -85,7 +85,7 @@ test('MP Orders: reconcilia cartão da mesa pelo tenant, referência e valor cor
     return json({
       id: 'ORD_TABLE_91',
       status: 'processed',
-      external_reference: 'ordercard_91_7',
+      external_reference: 'tablecard_91_7',
       total_amount: '30.00',
       total_paid_amount: '30.00',
       currency: 'BRL',
@@ -117,7 +117,7 @@ test('MP Orders: rejeita cobrança de outro tenant, referência ou valor', async
     {
       id: 'ORD_TABLE_91',
       status: 'processed',
-      external_reference: 'ordercard_91_7',
+      external_reference: 'tablecard_91_7',
       total_amount: '99.00',
       total_paid_amount: '99.00',
       currency: 'BRL',
@@ -125,7 +125,7 @@ test('MP Orders: rejeita cobrança de outro tenant, referência ou valor', async
     {
       id: 'ORD_TABLE_91',
       status: 'processed',
-      external_reference: 'ordercard_91_7',
+      external_reference: 'tablecard_91_7',
       total_amount: '30.00',
       total_paid_amount: '30.00',
       currency: 'USD',
@@ -157,7 +157,7 @@ test('MP Orders: cancelamento usa endpoint Orders e chave idempotente', async ()
       return json({
         id: 'ORD_TABLE_91',
         status: 'canceled',
-        external_reference: 'ordercard_91_7',
+        external_reference: 'tablecard_91_7',
         total_amount: '30.00',
         total_paid_amount: '30.00',
         currency: 'BRL',
@@ -168,7 +168,7 @@ test('MP Orders: cancelamento usa endpoint Orders e chave idempotente', async ()
     return json({
       id: 'ORD_TABLE_91',
       status: canceled ? 'canceled' : 'action_required',
-      external_reference: 'ordercard_91_7',
+      external_reference: 'tablecard_91_7',
       total_amount: '30.00',
       total_paid_amount: '30.00',
       currency: 'BRL',
