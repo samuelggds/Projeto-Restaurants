@@ -91,6 +91,7 @@ describe('TableMenuHome categories', () => {
           onOpenCart={vi.fn()}
           onCallWaiter={vi.fn()}
           onViewAccount={vi.fn()}
+          onTrackOrder={vi.fn()}
         />,
       );
     });
@@ -129,4 +130,42 @@ describe('TableMenuHome categories', () => {
     act(() => root.unmount());
     container.remove();
   });
+
+  it('mantém acompanhar em tempo real na barra inferior da home da mesa', async () => {
+    const container = document.createElement('div');
+    document.body.appendChild(container);
+    const root = createRoot(container);
+    const onTrackOrder = vi.fn();
+
+    await act(async () => {
+      root.render(
+        <TableMenuHome
+          data={homeMockData}
+          tableLabel="12"
+          cartCount={1}
+          waiterCallEnabled
+          onOpenProduct={vi.fn()}
+          onQuickAdd={vi.fn()}
+          onOpenCart={vi.fn()}
+          onCallWaiter={vi.fn()}
+          onViewAccount={vi.fn()}
+          onTrackOrder={onTrackOrder}
+        />,
+      );
+    });
+
+    const dock = container.querySelector('nav[aria-label="Ações da mesa"]') as HTMLElement;
+    expect(dock).toBeTruthy();
+    const tracking = [...dock.querySelectorAll<HTMLButtonElement>('button')].find(
+      (button) => button.getAttribute('aria-label') === 'Acompanhar em tempo real',
+    );
+    expect(tracking).toBeTruthy();
+
+    await act(async () => tracking?.click());
+    expect(onTrackOrder).toHaveBeenCalledOnce();
+
+    act(() => root.unmount());
+    container.remove();
+  });
+
 });
