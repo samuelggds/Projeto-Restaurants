@@ -207,21 +207,39 @@ async function ensureComboCategory(db: Parameters<typeof setTenantDbContext>[0],
   return created.id;
 }
 
+type ComboPresentationComponentProduct = Record<string, unknown> & {
+  price?: unknown;
+};
+
+type ComboPresentationOption = Record<string, unknown> & {
+  additionalPrice?: unknown;
+  componentProduct?: ComboPresentationComponentProduct | null;
+};
+
+type ComboPresentationGroup = Record<string, unknown> & {
+  options?: ComboPresentationOption[];
+};
+
 type ComboPresentationProduct = Record<string, unknown> & {
   price?: unknown;
-  comboGroups?: Array<
-    Record<string, unknown> & {
-      options?: Array<
-        Record<string, unknown> & {
-          additionalPrice?: unknown;
-          componentProduct?: (Record<string, unknown> & { price?: unknown }) | null;
+  comboGroups?: ComboPresentationGroup[];
+};
+
+type NormalizedComboPresentation = ComboPresentationProduct & {
+  price: number;
+  comboGroups: Array<
+    ComboPresentationGroup & {
+      options: Array<
+        ComboPresentationOption & {
+          additionalPrice: number;
+          componentProduct: (ComboPresentationComponentProduct & { price: number }) | null;
         }
       >;
     }
   >;
 };
 
-function normalizeCombo(product: ComboPresentationProduct) {
+function normalizeCombo(product: ComboPresentationProduct): NormalizedComboPresentation {
   return {
     ...product,
     price: Number(product.price || 0),
