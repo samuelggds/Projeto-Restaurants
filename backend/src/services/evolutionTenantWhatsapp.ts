@@ -26,6 +26,25 @@ type ConnectionRow = {
 
 type JsonRecord = Record<string, unknown>;
 
+type EvolutionInstanceInfo = JsonRecord & {
+  name?: unknown;
+  connectionStatus?: unknown;
+  ownerJid?: unknown;
+  number?: unknown;
+  profileName?: unknown;
+  _count?: unknown;
+};
+
+export class EvolutionRequestError extends Error {
+  constructor(
+    public readonly status: number,
+    public readonly operation: string,
+  ) {
+    super('Falha na comunicação com o serviço de WhatsApp.');
+    this.name = 'EvolutionRequestError';
+  }
+}
+
 function env(name: string) {
   return String(process.env[name] || '').trim();
 }
@@ -142,9 +161,77 @@ async function evolutionRequest(
     payload = text;
   }
   if (!response.ok) {
-    throw new Error(`Evolution API recusou a operação (${response.status}).`);
+    throw new EvolutionRequestError(response.status, path.split('/').filter(Boolean).slice(0, 2).join('/'));
   }
   return payload;
+}
+
+function countEvolutionInstanceData(instance: EvolutionInstanceInfo) {
+  const counts =
+    instance._count && typeof instance._count === 'object' && !Array.isArray(instance._count)
+      ? (instance._count as JsonRecord)
+      : {};
+  return ['Message', 'Contact', 'Chat'].reduce((total, key) => {
+    const value = Number(counts[key] || 0);
+    return total + (Number.isFinite(value) && value > 0 ? value : 0);
+  }, 0);
+}
+
+export function isSafeDisposableOrphanEvolutionInstance(instance: EvolutionInstanceInfo | null) {
+  if (!instance) return false;
+  const state = String(instance.connectionStatus || '').trim().toLowerCase();
+  const ownerJid = String(instance.ownerJid || '').trim();
+  const number = digitsOnly(instance.number);
+  const profileName = String(instance.profileName || '').trim();
+
+  return (
+    state === 'close' &&
+    !ownerJid &&
+    !number &&
+    !profileName &&
+    countEvolutionInstanceData(instance) === 0
+  );
+}
+
+async function fetchEvolutionInstance(instanceName: string) {
+  const payload = await evolutionRequest(
+    `/instance/fetchInstances?instanceName=${encodeURIComponent(instanceName)}`,
+  );
+  const list = Array.isArray(payload) ? payload : [];
+  const match = list.find(
+    (candidate) =>
+      candidate &&
+      typeof candidate === 'object' &&
+      String((candidate as EvolutionInstanceInfo).name || '') === instanceName,
+  );
+  return (match as EvolutionInstanceInfo | undefined) ?? null;
+}
+
+async function prepareEvolutionInstanceName(instanceName: string) {
+  const remote = await fetchEvolutionInstance(instanceName);
+  if (!remote) return;
+
+  if (!isSafeDisposableOrphanEvolutionInstance(remote)) {
+    throw new Error(
+      'Já existe uma conexão anterior de WhatsApp preservada para este restaurante. Ela não foi apagada por segurança. Entre em contato com o suporte para recuperar essa sessão.',
+    );
+  }
+
+  await evolutionRequest(`/instance/delete/${encodeURIComponent(instanceName)}`, {
+    method: 'DELETE',
+  });
+
+  const remaining = await fetchEvolutionInstance(instanceName);
+  if (remaining) {
+    throw new Error(
+      'Não foi possível preparar uma nova conexão do WhatsApp sem risco para a sessão anterior.',
+    );
+  }
+
+  console.warn('[EVOLUTION_ORPHAN_INSTANCE_RECOVERED]', {
+    instanceName,
+    reason: 'unbound_closed_instance_without_identity',
+  });
 }
 
 async function configureWebhook(row: ConnectionRow, webhookSecret: string) {
@@ -182,6 +269,8 @@ async function createEvolutionInstance(restaurantId: number) {
   const token = randomBytes(24).toString('hex');
   const webhookSecret = randomBytes(32).toString('hex');
 
+  await prepareEvolutionInstanceName(instanceName);
+
   await evolutionRequest('/instance/create', {
     method: 'POST',
     body: {
@@ -192,50 +281,52 @@ async function createEvolutionInstance(restaurantId: number) {
     },
   });
 
-  const ciphertext = encryptCredential(token, tokenContext(restaurantId));
-  const secretHashHex = hashSecret(webhookSecret).toString('hex');
-  await prisma.$executeRaw`
-    INSERT INTO "RestaurantWhatsappConnection" (
-      "restaurantId", "provider", "externalInstanceId", "instanceTokenCiphertext",
-      "webhookSecretHash", "status", "trialExpiresAt", "phone",
-      "connectedAt", "disconnectedAt", "createdAt", "updatedAt"
-    ) VALUES (
-      ${restaurantId}, 'EVOLUTION', ${instanceName}, ${ciphertext},
-      ${secretHashHex}, 'PENDING', NULL, NULL,
-      NULL, NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
-    )
-    ON CONFLICT ("restaurantId") DO UPDATE SET
-      "provider" = 'EVOLUTION',
-      "externalInstanceId" = EXCLUDED."externalInstanceId",
-      "instanceTokenCiphertext" = EXCLUDED."instanceTokenCiphertext",
-      "webhookSecretHash" = EXCLUDED."webhookSecretHash",
-      "status" = 'PENDING',
-      "trialExpiresAt" = NULL,
-      "phone" = NULL,
-      "connectedAt" = NULL,
-      "disconnectedAt" = NULL,
-      "updatedAt" = CURRENT_TIMESTAMP
-  `;
-
-  const row = await readConnectionByRestaurant(restaurantId);
-  if (!row) {
-    await deleteEvolutionInstance(instanceName);
-    throw new Error('Não foi possível registrar a conexão Evolution API.');
-  }
-
   try {
-    await configureWebhook(row, webhookSecret);
-  } catch (error) {
+    const ciphertext = encryptCredential(token, tokenContext(restaurantId));
+    const secretHashHex = hashSecret(webhookSecret).toString('hex');
     await prisma.$executeRaw`
-      UPDATE "RestaurantWhatsappConnection"
-      SET "status" = 'ERROR', "updatedAt" = CURRENT_TIMESTAMP
-      WHERE "restaurantId" = ${restaurantId} AND "provider" = 'EVOLUTION'
+      INSERT INTO "RestaurantWhatsappConnection" (
+        "restaurantId", "provider", "externalInstanceId", "instanceTokenCiphertext",
+        "webhookSecretHash", "status", "trialExpiresAt", "phone",
+        "connectedAt", "disconnectedAt", "createdAt", "updatedAt"
+      ) VALUES (
+        ${restaurantId}, 'EVOLUTION', ${instanceName}, ${ciphertext},
+        ${secretHashHex}, 'PENDING', NULL, NULL,
+        NULL, NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
+      )
+      ON CONFLICT ("restaurantId") DO UPDATE SET
+        "provider" = 'EVOLUTION',
+        "externalInstanceId" = EXCLUDED."externalInstanceId",
+        "instanceTokenCiphertext" = EXCLUDED."instanceTokenCiphertext",
+        "webhookSecretHash" = EXCLUDED."webhookSecretHash",
+        "status" = 'PENDING',
+        "trialExpiresAt" = NULL,
+        "phone" = NULL,
+        "connectedAt" = NULL,
+        "disconnectedAt" = NULL,
+        "updatedAt" = CURRENT_TIMESTAMP
     `;
+
+    const row = await readConnectionByRestaurant(restaurantId);
+    if (!row) {
+      throw new Error('Não foi possível registrar a conexão automática do WhatsApp.');
+    }
+
+    await configureWebhook(row, webhookSecret);
+    return row;
+  } catch (error) {
+    try {
+      await prisma.$executeRaw`
+        UPDATE "RestaurantWhatsappConnection"
+        SET "status" = 'ERROR', "updatedAt" = CURRENT_TIMESTAMP
+        WHERE "restaurantId" = ${restaurantId} AND "provider" = 'EVOLUTION'
+      `;
+    } catch {
+      // A limpeza remota abaixo ainda evita deixar uma nova instância órfã.
+    }
     await deleteEvolutionInstance(instanceName);
     throw error;
   }
-
-  return row;
 }
 
 export async function getTenantEvolutionConnection(restaurantId: number) {
