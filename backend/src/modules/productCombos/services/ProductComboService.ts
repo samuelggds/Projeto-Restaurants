@@ -466,77 +466,7 @@ class ProductComboService {
     };
   }
 
-  async generateImage(idInput: unknown, restaurantIdInput: unknown, actor: CreditActor) {
-    const tenantId = restaurantId(restaurantIdInput);
-    const id = comboId(idInput);
-    const combo = await withTenantDbContext(tenantId, async (db) =>
-      db.product.findFirst({
-        where: { id, restaurantId: tenantId, kind: 'COMBO' },
-        include: comboInclude,
-      }),
-    );
-    if (!combo) throw new Error('Combo não encontrado neste restaurante.');
 
-    const apiKey = String(process.env.OPENAI_API_KEY || '').trim();
-    if (!apiKey) throw new Error('OPENAI_API_KEY não configurada para geração de imagens.');
-
-    const itemSummary = combo.comboGroups
-      .flatMap((group) =>
-        group.options.map((option) => {
-          const quantity = Math.max(
-            option.defaultQuantity,
-            option.minQuantity,
-            option.locked ? 1 : 0,
-          );
-          return `${quantity || 'opção'}x ${option.componentProduct.name}${Number(option.additionalPrice) > 0 ? ` (+R$ ${Number(option.additionalPrice).toFixed(2)})` : ''}`;
-        }),
-      )
-      .join('; ');
-
-    const prompt = [
-      'Crie uma fotografia comercial quadrada, premium, realista e muito apetitosa para um combo de restaurante.',
-      `Nome interno do combo: ${combo.name}.`,
-      combo.description ? `Descrição: ${combo.description}.` : '',
-      `Preço de venda usado apenas como contexto de posicionamento: R$ ${Number(combo.price).toFixed(2)}.`,
-      itemSummary ? `Itens que devem inspirar visualmente a composição: ${itemSummary}.` : '',
-      'Mostre a refeição completa de forma coerente, com todos os tipos de alimentos e bebidas relevantes visíveis e proporcionais.',
-      'Use iluminação de estúdio suave, fundo limpo e composição de delivery premium.',
-      'Não escreva nome, preço, palavras, selos ou marca d’água na imagem. Não invente logotipos. Se algum nome indicar uma marca, represente a categoria do produto sem reproduzir a marca visual.',
-      'A imagem deve parecer uma fotografia real do combo, não uma ilustração.',
-    ]
-      .filter(Boolean)
-      .join(' ');
-
-    const client = new OpenAI({ apiKey, timeout: 165_000, maxRetries: 0 });
-    const result = await paidImageGeneration(client, actor, 'GENERATE_COMBO_IMAGE', {
-      model: 'gpt-image-2',
-      prompt,
-      size: '1024x1024',
-      quality: 'low',
-      n: 1,
-    });
-    const base64 = result.data?.[0]?.b64_json;
-    if (!base64) throw new Error('A IA não retornou uma imagem para o combo.');
-    const image = `data:image/png;base64,${base64}`;
-
-    await withTenantDbContext(tenantId, async (db) => {
-      await db.product.updateMany({
-        where: { id, restaurantId: tenantId, kind: 'COMBO' },
-        data: { image },
-      });
-    });
-
-    const usage = (result as unknown as { usage?: unknown }).usage;
-    return {
-      id,
-      image,
-      aiUsage: {
-        model: 'gpt-image-2',
-        usage: usage ?? null,
-        costUsd: calculateImageUsageCostUsd(usage, 0.009),
-      },
-    };
-  }
 }
 
 export default new ProductComboService();
