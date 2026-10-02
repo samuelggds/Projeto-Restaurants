@@ -1,5 +1,5 @@
 // @ts-nocheck
-import test, { afterEach } from 'node:test';
+import test, { afterEach, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 
 import prisma from '../../../config/prisma.js';
@@ -15,12 +15,23 @@ const originalRepositoryMethods = {
 };
 
 const originalRestaurantUpdate = prisma.restaurant.update;
+const originalTransaction = prisma.$transaction;
+
+beforeEach(() => {
+  prisma.$transaction = async (callback) =>
+    callback({
+      restaurant: {
+        update: (...args) => prisma.restaurant.update(...args),
+      },
+    });
+});
 
 afterEach(() => {
   restaurantSettingsRepository.findByRestaurantId = originalRepositoryMethods.findByRestaurantId;
   restaurantSettingsRepository.create = originalRepositoryMethods.create;
   restaurantSettingsRepository.update = originalRepositoryMethods.update;
   prisma.restaurant.update = originalRestaurantUpdate;
+  prisma.$transaction = originalTransaction;
 });
 
 const weeklySchedule = () =>
@@ -437,4 +448,35 @@ test('rejeita access token manual do Mercado Pago nas configurações comuns', a
       }),
     /fluxo OAuth/i,
   );
+});
+
+
+test('grava settings e identidade do restaurante dentro da mesma transação', async () => {
+  let repositoryDb = null;
+  let restaurantDbCalled = false;
+  const tx = {
+    restaurantSettings: {},
+    restaurant: {
+      update: async () => {
+        restaurantDbCalled = true;
+        return { id: 7 };
+      },
+    },
+  };
+  prisma.$transaction = async (callback) => callback(tx);
+  restaurantSettingsRepository.findByRestaurantId = async () => null;
+  restaurantSettingsRepository.create = async (data, db) => {
+    repositoryDb = db;
+    return { id: 1, ...data };
+  };
+
+  await createRestaurantSettingsService.execute({
+    restaurantId: 7,
+    deliveryFee: 0,
+    minimumOrder: 0,
+    restaurantName: 'Restaurante Atômico',
+  });
+
+  assert.equal(repositoryDb, tx);
+  assert.equal(restaurantDbCalled, true);
 });
