@@ -7,7 +7,7 @@ import { orderCreationContext } from '../services/orderCreationRequest.js';
 import { OrderRequestError } from '../domain/OrderRequestError.js';
 import { recordWhatsappOrderNotificationOptIn } from '../../../services/whatsappOrderConsent.js';
 import { notifyCustomerPaymentConfirmed } from '../../../services/customerNotifier.js';
-import { safeErrorName } from '../../../services/telemetrySanitizer.js';
+import { safeErrorName, safeErrorSummary } from '../../../services/telemetrySanitizer.js';
 import { resolveOrderRestaurantId } from '../utils/orderTenant.js';
 import orderRepository from '../repositories/OrderRepository.js';
 import { ActiveOnlinePaymentError } from '../domain/ActiveOnlinePaymentError.js';
@@ -159,12 +159,9 @@ class CreateOrderCardCheckoutController {
                 total: paidOrder.total,
                 paymentMethod: paidOrder.paymentMethod,
               }).catch((notificationError: unknown) => {
-                console.error(
-                  '[CUSTOMER_NOTIFICATION_UNHANDLED]',
-                  notificationError instanceof Error
-                    ? notificationError.message
-                    : String(notificationError),
-                );
+                console.error('[CUSTOMER_NOTIFICATION_UNHANDLED]', {
+                  error: safeErrorSummary(notificationError),
+                });
               });
             }
           }
@@ -267,8 +264,14 @@ class CreateOrderCardCheckoutController {
             : {}),
         });
       }
-      return res.status(400).json({
-        error: error instanceof Error ? error.message : 'Erro ao iniciar pagamento com cartao',
+      console.error('[CARD_PAYMENT_REQUEST_FAILED]', {
+        requestId: req.requestId,
+        errorType: safeErrorName(error),
+        error: safeErrorSummary(error),
+      });
+      return res.status(500).json({
+        error: 'Não foi possível iniciar o pagamento com cartão agora.',
+        requestId: req.requestId,
       });
     }
   }
