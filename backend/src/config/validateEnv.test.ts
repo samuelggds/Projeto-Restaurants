@@ -34,6 +34,7 @@ function setValidProductionEnv() {
     SMTP_USER: 'mailer@example.com',
     SMTP_PASS: 'smtp-app-password',
     SALES_CONTACT_NOTIFICATION_EMAIL: 'sales@example.com',
+    ALERT_EMAIL_TO: 'alerts@example.com',
     ALLOW_LEGACY_ACCESS_TOKENS: 'false',
     ALLOW_LOCAL_AUTH_CODE_LOGGING: 'false',
     ALLOW_UNTRUSTED_OAUTH_ENDPOINTS: 'false',
@@ -373,5 +374,15 @@ test('rejeita placeholder no token Mercado Pago da plataforma', () => {
   assert.throws(
     () => validateCriticalEnv(),
     /PLATFORM_MP_ACCESS_TOKEN nao pode usar um valor placeholder/u,
+  );
+});
+
+
+test('exige destinatário de alertas operacionais em produção', () => {
+  delete process.env.ALERT_EMAIL_TO;
+
+  assert.throws(
+    () => validateCriticalEnv(),
+    /ALERT_EMAIL_TO deve conter um e-mail valido para alertas operacionais/u,
   );
 });
