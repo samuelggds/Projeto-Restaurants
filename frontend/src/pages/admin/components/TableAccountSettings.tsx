@@ -248,7 +248,7 @@ export function TableAccountSettings({ settings, update }: Props) {
       await promptDialog({
         title: `Fechar a Mesa ${session.tableNumber}?`,
         description:
-          'A conta geral precisa estar totalmente quitada. Use esta ação somente para corrigir uma exceção operacional da sessão; ela nunca ignora pagamentos pendentes.',
+          'A conta geral precisa estar totalmente quitada. Use esta ação somente para corrigir uma exceção operacional da sessão; ela nunca ignora pagamentos pendentes. O motivo ficará registrado na auditoria.',
         inputLabel: 'Motivo do fechamento administrativo',
         placeholder: 'Ex.: atendimento cancelado diretamente no caixa',
         confirmLabel: 'Fechar mesa',
