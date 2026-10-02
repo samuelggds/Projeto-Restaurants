@@ -22,6 +22,16 @@ afterEach(() => {
   mock.restoreAll();
 });
 
+function installSettingsTransaction() {
+  let committed = false;
+  prisma.$transaction = async (callback) => {
+    const result = await callback({});
+    committed = true;
+    return result;
+  };
+  return () => committed;
+}
+
 function makeOrder(overrides = {}) {
   return {
     id: 91,
@@ -43,6 +53,7 @@ function makeOrder(overrides = {}) {
 }
 
 test('salvar limite aguarda drain após persistência, inclusive ao reenviar a configuração', async () => {
+  const committed = installSettingsTransaction();
   let saved = { restaurantId: 7, maxConcurrentOrders: 1, restaurant: {} };
   mock.method(restaurantSettingsRepository, 'findByRestaurantId', async () => saved);
   mock.method(restaurantSettingsRepository, 'update', async (restaurantId, data) => {
@@ -53,6 +64,7 @@ test('salvar limite aguarda drain após persistência, inclusive ao reenviar a c
   let drainFinished = false;
   const drain = mock.method(queue, 'drainAfterCapacityChange', async (restaurantId) => {
     assert.equal(restaurantId, 7);
+    assert.equal(committed(), true);
     assert.equal(saved.maxConcurrentOrders, 3);
     await Promise.resolve();
     drainFinished = true;
@@ -65,6 +77,7 @@ test('salvar limite aguarda drain após persistência, inclusive ao reenviar a c
 });
 
 test('salvar configuração não relacionada não consulta fila; falha de gravação não admite pedidos', async () => {
+  installSettingsTransaction();
   mock.method(restaurantSettingsRepository, 'findByRestaurantId', async () => ({
     restaurantId: 7,
     restaurant: {},
