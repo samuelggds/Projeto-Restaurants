@@ -66,3 +66,19 @@ test('timeout ou erro 5xx depois de enviar ao provider preserva a reserva para r
       'Não foi possível confirmar a resposta do provedor. Tente novamente; a mesma tentativa será reutilizada com segurança.',
   });
 });
+
+test('erro 4xx definitivo do Pix libera a reserva sem expor resposta do Mercado Pago', () => {
+  const error = new Error('raw provider body must not escape');
+  error.name = 'PixPaymentProviderRequestError';
+
+  assert.equal(
+    shouldReleaseTablePaymentReservationAfterProviderError(true, error),
+    true,
+  );
+  assert.deepEqual(safeTablePaymentProviderError(true, error), {
+    statusCode: 422,
+    code: 'PIX_PAYMENT_INVALID',
+    message: 'Não foi possível gerar o Pix desta mesa. Tente novamente em instantes.',
+  });
+});
+
