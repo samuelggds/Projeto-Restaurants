@@ -298,6 +298,7 @@ export class CreateTablePaymentIntentService {
         method: intent.method as 'PIX' | 'CARD',
         idempotencyKeyHash: intent.idempotencyKeyHash,
         expiresAt: intent.expiresAt,
+        cardPayment: input.cardPayment || null,
       });
 
       const updated = await prisma.$transaction(
