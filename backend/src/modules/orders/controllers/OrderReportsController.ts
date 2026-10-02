@@ -13,13 +13,36 @@ class OrderReportsController {
         const settings = await db.restaurantSettings.findUnique({ where: { restaurantId }, select: { timezone: true } });
         const periods = getRestaurantPeriodBoundaries(new Date(), settings?.timezone || 'America/Sao_Paulo');
         const base = { restaurantId, AND: [operationalPaymentWhere] };
-        const today = await db.order.aggregate({ where: { ...base,
-          status: { not: 'CANCELADO' }, createdAt: periods.today }, _count: true, _sum: { total: true } });
-        const preparingOrders = await db.order.count({ where: { ...base, status: 'PREPARANDO' } });
-        const customers = await readCustomerPage(db, restaurantId, { limit: 0 });
-        const sales = Number(today._sum.total || 0);
-        return { todayOrders: today._count, sales, averageTicket: today._count ? sales / today._count : 0,
-          preparingOrders, customers: customers.summary.customers, timezone: periods.timeZone };
+        const [todayOrders, paidToday, preparingOrders, customers] = await Promise.all([
+          db.order.count({
+            where: {
+              ...base,
+              status: { not: 'CANCELADO' },
+              createdAt: periods.today,
+            },
+          }),
+          db.order.aggregate({
+            where: {
+              restaurantId,
+              status: { not: 'CANCELADO' },
+              paid: true,
+              paidAt: periods.today,
+            },
+            _count: true,
+            _sum: { total: true },
+          }),
+          db.order.count({ where: { ...base, status: 'PREPARANDO' } }),
+          readCustomerPage(db, restaurantId, { limit: 0 }),
+        ]);
+        const sales = Number(paidToday._sum.total || 0);
+        return {
+          todayOrders,
+          sales,
+          averageTicket: paidToday._count ? sales / paidToday._count : 0,
+          preparingOrders,
+          customers: customers.summary.customers,
+          timezone: periods.timeZone,
+        };
       });
       return res.json(overview);
     } catch {
