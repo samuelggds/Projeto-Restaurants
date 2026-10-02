@@ -75,7 +75,7 @@ export function CartCrossSell({ products, onAdd }: Props) {
               onClick={(event) =>
                 onAdd(
                   product,
-                  event.currentTarget.closest<HTMLElement>('[data-cross-sell-card]'),
+                  event.currentTarget.closest('[data-cross-sell-card]') as HTMLElement | null,
                 )
               }
             >
