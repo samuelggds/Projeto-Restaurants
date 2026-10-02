@@ -37,6 +37,27 @@ describe('tableAccount do cliente', () => {
     });
   });
 
+  it('inclui o payload protegido quando o pagamento da mesa é por cartão', () => {
+    const protectedCard = {
+      cardPaymentType: 'credit' as const,
+      cardToken: 'opaque-provider-reference',
+      cardPaymentMethodId: 'test-brand',
+    };
+
+    expect(
+      buildTablePaymentPayload({
+        selectionMode: 'MY_ITEMS',
+        method: 'CARD',
+        cardPayment: protectedCard,
+      }),
+    ).toEqual({
+      selectionMode: 'MY_ITEMS',
+      method: 'CARD',
+      includeOptionalServiceFee: false,
+      cardPayment: protectedCard,
+    });
+  });
+
   it('só permite cancelar uma cobrança ativa criada pelo participante atual', () => {
     const payment = {
       publicId: 'payment-1',
