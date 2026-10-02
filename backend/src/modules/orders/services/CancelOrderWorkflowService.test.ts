@@ -12,6 +12,7 @@ beforeEach(() => mock.method(orderCapacityQueueService, 'drainAfterCapacityChang
 
 const originalTransaction = prisma.$transaction;
 const originalOrderUpdateMany = prisma.order.updateMany;
+const originalTablePaymentAllocationFindFirst = prisma.tablePaymentAllocation.findFirst;
 const originalFindById = orderRepository.findById;
 const originalRefundExecute = refundOrderPaymentService.execute;
 
@@ -19,6 +20,7 @@ afterEach(() => {
   mock.restoreAll();
   prisma.$transaction = originalTransaction;
   prisma.order.updateMany = originalOrderUpdateMany;
+  prisma.tablePaymentAllocation.findFirst = originalTablePaymentAllocationFindFirst;
   orderRepository.findById = originalFindById;
   refundOrderPaymentService.execute = originalRefundExecute;
 });
@@ -52,6 +54,7 @@ function makeOrder(overrides = {}) {
 }
 
 function installStatefulDatabase(initialOrder) {
+  prisma.tablePaymentAllocation.findFirst = async () => null;
   const stored = { ...initialOrder };
   const billItemUpdates = [];
   stored.billItemUpdates = billItemUpdates;
@@ -110,6 +113,46 @@ function installStatefulDatabase(initialOrder) {
 
   return stored;
 }
+
+test('pedido de mesa pago pelo ledger não pode cair no cancelamento sem estorno', async () => {
+  const order = makeOrder({
+    type: 'MESA',
+    tableSessionId: 77,
+    paymentMethod: 'DINHEIRO',
+    paid: true,
+  });
+  const stored = installStatefulDatabase(order);
+  let gatewayCalls = 0;
+  refundOrderPaymentService.execute = async () => {
+    gatewayCalls += 1;
+    throw new Error('não deve usar o fluxo genérico de estorno');
+  };
+  prisma.tablePaymentAllocation.findFirst = async ({ where, select }) => {
+    assert.equal(where.restaurantId, 7);
+    assert.equal(where.tableSessionId, 77);
+    assert.equal(where.tableBillItem.orderId, 501);
+    assert.equal(where.tableBillItem.restaurantId, 7);
+    assert.equal(where.paymentIntent.status, 'PAID');
+    assert.equal(select.paymentIntentId, true);
+    return {
+      paymentIntentId: 91,
+      paymentIntent: {
+        publicId: '123e4567-e89b-42d3-a456-426614174091',
+        method: 'PIX',
+        provider: 'MERCADO_PAGO',
+      },
+    };
+  };
+
+  await assert.rejects(
+    () => cancelOrderWorkflowService.execute({ ...order }),
+    /Estorne primeiro o pagamento confirmado da mesa/i,
+  );
+
+  assert.equal(stored.status, OrderStatus.PENDENTE);
+  assert.equal(gatewayCalls, 0);
+  assert.equal(stored.billItemUpdates.length, 0);
+});
 
 test('claim atomico impede dois estornos concorrentes do mesmo pedido', async () => {
   const order = makeOrder();
