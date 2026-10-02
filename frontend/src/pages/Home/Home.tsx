@@ -6,11 +6,7 @@ import { FigmaDeliveryExperience } from './FigmaDeliveryExperience';
 import type { FigmaCheckoutStep } from './FigmaCheckoutFlow';
 import { LazyFigmaCheckoutFlow as FigmaCheckoutFlow } from './components/LazyFigmaCheckoutFlow';
 import * as S from './Home.styles';
-import {
-  useDefaultRestaurantId,
-  useResolvedRestaurantId,
-  useRestaurantCatalog,
-} from './hooks/useRestaurantCatalog';
+import { useDefaultRestaurantId, useResolvedRestaurantId, useRestaurantCatalog } from './hooks/useRestaurantCatalog';
 import { useCart } from './hooks/useCart';
 import { useDeliveryAddress } from './hooks/useDeliveryAddress';
 import { getCheckoutErrorMessage, useCheckoutPayments } from './hooks/useCheckoutPayments';
@@ -28,16 +24,8 @@ import { HomePaymentOutcome } from './components/HomePaymentOutcome';
 import { HomePaymentScreen } from './components/HomePaymentScreen';
 import { HomeAuxiliaryUi } from './components/HomeAuxiliaryUi';
 import { useHomeNotifications } from './hooks/useHomeNotifications';
-import {
-  useCartBodyScrollLock,
-  useRestaurantAvailabilityClock,
-} from './hooks/useHomePageRuntime';
-import {
-  buildOrderPayload,
-  resolveOrderType,
-  validateCheckout,
-  type CheckoutPaymentMethod,
-} from './domain/checkout';
+import { useCartBodyScrollLock, useRestaurantAvailabilityClock } from './hooks/useHomePageRuntime';
+import { buildOrderPayload, resolveOrderType, validateCheckout, type CheckoutPaymentMethod } from './domain/checkout';
 import ordersService from '../../Services/ordersService';
 import waiterCallsService from '../../Services/waiterCallsService';
 import { useLoyaltyRewards } from './hooks/useLoyaltyRewards';
@@ -45,26 +33,17 @@ import { useOrderQuote } from './hooks/useOrderQuote';
 import { isUsableLoyaltyRedemption, loyaltyRedemptionEntries } from './domain/loyaltyRedemption';
 import { useLoyaltyExpirationClock } from './hooks/useLoyaltyExpirationClock';
 import { getRestaurantAvailability } from '../admin/domain/businessHours';
-import {
-  applyHomeSeoMetadata,
-  buildWhatsAppUrl,
-  getAvailablePaymentMethods,
-  resolveAvailableFulfillmentMethod,
-  resolveDefaultCheckoutPaymentMethod,
-} from './domain/publicSettings';
+import { applyHomeSeoMetadata, buildWhatsAppUrl, getAvailablePaymentMethods, resolveAvailableFulfillmentMethod, resolveDefaultCheckoutPaymentMethod } from './domain/publicSettings';
 import { useCardPaymentReturn } from './hooks/useCardPaymentReturn';
 import { buildLoginUrl } from '../../shared/navigation/authNavigation';
 import TableMenuExperience from '../digital-menu/TableMenuExperience';
 import type { HomeProduct } from './types';
 import { createReadyProductConfiguration, resolveProductEntryKind } from './domain/productEntryFlow';
-import {
-  captureCartFlyOrigin,
-  scheduleProductToCartAnimation,
-  type CartFlyOrigin,
-} from './cartFlyAnimation';
+import { captureCartFlyOrigin, scheduleProductToCartAnimation, type CartFlyOrigin } from './cartFlyAnimation';
 import { validateDeliveryAddressLocationForCheckout } from './domain/deliveryAddress';
 import type { GuestCheckoutDetails, HomeNavigationState } from './domain/homePageTypes';
 import {
+  applyPurchasedStock,
   checkoutRecommendations,
   collectPurchasedProductQuantities,
   resolveHomeRestaurantId,
@@ -400,21 +379,7 @@ export default function Home() {
 
   function applyPurchasedStockToHome() {
     const purchased = collectPurchasedProductQuantities(cart, homeData.products);
-
-    setBackendProducts((products) =>
-      products.map((product) => {
-        const quantity = purchased.get(String(product.id));
-        if (!quantity || product.stock === null || product.stock === undefined) {
-          return product;
-        }
-        const nextStock = Math.max(Number(product.stock) - quantity, 0);
-        return {
-          ...product,
-          stock: nextStock,
-          active: nextStock > 0 ? product.active : false,
-        };
-      }),
-    );
+    setBackendProducts((products) => applyPurchasedStock(products, purchased));
   }
 
   const {
