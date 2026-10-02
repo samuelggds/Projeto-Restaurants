@@ -160,26 +160,26 @@ export class ProcessTablePaymentWebhookService {
       const refund = await executeTablePaymentRemoteOperation(outcome.current, 'refund', this.provider);
       latePaymentRefunded = refund.confirmed;
       if (refund.confirmed) {
-      await prisma.tablePaymentEvent.upsert({
-        where: {
-          deduplicationKey: `table-payment:${outcome.current.publicId}:late-refunded`,
-        },
-        create: {
-          restaurantId: outcome.current.restaurantId,
-          tableSessionId: outcome.current.tableSessionId,
-          paymentIntentId: outcome.current.id,
-          deduplicationKey: `table-payment:${outcome.current.publicId}:late-refunded`,
-          type: TablePaymentEventType.REFUNDED,
-          fromStatus: outcome.current.status,
-          toStatus: outcome.current.status,
-          provider: this.provider.code,
-          providerEventId: event.eventId,
-          amountCents: outcome.current.totalCents,
-          occurredAt: new Date(),
-          metadata: { automaticLateRefund: true },
-        },
-        update: {},
-      });
+        await prisma.tablePaymentEvent.upsert({
+          where: {
+            deduplicationKey: `table-payment:${outcome.current.publicId}:late-refunded`,
+          },
+          create: {
+            restaurantId: outcome.current.restaurantId,
+            tableSessionId: outcome.current.tableSessionId,
+            paymentIntentId: outcome.current.id,
+            deduplicationKey: `table-payment:${outcome.current.publicId}:late-refunded`,
+            type: TablePaymentEventType.REFUNDED,
+            fromStatus: outcome.current.status,
+            toStatus: outcome.current.status,
+            provider: this.provider.code,
+            providerEventId: event.eventId,
+            amountCents: outcome.current.totalCents,
+            occurredAt: new Date(),
+            metadata: { automaticLateRefund: true },
+          },
+          update: {},
+        });
       }
     }
 
