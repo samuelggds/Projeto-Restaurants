@@ -237,6 +237,8 @@ class OrderPricingService {
 
     let couponDiscount = 0;
     let couponCode: string | null = null;
+    let couponDiscountType: string | null = null;
+    let couponDiscountValue: number | null = null;
     let couponId: number | null = null;
     let redemptionId: number | null = null;
     const requestedRedemptionId = Number(couponRedemptionId || 0);
@@ -283,6 +285,8 @@ class OrderPricingService {
         );
       }
       couponCode = coupon.code;
+      couponDiscountType = coupon.discountType;
+      couponDiscountValue = configuredDiscount;
       couponId = coupon.id;
       redemptionId = redemption.id;
     } else if (
@@ -311,6 +315,8 @@ class OrderPricingService {
       deliveryFeeFallbackApplied,
       total,
       couponCode,
+      couponDiscountType,
+      couponDiscountValue,
       couponId,
       couponRedemptionId: redemptionId,
       orderItems,
