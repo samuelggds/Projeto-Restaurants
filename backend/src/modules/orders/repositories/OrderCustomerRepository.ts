@@ -21,6 +21,7 @@ export async function readCustomerPage(db: TenantDbClient, restaurantId: number,
         COUNT(*)::int AS count, SUM(o.total) AS total
       FROM "Order" o LEFT JOIN "User" u ON u.id = o."userId"
       WHERE o."restaurantId" = ${restaurantId}
+        AND o."status" <> 'CANCELADO'
         AND (o."settlementMode" = 'TABLE_ACCOUNT' OR o."paymentMethod" IS NULL
           OR o.paid OR o."payOnDelivery" OR o."paymentMethod" NOT IN ('PIX', 'CARTAO'))
       GROUP BY COALESCE(o."userId"::text, u.email, u.name, 'Cliente')

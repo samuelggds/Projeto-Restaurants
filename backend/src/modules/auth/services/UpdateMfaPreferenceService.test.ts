@@ -11,12 +11,18 @@ const originalTransaction = prisma.$transaction;
 const originalFindById = userRepository.findByIdWithPassword;
 const originalCompare = bcrypt.compare;
 const originalUpdateMfaEnabled = userRepository.updateMfaEnabled;
+const originalMfaRequiredRoles = process.env.MFA_REQUIRED_ROLES;
 
 afterEach(() => {
   prisma.$transaction = originalTransaction;
   userRepository.findByIdWithPassword = originalFindById;
   bcrypt.compare = originalCompare;
   userRepository.updateMfaEnabled = originalUpdateMfaEnabled;
+  if (originalMfaRequiredRoles === undefined) {
+    delete process.env.MFA_REQUIRED_ROLES;
+  } else {
+    process.env.MFA_REQUIRED_ROLES = originalMfaRequiredRoles;
+  }
 });
 
 function installTransaction() {
@@ -40,7 +46,8 @@ function installTransaction() {
 }
 
 for (const role of ['ADMIN', 'SUPER_ADMIN']) {
-  test(`${role} pode desabilitar MFA com senha válida`, async () => {
+  test(`${role} não pode desabilitar MFA quando a role é obrigatória`, async () => {
+    process.env.MFA_REQUIRED_ROLES = 'ADMIN,SUPER_ADMIN';
     const updates: boolean[] = [];
     const revoked = installTransaction();
     userRepository.findByIdWithPassword = async () => ({
@@ -57,10 +64,12 @@ for (const role of ['ADMIN', 'SUPER_ADMIN']) {
       return { id: 1, role, mfaEnabled: enabled };
     };
 
-    const result = await updateMfaPreferenceService.execute(1, false, 'valid-password');
-    assert.equal(result.mfaEnabled, false);
-    assert.deepEqual(updates, [false]);
-    assert.deepEqual(revoked, { refresh: 1, challenge: 1 });
+    await assert.rejects(
+      () => updateMfaPreferenceService.execute(1, false, 'valid-password'),
+      /obrigatória/u,
+    );
+    assert.deepEqual(updates, []);
+    assert.deepEqual(revoked, { refresh: 0, challenge: 0 });
   });
 }
 

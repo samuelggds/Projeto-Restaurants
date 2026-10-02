@@ -51,6 +51,7 @@ import { orderIssueAccessMiddleware } from '../../../middlewares/orderIssueAcces
 import { orderPaymentAccessMiddleware } from '../../../middlewares/orderPaymentAccessMiddleware.js';
 import { orderSupportStaffMiddleware } from '../../../middlewares/orderSupportStaffMiddleware.js';
 import { authMiddleware } from '../../../middlewares/authMiddleware.js';
+import { deliveryPaymentAccessMiddleware } from '../../../middlewares/deliveryPaymentAccessMiddleware.js';
 import { optionalAuthMiddleware } from '../../../middlewares/optionalAuthMiddleware.js';
 import { sessionMiddleware } from '../../../middlewares/sessionMiddleware.js';
 import { tableParticipantMiddleware } from '../../../middlewares/tableParticipantMiddleware.js';
@@ -212,15 +213,15 @@ router.patch('/:id/start-route', authMiddleware, (req, res) => {
   StartCourierRouteController.handle(req, res);
 });
 
-router.get('/:id/delivery-payment', authMiddleware, (req, res) => {
+router.get('/:id/delivery-payment', authMiddleware, deliveryPaymentAccessMiddleware, (req, res) => {
   DeliveryPaymentController.get(req, res);
 });
 
-router.post('/:id/delivery-payment/reconcile-pix', authMiddleware, (req, res) => {
+router.post('/:id/delivery-payment/reconcile-pix', authMiddleware, deliveryPaymentAccessMiddleware, (req, res) => {
   DeliveryPaymentController.reconcilePix(req, res);
 });
 
-router.post('/:id/delivery-payment/reconcile-card', authMiddleware, (req, res) => {
+router.post('/:id/delivery-payment/reconcile-card', authMiddleware, deliveryPaymentAccessMiddleware, (req, res) => {
   DeliveryPaymentController.reconcileCard(req, res);
 });
 

@@ -48,6 +48,8 @@ function decryptCredentialRecord<T extends Record<string, any> | null>(
   return result as T;
 }
 
+type RestaurantSettingsDb = Pick<Prisma.TransactionClient, 'restaurantSettings'>;
+
 class RestaurantSettingsRepository {
   async claimAsaasOnboarding(restaurantId: number) {
     const result = await prisma.restaurantSettings.updateMany({
@@ -203,7 +205,6 @@ class RestaurantSettingsRepository {
         waiterCallEnabled: true,
         billRequestEnabled: true,
         pixProvider: true,
-        pixKey: true,
         whatsappEnabled: true,
         whatsappDisplayName: true,
         whatsappDefaultMessage: true,
@@ -217,8 +218,6 @@ class RestaurantSettingsRepository {
         seoTitle: true,
         seoDescription: true,
         companyLegalName: true,
-        ownerEmail: true,
-        ownerPhone: true,
         businessHours: true,
         isOpenForOrders: true,
         averageDeliveryTime: true,
@@ -263,16 +262,23 @@ class RestaurantSettingsRepository {
     });
   }
 
-  async create(data: Prisma.RestaurantSettingsUncheckedCreateInput) {
+  async create(
+    data: Prisma.RestaurantSettingsUncheckedCreateInput,
+    db: RestaurantSettingsDb = prisma,
+  ) {
     const restaurantId = Number(data.restaurantId);
-    const created = await prisma.restaurantSettings.create({
+    const created = await db.restaurantSettings.create({
       data: encryptCredentialData(data, restaurantId),
     });
     return decryptCredentialRecord(created, restaurantId);
   }
 
-  async update(restaurantId: number | string, data: Prisma.RestaurantSettingsUpdateInput) {
-    const updated = await prisma.restaurantSettings.update({
+  async update(
+    restaurantId: number | string,
+    data: Prisma.RestaurantSettingsUpdateInput,
+    db: RestaurantSettingsDb = prisma,
+  ) {
+    const updated = await db.restaurantSettings.update({
       where: {
         restaurantId: Number(restaurantId),
       },

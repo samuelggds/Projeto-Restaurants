@@ -1,14 +1,29 @@
 // @ts-nocheck
 import assert from 'node:assert/strict';
-import test, { afterEach } from 'node:test';
+import test, { afterEach, beforeEach } from 'node:test';
+import prisma from '../../../config/prisma.js';
 import restaurantSettingsRepository from '../repositories/RestaurantSettingsRepository.js';
 import service from './UpdateRestaurantSettingsService.js';
 
 const originalRead = restaurantSettingsRepository.findByRestaurantId;
 const originalUpdate = restaurantSettingsRepository.update;
+const originalTransaction = prisma.$transaction;
+const originalRestaurantUpdate = prisma.restaurant.update;
+
+beforeEach(() => {
+  prisma.$transaction = async (callback) =>
+    callback({
+      restaurant: {
+        update: (...args) => prisma.restaurant.update(...args),
+      },
+    });
+});
+
 afterEach(() => {
   restaurantSettingsRepository.findByRestaurantId = originalRead;
   restaurantSettingsRepository.update = originalUpdate;
+  prisma.$transaction = originalTransaction;
+  prisma.restaurant.update = originalRestaurantUpdate;
 });
 
 const savedCredentials = () => ({
@@ -37,44 +52,34 @@ function store() {
   return () => saved;
 }
 
-for (const [access, refresh, expiry, current] of [
-  [
-    'mercadoPagoAccessToken',
-    'mercadoPagoRefreshToken',
-    'mercadoPagoTokenExpiresAt',
-    'mp-current-account',
-  ],
-]) {
-  test(`${access}: troca manual limpa apenas o grant anterior do provedor alterado`, async () => {
-    const state = store();
-    const initial = savedCredentials();
-    await service.execute({ restaurantId: 7, [access]: '  new-manual-account  ' });
-    assert.equal(state()[access], 'new-manual-account');
-    assert.equal(state()[refresh], null);
-    assert.equal(state()[expiry], null);
-    assert.equal(state().mercadoPagoPublicKey, null);
-  });
+test('rejeita troca manual de credencial Mercado Pago e preserva o grant OAuth', async () => {
+  const state = store();
+  const initial = savedCredentials();
 
-  test(`${access}: reenvio da mesma credencial mantém o grant de renovação`, async () => {
+  await assert.rejects(
+    () =>
+      service.execute({
+        restaurantId: 7,
+        mercadoPagoAccessToken: 'new-manual-account',
+      }),
+    /fluxo OAuth/i,
+  );
+
+  assert.equal(state().mercadoPagoAccessToken, initial.mercadoPagoAccessToken);
+  assert.equal(state().mercadoPagoRefreshToken, initial.mercadoPagoRefreshToken);
+  assert.deepEqual(state().mercadoPagoTokenExpiresAt, initial.mercadoPagoTokenExpiresAt);
+  assert.equal(state().mercadoPagoPublicKey, initial.mercadoPagoPublicKey);
+});
+
+for (const value of [undefined, null, '', '   ']) {
+  test(`mercadoPagoAccessToken: valor ${JSON.stringify(value)} preserva o grant OAuth durante autosave`, async () => {
     const state = store();
     const initial = savedCredentials();
-    await service.execute({ restaurantId: 7, [access]: `  ${current}  ` });
-    assert.equal(state()[access], current);
-    assert.equal(state()[refresh], initial[refresh]);
-    assert.deepEqual(state()[expiry], initial[expiry]);
+    await service.execute({ restaurantId: 7, mercadoPagoAccessToken: value, primaryColor: '#123456' });
+    assert.equal(state().mercadoPagoAccessToken, initial.mercadoPagoAccessToken);
+    assert.equal(state().mercadoPagoRefreshToken, initial.mercadoPagoRefreshToken);
+    assert.deepEqual(state().mercadoPagoTokenExpiresAt, initial.mercadoPagoTokenExpiresAt);
     assert.equal(state().mercadoPagoPublicKey, initial.mercadoPagoPublicKey);
+    assert.equal(state().primaryColor, '#123456');
   });
-
-  for (const value of [undefined, null, '', '   ']) {
-    test(`${access}: valor ${JSON.stringify(value)} preserva credencial e grant durante autosave`, async () => {
-      const state = store();
-      const initial = savedCredentials();
-      await service.execute({ restaurantId: 7, [access]: value, primaryColor: '#123456' });
-      assert.equal(state()[access], initial[access]);
-      assert.equal(state()[refresh], initial[refresh]);
-      assert.deepEqual(state()[expiry], initial[expiry]);
-      assert.equal(state().mercadoPagoPublicKey, initial.mercadoPagoPublicKey);
-      assert.equal(state().primaryColor, '#123456');
-    });
-  }
 }

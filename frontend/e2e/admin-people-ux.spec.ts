@@ -137,7 +137,7 @@ test('clientes apresenta indicadores, busca e cards retangulares em desktop e mo
   await page.getByRole('button', { name: 'Clientes', exact: true }).click();
 
   await expect(
-    page.getByRole('heading', { name: 'Conheça quem movimenta seu restaurante' }),
+    page.getByRole('heading', { name: 'Conheça quem compra no seu restaurante' }),
   ).toBeVisible();
   await expect(page.getByText('1 cliente recorrente', { exact: true })).toBeVisible();
   await expect(page.getByText('R$ 181,90', { exact: true })).toBeVisible();

@@ -44,11 +44,18 @@ export function filterCustomerSummaries(customers: CustomerSummary[], search: st
 
 export function calculateOverviewMetrics(orders: AdminOrder[], now = new Date()) {
   const todayOrders = getTodayOrders(orders, now);
-  const sales = todayOrders.reduce((sum, order) => sum + order.total, 0);
+  const paidToday = orders.filter(
+    (order) =>
+      order.paid === true &&
+      order.status !== 'CANCELADO' &&
+      Boolean(order.paidAt) &&
+      new Date(String(order.paidAt)).toDateString() === now.toDateString(),
+  );
+  const sales = paidToday.reduce((sum, order) => sum + order.total, 0);
   return {
     todayOrders,
     sales,
-    averageTicket: todayOrders.length ? sales / todayOrders.length : 0,
+    averageTicket: paidToday.length ? sales / paidToday.length : 0,
     preparingOrders: orders.filter((order) => order.status === 'PREPARANDO').length,
     customers: summarizeCustomers(orders),
   };

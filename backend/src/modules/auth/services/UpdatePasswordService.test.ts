@@ -44,6 +44,18 @@ test('conta em troca obrigatória rejeita nova senha fraca', async () => {
   assert.equal(updated, false);
 });
 
+test('ADMIN sempre rejeita senha previsível mesmo após o primeiro acesso', async () => {
+  const currentPassword = await installUser({
+    role: 'ADMIN',
+    mustChangePassword: false,
+  });
+
+  await assert.rejects(
+    () => updatePasswordService.execute(17, currentPassword, 'Password1!'),
+    /previsível/u,
+  );
+});
+
 test('SUPER_ADMIN sempre precisa usar todas as classes, mesmo após o primeiro acesso', async () => {
   const currentPassword = await installUser({
     role: 'SUPER_ADMIN',

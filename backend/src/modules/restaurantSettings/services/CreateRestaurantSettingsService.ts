@@ -2,6 +2,7 @@ import { isBoundedEmail } from '../../../validators/boundedEmail.js';
 import type { Prisma } from '@prisma/client';
 import restaurantSettingsRepository from '../repositories/RestaurantSettingsRepository.js';
 import prisma from '../../../config/prisma.js';
+import updateDeliveryFeeSettingsService from './UpdateDeliveryFeeSettingsService.js';
 import { normalizeRestaurantImage } from '../utils/normalizeRestaurantImage.js';
 import {
   normalizeEstablishmentAddress,
@@ -28,6 +29,13 @@ import {
 type CreateRestaurantSettingsPayload = {
   restaurantId: number | string;
   deliveryFee: number;
+  deliveryFeeMode?: 'FIXED' | 'DISTANCE' | string;
+  deliveryFeeRanges?: Array<{
+    id?: number;
+    maxDistanceKm?: number;
+    fee?: number;
+    active?: boolean;
+  }>;
   courierFeePerDelivery?: number;
   minimumOrder: number;
   freeShippingMinimum?: number | null;
@@ -109,6 +117,8 @@ class CreateRestaurantSettingsService {
   async execute({
     restaurantId,
     deliveryFee,
+    deliveryFeeMode,
+    deliveryFeeRanges,
     courierFeePerDelivery,
     minimumOrder,
     freeShippingMinimum,
@@ -292,6 +302,12 @@ class CreateRestaurantSettingsService {
       throw new Error('E-mail comercial inválido.');
     }
 
+    if (String(mercadoPagoAccessToken || '').trim()) {
+      throw new Error(
+        'Credenciais do Mercado Pago devem ser conectadas pelo fluxo OAuth em Configurações > Pagamentos.',
+      );
+    }
+
     const requestedPixProvider = String(pixProvider || 'MERCADO_PAGO').trim().toUpperCase();
     const requestedCardGateway = String(cardGateway || '').trim().toUpperCase();
     if (
@@ -315,7 +331,7 @@ class CreateRestaurantSettingsService {
       );
     }
 
-    const created = await restaurantSettingsRepository.create({
+    const settingsCreateData: Prisma.RestaurantSettingsUncheckedCreateInput = {
       restaurantId: Number(restaurantId),
       deliveryFee: normalizeNonNegativeMoney(deliveryFee, 'Taxa de entrega'),
       courierFeePerDelivery: normalizeNonNegativeMoney(
@@ -370,7 +386,7 @@ class CreateRestaurantSettingsService {
       bankHolderDocument: normalizedBankHolderDocument || null,
       cardGateway: requestedCardGateway || null,
       gatewayMerchantId: String(gatewayMerchantId || '').trim() || null,
-      mercadoPagoAccessToken: String(mercadoPagoAccessToken || '').trim() || null,
+      mercadoPagoAccessToken: null,
       pagarmeSecretKey: String(pagarmeSecretKey || '').trim() || null,
       pagarmePublicKey: String(pagarmePublicKey || '').trim() || null,
       pagarmeEnvironment:
@@ -435,7 +451,7 @@ class CreateRestaurantSettingsService {
         500,
         20,
       ),
-    });
+    };
 
     const restaurantData: Prisma.RestaurantUpdateInput = {};
 
@@ -467,17 +483,32 @@ class CreateRestaurantSettingsService {
       restaurantData.zipCode = establishmentAddress.zipCode;
     }
 
-    if (Object.keys(restaurantData).length > 0) {
-      await prisma.restaurant.update({
-        where: {
-          id: Number(restaurantId),
-        },
-        data: restaurantData,
-      });
-    }
+    const { createdSettings: created, deliverySettings } = await prisma.$transaction(
+      async (tx) => {
+        const createdSettings = await restaurantSettingsRepository.create(settingsCreateData, tx);
+        if (Object.keys(restaurantData).length > 0) {
+          await tx.restaurant.update({
+            where: {
+              id: Number(restaurantId),
+            },
+            data: restaurantData,
+          });
+        }
+        const deliverySettings = await updateDeliveryFeeSettingsService.execute(
+          {
+            restaurantId,
+            deliveryFeeMode,
+            deliveryFeeRanges,
+          },
+          tx,
+        );
+        return { createdSettings, deliverySettings };
+      },
+    );
 
     return {
       ...created,
+      ...(deliverySettings ?? {}),
       mercadoPagoAccessToken: null,
       mercadoPagoRefreshToken: null,
       picpayToken: null,

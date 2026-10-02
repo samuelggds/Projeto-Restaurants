@@ -79,6 +79,7 @@ export type AdminOrder = {
   payOnDelivery?: boolean;
   payOnDeliveryMethod?: string;
   createdAt?: string;
+  paidAt?: string;
   capacityQueuedAt?: string;
   capacityAdmittedAt?: string;
   refundStatus?: 'NOT_REQUESTED' | 'PROCESSING' | 'SUCCEEDED' | 'FAILED';

@@ -12,6 +12,7 @@ import { resolveOrderRestaurantId } from '../utils/orderTenant.js';
 import bcrypt from 'bcrypt';
 import { generateStrongRandomPassword } from '../../auth/security/passwordPolicy.js';
 import { setTenantDbContext } from '../../../database/tenantDbContext.js';
+import { safeErrorSummary } from '../../../services/telemetrySanitizer.js';
 
 type OrderItemInput = z.infer<typeof createOrderSchema>['items'][number];
 
@@ -438,10 +439,9 @@ class CreateOrderService {
         total: createdOrder?.total,
         paymentMethod: normalizedPaymentMethod,
       }).catch((error: unknown) => {
-        console.error(
-          '[CUSTOMER_NOTIFICATION_UNHANDLED]',
-          error instanceof Error ? error.message : String(error),
-        );
+        console.error('[CUSTOMER_NOTIFICATION_UNHANDLED]', {
+          error: safeErrorSummary(error),
+        });
       });
     }
 

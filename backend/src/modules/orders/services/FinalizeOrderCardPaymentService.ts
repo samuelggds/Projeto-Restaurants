@@ -8,6 +8,7 @@ import {
   emitTableSessionOrderEvent,
   emitWaiterTableOrderEvent,
 } from '../utils/waiterOrderRealtime.js';
+import { safeErrorSummary } from '../../../services/telemetrySanitizer.js';
 import {
   isOrderCapacityQueued,
   queueDigitalOrderBeforePaymentConfirmation,

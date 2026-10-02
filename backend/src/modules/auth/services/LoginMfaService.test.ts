@@ -126,10 +126,11 @@ function installPrismaMocks() {
   };
 }
 
-test('deve exigir 2FA para administrador somente quando a conta habilitou MFA', async () => {
+test('deve exigir 2FA para administrador quando a role é obrigatória', async () => {
   installPrismaMocks();
   process.env.JWT_SECRET = 'test_jwt_secret_with_minimum_32_chars_123456';
   process.env.JWT_MFA_SECRET = 'test_mfa_secret_with_minimum_32_chars_123456';
+  process.env.MFA_REQUIRED_ROLES = 'ADMIN,SUPER_ADMIN';
 
   const result = await loginMfaService.beginIfRequired({
     id: 10,
@@ -139,7 +140,7 @@ test('deve exigir 2FA para administrador somente quando a conta habilitou MFA', 
     name: 'Admin',
     active: true,
     mustChangePassword: false,
-    mfaEnabled: true,
+    mfaEnabled: false,
   });
 
   assert.equal(result.mfaRequired, true);
@@ -166,19 +167,23 @@ test('deve ignorar 2FA para role nao configurada', async () => {
 });
 
 for (const role of ['ADMIN', 'SUPER_ADMIN']) {
-  test(`${role} não exige MFA quando a preferência está desativada`, async () => {
+  test(`${role} exige MFA quando a role é obrigatória mesmo com preferência desativada`, async () => {
     installPrismaMocks();
+    process.env.MFA_REQUIRED_ROLES = 'ADMIN,SUPER_ADMIN';
+    process.env.JWT_SECRET = 'test_jwt_secret_with_minimum_32_chars_123456';
+    process.env.JWT_MFA_SECRET = 'test_mfa_secret_with_minimum_32_chars_123456';
+
     const result = await loginMfaService.beginIfRequired({
       id: 10,
       role,
-      restaurantId: 1,
+      restaurantId: role === 'SUPER_ADMIN' ? null : 1,
       email: 'admin@example.test',
       name: 'Admin',
       active: true,
       mustChangePassword: false,
       mfaEnabled: false,
     });
-    assert.equal(result, null);
+    assert.equal(result.mfaRequired, true);
   });
 }
 

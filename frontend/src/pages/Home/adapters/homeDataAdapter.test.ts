@@ -193,6 +193,22 @@ describe('homeDataAdapter', () => {
     });
   });
 
+
+  it('não expõe dados privados de cadastro do proprietário na Home pública', () => {
+    const data = buildHomeData([], {
+      ownerEmail: 'dono@privado.test',
+      ownerPhone: '85999990000',
+      pixKey: '12345678909',
+      companyLegalName: 'Restaurante Exemplo LTDA',
+      restaurant: { name: 'Restaurante Exemplo' },
+    });
+
+    expect(data.brand.email).toBe('');
+    expect(data.brand.legalName).toBe('Restaurante Exemplo LTDA');
+    expect(JSON.stringify(data)).not.toContain('dono@privado.test');
+    expect(JSON.stringify(data)).not.toContain('12345678909');
+  });
+
   it('oculta o WhatsApp quando a integração está explicitamente desativada', () => {
     const data = buildHomeData([], {
       whatsapp: '5585999990000',

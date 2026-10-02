@@ -1,3 +1,4 @@
+import { UserRole } from '@prisma/client';
 import prisma from '../../../config/prisma.js';
 import { realtimePublisher as io } from '../../../realtime/realtimePublisher.js';
 import restaurantSettingsRepository from '../../restaurantSettings/repositories/RestaurantSettingsRepository.js';
@@ -7,6 +8,11 @@ import { markCouponRedemptionUsedForOrder } from '../../orders/services/couponRe
 import paymentTerminalRepository from '../repositories/PaymentTerminalRepository.js';
 
 const MERCADO_PAGO_API = 'https://api.mercadopago.com';
+
+type DeliveryPaymentActor = {
+  userId: number;
+  role: string;
+};
 
 type MercadoPagoTerminal = {
   id?: string;
@@ -340,14 +346,75 @@ class PaymentTerminalService {
     return null;
   }
 
-  async getOrderDeliveryPayment(orderId: number, restaurantId: number, courierId?: number | null) {
+  private async assertDeliveryPaymentActor(
+    orderId: number,
+    restaurantId: number,
+    actor: DeliveryPaymentActor,
+  ) {
+    const role = String(actor.role || '').toUpperCase();
+    if (role !== UserRole.ADMIN && role !== UserRole.MOTOQUEIRO) {
+      throw new Error('Seu perfil não pode consultar ou reconciliar pagamentos da entrega.');
+    }
+
+    const activeAccount = await prisma.user.findFirst({
+      where: {
+        id: Number(actor.userId),
+        restaurantId,
+        role: role as UserRole,
+        active: true,
+      },
+      select: { id: true },
+    });
+    if (!activeAccount) {
+      throw new Error('Conta ativa não autorizada para pagamentos deste restaurante.');
+    }
+
     const order = await orderRepository.findById(orderId, restaurantId);
     if (!order) throw new Error('Pedido não encontrado.');
-    if (courierId && order.assignedCourierId && Number(order.assignedCourierId) !== courierId) {
+    if (
+      role === UserRole.MOTOQUEIRO &&
+      Number(order.assignedCourierId || 0) !== Number(actor.userId)
+    ) {
       throw new Error('Esta entrega não está atribuída a você.');
     }
+    return order;
+  }
+
+  private async getOrderDeliveryPaymentInternal(orderId: number, restaurantId: number) {
     const payment = await paymentTerminalRepository.findDeliveryPayment(orderId, restaurantId);
     return publicDeliveryPayment(payment);
+  }
+
+  async getOrderDeliveryPaymentForActor(
+    orderId: number,
+    restaurantId: number,
+    actor: DeliveryPaymentActor,
+  ) {
+    await this.assertDeliveryPaymentActor(orderId, restaurantId, actor);
+    return this.getOrderDeliveryPaymentInternal(orderId, restaurantId);
+  }
+
+  async reconcilePixForActor(
+    orderId: number,
+    restaurantId: number,
+    actor: DeliveryPaymentActor,
+  ) {
+    await this.assertDeliveryPaymentActor(orderId, restaurantId, actor);
+    return this.reconcilePix(orderId, restaurantId);
+  }
+
+  async reconcilePointOrderForActor(
+    orderId: number,
+    restaurantId: number,
+    actor: DeliveryPaymentActor,
+  ) {
+    await this.assertDeliveryPaymentActor(orderId, restaurantId, actor);
+    const localPayment = await paymentTerminalRepository.findDeliveryPayment(orderId, restaurantId);
+    if (!localPayment?.providerOrderId) {
+      throw new Error('Cobrança da maquininha ainda não foi criada.');
+    }
+    await this.reconcilePointOrder(String(localPayment.providerOrderId), restaurantId);
+    return this.getOrderDeliveryPaymentInternal(orderId, restaurantId);
   }
 
   async confirmCanonicalPayment(input: {
@@ -411,7 +478,7 @@ class PaymentTerminalService {
       providerPaymentId: String(payment.providerPaymentId),
       providerStatus: String(status.status || 'paid'),
     });
-    return this.getOrderDeliveryPayment(orderId, restaurantId);
+    return this.getOrderDeliveryPaymentInternal(orderId, restaurantId);
   }
 
   async reconcilePointOrder(providerOrderId: string, restaurantId: number) {
@@ -461,7 +528,7 @@ class PaymentTerminalService {
       providerPaymentId: transaction?.id || null,
       providerStatus: String(providerOrder.status || 'processed'),
     });
-    return this.getOrderDeliveryPayment(payment.orderId, restaurantId);
+    return this.getOrderDeliveryPaymentInternal(payment.orderId, restaurantId);
   }
 }
 

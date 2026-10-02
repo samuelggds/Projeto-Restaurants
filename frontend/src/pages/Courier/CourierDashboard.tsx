@@ -219,18 +219,8 @@ export default function CourierDashboard() {
       }, 0);
     }
 
-    function onStatusChanged(updatedOrder) {
-      setOrders((prev) => {
-        const exists = prev.find((o) => o.id === updatedOrder.id);
-        if (!exists) {
-          if (String(updatedOrder.type || '').toUpperCase() !== 'DELIVERY') return prev;
-          return [updatedOrder, ...prev];
-        }
-        return prev.map((o) => (o.id === updatedOrder.id ? updatedOrder : o));
-      });
-      if (updatedOrder.status === 'ENTREGUE') {
-        setDeliveredCount((n) => n + 1);
-      }
+    function onStatusChanged() {
+      setRefreshKey((current) => current + 1);
     }
 
     socket.on('order:status-changed', onStatusChanged);

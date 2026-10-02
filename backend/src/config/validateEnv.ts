@@ -3,6 +3,7 @@ import { validateDistributedConfig } from '../runtime/distributedConfig.js';
 import { mercadoPagoWebhookSecrets } from '../modules/payments/providers/mercadoPagoWebhookSignature.js';
 import { validateConfiguredOAuthEndpoints } from '../modules/restaurantSettings/security/oauthEndpoints.js';
 import { collectSuperAdminBootstrapConfigErrors } from '../modules/superAdmin/security/superAdminBootstrapConfig.js';
+import { getRequiredMfaRoles } from '../modules/auth/security/mfaPolicy.js';
 
 function asNumber(value: string, fallback: number) {
   const parsed = Number(value);
@@ -177,10 +178,21 @@ export function validateCriticalEnv() {
   if (!Number.isSafeInteger(rateLimitMax) || rateLimitMax <= 0) {
     errors.push('RATE_LIMIT_MAX_REQUESTS deve ser um inteiro maior que zero.');
   }
+  let configuredMercadoPagoWebhookSecrets: string[] = [];
   try {
-    mercadoPagoWebhookSecrets();
+    configuredMercadoPagoWebhookSecrets = mercadoPagoWebhookSecrets();
   } catch {
     errors.push('MP_WEBHOOK_SECRETS deve ser uma lista JSON de até 20 segredos não vazios.');
+  }
+  if (configuredMercadoPagoWebhookSecrets.length === 0) {
+    errors.push('MP_WEBHOOK_SECRET ou MP_WEBHOOK_SECRETS e obrigatorio em producao.');
+  }
+
+  const platformMercadoPagoToken = String(process.env.PLATFORM_MP_ACCESS_TOKEN || '').trim();
+  if (!platformMercadoPagoToken) {
+    errors.push('PLATFORM_MP_ACCESS_TOKEN e obrigatorio em producao para cobrar mensalidades.');
+  } else if (isPlaceholder(platformMercadoPagoToken)) {
+    errors.push('PLATFORM_MP_ACCESS_TOKEN nao pode usar um valor placeholder em producao.');
   }
 
   const efiOpenFinanceEnabled =
@@ -281,6 +293,17 @@ export function validateCriticalEnv() {
     errors.push('LOGIN_LOCKOUT_BASE_SECONDS deve ser >= 30 em producao.');
   }
 
+  const requiredMfaRoles = getRequiredMfaRoles(process.env);
+  for (const requiredRole of ['ADMIN', 'SUPER_ADMIN']) {
+    if (!requiredMfaRoles.has(requiredRole)) {
+      errors.push(`MFA_REQUIRED_ROLES deve incluir ${requiredRole} em producao.`);
+    }
+  }
+
+  if (!String(process.env.SMTP_HOST || '').trim()) {
+    errors.push('SMTP_HOST e obrigatoria em producao para MFA administrativo.');
+  }
+
   const jwtMfaSecret = String(process.env.JWT_MFA_SECRET || jwtSecret).trim();
   {
 
@@ -321,6 +344,11 @@ export function validateCriticalEnv() {
         requireValue('SMTP_PASS', errors);
       }
     }
+  }
+
+  const alertRecipient = String(process.env.ALERT_EMAIL_TO || '').trim();
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/u.test(alertRecipient)) {
+    errors.push('ALERT_EMAIL_TO deve conter um e-mail valido para alertas operacionais.');
   }
 
   const salesContactRecipient = String(

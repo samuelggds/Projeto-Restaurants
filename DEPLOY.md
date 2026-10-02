@@ -120,6 +120,22 @@ Use a política de baixo custo de manutenção descrita em [TESTING.md](./TESTIN
 - Rotacione imediatamente qualquer segredo exposto.
 - Revise a retenção de GPS em `DELIVERY_LOCATION_RETENTION_DAYS`.
 
+### Backup externo e restore drill
+
+O backup de produção deve ficar fora do servidor, criptografado antes do upload e com versionamento/bloqueio público no bucket. O script `scripts/backup-production.sh` faz dump em streaming, cifra com `age`, envia para S3 com SSE-KMS e confere o checksum remoto antes de registrar sucesso.
+
+Execute o teste de restauração sem tocar no banco de produção:
+
+```bash
+export BACKUP_BUCKET='seu-bucket-privado'
+export BACKUP_BUCKET_OWNER='123456789012'
+export BACKUP_KEY='gastronexa/database/AAAA/MM/DD/arquivo.dump.age'
+export BACKUP_AGE_IDENTITY_FILE='/caminho/privado/para/identity.agekey'
+bash scripts/restore-drill-production.sh
+```
+
+A chave privada `age` deve permanecer fora do repositório e fora do servidor de aplicação quando não estiver sendo usada para recuperação. O restore drill cria um PostgreSQL temporário isolado, valida checksum, restaura o dump, confirma histórico de migrations e tabelas públicas e remove o ambiente temporário ao finalizar. Faça o drill periodicamente e depois de mudanças relevantes no processo de backup.
+
 ## 8. Pagamentos e OAuth
 
 - Use credenciais de produção e URLs de webhook em `https://API_DOMAIN/...`.

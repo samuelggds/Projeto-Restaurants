@@ -1,5 +1,6 @@
 import prisma from '../config/prisma.js';
 import { issueGuestOrderTrackingToken } from '../modules/orders/utils/guestOrderTrackingToken.js';
+import { safeErrorSummary } from './telemetrySanitizer.js';
 
 type CustomerOrderLinkInput = {
   restaurantId?: number | string | null;
@@ -125,7 +126,7 @@ export async function resolveCustomerOrderLinks({
     console.error('[CUSTOMER_ORDER_LINK_ERROR]', {
       restaurantId: normalizedRestaurantId,
       orderId: normalizedOrderId,
-      message: error instanceof Error ? error.message : String(error),
+      error: safeErrorSummary(error),
     });
     return storeUrl ? { storeUrl } : {};
   }

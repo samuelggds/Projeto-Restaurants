@@ -83,7 +83,7 @@ export function AdminCustomers({ orders, money }: AdminCustomersProps) {
           </span>
           <h2 id="customers-hero-title">
             {customerCount
-              ? 'Conheça quem movimenta seu restaurante'
+              ? 'Conheça quem compra no seu restaurante'
               : 'Sua base de clientes começa no primeiro pedido'}
           </h2>
           <p>
@@ -148,9 +148,9 @@ export function AdminCustomers({ orders, money }: AdminCustomersProps) {
             <WalletCards />
           </span>
           <span className="metric-copy">
-            <small>Valor movimentado</small>
+            <small>Valor em pedidos</small>
             <strong>{money(totalMoved)}</strong>
-            <em>Total dos pedidos registrados</em>
+            <em>Total dos pedidos válidos</em>
           </span>
         </S.PeopleMetric>
       </S.PeopleMetrics>
@@ -168,7 +168,7 @@ export function AdminCustomers({ orders, money }: AdminCustomersProps) {
           </div>
         </S.DirectoryHeader>
         <S.DirectoryDescription>
-          Busque por nome ou e-mail e compare rapidamente pedidos e valores movimentados.
+          Busque por nome ou e-mail e compare rapidamente pedidos e valores em pedidos.
         </S.DirectoryDescription>
 
         <S.DirectoryToolbar className="customers-toolbar">
@@ -226,7 +226,7 @@ export function AdminCustomers({ orders, money }: AdminCustomersProps) {
                   <strong>{customer.count}</strong>
                 </span>
                 <span className="customer-stat">
-                  <small>Valor movimentado</small>
+                  <small>Valor em pedidos</small>
                   <strong>{money(customer.total)}</strong>
                 </span>
               </S.CustomerRow>

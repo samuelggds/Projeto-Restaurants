@@ -543,8 +543,8 @@ export function socketHandler(socket: AppSocket) {
         return;
       }
     } catch (error) {
-      console.error('Erro ao salvar relato no chat de suporte:', {
-        error,
+      console.error('[SUPPORT_CHAT_SAVE_FAILED]', {
+        errorType: safeErrorName(error),
         restaurantId: targetRestaurantId,
         senderRole: senderRoleValue,
         isEmployeeIssue: Boolean(employeeIssueReporterName),

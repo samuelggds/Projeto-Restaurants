@@ -6,6 +6,7 @@ import {
   retryOrderTransaction,
   type OrderCreationContext,
 } from './orderCreationRequest.js';
+import { safeErrorSummary } from '../../../services/telemetrySanitizer.js';
 import orderRepository from '../repositories/OrderRepository.js';
 import orderCapacityQueueService from './OrderCapacityQueueService.js';
 import { realtimePublisher as io } from '../../../realtime/realtimePublisher.js';
@@ -933,10 +934,9 @@ class CreateOrderService {
         total: createdOrder?.total,
         paymentMethod: normalizedPaymentMethod,
       }).catch((error: unknown) => {
-        console.error(
-          '[CUSTOMER_NOTIFICATION_UNHANDLED]',
-          error instanceof Error ? error.message : String(error),
-        );
+        console.error('[CUSTOMER_NOTIFICATION_UNHANDLED]', {
+          error: safeErrorSummary(error),
+        });
       });
     }
     if (queuedForCapacity && !shouldDeferRealtimeUntilPaid) {

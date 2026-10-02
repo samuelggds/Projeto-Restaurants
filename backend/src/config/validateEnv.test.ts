@@ -21,6 +21,8 @@ function setValidProductionEnv() {
     JWT_MFA_SECRET: 'mfa_secret_with_at_least_32_characters_123',
     PAYMENT_PIN_SECRET: 'pin_secret_with_at_least_32_characters_123',
     MFA_REQUIRED_ROLES: 'ADMIN,SUPER_ADMIN',
+    PLATFORM_MP_ACCESS_TOKEN: 'APP_USR_test_platform_token_2026',
+    MP_WEBHOOK_SECRET: 'test-webhook-secret-at-least-strong',
     IMAGE_ENHANCEMENT_RATE_LIMIT_WINDOW_MS: '900000',
     IMAGE_ENHANCEMENT_RATE_LIMIT_MAX_REQUESTS: '5',
     INGREDIENT_IMAGE_SEARCH_RATE_LIMIT_WINDOW_MS: '900000',
@@ -32,6 +34,7 @@ function setValidProductionEnv() {
     SMTP_USER: 'mailer@example.com',
     SMTP_PASS: 'smtp-app-password',
     SALES_CONTACT_NOTIFICATION_EMAIL: 'sales@example.com',
+    ALERT_EMAIL_TO: 'alerts@example.com',
     ALLOW_LEGACY_ACCESS_TOKENS: 'false',
     ALLOW_LOCAL_AUTH_CODE_LOGGING: 'false',
     ALLOW_UNTRUSTED_OAUTH_ENDPOINTS: 'false',
@@ -217,19 +220,33 @@ test('permite HTTP apenas em loopback para a execução local', () => {
   assert.doesNotThrow(() => validateCriticalEnv());
 });
 
-test('aceita MFA opcional sem papéis obrigatórios em produção', () => {
+test('exige ADMIN e SUPER_ADMIN na política de MFA em produção', () => {
   process.env.MFA_REQUIRED_ROLES = '';
-  assert.doesNotThrow(() => validateCriticalEnv());
+  assert.throws(
+    () => validateCriticalEnv(),
+    /MFA_REQUIRED_ROLES deve incluir ADMIN.*MFA_REQUIRED_ROLES deve incluir SUPER_ADMIN/su,
+  );
 
+  setValidProductionEnv();
+  process.env.MFA_REQUIRED_ROLES = 'ADMIN';
+  assert.throws(
+    () => validateCriticalEnv(),
+    /MFA_REQUIRED_ROLES deve incluir SUPER_ADMIN/u,
+  );
+
+  setValidProductionEnv();
   process.env.MFA_REQUIRED_ROLES = 'ADMIN,SUPER_ADMIN';
   assert.doesNotThrow(() => validateCriticalEnv());
 });
 
-test('SMTP é opcional, mas quando configurado precisa ser utilizável', () => {
+test('SMTP é obrigatório e precisa ser utilizável para MFA administrativo', () => {
   delete process.env.SMTP_HOST;
   delete process.env.SMTP_PASS;
 
-  assert.doesNotThrow(() => validateCriticalEnv());
+  assert.throws(
+    () => validateCriticalEnv(),
+    /SMTP_HOST e obrigatoria em producao para MFA administrativo/u,
+  );
 
   setValidProductionEnv();
   delete process.env.SMTP_PASS;
@@ -338,3 +355,34 @@ test('impõe limite seguro para busca e segredo forte quando configurado', () =>
   );
 });
 
+
+
+test('exige credencial da plataforma e segredo de webhook Mercado Pago em produção', () => {
+  delete process.env.PLATFORM_MP_ACCESS_TOKEN;
+  delete process.env.MP_WEBHOOK_SECRET;
+  process.env.MP_WEBHOOK_SECRETS = '[]';
+
+  assert.throws(
+    () => validateCriticalEnv(),
+    /MP_WEBHOOK_SECRET ou MP_WEBHOOK_SECRETS e obrigatorio.*PLATFORM_MP_ACCESS_TOKEN e obrigatorio/su,
+  );
+});
+
+test('rejeita placeholder no token Mercado Pago da plataforma', () => {
+  process.env.PLATFORM_MP_ACCESS_TOKEN = 'change_me_platform_token_1234567890';
+
+  assert.throws(
+    () => validateCriticalEnv(),
+    /PLATFORM_MP_ACCESS_TOKEN nao pode usar um valor placeholder/u,
+  );
+});
+
+
+test('exige destinatário de alertas operacionais em produção', () => {
+  delete process.env.ALERT_EMAIL_TO;
+
+  assert.throws(
+    () => validateCriticalEnv(),
+    /ALERT_EMAIL_TO deve conter um e-mail valido para alertas operacionais/u,
+  );
+});

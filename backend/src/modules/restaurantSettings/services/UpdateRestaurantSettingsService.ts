@@ -3,6 +3,7 @@ import type { Prisma } from '@prisma/client';
 import restaurantSettingsRepository from '../repositories/RestaurantSettingsRepository.js';
 import prisma from '../../../config/prisma.js';
 import orderCapacityQueueService from '../../orders/services/OrderCapacityQueueService.js';
+import updateDeliveryFeeSettingsService from './UpdateDeliveryFeeSettingsService.js';
 import { normalizeRestaurantImage } from '../utils/normalizeRestaurantImage.js';
 import {
   normalizeEstablishmentAddress,
@@ -24,6 +25,13 @@ import {
 type UpdateRestaurantSettingsPayload = {
   restaurantId: number | string;
   deliveryFee?: number;
+  deliveryFeeMode?: 'FIXED' | 'DISTANCE' | string;
+  deliveryFeeRanges?: Array<{
+    id?: number;
+    maxDistanceKm?: number;
+    fee?: number;
+    active?: boolean;
+  }>;
   courierFeePerDelivery?: number;
   minimumOrder?: number;
   freeShippingMinimum?: number | null;
@@ -163,6 +171,8 @@ class UpdateRestaurantSettingsService {
   async execute({
     restaurantId,
     deliveryFee,
+    deliveryFeeMode,
+    deliveryFeeRanges,
     courierFeePerDelivery,
     minimumOrder,
     freeShippingMinimum,
@@ -291,14 +301,12 @@ class UpdateRestaurantSettingsService {
       cardGateway === undefined ? undefined : String(cardGateway || '').trim() || null;
     const normalizedGatewayMerchantId =
       gatewayMerchantId === undefined ? undefined : String(gatewayMerchantId || '').trim() || null;
-    // Empty secret inputs mean "keep the saved credential". A different
-    // manual token must never retain the OAuth grant of the previous account.
-    const normalizedMercadoPagoAccessToken =
-      String(mercadoPagoAccessToken || '').trim() || undefined;
-    const replacedMercadoPagoToken = Boolean(
-      normalizedMercadoPagoAccessToken &&
-      normalizedMercadoPagoAccessToken !== String(settings.mercadoPagoAccessToken || '').trim(),
-    );
+    const requestedMercadoPagoAccessToken = String(mercadoPagoAccessToken || '').trim();
+    if (requestedMercadoPagoAccessToken) {
+      throw new Error(
+        'Credenciais do Mercado Pago devem ser conectadas pelo fluxo OAuth em Configurações > Pagamentos.',
+      );
+    }
     const normalizedPagarmeSecretKey =
       pagarmeSecretKey === undefined ? undefined : String(pagarmeSecretKey || '').trim() || null;
     const normalizedPagarmePublicKey =
@@ -502,7 +510,7 @@ class UpdateRestaurantSettingsService {
       throw new Error('E-mail comercial inválido.');
     }
 
-    const updated = await restaurantSettingsRepository.update(restaurantId, {
+    const settingsUpdateData: Prisma.RestaurantSettingsUpdateInput = {
       deliveryFee:
         deliveryFee === undefined
           ? undefined
@@ -589,17 +597,9 @@ class UpdateRestaurantSettingsService {
       bankHolderDocument: normalizedBankHolderDocument,
       cardGateway: normalizedCardGateway,
       gatewayMerchantId: resolvedGatewayMerchantId,
-      mercadoPagoAccessToken: normalizedMercadoPagoAccessToken,
       pagarmeSecretKey: normalizedPagarmeSecretKey,
       pagarmePublicKey: normalizedPagarmePublicKey,
       pagarmeEnvironment: normalizedPagarmeEnvironment,
-      ...(replacedMercadoPagoToken
-        ? {
-            mercadoPagoRefreshToken: null,
-            mercadoPagoTokenExpiresAt: null,
-            mercadoPagoPublicKey: null,
-          }
-        : {}),
       picpayToken: normalizedPicPayToken,
       asaasAccessToken: normalizedAsaasAccessToken,
       ownerDocumentFileUrl:
@@ -655,7 +655,7 @@ class UpdateRestaurantSettingsService {
       trackingRequiresLogin: normalizedTrackingRequiresLogin,
       soundNotifications: normalizedSoundNotifications,
       maxConcurrentOrders: normalizedMaxConcurrentOrders,
-    });
+    };
 
     const restaurantData: Prisma.RestaurantUpdateInput = {};
 
@@ -687,14 +687,32 @@ class UpdateRestaurantSettingsService {
       restaurantData.zipCode = establishmentAddress.zipCode;
     }
 
-    if (Object.keys(restaurantData).length > 0) {
-      await prisma.restaurant.update({
-        where: {
-          id: Number(restaurantId),
-        },
-        data: restaurantData,
-      });
-    }
+    const { updatedSettings: updated, deliverySettings } = await prisma.$transaction(
+      async (tx) => {
+        const updatedSettings = await restaurantSettingsRepository.update(
+          restaurantId,
+          settingsUpdateData,
+          tx,
+        );
+        if (Object.keys(restaurantData).length > 0) {
+          await tx.restaurant.update({
+            where: {
+              id: Number(restaurantId),
+            },
+            data: restaurantData,
+          });
+        }
+        const deliverySettings = await updateDeliveryFeeSettingsService.execute(
+          {
+            restaurantId,
+            deliveryFeeMode,
+            deliveryFeeRanges,
+          },
+          tx,
+        );
+        return { updatedSettings, deliverySettings };
+      },
+    );
 
     if (normalizedMaxConcurrentOrders !== undefined) {
       await orderCapacityQueueService.drainAfterCapacityChange(Number(restaurantId));
@@ -702,6 +720,7 @@ class UpdateRestaurantSettingsService {
 
     return {
       ...updated,
+      ...(deliverySettings ?? {}),
       mercadoPagoAccessToken: null,
       mercadoPagoRefreshToken: null,
       picpayToken: null,
