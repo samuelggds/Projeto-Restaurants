@@ -226,6 +226,44 @@ test('valida a decisão entre conta da mesa e pagamento imediato', () => {
   );
 });
 
+test('cartão da mesa exige token do provedor e rejeita dados brutos do cartão', () => {
+  const base = {
+    selectionMode: 'MY_ITEMS',
+    method: 'CARD',
+    includeOptionalServiceFee: false,
+    idempotencyKey: 'table-payment:card-request-0001',
+  };
+
+  assert.equal(createTablePaymentIntentInputSchema.safeParse(base).success, false);
+  assert.equal(
+    createTablePaymentIntentInputSchema.safeParse({
+      ...base,
+      cardPayment: {
+        cardPaymentType: 'credit',
+        cardToken: 'provider-token-secure-123',
+        cardPaymentMethodId: 'visa',
+        cardLast4: '4242',
+        holderTaxId: '12345678901',
+      },
+    }).success,
+    true,
+  );
+  assert.equal(
+    createTablePaymentIntentInputSchema.safeParse({
+      ...base,
+      cardPayment: {
+        cardPaymentType: 'credit',
+        cardToken: 'provider-token-secure-123',
+        cardPaymentMethodId: 'visa',
+        cardLast4: '4242',
+        number: '4242424242424242',
+        cvv: '123',
+      },
+    }).success,
+    false,
+  );
+});
+
 test('aceita seleção de itens segura e rejeita totais ou restaurantId do cliente', () => {
   const validInput = {
     selectionMode: 'SELECTED_ITEMS',
