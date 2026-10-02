@@ -10,7 +10,6 @@ export interface ProviderPayment {
   checkoutUrl: string | null;
   paymentCode: string | null;
   expiresAt: Date;
-  cardPayment?: TableCardPaymentPayload | null;
 }
 
 export type TableCardPaymentPayload = {
@@ -32,6 +31,7 @@ export interface CreateProviderPaymentInput {
   method: Extract<TablePaymentMethod, 'PIX' | 'CARD'>;
   idempotencyKeyHash: string;
   expiresAt: Date;
+  cardPayment?: TableCardPaymentPayload | null;
 }
 
 export interface ProviderMutationInput {
