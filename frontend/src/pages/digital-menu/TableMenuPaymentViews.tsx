@@ -7,7 +7,8 @@ import {
 } from '../Home/domain/tableAccount';
 import { OnlineCardPaymentForm, type CardPaymentPreparer } from '../Home/components/OnlineCardPaymentForm';
 import { PixMark } from '../../components/payment/PixMark';
-import { FlowHeader, formatTableNumber } from './TableMenuFlow';
+import { FlowHeader } from './TableMenuFlow';
+import { formatTableNumber } from './TableMenuFlow.domain';
 import * as S from './TableMenuExperience.styles';
 
 const centsToBrl = (value: number) =>
