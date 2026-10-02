@@ -37,13 +37,13 @@ import { ReadyProductDetail } from '../Home/components/ReadyProductDetail';
 import { QuantityStepper } from '../../components/QuantityStepper/QuantityStepper';
 import { PixMark } from '../../components/payment/PixMark';
 import { TableMenuHome } from './TableMenuHome';
+import { FlowHeader } from './TableMenuFlow';
 import {
-  FlowHeader,
   confirmationSteps,
   formatTableNumber,
   trackingHeadline,
   trackingSteps,
-} from './TableMenuFlow';
+} from './TableMenuFlow.domain';
 import { TableCardPaymentView, TablePaymentChoiceView } from './TableMenuPaymentViews';
 import * as S from './TableMenuExperience.styles';
 
