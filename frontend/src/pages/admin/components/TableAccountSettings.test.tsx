@@ -134,13 +134,15 @@ describe('TableAccountSettings', () => {
     await renderAndOpenPayments();
 
     const openConfirmation = [...container.querySelectorAll('button')].find(
-      (button) => button.textContent?.trim() === 'Confirmar recebimento',
+      (button) => button.textContent?.trim() === 'Confirmar como pago',
     ) as HTMLButtonElement;
     await act(async () => openConfirmation.click());
 
     let dialog = container.querySelector('[role="dialog"]') as HTMLElement;
+    expect(dialog.textContent).toContain('Confirmar pagamento em dinheiro?');
     expect(dialog.textContent).toContain('Mesa 01');
-    expect(dialog.textContent?.replace(/\u00a0/g, ' ')).toContain('R$ 50,00 em dinheiro');
+    expect(dialog.textContent?.replace(/\u00a0/g, ' ')).toContain('R$ 50,00');
+    expect(dialog.textContent).toContain('Ao confirmar como admin, este pagamento passa para PAGO.');
     await act(async () => {
       (dialog.querySelector('.cancel') as HTMLButtonElement).click();
       await Promise.resolve();
