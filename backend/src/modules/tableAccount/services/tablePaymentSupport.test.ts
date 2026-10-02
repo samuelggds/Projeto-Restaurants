@@ -38,6 +38,35 @@ test('fingerprint é estável para a mesma seleção e preso ao participante', (
   assert.notEqual(first, anotherParticipant);
 });
 
+test('fingerprint do backend ignora token efêmero do cartão', () => {
+  const first = buildTablePaymentRequestFingerprint(10, {
+    ...basePayment,
+    method: 'CARD',
+    cardPayment: {
+      cardPaymentType: 'credit',
+      cardToken: 'provider-token-a',
+      cardPaymentMethodId: 'visa',
+      cardBrand: 'visa',
+      cardLast4: '4242',
+      mercadoPagoDeviceId: 'device-a',
+    },
+  });
+  const retried = buildTablePaymentRequestFingerprint(10, {
+    ...basePayment,
+    method: 'CARD',
+    cardPayment: {
+      cardPaymentType: 'credit',
+      cardToken: 'provider-token-b',
+      cardPaymentMethodId: 'visa',
+      cardBrand: 'visa',
+      cardLast4: '4242',
+      mercadoPagoDeviceId: 'device-b',
+    },
+  });
+
+  assert.equal(retried, first);
+});
+
 test('histórico administrativo expõe auditoria útil sem devolver metadados arbitrários', () => {
   const now = new Date('2026-08-26T14:00:00.000Z');
   const result = serializeTablePaymentIntentForAdmin(
