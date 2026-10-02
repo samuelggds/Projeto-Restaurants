@@ -1,14 +1,29 @@
 // @ts-nocheck
 import assert from 'node:assert/strict';
-import test, { afterEach } from 'node:test';
+import test, { afterEach, beforeEach } from 'node:test';
+import prisma from '../../../config/prisma.js';
 import restaurantSettingsRepository from '../repositories/RestaurantSettingsRepository.js';
 import service from './UpdateRestaurantSettingsService.js';
 
 const originalRead = restaurantSettingsRepository.findByRestaurantId;
 const originalUpdate = restaurantSettingsRepository.update;
+const originalTransaction = prisma.$transaction;
+const originalRestaurantUpdate = prisma.restaurant.update;
+
+beforeEach(() => {
+  prisma.$transaction = async (callback) =>
+    callback({
+      restaurant: {
+        update: (...args) => prisma.restaurant.update(...args),
+      },
+    });
+});
+
 afterEach(() => {
   restaurantSettingsRepository.findByRestaurantId = originalRead;
   restaurantSettingsRepository.update = originalUpdate;
+  prisma.$transaction = originalTransaction;
+  prisma.restaurant.update = originalRestaurantUpdate;
 });
 
 const savedCredentials = () => ({
