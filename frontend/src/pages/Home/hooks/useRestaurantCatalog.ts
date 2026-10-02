@@ -63,6 +63,12 @@ export function useResolvedRestaurantId(slug: string) {
   return restaurantId;
 }
 
+export type CatalogProductRecord = Record<string, unknown> & {
+  id: string | number;
+  stock?: number | null;
+  active?: boolean;
+};
+
 type CatalogOptions = {
   restaurantId: number | null;
   slug: string;
@@ -70,7 +76,7 @@ type CatalogOptions = {
 };
 
 export function useRestaurantCatalog({ restaurantId, slug, onError }: CatalogOptions) {
-  const [products, setProducts] = useState<Record<string, unknown>[]>([]);
+  const [products, setProducts] = useState<CatalogProductRecord[]>([]);
   const [settings, setSettings] = useState<Record<string, unknown> | null>(null);
 
   useEffect(() => {
@@ -141,7 +147,7 @@ export function useRestaurantCatalog({ restaurantId, slug, onError }: CatalogOpt
           ? await menuService.listProductsBySlug(slug)
           : await menuService.listProducts(restaurantId);
         if (!active) return;
-        setProducts(Array.isArray(data) ? (data as Record<string, unknown>[]) : []);
+        setProducts(Array.isArray(data) ? (data as CatalogProductRecord[]) : []);
         initialized = true;
       } catch (error) {
         if (initial && !initialized && active) {
