@@ -14,6 +14,8 @@ import {
 } from '../../payments/providers/providerCatalog.js';
 import restaurantSettingsRepository from '../../restaurantSettings/repositories/RestaurantSettingsRepository.js';
 import { getMercadoPagoAccessToken } from '../../restaurantSettings/services/RestaurantPaymentCredentialsService.js';
+import { mercadoPagoCheckoutIdempotencyKey } from '../../payments/providers/mercadoPagoClient.js';
+import { tablePixExternalReference } from '../domain/tablePixExternalReference.js';
 import { paymentConnectionConfiguration } from '../../restaurantSettings/services/RestaurantPaymentReadinessService.js';
 import { getDirectTablePayment, mutateDirectTablePayment } from './tablePaymentGatewayMutation.js';
 import type {
@@ -82,6 +84,39 @@ type MercadoPagoPaymentPayload = {
 type MercadoPagoSearchPayload = {
   results?: MercadoPagoPaymentPayload[];
 };
+
+type MercadoPagoPixOrderPayload = {
+  id?: string;
+  status?: string;
+  total_amount?: string | number;
+  external_reference?: string;
+  currency?: string;
+  transactions?: {
+    payments?: Array<{
+      amount?: string | number;
+      status?: string;
+      status_detail?: string;
+      payment_method?: {
+        id?: string;
+        type?: string;
+        ticket_url?: string;
+        qr_code?: string;
+        qr_code_base64?: string;
+      };
+    }>;
+  };
+};
+
+export class PixPaymentProviderRequestError extends Error {
+  constructor(
+    message: string,
+    public readonly providerStatus: number,
+    public readonly providerCode: string,
+  ) {
+    super(message);
+    this.name = 'PixPaymentProviderRequestError';
+  }
+}
 
 function normalizeProvider(value: unknown) {
   return String(value || '')
@@ -190,7 +225,7 @@ async function readIdentity(
     name: name || 'Cliente da mesa',
     email: email.includes('@')
       ? email
-      : `guest.table.${context.restaurantId}.${context.participantId}@gastronexa.local`,
+      : `pagamentos+mesa-${context.restaurantId}-${context.participantId}@gastronexa.com.br`,
     cpf: String(user?.cpf || '').replace(/\D/g, ''),
     phone: String(user?.phone || context.participantPhone || '').replace(/\D/g, ''),
   };
@@ -201,33 +236,87 @@ async function createPix(
   input: CreateProviderPaymentInput,
 ): Promise<ProviderPayment> {
   const identity = await readIdentity(context);
-  const result = await orderPixPaymentService.createPixPayment({
-    restaurantId: context.restaurantId,
-    type: 'MESA',
-    paymentMethod: 'PIX',
-    items: [],
-    customerName: identity.name,
-    customerCpf: identity.cpf,
-    customerPhone: identity.phone,
-    userEmail: identity.email,
-    orderId: context.intentId,
-    orderTotal: centsToMajor(input.amountCents),
-    orderSubtotal: centsToMajor(input.amountCents),
-    orderDeliveryFee: 0,
-    expiresAt: input.expiresAt,
-    idempotencyKey: input.idempotencyKeyHash,
+  const accessToken = await getMercadoPagoAccessToken(context.restaurantId);
+  const amount = centsToMajor(input.amountCents).toFixed(2);
+  const externalReference = tablePixExternalReference(context.intentId, context.restaurantId);
+  const idempotencyKey = mercadoPagoCheckoutIdempotencyKey(input.idempotencyKeyHash);
+
+  const response = await fetch('https://api.mercadopago.com/v1/orders', {
+    method: 'POST',
+    redirect: 'error',
+    signal: AbortSignal.timeout(20_000),
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      Accept: 'application/json',
+      'Content-Type': 'application/json',
+      'X-Idempotency-Key': idempotencyKey,
+    },
+    body: JSON.stringify({
+      type: 'online',
+      processing_mode: 'automatic',
+      total_amount: amount,
+      external_reference: externalReference,
+      payer: {
+        email: identity.email,
+        first_name: identity.name || 'Cliente',
+      },
+      transactions: {
+        payments: [
+          {
+            amount,
+            payment_method: {
+              id: 'pix',
+              type: 'bank_transfer',
+            },
+            expiration_time: 'PT30M',
+          },
+        ],
+      },
+    }),
   });
 
-  if (!String(result.paymentId || '').trim() || !String(result.qrCode || '').trim()) {
-    throw new Error('O provedor não retornou um QR Code Pix válido.');
+  const body = (await response.json().catch(() => ({}))) as MercadoPagoPixOrderPayload & {
+    code?: unknown;
+    error?: unknown;
+    message?: unknown;
+  };
+
+  if (!response.ok) {
+    const providerCode = String(body.code || body.error || 'mercado_pago_pix_request_error')
+      .trim()
+      .slice(0, 120);
+    if (response.status >= 400 && response.status < 500) {
+      throw new PixPaymentProviderRequestError(
+        'O Mercado Pago recusou a criação do Pix da mesa.',
+        response.status,
+        providerCode,
+      );
+    }
+    throw new Error('Falha temporária ao gerar o Pix da mesa no Mercado Pago.');
+  }
+
+  const providerOrderId = String(body.id || '').trim();
+  const payment = Array.isArray(body.transactions?.payments)
+    ? body.transactions?.payments?.[0]
+    : null;
+  const qrCode = String(payment?.payment_method?.qr_code || '').trim();
+
+  if (
+    !providerOrderId ||
+    !qrCode ||
+    String(body.external_reference || '').trim() !== externalReference ||
+    String(body.currency || 'BRL').toUpperCase() !== 'BRL' ||
+    !matchesAmount(body.total_amount, input.amountCents)
+  ) {
+    throw new Error('O Mercado Pago retornou uma order Pix incompleta ou divergente.');
   }
 
   return {
-    externalId: String(result.paymentId),
-    status: providerStatus(result.status),
+    externalId: `mp_order:${providerOrderId}`,
+    status: providerStatus(payment?.status || body.status),
     amountCents: input.amountCents,
-    checkoutUrl: null,
-    paymentCode: String(result.qrCode),
+    checkoutUrl: String(payment?.payment_method?.ticket_url || '').trim() || null,
+    paymentCode: qrCode,
     expiresAt: input.expiresAt,
   };
 }
