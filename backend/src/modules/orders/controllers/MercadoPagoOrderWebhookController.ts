@@ -171,7 +171,9 @@ class MercadoPagoOrderWebhookController {
         return handleOrdersApiWebhook(paymentId, res);
       }
 
-      const allowGlobalFallback = (process.env.NODE_ENV !== 'production' && process.env.ALLOW_GLOBAL_PAYMENT_FALLBACK === 'true');
+      const allowGlobalFallback =
+    process.env.NODE_ENV !== 'production' &&
+    process.env.ALLOW_GLOBAL_PAYMENT_FALLBACK === 'true';
       const hintedRestaurantId = Number(req.query?.restaurantId || req.body?.restaurantId || 0);
 
       if (
