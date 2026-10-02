@@ -319,58 +319,6 @@ function DeliveryTrackingContent({ id }: { id?: string }) {
           </S.State>
         ) : data ? (
           <>
-            <S.HeadingRow>
-              <div>
-                <S.Eyebrow>
-                  {isTerminal
-                    ? 'Último status da entrega'
-                    : isInDeliveryWithoutLocation
-                      ? 'Pedido em deslocamento'
-                      : 'Trajeto em tempo real'}
-                </S.Eyebrow>
-                <h1>
-                  {isDelivered
-                    ? 'Entrega finalizada'
-                    : isCancelled
-                      ? 'Acompanhamento finalizado'
-                      : isInDeliveryWithoutLocation
-                        ? 'Seu pedido está a caminho'
-                        : 'Acompanhe o trajeto do pedido'}
-                </h1>
-                <p>
-                  {isInDeliveryWithoutLocation
-                    ? 'O motoqueiro já retirou o pedido. A localização em tempo real não está disponível neste momento.'
-                    : 'Veja a posição do motoqueiro, o destino e a previsão calculada para esta entrega.'}
-                </p>
-              </div>
-              <S.TrackingBar $connected={socketConnected} role="status" aria-live="polite">
-                <span>
-                  <i aria-hidden="true" />
-                  {isDelivered
-                    ? 'Acompanhamento concluído'
-                    : isCancelled
-                      ? 'Acompanhamento encerrado'
-                      : isInDeliveryWithoutLocation
-                        ? 'Entrega em andamento'
-                        : socketConnected
-                          ? 'Atualização em tempo real'
-                          : isGuestTracking
-                            ? 'Atualização automática ativa'
-                            : 'Reconectando · atualização automática ativa'}
-                </span>
-                <small>
-                  {refreshing
-                    ? 'Atualizando...'
-                    : lastUpdatedAt
-                      ? `Atualizado às ${lastUpdatedAt.toLocaleTimeString('pt-BR', {
-                          hour: '2-digit',
-                          minute: '2-digit',
-                          second: '2-digit',
-                        })}`
-                      : 'Aguardando atualização'}
-                </small>
-              </S.TrackingBar>
-            </S.HeadingRow>
             {warning ? <S.Warning role="alert">{warning}</S.Warning> : null}
             {activeDeliveryCode ? (
               <DeliveryConfirmationCodePrompt
@@ -397,21 +345,12 @@ function DeliveryTrackingContent({ id }: { id?: string }) {
                     $highlight={confirmationLink}
                     aria-labelledby="receipt-confirmation-title"
                   >
-                    <span className="receipt-icon" aria-hidden="true">
-                      <CheckCircle2 />
-                    </span>
+                    <span className="receipt-icon" aria-hidden="true"><CheckCircle2 /></span>
                     <div>
                       <small>{confirmationLink ? 'Confirmação solicitada pelo WhatsApp' : 'Última etapa'}</small>
                       <strong id="receipt-confirmation-title">Você recebeu seu pedido?</strong>
-                      <p>
-                        Confirme somente quando o pedido estiver com você. O restaurante será avisado
-                        imediatamente.
-                      </p>
-                      <button
-                        type="button"
-                        onClick={() => void confirmReceipt()}
-                        disabled={confirmingReceipt}
-                      >
+                      <p>Confirme somente quando o pedido estiver com você. O restaurante será avisado imediatamente.</p>
+                      <button type="button" onClick={() => void confirmReceipt()} disabled={confirmingReceipt}>
                         <CheckCircle2 aria-hidden="true" />
                         {confirmingReceipt ? 'Confirmando recebimento...' : 'Confirmar recebimento'}
                       </button>
@@ -421,13 +360,171 @@ function DeliveryTrackingContent({ id }: { id?: string }) {
                 ) : receiptConfirmed ? (
                   <S.ReceiptConfirmed role="status">
                     <CheckCircle2 aria-hidden="true" />
-                    <span>
-                      <strong>Recebimento confirmado</strong>
-                      <small>Obrigado! O restaurante já recebeu sua confirmação.</small>
-                    </span>
+                    <span><strong>Recebimento confirmado</strong><small>Obrigado! O restaurante já recebeu sua confirmação.</small></span>
                   </S.ReceiptConfirmed>
                 ) : null}
               </>
+            ) : null}
+            {isCancelled ? (
+              <S.CancelledNotice role="status">
+                <Ban aria-hidden="true" />
+                <span><strong>Entrega cancelada</strong><small>O acompanhamento foi encerrado e novas posições não serão exibidas.</small></span>
+              </S.CancelledNotice>
+            ) : null}
+
+            <S.FigmaTrackingLayout>
+              <S.TrackingMapColumn>
+                <S.DesktopTrackingTitle>Acompanhe seu Pedido</S.DesktopTrackingTitle>
+                <S.MapArea aria-label="Mapa da entrega">
+                  {data.locations.length ? (
+                    <Suspense
+                      fallback={
+                        <S.MapPlaceholder role="status" aria-busy="true">
+                          <RefreshCw className="spinning" aria-hidden="true" />
+                          <h2>Preparando o mapa...</h2>
+                        </S.MapPlaceholder>
+                      }
+                    >
+                      <DeliveryMap
+                        points={data.locations}
+                        routePath={isTerminal ? [] : data.order.routeEstimate?.routeCoordinates || []}
+                        destination={data.order.routeEstimate?.destination}
+                        label={data.order.assignedCourier?.name || 'Motoqueiro'}
+                        etaMinutes={routeMinutes}
+                        distanceMeters={data.order.routeEstimate?.distanceMeters ?? null}
+                        statusMessage={
+                          isDelivered
+                            ? 'Seu pedido foi entregue'
+                            : isCancelled
+                              ? 'Entrega cancelada'
+                              : 'Seu pedido está a caminho'
+                        }
+                        statusDetail={
+                          isDelivered
+                            ? 'Entrega concluída com sucesso.'
+                            : isCancelled
+                              ? 'O restaurante encerrou esta entrega.'
+                              : 'Acompanhe a localização do motoqueiro em tempo real.'
+                        }
+                      />
+                    </Suspense>
+                  ) : (
+                    <S.MapPlaceholder role="status">
+                      <Clock3 aria-hidden="true" />
+                      <h2>
+                        {isInDeliveryWithoutLocation
+                          ? 'Localização em tempo real indisponível'
+                          : 'Aguardando a primeira posição do motoboy'}
+                      </h2>
+                      <p>
+                        {isInDeliveryWithoutLocation
+                          ? 'Seu pedido continua a caminho. Se o motoboy ativar a localização, o mapa aparecerá automaticamente.'
+                          : 'O mapa aparecerá automaticamente quando a rota começar.'}
+                      </p>
+                    </S.MapPlaceholder>
+                  )}
+                </S.MapArea>
+              </S.TrackingMapColumn>
+
+              <S.TrackingSideColumn>
+                <S.DesktopStatusCard aria-label="Status da Entrega">
+                  <h2>Status da Entrega</h2>
+                  <S.DeliveryStatusList>
+                    {deliveryStatusSteps.slice(0, 3).map((label, index) => {
+                      const complete = deliveryStatusProgress > index;
+                      const active = deliveryStatusProgress === index;
+                      const displayLabel =
+                        index === 2 && active ? 'Saiu para entrega (Rota)' : label;
+                      return (
+                        <S.DeliveryStatusItem
+                          key={label}
+                          $active={active}
+                          $complete={complete}
+                          aria-current={active ? 'step' : undefined}
+                        >
+                          {complete ? <CheckCircle2 aria-hidden="true" /> : <CircleDot aria-hidden="true" />}
+                          <span>{displayLabel}</span>
+                        </S.DeliveryStatusItem>
+                      );
+                    })}
+                  </S.DeliveryStatusList>
+                </S.DesktopStatusCard>
+
+                <S.CourierCard>
+                  <S.CourierAvatar>
+                    {data.order.assignedCourier?.avatar ? (
+                      <img src={data.order.assignedCourier.avatar} alt="" />
+                    ) : (
+                      <Bike aria-hidden="true" />
+                    )}
+                  </S.CourierAvatar>
+                  <span>
+                    <strong>{data.order.assignedCourier?.name || 'Aguardando motoboy'}</strong>
+                    {data.order.assignedCourier?.phone ? (
+                      <a href={`tel:${data.order.assignedCourier.phone}`}>
+                        {data.order.assignedCourier.phone}
+                      </a>
+                    ) : null}
+                  </span>
+                  {data.order.assignedCourier?.phone ? (
+                    <a className="call" href={`tel:${data.order.assignedCourier.phone}`} aria-label="Ligar para o motoboy">
+                      <Phone aria-hidden="true" />
+                    </a>
+                  ) : null}
+                </S.CourierCard>
+
+                {!isCancelled && data.order.assignedCourier ? (
+                  <CustomerTrackingChatPanel
+                    orderId={data.order.id}
+                    courierName={data.order.assignedCourier.name || 'Motoqueiro'}
+                  />
+                ) : null}
+              </S.TrackingSideColumn>
+
+              <S.MobileTrackingDetails>
+                <S.CourierCard>
+                  <S.CourierAvatar>
+                    {data.order.assignedCourier?.avatar ? (
+                      <img src={data.order.assignedCourier.avatar} alt="" />
+                    ) : (
+                      <Bike aria-hidden="true" />
+                    )}
+                  </S.CourierAvatar>
+                  <span>
+                    <strong>{data.order.assignedCourier?.name || 'Aguardando motoboy'}</strong>
+                    {data.order.assignedCourier?.phone ? (
+                      <a href={`tel:${data.order.assignedCourier.phone}`}>
+                        {data.order.assignedCourier.phone}
+                      </a>
+                    ) : null}
+                  </span>
+                  {data.order.assignedCourier?.phone ? (
+                    <a className="call" href={`tel:${data.order.assignedCourier.phone}`} aria-label="Ligar para o motoboy">
+                      <Phone aria-hidden="true" />
+                    </a>
+                  ) : null}
+                </S.CourierCard>
+                <S.MobileStatusList aria-label="Status da Entrega">
+                  {['Pedido recebido', 'Preparando', 'Saiu para entrega (A caminho)', 'Entregue'].map((label, index) => {
+                    const complete = deliveryStatusProgress > index;
+                    const active = deliveryStatusProgress === index;
+                    return (
+                      <S.MobileStatusItem key={label} $active={active} $complete={complete}>
+                        <i aria-hidden="true" />
+                        <span>{label}</span>
+                      </S.MobileStatusItem>
+                    );
+                  })}
+                </S.MobileStatusList>
+                {!isCancelled && data.order.assignedCourier ? (
+                  <CustomerTrackingChatPanel
+                    orderId={data.order.id}
+                    courierName={data.order.assignedCourier.name || 'Motoqueiro'}
+                  />
+                ) : null}
+              </S.MobileTrackingDetails>
+            </S.FigmaTrackingLayout>
+          </>
             ) : null}
             {isCancelled ? (
               <S.CancelledNotice role="status">
