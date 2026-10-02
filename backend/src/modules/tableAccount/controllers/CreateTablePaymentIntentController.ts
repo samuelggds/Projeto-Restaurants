@@ -1,4 +1,5 @@
 import type { Request, Response } from 'express';
+import { safeErrorSummary } from '../../../services/telemetrySanitizer.js';
 import { ZodError } from 'zod';
 import createTablePaymentIntentService from '../services/CreateTablePaymentIntentService.js';
 import { TablePaymentError } from '../services/tablePaymentSupport.js';
@@ -58,10 +59,7 @@ class CreateTablePaymentIntentController {
         return res.status(error.statusCode).json({ error: error.message, code: error.code });
       }
 
-      console.error(
-        '[CREATE_TABLE_PAYMENT_INTENT_ERROR]',
-        error instanceof Error ? error.message : String(error),
-      );
+      console.error('[CREATE_TABLE_PAYMENT_INTENT_ERROR]', { error: safeErrorSummary(error) });
       return res.status(500).json({
         error: 'Não foi possível iniciar o pagamento da mesa.',
         code: 'TABLE_PAYMENT_INTERNAL_ERROR',
