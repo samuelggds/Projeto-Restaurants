@@ -89,7 +89,11 @@ export const comboInputSchema = z
   .object({
     name: z.string().trim().min(2).max(100),
     description: z.string().trim().max(600).default(''),
-    image: z.string().trim().max(8_000_000).default(''),
+    image: z
+      .string()
+      .trim()
+      .max(700_000, 'A imagem do combo está muito grande. Otimize a imagem e tente novamente.')
+      .default(''),
     price: z.number().finite().positive().max(1_000_000),
     active: z.boolean().default(true),
     featured: z.boolean().default(true),
