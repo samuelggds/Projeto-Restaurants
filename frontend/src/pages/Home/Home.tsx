@@ -998,6 +998,8 @@ export default function Home() {
           cartCount={cartCount}
           cartTotal={cartTotal}
           quote={orderQuote.quote}
+          deliveryFeePreview={cartDeliveryFeePreview}
+          deliveryFeePending={cartDeliveryFeePending}
           loading={checkoutLoading}
           canContinue={
             homeData.isOpen &&
