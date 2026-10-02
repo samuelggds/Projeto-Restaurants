@@ -422,14 +422,23 @@ async function recoverCustomerPassword(page: Page) {
 }
 
 async function addConfiguredProduct(page: Page) {
-  const desktopMenuButton = page.getByRole('button', { name: 'Cardápio', exact: true });
-  if (await desktopMenuButton.isVisible()) {
-    await desktopMenuButton.click();
-  } else {
-    await page.getByRole('button', { name: /Ver Cardápio(?: Completo)?/i }).click();
+  const productDetails = page.getByRole('button', {
+    name: `Ver detalhes de ${product.name}`,
+  });
+  if (!(await productDetails.isVisible())) {
+    const desktopMenuButton = page.getByRole('button', { name: 'Cardápio', exact: true });
+    if (await desktopMenuButton.isVisible()) {
+      await desktopMenuButton.click();
+    } else {
+      const legacyMenuButton = page.getByRole('button', {
+        name: /Ver Cardápio(?: Completo)?/i,
+      });
+      if (await legacyMenuButton.isVisible()) await legacyMenuButton.click();
+    }
   }
   await expect(page.getByText(product.name).first()).toBeVisible();
-  await page.getByRole('button', { name: `Ver detalhes de ${product.name}` }).click();
+  await expect(productDetails).toBeVisible();
+  await productDetails.click();
   const dialog = page.getByRole('dialog', { name: `Montar ${product.name}` });
   await dialog.getByText('Arroz', { exact: true }).click();
   await dialog.getByRole('button', { name: 'Adicionar à sacola' }).click();
