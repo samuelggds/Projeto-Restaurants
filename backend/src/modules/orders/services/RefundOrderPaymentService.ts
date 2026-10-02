@@ -4,6 +4,7 @@ import restaurantSettingsRepository from '../../restaurantSettings/repositories/
 import { getMercadoPagoAccessToken } from '../../restaurantSettings/services/RestaurantPaymentCredentialsService.js';
 import { mercadoPagoCardExternalReferenceCandidates } from '../domain/mercadoPagoCardReference.js';
 import { efiOpenFinanceRequest } from '../../payments/providers/efiOpenFinance.js';
+import { safeErrorSummary } from '../../../services/telemetrySanitizer.js';
 
 export type RefundableOrder = {
   id: number | string;
@@ -520,7 +521,7 @@ class RefundOrderPaymentService {
         orderId: order.id,
         restaurantId: order.restaurantId,
         paymentMethod,
-        error: error instanceof Error ? error.message : String(error),
+        error: safeErrorSummary(error),
       });
       throw new AutomaticRefundError(
         'O provedor de pagamento não confirmou o estorno. O pedido não foi cancelado e pode ser tentado novamente.',
