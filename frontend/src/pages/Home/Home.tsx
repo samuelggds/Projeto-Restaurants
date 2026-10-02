@@ -29,6 +29,10 @@ import { HomePaymentScreen } from './components/HomePaymentScreen';
 import { HomeAuxiliaryUi } from './components/HomeAuxiliaryUi';
 import { useHomeNotifications } from './hooks/useHomeNotifications';
 import {
+  useCartBodyScrollLock,
+  useRestaurantAvailabilityClock,
+} from './hooks/useHomePageRuntime';
+import {
   buildOrderPayload,
   resolveOrderType,
   validateCheckout,
@@ -60,6 +64,11 @@ import {
 } from './cartFlyAnimation';
 import { validateDeliveryAddressLocationForCheckout } from './domain/deliveryAddress';
 import type { GuestCheckoutDetails, HomeNavigationState } from './domain/homePageTypes';
+import {
+  checkoutRecommendations,
+  collectPurchasedProductQuantities,
+  resolveHomeRestaurantId,
+} from './domain/homePageHelpers';
 import type {
   CreateTablePaymentResult,
   TableCardPaymentPayload,
@@ -74,7 +83,7 @@ export default function Home() {
   const [searchParams] = useSearchParams();
   const { user, logout } = useAuth();
   const { confirmDialog } = useAppDialog();
-  const [availabilityClock, setAvailabilityClock] = useState(() => new Date());
+  const availabilityClock = useRestaurantAvailabilityClock();
   const navigateToLogin = useCallback(
     () =>
       navigate(
@@ -86,19 +95,6 @@ export default function Home() {
       ),
     [location.hash, location.pathname, location.search, navigate],
   );
-
-  useEffect(() => {
-    const refreshAvailability = () => setAvailabilityClock(new Date());
-    const intervalId = window.setInterval(refreshAvailability, 30_000);
-    const refreshWhenVisible = () => {
-      if (document.visibilityState === 'visible') refreshAvailability();
-    };
-    document.addEventListener('visibilitychange', refreshWhenVisible);
-    return () => {
-      window.clearInterval(intervalId);
-      document.removeEventListener('visibilitychange', refreshWhenVisible);
-    };
-  }, []);
 
   const normalizedSlug = String(restaurantSlug || '')
     .trim()
@@ -145,22 +141,8 @@ export default function Home() {
   const crossSellCartFlyOriginRef = useRef<CartFlyOrigin | null>(null);
   const [addressValidationLoading, setAddressValidationLoading] = useState(false);
 
-  useEffect(() => {
-    if (!cartOpen) return undefined;
-    const previousOverflow = document.body.style.overflow;
-    const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key !== 'Escape') return;
-      event.preventDefault();
-      setCartOpen(false);
-    };
-    document.body.style.overflow = 'hidden';
-    window.addEventListener('keydown', closeOnEscape);
-    return () => {
-      window.removeEventListener('keydown', closeOnEscape);
-      document.body.style.overflow = previousOverflow;
-    };
-  }, [cartOpen]);
-
+  const closeCart = useCallback(() => setCartOpen(false), []);
+  useCartBodyScrollLock(cartOpen, closeCart);
 
   const {
     routeRestaurantId,
@@ -190,15 +172,16 @@ export default function Home() {
       !rememberedRestaurantId &&
       !storedSessionRestaurantId,
   );
-  const restaurantId = mesaMode
-    ? routeRestaurantId || storedSessionRestaurantId || resolvedRestaurantId || null
-    : normalizedSlug
-      ? resolvedRestaurantId
-      : authenticatedRestaurantId ||
-        rememberedRestaurantId ||
-        storedSessionRestaurantId ||
-        defaultRestaurantId ||
-        null;
+  const restaurantId = resolveHomeRestaurantId({
+    mesaMode,
+    normalizedSlug,
+    routeRestaurantId,
+    storedSessionRestaurantId,
+    resolvedRestaurantId,
+    authenticatedRestaurantId,
+    rememberedRestaurantId,
+    defaultRestaurantId,
+  });
   const activeTableId =
     routeTableId || (mesaSessionIsActive ? Number(tableSession?.tableId || 0) : 0) || null;
 
@@ -383,12 +366,10 @@ export default function Home() {
     ? orderQuote.quote.itemsSubtotal + orderQuote.quote.productDiscountTotal
     : cartTotal;
   const checkoutTotal = orderQuote.quote?.total ?? cartTotal;
-  const checkoutRecommendations = useMemo(() => {
-    const cartProductIds = new Set(cart.map((item) => String(item.productId)));
-    return homeData.products
-      .filter((product) => product.available && !cartProductIds.has(String(product.id)))
-      .slice(0, 3);
-  }, [cart, homeData.products]);
+  const checkoutRecommendationItems = useMemo(
+    () => checkoutRecommendations(homeData.products, cart),
+    [cart, homeData.products],
+  );
 
   const handleCrossSellAdd = (
     product: HomeProduct,
@@ -418,37 +399,7 @@ export default function Home() {
   };
 
   function applyPurchasedStockToHome() {
-    const purchased = new Map<string, number>();
-
-    cart.forEach((item) => {
-      const homeProduct = homeData.products.find(
-        (product) => String(product.id) === String(item.productId),
-      );
-      if (homeProduct?.kind === 'COMBO') {
-        (item.comboSelections || []).forEach((selection) => {
-          const group = (homeProduct.comboGroups || []).find(
-            (candidate) => candidate.id === selection.groupId,
-          );
-          selection.items.forEach((selectedItem) => {
-            const option = group?.options.find(
-              (candidate) => candidate.id === selectedItem.optionId,
-            );
-            if (!option) return;
-            const quantity = Number(selectedItem.quantity) * Number(item.quantity);
-            purchased.set(
-              String(option.productId),
-              (purchased.get(String(option.productId)) || 0) + quantity,
-            );
-          });
-        });
-        return;
-      }
-
-      purchased.set(
-        String(item.productId),
-        (purchased.get(String(item.productId)) || 0) + Number(item.quantity),
-      );
-    });
+    const purchased = collectPurchasedProductQuantities(cart, homeData.products);
 
     setBackendProducts((products) =>
       products.map((product) => {
@@ -1102,7 +1053,7 @@ export default function Home() {
           onClose={() => setCartOpen(false)}
           onLogin={user ? openProfile : navigateToLogin}
           onSubmit={() => void handleCheckout()}
-          recommendations={checkoutRecommendations}
+          recommendations={checkoutRecommendationItems}
           onAddRecommendation={handleCrossSellAdd}
           guestAddressScreen={
             !user ? (
