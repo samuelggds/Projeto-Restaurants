@@ -37,9 +37,10 @@ export const HeaderInner = styled.div`
   justify-content: space-between;
   gap: 20px;
 
-  @media (max-width: 520px) {
-    width: calc(100% - 24px);
-    min-height: 64px;
+  @media (max-width: 900px) {
+    width: 100%;
+    min-height: 56px;
+    padding: 0 20px;
   }
 `;
 
@@ -72,14 +73,16 @@ export const BackButton = styled.button`
     outline-offset: 2px;
   }
 
-  @media (max-width: 520px) {
-    width: 36px;
+  @media (max-width: 900px) {
+    width: auto;
     height: 36px;
     padding: 0;
     justify-content: center;
+    color: #72706b;
+    font-size: 14px;
 
     span {
-      display: none;
+      display: inline;
     }
   }
 `;
@@ -127,11 +130,11 @@ export const OrderIdentity = styled.div`
 export const Main = styled.main`
   width: min(1120px, calc(100% - 48px));
   margin: 0 auto;
-  padding: 34px 0 64px;
+  padding: 40px 0 64px;
 
-  @media (max-width: 520px) {
-    width: calc(100% - 24px);
-    padding: 24px 0 36px;
+  @media (max-width: 900px) {
+    width: 100%;
+    padding: 0 0 28px;
   }
 `;
 
@@ -429,15 +432,14 @@ export const MapArea = styled.section`
     border-radius: 8px;
   }
 
-  @media (max-width: 560px) {
+  @media (max-width: 900px) {
     .delivery-map-shell {
       width: 100%;
-      height: 300px;
-      min-height: 300px;
+      height: 280px;
+      min-height: 280px;
       margin-inline: 0;
-      border-right: 1px solid var(--courier-line);
-      border-left: 1px solid var(--courier-line);
-      border-radius: 16px;
+      border: 0;
+      border-radius: 0;
     }
   }
 `;
@@ -745,5 +747,127 @@ export const RetryButton = styled.button`
   &:focus-visible {
     outline: 3px solid rgba(228, 81, 24, 0.25);
     outline-offset: 2px;
+  }
+`;
+export const FigmaTrackingLayout = styled.div`
+  display: grid;
+  grid-template-columns: minmax(0, 660px) minmax(340px, 420px);
+  justify-content: center;
+  align-items: start;
+  gap: 40px;
+
+  @media (max-width: 900px) {
+    display: block;
+  }
+`;
+
+export const TrackingMapColumn = styled.section`
+  min-width: 0;
+`;
+
+export const DesktopTrackingTitle = styled.h1`
+  margin: 0 0 16px;
+  color: var(--tracking-ink);
+  font: 800 28px/1.15 'Gabarito', 'Inter', sans-serif;
+
+  @media (max-width: 900px) {
+    display: none;
+  }
+`;
+
+export const TrackingSideColumn = styled.aside`
+  display: grid;
+  gap: 24px;
+
+  @media (max-width: 900px) {
+    display: none;
+  }
+`;
+
+export const DesktopStatusCard = styled.section`
+  padding: 24px;
+  display: grid;
+  gap: 20px;
+  border: 1px solid #efece6;
+  border-radius: 20px;
+  background: #fff;
+
+  h2 {
+    margin: 0;
+    color: #1f1e1a;
+    font: 800 18px/1.2 'Gabarito', 'Inter', sans-serif;
+  }
+`;
+
+export const CourierCard = styled.section`
+  min-width: 0;
+  padding: 16px;
+  display: grid;
+  grid-template-columns: 48px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 16px;
+  border: 1px solid #efece6;
+  border-radius: 16px;
+  background: #fff;
+
+  > span { min-width: 0; display: grid; gap: 2px; }
+  strong { overflow: hidden; color: #1f1e1a; font-size: 15px; font-weight: 800; text-overflow: ellipsis; white-space: nowrap; }
+  a { color: #268c43; font-size: 12px; font-weight: 700; text-decoration: none; }
+  .call { width: 40px; height: 40px; display: grid; place-items: center; border-radius: 20px; color: #e85a2b; background: #fdf2ec; }
+  .call svg { width: 20px; height: 20px; }
+
+  @media (max-width: 900px) {
+    padding: 20px 0;
+    border: 0;
+    border-bottom: 1px solid #efece6;
+    border-radius: 0;
+  }
+`;
+
+export const CourierAvatar = styled.span`
+  width: 48px;
+  height: 48px;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  border-radius: 50%;
+  color: #315d53;
+  background: #eef3ef;
+  img { width: 100%; height: 100%; object-fit: cover; }
+  svg { width: 24px; height: 24px; }
+`;
+
+export const MobileTrackingDetails = styled.section`
+  display: none;
+  @media (max-width: 900px) {
+    display: block;
+    padding: 0 20px 16px;
+    border-top: 1px solid #efece6;
+    border-bottom: 1px solid #efece6;
+    background: #fff;
+  }
+`;
+
+export const MobileStatusList = styled.div`
+  padding: 0 0 20px;
+  display: grid;
+  gap: 12px;
+`;
+
+export const MobileStatusItem = styled.div<{ $active: boolean; $complete: boolean }>`
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: ${({ $active, $complete }) => ($active ? '#e85a2b' : $complete ? '#72706b' : '#aaa69f')};
+  font-size: 14px;
+  font-weight: ${({ $active }) => ($active ? 800 : 500)};
+  i {
+    width: 16px;
+    height: 16px;
+    flex: 0 0 auto;
+    border: 2px solid currentColor;
+    border-radius: 50%;
+    background: ${({ $complete }) => ($complete ? '#268c43' : '#fff')};
+    box-shadow: inset 0 0 0 3px #fff;
   }
 `;
