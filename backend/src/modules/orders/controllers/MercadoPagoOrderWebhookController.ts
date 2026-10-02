@@ -14,7 +14,7 @@ import orderPaymentAttemptRepository from '../repositories/OrderPaymentAttemptRe
 import { OrderPaymentAttemptStatus } from '@prisma/client';
 import { matchesOrderPaymentEvidence } from '../utils/paymentEvidence.js';
 import { parseMercadoPagoCardExternalReference } from '../domain/mercadoPagoCardReference.js';
-import reconcileTableCardOrderWebhookService from '../../tableAccount/services/ReconcileTableCardOrderWebhookService.js';
+import reconcileTableOrderWebhookService from '../../tableAccount/services/ReconcileTableOrderWebhookService.js';
 
 const APPROVED_STATUSES = new Set(['approved', 'accredited', 'paid']);
 const TERMINAL_UNPAID_STATUSES = new Set(['cancelled', 'rejected', 'refunded', 'charged_back']);
@@ -73,7 +73,7 @@ async function handleOrdersApiWebhook(providerOrderId: string, res: Response) {
   const localOrder = await findOrderByMercadoPagoOrderId(providerOrderId);
   if (!localOrder) {
     const reconciledTablePayment =
-      await reconcileTableCardOrderWebhookService.execute(providerOrderId);
+      await reconcileTableOrderWebhookService.execute(providerOrderId);
     if (reconciledTablePayment) return res.sendStatus(200);
 
     // Não revelar existência de outros tenants nem provocar retries infinitos para
