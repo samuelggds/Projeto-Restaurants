@@ -1,6 +1,5 @@
 import styled from 'styled-components';
 
-type TableActionTone = 'order' | 'waiter' | 'bill';
 
 export const FigmaShell = styled.main<{ $primary: string; $fontFamily?: string }>`
   --primary: #ff4b4b;
