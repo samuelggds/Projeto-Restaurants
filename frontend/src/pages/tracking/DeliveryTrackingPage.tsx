@@ -282,17 +282,28 @@ function DeliveryTrackingContent({ id }: { id?: string }) {
             onClick={() => (isGuestTracking ? navigate(-1) : navigate('/profile'))}
           >
             <ArrowLeft aria-hidden="true" />
-            <span>{isGuestTracking ? 'Voltar' : 'Meus pedidos'}</span>
+            <span>Início</span>
           </S.BackButton>
-          <S.OrderIdentity>
-            <span aria-hidden="true">
-              <Bike />
+
+          <S.DesktopRestaurantBrand>
+            <span className="brand-mark">
+              {data?.order.restaurant?.logo ? (
+                <img src={data.order.restaurant.logo} alt="" />
+              ) : (
+                String(data?.order.restaurant?.name || 'G').slice(0, 1).toUpperCase()
+              )}
             </span>
             <span>
-              <b>Pedido #{data?.order.id || id}</b>
-              <small>Acompanhamento da entrega</small>
+              <strong>{data?.order.restaurant?.name || 'Restaurante'}</strong>
+              <small><i aria-hidden="true" /> Acompanhe seu pedido</small>
             </span>
-          </S.OrderIdentity>
+          </S.DesktopRestaurantBrand>
+
+          <S.MobileHeaderTitle>Acompanhar pedido</S.MobileHeaderTitle>
+
+          <S.DesktopHeaderOrder>
+            <strong>Pedido #{data?.order.id || id}</strong>
+          </S.DesktopHeaderOrder>
         </S.HeaderInner>
       </S.Header>
       <S.Main>
