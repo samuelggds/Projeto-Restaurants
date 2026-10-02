@@ -55,7 +55,7 @@ test('webhook de order do Mercado Pago reconcilia somente o pagamento de mesa en
     () => ({
       async executeValidated(event) {
         calls.push(event as unknown as Record<string, unknown>);
-        return { received: true };
+        return { received: true, ignored: false, processed: true };
       },
     }),
   );
