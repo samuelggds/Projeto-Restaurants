@@ -17,7 +17,10 @@ import productComboService, {
   type ComboRecord,
 } from '../../../Services/productComboService';
 import imageEnhancementService from '../../../Services/imageEnhancementService';
-import { createPersistentImageDataUrl } from '../../../utils/persistentImage';
+import {
+  createPersistentImageDataUrl,
+  optimizePersistentImageDataUrl,
+} from '../../../utils/persistentImage';
 import { useAppDialog } from '../../../components/AppDialog/context';
 import type { AdminProduct } from '../types';
 import * as C from '../styles/AdminCombos.styles';
@@ -84,6 +87,17 @@ function toInput(combo: ComboRecord): ComboInput {
   };
 }
 
+function parseComboPrice(value: string) {
+  const normalized = value.trim().replace(/\s+/gu, '').replace(',', '.');
+  if (!/^\d+(?:\.\d{0,2})?$/u.test(normalized)) return Number.NaN;
+  return Number(normalized);
+}
+
+function formatComboPriceInput(value: number) {
+  if (!Number.isFinite(value) || value <= 0) return '';
+  return String(value).replace('.', ',');
+}
+
 function isSimpleChoiceGroup(group: ComboGroupInput) {
   return group.options.every(
     (option) =>
@@ -100,6 +114,7 @@ export function AdminCombos({ products, money, onChanged }: Props) {
   const [loading, setLoading] = useState(true);
   const [editingId, setEditingId] = useState<number | null | undefined>();
   const [draft, setDraft] = useState<ComboInput>(emptyCombo());
+  const [priceInput, setPriceInput] = useState('');
   const [busy, setBusy] = useState('');
   const [selectedProductByGroup, setSelectedProductByGroup] = useState<Record<string, string>>({});
   const [feedback, setFeedback] = useState<{ tone: 'error' | 'success'; message: string } | null>(
@@ -194,6 +209,7 @@ export function AdminCombos({ products, money, onChanged }: Props) {
       getComputedStyle(workspaceRef.current!).getPropertyValue('--brand').trim() || '#d64d08',
     );
     setDraft(emptyCombo());
+    setPriceInput('');
     setSelectedProductByGroup({});
     setEditingId(null);
     setFeedback(null);
@@ -205,6 +221,7 @@ export function AdminCombos({ products, money, onChanged }: Props) {
       getComputedStyle(workspaceRef.current!).getPropertyValue('--brand').trim() || '#d64d08',
     );
     setDraft(toInput(combo));
+    setPriceInput(formatComboPriceInput(Number(combo.price || 0)));
     setSelectedProductByGroup({});
     setEditingId(combo.id);
     setFeedback(null);
@@ -433,7 +450,11 @@ export function AdminCombos({ products, money, onChanged }: Props) {
     try {
       const improved = await imageEnhancementService.enhanceComboImage(draft.image);
       if (!improved) throw new Error('A IA não retornou uma imagem.');
-      setDraft((current) => ({ ...current, image: improved }));
+      const optimized = await optimizePersistentImageDataUrl(improved, 1024, {
+        targetWidth: 1024,
+        targetHeight: 1024,
+      });
+      setDraft((current) => ({ ...current, image: optimized }));
       setFeedback({
         tone: 'success',
         message: 'Foto melhorada com IA. Revise a prévia e salve quando estiver satisfeito.',
@@ -460,9 +481,16 @@ export function AdminCombos({ products, money, onChanged }: Props) {
     setBusy('generate');
     setFeedback(null);
     try {
-      const generated = await productComboService.generatePreviewImage(draft);
+      const generated = await productComboService.generatePreviewImage({
+        ...draft,
+        price: Number.isFinite(parseComboPrice(priceInput)) ? parseComboPrice(priceInput) : 0,
+      });
       if (!generated) throw new Error('A IA não retornou uma imagem.');
-      setDraft((current) => ({ ...current, image: generated }));
+      const optimized = await optimizePersistentImageDataUrl(generated, 1024, {
+        targetWidth: 1024,
+        targetHeight: 1024,
+      });
+      setDraft((current) => ({ ...current, image: optimized }));
       setFeedback({
         tone: 'success',
         message: 'A IA criou uma foto a partir do nome, descrição, preço e itens do combo.',
@@ -484,7 +512,8 @@ export function AdminCombos({ products, money, onChanged }: Props) {
     try {
       if (draft.name.trim().length < 2)
         throw new Error('Informe um nome com pelo menos 2 caracteres.');
-      if (!Number.isFinite(draft.price) || !(draft.price > 0) || draft.price > 1_000_000) {
+      const parsedPrice = parseComboPrice(priceInput);
+      if (!Number.isFinite(parsedPrice) || !(parsedPrice > 0) || parsedPrice > 1_000_000) {
         throw new Error('Informe um preço maior que zero e de até R$ 1.000.000,00.');
       }
       if (!selectedOptions.length) {
@@ -536,7 +565,12 @@ export function AdminCombos({ products, money, onChanged }: Props) {
           'Revise as quantidades dos produtos. Itens fixos devem ter de 1 a 20 unidades.',
         );
       }
-      const payload = { ...draft, name: draft.name.trim(), description: draft.description.trim() };
+      const payload = {
+        ...draft,
+        price: parsedPrice,
+        name: draft.name.trim(),
+        description: draft.description.trim(),
+      };
       const saved = editingId
         ? await productComboService.update(editingId, payload)
         : await productComboService.create(payload);
@@ -801,20 +835,12 @@ export function AdminCombos({ products, money, onChanged }: Props) {
                       Preço final do combo
                       <small>Digite o valor que o cliente pagará pelo combo completo.</small>
                       <input
-                        type="number"
-                        min="0.01"
-                        max="1000000"
-                        step="0.01"
+                        type="text"
                         inputMode="decimal"
                         aria-label="Preço final do combo"
                         required
-                        value={draft.price || ''}
-                        onChange={(event) =>
-                          setDraft((current) => ({
-                            ...current,
-                            price: Number(event.target.value),
-                          }))
-                        }
+                        value={priceInput}
+                        onChange={(event) => setPriceInput(event.target.value)}
                         placeholder="59,90"
                       />
                     </label>
@@ -1179,7 +1205,13 @@ export function AdminCombos({ products, money, onChanged }: Props) {
               <div className="footer">
                 <div className="footer-summary">
                   <span>Preço final do combo</span>
-                  <strong>{money(Number.isFinite(draft.price) ? draft.price : 0)}</strong>
+                  <strong>
+                    {money(
+                      Number.isFinite(parseComboPrice(priceInput))
+                        ? parseComboPrice(priceInput)
+                        : 0,
+                    )}
+                  </strong>
                 </div>
                 <button
                   className="secondary"

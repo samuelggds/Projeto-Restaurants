@@ -75,13 +75,6 @@ const productComboService = {
     return response.data;
   },
 
-  async generateImage(id: number) {
-    const response = await api.post<{ image: string }>(`/product-combos/${id}/generate-image`, {}, {
-      timeout: 180_000,
-      skipBaseUrlFallback: true,
-    });
-    return response.data.image;
-  },
 
   async generatePreviewImage(input: ComboInput) {
     const response = await api.post<{ image: string }>(

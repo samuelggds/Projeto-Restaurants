@@ -5,7 +5,9 @@ type PrismaClientLike = Prisma.TransactionClient | typeof prisma;
 
 export type InvoiceReconciliationCandidate = {
   id: number;
-  paymentLink: string;
+  restaurantId: number;
+  paymentAttemptId: number;
+  paymentLink: string | null;
   paymentExternalId: string;
   total: Prisma.Decimal;
   reconciliationAttempts: number;
@@ -97,36 +99,49 @@ class BillingRepository {
 
     return db.$queryRaw<InvoiceReconciliationCandidate[]>(Prisma.sql`
       WITH candidates AS (
-        SELECT "id"
-        FROM "Invoice"
-        WHERE "status" IN ('PENDENTE', 'ATRASADO')
-          AND "paymentLink" IS NOT NULL
-          AND "paymentLink" <> ''
-          AND "paymentExternalId" IS NOT NULL
-          AND "paymentExternalId" <> ''
-          AND "nextReconciliationAt" <= clock_timestamp()
-        ORDER BY "nextReconciliationAt" ASC, "id" ASC
-        FOR UPDATE SKIP LOCKED
+        SELECT attempt."id"
+        FROM "InvoicePaymentAttempt" AS attempt
+        JOIN "Invoice" AS invoice
+          ON invoice."id" = attempt."invoiceId"
+         AND invoice."restaurantId" = attempt."restaurantId"
+        WHERE attempt."method" = 'PIX'
+          AND attempt."provider" = 'MERCADO_PAGO'
+          AND attempt."status" IN ('PENDING', 'DUPLICATE')
+          AND invoice."status" <> 'CANCELADO'
+          AND attempt."nextReconciliationAt" <= clock_timestamp()
+        ORDER BY attempt."nextReconciliationAt" ASC, attempt."id" ASC
+        FOR UPDATE OF attempt SKIP LOCKED
         LIMIT ${limit}
+      ),
+      claimed AS (
+        UPDATE "InvoicePaymentAttempt" AS attempt
+        SET
+          "lastReconciledAt" = clock_timestamp(),
+          "reconciliationAttempts" = attempt."reconciliationAttempts" + 1,
+          "nextReconciliationAt" = clock_timestamp() + make_interval(
+            mins => LEAST(
+              360,
+              5 * CAST(power(2, LEAST(attempt."reconciliationAttempts", 6)) AS INTEGER)
+            )
+          ),
+          "updatedAt" = clock_timestamp()
+        FROM candidates
+        WHERE attempt."id" = candidates."id"
+        RETURNING attempt.*
       )
-      UPDATE "Invoice" AS invoice
-      SET
-        "lastReconciledAt" = clock_timestamp(),
-        "reconciliationAttempts" = invoice."reconciliationAttempts" + 1,
-        "nextReconciliationAt" = clock_timestamp() + make_interval(
-          mins => LEAST(
-            360,
-            5 * CAST(power(2, LEAST(invoice."reconciliationAttempts", 6)) AS INTEGER)
-          )
-        )
-      FROM candidates
-      WHERE invoice."id" = candidates."id"
-      RETURNING
+      SELECT
         invoice."id",
+        invoice."restaurantId",
+        claimed."id" AS "paymentAttemptId",
         invoice."paymentLink",
-        invoice."paymentExternalId",
-        invoice."total",
-        invoice."reconciliationAttempts"
+        claimed."providerPaymentId" AS "paymentExternalId",
+        claimed."amount" AS "total",
+        claimed."reconciliationAttempts"
+      FROM claimed
+      JOIN "Invoice" AS invoice
+        ON invoice."id" = claimed."invoiceId"
+       AND invoice."restaurantId" = claimed."restaurantId"
+      ORDER BY claimed."id"
     `);
   }
 
@@ -147,6 +162,13 @@ class BillingRepository {
     id: number | string,
     restaurantId: number | string,
     data: Prisma.InvoiceUpdateInput,
+    paymentAttempt?: {
+      method: 'PIX' | 'CARD';
+      provider: string;
+      providerPaymentId: string;
+      amount: Prisma.Decimal | number | string;
+      providerStatus?: string | null;
+    },
   ) {
     const invoiceId = Number(id);
     const normalizedRestaurantId = Number(restaurantId);
@@ -155,6 +177,53 @@ class BillingRepository {
         where: { id: invoiceId, restaurantId: normalizedRestaurantId },
         data,
       });
+
+      if (paymentAttempt) {
+        const provider = String(paymentAttempt.provider || '').trim().toUpperCase();
+        const providerPaymentId = String(paymentAttempt.providerPaymentId || '').trim();
+        if (!provider || !providerPaymentId) {
+          throw new Error('Tentativa de pagamento da fatura inválida.');
+        }
+
+        const existingAttempt = await transaction.invoicePaymentAttempt.findUnique({
+          where: {
+            provider_providerPaymentId: {
+              provider,
+              providerPaymentId,
+            },
+          },
+        });
+        if (
+          existingAttempt &&
+          (existingAttempt.invoiceId !== invoiceId ||
+            existingAttempt.restaurantId !== normalizedRestaurantId)
+        ) {
+          throw new Error('Identificador de pagamento já pertence a outra fatura.');
+        }
+
+        await transaction.invoicePaymentAttempt.upsert({
+          where: {
+            provider_providerPaymentId: {
+              provider,
+              providerPaymentId,
+            },
+          },
+          create: {
+            invoiceId,
+            restaurantId: normalizedRestaurantId,
+            method: paymentAttempt.method,
+            provider,
+            providerPaymentId,
+            amount: paymentAttempt.amount,
+            providerStatus: paymentAttempt.providerStatus || null,
+          },
+          update: {
+            providerStatus: paymentAttempt.providerStatus || undefined,
+            nextReconciliationAt: new Date(),
+          },
+        });
+      }
+
       await transaction.$executeRaw(Prisma.sql`
         UPDATE "Invoice"
         SET
@@ -165,6 +234,66 @@ class BillingRepository {
           AND "restaurantId" = ${normalizedRestaurantId}
       `);
       return invoice;
+    });
+  }
+
+  async findInvoicePaymentAttempt(
+    providerPaymentIdValue: string,
+    provider = 'MERCADO_PAGO',
+    db: PrismaClientLike = prisma,
+  ) {
+    const providerPaymentId = String(providerPaymentIdValue || '').trim();
+    if (!providerPaymentId) return null;
+    return db.invoicePaymentAttempt.findUnique({
+      where: {
+        provider_providerPaymentId: {
+          provider: String(provider || '').trim().toUpperCase(),
+          providerPaymentId,
+        },
+      },
+    });
+  }
+
+  async registerInvoicePaymentAttempt(
+    input: {
+      invoiceId: number;
+      restaurantId: number;
+      method: 'PIX' | 'CARD';
+      provider?: string;
+      providerPaymentId: string;
+      amount: Prisma.Decimal | number | string;
+      providerStatus?: string | null;
+    },
+    db: PrismaClientLike = prisma,
+  ) {
+    const provider = String(input.provider || 'MERCADO_PAGO').trim().toUpperCase();
+    const providerPaymentId = String(input.providerPaymentId || '').trim();
+    if (!providerPaymentId) throw new Error('Identificador de pagamento inválido.');
+
+    const existing = await db.invoicePaymentAttempt.findUnique({
+      where: { provider_providerPaymentId: { provider, providerPaymentId } },
+    });
+    if (
+      existing &&
+      (existing.invoiceId !== input.invoiceId || existing.restaurantId !== input.restaurantId)
+    ) {
+      throw new Error('Identificador de pagamento já pertence a outra fatura.');
+    }
+
+    return db.invoicePaymentAttempt.upsert({
+      where: { provider_providerPaymentId: { provider, providerPaymentId } },
+      create: {
+        invoiceId: input.invoiceId,
+        restaurantId: input.restaurantId,
+        method: input.method,
+        provider,
+        providerPaymentId,
+        amount: input.amount,
+        providerStatus: input.providerStatus || null,
+      },
+      update: {
+        providerStatus: input.providerStatus || undefined,
+      },
     });
   }
 

@@ -61,6 +61,13 @@ export class CreateTablePaymentIntentService {
 
   async execute(context: CreateTablePaymentIntentContext, rawInput: unknown) {
     const input = createTablePaymentIntentInputSchema.parse(rawInput);
+    if (input.method === TablePaymentMethod.CARD) {
+      throw new TablePaymentError(
+        'O pagamento online da mesa aceita somente Pix. Para pagamento presencial, use dinheiro.',
+        400,
+        'CLIENT_TABLE_CARD_PAYMENT_DISABLED',
+      );
+    }
     const now = this.now();
     const idempotencyKeyHash = sha256(input.idempotencyKey);
     const requestFingerprint = buildTablePaymentRequestFingerprint(context.participantId, input);

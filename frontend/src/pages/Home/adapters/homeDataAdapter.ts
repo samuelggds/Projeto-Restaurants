@@ -492,6 +492,7 @@ export function buildHomeData(
     products,
     deliveryTime: String(settings?.averageDeliveryTime || ''),
     minimumOrder: Number(settings?.minimumOrder || 0),
+    deliveryFeeMode: settings?.deliveryFeeMode === 'DISTANCE' ? 'DISTANCE' : 'FIXED',
     deliveryFee: Number(settings?.deliveryFee || 0),
     freeDeliveryFrom: readOptionalPositiveMoney(settings?.freeShippingMinimum),
     acceptsDelivery: readPublicFeatureFlag(settings, 'acceptsDelivery'),

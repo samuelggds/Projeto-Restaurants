@@ -21,6 +21,8 @@ type Props = {
   cartCount: number;
   cartTotal: number;
   quote?: OrderQuote | null;
+  deliveryFeePreview?: number | null;
+  deliveryFeePending?: boolean;
   loading?: boolean;
   canContinue?: boolean;
   couponContent?: ReactNode;
@@ -103,6 +105,8 @@ export function FigmaCheckoutFlow({
   cartCount,
   cartTotal,
   quote,
+  deliveryFeePreview = 0,
+  deliveryFeePending = false,
   loading = false,
   canContinue = true,
   couponContent,
@@ -146,9 +150,28 @@ export function FigmaCheckoutFlow({
   }, []);
 
   const firstName = String(userName || '').trim().split(/\s+/)[0];
-  const subtotal = quote ? quote.itemsSubtotal + quote.productDiscountTotal : cartTotal;
-  const deliveryFee = quote?.deliveryFeeAmount ?? 0;
-  const total = quote?.total ?? cartTotal;
+  const subtotal = quote?.itemsSubtotal ?? cartTotal;
+  const couponDiscount = quote?.couponDiscount ?? 0;
+  const quoteHasPendingDistanceFee = quote?.deliveryFeeFallbackApplied === true && deliveryFeePending;
+  const deliveryFee = quoteHasPendingDistanceFee
+    ? null
+    : (quote?.deliveryFeeAmount ?? deliveryFeePreview);
+  const total =
+    quote && !quoteHasPendingDistanceFee
+      ? quote.total
+      : Math.max(subtotal - couponDiscount + Number(deliveryFee || 0), 0);
+  const deliveryFeeText =
+    deliveryFee === null
+      ? 'Calculada no endereço'
+      : deliveryFee > 0
+        ? currency(deliveryFee)
+        : 'Grátis';
+  const couponRuleLabel =
+    quote?.couponDiscountType === 'PERCENTAGE' && quote.couponDiscountValue !== null
+      ? `Cupom ${quote.couponDiscountValue}%`
+      : quote?.couponDiscountType === 'FIXED' && quote.couponDiscountValue !== null
+        ? `Cupom ${currency(quote.couponDiscountValue)}`
+        : 'Cupom';
 
   const back = () => {
     if (step === 'payment') {
@@ -281,13 +304,13 @@ export function FigmaCheckoutFlow({
                 </div>
                 {quote?.couponDiscount ? (
                   <div className="summary-row discount">
-                    <span>Cupom{quote.couponCode ? ` · ${quote.couponCode}` : ''}</span>
+                    <span>{couponRuleLabel}{quote.couponCode ? ` · ${quote.couponCode}` : ''}</span>
                     <strong>− {currency(quote.couponDiscount)}</strong>
                   </div>
                 ) : null}
                 <div className="summary-row">
                   <span>Taxa de entrega</span>
-                  <strong>{deliveryFee > 0 ? currency(deliveryFee) : 'Grátis'}</strong>
+                  <strong>{deliveryFeeText}</strong>
                 </div>
                 <div className="summary-divider" />
                 <div className="summary-total">
@@ -321,9 +344,15 @@ export function FigmaCheckoutFlow({
                   <span>Subtotal</span>
                   <strong>{currency(subtotal)}</strong>
                 </div>
+                {quote?.couponDiscount ? (
+                  <div className="summary-row discount">
+                    <span>{couponRuleLabel}{quote.couponCode ? ` · ${quote.couponCode}` : ''}</span>
+                    <strong>− {currency(quote.couponDiscount)}</strong>
+                  </div>
+                ) : null}
                 <div className="summary-row">
                   <span>Taxa de Entrega</span>
-                  <strong>{deliveryFee > 0 ? currency(deliveryFee) : 'Grátis'}</strong>
+                  <strong>{deliveryFeeText}</strong>
                 </div>
                 <div className="summary-divider" />
                 <div className="summary-total">

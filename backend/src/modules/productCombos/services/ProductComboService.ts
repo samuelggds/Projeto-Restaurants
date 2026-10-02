@@ -89,7 +89,11 @@ export const comboInputSchema = z
   .object({
     name: z.string().trim().min(2).max(100),
     description: z.string().trim().max(600).default(''),
-    image: z.string().trim().max(8_000_000).default(''),
+    image: z
+      .string()
+      .trim()
+      .max(700_000, 'A imagem do combo está muito grande. Otimize a imagem e tente novamente.')
+      .default(''),
     price: z.number().finite().positive().max(1_000_000),
     active: z.boolean().default(true),
     featured: z.boolean().default(true),
@@ -98,14 +102,15 @@ export const comboInputSchema = z
   .superRefine((input, ctx) => {
     const names = new Set<string>();
     input.groups.forEach((group, index) => {
-      if (names.has(group.name)) {
+      const normalizedName = group.name.trim().toLocaleLowerCase('pt-BR');
+      if (names.has(normalizedName)) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
           path: ['groups', index, 'name'],
           message: 'Cada grupo do combo precisa ter um nome diferente.',
         });
       }
-      names.add(group.name);
+      names.add(normalizedName);
     });
   });
 
@@ -202,21 +207,39 @@ async function ensureComboCategory(db: Parameters<typeof setTenantDbContext>[0],
   return created.id;
 }
 
+type ComboPresentationComponentProduct = Record<string, unknown> & {
+  price?: unknown;
+};
+
+type ComboPresentationOption = Record<string, unknown> & {
+  additionalPrice?: unknown;
+  componentProduct?: ComboPresentationComponentProduct | null;
+};
+
+type ComboPresentationGroup = Record<string, unknown> & {
+  options?: ComboPresentationOption[];
+};
+
 type ComboPresentationProduct = Record<string, unknown> & {
   price?: unknown;
-  comboGroups?: Array<
-    Record<string, unknown> & {
-      options?: Array<
-        Record<string, unknown> & {
-          additionalPrice?: unknown;
-          componentProduct?: (Record<string, unknown> & { price?: unknown }) | null;
+  comboGroups?: ComboPresentationGroup[];
+};
+
+type NormalizedComboPresentation = ComboPresentationProduct & {
+  price: number;
+  comboGroups: Array<
+    ComboPresentationGroup & {
+      options: Array<
+        ComboPresentationOption & {
+          additionalPrice: number;
+          componentProduct: (ComboPresentationComponentProduct & { price: number }) | null;
         }
       >;
     }
   >;
 };
 
-function normalizeCombo(product: ComboPresentationProduct) {
+function normalizeCombo(product: ComboPresentationProduct): NormalizedComboPresentation {
   return {
     ...product,
     price: Number(product.price || 0),
@@ -262,13 +285,24 @@ class ProductComboService {
       ];
       const components = await db.product.findMany({
         where: { restaurantId: tenantId, id: { in: componentIds } },
-        select: { id: true, name: true, kind: true },
+        select: { id: true, name: true, kind: true, active: true },
       });
       if (components.length !== componentIds.length) {
         throw new Error('Um ou mais produtos escolhidos não pertencem a este restaurante.');
       }
       if (components.some((product) => product.kind === 'COMBO')) {
         throw new Error('Um combo não pode conter outro combo. Escolha produtos normais.');
+      }
+      const componentById = new Map(components.map((product) => [product.id, product]));
+      const activeOptionUsingInactiveProduct = input.groups.some((group) =>
+        group.options.some(
+          (option) => option.active && componentById.get(option.componentProductId)?.active === false,
+        ),
+      );
+      if (activeOptionUsingInactiveProduct) {
+        throw new Error(
+          'Produto inativo não pode ficar disponível como opção ativa do combo. Remova-o ou desative a opção.',
+        );
       }
 
       const categoryId = await ensureComboCategory(db, tenantId);
@@ -450,77 +484,7 @@ class ProductComboService {
     };
   }
 
-  async generateImage(idInput: unknown, restaurantIdInput: unknown, actor: CreditActor) {
-    const tenantId = restaurantId(restaurantIdInput);
-    const id = comboId(idInput);
-    const combo = await withTenantDbContext(tenantId, async (db) =>
-      db.product.findFirst({
-        where: { id, restaurantId: tenantId, kind: 'COMBO' },
-        include: comboInclude,
-      }),
-    );
-    if (!combo) throw new Error('Combo não encontrado neste restaurante.');
 
-    const apiKey = String(process.env.OPENAI_API_KEY || '').trim();
-    if (!apiKey) throw new Error('OPENAI_API_KEY não configurada para geração de imagens.');
-
-    const itemSummary = combo.comboGroups
-      .flatMap((group) =>
-        group.options.map((option) => {
-          const quantity = Math.max(
-            option.defaultQuantity,
-            option.minQuantity,
-            option.locked ? 1 : 0,
-          );
-          return `${quantity || 'opção'}x ${option.componentProduct.name}${Number(option.additionalPrice) > 0 ? ` (+R$ ${Number(option.additionalPrice).toFixed(2)})` : ''}`;
-        }),
-      )
-      .join('; ');
-
-    const prompt = [
-      'Crie uma fotografia comercial quadrada, premium, realista e muito apetitosa para um combo de restaurante.',
-      `Nome interno do combo: ${combo.name}.`,
-      combo.description ? `Descrição: ${combo.description}.` : '',
-      `Preço de venda usado apenas como contexto de posicionamento: R$ ${Number(combo.price).toFixed(2)}.`,
-      itemSummary ? `Itens que devem inspirar visualmente a composição: ${itemSummary}.` : '',
-      'Mostre a refeição completa de forma coerente, com todos os tipos de alimentos e bebidas relevantes visíveis e proporcionais.',
-      'Use iluminação de estúdio suave, fundo limpo e composição de delivery premium.',
-      'Não escreva nome, preço, palavras, selos ou marca d’água na imagem. Não invente logotipos. Se algum nome indicar uma marca, represente a categoria do produto sem reproduzir a marca visual.',
-      'A imagem deve parecer uma fotografia real do combo, não uma ilustração.',
-    ]
-      .filter(Boolean)
-      .join(' ');
-
-    const client = new OpenAI({ apiKey, timeout: 165_000, maxRetries: 0 });
-    const result = await paidImageGeneration(client, actor, 'GENERATE_COMBO_IMAGE', {
-      model: 'gpt-image-2',
-      prompt,
-      size: '1024x1024',
-      quality: 'low',
-      n: 1,
-    });
-    const base64 = result.data?.[0]?.b64_json;
-    if (!base64) throw new Error('A IA não retornou uma imagem para o combo.');
-    const image = `data:image/png;base64,${base64}`;
-
-    await withTenantDbContext(tenantId, async (db) => {
-      await db.product.updateMany({
-        where: { id, restaurantId: tenantId, kind: 'COMBO' },
-        data: { image },
-      });
-    });
-
-    const usage = (result as unknown as { usage?: unknown }).usage;
-    return {
-      id,
-      image,
-      aiUsage: {
-        model: 'gpt-image-2',
-        usage: usage ?? null,
-        costUsd: calculateImageUsageCostUsd(usage, 0.009),
-      },
-    };
-  }
 }
 
 export default new ProductComboService();

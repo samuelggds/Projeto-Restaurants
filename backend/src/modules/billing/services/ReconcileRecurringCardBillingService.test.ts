@@ -6,6 +6,7 @@ import prisma from '../../../config/prisma.js';
 import billingRepository from '../repositories/BillingRepository.js';
 import platformPlanCatalogService from './PlatformPlanCatalogService.js';
 import processPaymentService from './ProcessPaymentService.js';
+import refundDuplicateInvoicePaymentService from './RefundDuplicateInvoicePaymentService.js';
 import { ReconcileRecurringCardBillingService } from './ReconcileRecurringCardBillingService.js';
 
 const originalEnv = { ...process.env };
@@ -15,7 +16,9 @@ const originalExecuteRaw = prisma.$executeRaw;
 const originalFindInvoice = prisma.invoice.findFirst;
 const originalFindSubscription = billingRepository.findSubscriptionByRestaurantId;
 const originalGetPlan = platformPlanCatalogService.getByCode;
-const originalProcessPayment = processPaymentService.execute;
+const originalProcessPaymentTracked = processPaymentService.executeTracked;
+const originalRegisterAttempt = billingRepository.registerInvoicePaymentAttempt;
+const originalRefundDuplicate = refundDuplicateInvoicePaymentService.execute;
 
 beforeEach(() => {
   Object.assign(process.env, {
@@ -37,7 +40,9 @@ afterEach(() => {
   prisma.invoice.findFirst = originalFindInvoice;
   billingRepository.findSubscriptionByRestaurantId = originalFindSubscription;
   platformPlanCatalogService.getByCode = originalGetPlan;
-  processPaymentService.execute = originalProcessPayment;
+  processPaymentService.executeTracked = originalProcessPaymentTracked;
+  billingRepository.registerInvoicePaymentAttempt = originalRegisterAttempt;
+  refundDuplicateInvoicePaymentService.execute = originalRefundDuplicate;
 });
 
 function installBaseDependencies({ invoiceTotal = '249.90' } = {}) {
@@ -61,6 +66,7 @@ function installBaseDependencies({ invoiceTotal = '249.90' } = {}) {
   platformPlanCatalogService.getByCode = async () => ({ monthlyFee: 249.9 });
   prisma.invoice.findFirst = async ({ where }) => {
     assert.equal(where.restaurantId, 7);
+    assert.deepEqual(where.status, { not: 'CANCELADO' });
     return {
       id: 91,
       restaurantId: 7,
@@ -69,6 +75,17 @@ function installBaseDependencies({ invoiceTotal = '249.90' } = {}) {
       dueDate: new Date('2026-11-15T12:00:00.000Z'),
     };
   };
+  billingRepository.registerInvoicePaymentAttempt = async (input) => ({
+    id: 191,
+    invoiceId: input.invoiceId,
+    restaurantId: input.restaurantId,
+    method: input.method,
+    provider: input.provider,
+    providerPaymentId: input.providerPaymentId,
+    amount: input.amount,
+    status: 'PENDING',
+  });
+  refundDuplicateInvoicePaymentService.execute = async () => ({ refunded: true });
 }
 
 test('concilia cobrança recorrente aprovada e quita somente a fatura do mesmo restaurante', async () => {
@@ -77,9 +94,9 @@ test('concilia cobrança recorrente aprovada e quita somente a fatura do mesmo r
   const processed = [];
   const providerCalls = [];
 
-  processPaymentService.execute = async ({ invoiceId }) => {
-    processed.push(invoiceId);
-    return { id: invoiceId, status: 'PAGO' };
+  processPaymentService.executeTracked = async ({ invoiceId, paymentAttemptId }) => {
+    processed.push({ invoiceId, paymentAttemptId });
+    return { invoice: { id: invoiceId, status: 'PAGO' }, settlement: 'APPLIED' };
   };
 
   globalThis.fetch = async (input, init) => {
@@ -121,7 +138,7 @@ test('concilia cobrança recorrente aprovada e quita somente a fatura do mesmo r
   const result = await service.execute();
 
   assert.deepEqual(result, { processed: 1, paid: 1, failures: 0 });
-  assert.deepEqual(processed, [91]);
+  assert.deepEqual(processed, [{ invoiceId: 91, paymentAttemptId: 191 }]);
   assert.equal(providerCalls.length, 2);
 });
 
@@ -130,8 +147,9 @@ test('não quita mensalidade se o valor recorrente aprovado divergir da fatura',
   installBaseDependencies({ invoiceTotal: '249.90' });
   let processed = false;
 
-  processPaymentService.execute = async () => {
+  processPaymentService.executeTracked = async ({ invoiceId }) => {
     processed = true;
+    return { invoice: { id: invoiceId, status: 'PAGO' }, settlement: 'APPLIED' };
   };
   globalThis.fetch = async (input) => {
     const url = new URL(String(input));
@@ -166,6 +184,74 @@ test('não quita mensalidade se o valor recorrente aprovado divergir da fatura',
   assert.deepEqual(result, { processed: 1, paid: 0, failures: 0 });
 });
 
+test('cartão aprovado após Pix já pago é registrado e estornado como duplicidade', async () => {
+  const service = new ReconcileRecurringCardBillingService();
+  installBaseDependencies();
+  const refunded: number[] = [];
+  const attempts = [];
+
+  prisma.invoice.findFirst = async ({ where }) => {
+    assert.equal(where.restaurantId, 7);
+    assert.deepEqual(where.status, { not: 'CANCELADO' });
+    return {
+      id: 91,
+      restaurantId: 7,
+      total: { toString: () => '249.90' },
+      status: 'PAGO',
+      dueDate: new Date('2026-11-15T12:00:00.000Z'),
+    };
+  };
+  billingRepository.registerInvoicePaymentAttempt = async (input) => {
+    attempts.push(input);
+    return { id: 291, ...input, status: 'PENDING' };
+  };
+  processPaymentService.executeTracked = async ({ invoiceId, paymentAttemptId }) => {
+    assert.equal(invoiceId, 91);
+    assert.equal(paymentAttemptId, 291);
+    return { invoice: { id: 91, status: 'PAGO' }, settlement: 'DUPLICATE' };
+  };
+  refundDuplicateInvoicePaymentService.execute = async (attemptId) => {
+    refunded.push(Number(attemptId));
+    return { refunded: true };
+  };
+
+  globalThis.fetch = async (input) => {
+    const url = new URL(String(input));
+    if (url.pathname === '/preapproval/preapproval-7') {
+      return new Response(
+        JSON.stringify({
+          id: 'preapproval-7',
+          status: 'authorized',
+          next_payment_date: '2026-11-15T12:00:00.000Z',
+          auto_recurring: { transaction_amount: 249.9, currency_id: 'BRL' },
+        }),
+        { status: 200, headers: { 'content-type': 'application/json' } },
+      );
+    }
+    return new Response(
+      JSON.stringify({
+        results: [
+          {
+            transaction_amount: '249.90',
+            currency_id: 'BRL',
+            debit_date: '2026-11-15T12:00:00.000Z',
+            payment: { id: 880093, status: 'approved', status_detail: 'accredited' },
+          },
+        ],
+      }),
+      { status: 200, headers: { 'content-type': 'application/json' } },
+    );
+  };
+
+  const result = await service.execute();
+
+  assert.deepEqual(result, { processed: 1, paid: 0, failures: 0 });
+  assert.equal(attempts.length, 1);
+  assert.equal(attempts[0].method, 'CARD');
+  assert.equal(attempts[0].providerPaymentId, '880093');
+  assert.deepEqual(refunded, [291]);
+});
+
 test('sincroniza valor da assinatura no Mercado Pago antes do próximo ciclo quando o plano mudou', async () => {
   const service = new ReconcileRecurringCardBillingService();
   installBaseDependencies();
@@ -179,7 +265,10 @@ test('sincroniza valor da assinatura no Mercado Pago antes do próximo ciclo qua
     assert.equal(plan, 'PREMIUM');
     return { monthlyFee: 249.9 };
   };
-  processPaymentService.execute = async () => undefined;
+  processPaymentService.executeTracked = async ({ invoiceId }) => ({
+    invoice: { id: invoiceId, status: 'PAGO' },
+    settlement: 'APPLIED',
+  });
   const requests = [];
 
   globalThis.fetch = async (input, init) => {
@@ -238,8 +327,9 @@ test('sem token dedicado em produção não consulta provedor nem processa cobra
     fetched = true;
     throw new Error('não deve chamar o provedor');
   };
-  processPaymentService.execute = async () => {
+  processPaymentService.executeTracked = async ({ invoiceId }) => {
     processed = true;
+    return { invoice: { id: invoiceId, status: 'PAGO' }, settlement: 'APPLIED' };
   };
 
   const result = await service.execute();

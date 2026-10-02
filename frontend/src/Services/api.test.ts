@@ -147,4 +147,73 @@ describe('api auth session', () => {
 
     expect(getAccessToken()).toBe('account-seven-token');
   });
+
+  it('não envia sessão de mesa antiga em delivery ou retirada', async () => {
+    localStorage.setItem(
+      'tableSession',
+      JSON.stringify({ sessionToken: 'table-session-token', restaurantId: 99 }),
+    );
+    localStorage.setItem('tableSessionToken', 'table-session-token');
+
+    const captured: Array<{ url?: string; tableSession?: unknown }> = [];
+    const adapter = async (config: AxiosRequestConfig) => {
+      captured.push({
+        url: config.url,
+        tableSession: config.headers?.['x-session-token'],
+      });
+      return successfulResponse(config);
+    };
+
+    await api.post(
+      '/orders/address-location',
+      { restaurantId: 7, type: 'DELIVERY' },
+      { adapter },
+    );
+    await api.post(
+      '/orders/quote',
+      { restaurantId: 7, type: 'DELIVERY', items: [{ productId: 1, quantity: 1 }] },
+      { adapter },
+    );
+    await api.post(
+      '/orders/quote',
+      { restaurantId: 7, type: 'RETIRADA', items: [{ productId: 1, quantity: 1 }] },
+      { adapter },
+    );
+
+    expect(captured).toEqual([
+      { url: '/orders/address-location', tableSession: undefined },
+      { url: '/orders/quote', tableSession: undefined },
+      { url: '/orders/quote', tableSession: undefined },
+    ]);
+  });
+
+  it('envia sessão de mesa somente em fluxos de mesa', async () => {
+    localStorage.setItem(
+      'tableSession',
+      JSON.stringify({ sessionToken: 'table-session-token', restaurantId: 7 }),
+    );
+    localStorage.setItem('tableSessionToken', 'table-session-token');
+
+    const captured: Array<{ url?: string; tableSession?: unknown }> = [];
+    const adapter = async (config: AxiosRequestConfig) => {
+      captured.push({
+        url: config.url,
+        tableSession: config.headers?.['x-session-token'],
+      });
+      return successfulResponse(config);
+    };
+
+    await api.post(
+      '/orders/quote',
+      { restaurantId: 7, type: 'MESA', tableId: 3, items: [{ productId: 1, quantity: 1 }] },
+      { adapter },
+    );
+    await api.get('/table-sessions/current', { adapter });
+
+    expect(captured).toEqual([
+      { url: '/orders/quote', tableSession: 'table-session-token' },
+      { url: '/table-sessions/current', tableSession: 'table-session-token' },
+    ]);
+  });
+
 });

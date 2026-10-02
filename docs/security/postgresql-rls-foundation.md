@@ -6,7 +6,7 @@ O RLS é defesa em profundidade. Os filtros `restaurantId` e as autorizações d
 
 ## Inventário do Prisma schema
 
-Classificação feita sobre todos os 44 modelos atuais. “Direto” significa `restaurantId` obrigatório na própria linha; relações, por si só, não tornam uma tabela direta.
+“Direto” significa `restaurantId` obrigatório na própria linha; relações, por si só, não tornam uma tabela direta. O inventário deve acompanhar novos modelos tenant-scoped no mesmo PR que os introduzir.
 
 | Modelo                    | Classificação principal                       | Observação / decisão da fase 1                                                         |
 | ------------------------- | --------------------------------------------- | -------------------------------------------------------------------------------------- |
@@ -47,6 +47,7 @@ Classificação feita sobre todos os 44 modelos atuais. “Direto” significa `
 | `CouponRedemption`        | tenant direto                                 | Reserva/uso ligado a pedido, cupom e cliente.                                          |
 | `Subscription`            | tenant direto + plataforma/job                | Cobrança e controle pelo `SUPER_ADMIN`.                                                |
 | `Invoice`                 | tenant direto + plataforma/job                | Reconciliação e cobrança cross-tenant.                                                 |
+| `InvoicePaymentAttempt`   | tenant direto + plataforma/job                | Tentativas da mesma fatura; FK composta com `invoiceId + restaurantId`, sem rota tenant direta e processada por jobs/webhooks de plataforma. |
 | `AuthRefreshSession`      | global indireto por usuário                   | Sessão de autenticação, inclusive cliente e plataforma.                                |
 | `LoginLockout`            | global                                        | Bloqueio por e-mail normalizado.                                                       |
 | `AuthMfaChallenge`        | global indireto por usuário                   | MFA para qualquer papel.                                                               |

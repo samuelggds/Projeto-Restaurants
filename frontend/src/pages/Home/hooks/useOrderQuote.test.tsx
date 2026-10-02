@@ -75,6 +75,8 @@ describe('useOrderQuote', () => {
       deliveryFeeFallbackApplied: false,
       total: 25,
       couponCode: null,
+      couponDiscountType: null,
+      couponDiscountValue: null,
     });
     container = document.createElement('div');
     document.body.appendChild(container);
@@ -98,6 +100,8 @@ describe('useOrderQuote', () => {
         deliveryFeeFallbackApplied: true,
         total: '68',
         couponCode: 'FIEL7',
+        couponDiscountType: 'PERCENTAGE',
+        couponDiscountValue: 10,
       }),
     ).toEqual({
       itemsSubtotal: 80,
@@ -108,6 +112,8 @@ describe('useOrderQuote', () => {
       deliveryFeeFallbackApplied: true,
       total: 68,
       couponCode: 'FIEL7',
+      couponDiscountType: 'PERCENTAGE',
+      couponDiscountValue: 10,
     });
   });
 
@@ -117,12 +123,20 @@ describe('useOrderQuote', () => {
     expect(isDeliveryAddressReadyForQuote({ ...completeAddress, zipCode: '60000' })).toBe(false);
   });
 
-  it('não chama quote enquanto o endereço de delivery estiver incompleto', async () => {
+  it('mantém a cotação de produtos ativa antes de concluir o endereço de delivery', async () => {
     await act(async () => {
       root.render(<HookProbe address={{ ...completeAddress, number: '' }} />);
-      await vi.advanceTimersByTimeAsync(ORDER_QUOTE_DEBOUNCE_MS * 2);
+      await Promise.resolve();
     });
-    expect(ordersService.quoteOrder).not.toHaveBeenCalled();
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(ORDER_QUOTE_DEBOUNCE_MS);
+      await Promise.resolve();
+    });
+    expect(ordersService.quoteOrder).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(ordersService.quoteOrder).mock.calls[0]?.[0]).toMatchObject({
+      restaurantId: 7,
+      type: 'DELIVERY',
+    });
   });
 
   it('permite validar cupom selecionado antes de concluir o endereço de delivery', async () => {

@@ -6,7 +6,7 @@ import {
 import type { PaymentProvider } from '../providers/PaymentProvider.js';
 import { ProcessTablePaymentWebhookService } from './ProcessTablePaymentWebhookService.js';
 
-type TableCardIntent = {
+type TableOnlineIntent = {
   id: number;
   publicId: string;
   restaurantId: number;
@@ -16,7 +16,7 @@ type TableCardIntent = {
   provider: string | null;
 };
 
-type IntentLookup = (externalId: string) => Promise<TableCardIntent | null>;
+type IntentLookup = (externalId: string) => Promise<TableOnlineIntent | null>;
 type ProviderFactory = (
   context: ConfiguredTablePaymentProviderContext,
   provider: string,
@@ -27,7 +27,7 @@ type ProcessorFactory = (provider: PaymentProvider) => Processor;
 const defaultIntentLookup: IntentLookup = (externalId) =>
   prisma.tablePaymentIntent.findFirst({
     where: {
-      method: 'CARD',
+      method: { in: ['PIX', 'CARD'] },
       provider: 'MERCADO_PAGO',
       providerExternalId: externalId,
     },
@@ -42,7 +42,7 @@ const defaultIntentLookup: IntentLookup = (externalId) =>
     },
   });
 
-export class ReconcileTableCardOrderWebhookService {
+export class ReconcileTableOrderWebhookService {
   constructor(
     private readonly findIntent: IntentLookup = defaultIntentLookup,
     private readonly providerFactory: ProviderFactory = createConfiguredTablePaymentProviderForExisting,
@@ -56,7 +56,7 @@ export class ReconcileTableCardOrderWebhookService {
 
     const externalId = `mp_order:${normalizedOrderId}`;
     const intent = await this.findIntent(externalId);
-    if (!intent?.provider) return false;
+    if (!intent?.provider || !['PIX', 'CARD'].includes(intent.method)) return false;
 
     const provider = this.providerFactory(
       {
@@ -67,7 +67,7 @@ export class ReconcileTableCardOrderWebhookService {
         participantPhone: null,
         intentId: intent.id,
         intentPublicId: intent.publicId,
-        method: 'CARD',
+        method: intent.method as 'PIX' | 'CARD',
       },
       intent.provider,
     );
@@ -86,4 +86,4 @@ export class ReconcileTableCardOrderWebhookService {
   }
 }
 
-export default new ReconcileTableCardOrderWebhookService();
+export default new ReconcileTableOrderWebhookService();

@@ -916,7 +916,7 @@ export const ActionDock = styled.nav`
   border-top: 1px solid var(--table-line);
   background: #fff;
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 160px));
+  grid-template-columns: repeat(4, minmax(0, 160px));
   justify-content: center;
   gap: 30px;
 
@@ -970,13 +970,15 @@ export const ActionDock = styled.nav`
     right: 0;
     bottom: 0;
     min-height: 64px;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(4, minmax(0, 1fr));
     gap: 0;
     box-shadow: 0 -8px 22px rgba(29, 27, 24, .06);
 
     button {
       min-height: 64px;
-      font-size: 9px;
+      padding-inline: 4px;
+      font-size: 8px;
+      line-height: 10px;
     }
   }
 `;

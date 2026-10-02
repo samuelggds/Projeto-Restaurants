@@ -193,6 +193,7 @@ class RestaurantSettingsRepository {
       select: {
         restaurantId: true,
         primaryColor: true,
+        deliveryFeeMode: true,
         deliveryFee: true,
         minimumOrder: true,
         freeShippingMinimum: true,

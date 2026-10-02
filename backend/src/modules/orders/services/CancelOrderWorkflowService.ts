@@ -4,6 +4,7 @@ import {
   PaymentMethod,
   TableBillItemFinancialStatus,
   TableOrderFinancialStatus,
+  TablePaymentIntentStatus,
 } from '@prisma/client';
 import prisma from '../../../config/prisma.js';
 import orderRepository from '../repositories/OrderRepository.js';
@@ -67,6 +68,45 @@ export type CancelOrderWorkflowResult = {
 class CancelOrderWorkflowService {
   private buildIdempotencyKey(order: Pick<CancellationOrder, 'id' | 'restaurantId'>) {
     return `order-refund-${order.restaurantId}-${order.id}`;
+  }
+
+  private async ensureTableLedgerPaymentCanCancel(order: CancellationOrder) {
+    if (!order.tableSessionId || order.paid !== true) return;
+
+    const paidAllocation = await prisma.tablePaymentAllocation.findFirst({
+      where: {
+        restaurantId: order.restaurantId,
+        tableSessionId: order.tableSessionId,
+        tableBillItem: {
+          orderId: order.id,
+          restaurantId: order.restaurantId,
+          tableSessionId: order.tableSessionId,
+        },
+        paymentIntent: {
+          status: TablePaymentIntentStatus.PAID,
+        },
+      },
+      select: {
+        paymentIntentId: true,
+        paymentIntent: {
+          select: {
+            publicId: true,
+            method: true,
+            provider: true,
+          },
+        },
+      },
+    });
+
+    if (!paidAllocation) return;
+
+    // Pagamentos da conta da mesa possuem ledger próprio e podem abranger mais
+    // de um item/pedido. O fluxo genérico de Order não pode cancelar o pedido
+    // antes de o pagamento da mesa ser estornado, pois isso retiraria o item
+    // da contabilização sem devolver o valor ao cliente.
+    throw new OrderCancellationError(
+      'Este pedido já foi pago pela conta da mesa. Estorne primeiro o pagamento confirmado da mesa e só depois cancele o pedido.',
+    );
   }
 
   private async ensureOpenFinanceCanCancel(order: CancellationOrder) {
@@ -390,6 +430,8 @@ class CancelOrderWorkflowService {
   }
 
   async execute(order: CancellationOrder): Promise<CancelOrderWorkflowResult> {
+    await this.ensureTableLedgerPaymentCanCancel(order);
+
     const result = !requiresAutomaticOrderRefund(order)
       ? await this.cancelWithoutRefund(order)
       : await this.refundAndCancel(order);

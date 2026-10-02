@@ -1,6 +1,7 @@
 const DEFINITIVE_PROVIDER_ERROR_NAMES = new Set([
   'CardPaymentDeclinedError',
   'CardPaymentProviderRequestError',
+  'PixPaymentProviderRequestError',
 ]);
 
 export function shouldReleaseTablePaymentReservationAfterProviderError(
@@ -31,6 +32,14 @@ export function safeTablePaymentProviderError(
       statusCode: 422,
       code: 'CARD_PAYMENT_INVALID',
       message: 'Não foi possível processar os dados do cartão. Revise os dados e tente novamente.',
+    };
+  }
+
+  if (name === 'PixPaymentProviderRequestError') {
+    return {
+      statusCode: 422,
+      code: 'PIX_PAYMENT_INVALID',
+      message: 'Não foi possível gerar o Pix desta mesa. Tente novamente em instantes.',
     };
   }
 

@@ -27,6 +27,7 @@ export const Canvas = styled.div`
 `;
 
 export const EtaCard = styled.div`
+  display: none;
   position: absolute;
   z-index: 5;
   top: 16px;
@@ -61,19 +62,33 @@ export const EtaCard = styled.div`
     font-weight: 800;
   }
 
-  @media (max-width: 520px) {
-    top: 12px;
-    left: 12px;
-    min-width: 146px;
-    padding: 10px 12px;
+  @media (max-width: 900px) {
+    top: 20px;
+    left: 20px;
+    min-width: 0;
+    padding: 8px 16px;
+    display: block;
+    border-color: #efece6;
+    border-radius: 999px;
+    box-shadow: 0 4px 10px rgba(16, 24, 39, 0.08);
+    backdrop-filter: none;
+
+    small,
+    span {
+      display: none;
+    }
 
     strong {
-      font-size: 20px;
+      color: #e85a2b;
+      font-size: 14px;
+      line-height: 1.2;
+      white-space: nowrap;
     }
   }
 `;
 
 export const LiveBadge = styled.div`
+  display: none;
   position: absolute;
   z-index: 5;
   left: 16px;
@@ -108,6 +123,7 @@ export const LiveBadge = styled.div`
 `;
 
 export const RecenterButton = styled.button`
+  display: none;
   position: absolute;
   z-index: 5;
   top: 16px;

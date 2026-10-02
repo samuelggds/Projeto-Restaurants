@@ -3,7 +3,6 @@ import {
   ArrowRight,
   Banknote,
   CheckCircle2,
-  CreditCard,
   ReceiptText,
   RefreshCw,
   ShieldCheck,
@@ -31,7 +30,6 @@ type Props = {
   error: string;
   onRefresh: () => void;
   onCreatePayment: (draft: TablePaymentDraft) => Promise<CreateTablePaymentResult | null>;
-  onOpenCardPayment: () => void;
   onOpenPayment: (payment: TablePaymentIntent) => void;
   onRemoveOrder?: (orderPublicId: string) => Promise<boolean>;
   draftCount?: number;
@@ -50,7 +48,6 @@ function TableAccountPanelContent(props: Props) {
     error,
     onRefresh,
     onCreatePayment,
-    onOpenCardPayment,
     onOpenPayment,
     onRemoveOrder,
     draftCount = 0,
@@ -443,7 +440,7 @@ function TableAccountPanelContent(props: Props) {
                       <ShieldCheck size={22} aria-hidden="true" />
                       <div>
                         <b>Você paga somente o seu consumo</b>
-                        <p>PIX e cartão online confirmam pelo provedor. Dinheiro só vira pago após a confirmação da equipe.</p>
+                        <p>PIX confirma automaticamente pelo provedor. Dinheiro só vira pago após a confirmação da equipe.</p>
                       </div>
                     </S.Guide>
                   ) : null}
@@ -514,25 +511,6 @@ function TableAccountPanelContent(props: Props) {
                   </span>
                   <ArrowRight size={18} aria-hidden="true" />
                 </S.PayButton>
-                <S.PayButton
-                  className={!snapshot.capabilities.allowCard ? 'unavailable' : undefined}
-                  type="button"
-                  disabled={
-                    busy ||
-                    loading ||
-                    Boolean(error) ||
-                    !snapshot.capabilities.allowCard
-                  }
-                  onClick={onOpenCardPayment}
-                >
-                  <span className="payment-method-icon" aria-hidden="true" data-payment-method-icon="card">
-                    <CreditCard size={20} strokeWidth={2.1} />
-                  </span>
-                  <span className="payment-method-label">
-                    {snapshot.capabilities.allowCard ? 'Pagar com cartão' : 'Cartão indisponível'}
-                  </span>
-                  <ArrowRight size={18} aria-hidden="true" />
-                </S.PayButton>
                 {snapshot.capabilities.allowCash ? (
                   <S.PayButton
                     type="button"
@@ -546,10 +524,9 @@ function TableAccountPanelContent(props: Props) {
                     <ArrowRight size={18} aria-hidden="true" />
                   </S.PayButton>
                 ) : null}
-                {!snapshot.capabilities.allowPix || !snapshot.capabilities.allowCard ? (
+                {!snapshot.capabilities.allowPix ? (
                   <small>
-                    PIX e cartão são ativados automaticamente quando o restaurante configura
-                    esses métodos no painel administrativo.
+                    O PIX é ativado automaticamente quando o restaurante configura o Mercado Pago.
                   </small>
                 ) : (
                   <small>Você nunca paga o consumo de outro participante por esta tela.</small>

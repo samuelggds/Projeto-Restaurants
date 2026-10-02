@@ -151,7 +151,7 @@ test('admin monta combo por etapas e envia as escolhas configuradas', async ({ p
 
   const editor = page.getByRole('dialog');
   await editor.getByLabel('Nome do combo').fill('Combo Duplo');
-  await editor.getByLabel('Preço final do combo').fill('59.90');
+  await editor.getByLabel('Preço final do combo').fill('59,90');
 
   await editor.getByLabel('Nome da etapa 1').fill('Hambúrgueres');
   await editor.getByLabel('Quantidade da etapa 1').fill('2');
@@ -178,6 +178,7 @@ test('admin monta combo por etapas e envia as escolhas configuradas', async ({ p
   await expect.poll(() => saved).toBeTruthy();
   expect(saved).toMatchObject({
     name: 'Combo Duplo',
+    image: '',
     price: 59.9,
     groups: [
       {

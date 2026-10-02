@@ -37,9 +37,10 @@ export const HeaderInner = styled.div`
   justify-content: space-between;
   gap: 20px;
 
-  @media (max-width: 520px) {
-    width: calc(100% - 24px);
-    min-height: 64px;
+  @media (max-width: 900px) {
+    width: 100%;
+    min-height: 56px;
+    padding: 0 20px;
   }
 `;
 
@@ -72,153 +73,28 @@ export const BackButton = styled.button`
     outline-offset: 2px;
   }
 
-  @media (max-width: 520px) {
-    width: 36px;
+  @media (max-width: 900px) {
+    width: auto;
     height: 36px;
     padding: 0;
     justify-content: center;
+    color: #72706b;
+    font-size: 14px;
 
     span {
-      display: none;
+      display: inline;
     }
-  }
-`;
-
-export const OrderIdentity = styled.div`
-  min-width: 0;
-  display: flex;
-  align-items: center;
-  gap: 11px;
-
-  > span:first-child {
-    width: 38px;
-    height: 38px;
-    display: grid;
-    place-items: center;
-    flex: 0 0 auto;
-    border-radius: 18px;
-    color: #fff;
-    background: #1f1e1a;
-  }
-
-  > span:last-child {
-    min-width: 0;
-    display: grid;
-    gap: 2px;
-  }
-
-  b,
-  small {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  b {
-    font-size: 14px;
-  }
-
-  small {
-    color: var(--tracking-muted);
-    font-size: 11px;
   }
 `;
 
 export const Main = styled.main`
   width: min(1120px, calc(100% - 48px));
   margin: 0 auto;
-  padding: 34px 0 64px;
+  padding: 40px 0 64px;
 
-  @media (max-width: 520px) {
-    width: calc(100% - 24px);
-    padding: 24px 0 36px;
-  }
-`;
-
-export const HeadingRow = styled.div`
-  margin-bottom: 22px;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(310px, 0.72fr);
-  align-items: end;
-  gap: 28px;
-
-  h1 {
-    margin: 7px 0 7px;
-    font: 800 34px/1.12 'Gabarito', 'Inter', sans-serif;
-    letter-spacing: -0.03em;
-  }
-
-  p {
-    max-width: 560px;
-    margin: 0;
-    color: var(--tracking-muted);
-    font-size: 14px;
-    line-height: 1.55;
-  }
-
-  @media (max-width: 800px) {
-    grid-template-columns: 1fr;
-    align-items: stretch;
-    gap: 24px;
-  }
-
-  @media (max-width: 520px) {
-    h1 {
-      font-size: 31px;
-    }
-  }
-`;
-
-export const Eyebrow = styled.span`
-  color: #ad3e13;
-  font-size: 11px;
-  font-weight: 900;
-  letter-spacing: 0;
-  text-transform: uppercase;
-`;
-
-export const TrackingBar = styled.div<{ $connected: boolean }>`
-  min-height: 64px;
-  padding: 12px 14px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 14px;
-  border: 1px solid ${(props) => (props.$connected ? '#a8d7ba' : '#e7c970')};
-  border-radius: 18px;
-  color: ${(props) => (props.$connected ? '#1f6340' : '#805b0f')};
-  background: ${(props) => (props.$connected ? '#edf8f1' : '#fff8df')};
-
-  > span {
-    min-width: 0;
-    display: flex;
-    align-items: center;
-    gap: 9px;
-    font-size: 12px;
-    font-weight: 900;
-  }
-
-  i {
-    width: 9px;
-    height: 9px;
-    flex: 0 0 auto;
-    border-radius: 50%;
-    background: ${(props) => (props.$connected ? '#2f9c5b' : '#d49412')};
-    box-shadow: 0 0 0 4px
-      ${(props) => (props.$connected ? 'rgba(47, 156, 91, 0.14)' : 'rgba(212, 148, 18, 0.14)')};
-  }
-
-  small {
-    flex: 0 0 auto;
-    color: inherit;
-    font-size: 10px;
-    opacity: 0.8;
-  }
-
-  @media (max-width: 420px) {
-    align-items: flex-start;
-    flex-direction: column;
-    gap: 6px;
+  @media (max-width: 900px) {
+    width: 100%;
+    padding: 0 0 28px;
   }
 `;
 
@@ -389,35 +265,6 @@ export const ReceiptConfirmed = styled(CompletionNotice)`
   background: #f3fbf5;
 `;
 
-export const Workspace = styled.div`
-  display: grid;
-  grid-template-columns: minmax(0, 1.55fr) minmax(340px, 0.85fr);
-  align-items: start;
-  gap: 18px;
-
-  @media (max-width: 900px) {
-    grid-template-columns: 1fr;
-  }
-`;
-
-export const RouteNotice = styled.p`
-  margin: 0 0 10px;
-  padding: 10px 12px;
-  border: 1px solid #d8e1dc;
-  border-radius: 8px;
-  color: #54635c;
-  background: #f8faf8;
-  font-size: 10px;
-  line-height: 1.45;
-
-  small {
-    display: block;
-    margin-top: 4px;
-    color: #728078;
-    font-size: 9px;
-  }
-`;
-
 export const MapArea = styled.section`
   min-width: 0;
 
@@ -429,45 +276,15 @@ export const MapArea = styled.section`
     border-radius: 8px;
   }
 
-  @media (max-width: 560px) {
+  @media (max-width: 900px) {
     .delivery-map-shell {
       width: 100%;
-      height: 300px;
-      min-height: 300px;
+      height: 280px;
+      min-height: 280px;
       margin-inline: 0;
-      border-right: 1px solid var(--courier-line);
-      border-left: 1px solid var(--courier-line);
-      border-radius: 16px;
+      border: 0;
+      border-radius: 0;
     }
-  }
-`;
-
-export const DeliveryStatusCard = styled.section`
-  margin: 16px 20px 0;
-  padding: 16px 0;
-  border-top: 1px solid #e7e9e6;
-  border-bottom: 1px solid #e7e9e6;
-`;
-
-export const DeliveryStatusHeader = styled.header`
-  margin-bottom: 14px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-
-  h2 {
-    margin: 0;
-    font-size: 14px;
-  }
-
-  strong {
-    padding: 5px 9px;
-    border-radius: 999px;
-    color: #237b43;
-    background: #edf8f0;
-    font-size: 10px;
-    font-weight: 850;
   }
 `;
 
@@ -484,179 +301,6 @@ export const DeliveryStatusItem = styled.div<{ $active: boolean; $complete: bool
   font-size: 12px;
   font-weight: ${p => p.$active ? 850 : 650};
   svg { width: 17px; height: 17px; }
-`;
-
-export const DetailsPanel = styled.aside`
-  min-width: 0;
-  overflow: hidden;
-  border: 1px solid #efece6;
-  border-radius: 8px;
-  background: #fff;
-  box-shadow: 0 12px 28px rgba(31, 30, 26, 0.06);
-`;
-
-export const PanelHeader = styled.header`
-  padding: 20px;
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 14px;
-  color: #fff;
-  background: #173c42;
-
-  > span {
-    min-width: 0;
-    display: grid;
-    gap: 5px;
-  }
-
-  small {
-    color: #c9dcda;
-    font-size: 10px;
-    font-weight: 800;
-    text-transform: uppercase;
-  }
-
-  strong {
-    font:
-      800 20px 'Gabarito', 'Inter', sans-serif;
-  }
-`;
-
-export const StatusPill = styled.span<{ $tone: 'active' | 'success' | 'danger' }>`
-  flex: 0 0 auto;
-  padding: 6px 8px;
-  border-radius: 6px;
-  color: ${(props) =>
-    props.$tone === 'success' ? '#143d27' : props.$tone === 'danger' ? '#6e2020' : '#27350c'};
-  background: ${(props) =>
-    props.$tone === 'success' ? '#aee4bf' : props.$tone === 'danger' ? '#f2b8b8' : '#d8f06a'};
-  font-size: 9px;
-  font-weight: 900;
-  text-transform: uppercase;
-`;
-
-export const Summary = styled.dl`
-  margin: 0;
-  padding: 6px 20px;
-
-  > div {
-    padding: 16px 0;
-    display: grid;
-    gap: 6px;
-    border-bottom: 1px solid #e7e9e6;
-  }
-
-  dt {
-    display: flex;
-    align-items: center;
-    gap: 7px;
-    color: var(--tracking-muted);
-    font-size: 11px;
-    font-weight: 800;
-  }
-
-  dt svg {
-    width: 15px;
-    height: 15px;
-    color: #447369;
-  }
-
-  dd {
-    min-width: 0;
-    margin: 0;
-    overflow-wrap: anywhere;
-    font-size: 15px;
-    font-weight: 800;
-  }
-
-  small {
-    color: var(--tracking-muted);
-    font-size: 10px;
-  }
-`;
-
-export const Destination = styled.div`
-  margin: 16px 20px 0;
-  padding: 14px 0;
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 10px;
-  border-top: 1px solid #cedad6;
-  border-bottom: 1px solid #cedad6;
-  color: #20483f;
-
-  > svg {
-    width: 19px;
-    color: #e45118;
-  }
-
-  > span {
-    min-width: 0;
-    display: grid;
-    gap: 3px;
-  }
-
-  small {
-    color: var(--tracking-muted);
-    font-size: 10px;
-  }
-
-  strong {
-    overflow-wrap: anywhere;
-    font-size: 12px;
-  }
-
-  b {
-    font-size: 12px;
-    white-space: nowrap;
-  }
-
-  @media (max-width: 360px) {
-    grid-template-columns: auto minmax(0, 1fr);
-
-    b {
-      grid-column: 2;
-      justify-self: start;
-    }
-  }
-`;
-
-export const Contact = styled.a`
-  min-height: 46px;
-  margin: 16px 20px 0;
-  padding: 0 14px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  border-radius: 7px;
-  color: #fff;
-  background: #28705d;
-  text-decoration: none;
-  font-size: 13px;
-  font-weight: 800;
-
-  svg {
-    width: 17px;
-  }
-
-  &:hover {
-    background: #205d4d;
-  }
-
-  &:focus-visible {
-    outline: 3px solid rgba(40, 112, 93, 0.25);
-    outline-offset: 2px;
-  }
-`;
-
-export const Privacy = styled.p`
-  margin: 17px 20px 20px;
-  color: #77827d;
-  font-size: 10px;
-  line-height: 1.5;
 `;
 
 export const State = styled.section`
@@ -745,5 +389,188 @@ export const RetryButton = styled.button`
   &:focus-visible {
     outline: 3px solid rgba(228, 81, 24, 0.25);
     outline-offset: 2px;
+  }
+`;
+export const FigmaTrackingLayout = styled.div`
+  display: grid;
+  grid-template-columns: minmax(0, 660px) minmax(340px, 420px);
+  justify-content: center;
+  align-items: start;
+  gap: 40px;
+
+  @media (max-width: 900px) {
+    display: block;
+  }
+`;
+
+export const TrackingMapColumn = styled.section`
+  min-width: 0;
+  grid-column: 1;
+  grid-row: 1 / span 3;
+
+  @media (max-width: 900px) {
+    grid-column: auto;
+    grid-row: auto;
+  }
+`;
+
+export const DesktopTrackingTitle = styled.h1`
+  margin: 0 0 16px;
+  color: var(--tracking-ink);
+  font: 800 28px/1.15 'Gabarito', 'Inter', sans-serif;
+
+  @media (max-width: 900px) {
+    display: none;
+  }
+`;
+
+export const TrackingSideColumn = styled.aside`
+  grid-column: 2;
+  grid-row: 1;
+  display: grid;
+  gap: 24px;
+
+  @media (max-width: 900px) {
+    display: none;
+  }
+`;
+
+export const DesktopStatusCard = styled.section`
+  padding: 24px;
+  display: grid;
+  gap: 20px;
+  border: 1px solid #efece6;
+  border-radius: 20px;
+  background: #fff;
+
+  h2 {
+    margin: 0;
+    color: #1f1e1a;
+    font: 800 18px/1.2 'Gabarito', 'Inter', sans-serif;
+  }
+`;
+
+export const CourierCard = styled.section`
+  min-width: 0;
+  padding: 16px;
+  display: grid;
+  grid-template-columns: 48px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 16px;
+  border: 1px solid #efece6;
+  border-radius: 16px;
+  background: #fff;
+
+  > span { min-width: 0; display: grid; gap: 2px; }
+  strong { overflow: hidden; color: #1f1e1a; font-size: 15px; font-weight: 800; text-overflow: ellipsis; white-space: nowrap; }
+  a { color: #268c43; font-size: 12px; font-weight: 700; text-decoration: none; }
+  .call { width: 40px; height: 40px; display: grid; place-items: center; border-radius: 20px; color: #e85a2b; background: #fdf2ec; }
+  .call svg { width: 20px; height: 20px; }
+
+  @media (max-width: 900px) {
+    padding: 20px 0;
+    border: 0;
+    border-bottom: 1px solid #efece6;
+    border-radius: 0;
+  }
+`;
+
+export const CourierAvatar = styled.span`
+  width: 48px;
+  height: 48px;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  border-radius: 50%;
+  color: #315d53;
+  background: #eef3ef;
+  img { width: 100%; height: 100%; object-fit: cover; }
+  svg { width: 24px; height: 24px; }
+`;
+
+
+export const CourierSlot = styled.div`
+  grid-column: 2;
+  grid-row: 2;
+  min-width: 0;
+
+  @media (max-width: 900px) {
+    padding: 0 20px;
+    background: #fff;
+  }
+`;
+
+export const MobileTrackingDetails = styled.section`
+  display: none;
+  @media (max-width: 900px) {
+    display: block;
+    padding: 0 20px 16px;
+    border-top: 1px solid #efece6;
+    border-bottom: 1px solid #efece6;
+    background: #fff;
+  }
+`;
+
+export const MobileStatusList = styled.div`
+  padding: 0 0 20px;
+  display: grid;
+  gap: 12px;
+`;
+
+export const MobileStatusItem = styled.div<{ $active: boolean; $complete: boolean }>`
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: ${({ $active, $complete }) => ($active ? '#e85a2b' : $complete ? '#72706b' : '#aaa69f')};
+  font-size: 14px;
+  font-weight: ${({ $active }) => ($active ? 800 : 500)};
+  i {
+    width: 16px;
+    height: 16px;
+    flex: 0 0 auto;
+    border: 2px solid currentColor;
+    border-radius: 50%;
+    background: ${({ $complete }) => ($complete ? '#268c43' : '#fff')};
+    box-shadow: inset 0 0 0 3px #fff;
+  }
+`;
+
+export const DesktopRestaurantBrand = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-right: auto;
+  .brand-mark { width: 40px; height: 40px; display: grid; place-items: center; overflow: hidden; border-radius: 12px; color: #fff; background: #e85a2b; font: 800 20px 'Gabarito', 'Inter', sans-serif; }
+  .brand-mark img { width: 100%; height: 100%; object-fit: cover; }
+  > span:last-child { display: grid; gap: 2px; }
+  strong { color: #1f1e1a; font-size: 18px; font-weight: 800; }
+  small { display: flex; align-items: center; gap: 6px; color: #72706b; font-size: 13px; font-weight: 500; }
+  small i { width: 8px; height: 8px; border-radius: 50%; background: #268c43; }
+  @media (max-width: 900px) { display: none; }
+`;
+
+export const MobileHeaderTitle = styled.h1`
+  display: none;
+  margin: 0;
+  color: #1f1e1a;
+  font: 800 18px/1 'Gabarito', 'Inter', sans-serif;
+  @media (max-width: 900px) { display: block; position: absolute; left: 50%; transform: translateX(-50%); white-space: nowrap; }
+`;
+
+export const DesktopHeaderOrder = styled.div`
+  color: #1f1e1a;
+  font-size: 14px;
+  font-weight: 800;
+  @media (max-width: 900px) { width: 50px; color: transparent; user-select: none; }
+`;
+
+export const TrackingChatSlot = styled.div`
+  grid-column: 2;
+  grid-row: 3;
+  min-width: 0;
+
+  @media (max-width: 900px) {
+    padding: 0 20px 16px;
+    background: #fff;
   }
 `;

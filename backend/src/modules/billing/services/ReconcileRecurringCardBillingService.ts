@@ -5,6 +5,7 @@ import { resolveMercadoPagoApiEndpoint } from '../../restaurantSettings/security
 import billingRepository from '../repositories/BillingRepository.js';
 import platformPlanCatalogService from './PlatformPlanCatalogService.js';
 import processPaymentService from './ProcessPaymentService.js';
+import refundDuplicateInvoicePaymentService from './RefundDuplicateInvoicePaymentService.js';
 import { debug, error, info, warn } from '../utils/billingLogger.js';
 
 type Profile = {
@@ -211,7 +212,7 @@ export class ReconcileRecurringCardBillingService {
             const invoice = await prisma.invoice.findFirst({
               where: {
                 restaurantId: profile.restaurantId,
-                status: { in: ['PENDENTE', 'ATRASADO'] },
+                status: { not: 'CANCELADO' },
                 dueDate: { gte: rangeStart, lte: rangeEnd },
               },
               orderBy: { dueDate: 'asc' },
@@ -228,7 +229,29 @@ export class ReconcileRecurringCardBillingService {
               continue;
             }
 
-            await processPaymentService.execute({ invoiceId: invoice.id });
+            const attempt = await billingRepository.registerInvoicePaymentAttempt({
+              invoiceId: invoice.id,
+              restaurantId: profile.restaurantId,
+              method: 'CARD',
+              provider: 'MERCADO_PAGO',
+              providerPaymentId: paymentId,
+              amount: candidate.transaction_amount as string | number,
+              providerStatus: providerPaymentStatus,
+            });
+            const settlement = await processPaymentService.executeTracked({
+              invoiceId: invoice.id,
+              paymentAttemptId: attempt.id,
+            });
+            if (settlement.settlement === 'DUPLICATE') {
+              await refundDuplicateInvoicePaymentService.execute(attempt.id);
+              info('recurring card duplicate payment refunded', {
+                restaurantId: profile.restaurantId,
+                invoiceId: invoice.id,
+              });
+            } else if (settlement.settlement !== 'REFUNDED') {
+              paid += 1;
+            }
+
             await prisma.$executeRaw(Prisma.sql`
               UPDATE "PlatformBillingProfile"
               SET "lastPaymentId" = ${paymentId},
@@ -240,7 +263,6 @@ export class ReconcileRecurringCardBillingService {
                   "updatedAt" = CURRENT_TIMESTAMP
               WHERE "restaurantId" = ${profile.restaurantId}
             `);
-            paid += 1;
             break;
           }
 

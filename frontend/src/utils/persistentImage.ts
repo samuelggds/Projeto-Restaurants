@@ -1,7 +1,7 @@
 const ACCEPTED_IMAGE_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
 const MAX_INPUT_BYTES = 5 * 1024 * 1024;
 // Mantém o JSON completo abaixo do limite padrão de 1 MB do backend.
-const MAX_OUTPUT_LENGTH = 700_000;
+export const PERSISTENT_IMAGE_MAX_DATA_URL_LENGTH = 700_000;
 
 export function isPersistentImageSource(value: unknown) {
   const source = String(value || '').trim();
@@ -55,21 +55,12 @@ type PersistentImageOptions = {
   maximumDataUrlLength?: number;
 };
 
-export async function createPersistentImageDataUrl(
-  file: File,
+async function optimizeImageSource(
+  source: string,
   maxDimension = 512,
   options: PersistentImageOptions = {},
 ) {
-  if (!ACCEPTED_IMAGE_TYPES.has(file.type)) {
-    throw new Error('Use uma imagem JPG, PNG ou WebP.');
-  }
-
-  if (file.size > MAX_INPUT_BYTES) {
-    throw new Error('A imagem deve ter no máximo 5 MB.');
-  }
-
-  const originalDataUrl = await readBlobAsDataUrl(file);
-  const image = await loadImage(originalDataUrl);
+  const image = await loadImage(source);
   if (
     (options.minimumWidth && image.naturalWidth < options.minimumWidth) ||
     (options.minimumHeight && image.naturalHeight < options.minimumHeight)
@@ -78,6 +69,7 @@ export async function createPersistentImageDataUrl(
       `A imagem possui ${image.naturalWidth} × ${image.naturalHeight} px. Use uma imagem com no mínimo ${options.minimumWidth || 1} × ${options.minimumHeight || 1} px.`,
     );
   }
+
   const hasTargetSize = Boolean(options.targetWidth && options.targetHeight);
   const requestedScale = maxDimension / Math.max(image.naturalWidth, image.naturalHeight);
   const scale = options.upscale ? requestedScale : Math.min(1, requestedScale);
@@ -109,8 +101,11 @@ export async function createPersistentImageDataUrl(
   }
 
   const maximumDataUrlLength = Math.min(
-    MAX_OUTPUT_LENGTH,
-    Math.max(100_000, options.maximumDataUrlLength ?? MAX_OUTPUT_LENGTH),
+    PERSISTENT_IMAGE_MAX_DATA_URL_LENGTH,
+    Math.max(
+      100_000,
+      options.maximumDataUrlLength ?? PERSISTENT_IMAGE_MAX_DATA_URL_LENGTH,
+    ),
   );
   let quality = 0.88;
   let result = await encodeCanvasAsWebp(canvas, quality);
@@ -124,4 +119,32 @@ export async function createPersistentImageDataUrl(
   }
 
   return result;
+}
+
+export async function optimizePersistentImageDataUrl(
+  source: string,
+  maxDimension = 512,
+  options: PersistentImageOptions = {},
+) {
+  if (!/^data:image\/(jpeg|png|webp);base64,/i.test(String(source || '').trim())) {
+    throw new Error('A imagem recebida não está em um formato persistível suportado.');
+  }
+  return optimizeImageSource(source, maxDimension, options);
+}
+
+export async function createPersistentImageDataUrl(
+  file: File,
+  maxDimension = 512,
+  options: PersistentImageOptions = {},
+) {
+  if (!ACCEPTED_IMAGE_TYPES.has(file.type)) {
+    throw new Error('Use uma imagem JPG, PNG ou WebP.');
+  }
+
+  if (file.size > MAX_INPUT_BYTES) {
+    throw new Error('A imagem deve ter no máximo 5 MB.');
+  }
+
+  const originalDataUrl = await readBlobAsDataUrl(file);
+  return optimizeImageSource(originalDataUrl, maxDimension, options);
 }

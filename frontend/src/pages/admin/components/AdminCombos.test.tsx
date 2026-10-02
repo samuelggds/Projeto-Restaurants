@@ -434,4 +434,37 @@ describe('editor administrativo de combos', () => {
   });
 
 
+  it('cria combo sem imagem usando preço brasileiro com vírgula', async () => {
+    await renderCombos();
+    await click('Novo combo', container);
+    await fill('Nome do combo', 'Combo sem foto');
+    await fill('Preço final do combo', '59,90');
+    await addProduct('11', 1);
+    await click('Salvar combo', dialog());
+
+    expect(productComboService.create).toHaveBeenCalledOnce();
+    expect(productComboService.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        name: 'Combo sem foto',
+        image: '',
+        price: 59.9,
+      }),
+    );
+  });
+
+  it('também aceita ponto como separador decimal no preço do combo', async () => {
+    await renderCombos();
+    await click('Novo combo', container);
+    await fill('Nome do combo', 'Combo ponto');
+    await fill('Preço final do combo', '49.90');
+    await addProduct('11', 1);
+    await click('Salvar combo', dialog());
+
+    expect(productComboService.create).toHaveBeenCalledOnce();
+    expect(productComboService.create).toHaveBeenCalledWith(
+      expect.objectContaining({ price: 49.9 }),
+    );
+  });
+
+
 });

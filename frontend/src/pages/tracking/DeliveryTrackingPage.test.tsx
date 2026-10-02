@@ -144,16 +144,13 @@ describe('DeliveryTrackingPage integration', () => {
     await act(async () => root.render(<DeliveryTrackingPage />));
     await flushUntil(() => mocks.mapProps !== null);
 
-    expect(container.textContent).toContain('Atualização em tempo real');
-    expect(container.textContent).toContain('Rua das Flores, 10, Fortaleza');
+    expect(container.textContent).toContain('Acompanhe seu Pedido');
+    expect(container.textContent).toContain('Acompanhar pedido');
     expect(container.textContent).toContain('Status da Entrega');
     expect(container.textContent).toContain('Pedido recebido');
     expect(container.textContent).toContain('Em preparação na cozinha');
-    expect(container.textContent).toContain('Saiu para entrega');
-    expect(container.textContent).toContain('Chegou ao endereço');
-    expect(container.textContent).not.toContain('Concluído');
+    expect(container.textContent).toContain('Saiu para entrega (Rota)');
     expect(container.textContent).toContain('Mensagens com Rita');
-    expect(container.textContent).toContain('3,5 km');
     expect(mocks.mapProps?.routePath).toHaveLength(2);
     expect(mocks.mapProps?.destination?.label).toContain('Rua das Flores');
     expect(mocks.mapProps?.points).toHaveLength(1);
@@ -207,7 +204,7 @@ describe('DeliveryTrackingPage integration', () => {
       }),
     );
     expect(mocks.mapProps?.points).toHaveLength(finalPointCount);
-    expect(container.textContent).toContain('Acompanhamento concluído');
+    expect(container.textContent).toContain('Entrega concluída');
   });
 
   it('mostra e conclui a confirmação de recebimento aberta pelo link do WhatsApp', async () => {
@@ -264,7 +261,7 @@ describe('DeliveryTrackingPage integration', () => {
       }),
     );
     expect(mocks.mapProps?.points).toHaveLength(finalPointCount);
-    expect(container.textContent).toContain('Acompanhamento encerrado');
+    expect(container.textContent).toContain('Entrega cancelada');
   });
 
   it('reinicia todo o estado ao navegar para outro pedido', async () => {

@@ -7,7 +7,7 @@ import {
   ReceiptText,
   WalletCards,
 } from 'lucide-react';
-import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react';
+import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import QRCode from 'react-qr-code';
 import type { HomeData, HomeProduct } from '../Home/types';
 import type { CartItem } from '../Home/hooks/useCart';
@@ -22,7 +22,6 @@ import {
   tablePaymentMethodLabel,
   tablePaymentStatusLabel,
   type TableAccountSnapshot,
-  type TableCardPaymentPayload,
   type TablePaymentIntent,
 } from '../Home/domain/tableAccount';
 import type { TableOrderNotice } from '../Home/domain/tableOrderNotice';
@@ -32,7 +31,6 @@ import {
   type CartFlyOrigin,
 } from '../Home/cartFlyAnimation';
 import { TablePaymentStatusView } from '../Home/components/TablePaymentStatusView';
-import type { CardPaymentPreparer } from '../Home/components/OnlineCardPaymentForm';
 import { ReadyProductDetail } from '../Home/components/ReadyProductDetail';
 import { QuantityStepper } from '../../components/QuantityStepper/QuantityStepper';
 import { PixMark } from '../../components/payment/PixMark';
@@ -44,7 +42,7 @@ import {
   trackingHeadline,
   trackingSteps,
 } from './TableMenuFlow.domain';
-import { TableCardPaymentView, TablePaymentChoiceView } from './TableMenuPaymentViews';
+import { TablePaymentChoiceView } from './TableMenuPaymentViews';
 import * as S from './TableMenuExperience.styles';
 
 const ProductConfigurator = lazy(() =>
@@ -67,7 +65,6 @@ type SubmitResult = {
 
 type Props = {
   data: HomeData;
-  restaurantId: number;
   tableLabel: string | number;
   cart: CartItem[];
   cartTotal: number;
@@ -76,8 +73,6 @@ type Props = {
   accountSnapshot: TableAccountSnapshot | null;
   activePayment: TablePaymentIntent | null;
   paymentToOpen?: TablePaymentIntent | null;
-  openCardPayment?: boolean;
-  onCardPaymentOpened?: () => void;
   paymentLoading?: boolean;
   waiterCallEnabled?: boolean;
   onAddProduct: (productId: string, configuration: ProductConfiguration) => void;
@@ -87,10 +82,7 @@ type Props = {
   onSubmitOrder: () => Promise<SubmitResult | null | undefined>;
   onCallWaiter: () => void;
   onViewAccount: () => void;
-  onCreateAccountPayment: (
-    method: 'PIX' | 'CARD' | 'CASH',
-    cardPayment?: TableCardPaymentPayload,
-  ) => Promise<TablePaymentIntent | null>;
+  onCreateAccountPayment: (method: 'PIX' | 'CASH') => Promise<TablePaymentIntent | null>;
   onReconcilePayment: (paymentPublicId: string) => Promise<TablePaymentIntent | null>;
   onCancelPayment: (paymentPublicId: string) => Promise<boolean>;
   couponCode?: string | null;
@@ -99,11 +91,10 @@ type Props = {
   reviewCartOpen?: boolean;
   onReviewCartClose?: () => void;
   userName?: string;
-  userEmail?: string;
   userLoggedIn?: boolean;
 };
 
-type View = 'menu' | 'cart' | 'confirmation' | 'tracking' | 'payment' | 'card' | 'pix';
+type View = 'menu' | 'cart' | 'confirmation' | 'tracking' | 'payment' | 'pix';
 
 const brl = (value: number) =>
   value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
@@ -124,7 +115,6 @@ const tableNumber = formatTableNumber;
 
 export default function TableMenuExperience({
   data,
-  restaurantId,
   tableLabel,
   cart,
   cartTotal,
@@ -133,8 +123,6 @@ export default function TableMenuExperience({
   accountSnapshot,
   activePayment,
   paymentToOpen = null,
-  openCardPayment = false,
-  onCardPaymentOpened,
   paymentLoading = false,
   waiterCallEnabled = true,
   onAddProduct,
@@ -153,7 +141,6 @@ export default function TableMenuExperience({
   reviewCartOpen = false,
   onReviewCartClose,
   userName,
-  userEmail,
   userLoggedIn = false,
 }: Props) {
   const [view, setView] = useState<View>('menu');
@@ -168,9 +155,6 @@ export default function TableMenuExperience({
     total: number;
   } | null>(null);
   const [pixPayment, setPixPayment] = useState<TablePaymentIntent | null>(null);
-  const cardPreparerRef = useRef<CardPaymentPreparer | null>(null);
-  const [cardReady, setCardReady] = useState(false);
-  const [cardSubmitting, setCardSubmitting] = useState(false);
   const [copied, setCopied] = useState(false);
   const [couponInput, setCouponInput] = useState(couponCode || '');
   const pendingCartFlyOriginRef = useRef<CartFlyOrigin | null>(null);
@@ -203,20 +187,6 @@ export default function TableMenuExperience({
   }, [paymentToOpen]);
 
   useEffect(() => {
-    if (!openCardPayment) return undefined;
-    const timeoutId = window.setTimeout(() => {
-      setView('card');
-      onCardPaymentOpened?.();
-    }, 0);
-    return () => window.clearTimeout(timeoutId);
-  }, [onCardPaymentOpened, openCardPayment]);
-
-  const handleCardPreparerChange = useCallback((preparer: CardPaymentPreparer | null) => {
-    cardPreparerRef.current = preparer;
-    setCardReady(Boolean(preparer));
-  }, []);
-
-  useEffect(() => {
     if (!pixPending || pixRemainingSeconds === null) return undefined;
     const interval = window.setInterval(() => setNow(Date.now()), 1_000);
     return () => window.clearInterval(interval);
@@ -225,7 +195,7 @@ export default function TableMenuExperience({
   useEffect(() => {
     const onlinePending =
       pixPending &&
-      (currentPayment?.method === 'PIX' || currentPayment?.method === 'CARD') &&
+      currentPayment?.method === 'PIX' &&
       Boolean(currentPayment.publicId);
     if (!onlinePending || !currentPayment?.publicId) return undefined;
 
@@ -321,10 +291,7 @@ export default function TableMenuExperience({
     }
   }
 
-  async function startPayment(
-    method: 'PIX' | 'CARD' | 'CASH',
-    cardPayment?: TableCardPaymentPayload,
-  ) {
+  async function startPayment(method: 'PIX' | 'CASH') {
     if (paymentLoading) return;
     const pendingPayment = accountSnapshot?.activePayment;
     if (shouldReuseActiveTablePayment(pendingPayment, method)) {
@@ -332,56 +299,10 @@ export default function TableMenuExperience({
       setView('pix');
       return;
     }
-    const payment = await onCreateAccountPayment(method, cardPayment);
+    const payment = await onCreateAccountPayment(method);
     if (!payment) return;
     setPixPayment(payment);
     setView('pix');
-  }
-
-  async function submitCardPayment() {
-    if (paymentLoading || cardSubmitting || !cardPreparerRef.current) return;
-    setCardSubmitting(true);
-    try {
-      const prepared = await cardPreparerRef.current();
-      const cardToken = String(prepared.cardToken || '').trim();
-      const cardPaymentMethodId = String(prepared.cardPaymentMethodId || '').trim();
-      if (!cardToken || !cardPaymentMethodId) {
-        throw new Error('Não foi possível proteger os dados do cartão. Revise e tente novamente.');
-      }
-
-      const safeCardPayment: TableCardPaymentPayload = {
-        cardToken,
-        cardPaymentMethodId,
-        cardPaymentType: prepared.cardPaymentType === 'debit' ? 'debit' : 'credit',
-        ...(String(prepared.cardBrand || '').trim()
-          ? { cardBrand: String(prepared.cardBrand).trim().slice(0, 40) }
-          : {}),
-        ...(String(prepared.cardLast4 || '').replace(/\D/g, '').slice(-4).length === 4
-          ? { cardLast4: String(prepared.cardLast4).replace(/\D/g, '').slice(-4) }
-          : {}),
-        ...(String(prepared.paymentMethodId || '').trim()
-          ? { paymentMethodId: String(prepared.paymentMethodId).trim() }
-          : {}),
-        ...(String(prepared.holderName || '').trim()
-          ? { holderName: String(prepared.holderName).trim().slice(0, 100) }
-          : {}),
-        ...(String(prepared.holderTaxId || '').replace(/\D/g, '')
-          ? { holderTaxId: String(prepared.holderTaxId).replace(/\D/g, '').slice(0, 14) }
-          : {}),
-        ...(String(prepared.payerEmail || '').trim()
-          ? { payerEmail: String(prepared.payerEmail).trim().slice(0, 254) }
-          : {}),
-        ...(String(prepared.mercadoPagoDeviceId || '').trim()
-          ? { mercadoPagoDeviceId: String(prepared.mercadoPagoDeviceId).trim().slice(0, 256) }
-          : {}),
-      };
-
-      await startPayment('CARD', safeCardPayment);
-    } catch {
-      // O formulário seguro já apresenta a mensagem sanitizada ao cliente.
-    } finally {
-      setCardSubmitting(false);
-    }
   }
 
   async function copyPix() {
@@ -693,26 +614,6 @@ export default function TableMenuExperience({
     );
   }
 
-  if (effectiveView === 'card' && accountSnapshot) {
-    return (
-      <TableCardPaymentView
-        data={data}
-        tableLabel={tableLabel}
-        accountSnapshot={accountSnapshot}
-        restaurantId={restaurantId}
-        userEmail={userEmail}
-        paymentLoading={paymentLoading}
-        cardSubmitting={cardSubmitting}
-        cardReady={cardReady}
-        onCardPreparerChange={handleCardPreparerChange}
-        onSubmitCardPayment={() => void submitCardPayment()}
-        onBack={() => setView('payment')}
-        onHome={goToMenu}
-        onOrders={() => setView('tracking')}
-      />
-    );
-  }
-
   if (effectiveView === 'payment' && accountSnapshot) {
     return (
       <TablePaymentChoiceView
@@ -721,7 +622,6 @@ export default function TableMenuExperience({
         accountSnapshot={accountSnapshot}
         paymentLoading={paymentLoading}
         onStartPayment={(method) => void startPayment(method)}
-        onOpenCard={() => setView('card')}
         onBack={() => setView('tracking')}
         onHome={goToMenu}
         onOrders={() => setView('tracking')}
@@ -965,10 +865,6 @@ export default function TableMenuExperience({
           </S.TimelineCard>
 
           <S.ConfirmationActions>
-            <S.PrimaryAction type="button" onClick={() => setView('tracking')}>
-              <Eye size={15} aria-hidden="true" />
-              Acompanhar em tempo real
-            </S.PrimaryAction>
             {confirmation.total > 0 ? (
               <>
                 <S.SecondaryAction
@@ -991,7 +887,10 @@ export default function TableMenuExperience({
                 </S.TrackingOtherPaymentAction>
               </>
             ) : null}
-            <S.HelperText>Deseja continuar pedindo? A conta ficará aberta na mesa.</S.HelperText>
+            <S.SecondaryAction type="button" onClick={goToMenu}>
+              Continuar pedindo
+            </S.SecondaryAction>
+            <S.HelperText>A conta continuará aberta na mesa enquanto você faz novos pedidos.</S.HelperText>
           </S.ConfirmationActions>
           </S.ConfirmationCard>
         </S.FlowPage>
@@ -1166,6 +1065,7 @@ export default function TableMenuExperience({
         onOpenCart={() => setView('cart')}
         onCallWaiter={onCallWaiter}
         onViewAccount={onViewAccount}
+        onTrackOrder={() => setView('tracking')}
       />
 
       {selectedProduct ? (

@@ -9,6 +9,7 @@ import {
   resolveSubscriptionDueDate,
 } from '../utils/billingCycle.js';
 import { debug, error, info, warn } from '../utils/billingLogger.js';
+import restaurantAccessService from '../services/RestaurantAccessService.js';
 
 class BillingJob {
   async execute() {
@@ -73,35 +74,31 @@ class BillingJob {
       });
     }
 
+    const restaurantsWithBlockingInvoices = new Map<number, (typeof pendingInvoices)[number]>();
     for (const invoice of pendingInvoices) {
       if (!isInvoiceBlocking(invoice, now)) continue;
+      if (!restaurantsWithBlockingInvoices.has(invoice.restaurantId)) {
+        restaurantsWithBlockingInvoices.set(invoice.restaurantId, invoice);
+      }
+    }
 
+    for (const [restaurantId, invoice] of restaurantsWithBlockingInvoices) {
       try {
-        warn('applying block for overdue invoice', {
+        warn('evaluating access for overdue invoice', {
           invoiceId: invoice.id,
+          restaurantId,
           dueDate: invoice.dueDate,
         });
 
-        await billingRepository.updateInvoice(invoice.id, {
-          status: 'ATRASADO',
-        });
-
-        const subscription = await billingRepository.findSubscriptionByRestaurantId(
-          invoice.restaurantId,
-        );
-
-        if (subscription && subscription.status !== 'CANCELADA') {
-          await billingRepository.updateSubscription(subscription.id, {
-            status: 'EXPIRADA',
-          });
-        }
-
-        await billingRepository.deactivateRestaurant(invoice.restaurantId);
+        // RestaurantAccessService revalidates invoices, subscription and restaurant
+        // under the same lock order used by payment processing. Never duplicate
+        // delinquency writes here or a stale job can re-block a just-paid tenant.
+        await restaurantAccessService.evaluate(restaurantId, prisma, now);
       } catch (cause) {
         failures.push(new Error('Overdue invoice item failed.', { cause }));
         error('failed to process overdue invoice', {
           invoiceId: invoice.id,
-          restaurantId: invoice.restaurantId,
+          restaurantId,
           errorType: cause instanceof Error ? cause.name : 'UNKNOWN_ERROR',
         });
       }

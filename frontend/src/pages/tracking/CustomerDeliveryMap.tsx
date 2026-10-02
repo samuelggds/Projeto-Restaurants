@@ -67,7 +67,32 @@ export default function CustomerDeliveryMap({points,routePath=[],destination,eta
   const latest=points.at(-1); const heading=useMemo(()=>resolveCourierHeading(points),[points]); const dir=useMemo(()=>getCourierDirectionIndex(heading),[heading]); const dirName=getCourierSpriteFrame(dir).name;
   const center=useRef(latest?ll(latest):destination?ll(destination):DEFAULT_CENTER);
   const remaining=useMemo(()=>latest&&!isTerminal?remainingRoute(routePath,latest):[],[latest,isTerminal,routePath]);
-  useEffect(()=>{let active=true;loadGoogleMaps().then(m=>{if(!active||!ref.current||map.current)return;mapsRef.current=m;map.current=new m.Map(ref.current,{center:center.current,zoom:15,disableDefaultUI:false,mapTypeControl:false,streetViewControl:false,fullscreenControl:true,zoomControl:true,rotateControl:true,scaleControl:true,clickableIcons:true,gestureHandling:'greedy',colorScheme:'LIGHT',backgroundColor:'#eef2f3'});outline.current=new m.Polyline({map:map.current,path:[],geodesic:true,strokeColor:'#fff',strokeOpacity:.96,strokeWeight:11,zIndex:2});line.current=new m.Polyline({map:map.current,path:[],geodesic:true,strokeColor:'#e96725',strokeOpacity:.98,strokeWeight:6,zIndex:3});setReady(true);setError('');}).catch(e=>active&&setError(e instanceof Error?e.message:'Não foi possível carregar o mapa.'));return()=>{active=false;if(anim.current)cancelAnimationFrame(anim.current);};},[]);
+  useEffect(()=>{let active=true;loadGoogleMaps().then(m=>{if(!active||!ref.current||map.current)return;mapsRef.current=m;map.current=new m.Map(ref.current,{
+  center:center.current,
+  zoom:15,
+  disableDefaultUI:true,
+  mapTypeControl:false,
+  streetViewControl:false,
+  fullscreenControl:false,
+  zoomControl:false,
+  rotateControl:false,
+  scaleControl:false,
+  clickableIcons:false,
+  gestureHandling:'greedy',
+  colorScheme:'LIGHT',
+  backgroundColor:'#f6f4ef',
+  styles:[
+    { elementType:'geometry', stylers:[{ color:'#f5f3ed' }] },
+    { elementType:'labels.text.fill', stylers:[{ color:'#6d6962' }] },
+    { elementType:'labels.text.stroke', stylers:[{ color:'#ffffff' }] },
+    { featureType:'road', elementType:'geometry', stylers:[{ color:'#ffffff' }] },
+    { featureType:'road', elementType:'geometry.stroke', stylers:[{ color:'#ddd9d1' }] },
+    { featureType:'road.highway', elementType:'geometry', stylers:[{ color:'#f1eee6' }] },
+    { featureType:'poi', elementType:'geometry', stylers:[{ color:'#efede7' }] },
+    { featureType:'transit', elementType:'geometry', stylers:[{ color:'#ece9e1' }] },
+    { featureType:'water', elementType:'geometry', stylers:[{ color:'#dcecf2' }] },
+  ],
+});outline.current=new m.Polyline({map:map.current,path:[],geodesic:true,strokeColor:'#fff',strokeOpacity:.96,strokeWeight:11,zIndex:2});line.current=new m.Polyline({map:map.current,path:[],geodesic:true,strokeColor:'#e96725',strokeOpacity:.98,strokeWeight:6,zIndex:3});setReady(true);setError('');}).catch(e=>active&&setError(e instanceof Error?e.message:'Não foi possível carregar o mapa.'));return()=>{active=false;if(anim.current)cancelAnimationFrame(anim.current);};},[]);
   useEffect(()=>{const m=mapsRef.current,mp=map.current;if(!ready||!m||!mp||!latest)return;const target=ll(latest),icon=courierIcon(m,dir);if(!bike.current){bike.current=new m.Marker({map:mp,position:target,title:courierName,optimized:false,zIndex:8,icon});prev.current=target;}else{bike.current.setIcon(icon);const start=prev.current||target,t0=performance.now();if(anim.current)cancelAnimationFrame(anim.current);const step=(now:number)=>{const p=Math.min(1,(now-t0)/900),e=1-Math.pow(1-p,3),pos={lat:start.lat+(target.lat-start.lat)*e,lng:start.lng+(target.lng-start.lng)*e};bike.current?.setPosition(pos);if(p<1)anim.current=requestAnimationFrame(step);else prev.current=target;};anim.current=requestAnimationFrame(step);}const b=mp.getBounds?.();if(init.current&&b&&!b.contains(target))mp.panTo(target);},[latest,ready,dir,courierName]);
   useEffect(()=>{const m=mapsRef.current,mp=map.current;if(!ready||!m||!mp)return;if(destination){const p=ll(destination);if(!dest.current)dest.current=new m.Marker({map:mp,position:p,title:destination.label||'Endereço de entrega',zIndex:9,icon:{url:destinationSvg(),scaledSize:new m.Size(54,64),anchor:new m.Point(27,61)}});else dest.current.setPosition(p);}const path=remaining.map(ll);outline.current?.setPath(path);line.current?.setPath(path);if(!init.current&&latest){const b=new m.LatLngBounds();b.extend(ll(latest));if(destination)b.extend(ll(destination));remaining.forEach(p=>b.extend(ll(p)));mp.fitBounds(b,{top:90,right:52,bottom:72,left:52});init.current=true;}},[destination,latest,ready,remaining]);
   const recenter=()=>{const m=mapsRef.current,mp=map.current;if(!m||!mp||!latest)return;const b=new m.LatLngBounds();b.extend(ll(latest));if(destination)b.extend(ll(destination));remaining.forEach(p=>b.extend(ll(p)));mp.fitBounds(b,{top:90,right:52,bottom:72,left:52});};
@@ -83,6 +108,6 @@ export default function CustomerDeliveryMap({points,routePath=[],destination,eta
   >
     <S.Canvas ref={ref} aria-label="Mapa Google com a rota da entrega"/>
     {error?<S.ErrorState role="alert"><MapPinOff/><strong>Mapa indisponível</strong><p>{error} O rastreamento continua funcionando.</p></S.ErrorState>:null}
-    {!error?<><S.EtaCard aria-live="polite"><small>{isTerminal?'Última rota':'Chegada estimada'}</small><strong>{etaMinutes?`${etaMinutes} min`:isTerminal?'Concluída':'Calculando'}</strong><span>{distance}</span></S.EtaCard><S.RecenterButton type="button" onClick={recenter} aria-label="Centralizar rota"><LocateFixed/></S.RecenterButton><S.LiveBadge><i/>{isTerminal?'Rastreamento encerrado':`${courierName} em tempo real`}</S.LiveBadge></>:null}
+    {!error?<><S.EtaCard aria-live="polite"><small>{isTerminal?'Última rota':'Chegada estimada'}</small><strong>{etaMinutes?`Chega em ${etaMinutes} min`:isTerminal?'Concluída':'Calculando rota'}</strong><span>{distance}</span></S.EtaCard><S.RecenterButton type="button" onClick={recenter} aria-label="Centralizar rota"><LocateFixed/></S.RecenterButton><S.LiveBadge><i/>{isTerminal?'Rastreamento encerrado':`${courierName} em tempo real`}</S.LiveBadge></>:null}
   </S.Shell>;
 }

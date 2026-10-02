@@ -3,10 +3,7 @@ import assert from 'node:assert/strict';
 import test, { afterEach } from 'node:test';
 import prisma from '../../../config/prisma.js';
 import restaurantSettingsRepository from '../../restaurantSettings/repositories/RestaurantSettingsRepository.js';
-import {
-  ConfiguredTablePaymentProvider,
-  resolveTableCardFrontendUrl,
-} from './ConfiguredTablePaymentProvider.js';
+import { ConfiguredTablePaymentProvider } from './ConfiguredTablePaymentProvider.js';
 
 const originalFindFirst = prisma.tablePaymentIntent.findFirst;
 const originalFetch = globalThis.fetch;
@@ -128,26 +125,4 @@ test('não consulta o gateway quando a intenção não pertence ao tenant/escopo
     /Pagamento da mesa não encontrado/,
   );
   assert.equal(queried, false);
-});
-
-
-test('cartão da mesa falha fechado sem FRONTEND_URL em produção', () => {
-  assert.throws(
-    () => resolveTableCardFrontendUrl({ NODE_ENV: 'production', FRONTEND_URL: '' }),
-    /FRONTEND_URL não configurada/u,
-  );
-});
-
-test('cartão da mesa mantém fallback localhost somente fora de produção', () => {
-  assert.equal(
-    resolveTableCardFrontendUrl({ NODE_ENV: 'test', FRONTEND_URL: '' }),
-    'http://localhost:5173',
-  );
-  assert.equal(
-    resolveTableCardFrontendUrl({
-      NODE_ENV: 'production',
-      FRONTEND_URL: 'https://app.gastronexa.example',
-    }),
-    'https://app.gastronexa.example',
-  );
 });

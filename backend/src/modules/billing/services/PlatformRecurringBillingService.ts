@@ -247,6 +247,43 @@ export class PlatformRecurringBillingService {
     return this.getProfile(input.restaurantId);
   }
 
+  async cancelRecurringBilling(restaurantId: number) {
+    const normalizedRestaurantId = Number(restaurantId);
+    if (!Number.isSafeInteger(normalizedRestaurantId) || normalizedRestaurantId <= 0) {
+      throw new Error('Restaurante inválido para cancelar a cobrança recorrente.');
+    }
+
+    const existing = await this.getProfile(normalizedRestaurantId);
+    if (existing.providerSubscriptionId && existing.status !== 'CANCELED') {
+      const response = await providerRequest(
+        `/preapproval/${encodeURIComponent(existing.providerSubscriptionId)}`,
+        {
+          method: 'PUT',
+          body: JSON.stringify({ status: 'canceled' }),
+        },
+      );
+      const remoteStatus = providerStatus(response.status || 'canceled');
+      if (remoteStatus !== 'CANCELED') {
+        throw new Error('O Mercado Pago não confirmou o cancelamento da recorrência.');
+      }
+    }
+
+    // Só grava o cancelamento local depois da confirmação do provedor. Em uma
+    // repetição, CANCELED é idempotente e não dispara uma nova alteração remota.
+    await prisma.$executeRaw(Prisma.sql`
+      INSERT INTO "PlatformBillingProfile" (
+        "restaurantId", "billingMethod", "autoRenew", "status", "updatedAt"
+      ) VALUES (${normalizedRestaurantId}, 'PIX', false, 'CANCELED', CURRENT_TIMESTAMP)
+      ON CONFLICT ("restaurantId") DO UPDATE SET
+        "autoRenew" = false,
+        "status" = 'CANCELED',
+        "nextBillingAt" = NULL,
+        "updatedAt" = CURRENT_TIMESTAMP
+    `);
+
+    return this.getProfile(normalizedRestaurantId);
+  }
+
   async usePix(restaurantId: number) {
     const existing = await this.getProfile(restaurantId);
     if (

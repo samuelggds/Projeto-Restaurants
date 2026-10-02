@@ -85,19 +85,27 @@ class QuoteOrderController {
           state,
         });
 
-      const deliveryDistanceMeters =
-        parsed.type === OrderType.DELIVERY
-          ? await resolveDeliveryDistanceService.execute({
-              restaurantId: resolvedRestaurantId,
-              destination: {
-                address: parsed.address,
-                number: parsed.number,
-                district: parsed.district,
-                city: parsed.city,
-                state: parsed.state,
-              },
-            })
-          : null;
+      const hasCompleteDeliveryAddress =
+        parsed.type === OrderType.DELIVERY &&
+        Boolean(
+          parsed.address?.trim() &&
+            parsed.number?.trim() &&
+            parsed.district?.trim() &&
+            parsed.city?.trim() &&
+            parsed.state?.trim(),
+        );
+      const deliveryDistanceMeters = hasCompleteDeliveryAddress
+        ? await resolveDeliveryDistanceService.execute({
+            restaurantId: resolvedRestaurantId,
+            destination: {
+              address: parsed.address,
+              number: parsed.number,
+              district: parsed.district,
+              city: parsed.city,
+              state: parsed.state,
+            },
+          })
+        : null;
 
       const quote = await withTenantDbContext(resolvedRestaurantId, (db) =>
         orderPricingService.quote({
@@ -120,6 +128,8 @@ class QuoteOrderController {
         deliveryFeeFallbackApplied: quote.deliveryFeeFallbackApplied,
         total: quote.total,
         couponCode: quote.couponCode,
+        couponDiscountType: quote.couponDiscountType,
+        couponDiscountValue: quote.couponDiscountValue,
       });
     } catch (error: unknown) {
       return res.status(400).json({

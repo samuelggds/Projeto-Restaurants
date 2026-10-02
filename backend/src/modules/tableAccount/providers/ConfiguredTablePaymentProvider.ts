@@ -1,11 +1,7 @@
 import prisma from '../../../config/prisma.js';
 import orderPixPaymentService from '../../orders/services/OrderPixPaymentService.js';
-import directOrderCardPaymentService from '../../orders/services/DirectOrderCardPaymentService.js';
 import { mercadoPagoCardExternalReferenceCandidates } from '../../orders/domain/mercadoPagoCardReference.js';
-import {
-  tableCardExternalReference,
-  tableCardExternalReferenceCandidates,
-} from '../domain/tableCardExternalReference.js';
+import { tableCardExternalReferenceCandidates } from '../domain/tableCardExternalReference.js';
 import {
   CARD_PROVIDERS,
   PIX_PROVIDERS,
@@ -14,6 +10,8 @@ import {
 } from '../../payments/providers/providerCatalog.js';
 import restaurantSettingsRepository from '../../restaurantSettings/repositories/RestaurantSettingsRepository.js';
 import { getMercadoPagoAccessToken } from '../../restaurantSettings/services/RestaurantPaymentCredentialsService.js';
+import { mercadoPagoCheckoutIdempotencyKey } from '../../payments/providers/mercadoPagoClient.js';
+import { tablePixExternalReference } from '../domain/tablePixExternalReference.js';
 import { paymentConnectionConfiguration } from '../../restaurantSettings/services/RestaurantPaymentReadinessService.js';
 import { getDirectTablePayment, mutateDirectTablePayment } from './tablePaymentGatewayMutation.js';
 import type {
@@ -61,15 +59,6 @@ type PaymentIdentity = {
   phone: string;
 };
 
-type AsaasPaymentPayload = {
-  id?: string;
-  status?: string;
-  value?: number;
-  currency?: string;
-  externalReference?: string;
-  errors?: Array<{ description?: string }>;
-};
-
 
 type MercadoPagoPaymentPayload = {
   id?: string | number;
@@ -82,6 +71,39 @@ type MercadoPagoPaymentPayload = {
 type MercadoPagoSearchPayload = {
   results?: MercadoPagoPaymentPayload[];
 };
+
+type MercadoPagoPixOrderPayload = {
+  id?: string;
+  status?: string;
+  total_amount?: string | number;
+  external_reference?: string;
+  currency?: string;
+  transactions?: {
+    payments?: Array<{
+      amount?: string | number;
+      status?: string;
+      status_detail?: string;
+      payment_method?: {
+        id?: string;
+        type?: string;
+        ticket_url?: string;
+        qr_code?: string;
+        qr_code_base64?: string;
+      };
+    }>;
+  };
+};
+
+export class PixPaymentProviderRequestError extends Error {
+  constructor(
+    message: string,
+    public readonly providerStatus: number,
+    public readonly providerCode: string,
+  ) {
+    super(message);
+    this.name = 'PixPaymentProviderRequestError';
+  }
+}
 
 function normalizeProvider(value: unknown) {
   return String(value || '')
@@ -116,12 +138,6 @@ function matchesAmount(value: unknown, expectedCents: number, minor = false) {
   );
 }
 
-function asaasBaseUrl() {
-  return String(process.env.ASAAS_API_BASE_URL || 'https://api.asaas.com')
-    .trim()
-    .replace(/\/+$/, '');
-}
-
 
 async function settingsFor(restaurantId: number) {
   const settings = await restaurantSettingsRepository.findByRestaurantId(restaurantId);
@@ -147,9 +163,6 @@ function credentialReady(
         refreshTokenReady &&
         String(settings.mercadoPagoPublicKey || '').trim(),
     );
-  }
-  if (provider === PIX_PROVIDERS.ASAAS || provider === CARD_PROVIDERS.ASAAS) {
-    return Boolean(String(settings.asaasAccessToken || '').trim());
   }
   return false;
 }
@@ -190,7 +203,7 @@ async function readIdentity(
     name: name || 'Cliente da mesa',
     email: email.includes('@')
       ? email
-      : `guest.table.${context.restaurantId}.${context.participantId}@gastronexa.local`,
+      : `pagamentos+mesa-${context.restaurantId}-${context.participantId}@gastronexa.com.br`,
     cpf: String(user?.cpf || '').replace(/\D/g, ''),
     phone: String(user?.phone || context.participantPhone || '').replace(/\D/g, ''),
   };
@@ -201,102 +214,90 @@ async function createPix(
   input: CreateProviderPaymentInput,
 ): Promise<ProviderPayment> {
   const identity = await readIdentity(context);
-  const result = await orderPixPaymentService.createPixPayment({
-    restaurantId: context.restaurantId,
-    type: 'MESA',
-    paymentMethod: 'PIX',
-    items: [],
-    customerName: identity.name,
-    customerCpf: identity.cpf,
-    customerPhone: identity.phone,
-    userEmail: identity.email,
-    orderId: context.intentId,
-    orderTotal: centsToMajor(input.amountCents),
-    orderSubtotal: centsToMajor(input.amountCents),
-    orderDeliveryFee: 0,
-    expiresAt: input.expiresAt,
-    idempotencyKey: input.idempotencyKeyHash,
+  const accessToken = await getMercadoPagoAccessToken(context.restaurantId);
+  const amount = centsToMajor(input.amountCents).toFixed(2);
+  const externalReference = tablePixExternalReference(context.intentId, context.restaurantId);
+  const idempotencyKey = mercadoPagoCheckoutIdempotencyKey(input.idempotencyKeyHash);
+
+  const response = await fetch('https://api.mercadopago.com/v1/orders', {
+    method: 'POST',
+    redirect: 'error',
+    signal: AbortSignal.timeout(20_000),
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      Accept: 'application/json',
+      'Content-Type': 'application/json',
+      'X-Idempotency-Key': idempotencyKey,
+    },
+    body: JSON.stringify({
+      type: 'online',
+      processing_mode: 'automatic',
+      total_amount: amount,
+      external_reference: externalReference,
+      payer: {
+        email: identity.email,
+        first_name: identity.name || 'Cliente',
+      },
+      transactions: {
+        payments: [
+          {
+            amount,
+            payment_method: {
+              id: 'pix',
+              type: 'bank_transfer',
+            },
+            expiration_time: 'PT30M',
+          },
+        ],
+      },
+    }),
   });
 
-  if (!String(result.paymentId || '').trim() || !String(result.qrCode || '').trim()) {
-    throw new Error('O provedor não retornou um QR Code Pix válido.');
+  const body = (await response.json().catch(() => ({}))) as MercadoPagoPixOrderPayload & {
+    code?: unknown;
+    error?: unknown;
+    message?: unknown;
+  };
+
+  if (!response.ok) {
+    const providerCode = String(body.code || body.error || 'mercado_pago_pix_request_error')
+      .trim()
+      .slice(0, 120);
+    if (response.status >= 400 && response.status < 500) {
+      throw new PixPaymentProviderRequestError(
+        'O Mercado Pago recusou a criação do Pix da mesa.',
+        response.status,
+        providerCode,
+      );
+    }
+    throw new Error('Falha temporária ao gerar o Pix da mesa no Mercado Pago.');
+  }
+
+  const providerOrderId = String(body.id || '').trim();
+  const payment = Array.isArray(body.transactions?.payments)
+    ? body.transactions?.payments?.[0]
+    : null;
+  const qrCode = String(payment?.payment_method?.qr_code || '').trim();
+
+  if (
+    !providerOrderId ||
+    !qrCode ||
+    String(body.external_reference || '').trim() !== externalReference ||
+    String(body.currency || 'BRL').toUpperCase() !== 'BRL' ||
+    !matchesAmount(body.total_amount, input.amountCents)
+  ) {
+    throw new Error('O Mercado Pago retornou uma order Pix incompleta ou divergente.');
   }
 
   return {
-    externalId: String(result.paymentId),
-    status: providerStatus(result.status),
+    externalId: `mp_order:${providerOrderId}`,
+    status: providerStatus(payment?.status || body.status),
     amountCents: input.amountCents,
-    checkoutUrl: null,
-    paymentCode: String(result.qrCode),
+    checkoutUrl: String(payment?.payment_method?.ticket_url || '').trim() || null,
+    paymentCode: qrCode,
     expiresAt: input.expiresAt,
   };
 }
-
-export function resolveTableCardFrontendUrl(
-  env: { NODE_ENV?: string; FRONTEND_URL?: string } = process.env,
-) {
-  const configured = String(env.FRONTEND_URL || '').trim();
-  const value = env.NODE_ENV === 'production' ? configured : configured || 'http://localhost:5173';
-
-  if (!value) {
-    throw new Error('FRONTEND_URL não configurada para o pagamento com cartão da mesa.');
-  }
-
-  return value;
-}
-
-async function createCard(
-  context: ConfiguredTablePaymentProviderContext,
-  input: CreateProviderPaymentInput,
-  provider: CardProvider,
-): Promise<ProviderPayment> {
-  if (!input.cardPayment) {
-    throw new Error('Os dados protegidos do cartão não foram informados.');
-  }
-
-  const identity = await readIdentity(context);
-  const frontendUrl = resolveTableCardFrontendUrl();
-
-  const result = await directOrderCardPaymentService.execute({
-    provider,
-    payload: {
-      userId: context.participantUserId,
-      customerName: identity.name,
-      customerPhone: identity.phone,
-      paymentMethodId: input.cardPayment.paymentMethodId || null,
-      cardPaymentType: input.cardPayment.cardPaymentType || 'credit',
-      cardToken: input.cardPayment.cardToken || null,
-      cardPaymentMethodId: input.cardPayment.cardPaymentMethodId || null,
-      cardBrand: input.cardPayment.cardBrand || null,
-      cardLast4: input.cardPayment.cardLast4 || null,
-      holderName: input.cardPayment.holderName || null,
-      holderTaxId: input.cardPayment.holderTaxId || null,
-      payerEmail: input.cardPayment.payerEmail || identity.email,
-      mercadoPagoDeviceId: input.cardPayment.mercadoPagoDeviceId || null,
-    },
-    order: {
-      id: context.intentId,
-      publicId: context.intentPublicId,
-      restaurantId: context.restaurantId,
-      externalReference: tableCardExternalReference(context.intentId, context.restaurantId),
-      total: centsToMajor(input.amountCents),
-      systemFee: 0,
-      restaurant: { name: 'Conta da mesa' },
-    },
-    successUrlBase: frontendUrl,
-    idempotencyKey: input.idempotencyKeyHash,
-  });
-
-  return {
-    externalId: String(result.persistenceSessionId || result.sessionId),
-    status: result.paymentApproved ? 'PAID' : 'PENDING',
-    amountCents: input.amountCents,
-    checkoutUrl: null,
-    paymentCode: null,
-    expiresAt: input.expiresAt,
-  };
-}
-
 
 async function fetchJson<T>(url: string, init: RequestInit) {
   const response = await fetch(url, init);
@@ -360,33 +361,6 @@ async function getMercadoPagoCard(
   };
 }
 
-async function getAsaasCard(
-  externalId: string,
-  amountCents: number,
-  expiresAt: Date,
-  restaurantId: number,
-) {
-  const settings = await settingsFor(restaurantId);
-  const token = String(settings.asaasAccessToken || '').trim();
-  const paymentId = externalId.replace(/^asaas_pay:/, '');
-  if (!token || !paymentId) throw new Error('Referência Asaas inválida.');
-  const { response, body } = await fetchJson<AsaasPaymentPayload>(
-    `${asaasBaseUrl()}/v3/payments/${encodeURIComponent(paymentId)}`,
-    { headers: { access_token: token, Accept: 'application/json' } },
-  );
-  if (!response.ok || !matchesAmount(body.value, amountCents)) {
-    throw new Error('A cobrança retornada pelo Asaas não corresponde à conta da mesa.');
-  }
-  return {
-    externalId,
-    status: providerStatus(body.status),
-    amountCents,
-    checkoutUrl: null,
-    paymentCode: null,
-    expiresAt,
-  };
-}
-
 export class ConfiguredTablePaymentProvider implements PaymentProvider {
   readonly code: string;
 
@@ -398,9 +372,10 @@ export class ConfiguredTablePaymentProvider implements PaymentProvider {
   }
 
   async createPayment(input: CreateProviderPaymentInput): Promise<ProviderPayment> {
-    return this.context.method === 'PIX'
-      ? createPix(this.context, input)
-      : createCard(this.context, input, this.provider as CardProvider);
+    if (this.context.method !== 'PIX') {
+      throw new Error('Novos pagamentos online de mesa aceitam somente Pix.');
+    }
+    return createPix(this.context, input);
   }
 
   async getPayment(externalId: string): Promise<ProviderPayment> {
@@ -452,9 +427,6 @@ export class ConfiguredTablePaymentProvider implements PaymentProvider {
 
     if (this.provider === CARD_PROVIDERS.MERCADO_PAGO) {
       return getMercadoPagoCard(this.context, externalId, amountCents, intent.expiresAt);
-    }
-    if (this.provider === CARD_PROVIDERS.ASAAS) {
-      return getAsaasCard(externalId, amountCents, intent.expiresAt, this.context.restaurantId);
     }
     throw new Error('Consulta de cartão não suportada para este gateway.');
   }

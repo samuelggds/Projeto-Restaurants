@@ -119,6 +119,13 @@ test('pedidos repetidos preservam o Pix e só geram outro após expirar', async 
       pixQrCodeBase64: payment.qrCodeBase64,
       pixExpiresAt: new Date(payment.expiresAt),
     },
+    {
+      method: 'PIX',
+      provider: 'MERCADO_PAGO',
+      providerPaymentId: payment.id,
+      amount: originalInvoice.total,
+      providerStatus: 'pending',
+    },
   ]);
 
   currentTime += 1;

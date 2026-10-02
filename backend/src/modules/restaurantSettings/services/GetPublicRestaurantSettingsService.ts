@@ -44,6 +44,7 @@ const RESTAURANT_CATEGORIES = new Set<RestaurantCategory>([
 type PublicSettingsFallback = {
   restaurantId: number;
   primaryColor: string;
+  deliveryFeeMode: 'FIXED' | 'DISTANCE';
   deliveryFee: number;
   minimumOrder: number;
   freeShippingMinimum: number | null;
@@ -213,6 +214,7 @@ class GetPublicRestaurantSettingsService {
       const fallback: PublicSettingsFallback = {
         restaurantId: normalizedRestaurantId,
         primaryColor: '#c95d3d',
+        deliveryFeeMode: 'FIXED',
         deliveryFee: 0,
         minimumOrder: 0,
         freeShippingMinimum: null,

@@ -70,6 +70,8 @@ test('claim da reconciliação usa relógio do banco, SKIP LOCKED e backoff limi
   const rows = [
     {
       id: 7,
+      restaurantId: 5,
+      paymentAttemptId: 107,
       paymentLink: 'https://pay.example/7',
       paymentExternalId: 'payment-7',
       total: '99.90',
@@ -86,13 +88,61 @@ test('claim da reconciliação usa relógio do banco, SKIP LOCKED e backoff limi
   const result = await billingRepository.claimInvoicesForReconciliation(25, db);
 
   assert.equal(result, rows);
-  assert.match(query.sql, /FOR UPDATE SKIP LOCKED/u);
+  assert.match(query.sql, /FOR UPDATE OF attempt SKIP LOCKED/u);
   assert.match(query.sql, /"nextReconciliationAt" <= clock_timestamp\(\)/u);
-  assert.match(query.sql, /"paymentExternalId" IS NOT NULL/u);
+  assert.match(query.sql, /"InvoicePaymentAttempt"/u);
+  assert.match(query.sql, /"providerPaymentId"/u);
+  assert.match(query.sql, /'PENDING', 'DUPLICATE'/u);
   assert.match(query.sql, /LEAST\(/u);
   assert.deepEqual(query.values, [25]);
   await assert.rejects(
     () => billingRepository.claimInvoicesForReconciliation(201, db),
     /entre 1 e 200/u,
   );
+});
+
+
+test('ID do provedor nunca pode ser reutilizado por outra fatura ou outro restaurante', async () => {
+  let upsertCalled = false;
+  const db = {
+    invoicePaymentAttempt: {
+      findUnique: async ({ where }) => {
+        assert.deepEqual(where, {
+          provider_providerPaymentId: {
+            provider: 'MERCADO_PAGO',
+            providerPaymentId: 'payment-shared-1',
+          },
+        });
+        return {
+          id: 301,
+          invoiceId: 90,
+          restaurantId: 8,
+          provider: 'MERCADO_PAGO',
+          providerPaymentId: 'payment-shared-1',
+        };
+      },
+      upsert: async () => {
+        upsertCalled = true;
+        return null;
+      },
+    },
+  };
+
+  await assert.rejects(
+    () =>
+      billingRepository.registerInvoicePaymentAttempt(
+        {
+          invoiceId: 91,
+          restaurantId: 7,
+          method: 'PIX',
+          provider: 'MERCADO_PAGO',
+          providerPaymentId: 'payment-shared-1',
+          amount: '99.90',
+        },
+        db,
+      ),
+    /já pertence a outra fatura/i,
+  );
+
+  assert.equal(upsertCalled, false);
 });

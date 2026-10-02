@@ -183,6 +183,7 @@ export type HomeData = {
   products: HomeProduct[];
   deliveryTime: string;
   minimumOrder: number;
+  deliveryFeeMode?: 'FIXED' | 'DISTANCE';
   deliveryFee?: number;
   freeDeliveryFrom: number;
   acceptsDelivery: boolean;

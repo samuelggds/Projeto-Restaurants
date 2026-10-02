@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import test, { afterEach, beforeEach } from 'node:test';
 import billingRepository from '../repositories/BillingRepository.js';
 import processPaymentService from './ProcessPaymentService.js';
+import refundDuplicateInvoicePaymentService from './RefundDuplicateInvoicePaymentService.js';
 import {
   ReconcileMercadoPagoInvoicesService,
   resolveReconciliationMaxInvoices,
@@ -12,7 +13,8 @@ import {
 const originalEnv = { ...process.env };
 const originalFetch = globalThis.fetch;
 const originalClaimInvoicesForReconciliation = billingRepository.claimInvoicesForReconciliation;
-const originalProcessPayment = processPaymentService.execute;
+const originalProcessPaymentTracked = processPaymentService.executeTracked;
+const originalRefundDuplicate = refundDuplicateInvoicePaymentService.execute;
 const originalConsole = {
   log: console.log,
   warn: console.warn,
@@ -24,6 +26,8 @@ let logs: string[] = [];
 function reconciliationCandidate(id: number, total = '99.90') {
   return {
     id,
+    restaurantId: 7,
+    paymentAttemptId: id + 1_000,
     paymentLink: `https://pay.test/${id}`,
     paymentExternalId: `payment-${id}`,
     total,
@@ -58,6 +62,7 @@ beforeEach(() => {
   console.log = capture;
   console.warn = capture;
   console.error = capture;
+  refundDuplicateInvoicePaymentService.execute = async () => ({ refunded: true });
 });
 
 afterEach(() => {
@@ -68,7 +73,8 @@ afterEach(() => {
 
   globalThis.fetch = originalFetch;
   billingRepository.claimInvoicesForReconciliation = originalClaimInvoicesForReconciliation;
-  processPaymentService.execute = originalProcessPayment;
+  processPaymentService.executeTracked = originalProcessPaymentTracked;
+  refundDuplicateInvoicePaymentService.execute = originalRefundDuplicate;
   console.log = originalConsole.log;
   console.warn = originalConsole.warn;
   console.error = originalConsole.error;
@@ -90,9 +96,9 @@ test('consulta apenas endpoint oficial com timeout e redirect bloqueado', async 
     assert.equal(limit, 50);
     return [reconciliationCandidate(41)];
   };
-  processPaymentService.execute = async ({ invoiceId }) => {
+  processPaymentService.executeTracked = async ({ invoiceId }) => {
     processedInvoiceId = invoiceId;
-    return { id: invoiceId, status: 'PAGO' };
+    return { invoice: { id: invoiceId, status: 'PAGO' }, settlement: 'APPLIED' };
   };
   globalThis.fetch = async (input, init) => {
     const url = new URL(String(input));
@@ -126,8 +132,9 @@ test('não quita fatura quando identidade, referência, valor, moeda ou método 
   let processedCount = 0;
 
   billingRepository.claimInvoicesForReconciliation = async () => [reconciliationCandidate(81)];
-  processPaymentService.execute = async () => {
+  processPaymentService.executeTracked = async ({ invoiceId }) => {
     processedCount += 1;
+    return { invoice: { id: invoiceId, status: 'PAGO' }, settlement: 'APPLIED' };
   };
 
   for (const responsePayload of responses) {
@@ -153,9 +160,9 @@ test('continua as próximas faturas e lança AggregateError sanitizado ao final'
     reconciliationCandidate(51),
     reconciliationCandidate(52),
   ];
-  processPaymentService.execute = async ({ invoiceId }) => {
+  processPaymentService.executeTracked = async ({ invoiceId }) => {
     processed.push(invoiceId);
-    return { id: invoiceId, status: 'PAGO' };
+    return { invoice: { id: invoiceId, status: 'PAGO' }, settlement: 'APPLIED' };
   };
   globalThis.fetch = async () => {
     fetchCalls += 1;
@@ -181,14 +188,40 @@ test('continua as próximas faturas e lança AggregateError sanitizado ao final'
   assert.equal(logs.join('\n').includes('test-access-token-that-must-not-leak'), false);
 });
 
+test('conciliação de tentativa antiga estorna segunda liquidação da mesma fatura', async () => {
+  const service = new ReconcileMercadoPagoInvoicesService();
+  const refunded: number[] = [];
+
+  billingRepository.claimInvoicesForReconciliation = async () => [reconciliationCandidate(91)];
+  processPaymentService.executeTracked = async ({ invoiceId, paymentAttemptId }) => {
+    assert.equal(invoiceId, 91);
+    assert.equal(paymentAttemptId, 1091);
+    return { invoice: { id: 91, status: 'PAGO' }, settlement: 'DUPLICATE' };
+  };
+  refundDuplicateInvoicePaymentService.execute = async (attemptId) => {
+    refunded.push(Number(attemptId));
+    return { refunded: true };
+  };
+  globalThis.fetch = async () =>
+    new Response(JSON.stringify(approvedPayment(91)), {
+      status: 200,
+      headers: { 'content-type': 'application/json' },
+    });
+
+  await service.execute();
+
+  assert.deepEqual(refunded, [1091]);
+});
+
 test('recusa resposta acima do limite sem registrar o corpo do provedor', async () => {
   const service = new ReconcileMercadoPagoInvoicesService();
   const sensitivePayload = 'sensitive-provider-response-body';
   let processPaymentCalled = false;
 
   billingRepository.claimInvoicesForReconciliation = async () => [reconciliationCandidate(61)];
-  processPaymentService.execute = async () => {
+  processPaymentService.executeTracked = async ({ invoiceId }) => {
     processPaymentCalled = true;
+    return { invoice: { id: invoiceId, status: 'PAGO' }, settlement: 'APPLIED' };
   };
   globalThis.fetch = async () =>
     new Response(`${sensitivePayload}${'x'.repeat(256 * 1024)}`, { status: 200 });
@@ -204,7 +237,7 @@ test('não lê nem registra payload de resposta HTTP de erro', async () => {
   const sensitivePayload = 'provider-error-payload-with-token';
 
   billingRepository.claimInvoicesForReconciliation = async () => [reconciliationCandidate(71)];
-  processPaymentService.execute = async () => assert.fail('não deveria processar a fatura');
+  processPaymentService.executeTracked = async () => assert.fail('não deveria processar a fatura');
   globalThis.fetch = async () => new Response(sensitivePayload, { status: 502 });
 
   await assert.rejects(service.execute(), AggregateError);

@@ -785,7 +785,13 @@ test('admin controla o QR, garçom apenas opera a mesa e cozinha recebe Mesa 1',
   await expect(page.getByRole('button', { name: /Confirmar recebimento/i })).toHaveCount(0);
   await expect(page.getByRole('button', { name: /Acompanhar entrega no GPS/i })).toHaveCount(0);
 
-  await page.getByRole('button', { name: 'Acompanhar em tempo real' }).click();
+  await expect(page.getByRole('button', { name: 'Acompanhar em tempo real' })).toHaveCount(0);
+  await page.getByRole('button', { name: 'Continuar pedindo', exact: true }).click();
+  const tableDock = page.getByRole('navigation', { name: 'Ações da mesa' });
+  await expect(
+    tableDock.getByRole('button', { name: 'Acompanhar em tempo real' }),
+  ).toBeVisible();
+  await tableDock.getByRole('button', { name: 'Acompanhar em tempo real' }).click();
   await expect(page.getByText(product.name, { exact: true })).toBeVisible();
   await expect(page.getByText('Suco da casa', { exact: true })).toBeVisible();
   await expect(page.getByText('cerca de 18 minutos', { exact: false })).toBeVisible();
@@ -797,7 +803,7 @@ test('admin controla o QR, garçom apenas opera a mesa e cozinha recebe Mesa 1',
   await page.getByRole('button', { name: 'Outras formas de pagamento' }).click();
   await expect(page.getByRole('heading', { name: 'Como prefere pagar?' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Escolher PIX' })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Cartão indisponível' })).toBeDisabled();
+  await expect(page.getByRole('button', { name: /cartão/iu })).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Deixar aberto na Mesa' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Pagar com dinheiro' })).toBeVisible();
   await page.getByRole('button', { name: 'Deixar aberto na Mesa' }).click();
@@ -913,7 +919,7 @@ test('cliente pode pagar agora com PIX ou acompanhar para pagar depois', async (
   await expect(page).not.toHaveURL(/\/login/u);
 });
 
-test('cartão da mesa só fica ativo quando o backend libera o método', async ({ page }) => {
+test('cartão da mesa não é oferecido ao cliente mesmo quando configuração antiga ainda o sinaliza', async ({ page }) => {
   const state: FlowState = {
     tableCreated: true,
     tableOpen: true,
@@ -944,16 +950,9 @@ test('cartão da mesa só fica ativo quando o backend libera o método', async (
   await page.getByRole('button', { name: 'Ver Conta', exact: true }).click();
   const accountDialog = page.getByRole('dialog', { name: /Conta da Mesa 1/u });
   await expect(accountDialog).toBeVisible();
-  const cardButton = accountDialog.getByRole('button', { name: 'Pagar com cartão', exact: true });
-  await expect(cardButton).toBeEnabled();
-  await cardButton.click();
-
-  await expect(page.getByRole('heading', { name: 'Pagamento com cartão' })).toBeVisible();
-  await expect(page.getByText('Total a pagar')).toBeVisible();
-  await expect(page.getByRole('button', { name: /Pagar R\$\s*28,00/u })).toBeVisible();
-  await expect(
-    page.getByText('Número completo e CVV são protegidos pelo provedor e não são salvos no GastroNexa.'),
-  ).toBeVisible();
+  await expect(accountDialog.getByRole('button', { name: /cartão/iu })).toHaveCount(0);
+  await expect(accountDialog.getByRole('button', { name: 'Pagar com PIX' })).toBeVisible();
+  await expect(accountDialog.getByRole('button', { name: 'Pagar com dinheiro' })).toBeVisible();
 });
 
 test('cliente que escolhe dinheiro vê a espera baseada na cobrança da API', async ({ page }) => {

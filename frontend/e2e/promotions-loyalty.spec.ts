@@ -186,6 +186,8 @@ test('cliente vê promoção, aplica benefício de fidelidade e envia o resgate 
           deliveryFeeAmount: 0,
           total: couponApplied ? 36 : 40,
           couponCode: couponApplied ? 'FIEL10' : null,
+          couponDiscountType: couponApplied ? 'PERCENTAGE' : null,
+          couponDiscountValue: couponApplied ? 10 : null,
         }),
       });
       return;
@@ -367,7 +369,7 @@ test('cliente vê promoção, aplica benefício de fidelidade e envia o resgate 
   const couponOptions = checkout.getByRole('region', { name: 'Opções de cupom' });
   await couponOptions.getByRole('button', { name: /Cliente fiel.*Aplicar/ }).click();
 
-  await expect(checkout.getByText('Cupom · FIEL10')).toBeVisible();
+  await expect(checkout.getByText('Cupom 10% · FIEL10')).toBeVisible();
   await expect(checkout.getByText('R$ 36,00').last()).toBeVisible();
   await expect
     .poll(() => quotePayloads.some((payload) => payload.couponRedemptionId === 71))
