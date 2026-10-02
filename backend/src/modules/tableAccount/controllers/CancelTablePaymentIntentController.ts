@@ -1,4 +1,5 @@
 import type { Request, Response } from 'express';
+import { safeErrorSummary } from '../../../services/telemetrySanitizer.js';
 import cancelTablePaymentIntentService from '../services/CancelTablePaymentIntentService.js';
 import { TablePaymentError } from '../services/tablePaymentSupport.js';
 
@@ -18,10 +19,7 @@ class CancelTablePaymentIntentController {
       if (error instanceof TablePaymentError) {
         return res.status(error.statusCode).json({ error: error.message, code: error.code });
       }
-      console.error(
-        '[CANCEL_TABLE_PAYMENT_ERROR]',
-        error instanceof Error ? error.message : String(error),
-      );
+      console.error('[CANCEL_TABLE_PAYMENT_ERROR]', { error: safeErrorSummary(error) });
       return res.status(500).json({ error: 'Não foi possível cancelar este pagamento.' });
     }
   }
