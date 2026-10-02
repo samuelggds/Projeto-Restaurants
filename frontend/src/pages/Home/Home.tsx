@@ -47,10 +47,7 @@ import {
   resolveHomeRestaurantId,
 } from './domain/homePageHelpers';
 import type { CreateTablePaymentResult, TableCardPaymentPayload, TablePaymentDraft, TablePaymentIntent } from './domain/tableAccount';
-import {
-  LazyTableAccountPanel as TableAccountPanel,
-  LazyTableMenuExperience as TableMenuExperience,
-} from './components/LazyTableHomeExperience';
+import { TableAccountPanel, TableMenuExperience } from './components/LazyTableHomeExperience';
 
 export default function Home() {
   const navigate = useNavigate();
