@@ -217,19 +217,33 @@ test('permite HTTP apenas em loopback para a execução local', () => {
   assert.doesNotThrow(() => validateCriticalEnv());
 });
 
-test('aceita MFA opcional sem papéis obrigatórios em produção', () => {
+test('exige ADMIN e SUPER_ADMIN na política de MFA em produção', () => {
   process.env.MFA_REQUIRED_ROLES = '';
-  assert.doesNotThrow(() => validateCriticalEnv());
+  assert.throws(
+    () => validateCriticalEnv(),
+    /MFA_REQUIRED_ROLES deve incluir ADMIN.*MFA_REQUIRED_ROLES deve incluir SUPER_ADMIN/su,
+  );
 
+  setValidProductionEnv();
+  process.env.MFA_REQUIRED_ROLES = 'ADMIN';
+  assert.throws(
+    () => validateCriticalEnv(),
+    /MFA_REQUIRED_ROLES deve incluir SUPER_ADMIN/u,
+  );
+
+  setValidProductionEnv();
   process.env.MFA_REQUIRED_ROLES = 'ADMIN,SUPER_ADMIN';
   assert.doesNotThrow(() => validateCriticalEnv());
 });
 
-test('SMTP é opcional, mas quando configurado precisa ser utilizável', () => {
+test('SMTP é obrigatório e precisa ser utilizável para MFA administrativo', () => {
   delete process.env.SMTP_HOST;
   delete process.env.SMTP_PASS;
 
-  assert.doesNotThrow(() => validateCriticalEnv());
+  assert.throws(
+    () => validateCriticalEnv(),
+    /SMTP_HOST e obrigatoria em producao para MFA administrativo/u,
+  );
 
   setValidProductionEnv();
   delete process.env.SMTP_PASS;
