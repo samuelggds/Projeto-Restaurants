@@ -6,6 +6,7 @@ import {
   getCardCheckoutProviderHandler,
   type CreateOrderCardCheckoutPayload,
 } from '../../orders/services/cardCheckoutProviders.js';
+import directOrderCardPaymentService from '../../orders/services/DirectOrderCardPaymentService.js';
 import {
   CARD_PROVIDERS,
   PIX_PROVIDERS,
@@ -250,8 +251,50 @@ async function createCard(
 ): Promise<ProviderPayment> {
   const identity = await readIdentity(context);
   const savedCard = await defaultSavedCard(context, provider);
-  const handler = getCardCheckoutProviderHandler(provider);
   const frontendUrl = String(process.env.FRONTEND_URL || 'http://localhost:5173').trim();
+
+  if (input.cardPayment) {
+    const result = await directOrderCardPaymentService.execute({
+      provider,
+      payload: {
+        userId: context.participantUserId,
+        restaurantId: context.restaurantId,
+        customerName: identity.name,
+        customerPhone: identity.phone,
+        paymentMethodId: input.cardPayment.paymentMethodId || savedCard?.publicId || null,
+        cardPaymentType: input.cardPayment.cardPaymentType || 'credit',
+        cardToken: input.cardPayment.cardToken || null,
+        cardPaymentMethodId: input.cardPayment.cardPaymentMethodId || null,
+        cardBrand: input.cardPayment.cardBrand || null,
+        cardLast4: input.cardPayment.cardLast4 || null,
+        holderName: input.cardPayment.holderName || null,
+        holderTaxId: input.cardPayment.holderTaxId || null,
+        payerEmail: input.cardPayment.payerEmail || identity.email,
+        mercadoPagoDeviceId: input.cardPayment.mercadoPagoDeviceId || null,
+      },
+      order: {
+        id: context.intentId,
+        publicId: context.intentPublicId,
+        restaurantId: context.restaurantId,
+        total: centsToMajor(input.amountCents),
+        systemFee: 0,
+        restaurant: { name: 'Conta da mesa' },
+      },
+      successUrlBase: frontendUrl,
+      idempotencyKey: input.idempotencyKeyHash,
+    });
+
+    return {
+      externalId: String(result.persistenceSessionId || result.sessionId),
+      status: result.paymentApproved ? 'PAID' : 'PENDING',
+      amountCents: input.amountCents,
+      checkoutUrl: null,
+      paymentCode: null,
+      expiresAt: input.expiresAt,
+    };
+  }
+
+  const handler = getCardCheckoutProviderHandler(provider);
   const payload: CreateOrderCardCheckoutPayload = {
     userId: context.participantUserId,
     restaurantId: context.restaurantId,
