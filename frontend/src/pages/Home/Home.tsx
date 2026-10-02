@@ -1,4 +1,4 @@
-import { Suspense, useState, useCallback, useEffect, useMemo } from 'react';
+import { Suspense, useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../../contexts/authContext';
 import { useAppDialog } from '../../components/AppDialog/context';
@@ -6,11 +6,7 @@ import { FigmaDeliveryExperience } from './FigmaDeliveryExperience';
 import type { FigmaCheckoutStep } from './FigmaCheckoutFlow';
 import { LazyFigmaCheckoutFlow as FigmaCheckoutFlow } from './components/LazyFigmaCheckoutFlow';
 import * as S from './Home.styles';
-import {
-  useDefaultRestaurantId,
-  useResolvedRestaurantId,
-  useRestaurantCatalog,
-} from './hooks/useRestaurantCatalog';
+import { useDefaultRestaurantId, useResolvedRestaurantId, useRestaurantCatalog } from './hooks/useRestaurantCatalog';
 import { useCart } from './hooks/useCart';
 import { useDeliveryAddress } from './hooks/useDeliveryAddress';
 import { getCheckoutErrorMessage, useCheckoutPayments } from './hooks/useCheckoutPayments';
@@ -27,12 +23,8 @@ import { HomePaymentOutcome } from './components/HomePaymentOutcome';
 import { HomePaymentScreen } from './components/HomePaymentScreen';
 import { HomeAuxiliaryUi } from './components/HomeAuxiliaryUi';
 import { useHomeNotifications } from './hooks/useHomeNotifications';
-import {
-  buildOrderPayload,
-  resolveOrderType,
-  validateCheckout,
-  type CheckoutPaymentMethod,
-} from './domain/checkout';
+import { useCartBodyScrollLock, useRestaurantAvailabilityClock } from './hooks/useHomePageRuntime';
+import { buildOrderPayload, resolveOrderType, validateCheckout, type CheckoutPaymentMethod } from './domain/checkout';
 import ordersService from '../../Services/ordersService';
 import waiterCallsService from '../../Services/waiterCallsService';
 import { useLoyaltyRewards } from './hooks/useLoyaltyRewards';
@@ -40,20 +32,22 @@ import { useOrderQuote } from './hooks/useOrderQuote';
 import { isUsableLoyaltyRedemption, loyaltyRedemptionEntries } from './domain/loyaltyRedemption';
 import { useLoyaltyExpirationClock } from './hooks/useLoyaltyExpirationClock';
 import { getRestaurantAvailability } from '../admin/domain/businessHours';
-import {
-  applyHomeSeoMetadata,
-  buildWhatsAppUrl,
-  getAvailablePaymentMethods,
-  resolveAvailableFulfillmentMethod,
-  resolveDefaultCheckoutPaymentMethod,
-} from './domain/publicSettings';
+import { applyHomeSeoMetadata, buildWhatsAppUrl, getAvailablePaymentMethods, resolveAvailableFulfillmentMethod, resolveDefaultCheckoutPaymentMethod } from './domain/publicSettings';
 import { useCardPaymentReturn } from './hooks/useCardPaymentReturn';
 import { buildLoginUrl } from '../../shared/navigation/authNavigation';
-import TableMenuExperience from '../digital-menu/TableMenuExperience';
 import type { HomeProduct } from './types';
 import { createReadyProductConfiguration, resolveProductEntryKind } from './domain/productEntryFlow';
+import { captureCartFlyOrigin, scheduleProductToCartAnimation, type CartFlyOrigin } from './cartFlyAnimation';
 import { validateDeliveryAddressLocationForCheckout } from './domain/deliveryAddress';
 import type { GuestCheckoutDetails, HomeNavigationState } from './domain/homePageTypes';
+import {
+  applyPurchasedStock,
+  checkoutRecommendations,
+  collectPurchasedProductQuantities,
+  resolveHomeRestaurantId,
+} from './domain/homePageHelpers';
+import type { CreateTablePaymentResult, TableCardPaymentPayload, TablePaymentDraft, TablePaymentIntent } from './domain/tableAccount';
+import { TableAccountPanel, TableMenuExperience } from './components/LazyTableHomeExperience';
 
 export default function Home() {
   const navigate = useNavigate();
@@ -62,7 +56,7 @@ export default function Home() {
   const [searchParams] = useSearchParams();
   const { user, logout } = useAuth();
   const { confirmDialog } = useAppDialog();
-  const [availabilityClock, setAvailabilityClock] = useState(() => new Date());
+  const availabilityClock = useRestaurantAvailabilityClock();
   const navigateToLogin = useCallback(
     () =>
       navigate(
@@ -74,19 +68,6 @@ export default function Home() {
       ),
     [location.hash, location.pathname, location.search, navigate],
   );
-
-  useEffect(() => {
-    const refreshAvailability = () => setAvailabilityClock(new Date());
-    const intervalId = window.setInterval(refreshAvailability, 30_000);
-    const refreshWhenVisible = () => {
-      if (document.visibilityState === 'visible') refreshAvailability();
-    };
-    document.addEventListener('visibilitychange', refreshWhenVisible);
-    return () => {
-      window.clearInterval(intervalId);
-      document.removeEventListener('visibilitychange', refreshWhenVisible);
-    };
-  }, []);
 
   const normalizedSlug = String(restaurantSlug || '')
     .trim()
@@ -122,29 +103,19 @@ export default function Home() {
     notify,
     dismissNotification: dismissNotif,
   } = useHomeNotifications();
-  const [tableServiceLoading, setTableServiceLoading] = useState<'WAITER' | 'BILL' | null>(null);
+  const [tableServiceLoading, setTableServiceLoading] = useState<'WAITER' | null>(null);
   const [tableOrderLoading, setTableOrderLoading] = useState(false);
   const [tableMenuReviewCartOpen, setTableMenuReviewCartOpen] = useState(false);
+  const [tableAccountOpen, setTableAccountOpen] = useState(false);
+  const [tablePaymentToOpen, setTablePaymentToOpen] = useState<TablePaymentIntent | null>(null);
+  const [tableCardPaymentOpen, setTableCardPaymentOpen] = useState(false);
   const [crossSellProduct, setCrossSellProduct] = useState<HomeProduct | null>(null);
   const [crossSellCombo, setCrossSellCombo] = useState<HomeProduct | null>(null);
+  const crossSellCartFlyOriginRef = useRef<CartFlyOrigin | null>(null);
   const [addressValidationLoading, setAddressValidationLoading] = useState(false);
 
-  useEffect(() => {
-    if (!cartOpen) return undefined;
-    const previousOverflow = document.body.style.overflow;
-    const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key !== 'Escape') return;
-      event.preventDefault();
-      setCartOpen(false);
-    };
-    document.body.style.overflow = 'hidden';
-    window.addEventListener('keydown', closeOnEscape);
-    return () => {
-      window.removeEventListener('keydown', closeOnEscape);
-      document.body.style.overflow = previousOverflow;
-    };
-  }, [cartOpen]);
-
+  const closeCart = useCallback(() => setCartOpen(false), []);
+  useCartBodyScrollLock(cartOpen, closeCart);
 
   const {
     routeRestaurantId,
@@ -156,7 +127,6 @@ export default function Home() {
     hasValidQrContext,
     mesaSessionIsActive,
     storedSessionRestaurantId,
-    markClosingRequested,
   } = useTableSession({
     tableNumber: routeTableNumber,
     restaurantId: searchParams.get('restaurantId') || searchParams.get('rid'),
@@ -175,15 +145,16 @@ export default function Home() {
       !rememberedRestaurantId &&
       !storedSessionRestaurantId,
   );
-  const restaurantId = mesaMode
-    ? routeRestaurantId || storedSessionRestaurantId || resolvedRestaurantId || null
-    : normalizedSlug
-      ? resolvedRestaurantId
-      : authenticatedRestaurantId ||
-        rememberedRestaurantId ||
-        storedSessionRestaurantId ||
-        defaultRestaurantId ||
-        null;
+  const restaurantId = resolveHomeRestaurantId({
+    mesaMode,
+    normalizedSlug,
+    routeRestaurantId,
+    storedSessionRestaurantId,
+    resolvedRestaurantId,
+    authenticatedRestaurantId,
+    rememberedRestaurantId,
+    defaultRestaurantId,
+  });
   const activeTableId =
     routeTableId || (mesaSessionIsActive ? Number(tableSession?.tableId || 0) : 0) || null;
 
@@ -368,14 +339,16 @@ export default function Home() {
     ? orderQuote.quote.itemsSubtotal + orderQuote.quote.productDiscountTotal
     : cartTotal;
   const checkoutTotal = orderQuote.quote?.total ?? cartTotal;
-  const checkoutRecommendations = useMemo(() => {
-    const cartProductIds = new Set(cart.map((item) => String(item.productId)));
-    return homeData.products
-      .filter((product) => product.available && !cartProductIds.has(String(product.id)))
-      .slice(0, 3);
-  }, [cart, homeData.products]);
+  const checkoutRecommendationItems = useMemo(
+    () => checkoutRecommendations(homeData.products, cart),
+    [cart, homeData.products],
+  );
 
-  const handleCrossSellAdd = (product: HomeProduct) => {
+  const handleCrossSellAdd = (
+    product: HomeProduct,
+    sourceElement?: HTMLElement | null,
+  ) => {
+    crossSellCartFlyOriginRef.current = captureCartFlyOrigin(sourceElement);
     const entryKind = resolveProductEntryKind(product);
 
     if (entryKind === 'COMBO') {
@@ -385,6 +358,13 @@ export default function Home() {
 
     if (entryKind === 'READY') {
       addToCart(product.id, createReadyProductConfiguration(product.configurationVersion), 1);
+      scheduleProductToCartAnimation({
+        origin: crossSellCartFlyOriginRef.current,
+        sourceElement,
+        imageUrl: product.image,
+        accentColor: homeData.brand.primaryColor || '#d64d08',
+      });
+      crossSellCartFlyOriginRef.current = null;
       return;
     }
 
@@ -392,52 +372,8 @@ export default function Home() {
   };
 
   function applyPurchasedStockToHome() {
-    const purchased = new Map<string, number>();
-
-    cart.forEach((item) => {
-      const homeProduct = homeData.products.find(
-        (product) => String(product.id) === String(item.productId),
-      );
-      if (homeProduct?.kind === 'COMBO') {
-        (item.comboSelections || []).forEach((selection) => {
-          const group = (homeProduct.comboGroups || []).find(
-            (candidate) => candidate.id === selection.groupId,
-          );
-          selection.items.forEach((selectedItem) => {
-            const option = group?.options.find(
-              (candidate) => candidate.id === selectedItem.optionId,
-            );
-            if (!option) return;
-            const quantity = Number(selectedItem.quantity) * Number(item.quantity);
-            purchased.set(
-              String(option.productId),
-              (purchased.get(String(option.productId)) || 0) + quantity,
-            );
-          });
-        });
-        return;
-      }
-
-      purchased.set(
-        String(item.productId),
-        (purchased.get(String(item.productId)) || 0) + Number(item.quantity),
-      );
-    });
-
-    setBackendProducts((products) =>
-      products.map((product) => {
-        const quantity = purchased.get(String(product.id));
-        if (!quantity || product.stock === null || product.stock === undefined) {
-          return product;
-        }
-        const nextStock = Math.max(Number(product.stock) - quantity, 0);
-        return {
-          ...product,
-          stock: nextStock,
-          active: nextStock > 0 ? product.active : false,
-        };
-      }),
-    );
+    const purchased = collectPurchasedProductQuantities(cart, homeData.products);
+    setBackendProducts((products) => applyPurchasedStock(products, purchased));
   }
 
   const {
@@ -508,8 +444,8 @@ export default function Home() {
     if (tableClosingRequested) {
       notify(
         'warning',
-        'Conta já solicitada',
-        'Novos pedidos estão bloqueados. Confira e pague os itens que já estão na conta.',
+        'Novos pedidos bloqueados',
+        'Esta sessão não está aceitando novos pedidos no momento.',
       );
       return;
     }
@@ -783,7 +719,7 @@ export default function Home() {
   const openAdmin = useCallback(() => navigate('/admin'), [navigate]);
   const handleLogout = useCallback(() => logout(), [logout]);
 
-  async function requestTableService(type: 'WAITER' | 'BILL') {
+  async function requestTableService() {
     const sessionToken = String(tableSession?.sessionToken || '').trim();
     if (!sessionToken || tableServiceLoading) {
       notify(
@@ -795,21 +731,15 @@ export default function Home() {
     }
 
     try {
-      setTableServiceLoading(type);
-      const call = await waiterCallsService.createCall(type, sessionToken);
-      const duplicate = call?.duplicate === true;
+      setTableServiceLoading('WAITER');
+      const call = await waiterCallsService.createCall('WAITER', sessionToken);
       notify(
         'success',
-        type === 'WAITER' ? 'Garçom avisado' : 'Conta solicitada',
-        duplicate
+        'Garçom avisado',
+        call?.duplicate === true
           ? 'Este aviso já está na fila de atendimento.'
-          : type === 'WAITER'
-            ? 'Seu chamado apareceu em tempo real no painel do salão.'
-            : 'O garçom recebeu o pedido da conta em tempo real.',
+          : 'Seu chamado apareceu em tempo real no painel do salão.',
       );
-      if (type === 'BILL') {
-        markClosingRequested();
-      }
     } catch (error: unknown) {
       const typed = error as { response?: { data?: { error?: string } }; message?: string };
       notify(
@@ -888,72 +818,117 @@ export default function Home() {
       notify('success', 'Cupom aplicado', `O cupom ${match.coupon.code} foi aplicado ao pedido.`);
     };
 
-    const createPixPaymentForOrder = async (orderPublicId: string) => {
+    const createTablePaymentWithWaiterAlert = async (
+      draft: TablePaymentDraft,
+    ): Promise<CreateTablePaymentResult | null> => {
+      const result = await tableAccount.createPayment(draft);
+      if (result?.payment && draft.method === 'CASH') {
+        // O pagamento já foi persistido no backend antes do aviso ao salão.
+        // A chamada ao garçom é complementar e idempotente; uma falha no aviso
+        // não desfaz nem duplica a reserva do pagamento em dinheiro.
+        void requestTableService();
+      }
+      return result;
+    };
+
+    const createAccountPayment = async (
+      method: 'PIX' | 'CARD' | 'CASH',
+      cardPayment?: TableCardPaymentPayload,
+    ) => {
       const snapshot = await tableAccount.refresh({ silent: true });
-      if (!snapshot?.capabilities.allowPix) {
+      if (method === 'PIX' && !snapshot?.capabilities.allowPix) {
+        notify('warning', 'PIX indisponível', 'O PIX não está disponível para esta mesa.');
+        return null;
+      }
+      if (method === 'CARD' && !snapshot?.capabilities.allowCard) {
         notify(
           'warning',
-          'PIX indisponível',
-          'Este restaurante não habilitou pagamento PIX online para a mesa.',
+          'Cartão indisponível',
+          'O pagamento com cartão ainda não está configurado para este restaurante.',
         );
         return null;
       }
-
-      const billItemPublicIds = snapshot.items
-        .filter(
-          (item) =>
-            item.orderPublicId === orderPublicId &&
-            item.orderedByParticipantPublicId === snapshot.currentParticipantPublicId &&
-            item.availableCents > 0,
-        )
-        .map((item) => item.publicId);
-
-      if (!billItemPublicIds.length) {
+      if (method === 'CARD' && !cardPayment) {
         notify(
           'warning',
-          'Pagamento indisponível',
-          'Os itens deste pedido ainda não estão disponíveis para pagamento.',
+          'Dados do cartão pendentes',
+          'Preencha os dados protegidos do cartão antes de continuar.',
         );
         return null;
       }
+      if (method === 'CASH' && !snapshot?.capabilities.allowCash) {
+        notify('warning', 'Dinheiro indisponível', 'O pagamento em dinheiro não está disponível.');
+        return null;
+      }
 
-      const result = await tableAccount.createPayment({
-        selectionMode: 'SELECTED_ITEMS',
-        method: 'PIX',
-        billItemPublicIds,
+      const result = await createTablePaymentWithWaiterAlert({
+        selectionMode: 'MY_ITEMS',
+        method,
         includeOptionalServiceFee: false,
+        ...(method === 'CARD' && cardPayment ? { cardPayment } : {}),
       });
       return result?.payment || null;
     };
 
     return (
-      <TableMenuExperience
-        data={homeData}
-        tableLabel={mesaLabel}
-        cart={cart}
-        cartTotal={cartTotal}
-        orderingLocked={tableClosingRequested}
-        tableOrder={tableOrder}
-        accountSnapshot={tableAccount.snapshot}
-        activePayment={tableAccount.snapshot?.activePayment || null}
-        paymentLoading={tableAccount.actionLoading}
-        waiterCallEnabled={tableSession?.waiterCallEnabled !== false}
-        billRequestEnabled={tableSession?.billRequestEnabled !== false}
-        onAddProduct={addToCart}
-        onIncrease={increaseCart}
-        onDecrease={decreaseCart}
-        onSubmitOrder={addOrderToTableAccount}
-        onCallWaiter={() => void requestTableService('WAITER')}
-        onRequestBill={() => void requestTableService('BILL')}
-        onCreatePixPayment={createPixPaymentForOrder}
-        onReconcilePayment={tableAccount.reconcilePayment}
-        onCancelPayment={tableAccount.cancelPayment}
-        couponCode={orderQuote.quote?.couponCode || null}
-        couponDiscount={orderQuote.quote?.couponDiscount || 0}
-        onApplyCouponCode={applyTableCouponCode}
-        reviewCartOpen={tableMenuReviewCartOpen}
-        onReviewCartClose={() => setTableMenuReviewCartOpen(false)}
-      />
+      <Suspense fallback={null}>
+        <TableMenuExperience
+          data={homeData}
+          restaurantId={Number(restaurantId || storedSessionRestaurantId || 0)}
+          tableLabel={mesaLabel}
+          cart={cart}
+          cartTotal={cartTotal}
+          orderingLocked={tableClosingRequested}
+          tableOrder={tableOrder}
+          accountSnapshot={tableAccount.snapshot}
+          activePayment={tableAccount.snapshot?.activePayment || null}
+          paymentToOpen={tablePaymentToOpen}
+          openCardPayment={tableCardPaymentOpen}
+          onCardPaymentOpened={() => setTableCardPaymentOpen(false)}
+          paymentLoading={tableAccount.actionLoading}
+          waiterCallEnabled={tableSession?.waiterCallEnabled !== false}
+          onAddProduct={addToCart}
+          onIncrease={increaseCart}
+          onDecrease={decreaseCart}
+          onClearCart={() => setCart([])}
+          onSubmitOrder={addOrderToTableAccount}
+          onCallWaiter={() => void requestTableService()}
+          onViewAccount={() => setTableAccountOpen(true)}
+          onCreateAccountPayment={createAccountPayment}
+          onReconcilePayment={tableAccount.reconcilePayment}
+          onCancelPayment={tableAccount.cancelPayment}
+          couponCode={orderQuote.quote?.couponCode || null}
+          couponDiscount={orderQuote.quote?.couponDiscount || 0}
+          onApplyCouponCode={applyTableCouponCode}
+          reviewCartOpen={tableMenuReviewCartOpen}
+          onReviewCartClose={() => setTableMenuReviewCartOpen(false)}
+          userName={user ? String((user as Record<string, unknown>).name || '') : undefined}
+          userEmail={user ? String((user as Record<string, unknown>).email || '') : undefined}
+          userLoggedIn={Boolean(user)}
+        />
+        {tableAccountOpen ? (
+          <TableAccountPanel
+            open
+            tableNumber={mesaLabel}
+            snapshot={tableAccount.snapshot}
+            loading={tableAccount.loading}
+            actionLoading={tableAccount.actionLoading}
+            error={tableAccount.error}
+            onRefresh={() => void tableAccount.refresh()}
+            onCreatePayment={createTablePaymentWithWaiterAlert}
+            onOpenCardPayment={() => {
+              setTableAccountOpen(false);
+              setTableCardPaymentOpen(true);
+            }}
+            onOpenPayment={(payment) => {
+              setTableAccountOpen(false);
+              setTablePaymentToOpen({ ...payment });
+            }}
+            orderingBlocked={tableClosingRequested}
+            onClose={() => setTableAccountOpen(false)}
+          />
+        ) : null}
+      </Suspense>
     );
   }
 
@@ -1039,7 +1014,7 @@ export default function Home() {
           onClose={() => setCartOpen(false)}
           onLogin={user ? openProfile : navigateToLogin}
           onSubmit={() => void handleCheckout()}
-          recommendations={checkoutRecommendations}
+          recommendations={checkoutRecommendationItems}
           onAddRecommendation={handleCrossSellAdd}
           guestAddressScreen={
             !user ? (
@@ -1239,18 +1214,37 @@ export default function Home() {
         primaryColor={primary}
         notifications={notifs}
         onDismissNotification={dismissNotif}
-        onOpenCart={openHomeCart}
-        onCloseProduct={() => setCrossSellProduct(null)}
-        onCloseCombo={() => setCrossSellCombo(null)}
+        onCloseProduct={() => {
+          setCrossSellProduct(null);
+          crossSellCartFlyOriginRef.current = null;
+        }}
+        onCloseCombo={() => {
+          setCrossSellCombo(null);
+          crossSellCartFlyOriginRef.current = null;
+        }}
         onConfirmProduct={(configuration, quantity) => {
           if (!crossSellProduct) return;
-          addToCart(crossSellProduct.id, configuration, quantity);
+          const product = crossSellProduct;
+          addToCart(product.id, configuration, quantity);
           setCrossSellProduct(null);
+          scheduleProductToCartAnimation({
+            origin: crossSellCartFlyOriginRef.current,
+            imageUrl: product.image,
+            accentColor: primary,
+          });
+          crossSellCartFlyOriginRef.current = null;
         }}
         onConfirmCombo={(configuration) => {
           if (!crossSellCombo) return;
-          addToCart(crossSellCombo.id, configuration, 1);
+          const product = crossSellCombo;
+          addToCart(product.id, configuration, 1);
           setCrossSellCombo(null);
+          scheduleProductToCartAnimation({
+            origin: crossSellCartFlyOriginRef.current,
+            imageUrl: product.image,
+            accentColor: primary,
+          });
+          crossSellCartFlyOriginRef.current = null;
         }}
         tableService={
           mesaMode && tableSession
@@ -1258,7 +1252,7 @@ export default function Home() {
                 tableNumber: mesaLabel,
                 waiterEnabled: tableSession.waiterCallEnabled !== false,
                 loading: tableServiceLoading,
-                onCallWaiter: () => void requestTableService('WAITER'),
+                onCallWaiter: () => void requestTableService(),
               }
             : undefined
         }

@@ -12,12 +12,26 @@ export interface ProviderPayment {
   expiresAt: Date;
 }
 
+export type TableCardPaymentPayload = {
+  cardPaymentType?: 'credit' | 'debit' | null;
+  cardToken?: string | null;
+  cardPaymentMethodId?: string | null;
+  cardBrand?: string | null;
+  cardLast4?: string | null;
+  paymentMethodId?: string | null;
+  holderName?: string | null;
+  holderTaxId?: string | null;
+  payerEmail?: string | null;
+  mercadoPagoDeviceId?: string | null;
+};
+
 export interface CreateProviderPaymentInput {
   intentPublicId: string;
   amountCents: number;
   method: Extract<TablePaymentMethod, 'PIX' | 'CARD'>;
   idempotencyKeyHash: string;
   expiresAt: Date;
+  cardPayment?: TableCardPaymentPayload | null;
 }
 
 export interface ProviderMutationInput {

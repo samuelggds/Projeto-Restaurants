@@ -59,6 +59,16 @@ export interface WaiterTableAccountSnapshot {
     authenticated: boolean;
     status: 'ACTIVE' | 'LEFT';
   }>;
+  participantAccounts?: Array<{
+    publicId: string;
+    displayName: string | null;
+    status: 'ACTIVE' | 'LEFT';
+    consumedCents: number;
+    paidCents: number;
+    reservedCents: number;
+    processingCents: number;
+    remainingCents: number;
+  }>;
   items: Array<{
     publicId: string;
     productName: string;
@@ -77,6 +87,11 @@ export interface WaiterTableAccountSnapshot {
     createdAt: string;
     manualConfirmedAt: string | null;
     manualConfirmedByName: string | null;
+    events?: Array<{
+      actorName: string | null;
+      stage?: string | null;
+      occurredAt: string;
+    }>;
   }>;
 }
 export interface WaiterManualPayment {
@@ -85,6 +100,9 @@ export interface WaiterManualPayment {
   status: 'RESERVED' | 'PROCESSING';
   totalCents: number;
   createdAt: string;
+  payerParticipantPublicId?: string;
+  payerDisplayName?: string;
+  staffReceiptRegistered?: boolean;
 }
 export interface WaiterAccountSession {
   tableSessionId: string;

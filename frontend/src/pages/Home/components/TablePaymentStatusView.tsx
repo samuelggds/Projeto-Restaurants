@@ -4,6 +4,8 @@ import QRCode from 'react-qr-code';
 import { PaymentResultView } from '../../../components/payment/PaymentResultView';
 import {
   formatTableMoney,
+  tablePaymentMethodLabel,
+  tablePaymentStatusLabel,
   type TablePaymentIntent,
   type TablePaymentStatus,
 } from '../domain/tableAccount';
@@ -47,7 +49,7 @@ export function TablePaymentStatusView({
   const [copied, setCopied] = useState(false);
   const [verificationMessage, setVerificationMessage] = useState('');
   const [nowMs, setNowMs] = useState(() => Date.now());
-  const manual = payment.method === 'CASH' || payment.method === 'CARD_MACHINE';
+  const manual = payment.method === 'CASH';
   const pending = status === 'RESERVED' || status === 'PROCESSING';
   const checkoutUrl = /^https:\/\//i.test(payment.checkoutUrl || '')
     ? String(payment.checkoutUrl)
@@ -60,16 +62,14 @@ export function TablePaymentStatusView({
     : null;
 
   const title = manual
-    ? 'Aguardando o garçom'
+    ? 'Aguardando confirmação do administrador'
     : payment.method === 'PIX'
       ? 'Pague com Pix'
       : awaitingCardDetails
         ? 'Informe os dados do cartão'
         : 'Confirmando pagamento com cartão';
   const description = manual
-    ? payment.method === 'CASH'
-      ? 'Entregue o dinheiro à equipe. Assim que o garçom confirmar o recebimento, o valor será abatido da sua conta.'
-      : 'A equipe fará a cobrança na maquininha. Assim que o pagamento for confirmado, o valor será abatido da sua conta.'
+    ? 'Entregue o dinheiro ao garçom ou atendente. A equipe pode registrar o recebimento, mas somente o administrador confirma o pagamento como pago.'
     : payment.method === 'PIX'
       ? 'Use o QR Code ou copie o código para pagar no seu banco. A confirmação aparecerá aqui automaticamente.'
       : awaitingCardDetails
@@ -112,22 +112,24 @@ export function TablePaymentStatusView({
   }, [manual, pending, remainingSeconds]);
 
   if (status !== 'RESERVED' && status !== 'PROCESSING') {
-    const methodLabels = {
-      PIX: 'Pix',
-      CARD: 'Cartão',
-      CASH: 'Dinheiro',
-      CARD_MACHINE: 'Cartão na maquininha',
-    };
+    const methodLabel = tablePaymentMethodLabel(payment.method);
+    const paidDescription =
+      payment.method === 'PIX'
+        ? 'Recebemos a confirmação do seu pagamento via PIX.'
+        : payment.method === 'CASH'
+          ? 'O pagamento em dinheiro foi confirmado pela equipe responsável.'
+          : `Recebemos a confirmação do pagamento por ${methodLabel}.`;
 
     return (
       <PaymentResultView
         embedded
         status={status}
-        method={methodLabels[payment.method]}
+        method={methodLabel}
+        statusLabel={tablePaymentStatusLabel(status)}
         restaurantCategory={restaurantCategory ?? 'RESTAURANTE'}
         orderLabel="Conta da mesa"
         amount={formatTableMoney(payment.totalCents)}
-        description={terminalDescriptions[status]}
+        description={status === 'PAID' ? paidDescription : terminalDescriptions[status]}
         onAutoReturn={manual ? undefined : onClose}
         primaryAction={
           status === 'PAID'
@@ -208,7 +210,7 @@ export function TablePaymentStatusView({
           {actionLoading ? 'Verificando pagamento...' : 'Verificar pagamento agora'}
         </S.SecondaryAction>
       )}
-      {pending && (
+      {pending && !manual && (
         <S.TextAction type="button" disabled={actionLoading} onClick={() => void onCancel()}>
           Cancelar esta reserva
         </S.TextAction>

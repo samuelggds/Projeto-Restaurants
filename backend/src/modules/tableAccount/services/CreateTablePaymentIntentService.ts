@@ -5,7 +5,10 @@ import {
   TablePaymentMethod,
 } from '@prisma/client';
 import prisma from '../../../config/prisma.js';
-import { createTablePaymentIntentInputSchema } from '../domain/tableAccountSchemas.js';
+import {
+  createTablePaymentIntentInputSchema,
+  type CreateTablePaymentIntentInput,
+} from '../domain/tableAccountSchemas.js';
 import {
   calculateServiceFeeCents,
   shouldIncludeServiceFee,
@@ -35,6 +38,10 @@ import {
 import { tableAccountEvents } from '../realtime/tableAccountEvents.js';
 import { ProcessTablePaymentWebhookService } from './ProcessTablePaymentWebhookService.js';
 import { onlinePaymentExpiresAt } from '../../payments/domain/onlinePaymentPolicy.js';
+import {
+  safeTablePaymentProviderError,
+  shouldReleaseTablePaymentReservationAfterProviderError,
+} from './tablePaymentProviderFailure.js';
 
 interface CreateTablePaymentIntentContext {
   tableSessionId: number;
@@ -261,7 +268,12 @@ export class CreateTablePaymentIntentService {
       };
     }
 
-    return this.createProviderPayment(context, reservation.intent, reservation.reused);
+    return this.createProviderPayment(
+      context,
+      reservation.intent,
+      reservation.reused,
+      input.cardPayment || null,
+    );
   }
 
   private async resolveProvider(
@@ -288,6 +300,7 @@ export class CreateTablePaymentIntentService {
     context: CreateTablePaymentIntentContext,
     intent: TablePaymentIntentRecord,
     reused: boolean,
+    cardPayment: CreateTablePaymentIntentInput['cardPayment'] | null,
   ) {
     let provider: PaymentProvider | null = null;
     try {
@@ -298,6 +311,7 @@ export class CreateTablePaymentIntentService {
         method: intent.method as 'PIX' | 'CARD',
         idempotencyKeyHash: intent.idempotencyKeyHash,
         expiresAt: intent.expiresAt,
+        cardPayment,
       });
 
       const updated = await prisma.$transaction(
@@ -387,13 +401,21 @@ export class CreateTablePaymentIntentService {
         idempotentReplay: reused,
       };
     } catch (error) {
-      await this.failProviderCreation(context, intent, error, provider?.code || null);
+      const providerResolved = Boolean(provider);
+      if (
+        shouldReleaseTablePaymentReservationAfterProviderError(
+          providerResolved,
+          error,
+        )
+      ) {
+        await this.failProviderCreation(context, intent, error, provider?.code || null);
+      }
+
+      const safeError = safeTablePaymentProviderError(providerResolved, error);
       throw new TablePaymentError(
-        error instanceof Error && error.message
-          ? error.message
-          : 'Não foi possível iniciar o pagamento online. A reserva foi liberada.',
-        502,
-        'PAYMENT_PROVIDER_UNAVAILABLE',
+        safeError.message,
+        safeError.statusCode,
+        safeError.code,
       );
     }
   }

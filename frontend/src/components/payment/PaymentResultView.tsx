@@ -33,6 +33,7 @@ export interface PaymentResultViewProps {
   orderLabel?: string;
   amount?: string;
   description?: string;
+  statusLabel?: string;
   primaryAction?: PaymentResultAction;
   secondaryAction?: PaymentResultAction;
   onAutoReturn?: () => void;
@@ -177,6 +178,7 @@ export function PaymentResultView({
   orderLabel,
   amount,
   description,
+  statusLabel,
   primaryAction,
   secondaryAction,
   onAutoReturn,
@@ -248,6 +250,12 @@ export function PaymentResultView({
                 {method}
               </dd>
             </div>
+            {statusLabel ? (
+              <div>
+                <dt>Status</dt>
+                <dd>{statusLabel}</dd>
+              </div>
+            ) : null}
             {amount && (
               <div className="amount">
                 <dt>

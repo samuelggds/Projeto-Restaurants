@@ -71,13 +71,16 @@ export function serializeTablePaymentIntent(
   };
 }
 
-function readAuditReason(metadata: unknown) {
+function readAuditMetadata(metadata: unknown) {
   if (!metadata || typeof metadata !== 'object' || Array.isArray(metadata)) {
-    return null;
+    return { reason: null, stage: null };
   }
 
-  const reason = (metadata as Record<string, unknown>).reason;
-  return typeof reason === 'string' ? reason : null;
+  const record = metadata as Record<string, unknown>;
+  return {
+    reason: typeof record.reason === 'string' ? record.reason : null,
+    stage: typeof record.stage === 'string' ? record.stage : null,
+  };
 }
 
 export function serializeTablePaymentIntentForAdmin(
@@ -88,19 +91,23 @@ export function serializeTablePaymentIntentForAdmin(
     ...serializeTablePaymentIntent(record, sessionPublicId),
     manualConfirmedAt: record.manualConfirmedAt?.toISOString() || null,
     manualConfirmedByName: record.manualConfirmedBy?.name || null,
-    events: record.events.map((event) => ({
-      type: event.type,
-      fromStatus: event.fromStatus,
-      toStatus: event.toStatus,
-      provider: event.provider,
-      providerEventId: event.providerEventId,
-      amountCents:
-        event.amountCents === null
-          ? null
-          : bigintToMoneyCents(event.amountCents, `evento do pagamento ${record.publicId}`),
-      actorName: event.actorUser?.name || null,
-      reason: readAuditReason(event.metadata),
-      occurredAt: event.occurredAt.toISOString(),
-    })),
+    events: record.events.map((event) => {
+      const metadata = readAuditMetadata(event.metadata);
+      return {
+        type: event.type,
+        fromStatus: event.fromStatus,
+        toStatus: event.toStatus,
+        provider: event.provider,
+        providerEventId: event.providerEventId,
+        amountCents:
+          event.amountCents === null
+            ? null
+            : bigintToMoneyCents(event.amountCents, `evento do pagamento ${record.publicId}`),
+        actorName: event.actorUser?.name || null,
+        reason: metadata.reason,
+        stage: metadata.stage,
+        occurredAt: event.occurredAt.toISOString(),
+      };
+    }),
   };
 }

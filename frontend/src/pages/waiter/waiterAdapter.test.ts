@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { mapWaiterCalls, mapWaiterTables } from './waiterAdapter';
+import { mapWaiterAccountSessions, mapWaiterCalls, mapWaiterTables } from './waiterAdapter';
 
 describe('waiterAdapter', () => {
   it('mapeia a sessão aberta sem expor o token administrativo do QR Code', () => {
@@ -81,6 +81,56 @@ describe('waiterAdapter', () => {
         total: 0,
         openedAt: undefined,
       },
+    ]);
+  });
+
+
+
+  it('preserva o recebimento em dinheiro registrado pela equipe sem marcar como pago', () => {
+    const [account] = mapWaiterAccountSessions([
+      {
+        tableSessionId: 502,
+        sessionPublicId: 'session-public-502',
+        tableId: 12,
+        tableNumber: 12,
+        openedAt: '2026-10-02T08:00:00.000Z',
+        status: 'CLOSING_REQUESTED',
+        openedByName: 'Ana',
+        summary: {
+          consumedCents: 8400,
+          netPaidCents: 4200,
+          reservedCents: 4200,
+          processingCents: 0,
+          remainingCents: 4200,
+          participantsCount: 2,
+        },
+        itemsCount: 3,
+        paymentCounts: { reserved: 1, processing: 0, online: 0, inPerson: 1 },
+        pendingManualPayments: [
+          {
+            publicId: 'payment-cash',
+            method: 'CASH',
+            status: 'RESERVED',
+            totalCents: 4200,
+            createdAt: '2026-10-02T08:03:00.000Z',
+            payerParticipantPublicId: 'participant-1',
+            payerDisplayName: 'Cliente da mesa',
+            staffReceiptRegistered: true,
+          },
+        ],
+      },
+    ]);
+
+    expect(account.pendingManualPayments).toEqual([
+      expect.objectContaining({
+        publicId: 'payment-cash',
+        method: 'CASH',
+        status: 'RESERVED',
+        totalCents: 4200,
+        payerParticipantPublicId: 'participant-1',
+        payerDisplayName: 'Cliente da mesa',
+        staffReceiptRegistered: true,
+      }),
     ]);
   });
 

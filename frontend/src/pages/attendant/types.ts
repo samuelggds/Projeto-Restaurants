@@ -50,11 +50,23 @@ export interface AttendantTable {
   activeCallCount: number;
 }
 
+export interface AttendantCashPayment {
+  publicId: string;
+  sessionPublicId: string;
+  tableNumber: number;
+  customerName: string;
+  totalCents: number;
+  status: 'RESERVED' | 'PROCESSING';
+  createdAt: string;
+  staffReceiptRegistered: boolean;
+}
+
 export interface AttendantWorkspaceSnapshot {
   generatedAt: string;
   orders: AttendantOrder[];
   calls: AttendantCall[];
   tables: AttendantTable[];
+  cashPayments?: AttendantCashPayment[];
 }
 
 export interface AttendantWorkspaceState {

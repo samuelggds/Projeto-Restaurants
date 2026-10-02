@@ -67,6 +67,7 @@ export const tablePaymentIntentAdminSelect = {
   },
   events: {
     select: {
+      deduplicationKey: true,
       type: true,
       fromStatus: true,
       toStatus: true,

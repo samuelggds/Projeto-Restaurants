@@ -347,7 +347,9 @@ export const Action = styled.button<{ $primary?: boolean; $success?: boolean }>`
   border: 1px solid ${({ $primary }) => ($primary ? 'transparent' : '#d9ded4')};
   border-radius: 12px;
   background: ${({ $primary, $success }) =>
-    $primary ? ($success ? '#187347' : '#293b31') : '#fffefa'};
+    $primary
+      ? `var(--result-action-accent, ${$success ? '#187347' : '#293b31'})`
+      : '#fffefa'};
   color: ${({ $primary }) => ($primary ? '#ffffff' : '#3d4a40')};
   font: inherit;
   font-size: 14px;
@@ -367,7 +369,9 @@ export const Action = styled.button<{ $primary?: boolean; $success?: boolean }>`
 
   &:hover:not(:disabled) {
     background: ${({ $primary, $success }) =>
-      $primary ? ($success ? '#105b37' : '#1b2c22') : '#f0f3eb'};
+      $primary
+        ? `var(--result-action-accent-hover, ${$success ? '#105b37' : '#1b2c22'})`
+        : '#f0f3eb'};
     transform: translateY(-1px);
     box-shadow: 0 9px 20px rgba(31, 30, 26, 0.09);
   }
@@ -377,7 +381,7 @@ export const Action = styled.button<{ $primary?: boolean; $success?: boolean }>`
   }
 
   &:focus-visible {
-    outline: 3px solid #43694f;
+    outline: 3px solid var(--result-action-accent, #43694f);
     outline-offset: 3px;
   }
 

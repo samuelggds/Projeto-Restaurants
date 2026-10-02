@@ -1042,7 +1042,7 @@ test('isolamento multi-tenant real por HTTP e webhooks', { timeout: 120_000 }, a
             method: 'POST',
             headers: { 'idempotency-key': 'table-payment-no-auto-approval' },
             json: {
-              selectionMode: 'FULL_ACCOUNT',
+              selectionMode: 'MY_ITEMS',
               method: 'PIX',
               includeOptionalServiceFee: false,
             },

@@ -44,6 +44,16 @@ export type TableAccountSnapshot = {
     joinedAt: string;
     leftAt: string | null;
   }>;
+  participantAccounts?: Array<{
+    publicId: string;
+    displayName: string | null;
+    status: 'ACTIVE' | 'LEFT';
+    consumedCents: number;
+    paidCents: number;
+    reservedCents: number;
+    processingCents: number;
+    remainingCents: number;
+  }>;
   activePayment: TablePaymentIntent | null;
   items: Array<{
     publicId: string;
@@ -70,6 +80,19 @@ export type TableAccountSnapshot = {
   }>;
 };
 
+export type TableCardPaymentPayload = {
+  cardPaymentType?: 'credit' | 'debit';
+  cardToken: string;
+  cardPaymentMethodId: string;
+  cardBrand?: string;
+  cardLast4?: string;
+  paymentMethodId?: string;
+  holderName?: string;
+  holderTaxId?: string;
+  payerEmail?: string;
+  mercadoPagoDeviceId?: string;
+};
+
 export type TablePaymentDraft = {
   selectionMode: TablePaymentSelectionMode;
   method: TablePaymentMethod;
@@ -77,6 +100,7 @@ export type TablePaymentDraft = {
   splitCount?: number;
   customAmountCents?: number;
   includeOptionalServiceFee?: boolean;
+  cardPayment?: TableCardPaymentPayload;
 };
 
 export type TablePaymentIntent = {
@@ -111,10 +135,47 @@ export function createTablePaymentIdempotencyKey() {
 }
 
 export function tablePaymentFingerprint(draft: TablePaymentDraft) {
+  const stableCardPayment =
+    draft.method === 'CARD' && draft.cardPayment
+      ? {
+          cardPaymentType: draft.cardPayment.cardPaymentType || 'credit',
+          paymentMethodId: draft.cardPayment.paymentMethodId || null,
+          cardBrand: draft.cardPayment.cardBrand || null,
+          cardLast4: draft.cardPayment.cardLast4 || null,
+          holderName: draft.cardPayment.holderName || null,
+          holderTaxId: draft.cardPayment.holderTaxId || null,
+          payerEmail: draft.cardPayment.payerEmail || null,
+        }
+      : undefined;
+
   return JSON.stringify({
-    ...draft,
+    selectionMode: draft.selectionMode,
+    method: draft.method,
     billItemPublicIds: [...(draft.billItemPublicIds || [])].sort(),
+    splitCount: draft.splitCount || null,
+    customAmountCents: draft.customAmountCents || null,
+    includeOptionalServiceFee: Boolean(draft.includeOptionalServiceFee),
+    ...(stableCardPayment ? { cardPayment: stableCardPayment } : {}),
   });
+}
+
+export function shouldReuseActiveTablePayment(
+  payment: TablePaymentIntent | null | undefined,
+  method: Extract<TablePaymentMethod, 'PIX' | 'CARD' | 'CASH'>,
+) {
+  if (
+    !payment ||
+    payment.method !== method ||
+    !['RESERVED', 'PROCESSING'].includes(payment.status)
+  ) {
+    return false;
+  }
+
+  // Pagamento manual não depende de referência externa. Para PIX/cartão,
+  // RESERVED sem externalId significa que o envio ao provedor ficou incerto:
+  // o frontend deve repetir a mesma tentativa/idempotency key para reconciliar.
+  if (method === 'CASH') return true;
+  return Boolean(payment.externalId);
 }
 
 export function buildTablePaymentPayload(draft: TablePaymentDraft) {
@@ -129,6 +190,9 @@ export function buildTablePaymentPayload(draft: TablePaymentDraft) {
       ? { customAmountCents: draft.customAmountCents }
       : {}),
     includeOptionalServiceFee: Boolean(draft.includeOptionalServiceFee),
+    ...(draft.method === 'CARD' && draft.cardPayment
+      ? { cardPayment: { ...draft.cardPayment } }
+      : {}),
   };
 }
 
@@ -147,6 +211,38 @@ export function formatTableMoney(cents: number) {
     style: 'currency',
     currency: 'BRL',
   });
+}
+
+export function tablePaymentMethodLabel(method: TablePaymentMethod) {
+  switch (method) {
+    case 'PIX':
+      return 'PIX';
+    case 'CASH':
+      return 'Dinheiro';
+    case 'CARD':
+      return 'Cartão';
+    case 'CARD_MACHINE':
+      return 'Cartão na maquininha';
+  }
+}
+
+export function tablePaymentStatusLabel(status: TablePaymentStatus) {
+  switch (status) {
+    case 'RESERVED':
+      return 'Reservado';
+    case 'PROCESSING':
+      return 'Em confirmação';
+    case 'PAID':
+      return 'Confirmado';
+    case 'FAILED':
+      return 'Falhou';
+    case 'EXPIRED':
+      return 'Expirado';
+    case 'CANCELED':
+      return 'Cancelado';
+    case 'REFUNDED':
+      return 'Estornado';
+  }
 }
 
 /** Prévia de MY_ITEMS; o backend continua sendo a autoridade sobre a cobrança. */
@@ -169,4 +265,39 @@ export function previewIndividualTablePayment(snapshot: TableAccountSnapshot) {
         )
       : 0;
   return { subtotalCents, serviceFeeCents, totalCents: subtotalCents + serviceFeeCents, blocked };
+}
+
+
+export function currentParticipantAccount(snapshot: TableAccountSnapshot | null) {
+  if (!snapshot) return null;
+
+  const canonical = snapshot.participantAccounts?.find(
+    (participant) => participant.publicId === snapshot.currentParticipantPublicId,
+  );
+  if (canonical) return canonical;
+
+  const participant = snapshot.participants.find(
+    (entry) => entry.publicId === snapshot.currentParticipantPublicId,
+  );
+  const ownItems = snapshot.items.filter(
+    (item) =>
+      item.orderedByParticipantPublicId === snapshot.currentParticipantPublicId &&
+      item.orderStatus !== 'CANCELED' &&
+      item.financialStatus !== 'REFUNDED',
+  );
+  const consumedCents = ownItems.reduce((total, item) => total + item.unitPriceCents, 0);
+  const paidCents = ownItems.reduce((total, item) => total + item.paidCents, 0);
+  const reservedCents = ownItems.reduce((total, item) => total + item.reservedCents, 0);
+  const processingCents = ownItems.reduce((total, item) => total + item.processingCents, 0);
+
+  return {
+    publicId: snapshot.currentParticipantPublicId,
+    displayName: participant?.displayName || null,
+    status: participant?.status || 'ACTIVE',
+    consumedCents,
+    paidCents,
+    reservedCents,
+    processingCents,
+    remainingCents: Math.max(0, consumedCents - paidCents),
+  };
 }

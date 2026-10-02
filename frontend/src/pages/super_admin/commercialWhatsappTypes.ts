@@ -13,7 +13,6 @@ export interface CommercialWhatsappDay {
 export interface CommercialWhatsappSettings {
   enabled: boolean;
   hours: CommercialWhatsappDay[];
-  awayMessage: string;
   timezone: string;
 }
 
@@ -40,8 +39,9 @@ export interface CommercialWhatsappMessage {
 export interface CommercialWhatsappConversation {
   id: string;
   phone: string;
-  automationMode: 'BOT' | 'HUMAN';
+  automationMode: 'BOT' | 'HUMAN' | 'CLOSED';
   lastInboundAt: string | null;
   lastOutboundAt: string | null;
+  closedAt?: string | null;
   messages: CommercialWhatsappMessage[];
 }

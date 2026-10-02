@@ -35,6 +35,14 @@ const pizzaImageFiles = new Map([
   ],
 ]);
 
+async function addReadyProductToCart(page: Page, productName: string) {
+  await page.getByRole('button', { name: `Adicionar ${productName}` }).click();
+  const details = page.getByRole('dialog', { name: `Detalhes de ${productName}` });
+  await expect(details).toBeVisible();
+  await details.getByRole('button', { name: /Adicionar ao carrinho/ }).click();
+  await expect(details).toBeHidden();
+}
+
 async function mockPublicMenu(page: Page) {
   await page.route(/^http:\/\/(127\.0\.0\.1|localhost):3000\/.*$/, async (route) => {
     const request = route.request();
@@ -491,10 +499,10 @@ test('adicionar mantém o cardápio aberto e o checkout reúne os itens em 320px
   await expect(cartTrigger).toBeFocused();
   await expect.poll(() => page.evaluate(() => document.body.style.overflow)).toBe('');
 
-  await page.getByRole('button', { name: 'Adicionar Pizza Margherita' }).click();
+  await addReadyProductToCart(page, 'Pizza Margherita');
   await expect(page.getByRole('button', { name: 'Meu Carrinho, 1 item' })).toBeVisible();
 
-  await page.getByRole('button', { name: 'Adicionar Pizza Calabresa Especial' }).click();
+  await addReadyProductToCart(page, 'Pizza Calabresa Especial');
 
   const filledCartTrigger = page.getByRole('button', { name: 'Meu Carrinho, 2 itens' });
   await expect(filledCartTrigger).toBeVisible();
@@ -516,7 +524,7 @@ test('checkout móvel preserva o endereço salvo selecionado', async ({ page }) 
   await mockAuthenticatedPublicMenu(page);
   await page.goto('/north-pizza');
 
-  await page.getByRole('button', { name: 'Adicionar Pizza Margherita' }).click();
+  await addReadyProductToCart(page, 'Pizza Margherita');
   await page.getByRole('button', { name: 'Meu Carrinho, 1 item' }).click();
   const checkout = page.getByRole('dialog', { name: 'Finalizar pedido' });
   await expect(checkout).toBeVisible();

@@ -23,7 +23,8 @@ export const HalfHalfBuilder = styled.section<{ $error?: boolean }>`
   }
 
   .half-options{
-    display:grid;
+    display:flex;
+    flex-direction:column;
     gap:8px;
   }
 
@@ -43,12 +44,12 @@ export const HalfHalfBuilder = styled.section<{ $error?: boolean }>`
 
   .half-options label:hover{
     transform:translateY(-1px);
-    border-color:var(--config-primary);
+    border-color:#FF4B4B;
   }
 
   .half-options label.selected{
-    border-color:var(--config-primary);
-    background:color-mix(in srgb,var(--config-primary) 6%,#fff);
+    border-color:#FF4B4B;
+    background:color-mix(in srgb,#FF4B4B 6%,#fff);
   }
 
   .half-options input{
@@ -75,7 +76,7 @@ export const HalfHalfBuilder = styled.section<{ $error?: boolean }>`
     width:8px;
     height:8px;
     border-radius:50%;
-    background:var(--config-primary);
+    background:#FF4B4B;
   }
 
   .half-options strong{
@@ -117,8 +118,8 @@ export const PortionStatus = styled.span<{ $selected: boolean }>`
   flex:0 0 auto;
   padding:4px 7px;
   border-radius:7px;
-  background:${({ $selected }) => ($selected ? '#eaf8ed' : '#fff1ec')};
-  color:${({ $selected }) => ($selected ? '#2d9a51' : 'var(--config-primary)')};
+  background:${({ $selected }) => ($selected ? '#fff1f1' : '#fff1f1')};
+  color:#FF4B4B;
   font-size:9px;
   font-weight:900;
   letter-spacing:.04em;
@@ -129,8 +130,8 @@ export const HalfHalfNotice = styled.div`
   min-height:38px;
   padding:9px 11px;
   border-radius:8px;
-  background:#fff0ee;
-  color:#df4b3e;
+  background:#fff1f1;
+  color:#FF4B4B;
   display:flex;
   align-items:center;
   gap:8px;

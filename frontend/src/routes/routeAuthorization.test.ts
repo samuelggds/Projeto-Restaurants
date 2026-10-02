@@ -60,6 +60,32 @@ describe('política de autorização de rotas', () => {
     expect(allowed('/north-pizza/pedidos', null)).toBe(true);
   });
 
+  it('mantém páginas legais do restaurante acessíveis para contas autenticadas', () => {
+    const users = [
+      { role: 'ADMIN' },
+      { role: 'CLIENTE' },
+      { role: 'FUNCIONARIO', subRole: 'GARCOM' },
+      { role: 'FUNCIONARIO', subRole: 'ATENDENTE' },
+    ];
+
+    for (const user of users) {
+      for (const path of [
+        '/north-pizza/termos',
+        '/north-pizza/privacidade',
+        '/north-pizza/cookies',
+      ]) {
+        expect(authorizeRoute(path, user), `${user.role} ${path}`).toEqual({ allowed: true });
+      }
+    }
+  });
+
+  it('mantém visitante e CLIENTE na experiência pública do restaurante', () => {
+    for (const path of ['/north-pizza', '/north-pizza/mesa/12', '/north-pizza/pedidos']) {
+      expect(authorizeRoute(path, null)).toEqual({ allowed: true });
+      expect(authorizeRoute(path, { role: 'CLIENTE' })).toEqual({ allowed: true });
+    }
+  });
+
   it('limita CLIENTE ao tenant público, perfil, tracking e chat do pedido', () => {
     const user = { role: 'CLIENTE' };
     for (const path of ['/loja', '/loja/mesa/3', '/profile', '/orders/a/tracking', '/orders/42/chat'])
@@ -87,6 +113,21 @@ describe('política de autorização de rotas', () => {
       redirectTo: '/admin/profile',
     });
     expect(authorizeRoute('/super_admin', user)).toEqual({ allowed: false, redirectTo: '/admin' });
+  });
+
+  it('não usa conta ADMIN como cliente do delivery e nunca acessa super_admin', () => {
+    expect(authorizeRoute('/north-pizza', { role: 'ADMIN' })).toEqual({
+      allowed: false,
+      redirectTo: '/admin',
+    });
+    expect(authorizeRoute('/north-pizza/mesa/12', { role: 'ADMIN' })).toEqual({
+      allowed: false,
+      redirectTo: '/admin',
+    });
+    expect(authorizeRoute('/super_admin', { role: 'ADMIN' })).toEqual({
+      allowed: false,
+      redirectTo: '/admin',
+    });
   });
 
   it('mantém SUPER_ADMIN exclusivamente em super_admin', () => {
@@ -162,18 +203,28 @@ describe('política de autorização de rotas', () => {
     });
   });
 
-  it('isola motoqueiro, cozinha, garçom e atendente', () => {
+  it('mantém cada funcionário restrito ao próprio portal e fora do delivery/admin', () => {
     const cases = [
-      [{ role: 'MOTOQUEIRO' }, '/courier', '/admin'],
-      [{ role: 'FUNCIONARIO', subRole: 'COZINHA' }, '/kitchen', '/waiter'],
-      [{ role: 'FUNCIONARIO', subRole: 'GARCOM' }, '/waiter', '/kitchen'],
-      [{ role: 'FUNCIONARIO', subRole: 'ATENDENTE' }, '/attendant', '/waiter'],
+      [{ role: 'MOTOQUEIRO' }, '/courier', '/courier'],
+      [{ role: 'FUNCIONARIO', subRole: 'COZINHA' }, '/kitchen', '/kitchen'],
+      [{ role: 'FUNCIONARIO', subRole: 'GARCOM' }, '/waiter', '/waiter'],
+      [{ role: 'FUNCIONARIO', subRole: 'ATENDENTE' }, '/attendant', '/attendant'],
     ] as const;
-    for (const [user, own, other] of cases) {
+
+    for (const [user, own, home] of cases) {
       expect(allowed(own, user)).toBe(true);
-      expect(allowed(other, user)).toBe(false);
-      expect(allowed('/pizzaria', user)).toBe(false);
+      expect(authorizeRoute('/admin', user)).toEqual({ allowed: false, redirectTo: home });
+      expect(authorizeRoute('/north-pizza', user)).toEqual({ allowed: false, redirectTo: home });
+      expect(authorizeRoute('/north-pizza/mesa/12', user)).toEqual({
+        allowed: false,
+        redirectTo: home,
+      });
+      expect(authorizeRoute('/north-pizza/pedidos', user)).toEqual({
+        allowed: false,
+        redirectTo: home,
+      });
     }
+
     expect(allowed('/orders/42/chat', { role: 'MOTOQUEIRO' })).toBe(true);
   });
 
@@ -191,14 +242,18 @@ describe('política de autorização de rotas', () => {
     }
   });
 
-  it('manda perfil desconhecido para resolução explícita de tenant sem expor marcador interno', () => {
+  it('mantém perfil desconhecido fora dos painéis e do delivery autenticado', () => {
     expect(authorizeRoute('/admin', { role: 'OUTRO' })).toEqual({
+      allowed: false,
+      redirectTo: TENANT_REQUIRED_PATH,
+    });
+    expect(authorizeRoute('/north-pizza', { role: 'OUTRO' })).toEqual({
       allowed: false,
       redirectTo: TENANT_REQUIRED_PATH,
     });
   });
 
-  it('não cria login global para funcionário sem subcargo', () => {
+  it('não cria login global nem acesso ao delivery para funcionário sem subcargo', () => {
     const legacyEmployee = { role: 'FUNCIONARIO', subRole: null };
 
     expect(authorizeRoute('/pizzaria/team', legacyEmployee)).toEqual({
@@ -206,6 +261,10 @@ describe('política de autorização de rotas', () => {
       redirectTo: TENANT_REQUIRED_PATH,
     });
     expect(authorizeRoute('/attendant', legacyEmployee)).toEqual({
+      allowed: false,
+      redirectTo: TENANT_REQUIRED_PATH,
+    });
+    expect(authorizeRoute('/pizzaria', legacyEmployee)).toEqual({
       allowed: false,
       redirectTo: TENANT_REQUIRED_PATH,
     });

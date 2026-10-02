@@ -76,6 +76,21 @@ const idempotencyKeySchema = z
   .max(128, 'A chave de idempotência deve ter no máximo 128 caracteres.')
   .regex(/^[A-Za-z0-9._:-]+$/, 'A chave de idempotência contém caracteres inválidos.');
 
+const tableCardPaymentSchema = z
+  .object({
+    cardPaymentType: z.enum(['credit', 'debit']).optional().default('credit'),
+    cardToken: z.string().trim().min(8).max(2048),
+    cardPaymentMethodId: z.string().trim().min(1).max(80),
+    cardBrand: z.string().trim().max(40).optional(),
+    cardLast4: z.string().regex(/^\d{4}$/).optional(),
+    paymentMethodId: publicIdSchema.optional(),
+    holderName: z.string().trim().min(2).max(100).optional(),
+    holderTaxId: z.string().regex(/^(?:\d{11}|\d{14})$/).optional(),
+    payerEmail: z.string().trim().email().max(254).optional(),
+    mercadoPagoDeviceId: z.string().trim().max(256).optional(),
+  })
+  .strict();
+
 export const createTablePaymentIntentInputSchema = z
   .object({
     selectionMode: z.enum(TABLE_PAYMENT_SELECTION_MODES),
@@ -84,6 +99,7 @@ export const createTablePaymentIntentInputSchema = z
     splitCount: z.number().int().min(2).max(100).optional(),
     customAmountCents: moneyCentsSchema.refine((value) => value > 0, 'Informe um valor maior que zero.').optional(),
     includeOptionalServiceFee: z.boolean().optional().default(false),
+    cardPayment: tableCardPaymentSchema.optional(),
     idempotencyKey: idempotencyKeySchema,
   })
   .strict()
@@ -144,6 +160,22 @@ export const createTablePaymentIntentInputSchema = z
         code: z.ZodIssueCode.custom,
         path: ['customAmountCents'],
         message: 'O valor livre só pode ser enviado na opção Outro valor.',
+      });
+    }
+
+    if (input.method === 'CARD' && !input.cardPayment) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['cardPayment'],
+        message: 'Informe os dados protegidos do cartão para continuar.',
+      });
+    }
+
+    if (input.method !== 'CARD' && input.cardPayment) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['cardPayment'],
+        message: 'Os dados protegidos do cartão só podem ser enviados no pagamento com cartão.',
       });
     }
 

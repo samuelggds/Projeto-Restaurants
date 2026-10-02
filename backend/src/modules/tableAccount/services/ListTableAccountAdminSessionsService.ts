@@ -8,6 +8,7 @@ import {
   buildTableAccountBaseSnapshot,
   toSafeMoneyCents,
 } from './GetCurrentTableAccountService.js';
+import { hasStaffCashReceiptEvent } from './tablePaymentLedger.js';
 import { TablePaymentError } from './tablePaymentSupport.js';
 
 export class ListTableAccountAdminSessionsService {
@@ -29,22 +30,35 @@ export class ListTableAccountAdminSessionsService {
     const snapshots = sessions.map((data) => {
       const account = buildTableAccountBaseSnapshot(data, now);
       const pendingManualPayments = data.paymentIntents
+        .map((payment) => ({
+          payment,
+          staffReceiptRegistered: hasStaffCashReceiptEvent(payment.events),
+        }))
         .filter(
-          (payment) =>
+          ({ payment, staffReceiptRegistered }) =>
+            payment.method === 'CASH' &&
             ['RESERVED', 'PROCESSING'].includes(payment.status) &&
-            payment.expiresAt > now &&
+            (payment.expiresAt > now || staffReceiptRegistered) &&
             isManualTablePaymentIntent(payment),
         )
-        .map((payment) => ({
-          publicId: payment.publicId,
-          method: payment.method,
-          status: payment.status,
-          totalCents: toSafeMoneyCents(
-            payment.totalCents,
-            `pagamento presencial ${payment.publicId}`,
-          ),
-          createdAt: payment.createdAt.toISOString(),
-        }));
+        .map(({ payment, staffReceiptRegistered }) => {
+          const payer = account.participants.find(
+            (participant) => participant.publicId === payment.payerParticipant.publicId,
+          );
+          return {
+            publicId: payment.publicId,
+            method: payment.method,
+            status: payment.status,
+            totalCents: toSafeMoneyCents(
+              payment.totalCents,
+              `pagamento presencial ${payment.publicId}`,
+            ),
+            createdAt: payment.createdAt.toISOString(),
+            payerParticipantPublicId: payment.payerParticipant.publicId,
+            payerDisplayName: payer?.displayName || 'Cliente da mesa',
+            staffReceiptRegistered,
+          };
+        });
       return {
         tableSessionId: data.id,
         sessionPublicId: data.publicId,
@@ -62,9 +76,7 @@ export class ListTableAccountAdminSessionsService {
           processing: data.paymentIntents.filter((payment) => payment.status === 'PROCESSING')
             .length,
           online: data.paymentIntents.filter((payment) => Boolean(payment.provider)).length,
-          inPerson: data.paymentIntents.filter((payment) =>
-            ['CASH', 'CARD_MACHINE'].includes(payment.method),
-          ).length,
+          inPerson: data.paymentIntents.filter((payment) => payment.method === 'CASH').length,
         },
       };
     });

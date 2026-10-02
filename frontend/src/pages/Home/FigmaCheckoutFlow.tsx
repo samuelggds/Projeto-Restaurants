@@ -30,7 +30,7 @@ type Props = {
   authenticatedEmptyAddressScreen?: ReactNode;
   paymentScreen?: ReactNode;
   recommendations?: HomeProduct[];
-  onAddRecommendation?: (product: HomeProduct) => void;
+  onAddRecommendation?: (product: HomeProduct, sourceElement?: HTMLElement | null) => void;
   onStepChange: (step: FigmaCheckoutStep) => void;
   onIncrease: (cartId: string) => void;
   onDecrease: (cartId: string) => void;
@@ -214,7 +214,7 @@ export function FigmaCheckoutFlow({
               <UserRound aria-hidden="true" />
               <span>{firstName ? `Olá, ${firstName}` : 'Olá, Entrar'}</span>
             </button>
-            <button className="cart" type="button">
+            <button className="cart" type="button" data-cart-fly-target>
               <ShoppingBag aria-hidden="true" />
               <span>Meu Carrinho</span>
               {cartCount > 0 ? <i>{cartCount}</i> : null}
@@ -233,8 +233,7 @@ export function FigmaCheckoutFlow({
                 <h1 className="mobile-title">Meu pedido</h1>
               </div>
               {cartCount > 0 ? (
-                <button type="button" onClick={onClear}>
-                  <span className="desktop-clear">Limpar Carrinho</span>
+                <button className="mobile-clear-action" type="button" onClick={onClear}>
                   <span className="mobile-clear">Limpar</span>
                 </button>
               ) : null}
@@ -340,6 +339,15 @@ export function FigmaCheckoutFlow({
                 onClick={continueFlow}
               >
                 Continuar
+              </button>
+
+              <button
+                className="clear-cart"
+                type="button"
+                aria-label="Limpar todo o carrinho"
+                onClick={onClear}
+              >
+                Limpar carrinho
               </button>
             </S.CartSummarySidebar>
           ) : null}

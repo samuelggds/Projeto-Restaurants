@@ -1,11 +1,11 @@
-import { OrderType, PaymentMethod } from '@prisma/client';
 import prisma from '../../../config/prisma.js';
-import { withTenantDbContext } from '../../../database/tenantDbContext.js';
 import orderPixPaymentService from '../../orders/services/OrderPixPaymentService.js';
+import directOrderCardPaymentService from '../../orders/services/DirectOrderCardPaymentService.js';
+import { mercadoPagoCardExternalReferenceCandidates } from '../../orders/domain/mercadoPagoCardReference.js';
 import {
-  getCardCheckoutProviderHandler,
-  type CreateOrderCardCheckoutPayload,
-} from '../../orders/services/cardCheckoutProviders.js';
+  tableCardExternalReference,
+  tableCardExternalReferenceCandidates,
+} from '../domain/tableCardExternalReference.js';
 import {
   CARD_PROVIDERS,
   PIX_PROVIDERS,
@@ -14,6 +14,7 @@ import {
 } from '../../payments/providers/providerCatalog.js';
 import restaurantSettingsRepository from '../../restaurantSettings/repositories/RestaurantSettingsRepository.js';
 import { getMercadoPagoAccessToken } from '../../restaurantSettings/services/RestaurantPaymentCredentialsService.js';
+import { paymentConnectionConfiguration } from '../../restaurantSettings/services/RestaurantPaymentReadinessService.js';
 import { getDirectTablePayment, mutateDirectTablePayment } from './tablePaymentGatewayMutation.js';
 import type {
   CreateProviderPaymentInput,
@@ -115,10 +116,6 @@ function matchesAmount(value: unknown, expectedCents: number, minor = false) {
   );
 }
 
-function tableCardReference(context: ConfiguredTablePaymentProviderContext) {
-  return `ordercard:${context.intentId}:${context.restaurantId}`;
-}
-
 function asaasBaseUrl() {
   return String(process.env.ASAAS_API_BASE_URL || 'https://api.asaas.com')
     .trim()
@@ -138,7 +135,18 @@ function credentialReady(
   method: 'PIX' | 'CARD',
 ) {
   if (provider === PIX_PROVIDERS.MERCADO_PAGO || provider === CARD_PROVIDERS.MERCADO_PAGO) {
-    return Boolean(String(settings.mercadoPagoAccessToken || '').trim());
+    const platformReady = paymentConnectionConfiguration('MERCADO_PAGO');
+    if (!platformReady) return false;
+
+    const accessTokenReady = Boolean(String(settings.mercadoPagoAccessToken || '').trim());
+    const refreshTokenReady = Boolean(String(settings.mercadoPagoRefreshToken || '').trim());
+    if (method === 'PIX') return accessTokenReady && refreshTokenReady;
+
+    return Boolean(
+      accessTokenReady &&
+        refreshTokenReady &&
+        String(settings.mercadoPagoPublicKey || '').trim(),
+    );
   }
   if (provider === PIX_PROVIDERS.ASAAS || provider === CARD_PROVIDERS.ASAAS) {
     return Boolean(String(settings.asaasAccessToken || '').trim());
@@ -188,25 +196,6 @@ async function readIdentity(
   };
 }
 
-async function defaultSavedCard(
-  context: ConfiguredTablePaymentProviderContext,
-  provider: CardProvider,
-) {
-  if (!context.participantUserId) return null;
-  return withTenantDbContext(context.restaurantId, (db) =>
-    db.customerPaymentMethod.findFirst({
-      where: {
-        userId: context.participantUserId || undefined,
-        restaurantId: context.restaurantId,
-        provider,
-        active: true,
-      },
-      orderBy: [{ isDefault: 'desc' }, { createdAt: 'desc' }],
-      select: { publicId: true },
-    }),
-  );
-}
-
 async function createPix(
   context: ConfiguredTablePaymentProviderContext,
   input: CreateProviderPaymentInput,
@@ -243,59 +232,71 @@ async function createPix(
   };
 }
 
+export function resolveTableCardFrontendUrl(
+  env: { NODE_ENV?: string; FRONTEND_URL?: string } = process.env,
+) {
+  const configured = String(env.FRONTEND_URL || '').trim();
+  const value = env.NODE_ENV === 'production' ? configured : configured || 'http://localhost:5173';
+
+  if (!value) {
+    throw new Error('FRONTEND_URL não configurada para o pagamento com cartão da mesa.');
+  }
+
+  return value;
+}
+
 async function createCard(
   context: ConfiguredTablePaymentProviderContext,
   input: CreateProviderPaymentInput,
   provider: CardProvider,
 ): Promise<ProviderPayment> {
+  if (!input.cardPayment) {
+    throw new Error('Os dados protegidos do cartão não foram informados.');
+  }
+
   const identity = await readIdentity(context);
-  const savedCard = await defaultSavedCard(context, provider);
-  const handler = getCardCheckoutProviderHandler(provider);
-  const frontendUrl = String(process.env.FRONTEND_URL || 'http://localhost:5173').trim();
-  const payload: CreateOrderCardCheckoutPayload = {
-    userId: context.participantUserId,
-    restaurantId: context.restaurantId,
-    userRestaurantId: context.restaurantId,
-    tableSessionId: null,
-    tableSessionTableId: null,
-    participantId: context.participantId,
-    settlementMode: 'PAY_NOW',
-    type: OrderType.MESA,
-    paymentMethod: PaymentMethod.CARTAO,
-    customerName: identity.name,
-    customerCpf: identity.cpf,
-    customerPhone: identity.phone,
-    items: [],
-    paymentMethodId: savedCard?.publicId || null,
-    successUrl: frontendUrl,
-    cancelUrl: frontendUrl,
-  };
-  const checkout = await handler.createCheckout({
-    paymentScope: 'TABLE_ACCOUNT',
-    payload,
+  const frontendUrl = resolveTableCardFrontendUrl();
+
+  const result = await directOrderCardPaymentService.execute({
+    provider,
+    payload: {
+      userId: context.participantUserId,
+      customerName: identity.name,
+      customerPhone: identity.phone,
+      paymentMethodId: input.cardPayment.paymentMethodId || null,
+      cardPaymentType: input.cardPayment.cardPaymentType || 'credit',
+      cardToken: input.cardPayment.cardToken || null,
+      cardPaymentMethodId: input.cardPayment.cardPaymentMethodId || null,
+      cardBrand: input.cardPayment.cardBrand || null,
+      cardLast4: input.cardPayment.cardLast4 || null,
+      holderName: input.cardPayment.holderName || null,
+      holderTaxId: input.cardPayment.holderTaxId || null,
+      payerEmail: input.cardPayment.payerEmail || identity.email,
+      mercadoPagoDeviceId: input.cardPayment.mercadoPagoDeviceId || null,
+    },
     order: {
       id: context.intentId,
       publicId: context.intentPublicId,
       restaurantId: context.restaurantId,
+      externalReference: tableCardExternalReference(context.intentId, context.restaurantId),
       total: centsToMajor(input.amountCents),
       systemFee: 0,
       restaurant: { name: 'Conta da mesa' },
     },
     successUrlBase: frontendUrl,
-    cancelUrlBase: frontendUrl,
+    idempotencyKey: input.idempotencyKeyHash,
   });
-  const externalId = String(checkout.persistenceSessionId || checkout.sessionId || '').trim();
-  if (!externalId) throw new Error('O gateway não retornou uma referência de pagamento válida.');
 
   return {
-    externalId,
-    status: checkout.paymentApproved ? 'PAID' : 'PENDING',
+    externalId: String(result.persistenceSessionId || result.sessionId),
+    status: result.paymentApproved ? 'PAID' : 'PENDING',
     amountCents: input.amountCents,
-    checkoutUrl: String(checkout.checkoutUrl || '').trim() || null,
+    checkoutUrl: null,
     paymentCode: null,
     expiresAt: input.expiresAt,
   };
 }
+
 
 async function fetchJson<T>(url: string, init: RequestInit) {
   const response = await fetch(url, init);
@@ -309,26 +310,49 @@ async function getMercadoPagoCard(
   amountCents: number,
   expiresAt: Date,
 ) {
-  const settings = await settingsFor(context.restaurantId);
   const token = await getMercadoPagoAccessToken(context.restaurantId);
   if (!token) throw new Error('Mercado Pago não configurado para este restaurante.');
-  const reference = tableCardReference(context);
-  const url = new URL('https://api.mercadopago.com/v1/payments/search');
-  url.searchParams.set('external_reference', reference);
-  url.searchParams.set('sort', 'date_created');
-  url.searchParams.set('criteria', 'desc');
-  const { response, body } = await fetchJson<MercadoPagoSearchPayload>(url.toString(), {
-    headers: { Authorization: `Bearer ${token}`, Accept: 'application/json' },
-  });
-  if (!response.ok) throw new Error('Não foi possível consultar o pagamento no Mercado Pago.');
-  const payment = (body.results || []).find(
-    (candidate) =>
-      String(candidate.external_reference || '').trim() === reference &&
-      matchesAmount(candidate.transaction_amount, amountCents),
+
+  const references = Array.from(
+    new Set([
+      ...tableCardExternalReferenceCandidates(context.intentId, context.restaurantId),
+      ...mercadoPagoCardExternalReferenceCandidates(context.intentId, context.restaurantId),
+    ]),
   );
+
+  for (const reference of references) {
+    const url = new URL('https://api.mercadopago.com/v1/payments/search');
+    url.searchParams.set('external_reference', reference);
+    url.searchParams.set('sort', 'date_created');
+    url.searchParams.set('criteria', 'desc');
+    const { response, body } = await fetchJson<MercadoPagoSearchPayload>(url.toString(), {
+      headers: { Authorization: `Bearer ${token}`, Accept: 'application/json' },
+    });
+    if (!response.ok) {
+      throw new Error('Não foi possível consultar o pagamento no Mercado Pago.');
+    }
+
+    const payment = (body.results || []).find(
+      (candidate) =>
+        String(candidate.external_reference || '').trim() === reference &&
+        matchesAmount(candidate.transaction_amount, amountCents) &&
+        String(candidate.currency_id || 'BRL').toUpperCase() === 'BRL',
+    );
+    if (payment) {
+      return {
+        externalId,
+        status: providerStatus(payment.status),
+        amountCents,
+        checkoutUrl: null,
+        paymentCode: null,
+        expiresAt,
+      };
+    }
+  }
+
   return {
     externalId,
-    status: payment ? providerStatus(payment.status) : ('PENDING' as const),
+    status: 'PENDING' as const,
     amountCents,
     checkoutUrl: null,
     paymentCode: null,

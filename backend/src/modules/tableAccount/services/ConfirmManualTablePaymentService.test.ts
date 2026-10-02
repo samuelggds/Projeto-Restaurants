@@ -21,13 +21,10 @@ afterEach(() => {
   waiterCompensationProjectionService.project = originals.projectCompensation;
 });
 
-const now = new Date('2026-08-26T18:00:00.000Z');
-const actor = {
-  id: 31,
-  role: 'FUNCIONARIO',
-  subRole: 'GARCOM',
-  restaurantId: 7,
-};
+const now = new Date('2026-10-01T18:00:00.000Z');
+const adminActor = { id: 31, role: 'ADMIN', subRole: null, restaurantId: 7 };
+const waiterActor = { id: 41, role: 'FUNCIONARIO', subRole: 'GARCOM', restaurantId: 7 };
+const attendantActor = { id: 42, role: 'FUNCIONARIO', subRole: 'ATENDENTE', restaurantId: 7 };
 
 function payment(overrides = {}) {
   return {
@@ -36,7 +33,7 @@ function payment(overrides = {}) {
     restaurantId: 7,
     tableSessionId: 55,
     payerParticipantId: 80,
-    selectionMode: 'WAITER',
+    selectionMode: 'MY_ITEMS',
     method: 'CASH',
     status: 'RESERVED',
     splitCount: null,
@@ -47,9 +44,10 @@ function payment(overrides = {}) {
     totalCents: 3_000n,
     provider: null,
     providerExternalId: null,
+    providerChargeId: null,
     providerCheckoutUrl: null,
     providerPaymentCode: null,
-    expiresAt: new Date('2026-08-26T18:10:00.000Z'),
+    expiresAt: new Date('2026-10-01T18:10:00.000Z'),
     processingAt: null,
     paidAt: null,
     failedAt: null,
@@ -58,8 +56,8 @@ function payment(overrides = {}) {
     failureCode: null,
     manualConfirmedById: null,
     manualConfirmedAt: null,
-    createdAt: new Date('2026-08-26T17:59:00.000Z'),
-    updatedAt: new Date('2026-08-26T17:59:00.000Z'),
+    createdAt: new Date('2026-10-01T17:59:00.000Z'),
+    updatedAt: new Date('2026-10-01T17:59:00.000Z'),
     payerParticipant: { publicId: '123e4567-e89b-42d3-a456-426614174080' },
     tableSession: { publicId: '323e4567-e89b-42d3-a456-426614174055' },
     allocations: [],
@@ -67,7 +65,7 @@ function payment(overrides = {}) {
   };
 }
 
-function installTransaction(currentPayment) {
+function installTransaction(currentPayment, options = {}) {
   let updateData;
   let createdEvent;
   const paidPayment = payment({
@@ -75,7 +73,7 @@ function installTransaction(currentPayment) {
     status: 'PAID',
     paidAt: now,
     manualConfirmedAt: now,
-    manualConfirmedById: actor.id,
+    manualConfirmedById: adminActor.id,
     updatedAt: now,
   });
   const tx = {
@@ -86,9 +84,14 @@ function installTransaction(currentPayment) {
         updateData = data;
         return { count: 1 };
       },
-      findUniqueOrThrow: async () => paidPayment,
+      findUniqueOrThrow: async () => (options.staffOnly ? currentPayment : paidPayment),
     },
     tablePaymentEvent: {
+      upsert: async ({ create }) => {
+        if (options.existingStaffReceipt) return { id: 1 };
+        createdEvent = create;
+        return create;
+      },
       create: async ({ data }) => {
         createdEvent = data;
         return data;
@@ -100,28 +103,16 @@ function installTransaction(currentPayment) {
   prisma.$transaction = async (callback) => callback(tx);
   return {
     tx,
-    get updateData() {
-      return updateData;
-    },
-    get createdEvent() {
-      return createdEvent;
-    },
+    get updateData() { return updateData; },
+    get createdEvent() { return createdEvent; },
   };
 }
 
-test('confirma dinheiro presencial e publica a atualização canônica da mesa', async () => {
+test('admin é a autoridade final e transforma dinheiro em PAID', async () => {
   const current = payment();
-  tablePaymentRepository.findForStaffByPublicId = async (publicId, restaurantId) => {
-    assert.equal(publicId, current.publicId);
-    assert.equal(restaurantId, 7);
-    return current;
-  };
+  tablePaymentRepository.findForStaffByPublicId = async () => current;
   const transaction = installTransaction(current);
-  let projectionPayload;
-  waiterCompensationProjectionService.project = async (payload) => {
-    projectionPayload = payload;
-    return { created: false, reason: 'SESSION_NOT_CLOSED' };
-  };
+  waiterCompensationProjectionService.project = async () => ({ created: false, reason: 'SESSION_NOT_CLOSED' });
   let realtimePayload;
   tableAccountEvents.updated = async (payload) => {
     realtimePayload = payload;
@@ -130,35 +121,78 @@ test('confirma dinheiro presencial e publica a atualização canônica da mesa',
 
   const result = await new ConfirmManualTablePaymentService(() => now).execute({
     publicId: current.publicId,
-    actor,
+    actor: adminActor,
   });
 
   assert.equal(transaction.updateData.status, 'PAID');
-  assert.equal(transaction.updateData.manualConfirmedById, actor.id);
-  assert.equal(transaction.createdEvent.type, 'MANUAL_CONFIRMED');
+  assert.equal(transaction.updateData.manualConfirmedById, adminActor.id);
+  assert.equal(transaction.createdEvent.metadata.stage, 'ADMIN_CONFIRMED');
   assert.equal(result.payment.status, 'PAID');
-  assert.deepEqual(projectionPayload, {
-    db: transaction.tx,
-    restaurantId: 7,
-    tableSessionId: 55,
-    now,
-  });
-  assert.deepEqual(realtimePayload, {
-    sessionId: 55,
-    restaurantId: 7,
-    reason: 'PAYMENT_CONFIRMED_MANUALLY',
-    paymentPublicId: current.publicId,
-    paymentStatus: 'PAID',
-    occurredAt: now,
-  });
+  assert.equal(result.confirmationStage, 'PAID');
+  assert.equal(realtimePayload.reason, 'PAYMENT_CONFIRMED_MANUALLY');
 });
 
-test('rejeita confirmação manual de Pix ou cartão online mesmo com registro adulterado', async () => {
+test('garçom registra dinheiro recebido sem transformar o pagamento em PAID', async () => {
+  const current = payment();
+  tablePaymentRepository.findForStaffByPublicId = async () => current;
+  const transaction = installTransaction(current, { staffOnly: true });
+  let realtimePayload;
+  tableAccountEvents.updated = async (payload) => {
+    realtimePayload = payload;
+    return true;
+  };
+
+  const result = await new ConfirmManualTablePaymentService(() => now).execute({
+    publicId: current.publicId,
+    actor: waiterActor,
+  });
+
+  assert.equal(transaction.updateData, undefined);
+  assert.equal(transaction.createdEvent.metadata.stage, 'STAFF_RECEIVED');
+  assert.equal(transaction.createdEvent.toStatus, 'RESERVED');
+  assert.equal(result.payment.status, 'RESERVED');
+  assert.equal(result.confirmationStage, 'AWAITING_ADMIN');
+  assert.equal(realtimePayload.reason, 'CASH_RECEIVED_BY_STAFF');
+});
+
+test('atendente possui a mesma permissão operacional do garçom, sem autoridade para marcar PAID', async () => {
+  const current = payment();
+  tablePaymentRepository.findForStaffByPublicId = async () => current;
+  const transaction = installTransaction(current, { staffOnly: true });
+  tableAccountEvents.updated = async () => true;
+
+  const result = await new ConfirmManualTablePaymentService(() => now).execute({
+    publicId: current.publicId,
+    actor: attendantActor,
+  });
+
+  assert.equal(transaction.updateData, undefined);
+  assert.equal(transaction.createdEvent.metadata.stage, 'STAFF_RECEIVED');
+  assert.equal(result.payment.status, 'RESERVED');
+  assert.equal(result.confirmationStage, 'AWAITING_ADMIN');
+});
+
+test('registro repetido da equipe é idempotente e continua aguardando admin', async () => {
+  const current = payment();
+  tablePaymentRepository.findForStaffByPublicId = async () => current;
+  const transaction = installTransaction(current, { staffOnly: true, existingStaffReceipt: true });
+  tableAccountEvents.updated = async () => true;
+
+  const result = await new ConfirmManualTablePaymentService(() => now).execute({
+    publicId: current.publicId,
+    actor: waiterActor,
+  });
+
+  assert.equal(transaction.createdEvent, undefined);
+  assert.equal(transaction.updateData, undefined);
+  assert.equal(result.confirmationStage, 'AWAITING_ADMIN');
+});
+
+test('Pix nunca pode ser confirmado manualmente por funcionário ou admin', async () => {
   const current = payment({
-    selectionMode: 'MY_ITEMS',
     method: 'PIX',
-    provider: 'FAKE',
-    providerExternalId: 'fake_123',
+    provider: 'MERCADO_PAGO',
+    providerExternalId: 'pix_123',
   });
   tablePaymentRepository.findForStaffByPublicId = async () => current;
   const transaction = installTransaction(current);
@@ -167,31 +201,9 @@ test('rejeita confirmação manual de Pix ou cartão online mesmo com registro a
     () =>
       new ConfirmManualTablePaymentService(() => now).execute({
         publicId: current.publicId,
-        actor,
+        actor: adminActor,
       }),
-    (error) => error.code === 'NOT_A_MANUAL_PAYMENT' && error.statusCode === 409,
+    (error) => error.code === 'NOT_A_CASH_PAYMENT' && error.statusCode === 409,
   );
   assert.equal(transaction.updateData, undefined);
-});
-
-test('repetição por outro funcionário retorna o pagamento já confirmado sem cobrar novamente', async () => {
-  const confirmedAt = new Date('2026-08-26T17:58:00.000Z');
-  const current = payment({
-    status: 'PAID',
-    paidAt: confirmedAt,
-    manualConfirmedAt: confirmedAt,
-    manualConfirmedById: 22,
-  });
-  tablePaymentRepository.findForStaffByPublicId = async () => current;
-  const transaction = installTransaction(current);
-  tableAccountEvents.updated = async () => true;
-
-  const result = await new ConfirmManualTablePaymentService(() => now).execute({
-    publicId: current.publicId,
-    actor,
-  });
-
-  assert.equal(result.payment.status, 'PAID');
-  assert.equal(transaction.updateData, undefined);
-  assert.equal(transaction.createdEvent, undefined);
 });

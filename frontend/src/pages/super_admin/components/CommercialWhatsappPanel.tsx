@@ -140,7 +140,6 @@ export function CommercialWhatsappPanel({ refreshKey = 0 }: { refreshKey?: numbe
     const snapshot = {
       enabled: settings.enabled,
       hours: settings.hours,
-      awayMessage: settings.awayMessage,
     };
     setBusy(scope === 'hours' ? 'hours-settings' : 'automation-settings');
     setError('');
@@ -157,7 +156,7 @@ export function CommercialWhatsappPanel({ refreshKey = 0 }: { refreshKey?: numbe
         }
         setHoursFeedback('Horários salvos e confirmados no servidor.');
       } else {
-        setSettingsFeedback('Automação e mensagem salvas e confirmadas no servidor.');
+        setSettingsFeedback('Automação salva e confirmada no servidor.');
       }
     } catch (requestError) {
       const message = requestErrorMessage(
@@ -216,7 +215,7 @@ export function CommercialWhatsappPanel({ refreshKey = 0 }: { refreshKey?: numbe
     }
   };
 
-  const changeMode = async (mode: 'BOT' | 'HUMAN') => {
+  const changeMode = async (mode: 'BOT' | 'HUMAN' | 'CLOSED') => {
     if (!selected) return;
     setBusy('mode');
     setError('');
@@ -345,14 +344,17 @@ export function CommercialWhatsappPanel({ refreshKey = 0 }: { refreshKey?: numbe
         <S.FormCard>
           <header>
             <div>
-              <h2>Automação e mensagem fora do horário</h2>
+              <h2>Automação do WhatsApp</h2>
               <p>O atendimento usa o fuso <b>{settings.timezone}</b>.</p>
             </div>
           </header>
           <div className="line">
             <span>
               <strong>Respostas automáticas</strong>
-              <small>Ativa o bot comercial e o contato automático de leads autorizados.</small>
+              <small>
+                O bot responde com 5 segundos de atraso somente dentro dos horários configurados.
+                Fora deles, nenhuma resposta automática é enviada.
+              </small>
             </span>
             <S.Switch
               type="button"
@@ -365,21 +367,6 @@ export function CommercialWhatsappPanel({ refreshKey = 0 }: { refreshKey?: numbe
               }}
             />
           </div>
-          <label>
-            Mensagem fora do horário
-            <textarea
-              rows={6}
-              maxLength={1000}
-              value={settings.awayMessage}
-              onChange={(event) => {
-                setSettings((current) =>
-                  current ? { ...current, awayMessage: event.target.value } : current,
-                );
-                setSuccess('');
-              }}
-            />
-            <small>É enviada com proteção anti-spam; não será repetida a cada mensagem do cliente.</small>
-          </label>
           <S.Button
             type="button"
             $variant="primary"
@@ -395,8 +382,10 @@ export function CommercialWhatsappPanel({ refreshKey = 0 }: { refreshKey?: numbe
       <S.FormCard>
         <header>
           <div>
-            <h2>Horários de atendimento humano</h2>
-            <p>Configure até dois períodos por dia, por exemplo manhã e tarde.</p>
+            <h2>Horários da automação e do atendimento humano</h2>
+            <p>
+              Configure até dois períodos por dia. Fora desses períodos, o bot fica silencioso.
+            </p>
           </div>
         </header>
         <L.ScheduleList>
@@ -529,7 +518,11 @@ export function CommercialWhatsappPanel({ refreshKey = 0 }: { refreshKey?: numbe
                   <span className="conversation-copy">
                     <strong>{conversation.phone}</strong>
                     <small>
-                      {conversation.automationMode === 'HUMAN' ? 'Atendimento humano' : 'Automático'}
+                      {conversation.automationMode === 'HUMAN'
+                        ? 'Atendimento humano'
+                        : conversation.automationMode === 'CLOSED'
+                          ? 'Encerrado'
+                          : 'Automático'}
                     </small>
                     <time>{formatDate(conversation.lastInboundAt || conversation.lastOutboundAt, true)}</time>
                   </span>
@@ -547,18 +540,51 @@ export function CommercialWhatsappPanel({ refreshKey = 0 }: { refreshKey?: numbe
                   <small>Cliente</small>
                   <strong>{selected.phone}</strong>
                   <em className={selected.automationMode === 'HUMAN' ? 'mode-human' : 'mode-bot'}>
-                    {selected.automationMode === 'HUMAN' ? 'Atendimento humano ativo' : 'Automação ativa'}
+                    {selected.automationMode === 'HUMAN'
+                      ? 'Atendimento humano ativo'
+                      : selected.automationMode === 'CLOSED'
+                        ? 'Atendimento encerrado'
+                        : 'Automação ativa'}
                   </em>
                 </span>
-                {selected.automationMode === 'HUMAN' ? (
-                  <S.Button type="button" disabled={Boolean(busy)} onClick={() => void changeMode('BOT')}>
-                    <Bot size={15} aria-hidden="true" /> Devolver para automação
-                  </S.Button>
-                ) : (
-                  <S.Button type="button" $variant="primary" disabled={Boolean(busy)} onClick={() => void changeMode('HUMAN')}>
-                    <UserRoundCheck size={15} aria-hidden="true" /> Assumir atendimento
-                  </S.Button>
-                )}
+                <S.ActionGroup>
+                  {selected.automationMode === 'HUMAN' ? (
+                    <>
+                      <S.Button
+                        type="button"
+                        disabled={Boolean(busy)}
+                        onClick={() => void changeMode('BOT')}
+                      >
+                        <Bot size={15} aria-hidden="true" /> Devolver para automação
+                      </S.Button>
+                      <S.Button
+                        type="button"
+                        $variant="primary"
+                        disabled={Boolean(busy)}
+                        onClick={() => void changeMode('CLOSED')}
+                      >
+                        <CheckCircle2 size={15} aria-hidden="true" /> Encerrar atendimento
+                      </S.Button>
+                    </>
+                  ) : selected.automationMode === 'CLOSED' ? (
+                    <S.Button
+                      type="button"
+                      disabled={Boolean(busy)}
+                      onClick={() => void changeMode('BOT')}
+                    >
+                      <Bot size={15} aria-hidden="true" /> Reabrir automação
+                    </S.Button>
+                  ) : (
+                    <S.Button
+                      type="button"
+                      $variant="primary"
+                      disabled={Boolean(busy)}
+                      onClick={() => void changeMode('HUMAN')}
+                    >
+                      <UserRoundCheck size={15} aria-hidden="true" /> Assumir atendimento
+                    </S.Button>
+                  )}
+                </S.ActionGroup>
               </L.ConversationToolbar>
               <L.MessageList>
                 {selected.messages.length ? selected.messages.map((message) => (
@@ -577,7 +603,13 @@ export function CommercialWhatsappPanel({ refreshKey = 0 }: { refreshKey?: numbe
                 <textarea
                   rows={3}
                   maxLength={4000}
-                  placeholder={selected.automationMode === 'HUMAN' ? 'Escreva a resposta da GastroNexa…' : 'Assuma o atendimento para responder manualmente'}
+                  placeholder={
+                    selected.automationMode === 'HUMAN'
+                      ? 'Escreva a resposta da GastroNexa…'
+                      : selected.automationMode === 'CLOSED'
+                        ? 'Reabra ou assuma o atendimento para responder'
+                        : 'Assuma o atendimento para responder manualmente'
+                  }
                   value={draft}
                   disabled={selected.automationMode !== 'HUMAN' || busy === 'send'}
                   onChange={(event) => setDraft(event.target.value)}

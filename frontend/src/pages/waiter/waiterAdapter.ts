@@ -138,6 +138,10 @@ export function mapWaiterAccountSessions(raw: unknown[]): WaiterAccountSession[]
           status: paymentStatus,
           totalCents: Math.max(0, Number(payment.totalCents) || 0),
           createdAt: String(payment.createdAt || ''),
+          payerParticipantPublicId:
+            String(payment.payerParticipantPublicId || '').trim() || undefined,
+          payerDisplayName: String(payment.payerDisplayName || '').trim() || undefined,
+          staffReceiptRegistered: payment.staffReceiptRegistered === true,
         },
       ];
     });

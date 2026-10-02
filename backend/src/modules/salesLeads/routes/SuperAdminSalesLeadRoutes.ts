@@ -109,7 +109,14 @@ router.get('/commercial-whatsapp/conversations', async (_req, res, next) => {
 
 router.patch('/commercial-whatsapp/conversations/:id/mode', async (req, res, next) => {
   try {
-    const mode = req.body?.mode === 'HUMAN' ? 'HUMAN' : req.body?.mode === 'BOT' ? 'BOT' : null;
+    const mode =
+      req.body?.mode === 'HUMAN'
+        ? 'HUMAN'
+        : req.body?.mode === 'BOT'
+          ? 'BOT'
+          : req.body?.mode === 'CLOSED'
+            ? 'CLOSED'
+            : null;
     if (!mode) return res.status(400).json({ error: 'Modo de atendimento inválido.' });
     return res.json(await setCommercialWhatsappConversationMode(req.params.id, mode));
   } catch (error) {

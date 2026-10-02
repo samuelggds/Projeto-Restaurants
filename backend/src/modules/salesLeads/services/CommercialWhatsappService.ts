@@ -6,16 +6,23 @@ import {
   encryptCredential,
 } from '../../restaurantSettings/security/credentialEncryption.js';
 import {
-  formatCommercialWhatsappSchedule,
   isCommercialWhatsappHumanServiceOpen,
   normalizeCommercialWhatsappHours,
   validateCommercialWhatsappHours,
 } from '../domain/commercialWhatsappHours.js';
+import {
+  COMMERCIAL_WHATSAPP_AUTO_REPLY_DELAY_MS,
+  commercialWhatsappAutoReplyAvailableAt,
+  commercialWhatsappAutoReplySuppressionReason,
+  shouldReopenCommercialWhatsappCycle,
+  type CommercialWhatsappConversationMode,
+} from '../domain/commercialWhatsappAutomation.js';
 
 type JsonRecord = Record<string, unknown>;
 const PLATFORM_CONNECTION_ID = 1;
 const PLATFORM_INSTANCE_NAME = 'gastronexa-platform';
 const TOKEN_CONTEXT = 'platform-whatsapp-connection:evolution';
+const AUTOMATIC_REPLY_KINDS = ['GREETING', 'HANDOFF', 'FORM_GREETING', 'AWAY'];
 
 function env(name: string) {
   return String(process.env[name] || '').trim();
@@ -394,21 +401,30 @@ function botReplyForMessage(message: string) {
   return { handoff: false, body: menuMessage() };
 }
 
-function buildAwayMessage(message: string, hours: unknown) {
-  return [
-    message,
-    '',
-    'Horários configurados:',
-    formatCommercialWhatsappSchedule(hours) || 'consulte novamente mais tarde.',
-    '',
-    'Enquanto isso, posso registrar sua mensagem por aqui.',
-  ].join('\n');
+async function suppressPendingAutomaticReplies(
+  db: Pick<typeof prisma, 'salesLeadWhatsappOutbox'>,
+  conversationId: string,
+  reason: string,
+) {
+  await db.salesLeadWhatsappOutbox.updateMany({
+    where: {
+      conversationId,
+      status: 'PENDING',
+      kind: { in: AUTOMATIC_REPLY_KINDS },
+    },
+    data: {
+      status: 'SUPPRESSED',
+      suppressedReason: reason,
+      lockedUntil: null,
+      lockToken: null,
+    },
+  });
 }
 
 async function enqueueAutoReply(
   conversationId: string,
   phone: string,
-  kind: 'GREETING' | 'AWAY',
+  kind: 'GREETING' | 'HANDOFF',
   body: string,
   sourceMessageKey: string,
 ) {
@@ -416,24 +432,60 @@ async function enqueueAutoReply(
     .update(JSON.stringify(['AUTO_REPLY', conversationId, phone, kind, sourceMessageKey]))
     .digest('hex');
 
-  const existing = await prisma.salesLeadWhatsappOutbox.findUnique({
-    where: { deduplicationKey: key },
-    select: { id: true, status: true },
-  });
-  if (existing) {
-    return { queued: false, reason: 'duplicate_inbound' } as const;
-  }
+  return prisma.$transaction(async (tx) => {
+    const existing = await tx.salesLeadWhatsappOutbox.findUnique({
+      where: { deduplicationKey: key },
+      select: { id: true },
+    });
+    if (existing) {
+      return { queued: false, reason: 'duplicate_inbound' } as const;
+    }
 
-  await prisma.salesLeadWhatsappOutbox.create({
-    data: {
-      id: randomUUID(),
-      conversationId,
-      deduplicationKey: key,
-      kind,
-      body,
-    },
+    const pendingHandoff = await tx.salesLeadWhatsappOutbox.findFirst({
+      where: {
+        conversationId,
+        status: 'PENDING',
+        kind: 'HANDOFF',
+      },
+      select: { id: true },
+    });
+    if (pendingHandoff && kind !== 'HANDOFF') {
+      return { queued: false, reason: 'handoff_pending' } as const;
+    }
+
+    await tx.salesLeadWhatsappOutbox.updateMany({
+      where: {
+        conversationId,
+        status: 'PENDING',
+        kind: { in: kind === 'HANDOFF' ? ['GREETING', 'HANDOFF'] : ['GREETING'] },
+      },
+      data: {
+        status: 'SUPPRESSED',
+        suppressedReason: 'superseded_by_new_inbound',
+        lockedUntil: null,
+        lockToken: null,
+      },
+    });
+
+    await tx.salesLeadWhatsappOutbox.create({
+      data: {
+        id: randomUUID(),
+        conversationId,
+        deduplicationKey: key,
+        kind,
+        body,
+        availableAt: commercialWhatsappAutoReplyAvailableAt(),
+      },
+    });
+    return { queued: true } as const;
   });
-  return { queued: true } as const;
+}
+
+function scheduleCommercialWhatsappDrain() {
+  const timer = setTimeout(() => {
+    void deliverPlatformWhatsappOutbox().catch(() => undefined);
+  }, COMMERCIAL_WHATSAPP_AUTO_REPLY_DELAY_MS + 25);
+  timer.unref?.();
 }
 
 export async function processPlatformEvolutionInbound(
@@ -460,9 +512,10 @@ export async function processPlatformEvolutionInbound(
     return { accepted: false, status: 401 } as const;
   }
 
+  const receivedAt = new Date();
   await prisma.platformWhatsappConnection.update({
     where: { id: PLATFORM_CONNECTION_ID },
-    data: { lastWebhookAt: new Date() },
+    data: { lastWebhookAt: receivedAt },
   });
 
   const meta = inboundMeta(body);
@@ -475,8 +528,8 @@ export async function processPlatformEvolutionInbound(
         where: { id: PLATFORM_CONNECTION_ID },
         data: {
           status: connected ? 'CONNECTED' : state === 'connecting' ? 'PENDING' : 'DISCONNECTED',
-          connectedAt: connected ? row.connectedAt || new Date() : row.connectedAt,
-          disconnectedAt: connected ? null : new Date(),
+          connectedAt: connected ? row.connectedAt || receivedAt : row.connectedAt,
+          disconnectedAt: connected ? null : receivedAt,
         },
       });
     }
@@ -494,6 +547,14 @@ export async function processPlatformEvolutionInbound(
   const text = inboundText(body);
   if (!text) return { accepted: true, queued: false } as const;
 
+  if (meta.providerMessageId) {
+    const duplicate = await prisma.salesLeadWhatsappMessage.findUnique({
+      where: { providerMessageId: meta.providerMessageId },
+      select: { id: true },
+    });
+    if (duplicate) return { accepted: true, queued: false } as const;
+  }
+
   const leadPhone = localBrazilPhone(phone);
   const lead = await prisma.salesLead.findFirst({
     where: { phone: { in: [phone, leadPhone] } },
@@ -502,17 +563,9 @@ export async function processPlatformEvolutionInbound(
   });
   const conversation = await prisma.salesLeadWhatsappConversation.upsert({
     where: { phone },
-    create: { id: randomUUID(), phone, lastInboundAt: new Date() },
-    update: { lastInboundAt: new Date() },
+    create: { id: randomUUID(), phone, lastInboundAt: receivedAt },
+    update: { lastInboundAt: receivedAt },
   });
-
-  if (meta.providerMessageId) {
-    const duplicate = await prisma.salesLeadWhatsappMessage.findUnique({
-      where: { providerMessageId: meta.providerMessageId },
-      select: { id: true },
-    });
-    if (duplicate) return { accepted: true, queued: false } as const;
-  }
 
   const inboundMessageId = randomUUID();
   await prisma.salesLeadWhatsappMessage.create({
@@ -533,7 +586,14 @@ export async function processPlatformEvolutionInbound(
     return { accepted: true, queued: false, reason: 'human_mode' } as const;
   }
 
-  const settings = await prisma.platformSettings.findUnique({ where: { id: 1 } });
+  const settings = await prisma.platformSettings.findUnique({
+    where: { id: 1 },
+    select: {
+      commercialWhatsappEnabled: true,
+      commercialWhatsappHours: true,
+      timezone: true,
+    },
+  });
   if (!settings?.commercialWhatsappEnabled) {
     return { accepted: true, queued: false, reason: 'automation_disabled' } as const;
   }
@@ -541,41 +601,54 @@ export async function processPlatformEvolutionInbound(
   const open = isCommercialWhatsappHumanServiceOpen(
     settings.commercialWhatsappHours,
     settings.timezone,
+    receivedAt,
   );
-  const botReply = open ? botReplyForMessage(text) : null;
-  const bodyText = open
-    ? botReply!.body
-    : buildAwayMessage(
-        settings.commercialWhatsappAwayMessage,
-        settings.commercialWhatsappHours,
-      );
 
+  let mode = conversation.automationMode;
+  if (mode === 'CLOSED') {
+    if (
+      !shouldReopenCommercialWhatsappCycle({
+        mode,
+        closedAt: conversation.closedAt,
+        open,
+        now: receivedAt,
+      })
+    ) {
+      return {
+        accepted: true,
+        queued: false,
+        reason: open ? 'closed_cooldown' : 'outside_hours',
+      } as const;
+    }
+
+    await prisma.salesLeadWhatsappConversation.update({
+      where: { id: conversation.id },
+      data: { automationMode: 'BOT', closedAt: null },
+    });
+    mode = 'BOT';
+    publishCommercialWhatsappUpdate(conversation.id, 'automation_reopened');
+  }
+
+  if (!open || mode !== 'BOT') {
+    return { accepted: true, queued: false, reason: 'outside_hours' } as const;
+  }
+
+  const botReply = botReplyForMessage(text);
   const queued = await enqueueAutoReply(
     conversation.id,
     phone,
-    open ? 'GREETING' : 'AWAY',
-    bodyText,
+    botReply.handoff ? 'HANDOFF' : 'GREETING',
+    botReply.body,
     meta.providerMessageId || inboundMessageId,
   );
 
-  let delivered = { processed: 0, sent: 0, configured: true };
-  if (queued.queued) {
-    delivered = await deliverPlatformWhatsappOutbox();
-  }
-
-  if (open && botReply?.handoff && delivered.sent > 0) {
-    await prisma.salesLeadWhatsappConversation.update({
-      where: { id: conversation.id },
-      data: { automationMode: 'HUMAN' },
-    });
-    publishCommercialWhatsappUpdate(conversation.id, 'human_handoff');
-  }
+  if (queued.queued) scheduleCommercialWhatsappDrain();
 
   return {
     accepted: true,
     queued: queued.queued,
-    sent: delivered.sent,
-    reason: queued.queued ? (delivered.sent > 0 ? 'sent' : 'queued_for_retry') : queued.reason,
+    sent: 0,
+    reason: queued.queued ? 'queued_with_delay' : queued.reason,
   } as const;
 }
 
@@ -585,8 +658,24 @@ export async function enqueueLeadWhatsappGreeting(leadId: string) {
     select: { id: true, name: true, restaurantName: true, phone: true, consent: true },
   });
   if (!lead?.consent) return { queued: false, reason: 'no_consent' } as const;
-  const settings = await prisma.platformSettings.findUnique({ where: { id: 1 } });
+
+  const settings = await prisma.platformSettings.findUnique({
+    where: { id: 1 },
+    select: {
+      commercialWhatsappEnabled: true,
+      commercialWhatsappHours: true,
+      timezone: true,
+    },
+  });
   if (!settings?.commercialWhatsappEnabled) return { queued: false, reason: 'disabled' } as const;
+  if (
+    !isCommercialWhatsappHumanServiceOpen(
+      settings.commercialWhatsappHours,
+      settings.timezone,
+    )
+  ) {
+    return { queued: false, reason: 'outside_hours' } as const;
+  }
 
   const whatsappPhone = normalizeBrazilWhatsappNumber(lead.phone);
   const conversation = await prisma.salesLeadWhatsappConversation.upsert({
@@ -594,6 +683,14 @@ export async function enqueueLeadWhatsappGreeting(leadId: string) {
     create: { id: randomUUID(), phone: whatsappPhone },
     update: {},
   });
+  if (conversation.automationMode !== 'BOT') {
+    return {
+      queued: false,
+      reason:
+        conversation.automationMode === 'CLOSED' ? 'conversation_closed' : 'human_mode',
+    } as const;
+  }
+
   const key = createHash('sha256').update(`FORM_GREETING:${lead.id}`).digest('hex');
   const body = [
     `Olá, ${lead.name}! 👋 Aqui é da GastroNexa.`,
@@ -610,10 +707,11 @@ export async function enqueueLeadWhatsappGreeting(leadId: string) {
       deduplicationKey: key,
       kind: 'FORM_GREETING',
       body,
+      availableAt: commercialWhatsappAutoReplyAvailableAt(),
     },
     update: {},
   });
-  await deliverPlatformWhatsappOutbox();
+  scheduleCommercialWhatsappDrain();
   return { queued: true } as const;
 }
 
@@ -654,6 +752,26 @@ export async function deliverPlatformWhatsappOutbox() {
     WHERE o."id" = picked."id" AND c."id" = o."conversationId"
     RETURNING o."id", o."conversationId", o."kind", o."body", o."attempts", c."phone"`;
 
+  const hasInboundAutomaticReplies = rows.some((item) =>
+    AUTOMATIC_REPLY_KINDS.includes(item.kind),
+  );
+  const automationSettings = hasInboundAutomaticReplies
+    ? await prisma.platformSettings.findUnique({
+        where: { id: 1 },
+        select: {
+          commercialWhatsappEnabled: true,
+          commercialWhatsappHours: true,
+          timezone: true,
+        },
+      })
+    : null;
+  const automationOpen = automationSettings
+    ? isCommercialWhatsappHumanServiceOpen(
+        automationSettings.commercialWhatsappHours,
+        automationSettings.timezone,
+      )
+    : false;
+
   let sent = 0;
   for (const item of rows) {
     try {
@@ -661,13 +779,56 @@ export async function deliverPlatformWhatsappOutbox() {
         where: { id: item.conversationId },
         select: { automationMode: true },
       });
-      if (item.kind !== 'MANUAL' && conversation?.automationMode === 'HUMAN') {
+      if (!conversation) {
         await prisma.salesLeadWhatsappOutbox.update({
           where: { id: item.id },
-          data: { status: 'SUPPRESSED', suppressedReason: 'human_mode', lockedUntil: null, lockToken: null },
+          data: {
+            status: 'SUPPRESSED',
+            suppressedReason: 'conversation_missing',
+            lockedUntil: null,
+            lockToken: null,
+          },
         });
         continue;
       }
+
+      const automaticSuppression = commercialWhatsappAutoReplySuppressionReason({
+        kind: item.kind,
+        mode: conversation.automationMode,
+        automationEnabled: automationSettings?.commercialWhatsappEnabled === true,
+        open: automationOpen,
+      });
+      if (automaticSuppression) {
+        await prisma.salesLeadWhatsappOutbox.update({
+          where: { id: item.id },
+          data: {
+            status: 'SUPPRESSED',
+            suppressedReason: automaticSuppression,
+            lockedUntil: null,
+            lockToken: null,
+          },
+        });
+        continue;
+      }
+
+      if (
+        item.kind !== 'MANUAL' &&
+        !AUTOMATIC_REPLY_KINDS.includes(item.kind) &&
+        conversation.automationMode !== 'BOT'
+      ) {
+        await prisma.salesLeadWhatsappOutbox.update({
+          where: { id: item.id },
+          data: {
+            status: 'SUPPRESSED',
+            suppressedReason:
+              conversation.automationMode === 'CLOSED' ? 'conversation_closed' : 'human_mode',
+            lockedUntil: null,
+            lockToken: null,
+          },
+        });
+        continue;
+      }
+
       await sendPlatformWhatsappText(item.phone, item.body);
       await prisma.$transaction([
         prisma.salesLeadWhatsappOutbox.update({
@@ -686,10 +847,18 @@ export async function deliverPlatformWhatsappOutbox() {
         }),
         prisma.salesLeadWhatsappConversation.update({
           where: { id: item.conversationId },
-          data: { lastOutboundAt: new Date() },
+          data: {
+            lastOutboundAt: new Date(),
+            ...(item.kind === 'HANDOFF'
+              ? { automationMode: 'HUMAN', closedAt: null }
+              : {}),
+          },
         }),
       ]);
       publishCommercialWhatsappUpdate(item.conversationId, 'outbound_message');
+      if (item.kind === 'HANDOFF') {
+        publishCommercialWhatsappUpdate(item.conversationId, 'human_handoff');
+      }
       sent++;
     } catch {
       const exhausted = item.attempts >= 8;
@@ -716,32 +885,66 @@ export async function listCommercialWhatsappConversations() {
   });
 }
 
-export async function setCommercialWhatsappConversationMode(id: string, mode: 'BOT' | 'HUMAN') {
-  const updated = await prisma.salesLeadWhatsappConversation.update({
-    where: { id },
-    data: { automationMode: mode },
+export async function setCommercialWhatsappConversationMode(
+  id: string,
+  mode: CommercialWhatsappConversationMode,
+) {
+  const updated = await prisma.$transaction(async (tx) => {
+    const conversation = await tx.salesLeadWhatsappConversation.findUnique({
+      where: { id },
+      select: { id: true },
+    });
+    if (!conversation) throw new Error('Conversa não encontrada.');
+
+    if (mode === 'HUMAN' || mode === 'CLOSED') {
+      await suppressPendingAutomaticReplies(
+        tx,
+        id,
+        mode === 'CLOSED' ? 'conversation_closed' : 'human_mode',
+      );
+    }
+
+    return tx.salesLeadWhatsappConversation.update({
+      where: { id },
+      data: {
+        automationMode: mode,
+        closedAt: mode === 'CLOSED' ? new Date() : null,
+      },
+    });
   });
-  publishCommercialWhatsappUpdate(id, 'mode_changed');
+  publishCommercialWhatsappUpdate(id, mode === 'CLOSED' ? 'conversation_closed' : 'mode_changed');
   return updated;
 }
 
 export async function enqueueManualCommercialWhatsappMessage(id: string, message: string) {
   const body = String(message || '').trim();
   if (body.length < 1 || body.length > 4000) throw new Error('Mensagem inválida.');
-  const conversation = await prisma.salesLeadWhatsappConversation.findUnique({ where: { id } });
-  if (!conversation) throw new Error('Conversa não encontrada.');
-  const key = createHash('sha256')
-    .update(`MANUAL:${id}:${randomUUID()}`)
-    .digest('hex');
-  await prisma.salesLeadWhatsappOutbox.create({
-    data: {
-      id: randomUUID(),
-      conversationId: id,
-      deduplicationKey: key,
-      kind: 'MANUAL',
-      body,
-    },
+
+  const key = createHash('sha256').update(`MANUAL:${id}:${randomUUID()}`).digest('hex');
+  await prisma.$transaction(async (tx) => {
+    const conversation = await tx.salesLeadWhatsappConversation.findUnique({
+      where: { id },
+      select: { id: true },
+    });
+    if (!conversation) throw new Error('Conversa não encontrada.');
+
+    await suppressPendingAutomaticReplies(tx, id, 'human_mode');
+    await tx.salesLeadWhatsappConversation.update({
+      where: { id },
+      data: { automationMode: 'HUMAN', closedAt: null },
+    });
+    await tx.salesLeadWhatsappOutbox.create({
+      data: {
+        id: randomUUID(),
+        conversationId: id,
+        deduplicationKey: key,
+        kind: 'MANUAL',
+        body,
+      },
+    });
   });
+
+  publishCommercialWhatsappUpdate(id, 'human_message_queued');
   const delivered = await deliverPlatformWhatsappOutbox();
   return { queued: true, sent: delivered.sent > 0 };
 }
@@ -751,7 +954,6 @@ export async function getCommercialWhatsappSettings() {
   return {
     enabled: settings.commercialWhatsappEnabled,
     hours: normalizeCommercialWhatsappHours(settings.commercialWhatsappHours),
-    awayMessage: settings.commercialWhatsappAwayMessage,
     timezone: settings.timezone,
   };
 }
@@ -759,41 +961,26 @@ export async function getCommercialWhatsappSettings() {
 export async function updateCommercialWhatsappSettings(input: {
   enabled: boolean;
   hours: unknown;
-  awayMessage: string;
 }) {
   const hours = normalizeCommercialWhatsappHours(input.hours);
   const hoursError = validateCommercialWhatsappHours(hours);
   if (hoursError) throw new Error(hoursError);
-  const awayMessage = String(input.awayMessage || '').trim();
-  if (awayMessage.length < 10 || awayMessage.length > 1000) throw new Error('Mensagem fora do horário inválida.');
+
   const updated = await prisma.platformSettings.update({
     where: { id: 1 },
     data: {
       commercialWhatsappEnabled: input.enabled === true,
       commercialWhatsappHours: hours,
-      commercialWhatsappAwayMessage: awayMessage,
       version: { increment: 1 },
-    },
-  });
-
-  await prisma.salesLeadWhatsappOutbox.updateMany({
-    where: { kind: 'AWAY', status: 'PENDING' },
-    data: {
-      body: buildAwayMessage(
-        updated.commercialWhatsappAwayMessage,
-        updated.commercialWhatsappHours,
-      ),
     },
   });
 
   return {
     enabled: updated.commercialWhatsappEnabled,
     hours: normalizeCommercialWhatsappHours(updated.commercialWhatsappHours),
-    awayMessage: updated.commercialWhatsappAwayMessage,
     timezone: updated.timezone,
   };
 }
-
 
 export async function enqueuePendingLeadWhatsappGreetings() {
   const leads = await prisma.salesLead.findMany({

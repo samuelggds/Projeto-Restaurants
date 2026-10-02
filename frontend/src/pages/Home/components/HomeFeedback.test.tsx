@@ -16,7 +16,6 @@ describe('HomeFeedback', () => {
               title: 'Endereço selecionado',
               msg: 'Usaremos este endereço na sacola.',
               visible: true,
-              action: 'open-cart',
             },
             {
               id: 2,
@@ -37,7 +36,6 @@ describe('HomeFeedback', () => {
     expect(markup).toContain('Não foi possível concluir');
     expect(markup).toContain('role="status"');
     expect(markup).toContain('role="alert"');
-    expect(markup).toContain('Ver sacola');
     expect(markup.match(/aria-label="Fechar notificação"/g)).toHaveLength(2);
     expect(styles).toContain('z-index:1400');
     expect(markup).not.toContain('>✓<');

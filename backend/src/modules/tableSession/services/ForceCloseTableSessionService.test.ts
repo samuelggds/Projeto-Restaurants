@@ -1,7 +1,7 @@
 // @ts-nocheck
 import assert from 'node:assert/strict';
 import test, { afterEach } from 'node:test';
-import { Prisma, TablePaymentIntentStatus } from '@prisma/client';
+import { Prisma } from '@prisma/client';
 import prisma from '../../../config/prisma.js';
 import tableServiceCallRepository from '../../waiterCalls/repositories/TableServiceCallRepository.js';
 import { tableServiceCallEvents } from '../../waiterCalls/realtime/tableServiceCallEvents.js';
@@ -42,73 +42,129 @@ const openSession = {
   publicId: '123e4567-e89b-42d3-a456-426614174055',
   tableId: 91,
   status: 'OPEN',
-  openedAt: new Date('2026-08-26T12:00:00.000Z'),
+  openedAt: new Date('2026-10-01T12:00:00.000Z'),
   table: { id: 91, number: 12, restaurantId: 7 },
 };
 
-test('fechamento forçado registra motivo e cancela reservas financeiras ativas', async () => {
-  const paymentUpdates = [];
-  const paymentEvents = [];
+function transactionWithLedger(ledgerItems = []) {
   const tx = {
     $queryRaw: async () => [],
     tablePaymentIntent: {
-      findMany: async ({ where }) => {
-        assert.equal(where.restaurantId, 7);
-        assert.equal(where.tableSessionId, 55);
-        assert.deepEqual(where.status.in, [
-          TablePaymentIntentStatus.RESERVED,
-          TablePaymentIntentStatus.PROCESSING,
-        ]);
-        return [
-          {
-            id: 20,
-            publicId: '223e4567-e89b-42d3-a456-426614174020',
-            status: TablePaymentIntentStatus.RESERVED,
-            totalCents: 2_500n,
-          },
-        ];
-      },
-      updateMany: async (args) => {
-        paymentUpdates.push(args);
-        return { count: 1 };
-      },
+      findMany: async () => [],
     },
-    tablePaymentEvent: {
-      create: async ({ data }) => {
-        paymentEvents.push(data);
-        return data;
-      },
+    tableBillItem: {
+      findMany: async () => ledgerItems,
     },
-    tableBillItem: { findMany: async () => [] },
-    order: { findMany: async () => [] },
-  };
-  const projectionPayloads = [];
-  waiterCompensationProjectionService.project = async (payload) => {
-    projectionPayloads.push(payload);
-    return { created: false, reason: 'NO_VARIABLE_POLICY' };
+    order: {
+      findMany: async () => [],
+    },
   };
   prisma.$transaction = async (callback, options) => {
     assert.equal(options.isolationLevel, Prisma.TransactionIsolationLevel.Serializable);
     return callback(tx);
   };
+  return tx;
+}
+
+test('fechamento administrativo nunca ignora saldo pendente da conta geral', async () => {
+  transactionWithLedger([
+    {
+      id: 1,
+      publicId: 'item-pendente',
+      participantId: 80,
+      orderId: 101,
+      unitPriceCents: 2_500n,
+      financialStatus: 'UNPAID',
+      canceledAt: null,
+      createdAt: new Date('2026-10-01T12:10:00.000Z'),
+      order: { status: 'ENTREGUE' },
+      paymentAllocations: [],
+    },
+  ]);
+  tableSessionRepository.findById = async () => openSession;
+  let forceCloseCalled = false;
+  tableSessionRepository.forceClose = async () => {
+    forceCloseCalled = true;
+    throw new Error('não deveria fechar');
+  };
+
+  await assert.rejects(
+    () =>
+      new ForceCloseTableSessionService().execute({
+        sessionId: 55,
+        actorUserId: 3,
+        restaurantId: 7,
+        reason: 'Correção operacional da sessão',
+      }),
+    /conta geral ainda possui pagamentos pendentes/i,
+  );
+
+  assert.equal(forceCloseCalled, false);
+});
+
+test('reserva ou pagamento em processamento também bloqueia fechamento administrativo', async () => {
+  transactionWithLedger([
+    {
+      id: 1,
+      publicId: 'item-reservado',
+      participantId: 80,
+      orderId: 101,
+      unitPriceCents: 2_500n,
+      financialStatus: 'RESERVED',
+      canceledAt: null,
+      createdAt: new Date('2026-10-01T12:10:00.000Z'),
+      order: { status: 'ENTREGUE' },
+      paymentAllocations: [
+        {
+          amountCents: 2_500n,
+          paymentIntent: {
+            status: 'RESERVED',
+            expiresAt: new Date('2099-01-01T00:10:00.000Z'),
+          },
+        },
+      ],
+    },
+  ]);
+  tableSessionRepository.findById = async () => openSession;
+
+  await assert.rejects(
+    () =>
+      new ForceCloseTableSessionService().execute({
+        sessionId: 55,
+        actorUserId: 3,
+        restaurantId: 7,
+        reason: 'Correção operacional da sessão',
+      }),
+    /conta geral ainda possui pagamentos pendentes/i,
+  );
+});
+
+test('fechamento administrativo continua disponível para exceção operacional após quitação', async () => {
+  const tx = transactionWithLedger([]);
   tableSessionRepository.findById = async () => openSession;
   tableServiceCallRepository.listActiveBySession = async () => [];
   tableParticipantRepository.revokeActiveBySession = async (sessionId, restaurantId) => {
     assert.deepEqual([sessionId, restaurantId], [55, 7]);
     return { count: 2 };
   };
+  waiterCompensationProjectionService.project = async (payload) => {
+    assert.equal(payload.db, tx);
+    assert.equal(payload.restaurantId, 7);
+    assert.equal(payload.tableSessionId, 55);
+    return { created: false, reason: 'NO_VARIABLE_POLICY' };
+  };
+
   let forceCloseInput;
-  const closedAt = new Date('2026-08-26T13:00:00.000Z');
+  const closedAt = new Date('2026-10-01T13:00:00.000Z');
   tableSessionRepository.forceClose = async (sessionId, restaurantId, actorId, reason) => {
-    assert.equal(restaurantId, 7);
-    forceCloseInput = { sessionId, actorId, reason };
+    forceCloseInput = { sessionId, restaurantId, actorId, reason };
     return {
       id: 55,
       tableId: 91,
       status: 'CLOSED',
       openedAt: openSession.openedAt,
       closedAt,
-      closedById: 3,
+      closedById: actorId,
       forcedClosed: true,
       forceCloseReason: reason,
     };
@@ -122,40 +178,31 @@ test('fechamento forçado registra motivo e cancela reservas financeiras ativas'
     sessionId: 55,
     actorUserId: 3,
     restaurantId: 7,
-    reason: 'Fechamento autorizado pelo gerente',
+    reason: 'Correção operacional da sessão',
   });
 
   assert.deepEqual(forceCloseInput, {
     sessionId: 55,
+    restaurantId: 7,
     actorId: 3,
-    reason: 'Fechamento autorizado pelo gerente',
-  });
-  assert.equal(paymentUpdates.length, 1);
-  assert.equal(paymentUpdates[0].where.restaurantId, 7);
-  assert.equal(paymentUpdates[0].data.status, TablePaymentIntentStatus.CANCELED);
-  assert.equal(paymentEvents.length, 1);
-  assert.equal(paymentEvents[0].actorUserId, 3);
-  assert.deepEqual(paymentEvents[0].metadata, {
-    reason: 'Fechamento autorizado pelo gerente',
-    action: 'FORCE_CLOSE',
+    reason: 'Correção operacional da sessão',
   });
   assert.equal(result.forcedClosed, true);
   assert.equal(emittedSession.restaurantId, 7);
   assert.equal(emittedSession.tableNumber, 12);
-  assert.equal(projectionPayloads.length, 2);
-  assert.ok(projectionPayloads.every((payload) => payload.db === tx));
-  assert.ok(projectionPayloads.every((payload) => payload.restaurantId === 7));
-  assert.ok(projectionPayloads.every((payload) => payload.tableSessionId === 55));
 });
 
-test('fechamento forçado não atravessa o tenant do administrador', async () => {
-  let searchedPayments = false;
+test('fechamento administrativo não atravessa o tenant do administrador', async () => {
+  let ledgerRead = false;
   prisma.$transaction = async (callback) =>
     callback({
       $queryRaw: async () => [],
       tablePaymentIntent: {
+        findMany: async () => [],
+      },
+      tableBillItem: {
         findMany: async () => {
-          searchedPayments = true;
+          ledgerRead = true;
           return [];
         },
       },
@@ -175,5 +222,5 @@ test('fechamento forçado não atravessa o tenant do administrador', async () =>
       }),
     /não encontrada neste restaurante/i,
   );
-  assert.equal(searchedPayments, false);
+  assert.equal(ledgerRead, false);
 });

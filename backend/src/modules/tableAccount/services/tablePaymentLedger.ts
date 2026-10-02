@@ -15,6 +15,20 @@ import waiterCompensationProjectionService from '../../employeeCompensation/serv
 export type TablePaymentTransaction = Prisma.TransactionClient;
 type PrismaClientLike = PrismaClient | Prisma.TransactionClient;
 
+export const STAFF_CASH_RECEIPT_EVENT_SUFFIX = ':cash-received-by-staff';
+
+export function staffCashReceiptDeduplicationKey(paymentPublicId: string) {
+  return `table-payment:${paymentPublicId}${STAFF_CASH_RECEIPT_EVENT_SUFFIX}`;
+}
+
+export function hasStaffCashReceiptEvent(
+  events: readonly { deduplicationKey?: string | null }[] | null | undefined,
+) {
+  return Boolean(
+    events?.some((event) => event.deduplicationKey?.endsWith(STAFF_CASH_RECEIPT_EVENT_SUFFIX)),
+  );
+}
+
 export function bigintToMoneyCents(value: bigint, fieldName: string) {
   return assertMoneyCents(Number(value), fieldName);
 }
@@ -62,6 +76,10 @@ export async function loadTablePaymentLedgerItems(
             select: {
               status: true,
               expiresAt: true,
+              events: {
+                where: { type: TablePaymentEventType.MANUAL_CONFIRMED },
+                select: { deduplicationKey: true },
+              },
             },
           },
         },
@@ -86,7 +104,9 @@ export async function loadTablePaymentLedgerItems(
           `alocação do item ${item.publicId}`,
         ),
         intentStatus: allocation.paymentIntent.status as ContractPaymentStatus,
-        expiresAt: allocation.paymentIntent.expiresAt,
+        expiresAt: hasStaffCashReceiptEvent(allocation.paymentIntent.events)
+          ? null
+          : allocation.paymentIntent.expiresAt,
       })),
     });
 
@@ -211,6 +231,12 @@ export async function expireTablePaymentReservations(
         in: [TablePaymentIntentStatus.RESERVED, TablePaymentIntentStatus.PROCESSING],
       },
       expiresAt: { lte: now },
+      events: {
+        none: {
+          type: TablePaymentEventType.MANUAL_CONFIRMED,
+          deduplicationKey: { endsWith: STAFF_CASH_RECEIPT_EVENT_SUFFIX },
+        },
+      },
     },
     select: {
       id: true,

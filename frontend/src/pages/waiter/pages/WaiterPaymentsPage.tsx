@@ -38,8 +38,8 @@ function formatDateTime(value: string) {
   });
 }
 
-function paymentMethodLabel(method: WaiterManualPayment['method']) {
-  return method === 'CASH' ? 'Dinheiro' : 'Cartão na maquininha';
+function paymentMethodLabel() {
+  return 'Dinheiro';
 }
 
 function accountAsTable(account: WaiterAccountSession, tables: RestaurantTable[]) {
@@ -134,9 +134,9 @@ export function WaiterPaymentsPage() {
 
   const confirmPayment = async (account: WaiterAccountSession, payment: WaiterManualPayment) => {
     const accepted = await confirmDialog({
-      title: 'Confirmar pagamento recebido?',
-      description: `Mesa ${String(account.tableNumber).padStart(2, '0')} • ${brl(payment.totalCents / 100)} em ${paymentMethodLabel(payment.method).toLocaleLowerCase('pt-BR')}. Confirme somente depois de receber o valor do cliente.`,
-      confirmLabel: 'Confirmar recebimento',
+      title: 'Registrar dinheiro recebido?',
+      description: `Mesa ${String(account.tableNumber).padStart(2, '0')} • ${payment.payerDisplayName || 'Cliente'} • ${brl(payment.totalCents / 100)}. O admin ainda precisa confirmar para virar pago.`,
+      confirmLabel: 'Registrar recebimento',
       cancelLabel: 'Voltar e conferir',
     });
     if (!accepted) return;
@@ -147,7 +147,7 @@ export function WaiterPaymentsPage() {
       await tableAccountClient.confirmManualPayment(payment.publicId);
       await onRefresh?.();
       toast.success(
-        `Pagamento da Mesa ${String(account.tableNumber).padStart(2, '0')} confirmado.`,
+        `Dinheiro da Mesa ${String(account.tableNumber).padStart(2, '0')} registrado. Aguardando admin.`,
       );
     } catch (requestError) {
       setError(getErrorMessage(requestError));
@@ -162,7 +162,7 @@ export function WaiterPaymentsPage() {
         <div>
           <span>COMANDAS EM TEMPO REAL</span>
           <h2>Acompanhe consumo e pagamentos das mesas</h2>
-          <p>Pedidos e pagamentos online atualizam automaticamente o saldo de cada comanda.</p>
+          <p>PIX atualiza automaticamente. Dinheiro registrado pela equipe aguarda confirmação do admin.</p>
         </div>
       </S.PageIntro>
 
@@ -226,24 +226,26 @@ export function WaiterPaymentsPage() {
                 </span>
                 <span className="identity">
                   <b>Mesa {String(account.tableNumber).padStart(2, '0')}</b>
-                  <span>{paymentMethodLabel(payment.method)}</span>
-                  <small>Solicitado em {formatDateTime(payment.createdAt)}</small>
+                  <span>{paymentMethodLabel()}</span>
+                  <small>{payment.payerDisplayName || 'Cliente da mesa'} · solicitado em {formatDateTime(payment.createdAt)}</small>
                 </span>
                 <span className="value">
                   <strong>{brl(payment.totalCents / 100)}</strong>
-                  <span>Aguardando</span>
+                  <span>{payment.staffReceiptRegistered ? 'Aguardando admin' : 'Aguardando equipe'}</span>
                 </span>
-                <button
-                  type="button"
-                  disabled={busyPaymentId === payment.publicId}
-                  aria-label={`Confirmar ${paymentMethodLabel(payment.method)} de ${brl(payment.totalCents / 100)} da Mesa ${String(account.tableNumber).padStart(2, '0')}`}
-                  onClick={() => void confirmPayment(account, payment)}
-                >
-                  <CheckCircle2 />
-                  {busyPaymentId === payment.publicId
-                    ? 'Confirmando recebimento...'
-                    : 'Confirmar recebimento'}
-                </button>
+                {!payment.staffReceiptRegistered && (
+                  <button
+                    type="button"
+                    disabled={busyPaymentId === payment.publicId}
+                    aria-label={`Registrar dinheiro de ${brl(payment.totalCents / 100)} da Mesa ${String(account.tableNumber).padStart(2, '0')}`}
+                    onClick={() => void confirmPayment(account, payment)}
+                  >
+                    <CheckCircle2 />
+                    {busyPaymentId === payment.publicId
+                      ? 'Registrando...'
+                      : 'Registrar dinheiro recebido'}
+                  </button>
+                )}
               </P.PendingPayment>
             ))}
             {!pendingPayments.length && (
@@ -298,7 +300,7 @@ export function WaiterPaymentsPage() {
                       <b>{brl(account.summary.consumedCents / 100)}</b>
                     </span>
                     <span className="paid">
-                      <small>Pago online</small>
+                      <small>Pago</small>
                       <b>{brl(account.summary.netPaidCents / 100)}</b>
                     </span>
                     <span className="remaining">

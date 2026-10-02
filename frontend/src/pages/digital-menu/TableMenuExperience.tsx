@@ -1,30 +1,50 @@
 import {
-  ArrowLeft,
   Bell,
   Check,
-  ChevronRight,
   CookingPot,
   Eye,
-  ShoppingBag,
   Clock3,
-  QrCode,
   ReceiptText,
-  Search,
-  Utensils,
+  WalletCards,
 } from 'lucide-react';
-import { lazy, Suspense, useEffect, useMemo, useState } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import QRCode from 'react-qr-code';
 import type { HomeData, HomeProduct } from '../Home/types';
 import type { CartItem } from '../Home/hooks/useCart';
 import type { ProductConfiguration } from '../Home/domain/productCustomization';
-import type {
-  TableAccountSnapshot,
-  TablePaymentIntent,
+import {
+  createReadyProductConfiguration,
+  resolveProductEntryKind,
+} from '../Home/domain/productEntryFlow';
+import {
+  currentParticipantAccount,
+  shouldReuseActiveTablePayment,
+  tablePaymentMethodLabel,
+  tablePaymentStatusLabel,
+  type TableAccountSnapshot,
+  type TableCardPaymentPayload,
+  type TablePaymentIntent,
 } from '../Home/domain/tableAccount';
 import type { TableOrderNotice } from '../Home/domain/tableOrderNotice';
+import {
+  captureCartFlyOrigin,
+  scheduleProductToCartAnimation,
+  type CartFlyOrigin,
+} from '../Home/cartFlyAnimation';
 import { TablePaymentStatusView } from '../Home/components/TablePaymentStatusView';
+import type { CardPaymentPreparer } from '../Home/components/OnlineCardPaymentForm';
+import { ReadyProductDetail } from '../Home/components/ReadyProductDetail';
 import { QuantityStepper } from '../../components/QuantityStepper/QuantityStepper';
-import { FigmaCatalogCard, FigmaComboCard } from './TableMenuExperience.cards';
+import { PixMark } from '../../components/payment/PixMark';
+import { TableMenuHome } from './TableMenuHome';
+import { FlowHeader } from './TableMenuFlow';
+import {
+  confirmationSteps,
+  formatTableNumber,
+  trackingHeadline,
+  trackingSteps,
+} from './TableMenuFlow.domain';
+import { TableCardPaymentView, TablePaymentChoiceView } from './TableMenuPaymentViews';
 import * as S from './TableMenuExperience.styles';
 
 const ProductConfigurator = lazy(() =>
@@ -47,6 +67,7 @@ type SubmitResult = {
 
 type Props = {
   data: HomeData;
+  restaurantId: number;
   tableLabel: string | number;
   cart: CartItem[];
   cartTotal: number;
@@ -54,16 +75,22 @@ type Props = {
   tableOrder: TableOrderNotice | null;
   accountSnapshot: TableAccountSnapshot | null;
   activePayment: TablePaymentIntent | null;
+  paymentToOpen?: TablePaymentIntent | null;
+  openCardPayment?: boolean;
+  onCardPaymentOpened?: () => void;
   paymentLoading?: boolean;
   waiterCallEnabled?: boolean;
-  billRequestEnabled?: boolean;
   onAddProduct: (productId: string, configuration: ProductConfiguration) => void;
   onIncrease: (cartId: string) => void;
   onDecrease: (cartId: string) => void;
+  onClearCart: () => void;
   onSubmitOrder: () => Promise<SubmitResult | null | undefined>;
   onCallWaiter: () => void;
-  onRequestBill?: () => void;
-  onCreatePixPayment: (orderPublicId: string) => Promise<TablePaymentIntent | null>;
+  onViewAccount: () => void;
+  onCreateAccountPayment: (
+    method: 'PIX' | 'CARD' | 'CASH',
+    cardPayment?: TableCardPaymentPayload,
+  ) => Promise<TablePaymentIntent | null>;
   onReconcilePayment: (paymentPublicId: string) => Promise<TablePaymentIntent | null>;
   onCancelPayment: (paymentPublicId: string) => Promise<boolean>;
   couponCode?: string | null;
@@ -71,22 +98,33 @@ type Props = {
   onApplyCouponCode?: (code: string) => void;
   reviewCartOpen?: boolean;
   onReviewCartClose?: () => void;
+  userName?: string;
+  userEmail?: string;
+  userLoggedIn?: boolean;
 };
 
-type View = 'menu' | 'cart' | 'confirmation' | 'tracking' | 'payment' | 'pix';
+type View = 'menu' | 'cart' | 'confirmation' | 'tracking' | 'payment' | 'card' | 'pix';
 
 const brl = (value: number) =>
   value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
 const centsToBrl = (value: number) => brl(Number(value || 0) / 100);
 
-function tableNumber(label: string | number) {
-  const numeric = Number(label);
-  return Number.isFinite(numeric) ? String(numeric).padStart(2, '0') : String(label);
+function paymentCreatedTime(createdAt?: string | null) {
+  if (!createdAt) return '';
+  const date = new Date(createdAt);
+  if (Number.isNaN(date.getTime())) return '';
+  return new Intl.DateTimeFormat('pt-BR', {
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(date);
 }
+
+const tableNumber = formatTableNumber;
 
 export default function TableMenuExperience({
   data,
+  restaurantId,
   tableLabel,
   cart,
   cartTotal,
@@ -94,16 +132,19 @@ export default function TableMenuExperience({
   tableOrder,
   accountSnapshot,
   activePayment,
+  paymentToOpen = null,
+  openCardPayment = false,
+  onCardPaymentOpened,
   paymentLoading = false,
   waiterCallEnabled = true,
-  billRequestEnabled = false,
   onAddProduct,
   onIncrease,
   onDecrease,
+  onClearCart,
   onSubmitOrder,
   onCallWaiter,
-  onRequestBill,
-  onCreatePixPayment,
+  onViewAccount,
+  onCreateAccountPayment,
   onReconcilePayment,
   onCancelPayment,
   couponCode = null,
@@ -111,18 +152,13 @@ export default function TableMenuExperience({
   onApplyCouponCode,
   reviewCartOpen = false,
   onReviewCartClose,
+  userName,
+  userEmail,
+  userLoggedIn = false,
 }: Props) {
   const [view, setView] = useState<View>('menu');
   const effectiveView: View = reviewCartOpen ? 'cart' : view;
-  const [query, setQuery] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState(() => {
-    return data.categories.find((category) => category.id !== 'todos')?.id || 'todos';
-  });
-  const [catalogVisible, setCatalogVisible] = useState(false);
-  const [bannerIndex, setBannerIndex] = useState(0);
   const [selectedProduct, setSelectedProduct] = useState<HomeProduct | null>(null);
-  const [completeProductQuantity, setCompleteProductQuantity] = useState(1);
-  const [completeProductObservation, setCompleteProductObservation] = useState('');
   const [configuringProduct, setConfiguringProduct] = useState<HomeProduct | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [confirmation, setConfirmation] = useState<{
@@ -132,33 +168,15 @@ export default function TableMenuExperience({
     total: number;
   } | null>(null);
   const [pixPayment, setPixPayment] = useState<TablePaymentIntent | null>(null);
+  const cardPreparerRef = useRef<CardPaymentPreparer | null>(null);
+  const [cardReady, setCardReady] = useState(false);
+  const [cardSubmitting, setCardSubmitting] = useState(false);
   const [copied, setCopied] = useState(false);
   const [couponInput, setCouponInput] = useState(couponCode || '');
+  const pendingCartFlyOriginRef = useRef<CartFlyOrigin | null>(null);
   const [now, setNow] = useState(() => Date.now());
 
   const primary = data.brand.primaryColor || '#d64d08';
-  const combos = useMemo(
-    () => data.products.filter((product) => product.available && product.kind === 'COMBO'),
-    [data.products],
-  );
-  const realCategories = useMemo(
-    () => data.categories.filter((category) => category.id !== 'todos'),
-    [data.categories],
-  );
-  const filteredProducts = useMemo(() => {
-    const normalizedQuery = query.trim().toLocaleLowerCase('pt-BR');
-    return data.products.filter((product) => {
-      if (!product.available || product.kind === 'COMBO') return false;
-      const categoryMatch =
-        selectedCategory === 'todos' || product.categoryId === selectedCategory;
-      const searchMatch =
-        !normalizedQuery ||
-        product.name.toLocaleLowerCase('pt-BR').includes(normalizedQuery) ||
-        product.description.toLocaleLowerCase('pt-BR').includes(normalizedQuery);
-      return categoryMatch && searchMatch;
-    });
-  }, [data.products, query, selectedCategory]);
-
   const paymentBase =
     activePayment?.publicId === pixPayment?.publicId ? activePayment : pixPayment;
   const paymentSnapshot = paymentBase
@@ -176,12 +194,27 @@ export default function TableMenuExperience({
       : null;
 
   useEffect(() => {
-    if (!data.banners.length || data.banners.length <= 1) return undefined;
-    const interval = window.setInterval(() => {
-      setBannerIndex((current) => (current + 1) % data.banners.length);
-    }, 5_000);
-    return () => window.clearInterval(interval);
-  }, [data.banners.length]);
+    if (!paymentToOpen?.publicId) return undefined;
+    const timeoutId = window.setTimeout(() => {
+      setPixPayment(paymentToOpen);
+      setView('pix');
+    }, 0);
+    return () => window.clearTimeout(timeoutId);
+  }, [paymentToOpen]);
+
+  useEffect(() => {
+    if (!openCardPayment) return undefined;
+    const timeoutId = window.setTimeout(() => {
+      setView('card');
+      onCardPaymentOpened?.();
+    }, 0);
+    return () => window.clearTimeout(timeoutId);
+  }, [onCardPaymentOpened, openCardPayment]);
+
+  const handleCardPreparerChange = useCallback((preparer: CardPaymentPreparer | null) => {
+    cardPreparerRef.current = preparer;
+    setCardReady(Boolean(preparer));
+  }, []);
 
   useEffect(() => {
     if (!pixPending || pixRemainingSeconds === null) return undefined;
@@ -190,7 +223,12 @@ export default function TableMenuExperience({
   }, [pixPending, pixRemainingSeconds]);
 
   useEffect(() => {
-    if (!pixPending || !currentPayment?.publicId) return undefined;
+    const onlinePending =
+      pixPending &&
+      (currentPayment?.method === 'PIX' || currentPayment?.method === 'CARD') &&
+      Boolean(currentPayment.publicId);
+    if (!onlinePending || !currentPayment?.publicId) return undefined;
+
     const paymentPublicId = currentPayment.publicId;
     const interval = window.setInterval(() => {
       if (document.hidden || paymentLoading) return;
@@ -199,64 +237,72 @@ export default function TableMenuExperience({
       });
     }, 5_000);
     return () => window.clearInterval(interval);
-  }, [currentPayment?.publicId, onReconcilePayment, paymentLoading, pixPending]);
+  }, [
+    currentPayment?.method,
+    currentPayment?.publicId,
+    onReconcilePayment,
+    paymentLoading,
+    pixPending,
+  ]);
 
-  function emptyConfiguration(product: HomeProduct): ProductConfiguration {
-    return {
-      selectedOptions: [],
-      selectedOptionIds: [],
-      observation: '',
-      configurationVersion: product.configurationVersion,
-    };
+  function flyProduct(product: HomeProduct, origin?: CartFlyOrigin | null) {
+    scheduleProductToCartAnimation({
+      origin,
+      imageUrl: product.image,
+      accentColor: primary,
+    });
   }
 
-  function openProduct(product: HomeProduct) {
+  function openProduct(product: HomeProduct, sourceElement?: HTMLElement | null) {
     if (orderingLocked) return;
-    if (product.kind === 'COMBO') {
-      if (product.comboGroups?.length) {
-        setConfiguringProduct(product);
-        return;
-      }
-      setCompleteProductQuantity(1);
-      setCompleteProductObservation('');
+    pendingCartFlyOriginRef.current = captureCartFlyOrigin(sourceElement);
+    const entryKind = resolveProductEntryKind(product);
+
+    if (entryKind === 'READY') {
       setSelectedProduct(product);
       return;
     }
-    if (product.saleMode === 'BUILDABLE') {
-      setConfiguringProduct(product);
-      return;
-    }
-    setCompleteProductQuantity(1);
-    setCompleteProductObservation('');
-    setSelectedProduct(product);
+
+    setConfiguringProduct(product);
   }
 
-  function quickAdd(product: HomeProduct) {
+  function quickAdd(product: HomeProduct, sourceElement?: HTMLElement | null) {
     if (orderingLocked) return;
-    if (product.kind === 'COMBO' && product.comboGroups?.length) {
+    pendingCartFlyOriginRef.current = captureCartFlyOrigin(sourceElement);
+    const entryKind = resolveProductEntryKind(product);
+
+    if (entryKind !== 'READY') {
       setConfiguringProduct(product);
       return;
     }
-    if (product.saleMode === 'BUILDABLE') {
-      setConfiguringProduct(product);
-      return;
-    }
-    onAddProduct(product.id, emptyConfiguration(product));
+
+    onAddProduct(
+      product.id,
+      createReadyProductConfiguration(product.configurationVersion),
+    );
+    flyProduct(product, pendingCartFlyOriginRef.current);
+    pendingCartFlyOriginRef.current = null;
   }
 
-  function addComplete(product: HomeProduct) {
+  function addComplete(
+    product: HomeProduct,
+    quantity: number,
+    observation: string,
+    sourceElement: HTMLElement | null,
+  ) {
     const configuration = {
       selectedOptions: [],
       selectedOptionIds: [],
-      observation: completeProductObservation.trim(),
+      observation,
       configurationVersion: product.configurationVersion,
     };
-    for (let index = 0; index < completeProductQuantity; index += 1) {
+    const origin = captureCartFlyOrigin(sourceElement) || pendingCartFlyOriginRef.current;
+    for (let index = 0; index < quantity; index += 1) {
       onAddProduct(product.id, configuration);
     }
     setSelectedProduct(null);
-    setCompleteProductQuantity(1);
-    setCompleteProductObservation('');
+    flyProduct(product, origin);
+    pendingCartFlyOriginRef.current = null;
   }
 
   async function submitOrder() {
@@ -275,21 +321,67 @@ export default function TableMenuExperience({
     }
   }
 
-  async function startPix() {
-    if (!confirmation?.orderPublicId || paymentLoading) return;
+  async function startPayment(
+    method: 'PIX' | 'CARD' | 'CASH',
+    cardPayment?: TableCardPaymentPayload,
+  ) {
+    if (paymentLoading) return;
     const pendingPayment = accountSnapshot?.activePayment;
-    if (
-      pendingPayment?.method === 'PIX' &&
-      ['RESERVED', 'PROCESSING'].includes(pendingPayment.status)
-    ) {
+    if (shouldReuseActiveTablePayment(pendingPayment, method)) {
       setPixPayment(pendingPayment);
       setView('pix');
       return;
     }
-    const payment = await onCreatePixPayment(confirmation.orderPublicId);
+    const payment = await onCreateAccountPayment(method, cardPayment);
     if (!payment) return;
     setPixPayment(payment);
     setView('pix');
+  }
+
+  async function submitCardPayment() {
+    if (paymentLoading || cardSubmitting || !cardPreparerRef.current) return;
+    setCardSubmitting(true);
+    try {
+      const prepared = await cardPreparerRef.current();
+      const cardToken = String(prepared.cardToken || '').trim();
+      const cardPaymentMethodId = String(prepared.cardPaymentMethodId || '').trim();
+      if (!cardToken || !cardPaymentMethodId) {
+        throw new Error('Não foi possível proteger os dados do cartão. Revise e tente novamente.');
+      }
+
+      const safeCardPayment: TableCardPaymentPayload = {
+        cardToken,
+        cardPaymentMethodId,
+        cardPaymentType: prepared.cardPaymentType === 'debit' ? 'debit' : 'credit',
+        ...(String(prepared.cardBrand || '').trim()
+          ? { cardBrand: String(prepared.cardBrand).trim().slice(0, 40) }
+          : {}),
+        ...(String(prepared.cardLast4 || '').replace(/\D/g, '').slice(-4).length === 4
+          ? { cardLast4: String(prepared.cardLast4).replace(/\D/g, '').slice(-4) }
+          : {}),
+        ...(String(prepared.paymentMethodId || '').trim()
+          ? { paymentMethodId: String(prepared.paymentMethodId).trim() }
+          : {}),
+        ...(String(prepared.holderName || '').trim()
+          ? { holderName: String(prepared.holderName).trim().slice(0, 100) }
+          : {}),
+        ...(String(prepared.holderTaxId || '').replace(/\D/g, '')
+          ? { holderTaxId: String(prepared.holderTaxId).replace(/\D/g, '').slice(0, 14) }
+          : {}),
+        ...(String(prepared.payerEmail || '').trim()
+          ? { payerEmail: String(prepared.payerEmail).trim().slice(0, 254) }
+          : {}),
+        ...(String(prepared.mercadoPagoDeviceId || '').trim()
+          ? { mercadoPagoDeviceId: String(prepared.mercadoPagoDeviceId).trim().slice(0, 256) }
+          : {}),
+      };
+
+      await startPayment('CARD', safeCardPayment);
+    } catch {
+      // O formulário seguro já apresenta a mensagem sanitizada ao cliente.
+    } finally {
+      setCardSubmitting(false);
+    }
   }
 
   async function copyPix() {
@@ -305,21 +397,118 @@ export default function TableMenuExperience({
     setView('menu');
   }
 
-  function showCatalog(categoryId?: string) {
-    if (categoryId) setSelectedCategory(categoryId);
-    setCatalogVisible(true);
-    window.requestAnimationFrame(() => {
-      document.getElementById('table-catalog')?.scrollIntoView({
-        behavior: 'smooth',
-        block: 'start',
-      });
-    });
+  function clearReviewCart() {
+    if (!cart.length) return;
+    onClearCart();
+    setCouponInput('');
+  }
+
+  if (
+    effectiveView === 'pix' &&
+    currentPayment?.method === 'CASH' &&
+    ['RESERVED', 'PROCESSING'].includes(currentPayment.status)
+  ) {
+    const requestedAt = paymentCreatedTime(currentPayment.createdAt);
+
+    return (
+      <S.FigmaShell $primary="#ff4b4b" $fontFamily={data.fontFamily}>
+        <FlowHeader
+          data={data}
+          tableLabel={tableLabel}
+          title="Pagamento em dinheiro"
+          onBack={() => setView('payment')}
+          onHome={goToMenu}
+          onMenu={goToMenu}
+          onOrders={() => setView('tracking')}
+        />
+        <S.FlowPage className="cash-payment-page">
+          <S.CashPendingLayout aria-live="polite">
+            <S.CashPendingHero>
+              <S.CashMoneyMark aria-label="Pagamento em dinheiro">
+                <span>R$</span>
+              </S.CashMoneyMark>
+
+              <h1>Aguardando pagamento em dinheiro</h1>
+              <p>
+                Sua solicitação foi registrada para a equipe. Aguarde o atendimento na Mesa{' '}
+                {tableNumber(tableLabel)}.
+              </p>
+
+              <S.CashRequestBadge>
+                <span aria-hidden="true" />
+                {requestedAt ? `Solicitação enviada · ${requestedAt}` : 'Solicitação enviada'}
+              </S.CashRequestBadge>
+            </S.CashPendingHero>
+
+            <S.CashAmountCard>
+              <span>
+                <small>Valor reservado</small>
+                <b>Pagamento presencial</b>
+              </span>
+              <strong>{centsToBrl(currentPayment.totalCents)}</strong>
+            </S.CashAmountCard>
+
+            <S.CashStatusCard>
+              <h2>Status do pagamento</h2>
+              <ol>
+                <li className="completed">
+                  <span className="status-dot"><Check size={15} /></span>
+                  <span>
+                    <b>Solicitação recebida</b>
+                    <small>A equipe do restaurante foi avisada</small>
+                  </span>
+                </li>
+                <li className="current">
+                  <span className="status-dot"><i /></span>
+                  <span>
+                    <b>Aguardando o dinheiro</b>
+                    <small>Entregue o valor a um funcionário</small>
+                  </span>
+                </li>
+                <li className="pending">
+                  <span className="status-dot"><i /></span>
+                  <span>
+                    <b>Confirmação do pagamento</b>
+                    <small>Liberada após o funcionário receber o dinheiro</small>
+                  </span>
+                </li>
+              </ol>
+            </S.CashStatusCard>
+
+            <S.CashConfirmationNotice>
+              <Clock3 size={19} aria-hidden="true" />
+              <span>O pagamento só será confirmado após o funcionário receber o dinheiro.</span>
+            </S.CashConfirmationNotice>
+
+            <S.CashActions>
+              <S.PrimaryAction type="button" onClick={onViewAccount}>
+                <ReceiptText size={18} aria-hidden="true" /> Acompanhar conta
+              </S.PrimaryAction>
+              {waiterCallEnabled ? (
+                <S.SecondaryAction type="button" onClick={onCallWaiter}>
+                  <Bell size={18} aria-hidden="true" /> Chamar o garçom
+                </S.SecondaryAction>
+              ) : null}
+            </S.CashActions>
+          </S.CashPendingLayout>
+        </S.FlowPage>
+      </S.FigmaShell>
+    );
   }
 
   if (effectiveView === 'pix' && currentPayment) {
     if (currentPayment.status === 'PAID') {
+      const paymentMethodLabel = tablePaymentMethodLabel(currentPayment.method);
+      const paymentStatusLabel = tablePaymentStatusLabel(currentPayment.status);
+      const paymentDescription =
+        currentPayment.method === 'PIX'
+          ? 'Recebemos seu pagamento via PIX com sucesso.'
+          : currentPayment.method === 'CASH'
+            ? 'O pagamento em dinheiro foi confirmado com sucesso.'
+            : `Recebemos seu pagamento por ${paymentMethodLabel} com sucesso.`;
+
       return (
-        <S.FigmaShell $primary={primary} $fontFamily={data.fontFamily}>
+        <S.FigmaShell $primary="#ff4b4b" $fontFamily={data.fontFamily}>
           <FlowHeader
             data={data}
             tableLabel={tableLabel}
@@ -338,21 +527,21 @@ export default function TableMenuExperience({
                   </div>
                 </div>
                 <h1>Pagamento Confirmado!</h1>
-                <p>Recebemos seu pagamento via PIX com sucesso.</p>
+                <p>{paymentDescription}</p>
                 <S.PaidReceipt>
                   <div className="receipt-head">
                     {confirmation?.orderId ? <small>Pedido #{confirmation.orderId}</small> : <small>Pedido</small>}
-                    <span className="status">PAGO</span>
+                    <span className="status">{paymentStatusLabel.toUpperCase()}</span>
                   </div>
                   <strong>{centsToBrl(currentPayment.totalCents)}</strong>
                   <div className="receipt-divider" />
                   <div className="receipt-row">
                     <small>Forma de Pagamento</small>
-                    <b>PIX</b>
+                    <b>{paymentMethodLabel}</b>
                   </div>
                   <div className="receipt-row">
                     <small>Status</small>
-                    <b className="confirmed">Confirmado agora</b>
+                    <b className="confirmed">{paymentStatusLabel}</b>
                   </div>
                 </S.PaidReceipt>
                 <div className="prep-banner">
@@ -370,6 +559,34 @@ export default function TableMenuExperience({
                 </S.SecondaryAction>
               </S.PaymentSuccessMain>
             </S.PaymentSuccessLayout>
+          </S.FlowPage>
+        </S.FigmaShell>
+      );
+    }
+
+    if (currentPayment.method === 'CARD') {
+      return (
+        <S.FigmaShell $primary="#ff4b4b" $fontFamily={data.fontFamily}>
+          <FlowHeader
+            data={data}
+            tableLabel={tableLabel}
+            title="Pagamento com cartão"
+            onBack={() => setView('payment')}
+            onHome={goToMenu}
+            onMenu={goToMenu}
+            onOrders={() => setView('tracking')}
+          />
+          <S.FlowPage>
+            <TablePaymentStatusView
+              payment={currentPayment}
+              status={currentPayment.status}
+              actionLoading={paymentLoading}
+              restaurantCategory={data.brand.category}
+              onVerify={() => onReconcilePayment(currentPayment.publicId)}
+              onCancel={() => onCancelPayment(currentPayment.publicId)}
+              onStartOver={() => setView('payment')}
+              onClose={() => setView('tracking')}
+            />
           </S.FlowPage>
         </S.FigmaShell>
       );
@@ -476,84 +693,70 @@ export default function TableMenuExperience({
     );
   }
 
-  if (effectiveView === 'payment' && confirmation) {
-    const allowPix = accountSnapshot?.capabilities.allowPix === true;
+  if (effectiveView === 'card' && accountSnapshot) {
     return (
-      <S.FigmaShell $primary={primary} $fontFamily={data.fontFamily}>
-        <FlowHeader
-          data={data}
-          tableLabel={tableLabel}
-          title="Finalizar Conta"
-          onBack={() => setView('confirmation')}
-          onHome={goToMenu}
-          onMenu={goToMenu}
-          onOrders={() => setView('tracking')}
-        />
-        <S.FlowPage>
-          <S.PaymentCard>
-            <S.FlowTitle>
-              <h1>Como prefere pagar?</h1>
-              <p>
-                <span className="desktop-only">
-                  Finalize agora pelo celular ou deixe para pagar depois com a equipe.
-                </span>
-                <span className="mobile-only">
-                  Finalize agora pelo celular ou deixe para pagar depois.
-                </span>
-              </p>
-            </S.FlowTitle>
+      <TableCardPaymentView
+        data={data}
+        tableLabel={tableLabel}
+        accountSnapshot={accountSnapshot}
+        restaurantId={restaurantId}
+        userEmail={userEmail}
+        paymentLoading={paymentLoading}
+        cardSubmitting={cardSubmitting}
+        cardReady={cardReady}
+        onCardPreparerChange={handleCardPreparerChange}
+        onSubmitCardPayment={() => void submitCardPayment()}
+        onBack={() => setView('payment')}
+        onHome={goToMenu}
+        onOrders={() => setView('tracking')}
+      />
+    );
+  }
 
-            <S.PaymentOptionsGrid>
-            {allowPix ? (
-              <S.PaymentChoiceCard>
-                <span className="icon"><QrCode size={20} /></span>
-                <span className="recommended desktop-only">RECOMENDADO</span>
-                <span className="pix-badge mobile-only">PIX</span>
-                <h2>Pagar agora (PIX)</h2>
-                <p>Finalize pelo celular com liberação automática na hora. Rápido e prático.</p>
-                <button
-                  className="primary"
-                  type="button"
-                  disabled={paymentLoading}
-                  onClick={() => void startPix()}
-                >
-                  Escolher PIX
-                </button>
-              </S.PaymentChoiceCard>
-            ) : null}
-
-            <S.PaymentChoiceCard>
-              <span className="icon"><Clock3 size={20} /></span>
-              <h2>Deixar na conta</h2>
-              <p>
-                Os itens permanecem vinculados à Mesa {tableNumber(tableLabel)}. Pague ao sair com o garçom.
-              </p>
-              <small>Continue pedindo normalmente.</small>
-              <button className="secondary" type="button" onClick={() => setView('tracking')}>
-                Deixar aberto na Mesa
-              </button>
-            </S.PaymentChoiceCard>
-          </S.PaymentOptionsGrid>
-
-            <S.PaymentSummary>
-              <div className="label">
-                <small>
-                  <span className="desktop-only">Valor total deste pedido:</span>
-                  <span className="mobile-only">Valor deste pedido:</span>
-                </small>
-                {confirmation.orderId ? <strong>Pedido #{confirmation.orderId}</strong> : null}
-              </div>
-              <span className="amount">{brl(confirmation.total)}</span>
-            </S.PaymentSummary>
-          </S.PaymentCard>
-        </S.FlowPage>
-      </S.FigmaShell>
+  if (effectiveView === 'payment' && accountSnapshot) {
+    return (
+      <TablePaymentChoiceView
+        data={data}
+        tableLabel={tableLabel}
+        accountSnapshot={accountSnapshot}
+        paymentLoading={paymentLoading}
+        onStartPayment={(method) => void startPayment(method)}
+        onOpenCard={() => setView('card')}
+        onBack={() => setView('tracking')}
+        onHome={goToMenu}
+        onOrders={() => setView('tracking')}
+      />
     );
   }
 
   if (effectiveView === 'tracking') {
+    const ownAccount = currentParticipantAccount(accountSnapshot);
+    const activeTablePayment = accountSnapshot?.activePayment || null;
+    const activePaymentPending = Boolean(
+      activeTablePayment && ['RESERVED', 'PROCESSING'].includes(activeTablePayment.status),
+    );
+    const activePixPending = Boolean(activePaymentPending && activeTablePayment?.method === 'PIX');
+    const pixBlockedByOtherPayment = Boolean(
+      activePaymentPending && activeTablePayment?.method !== 'PIX',
+    );
+    const canPayOwnAccount = Boolean(ownAccount && ownAccount.remainingCents > 0);
+    const allowPix = accountSnapshot?.capabilities.allowPix === true;
+    const pixUnavailable = !allowPix || pixBlockedByOtherPayment;
+    const pixButtonLabel = !allowPix
+      ? 'PIX indisponível'
+      : pixBlockedByOtherPayment
+        ? 'PIX indisponível no momento'
+        : 'Pagar agora com PIX';
+    const preparationMinutes = Number.parseInt(String(data.deliveryTime || ''), 10);
+    const confirmedAt = tableOrder?.createdAt
+      ? new Intl.DateTimeFormat('pt-BR', { hour: '2-digit', minute: '2-digit' }).format(
+          new Date(tableOrder.createdAt),
+        )
+      : '';
+    const trackingDescriptions = trackingSteps(tableOrder, confirmedAt);
+
     return (
-      <S.FigmaShell $primary={primary} $fontFamily={data.fontFamily}>
+      <S.FigmaShell $primary="#ff4b4b" $fontFamily={data.fontFamily}>
         <FlowHeader
           data={data}
           tableLabel={tableLabel}
@@ -574,8 +777,12 @@ export default function TableMenuExperience({
               <S.StatusCard>
                 <span className="icon"><Clock3 size={28} /></span>
                 <div>
-                  <h2>{tableOrder?.statusLabel || 'Preparando seu pedido'}</h2>
-                  <p>{tableOrder?.summary || 'O status será atualizado em tempo real.'}</p>
+                  <h2>{trackingHeadline(tableOrder)}</h2>
+                  <p>
+                    {Number.isFinite(preparationMinutes) && preparationMinutes > 0
+                      ? `A cozinha estimou cerca de ${preparationMinutes} minutos para servir.`
+                      : 'O status será atualizado em tempo real pela cozinha.'}
+                  </p>
                 </div>
               </S.StatusCard>
 
@@ -584,15 +791,36 @@ export default function TableMenuExperience({
               </S.SectionHeading>
               <S.TimelineCard className="tracking-timeline">
                 <S.Timeline>
-                  {trackingSteps(tableOrder).map((step, index) => (
-                    <S.TimelineStep key={step.label} $active={step.active} $current={step.current}>
-                      <span className="dot">{step.active ? <Check size={14} /> : index + 1}</span>
-                      <div className="copy">
-                        <b>{step.label}</b>
-                        {step.description ? <p>{step.description}</p> : null}
-                      </div>
-                    </S.TimelineStep>
-                  ))}
+                  {trackingDescriptions.map((step, index) => {
+                    const stateClass = step.current
+                      ? 'tracking-step current'
+                      : step.active
+                        ? 'tracking-step completed'
+                        : 'tracking-step pending';
+
+                    return (
+                      <S.TimelineStep
+                        key={step.label}
+                        className={stateClass}
+                        $active={step.active}
+                        $current={step.current}
+                      >
+                        <span className="dot">
+                          {step.active ? (
+                            index === 1 && step.current ? (
+                              <CookingPot size={13} />
+                            ) : (
+                              <Check size={14} />
+                            )
+                          ) : null}
+                        </span>
+                        <div className="copy">
+                          <b>{step.label}</b>
+                          {step.description ? <p>{step.description}</p> : null}
+                        </div>
+                      </S.TimelineStep>
+                    );
+                  })}
                 </S.Timeline>
               </S.TimelineCard>
             </div>
@@ -629,9 +857,45 @@ export default function TableMenuExperience({
               ) : null}
 
               {waiterCallEnabled ? (
-                <S.PrimaryAction type="button" onClick={onCallWaiter}>
+                <S.SecondaryAction type="button" onClick={onCallWaiter}>
                   <Bell size={17} /> Chamar garçom para mesa
-                </S.PrimaryAction>
+                </S.SecondaryAction>
+              ) : null}
+
+              {canPayOwnAccount ? (
+                <>
+                  <S.TrackingPixAction
+                    type="button"
+                    disabled={paymentLoading || pixUnavailable}
+                    aria-label={pixButtonLabel}
+                    title={
+                      !allowPix
+                        ? 'O PIX será liberado quando o administrador configurar um provedor no restaurante.'
+                        : pixBlockedByOtherPayment
+                          ? 'Há outro pagamento em andamento para este consumo.'
+                          : undefined
+                    }
+                    onClick={() => {
+                      if (activePixPending && activeTablePayment) {
+                        setPixPayment(activeTablePayment);
+                        setView('pix');
+                        return;
+                      }
+                      void startPayment('PIX');
+                    }}
+                  >
+                    <PixMark /> {pixButtonLabel}
+                  </S.TrackingPixAction>
+
+                  <S.TrackingOtherPaymentAction
+                    type="button"
+                    disabled={paymentLoading}
+                    onClick={() => setView('payment')}
+                  >
+                    <WalletCards size={18} aria-hidden="true" />
+                    Outras formas de pagamento
+                  </S.TrackingOtherPaymentAction>
+                </>
               ) : null}
             </S.OrderItemsCard>
           </S.TrackingLayout>
@@ -642,7 +906,7 @@ export default function TableMenuExperience({
 
   if (effectiveView === 'confirmation' && confirmation) {
     return (
-      <S.FigmaShell $primary={primary} $fontFamily={data.fontFamily}>
+      <S.FigmaShell $primary="#ff4b4b" $fontFamily={data.fontFamily}>
         <FlowHeader
           data={data}
           tableLabel={tableLabel}
@@ -675,10 +939,25 @@ export default function TableMenuExperience({
           <S.TimelineCard className="confirmation-timeline">
             <S.Timeline>
               {confirmationSteps(tableOrder).map((step, index) => (
-                <S.TimelineStep key={step.label} $active={step.active} $current={step.current}>
-                  <span className="dot">{step.active ? <Check size={14} /> : index + 1}</span>
+                <S.TimelineStep
+                  key={step.label}
+                  className={
+                    step.completed
+                      ? 'confirmation-step completed'
+                      : step.current
+                        ? 'confirmation-step current'
+                        : 'confirmation-step pending'
+                  }
+                  $active={step.active}
+                  $current={step.current}
+                >
+                  <span className="dot">
+                    {step.completed ? <Check size={12} /> : step.current ? <span className="pulse" /> : index + 1}
+                  </span>
                   <div className="copy">
                     <b>{step.label}</b>
+                    {step.completed ? <small className="completed-label">Concluído</small> : null}
+                    {step.current ? <small className="current-label">Iniciado agora</small> : null}
                   </div>
                 </S.TimelineStep>
               ))}
@@ -687,12 +966,30 @@ export default function TableMenuExperience({
 
           <S.ConfirmationActions>
             <S.PrimaryAction type="button" onClick={() => setView('tracking')}>
+              <Eye size={15} aria-hidden="true" />
               Acompanhar em tempo real
             </S.PrimaryAction>
-            {accountSnapshot?.capabilities.allowPix ? (
-              <S.SecondaryAction type="button" onClick={() => setView('payment')}>
-                Pagar agora no PIX
-              </S.SecondaryAction>
+            {confirmation.total > 0 ? (
+              <>
+                <S.SecondaryAction
+                  className="pix-action"
+                  type="button"
+                  disabled={paymentLoading}
+                  onClick={() => void startPayment('PIX')}
+                >
+                  <PixMark />
+                  Pagar agora no PIX
+                </S.SecondaryAction>
+
+                <S.TrackingOtherPaymentAction
+                  type="button"
+                  disabled={paymentLoading}
+                  onClick={() => setView('payment')}
+                >
+                  <WalletCards size={18} aria-hidden="true" />
+                  Outras formas de pagamento
+                </S.TrackingOtherPaymentAction>
+              </>
             ) : null}
             <S.HelperText>Deseja continuar pedindo? A conta ficará aberta na mesa.</S.HelperText>
           </S.ConfirmationActions>
@@ -715,7 +1012,7 @@ export default function TableMenuExperience({
     const totalWithFee = Math.max(0, cartTotal - couponDiscount + serviceFee);
 
     return (
-      <S.FigmaShell $primary={primary} $fontFamily={data.fontFamily}>
+      <S.FigmaShell $primary="#ff4b4b" $fontFamily={data.fontFamily}>
         <FlowHeader
           data={data}
           tableLabel={tableLabel}
@@ -728,7 +1025,19 @@ export default function TableMenuExperience({
 
         <S.FlowPage>
           <S.FlowTitle className="cart-title">
-            <h1 aria-label="Minha sacola">Revisar Pedido</h1>
+            <div className="cart-title-row">
+              <h1 aria-label="Minha sacola">Revisar Pedido</h1>
+              {cart.length ? (
+                <button
+                  className="clear-cart-inline"
+                  type="button"
+                  aria-label="Limpar carrinho"
+                  onClick={clearReviewCart}
+                >
+                  Limpar
+                </button>
+              ) : null}
+            </div>
             <p>Confirme os itens selecionados antes do preparo</p>
           </S.FlowTitle>
 
@@ -778,53 +1087,58 @@ export default function TableMenuExperience({
 
             <div className="cart-summary-column">
               <h2 className="desktop-only">Resumo</h2>
-              <S.CouponRow>
-                <input
-                  value={couponInput}
-                  onChange={(event) => setCouponInput(event.target.value)}
-                  placeholder="Cupom promocional"
-                  aria-label="Cupom promocional"
-                />
-                <button
-                  type="button"
-                  disabled={!couponInput.trim() || !onApplyCouponCode}
-                  onClick={() => onApplyCouponCode?.(couponInput.trim())}
-                >
-                  Aplicar
-                </button>
-              </S.CouponRow>
-              <S.SummaryCard>
-                <div className="row"><span>Subtotal</span><strong>{brl(cartTotal)}</strong></div>
-                {couponDiscount > 0 ? (
-                  <div className="row discount">
-                    <span>{couponCode ? `Cupom · ${couponCode}` : 'Cupom promocional'}</span>
-                    <strong>− {brl(couponDiscount)}</strong>
-                  </div>
-                ) : null}
-                <div className="row">
-                  <span>
-                    <span className="desktop-only">Taxa de Serviço (Opcional)</span>
-                    <span className="mobile-only">Serviço (Opcional)</span>
-                  </span>
-                  <strong>{brl(serviceFee)}</strong>
-                </div>
-                <div className="divider" />
-                <div className="row total"><span>Total</span><strong>{brl(totalWithFee)}</strong></div>
-              </S.SummaryCard>
+              <S.CartSummaryPanel>
+                <S.CouponRow>
+                  <input
+                    value={couponInput}
+                    onChange={(event) => setCouponInput(event.target.value)}
+                    placeholder="Cupom promocional"
+                    aria-label="Cupom promocional"
+                  />
+                  <button
+                    type="button"
+                    disabled={!couponInput.trim() || !onApplyCouponCode}
+                    onClick={() => onApplyCouponCode?.(couponInput.trim())}
+                  >
+                    Aplicar
+                  </button>
+                </S.CouponRow>
 
-              <S.PrimaryAction
-                type="button"
-                disabled={!cart.length || submitting || orderingLocked}
-                onClick={() => void submitOrder()}
-              >
-                <span className="action-copy">
-                  <b>{submitting ? 'Enviando pedido...' : 'Enviar pedido para a cozinha'}</b>
-                  {!submitting ? <small>Seu pedido iniciará o preparo imediatamente</small> : null}
-                </span>
-              </S.PrimaryAction>
-              <S.HelperText>
-                Depois você escolhe pagar agora pelo celular ou no fim.
-              </S.HelperText>
+                <S.SummaryCard>
+                  <div className="row"><span>Subtotal</span><strong>{brl(cartTotal)}</strong></div>
+                  {couponDiscount > 0 ? (
+                    <div className="row discount">
+                      <span>{couponCode ? `Cupom · ${couponCode}` : 'Cupom promocional'}</span>
+                      <strong>− {brl(couponDiscount)}</strong>
+                    </div>
+                  ) : null}
+                  <div className="row">
+                    <span>
+                      <span className="desktop-only">Taxa de Serviço (Opcional)</span>
+                      <span className="mobile-only">Serviço (Opcional)</span>
+                    </span>
+                    <strong>{brl(serviceFee)}</strong>
+                  </div>
+                  <div className="divider" />
+                  <div className="row total"><span>Total</span><strong>{brl(totalWithFee)}</strong></div>
+                </S.SummaryCard>
+
+                <div className="submit-block">
+                  <S.CartSubmitAction
+                    type="button"
+                    disabled={!cart.length || submitting || orderingLocked}
+                    onClick={() => void submitOrder()}
+                  >
+                    <span className="action-copy">
+                      <b>{submitting ? 'Enviando pedido...' : 'Enviar pedido para a cozinha'}</b>
+                      {!submitting ? <small>Seu pedido iniciará o preparo imediatamente</small> : null}
+                    </span>
+                  </S.CartSubmitAction>
+                  <S.CartHelperText>
+                    Depois você escolhe pagar agora pelo celular ou no fim.
+                  </S.CartHelperText>
+                </div>
+              </S.CartSummaryPanel>
             </div>
           </S.CartDesktopLayout>
         </S.FlowPage>
@@ -832,292 +1146,49 @@ export default function TableMenuExperience({
     );
   }
 
-  const activeBanner = data.banners[bannerIndex] || data.banners[0];
-  const heroTitle =
-    [activeBanner?.title, activeBanner?.highlight].filter(Boolean).join(' ') ||
-    [data.hero.title, data.hero.highlight].filter(Boolean).join(' ') ||
-    'Peça direto da mesa com praticidade';
-  const heroDescription =
-    activeBanner?.description ||
-    data.hero.description ||
-    'Seu pedido vai direto para a cozinha.';
-  const heroImage = activeBanner?.image || data.hero.image;
+  const tableCartCount = cart.reduce(
+    (total, item) => total + Math.max(1, Number(item.quantity || 1)),
+    0,
+  );
 
   return (
     <S.FigmaShell $primary={primary} $fontFamily={data.fontFamily}>
-      <FlowHeader
+      <TableMenuHome
         data={data}
         tableLabel={tableLabel}
-        onHome={() => {
-          setCatalogVisible(false);
-          window.scrollTo({ top: 0, behavior: 'smooth' });
-        }}
-        onMenu={() => showCatalog()}
-        onOrders={() => setView('tracking')}
+        cartCount={tableCartCount}
+        orderingLocked={orderingLocked}
+        waiterCallEnabled={waiterCallEnabled}
+        userName={userName}
+        userLoggedIn={userLoggedIn}
+        onOpenProduct={openProduct}
+        onQuickAdd={quickAdd}
+        onOpenCart={() => setView('cart')}
+        onCallWaiter={onCallWaiter}
+        onViewAccount={onViewAccount}
       />
 
-      <S.MenuHero>
-        {heroImage ? <img className="hero-bg" src={heroImage} alt="" /> : null}
-        <div className="hero-overlay" aria-hidden="true" />
-        <div className="copy">
-          <span className="eyebrow">
-            <span className="eyebrow-desktop">
-              RESTAURANTE {data.brand.name.toUpperCase()} · MESA {tableNumber(tableLabel)}
-            </span>
-            <span className="eyebrow-mobile">
-              RESTAURANTE {data.brand.name.toUpperCase()}
-            </span>
-          </span>
-          <h1>{heroTitle}</h1>
-          <p>{heroDescription}</p>
-          <button className="cta" type="button" onClick={() => showCatalog()}>
-            {activeBanner?.buttonLabel ? (
-              activeBanner.buttonLabel
-            ) : (
-              <>
-                <span className="cta-desktop">Ver Cardápio Completo</span>
-                <span className="cta-mobile">Ver Cardápio</span>
-              </>
-            )}
-          </button>
-        </div>
-
-        {data.banners.length > 1 ? (
-          <div className="indicators" aria-label="Banners em destaque">
-            {data.banners.map((banner, index) => (
-              <button
-                key={banner.id}
-                type="button"
-                aria-label={`Mostrar banner ${index + 1}`}
-                className={index === bannerIndex ? 'active' : ''}
-                onClick={() => setBannerIndex(index)}
-              />
-            ))}
-          </div>
-        ) : null}
-      </S.MenuHero>
-
-      <S.MenuPage>
-
-        <S.SearchCategoryRow>
-          <S.MenuSearch>
-            <Search size={21} />
-            <input
-              value={query}
-              onChange={(event) => {
-                const nextQuery = event.target.value;
-                setQuery(nextQuery);
-                if (nextQuery.trim()) setCatalogVisible(true);
-              }}
-              placeholder="Buscar no cardápio (pizza, burguer, bebidas...)"
-              aria-label="Buscar no cardápio"
-            />
-          </S.MenuSearch>
-
-          {realCategories.length ? (
-            <S.CategoryRail aria-label="Categorias do cardápio">
-              {realCategories.map((category) => (
-                <S.CategoryPill
-                  key={category.id}
-                  type="button"
-                  $active={selectedCategory === category.id}
-                  onClick={() => showCatalog(category.id)}
-                >
-                  <span className="category-image" aria-hidden="true">
-                    {category.image ? <img src={category.image} alt="" /> : null}
-                  </span>
-                  <span className="category-label">{category.name}</span>
-                </S.CategoryPill>
-              ))}
-            </S.CategoryRail>
-          ) : null}
-        </S.SearchCategoryRow>
-
-        {combos.length ? (
-          <S.ComboSection>
-            <S.SectionHeading>
-              <div className="title">
-                <h2>Combos em Destaque</h2>
-                <p>Os favoritos da galera para compartilhar</p>
-              </div>
-              <button type="button" onClick={() => showCatalog('todos')}>
-                <span className="desktop-only">Ver todos os pratos</span>
-                <span className="mobile-only">Ver todos</span>
-              </button>
-            </S.SectionHeading>
-            <S.ComboRail>
-              {combos.map((combo) => (
-                <FigmaComboCard
-                  key={combo.id}
-                  product={combo}
-                  disabled={orderingLocked}
-                  onOpen={() => openProduct(combo)}
-                  onAdd={() => quickAdd(combo)}
-                />
-              ))}
-            </S.ComboRail>
-          </S.ComboSection>
-        ) : null}
-
-        <S.TableActionsSection>
-          <h2>
-            <span className="desktop-only">Ações Rápidas na Mesa</span>
-            <span className="mobile-only">Ações Rápidas</span>
-          </h2>
-          <S.TableActionsGrid>
-            <S.TableActionCard
-              $tone="order"
-              type="button"
-              aria-label="Meu pedido"
-              onClick={() => setView('cart')}
-            >
-              <span className="icon"><ShoppingBag /></span>
-              <span className="copy">
-                <b>Meu Pedido</b>
-                <small>Visualize os itens em revisão no carrinho</small>
-              </span>
-            </S.TableActionCard>
-
-            {waiterCallEnabled ? (
-              <S.TableActionCard
-                $tone="waiter"
-                type="button"
-                aria-label="Chamar garçom"
-                onClick={onCallWaiter}
-              >
-                <span className="icon"><Bell /></span>
-                <span className="copy">
-                  <b>
-                    <span className="desktop-only">Chamar Garçom</span>
-                    <span className="mobile-only">Garçom</span>
-                  </b>
-                  <small>Solicite assistência imediata à sua mesa</small>
-                </span>
-              </S.TableActionCard>
-            ) : null}
-
-            {billRequestEnabled && onRequestBill ? (
-              <S.TableActionCard
-                $tone="bill"
-                type="button"
-                aria-label="Ver conta"
-                onClick={onRequestBill}
-              >
-                <span className="icon"><ReceiptText /></span>
-                <span className="copy">
-                  <b>Ver Conta</b>
-                  <small>Acompanhe o consumo total da mesa</small>
-                </span>
-              </S.TableActionCard>
-            ) : null}
-          </S.TableActionsGrid>
-        </S.TableActionsSection>
-
-        {catalogVisible ? (
-        <S.CatalogSection id="table-catalog">
-          <S.SectionHeading>
-            <div className="title">
-              <h2>
-                {selectedCategory === 'todos'
-                  ? 'Cardápio'
-                  : realCategories.find((category) => category.id === selectedCategory)?.name ||
-                    'Cardápio'}
-              </h2>
-              {query ? <p>Resultados para “{query}”</p> : null}
-            </div>
-            {selectedCategory !== 'todos' ? (
-              <button type="button" onClick={() => setSelectedCategory('todos')}>
-                Ver todos <ChevronRight size={14} />
-              </button>
-            ) : null}
-          </S.SectionHeading>
-
-          {filteredProducts.length ? (
-            <S.CatalogGrid>
-              {filteredProducts.map((product) => (
-                <FigmaCatalogCard
-                  key={product.id}
-                  product={product}
-                  disabled={orderingLocked}
-                  onOpen={() => openProduct(product)}
-                  onAdd={() => quickAdd(product)}
-                />
-              ))}
-            </S.CatalogGrid>
-          ) : (
-            <S.EmptyCatalog>Nenhum produto disponível para este filtro.</S.EmptyCatalog>
-          )}
-        </S.CatalogSection>
-        ) : null}
-      </S.MenuPage>
-
       {selectedProduct ? (
-        <S.ProductOverlay role="dialog" aria-modal="true" aria-label={selectedProduct.name}>
-          <S.CompleteProductDetail>
-            <div className="media">
-              {selectedProduct.image ? (
-                <img src={selectedProduct.image} alt={selectedProduct.name} />
-              ) : (
-                <S.CompleteProductPlaceholder aria-hidden="true">
-                  <Utensils />
-                </S.CompleteProductPlaceholder>
-              )}
-              <button
-                className="back"
-                type="button"
-                aria-label="Voltar ao cardápio"
-                onClick={() => setSelectedProduct(null)}
-              >
-                <ArrowLeft size={19} />
-              </button>
-            </div>
-
-            <div className="content">
-              <div className="title-row"><h1>{selectedProduct.name}</h1></div>
-              <S.ProductPrice className="price">
-                {selectedProduct.promotion?.active &&
-                selectedProduct.originalPrice > selectedProduct.price ? (
-                  <del>{brl(selectedProduct.originalPrice)}</del>
-                ) : null}
-                <strong>{brl(selectedProduct.price)}</strong>
-              </S.ProductPrice>
-              {selectedProduct.description ? (
-                <p className="description">{selectedProduct.description}</p>
-              ) : null}
-
-              <label className="observation">
-                <span>Observações (opcional)</span>
-                <textarea
-                  maxLength={240}
-                  value={completeProductObservation}
-                  onChange={(event) => setCompleteProductObservation(event.target.value)}
-                  placeholder="Adicione uma observação"
-                />
-                <small>{completeProductObservation.length}/240</small>
-              </label>
-
-              <div className="bottom-action">
-                <S.CompleteProductQuantity>
-                  <QuantityStepper
-                    value={completeProductQuantity}
-                    ariaLabel="Quantidade do produto"
-                    decreaseLabel="Diminuir quantidade"
-                    increaseLabel="Aumentar quantidade"
-                    decreaseDisabled={completeProductQuantity <= 1}
-                    onDecrease={() =>
-                      setCompleteProductQuantity((quantity) => Math.max(1, quantity - 1))
-                    }
-                    onIncrease={() => setCompleteProductQuantity((quantity) => quantity + 1)}
-                  />
-                </S.CompleteProductQuantity>
-                <S.CompleteProductAdd type="button" onClick={() => addComplete(selectedProduct)}>
-                  <span>Adicionar</span>
-                  <strong>{brl(selectedProduct.price * completeProductQuantity)}</strong>
-                </S.CompleteProductAdd>
-              </div>
-            </div>
-          </S.CompleteProductDetail>
-        </S.ProductOverlay>
+        <ReadyProductDetail
+          product={selectedProduct}
+          restaurantName={data.brand.name}
+          restaurantCategory={data.brand.category}
+          categoryName={data.categories.find((category) => category.id === selectedProduct.categoryId)?.name}
+          preparationTime={data.deliveryTime}
+          cartCount={tableCartCount}
+          onBack={() => {
+            setSelectedProduct(null);
+            pendingCartFlyOriginRef.current = null;
+          }}
+          onOpenCart={() => {
+            setSelectedProduct(null);
+            pendingCartFlyOriginRef.current = null;
+            setView('cart');
+          }}
+          onConfirm={({ quantity, observation, sourceElement }) =>
+            addComplete(selectedProduct, quantity, observation, sourceElement)
+          }
+        />
       ) : null}
 
       {configuringProduct ? (
@@ -1126,24 +1197,44 @@ export default function TableMenuExperience({
             <ComboConfigurator
               product={configuringProduct}
               primaryColor={primary}
-              onClose={() => setConfiguringProduct(null)}
-              onConfirm={(configuration) => {
-                onAddProduct(configuringProduct.id, configuration);
+              onClose={() => {
                 setConfiguringProduct(null);
+                pendingCartFlyOriginRef.current = null;
+              }}
+              onConfirm={(configuration) => {
+                const product = configuringProduct;
+                const origin =
+                  captureCartFlyOrigin(
+                    document.querySelector<HTMLElement>('[data-cart-fly-source="dialog"]'),
+                  ) || pendingCartFlyOriginRef.current;
+                onAddProduct(product.id, configuration);
+                setConfiguringProduct(null);
+                flyProduct(product, origin);
+                pendingCartFlyOriginRef.current = null;
               }}
             />
           ) : (
             <ProductConfigurator
               product={configuringProduct}
               primaryColor={primary}
-              onClose={() => setConfiguringProduct(null)}
+              onClose={() => {
+                setConfiguringProduct(null);
+                pendingCartFlyOriginRef.current = null;
+              }}
               enableProductQuantity
               tableMenuVariant
               onConfirm={(configuration, quantity = 1) => {
+                const product = configuringProduct;
+                const origin =
+                  captureCartFlyOrigin(
+                    document.querySelector<HTMLElement>('[data-cart-fly-source="dialog"]'),
+                  ) || pendingCartFlyOriginRef.current;
                 for (let index = 0; index < quantity; index += 1) {
-                  onAddProduct(configuringProduct.id, configuration);
+                  onAddProduct(product.id, configuration);
                 }
                 setConfiguringProduct(null);
+                flyProduct(product, origin);
+                pendingCartFlyOriginRef.current = null;
               }}
             />
           )}
@@ -1151,101 +1242,4 @@ export default function TableMenuExperience({
       ) : null}
     </S.FigmaShell>
   );
-}
-
-function FlowHeader({
-  data,
-  tableLabel,
-  title,
-  onBack,
-  onHome,
-  onMenu,
-  onOrders,
-}: {
-  data: HomeData;
-  tableLabel: string | number;
-  title?: string;
-  onBack?: () => void;
-  onHome: () => void;
-  onMenu: () => void;
-  onOrders: () => void;
-}) {
-  return (
-    <S.FigmaHeader $hasTitle={Boolean(title)}>
-      <div className="left">
-        {title && onBack ? (
-          <button className="mobile-back" type="button" aria-label="Voltar" onClick={onBack}>
-            <ArrowLeft size={20} />
-          </button>
-        ) : null}
-        <S.FigmaBrand>
-          {data.brand.logoUrl ? (
-            <img src={data.brand.logoUrl} alt={data.brand.name} />
-          ) : (
-            <span className="mark">{data.brand.monogram || data.brand.name.slice(0, 1)}</span>
-          )}
-          <span className="name">
-            <b>{data.brand.name}</b>
-            <small className="brand-subtitle desktop-subtitle">Mesa Inteligente</small>
-            <small className="brand-subtitle mobile-subtitle">{data.brand.name}</small>
-          </span>
-        </S.FigmaBrand>
-        {title ? (
-          <span className="context-title">
-            <b>{title}</b>
-            <small>{data.brand.name}</small>
-          </span>
-        ) : null}
-      </div>
-
-      <nav aria-label="Navegação da mesa">
-        <button className={!title ? 'active' : ''} type="button" onClick={onHome}>Início</button>
-        <button className={title === 'Meu Pedido' ? 'active' : ''} type="button" onClick={onMenu}>Cardápio</button>
-        <button className={title && title !== 'Meu Pedido' ? 'active' : ''} type="button" onClick={onOrders}>Pedidos</button>
-      </nav>
-
-      <div className="right">
-        <S.FigmaTablePill aria-label={`Mesa ${tableLabel}`}>
-          <Utensils size={21} />
-          <span>Mesa {tableNumber(tableLabel)}</span>
-        </S.FigmaTablePill>
-      </div>
-    </S.FigmaHeader>
-  );
-}
-
-function stepState(progress: number, step: number) {
-  return {
-    active: progress >= step,
-    current: progress === step || (progress > 3 && step === 3),
-  };
-}
-
-function confirmationSteps(tableOrder: TableOrderNotice | null) {
-  const progress = tableOrder?.progress || 0;
-  return ['Pedido recebido', 'Em preparo', 'Pronto para servir'].map((label, index) => {
-    const step = index + 1;
-    return {
-      label,
-      description: '',
-      ...stepState(progress, step),
-    };
-  });
-}
-
-function trackingSteps(tableOrder: TableOrderNotice | null) {
-  const progress = tableOrder?.progress || 0;
-  const descriptions = [
-    'Enviado para a cozinha',
-    'Os chefs estão montando seus pratos',
-    'Aguardando retirada do garçom',
-  ];
-  return ['Pedido Confirmado', 'Em Preparo', 'Pronto para Servir'].map((label, index) => {
-    const step = index + 1;
-    return {
-      label,
-      description: descriptions[index],
-      ...stepState(progress, step),
-    };
-  });
 }

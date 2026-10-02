@@ -11,6 +11,7 @@ import {
   expireTablePaymentReservations,
   lockTablePaymentSession,
   projectTableSessionFinancialState,
+  staffCashReceiptDeduplicationKey,
 } from './tablePaymentLedger.js';
 import { serializeTablePaymentIntent, TablePaymentError } from './tablePaymentSupport.js';
 import { tableAccountEvents } from '../realtime/tableAccountEvents.js';
@@ -61,6 +62,24 @@ export class CancelTablePaymentIntentService {
             'Este pagamento não pode mais ser cancelado pelo cliente.',
             409,
             'TABLE_PAYMENT_NOT_CANCELABLE',
+          );
+        }
+
+        const staffReceipt = await tx.tablePaymentEvent.findFirst({
+          where: {
+            restaurantId: input.restaurantId,
+            tableSessionId: input.tableSessionId,
+            paymentIntentId: intent.id,
+            type: TablePaymentEventType.MANUAL_CONFIRMED,
+            deduplicationKey: staffCashReceiptDeduplicationKey(intent.publicId),
+          },
+          select: { id: true },
+        });
+        if (staffReceipt) {
+          throw new TablePaymentError(
+            'O dinheiro já foi recebido pela equipe e aguarda confirmação do administrador.',
+            409,
+            'TABLE_PAYMENT_ALREADY_RECEIVED',
           );
         }
 

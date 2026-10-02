@@ -82,6 +82,22 @@ export class GetAttendantWorkspaceService {
         activeOrderCount: session._count.orders,
         activeCallCount: session._count.serviceCalls,
       })),
+      cashPayments: (snapshot.cashPayments || []).map((payment) => ({
+        publicId: payment.publicId,
+        sessionPublicId: payment.tableSession.publicId,
+        tableNumber: payment.tableSession.table.number,
+        customerName: optionalName(payment.payerParticipant.displayName) || 'Cliente da mesa',
+        totalCents: Number(payment.totalCents),
+        status: payment.status,
+        createdAt: payment.createdAt.toISOString(),
+        staffReceiptRegistered: payment.events.some((event) => {
+          const metadata =
+            event.metadata && typeof event.metadata === 'object' && !Array.isArray(event.metadata)
+              ? (event.metadata as Record<string, unknown>)
+              : null;
+          return metadata?.stage === 'STAFF_RECEIVED';
+        }),
+      })),
     };
   }
 }

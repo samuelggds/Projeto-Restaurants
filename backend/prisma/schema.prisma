@@ -188,12 +188,14 @@ model SalesLeadWhatsappConversation {
   automationMode String                     @default("BOT") @db.VarChar(24)
   lastInboundAt  DateTime?                  @db.Timestamptz(3)
   lastOutboundAt DateTime?                  @db.Timestamptz(3)
+  closedAt       DateTime?                  @db.Timestamptz(3)
   createdAt      DateTime                   @default(now()) @db.Timestamptz(3)
   updatedAt      DateTime                   @updatedAt @db.Timestamptz(3)
   messages       SalesLeadWhatsappMessage[]
   outbox         SalesLeadWhatsappOutbox[]
 
   @@index([automationMode, updatedAt])
+  @@index([automationMode, closedAt])
 }
 
 model SalesLeadWhatsappMessage {

@@ -10,6 +10,9 @@ export const Backdrop = styled.div`
 `;
 
 export const Panel = styled.aside`
+  --home-primary: #ff4b4b;
+  --result-action-accent: #ff4b4b;
+  --result-action-accent-hover: #f23f3f;
   width: min(560px, 100%);
   height: 100dvh;
   display: flex;
@@ -19,7 +22,7 @@ export const Panel = styled.aside`
   color: #282d29;
   box-shadow: -12px 0 40px rgba(24, 29, 25, 0.14);
   button:focus-visible {
-    outline: 3px solid var(--home-primary, #bb5034);
+    outline: 3px solid #ff4b4b;
     outline-offset: 3px;
   }
 `;
@@ -350,10 +353,10 @@ export const Draft = styled.section`
     gap: 8px;
     min-height: 44px;
     padding: 10px;
-    border: 1px solid #d9dfd0;
+    border: 1px solid #ff4b4b;
     border-radius: 8px;
-    background: #f1f4ec;
-    color: #34492c;
+    background: #fff1f1;
+    color: #ff4b4b;
     font: inherit;
     font-size: 13px;
     font-weight: 650;
@@ -390,7 +393,7 @@ export const PayButton = styled.button`
   padding: 12px 16px;
   border: 0;
   border-radius: 12px;
-  background: var(--home-primary, #bb5034);
+  background: #ff4b4b;
   color: #fff;
   cursor: pointer;
   font: inherit;
@@ -400,12 +403,54 @@ export const PayButton = styled.button`
   svg {
     flex: 0 0 auto;
   }
+
+  .payment-method-icon {
+    width: 28px;
+    height: 28px;
+    flex: 0 0 28px;
+    border-radius: 8px;
+    display: grid;
+    place-items: center;
+    background: rgba(255, 255, 255, 0.16);
+    color: currentColor;
+  }
+
+  .payment-method-icon svg {
+    width: 19px;
+    height: 19px;
+    display: block;
+  }
+
+  .payment-method-icon.pix svg {
+    width: 18px;
+    height: 18px;
+  }
+
+  .payment-method-label {
+    min-width: 0;
+    flex: 1 1 auto;
+    text-align: center;
+  }
+
   &:hover:not(:disabled) {
     filter: brightness(0.94);
   }
   &:disabled {
     cursor: wait;
     opacity: 0.6;
+  }
+
+  &.unavailable:disabled {
+    border: 1px solid #e6e6e3;
+    background: #f3f3f1;
+    color: #b4b4ba;
+    cursor: not-allowed;
+    opacity: 1;
+  }
+
+  &.unavailable:disabled .payment-method-icon {
+    background: #e8e8e5;
+    color: #a8a8ae;
   }
 `;
 

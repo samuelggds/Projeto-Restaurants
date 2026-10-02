@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { authMiddleware } from '../../../middlewares/authMiddleware.js';
-import { optionalAuthMiddleware } from '../../../middlewares/optionalAuthMiddleware.js';
+import { optionalTableSessionAuthMiddleware } from '../../../middlewares/optionalAuthMiddleware.js';
 import { sessionMiddleware } from '../../../middlewares/sessionMiddleware.js';
 import { tableParticipantMiddleware } from '../../../middlewares/tableParticipantMiddleware.js';
 import { waiterMiddleware } from '../../../middlewares/waiterMiddleware.js';
@@ -16,7 +16,7 @@ const router = Router();
 router.post(
   '/',
   tableServiceCallRateLimitMiddleware,
-  optionalAuthMiddleware,
+  optionalTableSessionAuthMiddleware,
   sessionMiddleware,
   premiumTablePlanMiddleware,
   tableParticipantMiddleware,

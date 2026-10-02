@@ -1,4 +1,9 @@
-import { Prisma, TableParticipantStatus, TableSessionStatus } from '@prisma/client';
+import {
+  Prisma,
+  TableParticipantStatus,
+  TablePaymentEventType,
+  TableSessionStatus,
+} from '@prisma/client';
 import prisma from '../../../config/prisma.js';
 import { tablePaymentIntentAdminSelect } from './TablePaymentRepository.js';
 
@@ -60,6 +65,10 @@ const tableAccountSnapshotSelect = {
             select: {
               status: true,
               expiresAt: true,
+              events: {
+                where: { type: TablePaymentEventType.MANUAL_CONFIRMED },
+                select: { deduplicationKey: true },
+              },
             },
           },
         },

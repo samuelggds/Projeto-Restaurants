@@ -5,6 +5,7 @@ import {
   ChevronRight,
   Clock3,
   ShoppingBag,
+  Banknote,
   Truck,
   Users,
 } from 'lucide-react';
@@ -142,16 +143,31 @@ export function Calls({
 export function Tables({
   snapshot,
   initialDay = 'ALL',
+  onChanged,
 }: {
   snapshot: AttendantWorkspaceSnapshot;
   initialDay?: DayFilter;
+  onChanged: () => void;
 }) {
+  const services = useOperationServices();
   const now = snapshotTime(snapshot);
   const [dayFilter, setDayFilter] = useState<DayFilter>(initialDay);
   const visible = snapshot.tables.filter((table) => {
     const old = pendingDays(table.openedAt, now) > 0;
     return dayFilter === 'ALL' || (dayFilter === 'OLD' ? old : !old);
   });
+
+  async function registerCash(paymentPublicId: string) {
+    try {
+      if (!services.registerCashReceived) throw new Error('Registro de dinheiro indisponível.');
+      await services.registerCashReceived(paymentPublicId);
+      toast.success('Dinheiro registrado. Aguardando confirmação do administrador.');
+      onChanged();
+    } catch (error) {
+      toast.error(errorMessage(error, 'Não foi possível registrar o recebimento em dinheiro.'));
+    }
+  }
+
   return (
     <>
       <PeriodFilters value={dayFilter} onChange={setDayFilter} total={visible.length} />
@@ -197,6 +213,34 @@ export function Tables({
           );
         })}
       </TableGrid>
+
+      {(snapshot.cashPayments || []).length ? (
+        <List aria-label="Pagamentos em dinheiro das mesas">
+          {(snapshot.cashPayments || []).map((payment) => (
+            <CallCard key={payment.publicId}>
+              <span className="table">Mesa {String(payment.tableNumber).padStart(2, '0')}</span>
+              <div>
+                <strong>{payment.customerName}</strong>
+                <small>
+                  Dinheiro · {(payment.totalCents / 100).toLocaleString('pt-BR', {
+                    style: 'currency',
+                    currency: 'BRL',
+                  })}
+                </small>
+              </div>
+              <time>{payment.staffReceiptRegistered ? 'Aguardando admin' : 'Aguardando equipe'}</time>
+              {payment.staffReceiptRegistered ? (
+                <span><Banknote /> Recebido pela equipe</span>
+              ) : (
+                <button type="button" onClick={() => void registerCash(payment.publicId)}>
+                  Registrar dinheiro recebido
+                </button>
+              )}
+            </CallCard>
+          ))}
+        </List>
+      ) : null}
+
       {!visible.length && (
         <EmptyState
           icon={Armchair}

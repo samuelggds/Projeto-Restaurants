@@ -16,7 +16,13 @@ describe('contratos de leitura do atendente', () => {
   });
 
   it('aceita uma operação realmente vazia com contrato completo', async () => {
-    const data = { generatedAt: '2026-09-09T12:00:00.000Z', orders: [], calls: [], tables: [] };
+    const data = {
+      generatedAt: '2026-09-09T12:00:00.000Z',
+      orders: [],
+      calls: [],
+      tables: [],
+      cashPayments: [],
+    };
     vi.mocked(api.get).mockResolvedValueOnce({ data });
     await expect(attendantApi.getWorkspace()).resolves.toEqual(data);
   });
@@ -126,6 +132,12 @@ describe('normalizeAttendantWorkspace', () => {
       tables: [{ tableNumber: 0, openedAt: 'inválido' }],
     });
 
-    expect(result).toEqual({ generatedAt: '', orders: [], calls: [], tables: [] });
+    expect(result).toEqual({
+      generatedAt: '',
+      orders: [],
+      calls: [],
+      tables: [],
+      cashPayments: [],
+    });
   });
 });

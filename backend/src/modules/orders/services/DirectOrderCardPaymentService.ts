@@ -41,6 +41,7 @@ type CardOrder = {
   id: number;
   publicId: string;
   restaurantId: number;
+  externalReference?: string | null;
   total: number | string | { toString(): string } | null;
   systemFee?: number | string | { toString(): string } | null;
   restaurant?: { name?: string | null } | null;
@@ -318,7 +319,9 @@ async function mercadoPagoPayment(
 
   const accessToken = await getMercadoPagoAccessToken(order.restaurantId);
   const total = amount(order.total);
-  const reference = mercadoPagoCardExternalReference(order.id, order.restaurantId);
+  const reference =
+    String(order.externalReference || '').trim() ||
+    mercadoPagoCardExternalReference(order.id, order.restaurantId);
   const storedCustomerId = String(stored?.providerCustomerId || '').trim();
 
   if (stored && !storedCustomerId) {
@@ -378,16 +381,11 @@ async function mercadoPagoPayment(
     if (isMercadoPagoRequestValidationError(result.response.status, result.body)) {
       const diagnostic = mercadoPagoDiagnostic(result.response, result.body);
       const providerCode = diagnostic.providerCode || 'invalid_request';
-      const providerMessage = safeProviderMessage(
-        result.body,
-        'O Mercado Pago rejeitou os dados enviados pelo checkout.',
-      );
       console.error('[MERCADO_PAGO_CARD_REQUEST_INVALID]', {
         orderId: order.id,
         restaurantId: order.restaurantId,
         providerStatus: diagnostic.httpStatus,
         providerCode,
-        providerMessage,
         transactionStatus: diagnostic.status,
         transactionStatusDetail: diagnostic.statusDetail,
         providerRequestId: diagnostic.providerRequestId,
@@ -600,7 +598,9 @@ async function asaasPayment(payload: BasePayload, order: CardOrder, successUrlBa
   }
 
   const settings = await restaurantSettingsRepository.findByRestaurantId(order.restaurantId);
-  const allowGlobalFallback = process.env.ALLOW_GLOBAL_PAYMENT_FALLBACK === 'true';
+  const allowGlobalFallback =
+    process.env.NODE_ENV !== 'production' &&
+    process.env.ALLOW_GLOBAL_PAYMENT_FALLBACK === 'true';
   const accessToken = String(
     settings?.asaasAccessToken || (allowGlobalFallback ? process.env.ASAAS_API_KEY : '') || '',
   ).trim();

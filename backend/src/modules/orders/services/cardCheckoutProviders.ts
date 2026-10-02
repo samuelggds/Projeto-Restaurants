@@ -124,7 +124,9 @@ function resolveAsaasBaseUrl() {
 }
 
 async function getAsaasAccessToken(restaurantId: number) {
-  const allowGlobalFallback = process.env.ALLOW_GLOBAL_PAYMENT_FALLBACK === 'true';
+  const allowGlobalFallback =
+    process.env.NODE_ENV !== 'production' &&
+    process.env.ALLOW_GLOBAL_PAYMENT_FALLBACK === 'true';
   const settings = await restaurantSettingsRepository.findByRestaurantId(restaurantId);
   const settingsToken = String(settings?.asaasAccessToken || '').trim();
   const globalToken = String(process.env.ASAAS_API_KEY || '').trim();

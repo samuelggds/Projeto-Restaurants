@@ -430,3 +430,52 @@ test('preserva invalid_card_token sem expor o token recebido', async () => {
     },
   );
 });
+
+
+test('não registra texto do provedor que possa ecoar token em erro de validação', async () => {
+  const originalConsoleError = console.error;
+  const logged: unknown[][] = [];
+  console.error = (...args: unknown[]) => {
+    logged.push(args);
+  };
+
+  globalThis.fetch = async () =>
+    new Response(
+      JSON.stringify({
+        message: 'invalid request',
+        cause: [
+          {
+            code: 'property_value',
+            description: 'token echoed secret-card-token-log-001',
+          },
+        ],
+      }),
+      { status: 400, headers: { 'Content-Type': 'application/json' } },
+    );
+
+  try {
+    await assert.rejects(() =>
+      directOrderCardPaymentService.execute({
+        provider: CARD_PROVIDERS.MERCADO_PAGO,
+        payload: {
+          cardToken: 'secret-card-token-log-001',
+          cardPaymentMethodId: 'visa',
+        },
+        order: {
+          id: 907,
+          publicId: 'order-public-907',
+          restaurantId: 7,
+          total: 10,
+        },
+        successUrlBase: 'https://www.gastronexa.com.br/north-pizza',
+        idempotencyKey: '11111111-1111-4111-8111-111111111907',
+      }),
+    );
+
+    assert.ok(logged.length > 0);
+    assert.equal(JSON.stringify(logged).includes('secret-card-token-log-001'), false);
+    assert.equal(JSON.stringify(logged).includes('token echoed'), false);
+  } finally {
+    console.error = originalConsoleError;
+  }
+});

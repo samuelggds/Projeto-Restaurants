@@ -33,6 +33,7 @@ type FlowState = {
   tablePaymentStatus?: 'PROCESSING' | 'PAID' | null;
   tablePaymentIdempotencyKey?: string | null;
   tablePaymentCreations?: number;
+  allowTableCard?: boolean;
   participantJoined?: boolean;
   cardPaymentStatus?: 'PENDING' | 'PAID';
   cardPaymentStatusReads?: number;
@@ -193,22 +194,35 @@ function tablePayment(state: FlowState) {
     sessionPublicId: TABLE_SESSION_PUBLIC_ID,
     payerParticipantPublicId: TABLE_PARTICIPANT_PUBLIC_ID,
     selectionMode: 'MY_ITEMS',
-    method: state.tablePaymentPayload?.method === 'CARD' ? 'CARD' : 'PIX',
+    method:
+      state.tablePaymentPayload?.method === 'CARD'
+        ? 'CARD'
+        : state.tablePaymentPayload?.method === 'CASH'
+          ? 'CASH'
+          : 'PIX',
     status,
     billItemPublicIds: ['bill-item-1'],
     subtotalCents: 2_800,
     serviceFeeCents: 0,
     totalCents: 2_800,
-    provider: 'FAKE_TABLE',
-    externalId: 'table-pix-e2e',
+    provider:
+      state.tablePaymentPayload?.method === 'CASH'
+        ? null
+        : 'FAKE_TABLE',
+    externalId:
+      state.tablePaymentPayload?.method === 'CASH'
+        ? null
+        : state.tablePaymentPayload?.method === 'CARD'
+          ? 'table-card-e2e'
+          : 'table-pix-e2e',
     checkoutUrl:
       state.tablePaymentPayload?.method === 'CARD'
         ? 'https://pay.example.test/table-card-checkout'
         : null,
     paymentCode:
-      state.tablePaymentPayload?.method === 'CARD'
-        ? null
-        : '00020101021226890014br.gov.bcb.pix.e2e',
+      state.tablePaymentPayload?.method === 'PIX'
+        ? '00020101021226890014br.gov.bcb.pix.e2e'
+        : null,
     expiresAt: '2030-01-01T12:10:00.000Z',
     createdAt: '2030-01-01T12:00:00.000Z',
     updatedAt: '2030-01-01T12:00:00.000Z',
@@ -226,11 +240,11 @@ function tableAccountSnapshot(state: FlowState) {
     capabilities: {
       enabled: true,
       allowCash: true,
-      allowCardMachine: true,
+      allowCardMachine: false,
       allowOnlinePayment: true,
       allowPix: true,
-      allowCard: true,
-      allowSplit: true,
+      allowCard: state.allowTableCard === true,
+      allowSplit: false,
       serviceFeeMode: 'OPTIONAL',
       serviceFeeBasisPoints: 1_000,
       reservationTimeoutMinutes: 10,
@@ -246,7 +260,7 @@ function tableAccountSnapshot(state: FlowState) {
       netPaidCents: paid ? 2_800 : 0,
       reservedCents: 0,
       processingCents: processing ? 2_800 : 0,
-      remainingCents: hasItem && !processing && !paid ? 2_800 : 0,
+      remainingCents: hasItem && !paid ? 2_800 : 0,
       overpaidCents: 0,
       participantsCount: 1,
     },
@@ -532,6 +546,18 @@ async function mockRoleFlowApi(page: Page, state: FlowState) {
     }
 
     if (
+      pathname === `/settings/public/${RESTAURANT_ID}/card-payment-config` &&
+      method === 'GET'
+    ) {
+      return state.allowTableCard
+        ? json(route, {
+            provider: 'MERCADO_PAGO',
+            publicKey: 'TEST-public-key-e2e',
+          })
+        : json(route, { error: 'Cartão não configurado.' }, 409);
+    }
+
+    if (
       pathname === `/settings/public/${RESTAURANT_ID}` ||
       pathname === `/settings/public/slug/${RESTAURANT_SLUG}`
     ) {
@@ -539,6 +565,7 @@ async function mockRoleFlowApi(page: Page, state: FlowState) {
         restaurantId: RESTAURANT_ID,
         restaurantName: 'Restaurante Teste',
         primaryColor: '#cf562f',
+        averageDeliveryTime: '18',
         isOpenForOrders: true,
         tableOrderingEnabled: true,
         acceptsPix: true,
@@ -637,15 +664,10 @@ async function identifyTableGuest(page: Page, waitForMenu = true) {
   await page.getByLabel('Telefone', { exact: true }).fill('11999999999');
   await page.getByRole('button', { name: 'Continuar na Mesa 1' }).click();
   if (waitForMenu) {
-    const desktopMenuButton = page.getByRole('button', { name: 'Cardápio', exact: true });
-    if (await desktopMenuButton.isVisible()) {
-      await desktopMenuButton.click();
-    } else {
-      await page.getByRole('button', { name: /Ver Cardápio(?: Completo)?/i }).click();
-    }
     await expect(
       page.getByRole('button', { name: `Ver detalhes de ${product.name}` }),
     ).toBeVisible();
+    await expect(page.getByRole('navigation', { name: 'Ações da mesa' })).toBeVisible();
   }
   await expect(page).not.toHaveURL(/\/login/u);
 }
@@ -653,7 +675,40 @@ async function identifyTableGuest(page: Page, waitForMenu = true) {
 async function reviewTableDraft(page: Page) {
   await page.getByRole('button', { name: 'Meu pedido' }).click();
   await expect(page.getByRole('heading', { name: 'Minha sacola' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Limpar carrinho' })).toBeVisible();
+
+  if ((await page.viewportSize())?.width && (await page.viewportSize())!.width < 760) {
+    await expect(page.getByRole('button', { name: 'Voltar para o cardápio' })).toBeVisible();
+  }
 }
+
+test('barra inferior da home da mesa fica fixa somente no mobile', async ({ page }) => {
+  const state: FlowState = {
+    tableCreated: true,
+    tableOpen: true,
+    createTablePayload: null,
+    orderPayload: null,
+    orderStatus: 'PENDENTE',
+    adminTableReads: 0,
+    waiterTableReads: 0,
+  };
+  await mockRoleFlowApi(page, state);
+  await page.goto('/');
+  await selectPersona(page, 'customer');
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto(
+    `/${RESTAURANT_SLUG}/mesa/${TABLE_NUMBER}?tid=${TABLE_ID}&rid=${RESTAURANT_ID}&tk=${TABLE_TOKEN}`,
+  );
+  await identifyTableGuest(page);
+
+  const dock = page.getByRole('navigation', { name: 'Ações da mesa' });
+  await expect(dock).toBeVisible();
+  await expect.poll(() => dock.evaluate((element) => getComputedStyle(element).position)).toBe('fixed');
+
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await expect.poll(() => dock.evaluate((element) => getComputedStyle(element).position)).not.toBe('fixed');
+});
 
 test('admin controla o QR, garçom apenas opera a mesa e cozinha recebe Mesa 1', async ({
   page,
@@ -714,6 +769,7 @@ test('admin controla o QR, garçom apenas opera a mesa e cozinha recebe Mesa 1',
   await page.getByRole('button', { name: `Ver detalhes de ${product.name}` }).click();
   await page.getByText('Arroz', { exact: true }).click();
   await page.getByRole('button', { name: 'Adicionar à sacola' }).click();
+  await expect(page.locator('[data-cart-fly-preview]')).toBeVisible();
   await reviewTableDraft(page);
   await page.getByRole('button', { name: 'Enviar pedido para a cozinha' }).click();
   await expect.poll(() => state.orderPayload).not.toBeNull();
@@ -728,6 +784,24 @@ test('admin controla o QR, garçom apenas opera a mesa e cozinha recebe Mesa 1',
   await expect(page.getByText(`Mesa ${String(TABLE_NUMBER).padStart(2, '0')}`, { exact: false }).first()).toBeVisible();
   await expect(page.getByRole('button', { name: /Confirmar recebimento/i })).toHaveCount(0);
   await expect(page.getByRole('button', { name: /Acompanhar entrega no GPS/i })).toHaveCount(0);
+
+  await page.getByRole('button', { name: 'Acompanhar em tempo real' }).click();
+  await expect(page.getByText(product.name, { exact: true })).toBeVisible();
+  await expect(page.getByText('Suco da casa', { exact: true })).toBeVisible();
+  await expect(page.getByText('cerca de 18 minutos', { exact: false })).toBeVisible();
+  await expect(page.getByText('Pizza Calabresa', { exact: true })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Chamar garçom para mesa' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Pagar agora com PIX' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Outras formas de pagamento' })).toBeVisible();
+
+  await page.getByRole('button', { name: 'Outras formas de pagamento' }).click();
+  await expect(page.getByRole('heading', { name: 'Como prefere pagar?' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Escolher PIX' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Cartão indisponível' })).toBeDisabled();
+  await expect(page.getByRole('button', { name: 'Deixar aberto na Mesa' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Pagar com dinheiro' })).toBeVisible();
+  await page.getByRole('button', { name: 'Deixar aberto na Mesa' }).click();
+  await expect(page.getByRole('heading', { name: 'Painel da Mesa' })).toBeVisible();
 
   await selectPersona(page, 'kitchen');
   await page.goto('/kitchen');
@@ -747,7 +821,7 @@ test('cliente pode pagar agora com PIX ou acompanhar para pagar depois', async (
     tableOpen: true,
     createTablePayload: null,
     orderPayload: null,
-    orderStatus: 'PENDENTE',
+    orderStatus: 'PREPARANDO',
     adminTableReads: 0,
     waiterTableReads: 0,
     tablePaymentPayload: null,
@@ -772,6 +846,7 @@ test('cliente pode pagar agora com PIX ou acompanhar para pagar depois', async (
   await page.getByRole('button', { name: `Ver detalhes de ${product.name}` }).click();
   await page.getByText('Arroz', { exact: true }).click();
   await page.getByRole('button', { name: 'Adicionar à sacola' }).click();
+  await expect(page.locator('[data-cart-fly-preview]')).toBeVisible();
   await reviewTableDraft(page);
   await page.getByRole('button', { name: 'Enviar pedido para a cozinha' }).click();
   await expect.poll(() => state.orderPayload).not.toBeNull();
@@ -785,8 +860,26 @@ test('cliente pode pagar agora com PIX ou acompanhar para pagar depois', async (
   expect(state.tablePaymentPayload).toBeNull();
 
   await expect(page.getByRole('heading', { name: 'Pedido Enviado!' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Voltar' })).toBeVisible();
+
+  const completedStep = page.locator('.confirmation-step.completed').filter({ hasText: 'Pedido recebido' });
+  const currentStep = page.locator('.confirmation-step.current').filter({ hasText: 'Em preparo' });
+  const pendingStep = page.locator('.confirmation-step.pending').filter({ hasText: 'Pronto para servir' });
+
+  await expect(completedStep.getByText('Concluído', { exact: true })).toBeVisible();
+  await expect(currentStep.getByText('Iniciado agora', { exact: true })).toBeVisible();
+  await expect(pendingStep).toBeVisible();
+  await expect
+    .poll(() => pendingStep.evaluate((element) => getComputedStyle(element).opacity))
+    .toBe('0.72');
+
+  await expect.poll(() => completedStep.locator('.dot').evaluate((element) => getComputedStyle(element).backgroundColor)).toBe('rgb(16, 185, 129)');
+  await expect.poll(() => currentStep.locator('.dot').evaluate((element) => getComputedStyle(element).backgroundColor)).toBe('rgb(255, 75, 75)');
+
   const payButton = page.getByRole('button', { name: 'Pagar agora no PIX', exact: true });
   await expect(payButton).toBeVisible();
+  await expect(payButton.locator('[data-pix-mark]')).toBeVisible();
+
   for (const width of [320, 390, 1280]) {
     await page.setViewportSize({ width, height: 844 });
     await expect(payButton).toBeInViewport();
@@ -796,18 +889,17 @@ test('cliente pode pagar agora com PIX ou acompanhar para pagar depois', async (
   }
 
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.screenshot({ path: '../artifacts/table-payment-choice-mobile.png', fullPage: true });
+  await page.screenshot({ path: '../artifacts/table-order-confirmation-mobile.png', fullPage: true });
   await payButton.click();
-  await expect(page.getByRole('heading', { name: 'Como prefere pagar?' })).toBeVisible();
-  await page.getByRole('button', { name: 'Escolher PIX' }).click();
 
   await expect.poll(() => state.tablePaymentPayload).not.toBeNull();
   expect(state.tablePaymentPayload).toMatchObject({
-    selectionMode: 'SELECTED_ITEMS',
+    selectionMode: 'MY_ITEMS',
     method: 'PIX',
     includeOptionalServiceFee: false,
   });
   expect(state.tablePaymentIdempotencyKey).toBeTruthy();
+  await expect(page.getByRole('heading', { name: 'Como prefere pagar?' })).toHaveCount(0);
   await expect(page.getByRole('heading', { name: 'Aguardando Pagamento' })).toBeVisible();
   await expect(page.getByLabel('QR Code PIX')).toBeVisible();
   expect(state.tablePaymentCreations).toBe(1);
@@ -819,6 +911,98 @@ test('cliente pode pagar agora com PIX ou acompanhar para pagar depois', async (
   await page.getByRole('button', { name: 'Acompanhar preparo' }).click();
   await expect(page.getByRole('heading', { name: 'Pagamento Confirmado!' })).toHaveCount(0);
   await expect(page).not.toHaveURL(/\/login/u);
+});
+
+test('cartão da mesa só fica ativo quando o backend libera o método', async ({ page }) => {
+  const state: FlowState = {
+    tableCreated: true,
+    tableOpen: true,
+    createTablePayload: null,
+    orderPayload: {
+      restaurantId: RESTAURANT_ID,
+      type: 'MESA',
+      tableId: TABLE_ID,
+      settlementMode: 'TABLE_ACCOUNT',
+    },
+    orderStatus: 'PREPARANDO',
+    adminTableReads: 0,
+    waiterTableReads: 0,
+    tablePaymentPayload: null,
+    tablePaymentStatus: null,
+    tablePaymentIdempotencyKey: null,
+    allowTableCard: true,
+  };
+  await mockRoleFlowApi(page, state);
+  await page.goto('/');
+  await selectPersona(page, 'customer');
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto(
+    `/${RESTAURANT_SLUG}/mesa/${TABLE_NUMBER}?tid=${TABLE_ID}&rid=${RESTAURANT_ID}&tk=${TABLE_TOKEN}`,
+  );
+  await identifyTableGuest(page);
+
+  await page.getByRole('button', { name: 'Ver Conta', exact: true }).click();
+  const accountDialog = page.getByRole('dialog', { name: /Conta da Mesa 1/u });
+  await expect(accountDialog).toBeVisible();
+  const cardButton = accountDialog.getByRole('button', { name: 'Pagar com cartão', exact: true });
+  await expect(cardButton).toBeEnabled();
+  await cardButton.click();
+
+  await expect(page.getByRole('heading', { name: 'Pagamento com cartão' })).toBeVisible();
+  await expect(page.getByText('Total a pagar')).toBeVisible();
+  await expect(page.getByRole('button', { name: /Pagar R\$\s*28,00/u })).toBeVisible();
+  await expect(
+    page.getByText('Número completo e CVV são protegidos pelo provedor e não são salvos no GastroNexa.'),
+  ).toBeVisible();
+});
+
+test('cliente que escolhe dinheiro vê a espera baseada na cobrança da API', async ({ page }) => {
+  const state: FlowState = {
+    tableCreated: true,
+    tableOpen: true,
+    createTablePayload: null,
+    orderPayload: {
+      restaurantId: RESTAURANT_ID,
+      type: 'MESA',
+      tableId: TABLE_ID,
+      settlementMode: 'TABLE_ACCOUNT',
+    },
+    orderStatus: 'PREPARANDO',
+    adminTableReads: 0,
+    waiterTableReads: 0,
+    tablePaymentPayload: null,
+    tablePaymentStatus: null,
+    tablePaymentIdempotencyKey: null,
+  };
+  await mockRoleFlowApi(page, state);
+  await page.goto('/');
+  await selectPersona(page, 'customer');
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto(
+    `/${RESTAURANT_SLUG}/mesa/${TABLE_NUMBER}?tid=${TABLE_ID}&rid=${RESTAURANT_ID}&tk=${TABLE_TOKEN}`,
+  );
+  await identifyTableGuest(page);
+
+  await page.getByRole('button', { name: 'Ver Conta', exact: true }).click();
+  const accountDialog = page.getByRole('dialog', { name: /Conta da Mesa 1/u });
+  await expect(accountDialog).toBeVisible();
+  await accountDialog.getByRole('button', { name: 'Pagar com dinheiro' }).click();
+
+  await expect.poll(() => state.tablePaymentPayload).not.toBeNull();
+  expect(state.tablePaymentPayload).toMatchObject({
+    selectionMode: 'MY_ITEMS',
+    method: 'CASH',
+    includeOptionalServiceFee: false,
+  });
+
+  await expect(page.getByRole('heading', { name: 'Aguardando pagamento em dinheiro' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Voltar' })).toBeVisible();
+  await expect(page.getByLabel('Pagamento em dinheiro')).toContainText('R$');
+  await expect(page.getByText(/28,00/u)).toBeVisible();
+  await expect(page.getByText(/^Solicitação enviada · \d{2}:\d{2}$/u)).toBeVisible();
+  await expect(page.getByText('Aguardando o dinheiro', { exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Acompanhar conta' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Chamar o garçom' })).toBeVisible();
 });
 
 test('retorno success do cartão permanece pendente até o backend confirmar', async ({ page }) => {

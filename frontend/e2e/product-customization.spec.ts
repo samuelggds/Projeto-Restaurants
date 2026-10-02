@@ -106,23 +106,26 @@ for (const width of [1440, 390]) {
     const dialog = page.getByRole('dialog', { name: 'Montar Meio a meio dinâmico' });
     const footer = dialog.getByTestId('product-configurator-footer');
 
+    const halfList = dialog.locator('.product-half-group .product-option-list').first();
+    const layout = await halfList.evaluate((element) => {
+      const style = getComputedStyle(element);
+      return {
+        display: style.display,
+        flexDirection: style.flexDirection,
+        gridTemplateColumns: style.gridTemplateColumns,
+        width: element.getBoundingClientRect().width,
+        optionWidths: Array.from(element.children).map(
+          (child) => (child as HTMLElement).getBoundingClientRect().width,
+        ),
+      };
+    });
+    expect(layout.optionWidths.every((optionWidth) => optionWidth >= layout.width - 2)).toBe(true);
+
     if (width === 390) {
-      const halfList = dialog.locator('.product-half-group .product-option-list').first();
-      const layout = await halfList.evaluate((element) => {
-        const style = getComputedStyle(element);
-        return {
-          display: style.display,
-          flexDirection: style.flexDirection,
-          width: element.getBoundingClientRect().width,
-          optionWidths: Array.from(element.children).map(
-            (child) => (child as HTMLElement).getBoundingClientRect().width,
-          ),
-        };
-      });
       expect(layout.display).toBe('flex');
       expect(layout.flexDirection).toBe('column');
-      expect(layout.optionWidths.every((optionWidth) => optionWidth >= layout.width - 2)).toBe(true);
     } else {
+      expect(layout.gridTemplateColumns.trim().split(/\s+/u)).toHaveLength(1);
       const scrolling = await dialog.evaluate((element) => ({
         scrollHeight: element.scrollHeight,
         clientHeight: element.clientHeight,
@@ -326,6 +329,52 @@ const completeProduct = {
   optionGroups: [],
 };
 
+const comboProduct = {
+  id: 505,
+  name: 'Combo Lanche',
+  description: 'Combo com escolha obrigatória.',
+  price: 39.9,
+  active: true,
+  stock: null,
+  image: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M/wHwAF/gL+3zS5WQAAAABJRU5ErkJggg==',
+  kind: 'COMBO',
+  saleMode: 'BUILDABLE',
+  configurationVersion: 1,
+  category: { name: 'Combos' },
+  optionGroups: [],
+  comboGroups: [
+    {
+      id: 100,
+      name: 'Lanche principal',
+      description: 'Escolha o item do combo.',
+      minSelections: 1,
+      maxSelections: 1,
+      active: true,
+      options: [
+        {
+          id: 1000,
+          componentProductId: 303,
+          additionalPrice: 0,
+          minQuantity: 1,
+          maxQuantity: 1,
+          defaultQuantity: 1,
+          locked: true,
+          active: true,
+          componentProduct: {
+            id: 303,
+            name: 'Refrigerante pronto',
+            description: 'Item incluído',
+            image: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M/wHwAF/gL+3zS5WQAAAABJRU5ErkJggg==',
+            price: 8,
+            stock: null,
+            active: true,
+          },
+        },
+      ],
+    },
+  ],
+};
+
 const defaultedProduct = {
   id: 404,
   name: 'Produto com escolhas iniciais',
@@ -407,7 +456,14 @@ async function mockStorefront(page: Page) {
         status: 200,
         contentType: 'application/json',
         body: JSON.stringify({
-          products: [product, advancedProduct, halfHalfProduct, completeProduct, defaultedProduct],
+          products: [
+            product,
+            advancedProduct,
+            halfHalfProduct,
+            completeProduct,
+            defaultedProduct,
+            comboProduct,
+          ],
         }),
       });
       return;
@@ -433,13 +489,37 @@ async function openConfigurator(page: Page, path = '/restaurante-teste') {
   await expect(page.getByRole('dialog', { name: 'Montar Produto artesanal' })).toBeVisible();
 }
 
+async function openCartWithoutFlyAssertion(page: Page) {
+  const checkout = page.getByRole('dialog', { name: 'Finalizar pedido' });
+  await expect(checkout).toBeHidden();
+  const cartButton = page.getByRole('button', {
+    name: /Meu Carrinho, [1-9]\d* (?:item|itens)/,
+  });
+  await expect(cartButton).toBeVisible();
+  await cartButton.click();
+  await expect(checkout).toBeVisible();
+  return checkout;
+}
+
+async function confirmReadyProduct(page: Page, productName: string) {
+  await page.getByRole('button', { name: `Ver detalhes de ${productName}` }).click();
+  await expect(page.getByRole('dialog', { name: `Montar ${productName}` })).toHaveCount(0);
+  const detail = page.getByRole('dialog', { name: `Detalhes de ${productName}` });
+  await expect(detail).toBeVisible();
+  await detail.getByRole('button', { name: /Adicionar ao carrinho/ }).click();
+  await expect(detail).toBeHidden();
+}
+
 async function openCartAfterAddition(page: Page) {
   const checkout = page.getByRole('dialog', { name: 'Finalizar pedido' });
   await expect(checkout).toBeHidden();
-  await expect(
-    page.getByLabel('Avisos recentes').getByRole('status').filter({ hasText: 'Item adicionado' }),
-  ).toBeVisible();
-  await page.getByRole('button', { name: /Meu Carrinho, [1-9]\d* (?:item|itens)/ }).click();
+
+  const flyPreview = page.locator('[data-cart-fly-preview]');
+  await expect(flyPreview).toBeVisible();
+
+  const cartButton = page.getByRole('button', { name: /Meu Carrinho, [1-9]\d* (?:item|itens)/ });
+  await expect(cartButton).toBeVisible();
+  await cartButton.click();
   await expect(checkout).toBeVisible();
   return checkout;
 }
@@ -600,16 +680,68 @@ test('cliente monta o produto antes de adicioná-lo à sacola', async ({ page })
   await expect(page.getByText('Embalagem separada')).toBeVisible();
 });
 
-test('produto COMPLETE é adicionado sem abrir etapas de montagem', async ({ page }) => {
+test('produto COMPLETE abre detalhes sem etapas de montagem e adiciona após confirmação', async ({ page }) => {
   await mockStorefront(page);
   await page.goto('/restaurante-teste');
   await enterMenu(page);
 
-  await page.getByRole('button', { name: 'Ver detalhes de Refrigerante pronto' }).click();
+  await confirmReadyProduct(page, 'Refrigerante pronto');
 
-  await expect(page.getByRole('dialog', { name: 'Montar Refrigerante pronto' })).toHaveCount(0);
-  const cart = await openCartAfterAddition(page);
+  const cart = await openCartWithoutFlyAssertion(page);
   await expect(cart.getByText('Refrigerante pronto', { exact: true })).toBeVisible();
+});
+
+test('resumo do carrinho não fica fixo e permite limpar todos os itens', async ({ page }) => {
+  await mockStorefront(page);
+  await page.setViewportSize({ width: 1440, height: 800 });
+  await page.goto('/restaurante-teste');
+  await enterMenu(page);
+
+  await confirmReadyProduct(page, 'Refrigerante pronto');
+  const cart = await openCartWithoutFlyAssertion(page);
+
+  const summary = cart.locator('aside').filter({ hasText: 'Resumo do Pedido' });
+  await expect(summary).toBeVisible();
+  await expect
+    .poll(() => summary.evaluate((element) => getComputedStyle(element).position))
+    .not.toBe('sticky');
+
+  await cart.getByRole('button', { name: 'Limpar todo o carrinho' }).click();
+
+  await expect(cart.getByText('Seu carrinho está vazio.')).toBeVisible();
+  await expect(page.getByRole('button', { name: /Meu Carrinho, [1-9]\d* (?:item|itens)/ })).toHaveCount(0);
+});
+
+test('barra inferior da home do delivery fica fixa somente no mobile', async ({ page }) => {
+  await mockStorefront(page);
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/restaurante-teste');
+  await enterMenu(page);
+
+  const mobileNav = page.getByRole('navigation', { name: 'Navegação principal' });
+  await expect(mobileNav).toBeVisible();
+  await expect.poll(() => mobileNav.evaluate((element) => getComputedStyle(element).position)).toBe('fixed');
+
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await expect(mobileNav).toBeHidden();
+});
+
+test('combo confirmado sempre dispara fly to cart', async ({ page }) => {
+  await mockStorefront(page);
+  await page.goto('/restaurante-teste');
+  await enterMenu(page);
+
+  await page.getByRole('button', { name: 'Ver detalhes de Combo Lanche' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Montar Combo Lanche' });
+  await expect(dialog).toBeVisible();
+  await expect(dialog.getByText('Lanche principal', { exact: true })).toBeVisible();
+
+  await dialog.getByRole('button', { name: 'Adicionar combo à sacola' }).click();
+  await expect(page.locator('[data-cart-fly-preview]')).toBeVisible();
+
+  const cart = await openCartAfterAddition(page);
+  await expect(cart.getByText('Combo Lanche', { exact: true })).toBeVisible();
 });
 
 test('aplica defaultSelected e impede remover opção locked', async ({ page }) => {

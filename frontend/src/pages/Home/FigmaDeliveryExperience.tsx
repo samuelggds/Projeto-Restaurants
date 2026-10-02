@@ -20,12 +20,22 @@ import {
 } from './components/SocialBrandIcons';
 import { PromotionCarousel } from './components/PromotionCarousel';
 import { CustomerDesktopFooter } from './components/CustomerDesktopFooter';
+import { ReadyProductDetail } from './components/ReadyProductDetail';
 import { FloatingWhatsAppPortal } from './Home.whatsapp';
 import { WhatsAppIcon } from './components/SocialBrandIcons';
-import { buildSocialProfileUrl } from './domain/publicSettings';
+import {
+  buildSocialProfileUrl,
+  formatBusinessHoursSummary,
+} from './domain/publicSettings';
 import { resolveComboCategoryImage } from './domain/comboCategoryImage';
 import { createReadyProductConfiguration, resolveProductEntryKind } from './domain/productEntryFlow';
+import {
+  captureCartFlyOrigin,
+  scheduleProductToCartAnimation,
+  type CartFlyOrigin,
+} from './cartFlyAnimation';
 import type { HomeExperienceProps, HomeProduct } from './types';
+import { useHorizontalProductCarousel } from './hooks/useHorizontalProductCarousel';
 import * as S from './FigmaDeliveryExperience.styles';
 
 const ProductConfigurator = lazy(() =>
@@ -67,123 +77,6 @@ function categoryImage(image: string, name: string) {
   return image ? <img src={image} alt="" loading="lazy" decoding="async" /> : <UtensilsCrossed aria-label={name} />;
 }
 
-const BUSINESS_DAY_ORDER = [
-  'monday',
-  'tuesday',
-  'wednesday',
-  'thursday',
-  'friday',
-  'saturday',
-  'sunday',
-] as const;
-
-const BUSINESS_DAY_SHORT_LABELS: Record<string, string> = {
-  monday: 'Seg',
-  tuesday: 'Ter',
-  wednesday: 'Qua',
-  thursday: 'Qui',
-  friday: 'Sex',
-  saturday: 'Sáb',
-  sunday: 'Dom',
-};
-
-function formatDayIndexes(indexes: number[]) {
-  if (!indexes.length) return '';
-
-  const ranges: Array<{ start: number; end: number }> = [];
-  let start = indexes[0];
-  let end = indexes[0];
-
-  for (const index of indexes.slice(1)) {
-    if (index === end + 1) {
-      end = index;
-      continue;
-    }
-
-    ranges.push({ start, end });
-    start = index;
-    end = index;
-  }
-
-  ranges.push({ start, end });
-
-  const labels = ranges.map(({ start: rangeStart, end: rangeEnd }) => {
-    const first = BUSINESS_DAY_SHORT_LABELS[BUSINESS_DAY_ORDER[rangeStart]];
-    const last = BUSINESS_DAY_SHORT_LABELS[BUSINESS_DAY_ORDER[rangeEnd]];
-    return rangeStart === rangeEnd ? first : `${first}–${last}`;
-  });
-
-  if (labels.length <= 1) return labels[0] || '';
-  if (labels.length === 2) return `${labels[0]} e ${labels[1]}`;
-  return `${labels.slice(0, -1).join(', ')} e ${labels[labels.length - 1]}`;
-}
-
-function formatHours(data: HomeExperienceProps['data']) {
-  const configured = new Map(
-    (data.businessHours || [])
-      .filter((entry) => entry.enabled)
-      .map((entry) => [String(entry.id), entry] as const),
-  );
-
-  const enabledIndexes = BUSINESS_DAY_ORDER
-    .map((id, index) => (configured.has(id) ? index : -1))
-    .filter((index) => index >= 0);
-
-  if (!enabledIndexes.length) return '';
-
-  const groups = new Map<
-    string,
-    {
-      openingTime: string;
-      closingTime: string;
-      indexes: number[];
-    }
-  >();
-
-  enabledIndexes.forEach((index) => {
-    const id = BUSINESS_DAY_ORDER[index];
-    const entry = configured.get(id);
-    if (!entry) return;
-
-    const openingTime = String(entry.openingTime || '').trim();
-    const closingTime = String(entry.closingTime || '').trim();
-    if (!openingTime || !closingTime) return;
-
-    const key = `${openingTime}|${closingTime}`;
-    const existing = groups.get(key);
-
-    if (existing) {
-      existing.indexes.push(index);
-      return;
-    }
-
-    groups.set(key, {
-      openingTime,
-      closingTime,
-      indexes: [index],
-    });
-  });
-
-  const scheduleGroups = Array.from(groups.values()).sort(
-    (left, right) => left.indexes[0] - right.indexes[0],
-  );
-
-  if (
-    scheduleGroups.length === 1 &&
-    scheduleGroups[0].indexes.length === BUSINESS_DAY_ORDER.length
-  ) {
-    return `Todos os dias: ${scheduleGroups[0].openingTime} - ${scheduleGroups[0].closingTime}`;
-  }
-
-  return scheduleGroups
-    .map(
-      (group) =>
-        `${formatDayIndexes(group.indexes)}: ${group.openingTime} - ${group.closingTime}`,
-    )
-    .join(' | ');
-}
-
-
 function ProductCarouselSection({
   title,
   description,
@@ -197,51 +90,22 @@ function ProductCarouselSection({
   title: string;
   description?: string;
   products: HomeProduct[];
-  onOpenProduct: (product: HomeProduct) => void;
+  onOpenProduct: (product: HomeProduct, sourceElement?: HTMLElement | null) => void;
   className?: string;
   sectionId?: string;
   ariaLabel?: string;
   itemLabel?: string | ((product: HomeProduct) => string);
 }) {
-  const trackRef = useRef<HTMLDivElement>(null);
-  const [hasOverflow, setHasOverflow] = useState(false);
-  const [canScrollPrevious, setCanScrollPrevious] = useState(false);
-  const [canScrollNext, setCanScrollNext] = useState(false);
-
-  const syncScrollState = () => {
-    const track = trackRef.current;
-    if (!track) return;
-    const overflow = track.scrollWidth - track.clientWidth > 2;
-    const maxScrollLeft = Math.max(0, track.scrollWidth - track.clientWidth);
-    setHasOverflow(overflow);
-    setCanScrollPrevious(overflow && track.scrollLeft > 2);
-    setCanScrollNext(overflow && track.scrollLeft < maxScrollLeft - 2);
-  };
-
-  useEffect(() => {
-    const track = trackRef.current;
-    if (!track) return undefined;
-
-    syncScrollState();
-    const resizeObserver = new ResizeObserver(syncScrollState);
-    resizeObserver.observe(track);
-    Array.from(track.children).forEach((child) => resizeObserver.observe(child));
-    track.addEventListener('scroll', syncScrollState, { passive: true });
-
-    return () => {
-      resizeObserver.disconnect();
-      track.removeEventListener('scroll', syncScrollState);
-    };
-  }, [products]);
-
-  const scroll = (direction: -1 | 1) => {
-    const track = trackRef.current;
-    if (!track) return;
-    const firstCard = track.querySelector<HTMLElement>('[data-product-carousel-card]');
-    const gap = Number.parseFloat(window.getComputedStyle(track).columnGap || '0') || 0;
-    const amount = firstCard ? firstCard.offsetWidth + gap : Math.max(track.clientWidth * 0.82, 260);
-    track.scrollBy({ left: direction * amount, behavior: 'smooth' });
-  };
+  const {
+    trackRef,
+    hasOverflow,
+    canPrevious: canScrollPrevious,
+    canNext: canScrollNext,
+    scroll,
+  } = useHorizontalProductCarousel({
+    itemSelector: '[data-product-carousel-card]',
+    itemsKey: products.map((product) => product.id).join('|'),
+  });
 
   if (!products.length) return null;
 
@@ -292,7 +156,12 @@ function ProductCarouselSection({
                 className="open"
                 type="button"
                 aria-label={`Ver detalhes de ${product.name}`}
-                onClick={() => onOpenProduct(product)}
+                onClick={(event) =>
+                  onOpenProduct(
+                    product,
+                    event.currentTarget.closest<HTMLElement>('[data-product-carousel-card]'),
+                  )
+                }
               />
               <div className="image">{productImage(product)}</div>
               <div className="copy">
@@ -313,7 +182,12 @@ function ProductCarouselSection({
                     className="add"
                     type="button"
                     aria-label={`Adicionar ${product.name}`}
-                    onClick={() => onOpenProduct(product)}
+                    onClick={(event) =>
+                      onOpenProduct(
+                        product,
+                        event.currentTarget.closest<HTMLElement>('[data-product-carousel-card]'),
+                      )
+                    }
                   >
                     + Adicionar
                   </button>
@@ -344,6 +218,7 @@ export function FigmaDeliveryExperience({
   const primary = data.brand.primaryColor || '#e85a2b';
   const deliveryTimeLabel = formatDeliveryTime(data.deliveryTime);
   const [selectedProduct, setSelectedProduct] = useState<HomeProduct | null>(null);
+  const [selectedReadyProduct, setSelectedReadyProduct] = useState<HomeProduct | null>(null);
   const [selectedCombo, setSelectedCombo] = useState<HomeProduct | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchFocused, setSearchFocused] = useState(Boolean(initialSearchOpen));
@@ -352,6 +227,7 @@ export function FigmaDeliveryExperience({
   const searchContainerRef = useRef<HTMLDivElement>(null);
   const mobileSearchTriggerRef = useRef<HTMLButtonElement>(null);
   const cartFabRef = useRef<HTMLButtonElement>(null);
+  const pendingCartFlyOriginRef = useRef<CartFlyOrigin | null>(null);
   const cartFabDragRef = useRef<{
     pointerId: number;
     startX: number;
@@ -455,7 +331,7 @@ export function FigmaDeliveryExperience({
         ]
       : [];
   }, [data.banners, data.hero]);
-  const hours = formatHours(data);
+  const hours = formatBusinessHoursSummary(data.businessHours);
   const normalizeSearchText = (value: string) =>
     value
       .normalize('NFD')
@@ -576,7 +452,21 @@ export function FigmaDeliveryExperience({
   };
 
 
-  const openProduct = (product: HomeProduct) => {
+  const flyProduct = (
+    product: HomeProduct,
+    origin?: CartFlyOrigin | null,
+    sourceElement?: HTMLElement | null,
+  ) => {
+    scheduleProductToCartAnimation({
+      origin,
+      sourceElement,
+      imageUrl: product.image,
+      accentColor: primary,
+    });
+  };
+
+  const openProduct = (product: HomeProduct, sourceElement?: HTMLElement | null) => {
+    pendingCartFlyOriginRef.current = captureCartFlyOrigin(sourceElement);
     const entryKind = resolveProductEntryKind(product);
 
     if (entryKind === 'COMBO') {
@@ -585,7 +475,7 @@ export function FigmaDeliveryExperience({
     }
 
     if (entryKind === 'READY') {
-      onAddProduct?.(product.id, createReadyProductConfiguration(product.configurationVersion), 1);
+      setSelectedReadyProduct(product);
       return;
     }
 
@@ -715,11 +605,12 @@ export function FigmaDeliveryExperience({
                     key={product.id}
                     type="button"
                     onMouseDown={(event) => event.preventDefault()}
-                    onClick={() => {
+                    onClick={(event) => {
+                      const sourceElement = event.currentTarget;
                       setSearchQuery('');
                       setSearchFocused(false);
                       setMobileSearchOpen(false);
-                      openProduct(product);
+                      openProduct(product, sourceElement);
                     }}
                   >
                     <span className="thumb">{productImage(product)}</span>
@@ -766,6 +657,7 @@ export function FigmaDeliveryExperience({
           </button>
           <button
             className="cart"
+            data-cart-fly-target
             type="button"
             aria-label={`Meu Carrinho, ${cartCount} ${cartCount === 1 ? 'item' : 'itens'}`}
             onClick={onOpenCart}
@@ -785,10 +677,20 @@ export function FigmaDeliveryExperience({
             enableProductQuantity
             embedded
             customerPageVariant
-            onClose={() => setSelectedProduct(null)}
-            onConfirm={(configuration, quantity) => {
-              onAddProduct?.(selectedProduct.id, configuration, quantity || 1);
+            onClose={() => {
               setSelectedProduct(null);
+              pendingCartFlyOriginRef.current = null;
+            }}
+            onConfirm={(configuration, quantity) => {
+              const product = selectedProduct;
+              const origin =
+                captureCartFlyOrigin(
+                  document.querySelector<HTMLElement>('[data-cart-fly-source="dialog"]'),
+                ) || pendingCartFlyOriginRef.current;
+              onAddProduct?.(product.id, configuration, quantity || 1);
+              setSelectedProduct(null);
+              pendingCartFlyOriginRef.current = null;
+              flyProduct(product, origin);
             }}
           />
         </Suspense>
@@ -974,6 +876,7 @@ export function FigmaDeliveryExperience({
 
       <S.MobileCartFab
         ref={cartFabRef}
+        data-cart-fly-target
         type="button"
         aria-label={`Meu Carrinho, ${cartCount} ${cartCount === 1 ? 'item' : 'itens'}`}
         style={
@@ -1036,15 +939,67 @@ export function FigmaDeliveryExperience({
       />
 
 
+      {selectedReadyProduct ? (
+        <ReadyProductDetail
+          product={selectedReadyProduct}
+          restaurantName={data.brand.name}
+          restaurantCategory={data.brand.category}
+          categoryName={
+            categories.find((category) => category.id === selectedReadyProduct.categoryId)?.name
+          }
+          preparationTime={data.deliveryTime}
+          cartCount={cartCount}
+          onBack={() => {
+            setSelectedReadyProduct(null);
+            pendingCartFlyOriginRef.current = null;
+          }}
+          onOpenCart={
+            onOpenCart
+              ? () => {
+                  setSelectedReadyProduct(null);
+                  pendingCartFlyOriginRef.current = null;
+                  onOpenCart();
+                }
+              : undefined
+          }
+          onConfirm={({ quantity, observation, sourceElement }) => {
+            const product = selectedReadyProduct;
+            const origin =
+              captureCartFlyOrigin(sourceElement) || pendingCartFlyOriginRef.current;
+            onAddProduct?.(
+              product.id,
+              {
+                ...createReadyProductConfiguration(product.configurationVersion),
+                observation,
+              },
+              quantity,
+            );
+            setSelectedReadyProduct(null);
+            pendingCartFlyOriginRef.current = null;
+            flyProduct(product, origin);
+          }}
+        />
+      ) : null}
+
       {selectedCombo ? (
         <Suspense fallback={null}>
           <ComboConfigurator
             product={selectedCombo}
             primaryColor={primary}
-            onClose={() => setSelectedCombo(null)}
-            onConfirm={(configuration) => {
-              onAddProduct?.(selectedCombo.id, configuration, 1);
+            onClose={() => {
               setSelectedCombo(null);
+              pendingCartFlyOriginRef.current = null;
+            }}
+            onConfirm={(configuration) => {
+              const product = selectedCombo;
+              const origin =
+                captureCartFlyOrigin(
+                  document.querySelector<HTMLElement>('[data-cart-fly-source="dialog"]'),
+                ) || pendingCartFlyOriginRef.current;
+              onAddProduct?.(product.id, configuration, 1);
+              setSelectedCombo(null);
+              pendingCartFlyOriginRef.current = null;
+              flyProduct(product, origin);
             }}
           />
         </Suspense>

@@ -18,43 +18,6 @@ export const FlowPage = styled.section`
   }
 `;
 
-export const FlowTitle = styled.header`
-  margin-bottom: 24px;
-
-  h1 {
-    margin: 0;
-    color: var(--text);
-    font-size: 32px;
-    line-height: 40px;
-    font-weight: 500;
-    letter-spacing: -0.4px;
-  }
-
-  p {
-    margin: 4px 0 0;
-    color: var(--muted);
-    font-size: 14px;
-    line-height: 20px;
-  }
-
-  @media (max-width: 759px) {
-    margin-bottom: 16px;
-
-    h1 {
-      font-size: 24px;
-      line-height: 30px;
-    }
-
-    p {
-      font-size: 12px;
-    }
-
-    &.cart-title p {
-      display: none;
-    }
-  }
-`;
-
 export const CartDesktopLayout = styled.div`
   display: grid;
   grid-template-columns: minmax(0, 1fr) 420px;
@@ -63,20 +26,20 @@ export const CartDesktopLayout = styled.div`
 
   > div:last-child {
     display: grid;
-    gap: 14px;
+    gap: 24px;
   }
 
   .cart-summary-column > h2 {
     margin: 0;
-    color: var(--text);
-    font-size: 24px;
-    line-height: 30px;
+    color: #1a1a2e;
+    font-size: 32px;
+    line-height: 40px;
     font-weight: 400;
   }
 
   @media (max-width: 980px) {
     grid-template-columns: 1fr;
-    gap: 20px;
+    gap: 16px;
   }
 `;
 
@@ -94,8 +57,8 @@ export const CartLines = styled.div`
 export const CartLine = styled.article<{ $hasImage?: boolean }>`
   min-height: 96px;
   padding: 16px;
-  border: 1px solid var(--line);
-  border-radius: 16px;
+  border: 1px solid #eaeae6;
+  border-radius: 6px;
   background: #fff;
   display: grid;
   grid-template-columns: ${({ $hasImage }) =>
@@ -107,8 +70,8 @@ export const CartLine = styled.article<{ $hasImage?: boolean }>`
     width: 64px;
     height: 64px;
     overflow: hidden;
-    border-radius: 12px;
-    background: var(--background);
+    border-radius: 6px;
+    background: #fafaf8;
   }
 
   .image img {
@@ -120,13 +83,13 @@ export const CartLine = styled.article<{ $hasImage?: boolean }>`
   .info {
     min-width: 0;
     display: grid;
-    gap: 4px;
+    gap: 2px;
   }
 
   .info b {
-    color: var(--text);
-    font-size: 15px;
-    line-height: 19px;
+    color: #1a1a2e;
+    font-size: 16px;
+    line-height: 20px;
     font-weight: 700;
   }
 
@@ -135,9 +98,9 @@ export const CartLine = styled.article<{ $hasImage?: boolean }>`
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    color: var(--muted);
-    font-size: 11px;
-    line-height: 15px;
+    color: #6d6d80;
+    font-size: 13px;
+    line-height: 16px;
   }
 
   .side {
@@ -147,7 +110,7 @@ export const CartLine = styled.article<{ $hasImage?: boolean }>`
   }
 
   .price {
-    color: var(--text);
+    color: #1a1a2e;
     font-size: 14px;
     line-height: 18px;
     font-weight: 700;
@@ -164,18 +127,22 @@ export const CartLine = styled.article<{ $hasImage?: boolean }>`
     .image {
       width: 56px;
       height: 56px;
+      border-radius: 6px;
     }
 
     .info b {
       font-size: 14px;
+      line-height: 18px;
     }
 
     .info small {
       font-size: 11px;
+      line-height: 14px;
     }
 
     .price {
       font-size: 13px;
+      line-height: 16px;
     }
   }
 `;
@@ -183,25 +150,116 @@ export const CartLine = styled.article<{ $hasImage?: boolean }>`
 export const QuantityControl = styled.div`
   display: inline-flex;
   align-items: center;
+
+  && [data-quantity-stepper] {
+    width: 73px;
+    height: 31px;
+    flex: 0 0 73px;
+    padding: 0 8px;
+    grid-template-columns: 10px minmax(5px, 1fr) 10px;
+    gap: 16px;
+    border-radius: 8px;
+    background: #fafaf8;
+    color: #1a1a2e;
+  }
+
+  && [data-quantity-stepper] button {
+    width: 10px;
+    max-width: 10px;
+    height: 15px;
+    color: #1a1a2e;
+  }
+
+  && [data-quantity-stepper] button > span {
+    font-size: 14px;
+    font-weight: 700;
+  }
+
+  && [data-quantity-stepper] > strong {
+    color: #1a1a2e;
+    font-size: 12px;
+    line-height: 15px;
+    font-weight: 700;
+  }
+
+  @media (max-width: 759px) {
+    && [data-quantity-stepper] {
+      width: 61px;
+      height: 27px;
+      flex-basis: 61px;
+      padding: 0 6px;
+      grid-template-columns: 10px 5px 10px;
+      gap: 12px;
+      background: #fafaf8;
+    }
+
+    && [data-quantity-stepper] button {
+      width: 10px;
+      max-width: 10px;
+      height: 15px;
+    }
+
+    && [data-quantity-stepper] button > span {
+      font-size: 13px;
+    }
+  }
 `;
 export const AddMoreButton = styled.button`
   width: 100%;
-  min-height: 48px;
-  margin-top: 16px;
-  border: 1px dashed var(--primary);
-  border-radius: 14px;
+  min-height: 50px;
+  margin-top: 24px;
+  padding: 16px;
+  border: 1px dashed #ff4b4b;
+  border-radius: 6px;
   background: transparent;
-  color: var(--primary);
-  font-size: 13px;
+  color: #ff4b4b;
+  font-size: 14px;
+  line-height: 18px;
   font-weight: 700;
+
+  @media (max-width: 759px) {
+    min-height: 44px;
+    margin-top: 16px;
+    padding: 14px;
+    font-size: 13px;
+    line-height: 16px;
+  }
+`;
+
+
+export const CartSummaryPanel = styled.section`
+  width: 100%;
+  padding: 24px;
+  border: 1px solid #eaeae6;
+  border-radius: 8px;
+  background: #fff;
+  display: grid;
+  gap: 20px;
+
+  .submit-block {
+    display: grid;
+    gap: 12px;
+  }
+
+  @media (max-width: 980px) {
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    gap: 16px;
+
+    .submit-block {
+      gap: 8px;
+    }
+  }
 `;
 
 export const CouponRow = styled.div`
   width: 100%;
-  min-height: 50px;
+  min-height: 51px;
   padding: 10px 12px 10px 14px;
-  border: 1px solid var(--line);
-  border-radius: 14px;
+  border: 1px solid #eaeae6;
+  border-radius: 6px;
   background: #fff;
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
@@ -213,66 +271,92 @@ export const CouponRow = styled.div`
     border: 0;
     outline: 0;
     background: transparent;
-    color: var(--text);
-    font-size: 13px;
+    color: #e85a2b;
+    font-size: 14px;
+    line-height: 18px;
+    font-weight: 700;
   }
 
   input::placeholder {
-    color: var(--muted);
+    color: #6d6d80;
     opacity: 1;
   }
 
   button {
-    min-width: 68px;
-    min-height: 30px;
-    padding: 0 14px;
+    min-width: 74px;
+    min-height: 31px;
+    padding: 0 16px;
     border: 0;
-    border-radius: 8px;
-    background: var(--text);
+    border-radius: 4px;
+    background: #ff4b4b;
     color: #fff;
-    font-size: 11px;
+    font-size: 12px;
+    line-height: 15px;
     font-weight: 700;
   }
 
   button:disabled {
     opacity: 0.45;
   }
+
+  @media (max-width: 759px) {
+    min-height: 46px;
+
+    input {
+      font-size: 13px;
+      line-height: 16px;
+    }
+
+    button {
+      min-width: 66px;
+      min-height: 26px;
+      padding: 0 14px;
+      font-size: 11px;
+      line-height: 14px;
+    }
+  }
 `;
 
 export const SummaryCard = styled(FlowCard)`
-  padding: 24px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
   display: grid;
-  gap: 16px;
+  gap: 12px;
 
   .row {
     display: flex;
     align-items: baseline;
     justify-content: space-between;
     gap: 16px;
-    color: var(--muted);
-    font-size: 13px;
+    color: #6d6d80;
+    font-size: 14px;
+    line-height: 18px;
   }
 
   .row strong {
-    color: var(--text);
-    font-weight: 500;
+    color: #1a1a2e;
+    font-weight: 400;
   }
 
   .divider {
     height: 1px;
-    background: var(--line);
+    background: #eaeae6;
   }
 
   .total {
-    color: var(--text);
+    color: #1a1a2e;
     font-size: 18px;
+    line-height: 23px;
     font-weight: 700;
   }
 
   .total strong {
-    color: var(--primary);
-    font-size: 24px;
-    font-weight: 700;
+    color: #ff4b4b;
+    font-size: 22px;
+    line-height: 28px;
+    font-weight: 400;
   }
 
   .discount,
@@ -282,18 +366,24 @@ export const SummaryCard = styled(FlowCard)`
 
   @media (max-width: 759px) {
     padding: 16px;
-    border-radius: 18px;
+    border: 1px solid #eaeae6;
+    border-radius: 6px;
+    background: #fff;
+    gap: 12px;
 
     .row {
       font-size: 13px;
+      line-height: 16px;
     }
 
     .total {
       font-size: 16px;
+      line-height: 20px;
     }
 
     .total strong {
-      font-size: 21px;
+      font-size: 20px;
+      line-height: 25px;
     }
   }
 `;
@@ -346,10 +436,10 @@ export const SecondaryAction = styled.button`
   width: 100%;
   min-height: 50px;
   padding: 0 18px;
-  border: 1px solid var(--line);
+  border: 1px solid #ff4b4b;
   border-radius: 16px;
   background: #fff;
-  color: var(--text);
+  color: #ff4b4b;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -362,6 +452,61 @@ export const SecondaryAction = styled.button`
   }
 `;
 
+export const CartSubmitAction = styled(PrimaryAction)`
+  min-height: 64px;
+  padding: 16px 24px;
+  border-radius: 6px;
+  background: #ff4b4b;
+  box-shadow: 0 4px 6px rgba(255, 75, 75, 0.13);
+
+  .action-copy {
+    gap: 4px;
+  }
+
+  .action-copy b {
+    font-size: 16px;
+    line-height: 20px;
+  }
+
+  .action-copy small {
+    font-size: 11px;
+    line-height: 14px;
+  }
+
+  @media (max-width: 759px) {
+    min-height: 62px;
+    padding: 14px 16px;
+
+    .action-copy {
+      gap: 2px;
+    }
+
+    .action-copy b {
+      font-size: 15px;
+      line-height: 19px;
+    }
+
+    .action-copy small {
+      font-size: 10px;
+      line-height: 13px;
+    }
+  }
+`;
+
+export const CartHelperText = styled.p`
+  margin: 0;
+  color: #6d6d80;
+  font-size: 12px;
+  line-height: 15px;
+  font-weight: 400;
+  text-align: center;
+
+  @media (max-width: 759px) {
+    font-size: 11px;
+    line-height: 14px;
+  }
+`;
+
 export const HelperText = styled.p`
   margin: 0;
   color: var(--muted);
@@ -371,17 +516,30 @@ export const HelperText = styled.p`
 `;
 
 export const ConfirmationCard = styled(FlowCard)`
-  width: min(640px, 100%);
-  margin: 16px auto 0;
-  padding: 48px;
+  width: min(560px, 100%);
+  margin: 8px auto 0;
+  padding: 36px;
   display: grid;
-  gap: 24px;
+  gap: 16px;
   box-shadow: 0 12px 16px rgba(0, 0, 0, 0.04);
+  transform-origin: 50% 18%;
+  animation: confirmation-card-enter 460ms cubic-bezier(.22, 1, .36, 1) both;
+
+  @keyframes confirmation-card-enter {
+    from {
+      opacity: 0;
+      transform: translate3d(0, 18px, 0) scale(.985);
+    }
+    to {
+      opacity: 1;
+      transform: translate3d(0, 0, 0) scale(1);
+    }
+  }
 
   @media (max-width: 759px) {
-    width: calc(100% + 40px);
-    margin: -20px -20px 0;
-    padding: 24px;
+    width: 100%;
+    margin: 0;
+    padding: 24px 0 0;
     border: 0;
     border-radius: 0;
     background: transparent;
@@ -390,9 +548,13 @@ export const ConfirmationCard = styled(FlowCard)`
   }
 
   @media (max-width: 359px) {
-    width: calc(100% + 28px);
-    margin-inline: -14px;
-    padding-inline: 14px;
+    width: 100%;
+    margin-inline: 0;
+    padding-inline: 0;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    animation: none;
   }
 `;
 
@@ -402,39 +564,127 @@ export const SuccessHero = styled.section`
   text-align: center;
   gap: 8px;
 
+  > * {
+    animation: confirmation-rise 420ms cubic-bezier(.22, 1, .36, 1) both;
+  }
+
+  > .ring {
+    animation-delay: 90ms;
+  }
+
+  > h1 {
+    animation-delay: 170ms;
+  }
+
+  > p {
+    animation-delay: 230ms;
+  }
+
+  @keyframes confirmation-rise {
+    from {
+      opacity: 0;
+      transform: translate3d(0, 12px, 0);
+    }
+    to {
+      opacity: 1;
+      transform: translate3d(0, 0, 0);
+    }
+  }
+
   .ring {
-    width: 96px;
-    height: 96px;
+    width: 72px;
+    height: 72px;
     border-radius: 48px;
     background: #ecfdf5;
     display: grid;
     place-items: center;
+    position: relative;
+  }
+
+  .ring::after {
+    content: '';
+    position: absolute;
+    inset: 9px;
+    border-radius: 999px;
+    border: 2px solid rgba(16, 185, 129, .22);
+    animation: success-ring-pulse 1.35s ease-out 260ms 1 both;
   }
 
   .check {
-    width: 56px;
-    height: 56px;
-    border-radius: 28px;
+    width: 44px;
+    height: 44px;
+    border-radius: 22px;
     background: #10b981;
     color: #fff;
     display: grid;
     place-items: center;
+    animation: success-check-pop 520ms cubic-bezier(.34, 1.56, .64, 1) 160ms both;
+  }
+
+  .check svg {
+    animation: success-check-draw 420ms ease-out 310ms both;
+  }
+
+  @keyframes success-check-pop {
+    0% {
+      opacity: 0;
+      transform: scale(.55) rotate(-7deg);
+    }
+    70% {
+      opacity: 1;
+      transform: scale(1.08) rotate(2deg);
+    }
+    100% {
+      opacity: 1;
+      transform: scale(1) rotate(0deg);
+    }
+  }
+
+  @keyframes success-check-draw {
+    from {
+      opacity: 0;
+      transform: scale(.6);
+    }
+    to {
+      opacity: 1;
+      transform: scale(1);
+    }
+  }
+
+  @keyframes success-ring-pulse {
+    from {
+      opacity: .8;
+      transform: scale(.72);
+    }
+    to {
+      opacity: 0;
+      transform: scale(1.55);
+    }
   }
 
   h1 {
-    margin: 10px 0 0;
+    margin: 6px 0 0;
     color: var(--text);
-    font-size: 36px;
-    line-height: 42px;
+    font-size: 30px;
+    line-height: 36px;
     font-weight: 500;
   }
 
   p {
-    max-width: 520px;
+    max-width: 360px;
     margin: 0;
     color: var(--muted);
-    font-size: 15px;
-    line-height: 21px;
+    font-size: 13px;
+    line-height: 18px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    > *,
+    .check,
+    .check svg,
+    .ring::after {
+      animation: none;
+    }
   }
 
   @media (max-width: 759px) {
@@ -446,6 +696,7 @@ export const SuccessHero = styled.section`
     .check {
       width: 48px;
       height: 48px;
+      border-radius: 24px;
     }
 
     h1 {
@@ -463,14 +714,15 @@ export const SuccessHero = styled.section`
 `;
 
 export const OrderSummaryBar = styled(FlowCard)`
-  min-height: 56px;
-  padding: 16px 18px;
-  border-radius: 14px;
+  min-height: 52px;
+  padding: 16px;
+  border-radius: 6px;
   background: var(--background);
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 18px;
+  animation: confirmation-block-enter 400ms cubic-bezier(.22, 1, .36, 1) 280ms both;
 
   .label {
     display: grid;
@@ -513,6 +765,19 @@ export const TimelineCard = styled(FlowCard)`
 
   &.confirmation-timeline {
     padding: 20px;
+    border-radius: 6px;
+    animation: confirmation-block-enter 420ms cubic-bezier(.22, 1, .36, 1) 350ms both;
+  }
+
+  @keyframes confirmation-block-enter {
+    from {
+      opacity: 0;
+      transform: translate3d(0, 14px, 0);
+    }
+    to {
+      opacity: 1;
+      transform: translate3d(0, 0, 0);
+    }
   }
 
   @media (max-width: 759px) {
@@ -520,6 +785,7 @@ export const TimelineCard = styled(FlowCard)`
 
     &.confirmation-timeline {
       padding: 20px;
+      border-radius: 6px;
     }
   }
 `;
@@ -529,7 +795,7 @@ export const Timeline = styled.div`
   gap: 24px;
 
   .confirmation-timeline & {
-    gap: 20px;
+    gap: 16px;
   }
 
   @media (max-width: 759px) {
@@ -542,79 +808,246 @@ export const Timeline = styled.div`
 `;
 
 export const TimelineStep = styled.div<{ $active: boolean; $current?: boolean }>`
-  min-height: 28px;
+  min-height: 20px;
   display: grid;
-  grid-template-columns: 28px minmax(0, 1fr);
-  gap: 16px;
-  align-items: start;
-  opacity: ${({ $active, $current }) => ($active || $current ? 1 : 0.4)};
+  grid-template-columns: 20px minmax(0, 1fr);
+  gap: 12px;
+  align-items: center;
+  opacity: ${({ $active, $current }) => ($active || $current ? 1 : 0.72)};
+  animation: timeline-step-enter 340ms cubic-bezier(.22, 1, .36, 1) both;
+
+  &:nth-child(1) { animation-delay: 420ms; }
+  &:nth-child(2) { animation-delay: 500ms; }
+  &:nth-child(3) { animation-delay: 580ms; }
+
+  @keyframes timeline-step-enter {
+    from { opacity: 0; transform: translate3d(-8px, 8px, 0); }
+    to { opacity: ${({ $active, $current }) => ($active || $current ? 1 : 0.72)}; transform: translate3d(0, 0, 0); }
+  }
 
   .dot {
-    width: 28px;
-    height: 28px;
+    width: 20px;
+    height: 20px;
     border: 0;
-    border-radius: 14px;
-    background: ${({ $active, $current }) =>
-      $current
-        ? 'color-mix(in srgb, var(--primary) 10%, #fff)'
-        : $active
-          ? '#ecfdf5'
-          : 'var(--line)'};
-    color: ${({ $active, $current }) =>
-      $current ? 'var(--primary)' : $active ? '#10b981' : 'var(--muted)'};
+    border-radius: 6px;
+    background: #eaeae6;
+    color: #6d6d80;
     display: grid;
     place-items: center;
-    font-size: 10px;
+    font-size: 9px;
     font-weight: 700;
   }
 
   .copy {
-    padding-top: 2px;
-    display: grid;
-    gap: 2px;
+    display: flex;
+    align-items: baseline;
+    flex-wrap: wrap;
+    gap: 4px 7px;
   }
 
   b {
-    color: ${({ $current }) => ($current ? 'var(--primary)' : 'var(--text)')};
-    font-size: 14px;
-    line-height: 18px;
-    font-weight: ${({ $current }) => ($current ? 700 : 500)};
+    color: #1a1a2e;
+    font-size: 13px;
+    line-height: 17px;
+    font-weight: 500;
   }
 
-  p {
-    margin: 0;
-    color: var(--muted);
-    font-size: 12px;
-    line-height: 16px;
+  .completed-label,
+  .current-label {
+    font-size: 11px;
+    line-height: 14px;
+    font-weight: 700;
   }
 
-  @media (max-width: 759px) {
+  &.confirmation-step.completed { opacity: 1; }
+  &.confirmation-step.completed .dot {
+    background: #10b981;
+    color: #fff;
+    box-shadow: 0 0 0 3px rgba(16, 185, 129, .11);
+  }
+
+  &.confirmation-step.completed b {
+    color: #047857;
+    font-weight: 700;
+  }
+
+  &.confirmation-step.completed .completed-label {
+    color: #059669;
+    font-weight: 800;
+  }
+
+  &.confirmation-step.current {
+    opacity: 1;
+  }
+
+  &.confirmation-step.current .dot {
+    background: #ff4b4b;
+    color: #fff;
+    box-shadow: 0 0 0 3px rgba(255, 75, 75, .11);
+  }
+
+  &.confirmation-step.current .dot .pulse {
+    width: 7px;
+    height: 7px;
+    border-radius: 999px;
+    background: #fff;
+  }
+
+  &.confirmation-step.current b {
+    color: #d9362b;
+    font-weight: 800;
+  }
+
+  &.confirmation-step.current .current-label {
+    color: #e84229;
+    font-weight: 800;
+  }
+
+  &.confirmation-step.pending {
+    opacity: .72;
+  }
+
+  &.confirmation-step.pending .dot {
+    background: #e5e7eb;
+    color: #6d6d80;
+  }
+
+  &.confirmation-step.pending b {
+    color: #6d6d80;
+    font-weight: 600;
+  }
+
+  &.tracking-step {
     grid-template-columns: 24px minmax(0, 1fr);
     gap: 12px;
-    min-height: 24px;
-
-    .dot {
-      width: 24px;
-      height: 24px;
-    }
-
-    b {
-      font-size: 13px;
-      line-height: 16px;
-    }
-
-    p {
-      font-size: 11px;
-      line-height: 14px;
-    }
+    align-items: start;
+    opacity: 1;
   }
-`;
+
+  &.tracking-step .dot {
+    width: 24px;
+    height: 24px;
+    border-radius: 6px;
+    background: #f3f3f1;
+    color: #a9a9b4;
+  }
+
+  &.tracking-step .copy {
+    padding-top: 1px;
+    display: grid;
+    align-items: start;
+    gap: 2px;
+  }
+
+  &.tracking-step b {
+    color: #1a1a2e;
+    font-weight: 700;
+  }
+
+  &.tracking-step p {
+    color: #6d6d80;
+  }
+
+  &.tracking-step.completed .dot {
+    background: #ecfdf5;
+    color: #10b981;
+    box-shadow: none;
+  }
+
+  &.tracking-step.completed b {
+    color: #1a1a2e;
+  }
+
+  &.tracking-step.current .dot {
+    background: #fff1f1;
+    color: #ff4b4b;
+    box-shadow: none;
+  }
+
+  &.tracking-step.current b {
+    color: #ff4b4b;
+  }
+
+  &.tracking-step.pending {
+    opacity: .4;
+  }
+
+  &.tracking-step.pending .dot {
+    background: #eaeae6;
+    color: transparent;
+  }
+
+  &.tracking-step.pending b {
+    color: #1a1a2e;
+    font-weight: 400;
+  }
+
+  p { margin: 0; color: var(--muted); font-size: 12px; line-height: 16px; }
+
+  @media (prefers-reduced-motion: reduce) { animation: none; }
+
+  @media (max-width: 759px) {
+    min-height: 20px;
+    b { font-size: 13px; line-height: 16px; }
+    .completed-label, .current-label { font-size: 10px; line-height: 13px; }
+    p { font-size: 11px; line-height: 14px; }
+  }
+`
 
 export const ConfirmationActions = styled.div`
   width: 100%;
+  padding-top: 6px;
   display: grid;
   gap: 10px;
-`;
+  animation: confirmation-block-enter 420ms cubic-bezier(.22, 1, .36, 1) 640ms both;
+
+  > button:first-of-type {
+    min-height: 48px;
+    padding: 14px 16px;
+    border-radius: 6px;
+    background: #ff4b4b;
+    box-shadow: 0 4px 6px rgba(255, 75, 75, 0.13);
+    color: #fff;
+    font-size: 15px;
+    font-weight: 700;
+  }
+
+  .pix-action {
+    min-height: 48px;
+    padding: 14px 16px;
+    border: 1px solid #ff4b4b;
+    border-radius: 6px;
+    background: #fff;
+    color: #ff4b4b;
+    font-size: 14px;
+    font-weight: 700;
+  }
+
+  .pix-action svg {
+    width: 20px;
+    height: 20px;
+    color: #ff4b4b;
+    flex: 0 0 20px;
+  }
+
+  > p {
+    color: #6d6d80;
+    font-size: 11px;
+    line-height: 14px;
+  }
+
+  button {
+    transition: transform 180ms cubic-bezier(.22, 1, .36, 1), box-shadow 180ms ease, filter 180ms ease;
+  }
+  button:hover:not(:disabled) { transform: translateY(-2px); filter: brightness(1.02); }
+  button:active:not(:disabled) { transform: translateY(0) scale(.985); }
+
+  @media (prefers-reduced-motion: reduce) {
+    animation: none;
+    button { transition: none; }
+    button:hover:not(:disabled), button:active:not(:disabled) { transform: none; }
+  }
+`
 
 export const TrackingLayout = styled.div`
   display: grid;
@@ -637,7 +1070,7 @@ export const TrackingLayout = styled.div`
   }
 
   @media (max-width: 759px) {
-    gap: 20px;
+    gap: 16px;
 
     .tracking-main {
       gap: 16px;
@@ -652,6 +1085,7 @@ export const TrackingLayout = styled.div`
 export const StatusCard = styled(FlowCard)`
   padding: 20px;
   border-color: var(--primary);
+  border-radius: 8px;
   background: color-mix(in srgb, var(--primary) 8%, #fff);
   display: grid;
   grid-template-columns: 12px minmax(0, 1fr);
@@ -684,6 +1118,22 @@ export const StatusCard = styled(FlowCard)`
 
   .icon svg {
     display: none;
+  }
+
+  @media (max-width: 759px) {
+    padding: 16px;
+    gap: 8px;
+
+    h2 {
+      margin-bottom: 6px;
+      font-size: 15px;
+      line-height: 19px;
+    }
+
+    p {
+      font-size: 12px;
+      line-height: 17px;
+    }
   }
 `;
 
@@ -727,12 +1177,20 @@ export const OrderItemsCard = styled(FlowCard)`
     gap: 8px;
 
     h2 {
+      margin: 0 0 2px;
       font-size: 20px;
       line-height: 25px;
     }
 
     .account-total {
       display: none;
+    }
+
+    > button {
+      margin-top: 12px;
+      min-height: 46px;
+      border-radius: 6px;
+      box-shadow: none;
     }
   }
 `;
@@ -773,6 +1231,121 @@ export const OrderItemLine = styled.article`
   }
 
   @media (max-width: 759px) {
+    min-height: 48px;
+    padding: 12px;
+    border-radius: 6px;
     background: #fff;
+
+    .copy {
+      gap: 8px;
+    }
+
+    b,
+    strong {
+      font-size: 13px;
+    }
   }
 `;
+
+export const TrackingPixAction = styled.button`
+  width: 100%;
+  min-height: 48px;
+  padding: 12px 20px;
+  border: 0;
+  border-radius: 6px;
+  background: #ff4b4b;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-size: 15px;
+  line-height: 19px;
+  font-weight: 700;
+  box-shadow: none;
+
+  svg {
+    width: 20px;
+    height: 20px;
+    flex: 0 0 20px;
+    color: currentColor;
+  }
+
+  &:hover:not(:disabled) {
+    background: #ff4b4b;
+    filter: brightness(.96);
+  }
+
+  &:active:not(:disabled) {
+    background: #ff4b4b;
+    filter: brightness(.92);
+  }
+
+  &:focus-visible {
+    outline: 3px solid rgba(255, 75, 75, .28);
+    outline-offset: 2px;
+  }
+
+  &:disabled {
+    background: #e7e7e3;
+    color: #8b8b97;
+    opacity: 1;
+    cursor: not-allowed;
+  }
+
+  &:disabled:hover,
+  &:disabled:active {
+    background: #e7e7e3;
+  }
+
+  @media (min-width: 760px) {
+    margin-top: 4px;
+  }
+`;
+
+export const TrackingOtherPaymentAction = styled.button`
+  width: 100%;
+  min-height: 48px;
+  padding: 12px 20px;
+  border: 1px solid #ff4b4b;
+  border-radius: 6px;
+  background: #fff;
+  color: #ff4b4b;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-size: 15px;
+  line-height: 19px;
+  font-weight: 700;
+  box-shadow: none;
+  transition: background-color 180ms ease, color 180ms ease, transform 180ms ease;
+
+  svg {
+    width: 18px;
+    height: 18px;
+    flex: 0 0 18px;
+  }
+
+  &:hover:not(:disabled) {
+    background: #fff1f1;
+    transform: translateY(-1px);
+  }
+
+  &:active:not(:disabled) {
+    transform: translateY(0) scale(.99);
+  }
+
+  &:focus-visible {
+    outline: 3px solid rgba(255, 75, 75, .22);
+    outline-offset: 2px;
+  }
+
+  &:disabled {
+    border-color: #deded9;
+    background: #f2f2ef;
+    color: #aaaab3;
+    cursor: not-allowed;
+  }
+`;
+

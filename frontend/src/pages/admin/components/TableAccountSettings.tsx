@@ -33,6 +33,16 @@ type AdminSession = {
 };
 
 type AccountDetail = {
+  participantAccounts?: Array<{
+    publicId: string;
+    displayName: string | null;
+    status: 'ACTIVE' | 'LEFT';
+    consumedCents: number;
+    paidCents: number;
+    reservedCents: number;
+    processingCents: number;
+    remainingCents: number;
+  }>;
   items: Array<{
     publicId: string;
     productName: string;
@@ -47,6 +57,11 @@ type AccountDetail = {
     totalCents: number;
     serviceFeeCents: number;
     payerParticipantPublicId: string;
+    events?: Array<{
+      actorName: string | null;
+      stage?: string | null;
+      occurredAt: string;
+    }>;
   }>;
 };
 
@@ -64,27 +79,18 @@ const accountFeatureToggles: ReadonlyArray<{
   {
     key: 'enabled',
     title: 'Ativar conta por mesa',
-    description: 'Pedidos podem ser acumulados e pagos em partes.',
+    description: 'Cada cliente acumula o próprio consumo dentro da conta geral da mesa.',
   },
   {
     key: 'allowOnlinePayment',
-    title: 'Pagamento online',
-    description: 'Permite iniciar PIX ou cartão pelo celular.',
-  },
-  {
-    key: 'allowSplit',
-    title: 'Dividir o saldo',
-    description: 'Libera a divisão exata, incluindo os centavos restantes.',
+    title: 'Pagamento por PIX',
+    description: 'Permite ao cliente pagar a própria conta pelo PIX no celular.',
   },
   {
     key: 'allowCash',
-    title: 'Dinheiro com o garçom',
-    description: 'O garçom confirma o recebimento presencial.',
-  },
-  {
-    key: 'allowCardMachine',
-    title: 'Maquininha',
-    description: 'O garçom confirma depois da aprovação na máquina.',
+    title: 'Pagamento em dinheiro',
+    description:
+      'Garçom ou atendente registra o recebimento; somente o administrador confirma como pago.',
   },
 ];
 
@@ -94,14 +100,9 @@ const accountProtectionToggles: ReadonlyArray<{
   description: string;
 }> = [
   {
-    key: 'preventCloseWithOutstandingBalance',
-    title: 'Impedir fechamento com saldo pendente',
-    description: 'O admin ainda poderá forçar o fechamento informando um motivo auditável.',
-  },
-  {
     key: 'blockNewOrdersOnClosingRequest',
-    title: 'Bloquear pedidos depois de pedir a conta',
-    description: 'Ao solicitar a conta, a sessão entra em fechamento e não aceita novos pedidos.',
+    title: 'Bloquear pedidos durante o encerramento',
+    description: 'Quando o encerramento da mesa for iniciado, novos pedidos deixam de ser aceitos.',
   },
   {
     key: 'requireEmployeeApprovalForPreparedItemCancellation',
@@ -189,11 +190,11 @@ export function TableAccountSettings({ settings, update }: Props) {
     payment: AccountDetail['paymentIntents'][number],
     session: AdminSession,
   ) => {
-    const method = payment.method === 'CASH' ? 'dinheiro' : 'maquininha';
+    const staffReceipt = payment.events?.find((event) => event.stage === 'STAFF_RECEIVED');
     const confirmed = await confirmDialog({
-      title: 'Confirmar pagamento recebido?',
-      description: `Mesa ${String(session.tableNumber).padStart(2, '0')} • ${money(payment.totalCents)} em ${method}. Confirme somente depois de conferir o recebimento no caixa.`,
-      confirmLabel: 'Confirmar recebimento',
+      title: 'Confirmar pagamento em dinheiro?',
+      description: `Mesa ${String(session.tableNumber).padStart(2, '0')} • ${money(payment.totalCents)}. ${staffReceipt?.actorName ? `Recebimento registrado por ${staffReceipt.actorName}. ` : ''}Ao confirmar como admin, este pagamento passa para PAGO.`,
+      confirmLabel: 'Confirmar como pago',
       cancelLabel: 'Voltar e conferir',
     });
     if (!confirmed) return;
@@ -204,7 +205,7 @@ export function TableAccountSettings({ settings, update }: Props) {
       const detail = await tableAccountService.getAdminSnapshot(session.sessionPublicId);
       setDetails((current) => ({ ...current, [session.sessionPublicId]: detail }));
       await refreshSessions();
-      toast.success('Pagamento presencial confirmado.');
+      toast.success('Pagamento em dinheiro confirmado como pago.');
     } catch {
       toast.error('Não foi possível confirmar este pagamento.');
     } finally {
@@ -247,7 +248,7 @@ export function TableAccountSettings({ settings, update }: Props) {
       await promptDialog({
         title: `Fechar a Mesa ${session.tableNumber}?`,
         description:
-          'Use esta ação somente quando o atendimento não puder ser encerrado pelo fluxo normal. O motivo ficará registrado na auditoria.',
+          'A conta geral precisa estar totalmente quitada. Use esta ação somente para corrigir uma exceção operacional da sessão; ela nunca ignora pagamentos pendentes. O motivo ficará registrado na auditoria.',
         inputLabel: 'Motivo do fechamento administrativo',
         placeholder: 'Ex.: atendimento cancelado diretamente no caixa',
         confirmLabel: 'Fechar mesa',
@@ -516,7 +517,14 @@ export function TableAccountSettings({ settings, update }: Props) {
                     <S.Button
                       $danger
                       type="button"
-                      disabled={busyId === session.sessionPublicId}
+                      disabled={
+                        busyId === session.sessionPublicId || session.summary.remainingCents > 0
+                      }
+                      title={
+                        session.summary.remainingCents > 0
+                          ? 'Quite toda a conta da mesa antes do fechamento administrativo.'
+                          : 'Fechamento para exceção operacional com conta quitada.'
+                      }
                       onClick={() => void forceClose(session)}
                     >
                       Fechamento administrativo
@@ -525,6 +533,31 @@ export function TableAccountSettings({ settings, update }: Props) {
                 </div>
                 {detail && (
                   <S.Detail>
+                    <div className="detail-section">
+                      <h5>Contas por cliente</h5>
+                      {(detail.participantAccounts || []).map((participant) => (
+                        <div className="item" key={participant.publicId}>
+                          <div>
+                            <b>{participant.displayName || 'Cliente da mesa'}</b>
+                            <span>
+                              {' '}· {participant.remainingCents === 0 && participant.consumedCents > 0
+                                ? 'PAGO'
+                                : participant.processingCents > 0 || participant.reservedCents > 0
+                                  ? 'EM PAGAMENTO'
+                                  : 'PENDENTE'}
+                            </span>
+                          </div>
+                          <div>
+                            Consumiu {money(participant.consumedCents)} · Pago{' '}
+                            {money(participant.paidCents)} · Falta{' '}
+                            {money(participant.remainingCents)}
+                          </div>
+                        </div>
+                      ))}
+                      {!detail.participantAccounts?.length && (
+                        <S.Empty>Nenhum participante com consumo registrado.</S.Empty>
+                      )}
+                    </div>
                     <div className="detail-section">
                       <h5>Itens da conta</h5>
                       {detail.items.map((item) => (
@@ -550,14 +583,14 @@ export function TableAccountSettings({ settings, update }: Props) {
                             <div>{money(payment.totalCents)}</div>
                           </div>
                           <div className="payment-actions">
-                            {['CASH', 'CARD_MACHINE'].includes(payment.method) &&
+                            {payment.method === 'CASH' &&
                               ['RESERVED', 'PROCESSING'].includes(payment.status) && (
                                 <S.Button
                                   type="button"
                                   disabled={busyId === payment.publicId}
                                   onClick={() => void confirmManual(payment, session)}
                                 >
-                                  Confirmar recebimento
+                                  Confirmar como pago
                                 </S.Button>
                               )}
                             {payment.status === 'PAID' && (

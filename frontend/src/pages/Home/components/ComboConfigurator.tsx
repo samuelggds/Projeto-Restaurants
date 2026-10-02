@@ -104,7 +104,13 @@ export function ComboConfigurator({
 
   return createPortal(
     <Backdrop onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
-      <Dialog $primary={primaryColor} role="dialog" aria-modal="true" aria-label={`Montar ${product.name}`}>
+      <Dialog
+        $primary={primaryColor}
+        role="dialog"
+        aria-modal="true"
+        aria-label={`Montar ${product.name}`}
+        data-cart-fly-source="dialog"
+      >
         <header>
           <div>
             <span><Sparkles size={15} /> Monte do seu jeito</span>

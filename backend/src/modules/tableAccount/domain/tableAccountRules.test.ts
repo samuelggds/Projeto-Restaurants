@@ -2,8 +2,6 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
   DEFAULT_TABLE_ACCOUNT_TIME_ZONE,
-  TABLE_ACCOUNT_PAYMENT_PROVIDER,
-  TABLE_ACCOUNT_PRODUCT_DECISIONS,
   TABLE_PAYMENT_INTENT_STATUSES,
   type TableAccountActor,
   type TablePaymentIntentStatus,
@@ -226,6 +224,44 @@ test('valida a decisão entre conta da mesa e pagamento imediato', () => {
   );
 });
 
+test('cartão da mesa exige token do provedor e rejeita dados brutos do cartão', () => {
+  const base = {
+    selectionMode: 'MY_ITEMS',
+    method: 'CARD',
+    includeOptionalServiceFee: false,
+    idempotencyKey: 'table-payment:card-request-0001',
+  };
+
+  assert.equal(createTablePaymentIntentInputSchema.safeParse(base).success, false);
+  assert.equal(
+    createTablePaymentIntentInputSchema.safeParse({
+      ...base,
+      cardPayment: {
+        cardPaymentType: 'credit',
+        cardToken: 'provider-token-secure-123',
+        cardPaymentMethodId: 'visa',
+        cardLast4: '4242',
+        holderTaxId: '12345678901',
+      },
+    }).success,
+    true,
+  );
+  assert.equal(
+    createTablePaymentIntentInputSchema.safeParse({
+      ...base,
+      cardPayment: {
+        cardPaymentType: 'credit',
+        cardToken: 'provider-token-secure-123',
+        cardPaymentMethodId: 'visa',
+        cardLast4: '4242',
+        number: '4242424242424242',
+        cvv: '123',
+      },
+    }).success,
+    false,
+  );
+});
+
 test('aceita seleção de itens segura e rejeita totais ou restaurantId do cliente', () => {
   const validInput = {
     selectionMode: 'SELECTED_ITEMS',
@@ -269,6 +305,10 @@ test('separa divisão igual e permite pagamento presencial para a seleção esco
       selectionMode: 'EQUAL_SPLIT',
       method: 'CARD',
       splitCount: 4,
+      cardPayment: {
+        cardToken: 'provider-token-secure-123',
+        cardPaymentMethodId: 'visa',
+      },
     }).success,
     true,
   );
@@ -298,7 +338,7 @@ test('separa divisão igual e permite pagamento presencial para a seleção esco
   );
 });
 
-test('aplica padrões seguros às configurações e não escolhe provedor', () => {
+test('aplica padrões seguros às configurações da conta', () => {
   const settings = tableAccountSettingsSchema.parse({});
 
   assert.equal(settings.enabled, true);
@@ -309,8 +349,6 @@ test('aplica padrões seguros às configurações e não escolhe provedor', () =
   assert.equal(settings.preventCloseWithOutstandingBalance, true);
   assert.equal(settings.blockNewOrdersOnClosingRequest, true);
   assert.equal(settings.timeZone, DEFAULT_TABLE_ACCOUNT_TIME_ZONE);
-  assert.equal(TABLE_ACCOUNT_PAYMENT_PROVIDER, null);
-  assert.equal(TABLE_ACCOUNT_PRODUCT_DECISIONS.selectedPaymentProvider, null);
   assert.equal(
     tableAccountSettingsSchema.safeParse({ timeZone: 'Fuso/Inexistente' }).success,
     false,
@@ -353,7 +391,7 @@ test('mantém taxa obrigatória sob autoridade do backend', () => {
   assert.equal(shouldIncludeServiceFee('MANDATORY', false), true);
 });
 
-test('limita confirmação manual ao admin e ao garçom do restaurante', () => {
+test('permite registrar dinheiro ao admin, garçom e atendente do restaurante', () => {
   const admin: TableAccountActor = {
     id: 1,
     role: 'ADMIN',
@@ -364,6 +402,12 @@ test('limita confirmação manual ao admin e ao garçom do restaurante', () => {
     id: 2,
     role: 'FUNCIONARIO',
     subRole: 'GARCOM',
+    restaurantId: 10,
+  };
+  const attendant: TableAccountActor = {
+    id: 5,
+    role: 'FUNCIONARIO',
+    subRole: 'ATENDENTE',
     restaurantId: 10,
   };
   const kitchen: TableAccountActor = {
@@ -381,7 +425,9 @@ test('limita confirmação manual ao admin e ao garçom do restaurante', () => {
 
   assert.equal(canConfirmManualTablePayment(admin, 10), true);
   assert.equal(canConfirmManualTablePayment(waiter, 10), true);
+  assert.equal(canConfirmManualTablePayment(attendant, 10), true);
   assert.equal(canConfirmManualTablePayment(waiter, 11), false);
+  assert.equal(canConfirmManualTablePayment(attendant, 11), false);
   assert.equal(canConfirmManualTablePayment(kitchen, 10), false);
   assert.equal(canConfirmManualTablePayment(superAdmin, 10), false);
   assert.equal(canAuthorizePreparedItemCancellation(kitchen, 10), true);
@@ -392,6 +438,7 @@ test('limita confirmação manual ao admin e ao garçom do restaurante', () => {
   assert.equal(canRefundTablePayment(admin, 10), true);
   assert.equal(canRefundTablePayment(superAdmin, 10), false);
   assert.equal(canViewTableAccountFinancialHistory(waiter, 10), true);
+  assert.equal(canViewTableAccountFinancialHistory(attendant, 10), false);
   assert.equal(canViewTableAccountFinancialHistory(kitchen, 10), false);
 });
 

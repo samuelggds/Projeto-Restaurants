@@ -20,6 +20,7 @@ function payment({
   expiresAt = new Date('2099-01-01T00:10:00.000Z'),
   provider = null,
   providerExternalId = null,
+  events = [],
 }) {
   return {
     publicId,
@@ -32,10 +33,12 @@ function payment({
     serviceFeeCents: 0n,
     expiresAt,
     createdAt: new Date('2026-08-26T18:00:00.000Z'),
+    payerParticipant: { publicId: 'participant-1' },
+    events,
   };
 }
 
-test('lista somente pagamentos presenciais ativos e mantém consultas no restaurante do garçom', async () => {
+test('lista somente dinheiro ativo e mantém consultas no restaurante do garçom', async () => {
   let queryCount = 0;
   tableAccountRepository.listAdminSnapshotDataByRestaurant = async (restaurantId, now) => {
     queryCount += 1;
@@ -52,7 +55,17 @@ test('lista somente pagamentos presenciais ativos e mantém consultas no restaur
         expiresAt: null,
         status: 'OPEN',
         openedBy: { name: 'Ana Garçom' },
-        participants: [],
+        participants: [
+          {
+            publicId: 'participant-1',
+            displayName: 'Samuel',
+            userId: null,
+            status: 'ACTIVE',
+            tokenExpiresAt: new Date('2099-01-01T00:00:00.000Z'),
+            joinedAt: new Date('2026-08-26T17:00:00.000Z'),
+            leftAt: null,
+          },
+        ],
         billItems: [],
         paymentIntents: [
           payment({ publicId: 'cash-active', method: 'CASH', status: 'RESERVED' }),
@@ -62,6 +75,18 @@ test('lista somente pagamentos presenciais ativos e mantém consultas no restaur
             method: 'CASH',
             status: 'RESERVED',
             expiresAt: new Date('2020-01-01T00:00:00.000Z'),
+          }),
+          payment({
+            publicId: 'cash-received',
+            method: 'CASH',
+            status: 'RESERVED',
+            expiresAt: new Date('2020-01-01T00:00:00.000Z'),
+            events: [
+              {
+                deduplicationKey:
+                  'table-payment:cash-received:cash-received-by-staff',
+              },
+            ],
           }),
           payment({
             publicId: 'pix-online',
@@ -90,14 +115,21 @@ test('lista somente pagamentos presenciais ativos e mantém consultas no restaur
       status: 'RESERVED',
       totalCents: 2_900,
       createdAt: '2026-08-26T18:00:00.000Z',
+      payerParticipantPublicId: 'participant-1',
+      payerDisplayName: 'Samuel',
+      staffReceiptRegistered: false,
     },
     {
-      publicId: 'machine-active',
-      method: 'CARD_MACHINE',
-      status: 'PROCESSING',
+      publicId: 'cash-received',
+      method: 'CASH',
+      status: 'RESERVED',
       totalCents: 2_900,
       createdAt: '2026-08-26T18:00:00.000Z',
+      payerParticipantPublicId: 'participant-1',
+      payerDisplayName: 'Samuel',
+      staffReceiptRegistered: true,
     },
   ]);
+  assert.equal(result.sessions[0]?.paymentCounts.inPerson, 4);
   assert.equal(queryCount, 1);
 });

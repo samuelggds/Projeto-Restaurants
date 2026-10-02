@@ -1,22 +1,25 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
-  ArrowLeft,
   ArrowRight,
+  Banknote,
   CheckCircle2,
+  CreditCard,
   ReceiptText,
   RefreshCw,
   ShieldCheck,
   X,
 } from 'lucide-react';
 import {
+  currentParticipantAccount,
   formatTableMoney,
   previewIndividualTablePayment,
+  tablePaymentMethodLabel,
   type CreateTablePaymentResult,
   type TableAccountSnapshot,
   type TablePaymentDraft,
   type TablePaymentIntent,
 } from '../domain/tableAccount';
-import { TablePaymentStatusView } from './TablePaymentStatusView';
+import { PixMark } from '../../../components/payment/PixMark';
 import * as S from './TableAccountPanel.styles';
 
 type Props = {
@@ -28,8 +31,8 @@ type Props = {
   error: string;
   onRefresh: () => void;
   onCreatePayment: (draft: TablePaymentDraft) => Promise<CreateTablePaymentResult | null>;
-  onCancelPayment: (paymentPublicId: string) => Promise<boolean>;
-  onReconcilePayment: (paymentPublicId: string) => Promise<TablePaymentIntent | null>;
+  onOpenCardPayment: () => void;
+  onOpenPayment: (payment: TablePaymentIntent) => void;
   onRemoveOrder?: (orderPublicId: string) => Promise<boolean>;
   draftCount?: number;
   draftTotal?: number;
@@ -47,8 +50,8 @@ function TableAccountPanelContent(props: Props) {
     error,
     onRefresh,
     onCreatePayment,
-    onCancelPayment,
-    onReconcilePayment,
+    onOpenCardPayment,
+    onOpenPayment,
     onRemoveOrder,
     draftCount = 0,
     draftTotal = 0,
@@ -58,7 +61,6 @@ function TableAccountPanelContent(props: Props) {
   } = props;
   const closeButtonRef = useRef<HTMLButtonElement>(null);
   const panelRef = useRef<HTMLElement>(null);
-  const paymentStageRef = useRef<HTMLDivElement>(null);
   const onCloseRef = useRef(onClose);
   const previousFocusRef = useRef<HTMLElement | null>(null);
   const removalInFlightRef = useRef(false);
@@ -67,8 +69,6 @@ function TableAccountPanelContent(props: Props) {
     orderPublicId: string;
     productName: string;
   } | null>(null);
-  const [payment, setPayment] = useState<TablePaymentIntent | null>(null);
-  const [reviewingPayment, setReviewingPayment] = useState(false);
 
   const items = useMemo(
     () =>
@@ -87,41 +87,38 @@ function TableAccountPanelContent(props: Props) {
   const participant = snapshot?.participants.find(
     (entry) => entry.publicId === snapshot.currentParticipantPublicId,
   );
-  const canPay = Boolean(
+  const ownAccount = currentParticipantAccount(snapshot);
+  const hasPayableBalance = Boolean(
     snapshot?.capabilities.enabled &&
     snapshot.summary.status !== 'CLOSED' &&
-    snapshot.capabilities.allowOnlinePayment &&
-    snapshot.capabilities.allowPix &&
     preview &&
     preview.totalCents > 0 &&
     !preview.blocked,
   );
-  const manualPaymentLabel = snapshot?.capabilities.allowCash
-    ? snapshot.capabilities.allowCardMachine
-      ? 'Prefere pagar à equipe? Dinheiro e cartão na maquininha estão disponíveis.'
-      : 'Prefere pagar à equipe? O pagamento em dinheiro está disponível.'
-    : snapshot?.capabilities.allowCardMachine
-      ? 'Prefere cartão? Chame o garçom e pague na maquininha.'
-      : '';
+  const canPay = Boolean(
+    hasPayableBalance &&
+    snapshot &&
+    (snapshot.capabilities.allowPix ||
+      snapshot.capabilities.allowCard ||
+      snapshot.capabilities.allowCash),
+  );
 
   const ownActivePayment =
     snapshot?.activePayment &&
     snapshot.activePayment.payerParticipantPublicId === snapshot.currentParticipantPublicId
       ? snapshot.activePayment
       : null;
-  const visiblePayment = payment ?? ownActivePayment;
-  const showPayment = Boolean(visiblePayment && !reviewingPayment);
-  const currentStep = !showPayment
-    ? 1
-    : ['RESERVED', 'PROCESSING'].includes(visiblePayment!.status)
+  const canonicalPayment = ownActivePayment
+    ? snapshot?.payments.find((entry) => entry.publicId === ownActivePayment.publicId)
+    : null;
+  const visiblePayment = ownActivePayment
+    ? { ...ownActivePayment, status: canonicalPayment?.status || ownActivePayment.status }
+    : null;
+  const currentStep = visiblePayment
+    ? ['RESERVED', 'PROCESSING'].includes(visiblePayment.status)
       ? 2
-      : 3;
-
-  useEffect(() => {
-    if (!visiblePayment?.publicId || !showPayment) return;
-    paymentStageRef.current?.scrollIntoView?.({ block: 'start' });
-    paymentStageRef.current?.focus({ preventScroll: true });
-  }, [visiblePayment?.publicId, showPayment]);
+      : 3
+    : 1;
 
   const orderItemCounts = useMemo(() => {
     const counts = new Map<string, number>();
@@ -139,7 +136,9 @@ function TableAccountPanelContent(props: Props) {
     previousFocusRef.current = document.activeElement as HTMLElement | null;
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
-    const frame = window.requestAnimationFrame(() => closeButtonRef.current?.focus());
+    const frame = window.requestAnimationFrame(() => {
+      if (!panelRef.current?.contains(document.activeElement)) closeButtonRef.current?.focus();
+    });
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') onCloseRef.current();
       if (event.key !== 'Tab') return;
@@ -173,28 +172,14 @@ function TableAccountPanelContent(props: Props) {
     };
   }, []);
 
-  const startPixPayment = async () => {
+  const startPayment = async (method: 'PIX' | 'CASH') => {
     if (!snapshot || busy || !canPay) return;
     const result = await onCreatePayment({
       selectionMode: 'MY_ITEMS',
-      method: 'PIX',
+      method,
       includeOptionalServiceFee: false,
     });
-    if (result?.payment) setPayment(result.payment);
-  };
-
-  const verifyPayment = async () => {
-    if (!visiblePayment) return null;
-    const updated = await onReconcilePayment(visiblePayment.publicId);
-    if (updated) setPayment(updated);
-    return updated;
-  };
-
-  const cancelPayment = async () => {
-    if (!visiblePayment) return false;
-    const canceled = await onCancelPayment(visiblePayment.publicId);
-    if (canceled) setPayment(null);
-    return canceled;
+    if (result?.payment) onOpenPayment(result.payment);
   };
 
   const confirmRemoval = async () => {
@@ -221,8 +206,8 @@ function TableAccountPanelContent(props: Props) {
             <ReceiptText size={23} />
           </span>
           <div>
-            <h2 id="table-account-title">Sua comanda • Mesa {String(tableNumber)}</h2>
-            <p>Seus pedidos e pagamentos, em um só lugar.</p>
+            <h2 id="table-account-title">Conta da Mesa {String(tableNumber)}</h2>
+            <p>Veja o total da mesa e pague somente o seu consumo.</p>
           </div>
           <button ref={closeButtonRef} type="button" aria-label="Fechar comanda" onClick={onClose}>
             <X size={18} />
@@ -255,20 +240,19 @@ function TableAccountPanelContent(props: Props) {
             <S.Loading>Carregando sua comanda...</S.Loading>
           ) : snapshot ? (
             <>
-              {!showPayment ? (
-                <>
+              <>
                   <S.Introduction>
                     <small>
-                      COMANDA INDIVIDUAL
+                      CONTA DA MESA
                       {participant?.displayName ? ` · ${participant.displayName}` : ''}
                     </small>
                     <h3>
-                      {items.length ? 'Tudo certo com seus pedidos?' : 'Sua comanda começa aqui'}
+                      {snapshot.participantAccounts?.length ? 'Consumo separado por cliente' : 'A conta começa aqui'}
                     </h3>
                     <p>
-                      {items.length
-                        ? 'Confira seu consumo antes de continuar para o pagamento.'
-                        : 'Escolha no cardápio. Os pedidos que você fizer aparecerão aqui automaticamente.'}
+                      {snapshot.participantAccounts?.length
+                        ? 'Todos veem o total da mesa, mas cada cliente paga somente a própria parte.'
+                        : 'Os pedidos aparecerão aqui automaticamente.'}
                     </p>
                   </S.Introduction>
                   {orderingBlocked ? (
@@ -308,10 +292,54 @@ function TableAccountPanelContent(props: Props) {
                     </S.Alert>
                   ) : null}
 
-                  <S.ReceiptPreview aria-label="Sua comanda em tempo real">
+                  <S.ReceiptPreview aria-label="Conta geral da mesa">
+                    <header>
+                      <span><strong>Conta geral</strong></span>
+                      <em>{snapshot.participantAccounts?.filter((entry) => entry.status === 'ACTIVE').length || 0} clientes</em>
+                    </header>
+                    <S.ReceiptRows>
+                      {snapshot.participantAccounts?.length ? (
+                        snapshot.participantAccounts.map((entry) => (
+                          <article key={entry.publicId}>
+                            <span>
+                              <b>{entry.displayName || 'Cliente da mesa'}</b>
+                              <small>
+                                {entry.remainingCents === 0 && entry.consumedCents > 0
+                                  ? 'Pago'
+                                  : entry.processingCents > 0 || entry.reservedCents > 0
+                                    ? 'Pagamento em andamento'
+                                    : 'Pendente'}
+                              </small>
+                            </span>
+                            <span className="receipt-item-actions">
+                              <strong>{formatTableMoney(entry.consumedCents)}</strong>
+                            </span>
+                          </article>
+                        ))
+                      ) : (
+                        <p>Nenhum consumo registrado nesta mesa.</p>
+                      )}
+                    </S.ReceiptRows>
+                    <S.ReceiptTotals>
+                      <span>
+                        <small>Total da mesa</small>
+                        <b>{formatTableMoney(snapshot.summary.consumedCents)}</b>
+                      </span>
+                      <span>
+                        <small>Você pagou</small>
+                        <b>{formatTableMoney(ownAccount?.paidCents || 0)}</b>
+                      </span>
+                      <span className="remaining">
+                        <small>Falta pagar</small>
+                        <b>{formatTableMoney(snapshot.summary.remainingCents)}</b>
+                      </span>
+                    </S.ReceiptTotals>
+                  </S.ReceiptPreview>
+
+                  <S.ReceiptPreview aria-label="Sua conta individual">
                     <header>
                       <span>
-                        <strong>Seus pedidos</strong>
+                        <strong>Sua conta</strong>
                       </span>
                       <em>
                         {items.length} {items.length === 1 ? 'item' : 'itens'}
@@ -380,12 +408,12 @@ function TableAccountPanelContent(props: Props) {
 
                     <S.ReceiptTotals>
                       <span>
-                        <small>Consumido</small>
-                        <b>{formatTableMoney(snapshot.summary.consumedCents)}</b>
+                        <small>Seu consumo</small>
+                        <b>{formatTableMoney(ownAccount?.consumedCents || 0)}</b>
                       </span>
                       <span>
                         <small>Pago</small>
-                        <b>{formatTableMoney(snapshot.summary.netPaidCents)}</b>
+                        <b>{formatTableMoney(ownAccount?.paidCents || 0)}</b>
                       </span>
                       {!visiblePayment && canPay && preview && preview.serviceFeeCents > 0 ? (
                         <span>
@@ -399,7 +427,7 @@ function TableAccountPanelContent(props: Props) {
                           {formatTableMoney(
                             !visiblePayment && canPay && preview
                               ? preview.totalCents
-                              : snapshot.summary.remainingCents,
+                              : ownAccount?.remainingCents || 0,
                           )}
                         </b>
                       </span>
@@ -410,41 +438,20 @@ function TableAccountPanelContent(props: Props) {
                       Atualiza automaticamente quando você faz ou cancela um pedido.
                     </footer>
                   </S.ReceiptPreview>
-                  {canPay || visiblePayment ? (
+                  {hasPayableBalance || visiblePayment ? (
                     <S.Guide>
                       <ShieldCheck size={22} aria-hidden="true" />
                       <div>
                         <b>Você paga somente o seu consumo</b>
-                        <p>O Pix é confirmado automaticamente. Não precisa enviar comprovante.</p>
+                        <p>PIX e cartão online confirmam pelo provedor. Dinheiro só vira pago após a confirmação da equipe.</p>
                       </div>
                     </S.Guide>
                   ) : null}
-                </>
-              ) : null}
+              </>
 
-              {showPayment && visiblePayment ? (
-                <div
-                  ref={paymentStageRef}
-                  tabIndex={-1}
-                  role="region"
-                  aria-label="Pagamento da comanda"
-                >
-                  <S.DetailsToggle type="button" onClick={() => setReviewingPayment(true)}>
-                    <ArrowLeft size={16} aria-hidden="true" /> Rever meus pedidos
-                  </S.DetailsToggle>
-                  <TablePaymentStatusView
-                    payment={visiblePayment}
-                    status={visiblePayment.status}
-                    actionLoading={actionLoading}
-                    onVerify={verifyPayment}
-                    onCancel={cancelPayment}
-                    onStartOver={() => setPayment(null)}
-                    onClose={onClose}
-                  />
-                </div>
-              ) : !canPay && !visiblePayment && items.length > 0 ? (
-                <S.Alert $info={snapshot.summary.remainingCents > 0} role="status">
-                  {snapshot.summary.remainingCents === 0 ? (
+              {!hasPayableBalance && !visiblePayment && items.length > 0 ? (
+                <S.Alert $info={(ownAccount?.remainingCents || 0) > 0} role="status">
+                  {(ownAccount?.remainingCents || 0) === 0 ? (
                     <span>
                       <CheckCircle2 size={18} aria-hidden="true" /> Tudo pago! Nenhum valor pendente
                       nesta comanda.
@@ -456,8 +463,7 @@ function TableAccountPanelContent(props: Props) {
                     </span>
                   ) : (
                     <span>
-                      O Pix não está disponível para esta comanda agora.{' '}
-                      {manualPaymentLabel || 'Fale com a equipe para concluir o pagamento.'}
+                      Nenhuma forma de pagamento está disponível para sua conta agora. Fale com a equipe.
                     </span>
                   )}
                 </S.Alert>
@@ -472,26 +478,82 @@ function TableAccountPanelContent(props: Props) {
             <S.Empty>Não foi possível carregar sua comanda.</S.Empty>
           )}
         </S.Scroll>
-        {snapshot && !showPayment ? (
+        {snapshot ? (
           <S.PaymentActions aria-label="Pagamento da sua comanda">
             {visiblePayment ? (
-              <S.PayButton type="button" onClick={() => setReviewingPayment(false)}>
-                Voltar ao pagamento <ArrowRight size={18} aria-hidden="true" />
+              <S.PayButton type="button" onClick={() => onOpenPayment(visiblePayment)}>
+                {visiblePayment.method === 'PIX'
+                  ? 'Pagar com PIX'
+                  : visiblePayment.method === 'CASH'
+                    ? 'Pagar com dinheiro'
+                    : `Continuar com ${tablePaymentMethodLabel(visiblePayment.method)}`}
+                <ArrowRight size={18} aria-hidden="true" />
               </S.PayButton>
-            ) : canPay && preview ? (
+            ) : hasPayableBalance && preview ? (
               <>
                 <S.PayButton
+                  className={!snapshot.capabilities.allowPix ? 'unavailable' : undefined}
                   type="button"
-                  disabled={busy || loading || Boolean(error)}
-                  onClick={() => void startPixPayment()}
+                  disabled={
+                    busy ||
+                    loading ||
+                    Boolean(error) ||
+                    !snapshot.capabilities.allowPix
+                  }
+                  onClick={() => void startPayment('PIX')}
                 >
-                  {actionLoading
-                    ? 'Gerando Pix...'
-                    : `Continuar com Pix · ${formatTableMoney(preview.totalCents)}`}
+                  <span className="payment-method-icon pix" aria-hidden="true" data-payment-method-icon="pix">
+                    <PixMark />
+                  </span>
+                  <span className="payment-method-label">
+                    {snapshot.capabilities.allowPix
+                      ? actionLoading
+                        ? 'Gerando pagamento...'
+                        : 'Pagar com PIX'
+                      : 'PIX indisponível'}
+                  </span>
                   <ArrowRight size={18} aria-hidden="true" />
                 </S.PayButton>
-                <small>A cobrança só é paga depois que você confirmar no seu banco.</small>
-                {manualPaymentLabel ? <small>{manualPaymentLabel}</small> : null}
+                <S.PayButton
+                  className={!snapshot.capabilities.allowCard ? 'unavailable' : undefined}
+                  type="button"
+                  disabled={
+                    busy ||
+                    loading ||
+                    Boolean(error) ||
+                    !snapshot.capabilities.allowCard
+                  }
+                  onClick={onOpenCardPayment}
+                >
+                  <span className="payment-method-icon" aria-hidden="true" data-payment-method-icon="card">
+                    <CreditCard size={20} strokeWidth={2.1} />
+                  </span>
+                  <span className="payment-method-label">
+                    {snapshot.capabilities.allowCard ? 'Pagar com cartão' : 'Cartão indisponível'}
+                  </span>
+                  <ArrowRight size={18} aria-hidden="true" />
+                </S.PayButton>
+                {snapshot.capabilities.allowCash ? (
+                  <S.PayButton
+                    type="button"
+                    disabled={busy || loading || Boolean(error)}
+                    onClick={() => void startPayment('CASH')}
+                  >
+                    <span className="payment-method-icon" aria-hidden="true" data-payment-method-icon="cash">
+                      <Banknote size={20} strokeWidth={2.1} />
+                    </span>
+                    <span className="payment-method-label">Pagar com dinheiro</span>
+                    <ArrowRight size={18} aria-hidden="true" />
+                  </S.PayButton>
+                ) : null}
+                {!snapshot.capabilities.allowPix || !snapshot.capabilities.allowCard ? (
+                  <small>
+                    PIX e cartão são ativados automaticamente quando o restaurante configura
+                    esses métodos no painel administrativo.
+                  </small>
+                ) : (
+                  <small>Você nunca paga o consumo de outro participante por esta tela.</small>
+                )}
               </>
             ) : (
               <S.PayButton type="button" onClick={onClose}>

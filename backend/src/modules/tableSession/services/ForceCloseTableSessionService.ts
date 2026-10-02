@@ -1,14 +1,10 @@
-import {
-  Prisma,
-  TablePaymentEventType,
-  TablePaymentIntentStatus,
-  TableSessionStatus,
-} from '@prisma/client';
+import { Prisma, TableSessionStatus } from '@prisma/client';
 import prisma from '../../../config/prisma.js';
 import { forceCloseTableAccountInputSchema } from '../../tableAccount/domain/tableAccountSchemas.js';
 import {
+  expireTablePaymentReservations,
+  loadTablePaymentLedgerItems,
   lockTablePaymentSession,
-  projectTableSessionFinancialState,
 } from '../../tableAccount/services/tablePaymentLedger.js';
 import tableServiceCallRepository from '../../waiterCalls/repositories/TableServiceCallRepository.js';
 import { tableServiceCallEvents } from '../../waiterCalls/realtime/tableServiceCallEvents.js';
@@ -48,51 +44,27 @@ export class ForceCloseTableSessionService {
           throw new Error('Essa mesa já está fechada.');
         }
 
-        const activePayments = await tx.tablePaymentIntent.findMany({
-          where: {
-            restaurantId,
-            tableSessionId: sessionId,
-            status: {
-              in: [TablePaymentIntentStatus.RESERVED, TablePaymentIntentStatus.PROCESSING],
-            },
-          },
-          select: { id: true, publicId: true, status: true, totalCents: true },
-        });
         const now = new Date();
-        for (const payment of activePayments) {
-          const changed = await tx.tablePaymentIntent.updateMany({
-            where: {
-              id: payment.id,
-              restaurantId,
-              tableSessionId: sessionId,
-              status: payment.status,
-            },
-            data: {
-              status: TablePaymentIntentStatus.CANCELED,
-              canceledAt: now,
-              failureCode: 'ADMIN_FORCE_CLOSE',
-            },
-          });
-          if (changed.count === 1) {
-            await tx.tablePaymentEvent.create({
-              data: {
-                restaurantId,
-                tableSessionId: sessionId,
-                paymentIntentId: payment.id,
-                deduplicationKey: `table-payment:${payment.publicId}:force-close`,
-                type: TablePaymentEventType.CANCELED,
-                fromStatus: payment.status,
-                toStatus: TablePaymentIntentStatus.CANCELED,
-                amountCents: payment.totalCents,
-                actorUserId,
-                metadata: { reason, action: 'FORCE_CLOSE' },
-                occurredAt: now,
-              },
-            });
-          }
-        }
-        if (activePayments.length > 0) {
-          await projectTableSessionFinancialState(tx, restaurantId, sessionId, now);
+        await expireTablePaymentReservations(tx, restaurantId, sessionId, now);
+
+        const ledgerItems = await loadTablePaymentLedgerItems(
+          tx,
+          restaurantId,
+          sessionId,
+          now,
+        );
+        const financialPending = ledgerItems.some(
+          (item) =>
+            !item.canceled &&
+            (item.paidCents < item.unitPriceCents ||
+              item.reservedCents > 0 ||
+              item.processingCents > 0 ||
+              item.availableCents > 0),
+        );
+        if (financialPending) {
+          throw new Error(
+            'Não é possível usar o fechamento administrativo: a conta geral ainda possui pagamentos pendentes.',
+          );
         }
 
         const activeCalls = await tableServiceCallRepository.listActiveBySession(

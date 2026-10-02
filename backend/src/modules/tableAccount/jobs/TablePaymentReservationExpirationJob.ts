@@ -1,8 +1,9 @@
-import { Prisma, TablePaymentIntentStatus } from '@prisma/client';
+import { Prisma, TablePaymentEventType, TablePaymentIntentStatus } from '@prisma/client';
 import prisma from '../../../config/prisma.js';
 import {
   expireTablePaymentReservations,
   lockTablePaymentSession,
+  STAFF_CASH_RECEIPT_EVENT_SUFFIX,
 } from '../services/tablePaymentLedger.js';
 import { tableAccountEvents } from '../realtime/tableAccountEvents.js';
 
@@ -14,6 +15,12 @@ class TablePaymentReservationExpirationJob {
           in: [TablePaymentIntentStatus.RESERVED, TablePaymentIntentStatus.PROCESSING],
         },
         expiresAt: { lte: now },
+        events: {
+          none: {
+            type: TablePaymentEventType.MANUAL_CONFIRMED,
+            deduplicationKey: { endsWith: STAFF_CASH_RECEIPT_EVENT_SUFFIX },
+          },
+        },
       },
       select: {
         restaurantId: true,

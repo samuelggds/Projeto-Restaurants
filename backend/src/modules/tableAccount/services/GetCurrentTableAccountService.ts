@@ -16,6 +16,7 @@ import tableAccountRepository, {
 } from '../repositories/TableAccountRepository.js';
 import tableAccountSettingsRepository from '../repositories/TableAccountSettingsRepository.js';
 import { calculateTableBillItemLedger } from '../domain/tablePaymentAllocation.js';
+import { hasStaffCashReceiptEvent } from './tablePaymentLedger.js';
 import { serializeTablePaymentIntent } from './tablePaymentSupport.js';
 import { getConfiguredTablePaymentReadiness } from '../providers/ConfiguredTablePaymentProvider.js';
 
@@ -70,7 +71,9 @@ export function buildTableAccountBaseSnapshot(
       allocations: paymentAllocations.map((allocation) => ({
         amountCents: toSafeMoneyCents(allocation.amountCents, `alocação do item ${item.publicId}`),
         intentStatus: allocation.paymentIntent.status,
-        expiresAt: allocation.paymentIntent.expiresAt,
+        expiresAt: hasStaffCashReceiptEvent(allocation.paymentIntent.events)
+          ? null
+          : allocation.paymentIntent.expiresAt,
       })),
     });
 
@@ -133,7 +136,11 @@ export function buildTableAccountBaseSnapshot(
   const reservedCents = sumMoneyCents([
     ...normalizedItems.filter((item) => !item.canceled).map((item) => item.ledger.reservedCents),
     ...paymentIntents
-      .filter((payment) => payment.status === 'RESERVED' && payment.expiresAt > now)
+      .filter(
+        (payment) =>
+          payment.status === 'RESERVED' &&
+          (payment.expiresAt > now || hasStaffCashReceiptEvent(payment.events)),
+      )
       .map((payment) =>
         toSafeMoneyCents(payment.serviceFeeCents, `taxa reservada ${payment.publicId}`),
       ),
@@ -141,7 +148,11 @@ export function buildTableAccountBaseSnapshot(
   const processingCents = sumMoneyCents([
     ...normalizedItems.filter((item) => !item.canceled).map((item) => item.ledger.processingCents),
     ...paymentIntents
-      .filter((payment) => payment.status === 'PROCESSING' && payment.expiresAt > now)
+      .filter(
+        (payment) =>
+          payment.status === 'PROCESSING' &&
+          (payment.expiresAt > now || hasStaffCashReceiptEvent(payment.events)),
+      )
       .map((payment) =>
         toSafeMoneyCents(payment.serviceFeeCents, `taxa em processamento ${payment.publicId}`),
       ),
@@ -187,6 +198,37 @@ export function buildTableAccountBaseSnapshot(
   };
 }
 
+export function buildParticipantAccountSummaries(
+  data: TableAccountSnapshotRecord,
+  now: Date,
+) {
+  const base = buildTableAccountBaseSnapshot(data, now);
+
+  return base.participants.map((participant) => {
+    const items = base.items.filter(
+      (item) =>
+        item.orderedByParticipantPublicId === participant.publicId &&
+        item.orderStatus !== 'CANCELED' &&
+        item.financialStatus !== 'REFUNDED',
+    );
+    const consumedCents = sumMoneyCents(items.map((item) => item.unitPriceCents));
+    const paidCents = sumMoneyCents(items.map((item) => item.paidCents));
+    const reservedCents = sumMoneyCents(items.map((item) => item.reservedCents));
+    const processingCents = sumMoneyCents(items.map((item) => item.processingCents));
+
+    return {
+      publicId: participant.publicId,
+      displayName: participant.displayName,
+      status: participant.status,
+      consumedCents,
+      paidCents,
+      reservedCents,
+      processingCents,
+      remainingCents: Math.max(0, consumedCents - paidCents),
+    };
+  });
+}
+
 export class GetCurrentTableAccountService {
   async execute(input: {
     tableSessionId: number;
@@ -222,6 +264,8 @@ export class GetCurrentTableAccountService {
       throw new TableAccountAccessError();
     }
     const now = new Date();
+    const globalAccount = buildTableAccountBaseSnapshot(data, now);
+    const participantAccounts = buildParticipantAccountSummaries(data, now);
     const participantData: TableAccountSnapshotRecord = {
       ...data,
       participants: data.participants.filter(
@@ -234,6 +278,7 @@ export class GetCurrentTableAccountService {
         (payment) => payment.payerParticipantId === participantId,
       ),
     };
+    const ownAccount = buildTableAccountBaseSnapshot(participantData, now);
     const paymentIntents = participantData.paymentIntents || [];
     const activePayment = paymentIntents.find(
       (payment) =>
@@ -241,19 +286,22 @@ export class GetCurrentTableAccountService {
         ['RESERVED', 'PROCESSING'].includes(payment.status) &&
         payment.expiresAt > now,
     );
-    const onlinePaymentProviderAvailable = onlineReadiness.allowPix || onlineReadiness.allowCard;
+    const onlinePaymentProviderAvailable =
+      onlineReadiness.allowPix || onlineReadiness.allowCard;
 
     return {
-      ...buildTableAccountBaseSnapshot(participantData, now),
+      ...globalAccount,
+      items: ownAccount.items,
       currentParticipantPublicId: input.participantPublicId,
+      participantAccounts,
       capabilities: {
         enabled: settings.enabled,
         allowCash: settings.allowCash,
-        allowCardMachine: settings.allowCardMachine,
+        allowCardMachine: false,
         allowOnlinePayment: settings.allowOnlinePayment && onlinePaymentProviderAvailable,
         allowPix: settings.allowOnlinePayment && onlineReadiness.allowPix,
         allowCard: settings.allowOnlinePayment && onlineReadiness.allowCard,
-        allowSplit: settings.allowSplit,
+        allowSplit: false,
         serviceFeeMode: settings.serviceFeeMode,
         serviceFeeBasisPoints: settings.serviceFeeBasisPoints,
         reservationTimeoutMinutes: settings.reservationTimeoutMinutes,

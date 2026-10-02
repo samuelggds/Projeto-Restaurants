@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { optionalAuthMiddleware } from '../../../middlewares/optionalAuthMiddleware.js';
+import { optionalTableSessionAuthMiddleware } from '../../../middlewares/optionalAuthMiddleware.js';
 import { tableAccountSessionMiddleware } from '../../../middlewares/tableAccountSessionMiddleware.js';
 import { tableParticipantMiddleware } from '../../../middlewares/tableParticipantMiddleware.js';
 import GetCurrentTableAccountController from '../controllers/GetCurrentTableAccountController.js';
@@ -9,6 +9,7 @@ import { tablePaymentActionRateLimitMiddleware } from '../../../middlewares/secu
 import ConfirmManualTablePaymentController from '../controllers/ConfirmManualTablePaymentController.js';
 import { authMiddleware } from '../../../middlewares/authMiddleware.js';
 import { waiterMiddleware } from '../../../middlewares/waiterMiddleware.js';
+import { tableAccountOperatorMiddleware } from '../../../middlewares/tableAccountOperatorMiddleware.js';
 import FakeTablePaymentWebhookController from '../controllers/FakeTablePaymentWebhookController.js';
 import RefundTablePaymentController from '../controllers/RefundTablePaymentController.js';
 import { adminMiddleware } from '../../../middlewares/adminMiddleware.js';
@@ -44,7 +45,7 @@ router.post('/webhooks/fake', (req, res) => FakeTablePaymentWebhookController.ha
 
 router.get(
   '/sessions/:sessionPublicId',
-  optionalAuthMiddleware,
+  optionalTableSessionAuthMiddleware,
   tableAccountSessionMiddleware,
   premiumTablePlanMiddleware,
   tableParticipantMiddleware,
@@ -61,7 +62,7 @@ router.get(
 
 router.post(
   '/sessions/:sessionPublicId/payments',
-  optionalAuthMiddleware,
+  optionalTableSessionAuthMiddleware,
   tableAccountSessionMiddleware,
   premiumTablePlanMiddleware,
   tableParticipantMiddleware,
@@ -71,7 +72,7 @@ router.post(
 
 router.patch(
   '/sessions/:sessionPublicId/payments/:publicId/cancel',
-  optionalAuthMiddleware,
+  optionalTableSessionAuthMiddleware,
   tableAccountSessionMiddleware,
   premiumTablePlanMiddleware,
   tableParticipantMiddleware,
@@ -81,7 +82,7 @@ router.patch(
 
 router.post(
   '/sessions/:sessionPublicId/payments/:publicId/reconcile',
-  optionalAuthMiddleware,
+  optionalTableSessionAuthMiddleware,
   tableAccountSessionMiddleware,
   premiumTablePlanMiddleware,
   tableParticipantMiddleware,
@@ -92,7 +93,7 @@ router.post(
 router.post(
   '/payments/:publicId/confirm-manual',
   authMiddleware,
-  waiterMiddleware,
+  tableAccountOperatorMiddleware,
   premiumTablePlanMiddleware,
   (req, res) => ConfirmManualTablePaymentController.handle(req, res),
 );

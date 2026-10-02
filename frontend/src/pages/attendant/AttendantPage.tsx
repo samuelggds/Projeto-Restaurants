@@ -27,6 +27,7 @@ const emptySnapshot: AttendantWorkspaceSnapshot = {
   orders: [],
   calls: [],
   tables: [],
+  cashPayments: [],
 };
 
 function asRecord(value: unknown): UnknownRecord {

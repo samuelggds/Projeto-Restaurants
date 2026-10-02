@@ -152,6 +152,33 @@ test('cria chamado usando exclusivamente o contexto tenant da sessão aberta', a
   assert.equal(emitted.id, 301);
 });
 
+test('clique repetido no chamado do garçom não duplica e força atualização em tempo real', async () => {
+  tableServiceCallRepository.findOpenSessionContext = async () => activeContext;
+  tableServiceCallRepository.findActiveByTableAndType = async () => waitingCall;
+  let created = false;
+  tableServiceCallRepository.create = async () => {
+    created = true;
+    return waitingCall;
+  };
+  let updated;
+  tableServiceCallEvents.updated = async (payload) => {
+    updated = payload;
+  };
+
+  const result = await createTableServiceCallService.execute({
+    sessionId: 55,
+    tableId: 91,
+    restaurantId: 7,
+    participantId: 80,
+    type: 'WAITER',
+  });
+
+  assert.equal(result.duplicate, true);
+  assert.equal(created, false);
+  assert.equal(updated.id, waitingCall.id);
+  assert.equal(updated.restaurantId, 7);
+});
+
 test('não cria chamado para sessão expirada, fechada ou pertencente a outro restaurante', async () => {
   tableServiceCallRepository.findOpenSessionContext = async () => null;
   let createCalled = false;

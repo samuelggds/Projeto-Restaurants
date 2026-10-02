@@ -197,6 +197,7 @@ async function getAccessToken(restaurantId: number): Promise<string> {
 
   if (!existing || !readSecret(existing, names.access)) {
     const global =
+      process.env.NODE_ENV !== 'production' &&
       process.env.ALLOW_GLOBAL_PAYMENT_FALLBACK === 'true'
         ? String(process.env[names.global] || '').trim()
         : '';
