@@ -107,6 +107,7 @@ test('histórico administrativo expõe auditoria útil sem devolver metadados ar
       manualConfirmedBy: null,
       events: [
         {
+          deduplicationKey: 'table-payment:b3f62ce9-dff2-4894-baf3-7c8e3d56011e:refunded',
           type: 'REFUNDED',
           fromStatus: 'PAID',
           toStatus: 'REFUNDED',
