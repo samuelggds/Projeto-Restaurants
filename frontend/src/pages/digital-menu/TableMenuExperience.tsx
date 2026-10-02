@@ -887,7 +887,10 @@ export default function TableMenuExperience({
                 </S.TrackingOtherPaymentAction>
               </>
             ) : null}
-            <S.HelperText>Deseja continuar pedindo? A conta ficará aberta na mesa.</S.HelperText>
+            <S.SecondaryAction type="button" onClick={goToMenu}>
+              Continuar pedindo
+            </S.SecondaryAction>
+            <S.HelperText>A conta continuará aberta na mesa enquanto você faz novos pedidos.</S.HelperText>
           </S.ConfirmationActions>
           </S.ConfirmationCard>
         </S.FlowPage>
