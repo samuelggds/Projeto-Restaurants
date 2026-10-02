@@ -64,30 +64,6 @@ export const TABLE_ACCOUNT_EMPLOYEE_SUB_ROLES = ['GARCOM', 'COZINHA', 'ATENDENTE
 
 export const DEFAULT_TABLE_ACCOUNT_TIME_ZONE = 'America/Sao_Paulo' as const;
 
-/** Nenhum provedor foi escolhido nesta etapa, por decisão de produto. */
-export const TABLE_ACCOUNT_PAYMENT_PROVIDER = null;
-
-/**
- * Decisões aprovadas para orientar as próximas etapas sem deixar regras
- * implícitas em controllers ou componentes de interface.
- */
-export const TABLE_ACCOUNT_PRODUCT_DECISIONS = {
-  participantDisplayNameRequired: false,
-  participantPhoneOrLoginRequired: false,
-  participantsAndItemsVisibleToTable: true,
-  paymentMethodVisibleToOtherParticipants: false,
-  quantityCreatesIndividualFinancialUnits: true,
-  equalSplitPartsProvidedByCustomer: true,
-  equalSplitRemainderAllocation: 'FIRST_PARTS',
-  prepaymentThresholdBasis: 'PROJECTED_OUTSTANDING_BALANCE',
-  optionalServiceFeeChoicePerPayment: true,
-  waiterCanConfirmCashOrCardMachine: true,
-  forceCloseAndRefundRestrictedToAdmin: true,
-  paidItemCancellationRequiresCompletedRefund: true,
-  defaultTimeZone: DEFAULT_TABLE_ACCOUNT_TIME_ZONE,
-  selectedPaymentProvider: TABLE_ACCOUNT_PAYMENT_PROVIDER,
-} as const;
-
 export type MoneyCents = number;
 export type IsoDateTimeString = string;
 
