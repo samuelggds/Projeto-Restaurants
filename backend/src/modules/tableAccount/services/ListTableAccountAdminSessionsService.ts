@@ -60,20 +60,6 @@ export class ListTableAccountAdminSessionsService {
           };
         });
       return {
-            publicId: payment.publicId,
-            method: payment.method,
-            status: payment.status,
-            totalCents: toSafeMoneyCents(
-              payment.totalCents,
-              `pagamento presencial ${payment.publicId}`,
-            ),
-            createdAt: payment.createdAt.toISOString(),
-            payerParticipantPublicId: payment.payerParticipant.publicId,
-            payerDisplayName: payer?.displayName || 'Cliente da mesa',
-            staffReceiptRegistered,
-          };
-        });
-      return {
         tableSessionId: data.id,
         sessionPublicId: data.publicId,
         tableId: data.tableId,
