@@ -28,6 +28,7 @@ type Props = {
   error: string;
   onRefresh: () => void;
   onCreatePayment: (draft: TablePaymentDraft) => Promise<CreateTablePaymentResult | null>;
+  onOpenCardPayment: () => void;
   onOpenPayment: (payment: TablePaymentIntent) => void;
   onRemoveOrder?: (orderPublicId: string) => Promise<boolean>;
   draftCount?: number;
@@ -46,6 +47,7 @@ function TableAccountPanelContent(props: Props) {
     error,
     onRefresh,
     onCreatePayment,
+    onOpenCardPayment,
     onOpenPayment,
     onRemoveOrder,
     draftCount = 0,
@@ -86,7 +88,9 @@ function TableAccountPanelContent(props: Props) {
   const canPay = Boolean(
     snapshot?.capabilities.enabled &&
     snapshot.summary.status !== 'CLOSED' &&
-    (snapshot.capabilities.allowPix || snapshot.capabilities.allowCash) &&
+    (snapshot.capabilities.allowPix ||
+      snapshot.capabilities.allowCard ||
+      snapshot.capabilities.allowCash) &&
     preview &&
     preview.totalCents > 0 &&
     !preview.blocked,
@@ -430,7 +434,7 @@ function TableAccountPanelContent(props: Props) {
                       <ShieldCheck size={22} aria-hidden="true" />
                       <div>
                         <b>Você paga somente o seu consumo</b>
-                        <p>PIX confirma automaticamente. Dinheiro só vira pago após a confirmação do administrador.</p>
+                        <p>PIX e cartão online confirmam pelo provedor. Dinheiro só vira pago após a confirmação da equipe.</p>
                       </div>
                     </S.Guide>
                   ) : null}
@@ -485,6 +489,16 @@ function TableAccountPanelContent(props: Props) {
                     onClick={() => void startPayment('PIX')}
                   >
                     {actionLoading ? 'Gerando pagamento...' : 'Pagar com PIX'}
+                    <ArrowRight size={18} aria-hidden="true" />
+                  </S.PayButton>
+                ) : null}
+                {snapshot.capabilities.allowCard ? (
+                  <S.PayButton
+                    type="button"
+                    disabled={busy || loading || Boolean(error)}
+                    onClick={onOpenCardPayment}
+                  >
+                    Pagar com cartão
                     <ArrowRight size={18} aria-hidden="true" />
                   </S.PayButton>
                 ) : null}
