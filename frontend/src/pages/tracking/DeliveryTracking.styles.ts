@@ -405,6 +405,13 @@ export const FigmaTrackingLayout = styled.div`
 
 export const TrackingMapColumn = styled.section`
   min-width: 0;
+  grid-column: 1;
+  grid-row: 1 / span 2;
+
+  @media (max-width: 900px) {
+    grid-column: auto;
+    grid-row: auto;
+  }
 `;
 
 export const DesktopTrackingTitle = styled.h1`
@@ -418,6 +425,8 @@ export const DesktopTrackingTitle = styled.h1`
 `;
 
 export const TrackingSideColumn = styled.aside`
+  grid-column: 2;
+  grid-row: 1;
   display: grid;
   gap: 24px;
 
@@ -541,4 +550,15 @@ export const DesktopHeaderOrder = styled.div`
   font-size: 14px;
   font-weight: 800;
   @media (max-width: 900px) { width: 50px; color: transparent; user-select: none; }
+`;
+
+export const TrackingChatSlot = styled.div`
+  grid-column: 2;
+  grid-row: 2;
+  min-width: 0;
+
+  @media (max-width: 900px) {
+    padding: 0 20px 16px;
+    background: #fff;
+  }
 `;
