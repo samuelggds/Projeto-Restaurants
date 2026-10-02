@@ -3,6 +3,7 @@ import { validateDistributedConfig } from '../runtime/distributedConfig.js';
 import { mercadoPagoWebhookSecrets } from '../modules/payments/providers/mercadoPagoWebhookSignature.js';
 import { validateConfiguredOAuthEndpoints } from '../modules/restaurantSettings/security/oauthEndpoints.js';
 import { collectSuperAdminBootstrapConfigErrors } from '../modules/superAdmin/security/superAdminBootstrapConfig.js';
+import { getRequiredMfaRoles } from '../modules/auth/security/mfaPolicy.js';
 
 function asNumber(value: string, fallback: number) {
   const parsed = Number(value);
@@ -279,6 +280,17 @@ export function validateCriticalEnv() {
   );
   if (loginLockoutBaseSeconds < 30) {
     errors.push('LOGIN_LOCKOUT_BASE_SECONDS deve ser >= 30 em producao.');
+  }
+
+  const requiredMfaRoles = getRequiredMfaRoles(process.env);
+  for (const requiredRole of ['ADMIN', 'SUPER_ADMIN']) {
+    if (!requiredMfaRoles.has(requiredRole)) {
+      errors.push(`MFA_REQUIRED_ROLES deve incluir ${requiredRole} em producao.`);
+    }
+  }
+
+  if (!String(process.env.SMTP_HOST || '').trim()) {
+    errors.push('SMTP_HOST e obrigatoria em producao para MFA administrativo.');
   }
 
   const jwtMfaSecret = String(process.env.JWT_MFA_SECRET || jwtSecret).trim();
