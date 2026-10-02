@@ -1,4 +1,4 @@
-import { lazy, Suspense, useState, useCallback, useEffect, useMemo, useRef } from 'react';
+import { Suspense, useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../../contexts/authContext';
 import { useAppDialog } from '../../components/AppDialog/context';
@@ -47,13 +47,10 @@ import {
   resolveHomeRestaurantId,
 } from './domain/homePageHelpers';
 import type { CreateTablePaymentResult, TableCardPaymentPayload, TablePaymentDraft, TablePaymentIntent } from './domain/tableAccount';
-
-const TableMenuExperience = lazy(() => import('../digital-menu/TableMenuExperience'));
-const TableAccountPanel = lazy(() =>
-  import('./components/TableAccountPanel').then((module) => ({
-    default: module.TableAccountPanel,
-  })),
-);
+import {
+  LazyTableAccountPanel as TableAccountPanel,
+  LazyTableMenuExperience as TableMenuExperience,
+} from './components/LazyTableHomeExperience';
 
 export default function Home() {
   const navigate = useNavigate();
