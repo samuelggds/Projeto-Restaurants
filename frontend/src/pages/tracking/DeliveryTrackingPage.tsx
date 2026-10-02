@@ -340,6 +340,167 @@ function DeliveryTrackingContent({ id }: { id?: string }) {
                   </S.ReceiptConfirmed>
                 ) : null}
               </>
+            ) : null}
+            {isCancelled ? (
+              <S.CancelledNotice role="status">
+                <Ban aria-hidden="true" />
+                <span><strong>Entrega cancelada</strong><small>O acompanhamento foi encerrado e novas posições não serão exibidas.</small></span>
+              </S.CancelledNotice>
+            ) : null}
+
+            <S.FigmaTrackingLayout>
+              <S.TrackingMapColumn>
+                <S.DesktopTrackingTitle>Acompanhe seu Pedido</S.DesktopTrackingTitle>
+                <S.MapArea aria-label="Mapa da entrega">
+                  {data.locations.length ? (
+                    <Suspense
+                      fallback={
+                        <S.MapPlaceholder role="status" aria-busy="true">
+                          <RefreshCw className="spinning" aria-hidden="true" />
+                          <h2>Preparando o mapa...</h2>
+                        </S.MapPlaceholder>
+                      }
+                    >
+                      <DeliveryMap
+                        points={data.locations}
+                        routePath={isTerminal ? [] : data.order.routeEstimate?.routeCoordinates || []}
+                        destination={data.order.routeEstimate?.destination}
+                        label={data.order.assignedCourier?.name || 'Motoqueiro'}
+                        etaMinutes={routeMinutes}
+                        distanceMeters={data.order.routeEstimate?.distanceMeters ?? null}
+                        statusMessage={
+                          isDelivered
+                            ? 'Seu pedido foi entregue'
+                            : isCancelled
+                              ? 'Entrega cancelada'
+                              : 'Seu pedido está a caminho'
+                        }
+                        statusDetail={
+                          isDelivered
+                            ? 'Entrega concluída com sucesso.'
+                            : isCancelled
+                              ? 'O restaurante encerrou esta entrega.'
+                              : 'Acompanhe a localização do motoqueiro em tempo real.'
+                        }
+                      />
+                    </Suspense>
+                  ) : (
+                    <S.MapPlaceholder role="status">
+                      <Clock3 aria-hidden="true" />
+                      <h2>
+                        {isInDeliveryWithoutLocation
+                          ? 'Localização em tempo real indisponível'
+                          : 'Aguardando a primeira posição do motoboy'}
+                      </h2>
+                      <p>
+                        {isInDeliveryWithoutLocation
+                          ? 'Seu pedido continua a caminho. Se o motoboy ativar a localização, o mapa aparecerá automaticamente.'
+                          : 'O mapa aparecerá automaticamente quando a rota começar.'}
+                      </p>
+                    </S.MapPlaceholder>
+                  )}
+                </S.MapArea>
+              </S.TrackingMapColumn>
+
+              <S.TrackingSideColumn>
+                <S.DesktopStatusCard aria-label="Status da Entrega">
+                  <h2>Status da Entrega</h2>
+                  <S.DeliveryStatusList>
+                    {deliveryStatusSteps.slice(0, 3).map((label, index) => {
+                      const complete = deliveryStatusProgress > index;
+                      const active = deliveryStatusProgress === index;
+                      const displayLabel =
+                        index === 2 && active ? 'Saiu para entrega (Rota)' : label;
+                      return (
+                        <S.DeliveryStatusItem
+                          key={label}
+                          $active={active}
+                          $complete={complete}
+                          aria-current={active ? 'step' : undefined}
+                        >
+                          {complete ? <CheckCircle2 aria-hidden="true" /> : <CircleDot aria-hidden="true" />}
+                          <span>{displayLabel}</span>
+                        </S.DeliveryStatusItem>
+                      );
+                    })}
+                  </S.DeliveryStatusList>
+                </S.DesktopStatusCard>
+
+                <S.CourierCard>
+                  <S.CourierAvatar>
+                    {data.order.assignedCourier?.avatar ? (
+                      <img src={data.order.assignedCourier.avatar} alt="" />
+                    ) : (
+                      <Bike aria-hidden="true" />
+                    )}
+                  </S.CourierAvatar>
+                  <span>
+                    <strong>{data.order.assignedCourier?.name || 'Aguardando motoboy'}</strong>
+                    {data.order.assignedCourier?.phone ? (
+                      <a href={`tel:${data.order.assignedCourier.phone}`}>
+                        {data.order.assignedCourier.phone}
+                      </a>
+                    ) : null}
+                  </span>
+                  {data.order.assignedCourier?.phone ? (
+                    <a className="call" href={`tel:${data.order.assignedCourier.phone}`} aria-label="Ligar para o motoboy">
+                      <Phone aria-hidden="true" />
+                    </a>
+                  ) : null}
+                </S.CourierCard>
+
+                {!isCancelled && data.order.assignedCourier ? (
+                  <CustomerTrackingChatPanel
+                    orderId={data.order.id}
+                    courierName={data.order.assignedCourier.name || 'Motoqueiro'}
+                  />
+                ) : null}
+              </S.TrackingSideColumn>
+
+              <S.MobileTrackingDetails>
+                <S.CourierCard>
+                  <S.CourierAvatar>
+                    {data.order.assignedCourier?.avatar ? (
+                      <img src={data.order.assignedCourier.avatar} alt="" />
+                    ) : (
+                      <Bike aria-hidden="true" />
+                    )}
+                  </S.CourierAvatar>
+                  <span>
+                    <strong>{data.order.assignedCourier?.name || 'Aguardando motoboy'}</strong>
+                    {data.order.assignedCourier?.phone ? (
+                      <a href={`tel:${data.order.assignedCourier.phone}`}>
+                        {data.order.assignedCourier.phone}
+                      </a>
+                    ) : null}
+                  </span>
+                  {data.order.assignedCourier?.phone ? (
+                    <a className="call" href={`tel:${data.order.assignedCourier.phone}`} aria-label="Ligar para o motoboy">
+                      <Phone aria-hidden="true" />
+                    </a>
+                  ) : null}
+                </S.CourierCard>
+                <S.MobileStatusList aria-label="Status da Entrega">
+                  {['Pedido recebido', 'Preparando', 'Saiu para entrega (A caminho)', 'Entregue'].map((label, index) => {
+                    const complete = deliveryStatusProgress > index;
+                    const active = deliveryStatusProgress === index;
+                    return (
+                      <S.MobileStatusItem key={label} $active={active} $complete={complete}>
+                        <i aria-hidden="true" />
+                        <span>{label}</span>
+                      </S.MobileStatusItem>
+                    );
+                  })}
+                </S.MobileStatusList>
+                {!isCancelled && data.order.assignedCourier ? (
+                  <CustomerTrackingChatPanel
+                    orderId={data.order.id}
+                    courierName={data.order.assignedCourier.name || 'Motoqueiro'}
+                  />
+                ) : null}
+              </S.MobileTrackingDetails>
+            </S.FigmaTrackingLayout>
+          </>
         ) : null}
       </S.Main>
     </S.Page>
