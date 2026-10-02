@@ -426,32 +426,10 @@ function DeliveryTrackingContent({ id }: { id?: string }) {
                   </S.DeliveryStatusList>
                 </S.DesktopStatusCard>
 
-                <S.CourierCard>
-                  <S.CourierAvatar>
-                    {data.order.assignedCourier?.avatar ? (
-                      <img src={data.order.assignedCourier.avatar} alt="" />
-                    ) : (
-                      <Bike aria-hidden="true" />
-                    )}
-                  </S.CourierAvatar>
-                  <span>
-                    <strong>{data.order.assignedCourier?.name || 'Aguardando motoboy'}</strong>
-                    {data.order.assignedCourier?.phone ? (
-                      <a href={`tel:${data.order.assignedCourier.phone}`}>
-                        {data.order.assignedCourier.phone}
-                      </a>
-                    ) : null}
-                  </span>
-                  {data.order.assignedCourier?.phone ? (
-                    <a className="call" href={`tel:${data.order.assignedCourier.phone}`} aria-label="Ligar para o motoboy">
-                      <Phone aria-hidden="true" />
-                    </a>
-                  ) : null}
-                </S.CourierCard>
 
               </S.TrackingSideColumn>
 
-              <S.MobileTrackingDetails>
+              <S.CourierSlot>
                 <S.CourierCard>
                   <S.CourierAvatar>
                     {data.order.assignedCourier?.avatar ? (
@@ -474,6 +452,9 @@ function DeliveryTrackingContent({ id }: { id?: string }) {
                     </a>
                   ) : null}
                 </S.CourierCard>
+              </S.CourierSlot>
+
+              <S.MobileTrackingDetails>
                 <S.MobileStatusList aria-label="Status da Entrega">
                   {['Pedido recebido', 'Preparando', 'Saiu para entrega (A caminho)', 'Entregue'].map((label, index) => {
                     const complete = deliveryStatusProgress > index;
