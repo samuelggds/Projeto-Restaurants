@@ -159,6 +159,25 @@ export function tablePaymentFingerprint(draft: TablePaymentDraft) {
   });
 }
 
+export function shouldReuseActiveTablePayment(
+  payment: TablePaymentIntent | null | undefined,
+  method: Extract<TablePaymentMethod, 'PIX' | 'CARD' | 'CASH'>,
+) {
+  if (
+    !payment ||
+    payment.method !== method ||
+    !['RESERVED', 'PROCESSING'].includes(payment.status)
+  ) {
+    return false;
+  }
+
+  // Pagamento manual não depende de referência externa. Para PIX/cartão,
+  // RESERVED sem externalId significa que o envio ao provedor ficou incerto:
+  // o frontend deve repetir a mesma tentativa/idempotency key para reconciliar.
+  if (method === 'CASH') return true;
+  return Boolean(payment.externalId);
+}
+
 export function buildTablePaymentPayload(draft: TablePaymentDraft) {
   return {
     selectionMode: draft.selectionMode,
