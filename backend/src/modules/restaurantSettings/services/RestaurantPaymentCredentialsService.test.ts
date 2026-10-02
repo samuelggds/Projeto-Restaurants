@@ -25,6 +25,7 @@ const originals = {
 const envNames = [
   'CREDENTIAL_ENCRYPTION_KEY',
   'ALLOW_GLOBAL_PAYMENT_FALLBACK',
+  'NODE_ENV',
   'MP_ACCESS_TOKEN',
   'MP_OAUTH_CLIENT_ID',
   'MP_OAUTH_CLIENT_SECRET',
@@ -270,6 +271,15 @@ test('troca manual concorrente prevalece sobre refresh da conta antiga', async (
     ),
     'manual-new-account',
   );
+});
+
+test('nunca usa fallback global de pagamento em produção', async () => {
+  process.env.NODE_ENV = 'production';
+  process.env.ALLOW_GLOBAL_PAYMENT_FALLBACK = 'true';
+  process.env.MP_ACCESS_TOKEN = 'platform-fallback';
+
+  await assert.rejects(() => getMercadoPagoAccessToken(7), /não foi conectado/);
+  assert.equal(calls.length, 0);
 });
 
 test('não usa credencial de outro restaurante nem fallback global sem autorização', async () => {
