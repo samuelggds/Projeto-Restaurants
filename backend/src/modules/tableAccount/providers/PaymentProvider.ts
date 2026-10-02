@@ -10,7 +10,21 @@ export interface ProviderPayment {
   checkoutUrl: string | null;
   paymentCode: string | null;
   expiresAt: Date;
+  cardPayment?: TableCardPaymentPayload | null;
 }
+
+export type TableCardPaymentPayload = {
+  cardPaymentType?: 'credit' | 'debit' | null;
+  cardToken?: string | null;
+  cardPaymentMethodId?: string | null;
+  cardBrand?: string | null;
+  cardLast4?: string | null;
+  paymentMethodId?: string | null;
+  holderName?: string | null;
+  holderTaxId?: string | null;
+  payerEmail?: string | null;
+  mercadoPagoDeviceId?: string | null;
+};
 
 export interface CreateProviderPaymentInput {
   intentPublicId: string;
