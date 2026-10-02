@@ -172,6 +172,7 @@ export default function TableMenuExperience({
   } | null>(null);
   const [pixPayment, setPixPayment] = useState<TablePaymentIntent | null>(null);
   const cardPreparerRef = useRef<CardPaymentPreparer | null>(null);
+  const [cardReady, setCardReady] = useState(false);
   const [cardSubmitting, setCardSubmitting] = useState(false);
   const [copied, setCopied] = useState(false);
   const [couponInput, setCouponInput] = useState(couponCode || '');
@@ -209,6 +210,7 @@ export default function TableMenuExperience({
 
   const handleCardPreparerChange = useCallback((preparer: CardPaymentPreparer | null) => {
     cardPreparerRef.current = preparer;
+    setCardReady(Boolean(preparer));
   }, []);
 
   useEffect(() => {
@@ -742,7 +744,7 @@ export default function TableMenuExperience({
                 cardSubmitting ||
                 !allowCard ||
                 restaurantId <= 0 ||
-                !cardPreparerRef.current
+                !cardReady
               }
               onClick={() => void submitCardPayment()}
             >
