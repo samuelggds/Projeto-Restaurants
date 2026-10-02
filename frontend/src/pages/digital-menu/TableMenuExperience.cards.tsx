@@ -1,6 +1,6 @@
 import { Plus } from 'lucide-react';
 import type { HomeProduct } from '../Home/types';
-import * as S from './TableMenuExperience.styles';
+import * as S from './TableMenuExperience.styles.figma-menu';
 
 const brl = (value: number) =>
   value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
