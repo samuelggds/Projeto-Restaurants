@@ -642,7 +642,7 @@ test('captura o tracking real para o README', async ({ page }) => {
     page.getByRole('banner').getByText('Pedido #601', { exact: true }),
   ).toBeVisible();
   await expect(
-    page.getByLabel('Status da Entrega').getByText('Saiu para entrega', { exact: true }),
+    page.getByLabel('Status da Entrega').getByText('Saiu para entrega (Rota)', { exact: true }),
   ).toBeVisible();
   await expect(page.locator('.delivery-map-shell')).toBeVisible();
   await captureReadmeScreenshot(page, 'delivery-tracking.png', { fullPage: true });
