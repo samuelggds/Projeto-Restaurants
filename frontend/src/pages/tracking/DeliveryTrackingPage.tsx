@@ -7,7 +7,6 @@ import {
   CircleDot,
   Clock3,
   LocateFixed,
-  MapPin,
   Phone,
   RefreshCw,
 } from 'lucide-react';
@@ -44,12 +43,9 @@ function DeliveryTrackingContent({ id }: { id?: string }) {
   const [error, setError] = useState('');
   const [warning, setWarning] = useState('');
   const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
   const [confirmingReceipt, setConfirmingReceipt] = useState(false);
   const [receiptError, setReceiptError] = useState('');
-  const [socketConnected, setSocketConnected] = useState(false);
   const [retryKey, setRetryKey] = useState(0);
-  const [lastUpdatedAt, setLastUpdatedAt] = useState<Date | null>(null);
   const lastRouteRefreshAt = useRef(0);
   const dataRef = useRef<DeliveryTrackingData | null>(null);
   const isGuestTracking = Boolean(orderId && getGuestOrderTrackingToken(orderId));
@@ -66,8 +62,7 @@ function DeliveryTrackingContent({ id }: { id?: string }) {
       if (requestInFlight) return;
       requestInFlight = true;
       const requestId = ++requestSequence;
-      if (background) setRefreshing(true);
-      else setLoading(true);
+      if (!background) setLoading(true);
       try {
         const normalized = normalizeDeliveryTrackingData(
           await ordersService.getDeliveryTracking(orderId),
@@ -97,7 +92,6 @@ function DeliveryTrackingContent({ id }: { id?: string }) {
         setData(merged);
         setError('');
         setWarning('');
-        setLastUpdatedAt(new Date());
         lastRouteRefreshAt.current = Date.now();
       } catch (err) {
         if (!active || requestId !== requestSequence) return;
@@ -112,7 +106,6 @@ function DeliveryTrackingContent({ id }: { id?: string }) {
         requestInFlight = false;
         if (active && requestId === requestSequence) {
           setLoading(false);
-          setRefreshing(false);
         }
       }
     };
@@ -133,8 +126,6 @@ function DeliveryTrackingContent({ id }: { id?: string }) {
     }
 
     const { socket, release } = acquireSocket(token, `delivery-tracking-${orderId}`);
-    const onConnect = () => setSocketConnected(true);
-    const onDisconnect = () => setSocketConnected(false);
     const onLocation = (point: unknown) => {
       if (!trackingEventMatches(point, orderId, dataRef.current?.order.restaurantId)) return;
       if (!dataRef.current) {
@@ -145,7 +136,6 @@ function DeliveryTrackingContent({ id }: { id?: string }) {
       if (merged === dataRef.current) return;
       dataRef.current = merged;
       setData(merged);
-      setLastUpdatedAt(new Date());
 
       if (Date.now() - lastRouteRefreshAt.current >= 20_000) void refreshTracking(true);
     };
@@ -164,35 +154,22 @@ function DeliveryTrackingContent({ id }: { id?: string }) {
         };
         dataRef.current = updated;
         setData(updated);
-        setLastUpdatedAt(new Date());
         if (isDeliveryTrackingTerminalStatus(status)) return;
       }
       void refreshTracking(true);
     };
-    queueMicrotask(() => {
-      if (active) setSocketConnected(Boolean(socket.connected));
-    });
-    socket.on('connect', onConnect);
-    socket.on('disconnect', onDisconnect);
     socket.on('order:delivery-location', onLocation);
     socket.on('order:status-changed', onStatus);
 
     return () => {
       active = false;
       window.clearInterval(pollTimer);
-      socket.off('connect', onConnect);
-      socket.off('disconnect', onDisconnect);
       socket.off('order:delivery-location', onLocation);
       socket.off('order:status-changed', onStatus);
       release();
     };
   }, [hasInvalidOrderId, orderId, retryKey]);
 
-  const latest = data?.locations[data.locations.length - 1];
-  const formatTime = (value?: string | null) =>
-    value
-      ? new Date(value).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
-      : null;
   const routeMinutes = data?.order.routeEstimate
     ? Math.max(1, Math.ceil(data.order.routeEstimate.durationSeconds / 60))
     : null;
@@ -225,18 +202,6 @@ function DeliveryTrackingContent({ id }: { id?: string }) {
     'Saiu para entrega',
     'Chegou ao endereço',
   ] as const;
-  const statusLabel = data
-    ? data.order.status === 'SAIU_PARA_ENTREGA'
-      ? 'Saiu para entrega'
-      : isDelivered
-        ? receiptConfirmed
-          ? 'Concluído'
-          : 'Chegou ao endereço'
-        : isCancelled
-          ? 'Cancelado'
-          : data.order.status
-    : '';
-
   const confirmReceipt = async () => {
     if (!canConfirmReceipt || confirmingReceipt) return;
     setReceiptError('');
