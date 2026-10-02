@@ -346,6 +346,11 @@ export function validateCriticalEnv() {
     }
   }
 
+  const alertRecipient = String(process.env.ALERT_EMAIL_TO || '').trim();
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/u.test(alertRecipient)) {
+    errors.push('ALERT_EMAIL_TO deve conter um e-mail valido para alertas operacionais.');
+  }
+
   const salesContactRecipient = String(
     process.env.SALES_CONTACT_NOTIFICATION_EMAIL ||
       process.env.ALERT_EMAIL_TO ||
