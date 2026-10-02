@@ -112,8 +112,8 @@ test('preserva grupos desativados e escolhas opcionais sem seleção padrão', (
 
 function mockDatabase({
   components = [
-    { id: 10, name: 'Lanche', kind: 'STANDARD' },
-    { id: 11, name: 'Bebida', kind: 'STANDARD' },
+    { id: 10, name: 'Lanche', kind: 'STANDARD', active: true },
+    { id: 11, name: 'Bebida', kind: 'STANDARD', active: true },
   ],
   existing = true,
 } = {}) {
@@ -230,14 +230,16 @@ test('edita combo preservando quantidades e adicionais e incrementando a versão
 });
 
 test('recusa produto de outro restaurante ou combo aninhado antes das escritas', async () => {
-  const missing = mockDatabase({ components: [{ id: 10, name: 'Lanche', kind: 'STANDARD' }] });
+  const missing = mockDatabase({
+    components: [{ id: 10, name: 'Lanche', kind: 'STANDARD', active: true }],
+  });
   await assert.rejects(() => service.save(null, 3, input()), /não pertencem a este restaurante/);
   assert.deepEqual(missing.writes, []);
 
   const nested = mockDatabase({
     components: [
-      { id: 10, name: 'Lanche', kind: 'STANDARD' },
-      { id: 11, name: 'Outro combo', kind: 'COMBO' },
+      { id: 10, name: 'Lanche', kind: 'STANDARD', active: true },
+      { id: 11, name: 'Outro combo', kind: 'COMBO', active: true },
     ],
   });
   await assert.rejects(() => service.save(null, 3, input()), /não pode conter outro combo/);
@@ -275,5 +277,46 @@ test('recusa imagem maior que o orçamento seguro antes de abrir transação', a
     () => service.save(null, 3, draft),
     /imagem do combo está muito grande/i,
   );
+});
+
+test('recusa nomes de etapas duplicados ignorando maiúsculas, minúsculas e espaços', async () => {
+  const draft = input();
+  draft.groups.push({
+    ...draft.groups[0],
+    name: '  produtos DO COMBO  ',
+  });
+  prisma.$transaction = (() => {
+    assert.fail('dados inválidos não devem abrir uma transação');
+  }) as typeof prisma.$transaction;
+
+  await assert.rejects(() => service.save(null, 3, draft), /nome diferente/i);
+});
+
+test('recusa produto inativo em opção ativa e preserva vínculo histórico se a opção estiver inativa', async () => {
+  const inactiveComponents = [
+    { id: 10, name: 'Lanche', kind: 'STANDARD', active: true },
+    { id: 11, name: 'Bebida antiga', kind: 'STANDARD', active: false },
+  ];
+
+  const activeDraft = input();
+  const rejected = mockDatabase({ components: inactiveComponents });
+  await assert.rejects(
+    () => service.save(null, 3, activeDraft),
+    /Produto inativo não pode ficar disponível como opção ativa/u,
+  );
+  assert.deepEqual(rejected.writes, []);
+
+  const historicalDraft = input();
+  historicalDraft.groups[0].options[1].active = false;
+  historicalDraft.groups[0].minSelections = 1;
+  historicalDraft.groups[0].maxSelections = 1;
+  historicalDraft.groups[0].options[0].minQuantity = 1;
+  historicalDraft.groups[0].options[0].maxQuantity = 1;
+  historicalDraft.groups[0].options[0].defaultQuantity = 1;
+
+  const preserved = mockDatabase({ components: inactiveComponents });
+  const saved = await service.save(null, 3, historicalDraft);
+  assert.equal(saved.comboGroups[0].options[1].active, false);
+  assert.ok(preserved.writes.length > 0);
 });
 
