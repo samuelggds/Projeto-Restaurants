@@ -95,7 +95,7 @@ async function gatewayContext(restaurantId: number) {
   const provider = String(settings?.cardGateway || '')
     .trim()
     .toUpperCase();
-  const fallback = process.env.ALLOW_GLOBAL_PAYMENT_FALLBACK === 'true';
+  const fallback = (process.env.NODE_ENV !== 'production' && process.env.ALLOW_GLOBAL_PAYMENT_FALLBACK === 'true');
   if (provider === 'MERCADO_PAGO') {
     const token = await getMercadoPagoAccessToken(restaurantId);
     const publicKey = String(settings?.mercadoPagoPublicKey || '').trim();
