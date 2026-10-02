@@ -59,15 +59,6 @@ type PaymentIdentity = {
   phone: string;
 };
 
-type AsaasPaymentPayload = {
-  id?: string;
-  status?: string;
-  value?: number;
-  currency?: string;
-  externalReference?: string;
-  errors?: Array<{ description?: string }>;
-};
-
 
 type MercadoPagoPaymentPayload = {
   id?: string | number;
@@ -147,12 +138,6 @@ function matchesAmount(value: unknown, expectedCents: number, minor = false) {
   );
 }
 
-function asaasBaseUrl() {
-  return String(process.env.ASAAS_API_BASE_URL || 'https://api.asaas.com')
-    .trim()
-    .replace(/\/+$/, '');
-}
-
 
 async function settingsFor(restaurantId: number) {
   const settings = await restaurantSettingsRepository.findByRestaurantId(restaurantId);
@@ -178,9 +163,6 @@ function credentialReady(
         refreshTokenReady &&
         String(settings.mercadoPagoPublicKey || '').trim(),
     );
-  }
-  if (provider === PIX_PROVIDERS.ASAAS || provider === CARD_PROVIDERS.ASAAS) {
-    return Boolean(String(settings.asaasAccessToken || '').trim());
   }
   return false;
 }
@@ -379,33 +361,6 @@ async function getMercadoPagoCard(
   };
 }
 
-async function getAsaasCard(
-  externalId: string,
-  amountCents: number,
-  expiresAt: Date,
-  restaurantId: number,
-) {
-  const settings = await settingsFor(restaurantId);
-  const token = String(settings.asaasAccessToken || '').trim();
-  const paymentId = externalId.replace(/^asaas_pay:/, '');
-  if (!token || !paymentId) throw new Error('Referência Asaas inválida.');
-  const { response, body } = await fetchJson<AsaasPaymentPayload>(
-    `${asaasBaseUrl()}/v3/payments/${encodeURIComponent(paymentId)}`,
-    { headers: { access_token: token, Accept: 'application/json' } },
-  );
-  if (!response.ok || !matchesAmount(body.value, amountCents)) {
-    throw new Error('A cobrança retornada pelo Asaas não corresponde à conta da mesa.');
-  }
-  return {
-    externalId,
-    status: providerStatus(body.status),
-    amountCents,
-    checkoutUrl: null,
-    paymentCode: null,
-    expiresAt,
-  };
-}
-
 export class ConfiguredTablePaymentProvider implements PaymentProvider {
   readonly code: string;
 
@@ -472,9 +427,6 @@ export class ConfiguredTablePaymentProvider implements PaymentProvider {
 
     if (this.provider === CARD_PROVIDERS.MERCADO_PAGO) {
       return getMercadoPagoCard(this.context, externalId, amountCents, intent.expiresAt);
-    }
-    if (this.provider === CARD_PROVIDERS.ASAAS) {
-      return getAsaasCard(externalId, amountCents, intent.expiresAt, this.context.restaurantId);
     }
     throw new Error('Consulta de cartão não suportada para este gateway.');
   }
