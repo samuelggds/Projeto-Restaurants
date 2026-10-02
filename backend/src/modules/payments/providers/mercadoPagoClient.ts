@@ -4,7 +4,7 @@ import { getMercadoPagoAccessToken } from '../../restaurantSettings/services/Res
 
 async function getAccessToken(restaurantId?: number | null) {
   const normalizedRestaurantId = Number(restaurantId || 0);
-  const allowGlobalFallback = process.env.ALLOW_GLOBAL_PAYMENT_FALLBACK === 'true';
+  const allowGlobalFallback = (process.env.NODE_ENV !== 'production' && process.env.ALLOW_GLOBAL_PAYMENT_FALLBACK === 'true');
   if (Number.isSafeInteger(normalizedRestaurantId) && normalizedRestaurantId > 0) {
     return getMercadoPagoAccessToken(normalizedRestaurantId);
   }
