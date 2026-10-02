@@ -46,6 +46,135 @@ test('isolamento multi-tenant real por HTTP e webhooks', { timeout: 120_000 }, a
       assert.equal(conflict.data.code, 'IDEMPOTENCY_CONFLICT');
       assert.equal(await prisma.order.count({ where: { restaurantId: fixture.restaurants.a.id, creationRequestKey: { not: null } } }), 1);
     });
+    await t.test('ADMIN cria, lista e isola combo real por restaurante', async () => {
+      const payload = {
+        name: 'Combo real A',
+        description: 'Combo sem imagem criado no E2E real.',
+        image: '',
+        price: 59.9,
+        active: true,
+        featured: true,
+        groups: [
+          {
+            name: 'Principal',
+            description: '',
+            minSelections: 1,
+            maxSelections: 1,
+            active: true,
+            options: [
+              {
+                componentProductId: fixture.products.a.id,
+                additionalPrice: 0,
+                minQuantity: 1,
+                maxQuantity: 1,
+                defaultQuantity: 1,
+                locked: true,
+                active: true,
+              },
+            ],
+          },
+        ],
+      };
+
+      const created = await apiRequest(
+        baseUrl,
+        '/product-combos',
+        fixture.tokens.adminA,
+        { method: 'POST', json: payload },
+      );
+      assert.equal(created.response.status, 201, JSON.stringify(created.data));
+      assert.equal(created.data.combo.name, 'Combo real A');
+      assert.equal(created.data.combo.kind, 'COMBO');
+      assert.equal(Number(created.data.combo.price), 59.9);
+      assert.equal(created.data.combo.image, null);
+      assert.equal(created.data.combo.comboGroups.length, 1);
+      assert.equal(
+        created.data.combo.comboGroups[0].options[0].componentProductId,
+        fixture.products.a.id,
+      );
+
+      const comboId = Number(created.data.combo.id);
+      const stored = await prisma.product.findUniqueOrThrow({
+        where: { id: comboId },
+        include: { comboGroups: { include: { options: true } } },
+      });
+      assert.equal(stored.restaurantId, fixture.restaurants.a.id);
+      assert.equal(stored.kind, 'COMBO');
+      assert.equal(stored.comboGroups[0].restaurantId, fixture.restaurants.a.id);
+      assert.ok(
+        stored.comboGroups[0].options.every(
+          (option) => option.restaurantId === fixture.restaurants.a.id,
+        ),
+      );
+
+      const listedA = await apiRequest(
+        baseUrl,
+        '/product-combos',
+        fixture.tokens.adminA,
+      );
+      assert.equal(listedA.response.status, 200, JSON.stringify(listedA.data));
+      assert.ok(
+        listedA.data.combos.some((combo: any) => combo.id === comboId),
+        'Restaurante A deve listar o próprio combo',
+      );
+
+      const listedB = await apiRequest(
+        baseUrl,
+        '/product-combos',
+        fixture.tokens.adminB,
+      );
+      assert.equal(listedB.response.status, 200, JSON.stringify(listedB.data));
+      assert.ok(
+        listedB.data.combos.every((combo: any) => combo.id !== comboId),
+        'Restaurante B não pode listar combo do Restaurante A',
+      );
+
+      const foreignProductAttempt = await apiRequest(
+        baseUrl,
+        '/product-combos',
+        fixture.tokens.adminA,
+        {
+          method: 'POST',
+          json: {
+            ...payload,
+            name: 'Combo inválido cross tenant',
+            groups: [
+              {
+                ...payload.groups[0],
+                options: [
+                  {
+                    ...payload.groups[0].options[0],
+                    componentProductId: fixture.products.b.id,
+                  },
+                ],
+              },
+            ],
+          },
+        },
+      );
+      assert.equal(foreignProductAttempt.response.status, 400);
+      assert.match(
+        String(foreignProductAttempt.data.error || ''),
+        /não pertencem a este restaurante/u,
+      );
+
+      const beforeForeignUpdate = await prisma.product.findUniqueOrThrow({
+        where: { id: comboId },
+      });
+      const foreignUpdate = await apiRequest(
+        baseUrl,
+        `/product-combos/${comboId}`,
+        fixture.tokens.adminB,
+        { method: 'PUT', json: payload },
+      );
+      assert.equal(foreignUpdate.response.status, 400);
+      const afterForeignUpdate = await prisma.product.findUniqueOrThrow({
+        where: { id: comboId },
+      });
+      assert.equal(afterForeignUpdate.name, beforeForeignUpdate.name);
+      assert.equal(afterForeignUpdate.restaurantId, fixture.restaurants.a.id);
+    });
+
     await t.test(
       'cliente cria dinheiro na entrega como não pago e somente o admin confirma o recebimento',
       async () => {
