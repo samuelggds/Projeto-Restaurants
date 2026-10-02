@@ -201,7 +201,7 @@ class OrderPixPaymentService {
   }
 
   async getAsaasAccessToken(restaurantId: number) {
-    const allowGlobalFallback = process.env.ALLOW_GLOBAL_PAYMENT_FALLBACK === 'true';
+    const allowGlobalFallback = (process.env.NODE_ENV !== 'production' && process.env.ALLOW_GLOBAL_PAYMENT_FALLBACK === 'true');
     const settings = await restaurantSettingsRepository.findByRestaurantId(restaurantId);
     const settingsToken = String(settings?.asaasAccessToken || '').trim();
     const globalToken = String(process.env.ASAAS_API_KEY || '').trim();
@@ -336,7 +336,7 @@ class OrderPixPaymentService {
 
   async getMercadoPagoPaymentApi(restaurantId?: number) {
     const normalizedRestaurantId = Number(restaurantId || 0);
-    const allowGlobalFallback = process.env.ALLOW_GLOBAL_PAYMENT_FALLBACK === 'true';
+    const allowGlobalFallback = (process.env.NODE_ENV !== 'production' && process.env.ALLOW_GLOBAL_PAYMENT_FALLBACK === 'true');
     const settings =
       Number.isInteger(normalizedRestaurantId) && normalizedRestaurantId > 0
         ? await restaurantSettingsRepository.findByRestaurantId(normalizedRestaurantId)
