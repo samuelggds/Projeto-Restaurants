@@ -126,6 +126,9 @@ describe('useOrderQuote', () => {
   it('mantém a cotação de produtos ativa antes de concluir o endereço de delivery', async () => {
     await act(async () => {
       root.render(<HookProbe address={{ ...completeAddress, number: '' }} />);
+      await Promise.resolve();
+    });
+    await act(async () => {
       await vi.advanceTimersByTimeAsync(ORDER_QUOTE_DEBOUNCE_MS);
       await Promise.resolve();
     });
