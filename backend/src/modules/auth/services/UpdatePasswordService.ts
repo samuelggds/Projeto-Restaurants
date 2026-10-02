@@ -20,8 +20,9 @@ class UpdatePasswordService {
       throw new Error('Usuário não encontrado!');
     }
 
+    const role = String(user.role || '').toUpperCase();
     const requiresStrongPassword =
-      user.mustChangePassword || String(user.role || '').toUpperCase() === 'SUPER_ADMIN';
+      user.mustChangePassword || role === 'ADMIN' || role === 'SUPER_ADMIN';
     if (requiresStrongPassword) validateStrongPassword(newPassword);
     else validatePassword(newPassword, 'A nova senha');
 
