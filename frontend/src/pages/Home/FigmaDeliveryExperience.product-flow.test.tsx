@@ -69,8 +69,14 @@ describe('FigmaDeliveryExperience product flow', () => {
 
     const observation = detail.querySelector('textarea') as HTMLTextAreaElement;
     await act(async () => {
-      observation.value = 'Bem gelado';
+      Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, 'value')?.set?.call(
+        observation,
+        'Bem gelado',
+      );
       observation.dispatchEvent(new Event('input', { bubbles: true }));
+      observation.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+    await act(async () => {
       (
         detail.querySelector('button[data-cart-fly-source="dialog"]') as HTMLButtonElement
       ).click();
