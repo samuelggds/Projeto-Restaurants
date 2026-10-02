@@ -8,7 +8,7 @@ import { PaymentCreationUncertainError } from '../services/PaymentCreationUncert
 import { orderCreationContext } from '../services/orderCreationRequest.js';
 import { OrderRequestError } from '../domain/OrderRequestError.js';
 import { recordWhatsappOrderNotificationOptIn } from '../../../services/whatsappOrderConsent.js';
-import { safeErrorName } from '../../../services/telemetrySanitizer.js';
+import { safeErrorName, safeErrorSummary } from '../../../services/telemetrySanitizer.js';
 import { onlinePaymentExpiresAt } from '../../payments/domain/onlinePaymentPolicy.js';
 import { ActiveOnlinePaymentError } from '../domain/ActiveOnlinePaymentError.js';
 import tableParticipantStateService from '../../tableSession/services/TableParticipantStateService.js';
@@ -189,11 +189,11 @@ class CreateOrderPixPaymentController {
           expiresAt: pixExpiresAt,
         });
       } catch (error: unknown) {
-        console.error(
-          '[PIX_ORDER_PAYMENT_LINK_ERROR]',
-          error instanceof Error ? error.message : String(error),
-          { orderId: order.id, restaurantId: resolvedRestaurantId },
-        );
+        console.error('[PIX_ORDER_PAYMENT_LINK_ERROR]', {
+          orderId: order.id,
+          restaurantId: resolvedRestaurantId,
+          error: safeErrorSummary(error),
+        });
       }
 
       const isGuestOrder = req.user?.isGuest === true;
@@ -261,8 +261,14 @@ class CreateOrderPixPaymentController {
             : {}),
         });
       }
-      return res.status(400).json({
-        error: error instanceof Error ? error.message : 'Erro ao gerar pagamento PIX',
+      console.error('[PIX_PAYMENT_REQUEST_FAILED]', {
+        requestId: req.requestId,
+        errorType: safeErrorName(error),
+        error: safeErrorSummary(error),
+      });
+      return res.status(500).json({
+        error: 'Não foi possível iniciar o pagamento PIX agora.',
+        requestId: req.requestId,
       });
     }
   }
