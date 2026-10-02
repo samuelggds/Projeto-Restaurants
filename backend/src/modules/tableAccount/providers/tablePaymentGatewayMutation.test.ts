@@ -77,6 +77,117 @@ test('MP: cancelamento de pendente usa PUT e reconcilia estado confirmado', asyn
   assert.equal((await mutateDirectTablePayment(input, 'cancel', mutation)).status, 'CANCELED');
 });
 
+test('MP Orders: reconcilia cartão da mesa pelo tenant, referência e valor corretos', async () => {
+  credentials();
+  globalThis.fetch = async (url, init) => {
+    assert.equal(url, 'https://api.mercadopago.com/v1/orders/ORD_TABLE_91');
+    assert.equal(new Headers(init?.headers).get('authorization'), 'Bearer tenant-mp');
+    return json({
+      id: 'ORD_TABLE_91',
+      status: 'processed',
+      external_reference: 'ordercard_91_7',
+      total_amount: '30.00',
+      total_paid_amount: '30.00',
+      currency: 'BRL',
+    });
+  };
+
+  const result = await getDirectTablePayment({
+    ...input,
+    method: 'CARD',
+    externalId: 'mp_order:ORD_TABLE_91',
+  });
+
+  assert.equal(result?.status, 'PAID');
+  assert.equal(result?.amountCents, 3000);
+});
+
+test('MP Orders: rejeita cobrança de outro tenant, referência ou valor', async () => {
+  credentials();
+
+  for (const remote of [
+    {
+      id: 'ORD_TABLE_91',
+      status: 'processed',
+      external_reference: 'ordercard_91_8',
+      total_amount: '30.00',
+      total_paid_amount: '30.00',
+      currency: 'BRL',
+    },
+    {
+      id: 'ORD_TABLE_91',
+      status: 'processed',
+      external_reference: 'ordercard_91_7',
+      total_amount: '99.00',
+      total_paid_amount: '99.00',
+      currency: 'BRL',
+    },
+    {
+      id: 'ORD_TABLE_91',
+      status: 'processed',
+      external_reference: 'ordercard_91_7',
+      total_amount: '30.00',
+      total_paid_amount: '30.00',
+      currency: 'USD',
+    },
+  ]) {
+    globalThis.fetch = async () => json(remote);
+    await assert.rejects(
+      () =>
+        getDirectTablePayment({
+          ...input,
+          method: 'CARD',
+          externalId: 'mp_order:ORD_TABLE_91',
+        }),
+      /não corresponde/,
+    );
+  }
+});
+
+test('MP Orders: cancelamento usa endpoint Orders e chave idempotente', async () => {
+  credentials();
+  let canceled = false;
+
+  globalThis.fetch = async (url, init) => {
+    if (String(url).endsWith('/cancel')) {
+      assert.equal(url, 'https://api.mercadopago.com/v1/orders/ORD_TABLE_91/cancel');
+      assert.equal(init?.method, 'POST');
+      assert.equal(new Headers(init?.headers).get('x-idempotency-key'), 'stable-key');
+      canceled = true;
+      return json({
+        id: 'ORD_TABLE_91',
+        status: 'canceled',
+        external_reference: 'ordercard_91_7',
+        total_amount: '30.00',
+        total_paid_amount: '30.00',
+        currency: 'BRL',
+      });
+    }
+
+    assert.equal(url, 'https://api.mercadopago.com/v1/orders/ORD_TABLE_91');
+    return json({
+      id: 'ORD_TABLE_91',
+      status: canceled ? 'canceled' : 'action_required',
+      external_reference: 'ordercard_91_7',
+      total_amount: '30.00',
+      total_paid_amount: '30.00',
+      currency: 'BRL',
+    });
+  };
+
+  const result = await mutateDirectTablePayment(
+    {
+      ...input,
+      method: 'CARD',
+      externalId: 'mp_order:ORD_TABLE_91',
+    },
+    'cancel',
+    mutation,
+  );
+
+  assert.equal(result.status, 'CANCELED');
+});
+
 test('checkout preference ambíguo nunca é convertido em estorno de outro pedido', async () => {
   let calls = 0;
   globalThis.fetch = async () => {
