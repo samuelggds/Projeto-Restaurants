@@ -38,6 +38,10 @@ import {
 import { tableAccountEvents } from '../realtime/tableAccountEvents.js';
 import { ProcessTablePaymentWebhookService } from './ProcessTablePaymentWebhookService.js';
 import { onlinePaymentExpiresAt } from '../../payments/domain/onlinePaymentPolicy.js';
+import {
+  safeTablePaymentProviderError,
+  shouldReleaseTablePaymentReservationAfterProviderError,
+} from './tablePaymentProviderFailure.js';
 
 interface CreateTablePaymentIntentContext {
   tableSessionId: number;
@@ -397,13 +401,21 @@ export class CreateTablePaymentIntentService {
         idempotentReplay: reused,
       };
     } catch (error) {
-      await this.failProviderCreation(context, intent, error, provider?.code || null);
+      const providerResolved = Boolean(provider);
+      if (
+        shouldReleaseTablePaymentReservationAfterProviderError(
+          providerResolved,
+          error,
+        )
+      ) {
+        await this.failProviderCreation(context, intent, error, provider?.code || null);
+      }
+
+      const safeError = safeTablePaymentProviderError(providerResolved, error);
       throw new TablePaymentError(
-        error instanceof Error && error.message
-          ? error.message
-          : 'Não foi possível iniciar o pagamento online. A reserva foi liberada.',
-        502,
-        'PAYMENT_PROVIDER_UNAVAILABLE',
+        safeError.message,
+        safeError.statusCode,
+        safeError.code,
       );
     }
   }
