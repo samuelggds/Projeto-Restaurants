@@ -538,6 +538,6 @@ describe('comanda guiada e pagamento seguro', () => {
     await act(async () =>
       root.render(<TableAccountPanel {...baseProps} onClose={() => undefined} />),
     );
-    expect(document.activeElement).toBe(button('Pagar com PIX'));
+    expect(document.activeElement).toBe(button('Pagar com dinheiro'));
   });
 });
