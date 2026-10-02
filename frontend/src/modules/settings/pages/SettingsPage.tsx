@@ -162,9 +162,6 @@ function buildApiPayload(settings: RestaurantSettings) {
     pixProvider: settings.pixProvider,
     pixKey: settings.pixKey,
     cardGateway: settings.cardGateway,
-    ...(settings.mercadoPagoAccessToken
-      ? { mercadoPagoAccessToken: settings.mercadoPagoAccessToken }
-      : {}),
     ...(settings.pagarmeSecretKey ? { pagarmeSecretKey: settings.pagarmeSecretKey } : {}),
     ...(settings.pagarmePublicKey ? { pagarmePublicKey: settings.pagarmePublicKey } : {}),
     pagarmeEnvironment: settings.pagarmeEnvironment,
