@@ -1,4 +1,5 @@
 import type { Request, Response } from 'express';
+import { safeErrorSummary } from '../../../services/telemetrySanitizer.js';
 
 import getPublicRestaurantSettingsRevisionService from '../services/GetPublicRestaurantSettingsRevisionService.js';
 
@@ -35,11 +36,18 @@ class GetPublicRestaurantSettingsRevisionController {
 
       return res.status(200).json(result);
     } catch (error: unknown) {
-      return res.status(400).json({
-        error:
-          error instanceof Error
-            ? error.message
-            : 'Erro ao buscar revisão das configurações públicas do restaurante',
+      const message = error instanceof Error ? error.message : '';
+      if (/^Restaurante (?:inválido|não encontrado ou indisponível)\.?$/u.test(message)) {
+        return res.status(400).json({ error: message });
+      }
+
+      console.error('[PUBLIC_RESTAURANT_REVISION_ERROR]', {
+        requestId: req.requestId,
+        error: safeErrorSummary(error),
+      });
+      return res.status(500).json({
+        error: 'Não foi possível atualizar os dados públicos do restaurante agora.',
+        requestId: req.requestId,
       });
     }
   }
