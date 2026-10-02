@@ -119,6 +119,7 @@ test('monta um snapshot operacional com ids de ação sem repassar dados sensív
         activeCallCount: 1,
       },
     ],
+    cashPayments: [],
   });
   assert.equal(JSON.stringify(result).includes('11999999999'), false);
   assert.equal(JSON.stringify(result).includes('dado que não pode sair'), false);
