@@ -410,6 +410,14 @@ export const PayButton = styled.button`
     cursor: wait;
     opacity: 0.6;
   }
+
+  &.unavailable:disabled {
+    border: 1px solid #e6e6e3;
+    background: #f3f3f1;
+    color: #b4b4ba;
+    cursor: not-allowed;
+    opacity: 1;
+  }
 `;
 
 export const DetailsToggle = styled.button`
