@@ -33,6 +33,7 @@ type FlowState = {
   tablePaymentStatus?: 'PROCESSING' | 'PAID' | null;
   tablePaymentIdempotencyKey?: string | null;
   tablePaymentCreations?: number;
+  allowTableCard?: boolean;
   participantJoined?: boolean;
   cardPaymentStatus?: 'PENDING' | 'PAID';
   cardPaymentStatusReads?: number;
@@ -242,7 +243,7 @@ function tableAccountSnapshot(state: FlowState) {
       allowCardMachine: false,
       allowOnlinePayment: true,
       allowPix: true,
-      allowCard: false,
+      allowCard: state.allowTableCard === true,
       allowSplit: false,
       serviceFeeMode: 'OPTIONAL',
       serviceFeeBasisPoints: 1_000,
@@ -542,6 +543,18 @@ async function mockRoleFlowApi(page: Page, state: FlowState) {
 
     if (pathname === '/products' && method === 'GET') {
       return json(route, { products: [product] });
+    }
+
+    if (
+      pathname === `/settings/public/${RESTAURANT_ID}/card-payment-config` &&
+      method === 'GET'
+    ) {
+      return state.allowTableCard
+        ? json(route, {
+            provider: 'MERCADO_PAGO',
+            publicKey: 'TEST-public-key-e2e',
+          })
+        : json(route, { error: 'Cartão não configurado.' }, 409);
     }
 
     if (
@@ -893,6 +906,47 @@ test('cliente pode pagar agora com PIX ou acompanhar para pagar depois', async (
   await page.getByRole('button', { name: 'Acompanhar preparo' }).click();
   await expect(page.getByRole('heading', { name: 'Pagamento Confirmado!' })).toHaveCount(0);
   await expect(page).not.toHaveURL(/\/login/u);
+});
+
+test('cartão da mesa só fica ativo quando o backend libera o método', async ({ page }) => {
+  const state: FlowState = {
+    tableCreated: true,
+    tableOpen: true,
+    createTablePayload: null,
+    orderPayload: {
+      restaurantId: RESTAURANT_ID,
+      type: 'MESA',
+      tableId: TABLE_ID,
+      settlementMode: 'TABLE_ACCOUNT',
+    },
+    orderStatus: 'PREPARANDO',
+    adminTableReads: 0,
+    waiterTableReads: 0,
+    tablePaymentPayload: null,
+    tablePaymentStatus: null,
+    tablePaymentIdempotencyKey: null,
+    allowTableCard: true,
+  };
+  await mockRoleFlowApi(page, state);
+  await page.goto('/');
+  await selectPersona(page, 'customer');
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto(
+    `/${RESTAURANT_SLUG}/mesa/${TABLE_NUMBER}?tid=${TABLE_ID}&rid=${RESTAURANT_ID}&tk=${TABLE_TOKEN}`,
+  );
+  await identifyTableGuest(page);
+
+  await page.getByRole('button', { name: 'Outras formas de pagamento' }).click();
+  const cardButton = page.getByRole('button', { name: 'Pagar com cartão', exact: true });
+  await expect(cardButton).toBeEnabled();
+  await cardButton.click();
+
+  await expect(page.getByRole('heading', { name: 'Pagamento com cartão' })).toBeVisible();
+  await expect(page.getByText('Total a pagar')).toBeVisible();
+  await expect(page.getByText(/R\$\s*28,00/u)).toBeVisible();
+  await expect(
+    page.getByText('Número completo e CVV são protegidos pelo provedor e não são salvos no GastroNexa.'),
+  ).toBeVisible();
 });
 
 test('cliente que escolhe dinheiro vê a espera baseada na cobrança da API', async ({ page }) => {
