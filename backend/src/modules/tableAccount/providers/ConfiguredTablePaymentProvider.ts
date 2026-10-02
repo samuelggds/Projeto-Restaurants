@@ -3,6 +3,10 @@ import orderPixPaymentService from '../../orders/services/OrderPixPaymentService
 import directOrderCardPaymentService from '../../orders/services/DirectOrderCardPaymentService.js';
 import { mercadoPagoCardExternalReferenceCandidates } from '../../orders/domain/mercadoPagoCardReference.js';
 import {
+  tableCardExternalReference,
+  tableCardExternalReferenceCandidates,
+} from '../domain/tableCardExternalReference.js';
+import {
   CARD_PROVIDERS,
   PIX_PROVIDERS,
   type CardProvider,
@@ -261,6 +265,7 @@ async function createCard(
       id: context.intentId,
       publicId: context.intentPublicId,
       restaurantId: context.restaurantId,
+      externalReference: tableCardExternalReference(context.intentId, context.restaurantId),
       total: centsToMajor(input.amountCents),
       systemFee: 0,
       restaurant: { name: 'Conta da mesa' },
@@ -295,9 +300,11 @@ async function getMercadoPagoCard(
   const token = await getMercadoPagoAccessToken(context.restaurantId);
   if (!token) throw new Error('Mercado Pago não configurado para este restaurante.');
 
-  const references = mercadoPagoCardExternalReferenceCandidates(
-    context.intentId,
-    context.restaurantId,
+  const references = Array.from(
+    new Set([
+      ...tableCardExternalReferenceCandidates(context.intentId, context.restaurantId),
+      ...mercadoPagoCardExternalReferenceCandidates(context.intentId, context.restaurantId),
+    ]),
   );
 
   for (const reference of references) {
