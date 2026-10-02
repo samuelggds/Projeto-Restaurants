@@ -1,5 +1,10 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { createPersistentImageDataUrl, isPersistentImageSource } from './persistentImage';
+import {
+  createPersistentImageDataUrl,
+  isPersistentImageSource,
+  optimizePersistentImageDataUrl,
+  PERSISTENT_IMAGE_MAX_DATA_URL_LENGTH,
+} from './persistentImage';
 
 describe('persistent image validation', () => {
   afterEach(() => {
@@ -57,4 +62,44 @@ describe('persistent image validation', () => {
     expect(toBlob).toHaveBeenCalledOnce();
     expect(toDataUrl).not.toHaveBeenCalled();
   });
+
+  it('otimiza data URL gerada por IA dentro do orçamento persistível', async () => {
+    class LoadedImage {
+      naturalWidth = 1024;
+      naturalHeight = 1024;
+      onload: (() => void) | null = null;
+      onerror: (() => void) | null = null;
+
+      set src(_value: string) {
+        queueMicrotask(() => this.onload?.());
+      }
+    }
+
+    vi.stubGlobal('Image', LoadedImage);
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue({
+      drawImage: vi.fn(),
+      imageSmoothingEnabled: false,
+      imageSmoothingQuality: 'low',
+      filter: '',
+    } as unknown as CanvasRenderingContext2D);
+    vi.spyOn(HTMLCanvasElement.prototype, 'toBlob').mockImplementation((callback) =>
+      callback(new Blob(['webp'], { type: 'image/webp' })),
+    );
+
+    const result = await optimizePersistentImageDataUrl(
+      'data:image/png;base64,' + 'A'.repeat(900_000),
+      1024,
+      { targetWidth: 1024, targetHeight: 1024 },
+    );
+
+    expect(result).toMatch(/^data:image\/webp;base64,/);
+    expect(result.length).toBeLessThanOrEqual(PERSISTENT_IMAGE_MAX_DATA_URL_LENGTH);
+  });
+
+  it('rejeita data URL não persistível antes de tentar renderizar', async () => {
+    await expect(optimizePersistentImageDataUrl('https://cdn.test/imagem.png')).rejects.toThrow(
+      /formato persistível/i,
+    );
+  });
+
 });
