@@ -24,6 +24,7 @@ import {
 } from '../Home/domain/productEntryFlow';
 import {
   currentParticipantAccount,
+  previewIndividualTablePayment,
   tablePaymentMethodLabel,
   tablePaymentStatusLabel,
   type TableAccountSnapshot,
@@ -695,7 +696,12 @@ export default function TableMenuExperience({
 
   if (effectiveView === 'card' && accountSnapshot) {
     const ownAccount = currentParticipantAccount(accountSnapshot);
+    const paymentPreview = previewIndividualTablePayment(accountSnapshot);
     const ownRemainingCents = ownAccount?.remainingCents || 0;
+    const payableTotalCents =
+      paymentPreview && !paymentPreview.blocked
+        ? paymentPreview.totalCents
+        : ownRemainingCents;
     const allowCard = accountSnapshot.capabilities.allowCard === true;
 
     return (
@@ -747,7 +753,7 @@ export default function TableMenuExperience({
 
             <S.CardPaymentTotal>
               <span>Total a pagar</span>
-              <strong>{centsToBrl(ownRemainingCents)}</strong>
+              <strong>{centsToBrl(payableTotalCents)}</strong>
             </S.CardPaymentTotal>
 
             <S.PrimaryAction
@@ -764,7 +770,7 @@ export default function TableMenuExperience({
               <LockKeyhole size={17} aria-hidden="true" />
               {cardSubmitting || paymentLoading
                 ? 'Processando cartão...'
-                : 'Pagar ' + centsToBrl(ownRemainingCents)}
+                : 'Pagar ' + centsToBrl(payableTotalCents)}
             </S.PrimaryAction>
 
             <S.CardFootnote>
@@ -782,7 +788,12 @@ export default function TableMenuExperience({
     const allowCard = accountSnapshot.capabilities.allowCard === true;
     const allowCash = accountSnapshot.capabilities.allowCash === true;
     const ownAccount = currentParticipantAccount(accountSnapshot);
+    const paymentPreview = previewIndividualTablePayment(accountSnapshot);
     const ownRemainingCents = ownAccount?.remainingCents || 0;
+    const payableTotalCents =
+      paymentPreview && !paymentPreview.blocked
+        ? paymentPreview.totalCents
+        : ownRemainingCents;
     const pendingPayment = accountSnapshot.activePayment;
     const pendingPaymentActive = Boolean(
       pendingPayment && ['RESERVED', 'PROCESSING'].includes(pendingPayment.status),
@@ -908,7 +919,7 @@ export default function TableMenuExperience({
                 </small>
                 <strong>Somente seu consumo</strong>
               </div>
-              <span className="amount">{centsToBrl(ownRemainingCents)}</span>
+              <span className="amount">{centsToBrl(payableTotalCents)}</span>
             </S.PaymentSummary>
           </S.PaymentCard>
         </S.FlowPage>
