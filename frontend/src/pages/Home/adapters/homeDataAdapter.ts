@@ -317,7 +317,7 @@ export function buildHomeData(
     youtube: String(settings?.youtube || ''),
     legalName: String(settings?.companyLegalName || ''),
     phone: formatCommercialPhone(rawWhatsapp || restaurant.phone || restaurant.whatsapp || ''),
-    email: String(settings?.ownerEmail || ''),
+    email: '',
   };
   const products: HomeProduct[] = productsFromApi.map((product, index) => {
     const pricing = mapProductPricingFromApi(product);
