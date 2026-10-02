@@ -232,6 +232,19 @@ async function createPix(
   };
 }
 
+export function resolveTableCardFrontendUrl(
+  env: Pick<NodeJS.ProcessEnv, 'NODE_ENV' | 'FRONTEND_URL'> = process.env,
+) {
+  const configured = String(env.FRONTEND_URL || '').trim();
+  const value = env.NODE_ENV === 'production' ? configured : configured || 'http://localhost:5173';
+
+  if (!value) {
+    throw new Error('FRONTEND_URL não configurada para o pagamento com cartão da mesa.');
+  }
+
+  return value;
+}
+
 async function createCard(
   context: ConfiguredTablePaymentProviderContext,
   input: CreateProviderPaymentInput,
@@ -242,15 +255,7 @@ async function createCard(
   }
 
   const identity = await readIdentity(context);
-  const configuredFrontendUrl = String(process.env.FRONTEND_URL || '').trim();
-  const frontendUrl =
-    process.env.NODE_ENV === 'production'
-      ? configuredFrontendUrl
-      : configuredFrontendUrl || 'http://localhost:5173';
-
-  if (!frontendUrl) {
-    throw new Error('FRONTEND_URL não configurada para o pagamento com cartão da mesa.');
-  }
+  const frontendUrl = resolveTableCardFrontendUrl();
 
   const result = await directOrderCardPaymentService.execute({
     provider,
