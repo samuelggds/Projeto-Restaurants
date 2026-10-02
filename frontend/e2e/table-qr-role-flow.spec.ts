@@ -695,7 +695,9 @@ test('barra inferior da home da mesa fica fixa somente no mobile', async ({ page
   await mockRoleFlowApi(page, state);
 
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.goto(`/${RESTAURANT_SLUG}/mesa/${TABLE_NUMBER}?token=${TABLE_TOKEN}`);
+  await page.goto(
+    `/${RESTAURANT_SLUG}/mesa/${TABLE_NUMBER}?tid=${TABLE_ID}&rid=${RESTAURANT_ID}&tk=${TABLE_TOKEN}`,
+  );
   await identifyTableGuest(page);
 
   const dock = page.getByRole('navigation', { name: 'Ações da mesa' });
@@ -796,7 +798,8 @@ test('admin controla o QR, garçom apenas opera a mesa e cozinha recebe Mesa 1',
   await expect(page.getByRole('button', { name: 'Cartão indisponível' })).toBeDisabled();
   await expect(page.getByRole('button', { name: 'Deixar aberto na Mesa' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Pagar com dinheiro' })).toBeVisible();
-  await page.getByRole('button', { name: 'Voltar' }).click();
+  await page.getByRole('button', { name: 'Deixar aberto na Mesa' }).click();
+  await expect(page.getByRole('heading', { name: 'Painel da Mesa' })).toBeVisible();
 
   await selectPersona(page, 'kitchen');
   await page.goto('/kitchen');
@@ -936,8 +939,10 @@ test('cartão da mesa só fica ativo quando o backend libera o método', async (
   );
   await identifyTableGuest(page);
 
-  await page.getByRole('button', { name: 'Outras formas de pagamento' }).click();
-  const cardButton = page.getByRole('button', { name: 'Pagar com cartão', exact: true });
+  await page.getByRole('button', { name: 'Ver Conta', exact: true }).click();
+  const accountDialog = page.getByRole('dialog', { name: /Conta da Mesa 1/u });
+  await expect(accountDialog).toBeVisible();
+  const cardButton = accountDialog.getByRole('button', { name: 'Pagar com cartão', exact: true });
   await expect(cardButton).toBeEnabled();
   await cardButton.click();
 
@@ -976,8 +981,10 @@ test('cliente que escolhe dinheiro vê a espera baseada na cobrança da API', as
   );
   await identifyTableGuest(page);
 
-  await page.getByRole('button', { name: 'Outras formas de pagamento' }).click();
-  await page.getByRole('button', { name: 'Pagar com dinheiro' }).click();
+  await page.getByRole('button', { name: 'Ver Conta', exact: true }).click();
+  const accountDialog = page.getByRole('dialog', { name: /Conta da Mesa 1/u });
+  await expect(accountDialog).toBeVisible();
+  await accountDialog.getByRole('button', { name: 'Pagar com dinheiro' }).click();
 
   await expect.poll(() => state.tablePaymentPayload).not.toBeNull();
   expect(state.tablePaymentPayload).toMatchObject({
