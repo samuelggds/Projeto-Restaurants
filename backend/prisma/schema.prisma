@@ -283,6 +283,7 @@ model Restaurant {
   categories                    Category[]
   coupons                       Coupon[]
   invoices                      Invoice[]
+  invoicePaymentAttempts        InvoicePaymentAttempt[]
   orders                        Order[]
   orderPaymentAttempts          OrderPaymentAttempt[]
   products                      Product[]
@@ -1799,10 +1800,40 @@ model Invoice {
   reconciliationAttempts Int           @default(0)
   nextReconciliationAt   DateTime      @default(now())
   restaurant             Restaurant    @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  paymentAttempts        InvoicePaymentAttempt[]
 
+  @@unique([id, restaurantId])
   @@unique([restaurantId, month, year])
   @@index([status, dueDate])
   @@index([status, createdAt])
+  @@index([status, nextReconciliationAt, id])
+}
+
+model InvoicePaymentAttempt {
+  id                     Int                         @id @default(autoincrement())
+  invoiceId              Int
+  restaurantId           Int
+  method                 InvoicePaymentAttemptMethod
+  provider               String                      @db.VarChar(40)
+  providerPaymentId      String                      @db.VarChar(191)
+  status                 InvoicePaymentAttemptStatus @default(PENDING)
+  amount                 Decimal                     @db.Decimal(10, 2)
+  providerStatus         String?                     @db.VarChar(80)
+  settledAt              DateTime?
+  appliedAt              DateTime?
+  refundedAt             DateTime?
+  lastReconciledAt       DateTime?
+  reconciliationAttempts Int                         @default(0)
+  nextReconciliationAt   DateTime                    @default(now())
+  createdAt              DateTime                    @default(now())
+  updatedAt              DateTime                    @updatedAt
+  invoice                Invoice                     @relation(fields: [invoiceId, restaurantId], references: [id, restaurantId], onDelete: Cascade)
+  restaurant             Restaurant                  @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerPaymentId])
+  @@unique([id, restaurantId])
+  @@index([invoiceId, restaurantId, createdAt])
+  @@index([restaurantId, status, createdAt])
   @@index([status, nextReconciliationAt, id])
 }
 
@@ -2250,6 +2281,20 @@ enum InvoiceStatus {
   PAGO
   ATRASADO
   CANCELADO
+}
+
+enum InvoicePaymentAttemptMethod {
+  PIX
+  CARD
+}
+
+enum InvoicePaymentAttemptStatus {
+  PENDING
+  APPLIED
+  DUPLICATE
+  REFUNDED
+  FAILED
+  EXPIRED
 }
 
 model RuntimeRateLimit {
