@@ -225,7 +225,7 @@ export function AdminOverview({
           <span className="metric-copy">
             <small>Vendas de hoje</small>
             <strong>{money(metrics.sales)}</strong>
-            <em>Pedidos não cancelados</em>
+            <em>Pagamentos confirmados hoje</em>
           </span>
         </S.Metric>
         <S.Metric>
@@ -245,7 +245,7 @@ export function AdminOverview({
           <span className="metric-copy">
             <small>Ticket médio</small>
             <strong>{money(metrics.averageTicket)}</strong>
-            <em>{metrics.todayOrders ? 'Média das vendas de hoje' : 'Aguardando vendas'}</em>
+            <em>{metrics.sales > 0 ? 'Média dos pedidos pagos hoje' : 'Aguardando pagamentos'}</em>
           </span>
         </S.Metric>
         <S.Metric>
