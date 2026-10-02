@@ -7,6 +7,7 @@ import authTokenService from './AuthTokenService.js';
 import userRepository from '../repositories/UserRepository.js';
 import successfulLoginRecorderService from './SuccessfulLoginRecorderService.js';
 import { platformMaintenanceAccessService } from '../../platform/services/PlatformMaintenanceService.js';
+import { isMfaRequiredForRole } from '../security/mfaPolicy.js';
 import {
   listAvailableMfaChannels,
   parseMfaDeliveryChannel,
@@ -53,8 +54,8 @@ function getMfaSecret() {
   return getJwtMfaSecret() || getJwtSecret();
 }
 
-function requiresMfa(user: Pick<LoginUser, 'mfaEnabled'>) {
-  return user.mfaEnabled === true;
+function requiresMfa(user: Pick<LoginUser, 'role' | 'mfaEnabled'>) {
+  return user.mfaEnabled === true || isMfaRequiredForRole(user.role);
 }
 
 function createMfaToken(userId: number) {
