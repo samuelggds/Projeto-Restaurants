@@ -85,15 +85,19 @@ function TableAccountPanelContent(props: Props) {
     (entry) => entry.publicId === snapshot.currentParticipantPublicId,
   );
   const ownAccount = currentParticipantAccount(snapshot);
-  const canPay = Boolean(
+  const hasPayableBalance = Boolean(
     snapshot?.capabilities.enabled &&
     snapshot.summary.status !== 'CLOSED' &&
-    (snapshot.capabilities.allowPix ||
-      snapshot.capabilities.allowCard ||
-      snapshot.capabilities.allowCash) &&
     preview &&
     preview.totalCents > 0 &&
     !preview.blocked,
+  );
+  const canPay = Boolean(
+    hasPayableBalance &&
+    snapshot &&
+    (snapshot.capabilities.allowPix ||
+      snapshot.capabilities.allowCard ||
+      snapshot.capabilities.allowCash),
   );
 
   const ownActivePayment =
@@ -429,7 +433,7 @@ function TableAccountPanelContent(props: Props) {
                       Atualiza automaticamente quando você faz ou cancela um pedido.
                     </footer>
                   </S.ReceiptPreview>
-                  {canPay || visiblePayment ? (
+                  {hasPayableBalance || visiblePayment ? (
                     <S.Guide>
                       <ShieldCheck size={22} aria-hidden="true" />
                       <div>
@@ -440,7 +444,7 @@ function TableAccountPanelContent(props: Props) {
                   ) : null}
               </>
 
-              {!canPay && !visiblePayment && items.length > 0 ? (
+              {!hasPayableBalance && !visiblePayment && items.length > 0 ? (
                 <S.Alert $info={(ownAccount?.remainingCents || 0) > 0} role="status">
                   {(ownAccount?.remainingCents || 0) === 0 ? (
                     <span>
@@ -480,28 +484,40 @@ function TableAccountPanelContent(props: Props) {
                     : `Continuar com ${tablePaymentMethodLabel(visiblePayment.method)}`}
                 <ArrowRight size={18} aria-hidden="true" />
               </S.PayButton>
-            ) : canPay && preview ? (
+            ) : hasPayableBalance && preview ? (
               <>
-                {snapshot.capabilities.allowPix ? (
-                  <S.PayButton
-                    type="button"
-                    disabled={busy || loading || Boolean(error)}
-                    onClick={() => void startPayment('PIX')}
-                  >
-                    {actionLoading ? 'Gerando pagamento...' : 'Pagar com PIX'}
-                    <ArrowRight size={18} aria-hidden="true" />
-                  </S.PayButton>
-                ) : null}
-                {snapshot.capabilities.allowCard ? (
-                  <S.PayButton
-                    type="button"
-                    disabled={busy || loading || Boolean(error)}
-                    onClick={onOpenCardPayment}
-                  >
-                    Pagar com cartão
-                    <ArrowRight size={18} aria-hidden="true" />
-                  </S.PayButton>
-                ) : null}
+                <S.PayButton
+                  className={!snapshot.capabilities.allowPix ? 'unavailable' : undefined}
+                  type="button"
+                  disabled={
+                    busy ||
+                    loading ||
+                    Boolean(error) ||
+                    !snapshot.capabilities.allowPix
+                  }
+                  onClick={() => void startPayment('PIX')}
+                >
+                  {snapshot.capabilities.allowPix
+                    ? actionLoading
+                      ? 'Gerando pagamento...'
+                      : 'Pagar com PIX'
+                    : 'PIX indisponível'}
+                  <ArrowRight size={18} aria-hidden="true" />
+                </S.PayButton>
+                <S.PayButton
+                  className={!snapshot.capabilities.allowCard ? 'unavailable' : undefined}
+                  type="button"
+                  disabled={
+                    busy ||
+                    loading ||
+                    Boolean(error) ||
+                    !snapshot.capabilities.allowCard
+                  }
+                  onClick={onOpenCardPayment}
+                >
+                  {snapshot.capabilities.allowCard ? 'Pagar com cartão' : 'Cartão indisponível'}
+                  <ArrowRight size={18} aria-hidden="true" />
+                </S.PayButton>
                 {snapshot.capabilities.allowCash ? (
                   <S.PayButton
                     type="button"
@@ -512,7 +528,14 @@ function TableAccountPanelContent(props: Props) {
                     <ArrowRight size={18} aria-hidden="true" />
                   </S.PayButton>
                 ) : null}
-                <small>Você nunca paga o consumo de outro participante por esta tela.</small>
+                {!snapshot.capabilities.allowPix || !snapshot.capabilities.allowCard ? (
+                  <small>
+                    PIX e cartão são ativados automaticamente quando o restaurante configura
+                    esses métodos no painel administrativo.
+                  </small>
+                ) : (
+                  <small>Você nunca paga o consumo de outro participante por esta tela.</small>
+                )}
               </>
             ) : (
               <S.PayButton type="button" onClick={onClose}>
