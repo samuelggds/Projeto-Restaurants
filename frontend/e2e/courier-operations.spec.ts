@@ -1007,7 +1007,7 @@ test('cliente acompanha somente a própria entrega, rota e destino até a conclu
     page.getByLabel('Status da Entrega').getByText('Saiu para entrega (A caminho)', { exact: true }),
   ).toBeVisible();
   await expect(page.getByText(courierUser.name, { exact: true })).toBeVisible();
-  await expect(page.getByRole('link', { name: 'Ligar para o motoqueiro' })).toHaveAttribute(
+  await expect(page.getByRole('link', { name: 'Ligar para o motoboy' })).toHaveAttribute(
     'href',
     `tel:${courierUser.phone}`,
   );
