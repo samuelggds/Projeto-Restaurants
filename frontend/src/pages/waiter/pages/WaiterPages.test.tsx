@@ -503,6 +503,58 @@ describe('waiter operational pages', () => {
     expect(onRefresh).toHaveBeenCalledOnce();
   });
 
+  it('mostra recebimento já registrado uma única vez e sem ação duplicada', async () => {
+    await act(async () =>
+      root.render(
+        <WaiterProvider
+          employee={employee}
+          restaurant={restaurant}
+          data={{
+            ...data,
+            accounts: [
+              {
+                tableSessionId: '31',
+                sessionPublicId: 'session-public-31',
+                tableId: '91',
+                tableNumber: 12,
+                openedAt: '2026-08-26T17:30:00.000Z',
+                status: 'OPEN',
+                openedByName: 'Ana Garçom',
+                summary: {
+                  consumedCents: 2900,
+                  netPaidCents: 0,
+                  reservedCents: 2900,
+                  processingCents: 0,
+                  remainingCents: 2900,
+                  participantsCount: 1,
+                },
+                itemsCount: 1,
+                paymentCounts: { reserved: 1, processing: 0, online: 0, inPerson: 1 },
+                pendingManualPayments: [
+                  {
+                    publicId: 'cash-received',
+                    method: 'CASH',
+                    status: 'RESERVED',
+                    totalCents: 2900,
+                    createdAt: '2026-08-26T18:00:00.000Z',
+                    staffReceiptRegistered: true,
+                  },
+                ],
+              },
+            ],
+          }}
+        >
+          <WaiterPaymentsPage />
+        </WaiterProvider>,
+      ),
+    );
+
+    expect(container.textContent?.match(/Aguardando admin/g)).toHaveLength(1);
+    expect(
+      container.querySelector('button[aria-label*="Registrar dinheiro"][aria-label*="Mesa 12"]'),
+    ).toBeNull();
+  });
+
   it('busca chamados e confirma Atender pelo contrato de atualização', async () => {
     const onUpdateCall = vi.fn(async () => undefined);
     await act(async () =>

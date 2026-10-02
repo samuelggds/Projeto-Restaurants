@@ -14,6 +14,7 @@ export function waiterAlertKeys(data: EmployeeWorkspaceData) {
       .filter(
         (payment) =>
           payment.method === 'CASH' &&
+          !payment.staffReceiptRegistered &&
           (payment.status === 'RESERVED' || payment.status === 'PROCESSING'),
       )
       .forEach((payment) => {

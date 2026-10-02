@@ -18,6 +18,7 @@ import {
   expireTablePaymentReservations,
   lockTablePaymentSession,
   projectTableSessionFinancialState,
+  staffCashReceiptDeduplicationKey,
 } from './tablePaymentLedger.js';
 import { serializeTablePaymentIntent, TablePaymentError } from './tablePaymentSupport.js';
 import { tableAccountEvents } from '../realtime/tableAccountEvents.js';
@@ -100,32 +101,27 @@ export class ConfirmManualTablePaymentService {
         }
 
         if (authority === 'STAFF') {
-          const deduplicationKey = `table-payment:${intent.publicId}:cash-received-by-staff`;
-          const existingReceipt = await tx.tablePaymentEvent.findUnique({
+          const deduplicationKey = staffCashReceiptDeduplicationKey(intent.publicId);
+          await tx.tablePaymentEvent.upsert({
             where: { deduplicationKey },
-            select: { id: true },
-          });
-
-          if (!existingReceipt) {
-            await tx.tablePaymentEvent.create({
-              data: {
-                restaurantId,
-                tableSessionId: intent.tableSessionId,
-                paymentIntentId: intent.id,
-                deduplicationKey,
-                type: TablePaymentEventType.MANUAL_CONFIRMED,
-                fromStatus: intent.status,
-                toStatus: intent.status,
-                amountCents: intent.totalCents,
-                actorUserId: input.actor.id,
-                metadata: {
-                  stage: 'STAFF_RECEIVED',
-                  staffSubRole: input.actor.subRole,
-                },
-                occurredAt: now,
+            update: {},
+            create: {
+              restaurantId,
+              tableSessionId: intent.tableSessionId,
+              paymentIntentId: intent.id,
+              deduplicationKey,
+              type: TablePaymentEventType.MANUAL_CONFIRMED,
+              fromStatus: intent.status,
+              toStatus: intent.status,
+              amountCents: intent.totalCents,
+              actorUserId: input.actor.id,
+              metadata: {
+                stage: 'STAFF_RECEIVED',
+                staffSubRole: input.actor.subRole,
               },
-            });
-          }
+              occurredAt: now,
+            },
+          });
 
           const payment = await tx.tablePaymentIntent.findUniqueOrThrow({
             where: { id: intent.id },

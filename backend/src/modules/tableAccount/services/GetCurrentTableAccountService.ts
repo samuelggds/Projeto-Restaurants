@@ -16,6 +16,7 @@ import tableAccountRepository, {
 } from '../repositories/TableAccountRepository.js';
 import tableAccountSettingsRepository from '../repositories/TableAccountSettingsRepository.js';
 import { calculateTableBillItemLedger } from '../domain/tablePaymentAllocation.js';
+import { hasStaffCashReceiptEvent } from './tablePaymentLedger.js';
 import { serializeTablePaymentIntent } from './tablePaymentSupport.js';
 import { getConfiguredTablePaymentReadiness } from '../providers/ConfiguredTablePaymentProvider.js';
 
@@ -70,7 +71,9 @@ export function buildTableAccountBaseSnapshot(
       allocations: paymentAllocations.map((allocation) => ({
         amountCents: toSafeMoneyCents(allocation.amountCents, `alocação do item ${item.publicId}`),
         intentStatus: allocation.paymentIntent.status,
-        expiresAt: allocation.paymentIntent.expiresAt,
+        expiresAt: hasStaffCashReceiptEvent(allocation.paymentIntent.events)
+          ? null
+          : allocation.paymentIntent.expiresAt,
       })),
     });
 
@@ -133,7 +136,11 @@ export function buildTableAccountBaseSnapshot(
   const reservedCents = sumMoneyCents([
     ...normalizedItems.filter((item) => !item.canceled).map((item) => item.ledger.reservedCents),
     ...paymentIntents
-      .filter((payment) => payment.status === 'RESERVED' && payment.expiresAt > now)
+      .filter(
+        (payment) =>
+          payment.status === 'RESERVED' &&
+          (payment.expiresAt > now || hasStaffCashReceiptEvent(payment.events)),
+      )
       .map((payment) =>
         toSafeMoneyCents(payment.serviceFeeCents, `taxa reservada ${payment.publicId}`),
       ),
@@ -141,7 +148,11 @@ export function buildTableAccountBaseSnapshot(
   const processingCents = sumMoneyCents([
     ...normalizedItems.filter((item) => !item.canceled).map((item) => item.ledger.processingCents),
     ...paymentIntents
-      .filter((payment) => payment.status === 'PROCESSING' && payment.expiresAt > now)
+      .filter(
+        (payment) =>
+          payment.status === 'PROCESSING' &&
+          (payment.expiresAt > now || hasStaffCashReceiptEvent(payment.events)),
+      )
       .map((payment) =>
         toSafeMoneyCents(payment.serviceFeeCents, `taxa em processamento ${payment.publicId}`),
       ),

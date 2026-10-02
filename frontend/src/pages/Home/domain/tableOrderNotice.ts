@@ -119,7 +119,9 @@ export function getTableOrderNotice(order: unknown): TableOrderNotice | null {
   const statusInfo = TABLE_STATUS[status];
   if (publicId == null || !statusInfo) return null;
   const items = parseItems(record);
-  const createdAt = String(record.createdAt || '').trim();
+  const rawCreatedAt = typeof record.createdAt === 'string' ? record.createdAt.trim() : '';
+  const createdAt =
+    rawCreatedAt && Number.isFinite(Date.parse(rawCreatedAt)) ? rawCreatedAt : '';
 
   return {
     publicId: String(publicId),

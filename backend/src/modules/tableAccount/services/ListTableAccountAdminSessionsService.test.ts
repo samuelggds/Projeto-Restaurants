@@ -20,6 +20,7 @@ function payment({
   expiresAt = new Date('2099-01-01T00:10:00.000Z'),
   provider = null,
   providerExternalId = null,
+  events = [],
 }) {
   return {
     publicId,
@@ -33,7 +34,7 @@ function payment({
     expiresAt,
     createdAt: new Date('2026-08-26T18:00:00.000Z'),
     payerParticipant: { publicId: 'participant-1' },
-    events: [],
+    events,
   };
 }
 
@@ -76,6 +77,18 @@ test('lista somente dinheiro ativo e mantém consultas no restaurante do garçom
             expiresAt: new Date('2020-01-01T00:00:00.000Z'),
           }),
           payment({
+            publicId: 'cash-received',
+            method: 'CASH',
+            status: 'RESERVED',
+            expiresAt: new Date('2020-01-01T00:00:00.000Z'),
+            events: [
+              {
+                deduplicationKey:
+                  'table-payment:cash-received:cash-received-by-staff',
+              },
+            ],
+          }),
+          payment({
             publicId: 'pix-online',
             method: 'PIX',
             status: 'PROCESSING',
@@ -106,7 +119,17 @@ test('lista somente dinheiro ativo e mantém consultas no restaurante do garçom
       payerDisplayName: 'Samuel',
       staffReceiptRegistered: false,
     },
+    {
+      publicId: 'cash-received',
+      method: 'CASH',
+      status: 'RESERVED',
+      totalCents: 2_900,
+      createdAt: '2026-08-26T18:00:00.000Z',
+      payerParticipantPublicId: 'participant-1',
+      payerDisplayName: 'Samuel',
+      staffReceiptRegistered: true,
+    },
   ]);
-  assert.equal(result.sessions[0]?.paymentCounts.inPerson, 3);
+  assert.equal(result.sessions[0]?.paymentCounts.inPerson, 4);
   assert.equal(queryCount, 1);
 });

@@ -233,9 +233,7 @@ export function WaiterPaymentsPage() {
                   <strong>{brl(payment.totalCents / 100)}</strong>
                   <span>{payment.staffReceiptRegistered ? 'Aguardando admin' : 'Aguardando equipe'}</span>
                 </span>
-                {payment.staffReceiptRegistered ? (
-                  <span className="value"><strong>Recebido</strong><span>Aguardando admin</span></span>
-                ) : (
+                {!payment.staffReceiptRegistered && (
                   <button
                     type="button"
                     disabled={busyPaymentId === payment.publicId}

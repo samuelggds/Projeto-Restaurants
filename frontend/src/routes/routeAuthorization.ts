@@ -53,20 +53,25 @@ const isGuestEntry = (path: string) => {
   return isAllowedTenantRoot(privateAdminEntry);
 };
 
+const isTenantLegalRoute = (pathname: string) => {
+  const path = normalizePath(pathname);
+  const tenantLegal = /^\/([^/]+)\/(?:termos|privacidade|cookies)$/u.exec(path)?.[1];
+  return isAllowedTenantRoot(tenantLegal);
+};
+
 export function isPublicRestaurantRoute(pathname: string) {
   const path = normalizePath(pathname);
   const singleSegment = path.match(/^\/([^/]+)$/)?.[1];
   const restaurantTable = path.match(/^\/([^/]+)\/mesa\/[^/]+$/)?.[1];
   const orderPixPayment = /^\/([^/]+)\/pedido\/[^/]+\/pagamento$/u.exec(path)?.[1];
   const guestOrders = /^\/([^/]+)\/pedidos$/u.exec(path)?.[1];
-  const tenantLegal = /^\/([^/]+)\/(?:termos|privacidade|cookies)$/u.exec(path)?.[1];
 
   return Boolean(
     isAllowedTenantRoot(singleSegment) ||
       isAllowedTenantRoot(restaurantTable) ||
       isAllowedTenantRoot(orderPixPayment) ||
       isAllowedTenantRoot(guestOrders) ||
-      isAllowedTenantRoot(tenantLegal),
+      isTenantLegalRoute(path),
   );
 }
 
@@ -129,6 +134,8 @@ export function authorizeRoute(pathname: string, user: RouteUser): RouteDecision
       ? { allowed: true }
       : { allowed: false, redirectTo: '/change-password' };
   }
+
+  if (isTenantLegalRoute(path)) return { allowed: true };
 
   // A experiência pública do restaurante pertence ao visitante/CLIENTE.
   // Contas operacionais nunca entram no delivery/cardápio como consumidor:

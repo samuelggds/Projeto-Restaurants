@@ -60,6 +60,25 @@ describe('política de autorização de rotas', () => {
     expect(allowed('/north-pizza/pedidos', null)).toBe(true);
   });
 
+  it('mantém páginas legais do restaurante acessíveis para contas autenticadas', () => {
+    const users = [
+      { role: 'ADMIN' },
+      { role: 'CLIENTE' },
+      { role: 'FUNCIONARIO', subRole: 'GARCOM' },
+      { role: 'FUNCIONARIO', subRole: 'ATENDENTE' },
+    ];
+
+    for (const user of users) {
+      for (const path of [
+        '/north-pizza/termos',
+        '/north-pizza/privacidade',
+        '/north-pizza/cookies',
+      ]) {
+        expect(authorizeRoute(path, user), `${user.role} ${path}`).toEqual({ allowed: true });
+      }
+    }
+  });
+
   it('mantém visitante e CLIENTE na experiência pública do restaurante', () => {
     for (const path of ['/north-pizza', '/north-pizza/mesa/12', '/north-pizza/pedidos']) {
       expect(authorizeRoute(path, null)).toEqual({ allowed: true });

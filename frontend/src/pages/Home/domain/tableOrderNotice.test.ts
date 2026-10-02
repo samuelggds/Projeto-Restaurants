@@ -99,4 +99,15 @@ describe('getTableOrderNotice', () => {
       },
     ]);
   });
+  it('descarta timestamp inválido para não quebrar a visualização de acompanhamento', () => {
+    const result = getTableOrderNotice({
+      publicId: 'invalid-date-order',
+      type: 'MESA',
+      status: 'PREPARANDO',
+      createdAt: 'data-invalida',
+    });
+
+    expect(result?.createdAt).toBeUndefined();
+  });
+
 });

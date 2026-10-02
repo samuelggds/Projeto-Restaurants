@@ -87,7 +87,11 @@ function installTransaction(currentPayment, options = {}) {
       findUniqueOrThrow: async () => (options.staffOnly ? currentPayment : paidPayment),
     },
     tablePaymentEvent: {
-      findUnique: async () => options.existingStaffReceipt ? { id: 1 } : null,
+      upsert: async ({ create }) => {
+        if (options.existingStaffReceipt) return { id: 1 };
+        createdEvent = create;
+        return create;
+      },
       create: async ({ data }) => {
         createdEvent = data;
         return data;

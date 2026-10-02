@@ -98,7 +98,16 @@ describe('waiterAlertState', () => {
             online: 0,
             inPerson: 0,
           },
-          pendingManualPayments: [],
+          pendingManualPayments: [
+            {
+              publicId: 'cash-received',
+              method: 'CASH',
+              status: 'RESERVED',
+              totalCents: 1950,
+              createdAt: '2030-01-01T12:01:00.000Z',
+              staffReceiptRegistered: true,
+            },
+          ],
         },
       ],
     };
