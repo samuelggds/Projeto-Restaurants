@@ -305,6 +305,10 @@ test('separa divisão igual e permite pagamento presencial para a seleção esco
       selectionMode: 'EQUAL_SPLIT',
       method: 'CARD',
       splitCount: 4,
+      cardPayment: {
+        cardToken: 'provider-token-secure-123',
+        cardPaymentMethodId: 'visa',
+      },
     }).success,
     true,
   );
