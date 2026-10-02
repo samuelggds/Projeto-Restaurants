@@ -15,6 +15,8 @@ export type OrderQuote = {
   deliveryFeeFallbackApplied: boolean;
   total: number;
   couponCode: string | null;
+  couponDiscountType: 'PERCENTAGE' | 'FIXED' | null;
+  couponDiscountValue: number | null;
 };
 
 function money(value: unknown) {
@@ -57,6 +59,11 @@ export function normalizeOrderQuote(payload: unknown): OrderQuote {
     deliveryFeeFallbackApplied: quote.deliveryFeeFallbackApplied === true,
     total: money(quote.total),
     couponCode: quote.couponCode ? String(quote.couponCode) : null,
+    couponDiscountType:
+      quote.couponDiscountType === 'PERCENTAGE' || quote.couponDiscountType === 'FIXED'
+        ? quote.couponDiscountType
+        : null,
+    couponDiscountValue: optionalNonNegativeNumber(quote.couponDiscountValue),
   };
 }
 
