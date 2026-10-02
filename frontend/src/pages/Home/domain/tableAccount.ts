@@ -80,6 +80,19 @@ export type TableAccountSnapshot = {
   }>;
 };
 
+export type TableCardPaymentPayload = {
+  cardPaymentType?: 'credit' | 'debit';
+  cardToken: string;
+  cardPaymentMethodId: string;
+  cardBrand?: string;
+  cardLast4?: string;
+  paymentMethodId?: string;
+  holderName?: string;
+  holderTaxId?: string;
+  payerEmail?: string;
+  mercadoPagoDeviceId?: string;
+};
+
 export type TablePaymentDraft = {
   selectionMode: TablePaymentSelectionMode;
   method: TablePaymentMethod;
@@ -87,6 +100,7 @@ export type TablePaymentDraft = {
   splitCount?: number;
   customAmountCents?: number;
   includeOptionalServiceFee?: boolean;
+  cardPayment?: TableCardPaymentPayload;
 };
 
 export type TablePaymentIntent = {
@@ -139,6 +153,9 @@ export function buildTablePaymentPayload(draft: TablePaymentDraft) {
       ? { customAmountCents: draft.customAmountCents }
       : {}),
     includeOptionalServiceFee: Boolean(draft.includeOptionalServiceFee),
+    ...(draft.method === 'CARD' && draft.cardPayment
+      ? { cardPayment: { ...draft.cardPayment } }
+      : {}),
   };
 }
 
