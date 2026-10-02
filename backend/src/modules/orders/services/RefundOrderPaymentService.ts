@@ -70,8 +70,8 @@ class RefundOrderPaymentService {
     }
 
     const allowGlobalFallback =
-    process.env.NODE_ENV !== 'production' &&
-    process.env.ALLOW_GLOBAL_PAYMENT_FALLBACK === 'true';
+      process.env.NODE_ENV !== 'production' &&
+      process.env.ALLOW_GLOBAL_PAYMENT_FALLBACK === 'true';
     const settings = await restaurantSettingsRepository.findByRestaurantId(restaurantId);
     const restaurantToken = String(settings?.asaasAccessToken || '').trim();
     const globalToken = String(process.env.ASAAS_API_KEY || '').trim();
@@ -189,8 +189,8 @@ class RefundOrderPaymentService {
   private async getMercadoPagoAccessTokenByRestaurant(restaurantId?: number | string | null) {
     if (Number(restaurantId) > 0) return getMercadoPagoAccessToken(Number(restaurantId));
     const allowGlobalFallback =
-    process.env.NODE_ENV !== 'production' &&
-    process.env.ALLOW_GLOBAL_PAYMENT_FALLBACK === 'true';
+      process.env.NODE_ENV !== 'production' &&
+      process.env.ALLOW_GLOBAL_PAYMENT_FALLBACK === 'true';
     const normalizedRestaurantId = Number(restaurantId || 0);
     const settings =
       Number.isInteger(normalizedRestaurantId) && normalizedRestaurantId > 0
