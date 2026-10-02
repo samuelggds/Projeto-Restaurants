@@ -367,10 +367,6 @@ export const PixCopyBox = styled.div`
   }
 `;
 
-export const PixSide = styled.div`
-  display: contents;
-`;
-
 export const PixStatusCard = styled.div`
   width: 100%;
   min-height: 64px;
@@ -404,10 +400,6 @@ export const PixStatusCard = styled.div`
     font-size: 12px;
     font-weight: 700;
   }
-`;
-
-export const HowToPayCard = styled(FlowCard)`
-  display: none;
 `;
 
 export const PaymentSuccessLayout = styled.div`
@@ -581,11 +573,6 @@ export const PaidReceipt = styled(FlowCard)`
     }
   }
 `;
-
-export const PaymentSuccessSide = styled(FlowCard)`
-  display: none;
-`;
-
 
 export const CashPendingLayout = styled.div`
   width: min(560px, 100%);
