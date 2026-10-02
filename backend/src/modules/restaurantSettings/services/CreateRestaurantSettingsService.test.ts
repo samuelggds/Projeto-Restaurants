@@ -422,3 +422,19 @@ test('atualiza marca, negócio, endereço e regras dos pedidos no restaurante co
     zipCode: '60000000',
   });
 });
+
+
+test('rejeita access token manual do Mercado Pago nas configurações comuns', async () => {
+  restaurantSettingsRepository.findByRestaurantId = async () => null;
+
+  await assert.rejects(
+    () =>
+      createRestaurantSettingsService.execute({
+        restaurantId: 7,
+        deliveryFee: 0,
+        minimumOrder: 0,
+        mercadoPagoAccessToken: 'APP_USR_manual_nao_permitido',
+      }),
+    /fluxo OAuth/i,
+  );
+});
