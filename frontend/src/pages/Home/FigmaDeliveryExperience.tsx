@@ -770,7 +770,8 @@ export function FigmaDeliveryExperience({
             ) : null}
 
             <ProductCarouselSection
-              title="Mais Pedidos em Destaque"
+              title="Destaques da casa"
+              description="Os produtos que mais chamam atenção no cardápio."
               products={featured}
               onOpenProduct={openProduct}
               className="featured-carousel"
@@ -781,6 +782,7 @@ export function FigmaDeliveryExperience({
 
             <ProductCarouselSection
               title="Combos"
+              description="Combinações completas para pedir de um jeito mais prático."
               products={combos}
               onOpenProduct={openProduct}
               className="combos-carousel"
