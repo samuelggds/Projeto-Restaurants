@@ -1,6 +1,5 @@
 import { Request, Response } from 'express';
 import updateRestaurantSettingsService from '../services/UpdateRestaurantSettingsService.js';
-import updateDeliveryFeeSettingsService from '../services/UpdateDeliveryFeeSettingsService.js';
 
 class UpdateRestaurantSettingsController {
   async handle(req: Request, res: Response) {
@@ -96,6 +95,8 @@ class UpdateRestaurantSettingsController {
       const settings = await updateRestaurantSettingsService.execute({
         restaurantId,
         deliveryFee,
+        deliveryFeeMode,
+        deliveryFeeRanges,
         courierFeePerDelivery,
         minimumOrder,
         freeShippingMinimum,
@@ -173,16 +174,7 @@ class UpdateRestaurantSettingsController {
         maxConcurrentOrders,
       });
 
-      const deliverySettings = await updateDeliveryFeeSettingsService.execute({
-        restaurantId,
-        deliveryFeeMode,
-        deliveryFeeRanges,
-      });
-
-      return res.status(200).json({
-        ...settings,
-        ...(deliverySettings ?? {}),
-      });
+      return res.status(200).json(settings);
     } catch (error: unknown) {
       return res.status(400).json({
         error:
