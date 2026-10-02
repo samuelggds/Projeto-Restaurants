@@ -406,7 +406,7 @@ export const FigmaTrackingLayout = styled.div`
 export const TrackingMapColumn = styled.section`
   min-width: 0;
   grid-column: 1;
-  grid-row: 1 / span 2;
+  grid-row: 1 / span 3;
 
   @media (max-width: 900px) {
     grid-column: auto;
@@ -488,6 +488,18 @@ export const CourierAvatar = styled.span`
   svg { width: 24px; height: 24px; }
 `;
 
+
+export const CourierSlot = styled.div`
+  grid-column: 2;
+  grid-row: 2;
+  min-width: 0;
+
+  @media (max-width: 900px) {
+    padding: 0 20px;
+    background: #fff;
+  }
+`;
+
 export const MobileTrackingDetails = styled.section`
   display: none;
   @media (max-width: 900px) {
@@ -554,7 +566,7 @@ export const DesktopHeaderOrder = styled.div`
 
 export const TrackingChatSlot = styled.div`
   grid-column: 2;
-  grid-row: 2;
+  grid-row: 3;
   min-width: 0;
 
   @media (max-width: 900px) {
