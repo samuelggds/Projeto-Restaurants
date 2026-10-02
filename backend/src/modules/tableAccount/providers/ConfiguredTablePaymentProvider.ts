@@ -242,7 +242,16 @@ async function createCard(
   }
 
   const identity = await readIdentity(context);
-  const frontendUrl = String(process.env.FRONTEND_URL || 'http://localhost:5173').trim();
+  const configuredFrontendUrl = String(process.env.FRONTEND_URL || '').trim();
+  const frontendUrl =
+    process.env.NODE_ENV === 'production'
+      ? configuredFrontendUrl
+      : configuredFrontendUrl || 'http://localhost:5173';
+
+  if (!frontendUrl) {
+    throw new Error('FRONTEND_URL não configurada para o pagamento com cartão da mesa.');
+  }
+
   const result = await directOrderCardPaymentService.execute({
     provider,
     payload: {
