@@ -120,6 +120,8 @@ class QuoteOrderController {
         deliveryFeeFallbackApplied: quote.deliveryFeeFallbackApplied,
         total: quote.total,
         couponCode: quote.couponCode,
+        couponDiscountType: quote.couponDiscountType,
+        couponDiscountValue: quote.couponDiscountValue,
       });
     } catch (error: unknown) {
       return res.status(400).json({
