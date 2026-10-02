@@ -284,6 +284,14 @@ describe('comanda guiada e pagamento seguro', () => {
     expect(markup).not.toContain('maquininha');
   });
 
+  it('renderiza os ícones de PIX, cartão e dinheiro nos métodos da conta', () => {
+    const markup = renderToStaticMarkup(<TableAccountPanel {...baseProps} />);
+
+    expect(markup).toContain('data-payment-method-icon="pix"');
+    expect(markup).toContain('data-payment-method-icon="card"');
+    expect(markup).toContain('data-payment-method-icon="cash"');
+  });
+
   it('mantém PIX e cartão visíveis como indisponíveis quando o backend não libera', () => {
     const markup = renderToStaticMarkup(
       <TableAccountPanel
