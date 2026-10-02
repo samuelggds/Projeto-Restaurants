@@ -135,7 +135,7 @@ function credentialReady(
   method: 'PIX' | 'CARD',
 ) {
   if (provider === PIX_PROVIDERS.MERCADO_PAGO || provider === CARD_PROVIDERS.MERCADO_PAGO) {
-    const platformReady = paymentConnectionConfiguration().mercadoPago;
+    const platformReady = paymentConnectionConfiguration('MERCADO_PAGO');
     if (!platformReady) return false;
 
     const accessTokenReady = Boolean(String(settings.mercadoPagoAccessToken || '').trim());
@@ -233,7 +233,7 @@ async function createPix(
 }
 
 export function resolveTableCardFrontendUrl(
-  env: Pick<NodeJS.ProcessEnv, 'NODE_ENV' | 'FRONTEND_URL'> = process.env,
+  env: { NODE_ENV?: string; FRONTEND_URL?: string } = process.env,
 ) {
   const configured = String(env.FRONTEND_URL || '').trim();
   const value = env.NODE_ENV === 'production' ? configured : configured || 'http://localhost:5173';
@@ -261,7 +261,6 @@ async function createCard(
     provider,
     payload: {
       userId: context.participantUserId,
-      restaurantId: context.restaurantId,
       customerName: identity.name,
       customerPhone: identity.phone,
       paymentMethodId: input.cardPayment.paymentMethodId || null,
