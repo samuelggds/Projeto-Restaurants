@@ -9,7 +9,7 @@ import { OrderRequestError } from '../domain/OrderRequestError.js';
 import { ActiveOnlinePaymentError } from '../domain/ActiveOnlinePaymentError.js';
 import { PaymentCreationUncertainError } from '../services/PaymentCreationUncertainError.js';
 import { recordWhatsappOrderNotificationOptIn } from '../../../services/whatsappOrderConsent.js';
-import { safeErrorName } from '../../../services/telemetrySanitizer.js';
+import { safeErrorName, safeErrorSummary } from '../../../services/telemetrySanitizer.js';
 
 class CreateOrderOpenFinancePaymentController {
   async handle(req: Request, res: Response) {
@@ -115,7 +115,11 @@ class CreateOrderOpenFinancePaymentController {
             error.message,
           )
         ) {
-          throw error;
+          throw new OrderRequestError(
+            error.message,
+            400,
+            'OPEN_FINANCE_REQUEST_REJECTED',
+          );
         }
         throw new PaymentCreationUncertainError(order.id, order.publicId);
       }
@@ -183,11 +187,14 @@ class CreateOrderOpenFinancePaymentController {
             : {}),
         });
       }
-      return res.status(400).json({
-        error:
-          error instanceof Error
-            ? error.message
-            : 'Não foi possível iniciar o Open Finance Efí.',
+      console.error('[OPEN_FINANCE_REQUEST_FAILED]', {
+        requestId: req.requestId,
+        errorType: safeErrorName(error),
+        error: safeErrorSummary(error),
+      });
+      return res.status(500).json({
+        error: 'Não foi possível iniciar o Open Finance Efí agora.',
+        requestId: req.requestId,
       });
     }
   }
