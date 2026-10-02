@@ -112,7 +112,7 @@ export class ProcessMercadoPagoInvoiceWebhookService {
         invoiceId,
         restaurantId: Number(invoice.restaurantId),
         providerPaymentId: normalizedPaymentId,
-        amount: invoice.total,
+        amount: String(invoice.total),
       });
     }
 
