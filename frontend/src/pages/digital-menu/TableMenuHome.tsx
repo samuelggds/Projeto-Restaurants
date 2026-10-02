@@ -4,6 +4,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Clock3,
+  Eye,
   MapPin,
   Phone,
   ReceiptText,
@@ -41,6 +42,7 @@ type Props = {
   onOpenCart: () => void;
   onCallWaiter: () => void;
   onViewAccount: () => void;
+  onTrackOrder: () => void;
 };
 
 type ProductSection = {
@@ -191,6 +193,7 @@ export function TableMenuHome({
   onOpenCart,
   onCallWaiter,
   onViewAccount,
+  onTrackOrder,
 }: Props) {
   const availableProducts = useMemo(
     () => data.products.filter((product) => product.available),
@@ -541,6 +544,14 @@ export function TableMenuHome({
             <span>Chamar Garçom</span>
           </button>
         ) : null}
+        <button
+          type="button"
+          aria-label="Acompanhar em tempo real"
+          onClick={onTrackOrder}
+        >
+          <span className="icon"><Eye aria-hidden="true" /></span>
+          <span>Acompanhar em tempo real</span>
+        </button>
         <button type="button" onClick={onViewAccount}>
           <span className="icon"><ReceiptText aria-hidden="true" /></span>
           <span>Ver Conta</span>
