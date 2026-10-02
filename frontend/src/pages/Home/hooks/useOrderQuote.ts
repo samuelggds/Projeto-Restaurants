@@ -129,13 +129,7 @@ export function useOrderQuote({
     [cart, couponRedemptionId, quoteAddress, restaurantId, type],
   );
   const requestKey = useMemo(() => JSON.stringify(quotePayload), [quotePayload]);
-  const enabled = Boolean(
-    restaurantId &&
-      cart.length > 0 &&
-      (type !== 'DELIVERY' ||
-        isDeliveryAddressReadyForQuote(deliveryAddress) ||
-        Boolean(couponRedemptionId)),
-  );
+  const enabled = Boolean(restaurantId && cart.length > 0);
 
   useEffect(() => {
     if (!enabled || !quotePayload) return undefined;
