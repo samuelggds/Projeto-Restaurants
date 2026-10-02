@@ -220,7 +220,12 @@ export default function TableMenuExperience({
   }, [pixPending, pixRemainingSeconds]);
 
   useEffect(() => {
-    if (!pixPending || currentPayment?.method !== 'PIX' || !currentPayment.publicId) return undefined;
+    const onlinePending =
+      pixPending &&
+      (currentPayment?.method === 'PIX' || currentPayment?.method === 'CARD') &&
+      Boolean(currentPayment.publicId);
+    if (!onlinePending || !currentPayment?.publicId) return undefined;
+
     const paymentPublicId = currentPayment.publicId;
     const interval = window.setInterval(() => {
       if (document.hidden || paymentLoading) return;
@@ -229,7 +234,13 @@ export default function TableMenuExperience({
       });
     }, 5_000);
     return () => window.clearInterval(interval);
-  }, [currentPayment?.publicId, onReconcilePayment, paymentLoading, pixPending]);
+  }, [
+    currentPayment?.method,
+    currentPayment?.publicId,
+    onReconcilePayment,
+    paymentLoading,
+    pixPending,
+  ]);
 
   function flyProduct(product: HomeProduct, origin?: CartFlyOrigin | null) {
     scheduleProductToCartAnimation({
