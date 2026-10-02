@@ -5,10 +5,10 @@ import orderRepository from '../repositories/OrderRepository.js';
 import { markCouponRedemptionUsedForOrder } from './couponRedemptionLifecycle.js';
 import reconcileLateCancelledPaymentService from './ReconcileLateCancelledPaymentService.js';
 import {
-import { safeErrorSummary } from '../../../services/telemetrySanitizer.js';
   emitTableSessionOrderEvent,
   emitWaiterTableOrderEvent,
 } from '../utils/waiterOrderRealtime.js';
+import { safeErrorSummary } from '../../../services/telemetrySanitizer.js';
 import {
   isOrderCapacityQueued,
   queueDigitalOrderBeforePaymentConfirmation,
