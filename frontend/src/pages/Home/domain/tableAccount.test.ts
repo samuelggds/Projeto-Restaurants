@@ -3,6 +3,7 @@ import {
   buildTablePaymentPayload,
   createTablePaymentIdempotencyKey,
   isCancelableOwnTablePayment,
+  tablePaymentFingerprint,
 } from './tableAccount';
 
 describe('tableAccount do cliente', () => {
@@ -56,6 +57,35 @@ describe('tableAccount do cliente', () => {
       includeOptionalServiceFee: false,
       cardPayment: protectedCard,
     });
+  });
+
+  it('mantém a mesma tentativa quando o provedor renova somente o token do cartão', () => {
+    const first = tablePaymentFingerprint({
+      selectionMode: 'MY_ITEMS',
+      method: 'CARD',
+      cardPayment: {
+        cardPaymentType: 'credit',
+        cardToken: 'provider-token-a',
+        cardPaymentMethodId: 'visa',
+        cardBrand: 'visa',
+        cardLast4: '4242',
+        mercadoPagoDeviceId: 'device-a',
+      },
+    });
+    const retried = tablePaymentFingerprint({
+      selectionMode: 'MY_ITEMS',
+      method: 'CARD',
+      cardPayment: {
+        cardPaymentType: 'credit',
+        cardToken: 'provider-token-b',
+        cardPaymentMethodId: 'visa',
+        cardBrand: 'visa',
+        cardLast4: '4242',
+        mercadoPagoDeviceId: 'device-b',
+      },
+    });
+
+    expect(retried).toBe(first);
   });
 
   it('só permite cancelar uma cobrança ativa criada pelo participante atual', () => {
