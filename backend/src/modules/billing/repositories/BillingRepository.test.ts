@@ -88,7 +88,7 @@ test('claim da reconciliação usa relógio do banco, SKIP LOCKED e backoff limi
   const result = await billingRepository.claimInvoicesForReconciliation(25, db);
 
   assert.equal(result, rows);
-  assert.match(query.sql, /FOR UPDATE SKIP LOCKED/u);
+  assert.match(query.sql, /FOR UPDATE OF attempt SKIP LOCKED/u);
   assert.match(query.sql, /"nextReconciliationAt" <= clock_timestamp\(\)/u);
   assert.match(query.sql, /"InvoicePaymentAttempt"/u);
   assert.match(query.sql, /"providerPaymentId"/u);
