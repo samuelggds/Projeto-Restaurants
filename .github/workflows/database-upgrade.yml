@@ -129,3 +129,10 @@ jobs:
           test "$pilot_rows" -gt 0
           visible_without_tenant="$(PGPASSWORD=upgrade-runtime-password-long-enough psql -v ON_ERROR_STOP=1 -h 127.0.0.1 -U upgrade_runtime -d gastronexa_upgrade_ci -Atc 'SELECT count(*) FROM "OrderIssueThread"')"
           test "$visible_without_tenant" = '0'
+
+          legacy_payment_ids="$(psql -v ON_ERROR_STOP=1 -h 127.0.0.1 -U upgrade_owner -d gastronexa_upgrade_ci -Atc 'SELECT count(*) FROM "Invoice" WHERE "paymentExternalId" IS NOT NULL AND "paymentExternalId" <> '"'"''"'"'')"
+          backfilled_attempts="$(psql -v ON_ERROR_STOP=1 -h 127.0.0.1 -U upgrade_owner -d gastronexa_upgrade_ci -Atc 'SELECT count(*) FROM "InvoicePaymentAttempt" WHERE "provider" = '"'"'MERCADO_PAGO'"'"'')"
+          test "$backfilled_attempts" = "$legacy_payment_ids"
+
+          runtime_attempts="$(PGPASSWORD=upgrade-runtime-password-long-enough psql -v ON_ERROR_STOP=1 -h 127.0.0.1 -U upgrade_runtime -d gastronexa_upgrade_ci -Atc 'SELECT count(*) FROM "InvoicePaymentAttempt"')"
+          test "$runtime_attempts" = "$backfilled_attempts"
