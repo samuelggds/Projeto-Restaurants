@@ -431,26 +431,8 @@ export default function CourierWorkspace() {
       needsRecovery = true;
       setSocketConnected(false);
     };
-    const onChanged = (rawOrder: unknown) => {
-      const wrapped = rawOrder as { order?: unknown };
-      const candidate = (wrapped?.order || rawOrder) as { restaurantId?: unknown };
-      const incomingRestaurantId = Number(candidate?.restaurantId || 0);
-      if (incomingRestaurantId && incomingRestaurantId !== restaurantId) return;
-      const updated = normalizeCourierOrders([candidate])[0];
-      if (!updated?.id) {
-        setRefresh((value) => value + 1);
-        return;
-      }
-
-      const belongsToThisCourier = isCourierOrderVisibleToAccount(updated, accountId);
-      setOrders((current) => {
-        if (!belongsToThisCourier) return current.filter((order) => order.id !== updated.id);
-        const next = current.some((order) => order.id === updated.id)
-          ? current.map((order) => (order.id === updated.id ? updated : order))
-          : [updated, ...current];
-        ordersRef.current = next;
-        return next;
-      });
+    const onChanged = () => {
+      setOrdersRecovery((value) => value + 1);
       setLastUpdatedAt(new Date());
     };
     const onLocation = (rawPoint: unknown) => {
