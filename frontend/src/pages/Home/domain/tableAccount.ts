@@ -135,9 +135,27 @@ export function createTablePaymentIdempotencyKey() {
 }
 
 export function tablePaymentFingerprint(draft: TablePaymentDraft) {
+  const stableCardPayment =
+    draft.method === 'CARD' && draft.cardPayment
+      ? {
+          cardPaymentType: draft.cardPayment.cardPaymentType || 'credit',
+          paymentMethodId: draft.cardPayment.paymentMethodId || null,
+          cardBrand: draft.cardPayment.cardBrand || null,
+          cardLast4: draft.cardPayment.cardLast4 || null,
+          holderName: draft.cardPayment.holderName || null,
+          holderTaxId: draft.cardPayment.holderTaxId || null,
+          payerEmail: draft.cardPayment.payerEmail || null,
+        }
+      : undefined;
+
   return JSON.stringify({
-    ...draft,
+    selectionMode: draft.selectionMode,
+    method: draft.method,
     billItemPublicIds: [...(draft.billItemPublicIds || [])].sort(),
+    splitCount: draft.splitCount || null,
+    customAmountCents: draft.customAmountCents || null,
+    includeOptionalServiceFee: Boolean(draft.includeOptionalServiceFee),
+    ...(stableCardPayment ? { cardPayment: stableCardPayment } : {}),
   });
 }
 
