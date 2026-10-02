@@ -17,7 +17,10 @@ import productComboService, {
   type ComboRecord,
 } from '../../../Services/productComboService';
 import imageEnhancementService from '../../../Services/imageEnhancementService';
-import { createPersistentImageDataUrl } from '../../../utils/persistentImage';
+import {
+  createPersistentImageDataUrl,
+  optimizePersistentImageDataUrl,
+} from '../../../utils/persistentImage';
 import { useAppDialog } from '../../../components/AppDialog/context';
 import type { AdminProduct } from '../types';
 import * as C from '../styles/AdminCombos.styles';
@@ -433,7 +436,11 @@ export function AdminCombos({ products, money, onChanged }: Props) {
     try {
       const improved = await imageEnhancementService.enhanceComboImage(draft.image);
       if (!improved) throw new Error('A IA não retornou uma imagem.');
-      setDraft((current) => ({ ...current, image: improved }));
+      const optimized = await optimizePersistentImageDataUrl(improved, 1024, {
+        targetWidth: 1024,
+        targetHeight: 1024,
+      });
+      setDraft((current) => ({ ...current, image: optimized }));
       setFeedback({
         tone: 'success',
         message: 'Foto melhorada com IA. Revise a prévia e salve quando estiver satisfeito.',
@@ -462,7 +469,11 @@ export function AdminCombos({ products, money, onChanged }: Props) {
     try {
       const generated = await productComboService.generatePreviewImage(draft);
       if (!generated) throw new Error('A IA não retornou uma imagem.');
-      setDraft((current) => ({ ...current, image: generated }));
+      const optimized = await optimizePersistentImageDataUrl(generated, 1024, {
+        targetWidth: 1024,
+        targetHeight: 1024,
+      });
+      setDraft((current) => ({ ...current, image: optimized }));
       setFeedback({
         tone: 'success',
         message: 'A IA criou uma foto a partir do nome, descrição, preço e itens do combo.',
