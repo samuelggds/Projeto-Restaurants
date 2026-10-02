@@ -1,4 +1,5 @@
 import type { Request, Response } from 'express';
+import { safeErrorSummary } from '../../../services/telemetrySanitizer.js';
 import reconcileTablePaymentService from '../services/ReconcileTablePaymentService.js';
 import { TablePaymentError } from '../services/tablePaymentSupport.js';
 
@@ -23,10 +24,7 @@ class ReconcileTablePaymentController {
       if (error instanceof TablePaymentError) {
         return res.status(error.statusCode).json({ error: error.message, code: error.code });
       }
-      console.error(
-        '[RECONCILE_TABLE_PAYMENT_ERROR]',
-        error instanceof Error ? error.message : String(error),
-      );
+      console.error('[RECONCILE_TABLE_PAYMENT_ERROR]', { error: safeErrorSummary(error) });
       return res.status(502).json({
         error: 'Não foi possível consultar o pagamento agora.',
         code: 'TABLE_PAYMENT_RECONCILIATION_ERROR',
