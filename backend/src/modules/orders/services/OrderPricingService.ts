@@ -286,7 +286,8 @@ class OrderPricingService {
       }
       couponCode = coupon.code;
       couponDiscountType = coupon.discountType;
-      couponDiscountValue = configuredDiscount;
+      couponDiscountValue =
+        coupon.discountType === 'PERCENTAGE' ? Math.min(configuredDiscount, 100) : configuredDiscount;
       couponId = coupon.id;
       redemptionId = redemption.id;
     } else if (
