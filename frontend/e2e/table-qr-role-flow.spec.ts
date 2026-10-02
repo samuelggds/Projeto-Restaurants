@@ -786,7 +786,7 @@ test('admin controla o QR, garçom apenas opera a mesa e cozinha recebe Mesa 1',
   await expect(page.getByRole('button', { name: /Acompanhar entrega no GPS/i })).toHaveCount(0);
 
   await expect(page.getByRole('button', { name: 'Acompanhar em tempo real' })).toHaveCount(0);
-  await page.getByRole('button', { name: 'Voltar', exact: true }).click();
+  await page.getByRole('button', { name: 'Continuar pedindo', exact: true }).click();
   const tableDock = page.getByRole('navigation', { name: 'Ações da mesa' });
   await expect(
     tableDock.getByRole('button', { name: 'Acompanhar em tempo real' }),
