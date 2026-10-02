@@ -2,6 +2,7 @@ import billingRepository, {
   type InvoiceReconciliationCandidate,
 } from '../repositories/BillingRepository.js';
 import processPaymentService from './ProcessPaymentService.js';
+import refundDuplicateInvoicePaymentService from './RefundDuplicateInvoicePaymentService.js';
 import { debug, error, info, warn } from '../utils/billingLogger.js';
 import { getPlatformMercadoPagoAccessToken } from '../config/platformMercadoPago.js';
 import { resolveMercadoPagoApiEndpoint } from '../../restaurantSettings/security/oauthEndpoints.js';
@@ -180,12 +181,23 @@ export class ReconcileMercadoPagoInvoicesService {
           continue;
         }
 
-        await processPaymentService.execute({ invoiceId: invoice.id });
-        reconciledCount += 1;
-
-        info('MP auto reconciliation: invoice paid', {
+        const processed = await processPaymentService.executeTracked({
           invoiceId: invoice.id,
+          paymentAttemptId: invoice.paymentAttemptId,
         });
+        if (processed.settlement === 'DUPLICATE') {
+          await refundDuplicateInvoicePaymentService.execute(invoice.paymentAttemptId);
+          info('MP auto reconciliation: duplicate payment refunded', {
+            invoiceId: invoice.id,
+            paymentAttemptId: invoice.paymentAttemptId,
+          });
+        } else {
+          reconciledCount += 1;
+          info('MP auto reconciliation: invoice paid', {
+            invoiceId: invoice.id,
+            paymentAttemptId: invoice.paymentAttemptId,
+          });
+        }
       } catch {
         failures.push(new Error('Invoice reconciliation failed.'));
         error('MP auto reconciliation failed for invoice', {
