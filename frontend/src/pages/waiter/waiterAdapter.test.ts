@@ -124,7 +124,9 @@ describe('waiterAdapter', () => {
     expect(account.pendingManualPayments).toEqual([
       expect.objectContaining({
         publicId: 'payment-cash',
+        method: 'CASH',
         status: 'RESERVED',
+        totalCents: 4200,
         payerParticipantPublicId: 'participant-1',
         payerDisplayName: 'Cliente da mesa',
         staffReceiptRegistered: true,
