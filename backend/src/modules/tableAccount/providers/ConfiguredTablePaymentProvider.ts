@@ -139,7 +139,13 @@ function credentialReady(
   method: 'PIX' | 'CARD',
 ) {
   if (provider === PIX_PROVIDERS.MERCADO_PAGO || provider === CARD_PROVIDERS.MERCADO_PAGO) {
-    return Boolean(String(settings.mercadoPagoAccessToken || '').trim());
+    const accessTokenReady = Boolean(String(settings.mercadoPagoAccessToken || '').trim());
+    if (method === 'PIX') return accessTokenReady;
+    return Boolean(
+      accessTokenReady &&
+        String(settings.mercadoPagoRefreshToken || '').trim() &&
+        String(settings.mercadoPagoPublicKey || '').trim(),
+    );
   }
   if (provider === PIX_PROVIDERS.ASAAS || provider === CARD_PROVIDERS.ASAAS) {
     return Boolean(String(settings.asaasAccessToken || '').trim());
