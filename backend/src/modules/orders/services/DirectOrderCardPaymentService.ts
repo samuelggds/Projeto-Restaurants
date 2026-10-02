@@ -598,7 +598,9 @@ async function asaasPayment(payload: BasePayload, order: CardOrder, successUrlBa
   }
 
   const settings = await restaurantSettingsRepository.findByRestaurantId(order.restaurantId);
-  const allowGlobalFallback = (process.env.NODE_ENV !== 'production' && process.env.ALLOW_GLOBAL_PAYMENT_FALLBACK === 'true');
+  const allowGlobalFallback =
+    process.env.NODE_ENV !== 'production' &&
+    process.env.ALLOW_GLOBAL_PAYMENT_FALLBACK === 'true';
   const accessToken = String(
     settings?.asaasAccessToken || (allowGlobalFallback ? process.env.ASAAS_API_KEY : '') || '',
   ).trim();
