@@ -449,12 +449,6 @@ function DeliveryTrackingContent({ id }: { id?: string }) {
                   ) : null}
                 </S.CourierCard>
 
-                {!isCancelled && data.order.assignedCourier ? (
-                  <CustomerTrackingChatPanel
-                    orderId={data.order.id}
-                    courierName={data.order.assignedCourier.name || 'Motoqueiro'}
-                  />
-                ) : null}
               </S.TrackingSideColumn>
 
               <S.MobileTrackingDetails>
@@ -492,13 +486,16 @@ function DeliveryTrackingContent({ id }: { id?: string }) {
                     );
                   })}
                 </S.MobileStatusList>
-                {!isCancelled && data.order.assignedCourier ? (
+              </S.MobileTrackingDetails>
+
+              {!isCancelled && data.order.assignedCourier ? (
+                <S.TrackingChatSlot>
                   <CustomerTrackingChatPanel
                     orderId={data.order.id}
                     courierName={data.order.assignedCourier.name || 'Motoqueiro'}
                   />
-                ) : null}
-              </S.MobileTrackingDetails>
+                </S.TrackingChatSlot>
+              ) : null}
             </S.FigmaTrackingLayout>
           </>
         ) : null}
