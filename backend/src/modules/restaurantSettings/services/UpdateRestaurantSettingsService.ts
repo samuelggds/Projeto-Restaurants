@@ -500,7 +500,7 @@ class UpdateRestaurantSettingsService {
       throw new Error('E-mail comercial inválido.');
     }
 
-    const updated = await restaurantSettingsRepository.update(restaurantId, {
+    const settingsUpdateData: Prisma.RestaurantSettingsUpdateInput = {
       deliveryFee:
         deliveryFee === undefined
           ? undefined
@@ -645,7 +645,7 @@ class UpdateRestaurantSettingsService {
       trackingRequiresLogin: normalizedTrackingRequiresLogin,
       soundNotifications: normalizedSoundNotifications,
       maxConcurrentOrders: normalizedMaxConcurrentOrders,
-    });
+    };
 
     const restaurantData: Prisma.RestaurantUpdateInput = {};
 
@@ -677,14 +677,22 @@ class UpdateRestaurantSettingsService {
       restaurantData.zipCode = establishmentAddress.zipCode;
     }
 
-    if (Object.keys(restaurantData).length > 0) {
-      await prisma.restaurant.update({
-        where: {
-          id: Number(restaurantId),
-        },
-        data: restaurantData,
-      });
-    }
+    const updated = await prisma.$transaction(async (tx) => {
+      const updatedSettings = await restaurantSettingsRepository.update(
+        restaurantId,
+        settingsUpdateData,
+        tx,
+      );
+      if (Object.keys(restaurantData).length > 0) {
+        await tx.restaurant.update({
+          where: {
+            id: Number(restaurantId),
+          },
+          data: restaurantData,
+        });
+      }
+      return updatedSettings;
+    });
 
     if (normalizedMaxConcurrentOrders !== undefined) {
       await orderCapacityQueueService.drainAfterCapacityChange(Number(restaurantId));
