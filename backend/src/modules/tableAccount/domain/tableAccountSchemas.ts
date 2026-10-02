@@ -85,7 +85,7 @@ const tableCardPaymentSchema = z
     cardLast4: z.string().regex(/^\d{4}$/).optional(),
     paymentMethodId: publicIdSchema.optional(),
     holderName: z.string().trim().min(2).max(100).optional(),
-    holderTaxId: z.string().regex(/^\d{11}|\d{14}$/).optional(),
+    holderTaxId: z.string().regex(/^(?:\d{11}|\d{14})$/).optional(),
     payerEmail: z.string().trim().email().max(254).optional(),
     mercadoPagoDeviceId: z.string().trim().max(256).optional(),
   })
