@@ -46,7 +46,7 @@ import {
   collectPurchasedProductQuantities,
   resolveHomeRestaurantId,
 } from './domain/homePageHelpers';
-import type { CreateTablePaymentResult, TableCardPaymentPayload, TablePaymentDraft, TablePaymentIntent } from './domain/tableAccount';
+import type { CreateTablePaymentResult, TablePaymentDraft, TablePaymentIntent } from './domain/tableAccount';
 import { TableAccountPanel, TableMenuExperience } from './components/LazyTableHomeExperience';
 
 export default function Home() {
@@ -108,7 +108,6 @@ export default function Home() {
   const [tableMenuReviewCartOpen, setTableMenuReviewCartOpen] = useState(false);
   const [tableAccountOpen, setTableAccountOpen] = useState(false);
   const [tablePaymentToOpen, setTablePaymentToOpen] = useState<TablePaymentIntent | null>(null);
-  const [tableCardPaymentOpen, setTableCardPaymentOpen] = useState(false);
   const [crossSellProduct, setCrossSellProduct] = useState<HomeProduct | null>(null);
   const [crossSellCombo, setCrossSellCombo] = useState<HomeProduct | null>(null);
   const crossSellCartFlyOriginRef = useRef<CartFlyOrigin | null>(null);
@@ -852,29 +851,10 @@ export default function Home() {
       return result;
     };
 
-    const createAccountPayment = async (
-      method: 'PIX' | 'CARD' | 'CASH',
-      cardPayment?: TableCardPaymentPayload,
-    ) => {
+    const createAccountPayment = async (method: 'PIX' | 'CASH') => {
       const snapshot = await tableAccount.refresh({ silent: true });
       if (method === 'PIX' && !snapshot?.capabilities.allowPix) {
         notify('warning', 'PIX indisponível', 'O PIX não está disponível para esta mesa.');
-        return null;
-      }
-      if (method === 'CARD' && !snapshot?.capabilities.allowCard) {
-        notify(
-          'warning',
-          'Cartão indisponível',
-          'O pagamento com cartão ainda não está configurado para este restaurante.',
-        );
-        return null;
-      }
-      if (method === 'CARD' && !cardPayment) {
-        notify(
-          'warning',
-          'Dados do cartão pendentes',
-          'Preencha os dados protegidos do cartão antes de continuar.',
-        );
         return null;
       }
       if (method === 'CASH' && !snapshot?.capabilities.allowCash) {
@@ -886,7 +866,6 @@ export default function Home() {
         selectionMode: 'MY_ITEMS',
         method,
         includeOptionalServiceFee: false,
-        ...(method === 'CARD' && cardPayment ? { cardPayment } : {}),
       });
       return result?.payment || null;
     };
@@ -895,7 +874,6 @@ export default function Home() {
       <Suspense fallback={null}>
         <TableMenuExperience
           data={homeData}
-          restaurantId={Number(restaurantId || storedSessionRestaurantId || 0)}
           tableLabel={mesaLabel}
           cart={cart}
           cartTotal={cartTotal}
@@ -904,8 +882,6 @@ export default function Home() {
           accountSnapshot={tableAccount.snapshot}
           activePayment={tableAccount.snapshot?.activePayment || null}
           paymentToOpen={tablePaymentToOpen}
-          openCardPayment={tableCardPaymentOpen}
-          onCardPaymentOpened={() => setTableCardPaymentOpen(false)}
           paymentLoading={tableAccount.actionLoading}
           waiterCallEnabled={tableSession?.waiterCallEnabled !== false}
           onAddProduct={addToCart}
@@ -924,7 +900,6 @@ export default function Home() {
           reviewCartOpen={tableMenuReviewCartOpen}
           onReviewCartClose={() => setTableMenuReviewCartOpen(false)}
           userName={user ? String((user as Record<string, unknown>).name || '') : undefined}
-          userEmail={user ? String((user as Record<string, unknown>).email || '') : undefined}
           userLoggedIn={Boolean(user)}
         />
         {tableAccountOpen ? (
@@ -937,10 +912,6 @@ export default function Home() {
             error={tableAccount.error}
             onRefresh={() => void tableAccount.refresh()}
             onCreatePayment={createTablePaymentWithWaiterAlert}
-            onOpenCardPayment={() => {
-              setTableAccountOpen(false);
-              setTableCardPaymentOpen(true);
-            }}
             onOpenPayment={(payment) => {
               setTableAccountOpen(false);
               setTablePaymentToOpen({ ...payment });
