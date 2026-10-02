@@ -10,6 +10,7 @@ import {
 } from '../../payments/providers/providerCatalog.js';
 import restaurantSettingsRepository from '../../restaurantSettings/repositories/RestaurantSettingsRepository.js';
 import { getMercadoPagoAccessToken } from '../../restaurantSettings/services/RestaurantPaymentCredentialsService.js';
+import { paymentConnectionConfiguration } from '../../restaurantSettings/services/RestaurantPaymentReadinessService.js';
 import { getDirectTablePayment, mutateDirectTablePayment } from './tablePaymentGatewayMutation.js';
 import type {
   CreateProviderPaymentInput,
@@ -130,11 +131,16 @@ function credentialReady(
   method: 'PIX' | 'CARD',
 ) {
   if (provider === PIX_PROVIDERS.MERCADO_PAGO || provider === CARD_PROVIDERS.MERCADO_PAGO) {
+    const platformReady = paymentConnectionConfiguration().mercadoPago;
+    if (!platformReady) return false;
+
     const accessTokenReady = Boolean(String(settings.mercadoPagoAccessToken || '').trim());
-    if (method === 'PIX') return accessTokenReady;
+    const refreshTokenReady = Boolean(String(settings.mercadoPagoRefreshToken || '').trim());
+    if (method === 'PIX') return accessTokenReady && refreshTokenReady;
+
     return Boolean(
       accessTokenReady &&
-        String(settings.mercadoPagoRefreshToken || '').trim() &&
+        refreshTokenReady &&
         String(settings.mercadoPagoPublicKey || '').trim(),
     );
   }
