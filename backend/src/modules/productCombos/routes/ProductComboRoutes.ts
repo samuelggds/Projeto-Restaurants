@@ -15,8 +15,5 @@ router.post('/generate-image-preview', ...admin, imageEnhancementRateLimitMiddle
 );
 router.put('/:id', ...admin, (req, res) => controller.update(req, res));
 router.delete('/:id', ...admin, (req, res) => controller.remove(req, res));
-router.post('/:id/generate-image', ...admin, imageEnhancementRateLimitMiddleware, (req, res) =>
-  controller.generateImage(req, res),
-);
 
 export default router;
