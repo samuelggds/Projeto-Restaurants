@@ -6,6 +6,7 @@ import prisma from '../../../config/prisma.js';
 import trialService from '../services/TrialService.js';
 import invoiceService from '../services/InvoiceService.js';
 import billingRepository from '../repositories/BillingRepository.js';
+import restaurantAccessService from '../services/RestaurantAccessService.js';
 
 const originalConsole = {
   log: console.log,
@@ -17,10 +18,7 @@ const originalMethods = {
   invoiceExecute: invoiceService.execute,
   subscriptionFindMany: prisma.subscription.findMany,
   findPendingInvoices: billingRepository.findPendingInvoices,
-  updateInvoice: billingRepository.updateInvoice,
-  findSubscriptionByRestaurantId: billingRepository.findSubscriptionByRestaurantId,
-  updateSubscription: billingRepository.updateSubscription,
-  deactivateRestaurant: billingRepository.deactivateRestaurant,
+  accessEvaluate: restaurantAccessService.evaluate,
 };
 
 afterEach(() => {
@@ -31,10 +29,7 @@ afterEach(() => {
   invoiceService.execute = originalMethods.invoiceExecute;
   prisma.subscription.findMany = originalMethods.subscriptionFindMany;
   billingRepository.findPendingInvoices = originalMethods.findPendingInvoices;
-  billingRepository.updateInvoice = originalMethods.updateInvoice;
-  billingRepository.findSubscriptionByRestaurantId = originalMethods.findSubscriptionByRestaurantId;
-  billingRepository.updateSubscription = originalMethods.updateSubscription;
-  billingRepository.deactivateRestaurant = originalMethods.deactivateRestaurant;
+  restaurantAccessService.evaluate = originalMethods.accessEvaluate;
 });
 
 test('processa itens posteriores em todas as fases e sinaliza falha ao JobRunner', async () => {
@@ -75,28 +70,13 @@ test('processa itens posteriores em todas as fases e sinaliza falha ao JobRunner
     },
   ];
 
-  const attemptedOverdueInvoices = [];
-  const expiredSubscriptions = [];
-  const deactivatedRestaurants = [];
-  billingRepository.updateInvoice = async (invoiceId, data) => {
-    attemptedOverdueInvoices.push(invoiceId);
-    if (invoiceId === 201) {
+  const evaluatedRestaurants = [];
+  restaurantAccessService.evaluate = async (restaurantId, db, now) => {
+    evaluatedRestaurants.push({ restaurantId, db, now });
+    if (restaurantId === 21) {
       throw new Error('first overdue invoice failed');
     }
-    return { id: invoiceId, ...data };
-  };
-  billingRepository.findSubscriptionByRestaurantId = async (restaurantId) => ({
-    id: restaurantId + 1_000,
-    restaurantId,
-    status: 'ATIVA',
-  });
-  billingRepository.updateSubscription = async (subscriptionId, data) => {
-    expiredSubscriptions.push(subscriptionId);
-    return { id: subscriptionId, ...data };
-  };
-  billingRepository.deactivateRestaurant = async (restaurantId) => {
-    deactivatedRestaurants.push(restaurantId);
-    return { id: restaurantId, active: false };
+    return { allowed: false, restaurantId, reason: 'BILLING' };
   };
 
   await assert.rejects(
@@ -110,7 +90,10 @@ test('processa itens posteriores em todas as fases e sinaliza falha ao JobRunner
   );
 
   assert.deepEqual(attemptedActiveRestaurants, [11, 12]);
-  assert.deepEqual(attemptedOverdueInvoices, [201, 202]);
-  assert.deepEqual(expiredSubscriptions, [1_022]);
-  assert.deepEqual(deactivatedRestaurants, [22]);
+  assert.deepEqual(
+    evaluatedRestaurants.map(({ restaurantId }) => restaurantId),
+    [21, 22],
+  );
+  assert.ok(evaluatedRestaurants.every(({ db }) => db === prisma));
+  assert.ok(evaluatedRestaurants.every(({ now }) => now instanceof Date));
 });
