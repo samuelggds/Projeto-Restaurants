@@ -75,6 +75,7 @@ function mapOrder(value: unknown): AdminOrder {
     payOnDelivery: Boolean(raw.payOnDelivery),
     payOnDeliveryMethod: String(raw.payOnDeliveryMethod ?? '') || undefined,
     createdAt: String(raw.createdAt ?? '') || undefined,
+    paidAt: String(raw.paidAt ?? '') || undefined,
     refundStatus: ['NOT_REQUESTED', 'PROCESSING', 'SUCCEEDED', 'FAILED'].includes(refundStatus)
       ? (refundStatus as AdminOrder['refundStatus'])
       : undefined,
