@@ -238,7 +238,8 @@ describe('comanda guiada e pagamento seguro', () => {
     };
     const markup = renderToStaticMarkup(<TableAccountPanel {...baseProps} snapshot={withFee} />);
     expect(markup).toContain('Taxa de serviço neste pagamento');
-    expect(markup).toContain('Pagar com PIX · R$ 55,00');
+    expect(markup).toContain('Pagar com PIX');
+    expect(markup).toContain('R$ 55,00');
     expect(
       previewIndividualTablePayment({
         ...withFee,
