@@ -403,6 +403,35 @@ export const PayButton = styled.button`
   svg {
     flex: 0 0 auto;
   }
+
+  .payment-method-icon {
+    width: 28px;
+    height: 28px;
+    flex: 0 0 28px;
+    border-radius: 8px;
+    display: grid;
+    place-items: center;
+    background: rgba(255, 255, 255, 0.16);
+    color: currentColor;
+  }
+
+  .payment-method-icon svg {
+    width: 19px;
+    height: 19px;
+    display: block;
+  }
+
+  .payment-method-icon.pix svg {
+    width: 18px;
+    height: 18px;
+  }
+
+  .payment-method-label {
+    min-width: 0;
+    flex: 1 1 auto;
+    text-align: center;
+  }
+
   &:hover:not(:disabled) {
     filter: brightness(0.94);
   }
@@ -417,6 +446,11 @@ export const PayButton = styled.button`
     color: #b4b4ba;
     cursor: not-allowed;
     opacity: 1;
+  }
+
+  &.unavailable:disabled .payment-method-icon {
+    background: #e8e8e5;
+    color: #a8a8ae;
   }
 `;
 
