@@ -15,13 +15,9 @@ class CreateTablePaymentIntentController {
           code: 'CLIENT_TABLE_PAYMENT_SCOPE_ONLY',
         });
       }
-      if (
-        requestedMethod !== 'PIX' &&
-        requestedMethod !== 'CARD' &&
-        requestedMethod !== 'CASH'
-      ) {
+      if (requestedMethod !== 'PIX' && requestedMethod !== 'CASH') {
         return res.status(400).json({
-          error: 'A conta do cliente aceita Pix, cartão online ou dinheiro.',
+          error: 'A conta do cliente aceita somente Pix ou dinheiro.',
           code: 'CLIENT_TABLE_PAYMENT_METHOD_ONLY',
         });
       }
