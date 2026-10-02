@@ -1,4 +1,4 @@
-import { Suspense, useState, useCallback, useEffect, useMemo, useRef } from 'react';
+import { lazy, Suspense, useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../../contexts/authContext';
 import { useAppDialog } from '../../components/AppDialog/context';
@@ -15,7 +15,6 @@ import { useTableAccount } from './hooks/useTableAccount';
 import { useTableOrderNotice } from './hooks/useTableOrderNotice';
 import { buildHomeData } from '../Home/adapters/homeDataAdapter';
 import { TableAccessGate } from './components/TableAccessGate';
-import { TableAccountPanel } from './components/TableAccountPanel';
 import { LoyaltyCouponPanel } from '../Home/components/LoyaltyCouponPanel';
 import { GuestAddressCheckout } from '../Home/components/GuestAddressCheckout';
 import { AuthenticatedAddressCheckout } from '../Home/components/AuthenticatedAddressCheckout';
@@ -36,7 +35,6 @@ import { getRestaurantAvailability } from '../admin/domain/businessHours';
 import { applyHomeSeoMetadata, buildWhatsAppUrl, getAvailablePaymentMethods, resolveAvailableFulfillmentMethod, resolveDefaultCheckoutPaymentMethod } from './domain/publicSettings';
 import { useCardPaymentReturn } from './hooks/useCardPaymentReturn';
 import { buildLoginUrl } from '../../shared/navigation/authNavigation';
-import TableMenuExperience from '../digital-menu/TableMenuExperience';
 import type { HomeProduct } from './types';
 import { createReadyProductConfiguration, resolveProductEntryKind } from './domain/productEntryFlow';
 import { captureCartFlyOrigin, scheduleProductToCartAnimation, type CartFlyOrigin } from './cartFlyAnimation';
@@ -49,6 +47,13 @@ import {
   resolveHomeRestaurantId,
 } from './domain/homePageHelpers';
 import type { CreateTablePaymentResult, TableCardPaymentPayload, TablePaymentDraft, TablePaymentIntent } from './domain/tableAccount';
+
+const TableMenuExperience = lazy(() => import('../digital-menu/TableMenuExperience'));
+const TableAccountPanel = lazy(() =>
+  import('./components/TableAccountPanel').then((module) => ({
+    default: module.TableAccountPanel,
+  })),
+);
 
 export default function Home() {
   const navigate = useNavigate();
@@ -872,62 +877,64 @@ export default function Home() {
     };
 
     return (
-      <>
-      <TableMenuExperience
-        data={homeData}
-        restaurantId={Number(restaurantId || storedSessionRestaurantId || 0)}
-        tableLabel={mesaLabel}
-        cart={cart}
-        cartTotal={cartTotal}
-        orderingLocked={tableClosingRequested}
-        tableOrder={tableOrder}
-        accountSnapshot={tableAccount.snapshot}
-        activePayment={tableAccount.snapshot?.activePayment || null}
-        paymentToOpen={tablePaymentToOpen}
-        openCardPayment={tableCardPaymentOpen}
-        onCardPaymentOpened={() => setTableCardPaymentOpen(false)}
-        paymentLoading={tableAccount.actionLoading}
-        waiterCallEnabled={tableSession?.waiterCallEnabled !== false}
-        onAddProduct={addToCart}
-        onIncrease={increaseCart}
-        onDecrease={decreaseCart}
-        onClearCart={() => setCart([])}
-        onSubmitOrder={addOrderToTableAccount}
-        onCallWaiter={() => void requestTableService()}
-        onViewAccount={() => setTableAccountOpen(true)}
-        onCreateAccountPayment={createAccountPayment}
-        onReconcilePayment={tableAccount.reconcilePayment}
-        onCancelPayment={tableAccount.cancelPayment}
-        couponCode={orderQuote.quote?.couponCode || null}
-        couponDiscount={orderQuote.quote?.couponDiscount || 0}
-        onApplyCouponCode={applyTableCouponCode}
-        reviewCartOpen={tableMenuReviewCartOpen}
-        onReviewCartClose={() => setTableMenuReviewCartOpen(false)}
-        userName={user ? String((user as Record<string, unknown>).name || '') : undefined}
-        userEmail={user ? String((user as Record<string, unknown>).email || '') : undefined}
-        userLoggedIn={Boolean(user)}
-      />
-      <TableAccountPanel
-        open={tableAccountOpen}
-        tableNumber={mesaLabel}
-        snapshot={tableAccount.snapshot}
-        loading={tableAccount.loading}
-        actionLoading={tableAccount.actionLoading}
-        error={tableAccount.error}
-        onRefresh={() => void tableAccount.refresh()}
-        onCreatePayment={createTablePaymentWithWaiterAlert}
-        onOpenCardPayment={() => {
-          setTableAccountOpen(false);
-          setTableCardPaymentOpen(true);
-        }}
-        onOpenPayment={(payment) => {
-          setTableAccountOpen(false);
-          setTablePaymentToOpen({ ...payment });
-        }}
-        orderingBlocked={tableClosingRequested}
-        onClose={() => setTableAccountOpen(false)}
-      />
-      </>
+      <Suspense fallback={null}>
+        <TableMenuExperience
+          data={homeData}
+          restaurantId={Number(restaurantId || storedSessionRestaurantId || 0)}
+          tableLabel={mesaLabel}
+          cart={cart}
+          cartTotal={cartTotal}
+          orderingLocked={tableClosingRequested}
+          tableOrder={tableOrder}
+          accountSnapshot={tableAccount.snapshot}
+          activePayment={tableAccount.snapshot?.activePayment || null}
+          paymentToOpen={tablePaymentToOpen}
+          openCardPayment={tableCardPaymentOpen}
+          onCardPaymentOpened={() => setTableCardPaymentOpen(false)}
+          paymentLoading={tableAccount.actionLoading}
+          waiterCallEnabled={tableSession?.waiterCallEnabled !== false}
+          onAddProduct={addToCart}
+          onIncrease={increaseCart}
+          onDecrease={decreaseCart}
+          onClearCart={() => setCart([])}
+          onSubmitOrder={addOrderToTableAccount}
+          onCallWaiter={() => void requestTableService()}
+          onViewAccount={() => setTableAccountOpen(true)}
+          onCreateAccountPayment={createAccountPayment}
+          onReconcilePayment={tableAccount.reconcilePayment}
+          onCancelPayment={tableAccount.cancelPayment}
+          couponCode={orderQuote.quote?.couponCode || null}
+          couponDiscount={orderQuote.quote?.couponDiscount || 0}
+          onApplyCouponCode={applyTableCouponCode}
+          reviewCartOpen={tableMenuReviewCartOpen}
+          onReviewCartClose={() => setTableMenuReviewCartOpen(false)}
+          userName={user ? String((user as Record<string, unknown>).name || '') : undefined}
+          userEmail={user ? String((user as Record<string, unknown>).email || '') : undefined}
+          userLoggedIn={Boolean(user)}
+        />
+        {tableAccountOpen ? (
+          <TableAccountPanel
+            open
+            tableNumber={mesaLabel}
+            snapshot={tableAccount.snapshot}
+            loading={tableAccount.loading}
+            actionLoading={tableAccount.actionLoading}
+            error={tableAccount.error}
+            onRefresh={() => void tableAccount.refresh()}
+            onCreatePayment={createTablePaymentWithWaiterAlert}
+            onOpenCardPayment={() => {
+              setTableAccountOpen(false);
+              setTableCardPaymentOpen(true);
+            }}
+            onOpenPayment={(payment) => {
+              setTableAccountOpen(false);
+              setTablePaymentToOpen({ ...payment });
+            }}
+            orderingBlocked={tableClosingRequested}
+            onClose={() => setTableAccountOpen(false)}
+          />
+        ) : null}
+      </Suspense>
     );
   }
 
