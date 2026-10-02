@@ -112,6 +112,7 @@ const baseProps = {
   error: '',
   onRefresh: () => undefined,
   onCreatePayment: async () => null,
+  onOpenCardPayment: () => undefined,
   onOpenPayment: () => undefined,
   onClose: () => undefined,
 };
@@ -370,6 +371,23 @@ describe('comanda guiada e pagamento seguro', () => {
     });
     expect(onOpenPayment).toHaveBeenCalledWith(payment);
     expect(container.querySelector('[aria-label="QR Code Pix"]')).toBeNull();
+  });
+
+  it('abre o formulário dedicado de cartão quando o backend libera cartão', async () => {
+    const onOpenCardPayment = vi.fn();
+    const { button } = await mount({
+      onOpenCardPayment,
+      snapshot: {
+        ...snapshot,
+        capabilities: {
+          ...snapshot.capabilities,
+          allowCard: true,
+        },
+      },
+    });
+
+    await act(async () => button('Pagar com cartão').click());
+    expect(onOpenCardPayment).toHaveBeenCalledOnce();
   });
 
   it('entrega a solicitação em dinheiro para a tela dedicada de espera', async () => {
