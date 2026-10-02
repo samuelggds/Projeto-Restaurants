@@ -1,25 +1,24 @@
 import type { Request, Response } from 'express';
-import paymentTerminalRepository from '../repositories/PaymentTerminalRepository.js';
 import paymentTerminalService from '../services/PaymentTerminalService.js';
 
 function restaurantIdFrom(req: Request) {
   return Number(req.user?.restaurantId || 0);
 }
 
-function userIdFrom(req: Request) {
-  return Number(req.user?.id || 0);
+function actorFrom(req: Request) {
+  return {
+    userId: Number(req.user?.id || 0),
+    role: String(req.user?.role || ''),
+  };
 }
 
 class DeliveryPaymentController {
   async get(req: Request, res: Response) {
     try {
-      const restaurantId = restaurantIdFrom(req);
-      const courierId =
-        String(req.user?.role || '').toUpperCase() === 'MOTOQUEIRO' ? userIdFrom(req) : null;
-      const payment = await paymentTerminalService.getOrderDeliveryPayment(
+      const payment = await paymentTerminalService.getOrderDeliveryPaymentForActor(
         Number(req.params.id),
-        restaurantId,
-        courierId,
+        restaurantIdFrom(req),
+        actorFrom(req),
       );
       return res.json({ payment });
     } catch (error: unknown) {
@@ -32,18 +31,21 @@ class DeliveryPaymentController {
   async reconcilePix(req: Request, res: Response) {
     const restaurantId = restaurantIdFrom(req);
     const orderId = Number(req.params.id);
+    const actor = actorFrom(req);
     try {
-      const payment = await paymentTerminalService.reconcilePix(orderId, restaurantId);
+      const payment = await paymentTerminalService.reconcilePixForActor(
+        orderId,
+        restaurantId,
+        actor,
+      );
       return res.json({ payment });
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : 'Não foi possível consultar o Pix.';
       if (message.toLowerCase().includes('ainda não foi aprovado')) {
-        const courierId =
-          String(req.user?.role || '').toUpperCase() === 'MOTOQUEIRO' ? userIdFrom(req) : null;
-        const payment = await paymentTerminalService.getOrderDeliveryPayment(
+        const payment = await paymentTerminalService.getOrderDeliveryPaymentForActor(
           orderId,
           restaurantId,
-          courierId,
+          actor,
         );
         return res.json({ payment, pending: true });
       }
@@ -52,24 +54,11 @@ class DeliveryPaymentController {
   }
 
   async reconcileCard(req: Request, res: Response) {
-    const restaurantId = restaurantIdFrom(req);
-    const orderId = Number(req.params.id);
     try {
-      const courierId =
-        String(req.user?.role || '').toUpperCase() === 'MOTOQUEIRO' ? userIdFrom(req) : null;
-      await paymentTerminalService.getOrderDeliveryPayment(orderId, restaurantId, courierId);
-      const localPayment = await paymentTerminalRepository.findDeliveryPayment(orderId, restaurantId);
-      if (!localPayment?.providerOrderId) {
-        throw new Error('Cobrança da maquininha ainda não foi criada.');
-      }
-      await paymentTerminalService.reconcilePointOrder(
-        String(localPayment.providerOrderId),
-        restaurantId,
-      );
-      const payment = await paymentTerminalService.getOrderDeliveryPayment(
-        orderId,
-        restaurantId,
-        courierId,
+      const payment = await paymentTerminalService.reconcilePointOrderForActor(
+        Number(req.params.id),
+        restaurantIdFrom(req),
+        actorFrom(req),
       );
       return res.json({ payment });
     } catch (error: unknown) {
