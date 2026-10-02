@@ -11,6 +11,9 @@ import superAdminRepository, {
 } from '../repositories/SuperAdminRepository.js';
 import { presentSubscription } from './superAdminPresenters.js';
 import { parseSuperAdminPayload, requireSuperAdminActor } from './superAdminServiceSupport.js';
+import platformRecurringBillingService, {
+  type PlatformRecurringBillingService,
+} from '../../billing/services/PlatformRecurringBillingService.js';
 
 function parseRestaurantId(value: unknown) {
   const id = Number(value);
@@ -21,7 +24,10 @@ function parseRestaurantId(value: unknown) {
 }
 
 export class UpdateRestaurantSubscriptionService {
-  constructor(private readonly repository: SuperAdminRepository = superAdminRepository) {}
+  constructor(
+    private readonly repository: SuperAdminRepository = superAdminRepository,
+    private readonly recurringBilling: PlatformRecurringBillingService = platformRecurringBillingService,
+  ) {}
 
   async execute(restaurantIdValue: unknown, payload: unknown, context: AuditContext) {
     const restaurantId = parseRestaurantId(restaurantIdValue);
@@ -29,6 +35,24 @@ export class UpdateRestaurantSubscriptionService {
       restaurantSubscriptionUpdateSchema,
       payload,
     );
+
+    if (parsed.status === 'CANCELADA') {
+      // Autoriza e valida o alvo antes de qualquer efeito externo. O cancelamento
+      // do provedor acontece antes do estado local para nunca deixar uma
+      // recorrência ativa escondida atrás de uma assinatura local cancelada.
+      await this.repository.transaction(async (transaction) => {
+        await requireSuperAdminActor(this.repository, context, transaction);
+        const restaurant = await this.repository.findRestaurantForMutation(
+          restaurantId,
+          transaction,
+        );
+        if (!restaurant) throw notFound('Restaurante não encontrado.');
+        const subscription = await this.repository.findSubscription(restaurantId, transaction);
+        if (!subscription) throw notFound('Assinatura do restaurante não encontrada.');
+      });
+
+      await this.recurringBilling.cancelRecurringBilling(restaurantId);
+    }
 
     return this.repository.transaction(async (transaction) => {
       const actor = await requireSuperAdminActor(this.repository, context, transaction);
