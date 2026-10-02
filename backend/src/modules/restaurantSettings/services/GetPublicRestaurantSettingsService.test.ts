@@ -58,7 +58,6 @@ test('mantém a cor personalizada na configuração pública', async () => {
     whatsapp: null,
     whatsappEnabled: false,
     whatsappDisplayName: null,
-    ownerPhone: null,
   });
 });
 
@@ -281,3 +280,4 @@ test('não anuncia Pix ou cartão para grant legado sem renovação automática'
   assert.equal(settings.acceptsCard, false);
   assert.equal(settings.acceptsDebitCard, false);
 });
+
