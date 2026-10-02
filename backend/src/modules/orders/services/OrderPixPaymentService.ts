@@ -23,6 +23,11 @@ import {
   findEfiOpenFinancePayment,
 } from '../../payments/providers/efiOpenFinance.js';
 import { assertFuturePaymentProviderEnabled } from '../../payments/providers/futurePaymentProviders.js';
+import {
+  doesProofContainTransactionId,
+  toCurrencyCents,
+  type ParsedManualPixPaymentId,
+} from './pixPaymentUtils.js';
 
 const APPROVED_PAYMENT_STATUSES = new Set(['approved', 'accredited', 'paid']);
 const APPROVED_ASAAS_PAYMENT_STATUSES = new Set(['received', 'confirmed', 'received_in_cash']);
@@ -158,40 +163,6 @@ type PagarmeOrderPayload = {
   message?: string;
 };
 
-
-function normalizeReferenceToken(value: string | number | null | undefined) {
-  return String(value || '')
-    .toLowerCase()
-    .replace(/[^a-z0-9]/g, '')
-    .trim();
-}
-
-function doesProofContainTransactionId(paymentProof: string, transactionId: string) {
-  const normalizedProof = normalizeReferenceToken(paymentProof);
-  const normalizedTransactionId = normalizeReferenceToken(transactionId);
-
-  if (!normalizedProof || !normalizedTransactionId) {
-    return false;
-  }
-
-  return normalizedProof.includes(normalizedTransactionId);
-}
-
-function toCurrencyCents(value: unknown) {
-  const amount = Number(value);
-  if (!Number.isFinite(amount) || amount <= 0) {
-    return null;
-  }
-
-  return Math.round((amount + Number.EPSILON) * 100);
-}
-
-type ParsedManualPixPaymentId = {
-  provider: PixProvider;
-  restaurantId: number;
-  createdAt: Date;
-  transactionId: string;
-};
 
 class OrderPixPaymentService {
   getAsaasBaseUrl() {
