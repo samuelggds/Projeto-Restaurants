@@ -214,3 +214,61 @@ test('ao voltar para Pix pausa a assinatura recorrente existente', async () => {
   assert.equal(result.autoRenew, false);
   assert.equal(result.status, 'PAUSED');
 });
+
+
+test('cancelamento da assinatura encerra a recorrência no Mercado Pago antes do estado local', async () => {
+  const service = new PlatformRecurringBillingService();
+  const queries = [
+    [profile()],
+    [profile({ autoRenew: false, status: 'CANCELED', nextBillingAt: null })],
+  ];
+  let updateCount = 0;
+  let providerRequest = null;
+
+  prisma.$queryRaw = async () => queries.shift() || [];
+  prisma.$executeRaw = async () => {
+    updateCount += 1;
+    return 1;
+  };
+  globalThis.fetch = async (input, init) => {
+    providerRequest = { input: String(input), init };
+    return new Response(JSON.stringify({ id: 'preapproval-7', status: 'canceled' }), {
+      status: 200,
+      headers: { 'content-type': 'application/json' },
+    });
+  };
+
+  const result = await service.cancelRecurringBilling(7);
+
+  assert.equal(providerRequest.input, 'https://api.mercadopago.com/preapproval/preapproval-7');
+  assert.equal(providerRequest.init?.method, 'PUT');
+  assert.deepEqual(JSON.parse(String(providerRequest.init?.body)), { status: 'canceled' });
+  assert.equal(updateCount, 1);
+  assert.equal(result.autoRenew, false);
+  assert.equal(result.status, 'CANCELED');
+  assert.equal(result.nextBillingAt, null);
+});
+
+test('retry de cancelamento já confirmado não chama novamente o provedor', async () => {
+  const service = new PlatformRecurringBillingService();
+  const canceled = profile({
+    autoRenew: false,
+    status: 'CANCELED',
+    nextBillingAt: null,
+  });
+  const queries = [[canceled], [canceled]];
+  let updateCount = 0;
+
+  prisma.$queryRaw = async () => queries.shift() || [];
+  prisma.$executeRaw = async () => {
+    updateCount += 1;
+    return 1;
+  };
+  globalThis.fetch = async () => assert.fail('não deve chamar o Mercado Pago novamente');
+
+  const result = await service.cancelRecurringBilling(7);
+
+  assert.equal(updateCount, 1);
+  assert.equal(result.status, 'CANCELED');
+  assert.equal(result.autoRenew, false);
+});
