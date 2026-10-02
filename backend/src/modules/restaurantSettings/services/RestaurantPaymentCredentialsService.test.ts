@@ -282,6 +282,20 @@ test('nunca usa fallback global de pagamento em produção', async () => {
   assert.equal(calls.length, 0);
 });
 
+test('produção usa a credencial do próprio restaurante mesmo com fallback global configurado', async () => {
+  process.env.NODE_ENV = 'production';
+  process.env.ALLOW_GLOBAL_PAYMENT_FALLBACK = 'true';
+  process.env.MP_ACCESS_TOKEN = 'platform-fallback';
+  install({
+    mercadoPagoAccessToken: 'tenant-production-access',
+    mercadoPagoRefreshToken: null,
+    mercadoPagoTokenExpiresAt: null,
+  });
+
+  assert.equal(await getMercadoPagoAccessToken(7), 'tenant-production-access');
+  assert.equal(calls.length, 0);
+});
+
 test('não usa credencial de outro restaurante nem fallback global sem autorização', async () => {
   install({}, 8);
   process.env.MP_ACCESS_TOKEN = 'platform-fallback';
