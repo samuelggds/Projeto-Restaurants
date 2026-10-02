@@ -458,3 +458,93 @@ test('pagamento antes do bloqueio preserva a data original do ciclo', async () =
     '2026-11-05T15:30:00.000Z',
   );
 });
+
+
+test('segunda tentativa aprovada é classificada como duplicada sob lock da fatura', async () => {
+  silenceServiceLogs();
+  let lockObserved = false;
+  let duplicateUpdate = null;
+
+  prisma.$transaction = async (callback) =>
+    callback({
+      $queryRaw: async (query) => {
+        assert.match(query.strings.join(''), /FOR UPDATE/);
+        assert.deepEqual(query.values, [901]);
+        lockObserved = true;
+        return [{ id: 901 }];
+      },
+      invoicePaymentAttempt: {
+        findFirst: async ({ where }) => {
+          assert.equal(lockObserved, true);
+          assert.deepEqual(where, { id: 2901, invoiceId: 901 });
+          return {
+            id: 2901,
+            invoiceId: 901,
+            restaurantId: 77,
+            status: 'PENDING',
+          };
+        },
+        updateMany: async (args) => {
+          duplicateUpdate = args;
+          return { count: 1 };
+        },
+      },
+      invoice: {
+        findUnique: async ({ where }) => {
+          assert.deepEqual(where, { id: 901 });
+          return {
+            id: 901,
+            restaurantId: 77,
+            status: 'PAGO',
+            paidAt: new Date('2026-10-02T18:00:00.000Z'),
+          };
+        },
+      },
+    });
+
+  const result = await processPaymentService.executeTracked({
+    invoiceId: 901,
+    paymentAttemptId: 2901,
+  });
+
+  assert.equal(result.settlement, 'DUPLICATE');
+  assert.equal(result.invoice.status, 'PAGO');
+  assert.equal(duplicateUpdate.where.restaurantId, 77);
+  assert.equal(duplicateUpdate.where.invoiceId, 901);
+  assert.equal(duplicateUpdate.data.status, 'DUPLICATE');
+  assert.equal(duplicateUpdate.data.providerStatus, 'approved');
+});
+
+test('replay da mesma tentativa aplicada é idempotente e não vira duplicidade', async () => {
+  silenceServiceLogs();
+
+  prisma.$transaction = async (callback) =>
+    callback({
+      $queryRaw: async () => [{ id: 902 }],
+      invoicePaymentAttempt: {
+        findFirst: async () => ({
+          id: 2902,
+          invoiceId: 902,
+          restaurantId: 78,
+          status: 'APPLIED',
+        }),
+      },
+      invoice: {
+        findUnique: async () => ({
+          id: 902,
+          restaurantId: 78,
+          status: 'PAGO',
+          paidAt: new Date('2026-10-02T18:00:00.000Z'),
+        }),
+        findMany: async () => [],
+      },
+    });
+
+  const result = await processPaymentService.executeTracked({
+    invoiceId: 902,
+    paymentAttemptId: 2902,
+  });
+
+  assert.equal(result.settlement, 'IDEMPOTENT');
+  assert.equal(result.invoice.status, 'PAGO');
+});
