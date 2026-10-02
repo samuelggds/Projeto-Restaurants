@@ -19,13 +19,13 @@ class ResizeObserverMock {
 }
 
 function Harness() {
-  const carousel = useHorizontalProductCarousel({
+  const { trackRef, scroll, hasOverflow, canPrevious, canNext } = useHorizontalProductCarousel({
     itemSelector: '[data-card]',
     itemsKey: '1|2|3|4|5',
   });
 
   useEffect(() => {
-    const track = carousel.trackRef.current;
+    const track = trackRef.current;
     if (!track) return;
     Object.defineProperty(track, 'clientWidth', { configurable: true, value: 600 });
     Object.defineProperty(track, 'scrollWidth', { configurable: true, value: 1200 });
@@ -58,16 +58,16 @@ function Harness() {
       }),
     });
     ResizeObserverMock.flush();
-  }, [carousel.trackRef]);
+  }, [trackRef]);
 
   return (
     <>
-      <button type="button" onClick={() => carousel.scroll(-1)}>Anterior</button>
-      <button type="button" onClick={() => carousel.scroll(1)}>Próximo</button>
+      <button type="button" onClick={() => scroll(-1)}>Anterior</button>
+      <button type="button" onClick={() => scroll(1)}>Próximo</button>
       <output data-testid="state">
-        {String(carousel.hasOverflow)}:{String(carousel.canPrevious)}:{String(carousel.canNext)}
+        {String(hasOverflow)}:{String(canPrevious)}:{String(canNext)}
       </output>
-      <div ref={carousel.trackRef}>
+      <div ref={trackRef}>
         <article data-card />
         <article data-card />
         <article data-card />
