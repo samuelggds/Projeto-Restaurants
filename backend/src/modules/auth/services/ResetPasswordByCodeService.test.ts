@@ -128,6 +128,18 @@ test('código válido é consumido uma vez, reativa conta e revoga sessões', as
   assert.equal(revoked(), 1);
 });
 
+test('ADMIN não consegue redefinir a conta com senha previsível', async () => {
+  const { state, revoked } = await installResetState();
+  state.role = 'ADMIN';
+  state.active = true;
+
+  await assert.rejects(() => resetPasswordByCodeService.execute(validPayload), /previsível/);
+
+  assert.notEqual(state.resetPasswordCodeHash, null);
+  assert.equal(state.authVersion, 2);
+  assert.equal(revoked(), 0);
+});
+
 test('SUPER_ADMIN não consegue redefinir a conta com senha fraca', async () => {
   const { state, revoked } = await installResetState();
   state.role = 'SUPER_ADMIN';
