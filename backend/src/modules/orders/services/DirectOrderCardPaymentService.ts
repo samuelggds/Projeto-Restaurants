@@ -381,16 +381,11 @@ async function mercadoPagoPayment(
     if (isMercadoPagoRequestValidationError(result.response.status, result.body)) {
       const diagnostic = mercadoPagoDiagnostic(result.response, result.body);
       const providerCode = diagnostic.providerCode || 'invalid_request';
-      const providerMessage = safeProviderMessage(
-        result.body,
-        'O Mercado Pago rejeitou os dados enviados pelo checkout.',
-      );
       console.error('[MERCADO_PAGO_CARD_REQUEST_INVALID]', {
         orderId: order.id,
         restaurantId: order.restaurantId,
         providerStatus: diagnostic.httpStatus,
         providerCode,
-        providerMessage,
         transactionStatus: diagnostic.status,
         transactionStatusDetail: diagnostic.statusDetail,
         providerRequestId: diagnostic.providerRequestId,
