@@ -292,6 +292,12 @@ class CreateRestaurantSettingsService {
       throw new Error('E-mail comercial inválido.');
     }
 
+    if (String(mercadoPagoAccessToken || '').trim()) {
+      throw new Error(
+        'Credenciais do Mercado Pago devem ser conectadas pelo fluxo OAuth em Configurações > Pagamentos.',
+      );
+    }
+
     const requestedPixProvider = String(pixProvider || 'MERCADO_PAGO').trim().toUpperCase();
     const requestedCardGateway = String(cardGateway || '').trim().toUpperCase();
     if (
@@ -370,7 +376,7 @@ class CreateRestaurantSettingsService {
       bankHolderDocument: normalizedBankHolderDocument || null,
       cardGateway: requestedCardGateway || null,
       gatewayMerchantId: String(gatewayMerchantId || '').trim() || null,
-      mercadoPagoAccessToken: String(mercadoPagoAccessToken || '').trim() || null,
+      mercadoPagoAccessToken: null,
       pagarmeSecretKey: String(pagarmeSecretKey || '').trim() || null,
       pagarmePublicKey: String(pagarmePublicKey || '').trim() || null,
       pagarmeEnvironment:
