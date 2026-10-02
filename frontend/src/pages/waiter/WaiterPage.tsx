@@ -22,6 +22,10 @@ import {
   prepareWaiterCallAlarm,
   stopWaiterCallAlarm,
 } from './domain/waiterCallAlarm';
+import {
+  hasUnalertedWaiterEvent,
+  waiterAlertKeys,
+} from './domain/waiterAlertState';
 
 const POLL_MS = 30_000;
 
@@ -172,21 +176,19 @@ export default function WaiterPage() {
   }, [loadWorkspace, restaurantId]);
 
   useEffect(() => {
-    const waitingCalls = data.calls.filter((call) => call.status === 'WAITING');
-    const hasUnalertedCall = waitingCalls.some(
-      (call) => !alertedCallIdsRef.current.has(call.id),
-    );
+    const alertKeys = waiterAlertKeys(data);
+    const shouldAlert = hasUnalertedWaiterEvent(alertKeys, alertedCallIdsRef.current);
 
-    waitingCalls.forEach((call) => alertedCallIdsRef.current.add(call.id));
+    alertKeys.forEach((key) => alertedCallIdsRef.current.add(key));
 
-    if (hasUnalertedCall) {
+    if (shouldAlert) {
       playWaiterCallAlarmPulse();
     }
 
-    if (!waitingCalls.length) {
+    if (!alertKeys.length) {
       stopCallAlarm();
     }
-  }, [data.calls, stopCallAlarm]);
+  }, [data, stopCallAlarm]);
 
   useEffect(() => {
     const token = getAccessToken();
