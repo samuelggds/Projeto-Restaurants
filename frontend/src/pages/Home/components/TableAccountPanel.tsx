@@ -136,7 +136,9 @@ function TableAccountPanelContent(props: Props) {
     previousFocusRef.current = document.activeElement as HTMLElement | null;
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
-    const frame = window.requestAnimationFrame(() => closeButtonRef.current?.focus());
+    const frame = window.requestAnimationFrame(() => {
+      if (!panelRef.current?.contains(document.activeElement)) closeButtonRef.current?.focus();
+    });
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') onCloseRef.current();
       if (event.key !== 'Tab') return;
