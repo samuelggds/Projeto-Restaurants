@@ -65,6 +65,12 @@ function statusTone(status: DomainRecord['status']): 'green' | 'yellow' | 'gray'
 export function DomainsPage({ data }: { data: SuperAdminData }) {
   const eligible = useMemo(() => data.restaurants.filter(eligibleRestaurant), [data.restaurants]);
   const [domains, setDomains] = useState<DomainRecord[]>([]);
+  const manageable = useMemo(() => {
+    const configuredIds = new Set(domains.map((domain) => domain.restaurantId));
+    return data.restaurants.filter(
+      (restaurant) => eligibleRestaurant(restaurant) || configuredIds.has(restaurant.id),
+    );
+  }, [data.restaurants, domains]);
   const [restaurantId, setRestaurantId] = useState<number>(eligible[0]?.id || 0);
   const [hostname, setHostname] = useState('');
   const [mode, setMode] = useState<DomainMode>('SITE_WITH_MENU_SUBDOMAIN');
@@ -96,8 +102,8 @@ export function DomainsPage({ data }: { data: SuperAdminData }) {
   }, [load]);
 
   useEffect(() => {
-    if (!restaurantId && eligible[0]?.id) setRestaurantId(eligible[0].id);
-  }, [eligible, restaurantId]);
+    if (!restaurantId && manageable[0]?.id) setRestaurantId(manageable[0].id);
+  }, [manageable, restaurantId]);
 
   useEffect(() => {
     const existing = domains.find((item) => item.restaurantId === restaurantId) || null;
@@ -166,7 +172,7 @@ export function DomainsPage({ data }: { data: SuperAdminData }) {
           <Globe2 aria-hidden="true" />
         </S.SectionHeading>
 
-        {eligible.length ? (
+        {manageable.length ? (
           <S.Fields>
             <label className="wide">
               Restaurante
@@ -175,9 +181,10 @@ export function DomainsPage({ data }: { data: SuperAdminData }) {
                 onChange={(event) => setRestaurantId(Number(event.target.value))}
                 disabled={loading}
               >
-                {eligible.map((restaurant) => (
+                {manageable.map((restaurant) => (
                   <option key={restaurant.id} value={restaurant.id}>
-                    {restaurant.name} — {restaurant.subscription?.planCode}
+                    {restaurant.name} — {restaurant.subscription?.planCode || 'Sem plano'}
+                    {eligibleRestaurant(restaurant) ? '' : ' — domínio bloqueado pelo plano'}
                   </option>
                 ))}
               </select>
@@ -250,11 +257,11 @@ export function DomainsPage({ data }: { data: SuperAdminData }) {
           </S.InlineAlert>
         ) : null}
 
-        {eligible.length ? (
+        {manageable.length ? (
           <S.ActionGroup>
             <S.Button
               $variant="primary"
-              disabled={loading || !hostname.trim()}
+              disabled={loading || !hostname.trim() || (selected ? !selected.planEligible : !eligibleRestaurant(data.restaurants.find((item) => item.id === restaurantId) as RestaurantTenant))}
               onClick={() => void save()}
             >
               {loading ? 'Salvando…' : selected ? 'Salvar alterações' : 'Cadastrar domínio'}
@@ -321,8 +328,21 @@ export function DomainsPage({ data }: { data: SuperAdminData }) {
                 value={selected.routing.value || 'Configure o destino de produção no servidor'}
               />
             </label>
+            {selected.routing.wwwCname ? (
+              <label className="wide">
+                Alias www — CNAME
+                <input readOnly value={`www.${selected.hostname} → ${selected.routing.wwwCname}`} />
+              </label>
+            ) : null}
           </S.Fields>
 
+          {!selected.planEligible ? (
+            <S.InlineAlert $tone="warning">
+              Este restaurante não está mais elegível para domínio próprio. O hostname não é servido
+              pela GastroNexa enquanto o plano/status permanecer inelegível. Você ainda pode
+              desativar ou consultar a configuração.
+            </S.InlineAlert>
+          ) : null}
           <S.InlineAlert $tone="info">{selected.routing.note}</S.InlineAlert>
           {selected.lastCheckError ? (
             <S.InlineAlert $tone="warning">{selected.lastCheckError}</S.InlineAlert>
@@ -330,7 +350,7 @@ export function DomainsPage({ data }: { data: SuperAdminData }) {
 
           <S.ActionGroup>
             <S.Button
-              disabled={loading}
+              disabled={loading || !selected.planEligible}
               onClick={() =>
                 void run(
                   () => superAdminService.verifyCustomDomain(restaurantId),
@@ -345,6 +365,7 @@ export function DomainsPage({ data }: { data: SuperAdminData }) {
               disabled={
                 loading ||
                 selected.status === 'ACTIVE' ||
+                !selected.planEligible ||
                 (!selected.dnsVerifiedAt && selected.status !== 'DNS_VERIFIED')
               }
               onClick={() =>
