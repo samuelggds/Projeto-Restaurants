@@ -177,6 +177,8 @@ function mapProduct(value: unknown): AdminProduct {
     image: String(raw.image ?? raw.imageUrl ?? ''),
     description: String(raw.description ?? ''),
     stock: raw.stock === null || raw.stock === undefined ? null : Number(raw.stock),
+    preparationTime:
+      Number(raw.preparationTime ?? 0) > 0 ? Number(raw.preparationTime) : undefined,
     active: raw.active !== false,
     featured: raw.featured === true,
     kind: raw.kind === 'COMBO' ? 'COMBO' : 'STANDARD',
@@ -886,7 +888,7 @@ export default function Admin() {
           categoryId: product.categoryId,
           active: activeFromStock,
           featured: product.featured === true,
-          preparationTime: 20,
+          preparationTime: product.preparationTime,
           stock: product.stock ?? null,
           saleMode: product.saleMode ?? 'COMPLETE',
           pricingMode: product.pricingMode ?? 'BASE',
