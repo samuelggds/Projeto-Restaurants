@@ -30,20 +30,30 @@
 
 {$API_DOMAIN} {
 	encode zstd gzip
-	reverse_proxy {
-		dynamic a backend 3000 {
-			refresh 5s
-			versions ipv4
-		}
-		lb_policy round_robin
-		fail_duration 10s
-		max_fails 2
-		unhealthy_status 503
-		transport http {
-			dial_timeout 3s
-			# OpenAI image generation/editing can legitimately take longer than 30 seconds.
-			# Keep this above the backend provider timeout (165s) and browser timeout (180s).
-			response_header_timeout 210s
+
+	# Infrastructure-only endpoints are callable from the Docker network, never
+	# through the public API hostname.
+	@internalInfrastructure path /infrastructure/custom-domains/*
+	handle @internalInfrastructure {
+		respond 404
+	}
+
+	handle {
+		reverse_proxy {
+			dynamic a backend 3000 {
+				refresh 5s
+				versions ipv4
+			}
+			lb_policy round_robin
+			fail_duration 10s
+			max_fails 2
+			unhealthy_status 503
+			transport http {
+				dial_timeout 3s
+				# OpenAI image generation/editing can legitimately take longer than 30 seconds.
+				# Keep this above the backend provider timeout (165s) and browser timeout (180s).
+				response_header_timeout 210s
+			}
 		}
 	}
 	header {
@@ -60,6 +70,13 @@
 https:// {
 	tls {
 		on_demand
+	}
+
+	# The infrastructure authorization endpoint is never exposed through a
+	# restaurant-owned hostname either.
+	@customInternalInfrastructure path /api/infrastructure/custom-domains/*
+	handle @customInternalInfrastructure {
+		respond 404
 	}
 
 	# Custom restaurant hosts use a same-origin API facade. The prefix is stripped
