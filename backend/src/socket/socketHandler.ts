@@ -483,7 +483,8 @@ export function socketHandler(socket: AppSocket) {
       });
 
       const plan = String(subscription?.plan || '').toUpperCase();
-      const supportChatEnabledPlan = plan === 'BASICO' || plan === 'PREMIUM';
+      const supportChatEnabledPlan =
+        plan === 'BASICO' || plan === 'PREMIUM' || plan === 'GESTAO_TOTAL';
 
       if (!supportChatEnabledPlan) {
         reply({
