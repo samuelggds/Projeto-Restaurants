@@ -43,12 +43,11 @@ export async function resolveSafeOrderReturnUrl(
   const requested = normalizedOrigin(candidate);
   if (!requested) return fallback;
 
-  const allowedOrigins = new Set([canonical.origin]);
+  if (requested.origin === canonical.origin) return requested.url.toString();
+
   const customBase = await resolveRestaurantMenuBaseUrl(restaurantId);
   const custom = normalizedOrigin(customBase);
-  if (custom) allowedOrigins.add(custom.origin);
-
-  if (!allowedOrigins.has(requested.origin)) {
+  if (!custom || requested.origin !== custom.origin) {
     throw new OrderRequestError(
       'URL de retorno do pagamento não pertence a este restaurante.',
       400,
