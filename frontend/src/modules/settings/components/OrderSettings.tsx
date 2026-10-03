@@ -56,11 +56,30 @@ export function OrderSettings({ settings, onChange }: Props) {
               onChange={(e) => onChange({ courierFeePerDelivery: Number(e.target.value) })}
             />
           </Field>
-          <Field label="Tempo médio de entrega">
+          <Field label="Tempo mínimo de entrega (min)">
             <FormInput
-              value={settings.averageDeliveryTime}
-              placeholder="Ex: 35–50 min"
-              onChange={(e) => onChange({ averageDeliveryTime: e.target.value })}
+              type="number"
+              min="1"
+              max="240"
+              step="1"
+              value={settings.deliveryTimeMin}
+              onChange={(e) => {
+                const value = Number(e.target.value);
+                onChange({
+                  deliveryTimeMin: value,
+                  averageDeliveryTime: value > 0 ? String(value) : '',
+                });
+              }}
+            />
+          </Field>
+          <Field label="Tempo máximo de entrega (min)">
+            <FormInput
+              type="number"
+              min="1"
+              max="240"
+              step="1"
+              value={settings.deliveryTimeMax}
+              onChange={(e) => onChange({ deliveryTimeMax: Number(e.target.value) })}
             />
           </Field>
         </S.Grid>
