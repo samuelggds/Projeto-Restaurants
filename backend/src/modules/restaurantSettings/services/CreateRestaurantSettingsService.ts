@@ -357,11 +357,11 @@ class CreateRestaurantSettingsService {
     );
     const normalizedLandingPageEnabled = normalizeStrictBoolean(
       landingPageEnabled,
-      'Landing page institucional',
+      'Página personalizada do restaurante',
       false,
     );
     if (normalizedLandingPageEnabled && !normalizedCustomDomainRequested) {
-      throw new Error('A landing page exige que o restaurante também solicite um domínio próprio.');
+      throw new Error('A página personalizada exige que o domínio próprio também esteja ativado.');
     }
     if (normalizedCustomDomainRequested || normalizedLandingPageEnabled) {
       const subscription = await prisma.subscription.findUnique({
@@ -378,7 +378,7 @@ class CreateRestaurantSettingsService {
         normalizedLandingPageEnabled &&
         !hasHostedLandingAccess(subscription?.plan, subscription?.status)
       ) {
-        throw new Error('Landing page da GastroNexa está disponível somente no plano Gestão Total ativo.');
+        throw new Error('A página personalizada do restaurante está disponível somente no plano Gestão Total ativo.');
       }
     }
 
