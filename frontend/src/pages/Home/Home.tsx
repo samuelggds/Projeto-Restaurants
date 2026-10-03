@@ -35,7 +35,8 @@ import { getRestaurantAvailability } from '../admin/domain/businessHours';
 import { applyHomeSeoMetadata, buildWhatsAppUrl, getAvailablePaymentMethods, resolveAvailableFulfillmentMethod, resolveDefaultCheckoutPaymentMethod } from './domain/publicSettings';
 import { useCardPaymentReturn } from './hooks/useCardPaymentReturn';
 import { buildLoginUrl } from '../../shared/navigation/authNavigation';
-import type { HomeProduct, HomeProfileView } from './types';
+import type { HomeProduct } from './types';
+import { useHomeProfileNavigation } from './hooks/useHomeProfileNavigation';
 import { createReadyProductConfiguration, resolveProductEntryKind } from './domain/productEntryFlow';
 import { captureCartFlyOrigin, scheduleProductToCartAnimation, type CartFlyOrigin } from './cartFlyAnimation';
 import { validateDeliveryAddressLocationForCheckout } from './domain/deliveryAddress';
@@ -722,30 +723,12 @@ export default function Home() {
     setCheckoutStep('cart');
     setCartOpen(true);
   }, []);
-  const openProfile = useCallback(() => {
-    if (user) {
-      navigate('/profile');
-      return;
-    }
-    navigateToLogin();
-  }, [navigate, navigateToLogin, user]);
-  const openOrders = useCallback(() => {
-    if (user) {
-      navigate('/profile?view=orders');
-      return;
-    }
-    navigate(`/${restaurantSlug}/pedidos`);
-  }, [navigate, restaurantSlug, user]);
-  const openProfileView = useCallback(
-    (view: HomeProfileView) => {
-      if (user) {
-        navigate(`/profile?view=${encodeURIComponent(view)}`);
-        return;
-      }
-      navigateToLogin();
-    },
-    [navigate, navigateToLogin, user],
-  );
+  const { openProfile, openOrders, openProfileView } = useHomeProfileNavigation({
+    navigate,
+    navigateToLogin,
+    restaurantSlug,
+    userLoggedIn: Boolean(user),
+  });
   const openAdmin = useCallback(() => navigate('/admin'), [navigate]);
   const handleLogout = useCallback(() => logout(), [logout]);
 
