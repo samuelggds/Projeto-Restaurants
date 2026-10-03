@@ -193,8 +193,8 @@ export function BrandSettings({
       <S.Card>
         <h2>Presença digital e domínio</h2>
         <p>
-          O endereço GastroNexa do restaurante nunca é removido. Domínio próprio e landing page são
-          opções adicionais conforme o plano contratado.
+          O endereço GastroNexa do restaurante nunca é removido. Domínio próprio e página personalizada
+          são opções adicionais conforme o plano contratado.
         </p>
         <S.FormGrid>
           <S.Field $full>
@@ -227,7 +227,7 @@ export function BrandSettings({
           </S.Field>
 
           <S.Field $full>
-            <span>Landing page institucional</span>
+            <span>Página personalizada do restaurante</span>
             <label style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
               <input
                 type="checkbox"
@@ -238,16 +238,16 @@ export function BrandSettings({
                 }
                 onChange={(event) => update('landingPageEnabled', event.target.checked)}
               />
-              Quero uma landing page no domínio principal
+              Quero uma página personalizada no meu domínio
             </label>
             <small>
               {landingAllowed
                 ? settings.customDomainRequested
-                  ? 'Exclusiva do Gestão Total. O domínio principal recebe a landing e o cardápio pode usar cardapio.seudominio.com.br.'
-                  : 'Primeiro escolha usar domínio próprio para liberar a landing.'
+                  ? 'Exclusiva do Gestão Total. O domínio principal mostra a página do restaurante e o cardápio pode usar cardapio.seudominio.com.br.'
+                  : 'Primeiro escolha usar domínio próprio para liberar a página personalizada.'
                 : normalizedPlan === 'GESTAO_TOTAL'
                   ? 'Aguardando a assinatura Gestão Total ficar ativa.'
-                  : 'Landing page hospedada pela GastroNexa é exclusiva do plano Gestão Total.'}
+                  : 'A página personalizada do restaurante é exclusiva do plano Gestão Total.'}
             </small>
           </S.Field>
         </S.FormGrid>
