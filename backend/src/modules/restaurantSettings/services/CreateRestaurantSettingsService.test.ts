@@ -15,6 +15,7 @@ const originalRepositoryMethods = {
 };
 
 const originalRestaurantUpdate = prisma.restaurant.update;
+const originalSubscriptionFindUnique = prisma.subscription.findUnique;
 const originalTransaction = prisma.$transaction;
 
 beforeEach(() => {
@@ -31,6 +32,7 @@ afterEach(() => {
   restaurantSettingsRepository.create = originalRepositoryMethods.create;
   restaurantSettingsRepository.update = originalRepositoryMethods.update;
   prisma.restaurant.update = originalRestaurantUpdate;
+  prisma.subscription.findUnique = originalSubscriptionFindUnique;
   prisma.$transaction = originalTransaction;
 });
 
@@ -250,6 +252,7 @@ test('persiste os canais, aparência, SEO, WhatsApp e redes sociais do restauran
     capturedRestaurantUpdate = data;
     return { id: 7, ...data };
   };
+  prisma.subscription.findUnique = async () => ({ plan: 'GESTAO_TOTAL', status: 'ATIVA' });
 
   await createRestaurantSettingsService.execute({
     restaurantId: 7,
@@ -276,6 +279,7 @@ test('persiste os canais, aparência, SEO, WhatsApp e redes sociais do restauran
     fontFamily: 'Manrope',
     seoTitle: 'Restaurante do Bairro',
     seoDescription: 'Peça pelo cardápio digital.',
+    customDomainRequested: true,
     landingPageEnabled: true,
   });
 
@@ -287,10 +291,77 @@ test('persiste os canais, aparência, SEO, WhatsApp e redes sociais do restauran
   assert.equal(capturedCreateData.primaryColor, '#aabbcc');
   assert.equal(capturedCreateData.fontFamily, 'Manrope');
   assert.equal(capturedCreateData.seoTitle, 'Restaurante do Bairro');
+  assert.equal(capturedCreateData.customDomainRequested, true);
   assert.equal(capturedCreateData.landingPageEnabled, true);
   assert.equal(capturedCreateData.whatsappEnabled, true);
   assert.equal(capturedCreateData.receiveStatusNotifications, true);
   assert.deepEqual(capturedRestaurantUpdate, { whatsapp: '5585999999999' });
+});
+
+test('aplica a matriz de plano para domínio próprio e landing page', async () => {
+  restaurantSettingsRepository.findByRestaurantId = async () => null;
+  restaurantSettingsRepository.create = async (data) => ({ id: 1, ...data });
+
+  prisma.subscription.findUnique = async () => ({ plan: 'BASICO', status: 'ATIVA' });
+  await assert.rejects(
+    () =>
+      createRestaurantSettingsService.execute({
+        restaurantId: 7,
+        deliveryFee: 0,
+        minimumOrder: 0,
+        customDomainRequested: true,
+      }),
+    /Premium e Gestão Total/i,
+  );
+
+  prisma.subscription.findUnique = async () => ({ plan: 'PREMIUM', status: 'ATIVA' });
+  await assert.doesNotReject(() =>
+    createRestaurantSettingsService.execute({
+      restaurantId: 7,
+      deliveryFee: 0,
+      minimumOrder: 0,
+      customDomainRequested: true,
+      landingPageEnabled: false,
+    }),
+  );
+  await assert.rejects(
+    () =>
+      createRestaurantSettingsService.execute({
+        restaurantId: 8,
+        deliveryFee: 0,
+        minimumOrder: 0,
+        customDomainRequested: true,
+        landingPageEnabled: true,
+      }),
+    /Gestão Total/i,
+  );
+
+  prisma.subscription.findUnique = async () => ({ plan: 'GESTAO_TOTAL', status: 'ATIVA' });
+  await assert.doesNotReject(() =>
+    createRestaurantSettingsService.execute({
+      restaurantId: 9,
+      deliveryFee: 0,
+      minimumOrder: 0,
+      customDomainRequested: true,
+      landingPageEnabled: true,
+    }),
+  );
+});
+
+test('rejeita landing sem solicitação de domínio próprio', async () => {
+  restaurantSettingsRepository.findByRestaurantId = async () => null;
+
+  await assert.rejects(
+    () =>
+      createRestaurantSettingsService.execute({
+        restaurantId: 7,
+        deliveryFee: 0,
+        minimumOrder: 0,
+        customDomainRequested: false,
+        landingPageEnabled: true,
+      }),
+    /exige que o restaurante também solicite um domínio próprio/i,
+  );
 });
 
 test('rejeita documento comercial com dígitos verificadores inválidos ao criar', async () => {
