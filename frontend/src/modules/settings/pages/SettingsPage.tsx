@@ -146,9 +146,16 @@ function buildApiPayload(settings: RestaurantSettings) {
     minimumOrder: settings.minimumOrder,
     deliveryFee: settings.deliveryFee,
     courierFeePerDelivery: settings.courierFeePerDelivery,
-    averageDeliveryTime: settings.deliveryTimeMin || settings.averageDeliveryTime,
-    deliveryTimeMin: settings.deliveryTimeMin,
-    deliveryTimeMax: settings.deliveryTimeMax,
+    averageDeliveryTime:
+      settings.deliveryTimeMin > 0 ? settings.deliveryTimeMin : null,
+    deliveryTimeMin:
+      settings.deliveryTimeMin === 0 && settings.deliveryTimeMax === 0
+        ? null
+        : settings.deliveryTimeMin,
+    deliveryTimeMax:
+      settings.deliveryTimeMin === 0 && settings.deliveryTimeMax === 0
+        ? null
+        : settings.deliveryTimeMax,
     acceptsPix: settings.acceptsPix,
     openFinancePixEnabled: settings.openFinancePixEnabled,
     acceptsCard: settings.acceptsCard,
