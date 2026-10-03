@@ -14,6 +14,7 @@ import {
   Unplug,
 } from 'lucide-react';
 import styled from 'styled-components';
+import QRCode from 'react-qr-code';
 import { adminMockSettings } from '../data';
 import * as S from '../Admin.styles';
 import { getRestaurantCategoryFavicon } from '../../../config/browserBranding';
@@ -26,7 +27,7 @@ type Props = {
 };
 type Connection = {
   configured: boolean;
-  provider: 'ZAPI';
+  provider: 'EVOLUTION';
   status: 'NOT_CONFIGURED' | 'PENDING' | 'CONNECTED' | 'DISCONNECTED' | 'ERROR' | string;
   phone?: string | null;
   trialExpiresAt?: string | null;
@@ -99,12 +100,13 @@ export function WhatsAppSettings({ settings, update }: Props) {
   const [restaurantSlug, setRestaurantSlug] = useState(identity.slug);
   const [connection, setConnection] = useState<Connection>({
     configured: false,
-    provider: 'ZAPI',
+    provider: 'EVOLUTION',
     status: 'NOT_CONFIGURED',
   });
   const [qrCode, setQrCode] = useState('');
   const [connectionLoading, setConnectionLoading] = useState(false);
   const [connectionError, setConnectionError] = useState('');
+  const autoRefreshRef = useRef<number | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -128,6 +130,13 @@ export function WhatsAppSettings({ settings, update }: Props) {
       active = false;
     };
   }, []);
+
+  useEffect(
+    () => () => {
+      if (autoRefreshRef.current !== null) window.clearInterval(autoRefreshRef.current);
+    },
+    [],
+  );
 
   const enabled = Boolean(settings.whatsappEnabled);
   const statusEnabled = Boolean(settings.receiveStatusNotifications);
@@ -181,6 +190,40 @@ export function WhatsAppSettings({ settings, update }: Props) {
     setImageError('');
   };
 
+  const stopAutoRefresh = () => {
+    if (autoRefreshRef.current !== null) {
+      window.clearInterval(autoRefreshRef.current);
+      autoRefreshRef.current = null;
+    }
+  };
+
+  const startAutoRefresh = () => {
+    stopAutoRefresh();
+    let attempts = 0;
+    autoRefreshRef.current = window.setInterval(() => {
+      attempts += 1;
+      void restaurantSettingsService
+        .refreshWhatsappConnection()
+        .then((current) => {
+          const next = current as Connection;
+          setConnection(next);
+          if (next.status === 'CONNECTED') {
+            setQrCode('');
+            setConnectionError('');
+            stopAutoRefresh();
+          } else if (next.status === 'ERROR') {
+            setConnectionError('A conexão do WhatsApp foi perdida. Gere um novo QR Code.');
+            stopAutoRefresh();
+          } else if (attempts >= 30) {
+            stopAutoRefresh();
+          }
+        })
+        .catch(() => {
+          if (attempts >= 30) stopAutoRefresh();
+        });
+    }, 2000);
+  };
+
   const connectWhatsapp = async () => {
     setConnectionLoading(true);
     setConnectionError('');
@@ -190,7 +233,19 @@ export function WhatsAppSettings({ settings, update }: Props) {
         : ((await restaurantSettingsService.createWhatsappConnection()) as Connection);
       setConnection(current);
       const qr = await restaurantSettingsService.getWhatsappQrCode();
-      setQrCode(String(qr?.qrCode || ''));
+      const nextConnection = qr as Connection;
+      setConnection(nextConnection);
+      if (nextConnection.status === 'CONNECTED') {
+        setQrCode('');
+        return;
+      }
+      const image = String(qr?.qrCode || '').trim();
+      const content = String(qr?.qrContent || '').trim();
+      if (!image && !content) {
+        throw new Error('O serviço ainda não disponibilizou o QR Code. Tente novamente em alguns segundos.');
+      }
+      setQrCode(image || content);
+      startAutoRefresh();
     } catch (error) {
       setConnectionError(
         requestErrorMessage(error, 'Não foi possível iniciar a conexão do WhatsApp.'),
@@ -206,7 +261,10 @@ export function WhatsAppSettings({ settings, update }: Props) {
     try {
       const current = (await restaurantSettingsService.refreshWhatsappConnection()) as Connection;
       setConnection(current);
-      if (current.status === 'CONNECTED') setQrCode('');
+      if (current.status === 'CONNECTED') {
+        setQrCode('');
+        stopAutoRefresh();
+      }
     } catch (error) {
       setConnectionError(
         requestErrorMessage(error, 'Não foi possível atualizar o status do WhatsApp.'),
@@ -220,6 +278,7 @@ export function WhatsAppSettings({ settings, update }: Props) {
     setConnectionLoading(true);
     setConnectionError('');
     try {
+      stopAutoRefresh();
       setConnection(
         (await restaurantSettingsService.disconnectWhatsappConnection()) as Connection,
       );
@@ -287,7 +346,13 @@ export function WhatsAppSettings({ settings, update }: Props) {
 
             {qrCode && !connected ? (
               <div className="qr-area">
-                <img src={qrCode} alt="QR Code para conectar o WhatsApp do restaurante" />
+                {qrCode.startsWith('data:image/') ? (
+                  <img src={qrCode} alt="QR Code para conectar o WhatsApp do restaurante" />
+                ) : (
+                  <div className="qr-generated" role="img" aria-label="QR Code para conectar o WhatsApp do restaurante">
+                    <QRCode value={qrCode} size={210} />
+                  </div>
+                )}
                 <div>
                   <b>Leia este QR Code no WhatsApp</b>
                   <span>WhatsApp → Dispositivos conectados → Conectar um dispositivo.</span>
