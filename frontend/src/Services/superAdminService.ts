@@ -115,6 +115,101 @@ class SuperAdminService {
     return response.data;
   }
 
+  async getManagedRestaurantWorkspace(restaurantId: number) {
+    const response = await api.get(
+      `/super-admin/managed-service/restaurants/${restaurantId}/workspace`,
+    );
+    return response.data;
+  }
+
+  async createManagedProduct(restaurantId: number, input: Record<string, unknown>) {
+    const response = await api.post(
+      `/super-admin/managed-service/restaurants/${restaurantId}/products`,
+      input,
+    );
+    return response.data;
+  }
+
+  async updateManagedProduct(
+    restaurantId: number,
+    productId: number,
+    input: Record<string, unknown>,
+  ) {
+    const response = await api.patch(
+      `/super-admin/managed-service/restaurants/${restaurantId}/products/${productId}`,
+      input,
+    );
+    return response.data;
+  }
+
+  async createManagedCategory(restaurantId: number, input: Record<string, unknown>) {
+    const response = await api.post(
+      `/super-admin/managed-service/restaurants/${restaurantId}/categories`,
+      input,
+    );
+    return response.data;
+  }
+
+  async updateManagedCategory(
+    restaurantId: number,
+    categoryId: number,
+    input: Record<string, unknown>,
+  ) {
+    const response = await api.patch(
+      `/super-admin/managed-service/restaurants/${restaurantId}/categories/${categoryId}`,
+      input,
+    );
+    return response.data;
+  }
+
+  async createManagedCombo(restaurantId: number, input: Record<string, unknown>) {
+    const response = await api.post(
+      `/super-admin/managed-service/restaurants/${restaurantId}/combos`,
+      input,
+    );
+    return response.data;
+  }
+
+  async updateManagedCombo(
+    restaurantId: number,
+    comboId: number,
+    input: Record<string, unknown>,
+  ) {
+    const response = await api.patch(
+      `/super-admin/managed-service/restaurants/${restaurantId}/combos/${comboId}`,
+      input,
+    );
+    return response.data;
+  }
+
+  async createManagedBanner(restaurantId: number, input: Record<string, unknown>) {
+    const response = await api.post(
+      `/super-admin/managed-service/restaurants/${restaurantId}/banners`,
+      input,
+    );
+    return response.data;
+  }
+
+  async updateManagedBanner(
+    restaurantId: number,
+    bannerId: number,
+    input: Record<string, unknown>,
+  ) {
+    const response = await api.patch(
+      `/super-admin/managed-service/restaurants/${restaurantId}/banners/${bannerId}`,
+      input,
+    );
+    return response.data;
+  }
+
+  async updateManagedSafeSettings(restaurantId: number, input: Record<string, unknown>) {
+    const response = await api.patch(
+      `/super-admin/managed-service/restaurants/${restaurantId}/settings`,
+      input,
+    );
+    return response.data;
+  }
+
   async sendSupportMessage(
     restaurantId: number,
     message: string,
