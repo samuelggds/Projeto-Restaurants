@@ -42,7 +42,7 @@ const benefits: Record<PlanCode, string[]> = {
   PREMIUM: [
     'Sistema de delivery',
     'Cardápio digital com QR Code de mesa',
-    'Implantação inicial assistida com cadastro ilimitado',
+    'Implantação inicial assistida',
     'Cadastro inicial de até 150 produtos',
     'Suporte prioritário',
     'GastroNexa IA com US$ 2,00 de créditos iniciais',
@@ -477,7 +477,7 @@ export function MonthlyBilling({
               return (
                 <S.PlanCard
                   key={plan.plan}
-                  $featured={plan.plan === 'PREMIUM'}
+                  $featured={plan.plan === 'GESTAO_TOTAL'}
                   $current={current}
                   aria-label={`Plano ${plan.name}${current ? ', plano atual' : ''}`}
                 >
@@ -488,7 +488,11 @@ export function MonthlyBilling({
                       </span>
                       <div>
                         <small>
-                          {plan.plan === 'PREMIUM' ? 'EXPERIÊNCIA COMPLETA' : 'PARA COMEÇAR'}
+                          {plan.plan === 'GESTAO_TOTAL'
+                            ? 'GESTÃO CONTÍNUA'
+                            : plan.plan === 'PREMIUM'
+                              ? 'IMPLANTAÇÃO ASSISTIDA'
+                              : 'PARA COMEÇAR'}
                         </small>
                         <h3>{plan.name}</h3>
                       </div>
@@ -497,7 +501,7 @@ export function MonthlyBilling({
                       <S.PlanTag $tone="current">
                         <BadgeCheck aria-hidden="true" /> Atual
                       </S.PlanTag>
-                    ) : plan.plan === 'PREMIUM' ? (
+                    ) : plan.plan === 'GESTAO_TOTAL' ? (
                       <S.PlanTag $tone="recommended">Mais completo</S.PlanTag>
                     ) : null}
                   </S.PlanCardTop>
