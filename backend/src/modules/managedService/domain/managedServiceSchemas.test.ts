@@ -48,4 +48,19 @@ test('bloqueia credenciais persistidas em solicitações e respostas', () => {
       response: 'Use Bearer abcdefghijklmnopqrstuvwxyz123456',
     }),
   );
+
+  assert.throws(() =>
+    implementationUpdateSchema.parse({
+      status: 'EM_IMPLANTACAO',
+      notes: 'MFA: 123456',
+    }),
+  );
+
+  assert.throws(() =>
+    managedRequestCreateSchema.parse({
+      category: 'CONFIGURACAO',
+      title: 'Atualizar dados',
+      description: 'conta bancária: 12345-6',
+    }),
+  );
 });
