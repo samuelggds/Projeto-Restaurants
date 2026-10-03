@@ -9,6 +9,7 @@ import {
   normalizeEstablishmentAddress,
   validateEstablishmentAddress,
 } from '../utils/establishmentAddress.js';
+import { normalizeDeliveryTimeRangeInput } from '../utils/deliveryTimeRange.js';
 import { normalizeBusinessHours } from '../utils/businessHours.js';
 import {
   normalizeFontFamily,
@@ -103,6 +104,8 @@ type UpdateRestaurantSettingsPayload = {
   businessHours?: unknown;
   isOpenForOrders?: boolean;
   averageDeliveryTime?: string | number | null;
+  deliveryTimeMin?: string | number | null;
+  deliveryTimeMax?: string | number | null;
   autoAcceptOrders?: boolean;
   trackingRequiresLogin?: boolean;
   soundNotifications?: boolean;
@@ -244,6 +247,8 @@ class UpdateRestaurantSettingsService {
     businessHours,
     isOpenForOrders,
     averageDeliveryTime,
+    deliveryTimeMin,
+    deliveryTimeMax,
     autoAcceptOrders,
     trackingRequiresLogin,
     soundNotifications,
@@ -326,10 +331,11 @@ class UpdateRestaurantSettingsService {
       isOpenForOrders === undefined
         ? undefined
         : normalizeStrictBoolean(isOpenForOrders, 'Recebimento de pedidos', true);
-    const normalizedAverageDeliveryTime =
-      averageDeliveryTime === undefined
-        ? undefined
-        : String(normalizeIntegerInRange(averageDeliveryTime, 'Tempo médio de preparo', 1, 240));
+    const normalizedDeliveryTimeRange = normalizeDeliveryTimeRangeInput({
+      averageDeliveryTime,
+      deliveryTimeMin,
+      deliveryTimeMax,
+    });
     const normalizedAutoAcceptOrders =
       autoAcceptOrders === undefined
         ? undefined
@@ -650,7 +656,9 @@ class UpdateRestaurantSettingsService {
             ),
       businessHours: normalizedBusinessHours as Prisma.InputJsonValue | undefined,
       isOpenForOrders: normalizedIsOpenForOrders,
-      averageDeliveryTime: normalizedAverageDeliveryTime,
+      averageDeliveryTime: normalizedDeliveryTimeRange?.averageDeliveryTime,
+      deliveryTimeMin: normalizedDeliveryTimeRange?.deliveryTimeMin,
+      deliveryTimeMax: normalizedDeliveryTimeRange?.deliveryTimeMax,
       autoAcceptOrders: normalizedAutoAcceptOrders,
       trackingRequiresLogin: normalizedTrackingRequiresLogin,
       soundNotifications: normalizedSoundNotifications,
