@@ -75,6 +75,8 @@ model User {
   employeeSettlementPayments    EmployeeSettlementPayment[]  @relation("EmployeeSettlementPaymentEmployee")
   tableWaiterAssignments        TableWaiterAssignment[]      @relation("TableWaiterAssignmentWaiter")
   tableAccessRequestsDecided    TableAccessRequest[]          @relation("TableAccessRequestDecidedBy")
+  managedUpdateRequestsRequested RestaurantManagedUpdateRequest[] @relation("ManagedUpdateRequester")
+  managedUpdateRequestsHandled   RestaurantManagedUpdateRequest[] @relation("ManagedUpdateHandler")
 
   @@unique([id, restaurantId])
   @@unique([restaurantId, username])
@@ -335,6 +337,8 @@ model Restaurant {
   ratings                       ProductRating[]
   settings                      RestaurantSettings?
   supportChatMessages           SupportChatMessage[]
+  implementation                RestaurantImplementation?
+  managedUpdateRequests         RestaurantManagedUpdateRequest[]
   subscription                  Subscription?
   tables                        Table[]
   users                         User[]
