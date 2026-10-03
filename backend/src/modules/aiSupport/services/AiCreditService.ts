@@ -129,7 +129,10 @@ async function hasPremiumAiPlan(
     select: { plan: true, status: true },
   });
   const isActive = subscription?.status === 'ATIVA' || subscription?.status === 'TESTE';
-  return Boolean(isActive && subscription?.plan === 'PREMIUM');
+  return Boolean(
+    isActive &&
+      (subscription?.plan === 'PREMIUM' || subscription?.plan === 'GESTAO_TOTAL'),
+  );
 }
 
 async function assertActiveAdmin(
