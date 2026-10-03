@@ -643,11 +643,12 @@ export const HeroMetrics = styled.aside`
     width:184px;
     min-height:96px;
     padding:18px 18px 17px;
-    border:1px solid rgba(255,255,255,.34);
+    border:1px solid rgba(255,255,255,.16);
     border-radius:14px;
-    background:rgba(255,255,255,.96);
-    box-shadow:0 14px 34px rgba(18,15,12,.18);
-    backdrop-filter:blur(10px);
+    background:rgba(24,20,17,.44);
+    box-shadow:0 14px 34px rgba(8,6,5,.18);
+    backdrop-filter:blur(12px) saturate(115%);
+    -webkit-backdrop-filter:blur(12px) saturate(115%);
     display:flex;
     align-items:center;
   }
@@ -673,7 +674,7 @@ export const HeroMetrics = styled.aside`
   .delivery-metrics span + span{
     margin-left:16px;
     padding-left:16px;
-    border-left:1px solid #eceae6;
+    border-left:1px solid rgba(255,255,255,.20);
   }
 
   .delivery-metrics[data-single-metric='true'] span + span{
@@ -683,16 +684,17 @@ export const HeroMetrics = styled.aside`
   }
 
   .metric-card b{
-    color:#262521;
+    color:#fff;
     font-size:13px;
     line-height:16px;
     font-weight:850;
     white-space:nowrap;
+    text-shadow:0 1px 8px rgba(0,0,0,.18);
   }
 
   .metric-card small{
     max-width:58px;
-    color:#77736d;
+    color:rgba(255,255,255,.72);
     font-size:9px;
     line-height:11px;
   }
@@ -701,11 +703,13 @@ export const HeroMetrics = styled.aside`
     width:300px;
     min-height:40px;
     padding:0 14px;
-    border:1px solid rgba(255,255,255,.32);
+    border:1px solid rgba(255,255,255,.14);
     border-radius:10px;
-    background:rgba(255,255,255,.96);
-    color:#4f4c47;
-    box-shadow:0 10px 26px rgba(18,15,12,.16);
+    background:rgba(24,20,17,.40);
+    color:rgba(255,255,255,.86);
+    box-shadow:0 10px 26px rgba(8,6,5,.16);
+    backdrop-filter:blur(10px) saturate(110%);
+    -webkit-backdrop-filter:blur(10px) saturate(110%);
     display:flex;
     align-items:center;
     gap:8px;
