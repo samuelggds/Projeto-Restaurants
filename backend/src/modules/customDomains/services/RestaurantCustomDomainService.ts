@@ -258,9 +258,54 @@ export class RestaurantCustomDomainService {
     try {
       return await prisma.$transaction(async (tx) => {
         const actor = await requireSuperAdminActor(superAdminRepository, context, tx);
-        const verificationToken = identityChanged
-          ? randomBytes(24).toString('base64url')
-          : current.verificationToken;
+
+        // One registry-wide transaction lock prevents concurrent SUPER_ADMIN writes
+        // from reserving the same host through different columns (hostname/menuHostname).
+        await tx.$queryRaw<Array<{ locked: number }>>`
+          SELECT 1::int AS "locked"
+          FROM pg_advisory_xact_lock(7243)
+        `;
+
+        const reservedHosts = new Set([
+          hostname,
+          ...(menuHostname ? [menuHostname] : []),
+          ...(mode === 'MENU_ONLY' && includeWww && !hostname.startsWith('www.')
+            ? [`www.${hostname}`]
+            : []),
+        ]);
+        const otherDomains = await tx.restaurantCustomDomain.findMany({
+          where: { restaurantId: { not: restaurantId } },
+          select: {
+            hostname: true,
+            menuHostname: true,
+            includeWww: true,
+            mode: true,
+          },
+        });
+        const collision = otherDomains.some((domain) => {
+          const occupied = new Set([
+            domain.hostname,
+            ...(domain.menuHostname ? [domain.menuHostname] : []),
+            ...(domain.mode === 'MENU_ONLY' &&
+            domain.includeWww &&
+            !domain.hostname.startsWith('www.')
+              ? [`www.${domain.hostname}`]
+              : []),
+          ]);
+          return [...reservedHosts].some((host) => occupied.has(host));
+        });
+        if (collision) {
+          throw new SuperAdminError(
+            'Este domínio, subdomínio ou alias www já está vinculado a outro restaurante.',
+            409,
+            'CUSTOM_DOMAIN_CONFLICT',
+          );
+        }
+
+        const verificationToken =
+          !current || identityChanged
+            ? randomBytes(24).toString('base64url')
+            : current.verificationToken;
         const after = await tx.restaurantCustomDomain.upsert({
           where: { restaurantId },
           create: {
@@ -369,7 +414,9 @@ export class RestaurantCustomDomainService {
               updatedByUserId: actor.id,
             }
           : {
-              status: current.status === 'ACTIVE' ? 'ACTIVE' : 'PENDING_DNS',
+              status: 'PENDING_DNS',
+              dnsVerifiedAt: null,
+              activatedAt: null,
               lastCheckedAt: now,
               lastCheckError: failureReason || 'DNS ainda não está pronto.',
               updatedByUserId: actor.id,
@@ -438,16 +485,35 @@ export class RestaurantCustomDomainService {
       const failureReason = !ownershipVerified
         ? 'O TXT de verificação não está mais publicado.'
         : routing.reason || 'O roteamento DNS não está mais apontando para a GastroNexa.';
-      await prisma.restaurantCustomDomain.update({
-        where: { restaurantId },
-        data: {
-          status: 'PENDING_DNS',
-          dnsVerifiedAt: null,
-          activatedAt: null,
-          lastCheckedAt: new Date(),
-          lastCheckError: failureReason,
-          updatedByUserId: actor.id,
-        },
+      await prisma.$transaction(async (tx) => {
+        const verifiedActor = await requireSuperAdminActor(superAdminRepository, context, tx);
+        const updated = await tx.restaurantCustomDomain.update({
+          where: { restaurantId },
+          data: {
+            status: 'PENDING_DNS',
+            dnsVerifiedAt: null,
+            activatedAt: null,
+            lastCheckedAt: new Date(),
+            lastCheckError: failureReason,
+            updatedByUserId: verifiedActor.id,
+          },
+        });
+        await superAdminRepository.createAuditLog(
+          {
+            ...context,
+            actorName: verifiedActor.name,
+            actorRole: verifiedActor.role,
+            restaurantId,
+            restaurantName: restaurant.name,
+            action: 'CUSTOM_DOMAIN_ACTIVATION_BLOCKED',
+            resource: `RestaurantCustomDomain:${updated.id}`,
+            metadata: buildAuditMetadata({
+              before: { status: current.status },
+              after: { status: updated.status, reason: failureReason },
+            }),
+          },
+          tx,
+        );
       });
       throw new SuperAdminError(
         failureReason,
