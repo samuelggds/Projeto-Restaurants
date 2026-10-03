@@ -126,7 +126,8 @@ export function ManagedServicePage() {
   }, []);
 
   useEffect(() => {
-    void load();
+    const timer = window.setTimeout(() => void load(), 0);
+    return () => window.clearTimeout(timer);
   }, [load]);
 
   const normalizedSearch = search.trim().toLocaleLowerCase('pt-BR');
