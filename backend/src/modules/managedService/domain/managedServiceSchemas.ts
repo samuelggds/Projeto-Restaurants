@@ -1,3 +1,5 @@
+import { z } from 'zod';
+
 const managedCredentialPatterns = [
   /\b(?:access[_ -]?token|secret[_ -]?key|api[_ -]?key|password|senha)\s*[:=]\s*\S{6,}/iu,
   /\bBearer\s+[A-Za-z0-9._-]{12,}/u,
@@ -9,8 +11,6 @@ function rejectManagedCredentialText(value: string | null | undefined) {
   if (!value) return true;
   return !managedCredentialPatterns.some((pattern) => pattern.test(value));
 }
-
-import { z } from 'zod';
 
 export const managedRequestCreateSchema = z
   .object({
