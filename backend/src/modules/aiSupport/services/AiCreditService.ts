@@ -103,7 +103,7 @@ export class PremiumAiPlanRequiredError extends Error {
   code = 'PREMIUM_AI_PLAN_REQUIRED';
 
   constructor() {
-    super('Os recursos de IA estão disponíveis somente no plano Premium.');
+    super('Os recursos de IA estão disponíveis nos planos Premium e Gestão Total.');
     this.name = 'PremiumAiPlanRequiredError';
   }
 }
