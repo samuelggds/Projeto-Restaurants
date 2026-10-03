@@ -38,7 +38,8 @@ const MAX_PROFILE_IMAGE_BYTES = 500_000;
 const PUBLIC_STORE_ORIGIN = 'https://www.gastronexa.com.br';
 
 function normalizeWhatsAppNumber(value: string) {
-  return String(value || '').replace(/\D/g, '');
+  const digits = String(value || '').replace(/\D/g, '');
+  return /^[1-9]\d{9,10}$/u.test(digits) ? `55${digits}` : digits;
 }
 
 function normalizeSlug(value: unknown) {
@@ -51,8 +52,7 @@ function normalizeSlug(value: unknown) {
 function getNumberError(value: string, required: boolean) {
   const digits = normalizeWhatsAppNumber(value);
   if (!digits) return required ? 'Informe o número que será usado no WhatsApp.' : '';
-  const international = /^[1-9]\d{9,10}$/u.test(digits) ? `55${digits}` : digits;
-  return !/^[1-9]\d{10,14}$/u.test(international)
+  return !/^[1-9]\d{10,14}$/u.test(digits)
     ? 'Use DDI + DDD + número. Ex.: +55 85 99999-9999.'
     : '';
 }
