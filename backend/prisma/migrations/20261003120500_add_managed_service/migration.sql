@@ -11,7 +11,7 @@ VALUES (
     "Implantação inicial assistida",
     "Cadastro assistido de produtos, categorias e combos sem limite de quantidade",
     "Configuração visual e operacional inicial",
-    "Gestão assistida contínua sob solicitação",
+    "Gestão assistida contínua, inclusive com atualizações diárias sob solicitação",
     "Atualizações de produtos, preços, categorias, combos, banners e configurações",
     "Solicitações de atualização ilimitadas",
     "GastroNexa IA",
