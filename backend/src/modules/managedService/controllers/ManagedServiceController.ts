@@ -1,5 +1,6 @@
 import type { NextFunction, Request, Response } from 'express';
 import managedServiceService from '../services/ManagedServiceService.js';
+import { normalizeManagedServiceError } from '../domain/managedServiceErrors.js';
 
 function superActor(req: Request) {
   return {
@@ -24,7 +25,7 @@ class ManagedServiceController {
         }),
       );
     } catch (error) {
-      return next(error);
+      return next(normalizeManagedServiceError(error));
     }
   }
 
@@ -39,7 +40,7 @@ class ManagedServiceController {
         }),
       );
     } catch (error) {
-      return next(error);
+      return next(normalizeManagedServiceError(error));
     }
   }
 
@@ -47,7 +48,7 @@ class ManagedServiceController {
     try {
       return res.status(200).json(await managedServiceService.listSuperAdminQueue());
     } catch (error) {
-      return next(error);
+      return next(normalizeManagedServiceError(error));
     }
   }
 
@@ -57,7 +58,7 @@ class ManagedServiceController {
         await managedServiceService.updateImplementation(req.params.restaurantId, req.body, superActor(req)),
       );
     } catch (error) {
-      return next(error);
+      return next(normalizeManagedServiceError(error));
     }
   }
 
@@ -67,7 +68,7 @@ class ManagedServiceController {
         await managedServiceService.updateManagedRequest(req.params.requestId, req.body, superActor(req)),
       );
     } catch (error) {
-      return next(error);
+      return next(normalizeManagedServiceError(error));
     }
   }
 }
