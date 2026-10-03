@@ -345,9 +345,17 @@ export class ManagedServiceService {
           userAgent: actor.userAgent ?? null,
           metadata: {
             before: before
-              ? { status: before.status, notes: before.notes, completedAt: before.completedAt }
+              ? {
+                  status: before.status,
+                  hadNotes: Boolean(before.notes),
+                  completedAt: before.completedAt,
+                }
               : null,
-            after: { status: after.status, notes: after.notes, completedAt: after.completedAt },
+            after: {
+              status: after.status,
+              hadNotes: Boolean(after.notes),
+              completedAt: after.completedAt,
+            },
           },
         },
       });
@@ -404,8 +412,8 @@ export class ManagedServiceService {
           requestId: actor.requestId ?? null,
           userAgent: actor.userAgent ?? null,
           metadata: {
-            before: { status: before.status, response: before.response },
-            after: { status: after.status, response: after.response },
+            before: { status: before.status, hadResponse: Boolean(before.response) },
+            after: { status: after.status, hadResponse: Boolean(after.response) },
           },
         },
       });
