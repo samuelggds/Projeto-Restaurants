@@ -37,6 +37,7 @@ const configuredProduct: AdminProduct = {
   image: '/pizza.webp',
   price: 40,
   stock: null,
+  preparationTime: 35,
   active: true,
   saleMode: 'BUILDABLE',
   configurationVersion: 3,
@@ -113,6 +114,7 @@ describe('cadastro administrativo de produto', () => {
     const featuredProduct: AdminProduct = {
       ...configuredProduct,
       featured: true,
+      preparationTime: 35,
       saleMode: 'COMPLETE',
       pricingMode: 'BASE',
       optionGroups: [],
@@ -144,9 +146,16 @@ describe('cadastro administrativo de produto', () => {
     expect(container.textContent).toContain('Destaques da Casa');
 
     await clickButton('Continuar');
+
+    const preparationTimeInput = container.querySelector(
+      'input[aria-label="Tempo de preparo em minutos"]',
+    ) as HTMLInputElement | null;
+    expect(preparationTimeInput?.value).toBe('35');
+
     await clickButton('Continuar');
 
     expect(container.textContent).toContain('Destaque da Home: aparece em “Destaques da Casa”.');
+    expect(container.textContent).toContain('Preparo estimado: 35 min');
 
     await clickButton('Salvar alterações');
 
