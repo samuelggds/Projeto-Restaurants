@@ -27,7 +27,7 @@ const test = base.extend<{ apiIsolation: void }>({
                     code: 'BASICO',
                     name: 'Básico',
                     description: 'Operação de delivery para restaurantes que estão iniciando na plataforma.',
-                    monthlyFee: 149.9,
+                    monthlyFee: 99.9,
                     trialDays: 7,
                     features: ['Sistema de delivery', 'Suporte padrão'],
                     featured: false,
@@ -36,7 +36,7 @@ const test = base.extend<{ apiIsolation: void }>({
                     code: 'PREMIUM',
                     name: 'Premium',
                     description: 'Experiência completa com delivery e atendimento por QR Code de mesa.',
-                    monthlyFee: 249.9,
+                    monthlyFee: 199.9,
                     trialDays: 15,
                     features: [
                       'Sistema de delivery',
@@ -50,7 +50,7 @@ const test = base.extend<{ apiIsolation: void }>({
                     name: 'Gestão Total',
                     description:
                       'Tudo do Premium com gestão contínua sob solicitação da equipe GastroNexa.',
-                    monthlyFee: 349.9,
+                    monthlyFee: 299.9,
                     trialDays: 15,
                     features: [
                       'Tudo do Plano Premium',
@@ -164,9 +164,9 @@ test('planos preservam catálogo público e levam ao formulário', async ({ page
   await expect(plans.getByRole('heading', { name: 'Premium', exact: true })).toBeVisible();
   await expect(plans.getByRole('heading', { name: 'Básico', exact: true })).toBeVisible();
   await expect(plans.getByRole('heading', { name: 'Gestão Total', exact: true })).toBeVisible();
-  await expect(plans).toContainText('349,90');
-  await expect(plans).toContainText('249,90');
-  await expect(plans).toContainText('149,90');
+  await expect(plans).toContainText('299,90');
+  await expect(plans).toContainText('199,90');
+  await expect(plans).toContainText('99,90');
   await expect(plans).toContainText('15 dias de teste');
   await expect(plans).toContainText('7 dias de teste');
 
