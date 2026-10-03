@@ -22,6 +22,10 @@ import {
   normalizeStrictBoolean,
   normalizeWhatsappNumber,
 } from '../utils/adminSettingsValidation.js';
+import {
+  hasCustomDomainAccess,
+  hasHostedLandingAccess,
+} from '../../billing/domain/planFeaturePolicy.js';
 
 type UpdateRestaurantSettingsPayload = {
   restaurantId: number | string;
@@ -90,6 +94,7 @@ type UpdateRestaurantSettingsPayload = {
   fontFamily?: string | null;
   seoTitle?: string | null;
   seoDescription?: string | null;
+  customDomainRequested?: boolean;
   landingPageEnabled?: boolean;
   restaurantName?: string | null;
   restaurantLogo?: string | null;
@@ -234,6 +239,7 @@ class UpdateRestaurantSettingsService {
     fontFamily,
     seoTitle,
     seoDescription,
+    customDomainRequested,
     landingPageEnabled,
     restaurantName,
     restaurantLogo,
@@ -354,6 +360,39 @@ class UpdateRestaurantSettingsService {
       maxConcurrentOrders === undefined
         ? undefined
         : normalizeIntegerInRange(maxConcurrentOrders, 'Limite de pedidos simultâneos', 1, 500);
+    const normalizedCustomDomainRequested =
+      customDomainRequested === undefined
+        ? undefined
+        : normalizeStrictBoolean(customDomainRequested, 'Domínio próprio', false);
+    const normalizedLandingPageEnabled =
+      landingPageEnabled === undefined
+        ? undefined
+        : normalizeStrictBoolean(landingPageEnabled, 'Landing page institucional', false);
+    const resultingCustomDomainRequested =
+      normalizedCustomDomainRequested ?? settings.customDomainRequested ?? false;
+    const resultingLandingPageEnabled =
+      normalizedLandingPageEnabled ?? settings.landingPageEnabled ?? false;
+    if (resultingLandingPageEnabled && !resultingCustomDomainRequested) {
+      throw new Error('A landing page exige que o restaurante também solicite um domínio próprio.');
+    }
+    if (resultingCustomDomainRequested || resultingLandingPageEnabled) {
+      const subscription = await prisma.subscription.findUnique({
+        where: { restaurantId: Number(restaurantId) },
+        select: { plan: true, status: true },
+      });
+      if (
+        resultingCustomDomainRequested &&
+        !hasCustomDomainAccess(subscription?.plan, subscription?.status)
+      ) {
+        throw new Error('Domínio próprio está disponível somente nos planos Premium e Gestão Total ativos.');
+      }
+      if (
+        resultingLandingPageEnabled &&
+        !hasHostedLandingAccess(subscription?.plan, subscription?.status)
+      ) {
+        throw new Error('Landing page da GastroNexa está disponível somente no plano Gestão Total ativo.');
+      }
+    }
     const normalizedWhatsappEnabled =
       whatsappEnabled === undefined
         ? undefined
@@ -635,10 +674,8 @@ class UpdateRestaurantSettingsService {
         seoDescription === undefined
           ? undefined
           : normalizeOptionalText(seoDescription, 'Descrição para buscadores', 160),
-      landingPageEnabled:
-        landingPageEnabled === undefined
-          ? undefined
-          : normalizeStrictBoolean(landingPageEnabled, 'Landing page institucional', false),
+      customDomainRequested: normalizedCustomDomainRequested,
+      landingPageEnabled: normalizedLandingPageEnabled,
       whatsappEnabled: normalizedWhatsappEnabled,
       whatsappDisplayName:
         whatsappDisplayName === undefined
