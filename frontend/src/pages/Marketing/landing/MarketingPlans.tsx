@@ -33,7 +33,7 @@ const fallbackPlans: PublicPlan[] = [
     features: [
       'Sistema de delivery',
       'Cardápio digital com QR Code de mesa',
-      'Implantação inicial assistida',
+      'Implantação inicial assistida com cadastro ilimitado',
       'Cadastro inicial de até 150 produtos',
       'Suporte prioritário',
       'Agente de IA para automações do sistema',
@@ -51,7 +51,7 @@ const fallbackPlans: PublicPlan[] = [
       'Implantação inicial assistida',
       'Gestão assistida contínua sob solicitação',
       'Atualizações de produtos, preços, categorias, combos, banners e configurações',
-      'Solicitações ilimitadas dentro da política de uso justo',
+      'Solicitações de atualização ilimitadas',
       'Suporte prioritário',
       'GastroNexa IA',
     ],
