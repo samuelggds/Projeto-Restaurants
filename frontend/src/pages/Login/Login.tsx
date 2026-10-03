@@ -42,7 +42,7 @@ import {
   readRememberedAccountEmail,
   writeRememberedAccountEmail,
 } from './domain/rememberedAccount';
-import { useCustomDomainTenant } from '../../shared/tenant/CustomDomainTenantContext';
+import { useCustomDomainTenant } from '../../shared/tenant/useCustomDomainTenant';
 import {
   canUseLoginPortal,
   getLoginPortalAccessError,
