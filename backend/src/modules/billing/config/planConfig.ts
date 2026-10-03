@@ -9,7 +9,7 @@ export const PLAN_CONFIG = {
     features: [
       'Sistema de delivery',
       'Implantação inicial assistida uma única vez',
-      'Cadastro inicial de até 150 produtos, além de categorias, combos, banners e configurações',
+      'Cadastro inicial de até 50 produtos, além de categorias, combos, banners e configurações',
       'Após a implantação, o próprio ADMIN gerencia o cardápio e as configurações',
       'Endereço público GastroNexa com /slug',
       'Suporte padrão',
