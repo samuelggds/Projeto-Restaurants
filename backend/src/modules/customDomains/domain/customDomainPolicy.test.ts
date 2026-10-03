@@ -53,6 +53,16 @@ test('separa landing principal do hostname do cardápio', () => {
   assert.deepEqual(
     customDomainPublicHosts({
       hostname: 'northpizza.com.br',
+      menuHostname: 'cardapio.northpizza.com.br',
+      mode: 'SITE_WITH_MENU_SUBDOMAIN',
+      includeWww: true,
+      landingPublished: true,
+    }),
+    ['cardapio.northpizza.com.br', 'northpizza.com.br', 'www.northpizza.com.br'],
+  );
+  assert.deepEqual(
+    customDomainPublicHosts({
+      hostname: 'northpizza.com.br',
       menuHostname: null,
       mode: 'MENU_ONLY',
       includeWww: true,
