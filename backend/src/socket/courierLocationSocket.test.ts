@@ -122,7 +122,7 @@ async function sendLocation(socket, orderId = 91) {
   return response;
 }
 
-test('persiste GPS da conta atribuída e emite somente ao cliente e admin do tenant', async () => {
+test('persiste GPS da conta atribuída e emite somente ao cliente, visitante do pedido e admin do tenant', async () => {
   let persisted;
   prisma.order.findFirst = async () => trackedOrder();
   prisma.deliveryLocation.create = async ({ data }) => {
@@ -139,6 +139,7 @@ test('persiste GPS da conta atribuída e emite somente ao cliente e admin do ten
   assert.deepEqual(
     socket.emissions.map(({ room, event }) => ({ room, event })),
     [
+      { room: 'guest-order:91', event: 'order:delivery-location' },
       { room: 'user:12', event: 'order:delivery-location' },
       { room: 'restaurant:7:admin', event: 'order:delivery-location' },
     ],
