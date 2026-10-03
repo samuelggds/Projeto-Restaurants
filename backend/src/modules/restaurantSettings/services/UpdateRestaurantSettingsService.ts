@@ -367,13 +367,13 @@ class UpdateRestaurantSettingsService {
     const normalizedLandingPageEnabled =
       landingPageEnabled === undefined
         ? undefined
-        : normalizeStrictBoolean(landingPageEnabled, 'Landing page institucional', false);
+        : normalizeStrictBoolean(landingPageEnabled, 'Página personalizada do restaurante', false);
     const resultingCustomDomainRequested =
       normalizedCustomDomainRequested ?? settings.customDomainRequested ?? false;
     const resultingLandingPageEnabled =
       normalizedLandingPageEnabled ?? settings.landingPageEnabled ?? false;
     if (resultingLandingPageEnabled && !resultingCustomDomainRequested) {
-      throw new Error('A landing page exige que o restaurante também solicite um domínio próprio.');
+      throw new Error('A página personalizada exige que o domínio próprio também esteja ativado.');
     }
     const enablingCustomDomain =
       normalizedCustomDomainRequested === true && settings.customDomainRequested !== true;
@@ -388,7 +388,7 @@ class UpdateRestaurantSettingsService {
         throw new Error('Domínio próprio está disponível somente nos planos Premium e Gestão Total ativos.');
       }
       if (enablingLanding && !hasHostedLandingAccess(subscription?.plan, subscription?.status)) {
-        throw new Error('Landing page da GastroNexa está disponível somente no plano Gestão Total ativo.');
+        throw new Error('A página personalizada do restaurante está disponível somente no plano Gestão Total ativo.');
       }
     }
     const normalizedWhatsappEnabled =
