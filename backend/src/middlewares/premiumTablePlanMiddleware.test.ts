@@ -47,15 +47,15 @@ test('permite sistema de mesas para plano Premium ativo', async () => {
 test('permite sistema de mesas para Gestão Total ativa', async () => {
   prisma.subscription.findUnique = async () => ({ plan: 'GESTAO_TOTAL', status: 'ATIVA' });
 
-  const req = request();
-  const res = response();
-  let called = false;
+  const req = { user: { restaurantId: 7 } };
+  const res = responseStub();
+  let nextCalled = false;
 
   await premiumTablePlanMiddleware(req, res, () => {
-    called = true;
+    nextCalled = true;
   });
 
-  assert.equal(called, true);
+  assert.equal(nextCalled, true);
   assert.equal(res.statusCode, 200);
 });
 
