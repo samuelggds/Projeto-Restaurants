@@ -7,3 +7,4 @@ export { RestaurantsPage } from './pages/RestaurantsPage';
 export { SettingsPage } from './pages/SettingsPage';
 export { SubscriptionsPage } from './pages/SubscriptionsPage';
 export { SupportPage } from './pages/SupportPage';
+export { ManagedServicePage } from './pages/ManagedServicePage';
