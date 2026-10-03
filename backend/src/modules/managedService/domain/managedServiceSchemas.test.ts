@@ -32,3 +32,20 @@ test('valida categorias e estados operacionais permitidos', () => {
     () => managedRequestUpdateSchema.parse({ status: 'APROVADA_SEM_REVISAO' }),
   );
 });
+
+test('bloqueia credenciais persistidas em solicitações e respostas', () => {
+  assert.throws(() =>
+    managedRequestCreateSchema.parse({
+      category: 'CONFIGURACAO',
+      title: 'Configurar integração',
+      description: 'access_token=APP_USR-12345678901234567890',
+    }),
+  );
+
+  assert.throws(() =>
+    managedRequestUpdateSchema.parse({
+      status: 'AGUARDANDO_CLIENTE',
+      response: 'Use Bearer abcdefghijklmnopqrstuvwxyz123456',
+    }),
+  );
+});
