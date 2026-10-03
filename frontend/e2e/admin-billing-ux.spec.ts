@@ -148,14 +148,14 @@ async function mockAdminApi(page: Page, state: BillingTestState) {
           {
             plan: 'BASICO',
             name: 'Básico',
-            monthlyFee: 149.9,
+            monthlyFee: 99.9,
             trialDays: 7,
             features: ['Sistema de delivery', 'Suporte padrão'],
           },
           {
             plan: 'PREMIUM',
             name: 'Premium',
-            monthlyFee: 249.9,
+            monthlyFee: 199.9,
             trialDays: 15,
             features: [
               'Sistema de delivery',
@@ -167,7 +167,7 @@ async function mockAdminApi(page: Page, state: BillingTestState) {
           {
             plan: 'GESTAO_TOTAL',
             name: 'Gestão Total',
-            monthlyFee: 349.9,
+            monthlyFee: 299.9,
             trialDays: 15,
             features: [
               'Tudo do Plano Premium',
@@ -377,7 +377,7 @@ test('central financeira mantém leitura clara e responsiva em desktop e mobile'
   );
   const managedPlan = page.locator('article[aria-label^="Plano Gestão Total"]');
   await expect(managedPlan).toBeVisible();
-  await expect(managedPlan).toContainText('349,90');
+  await expect(managedPlan).toContainText('299,90');
   await expect(page.getByText('Troca disponível')).toBeVisible();
   await expectNoHorizontalOverflow(page);
   await page.getByRole('button', { name: 'Recolher menu lateral' }).click();
