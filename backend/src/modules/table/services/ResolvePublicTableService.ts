@@ -99,7 +99,7 @@ class ResolvePublicTableService {
 
     const subscription = table.restaurant.subscription;
     const hasPremiumTableAccess =
-      subscription?.plan === 'PREMIUM' &&
+      (subscription?.plan === 'PREMIUM' || subscription?.plan === 'GESTAO_TOTAL') &&
       (subscription.status === 'ATIVA' || subscription.status === 'TESTE');
 
     if (!hasPremiumTableAccess) {
