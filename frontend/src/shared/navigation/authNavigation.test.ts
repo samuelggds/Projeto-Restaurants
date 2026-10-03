@@ -145,8 +145,10 @@ describe('authNavigation', () => {
   });
 
   it('preserva contexto TABLE no domínio próprio sem slug na URL', () => {
-    window.history.replaceState({}, '', 'https://cardapio.restaurante.com.br/mesa/12?rid=42&tk=abc');
-    window.sessionStorage.setItem('gastronexa:custom-domain-host', 'cardapio.restaurante.com.br');
+    window.sessionStorage.setItem(
+      'gastronexa:custom-domain-host',
+      window.location.hostname.toLowerCase(),
+    );
     rememberTenantSlug('restaurante-x');
 
     const next = '/mesa/12?rid=42&tk=abc#conta';
