@@ -1,3 +1,4 @@
+import type { Prisma } from '@prisma/client';
 import { z } from 'zod';
 import prisma from '../../../config/prisma.js';
 import { withTenantDbContext } from '../../../database/tenantDbContext.js';
@@ -21,6 +22,7 @@ import {
 } from '../domain/managedServicePolicy.js';
 import {
   managedBadRequest,
+  managedConflict,
   managedForbidden,
   managedMutation,
   managedNotFound,
@@ -102,7 +104,7 @@ async function assertManagedAccess(restaurantId: number) {
       name: true,
       slug: true,
       subscription: { select: { plan: true, status: true } },
-      implementation: { select: { status: true } },
+      implementation: { select: { status: true, productLimit: true } },
     },
   });
   if (!restaurant) throw managedNotFound('Restaurante não encontrado.');
@@ -129,6 +131,23 @@ async function assertManagedAccess(restaurantId: number) {
   }
 
   return restaurant;
+}
+
+async function assertManagedProductCapacity(
+  db: Prisma.TransactionClient,
+  restaurantId: number,
+  productLimit: number | null | undefined,
+) {
+  if (productLimit == null) return;
+
+  await db.$queryRaw`SELECT pg_advisory_xact_lock(7241, ${restaurantId})`;
+  const productCount = await db.product.count({ where: { restaurantId } });
+  if (productCount >= productLimit) {
+    throw managedConflict(
+      `A implantação Premium permite cadastro inicial de até ${productLimit} produtos.`,
+      'MANAGED_PRODUCT_LIMIT_REACHED',
+    );
+  }
 }
 
 async function audit(
@@ -233,11 +252,23 @@ class SuperAdminManagedRestaurantService {
     const restaurant = await assertManagedAccess(restaurantId);
     const parsed = createProductSchema.parse(input);
     return managedMutation(() =>
-      createProductService.execute(parsed, restaurantId, {
-        userId: superAdmin.id,
-        userName: superAdmin.name,
-        userRole: superAdmin.role,
-      }),
+      createProductService.execute(
+        parsed,
+        restaurantId,
+        {
+          userId: superAdmin.id,
+          userName: superAdmin.name,
+          userRole: superAdmin.role,
+        },
+        {
+          beforeCreate: (db) =>
+            assertManagedProductCapacity(
+              db,
+              restaurantId,
+              restaurant.implementation?.productLimit,
+            ),
+        },
+      ),
     );
   }
 
@@ -308,7 +339,14 @@ class SuperAdminManagedRestaurantService {
     const comboId = comboIdInput == null ? null : positiveId(comboIdInput, 'Combo');
     const parsed = comboInputSchema.parse(input);
     const result = await managedMutation(() =>
-      productComboService.save(comboId, restaurantId, parsed),
+      productComboService.save(comboId, restaurantId, parsed, {
+        beforeCreate: (db) =>
+          assertManagedProductCapacity(
+            db,
+            restaurantId,
+            restaurant.implementation?.productLimit,
+          ),
+      }),
     );
     await audit(
       restaurantId,
