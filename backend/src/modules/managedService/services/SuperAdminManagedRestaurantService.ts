@@ -141,8 +141,10 @@ async function assertManagedProductCapacity(
 ) {
   if (productLimit == null) return;
 
-  const lockKey = 7_241_000_000n + BigInt(restaurantId);
-  await db.$queryRaw`SELECT pg_advisory_xact_lock(${lockKey})`;
+  await db.$queryRaw<Array<{ lockAcquired: number }>>`
+    SELECT 1::int AS "lockAcquired"
+    FROM pg_advisory_xact_lock(7241, ${restaurantId}::int)
+  `;
   const productCount = await db.product.count({ where: { restaurantId } });
   if (productCount >= productLimit) {
     throw managedConflict(
@@ -158,7 +160,7 @@ async function audit(
   actor: Actor,
   action: string,
   resource: string,
-  metadata: Record<string, unknown>,
+  metadata: Prisma.InputJsonObject,
 ) {
   await prisma.auditLog.create({
     data: {
@@ -178,17 +180,6 @@ async function audit(
 }
 
 const safeSettingsSelect = {
-  restaurantName: true,
-  restaurantLogo: true,
-  restaurantCoverImage: true,
-  restaurantDescription: true,
-  restaurantAddress: true,
-  restaurantAddressNumber: true,
-  restaurantAddressComplement: true,
-  restaurantAddressDistrict: true,
-  restaurantCity: true,
-  restaurantState: true,
-  restaurantZipCode: true,
   businessHours: true,
   isOpenForOrders: true,
   deliveryTimeMin: true,
@@ -201,7 +192,6 @@ const safeSettingsSelect = {
   freeShippingMinimum: true,
   acceptsDelivery: true,
   acceptsPickup: true,
-  whatsapp: true,
   instagram: true,
   facebook: true,
   tiktok: true,
@@ -210,7 +200,23 @@ const safeSettingsSelect = {
   fontFamily: true,
   seoTitle: true,
   seoDescription: true,
-} as const;
+  restaurant: {
+    select: {
+      name: true,
+      logo: true,
+      coverImage: true,
+      description: true,
+      address: true,
+      addressNumber: true,
+      addressComplement: true,
+      addressDistrict: true,
+      city: true,
+      state: true,
+      zipCode: true,
+      whatsapp: true,
+    },
+  },
+} satisfies Prisma.RestaurantSettingsSelect;
 
 class SuperAdminManagedRestaurantService {
   async getWorkspace(restaurantIdInput: unknown, actor: Actor) {
@@ -244,7 +250,42 @@ class SuperAdminManagedRestaurantService {
       categories: categories.categories,
       combos,
       banners,
-      settings,
+      settings: settings
+        ? {
+            restaurantName: settings.restaurant.name,
+            restaurantLogo: settings.restaurant.logo,
+            restaurantCoverImage: settings.restaurant.coverImage,
+            restaurantDescription: settings.restaurant.description,
+            restaurantAddress: settings.restaurant.address,
+            restaurantAddressNumber: settings.restaurant.addressNumber,
+            restaurantAddressComplement: settings.restaurant.addressComplement,
+            restaurantAddressDistrict: settings.restaurant.addressDistrict,
+            restaurantCity: settings.restaurant.city,
+            restaurantState: settings.restaurant.state,
+            restaurantZipCode: settings.restaurant.zipCode,
+            whatsapp: settings.restaurant.whatsapp,
+            businessHours: settings.businessHours,
+            isOpenForOrders: settings.isOpenForOrders,
+            deliveryTimeMin: settings.deliveryTimeMin,
+            deliveryTimeMax: settings.deliveryTimeMax,
+            averageDeliveryTime: settings.averageDeliveryTime,
+            autoAcceptOrders: settings.autoAcceptOrders,
+            maxConcurrentOrders: settings.maxConcurrentOrders,
+            deliveryFee: settings.deliveryFee,
+            minimumOrder: settings.minimumOrder,
+            freeShippingMinimum: settings.freeShippingMinimum,
+            acceptsDelivery: settings.acceptsDelivery,
+            acceptsPickup: settings.acceptsPickup,
+            instagram: settings.instagram,
+            facebook: settings.facebook,
+            tiktok: settings.tiktok,
+            youtube: settings.youtube,
+            primaryColor: settings.primaryColor,
+            fontFamily: settings.fontFamily,
+            seoTitle: settings.seoTitle,
+            seoDescription: settings.seoDescription,
+          }
+        : null,
     };
   }
 
@@ -367,7 +408,16 @@ class SuperAdminManagedRestaurantService {
     const restaurant = await assertManagedAccess(restaurantId);
     const bannerInput = inputRecord(input);
     const result = await managedMutation(() =>
-      createBannerService.execute({ ...bannerInput, restaurantId }),
+      createBannerService.execute({
+        restaurantId,
+        title: bannerInput.title,
+        highlight: bannerInput.highlight,
+        description: bannerInput.description,
+        buttonLabel: bannerInput.buttonLabel,
+        image: bannerInput.image,
+        active: bannerInput.active,
+        position: bannerInput.position,
+      }),
     );
     await audit(restaurantId, restaurant.name, actor, 'MANAGED_BANNER_CREATED', 'Banner', {
       bannerId: result.id,
