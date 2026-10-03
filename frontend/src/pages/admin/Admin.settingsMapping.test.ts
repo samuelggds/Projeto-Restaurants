@@ -156,6 +156,7 @@ describe('mapeamento das configurações administrativas', () => {
       fontFamily: 'Manrope',
       seoTitle: 'Restaurante do Bairro',
       seoDescription: 'Peça online com segurança.',
+      customDomainRequested: true,
       landingPageEnabled: true,
       restaurant: { name: 'Restaurante do Bairro' },
     });
@@ -184,6 +185,7 @@ describe('mapeamento das configurações administrativas', () => {
       fontFamily: 'Manrope',
       seoTitle: 'Restaurante do Bairro',
       seoDescription: 'Peça online com segurança.',
+      customDomainRequested: true,
       landingPageEnabled: true,
     });
   });
