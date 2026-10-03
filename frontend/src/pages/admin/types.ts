@@ -309,6 +309,7 @@ export type AdminSettings = {
   fontFamily: string;
   seoTitle: string;
   seoDescription: string;
+  customDomainRequested: boolean;
   landingPageEnabled: boolean;
   pixProvider: string;
   pixKey: string;
