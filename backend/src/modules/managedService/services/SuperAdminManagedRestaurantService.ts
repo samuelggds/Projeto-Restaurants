@@ -134,6 +134,24 @@ async function assertManagedAccess(restaurantId: number) {
   return restaurant;
 }
 
+function effectiveManagedProductLimit(
+  plan: unknown,
+  configuredLimit: number | null | undefined,
+) {
+  const policyLimit = managedImplementationProductLimit(plan);
+  if (policyLimit == null) return null;
+
+  const normalizedConfiguredLimit = Number(configuredLimit);
+  if (
+    Number.isInteger(normalizedConfiguredLimit) &&
+    normalizedConfiguredLimit > 0
+  ) {
+    return Math.min(policyLimit, normalizedConfiguredLimit);
+  }
+
+  return policyLimit;
+}
+
 async function assertManagedProductCapacity(
   db: Prisma.TransactionClient,
   restaurantId: number,
@@ -308,7 +326,10 @@ class SuperAdminManagedRestaurantService {
             assertManagedProductCapacity(
               db,
               restaurantId,
-              managedImplementationProductLimit(restaurant.subscription?.plan),
+              effectiveManagedProductLimit(
+                restaurant.subscription?.plan,
+                restaurant.implementation?.productLimit,
+              ),
             ),
         },
       ),
@@ -387,7 +408,10 @@ class SuperAdminManagedRestaurantService {
           assertManagedProductCapacity(
             db,
             restaurantId,
-            managedImplementationProductLimit(restaurant.subscription?.plan),
+            effectiveManagedProductLimit(
+                restaurant.subscription?.plan,
+                restaurant.implementation?.productLimit,
+              ),
           ),
       }),
     );
