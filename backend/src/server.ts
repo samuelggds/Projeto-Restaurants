@@ -18,6 +18,7 @@ import { createJobScheduler } from './jobs/runtime.js';
 import { safeErrorName, safeErrorSummary } from './services/telemetrySanitizer.js';
 import { assertSecureRuntimeDatabaseRole } from './database/tenantDbContext.js';
 import { normalizeOrigin } from './middlewares/security/httpAccessProtection.js';
+import { isActiveCustomDomainOrigin } from './modules/customDomains/services/PublicCustomDomainService.js';
 
 const server = http.createServer(app);
 const apiJobScheduler = createJobScheduler('api');
@@ -34,7 +35,18 @@ const socketAllowedOrigins = [
 
 export const io = new Server(server, {
   cors: {
-    origin: isProduction ? socketAllowedOrigins : '*',
+    origin: isProduction
+      ? (origin, callback) => {
+          const normalized = normalizeOrigin(String(origin || ''));
+          if (!normalized || socketAllowedOrigins.includes(normalized)) {
+            callback(null, true);
+            return;
+          }
+          void isActiveCustomDomainOrigin(normalized)
+            .then((allowed) => callback(allowed ? null : new Error('Origin not allowed'), allowed))
+            .catch(() => callback(new Error('Origin not allowed'), false));
+        }
+      : '*',
     methods: ['GET', 'POST'],
     credentials: true,
   },
@@ -43,7 +55,25 @@ export const io = new Server(server, {
   maxHttpBufferSize: 64 * 1024,
   allowRequest: (req, callback) => {
     const origin = normalizeOrigin(String(req.headers.origin || ''));
-    callback(null, !isProduction || !origin || socketAllowedOrigins.includes(origin));
+    if (!isProduction || !origin || socketAllowedOrigins.includes(origin)) {
+      callback(null, true);
+      return;
+    }
+    const host = String(req.headers.host || '').split(':')[0].trim().toLowerCase();
+    let originHost = '';
+    try {
+      originHost = new URL(origin).hostname.toLowerCase();
+    } catch {
+      callback(null, false);
+      return;
+    }
+    if (host && originHost === host) {
+      void isActiveCustomDomainOrigin(origin)
+        .then((allowed) => callback(null, allowed))
+        .catch(() => callback(null, false));
+      return;
+    }
+    callback(null, false);
   },
 });
 
