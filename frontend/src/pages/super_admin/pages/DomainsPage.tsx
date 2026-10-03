@@ -39,7 +39,8 @@ type DomainRecord = {
   };
 };
 
-function eligibleRestaurant(restaurant: RestaurantTenant) {
+function eligibleRestaurant(restaurant?: RestaurantTenant | null) {
+  if (!restaurant) return false;
   const plan = String(restaurant.subscription?.planCode || '').toUpperCase();
   const status = String(restaurant.subscription?.status || '').toUpperCase();
   return (
@@ -261,7 +262,7 @@ export function DomainsPage({ data }: { data: SuperAdminData }) {
           <S.ActionGroup>
             <S.Button
               $variant="primary"
-              disabled={loading || !hostname.trim() || (selected ? !selected.planEligible : !eligibleRestaurant(data.restaurants.find((item) => item.id === restaurantId) as RestaurantTenant))}
+              disabled={loading || !hostname.trim() || (selected ? !selected.planEligible : !eligibleRestaurant(data.restaurants.find((item) => item.id === restaurantId)))}
               onClick={() => void save()}
             >
               {loading ? 'Salvando…' : selected ? 'Salvar alterações' : 'Cadastrar domínio'}
