@@ -1567,7 +1567,7 @@ export function FigmaDeliveryExperience({
           categoryName={
             categories.find((category) => category.id === selectedReadyProduct.categoryId)?.name
           }
-          preparationTime={data.deliveryTime}
+          preparationTime={selectedReadyProduct.preparationTime}
           cartCount={cartCount}
           onBack={() => {
             setSelectedReadyProduct(null);
