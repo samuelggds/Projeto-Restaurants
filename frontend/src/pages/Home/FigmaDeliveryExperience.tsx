@@ -94,6 +94,7 @@ function ProductCarouselSection({
   description,
   products,
   onOpenProduct,
+  onAddProduct,
   className = '',
   sectionId,
   ariaLabel,
@@ -104,6 +105,7 @@ function ProductCarouselSection({
   description?: string;
   products: HomeProduct[];
   onOpenProduct: (product: HomeProduct, sourceElement?: HTMLElement | null) => void;
+  onAddProduct: (product: HomeProduct, sourceElement?: HTMLElement | null) => void;
   className?: string;
   sectionId?: string;
   ariaLabel?: string;
@@ -206,12 +208,13 @@ function ProductCarouselSection({
                     className="add"
                     type="button"
                     aria-label={`Adicionar ${product.name}`}
-                    onClick={(event) =>
-                      onOpenProduct(
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      onAddProduct(
                         product,
                         event.currentTarget.closest<HTMLElement>('[data-product-carousel-card]'),
-                      )
-                    }
+                      );
+                    }}
                   >
                     + Adicionar
                   </button>
@@ -601,6 +604,26 @@ export function FigmaDeliveryExperience({
     }
 
     setSelectedProduct(product);
+  };
+
+  const addProductFromCard = (
+    product: HomeProduct,
+    sourceElement?: HTMLElement | null,
+  ) => {
+    const entryKind = resolveProductEntryKind(product);
+
+    if (entryKind !== 'READY') {
+      openProduct(product, sourceElement);
+      return;
+    }
+
+    const origin = captureCartFlyOrigin(sourceElement);
+    onAddProduct?.(
+      product.id,
+      createReadyProductConfiguration(product.configurationVersion),
+      1,
+    );
+    flyProduct(product, origin, sourceElement);
   };
 
   const goHome = () => {
@@ -1126,6 +1149,7 @@ export function FigmaDeliveryExperience({
               description="Os produtos que mais chamam atenção no cardápio."
               products={featured}
               onOpenProduct={openProduct}
+              onAddProduct={addProductFromCard}
               className="featured-carousel"
               sectionId="home-featured"
               ariaLabel="Produtos em destaque"
@@ -1147,6 +1171,7 @@ export function FigmaDeliveryExperience({
               description="Combinações completas para pedir de um jeito mais prático."
               products={combos}
               onOpenProduct={openProduct}
+              onAddProduct={addProductFromCard}
               className="combos-carousel"
               sectionId="home-combos"
               itemLabel="Combo"
@@ -1158,6 +1183,7 @@ export function FigmaDeliveryExperience({
                 title={category.name}
                 products={products}
                 onOpenProduct={openProduct}
+              onAddProduct={addProductFromCard}
                 className="category-product-carousel"
                 sectionId={`home-category-${encodeURIComponent(category.id)}`}
                 itemLabel={category.name}
