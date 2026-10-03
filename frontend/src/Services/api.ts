@@ -31,6 +31,16 @@ function getRuntimeHost() {
   return typeof window === 'undefined' ? '' : window.location.hostname || '';
 }
 
+function configuredHostname(value: unknown) {
+  const raw = String(value || '').trim();
+  if (!raw) return '';
+  try {
+    return new URL(raw.includes('://') ? raw : `https://${raw}`).hostname.toLowerCase();
+  } catch {
+    return '';
+  }
+}
+
 function getHostCandidates(host) {
   if (!host) return [];
   const protocol =
@@ -42,7 +52,9 @@ function getHostCandidates(host) {
 
 function getApiBaseUrls() {
   const configuredUrl = normalizeBaseUrl(import.meta.env.VITE_API_URL);
-  const runtimeHost = getRuntimeHost();
+  const configuredAppHost = configuredHostname(import.meta.env.VITE_APP_URL);
+  const configuredApiHost = configuredHostname(configuredUrl);
+  const runtimeHost = getRuntimeHost().toLowerCase();
   const runtimeCandidates = getHostCandidates(runtimeHost).map(normalizeBaseUrl);
   const runtimeUrl = normalizeBaseUrl(getRuntimeBaseUrl());
   const sameOriginUrl =
@@ -71,10 +83,19 @@ function getApiBaseUrls() {
   }
 
   if (!isLocalRuntimeHost) {
-    // Production uses a dedicated API origin. Falling back to the frontend origin is unsafe:
-    // nginx serves the SPA there and rejects API POSTs with 405, while GETs may return index.html.
-    // Keep production requests pinned to VITE_API_URL instead of mutating the client to APP_DOMAIN
-    // after a transient network failure.
+    const isCustomDomainRuntime =
+      Boolean(configuredAppHost) &&
+      runtimeHost !== configuredAppHost &&
+      runtimeHost !== configuredApiHost;
+
+    // Custom restaurant domains are intentionally same-origin. Caddy proxies /api
+    // to the backend, keeping cookies and browser security scoped to that hostname.
+    if (isCustomDomainRuntime && sameOriginUrl) {
+      urls.add(`${sameOriginUrl}/api`);
+      return Array.from(urls);
+    }
+
+    // The canonical GastroNexa frontend keeps using the dedicated API origin.
     if (configuredUrl && configuredUrl !== sameOriginUrl) urls.add(configuredUrl);
     return Array.from(urls);
   }

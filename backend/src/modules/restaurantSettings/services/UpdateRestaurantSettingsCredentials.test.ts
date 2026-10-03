@@ -9,6 +9,7 @@ const originalRead = restaurantSettingsRepository.findByRestaurantId;
 const originalUpdate = restaurantSettingsRepository.update;
 const originalTransaction = prisma.$transaction;
 const originalRestaurantUpdate = prisma.restaurant.update;
+const originalSubscriptionFindUnique = prisma.subscription.findUnique;
 
 beforeEach(() => {
   prisma.$transaction = async (callback) =>
@@ -24,6 +25,7 @@ afterEach(() => {
   restaurantSettingsRepository.update = originalUpdate;
   prisma.$transaction = originalTransaction;
   prisma.restaurant.update = originalRestaurantUpdate;
+  prisma.subscription.findUnique = originalSubscriptionFindUnique;
 });
 
 const savedCredentials = () => ({
@@ -51,6 +53,70 @@ function store() {
   };
   return () => saved;
 }
+
+test('mantém edição comum funcionando após downgrade sem reativar benefícios', async () => {
+  let saved = {
+    ...savedCredentials(),
+    customDomainRequested: true,
+    landingPageEnabled: true,
+  };
+  restaurantSettingsRepository.findByRestaurantId = async () => structuredClone(saved);
+  restaurantSettingsRepository.update = async (_restaurantId, data) => {
+    saved = {
+      ...saved,
+      ...Object.fromEntries(Object.entries(data).filter(([, value]) => value !== undefined)),
+    };
+    return structuredClone(saved);
+  };
+  prisma.subscription.findUnique = async () => {
+    throw new Error('não deveria consultar o plano para preferência já existente');
+  };
+
+  await service.execute({
+    restaurantId: 7,
+    primaryColor: '#654321',
+    customDomainRequested: true,
+    landingPageEnabled: true,
+  });
+
+  assert.equal(saved.primaryColor, '#654321');
+  assert.equal(saved.customDomainRequested, true);
+  assert.equal(saved.landingPageEnabled, true);
+});
+
+test('bloqueia nova ativação de domínio e landing fora do plano permitido', async () => {
+  let saved = {
+    ...savedCredentials(),
+    customDomainRequested: false,
+    landingPageEnabled: false,
+  };
+  restaurantSettingsRepository.findByRestaurantId = async () => structuredClone(saved);
+  restaurantSettingsRepository.update = async (_restaurantId, data) => {
+    saved = {
+      ...saved,
+      ...Object.fromEntries(Object.entries(data).filter(([, value]) => value !== undefined)),
+    };
+    return structuredClone(saved);
+  };
+
+  prisma.subscription.findUnique = async () => ({ plan: 'BASICO', status: 'ATIVA' });
+  await assert.rejects(
+    () => service.execute({ restaurantId: 7, customDomainRequested: true }),
+    /Premium e Gestão Total/i,
+  );
+
+  prisma.subscription.findUnique = async () => ({ plan: 'PREMIUM', status: 'ATIVA' });
+  saved.customDomainRequested = true;
+  await assert.rejects(
+    () =>
+      service.execute({
+        restaurantId: 7,
+        customDomainRequested: true,
+        landingPageEnabled: true,
+      }),
+    /Gestão Total/i,
+  );
+});
 
 test('rejeita troca manual de credencial Mercado Pago e preserva o grant OAuth', async () => {
   const state = store();

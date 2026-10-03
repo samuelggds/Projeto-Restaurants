@@ -13,6 +13,7 @@ import finalizeOrderCardPaymentService from './FinalizeOrderCardPaymentService.j
 import orderRepository from '../repositories/OrderRepository.js';
 import orderPaymentAttemptRepository from '../repositories/OrderPaymentAttemptRepository.js';
 import { OrderRequestError } from '../domain/OrderRequestError.js';
+import { resolveSafeOrderReturnUrl } from '../utils/paymentReturnUrl.js';
 
 type Actor = {
   userId: number | null;
@@ -114,6 +115,12 @@ class RetryOrderCardPaymentService {
       );
     }
 
+    const successUrlBase = await resolveSafeOrderReturnUrl(
+      recovery.restaurantId,
+      payload.successUrl,
+      '/',
+    );
+
     const attempt = await orderPaymentAttemptRepository.createCardAttempt({
       orderId: recovery.orderId,
       restaurantId: recovery.restaurantId,
@@ -139,7 +146,7 @@ class RetryOrderCardPaymentService {
           total: recovery.totalAmount,
           restaurant: { name: recovery.restaurantName },
         },
-        successUrlBase: String(payload.successUrl || ''),
+        successUrlBase,
         idempotencyKey: attempt.idempotencyKey,
       });
 

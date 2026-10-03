@@ -5,6 +5,8 @@ import PixPaymentPanel from '../Cart/components/PixPaymentPanel';
 import type { PixPaymentData, PixPaymentStatus } from '../Home/hooks/useCheckoutPayments';
 import ordersService from '../../Services/ordersService';
 import restaurantSettingsService from '../../Services/restaurantSettingsService';
+import { buildTenantPublicPath } from '../../shared/navigation/authNavigation';
+import { useResolvedTenantSlug } from '../../shared/tenant/useCustomDomainTenant';
 import {
   OnlineCardPaymentForm,
   type CardPaymentPreparer,
@@ -215,6 +217,7 @@ function normalizeStatus(payload: RecoveryPayload): PixPaymentStatus {
 export default function OrderPixPaymentPage() {
   const navigate = useNavigate();
   const { restaurantSlug, orderPublicId } = useParams();
+  const resolvedRestaurantSlug = useResolvedTenantSlug(restaurantSlug);
   const [payment, setPayment] = useState<RecoveryPayload | null>(null);
   const [status, setStatus] = useState<PixPaymentStatus>('WAITING');
   const [error, setError] = useState('');
@@ -227,7 +230,7 @@ export default function OrderPixPaymentPage() {
   const [cardFailed, setCardFailed] = useState(false);
   const cardPreparerRef = useRef<CardPaymentPreparer | null>(null);
 
-  const homePath = restaurantSlug ? `/${restaurantSlug}` : '/';
+  const homePath = buildTenantPublicPath(resolvedRestaurantSlug);
 
   const loadPayment = useCallback(
     async (background = false) => {

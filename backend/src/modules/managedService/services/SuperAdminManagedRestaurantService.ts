@@ -8,6 +8,10 @@ import listProductService from '../../products/services/ListProductService.js';
 import createCategoryService from '../../categories/services/CreateCategoryService.js';
 import updateCategoryService from '../../categories/services/UpdateCategoryService.js';
 import listCategoryService from '../../categories/services/ListCategoryService.js';
+import {
+  createIngredientService,
+  listIngredientsService,
+} from '../../ingredients/services/IngredientServices.js';
 import productComboService from '../../productCombos/services/ProductComboService.js';
 import createBannerService from '../../banner/services/CreateBannerService.js';
 import updateBannerService from '../../banner/services/UpdateBannerService.js';
@@ -15,6 +19,7 @@ import listBannerService from '../../banner/services/ListBannerService.js';
 import updateRestaurantSettingsService from '../../restaurantSettings/services/UpdateRestaurantSettingsService.js';
 import { createProductSchema, updateProductSchema } from '../../../validators/ProductValidator.js';
 import { createCategorySchema } from '../../../validators/CategoryValidator.js';
+import { createIngredientSchema } from '../../../validators/IngredientValidator.js';
 import { comboInputSchema } from '../../productCombos/services/ProductComboService.js';
 import {
   hasImplementationAccess,
@@ -127,7 +132,7 @@ async function assertManagedAccess(restaurantId: number) {
     )
   ) {
     throw managedForbidden(
-      'A implantação Premium já foi encerrada. Alterações contínuas exigem o plano Gestão Total.',
+      'A implantação inicial já foi encerrada. Alterações assistidas contínuas exigem o plano Gestão Total.',
       'MANAGED_WORKSPACE_CLOSED',
     );
   }
@@ -167,7 +172,7 @@ async function assertManagedProductCapacity(
   const productCount = await db.product.count({ where: { restaurantId } });
   if (productCount >= productLimit) {
     throw managedConflict(
-      `A implantação Premium permite cadastro inicial de até ${productLimit} produtos.`,
+      `A implantação inicial permite cadastro de até ${productLimit} produtos.`,
       'MANAGED_PRODUCT_LIMIT_REACHED',
     );
   }
@@ -243,9 +248,10 @@ class SuperAdminManagedRestaurantService {
     const restaurantId = positiveId(restaurantIdInput, 'Restaurante');
     const restaurant = await assertManagedAccess(restaurantId);
 
-    const [products, categories, combos, banners, settings] = await Promise.all([
+    const [products, categories, ingredients, combos, banners, settings] = await Promise.all([
       listProductService.execute({ restaurantId }),
       listCategoryService.execute(restaurantId),
+      listIngredientsService.execute(restaurantId),
       productComboService.list(restaurantId),
       listBannerService.execute({ restaurantId }),
       withTenantDbContext(restaurantId, (db) =>
@@ -267,6 +273,7 @@ class SuperAdminManagedRestaurantService {
       },
       products: products.products,
       categories: categories.categories,
+      ingredients: ingredients.ingredients,
       combos,
       banners,
       settings: settings
@@ -355,6 +362,28 @@ class SuperAdminManagedRestaurantService {
         userRole: superAdmin.role,
       }),
     );
+  }
+
+  async createIngredient(restaurantIdInput: unknown, input: unknown, actor: Actor) {
+    await assertSuperAdmin(actor);
+    const restaurantId = positiveId(restaurantIdInput, 'Restaurante');
+    const restaurant = await assertManagedAccess(restaurantId);
+    const parsed = createIngredientSchema.parse(input);
+    const result = await managedMutation(() =>
+      createIngredientService.execute(parsed, restaurantId),
+    );
+    await audit(
+      restaurantId,
+      restaurant.name,
+      actor,
+      'MANAGED_INGREDIENT_CREATED',
+      'Ingredient',
+      {
+        ingredientId: Number(result.id),
+        name: String(result.name || ''),
+      },
+    );
+    return result;
   }
 
   async createCategory(restaurantIdInput: unknown, input: unknown, actor: Actor) {

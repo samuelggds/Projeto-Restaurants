@@ -59,7 +59,7 @@ import {
 
 export const ProductDrawer = forwardRef<ProductDrawerHandle, ProductDrawerProps>(
   function ProductDrawer(
-    { product, categories, ingredients, products = [], createIngredient, close, save },
+    { product, categories, ingredients, products = [], enableTemplates = true, createIngredient, close, save },
     ref,
   ) {
     const { confirmDialog } = useAppDialog();
@@ -179,6 +179,7 @@ export const ProductDrawer = forwardRef<ProductDrawerHandle, ProductDrawerProps>
     const currentStepIndex = wizardSequence.indexOf(currentStep);
 
     useEffect(() => {
+      if (!enableTemplates) return;
       let active = true;
       productConfigurationTemplatesService
         .list()
@@ -191,7 +192,7 @@ export const ProductDrawer = forwardRef<ProductDrawerHandle, ProductDrawerProps>
       return () => {
         active = false;
       };
-    }, []);
+    }, [enableTemplates]);
 
     useEffect(() => {
       stepHeadingRef.current?.focus();
@@ -1094,7 +1095,7 @@ export const ProductDrawer = forwardRef<ProductDrawerHandle, ProductDrawerProps>
                     />
                   )}
 
-                  {hasCustomizationStages && (
+                  {enableTemplates && hasCustomizationStages && (
                     <details className="advanced-template-settings">
                       <summary>
                         Configurações avançadas e modelos

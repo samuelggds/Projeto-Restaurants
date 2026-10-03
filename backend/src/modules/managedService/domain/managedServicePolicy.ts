@@ -13,14 +13,17 @@ export function hasImplementationAccess(
   const normalized = String(plan || '').trim().toUpperCase();
   return (
     hasActiveSubscription(status) &&
-    (normalized === 'PREMIUM' || normalized === 'GESTAO_TOTAL')
+    (normalized === 'BASICO' || normalized === 'PREMIUM' || normalized === 'GESTAO_TOTAL')
   );
 }
 
 export function managedImplementationProductLimit(
   plan: ManagedServicePlan | null | undefined,
 ) {
-  return String(plan || '').trim().toUpperCase() === 'PREMIUM' ? 150 : null;
+  const normalized = String(plan || '').trim().toUpperCase();
+  if (normalized === 'BASICO') return 50;
+  if (normalized === 'PREMIUM') return 100;
+  return null;
 }
 
 export function hasContinuousManagementAccess(

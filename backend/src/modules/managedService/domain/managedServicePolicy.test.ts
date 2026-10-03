@@ -7,10 +7,10 @@ import {
   managedImplementationProductLimit,
 } from './managedServicePolicy.js';
 
-test('Premium e Gestão Total recebem implantação quando a assinatura está ativa', () => {
+test('Básico, Premium e Gestão Total recebem implantação quando a assinatura está ativa', () => {
+  assert.equal(hasImplementationAccess('BASICO', 'ATIVA'), true);
   assert.equal(hasImplementationAccess('PREMIUM', 'ATIVA'), true);
   assert.equal(hasImplementationAccess('GESTAO_TOTAL', 'TESTE'), true);
-  assert.equal(hasImplementationAccess('BASICO', 'ATIVA'), false);
   assert.equal(hasImplementationAccess('PREMIUM', 'CANCELADA'), false);
 });
 
@@ -21,7 +21,9 @@ test('somente Gestão Total ativa recebe gestão contínua', () => {
   assert.equal(hasContinuousManagementAccess('GESTAO_TOTAL', 'EXPIRADA'), false);
 });
 
-test('workspace Premium encerra com a implantação e Gestão Total continua', () => {
+test('workspace Básico/Premium encerra com a implantação e Gestão Total continua', () => {
+  assert.equal(hasManagedWorkspaceAccess('BASICO', 'ATIVA', 'EM_IMPLANTACAO'), true);
+  assert.equal(hasManagedWorkspaceAccess('BASICO', 'ATIVA', 'CONCLUIDA'), false);
   assert.equal(hasManagedWorkspaceAccess('PREMIUM', 'ATIVA', 'EM_IMPLANTACAO'), true);
   assert.equal(hasManagedWorkspaceAccess('PREMIUM', 'ATIVA', 'CONCLUIDA'), false);
   assert.equal(hasManagedWorkspaceAccess('PREMIUM', 'ATIVA', 'CANCELADA'), false);
@@ -29,8 +31,8 @@ test('workspace Premium encerra com a implantação e Gestão Total continua', (
 });
 
 test('limite de implantação é derivado do plano atual', () => {
-  assert.equal(managedImplementationProductLimit('PREMIUM'), 150);
+  assert.equal(managedImplementationProductLimit('BASICO'), 50);
+  assert.equal(managedImplementationProductLimit('PREMIUM'), 100);
   assert.equal(managedImplementationProductLimit('GESTAO_TOTAL'), null);
-  assert.equal(managedImplementationProductLimit('BASICO'), null);
 });
 

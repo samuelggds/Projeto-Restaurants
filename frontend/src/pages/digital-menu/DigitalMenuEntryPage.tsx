@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
+import { useResolvedTenantSlug } from '../../shared/tenant/useCustomDomainTenant';
 import styled from 'styled-components';
 import tableSessionService from '../../Services/tableSessionService';
 import tablesService from '../../Services/tablesService';
@@ -221,9 +222,7 @@ export default function DigitalMenuEntryPage({
   const tableToken = String(searchParams.get('tk') || searchParams.get('token') || '')
     .trim()
     .toLowerCase();
-  const normalizedSlug = String(restaurantSlug || '')
-    .trim()
-    .toLowerCase();
+  const normalizedSlug = useResolvedTenantSlug(restaurantSlug);
   const hasValidRestaurantReference = Boolean(queryRestaurantId || normalizedSlug);
   const invalidQrContext = !routeTableNumber || !hasValidRestaurantReference || !tableToken;
   const searchParamsString = searchParams.toString();

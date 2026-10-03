@@ -1,4 +1,11 @@
-import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  type ClipboardEvent,
+  type FormEvent,
+} from 'react';
 import {
   Boxes,
   Image,
@@ -6,11 +13,22 @@ import {
   PackagePlus,
   RefreshCw,
   Save,
+  Upload,
   Settings2,
   Tags,
   X,
 } from 'lucide-react';
 import superAdminService from '../../../Services/superAdminService';
+import { ProductDrawer } from '../../admin/components/ProductDrawer';
+import type {
+  AdminCategory,
+  AdminIngredient,
+  AdminProduct,
+  AdminProductOptionGroup,
+  AdminProductCompositionItem,
+  AdminProductPortionConfiguration,
+} from '../../admin/types';
+import { createPersistentImageDataUrl } from '../../../utils/persistentImage';
 import * as S from './ManagedRestaurantWorkspace.styles';
 
 type Product = {
@@ -25,6 +43,11 @@ type Product = {
   featured?: boolean;
   kind?: string;
   saleMode?: string;
+  pricingMode?: string;
+  configurationVersion?: number;
+  optionGroups?: AdminProductOptionGroup[];
+  compositionItems?: AdminProductCompositionItem[];
+  portionConfiguration?: AdminProductPortionConfiguration | null;
   categoryId?: number;
   category?: { id: number; name: string } | null;
   comboGroups?: Array<{
@@ -61,6 +84,7 @@ type Workspace = {
   };
   products: Product[];
   categories: Category[];
+  ingredients: AdminIngredient[];
   combos: Product[];
   banners: Banner[];
   settings: Record<string, unknown> | null;
@@ -80,6 +104,14 @@ function requestError(error: unknown) {
 
 const toNumber = (value: unknown) => Number(value || 0);
 
+type ManagedImageTarget = 'product' | 'combo' | 'banner';
+
+const managedImageLabels: Record<ManagedImageTarget, string> = {
+  product: 'produto',
+  combo: 'combo',
+  banner: 'banner',
+};
+
 export function ManagedRestaurantWorkspace({
   restaurantId,
   onClose,
@@ -93,6 +125,7 @@ export function ManagedRestaurantWorkspace({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [customProductEditor, setCustomProductEditor] = useState<AdminProduct | null | 'NEW'>(null);
 
   const [product, setProduct] = useState({
     id: 0,
@@ -189,6 +222,58 @@ export function ManagedRestaurantWorkspace({
     [data?.products],
   );
 
+  const managedCategories = useMemo<AdminCategory[]>(
+    () =>
+      (data?.categories || []).map((item) => ({
+        id: item.id,
+        name: item.name,
+        active: item.active !== false,
+      })),
+    [data?.categories],
+  );
+
+  const managedIngredients = useMemo<AdminIngredient[]>(
+    () =>
+      (data?.ingredients || []).map((item) => ({
+        id: Number(item.id),
+        name: String(item.name || ''),
+        price: Number(item.price || 0),
+        category: String(item.category || 'Geral'),
+        active: item.active !== false,
+        image: item.image || null,
+      })),
+    [data?.ingredients],
+  );
+
+  const mapManagedProduct = useCallback(
+    (item: Product): AdminProduct => ({
+      id: String(item.id),
+      categoryId: Number(item.categoryId || item.category?.id || 0),
+      name: item.name || '',
+      category: item.category?.name || '',
+      price: Number(item.price || 0),
+      image: item.image || '',
+      description: item.description || '',
+      stock: item.stock ?? null,
+      preparationTime: item.preparationTime ?? undefined,
+      active: item.active !== false,
+      featured: item.featured === true,
+      kind: item.kind === 'COMBO' ? 'COMBO' : 'STANDARD',
+      saleMode: item.saleMode === 'BUILDABLE' ? 'BUILDABLE' : 'COMPLETE',
+      pricingMode: item.pricingMode === 'HIGHEST_OPTION' ? 'HIGHEST_OPTION' : 'BASE',
+      configurationVersion: Math.max(1, Number(item.configurationVersion || 1)),
+      optionGroups: item.optionGroups || [],
+      compositionItems: item.compositionItems || [],
+      portionConfiguration: item.portionConfiguration ?? null,
+    }),
+    [],
+  );
+
+  const managedProducts = useMemo<AdminProduct[]>(
+    () => standardProducts.map(mapManagedProduct),
+    [mapManagedProduct, standardProducts],
+  );
+
   async function persist(action: () => Promise<unknown>, message: string) {
     if (saving) return;
     setSaving(true);
@@ -205,7 +290,65 @@ export function ManagedRestaurantWorkspace({
     }
   }
 
+  const setManagedImage = useCallback((target: ManagedImageTarget, value: string) => {
+    if (target === 'product') {
+      setProduct((current) => ({ ...current, image: value }));
+      return;
+    }
+    if (target === 'combo') {
+      setCombo((current) => ({ ...current, image: value }));
+      return;
+    }
+    setBanner((current) => ({ ...current, image: value }));
+  }, []);
+
+  const processManagedImageFile = useCallback(
+    async (target: ManagedImageTarget, file?: File | null) => {
+      if (!file) return;
+      setError('');
+      setSuccess('');
+      try {
+        const image = await createPersistentImageDataUrl(
+          file,
+          target === 'banner' ? 1600 : 1024,
+        );
+        setManagedImage(target, image);
+        setSuccess(`Imagem do ${managedImageLabels[target]} adicionada.`);
+      } catch (imageError) {
+        setError(requestError(imageError));
+      }
+    },
+    [setManagedImage],
+  );
+
+  const pasteManagedImage = useCallback(
+    async (target: ManagedImageTarget, event: ClipboardEvent<HTMLElement>) => {
+      const imageItem = Array.from(event.clipboardData.items).find(
+        (item) => item.kind === 'file' && item.type.startsWith('image/'),
+      );
+      const imageFile = imageItem?.getAsFile();
+      if (imageFile) {
+        event.preventDefault();
+        await processManagedImageFile(target, imageFile);
+        return;
+      }
+
+      const pastedText = event.clipboardData.getData('text/plain').trim();
+      if (/^https:\/\//iu.test(pastedText)) {
+        event.preventDefault();
+        setManagedImage(target, pastedText);
+        setError('');
+        setSuccess(`Link da imagem do ${managedImageLabels[target]} adicionado.`);
+      }
+    },
+    [processManagedImageFile, setManagedImage],
+  );
+
   function editProduct(item: Product) {
+    if (item.saleMode === 'BUILDABLE') {
+      setCustomProductEditor(mapManagedProduct(item));
+      return;
+    }
     setProduct({
       id: item.id,
       name: item.name || '',
@@ -249,6 +392,56 @@ export function ManagedRestaurantWorkspace({
       product.id ? 'Produto atualizado.' : 'Produto cadastrado.',
     );
     resetProduct();
+  }
+
+  async function saveCustomProduct(item: AdminProduct) {
+    const payload: Record<string, unknown> = {
+      name: item.name,
+      description: item.description || '',
+      image: item.image || '',
+      price: item.price,
+      categoryId: item.categoryId,
+      active: item.active !== false,
+      featured: item.featured === true,
+      preparationTime: item.preparationTime,
+      stock: item.stock ?? null,
+      saleMode: item.saleMode ?? 'BUILDABLE',
+      pricingMode: item.pricingMode ?? 'BASE',
+      optionGroups: item.optionGroups || [],
+      compositionItems: item.compositionItems || [],
+      portionConfiguration: item.portionConfiguration ?? null,
+      expectedConfigurationVersion: item.configurationVersion,
+      confirmDiscardConfiguration: item.confirmDiscardConfiguration,
+    };
+    if (item.id) {
+      await superAdminService.updateManagedProduct(restaurantId, Number(item.id), payload);
+    } else {
+      await superAdminService.createManagedProduct(restaurantId, payload);
+    }
+    setCustomProductEditor(null);
+    setSuccess(item.id ? 'Produto personalizado atualizado.' : 'Produto personalizado cadastrado.');
+    await load();
+  }
+
+  async function createManagedIngredient(
+    ingredient: Omit<AdminIngredient, 'id'>,
+  ): Promise<AdminIngredient> {
+    const created = (await superAdminService.createManagedIngredient(restaurantId, {
+      name: ingredient.name,
+      category: ingredient.category,
+      price: Number(ingredient.price || 0),
+      active: ingredient.active !== false,
+      image: ingredient.image ?? null,
+    })) as AdminIngredient;
+    await load();
+    return {
+      id: Number(created.id),
+      name: String(created.name || ingredient.name),
+      price: Number(created.price ?? ingredient.price ?? 0),
+      category: String(created.category || ingredient.category || 'Geral'),
+      active: created.active !== false,
+      image: created.image ?? null,
+    };
   }
 
   async function saveCategory(event: FormEvent) {
@@ -380,6 +573,86 @@ export function ManagedRestaurantWorkspace({
     );
   }
 
+  const renderImageInput = (
+    target: ManagedImageTarget,
+    value: string,
+    required = false,
+  ) => (
+    <div>
+      <label>
+        Link da imagem
+        <input
+          required={required && !value}
+          type="url"
+          inputMode="url"
+          placeholder="https://exemplo.com/imagem.jpg"
+          value={value.startsWith('data:image/') ? '' : value}
+          onChange={(event) => setManagedImage(target, event.target.value)}
+          onPaste={(event) => void pasteManagedImage(target, event)}
+        />
+      </label>
+
+      <div
+        role="button"
+        tabIndex={0}
+        aria-label={`Colar imagem do ${managedImageLabels[target]}`}
+        onPaste={(event) => void pasteManagedImage(target, event)}
+        style={{
+          marginTop: 8,
+          padding: 14,
+          border: '1px dashed #cfc7c3',
+          borderRadius: 10,
+          background: '#fffaf8',
+          textAlign: 'center',
+          cursor: 'text',
+        }}
+      >
+        <strong>Cole uma imagem aqui com Ctrl+V</strong>
+        <div>
+          <small>Ex.: botão direito na imagem → Copiar imagem → volte aqui → Ctrl+V.</small>
+        </div>
+      </div>
+
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 8 }}>
+        <label style={{ cursor: 'pointer' }}>
+          <span
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 6,
+              padding: '9px 12px',
+              border: '1px solid #d8d8d8',
+              borderRadius: 8,
+              fontWeight: 700,
+            }}
+          >
+            <Upload size={16} /> Escolher arquivo
+          </span>
+          <input
+            hidden
+            type="file"
+            accept="image/jpeg,image/png,image/webp"
+            onChange={(event) => {
+              const file = event.target.files?.[0];
+              event.currentTarget.value = '';
+              void processManagedImageFile(target, file);
+            }}
+          />
+        </label>
+        {value ? (
+          <button type="button" onClick={() => setManagedImage(target, '')}>
+            Remover imagem
+          </button>
+        ) : null}
+      </div>
+
+      <small>JPG, PNG ou WebP, máximo 5 MB. Links devem usar HTTPS.</small>
+      {value.startsWith('data:image/') ? (
+        <small style={{ display: 'block' }}>Imagem copiada/enviada pronta para salvar.</small>
+      ) : null}
+    </div>
+  );
+
   return (
     <S.Backdrop role="presentation" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
       <S.Dialog role="dialog" aria-modal="true" aria-label="Gerenciar restaurante assistido">
@@ -388,7 +661,13 @@ export function ManagedRestaurantWorkspace({
             <small>WORKSPACE ASSISTIDO</small>
             <h2>{data?.restaurant.name || `Restaurante #${restaurantId}`}</h2>
             <p>
-              {data?.restaurant.plan === 'GESTAO_TOTAL' ? 'Gestão Total' : 'Premium'} • alterações auditadas
+              {data?.restaurant.plan === 'GESTAO_TOTAL'
+                ? 'Gestão Total'
+                : data?.restaurant.plan === 'PREMIUM'
+                  ? 'Premium'
+                  : data?.restaurant.plan === 'BASICO'
+                    ? 'Básico'
+                    : data?.restaurant.plan || 'Plano não identificado'} • alterações auditadas
             </p>
           </div>
           <div>
@@ -415,10 +694,26 @@ export function ManagedRestaurantWorkspace({
             {tab === 'products' ? (
               <S.Split>
                 <S.List>
-                  <S.SectionTitle><div><small>CATÁLOGO</small><h3>Produtos</h3></div><span>{standardProducts.length}</span></S.SectionTitle>
+                  <S.SectionTitle>
+                    <div><small>CATÁLOGO</small><h3>Produtos</h3></div>
+                    <span>{standardProducts.length}</span>
+                  </S.SectionTitle>
+                  <button
+                    type="button"
+                    onClick={() => setCustomProductEditor('NEW')}
+                    style={{ marginBottom: 10, fontWeight: 700 }}
+                  >
+                    <PackagePlus size={16} /> Cadastrar produto personalizável
+                  </button>
                   {standardProducts.map((item) => (
                     <button key={item.id} type="button" onClick={() => editProduct(item)}>
-                      <span><b>{item.name}</b><small>{item.category?.name || 'Sem categoria'}</small></span>
+                      <span>
+                        <b>{item.name}</b>
+                        <small>
+                          {item.category?.name || 'Sem categoria'} ·{' '}
+                          {item.saleMode === 'BUILDABLE' ? 'Personalizável' : 'Produto pronto'}
+                        </small>
+                      </span>
                       <strong>{Number(item.price || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</strong>
                     </button>
                   ))}
@@ -433,7 +728,7 @@ export function ManagedRestaurantWorkspace({
                     <label>Preparo (min)<input type="number" min="1" max="240" value={product.preparationTime} onChange={(e) => setProduct((x) => ({ ...x, preparationTime: e.target.value }))} /></label>
                     <label>Estoque<input type="number" min="0" value={product.stock} onChange={(e) => setProduct((x) => ({ ...x, stock: e.target.value }))} /></label>
                   </S.Two>
-                  <label>Imagem (URL HTTPS ou imagem já persistida)<input value={product.image} onChange={(e) => setProduct((x) => ({ ...x, image: e.target.value }))} /></label>
+                  {renderImageInput('product', product.image)}
                   <S.Checks><label><input type="checkbox" checked={product.active} onChange={(e) => setProduct((x) => ({ ...x, active: e.target.checked }))} />Ativo</label><label><input type="checkbox" checked={product.featured} onChange={(e) => setProduct((x) => ({ ...x, featured: e.target.checked }))} />Destaque</label></S.Checks>
                   <S.FormActions>{product.id ? <button type="button" onClick={resetProduct}>Novo</button> : null}<button className="primary" disabled={saving}><Save />{saving ? 'Salvando...' : 'Salvar produto'}</button></S.FormActions>
                 </S.Form>
@@ -463,7 +758,7 @@ export function ManagedRestaurantWorkspace({
                   <label>Nome<input required minLength={2} value={combo.name} onChange={(e) => setCombo((x) => ({ ...x, name: e.target.value }))} /></label>
                   <label>Descrição<textarea rows={3} value={combo.description} onChange={(e) => setCombo((x) => ({ ...x, description: e.target.value }))} /></label>
                   <label>Preço<input required type="number" min="0.01" step="0.01" value={combo.price} onChange={(e) => setCombo((x) => ({ ...x, price: e.target.value }))} /></label>
-                  <label>Imagem<input value={combo.image} onChange={(e) => setCombo((x) => ({ ...x, image: e.target.value }))} /></label>
+                  {renderImageInput('combo', combo.image)}
                   <fieldset><legend>Produtos incluídos</legend>{standardProducts.map((item) => <label key={item.id} className="choice"><input type="checkbox" checked={combo.productIds.includes(item.id)} onChange={(e) => setCombo((x) => ({ ...x, productIds: e.target.checked ? [...x.productIds, item.id] : x.productIds.filter((id) => id !== item.id) }))} />{item.name}</label>)}</fieldset>
                   <S.FormActions>{combo.id ? <button type="button" onClick={() => setCombo({ id: 0, name: '', description: '', price: '', image: '', productIds: [], active: true, featured: true })}>Novo</button> : null}<button className="primary" disabled={saving}><Save />Salvar combo</button></S.FormActions>
                 </S.Form>
@@ -480,7 +775,7 @@ export function ManagedRestaurantWorkspace({
                   <label>Destaque<input value={banner.highlight} onChange={(e) => setBanner((x) => ({ ...x, highlight: e.target.value }))} /></label>
                   <label>Descrição<textarea rows={3} value={banner.description} onChange={(e) => setBanner((x) => ({ ...x, description: e.target.value }))} /></label>
                   <label>Texto do botão<input value={banner.buttonLabel} onChange={(e) => setBanner((x) => ({ ...x, buttonLabel: e.target.value }))} /></label>
-                  <label>Imagem<input required value={banner.image} onChange={(e) => setBanner((x) => ({ ...x, image: e.target.value }))} /></label>
+                  {renderImageInput('banner', banner.image, true)}
                   <S.Checks><label><input type="checkbox" checked={banner.active} onChange={(e) => setBanner((x) => ({ ...x, active: e.target.checked }))} />Ativo</label></S.Checks>
                   <S.FormActions>{banner.id ? <button type="button" onClick={() => setBanner({ id: 0, title: '', highlight: '', description: '', buttonLabel: 'Ver cardápio', image: '', active: true })}>Novo</button> : null}<button className="primary" disabled={saving}><Save />Salvar banner</button></S.FormActions>
                 </S.Form>
@@ -515,6 +810,18 @@ export function ManagedRestaurantWorkspace({
           </S.Body>
         ) : null}
       </S.Dialog>
+      {customProductEditor ? (
+        <ProductDrawer
+          product={customProductEditor === 'NEW' ? null : customProductEditor}
+          categories={managedCategories}
+          ingredients={managedIngredients}
+          products={managedProducts}
+          enableTemplates={false}
+          createIngredient={createManagedIngredient}
+          close={() => setCustomProductEditor(null)}
+          save={saveCustomProduct}
+        />
+      ) : null}
     </S.Backdrop>
   );
 }

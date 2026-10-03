@@ -144,6 +144,23 @@ describe('authNavigation', () => {
     });
   });
 
+  it('preserva contexto TABLE no domínio próprio sem slug na URL', () => {
+    window.sessionStorage.setItem(
+      'gastronexa:custom-domain-host',
+      window.location.hostname.toLowerCase(),
+    );
+    rememberTenantSlug('restaurante-x');
+
+    const next = '/mesa/12?rid=42&tk=abc#conta';
+    expect(getSafeNextPath(next)).toBe(next);
+    expect(resolveAuthExperience(new URLSearchParams({ next }))).toEqual({
+      context: 'TABLE',
+      nextPath: next,
+      restaurantSlug: 'restaurante-x',
+      tableNumber: '12',
+    });
+  });
+
   it('resolve rota pública normal como ONLINE', () => {
     const next = '/restaurante-x?delivery=1#cardapio';
     expect(resolveAuthExperience(new URLSearchParams({ next }))).toEqual({

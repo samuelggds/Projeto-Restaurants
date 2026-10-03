@@ -183,8 +183,8 @@ export default function ManagedServiceArea() {
             <b>{implementationStatus[data.implementation?.status || ''] || 'Preparando implantação'}</b>
           </div>
           <p>
-            A equipe GastroNexa organiza a configuração inicial do restaurante. No Premium, esse
-            serviço acontece uma única vez; no Gestão Total, a gestão pode continuar por solicitações.
+            A equipe GastroNexa organiza a configuração inicial do restaurante. No Básico e no Premium,
+            esse serviço acontece uma única vez; no Gestão Total, a gestão pode continuar por solicitações.
           </p>
           {data.implementation ? (
             <div className="meta">
@@ -288,11 +288,11 @@ export default function ManagedServiceArea() {
             )}
           </S.History>
         </S.RequestGrid>
-      ) : data?.plan === 'PREMIUM' ? (
+      ) : data?.plan === 'PREMIUM' || data?.plan === 'BASICO' ? (
         <S.PremiumNote>
           <CheckCircle2 aria-hidden="true" />
           <div>
-            <strong>Seu Premium inclui a implantação inicial</strong>
+            <strong>Seu plano inclui a implantação inicial</strong>
             <p>
               Depois da conclusão, as alterações do dia a dia ficam com o administrador do
               restaurante. Para gestão contínua pela equipe GastroNexa, o plano Gestão Total oferece

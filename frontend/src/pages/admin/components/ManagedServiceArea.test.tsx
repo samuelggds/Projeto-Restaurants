@@ -47,7 +47,7 @@ describe('ManagedServiceArea', () => {
         continuousManagementEnabled: false,
         implementation: {
           status: 'EM_IMPLANTACAO',
-          productLimit: 150,
+          productLimit: 100,
         },
         requests: [],
       },
@@ -57,8 +57,31 @@ describe('ManagedServiceArea', () => {
     await flush();
 
     expect(container.textContent).toContain('Implantação assistida');
-    expect(container.textContent).toContain('Até 150 produtos');
-    expect(container.textContent).toContain('Seu Premium inclui a implantação inicial');
+    expect(container.textContent).toContain('Até 100 produtos');
+    expect(container.textContent).toContain('Seu plano inclui a implantação inicial');
+    expect(container.querySelector('form')).toBeNull();
+  });
+
+  it('Básico mostra implantação única de até 50 produtos sem gestão contínua', async () => {
+    mocks.get.mockResolvedValue({
+      data: {
+        plan: 'BASICO',
+        subscriptionStatus: 'ATIVA',
+        implementationEligible: true,
+        continuousManagementEnabled: false,
+        implementation: {
+          status: 'EM_IMPLANTACAO',
+          productLimit: 50,
+        },
+        requests: [],
+      },
+    });
+
+    await act(async () => root.render(<ManagedServiceArea />));
+    await flush();
+
+    expect(container.textContent).toContain('Até 50 produtos');
+    expect(container.textContent).toContain('Seu plano inclui a implantação inicial');
     expect(container.querySelector('form')).toBeNull();
   });
 

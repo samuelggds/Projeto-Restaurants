@@ -41,6 +41,9 @@ const EmployeeOnboardingBoundary = lazy(
   () => import('../components/EmployeeOnboarding/EmployeeOnboardingBoundary'),
 );
 const GastroNexaLanding = lazy(() => import('../pages/Marketing/GastroNexaLanding'));
+const RestaurantLandingPage = lazy(
+  () => import('../pages/restaurant-landing/RestaurantLandingPage'),
+);
 import api from '../Services/api';
 import tablesService from '../Services/tablesService';
 import restaurantSettingsService from '../Services/restaurantSettingsService';
@@ -71,6 +74,8 @@ import {
   TENANT_REQUIRED_PATH,
 } from '../shared/navigation/authNavigation';
 import { consumeSignedOutEntryUrl } from '../shared/navigation/sessionEntry';
+import { CustomDomainTenantProvider } from '../shared/tenant/CustomDomainTenantContext';
+import { useCustomDomainTenant } from '../shared/tenant/useCustomDomainTenant';
 
 function getCustomerReturnPath(location: ReturnType<typeof useLocation>) {
   const isAuthEntry = /^\/[^/]+\/(?:login|register|recover-password)$/u.test(location.pathname);
@@ -113,6 +118,50 @@ function SuperAdminSessionBoundary({ children }: { children: ReactNode }) {
 
   if (!isLoading && shouldEndSuperAdminSession(location.pathname, user)) return <RouteLoading />;
   return <>{children}</>;
+}
+
+function RootPublicEntry() {
+  const custom = useCustomDomainTenant();
+  if (custom.loading) return <RouteLoading />;
+  if (custom.isCustomDomain) {
+    return custom.tenant?.surface === 'LANDING' ? <RestaurantLandingPage /> : <Home />;
+  }
+  if (custom.error) return <TenantRequiredPage />;
+  return <GastroNexaLanding />;
+}
+
+function CustomDomainMenuRedirect() {
+  const custom = useCustomDomainTenant();
+  const location = useLocation();
+
+  useEffect(() => {
+    const menuHost = String(custom.tenant?.menuHost || '').trim().toLowerCase();
+    if (!menuHost) return;
+    const destination = new URL(`https://${menuHost}`);
+    destination.pathname = location.pathname;
+    destination.search = location.search;
+    destination.hash = location.hash;
+    window.location.replace(destination.toString());
+  }, [custom.tenant?.menuHost, location.hash, location.pathname, location.search]);
+
+  return <RouteLoading />;
+}
+
+function CustomDomainRoute({
+  children,
+  fallback,
+}: {
+  children: ReactNode;
+  fallback: ReactNode;
+}) {
+  const custom = useCustomDomainTenant();
+  if (custom.loading) return <RouteLoading />;
+  if (custom.isCustomDomain) {
+    if (custom.tenant?.surface === 'LANDING') return <CustomDomainMenuRedirect />;
+    return <>{children}</>;
+  }
+  if (custom.error) return <TenantRequiredPage />;
+  return <>{fallback}</>;
 }
 
 function TenantRequiredPage() {
@@ -266,14 +315,21 @@ function PageTransition() {
 
 export function RouteAuthorizationGuard() {
   const { user, isLoading } = useAuth();
+  const customDomain = useCustomDomainTenant();
   const location = useLocation();
 
+  if (customDomain.loading) return <RouteLoading />;
+
   if (isLoading) {
-    const publicDecision = authorizeRoute(location.pathname, null);
+    const publicDecision = authorizeRoute(location.pathname, null, {
+      customDomain: customDomain.isCustomDomain,
+    });
     return 'redirectTo' in publicDecision ? <RouteLoading /> : <Outlet />;
   }
 
-  const decision = authorizeRoute(location.pathname, user);
+  const decision = authorizeRoute(location.pathname, user, {
+    customDomain: customDomain.isCustomDomain,
+  });
   if ('redirectTo' in decision) {
     const isCustomer = String(user?.role || '').toUpperCase() === 'CLIENTE';
     const customerReturnPath = isCustomer ? getCustomerReturnPath(location) : '';
@@ -361,6 +417,7 @@ function BillingGate() {
 export default function AppRoutes() {
   return (
     <BrowserRouter>
+      <CustomDomainTenantProvider>
       <SuperAdminSessionBoundary>
         <BrowserTabBranding />
         <Suspense fallback={<RouteLoading />}>
@@ -368,7 +425,7 @@ export default function AppRoutes() {
           <SystemAvailabilityGate>
             <Routes>
               <Route element={<PageTransition />}>
-                <Route path="/" element={<GastroNexaLanding />} />
+                <Route path="/" element={<RootPublicEntry />} />
                 <Route path="/termos" element={<StaticLegalPageRedirect page="termos" />} />
                 <Route path="/termos/" element={<StaticLegalPageRedirect page="termos" />} />
                 <Route path="/privacidade" element={<StaticLegalPageRedirect page="privacidade" />} />
@@ -379,6 +436,22 @@ export default function AppRoutes() {
                 <Route path="/:restaurantSlug/admin/:accessKey" element={<AdminPortalEntry />} />
                 <Route element={<RouteAuthorizationGuard />}>
                   <Route path="/:restaurantSlug/login" element={<Login />} />
+                  <Route
+                    path="/pedidos"
+                    element={
+                      <CustomDomainRoute fallback={<Navigate to={TENANT_REQUIRED_PATH} replace />}>
+                        <GuestOrdersPage />
+                      </CustomDomainRoute>
+                    }
+                  />
+                  <Route
+                    path="/pedido/:orderPublicId/pagamento"
+                    element={
+                      <CustomDomainRoute fallback={<Navigate to={TENANT_REQUIRED_PATH} replace />}>
+                        <OrderPixPaymentPage />
+                      </CustomDomainRoute>
+                    }
+                  />
                   <Route path="/:restaurantSlug/register" element={<Register />} />
                   <Route path="/:restaurantSlug/recover-password" element={<RecoverPassword />} />
                   <Route path="/recover-password" element={<RecoverPassword />} />
@@ -437,15 +510,37 @@ export default function AppRoutes() {
                   </Route>
                 </Route>
 
-                <Route path="/login" element={<LegacyLoginRedirect />} />
-                <Route path="/register" element={<Navigate to={TENANT_REQUIRED_PATH} replace />} />
-                <Route path="/mesa/:tableNumber" element={<LegacyTableQrRedirect />} />
+                <Route
+                  path="/login"
+                  element={
+                    <CustomDomainRoute fallback={<LegacyLoginRedirect />}>
+                      <Login />
+                    </CustomDomainRoute>
+                  }
+                />
+                <Route
+                  path="/register"
+                  element={
+                    <CustomDomainRoute fallback={<Navigate to={TENANT_REQUIRED_PATH} replace />}>
+                      <Register />
+                    </CustomDomainRoute>
+                  }
+                />
+                <Route
+                  path="/mesa/:tableNumber"
+                  element={
+                    <CustomDomainRoute fallback={<LegacyTableQrRedirect />}>
+                      <DigitalMenu />
+                    </CustomDomainRoute>
+                  }
+                />
                 <Route path="*" element={<Navigate to={TENANT_REQUIRED_PATH} replace />} />
               </Route>
             </Routes>
           </SystemAvailabilityGate>
         </Suspense>
       </SuperAdminSessionBoundary>
+      </CustomDomainTenantProvider>
     </BrowserRouter>
   );
 }

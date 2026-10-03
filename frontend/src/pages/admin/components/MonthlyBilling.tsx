@@ -38,12 +38,19 @@ import { getBillingPixExpiry } from './useBillingPixExpiry';
 
 const HISTORY_BATCH_SIZE = 10;
 const benefits: Record<PlanCode, string[]> = {
-  BASICO: ['Sistema de delivery', 'Suporte padrão'],
+  BASICO: [
+    'Sistema de delivery',
+    'Implantação inicial assistida uma única vez',
+    'Cadastro inicial de até 50 produtos, além de categorias, combos, banners e configurações',
+    'Após a implantação, o próprio ADMIN gerencia o cardápio e as configurações',
+    'Endereço público GastroNexa com /slug',
+    'Suporte padrão',
+  ],
   PREMIUM: [
     'Sistema de delivery',
     'Cardápio digital com QR Code de mesa',
     'Implantação inicial assistida',
-    'Cadastro inicial de até 150 produtos',
+    'Cadastro inicial de até 100 produtos',
     'Suporte prioritário',
     'GastroNexa IA com US$ 2,00 de créditos iniciais',
   ],

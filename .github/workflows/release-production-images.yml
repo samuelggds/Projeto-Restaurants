@@ -125,6 +125,7 @@ jobs:
           frontend="ghcr.io/${owner}/gastronexa-frontend:${TARGET_SHA}"
           printf '%s\n' \
             "VITE_API_URL=${API_URL}" \
+            "VITE_APP_URL=${APP_URL}" \
             "VITE_SOCKET_URL=${API_URL}" \
             'VITE_SOCKET_PATH=/socket.io' \
             'VITE_API_TIMEOUT_MS=15000' \
@@ -167,6 +168,7 @@ jobs:
             --label "org.opencontainers.image.source=${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}" \
             --label "com.gastronexa.frontend-config-sha256=${FRONTEND_CONFIG_SHA}" \
             --build-arg "VITE_API_URL=${API_URL}" \
+            --build-arg "VITE_APP_URL=${APP_URL}" \
             --build-arg "VITE_SOCKET_URL=${API_URL}" \
             --build-arg 'VITE_SOCKET_PATH=/socket.io' \
             --build-arg 'VITE_API_TIMEOUT_MS=15000' \

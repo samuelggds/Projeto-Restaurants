@@ -384,6 +384,24 @@ export class SuperAdminRepository {
     });
   }
 
+  disableRestaurantCustomDomain(
+    restaurantId: number,
+    actorUserId: number,
+    db: SuperAdminDatabaseClient = prisma,
+  ) {
+    return db.restaurantCustomDomain.updateMany({
+      where: {
+        restaurantId,
+        status: { not: 'DISABLED' },
+      },
+      data: {
+        status: 'DISABLED',
+        disabledAt: new Date(),
+        updatedByUserId: actorUserId,
+      },
+    });
+  }
+
   revokeRestaurantSessions(restaurantId: number, db: SuperAdminDatabaseClient = prisma) {
     return Promise.all([
       db.user.updateMany({

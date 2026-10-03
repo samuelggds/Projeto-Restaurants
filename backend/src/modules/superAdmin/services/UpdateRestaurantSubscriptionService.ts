@@ -14,6 +14,7 @@ import { parseSuperAdminPayload, requireSuperAdminActor } from './superAdminServ
 import platformRecurringBillingService, {
   type PlatformRecurringBillingService,
 } from '../../billing/services/PlatformRecurringBillingService.js';
+import { customDomainPlanEligible } from '../../customDomains/domain/customDomainPolicy.js';
 
 function parseRestaurantId(value: unknown) {
   const id = Number(value);
@@ -84,6 +85,14 @@ export class UpdateRestaurantSubscriptionService {
           : {}),
       };
       const after = await this.repository.updateSubscription(restaurantId, data, transaction);
+      const customDomainStillEligible = customDomainPlanEligible(after.plan, after.status);
+      if (!customDomainStillEligible) {
+        await this.repository.disableRestaurantCustomDomain(
+          restaurantId,
+          actor.id,
+          transaction,
+        );
+      }
 
       await this.repository.createAuditLog(
         {
@@ -97,7 +106,10 @@ export class UpdateRestaurantSubscriptionService {
           metadata: buildAuditMetadata({
             reason: parsed.reason,
             before,
-            after,
+            after: {
+              ...after,
+              customDomainEligibility: customDomainStillEligible,
+            },
           }),
         },
         transaction,

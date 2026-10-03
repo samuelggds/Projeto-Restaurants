@@ -1,6 +1,7 @@
 import { useCallback } from 'react';
 import type { NavigateFunction } from 'react-router-dom';
 import type { HomeProfileView } from '../types';
+import { buildTenantPublicPath } from '../../../shared/navigation/authNavigation';
 
 export function useHomeProfileNavigation({
   navigate,
@@ -26,7 +27,7 @@ export function useHomeProfileNavigation({
       navigate('/profile?view=orders');
       return;
     }
-    navigate(`/${restaurantSlug || ''}/pedidos`);
+    navigate(buildTenantPublicPath(restaurantSlug, '/pedidos'));
   }, [navigate, restaurantSlug, userLoggedIn]);
 
   const openProfileView = useCallback(

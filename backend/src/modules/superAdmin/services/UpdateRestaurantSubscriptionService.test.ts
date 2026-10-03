@@ -27,6 +27,7 @@ function fixture() {
   const updates = [];
   const audits = [];
   const transaction = {};
+  const disabledDomains = [];
   const repository = {
     transaction: async (operation) => operation(transaction),
     findActor: async (actorUserId, db) => {
@@ -52,13 +53,20 @@ function fixture() {
       current = { ...current, ...data, updatedAt: new Date() };
       return { ...current };
     },
+    disableRestaurantCustomDomain: async (restaurantId, actorUserId, db) => {
+      assert.equal(restaurantId, 7);
+      assert.equal(actorUserId, 1);
+      assert.equal(db, transaction);
+      disabledDomains.push(restaurantId);
+      return { count: 1 };
+    },
     createAuditLog: async (entry, db) => {
       assert.equal(db, transaction);
       audits.push(entry);
       return entry;
     },
   };
-  return { repository, updates, audits, getCurrent: () => current };
+  return { repository, updates, audits, disabledDomains, getCurrent: () => current };
 }
 
 const context = {
@@ -90,6 +98,7 @@ test('CANCELADA só é persistida depois de cancelar a recorrência do provedor'
   assert.equal(state.updates.length, 1);
   assert.equal(state.updates[0].status, 'CANCELADA');
   assert.equal(state.audits.length, 1);
+  assert.deepEqual(state.disabledDomains, [7]);
   assert.equal(result.status, 'CANCELADA');
 });
 
@@ -115,4 +124,21 @@ test('falha ao cancelar no Mercado Pago preserva a assinatura local ativa', asyn
   assert.equal(state.updates.length, 0);
   assert.equal(state.audits.length, 0);
   assert.equal(state.getCurrent().status, 'ATIVA');
+});
+
+
+test('downgrade para Básico desativa domínio personalizado', async () => {
+  const state = fixture();
+  state.repository.findPlan = async () => ({ code: 'BASICO', active: true });
+  const recurringBilling = { cancelRecurringBilling: async () => ({}) };
+  const service = new UpdateRestaurantSubscriptionService(state.repository, recurringBilling);
+
+  const result = await service.execute(
+    7,
+    { planCode: 'BASICO', reason: 'Downgrade solicitado pelo restaurante.' },
+    context,
+  );
+
+  assert.equal(result.planCode, 'BASICO');
+  assert.deepEqual(state.disabledDomains, [7]);
 });

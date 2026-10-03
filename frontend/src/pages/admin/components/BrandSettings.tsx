@@ -12,6 +12,9 @@ type Settings = typeof adminMockSettings;
 type Props = {
   settings: Settings;
   update: <K extends keyof Settings>(key: K, value: Settings[K]) => void;
+  restaurantSlug: string;
+  currentPlanCode: string;
+  subscriptionStatus: string;
   logoInput: RefObject<HTMLInputElement | null>;
   onLogoChange: (event: ChangeEvent<HTMLInputElement>) => void | Promise<void>;
   onCoverChange: (event: ChangeEvent<HTMLInputElement>) => void | Promise<void>;
@@ -28,6 +31,9 @@ type Props = {
 export function BrandSettings({
   settings,
   update,
+  restaurantSlug,
+  currentPlanCode,
+  subscriptionStatus,
   logoInput,
   onLogoChange,
   onCoverChange,
@@ -39,6 +45,26 @@ export function BrandSettings({
 }: Props) {
   const errors = validateBrandSettings(settings);
   const coverInput = useRef<HTMLInputElement>(null);
+  const normalizedPlan = currentPlanCode.trim().toUpperCase();
+  const normalizedStatus = subscriptionStatus.trim().toUpperCase();
+  const planActive = normalizedStatus === 'ATIVA' || normalizedStatus === 'TESTE';
+  const customDomainAllowed =
+    planActive && (normalizedPlan === 'PREMIUM' || normalizedPlan === 'GESTAO_TOTAL');
+  const landingAllowed = planActive && normalizedPlan === 'GESTAO_TOTAL';
+  const platformHost = (() => {
+    try {
+      const configured = String(import.meta.env.VITE_APP_URL || '').trim();
+      return configured ? new URL(configured).host : 'gastronexa.com.br';
+    } catch {
+      return 'gastronexa.com.br';
+    }
+  })();
+  const publicSlugUrl = `${platformHost}/${restaurantSlug || 'seu-restaurante'}`;
+
+  const updateCustomDomainPreference = (enabled: boolean) => {
+    update('customDomainRequested', enabled);
+    if (!enabled && settings.landingPageEnabled) update('landingPageEnabled', false);
+  };
 
   return (
     <S.Stack>
@@ -161,6 +187,68 @@ export function BrandSettings({
             />
             <small>{settings.description.length}/500 caracteres</small>
             {errors.description && <small>{errors.description}</small>}
+          </S.Field>
+        </S.FormGrid>
+      </S.Card>
+      <S.Card>
+        <h2>Presença digital e domínio</h2>
+        <p>
+          O endereço GastroNexa do restaurante nunca é removido. Domínio próprio e página personalizada
+          são opções adicionais conforme o plano contratado.
+        </p>
+        <S.FormGrid>
+          <S.Field $full>
+            <span>Endereço GastroNexa</span>
+            <input readOnly value={publicSlugUrl} aria-label="Endereço GastroNexa permanente" />
+            <small>
+              Sempre disponível. Mesmo usando domínio próprio, este endereço /slug continua
+              funcionando.
+            </small>
+          </S.Field>
+
+          <S.Field $full>
+            <span>Domínio próprio</span>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <input
+                type="checkbox"
+                checked={settings.customDomainRequested}
+                disabled={!customDomainAllowed && !settings.customDomainRequested}
+                onChange={(event) => updateCustomDomainPreference(event.target.checked)}
+              />
+              Quero usar meu próprio domínio
+            </label>
+            <small>
+              {customDomainAllowed
+                ? 'Disponível no seu plano. A configuração técnica de DNS e SSL é feita pelo SUPER_ADMIN.'
+                : normalizedPlan === 'BASICO'
+                  ? 'Disponível nos planos Premium e Gestão Total. No Básico, use o endereço GastroNexa /slug.'
+                  : 'Aguardando uma assinatura Premium ou Gestão Total ativa.'}
+            </small>
+          </S.Field>
+
+          <S.Field $full>
+            <span>Página personalizada do restaurante</span>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <input
+                type="checkbox"
+                checked={settings.landingPageEnabled}
+                disabled={
+                  (!landingAllowed && !settings.landingPageEnabled) ||
+                  (!settings.customDomainRequested && !settings.landingPageEnabled)
+                }
+                onChange={(event) => update('landingPageEnabled', event.target.checked)}
+              />
+              Quero uma página personalizada no meu domínio
+            </label>
+            <small>
+              {landingAllowed
+                ? settings.customDomainRequested
+                  ? 'Exclusiva do Gestão Total. O domínio principal mostra a página do restaurante e o cardápio pode usar cardapio.seudominio.com.br.'
+                  : 'Primeiro escolha usar domínio próprio para liberar a página personalizada.'
+                : normalizedPlan === 'GESTAO_TOTAL'
+                  ? 'Aguardando a assinatura Gestão Total ficar ativa.'
+                  : 'A página personalizada do restaurante é exclusiva do plano Gestão Total.'}
+            </small>
           </S.Field>
         </S.FormGrid>
       </S.Card>

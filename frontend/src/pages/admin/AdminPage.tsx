@@ -167,6 +167,9 @@ function hasEstablishmentAddressInput(settings: typeof adminMockSettings) {
 export function AdminPage({
   initialArea = 'overview',
   initialSettings = adminMockSettings,
+  restaurantSlug = '',
+  currentPlanCode = '',
+  subscriptionStatus = '',
   initialEmployees = adminMockEmployees,
   initialOrders = [],
   initialProducts = [],
@@ -921,6 +924,9 @@ export function AdminPage({
                 <BrandSettings
                   settings={settings}
                   update={update}
+                  restaurantSlug={restaurantSlug}
+                  currentPlanCode={currentPlanCode}
+                  subscriptionStatus={subscriptionStatus}
                   logoInput={logoInput}
                   onLogoChange={logo}
                   onCoverChange={cover}

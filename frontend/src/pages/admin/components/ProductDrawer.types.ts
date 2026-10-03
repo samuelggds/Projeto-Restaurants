@@ -5,6 +5,7 @@ export type ProductDrawerProps = {
   categories: AdminCategory[];
   ingredients: AdminIngredient[];
   products?: AdminProduct[];
+  enableTemplates?: boolean;
   createIngredient?: (
     ingredient: Omit<AdminIngredient, 'id'>,
   ) => AdminIngredient | void | Promise<AdminIngredient | void>;

@@ -1,5 +1,6 @@
 import crypto from 'crypto';
 import tableRepository from '../repositories/TableRepository.js';
+import { resolveRestaurantMenuBaseUrl } from '../../customDomains/services/PublicCustomDomainService.js';
 
 type CreateTablePayload = {
   number: number | string;
@@ -34,10 +35,12 @@ class CreateTableService {
       token,
     });
     const { restaurant, ...table } = created;
+    const menuBaseUrl = await resolveRestaurantMenuBaseUrl(normalizedRestaurantId);
 
     return {
       ...table,
       restaurantSlug: restaurant.slug,
+      menuBaseUrl,
     };
   }
 }

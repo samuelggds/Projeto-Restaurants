@@ -88,6 +88,54 @@ class SuperAdminService {
     return response.data;
   }
 
+  async listCustomDomains() {
+    const response = await api.get('/super-admin/custom-domains');
+    return response.data;
+  }
+
+  async getCustomDomain(restaurantId: number) {
+    const response = await api.get(`/super-admin/restaurants/${restaurantId}/custom-domain`);
+    return response.data;
+  }
+
+  async saveCustomDomain(
+    restaurantId: number,
+    input: {
+      hostname: string;
+      mode: 'MENU_ONLY' | 'SITE_WITH_MENU_SUBDOMAIN';
+      menuSubdomain?: string;
+      includeWww: boolean;
+      landingPublished?: boolean;
+    },
+  ) {
+    const response = await api.put(
+      `/super-admin/restaurants/${restaurantId}/custom-domain`,
+      input,
+    );
+    return response.data;
+  }
+
+  async verifyCustomDomain(restaurantId: number) {
+    const response = await api.post(
+      `/super-admin/restaurants/${restaurantId}/custom-domain/verify`,
+    );
+    return response.data;
+  }
+
+  async activateCustomDomain(restaurantId: number) {
+    const response = await api.post(
+      `/super-admin/restaurants/${restaurantId}/custom-domain/activate`,
+    );
+    return response.data;
+  }
+
+  async disableCustomDomain(restaurantId: number) {
+    const response = await api.post(
+      `/super-admin/restaurants/${restaurantId}/custom-domain/disable`,
+    );
+    return response.data;
+  }
+
   async getManagedServiceQueue() {
     const response = await api.get('/super-admin/managed-service');
     return response.data;
@@ -137,6 +185,14 @@ class SuperAdminService {
   ) {
     const response = await api.patch(
       `/super-admin/managed-service/restaurants/${restaurantId}/products/${productId}`,
+      input,
+    );
+    return response.data;
+  }
+
+  async createManagedIngredient(restaurantId: number, input: Record<string, unknown>) {
+    const response = await api.post(
+      `/super-admin/managed-service/restaurants/${restaurantId}/ingredients`,
       input,
     );
     return response.data;

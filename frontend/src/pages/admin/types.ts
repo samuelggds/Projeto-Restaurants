@@ -309,6 +309,8 @@ export type AdminSettings = {
   fontFamily: string;
   seoTitle: string;
   seoDescription: string;
+  customDomainRequested: boolean;
+  landingPageEnabled: boolean;
   pixProvider: string;
   pixKey: string;
   cardGateway: string;
@@ -346,6 +348,9 @@ export type EmployeeFormPayload = Omit<Employee, 'id'> & {
 export type AdminPageProps = {
   initialArea?: Exclude<AdminSection, 'help'>;
   initialSettings?: AdminSettings;
+  restaurantSlug?: string;
+  currentPlanCode?: string;
+  subscriptionStatus?: string;
   initialEmployees?: Employee[];
   initialOrders?: AdminOrder[];
   initialProducts?: AdminProduct[];

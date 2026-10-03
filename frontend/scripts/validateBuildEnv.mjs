@@ -22,6 +22,9 @@ function validateSecureUrl(name, value) {
 const apiUrl = required('VITE_API_URL');
 validateSecureUrl('VITE_API_URL', apiUrl);
 
+const appUrl = required('VITE_APP_URL');
+validateSecureUrl('VITE_APP_URL', appUrl);
+
 const socketUrl = String(process.env.VITE_SOCKET_URL || apiUrl).trim();
 validateSecureUrl('VITE_SOCKET_URL', socketUrl);
 

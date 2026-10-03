@@ -204,7 +204,7 @@ export class ManagedServiceService {
   async listSuperAdminQueue() {
     const eligibleSubscriptions = await prisma.subscription.findMany({
       where: {
-        plan: { in: ['PREMIUM', 'GESTAO_TOTAL'] },
+        plan: { in: ['BASICO', 'PREMIUM', 'GESTAO_TOTAL'] },
         status: { in: ['ATIVA', 'TESTE'] },
       },
       select: { restaurantId: true, plan: true },
@@ -222,8 +222,8 @@ export class ManagedServiceService {
       const gestaoTotalIds = eligibleSubscriptions
         .filter(({ plan }) => plan === 'GESTAO_TOTAL')
         .map(({ restaurantId }) => restaurantId);
-      const premiumIds = eligibleSubscriptions
-        .filter(({ plan }) => plan === 'PREMIUM')
+      const oneTimeSetupIds = eligibleSubscriptions
+        .filter(({ plan }) => plan === 'BASICO' || plan === 'PREMIUM')
         .map(({ restaurantId }) => restaurantId);
 
       await Promise.all([
@@ -233,10 +233,10 @@ export class ManagedServiceService {
               data: { productLimit: null },
             })
           : Promise.resolve(),
-        premiumIds.length
+        oneTimeSetupIds.length
           ? prisma.restaurantImplementation.updateMany({
-              where: { restaurantId: { in: premiumIds } },
-              data: { productLimit: 150 },
+              where: { restaurantId: { in: oneTimeSetupIds } },
+              data: { productLimit: 100 },
             })
           : Promise.resolve(),
       ]);
@@ -320,6 +320,7 @@ export class ManagedServiceService {
         create: {
           restaurantId,
           status: parsed.status,
+          productLimit: managedImplementationProductLimit(restaurant.subscription?.plan),
           notes: parsed.notes ?? null,
           startedAt: parsed.status === 'EM_IMPLANTACAO' ? now : null,
           completedAt: parsed.status === 'CONCLUIDA' ? now : null,

@@ -17,6 +17,8 @@ x-runtime-environment: &production-backend-environment
   JWT_MFA_EXPIRES_IN: ${JWT_MFA_EXPIRES_IN:-10m}
   ALLOW_LEGACY_ACCESS_TOKENS: ${ALLOW_LEGACY_ACCESS_TOKENS:-false}
   ALLOW_UNTRUSTED_OAUTH_ENDPOINTS: ${ALLOW_UNTRUSTED_OAUTH_ENDPOINTS:-false}
+  APP_DOMAIN: ${APP_DOMAIN:?Defina APP_DOMAIN em .env.production}
+  API_DOMAIN: ${API_DOMAIN:?Defina API_DOMAIN em .env.production}
   CORS_ORIGINS: https://${APP_DOMAIN:?Defina APP_DOMAIN em .env.production}
   SOCKET_CORS_ORIGINS: https://${APP_DOMAIN:?Defina APP_DOMAIN em .env.production}
   FRONTEND_URL: https://${APP_DOMAIN:?Defina APP_DOMAIN em .env.production}
@@ -184,6 +186,8 @@ x-runtime-environment: &production-backend-environment
   PLATFORM_PLAN_CATALOG_FALLBACK_MODE: ${PLATFORM_PLAN_CATALOG_FALLBACK_MODE:-}
   PLATFORM_SETTINGS_CACHE_TTL_MS: ${PLATFORM_SETTINGS_CACHE_TTL_MS:-}
   PUBLIC_APP_URL: ${PUBLIC_APP_URL:-}
+  CUSTOM_DOMAIN_CNAME_TARGET: ${CUSTOM_DOMAIN_CNAME_TARGET:-}
+  CUSTOM_DOMAIN_EDGE_IPV4: ${CUSTOM_DOMAIN_EDGE_IPV4:-}
   BILLING_DEBUG: ${BILLING_DEBUG:-}
   MP_CLIENT_ID: ${MP_CLIENT_ID:-}
   MP_CLIENT_SECRET: ${MP_CLIENT_SECRET:-}
@@ -389,6 +393,7 @@ services:
       context: ./frontend
       args:
         VITE_API_URL: https://${API_DOMAIN:?Defina API_DOMAIN em .env.production}
+        VITE_APP_URL: https://${APP_DOMAIN:?Defina APP_DOMAIN em .env.production}
         VITE_SOCKET_URL: https://${API_DOMAIN:?Defina API_DOMAIN em .env.production}
         VITE_SOCKET_PATH: ${VITE_SOCKET_PATH:-/socket.io}
         VITE_API_TIMEOUT_MS: ${VITE_API_TIMEOUT_MS:-15000}

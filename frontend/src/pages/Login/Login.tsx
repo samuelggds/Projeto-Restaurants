@@ -42,6 +42,7 @@ import {
   readRememberedAccountEmail,
   writeRememberedAccountEmail,
 } from './domain/rememberedAccount';
+import { useCustomDomainTenant } from '../../shared/tenant/useCustomDomainTenant';
 import {
   canUseLoginPortal,
   getLoginPortalAccessError,
@@ -61,8 +62,12 @@ export default function Login() {
   const navigate = useNavigate();
   const location = useLocation();
   const [searchParams] = useSearchParams();
-  const portal = resolveLoginPortal(location.pathname);
-  const portalSlug = getRestaurantSlugFromAuthPath(location.pathname);
+  const customDomain = useCustomDomainTenant();
+  const portal = customDomain.isCustomDomain ? 'CUSTOMER' : resolveLoginPortal(location.pathname);
+  const portalSlug =
+    getRestaurantSlugFromAuthPath(location.pathname) ||
+    customDomain.tenant?.restaurantSlug ||
+    '';
   const rememberScope = useMemo(
     () => ({ portal, restaurantSlug: portalSlug }),
     [portal, portalSlug],
@@ -72,10 +77,12 @@ export default function Login() {
     const params = new URLSearchParams(searchReference);
     if (portalSlug) {
       if (!params.has('slug') && !params.has('restaurantSlug')) params.set('slug', portalSlug);
-      if (!params.has('next') && portal === 'CUSTOMER') params.set('next', `/${portalSlug}`);
+      if (!params.has('next') && portal === 'CUSTOMER' && !customDomain.isCustomDomain) {
+        params.set('next', `/${portalSlug}`);
+      }
     }
     return params;
-  }, [portal, portalSlug, searchReference]);
+  }, [customDomain.isCustomDomain, portal, portalSlug, searchReference]);
 
   const isTechnicalAccess = portal === 'SUPER_ADMIN';
   const isAdminAccess = portal === 'ADMIN';
@@ -86,7 +93,7 @@ export default function Login() {
   const authExperience = resolveAuthExperience(contextualSearchParams);
   const contextualRegisterPath = buildAuthEntryUrl('/register', contextualSearchParams);
   const registerPath =
-    isCustomerAccess && portalSlug
+    isCustomerAccess && portalSlug && !customDomain.isCustomDomain
       ? contextualRegisterPath.replace(/^\/register/u, `/${portalSlug}/register`)
       : contextualRegisterPath;
   const recoverPasswordPath = buildAuthEntryUrl('/recover-password', contextualSearchParams);

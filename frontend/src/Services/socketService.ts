@@ -74,6 +74,16 @@ function getRuntimeHost() {
   return window.location.hostname || '';
 }
 
+function configuredHostname(value) {
+  const raw = String(value || '').trim();
+  if (!raw) return '';
+  try {
+    return new URL(raw.includes('://') ? raw : `https://${raw}`).hostname.toLowerCase();
+  } catch {
+    return '';
+  }
+}
+
 function getHostCandidates(host) {
   if (!host) {
     return [];
@@ -96,6 +106,8 @@ function getSocketBaseUrls() {
     import.meta.env.VITE_SOCKET_URL || import.meta.env.VITE_API_URL,
   );
   const runtimeHost = getRuntimeHost();
+  const configuredAppHost = configuredHostname(import.meta.env.VITE_APP_URL);
+  const configuredApiHost = configuredHostname(configuredUrl);
   const runtimeCandidates = getHostCandidates(runtimeHost).map(normalizeBaseUrl);
   const runtimeUrl = normalizeBaseUrl(getRuntimeSocketUrl());
   const sameOriginUrl =
@@ -120,6 +132,17 @@ function getSocketBaseUrls() {
 
   // In production-like hosts, never fall back to host:3000.
   if (!isLocalRuntimeHost) {
+    const normalizedRuntimeHost = String(runtimeHost || '').toLowerCase();
+    const isCustomDomainRuntime =
+      Boolean(configuredAppHost) &&
+      normalizedRuntimeHost !== configuredAppHost &&
+      normalizedRuntimeHost !== configuredApiHost;
+
+    if (isCustomDomainRuntime && sameOriginUrl) {
+      urls.add(sameOriginUrl);
+      return Array.from(urls);
+    }
+
     if (configuredUrl) {
       urls.add(configuredUrl);
     }

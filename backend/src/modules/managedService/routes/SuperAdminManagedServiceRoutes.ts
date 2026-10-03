@@ -17,6 +17,9 @@ router.post('/restaurants/:restaurantId/products', (req, res, next) =>
 router.patch('/restaurants/:restaurantId/products/:productId', (req, res, next) =>
   SuperAdminManagedRestaurantController.updateProduct(req, res, next),
 );
+router.post('/restaurants/:restaurantId/ingredients', (req, res, next) =>
+  SuperAdminManagedRestaurantController.createIngredient(req, res, next),
+);
 router.post('/restaurants/:restaurantId/categories', (req, res, next) =>
   SuperAdminManagedRestaurantController.createCategory(req, res, next),
 );

@@ -23,6 +23,8 @@ const RESERVED_ROOTS = new Set([
   'login',
   'mesa',
   'orders',
+  'pedido',
+  'pedidos',
   'profile',
   'recover-password',
   'register',
@@ -59,14 +61,21 @@ const isTenantLegalRoute = (pathname: string) => {
   return isAllowedTenantRoot(tenantLegal);
 };
 
-export function isPublicRestaurantRoute(pathname: string) {
+export function isPublicRestaurantRoute(pathname: string, allowCustomDomainRootPaths = false) {
   const path = normalizePath(pathname);
   const singleSegment = path.match(/^\/([^/]+)$/)?.[1];
   const restaurantTable = path.match(/^\/([^/]+)\/mesa\/[^/]+$/)?.[1];
   const orderPixPayment = /^\/([^/]+)\/pedido\/[^/]+\/pagamento$/u.exec(path)?.[1];
   const guestOrders = /^\/([^/]+)\/pedidos$/u.exec(path)?.[1];
 
+  const customDomainPublic =
+    allowCustomDomainRootPaths &&
+    (path === '/pedidos' ||
+      /^\/pedido\/[^/]+\/pagamento$/u.test(path) ||
+      /^\/mesa\/[^/]+$/u.test(path));
+
   return Boolean(
+    customDomainPublic ||
     isAllowedTenantRoot(singleSegment) ||
       isAllowedTenantRoot(restaurantTable) ||
       isAllowedTenantRoot(orderPixPayment) ||
@@ -75,7 +84,7 @@ export function isPublicRestaurantRoute(pathname: string) {
   );
 }
 
-export function isPublicRoute(pathname: string) {
+export function isPublicRoute(pathname: string, allowCustomDomainRootPaths = false) {
   const path = normalizePath(pathname);
   const deliveryTracking = /^\/orders\/\d+\/tracking$/u.test(path);
   const deliveryChat = /^\/orders\/\d+\/chat$/u.test(path);
@@ -86,7 +95,7 @@ export function isPublicRoute(pathname: string) {
     path === TENANT_REQUIRED_PATH ||
     deliveryTracking ||
     deliveryChat ||
-    isPublicRestaurantRoute(path)
+    isPublicRestaurantRoute(path, allowCustomDomainRootPaths)
   );
 }
 
@@ -114,8 +123,13 @@ export function shouldEndSuperAdminSession(pathname: string, user: RouteUser) {
   return !isPath(path, '/super_admin');
 }
 
-export function authorizeRoute(pathname: string, user: RouteUser): RouteDecision {
+export function authorizeRoute(
+  pathname: string,
+  user: RouteUser,
+  options: { customDomain?: boolean } = {},
+): RouteDecision {
   const path = normalizePath(pathname);
+  const allowCustomDomainRootPaths = options.customDomain === true;
   const role = String(user?.role || '').toUpperCase();
   const subRole = String(user?.subRole || '').toUpperCase();
 
@@ -123,7 +137,7 @@ export function authorizeRoute(pathname: string, user: RouteUser): RouteDecision
     return { allowed: false, redirectTo: '/super_admin/login' };
   }
   if (!user)
-    return isPublicRoute(path) || isGuestEntry(path)
+    return isPublicRoute(path, allowCustomDomainRootPaths) || isGuestEntry(path)
       ? { allowed: true }
       : { allowed: false, redirectTo: TENANT_LOGIN_REDIRECT };
 
@@ -140,7 +154,7 @@ export function authorizeRoute(pathname: string, user: RouteUser): RouteDecision
   // A experiência pública do restaurante pertence ao visitante/CLIENTE.
   // Contas operacionais nunca entram no delivery/cardápio como consumidor:
   // elas permanecem restritas ao próprio portal.
-  if (isPublicRestaurantRoute(path)) {
+  if (isPublicRestaurantRoute(path, allowCustomDomainRootPaths)) {
     return role === 'CLIENTE' ? { allowed: true } : { allowed: false, redirectTo: home };
   }
 
@@ -168,7 +182,7 @@ export function authorizeRoute(pathname: string, user: RouteUser): RouteDecision
   if (SERVICE_PATHS.includes(path)) return { allowed: true };
   if (role === 'CLIENTE') {
     const ok =
-      isPublicRoute(path) ||
+      isPublicRoute(path, allowCustomDomainRootPaths) ||
       path === '/profile' ||
       /^\/orders\/[^/]+\/(?:tracking|chat)$/.test(path);
     return ok ? { allowed: true } : { allowed: false, redirectTo: home };

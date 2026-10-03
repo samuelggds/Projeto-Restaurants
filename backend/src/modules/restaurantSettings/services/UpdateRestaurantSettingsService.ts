@@ -22,6 +22,10 @@ import {
   normalizeStrictBoolean,
   normalizeWhatsappNumber,
 } from '../utils/adminSettingsValidation.js';
+import {
+  hasCustomDomainAccess,
+  hasHostedLandingAccess,
+} from '../../billing/domain/planFeaturePolicy.js';
 
 type UpdateRestaurantSettingsPayload = {
   restaurantId: number | string;
@@ -90,6 +94,8 @@ type UpdateRestaurantSettingsPayload = {
   fontFamily?: string | null;
   seoTitle?: string | null;
   seoDescription?: string | null;
+  customDomainRequested?: boolean;
+  landingPageEnabled?: boolean;
   restaurantName?: string | null;
   restaurantLogo?: string | null;
   restaurantCoverImage?: string | null;
@@ -233,6 +239,8 @@ class UpdateRestaurantSettingsService {
     fontFamily,
     seoTitle,
     seoDescription,
+    customDomainRequested,
+    landingPageEnabled,
     restaurantName,
     restaurantLogo,
     restaurantCoverImage,
@@ -352,6 +360,37 @@ class UpdateRestaurantSettingsService {
       maxConcurrentOrders === undefined
         ? undefined
         : normalizeIntegerInRange(maxConcurrentOrders, 'Limite de pedidos simultâneos', 1, 500);
+    const normalizedCustomDomainRequested =
+      customDomainRequested === undefined
+        ? undefined
+        : normalizeStrictBoolean(customDomainRequested, 'Domínio próprio', false);
+    const normalizedLandingPageEnabled =
+      landingPageEnabled === undefined
+        ? undefined
+        : normalizeStrictBoolean(landingPageEnabled, 'Página personalizada do restaurante', false);
+    const resultingCustomDomainRequested =
+      normalizedCustomDomainRequested ?? settings.customDomainRequested ?? false;
+    const resultingLandingPageEnabled =
+      normalizedLandingPageEnabled ?? settings.landingPageEnabled ?? false;
+    if (resultingLandingPageEnabled && !resultingCustomDomainRequested) {
+      throw new Error('A página personalizada exige que o domínio próprio também esteja ativado.');
+    }
+    const enablingCustomDomain =
+      normalizedCustomDomainRequested === true && settings.customDomainRequested !== true;
+    const enablingLanding =
+      normalizedLandingPageEnabled === true && settings.landingPageEnabled !== true;
+    if (enablingCustomDomain || enablingLanding) {
+      const subscription = await prisma.subscription.findUnique({
+        where: { restaurantId: Number(restaurantId) },
+        select: { plan: true, status: true },
+      });
+      if (enablingCustomDomain && !hasCustomDomainAccess(subscription?.plan, subscription?.status)) {
+        throw new Error('Domínio próprio está disponível somente nos planos Premium e Gestão Total ativos.');
+      }
+      if (enablingLanding && !hasHostedLandingAccess(subscription?.plan, subscription?.status)) {
+        throw new Error('A página personalizada do restaurante está disponível somente no plano Gestão Total ativo.');
+      }
+    }
     const normalizedWhatsappEnabled =
       whatsappEnabled === undefined
         ? undefined
@@ -633,6 +672,8 @@ class UpdateRestaurantSettingsService {
         seoDescription === undefined
           ? undefined
           : normalizeOptionalText(seoDescription, 'Descrição para buscadores', 160),
+      customDomainRequested: normalizedCustomDomainRequested,
+      landingPageEnabled: normalizedLandingPageEnabled,
       whatsappEnabled: normalizedWhatsappEnabled,
       whatsappDisplayName:
         whatsappDisplayName === undefined

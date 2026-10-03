@@ -8,6 +8,7 @@ import {
 } from '../../features/password-policy';
 import {
   buildAuthEntryUrl,
+  buildTenantPublicPath,
   getRememberedAuthReturnPath,
   getSafeAuthSearchParams,
   resolveAuthExperience,
@@ -20,6 +21,7 @@ import { useRestaurantLoginBranding } from '../Login/hooks/useRestaurantLoginBra
 import { getRestaurantSlugFromAuthPath } from '../Login/domain/loginPortal';
 import { useResendCooldown } from './hooks/useResendCooldown';
 import { CustomerRecoveryExperience } from './CustomerRecoveryExperience';
+import { useCustomDomainTenant } from '../../shared/tenant/useCustomDomainTenant';
 
 type ContactMethod = 'email' | 'phone';
 
@@ -32,7 +34,11 @@ export default function RecoverPassword() {
   const navigate = useNavigate();
   const location = useLocation();
   const [searchParams] = useSearchParams();
-  const pathSlug = getRestaurantSlugFromAuthPath(location.pathname);
+  const customDomain = useCustomDomainTenant();
+  const pathSlug =
+    getRestaurantSlugFromAuthPath(location.pathname) ||
+    customDomain.tenant?.restaurantSlug ||
+    '';
   const searchReference = searchParams.toString();
 
   const contextualSearchParams = useMemo(() => {
@@ -40,18 +46,22 @@ export default function RecoverPassword() {
     if (pathSlug) {
       if (!params.has('slug') && !params.has('restaurantSlug')) params.set('slug', pathSlug);
       if (!params.has('next')) {
-        params.set('next', getRememberedAuthReturnPath(pathSlug) || `/${pathSlug}`);
+        const remembered = getRememberedAuthReturnPath(pathSlug);
+        if (remembered) params.set('next', remembered);
+        else if (!customDomain.isCustomDomain) params.set('next', `/${pathSlug}`);
       }
     }
     return params;
-  }, [pathSlug, searchReference]);
+  }, [customDomain.isCustomDomain, pathSlug, searchReference]);
 
   const canonicalSearch = getSafeAuthSearchParams(contextualSearchParams).toString();
   const branding = useRestaurantLoginBranding(contextualSearchParams);
   const authExperience = resolveAuthExperience(contextualSearchParams);
-  const loginPath = pathSlug
-    ? `/${pathSlug}/login${canonicalSearch ? `?${canonicalSearch}` : ''}`
-    : buildAuthEntryUrl('/login', contextualSearchParams);
+  const loginPath = customDomain.isCustomDomain
+    ? buildTenantPublicPath(pathSlug, '/login')
+    : pathSlug
+      ? `${buildTenantPublicPath(pathSlug, '/login')}${canonicalSearch ? `?${canonicalSearch}` : ''}`
+      : buildAuthEntryUrl('/login', contextualSearchParams);
 
   const [step, setStep] = useState<'request' | 'reset'>('request');
   const [contactMethod, setContactMethod] = useState<ContactMethod>(

@@ -26,6 +26,10 @@ import {
   normalizeStrictBoolean,
   normalizeWhatsappNumber,
 } from '../utils/adminSettingsValidation.js';
+import {
+  hasCustomDomainAccess,
+  hasHostedLandingAccess,
+} from '../../billing/domain/planFeaturePolicy.js';
 
 type CreateRestaurantSettingsPayload = {
   restaurantId: number | string;
@@ -94,6 +98,8 @@ type CreateRestaurantSettingsPayload = {
   fontFamily?: string | null;
   seoTitle?: string | null;
   seoDescription?: string | null;
+  customDomainRequested?: boolean;
+  landingPageEnabled?: boolean;
   restaurantName?: string | null;
   restaurantLogo?: string | null;
   restaurantCoverImage?: string | null;
@@ -179,6 +185,8 @@ class CreateRestaurantSettingsService {
     fontFamily,
     seoTitle,
     seoDescription,
+    customDomainRequested,
+    landingPageEnabled,
     restaurantName,
     restaurantLogo,
     restaurantCoverImage,
@@ -342,6 +350,38 @@ class CreateRestaurantSettingsService {
       deliveryTimeMax,
     });
 
+    const normalizedCustomDomainRequested = normalizeStrictBoolean(
+      customDomainRequested,
+      'Domínio próprio',
+      false,
+    );
+    const normalizedLandingPageEnabled = normalizeStrictBoolean(
+      landingPageEnabled,
+      'Página personalizada do restaurante',
+      false,
+    );
+    if (normalizedLandingPageEnabled && !normalizedCustomDomainRequested) {
+      throw new Error('A página personalizada exige que o domínio próprio também esteja ativado.');
+    }
+    if (normalizedCustomDomainRequested || normalizedLandingPageEnabled) {
+      const subscription = await prisma.subscription.findUnique({
+        where: { restaurantId: Number(restaurantId) },
+        select: { plan: true, status: true },
+      });
+      if (
+        normalizedCustomDomainRequested &&
+        !hasCustomDomainAccess(subscription?.plan, subscription?.status)
+      ) {
+        throw new Error('Domínio próprio está disponível somente nos planos Premium e Gestão Total ativos.');
+      }
+      if (
+        normalizedLandingPageEnabled &&
+        !hasHostedLandingAccess(subscription?.plan, subscription?.status)
+      ) {
+        throw new Error('A página personalizada do restaurante está disponível somente no plano Gestão Total ativo.');
+      }
+    }
+
     const settingsCreateData: Prisma.RestaurantSettingsUncheckedCreateInput = {
       restaurantId: Number(restaurantId),
       deliveryFee: normalizeNonNegativeMoney(deliveryFee, 'Taxa de entrega'),
@@ -417,6 +457,8 @@ class CreateRestaurantSettingsService {
       fontFamily: normalizeFontFamily(fontFamily),
       seoTitle: normalizeOptionalText(seoTitle, 'Título para buscadores', 70),
       seoDescription: normalizeOptionalText(seoDescription, 'Descrição para buscadores', 160),
+      customDomainRequested: normalizedCustomDomainRequested,
+      landingPageEnabled: normalizedLandingPageEnabled,
       whatsappEnabled: normalizedWhatsappEnabled,
       whatsappDisplayName: normalizeOptionalText(
         whatsappDisplayName,

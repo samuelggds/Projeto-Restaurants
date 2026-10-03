@@ -48,6 +48,9 @@ describe('configurações principais do administrador', () => {
         <BrandSettings
           settings={{ ...adminMockSettings, restaurantName: 'Casa Teste' }}
           update={update}
+          restaurantSlug="casa-teste"
+          currentPlanCode="GESTAO_TOTAL"
+          subscriptionStatus="ATIVA"
           logoInput={createRef<HTMLInputElement>()}
           onLogoChange={() => undefined}
           onCoverChange={() => undefined}
@@ -69,6 +72,61 @@ describe('configurações principais do administrador', () => {
     expect(name.value).toBe('Casa Teste');
     act(() => changeValue(name, 'Casa Atualizada'));
     expect(update).toHaveBeenCalledWith('restaurantName', 'Casa Atualizada');
+  });
+
+  it('mantém /slug em todos os planos e bloqueia domínio e landing conforme o plano', () => {
+    const renderBrand = (plan: string, customDomainRequested = false) => {
+      const update = vi.fn();
+      act(() =>
+        root.render(
+          <BrandSettings
+            settings={{
+              ...adminMockSettings,
+              restaurantName: 'Casa Teste',
+              customDomainRequested,
+            }}
+            update={update}
+            restaurantSlug="casa-teste"
+            currentPlanCode={plan}
+            subscriptionStatus="ATIVA"
+            logoInput={createRef<HTMLInputElement>()}
+            onLogoChange={() => undefined}
+            onCoverChange={() => undefined}
+            onEnhanceCover={() => undefined}
+            isEnhancingCover={false}
+            onBannerImageChange={() => undefined}
+            onEnhanceBanner={() => undefined}
+            enhancingBannerLocalId={null}
+          />,
+        ),
+      );
+      return update;
+    };
+
+    renderBrand('BASICO');
+    expect(
+      (container.querySelector('[aria-label="Endereço GastroNexa permanente"]') as HTMLInputElement)
+        .value,
+    ).toContain('/casa-teste');
+    const basicCheckboxes = Array.from(
+      container.querySelectorAll('input[type="checkbox"]'),
+    ) as HTMLInputElement[];
+    expect(basicCheckboxes.at(-2)?.disabled).toBe(true);
+    expect(basicCheckboxes.at(-1)?.disabled).toBe(true);
+
+    renderBrand('PREMIUM');
+    const premiumCheckboxes = Array.from(
+      container.querySelectorAll('input[type="checkbox"]'),
+    ) as HTMLInputElement[];
+    expect(premiumCheckboxes.at(-2)?.disabled).toBe(false);
+    expect(premiumCheckboxes.at(-1)?.disabled).toBe(true);
+
+    renderBrand('GESTAO_TOTAL', true);
+    const totalCheckboxes = Array.from(
+      container.querySelectorAll('input[type="checkbox"]'),
+    ) as HTMLInputElement[];
+    expect(totalCheckboxes.at(-2)?.disabled).toBe(false);
+    expect(totalCheckboxes.at(-1)?.disabled).toBe(false);
   });
 
   it('expõe dados do negócio persistidos em campos controlados', () => {
