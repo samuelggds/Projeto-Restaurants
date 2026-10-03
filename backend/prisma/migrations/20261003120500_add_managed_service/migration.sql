@@ -116,6 +116,9 @@ CREATE TABLE "RestaurantManagedUpdateRequest" (
     FOREIGN KEY ("handledByUserId") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE
 );
 
+CREATE INDEX "RestaurantImplementation_status_createdAt_idx"
+  ON "RestaurantImplementation"("status", "createdAt");
+
 CREATE INDEX "RestaurantManagedUpdateRequest_restaurantId_status_createdAt_idx"
   ON "RestaurantManagedUpdateRequest"("restaurantId", "status", "createdAt");
 
