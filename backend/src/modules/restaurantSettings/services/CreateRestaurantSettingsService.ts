@@ -8,6 +8,7 @@ import {
   normalizeEstablishmentAddress,
   validateEstablishmentAddress,
 } from '../utils/establishmentAddress.js';
+import { normalizeDeliveryTimeRangeInput } from '../utils/deliveryTimeRange.js';
 import {
   createDisabledBusinessHours,
   normalizeBusinessHours,
@@ -107,6 +108,8 @@ type CreateRestaurantSettingsPayload = {
   businessHours?: unknown;
   isOpenForOrders?: boolean;
   averageDeliveryTime?: string | number | null;
+  deliveryTimeMin?: string | number | null;
+  deliveryTimeMax?: string | number | null;
   autoAcceptOrders?: boolean;
   trackingRequiresLogin?: boolean;
   soundNotifications?: boolean;
@@ -190,6 +193,8 @@ class CreateRestaurantSettingsService {
     businessHours,
     isOpenForOrders,
     averageDeliveryTime,
+    deliveryTimeMin,
+    deliveryTimeMax,
     autoAcceptOrders,
     trackingRequiresLogin,
     soundNotifications,
@@ -331,6 +336,12 @@ class CreateRestaurantSettingsService {
       );
     }
 
+    const normalizedDeliveryTimeRange = normalizeDeliveryTimeRangeInput({
+      averageDeliveryTime,
+      deliveryTimeMin,
+      deliveryTimeMax,
+    });
+
     const settingsCreateData: Prisma.RestaurantSettingsUncheckedCreateInput = {
       restaurantId: Number(restaurantId),
       deliveryFee: normalizeNonNegativeMoney(deliveryFee, 'Taxa de entrega'),
@@ -429,10 +440,9 @@ class CreateRestaurantSettingsService {
       ),
       businessHours: normalizedBusinessHours as Prisma.InputJsonValue | undefined,
       isOpenForOrders: normalizeStrictBoolean(isOpenForOrders, 'Recebimento de pedidos', true),
-      averageDeliveryTime:
-        averageDeliveryTime === undefined
-          ? undefined
-          : String(normalizeIntegerInRange(averageDeliveryTime, 'Tempo médio de preparo', 1, 240)),
+      averageDeliveryTime: normalizedDeliveryTimeRange?.averageDeliveryTime,
+      deliveryTimeMin: normalizedDeliveryTimeRange?.deliveryTimeMin,
+      deliveryTimeMax: normalizedDeliveryTimeRange?.deliveryTimeMax,
       autoAcceptOrders: normalizeStrictBoolean(
         autoAcceptOrders,
         'Aceite automático de pedidos',
