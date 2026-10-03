@@ -57,9 +57,11 @@ export default function RecoverPassword() {
   const canonicalSearch = getSafeAuthSearchParams(contextualSearchParams).toString();
   const branding = useRestaurantLoginBranding(contextualSearchParams);
   const authExperience = resolveAuthExperience(contextualSearchParams);
-  const loginPath = pathSlug
-    ? `${buildTenantPublicPath(pathSlug, '/login')}${canonicalSearch ? `?${canonicalSearch}` : ''}`
-    : buildAuthEntryUrl('/login', contextualSearchParams);
+  const loginPath = customDomain.isCustomDomain
+    ? buildTenantPublicPath(pathSlug, '/login')
+    : pathSlug
+      ? `${buildTenantPublicPath(pathSlug, '/login')}${canonicalSearch ? `?${canonicalSearch}` : ''}`
+      : buildAuthEntryUrl('/login', contextualSearchParams);
 
   const [step, setStep] = useState<'request' | 'reset'>('request');
   const [contactMethod, setContactMethod] = useState<ContactMethod>(
