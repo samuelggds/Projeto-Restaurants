@@ -16,6 +16,67 @@ describe('FigmaDeliveryExperience product flow', () => {
     vi.stubGlobal('scrollTo', vi.fn());
   });
 
+
+
+  it('não reserva espaço de banner quando o admin não configurou banner', async () => {
+    const container = document.createElement('div');
+    document.body.appendChild(container);
+    const root = createRoot(container);
+
+    await act(async () => {
+      root.render(
+        <FigmaDeliveryExperience
+          data={{
+            ...homeMockData,
+            brand: { ...homeMockData.brand, name: 'Restaurante Demo' },
+            hero: { title: '', highlight: '', description: '', image: '' },
+            banners: [],
+          }}
+        />,
+      );
+    });
+
+    expect(container.querySelector('[aria-label="Promoções do restaurante"]')).toBeNull();
+    expect(container.querySelector('#cardapio')).toBeTruthy();
+    expect(container.querySelector('#cardapio')?.classList.contains('no-banner')).toBe(true);
+
+    act(() => root.unmount());
+    container.remove();
+  });
+
+  it('mantém entrega e retirada ligadas ao estado real do checkout', async () => {
+    const container = document.createElement('div');
+    document.body.appendChild(container);
+    const root = createRoot(container);
+    const onFulfillmentMethodChange = vi.fn();
+
+    await act(async () => {
+      root.render(
+        <FigmaDeliveryExperience
+          data={{
+            ...homeMockData,
+            acceptsDelivery: true,
+            acceptsPickup: true,
+            brand: { ...homeMockData.brand, name: 'Restaurante Demo' },
+          }}
+          fulfillmentMethod="pickup"
+          onFulfillmentMethodChange={onFulfillmentMethodChange}
+        />,
+      );
+    });
+
+    const deliveryButtons = Array.from(
+      container.querySelectorAll<HTMLButtonElement>('button[aria-pressed="false"]'),
+    ).filter((button) => button.textContent?.includes('Entrega'));
+    expect(deliveryButtons.length).toBeGreaterThan(0);
+
+    await act(async () => deliveryButtons[0].click());
+    expect(onFulfillmentMethodChange).toHaveBeenCalledWith('delivery');
+
+    act(() => root.unmount());
+    container.remove();
+  });
+
   it('abre detalhes para produto COMPLETE e adiciona somente após confirmação', async () => {
     const container = document.createElement('div');
     document.body.appendChild(container);
