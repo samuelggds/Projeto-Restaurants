@@ -17,6 +17,12 @@ export function hasImplementationAccess(
   );
 }
 
+export function managedImplementationProductLimit(
+  plan: ManagedServicePlan | null | undefined,
+) {
+  return String(plan || '').trim().toUpperCase() === 'PREMIUM' ? 150 : null;
+}
+
 export function hasContinuousManagementAccess(
   plan: ManagedServicePlan | null | undefined,
   status: ManagedServiceSubscriptionStatus | null | undefined,
