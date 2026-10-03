@@ -102,8 +102,21 @@ export class CustomDomainController {
   }
 
   async caddyAllow(req: Request, res: Response) {
-    const domain = first(req.query.domain as string | string[] | undefined);
-    const resolved = await resolveActiveCustomDomain(domain).catch(() => null);
+    const queryDomain = first(req.query.domain as string | string[] | undefined);
+    const forwardedHost = String(req.headers['x-forwarded-host'] || '')
+      .split(',')[0]
+      .trim();
+    const candidate = queryDomain || forwardedHost;
+    let hostname = candidate;
+    if (forwardedHost && !queryDomain) {
+      try {
+        hostname = new URL(`https://${forwardedHost}`).hostname;
+      } catch {
+        hostname = '';
+      }
+    }
+
+    const resolved = await resolveActiveCustomDomain(hostname).catch(() => null);
     res.setHeader('Cache-Control', 'no-store');
     return resolved ? res.status(204).end() : res.status(403).end();
   }
