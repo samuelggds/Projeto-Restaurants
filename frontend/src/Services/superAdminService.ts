@@ -105,6 +105,7 @@ class SuperAdminService {
       mode: 'MENU_ONLY' | 'SITE_WITH_MENU_SUBDOMAIN';
       menuSubdomain?: string;
       includeWww: boolean;
+      landingPublished?: boolean;
     },
   ) {
     const response = await api.put(
