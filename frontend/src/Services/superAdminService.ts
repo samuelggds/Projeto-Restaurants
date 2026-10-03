@@ -190,6 +190,14 @@ class SuperAdminService {
     return response.data;
   }
 
+  async createManagedIngredient(restaurantId: number, input: Record<string, unknown>) {
+    const response = await api.post(
+      `/super-admin/managed-service/restaurants/${restaurantId}/ingredients`,
+      input,
+    );
+    return response.data;
+  }
+
   async createManagedCategory(restaurantId: number, input: Record<string, unknown>) {
     const response = await api.post(
       `/super-admin/managed-service/restaurants/${restaurantId}/categories`,
