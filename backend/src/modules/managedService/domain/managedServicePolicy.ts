@@ -21,7 +21,9 @@ export function managedImplementationProductLimit(
   plan: ManagedServicePlan | null | undefined,
 ) {
   const normalized = String(plan || '').trim().toUpperCase();
-  return normalized === 'BASICO' || normalized === 'PREMIUM' ? 150 : null;
+  if (normalized === 'BASICO') return 50;
+  if (normalized === 'PREMIUM') return 100;
+  return null;
 }
 
 export function hasContinuousManagementAccess(
