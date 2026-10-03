@@ -14,7 +14,7 @@ import * as S from './ReadyProductDetail.styles';
 const money = (value: number) =>
   Number(value || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
-function formatPreparationTime(value?: string) {
+function formatPreparationTime(value?: number | string) {
   const raw = String(value || '').trim();
   if (!raw) return '';
 
@@ -44,7 +44,7 @@ type ReadyProductDetailProps = {
   restaurantName: string;
   restaurantCategory?: string;
   categoryName?: string;
-  preparationTime?: string;
+  preparationTime?: number;
   cartCount?: number;
   onBack: () => void;
   onOpenCart?: () => void;
@@ -113,7 +113,7 @@ export function ReadyProductDetail({
         <div className="brand">
           <strong>{restaurantName}</strong>
           <small>
-            {[restaurantCategory, formattedPreparationTime ? `entrega em ${formattedPreparationTime}` : '']
+            {[restaurantCategory, formattedPreparationTime ? `preparo em ${formattedPreparationTime}` : '']
               .filter(Boolean)
               .join(' · ')}
           </small>
