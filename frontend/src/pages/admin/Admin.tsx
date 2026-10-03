@@ -522,9 +522,16 @@ export function mapSettingsToApi(settings: AdminSettings): Record<string, unknow
     acceptsPix: settings.acceptsPix,
     openFinancePixEnabled: settings.openFinancePixEnabled,
     acceptsCard: settings.acceptsCard,
-    averageDeliveryTime: settings.deliveryTimeMin || settings.deliveryTime,
-    deliveryTimeMin: settings.deliveryTimeMin,
-    deliveryTimeMax: settings.deliveryTimeMax,
+    averageDeliveryTime:
+      settings.deliveryTimeMin > 0 ? settings.deliveryTimeMin : null,
+    deliveryTimeMin:
+      settings.deliveryTimeMin === 0 && settings.deliveryTimeMax === 0
+        ? null
+        : settings.deliveryTimeMin,
+    deliveryTimeMax:
+      settings.deliveryTimeMin === 0 && settings.deliveryTimeMax === 0
+        ? null
+        : settings.deliveryTimeMax,
     autoAcceptOrders: settings.autoAcceptOrders,
     trackingRequiresLogin: settings.trackingRequiresLogin,
     soundNotifications: settings.soundNotifications,
