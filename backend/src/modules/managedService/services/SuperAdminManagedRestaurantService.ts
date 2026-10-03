@@ -15,7 +15,17 @@ import updateRestaurantSettingsService from '../../restaurantSettings/services/U
 import { createProductSchema, updateProductSchema } from '../../../validators/ProductValidator.js';
 import { createCategorySchema } from '../../../validators/CategoryValidator.js';
 import { comboInputSchema } from '../../productCombos/services/ProductComboService.js';
-import { hasContinuousManagementAccess, hasImplementationAccess } from '../domain/managedServicePolicy.js';
+import {
+  hasContinuousManagementAccess,
+  hasImplementationAccess,
+  hasManagedWorkspaceAccess,
+} from '../domain/managedServicePolicy.js';
+import {
+  managedBadRequest,
+  managedForbidden,
+  managedMutation,
+  managedNotFound,
+} from '../domain/managedServiceErrors.js';
 
 type Actor = {
   userId: number;
@@ -64,14 +74,14 @@ export const safeManagedRestaurantSettingsSchema = z
 
 function inputRecord(value: unknown) {
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
-    throw new Error('Dados inválidos para a alteração.');
+    throw managedBadRequest('Dados inválidos para a alteração.');
   }
   return value as Record<string, unknown>;
 }
 
 function positiveId(value: unknown, label: string) {
   const id = Number(value);
-  if (!Number.isSafeInteger(id) || id <= 0) throw new Error(`${label} inválido.`);
+  if (!Number.isSafeInteger(id) || id <= 0) throw managedBadRequest(`${label} inválido.`);
   return id;
 }
 
@@ -81,7 +91,7 @@ async function assertSuperAdmin(actor: Actor) {
     where: { id: userId, role: 'SUPER_ADMIN', active: true },
     select: { id: true, name: true, role: true },
   });
-  if (!user) throw new Error('SUPER_ADMIN não autorizado.');
+  if (!user) throw managedForbidden('SUPER_ADMIN não autorizado.');
   return user;
 }
 
@@ -96,11 +106,14 @@ async function assertManagedAccess(restaurantId: number) {
       implementation: { select: { status: true } },
     },
   });
-  if (!restaurant) throw new Error('Restaurante não encontrado.');
+  if (!restaurant) throw managedNotFound('Restaurante não encontrado.');
 
   const subscription = restaurant.subscription;
   if (!hasImplementationAccess(subscription?.plan, subscription?.status)) {
-    throw new Error('Este restaurante não possui serviço assistido ativo.');
+    throw managedForbidden(
+      'Este restaurante não possui serviço assistido ativo.',
+      'MANAGED_SERVICE_PLAN_REQUIRED',
+    );
   }
 
   if (
@@ -110,8 +123,9 @@ async function assertManagedAccess(restaurantId: number) {
       restaurant.implementation?.status,
     )
   ) {
-    throw new Error(
+    throw managedForbidden(
       'A implantação Premium já foi encerrada. Alterações contínuas exigem o plano Gestão Total.',
+      'MANAGED_WORKSPACE_CLOSED',
     );
   }
 
@@ -219,11 +233,13 @@ class SuperAdminManagedRestaurantService {
     const restaurantId = positiveId(restaurantIdInput, 'Restaurante');
     const restaurant = await assertManagedAccess(restaurantId);
     const parsed = createProductSchema.parse(input);
-    return createProductService.execute(parsed, restaurantId, {
-      userId: superAdmin.id,
-      userName: superAdmin.name,
-      userRole: superAdmin.role,
-    });
+    return managedMutation(() =>
+      createProductService.execute(parsed, restaurantId, {
+        userId: superAdmin.id,
+        userName: superAdmin.name,
+        userRole: superAdmin.role,
+      }),
+    );
   }
 
   async updateProduct(
@@ -237,11 +253,13 @@ class SuperAdminManagedRestaurantService {
     await assertManagedAccess(restaurantId);
     const productId = positiveId(productIdInput, 'Produto');
     const parsed = updateProductSchema.parse(input);
-    return updateProductService.execute(productId, parsed, restaurantId, {
-      userId: superAdmin.id,
-      userName: superAdmin.name,
-      userRole: superAdmin.role,
-    });
+    return managedMutation(() =>
+      updateProductService.execute(productId, parsed, restaurantId, {
+        userId: superAdmin.id,
+        userName: superAdmin.name,
+        userRole: superAdmin.role,
+      }),
+    );
   }
 
   async createCategory(restaurantIdInput: unknown, input: unknown, actor: Actor) {
@@ -249,7 +267,9 @@ class SuperAdminManagedRestaurantService {
     const restaurantId = positiveId(restaurantIdInput, 'Restaurante');
     const restaurant = await assertManagedAccess(restaurantId);
     const parsed = createCategorySchema.parse(input);
-    const result = await createCategoryService.execute(parsed, restaurantId);
+    const result = await managedMutation(() =>
+      createCategoryService.execute(parsed, restaurantId),
+    );
     await audit(restaurantId, restaurant.name, actor, 'MANAGED_CATEGORY_CREATED', 'Category', {
       categoryId: result.category.id,
       name: result.category.name,
@@ -268,7 +288,9 @@ class SuperAdminManagedRestaurantService {
     const restaurant = await assertManagedAccess(restaurantId);
     const categoryId = positiveId(categoryIdInput, 'Categoria');
     const parsed = createCategorySchema.partial().parse(input);
-    const result = await updateCategoryService.execute(categoryId, parsed, restaurantId);
+    const result = await managedMutation(() =>
+      updateCategoryService.execute(categoryId, parsed, restaurantId),
+    );
     await audit(restaurantId, restaurant.name, actor, 'MANAGED_CATEGORY_UPDATED', `Category:${categoryId}`, {
       fields: Object.keys(parsed),
     });
@@ -286,7 +308,9 @@ class SuperAdminManagedRestaurantService {
     const restaurant = await assertManagedAccess(restaurantId);
     const comboId = comboIdInput == null ? null : positiveId(comboIdInput, 'Combo');
     const parsed = comboInputSchema.parse(input);
-    const result = await productComboService.save(comboId, restaurantId, parsed);
+    const result = await managedMutation(() =>
+      productComboService.save(comboId, restaurantId, parsed),
+    );
     await audit(
       restaurantId,
       restaurant.name,
@@ -303,7 +327,9 @@ class SuperAdminManagedRestaurantService {
     const restaurantId = positiveId(restaurantIdInput, 'Restaurante');
     const restaurant = await assertManagedAccess(restaurantId);
     const bannerInput = inputRecord(input);
-    const result = await createBannerService.execute({ ...bannerInput, restaurantId });
+    const result = await managedMutation(() =>
+      createBannerService.execute({ ...bannerInput, restaurantId }),
+    );
     await audit(restaurantId, restaurant.name, actor, 'MANAGED_BANNER_CREATED', 'Banner', {
       bannerId: result.id,
       title: result.title,
@@ -322,11 +348,13 @@ class SuperAdminManagedRestaurantService {
     const restaurant = await assertManagedAccess(restaurantId);
     const bannerId = positiveId(bannerIdInput, 'Banner');
     const bannerInput = inputRecord(input);
-    const result = await updateBannerService.execute({
-      ...bannerInput,
-      id: bannerId,
-      restaurantId,
-    });
+    const result = await managedMutation(() =>
+      updateBannerService.execute({
+        ...bannerInput,
+        id: bannerId,
+        restaurantId,
+      }),
+    );
     await audit(restaurantId, restaurant.name, actor, 'MANAGED_BANNER_UPDATED', `Banner:${bannerId}`, {
       fields: Object.keys(bannerInput),
     });
@@ -338,7 +366,9 @@ class SuperAdminManagedRestaurantService {
     const restaurantId = positiveId(restaurantIdInput, 'Restaurante');
     const restaurant = await assertManagedAccess(restaurantId);
     const parsed = safeManagedRestaurantSettingsSchema.parse(input);
-    const result = await updateRestaurantSettingsService.execute({ restaurantId, ...parsed });
+    const result = await managedMutation(() =>
+      updateRestaurantSettingsService.execute({ restaurantId, ...parsed }),
+    );
     await audit(
       restaurantId,
       restaurant.name,
