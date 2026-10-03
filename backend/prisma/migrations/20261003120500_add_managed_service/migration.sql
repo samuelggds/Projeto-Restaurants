@@ -36,6 +36,7 @@ ON CONFLICT ("code") DO UPDATE SET
 UPDATE "PlatformPlan"
 SET
   "description" = 'Operação completa com implantação inicial assistida para deixar o restaurante pronto para vender.',
+  "featured" = false,
   "features" = '[
     "Sistema de delivery",
     "Cardápio digital com QR Code de mesa",
@@ -128,7 +129,7 @@ CREATE INDEX "RestaurantManagedUpdateRequest_status_createdAt_idx"
 INSERT INTO "RestaurantImplementation"
   ("id", "restaurantId", "status", "productLimit", "createdAt", "updatedAt")
 SELECT
-  gen_random_uuid(),
+  md5('gastronexa:restaurant-implementation:' || s."restaurantId"::text)::uuid,
   s."restaurantId",
   'AGUARDANDO_MATERIAL',
   150,
