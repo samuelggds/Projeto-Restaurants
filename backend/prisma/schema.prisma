@@ -1352,6 +1352,7 @@ model RestaurantSettings {
   fontFamily     String  @default("Inter")
   seoTitle       String?
   seoDescription String?
+  customDomainRequested Boolean @default(false)
   landingPageEnabled Boolean @default(false)
 
   // Horários
