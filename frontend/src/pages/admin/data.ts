@@ -36,6 +36,7 @@ export const adminMockSettings: AdminSettings = {
   coverImageUrl: '',
   primaryColor: '#d64d08',
   description: '',
+  landingPageEnabled: false,
   whatsapp: '',
   whatsappDisplayName: '',
   whatsappDefaultMessage: '',
