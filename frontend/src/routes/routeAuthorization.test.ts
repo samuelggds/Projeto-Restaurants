@@ -52,6 +52,25 @@ describe('política de autorização de rotas', () => {
     }
   });
 
+  it('libera rotas sem slug apenas quando o host customizado já foi validado', () => {
+    for (const path of ['/mesa/12', '/pedidos', '/pedido/order-123/pagamento']) {
+      expect(authorizeRoute(path, null), path).toEqual({
+        allowed: false,
+        redirectTo: TENANT_LOGIN_REDIRECT,
+      });
+      expect(authorizeRoute(path, null, { customDomain: true }), path).toEqual({
+        allowed: true,
+      });
+      expect(authorizeRoute(path, { role: 'CLIENTE' }, { customDomain: true }), path).toEqual({
+        allowed: true,
+      });
+      expect(authorizeRoute(path, { role: 'ADMIN' }, { customDomain: true }), path).toEqual({
+        allowed: false,
+        redirectTo: '/admin',
+      });
+    }
+  });
+
   it('não trata raízes legais reservadas como slug de restaurante', () => {
     for (const path of ['/termos', '/privacidade', '/cookies']) {
       expect(allowed(path, null), path).toBe(false);
