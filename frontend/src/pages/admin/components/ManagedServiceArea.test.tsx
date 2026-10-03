@@ -87,9 +87,15 @@ describe('ManagedServiceArea', () => {
     const title = inputs[0] as HTMLInputElement;
     const description = container.querySelector('textarea') as HTMLTextAreaElement;
     await act(async () => {
-      title.value = 'Atualizar preço das pizzas';
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set?.call(
+        title,
+        'Atualizar preço das pizzas',
+      );
       title.dispatchEvent(new Event('input', { bubbles: true }));
-      description.value = 'Atualizar a pizza grande para R$ 59,90 conforme solicitado.';
+      Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')?.set?.call(
+        description,
+        'Atualizar a pizza grande para R$ 59,90 conforme solicitado.',
+      );
       description.dispatchEvent(new Event('input', { bubbles: true }));
     });
 
