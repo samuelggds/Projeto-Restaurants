@@ -162,6 +162,15 @@ describe('AdminOrders', () => {
     await act(async () => button.click());
     expect(container.querySelector('[role="dialog"]')).not.toBeNull();
     expect(container.textContent).toContain('Confirme somente se você já recebeu');
+
+    const confirmButton = container.querySelector(
+      '[role="dialog"] button[type="submit"]',
+    ) as HTMLButtonElement;
+    await act(async () => {
+      confirmButton.click();
+      await Promise.resolve();
+    });
+    expect(onConfirmPayment).toHaveBeenCalledExactlyOnceWith(304);
   });
 
   it('consulta um estorno pendente sem pedir outro cancelamento ou confirmação de pagamento', async () => {
