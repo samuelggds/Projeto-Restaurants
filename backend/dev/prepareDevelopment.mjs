@@ -51,6 +51,12 @@ function readJsonVersion(filePath) {
   }
 }
 
+function normalizeSchemaText(value) {
+  return String(value || '')
+    .replace(/^\uFEFF/u, '')
+    .replace(/\r\n?/gu, '\n');
+}
+
 function prismaClientIsCurrent() {
   const sourceSchema = resolve(process.cwd(), 'prisma/schema.prisma');
   const generatedSchema = resolve(process.cwd(), 'node_modules/.prisma/client/schema.prisma');
@@ -66,9 +72,9 @@ function prismaClientIsCurrent() {
     return false;
   }
 
-  const source = readFileSync(sourceSchema);
-  const generated = readFileSync(generatedSchema);
-  if (!source.equals(generated)) return false;
+  const source = normalizeSchemaText(readFileSync(sourceSchema, 'utf8'));
+  const generated = normalizeSchemaText(readFileSync(generatedSchema, 'utf8'));
+  if (source !== generated) return false;
 
   const installedVersion = readJsonVersion(clientPackage);
   const generatedVersion = readJsonVersion(generatedPackage);
