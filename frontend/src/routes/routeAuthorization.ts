@@ -23,6 +23,8 @@ const RESERVED_ROOTS = new Set([
   'login',
   'mesa',
   'orders',
+  'pedido',
+  'pedidos',
   'profile',
   'recover-password',
   'register',
@@ -43,7 +45,6 @@ const isAllowedTenantRoot = (value: string | undefined) =>
   Boolean(value && !RESERVED_ROOTS.has(value.toLowerCase()));
 const isGuestEntry = (path: string) => {
   if (path === '/super_admin/login') return true;
-  if (['/login', '/register', '/recover-password'].includes(path)) return true;
 
   const contextualEntry = path.match(
     /^\/([^/]+)\/(?:login|register|recover-password|team|admin)$/u,
