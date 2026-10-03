@@ -90,6 +90,7 @@ type UpdateRestaurantSettingsPayload = {
   fontFamily?: string | null;
   seoTitle?: string | null;
   seoDescription?: string | null;
+  landingPageEnabled?: boolean;
   restaurantName?: string | null;
   restaurantLogo?: string | null;
   restaurantCoverImage?: string | null;
@@ -233,6 +234,7 @@ class UpdateRestaurantSettingsService {
     fontFamily,
     seoTitle,
     seoDescription,
+    landingPageEnabled,
     restaurantName,
     restaurantLogo,
     restaurantCoverImage,
@@ -633,6 +635,10 @@ class UpdateRestaurantSettingsService {
         seoDescription === undefined
           ? undefined
           : normalizeOptionalText(seoDescription, 'Descrição para buscadores', 160),
+      landingPageEnabled:
+        landingPageEnabled === undefined
+          ? undefined
+          : normalizeStrictBoolean(landingPageEnabled, 'Landing page institucional', false),
       whatsappEnabled: normalizedWhatsappEnabled,
       whatsappDisplayName:
         whatsappDisplayName === undefined
