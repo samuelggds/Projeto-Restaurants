@@ -17,6 +17,8 @@ x-runtime-environment: &production-backend-environment
   JWT_MFA_EXPIRES_IN: ${JWT_MFA_EXPIRES_IN:-10m}
   ALLOW_LEGACY_ACCESS_TOKENS: ${ALLOW_LEGACY_ACCESS_TOKENS:-false}
   ALLOW_UNTRUSTED_OAUTH_ENDPOINTS: ${ALLOW_UNTRUSTED_OAUTH_ENDPOINTS:-false}
+  APP_DOMAIN: ${APP_DOMAIN:?Defina APP_DOMAIN em .env.production}
+  API_DOMAIN: ${API_DOMAIN:?Defina API_DOMAIN em .env.production}
   CORS_ORIGINS: https://${APP_DOMAIN:?Defina APP_DOMAIN em .env.production}
   SOCKET_CORS_ORIGINS: https://${APP_DOMAIN:?Defina APP_DOMAIN em .env.production}
   FRONTEND_URL: https://${APP_DOMAIN:?Defina APP_DOMAIN em .env.production}
