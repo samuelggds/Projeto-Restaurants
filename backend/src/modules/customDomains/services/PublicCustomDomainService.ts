@@ -130,29 +130,38 @@ export async function resolveRestaurantMenuBaseUrl(restaurantIdValue: unknown) {
   const restaurantId = Number(restaurantIdValue);
   if (!Number.isInteger(restaurantId) || restaurantId <= 0) return null;
 
-  const row = await prisma.restaurantCustomDomain.findUnique({
-    where: { restaurantId },
-    include: {
-      restaurant: {
-        select: {
-          active: true,
-          settings: { select: { customDomainRequested: true } },
-          subscription: { select: { plan: true, status: true } },
+  try {
+    const row = await prisma.restaurantCustomDomain.findUnique({
+      where: { restaurantId },
+      include: {
+        restaurant: {
+          select: {
+            active: true,
+            settings: { select: { customDomainRequested: true } },
+            subscription: { select: { plan: true, status: true } },
+          },
         },
       },
-    },
-  });
-  if (
-    !row ||
-    row.status !== 'ACTIVE' ||
-    !row.restaurant.active ||
-    row.restaurant.settings?.customDomainRequested !== true ||
-    !customDomainPlanEligible(row.restaurant.subscription?.plan, row.restaurant.subscription?.status)
-  ) {
+    });
+    if (
+      !row ||
+      row.status !== 'ACTIVE' ||
+      !row.restaurant.active ||
+      row.restaurant.settings?.customDomainRequested !== true ||
+      !customDomainPlanEligible(
+        row.restaurant.subscription?.plan,
+        row.restaurant.subscription?.status,
+      )
+    ) {
+      return null;
+    }
+
+    const host =
+      row.mode === 'SITE_WITH_MENU_SUBDOMAIN' ? row.menuHostname : row.hostname;
+    return host ? `https://${host}` : null;
+  } catch {
+    // Custom domain is optional. Falling back to the canonical GastroNexa
+    // /slug URL must never block orders, payments, tables or QR generation.
     return null;
   }
-
-  const host =
-    row.mode === 'SITE_WITH_MENU_SUBDOMAIN' ? row.menuHostname : row.hostname;
-  return host ? `https://${host}` : null;
 }
