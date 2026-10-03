@@ -1,4 +1,5 @@
 import { PaymentMethod } from '@prisma/client';
+import { formatDeliveryTimeRange } from '../../restaurantSettings/utils/deliveryTimeRange.js';
 import orderRepository from '../repositories/OrderRepository.js';
 import orderPixPaymentService from './OrderPixPaymentService.js';
 
@@ -45,7 +46,12 @@ class GetOrderPixPaymentRecoveryService {
       orderStatus: order.status,
       paymentMethod: order.paymentMethod,
       expiresAt: order.pixExpiresAt,
-      deliveryTime: order.restaurant?.settings?.averageDeliveryTime || null,
+      deliveryTime:
+        formatDeliveryTimeRange({
+          averageDeliveryTime: order.restaurant?.settings?.averageDeliveryTime,
+          deliveryTimeMin: order.restaurant?.settings?.deliveryTimeMin,
+          deliveryTimeMax: order.restaurant?.settings?.deliveryTimeMax,
+        }) || null,
       deliveryAddress: [
         [order.address, order.number].filter(Boolean).join(', '),
         order.complement,
