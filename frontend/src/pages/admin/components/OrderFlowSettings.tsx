@@ -91,19 +91,37 @@ export function OrderFlowSettings({ settings, update }: Props) {
 
         <S.FormGrid>
           <S.Field>
-            Tempo médio em minutos
+            Tempo mínimo de entrega
             <NumericDraftInput
-              aria-label="Tempo médio em minutos"
-              aria-invalid={Boolean(errors.deliveryTime)}
+              aria-label="Tempo mínimo de entrega"
+              aria-invalid={Boolean(errors.deliveryTimeMin)}
               min="1"
               max="240"
               step="1"
               integer
-              value={settings.deliveryTime}
-              onCommit={(value) => update('deliveryTime', value)}
+              value={settings.deliveryTimeMin}
+              onCommit={(value) => {
+                update('deliveryTimeMin', value);
+                update('deliveryTime', value);
+              }}
             />
-            <small>Tempo usado como referência para informar o cliente.</small>
-            {errors.deliveryTime && <small>{errors.deliveryTime}</small>}
+            <small>Menor prazo realista que será informado ao cliente.</small>
+            {errors.deliveryTimeMin && <small>{errors.deliveryTimeMin}</small>}
+          </S.Field>
+          <S.Field>
+            Tempo máximo de entrega
+            <NumericDraftInput
+              aria-label="Tempo máximo de entrega"
+              aria-invalid={Boolean(errors.deliveryTimeMax)}
+              min="1"
+              max="240"
+              step="1"
+              integer
+              value={settings.deliveryTimeMax}
+              onCommit={(value) => update('deliveryTimeMax', value)}
+            />
+            <small>Deve ser igual ou maior que o tempo mínimo.</small>
+            {errors.deliveryTimeMax && <small>{errors.deliveryTimeMax}</small>}
           </S.Field>
           <S.Field>
             Limite de pedidos simultâneos
