@@ -57,7 +57,7 @@ import {
   UnsavedSettingsDialog,
   type UnsavedSettingsDialogPhase,
 } from './components/UnsavedSettingsDialog';
-import type { ProductDrawerHandle } from './components/ProductDrawer';
+import type { ProductDrawerHandle } from './components/ProductDrawer.types';
 
 const DECISION_PROGRESS_MS = 1200;
 const RESULT_MODAL_MS = 1400;
