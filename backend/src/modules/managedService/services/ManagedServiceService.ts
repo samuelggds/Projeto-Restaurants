@@ -236,7 +236,7 @@ export class ManagedServiceService {
         oneTimeSetupIds.length
           ? prisma.restaurantImplementation.updateMany({
               where: { restaurantId: { in: oneTimeSetupIds } },
-              data: { productLimit: 150 },
+              data: { productLimit: 100 },
             })
           : Promise.resolve(),
       ]);
