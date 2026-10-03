@@ -43,7 +43,7 @@ const FALLBACK_DESCRIPTIONS: Record<PlanType, string> = {
     'Operação completa com implantação assistida e gestão contínua sob solicitação.',
 };
 
-const FALLBACK_FEATURED_PLAN = PlanType.PREMIUM;
+const FALLBACK_FEATURED_PLAN = PlanType.GESTAO_TOTAL;
 
 function normalizeFeatures(value: Prisma.JsonValue): string[] {
   if (!Array.isArray(value)) {
