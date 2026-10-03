@@ -137,6 +137,7 @@ services:
       context: ./frontend
       args:
         VITE_API_URL: ${VITE_API_URL:-http://localhost:3000}
+        VITE_APP_URL: ${VITE_APP_URL:-http://localhost:5173}
         VITE_SOCKET_URL: ${VITE_SOCKET_URL:-}
         VITE_SOCKET_PATH: ${VITE_SOCKET_PATH:-/socket.io}
         VITE_API_TIMEOUT_MS: ${VITE_API_TIMEOUT_MS:-15000}
