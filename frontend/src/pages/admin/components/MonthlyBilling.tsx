@@ -50,7 +50,7 @@ const benefits: Record<PlanCode, string[]> = {
   GESTAO_TOTAL: [
     'Tudo do Plano Premium',
     'Implantação inicial assistida',
-    'Gestão assistida contínua sob solicitação',
+    'Gestão assistida contínua, inclusive com atualizações diárias sob solicitação',
     'Atualizações de produtos, preços, categorias, combos, banners e configurações',
     'Solicitações de atualização ilimitadas',
     'Suporte prioritário',
