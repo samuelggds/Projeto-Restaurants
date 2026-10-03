@@ -33,7 +33,7 @@ const fallbackPlans: PublicPlan[] = [
     features: [
       'Sistema de delivery',
       'Cardápio digital com QR Code de mesa',
-      'Implantação inicial assistida com cadastro ilimitado',
+      'Implantação inicial assistida',
       'Cadastro inicial de até 150 produtos',
       'Suporte prioritário',
       'Agente de IA para automações do sistema',
