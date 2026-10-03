@@ -412,6 +412,14 @@ export class RestaurantCustomDomainService {
   async activate(restaurantIdValue: unknown, context: AuditContext) {
     const restaurantId = parseRestaurantId(restaurantIdValue);
     const restaurant = await assertEligible(restaurantId);
+    const actor = await superAdminRepository.findActor(context.actorUserId);
+    if (!actor) {
+      throw new SuperAdminError(
+        'SUPER_ADMIN não encontrado ou inativo.',
+        403,
+        'ACTOR_FORBIDDEN',
+      );
+    }
     const current = await prisma.restaurantCustomDomain.findUnique({ where: { restaurantId } });
     if (!current) throw notFound('Domínio personalizado não configurado.');
     if (!current.dnsVerifiedAt) {
@@ -438,7 +446,7 @@ export class RestaurantCustomDomainService {
           activatedAt: null,
           lastCheckedAt: new Date(),
           lastCheckError: failureReason,
-          updatedByUserId: context.actorUserId,
+          updatedByUserId: actor.id,
         },
       });
       throw new SuperAdminError(
