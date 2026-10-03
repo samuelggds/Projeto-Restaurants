@@ -165,6 +165,7 @@ describe('DeliveryTrackingPage integration', () => {
     expect(container.textContent).toContain('Saiu para entrega (Rota)');
     expect(container.textContent).toContain('Mensagens com Rita');
     expect(mocks.mapProps?.routePath).toHaveLength(2);
+    expect(mocks.mapProps?.etaMinutes).toBe(15);
     expect(mocks.mapProps?.destination?.label).toContain('Rua das Flores');
     expect(mocks.mapProps?.points).toHaveLength(1);
 
