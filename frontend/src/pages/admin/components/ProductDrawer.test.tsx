@@ -107,6 +107,57 @@ describe('cadastro administrativo de produto', () => {
     await clickButton('Continuar');
   };
 
+
+  it('preserva e salva a opção de destacar o produto na Home', async () => {
+    const save = vi.fn().mockResolvedValue(undefined);
+    const featuredProduct: AdminProduct = {
+      ...configuredProduct,
+      featured: true,
+      saleMode: 'COMPLETE',
+      pricingMode: 'BASE',
+      optionGroups: [],
+      compositionItems: [],
+      portionConfiguration: null,
+    };
+
+    await act(async () => {
+      root.render(
+        <ProductDrawer
+          product={featuredProduct}
+          categories={[{ id: 9, name: 'Pizzas', active: true }]}
+          ingredients={[]}
+          close={vi.fn()}
+          save={save}
+        />,
+      );
+    });
+
+    await clickButton('Continuar');
+    await clickButton('Continuar');
+    await clickButton('Continuar');
+
+    const featuredToggle = container.querySelector(
+      'input[aria-label="Destacar produto na Home"]',
+    ) as HTMLInputElement | null;
+    expect(featuredToggle).toBeTruthy();
+    expect(featuredToggle?.checked).toBe(true);
+    expect(container.textContent).toContain('Destaques da Casa');
+
+    await clickButton('Continuar');
+    await clickButton('Continuar');
+
+    expect(container.textContent).toContain('Destaque da Home: aparece em “Destaques da Casa”.');
+
+    await clickButton('Salvar alterações');
+
+    expect(save).toHaveBeenCalledOnce();
+    expect(save.mock.calls[0][0]).toMatchObject({
+      id: '70',
+      featured: true,
+      saleMode: 'COMPLETE',
+    });
+  });
+
   it('permite preço meio a meio sem valor fixo e preserva o modo ao salvar', async () => {
     const save = vi.fn().mockResolvedValue(undefined);
     const halfHalf = {
