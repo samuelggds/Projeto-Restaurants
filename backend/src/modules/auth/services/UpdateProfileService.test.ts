@@ -124,3 +124,28 @@ test('exige a senha atual antes de trocar o e-mail de cliente', async () => {
   );
   assert.equal(updated, false);
 });
+
+
+test('rejeita avatar inseguro antes de persistir o perfil', async () => {
+  installTransactionStub();
+  let updated = false;
+  userRepository.findById = async () => ({
+    id: 10,
+    role: 'MOTOQUEIRO',
+    email: 'courier@example.com',
+    restaurantId: 7,
+  });
+  userRepository.updateProfile = async () => {
+    updated = true;
+  };
+
+  await assert.rejects(
+    () =>
+      updateProfileService.execute(10, {
+        avatar: 'data:image/svg+xml;base64,PHN2Zy8+',
+      }),
+    /JPG, PNG ou WEBP/u,
+  );
+
+  assert.equal(updated, false);
+});
