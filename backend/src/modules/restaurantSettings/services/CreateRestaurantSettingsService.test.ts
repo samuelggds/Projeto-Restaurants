@@ -276,6 +276,7 @@ test('persiste os canais, aparência, SEO, WhatsApp e redes sociais do restauran
     fontFamily: 'Manrope',
     seoTitle: 'Restaurante do Bairro',
     seoDescription: 'Peça pelo cardápio digital.',
+    landingPageEnabled: true,
   });
 
   assert.equal(capturedCreateData.deliveryFee, 8.5);
@@ -286,6 +287,7 @@ test('persiste os canais, aparência, SEO, WhatsApp e redes sociais do restauran
   assert.equal(capturedCreateData.primaryColor, '#aabbcc');
   assert.equal(capturedCreateData.fontFamily, 'Manrope');
   assert.equal(capturedCreateData.seoTitle, 'Restaurante do Bairro');
+  assert.equal(capturedCreateData.landingPageEnabled, true);
   assert.equal(capturedCreateData.whatsappEnabled, true);
   assert.equal(capturedCreateData.receiveStatusNotifications, true);
   assert.deepEqual(capturedRestaurantUpdate, { whatsapp: '5585999999999' });
@@ -430,6 +432,7 @@ test('atualiza marca, negócio, endereço e regras dos pedidos no restaurante co
     trackingRequiresLogin: false,
     soundNotifications: false,
     maxConcurrentOrders: 75,
+    landingPageEnabled: true,
   });
 
   assert.equal(capturedSettingsUpdate.companyDocument, '11222333000181');
@@ -442,6 +445,7 @@ test('atualiza marca, negócio, endereço e regras dos pedidos no restaurante co
   assert.equal(capturedSettingsUpdate.trackingRequiresLogin, false);
   assert.equal(capturedSettingsUpdate.soundNotifications, false);
   assert.equal(capturedSettingsUpdate.maxConcurrentOrders, 75);
+  assert.equal(capturedSettingsUpdate.landingPageEnabled, true);
   assert.deepEqual(capturedRestaurantUpdate, {
     name: 'Restaurante Atualizado',
     logo: 'https://cdn.example.com/logo.webp',
