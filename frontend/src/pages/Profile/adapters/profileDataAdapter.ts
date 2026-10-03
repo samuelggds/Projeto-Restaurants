@@ -84,7 +84,10 @@ function estimateArrival(order: Record<string, unknown>, settings: Record<string
   if (String(order.status || '').toUpperCase() === 'SAIU_PARA_ENTREGA') {
     return 'Consulte o rastreamento';
   }
-  const minutes = Math.max(0, Number(settings?.averageDeliveryTime || 0));
+  const minutes = Math.max(
+    0,
+    Number(settings?.deliveryTimeMax ?? settings?.averageDeliveryTime ?? 0),
+  );
   const createdAt = new Date(String(order.createdAt || ''));
   if (!minutes || Number.isNaN(createdAt.getTime())) return '--:--';
   createdAt.setMinutes(createdAt.getMinutes() + minutes);
