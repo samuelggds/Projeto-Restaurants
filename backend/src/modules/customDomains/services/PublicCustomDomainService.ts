@@ -12,7 +12,9 @@ type ActiveCustomDomainResolution = {
   restaurantName: string;
   restaurantSlug: string;
   mode: CustomDomainMode;
+  surface: 'MENU' | 'LANDING';
   canonicalHost: string | null;
+  menuHost: string | null;
 };
 
 const ACTIVE_HOST_CACHE_TTL_MS = 5_000;
@@ -49,6 +51,7 @@ export async function resolveActiveCustomDomain(hostnameValue: unknown) {
           name: true,
           slug: true,
           active: true,
+          settings: { select: { landingPageEnabled: true } },
           subscription: { select: { plan: true, status: true } },
         },
       },
@@ -68,11 +71,14 @@ export async function resolveActiveCustomDomain(hostnameValue: unknown) {
   }
 
   const mode = row.mode as CustomDomainMode;
+  const landingPublished =
+    row.landingPublished === true && row.restaurant.settings?.landingPageEnabled === true;
   const allowedHosts = customDomainPublicHosts({
     hostname: row.hostname,
     menuHostname: row.menuHostname,
     mode,
     includeWww: row.includeWww,
+    landingPublished,
   });
   if (!allowedHosts.includes(hostname)) {
     activeHostCache.set(hostname, {
@@ -82,13 +88,17 @@ export async function resolveActiveCustomDomain(hostnameValue: unknown) {
     return null;
   }
 
+  const surface: ActiveCustomDomainResolution['surface'] =
+    mode === 'SITE_WITH_MENU_SUBDOMAIN' && hostname !== row.menuHostname ? 'LANDING' : 'MENU';
   const resolution: ActiveCustomDomainResolution = {
     hostname,
     restaurantId: row.restaurant.id,
     restaurantName: row.restaurant.name,
     restaurantSlug: row.restaurant.slug,
     mode,
-    canonicalHost: mode === 'SITE_WITH_MENU_SUBDOMAIN' ? row.menuHostname : row.hostname,
+    surface,
+    canonicalHost: surface === 'LANDING' ? row.hostname : row.menuHostname || row.hostname,
+    menuHost: row.menuHostname || row.hostname,
   };
   activeHostCache.set(hostname, {
     expiresAt: Date.now() + ACTIVE_HOST_CACHE_TTL_MS,
