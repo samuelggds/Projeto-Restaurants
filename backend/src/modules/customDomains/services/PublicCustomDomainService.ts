@@ -6,6 +6,21 @@ import {
   type CustomDomainMode,
 } from '../domain/customDomainPolicy.js';
 
+type ActiveCustomDomainResolution = {
+  hostname: string;
+  restaurantId: number;
+  restaurantName: string;
+  restaurantSlug: string;
+  mode: CustomDomainMode;
+  canonicalHost: string | null;
+};
+
+const ACTIVE_HOST_CACHE_TTL_MS = 5_000;
+const activeHostCache = new Map<
+  string,
+  { expiresAt: number; value: ActiveCustomDomainResolution | null }
+>();
+
 export async function resolveActiveCustomDomain(hostnameValue: unknown) {
   let hostname: string;
   try {
@@ -13,6 +28,10 @@ export async function resolveActiveCustomDomain(hostnameValue: unknown) {
   } catch {
     return null;
   }
+
+  const cached = activeHostCache.get(hostname);
+  if (cached && cached.expiresAt > Date.now()) return cached.value;
+  if (cached) activeHostCache.delete(hostname);
 
   const row = await prisma.restaurantCustomDomain.findFirst({
     where: {
@@ -41,6 +60,10 @@ export async function resolveActiveCustomDomain(hostnameValue: unknown) {
     !row.restaurant.active ||
     !customDomainPlanEligible(row.restaurant.subscription?.plan, row.restaurant.subscription?.status)
   ) {
+    activeHostCache.set(hostname, {
+      expiresAt: Date.now() + ACTIVE_HOST_CACHE_TTL_MS,
+      value: null,
+    });
     return null;
   }
 
@@ -51,9 +74,15 @@ export async function resolveActiveCustomDomain(hostnameValue: unknown) {
     mode,
     includeWww: row.includeWww,
   });
-  if (!allowedHosts.includes(hostname)) return null;
+  if (!allowedHosts.includes(hostname)) {
+    activeHostCache.set(hostname, {
+      expiresAt: Date.now() + ACTIVE_HOST_CACHE_TTL_MS,
+      value: null,
+    });
+    return null;
+  }
 
-  return {
+  const resolution: ActiveCustomDomainResolution = {
     hostname,
     restaurantId: row.restaurant.id,
     restaurantName: row.restaurant.name,
@@ -61,6 +90,11 @@ export async function resolveActiveCustomDomain(hostnameValue: unknown) {
     mode,
     canonicalHost: mode === 'SITE_WITH_MENU_SUBDOMAIN' ? row.menuHostname : row.hostname,
   };
+  activeHostCache.set(hostname, {
+    expiresAt: Date.now() + ACTIVE_HOST_CACHE_TTL_MS,
+    value: resolution,
+  });
+  return resolution;
 }
 
 export async function isActiveCustomDomainOrigin(originValue: unknown) {
