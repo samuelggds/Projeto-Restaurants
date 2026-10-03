@@ -16,7 +16,6 @@ import { createProductSchema, updateProductSchema } from '../../../validators/Pr
 import { createCategorySchema } from '../../../validators/CategoryValidator.js';
 import { comboInputSchema } from '../../productCombos/services/ProductComboService.js';
 import {
-  hasContinuousManagementAccess,
   hasImplementationAccess,
   hasManagedWorkspaceAccess,
 } from '../domain/managedServicePolicy.js';
