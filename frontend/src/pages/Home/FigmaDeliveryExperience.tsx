@@ -830,22 +830,19 @@ export function FigmaDeliveryExperience({
             <S.HeroCarousel>
               <PromotionCarousel banners={promotionBanners} onOpenMenu={openFullMenu} />
               {(data.brand.address ||
-                (Number(data.brand.ratingCount || 0) > 0 && data.brand.ratingAverage) ||
                 deliveryTimeLabel ||
                 Number(data.deliveryFee || 0) > 0) ? (
                 <S.HeroMetrics aria-label="Resumo do restaurante">
-                  <div className="metric-card">
-                    {Number(data.brand.ratingCount || 0) > 0 && data.brand.ratingAverage ? (
-                      <div className="rating-metric">
-                        <Star aria-hidden="true" fill="currentColor" />
-                        <span>
-                          <b>{data.brand.ratingAverage.toFixed(1)}</b>
-                          <small>Avaliação média</small>
-                        </span>
-                      </div>
-                    ) : null}
-                    {(deliveryTimeLabel || Number(data.deliveryFee || 0) > 0) ? (
-                      <div className="delivery-metrics">
+                  {(deliveryTimeLabel || Number(data.deliveryFee || 0) > 0) ? (
+                    <div className="metric-card">
+                      <div
+                        className="delivery-metrics"
+                        data-single-metric={
+                          Number(Boolean(deliveryTimeLabel)) +
+                            Number(Number(data.deliveryFee || 0) > 0) ===
+                          1
+                        }
+                      >
                         {deliveryTimeLabel ? (
                           <span>
                             <b>{deliveryTimeLabel}</b>
@@ -859,8 +856,8 @@ export function FigmaDeliveryExperience({
                           </span>
                         ) : null}
                       </div>
-                    ) : null}
-                  </div>
+                    </div>
+                  ) : null}
                   {data.brand.address ? (
                     <div className="hero-address">
                       <MapPin aria-hidden="true" />
