@@ -94,6 +94,7 @@ type CreateRestaurantSettingsPayload = {
   fontFamily?: string | null;
   seoTitle?: string | null;
   seoDescription?: string | null;
+  landingPageEnabled?: boolean;
   restaurantName?: string | null;
   restaurantLogo?: string | null;
   restaurantCoverImage?: string | null;
@@ -179,6 +180,7 @@ class CreateRestaurantSettingsService {
     fontFamily,
     seoTitle,
     seoDescription,
+    landingPageEnabled,
     restaurantName,
     restaurantLogo,
     restaurantCoverImage,
@@ -417,6 +419,11 @@ class CreateRestaurantSettingsService {
       fontFamily: normalizeFontFamily(fontFamily),
       seoTitle: normalizeOptionalText(seoTitle, 'Título para buscadores', 70),
       seoDescription: normalizeOptionalText(seoDescription, 'Descrição para buscadores', 160),
+      landingPageEnabled: normalizeStrictBoolean(
+        landingPageEnabled,
+        'Landing page institucional',
+        false,
+      ),
       whatsappEnabled: normalizedWhatsappEnabled,
       whatsappDisplayName: normalizeOptionalText(
         whatsappDisplayName,
