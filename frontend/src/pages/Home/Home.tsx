@@ -35,7 +35,7 @@ import { getRestaurantAvailability } from '../admin/domain/businessHours';
 import { applyHomeSeoMetadata, buildWhatsAppUrl, getAvailablePaymentMethods, resolveAvailableFulfillmentMethod, resolveDefaultCheckoutPaymentMethod } from './domain/publicSettings';
 import { useCardPaymentReturn } from './hooks/useCardPaymentReturn';
 import { buildLoginUrl, buildTenantPublicPath } from '../../shared/navigation/authNavigation';
-import { useResolvedTenantSlug } from '../../shared/tenant/CustomDomainTenantContext';
+import { useResolvedTenantSlug } from '../../shared/tenant/useCustomDomainTenant';
 import type { HomeProduct } from './types';
 import { useHomeProfileNavigation } from './hooks/useHomeProfileNavigation';
 import { createReadyProductConfiguration, resolveProductEntryKind } from './domain/productEntryFlow';
@@ -725,7 +725,7 @@ export default function Home() {
   const { openProfile, openOrders, openProfileView } = useHomeProfileNavigation({
     navigate,
     navigateToLogin,
-    normalizedSlug,
+    restaurantSlug: normalizedSlug,
     userLoggedIn: Boolean(user),
   });
   const openAdmin = useCallback(() => navigate('/admin'), [navigate]);
