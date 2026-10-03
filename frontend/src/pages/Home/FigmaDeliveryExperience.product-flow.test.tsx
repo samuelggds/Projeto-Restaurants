@@ -59,6 +59,8 @@ describe('FigmaDeliveryExperience product flow', () => {
       'button[aria-label="Abrir atalhos da minha conta"]',
     ) as HTMLButtonElement | null;
     expect(trigger).toBeTruthy();
+    expect(trigger?.classList.contains('mobile-profile-trigger')).toBe(true);
+    expect(trigger?.classList.contains('mobile-address-trigger')).toBe(false);
     expect(trigger?.querySelector('img')?.getAttribute('src')).toBe(
       'data:image/jpeg;base64,avatar-salvo',
     );
