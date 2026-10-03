@@ -86,6 +86,7 @@ export const Actions = styled.div`
   display: flex; justify-content: flex-end; gap: 8px;
   select, button { min-height: 40px; padding: 0 11px; border: 1px solid #ddd8d4; border-radius: 8px; background: #fff; color: #4d4641; font: inherit; font-size: 11px; font-weight: 750; }
   button { display: inline-flex; align-items: center; gap: 6px; border-color: #FF4B4B; color: #fff; background: #FF4B4B; }
+  button.secondary { border-color: #ddd8d4; color: #504842; background: #fff; }
   button:disabled, select:disabled { opacity: .6; }
   svg { width: 15px; }
   @media (max-width: 560px) { flex-direction: column; select, button { width: 100%; justify-content: center; } }
