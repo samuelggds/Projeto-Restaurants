@@ -333,6 +333,26 @@ test('rejeita valores e booleanos inválidos nas regras de pedidos', async () =>
   );
 });
 
+
+test('rejeita intervalo de entrega invertido no mesmo restaurante', async () => {
+  restaurantSettingsRepository.findByRestaurantId = async () => ({
+    id: 1,
+    restaurantId: 7,
+    pixProvider: 'MERCADO_PAGO',
+    restaurant: { whatsapp: null },
+  });
+
+  await assert.rejects(
+    () =>
+      updateRestaurantSettingsService.execute({
+        restaurantId: 7,
+        deliveryTimeMin: 50,
+        deliveryTimeMax: 30,
+      }),
+    /máximo de entrega deve ser maior ou igual/,
+  );
+});
+
 test('valida capa, descrição e nome antes de persistir a identidade', async () => {
   restaurantSettingsRepository.findByRestaurantId = async () => null;
 
@@ -404,7 +424,8 @@ test('atualiza marca, negócio, endereço e regras dos pedidos no restaurante co
     restaurantAddressDistrict: 'Centro',
     restaurantCity: 'Fortaleza',
     restaurantState: 'ce',
-    averageDeliveryTime: 45,
+    deliveryTimeMin: 30,
+    deliveryTimeMax: 45,
     autoAcceptOrders: true,
     trackingRequiresLogin: false,
     soundNotifications: false,
@@ -414,7 +435,9 @@ test('atualiza marca, negócio, endereço e regras dos pedidos no restaurante co
   assert.equal(capturedSettingsUpdate.companyDocument, '11222333000181');
   assert.equal(capturedSettingsUpdate.ownerPhone, '85999991234');
   assert.equal(capturedSettingsUpdate.ownerEmail, 'contato@exemplo.com.br');
-  assert.equal(capturedSettingsUpdate.averageDeliveryTime, '45');
+  assert.equal(capturedSettingsUpdate.averageDeliveryTime, '30');
+  assert.equal(capturedSettingsUpdate.deliveryTimeMin, 30);
+  assert.equal(capturedSettingsUpdate.deliveryTimeMax, 45);
   assert.equal(capturedSettingsUpdate.autoAcceptOrders, true);
   assert.equal(capturedSettingsUpdate.trackingRequiresLogin, false);
   assert.equal(capturedSettingsUpdate.soundNotifications, false);
