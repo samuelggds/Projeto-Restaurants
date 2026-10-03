@@ -64,9 +64,65 @@ export const Mobile = styled.main`
       background:var(--surface);
     }
 
-    &.orders-view > div{
+    &.orders-view .mobile-view-transition > div{
       gap:0;
     }
+  }
+`;
+
+export const MobileTransition = styled.div<{ $direction: 'forward' | 'backward' }>`
+  @media(max-width:900px){
+    width:100%;
+    transform-origin:50% 20%;
+    will-change:transform,opacity;
+    animation:
+      ({ $direction }) =>
+        $direction === 'backward'
+          ? 'profile-view-back-in'
+          : 'profile-view-forward-in'
+      300ms cubic-bezier(.22,1,.36,1) both;
+
+    > div{
+      animation:profile-view-content-settle 360ms cubic-bezier(.22,1,.36,1) both;
+    }
+  }
+
+  @keyframes profile-view-forward-in{
+    0%{
+      opacity:.15;
+      transform:translate3d(18px,4px,0) scale(.994);
+    }
+    55%{
+      opacity:.94;
+    }
+    100%{
+      opacity:1;
+      transform:translate3d(0,0,0) scale(1);
+    }
+  }
+
+  @keyframes profile-view-back-in{
+    0%{
+      opacity:.18;
+      transform:translate3d(-14px,3px,0) scale(.995);
+    }
+    55%{
+      opacity:.95;
+    }
+    100%{
+      opacity:1;
+      transform:translate3d(0,0,0) scale(1);
+    }
+  }
+
+  @keyframes profile-view-content-settle{
+    0%{filter:saturate(.96)}
+    100%{filter:saturate(1)}
+  }
+
+  @media(prefers-reduced-motion:reduce){
+    animation:none;
+    > div{animation:none}
   }
 `;
 
@@ -138,7 +194,9 @@ export const ProfileCard = styled.section`
 
 export const MenuCard = styled.section`
   padding:8px;border:1px solid var(--line);border-radius:20px;background:var(--surface);color:var(--text);box-shadow:0 5px 18px rgba(25,22,18,.035);
-  button{width:100%;min-height:52px;padding:16px;border:0;border-bottom:1px solid var(--line);background:transparent;color:var(--text);display:flex;align-items:center;gap:12px;text-align:left}
+  button{width:100%;min-height:52px;padding:16px;border:0;border-bottom:1px solid var(--line);background:transparent;color:var(--text);display:flex;align-items:center;gap:12px;text-align:left;transition:background-color 170ms ease,transform 170ms cubic-bezier(.22,1,.36,1)}
+  button:hover{background:color-mix(in srgb,var(--surface) 84%,var(--line))}
+  button:active{transform:scale(.992);background:color-mix(in srgb,var(--p) 5%,var(--surface))}
   button:last-child{border-bottom:0}
   button svg:first-child{width:20px;height:20px;flex:0 0 20px}
   button span{font-size:15px;font-weight:650}
@@ -151,6 +209,11 @@ export const MenuCard = styled.section`
     button{min-height:60px;padding:20px;gap:16px}
     button span{font-size:16px}
     .badge{padding:4px 10px;font-size:12px}
+  }
+
+  @media(prefers-reduced-motion:reduce){
+    button{transition:none}
+    button:active{transform:none}
   }
 `;
 
