@@ -59,16 +59,7 @@ import {
 
 export const ProductDrawer = forwardRef<ProductDrawerHandle, ProductDrawerProps>(
   function ProductDrawer(
-    {
-      product,
-      categories,
-      ingredients,
-      products = [],
-      enableTemplates = true,
-      createIngredient,
-      close,
-      save,
-    },
+    { product, categories, ingredients, products = [], enableTemplates = true, createIngredient, close, save },
     ref,
   ) {
     const { confirmDialog } = useAppDialog();
