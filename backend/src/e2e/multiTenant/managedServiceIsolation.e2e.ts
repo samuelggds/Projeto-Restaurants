@@ -195,6 +195,103 @@ test('gestão assistida mantém isolamento multi-tenant e limites de privilégio
     assert.equal(productBAfter.restaurantId, fixture.restaurants.b.id);
     assert.equal(productBAfter.name, 'Produto B protegido');
 
+    const ingredientA = await prisma.ingredient.create({
+      data: {
+        restaurantId: fixture.restaurants.a.id,
+        name: 'Ingrediente personalização A',
+        category: 'Adicionais',
+        price: 3,
+        active: true,
+      },
+    });
+    const ingredientB = await prisma.ingredient.create({
+      data: {
+        restaurantId: fixture.restaurants.b.id,
+        name: 'Ingrediente protegido B',
+        category: 'Adicionais',
+        price: 4,
+        active: true,
+      },
+    });
+
+    const personalizedProduct = await apiRequest(
+      app.baseUrl,
+      `/super-admin/managed-service/restaurants/${fixture.restaurants.a.id}/products`,
+      superToken,
+      {
+        method: 'POST',
+        json: {
+          name: 'Produto personalizável A',
+          description: 'Criado pelo workspace assistido.',
+          price: 25,
+          categoryId: fixture.categories.a.id,
+          saleMode: 'BUILDABLE',
+          pricingMode: 'BASE',
+          optionGroups: [
+            {
+              name: 'Escolha um adicional',
+              required: true,
+              selectionType: 'SINGLE',
+              minSelections: 1,
+              maxSelections: 1,
+              options: [
+                {
+                  ingredientId: ingredientA.id,
+                  additionalPrice: 3,
+                  pricingMode: 'ADDITIVE',
+                },
+              ],
+            },
+          ],
+          compositionItems: [],
+          portionConfiguration: null,
+        },
+      },
+    );
+    assert.equal(personalizedProduct.response.status, 201, JSON.stringify(personalizedProduct.data));
+    assert.equal(personalizedProduct.data.product.saleMode, 'BUILDABLE');
+    assert.equal(personalizedProduct.data.product.restaurantId, fixture.restaurants.a.id);
+    assert.equal(personalizedProduct.data.product.optionGroups.length, 1);
+    assert.equal(
+      personalizedProduct.data.product.optionGroups[0].options[0].ingredientId,
+      ingredientA.id,
+    );
+
+    const foreignIngredientAttempt = await apiRequest(
+      app.baseUrl,
+      `/super-admin/managed-service/restaurants/${fixture.restaurants.a.id}/products`,
+      superToken,
+      {
+        method: 'POST',
+        json: {
+          name: 'Produto com ingrediente estrangeiro',
+          price: 20,
+          categoryId: fixture.categories.a.id,
+          saleMode: 'BUILDABLE',
+          optionGroups: [
+            {
+              name: 'Escolha inválida',
+              required: true,
+              selectionType: 'SINGLE',
+              minSelections: 1,
+              maxSelections: 1,
+              options: [
+                {
+                  ingredientId: ingredientB.id,
+                  additionalPrice: 4,
+                  pricingMode: 'ADDITIVE',
+                },
+              ],
+            },
+          ],
+        },
+      },
+    );
+    assert.ok(
+      [400, 404].includes(foreignIngredientAttempt.response.status),
+      JSON.stringify(foreignIngredientAttempt.data),
+    );
+
     const sensitiveAttempt = await apiRequest(
       app.baseUrl,
       `/super-admin/managed-service/restaurants/${fixture.restaurants.a.id}/settings`,
