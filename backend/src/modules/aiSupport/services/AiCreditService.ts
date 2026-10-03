@@ -117,7 +117,9 @@ async function assertPremiumAiPlan(
     select: { plan: true, status: true },
   });
   const isActive = subscription?.status === 'ATIVA' || subscription?.status === 'TESTE';
-  if (!isActive || subscription?.plan !== 'PREMIUM') throw new PremiumAiPlanRequiredError();
+  const hasPremiumFeatures =
+    subscription?.plan === 'PREMIUM' || subscription?.plan === 'GESTAO_TOTAL';
+  if (!isActive || !hasPremiumFeatures) throw new PremiumAiPlanRequiredError();
 }
 
 async function hasPremiumAiPlan(
