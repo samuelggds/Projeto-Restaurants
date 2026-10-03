@@ -130,6 +130,8 @@ model RestaurantCustomDomain {
   id                String   @id @default(uuid()) @db.Uuid
   restaurantId      Int      @unique
   hostname          String   @unique @db.VarChar(253)
+  mode              String   @default("MENU_ONLY") @db.VarChar(32)
+  menuHostname      String?  @unique @db.VarChar(253)
   includeWww        Boolean  @default(true)
   status            String   @default("PENDING_DNS") @db.VarChar(24)
   verificationToken String   @unique @db.VarChar(96)
