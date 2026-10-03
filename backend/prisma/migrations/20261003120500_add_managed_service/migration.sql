@@ -111,8 +111,8 @@ CREATE TABLE "RestaurantManagedUpdateRequest" (
   ),
   CONSTRAINT "RestaurantManagedUpdateRequest_restaurantId_fkey"
     FOREIGN KEY ("restaurantId") REFERENCES "Restaurant"("id") ON DELETE CASCADE ON UPDATE CASCADE,
-  CONSTRAINT "RestaurantManagedUpdateRequest_requestedByUserId_fkey"
-    FOREIGN KEY ("requestedByUserId") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE,
+  CONSTRAINT "RestaurantManagedUpdateRequest_requestedByUserId_restaurantId_fkey"
+    FOREIGN KEY ("requestedByUserId", "restaurantId") REFERENCES "User"("id", "restaurantId") ON DELETE RESTRICT ON UPDATE CASCADE,
   CONSTRAINT "RestaurantManagedUpdateRequest_handledByUserId_fkey"
     FOREIGN KEY ("handledByUserId") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE
 );
