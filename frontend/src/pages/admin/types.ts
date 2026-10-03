@@ -100,6 +100,7 @@ export type AdminProduct = {
   description?: string;
   stock?: number | null;
   active?: boolean;
+  featured?: boolean;
   kind?: 'STANDARD' | 'COMBO';
   saleMode?: 'COMPLETE' | 'BUILDABLE';
   pricingMode?: 'BASE' | 'HIGHEST_OPTION';
