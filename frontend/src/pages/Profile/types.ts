@@ -31,7 +31,9 @@ export type ProfileView =
   | 'coupons'
   | 'addresses'
   | 'paymentMethods'
-;
+  | 'loyalty'
+  | 'help'
+  | 'settings';
 
 export type ProfilePaymentMethod = {
   publicId: string;

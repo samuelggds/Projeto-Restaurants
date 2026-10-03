@@ -27,14 +27,13 @@ import {
 import { ProductAppearanceStep, ProductBasicStep, ProductPriceStep } from './ProductGuidedSteps';
 import { emptyGroup, groupPreset } from './ProductDrawerGroups';
 import type {
-  AdminCategory,
   AdminIngredient,
-  AdminProduct,
   AdminProductCompositionItem,
   AdminProductConfigurationTemplate,
   AdminProductOptionGroup,
   AdminProductPortionConfiguration,
 } from '../types';
+import type { ProductDrawerHandle, ProductDrawerProps } from './ProductDrawer.types';
 import {
   normalizeOptionGroup,
   validateOptionGroups,
@@ -58,26 +57,6 @@ import {
   type ProductWizardStep,
 } from '../domain/productWizard';
 
-type ProductDrawerProps = {
-  product: AdminProduct | null;
-  categories: AdminCategory[];
-  ingredients: AdminIngredient[];
-  products?: AdminProduct[];
-  createIngredient?: (
-    ingredient: Omit<AdminIngredient, 'id'>,
-  ) => AdminIngredient | void | Promise<AdminIngredient | void>;
-  close: () => void;
-  save: (product: AdminProduct) => Promise<void>;
-};
-
-export type ProductDrawerHandle = {
-  hasUnsavedChanges: () => boolean;
-  save: () => Promise<boolean>;
-  discard: () => void;
-};
-
-type IngredientWizardTarget = { kind: 'OPTION'; groupIndex: number };
-
 export const ProductDrawer = forwardRef<ProductDrawerHandle, ProductDrawerProps>(
   function ProductDrawer(
     { product, categories, ingredients, products = [], createIngredient, close, save },
@@ -94,16 +73,20 @@ export const ProductDrawer = forwardRef<ProductDrawerHandle, ProductDrawerProps>
     );
     const [categoryId, setCategoryId] = useState(initialCategoryId);
     const [stock, setStock] = useState(String(product?.stock ?? ''));
+    const [preparationTime, setPreparationTime] = useState(
+      product?.preparationTime ? String(product.preparationTime) : '',
+    );
     const [unlimitedStock, setUnlimitedStock] = useState(isUnlimitedStock(product?.stock));
     const [saleMode, setSaleMode] = useState<'COMPLETE' | 'BUILDABLE'>(
       product?.saleMode ?? 'COMPLETE',
     );
+    const [featured, setFeatured] = useState(product?.featured === true);
     const [confirmDiscardConfiguration, setConfirmDiscardConfiguration] = useState(false);
     const [templates, setTemplates] = useState<AdminProductConfigurationTemplate[]>([]);
     const [templateName, setTemplateName] = useState('');
     const [templateBusy, setTemplateBusy] = useState(false);
     const [ingredientWizardTarget, setIngredientWizardTarget] =
-      useState<IngredientWizardTarget | null>(null);
+      useState<{ kind: 'OPTION'; groupIndex: number } | null>(null);
     const [busy, setBusy] = useState(false);
     const [error, setError] = useState('');
     const [currentStep, setCurrentStep] = useState<ProductWizardStep>('TYPE');
@@ -143,8 +126,10 @@ export const ProductDrawer = forwardRef<ProductDrawerHandle, ProductDrawerProps>
         pricingMode: product?.pricingMode ?? 'BASE',
         categoryId: initialCategoryId,
         stock: String(product?.stock ?? ''),
+        preparationTime: product?.preparationTime ? String(product.preparationTime) : '',
         unlimitedStock: isUnlimitedStock(product?.stock),
         saleMode: product?.saleMode ?? 'COMPLETE',
+        featured: product?.featured === true,
         optionGroups: product?.optionGroups ?? [],
         compositionItems: product?.compositionItems ?? [],
         portionConfiguration: product?.portionConfiguration ?? null,
@@ -182,8 +167,10 @@ export const ProductDrawer = forwardRef<ProductDrawerHandle, ProductDrawerProps>
         pricingMode,
         categoryId,
         stock,
+        preparationTime,
         unlimitedStock,
         saleMode,
+        featured,
         optionGroups,
         compositionItems,
         portionConfiguration,
@@ -647,19 +634,28 @@ export const ProductDrawer = forwardRef<ProductDrawerHandle, ProductDrawerProps>
     };
 
     const validateAvailabilityStep = () => {
-      if (unlimitedStock) {
-        setFieldErrors((current) => ({ ...current, stock: undefined }));
-        setError('');
-        return true;
-      }
-
       const numericStock = Number(stock);
-      const valid = /^\d+$/u.test(stock) && Number.isSafeInteger(numericStock) && numericStock >= 0;
+      const stockValid =
+        unlimitedStock ||
+        (/^\d+$/u.test(stock) && Number.isSafeInteger(numericStock) && numericStock >= 0);
+
+      const numericPreparationTime = Number(preparationTime);
+      const preparationTimeValid =
+        !preparationTime.trim() ||
+        (/^\d+$/u.test(preparationTime) &&
+          Number.isSafeInteger(numericPreparationTime) &&
+          numericPreparationTime > 0);
+
       setFieldErrors((current) => ({
         ...current,
-        stock: valid ? undefined : 'Informe a quantidade disponível em unidades inteiras.',
+        stock: stockValid ? undefined : 'Informe a quantidade disponível em unidades inteiras.',
+        preparationTime: preparationTimeValid
+          ? undefined
+          : 'Informe o tempo de preparo em minutos inteiros, maior que zero.',
       }));
-      setError(valid ? '' : 'Informe a quantidade disponível para continuar.');
+
+      const valid = stockValid && preparationTimeValid;
+      setError(valid ? '' : 'Revise a disponibilidade e o tempo de preparo para continuar.');
       return valid;
     };
 
@@ -721,6 +717,9 @@ export const ProductDrawer = forwardRef<ProductDrawerHandle, ProductDrawerProps>
       setBusy(true);
       try {
         const normalizedStock = normalizeProductStock(stock, unlimitedStock);
+        const normalizedPreparationTime = preparationTime.trim()
+          ? Number(preparationTime)
+          : undefined;
         await save({
           id: product?.id ?? '',
           name: name.trim(),
@@ -731,7 +730,9 @@ export const ProductDrawer = forwardRef<ProductDrawerHandle, ProductDrawerProps>
           categoryId,
           category: categories.find((item) => item.id === categoryId)?.name ?? '',
           stock: normalizedStock,
+          preparationTime: normalizedPreparationTime,
           active: isProductActiveFromStock(normalizedStock),
+          featured,
           saleMode,
           configurationVersion: product?.configurationVersion,
           confirmDiscardConfiguration:
@@ -894,11 +895,13 @@ export const ProductDrawer = forwardRef<ProductDrawerHandle, ProductDrawerProps>
               dynamicPrice={pricingMode === 'HIGHEST_OPTION'}
               description={description}
               headingRef={stepHeadingRef}
+              featured={featured}
               image={image}
               name={name}
               price={price}
               selectedProductCategory={selectedProductCategory}
               onDescriptionChange={setDescription}
+              onFeaturedChange={setFeatured}
               onUploadImage={(file) => void uploadImage(file)}
             />
           )}
@@ -1168,9 +1171,11 @@ export const ProductDrawer = forwardRef<ProductDrawerHandle, ProductDrawerProps>
             <ProductAvailabilityStep
               fieldErrors={fieldErrors}
               headingRef={stepHeadingRef}
+              preparationTime={preparationTime}
               stock={stock}
               unlimitedStock={unlimitedStock}
               onClearFieldError={clearFieldError}
+              onPreparationTimeChange={setPreparationTime}
               onStockChange={setStock}
               onUnlimitedStockChange={setUnlimitedStock}
             />
@@ -1180,10 +1185,12 @@ export const ProductDrawer = forwardRef<ProductDrawerHandle, ProductDrawerProps>
             <ProductReviewStep
               dynamicPrice={pricingMode === 'HIGHEST_OPTION'}
               description={description}
+              featured={featured}
               headingRef={stepHeadingRef}
               image={image}
               name={name}
               optionGroups={optionGroups}
+              preparationTime={preparationTime}
               price={price}
               saleMode={saleMode}
               selectedProductCategory={selectedProductCategory}

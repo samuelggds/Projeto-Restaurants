@@ -36,6 +36,7 @@ import { applyHomeSeoMetadata, buildWhatsAppUrl, getAvailablePaymentMethods, res
 import { useCardPaymentReturn } from './hooks/useCardPaymentReturn';
 import { buildLoginUrl } from '../../shared/navigation/authNavigation';
 import type { HomeProduct } from './types';
+import { useHomeProfileNavigation } from './hooks/useHomeProfileNavigation';
 import { createReadyProductConfiguration, resolveProductEntryKind } from './domain/productEntryFlow';
 import { captureCartFlyOrigin, scheduleProductToCartAnimation, type CartFlyOrigin } from './cartFlyAnimation';
 import { validateDeliveryAddressLocationForCheckout } from './domain/deliveryAddress';
@@ -675,7 +676,7 @@ export default function Home() {
 
   const resolvedCheckoutCustomerPhone = checkoutCustomerPhone;
 
-  const primary = homeData.brand.primaryColor || '#d64d08';
+  const primary = '#FF4B4B';
   const whatsappUrl = buildWhatsAppUrl(
     homeData.brand.whatsapp,
     homeData.brand.whatsappDefaultMessage,
@@ -722,20 +723,12 @@ export default function Home() {
     setCheckoutStep('cart');
     setCartOpen(true);
   }, []);
-  const openProfile = useCallback(() => {
-    if (user) {
-      navigate('/profile');
-      return;
-    }
-    navigateToLogin();
-  }, [navigate, navigateToLogin, user]);
-  const openOrders = useCallback(() => {
-    if (user) {
-      navigate('/profile?view=orders');
-      return;
-    }
-    navigate(`/${restaurantSlug}/pedidos`);
-  }, [navigate, restaurantSlug, user]);
+  const { openProfile, openOrders, openProfileView } = useHomeProfileNavigation({
+    navigate,
+    navigateToLogin,
+    restaurantSlug,
+    userLoggedIn: Boolean(user),
+  });
   const openAdmin = useCallback(() => navigate('/admin'), [navigate]);
   const handleLogout = useCallback(() => logout(), [logout]);
 
@@ -942,11 +935,14 @@ export default function Home() {
         tableLabel={mesaMode ? mesaLabel : undefined}
         savedAddresses={savedAddresses}
         selectedAddressId={selectedAddressId}
+        fulfillmentMethod={availableOrderType}
+        onFulfillmentMethodChange={setOrderType}
         onSelectAddress={selectDeliveryAddress}
         onManageAddresses={manageDeliveryAddresses}
         onOpenCart={openHomeCart}
         onOpenMenu={openMenu}
         onOpenProfile={mesaMode ? undefined : openProfile}
+        onOpenProfileView={mesaMode ? undefined : openProfileView}
         onOpenOrders={mesaMode ? undefined : openOrders}
         onOpenAdmin={openAdmin}
         onAddProduct={tableClosingRequested ? () => undefined : addToCart}

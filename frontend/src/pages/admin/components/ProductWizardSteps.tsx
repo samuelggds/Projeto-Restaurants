@@ -14,7 +14,9 @@ import type { ProductWizardStep } from '../domain/productWizard';
 
 type SaleMode = 'COMPLETE' | 'BUILDABLE';
 
-export type ProductFieldErrors = Partial<Record<'name' | 'price' | 'category' | 'stock', string>>;
+export type ProductFieldErrors = Partial<
+  Record<'name' | 'price' | 'category' | 'stock' | 'preparationTime', string>
+>;
 
 type StepHeadingRef = RefObject<HTMLHeadingElement | null>;
 
@@ -291,16 +293,20 @@ export function ProductAvailabilityStep({
   fieldErrors,
   headingRef,
   onClearFieldError,
+  onPreparationTimeChange,
   onStockChange,
   onUnlimitedStockChange,
+  preparationTime,
   stock,
   unlimitedStock,
 }: {
   fieldErrors: ProductFieldErrors;
   headingRef: StepHeadingRef;
   onClearFieldError: (field: keyof ProductFieldErrors) => void;
+  onPreparationTimeChange: (preparationTime: string) => void;
   onStockChange: (stock: string) => void;
   onUnlimitedStockChange: (unlimited: boolean) => void;
+  preparationTime: string;
   stock: string;
   unlimitedStock: boolean;
 }) {
@@ -318,6 +324,40 @@ export function ProductAvailabilityStep({
       </div>
       <div className="availability-layout">
         <div className="stock-configuration">
+          <S.Field>
+            Tempo de preparo
+            <input
+              aria-describedby={
+                fieldErrors.preparationTime
+                  ? 'product-preparation-time-error'
+                  : 'product-preparation-time-help'
+              }
+              aria-invalid={Boolean(fieldErrors.preparationTime)}
+              aria-label="Tempo de preparo em minutos"
+              inputMode="numeric"
+              min="1"
+              step="1"
+              type="number"
+              placeholder="Ex.: 20"
+              value={preparationTime}
+              onChange={(event) => {
+                onPreparationTimeChange(event.target.value.replace(/\D/g, ''));
+                onClearFieldError('preparationTime');
+              }}
+            />
+            <small
+              id={
+                fieldErrors.preparationTime
+                  ? 'product-preparation-time-error'
+                  : 'product-preparation-time-help'
+              }
+              className={fieldErrors.preparationTime ? 'field-error' : ''}
+            >
+              {fieldErrors.preparationTime ||
+                'Opcional. Informe em minutos quanto este produto normalmente leva para ficar pronto.'}
+            </small>
+          </S.Field>
+
           <b className="field-title">Como este produto é preparado?</b>
           <div className="stock-mode-cards" role="group" aria-label="Controle de estoque">
             <button
@@ -378,12 +418,14 @@ export function ProductAvailabilityStep({
 
 export function ProductReviewStep({
   description,
+  featured,
   headingRef,
   image,
   name,
   onEdit,
   onToggleCustomerPreview,
   optionGroups,
+  preparationTime,
   price,
   dynamicPrice = false,
   saleMode,
@@ -393,12 +435,14 @@ export function ProductReviewStep({
   unlimitedStock,
 }: {
   description: string;
+  featured: boolean;
   headingRef: StepHeadingRef;
   image: string;
   name: string;
   onEdit: (step: ProductWizardStep) => void;
   onToggleCustomerPreview: () => void;
   optionGroups: AdminProductOptionGroup[];
+  preparationTime: string;
   price: string;
   dynamicPrice?: boolean;
   saleMode: SaleMode;
@@ -461,6 +505,11 @@ export function ProductReviewStep({
           <div>
             <b>Como aparece no cardápio</b>
             <span>{description || 'Sem descrição adicional'}</span>
+            <small>
+              {featured
+                ? 'Destaque da Home: aparece em “Destaques da Casa”.'
+                : 'Destaque da Home: desativado.'}
+            </small>
           </div>
           <button type="button" onClick={() => onEdit('APPEARANCE')}>
             Editar
@@ -492,7 +541,12 @@ export function ProductReviewStep({
           <div>
             <b>Disponibilidade</b>
             <span>
-              {unlimitedStock ? 'Feito sob demanda' : `${stock || 0} unidade(s) disponíveis`}
+              {[
+                preparationTime ? `Preparo estimado: ${preparationTime} min` : '',
+                unlimitedStock ? 'Feito sob demanda' : `${stock || 0} unidade(s) disponíveis`,
+              ]
+                .filter(Boolean)
+                .join(' · ')}
             </span>
           </div>
           <button type="button" onClick={() => onEdit('AVAILABILITY')}>

@@ -59,6 +59,9 @@ function initialStage3View(view: ProfileView): Stage3View {
   if (view === 'addresses') return 'addresses';
   if (view === 'paymentMethods') return 'paymentMethods';
   if (view === 'coupons') return 'coupons';
+  if (view === 'loyalty') return 'loyalty';
+  if (view === 'help') return 'help';
+  if (view === 'settings') return 'settings';
   return 'account';
 }
 
@@ -107,6 +110,9 @@ function FigmaAccountExperienceReady(props: ProfilePageProps & { data: ProfileDa
   } = props;
 
   const [view, setView] = useState<Stage3View>(() => initialStage3View(initialView));
+  const [transitionDirection, setTransitionDirection] = useState<'forward' | 'backward'>(
+    'forward',
+  );
   const [selectedPaymentMethodId, setSelectedPaymentMethodId] = useState<string | null>(null);
   const avatarInputRef = useRef<HTMLInputElement>(null);
   const [avatarUploading, setAvatarUploading] = useState(false);
@@ -189,13 +195,21 @@ function FigmaAccountExperienceReady(props: ProfilePageProps & { data: ProfileDa
     if (confirmed) await onDeactivateAccount?.();
   };
 
+  const navigateProfileView = (
+    nextView: Stage3View,
+    direction: 'forward' | 'backward' = 'forward',
+  ) => {
+    setTransitionDirection(direction);
+    setView(nextView);
+  };
+
   const goBack = () => {
     if (view === 'paymentMethodDetails') {
       setSelectedPaymentMethodId(null);
-      setView('paymentMethods');
+      navigateProfileView('paymentMethods', 'backward');
       return;
     }
-    setView('account');
+    navigateProfileView('account', 'backward');
   };
 
   const toggleCustomerMfa = async () => {
@@ -581,7 +595,7 @@ function FigmaAccountExperienceReady(props: ProfilePageProps & { data: ProfileDa
                   aria-label={`Ver detalhes do cartão final ${method.last4}`}
                   onClick={() => {
                     setSelectedPaymentMethodId(method.publicId);
-                    setView('paymentMethodDetails');
+                    navigateProfileView('paymentMethodDetails');
                   }}
                 >
                   <span className="brand-box" aria-hidden="true">
@@ -681,7 +695,7 @@ function FigmaAccountExperienceReady(props: ProfilePageProps & { data: ProfileDa
               onClick={async () => {
                 await onRemovePaymentMethod?.(method.publicId);
                 setSelectedPaymentMethodId(null);
-                setView('paymentMethods');
+                navigateProfileView('paymentMethods');
               }}
             >
               <Trash2 />
@@ -758,7 +772,7 @@ function FigmaAccountExperienceReady(props: ProfilePageProps & { data: ProfileDa
           onRedeem={async (couponId) => {
             await props.onRedeemLoyaltyCoupon?.(couponId);
           }}
-          onOpenCoupons={() => setView('redeemCoupons')}
+          onOpenCoupons={() => navigateProfileView('redeemCoupons')}
         />
       );
     }
@@ -826,14 +840,14 @@ function FigmaAccountExperienceReady(props: ProfilePageProps & { data: ProfileDa
       </S.ProfileCard>
 
       <S.MenuCard>
-        <button type="button" onClick={() => setView('orders')}>
+        <button type="button" onClick={() => navigateProfileView('orders')}>
           <ShoppingBag /><span>Meus pedidos</span>
           <span className="badge">
             {activeOrderCount} {activeOrderCount === 1 ? 'ativo' : 'ativos'}
           </span>
           <ChevronRight className="chev" />
         </button>
-        <button type="button" onClick={() => setView('addresses')}>
+        <button type="button" onClick={() => navigateProfileView('addresses')}>
           <MapPin /><span>Endereços salvos</span>
           <span className="badge">
             {savedAddressCount} {savedAddressCount === 1 ? 'ativo' : 'ativos'}
@@ -847,20 +861,20 @@ function FigmaAccountExperienceReady(props: ProfilePageProps & { data: ProfileDa
           </span>
           <ChevronRight className="chev" />
         </button>
-        <button type="button" onClick={() => setView('coupons')}>
+        <button type="button" onClick={() => navigateProfileView('coupons')}>
           <TicketPercent /><span>Meus Cupons</span>
           <span className="badge">
             {activeCouponCount} {activeCouponCount === 1 ? 'ativo' : 'ativos'}
           </span>
           <ChevronRight className="chev" />
         </button>
-        <button type="button" onClick={() => setView('loyalty')}>
+        <button type="button" onClick={() => navigateProfileView('loyalty')}>
           <Star /><span>Programa de Fidelidade</span><ChevronRight className="chev" />
         </button>
-        <button type="button" onClick={() => setView('help')}>
+        <button type="button" onClick={() => navigateProfileView('help')}>
           <CircleHelp /><span>Ajuda e suporte</span><ChevronRight className="chev" />
         </button>
-        <button type="button" onClick={() => setView('settings')}>
+        <button type="button" onClick={() => navigateProfileView('settings')}>
           <Settings /><span>Configurações</span><ChevronRight className="chev" />
         </button>
       </S.MenuCard>
@@ -911,7 +925,7 @@ function FigmaAccountExperienceReady(props: ProfilePageProps & { data: ProfileDa
           </span>
         </button>
         <div className="actions">
-          <button className="account" type="button" onClick={() => setView('account')}>
+          <button className="account" type="button" onClick={() => navigateProfileView('account', 'backward')}>
             <UserRound size={20} /> Olá, {data.user.firstName || data.user.fullName}
           </button>
           <button
@@ -928,30 +942,36 @@ function FigmaAccountExperienceReady(props: ProfilePageProps & { data: ProfileDa
 
       {mobileLayout ? (
       <S.Mobile className={view === 'orders' ? 'orders-view' : ''}>
-        {view === 'account' ? (
-          <S.Stack>
-            <S.PageTitle>
-              <button
-                className="back"
-                type="button"
-                aria-label="Voltar para o restaurante"
-                onClick={onGoHome}
-              >
-                <ArrowLeft />
-              </button>
-              <h1>{title}</h1>
-            </S.PageTitle>
-            {menu}
-          </S.Stack>
-        ) : (
-          <S.Stack>
-            <S.PageTitle className={view === 'orders' ? 'orders-page-title' : ''}>
-              <button className="back" type="button" aria-label="Voltar para minha conta" onClick={goBack}><ArrowLeft /></button>
-              <h1>{title}</h1>
-            </S.PageTitle>
-            {pageContent()}
-          </S.Stack>
-        )}
+        <S.MobileTransition
+          key={view}
+          className="mobile-view-transition"
+          $direction={transitionDirection}
+        >
+          {view === 'account' ? (
+            <S.Stack>
+              <S.PageTitle>
+                <button
+                  className="back"
+                  type="button"
+                  aria-label="Voltar para o restaurante"
+                  onClick={onGoHome}
+                >
+                  <ArrowLeft />
+                </button>
+                <h1>{title}</h1>
+              </S.PageTitle>
+              {menu}
+            </S.Stack>
+          ) : (
+            <S.Stack>
+              <S.PageTitle className={view === 'orders' ? 'orders-page-title' : ''}>
+                <button className="back" type="button" aria-label="Voltar para minha conta" onClick={goBack}><ArrowLeft /></button>
+                <h1>{title}</h1>
+              </S.PageTitle>
+              {pageContent()}
+            </S.Stack>
+          )}
+        </S.MobileTransition>
         <S.MobileHomeIndicator />
       </S.Mobile>
       ) : (
@@ -990,8 +1010,8 @@ function FigmaAccountExperienceReady(props: ProfilePageProps & { data: ProfileDa
         phone={data.brand.phone}
         email={data.brand.email}
         onMenu={onOpenMenu}
-        onCoupons={() => setView('coupons')}
-        onHelp={() => setView('help')}
+        onCoupons={() => navigateProfileView('coupons')}
+        onHelp={() => navigateProfileView('help')}
         onSupport={onSupport}
       />
     </S.Root>

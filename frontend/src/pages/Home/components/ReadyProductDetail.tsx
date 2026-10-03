@@ -3,6 +3,7 @@ import {
   Clock3,
   ShieldCheck,
   ShoppingBag,
+  Tag,
   UtensilsCrossed,
 } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -14,7 +15,7 @@ import * as S from './ReadyProductDetail.styles';
 const money = (value: number) =>
   Number(value || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
-function formatPreparationTime(value?: string) {
+function formatPreparationTime(value?: number | string) {
   const raw = String(value || '').trim();
   if (!raw) return '';
 
@@ -44,7 +45,7 @@ type ReadyProductDetailProps = {
   restaurantName: string;
   restaurantCategory?: string;
   categoryName?: string;
-  preparationTime?: string;
+  preparationTime?: number;
   cartCount?: number;
   onBack: () => void;
   onOpenCart?: () => void;
@@ -113,7 +114,7 @@ export function ReadyProductDetail({
         <div className="brand">
           <strong>{restaurantName}</strong>
           <small>
-            {[restaurantCategory, formattedPreparationTime ? `entrega em ${formattedPreparationTime}` : '']
+            {[restaurantCategory, formattedPreparationTime ? `preparo em ${formattedPreparationTime}` : '']
               .filter(Boolean)
               .join(' · ')}
           </small>
@@ -194,8 +195,10 @@ export function ReadyProductDetail({
 
           {product.description ? <p className="description">{product.description}</p> : null}
 
-          {composition.length || formattedPreparationTime ? (
-            <S.Facts $single={!composition.length || !formattedPreparationTime}>
+          {composition.length || formattedPreparationTime || categoryName ? (
+            <S.Facts
+              className={!formattedPreparationTime && !categoryName ? 'composition-only' : ''}
+            >
               {composition.length ? (
                 <article className="composition">
                   <UtensilsCrossed aria-hidden="true" />
@@ -205,14 +208,33 @@ export function ReadyProductDetail({
                   </span>
                 </article>
               ) : null}
-              {formattedPreparationTime ? (
-                <article>
-                  <Clock3 aria-hidden="true" />
-                  <span>
-                    <small>PREPARO ESTIMADO</small>
-                    <strong>{formattedPreparationTime}</strong>
-                  </span>
-                </article>
+
+              {formattedPreparationTime || categoryName ? (
+                <div
+                  className={
+                    formattedPreparationTime && categoryName ? 'summary-grid' : 'summary-grid single'
+                  }
+                >
+                  {formattedPreparationTime ? (
+                    <article data-product-fact="preparation">
+                      <Clock3 aria-hidden="true" />
+                      <span>
+                        <small>PREPARO ESTIMADO</small>
+                        <strong>{formattedPreparationTime}</strong>
+                      </span>
+                    </article>
+                  ) : null}
+
+                  {categoryName ? (
+                    <article data-product-fact="category">
+                      <Tag aria-hidden="true" />
+                      <span>
+                        <small>CATEGORIA</small>
+                        <strong>{categoryName}</strong>
+                      </span>
+                    </article>
+                  ) : null}
+                </div>
               ) : null}
             </S.Facts>
           ) : null}

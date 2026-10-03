@@ -16,7 +16,343 @@ describe('FigmaDeliveryExperience product flow', () => {
     vi.stubGlobal('scrollTo', vi.fn());
   });
 
-  it('abre detalhes para produto COMPLETE e adiciona somente após confirmação', async () => {
+
+
+
+  it('usa a foto salva no atalho de perfil e abre os atalhos da conta no mobile', async () => {
+    const container = document.createElement('div');
+    document.body.appendChild(container);
+    const root = createRoot(container);
+    const onOpenProfileView = vi.fn();
+
+    await act(async () => {
+      root.render(
+        <FigmaDeliveryExperience
+          data={{
+            ...homeMockData,
+            brand: { ...homeMockData.brand, name: 'Restaurante Demo' },
+          }}
+          userLoggedIn
+          userName="Cliente Teste"
+          userAvatar="data:image/jpeg;base64,avatar-salvo"
+          savedAddresses={[
+            {
+              id: 1,
+              label: 'Casa',
+              address: 'Rua das Flores',
+              number: '123',
+              district: 'Centro',
+              city: 'Fortaleza',
+              state: 'CE',
+              zipCode: '60000-000',
+              complement: null,
+              isDefault: true,
+            },
+          ]}
+          onOpenProfileView={onOpenProfileView}
+          onOpenProfile={vi.fn()}
+        />,
+      );
+    });
+
+    const trigger = container.querySelector(
+      'button[aria-label="Abrir atalhos da minha conta"]',
+    ) as HTMLButtonElement | null;
+    expect(trigger).toBeTruthy();
+    expect(trigger?.classList.contains('mobile-profile-trigger')).toBe(true);
+    expect(trigger?.classList.contains('mobile-address-trigger')).toBe(false);
+    expect(trigger?.querySelector('img')?.getAttribute('src')).toBe(
+      'data:image/jpeg;base64,avatar-salvo',
+    );
+
+    await act(async () => trigger?.click());
+
+    const dialog = container.querySelector(
+      '[aria-labelledby="profile-quick-menu-title"]',
+    ) as HTMLElement | null;
+    expect(dialog).toBeTruthy();
+    expect(dialog?.textContent).toContain('Meus pedidos');
+    expect(dialog?.textContent).toContain('Endereços salvos');
+    expect(dialog?.textContent).toContain('Métodos de pagamento');
+    expect(dialog?.textContent).toContain('Meus Cupons');
+    expect(dialog?.textContent).toContain('Programa de Fidelidade');
+    expect(dialog?.textContent).toContain('Ajuda e suporte');
+    expect(dialog?.textContent).toContain('Configurações');
+
+    const addressesButton = Array.from(
+      dialog?.querySelectorAll<HTMLButtonElement>('.quick-profile-links button') || [],
+    ).find((button) => button.textContent?.includes('Endereços salvos'));
+
+    await act(async () => addressesButton?.click());
+
+    const closingDialog = container.querySelector(
+      '[aria-labelledby="profile-quick-menu-title"]',
+    ) as HTMLElement | null;
+    expect(closingDialog?.classList.contains('closing')).toBe(true);
+    expect(onOpenProfileView).not.toHaveBeenCalled();
+
+    await act(async () => {
+      const animationEnd = new Event('animationend', { bubbles: true });
+      Object.defineProperty(animationEnd, 'animationName', {
+        value: 'profile-quick-sheet-out',
+      });
+      closingDialog?.dispatchEvent(animationEnd);
+    });
+
+    expect(onOpenProfileView).toHaveBeenCalledWith('addresses');
+    expect(container.querySelector('[aria-labelledby="profile-quick-menu-title"]')).toBeNull();
+
+    act(() => root.unmount());
+    container.remove();
+  });
+
+  it('envia visitante para o login ao tocar no atalho de perfil', async () => {
+    const container = document.createElement('div');
+    document.body.appendChild(container);
+    const root = createRoot(container);
+    const onOpenProfile = vi.fn();
+
+    await act(async () => {
+      root.render(
+        <FigmaDeliveryExperience
+          data={{
+            ...homeMockData,
+            brand: { ...homeMockData.brand, name: 'Restaurante Demo' },
+          }}
+          userLoggedIn={false}
+          onOpenProfile={onOpenProfile}
+        />,
+      );
+    });
+
+    const trigger = container.querySelector(
+      'button[aria-label="Entrar na minha conta"]',
+    ) as HTMLButtonElement | null;
+    await act(async () => trigger?.click());
+
+    expect(onOpenProfile).toHaveBeenCalledOnce();
+    expect(container.querySelector('[aria-labelledby="profile-quick-menu-title"]')).toBeNull();
+
+    act(() => root.unmount());
+    container.remove();
+  });
+
+  it('não reserva espaço de banner quando o admin não configurou banner', async () => {
+    const container = document.createElement('div');
+    document.body.appendChild(container);
+    const root = createRoot(container);
+
+    await act(async () => {
+      root.render(
+        <FigmaDeliveryExperience
+          data={{
+            ...homeMockData,
+            brand: { ...homeMockData.brand, name: 'Restaurante Demo' },
+            hero: { title: '', highlight: '', description: '', image: '' },
+            banners: [],
+          }}
+        />,
+      );
+    });
+
+    expect(container.querySelector('[aria-label="Promoções do restaurante"]')).toBeNull();
+    expect(container.querySelector('#cardapio')).toBeTruthy();
+    expect(container.querySelector('#cardapio')?.classList.contains('no-banner')).toBe(true);
+
+    act(() => root.unmount());
+    container.remove();
+  });
+
+
+
+  it('não renderiza cartão vazio de métricas no hero desktop quando existe apenas endereço', async () => {
+    const container = document.createElement('div');
+    document.body.appendChild(container);
+    const root = createRoot(container);
+
+    await act(async () => {
+      root.render(
+        <FigmaDeliveryExperience
+          data={{
+            ...homeMockData,
+            brand: {
+              ...homeMockData.brand,
+              name: 'Restaurante Demo',
+              address: 'Rua Francisco Calaça, 1688 - Floresta - Fortaleza',
+            },
+            hero: {
+              title: 'Promoção',
+              highlight: 'Hoje',
+              description: '',
+              image: '/banner.jpg',
+            },
+            deliveryTime: '',
+            deliveryFee: 0,
+          }}
+        />,
+      );
+    });
+
+    const heroSummary = container.querySelector('[aria-label="Resumo do restaurante"]');
+    expect(heroSummary).toBeTruthy();
+    expect(heroSummary?.querySelector('.metric-card')).toBeNull();
+    expect(heroSummary?.textContent).toContain(
+      'Rua Francisco Calaça, 1688 - Floresta - Fortaleza',
+    );
+
+    act(() => root.unmount());
+    container.remove();
+  });
+
+  it('mantém entrega e retirada ligadas ao estado real do checkout', async () => {
+    const container = document.createElement('div');
+    document.body.appendChild(container);
+    const root = createRoot(container);
+    const onFulfillmentMethodChange = vi.fn();
+
+    await act(async () => {
+      root.render(
+        <FigmaDeliveryExperience
+          data={{
+            ...homeMockData,
+            acceptsDelivery: true,
+            acceptsPickup: true,
+            brand: { ...homeMockData.brand, name: 'Restaurante Demo' },
+          }}
+          fulfillmentMethod="pickup"
+          onFulfillmentMethodChange={onFulfillmentMethodChange}
+        />,
+      );
+    });
+
+    const deliveryButtons = Array.from(
+      container.querySelectorAll<HTMLButtonElement>('button[aria-pressed="false"]'),
+    ).filter((button) => button.textContent?.includes('Entrega'));
+    expect(deliveryButtons.length).toBeGreaterThan(0);
+
+    await act(async () => deliveryButtons[0].click());
+    expect(onFulfillmentMethodChange).toHaveBeenCalledWith('delivery');
+
+    act(() => root.unmount());
+    container.remove();
+  });
+
+
+  it('abre seletor inferior e troca para outro endereço cadastrado', async () => {
+    const container = document.createElement('div');
+    document.body.appendChild(container);
+    const root = createRoot(container);
+    const onSelectAddress = vi.fn();
+    const onManageAddresses = vi.fn();
+
+    await act(async () => {
+      root.render(
+        <FigmaDeliveryExperience
+          data={{
+            ...homeMockData,
+            acceptsDelivery: true,
+            acceptsPickup: true,
+            brand: { ...homeMockData.brand, name: 'Restaurante Demo' },
+          }}
+          fulfillmentMethod="delivery"
+          savedAddresses={[
+            {
+              id: 1,
+              label: 'Casa',
+              address: 'Rua das Flores',
+              number: '123',
+              district: 'Centro',
+              city: 'Fortaleza',
+              state: 'CE',
+              zipCode: '60000-000',
+              complement: null,
+              isDefault: true,
+            },
+            {
+              id: 2,
+              label: 'Trabalho',
+              address: 'Avenida Santos Dumont',
+              number: '2000',
+              district: 'Aldeota',
+              city: 'Fortaleza',
+              state: 'CE',
+              zipCode: '60150-161',
+              complement: 'Sala 4',
+              isDefault: false,
+            },
+          ]}
+          selectedAddressId="1"
+          onSelectAddress={onSelectAddress}
+          onManageAddresses={onManageAddresses}
+        />,
+      );
+    });
+
+    const addressTrigger = container.querySelector(
+      'button[aria-label="Endereço de entrega: Rua das Flores, 123 - Centro"]',
+    ) as HTMLButtonElement | null;
+    expect(addressTrigger).toBeTruthy();
+
+    await act(async () => addressTrigger?.click());
+
+    const dialog = container.querySelector(
+      '[aria-labelledby="address-picker-title"]',
+    ) as HTMLElement | null;
+    expect(dialog).toBeTruthy();
+    expect(dialog?.textContent).toContain('Onde você quer receber?');
+    expect(dialog?.textContent).toContain('Casa');
+    expect(dialog?.textContent).toContain('Trabalho');
+
+    const workAddress = dialog?.querySelector(
+      'button[aria-label="Usar endereço Trabalho"]',
+    ) as HTMLButtonElement | null;
+    expect(workAddress).toBeTruthy();
+
+    await act(async () => workAddress?.click());
+
+    expect(onSelectAddress).toHaveBeenCalledWith('2');
+    expect(container.querySelector('[aria-labelledby="address-picker-title"]')).toBeNull();
+    expect(onManageAddresses).not.toHaveBeenCalled();
+
+    act(() => root.unmount());
+    container.remove();
+  });
+
+  it('mantém o cadastro de endereço como fallback quando não há endereço salvo', async () => {
+    const container = document.createElement('div');
+    document.body.appendChild(container);
+    const root = createRoot(container);
+    const onManageAddresses = vi.fn();
+
+    await act(async () => {
+      root.render(
+        <FigmaDeliveryExperience
+          data={{
+            ...homeMockData,
+            acceptsDelivery: true,
+            brand: { ...homeMockData.brand, name: 'Restaurante Demo' },
+          }}
+          fulfillmentMethod="delivery"
+          savedAddresses={[]}
+          onManageAddresses={onManageAddresses}
+        />,
+      );
+    });
+
+    const addressTrigger = container.querySelector(
+      'button[aria-label="Endereço de entrega: Escolher endereço"]',
+    ) as HTMLButtonElement | null;
+
+    await act(async () => addressTrigger?.click());
+
+    expect(onManageAddresses).toHaveBeenCalledOnce();
+    expect(container.querySelector('[aria-labelledby="address-picker-title"]')).toBeNull();
+
+    act(() => root.unmount());
+    container.remove();
+  });
+
+  it('adiciona produto COMPLETE direto pelo botão e mantém detalhes no clique do card', async () => {
     const container = document.createElement('div');
     document.body.appendChild(container);
     const root = createRoot(container);
@@ -41,6 +377,7 @@ describe('FigmaDeliveryExperience product flow', () => {
                 price: 6,
                 originalPrice: 6,
                 rating: 0,
+                preparationTime: 35,
                 available: true,
                 kind: 'STANDARD',
                 saleMode: 'COMPLETE',
@@ -60,10 +397,38 @@ describe('FigmaDeliveryExperience product flow', () => {
 
     await act(async () => add.click());
 
+    expect(onAddProduct).toHaveBeenCalledWith(
+      'ready-1',
+      {
+        selectedOptions: [],
+        selectedOptionIds: [],
+        observation: '',
+        configurationVersion: 2,
+      },
+      1,
+    );
+    expect(document.querySelector('[data-ready-product-detail]')).toBeNull();
+    expect(document.querySelector('[aria-label="Montar Refrigerante"]')).toBeNull();
+
+    onAddProduct.mockClear();
+
+    const detailsTrigger = container.querySelector(
+      'button[aria-label="Ver detalhes de Refrigerante"]',
+    ) as HTMLButtonElement;
+    expect(detailsTrigger).toBeTruthy();
+
+    await act(async () => detailsTrigger.click());
+
     const detail = document.querySelector('[data-ready-product-detail]') as HTMLElement;
     expect(detail).toBeTruthy();
     expect(detail.textContent).toContain('Refrigerante');
-    expect(detail.textContent).toContain('25-35 min');
+    expect(
+      detail.querySelector('[data-product-fact="preparation"]')?.textContent,
+    ).toContain('35 min');
+    expect(
+      detail.querySelector('[data-product-fact="category"]')?.textContent,
+    ).toContain('Lanches');
+    expect(detail.textContent).not.toContain('25-35 min');
     expect(onAddProduct).not.toHaveBeenCalled();
     expect(document.querySelector('[aria-label="Montar Refrigerante"]')).toBeNull();
 

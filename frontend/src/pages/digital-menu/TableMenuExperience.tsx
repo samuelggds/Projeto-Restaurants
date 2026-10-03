@@ -1074,7 +1074,7 @@ export default function TableMenuExperience({
           restaurantName={data.brand.name}
           restaurantCategory={data.brand.category}
           categoryName={data.categories.find((category) => category.id === selectedProduct.categoryId)?.name}
-          preparationTime={data.deliveryTime}
+          preparationTime={selectedProduct.preparationTime}
           cartCount={tableCartCount}
           onBack={() => {
             setSelectedProduct(null);

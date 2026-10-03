@@ -332,6 +332,8 @@ export function buildHomeData(
       image: resolveProductImage(product, index, allowImageFallbacks),
       rating: Number(product.averageRating || 0),
       stock: product.stock === null || product.stock === undefined ? null : Number(product.stock),
+      preparationTime:
+        Number(product.preparationTime ?? 0) > 0 ? Number(product.preparationTime) : undefined,
       available: !isProductUnavailable(product),
       featured: product.featured === true,
       kind: product.kind === 'COMBO' ? 'COMBO' : 'STANDARD',

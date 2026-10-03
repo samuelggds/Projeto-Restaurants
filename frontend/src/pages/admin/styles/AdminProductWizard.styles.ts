@@ -97,6 +97,89 @@ export const ProductWizardStepSection = styled(ProductFormSection)`
   .guided-money-input > input {
     border: 0;
   }
+  .featured-setting {
+    width: 100%;
+    min-width: 0;
+    padding: 14px;
+    border: 1px solid #e2dad3;
+    border-radius: 10px;
+    background: #fff;
+    display: grid;
+    grid-template-columns: 18px 36px minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 10px;
+    cursor: pointer;
+    transition: border-color 160ms ease, background 160ms ease, box-shadow 160ms ease;
+  }
+  .featured-setting:hover {
+    border-color: #ffc7c7;
+    background: #fffafa;
+  }
+  .featured-setting:focus-within {
+    outline: 2px solid #FF4B4B;
+    outline-offset: 2px;
+  }
+  .featured-setting.selected {
+    border-color: #FF4B4B;
+    background: #fff7f7;
+    box-shadow: 0 0 0 3px rgba(255, 75, 75, 0.08);
+  }
+  .featured-setting > input {
+    width: 18px;
+    height: 18px;
+    margin: 0;
+    accent-color: #FF4B4B;
+  }
+  .featured-setting-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    background: #fff1f1;
+    color: #FF4B4B;
+    display: grid;
+    place-items: center;
+  }
+  .featured-setting-icon svg {
+    width: 17px;
+    height: 17px;
+  }
+  .featured-setting-copy {
+    min-width: 0;
+    display: grid;
+    gap: 3px;
+  }
+  .featured-setting-copy b {
+    color: #2a2724;
+    font-size: 12px;
+  }
+  .featured-setting-copy small {
+    color: var(--muted);
+    font-size: 10px;
+    line-height: 1.45;
+  }
+  .featured-setting > em {
+    color: #8b8782;
+    font-size: 9px;
+    font-style: normal;
+    font-weight: 800;
+    text-transform: uppercase;
+  }
+  .featured-setting.selected > em {
+    color: #FF4B4B;
+  }
+  @media (max-width: 600px) {
+    .featured-setting {
+      grid-template-columns: 18px 32px minmax(0, 1fr);
+    }
+    .featured-setting-icon {
+      width: 32px;
+      height: 32px;
+    }
+    .featured-setting > em {
+      grid-column: 3;
+    }
+  }
+
   .appearance-card-preview {
     min-width: 0;
     display: grid;

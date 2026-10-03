@@ -48,6 +48,7 @@ export type HomeProduct = {
   image: string;
   rating: number;
   stock?: number | null;
+  preparationTime?: number;
   available: boolean;
   featured?: boolean;
   kind?: 'STANDARD' | 'COMBO';
@@ -202,6 +203,15 @@ export type HomeData = {
   businessHours?: BusinessHour[];
 };
 
+export type HomeProfileView =
+  | 'orders'
+  | 'addresses'
+  | 'paymentMethods'
+  | 'coupons'
+  | 'loyalty'
+  | 'help'
+  | 'settings';
+
 export type HomeExperienceProps = {
   data: HomeData;
   cartCount?: number;
@@ -218,10 +228,13 @@ export type HomeExperienceProps = {
   tableLabel?: string | number;
   savedAddresses?: CustomerAddress[];
   selectedAddressId?: string;
+  fulfillmentMethod?: 'delivery' | 'pickup';
+  onFulfillmentMethodChange?: (method: 'delivery' | 'pickup') => void;
   onSelectAddress?: (addressId: string) => void;
   onManageAddresses?: () => void;
   onOpenMenu?: () => void;
   onOpenProfile?: () => void;
+  onOpenProfileView?: (view: HomeProfileView) => void;
   onOpenOrders?: () => void;
   onOpenAdmin?: () => void;
   onOpenCart?: () => void;
