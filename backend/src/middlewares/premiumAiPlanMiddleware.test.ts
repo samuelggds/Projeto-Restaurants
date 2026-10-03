@@ -46,15 +46,15 @@ test('permite IA para Premium ativo', async () => {
 test('permite IA para Gestão Total ativa', async () => {
   prisma.subscription.findUnique = async () => ({ plan: 'GESTAO_TOTAL', status: 'ATIVA' });
 
-  const req = request();
-  const res = response();
-  let called = false;
+  const req = { user: { restaurantId: 7 } };
+  const res = responseStub();
+  let nextCalled = false;
 
   await premiumAiPlanMiddleware(req, res, () => {
-    called = true;
+    nextCalled = true;
   });
 
-  assert.equal(called, true);
+  assert.equal(nextCalled, true);
   assert.equal(res.statusCode, 200);
 });
 
