@@ -675,7 +675,7 @@ export default function Home() {
 
   const resolvedCheckoutCustomerPhone = checkoutCustomerPhone;
 
-  const primary = homeData.brand.primaryColor || '#d64d08';
+  const primary = '#FF4B4B';
   const whatsappUrl = buildWhatsAppUrl(
     homeData.brand.whatsapp,
     homeData.brand.whatsappDefaultMessage,
@@ -942,6 +942,8 @@ export default function Home() {
         tableLabel={mesaMode ? mesaLabel : undefined}
         savedAddresses={savedAddresses}
         selectedAddressId={selectedAddressId}
+        fulfillmentMethod={availableOrderType}
+        onFulfillmentMethodChange={setOrderType}
         onSelectAddress={selectDeliveryAddress}
         onManageAddresses={manageDeliveryAddresses}
         onOpenCart={openHomeCart}
