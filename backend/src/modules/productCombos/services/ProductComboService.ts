@@ -259,6 +259,10 @@ function normalizeCombo(product: ComboPresentationProduct): NormalizedComboPrese
   };
 }
 
+type SaveComboOptions = {
+  beforeCreate?: (db: Parameters<typeof setTenantDbContext>[0]) => Promise<void>;
+};
+
 class ProductComboService {
   async list(restaurantIdInput: unknown) {
     const tenantId = restaurantId(restaurantIdInput);
@@ -276,9 +280,7 @@ class ProductComboService {
     idInput: unknown | null,
     restaurantIdInput: unknown,
     rawInput: unknown,
-    options: {
-      beforeCreate?: (db: Parameters<typeof setTenantDbContext>[0]) => Promise<void>;
-    } = {},
+    options: SaveComboOptions = {},
   ) {
     const tenantId = restaurantId(restaurantIdInput);
     const input = comboInputSchema.parse(rawInput);
