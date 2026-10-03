@@ -3,6 +3,7 @@ import {
   Clock3,
   ShieldCheck,
   ShoppingBag,
+  Tag,
   UtensilsCrossed,
 } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -194,8 +195,10 @@ export function ReadyProductDetail({
 
           {product.description ? <p className="description">{product.description}</p> : null}
 
-          {composition.length || formattedPreparationTime ? (
-            <S.Facts $single={!composition.length || !formattedPreparationTime}>
+          {composition.length || formattedPreparationTime || categoryName ? (
+            <S.Facts
+              className={!formattedPreparationTime && !categoryName ? 'composition-only' : ''}
+            >
               {composition.length ? (
                 <article className="composition">
                   <UtensilsCrossed aria-hidden="true" />
@@ -205,14 +208,33 @@ export function ReadyProductDetail({
                   </span>
                 </article>
               ) : null}
-              {formattedPreparationTime ? (
-                <article>
-                  <Clock3 aria-hidden="true" />
-                  <span>
-                    <small>PREPARO ESTIMADO</small>
-                    <strong>{formattedPreparationTime}</strong>
-                  </span>
-                </article>
+
+              {formattedPreparationTime || categoryName ? (
+                <div
+                  className={
+                    formattedPreparationTime && categoryName ? 'summary-grid' : 'summary-grid single'
+                  }
+                >
+                  {formattedPreparationTime ? (
+                    <article data-product-fact="preparation">
+                      <Clock3 aria-hidden="true" />
+                      <span>
+                        <small>PREPARO ESTIMADO</small>
+                        <strong>{formattedPreparationTime}</strong>
+                      </span>
+                    </article>
+                  ) : null}
+
+                  {categoryName ? (
+                    <article data-product-fact="category">
+                      <Tag aria-hidden="true" />
+                      <span>
+                        <small>CATEGORIA</small>
+                        <strong>{categoryName}</strong>
+                      </span>
+                    </article>
+                  ) : null}
+                </div>
               ) : null}
             </S.Facts>
           ) : null}
