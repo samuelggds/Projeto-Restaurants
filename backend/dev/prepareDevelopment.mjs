@@ -1,5 +1,7 @@
 import 'dotenv/config';
 import { spawnSync } from 'node:child_process';
+import { existsSync, readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 
 const LOCAL_DATABASE_HOSTS = new Set([
   'localhost',
@@ -39,6 +41,58 @@ function parseDatabaseUrl(name, value) {
   };
 }
 
+function readJsonVersion(filePath) {
+  if (!existsSync(filePath)) return null;
+  try {
+    const parsed = JSON.parse(readFileSync(filePath, 'utf8'));
+    return typeof parsed.version === 'string' ? parsed.version : null;
+  } catch {
+    return null;
+  }
+}
+
+function prismaClientIsCurrent() {
+  const sourceSchema = resolve(process.cwd(), 'prisma/schema.prisma');
+  const generatedSchema = resolve(process.cwd(), 'node_modules/.prisma/client/schema.prisma');
+  const clientPackage = resolve(process.cwd(), 'node_modules/@prisma/client/package.json');
+  const generatedPackage = resolve(process.cwd(), 'node_modules/.prisma/client/package.json');
+
+  if (
+    !existsSync(sourceSchema) ||
+    !existsSync(generatedSchema) ||
+    !existsSync(clientPackage) ||
+    !existsSync(generatedPackage)
+  ) {
+    return false;
+  }
+
+  const source = readFileSync(sourceSchema);
+  const generated = readFileSync(generatedSchema);
+  if (!source.equals(generated)) return false;
+
+  const installedVersion = readJsonVersion(clientPackage);
+  const generatedVersion = readJsonVersion(generatedPackage);
+  return Boolean(installedVersion && generatedVersion && installedVersion === generatedVersion);
+}
+
+function run(command, args, { capture = false } = {}) {
+  const result = spawnSync(command, args, {
+    cwd: process.cwd(),
+    encoding: capture ? 'utf8' : undefined,
+    stdio: capture ? 'pipe' : 'inherit',
+    shell: process.platform === 'win32',
+    env: process.env,
+  });
+
+  if (capture) {
+    if (result.stdout) process.stdout.write(result.stdout);
+    if (result.stderr) process.stderr.write(result.stderr);
+  }
+
+  if (result.error) throw result.error;
+  return result;
+}
+
 const nodeEnv = String(process.env.NODE_ENV || 'development').trim().toLowerCase();
 const databaseEnv = String(process.env.OPS_DATABASE_ENV || 'development').trim().toLowerCase();
 
@@ -66,19 +120,42 @@ if (
   );
 }
 
-function run(command, args) {
-  const result = spawnSync(command, args, {
-    cwd: process.cwd(),
-    stdio: 'inherit',
-    shell: process.platform === 'win32',
-    env: process.env,
-  });
-  if (result.error) throw result.error;
-  if (result.status !== 0) {
-    throw new Error(`${command} ${args.join(' ')} falhou com código ${result.status}.`);
+const migrate = run('npx', ['prisma', 'migrate', 'deploy']);
+if (migrate.status !== 0) {
+  throw new Error(`npx prisma migrate deploy falhou com código ${migrate.status}.`);
+}
+
+if (prismaClientIsCurrent()) {
+  console.info('[dev:prepare] Prisma Client já está compatível com o schema atual; generate ignorado.');
+} else {
+  console.info('[dev:prepare] Prisma Client precisa ser regenerado.');
+  const generate = run('npx', ['prisma', 'generate'], { capture: true });
+
+  if (generate.status !== 0) {
+    const output = `${generate.stdout || ''}\n${generate.stderr || ''}`;
+    const windowsEngineLocked =
+      process.platform === 'win32' &&
+      /EPERM:/u.test(output) &&
+      /query_engine-windows\.dll\.node/iu.test(output);
+
+    if (windowsEngineLocked) {
+      throw new Error(
+        [
+          'O Windows está mantendo o engine do Prisma aberto por outro processo Node.',
+          'Feche o backend antigo que ainda estiver rodando e execute npm run dev novamente.',
+          'O frontend Vite pode continuar aberto; não é necessário apagar node_modules nem resetar o banco.',
+        ].join(' '),
+      );
+    }
+
+    throw new Error(`npx prisma generate falhou com código ${generate.status}.`);
+  }
+
+  if (!prismaClientIsCurrent()) {
+    throw new Error(
+      'O Prisma Client foi gerado, mas não corresponde ao schema atual. A inicialização foi bloqueada.',
+    );
   }
 }
 
-run('npx', ['prisma', 'generate']);
-run('npx', ['prisma', 'migrate', 'deploy']);
 console.info('[dev:prepare] Prisma Client e migrations locais sincronizados.');
