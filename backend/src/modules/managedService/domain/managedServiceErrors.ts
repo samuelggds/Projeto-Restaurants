@@ -19,6 +19,9 @@ export const managedBadRequest = (message: string, code = 'INVALID_MANAGED_SERVI
 export const managedForbidden = (message: string, code = 'MANAGED_SERVICE_FORBIDDEN') =>
   new ManagedServiceError(message, 403, code);
 
+export const managedConflict = (message: string, code = 'MANAGED_SERVICE_CONFLICT') =>
+  new ManagedServiceError(message, 409, code);
+
 export const managedNotFound = (message: string, code = 'MANAGED_SERVICE_NOT_FOUND') =>
   new ManagedServiceError(message, 404, code);
 
@@ -32,11 +35,7 @@ export function normalizeManagedServiceError(error: unknown) {
 
   if (error instanceof Prisma.PrismaClientKnownRequestError) {
     if (error.code === 'P2002') {
-      return new ManagedServiceError(
-        'Já existe um registro com esses dados.',
-        409,
-        'MANAGED_SERVICE_CONFLICT',
-      );
+      return managedConflict('Já existe um registro com esses dados.');
     }
     if (error.code === 'P2025') {
       return managedNotFound('Registro não encontrado.');
@@ -48,7 +47,9 @@ export function normalizeManagedServiceError(error: unknown) {
 
 function isInternalProgrammingOrInfrastructureError(error: unknown) {
   return (
+    error instanceof Prisma.PrismaClientKnownRequestError ||
     error instanceof Prisma.PrismaClientUnknownRequestError ||
+    error instanceof Prisma.PrismaClientValidationError ||
     error instanceof Prisma.PrismaClientRustPanicError ||
     error instanceof Prisma.PrismaClientInitializationError ||
     error instanceof TypeError ||
