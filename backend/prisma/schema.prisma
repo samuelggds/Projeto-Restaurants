@@ -126,6 +126,27 @@ model RestaurantImplementation {
   @@index([status, createdAt])
 }
 
+model RestaurantCustomDomain {
+  id                String   @id @default(uuid()) @db.Uuid
+  restaurantId      Int      @unique
+  hostname          String   @unique @db.VarChar(253)
+  includeWww        Boolean  @default(true)
+  status            String   @default("PENDING_DNS") @db.VarChar(24)
+  verificationToken String   @unique @db.VarChar(96)
+  dnsVerifiedAt     DateTime?
+  activatedAt       DateTime?
+  disabledAt        DateTime?
+  lastCheckedAt     DateTime?
+  lastCheckError    String?  @db.VarChar(500)
+  createdByUserId   Int?
+  updatedByUserId   Int?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  restaurant        Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+
+  @@index([status, hostname])
+}
+
 model RestaurantManagedUpdateRequest {
   id                String   @id @default(uuid()) @db.Uuid
   restaurantId      Int
@@ -338,6 +359,7 @@ model Restaurant {
   settings                      RestaurantSettings?
   supportChatMessages           SupportChatMessage[]
   implementation                RestaurantImplementation?
+  customDomain                  RestaurantCustomDomain?
   managedUpdateRequests         RestaurantManagedUpdateRequest[]
   subscription                  Subscription?
   tables                        Table[]
