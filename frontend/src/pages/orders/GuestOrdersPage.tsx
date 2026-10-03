@@ -14,6 +14,8 @@ import restaurantSettingsService from '../../Services/restaurantSettingsService'
 import { connectGuestOrdersSocket } from '../../Services/socketService';
 import { OrderSupportDialog, type OrderSupportOrder } from '../../features/order-support/OrderSupportDialog';
 import { CustomerDesktopFooter } from '../Home/components/CustomerDesktopFooter';
+import { buildTenantPublicPath } from '../../shared/navigation/authNavigation';
+import { useResolvedTenantSlug } from '../../shared/tenant/CustomDomainTenantContext';
 
 type GuestOrder = Record<string, unknown>;
 
@@ -84,6 +86,7 @@ function formatDate(value: unknown) {
 export default function GuestOrdersPage() {
   const navigate = useNavigate();
   const { restaurantSlug = '' } = useParams();
+  const resolvedRestaurantSlug = useResolvedTenantSlug(restaurantSlug);
   const [settings, setSettings] = useState<Record<string, unknown> | null>(null);
   const [orders, setOrders] = useState<GuestOrder[]>([]);
   const [search, setSearch] = useState('');
@@ -115,7 +118,7 @@ export default function GuestOrdersPage() {
   useEffect(() => {
     let active = true;
     restaurantSettingsService
-      .getPublicSettingsBySlug(restaurantSlug)
+      .getPublicSettingsBySlug(resolvedRestaurantSlug)
       .then((value) => {
         if (active) setSettings((value || null) as Record<string, unknown> | null);
       })
@@ -125,7 +128,7 @@ export default function GuestOrdersPage() {
     return () => {
       active = false;
     };
-  }, [restaurantSlug]);
+  }, [resolvedRestaurantSlug]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => void loadOrders(search), 250);
@@ -165,7 +168,7 @@ export default function GuestOrdersPage() {
   return (
     <Page $primary={primary}>
       <DesktopHeader>
-        <button className="brand" type="button" onClick={() => navigate('/' + restaurantSlug)}>
+        <button className="brand" type="button" onClick={() => navigate(buildTenantPublicPath(resolvedRestaurantSlug))}>
           <span className="logo">
             {restaurantLogo ? <img src={restaurantLogo} alt="" /> : restaurantName.slice(0, 1)}
           </span>
@@ -192,7 +195,7 @@ export default function GuestOrdersPage() {
           <button
             className="account"
             type="button"
-            onClick={() => navigate('/' + restaurantSlug + '/login')}
+            onClick={() => navigate(buildTenantPublicPath(resolvedRestaurantSlug, '/login'))}
           >
             <UserRound aria-hidden="true" />
             Entrar ou Cadastrar
@@ -213,7 +216,7 @@ export default function GuestOrdersPage() {
       </DesktopHeader>
 
       <MobileHeader>
-        <button className="brand" type="button" onClick={() => navigate('/' + restaurantSlug)}>
+        <button className="brand" type="button" onClick={() => navigate(buildTenantPublicPath(resolvedRestaurantSlug))}>
           <span className="logo">
             {restaurantLogo ? <img src={restaurantLogo} alt="" /> : restaurantName.slice(0, 1)}
           </span>
@@ -348,7 +351,7 @@ export default function GuestOrdersPage() {
         restaurantLogoUrl={restaurantLogo}
         primaryColor={primary}
         description={String(restaurant.description || '')}
-        onMenu={() => navigate('/' + restaurantSlug)}
+        onMenu={() => navigate(buildTenantPublicPath(resolvedRestaurantSlug))}
         onSupport={() => {
           setSupportOrderId(orders[0] ? Number(orders[0].id || 0) : null);
           setSupportOpen(true);
@@ -356,13 +359,13 @@ export default function GuestOrdersPage() {
       />
 
       <BottomNav>
-        <button type="button" onClick={() => navigate('/' + restaurantSlug)}>
+        <button type="button" onClick={() => navigate(buildTenantPublicPath(resolvedRestaurantSlug))}>
           <House /><span>Início</span>
         </button>
         <button className="active" type="button">
           <ShoppingBag /><span>Pedidos</span>
         </button>
-        <button type="button" onClick={() => navigate('/' + restaurantSlug + '/login')}>
+        <button type="button" onClick={() => navigate(buildTenantPublicPath(resolvedRestaurantSlug, '/login'))}>
           <UserRound /><span>Conta</span>
         </button>
       </BottomNav>
