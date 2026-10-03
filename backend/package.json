@@ -44,7 +44,8 @@
     "db:seed": "node ./scripts/runTsxWithOsUserInfoFallback.cjs prisma/seed.ts",
     "loadtest:orders": "node ./scripts/runTsxWithOsUserInfoFallback.cjs scripts/loadTestOrders.ts",
     "create:superadmin": "node ./scripts/runTsxWithOsUserInfoFallback.cjs scripts/createSuperAdmin.ts",
-    "dev:prepare": "node dev/prepareDevelopment.mjs"
+    "dev:prepare": "node dev/prepareDevelopment.mjs",
+    "whatsapp:cleanup-orphans": "node scripts/cleanupEvolutionOrphans.mjs"
   },
   "keywords": [],
   "author": "",
