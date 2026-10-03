@@ -44,6 +44,47 @@ describe('FigmaDeliveryExperience product flow', () => {
     container.remove();
   });
 
+
+
+  it('não renderiza cartão vazio de métricas no hero desktop quando existe apenas endereço', async () => {
+    const container = document.createElement('div');
+    document.body.appendChild(container);
+    const root = createRoot(container);
+
+    await act(async () => {
+      root.render(
+        <FigmaDeliveryExperience
+          data={{
+            ...homeMockData,
+            brand: {
+              ...homeMockData.brand,
+              name: 'Restaurante Demo',
+              address: 'Rua Francisco Calaça, 1688 - Floresta - Fortaleza',
+            },
+            hero: {
+              title: 'Promoção',
+              highlight: 'Hoje',
+              description: '',
+              image: '/banner.jpg',
+            },
+            deliveryTime: '',
+            deliveryFee: 0,
+          }}
+        />,
+      );
+    });
+
+    const heroSummary = container.querySelector('[aria-label="Resumo do restaurante"]');
+    expect(heroSummary).toBeTruthy();
+    expect(heroSummary?.querySelector('.metric-card')).toBeNull();
+    expect(heroSummary?.textContent).toContain(
+      'Rua Francisco Calaça, 1688 - Floresta - Fortaleza',
+    );
+
+    act(() => root.unmount());
+    container.remove();
+  });
+
   it('mantém entrega e retirada ligadas ao estado real do checkout', async () => {
     const container = document.createElement('div');
     document.body.appendChild(container);
