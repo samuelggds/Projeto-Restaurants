@@ -10,6 +10,17 @@ export function normalizeOrigin(value: string) {
   return normalized.slice(0, end);
 }
 
+function sameOriginHost(req: { hostname?: string }, origin: string, isProduction: boolean) {
+  if (!origin) return false;
+  try {
+    const parsed = new URL(origin);
+    if (isProduction && parsed.protocol !== 'https:') return false;
+    return parsed.hostname.toLowerCase() === String(req.hostname || '').trim().toLowerCase();
+  } catch {
+    return false;
+  }
+}
+
 export function resolveGlobalRateLimitMax(isProduction: boolean, configuredMax: number) {
   return Number.isSafeInteger(configuredMax) && configuredMax > 0
     ? configuredMax
@@ -32,7 +43,9 @@ export function applyCorsAndGlobalRateLimit(app: Express) {
       .toLowerCase();
     const origin = normalizeOrigin(String(req.headers.origin || ''));
     const isUnsafeMethod = !['GET', 'HEAD', 'OPTIONS'].includes(req.method.toUpperCase());
-    const isTrustedOrigin = Boolean(origin && allowedOrigins.includes(origin));
+    const isTrustedOrigin = Boolean(
+      origin && (allowedOrigins.includes(origin) || sameOriginHost(req, origin, isProduction)),
+    );
 
     // Defesa adicional de CSRF para cookies SameSite=None. Clientes de API não
     // enviam Sec-Fetch-Site e continuam aceitos; navegadores cross-site precisam
@@ -44,7 +57,7 @@ export function applyCorsAndGlobalRateLimit(app: Express) {
     return next();
   });
 
-  app.use(
+  app.use((req, res, next) =>
     cors({
       origin: (origin, callback) => {
         if (!origin) {
@@ -53,8 +66,11 @@ export function applyCorsAndGlobalRateLimit(app: Express) {
         }
 
         const normalizedOrigin = normalizeOrigin(origin);
-
-        if (!isProduction || allowedOrigins.includes(normalizedOrigin)) {
+        if (
+          !isProduction ||
+          allowedOrigins.includes(normalizedOrigin) ||
+          sameOriginHost(req, normalizedOrigin, isProduction)
+        ) {
           callback(null, true);
           return;
         }
@@ -62,7 +78,7 @@ export function applyCorsAndGlobalRateLimit(app: Express) {
         callback(new Error('Not allowed by CORS'));
       },
       credentials: true,
-    }),
+    })(req, res, next),
   );
 
   // CORS must run first so browsers can read a legitimate 429 response instead
