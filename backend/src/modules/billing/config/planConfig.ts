@@ -3,7 +3,7 @@ import { PlanType } from '@prisma/client';
 export const PLAN_CONFIG = {
   [PlanType.BASICO]: {
     name: 'Básico',
-    monthlyFee: 149.9,
+    monthlyFee: 99.9,
     trialDays: 7,
     availableForSale: true,
     features: ['Sistema de delivery', 'Suporte padrão'],
@@ -11,7 +11,7 @@ export const PLAN_CONFIG = {
 
   [PlanType.PREMIUM]: {
     name: 'Premium',
-    monthlyFee: 249.9,
+    monthlyFee: 199.9,
     trialDays: 15,
     availableForSale: true,
     features: [
@@ -26,7 +26,7 @@ export const PLAN_CONFIG = {
 
   [PlanType.GESTAO_TOTAL]: {
     name: 'Gestão Total',
-    monthlyFee: 349.9,
+    monthlyFee: 299.9,
     trialDays: 15,
     availableForSale: true,
     features: [
