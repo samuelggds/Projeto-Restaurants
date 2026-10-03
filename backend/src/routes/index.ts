@@ -44,6 +44,7 @@ import salesLeadRoutes from '../modules/salesLeads/routes/SalesLeadRoutes.js';
 import superAdminSalesLeadRoutes from '../modules/salesLeads/routes/SuperAdminSalesLeadRoutes.js';
 import managedServiceRoutes from '../modules/managedService/routes/ManagedServiceRoutes.js';
 import superAdminManagedServiceRoutes from '../modules/managedService/routes/SuperAdminManagedServiceRoutes.js';
+import customDomainRoutes from '../modules/customDomains/routes/CustomDomainRoutes.js';
 
 const router = Router();
 router.use(publicOrderPayloadMiddleware);
@@ -110,6 +111,7 @@ router.use('/super-admin/sales-leads', superAdminSalesLeadRoutes);
 router.use('/super-admin', superAdminRoutes);
 router.use('/admin-portal', adminPortalRoutes);
 router.use('/public-media', publicMediaRoutes);
+router.use(customDomainRoutes);
 
 
 export default router;
