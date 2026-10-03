@@ -32,6 +32,8 @@ export type RestaurantSettings = {
   deliveryFee: number;
   courierFeePerDelivery: number;
   averageDeliveryTime: string;
+  deliveryTimeMin: number;
+  deliveryTimeMax: number;
   acceptsPix: boolean;
   openFinancePixEnabled: boolean;
   acceptsCard: boolean;
