@@ -92,6 +92,7 @@ services:
       - backend
     environment:
       VITE_API_URL: ${VITE_API_URL:-http://localhost:3000}
+      VITE_APP_URL: ${VITE_APP_URL:-http://localhost:5173}
       VITE_GOOGLE_CLIENT_ID: ${VITE_GOOGLE_CLIENT_ID:-}
       VITE_SENTRY_DSN: ${VITE_SENTRY_DSN:-}
       VITE_SENTRY_TRACES_SAMPLE_RATE: ${VITE_SENTRY_TRACES_SAMPLE_RATE:-0.1}
