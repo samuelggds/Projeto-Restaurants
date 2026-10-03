@@ -494,7 +494,14 @@ export class RestaurantCustomDomainService {
     if (!current) throw notFound('Domínio personalizado não configurado.');
 
     const ownershipVerified = await checkTxt(current.hostname, current.verificationToken);
-    const routing = await checkRouting(current);
+    const effectiveLandingPublished =
+      current.landingPublished &&
+      restaurant.settings?.landingPageEnabled === true &&
+      hasHostedLandingAccess(restaurant.subscription?.plan, restaurant.subscription?.status);
+    const routing = await checkRouting({
+      ...current,
+      landingPublished: effectiveLandingPublished,
+    });
     const verified = ownershipVerified && routing.ok;
     const failureReason = !ownershipVerified
       ? 'Registro TXT de verificação ainda não encontrado.'
@@ -581,9 +588,16 @@ export class RestaurantCustomDomainService {
       );
     }
 
+    const effectiveLandingPublished =
+      current.landingPublished &&
+      restaurant.settings?.landingPageEnabled === true &&
+      hasHostedLandingAccess(restaurant.subscription?.plan, restaurant.subscription?.status);
     const [ownershipVerified, routing] = await Promise.all([
       checkTxt(current.hostname, current.verificationToken),
-      checkRouting(current),
+      checkRouting({
+        ...current,
+        landingPublished: effectiveLandingPublished,
+      }),
     ]);
     if (!ownershipVerified || !routing.ok) {
       const failureReason = !ownershipVerified
