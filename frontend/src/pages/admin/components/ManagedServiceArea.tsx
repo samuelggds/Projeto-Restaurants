@@ -217,6 +217,9 @@ export default function ManagedServiceArea() {
               Envie a alteração com os dados exatos. A equipe executa a solicitação dentro do seu
               restaurante sem acessar sua senha.
             </p>
+            <p>
+              Nunca envie senhas, tokens, chaves de API, dados bancários ou credenciais de pagamento.
+            </p>
             <label>
               Tipo de alteração
               <select
