@@ -1,5 +1,6 @@
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import {
+  Bell,
   Bike,
   ChevronDown,
   ChevronLeft,
@@ -40,6 +41,7 @@ import {
 } from './cartFlyAnimation';
 import type { HomeExperienceProps, HomeProduct } from './types';
 import { useHorizontalProductCarousel } from './hooks/useHorizontalProductCarousel';
+import { getRestaurantAvailability } from '../admin/domain/businessHours';
 import * as S from './FigmaDeliveryExperience.styles';
 
 const ProductConfigurator = lazy(() =>
@@ -351,6 +353,10 @@ export function FigmaDeliveryExperience({
       : [];
   }, [data.banners, data.hero]);
   const hours = formatBusinessHoursSummary(data.businessHours);
+  const storefrontAvailability = getRestaurantAvailability(
+    data.businessHours,
+    data.isOpenForOrders,
+  );
   const activeFulfillmentMethod =
     fulfillmentMethod || (data.acceptsDelivery ? 'delivery' : 'pickup');
   const selectedSavedAddress = useMemo(
@@ -600,6 +606,9 @@ export function FigmaDeliveryExperience({
               <ChevronDown aria-hidden="true" />
             ) : null}
           </button>
+          <span className="mobile-notification-icon" aria-hidden="true">
+            <Bell />
+          </span>
         </div>
         <div className="header-left">
           <button className="brand" type="button" aria-label={`Voltar para a Home de ${data.brand.name}`} onClick={goHome}>
@@ -613,20 +622,17 @@ export function FigmaDeliveryExperience({
                 <span
                   className="status"
                   role="status"
-                  aria-label={data.isOpen ? 'Aberto agora.' : 'Fechado agora.'}
+                  aria-label={`${storefrontAvailability.label}. ${storefrontAvailability.detail}`}
                 >
-                  <i className={data.isOpen ? 'open' : ''} /> {data.isOpen ? 'Aberto agora' : 'Fechado agora'}
+                  <i className={storefrontAvailability.isOpen ? 'open' : ''} />
+                  <strong>{storefrontAvailability.label}</strong>
+                  {storefrontAvailability.detail ? (
+                    <>
+                      <em aria-hidden="true">•</em>
+                      <small>{storefrontAvailability.detail}</small>
+                    </>
+                  ) : null}
                 </span>
-                {Number(data.brand.ratingCount || 0) > 0 && data.brand.ratingAverage ? (
-                  <span
-                    className="restaurant-rating"
-                    aria-label={`${data.brand.ratingAverage.toFixed(1)} de 5 em ${data.brand.ratingCount} avaliações`}
-                  >
-                    <Star aria-hidden="true" fill="currentColor" />
-                    <b>{data.brand.ratingAverage.toFixed(1)}</b>
-                    <small>({data.brand.ratingCount})</small>
-                  </span>
-                ) : null}
               </span>
             </span>
           </button>
@@ -709,6 +715,9 @@ export function FigmaDeliveryExperience({
           }}
         >
           <Search aria-hidden="true" />
+          <span className="mobile-search-placeholder" aria-hidden="true">
+            Buscar no cardápio...
+          </span>
           <input
             ref={searchInputRef}
             type="search"
