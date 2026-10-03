@@ -318,6 +318,9 @@ export function ManagedServicePage() {
                 <S.Description>{item.description}</S.Description>
                 <label className="notes">
                   Retorno para o restaurante
+                  <small>
+                    Não inclua senhas, tokens, chaves de API, dados bancários ou credenciais.
+                  </small>
                   <textarea
                     rows={3}
                     maxLength={2000}
