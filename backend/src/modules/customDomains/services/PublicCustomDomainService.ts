@@ -62,3 +62,15 @@ export async function resolveActiveCustomDomain(hostnameValue: unknown) {
     canonicalHost: mode === 'SITE_WITH_MENU_SUBDOMAIN' ? row.menuHostname : row.hostname,
   };
 }
+
+export async function isActiveCustomDomainOrigin(originValue: unknown) {
+  const raw = String(originValue || '').trim();
+  if (!raw) return false;
+  try {
+    const url = new URL(raw);
+    if (process.env.NODE_ENV === 'production' && url.protocol !== 'https:') return false;
+    return Boolean(await resolveActiveCustomDomain(url.hostname));
+  } catch {
+    return false;
+  }
+}
