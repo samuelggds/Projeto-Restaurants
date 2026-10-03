@@ -10,6 +10,11 @@ import {
   managedRequestCreateSchema,
   managedRequestUpdateSchema,
 } from '../domain/managedServiceSchemas.js';
+import {
+  managedBadRequest,
+  managedForbidden,
+  managedNotFound,
+} from '../domain/managedServiceErrors.js';
 
 type AdminActor = {
   userId: number;
@@ -29,7 +34,7 @@ type SuperAdminActor = {
 
 function assertPositiveId(value: unknown, label: string) {
   const id = Number(value);
-  if (!Number.isSafeInteger(id) || id <= 0) throw new Error(`${label} inválido.`);
+  if (!Number.isSafeInteger(id) || id <= 0) throw managedBadRequest(`${label} inválido.`);
   return id;
 }
 
@@ -145,8 +150,9 @@ export class ManagedServiceService {
     return withTenantDbContext(restaurantId, async (db) => {
       const subscription = await subscriptionForRestaurant(db, restaurantId);
       if (!hasContinuousManagementAccess(subscription?.plan, subscription?.status)) {
-        throw new Error(
+        throw managedForbidden(
           'Solicitações contínuas de atualização estão disponíveis somente no plano Gestão Total ativo.',
+          'CONTINUOUS_MANAGEMENT_PLAN_REQUIRED',
         );
       }
 
@@ -154,7 +160,9 @@ export class ManagedServiceService {
         where: { id: userId, restaurantId, role: 'ADMIN', active: true },
         select: { id: true, name: true, role: true },
       });
-      if (!requester) throw new Error('Administrador não autorizado para este restaurante.');
+      if (!requester) {
+        throw managedForbidden('Administrador não autorizado para este restaurante.');
+      }
 
       const request = await db.restaurantManagedUpdateRequest.create({
         data: {
@@ -258,7 +266,7 @@ export class ManagedServiceService {
         where: { id: actorUserId, role: 'SUPER_ADMIN', active: true },
         select: { id: true, name: true, role: true },
       });
-      if (!superAdmin) throw new Error('SUPER_ADMIN não autorizado.');
+      if (!superAdmin) throw managedForbidden('SUPER_ADMIN não autorizado.');
 
       const restaurant = await db.restaurant.findUnique({
         where: { id: restaurantId },
@@ -268,9 +276,12 @@ export class ManagedServiceService {
           subscription: { select: { plan: true, status: true } },
         },
       });
-      if (!restaurant) throw new Error('Restaurante não encontrado.');
+      if (!restaurant) throw managedNotFound('Restaurante não encontrado.');
       if (!hasImplementationAccess(restaurant.subscription?.plan, restaurant.subscription?.status)) {
-        throw new Error('Este restaurante não possui implantação assistida ativa.');
+        throw managedForbidden(
+          'Este restaurante não possui implantação assistida ativa.',
+          'IMPLEMENTATION_PLAN_REQUIRED',
+        );
       }
 
       const before = await db.restaurantImplementation.findUnique({ where: { restaurantId } });
@@ -319,7 +330,7 @@ export class ManagedServiceService {
 
   async updateManagedRequest(requestIdValue: unknown, input: unknown, actor: SuperAdminActor) {
     const requestId = String(requestIdValue || '').trim();
-    if (!requestId) throw new Error('Solicitação inválida.');
+    if (!requestId) throw managedBadRequest('Solicitação inválida.');
     const actorUserId = assertPositiveId(actor.userId, 'SUPER_ADMIN');
     const parsed = managedRequestUpdateSchema.parse(input);
 
@@ -328,13 +339,13 @@ export class ManagedServiceService {
         where: { id: actorUserId, role: 'SUPER_ADMIN', active: true },
         select: { id: true, name: true, role: true },
       });
-      if (!superAdmin) throw new Error('SUPER_ADMIN não autorizado.');
+      if (!superAdmin) throw managedForbidden('SUPER_ADMIN não autorizado.');
 
       const before = await db.restaurantManagedUpdateRequest.findUnique({
         where: { id: requestId },
         include: { restaurant: { select: { id: true, name: true } } },
       });
-      if (!before) throw new Error('Solicitação não encontrada.');
+      if (!before) throw managedNotFound('Solicitação não encontrada.');
 
       const after = await db.restaurantManagedUpdateRequest.update({
         where: { id: requestId },
