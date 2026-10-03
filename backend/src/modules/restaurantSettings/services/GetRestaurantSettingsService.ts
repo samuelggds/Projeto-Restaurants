@@ -69,6 +69,7 @@ type RestaurantSettingsFallback = {
   fontFamily: string;
   seoTitle: string | null;
   seoDescription: string | null;
+  customDomainRequested: boolean;
   landingPageEnabled: boolean;
   whatsapp: string | null;
   whatsappEnabled: boolean;
@@ -175,6 +176,7 @@ class GetRestaurantSettingsService {
         fontFamily: 'Inter',
         seoTitle: null,
         seoDescription: null,
+        customDomainRequested: false,
         landingPageEnabled: false,
         whatsapp: String(restaurant.whatsapp || '').trim() || null,
         whatsappEnabled: false,
