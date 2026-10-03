@@ -48,6 +48,7 @@ const originalTransaction = prisma.$transaction;
 const originalQueryRaw = prisma.$queryRaw;
 const originalFetch = globalThis.fetch;
 const originalFutureProviders = process.env.ENABLE_FUTURE_PAYMENT_PROVIDERS;
+const originalFrontendUrl = process.env.FRONTEND_URL;
 
 function readyMercadoPagoSettings() {
   return {
@@ -105,6 +106,7 @@ test('timeout após cobrança de cartão preserva pedido confirmado, estoque e c
 
 beforeEach(() => {
   process.env.ENABLE_FUTURE_PAYMENT_PROVIDERS = 'true';
+  process.env.FRONTEND_URL = 'https://pedido.local';
   let attemptId = 0;
   orderPaymentAttemptRepository.createCardAttempt = async () => {
     attemptId += 1;
@@ -137,6 +139,8 @@ afterEach(() => {
   delete process.env.BACKEND_URL;
   if (originalFutureProviders === undefined) delete process.env.ENABLE_FUTURE_PAYMENT_PROVIDERS;
   else process.env.ENABLE_FUTURE_PAYMENT_PROVIDERS = originalFutureProviders;
+  if (originalFrontendUrl === undefined) delete process.env.FRONTEND_URL;
+  else process.env.FRONTEND_URL = originalFrontendUrl;
 });
 
 test('não cria checkout de cartão fora da agenda semanal', async () => {
