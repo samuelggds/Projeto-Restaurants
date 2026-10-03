@@ -132,6 +132,32 @@ test('gestão assistida mantém isolamento multi-tenant e limites de privilégio
       },
     );
     assert.equal(premiumContinuousAttempt.response.status, 403);
+
+    await prisma.restaurantImplementation.update({
+      where: { restaurantId: fixture.restaurants.b.id },
+      data: { productLimit: 1 },
+    });
+
+    const productLimitAttempt = await apiRequest(
+      app.baseUrl,
+      `/super-admin/managed-service/restaurants/${fixture.restaurants.b.id}/products`,
+      superToken,
+      {
+        method: 'POST',
+        json: {
+          name: 'Produto acima do limite Premium',
+          price: 20,
+          categoryId: fixture.categories.b.id,
+          saleMode: 'COMPLETE',
+        },
+      },
+    );
+    assert.equal(productLimitAttempt.response.status, 409, JSON.stringify(productLimitAttempt.data));
+
+    const premiumProducts = await prisma.product.count({
+      where: { restaurantId: fixture.restaurants.b.id },
+    });
+    assert.equal(premiumProducts, 1);
   });
 
   await t.test('SUPER_ADMIN trabalha no tenant alvo sem expor credenciais', async () => {
