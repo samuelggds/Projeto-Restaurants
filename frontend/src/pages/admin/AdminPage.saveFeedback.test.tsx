@@ -47,8 +47,6 @@ function renderAdmin(
             ...adminMockSettings,
             restaurantName: 'North Pizza',
             deliveryTime: 45,
-          deliveryTimeMin: 30,
-          deliveryTimeMax: 45,
             deliveryTimeMin: 30,
             deliveryTimeMax: 45,
           },
