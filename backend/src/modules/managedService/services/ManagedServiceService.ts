@@ -33,7 +33,37 @@ function assertPositiveId(value: unknown, label: string) {
   return id;
 }
 
-function serializeImplementation(row: any) {
+type ImplementationRow = {
+  id: string;
+  restaurantId: number;
+  status: string;
+  productLimit: number;
+  notes: string | null;
+  startedAt: Date | null;
+  completedAt: Date | null;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+type ManagedRequestRow = {
+  id: string;
+  restaurantId: number;
+  requestedByUserId: number;
+  handledByUserId: number | null;
+  category: string;
+  title: string;
+  description: string;
+  status: string;
+  response: string | null;
+  completedAt: Date | null;
+  createdAt: Date;
+  updatedAt: Date;
+  requestedBy?: unknown;
+  handledBy?: unknown;
+  restaurant?: unknown;
+};
+
+function serializeImplementation(row: ImplementationRow | null) {
   if (!row) return null;
   return {
     id: row.id,
@@ -41,14 +71,14 @@ function serializeImplementation(row: any) {
     status: row.status,
     productLimit: row.productLimit,
     notes: row.notes,
-    startedAt: row.startedAt?.toISOString?.() ?? row.startedAt ?? null,
-    completedAt: row.completedAt?.toISOString?.() ?? row.completedAt ?? null,
-    createdAt: row.createdAt?.toISOString?.() ?? row.createdAt,
-    updatedAt: row.updatedAt?.toISOString?.() ?? row.updatedAt,
+    startedAt: row.startedAt?.toISOString() ?? null,
+    completedAt: row.completedAt?.toISOString() ?? null,
+    createdAt: row.createdAt.toISOString(),
+    updatedAt: row.updatedAt.toISOString(),
   };
 }
 
-function serializeRequest(row: any) {
+function serializeRequest(row: ManagedRequestRow) {
   return {
     id: row.id,
     restaurantId: row.restaurantId,
@@ -59,9 +89,9 @@ function serializeRequest(row: any) {
     description: row.description,
     status: row.status,
     response: row.response,
-    completedAt: row.completedAt?.toISOString?.() ?? row.completedAt ?? null,
-    createdAt: row.createdAt?.toISOString?.() ?? row.createdAt,
-    updatedAt: row.updatedAt?.toISOString?.() ?? row.updatedAt,
+    completedAt: row.completedAt?.toISOString() ?? null,
+    createdAt: row.createdAt.toISOString(),
+    updatedAt: row.updatedAt.toISOString(),
     ...(row.requestedBy ? { requestedBy: row.requestedBy } : {}),
     ...(row.handledBy ? { handledBy: row.handledBy } : {}),
     ...(row.restaurant ? { restaurant: row.restaurant } : {}),
