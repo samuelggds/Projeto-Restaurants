@@ -616,21 +616,6 @@ class OrdersService {
     return response.data;
   }
 
-  async generatePaymentConfirmationPin(orderId: string | number) {
-    const response = await api.post(`/orders/${orderId}/payment-confirmation-pin`);
-    return response.data;
-  }
-
-  async requestPaymentConfirmationPin(orderId: string | number) {
-    const response = await api.post(`/orders/${orderId}/request-payment-confirmation-pin`);
-    return response.data;
-  }
-
-  async confirmPaymentWithPin(orderId: string | number, pin: string) {
-    const response = await api.patch(`/orders/${orderId}/confirm-payment-with-pin`, { pin });
-    return response.data;
-  }
-
   async reportIssue(orderId: string | number, message: string) {
     const guestToken = getGuestOrderOwnershipToken(orderId);
     const response = await api.post(
