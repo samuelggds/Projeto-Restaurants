@@ -378,6 +378,7 @@ export function ProductAvailabilityStep({
 
 export function ProductReviewStep({
   description,
+  featured,
   headingRef,
   image,
   name,
@@ -393,6 +394,7 @@ export function ProductReviewStep({
   unlimitedStock,
 }: {
   description: string;
+  featured: boolean;
   headingRef: StepHeadingRef;
   image: string;
   name: string;
@@ -461,6 +463,11 @@ export function ProductReviewStep({
           <div>
             <b>Como aparece no cardápio</b>
             <span>{description || 'Sem descrição adicional'}</span>
+            <small>
+              {featured
+                ? 'Destaque da Home: aparece em “Destaques da Casa”.'
+                : 'Destaque da Home: desativado.'}
+            </small>
           </div>
           <button type="button" onClick={() => onEdit('APPEARANCE')}>
             Editar
