@@ -1040,10 +1040,9 @@ test('cliente acompanha somente a própria entrega, rota e destino até a conclu
     page.getByLabel('Status da Entrega').getByText('Saiu para entrega (A caminho)', { exact: true }),
   ).toBeVisible();
   await expect(page.getByText(courierUser.name, { exact: true })).toBeVisible();
-  await expect(page.getByRole('link', { name: 'Ligar para o motoboy' })).toHaveAttribute(
-    'href',
-    `tel:${courierUser.phone}`,
-  );
+  await expect(
+    page.getByRole('link', { name: `Ligar para ${courierUser.name}` }),
+  ).toHaveAttribute('href', `tel:${courierUser.phone}`);
   const trackingMap = page.locator('.customer-google-delivery-map');
   await expect(trackingMap).toBeVisible();
   await expect(trackingMap).toHaveAttribute('data-courier-latitude', String(departure.latitude));
