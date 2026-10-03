@@ -353,7 +353,7 @@ describe('FigmaDeliveryExperience product flow', () => {
     container.remove();
   });
 
-  it('abre detalhes para produto COMPLETE e adiciona somente após confirmação', async () => {
+  it('adiciona produto COMPLETE direto pelo botão e mantém detalhes no clique do card', async () => {
     const container = document.createElement('div');
     document.body.appendChild(container);
     const root = createRoot(container);
@@ -396,6 +396,28 @@ describe('FigmaDeliveryExperience product flow', () => {
     expect(add).toBeTruthy();
 
     await act(async () => add.click());
+
+    expect(onAddProduct).toHaveBeenCalledWith(
+      'ready-1',
+      {
+        selectedOptions: [],
+        selectedOptionIds: [],
+        observation: '',
+        configurationVersion: 2,
+      },
+      1,
+    );
+    expect(document.querySelector('[data-ready-product-detail]')).toBeNull();
+    expect(document.querySelector('[aria-label="Montar Refrigerante"]')).toBeNull();
+
+    onAddProduct.mockClear();
+
+    const detailsTrigger = container.querySelector(
+      'button[aria-label="Ver detalhes de Refrigerante"]',
+    ) as HTMLButtonElement;
+    expect(detailsTrigger).toBeTruthy();
+
+    await act(async () => detailsTrigger.click());
 
     const detail = document.querySelector('[data-ready-product-detail]') as HTMLElement;
     expect(detail).toBeTruthy();
