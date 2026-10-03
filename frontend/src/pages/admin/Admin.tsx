@@ -38,6 +38,7 @@ import {
 import { getAccessToken } from '../../modules/auth/session/authSession';
 import { playOrderNotificationSound } from './domain/orderNotificationSound';
 import tableAccountService from '../../Services/tableAccountService';
+import monthlyBillingService from '../../Services/monthlyBillingService';
 import {
   EMPLOYEE_ISSUES_SYNC_EVENT,
   EMPLOYEE_ISSUES_UNREAD_EVENT,
@@ -601,6 +602,8 @@ export default function Admin() {
   const [settings, setSettings] = useState<AdminSettings>(adminMockSettings);
   const [settingsId, setSettingsId] = useState<number | null>(null);
   const [restaurantSlug, setRestaurantSlug] = useState('');
+  const [currentPlanCode, setCurrentPlanCode] = useState('');
+  const [subscriptionStatus, setSubscriptionStatus] = useState('');
   const [employees, setEmployees] = useState<Employee[]>(adminMockEmployees);
   const [orders, setOrders] = useState<AdminOrder[]>([]);
   const [products, setProducts] = useState<AdminProduct[]>([]);
@@ -728,6 +731,17 @@ export default function Admin() {
 
   useEffect(() => {
     let mounted = true;
+    void monthlyBillingService
+      .getSubscription()
+      .then((subscription) => {
+        if (!mounted) return;
+        setCurrentPlanCode(String(subscription?.plan || ''));
+        setSubscriptionStatus(String(subscription?.status || ''));
+      })
+      .catch((error) => {
+        console.error('Não foi possível carregar o plano atual.', safeErrorName(error));
+      });
+
     Promise.all([
       restaurantSettingsService.getMySettings(),
       bannerService.list(),
@@ -876,6 +890,9 @@ export default function Admin() {
   return (
     <AdminPage
       initialSettings={settings}
+      restaurantSlug={restaurantSlug}
+      currentPlanCode={currentPlanCode}
+      subscriptionStatus={subscriptionStatus}
       initialEmployees={employees}
       initialOrders={orders}
       initialProducts={products}
