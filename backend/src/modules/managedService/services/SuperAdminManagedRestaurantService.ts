@@ -19,6 +19,7 @@ import { comboInputSchema } from '../../productCombos/services/ProductComboServi
 import {
   hasImplementationAccess,
   hasManagedWorkspaceAccess,
+  managedImplementationProductLimit,
 } from '../domain/managedServicePolicy.js';
 import {
   managedBadRequest,
@@ -265,7 +266,7 @@ class SuperAdminManagedRestaurantService {
             assertManagedProductCapacity(
               db,
               restaurantId,
-              restaurant.implementation?.productLimit,
+              managedImplementationProductLimit(restaurant.subscription?.plan),
             ),
         },
       ),
@@ -344,7 +345,7 @@ class SuperAdminManagedRestaurantService {
           assertManagedProductCapacity(
             db,
             restaurantId,
-            restaurant.implementation?.productLimit,
+            managedImplementationProductLimit(restaurant.subscription?.plan),
           ),
       }),
     );
