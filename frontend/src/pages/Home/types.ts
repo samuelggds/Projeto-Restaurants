@@ -48,6 +48,7 @@ export type HomeProduct = {
   image: string;
   rating: number;
   stock?: number | null;
+  preparationTime?: number;
   available: boolean;
   featured?: boolean;
   kind?: 'STANDARD' | 'COMBO';
