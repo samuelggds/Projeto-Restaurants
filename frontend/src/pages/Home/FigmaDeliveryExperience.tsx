@@ -1,10 +1,7 @@
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Bike,
-  CircleHelp,
-  Check,
   ChevronDown,
-  ChevronLeft,
   ChevronRight,
   Clock3,
   CreditCard,
@@ -12,15 +9,11 @@ import {
   Phone,
   Home,
   List,
-  Plus,
   Search,
-  Settings,
   ShoppingBag,
   Star,
   Store,
-  TicketPercent,
   UserRound,
-  WalletCards,
   UtensilsCrossed,
   X,
 } from 'lucide-react';
@@ -46,7 +39,14 @@ import {
   type CartFlyOrigin,
 } from './cartFlyAnimation';
 import type { HomeExperienceProps, HomeProduct } from './types';
-import { useHorizontalProductCarousel } from './hooks/useHorizontalProductCarousel';
+import { HomeProductCarouselSection as ProductCarouselSection } from './components/HomeProductCarouselSection';
+import { AddressPickerOverlay, ProfileQuickMenuOverlay } from './components/HomeMobileOverlays';
+import {
+  formatCustomerLocationLabel,
+  formatDeliveryTime,
+  getUserInitials,
+  normalizeSearchText,
+} from './domain/homePresentation';
 import { getRestaurantAvailability } from '../admin/domain/businessHours';
 import * as S from './FigmaDeliveryExperience.styles';
 
@@ -65,167 +65,12 @@ const ComboConfigurator = lazy(() =>
 const money = (value: number) =>
   value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
-function formatDeliveryTime(value?: string) {
-  const raw = String(value || '').trim();
-  if (!raw) return '';
-
-  const normalized = raw.replace(/^entrega\s+em\s+/i, '').trim();
-  if (/\b(?:min|minuto|minutos|h|hora|horas)\b/i.test(normalized)) {
-    return normalized;
-  }
-
-  if (/^\d+(?:\s*(?:[-–—]|a)\s*\d+)?$/i.test(normalized)) {
-    return `${normalized.replace(/\s*[-–—]\s*/g, '-')} min`;
-  }
-
-  return normalized;
-}
-
 function productImage(product: HomeProduct) {
   return product.image ? <img src={product.image} alt={product.name} loading="lazy" decoding="async" /> : <UtensilsCrossed />;
 }
 
 function categoryImage(image: string, name: string) {
   return image ? <img src={image} alt="" loading="lazy" decoding="async" /> : <UtensilsCrossed aria-label={name} />;
-}
-
-function ProductCarouselSection({
-  title,
-  description,
-  products,
-  onOpenProduct,
-  onAddProduct,
-  className = '',
-  sectionId,
-  ariaLabel,
-  itemLabel,
-  onViewAll,
-}: {
-  title: string;
-  description?: string;
-  products: HomeProduct[];
-  onOpenProduct: (product: HomeProduct, sourceElement?: HTMLElement | null) => void;
-  onAddProduct: (product: HomeProduct, sourceElement?: HTMLElement | null) => void;
-  className?: string;
-  sectionId?: string;
-  ariaLabel?: string;
-  itemLabel?: string | ((product: HomeProduct) => string);
-  onViewAll?: () => void;
-}) {
-  const {
-    trackRef,
-    hasOverflow,
-    canPrevious: canScrollPrevious,
-    canNext: canScrollNext,
-    scroll,
-  } = useHorizontalProductCarousel({
-    itemSelector: '[data-product-carousel-card]',
-    itemsKey: products.map((product) => product.id).join('|'),
-  });
-
-  if (!products.length) return null;
-
-  return (
-    <S.Section
-      id={sectionId}
-      className={`products-section product-carousel-section mobile-separated ${className}`.trim()}
-      role={ariaLabel ? 'region' : undefined}
-      aria-label={ariaLabel}
-    >
-      <S.SectionHead>
-        <div>
-          <h2>{title}</h2>
-          {description ? <p>{description}</p> : null}
-        </div>
-        <S.SectionHeadActions>
-          {onViewAll ? (
-            <button className="view-all" type="button" onClick={onViewAll}>
-              Ver todos →
-            </button>
-          ) : null}
-          {hasOverflow ? (
-            <S.CarouselControls aria-label={`Navegar em ${title}`}>
-              <button
-                type="button"
-                aria-label={`Ver itens anteriores de ${title}`}
-                onClick={() => scroll(-1)}
-                disabled={!canScrollPrevious}
-              >
-                <ChevronLeft aria-hidden="true" />
-              </button>
-              <button
-                type="button"
-                aria-label={`Ver próximos itens de ${title}`}
-                onClick={() => scroll(1)}
-                disabled={!canScrollNext}
-              >
-                <ChevronRight aria-hidden="true" />
-              </button>
-            </S.CarouselControls>
-          ) : null}
-        </S.SectionHeadActions>
-      </S.SectionHead>
-
-      <S.ProductGrid
-        ref={trackRef}
-        className={className.includes('featured-carousel') ? 'featured-product-grid' : undefined}
-      >
-        {products.map((product) => {
-          const label =
-            typeof itemLabel === 'function'
-              ? itemLabel(product)
-              : itemLabel || (product.kind === 'COMBO' ? 'Combo' : '');
-
-          return (
-            <S.ProductCard key={product.id} data-product-carousel-card>
-              <button
-                className="open"
-                type="button"
-                aria-label={`Ver detalhes de ${product.name}`}
-                onClick={(event) =>
-                  onOpenProduct(
-                    product,
-                    event.currentTarget.closest<HTMLElement>('[data-product-carousel-card]'),
-                  )
-                }
-              />
-              <div className="image">{productImage(product)}</div>
-              <div className="copy">
-                <div className="product-copy">
-                  {label ? <span className="product-label">{label}</span> : null}
-                  <h3>{product.name}</h3>
-                  <p>{product.description}</p>
-                </div>
-                <div className="foot">
-                  <span className="price">
-                    {product.promotion?.active &&
-                    Number(product.originalPrice) > Number(product.price) ? (
-                      <del>{money(product.originalPrice)}</del>
-                    ) : null}
-                    <strong>{money(product.price)}</strong>
-                  </span>
-                  <button
-                    className="add"
-                    type="button"
-                    aria-label={`Adicionar ${product.name}`}
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      onAddProduct(
-                        product,
-                        event.currentTarget.closest<HTMLElement>('[data-product-carousel-card]'),
-                      );
-                    }}
-                  >
-                    + Adicionar
-                  </button>
-                </div>
-              </div>
-            </S.ProductCard>
-          );
-        })}
-      </S.ProductGrid>
-    </S.Section>
-  );
 }
 
 export function FigmaDeliveryExperience({
@@ -260,7 +105,7 @@ export function FigmaDeliveryExperience({
   const [addressPickerOpen, setAddressPickerOpen] = useState(false);
   const [profileQuickMenuOpen, setProfileQuickMenuOpen] = useState(false);
   const [profileQuickMenuClosing, setProfileQuickMenuClosing] = useState(false);
-  const [accountAvatarFailed, setAccountAvatarFailed] = useState(false);
+  const [failedAvatarSource, setFailedAvatarSource] = useState<string | null>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const searchContainerRef = useRef<HTMLDivElement>(null);
   const cartFabRef = useRef<HTMLButtonElement>(null);
@@ -383,31 +228,15 @@ export function FigmaDeliveryExperience({
       ) || savedAddresses.find((address) => address.isDefault) || savedAddresses[0],
     [savedAddresses, selectedAddressId],
   );
-  const customerLocationLabel = useMemo(() => {
-    if (activeFulfillmentMethod === 'pickup') {
-      return data.brand.address || 'Endereço do restaurante';
-    }
-    if (!selectedSavedAddress) return 'Escolher endereço';
-
-    const street = [selectedSavedAddress.address, selectedSavedAddress.number]
-      .map((part) => String(part || '').trim())
-      .filter(Boolean)
-      .join(', ');
-    return [street, selectedSavedAddress.district]
-      .map((part) => String(part || '').trim())
-      .filter(Boolean)
-      .join(' - ');
-  }, [activeFulfillmentMethod, data.brand.address, selectedSavedAddress]);
-  const addressOptions = useMemo(() => {
-    const selectedId = String(selectedSavedAddress?.id ?? selectedAddressId ?? '');
-    return [...savedAddresses].sort((left, right) => {
-      const leftSelected = String(left.id) === selectedId;
-      const rightSelected = String(right.id) === selectedId;
-      if (leftSelected !== rightSelected) return leftSelected ? -1 : 1;
-      if (left.isDefault !== right.isDefault) return left.isDefault ? -1 : 1;
-      return left.label.localeCompare(right.label, 'pt-BR');
-    });
-  }, [savedAddresses, selectedAddressId, selectedSavedAddress?.id]);
+  const customerLocationLabel = useMemo(
+    () =>
+      formatCustomerLocationLabel(
+        activeFulfillmentMethod,
+        data.brand.address,
+        selectedSavedAddress,
+      ),
+    [activeFulfillmentMethod, data.brand.address, selectedSavedAddress],
+  );
   const paymentMethodLabels = [
     data.acceptsPix ? 'PIX' : '',
     data.acceptsCard ? 'cartão' : '',
@@ -415,21 +244,8 @@ export function FigmaDeliveryExperience({
   ].filter(Boolean);
   const userFirstName =
     userLoggedIn && userName ? userName.trim().split(/\s+/)[0] || 'Cliente' : 'Entrar';
-  const userInitials =
-    userLoggedIn && userName
-      ? userName
-          .trim()
-          .split(/\s+/)
-          .slice(0, 2)
-          .map((part) => part.charAt(0).toUpperCase())
-          .join('')
-      : '•';
-  const normalizeSearchText = (value: string) =>
-    value
-      .normalize('NFD')
-      .replace(/[\u0300-\u036f]/g, '')
-      .toLocaleLowerCase('pt-BR')
-      .trim();
+  const userInitials = getUserInitials(userLoggedIn, userName);
+  const canShowUserAvatar = Boolean(userAvatar && failedAvatarSource !== userAvatar);
   const normalizedSearch = normalizeSearchText(searchQuery);
   const searchResults = useMemo(
     () =>
@@ -442,10 +258,6 @@ export function FigmaDeliveryExperience({
   );
 
   useEffect(() => {
-    setAccountAvatarFailed(false);
-  }, [userAvatar]);
-
-  useEffect(() => {
     if (!initialSearchOpen) return;
     const frame = window.requestAnimationFrame(() => {
       searchInputRef.current?.focus();
@@ -453,8 +265,10 @@ export function FigmaDeliveryExperience({
     return () => window.cancelAnimationFrame(frame);
   }, [initialSearchOpen]);
 
+  const profileQuickMenuVisible = userLoggedIn && profileQuickMenuOpen;
+
   useEffect(() => {
-    if (!profileQuickMenuOpen) return undefined;
+    if (!profileQuickMenuVisible) return undefined;
 
     const previousBodyOverflow = document.body.style.overflow;
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -468,13 +282,7 @@ export function FigmaDeliveryExperience({
       document.body.style.overflow = previousBodyOverflow;
       document.removeEventListener('keydown', handleKeyDown);
     };
-  }, [profileQuickMenuOpen]);
-
-  useEffect(() => {
-    if (!userLoggedIn && profileQuickMenuOpen) {
-      setProfileQuickMenuOpen(false);
-    }
-  }, [profileQuickMenuOpen, userLoggedIn]);
+  }, [profileQuickMenuVisible]);
 
   useEffect(() => {
     if (!addressPickerOpen) return undefined;
@@ -492,12 +300,6 @@ export function FigmaDeliveryExperience({
       document.removeEventListener('keydown', handleKeyDown);
     };
   }, [addressPickerOpen]);
-
-  useEffect(() => {
-    if (activeFulfillmentMethod !== 'delivery' && addressPickerOpen) {
-      setAddressPickerOpen(false);
-    }
-  }, [activeFulfillmentMethod, addressPickerOpen]);
 
   useEffect(() => {
     if (!selectedProduct && !selectedCombo) return undefined;
@@ -652,6 +454,11 @@ export function FigmaDeliveryExperience({
     );
   };
 
+  const changeFulfillmentMethod = (method: 'delivery' | 'pickup') => {
+    if (method !== 'delivery') setAddressPickerOpen(false);
+    onFulfillmentMethodChange?.(method);
+  };
+
   const openAddressPicker = () => {
     if (activeFulfillmentMethod !== 'delivery') return;
 
@@ -780,14 +587,14 @@ export function FigmaDeliveryExperience({
             className="mobile-profile-trigger"
             type="button"
             aria-label={userLoggedIn ? 'Abrir atalhos da minha conta' : 'Entrar na minha conta'}
-            aria-expanded={userLoggedIn ? profileQuickMenuOpen : undefined}
+            aria-expanded={userLoggedIn ? profileQuickMenuVisible : undefined}
             onClick={openProfileQuickMenu}
           >
-            {userAvatar && !accountAvatarFailed ? (
+            {canShowUserAvatar && userAvatar ? (
               <img
                 src={userAvatar}
                 alt=""
-                onError={() => setAccountAvatarFailed(true)}
+                onError={() => setFailedAvatarSource(userAvatar || null)}
               />
             ) : userLoggedIn && userInitials !== '•' ? (
               <span>{userInitials}</span>
@@ -829,7 +636,7 @@ export function FigmaDeliveryExperience({
                 type="button"
                 className={activeFulfillmentMethod === 'delivery' ? 'active' : undefined}
                 aria-pressed={activeFulfillmentMethod === 'delivery'}
-                onClick={() => onFulfillmentMethodChange?.('delivery')}
+                onClick={() => changeFulfillmentMethod('delivery')}
               >
                 <Bike aria-hidden="true" />
                 Entrega
@@ -840,7 +647,7 @@ export function FigmaDeliveryExperience({
                 type="button"
                 className={activeFulfillmentMethod === 'pickup' ? 'active' : undefined}
                 aria-pressed={activeFulfillmentMethod === 'pickup'}
-                onClick={() => onFulfillmentMethodChange?.('pickup')}
+                onClick={() => changeFulfillmentMethod('pickup')}
               >
                 <Store aria-hidden="true" />
                 Retirada
@@ -856,7 +663,7 @@ export function FigmaDeliveryExperience({
               className={activeFulfillmentMethod === 'delivery' ? 'active' : undefined}
               aria-pressed={activeFulfillmentMethod === 'delivery'}
               aria-label="Selecionar entrega"
-              onClick={() => onFulfillmentMethodChange?.('delivery')}
+              onClick={() => changeFulfillmentMethod('delivery')}
             >
               <Bike aria-hidden="true" />
               <span>Entrega</span>
@@ -868,7 +675,7 @@ export function FigmaDeliveryExperience({
               className={activeFulfillmentMethod === 'pickup' ? 'active' : undefined}
               aria-pressed={activeFulfillmentMethod === 'pickup'}
               aria-label="Selecionar retirada"
-              onClick={() => onFulfillmentMethodChange?.('pickup')}
+              onClick={() => changeFulfillmentMethod('pickup')}
             >
               <Store aria-hidden="true" />
               <span>Retirada</span>
@@ -966,11 +773,11 @@ export function FigmaDeliveryExperience({
         <div className="actions">
           <button className="account" type="button" aria-label="Minha conta" onClick={onOpenProfile}>
             <span className="account-avatar" aria-hidden="true">
-              {userAvatar && !accountAvatarFailed ? (
+              {canShowUserAvatar && userAvatar ? (
                 <img
                   src={userAvatar}
                   alt=""
-                  onError={() => setAccountAvatarFailed(true)}
+                  onError={() => setFailedAvatarSource(userAvatar || null)}
                 />
               ) : (
                 userInitials
@@ -1335,190 +1142,29 @@ export function FigmaDeliveryExperience({
         {cartCount > 0 ? <span>{cartCount}</span> : null}
       </S.MobileCartFab>
 
-      {profileQuickMenuOpen ? (
-        <S.ProfileQuickMenuBackdrop
-          className={profileQuickMenuClosing ? 'closing' : undefined}
-          onMouseDown={(event) => {
-            if (event.target === event.currentTarget) closeProfileQuickMenu();
-          }}
-        >
-          <S.ProfileQuickMenuSheet
-            className={profileQuickMenuClosing ? 'closing' : undefined}
-            aria-labelledby="profile-quick-menu-title"
-            aria-modal="true"
-            role="dialog"
-            onAnimationEnd={(event) => {
-              if (
-                profileQuickMenuClosing &&
-                event.target === event.currentTarget &&
-                event.animationName === 'profile-quick-sheet-out'
-              ) {
-                finishProfileQuickMenuTransition();
-              }
-            }}
-          >
-            <div className="quick-profile-head">
-              <span className="quick-avatar" aria-hidden="true">
-                {userAvatar && !accountAvatarFailed ? (
-                  <img
-                    src={userAvatar}
-                    alt=""
-                    onError={() => setAccountAvatarFailed(true)}
-                  />
-                ) : userInitials !== '•' ? (
-                  userInitials
-                ) : (
-                  <UserRound />
-                )}
-              </span>
-              <span className="quick-profile-copy">
-                <small>MINHA CONTA</small>
-                <b id="profile-quick-menu-title">{userName || 'Cliente'}</b>
-              </span>
-              <button
-                className="quick-close"
-                type="button"
-                aria-label="Fechar atalhos da conta"
-                onClick={() => closeProfileQuickMenu()}
-              >
-                <X aria-hidden="true" />
-              </button>
-            </div>
+      <ProfileQuickMenuOverlay
+        open={profileQuickMenuVisible}
+        closing={profileQuickMenuClosing}
+        userName={userName}
+        userAvatar={userAvatar}
+        userInitials={userInitials}
+        showAvatar={canShowUserAvatar}
+        addressCount={savedAddresses.length}
+        onAvatarError={() => setFailedAvatarSource(userAvatar || null)}
+        onClose={closeProfileQuickMenu}
+        onFinishTransition={finishProfileQuickMenuTransition}
+        onOpenFullProfile={onOpenProfile}
+        onOpenDestination={openProfileDestination}
+      />
 
-            <button
-              className="open-full-profile"
-              type="button"
-              onClick={() => closeProfileQuickMenu(() => onOpenProfile?.())}
-            >
-              Ver perfil completo
-              <ChevronRight aria-hidden="true" />
-            </button>
-
-            <nav className="quick-profile-links" aria-label="Atalhos da minha conta">
-              <button type="button" onClick={() => openProfileDestination('orders')}>
-                <ShoppingBag aria-hidden="true" />
-                <span>Meus pedidos</span>
-                <ChevronRight aria-hidden="true" />
-              </button>
-              <button type="button" onClick={() => openProfileDestination('addresses')}>
-                <MapPin aria-hidden="true" />
-                <span>Endereços salvos</span>
-                <em>{savedAddresses.length}</em>
-                <ChevronRight aria-hidden="true" />
-              </button>
-              <button type="button" onClick={() => openProfileDestination('paymentMethods')}>
-                <WalletCards aria-hidden="true" />
-                <span>Métodos de pagamento</span>
-                <ChevronRight aria-hidden="true" />
-              </button>
-              <button type="button" onClick={() => openProfileDestination('coupons')}>
-                <TicketPercent aria-hidden="true" />
-                <span>Meus Cupons</span>
-                <ChevronRight aria-hidden="true" />
-              </button>
-              <button type="button" onClick={() => openProfileDestination('loyalty')}>
-                <Star aria-hidden="true" />
-                <span>Programa de Fidelidade</span>
-                <ChevronRight aria-hidden="true" />
-              </button>
-              <button type="button" onClick={() => openProfileDestination('help')}>
-                <CircleHelp aria-hidden="true" />
-                <span>Ajuda e suporte</span>
-                <ChevronRight aria-hidden="true" />
-              </button>
-              <button type="button" onClick={() => openProfileDestination('settings')}>
-                <Settings aria-hidden="true" />
-                <span>Configurações</span>
-                <ChevronRight aria-hidden="true" />
-              </button>
-            </nav>
-          </S.ProfileQuickMenuSheet>
-        </S.ProfileQuickMenuBackdrop>
-      ) : null}
-
-      {addressPickerOpen ? (
-        <S.AddressPickerBackdrop
-          onMouseDown={(event) => {
-            if (event.target === event.currentTarget) setAddressPickerOpen(false);
-          }}
-        >
-          <S.AddressPickerSheet
-            aria-labelledby="address-picker-title"
-            aria-modal="true"
-            role="dialog"
-          >
-            <div className="sheet-handle" aria-hidden="true" />
-            <header>
-              <div>
-                <small>ENTREGA</small>
-                <h2 id="address-picker-title">Onde você quer receber?</h2>
-                <p>Escolha um endereço cadastrado para este pedido.</p>
-              </div>
-              <button
-                className="sheet-close"
-                type="button"
-                aria-label="Fechar seleção de endereço"
-                onClick={() => setAddressPickerOpen(false)}
-              >
-                <X aria-hidden="true" />
-              </button>
-            </header>
-
-            <div className="address-list">
-              {addressOptions.map((address) => {
-                const isSelected =
-                  String(address.id) ===
-                  String(selectedSavedAddress?.id ?? selectedAddressId ?? '');
-                const mainLine = [address.address, address.number]
-                  .map((part) => String(part || '').trim())
-                  .filter(Boolean)
-                  .join(', ');
-                const locationLine = [address.district, address.city, address.state]
-                  .map((part) => String(part || '').trim())
-                  .filter(Boolean)
-                  .join(' • ');
-
-                return (
-                  <button
-                    key={address.id}
-                    className={isSelected ? 'address-option selected' : 'address-option'}
-                    type="button"
-                    aria-label={`Usar endereço ${address.label || mainLine}`}
-                    aria-pressed={isSelected}
-                    onClick={() => selectAddressFromPicker(address.id)}
-                  >
-                    <span className="address-icon">
-                      <MapPin aria-hidden="true" />
-                    </span>
-                    <span className="address-copy">
-                      <span className="address-title-row">
-                        <b>{address.label || 'Endereço'}</b>
-                        {address.isDefault ? <em>Padrão</em> : null}
-                      </span>
-                      <strong>{mainLine || 'Endereço cadastrado'}</strong>
-                      {locationLine ? <small>{locationLine}</small> : null}
-                      {address.complement ? <small>{address.complement}</small> : null}
-                    </span>
-                    <span className="address-check" aria-hidden="true">
-                      {isSelected ? <Check /> : null}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-
-            {onManageAddresses ? (
-              <button className="add-address" type="button" onClick={openAddressManager}>
-                <span><Plus aria-hidden="true" /></span>
-                <span>
-                  <b>Adicionar novo endereço</b>
-                  <small>Cadastre outro local para receber seus pedidos.</small>
-                </span>
-              </button>
-            ) : null}
-          </S.AddressPickerSheet>
-        </S.AddressPickerBackdrop>
-      ) : null}
+      <AddressPickerOverlay
+        open={addressPickerOpen}
+        savedAddresses={savedAddresses}
+        selectedAddressId={selectedSavedAddress?.id ?? selectedAddressId}
+        onClose={() => setAddressPickerOpen(false)}
+        onSelect={selectAddressFromPicker}
+        onManageAddresses={onManageAddresses ? openAddressManager : undefined}
+      />
 
       <S.MobileBottomNav aria-label="Navegação principal">
         <button className="active" type="button" onClick={goHome}>
