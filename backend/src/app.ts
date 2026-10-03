@@ -16,6 +16,7 @@ import {
   platformStatusHandler,
 } from './middlewares/platformMaintenanceMiddleware.js';
 import platformPlanCatalogService from './modules/billing/services/PlatformPlanCatalogService.js';
+import customDomainController from './modules/customDomains/controllers/CustomDomainController.js';
 
 const app = express();
 
@@ -62,6 +63,12 @@ app.get('/ready', async (_req, res) => {
 });
 
 applyCorsAndGlobalRateLimit(app);
+
+// Endpoint sem dados sensíveis usado apenas como decisão de autorização do On-Demand TLS.
+// Precisa permanecer disponível mesmo durante manutenção para não quebrar renovação HTTPS.
+app.get('/infrastructure/custom-domains/caddy-allow', (req, res) =>
+  customDomainController.caddyAllow(req, res),
+);
 
 app.get('/platform/status', platformStatusHandler);
 app.get('/platform/plans', async (_req, res) => {
