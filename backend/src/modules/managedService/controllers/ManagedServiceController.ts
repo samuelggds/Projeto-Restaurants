@@ -5,7 +5,6 @@ import { normalizeManagedServiceError } from '../domain/managedServiceErrors.js'
 function superActor(req: Request) {
   return {
     userId: Number(req.user?.id || 0),
-    userName: req.user?.name ?? null,
     userRole: req.user?.role ?? null,
     ipAddress: String(req.ip || '').trim().slice(0, 128) || null,
     requestId: String(req.requestId || '').trim().slice(0, 191) || null,
@@ -20,7 +19,6 @@ class ManagedServiceController {
         await managedServiceService.getAdminOverview({
           userId: Number(req.user?.id || 0),
           restaurantId: Number(req.user?.restaurantId || 0),
-          userName: req.user?.name ?? null,
           userRole: req.user?.role ?? null,
         }),
       );
@@ -35,7 +33,6 @@ class ManagedServiceController {
         await managedServiceService.createAdminRequest(req.body, {
           userId: Number(req.user?.id || 0),
           restaurantId: Number(req.user?.restaurantId || 0),
-          userName: req.user?.name ?? null,
           userRole: req.user?.role ?? null,
         }),
       );
