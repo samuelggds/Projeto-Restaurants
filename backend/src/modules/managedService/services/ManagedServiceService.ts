@@ -42,7 +42,7 @@ type ImplementationRow = {
   id: string;
   restaurantId: number;
   status: string;
-  productLimit: number;
+  productLimit: number | null;
   notes: string | null;
   startedAt: Date | null;
   completedAt: Date | null;
@@ -118,7 +118,11 @@ export class ManagedServiceService {
       const implementation = hasImplementationAccess(subscription?.plan, subscription?.status)
         ? await db.restaurantImplementation.upsert({
             where: { restaurantId },
-            create: { restaurantId, status: 'AGUARDANDO_MATERIAL', productLimit: 150 },
+            create: {
+              restaurantId,
+              status: 'AGUARDANDO_MATERIAL',
+              productLimit: subscription?.plan === 'GESTAO_TOTAL' ? null : 150,
+            },
             update: {},
           })
         : await db.restaurantImplementation.findUnique({ where: { restaurantId } });
@@ -200,14 +204,14 @@ export class ManagedServiceService {
         plan: { in: ['PREMIUM', 'GESTAO_TOTAL'] },
         status: { in: ['ATIVA', 'TESTE'] },
       },
-      select: { restaurantId: true },
+      select: { restaurantId: true, plan: true },
     });
     if (eligibleSubscriptions.length) {
       await prisma.restaurantImplementation.createMany({
-        data: eligibleSubscriptions.map(({ restaurantId }) => ({
+        data: eligibleSubscriptions.map(({ restaurantId, plan }) => ({
           restaurantId,
           status: 'AGUARDANDO_MATERIAL',
-          productLimit: 150,
+          productLimit: plan === 'GESTAO_TOTAL' ? null : 150,
         })),
         skipDuplicates: true,
       });
