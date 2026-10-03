@@ -14,9 +14,11 @@ export async function premiumTablePlanMiddleware(req: Request, res: Response, ne
     });
 
     const isActive = subscription?.status === 'ATIVA' || subscription?.status === 'TESTE';
-    if (!isActive || subscription?.plan !== 'PREMIUM') {
+    const hasPremiumFeatures =
+      subscription?.plan === 'PREMIUM' || subscription?.plan === 'GESTAO_TOTAL';
+    if (!isActive || !hasPremiumFeatures) {
       return res.status(403).json({
-        error: 'O sistema de mesas está disponível somente no plano Premium.',
+        error: 'O sistema de mesas está disponível nos planos Premium e Gestão Total.',
         code: 'PREMIUM_TABLE_PLAN_REQUIRED',
       });
     }
