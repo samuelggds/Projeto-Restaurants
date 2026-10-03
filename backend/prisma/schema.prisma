@@ -133,6 +133,7 @@ model RestaurantCustomDomain {
   mode              String   @default("MENU_ONLY") @db.VarChar(32)
   menuHostname      String?  @unique @db.VarChar(253)
   includeWww        Boolean  @default(true)
+  landingPublished  Boolean  @default(false)
   status            String   @default("PENDING_DNS") @db.VarChar(24)
   verificationToken String   @unique @db.VarChar(96)
   dnsVerifiedAt     DateTime?
