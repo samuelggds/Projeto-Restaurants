@@ -63,7 +63,7 @@ export async function managedMutation<T>(operation: () => Promise<T>): Promise<T
     return await operation();
   } catch (error) {
     const normalized = normalizeManagedServiceError(error);
-    if (normalized !== error) throw normalized;
+    if (normalized instanceof ManagedServiceError) throw normalized;
     if (isInternalProgrammingOrInfrastructureError(error)) throw error;
 
     if (error instanceof Error) {
