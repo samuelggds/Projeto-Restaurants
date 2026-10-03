@@ -203,12 +203,20 @@ export const Header = styled.header`
     height:36px;
     flex:0 0 36px;
     border-radius:50%;
+    overflow:hidden;
     background:#f1f1ef;
     color:#55524d;
     display:grid;
     place-items:center;
     font-size:11px;
     font-weight:800;
+  }
+  .account-avatar img{
+    width:100%;
+    height:100%;
+    display:block;
+    object-fit:cover;
+    object-position:center;
   }
   .account-copy{min-width:0;display:grid;gap:0}
   .account-copy small{color:#8b8882;font-size:9px;line-height:11px}
@@ -248,7 +256,7 @@ export const Header = styled.header`
   .mobile-location-row,
   .mobile-fulfillment,
   .mobile-meta,
-  .mobile-notification-icon,
+  .mobile-profile-trigger,
   .mobile-header-search,
   .mobile-back{display:none}
 
@@ -322,17 +330,31 @@ export const Header = styled.header`
     }
     .mobile-location-row > button > svg:last-child{color:var(--delivery-primary)}
 
-    .mobile-notification-icon{
+    .mobile-profile-trigger{
       width:32px;
       height:32px;
+      padding:0;
+      overflow:hidden;
+      border:1px solid #ffe2e2;
       border-radius:50%;
-      background:#fff1f1;
+      background:#fff4f4;
       color:var(--delivery-primary);
       display:grid;
       place-items:center;
-      pointer-events:none;
+      font-size:8.5px;
+      line-height:1;
+      font-weight:850;
+      box-shadow:0 3px 10px rgba(255,75,75,.08);
     }
-    .mobile-notification-icon svg{width:14px;height:14px;stroke-width:2}
+    .mobile-profile-trigger img{
+      width:100%;
+      height:100%;
+      display:block;
+      object-fit:cover;
+      object-position:center;
+    }
+    .mobile-profile-trigger svg{width:14px;height:14px;stroke-width:2}
+    .mobile-profile-trigger span{display:block}
 
     .header-left{
       min-width:0;
@@ -1630,6 +1652,208 @@ export const MobileCartFab = styled.button`
   }
 `;
 
+
+
+export const ProfileQuickMenuBackdrop = styled.div`
+  display:none;
+
+  @media(max-width:760px){
+    position:fixed;
+    inset:0;
+    z-index:94;
+    background:rgba(20,19,17,.34);
+    display:flex;
+    align-items:flex-start;
+    justify-content:center;
+    backdrop-filter:blur(2px);
+    animation:profile-quick-backdrop-in 150ms ease both;
+  }
+
+  @keyframes profile-quick-backdrop-in{
+    from{opacity:0}
+    to{opacity:1}
+  }
+
+  @media(prefers-reduced-motion:reduce){animation:none}
+`;
+
+export const ProfileQuickMenuSheet = styled.section`
+  display:none;
+
+  @media(max-width:760px){
+    width:100%;
+    max-height:min(86dvh,700px);
+    padding:max(12px,env(safe-area-inset-top)) 12px 14px;
+    border-radius:0 0 22px 22px;
+    background:#fff;
+    box-shadow:0 18px 48px rgba(22,20,18,.18);
+    display:grid;
+    gap:10px;
+    overflow-y:auto;
+    overscroll-behavior:contain;
+    animation:profile-quick-sheet-in 220ms cubic-bezier(.22,1,.36,1) both;
+    scrollbar-width:none;
+  }
+
+  &::-webkit-scrollbar{display:none}
+
+  .quick-profile-head{
+    min-width:0;
+    display:grid;
+    grid-template-columns:42px minmax(0,1fr) 34px;
+    align-items:center;
+    gap:10px;
+  }
+
+  .quick-avatar{
+    width:42px;
+    height:42px;
+    overflow:hidden;
+    border-radius:50%;
+    background:#fff0f0;
+    color:#FF4B4B;
+    display:grid;
+    place-items:center;
+    font-size:10px;
+    font-weight:850;
+  }
+
+  .quick-avatar img{
+    width:100%;
+    height:100%;
+    display:block;
+    object-fit:cover;
+    object-position:center;
+  }
+
+  .quick-avatar svg{width:18px;height:18px}
+
+  .quick-profile-copy{
+    min-width:0;
+    display:grid;
+    gap:2px;
+  }
+
+  .quick-profile-copy small{
+    color:#FF4B4B;
+    font-size:7px;
+    line-height:9px;
+    font-weight:850;
+    letter-spacing:.06em;
+  }
+
+  .quick-profile-copy b{
+    overflow:hidden;
+    text-overflow:ellipsis;
+    white-space:nowrap;
+    color:#24231f;
+    font-size:13px;
+    line-height:17px;
+    font-weight:850;
+  }
+
+  .quick-close{
+    width:34px;
+    height:34px;
+    padding:0;
+    border:0;
+    border-radius:50%;
+    background:#f4f4f2;
+    color:#5f5c57;
+    display:grid;
+    place-items:center;
+  }
+
+  .quick-close svg{width:14px;height:14px}
+
+  .open-full-profile{
+    width:100%;
+    min-height:34px;
+    padding:0 11px;
+    border:1px solid #ffe0e0;
+    border-radius:9px;
+    background:#fff6f6;
+    color:#FF4B4B;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    font-size:9px;
+    font-weight:800;
+  }
+
+  .open-full-profile svg{width:12px;height:12px}
+
+  .quick-profile-links{
+    overflow:hidden;
+    border:1px solid #eceae6;
+    border-radius:13px;
+    background:#fff;
+  }
+
+  .quick-profile-links button{
+    width:100%;
+    min-height:46px;
+    padding:0 11px;
+    border:0;
+    border-bottom:1px solid #efeeeb;
+    background:#fff;
+    color:#252420;
+    display:grid;
+    grid-template-columns:24px minmax(0,1fr) auto 14px;
+    align-items:center;
+    gap:8px;
+    text-align:left;
+  }
+
+  .quick-profile-links button:last-child{border-bottom:0}
+
+  .quick-profile-links button > svg:first-child{
+    width:16px;
+    height:16px;
+    color:#44413c;
+    stroke-width:1.8;
+  }
+
+  .quick-profile-links button > span{
+    min-width:0;
+    overflow:hidden;
+    text-overflow:ellipsis;
+    white-space:nowrap;
+    font-size:10px;
+    line-height:13px;
+    font-weight:750;
+  }
+
+  .quick-profile-links button > em{
+    min-width:22px;
+    height:18px;
+    padding:0 6px;
+    border-radius:9px;
+    background:#fff0eb;
+    color:#db6b48;
+    display:grid;
+    place-items:center;
+    font-size:7px;
+    line-height:1;
+    font-style:normal;
+    font-weight:800;
+  }
+
+  .quick-profile-links button > svg:last-child{
+    width:12px;
+    height:12px;
+    color:#aaa6a0;
+  }
+
+  @keyframes profile-quick-sheet-in{
+    from{transform:translateY(-28px);opacity:.7}
+    to{transform:translateY(0);opacity:1}
+  }
+
+  @media(prefers-reduced-motion:reduce){
+    animation:none;
+  }
+`;
 
 export const AddressPickerBackdrop = styled.div`
   display:none;
