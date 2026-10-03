@@ -18,7 +18,7 @@ const fallbackPlans: PublicPlan[] = [
   {
     code: 'BASICO',
     name: 'Básico',
-    monthlyFee: 149.9,
+    monthlyFee: 99.9,
     trialDays: 7,
     description: 'Operação de delivery para restaurantes que estão iniciando na plataforma.',
     features: ['Sistema de delivery', 'Suporte padrão'],
@@ -27,7 +27,7 @@ const fallbackPlans: PublicPlan[] = [
   {
     code: 'PREMIUM',
     name: 'Premium',
-    monthlyFee: 249.9,
+    monthlyFee: 199.9,
     trialDays: 15,
     description: 'Operação completa com implantação inicial assistida para começar pronto.',
     features: [
@@ -43,7 +43,7 @@ const fallbackPlans: PublicPlan[] = [
   {
     code: 'GESTAO_TOTAL',
     name: 'Gestão Total',
-    monthlyFee: 349.9,
+    monthlyFee: 299.9,
     trialDays: 15,
     description: 'Tudo do Premium com gestão contínua sob solicitação da equipe GastroNexa.',
     features: [
