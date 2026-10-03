@@ -18,6 +18,109 @@ describe('FigmaDeliveryExperience product flow', () => {
 
 
 
+
+  it('usa a foto salva no atalho de perfil e abre os atalhos da conta no mobile', async () => {
+    const container = document.createElement('div');
+    document.body.appendChild(container);
+    const root = createRoot(container);
+    const onOpenProfileView = vi.fn();
+
+    await act(async () => {
+      root.render(
+        <FigmaDeliveryExperience
+          data={{
+            ...homeMockData,
+            brand: { ...homeMockData.brand, name: 'Restaurante Demo' },
+          }}
+          userLoggedIn
+          userName="Cliente Teste"
+          userAvatar="data:image/jpeg;base64,avatar-salvo"
+          savedAddresses={[
+            {
+              id: 1,
+              label: 'Casa',
+              address: 'Rua das Flores',
+              number: '123',
+              district: 'Centro',
+              city: 'Fortaleza',
+              state: 'CE',
+              zipCode: '60000-000',
+              complement: null,
+              isDefault: true,
+            },
+          ]}
+          onOpenProfileView={onOpenProfileView}
+          onOpenProfile={vi.fn()}
+        />,
+      );
+    });
+
+    const trigger = container.querySelector(
+      'button[aria-label="Abrir atalhos da minha conta"]',
+    ) as HTMLButtonElement | null;
+    expect(trigger).toBeTruthy();
+    expect(trigger?.querySelector('img')?.getAttribute('src')).toBe(
+      'data:image/jpeg;base64,avatar-salvo',
+    );
+
+    await act(async () => trigger?.click());
+
+    const dialog = container.querySelector(
+      '[aria-labelledby="profile-quick-menu-title"]',
+    ) as HTMLElement | null;
+    expect(dialog).toBeTruthy();
+    expect(dialog?.textContent).toContain('Meus pedidos');
+    expect(dialog?.textContent).toContain('Endereços salvos');
+    expect(dialog?.textContent).toContain('Métodos de pagamento');
+    expect(dialog?.textContent).toContain('Meus Cupons');
+    expect(dialog?.textContent).toContain('Programa de Fidelidade');
+    expect(dialog?.textContent).toContain('Ajuda e suporte');
+    expect(dialog?.textContent).toContain('Configurações');
+
+    const addressesButton = Array.from(
+      dialog?.querySelectorAll<HTMLButtonElement>('.quick-profile-links button') || [],
+    ).find((button) => button.textContent?.includes('Endereços salvos'));
+
+    await act(async () => addressesButton?.click());
+
+    expect(onOpenProfileView).toHaveBeenCalledWith('addresses');
+    expect(container.querySelector('[aria-labelledby="profile-quick-menu-title"]')).toBeNull();
+
+    act(() => root.unmount());
+    container.remove();
+  });
+
+  it('envia visitante para o login ao tocar no atalho de perfil', async () => {
+    const container = document.createElement('div');
+    document.body.appendChild(container);
+    const root = createRoot(container);
+    const onOpenProfile = vi.fn();
+
+    await act(async () => {
+      root.render(
+        <FigmaDeliveryExperience
+          data={{
+            ...homeMockData,
+            brand: { ...homeMockData.brand, name: 'Restaurante Demo' },
+          }}
+          userLoggedIn={false}
+          onOpenProfile={onOpenProfile}
+        />,
+      );
+    });
+
+    const trigger = container.querySelector(
+      'button[aria-label="Entrar na minha conta"]',
+    ) as HTMLButtonElement | null;
+    await act(async () => trigger?.click());
+
+    expect(onOpenProfile).toHaveBeenCalledOnce();
+    expect(container.querySelector('[aria-labelledby="profile-quick-menu-title"]')).toBeNull();
+
+    act(() => root.unmount());
+    container.remove();
+  });
+
   it('não reserva espaço de banner quando o admin não configurou banner', async () => {
     const container = document.createElement('div');
     document.body.appendChild(container);
