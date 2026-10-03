@@ -202,6 +202,15 @@ export type HomeData = {
   businessHours?: BusinessHour[];
 };
 
+export type HomeProfileView =
+  | 'orders'
+  | 'addresses'
+  | 'paymentMethods'
+  | 'coupons'
+  | 'loyalty'
+  | 'help'
+  | 'settings';
+
 export type HomeExperienceProps = {
   data: HomeData;
   cartCount?: number;
@@ -224,6 +233,7 @@ export type HomeExperienceProps = {
   onManageAddresses?: () => void;
   onOpenMenu?: () => void;
   onOpenProfile?: () => void;
+  onOpenProfileView?: (view: HomeProfileView) => void;
   onOpenOrders?: () => void;
   onOpenAdmin?: () => void;
   onOpenCart?: () => void;
