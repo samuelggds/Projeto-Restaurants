@@ -36,11 +36,9 @@ const pizzaImageFiles = new Map([
 ]);
 
 async function addReadyProductToCart(page: Page, productName: string) {
-  await page.getByRole('button', { name: `Adicionar ${productName}` }).click();
   const details = page.getByRole('dialog', { name: `Detalhes de ${productName}` });
-  await expect(details).toBeVisible();
-  await details.getByRole('button', { name: /Adicionar ao carrinho/ }).click();
-  await expect(details).toBeHidden();
+  await page.getByRole('button', { name: `Adicionar ${productName}` }).click();
+  await expect(details).toHaveCount(0);
 }
 
 async function mockPublicMenu(page: Page) {
@@ -412,7 +410,7 @@ test('cardápio público mantém a hierarquia e a navegação móvel contidas em
   await expect(bottomNav.getByRole('button', { name: 'Conta' })).toBeVisible();
   await expect(cartFab).toBeVisible();
   const heroBox = await hero.boundingBox();
-  expect(heroBox?.height).toBe(160);
+  expect(heroBox?.height).toBe(166);
   await expect
     .poll(() => page.evaluate(() => document.documentElement.scrollWidth))
     .toBeLessThanOrEqual(321);
@@ -447,10 +445,9 @@ test('busca móvel usa o input do header, filtra sugestões e devolve o foco ao 
   await mockPublicMenu(page);
   await page.goto('/north-pizza');
 
-  const searchTrigger = page.getByRole('button', { name: 'Buscar no cardápio' });
-  await searchTrigger.click();
   const searchInput = page.getByRole('searchbox', { name: 'Pesquisar produto pelo nome' });
   await expect(searchInput).toBeVisible();
+  await searchInput.click();
   await expect(searchInput).toBeFocused();
 
   await searchInput.fill('pizza');
@@ -469,8 +466,9 @@ test('busca móvel usa o input do header, filtra sugestões e devolve o foco ao 
   await expect(results.getByRole('button').filter({ hasText: 'Pizza Margherita' })).toHaveCount(0);
 
   await page.keyboard.press('Escape');
-  await expect(searchInput).toBeHidden();
-  await expect(searchTrigger).toBeFocused();
+  await expect(searchInput).toBeVisible();
+  await expect(searchInput).not.toBeFocused();
+  await expect(page.getByLabel('Produtos encontrados')).toHaveCount(0);
 
   await page.setViewportSize({ width: 1440, height: 900 });
   const desktopSearch = page.getByRole('searchbox', { name: 'Pesquisar produto pelo nome' });
@@ -551,15 +549,15 @@ test('navegação móvel e busca inline permanecem acessíveis sem sobreposiçã
   await expect(bottomNav.getByRole('button', { name: 'Pedidos' })).toBeVisible();
   await expect(bottomNav.getByRole('button', { name: 'Conta' })).toBeVisible();
 
-  const searchTrigger = page.getByRole('button', { name: 'Buscar no cardápio' });
-  await searchTrigger.click();
   const searchInput = page.getByRole('searchbox', { name: 'Pesquisar produto pelo nome' });
   await expect(searchInput).toBeVisible();
+  await searchInput.click();
   await searchInput.fill('pizza');
   await expect(page.getByLabel('Produtos encontrados')).toBeVisible();
   await page.keyboard.press('Escape');
-  await expect(searchInput).toBeHidden();
-  await expect(searchTrigger).toBeFocused();
+  await expect(searchInput).toBeVisible();
+  await expect(searchInput).not.toBeFocused();
+  await expect(page.getByLabel('Produtos encontrados')).toHaveCount(0);
 
   await captureReadmeScreenshot(page, 'customer-status-hub-mobile.png');
 });
