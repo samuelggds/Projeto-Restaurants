@@ -140,7 +140,7 @@ model RestaurantManagedUpdateRequest {
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
   restaurant        Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
-  requestedBy       User       @relation("ManagedUpdateRequester", fields: [requestedByUserId], references: [id], onDelete: Restrict)
+  requestedBy       User       @relation("ManagedUpdateRequester", fields: [requestedByUserId, restaurantId], references: [id, restaurantId], onDelete: Restrict)
   handledBy         User?      @relation("ManagedUpdateHandler", fields: [handledByUserId], references: [id], onDelete: SetNull)
 
   @@index([restaurantId, status, createdAt])
