@@ -421,6 +421,33 @@ export class RestaurantCustomDomainService {
         'CUSTOM_DOMAIN_DNS_NOT_VERIFIED',
       );
     }
+
+    const [ownershipVerified, routing] = await Promise.all([
+      checkTxt(current.hostname, current.verificationToken),
+      checkRouting(current),
+    ]);
+    if (!ownershipVerified || !routing.ok) {
+      const failureReason = !ownershipVerified
+        ? 'O TXT de verificação não está mais publicado.'
+        : routing.reason || 'O roteamento DNS não está mais apontando para a GastroNexa.';
+      await prisma.restaurantCustomDomain.update({
+        where: { restaurantId },
+        data: {
+          status: 'PENDING_DNS',
+          dnsVerifiedAt: null,
+          activatedAt: null,
+          lastCheckedAt: new Date(),
+          lastCheckError: failureReason,
+          updatedByUserId: context.actorUserId,
+        },
+      });
+      throw new SuperAdminError(
+        failureReason,
+        409,
+        'CUSTOM_DOMAIN_DNS_NOT_VERIFIED',
+      );
+    }
+
     if (current.mode === 'SITE_WITH_MENU_SUBDOMAIN' && !current.menuHostname) {
       throw new SuperAdminError('Subdomínio do cardápio não configurado.', 409, 'MENU_HOST_MISSING');
     }
