@@ -94,6 +94,9 @@ export const ProductDrawer = forwardRef<ProductDrawerHandle, ProductDrawerProps>
     );
     const [categoryId, setCategoryId] = useState(initialCategoryId);
     const [stock, setStock] = useState(String(product?.stock ?? ''));
+    const [preparationTime, setPreparationTime] = useState(
+      product?.preparationTime ? String(product.preparationTime) : '',
+    );
     const [unlimitedStock, setUnlimitedStock] = useState(isUnlimitedStock(product?.stock));
     const [saleMode, setSaleMode] = useState<'COMPLETE' | 'BUILDABLE'>(
       product?.saleMode ?? 'COMPLETE',
@@ -144,6 +147,7 @@ export const ProductDrawer = forwardRef<ProductDrawerHandle, ProductDrawerProps>
         pricingMode: product?.pricingMode ?? 'BASE',
         categoryId: initialCategoryId,
         stock: String(product?.stock ?? ''),
+        preparationTime: product?.preparationTime ? String(product.preparationTime) : '',
         unlimitedStock: isUnlimitedStock(product?.stock),
         saleMode: product?.saleMode ?? 'COMPLETE',
         featured: product?.featured === true,
@@ -184,6 +188,7 @@ export const ProductDrawer = forwardRef<ProductDrawerHandle, ProductDrawerProps>
         pricingMode,
         categoryId,
         stock,
+        preparationTime,
         unlimitedStock,
         saleMode,
         featured,
@@ -650,19 +655,28 @@ export const ProductDrawer = forwardRef<ProductDrawerHandle, ProductDrawerProps>
     };
 
     const validateAvailabilityStep = () => {
-      if (unlimitedStock) {
-        setFieldErrors((current) => ({ ...current, stock: undefined }));
-        setError('');
-        return true;
-      }
-
       const numericStock = Number(stock);
-      const valid = /^\d+$/u.test(stock) && Number.isSafeInteger(numericStock) && numericStock >= 0;
+      const stockValid =
+        unlimitedStock ||
+        (/^\d+$/u.test(stock) && Number.isSafeInteger(numericStock) && numericStock >= 0);
+
+      const numericPreparationTime = Number(preparationTime);
+      const preparationTimeValid =
+        !preparationTime.trim() ||
+        (/^\d+$/u.test(preparationTime) &&
+          Number.isSafeInteger(numericPreparationTime) &&
+          numericPreparationTime > 0);
+
       setFieldErrors((current) => ({
         ...current,
-        stock: valid ? undefined : 'Informe a quantidade disponível em unidades inteiras.',
+        stock: stockValid ? undefined : 'Informe a quantidade disponível em unidades inteiras.',
+        preparationTime: preparationTimeValid
+          ? undefined
+          : 'Informe o tempo de preparo em minutos inteiros, maior que zero.',
       }));
-      setError(valid ? '' : 'Informe a quantidade disponível para continuar.');
+
+      const valid = stockValid && preparationTimeValid;
+      setError(valid ? '' : 'Revise a disponibilidade e o tempo de preparo para continuar.');
       return valid;
     };
 
@@ -724,6 +738,9 @@ export const ProductDrawer = forwardRef<ProductDrawerHandle, ProductDrawerProps>
       setBusy(true);
       try {
         const normalizedStock = normalizeProductStock(stock, unlimitedStock);
+        const normalizedPreparationTime = preparationTime.trim()
+          ? Number(preparationTime)
+          : undefined;
         await save({
           id: product?.id ?? '',
           name: name.trim(),
@@ -734,6 +751,7 @@ export const ProductDrawer = forwardRef<ProductDrawerHandle, ProductDrawerProps>
           categoryId,
           category: categories.find((item) => item.id === categoryId)?.name ?? '',
           stock: normalizedStock,
+          preparationTime: normalizedPreparationTime,
           active: isProductActiveFromStock(normalizedStock),
           featured,
           saleMode,
@@ -1174,9 +1192,11 @@ export const ProductDrawer = forwardRef<ProductDrawerHandle, ProductDrawerProps>
             <ProductAvailabilityStep
               fieldErrors={fieldErrors}
               headingRef={stepHeadingRef}
+              preparationTime={preparationTime}
               stock={stock}
               unlimitedStock={unlimitedStock}
               onClearFieldError={clearFieldError}
+              onPreparationTimeChange={setPreparationTime}
               onStockChange={setStock}
               onUnlimitedStockChange={setUnlimitedStock}
             />
@@ -1191,6 +1211,7 @@ export const ProductDrawer = forwardRef<ProductDrawerHandle, ProductDrawerProps>
               image={image}
               name={name}
               optionGroups={optionGroups}
+              preparationTime={preparationTime}
               price={price}
               saleMode={saleMode}
               selectedProductCategory={selectedProductCategory}
