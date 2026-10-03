@@ -56,7 +56,10 @@ function present(record: {
   createdAt: Date;
   updatedAt: Date;
 }, subscription?: { plan: string; status: string } | null) {
-  const target = String(process.env.CUSTOM_DOMAIN_CNAME_TARGET || process.env.APP_DOMAIN || '')
+  const target = String(process.env.CUSTOM_DOMAIN_CNAME_TARGET ||
+    process.env.APP_DOMAIN ||
+    process.env.FRONTEND_URL ||
+    '')
     .trim()
     .replace(/^https?:\/\//u, '')
     .replace(/\/+$/u, '');
@@ -157,7 +160,10 @@ async function checkRouting(record: {
   menuHostname: string | null;
 }) {
   if (record.mode === 'SITE_WITH_MENU_SUBDOMAIN') {
-    const target = String(process.env.CUSTOM_DOMAIN_CNAME_TARGET || process.env.APP_DOMAIN || '')
+    const target = String(process.env.CUSTOM_DOMAIN_CNAME_TARGET ||
+    process.env.APP_DOMAIN ||
+    process.env.FRONTEND_URL ||
+    '')
       .trim()
       .replace(/^https?:\/\//u, '')
       .replace(/\/+$/u, '')
