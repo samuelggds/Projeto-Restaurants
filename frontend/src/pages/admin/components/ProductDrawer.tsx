@@ -27,14 +27,16 @@ import {
 import { ProductAppearanceStep, ProductBasicStep, ProductPriceStep } from './ProductGuidedSteps';
 import { emptyGroup, groupPreset } from './ProductDrawerGroups';
 import type {
-  AdminCategory,
-  AdminIngredient,
-  AdminProduct,
   AdminProductCompositionItem,
   AdminProductConfigurationTemplate,
   AdminProductOptionGroup,
   AdminProductPortionConfiguration,
 } from '../types';
+import type {
+  IngredientWizardTarget,
+  ProductDrawerHandle,
+  ProductDrawerProps,
+} from './ProductDrawer.types';
 import {
   normalizeOptionGroup,
   validateOptionGroups,
@@ -58,25 +60,7 @@ import {
   type ProductWizardStep,
 } from '../domain/productWizard';
 
-type ProductDrawerProps = {
-  product: AdminProduct | null;
-  categories: AdminCategory[];
-  ingredients: AdminIngredient[];
-  products?: AdminProduct[];
-  createIngredient?: (
-    ingredient: Omit<AdminIngredient, 'id'>,
-  ) => AdminIngredient | void | Promise<AdminIngredient | void>;
-  close: () => void;
-  save: (product: AdminProduct) => Promise<void>;
-};
-
-export type ProductDrawerHandle = {
-  hasUnsavedChanges: () => boolean;
-  save: () => Promise<boolean>;
-  discard: () => void;
-};
-
-type IngredientWizardTarget = { kind: 'OPTION'; groupIndex: number };
+export type { ProductDrawerHandle } from './ProductDrawer.types';
 
 export const ProductDrawer = forwardRef<ProductDrawerHandle, ProductDrawerProps>(
   function ProductDrawer(
