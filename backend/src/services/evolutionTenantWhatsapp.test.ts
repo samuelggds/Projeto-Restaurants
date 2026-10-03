@@ -1,6 +1,10 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { isSafeDisposableOrphanEvolutionInstance } from './evolutionTenantWhatsapp.js';
+import {
+  buildTenantEvolutionInstanceName,
+  isSafeDisposableOrphanEvolutionInstance,
+  isTenantEvolutionInstanceName,
+} from './evolutionTenantWhatsapp.js';
 
 test('considera descartável somente instância órfã fechada e sem identidade ou dados', () => {
   assert.equal(
@@ -65,4 +69,17 @@ test('preserva instância com histórico ou estado ativo', () => {
     }),
     false,
   );
+});
+
+
+test('gera nome de instância não reutilizável por restaurante e ambiente', () => {
+  const name = buildTenantEvolutionInstanceName(7, '0123456789abcdef');
+  assert.match(name, /^gastronexa-(?:dev|test|stage|prod)-7-0123456789abcdef$/u);
+  assert.equal(isTenantEvolutionInstanceName(name), true);
+});
+
+test('mantém compatibilidade com nomes legados de instância', () => {
+  assert.equal(isTenantEvolutionInstanceName('gastronexa-7'), true);
+  assert.equal(isTenantEvolutionInstanceName('gastronexa-prod-7-0123456789abcdef'), true);
+  assert.equal(isTenantEvolutionInstanceName('gastronexa-7-outro-restaurante'), false);
 });
