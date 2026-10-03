@@ -58,7 +58,7 @@ describe('ManagedServiceArea', () => {
 
     expect(container.textContent).toContain('Implantação assistida');
     expect(container.textContent).toContain('Até 100 produtos');
-    expect(container.textContent).toContain('Seu Premium inclui a implantação inicial');
+    expect(container.textContent).toContain('Seu plano inclui a implantação inicial');
     expect(container.querySelector('form')).toBeNull();
   });
 
