@@ -14,9 +14,11 @@ export async function premiumAiPlanMiddleware(req: Request, res: Response, next:
     });
 
     const isActive = subscription?.status === 'ATIVA' || subscription?.status === 'TESTE';
-    if (!isActive || subscription?.plan !== 'PREMIUM') {
+    const hasPremiumFeatures =
+      subscription?.plan === 'PREMIUM' || subscription?.plan === 'GESTAO_TOTAL';
+    if (!isActive || !hasPremiumFeatures) {
       return res.status(403).json({
-        error: 'Os recursos de IA estão disponíveis somente no plano Premium.',
+        error: 'Os recursos de IA estão disponíveis nos planos Premium e Gestão Total.',
         code: 'PREMIUM_AI_PLAN_REQUIRED',
       });
     }
