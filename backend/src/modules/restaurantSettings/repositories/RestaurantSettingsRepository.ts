@@ -218,8 +218,6 @@ class RestaurantSettingsRepository {
         fontFamily: true,
         seoTitle: true,
         seoDescription: true,
-        customDomainRequested: true,
-        landingPageEnabled: true,
         companyLegalName: true,
         businessHours: true,
         isOpenForOrders: true,
