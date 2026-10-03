@@ -143,3 +143,11 @@ VALUES ('GESTAO_TOTAL'::"PlanType", false, CURRENT_TIMESTAMP)
 ON CONFLICT ("code") DO UPDATE SET
   "useDefaultTrialDays" = false,
   "updatedAt" = CURRENT_TIMESTAMP;
+
+
+ALTER TABLE "SalesLead"
+DROP CONSTRAINT IF EXISTS "SalesLead_plan_check";
+
+ALTER TABLE "SalesLead"
+ADD CONSTRAINT "SalesLead_plan_check"
+CHECK ("planInterest" IN ('BASICO', 'PREMIUM', 'GESTAO_TOTAL', 'UNDECIDED'));
