@@ -27,6 +27,7 @@ import {
 import { ProductAppearanceStep, ProductBasicStep, ProductPriceStep } from './ProductGuidedSteps';
 import { emptyGroup, groupPreset } from './ProductDrawerGroups';
 import type {
+  AdminIngredient,
   AdminProductCompositionItem,
   AdminProductConfigurationTemplate,
   AdminProductOptionGroup,
