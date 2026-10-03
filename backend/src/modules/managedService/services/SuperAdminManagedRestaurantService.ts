@@ -26,7 +26,7 @@ type Actor = {
   userAgent?: string | null;
 };
 
-const safeSettingsSchema = z
+export const safeManagedRestaurantSettingsSchema = z
   .object({
     restaurantName: z.string().trim().min(2).max(120).optional(),
     restaurantLogo: z.string().trim().max(700_000).nullable().optional(),
@@ -61,6 +61,13 @@ const safeSettingsSchema = z
     seoDescription: z.string().trim().max(300).nullable().optional(),
   })
   .strict();
+
+function inputRecord(value: unknown) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    throw new Error('Dados inválidos para a alteração.');
+  }
+  return value as Record<string, unknown>;
+}
 
 function positiveId(value: unknown, label: string) {
   const id = Number(value);
@@ -288,11 +295,12 @@ class SuperAdminManagedRestaurantService {
     return result;
   }
 
-  async createBanner(restaurantIdInput: unknown, input: any, actor: Actor) {
+  async createBanner(restaurantIdInput: unknown, input: unknown, actor: Actor) {
     await assertSuperAdmin(actor);
     const restaurantId = positiveId(restaurantIdInput, 'Restaurante');
     const restaurant = await assertManagedAccess(restaurantId);
-    const result = await createBannerService.execute({ ...input, restaurantId });
+    const bannerInput = inputRecord(input);
+    const result = await createBannerService.execute({ ...bannerInput, restaurantId });
     await audit(restaurantId, restaurant.name, actor, 'MANAGED_BANNER_CREATED', 'Banner', {
       bannerId: result.id,
       title: result.title,
@@ -303,16 +311,21 @@ class SuperAdminManagedRestaurantService {
   async updateBanner(
     restaurantIdInput: unknown,
     bannerIdInput: unknown,
-    input: any,
+    input: unknown,
     actor: Actor,
   ) {
     await assertSuperAdmin(actor);
     const restaurantId = positiveId(restaurantIdInput, 'Restaurante');
     const restaurant = await assertManagedAccess(restaurantId);
     const bannerId = positiveId(bannerIdInput, 'Banner');
-    const result = await updateBannerService.execute({ ...input, id: bannerId, restaurantId });
+    const bannerInput = inputRecord(input);
+    const result = await updateBannerService.execute({
+      ...bannerInput,
+      id: bannerId,
+      restaurantId,
+    });
     await audit(restaurantId, restaurant.name, actor, 'MANAGED_BANNER_UPDATED', `Banner:${bannerId}`, {
-      fields: Object.keys(input || {}),
+      fields: Object.keys(bannerInput),
     });
     return result;
   }
@@ -321,7 +334,7 @@ class SuperAdminManagedRestaurantService {
     await assertSuperAdmin(actor);
     const restaurantId = positiveId(restaurantIdInput, 'Restaurante');
     const restaurant = await assertManagedAccess(restaurantId);
-    const parsed = safeSettingsSchema.parse(input);
+    const parsed = safeManagedRestaurantSettingsSchema.parse(input);
     const result = await updateRestaurantSettingsService.execute({ restaurantId, ...parsed });
     await audit(
       restaurantId,
