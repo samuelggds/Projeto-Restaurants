@@ -212,7 +212,7 @@ export function BrandSettings({
               <input
                 type="checkbox"
                 checked={settings.customDomainRequested}
-                disabled={!customDomainAllowed}
+                disabled={!customDomainAllowed && !settings.customDomainRequested}
                 onChange={(event) => updateCustomDomainPreference(event.target.checked)}
               />
               Quero usar meu próprio domínio
@@ -232,7 +232,10 @@ export function BrandSettings({
               <input
                 type="checkbox"
                 checked={settings.landingPageEnabled}
-                disabled={!landingAllowed || !settings.customDomainRequested}
+                disabled={
+                  (!landingAllowed && !settings.landingPageEnabled) ||
+                  (!settings.customDomainRequested && !settings.landingPageEnabled)
+                }
                 onChange={(event) => update('landingPageEnabled', event.target.checked)}
               />
               Quero uma landing page no domínio principal
