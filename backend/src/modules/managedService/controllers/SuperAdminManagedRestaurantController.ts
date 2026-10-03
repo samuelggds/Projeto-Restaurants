@@ -1,5 +1,6 @@
 import type { NextFunction, Request, Response } from 'express';
 import service from '../services/SuperAdminManagedRestaurantService.js';
+import { normalizeManagedServiceError } from '../domain/managedServiceErrors.js';
 
 function actor(req: Request) {
   return {
@@ -15,43 +16,43 @@ function actor(req: Request) {
 class SuperAdminManagedRestaurantController {
   async workspace(req: Request, res: Response, next: NextFunction) {
     try { return res.json(await service.getWorkspace(req.params.restaurantId, actor(req))); }
-    catch (error) { return next(error); }
+    catch (error) { return next(normalizeManagedServiceError(error)); }
   }
   async createProduct(req: Request, res: Response, next: NextFunction) {
     try { return res.status(201).json(await service.createProduct(req.params.restaurantId, req.body, actor(req))); }
-    catch (error) { return next(error); }
+    catch (error) { return next(normalizeManagedServiceError(error)); }
   }
   async updateProduct(req: Request, res: Response, next: NextFunction) {
     try { return res.json(await service.updateProduct(req.params.restaurantId, req.params.productId, req.body, actor(req))); }
-    catch (error) { return next(error); }
+    catch (error) { return next(normalizeManagedServiceError(error)); }
   }
   async createCategory(req: Request, res: Response, next: NextFunction) {
     try { return res.status(201).json(await service.createCategory(req.params.restaurantId, req.body, actor(req))); }
-    catch (error) { return next(error); }
+    catch (error) { return next(normalizeManagedServiceError(error)); }
   }
   async updateCategory(req: Request, res: Response, next: NextFunction) {
     try { return res.json(await service.updateCategory(req.params.restaurantId, req.params.categoryId, req.body, actor(req))); }
-    catch (error) { return next(error); }
+    catch (error) { return next(normalizeManagedServiceError(error)); }
   }
   async createCombo(req: Request, res: Response, next: NextFunction) {
     try { return res.status(201).json(await service.saveCombo(req.params.restaurantId, null, req.body, actor(req))); }
-    catch (error) { return next(error); }
+    catch (error) { return next(normalizeManagedServiceError(error)); }
   }
   async updateCombo(req: Request, res: Response, next: NextFunction) {
     try { return res.json(await service.saveCombo(req.params.restaurantId, req.params.comboId, req.body, actor(req))); }
-    catch (error) { return next(error); }
+    catch (error) { return next(normalizeManagedServiceError(error)); }
   }
   async createBanner(req: Request, res: Response, next: NextFunction) {
     try { return res.status(201).json(await service.createBanner(req.params.restaurantId, req.body, actor(req))); }
-    catch (error) { return next(error); }
+    catch (error) { return next(normalizeManagedServiceError(error)); }
   }
   async updateBanner(req: Request, res: Response, next: NextFunction) {
     try { return res.json(await service.updateBanner(req.params.restaurantId, req.params.bannerId, req.body, actor(req))); }
-    catch (error) { return next(error); }
+    catch (error) { return next(normalizeManagedServiceError(error)); }
   }
   async updateSettings(req: Request, res: Response, next: NextFunction) {
     try { return res.json(await service.updateSafeSettings(req.params.restaurantId, req.body, actor(req))); }
-    catch (error) { return next(error); }
+    catch (error) { return next(normalizeManagedServiceError(error)); }
   }
 }
 export default new SuperAdminManagedRestaurantController();
