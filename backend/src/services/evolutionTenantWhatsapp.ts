@@ -53,6 +53,70 @@ function digitsOnly(value: unknown) {
   return String(value || '').replace(/\D/g, '');
 }
 
+const EVOLUTION_QR_MAX_ATTEMPTS = 5;
+const EVOLUTION_QR_RETRY_DELAY_MS = 700;
+const MAX_QR_IMAGE_LENGTH = 2_500_000;
+const MAX_QR_CONTENT_LENGTH = 20_000;
+
+function record(value: unknown): JsonRecord | null {
+  return value && typeof value === 'object' && !Array.isArray(value)
+    ? (value as JsonRecord)
+    : null;
+}
+
+function delay(ms: number) {
+  return new Promise<void>((resolve) => {
+    setTimeout(resolve, ms);
+  });
+}
+
+function normalizeQrImage(value: unknown) {
+  const raw = String(value || '').trim();
+  if (!raw || raw.length > MAX_QR_IMAGE_LENGTH) return '';
+  if (/^data:image\/(?:png|jpeg|webp);base64,[A-Za-z0-9+/=\r\n]+$/u.test(raw)) {
+    return raw;
+  }
+  if (raw.length >= 128 && /^[A-Za-z0-9+/=\r\n]+$/u.test(raw)) {
+    return `data:image/png;base64,${raw}`;
+  }
+  return '';
+}
+
+function normalizeQrContent(value: unknown) {
+  const raw = String(value || '').trim();
+  if (!raw || raw.length > MAX_QR_CONTENT_LENGTH) return '';
+  if (/^data:image\//iu.test(raw)) return '';
+  return raw;
+}
+
+export function extractEvolutionQrPayload(payload: unknown) {
+  const root = record(payload);
+  const data = record(root?.data);
+  const candidates = [
+    root,
+    record(root?.qrcode),
+    data,
+    record(data?.qrcode),
+  ].filter((value): value is JsonRecord => Boolean(value));
+
+  for (const candidate of candidates) {
+    const qrCode = normalizeQrImage(candidate.base64);
+    const qrContent = normalizeQrContent(candidate.code || candidate.qrcode);
+    const pairingCode = String(candidate.pairingCode || '').trim() || null;
+    if (qrCode || qrContent || pairingCode) {
+      return { qrCode, qrContent, pairingCode };
+    }
+  }
+
+  return { qrCode: '', qrContent: '', pairingCode: null };
+}
+
+function connectionStateFromPayload(payload: unknown) {
+  const root = record(payload);
+  const instance = record(root?.instance);
+  return String(instance?.state || root?.state || '').trim().toLowerCase();
+}
+
 function evolutionBaseUrl() {
   const configured = env('EVOLUTION_TENANT_API_URL') || env('EVOLUTION_API_URL');
   if (!configured) {
@@ -302,7 +366,7 @@ async function createEvolutionInstance(restaurantId: number) {
 
   await prepareEvolutionInstanceName(instanceName);
 
-  await evolutionRequest('/instance/create', {
+  const createPayload = await evolutionRequest('/instance/create', {
     method: 'POST',
     body: {
       instanceName,
@@ -311,6 +375,7 @@ async function createEvolutionInstance(restaurantId: number) {
       token,
     },
   });
+  const initialQr = extractEvolutionQrPayload(createPayload);
 
   try {
     const ciphertext = encryptCredential(token, tokenContext(restaurantId));
@@ -344,7 +409,7 @@ async function createEvolutionInstance(restaurantId: number) {
     }
 
     await configureWebhook(row, webhookSecret);
-    return row;
+    return { row, initialQr };
   } catch (error) {
     try {
       await prisma.$executeRaw`
@@ -367,7 +432,16 @@ export async function getTenantEvolutionConnection(restaurantId: number) {
 export async function createTenantEvolutionConnection(restaurantId: number) {
   const existing = await readConnectionByRestaurant(restaurantId);
   if (existing?.provider === 'EVOLUTION' && existing.status !== 'ERROR') {
-    return publicConnection(existing);
+    const remote = await fetchEvolutionInstance(existing.externalInstanceId);
+    if (remote) {
+      return publicConnection(existing);
+    }
+
+    await prisma.$executeRaw`
+      UPDATE "RestaurantWhatsappConnection"
+      SET "status" = 'ERROR', "updatedAt" = CURRENT_TIMESTAMP
+      WHERE "restaurantId" = ${restaurantId} AND "provider" = 'EVOLUTION'
+    `;
   }
 
   const restaurant = await prisma.restaurant.findUnique({
@@ -376,35 +450,111 @@ export async function createTenantEvolutionConnection(restaurantId: number) {
   });
   if (!restaurant) throw new Error('Restaurante não encontrado.');
 
-  return publicConnection(await createEvolutionInstance(restaurantId));
+  const created = await createEvolutionInstance(restaurantId);
+  return publicConnection(created.row);
 }
 
 export async function getTenantEvolutionQrCode(restaurantId: number) {
   let row = await readConnectionByRestaurant(restaurantId);
+  let initialQr = { qrCode: '', qrContent: '', pairingCode: null as string | null };
+
   if (!row || row.provider !== 'EVOLUTION' || row.status === 'ERROR') {
-    row = await createEvolutionInstance(restaurantId);
+    const created = await createEvolutionInstance(restaurantId);
+    row = created.row;
+    initialQr = created.initialQr;
+  } else {
+    const remote = await fetchEvolutionInstance(row.externalInstanceId);
+    if (!remote) {
+      await prisma.$executeRaw`
+        UPDATE "RestaurantWhatsappConnection"
+        SET "status" = 'ERROR', "updatedAt" = CURRENT_TIMESTAMP
+        WHERE "restaurantId" = ${restaurantId} AND "provider" = 'EVOLUTION'
+      `;
+      const created = await createEvolutionInstance(restaurantId);
+      row = created.row;
+      initialQr = created.initialQr;
+    } else if (String(remote.connectionStatus || '').trim().toLowerCase() === 'open') {
+      await prisma.$executeRaw`
+        UPDATE "RestaurantWhatsappConnection"
+        SET "status" = 'CONNECTED',
+            "connectedAt" = COALESCE("connectedAt", CURRENT_TIMESTAMP),
+            "disconnectedAt" = NULL,
+            "updatedAt" = CURRENT_TIMESTAMP
+        WHERE "restaurantId" = ${restaurantId} AND "provider" = 'EVOLUTION'
+      `;
+      return {
+        qrCode: '',
+        qrContent: '',
+        pairingCode: null,
+        ...publicConnection(await readConnectionByRestaurant(restaurantId)),
+      };
+    }
   }
-  const payload = (await evolutionRequest(
-    `/instance/connect/${encodeURIComponent(row.externalInstanceId)}`,
-    { apiKey: instanceToken(row) },
-  )) as JsonRecord | null;
-  const base64 = String(payload?.base64 || '').trim();
-  if (!base64) throw new Error('A Evolution API não retornou um QR Code válido.');
-  const qrCode = base64.startsWith('data:image/') ? base64 : `data:image/png;base64,${base64}`;
-  return { qrCode, ...publicConnection(row) };
+
+  if (initialQr.qrCode || initialQr.qrContent) {
+    return { ...initialQr, ...publicConnection(row) };
+  }
+
+  for (let attempt = 0; attempt < EVOLUTION_QR_MAX_ATTEMPTS; attempt += 1) {
+    const payload = await evolutionRequest(
+      `/instance/connect/${encodeURIComponent(row.externalInstanceId)}`,
+      { apiKey: instanceToken(row) },
+    );
+    const qr = extractEvolutionQrPayload(payload);
+    if (qr.qrCode || qr.qrContent) {
+      return { ...qr, ...publicConnection(row) };
+    }
+
+    if (connectionStateFromPayload(payload) === 'open') {
+      await prisma.$executeRaw`
+        UPDATE "RestaurantWhatsappConnection"
+        SET "status" = 'CONNECTED',
+            "connectedAt" = COALESCE("connectedAt", CURRENT_TIMESTAMP),
+            "disconnectedAt" = NULL,
+            "updatedAt" = CURRENT_TIMESTAMP
+        WHERE "restaurantId" = ${restaurantId} AND "provider" = 'EVOLUTION'
+      `;
+      return {
+        qrCode: '',
+        qrContent: '',
+        pairingCode: null,
+        ...publicConnection(await readConnectionByRestaurant(restaurantId)),
+      };
+    }
+
+    if (attempt < EVOLUTION_QR_MAX_ATTEMPTS - 1) {
+      await delay(EVOLUTION_QR_RETRY_DELAY_MS);
+    }
+  }
+
+  throw new Error(
+    'O QR Code ainda está sendo gerado pelo WhatsApp. Aguarde alguns segundos e tente mostrar o QR Code novamente.',
+  );
 }
 
 export async function refreshTenantEvolutionConnection(restaurantId: number) {
   const row = await readConnectionByRestaurant(restaurantId);
   if (!row || row.provider !== 'EVOLUTION') return publicConnection(null);
-  const payload = (await evolutionRequest(
-    `/instance/connectionState/${encodeURIComponent(row.externalInstanceId)}`,
-    { apiKey: instanceToken(row) },
-  )) as JsonRecord | null;
-  const instance = payload?.instance && typeof payload.instance === 'object'
-    ? (payload.instance as JsonRecord)
-    : {};
-  const state = String(instance.state || '').toLowerCase();
+
+  let payload: unknown;
+  try {
+    payload = await evolutionRequest(
+      `/instance/connectionState/${encodeURIComponent(row.externalInstanceId)}`,
+      { apiKey: instanceToken(row) },
+    );
+  } catch (error) {
+    if (error instanceof EvolutionRequestError && [401, 404].includes(error.status)) {
+      await prisma.$executeRaw`
+        UPDATE "RestaurantWhatsappConnection"
+        SET "status" = 'ERROR', "updatedAt" = CURRENT_TIMESTAMP
+        WHERE "restaurantId" = ${restaurantId} AND "provider" = 'EVOLUTION'
+      `;
+      return publicConnection(await readConnectionByRestaurant(restaurantId));
+    }
+    throw error;
+  }
+
+  const state = connectionStateFromPayload(payload);
   const connected = state === 'open';
   const status = connected ? 'CONNECTED' : state === 'connecting' ? 'PENDING' : 'DISCONNECTED';
   await prisma.$executeRaw`
