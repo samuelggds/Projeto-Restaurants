@@ -256,10 +256,12 @@ export function FigmaDeliveryExperience({
   const [searchFocused, setSearchFocused] = useState(Boolean(initialSearchOpen));
   const [addressPickerOpen, setAddressPickerOpen] = useState(false);
   const [profileQuickMenuOpen, setProfileQuickMenuOpen] = useState(false);
+  const [profileQuickMenuClosing, setProfileQuickMenuClosing] = useState(false);
   const [accountAvatarFailed, setAccountAvatarFailed] = useState(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const searchContainerRef = useRef<HTMLDivElement>(null);
   const cartFabRef = useRef<HTMLButtonElement>(null);
+  const pendingProfileQuickActionRef = useRef<(() => void) | null>(null);
   const pendingCartFlyOriginRef = useRef<CartFlyOrigin | null>(null);
   const cartFabDragRef = useRef<{
     pointerId: number;
@@ -646,18 +648,45 @@ export function FigmaDeliveryExperience({
     }
 
     setAddressPickerOpen(false);
+    pendingProfileQuickActionRef.current = null;
+    setProfileQuickMenuClosing(false);
     setProfileQuickMenuOpen(true);
+  };
+
+  const finishProfileQuickMenuTransition = () => {
+    const action = pendingProfileQuickActionRef.current;
+    pendingProfileQuickActionRef.current = null;
+    setProfileQuickMenuClosing(false);
+    setProfileQuickMenuOpen(false);
+    action?.();
+  };
+
+  const closeProfileQuickMenu = (action?: () => void) => {
+    if (profileQuickMenuClosing) return;
+
+    pendingProfileQuickActionRef.current = action || null;
+    const prefersReducedMotion =
+      typeof window.matchMedia === 'function' &&
+      window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    if (prefersReducedMotion) {
+      finishProfileQuickMenuTransition();
+      return;
+    }
+
+    setProfileQuickMenuClosing(true);
   };
 
   const openProfileDestination = (
     view: 'orders' | 'addresses' | 'paymentMethods' | 'coupons' | 'loyalty' | 'help' | 'settings',
   ) => {
-    setProfileQuickMenuOpen(false);
-    if (onOpenProfileView) {
-      onOpenProfileView(view);
-      return;
-    }
-    onOpenProfile?.();
+    closeProfileQuickMenu(() => {
+      if (onOpenProfileView) {
+        onOpenProfileView(view);
+        return;
+      }
+      onOpenProfile?.();
+    });
   };
 
   const selectAddressFromPicker = (addressId: number) => {
@@ -1282,14 +1311,25 @@ export function FigmaDeliveryExperience({
 
       {profileQuickMenuOpen ? (
         <S.ProfileQuickMenuBackdrop
+          className={profileQuickMenuClosing ? 'closing' : undefined}
           onMouseDown={(event) => {
-            if (event.target === event.currentTarget) setProfileQuickMenuOpen(false);
+            if (event.target === event.currentTarget) closeProfileQuickMenu();
           }}
         >
           <S.ProfileQuickMenuSheet
+            className={profileQuickMenuClosing ? 'closing' : undefined}
             aria-labelledby="profile-quick-menu-title"
             aria-modal="true"
             role="dialog"
+            onAnimationEnd={(event) => {
+              if (
+                profileQuickMenuClosing &&
+                event.target === event.currentTarget &&
+                event.animationName === 'profile-quick-sheet-out'
+              ) {
+                finishProfileQuickMenuTransition();
+              }
+            }}
           >
             <div className="quick-profile-head">
               <span className="quick-avatar" aria-hidden="true">
@@ -1313,7 +1353,7 @@ export function FigmaDeliveryExperience({
                 className="quick-close"
                 type="button"
                 aria-label="Fechar atalhos da conta"
-                onClick={() => setProfileQuickMenuOpen(false)}
+                onClick={() => closeProfileQuickMenu()}
               >
                 <X aria-hidden="true" />
               </button>
@@ -1322,10 +1362,7 @@ export function FigmaDeliveryExperience({
             <button
               className="open-full-profile"
               type="button"
-              onClick={() => {
-                setProfileQuickMenuOpen(false);
-                onOpenProfile?.();
-              }}
+              onClick={() => closeProfileQuickMenu(() => onOpenProfile?.())}
             >
               Ver perfil completo
               <ChevronRight aria-hidden="true" />
