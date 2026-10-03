@@ -43,6 +43,7 @@ const isAllowedTenantRoot = (value: string | undefined) =>
   Boolean(value && !RESERVED_ROOTS.has(value.toLowerCase()));
 const isGuestEntry = (path: string) => {
   if (path === '/super_admin/login') return true;
+  if (['/login', '/register', '/recover-password'].includes(path)) return true;
 
   const contextualEntry = path.match(
     /^\/([^/]+)\/(?:login|register|recover-password|team|admin)$/u,
@@ -66,7 +67,13 @@ export function isPublicRestaurantRoute(pathname: string) {
   const orderPixPayment = /^\/([^/]+)\/pedido\/[^/]+\/pagamento$/u.exec(path)?.[1];
   const guestOrders = /^\/([^/]+)\/pedidos$/u.exec(path)?.[1];
 
+  const customDomainPublic =
+    path === '/pedidos' ||
+    /^\/pedido\/[^/]+\/pagamento$/u.test(path) ||
+    /^\/mesa\/[^/]+$/u.test(path);
+
   return Boolean(
+    customDomainPublic ||
     isAllowedTenantRoot(singleSegment) ||
       isAllowedTenantRoot(restaurantTable) ||
       isAllowedTenantRoot(orderPixPayment) ||
