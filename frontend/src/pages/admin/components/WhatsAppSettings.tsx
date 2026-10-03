@@ -100,7 +100,7 @@ export function WhatsAppSettings({ settings, update }: Props) {
   const [restaurantSlug, setRestaurantSlug] = useState(identity.slug);
   const [connection, setConnection] = useState<Connection>({
     configured: false,
-    provider: 'ZAPI',
+    provider: 'EVOLUTION',
     status: 'NOT_CONFIGURED',
   });
   const [qrCode, setQrCode] = useState('');
