@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type CSSProperties } from 'react';
 import { Clock3, MapPin, MessageCircle, UtensilsCrossed } from 'lucide-react';
 import restaurantSettingsService from '../../Services/restaurantSettingsService';
 import { useCustomDomainTenant } from '../../shared/tenant/CustomDomainTenantContext';
@@ -99,7 +99,7 @@ export default function RestaurantLandingPage() {
   }
 
   return (
-    <S.Page style={{ '--restaurant-color': settings.primaryColor || '#ff4b4b' } as React.CSSProperties}>
+    <S.Page style={{ '--restaurant-color': settings.primaryColor || '#ff4b4b' } as CSSProperties}>
       <S.Hero $image={restaurant.coverImage || ''}>
         <S.HeroOverlay />
         <S.Header>
