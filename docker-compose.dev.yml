@@ -46,7 +46,7 @@ services:
       ALERT_EMAIL_FROM: ${ALERT_EMAIL_FROM:-}
       ALERT_EMAIL_TO: ${ALERT_EMAIL_TO:-}
       SMTP_AUTH_TYPE: ${SMTP_AUTH_TYPE:-basic}
-    command: sh -c "npm install && npx prisma migrate deploy && npm run dev"
+    command: sh -c "npm install && npm run dev"
     volumes:
       - ./backend:/app
       - /app/node_modules
