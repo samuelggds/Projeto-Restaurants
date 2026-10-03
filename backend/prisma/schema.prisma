@@ -115,7 +115,7 @@ model RestaurantImplementation {
   id           String   @id @default(uuid()) @db.Uuid
   restaurantId Int      @unique
   status       String   @default("AGUARDANDO_MATERIAL") @db.VarChar(32)
-  productLimit Int      @default(150)
+  productLimit Int?     @default(150)
   notes        String?  @db.VarChar(2000)
   startedAt    DateTime?
   completedAt  DateTime?
