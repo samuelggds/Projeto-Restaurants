@@ -269,12 +269,14 @@ export function getSafeNextPath(value: unknown) {
   }
 
   const normalizedPath = decodedPathname.replace(/\/+$/u, '').toLowerCase() || '/';
+  const isCustomDomainTablePath =
+    isCustomDomainBrowserContext() && /^\/mesa\/[1-9]\d*$/u.test(normalizedPath);
   const isRoleOnlyPath = ROLE_ONLY_RETURN_ROOTS.some(
     (root) => normalizedPath === root || normalizedPath.startsWith(`${root}/`),
   );
   if (
     normalizedPath === '/' ||
-    /^\/mesa(?:\/|$)/u.test(normalizedPath) ||
+    (/^\/mesa(?:\/|$)/u.test(normalizedPath) && !isCustomDomainTablePath) ||
     BLOCKED_AUTH_PATHS.has(normalizedPath) ||
     isRoleOnlyPath ||
     /^\/[^/]+\/(?:login|register|recover-password|team|admin(?:\/[^/]+)?)$/u.test(
@@ -398,17 +400,27 @@ export function resolveAuthExperience(searchParams: URLSearchParams): AuthExperi
   }
 
   const tableMatch = parsed.pathname.match(/^\/([^/]+)\/mesa\/([1-9]\d*)\/?$/iu);
-  if (!tableMatch) {
-    return { context: 'ONLINE', nextPath, tableNumber: null, restaurantSlug: null };
+  if (tableMatch) {
+    const restaurantSlug = isUsableRestaurantSlug(tableMatch[1]) || null;
+    return {
+      context: 'TABLE',
+      nextPath,
+      tableNumber: tableMatch[2],
+      restaurantSlug,
+    };
   }
 
-  const restaurantSlug = isUsableRestaurantSlug(tableMatch[1]) || null;
-  return {
-    context: 'TABLE',
-    nextPath,
-    tableNumber: tableMatch[2],
-    restaurantSlug,
-  };
+  const customDomainTableMatch = parsed.pathname.match(/^\/mesa\/([1-9]\d*)\/?$/iu);
+  if (customDomainTableMatch && isCustomDomainBrowserContext()) {
+    return {
+      context: 'TABLE',
+      nextPath,
+      tableNumber: customDomainTableMatch[1],
+      restaurantSlug: getRememberedTenantSlug() || null,
+    };
+  }
+
+  return { context: 'ONLINE', nextPath, tableNumber: null, restaurantSlug: null };
 }
 
 export function buildLoginUrl(location: ReturnLocation) {
