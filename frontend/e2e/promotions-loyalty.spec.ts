@@ -242,7 +242,7 @@ test('cliente vê promoção, aplica benefício de fidelidade e envia o resgate 
 
   const featuredOffers = page.getByRole('region', { name: 'Produtos em destaque' });
   await expect(featuredOffers).toBeVisible();
-  await expect(featuredOffers.getByRole('heading', { name: 'Mais Pedidos em Destaque' })).toBeVisible();
+  await expect(featuredOffers.getByRole('heading', { name: 'Destaques da casa' })).toBeVisible();
   await expect(
     featuredOffers.getByRole('button', { name: 'Ver detalhes de Prato artesanal' }),
   ).toBeVisible();
