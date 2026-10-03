@@ -98,6 +98,7 @@ export const ProductDrawer = forwardRef<ProductDrawerHandle, ProductDrawerProps>
     const [saleMode, setSaleMode] = useState<'COMPLETE' | 'BUILDABLE'>(
       product?.saleMode ?? 'COMPLETE',
     );
+    const [featured, setFeatured] = useState(product?.featured === true);
     const [confirmDiscardConfiguration, setConfirmDiscardConfiguration] = useState(false);
     const [templates, setTemplates] = useState<AdminProductConfigurationTemplate[]>([]);
     const [templateName, setTemplateName] = useState('');
@@ -145,6 +146,7 @@ export const ProductDrawer = forwardRef<ProductDrawerHandle, ProductDrawerProps>
         stock: String(product?.stock ?? ''),
         unlimitedStock: isUnlimitedStock(product?.stock),
         saleMode: product?.saleMode ?? 'COMPLETE',
+        featured: product?.featured === true,
         optionGroups: product?.optionGroups ?? [],
         compositionItems: product?.compositionItems ?? [],
         portionConfiguration: product?.portionConfiguration ?? null,
@@ -184,6 +186,7 @@ export const ProductDrawer = forwardRef<ProductDrawerHandle, ProductDrawerProps>
         stock,
         unlimitedStock,
         saleMode,
+        featured,
         optionGroups,
         compositionItems,
         portionConfiguration,
@@ -732,6 +735,7 @@ export const ProductDrawer = forwardRef<ProductDrawerHandle, ProductDrawerProps>
           category: categories.find((item) => item.id === categoryId)?.name ?? '',
           stock: normalizedStock,
           active: isProductActiveFromStock(normalizedStock),
+          featured,
           saleMode,
           configurationVersion: product?.configurationVersion,
           confirmDiscardConfiguration:
@@ -894,11 +898,13 @@ export const ProductDrawer = forwardRef<ProductDrawerHandle, ProductDrawerProps>
               dynamicPrice={pricingMode === 'HIGHEST_OPTION'}
               description={description}
               headingRef={stepHeadingRef}
+              featured={featured}
               image={image}
               name={name}
               price={price}
               selectedProductCategory={selectedProductCategory}
               onDescriptionChange={setDescription}
+              onFeaturedChange={setFeatured}
               onUploadImage={(file) => void uploadImage(file)}
             />
           )}
@@ -1180,6 +1186,7 @@ export const ProductDrawer = forwardRef<ProductDrawerHandle, ProductDrawerProps>
             <ProductReviewStep
               dynamicPrice={pricingMode === 'HIGHEST_OPTION'}
               description={description}
+              featured={featured}
               headingRef={stepHeadingRef}
               image={image}
               name={name}
