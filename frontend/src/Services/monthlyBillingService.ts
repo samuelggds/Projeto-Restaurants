@@ -1,6 +1,6 @@
 import api from './api';
 
-export type PlanCode = 'BASICO' | 'PREMIUM';
+export type PlanCode = 'BASICO' | 'PREMIUM' | 'GESTAO_TOTAL';
 export type BillingPlan = {
   plan: PlanCode;
   name: string;
