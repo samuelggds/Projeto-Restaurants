@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState, type CSSProperties } from 'react';
 import { Clock3, MapPin, MessageCircle, UtensilsCrossed } from 'lucide-react';
 import restaurantSettingsService from '../../Services/restaurantSettingsService';
-import { useCustomDomainTenant } from '../../shared/tenant/CustomDomainTenantContext';
+import { useCustomDomainTenant } from '../../shared/tenant/useCustomDomainTenant';
 import * as S from './RestaurantLandingPage.styles';
 
 type PublicSettings = {
@@ -40,10 +40,7 @@ export default function RestaurantLandingPage() {
 
   useEffect(() => {
     let active = true;
-    if (!slug) {
-      setFailed(true);
-      return;
-    }
+    if (!slug) return;
     void restaurantSettingsService
       .getPublicSettingsBySlug(slug)
       .then((value) => {
@@ -81,7 +78,7 @@ export default function RestaurantLandingPage() {
     ['YouTube', safeSocialHref(settings?.youtube)],
   ].filter((item): item is [string, string] => Boolean(item[1]));
 
-  if (failed) {
+  if (!slug || failed) {
     return (
       <S.Centered>
         <h1>Site temporariamente indisponível</h1>
