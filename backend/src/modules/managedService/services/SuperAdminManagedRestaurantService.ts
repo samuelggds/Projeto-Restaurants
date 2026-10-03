@@ -141,7 +141,8 @@ async function assertManagedProductCapacity(
 ) {
   if (productLimit == null) return;
 
-  await db.$queryRaw`SELECT pg_advisory_xact_lock(7241, ${restaurantId})`;
+  const lockKey = 7_241_000_000n + BigInt(restaurantId);
+  await db.$queryRaw`SELECT pg_advisory_xact_lock(${lockKey})`;
   const productCount = await db.product.count({ where: { restaurantId } });
   if (productCount >= productLimit) {
     throw managedConflict(
