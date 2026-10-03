@@ -46,16 +46,27 @@ export function normalizeManagedServiceError(error: unknown) {
   return error;
 }
 
+function isInternalProgrammingOrInfrastructureError(error: unknown) {
+  return (
+    error instanceof Prisma.PrismaClientUnknownRequestError ||
+    error instanceof Prisma.PrismaClientRustPanicError ||
+    error instanceof Prisma.PrismaClientInitializationError ||
+    error instanceof TypeError ||
+    error instanceof ReferenceError ||
+    error instanceof RangeError
+  );
+}
+
 export async function managedMutation<T>(operation: () => Promise<T>): Promise<T> {
   try {
     return await operation();
   } catch (error) {
     const normalized = normalizeManagedServiceError(error);
     if (normalized !== error) throw normalized;
+    if (isInternalProgrammingOrInfrastructureError(error)) throw error;
 
     if (error instanceof Error) {
-      // Os serviços de catálogo existentes usam Error para regras de domínio esperadas.
-      // Aqui eles são convertidos para 400, sem transformar falhas Prisma/infra em erro do cliente.
+      // Os serviços legados de catálogo usam Error para regras de domínio esperadas.
       throw managedBadRequest(error.message);
     }
 
