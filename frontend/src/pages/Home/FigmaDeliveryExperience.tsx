@@ -2,7 +2,6 @@ import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Bike,
   ChevronDown,
-  ChevronRight,
   Clock3,
   CreditCard,
   MapPin,
@@ -15,7 +14,6 @@ import {
   Store,
   UserRound,
   UtensilsCrossed,
-  X,
 } from 'lucide-react';
 import {
   FacebookIcon,
