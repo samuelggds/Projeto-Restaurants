@@ -109,7 +109,7 @@ test('fallback legado só atende tabela ausente em teste ou migração explícit
   assert.equal(migrationPlans[0].features.length > 0, true);
   assert.equal(
     migrationPlans.some(
-      (plan) => plan.plan === PlanType.GESTAO_TOTAL && plan.featured && plan.monthlyFee === 349.9,
+      (plan) => plan.plan === PlanType.GESTAO_TOTAL && plan.featured && plan.monthlyFee === 299.9,
     ),
     true,
   );
