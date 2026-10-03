@@ -1,4 +1,5 @@
 import { OrderStatus, PaymentMethod } from '@prisma/client';
+import { formatDeliveryTimeRange } from '../../restaurantSettings/utils/deliveryTimeRange.js';
 import { onlinePaymentExpiresAt } from '../../payments/domain/onlinePaymentPolicy.js';
 import orderRepository from '../repositories/OrderRepository.js';
 import orderPaymentAttemptRepository from '../repositories/OrderPaymentAttemptRepository.js';
@@ -63,7 +64,12 @@ class GetOrderPaymentRecoveryService {
       paidAt: order.paidAt,
       orderStatus: order.status,
       paymentMethod,
-      deliveryTime: order.restaurant?.settings?.averageDeliveryTime || null,
+      deliveryTime:
+        formatDeliveryTimeRange({
+          averageDeliveryTime: order.restaurant?.settings?.averageDeliveryTime,
+          deliveryTimeMin: order.restaurant?.settings?.deliveryTimeMin,
+          deliveryTimeMax: order.restaurant?.settings?.deliveryTimeMax,
+        }) || null,
       deliveryAddress: [
         [order.address, order.number].filter(Boolean).join(', '),
         order.complement,
