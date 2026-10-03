@@ -71,7 +71,7 @@ describe('ManagedServiceArea', () => {
         continuousManagementEnabled: true,
         implementation: {
           status: 'CONCLUIDA',
-          productLimit: 150,
+          productLimit: null,
         },
         requests: [],
       },
@@ -80,6 +80,8 @@ describe('ManagedServiceArea', () => {
 
     await act(async () => root.render(<ManagedServiceArea />));
     await flush();
+
+    expect(container.textContent).toContain('Produtos ilimitados na implantação inicial');
 
     const inputs = container.querySelectorAll('input');
     const title = inputs[0] as HTMLInputElement;
