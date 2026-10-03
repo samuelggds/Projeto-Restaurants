@@ -165,6 +165,30 @@ export function BrandSettings({
         </S.FormGrid>
       </S.Card>
       <S.Card>
+        <h2>Landing page institucional</h2>
+        <p>
+          Opcional. Ative esta preferência se quiser uma página institucional no domínio principal
+          do restaurante. A GastroNexa reaproveitará os dados de marca já cadastrados.
+        </p>
+        <S.FormGrid>
+          <S.Field $full>
+            <span>Publicação da landing page</span>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <input
+                type="checkbox"
+                checked={settings.landingPageEnabled}
+                onChange={(event) => update('landingPageEnabled', event.target.checked)}
+              />
+              Quero uma landing page no meu domínio principal
+            </label>
+            <small>
+              Isso não altera DNS nem SSL automaticamente. A publicação técnica continua exclusiva
+              do SUPER_ADMIN. O cardápio pode permanecer em cardapio.seudominio.com.br.
+            </small>
+          </S.Field>
+        </S.FormGrid>
+      </S.Card>
+      <S.Card>
         <h2>Banner da home</h2>
         <p>
           Monte um carrossel de promoções com imagem, título e descrição. A ordem definida aqui será
