@@ -272,7 +272,14 @@ class ProductComboService {
     });
   }
 
-  async save(idInput: unknown | null, restaurantIdInput: unknown, rawInput: unknown) {
+  async save(
+    idInput: unknown | null,
+    restaurantIdInput: unknown,
+    rawInput: unknown,
+    options: {
+      beforeCreate?: (db: Parameters<typeof setTenantDbContext>[0]) => Promise<void>;
+    } = {},
+  ) {
     const tenantId = restaurantId(restaurantIdInput);
     const input = comboInputSchema.parse(rawInput);
     const id = idInput == null ? null : comboId(idInput);
@@ -303,6 +310,10 @@ class ProductComboService {
         throw new Error(
           'Produto inativo não pode ficar disponível como opção ativa do combo. Remova-o ou desative a opção.',
         );
+      }
+
+      if (id == null) {
+        await options.beforeCreate?.(db);
       }
 
       const categoryId = await ensureComboCategory(db, tenantId);
