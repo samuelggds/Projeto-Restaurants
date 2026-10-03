@@ -10,6 +10,7 @@ import {
   Wrench,
 } from 'lucide-react';
 import superAdminService from '../../../Services/superAdminService';
+import { ManagedRestaurantWorkspace } from '../components/ManagedRestaurantWorkspace';
 import * as S from './ManagedServicePage.styles';
 
 type Implementation = {
@@ -110,6 +111,7 @@ export function ManagedServicePage() {
   const [tab, setTab] = useState<'implementations' | 'requests'>('implementations');
   const [notes, setNotes] = useState<Record<string, string>>({});
   const [responses, setResponses] = useState<Record<string, string>>({});
+  const [workspaceRestaurantId, setWorkspaceRestaurantId] = useState<number | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -276,6 +278,13 @@ export function ManagedServicePage() {
                   </select>
                   <button
                     type="button"
+                    className="secondary"
+                    onClick={() => setWorkspaceRestaurantId(item.restaurantId)}
+                  >
+                    <Wrench /> Gerenciar restaurante
+                  </button>
+                  <button
+                    type="button"
                     disabled={busy === busyKey}
                     onClick={() => void updateImplementation(item, item.status)}
                   >
@@ -326,6 +335,13 @@ export function ManagedServicePage() {
                   </select>
                   <button
                     type="button"
+                    className="secondary"
+                    onClick={() => setWorkspaceRestaurantId(item.restaurantId)}
+                  >
+                    <Wrench /> Executar alteração
+                  </button>
+                  <button
+                    type="button"
                     disabled={busy === busyKey}
                     onClick={() => void updateRequest(item, item.status)}
                   >
@@ -339,6 +355,15 @@ export function ManagedServicePage() {
           {!requests.length ? <S.Empty><Clock3 /><strong>Nenhuma solicitação encontrada</strong></S.Empty> : null}
         </S.List>
       )}
+      {workspaceRestaurantId ? (
+        <ManagedRestaurantWorkspace
+          restaurantId={workspaceRestaurantId}
+          onClose={() => {
+            setWorkspaceRestaurantId(null);
+            void load();
+          }}
+        />
+      ) : null}
     </S.Page>
   );
 }
