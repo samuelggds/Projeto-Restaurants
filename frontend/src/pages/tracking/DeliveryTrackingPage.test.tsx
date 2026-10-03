@@ -24,6 +24,7 @@ const mocks = vi.hoisted(() => ({
     routePath?: RoutePoint[];
     destination?: RoutePoint & { label?: string };
     statusMessage?: string;
+    etaMinutes?: number;
   },
   socket: {
     connected: true,
