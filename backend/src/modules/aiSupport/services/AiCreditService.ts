@@ -103,7 +103,7 @@ export class PremiumAiPlanRequiredError extends Error {
   code = 'PREMIUM_AI_PLAN_REQUIRED';
 
   constructor() {
-    super('Os recursos de IA estão disponíveis somente no plano Premium.');
+    super('Os recursos de IA estão disponíveis nos planos Premium e Gestão Total.');
     this.name = 'PremiumAiPlanRequiredError';
   }
 }
@@ -117,7 +117,9 @@ async function assertPremiumAiPlan(
     select: { plan: true, status: true },
   });
   const isActive = subscription?.status === 'ATIVA' || subscription?.status === 'TESTE';
-  if (!isActive || subscription?.plan !== 'PREMIUM') throw new PremiumAiPlanRequiredError();
+  const hasPremiumFeatures =
+    subscription?.plan === 'PREMIUM' || subscription?.plan === 'GESTAO_TOTAL';
+  if (!isActive || !hasPremiumFeatures) throw new PremiumAiPlanRequiredError();
 }
 
 async function hasPremiumAiPlan(
@@ -129,7 +131,10 @@ async function hasPremiumAiPlan(
     select: { plan: true, status: true },
   });
   const isActive = subscription?.status === 'ATIVA' || subscription?.status === 'TESTE';
-  return Boolean(isActive && subscription?.plan === 'PREMIUM');
+  return Boolean(
+    isActive &&
+      (subscription?.plan === 'PREMIUM' || subscription?.plan === 'GESTAO_TOTAL'),
+  );
 }
 
 async function assertActiveAdmin(

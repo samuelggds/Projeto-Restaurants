@@ -45,7 +45,7 @@ afterEach(() => {
   refundDuplicateInvoicePaymentService.execute = originalRefundDuplicate;
 });
 
-function installBaseDependencies({ invoiceTotal = '249.90' } = {}) {
+function installBaseDependencies({ invoiceTotal = '199.90' } = {}) {
   prisma.$queryRaw = async () => [
     {
       restaurantId: 7,
@@ -63,7 +63,7 @@ function installBaseDependencies({ invoiceTotal = '249.90' } = {}) {
       scheduledPlanEffectiveYear: null,
     };
   };
-  platformPlanCatalogService.getByCode = async () => ({ monthlyFee: 249.9 });
+  platformPlanCatalogService.getByCode = async () => ({ monthlyFee: 199.9 });
   prisma.invoice.findFirst = async ({ where }) => {
     assert.equal(where.restaurantId, 7);
     assert.deepEqual(where.status, { not: 'CANCELADO' });
@@ -112,7 +112,7 @@ test('concilia cobrança recorrente aprovada e quita somente a fatura do mesmo r
           id: 'preapproval-7',
           status: 'authorized',
           next_payment_date: '2026-11-15T12:00:00.000Z',
-          auto_recurring: { transaction_amount: 249.9, currency_id: 'BRL' },
+          auto_recurring: { transaction_amount: 199.9, currency_id: 'BRL' },
         }),
         { status: 200, headers: { 'content-type': 'application/json' } },
       );
@@ -124,7 +124,7 @@ test('concilia cobrança recorrente aprovada e quita somente a fatura do mesmo r
       JSON.stringify({
         results: [
           {
-            transaction_amount: '249.90',
+            transaction_amount: '199.90',
             currency_id: 'BRL',
             debit_date: '2026-11-15T12:00:00.000Z',
             payment: { id: 880091, status: 'approved', status_detail: 'accredited' },
@@ -144,7 +144,7 @@ test('concilia cobrança recorrente aprovada e quita somente a fatura do mesmo r
 
 test('não quita mensalidade se o valor recorrente aprovado divergir da fatura', async () => {
   const service = new ReconcileRecurringCardBillingService();
-  installBaseDependencies({ invoiceTotal: '249.90' });
+  installBaseDependencies({ invoiceTotal: '199.90' });
   let processed = false;
 
   processPaymentService.executeTracked = async ({ invoiceId }) => {
@@ -158,7 +158,7 @@ test('não quita mensalidade se o valor recorrente aprovado divergir da fatura',
         JSON.stringify({
           status: 'authorized',
           next_payment_date: '2026-11-15T12:00:00.000Z',
-          auto_recurring: { transaction_amount: 249.9, currency_id: 'BRL' },
+          auto_recurring: { transaction_amount: 199.9, currency_id: 'BRL' },
         }),
         { status: 200, headers: { 'content-type': 'application/json' } },
       );
@@ -196,7 +196,7 @@ test('cartão aprovado após Pix já pago é registrado e estornado como duplici
     return {
       id: 91,
       restaurantId: 7,
-      total: { toString: () => '249.90' },
+      total: { toString: () => '199.90' },
       status: 'PAGO',
       dueDate: new Date('2026-11-15T12:00:00.000Z'),
     };
@@ -223,7 +223,7 @@ test('cartão aprovado após Pix já pago é registrado e estornado como duplici
           id: 'preapproval-7',
           status: 'authorized',
           next_payment_date: '2026-11-15T12:00:00.000Z',
-          auto_recurring: { transaction_amount: 249.9, currency_id: 'BRL' },
+          auto_recurring: { transaction_amount: 199.9, currency_id: 'BRL' },
         }),
         { status: 200, headers: { 'content-type': 'application/json' } },
       );
@@ -232,7 +232,7 @@ test('cartão aprovado após Pix já pago é registrado e estornado como duplici
       JSON.stringify({
         results: [
           {
-            transaction_amount: '249.90',
+            transaction_amount: '199.90',
             currency_id: 'BRL',
             debit_date: '2026-11-15T12:00:00.000Z',
             payment: { id: 880093, status: 'approved', status_detail: 'accredited' },
@@ -263,7 +263,7 @@ test('sincroniza valor da assinatura no Mercado Pago antes do próximo ciclo qua
   });
   platformPlanCatalogService.getByCode = async (plan) => {
     assert.equal(plan, 'PREMIUM');
-    return { monthlyFee: 249.9 };
+    return { monthlyFee: 199.9 };
   };
   processPaymentService.executeTracked = async ({ invoiceId }) => ({
     invoice: { id: invoiceId, status: 'PAGO' },
@@ -277,7 +277,7 @@ test('sincroniza valor da assinatura no Mercado Pago antes do próximo ciclo qua
 
     if (url.pathname === '/preapproval/preapproval-7' && init?.method === 'PUT') {
       assert.deepEqual(JSON.parse(String(init.body)), {
-        auto_recurring: { transaction_amount: 249.9, currency_id: 'BRL' },
+        auto_recurring: { transaction_amount: 199.9, currency_id: 'BRL' },
       });
       return new Response(JSON.stringify({ status: 'authorized' }), { status: 200 });
     }
@@ -287,7 +287,7 @@ test('sincroniza valor da assinatura no Mercado Pago antes do próximo ciclo qua
         JSON.stringify({
           status: 'authorized',
           next_payment_date: '2026-11-15T12:00:00.000Z',
-          auto_recurring: { transaction_amount: 149.9, currency_id: 'BRL' },
+          auto_recurring: { transaction_amount: 99.9, currency_id: 'BRL' },
         }),
         { status: 200, headers: { 'content-type': 'application/json' } },
       );

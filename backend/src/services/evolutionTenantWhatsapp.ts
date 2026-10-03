@@ -97,8 +97,39 @@ function secretMatches(value: string, storedHex: string) {
   return stored.length === candidate.length && timingSafeEqual(candidate, stored);
 }
 
-function instanceNameForRestaurant(restaurantId: number) {
-  return `gastronexa-${restaurantId}`;
+const LEGACY_TENANT_INSTANCE_PATTERN = /^gastronexa-\d+$/u;
+const TENANT_INSTANCE_PATTERN = /^gastronexa-(?:dev|test|stage|prod)-\d+-[a-f0-9]{16}$/u;
+
+function evolutionEnvironmentNamespace() {
+  const environment = String(process.env.NODE_ENV || 'development')
+    .trim()
+    .toLowerCase();
+  if (environment === 'production') return 'prod';
+  if (environment === 'test' || environment === 'testing') return 'test';
+  if (environment === 'staging' || environment === 'stage') return 'stage';
+  return 'dev';
+}
+
+export function isTenantEvolutionInstanceName(value: unknown) {
+  const instanceName = String(value || '').trim();
+  return (
+    LEGACY_TENANT_INSTANCE_PATTERN.test(instanceName) ||
+    TENANT_INSTANCE_PATTERN.test(instanceName)
+  );
+}
+
+export function buildTenantEvolutionInstanceName(
+  restaurantId: number,
+  nonce = randomBytes(8).toString('hex'),
+) {
+  if (!Number.isInteger(restaurantId) || restaurantId <= 0) {
+    throw new Error('restaurantId inválido para instância Evolution.');
+  }
+  const normalizedNonce = String(nonce || '').trim().toLowerCase();
+  if (!/^[a-f0-9]{16}$/u.test(normalizedNonce)) {
+    throw new Error('Identificador aleatório inválido para instância Evolution.');
+  }
+  return `gastronexa-${evolutionEnvironmentNamespace()}-${restaurantId}-${normalizedNonce}`;
 }
 
 async function readConnectionByRestaurant(restaurantId: number) {
@@ -265,7 +296,7 @@ async function deleteEvolutionInstance(instanceName: string) {
 }
 
 async function createEvolutionInstance(restaurantId: number) {
-  const instanceName = instanceNameForRestaurant(restaurantId);
+  const instanceName = buildTenantEvolutionInstanceName(restaurantId);
   const token = randomBytes(24).toString('hex');
   const webhookSecret = randomBytes(32).toString('hex');
 
@@ -461,7 +492,7 @@ export async function processTenantEvolutionInbound(
 ) {
   const instanceName = String(instanceNameInput || '').trim();
   const webhookToken = String(webhookTokenInput || '').trim();
-  if (!/^gastronexa-\d+$/u.test(instanceName)) {
+  if (!isTenantEvolutionInstanceName(instanceName)) {
     return { accepted: false, status: 404, reason: 'wrong_tenant_instance' } as const;
   }
   const body = bodyInput && typeof bodyInput === 'object' && !Array.isArray(bodyInput)

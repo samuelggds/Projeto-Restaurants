@@ -85,7 +85,7 @@ export const restaurantAccessUpdateSchema = z
 
 export const restaurantSubscriptionUpdateSchema = z
   .object({
-    planCode: z.enum(['BASICO', 'PREMIUM']).optional(),
+    planCode: z.enum(['BASICO', 'PREMIUM', 'GESTAO_TOTAL']).optional(),
     status: z.enum(['TESTE', 'ATIVA', 'EXPIRADA', 'CANCELADA']).optional(),
     trialEndsAt: isoDateTime.nullable().optional(),
     nextBillingAt: isoDateTime.nullable().optional(),

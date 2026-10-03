@@ -5,7 +5,7 @@ export type AiPlanSubscription = {
 
 export function hasPremiumAiAccess(subscription: AiPlanSubscription | null | undefined) {
   return (
-    String(subscription?.plan || '').toUpperCase() === 'PREMIUM' &&
+    ['PREMIUM', 'GESTAO_TOTAL'].includes(String(subscription?.plan || '').toUpperCase()) &&
     ['ATIVA', 'TESTE'].includes(String(subscription?.status || '').toUpperCase())
   );
 }

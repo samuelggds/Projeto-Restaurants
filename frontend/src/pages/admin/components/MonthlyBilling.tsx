@@ -42,8 +42,19 @@ const benefits: Record<PlanCode, string[]> = {
   PREMIUM: [
     'Sistema de delivery',
     'Cardápio digital com QR Code de mesa',
+    'Implantação inicial assistida',
+    'Cadastro inicial de até 150 produtos',
     'Suporte prioritário',
     'GastroNexa IA com US$ 2,00 de créditos iniciais',
+  ],
+  GESTAO_TOTAL: [
+    'Tudo do Plano Premium',
+    'Implantação inicial assistida',
+    'Gestão assistida contínua, inclusive com atualizações diárias sob solicitação',
+    'Atualizações de produtos, preços, categorias, combos, banners e configurações',
+    'Solicitações de atualização ilimitadas',
+    'Suporte prioritário',
+    'GastroNexa IA',
   ],
 };
 
@@ -51,25 +62,33 @@ const fallbackPlans: BillingPlan[] = [
   {
     plan: 'BASICO',
     name: 'Básico',
-    monthlyFee: 149.9,
+    monthlyFee: 99.9,
     trialDays: 7,
     features: benefits.BASICO,
   },
   {
     plan: 'PREMIUM',
     name: 'Premium',
-    monthlyFee: 249.9,
+    monthlyFee: 199.9,
     trialDays: 15,
     features: benefits.PREMIUM,
+  },
+  {
+    plan: 'GESTAO_TOTAL',
+    name: 'Gestão Total',
+    monthlyFee: 299.9,
+    trialDays: 15,
+    features: benefits.GESTAO_TOTAL,
   },
 ];
 
 const planDescriptions: Record<PlanCode, string> = {
   BASICO: 'O essencial para receber e gerenciar pedidos de delivery.',
-  PREMIUM: 'A operação completa, com delivery e atendimento nas mesas por QR Code.',
+  PREMIUM: 'Operação completa com implantação inicial assistida para começar pronto.',
+  GESTAO_TOTAL: 'Tudo do Premium com gestão contínua sob solicitação da equipe GastroNexa.',
 };
 
-const planIcons = { BASICO: Zap, PREMIUM: Sparkles };
+const planIcons = { BASICO: Zap, PREMIUM: Sparkles, GESTAO_TOTAL: ShieldCheck };
 const statusLabels: Record<string, string> = {
   TESTE: 'Período de teste',
   ATIVA: 'Assinatura ativa',
@@ -458,7 +477,7 @@ export function MonthlyBilling({
               return (
                 <S.PlanCard
                   key={plan.plan}
-                  $featured={plan.plan === 'PREMIUM'}
+                  $featured={plan.plan === 'GESTAO_TOTAL'}
                   $current={current}
                   aria-label={`Plano ${plan.name}${current ? ', plano atual' : ''}`}
                 >
@@ -469,7 +488,11 @@ export function MonthlyBilling({
                       </span>
                       <div>
                         <small>
-                          {plan.plan === 'PREMIUM' ? 'EXPERIÊNCIA COMPLETA' : 'PARA COMEÇAR'}
+                          {plan.plan === 'GESTAO_TOTAL'
+                            ? 'GESTÃO CONTÍNUA'
+                            : plan.plan === 'PREMIUM'
+                              ? 'IMPLANTAÇÃO ASSISTIDA'
+                              : 'PARA COMEÇAR'}
                         </small>
                         <h3>{plan.name}</h3>
                       </div>
@@ -478,7 +501,7 @@ export function MonthlyBilling({
                       <S.PlanTag $tone="current">
                         <BadgeCheck aria-hidden="true" /> Atual
                       </S.PlanTag>
-                    ) : plan.plan === 'PREMIUM' ? (
+                    ) : plan.plan === 'GESTAO_TOTAL' ? (
                       <S.PlanTag $tone="recommended">Mais completo</S.PlanTag>
                     ) : null}
                   </S.PlanCardTop>

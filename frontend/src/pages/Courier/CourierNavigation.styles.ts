@@ -134,8 +134,15 @@ export const UserBlock = styled.div`
     border: 1px solid color-mix(in srgb, var(--courier-primary) 60%, transparent);
     border-radius: 8px;
     color: #fff;
+    overflow: hidden;
     background: color-mix(in srgb, var(--courier-primary) 34%, #1d2823);
     font-weight: 800;
+
+    img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
   }
 
   span:not(.avatar) {

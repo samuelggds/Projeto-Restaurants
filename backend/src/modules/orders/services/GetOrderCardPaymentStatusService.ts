@@ -5,6 +5,7 @@ import {
   PaymentMethod,
 } from '@prisma/client';
 import { z } from 'zod';
+import { formatDeliveryTimeRange } from '../../restaurantSettings/utils/deliveryTimeRange.js';
 import orderRepository from '../repositories/OrderRepository.js';
 import asaasPaymentVerificationService from './AsaasPaymentVerificationService.js';
 import finalizeOrderCardPaymentService from './FinalizeOrderCardPaymentService.js';
@@ -219,7 +220,12 @@ class GetOrderCardPaymentStatusService {
       restaurantId: order.restaurantId,
       restaurantName: order.restaurant?.name || '',
       restaurantLogoUrl: order.restaurant?.logo || null,
-      deliveryTime: order.restaurant?.settings?.averageDeliveryTime || null,
+      deliveryTime:
+        formatDeliveryTimeRange({
+          averageDeliveryTime: order.restaurant?.settings?.averageDeliveryTime,
+          deliveryTimeMin: order.restaurant?.settings?.deliveryTimeMin,
+          deliveryTimeMax: order.restaurant?.settings?.deliveryTimeMax,
+        }) || null,
       totalAmount: Number(order.total),
       paidAt: order.paidAt,
       kitchenPrintedAt:

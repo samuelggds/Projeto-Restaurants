@@ -6,6 +6,7 @@ export type AdminSection =
   | 'catalog'
   | 'customers'
   | 'subscriptions'
+  | 'managed-service'
   | 'help'
   | 'settings'
   | 'employees';
@@ -295,6 +296,8 @@ export type AdminSettings = {
   openFinancePixEnabled: boolean;
   acceptsCard: boolean;
   deliveryTime: number;
+  deliveryTimeMin: number;
+  deliveryTimeMax: number;
   autoAcceptOrders: boolean;
   trackingRequiresLogin: boolean;
   soundNotifications: boolean;

@@ -346,7 +346,10 @@ export function socketHandler(socket: AppSocket) {
       // A localização é privada: somente o cliente dono do pedido e os admins
       // do mesmo restaurante recebem a posição em tempo real.
       const publisher = distributedStateEnabled() ? realtimePublisher : socket;
-      publisher.to(`user:${order.userId}`).emit('order:delivery-location', payload);
+      publisher.to(`guest-order:${order.id}`).emit('order:delivery-location', payload);
+      if (order.userId) {
+        publisher.to(`user:${order.userId}`).emit('order:delivery-location', payload);
+      }
       publisher
         .to(`restaurant:${order.restaurantId}:admin`)
         .emit('order:delivery-location', payload);
@@ -480,7 +483,8 @@ export function socketHandler(socket: AppSocket) {
       });
 
       const plan = String(subscription?.plan || '').toUpperCase();
-      const supportChatEnabledPlan = plan === 'BASICO' || plan === 'PREMIUM';
+      const supportChatEnabledPlan =
+        plan === 'BASICO' || plan === 'PREMIUM' || plan === 'GESTAO_TOTAL';
 
       if (!supportChatEnabledPlan) {
         reply({

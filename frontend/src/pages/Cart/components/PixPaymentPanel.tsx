@@ -22,6 +22,7 @@ import {
   paymentSurfaceRise,
 } from '../../../components/payment/paymentMotion';
 import type { PixPaymentData, PixPaymentStatus } from '../../Home/hooks/useCheckoutPayments';
+import { formatDeliveryTime } from '../../../utils/deliveryTime';
 
 type OrderItemSummary = {
   name: string;
@@ -80,6 +81,7 @@ export default function PixPaymentPanel({
 }: Props) {
   const [copied, setCopied] = useState(false);
   const [nowMs, setNowMs] = useState(() => Date.now());
+  const deliveryTimeLabel = formatDeliveryTime(deliveryTime);
   const copyTimeoutRef = useRef<number | null>(null);
   const expiresAtMs = pixPaymentData.expiresAt ? Date.parse(pixPaymentData.expiresAt) : Number.NaN;
   const remaining = Number.isFinite(expiresAtMs)
@@ -236,12 +238,12 @@ export default function PixPaymentPanel({
               <>
                 <DesktopSuccessDetails>
                   <div><span>Número do Pedido</span><strong>{orderPublicId ? '#' + orderPublicId : pixPaymentData.orderId ? '#' + pixPaymentData.orderId : '—'}</strong></div>
-                  <div><span>Tempo Estimado</span><strong>{deliveryTime || 'A confirmar'}</strong></div>
+                  <div><span>Tempo Estimado</span><strong>{deliveryTimeLabel || 'A confirmar'}</strong></div>
                   <div><span>Endereço de Entrega</span><strong>{deliveryAddress || 'Consulte o acompanhamento do pedido'}</strong></div>
                 </DesktopSuccessDetails>
 
                 <MobileSuccessDetails>
-                  {deliveryTime ? <div className="eta"><span>Previsão de entrega</span><strong>{deliveryTime}</strong></div> : null}
+                  {deliveryTimeLabel ? <div className="eta"><span>Previsão de entrega</span><strong>{deliveryTimeLabel}</strong></div> : null}
                   <div className="prep"><Dots><i /><i /><i /></Dots><b>O restaurante já está preparando seu pedido</b></div>
                 </MobileSuccessDetails>
 

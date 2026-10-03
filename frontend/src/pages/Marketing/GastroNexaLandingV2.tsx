@@ -110,7 +110,9 @@ function ScrollLink({
 
 export default function GastroNexaLandingV2() {
   const [menuOpen, setMenuOpen] = useState(false);
-  const [initialPlan, setInitialPlan] = useState<'BASICO' | 'PREMIUM' | 'UNDECIDED'>('UNDECIDED');
+  const [initialPlan, setInitialPlan] = useState<
+    'BASICO' | 'PREMIUM' | 'GESTAO_TOTAL' | 'UNDECIDED'
+  >('UNDECIDED');
   const headerRef = useRef<HTMLElement>(null);
   const menuButtonRef = useRef<HTMLButtonElement>(null);
 

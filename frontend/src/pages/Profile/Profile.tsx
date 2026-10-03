@@ -32,34 +32,7 @@ import {
   OrderSupportDialog,
   type OrderSupportOrder,
 } from '../../features/order-support/OrderSupportDialog';
-
-function resizeToSquareBase64(file: File, size: number, quality: number): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    const url = URL.createObjectURL(file);
-    img.onload = () => {
-      const canvas = document.createElement('canvas');
-      canvas.width = size;
-      canvas.height = size;
-      const ctx = canvas.getContext('2d');
-      if (!ctx) {
-        reject(new Error('Canvas not supported'));
-        return;
-      }
-      const scale = Math.max(size / img.width, size / img.height);
-      const sw = img.width * scale;
-      const sh = img.height * scale;
-      ctx.drawImage(img, (size - sw) / 2, (size - sh) / 2, sw, sh);
-      URL.revokeObjectURL(url);
-      resolve(canvas.toDataURL('image/jpeg', quality));
-    };
-    img.onerror = () => {
-      URL.revokeObjectURL(url);
-      reject(new Error('Falha ao carregar imagem'));
-    };
-    img.src = url;
-  });
-}
+import { resizeProfileAvatar } from '../../utils/profileAvatar';
 
 export default function Profile() {
   const { user, logout, login } = useAuth();
@@ -333,7 +306,7 @@ export default function Profile() {
 
   const handleUploadAvatar = useCallback(
     async (file: File) => {
-      const base64 = await resizeToSquareBase64(file, 160, 0.8);
+      const base64 = await resizeProfileAvatar(file);
       const { data: updated } = await api.put('/auth/profile', {
         avatar: base64,
       });

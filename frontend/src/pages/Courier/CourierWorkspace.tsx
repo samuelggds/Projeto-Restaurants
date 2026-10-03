@@ -740,6 +740,7 @@ export default function CourierWorkspace() {
         view={view}
         restaurantName={brand.name}
         userName={user?.name || 'Motoqueiro'}
+        userAvatar={String(user?.avatar || '')}
         readyCount={ready.length}
         routeCount={inRoute.length}
         deliveredCount={delivered.length}
@@ -1119,7 +1120,7 @@ export default function CourierWorkspace() {
                   user={user}
                   onUpdated={(updated) => {
                     const token = getAccessToken();
-                    if (token) login(updated, token);
+                    if (token) login({ ...(user || {}), ...updated }, token);
                   }}
                 />
               </Suspense>

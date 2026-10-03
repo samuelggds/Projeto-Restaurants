@@ -19,7 +19,12 @@ const emailLabels = {
   SENT: 'Aviso por e-mail enviado',
   FAILED: 'Falha no aviso por e-mail',
 } as const;
-const planLabels = { BASICO: 'Básico', PREMIUM: 'Premium', UNDECIDED: 'Quero orientação' } as const;
+const planLabels = {
+  BASICO: 'Básico',
+  PREMIUM: 'Premium',
+  GESTAO_TOTAL: 'Gestão Total',
+  UNDECIDED: 'Quero orientação',
+} as const;
 const channelLabels = { DELIVERY: 'Delivery', TABLE: 'Mesas', PICKUP: 'Retirada' } as const;
 const statusTone = { NEW: 'blue', CONTACTED: 'green', ARCHIVED: 'gray' } as const;
 

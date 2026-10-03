@@ -1,16 +1,6 @@
 import type { CustomerAddress } from '../../../Services/customerAddressService';
 
-export function formatDeliveryTime(value?: string) {
-  const raw = String(value || '').trim();
-  if (!raw) return '';
-
-  const normalized = raw.replace(/^entrega\s+em\s+/i, '').trim();
-  if (/\b(?:min|minuto|minutos|h|hora|horas)\b/i.test(normalized)) return normalized;
-  if (/^\d+(?:\s*(?:[-–—]|a)\s*\d+)?$/i.test(normalized)) {
-    return `${normalized.replace(/\s*[-–—]\s*/g, '-')} min`;
-  }
-  return normalized;
-}
+export { formatDeliveryTime } from '../../../utils/deliveryTime';
 
 export function formatCustomerLocationLabel(
   method: 'delivery' | 'pickup',

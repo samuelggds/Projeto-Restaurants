@@ -113,6 +113,8 @@ function buildSettingsFromApi(raw: Record<string, unknown>): RestaurantSettings 
     deliveryFee: Number(raw?.deliveryFee ?? 0),
     courierFeePerDelivery: Number(raw?.courierFeePerDelivery ?? 0),
     averageDeliveryTime: String(raw?.averageDeliveryTime ?? ''),
+    deliveryTimeMin: Number(raw?.deliveryTimeMin ?? raw?.averageDeliveryTime ?? 0),
+    deliveryTimeMax: Number(raw?.deliveryTimeMax ?? raw?.averageDeliveryTime ?? 0),
     acceptsPix: Boolean(raw?.acceptsPix ?? true),
     openFinancePixEnabled: Boolean(raw?.openFinancePixEnabled ?? false),
     acceptsCard: Boolean(raw?.acceptsCard ?? true),
@@ -144,7 +146,16 @@ function buildApiPayload(settings: RestaurantSettings) {
     minimumOrder: settings.minimumOrder,
     deliveryFee: settings.deliveryFee,
     courierFeePerDelivery: settings.courierFeePerDelivery,
-    averageDeliveryTime: settings.averageDeliveryTime,
+    averageDeliveryTime:
+      settings.deliveryTimeMin > 0 ? settings.deliveryTimeMin : null,
+    deliveryTimeMin:
+      settings.deliveryTimeMin === 0 && settings.deliveryTimeMax === 0
+        ? null
+        : settings.deliveryTimeMin,
+    deliveryTimeMax:
+      settings.deliveryTimeMin === 0 && settings.deliveryTimeMax === 0
+        ? null
+        : settings.deliveryTimeMax,
     acceptsPix: settings.acceptsPix,
     openFinancePixEnabled: settings.openFinancePixEnabled,
     acceptsCard: settings.acceptsCard,

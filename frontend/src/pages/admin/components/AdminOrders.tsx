@@ -472,6 +472,13 @@ export function AdminOrders({
                 !order.paid &&
                 !order.paymentMethod &&
                 !order.payOnDelivery;
+              const payOnDeliveryMethod = String(
+                order.payOnDeliveryMethod || order.paymentMethod || '',
+              )
+                .trim()
+                .toUpperCase();
+              const canConfirmCashPayment =
+                !order.paid && order.payOnDelivery === true && payOnDeliveryMethod === 'DINHEIRO';
 
               return (
                 <article
@@ -616,6 +623,11 @@ export function AdminOrders({
                         <AlertTriangle aria-hidden="true" />
                         Pagamento sem estorno online automático
                       </span>
+                    ) : canConfirmCashPayment && order.status === 'ENTREGUE' ? (
+                      <span className="operation-note manual-note">
+                        <CircleDollarSign aria-hidden="true" />
+                        Entrega concluída · aguardando confirmação do dinheiro
+                      </span>
                     ) : (
                       <span className="operation-note finished-note">
                         {isFinished ? (
@@ -644,24 +656,26 @@ export function AdminOrders({
                         </button>
                       </div>
                     )}
+                    {canConfirmCashPayment && (
+                      <div className="action-buttons">
+                        <button
+                          className="confirm-payment"
+                          type="button"
+                          onClick={() => void confirmPayment(order)}
+                          disabled={confirmingPaymentId !== null || cancellingOrderId !== null}
+                          aria-label={`Confirmar pagamento do pedido ${order.id}`}
+                        >
+                          {isConfirmingPayment ? (
+                            <LoaderCircle className="loading-icon" aria-hidden="true" />
+                          ) : (
+                            <CheckCircle2 aria-hidden="true" />
+                          )}
+                          {isConfirmingPayment ? 'Confirmando...' : 'Confirmar pagamento'}
+                        </button>
+                      </div>
+                    )}
                     {canCancelAdminOrder(order) && (
                       <div className="action-buttons">
-                        {!order.paid && order.payOnDelivery && (
-                          <button
-                            className="confirm-payment"
-                            type="button"
-                            onClick={() => void confirmPayment(order)}
-                            disabled={confirmingPaymentId !== null || cancellingOrderId !== null}
-                            aria-label={`Confirmar pagamento do pedido ${order.id}`}
-                          >
-                            {isConfirmingPayment ? (
-                              <LoaderCircle className="loading-icon" aria-hidden="true" />
-                            ) : (
-                              <CheckCircle2 aria-hidden="true" />
-                            )}
-                            {isConfirmingPayment ? 'Confirmando...' : 'Confirmar pagamento'}
-                          </button>
-                        )}
                         <button
                           className="cancel-order"
                           type="button"

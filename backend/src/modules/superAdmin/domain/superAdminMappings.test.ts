@@ -42,8 +42,8 @@ test('status de suporte é derivado do último remetente sem prioridade ou SLA i
 
 test('MRR soma somente mensalidades das assinaturas ATIVA', () => {
   const fees = new Map([
-    ['BASICO', 149.9],
-    ['PREMIUM', 249.9],
+    ['BASICO', 99.9],
+    ['PREMIUM', 199.9],
   ]);
   const result = calculateMrr(
     [
@@ -54,5 +54,5 @@ test('MRR soma somente mensalidades das assinaturas ATIVA', () => {
     ],
     fees,
   );
-  assert.equal(result, 399.8);
+  assert.equal(result, 299.8);
 });

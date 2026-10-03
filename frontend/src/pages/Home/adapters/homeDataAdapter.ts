@@ -492,7 +492,10 @@ export function buildHomeData(
     banners,
     categories,
     products,
-    deliveryTime: String(settings?.averageDeliveryTime || ''),
+    deliveryTime:
+      Number(settings?.deliveryTimeMin ?? 0) > 0 && Number(settings?.deliveryTimeMax ?? 0) > 0
+        ? `${Number(settings.deliveryTimeMin)}-${Number(settings.deliveryTimeMax)}`
+        : String(settings?.averageDeliveryTime || ''),
     minimumOrder: Number(settings?.minimumOrder || 0),
     deliveryFeeMode: settings?.deliveryFeeMode === 'DISTANCE' ? 'DISTANCE' : 'FIXED',
     deliveryFee: Number(settings?.deliveryFee || 0),

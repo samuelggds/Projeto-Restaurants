@@ -242,16 +242,16 @@ export function PremiumTableFeatureGate({ children }: { children: ReactNode }) {
   if (accessState === 'allowed') return <>{children}</>;
 
   return (
-    <Shell aria-label="Recurso exclusivo do plano Premium">
+    <Shell aria-label="Recurso disponível nos planos Premium e Gestão Total">
       <Hero>
         <div>
           <span className="badge">
-            <Sparkles size={14} /> RECURSO PREMIUM
+            <Sparkles size={14} /> RECURSO AVANÇADO
           </span>
-          <h2>Sistema de mesas disponível no Premium</h2>
+          <h2>Sistema de mesas disponível no Premium e Gestão Total</h2>
           <p>
             Seu plano Básico continua com o sistema de delivery. Para usar o atendimento presencial
-            por mesa, QR Code e conta compartilhada, faça o upgrade para o Premium.
+            por mesa, QR Code e conta compartilhada, escolha o Premium ou Gestão Total.
           </p>
         </div>
         <span className="icon" aria-hidden="true">
@@ -267,7 +267,7 @@ export function PremiumTableFeatureGate({ children }: { children: ReactNode }) {
         </ul>
         <div className="actions">
           <span>O delivery permanece disponível normalmente no plano Básico.</span>
-          <a href="/admin?area=subscriptions&billing=plans">Conhecer o plano Premium</a>
+          <a href="/admin?area=subscriptions&billing=plans">Conhecer os planos</a>
         </div>
       </Body>
     </Shell>

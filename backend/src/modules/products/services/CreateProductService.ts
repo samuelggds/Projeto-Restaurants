@@ -13,6 +13,9 @@ import { validateDynamicProductPricing } from '../utils/productPricingMode.js';
 
 type CreateProductInput = z.infer<typeof createProductSchema>;
 type Actor = { userId?: number; userName?: string; userRole?: string };
+type CreateProductOptions = {
+  beforeCreate?: (db: Parameters<typeof setTenantDbContext>[0]) => Promise<void>;
+};
 
 function requireDefined<T>(value: T | null | undefined, message: string): NonNullable<T> {
   if (value === null || value === undefined) {
@@ -23,7 +26,12 @@ function requireDefined<T>(value: T | null | undefined, message: string): NonNul
 }
 
 class CreateProductService {
-  async execute(data: CreateProductInput, restaurantId: number, actor: Actor = {}) {
+  async execute(
+    data: CreateProductInput,
+    restaurantId: number,
+    actor: Actor = {},
+    options: CreateProductOptions = {},
+  ) {
     if (!restaurantId) {
       throw new Error('Restaurante não encontrado');
     }
@@ -61,6 +69,7 @@ class CreateProductService {
 
     const product = await prisma.$transaction(async (tx) => {
       await setTenantDbContext(tx, restaurantId);
+      await options.beforeCreate?.(tx);
       const category = await tx.category.findFirst({
         where: { id: requiredCategoryId, restaurantId },
         select: { id: true },

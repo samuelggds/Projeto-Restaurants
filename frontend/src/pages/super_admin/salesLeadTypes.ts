@@ -1,7 +1,7 @@
 export type SalesLeadStatus = 'NEW' | 'CONTACTED' | 'ARCHIVED';
 export type SalesLeadEmailStatus = 'PENDING' | 'SENT' | 'FAILED';
 export type SalesLeadChannel = 'DELIVERY' | 'TABLE' | 'PICKUP';
-export type SalesLeadPlan = 'BASICO' | 'PREMIUM' | 'UNDECIDED';
+export type SalesLeadPlan = 'BASICO' | 'PREMIUM' | 'GESTAO_TOTAL' | 'UNDECIDED';
 
 export interface SalesLead {
   id: string;

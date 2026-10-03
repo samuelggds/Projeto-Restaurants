@@ -3,7 +3,7 @@ import { ArrowUpRight, Check, Clock3, Sparkles, Store } from 'lucide-react';
 import api from '../../../Services/api';
 import * as S from '../GastroNexaLandingV2.styles';
 
-type PlanInterest = 'BASICO' | 'PREMIUM';
+type PlanInterest = 'BASICO' | 'PREMIUM' | 'GESTAO_TOTAL';
 type PublicPlan = {
   code: PlanInterest;
   name: string;
@@ -18,7 +18,7 @@ const fallbackPlans: PublicPlan[] = [
   {
     code: 'BASICO',
     name: 'Básico',
-    monthlyFee: 149.9,
+    monthlyFee: 99.9,
     trialDays: 7,
     description: 'Operação de delivery para restaurantes que estão iniciando na plataforma.',
     features: ['Sistema de delivery', 'Suporte padrão'],
@@ -27,14 +27,33 @@ const fallbackPlans: PublicPlan[] = [
   {
     code: 'PREMIUM',
     name: 'Premium',
-    monthlyFee: 249.9,
+    monthlyFee: 199.9,
     trialDays: 15,
-    description: 'Experiência completa com delivery e atendimento por QR Code de mesa.',
+    description: 'Operação completa com implantação inicial assistida para começar pronto.',
     features: [
       'Sistema de delivery',
       'Cardápio digital com QR Code de mesa',
+      'Implantação inicial assistida',
+      'Cadastro inicial de até 150 produtos',
       'Suporte prioritário',
-      'Agente de IA para automações do Sistema',
+      'Agente de IA para automações do sistema',
+    ],
+    featured: false,
+  },
+  {
+    code: 'GESTAO_TOTAL',
+    name: 'Gestão Total',
+    monthlyFee: 299.9,
+    trialDays: 15,
+    description: 'Tudo do Premium com gestão contínua sob solicitação da equipe GastroNexa.',
+    features: [
+      'Tudo do Plano Premium',
+      'Implantação inicial assistida',
+      'Gestão assistida contínua, inclusive com atualizações diárias sob solicitação',
+      'Atualizações de produtos, preços, categorias, combos, banners e configurações',
+      'Solicitações de atualização ilimitadas',
+      'Suporte prioritário',
+      'GastroNexa IA',
     ],
     featured: true,
   },
@@ -55,7 +74,7 @@ function normalizePlans(value: unknown): PublicPlan[] {
     .map((item) => {
       const plan = item as Record<string, unknown>;
       const code = String(plan.code || '').toUpperCase();
-      if (code !== 'BASICO' && code !== 'PREMIUM') return null;
+      if (code !== 'BASICO' && code !== 'PREMIUM' && code !== 'GESTAO_TOTAL') return null;
       const monthlyFee = Number(plan.monthlyFee);
       const trialDays = Number(plan.trialDays);
       return {

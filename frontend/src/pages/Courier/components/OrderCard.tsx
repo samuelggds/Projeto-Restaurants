@@ -180,8 +180,10 @@ export default function OrderCard({
     customerContactEnabled && canDeliver && /^\d{10,15}$/.test(customerPhoneDigits);
   const payOnDeliveryMethod = getPayOnDeliveryMethod(order);
   const automatedPayOnDelivery = payOnDeliveryMethod === 'PIX' || payOnDeliveryMethod === 'CARTAO';
+  const isCashPayOnDelivery = payOnDeliveryMethod === 'DINHEIRO';
   const providerPaid = order.paid === true || deliveryPayment?.status === 'PAID';
   const paymentPendingConfirmation = !providerPaid;
+  const paymentBlocksDelivery = paymentPendingConfirmation && !isCashPayOnDelivery;
   const normalizedDeliveryCode = String(deliveryCode || '').replace(/\D/g, '');
   const isDeliveryCodeValid = /^\d{4}$/.test(normalizedDeliveryCode);
   const paymentStatusLabel = providerPaid ? 'Pago' : 'Não pago';
@@ -225,7 +227,7 @@ export default function OrderCard({
   }
 
   async function handleMarkDelivered() {
-    if (paymentPendingConfirmation) {
+    if (paymentBlocksDelivery) {
       setError('O pagamento precisa estar confirmado antes de concluir a entrega.');
       return;
     }
@@ -486,9 +488,11 @@ export default function OrderCard({
             <C.Hint>
               <Info aria-hidden="true" />
               <span>
-                {paymentPendingConfirmation
+                {paymentBlocksDelivery
                   ? 'O botão de entrega será liberado somente quando o pagamento estiver confirmado.'
-                  : 'Peça ao cliente o código de 4 dígitos exibido no acompanhamento do pedido.'}
+                  : isCashPayOnDelivery && !providerPaid
+                    ? 'Receba o dinheiro e peça ao cliente o código de 4 dígitos. O código confirma a entrega; o ADMIN confirma o pagamento depois.'
+                    : 'Peça ao cliente o código de 4 dígitos exibido no acompanhamento do pedido.'}
               </span>
             </C.Hint>
             <C.DeliveryActions>
@@ -508,9 +512,9 @@ export default function OrderCard({
               <C.DeliverButton
                 type="button"
                 onClick={handleMarkDelivered}
-                disabled={loading || paymentPendingConfirmation || !isDeliveryCodeValid}
+                disabled={loading || paymentBlocksDelivery || !isDeliveryCodeValid}
                 title={
-                  paymentPendingConfirmation
+                  paymentBlocksDelivery
                     ? 'Pagamento ainda não confirmado'
                     : !isDeliveryCodeValid
                       ? 'Digite o código de 4 dígitos'

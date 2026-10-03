@@ -1,0 +1,66 @@
+import assert from 'node:assert/strict';
+import test from 'node:test';
+import {
+  implementationUpdateSchema,
+  managedRequestCreateSchema,
+  managedRequestUpdateSchema,
+} from './managedServiceSchemas.js';
+
+test('solicitação do ADMIN não aceita restaurantId no corpo', () => {
+  assert.throws(
+    () =>
+      managedRequestCreateSchema.parse({
+        restaurantId: 999,
+        category: 'PRODUTO',
+        title: 'Cadastrar pizza nova',
+        description: 'Cadastrar a pizza conforme os dados enviados pelo restaurante.',
+      }),
+    /unrecognized|Unrecognized|não reconhecida|não reconhecido/iu,
+  );
+});
+
+test('valida categorias e estados operacionais permitidos', () => {
+  const request = managedRequestCreateSchema.parse({
+    category: 'PRECO',
+    title: 'Atualizar preços',
+    description: 'Alterar os valores dos produtos listados na solicitação.',
+  });
+  assert.equal(request.category, 'PRECO');
+  assert.equal(implementationUpdateSchema.parse({ status: 'EM_REVISAO' }).status, 'EM_REVISAO');
+  assert.equal(managedRequestUpdateSchema.parse({ status: 'CONCLUIDA' }).status, 'CONCLUIDA');
+  assert.throws(
+    () => managedRequestUpdateSchema.parse({ status: 'APROVADA_SEM_REVISAO' }),
+  );
+});
+
+test('bloqueia credenciais persistidas em solicitações e respostas', () => {
+  assert.throws(() =>
+    managedRequestCreateSchema.parse({
+      category: 'CONFIGURACAO',
+      title: 'Configurar integração',
+      description: 'access_token=APP_USR-12345678901234567890',
+    }),
+  );
+
+  assert.throws(() =>
+    managedRequestUpdateSchema.parse({
+      status: 'AGUARDANDO_CLIENTE',
+      response: 'Use Bearer abcdefghijklmnopqrstuvwxyz123456',
+    }),
+  );
+
+  assert.throws(() =>
+    implementationUpdateSchema.parse({
+      status: 'EM_IMPLANTACAO',
+      notes: 'MFA: 123456',
+    }),
+  );
+
+  assert.throws(() =>
+    managedRequestCreateSchema.parse({
+      category: 'CONFIGURACAO',
+      title: 'Atualizar dados',
+      description: 'conta bancária: 12345-6',
+    }),
+  );
+});

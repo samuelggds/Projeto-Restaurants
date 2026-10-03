@@ -23,7 +23,7 @@ export const createSalesLeadSchema = z
       .min(1)
       .max(3)
       .transform((values) => [...new Set(values)].sort()),
-    planInterest: z.enum(['BASICO', 'PREMIUM', 'UNDECIDED']),
+    planInterest: z.enum(['BASICO', 'PREMIUM', 'GESTAO_TOTAL', 'UNDECIDED']),
     message: z
       .string()
       .trim()

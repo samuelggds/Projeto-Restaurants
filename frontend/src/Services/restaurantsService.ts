@@ -1,7 +1,7 @@
 import api from './api';
 
 export type CreateRestaurantPayload = {
-  plan: 'BASICO' | 'PREMIUM';
+  plan: 'BASICO' | 'PREMIUM' | 'GESTAO_TOTAL';
   restaurant: {
     name: string;
     slug: string;

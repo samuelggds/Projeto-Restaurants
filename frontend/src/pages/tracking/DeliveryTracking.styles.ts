@@ -463,12 +463,13 @@ export const CourierCard = styled.section`
 
   > span { min-width: 0; display: grid; gap: 2px; }
   strong { overflow: hidden; color: #1f1e1a; font-size: 15px; font-weight: 800; text-overflow: ellipsis; white-space: nowrap; }
-  a { color: #268c43; font-size: 12px; font-weight: 700; text-decoration: none; }
+  .courier-phone { color: #248c59; font-size: 11px; font-weight: 800; text-decoration: none; }
+  .courier-waiting { color: #9b9690; font-size: 11px; font-weight: 650; }
   .call { width: 40px; height: 40px; display: grid; place-items: center; border-radius: 20px; color: #e85a2b; background: #fdf2ec; }
   .call svg { width: 20px; height: 20px; }
 
   @media (max-width: 900px) {
-    padding: 20px 0;
+    padding: 18px 0;
     border: 0;
     border-bottom: 1px solid #efece6;
     border-radius: 0;

@@ -135,21 +135,29 @@ describe('configurações principais do administrador', () => {
     const update = vi.fn();
     act(() => root.render(<OrderFlowSettings settings={adminMockSettings} update={update} />));
 
-    const preparation = container.querySelector(
-      '[aria-label="Tempo médio em minutos"]',
+    const minimum = container.querySelector(
+      '[aria-label="Tempo mínimo de entrega"]',
+    ) as HTMLInputElement;
+    const maximum = container.querySelector(
+      '[aria-label="Tempo máximo de entrega"]',
     ) as HTMLInputElement;
     const capacity = container.querySelector(
       '[aria-label="Limite de pedidos simultâneos"]',
     ) as HTMLInputElement;
     act(() => {
-      preparation.focus();
-      changeValue(preparation, '999');
-      preparation.blur();
+      minimum.focus();
+      changeValue(minimum, '999');
+      minimum.blur();
+      maximum.focus();
+      changeValue(maximum, '999');
+      maximum.blur();
       capacity.focus();
       changeValue(capacity, '900');
       capacity.blur();
     });
+    expect(update).toHaveBeenCalledWith('deliveryTimeMin', 240);
     expect(update).toHaveBeenCalledWith('deliveryTime', 240);
+    expect(update).toHaveBeenCalledWith('deliveryTimeMax', 240);
     expect(update).toHaveBeenCalledWith('maxConcurrentOrders', 500);
   });
 });

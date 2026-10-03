@@ -14,9 +14,6 @@ import ListMyOrdersController from '../controllers/ListMyOrdersController.js';
 import CancelOrderController from '../controllers/CancelOrderController.js';
 import CancelTableParticipantOrderController from '../controllers/CancelTableParticipantOrderController.js';
 import ConfirmOrderPaymentController from '../controllers/ConfirmOrderPaymentController.js';
-import ConfirmOrderPaymentWithPinController from '../controllers/ConfirmOrderPaymentWithPinController.js';
-import GenerateOrderPaymentConfirmationPinController from '../controllers/GenerateOrderPaymentConfirmationPinController.js';
-import RequestOrderPaymentConfirmationPinController from '../controllers/RequestOrderPaymentConfirmationPinController.js';
 import CreateOrderPixPaymentController from '../controllers/CreateOrderPixPaymentController.js';
 import CreateOrderOpenFinancePaymentController from '../controllers/CreateOrderOpenFinancePaymentController.js';
 import OpenFinanceInstitutionsController from '../controllers/OpenFinanceInstitutionsController.js';
@@ -60,8 +57,6 @@ import { premiumTableOrderMiddleware } from '../../../middlewares/premiumTableOr
 import { deliveryTrackingAccessMiddleware } from '../../../middlewares/deliveryTrackingAccessMiddleware.js';
 import {
   deliveryConfirmationAttemptRateLimitMiddleware,
-  paymentPinAttemptRateLimitMiddleware,
-  paymentPinRequestRateLimitMiddleware,
   onlineCheckoutRateLimitMiddleware,
 } from '../../../middlewares/security/orderPaymentRateLimitMiddleware.js';
 
@@ -246,30 +241,6 @@ router.patch(
 router.patch('/:id/confirm-payment', authMiddleware, adminMiddleware, (req, res) => {
   ConfirmOrderPaymentController.handle(req, res);
 });
-
-router.post('/:id/payment-confirmation-pin', authMiddleware, adminMiddleware, (req, res) => {
-  GenerateOrderPaymentConfirmationPinController.handle(req, res);
-});
-
-router.post(
-  '/:id/request-payment-confirmation-pin',
-  authMiddleware,
-  staffMiddleware,
-  paymentPinRequestRateLimitMiddleware,
-  (req, res) => {
-    RequestOrderPaymentConfirmationPinController.handle(req, res);
-  },
-);
-
-router.patch(
-  '/:id/confirm-payment-with-pin',
-  authMiddleware,
-  staffMiddleware,
-  paymentPinAttemptRateLimitMiddleware,
-  (req, res) => {
-    ConfirmOrderPaymentWithPinController.handle(req, res);
-  },
-);
 
 router.get('/reports/overview', authMiddleware, adminMiddleware, (req, res) => {
   OrderReportsController.overview(req, res);

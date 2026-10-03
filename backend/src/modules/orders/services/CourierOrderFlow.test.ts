@@ -7,8 +7,6 @@ import { realtimePublisher as io } from '../../../realtime/realtimePublisher.js'
 import orderRepository from '../repositories/OrderRepository.js';
 import courierAccessService from './CourierAccessService.js';
 import updateOrderStatusService from './UpdateOrderStatusService.js';
-import requestOrderPaymentConfirmationPinService from './RequestOrderPaymentConfirmationPinService.js';
-import confirmOrderPaymentWithPinService from './ConfirmOrderPaymentWithPinService.js';
 import { generateDeliveryConfirmationCode } from '../utils/deliveryConfirmationCode.js';
 import orderCapacityQueueService from './OrderCapacityQueueService.js';
 
@@ -50,8 +48,6 @@ function deliveryOrder(overrides = {}) {
     paid: true,
     payOnDelivery: true,
     paymentMethod: PaymentMethod.DINHEIRO,
-    paymentConfirmationPin: null,
-    paymentConfirmationPinExpiresAt: null,
     observation: null,
     user: { id: 12, name: 'Cliente', phone: '+5585999991234' },
     restaurant: { id: 7, name: 'Restaurante', whatsapp: null },
@@ -76,7 +72,7 @@ function activeCourier() {
   };
 }
 
-function completionTx({ count = 1, current }) {
+function completionTx({ count = 1, current, cashPending = false }) {
   return {
     $queryRaw: async () => [{ set_config: '7' }],
     order: {
@@ -84,7 +80,13 @@ function completionTx({ count = 1, current }) {
         assert.equal(where.restaurantId, 7);
         assert.equal(where.type, OrderType.DELIVERY);
         assert.equal(where.status, OrderStatus.SAIU_PARA_ENTREGA);
-        assert.equal(where.paid, true);
+        if (cashPending) {
+          assert.equal(where.payOnDelivery, true);
+          assert.ok(Array.isArray(where.OR));
+          assert.equal(where.paid, undefined);
+        } else {
+          assert.equal(where.paid, true);
+        }
         assert.deepEqual(where.refundStatus, { notIn: ['PROCESSING', 'SUCCEEDED'] });
         assert.equal(where.assignedCourierId, 31);
         assert.equal(data.status, OrderStatus.ENTREGUE);
@@ -147,22 +149,69 @@ test('pago + código ausente ou incorreto permanece bloqueado', async () => {
   assert.equal(transactions, 0);
 });
 
-test('não pago + código correto é bloqueado, inclusive dinheiro ainda não confirmado', async () => {
-  const order = deliveryOrder({ paid: false, paymentMethod: PaymentMethod.DINHEIRO });
+test('dinheiro não pago + código correto conclui entrega sem marcar pagamento', async () => {
+  const order = deliveryOrder({
+    paid: false,
+    paymentMethod: PaymentMethod.DINHEIRO,
+    payOnDeliveryMethod: PaymentMethod.DINHEIRO,
+  });
+  const delivered = { ...order, status: OrderStatus.ENTREGUE, deliveredAt: new Date() };
+  let pendingAudit = 0;
   activeCourier();
-  orderRepository.findById = async () => order;
-  await assert.rejects(
-    () =>
-      updateOrderStatusService.execute(
-        91,
-        7,
-        OrderStatus.ENTREGUE,
-        UserRole.MOTOQUEIRO,
-        codeFor(order),
-        31,
-      ),
-    /pagamento precisa estar confirmado/i,
+  orderRepository.findById = async (_id, _restaurantId, db) => (db ? delivered : order);
+  prisma.$transaction = async (callback) =>
+    callback({
+      ...completionTx({ current: delivered, cashPending: true }),
+      auditLog: {
+        create: async ({ data }) => {
+          pendingAudit += 1;
+          assert.equal(data.action, 'COURIER_CASH_DELIVERY_COMPLETED_PENDING_PAYMENT');
+          assert.equal(data.metadata.paymentConfirmed, false);
+          assert.equal(data.metadata.deliveryConfirmedByCustomerCode, true);
+          assert.equal(data.metadata.deliveryConfirmationCode, undefined);
+          return { id: 1 };
+        },
+      },
+    });
+  io.to = () => ({ emit() {} });
+
+  const result = await updateOrderStatusService.execute(
+    91,
+    7,
+    OrderStatus.ENTREGUE,
+    UserRole.MOTOQUEIRO,
+    codeFor(order),
+    31,
   );
+
+  assert.equal(result.status, OrderStatus.ENTREGUE);
+  assert.equal(result.paid, false);
+  assert.equal(pendingAudit, 1);
+});
+
+test('PIX e cartão não pagos continuam bloqueados para o motoqueiro', async () => {
+  activeCourier();
+  for (const paymentMethod of [PaymentMethod.PIX, PaymentMethod.CARTAO]) {
+    const order = deliveryOrder({
+      paid: false,
+      payOnDelivery: true,
+      paymentMethod,
+      payOnDeliveryMethod: paymentMethod,
+    });
+    orderRepository.findById = async () => order;
+    await assert.rejects(
+      () =>
+        updateOrderStatusService.execute(
+          91,
+          7,
+          OrderStatus.ENTREGUE,
+          UserRole.MOTOQUEIRO,
+          codeFor(order),
+          31,
+        ),
+      /pagamento precisa estar confirmado/i,
+    );
+  }
 });
 
 for (const refundStatus of ['PROCESSING', 'SUCCEEDED']) {
@@ -308,26 +357,6 @@ test('requisição repetida após conclusão é idempotente e não emite eventos
   assert.equal(emissions, 0);
 });
 
-test('PIX e cartão não podem ser transformados em pagos por PIN', async () => {
-  activeCourier();
-  for (const paymentMethod of [PaymentMethod.PIX, PaymentMethod.CARTAO]) {
-    orderRepository.findById = async () =>
-      deliveryOrder({
-        paid: false,
-        paymentMethod,
-        paymentConfirmationPin: 'hash',
-        paymentConfirmationPinExpiresAt: new Date(Date.now() + 60_000),
-      });
-    await assert.rejects(
-      () => requestOrderPaymentConfirmationPinService.execute(91, 7, UserRole.MOTOQUEIRO, 31),
-      /dinheiro/,
-    );
-    await assert.rejects(
-      () => confirmOrderPaymentWithPinService.execute(91, 7, UserRole.MOTOQUEIRO, '1234', 31),
-      /dinheiro/,
-    );
-  }
-});
 
 test('exceção administrativa exige ADMIN ativo do mesmo restaurante e gera auditoria', async () => {
   const order = deliveryOrder();

@@ -98,7 +98,7 @@ test('cria assinatura recorrente mensal no endpoint oficial sem receber PAN ou C
   platformPlanCatalogService.getByCode = async (plan, options) => {
     assert.equal(plan, 'PREMIUM');
     assert.deepEqual(options, { activeOnly: false });
-    return { code: 'PREMIUM', monthlyFee: 249.9 };
+    return { code: 'PREMIUM', monthlyFee: 199.9 };
   };
   globalThis.fetch = async (input, init) => {
     providerRequest = { input: String(input), init };
@@ -139,7 +139,7 @@ test('cria assinatura recorrente mensal no endpoint oficial sem receber PAN ou C
     frequency: 1,
     frequency_type: 'months',
     start_date: '2026-11-15T12:00:00.000Z',
-    transaction_amount: 249.9,
+    transaction_amount: 199.9,
     currency_id: 'BRL',
   });
   assert.equal(body.card_token_id, 'provider-card-token-7');
@@ -168,7 +168,7 @@ test('produção recusa ativar recorrência quando FRONTEND_URL não usa HTTPS',
     trialEndsAt: null,
     restaurant: { name: 'Restaurante Teste', email: 'financeiro@example.test' },
   });
-  platformPlanCatalogService.getByCode = async () => ({ monthlyFee: 249.9 });
+  platformPlanCatalogService.getByCode = async () => ({ monthlyFee: 199.9 });
   globalThis.fetch = async () => assert.fail('não deve chamar o Mercado Pago');
 
   await assert.rejects(

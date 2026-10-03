@@ -105,6 +105,12 @@ test('fallback legado só atende tabela ausente em teste ou migração explícit
 
   process.env.PLATFORM_PLAN_CATALOG_FALLBACK_MODE = 'migration';
   const migrationPlans = await service.list({ db: missingTableDatabase });
-  assert.equal(migrationPlans.length, 2);
+  assert.equal(migrationPlans.length, 3);
   assert.equal(migrationPlans[0].features.length > 0, true);
+  assert.equal(
+    migrationPlans.some(
+      (plan) => plan.plan === PlanType.GESTAO_TOTAL && plan.featured && plan.monthlyFee === 299.9,
+    ),
+    true,
+  );
 });

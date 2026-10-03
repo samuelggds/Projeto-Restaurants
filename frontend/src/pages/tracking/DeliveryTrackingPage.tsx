@@ -11,8 +11,11 @@ import {
   RefreshCw,
 } from 'lucide-react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
-import ordersService, { getGuestOrderTrackingToken } from '../../Services/ordersService';
-import { acquireSocket } from '../../Services/socketService';
+import ordersService, {
+  getGuestOrderOwnershipToken,
+  getGuestOrderTrackingToken,
+} from '../../Services/ordersService';
+import { acquireSocket, connectGuestOrdersSocket } from '../../Services/socketService';
 import { getAccessToken } from '../../modules/auth/session/authSession';
 import { mergeCourierRoutePoints } from '../Courier/domain/courierLocation';
 import { CustomerTrackingChatPanel } from './CustomerTrackingChatPanel';
@@ -28,6 +31,17 @@ import * as S from './DeliveryTracking.styles';
 
 const DeliveryMap = lazy(() => import('../Courier/components/DeliveryMap'));
 const TRACKING_POLL_INTERVAL_MS = 12_000;
+
+function formatCourierPhone(value?: string | null) {
+  const digits = String(value || '').replace(/\D/g, '');
+  if (digits.length === 11) {
+    return `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7)}`;
+  }
+  if (digits.length === 10) {
+    return `(${digits.slice(0, 2)}) ${digits.slice(2, 6)}-${digits.slice(6)}`;
+  }
+  return String(value || '').trim();
+}
 
 export default function DeliveryTrackingPage() {
   const { id } = useParams();
@@ -118,14 +132,23 @@ function DeliveryTrackingContent({ id }: { id?: string }) {
     }, TRACKING_POLL_INTERVAL_MS);
 
     const token = getAccessToken();
-    if (!token) {
+    const guestProof = !token ? getGuestOrderOwnershipToken(orderId) : '';
+    const userLease = token ? acquireSocket(token, `delivery-tracking-${orderId}`) : null;
+    const guestSocket =
+      !token && guestProof
+        ? connectGuestOrdersSocket(
+            [{ orderId, token: guestProof }],
+            `delivery-tracking-guest-${orderId}`,
+          )
+        : null;
+    const socket = userLease?.socket || guestSocket;
+
+    if (!socket) {
       return () => {
         active = false;
         window.clearInterval(pollTimer);
       };
     }
-
-    const { socket, release } = acquireSocket(token, `delivery-tracking-${orderId}`);
     const onLocation = (point: unknown) => {
       if (!trackingEventMatches(point, orderId, dataRef.current?.order.restaurantId)) return;
       if (!dataRef.current) {
@@ -166,13 +189,35 @@ function DeliveryTrackingContent({ id }: { id?: string }) {
       window.clearInterval(pollTimer);
       socket.off('order:delivery-location', onLocation);
       socket.off('order:status-changed', onStatus);
-      release();
+      userLease?.release();
+      guestSocket?.disconnect();
     };
   }, [hasInvalidOrderId, orderId, retryKey]);
 
-  const routeMinutes = data?.order.routeEstimate
-    ? Math.max(1, Math.ceil(data.order.routeEstimate.durationSeconds / 60))
-    : null;
+  const [clockNow, setClockNow] = useState(0);
+
+  useEffect(() => {
+    const syncClock = () => setClockNow(Date.now());
+    const initialTimer = window.setTimeout(syncClock, 0);
+    const interval = window.setInterval(syncClock, 30_000);
+    return () => {
+      window.clearTimeout(initialTimer);
+      window.clearInterval(interval);
+    };
+  }, []);
+
+  const routeMinutes = (() => {
+    const routeSeconds = Number(data?.order.routeEstimate?.durationSeconds || 0);
+    if (routeSeconds > 0) return Math.max(1, Math.ceil(routeSeconds / 60));
+
+    const estimatedArrivalMs = Date.parse(String(data?.order.estimatedArrival || ''));
+    if (Number.isFinite(estimatedArrivalMs)) {
+      const remainingMs = estimatedArrivalMs - clockNow;
+      if (remainingMs > 0) return Math.max(1, Math.ceil(remainingMs / 60_000));
+    }
+
+    return null;
+  })();
   const isDelivered = data?.order.status === 'ENTREGUE';
   const isCancelled = data?.order.status === 'CANCELADO';
   const receiptConfirmed = Boolean(data?.order.deliveryConfirmedAt);
@@ -433,7 +478,10 @@ function DeliveryTrackingContent({ id }: { id?: string }) {
                 <S.CourierCard>
                   <S.CourierAvatar>
                     {data.order.assignedCourier?.avatar ? (
-                      <img src={data.order.assignedCourier.avatar} alt="" />
+                      <img
+                        src={data.order.assignedCourier.avatar}
+                        alt=""
+                      />
                     ) : (
                       <Bike aria-hidden="true" />
                     )}
@@ -441,13 +489,22 @@ function DeliveryTrackingContent({ id }: { id?: string }) {
                   <span>
                     <strong>{data.order.assignedCourier?.name || 'Aguardando motoboy'}</strong>
                     {data.order.assignedCourier?.phone ? (
-                      <a href={`tel:${data.order.assignedCourier.phone}`}>
-                        {data.order.assignedCourier.phone}
+                      <a
+                        className="courier-phone"
+                        href={`tel:${data.order.assignedCourier.phone}`}
+                      >
+                        {formatCourierPhone(data.order.assignedCourier.phone)}
                       </a>
-                    ) : null}
+                    ) : (
+                      <small className="courier-waiting">Telefone ainda não disponível</small>
+                    )}
                   </span>
                   {data.order.assignedCourier?.phone ? (
-                    <a className="call" href={`tel:${data.order.assignedCourier.phone}`} aria-label="Ligar para o motoboy">
+                    <a
+                      className="call"
+                      href={`tel:${data.order.assignedCourier.phone}`}
+                      aria-label={`Ligar para ${data.order.assignedCourier.name || 'o motoboy'}`}
+                    >
                       <Phone aria-hidden="true" />
                     </a>
                   ) : null}

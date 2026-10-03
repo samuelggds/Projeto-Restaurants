@@ -13,31 +13,6 @@ function getOrderActorKey(req: Request) {
   return `${ip}:${userId}:${orderId || 'no-order'}`;
 }
 
-export const paymentPinAttemptRateLimitMiddleware = rateLimit({
-  ...distributedRateLimitOptions('orderpayment:1'),
-  windowMs: Number(process.env.PAYMENT_PIN_RATE_LIMIT_WINDOW_MS || 10 * 60 * 1000),
-  max: Number(process.env.PAYMENT_PIN_RATE_LIMIT_MAX_REQUESTS || 8),
-  standardHeaders: true,
-  legacyHeaders: false,
-  skipSuccessfulRequests: true,
-  keyGenerator: getOrderActorKey,
-  message: {
-    error: 'Muitas tentativas de PIN para este pedido. Aguarde alguns minutos.',
-  },
-});
-
-export const paymentPinRequestRateLimitMiddleware = rateLimit({
-  ...distributedRateLimitOptions('orderpayment:2'),
-  windowMs: Number(process.env.PAYMENT_PIN_REQUEST_RATE_LIMIT_WINDOW_MS || 60 * 1000),
-  max: Number(process.env.PAYMENT_PIN_REQUEST_RATE_LIMIT_MAX_REQUESTS || 3),
-  standardHeaders: true,
-  legacyHeaders: false,
-  keyGenerator: getOrderActorKey,
-  message: {
-    error: 'Muitas solicitações de PIN para este pedido. Aguarde um instante.',
-  },
-});
-
 export const deliveryConfirmationAttemptRateLimitMiddleware = rateLimit({
   ...distributedRateLimitOptions('orderpayment:3'),
   windowMs: Number(process.env.DELIVERY_CODE_RATE_LIMIT_WINDOW_MS || 10 * 60 * 1000),

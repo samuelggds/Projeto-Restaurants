@@ -4,6 +4,7 @@ import {
   ChevronRight,
   ExternalLink,
   HelpCircle,
+  Handshake,
   LayoutGrid,
   LogOut,
   Menu,
@@ -36,6 +37,7 @@ const MonthlyBilling = lazy(() =>
 const HelpCenter = lazy(() =>
   import('./components/HelpCenter').then((module) => ({ default: module.HelpCenter })),
 );
+const ManagedServiceArea = lazy(() => import('./components/ManagedServiceArea'));
 import { sectionTitle, settingGroups, settingItems } from './config/adminNavigation';
 import * as S from './Admin.styles';
 import type {
@@ -118,6 +120,12 @@ const managementNavigationItems: AdminNavigationItem[] = [
     label: 'Cobranças e assinaturas',
     mobileLabel: 'Cobranças',
     icon: ReceiptText,
+  },
+  {
+    area: 'managed-service',
+    label: 'Gestão assistida',
+    mobileLabel: 'Assistida',
+    icon: Handshake,
   },
   {
     area: 'settings',
@@ -287,6 +295,7 @@ export function AdminPage({
     catalog: 'Cardápio',
     customers: 'Clientes',
     subscriptions: 'Cobranças e assinaturas',
+    'managed-service': 'Gestão assistida',
     employees: 'Funcionários',
   };
   const title =
@@ -783,7 +792,9 @@ export function AdminPage({
                 ? 'Somente o administrador cria e edita funcionários.'
                 : area === 'subscriptions'
                   ? 'Troque seu plano e acompanhe o pagamento das mensalidades.'
-                  : area === 'settings'
+                  : area === 'managed-service'
+                    ? 'Acompanhe sua implantação ou solicite atualizações para a equipe GastroNexa.'
+                    : area === 'settings'
                     ? 'Personalize e gerencie as informações do restaurante.'
                     : area === 'catalog' && catalogImportOpen
                       ? 'Use um link público do iFood ou uma foto nítida do seu cardápio.'
@@ -838,7 +849,8 @@ export function AdminPage({
             area === 'orders' ||
             area === 'customers' ||
             area === 'employees' ||
-            area === 'subscriptions'
+            area === 'subscriptions' ||
+            area === 'managed-service'
           }
         >
           <Suspense
@@ -902,6 +914,8 @@ export function AdminPage({
               </Suspense>
             ) : area === 'subscriptions' ? (
               <MonthlyBilling initialView={requestedBillingView === 'plans' ? 'plans' : undefined} />
+            ) : area === 'managed-service' ? (
+              <ManagedServiceArea />
             ) : area === 'settings' ? (
               section === 'brand' ? (
                 <BrandSettings

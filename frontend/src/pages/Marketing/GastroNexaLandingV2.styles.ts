@@ -240,7 +240,8 @@ export const Footer = styled.footer`
 `;
 
 export const PlanGrid = styled.div`
-  max-width:1264px;margin:auto;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px;
+  max-width:1264px;margin:auto;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:20px;
+  @media(max-width:1040px){grid-template-columns:repeat(2,minmax(0,1fr))}
   @media(max-width:760px){grid-template-columns:1fr}
 `;
 export const Plan = styled.article<{ $featured:boolean }>`

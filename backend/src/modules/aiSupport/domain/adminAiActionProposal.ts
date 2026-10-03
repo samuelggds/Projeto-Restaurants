@@ -323,7 +323,7 @@ export const deleteCouponProposalSchema = strictObject({
 
 export const requestPlanChangeProposalSchema = strictObject({
   actionType: z.literal('REQUEST_PLAN_CHANGE'),
-  plan: z.enum(['BASICO', 'PREMIUM']),
+  plan: z.enum(['BASICO', 'PREMIUM', 'GESTAO_TOTAL']),
 });
 
 export const adminAiActionProposalSchema = z.union([

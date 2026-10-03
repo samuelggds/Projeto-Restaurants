@@ -77,25 +77,67 @@ export const ProductWizardStepSection = styled(ProductFormSection)`
     }
   }
   .guided-money-input {
+    width: 100%;
+    min-width: 0;
+    height: 52px;
     display: grid;
-    grid-template-columns: auto minmax(0, 1fr);
-    align-items: center;
+    grid-template-columns: 48px minmax(0, 1fr);
+    align-items: stretch;
     overflow: hidden;
     border: 1px solid #d8cfc7;
     border-radius: 9px;
     background: #fff;
+    transition:
+      border-color 200ms ease,
+      box-shadow 220ms ease,
+      background 200ms ease;
+  }
+  .guided-money-input:hover {
+    border-color: #c9bfb6;
   }
   .guided-money-input:focus-within {
     border-color: var(--a);
+    box-shadow: 0 0 0 4px color-mix(in srgb, var(--a) 10%, transparent);
+  }
+  .guided-money-input:has(> input[aria-invalid='true']) {
+    border-color: #c24132;
+    background: #fff8f7;
   }
   .guided-money-input > span {
-    padding-left: 13px;
+    display: grid;
+    place-items: center;
+    border-right: 1px solid #e8e1da;
     color: #554c45;
+    background: #faf8f5;
     font-size: 13px;
     font-weight: 800;
+    line-height: 1;
+    user-select: none;
   }
-  .guided-money-input > input {
+  .guided-money-input > input,
+  .guided-money-input:focus-within > input,
+  .guided-money-input > input:hover,
+  .guided-money-input > input:focus,
+  .guided-money-input > input[aria-invalid='true'] {
+    width: 100%;
+    min-width: 0;
+    height: 50px;
+    margin: 0;
+    padding: 0 14px;
     border: 0;
+    border-radius: 0;
+    outline: 0;
+    background: transparent;
+    box-shadow: none;
+  }
+  .guided-money-input > input::-webkit-inner-spin-button,
+  .guided-money-input > input::-webkit-outer-spin-button {
+    margin: 0;
+    appearance: none;
+  }
+  .guided-money-input > input[type='number'] {
+    appearance: textfield;
+    -moz-appearance: textfield;
   }
   .featured-setting {
     width: 100%;

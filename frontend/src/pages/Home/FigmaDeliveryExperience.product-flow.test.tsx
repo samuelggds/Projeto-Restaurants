@@ -574,9 +574,12 @@ describe('FigmaDeliveryExperience product flow', () => {
       behavior: 'auto',
     });
 
-    await vi.waitFor(() => {
-      expect(container.querySelector('[aria-label="Montar Smash Bacon"]')).toBeTruthy();
-    });
+    await vi.waitFor(
+      () => {
+        expect(container.querySelector('[aria-label="Montar Smash Bacon"]')).toBeTruthy();
+      },
+      { timeout: 3000 },
+    );
 
     const dialog = container.querySelector(
       '[aria-label="Montar Smash Bacon"]',

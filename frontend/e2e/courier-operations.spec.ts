@@ -846,6 +846,39 @@ test('motoqueiro retira, compartilha a rota do próprio pedido e encerra ao entr
   await expectTenantSafeRequests(state);
 });
 
+test('dinheiro na entrega usa código do cliente e continua não pago até o ADMIN confirmar', async ({
+  page,
+}) => {
+  const state = initialState();
+  state.orders[0] = {
+    ...state.orders[0],
+    status: 'SAIU_PARA_ENTREGA',
+    assignedCourierId: COURIER_ID,
+    paid: false,
+    paymentMethod: 'DINHEIRO',
+    payOnDelivery: true,
+    payOnDeliveryMethod: 'DINHEIRO',
+    deliveryStartedAt: new Date().toISOString(),
+  };
+
+  await mockCourierApi(page, state);
+  await page.goto('/courier');
+  await openCourierView(page, 'Em entrega');
+
+  const deliveryOrder = orderCard(page, 601);
+  await expect(deliveryOrder).toContainText('Pagar na entrega (Dinheiro)');
+  await expect(deliveryOrder).toContainText('Não pago');
+
+  const codeInput = deliveryOrder.getByLabel('Código de entrega informado pelo cliente');
+  await codeInput.fill(DELIVERY_CODE);
+  const deliverButton = deliveryOrder.getByRole('button', { name: 'Marcar como Entregue' });
+  await expect(deliverButton).toBeEnabled();
+  await deliverButton.click();
+
+  await expect.poll(() => state.deliveries).toEqual([{ id: 601, code: DELIVERY_CODE }]);
+  expect(state.orders.find((order) => order.id === 601)?.paid).toBe(false);
+});
+
 test('erro de atualização permite tentar novamente e realtime busca somente o tenant', async ({
   page,
 }) => {
@@ -1007,10 +1040,9 @@ test('cliente acompanha somente a própria entrega, rota e destino até a conclu
     page.getByLabel('Status da Entrega').getByText('Saiu para entrega (A caminho)', { exact: true }),
   ).toBeVisible();
   await expect(page.getByText(courierUser.name, { exact: true })).toBeVisible();
-  await expect(page.getByRole('link', { name: 'Ligar para o motoboy' })).toHaveAttribute(
-    'href',
-    `tel:${courierUser.phone}`,
-  );
+  await expect(
+    page.getByRole('link', { name: `Ligar para ${courierUser.name}` }),
+  ).toHaveAttribute('href', `tel:${courierUser.phone}`);
   const trackingMap = page.locator('.customer-google-delivery-map');
   await expect(trackingMap).toBeVisible();
   await expect(trackingMap).toHaveAttribute('data-courier-latitude', String(departure.latitude));

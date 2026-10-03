@@ -141,6 +141,38 @@ describe('AdminOrders', () => {
     expect(container.querySelectorAll('[role="progressbar"]')).toHaveLength(3);
   });
 
+  it('mantém confirmação de dinheiro disponível depois da entrega', async () => {
+    const deliveredCashOrder: AdminOrder = {
+      ...orders[2],
+      id: '#304',
+      numericId: 304,
+      customerName: 'Cliente dinheiro entregue',
+      status: 'ENTREGUE',
+      total: 42,
+      paid: false,
+      paymentMethod: 'DINHEIRO',
+      payOnDelivery: true,
+      payOnDeliveryMethod: 'DINHEIRO',
+      type: 'DELIVERY',
+    };
+    const { onConfirmPayment } = await renderOrders(undefined, [deliveredCashOrder]);
+    expect(container.textContent).toContain('Entrega concluída · aguardando confirmação do dinheiro');
+    const button = buttonByLabel(container, 'Confirmar pagamento do pedido #304');
+    expect(button).not.toBeNull();
+    await act(async () => button.click());
+    expect(container.querySelector('[role="dialog"]')).not.toBeNull();
+    expect(container.textContent).toContain('Confirme somente se você já recebeu');
+
+    const confirmButton = container.querySelector(
+      '[role="dialog"] button[type="submit"]',
+    ) as HTMLButtonElement;
+    await act(async () => {
+      confirmButton.click();
+      await Promise.resolve();
+    });
+    expect(onConfirmPayment).toHaveBeenCalledExactlyOnceWith(304);
+  });
+
   it('consulta um estorno pendente sem pedir outro cancelamento ou confirmação de pagamento', async () => {
     mocks.reconcileRefund.mockResolvedValue({ refunded: true });
     const { onCancelOrder, onConfirmPayment } = await renderOrders(undefined, [

@@ -131,7 +131,10 @@ class CreateTableServiceCallService {
         const subscriptionIsActive =
           subscription?.status === SubscriptionStatus.ATIVA ||
           subscription?.status === SubscriptionStatus.TESTE;
-        if (!subscriptionIsActive || subscription?.plan !== PlanType.PREMIUM) {
+        const hasPremiumFeatures =
+          subscription?.plan === PlanType.PREMIUM ||
+          subscription?.plan === PlanType.GESTAO_TOTAL;
+        if (!subscriptionIsActive || !hasPremiumFeatures) {
           throw new Error(
             'O atendimento pelo cardápio de mesa não está disponível neste restaurante.',
           );

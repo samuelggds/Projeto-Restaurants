@@ -10,6 +10,13 @@ const mocks = vi.hoisted(() => ({
   confirmDeliveryReceived: vi.fn(),
   rateDeliveredOrder: vi.fn(),
   getGuestTrackingToken: vi.fn(() => ''),
+  getGuestOwnershipToken: vi.fn(() => ''),
+  guestSocket: {
+    connected: true,
+    on: vi.fn(),
+    off: vi.fn(),
+    disconnect: vi.fn(),
+  },
   locationSearch: '',
   listeners: new Map<string, (...args: unknown[]) => void>(),
   mapProps: null as null | {
@@ -17,6 +24,7 @@ const mocks = vi.hoisted(() => ({
     routePath?: RoutePoint[];
     destination?: RoutePoint & { label?: string };
     statusMessage?: string;
+    etaMinutes?: number;
   },
   socket: {
     connected: true,
@@ -41,9 +49,11 @@ vi.mock('../../Services/ordersService', () => ({
     confirmDeliveryReceived: mocks.confirmDeliveryReceived,
   },
   getGuestOrderTrackingToken: mocks.getGuestTrackingToken,
+  getGuestOrderOwnershipToken: mocks.getGuestOwnershipToken,
 }));
 vi.mock('../../Services/socketService', () => ({
   acquireSocket: () => ({ socket: mocks.socket, release: vi.fn() }),
+  connectGuestOrdersSocket: () => mocks.guestSocket,
 }));
 vi.mock('./CustomerTrackingChatPanel', () => ({
   CustomerTrackingChatPanel: ({ courierName }: { courierName: string }) => (
@@ -77,7 +87,7 @@ function trackingResult() {
       status: 'SAIU_PARA_ENTREGA',
       deliveryStartedAt: '2026-08-24T14:00:00Z',
       estimatedArrival: '2026-08-24T14:20:00Z',
-      assignedCourier: { name: 'Rita', phone: '85999990000' },
+      assignedCourier: { name: 'Rita', phone: '85999990000', avatar: null },
       routeEstimate: {
         durationSeconds: 900,
         distanceMeters: 3500,
@@ -118,6 +128,10 @@ describe('DeliveryTrackingPage integration', () => {
     mocks.mapProps = null;
     mocks.locationSearch = '';
     mocks.getGuestTrackingToken.mockReturnValue('');
+    mocks.getGuestOwnershipToken.mockReturnValue('');
+    mocks.guestSocket.on.mockReset();
+    mocks.guestSocket.off.mockReset();
+    mocks.guestSocket.disconnect.mockReset();
     mocks.confirmDeliveryReceived.mockResolvedValue({
       id: 601,
       status: 'ENTREGUE',
@@ -152,6 +166,7 @@ describe('DeliveryTrackingPage integration', () => {
     expect(container.textContent).toContain('Saiu para entrega (Rota)');
     expect(container.textContent).toContain('Mensagens com Rita');
     expect(mocks.mapProps?.routePath).toHaveLength(2);
+    expect(mocks.mapProps?.etaMinutes).toBe(15);
     expect(mocks.mapProps?.destination?.label).toContain('Rua das Flores');
     expect(mocks.mapProps?.points).toHaveLength(1);
 
@@ -311,4 +326,35 @@ describe('DeliveryTrackingPage integration', () => {
     await flushUntil(() => mocks.mapProps !== null);
     expect(container.textContent).toContain('Saiu para entrega');
   });
+  it('visitante recebe GPS em tempo real pelo socket privado do próprio pedido', async () => {
+    clearAuthSession();
+    mocks.getGuestTrackingToken.mockReturnValue('guest-tracking-token');
+    mocks.getGuestOwnershipToken.mockReturnValue('guest-ownership-token');
+    mocks.getTracking.mockResolvedValue(trackingResult());
+
+    const guestListeners = new Map<string, (...args: unknown[]) => void>();
+    mocks.guestSocket.on.mockImplementation((event: string, listener: (...args: unknown[]) => void) => {
+      guestListeners.set(event, listener);
+      return mocks.guestSocket;
+    });
+
+    await act(async () => root.render(<DeliveryTrackingPage />));
+    await flushUntil(() => mocks.mapProps !== null);
+
+    expect(container.textContent).toContain('Rita');
+    expect(container.textContent).toContain('(85) 99999-0000');
+
+    await act(async () =>
+      guestListeners.get('order:delivery-location')?.({
+        orderId: 601,
+        restaurantId: 7,
+        latitude: -3.74,
+        longitude: -38.54,
+        recordedAt: 'guest-live',
+      }),
+    );
+
+    expect(mocks.mapProps?.points).toHaveLength(2);
+  });
+
 });

@@ -37,10 +37,13 @@ class CatalogStorageUnavailableError extends Error {
 
 const FALLBACK_DESCRIPTIONS: Record<PlanType, string> = {
   [PlanType.BASICO]: 'Operação de delivery para restaurantes que estão iniciando na plataforma.',
-  [PlanType.PREMIUM]: 'Experiência completa com delivery e atendimento por QR Code nas mesas.',
+  [PlanType.PREMIUM]:
+    'Operação completa com implantação inicial assistida para deixar o restaurante pronto para vender.',
+  [PlanType.GESTAO_TOTAL]:
+    'Operação completa com implantação assistida e gestão contínua sob solicitação.',
 };
 
-const FALLBACK_FEATURED_PLAN = PlanType.PREMIUM;
+const FALLBACK_FEATURED_PLAN = PlanType.GESTAO_TOTAL;
 
 function normalizeFeatures(value: Prisma.JsonValue): string[] {
   if (!Array.isArray(value)) {

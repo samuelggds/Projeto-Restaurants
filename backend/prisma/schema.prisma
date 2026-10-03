@@ -75,6 +75,8 @@ model User {
   employeeSettlementPayments    EmployeeSettlementPayment[]  @relation("EmployeeSettlementPaymentEmployee")
   tableWaiterAssignments        TableWaiterAssignment[]      @relation("TableWaiterAssignmentWaiter")
   tableAccessRequestsDecided    TableAccessRequest[]          @relation("TableAccessRequestDecidedBy")
+  managedUpdateRequestsRequested RestaurantManagedUpdateRequest[] @relation("ManagedUpdateRequester")
+  managedUpdateRequestsHandled   RestaurantManagedUpdateRequest[] @relation("ManagedUpdateHandler")
 
   @@unique([id, restaurantId])
   @@unique([restaurantId, username])
@@ -109,6 +111,42 @@ model PlatformSettings {
 
 /// Catalogo financeiro editavel pelo SUPER_ADMIN. O codigo do plano segue o
 /// enum usado pelas assinaturas e os precos valem apenas para novas faturas.
+model RestaurantImplementation {
+  id           String   @id @default(uuid()) @db.Uuid
+  restaurantId Int      @unique
+  status       String   @default("AGUARDANDO_MATERIAL") @db.VarChar(32)
+  productLimit Int?     @default(150)
+  notes        String?  @db.VarChar(2000)
+  startedAt    DateTime?
+  completedAt  DateTime?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+
+  @@index([status, createdAt])
+}
+
+model RestaurantManagedUpdateRequest {
+  id                String   @id @default(uuid()) @db.Uuid
+  restaurantId      Int
+  requestedByUserId Int
+  handledByUserId   Int?
+  category          String   @db.VarChar(32)
+  title             String   @db.VarChar(160)
+  description       String   @db.VarChar(2000)
+  status            String   @default("ABERTA") @db.VarChar(24)
+  response          String?  @db.VarChar(2000)
+  completedAt       DateTime?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  restaurant        Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  requestedBy       User       @relation("ManagedUpdateRequester", fields: [requestedByUserId, restaurantId], references: [id, restaurantId], onDelete: Restrict)
+  handledBy         User?      @relation("ManagedUpdateHandler", fields: [handledByUserId], references: [id], onDelete: SetNull)
+
+  @@index([restaurantId, status, createdAt])
+  @@index([status, createdAt])
+}
+
 model PlatformPlan {
   code            PlanType @id
   name            String
@@ -299,6 +337,8 @@ model Restaurant {
   ratings                       ProductRating[]
   settings                      RestaurantSettings?
   supportChatMessages           SupportChatMessage[]
+  implementation                RestaurantImplementation?
+  managedUpdateRequests         RestaurantManagedUpdateRequest[]
   subscription                  Subscription?
   tables                        Table[]
   users                         User[]
@@ -1265,6 +1305,8 @@ model RestaurantSettings {
   acceptsDelivery       Boolean         @default(true)
   acceptsPickup         Boolean         @default(true)
   averageDeliveryTime   String?
+  deliveryTimeMin       Int?
+  deliveryTimeMax       Int?
   autoAcceptOrders      Boolean         @default(false)
   trackingRequiresLogin Boolean         @default(true)
   soundNotifications    Boolean         @default(true)
@@ -2164,6 +2206,7 @@ enum CouponRedemptionStatus {
 enum PlanType {
   BASICO
   PREMIUM
+  GESTAO_TOTAL
 }
 
 enum SubscriptionStatus {

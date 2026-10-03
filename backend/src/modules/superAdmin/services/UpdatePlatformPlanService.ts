@@ -14,7 +14,11 @@ import { parseSuperAdminPayload, requireSuperAdminActor } from './superAdminServ
 
 function parsePlanCode(value: unknown): PlanType {
   const normalized = String(value || '').trim().toUpperCase();
-  if (normalized !== 'BASICO' && normalized !== 'PREMIUM') {
+  if (
+    normalized !== 'BASICO' &&
+    normalized !== 'PREMIUM' &&
+    normalized !== 'GESTAO_TOTAL'
+  ) {
     throw new SuperAdminError('Plano inválido.', 400, 'INVALID_PLAN');
   }
   return normalized;

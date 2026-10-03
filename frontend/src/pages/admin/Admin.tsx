@@ -412,6 +412,12 @@ export function mapSettingsFromApi(
     openFinancePixEnabled: raw?.openFinancePixEnabled === true,
     acceptsCard: raw?.acceptsCard !== false,
     deliveryTime: Number(raw?.averageDeliveryTime ?? adminMockSettings.deliveryTime),
+    deliveryTimeMin: Number(
+      raw?.deliveryTimeMin ?? raw?.averageDeliveryTime ?? adminMockSettings.deliveryTimeMin,
+    ),
+    deliveryTimeMax: Number(
+      raw?.deliveryTimeMax ?? raw?.averageDeliveryTime ?? adminMockSettings.deliveryTimeMax,
+    ),
     autoAcceptOrders: raw?.autoAcceptOrders === true,
     trackingRequiresLogin: raw?.trackingRequiresLogin !== false,
     soundNotifications: raw?.soundNotifications !== false,
@@ -516,7 +522,16 @@ export function mapSettingsToApi(settings: AdminSettings): Record<string, unknow
     acceptsPix: settings.acceptsPix,
     openFinancePixEnabled: settings.openFinancePixEnabled,
     acceptsCard: settings.acceptsCard,
-    averageDeliveryTime: settings.deliveryTime,
+    averageDeliveryTime:
+      settings.deliveryTimeMin > 0 ? settings.deliveryTimeMin : null,
+    deliveryTimeMin:
+      settings.deliveryTimeMin === 0 && settings.deliveryTimeMax === 0
+        ? null
+        : settings.deliveryTimeMin,
+    deliveryTimeMax:
+      settings.deliveryTimeMin === 0 && settings.deliveryTimeMax === 0
+        ? null
+        : settings.deliveryTimeMax,
     autoAcceptOrders: settings.autoAcceptOrders,
     trackingRequiresLogin: settings.trackingRequiresLogin,
     soundNotifications: settings.soundNotifications,

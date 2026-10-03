@@ -1,6 +1,21 @@
-import { useState } from 'react';
-import { AlertCircle, CheckCircle, IdCard, Mail, Pencil, Phone, Save, User, X } from 'lucide-react';
+import { useRef, useState } from 'react';
+import {
+  AlertCircle,
+  Camera,
+  CheckCircle,
+  IdCard,
+  Mail,
+  Pencil,
+  Phone,
+  Save,
+  User,
+  X,
+} from 'lucide-react';
 import authService from '../../../Services/authService';
+import {
+  PROFILE_AVATAR_ACCEPT,
+  resizeProfileAvatar,
+} from '../../../utils/profileAvatar';
 import * as S from '../styles';
 
 type CourierUser = {
@@ -9,12 +24,18 @@ type CourierUser = {
   phone?: string;
   cpf?: string;
   role?: string;
+  avatar?: string | null;
 };
 
 type ProfilePanelProps = {
   user: CourierUser | null;
   onUpdated: (updatedUser: CourierUser) => void;
-  saveProfile?: (profile: { name: string; email: string; phone: string }) => Promise<CourierUser>;
+  saveProfile?: (profile: {
+    name?: string;
+    email?: string;
+    phone?: string;
+    avatar?: string | null;
+  }) => Promise<CourierUser>;
 };
 
 function formatCpfDisplay(raw: string | undefined) {
@@ -33,8 +54,10 @@ export default function ProfilePanel({
   onUpdated,
   saveProfile = (profile) => authService.updateProfile(profile),
 }: ProfilePanelProps) {
+  const avatarInputRef = useRef<HTMLInputElement>(null);
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [avatarSaving, setAvatarSaving] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [form, setForm] = useState({
@@ -59,6 +82,33 @@ export default function ProfilePanel({
     }
 
     setForm((prev) => ({ ...prev, [name]: value }));
+  }
+
+  async function handleAvatarChange(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file || avatarSaving) return;
+
+    setAvatarSaving(true);
+    setError('');
+    setSuccess('');
+
+    try {
+      const avatar = await resizeProfileAvatar(file);
+      const updated = await saveProfile({ avatar });
+      onUpdated(updated);
+      setSuccess('Foto de perfil atualizada com sucesso!');
+      window.setTimeout(() => setSuccess(''), 3000);
+    } catch (err) {
+      const message =
+        (err as { response?: { data?: { error?: string } }; message?: string })?.response?.data
+          ?.error ||
+        (err as Error)?.message ||
+        'Não foi possível atualizar a foto.';
+      setError(message);
+    } finally {
+      setAvatarSaving(false);
+    }
   }
 
   async function handleSave(event: React.FormEvent<HTMLFormElement>) {
@@ -108,12 +158,36 @@ export default function ProfilePanel({
   return (
     <S.ProfilePanel>
       <S.ProfileAvatarRow>
-        <S.ProfileAvatar>
-          <User size={40} />
-        </S.ProfileAvatar>
+        <S.ProfileAvatarWrap>
+          <S.ProfileAvatar>
+            {user?.avatar ? (
+              <img src={user.avatar} alt="Foto do perfil do motoqueiro" />
+            ) : (
+              <User size={40} aria-hidden="true" />
+            )}
+          </S.ProfileAvatar>
+          <S.ProfileAvatarButton
+            type="button"
+            aria-label={user?.avatar ? 'Alterar foto do perfil' : 'Adicionar foto do perfil'}
+            onClick={() => avatarInputRef.current?.click()}
+            disabled={avatarSaving}
+          >
+            <Camera size={15} aria-hidden="true" />
+          </S.ProfileAvatarButton>
+          <input
+            ref={avatarInputRef}
+            hidden
+            type="file"
+            accept={PROFILE_AVATAR_ACCEPT}
+            onChange={handleAvatarChange}
+          />
+        </S.ProfileAvatarWrap>
         <div>
           <S.ProfileName>{user?.name || '-'}</S.ProfileName>
           <S.ProfileRole>{roleLabel[user?.role || ''] || user?.role}</S.ProfileRole>
+          <S.ProfileAvatarHint>
+            {avatarSaving ? 'Salvando foto...' : user?.avatar ? 'Toque na câmera para trocar' : 'Adicione uma foto para o cliente reconhecer você'}
+          </S.ProfileAvatarHint>
         </div>
         {!editing && (
           <S.EditProfileBtn onClick={() => setEditing(true)} type="button">

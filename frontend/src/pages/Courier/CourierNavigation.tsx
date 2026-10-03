@@ -25,6 +25,7 @@ type Props = {
   view: CourierView;
   restaurantName: string;
   userName: string;
+  userAvatar?: string;
   readyCount: number;
   routeCount: number;
   deliveredCount: number;
@@ -40,6 +41,7 @@ export function CourierNavigation({
   view,
   restaurantName,
   userName,
+  userAvatar,
   readyCount,
   routeCount,
   deliveredCount,
@@ -116,7 +118,13 @@ export function CourierNavigation({
             </button>
           </S.SupportNav>
           <S.UserBlock>
-            <span className="avatar">{createRestaurantMonogram(userName)}</span>
+            <span className="avatar">
+              {userAvatar ? (
+                <img src={userAvatar} alt="" />
+              ) : (
+                createRestaurantMonogram(userName)
+              )}
+            </span>
             <span>
               <b>{userName}</b>
               <small>Motoqueiro</small>

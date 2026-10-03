@@ -55,6 +55,8 @@ export const adminMockSettings: AdminSettings = {
   openFinancePixEnabled: false,
   acceptsCard: true,
   deliveryTime: 0,
+  deliveryTimeMin: 0,
+  deliveryTimeMax: 0,
   autoAcceptOrders: false,
   trackingRequiresLogin: true,
   soundNotifications: true,
