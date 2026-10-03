@@ -14,9 +14,6 @@ import ListMyOrdersController from '../controllers/ListMyOrdersController.js';
 import CancelOrderController from '../controllers/CancelOrderController.js';
 import CancelTableParticipantOrderController from '../controllers/CancelTableParticipantOrderController.js';
 import ConfirmOrderPaymentController from '../controllers/ConfirmOrderPaymentController.js';
-import ConfirmOrderPaymentWithPinController from '../controllers/ConfirmOrderPaymentWithPinController.js';
-import GenerateOrderPaymentConfirmationPinController from '../controllers/GenerateOrderPaymentConfirmationPinController.js';
-import RequestOrderPaymentConfirmationPinController from '../controllers/RequestOrderPaymentConfirmationPinController.js';
 import CreateOrderPixPaymentController from '../controllers/CreateOrderPixPaymentController.js';
 import CreateOrderOpenFinancePaymentController from '../controllers/CreateOrderOpenFinancePaymentController.js';
 import OpenFinanceInstitutionsController from '../controllers/OpenFinanceInstitutionsController.js';
@@ -60,8 +57,6 @@ import { premiumTableOrderMiddleware } from '../../../middlewares/premiumTableOr
 import { deliveryTrackingAccessMiddleware } from '../../../middlewares/deliveryTrackingAccessMiddleware.js';
 import {
   deliveryConfirmationAttemptRateLimitMiddleware,
-  paymentPinAttemptRateLimitMiddleware,
-  paymentPinRequestRateLimitMiddleware,
   onlineCheckoutRateLimitMiddleware,
 } from '../../../middlewares/security/orderPaymentRateLimitMiddleware.js';
 
