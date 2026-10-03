@@ -378,6 +378,7 @@ describe('FigmaDeliveryExperience product flow', () => {
                 price: 6,
                 originalPrice: 6,
                 rating: 0,
+                preparationTime: 35,
                 available: true,
                 kind: 'STANDARD',
                 saleMode: 'COMPLETE',
@@ -422,7 +423,8 @@ describe('FigmaDeliveryExperience product flow', () => {
     const detail = document.querySelector('[data-ready-product-detail]') as HTMLElement;
     expect(detail).toBeTruthy();
     expect(detail.textContent).toContain('Refrigerante');
-    expect(detail.textContent).toContain('25-35 min');
+    expect(detail.textContent).toContain('35 min');
+    expect(detail.textContent).not.toContain('25-35 min');
     expect(onAddProduct).not.toHaveBeenCalled();
     expect(document.querySelector('[aria-label="Montar Refrigerante"]')).toBeNull();
 
