@@ -66,6 +66,18 @@ const orders: AdminOrder[] = [
     payOnDelivery: false,
     type: 'RETIRADA',
   },
+  {
+    id: '#304',
+    numericId: 304,
+    customerName: 'Cliente dinheiro entregue',
+    status: 'ENTREGUE',
+    total: 42,
+    paid: false,
+    paymentMethod: 'DINHEIRO',
+    payOnDelivery: true,
+    payOnDeliveryMethod: 'DINHEIRO',
+    type: 'DELIVERY',
+  },
 ];
 
 const money = (value: number) =>
@@ -139,6 +151,16 @@ describe('AdminOrders', () => {
     expect(container.textContent).toContain('Entrega');
     expect(container.textContent).toContain('Retirada no balcão');
     expect(container.querySelectorAll('[role="progressbar"]')).toHaveLength(3);
+  });
+
+  it('mantém confirmação de dinheiro disponível depois da entrega', async () => {
+    const { onConfirmPayment } = await renderOrders(undefined, [orders[3]]);
+    expect(container.textContent).toContain('Entrega concluída · aguardando confirmação do dinheiro');
+    const button = buttonByLabel(container, 'Confirmar pagamento do pedido #304');
+    expect(button).not.toBeNull();
+    await act(async () => button.click());
+    expect(container.querySelector('[role="dialog"]')).not.toBeNull();
+    expect(container.textContent).toContain('Confirme somente se você já recebeu');
   });
 
   it('consulta um estorno pendente sem pedir outro cancelamento ou confirmação de pagamento', async () => {
