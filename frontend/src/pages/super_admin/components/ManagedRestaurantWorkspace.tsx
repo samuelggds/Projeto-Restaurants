@@ -19,6 +19,15 @@ import {
   X,
 } from 'lucide-react';
 import superAdminService from '../../../Services/superAdminService';
+import { ProductDrawer } from '../../admin/components/ProductDrawer';
+import type {
+  AdminCategory,
+  AdminIngredient,
+  AdminProduct,
+  AdminProductOptionGroup,
+  AdminProductCompositionItem,
+  AdminProductPortionConfiguration,
+} from '../../admin/types';
 import { createPersistentImageDataUrl } from '../../../utils/persistentImage';
 import * as S from './ManagedRestaurantWorkspace.styles';
 
@@ -34,6 +43,11 @@ type Product = {
   featured?: boolean;
   kind?: string;
   saleMode?: string;
+  pricingMode?: string;
+  configurationVersion?: number;
+  optionGroups?: AdminProductOptionGroup[];
+  compositionItems?: AdminProductCompositionItem[];
+  portionConfiguration?: AdminProductPortionConfiguration | null;
   categoryId?: number;
   category?: { id: number; name: string } | null;
   comboGroups?: Array<{
@@ -70,6 +84,7 @@ type Workspace = {
   };
   products: Product[];
   categories: Category[];
+  ingredients: AdminIngredient[];
   combos: Product[];
   banners: Banner[];
   settings: Record<string, unknown> | null;
@@ -110,6 +125,7 @@ export function ManagedRestaurantWorkspace({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [customProductEditor, setCustomProductEditor] = useState<AdminProduct | null | 'NEW'>(null);
 
   const [product, setProduct] = useState({
     id: 0,
@@ -206,6 +222,58 @@ export function ManagedRestaurantWorkspace({
     [data?.products],
   );
 
+  const managedCategories = useMemo<AdminCategory[]>(
+    () =>
+      (data?.categories || []).map((item) => ({
+        id: item.id,
+        name: item.name,
+        active: item.active !== false,
+      })),
+    [data?.categories],
+  );
+
+  const managedIngredients = useMemo<AdminIngredient[]>(
+    () =>
+      (data?.ingredients || []).map((item) => ({
+        id: Number(item.id),
+        name: String(item.name || ''),
+        price: Number(item.price || 0),
+        category: String(item.category || 'Geral'),
+        active: item.active !== false,
+        image: item.image || null,
+      })),
+    [data?.ingredients],
+  );
+
+  const mapManagedProduct = useCallback(
+    (item: Product): AdminProduct => ({
+      id: String(item.id),
+      categoryId: Number(item.categoryId || item.category?.id || 0),
+      name: item.name || '',
+      category: item.category?.name || '',
+      price: Number(item.price || 0),
+      image: item.image || '',
+      description: item.description || '',
+      stock: item.stock ?? null,
+      preparationTime: item.preparationTime ?? undefined,
+      active: item.active !== false,
+      featured: item.featured === true,
+      kind: item.kind === 'COMBO' ? 'COMBO' : 'STANDARD',
+      saleMode: item.saleMode === 'BUILDABLE' ? 'BUILDABLE' : 'COMPLETE',
+      pricingMode: item.pricingMode === 'HIGHEST_OPTION' ? 'HIGHEST_OPTION' : 'BASE',
+      configurationVersion: Math.max(1, Number(item.configurationVersion || 1)),
+      optionGroups: item.optionGroups || [],
+      compositionItems: item.compositionItems || [],
+      portionConfiguration: item.portionConfiguration ?? null,
+    }),
+    [],
+  );
+
+  const managedProducts = useMemo<AdminProduct[]>(
+    () => standardProducts.map(mapManagedProduct),
+    [mapManagedProduct, standardProducts],
+  );
+
   async function persist(action: () => Promise<unknown>, message: string) {
     if (saving) return;
     setSaving(true);
@@ -277,6 +345,10 @@ export function ManagedRestaurantWorkspace({
   );
 
   function editProduct(item: Product) {
+    if (item.saleMode === 'BUILDABLE') {
+      setCustomProductEditor(mapManagedProduct(item));
+      return;
+    }
     setProduct({
       id: item.id,
       name: item.name || '',
@@ -320,6 +392,56 @@ export function ManagedRestaurantWorkspace({
       product.id ? 'Produto atualizado.' : 'Produto cadastrado.',
     );
     resetProduct();
+  }
+
+  async function saveCustomProduct(item: AdminProduct) {
+    const payload: Record<string, unknown> = {
+      name: item.name,
+      description: item.description || '',
+      image: item.image || '',
+      price: item.price,
+      categoryId: item.categoryId,
+      active: item.active !== false,
+      featured: item.featured === true,
+      preparationTime: item.preparationTime,
+      stock: item.stock ?? null,
+      saleMode: item.saleMode ?? 'BUILDABLE',
+      pricingMode: item.pricingMode ?? 'BASE',
+      optionGroups: item.optionGroups || [],
+      compositionItems: item.compositionItems || [],
+      portionConfiguration: item.portionConfiguration ?? null,
+      expectedConfigurationVersion: item.configurationVersion,
+      confirmDiscardConfiguration: item.confirmDiscardConfiguration,
+    };
+    if (item.id) {
+      await superAdminService.updateManagedProduct(restaurantId, Number(item.id), payload);
+    } else {
+      await superAdminService.createManagedProduct(restaurantId, payload);
+    }
+    setCustomProductEditor(null);
+    setSuccess(item.id ? 'Produto personalizado atualizado.' : 'Produto personalizado cadastrado.');
+    await load();
+  }
+
+  async function createManagedIngredient(
+    ingredient: Omit<AdminIngredient, 'id'>,
+  ): Promise<AdminIngredient> {
+    const created = (await superAdminService.createManagedIngredient(restaurantId, {
+      name: ingredient.name,
+      category: ingredient.category,
+      price: Number(ingredient.price || 0),
+      active: ingredient.active !== false,
+      image: ingredient.image ?? null,
+    })) as AdminIngredient;
+    await load();
+    return {
+      id: Number(created.id),
+      name: String(created.name || ingredient.name),
+      price: Number(created.price ?? ingredient.price ?? 0),
+      category: String(created.category || ingredient.category || 'Geral'),
+      active: created.active !== false,
+      image: created.image ?? null,
+    };
   }
 
   async function saveCategory(event: FormEvent) {
@@ -572,10 +694,26 @@ export function ManagedRestaurantWorkspace({
             {tab === 'products' ? (
               <S.Split>
                 <S.List>
-                  <S.SectionTitle><div><small>CATÁLOGO</small><h3>Produtos</h3></div><span>{standardProducts.length}</span></S.SectionTitle>
+                  <S.SectionTitle>
+                    <div><small>CATÁLOGO</small><h3>Produtos</h3></div>
+                    <span>{standardProducts.length}</span>
+                  </S.SectionTitle>
+                  <button
+                    type="button"
+                    onClick={() => setCustomProductEditor('NEW')}
+                    style={{ marginBottom: 10, fontWeight: 700 }}
+                  >
+                    <PackagePlus size={16} /> Cadastrar produto personalizável
+                  </button>
                   {standardProducts.map((item) => (
                     <button key={item.id} type="button" onClick={() => editProduct(item)}>
-                      <span><b>{item.name}</b><small>{item.category?.name || 'Sem categoria'}</small></span>
+                      <span>
+                        <b>{item.name}</b>
+                        <small>
+                          {item.category?.name || 'Sem categoria'} ·{' '}
+                          {item.saleMode === 'BUILDABLE' ? 'Personalizável' : 'Produto pronto'}
+                        </small>
+                      </span>
                       <strong>{Number(item.price || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</strong>
                     </button>
                   ))}
@@ -672,6 +810,18 @@ export function ManagedRestaurantWorkspace({
           </S.Body>
         ) : null}
       </S.Dialog>
+      {customProductEditor ? (
+        <ProductDrawer
+          product={customProductEditor === 'NEW' ? null : customProductEditor}
+          categories={managedCategories}
+          ingredients={managedIngredients}
+          products={managedProducts}
+          enableTemplates={false}
+          createIngredient={createManagedIngredient}
+          close={() => setCustomProductEditor(null)}
+          save={saveCustomProduct}
+        />
+      ) : null}
     </S.Backdrop>
   );
 }
