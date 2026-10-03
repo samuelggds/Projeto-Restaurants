@@ -99,6 +99,7 @@ export type AdminProduct = {
   image: string;
   description?: string;
   stock?: number | null;
+  preparationTime?: number;
   active?: boolean;
   featured?: boolean;
   kind?: 'STANDARD' | 'COMBO';
