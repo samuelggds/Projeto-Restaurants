@@ -245,7 +245,17 @@ export function ManagedServicePage() {
                     <span className="store"><Store aria-hidden="true" /></span>
                     <div>
                       <h3>{item.restaurant.name}</h3>
-                      <p>#{item.restaurant.id} • {item.restaurant.plan === 'GESTAO_TOTAL' ? 'Gestão Total' : 'Premium'} • {item.restaurant.slug}</p>
+                      <p>
+                        #{item.restaurant.id} •{' '}
+                        {item.restaurant.plan === 'GESTAO_TOTAL'
+                          ? 'Gestão Total'
+                          : item.restaurant.plan === 'PREMIUM'
+                            ? 'Premium'
+                            : item.restaurant.plan === 'BASICO'
+                              ? 'Básico'
+                              : item.restaurant.plan || 'Plano não identificado'}{' '}
+                        • {item.restaurant.slug}
+                      </p>
                     </div>
                   </div>
                   <S.Status data-status={item.status}>
