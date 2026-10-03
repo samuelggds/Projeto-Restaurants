@@ -111,33 +111,36 @@ export function DomainsPage({ data }: { data: SuperAdminData }) {
   }, []);
 
   useEffect(() => {
-    void load();
+    void Promise.resolve().then(load);
   }, [load]);
 
   useEffect(() => {
-    if (!restaurantId && manageable[0]?.id) setRestaurantId(manageable[0].id);
+    if (restaurantId || !manageable[0]?.id) return;
+    void Promise.resolve().then(() => setRestaurantId(manageable[0].id));
   }, [manageable, restaurantId]);
 
   useEffect(() => {
     const existing = domains.find((item) => item.restaurantId === restaurantId) || null;
-    setSelected(existing);
-    if (existing) {
-      setHostname(existing.hostname);
-      setMode(existing.mode);
-      setIncludeWww(existing.includeWww);
-      setLandingPublished(existing.landingPublished);
-      setMenuSubdomain(
-        existing.menuHostname
-          ? existing.menuHostname.slice(0, -(existing.hostname.length + 1))
-          : 'cardapio',
-      );
-    } else {
+    void Promise.resolve().then(() => {
+      setSelected(existing);
+      if (existing) {
+        setHostname(existing.hostname);
+        setMode(existing.mode);
+        setIncludeWww(existing.includeWww);
+        setLandingPublished(existing.landingPublished);
+        setMenuSubdomain(
+          existing.menuHostname
+            ? existing.menuHostname.slice(0, -(existing.hostname.length + 1))
+            : 'cardapio',
+        );
+        return;
+      }
       setHostname('');
       setMode('SITE_WITH_MENU_SUBDOMAIN');
       setMenuSubdomain('cardapio');
       setIncludeWww(true);
       setLandingPublished(false);
-    }
+    });
   }, [domains, restaurantId]);
 
   const run = async (operation: () => Promise<unknown>, success: string) => {
