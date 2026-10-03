@@ -17,7 +17,7 @@ type Implementation = {
   id: string;
   restaurantId: number;
   status: string;
-  productLimit: number;
+  productLimit: number | null;
   notes?: string | null;
   startedAt?: string | null;
   completedAt?: string | null;
@@ -254,7 +254,9 @@ export function ManagedServicePage() {
                 <S.Stats>
                   <span><b>{item.restaurant.productsCount}</b> produtos</span>
                   <span><b>{item.restaurant.categoriesCount}</b> categorias</span>
-                  <span><b>{item.productLimit}</b> limite inicial</span>
+                  <span>
+                    <b>{item.productLimit == null ? 'Ilimitado' : item.productLimit}</b> limite inicial
+                  </span>
                   <span>Atualizado {dateTime(item.updatedAt)}</span>
                 </S.Stats>
                 <label className="notes">
