@@ -26,3 +26,15 @@ export function hasContinuousManagementAccess(
     String(plan || '').trim().toUpperCase() === 'GESTAO_TOTAL'
   );
 }
+
+export function hasManagedWorkspaceAccess(
+  plan: ManagedServicePlan | null | undefined,
+  status: ManagedServiceSubscriptionStatus | null | undefined,
+  implementationStatus?: string | null,
+) {
+  if (hasContinuousManagementAccess(plan, status)) return true;
+  if (!hasImplementationAccess(plan, status)) return false;
+  return !['CONCLUIDA', 'CANCELADA'].includes(
+    String(implementationStatus || '').trim().toUpperCase(),
+  );
+}
