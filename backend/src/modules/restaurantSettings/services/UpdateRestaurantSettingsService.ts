@@ -375,21 +375,19 @@ class UpdateRestaurantSettingsService {
     if (resultingLandingPageEnabled && !resultingCustomDomainRequested) {
       throw new Error('A landing page exige que o restaurante também solicite um domínio próprio.');
     }
-    if (resultingCustomDomainRequested || resultingLandingPageEnabled) {
+    const enablingCustomDomain =
+      normalizedCustomDomainRequested === true && settings.customDomainRequested !== true;
+    const enablingLanding =
+      normalizedLandingPageEnabled === true && settings.landingPageEnabled !== true;
+    if (enablingCustomDomain || enablingLanding) {
       const subscription = await prisma.subscription.findUnique({
         where: { restaurantId: Number(restaurantId) },
         select: { plan: true, status: true },
       });
-      if (
-        resultingCustomDomainRequested &&
-        !hasCustomDomainAccess(subscription?.plan, subscription?.status)
-      ) {
+      if (enablingCustomDomain && !hasCustomDomainAccess(subscription?.plan, subscription?.status)) {
         throw new Error('Domínio próprio está disponível somente nos planos Premium e Gestão Total ativos.');
       }
-      if (
-        resultingLandingPageEnabled &&
-        !hasHostedLandingAccess(subscription?.plan, subscription?.status)
-      ) {
+      if (enablingLanding && !hasHostedLandingAccess(subscription?.plan, subscription?.status)) {
         throw new Error('Landing page da GastroNexa está disponível somente no plano Gestão Total ativo.');
       }
     }
