@@ -5,6 +5,7 @@ import {
   normalizeCustomHostname,
   type CustomDomainMode,
 } from '../domain/customDomainPolicy.js';
+import { hasHostedLandingAccess } from '../../billing/domain/planFeaturePolicy.js';
 
 type ActiveCustomDomainResolution = {
   hostname: string;
@@ -51,7 +52,7 @@ export async function resolveActiveCustomDomain(hostnameValue: unknown) {
           name: true,
           slug: true,
           active: true,
-          settings: { select: { landingPageEnabled: true } },
+          settings: { select: { customDomainRequested: true, landingPageEnabled: true } },
           subscription: { select: { plan: true, status: true } },
         },
       },
@@ -61,6 +62,7 @@ export async function resolveActiveCustomDomain(hostnameValue: unknown) {
   if (
     !row ||
     !row.restaurant.active ||
+    row.restaurant.settings?.customDomainRequested !== true ||
     !customDomainPlanEligible(row.restaurant.subscription?.plan, row.restaurant.subscription?.status)
   ) {
     activeHostCache.set(hostname, {
@@ -72,7 +74,12 @@ export async function resolveActiveCustomDomain(hostnameValue: unknown) {
 
   const mode = row.mode as CustomDomainMode;
   const landingPublished =
-    row.landingPublished === true && row.restaurant.settings?.landingPageEnabled === true;
+    row.landingPublished === true &&
+    row.restaurant.settings?.landingPageEnabled === true &&
+    hasHostedLandingAccess(
+      row.restaurant.subscription?.plan,
+      row.restaurant.subscription?.status,
+    );
   const allowedHosts = customDomainPublicHosts({
     hostname: row.hostname,
     menuHostname: row.menuHostname,
@@ -129,6 +136,7 @@ export async function resolveRestaurantMenuBaseUrl(restaurantIdValue: unknown) {
       restaurant: {
         select: {
           active: true,
+          settings: { select: { customDomainRequested: true } },
           subscription: { select: { plan: true, status: true } },
         },
       },
@@ -138,6 +146,7 @@ export async function resolveRestaurantMenuBaseUrl(restaurantIdValue: unknown) {
     !row ||
     row.status !== 'ACTIVE' ||
     !row.restaurant.active ||
+    row.restaurant.settings?.customDomainRequested !== true ||
     !customDomainPlanEligible(row.restaurant.subscription?.plan, row.restaurant.subscription?.status)
   ) {
     return null;
