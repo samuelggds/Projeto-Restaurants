@@ -703,6 +703,7 @@ export function FigmaDeliveryExperience({
       <S.Header>
         <div className="mobile-location-row">
           <button
+            className="mobile-address-trigger"
             type="button"
             disabled={
               activeFulfillmentMethod === 'pickup' || (!onManageAddresses && !onSelectAddress)
