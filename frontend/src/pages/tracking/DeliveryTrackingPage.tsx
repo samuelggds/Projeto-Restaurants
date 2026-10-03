@@ -2,6 +2,7 @@ import { Suspense, lazy, useEffect, useRef, useState } from 'react';
 import {
   ArrowLeft,
   Ban,
+  Bike,
   CheckCircle2,
   CircleDot,
   Clock3,
@@ -17,7 +18,6 @@ import ordersService, {
 import { acquireSocket, connectGuestOrdersSocket } from '../../Services/socketService';
 import { getAccessToken } from '../../modules/auth/session/authSession';
 import { mergeCourierRoutePoints } from '../Courier/domain/courierLocation';
-import courierProfilePlaceholder from '../../assets/tracking/courier-profile-placeholder.svg';
 import { CustomerTrackingChatPanel } from './CustomerTrackingChatPanel';
 import DeliveryConfirmationCodePrompt from './DeliveryConfirmationCodePrompt';
 import {
@@ -465,10 +465,14 @@ function DeliveryTrackingContent({ id }: { id?: string }) {
               <S.CourierSlot>
                 <S.CourierCard>
                   <S.CourierAvatar>
-                    <img
-                      src={data.order.assignedCourier?.avatar || courierProfilePlaceholder}
-                      alt=""
-                    />
+                    {data.order.assignedCourier?.avatar ? (
+                      <img
+                        src={data.order.assignedCourier.avatar}
+                        alt=""
+                      />
+                    ) : (
+                      <Bike aria-hidden="true" />
+                    )}
                   </S.CourierAvatar>
                   <span>
                     <strong>{data.order.assignedCourier?.name || 'Aguardando motoboy'}</strong>
