@@ -34,7 +34,8 @@ import { useLoyaltyExpirationClock } from './hooks/useLoyaltyExpirationClock';
 import { getRestaurantAvailability } from '../admin/domain/businessHours';
 import { applyHomeSeoMetadata, buildWhatsAppUrl, getAvailablePaymentMethods, resolveAvailableFulfillmentMethod, resolveDefaultCheckoutPaymentMethod } from './domain/publicSettings';
 import { useCardPaymentReturn } from './hooks/useCardPaymentReturn';
-import { buildLoginUrl } from '../../shared/navigation/authNavigation';
+import { buildLoginUrl, buildTenantPublicPath } from '../../shared/navigation/authNavigation';
+import { useResolvedTenantSlug } from '../../shared/tenant/CustomDomainTenantContext';
 import type { HomeProduct } from './types';
 import { useHomeProfileNavigation } from './hooks/useHomeProfileNavigation';
 import { createReadyProductConfiguration, resolveProductEntryKind } from './domain/productEntryFlow';
@@ -70,9 +71,7 @@ export default function Home() {
     [location.hash, location.pathname, location.search, navigate],
   );
 
-  const normalizedSlug = String(restaurantSlug || '')
-    .trim()
-    .toLowerCase();
+  const normalizedSlug = useResolvedTenantSlug(restaurantSlug);
   const resolvedRestaurantId = useResolvedRestaurantId(normalizedSlug);
   const navigationState = (location.state as HomeNavigationState | null) || null;
   const [cartOpen, setCartOpen] = useState(() => Boolean(navigationState?.openCart));
@@ -422,12 +421,12 @@ export default function Home() {
       if (mesaMode) await tableAccount.refresh({ silent: true });
     },
     onPixPaymentCreated: ({ orderPublicId }) => {
-      if (!restaurantSlug || mesaMode) return;
-      navigate(`/${restaurantSlug}/pedido/${orderPublicId}/pagamento`);
+      if (!normalizedSlug || mesaMode) return;
+      navigate(buildTenantPublicPath(normalizedSlug, `/pedido/${orderPublicId}/pagamento`));
     },
     onActivePaymentExists: ({ orderPublicId, paymentMethod }) => {
-      if (!['PIX', 'CARTAO'].includes(paymentMethod) || !restaurantSlug || mesaMode) return;
-      navigate(`/${restaurantSlug}/pedido/${orderPublicId}/pagamento`);
+      if (!['PIX', 'CARTAO'].includes(paymentMethod) || !normalizedSlug || mesaMode) return;
+      navigate(buildTenantPublicPath(normalizedSlug, `/pedido/${orderPublicId}/pagamento`));
     },
     onClearCart: () => setCart([]),
     onCloseCart: () => setCartOpen(false),
@@ -726,7 +725,7 @@ export default function Home() {
   const { openProfile, openOrders, openProfileView } = useHomeProfileNavigation({
     navigate,
     navigateToLogin,
-    restaurantSlug,
+    normalizedSlug,
     userLoggedIn: Boolean(user),
   });
   const openAdmin = useCallback(() => navigate('/admin'), [navigate]);
