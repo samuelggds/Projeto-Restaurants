@@ -1,41 +1,13 @@
-import {
-  createContext,
-  useContext,
-  useEffect,
-  useMemo,
-  useState,
-  type ReactNode,
-} from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import api from '../../Services/api';
 import {
   clearCustomDomainTenant,
   rememberCustomDomainTenant,
 } from '../navigation/authNavigation';
-
-type CustomDomainTenant = {
-  hostname: string;
-  restaurantId: number;
-  restaurantName: string;
-  restaurantSlug: string;
-  mode: 'MENU_ONLY' | 'SITE_WITH_MENU_SUBDOMAIN';
-  surface: 'MENU' | 'LANDING';
-  canonicalHost: string | null;
-  menuHost: string | null;
-};
-
-type CustomDomainContextValue = {
-  loading: boolean;
-  isCustomDomain: boolean;
-  tenant: CustomDomainTenant | null;
-  error: boolean;
-};
-
-const Context = createContext<CustomDomainContextValue>({
-  loading: false,
-  isCustomDomain: false,
-  tenant: null,
-  error: false,
-});
+import {
+  CustomDomainContext,
+  type CustomDomainTenant,
+} from './customDomainTenantContext';
 
 const LOCAL_HOSTS = new Set(['localhost', '127.0.0.1', '::1']);
 
@@ -67,16 +39,11 @@ export function CustomDomainTenantProvider({ children }: { children: ReactNode }
   useEffect(() => {
     if (!shouldResolve) {
       clearCustomDomainTenant();
-      setTenant(null);
-      setLoading(false);
-      setError(false);
       return;
     }
 
     let active = true;
     const hostname = window.location.hostname.toLowerCase();
-    setLoading(true);
-    setError(false);
 
     void api
       .get('/public/custom-domain/resolve', {
@@ -120,15 +87,5 @@ export function CustomDomainTenantProvider({ children }: { children: ReactNode }
     [error, loading, shouldResolve, tenant],
   );
 
-  return <Context.Provider value={value}>{children}</Context.Provider>;
-}
-
-export function useCustomDomainTenant() {
-  return useContext(Context);
-}
-
-export function useResolvedTenantSlug(routeSlug?: unknown) {
-  const custom = useCustomDomainTenant();
-  const explicit = String(routeSlug || '').trim().toLowerCase();
-  return explicit || custom.tenant?.restaurantSlug || '';
+  return <CustomDomainContext.Provider value={value}>{children}</CustomDomainContext.Provider>;
 }
