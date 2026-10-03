@@ -21,6 +21,7 @@ const MAX_NEXT_PATH_LENGTH = 4_096;
 const MAX_DECODE_PASSES = 8;
 const AUTH_RETURN_STORAGE_PREFIX = 'gastronexa:auth-return:';
 const TENANT_SLUG_STORAGE_KEY = 'gastronexa:tenant-slug';
+const CUSTOM_DOMAIN_HOST_STORAGE_KEY = 'gastronexa:custom-domain-host';
 const TEAM_SESSION_ROOTS = ['/attendant', '/courier', '/kitchen', '/waiter'] as const;
 const ADMIN_SESSION_ROOTS = ['/admin'] as const;
 const BLOCKED_AUTH_PATHS = new Set([
@@ -177,6 +178,51 @@ export function getRememberedTenantSlug() {
   }
 }
 
+export function rememberCustomDomainTenant(hostname: unknown, restaurantSlug: unknown) {
+  if (typeof window === 'undefined') return;
+  const normalizedHost = String(hostname || '').trim().toLowerCase();
+  const slug = isUsableRestaurantSlug(restaurantSlug);
+  if (!normalizedHost || !slug || normalizedHost !== window.location.hostname.toLowerCase()) return;
+  try {
+    window.sessionStorage.setItem(CUSTOM_DOMAIN_HOST_STORAGE_KEY, normalizedHost);
+    rememberTenantSlug(slug);
+  } catch {
+    // sessionStorage may be unavailable under strict browser policies.
+  }
+}
+
+export function clearCustomDomainTenant() {
+  if (typeof window === 'undefined') return;
+  try {
+    window.sessionStorage.removeItem(CUSTOM_DOMAIN_HOST_STORAGE_KEY);
+  } catch {
+    // Ignore restricted storage.
+  }
+}
+
+export function isCustomDomainBrowserContext() {
+  if (typeof window === 'undefined') return false;
+  try {
+    return (
+      window.sessionStorage.getItem(CUSTOM_DOMAIN_HOST_STORAGE_KEY) ===
+      window.location.hostname.toLowerCase()
+    );
+  } catch {
+    return false;
+  }
+}
+
+export function buildTenantPublicPath(restaurantSlug: unknown, suffix = '') {
+  const slug = isUsableRestaurantSlug(restaurantSlug);
+  const normalizedSuffix = String(suffix || '').startsWith('/')
+    ? String(suffix || '')
+    : suffix
+      ? `/${String(suffix)}`
+      : '';
+  if (isCustomDomainBrowserContext()) return normalizedSuffix || '/';
+  return slug ? `/${slug}${normalizedSuffix}` : TENANT_REQUIRED_PATH;
+}
+
 function getAuthReturnStorageKey(restaurantSlug: string) {
   const slug = isUsableRestaurantSlug(restaurantSlug);
   return slug ? `${AUTH_RETURN_STORAGE_PREFIX}${slug}` : '';
@@ -297,7 +343,7 @@ function getCurrentBrowserRestaurantSlug() {
 }
 
 function buildTenantAuthEntryPath(path: Exclude<AuthEntryPath, '/change-password'>, slug: string) {
-  return `/${slug}${path}`;
+  return isCustomDomainBrowserContext() ? path : `/${slug}${path}`;
 }
 
 export function buildAuthEntryUrl(path: AuthEntryPath, searchParams: URLSearchParams) {
@@ -370,7 +416,7 @@ export function buildLoginUrl(location: ReturnLocation) {
   if (!restaurantSlug) return TENANT_REQUIRED_PATH;
 
   rememberTenantSlug(restaurantSlug);
-  const portalPath = `/${restaurantSlug}/login`;
+  const portalPath = isCustomDomainBrowserContext() ? '/login' : `/${restaurantSlug}/login`;
   const nextPath = getSafeNextPath(getCurrentReturnPath(location));
   if (!nextPath) return portalPath;
 
