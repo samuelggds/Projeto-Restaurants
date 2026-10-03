@@ -134,6 +134,11 @@ class UpdateOrderStatusService {
       status === OrderStatus.ENTREGUE &&
       normalizedRole === UserRole.ADMIN &&
       order.type === OrderType.DELIVERY;
+    const deliveryPaymentMethod = order.payOnDeliveryMethod || order.paymentMethod || null;
+    const isCashPayOnDelivery =
+      order.payOnDelivery === true && deliveryPaymentMethod === PaymentMethod.DINHEIRO;
+    const canCourierCompleteCashBeforeAdminPayment =
+      isCourierDeliveryCompletion && isCashPayOnDelivery && order.paid !== true;
 
     if (isCourierDeliveryCompletion || isAdminDeliveryCompletion) {
       if (
@@ -143,7 +148,7 @@ class UpdateOrderStatusService {
         throw new Error('Pedido com estorno em processamento ou concluído não pode ser entregue.');
       if (currentStatus !== OrderStatus.SAIU_PARA_ENTREGA)
         throw new Error('A entrega só pode ser concluída quando estiver em SAIU_PARA_ENTREGA.');
-      if (order.paid !== true)
+      if (order.paid !== true && !canCourierCompleteCashBeforeAdminPayment)
         throw new Error('O pagamento precisa estar confirmado antes de concluir a entrega.');
       if (!order.deliveryStartedAt)
         throw new Error('A entrega não possui um início válido registrado.');
@@ -231,7 +236,15 @@ class UpdateOrderStatusService {
             restaurantId: Number(restaurantId),
             type: OrderType.DELIVERY,
             status: OrderStatus.SAIU_PARA_ENTREGA,
-            paid: true,
+            ...(canCourierCompleteCashBeforeAdminPayment
+              ? {
+                  payOnDelivery: true,
+                  OR: [
+                    { payOnDeliveryMethod: PaymentMethod.DINHEIRO },
+                    { payOnDeliveryMethod: null, paymentMethod: PaymentMethod.DINHEIRO },
+                  ],
+                }
+              : { paid: true }),
             refundStatus: { notIn: [OrderRefundStatus.PROCESSING, OrderRefundStatus.SUCCEEDED] },
             deliveryStartedAt: { not: null },
             ...(isCourierDeliveryCompletion ? { assignedCourierId: normalizedActorUserId } : {}),
@@ -278,6 +291,24 @@ class UpdateOrderStatusService {
                 previousStatus: currentStatus,
                 paymentConfirmed: true,
                 deliveryCodeBypassedByAdmin: true,
+              },
+            },
+          });
+        } else if (canCourierCompleteCashBeforeAdminPayment) {
+          await tx.auditLog.create({
+            data: {
+              userId: normalizedActorUserId,
+              userRole: UserRole.MOTOQUEIRO,
+              restaurantId: Number(restaurantId),
+              restaurantName: deliveredOrder.restaurant?.name || order.restaurant?.name || null,
+              action: 'COURIER_CASH_DELIVERY_COMPLETED_PENDING_PAYMENT',
+              resource: `Order:${normalizedOrderId}`,
+              result: 'SUCCESS',
+              metadata: {
+                previousStatus: currentStatus,
+                paymentMethod: PaymentMethod.DINHEIRO,
+                paymentConfirmed: false,
+                deliveryConfirmedByCustomerCode: true,
               },
             },
           });
