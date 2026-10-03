@@ -6,7 +6,7 @@ import type { PixPaymentData, PixPaymentStatus } from '../Home/hooks/useCheckout
 import ordersService from '../../Services/ordersService';
 import restaurantSettingsService from '../../Services/restaurantSettingsService';
 import { buildTenantPublicPath } from '../../shared/navigation/authNavigation';
-import { useResolvedTenantSlug } from '../../shared/tenant/CustomDomainTenantContext';
+import { useResolvedTenantSlug } from '../../shared/tenant/useCustomDomainTenant';
 import {
   OnlineCardPaymentForm,
   type CardPaymentPreparer,
