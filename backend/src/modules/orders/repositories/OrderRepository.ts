@@ -580,27 +580,6 @@ class OrderRepository {
     });
   }
 
-  async setPaymentConfirmationPin(
-    id: number | string,
-    restaurantId: number,
-    paymentConfirmationPin: string,
-    paymentConfirmationPinExpiresAt: Date,
-    db: PrismaClientLike = prisma,
-  ) {
-    await db.order.updateMany({
-      where: {
-        id: Number(id),
-        restaurantId,
-      },
-      data: {
-        paymentConfirmationPin,
-        paymentConfirmationPinExpiresAt,
-      },
-    });
-
-    return this.findById(id, restaurantId, db);
-  }
-
   async findById(id: number | string, restaurantId: number, db: PrismaClientLike = prisma) {
     return db.order.findFirst({
       where: {
