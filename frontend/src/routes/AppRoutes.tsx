@@ -315,14 +315,21 @@ function PageTransition() {
 
 export function RouteAuthorizationGuard() {
   const { user, isLoading } = useAuth();
+  const customDomain = useCustomDomainTenant();
   const location = useLocation();
 
+  if (customDomain.loading) return <RouteLoading />;
+
   if (isLoading) {
-    const publicDecision = authorizeRoute(location.pathname, null);
+    const publicDecision = authorizeRoute(location.pathname, null, {
+      customDomain: customDomain.isCustomDomain,
+    });
     return 'redirectTo' in publicDecision ? <RouteLoading /> : <Outlet />;
   }
 
-  const decision = authorizeRoute(location.pathname, user);
+  const decision = authorizeRoute(location.pathname, user, {
+    customDomain: customDomain.isCustomDomain,
+  });
   if ('redirectTo' in decision) {
     const isCustomer = String(user?.role || '').toUpperCase() === 'CLIENTE';
     const customerReturnPath = isCustomer ? getCustomerReturnPath(location) : '';
