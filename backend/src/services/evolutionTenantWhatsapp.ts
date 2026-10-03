@@ -265,7 +265,13 @@ async function evolutionRequest(
     payload = text;
   }
   if (!response.ok) {
-    throw new EvolutionRequestError(response.status, path.split('/').filter(Boolean).slice(0, 2).join('/'));
+    const operation = path
+      .split('?')[0]
+      .split('/')
+      .filter(Boolean)
+      .slice(0, 2)
+      .join('/');
+    throw new EvolutionRequestError(response.status, operation);
   }
   return payload;
 }
@@ -297,10 +303,33 @@ export function isSafeDisposableOrphanEvolutionInstance(instance: EvolutionInsta
   );
 }
 
-async function fetchEvolutionInstance(instanceName: string) {
-  const payload = await evolutionRequest(
-    `/instance/fetchInstances?instanceName=${encodeURIComponent(instanceName)}`,
+export function isEvolutionInstanceNotFound(error: unknown) {
+  return (
+    error instanceof EvolutionRequestError &&
+    error.status === 404 &&
+    error.operation === 'instance/fetchInstances'
   );
+}
+
+export function isRecoverableEvolutionDisconnectError(error: unknown) {
+  return (
+    error instanceof EvolutionRequestError &&
+    [401, 404].includes(error.status) &&
+    error.operation === 'instance/logout'
+  );
+}
+
+async function fetchEvolutionInstance(instanceName: string) {
+  let payload: unknown;
+  try {
+    payload = await evolutionRequest(
+      `/instance/fetchInstances?instanceName=${encodeURIComponent(instanceName)}`,
+    );
+  } catch (error) {
+    if (isEvolutionInstanceNotFound(error)) return null;
+    throw error;
+  }
+
   const list = Array.isArray(payload) ? payload : [];
   const match = list.find(
     (candidate) =>
@@ -580,10 +609,31 @@ export async function refreshTenantEvolutionConnection(restaurantId: number) {
 export async function disconnectTenantEvolutionConnection(restaurantId: number) {
   const row = await readConnectionByRestaurant(restaurantId);
   if (!row || row.provider !== 'EVOLUTION') return publicConnection(null);
-  await evolutionRequest(`/instance/logout/${encodeURIComponent(row.externalInstanceId)}`, {
-    method: 'DELETE',
-    apiKey: instanceToken(row),
-  });
+
+  try {
+    await evolutionRequest(`/instance/logout/${encodeURIComponent(row.externalInstanceId)}`, {
+      method: 'DELETE',
+      apiKey: instanceToken(row),
+    });
+  } catch (error) {
+    if (!isRecoverableEvolutionDisconnectError(error)) throw error;
+
+    if (error instanceof EvolutionRequestError && error.status === 401) {
+      try {
+        await evolutionRequest(`/instance/delete/${encodeURIComponent(row.externalInstanceId)}`, {
+          method: 'DELETE',
+        });
+      } catch (deleteError) {
+        if (
+          !(deleteError instanceof EvolutionRequestError) ||
+          deleteError.status !== 404
+        ) {
+          throw deleteError;
+        }
+      }
+    }
+  }
+
   await prisma.$executeRaw`
     UPDATE "RestaurantWhatsappConnection"
     SET "status" = 'DISCONNECTED', "phone" = NULL,
