@@ -47,16 +47,25 @@ export default function Register() {
   const canonicalSearch = getSafeAuthSearchParams(contextualSearchParams).toString();
 
   useLayoutEffect(() => {
-    if (!pathSlug || searchParams.has('next') || !canonicalSearch) return;
+    if (
+      customDomain.isCustomDomain ||
+      !pathSlug ||
+      searchParams.has('next') ||
+      !canonicalSearch
+    ) {
+      return;
+    }
     const registerPath = buildTenantPublicPath(pathSlug, '/register');
     navigate(`${registerPath}?${canonicalSearch}`, { replace: true });
-  }, [canonicalSearch, navigate, pathSlug, searchParams]);
+  }, [canonicalSearch, customDomain.isCustomDomain, navigate, pathSlug, searchParams]);
 
   const branding = useRestaurantLoginBranding(contextualSearchParams);
   const authExperience = resolveAuthExperience(contextualSearchParams);
-  const loginPath = pathSlug
-    ? `${buildTenantPublicPath(pathSlug, '/login')}${canonicalSearch ? `?${canonicalSearch}` : ''}`
-    : buildAuthEntryUrl('/login', contextualSearchParams);
+  const loginPath = customDomain.isCustomDomain
+    ? buildTenantPublicPath(pathSlug, '/login')
+    : pathSlug
+      ? `${buildTenantPublicPath(pathSlug, '/login')}${canonicalSearch ? `?${canonicalSearch}` : ''}`
+      : buildAuthEntryUrl('/login', contextualSearchParams);
 
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
