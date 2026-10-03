@@ -21,7 +21,7 @@ import { useRestaurantLoginBranding } from '../Login/hooks/useRestaurantLoginBra
 import { getRestaurantSlugFromAuthPath } from '../Login/domain/loginPortal';
 import { useResendCooldown } from './hooks/useResendCooldown';
 import { CustomerRecoveryExperience } from './CustomerRecoveryExperience';
-import { useCustomDomainTenant } from '../../shared/tenant/CustomDomainTenantContext';
+import { useCustomDomainTenant } from '../../shared/tenant/useCustomDomainTenant';
 
 type ContactMethod = 'email' | 'phone';
 
