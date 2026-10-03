@@ -348,6 +348,9 @@ export type EmployeeFormPayload = Omit<Employee, 'id'> & {
 export type AdminPageProps = {
   initialArea?: Exclude<AdminSection, 'help'>;
   initialSettings?: AdminSettings;
+  restaurantSlug?: string;
+  currentPlanCode?: string;
+  subscriptionStatus?: string;
   initialEmployees?: Employee[];
   initialOrders?: AdminOrder[];
   initialProducts?: AdminProduct[];
