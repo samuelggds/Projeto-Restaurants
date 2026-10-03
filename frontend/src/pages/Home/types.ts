@@ -218,6 +218,8 @@ export type HomeExperienceProps = {
   tableLabel?: string | number;
   savedAddresses?: CustomerAddress[];
   selectedAddressId?: string;
+  fulfillmentMethod?: 'delivery' | 'pickup';
+  onFulfillmentMethodChange?: (method: 'delivery' | 'pickup') => void;
   onSelectAddress?: (addressId: string) => void;
   onManageAddresses?: () => void;
   onOpenMenu?: () => void;
