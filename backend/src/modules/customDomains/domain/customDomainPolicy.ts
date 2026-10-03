@@ -1,18 +1,16 @@
 import { domainToASCII } from 'node:url';
 import type { PlanType, SubscriptionStatus } from '@prisma/client';
+import { hasCustomDomainAccess } from '../../billing/domain/planFeaturePolicy.js';
 import { SuperAdminError } from '../../superAdmin/domain/superAdminErrors.js';
 
 export const CUSTOM_DOMAIN_MODES = ['MENU_ONLY', 'SITE_WITH_MENU_SUBDOMAIN'] as const;
 export type CustomDomainMode = (typeof CUSTOM_DOMAIN_MODES)[number];
 
-const ELIGIBLE_PLANS = new Set<PlanType>(['PREMIUM', 'GESTAO_TOTAL']);
-const ELIGIBLE_STATUSES = new Set<SubscriptionStatus>(['TESTE', 'ATIVA']);
-
 export function customDomainPlanEligible(
   plan: PlanType | null | undefined,
   status: SubscriptionStatus | null | undefined,
 ) {
-  return Boolean(plan && status && ELIGIBLE_PLANS.has(plan) && ELIGIBLE_STATUSES.has(status));
+  return hasCustomDomainAccess(plan, status);
 }
 
 function platformHostnames() {
