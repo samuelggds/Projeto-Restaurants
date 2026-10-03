@@ -17,7 +17,7 @@ export const PLAN_CONFIG = {
     features: [
       'Sistema de delivery',
       'Cardápio digital com QR Code de mesa',
-      'Implantação inicial assistida',
+      'Implantação inicial assistida com cadastro ilimitado',
       'Cadastro inicial de até 150 produtos',
       'Suporte prioritário',
       'GastroNexa IA com US$ 2,00 de créditos iniciais',
@@ -34,7 +34,7 @@ export const PLAN_CONFIG = {
       'Implantação inicial assistida',
       'Gestão assistida contínua sob solicitação',
       'Atualizações de produtos, preços, categorias, combos, banners e configurações',
-      'Solicitações ilimitadas dentro da política de uso justo',
+      'Solicitações de atualização ilimitadas',
       'Suporte prioritário',
       'GastroNexa IA',
     ],
