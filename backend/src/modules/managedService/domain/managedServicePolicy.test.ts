@@ -4,6 +4,7 @@ import {
   hasContinuousManagementAccess,
   hasImplementationAccess,
   hasManagedWorkspaceAccess,
+  managedImplementationProductLimit,
 } from './managedServicePolicy.js';
 
 test('Premium e Gestão Total recebem implantação quando a assinatura está ativa', () => {
@@ -26,3 +27,9 @@ test('workspace Premium encerra com a implantação e Gestão Total continua', (
   assert.equal(hasManagedWorkspaceAccess('PREMIUM', 'ATIVA', 'CANCELADA'), false);
   assert.equal(hasManagedWorkspaceAccess('GESTAO_TOTAL', 'ATIVA', 'CONCLUIDA'), true);
 });
+test('limite de implantação é derivado do plano atual', () => {
+  assert.equal(managedImplementationProductLimit('PREMIUM'), 150);
+  assert.equal(managedImplementationProductLimit('GESTAO_TOTAL'), null);
+  assert.equal(managedImplementationProductLimit('BASICO'), null);
+});
+
