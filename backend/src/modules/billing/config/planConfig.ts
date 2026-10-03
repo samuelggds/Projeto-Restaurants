@@ -17,13 +17,35 @@ export const PLAN_CONFIG = {
     features: [
       'Sistema de delivery',
       'Cardápio digital com QR Code de mesa',
+      'Implantação inicial assistida',
+      'Cadastro inicial de até 150 produtos',
       'Suporte prioritário',
       'GastroNexa IA com US$ 2,00 de créditos iniciais',
     ],
   },
+
+  [PlanType.GESTAO_TOTAL]: {
+    name: 'Gestão Total',
+    monthlyFee: 349.9,
+    trialDays: 15,
+    availableForSale: true,
+    features: [
+      'Tudo do Plano Premium',
+      'Implantação inicial assistida',
+      'Gestão assistida contínua sob solicitação',
+      'Atualizações de produtos, preços, categorias, combos, banners e configurações',
+      'Solicitações ilimitadas dentro da política de uso justo',
+      'Suporte prioritário',
+      'GastroNexa IA',
+    ],
+  },
 };
 
-export const AVAILABLE_PLAN_TYPES = [PlanType.BASICO, PlanType.PREMIUM] as const;
+export const AVAILABLE_PLAN_TYPES = [
+  PlanType.BASICO,
+  PlanType.PREMIUM,
+  PlanType.GESTAO_TOTAL,
+] as const;
 
 export function isAvailablePlan(plan: PlanType) {
   return AVAILABLE_PLAN_TYPES.some((availablePlan) => availablePlan === plan);
