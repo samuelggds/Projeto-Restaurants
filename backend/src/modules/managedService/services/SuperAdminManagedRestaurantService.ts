@@ -20,6 +20,7 @@ import {
   hasImplementationAccess,
   hasManagedWorkspaceAccess,
   managedImplementationProductLimit,
+  type ManagedServicePlan,
 } from '../domain/managedServicePolicy.js';
 import {
   managedBadRequest,
@@ -135,7 +136,7 @@ async function assertManagedAccess(restaurantId: number) {
 }
 
 function effectiveManagedProductLimit(
-  plan: unknown,
+  plan: ManagedServicePlan | null | undefined,
   configuredLimit: number | null | undefined,
 ) {
   const policyLimit = managedImplementationProductLimit(plan);
@@ -421,7 +422,7 @@ class SuperAdminManagedRestaurantService {
       actor,
       comboId ? 'MANAGED_COMBO_UPDATED' : 'MANAGED_COMBO_CREATED',
       comboId ? `Product:${comboId}` : 'ProductCombo',
-      { comboId: result.id, name: result.name },
+      { comboId: Number(result.id), name: String(result.name || '') },
     );
     return result;
   }
