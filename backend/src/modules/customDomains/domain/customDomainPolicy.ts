@@ -127,9 +127,20 @@ export function customDomainPublicHosts(input: {
   menuHostname: string | null;
   mode: CustomDomainMode;
   includeWww: boolean;
+  landingPublished?: boolean;
 }) {
   if (input.mode === 'SITE_WITH_MENU_SUBDOMAIN') {
-    return input.menuHostname ? [input.menuHostname] : [];
+    return [
+      ...(input.menuHostname ? [input.menuHostname] : []),
+      ...(input.landingPublished
+        ? [
+            input.hostname,
+            ...(input.includeWww && !input.hostname.startsWith('www.')
+              ? [`www.${input.hostname}`]
+              : []),
+          ]
+        : []),
+    ];
   }
   return [
     input.hostname,
