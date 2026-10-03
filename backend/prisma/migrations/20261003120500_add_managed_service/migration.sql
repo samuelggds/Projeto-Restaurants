@@ -9,11 +9,11 @@ VALUES (
   '[
     "Tudo do Plano Premium",
     "Implantação inicial assistida",
-    "Cadastro inicial de produtos, categorias e combos",
+    "Cadastro assistido de produtos, categorias e combos sem limite de quantidade",
     "Configuração visual e operacional inicial",
     "Gestão assistida contínua sob solicitação",
     "Atualizações de produtos, preços, categorias, combos, banners e configurações",
-    "Solicitações ilimitadas de atualização dentro da política de uso justo",
+    "Solicitações de atualização ilimitadas",
     "GastroNexa IA",
     "Cardápio digital com QR Code de mesa",
     "Suporte prioritário"
@@ -73,7 +73,7 @@ CREATE TABLE "RestaurantImplementation" (
   "id" UUID NOT NULL,
   "restaurantId" INTEGER NOT NULL,
   "status" VARCHAR(32) NOT NULL DEFAULT 'AGUARDANDO_MATERIAL',
-  "productLimit" INTEGER NOT NULL DEFAULT 150,
+  "productLimit" INTEGER DEFAULT 150,
   "notes" VARCHAR(2000),
   "startedAt" TIMESTAMP(3),
   "completedAt" TIMESTAMP(3),
@@ -132,7 +132,7 @@ SELECT
   md5('gastronexa:restaurant-implementation:' || s."restaurantId"::text)::uuid,
   s."restaurantId",
   'AGUARDANDO_MATERIAL',
-  150,
+  CASE WHEN s."plan" = 'GESTAO_TOTAL'::"PlanType" THEN NULL ELSE 150 END,
   CURRENT_TIMESTAMP,
   CURRENT_TIMESTAMP
 FROM "Subscription" s
