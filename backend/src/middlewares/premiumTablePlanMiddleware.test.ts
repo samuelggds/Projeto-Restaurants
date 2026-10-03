@@ -44,6 +44,21 @@ test('permite sistema de mesas para plano Premium ativo', async () => {
   assert.equal(res.statusCode, 200);
 });
 
+test('permite sistema de mesas para Gestão Total ativa', async () => {
+  prisma.subscription.findUnique = async () => ({ plan: 'GESTAO_TOTAL', status: 'ATIVA' });
+
+  const req = request();
+  const res = response();
+  let called = false;
+
+  await premiumTablePlanMiddleware(req, res, () => {
+    called = true;
+  });
+
+  assert.equal(called, true);
+  assert.equal(res.statusCode, 200);
+});
+
 test('bloqueia sistema de mesas para plano Básico', async () => {
   prisma.subscription.findUnique = async () => ({ plan: 'BASICO', status: 'ATIVA' });
 
@@ -58,7 +73,7 @@ test('bloqueia sistema de mesas para plano Básico', async () => {
   assert.equal(nextCalled, false);
   assert.equal(res.statusCode, 403);
   assert.equal(res.body.code, 'PREMIUM_TABLE_PLAN_REQUIRED');
-  assert.match(res.body.error, /somente no plano Premium/i);
+  assert.match(res.body.error, /Premium e Gestão Total/i);
 });
 
 test('usa o restaurante da sessão para cliente de mesa sem login', async () => {
