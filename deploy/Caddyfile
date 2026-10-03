@@ -72,6 +72,13 @@ https:// {
 		on_demand
 	}
 
+	# On-Demand TLS controls certificate issuance. This second check also blocks
+	# a previously certified hostname immediately after SUPER_ADMIN deactivation,
+	# restaurant blocking or loss of Premium/Gestao Total eligibility.
+	forward_auth backend:3000 {
+		uri /infrastructure/custom-domains/caddy-allow
+	}
+
 	# The infrastructure authorization endpoint is never exposed through a
 	# restaurant-owned hostname either.
 	@customInternalInfrastructure path /api/infrastructure/custom-domains/*
