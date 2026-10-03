@@ -297,7 +297,7 @@ export const Header = styled.header`
       gap:8px;
     }
 
-    .mobile-location-row > button{
+    .mobile-location-row > .mobile-address-trigger{
       width:100%;
       min-width:0;
       padding:0;
@@ -310,16 +310,16 @@ export const Header = styled.header`
       gap:5px;
       text-align:left;
     }
-    .mobile-location-row > button:disabled{cursor:default;opacity:1}
-    .mobile-location-row > button > svg{width:11px;height:11px;color:#8a8781}
-    .mobile-location-row > button > span{min-width:0;display:grid;gap:0}
-    .mobile-location-row > button small{
+    .mobile-location-row > .mobile-address-trigger:disabled{cursor:default;opacity:1}
+    .mobile-location-row > .mobile-address-trigger > svg{width:11px;height:11px;color:#8a8781}
+    .mobile-location-row > .mobile-address-trigger > span{min-width:0;display:grid;gap:0}
+    .mobile-location-row > .mobile-address-trigger small{
       color:#9b9892;
       font-size:7.5px;
       line-height:9px;
       font-weight:500;
     }
-    .mobile-location-row > button strong{
+    .mobile-location-row > .mobile-address-trigger strong{
       overflow:hidden;
       text-overflow:ellipsis;
       white-space:nowrap;
@@ -328,13 +328,20 @@ export const Header = styled.header`
       line-height:13px;
       font-weight:750;
     }
-    .mobile-location-row > button > svg:last-child{color:var(--delivery-primary)}
+    .mobile-location-row > .mobile-address-trigger > svg:last-child{color:var(--delivery-primary)}
 
     .mobile-profile-trigger{
       width:32px;
+      min-width:32px;
+      max-width:32px;
       height:32px;
+      min-height:32px;
+      max-height:32px;
+      aspect-ratio:1;
+      justify-self:end;
       padding:0;
       overflow:hidden;
+      box-sizing:border-box;
       border:1px solid #ffe2e2;
       border-radius:50%;
       background:#fff4f4;
@@ -348,10 +355,14 @@ export const Header = styled.header`
     }
     .mobile-profile-trigger img{
       width:100%;
+      min-width:100%;
+      max-width:none;
       height:100%;
+      min-height:100%;
       display:block;
       object-fit:cover;
-      object-position:center;
+      object-position:50% 50%;
+      border-radius:inherit;
     }
     .mobile-profile-trigger svg{width:14px;height:14px;stroke-width:2}
     .mobile-profile-trigger span{display:block}
