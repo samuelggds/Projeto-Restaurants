@@ -3,8 +3,7 @@ ALTER TABLE "RestaurantCustomDomain"
   ADD COLUMN "menuHostname" VARCHAR(253);
 
 CREATE UNIQUE INDEX "RestaurantCustomDomain_menuHostname_key"
-  ON "RestaurantCustomDomain" ("menuHostname")
-  WHERE "menuHostname" IS NOT NULL;
+  ON "RestaurantCustomDomain" ("menuHostname");
 
 ALTER TABLE "RestaurantCustomDomain"
   ADD CONSTRAINT "RestaurantCustomDomain_mode_check"
