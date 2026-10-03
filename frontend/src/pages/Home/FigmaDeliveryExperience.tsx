@@ -2,6 +2,7 @@ import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Bell,
   Bike,
+  Check,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
@@ -11,12 +12,14 @@ import {
   Phone,
   Home,
   List,
+  Plus,
   Search,
   ShoppingBag,
   Star,
   Store,
   UserRound,
   UtensilsCrossed,
+  X,
 } from 'lucide-react';
 import {
   FacebookIcon,
@@ -229,6 +232,7 @@ export function FigmaDeliveryExperience({
   selectedAddressId,
   fulfillmentMethod,
   onFulfillmentMethodChange,
+  onSelectAddress,
   onManageAddresses,
   onOpenProfile,
   onOpenOrders,
@@ -245,6 +249,7 @@ export function FigmaDeliveryExperience({
   const [selectedCombo, setSelectedCombo] = useState<HomeProduct | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchFocused, setSearchFocused] = useState(Boolean(initialSearchOpen));
+  const [addressPickerOpen, setAddressPickerOpen] = useState(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const searchContainerRef = useRef<HTMLDivElement>(null);
   const cartFabRef = useRef<HTMLButtonElement>(null);
@@ -381,6 +386,16 @@ export function FigmaDeliveryExperience({
       .filter(Boolean)
       .join(' - ');
   }, [activeFulfillmentMethod, data.brand.address, selectedSavedAddress]);
+  const addressOptions = useMemo(() => {
+    const selectedId = String(selectedSavedAddress?.id ?? selectedAddressId ?? '');
+    return [...savedAddresses].sort((left, right) => {
+      const leftSelected = String(left.id) === selectedId;
+      const rightSelected = String(right.id) === selectedId;
+      if (leftSelected !== rightSelected) return leftSelected ? -1 : 1;
+      if (left.isDefault !== right.isDefault) return left.isDefault ? -1 : 1;
+      return left.label.localeCompare(right.label, 'pt-BR');
+    });
+  }, [savedAddresses, selectedAddressId, selectedSavedAddress?.id]);
   const paymentMethodLabels = [
     data.acceptsPix ? 'PIX' : '',
     data.acceptsCard ? 'cartão' : '',
@@ -421,6 +436,29 @@ export function FigmaDeliveryExperience({
     });
     return () => window.cancelAnimationFrame(frame);
   }, [initialSearchOpen]);
+
+  useEffect(() => {
+    if (!addressPickerOpen) return undefined;
+
+    const previousBodyOverflow = document.body.style.overflow;
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setAddressPickerOpen(false);
+    };
+
+    document.body.style.overflow = 'hidden';
+    document.addEventListener('keydown', handleKeyDown);
+
+    return () => {
+      document.body.style.overflow = previousBodyOverflow;
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [addressPickerOpen]);
+
+  useEffect(() => {
+    if (activeFulfillmentMethod !== 'delivery' && addressPickerOpen) {
+      setAddressPickerOpen(false);
+    }
+  }, [activeFulfillmentMethod, addressPickerOpen]);
 
   useEffect(() => {
     if (!selectedProduct && !selectedCombo) return undefined;
@@ -555,6 +593,27 @@ export function FigmaDeliveryExperience({
     );
   };
 
+  const openAddressPicker = () => {
+    if (activeFulfillmentMethod !== 'delivery') return;
+
+    if (savedAddresses.length > 0 && onSelectAddress) {
+      setAddressPickerOpen(true);
+      return;
+    }
+
+    onManageAddresses?.();
+  };
+
+  const selectAddressFromPicker = (addressId: number) => {
+    onSelectAddress?.(String(addressId));
+    setAddressPickerOpen(false);
+  };
+
+  const openAddressManager = () => {
+    setAddressPickerOpen(false);
+    onManageAddresses?.();
+  };
+
   const openFullMenu = () => {
     const firstSectionId =
       featured.length > 0
@@ -589,8 +648,10 @@ export function FigmaDeliveryExperience({
         <div className="mobile-location-row">
           <button
             type="button"
-            disabled={activeFulfillmentMethod === 'pickup' || !onManageAddresses}
-            onClick={activeFulfillmentMethod === 'delivery' ? onManageAddresses : undefined}
+            disabled={
+              activeFulfillmentMethod === 'pickup' || (!onManageAddresses && !onSelectAddress)
+            }
+            onClick={activeFulfillmentMethod === 'delivery' ? openAddressPicker : undefined}
             aria-label={
               activeFulfillmentMethod === 'delivery'
                 ? `Endereço de entrega: ${customerLocationLabel}`
@@ -602,7 +663,7 @@ export function FigmaDeliveryExperience({
               <small>{activeFulfillmentMethod === 'delivery' ? 'Entregar em' : 'Retirar em'}</small>
               <strong>{customerLocationLabel}</strong>
             </span>
-            {activeFulfillmentMethod === 'delivery' && onManageAddresses ? (
+            {activeFulfillmentMethod === 'delivery' && (onManageAddresses || onSelectAddress) ? (
               <ChevronDown aria-hidden="true" />
             ) : null}
           </button>
@@ -1135,6 +1196,90 @@ export function FigmaDeliveryExperience({
         <ShoppingBag aria-hidden="true" />
         {cartCount > 0 ? <span>{cartCount}</span> : null}
       </S.MobileCartFab>
+
+      {addressPickerOpen ? (
+        <S.AddressPickerBackdrop
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) setAddressPickerOpen(false);
+          }}
+        >
+          <S.AddressPickerSheet
+            aria-labelledby="address-picker-title"
+            aria-modal="true"
+            role="dialog"
+          >
+            <div className="sheet-handle" aria-hidden="true" />
+            <header>
+              <div>
+                <small>ENTREGA</small>
+                <h2 id="address-picker-title">Onde você quer receber?</h2>
+                <p>Escolha um endereço cadastrado para este pedido.</p>
+              </div>
+              <button
+                className="sheet-close"
+                type="button"
+                aria-label="Fechar seleção de endereço"
+                onClick={() => setAddressPickerOpen(false)}
+              >
+                <X aria-hidden="true" />
+              </button>
+            </header>
+
+            <div className="address-list">
+              {addressOptions.map((address) => {
+                const isSelected =
+                  String(address.id) ===
+                  String(selectedSavedAddress?.id ?? selectedAddressId ?? '');
+                const mainLine = [address.address, address.number]
+                  .map((part) => String(part || '').trim())
+                  .filter(Boolean)
+                  .join(', ');
+                const locationLine = [address.district, address.city, address.state]
+                  .map((part) => String(part || '').trim())
+                  .filter(Boolean)
+                  .join(' • ');
+
+                return (
+                  <button
+                    key={address.id}
+                    className={isSelected ? 'address-option selected' : 'address-option'}
+                    type="button"
+                    aria-label={`Usar endereço ${address.label || mainLine}`}
+                    aria-pressed={isSelected}
+                    onClick={() => selectAddressFromPicker(address.id)}
+                  >
+                    <span className="address-icon">
+                      <MapPin aria-hidden="true" />
+                    </span>
+                    <span className="address-copy">
+                      <span className="address-title-row">
+                        <b>{address.label || 'Endereço'}</b>
+                        {address.isDefault ? <em>Padrão</em> : null}
+                      </span>
+                      <strong>{mainLine || 'Endereço cadastrado'}</strong>
+                      {locationLine ? <small>{locationLine}</small> : null}
+                      {address.complement ? <small>{address.complement}</small> : null}
+                    </span>
+                    <span className="address-check" aria-hidden="true">
+                      {isSelected ? <Check /> : null}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+
+            {onManageAddresses ? (
+              <button className="add-address" type="button" onClick={openAddressManager}>
+                <span><Plus aria-hidden="true" /></span>
+                <span>
+                  <b>Adicionar novo endereço</b>
+                  <small>Cadastre outro local para receber seus pedidos.</small>
+                </span>
+              </button>
+            ) : null}
+          </S.AddressPickerSheet>
+        </S.AddressPickerBackdrop>
+      ) : null}
 
       <S.MobileBottomNav aria-label="Navegação principal">
         <button className="active" type="button" onClick={goHome}>
