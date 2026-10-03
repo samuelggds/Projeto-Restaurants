@@ -48,7 +48,7 @@ afterEach(() => {
 });
 
 describe('PremiumTableFeatureGate', () => {
-  it('mantém o sistema de mesas bloqueado quando o backend exige Premium', async () => {
+  it('mantém o sistema de mesas bloqueado quando o backend exige plano com mesas', async () => {
     vi.mocked(tablesService.listTables).mockRejectedValue({
       response: {
         status: 403,
@@ -59,7 +59,7 @@ describe('PremiumTableFeatureGate', () => {
     const { container, root } = renderGate();
     await flush();
 
-    expect(container.textContent).toContain('Sistema de mesas disponível no Premium');
+    expect(container.textContent).toContain('Sistema de mesas disponível no Premium e Gestão Total');
     expect(container.textContent).toContain('Seu plano Básico continua com o sistema de delivery');
     expect(container.textContent).toContain('Mesas e QR Codes seguros');
     expect(container.textContent).toContain('Conta, divisão e pagamento da mesa');
@@ -75,7 +75,7 @@ describe('PremiumTableFeatureGate', () => {
     await flush();
 
     expect(container.textContent).toContain('Conteúdo de mesas liberado');
-    expect(container.textContent).not.toContain('Sistema de mesas disponível no Premium');
+    expect(container.textContent).not.toContain('Sistema de mesas disponível no Premium e Gestão Total');
 
     cleanup(root, container);
   });
