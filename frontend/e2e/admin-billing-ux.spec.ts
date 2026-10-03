@@ -160,6 +160,18 @@ async function mockAdminApi(page: Page, state: BillingTestState) {
             features: [
               'Sistema de delivery',
               'Cardápio digital com QR Code de mesa',
+              'Implantação inicial assistida',
+              'Suporte prioritário',
+            ],
+          },
+          {
+            plan: 'GESTAO_TOTAL',
+            name: 'Gestão Total',
+            monthlyFee: 349.9,
+            trialDays: 15,
+            features: [
+              'Tudo do Plano Premium',
+              'Gestão assistida contínua sob solicitação',
               'Suporte prioritário',
             ],
           },
@@ -363,6 +375,8 @@ test('central financeira mantém leitura clara e responsiva em desktop e mobile'
     'border-radius',
     '8px',
   );
+  await expect(page.locator('article[aria-label^="Plano Gestão Total"]')).toBeVisible();
+  await expect(page.getByText('R$ 349,90')).toBeVisible();
   await expect(page.getByText('Troca disponível')).toBeVisible();
   await expectNoHorizontalOverflow(page);
   await page.getByRole('button', { name: 'Recolher menu lateral' }).click();
