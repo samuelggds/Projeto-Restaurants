@@ -14,6 +14,7 @@ import {
   Unplug,
 } from 'lucide-react';
 import styled from 'styled-components';
+import QRCode from 'react-qr-code';
 import { adminMockSettings } from '../data';
 import * as S from '../Admin.styles';
 import { getRestaurantCategoryFavicon } from '../../../config/browserBranding';
@@ -348,10 +349,8 @@ export function WhatsAppSettings({ settings, update }: Props) {
                 {qrCode.startsWith('data:image/') ? (
                   <img src={qrCode} alt="QR Code para conectar o WhatsApp do restaurante" />
                 ) : (
-                  <div className="qr-fallback">
-                    <QrCode size={42} />
-                    <b>QR Code recebido</b>
-                    <span>Atualize o QR Code se ele não for exibido corretamente.</span>
+                  <div className="qr-generated" role="img" aria-label="QR Code para conectar o WhatsApp do restaurante">
+                    <QRCode value={qrCode} size={210} />
                   </div>
                 )}
                 <div>
