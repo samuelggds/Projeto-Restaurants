@@ -194,13 +194,25 @@ function DeliveryTrackingContent({ id }: { id?: string }) {
     };
   }, [hasInvalidOrderId, orderId, retryKey]);
 
+  const [clockNow, setClockNow] = useState(0);
+
+  useEffect(() => {
+    const syncClock = () => setClockNow(Date.now());
+    const initialTimer = window.setTimeout(syncClock, 0);
+    const interval = window.setInterval(syncClock, 30_000);
+    return () => {
+      window.clearTimeout(initialTimer);
+      window.clearInterval(interval);
+    };
+  }, []);
+
   const routeMinutes = (() => {
     const routeSeconds = Number(data?.order.routeEstimate?.durationSeconds || 0);
     if (routeSeconds > 0) return Math.max(1, Math.ceil(routeSeconds / 60));
 
     const estimatedArrivalMs = Date.parse(String(data?.order.estimatedArrival || ''));
     if (Number.isFinite(estimatedArrivalMs)) {
-      const remainingMs = estimatedArrivalMs - Date.now();
+      const remainingMs = estimatedArrivalMs - clockNow;
       if (remainingMs > 0) return Math.max(1, Math.ceil(remainingMs / 60_000));
     }
 
