@@ -1677,12 +1677,22 @@ export const ProfileQuickMenuBackdrop = styled.div`
     align-items:flex-start;
     justify-content:center;
     backdrop-filter:blur(2px);
-    animation:profile-quick-backdrop-in 150ms ease both;
+    animation:profile-quick-backdrop-in 180ms ease-out both;
+  }
+
+  &.closing{
+    pointer-events:none;
+    animation:profile-quick-backdrop-out 190ms ease-in both;
   }
 
   @keyframes profile-quick-backdrop-in{
     from{opacity:0}
     to{opacity:1}
+  }
+
+  @keyframes profile-quick-backdrop-out{
+    from{opacity:1}
+    to{opacity:0}
   }
 
   @media(prefers-reduced-motion:reduce){animation:none}
@@ -1702,8 +1712,14 @@ export const ProfileQuickMenuSheet = styled.section`
     gap:10px;
     overflow-y:auto;
     overscroll-behavior:contain;
-    animation:profile-quick-sheet-in 220ms cubic-bezier(.22,1,.36,1) both;
+    animation:profile-quick-sheet-in 260ms cubic-bezier(.22,1,.36,1) both;
     scrollbar-width:none;
+    will-change:transform,opacity;
+  }
+
+  &.closing{
+    pointer-events:none;
+    animation:profile-quick-sheet-out 190ms cubic-bezier(.4,0,1,1) both;
   }
 
   &::-webkit-scrollbar{display:none}
@@ -1814,6 +1830,14 @@ export const ProfileQuickMenuSheet = styled.section`
     align-items:center;
     gap:8px;
     text-align:left;
+    transition:
+      background-color 150ms ease,
+      transform 150ms cubic-bezier(.22,1,.36,1);
+  }
+
+  .quick-profile-links button:active{
+    background:#fff5f5;
+    transform:scale(.994);
   }
 
   .quick-profile-links button:last-child{border-bottom:0}
@@ -1857,12 +1881,34 @@ export const ProfileQuickMenuSheet = styled.section`
   }
 
   @keyframes profile-quick-sheet-in{
-    from{transform:translateY(-28px);opacity:.7}
-    to{transform:translateY(0);opacity:1}
+    0%{
+      transform:translate3d(0,-24px,0) scale(.992);
+      opacity:.45;
+    }
+    60%{
+      opacity:1;
+    }
+    100%{
+      transform:translate3d(0,0,0) scale(1);
+      opacity:1;
+    }
+  }
+
+  @keyframes profile-quick-sheet-out{
+    0%{
+      transform:translate3d(0,0,0) scale(1);
+      opacity:1;
+    }
+    100%{
+      transform:translate3d(0,-18px,0) scale(.995);
+      opacity:0;
+    }
   }
 
   @media(prefers-reduced-motion:reduce){
     animation:none;
+    .quick-profile-links button{transition:none}
+    .quick-profile-links button:active{transform:none}
   }
 `;
 
