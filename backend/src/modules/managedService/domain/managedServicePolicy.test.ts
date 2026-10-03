@@ -29,7 +29,7 @@ test('workspace Premium encerra com a implantação e Gestão Total continua', (
 });
 
 test('limite de implantação é derivado do plano atual', () => {
-  assert.equal(managedImplementationProductLimit('PREMIUM'), 150);
+  assert.equal(managedImplementationProductLimit('PREMIUM'), 100);
   assert.equal(managedImplementationProductLimit('GESTAO_TOTAL'), null);
   assert.equal(managedImplementationProductLimit('BASICO'), null);
 });
