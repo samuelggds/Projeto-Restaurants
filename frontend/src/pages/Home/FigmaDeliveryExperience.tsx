@@ -1,7 +1,7 @@
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  Bell,
   Bike,
+  CircleHelp,
   Check,
   ChevronDown,
   ChevronLeft,
@@ -14,10 +14,13 @@ import {
   List,
   Plus,
   Search,
+  Settings,
   ShoppingBag,
   Star,
   Store,
+  TicketPercent,
   UserRound,
+  WalletCards,
   UtensilsCrossed,
   X,
 } from 'lucide-react';
@@ -227,6 +230,7 @@ export function FigmaDeliveryExperience({
   cartCount = 0,
   initialSearchOpen = false,
   userName,
+  userAvatar,
   userLoggedIn = false,
   savedAddresses = [],
   selectedAddressId,
@@ -235,6 +239,7 @@ export function FigmaDeliveryExperience({
   onSelectAddress,
   onManageAddresses,
   onOpenProfile,
+  onOpenProfileView,
   onOpenOrders,
   onOpenCart,
   onAddProduct,
@@ -250,6 +255,8 @@ export function FigmaDeliveryExperience({
   const [searchQuery, setSearchQuery] = useState('');
   const [searchFocused, setSearchFocused] = useState(Boolean(initialSearchOpen));
   const [addressPickerOpen, setAddressPickerOpen] = useState(false);
+  const [profileQuickMenuOpen, setProfileQuickMenuOpen] = useState(false);
+  const [accountAvatarFailed, setAccountAvatarFailed] = useState(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const searchContainerRef = useRef<HTMLDivElement>(null);
   const cartFabRef = useRef<HTMLButtonElement>(null);
@@ -430,12 +437,39 @@ export function FigmaDeliveryExperience({
   );
 
   useEffect(() => {
+    setAccountAvatarFailed(false);
+  }, [userAvatar]);
+
+  useEffect(() => {
     if (!initialSearchOpen) return;
     const frame = window.requestAnimationFrame(() => {
       searchInputRef.current?.focus();
     });
     return () => window.cancelAnimationFrame(frame);
   }, [initialSearchOpen]);
+
+  useEffect(() => {
+    if (!profileQuickMenuOpen) return undefined;
+
+    const previousBodyOverflow = document.body.style.overflow;
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setProfileQuickMenuOpen(false);
+    };
+
+    document.body.style.overflow = 'hidden';
+    document.addEventListener('keydown', handleKeyDown);
+
+    return () => {
+      document.body.style.overflow = previousBodyOverflow;
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [profileQuickMenuOpen]);
+
+  useEffect(() => {
+    if (!userLoggedIn && profileQuickMenuOpen) {
+      setProfileQuickMenuOpen(false);
+    }
+  }, [profileQuickMenuOpen, userLoggedIn]);
 
   useEffect(() => {
     if (!addressPickerOpen) return undefined;
@@ -596,12 +630,34 @@ export function FigmaDeliveryExperience({
   const openAddressPicker = () => {
     if (activeFulfillmentMethod !== 'delivery') return;
 
+    setProfileQuickMenuOpen(false);
     if (savedAddresses.length > 0 && onSelectAddress) {
       setAddressPickerOpen(true);
       return;
     }
 
     onManageAddresses?.();
+  };
+
+  const openProfileQuickMenu = () => {
+    if (!userLoggedIn) {
+      onOpenProfile?.();
+      return;
+    }
+
+    setAddressPickerOpen(false);
+    setProfileQuickMenuOpen(true);
+  };
+
+  const openProfileDestination = (
+    view: 'orders' | 'addresses' | 'paymentMethods' | 'coupons' | 'loyalty' | 'help' | 'settings',
+  ) => {
+    setProfileQuickMenuOpen(false);
+    if (onOpenProfileView) {
+      onOpenProfileView(view);
+      return;
+    }
+    onOpenProfile?.();
   };
 
   const selectAddressFromPicker = (addressId: number) => {
@@ -667,9 +723,25 @@ export function FigmaDeliveryExperience({
               <ChevronDown aria-hidden="true" />
             ) : null}
           </button>
-          <span className="mobile-notification-icon" aria-hidden="true">
-            <Bell />
-          </span>
+          <button
+            className="mobile-profile-trigger"
+            type="button"
+            aria-label={userLoggedIn ? 'Abrir atalhos da minha conta' : 'Entrar na minha conta'}
+            aria-expanded={userLoggedIn ? profileQuickMenuOpen : undefined}
+            onClick={openProfileQuickMenu}
+          >
+            {userAvatar && !accountAvatarFailed ? (
+              <img
+                src={userAvatar}
+                alt=""
+                onError={() => setAccountAvatarFailed(true)}
+              />
+            ) : userLoggedIn && userInitials !== '•' ? (
+              <span>{userInitials}</span>
+            ) : (
+              <UserRound aria-hidden="true" />
+            )}
+          </button>
         </div>
         <div className="header-left">
           <button className="brand" type="button" aria-label={`Voltar para a Home de ${data.brand.name}`} onClick={goHome}>
@@ -840,7 +912,17 @@ export function FigmaDeliveryExperience({
 
         <div className="actions">
           <button className="account" type="button" aria-label="Minha conta" onClick={onOpenProfile}>
-            <span className="account-avatar" aria-hidden="true">{userInitials}</span>
+            <span className="account-avatar" aria-hidden="true">
+              {userAvatar && !accountAvatarFailed ? (
+                <img
+                  src={userAvatar}
+                  alt=""
+                  onError={() => setAccountAvatarFailed(true)}
+                />
+              ) : (
+                userInitials
+              )}
+            </span>
             <span className="account-copy">
               <small>Olá,</small>
               <b>{userFirstName}</b>
@@ -1196,6 +1278,99 @@ export function FigmaDeliveryExperience({
         <ShoppingBag aria-hidden="true" />
         {cartCount > 0 ? <span>{cartCount}</span> : null}
       </S.MobileCartFab>
+
+      {profileQuickMenuOpen ? (
+        <S.ProfileQuickMenuBackdrop
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) setProfileQuickMenuOpen(false);
+          }}
+        >
+          <S.ProfileQuickMenuSheet
+            aria-labelledby="profile-quick-menu-title"
+            aria-modal="true"
+            role="dialog"
+          >
+            <div className="quick-profile-head">
+              <span className="quick-avatar" aria-hidden="true">
+                {userAvatar && !accountAvatarFailed ? (
+                  <img
+                    src={userAvatar}
+                    alt=""
+                    onError={() => setAccountAvatarFailed(true)}
+                  />
+                ) : userInitials !== '•' ? (
+                  userInitials
+                ) : (
+                  <UserRound />
+                )}
+              </span>
+              <span className="quick-profile-copy">
+                <small>MINHA CONTA</small>
+                <b id="profile-quick-menu-title">{userName || 'Cliente'}</b>
+              </span>
+              <button
+                className="quick-close"
+                type="button"
+                aria-label="Fechar atalhos da conta"
+                onClick={() => setProfileQuickMenuOpen(false)}
+              >
+                <X aria-hidden="true" />
+              </button>
+            </div>
+
+            <button
+              className="open-full-profile"
+              type="button"
+              onClick={() => {
+                setProfileQuickMenuOpen(false);
+                onOpenProfile?.();
+              }}
+            >
+              Ver perfil completo
+              <ChevronRight aria-hidden="true" />
+            </button>
+
+            <nav className="quick-profile-links" aria-label="Atalhos da minha conta">
+              <button type="button" onClick={() => openProfileDestination('orders')}>
+                <ShoppingBag aria-hidden="true" />
+                <span>Meus pedidos</span>
+                <ChevronRight aria-hidden="true" />
+              </button>
+              <button type="button" onClick={() => openProfileDestination('addresses')}>
+                <MapPin aria-hidden="true" />
+                <span>Endereços salvos</span>
+                <em>{savedAddresses.length}</em>
+                <ChevronRight aria-hidden="true" />
+              </button>
+              <button type="button" onClick={() => openProfileDestination('paymentMethods')}>
+                <WalletCards aria-hidden="true" />
+                <span>Métodos de pagamento</span>
+                <ChevronRight aria-hidden="true" />
+              </button>
+              <button type="button" onClick={() => openProfileDestination('coupons')}>
+                <TicketPercent aria-hidden="true" />
+                <span>Meus Cupons</span>
+                <ChevronRight aria-hidden="true" />
+              </button>
+              <button type="button" onClick={() => openProfileDestination('loyalty')}>
+                <Star aria-hidden="true" />
+                <span>Programa de Fidelidade</span>
+                <ChevronRight aria-hidden="true" />
+              </button>
+              <button type="button" onClick={() => openProfileDestination('help')}>
+                <CircleHelp aria-hidden="true" />
+                <span>Ajuda e suporte</span>
+                <ChevronRight aria-hidden="true" />
+              </button>
+              <button type="button" onClick={() => openProfileDestination('settings')}>
+                <Settings aria-hidden="true" />
+                <span>Configurações</span>
+                <ChevronRight aria-hidden="true" />
+              </button>
+            </nav>
+          </S.ProfileQuickMenuSheet>
+        </S.ProfileQuickMenuBackdrop>
+      ) : null}
 
       {addressPickerOpen ? (
         <S.AddressPickerBackdrop
