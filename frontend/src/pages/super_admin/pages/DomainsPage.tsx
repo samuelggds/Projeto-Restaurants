@@ -14,7 +14,9 @@ type DomainRecord = {
   mode: DomainMode;
   menuHostname: string | null;
   includeWww: boolean;
+  domainRequested: boolean;
   landingRequested: boolean;
+  landingPlanEligible: boolean;
   landingPublished: boolean;
   status: 'PENDING_DNS' | 'DNS_VERIFIED' | 'ACTIVE' | 'DISABLED';
   planEligible: boolean;
@@ -252,7 +254,14 @@ export function DomainsPage({ data }: { data: SuperAdminData }) {
                       type="checkbox"
                       checked={landingPublished}
                       onChange={(event) => setLandingPublished(event.target.checked)}
-                      disabled={loading || (selected ? !selected.landingRequested : true)}
+                      disabled={
+                        loading ||
+                        (selected
+                          ? !selected.domainRequested ||
+                            !selected.landingRequested ||
+                            !selected.landingPlanEligible
+                          : true)
+                      }
                     />{' '}
                     Publicar landing em {hostname.trim() || 'dominio.com.br'}
                   </span>
@@ -294,7 +303,13 @@ export function DomainsPage({ data }: { data: SuperAdminData }) {
           <S.ActionGroup>
             <S.Button
               $variant="primary"
-              disabled={loading || !hostname.trim() || (selected ? !selected.planEligible : !eligibleRestaurant(data.restaurants.find((item) => item.id === restaurantId)))}
+              disabled={
+                loading ||
+                !hostname.trim() ||
+                (selected
+                  ? !selected.planEligible || !selected.domainRequested
+                  : !eligibleRestaurant(data.restaurants.find((item) => item.id === restaurantId)))
+              }
               onClick={() => void save()}
             >
               {loading ? 'Salvando…' : selected ? 'Salvar alterações' : 'Cadastrar domínio'}
@@ -328,8 +343,16 @@ export function DomainsPage({ data }: { data: SuperAdminData }) {
               <dd>{selected.publicHosts.join(', ') || 'Aguardando configuração'}</dd>
             </div>
             <div>
+              <dt>Domínio solicitado pelo ADMIN</dt>
+              <dd>{selected.domainRequested ? 'Sim' : 'Não'}</dd>
+            </div>
+            <div>
               <dt>Landing solicitada pelo ADMIN</dt>
               <dd>{selected.landingRequested ? 'Sim' : 'Não'}</dd>
+            </div>
+            <div>
+              <dt>Plano permite landing</dt>
+              <dd>{selected.landingPlanEligible ? 'Sim' : 'Não'}</dd>
             </div>
             <div>
               <dt>Plano elegível</dt>
