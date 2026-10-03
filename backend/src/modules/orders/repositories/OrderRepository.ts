@@ -640,6 +640,8 @@ class OrderRepository {
             settings: {
               select: {
                 averageDeliveryTime: true,
+                deliveryTimeMin: true,
+                deliveryTimeMax: true,
               },
             },
           },
@@ -704,6 +706,8 @@ class OrderRepository {
             settings: {
               select: {
                 averageDeliveryTime: true,
+                deliveryTimeMin: true,
+                deliveryTimeMax: true,
               },
             },
           },
