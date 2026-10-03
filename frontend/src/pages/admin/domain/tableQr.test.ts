@@ -39,6 +39,7 @@ describe('tableQr', () => {
           number: 12,
           restaurantId: 4,
           restaurantSlug: 'restaurante-teste',
+          menuBaseUrl: null,
           token: 'token/&=',
         },
         'https://cardapio.example',
@@ -48,8 +49,6 @@ describe('tableQr', () => {
     );
     expect(tableDisplayName(1)).toBe('Mesa 01');
   });
-});
-
 
   it('usa o domínio personalizado ativo sem expor o slug na URL da mesa', () => {
     expect(
@@ -65,3 +64,4 @@ describe('tableQr', () => {
       'https://cardapio.northpizza.com.br/mesa/12?tk=token%2F%26%3D&rid=4',
     );
   });
+});
