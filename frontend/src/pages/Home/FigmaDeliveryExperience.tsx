@@ -1,8 +1,11 @@
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import {
+  Bike,
+  ChevronDown,
   ChevronLeft,
   ChevronRight,
   Clock3,
+  CreditCard,
   MapPin,
   Phone,
   Home,
@@ -10,6 +13,7 @@ import {
   Search,
   ShoppingBag,
   Star,
+  Store,
   UserRound,
   UtensilsCrossed,
 } from 'lucide-react';
@@ -86,6 +90,7 @@ function ProductCarouselSection({
   sectionId,
   ariaLabel,
   itemLabel,
+  onViewAll,
 }: {
   title: string;
   description?: string;
@@ -95,6 +100,7 @@ function ProductCarouselSection({
   sectionId?: string;
   ariaLabel?: string;
   itemLabel?: string | ((product: HomeProduct) => string);
+  onViewAll?: () => void;
 }) {
   const {
     trackRef,
@@ -121,29 +127,39 @@ function ProductCarouselSection({
           <h2>{title}</h2>
           {description ? <p>{description}</p> : null}
         </div>
-        {hasOverflow ? (
-          <S.CarouselControls aria-label={`Navegar em ${title}`}>
-            <button
-              type="button"
-              aria-label={`Ver itens anteriores de ${title}`}
-              onClick={() => scroll(-1)}
-              disabled={!canScrollPrevious}
-            >
-              <ChevronLeft aria-hidden="true" />
+        <S.SectionHeadActions>
+          {onViewAll ? (
+            <button className="view-all" type="button" onClick={onViewAll}>
+              Ver todos →
             </button>
-            <button
-              type="button"
-              aria-label={`Ver próximos itens de ${title}`}
-              onClick={() => scroll(1)}
-              disabled={!canScrollNext}
-            >
-              <ChevronRight aria-hidden="true" />
-            </button>
-          </S.CarouselControls>
-        ) : null}
+          ) : null}
+          {hasOverflow ? (
+            <S.CarouselControls aria-label={`Navegar em ${title}`}>
+              <button
+                type="button"
+                aria-label={`Ver itens anteriores de ${title}`}
+                onClick={() => scroll(-1)}
+                disabled={!canScrollPrevious}
+              >
+                <ChevronLeft aria-hidden="true" />
+              </button>
+              <button
+                type="button"
+                aria-label={`Ver próximos itens de ${title}`}
+                onClick={() => scroll(1)}
+                disabled={!canScrollNext}
+              >
+                <ChevronRight aria-hidden="true" />
+              </button>
+            </S.CarouselControls>
+          ) : null}
+        </S.SectionHeadActions>
       </S.SectionHead>
 
-      <S.ProductGrid ref={trackRef}>
+      <S.ProductGrid
+        ref={trackRef}
+        className={className.includes('featured-carousel') ? 'featured-product-grid' : undefined}
+      >
         {products.map((product) => {
           const label =
             typeof itemLabel === 'function'
@@ -207,6 +223,11 @@ export function FigmaDeliveryExperience({
   initialSearchOpen = false,
   userName,
   userLoggedIn = false,
+  savedAddresses = [],
+  selectedAddressId,
+  fulfillmentMethod,
+  onFulfillmentMethodChange,
+  onManageAddresses,
   onOpenProfile,
   onOpenOrders,
   onOpenCart,
@@ -215,17 +236,15 @@ export function FigmaDeliveryExperience({
   whatsappUrl,
   whatsappLabel,
 }: HomeExperienceProps) {
-  const primary = data.brand.primaryColor || '#e85a2b';
+  const primary = '#FF4B4B';
   const deliveryTimeLabel = formatDeliveryTime(data.deliveryTime);
   const [selectedProduct, setSelectedProduct] = useState<HomeProduct | null>(null);
   const [selectedReadyProduct, setSelectedReadyProduct] = useState<HomeProduct | null>(null);
   const [selectedCombo, setSelectedCombo] = useState<HomeProduct | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchFocused, setSearchFocused] = useState(Boolean(initialSearchOpen));
-  const [mobileSearchOpen, setMobileSearchOpen] = useState(Boolean(initialSearchOpen));
   const searchInputRef = useRef<HTMLInputElement>(null);
   const searchContainerRef = useRef<HTMLDivElement>(null);
-  const mobileSearchTriggerRef = useRef<HTMLButtonElement>(null);
   const cartFabRef = useRef<HTMLButtonElement>(null);
   const pendingCartFlyOriginRef = useRef<CartFlyOrigin | null>(null);
   const cartFabDragRef = useRef<{
@@ -332,6 +351,46 @@ export function FigmaDeliveryExperience({
       : [];
   }, [data.banners, data.hero]);
   const hours = formatBusinessHoursSummary(data.businessHours);
+  const activeFulfillmentMethod =
+    fulfillmentMethod || (data.acceptsDelivery ? 'delivery' : 'pickup');
+  const selectedSavedAddress = useMemo(
+    () =>
+      savedAddresses.find(
+        (address) => String(address.id) === String(selectedAddressId || ''),
+      ) || savedAddresses.find((address) => address.isDefault) || savedAddresses[0],
+    [savedAddresses, selectedAddressId],
+  );
+  const customerLocationLabel = useMemo(() => {
+    if (activeFulfillmentMethod === 'pickup') {
+      return data.brand.address || 'Endereço do restaurante';
+    }
+    if (!selectedSavedAddress) return 'Escolher endereço';
+
+    const street = [selectedSavedAddress.address, selectedSavedAddress.number]
+      .map((part) => String(part || '').trim())
+      .filter(Boolean)
+      .join(', ');
+    return [street, selectedSavedAddress.district]
+      .map((part) => String(part || '').trim())
+      .filter(Boolean)
+      .join(' - ');
+  }, [activeFulfillmentMethod, data.brand.address, selectedSavedAddress]);
+  const paymentMethodLabels = [
+    data.acceptsPix ? 'PIX' : '',
+    data.acceptsCard ? 'cartão' : '',
+    data.acceptsDebitCard ? 'débito' : '',
+  ].filter(Boolean);
+  const userFirstName =
+    userLoggedIn && userName ? userName.trim().split(/\s+/)[0] || 'Cliente' : 'Entrar';
+  const userInitials =
+    userLoggedIn && userName
+      ? userName
+          .trim()
+          .split(/\s+/)
+          .slice(0, 2)
+          .map((part) => part.charAt(0).toUpperCase())
+          .join('')
+      : '•';
   const normalizeSearchText = (value: string) =>
     value
       .normalize('NFD')
@@ -381,24 +440,6 @@ export function FigmaDeliveryExperience({
       document.documentElement.style.overflowY = previousHtmlOverflowY;
     };
   }, [selectedCombo, selectedProduct]);
-
-  useEffect(() => {
-    if (!mobileSearchOpen) return;
-
-    const closeSearchOnOutsidePointer = (event: PointerEvent) => {
-      const target = event.target as Node;
-      if (searchContainerRef.current?.contains(target)) return;
-      if (mobileSearchTriggerRef.current?.contains(target)) return;
-
-      setMobileSearchOpen(false);
-      setSearchFocused(false);
-      setSearchQuery('');
-      searchInputRef.current?.blur();
-    };
-
-    document.addEventListener('pointerdown', closeSearchOnOutsidePointer);
-    return () => document.removeEventListener('pointerdown', closeSearchOnOutsidePointer);
-  }, [mobileSearchOpen]);
 
   const clampCartFabPosition = (x: number, y: number) => {
     const fab = cartFabRef.current;
@@ -485,7 +526,6 @@ export function FigmaDeliveryExperience({
   const goHome = () => {
     setSearchQuery('');
     setSearchFocused(false);
-    setMobileSearchOpen(false);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -523,7 +563,44 @@ export function FigmaDeliveryExperience({
 
   return (
     <S.Page $primary={primary} className={selectedProduct ? 'product-open' : undefined}>
+      <S.DesktopTopBar>
+        <div>
+          <span className="location">
+            <MapPin aria-hidden="true" />
+            {data.brand.address || 'Endereço não informado'}
+          </span>
+          <span className="top-meta">
+            {hours ? <span>{hours}</span> : null}
+            <span className="top-status">
+              <i className={data.isOpen ? 'open' : ''} />
+              {data.isOpen ? 'Aberto agora' : 'Fechado agora'}
+            </span>
+          </span>
+        </div>
+      </S.DesktopTopBar>
+
       <S.Header>
+        <div className="mobile-location-row">
+          <button
+            type="button"
+            disabled={activeFulfillmentMethod === 'pickup' || !onManageAddresses}
+            onClick={activeFulfillmentMethod === 'delivery' ? onManageAddresses : undefined}
+            aria-label={
+              activeFulfillmentMethod === 'delivery'
+                ? `Endereço de entrega: ${customerLocationLabel}`
+                : `Endereço para retirada: ${customerLocationLabel}`
+            }
+          >
+            <MapPin aria-hidden="true" />
+            <span>
+              <small>{activeFulfillmentMethod === 'delivery' ? 'Entregar em' : 'Retirar em'}</small>
+              <strong>{customerLocationLabel}</strong>
+            </span>
+            {activeFulfillmentMethod === 'delivery' && onManageAddresses ? (
+              <ChevronDown aria-hidden="true" />
+            ) : null}
+          </button>
+        </div>
         <div className="header-left">
           <button className="brand" type="button" aria-label={`Voltar para a Home de ${data.brand.name}`} onClick={goHome}>
             <span className="logo">
@@ -531,6 +608,7 @@ export function FigmaDeliveryExperience({
             </span>
             <span className="brand-copy">
               <b>{data.brand.name}</b>
+              <span className="platform-label">GastroNexa Platform</span>
               <span className="brand-meta">
                 <span
                   className="status"
@@ -552,11 +630,78 @@ export function FigmaDeliveryExperience({
               </span>
             </span>
           </button>
+
+          <div className="desktop-fulfillment" aria-label="Forma de recebimento">
+            {data.acceptsDelivery ? (
+              <button
+                type="button"
+                className={activeFulfillmentMethod === 'delivery' ? 'active' : undefined}
+                aria-pressed={activeFulfillmentMethod === 'delivery'}
+                onClick={() => onFulfillmentMethodChange?.('delivery')}
+              >
+                <Bike aria-hidden="true" />
+                Entrega
+              </button>
+            ) : null}
+            {data.acceptsPickup ? (
+              <button
+                type="button"
+                className={activeFulfillmentMethod === 'pickup' ? 'active' : undefined}
+                aria-pressed={activeFulfillmentMethod === 'pickup'}
+                onClick={() => onFulfillmentMethodChange?.('pickup')}
+              >
+                <Store aria-hidden="true" />
+                Retirada
+              </button>
+            ) : null}
+          </div>
+        </div>
+
+        <div className="mobile-fulfillment" aria-label="Forma de recebimento no celular">
+          {data.acceptsDelivery ? (
+            <button
+              type="button"
+              className={activeFulfillmentMethod === 'delivery' ? 'active' : undefined}
+              aria-pressed={activeFulfillmentMethod === 'delivery'}
+              aria-label="Selecionar entrega"
+              onClick={() => onFulfillmentMethodChange?.('delivery')}
+            >
+              <Bike aria-hidden="true" />
+              <span>Entrega</span>
+            </button>
+          ) : null}
+          {data.acceptsPickup ? (
+            <button
+              type="button"
+              className={activeFulfillmentMethod === 'pickup' ? 'active' : undefined}
+              aria-pressed={activeFulfillmentMethod === 'pickup'}
+              aria-label="Selecionar retirada"
+              onClick={() => onFulfillmentMethodChange?.('pickup')}
+            >
+              <Store aria-hidden="true" />
+              <span>Retirada</span>
+            </button>
+          ) : null}
+        </div>
+
+        <div className="mobile-meta" aria-label="Informações do pedido">
+          {Number(data.brand.ratingCount || 0) > 0 && data.brand.ratingAverage ? (
+            <span>
+              <Star aria-hidden="true" fill="currentColor" />
+              {data.brand.ratingAverage.toFixed(1)}
+            </span>
+          ) : null}
+          {activeFulfillmentMethod === 'delivery' && data.isOpen && deliveryTimeLabel ? (
+            <span><Clock3 aria-hidden="true" /> {deliveryTimeLabel}</span>
+          ) : null}
+          {activeFulfillmentMethod === 'delivery' && Number(data.deliveryFee || 0) > 0 ? (
+            <span>Taxa {money(Number(data.deliveryFee))}</span>
+          ) : null}
+          {data.minimumOrder > 0 ? <span>Mín. {money(data.minimumOrder)}</span> : null}
         </div>
 
         <S.InlineSearch
           ref={searchContainerRef}
-          className={mobileSearchOpen ? 'mobile-open' : ''}
           onFocus={() => setSearchFocused(true)}
           onBlur={(event) => {
             if (event.currentTarget.contains(event.relatedTarget as Node | null)) return;
@@ -577,10 +722,6 @@ export function FigmaDeliveryExperience({
               setSearchQuery('');
               setSearchFocused(false);
               searchInputRef.current?.blur();
-              if (mobileSearchOpen) {
-                setMobileSearchOpen(false);
-                window.requestAnimationFrame(() => mobileSearchTriggerRef.current?.focus());
-              }
             }}
           />
           {searchQuery ? (
@@ -609,7 +750,6 @@ export function FigmaDeliveryExperience({
                       const sourceElement = event.currentTarget;
                       setSearchQuery('');
                       setSearchFocused(false);
-                      setMobileSearchOpen(false);
                       openProduct(product, sourceElement);
                     }}
                   >
@@ -628,32 +768,13 @@ export function FigmaDeliveryExperience({
           ) : null}
         </S.InlineSearch>
 
-        <button
-          ref={mobileSearchTriggerRef}
-          className={`mobile-header-search${mobileSearchOpen ? ' active' : ''}`}
-          type="button"
-          aria-label={mobileSearchOpen ? 'Fechar busca' : 'Buscar no cardápio'}
-          aria-expanded={mobileSearchOpen}
-          onClick={() => {
-            if (mobileSearchOpen) {
-              setMobileSearchOpen(false);
-              setSearchFocused(false);
-              setSearchQuery('');
-              searchInputRef.current?.blur();
-              return;
-            }
-
-            setMobileSearchOpen(true);
-            window.requestAnimationFrame(() => searchInputRef.current?.focus());
-          }}
-        >
-          <Search aria-hidden="true" />
-        </button>
-
         <div className="actions">
           <button className="account" type="button" aria-label="Minha conta" onClick={onOpenProfile}>
-            <UserRound size={20} />
-            <span>{userLoggedIn && userName ? `Olá, ${userName.split(' ')[0]}` : 'Olá, Entrar'}</span>
+            <span className="account-avatar" aria-hidden="true">{userInitials}</span>
+            <span className="account-copy">
+              <small>Olá,</small>
+              <b>{userFirstName}</b>
+            </span>
           </button>
           <button
             className="cart"
@@ -699,11 +820,54 @@ export function FigmaDeliveryExperience({
           {promotionBanners.length ? (
             <S.HeroCarousel>
               <PromotionCarousel banners={promotionBanners} onOpenMenu={openFullMenu} />
+              {(data.brand.address ||
+                (Number(data.brand.ratingCount || 0) > 0 && data.brand.ratingAverage) ||
+                deliveryTimeLabel ||
+                Number(data.deliveryFee || 0) > 0) ? (
+                <S.HeroMetrics aria-label="Resumo do restaurante">
+                  <div className="metric-card">
+                    {Number(data.brand.ratingCount || 0) > 0 && data.brand.ratingAverage ? (
+                      <div className="rating-metric">
+                        <Star aria-hidden="true" fill="currentColor" />
+                        <span>
+                          <b>{data.brand.ratingAverage.toFixed(1)}</b>
+                          <small>Avaliação média</small>
+                        </span>
+                      </div>
+                    ) : null}
+                    {(deliveryTimeLabel || Number(data.deliveryFee || 0) > 0) ? (
+                      <div className="delivery-metrics">
+                        {deliveryTimeLabel ? (
+                          <span>
+                            <b>{deliveryTimeLabel}</b>
+                            <small>Tempo de entrega</small>
+                          </span>
+                        ) : null}
+                        {Number(data.deliveryFee || 0) > 0 ? (
+                          <span>
+                            <b>{money(Number(data.deliveryFee))}</b>
+                            <small>Taxa de entrega</small>
+                          </span>
+                        ) : null}
+                      </div>
+                    ) : null}
+                  </div>
+                  {data.brand.address ? (
+                    <div className="hero-address">
+                      <MapPin aria-hidden="true" />
+                      <span>{data.brand.address}</span>
+                    </div>
+                  ) : null}
+                </S.HeroMetrics>
+              ) : null}
             </S.HeroCarousel>
           ) : null}
 
-          <S.Main>
-            <S.InfoChips>
+          <S.Main
+            id="cardapio"
+            className={promotionBanners.length ? 'has-banner' : 'no-banner'}
+          >
+            <S.InfoChips className="desktop-info">
               {data.isOpen && deliveryTimeLabel ? (
                 <span><Clock3 size={16} /> Entrega em <b>{deliveryTimeLabel}</b></span>
               ) : null}
@@ -721,11 +885,16 @@ export function FigmaDeliveryExperience({
             </S.InfoChips>
 
             {(featured.length > 0 || combos.length > 0 || visibleCategories.length > 0) ? (
-              <S.CatalogCategories id="home-categories" aria-label="Categorias do cardápio">
+              <>
+                <S.CatalogIntro>
+                  <h2>O que vai ser hoje?</h2>
+                  <button type="button" onClick={openFullMenu}>Ver todos →</button>
+                </S.CatalogIntro>
+                <S.CatalogCategories id="home-categories" aria-label="Categorias do cardápio">
                 {featured.length > 0 ? (
                   <button
                     type="button"
-                    className={activeCatalogCategory === 'featured' ? 'active' : undefined}
+                    className={`featured-catalog${activeCatalogCategory === 'featured' ? ' active' : ''}`}
                     aria-pressed={activeCatalogCategory === 'featured'}
                     onClick={() => {
                       setSelectedCatalogCategory('featured');
@@ -734,6 +903,7 @@ export function FigmaDeliveryExperience({
                   >
                     <span className="image featured-icon"><Star aria-hidden="true" /></span>
                     <b>Destaques</b>
+                    <small>{featured.length} {featured.length === 1 ? 'item' : 'itens'}</small>
                   </button>
                 ) : null}
                 {combos.length > 0 ? (
@@ -750,9 +920,10 @@ export function FigmaDeliveryExperience({
                       {comboCategoryImage ? categoryImage(comboCategoryImage, 'Combos') : <UtensilsCrossed aria-hidden="true" />}
                     </span>
                     <b>Combos</b>
+                    <small>{combos.length} {combos.length === 1 ? 'item' : 'itens'}</small>
                   </button>
                 ) : null}
-                {visibleCategories.map((category) => (
+                {categoryCarousels.map(({ category, products }) => (
                   <button
                     key={category.id}
                     type="button"
@@ -764,9 +935,11 @@ export function FigmaDeliveryExperience({
                   >
                     <span className="image">{categoryImage(category.image, category.name)}</span>
                     <b>{category.name}</b>
+                    <small>{products.length} {products.length === 1 ? 'item' : 'itens'}</small>
                   </button>
                 ))}
-              </S.CatalogCategories>
+                </S.CatalogCategories>
+              </>
             ) : null}
 
             <ProductCarouselSection
@@ -778,7 +951,17 @@ export function FigmaDeliveryExperience({
               sectionId="home-featured"
               ariaLabel="Produtos em destaque"
               itemLabel="Destaque"
+              onViewAll={openFullMenu}
             />
+
+            {data.freeDeliveryFrom > 0 ? (
+              <S.MobileBenefit>
+                <b>🔥 Benefício especial</b>
+                <span>
+                  Frete grátis em pedidos a partir de {money(data.freeDeliveryFrom)}.
+                </span>
+              </S.MobileBenefit>
+            ) : null}
 
             <ProductCarouselSection
               title="Combos"
@@ -802,8 +985,52 @@ export function FigmaDeliveryExperience({
               />
             ))}
 
+            {(data.acceptsDelivery && deliveryTimeLabel) ||
+            (Number(data.brand.ratingCount || 0) > 0 && data.brand.ratingAverage) ||
+            paymentMethodLabels.length > 0 ||
+            data.freeDeliveryFrom > 0 ? (
+              <S.WhyOrderHere aria-label="Vantagens de pedir neste restaurante">
+                <h2>Por que pedir aqui?</h2>
+                <div className="benefit-grid">
+                  {data.acceptsDelivery && deliveryTimeLabel ? (
+                    <article>
+                      <span className="benefit-icon"><Bike aria-hidden="true" /></span>
+                      <h3>Entrega rápida</h3>
+                      <p>Tempo estimado de entrega: {deliveryTimeLabel}.</p>
+                    </article>
+                  ) : null}
+                  {Number(data.brand.ratingCount || 0) > 0 && data.brand.ratingAverage ? (
+                    <article>
+                      <span className="benefit-icon"><Star aria-hidden="true" /></span>
+                      <h3>{data.brand.ratingAverage.toFixed(1)} de avaliação</h3>
+                      <p>
+                        Baseado em {data.brand.ratingCount}{' '}
+                        {data.brand.ratingCount === 1 ? 'avaliação' : 'avaliações'}.
+                      </p>
+                    </article>
+                  ) : null}
+                  {paymentMethodLabels.length > 0 ? (
+                    <article>
+                      <span className="benefit-icon"><CreditCard aria-hidden="true" /></span>
+                      <h3>Pagamento fácil</h3>
+                      <p>{paymentMethodLabels.join(', ')} disponíveis conforme a configuração do restaurante.</p>
+                    </article>
+                  ) : null}
+                  {data.freeDeliveryFrom > 0 ? (
+                    <article>
+                      <span className="benefit-icon">🎁</span>
+                      <h3>Benefício especial</h3>
+                      <p>Frete grátis acima de {money(data.freeDeliveryFrom)}.</p>
+                    </article>
+                  ) : null}
+                </div>
+              </S.WhyOrderHere>
+            ) : null}
+
             {(data.brand.address || data.brand.phone || hours || data.brand.instagram || data.brand.facebook || data.brand.tiktok || whatsappUrl) ? (
-              <S.RestaurantInfo aria-label="Informações do restaurante">
+              <>
+                <S.RestaurantInfoTitle>Informações do Restaurante</S.RestaurantInfoTitle>
+                <S.RestaurantInfo aria-label="Informações do restaurante">
                 {data.brand.address ? (
                   <div className="info-item address">
                     <span className="info-icon"><MapPin aria-hidden="true" /></span>
@@ -872,7 +1099,8 @@ export function FigmaDeliveryExperience({
                     </div>
                   </div>
                 ) : null}
-              </S.RestaurantInfo>
+                </S.RestaurantInfo>
+              </>
             ) : null}
           </S.Main>
 
