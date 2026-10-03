@@ -21,6 +21,7 @@ type CustomDomainPayload = {
   mode?: unknown;
   menuSubdomain?: unknown;
   includeWww?: unknown;
+  landingPublished?: unknown;
 };
 
 function parseRestaurantId(value: unknown) {
@@ -46,6 +47,7 @@ function present(record: {
   mode: string;
   menuHostname: string | null;
   includeWww: boolean;
+  landingPublished: boolean;
   status: string;
   verificationToken: string;
   dnsVerifiedAt: Date | null;
@@ -55,7 +57,7 @@ function present(record: {
   lastCheckError: string | null;
   createdAt: Date;
   updatedAt: Date;
-}, subscription?: { plan: string; status: string } | null) {
+}, subscription?: { plan: string; status: string } | null, landingRequested = false) {
   const target = String(process.env.CUSTOM_DOMAIN_CNAME_TARGET ||
     process.env.APP_DOMAIN ||
     process.env.FRONTEND_URL ||
@@ -72,6 +74,8 @@ function present(record: {
     mode,
     menuHostname: record.menuHostname,
     includeWww: record.includeWww,
+    landingPublished: record.landingPublished,
+    landingRequested,
     status: record.status,
     planEligible: customDomainPlanEligible(
       subscription?.plan as never,
@@ -82,6 +86,7 @@ function present(record: {
       menuHostname: record.menuHostname,
       mode,
       includeWww: record.includeWww,
+      landingPublished: record.landingPublished && landingRequested,
     }),
     verification: {
       type: 'TXT',
@@ -94,7 +99,9 @@ function present(record: {
             type: 'CNAME',
             name: record.menuHostname,
             value: target || null,
-            note: 'O domínio principal fica livre para a landing page. Apenas o subdomínio do cardápio aponta para a GastroNexa.',
+            note: record.landingPublished && landingRequested
+              ? 'O cardápio usa CNAME e a landing usa o domínio principal no gateway GastroNexa.'
+              : 'O domínio principal permanece livre. Apenas o subdomínio do cardápio aponta para a GastroNexa.',
           }
         : {
             type: 'A',
@@ -105,6 +112,18 @@ function present(record: {
               ? 'Aponte o domínio principal para o IP do gateway GastroNexa.'
               : 'Configure CUSTOM_DOMAIN_EDGE_IPV4 no ambiente de produção antes de publicar domínios no apex.',
           },
+    landingRouting:
+      mode === 'SITE_WITH_MENU_SUBDOMAIN' && record.landingPublished && landingRequested
+        ? {
+            type: 'A',
+            name: record.hostname,
+            value: edgeIpv4 || null,
+            wwwCname: record.includeWww ? record.hostname : null,
+            note: edgeIpv4
+              ? 'Landing autorizada: aponte o domínio principal para o IP do gateway GastroNexa.'
+              : 'Configure CUSTOM_DOMAIN_EDGE_IPV4 antes de publicar a landing.',
+          }
+        : null,
     dnsVerifiedAt: record.dnsVerifiedAt?.toISOString() || null,
     activatedAt: record.activatedAt?.toISOString() || null,
     disabledAt: record.disabledAt?.toISOString() || null,
@@ -122,6 +141,7 @@ async function restaurantWithSubscription(restaurantId: number) {
       id: true,
       name: true,
       active: true,
+      settings: { select: { landingPageEnabled: true } },
       subscription: { select: { plan: true, status: true } },
     },
   });
@@ -158,12 +178,37 @@ async function checkRouting(record: {
   hostname: string;
   mode: string;
   menuHostname: string | null;
+  landingPublished: boolean;
 }) {
+  const expectedIpv4 = String(process.env.CUSTOM_DOMAIN_EDGE_IPV4 || '').trim();
+
+  const checkApex = async () => {
+    if (!expectedIpv4) {
+      return { ok: false, reason: 'IP público do gateway não está configurado no ambiente.' };
+    }
+    try {
+      const values = await resolve4(record.hostname);
+      return values.includes(expectedIpv4)
+        ? { ok: true, reason: null }
+        : {
+            ok: false,
+            reason: `O registro A de ${record.hostname} ainda não aponta para o gateway GastroNexa.`,
+          };
+    } catch {
+      return {
+        ok: false,
+        reason: `O registro A de ${record.hostname} ainda não foi encontrado.`,
+      };
+    }
+  };
+
   if (record.mode === 'SITE_WITH_MENU_SUBDOMAIN') {
-    const target = String(process.env.CUSTOM_DOMAIN_CNAME_TARGET ||
-    process.env.APP_DOMAIN ||
-    process.env.FRONTEND_URL ||
-    '')
+    const target = String(
+      process.env.CUSTOM_DOMAIN_CNAME_TARGET ||
+        process.env.APP_DOMAIN ||
+        process.env.FRONTEND_URL ||
+        '',
+    )
       .trim()
       .replace(/^https?:\/\//u, '')
       .replace(/\/+$/u, '')
@@ -175,38 +220,22 @@ async function checkRouting(record: {
       const values = (await resolveCname(record.menuHostname)).map((value) =>
         value.replace(/\.$/u, '').toLowerCase(),
       );
-      return values.includes(target)
-        ? { ok: true, reason: null }
-        : {
-            ok: false,
-            reason: `O CNAME de ${record.menuHostname} ainda não aponta para ${target}.`,
-          };
+      if (!values.includes(target)) {
+        return {
+          ok: false,
+          reason: `O CNAME de ${record.menuHostname} ainda não aponta para ${target}.`,
+        };
+      }
     } catch {
       return {
         ok: false,
         reason: `O CNAME de ${record.menuHostname} ainda não foi encontrado.`,
       };
     }
+    return record.landingPublished ? checkApex() : { ok: true, reason: null };
   }
 
-  const expectedIpv4 = String(process.env.CUSTOM_DOMAIN_EDGE_IPV4 || '').trim();
-  if (!expectedIpv4) {
-    return { ok: false, reason: 'IP público do gateway não está configurado no ambiente.' };
-  }
-  try {
-    const values = await resolve4(record.hostname);
-    return values.includes(expectedIpv4)
-      ? { ok: true, reason: null }
-      : {
-          ok: false,
-          reason: `O registro A de ${record.hostname} ainda não aponta para o gateway GastroNexa.`,
-        };
-  } catch {
-    return {
-      ok: false,
-      reason: `O registro A de ${record.hostname} ainda não foi encontrado.`,
-    };
-  }
+  return checkApex();
 }
 
 export class RestaurantCustomDomainService {
@@ -226,7 +255,11 @@ export class RestaurantCustomDomainService {
       },
     });
     return rows.map((row) => ({
-      ...present(row, row.restaurant.subscription),
+      ...present(
+        row,
+        row.restaurant.subscription,
+        row.restaurant.settings?.landingPageEnabled === true,
+      ),
       restaurant: {
         id: row.restaurant.id,
         name: row.restaurant.name,
@@ -244,7 +277,9 @@ export class RestaurantCustomDomainService {
       prisma.restaurantCustomDomain.findUnique({ where: { restaurantId } }),
       restaurantWithSubscription(restaurantId),
     ]);
-    return row ? present(row, restaurant.subscription) : null;
+    return row
+      ? present(row, restaurant.subscription, restaurant.settings?.landingPageEnabled === true)
+      : null;
   }
 
   async save(restaurantIdValue: unknown, payload: CustomDomainPayload, context: AuditContext) {
@@ -254,12 +289,21 @@ export class RestaurantCustomDomainService {
     const mode = parseMode(payload.mode);
     const menuHostname = buildMenuHostname(hostname, mode, payload.menuSubdomain);
     const includeWww = payload.includeWww !== false;
+    const landingPublished = mode === 'SITE_WITH_MENU_SUBDOMAIN' && payload.landingPublished === true;
+    if (landingPublished && restaurant.settings?.landingPageEnabled !== true) {
+      throw new SuperAdminError(
+        'O ADMIN ainda não solicitou uma landing page para este restaurante.',
+        409,
+        'LANDING_PAGE_NOT_REQUESTED',
+      );
+    }
     const current = await prisma.restaurantCustomDomain.findUnique({ where: { restaurantId } });
     const identityChanged =
       !current ||
       current.hostname !== hostname ||
       current.mode !== mode ||
-      current.menuHostname !== menuHostname;
+      current.menuHostname !== menuHostname ||
+      current.landingPublished !== landingPublished;
 
     try {
       return await prisma.$transaction(async (tx) => {
@@ -320,6 +364,7 @@ export class RestaurantCustomDomainService {
             mode,
             menuHostname,
             includeWww,
+            landingPublished,
             verificationToken,
             status: 'PENDING_DNS',
             createdByUserId: actor.id,
@@ -330,6 +375,7 @@ export class RestaurantCustomDomainService {
             mode,
             menuHostname,
             includeWww,
+            landingPublished,
             verificationToken,
             updatedByUserId: actor.id,
             ...(identityChanged
@@ -361,6 +407,7 @@ export class RestaurantCustomDomainService {
                     mode: current.mode,
                     menuHostname: current.menuHostname,
                     includeWww: current.includeWww,
+                    landingPublished: current.landingPublished,
                     status: current.status,
                   }
                 : null,
@@ -369,13 +416,18 @@ export class RestaurantCustomDomainService {
                 mode: after.mode,
                 menuHostname: after.menuHostname,
                 includeWww: after.includeWww,
+                landingPublished: after.landingPublished,
                 status: after.status,
               },
             }),
           },
           tx,
         );
-        return present(after, restaurant.subscription);
+        return present(
+          after,
+          restaurant.subscription,
+          restaurant.settings?.landingPageEnabled === true,
+        );
       });
     } catch (error) {
       if (
@@ -459,7 +511,11 @@ export class RestaurantCustomDomainService {
         'CUSTOM_DOMAIN_DNS_NOT_VERIFIED',
       );
     }
-    return present(after, restaurant.subscription);
+    return present(
+          after,
+          restaurant.subscription,
+          restaurant.settings?.landingPageEnabled === true,
+        );
   }
 
   async activate(restaurantIdValue: unknown, context: AuditContext) {
@@ -574,7 +630,11 @@ export class RestaurantCustomDomainService {
       );
       return updated;
     });
-    return present(after, restaurant.subscription);
+    return present(
+          after,
+          restaurant.subscription,
+          restaurant.settings?.landingPageEnabled === true,
+        );
   }
 
   async disable(restaurantIdValue: unknown, context: AuditContext) {
@@ -611,7 +671,11 @@ export class RestaurantCustomDomainService {
       );
       return updated;
     });
-    return present(after, restaurant.subscription);
+    return present(
+          after,
+          restaurant.subscription,
+          restaurant.settings?.landingPageEnabled === true,
+        );
   }
 }
 
