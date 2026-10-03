@@ -15,7 +15,7 @@ import { connectGuestOrdersSocket } from '../../Services/socketService';
 import { OrderSupportDialog, type OrderSupportOrder } from '../../features/order-support/OrderSupportDialog';
 import { CustomerDesktopFooter } from '../Home/components/CustomerDesktopFooter';
 import { buildTenantPublicPath } from '../../shared/navigation/authNavigation';
-import { useResolvedTenantSlug } from '../../shared/tenant/CustomDomainTenantContext';
+import { useResolvedTenantSlug } from '../../shared/tenant/useCustomDomainTenant';
 
 type GuestOrder = Record<string, unknown>;
 
