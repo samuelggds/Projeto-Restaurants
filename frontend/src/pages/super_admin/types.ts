@@ -2,6 +2,7 @@ export const SUPER_ADMIN_VIEWS = [
   'overview',
   'sales-leads',
   'restaurants',
+  'domains',
   'managed-service',
   'subscriptions',
   'plans',
