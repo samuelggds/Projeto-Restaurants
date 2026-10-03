@@ -549,9 +549,7 @@ export const Price = styled.div`
   }
 `;
 
-export const Facts = styled.div<{ $single: boolean }>`
-  display: grid;
-  grid-template-columns: ({ $single }) => ($single ? '1fr' : '1.65fr .75fr');
+export const Facts = styled.div`
   overflow: hidden;
   border: 1px solid #eadfd6;
   border-radius: 12px;
@@ -566,7 +564,20 @@ export const Facts = styled.div<{ $single: boolean }>`
     align-items: center;
   }
 
-  article + article {
+  .composition {
+    border-bottom: 1px solid #eadfd6;
+  }
+
+  .summary-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .summary-grid.single {
+    grid-template-columns: 1fr;
+  }
+
+  .summary-grid article + article {
     border-left: 1px solid #eadfd6;
   }
 
@@ -598,21 +609,28 @@ export const Facts = styled.div<{ $single: boolean }>`
   }
 
   @media (max-width: 759px) {
-    grid-template-columns: 1fr;
     border-radius: 12px;
+
+    &.composition-only {
+      display: none;
+    }
 
     .composition {
       display: none;
     }
 
-    article {
-      min-height: 58px;
-      padding: 12px 14px;
-      grid-template-columns: 20px minmax(0, 1fr);
+    .summary-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 
-    article + article {
-      border-left: 0;
+    .summary-grid.single {
+      grid-template-columns: 1fr;
+    }
+
+    article {
+      min-height: 64px;
+      padding: 12px 14px;
+      grid-template-columns: 20px minmax(0, 1fr);
     }
 
     strong {
