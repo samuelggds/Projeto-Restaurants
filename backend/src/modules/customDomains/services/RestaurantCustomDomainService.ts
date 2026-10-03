@@ -87,17 +87,20 @@ function present(record: {
       subscription?.plan as never,
       subscription?.status as never,
     ),
-    publicHosts: customDomainPublicHosts({
-      hostname: record.hostname,
-      menuHostname: record.menuHostname,
-      mode,
-      includeWww: record.includeWww,
-      landingPublished:
-        domainRequested &&
-        record.landingPublished &&
-        landingRequested &&
-        hasHostedLandingAccess(subscription?.plan as never, subscription?.status as never),
-    }),
+    publicHosts:
+      domainRequested &&
+      customDomainPlanEligible(subscription?.plan as never, subscription?.status as never)
+        ? customDomainPublicHosts({
+            hostname: record.hostname,
+            menuHostname: record.menuHostname,
+            mode,
+            includeWww: record.includeWww,
+            landingPublished:
+              record.landingPublished &&
+              landingRequested &&
+              hasHostedLandingAccess(subscription?.plan as never, subscription?.status as never),
+          })
+        : [],
     verification: {
       type: 'TXT',
       name: verificationRecordName(record.hostname),
