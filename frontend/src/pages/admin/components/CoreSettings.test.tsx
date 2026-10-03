@@ -75,12 +75,16 @@ describe('configurações principais do administrador', () => {
   });
 
   it('mantém /slug em todos os planos e bloqueia domínio e landing conforme o plano', () => {
-    const renderBrand = (plan: string) => {
+    const renderBrand = (plan: string, customDomainRequested = false) => {
       const update = vi.fn();
       act(() =>
         root.render(
           <BrandSettings
-            settings={{ ...adminMockSettings, restaurantName: 'Casa Teste' }}
+            settings={{
+              ...adminMockSettings,
+              restaurantName: 'Casa Teste',
+              customDomainRequested,
+            }}
             update={update}
             restaurantSlug="casa-teste"
             currentPlanCode={plan}
@@ -117,12 +121,12 @@ describe('configurações principais do administrador', () => {
     expect(premiumCheckboxes.at(-2)?.disabled).toBe(false);
     expect(premiumCheckboxes.at(-1)?.disabled).toBe(true);
 
-    renderBrand('GESTAO_TOTAL');
+    renderBrand('GESTAO_TOTAL', true);
     const totalCheckboxes = Array.from(
       container.querySelectorAll('input[type="checkbox"]'),
     ) as HTMLInputElement[];
     expect(totalCheckboxes.at(-2)?.disabled).toBe(false);
-    expect(totalCheckboxes.at(-1)?.disabled).toBe(true);
+    expect(totalCheckboxes.at(-1)?.disabled).toBe(false);
   });
 
   it('expõe dados do negócio persistidos em campos controlados', () => {
