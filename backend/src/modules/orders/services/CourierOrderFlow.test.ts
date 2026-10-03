@@ -48,8 +48,6 @@ function deliveryOrder(overrides = {}) {
     paid: true,
     payOnDelivery: true,
     paymentMethod: PaymentMethod.DINHEIRO,
-    paymentConfirmationPin: null,
-    paymentConfirmationPinExpiresAt: null,
     observation: null,
     user: { id: 12, name: 'Cliente', phone: '+5585999991234' },
     restaurant: { id: 7, name: 'Restaurante', whatsapp: null },
