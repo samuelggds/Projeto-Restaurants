@@ -9,6 +9,7 @@ import {
 } from '../../features/password-policy';
 import {
   buildAuthEntryUrl,
+  buildTenantPublicPath,
   getRememberedAuthReturnPath,
   getSafeAuthSearchParams,
   resolveAuthExperience,
@@ -16,13 +17,18 @@ import {
 import { useRestaurantLoginBranding } from '../Login/hooks/useRestaurantLoginBranding';
 import { getRestaurantSlugFromAuthPath } from '../Login/domain/loginPortal';
 import { CustomerRegisterExperience } from './CustomerRegisterExperience';
+import { useCustomDomainTenant } from '../../shared/tenant/CustomDomainTenantContext';
 
 export default function Register() {
   const navigate = useNavigate();
   const location = useLocation();
   const { login } = useAuth();
   const [searchParams] = useSearchParams();
-  const pathSlug = getRestaurantSlugFromAuthPath(location.pathname);
+  const customDomain = useCustomDomainTenant();
+  const pathSlug =
+    getRestaurantSlugFromAuthPath(location.pathname) ||
+    customDomain.tenant?.restaurantSlug ||
+    '';
   const searchReference = searchParams.toString();
 
   const contextualSearchParams = useMemo(() => {
@@ -30,23 +36,26 @@ export default function Register() {
     if (pathSlug) {
       if (!params.has('slug') && !params.has('restaurantSlug')) params.set('slug', pathSlug);
       if (!params.has('next')) {
-        params.set('next', getRememberedAuthReturnPath(pathSlug) || `/${pathSlug}`);
+        const remembered = getRememberedAuthReturnPath(pathSlug);
+        if (remembered) params.set('next', remembered);
+        else if (!customDomain.isCustomDomain) params.set('next', `/${pathSlug}`);
       }
     }
     return params;
-  }, [pathSlug, searchReference]);
+  }, [customDomain.isCustomDomain, pathSlug, searchReference]);
 
   const canonicalSearch = getSafeAuthSearchParams(contextualSearchParams).toString();
 
   useLayoutEffect(() => {
     if (!pathSlug || searchParams.has('next') || !canonicalSearch) return;
-    navigate(`/${pathSlug}/register?${canonicalSearch}`, { replace: true });
+    const registerPath = buildTenantPublicPath(pathSlug, '/register');
+    navigate(`${registerPath}?${canonicalSearch}`, { replace: true });
   }, [canonicalSearch, navigate, pathSlug, searchParams]);
 
   const branding = useRestaurantLoginBranding(contextualSearchParams);
   const authExperience = resolveAuthExperience(contextualSearchParams);
   const loginPath = pathSlug
-    ? `/${pathSlug}/login${canonicalSearch ? `?${canonicalSearch}` : ''}`
+    ? `${buildTenantPublicPath(pathSlug, '/login')}${canonicalSearch ? `?${canonicalSearch}` : ''}`
     : buildAuthEntryUrl('/login', contextualSearchParams);
 
   const [name, setName] = useState('');
@@ -70,7 +79,8 @@ export default function Register() {
     STANDARD_PASSWORD_POLICY,
   );
 
-  const destinationAfterGoogle = authExperience.nextPath || (pathSlug ? `/${pathSlug}` : '/');
+  const destinationAfterGoogle =
+    authExperience.nextPath || (pathSlug ? buildTenantPublicPath(pathSlug) : '/');
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
