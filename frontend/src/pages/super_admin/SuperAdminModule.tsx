@@ -5,6 +5,7 @@ import {
   FileSearch,
   Headphones,
   Handshake,
+  Globe2,
   Inbox,
   Layers3,
   LogOut,
@@ -42,6 +43,7 @@ import {
   BillingPage,
   OverviewPage,
   ManagedServicePage,
+  DomainsPage,
   PlansPage,
   RestaurantsPage,
   SettingsPage,
@@ -58,6 +60,7 @@ const navigation = [
   ['overview', 'Visão geral', BarChart3],
   ['sales-leads', 'Contatos comerciais', Inbox],
   ['restaurants', 'Restaurantes', Building2],
+  ['domains', 'Domínios', Globe2],
   ['managed-service', 'Implantações e atualizações', Handshake],
   ['subscriptions', 'Assinaturas', CreditCard],
   ['plans', 'Planos', Layers3],
@@ -71,6 +74,7 @@ const navigation = [
 const navigationSections: Partial<Record<SuperAdminView, string>> = {
   overview: 'Visão da plataforma',
   restaurants: 'Gestão',
+  domains: 'Gestão',
   'managed-service': 'Gestão',
   support: 'Administração',
 };
@@ -87,6 +91,10 @@ const titles: Record<SuperAdminView, [title: string, description: string]> = {
   restaurants: [
     'Restaurantes',
     'Consulte cada tenant, seu responsável, plano, acesso e histórico operacional.',
+  ],
+  domains: [
+    'Domínios personalizados',
+    'Configure DNS, publicação e HTTPS dos restaurantes Premium e Gestão Total.',
   ],
   'managed-service': [
     'Implantações e atualizações',
@@ -268,6 +276,8 @@ export function SuperAdminModule({
         return (
           <RestaurantsPage data={data} onSelect={(item) => setSelectedRestaurantId(item.id)} />
         );
+      case 'domains':
+        return <DomainsPage data={data} />;
       case 'managed-service':
         return <ManagedServicePage />;
       case 'subscriptions':
