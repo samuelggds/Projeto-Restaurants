@@ -1,4 +1,11 @@
-import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  type ClipboardEvent,
+  type FormEvent,
+} from 'react';
 import {
   Boxes,
   Image,
@@ -6,11 +13,13 @@ import {
   PackagePlus,
   RefreshCw,
   Save,
+  Upload,
   Settings2,
   Tags,
   X,
 } from 'lucide-react';
 import superAdminService from '../../../Services/superAdminService';
+import { createPersistentImageDataUrl } from '../../../utils/persistentImage';
 import * as S from './ManagedRestaurantWorkspace.styles';
 
 type Product = {
@@ -79,6 +88,14 @@ function requestError(error: unknown) {
 }
 
 const toNumber = (value: unknown) => Number(value || 0);
+
+type ManagedImageTarget = 'product' | 'combo' | 'banner';
+
+const managedImageLabels: Record<ManagedImageTarget, string> = {
+  product: 'produto',
+  combo: 'combo',
+  banner: 'banner',
+};
 
 export function ManagedRestaurantWorkspace({
   restaurantId,
@@ -204,6 +221,60 @@ export function ManagedRestaurantWorkspace({
       setSaving(false);
     }
   }
+
+  const setManagedImage = useCallback((target: ManagedImageTarget, value: string) => {
+    if (target === 'product') {
+      setProduct((current) => ({ ...current, image: value }));
+      return;
+    }
+    if (target === 'combo') {
+      setCombo((current) => ({ ...current, image: value }));
+      return;
+    }
+    setBanner((current) => ({ ...current, image: value }));
+  }, []);
+
+  const processManagedImageFile = useCallback(
+    async (target: ManagedImageTarget, file?: File | null) => {
+      if (!file) return;
+      setError('');
+      setSuccess('');
+      try {
+        const image = await createPersistentImageDataUrl(
+          file,
+          target === 'banner' ? 1600 : 1024,
+        );
+        setManagedImage(target, image);
+        setSuccess(`Imagem do ${managedImageLabels[target]} adicionada.`);
+      } catch (imageError) {
+        setError(requestError(imageError));
+      }
+    },
+    [setManagedImage],
+  );
+
+  const pasteManagedImage = useCallback(
+    async (target: ManagedImageTarget, event: ClipboardEvent<HTMLElement>) => {
+      const imageItem = Array.from(event.clipboardData.items).find(
+        (item) => item.kind === 'file' && item.type.startsWith('image/'),
+      );
+      const imageFile = imageItem?.getAsFile();
+      if (imageFile) {
+        event.preventDefault();
+        await processManagedImageFile(target, imageFile);
+        return;
+      }
+
+      const pastedText = event.clipboardData.getData('text/plain').trim();
+      if (/^https:\/\//iu.test(pastedText)) {
+        event.preventDefault();
+        setManagedImage(target, pastedText);
+        setError('');
+        setSuccess(`Link da imagem do ${managedImageLabels[target]} adicionado.`);
+      }
+    },
+    [processManagedImageFile, setManagedImage],
+  );
 
   function editProduct(item: Product) {
     setProduct({
@@ -380,6 +451,86 @@ export function ManagedRestaurantWorkspace({
     );
   }
 
+  const renderImageInput = (
+    target: ManagedImageTarget,
+    value: string,
+    required = false,
+  ) => (
+    <div>
+      <label>
+        Link da imagem
+        <input
+          required={required && !value}
+          type="url"
+          inputMode="url"
+          placeholder="https://exemplo.com/imagem.jpg"
+          value={value.startsWith('data:image/') ? '' : value}
+          onChange={(event) => setManagedImage(target, event.target.value)}
+          onPaste={(event) => void pasteManagedImage(target, event)}
+        />
+      </label>
+
+      <div
+        role="button"
+        tabIndex={0}
+        aria-label={`Colar imagem do ${managedImageLabels[target]}`}
+        onPaste={(event) => void pasteManagedImage(target, event)}
+        style={{
+          marginTop: 8,
+          padding: 14,
+          border: '1px dashed #cfc7c3',
+          borderRadius: 10,
+          background: '#fffaf8',
+          textAlign: 'center',
+          cursor: 'text',
+        }}
+      >
+        <strong>Cole uma imagem aqui com Ctrl+V</strong>
+        <div>
+          <small>Ex.: botão direito na imagem → Copiar imagem → volte aqui → Ctrl+V.</small>
+        </div>
+      </div>
+
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 8 }}>
+        <label style={{ cursor: 'pointer' }}>
+          <span
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 6,
+              padding: '9px 12px',
+              border: '1px solid #d8d8d8',
+              borderRadius: 8,
+              fontWeight: 700,
+            }}
+          >
+            <Upload size={16} /> Escolher arquivo
+          </span>
+          <input
+            hidden
+            type="file"
+            accept="image/jpeg,image/png,image/webp"
+            onChange={(event) => {
+              const file = event.target.files?.[0];
+              event.currentTarget.value = '';
+              void processManagedImageFile(target, file);
+            }}
+          />
+        </label>
+        {value ? (
+          <button type="button" onClick={() => setManagedImage(target, '')}>
+            Remover imagem
+          </button>
+        ) : null}
+      </div>
+
+      <small>JPG, PNG ou WebP, máximo 5 MB. Links devem usar HTTPS.</small>
+      {value.startsWith('data:image/') ? (
+        <small style={{ display: 'block' }}>Imagem copiada/enviada pronta para salvar.</small>
+      ) : null}
+    </div>
+  );
+
   return (
     <S.Backdrop role="presentation" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
       <S.Dialog role="dialog" aria-modal="true" aria-label="Gerenciar restaurante assistido">
@@ -388,7 +539,13 @@ export function ManagedRestaurantWorkspace({
             <small>WORKSPACE ASSISTIDO</small>
             <h2>{data?.restaurant.name || `Restaurante #${restaurantId}`}</h2>
             <p>
-              {data?.restaurant.plan === 'GESTAO_TOTAL' ? 'Gestão Total' : 'Premium'} • alterações auditadas
+              {data?.restaurant.plan === 'GESTAO_TOTAL'
+                ? 'Gestão Total'
+                : data?.restaurant.plan === 'PREMIUM'
+                  ? 'Premium'
+                  : data?.restaurant.plan === 'BASICO'
+                    ? 'Básico'
+                    : data?.restaurant.plan || 'Plano não identificado'} • alterações auditadas
             </p>
           </div>
           <div>
@@ -433,7 +590,7 @@ export function ManagedRestaurantWorkspace({
                     <label>Preparo (min)<input type="number" min="1" max="240" value={product.preparationTime} onChange={(e) => setProduct((x) => ({ ...x, preparationTime: e.target.value }))} /></label>
                     <label>Estoque<input type="number" min="0" value={product.stock} onChange={(e) => setProduct((x) => ({ ...x, stock: e.target.value }))} /></label>
                   </S.Two>
-                  <label>Imagem (URL HTTPS ou imagem já persistida)<input value={product.image} onChange={(e) => setProduct((x) => ({ ...x, image: e.target.value }))} /></label>
+                  {renderImageInput('product', product.image)}
                   <S.Checks><label><input type="checkbox" checked={product.active} onChange={(e) => setProduct((x) => ({ ...x, active: e.target.checked }))} />Ativo</label><label><input type="checkbox" checked={product.featured} onChange={(e) => setProduct((x) => ({ ...x, featured: e.target.checked }))} />Destaque</label></S.Checks>
                   <S.FormActions>{product.id ? <button type="button" onClick={resetProduct}>Novo</button> : null}<button className="primary" disabled={saving}><Save />{saving ? 'Salvando...' : 'Salvar produto'}</button></S.FormActions>
                 </S.Form>
@@ -463,7 +620,7 @@ export function ManagedRestaurantWorkspace({
                   <label>Nome<input required minLength={2} value={combo.name} onChange={(e) => setCombo((x) => ({ ...x, name: e.target.value }))} /></label>
                   <label>Descrição<textarea rows={3} value={combo.description} onChange={(e) => setCombo((x) => ({ ...x, description: e.target.value }))} /></label>
                   <label>Preço<input required type="number" min="0.01" step="0.01" value={combo.price} onChange={(e) => setCombo((x) => ({ ...x, price: e.target.value }))} /></label>
-                  <label>Imagem<input value={combo.image} onChange={(e) => setCombo((x) => ({ ...x, image: e.target.value }))} /></label>
+                  {renderImageInput('combo', combo.image)}
                   <fieldset><legend>Produtos incluídos</legend>{standardProducts.map((item) => <label key={item.id} className="choice"><input type="checkbox" checked={combo.productIds.includes(item.id)} onChange={(e) => setCombo((x) => ({ ...x, productIds: e.target.checked ? [...x.productIds, item.id] : x.productIds.filter((id) => id !== item.id) }))} />{item.name}</label>)}</fieldset>
                   <S.FormActions>{combo.id ? <button type="button" onClick={() => setCombo({ id: 0, name: '', description: '', price: '', image: '', productIds: [], active: true, featured: true })}>Novo</button> : null}<button className="primary" disabled={saving}><Save />Salvar combo</button></S.FormActions>
                 </S.Form>
@@ -480,7 +637,7 @@ export function ManagedRestaurantWorkspace({
                   <label>Destaque<input value={banner.highlight} onChange={(e) => setBanner((x) => ({ ...x, highlight: e.target.value }))} /></label>
                   <label>Descrição<textarea rows={3} value={banner.description} onChange={(e) => setBanner((x) => ({ ...x, description: e.target.value }))} /></label>
                   <label>Texto do botão<input value={banner.buttonLabel} onChange={(e) => setBanner((x) => ({ ...x, buttonLabel: e.target.value }))} /></label>
-                  <label>Imagem<input required value={banner.image} onChange={(e) => setBanner((x) => ({ ...x, image: e.target.value }))} /></label>
+                  {renderImageInput('banner', banner.image, true)}
                   <S.Checks><label><input type="checkbox" checked={banner.active} onChange={(e) => setBanner((x) => ({ ...x, active: e.target.checked }))} />Ativo</label></S.Checks>
                   <S.FormActions>{banner.id ? <button type="button" onClick={() => setBanner({ id: 0, title: '', highlight: '', description: '', buttonLabel: 'Ver cardápio', image: '', active: true })}>Novo</button> : null}<button className="primary" disabled={saving}><Save />Salvar banner</button></S.FormActions>
                 </S.Form>
