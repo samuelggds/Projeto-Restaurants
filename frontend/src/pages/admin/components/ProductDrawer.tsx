@@ -32,11 +32,7 @@ import type {
   AdminProductOptionGroup,
   AdminProductPortionConfiguration,
 } from '../types';
-import type {
-  IngredientWizardTarget,
-  ProductDrawerHandle,
-  ProductDrawerProps,
-} from './ProductDrawer.types';
+import type { ProductDrawerHandle, ProductDrawerProps } from './ProductDrawer.types';
 import {
   normalizeOptionGroup,
   validateOptionGroups,
@@ -59,8 +55,6 @@ import {
   getProductWizardSequence,
   type ProductWizardStep,
 } from '../domain/productWizard';
-
-export type { ProductDrawerHandle } from './ProductDrawer.types';
 
 export const ProductDrawer = forwardRef<ProductDrawerHandle, ProductDrawerProps>(
   function ProductDrawer(
@@ -91,7 +85,7 @@ export const ProductDrawer = forwardRef<ProductDrawerHandle, ProductDrawerProps>
     const [templateName, setTemplateName] = useState('');
     const [templateBusy, setTemplateBusy] = useState(false);
     const [ingredientWizardTarget, setIngredientWizardTarget] =
-      useState<IngredientWizardTarget | null>(null);
+      useState<{ kind: 'OPTION'; groupIndex: number } | null>(null);
     const [busy, setBusy] = useState(false);
     const [error, setError] = useState('');
     const [currentStep, setCurrentStep] = useState<ProductWizardStep>('TYPE');
