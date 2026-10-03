@@ -222,6 +222,8 @@ class RestaurantSettingsRepository {
         businessHours: true,
         isOpenForOrders: true,
         averageDeliveryTime: true,
+        deliveryTimeMin: true,
+        deliveryTimeMax: true,
         autoAcceptOrders: true,
         trackingRequiresLogin: true,
         soundNotifications: true,
